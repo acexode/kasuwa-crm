@@ -193,3 +193,55 @@ frequency rather than trusting it harder.
 cycles a day that overhead is material, and it is possible that fewer, longer
 cycles do more work per unit of allowance. The first week of runs will show
 which — that is a thing to measure, not to assume either way.
+
+
+## A7. Branching and pull requests
+
+Added 2026-09-27 after PR #3 merged, three further commits went to the same
+branch, and PR #4 appeared with an auto-generated title, an empty body and no
+label — so the protected-path guard failed and the work was invisible until
+someone asked why CI was red.
+
+**Every piece of work starts on a fresh branch off current `main`.**
+
+```bash
+git fetch origin main
+git checkout -b <type>/<short-name> origin/main
+```
+
+**Never push to a branch whose pull request has merged.** Pushing there silently
+opens a second PR carrying the commits. Three things now guard against it, in
+descending order of strength:
+
+| | |
+|---|---|
+| "Automatically delete head branches" | Enabled on the repository — a merged branch disappears |
+| `.husky/pre-push` | Refuses the push, naming the merged PR. Two deliberate gaps: it **fails open** when `gh` is unavailable (a hook that blocks work offline gets bypassed with `--no-verify`, and then protects nothing), and it only guards branches that **contain the file** — husky hooks live in the working tree, so a branch created before it landed has no hook. Found by testing it, not by reasoning about it |
+| This rule | Convention |
+
+**Open every pull request complete.** At creation, not afterwards:
+
+- a real title — never the branch name auto-titled
+- a body someone can review from: what changed, why, what was verified, and
+  anything you could not do
+- **`lead-approved` applied at creation** when the diff touches
+  `tests/acceptance/`, `packages/db/migrations/` or `packages/db/sql/`. Check
+  before opening:
+
+```bash
+git diff --name-only origin/main...HEAD -- tests/acceptance packages/db/migrations packages/db/sql
+```
+
+- a note in the body when it touches a D-A3 path, so @acexode knows it needs
+  their personal review
+
+A PR nobody can review from its description is not finished work. Labelling
+after the guard has already failed is a repair, not a process.
+
+**One narrow exception:** continuing on a branch whose PR is still *open* is
+fine — that is the same PR, not a second one. The rule is about merged branches.
+
+**Merged branches are deleted**, on GitHub automatically and by hand for the
+ones that predate the setting. The branch not existing is the strongest of the
+three guards, because it removes the thing to check out rather than asking a
+hook to catch it afterwards.
