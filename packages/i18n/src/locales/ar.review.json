@@ -1,0 +1,14 @@
+{
+  "status": "awaiting-review",
+  "decision": "D-P1",
+  "method": "unoffered-rtl-fixture",
+  "reviewer": null,
+  "reviewedAt": null,
+  "note": "Candidate draft produced by Agent 11. Arabic is deliberately NOT on the P01/1 language menu (T-0009); it ships so that RTL layout can be exercised against real strings with dir=\"rtl\" lang=\"ar\". Attesting it would not put it on the menu, because the menu is the design-sourced list intersected with readiness and Arabic is not in that list.",
+  "passthroughRationale": {
+    "app.name": "Product name. It is spelled the same in every locale.",
+    "tokens.sample.text": "A typographic specimen, not prose. It already mixes Yoruba, Hausa and Igbo glyphs on purpose, and translating it would destroy what it tests.",
+    "tokens.contrast.ratio": "A numeric format, \"{ratio}:1\". No words.",
+    "tokens.sample.arabic": "An Arabic script specimen shown to prove the Arabic webfont renders. Translating it would defeat the point."
+  }
+}

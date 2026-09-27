@@ -23,6 +23,7 @@
     "db:seed": "pnpm --filter @kasuwa/db seed",
     "db:reset": "pnpm --filter @kasuwa/db reset",
     "i18n:pseudo": "pnpm --filter @kasuwa/i18n pseudo",
+    "i18n:validate": "pnpm --filter @kasuwa/i18n validate",
     "prepare": "husky",
     "ui:tokens": "pnpm --filter @kasuwa/ui tokens",
     "verify:tasks": "node tools/verify-task-readiness.mjs",

@@ -1,0 +1,14 @@
+{
+  "status": "awaiting-review",
+  "decision": "D-P1",
+  "method": "native-speaker-review",
+  "reviewer": null,
+  "reviewedAt": null,
+  "note": "Candidate draft produced by Agent 11, not by a Yoruba speaker. Yoruba tone marks carry meaning, so an unreviewed draft is not merely imperfect but potentially wrong; D-P1 assigns it to native-speaker review by a named reviewer. Until one is named and recorded here, Yoruba is not offered.",
+  "passthroughRationale": {
+    "app.name": "Product name. It is spelled the same in every locale.",
+    "tokens.sample.text": "A typographic specimen, not prose. It already mixes Yoruba, Hausa and Igbo glyphs on purpose, and translating it would destroy what it tests.",
+    "tokens.contrast.ratio": "A numeric format, \"{ratio}:1\". No words.",
+    "tokens.sample.arabic": "An Arabic script specimen shown to prove the Arabic webfont renders. Translating it would defeat the point."
+  }
+}

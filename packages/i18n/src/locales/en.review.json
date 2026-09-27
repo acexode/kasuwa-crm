@@ -1,0 +1,9 @@
+{
+  "status": "source",
+  "decision": "D-P1",
+  "method": "source-language",
+  "reviewer": "Kasuwa product team (authored in repo)",
+  "reviewedAt": "2026-09-27",
+  "note": "English is the extraction source. It is not a translation, so there is nothing to attest beyond the fact that it is written here rather than produced for us.",
+  "passthroughRationale": {}
+}
