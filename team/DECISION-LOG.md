@@ -449,3 +449,64 @@ controls are Agent 12's adversarial testing and your own UAT.
 **Reversible the moment names appear** — if a supervisor becomes available for
 even one milestone, the highest-value place to spend them is the first pilot of
 the agent workspace, not a later one.
+
+
+---
+
+## D-A4 — capacity answered; the cap is being measured
+**Updated:** 2026-09-27 (supersedes the reframing above)
+
+**Seats are per-user, not pooled.** That answers the capacity question I raised
+and removes the concern: the roster in Addendum A1 section 3.2 does fit, because
+each agent gets its own seat window rather than competing for one.
+
+**Consequence, and it is an action not a note:** one seat per agent (or an API
+key) must be provisioned **from week 3**, when the roster scales past the pilot
+five. Thirteen agents means thirteen seats. That is a procurement lead time, so
+it starts before week 3, not during it. Tracked in `STATUS.md`.
+
+**Extra usage is now enabled on the org.** The monthly per-seat cap is still
+blank, and @acexode's instruction is *"measure first"* — so this is deferred by
+decision, not blocked. Each cycle reports **both** numbers: the seat-window
+percentage and extra-usage dollars for the run. After a week of real runs the
+cap is set from data instead of from my extrapolation.
+
+Interim guard unchanged: the lead pauses at **31.5%** of its weekly seat window.
+
+---
+
+## D-A5 — one supervisor may be available
+**Updated:** 2026-09-27
+
+@acexode will try to secure one supervisor for the **first agent-workspace
+pilot** — which is where I recommended spending them, so the plan does not
+change.
+
+The MVP replan to 4.5–6 months stands until that is confirmed. If the supervisor
+materialises, the estimate moves back toward 4–5 months; one pilot with a real
+agent on a real floor catches a different class of problem than any amount of
+adversarial testing, because it catches *"works as specified and is unusable"*.
+
+---
+
+## D-L24 — created
+**Done:** 2026-09-27
+
+Scheduled task `kasuwa-lead-cycle`, three runs per weekday at 08:00, 13:00 and
+18:00 WAT, through the app's own scheduler. First run 08:00 on 2026-09-28.
+Documented in `OPERATIONS.md`.
+
+The standing orders now live in `team/STANDING-ORDERS.md` rather than in a chat
+transcript. They had to: a scheduled run starts with no memory of the
+conversation, and instructions that exist only in a session do not survive it.
+
+**One honest weakness, recorded in `OPERATIONS.md` and repeated here.** The
+`STOP` file, the budget pause and the CI-red check are all enforced by the cycle
+*following its own prompt*. That is weaker than the wrapper script the OS-cron
+design would have given, where a script refuses to launch the agent at all. It
+is the trade for running supervised inside the app.
+
+The guards that do **not** depend on the agent's cooperation are branch
+protection and the CI label gate. **Branch protection on `main` is therefore
+what makes this arrangement safe**, and it was committed to before PR #2 —
+worth verifying it is actually on before leaning on the schedule.

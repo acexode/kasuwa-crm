@@ -2,6 +2,82 @@
 
 ---
 
+## Cycle · 2026-09-27 · automation live, capacity resolved
+
+### The scheduled cycle is running
+
+`kasuwa-lead-cycle` — **08:00, 13:00, 18:00 WAT, Monday–Friday**, through the
+app's own scheduler. First run **08:00 on 2026-09-28**. See `OPERATIONS.md` for
+start, stop and inspect.
+
+`team/STANDING-ORDERS.md` now exists. It had to: a scheduled run begins with no
+memory of the conversation the orders were given in, and the repository is the
+only memory the team has.
+
+**Two things to do before leaning on it:**
+
+1. **Click "Run now" once.** The first run pre-approves the tools it needs;
+   without that, a later run can stall on a permission prompt at 08:00 with
+   nobody watching.
+2. **Verify branch protection is on.** The `STOP` file, the budget pause and the
+   CI-red check are all the cycle following its own prompt — conventions, not
+   controls. The things that do not depend on the agent's cooperation are branch
+   protection and the CI label gate. **Branch protection is what makes this
+   safe**, not the prompt.
+
+### Capacity — resolved, with an action
+
+**Seats are per-user, not pooled.** That removes the concern I raised last
+cycle: the thirteen-agent roster fits, because each agent has its own window
+rather than competing for one.
+
+**Action, starting now rather than in week 3:** thirteen agents need thirteen
+seats (or API keys). Provisioning has a lead time, so it begins before the
+roster scales past the pilot five.
+
+| | |
+|---|---|
+| Extra usage | Enabled on the org |
+| Per-seat monthly cap | **Being measured, not guessed** — @acexode's instruction |
+| Lead guard meanwhile | Pause at 31.5% of the weekly seat window |
+| Reported per run from now | Seat-window % **and** extra-usage $ |
+
+### Shipped this cycle
+
+- Scheduled cycle created and documented
+- `STANDING-ORDERS.md`, `OPERATIONS.md`
+- D-A4, D-A5, D-L24 closed in the log
+
+### Spend
+
+| | |
+|---|---|
+| Weekly · all models | 18% (account-wide, start of cycle) |
+| Extra usage | $0 — it was disabled until this cycle |
+
+First run with both numbers will be 08:00 tomorrow.
+
+### Open
+
+| | |
+|---|---|
+| **D-T1–D-T5** | Telephony spec, event catalogue, auth model, staging. Holds Agent 6 and the P09–P12 designs. |
+| **D-W1** | No WFM material shared; the review cannot start. |
+| **DESIGN NEEDED** | Prompt 2 by 2026-10-06 · Prompt 3 by 2026-10-13 |
+| **PR #3** | Green and mergeable, awaiting your merge |
+
+### Next cycle
+
+Make T-0002, T-0004 and T-0005 assignable the same way T-0001 now is — real
+acceptance tests in `*.pending.acceptance.test.ts` — then create tasks from the
+PRD order until three are ready per pilot agent.
+
+---
+
+
+
+---
+
 ## Capacity finding · 2026-09-27 · read this before scaling the roster
 
 **There is no USD meter on this account.** The work runs on a Claude Code
