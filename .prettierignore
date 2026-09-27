@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+dist
+.next
+coverage
+.nx
+packages/i18n/src/locales/en-XA.json

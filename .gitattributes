@@ -1,0 +1,21 @@
+# Normalise line endings.
+#
+# The team develops on Windows and CI runs on Linux. Without this, git rewrites
+# line endings on checkout and every file looks modified to somebody. It also
+# matters for correctness: the migration runner checksums migration files, and a
+# checksum that changes with the checkout would reject already-applied
+# migrations (packages/db/src/migrate.ts normalises before hashing as a second
+# line of defence).
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+
+pnpm-lock.yaml linguist-generated=true
+packages/ui/src/tokens.css linguist-generated=true
