@@ -84,8 +84,8 @@ export function freshSeededTotpCode(userId: string, at: Date = new Date()): stri
       `No unused TOTP step left for ${userId} in this window. Codes are single-use ` +
         `and the server accepts only one step either side of the current one, so at most ` +
         `three sign-ins as one user can happen inside thirty seconds. Reuse the session ` +
-        `you already have, call resetSeededTotpUsage(), or construct the app with ` +
-        `authPolicy: { rejectReusedTotpCodes: false }.`,
+        `you already have, or call resetSeededTotpUsage(migrationUrl) between tests. ` +
+        `There is no switch that turns single-use codes off.`,
     );
   }
 

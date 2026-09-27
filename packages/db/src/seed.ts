@@ -20,7 +20,37 @@ export interface SeedOptions {
   log?: (message: string) => void;
 }
 
+/**
+ * Refuses to seed anything but a local database.
+ *
+ * The guard lives HERE rather than on the `db:seed` CLI, which is where it
+ * started. A check on the command line protects the one caller that happens to
+ * go through the command line; `runSeed` is exported from `@kasuwa/db`, so
+ * anything that imports the package could seed a shared environment and the
+ * check would never run.
+ *
+ * What it is guarding is not tidiness. The seed installs five working users
+ * whose shared password and TOTP secrets are committed to this repository and
+ * exported from this very package. Run against anything reachable, it turns a
+ * fixture into a published credential with a valid second factor. The fixtures
+ * are fine as fixtures; running them somewhere real is the whole risk.
+ *
+ * Testcontainers publishes on 127.0.0.1, so the harness is unaffected.
+ */
+function assertLocalDatabase(connectionString: string): void {
+  const host = new URL(connectionString).hostname;
+  if (host !== 'localhost' && host !== '127.0.0.1' && host !== '::1') {
+    throw new Error(
+      `runSeed refuses to run against a non-local host: ${host}. The seed installs ` +
+        `users whose password and second-factor secrets are committed to the ` +
+        `repository; running it anywhere shared publishes a way in.`,
+    );
+  }
+}
+
 export async function runSeed(options: SeedOptions): Promise<void> {
+  assertLocalDatabase(options.connectionString);
+
   const log = options.log ?? (() => undefined);
   // Hashed once, outside the transaction: argon2id is memory-hard by design and
   // every seeded user shares the same fixture password, so hashing per user

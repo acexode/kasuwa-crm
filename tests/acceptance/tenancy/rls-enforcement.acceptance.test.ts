@@ -5,9 +5,15 @@ import {
   PROGRAMME_B2,
   TENANT_A,
   TENANT_B,
+  NON_TENANT_SCOPED_TABLES,
   TENANT_SCOPED_TABLES,
 } from '@kasuwa/db';
-import { readRoleAttributes, readTableSecurity, withForcedScope } from '@kasuwa/testing';
+import {
+  readNonTenantScopedTableSecurity,
+  readRoleAttributes,
+  readTableSecurity,
+  withForcedScope,
+} from '@kasuwa/testing';
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
@@ -138,6 +144,38 @@ describe('acceptance: RLS enforcement independent of the application', () => {
       expect(row?.rlsEnabled, `${table}: RLS is not enabled`).toBe(true);
       // FORCE matters: without it the table owner bypasses its own policies,
       // which is precisely how a migration or a seed silently reads everything.
+      expect(row?.rlsForced, `${table}: RLS is not FORCED`).toBe(true);
+      expect(row?.policyCount, `${table}: has no policy`).toBeGreaterThan(0);
+    }
+  });
+
+  it('holds the exempt table to the same RLS invariant', async () => {
+    // WIRED BY THE LEAD, 2026-09-27, after `migration-reviewer` found that
+    // `readNonTenantScopedTableSecurity` was never called by anything.
+    //
+    // `auth_rate_limit` is the one table in the system with no `tenant_id`
+    // (ADR-0009). Being exempt from tenant scoping does not make it exempt
+    // from having RLS enabled, forced and policied — otherwise the exemption
+    // is a way to smuggle a table past the invariant entirely.
+    //
+    // The compensating control for that exemption existed, was documented in
+    // two places as "asserts those tables still have RLS enabled, forced and
+    // policied", and **was dead code**. The assertion that actually ran lived
+    // in the integration project, which is not the blocking gate. This is the
+    // third time in this repository that a comment has claimed a guardrail was
+    // armed when it was not — so it now runs here, where a regression fails CI.
+    const state = await readNonTenantScopedTableSecurity(appPool);
+    const byTable = new Map(state.map((row) => [row.table, row]));
+
+    // Same set-equality guard as above: a table cannot be added to the
+    // exemption list without appearing here, and the list cannot be quietly
+    // grown to hide one.
+    expect(state.map((row) => row.table).sort()).toEqual([...NON_TENANT_SCOPED_TABLES].sort());
+
+    for (const table of NON_TENANT_SCOPED_TABLES) {
+      const row = byTable.get(table);
+      expect(row, `exempt table ${table} is missing`).toBeDefined();
+      expect(row?.rlsEnabled, `${table}: RLS is not enabled`).toBe(true);
       expect(row?.rlsForced, `${table}: RLS is not FORCED`).toBe(true);
       expect(row?.policyCount, `${table}: has no policy`).toBeGreaterThan(0);
     }

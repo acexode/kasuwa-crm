@@ -18,16 +18,6 @@ async function main(): Promise<void> {
     throw new Error('DATABASE_MIGRATION_URL is not set. The seed runs as kasuwa_migrator.');
   }
 
-  const host = new URL(url).hostname;
-  if (host !== 'localhost' && host !== '127.0.0.1') {
-    throw new Error(
-      'db:seed refuses to run against a non-local host: ' +
-        host +
-        '. The seed installs users whose password and second-factor secrets are ' +
-        'committed to the repository; running it anywhere shared publishes a way in.',
-    );
-  }
-
   await runSeed({ connectionString: url, log: (m) => process.stdout.write(m + '\n') });
 }
 

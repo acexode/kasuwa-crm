@@ -195,7 +195,22 @@ export class AuthService {
           factor?.last_used_step != null &&
           step <= Number(factor.last_used_step);
 
-        if (factor === undefined || step === null || alreadyUsed) {
+        if (alreadyUsed) {
+          // A replay is refused, but it is NOT counted as a wrong guess.
+          //
+          // The commonest cause by far is the user's own browser: a
+          // double-submitted form, or a retry after a timeout, sending the code
+          // that was just accepted. Counting those made a person doing nothing
+          // wrong six clicks away from being locked out of their own second
+          // factor — a control meant for an attacker, aimed at the victim.
+          //
+          // `mfa_challenge_invalid` rather than `mfa_code_invalid`, because
+          // "that code did not match" is not what happened and the screen
+          // should send them back to sign in rather than invite another guess.
+          return mfaChallengeInvalid();
+        }
+
+        if (factor === undefined || step === null) {
           return this.failSecondFactor(tx, reference, mfaKey, challenge.userId);
         }
 

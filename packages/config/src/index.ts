@@ -81,14 +81,12 @@ const EnvSchema = z.object({
   KASUWA_AUTH_MFA_MAX_ATTEMPTS: z.coerce.number().int().positive().max(100).default(10),
   KASUWA_AUTH_MAX_OPEN_CHALLENGES: z.coerce.number().int().positive().max(50).default(3),
 
-  // RFC 6238 section 5.2: a TOTP code is usable once. On by default. Turning it
-  // off is a deliberate weakening, and the knob exists only because a code
-  // stays valid for ninety seconds — which a test suite that signs the same
-  // user in repeatedly trips over, and a real person almost never does.
-  KASUWA_AUTH_REJECT_REUSED_TOTP: z
-    .enum(['true', 'false'])
-    .default('true')
-    .transform((value) => value === 'true'),
+  // NOTE: there is deliberately no switch for single-use TOTP codes. One
+  // existed briefly and was removed rather than left plumbed to nothing: an
+  // operator reading this schema would have believed there was a way to turn
+  // the control off, and there is not. Codes are single-use, always
+  // (RFC 6238 section 5.2). A test suite that needs to sign one user in
+  // repeatedly resets the fixture watermark with `resetSeededTotpUsage`.
 
   // Sign-in requests one client address may make per minute. A resource
   // control, not a credential one: argon2id costs 19 MiB per call and runs for

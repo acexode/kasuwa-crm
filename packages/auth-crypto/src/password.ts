@@ -27,21 +27,40 @@ const HASH_LENGTH = 32;
 const SALT_LENGTH = 16;
 
 /**
- * How many argon2id operations may run at once, process-wide.
+ * How many argon2id buffers may be live at once, process-wide.
  *
- * Memory-hardness is the point of argon2 and it is also a weapon pointed at us:
- * every sign-in allocates 19 MiB, including the ones for addresses and
- * workspaces that do not exist, because equalising the timing means doing the
- * work either way. Unbounded, a few hundred concurrent sign-ins cost several
- * gigabytes of resident memory and take the API down **for every tenant in the
- * cell** — and an identifier lockout does not help, because varying the email
- * never trips it.
+ * READ THIS BEFORE RELYING ON IT. An earlier version of this comment called it
+ * "the bound that actually protects the cell". It is not, and a security
+ * review measured why: `hash-wasm`'s argon2id at these parameters runs
+ * **synchronously on the main thread** — about 86 ms per hash on the
+ * development machine, during which the event loop does not turn. Six
+ * concurrent hashes took 464 ms and were fully serialised.
  *
- * Six slots caps that at roughly 120 MiB no matter what arrives. Requests past
- * the cap queue rather than allocate; the per-IP throttle in the API is what
- * keeps that queue from growing without bound. Both paths — real account and
- * dummy hash — go through the same gate, so the queueing does not reintroduce a
- * timing difference between them.
+ * So the real concurrency was already one, and this semaphore does not reduce
+ * peak memory below what the runtime would have allowed. What it does:
+ *
+ *   * it bounds how many 19 MiB buffers can be ALLOCATED AND LIVE at once if
+ *     the implementation ever becomes genuinely concurrent (a worker thread, or
+ *     a native binding that releases the loop), and
+ *   * it makes the queue explicit and observable via `hashPressure()`.
+ *
+ * What it does NOT do, and what nothing in this package currently does:
+ *
+ *   * it does not bound event-loop blocking. **Each unauthenticated sign-in
+ *     makes the single-threaded API unresponsive for ~86 ms**, so on the order
+ *     of a dozen source addresses can stall a whole cell with no account, no
+ *     valid workspace slug and no credentials.
+ *   * the hash also runs inside an open `withAuthTransaction`, so that traffic
+ *     holds a pool connection for the duration as well.
+ *
+ * The real fix is argon2 on a worker thread, and moving the hash outside the
+ * open transaction. That is a threading change, it is raised as its own task,
+ * and it deliberately did not happen in T-0001. The per-client throttle in
+ * `apps/api` is what stands in front of this in the meantime, and it is a
+ * weaker control than it sounds — see `SignInThrottleGuard`.
+ *
+ * Both paths — real account and dummy hash — go through this same gate, so the
+ * queueing cannot reintroduce a timing difference between them.
  */
 const MAX_CONCURRENT_HASHES = 6;
 
@@ -49,7 +68,13 @@ let activeHashes = 0;
 const hashQueue: (() => void)[] = [];
 
 async function withHashSlot<T>(work: () => Promise<T>): Promise<T> {
-  if (activeHashes >= MAX_CONCURRENT_HASHES) {
+  // `while`, not `if`. A woken waiter used to take a slot without re-checking,
+  // so two resolutions landing in the same microtask could both proceed and
+  // push the count past the maximum — making the invariant this file asserts
+  // quietly false. The window is tiny and there is no exploit in it; the point
+  // is that a comment claiming a bound should not be defeated by the code
+  // underneath it.
+  while (activeHashes >= MAX_CONCURRENT_HASHES) {
     await new Promise<void>((resolve) => hashQueue.push(resolve));
   }
   activeHashes += 1;
