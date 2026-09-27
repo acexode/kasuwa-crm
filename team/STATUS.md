@@ -2,6 +2,242 @@
 
 ---
 
+## Cycle · 2026-09-27 · hourly scheduler, e2e harness task created
+
+### Progress
+
+**Tasks done: 1 · Tasks remaining: 7**
+
+| Task | Agent | Ready? |
+|---|---|---|
+| T-0001 auth | 1 | **ready** |
+| T-0002 metadata | 2 | **ready** |
+| T-0008 e2e harness | 12 | not ready — **next cycle's first job** |
+| T-0004 adversarial QA | 12 | not ready |
+| T-0005 CI/infra | 13 | not ready |
+| T-0006 icon subset CI | 11 | not ready (deferred to first screen) |
+| T-0007 P01 auth screens | 11 | blocked on T-0008 |
+| T-0003 design tokens | 11 | **done** |
+
+### Shipped this cycle
+
+- **Scheduler raised to hourly**, weekdays 07:00–23:00 WAT (`0 7-23 * * 1-5`),
+  now that per-seat capacity is confirmed. Same guards.
+- **A5 amended**: a session stops at **80% context or 90% usage, whichever
+  first**. A6 records the frequency.
+- **T-0008 created** — the e2e harness, P0, because T-0007 and every screen task
+  after it cannot be made ready without it.
+
+### Two things to watch, neither a blocker
+
+**Cycle overhead at hourly.** Each cycle re-reads `CLAUDE.md`,
+`STANDING-ORDERS.md`, `DECISIONS.md`, `STATUS.md` and `tasks/` before doing
+anything. Seventeen cycles a day makes that overhead material, and it is
+possible fewer longer cycles do more work per unit of allowance. Recorded as
+something to **measure over the first week**, not to assume in either
+direction — raising the frequency now and measuring is the right order, which is
+what was decided.
+
+**The 31.5% pause is convention-strength.** The cycle checks it because its
+prompt says to; nothing external stops it. At hourly that guard matters more
+than it did at three runs a day. If cycles are ever seen skipping the check, the
+answer is to lower the frequency, not to trust it harder.
+
+### Why this session stopped
+
+**Context at ~83%**, past the new 80% threshold in the amended A5. Usage is 19%
+weekly against the 31.5% guard — nowhere near. Exactly the case A5 now covers,
+and the first time the new rule has bound.
+
+### Spend
+
+| | |
+|---|---|
+| Weekly · all models | 19% (guard 31.5%) |
+| 5-hour window | 15% |
+| Extra usage | $0 — still reads `enabled: false` from here |
+
+### Next cycle
+
+1. **Make T-0008 ready** — real failing acceptance tests for the harness. First
+   job; it unblocks Agent 11 and Agent 12.
+2. Make T-0004 and T-0005 ready.
+3. Keep creating tasks from the PRD order until three are ready per active agent.
+
+---
+
+
+
+---
+
+## Cycle · 2026-09-27 · continuous-delivery amendment adopted
+
+### Progress
+
+**Tasks done: 1 · Tasks remaining: 6**
+
+Backlog grows as tasks are created (STANDING ORDERS A3), so "remaining" rising
+is the system working, not slipping.
+
+| Task | Agent | Ready? |
+|---|---|---|
+| T-0001 auth | 1 | **ready** — 10 tests, 6 failing |
+| T-0002 metadata | 2 | **ready** — 10 tests, 10 failing |
+| T-0004 adversarial QA | 12 | not ready |
+| T-0005 CI/infra | 13 | not ready |
+| T-0006 icon subset CI | 11 | not ready (deferred to first screen) |
+| T-0007 P01 auth screens | 11 | not ready — **blocked on an e2e harness that does not exist** |
+| T-0003 design tokens | 11 | **done** |
+
+Pending backlog: **16 failing acceptance tests** across two tasks, outside the
+blocking gate. Blocking suite: 56 passing.
+
+### Shipped this cycle
+
+- Amendment committed into `STANDING-ORDERS.md` as section A, marked as
+  overriding anything above it that conflicts
+- Delivery estimates stripped from `STATUS.md`; the historical ones in
+  `DECISION-LOG.md` are left in place and marked superseded, because that file
+  is an append-only record and rewriting it would be dishonest
+- T-0002 made ready: real isolation tests for `object_def` / `field_def`
+
+The T-0002 suite asserts one thing positively that is easy to get wrong later:
+**metadata is tenant-scoped but not programme-scoped.** A missing `programme_id`
+reads as an oversight to a reviewer, and this is the one place it is correct —
+so if someone "fixes" it, the suite fails and explains why.
+
+### The real blocker on Agent 11
+
+**T-0007 cannot become ready until an e2e harness exists.** There is no
+Playwright in the repository, so there is nothing to write auth-screen
+acceptance tests *in*. Per A2 a missing design is not a stop — but here the
+design arrived and the test infrastructure is what is missing.
+
+**Next cycle's first job: create and make ready the e2e harness task (Agent 12,
+who owns e2e).** That unblocks T-0007, T-0004 and every screen task after them.
+This is the single highest-value piece of ready work available.
+
+### Why this cycle stopped
+
+**Not the usage window** — that is at 19% weekly against a 31.5% guard, with
+plenty of headroom.
+
+**The session's context window**, at ~82% of 1M, auto-compacting at 97%. That is
+a different limit from the one A5 names, and worth knowing about: a long
+interactive session runs out of context long before it runs out of seat
+allowance. Scheduled cycles start fresh each time and will not hit it; only long
+interactive sessions like this one will.
+
+Stopping here is the clean stop A5 asks for: committed, pushed, next action
+written down.
+
+### Spend
+
+| | |
+|---|---|
+| Weekly · all models | 19% (guard: 31.5%) |
+| 5-hour window | 15% |
+| Extra usage | $0 — still reports `enabled: false` from here, so the org setting may not have propagated yet. Flagging rather than reporting a number I cannot see. |
+
+### Open
+
+| | |
+|---|---|
+| **D-T1–D-T5** | Telephony spec, events, auth model, staging. Holds Agent 6 and P09–P12. |
+| **D-W1** | No WFM material; the review cannot start. |
+| **DESIGN NEEDED** | Prompt 2 · Prompt 3 |
+| **PR #3** | Green, mergeable, awaiting merge. Not a stop (A2) — work continues on branches off it. |
+| **Seats** | Per-user, not pooled. Thirteen needed as the roster scales; procurement has lead time. |
+
+### Next cycle
+
+1. Create the e2e harness task and make it ready — unblocks Agent 11 and 12.
+2. Make T-0004 and T-0005 ready.
+3. Continue creating tasks from the PRD order until three are ready per active
+   agent.
+
+---
+
+
+
+---
+
+## Cycle · 2026-09-27 · automation live, capacity resolved
+
+### The scheduled cycle is running
+
+`kasuwa-lead-cycle` — **08:00, 13:00, 18:00 WAT, Monday–Friday**, through the
+app's own scheduler. First run **08:00 on 2026-09-28**. See `OPERATIONS.md` for
+start, stop and inspect.
+
+`team/STANDING-ORDERS.md` now exists. It had to: a scheduled run begins with no
+memory of the conversation the orders were given in, and the repository is the
+only memory the team has.
+
+**Two things to do before leaning on it:**
+
+1. **Click "Run now" once.** The first run pre-approves the tools it needs;
+   without that, a later run can stall on a permission prompt at 08:00 with
+   nobody watching.
+2. **Verify branch protection is on.** The `STOP` file, the budget pause and the
+   CI-red check are all the cycle following its own prompt — conventions, not
+   controls. The things that do not depend on the agent's cooperation are branch
+   protection and the CI label gate. **Branch protection is what makes this
+   safe**, not the prompt.
+
+### Capacity — resolved, with an action
+
+**Seats are per-user, not pooled.** That removes the concern I raised last
+cycle: the thirteen-agent roster fits, because each agent has its own window
+rather than competing for one.
+
+**Action, starting now rather than in week 3:** thirteen agents need thirteen
+seats (or API keys). Provisioning has a lead time, so it begins before the
+roster scales past the pilot five.
+
+| | |
+|---|---|
+| Extra usage | Enabled on the org |
+| Per-seat monthly cap | **Being measured, not guessed** — @acexode's instruction |
+| Lead guard meanwhile | Pause at 31.5% of the weekly seat window |
+| Reported per run from now | Seat-window % **and** extra-usage $ |
+
+### Shipped this cycle
+
+- Scheduled cycle created and documented
+- `STANDING-ORDERS.md`, `OPERATIONS.md`
+- D-A4, D-A5, D-L24 closed in the log
+
+### Spend
+
+| | |
+|---|---|
+| Weekly · all models | 18% (account-wide, start of cycle) |
+| Extra usage | $0 — it was disabled until this cycle |
+
+First run with both numbers will be 08:00 tomorrow.
+
+### Open
+
+| | |
+|---|---|
+| **D-T1–D-T5** | Telephony spec, event catalogue, auth model, staging. Holds Agent 6 and the P09–P12 designs. |
+| **D-W1** | No WFM material shared; the review cannot start. |
+| **DESIGN NEEDED** | Prompt 2 by 2026-10-06 · Prompt 3 by 2026-10-13 |
+| **PR #3** | Green and mergeable, awaiting your merge |
+
+### Next cycle
+
+Make T-0002, T-0004 and T-0005 assignable the same way T-0001 now is — real
+acceptance tests in `*.pending.acceptance.test.ts` — then create tasks from the
+PRD order until three are ready per pilot agent.
+
+---
+
+
+
+---
+
 ## Capacity finding · 2026-09-27 · read this before scaling the roster
 
 **There is no USD meter on this account.** The work runs on a Claude Code

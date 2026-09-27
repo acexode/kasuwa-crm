@@ -9,7 +9,7 @@
 | **priority** | P0 |
 | **PRD refs** | `docs/prd/M02-security-and-identity.md`; founding pack Part 4 Prompt 1; PRD 2.13 |
 | **design** | `docs/design/P01/v1.0/` — 16 screens, manifest in `team/DESIGN-QUEUE.md` |
-| **dependencies** | **T-0001** (real authentication) for anything that talks to the API |
+| **dependencies** | **T-0008** (e2e harness) to be testable at all · **T-0001** (real authentication) for anything that talks to the API |
 | **decisions** | Data-region copy on `P01/5.1` is regulatory wording — see "Escalate if" |
 | **budget** | 6 sessions before escalating |
 

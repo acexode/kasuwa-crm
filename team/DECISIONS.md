@@ -273,7 +273,7 @@ asking now most likely means drawing them twice.
 ---
 
 ### D-L24 — How the autonomous cycle should run
-**Status:** ANSWERED 2026-09-27 — Option 2 (app-supervised schedule). Cadence proposed in STATUS.md; awaiting your approval before it is created.
+**Status:** DONE 2026-09-27 — scheduled task created, 3 runs/weekday. See team/OPERATIONS.md.
 **Raised:** 2026-09-27
 
 STANDING ORDERS item 6 asks me to set up a scheduled headless `claude -p` every
@@ -455,7 +455,7 @@ policy or adds a table without one.** I want this answered before the scaffold m
 determines the CODEOWNERS lines (D-L17).
 
 ### D-A4 — Monthly token/API budget ceiling
-**Status:** ANSWERED 2026-09-27 (reframed) — there is no USD meter on this account; it is a Claude Code Team plan with weekly allowance windows. Lead default: 35% of weekly, pause at 90% of that. **Capacity finding for the roster in DECISION-LOG.md.**
+**Status:** ANSWERED 2026-09-27 — seats are per-user, not pooled (roster fits). Per-seat monthly cap deferred by instruction: measure first. **Action: provision one seat per agent from week 3.**
 placeholder (`[your monthly ceiling]`). The per-task default was accepted:
 **3 sessions, escalate on the 4th**, until there is data, with actual spend
 reported per task weekly. Task files already carry that budget, so nothing is
@@ -466,7 +466,7 @@ meaningful task budgets without a ceiling. Interim: I will write `Budget: 3 sess
 4th` on pilot tasks as a placeholder.
 
 ### D-A5 — Are your supervisors/QA leads available for milestone UAT (~2 days per milestone)?
-**Status:** ANSWERED 2026-09-27 — taking your stated fallback (no floor UAT). MVP replanned 4.5–6 months. Reversible if names appear.
+**Status:** ANSWERED 2026-09-27 — one supervisor to be sought for the first agent-workspace pilot. MVP replan holds until confirmed.
 (`[yes/no + names + which days per milestone]`). This is the named mitigation
 for the model's largest risk (tests pass, behaviour is wrong). If the answer is
 no, the honest response is a longer timeline, not the same plan. **Blocked:** the milestone plan and the shadow-mode pilot in §3.6's estimate.
