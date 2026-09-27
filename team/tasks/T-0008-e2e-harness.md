@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | **id** | T-0008 |
-| **status** | `not-assigned` |
-| **ready to assign** | **Yes** — acceptance tests written and failing |
+| **status** | `done` |
+| **built by** | Agent 12 builder subagent, reviewed by the lead |
 | **module** | Cross-cutting |
 | **owner** | Agent 12 — QA & Adversarial Testing |
 | **priority** | **P0 — unblocks every screen task** |
@@ -122,3 +122,38 @@ Standard (`CLAUDE.md` section 5), plus:
 - The 256 kbps profile turns out to be unachievable for the app shell as it
   stands. That is a finding about the app, not about the harness, and it belongs
   in `DECISIONS.md` rather than in a relaxed budget.
+
+---
+
+## Note for whoever writes the first screen test
+
+The full version is `tests/e2e/README.md`. The short version:
+
+**Add a journey** — a new `tests/e2e/<area>.spec.ts`. Take URLs from `stack()`
+(`tests/e2e/support/stack.ts`), never a literal port: every server in the
+harness binds a free one. Take data from `@kasuwa/db` (`TENANT_A`,
+`USER_A_AGENT_1`, `SEED_CONTACTS`), never a hand-typed id — a second fixture
+set drifts from the isolation suite within a month. Authenticate with the stub
+headers `x-kasuwa-tenant-id` / `x-kasuwa-user-id`; they assert *who* the caller
+is and cannot widen scope, which is the point.
+
+**Set a budget** —
+
+```ts
+const metrics = await measurePageLoad(page, `${webUrl}/contacts`, 'low-bandwidth');
+assertWithinByteBudget('the contact list', metrics.transferredBytes, 180 * 1024);
+expect(metrics.fcpMs).toBeLessThan(5_000);
+```
+
+Two profiles: `default` (unthrottled) and `low-bandwidth` (256 kbps, 300 ms —
+the PRD 2.13 commitment). Pick the budget from what the screen needs, not from
+what it currently costs. If a screen cannot meet the profile, that is a finding
+about the screen and it belongs in `team/DECISIONS.md`, not in a relaxed
+profile here.
+
+**Never `waitForTimeout`.** An acceptance test greps `tests/e2e/` for it. Wait
+on state — a locator, a response, a load state, `expect.poll`.
+
+**`tests/e2e/fixtures/over-budget.spec.ts` is red on purpose.** It is the
+standing proof that the budget check fails a run. Do not fix it, and do not
+move it into the main Playwright project.

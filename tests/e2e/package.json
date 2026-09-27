@@ -1,0 +1,27 @@
+{
+  "name": "@kasuwa/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node scripts/run-e2e.mjs"
+  },
+  "dependencies": {
+    "@kasuwa/api": "workspace:*",
+    "@kasuwa/db": "workspace:*",
+    "@kasuwa/testing": "workspace:*"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.1",
+    "@playwright/test": "^1.49.1",
+    "tsx": "^4.19.2"
+  },
+  "nx": {
+    "tags": [
+      "scope:test",
+      "type:testing"
+    ]
+  }
+}

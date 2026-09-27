@@ -9,7 +9,7 @@
 | **priority** | P0 |
 | **PRD refs** | `docs/prd/M02-security-and-identity.md`; founding pack Part 4 Prompt 1; PRD 2.13 |
 | **design** | `docs/design/P01/v1.0/` — 16 screens, manifest in `team/DESIGN-QUEUE.md` |
-| **dependencies** | **T-0008** (e2e harness) to be testable at all · **T-0001** (real authentication) for anything that talks to the API |
+| **dependencies** | ~~T-0008~~ **done** — the harness exists · **T-0001** (real authentication) for anything that talks to the API |
 | **decisions** | Data-region copy on `P01/5.1` is regulatory wording — see "Escalate if" |
 | **budget** | 6 sessions before escalating |
 
@@ -84,6 +84,36 @@ Called out because each is a decision the designer already made, and
   the BSP integration is Agent 5's (M8).
 - Real import execution — `P01/5.4` wires mapping and submission; the importer
   is M20/M21.
+
+## Three debts T-0008 left you, deliberately and in writing
+
+The harness is built (T-0008) and these are the parts it could not finish
+without a real screen. They are listed here because the person who lands the
+first screen is the only person who can close them, and two of the three are
+enforced mechanically so they cannot be forgotten.
+
+1. **The URL-tampering test is only half done.** T-0008's tenancy test edits
+   the URL against the **API** origin — three edited URLs, three byte-identical
+   404s — because `apps/web` has one page and no record route, so there is no
+   id in a web URL to tamper with. **Add the same cases against a web route.**
+   The browser is the layer a user actually touches, and a client router that
+   fetches by id before the server checks scope is a real and common leak.
+
+2. **An axe rule is excluded and you must delete it.** `color-contrast` is
+   filtered out on the design-tokens gallery, which renders contrast pairs as
+   caption-sized chips against their own 3:1 large-text minimums. axe is right
+   about that page; the page is a demo. **Enforced:** an acceptance assertion
+   fails the moment `apps/web` grows a second route while the exclusion is
+   still there. You will meet it; that is the point. An accessibility exemption
+   inherited by thirty screens is exactly what nobody remembers to remove,
+   because by then it has always been there.
+
+3. **No real byte budget until the e2e job builds the app** (D-L28). The
+   harness runs `next dev`, so the 124 KB it measures is a development bundle.
+   A budget set against that number is meaningless in both directions — too
+   slack to catch a regression, too tight to pass in production. Either build
+   the web app in the CI e2e job first, or set no budget. Do not split the
+   difference.
 
 ## Definition of done
 
