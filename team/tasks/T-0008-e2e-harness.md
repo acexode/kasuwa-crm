@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | **id** | T-0008 |
-| **status** | `not-assigned` |
-| **ready to assign** | **Yes** — acceptance tests written and failing |
+| **status** | `done` |
+| **built by** | Agent 12 builder subagent, reviewed by the lead |
 | **module** | Cross-cutting |
 | **owner** | Agent 12 — QA & Adversarial Testing |
 | **priority** | **P0 — unblocks every screen task** |

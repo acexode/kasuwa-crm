@@ -549,3 +549,31 @@ Agent 12 not to do. The assertion is a prompt for a conversation on the PR, not
 a control. A truthful "I could not break it beyond these nine" is a better
 outcome than a tenth variation, and reviewing which one happened is a human
 judgement that no assertion replaces.
+
+---
+
+## D-L28 — no byte budget until the e2e job builds the web app
+**Decided:** 2026-09-27 · lead decision during T-0008 review · reversible
+
+The e2e harness starts `apps/web` with `next dev`. The app shell it measures is
+therefore a **development bundle** — 124,422 bytes, against a PRD 2.13 critical
+path budget of 300 KB gzipped for a production one.
+
+Raised by the T-0008 builder, which declined to choose. Correctly: it is a
+decision about what the number means, not an implementation detail.
+
+**A budget set against a dev bundle is meaningless in both directions.** Too
+slack and it never catches the regression it exists for; too tight and it fails
+on code that would ship fine. Either failure teaches the team to ignore the
+check, which is worse than not having one — and this is the mechanism keeping
+the 256 kbps commitment honest once there are thirty screens.
+
+**Decision: no real byte budget may be set until the CI e2e job builds the web
+app in production mode.** Until then the harness's budget machinery exists and
+is proven (the over-budget fixture fails the run), but no screen asserts a
+number against the dev bundle.
+
+Recorded as an explicit debt in `team/tasks/T-0007-p01-auth-screens.md`, whose
+owner is the first person who will want to set one. The alternative — accepting
+the slack and adjusting later — was rejected because "adjust the budget later"
+is how a budget becomes whatever the current page happens to weigh.

@@ -110,6 +110,15 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22.16.0', cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      # The isolation suite now contains the e2e harness's own acceptance
+      # tests, and those RUN the harness rather than reading it — which is the
+      # only way a throttle or a byte budget can be proven rather than
+      # asserted. So this job needs everything the e2e job needs. Without the
+      # browser it fails here and nowhere else, which is the worst place for a
+      # dependency to be discovered.
+      - run: pnpm ui:tokens
+      - run: pnpm i18n:pseudo
+      - run: pnpm --filter @kasuwa/e2e exec playwright install --with-deps chromium
       - run: pnpm test:isolation
 
   build:

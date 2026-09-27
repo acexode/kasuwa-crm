@@ -137,6 +137,13 @@ describe('acceptance (pending): the e2e harness is wired', () => {
 
     for (const file of files) {
       const source = readFileSync(fromRoot(file), 'utf8');
+      // Deliberately a raw source grep, comments included. It has no notion
+      // of context, so even a comment explaining why the harness does NOT call
+      // waitForTimeout trips it — which happened once during T-0008, and the
+      // builder reworded the comment rather than touch this test. That is the
+      // right trade: the alternative is a matcher that understands comments,
+      // and the first person to add `// eslint-disable`-style reasoning around
+      // a real call would slip through it.
       expect(source, `${file} uses waitForTimeout — wait on state instead`).not.toMatch(
         /waitForTimeout/,
       );
@@ -235,6 +242,42 @@ describe('acceptance (pending): the harness measures what it claims to', () => {
     // and a permanently red suite is a suite nobody reads.
     const config = readFileSync(fromRoot('tests/e2e/playwright.config.ts'), 'utf8');
     expect(config).toMatch(/over-budget/);
+  });
+});
+
+describe('acceptance (pending): the harness accumulates no silent exemptions', () => {
+  it('drops the axe color-contrast exclusion as soon as a real screen exists', () => {
+    // T-0008 excluded axe's `color-contrast` rule on the one page apps/web
+    // serves today — the design-tokens gallery, which renders contrast pairs as
+    // caption-sized chips, several of them specified against the 3:1 large-text
+    // threshold. axe is right about that page, and the page is a demo.
+    //
+    // The builder documented the exclusion and said it must be deleted when a
+    // real screen replaces the gallery. That was a comment, and a comment does
+    // not enforce anything — an accessibility exemption inherited by thirty
+    // screens is exactly the kind of thing nobody remembers to remove, because
+    // by then it has always been there.
+    //
+    // So this makes it mechanical: the moment `apps/web` grows a second route,
+    // the exemption has to go or this fails. Whoever lands T-0007 will meet it.
+    const spec = fromRoot('tests/e2e/harness.spec.ts');
+    if (!existsSync(spec)) return;
+
+    const excludesContrast = /color-contrast/.test(readFileSync(spec, 'utf8'));
+    if (!excludesContrast) return;
+
+    const routes = execFileSync('git', ['ls-files', 'apps/web/app'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    })
+      .split('\n')
+      .filter((file) => /(^|\/)page\.tsx?$/.test(file));
+
+    expect(
+      routes,
+      'apps/web has a real screen now — delete the color-contrast exclusion in ' +
+        'tests/e2e/harness.spec.ts and let axe block on it',
+    ).toHaveLength(1);
   });
 });
 
