@@ -2,6 +2,74 @@
 
 ---
 
+## Cycle · 2026-09-27 · hourly scheduler, e2e harness task created
+
+### Progress
+
+**Tasks done: 1 · Tasks remaining: 7**
+
+| Task | Agent | Ready? |
+|---|---|---|
+| T-0001 auth | 1 | **ready** |
+| T-0002 metadata | 2 | **ready** |
+| T-0008 e2e harness | 12 | not ready — **next cycle's first job** |
+| T-0004 adversarial QA | 12 | not ready |
+| T-0005 CI/infra | 13 | not ready |
+| T-0006 icon subset CI | 11 | not ready (deferred to first screen) |
+| T-0007 P01 auth screens | 11 | blocked on T-0008 |
+| T-0003 design tokens | 11 | **done** |
+
+### Shipped this cycle
+
+- **Scheduler raised to hourly**, weekdays 07:00–23:00 WAT (`0 7-23 * * 1-5`),
+  now that per-seat capacity is confirmed. Same guards.
+- **A5 amended**: a session stops at **80% context or 90% usage, whichever
+  first**. A6 records the frequency.
+- **T-0008 created** — the e2e harness, P0, because T-0007 and every screen task
+  after it cannot be made ready without it.
+
+### Two things to watch, neither a blocker
+
+**Cycle overhead at hourly.** Each cycle re-reads `CLAUDE.md`,
+`STANDING-ORDERS.md`, `DECISIONS.md`, `STATUS.md` and `tasks/` before doing
+anything. Seventeen cycles a day makes that overhead material, and it is
+possible fewer longer cycles do more work per unit of allowance. Recorded as
+something to **measure over the first week**, not to assume in either
+direction — raising the frequency now and measuring is the right order, which is
+what was decided.
+
+**The 31.5% pause is convention-strength.** The cycle checks it because its
+prompt says to; nothing external stops it. At hourly that guard matters more
+than it did at three runs a day. If cycles are ever seen skipping the check, the
+answer is to lower the frequency, not to trust it harder.
+
+### Why this session stopped
+
+**Context at ~83%**, past the new 80% threshold in the amended A5. Usage is 19%
+weekly against the 31.5% guard — nowhere near. Exactly the case A5 now covers,
+and the first time the new rule has bound.
+
+### Spend
+
+| | |
+|---|---|
+| Weekly · all models | 19% (guard 31.5%) |
+| 5-hour window | 15% |
+| Extra usage | $0 — still reads `enabled: false` from here |
+
+### Next cycle
+
+1. **Make T-0008 ready** — real failing acceptance tests for the harness. First
+   job; it unblocks Agent 11 and Agent 12.
+2. Make T-0004 and T-0005 ready.
+3. Keep creating tasks from the PRD order until three are ready per active agent.
+
+---
+
+
+
+---
+
 ## Cycle · 2026-09-27 · continuous-delivery amendment adopted
 
 ### Progress

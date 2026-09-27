@@ -155,8 +155,41 @@ past a gate is a bad one, and the isolation suite is the gate that matters most.
 
 ## A5. The scheduler is a backstop, not the pace
 
-Between scheduled runs, if a session is open, keep working until the usage
-window reaches **90%**, then write `STATUS.md` and stop cleanly — cleanly means
-committed, pushed, and the next action written down for whoever picks it up.
+*(Amended 2026-09-27 — context, not usage, is the practical limit for a long
+interactive session.)*
 
-Raise the run frequency as measured usage allows, up to the D-A4 cap.
+If a session is open, keep working until **either**:
+
+- the session's **context window reaches 80%**, or
+- the seat's **usage window reaches 90%**
+
+— **whichever comes first**. Then write `STATUS.md` and stop cleanly. Cleanly
+means committed, pushed, and the next action written down for whoever picks it
+up.
+
+**Why two limits.** A long interactive session runs out of *context* well before
+it runs out of *seat allowance*: the session that established this was at 82%
+context against 19% usage. Auto-compaction at 97% would let it keep going, but
+work done either side of a compaction is work done without full sight of what
+came before, and this is a codebase where the thing you forgot is the isolation
+rule.
+
+**Scheduled cycles are immune to the first limit** — each starts fresh with an
+empty context. That is the main argument for running them often rather than
+relying on long sessions.
+
+## A6. Run frequency
+
+**Hourly on weekdays, 07:00–23:00 WAT** (cron `0 7-23 * * 1-5`), set 2026-09-27
+once per-seat capacity was confirmed.
+
+Adjust as measured usage allows, up to the D-A4 cap. The **31.5% weekly pause
+is what keeps this safe**, and it is convention-strength — the cycle checks it
+because its prompt says to. If cycles ever start skipping that check, lower the
+frequency rather than trusting it harder.
+
+**Watch for:** each cycle pays a fixed startup cost re-reading `CLAUDE.md`,
+`STANDING-ORDERS.md`, `DECISIONS.md`, `STATUS.md` and `tasks/`. At seventeen
+cycles a day that overhead is material, and it is possible that fewer, longer
+cycles do more work per unit of allowance. The first week of runs will show
+which — that is a thing to measure, not to assume either way.
