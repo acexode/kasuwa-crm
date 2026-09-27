@@ -22,3 +22,7 @@ pnpm-debug.log*
 # generated
 packages/i18n/src/locales/en-XA.json
 tools/.tmp/
+
+# Builder subagent worktrees (A8). Each is its own checkout of this repo;
+# committing one would nest a git repository inside the repository.
+.claude/worktrees/
