@@ -64,11 +64,33 @@ recovery path at all.
 
 ## Also in scope, because they live in the same tables
 
-T-0001 left three growing tables with **no cleanup job**: `auth_challenge`,
-`auth_session`, `auth_attempt`, plus `auth_rate_limit` from the rework. Expired
-rows accumulate forever. Add the job, and make its retention explicit rather
+T-0001 left four growing tables with **no cleanup job**: `auth_challenge`,
+`auth_session`, `auth_attempt` and `auth_rate_limit`. Expired rows accumulate
+forever. Add the sweep in `apps/worker`, and make its retention explicit rather
 than implicit — a session row that outlives its expiry is a credential record
 kept past its purpose, which is an NDPA question as well as a disk one.
+
+**`auth_rate_limit` is the urgent one, and it is not just disk.** The security
+re-review raised it as MAJOR. Rows are keyed on caller-typed text
+(`sha256(purpose:slug:email)`) and are deleted **only** on a successful sign-in,
+so a key naming a workspace that does not exist is never cleared by anything.
+The growth is therefore **attacker-controlled**: at the shipped throttle a
+thousand sources produce roughly 60k rows a minute, about 10 GB a day with the
+index. Disk exhaustion on a pooled cell is an outage for every tenant on it.
+
+The old `auth_attempt` had the same debt but needed a *real tenant* to write a
+row. The enumeration fix changed the risk shape, which is exactly the kind of
+thing worth noticing about a fix rather than only about a bug.
+
+Two more corrections belong with the sweep:
+
+- ADR-0009 claims `auth_rate_limit` "holds no personal data". An unkeyed
+  `sha256(slug:email)` is trivially confirmable offline against a candidate
+  email, so it is **pseudonymised personal data** — it evidences that a named
+  person attempted sign-in at a named workspace. Either correct the claim or
+  make it true with an HMAC under a server-side key.
+- Give the retention a **reason**, not just a number. "Thirty days" with no
+  rationale is a number someone will double.
 
 ## Acceptance tests
 
