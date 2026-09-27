@@ -17,10 +17,10 @@ One human: **@acexode**. The human decides; agents recommend.
 | 2 | Metadata & Customisation | Object/field/layout engine, formula engine, validation, dynamic API | M15 | Pilot week 1 |
 | 3 | Core CRM & Pipeline | Leads/contacts/accounts/deals, assignment, dedup, stage gating, activities, calendar/email sync | M3, M4, M6, M7 | Week 2 |
 | 4 | Revenue | Products, price books, quotes, invoices, payments, MBS e-invoicing, FX | M5 | Week 3 |
-| 5 | Messaging | WhatsApp/SMS/USSD/email/chat providers, routing, consent/DND engine, campaigns, sequences | M8, M13 | Week 3 |
+| 5 | **Messaging & Service** | WhatsApp/SMS/USSD/email/chat providers, routing, consent/DND engine · tickets, SLAs, KB, self-service portal, CSAT | M8, M12 | Week 3 |
 | 6 | Contact-Centre Integration | `telephony-adapter`, `wfm-adapter`, screen-pop, dispositions, scripting, wallboard, QA, client-portal data | M9–M11, M18 | Week 2 |
-| 7 | Service | Tickets, SLAs, KB, self-service portal, CSAT | M12 | Week 3 |
-| 8 | Automation & API | Workflow engine, approvals, Blueprint enforcement, webhooks, public API/SDK/MCP | M14, M20 | Week 3 |
+| ~~7~~ | ~~Service~~ | **Folded into #5** (D-A1). Inbox conversations and tickets are one domain. | — | — |
+| 8 | Automation & API | Workflow engine, approvals, Blueprint enforcement, webhooks, public API/SDK/MCP · **campaigns, journeys, sequences** | M13, M14, M20 | Week 3 |
 | 9 | Analytics & Billing | Report builder, dashboards, ClickHouse pipeline, usage metering, Kasuwa's own billing | M16, M23 | Week 3 |
 | 10 | AI | AI gateway, summaries, drafting, RAG, scoring, auto-QA, evals | M17 | Week 3 |
 | 11 | Frontend & Design System | `packages/ui` from Claude Design exports, app shell, all screens, PWA/mobile, i18n, low-bandwidth mode | M19 + all UIs | Pilot week 1 |
@@ -68,26 +68,28 @@ just the test output.
 turnaround is what makes one-week iterations work: Addendum A1 section 3.3 is
 explicit that decision latency, not agent speed, is the binding constraint.
 
-## Open: which builder folds? (D-A1)
+## Roster size — resolved (D-A1, 2026-09-27)
 
-You answered 13 total — 12 specialists plus the lead — and kept QA and DevOps
-independent. Addendum A1 section 3.2 lists **13** specialists, so exactly one
-builder from #1–#11 folds into another. The addendum anticipated the trade
-("I'd rather drop a builder than lose independent QA or DevOps") but did not say
-which. I have not guessed. Three candidates:
+**12 specialists + lead.** QA (#12) and DevOps (#13) stay independent.
 
-| Option | Merge | Case for | Case against |
-|---|---|---|---|
-| **A** (recommended) | **#7 Service into #5 Messaging** — one agent owns M8, M12, M13 | Tickets and the omnichannel inbox share routing, queues, skills, capacity, SLA timers and CSAT delivery. It is the pairing with the most real code overlap and the fewest cross-agent contracts to negotiate. | M12 is P0 and M8 is P0, so that agent carries a heavy MVP load. M13 slips. |
-| **B** | **#4 Revenue into #3 Core CRM** — one agent owns lead-to-cash (M3–M7) | Deals → quotes → invoices → payments is one value chain; fewer handoffs on the sequence a sales user actually walks. | M3–M7 is the largest surface in the product. Likely the new bottleneck. |
-| **C** | **#2 Metadata into #1 Platform** — one agent owns M1, M2, M15 | Tenancy, permissions and the metadata engine are all "the platform", and M15's storage model depends on M1's tenancy decisions anyway. | M15 alone is arguably the biggest module in the PRD. Pairing it with the security work risks both being late. |
+- **#7 Service folds into #5**, which becomes *Messaging & Service*. Inbox
+  conversations and tickets are one domain: they share routing, queues, skills,
+  capacity, SLA timers and CSAT delivery.
+- **M13 (campaigns, journeys, sequences) moves from #5 to #8**, to keep that
+  agent's load sane. Sequences are workflows, so they sit naturally with the
+  workflow engine.
 
-**Recommendation: A.** It concentrates genuinely overlapping work rather than
-merely adjacent work, and it defers M13 (marketing, P1) rather than anything
-needed for MVP. If MVP load on #5 proves too heavy, M13 is the natural thing to
-hand back when the roster grows.
+Numbering is deliberately **not** compacted — #7 is retired rather than reused,
+so task files, reports and git history keep pointing at the same agent. Active
+specialists: 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13.
 
-Nothing is blocked by this: the folded agent starts in week 3 under every option.
+**One loose end worth a sentence.** PRD **M7** (*Email & sequences*) is Agent 3's
+and includes "multichannel sequences (email → WhatsApp template → call task →
+SMS)". That is the same machinery M13 needs, and it now sits with a different
+agent from M13. Either M7's sequence engine moves to #8 alongside M13, or #8
+builds it and #3 consumes it. My recommendation is the latter — #8 owns the
+workflow engine, and a sequence is a workflow — but it is worth one word from
+you before either agent starts, because building it twice is the failure mode.
 
 ## Escalation rules
 

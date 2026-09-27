@@ -158,3 +158,21 @@ carries a `status` field, and `tools/verify-task-readiness.mjs` fails CI if a
 task marked `assigned` or `in-progress` names acceptance tests that are still
 `it.todo`, or names none at all. The five pilot tasks are `not-assigned`, so the
 stubs are legal exactly until the lead converts them and assigns the work.
+
+
+---
+
+## Branch protection on `main`
+**Stated:** 2026-09-27 · **Commitment:** require a pull request, required status
+checks, and code-owner review — **on before PR #2.**
+
+This is what turns three things from convention into control: the `lead-approved`
+label gate, the D-A3 review categories in `CODEOWNERS`, and "no merging past a
+red isolation suite". Only @acexode can set it. Recommended required checks:
+`Lint`, `Typecheck`, `Unit tests`, `Integration tests`, `Tenant isolation suite`,
+`Build`, `Guard protected paths`.
+
+Note that `Guard protected paths` now lives in its own workflow
+(`.github/workflows/guard.yml`) so it re-evaluates when the label is applied.
+On PR #1 it did not, because the default `pull_request` event types exclude
+`labeled` — the gate worked, but needed a manual re-run to clear.

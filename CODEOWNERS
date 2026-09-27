@@ -62,11 +62,12 @@
 # /packages/metadata-engine/        @kasuwa/agent-02-metadata
 # /packages/domain/core/            @kasuwa/agent-03-core-crm
 # /packages/domain/revenue/         @kasuwa/agent-04-revenue
-# /packages/domain/messaging/       @kasuwa/agent-05-messaging
+# /packages/domain/messaging/       @kasuwa/agent-05-messaging-service
 # /packages/telephony-adapter/      @kasuwa/agent-06-contact-centre
 # /packages/wfm-adapter/            @kasuwa/agent-06-contact-centre
-# /packages/domain/service/         @kasuwa/agent-07-service
+# /packages/domain/service/         @kasuwa/agent-05-messaging-service   # #7 folded into #5 (D-A1)
 # /packages/domain/workflow/        @kasuwa/agent-08-automation-api
+# /packages/domain/marketing/       @kasuwa/agent-08-automation-api   # M13 moved from #5 (D-A1)
 # /packages/domain/analytics/       @kasuwa/agent-09-analytics-billing
 # /packages/domain/ai/              @kasuwa/agent-10-ai
 # /packages/ui/                     @kasuwa/agent-11-frontend-design

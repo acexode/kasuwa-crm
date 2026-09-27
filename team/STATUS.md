@@ -99,13 +99,29 @@ and the attacks: cross-tenant by id → 404, sibling programme by id → 404, fo
 scope header → 400, real user with wrong tenant → 401, no auth → 401, tampered
 cursor → 400, limit=5000 → 400.
 
-### What I could NOT verify
+### CI — now observed, not predicted
 
-**CI has never run.** The repository was empty, so nothing has been pushed
-through GitHub Actions. The workflow is written and the commands in it are the
-same ones that pass locally, but "CI passes on the first PR" is a prediction
-from me, not an observation. The `guard-protected-paths` job in particular has
-never executed — it will fire on this PR, which needs the `lead-approved` label.
+PR [#1](https://github.com/acexode/kasuwa-crm/pull/1), run
+[36304207199](https://github.com/acexode/kasuwa-crm/actions/runs/36304207199).
+**Every substantive job passed on the first run:** Lint, Typecheck, Unit tests,
+Integration tests, Tenant isolation suite, Build.
+
+`Guard protected paths` failed, deliberately. The PR was opened **without** the
+`lead-approved` label so the gate had to prove it fires: a PR labelled from the
+start only shows the job passing, which is indistinguishable from a job that
+checks nothing. The step breakdown is the proof — "Detect changes to protected
+paths" **succeeded**, then "Require the lead-approved label" **failed**. It fired
+for the right reason.
+
+Applying the label revealed a second thing worth having found: the default
+`pull_request` event types exclude `labeled`, so nothing re-evaluated the guard
+and it needed a manual re-run. A gate that needs a manual re-run every time is a
+gate people stop using. The guard now lives in its own workflow
+(`.github/workflows/guard.yml`) that also runs on `labeled`/`unlabeled`; it is
+separate from `ci.yml` so a label change does not re-run every suite and the
+build.
+
+## What I still could NOT verify
 
 **`pnpm dev` end to end.** Individual steps all work (containers, migrate, seed,
 API serving traffic), and I verified them separately. I did not get a single

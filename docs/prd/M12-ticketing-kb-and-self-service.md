@@ -1,6 +1,6 @@
 # M12. Ticketing, knowledge base & self-service
 
-> **Owner:** Agent 7 — Service
+> **Owner:** Agent 5 — Messaging & Service
 > **Source:** Founding pack Part 2, section 2.7 — reproduced verbatim below.
 > **Priority key:** P0 = MVP (must), P1 = v1 (should), P2 = v2 (could).
 

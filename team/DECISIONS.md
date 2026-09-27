@@ -375,7 +375,7 @@ one normalised agent-state event model and one audit trail — but it makes Kasu
 load-bearing for WFM's accuracy, which is a real operational commitment.
 
 ### D-A1 — Accept the roster split (9 builders + QA + DevOps) or insist on 12 builders?
-**Status:** ANSWERED 2026-09-27 (partially) — 12 specialists + lead, QA and DevOps independent. **Which builder folds is still open**; see ROSTER.md for three options and a recommendation.
+**Status:** ANSWERED 2026-09-27 — 12 specialists + lead; #7 Service folds into #5, M13 moves to #8. See DECISION-LOG.md. One loose end (M7 sequences) noted in ROSTER.md.
 
 ### D-A2 — Iteration length: 1 week or 2?
 **Status:** ANSWERED 2026-09-27 — 1-week iterations, DECISIONS.md answered daily. See DECISION-LOG.md
