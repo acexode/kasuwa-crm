@@ -31,10 +31,12 @@ import { stack } from './support/stack';
  * would confirm that the record exists, which is itself information about
  * another tenant's data (CLAUDE.md section 6.4).
  *
- * NOTE for whoever lands T-0007: this drives the API origin directly, because
- * apps/web has no record route yet. When one exists, add the same three cases
- * against the web URL — the browser-side check is the point, and this is
- * currently only half of it.
+ * T-0007 PAID THE OTHER HALF. The first test below drives the API origin, as
+ * T-0008 left it. The second drives a WEB route — `/contacts/{id}` — because
+ * that is the layer a user actually touches, and because the leak this guards
+ * against is specifically a client router that fetches a record by id and
+ * renders it before the server has checked scope. Every server-side test passes
+ * while that happens.
  */
 
 function contactIn(programmeId: string): string {
@@ -90,6 +92,64 @@ test.describe('tenancy through the browser', () => {
     // And nothing of TENANT_B's may appear in the body, not even its id.
     expect(otherTenant).not.toContain(TENANT_B);
     expect(otherTenant).not.toContain(contactIn(PROGRAMME_B1));
+
+    await context.close();
+  });
+
+  test('a signed-in user cannot reach another tenant by editing a WEB url @harness', async ({
+    browser,
+  }) => {
+    const { webUrl } = stack();
+
+    // The same three tamperings, through the browser's own router this time.
+    // `/contacts/{id}` fetches by id from client-side JavaScript — deliberately
+    // the naive implementation — so if the server ever started answering on
+    // identity alone, this is where it would show.
+    const context = await browser.newContext({
+      extraHTTPHeaders: {
+        'x-kasuwa-tenant-id': TENANT_A,
+        'x-kasuwa-user-id': USER_A_AGENT_1,
+      },
+    });
+    const page = await context.newPage();
+
+    await page.goto(`${webUrl}/contacts/${contactIn(PROGRAMME_A1)}`);
+    await expect(
+      page.getByTestId('record'),
+      'the caller cannot see their own record — the test proves nothing',
+    ).toBeVisible();
+
+    const rendered: string[] = [];
+    const documents: string[] = [];
+    for (const id of [contactIn(PROGRAMME_B1), contactIn(PROGRAMME_A2), NO_SUCH_CONTACT]) {
+      await page.goto(`${webUrl}/contacts/${id}`);
+      const notFound = page.getByTestId('record-not-found');
+      await expect(notFound, `the web route rendered a record outside scope: ${id}`).toBeVisible();
+      rendered.push((await notFound.innerText()).trim());
+      documents.push(await page.content());
+    }
+
+    const [otherTenant, otherProgramme, missing] = rendered;
+
+    // Byte-identical, exactly as at the API. A different word for "this is in
+    // another workspace" is the existence leak of CLAUDE.md section 6.4 wearing
+    // a friendly tone.
+    expect(otherTenant, 'the page distinguishes another tenant from a missing record').toBe(missing);
+    expect(
+      otherProgramme,
+      'the page distinguishes another programme from a missing record',
+    ).toBe(missing);
+
+    // And nothing of TENANT_B's appears anywhere in the document it rendered,
+    // not even its id — a client router that echoes back the id it failed to
+    // fetch has confirmed that the id exists somewhere.
+    //
+    // The contact id itself is NOT asserted absent: it is in the address bar
+    // because the user put it there, and the router legitimately echoes the
+    // route parameter. The tenant id is different — nothing the caller supplied
+    // contains it, so its presence could only come from a record they must not
+    // have seen.
+    expect(documents[0]).not.toContain(TENANT_B);
 
     await context.close();
   });

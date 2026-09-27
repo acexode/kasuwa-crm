@@ -6,7 +6,8 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node scripts/run-e2e.mjs"
+    "test": "node scripts/run-e2e.mjs",
+    "generate-mock": "node scripts/generate-auth-mock.mjs"
   },
   "dependencies": {
     "@kasuwa/api": "workspace:*",
@@ -16,7 +17,8 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.10.1",
     "@playwright/test": "^1.49.1",
-    "tsx": "^4.19.2"
+    "tsx": "^4.19.2",
+    "yaml": "^2.9.1"
   },
   "nx": {
     "tags": [
