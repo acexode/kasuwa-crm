@@ -541,3 +541,53 @@ tension, and where I made a call:
 - **`apps/dialer` removed** from pack §3.16 per addendum §1.1; `packages/domain/telephony` and
   `.../wfm` become thin consumers of the adapters rather than implementations.
 - **`infra/freeswitch/` and `infra/kamailio/`** removed from the pack's tree for the same reason.
+
+---
+
+## B2. Raised during T-0001 (2026-09-27)
+
+### D-P2 — who owns self-serve tenant provisioning?
+
+**Raised by:** the T-0001 builder, correctly, and it declined to decide.
+**Blocks:** P01/3 (sign-up) and P01/4 (OTP verify) wiring to real endpoints.
+T-0007 builds both against the mock either way, so **nothing is idle**.
+
+Sign-up does not create a *user*. It creates a **tenant** — and where that
+tenant's data lives is the choice `P01/5.1` puts in front of the customer
+(ZA / NG / KE). That is a regulatory and architectural decision, not a form
+submission, and **no task on the board owns it.** T-0001 is scoped to
+authenticating people who already exist, and says so.
+
+OTP delivery is separately blocked: it needs Agent 5's channel provider (M8),
+which T-0001 lists as a non-goal.
+
+The contract publishes both endpoints returning **501 `not_implemented`**,
+marked `x-kasuwa-implemented: false`, so the screens can be built and the gap
+is visible in the spec rather than discovered during wiring.
+
+**What is needed:** a decision on whether self-serve tenant creation is in the
+MVP at all. If it is, it needs an owner and a task — data residency, tenant
+slug allocation, billing identity and the first admin user are all in it. If it
+is not, `P01/3` and `P01/4` should be built as designed and left behind a
+feature flag, and sales-led provisioning is the path to launch.
+
+**Recommendation: not MVP.** A BPO buying Kasuwa is not going to self-serve;
+the first tenants will be provisioned by us. Building it now means answering
+the residency question before there is a customer to answer it for.
+
+### D-P3 — sign-up must not say "that email is already registered"
+
+**Decided by the lead; recorded because it contradicts a design.**
+
+The contract returns **202 with an identical body** whether or not the address
+already has an account, and emails the existing account instead. An inline
+"already registered" message on a public form is a user-enumeration oracle —
+the same defect `P01/1a` was carefully designed to avoid two screens earlier.
+
+If `P01/3` shows that inline error, **the security rule wins and the design
+changes.** Flagged to Agent 11 rather than left to be discovered: the fix is a
+neutral "check your inbox" state, which is also what the user sees when the
+address is new, so it costs one screen state rather than a redesign.
+
+Raise it with the designer if the wording needs work, but do not implement the
+oracle.
