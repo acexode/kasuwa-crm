@@ -591,3 +591,70 @@ address is new, so it costs one screen state rather than a redesign.
 
 Raise it with the designer if the wording needs work, but do not implement the
 oracle.
+
+---
+
+## B5. Raised during T-0007 (2026-09-28)
+
+### D-P6 — `P01/1` needs a workspace field the design does not draw
+
+The auth contract requires `tenantSlug` on sign-in. The `P01/1` board shows
+email and password only. The builder added the field and flagged it rather than
+quietly redrawing the screen, which is right.
+
+**This is not a missing input box; it is an unanswered question about how a user
+arrives.** Three shapes, and the design implies none of them:
+
+| | How the workspace is known | Cost |
+|---|---|---|
+| 1 | **Subdomain** — `sahel-bpo.kasuwa.app` | The usual multi-tenant answer. Needs DNS, certificates and a cell router. The screen loses the field entirely |
+| 2 | **A field on the form**, as built | Works today. Asks a BPO agent to remember a slug, which is the one thing they will get wrong on a shared phone |
+| 3 | **A workspace step before sign-in** | Matches the enumeration rule badly — a "find my workspace" step is an oracle unless it answers identically for real and fake |
+
+**Recommendation: 1, with 2 as the fallback for direct links.** It is what every
+comparable product does, it removes a field from the smallest screen on the
+smallest phone, and it makes the slug a thing the user's bookmark remembers
+rather than a thing they type. But it is infrastructure, it touches the cell
+model, and it is **the designer's call to make on the screen** — so it is here
+rather than decided.
+
+Until it is answered the field stays, and `P01/1` is drawn with it.
+
+### D-P7 — `?locale=ar` renders a locale the menu does not offer
+
+**Decided by the lead; recorded because it is a deliberate hole.**
+
+Arabic ships registered-but-unoffered so RTL can be proven on a real screen
+(T-0009, D-P1). The builder wired `?locale=ar` through middleware, setting no
+cookie, so one render is possible without the menu listing it.
+
+That is the right mechanism and it is **not** the harm the offering rule guards
+against: that harm is a menu *promising* a language and delivering English. This
+is the reverse — a complete catalogue, reachable only by typing, absent from
+every list.
+
+**But an unreviewed Arabic interface shown to a real user is still unreviewed
+content**, and "reachable by typing" is reachable. So: **keep it, and gate it to
+non-production builds.** The RTL proof survives, and nobody meets an
+unattested language by pasting a URL a colleague sent them.
+
+Agent 11 to implement the gate; no design change.
+
+### D-P8 — the web process cannot use `@kasuwa/config`, and that is a real gap
+
+`CLAUDE.md` says no `process.env` outside `@kasuwa/config`. The web process
+cannot comply: `@kasuwa/config` parses one schema that demands `DATABASE_URL`,
+which `apps/web` has none of and must never have.
+
+The builder's workaround is sound — `NEXT_PUBLIC_API_URL` in
+`next.config.mjs`, which is already lint-exempt, rewritten same-origin so no
+application code touches the environment. It raised the gap rather than
+widening the lint exemption, which was the easier move.
+
+**The rule is right and the implementation is too narrow.** `@kasuwa/config`
+should expose per-process schemas — `apiEnv()`, `webEnv()`, `workerEnv()`,
+`realtimeEnv()` — over a shared base, so each process parses exactly what it
+needs and a missing variable fails at boot in the process that needs it rather
+than in every process that does not.
+
+Raised as **T-0012**. Not blocking T-0007.
