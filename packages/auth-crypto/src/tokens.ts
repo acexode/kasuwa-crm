@@ -46,3 +46,21 @@ export function hashSessionToken(token: string): Buffer {
 export function hashIdentifier(tenantId: string, email: string): Buffer {
   return createHash('sha256').update(`${tenantId}:${email.trim().toLowerCase()}`, 'utf8').digest();
 }
+
+/**
+ * Keys a rate-limit counter, from values the caller supplied and nothing else.
+ *
+ * `purpose` separates the counters that must not interfere — a failed sign-in
+ * and a failed second factor are different controls with different thresholds.
+ *
+ * The important property is what this function does NOT take: a resolved
+ * tenant id. A sign-in counter is keyed on the workspace slug **as typed**, so
+ * a slug naming no tenant at all gets a real counter that counts down and
+ * locks exactly like a real one. Keying on a resolved tenant would make the
+ * fake workspace's countdown stand still, which tells an attacker within two
+ * requests which of a BPO's customers exist. See ADR-0009.
+ */
+export function hashRateLimitKey(purpose: string, ...parts: string[]): Buffer {
+  const material = [purpose, ...parts.map((part) => part.trim().toLowerCase())].join(':');
+  return createHash('sha256').update(material, 'utf8').digest();
+}

@@ -22,10 +22,49 @@ export interface AuthPolicy {
   challengeMinutes: number;
   /** Wrong codes allowed against one challenge before it is burned. */
   challengeMaxAttempts: number;
+  /**
+   * Wrong codes allowed against one USER before their second factor is locked,
+   * across every challenge.
+   *
+   * Distinct from `challengeMaxAttempts` and the more important of the two.
+   * Burning a challenge alone bounds nothing: somebody holding a stolen
+   * password simply opens another. This is the number that decides how many
+   * guesses a stolen password buys in total.
+   */
+  mfaMaxAttempts: number;
+  /**
+   * How many second-factor challenges one user may have open at once.
+   *
+   * The other half of the same control. Without a cap, an attacker opens a
+   * thousand challenges and gets `challengeMaxAttempts` guesses against each.
+   */
+  maxOpenChallenges: number;
   /** Absolute session lifetime. No refresh in T-0001. */
   sessionHours: number;
   /** How long before a one-time code may be re-sent. */
   resendSeconds: number;
+  /**
+   * Sign-in requests one client address may make per minute.
+   *
+   * This exists for resource exhaustion, not for credential guessing — the
+   * lockout above handles that. Every sign-in runs argon2id at 19 MiB,
+   * including for addresses and workspaces that do not exist, because
+   * equalising the timing means doing the work either way. Unbounded, a few
+   * hundred concurrent requests cost gigabytes and take the cell down for every
+   * tenant on it, and varying the email means the identifier lockout never
+   * trips.
+   */
+  signInPerMinutePerClient: number;
+  /**
+   * The IANA zone a retry time is rendered in, for the whole cell.
+   *
+   * ONE value per deployment, not per tenant, and that is deliberate. Deriving
+   * it from the tenant made the lockout response for a workspace that does not
+   * exist differ from one that does, and disclosed the hosting region of any
+   * workspace an attacker could name. The browser knows the user's own zone and
+   * should render `retryAt` in it; this is the fallback label.
+   */
+  cellTimeZone: string;
 }
 
 export const AUTH_POLICY = Symbol('AUTH_POLICY');
@@ -36,30 +75,10 @@ export const DEFAULT_AUTH_POLICY: AuthPolicy = {
   lockoutMinutes: 15,
   challengeMinutes: 10,
   challengeMaxAttempts: 5,
+  mfaMaxAttempts: 10,
+  maxOpenChallenges: 3,
   sessionHours: 12,
   resendSeconds: 60,
+  signInPerMinutePerClient: 60,
+  cellTimeZone: 'Africa/Lagos',
 };
-
-/**
- * Which IANA zone a retry time should be rendered in.
- *
- * `P01/1b` requires the zone alongside the time: "try again in 15 minutes" is
- * useless to somebody whose phone clock is on a different zone from the
- * workspace, and BPO rosters routinely span WAT, EAT and SAST.
- *
- * Derived from the tenant's region cell, which is the only location fact the
- * schema currently holds. This is an approximation — a Nigerian tenant hosted
- * in `za-1` will be told a Johannesburg time — and it stops being one when the
- * tenant gains a real timezone column. Recorded as an open question in
- * team/reports/T-0001.md rather than papered over with a guess at the user's
- * own zone, which the server does not know.
- */
-const REGION_CELL_ZONES: Readonly<Record<string, string>> = {
-  'za-1': 'Africa/Johannesburg',
-  'ng-1': 'Africa/Lagos',
-  'ke-1': 'Africa/Nairobi',
-};
-
-export function timeZoneForRegionCell(regionCell: string | null | undefined): string {
-  return (regionCell === null || regionCell === undefined ? undefined : REGION_CELL_ZONES[regionCell]) ?? 'UTC';
-}

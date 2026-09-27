@@ -51,9 +51,19 @@ export default defineWorkspace([
       include: ['{apps,packages}/**/*.integration.test.ts'],
       exclude: ['**/node_modules/**', '**/dist/**'],
       globalSetup,
-      // Containers are slow to start and the suites share one; serialising
-      // avoids two projects racing for the same fixture data.
+      // Containers are slow to start and every suite shares ONE database, so
+      // the files must run one at a time.
+      //
+      // `fileParallelism` alone does not do it. Set inside a project block it
+      // is silently ignored — it is honoured at the root config or from the
+      // CLI — so for as long as this project had a single test file, it looked
+      // like it worked. The second file arrived with T-0001 and the two
+      // immediately truncated each other's tables mid-test, which surfaced as
+      // "the counter did not increment" and "the challenge does not exist",
+      // several layers away from the cause. `singleFork` is the project-level
+      // setting that is actually applied.
       fileParallelism: false,
+      poolOptions: { forks: { singleFork: true }, threads: { singleThread: true } },
       testTimeout: 30_000,
       hookTimeout: 180_000,
     },
@@ -69,6 +79,7 @@ export default defineWorkspace([
       exclude: ['**/node_modules/**', '**/dist/**'],
       globalSetup,
       fileParallelism: false,
+      poolOptions: { forks: { singleFork: true }, threads: { singleThread: true } },
       testTimeout: 30_000,
       hookTimeout: 180_000,
     },
@@ -87,7 +98,11 @@ export default defineWorkspace([
       // file when assigning, and from that moment CI enforces it.
       exclude: ['**/node_modules/**', '**/dist/**', '**/*.pending.acceptance.test.ts'],
       globalSetup,
+      // See the note on the integration project: a project-level
+      // `fileParallelism` is ignored, and this project has had several files
+      // sharing one database all along.
       fileParallelism: false,
+      poolOptions: { forks: { singleFork: true }, threads: { singleThread: true } },
       testTimeout: 30_000,
       hookTimeout: 180_000,
     },

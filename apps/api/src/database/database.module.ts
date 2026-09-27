@@ -1,4 +1,10 @@
-import { Global, Module, type DynamicModule, type OnApplicationShutdown } from '@nestjs/common';
+import {
+  Global,
+  Inject,
+  Module,
+  type DynamicModule,
+  type OnApplicationShutdown,
+} from '@nestjs/common';
 import { createPool } from '@kasuwa/db';
 import type { Pool } from 'pg';
 
@@ -15,7 +21,18 @@ export const PG_POOL = Symbol('PG_POOL');
 @Global()
 @Module({})
 export class DatabaseModule implements OnApplicationShutdown {
-  private static pool: Pool | undefined;
+  /**
+   * The pool is injected, NOT held in a static.
+   *
+   * It used to be a static field, which is correct for exactly one application
+   * per process and silently wrong for two: the second `forRoot` overwrote the
+   * reference, so closing either app ended the second app's pool and orphaned
+   * the first's. Nothing created two apps until T-0001's tests did, and the
+   * symptom when they did was not an error — it was connections leaking until
+   * the next suite's writes started failing, which reads like a bug in
+   * whatever was being tested rather than in here.
+   */
+  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   static forRoot(options: { databaseUrl: string; poolMax?: number }): DynamicModule {
     const pool = createPool({
@@ -23,7 +40,6 @@ export class DatabaseModule implements OnApplicationShutdown {
       max: options.poolMax ?? 10,
       applicationName: 'kasuwa-api',
     });
-    DatabaseModule.pool = pool;
 
     return {
       module: DatabaseModule,
@@ -33,7 +49,6 @@ export class DatabaseModule implements OnApplicationShutdown {
   }
 
   async onApplicationShutdown(): Promise<void> {
-    await DatabaseModule.pool?.end();
-    DatabaseModule.pool = undefined;
+    await this.pool.end();
   }
 }

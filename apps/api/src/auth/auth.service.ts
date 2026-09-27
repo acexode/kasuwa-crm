@@ -2,14 +2,21 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   dummyPasswordHash,
-  hashIdentifier,
+  hashRateLimitKey,
   hashSessionToken,
+  matchTotpStep,
   newSessionToken,
   verifyPassword,
-  verifyTotp,
 } from '@kasuwa/auth-crypto';
-import { resolveSessionIdentity, withAuthTransaction } from '@kasuwa/db';
-import type { AuthTx } from '@kasuwa/db';
+import {
+  clearAuthFailures,
+  hasTenant,
+  readAuthLock,
+  registerAuthFailure,
+  resolveSessionIdentity,
+  withAuthTransaction,
+} from '@kasuwa/db';
+import type { AuthTx, RateLimitPolicy, ResolvedAuthTx } from '@kasuwa/db';
 import type { Pool } from 'pg';
 import { PG_POOL } from '../database/database.module';
 import {
@@ -22,7 +29,7 @@ import {
   notImplemented,
   ssoDomainNotFound,
 } from './auth.errors';
-import { AUTH_POLICY, timeZoneForRegionCell, type AuthPolicy } from './auth.policy';
+import { AUTH_POLICY, type AuthPolicy } from './auth.policy';
 import {
   formatChallengeId,
   parseChallengeId,
@@ -47,18 +54,23 @@ import type {
  * `withTenantTransaction`, on every subsequent request, exactly as it was under
  * the stub.
  *
- * Three properties are load-bearing and each has a test that fails without it:
+ * Five properties are load-bearing. Each has a test that fails without it, and
+ * three of them are here because a security review found them missing:
  *
- *   1. Unknown email, wrong password, unknown workspace and disabled user are
+ *   1. Unknown workspace, unknown email, wrong password and disabled user are
  *      one response and one timing profile. Every path that can fail does the
- *      same argon2id work, verifying against a dummy hash when there is no real
- *      one. An early return for "no such user" is the usual way this leaks, and
- *      it is measurable over a network.
- *   2. The first factor issues a challenge and nothing else. No token, no
- *      cookie, no field whose name a client could mistake for one.
- *   3. Lockout counts the submitted identifier, not the account, so it works
- *      for an address that does not exist and therefore is not itself evidence
- *      that an address does.
+ *      same argon2id work against a dummy hash, and — since the review — takes
+ *      the same route through the same transaction, so the equality is
+ *      structural rather than maintained by hand.
+ *   2. The first factor issues a challenge and nothing else.
+ *   3. Rate limiting is keyed on what the CALLER SUBMITTED, never on resolved
+ *      identity, so a workspace that does not exist counts down and locks
+ *      exactly like one that does.
+ *   4. Every counter is incremented by Postgres in one statement. Read-modify-
+ *      write in application code does not survive concurrency, and the failure
+ *      mode is silent: the threshold is simply never reached.
+ *   5. A challenge is consumed conditionally, so it mints exactly one session
+ *      however many requests race for it.
  */
 @Injectable()
 export class AuthService {
@@ -69,49 +81,36 @@ export class AuthService {
 
   /** First factor. Returns a challenge; never a session. */
   async signIn(input: SignInInput): Promise<MfaChallengeResponse> {
+    // Keyed on the slug and address AS TYPED, before anything is resolved.
+    // This is the whole of the fix for workspace-slug enumeration: there is no
+    // branch where a real workspace has a counter and a fake one does not.
+    const rateKey = hashRateLimitKey('signin', input.tenantSlug, input.email);
+
     return this.commitThenFail(
       withAuthTransaction(this.pool, { tenantSlug: input.tenantSlug }, async (tx) => {
-        if (tx === null) {
-          // No such workspace. Do the work anyway, then fail exactly as a wrong
-          // password does. Returning here without hashing is the enumeration
-          // oracle the acceptance suite measures.
-          await verifyPassword(await dummyPasswordHash(), input.password);
-          // Reported as a first failure. There is no tenant to hold a counter
-          // against, and a null countdown here would tell a caller that the
-          // workspace does not exist. Known limitation, recorded in the T-0001
-          // report: the count does not decrement for a workspace that is not
-          // real, so a determined prober can still distinguish one eventually.
-          return invalidCredentials(this.remainingAfter(1));
-        }
-
-        const identifier = hashIdentifier(tx.tenantId, input.email);
-        const locked = await this.lockoutIfActive(tx, identifier);
+        const locked = await this.activeLock(tx, rateKey, this.signInLimits());
         if (locked !== null) {
           return locked;
         }
 
-        const account = await this.findAccount(tx, input.email);
+        // `account` is null both when the workspace does not resolve and when
+        // the address is unknown within it. The two are not distinguished
+        // anywhere below, including in how much work is done.
+        const account = hasTenant(tx) ? await this.findAccount(tx, input.email) : null;
         const hash = account?.passwordHash ?? (await dummyPasswordHash());
         const passwordMatches = await verifyPassword(hash, input.password);
 
-        // `account.status` is checked here rather than in the query so that a
-        // disabled user costs exactly as much as an active one.
+        // Status is checked here rather than in the query so that a disabled
+        // user costs exactly as much as an active one.
         if (!passwordMatches || account === null || account.status !== 'active') {
-          const failures = await this.recordFailure(tx, identifier);
-          if (this.isLockedOut(failures)) {
-            return accountLocked(await this.lock(tx, identifier), await this.timeZone(tx));
-          }
-          return invalidCredentials(this.remainingAfter(failures));
+          return this.failFirstFactor(tx, rateKey);
         }
 
         // A correct password clears the counter. Four typos across a week must
         // not lock somebody out on the fifth.
-        await tx.query(`DELETE FROM auth_attempt WHERE tenant_id = $1 AND identifier_hash = $2`, [
-          tx.tenantId,
-          identifier,
-        ]);
+        await clearAuthFailures(tx, rateKey);
 
-        return this.openChallenge(tx, account.id);
+        return this.openChallenge(tx as ResolvedAuthTx, account.id);
       }),
     );
   }
@@ -136,7 +135,7 @@ export class AuthService {
 
     return this.commitThenFail(
       withAuthTransaction(this.pool, { tenantId: reference.tenantId }, async (tx) => {
-        if (tx === null) {
+        if (!hasTenant(tx)) {
           return mfaChallengeInvalid();
         }
         const challenge = await this.findOpenChallenge(tx, reference.challengeId);
@@ -157,7 +156,7 @@ export class AuthService {
 
     return this.commitThenFail(
       withAuthTransaction(this.pool, { tenantId: reference.tenantId }, async (tx) => {
-        if (tx === null) {
+        if (!hasTenant(tx)) {
           return mfaChallengeInvalid();
         }
 
@@ -166,36 +165,72 @@ export class AuthService {
           return challenge;
         }
 
-        const factors = await tx.query<{ secret: string }>(
-          `SELECT secret
+        // A second, independent throttle on the user, not the challenge.
+        //
+        // The per-challenge counter alone is not a control: an attacker who
+        // already has the password can open a fresh challenge whenever the old
+        // one burns, and guess for as long as they like. This is the counter
+        // that actually bounds a stolen-password attack, and it is why the
+        // challenge cap in openChallenge exists as well.
+        const mfaKey = hashRateLimitKey('mfa', tx.tenantId, challenge.userId);
+        const locked = await this.activeLock(tx, mfaKey, this.mfaLimits());
+        if (locked !== null) {
+          return locked;
+        }
+
+        const factors = await tx.query<{ id: string; secret: string; last_used_step: string | null }>(
+          `SELECT id, secret, last_used_step
              FROM user_mfa_factor
             WHERE tenant_id = $1 AND user_id = $2 AND type = 'totp' AND confirmed_at IS NOT NULL`,
           [tx.tenantId, challenge.userId],
         );
 
-        const secret = factors[0]?.secret;
-        if (secret === undefined || !verifyTotp(secret, input.code)) {
-          const attempts = challenge.attemptCount + 1;
-          await tx.query(
-            `UPDATE auth_challenge SET attempt_count = $3 WHERE tenant_id = $1 AND id = $2`,
-            [tx.tenantId, reference.challengeId, attempts],
-          );
-          if (attempts >= this.policy.challengeMaxAttempts) {
-            // Burn it rather than leave a challenge that can be ground down.
-            await tx.query(
-              `UPDATE auth_challenge SET consumed_at = now() WHERE tenant_id = $1 AND id = $2`,
-              [tx.tenantId, reference.challengeId],
-            );
-            return mfaChallengeInvalid();
-          }
-          return mfaCodeInvalid(this.policy.challengeMaxAttempts - attempts);
+        const factor = factors[0];
+        const step = factor === undefined ? null : matchTotpStep(factor.secret, input.code);
+        // A code is usable once. Accepting it for the whole ninety seconds it
+        // stays arithmetically valid means a code seen over a shoulder or in a
+        // phishing form can be replayed while the victim is still typing.
+        const alreadyUsed =
+          step !== null &&
+          factor?.last_used_step != null &&
+          step <= Number(factor.last_used_step);
+
+        if (factor === undefined || step === null || alreadyUsed) {
+          return this.failSecondFactor(tx, reference, mfaKey, challenge.userId);
         }
 
-        // One challenge, one session. Consuming before issuing means a replayed
-        // challenge id cannot mint a second token.
-        await tx.query(
-          `UPDATE auth_challenge SET consumed_at = now() WHERE tenant_id = $1 AND id = $2`,
+        // Same lock order as every other path: `auth_rate_limit` first, then
+        // `auth_challenge`. Clearing before the consume means a request that
+        // then loses the consume race has cleared a counter it was entitled to
+        // clear anyway — it did present a correct code.
+        await clearAuthFailures(tx, mfaKey);
+
+        // Consume the challenge CONDITIONALLY. `findOpenChallenge` checked
+        // `consumed_at IS NULL` a few statements ago, and under READ COMMITTED
+        // that check is worthless by itself: N racing requests with the same
+        // valid code all pass it and all issue a session. The `AND consumed_at
+        // IS NULL ... RETURNING` is what makes one challenge mint exactly one
+        // session, and the row count is the only thing that proves it.
+        const claimed = await tx.query<{ id: string }>(
+          `UPDATE auth_challenge
+              SET consumed_at = now()
+            WHERE tenant_id = $1
+              AND id = $2
+              AND consumed_at IS NULL
+        RETURNING id`,
           [tx.tenantId, reference.challengeId],
+        );
+        if (claimed.length === 0) {
+          return mfaChallengeInvalid();
+        }
+
+        await tx.query(
+          `UPDATE user_mfa_factor
+              SET last_used_step = $3, updated_at = now()
+            WHERE tenant_id = $1
+              AND id = $2
+              AND (last_used_step IS NULL OR last_used_step < $3)`,
+          [tx.tenantId, factor.id, step],
         );
 
         return this.issueSession(tx, challenge.userId);
@@ -217,7 +252,7 @@ export class AuthService {
       return;
     }
     await withAuthTransaction(this.pool, { tenantId: identity.tenantId }, async (tx) => {
-      if (tx === null) {
+      if (!hasTenant(tx)) {
         return;
       }
       await tx.query(
@@ -248,13 +283,12 @@ export class AuthService {
    * Commits the transaction, then throws whatever went wrong.
    *
    * This is not a style choice, it is the bug that makes lockout work. Every
-   * failure path here has a side effect that must survive: a failed attempt
-   * increments a counter, a wrong second factor burns an attempt against the
-   * challenge. Throwing from inside `withAuthTransaction` rolls the whole
-   * transaction back, which silently discards exactly the row that was meant
-   * to be a record of the failure — so the counter never advances, nothing
-   * ever locks, and the tests that check it pass for the wrong reason until
-   * somebody counts.
+   * failure path here has a side effect that must survive: a failed sign-in
+   * increments a counter, a wrong code burns an attempt against the challenge.
+   * Throwing from inside `withAuthTransaction` rolls the whole transaction
+   * back, which silently discards exactly the row that was meant to be a record
+   * of the failure — so the counter never advances, nothing ever locks, and the
+   * tests that check it pass for the wrong reason until somebody counts.
    *
    * So the callbacks RETURN an `AuthError` rather than throwing one. The
    * transaction commits, and the error is raised out here where it can no
@@ -270,8 +304,122 @@ export class AuthService {
     return value;
   }
 
-  private async findAccount(
+  private signInLimits(): RateLimitPolicy {
+    return {
+      maxAttempts: this.policy.lockoutMaxAttempts,
+      windowMinutes: this.policy.lockoutWindowMinutes,
+      lockMinutes: this.policy.lockoutMinutes,
+    };
+  }
+
+  private mfaLimits(): RateLimitPolicy {
+    return {
+      maxAttempts: this.policy.mfaMaxAttempts,
+      windowMinutes: this.policy.lockoutWindowMinutes,
+      lockMinutes: this.policy.lockoutMinutes,
+    };
+  }
+
+  private async activeLock(
     tx: AuthTx,
+    keyHash: Buffer,
+    limits: RateLimitPolicy,
+  ): Promise<AuthError | null> {
+    if (limits.maxAttempts === 0) {
+      return null;
+    }
+    const state = await readAuthLock(tx, keyHash);
+    return state?.lockedUntil == null ? null : accountLocked(state.lockedUntil, this.timeZone());
+  }
+
+  private async failFirstFactor(tx: AuthTx, keyHash: Buffer): Promise<AuthError> {
+    if (this.policy.lockoutMaxAttempts === 0) {
+      return invalidCredentials(null);
+    }
+    const state = await registerAuthFailure(tx, keyHash, this.signInLimits());
+    if (state.lockedUntil !== null && state.lockedUntil.getTime() > Date.now()) {
+      return accountLocked(state.lockedUntil, this.timeZone());
+    }
+    return invalidCredentials(
+      Math.max(this.policy.lockoutMaxAttempts - state.failedCount, 0),
+    );
+  }
+
+  private async failSecondFactor(
+    tx: ResolvedAuthTx,
+    reference: ChallengeReference,
+    mfaKey: Buffer,
+    _userId: string,
+  ): Promise<AuthError> {
+    // ORDER MATTERS, AND NOT FOR STYLE. `auth_rate_limit` is locked before
+    // `auth_challenge`, here and everywhere else in this service.
+    //
+    // It used to be the other way round in this one method, while sign-in took
+    // them in the opposite order — so a sign-in and a second-factor attempt for
+    // the same user, arriving together, could each hold the row the other
+    // wanted. Postgres detects that and aborts one of them, which rolls back
+    // the transaction and with it the counter increment that was the whole
+    // point. The visible symptom is not an error: it is a lockout that never
+    // fires, a countdown stuck at its first value, and tests that fail
+    // somewhere else entirely.
+    const mfaState = await registerAuthFailure(tx, mfaKey, this.mfaLimits());
+
+    // Postgres does the arithmetic. The first version read attempt_count,
+    // added one in JavaScript and wrote the result back, so N concurrent
+    // guesses against one challenge all read 0 and all wrote 1 — the burn never
+    // fired and a single challenge accepted unlimited guesses.
+    const bumped = await tx.query<{ attempt_count: number }>(
+      `UPDATE auth_challenge
+          SET attempt_count = attempt_count + 1
+        WHERE tenant_id = $1 AND id = $2 AND consumed_at IS NULL
+    RETURNING attempt_count`,
+      [tx.tenantId, reference.challengeId],
+    );
+
+    const attempts = bumped[0]?.attempt_count;
+    if (attempts === undefined) {
+      // Consumed underneath us by a racing request. The failure above still
+      // counts: it was a wrong code either way.
+      return mfaChallengeInvalid();
+    }
+
+    if (mfaState.lockedUntil !== null && mfaState.lockedUntil.getTime() > Date.now()) {
+      await this.burn(tx, reference);
+      return accountLocked(mfaState.lockedUntil, this.timeZone());
+    }
+
+    if (attempts >= this.policy.challengeMaxAttempts) {
+      await this.burn(tx, reference);
+      return mfaChallengeInvalid();
+    }
+
+    return mfaCodeInvalid(Math.max(this.policy.challengeMaxAttempts - attempts, 0));
+  }
+
+  private async burn(tx: ResolvedAuthTx, reference: ChallengeReference): Promise<void> {
+    await tx.query(
+      `UPDATE auth_challenge SET consumed_at = now() WHERE tenant_id = $1 AND id = $2`,
+      [tx.tenantId, reference.challengeId],
+    );
+  }
+
+  /**
+   * The zone a retry time is rendered in.
+   *
+   * `P01/1b` needs the zone with the time. It is the CELL's zone, one value for
+   * the whole deployment, and that is deliberate on two counts. It cannot be
+   * the tenant's, because deriving it from a tenant would make the lockout
+   * response for a workspace that does not exist differ from one that does —
+   * the review's point that the 429 discloses the hosting region. And the
+   * server does not know the user's own zone; the browser does, and should
+   * render `retryAt` in it.
+   */
+  private timeZone(): string {
+    return this.policy.cellTimeZone;
+  }
+
+  private async findAccount(
+    tx: ResolvedAuthTx,
     email: string,
   ): Promise<{ id: string; status: string; passwordHash: string | null } | null> {
     // RLS confines this to the resolved tenant, and the explicit tenant_id
@@ -291,82 +439,36 @@ export class AuthService {
       : { id: row.id, status: row.status, passwordHash: row.password_hash };
   }
 
-  private async lockoutIfActive(tx: AuthTx, identifier: Buffer): Promise<AuthError | null> {
-    if (this.policy.lockoutMaxAttempts === 0) {
-      return null;
-    }
-    const rows = await tx.query<{ locked_until: Date | null }>(
-      `SELECT locked_until
-         FROM auth_attempt
-        WHERE tenant_id = $1 AND identifier_hash = $2 AND locked_until > now()`,
-      [tx.tenantId, identifier],
+  private async openChallenge(
+    tx: ResolvedAuthTx,
+    userId: string,
+  ): Promise<MfaChallengeResponse> {
+    // Cap how many challenges one user can have open at once.
+    //
+    // Without this, the per-challenge attempt counter is not a bound at all:
+    // an attacker holding the password opens a thousand challenges and guesses
+    // five times against each. Consuming the oldest rather than refusing the
+    // newest means an attacker cannot use this to deny a legitimate user their
+    // sign-in — the most recent challenge always works.
+    await tx.query(
+      `UPDATE auth_challenge
+          SET consumed_at = now()
+        WHERE tenant_id = $1
+          AND user_id = $2
+          AND consumed_at IS NULL
+          AND id IN (
+            SELECT id
+              FROM auth_challenge
+             WHERE tenant_id = $1
+               AND user_id = $2
+               AND consumed_at IS NULL
+               AND expires_at > now()
+             ORDER BY created_at DESC
+            OFFSET $3
+          )`,
+      [tx.tenantId, userId, Math.max(this.policy.maxOpenChallenges - 1, 0)],
     );
-    const lockedUntil = rows[0]?.locked_until;
-    return lockedUntil == null ? null : accountLocked(lockedUntil, await this.timeZone(tx));
-  }
 
-  /** Records a failure and returns the number of failures inside the window. */
-  private async recordFailure(tx: AuthTx, identifier: Buffer): Promise<number> {
-    if (this.policy.lockoutMaxAttempts === 0) {
-      return 0;
-    }
-    const window = `${this.policy.lockoutWindowMinutes} minutes`;
-    const rows = await tx.query<{ failed_count: number }>(
-      `INSERT INTO auth_attempt (tenant_id, identifier_hash, failed_count)
-            VALUES ($1, $2, 1)
-       ON CONFLICT (tenant_id, identifier_hash) DO UPDATE
-            SET failed_count = CASE
-                  WHEN auth_attempt.first_failed_at < now() - $3::interval THEN 1
-                  ELSE auth_attempt.failed_count + 1
-                END,
-                first_failed_at = CASE
-                  WHEN auth_attempt.first_failed_at < now() - $3::interval THEN now()
-                  ELSE auth_attempt.first_failed_at
-                END,
-                last_failed_at = now()
-         RETURNING failed_count`,
-      [tx.tenantId, identifier, window],
-    );
-    return rows[0]?.failed_count ?? 1;
-  }
-
-  private async lock(tx: AuthTx, identifier: Buffer): Promise<Date> {
-    const rows = await tx.query<{ locked_until: Date }>(
-      `UPDATE auth_attempt
-          SET locked_until = now() + $3::interval
-        WHERE tenant_id = $1 AND identifier_hash = $2
-        RETURNING locked_until`,
-      [tx.tenantId, identifier, `${this.policy.lockoutMinutes} minutes`],
-    );
-    return rows[0]?.locked_until ?? new Date(Date.now() + this.policy.lockoutMinutes * 60_000);
-  }
-
-  private isLockedOut(failures: number): boolean {
-    return this.policy.lockoutMaxAttempts > 0 && failures >= this.policy.lockoutMaxAttempts;
-  }
-
-  /**
-   * How many attempts remain, for the countdown on `P01/1a`.
-   *
-   * Null when lockout is disabled. Identical for a real and a fake address,
-   * because the counter is keyed on the submitted identifier either way.
-   */
-  private remainingAfter(failures: number): number | null {
-    if (this.policy.lockoutMaxAttempts === 0) {
-      return null;
-    }
-    return Math.max(this.policy.lockoutMaxAttempts - failures, 0);
-  }
-
-  private async timeZone(tx: AuthTx): Promise<string> {
-    const rows = await tx.query<{ region_cell: string }>(
-      `SELECT region_cell FROM tenant WHERE id = $1`,
-      [tx.tenantId],
-    );
-    return timeZoneForRegionCell(rows[0]?.region_cell);
-  }
-
-  private async openChallenge(tx: AuthTx, userId: string): Promise<MfaChallengeResponse> {
     // Random (v4) rather than the time-ordered v7 used for business rows: a
     // challenge id is a short-lived secret handed to the client, and an id an
     // attacker can guess the neighbourhood of is a worse starting point than
@@ -380,16 +482,11 @@ export class AuthService {
       [challengeId, tx.tenantId, userId, expiresAt],
     );
 
-    return this.describeChallenge(
-      tx,
-      userId,
-      { tenantId: tx.tenantId, challengeId },
-      expiresAt,
-    );
+    return this.describeChallenge(tx, userId, { tenantId: tx.tenantId, challengeId }, expiresAt);
   }
 
   private async describeChallenge(
-    tx: AuthTx,
+    tx: ResolvedAuthTx,
     userId: string,
     reference: ChallengeReference,
     expiresAt: Date,
@@ -420,7 +517,7 @@ export class AuthService {
   }
 
   private async findOpenChallenge(
-    tx: AuthTx,
+    tx: ResolvedAuthTx,
     challengeId: string,
   ): Promise<{ userId: string; attemptCount: number; expiresAt: Date } | AuthError> {
     const rows = await tx.query<{
@@ -449,7 +546,10 @@ export class AuthService {
     return { userId: row.user_id, attemptCount: row.attempt_count, expiresAt: row.expires_at };
   }
 
-  private async issueSession(tx: AuthTx, userId: string): Promise<SessionResponse | AuthError> {
+  private async issueSession(
+    tx: ResolvedAuthTx,
+    userId: string,
+  ): Promise<SessionResponse | AuthError> {
     const token = newSessionToken();
     const expiresAt = new Date(Date.now() + this.policy.sessionHours * 3_600_000);
 

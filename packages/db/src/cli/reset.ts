@@ -23,8 +23,15 @@ async function main(): Promise<void> {
   const client = new Client({ connectionString: url });
   await client.connect();
   try {
+    // Every table, including the authentication ones. A reset that leaves
+    // stale password hashes and live session rows behind is not a reset, and a
+    // half-dropped schema makes the next migration run fail on a table that
+    // already exists.
     await client.query(
-      'DROP TABLE IF EXISTS contact, user_programme, "user", programme, business_unit, tenant, _kasuwa_migration CASCADE',
+      'DROP TABLE IF EXISTS ' +
+        'auth_rate_limit, auth_session, auth_challenge, user_mfa_factor, user_credential, ' +
+        'contact, user_programme, "user", programme, business_unit, tenant, ' +
+        '_kasuwa_migration CASCADE',
     );
     await client.query('DROP SCHEMA IF EXISTS app CASCADE');
   } finally {

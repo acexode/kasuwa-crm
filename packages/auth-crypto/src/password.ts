@@ -26,16 +26,58 @@ const PARALLELISM = 1;
 const HASH_LENGTH = 32;
 const SALT_LENGTH = 16;
 
+/**
+ * How many argon2id operations may run at once, process-wide.
+ *
+ * Memory-hardness is the point of argon2 and it is also a weapon pointed at us:
+ * every sign-in allocates 19 MiB, including the ones for addresses and
+ * workspaces that do not exist, because equalising the timing means doing the
+ * work either way. Unbounded, a few hundred concurrent sign-ins cost several
+ * gigabytes of resident memory and take the API down **for every tenant in the
+ * cell** — and an identifier lockout does not help, because varying the email
+ * never trips it.
+ *
+ * Six slots caps that at roughly 120 MiB no matter what arrives. Requests past
+ * the cap queue rather than allocate; the per-IP throttle in the API is what
+ * keeps that queue from growing without bound. Both paths — real account and
+ * dummy hash — go through the same gate, so the queueing does not reintroduce a
+ * timing difference between them.
+ */
+const MAX_CONCURRENT_HASHES = 6;
+
+let activeHashes = 0;
+const hashQueue: (() => void)[] = [];
+
+async function withHashSlot<T>(work: () => Promise<T>): Promise<T> {
+  if (activeHashes >= MAX_CONCURRENT_HASHES) {
+    await new Promise<void>((resolve) => hashQueue.push(resolve));
+  }
+  activeHashes += 1;
+  try {
+    return await work();
+  } finally {
+    activeHashes -= 1;
+    hashQueue.shift()?.();
+  }
+}
+
+/** Test and diagnostic hook: how many hashes are in flight or waiting. */
+export function hashPressure(): { active: number; queued: number; limit: number } {
+  return { active: activeHashes, queued: hashQueue.length, limit: MAX_CONCURRENT_HASHES };
+}
+
 export async function hashPassword(password: string): Promise<string> {
-  return argon2id({
-    password,
-    salt: randomBytes(SALT_LENGTH),
-    memorySize: MEMORY_KIB,
-    iterations: ITERATIONS,
-    parallelism: PARALLELISM,
-    hashLength: HASH_LENGTH,
-    outputType: 'encoded',
-  });
+  return withHashSlot(async () =>
+    argon2id({
+      password,
+      salt: randomBytes(SALT_LENGTH),
+      memorySize: MEMORY_KIB,
+      iterations: ITERATIONS,
+      parallelism: PARALLELISM,
+      hashLength: HASH_LENGTH,
+      outputType: 'encoded',
+    }),
+  );
 }
 
 /**
@@ -47,11 +89,13 @@ export async function hashPassword(password: string): Promise<string> {
  * this particular account exists and is in an unusual state.
  */
 export async function verifyPassword(hash: string, password: string): Promise<boolean> {
-  try {
-    return await argon2Verify({ password, hash });
-  } catch {
-    return false;
-  }
+  return withHashSlot(async () => {
+    try {
+      return await argon2Verify({ password, hash });
+    } catch {
+      return false;
+    }
+  });
 }
 
 /**

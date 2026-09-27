@@ -14,8 +14,9 @@ import {
 import { totpCode } from '@kasuwa/auth-crypto';
 import { Client } from 'pg';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, inject, it } from 'vitest';
 import { AppModule } from '../app.module';
+import { SignInThrottleGuard } from './sign-in-throttle.guard';
 
 /**
  * T-0001, end to end against a real Postgres.
@@ -78,6 +79,42 @@ const MFA = '/api/v1/auth/mfa';
 const ME = '/api/v1/auth/me';
 const CONTACTS = '/api/v1/contacts';
 
+
+/**
+ * Put every piece of authentication state back to what the seed produced.
+ *
+ * Both integration files in this directory drive the same seeded users against
+ * the same container, and authentication is made almost entirely of state that
+ * is SUPPOSED to persist: failed-attempt counters, open challenges, issued
+ * sessions, the single-use TOTP watermark, whether a user is disabled, whether
+ * a tenant is suspended. Every one of those is deliberate in production and
+ * poison between tests, and leaving any of them behind makes a later test fail
+ * for a reason that has nothing to do with what it asserts — which is exactly
+ * what happened, in a different combination on each run.
+ *
+ * This is isolation, not leniency. The limits themselves stay at their real
+ * defaults; each test simply starts from the same place.
+ */
+async function resetAuthState(migrationUrl: string): Promise<void> {
+  const client = new Client({ connectionString: migrationUrl });
+  await client.connect();
+  try {
+    // DELETE rather than TRUNCATE. TRUNCATE takes an ACCESS EXCLUSIVE lock on
+    // every table named, which deadlocks against a request still holding row
+    // locks on those same tables in the other order — and an aborted
+    // transaction silently loses the counter it was writing, so the symptom
+    // surfaces as an unrelated assertion in a later test.
+    await client.query('DELETE FROM auth_session');
+    await client.query('DELETE FROM auth_challenge');
+    await client.query('DELETE FROM auth_rate_limit');
+    await client.query('UPDATE user_mfa_factor SET last_used_step = NULL');
+    await client.query(`UPDATE "user" SET status = 'active' WHERE status <> 'active'`);
+    await client.query(`UPDATE tenant SET status = 'active' WHERE status <> 'active'`);
+  } finally {
+    await client.end();
+  }
+}
+
 describe('authentication', () => {
   let app: INestApplication;
   let migrationUrl: string;
@@ -85,7 +122,22 @@ describe('authentication', () => {
   beforeAll(async () => {
     migrationUrl = inject('migrationUrl');
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule.forRoot({ databaseUrl: inject('databaseUrl'), poolMax: 5 })],
+      imports: [
+        AppModule.forRoot({
+          databaseUrl: inject('databaseUrl'),
+          poolMax: 5,
+          // NO policy overrides. This file runs against the same numbers a
+          // deployment runs against — the real lockout threshold, the real
+          // per-client throttle, real single-use codes — because a control
+          // that is configured away in every test is a control nobody has
+          // watched work. What the tests get instead is ISOLATION: beforeEach
+          // hands each one a clean counter rather than letting it inherit the
+          // previous test's failures and trip a lockout that belongs to
+          // somebody else. Sharing those counters made a different set of
+          // tests fail on every run, which is how a suite teaches people to
+          // re-run it instead of reading it.
+        }),
+      ],
     }).compile();
     app = moduleRef.createNestApplication({ logger: false });
     await app.init();
@@ -93,6 +145,33 @@ describe('authentication', () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  /**
+   * Isolate each test from the previous one's counters.
+   *
+   * Three pieces of shared state. All three are deliberate in production and
+   * all three are poison between tests:
+   *
+   *   `auth_rate_limit`               failed sign-ins and failed second
+   *                                   factors, keyed on what was submitted
+   *   `user_mfa_factor.last_used_step` the single-use TOTP watermark, which
+   *                                   correctly refuses the same code twice
+   *                                   inside one thirty-second step — and this
+   *                                   file signs the same user in repeatedly
+   *                                   within a few seconds
+   *   the throttle's window           sixty seconds, in process, per client
+   *                                   address, and every request here comes
+   *                                   from the same address
+   *
+   * Clearing them is not the same as turning the controls off: the limits are
+   * the real defaults and every test still has to stay inside them. Each of
+   * the three has its own test, with the default on, in
+   * `auth-hardening.integration.test.ts`.
+   */
+  beforeEach(async () => {
+    app.get(SignInThrottleGuard).clear();
+    await resetAuthState(migrationUrl);
   });
 
   const server = () => app.getHttpServer();
@@ -106,13 +185,13 @@ describe('authentication', () => {
         tenantSlug: credentials.tenantSlug,
         email: credentials.email,
         password: credentials.password,
-      })
-      .expect(200);
+      });
+    expect(started.status, `sign-in failed: ${JSON.stringify(started.body)}`).toBe(200);
 
     const verified = await request(server())
       .post(MFA)
-      .send({ challengeId: started.body.challengeId, code: codeFor(userId) })
-      .expect(200);
+      .send({ challengeId: started.body.challengeId, code: codeFor(userId) });
+    expect(verified.status, `MFA failed: ${JSON.stringify(verified.body)}`).toBe(200);
 
     return verified.body.accessToken as string;
   };
@@ -170,8 +249,6 @@ describe('authentication', () => {
       expect(unknown.body).toEqual(wrongPassword.body);
       expect(unknown.body.code).toBe('invalid_credentials');
 
-      // A correct sign-in clears the counter this just dirtied.
-      await signInAs(USER_A_AGENT_1);
     });
 
     it('answers identically for an unknown workspace', async () => {
@@ -190,7 +267,6 @@ describe('authentication', () => {
       expect(unknownTenant.status).toBe(401);
       expect(unknownTenant.body).toEqual(wrongPassword.body);
 
-      await signInAs(USER_A_AGENT_1);
     });
 
     it('refuses a user from another tenant with the same generic failure', async () => {
@@ -232,7 +308,6 @@ describe('authentication', () => {
 
       expect(Math.max(unknown, known) / Math.min(unknown, known)).toBeLessThan(3);
 
-      await signInAs(USER_A_SUPERVISOR);
     });
   });
 
@@ -262,11 +337,11 @@ describe('authentication', () => {
       expect(locked.body.retryAt).toEqual(expect.any(String));
       // P01/1b: a time without a zone is useless to somebody in another one.
       //
-      // Johannesburg, not Lagos, and that is the approximation showing itself:
-      // Sahel BPO is a Nigerian tenant seeded into the `za-1` cell, and the
-      // zone is derived from the cell because the schema holds no tenant
-      // timezone. Recorded as an open question in team/reports/T-0001.md.
-      expect(locked.body.timeZone).toBe('Africa/Johannesburg');
+      // One value for the whole cell, never derived from the tenant: a
+      // per-tenant zone made the lockout response for a workspace that does not
+      // exist differ from one that does, and disclosed the hosting region of
+      // any workspace an attacker could name. See ADR-0009.
+      expect(locked.body.timeZone).toBe('Africa/Lagos');
 
       // A different address is untouched. The counter is per identifier, so a
       // lockout is not itself evidence that an address is real.
@@ -294,8 +369,6 @@ describe('authentication', () => {
       const afterSuccess = await fail(credentials.email);
       expect(afterSuccess.status).toBe(401);
       expect(afterSuccess.body.attemptsRemaining).toBe(4);
-
-      await signInAs(USER_A_AGENT_1);
     });
   });
 

@@ -1,4 +1,5 @@
 import {
+  bigint,
   boolean,
   char,
   customType,
@@ -160,6 +161,11 @@ export const userMfaFactor = pgTable(
     label: text('label'),
     /** Base32 TOTP secret. Never selected into a response. See migration 0002. */
     secret: text('secret').notNull(),
+    /**
+     * Highest TOTP step already accepted. A code at or below it is refused, so
+     * a code is single-use rather than valid for its whole drift window.
+     */
+    lastUsedStep: bigint('last_used_step', { mode: 'number' }),
     confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -209,18 +215,30 @@ export const authSession = pgTable(
   ],
 );
 
-export const authAttempt = pgTable(
-  'auth_attempt',
+/**
+ * Failed-attempt counters for sign-in and second-factor verification.
+ *
+ * NOT TENANT-SCOPED, ON PURPOSE. It is the only such table in the system and
+ * the exception is argued in ADR-0009 and in migration 0003, not assumed. In
+ * one line: its job is to count failures for a workspace that may not exist, so
+ * that a real and a fake workspace answer identically — and a counter that
+ * could only be kept for real tenants would give the game away after two
+ * requests.
+ *
+ * Listed in NON_TENANT_SCOPED_TABLES below so the catalogue invariant's
+ * exemption is named rather than silent.
+ */
+export const authRateLimit = pgTable(
+  'auth_rate_limit',
   {
-    tenantId: uuid('tenant_id').notNull(),
-    /** sha256(tenantId + ':' + lower(email)). Never the address itself. */
-    identifierHash: customBytea('identifier_hash').notNull(),
+    /** SHA-256 of a purpose-prefixed key. Never an address, never a tenant id. */
+    keyHash: customBytea('key_hash').primaryKey(),
     failedCount: integer('failed_count').notNull().default(0),
     firstFailedAt: timestamp('first_failed_at', { withTimezone: true }).notNull().defaultNow(),
     lastFailedAt: timestamp('last_failed_at', { withTimezone: true }).notNull().defaultNow(),
     lockedUntil: timestamp('locked_until', { withTimezone: true }),
   },
-  (table) => [primaryKey({ columns: [table.tenantId, table.identifierHash] })],
+  (table) => [index('auth_rate_limit_expiry_idx').on(table.lastFailedAt)],
 );
 
 /**
@@ -238,7 +256,34 @@ export const TENANT_SCOPED_TABLES = [
   'user_mfa_factor',
   'auth_challenge',
   'auth_session',
-  'auth_attempt',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];
+
+/**
+ * Tables that deliberately carry no `tenant_id`, and the reason each one does
+ * not. **Adding an entry here is an architecture decision and needs an ADR.**
+ *
+ * This list exists so that the exemption from the catalogue invariant in
+ * `tests/acceptance/tenancy/rls-enforcement.acceptance.test.ts` — which asserts
+ * set equality between `TENANT_SCOPED_TABLES` and every table in `public` — is
+ * something a reader can find and a reviewer can challenge. An exemption that
+ * only existed as a quiet `NOT IN` in a query would be worse than the finding
+ * it answers.
+ *
+ * Everything on this list must STILL have RLS enabled and forced and at least
+ * one policy; `readTableSecurity` skips these tables only for the set-equality
+ * check, and `schema-invariants` asserts their RLS state separately.
+ */
+export const NON_TENANT_SCOPED_TABLES = [
+  /**
+   * `auth_rate_limit` — counts failed sign-ins for a workspace slug that may
+   * name no tenant at all. Scoping it to a tenant would make an unknown
+   * workspace answer differently from a real one, which is the enumeration
+   * oracle it exists to close. Holds a SHA-256 and three integers: no personal
+   * data, no business data, no tenant id. ADR-0009.
+   */
+  'auth_rate_limit',
+] as const;
+
+export type NonTenantScopedTable = (typeof NON_TENANT_SCOPED_TABLES)[number];

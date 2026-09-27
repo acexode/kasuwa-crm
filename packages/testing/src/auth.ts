@@ -44,12 +44,91 @@ export function seededTotpCode(userId: string, at: Date = new Date()): string {
 }
 
 /**
+ * How many steps this harness has already handed out for a user.
+ *
+ * TOTP codes are single-use (RFC 6238 section 5.2): the server records the
+ * step it accepted and refuses anything at or below it. That is correct, and a
+ * real person almost never notices it, because signing in twice inside one
+ * thirty-second window is not a thing people do. Test suites do it constantly.
+ *
+ * The server accepts the step either side of the current one for clock drift,
+ * so three sign-ins in quick succession ARE possible — at steps n-1, n and
+ * n+1 — provided the harness hands them out in increasing order rather than
+ * returning the same current code three times. That is all this map does.
+ *
+ * A fourth rapid sign-in as the same user cannot work, and no harness can make
+ * it: step n+2 is outside the window the server will accept, so the only way
+ * through is to let the clock move on. If a suite needs more than three, it
+ * should either reuse the session it already has or reset the watermark with
+ * `resetSeededTotpUsage`.
+ */
+const issuedSteps = new Map<string, number>();
+
+const STEP_SECONDS = 30;
+
+/**
+ * A code for a seeded user that has not been used yet, if one is available.
+ *
+ * Walks forward through the acceptable window rather than returning the same
+ * current code every time. Throws a message naming the fix when the window is
+ * exhausted, because failing with "that code did not match" three layers down
+ * would send the next person looking in the wrong place entirely.
+ */
+export function freshSeededTotpCode(userId: string, at: Date = new Date()): string {
+  const currentStep = Math.floor(at.getTime() / 1000 / STEP_SECONDS);
+  const previous = issuedSteps.get(userId);
+  const step = previous === undefined ? currentStep - 1 : previous + 1;
+
+  if (step > currentStep + 1) {
+    throw new Error(
+      `No unused TOTP step left for ${userId} in this window. Codes are single-use ` +
+        `and the server accepts only one step either side of the current one, so at most ` +
+        `three sign-ins as one user can happen inside thirty seconds. Reuse the session ` +
+        `you already have, call resetSeededTotpUsage(), or construct the app with ` +
+        `authPolicy: { rejectReusedTotpCodes: false }.`,
+    );
+  }
+
+  issuedSteps.set(userId, step);
+  return totpCode(seededCredentials(userId).totpSecret, new Date(step * STEP_SECONDS * 1000));
+}
+
+/**
+ * Clears the server's single-use watermark and the harness's own.
+ *
+ * For a suite that signs the same user in more than three times in quick
+ * succession. It is NOT the same as turning single-use codes off: the control
+ * stays on and every sign-in still goes through it; the fixture simply starts
+ * each test from a clean sheet, exactly as truncating a rate-limit counter
+ * does. Replay rejection has its own test, with the default on, in
+ * `apps/api/src/auth/auth-hardening.integration.test.ts`.
+ */
+export async function resetSeededTotpUsage(migrationUrl: string): Promise<void> {
+  issuedSteps.clear();
+  const client = new Client({ connectionString: migrationUrl });
+  await client.connect();
+  try {
+    await client.query('UPDATE user_mfa_factor SET last_used_step = NULL');
+  } finally {
+    await client.end();
+  }
+}
+
+/**
  * The same, for a test that says "sign in as tenant A" and does not care which
  * of that tenant's users it gets. It gets the first one, consistently, so the
  * credentials and the code always belong to the same person.
  */
 export function seededTotpCodeForTenant(tenantId: string, at: Date = new Date()): string {
-  return totpCode(seededCredentialsForTenant(tenantId).totpSecret, at);
+  const userId = seedPrimaryUser(tenantId);
+  if (userId === undefined) {
+    throw new Error(`No seeded users for tenant ${tenantId}`);
+  }
+  // Deliberately the step-walking variant. A suite that says "sign in as
+  // tenant A" and means it several times over is exactly the caller that trips
+  // over single-use codes, and returning the same current code each time would
+  // fail it on the second call.
+  return freshSeededTotpCode(userId, at);
 }
 
 /**

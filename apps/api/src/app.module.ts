@@ -2,6 +2,7 @@ import { Module, type DynamicModule } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
+import { SignInThrottleGuard } from './auth/sign-in-throttle.guard';
 import { AUTH_POLICY, DEFAULT_AUTH_POLICY, type AuthPolicy } from './auth/auth.policy';
 import { ContactsController } from './contacts/contacts.controller';
 import { DatabaseModule } from './database/database.module';
@@ -61,6 +62,7 @@ export class AppModule {
       controllers: [HealthController, AuthController, ContactsController],
       providers: [
         AuthService,
+        SignInThrottleGuard,
         KasuwaAuthGuard,
         StubAuthGuard,
         TenantTransactionInterceptor,

@@ -81,6 +81,26 @@ immediately and so that a client can never widen its own reach.
   pin `search_path`, and return identifiers only. **Adding a third is an
   architecture decision, not a convenience**, and the migration says so.
 
+## Suspension, added after the tenancy review
+
+The first version checked tenant status only when resolving a workspace slug,
+so a suspended tenant could not *start* a sign-in but could finish one it had
+started, and every session already issued ran to its own expiry. For a platform
+where suspension may follow a compliance event, that is a containment control
+that does not contain.
+
+`app.resolve_session` now joins `tenant` and requires `status <> 'suspended'`,
+and the client-supplied tenant id in a challenge id is confirmed against the
+same condition rather than merely parsed as a uuid. Because scope is re-resolved
+on every request, checking status per request is strictly better than revoking
+sessions at suspension time: it takes effect immediately, it cannot miss a
+session issued during the race, and un-suspending restores access without
+reissuing anything.
+
+**Still missing:** there is no endpoint that suspends a tenant, so nothing
+exercises this outside a test that sets the column directly. Tenant
+administration is a later M2 task.
+
 ## Open, and deliberately not decided here
 
 Session lifetime, refresh behaviour and concurrent-session policy are product

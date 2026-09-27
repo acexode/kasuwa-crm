@@ -8,17 +8,28 @@
  * construction instead of by copy-paste.
  *
  * It contains no policy — no lockout thresholds, no session lifetimes, no
- * database access. Those belong to the caller.
+ * database access. Those belong to the caller. The one exception is the
+ * concurrency cap on argon2id, which lives here because it is a property of the
+ * primitive's memory cost rather than of any caller's policy.
  */
 export {
   constantTimeEquals,
   dummyPasswordHash,
   hashPassword,
+  hashPressure,
   verifyPassword,
 } from './password';
-export { base32Decode, base32Encode, generateTotpSecret, totpCode, verifyTotp } from './totp';
+export {
+  base32Decode,
+  base32Encode,
+  generateTotpSecret,
+  matchTotpStep,
+  totpCode,
+  verifyTotp,
+} from './totp';
 export {
   hashIdentifier,
+  hashRateLimitKey,
   hashSessionToken,
   newSessionToken,
   SESSION_TOKEN_PREFIX,

@@ -16,6 +16,7 @@ import { KasuwaAuthGuard, readBearerToken } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { notAuthenticated, notImplemented } from './auth.errors';
 import { AuthService } from './auth.service';
+import { SignInThrottleGuard } from './sign-in-throttle.guard';
 import {
   MfaChallengeBody,
   MfaVerifyBody,
@@ -61,6 +62,7 @@ export class AuthController {
    * `account_locked`. The 200 body carries nothing usable on its own.
    */
   @Post('sign-in')
+  @UseGuards(SignInThrottleGuard)
   @HttpCode(HttpStatus.OK)
   async signIn(@Body() body: unknown): Promise<MfaChallengeResponse> {
     return this.auth.signIn(SignInBody.parse(body));
@@ -68,6 +70,7 @@ export class AuthController {
 
   /** POST /api/v1/auth/mfa/challenge — re-issue or switch the second factor. */
   @Post('mfa/challenge')
+  @UseGuards(SignInThrottleGuard)
   @HttpCode(HttpStatus.OK)
   async challenge(@Body() body: unknown): Promise<MfaChallengeResponse> {
     return this.auth.reissueChallenge(MfaChallengeBody.parse(body));
@@ -75,6 +78,7 @@ export class AuthController {
 
   /** POST /api/v1/auth/mfa — second factor. The only route that issues a token. */
   @Post('mfa')
+  @UseGuards(SignInThrottleGuard)
   @HttpCode(HttpStatus.OK)
   async verify(@Body() body: unknown): Promise<SessionResponse> {
     return this.auth.verifyMfa(MfaVerifyBody.parse(body));
@@ -131,9 +135,16 @@ export class AuthController {
       email: string;
       display_name: string;
       locale: string;
-    }>(`SELECT id, tenant_id, email, display_name, locale FROM "user" WHERE id = $1`, [
-      tx.session.userId,
-    ]);
+      // RLS already confines this to the caller's tenant. The explicit
+      // tenant_id predicate is the second, independent layer every other query
+      // in this change carries, and both security reviews called out its
+      // absence here: one typo in a policy should not be enough.
+    }>(
+      `SELECT id, tenant_id, email, display_name, locale
+         FROM "user"
+        WHERE id = $1 AND tenant_id = $2`,
+      [tx.session.userId, tx.session.tenantId],
+    );
 
     const user = rows[0];
     if (user === undefined) {

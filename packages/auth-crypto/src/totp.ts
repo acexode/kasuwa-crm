@@ -81,18 +81,24 @@ export function totpCode(secret: string, at: Date = new Date()): string {
 }
 
 /**
- * Verifies a submitted code, allowing for clock drift.
+ * Verifies a submitted code and returns the step it matched, or null.
+ *
+ * The step is returned rather than a boolean because a code must be usable
+ * ONCE, not for the whole ninety seconds it stays arithmetically valid. The
+ * caller records the step it accepted and refuses anything at or below it
+ * afterwards, which is what stops a code seen over a shoulder, in a screen
+ * share or in a phishing form being replayed while the victim is still typing.
  *
  * Compares in constant time and rejects anything that is not exactly six
  * digits before doing any work, so a malformed code cannot reach the HMAC.
  */
-export function verifyTotp(
+export function matchTotpStep(
   secret: string,
   code: string,
   options: { at?: Date; window?: number } = {},
-): boolean {
+): number | null {
   if (!/^[0-9]{6}$/u.test(code)) {
-    return false;
+    return null;
   }
 
   const at = options.at ?? new Date();
@@ -103,19 +109,28 @@ export function verifyTotp(
   try {
     key = base32Decode(secret);
   } catch {
-    return false;
+    return null;
   }
 
-  let matched = false;
+  let matched: number | null = null;
   for (let offset = -window; offset <= window; offset += 1) {
     // No early return: checking every step regardless keeps the time taken
     // independent of WHICH step matched, so the response cannot be used to
     // measure a phone's clock offset.
     if (constantTimeEquals(hotp(key, counter + offset), code)) {
-      matched = true;
+      matched = counter + offset;
     }
   }
   return matched;
+}
+
+/** Whether a code is arithmetically valid, ignoring single use. */
+export function verifyTotp(
+  secret: string,
+  code: string,
+  options: { at?: Date; window?: number } = {},
+): boolean {
+  return matchTotpStep(secret, code, options) !== null;
 }
 
 /** HOTP (RFC 4226) with dynamic truncation. */

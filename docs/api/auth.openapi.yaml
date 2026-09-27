@@ -116,7 +116,7 @@ paths:
                 resendAvailableAt: null
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/InvalidCredentials' }
-        '429': { $ref: '#/components/responses/AccountLocked' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
 
   /api/v1/auth/mfa/challenge:
     post:
@@ -201,6 +201,7 @@ paths:
                   locale: en-NG
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/MfaChallengeRejected' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
 
   /api/v1/auth/sign-out:
     post:
@@ -626,6 +627,7 @@ components:
             - validation_failed
             - invalid_credentials
             - account_locked
+            - too_many_requests
             - mfa_challenge_invalid
             - mfa_code_invalid
             - mfa_challenge_expired
@@ -663,9 +665,17 @@ components:
         timeZone:
           type: string
           description: |
-            IANA zone the retry time should be rendered in, e.g. `Africa/Lagos`.
-            `P01/1b` must show the zone: "try again in 15 minutes" is useless to
-            someone whose phone clock is on another zone.
+            IANA zone to label the retry time with, e.g. `Africa/Lagos`.
+            `P01/1b` must show a zone: "try again in 15 minutes" is useless to
+            someone whose phone clock is on another one.
+
+            **It is one value for the whole deployment, not the tenant's.**
+            Deriving it per tenant made the lockout response for a workspace
+            that does not exist differ from one that does, and disclosed the
+            hosting region of any workspace an attacker could name (ADR-0009).
+            The server does not know the user's own zone; the browser does, and
+            **should render `retryAt` in the device's zone** and treat this only
+            as a fallback label.
 
   responses:
     ValidationFailed:
@@ -697,11 +707,24 @@ components:
             message: Sign-in failed. Check your email address and password, then try again.
             attemptsRemaining: 4
 
-    AccountLocked:
+    TooManyAttempts:
       description: |
-        Too many failed attempts for this workspace and email. Applied to the
-        submitted identifier whether or not an account exists, so a lockout is
-        not evidence that the address is real.
+        Two different reasons share this status, and the `code` tells them
+        apart. Both are rendered by `P01/1b`.
+
+        * `account_locked` — five failed sign-ins for this workspace and email
+          (the design's number). Counted against the identifier **as submitted**,
+          whether or not an account exists, so a lockout is not evidence that
+          the address is real. The same code also appears from the second-factor
+          route once a user has got too many codes wrong across every challenge
+          they opened.
+        * `too_many_requests` — the client address is calling the expensive
+          routes too fast. This is a resource control, not a credential one: a
+          sign-in runs argon2id whether or not the account exists, so an
+          unbounded flood would exhaust the cell for every tenant on it. It is
+          not evidence about any account at all.
+
+        Both carry `retryAt` and a `Retry-After` header.
       headers:
         Retry-After:
           schema: { type: integer }
@@ -721,7 +744,11 @@ components:
       description: |
         The second factor failed. Three codes share this response; all are 401.
 
-        * `mfa_code_invalid` — wrong code. `attemptsRemaining` counts down.
+        * `mfa_code_invalid` — wrong code, **or a code that has already been
+          used**. A TOTP code is valid for one thirty-second step and is
+          accepted once (RFC 6238 section 5.2), so signing in twice as the same
+          user inside one step needs the next code. `attemptsRemaining` counts
+          down.
         * `mfa_challenge_expired` — the challenge timed out (ten minutes).
           `P01/2b` swaps the primary button to "Send a new code" on this.
         * `mfa_challenge_invalid` — unknown, already used, or already failed too

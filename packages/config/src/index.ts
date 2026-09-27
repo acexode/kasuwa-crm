@@ -74,6 +74,34 @@ const EnvSchema = z.object({
   KASUWA_AUTH_CHALLENGE_MINUTES: z.coerce.number().int().positive().max(60).default(10),
   KASUWA_AUTH_CHALLENGE_MAX_ATTEMPTS: z.coerce.number().int().positive().max(20).default(5),
 
+  // Wrong codes allowed against one USER before their second factor locks,
+  // across every challenge they open. This is the number that bounds what a
+  // stolen password is worth: burning a single challenge bounds nothing,
+  // because the attacker just opens another.
+  KASUWA_AUTH_MFA_MAX_ATTEMPTS: z.coerce.number().int().positive().max(100).default(10),
+  KASUWA_AUTH_MAX_OPEN_CHALLENGES: z.coerce.number().int().positive().max(50).default(3),
+
+  // RFC 6238 section 5.2: a TOTP code is usable once. On by default. Turning it
+  // off is a deliberate weakening, and the knob exists only because a code
+  // stays valid for ninety seconds — which a test suite that signs the same
+  // user in repeatedly trips over, and a real person almost never does.
+  KASUWA_AUTH_REJECT_REUSED_TOTP: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+
+  // Sign-in requests one client address may make per minute. A resource
+  // control, not a credential one: argon2id costs 19 MiB per call and runs for
+  // unknown addresses too, so an unbounded flood exhausts the cell for every
+  // tenant on it.
+  KASUWA_AUTH_SIGN_IN_PER_MINUTE: z.coerce.number().int().min(0).max(10_000).default(60),
+
+  // The IANA zone a lockout's retry time is labelled with. ONE value per cell,
+  // never per tenant: deriving it from the tenant made the response for a
+  // workspace that does not exist differ from one that does, and disclosed the
+  // hosting region of any workspace an attacker could name.
+  KASUWA_CELL_TIME_ZONE: z.string().min(1).max(64).default('Africa/Lagos'),
+
   // PROVISIONAL, and flagged as such in team/reports/T-0001.md. Session
   // lifetime, refresh and concurrent-session policy are product decisions the
   // human has not made; twelve hours with no refresh is the conservative

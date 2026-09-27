@@ -20,6 +20,7 @@ export type AuthErrorCode =
   | 'validation_failed'
   | 'invalid_credentials'
   | 'account_locked'
+  | 'too_many_requests'
   | 'mfa_challenge_invalid'
   | 'mfa_code_invalid'
   | 'mfa_challenge_expired'
