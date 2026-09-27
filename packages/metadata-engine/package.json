@@ -1,0 +1,10 @@
+{
+  "name": "@kasuwa/metadata-engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": { "lint": "eslint src", "typecheck": "tsc -p tsconfig.json --noEmit" },
+  "nx": { "tags": ["scope:shared", "type:util"] }
+}
