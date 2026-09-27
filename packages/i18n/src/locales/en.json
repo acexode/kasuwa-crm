@@ -1,0 +1,18 @@
+{
+  "app.name": "Kasuwa",
+  "app.tagline": "CRM and contact centre, built in Africa",
+  "nav.skipToContent": "Skip to content",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+  "tokens.page.title": "Design tokens",
+  "tokens.page.subtitle": "The single source of truth for colour, type and spacing.",
+  "tokens.provisional.notice": "Provisional. These scales were derived from the three brand anchors in Prompt 0 and will be replaced by the Claude Design export. See decision D-L10.",
+  "tokens.section.colour": "Colour scales",
+  "tokens.section.semantic": "Semantic tokens",
+  "tokens.section.type": "Type scale",
+  "tokens.section.spacing": "Spacing",
+  "tokens.section.radius": "Radius",
+  "tokens.contrast.label": "{ratio} to 1 against {background}",
+  "tokens.sample.text": "Ìbàdàn · Ọ̀yọ́ · Kàno · ₦1,250,000.00 · +234 803 123 4567",
+  "tokens.scale.count": "{count, plural, one {# step} other {# steps}}"
+}

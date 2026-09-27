@@ -1,0 +1,6 @@
+/* Design tokens first: Tailwind utilities reference these custom properties. */
+@import '@kasuwa/ui/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
