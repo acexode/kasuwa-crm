@@ -313,12 +313,29 @@ ${clean.stdout}`).toBe(
     // A translator who drops `{count}` produces a sentence with a hole in it;
     // one who invents `{total}` produces a render-time error. Both are common
     // and neither is visible without the source beside the translation.
+    // AMENDED BY THE LEAD, 2026-09-27. This used the regex /\{\s*(\w+)/g,
+    // which also matches the first word of a plural BRANCH BODY — so
+    // `one {Encore # tentative}` reports a placeholder named `Encore`.
+    //
+    // I fixed that bug in `completeness.ts` during the T-0009 review, with a
+    // long comment explaining why a regex cannot do this, AND LEFT THE SAME
+    // REGEX HERE. So the implementation was right and the test still enforced
+    // the broken rule — which is worse than either alone, because the test is
+    // what the next person is forced to obey.
+    //
+    // The T-0007 builder hit it and complied the only way it could without
+    // editing this file: it made every French, Hausa, Igbo and Swahili plural
+    // branch start with `#`. That silently forbids every plural form that does
+    // not lead with the number, which is a constraint on wording in four
+    // languages nobody chose and nobody wrote down.
+    //
+    // Now reuses the parser rather than repeating its job. Those catalogues can
+    // be reworded naturally whenever a reviewer under D-P1 wants to.
+    const { placeholderNames } = await import(fromRoot('packages/i18n/src/completeness.ts'));
+
     const en = catalogue('en');
     const placeholders = (message: string): string[] =>
-      [...message.matchAll(/\{\s*(\w+)/g)]
-        .map((match) => match[1])
-        .filter((name): name is string => name !== undefined)
-        .sort();
+      [...(placeholderNames(message) as Set<string>)].sort();
 
     for (const locale of OFFERED) {
       if (locale === 'en') continue;

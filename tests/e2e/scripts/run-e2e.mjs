@@ -336,8 +336,17 @@ async function main() {
     log(`web on ${webUrl}`);
   }
 
+  // One file per Playwright project, not a shared `stack.json`. Two
+  // `pnpm test:e2e` runs in one checkout both wrote the shared name, and the
+  // `over-budget` run writes empty urls — so a concurrent normal run failed
+  // every remaining test with `navigating to ""`, which looks exactly like a
+  // broken route and is not. It cost the T-0007 builder three runs and then
+  // turned the blocking isolation gate red, because the harness acceptance
+  // suite runs this script twice by design.
+  //
+  // `support/stack.ts` reads the same name from `test.info().project.name`.
   writeFileSync(
-    join(artifactsDir, 'stack.json'),
+    join(artifactsDir, `stack.${projectName}.json`),
     `${JSON.stringify({ webUrl, apiUrl, fixturesUrl }, null, 2)}\n`,
     'utf8',
   );
