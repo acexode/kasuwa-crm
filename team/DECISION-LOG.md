@@ -603,3 +603,31 @@ not there, and the gap is worth knowing about rather than quietly papering over.
 `tests/acceptance/` — a hook and CI both block it. Builders do not push and do
 not open pull requests. Nobody merges their own work. The isolation suite stays
 blocking, and a builder that turns it red is a stop-the-line event.
+
+---
+
+## D-L27 — locale policy lives in `@kasuwa/i18n` alone
+**Decided:** 2026-09-27 · lead decision during T-0009 review · reversible
+
+`@kasuwa/config` carried its own `SUPPORTED_LOCALES` environment variable
+(default `en,en-NG`) alongside `DEFAULT_LOCALE`. Nothing read either. Found by
+the T-0009 builder and confirmed on review.
+
+**Why it mattered even though it was unread.** The gate T-0009 builds derives
+the offered languages from catalogue completeness plus a named reviewer. This
+variable could have widened that set — turning on a language the gate considers
+unfinished, by editing a deployment variable and touching no code. That is the
+dishonest language menu the whole task exists to prevent, with nothing in the
+codebase to show for it.
+
+Two sources of truth for one fact, and one of them could lie silently.
+
+**Decision: removed, not reconciled.** An intersection (config may narrow, never
+widen) was the obvious alternative and was rejected as more machinery guarding a
+setting nobody uses. If a deployment ever needs to offer fewer languages than
+are ready, that is a feature flag, and it may only ever narrow the derived set.
+`tests/acceptance/i18n/locale-completeness.acceptance.test.ts` now asserts the
+variable's absence from both `packages/config` and `.env.example`.
+
+**Reversible** by reintroducing it as a narrowing-only intersection, which is
+where this should go if the need turns out to be real.

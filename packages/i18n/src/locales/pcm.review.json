@@ -1,0 +1,32 @@
+{
+  "status": "awaiting-review",
+  "decision": "D-P1",
+  "method": "native-speaker-review",
+  "reviewer": null,
+  "reviewedAt": null,
+  "note": "Candidate draft produced by Agent 11, not by a Pidgin speaker. D-P1 notes that Nigerian Pidgin has no single agreed written standard, so a house style has to be chosen by a named reviewer rather than assumed by a drafter. Until that reviewer is named and recorded here, Pidgin is not offered.",
+  "passthroughRationale": {
+    "app.name": "Product name. It is spelled the same in every locale.",
+    "tokens.sample.text": "A typographic specimen, not prose. It already mixes Yoruba, Hausa and Igbo glyphs on purpose, and translating it would destroy what it tests.",
+    "tokens.contrast.ratio": "A numeric format, \"{ratio}:1\". No words.",
+    "tokens.sample.arabic": "An Arabic script specimen shown to prove the Arabic webfont renders. Translating it would defeat the point.",
+    "theme.dark": "Pidgin is English-lexified; \"Dark\" is the ordinary Pidgin word for the dark theme.",
+    "tokens.theme.dark": "Same word as theme.dark.",
+    "tokens.page.title": "\"Design tokens\" is a borrowed technical term used as-is.",
+    "tokens.section.colour": "Technical heading on a developer-facing page; borrowed as-is.",
+    "tokens.section.semantic": "Technical heading; borrowed as-is.",
+    "tokens.section.type": "Technical heading; borrowed as-is.",
+    "tokens.section.spacing": "Technical heading; borrowed as-is.",
+    "tokens.section.radius": "Technical heading; borrowed as-is.",
+    "tokens.section.contrast": "Technical heading; borrowed as-is.",
+    "tokens.section.elevation": "Technical heading; borrowed as-is.",
+    "tokens.section.motion": "Technical heading; borrowed as-is.",
+    "tokens.section.chart": "Technical heading; borrowed as-is.",
+    "tokens.section.fonts": "Technical heading; borrowed as-is.",
+    "tokens.motion.easing": "Technical term of art; borrowed as-is.",
+    "tokens.anchor": "Technical term of art; borrowed as-is.",
+    "tokens.chart.series": "Technical term of art; borrowed as-is.",
+    "tokens.scale.count": "CLDR gives Pidgin the same one/other plural shape as English, and the counted noun is the same English-lexified word, so the message is identical. Declared rather than silently forgiven.",
+    "tokens.count": "Same as tokens.scale.count."
+  }
+}

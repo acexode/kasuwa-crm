@@ -10,7 +10,6 @@ describe('environment validation', () => {
     const env = parseEnv({ ...BASE } as NodeJS.ProcessEnv);
     expect(env.NODE_ENV).toBe('development');
     expect(env.KASUWA_AUTH_MODE).toBe('stub');
-    expect(env.SUPPORTED_LOCALES).toEqual(['en', 'en-NG']);
   });
 
   it('refuses to start without a database url', () => {

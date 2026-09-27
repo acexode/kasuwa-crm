@@ -1,0 +1,14 @@
+{
+  "status": "awaiting-review",
+  "decision": "D-P1",
+  "method": "native-speaker-review",
+  "reviewer": null,
+  "reviewedAt": null,
+  "note": "Candidate draft produced by Agent 11, not by a Hausa speaker. D-P1 assigns Hausa to native-speaker review by a named reviewer at Outsource Global; until a reviewer is named and recorded here, Hausa is not offered. Set status to \"reviewed\" and name the reviewer to put it on the menu — that is the only edit required.",
+  "passthroughRationale": {
+    "app.name": "Product name. It is spelled the same in every locale.",
+    "tokens.sample.text": "A typographic specimen, not prose. It already mixes Yoruba, Hausa and Igbo glyphs on purpose, and translating it would destroy what it tests.",
+    "tokens.contrast.ratio": "A numeric format, \"{ratio}:1\". No words.",
+    "tokens.sample.arabic": "An Arabic script specimen shown to prove the Arabic webfont renders. Translating it would defeat the point."
+  }
+}

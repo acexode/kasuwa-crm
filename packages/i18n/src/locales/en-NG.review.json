@@ -1,0 +1,9 @@
+{
+  "status": "source",
+  "decision": "D-P1",
+  "method": "source-language",
+  "reviewer": "Kasuwa product team (authored in repo)",
+  "reviewedAt": "2026-09-27",
+  "note": "A Nigerian-English overlay of the source language, written in the repository rather than translated. Only the strings that differ from `en` are present; the rest resolve through the fallback chain.",
+  "passthroughRationale": {}
+}

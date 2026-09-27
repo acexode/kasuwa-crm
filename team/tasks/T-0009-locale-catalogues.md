@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | **id** | T-0009 |
-| **status** | `not-assigned` |
-| **ready to assign** | **Yes** — acceptance tests written and failing |
+| **status** | `done` |
+| **built by** | Agent 11 builder subagent, reviewed by the lead |
 | **module** | M19 + all UIs |
 | **owner** | Agent 11 — Frontend & Design System |
 | **priority** | P0 |
@@ -126,8 +126,13 @@ that is the correct outcome and the system should say so out loud.
 
 ## Acceptance tests
 
-**Written.** `tests/acceptance/i18n/locale-completeness.pending.acceptance.test.ts`
-— 11 assertions, **10 failing**. Run with `pnpm test:pending`.
+**Done.** `tests/acceptance/i18n/locale-completeness.acceptance.test.ts` — now
+13 assertions, all passing, and **in the blocking isolation gate**.
+
+Two were added and one amended during lead review; see the file's comments and
+the "Amended by the lead" note. The amendment is recorded rather than quietly
+made, because *"the test was wrong"* is the most dangerous sentence in this
+repository.
 
 One passes, legitimately, and is commented as such: *does not offer Arabic* is
 a negative invariant that must hold before this task and after it. It is there
