@@ -36,10 +36,17 @@ export interface SeedOptions {
  * are fine as fixtures; running them somewhere real is the whole risk.
  *
  * Testcontainers publishes on 127.0.0.1, so the harness is unaffected.
+ *
+ * `[::1]` is in the list with its brackets because that is what
+ * `new URL().hostname` actually returns for IPv6 loopback — `'::1'` alone never
+ * matches. A guard that rejects a genuinely local database is not a safe
+ * failure: it teaches the next person to reach around it.
  */
+const LOCAL_DATABASE_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+
 function assertLocalDatabase(connectionString: string): void {
   const host = new URL(connectionString).hostname;
-  if (host !== 'localhost' && host !== '127.0.0.1' && host !== '::1') {
+  if (!LOCAL_DATABASE_HOSTS.has(host)) {
     throw new Error(
       `runSeed refuses to run against a non-local host: ${host}. The seed installs ` +
         `users whose password and second-factor secrets are committed to the ` +

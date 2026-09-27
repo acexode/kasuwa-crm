@@ -61,6 +61,21 @@ export class AuthController {
    * 200 with a challenge, or 401 `invalid_credentials`, or 429
    * `account_locked`. The 200 body carries nothing usable on its own.
    */
+  /*
+   * The throttle is ONLY on this route, and that is deliberate.
+   *
+   * It exists for one cost: argon2id, ~19 MiB and ~86 ms per call, run even for
+   * addresses and workspaces that do not exist because equalising the timing
+   * means doing the work either way. `/auth/mfa` and `/auth/mfa/challenge` do
+   * no hashing — they are a primary-key read and a small write — so putting
+   * them on the same per-minute budget spent the allowance meant for the
+   * expensive route on cheap ones, and throttled a legitimate second factor
+   * because somebody had been typing passwords.
+   *
+   * Guessing at the second factor is bounded by the per-user MFA lockout and
+   * the open-challenge cap, both of which are in the database and count the
+   * user rather than the connection.
+   */
   @Post('sign-in')
   @UseGuards(SignInThrottleGuard)
   @HttpCode(HttpStatus.OK)
@@ -70,7 +85,6 @@ export class AuthController {
 
   /** POST /api/v1/auth/mfa/challenge — re-issue or switch the second factor. */
   @Post('mfa/challenge')
-  @UseGuards(SignInThrottleGuard)
   @HttpCode(HttpStatus.OK)
   async challenge(@Body() body: unknown): Promise<MfaChallengeResponse> {
     return this.auth.reissueChallenge(MfaChallengeBody.parse(body));
@@ -78,7 +92,6 @@ export class AuthController {
 
   /** POST /api/v1/auth/mfa — second factor. The only route that issues a token. */
   @Post('mfa')
-  @UseGuards(SignInThrottleGuard)
   @HttpCode(HttpStatus.OK)
   async verify(@Body() body: unknown): Promise<SessionResponse> {
     return this.auth.verifyMfa(MfaVerifyBody.parse(body));

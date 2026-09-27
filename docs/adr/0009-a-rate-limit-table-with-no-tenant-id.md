@@ -54,17 +54,63 @@ It replaces `auth_attempt`, which is dropped in migration 0003.
   there is no tenant to predicate on. The residual risk is a session
   incrementing or clearing a counter for a key it already knows — which it can
   do anyway by making sign-in requests. Nothing here is worth reading.
-- **It holds no personal and no business data.** A SHA-256, three integers and
-  two timestamps. Not the address, not the slug, not a tenant id. That is also
-  why hashing rather than storing the identifier matters twice over: an email
-  typed at a sign-in form may belong to somebody with no relationship to Kasuwa,
-  and a plain-text key column would let anyone fill the table with chosen text.
+- **It holds no business data, and its personal data is pseudonymised — not
+  absent.** An earlier version of this ADR said "no personal data". That was
+  wrong and is corrected here rather than quietly edited, because it is the kind
+  of claim a later retention or DSAR decision would be built on.
+
+  The column is an unkeyed `sha256('signin' : slug : email)`. An unkeyed hash of
+  a low-entropy input is trivially confirmable offline: anyone holding the table
+  and a candidate address can compute the digest and check. A matching row
+  evidences that **a named person attempted to sign in at a named workspace**,
+  with timestamps. Under the NDPA that is pseudonymised personal data, and it
+  falls in scope for retention limits and for a subject access request.
+
+  What the hashing does buy is still worth having: an address typed at a sign-in
+  form may belong to somebody with no relationship to Kasuwa, a hash keeps it
+  out of plain sight and out of logs and backups as text, and it stops anyone
+  filling the table with chosen strings.
+
+  **An HMAC with a server-held key would make the original claim true** — the
+  digest would be unverifiable without the key, so the table alone would
+  evidence nothing. It was not done here because it needs a key to live
+  somewhere and be rotated, which is the same question as D-L13 and is blocked.
+  It is the right upgrade when that unblocks, and the key format does not change.
+
+  The practical consequence today: **rows must be swept, not kept.** That is in
+  the cleanup task, and it is a retention requirement now rather than a tidiness
+  one.
 - **The exemption is named, not silent.** `NON_TENANT_SCOPED_TABLES` in
   `packages/db/src/schema.ts` lists it with the reason. `readTableSecurity`
   excludes exactly that list and says why. `readNonTenantScopedTableSecurity`
-  asserts the exempted tables still have RLS enabled, forced and policied, so
-  the exemption cannot be used to smuggle a table past the invariant. Migration
-  0003 states it in capitals.
+  reads the exempted tables' RLS state, and it is **called** — by the blocking
+  tenancy suite (`tests/acceptance/tenancy/rls-enforcement.acceptance.test.ts`)
+  and by `packages/testing/src/isolation.integration.test.ts` — so the
+  exemption cannot be used to smuggle a table past the invariant. That wiring
+  is worth naming precisely, because this ADR previously claimed the helper
+  asserted something while nothing called it: the claim was true of the code
+  and false of the build. Migration 0003 states the deviation in capitals.
+
+- **It also deviates from rule 3, and that deserves saying out loud.**
+  `CLAUDE.md` section 2 rule 3 is "RLS is the last line, not the only line":
+  repositories filter explicitly as well, so a typo in either layer does not
+  leak. `auth_rate_limit` has **one** layer. Its policy is `USING (true)`,
+  which confines nothing, so the only thing separating one counter from another
+  is the `key_hash` the repository computes.
+
+  That is a real reduction and it is accepted on what the table holds: a
+  SHA-256 and three integers — no personal data, no business data, no tenant
+  id. There is nothing in a row to read that an attacker does not already have
+  to know in order to compute the key. The cost of the deviation is bounded by
+  the contents, which is exactly the argument that would NOT work for any other
+  table in the system, and is why this list may not grow without another ADR.
+
+  What the single layer does expose is **writes**: any session can increment or
+  clear a counter for a key it can compute. Clearing needs the slug and the
+  address, and incrementing is achievable by making failed sign-in requests
+  anyway, so neither grants anything new — but a cross-tenant lockout by
+  computed key is inherent to identifier lockout and is raised separately
+  rather than papered over here.
 - **Adding a second entry to that list requires an ADR.** The list's own
   doc comment says so.
 

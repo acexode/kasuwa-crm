@@ -17,6 +17,8 @@ import { Client } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, inject, it } from 'vitest';
 import { AppModule } from '../app.module';
+import { SignInThrottleGuard } from './sign-in-throttle.guard';
+import { DEFAULT_AUTH_POLICY } from './auth.policy';
 
 /**
  * Regression tests for a security review of T-0001's first implementation.
@@ -80,6 +82,18 @@ async function resetAuthState(migrationUrl: string): Promise<void> {
   }
 }
 
+/**
+ * A code from a step that has not been spent yet.
+ *
+ * Codes are single-use and the server accepts one step either side of the
+ * current one, so a test that has just consumed the current code has to reach
+ * for a neighbouring step rather than ask again.
+ */
+function freshSeededCode(userId: string): string {
+  const secret = credentialsFor(userId).totpSecret;
+  return totpCode(secret, new Date(Date.now() + 30_000));
+}
+
 describe('authentication hardening', () => {
   let app: INestApplication;
   let databaseUrl: string;
@@ -96,7 +110,11 @@ describe('authentication hardening', () => {
           // The throttle is a resource control and is exercised in its own test
           // below with a deliberately low limit. Leaving it at the default here
           // would make every other test in this file a test of the throttle.
-          authPolicy: { signInPerMinutePerClient: 0 },
+          // BOTH throttle limits off in this app. They are resource controls
+          // with their own tests below; the races these tests exist to catch
+          // need genuinely concurrent requests, and a concurrency cap would
+          // refuse them before they ever reach the code under test.
+          authPolicy: { signInPerMinutePerClient: 0, signInInFlightPerClient: 0 },
         }),
       ],
     }).compile();
@@ -312,7 +330,37 @@ describe('authentication hardening', () => {
       const second = await startChallenge(userId);
       const replayed = await request(server()).post(MFA).send({ challengeId: second, code });
       expect(replayed.status).toBe(401);
-      expect(replayed.body.code).toBe('mfa_code_invalid');
+      // `mfa_challenge_invalid`, not `mfa_code_invalid`: the code DID match,
+      // it has simply been spent, and the screen should send them back to sign
+      // in rather than invite another guess at a code that will never work.
+      expect(replayed.body.code).toBe('mfa_challenge_invalid');
+    });
+
+    it('does not count a replay as a failed guess', async () => {
+      // The commonest replay by far is the user's own browser double-submitting
+      // the form. Counting those put somebody doing nothing wrong a handful of
+      // clicks from being locked out of their own second factor — a control
+      // meant for an attacker, pointed at the victim.
+      const userId = USER_A_AGENT_2;
+      const code = totpCode(credentialsFor(userId).totpSecret);
+
+      const first = await startChallenge(userId);
+      await request(server()).post(MFA).send({ challengeId: first, code }).expect(200);
+
+      // Far more replays than the per-user MFA allowance.
+      for (let attempt = 0; attempt < DEFAULT_AUTH_POLICY.mfaMaxAttempts + 2; attempt += 1) {
+        const challengeId = await startChallenge(userId);
+        const replayed = await request(server()).post(MFA).send({ challengeId, code });
+        expect(replayed.status, `replay ${attempt} should not have locked anyone`).toBe(401);
+        expect(replayed.body.code).toBe('mfa_challenge_invalid');
+      }
+
+      // Still able to sign in with a code that has not been used.
+      const challengeId = await startChallenge(userId);
+      const fresh = await request(server())
+        .post(MFA)
+        .send({ challengeId, code: freshSeededCode(userId) });
+      expect(fresh.status, JSON.stringify(fresh.body)).toBe(200);
     });
   });
 
@@ -372,6 +420,48 @@ describe('authentication hardening', () => {
   });
 
   describe('MAJOR — unauthenticated resource exhaustion', () => {
+    it('does not refuse a client that makes its requests one at a time', async () => {
+      // The in-flight cap counts requests that are ACTUALLY concurrent. A
+      // client doing one thing at a time occupies one slot and gives it back,
+      // forever.
+      //
+      // When the release re-derived the client key instead of remembering it,
+      // that was not true: `finalize` runs after the response is written, the
+      // socket may already be gone, and the slot came back under a different
+      // name. Every sign-in leaked one, and the fifth request from a perfectly
+      // well-behaved client was refused — permanently, with a message about
+      // requests already in progress when there were none.
+      const sequential = await Test.createTestingModule({
+        imports: [
+          AppModule.forRoot({
+            databaseUrl,
+            poolMax: 5,
+            // The real defaults. The point is that a normal client never meets
+            // either limit.
+            authPolicy: {},
+          }),
+        ],
+      }).compile();
+      const app2 = sequential.createNestApplication({ logger: false });
+      await app2.init();
+
+      try {
+        for (let attempt = 0; attempt < DEFAULT_AUTH_POLICY.signInInFlightPerClient + 4; attempt += 1) {
+          const response = await request(app2.getHttpServer())
+            .post(SIGN_IN)
+            .send({ tenantSlug: 'sahel-bpo', email: `nobody-${attempt}@example.test`, password: 'x' });
+          expect(
+            response.status,
+            `request ${attempt + 1} of a sequential client; in flight: ` +
+              JSON.stringify(app2.get(SignInThrottleGuard).inFlightSnapshot()),
+          ).toBe(401);
+        }
+      } finally {
+        await app2.close();
+      }
+    });
+
+
     it('throttles sign-in per client address', async () => {
       const throttled = await Test.createTestingModule({
         imports: [
@@ -403,6 +493,65 @@ describe('authentication hardening', () => {
       }
     });
 
+    it('caps how many sign-ins one client may have in flight at once', async () => {
+      // The per-minute count does not bound concurrency: a client may spend a
+      // whole minute's allowance inside one second, and each of those requests
+      // holds an argon2 slot and a pooled connection while it runs. This is the
+      // limit that stops a handful of addresses keeping the cell saturated.
+      const capped = await Test.createTestingModule({
+        imports: [
+          AppModule.forRoot({
+            databaseUrl,
+            poolMax: 5,
+            authPolicy: {
+              signInPerMinutePerClient: 0,
+              signInInFlightPerClient: 2,
+              lockoutMaxAttempts: 0,
+            },
+          }),
+        ],
+      }).compile();
+      const cappedApp = capped.createNestApplication({ logger: false });
+      await cappedApp.init();
+
+      try {
+        const responses = await Promise.all(
+          Array.from({ length: 8 }, () =>
+            request(cappedApp.getHttpServer()).post(SIGN_IN).send({
+              tenantSlug: 'sahel-bpo',
+              email: 'nobody@example.test',
+              password: 'wrong',
+            }),
+          ),
+        );
+
+        const refused = responses.filter((response) => response.status === 429);
+        expect(refused.length, 'nothing was refused, so the cap is not bounding').toBeGreaterThan(
+          0,
+        );
+        expect(refused[0]?.body.code).toBe('too_many_requests');
+
+        // And the slots come back: once the flood is over, the client is not
+        // locked out of signing in for the rest of the process's life. A slot
+        // taken and never returned is a worse bug than the one the cap fixes.
+        expect(
+          cappedApp.get(SignInThrottleGuard).inFlightTotal(),
+          'slots were still held after every request had been answered',
+        ).toBe(0);
+        const afterwards = await request(cappedApp.getHttpServer()).post(SIGN_IN).send({
+          tenantSlug: 'sahel-bpo',
+          email: 'nobody@example.test',
+          password: 'wrong',
+        });
+        expect(
+          afterwards.status,
+          `in-flight slots were never released: ${JSON.stringify(afterwards.body)}`,
+        ).toBe(401);
+      } finally {
+        await cappedApp.close();
+      }
+    });
+
     it('bounds concurrent argon2id work rather than allocating per request', async () => {
       // Sixteen concurrent sign-ins against a cap of six. The assertion is not
       // about speed: it is that every request is answered, which is what does
@@ -418,6 +567,59 @@ describe('authentication hardening', () => {
       );
       for (const response of responses) {
         expect([401, 429]).toContain(response.status);
+      }
+    });
+  });
+
+  describe('MAJOR — sign-in must not hold a pooled connection while hashing', () => {
+    it('serves other tenant traffic while sign-ins are hashing', async () => {
+      // argon2id used to be awaited INSIDE withAuthTransaction, so every
+      // sign-in pinned a pooled pg client for the whole of it — and for however
+      // long it queued behind other hashes first. With a pool of ten, about a
+      // dozen concurrent sign-ins owned every connection in the process and all
+      // other tenant traffic blocked on pool.connect() until they drained.
+      // Unauthenticated: unknown slugs do the same work by design.
+      //
+      // This app has a deliberately small pool, so if the hash ever moves back
+      // inside the transaction the contacts request below cannot be served.
+      const small = await Test.createTestingModule({
+        imports: [
+          AppModule.forRoot({
+            databaseUrl,
+            poolMax: 3,
+            authPolicy: { signInPerMinutePerClient: 0, signInInFlightPerClient: 0 },
+          }),
+        ],
+      }).compile();
+      const smallApp = small.createNestApplication({ logger: false });
+      await smallApp.init();
+
+      try {
+        const flood = Array.from({ length: 12 }, (_, index) =>
+          request(smallApp.getHttpServer()).post(SIGN_IN).send({
+            tenantSlug: 'sahel-bpo',
+            email: `nobody-${index}@example.test`,
+            password: 'wrong',
+          }),
+        );
+
+        // Ordinary tenant traffic, issued while the flood is in flight, using
+        // the stub identity so it needs no session of its own.
+        const bystander = request(smallApp.getHttpServer())
+          .get('/api/v1/contacts')
+          .set('x-kasuwa-tenant-id', TENANT_A)
+          .set('x-kasuwa-user-id', USER_A_AGENT_1);
+
+        const [served, ...flooded] = await Promise.all([bystander, ...flood]);
+
+        expect(served?.status, 'a sign-in flood starved ordinary traffic of connections').toBe(
+          200,
+        );
+        for (const response of flooded) {
+          expect([401, 429, 503]).toContain(response.status);
+        }
+      } finally {
+        await smallApp.close();
       }
     });
   });
@@ -493,37 +695,11 @@ describe('authentication hardening', () => {
   });
 
   describe('the exempted table is still protected', () => {
-    it('has RLS enabled, forced and policied despite carrying no tenant_id', async () => {
-      // Being exempt from tenant scoping is not being exempt from RLS. Without
-      // this, NON_TENANT_SCOPED_TABLES would be a way to smuggle a table past
-      // the catalogue invariant entirely.
-      const client = new Client({ connectionString: databaseUrl });
-      await client.connect();
-      try {
-        const rows = await client.query<{
-          relname: string;
-          relrowsecurity: boolean;
-          relforcerowsecurity: boolean;
-          policies: number;
-        }>(
-          `SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity,
-                  (SELECT count(*) FROM pg_policy p WHERE p.polrelid = c.oid)::int AS policies
-             FROM pg_class c
-             JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE n.nspname = 'public' AND c.relname = ANY ($1::text[])`,
-          [[...NON_TENANT_SCOPED_TABLES]],
-        );
-
-        expect(rows.rows).toHaveLength(NON_TENANT_SCOPED_TABLES.length);
-        for (const row of rows.rows) {
-          expect(row.relrowsecurity, `${row.relname}: RLS not enabled`).toBe(true);
-          expect(row.relforcerowsecurity, `${row.relname}: RLS not forced`).toBe(true);
-          expect(row.policies, `${row.relname}: no policy`).toBeGreaterThan(0);
-        }
-      } finally {
-        await client.end();
-      }
-    });
+    // The RLS state of the exempt table is asserted where the helper that
+    // grants the exemption lives — packages/testing/src/isolation.integration.
+    // test.ts — because the module-boundary rule keeps @kasuwa/testing out of
+    // an application package, and a hand-rolled copy of its query here left the
+    // helper itself uncalled while the ADR claimed it was the enforcement.
 
     it('is a list of exactly one, so the exemption cannot spread quietly', () => {
       // Growing this list is an architecture decision and needs an ADR. If this

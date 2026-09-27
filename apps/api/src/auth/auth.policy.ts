@@ -56,6 +56,17 @@ export interface AuthPolicy {
    */
   signInPerMinutePerClient: number;
   /**
+   * Sign-in requests one client address may have IN FLIGHT at once.
+   *
+   * The companion to the per-minute count, and the one that bounds resource
+   * use. A per-minute limit says nothing about concurrency: a client may spend
+   * its whole allowance inside one second, and each of those requests holds an
+   * argon2 slot while it runs. A few addresses doing that keeps the hashing
+   * queue permanently full, which is the shape of the denial of service this
+   * pair exists to stop.
+   */
+  signInInFlightPerClient: number;
+  /**
    * The IANA zone a retry time is rendered in, for the whole cell.
    *
    * ONE value per deployment, not per tenant, and that is deliberate. Deriving
@@ -65,6 +76,20 @@ export interface AuthPolicy {
    * should render `retryAt` in it; this is the fallback label.
    */
   cellTimeZone: string;
+  /**
+   * How many reverse proxies sit in front of this process.
+   *
+   * 0 means the socket peer IS the client. Any other value means the
+   * Nth-from-last `X-Forwarded-For` entry is, and the entries closer than that
+   * were added by our own infrastructure. A hop count rather than a boolean,
+   * because "trust the header" with no count lets a caller choose their own
+   * rate-limit bucket by typing an address.
+   *
+   * `@kasuwa/config` refuses to boot in production with 0 hops and a low
+   * per-client limit, because that combination is a cell-wide outage waiting
+   * for the sixty-first user.
+   */
+  trustProxyHops: number;
 }
 
 export const AUTH_POLICY = Symbol('AUTH_POLICY');
@@ -80,5 +105,7 @@ export const DEFAULT_AUTH_POLICY: AuthPolicy = {
   sessionHours: 12,
   resendSeconds: 60,
   signInPerMinutePerClient: 60,
+  signInInFlightPerClient: 4,
   cellTimeZone: 'Africa/Lagos',
+  trustProxyHops: 0,
 };

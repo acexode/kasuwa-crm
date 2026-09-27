@@ -17,13 +17,27 @@ import { SignInThrottleGuard } from './sign-in-throttle.guard';
 
 function contextFor(remoteAddress: string | undefined): ExecutionContext {
   const request = { socket: { remoteAddress }, headers: {} };
+  // `getResponse` as well as `getRequest`: the guard hooks the response
+  // lifecycle to give a slot back, and a context stub without one would test a
+  // shape the application never produces.
   return {
-    switchToHttp: () => ({ getRequest: () => request }),
+    switchToHttp: () => ({ getRequest: () => request, getResponse: () => undefined }),
   } as unknown as ExecutionContext;
 }
 
+/**
+ * A guard with the in-flight cap off unless a test asks for it.
+ *
+ * The two limits are independent and each test should fail for its own reason:
+ * a per-minute test that trips the concurrency cap instead tells you nothing
+ * about the per-minute counter.
+ */
 function guardWith(overrides: Partial<AuthPolicy> = {}): SignInThrottleGuard {
-  return new SignInThrottleGuard({ ...DEFAULT_AUTH_POLICY, ...overrides });
+  return new SignInThrottleGuard({
+    ...DEFAULT_AUTH_POLICY,
+    signInInFlightPerClient: 0,
+    ...overrides,
+  });
 }
 
 describe('SignInThrottleGuard', () => {
@@ -91,7 +105,7 @@ describe('SignInThrottleGuard', () => {
       headers: { 'x-forwarded-for': '198.51.100.20' },
     };
     const context = {
-      switchToHttp: () => ({ getRequest: () => request }),
+      switchToHttp: () => ({ getRequest: () => request, getResponse: () => undefined }),
     } as unknown as ExecutionContext;
 
     expect(guard.canActivate(context)).toBe(true);
@@ -99,12 +113,70 @@ describe('SignInThrottleGuard', () => {
     expect(() => guard.canActivate(context)).toThrow(AuthError);
   });
 
-  it('is off when the limit is zero, and says so by allowing everything', () => {
-    const guard = guardWith({ signInPerMinutePerClient: 0 });
+  it('is off only when BOTH limits are zero', () => {
+    // Two independent controls, two independent switches. Zeroing the
+    // per-minute count alone leaves the in-flight cap doing its job, which is
+    // the right behaviour and is worth pinning down: they bound different
+    // things and turning one off must not quietly turn the other off too.
+    const guard = guardWith({ signInPerMinutePerClient: 0, signInInFlightPerClient: 0 });
     const context = contextFor('203.0.113.10');
     for (let attempt = 0; attempt < 50; attempt += 1) {
       expect(guard.canActivate(context)).toBe(true);
     }
+
+    const perMinuteOffOnly = guardWith({
+      signInPerMinutePerClient: 0,
+      signInInFlightPerClient: DEFAULT_AUTH_POLICY.signInInFlightPerClient,
+    });
+    for (let attempt = 0; attempt < DEFAULT_AUTH_POLICY.signInInFlightPerClient; attempt += 1) {
+      expect(perMinuteOffOnly.canActivate(context)).toBe(true);
+    }
+    expect(() => perMinuteOffOnly.canActivate(context)).toThrow(AuthError);
+  });
+
+  it('caps how many sign-ins one client may have in flight at once', () => {
+    // The per-minute count does not bound concurrency: a client may spend its
+    // whole allowance inside one second, and each of those requests holds an
+    // argon2 slot and a pooled connection while it runs. This is the limit that
+    // stops a handful of addresses keeping the cell's hashing queue full.
+    const guard = guardWith({ signInInFlightPerClient: 2, signInPerMinutePerClient: 0 });
+    const context = contextFor('203.0.113.10');
+
+    expect(guard.canActivate(context)).toBe(true);
+    expect(guard.canActivate(context)).toBe(true);
+    expect(() => guard.canActivate(context)).toThrow(AuthError);
+    expect(guard.inFlightCount('203.0.113.10')).toBe(2);
+  });
+
+  it('gives an in-flight slot back when the request finishes', () => {
+    const guard = guardWith({ signInInFlightPerClient: 1, signInPerMinutePerClient: 0 });
+    const context = contextFor('203.0.113.10');
+
+    expect(guard.canActivate(context)).toBe(true);
+    expect(() => guard.canActivate(context)).toThrow(AuthError);
+
+    guard.releaseInFlight('203.0.113.10');
+    expect(guard.inFlightCount('203.0.113.10')).toBe(0);
+    expect(guard.canActivate(context)).toBe(true);
+  });
+
+  it('counts in-flight sign-ins per client, not globally', () => {
+    const guard = guardWith({ signInInFlightPerClient: 1, signInPerMinutePerClient: 0 });
+    expect(guard.canActivate(contextFor('203.0.113.10'))).toBe(true);
+    // A second address is unaffected by the first one saturating its own cap.
+    expect(guard.canActivate(contextFor('198.51.100.20'))).toBe(true);
+  });
+
+  it('forgets a client entirely once its last request finishes', () => {
+    // Otherwise the map grows one entry per address seen and never shrinks,
+    // which is the same unbounded-growth problem the window sweep exists for.
+    const guard = guardWith({ signInInFlightPerClient: 2, signInPerMinutePerClient: 0 });
+    guard.canActivate(contextFor('203.0.113.10'));
+    guard.releaseInFlight('203.0.113.10');
+    expect(guard.inFlightCount('203.0.113.10')).toBe(0);
+    // Releasing again must not underflow into a negative allowance.
+    guard.releaseInFlight('203.0.113.10');
+    expect(guard.inFlightCount('203.0.113.10')).toBe(0);
   });
 
   it('gives an allowance back when cleared', () => {

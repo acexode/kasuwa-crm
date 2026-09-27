@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   dummyPasswordHash,
+  HashingOverloadedError,
   hashRateLimitKey,
   hashSessionToken,
   matchTotpStep,
@@ -27,6 +28,7 @@ import {
   mfaChallengeInvalid,
   mfaCodeInvalid,
   notImplemented,
+  signInUnavailable,
   ssoDomainNotFound,
 } from './auth.errors';
 import { AUTH_POLICY, type AuthPolicy } from './auth.policy';
@@ -79,40 +81,105 @@ export class AuthService {
     @Inject(AUTH_POLICY) private readonly policy: AuthPolicy,
   ) {}
 
-  /** First factor. Returns a challenge; never a session. */
+  /**
+   * First factor. Returns a challenge; never a session.
+   *
+   * THREE PHASES, AND THE SHAPE IS THE POINT. argon2id runs in phase two, with
+   * no database connection held.
+   *
+   * It used to run inside a single `withAuthTransaction`, which meant every
+   * sign-in pinned a pooled `pg` client for the whole ~86 ms of hashing — and
+   * for however long it queued behind other hashes before that. With a pool of
+   * ten, about a dozen concurrent sign-ins owned every connection in the
+   * process and **all other tenant traffic in the cell blocked on
+   * `pool.connect()`** until they drained. No account and no valid workspace
+   * were needed: unknown slugs do the same argon2 work by design, which is what
+   * makes the timing equal and is exactly what made this reachable.
+   *
+   * Splitting it costs two short transactions instead of one long one, and
+   * costs nothing in correctness: the lock read is advisory either way, and
+   * `registerAuthFailure` is atomic in a single statement, so nothing here
+   * depended on the read and the write sharing a snapshot.
+   *
+   * What must NOT change: both branches still do the same argon2 work, against
+   * a dummy hash when there is no account, and phase three runs for the unknown
+   * workspace exactly as it does for a real one.
+   */
   async signIn(input: SignInInput): Promise<MfaChallengeResponse> {
     // Keyed on the slug and address AS TYPED, before anything is resolved.
     // This is the whole of the fix for workspace-slug enumeration: there is no
     // branch where a real workspace has a counter and a fake one does not.
     const rateKey = hashRateLimitKey('signin', input.tenantSlug, input.email);
 
-    return this.commitThenFail(
-      withAuthTransaction(this.pool, { tenantSlug: input.tenantSlug }, async (tx) => {
-        const locked = await this.activeLock(tx, rateKey, this.signInLimits());
-        if (locked !== null) {
-          return locked;
-        }
-
+    // --- phase one: read, then let the connection go ----------------------
+    const prepared = await withAuthTransaction(
+      this.pool,
+      { tenantSlug: input.tenantSlug },
+      async (tx) => ({
+        locked: await this.activeLock(tx, rateKey, this.signInLimits()),
         // `account` is null both when the workspace does not resolve and when
         // the address is unknown within it. The two are not distinguished
         // anywhere below, including in how much work is done.
-        const account = hasTenant(tx) ? await this.findAccount(tx, input.email) : null;
-        const hash = account?.passwordHash ?? (await dummyPasswordHash());
-        const passwordMatches = await verifyPassword(hash, input.password);
+        account: hasTenant(tx) ? await this.findAccount(tx, input.email) : null,
+      }),
+    );
+
+    if (prepared.locked !== null) {
+      // A locked identifier is refused without hashing. That is deliberate and
+      // it is not a timing oracle: reaching a lockout takes five failures
+      // against that same identifier, so anyone who can observe the difference
+      // already knows the answer it would give.
+      throw prepared.locked;
+    }
+
+    // --- phase two: the expensive part, holding nothing --------------------
+    const hash = prepared.account?.passwordHash ?? (await dummyPasswordHash());
+    const passwordMatches = await this.verify(hash, input.password);
+
+    // --- phase three: record what happened --------------------------------
+    return this.commitThenFail(
+      withAuthTransaction(this.pool, { tenantSlug: input.tenantSlug }, async (tx) => {
+        const account = prepared.account;
 
         // Status is checked here rather than in the query so that a disabled
         // user costs exactly as much as an active one.
         if (!passwordMatches || account === null || account.status !== 'active') {
           return this.failFirstFactor(tx, rateKey);
         }
+        if (!hasTenant(tx)) {
+          // The workspace resolved in phase one and does not now — it was
+          // suspended in between. Refuse, in the one shape everything else
+          // refuses in.
+          return invalidCredentials(null);
+        }
 
         // A correct password clears the counter. Four typos across a week must
         // not lock somebody out on the fifth.
         await clearAuthFailures(tx, rateKey);
 
-        return this.openChallenge(tx as ResolvedAuthTx, account.id);
+        return this.openChallenge(tx, account.id);
       }),
     );
+  }
+
+  /**
+   * Verifies a password, turning a refusal to do the work into a 503.
+   *
+   * `HashingOverloadedError` means the hashing queue was full, which is load
+   * shedding and not an authentication decision. Answering 401 would say the
+   * credentials were wrong when they were never checked — misleading to a real
+   * user, and a cheap oracle to an attacker, because a shed request comes back
+   * far faster than a hashed one.
+   */
+  private async verify(hash: string, password: string): Promise<boolean> {
+    try {
+      return await verifyPassword(hash, password);
+    } catch (error) {
+      if (error instanceof HashingOverloadedError) {
+        throw signInUnavailable();
+      }
+      throw error;
+    }
   }
 
   /**
@@ -215,10 +282,35 @@ export class AuthService {
         }
 
         // Same lock order as every other path: `auth_rate_limit` first, then
-        // `auth_challenge`. Clearing before the consume means a request that
-        // then loses the consume race has cleared a counter it was entitled to
-        // clear anyway — it did present a correct code.
+        // `user_mfa_factor`, then `auth_challenge`. Clearing before the claim
+        // means a request that then loses a race has cleared a counter it was
+        // entitled to clear anyway — it did present a correct code.
         await clearAuthFailures(tx, mfaKey);
+
+        // CLAIM the step, and believe the row count.
+        //
+        // The guard `last_used_step < $3` was already here; what was missing
+        // was checking whether it matched anything. Two verifies arriving
+        // together with the same live code both passed the in-memory
+        // `alreadyUsed` check, both ran this UPDATE, and the second one
+        // silently updated nothing and carried on to a session. "A code is
+        // usable once" was true sequentially and false under concurrency,
+        // which is the only condition an attacker with a shoulder-surfed code
+        // would ever create.
+        const claimedStep = await tx.query<{ id: string }>(
+          `UPDATE user_mfa_factor
+              SET last_used_step = $3, updated_at = now()
+            WHERE tenant_id = $1
+              AND id = $2
+              AND (last_used_step IS NULL OR last_used_step < $3)
+        RETURNING id`,
+          [tx.tenantId, factor.id, step],
+        );
+        if (claimedStep.length === 0) {
+          // Somebody else used this code first. Same answer as any other
+          // rejected code.
+          return this.failSecondFactor(tx, reference, mfaKey, challenge.userId);
+        }
 
         // Consume the challenge CONDITIONALLY. `findOpenChallenge` checked
         // `consumed_at IS NULL` a few statements ago, and under READ COMMITTED
@@ -238,15 +330,6 @@ export class AuthService {
         if (claimed.length === 0) {
           return mfaChallengeInvalid();
         }
-
-        await tx.query(
-          `UPDATE user_mfa_factor
-              SET last_used_step = $3, updated_at = now()
-            WHERE tenant_id = $1
-              AND id = $2
-              AND (last_used_step IS NULL OR last_used_step < $3)`,
-          [tx.tenantId, factor.id, step],
-        );
 
         return this.issueSession(tx, challenge.userId);
       }),

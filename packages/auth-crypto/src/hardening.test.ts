@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { base32Encode, matchTotpStep, totpCode } from './totp';
-import { hashPressure, verifyPassword, hashPassword } from './password';
+import {
+  hashPassword,
+  HashingOverloadedError,
+  hashPressure,
+  verifyPassword,
+} from './password';
 import { hashRateLimitKey } from './tokens';
 
 const SECRET = base32Encode(Buffer.from('12345678901234567890', 'ascii'));
@@ -87,5 +92,40 @@ describe('argon2id concurrency cap', () => {
     expect(results.every((result) => result === false)).toBe(true);
     expect(hashPressure().active).toBe(0);
     expect(hashPressure().queued).toBe(0);
+  });
+});
+
+describe('the hashing queue is bounded', () => {
+  it('sheds rather than queueing without limit, and says so with its own error', async () => {
+    // An unbounded queue turns the semaphore into the very thing it was meant
+    // to prevent: requests that cannot be served yet still each pin an argon2
+    // call and a pending promise for as long as the flood lasts. The API turns
+    // this error into a 503, never a 401 — refusing to do the work is not the
+    // same as deciding the password was wrong.
+    const pressure = hashPressure();
+    const flood = pressure.limit + pressure.queueLimit + 8;
+
+    const results = await Promise.allSettled(
+      Array.from({ length: flood }, () => hashPassword('a-fixture-password')),
+    );
+
+    const shed = results.filter(
+      (result) =>
+        result.status === 'rejected' && result.reason instanceof HashingOverloadedError,
+    );
+    const served = results.filter((result) => result.status === 'fulfilled');
+
+    expect(shed.length, 'nothing was shed, so the queue is still unbounded').toBeGreaterThan(0);
+    // And shedding must not become the answer for everything: the work the
+    // process had capacity for still completed.
+    expect(served.length).toBeGreaterThanOrEqual(pressure.limit);
+    expect(shed.length + served.length).toBe(flood);
+  });
+
+  it('drains back to idle afterwards, leaving no slot or waiter behind', async () => {
+    await hashPassword('a-fixture-password');
+    const pressure = hashPressure();
+    expect(pressure.active).toBe(0);
+    expect(pressure.queued).toBe(0);
   });
 });

@@ -94,6 +94,24 @@ const EnvSchema = z.object({
   // tenant on it.
   KASUWA_AUTH_SIGN_IN_PER_MINUTE: z.coerce.number().int().min(0).max(10_000).default(60),
 
+  // Sign-in requests one client address may have IN FLIGHT at once. The
+  // per-minute count above bounds how often; this bounds how many at a time,
+  // which is what actually bounds argon2 slots and pool connections. A client
+  // may legitimately spend a whole minute's allowance inside one second.
+  KASUWA_AUTH_SIGN_IN_IN_FLIGHT: z.coerce.number().int().min(0).max(1_000).default(4),
+
+  // How many reverse proxies sit in front of this process.
+  //
+  // 0 means "nothing is in front": the per-client throttle keys on the socket
+  // peer, which is then the real client. Any other value means the Nth-from-last
+  // entry of `X-Forwarded-For` is the client, and the hops closer than that are
+  // ours and are not to be believed.
+  //
+  // It is a HOP COUNT rather than a boolean on purpose. "Trust the header" with
+  // no count is the classic spoofable configuration — a caller sets
+  // `X-Forwarded-For: 1.2.3.4` and picks their own rate-limit bucket.
+  KASUWA_TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(8).default(0),
+
   // The IANA zone a lockout's retry time is labelled with. ONE value per cell,
   // never per tenant: deriving it from the tenant made the response for a
   // workspace that does not exist differ from one that does, and disclosed the
@@ -150,6 +168,56 @@ export function assertAuthModeIsSafe(env: Pick<KasuwaEnv, 'NODE_ENV' | 'KASUWA_A
   }
 }
 
+/**
+ * The per-client sign-in throttle must not silently become a cell-wide ceiling.
+ *
+ * `SignInThrottleGuard` keys on the socket peer, so behind a load balancer
+ * every request in the cell arrives from ONE address and shares ONE bucket. At
+ * the shipped default of sixty a minute that is not a rate limit, it is an
+ * availability cliff: the sixty-first legitimate sign-in in a minute — across
+ * every tenant on the cell — gets a 429, and nothing in the logs says why.
+ *
+ * The guard's source comment has always been honest about this. A comment in a
+ * source file is not a deployment control, which is the whole reason this
+ * function exists: the process refuses to start in the configuration that
+ * produces the outage, rather than producing it quietly.
+ *
+ * Two ways to satisfy it, and both are legitimate:
+ *   - set KASUWA_TRUST_PROXY_HOPS, so the throttle keys on the real client; or
+ *   - raise KASUWA_AUTH_SIGN_IN_PER_MINUTE above the cell-wide floor, i.e.
+ *     accept that it is a crude global cap and size it like one.
+ */
+const CELL_WIDE_SIGN_IN_FLOOR = 600;
+
+export function assertThrottleIsNotACellWideCliff(
+  env: Pick<
+    KasuwaEnv,
+    'NODE_ENV' | 'KASUWA_TRUST_PROXY_HOPS' | 'KASUWA_AUTH_SIGN_IN_PER_MINUTE'
+  >,
+): void {
+  if (env.NODE_ENV !== 'production') {
+    return;
+  }
+  if (env.KASUWA_TRUST_PROXY_HOPS > 0) {
+    return;
+  }
+  if (env.KASUWA_AUTH_SIGN_IN_PER_MINUTE === 0) {
+    // Explicitly disabled. A deliberate choice, and not this check's business.
+    return;
+  }
+  if (env.KASUWA_AUTH_SIGN_IN_PER_MINUTE < CELL_WIDE_SIGN_IN_FLOOR) {
+    throw new Error(
+      'Refusing to start: KASUWA_TRUST_PROXY_HOPS is 0, so the sign-in throttle keys ' +
+        'on the socket peer. Behind a load balancer that is ONE bucket for the whole ' +
+        `cell, and KASUWA_AUTH_SIGN_IN_PER_MINUTE=${env.KASUWA_AUTH_SIGN_IN_PER_MINUTE} ` +
+        `would then reject every tenant's sign-ins past that many per minute. Either ` +
+        'set KASUWA_TRUST_PROXY_HOPS to the number of proxies in front of this process, ' +
+        `or raise the limit above ${CELL_WIDE_SIGN_IN_FLOOR} and treat it as the ` +
+        'cell-wide cap it would be.',
+    );
+  }
+}
+
 export function parseEnv(source: NodeJS.ProcessEnv = process.env): KasuwaEnv {
   const parsed = EnvSchema.safeParse(source);
   if (!parsed.success) {
@@ -159,6 +227,7 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): KasuwaEnv {
     throw new Error(`Invalid environment:\n${detail}`);
   }
   assertAuthModeIsSafe(parsed.data);
+  assertThrottleIsNotACellWideCliff(parsed.data);
   return parsed.data;
 }
 

@@ -21,6 +21,7 @@ export type AuthErrorCode =
   | 'invalid_credentials'
   | 'account_locked'
   | 'too_many_requests'
+  | 'service_unavailable'
   | 'mfa_challenge_invalid'
   | 'mfa_code_invalid'
   | 'mfa_challenge_expired'
@@ -119,6 +120,22 @@ export function notAuthenticated(): AuthError {
   return new AuthError(HttpStatus.UNAUTHORIZED, 'not_authenticated', 'Not authenticated');
 }
 
+/**
+ * Load shedding, not an authentication decision.
+ *
+ * Raised when the argon2id queue is full. It is deliberately NOT a 401: the
+ * credentials were never checked, so saying they were wrong would mislead a
+ * real user and hand an attacker an oracle — a shed request returns in
+ * microseconds where a verified one takes tens of milliseconds.
+ */
+export function signInUnavailable(): AuthError {
+  return new AuthError(
+    HttpStatus.SERVICE_UNAVAILABLE,
+    'service_unavailable',
+    'Too many people are signing in at once. Try again in a moment.',
+  );
+}
+
 /** Specified in the contract, not built in T-0001. */
 export function notImplemented(): AuthError {
   return new AuthError(
@@ -140,6 +157,8 @@ function reasonPhrase(status: HttpStatus): string {
       return 'Too Many Requests';
     case HttpStatus.NOT_IMPLEMENTED:
       return 'Not Implemented';
+    case HttpStatus.SERVICE_UNAVAILABLE:
+      return 'Service Unavailable';
     default:
       return 'Error';
   }

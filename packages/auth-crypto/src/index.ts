@@ -16,6 +16,7 @@ export {
   constantTimeEquals,
   dummyPasswordHash,
   hashPassword,
+  HashingOverloadedError,
   hashPressure,
   verifyPassword,
 } from './password';

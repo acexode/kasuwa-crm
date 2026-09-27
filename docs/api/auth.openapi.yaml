@@ -639,6 +639,7 @@ components:
             - otp_too_many_attempts
             - not_authenticated
             - not_implemented
+            - service_unavailable
         message: { type: string }
         details:
           type: array
@@ -850,6 +851,25 @@ components:
             error: Unauthorized
             code: not_authenticated
             message: Not authenticated
+
+    ServiceUnavailable:
+      description: |
+        Load shedding, not an authentication decision. The password hashing
+        queue was full, so the request was refused before the credentials were
+        checked at all.
+
+        Deliberately not a `401`: saying the credentials were wrong when they
+        were never examined misleads a real user, and hands an attacker an
+        oracle — a shed request comes back in microseconds where a verified one
+        takes tens of milliseconds. Retry after a short delay.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 503
+            error: Service Unavailable
+            code: service_unavailable
+            message: Too many people are signing in at once. Try again in a moment.
 
     NotImplemented:
       description: |

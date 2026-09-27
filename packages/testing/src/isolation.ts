@@ -102,9 +102,17 @@ const TABLE_SECURITY_SQL = `
  * skipped ONLY so that the catalogue invariant's set-equality check against
  * `TENANT_SCOPED_TABLES` still means something. **This is a named exemption,
  * not a silent one** — the list is an exported constant with a reason per
- * entry, and `readNonTenantScopedTableSecurity` below asserts those tables
- * still have RLS enabled, forced and policied. An exemption that existed only
- * as an unexplained `NOT IN` here would be worse than the finding it answers.
+ * entry, and `readNonTenantScopedTableSecurity` below reads the RLS state of
+ * exactly those tables so that it can be asserted rather than assumed.
+ *
+ * Where it IS asserted matters, because for a while it was not asserted
+ * anywhere: the helper existed, this comment and ADR-0009 both said it covered
+ * the exempt table, and nothing called it. Two reviewers found that before it
+ * found us. It now runs in the blocking tenancy suite —
+ * `tests/acceptance/tenancy/rls-enforcement.acceptance.test.ts` — and in
+ * `isolation.integration.test.ts` beside this file. An exemption that existed
+ * only as an unexplained `NOT IN` here would be worse than the finding it
+ * answers; so would one whose proof was a function nobody ran.
  *
  * Used by the "no table without RLS" invariant, which is the one check that
  * keeps working when someone adds a table in six months and forgets everything

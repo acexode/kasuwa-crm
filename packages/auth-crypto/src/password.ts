@@ -67,7 +67,42 @@ const MAX_CONCURRENT_HASHES = 6;
 let activeHashes = 0;
 const hashQueue: (() => void)[] = [];
 
+/**
+ * How many callers may wait for a slot before the next one is refused outright.
+ *
+ * The queue was unbounded, which made it the very thing the semaphore was meant
+ * to prevent: requests that cannot be served yet still each pinned an argon2
+ * call, a pending promise and — before the hash moved out of the transaction —
+ * a pooled database connection, for as long as the flood lasted. A bound turns
+ * "everything gets slower until something falls over" into "the work in hand
+ * finishes and the surplus is refused immediately", which is the whole point of
+ * load shedding.
+ *
+ * Twenty-four is four rounds of work at the current concurrency. Past that, a
+ * caller is better served by a fast 503 it can retry than by a socket held open
+ * for seconds.
+ */
+const MAX_QUEUED_HASHES = 24;
+
+/**
+ * Thrown when the queue is full. The API turns it into a 503, NOT a 401:
+ * refusing to do the work is not the same as deciding the credentials were
+ * wrong, and answering 401 here would both mislead the caller and — because
+ * shedding is cheap and verification is not — hand an attacker a fast oracle
+ * for "this request never reached argon2".
+ */
+export class HashingOverloadedError extends Error {
+  constructor() {
+    super('Password hashing is at capacity');
+    this.name = 'HashingOverloadedError';
+  }
+}
+
 async function withHashSlot<T>(work: () => Promise<T>): Promise<T> {
+  if (activeHashes >= MAX_CONCURRENT_HASHES && hashQueue.length >= MAX_QUEUED_HASHES) {
+    throw new HashingOverloadedError();
+  }
+
   // `while`, not `if`. A woken waiter used to take a slot without re-checking,
   // so two resolutions landing in the same microtask could both proceed and
   // push the count past the maximum — making the invariant this file asserts
@@ -87,8 +122,18 @@ async function withHashSlot<T>(work: () => Promise<T>): Promise<T> {
 }
 
 /** Test and diagnostic hook: how many hashes are in flight or waiting. */
-export function hashPressure(): { active: number; queued: number; limit: number } {
-  return { active: activeHashes, queued: hashQueue.length, limit: MAX_CONCURRENT_HASHES };
+export function hashPressure(): {
+  active: number;
+  queued: number;
+  limit: number;
+  queueLimit: number;
+} {
+  return {
+    active: activeHashes,
+    queued: hashQueue.length,
+    limit: MAX_CONCURRENT_HASHES,
+    queueLimit: MAX_QUEUED_HASHES,
+  };
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -114,6 +159,11 @@ export async function hashPassword(password: string): Promise<string> {
  * this particular account exists and is in an unusual state.
  */
 export async function verifyPassword(hash: string, password: string): Promise<boolean> {
+  // The try/catch is INSIDE the slot on purpose. A malformed stored hash must
+  // deny like a wrong password, but `HashingOverloadedError` is raised before
+  // the slot is granted and must escape — swallowing it here would turn "we
+  // refused to do the work" into "the password was wrong", which is both a lie
+  // to the caller and a cheap oracle for whether a request reached argon2.
   return withHashSlot(async () => {
     try {
       return await argon2Verify({ password, hash });

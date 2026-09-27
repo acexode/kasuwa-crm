@@ -5,7 +5,7 @@
 -- oracle. Everything here exists because something in 0002 was wrong, so each
 -- section says what was wrong rather than only what it now does.
 --
--- Four changes:
+-- Five changes:
 --
 --   1. auth_rate_limit replaces auth_attempt. It is NOT TENANT-SCOPED, which
 --      is a deliberate, reasoned exception to the rule that every table carries
@@ -21,6 +21,11 @@
 --   4. app.resolve_session is replaced to check tenant status, so suspending a
 --      tenant cuts off its existing sessions instead of only stopping new
 --      sign-ins.
+--   5. auth_challenge gains an index on (tenant_id, user_id), which the
+--      per-user open-challenge cap reads on every sign-in.
+--
+-- It also ASSERTS, at the end, that neither SECURITY DEFINER function is
+-- executable by PUBLIC. That is not decoration: see the note above the block.
 -- ---------------------------------------------------------------------------
 
 -- --- auth_rate_limit -------------------------------------------------------
@@ -44,8 +49,16 @@
 -- readTableSecurity (packages/testing/src/isolation.ts). A silent exemption
 -- would have been worse than the finding.
 --
--- What it holds is a SHA-256 and three integers. No identifier, no address, no
--- tenant id, nothing that is personal data and nothing that is business data.
+-- What it holds is a SHA-256 and three integers: no address and no tenant id in
+-- plain text, and no business data at all. It is NOT free of personal data,
+-- though, and an earlier draft of this comment wrongly said it was. The digest
+-- is unkeyed over a low-entropy input, so anyone with the table and a candidate
+-- address can confirm a match offline — which makes a row evidence that a named
+-- person attempted to sign in at a named workspace. That is pseudonymised
+-- personal data under the NDPA: in scope for retention and for subject access.
+-- An HMAC under a server-held key would remove that, and needs the key
+-- management D-L13 is blocked on. Until then these rows are swept, not kept.
+--
 -- The key is computed from what the CALLER SUBMITTED, before anything is
 -- resolved, which is what makes the real and the fake workspace take the same
 -- path.
@@ -124,3 +137,34 @@ $$;
 -- --- an index the open-challenge cap needs ---------------------------------
 -- Counting a user's currently-open challenges happens on every sign-in.
 CREATE INDEX auth_challenge_tenant_user_idx ON auth_challenge (tenant_id, user_id);
+
+-- --- assert the grants, do not assume them --------------------------------
+-- `app.resolve_session` is replaced above with CREATE OR REPLACE, which
+-- PRESERVES the existing ACL — so the `REVOKE ALL ... FROM PUBLIC` from 0002
+-- still holds. That is the only reason it holds, and it is a thin reason.
+--
+-- A future DROP FUNCTION + CREATE FUNCTION, which is how anyone would change a
+-- function's signature or return type, starts from a fresh ACL. Postgres grants
+-- EXECUTE on a new function to PUBLIC by default, so that edit would silently
+-- hand every role in the database the two RLS-free reads in this system, and
+-- nothing anywhere would notice.
+--
+-- So the migration checks, rather than trusting that the next person reads the
+-- comment. If this ever fires, do not remove the check: add the REVOKE back.
+DO $$
+BEGIN
+  IF has_function_privilege('public', 'app.resolve_session(bytea)', 'EXECUTE') THEN
+    RAISE EXCEPTION
+      'app.resolve_session is executable by PUBLIC. It is a SECURITY DEFINER '
+      'function and the only RLS-free read path in the system; REVOKE ALL ON '
+      'FUNCTION app.resolve_session(bytea) FROM PUBLIC.';
+  END IF;
+
+  IF has_function_privilege('public', 'app.resolve_tenant_by_slug(text)', 'EXECUTE') THEN
+    RAISE EXCEPTION
+      'app.resolve_tenant_by_slug is executable by PUBLIC. It is a SECURITY '
+      'DEFINER function; REVOKE ALL ON FUNCTION app.resolve_tenant_by_slug(text) '
+      'FROM PUBLIC.';
+  END IF;
+END
+$$;
