@@ -651,7 +651,30 @@ check, which is worse than not having one — and this is the mechanism keeping
 the 256 kbps commitment honest once there are thirty screens.
 
 **Decision: no real byte budget may be set until the CI e2e job builds the web
-app in production mode.** Until then the harness's budget machinery exists and
+app in production mode.**
+
+---
+
+### ANSWERED 2026-09-27 by @acexode
+
+> CI builds `apps/web` in production mode; set the 256 kbps budget against that
+> build (start at **300 KB gzipped critical path** per the NFR) and fail on
+> regression.
+
+So the condition above is to be met rather than worked around: the e2e job
+builds the app, and the budget becomes a real number with a real failure.
+
+Two things to get right when implementing (T-0010):
+
+- **300 KB gzipped is the NFR ceiling, not a target to grow into.** A budget set
+  at exactly today's weight catches regressions; a budget set at the ceiling
+  permits every page between here and it. Record the measured production number
+  in the PR alongside the ceiling, so the gap is visible and a later tightening
+  is an informed decision rather than a guess.
+- **"Critical path" has to be defined in code**, not left to interpretation, or
+  the number means whatever the person measuring wanted. State what counts:
+  the documents, scripts, styles and fonts needed for first contentful paint on
+  the sign-in route, excluding anything lazily loaded after it. Until then the harness's budget machinery exists and
 is proven (the over-budget fixture fails the run), but no screen asserts a
 number against the dev bundle.
 
