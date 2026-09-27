@@ -301,6 +301,9 @@ importers:
       '@kasuwa/api':
         specifier: workspace:*
         version: link:../../apps/api
+      '@kasuwa/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@kasuwa/db':
         specifier: workspace:*
         version: link:../../packages/db

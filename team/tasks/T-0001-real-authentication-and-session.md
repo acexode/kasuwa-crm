@@ -37,22 +37,37 @@ caller is*, not *what they may reach*.
 
 ## Acceptance tests
 
-Stubs committed at `tests/acceptance/auth/authentication.acceptance.test.ts`.
-Ask the lead to convert the `it.todo` entries into real tests before you start
-implementing — that is the intended flow, and you cannot edit that file yourself.
+**Real and failing**, at
+`tests/acceptance/auth/authentication.pending.acceptance.test.ts`.
 
-Behaviours they name, which are the actual contract:
+Run them with `pnpm test:pending`. They fail today because the endpoints do not
+exist — that is what makes this task assignable under D-L23.
 
-- a valid credential pair plus a valid TOTP code establishes a session
-- a wrong password and an unknown email are indistinguishable in response **and**
-  in timing characteristics
-- a session established for tenant A cannot be replayed against tenant B
-- a session for a disabled user is rejected on the next request, not on expiry
-- session tokens are never accepted from a query string or URL fragment
-- **the existing suite in `tests/acceptance/tenancy/` still passes unchanged**
+The lead renames the file to drop `.pending` when assigning you the work, which
+puts it into the blocking suite. From that point your job is to turn it green
+**without editing it**; CI and a hook both stop you.
 
-That last one is the real acceptance criterion. If the tenancy tests need
-editing to accommodate your auth, something has regressed.
+Two helpers in that file (`signIn`, `disableUser`) deliberately throw — they
+describe the shape you must provide. Filling them in is part of the task.
+
+The contract, in that file:
+
+- a valid credential pair plus a valid second factor establishes a session, and
+  the first factor alone hands out nothing usable
+- an unknown email and a wrong password are indistinguishable in response **and**
+  in timing — the timing test catches "no hashing at all for unknown users",
+  which is the usual way this leaks
+- a session for tenant A cannot be replayed against tenant B
+- a disabled user is rejected on the *next request*, not at token expiry
+- tokens are never accepted from a query string or URL fragment
+- no credential material appears in any response
+- the production boot guard still refuses `KASUWA_AUTH_MODE=stub`
+- **an authenticated request is scoped exactly as the stub was**
+
+That last one is the real acceptance criterion, and
+`tests/acceptance/tenancy/` must still pass **unmodified**. Auth changes how we
+learn *who* the caller is; it must not change *what* they reach. If you need to
+edit the tenancy suite, scope has leaked into the token.
 
 ## Non-goals
 

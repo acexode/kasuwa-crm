@@ -58,12 +58,33 @@ export default defineWorkspace([
     },
   },
   {
+    // Run with: pnpm test:pending — shows the backlog's acceptance tests going
+    // red, which is what a builder should see before starting.
+    resolve: { alias },
+    test: {
+      name: 'pending',
+      environment: 'node',
+      include: ['tests/acceptance/**/*.pending.acceptance.test.ts'],
+      exclude: ['**/node_modules/**', '**/dist/**'],
+      globalSetup,
+      fileParallelism: false,
+      testTimeout: 30_000,
+      hookTimeout: 180_000,
+    },
+  },
+  {
     resolve: { alias },
     test: {
       name: 'isolation',
       environment: 'node',
       include: ['tests/acceptance/**/*.acceptance.test.ts'],
-      exclude: ['**/node_modules/**', '**/dist/**'],
+      // `*.pending.acceptance.test.ts` holds real, failing acceptance tests for
+      // tasks that have not been assigned yet (D-L23 requires them to exist and
+      // fail before assignment). They are excluded from this blocking gate
+      // because "CI red on main" is a stop-the-line condition — a backlog of
+      // unstarted work must not look like a broken build. The lead renames the
+      // file when assigning, and from that moment CI enforces it.
+      exclude: ['**/node_modules/**', '**/dist/**', '**/*.pending.acceptance.test.ts'],
       globalSetup,
       fileParallelism: false,
       testTimeout: 30_000,

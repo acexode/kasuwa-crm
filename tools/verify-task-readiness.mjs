@@ -92,6 +92,22 @@ for (const fileName of taskFiles) {
       continue;
     }
 
+    // A `.pending.` file holds real, failing acceptance tests for work not yet
+    // started. It sits outside the blocking CI gate on purpose, so a backlog of
+    // unstarted tasks does not look like a broken build — "CI red on main" is a
+    // stop-the-line condition and must keep meaning something.
+    //
+    // Assigning a task means promoting its tests out of pending. That rename is
+    // the moment CI starts enforcing them, and this check is what makes the
+    // rename non-optional.
+    if (/\.pending\.acceptance\.test\.ts$/.test(relativePath)) {
+      failures.push(
+        `${fileName} is "${status}" but ${relativePath} is still PENDING.\n` +
+          `    Rename it to drop ".pending" so the blocking suite enforces it (D-L23).`,
+      );
+      continue;
+    }
+
     if (TODO_PATTERN.test(readFileSync(testPath, 'utf8'))) {
       failures.push(
         `${fileName} is "${status}" but ${relativePath} still contains .todo stubs.\n` +

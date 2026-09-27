@@ -11,7 +11,8 @@
     "@kasuwa/db": "workspace:*",
     "@kasuwa/domain-core": "workspace:*",
     "@kasuwa/testing": "workspace:*",
-    "@kasuwa/api": "workspace:*"
+    "@kasuwa/api": "workspace:*",
+    "@kasuwa/config": "workspace:*"
   },
   "devDependencies": {
     "@nestjs/testing": "^11.0.1",

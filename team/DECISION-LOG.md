@@ -311,3 +311,39 @@ can all start.
   **"No" is a perfectly good answer** — it costs timeline, not correctness, and
   it lets the milestone plan be honest. Silence is the only answer that cannot
   be planned around.
+
+
+---
+
+## Pending acceptance tests — reconciling D-L23 with the CI stop condition
+**Date:** 2026-09-27 · **Decided by:** lead (reversible, recorded for traceability)
+
+D-L23 says no task is assigned until its acceptance tests exist and **fail for a
+real reason**. STANDING ORDERS item 5 makes **CI red on `main`** a stop-the-line
+condition. Taken together those are contradictory: a backlog of properly-written
+acceptance tests for unstarted work is, by definition, a red build.
+
+Resolving it by weakening either side would have been worse. Keeping `it.todo`
+stubs (the old approach) satisfies CI and holds nobody to anything. Committing
+failing tests to the blocking suite makes "CI is red" mean "there is a backlog",
+and once that is true nobody treats red as a stop condition again.
+
+**Decision:** acceptance tests for unassigned work live in
+`*.pending.acceptance.test.ts`.
+
+- They are **real tests with real assertions**, and they fail.
+- The `isolation` project — the blocking gate — excludes them.
+- A new `pending` project runs exactly them: `pnpm test:pending`. That is what a
+  builder runs before starting, and what they should see go red.
+- **Assigning a task means renaming the file to drop `.pending`.** From that
+  moment CI enforces it.
+- `pnpm verify:tasks` fails if a task is marked `assigned` or `in-progress`
+  while its tests are still pending, so the rename is not optional. Negative-
+  tested: flipping T-0001 to `assigned` fails the check by name.
+
+**Known weakness, stated rather than discovered later:** a pending test can pass
+vacuously. T-0001's suite has ten tests; six fail because the endpoints do not
+exist, and four pass — the two indistinguishability ones pass because *both*
+requests 404 identically, which is true and meaningless. They become real the
+moment the endpoints exist. The lead should read a pending suite's failures and
+ask whether the passes are load-bearing, rather than counting red.
