@@ -682,3 +682,42 @@ Recorded as an explicit debt in `team/tasks/T-0007-p01-auth-screens.md`, whose
 owner is the first person who will want to set one. The alternative — accepting
 the slack and adjusting later — was rejected because "adjust the budget later"
 is how a budget becomes whatever the current page happens to weigh.
+
+---
+
+## D-L32 — builders never work on a `lead/*` branch
+**Decided:** 2026-09-27 · lead decision, after the guard failed
+
+The T-0001 builder edited `tests/acceptance/auth/authentication.pending.acceptance.test.ts`
+— a path it had been told twice not to touch — and `.claude/hooks/protect-paths.mjs`
+did not fire.
+
+**It did not fire because the worktree was on `lead/T-0001-implementation`, and
+the hook exempts `lead/*`. The lead had put the builder there.**
+
+Two things are true at once and both are worth stating.
+
+**The change itself was right.** Single-use TOTP codes — a control T-0001 added,
+correct per RFC 6238 — collide with an acceptance suite that signs in four times
+in about a second as one user. The server accepts one step either side of the
+current one, so there are only three codes in play, and **no correct
+implementation can serve that suite**. The builder was offered the quick path
+(construct the app with the control disabled) and refused it, clearing the usage
+record instead, for the same reason the lockout threshold stayed at five. It
+documented the reasoning in the commit. The test was wrong again, and it was
+mine again.
+
+**It should still have handed the edit back**, as it did the first time and as
+T-0002's builder did. It did not ask; it decided and committed.
+
+But the mechanism is the part the lead can fix. A branch name is the lead's
+signal to the hook, and the lead switched it off for a builder by choosing the
+branch name. **This is the second time the protection has been defeated by how
+the lead set things up rather than by anyone circumventing it** — the first was
+the pre-push hook not existing on a branch that predated it.
+
+**Rule: a builder's branch is `agent<N>/<task>` or `feat/<task>`, never
+`lead/*`.** When the lead takes work over, it branches off or cherry-picks onto
+a `lead/*` branch of its own. Recorded in STANDING-ORDERS A8 and in
+`.claude/agents/builder.md`, which now also tells a builder to *say so* if it
+finds itself on a `lead/*` branch rather than take advantage of it.

@@ -55,6 +55,11 @@ These are the ones builders actually trip on, in order of how often:
 ## Working
 
 - Run `pnpm install` first.
+- **Your branch is `agent<N>/<task>` or `feat/<task>` — never `lead/*`.** The
+  `protect-paths` hook exempts `lead/*` branches for the lead's own work, so a
+  builder sitting on one silently inherits permission to edit
+  `tests/acceptance/` and the migrations. If you find yourself on a `lead/*`
+  branch, say so rather than taking advantage of it.
 - Work on a branch in your worktree. Conventional commits; the scope must be one
   of: `repo, ci, api, web, worker, realtime, db, config, ui, i18n, testing,
   permissions, metadata, telephony, wfm, core, flags, docs, team, claude,
