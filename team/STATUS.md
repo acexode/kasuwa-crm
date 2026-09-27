@@ -2,6 +2,98 @@
 
 ---
 
+## Cycle · 2026-09-27 · continuous-delivery amendment adopted
+
+### Progress
+
+**Tasks done: 1 · Tasks remaining: 6**
+
+Backlog grows as tasks are created (STANDING ORDERS A3), so "remaining" rising
+is the system working, not slipping.
+
+| Task | Agent | Ready? |
+|---|---|---|
+| T-0001 auth | 1 | **ready** — 10 tests, 6 failing |
+| T-0002 metadata | 2 | **ready** — 10 tests, 10 failing |
+| T-0004 adversarial QA | 12 | not ready |
+| T-0005 CI/infra | 13 | not ready |
+| T-0006 icon subset CI | 11 | not ready (deferred to first screen) |
+| T-0007 P01 auth screens | 11 | not ready — **blocked on an e2e harness that does not exist** |
+| T-0003 design tokens | 11 | **done** |
+
+Pending backlog: **16 failing acceptance tests** across two tasks, outside the
+blocking gate. Blocking suite: 56 passing.
+
+### Shipped this cycle
+
+- Amendment committed into `STANDING-ORDERS.md` as section A, marked as
+  overriding anything above it that conflicts
+- Delivery estimates stripped from `STATUS.md`; the historical ones in
+  `DECISION-LOG.md` are left in place and marked superseded, because that file
+  is an append-only record and rewriting it would be dishonest
+- T-0002 made ready: real isolation tests for `object_def` / `field_def`
+
+The T-0002 suite asserts one thing positively that is easy to get wrong later:
+**metadata is tenant-scoped but not programme-scoped.** A missing `programme_id`
+reads as an oversight to a reviewer, and this is the one place it is correct —
+so if someone "fixes" it, the suite fails and explains why.
+
+### The real blocker on Agent 11
+
+**T-0007 cannot become ready until an e2e harness exists.** There is no
+Playwright in the repository, so there is nothing to write auth-screen
+acceptance tests *in*. Per A2 a missing design is not a stop — but here the
+design arrived and the test infrastructure is what is missing.
+
+**Next cycle's first job: create and make ready the e2e harness task (Agent 12,
+who owns e2e).** That unblocks T-0007, T-0004 and every screen task after them.
+This is the single highest-value piece of ready work available.
+
+### Why this cycle stopped
+
+**Not the usage window** — that is at 19% weekly against a 31.5% guard, with
+plenty of headroom.
+
+**The session's context window**, at ~82% of 1M, auto-compacting at 97%. That is
+a different limit from the one A5 names, and worth knowing about: a long
+interactive session runs out of context long before it runs out of seat
+allowance. Scheduled cycles start fresh each time and will not hit it; only long
+interactive sessions like this one will.
+
+Stopping here is the clean stop A5 asks for: committed, pushed, next action
+written down.
+
+### Spend
+
+| | |
+|---|---|
+| Weekly · all models | 19% (guard: 31.5%) |
+| 5-hour window | 15% |
+| Extra usage | $0 — still reports `enabled: false` from here, so the org setting may not have propagated yet. Flagging rather than reporting a number I cannot see. |
+
+### Open
+
+| | |
+|---|---|
+| **D-T1–D-T5** | Telephony spec, events, auth model, staging. Holds Agent 6 and P09–P12. |
+| **D-W1** | No WFM material; the review cannot start. |
+| **DESIGN NEEDED** | Prompt 2 · Prompt 3 |
+| **PR #3** | Green, mergeable, awaiting merge. Not a stop (A2) — work continues on branches off it. |
+| **Seats** | Per-user, not pooled. Thirteen needed as the roster scales; procurement has lead time. |
+
+### Next cycle
+
+1. Create the e2e harness task and make it ready — unblocks Agent 11 and 12.
+2. Make T-0004 and T-0005 ready.
+3. Continue creating tasks from the PRD order until three are ready per active
+   agent.
+
+---
+
+
+
+---
+
 ## Cycle · 2026-09-27 · automation live, capacity resolved
 
 ### The scheduled cycle is running

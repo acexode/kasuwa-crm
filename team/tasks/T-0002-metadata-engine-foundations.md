@@ -39,15 +39,28 @@ is built on top of it and a mistake here is expensive to undo.
 
 ## Acceptance tests
 
-Stubs committed at
-`tests/acceptance/metadata/metadata-isolation.acceptance.test.ts`.
+**Real and failing**, at
+`tests/acceptance/metadata/metadata-isolation.pending.acceptance.test.ts`.
+Run them with `pnpm test:pending`. The lead renames the file to drop `.pending`
+when assigning; from then on CI enforces it and you may not edit it.
 
-Behaviours they name:
+The contract:
 
-- tenant A cannot read, update or delete tenant B's object or field definitions
-- a field definition cannot be created pointing at another tenant's object
-- `api_name` uniqueness is per tenant per object, not global
-- the catalogue invariant still holds for the new tables
+- `object_def` and `field_def` exist, are in `TENANT_SCOPED_TABLES`, and have
+  RLS enabled **and** forced with at least one policy
+- tenant A cannot read, update or delete tenant B's definitions — including
+  when it knows the id, which is the realistic case
+- a field definition cannot point at another tenant's object definition
+- `api_name` uniqueness is per tenant per object, never global: two tenants must
+  both be able to call a field `priority`
+- **metadata is tenant-scoped but NOT programme-scoped** — asserted positively,
+  because a missing `programme_id` looks like an oversight to a later reviewer
+  and this is the one place it is correct
+- cross-tenant reads still fail with a forged programme scope, and everything
+  fails with no session context
+
+`seedObjectDef()` in that file throws deliberately — implementing it is part of
+this task.
 
 ## Non-goals
 

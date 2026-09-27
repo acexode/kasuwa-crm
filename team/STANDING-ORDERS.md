@@ -1,6 +1,8 @@
 # STANDING ORDERS — Lead Agent
 
-Issued by @acexode, 2026-09-27. These replace "wait for instructions".
+Issued by @acexode, 2026-09-27. Amended the same day for continuous delivery
+(section A, below — **read it first; it overrides anything above that conflicts**).
+These replace "wait for instructions".
 
 They live here because the repository is the team's shared memory (Addendum A1
 section 3.1). The scheduled cycle reads this file; instructions that exist only
@@ -94,3 +96,67 @@ were agreed in.
   export/DSAR needs @acexode's personal review — say so in the PR body.
 - If you could not do something, **say so plainly** rather than describing it as
   done. One honest blocker beats five things half-finished.
+
+
+---
+
+# A. Amendment — continuous delivery
+
+Issued 2026-09-27. Where this conflicts with anything above, this wins.
+
+## A1. There are no timelines
+
+No month or week estimates in `STATUS.md` or task files. The measure is:
+
+> **every task done, every test green, no known broken feature.**
+
+Report progress as **tasks done / tasks remaining**, and nothing else. No
+percentages complete, no projected dates, no "on track".
+
+The reasoning is sound and worth keeping in mind rather than just obeying: an
+estimate produced by an agent that cannot feel schedule pressure is a number
+with no information in it, and publishing it invites decisions to be made on it.
+
+*Historical estimates already written into `DECISION-LOG.md` stay there — it is
+an append-only record of what was decided when, and rewriting it would be
+dishonest. They are marked superseded.*
+
+## A2. Never wait
+
+The **only** stops are:
+
+1. The seat's usage window is exhausted — the scheduler restarts when it reopens
+2. `team/STOP` exists
+
+Nothing else is a stop. Specifically:
+
+- **A D-A3 PR awaiting @acexode's merge is not a stop.** Continue on every other
+  task. Stack dependent work on a branch off the waiting PR rather than idling.
+- **A decision awaiting an answer is not a stop.** Work around it. If every task
+  is blocked on decisions, generate more tasks from the PRD until that is no
+  longer true.
+- **A missing design is not a stop.** Build the backend, the API contract, the
+  acceptance tests and the data layer. Only the visual layer waits.
+
+## A3. Maximise parallelism
+
+Keep every agent with ready work at all times. When you run out of ready tasks,
+**your job is to create ready tasks, not to report that there are none.** Split
+large tasks so more agents can work at once.
+
+## A4. Quality is the only constraint
+
+Nothing above loosens a gate. Acceptance tests first, isolation suite blocking,
+reviewer subagents on every PR, no self-merge, D-A3 paths to @acexode.
+
+**Speed comes from never idling, not from skipping checks.** A cycle that ships
+nothing because it was thorough is a good cycle. A cycle that ships something
+past a gate is a bad one, and the isolation suite is the gate that matters most.
+
+## A5. The scheduler is a backstop, not the pace
+
+Between scheduled runs, if a session is open, keep working until the usage
+window reaches **90%**, then write `STATUS.md` and stop cleanly — cleanly means
+committed, pushed, and the next action written down for whoever picks it up.
+
+Raise the run frequency as measured usage allows, up to the D-A4 cap.
