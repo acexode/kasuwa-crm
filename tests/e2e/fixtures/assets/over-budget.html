@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Deliberately over-budget fixture</title>
+    <link rel="icon" href="data:," />
+    <!--
+      400 KiB of stylesheet. This page is not a mistake and must not be
+      "fixed": it is the evidence that the transferred-byte budget actually
+      fails a run. See tests/e2e/fixtures/over-budget.spec.ts.
+    -->
+    <link rel="stylesheet" href="/filler.css?bytes=409600" />
+  </head>
+  <body>
+    <main>
+      <h1>Over budget, on purpose</h1>
+      <p data-testid="over-budget-marker">
+        If this page ever comes in under its budget, the budget check has stopped working.
+      </p>
+    </main>
+  </body>
+</html>

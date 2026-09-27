@@ -28,7 +28,8 @@
     "verify:tasks": "node tools/verify-task-readiness.mjs",
     "ui:import-design": "pnpm --filter @kasuwa/ui import-design",
     "ui:fetch-fonts": "pnpm --filter @kasuwa/ui fetch-fonts",
-    "test:pending": "vitest run --project pending"
+    "test:pending": "vitest run --project pending",
+    "test:e2e": "node tests/e2e/scripts/run-e2e.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.5.0",

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Harness shell fixture</title>
+    <!-- Suppress the automatic favicon request: it is the one resource whose
+         presence varies between browser builds, and the two profiles must make
+         byte-for-byte identical requests for the comparison to mean anything. -->
+    <link rel="icon" href="data:," />
+    <!--
+      Render-blocking, and deliberately the size of a realistic app shell
+      (120 KiB). First contentful paint cannot happen until it has arrived, so
+      throttling the connection moves FCP by an amount that is impossible to
+      mistake for noise. The server synthesises the padding, so the number is
+      exact and nothing large is committed to the repository.
+    -->
+    <link rel="stylesheet" href="/filler.css?bytes=122880" />
+  </head>
+  <body>
+    <main>
+      <h1>Kasuwa end-to-end harness</h1>
+      <p data-testid="shell-marker">
+        This page exists so the harness can measure itself against something that never changes.
+      </p>
+    </main>
+  </body>
+</html>

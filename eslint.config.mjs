@@ -88,6 +88,10 @@ export default tseslint.config(
       'packages/ui/src/*.generated.css',
       'apps/web/public/fonts/**',
       'tools/fixtures/**',
+      // Playwright's output: traces, the bundled HTML report and screenshots.
+      // Git-ignored, machine-written, and large enough that linting it takes
+      // longer than linting the workspace.
+      'tests/e2e/.artifacts/**',
     ],
   },
 

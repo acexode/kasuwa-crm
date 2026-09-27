@@ -126,3 +126,41 @@ jobs:
       - run: pnpm ui:tokens
       - run: pnpm i18n:pseudo
       - run: pnpm build
+
+  # --------------------------------------------------------------------------
+  # End-to-end (T-0008). Runs after `build`, because a suite that drives the app
+  # has nothing useful to say about a workspace that does not compile — and the
+  # failure it would report is the build failure, one layer less legibly.
+  #
+  # `pnpm test:e2e` starts its own Postgres (Testcontainers), the API and the
+  # web app on free ports, so there are no service containers to declare here.
+  # --------------------------------------------------------------------------
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.7.0' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22.16.0', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm ui:tokens
+      - run: pnpm i18n:pseudo
+      # Chromium only. Another engine doubles the CI minutes and buys nothing
+      # until something actually differs between them.
+      - run: pnpm --filter @kasuwa/e2e exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+
+      # A red e2e job that cannot be diagnosed without re-running it locally is
+      # ignored within a fortnight. Traces and screenshots are retained on
+      # failure by playwright.config.ts; this is what makes them reachable.
+      # Artefacts from a green run are noise, hence `if: failure()`.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-traces-and-screenshots
+          path: tests/e2e/.artifacts
+          retention-days: 7
+          if-no-files-found: warn

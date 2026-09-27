@@ -96,6 +96,11 @@ pnpm test:unit            # fast, no I/O
 pnpm test:integration     # real Postgres via Testcontainers
 pnpm test:isolation       # the blocking tenancy suite
 
+pnpm test:e2e             # Playwright against a real API, web app and database
+                          # (deliberately NOT part of `pnpm test`; it starts a
+                          # browser and a container. See tests/e2e/README.md for
+                          # how to add a journey and how to set a byte budget.)
+
 pnpm db:migrate           # as kasuwa_migrator
 pnpm db:seed              # two tenants, four programmes, five users, twelve contacts
 pnpm db:reset             # drop, migrate, seed (localhost only)
