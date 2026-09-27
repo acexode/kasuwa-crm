@@ -2,6 +2,54 @@
 
 ---
 
+## Cycle · 2026-09-27 · stopped on context
+
+**Stop condition bound: context at 85%**, past the 80% threshold. Usage was
+nowhere near — 20% weekly, 28% of the 5-hour window.
+
+### Shipped this cycle
+
+- Scheduler → **every hour, every day** (`0 * * * *`). The usage guards and the
+  D-A4 cap are the limits, not the clock.
+- A5 rewritten: **finishing a task is not a stop.** Exactly three stops —
+  80% context, 90% usage, `team/STOP`.
+- A7, the pre-push guard, auto-delete head branches — [PR #5](https://github.com/acexode/kasuwa-crm/pull/5), green.
+- Deleted three already-merged branches; the remote is now `main` plus one
+  working branch.
+
+### Handing off T-0008
+
+**Not started** — context bound first. It is fully specified in
+`team/tasks/T-0008-e2e-harness.md` and is the next ready work.
+
+The next scheduled cycle picks it up **within the hour**, with a fresh context.
+That is the architecture working as intended rather than a loss: a scheduled
+cycle starts empty and is immune to the limit that stopped this session.
+
+**First job for that cycle:** make T-0008 ready — write real, failing acceptance
+tests at
+`tests/acceptance/platform/e2e-harness.pending.acceptance.test.ts`, per the
+contract in the task file. That unblocks T-0007 and every screen task after it.
+
+### Progress
+
+**Tasks done: 1 · Tasks remaining: 7.** T-0001 and T-0002 ready, 16 failing
+acceptance tests between them. Blocking suite 56 green.
+
+### Spend
+
+| | |
+|---|---|
+| Weekly · all models | 20% (guard 31.5%) |
+| 5-hour window | 28% |
+| Extra usage | $0 — still reads `enabled: false` from here |
+
+---
+
+
+
+---
+
 ## Cycle · 2026-09-27 · hourly scheduler, e2e harness task created
 
 ### Progress

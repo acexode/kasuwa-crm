@@ -158,14 +158,18 @@ past a gate is a bad one, and the isolation suite is the gate that matters most.
 *(Amended 2026-09-27 — context, not usage, is the practical limit for a long
 interactive session.)*
 
-If a session is open, keep working until **either**:
+**A cycle or session does not end when a task is done.** Finishing a task is
+not a stop; it is the moment to start the next ready one. Keep going.
 
-- the session's **context window reaches 80%**, or
-- the seat's **usage window reaches 90%**
+There are exactly **three** stops:
 
-— **whichever comes first**. Then write `STATUS.md` and stop cleanly. Cleanly
-means committed, pushed, and the next action written down for whoever picks it
-up.
+1. the session's **context window reaches 80%**
+2. the seat's **usage window reaches 90%**
+3. **`team/STOP` exists**
+
+Nothing else — not a finished task, not a PR awaiting merge, not a decision
+awaiting an answer. On any of those three, write `STATUS.md` and stop cleanly:
+committed, pushed, and the next action written down for whoever picks it up.
 
 **Why two limits.** A long interactive session runs out of *context* well before
 it runs out of *seat allowance*: the session that established this was at 82%
@@ -180,8 +184,13 @@ relying on long sessions.
 
 ## A6. Run frequency
 
-**Hourly on weekdays, 07:00–23:00 WAT** (cron `0 7-23 * * 1-5`), set 2026-09-27
-once per-seat capacity was confirmed.
+**Every hour, every day** (cron `0 * * * *`), set 2026-09-27.
+
+**The usage guards and the D-A4 cap are the limits, not the clock.** There is no
+reason for a cycle to decline to run at 03:00 on a Sunday: if the seat has
+allowance and there is ready work, the work should happen. If it does not have
+allowance, the 31.5% pause stops it — which is the correct reason to stop, and
+the only one that reflects anything real.
 
 Adjust as measured usage allows, up to the D-A4 cap. The **31.5% weekly pause
 is what keeps this safe**, and it is convention-strength — the cycle checks it
