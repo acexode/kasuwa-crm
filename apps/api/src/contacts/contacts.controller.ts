@@ -10,7 +10,7 @@ import {
 import { findContactById, listContacts, ListContactsQuery } from '@kasuwa/domain-core';
 import type { Contact } from '@kasuwa/domain-core';
 import { z } from 'zod';
-import { StubAuthGuard } from '../tenancy/stub-auth.guard';
+import { KasuwaAuthGuard } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { currentTx } from '../tenancy/tenant-context';
 
@@ -37,7 +37,7 @@ interface ContactResponse {
  * can set to change which rows they see — only which page of their own rows.
  */
 @Controller('api/v1/contacts')
-@UseGuards(StubAuthGuard)
+@UseGuards(KasuwaAuthGuard)
 @UseInterceptors(TenantTransactionInterceptor)
 export class ContactsController {
   @Get()

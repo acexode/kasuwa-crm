@@ -28,6 +28,7 @@
 
     "baseUrl": ".",
     "paths": {
+      "@kasuwa/auth-crypto": ["packages/auth-crypto/src/index.ts"],
       "@kasuwa/config": ["packages/config/src/index.ts"],
       "@kasuwa/db": ["packages/db/src/index.ts"],
       "@kasuwa/permissions": ["packages/permissions/src/index.ts"],

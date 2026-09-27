@@ -16,6 +16,7 @@ import { defineWorkspace } from 'vitest/config';
 const root = __dirname;
 
 const alias = {
+  '@kasuwa/auth-crypto': resolve(root, 'packages/auth-crypto/src/index.ts'),
   '@kasuwa/config': resolve(root, 'packages/config/src/index.ts'),
   '@kasuwa/db': resolve(root, 'packages/db/src/index.ts'),
   '@kasuwa/permissions': resolve(root, 'packages/permissions/src/index.ts'),

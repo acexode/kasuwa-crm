@@ -99,7 +99,7 @@ paths:
               schema: { $ref: '#/components/schemas/MfaChallengeStarted' }
               example:
                 mfaRequired: true
-                challengeId: 7d2b2e14-9f4a-4a0e-8b1f-0c2a6d5e4f31
+                challengeId: 11111111-0000-4000-8000-000000000001.7d2b2e14-9f4a-4a0e-8b1f-0c2a6d5e4f31
                 method: totp
                 methods:
                   - type: totp
@@ -144,7 +144,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/MfaChallengeRequest' }
             example:
-              challengeId: 7d2b2e14-9f4a-4a0e-8b1f-0c2a6d5e4f31
+              challengeId: 11111111-0000-4000-8000-000000000001.7d2b2e14-9f4a-4a0e-8b1f-0c2a6d5e4f31
               method: sms
       responses:
         '200':
@@ -181,7 +181,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/MfaVerifyRequest' }
             example:
-              challengeId: 7d2b2e14-9f4a-4a0e-8b1f-0c2a6d5e4f31
+              challengeId: 11111111-0000-4000-8000-000000000001.7d2b2e14-9f4a-4a0e-8b1f-0c2a6d5e4f31
               code: '123456'
       responses:
         '200':
@@ -426,7 +426,7 @@ components:
       additionalProperties: false
       required: [challengeId, method]
       properties:
-        challengeId: { type: string, format: uuid }
+        challengeId: { $ref: '#/components/schemas/ChallengeId' }
         method: { $ref: '#/components/schemas/MfaMethodType' }
 
     MfaVerifyRequest:
@@ -434,7 +434,7 @@ components:
       additionalProperties: false
       required: [challengeId, code]
       properties:
-        challengeId: { type: string, format: uuid }
+        challengeId: { $ref: '#/components/schemas/ChallengeId' }
         code:
           type: string
           writeOnly: true
@@ -487,6 +487,20 @@ components:
         channel: { type: string, enum: [email, phone] }
 
     # --- responses --------------------------------------------------------
+    ChallengeId:
+      type: string
+      maxLength: 128
+      description: |
+        **Opaque. Echo it back exactly; do not parse it.**
+
+        Changed during implementation: this was specified as a bare uuid and it
+        is not one. The second step arrives carrying nothing but this value, and
+        every row in Kasuwa is behind a tenant predicate, so the id has to name
+        the tenant for the challenge to be findable at all. The tenant in it is
+        identity, not scope, and it is not trusted — a forged one simply finds
+        no challenge.
+      example: 11111111-0000-4000-8000-000000000001.7d2b2e14-9f4a-4a0e-8b1f-0c2a6d5e4f31
+
     MfaMethodType:
       type: string
       enum: [totp, sms, backup_code]
@@ -515,7 +529,7 @@ components:
           description: |
             Always true. Kasuwa has no password-only sign-in, so there is no
             branch where the first factor alone establishes a session.
-        challengeId: { type: string, format: uuid }
+        challengeId: { $ref: '#/components/schemas/ChallengeId' }
         method: { $ref: '#/components/schemas/MfaMethodType' }
         methods:
           type: array

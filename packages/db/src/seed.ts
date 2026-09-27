@@ -1,5 +1,7 @@
+import { hashPassword } from '@kasuwa/auth-crypto';
 import { Client } from 'pg';
-import { SEED_CONTACTS, SEED_TENANTS } from './fixtures';
+import { SEED_CONTACTS, SEED_PASSWORD, SEED_TENANTS, seedTotpSecret } from './fixtures';
+import { newId } from './ids';
 
 /**
  * Seeds two tenants, each with a business unit, two programmes, users and
@@ -20,6 +22,11 @@ export interface SeedOptions {
 
 export async function runSeed(options: SeedOptions): Promise<void> {
   const log = options.log ?? (() => undefined);
+  // Hashed once, outside the transaction: argon2id is memory-hard by design and
+  // every seeded user shares the same fixture password, so hashing per user
+  // would add seconds to every `pnpm db:reset` for no extra realism.
+  const seededPasswordHash = await hashPassword(SEED_PASSWORD);
+
   const client = new Client({ connectionString: options.connectionString });
   await client.connect();
 
@@ -77,6 +84,24 @@ export async function runSeed(options: SeedOptions): Promise<void> {
             tenant.slug.includes('rift') ? 'en' : 'en-NG',
           ],
         );
+        // Every seeded user can actually sign in: a password and an enrolled
+        // second factor. Without both, the only way to exercise the real auth
+        // path in a test would be to build the rows by hand in each suite.
+        await client.query(
+          `INSERT INTO user_credential (user_id, tenant_id, password_hash)
+           VALUES ($1, $2, $3)`,
+          [user.id, tenant.id, seededPasswordHash],
+        );
+
+        const totpSecret = seedTotpSecret(user.id);
+        if (totpSecret !== undefined) {
+          await client.query(
+            `INSERT INTO user_mfa_factor (id, tenant_id, user_id, type, label, secret, confirmed_at)
+             VALUES ($1, $2, $3, 'totp', $4, $5, now())`,
+            [newId(), tenant.id, user.id, 'Authenticator app', totpSecret],
+          );
+        }
+
         for (const programmeId of user.programmeIds) {
           await client.query(
             `INSERT INTO user_programme (user_id, programme_id, tenant_id, skills)

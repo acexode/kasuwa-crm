@@ -13,6 +13,7 @@
     "reset": "tsx src/cli/reset.ts"
   },
   "dependencies": {
+    "@kasuwa/auth-crypto": "workspace:*",
     "@kasuwa/config": "workspace:*",
     "drizzle-orm": "^0.38.2",
     "pg": "^8.13.1",

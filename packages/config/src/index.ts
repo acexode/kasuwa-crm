@@ -56,6 +56,30 @@ const EnvSchema = z.object({
 
   KASUWA_AUTH_MODE: AuthMode.default('stub'),
 
+  // --- authentication policy (T-0001) ------------------------------------
+  // Numbers, not behaviour. They are here rather than hard-coded so that an
+  // operator can tighten them without a deploy, and so that the values a
+  // deployment actually runs with are visible in one place at boot.
+  //
+  // The defaults are the ones the P01 design states: lock after five failed
+  // attempts, for fifteen minutes, counting within a fifteen-minute window.
+  // Raising the threshold to make a test pass would be moving a security
+  // default to suit the code, which is the same mistake as editing the test.
+  KASUWA_AUTH_LOCKOUT_MAX_ATTEMPTS: z.coerce.number().int().min(0).max(100).default(5),
+  KASUWA_AUTH_LOCKOUT_WINDOW_MINUTES: z.coerce.number().int().positive().max(1440).default(15),
+  KASUWA_AUTH_LOCKOUT_MINUTES: z.coerce.number().int().positive().max(1440).default(15),
+
+  // A second factor must be completed within ten minutes of the first, and may
+  // be got wrong five times before the challenge is burned.
+  KASUWA_AUTH_CHALLENGE_MINUTES: z.coerce.number().int().positive().max(60).default(10),
+  KASUWA_AUTH_CHALLENGE_MAX_ATTEMPTS: z.coerce.number().int().positive().max(20).default(5),
+
+  // PROVISIONAL, and flagged as such in team/reports/T-0001.md. Session
+  // lifetime, refresh and concurrent-session policy are product decisions the
+  // human has not made; twelve hours with no refresh is the conservative
+  // reading of "a working day, and sign in again tomorrow".
+  KASUWA_AUTH_SESSION_HOURS: z.coerce.number().int().positive().max(720).default(12),
+
   DATABASE_URL: z.string().url(),
   DATABASE_MIGRATION_URL: z.string().url().optional(),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().max(200).default(10),

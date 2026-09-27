@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@kasuwa/auth-crypto": "workspace:*",
     "@kasuwa/db": "workspace:*",
     "@testcontainers/postgresql": "^10.16.0",
     "@testcontainers/redis": "^10.16.0",

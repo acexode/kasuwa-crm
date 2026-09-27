@@ -48,6 +48,78 @@ export const USER_A_NO_PROGRAMME = `${A}0000000d0004`;
 /** Tenant B agent, member of programme B1 only. */
 export const USER_B_AGENT_1 = `${B}0000000d0005`;
 
+/**
+ * The password every seeded user shares.
+ *
+ * Obviously invented, and it is a fixture, not a credential: it exists only in
+ * a database that `pnpm db:reset` throws away, and it is hashed with argon2id
+ * at seed time so no hash of it is committed either. The same string appears in
+ * the acceptance suite, which is where the requirement for a known value comes
+ * from.
+ *
+ * Nothing that runs outside a test or a local container ever reads it — the
+ * seed is run by kasuwa_migrator, which never serves traffic.
+ */
+export const SEED_PASSWORD = 'correct-horse-battery-staple';
+
+/**
+ * Fixed TOTP secrets, one per seeded user.
+ *
+ * Hand-written and obviously invented, exactly like the ids, so that a test can
+ * compute the code the server expects without a round trip. Real secrets are
+ * 160 random bits produced at enrolment; these are base32 padding spelling out
+ * what they are. They must never be used anywhere but a throwaway database.
+ */
+const SEED_TOTP_SECRETS: Readonly<Record<string, string>> = {
+  [`${A}0000000d0001`]: 'KASUWATESTSECRETAAAAAAAAAAAAAAAA',
+  [`${A}0000000d0002`]: 'KASUWATESTSECRETBBBBBBBBBBBBBBBB',
+  [`${A}0000000d0003`]: 'KASUWATESTSECRETCCCCCCCCCCCCCCCC',
+  [`${A}0000000d0004`]: 'KASUWATESTSECRETDDDDDDDDDDDDDDDD',
+  [`${B}0000000d0005`]: 'KASUWATESTSECRETEEEEEEEEEEEEEEEE',
+};
+
+/** The seeded TOTP secret for a user, or undefined if they are not seeded. */
+export function seedTotpSecret(userId: string): string | undefined {
+  return SEED_TOTP_SECRETS[userId];
+}
+
+export interface SeedSignIn {
+  tenantId: string;
+  tenantSlug: string;
+  email: string;
+  password: string;
+  totpSecret: string;
+}
+
+/**
+ * Everything needed to sign a seeded user in, by user id.
+ *
+ * Exists so that a test can say "sign in as this user" without restating the
+ * slug, the address and the secret in three places and getting one of them
+ * wrong.
+ */
+export function seedSignIn(userId: string): SeedSignIn | undefined {
+  for (const tenant of SEED_TENANTS) {
+    const user = tenant.users.find((candidate) => candidate.id === userId);
+    const totpSecret = SEED_TOTP_SECRETS[userId];
+    if (user !== undefined && totpSecret !== undefined) {
+      return {
+        tenantId: tenant.id,
+        tenantSlug: tenant.slug,
+        email: user.email,
+        password: SEED_PASSWORD,
+        totpSecret,
+      };
+    }
+  }
+  return undefined;
+}
+
+/** The first seeded user of a tenant — the one a test means by "sign in as tenant A". */
+export function seedPrimaryUser(tenantId: string): string | undefined {
+  return SEED_TENANTS.find((tenant) => tenant.id === tenantId)?.users[0]?.id;
+}
+
 export interface SeedTenant {
   id: string;
   name: string;

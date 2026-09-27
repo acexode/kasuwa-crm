@@ -12,6 +12,19 @@ import { z } from 'zod';
 export interface AuthContext {
   tenantId: string;
   userId: string;
+  /**
+   * The session this request was authenticated with, or null under the stub.
+   *
+   * Present so the request can be re-checked against `auth_session` inside the
+   * tenant transaction — under RLS, with explicit tenant and user predicates —
+   * rather than trusting the lookup the guard already did. That second check is
+   * what makes revoking a session, or disabling a user, take effect on the very
+   * next request instead of at token expiry.
+   *
+   * It is an identifier, not a capability. It says which session; it never says
+   * what that session may reach.
+   */
+  sessionId: string | null;
 }
 
 export const STUB_TENANT_HEADER = 'x-kasuwa-tenant-id';
