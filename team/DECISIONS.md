@@ -541,3 +541,54 @@ tension, and where I made a call:
 - **`apps/dialer` removed** from pack §3.16 per addendum §1.1; `packages/domain/telephony` and
   `.../wfm` become thin consumers of the adapters rather than implementations.
 - **`infra/freeswitch/` and `infra/kamailio/`** removed from the pack's tree for the same reason.
+
+---
+
+## B4. Escalated during the T-0001 security review (2026-09-27)
+
+### D-L13 (field-level encryption) is no longer theoretical — it now guards a live secret
+
+**Status: still BLOCKED. Now blocking something concrete.**
+
+T-0001 stores `user_mfa_factor.secret` — the TOTP shared secret — as **base32
+plaintext**. The builder did not hide this: it is stated in the migration, in
+its report and here. It refused to invent a key-management scheme, which was
+the right call, because inventing one would be guessing at a decision you have
+not made.
+
+**The independent security review assessed the exposure rather than just
+flagging it**, and the assessment is reassuring in the short term and not in
+the long term:
+
+- the table has RLS `ENABLE` **and** `FORCE`, a `WITH CHECK` identical to its
+  `USING`, and is in `TENANT_SCOPED_TABLES`
+- the app role holds `NOBYPASSRLS`
+- `secret` is selected exactly once, into a local variable, and never appears
+  in any response shape
+- no SQL injection was found; every statement is parameterised
+
+So an attacker needs one of: database credentials, a **backup or filesystem
+copy**, SQL injection, a `BYPASSRLS` role, or a future endpoint that selects the
+column. **The realistic residual is backup exposure** — and at that point the
+incremental loss is specifically that the second factor stops helping, which is
+the whole reason it exists.
+
+**What is needed from @acexode:** unblock D-L13 — per-tenant key management, or
+an interim decision (a single application-level key from the environment is
+weaker than per-tenant keys but far stronger than plaintext, and it is
+reversible).
+
+**Recommendation: an interim application key now, per-tenant keys with D-L13.**
+The gap between "plaintext in a backup" and "encrypted with one key in an
+environment variable" is much larger than the gap between one key and per-tenant
+keys, and the first gap is the one that is open today.
+
+**Deadline that is real rather than invented:** before the first production
+tenant. After that, every secret written in the meantime is plaintext in every
+backup taken since, and re-encrypting them is a migration plus a key ceremony
+rather than a column change.
+
+One related item is being fixed in T-0001 rather than escalated: `pnpm db:seed`
+had no environment guard, so the committed fixture password and TOTP secrets
+could be installed into a shared environment by a mis-pointed seed. That is a
+missing guard, not a decision, and the builder is fixing it.
