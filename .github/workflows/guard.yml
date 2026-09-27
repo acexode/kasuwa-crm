@@ -1,0 +1,68 @@
+name: Guard
+
+# Separate from ci.yml on purpose.
+#
+# The guard must re-evaluate when the `lead-approved` label is applied or
+# removed, which the default `pull_request` types do not cover — so on the first
+# run of PR #1 the guard failed correctly, the label went on, and nothing
+# re-checked it. A gate that needs a manual re-run every time is a gate people
+# stop using.
+#
+# Adding `labeled`/`unlabeled` to ci.yml instead would re-run lint, typecheck,
+# every test suite and the build on each label change. This job is a checkout
+# and a git diff, so it is cheap to run on all of them.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+concurrency:
+  group: guard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Acceptance tests and migrations are lead-owned.
+  #
+  # Addendum A1 section 3.3, principle 3: builders must not be able to make an
+  # acceptance test pass by editing it. Migrations get the same treatment
+  # because they are the least reversible thing in the repository.
+  #
+  # HONEST LIMITATION: labels can be applied by anyone with write access, so
+  # this is a speed bump and an audit trail, not an access control. The real
+  # control is branch protection plus code-owner review on those paths.
+  # --------------------------------------------------------------------------
+  guard-protected-paths:
+    name: Guard protected paths
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes to protected paths
+        id: detect
+        run: |
+          base="origin/${{ github.base_ref }}"
+          git fetch --no-tags --depth=200 origin "${{ github.base_ref }}"
+          changed=$(git diff --name-only "$base"...HEAD -- tests/acceptance packages/db/migrations packages/db/sql || true)
+          if [ -n "$changed" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Protected files changed:"
+            echo "$changed"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No protected paths touched."
+          fi
+
+      - name: Require the lead-approved label
+        if: steps.detect.outputs.changed == 'true'
+        run: |
+          labels='${{ toJSON(github.event.pull_request.labels.*.name) }}'
+          echo "Labels: $labels"
+          if echo "$labels" | grep -q '"lead-approved"'; then
+            echo "lead-approved present; protected-path changes allowed."
+          else
+            echo "::error::This pull request changes tests/acceptance/, packages/db/migrations/ or packages/db/sql/ but is not labelled 'lead-approved'."
+            echo "::error::Acceptance tests are written by the lead from the PRD and must not be edited to make a build pass."
+            exit 1
+          fi
