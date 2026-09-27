@@ -254,3 +254,35 @@ fine — that is the same PR, not a second one. The rule is about merged branche
 ones that predate the setting. The branch not existing is the strongest of the
 three guards, because it removes the thing to check out rather than asking a
 hook to catch it afterwards.
+
+
+## A8. The lead executes; it does not only schedule
+
+Issued 2026-09-27 (D-L26), after six tasks were ready and **no builder had ever
+run**. Assigning a task wrote a file; it did not start an agent.
+
+**Ready work gets executed in the same cycle that notices it is ready.**
+
+For each ready task, the lead launches a **builder subagent**:
+
+- one per task, in **its own git worktree**, so two builders cannot collide
+- under the persona matching the task's owning agent
+  (`.claude/agents/agent-NN-*.md`, all of which extend `builder.md`)
+- the lead **reviews the result and opens the PR**. The builder does not push
+  and does not open one
+
+**The number that matters is tasks *done*, not tasks *ready*.** Readiness going
+up every cycle while done stays at one is a backlog filling faster than it
+empties, and it does not look like a problem in `STATUS.md` unless both numbers
+are reported side by side. Report both, always.
+
+**Nothing here loosens a gate.** Builders cannot edit `tests/acceptance/` — a
+hook and CI both block it. Nobody merges their own work. The isolation suite
+stays blocking, and a builder that turns it red is a stop-the-line event, not a
+ticket.
+
+**Judgement the lead keeps.** How many builders to run at once is a capacity
+question, not a throughput one: each costs usage against the seat window, and
+each produces a diff someone has to review properly. Two at a time has been the
+working number. Running six because six are ready would mean six PRs reviewed by
+a lead in a hurry, which is how something gets past a gate.
