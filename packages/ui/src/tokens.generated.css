@@ -1,0 +1,392 @@
+/* GENERATED FILE — do not edit. Source: packages/ui/src/tokens.ts (Design v1.1) */
+/* Regenerate with: pnpm ui:tokens */
+
+:root {
+  /* colour scales */
+  --k-scale-primary-50: #eeeefa;
+  --k-scale-primary-100: #dcdcf5;
+  --k-scale-primary-200: #bbbaec;
+  --k-scale-primary-300: #9391df;
+  --k-scale-primary-400: #6d6acf;
+  --k-scale-primary-500: #4e4bbe;
+  --k-scale-primary-600: #3c39a8;
+  --k-scale-primary-700: #2b2a8c;
+  --k-scale-primary-800: #22216f;
+  --k-scale-primary-900: #1a1955;
+  --k-scale-primary-950: #100f36;
+  --k-scale-accent-50: #fef8e7;
+  --k-scale-accent-100: #fdeec2;
+  --k-scale-accent-200: #fbdd85;
+  --k-scale-accent-300: #f8c947;
+  --k-scale-accent-400: #f5b81a;
+  --k-scale-accent-500: #f2a900;
+  --k-scale-accent-600: #cc8a00;
+  --k-scale-accent-700: #a06a00;
+  --k-scale-accent-800: #7a5104;
+  --k-scale-accent-900: #5c3d07;
+  --k-scale-accent-950: #362303;
+  --k-scale-success-50: #e8f6ee;
+  --k-scale-success-100: #c6ead5;
+  --k-scale-success-200: #93d6af;
+  --k-scale-success-300: #58bd84;
+  --k-scale-success-400: #27a262;
+  --k-scale-success-500: #129553;
+  --k-scale-success-600: #0b8a4b;
+  --k-scale-success-700: #086e3c;
+  --k-scale-success-800: #075630;
+  --k-scale-success-900: #064226;
+  --k-scale-success-950: #032716;
+  --k-scale-warning-50: #fff4eb;
+  --k-scale-warning-100: #ffe3cc;
+  --k-scale-warning-200: #ffc599;
+  --k-scale-warning-300: #ffa15c;
+  --k-scale-warning-400: #f97f2a;
+  --k-scale-warning-500: #e8650f;
+  --k-scale-warning-600: #c4500a;
+  --k-scale-warning-700: #9c3f0b;
+  --k-scale-warning-800: #7a330f;
+  --k-scale-warning-900: #5e2a10;
+  --k-scale-warning-950: #361606;
+  --k-scale-danger-50: #fdeeee;
+  --k-scale-danger-100: #fad5d5;
+  --k-scale-danger-200: #f4aaaa;
+  --k-scale-danger-300: #ec7777;
+  --k-scale-danger-400: #e04a4a;
+  --k-scale-danger-500: #cc2e2e;
+  --k-scale-danger-600: #b02222;
+  --k-scale-danger-700: #8f1c1c;
+  --k-scale-danger-800: #721a1a;
+  --k-scale-danger-900: #5a1717;
+  --k-scale-danger-950: #340b0b;
+  --k-scale-info-50: #e9f4fb;
+  --k-scale-info-100: #cbe5f5;
+  --k-scale-info-200: #97cbeb;
+  --k-scale-info-300: #5caedd;
+  --k-scale-info-400: #2e92cc;
+  --k-scale-info-500: #1479b4;
+  --k-scale-info-600: #0e6396;
+  --k-scale-info-700: #0d4f78;
+  --k-scale-info-800: #0e405f;
+  --k-scale-info-900: #0d334a;
+  --k-scale-info-950: #07202f;
+  --k-scale-neutral-50: #faf8f5;
+  --k-scale-neutral-100: #f3f0eb;
+  --k-scale-neutral-200: #e6e1d9;
+  --k-scale-neutral-300: #d2cbc0;
+  --k-scale-neutral-400: #aba398;
+  --k-scale-neutral-500: #847c71;
+  --k-scale-neutral-600: #665f56;
+  --k-scale-neutral-700: #4e4841;
+  --k-scale-neutral-800: #37322d;
+  --k-scale-neutral-900: #24201c;
+  --k-scale-neutral-950: #151210;
+  
+  /* typography */
+  --k-font-sans: 'Noto Sans', 'Noto Sans Arabic', system-ui, sans-serif;
+  --k-font-arabic: 'Noto Sans Arabic', 'Noto Sans', system-ui, sans-serif;
+  --k-font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', monospace;
+  --k-font-icon: 'Material Symbols Rounded';
+  --k-weight-regular: 400;
+  --k-weight-semibold: 600;
+  --k-weight-extrabold: 800;
+  --k-font-size-display: 56px;
+  --k-line-height-display: 64px;
+  --k-font-weight-display: 800;
+  --k-tracking-display: -0.02em;
+  --k-font-size-h1: 40px;
+  --k-line-height-h1: 48px;
+  --k-font-weight-h1: 700;
+  --k-tracking-h1: -0.01em;
+  --k-font-size-h2: 32px;
+  --k-line-height-h2: 40px;
+  --k-font-weight-h2: 700;
+  --k-tracking-h2: 0;
+  --k-font-size-h3: 24px;
+  --k-line-height-h3: 32px;
+  --k-font-weight-h3: 700;
+  --k-tracking-h3: 0;
+  --k-font-size-h4: 20px;
+  --k-line-height-h4: 28px;
+  --k-font-weight-h4: 600;
+  --k-tracking-h4: 0;
+  --k-font-size-h5: 18px;
+  --k-line-height-h5: 26px;
+  --k-font-weight-h5: 600;
+  --k-tracking-h5: 0;
+  --k-font-size-h6: 14px;
+  --k-line-height-h6: 20px;
+  --k-font-weight-h6: 700;
+  --k-tracking-h6: 0.06em;
+  --k-font-size-body-lg: 18px;
+  --k-line-height-body-lg: 28px;
+  --k-font-weight-body-lg: 400;
+  --k-tracking-body-lg: 0;
+  --k-font-size-body-md: 16px;
+  --k-line-height-body-md: 24px;
+  --k-font-weight-body-md: 400;
+  --k-tracking-body-md: 0;
+  --k-font-size-body-sm: 14px;
+  --k-line-height-body-sm: 20px;
+  --k-font-weight-body-sm: 400;
+  --k-tracking-body-sm: 0;
+  --k-font-size-caption: 12px;
+  --k-line-height-caption: 16px;
+  --k-font-weight-caption: 500;
+  --k-tracking-caption: 0;
+  --k-font-size-mono: 14px;
+  --k-line-height-mono: 20px;
+  --k-font-weight-mono: 400;
+  --k-tracking-mono: 0;
+  
+  /* spacing, radius */
+  --k-space-0: 0px;
+  --k-space-1: 4px;
+  --k-space-2: 8px;
+  --k-space-3: 12px;
+  --k-space-4: 16px;
+  --k-space-5: 20px;
+  --k-space-6: 24px;
+  --k-space-8: 32px;
+  --k-space-10: 40px;
+  --k-space-12: 48px;
+  --k-space-16: 64px;
+  --k-space-touch: 44px;
+  --k-radius-sm: 4px;
+  --k-radius-md: 8px;
+  --k-radius-lg: 12px;
+  --k-radius-xl: 16px;
+  --k-radius-full: 999px;
+  
+  /* elevation — the shadow values themselves are semantic, so they differ per theme */
+  --k-elevation-0: none;
+  --k-elevation-1: var(--k-shadow-1);
+  --k-elevation-2: var(--k-shadow-2);
+  --k-elevation-3: var(--k-shadow-3);
+  
+  /* motion */
+  --k-duration-instant: 100ms;
+  --k-duration-quick: 160ms;
+  --k-duration-base: 240ms;
+  --k-ease: cubic-bezier(.2,.8,.2,1);
+  
+  /* semantic tokens — light is the default theme */
+  --k-bg: #FAF8F5;
+  --k-surface: #FFFFFF;
+  --k-surface-raised: #FFFFFF;
+  --k-surface-sunken: #F3F0EB;
+  --k-border: #E6E1D9;
+  --k-border-strong: #847C71;
+  --k-text: #24201C;
+  --k-text-2: #4E4841;
+  --k-text-muted: #665F56;
+  --k-primary: #2B2A8C;
+  --k-primary-hover: #22216F;
+  --k-primary-active: #1A1955;
+  --k-on-primary: #FFFFFF;
+  --k-primary-soft: #EEEEFA;
+  --k-primary-soft-strong: #DCDCF5;
+  --k-primary-text: #3C39A8;
+  --k-accent: #F2A900;
+  --k-accent-soft: #FEF8E7;
+  --k-on-accent: #24201C;
+  --k-accent-text: #7A5104;
+  --k-success: #0B8A4B;
+  --k-success-soft: #E8F6EE;
+  --k-success-text: #086E3C;
+  --k-warning: #E8650F;
+  --k-warning-soft: #FFF4EB;
+  --k-warning-text: #9C3F0B;
+  --k-danger: #B02222;
+  --k-danger-hover: #8F1C1C;
+  --k-danger-active: #721A1A;
+  --k-danger-soft: #FDEEEE;
+  --k-danger-text: #8F1C1C;
+  --k-info: #0E6396;
+  --k-info-soft: #E9F4FB;
+  --k-info-text: #0D4F78;
+  --k-disabled-bg: #F3F0EB;
+  --k-disabled-text: #ABA398;
+  --k-focus: #4E4BBE;
+  --k-shadow-1: 0 1px 2px rgba(36,32,28,.08);
+  --k-shadow-2: 0 4px 12px rgba(36,32,28,.10);
+  --k-shadow-3: 0 16px 40px rgba(36,32,28,.18);
+  --k-scrim: rgba(21,18,16,.48);
+  --k-wa-bubble: #DDF4E6;
+  --k-note-bg: #FEF8E7;
+  --k-inverse: #24201C;
+  --k-on-inverse: #FAF8F5;
+  --k-shimmer: rgba(255,255,255,.7);
+  --k-chart-1: #2B2A8C;
+  --k-chart-2: #E69F00;
+  --k-chart-3: #56B4E9;
+  --k-chart-4: #009E73;
+  --k-chart-5: #D55E00;
+  --k-chart-6: #CC79A7;
+  --k-chart-7: #847C71;
+}
+
+/* Explicit opt-in, so a tenant or a user preference can pin a theme. */
+[data-theme="dark"] {
+  --k-bg: #151210;
+  --k-surface: #1E1A17;
+  --k-surface-raised: #29241F;
+  --k-surface-sunken: #171411;
+  --k-border: #37322D;
+  --k-border-strong: #8A8277;
+  --k-text: #FAF8F5;
+  --k-text-2: #D2CBC0;
+  --k-text-muted: #ABA398;
+  --k-primary: #5754C4;
+  --k-primary-hover: #6360CB;
+  --k-primary-active: #4E4BBE;
+  --k-on-primary: #FFFFFF;
+  --k-primary-soft: #232150;
+  --k-primary-soft-strong: #2F2D68;
+  --k-primary-text: #BBBAEC;
+  --k-accent: #F5B81A;
+  --k-accent-soft: #2E2308;
+  --k-on-accent: #151210;
+  --k-accent-text: #F8C947;
+  --k-success: #27A262;
+  --k-success-soft: #0C2618;
+  --k-success-text: #58BD84;
+  --k-warning: #F97F2A;
+  --k-warning-soft: #2B190B;
+  --k-warning-text: #FFA15C;
+  --k-danger: #CC2E2E;
+  --k-danger-hover: #D63B3B;
+  --k-danger-active: #B02222;
+  --k-danger-soft: #2E1111;
+  --k-danger-text: #EC7777;
+  --k-info: #2E92CC;
+  --k-info-soft: #0C2230;
+  --k-info-text: #5CAEDD;
+  --k-disabled-bg: #29241F;
+  --k-disabled-text: #665F56;
+  --k-focus: #F8C947;
+  --k-shadow-1: 0 1px 2px rgba(0,0,0,.4);
+  --k-shadow-2: 0 4px 12px rgba(0,0,0,.45);
+  --k-shadow-3: 0 16px 40px rgba(0,0,0,.6);
+  --k-scrim: rgba(0,0,0,.62);
+  --k-wa-bubble: #123A25;
+  --k-note-bg: #2E2308;
+  --k-inverse: #F3F0EB;
+  --k-on-inverse: #24201C;
+  --k-shimmer: rgba(255,255,255,.07);
+  --k-chart-1: #8B89E0;
+  --k-chart-2: #E69F00;
+  --k-chart-3: #56B4E9;
+  --k-chart-4: #19B388;
+  --k-chart-5: #E8732A;
+  --k-chart-6: #D98CB6;
+  --k-chart-7: #ABA398;
+}
+
+/* System preference, unless light has been explicitly pinned. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --k-bg: #151210;
+    --k-surface: #1E1A17;
+    --k-surface-raised: #29241F;
+    --k-surface-sunken: #171411;
+    --k-border: #37322D;
+    --k-border-strong: #8A8277;
+    --k-text: #FAF8F5;
+    --k-text-2: #D2CBC0;
+    --k-text-muted: #ABA398;
+    --k-primary: #5754C4;
+    --k-primary-hover: #6360CB;
+    --k-primary-active: #4E4BBE;
+    --k-on-primary: #FFFFFF;
+    --k-primary-soft: #232150;
+    --k-primary-soft-strong: #2F2D68;
+    --k-primary-text: #BBBAEC;
+    --k-accent: #F5B81A;
+    --k-accent-soft: #2E2308;
+    --k-on-accent: #151210;
+    --k-accent-text: #F8C947;
+    --k-success: #27A262;
+    --k-success-soft: #0C2618;
+    --k-success-text: #58BD84;
+    --k-warning: #F97F2A;
+    --k-warning-soft: #2B190B;
+    --k-warning-text: #FFA15C;
+    --k-danger: #CC2E2E;
+    --k-danger-hover: #D63B3B;
+    --k-danger-active: #B02222;
+    --k-danger-soft: #2E1111;
+    --k-danger-text: #EC7777;
+    --k-info: #2E92CC;
+    --k-info-soft: #0C2230;
+    --k-info-text: #5CAEDD;
+    --k-disabled-bg: #29241F;
+    --k-disabled-text: #665F56;
+    --k-focus: #F8C947;
+    --k-shadow-1: 0 1px 2px rgba(0,0,0,.4);
+    --k-shadow-2: 0 4px 12px rgba(0,0,0,.45);
+    --k-shadow-3: 0 16px 40px rgba(0,0,0,.6);
+    --k-scrim: rgba(0,0,0,.62);
+    --k-wa-bubble: #123A25;
+    --k-note-bg: #2E2308;
+    --k-inverse: #F3F0EB;
+    --k-on-inverse: #24201C;
+    --k-shimmer: rgba(255,255,255,.07);
+    --k-chart-1: #8B89E0;
+    --k-chart-2: #E69F00;
+    --k-chart-3: #56B4E9;
+    --k-chart-4: #19B388;
+    --k-chart-5: #E8732A;
+    --k-chart-6: #D98CB6;
+    --k-chart-7: #ABA398;
+  }
+}
+
+/*
+ * Arabic script sits taller at the same point size. The export specifies
+ * +10% line-height for it.
+ */
+[lang="ar"], [dir="rtl"][lang="ar"] {
+  --k-font-sans: 'Noto Sans Arabic', 'Noto Sans', system-ui, sans-serif;
+  --k-line-height-display: 70px;
+  --k-line-height-h1: 53px;
+  --k-line-height-h2: 44px;
+  --k-line-height-h3: 35px;
+  --k-line-height-h4: 31px;
+  --k-line-height-h5: 29px;
+  --k-line-height-h6: 22px;
+  --k-line-height-body-lg: 31px;
+  --k-line-height-body-md: 26px;
+  --k-line-height-body-sm: 22px;
+  --k-line-height-caption: 18px;
+  --k-line-height-mono: 22px;
+}
+
+/*
+ * Reduced motion, as a global layer.
+ *
+ * Per the export: slides and scales become a one-frame opacity fade,
+ * spinners become a static ring, skeleton shimmer stops, and the Kanban
+ * drag tilt is dropped.
+ *
+ * SLA countdowns and timers are NOT covered here and must keep running:
+ * they are information, not decoration, and a supervisor watching a
+ * breach needs the number to move. They update via script rather than CSS
+ * animation, so this layer does not touch them — keep it that way.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  [data-k-shimmer] {
+    animation: none !important;
+    background-image: none !important;
+  }
+
+  [data-k-drag] {
+    transform: none !important;
+  }
+}

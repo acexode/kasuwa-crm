@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&amp;display=block">
+</helmet>
+<div style="font-family:'Noto Sans','Noto Sans Arabic',system-ui,sans-serif;color:var(--k-text);background:var(--k-bg);padding:24px;display:flex;flex-direction:column;gap:24px;border-radius:16px;border:1px solid var(--k-border)">
+
+<div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--k-primary-text)">H · Deal pipeline</div>
+<div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:16px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><h3 style="margin:0;font-size:18px;font-weight:700">Kanban deal card · states</h3><span style="font-size:13px;color:var(--k-text-muted)">Rot: fresh &lt; 7d · warning 7–13d · rotten ≥ 14d</span></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px 14px">
+    <sc-for list="{{ variants }}" as="c" hint-placeholder-count="6">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">{{ c.tag }}</span>
+        <div tabIndex="0" role="button" aria-roledescription="draggable deal" aria-label="{{ c.aria }}" style="display:grid;grid-template-columns:32px minmax(0,1fr);background:{{ c.bg }};border:1px solid {{ c.border }};border-radius:10px;box-shadow:{{ c.shadow }};transform:{{ c.tf }};outline:none;overflow:hidden">
+          <span aria-hidden="true" style="display:flex;justify-content:center;padding-top:12px;color:var(--k-text-muted);cursor:grab;border-right:1px solid var(--k-border);background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">drag_indicator</span></span>
+          <div style="padding:10px 4px 12px 12px;display:flex;flex-direction:column;gap:6px;min-width:0">
+            <div style="display:flex;gap:4px;align-items:flex-start"><b style="flex:1;font-size:14px;line-height:20px;padding-top:2px">{{ c.name }}</b><button aria-label="Move deal to…" style="width:44px;height:44px;margin:-8px 0 -10px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">more_vert</span></button></div>
+            <span style="font-size:13px;line-height:18px;color:var(--k-text-2)">{{ c.acct }}</span>
+            <div style="display:flex;flex-direction:column;gap:1px"><span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600">{{ c.amt }}</span><sc-if value="{{ c.hasUsd }}" hint-placeholder-val="{{ true }}"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--k-text-muted)">{{ c.usd }}</span></sc-if></div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-right:8px">
+              <span style="display:inline-flex;align-items:center;gap:3px;height:24px;padding:0 8px;border-radius:999px;background:{{ c.rotBg }};color:{{ c.rotFg }};font-size:12px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">{{ c.rotIcon }}</span>{{ c.rotLabel }}</span>
+              <span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;color:{{ c.closeFg }};font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">event</span>{{ c.close }}</span>
+              <span aria-label="{{ c.waAria }}" style="display:inline-flex;align-items:center;gap:3px;font-size:12px;color:{{ c.waFg }}"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">chat</span>{{ c.wa }}</span>
+              <span style="flex:1"></span>
+              <span title="{{ c.ownerName }}" style="width:28px;height:28px;border-radius:50%;background:var(--k-primary-soft-strong);color:var(--k-primary-text);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ c.owner }}</span>
+            </div>
+          </div>
+          <sc-if value="{{ c.hasBand }}" hint-placeholder-val="{{ false }}">
+            <div style="grid-column:1 / span 2;display:flex;align-items:flex-start;gap:6px;padding:8px 12px;background:{{ c.bandBg }};color:{{ c.bandFg }};font-size:12px;line-height:17px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">{{ c.bandIcon }}</span><span>{{ c.band }}</span></div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  <p style="margin:0;font-size:13px;line-height:20px;color:var(--k-text-muted);text-wrap:pretty">Amount leads in account currency (₦); the USD line is optional, marked ≈ and uses the daily treasury rate. Rot state always carries words, not colour alone. The ⋮ button is the non-drag alternative (“Move to… / Mark lost / Reassign”) and keeps a 44px target.</p>
+</div>
+
+<div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><h3 style="margin:0;font-size:18px;font-weight:700">Keyboard move &amp; blocked transition · try it</h3><span style="font-size:13px;color:var(--k-text-muted)">Focus card → Space lifts → ← → → Enter drops · Esc cancels</span></div>
+  <div style="display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px">
+    <sc-for list="{{ stages }}" as="s" hint-placeholder-count="4">
+      <div style="flex:1 0 250px;scroll-snap-align:start;background:var(--k-surface-sunken);border:1px solid {{ s.colBorder }};border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:10px;min-height:280px">
+        <div style="display:flex;align-items:center;gap:6px;min-height:28px"><b style="font-size:14px">{{ s.name }}</b><sc-if value="{{ s.gated }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:var(--k-text-2)" aria-label="Has entry requirements">lock</span></sc-if><span style="font-size:12px;color:var(--k-text-muted)">{{ s.count }}</span><span style="flex:1"></span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--k-text-2)">{{ s.total }}</span></div>
+        <sc-if value="{{ s.gated }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:8px;background:var(--k-surface);border:1px solid var(--k-border)">
+            <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Entry requirements</span>
+            <sc-for list="{{ reqs }}" as="r" hint-placeholder-count="2">
+              <button onClick="{{ r.toggle }}" style="display:flex;align-items:center;gap:8px;min-height:36px;border:0;background:transparent;padding:0;font-family:inherit;font-size:13px;color:{{ r.fg }};text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ r.icon }}</span>{{ r.label }}</button>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ s.isBlocked }}" hint-placeholder-val="{{ false }}">
+          <div role="alert" style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:10px;border:2px dashed var(--k-danger);background:var(--k-danger-soft);color:var(--k-danger-text);font-size:13px;line-height:19px">
+            <b style="display:flex;align-items:center;gap:6px;font-size:14px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">block</span>Can't move to Contract yet</b>
+            <span>Finish {{ unmetText }} first. The deal stayed in {{ originName }}.</span>
+            <button onClick="{{ dismiss }}" style="align-self:flex-start;height:36px;padding:0 10px;border-radius:6px;border:1px solid var(--k-danger-text);background:transparent;color:var(--k-danger-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Got it</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ s.hasCard }}" hint-placeholder-val="{{ false }}">
+          <div tabIndex="0" role="button" aria-roledescription="draggable deal" aria-label="{{ bc.aria }}" onKeyDown="{{ onCardKey }}" style="display:grid;grid-template-columns:32px minmax(0,1fr);background:{{ bc.bg }};border:1px solid {{ bc.border }};border-radius:10px;box-shadow:{{ bc.shadow }};transform:{{ bc.tf }};overflow:hidden;cursor:pointer;outline:none" style-focus="box-shadow:0 0 0 2px var(--k-surface),0 0 0 4px var(--k-focus)">
+            <span aria-hidden="true" style="display:flex;justify-content:center;padding-top:12px;color:var(--k-text-muted);border-right:1px solid var(--k-border);background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">drag_indicator</span></span>
+            <div style="padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;min-width:0">
+              <b style="font-size:14px;line-height:20px">{{ bc.name }}</b>
+              <span style="font-size:13px;color:var(--k-text-2)">{{ bc.acct }}</span>
+              <div style="display:flex;flex-direction:column;gap:1px"><span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600">{{ bc.amt }}</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--k-text-muted)">{{ bc.usd }}</span></div>
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+                <span style="display:inline-flex;align-items:center;gap:3px;height:24px;padding:0 8px;border-radius:999px;background:{{ bc.rotBg }};color:{{ bc.rotFg }};font-size:12px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">{{ bc.rotIcon }}</span>{{ bc.rotLabel }}</span>
+                <span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;color:var(--k-success-text)"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">chat</span>{{ bc.wa }}</span>
+                <span style="flex:1"></span>
+                <span style="width:28px;height:28px;border-radius:50%;background:var(--k-primary-soft-strong);color:var(--k-primary-text);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ bc.owner }}</span>
+              </div>
+            </div>
+            <sc-if value="{{ bc.lifted }}" hint-placeholder-val="{{ false }}">
+              <div style="grid-column:1 / span 2;padding:8px 12px;background:var(--k-primary-soft);color:var(--k-primary-text);font-size:12px;font-weight:600;display:flex;gap:6px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">open_with</span>Lifted · ← → stage · Enter drop · Esc cancel</div>
+            </sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ s.isTarget }}" hint-placeholder-val="{{ false }}">
+          <div style="min-height:72px;border:2px dashed {{ s.dropBorder }};border-radius:10px;background:{{ s.dropBg }};display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;font-size:13px;font-weight:600;color:{{ s.dropFg }};text-align:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ s.dropIcon }}</span>{{ s.dropText }}</div>
+        </sc-if>
+        <sc-for list="{{ s.ghosts }}" as="g" hint-placeholder-count="1">
+          <div style="height:44px;border-radius:10px;background:var(--k-surface);border:1px solid var(--k-border);display:flex;align-items:center;padding:0 12px;font-size:13px;color:var(--k-text-2)">{{ g }}</div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+    <button onClick="{{ moveLeft }}" style="display:inline-flex;align-items:center;gap:4px;height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">arrow_back</span>Previous stage</button>
+    <button onClick="{{ moveRight }}" style="display:inline-flex;align-items:center;gap:4px;height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Next stage<span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">arrow_forward</span></button>
+    <button onClick="{{ reset }}" style="height:44px;padding:0 12px;border-radius:8px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Reset</button>
+  </div>
+  <div aria-live="polite" style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:8px;background:var(--k-surface-sunken);font-size:13px;line-height:19px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-muted)">record_voice_over</span><span><b>Live region:</b> “{{ live }}”</span></div>
+  <p style="margin:0;font-size:13px;line-height:20px;color:var(--k-text-muted);text-wrap:pretty">Gated stages show their requirements before anyone drags. A blocked drop never moves the card: it snaps back, the target column shows a dashed danger zone with the missing items, and the live region explains why. On mobile, columns scroll horizontally with snap (85% width) and moves happen through ⋮ → “Move to…”.</p>
+</div>
+
+<div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--k-primary-text)">I · Empty states</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px">
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px 20px;display:flex;flex-direction:column;align-items:flex-start;gap:10px">
+    <span style="width:48px;height:48px;border-radius:50%;background:var(--k-primary-soft);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:26px;line-height:1">handshake</span></span>
+    <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">First use</span>
+    <b style="font-size:17px;line-height:24px">No deals yet</b>
+    <span style="font-size:14px;line-height:21px;color:var(--k-text-2);text-wrap:pretty">Track every opportunity from first WhatsApp message to signed contract.</span>
+    <button style="margin-top:4px;height:44px;padding:0 16px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:15px;font-weight:600">Add your first deal</button>
+    <span style="font-size:13px;color:var(--k-text-muted)">or <span style="color:var(--k-primary-text);text-decoration:underline;text-underline-offset:3px">import a CSV</span></span>
+  </div>
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px 20px;display:flex;flex-direction:column;align-items:flex-start;gap:10px">
+    <span style="width:48px;height:48px;border-radius:50%;background:var(--k-surface-sunken);color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:26px;line-height:1">filter_alt_off</span></span>
+    <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">No results</span>
+    <b style="font-size:17px;line-height:24px">No deals match these filters</b>
+    <span style="font-size:14px;line-height:21px;color:var(--k-text-2);text-wrap:pretty">Remove a filter or widen the close-date range.</span>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      <span style="display:inline-flex;align-items:center;height:32px;padding:0 2px 0 10px;border-radius:6px;background:var(--k-primary-soft);color:var(--k-primary-text);font-size:13px;font-weight:600">Owner: Tunde<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;width:28px;text-align:center">close</span></span>
+      <span style="display:inline-flex;align-items:center;height:32px;padding:0 2px 0 10px;border-radius:6px;background:var(--k-primary-soft);color:var(--k-primary-text);font-size:13px;font-weight:600">Close: this week<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;width:28px;text-align:center">close</span></span>
+    </div>
+    <button style="margin-top:4px;height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600">Clear all filters</button>
+  </div>
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px 20px;display:flex;flex-direction:column;align-items:flex-start;gap:10px">
+    <span style="width:48px;height:48px;border-radius:50%;background:var(--k-surface-sunken);color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:26px;line-height:1">lock</span></span>
+    <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Permission restricted</span>
+    <b style="font-size:17px;line-height:24px">Accra Collections deals are private</b>
+    <span style="font-size:14px;line-height:21px;color:var(--k-text-2);text-wrap:pretty">Only the Collections team can see them. Admins: Efua Owusu, Kwame Mensah.</span>
+    <button style="margin-top:4px;height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600">Request access</button>
+  </div>
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px 20px;display:flex;flex-direction:column;align-items:flex-start;gap:10px">
+    <span style="width:48px;height:48px;border-radius:50%;background:var(--k-info-soft);color:var(--k-info-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:26px;line-height:1">cloud_off</span></span>
+    <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Offline · cached only</span>
+    <b style="font-size:17px;line-height:24px">Showing deals saved on this phone</b>
+    <span style="font-size:14px;line-height:21px;color:var(--k-text-2);text-wrap:pretty">48 deals · last synced <span style="font-family:'JetBrains Mono',monospace;font-size:13px">09:12 WAT</span>. Search and other owners' deals need a connection. Edits will queue.</span>
+    <button style="margin-top:4px;height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600">Try again</button>
+  </div>
+</div>
+<p style="margin:-8px 0 0;font-size:13px;line-height:20px;color:var(--k-text-muted);text-wrap:pretty">Text first: one 26px icon in a tinted circle, a title that states the situation, one sentence on what to do. Only first-use gets a primary button; the other states use secondary, because they're recoveries rather than invitations. Never blame the user; name the admin or the time instead of vague “something went wrong”.</p>
+
+<div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--k-primary-text)">J · Drawers &amp; modals</div>
+<sc-if value="{{ wide }}" hint-placeholder-val="{{ true }}">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px">
+    <div style="border:1px solid var(--k-border);border-radius:12px;overflow:hidden;display:grid;grid-template-columns:minmax(40px,1fr) minmax(0,340px);height:480px;background:var(--k-scrim)">
+      <div style="padding:14px;font-size:12px;color:#FFFFFF">Right drawer · 400px (≥ 600px viewports)</div>
+      <aside role="dialog" aria-modal="true" aria-labelledby="dr-t" style="background:var(--k-surface-raised);box-shadow:var(--k-shadow-3);display:flex;flex-direction:column;min-height:0">
+        <div style="display:flex;align-items:center;gap:8px;min-height:60px;padding:8px 8px 8px 16px;border-bottom:1px solid {{ drTopBorder }}"><div style="flex:1;display:flex;flex-direction:column"><b id="dr-t" style="font-size:16px">Edit deal</b><span style="font-size:12px;color:var(--k-text-muted)">Ọja Foods — Q4 supply</span></div><button aria-label="Close" style="width:44px;height:44px;border:0;border-radius:8px;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">close</span></button></div>
+        <div onScroll="{{ onDrScroll }}" style="flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px">
+          <sc-for list="{{ fields }}" as="f" hint-placeholder-count="7">
+            <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">{{ f.l }}</span><span style="display:flex;align-items:center;min-height:44px;padding:0 12px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);font-size:14px;font-family:{{ f.ff }}">{{ f.v }}</span></label>
+          </sc-for>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--k-border);box-shadow:{{ drFootShadow }}"><button style="height:44px;padding:0 14px;border-radius:8px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:15px;font-weight:600">Cancel</button><button style="height:44px;padding:0 16px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:15px;font-weight:600">Save</button></div>
+      </aside>
+    </div>
+    <div style="border:1px solid var(--k-border);border-radius:12px;height:480px;background:var(--k-scrim);display:flex;align-items:center;justify-content:center;padding:24px">
+      <div role="dialog" aria-modal="true" aria-labelledby="md-t" style="width:100%;max-width:440px;max-height:100%;background:var(--k-surface-raised);border-radius:16px;box-shadow:var(--k-shadow-3);display:flex;flex-direction:column;min-height:0;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:8px;min-height:60px;padding:8px 8px 8px 20px;border-bottom:1px solid {{ mdTopBorder }}"><b id="md-t" style="flex:1;font-size:18px">Mark deal as won</b><button aria-label="Close" style="width:44px;height:44px;border:0;border-radius:8px;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">close</span></button></div>
+        <div onScroll="{{ onMdScroll }}" style="flex:1;min-height:0;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px">
+          <span style="font-size:14px;line-height:21px;color:var(--k-text-2)">This closes the deal and starts onboarding for Ọja Foods Ltd. Scroll — the header divider and footer shadow react.</span>
+          <sc-for list="{{ wonFields }}" as="f" hint-placeholder-count="5">
+            <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">{{ f.l }}</span><span style="display:flex;align-items:center;min-height:44px;padding:0 12px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);font-size:14px;font-family:{{ f.ff }}">{{ f.v }}</span></label>
+          </sc-for>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid var(--k-border);box-shadow:{{ mdFootShadow }}"><button style="height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600">Cancel</button><button style="height:44px;padding:0 16px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:15px;font-weight:600">Mark won</button></div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+<sc-if value="{{ compact }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div style="position:relative;height:560px;border-radius:12px;overflow:hidden;border:1px solid var(--k-border);background:var(--k-scrim)">
+      <div style="padding:12px;font-size:12px;color:#FFFFFF">Bottom sheet · &lt; 600px · max 90% height</div>
+      <div role="dialog" aria-modal="true" aria-labelledby="bs-t" style="position:absolute;left:0;right:0;bottom:0;height:88%;background:var(--k-surface-raised);border-radius:20px 20px 0 0;box-shadow:var(--k-shadow-3);display:flex;flex-direction:column;min-height:0">
+        <span aria-hidden="true" style="width:40px;height:4px;border-radius:2px;background:var(--k-border-strong);align-self:center;margin-top:8px"></span>
+        <div style="display:flex;align-items:center;gap:8px;min-height:56px;padding:4px 4px 4px 16px;border-bottom:1px solid {{ drTopBorder }}"><b id="bs-t" style="flex:1;font-size:17px">Edit deal</b><button aria-label="Close" style="width:48px;height:48px;border:0;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">close</span></button></div>
+        <div onScroll="{{ onDrScroll }}" style="flex:1;min-height:0;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:14px">
+          <sc-for list="{{ fields }}" as="f" hint-placeholder-count="7">
+            <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">{{ f.l }}</span><span style="display:flex;align-items:center;min-height:48px;padding:0 12px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);font-size:16px;font-family:{{ f.ff }}">{{ f.v }}</span></label>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:8px;padding:12px 16px 16px;border-top:1px solid var(--k-border);box-shadow:{{ drFootShadow }}"><button style="flex:1;height:48px;border-radius:10px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600">Cancel</button><button style="flex:1;height:48px;border-radius:10px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:15px;font-weight:700">Save</button></div>
+      </div>
+    </div>
+    <div role="dialog" aria-modal="true" aria-labelledby="fm-t" style="height:560px;border-radius:12px;overflow:hidden;border:1px solid var(--k-border);background:var(--k-surface-raised);display:flex;flex-direction:column;min-height:0">
+      <div style="display:flex;align-items:center;gap:4px;min-height:56px;padding:4px;border-bottom:1px solid {{ mdTopBorder }}"><button aria-label="Close" style="width:48px;height:48px;border:0;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">close</span></button><b id="fm-t" style="flex:1;font-size:17px">Mark deal as won</b></div>
+      <div onScroll="{{ onMdScroll }}" style="flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px">
+        <span style="font-size:14px;line-height:21px;color:var(--k-text-2)">Full-screen modal on mobile. Scroll to see the header divider and footer shadow react.</span>
+        <sc-for list="{{ wonFields }}" as="f" hint-placeholder-count="5">
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">{{ f.l }}</span><span style="display:flex;align-items:center;min-height:48px;padding:0 12px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);font-size:16px;font-family:{{ f.ff }}">{{ f.v }}</span></label>
+        </sc-for>
+      </div>
+      <div style="padding:12px 16px 16px;border-top:1px solid var(--k-border);box-shadow:{{ mdFootShadow }}"><button style="width:100%;height:52px;border-radius:10px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:16px;font-weight:700">Mark won</button></div>
+    </div>
+  </div>
+</sc-if>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px">
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:8px">
+    <b style="font-size:15px">Anatomy &amp; scroll</b>
+    <ul style="margin:0;padding-left:18px;font-size:13px;line-height:21px;color:var(--k-text-2)"><li>Header and footer are fixed; only the body scrolls.</li><li>Header divider appears once body scrollTop &gt; 0; footer shadow shows while content remains below.</li><li>Page behind is scroll-locked; no nested scroll areas in the body.</li><li>Drawer 400px (max 90vw); modal 440–640px, max-height 85vh; bottom sheet max 90% with footer riding above the soft keyboard.</li></ul>
+  </div>
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:8px">
+    <b style="font-size:15px">Focus trap</b>
+    <ul style="margin:0;padding-left:18px;font-size:13px;line-height:21px;color:var(--k-text-2)"><li>role="dialog", aria-modal="true", aria-labelledby → title.</li><li>On open, focus the first field; for destructive or read-only dialogs, focus the safe button (Cancel).</li><li>Tab / Shift+Tab cycle inside; everything behind gets <span style="font-family:'JetBrains Mono',monospace">inert</span>.</li><li>On close, return focus to the trigger (or its row if the trigger was removed).</li></ul>
+  </div>
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:8px">
+    <b style="font-size:15px">Dismissal &amp; motion</b>
+    <ul style="margin:0;padding-left:18px;font-size:13px;line-height:21px;color:var(--k-text-2)"><li>Esc, the close button, a scrim tap and swipe-down (sheet) all dismiss; with unsaved changes they ask “Discard changes?” first.</li><li>Grab handle is decorative; the close button is always there.</li><li>Record preview drawers can be non-modal (no scrim, no trap).</li><li>240ms slide; reduced motion → opacity fade only.</li></ul>
+  </div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:880},&quot;compact&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { pos: 1, target: 1, lifted: false, blocked: false, reqs: [false, true], live: 'Deal “Ọja Foods — Q4 supply” in Proposal. Press Space to lift.', dr: { top: false, more: true }, md: { top: false, more: true } };
+  STAGES = ['Qualified', 'Proposal', 'Contract', 'Won'];
+  REQS = ['Signed quote uploaded', 'KYC verified'];
+  rot(d) { return d >= 14 ? { rotBg: 'var(--k-danger-soft)', rotFg: 'var(--k-danger-text)', rotIcon: 'hourglass_bottom', rotLabel: d + 'd · rotting' } : d >= 7 ? { rotBg: 'var(--k-warning-soft)', rotFg: 'var(--k-warning-text)', rotIcon: 'hourglass_top', rotLabel: d + 'd · going stale' } : { rotBg: 'var(--k-surface-sunken)', rotFg: 'var(--k-text-2)', rotIcon: 'schedule', rotLabel: d + 'd in stage' }; }
+  unmet() { return this.REQS.filter((_, i) => !this.state.reqs[i]); }
+  drop(target) {
+    const s = this.state, un = this.unmet();
+    if (target === s.pos) return this.setState({ lifted: false, live: 'Dropped. Stayed in ' + this.STAGES[s.pos] + '.' });
+    if (target >= 2 && s.pos < 2 && un.length) return this.setState({ lifted: false, blocked: true, target: s.pos, live: 'Blocked. Contract requires: ' + un.join(', ') + '. Deal stayed in ' + this.STAGES[s.pos] + '.' });
+    this.setState({ pos: target, target, lifted: false, blocked: false, live: 'Moved to ' + this.STAGES[target] + '.' });
+  }
+  scroll(key) { return e => { const t = e.currentTarget; const top = t.scrollTop > 0, more = t.scrollTop + t.clientHeight < t.scrollHeight - 1; const c = this.state[key]; if (c.top !== top || c.more !== more) this.setState({ [key]: { top, more } }); }; }
+  renderVals() {
+    const s = this.state;
+    const base = { name: 'Ọja Foods — Q4 supply', acct: 'Ọja Foods Ltd · Lagos', amt: '₦12,500,000.00', usd: '≈ US$8,120', owner: 'TB', ownerName: 'Tunde Bakare' };
+    const V = [
+      { tag: 'Fresh · default', ...base, close: '31 Oct', days: 3, waD: 0, wa: '2h' },
+      { tag: 'Warning · 7d+', name: 'Asante fleet renewal', acct: 'Asante Logistics · Kumasi', amt: '₦48,200,000.00', usd: '≈ US$31,300', owner: 'EO', ownerName: 'Efua Owusu', close: '14 Nov', days: 8, waD: 6, wa: '6d' },
+      { tag: 'Rotten · 14d+', name: 'Ubuntu Insure seats', acct: 'Ubuntu Insure · Durban', amt: '₦6,750,000.00', usd: '', owner: 'SD', ownerName: 'Sipho Dlamini', close: 'Overdue · 20 Sep', late: true, days: 16, waD: 15, wa: '15d' },
+      { tag: 'Hover', ...base, close: '31 Oct', days: 3, waD: 0, wa: '2h', mode: 'hover' },
+      { tag: 'Keyboard lifted', ...base, close: '31 Oct', days: 3, waD: 0, wa: '2h', mode: 'lifted' },
+      { tag: 'Blocked transition', name: 'Téranga SIM bundle', acct: 'Téranga Télécom · Dakar', amt: '₦4,100,000.00', usd: '≈ US$2,660', owner: 'MS', ownerName: 'Moussa Sy', close: '8 Nov', days: 5, waD: 1, wa: '1d', mode: 'blocked' }
+    ];
+    const card = v => ({ ...v, ...this.rot(v.days), hasUsd: !!v.usd,
+      closeFg: v.late ? 'var(--k-danger-text)' : 'var(--k-text-2)',
+      waFg: v.waD >= 7 ? 'var(--k-text-muted)' : 'var(--k-success-text)', waAria: 'Last WhatsApp contact ' + v.wa + ' ago',
+      bg: v.mode === 'hover' || v.mode === 'lifted' ? 'var(--k-surface-raised)' : 'var(--k-surface)',
+      border: v.mode === 'lifted' ? 'var(--k-primary)' : v.mode === 'blocked' ? 'var(--k-danger)' : v.mode === 'hover' ? 'var(--k-border-strong)' : 'var(--k-border)',
+      shadow: v.mode === 'lifted' ? '0 0 0 2px var(--k-surface),0 0 0 4px var(--k-focus),var(--k-shadow-3)' : v.mode === 'hover' ? 'var(--k-shadow-2)' : 'var(--k-shadow-1)',
+      tf: v.mode === 'lifted' ? 'translateY(-2px)' : 'none',
+      hasBand: v.mode === 'lifted' || v.mode === 'blocked',
+      band: v.mode === 'lifted' ? 'Lifted · ← → change stage · Enter drop · Esc cancel' : "Can't enter Contract: KYC not verified. Card returned to Proposal.",
+      bandIcon: v.mode === 'lifted' ? 'open_with' : 'block',
+      bandBg: v.mode === 'lifted' ? 'var(--k-primary-soft)' : 'var(--k-danger-soft)', bandFg: v.mode === 'lifted' ? 'var(--k-primary-text)' : 'var(--k-danger-text)',
+      aria: `${v.name}, ${v.amt}, ${v.days} days in stage, owner ${v.ownerName}` });
+    const un = this.unmet();
+    const targetBlocked = s.lifted && s.target >= 2 && s.pos < 2 && un.length > 0;
+    const counts = [4, 3, 1, 6], totals = ['₦22.1M', '₦9.8M', '₦31.0M', '₦64.5M'], ghosts = [['Kano Agro inputs', 'Nairobi Fresh POS'], ['Joburg retail pilot'], ['Dangote haulage'], ['Accra Mall screens']];
+    const stages = this.STAGES.map((name, i) => {
+      const hasCard = i === s.pos, isTarget = s.lifted && i === s.target && i !== s.pos;
+      return { name, gated: i === 2, hasCard, isTarget, isBlocked: s.blocked && i === 2,
+        count: counts[i] + (hasCard ? 1 : 0), total: totals[i], ghosts: ghosts[i],
+        colBorder: isTarget ? (targetBlocked ? 'var(--k-danger)' : 'var(--k-primary)') : 'var(--k-border)',
+        dropBorder: targetBlocked ? 'var(--k-danger)' : 'var(--k-primary)', dropBg: targetBlocked ? 'var(--k-danger-soft)' : 'var(--k-primary-soft)',
+        dropFg: targetBlocked ? 'var(--k-danger-text)' : 'var(--k-primary-text)', dropIcon: targetBlocked ? 'block' : 'place_item',
+        dropText: targetBlocked ? 'Needs: ' + un.join(', ') : 'Drop here · Enter' };
+    });
+    const bc = card({ ...base, days: s.pos === 1 ? 3 : 0, waD: 0, wa: '2h' });
+    bc.lifted = s.lifted;
+    if (s.lifted) { bc.border = 'var(--k-primary)'; bc.shadow = 'var(--k-shadow-3)'; bc.tf = 'translateY(-2px)'; bc.bg = 'var(--k-surface-raised)'; }
+    bc.aria = `${base.name}, ${base.amt}, in ${this.STAGES[s.pos]}. Space to lift.`;
+    const mono = "'JetBrains Mono',monospace", sans = 'inherit';
+    const compact = !!this.props.compact;
+    return {
+      variants: V.map(card), stages, bc,
+      reqs: this.REQS.map((label, i) => ({ label, icon: s.reqs[i] ? 'check_circle' : 'radio_button_unchecked', fg: s.reqs[i] ? 'var(--k-success-text)' : 'var(--k-text-2)', toggle: () => this.setState(p => { const r = [...p.reqs]; r[i] = !r[i]; return { reqs: r, blocked: r.every(Boolean) ? false : p.blocked }; }) })),
+      unmetText: un.length ? un.join(' and ').toLowerCase() : 'nothing', originName: this.STAGES[s.pos],
+      onCardKey: e => {
+        const k = e.key;
+        if (k === ' ' || k === 'Enter') { e.preventDefault(); if (!s.lifted) this.setState({ lifted: true, blocked: false, target: s.pos, live: 'Lifted. In ' + this.STAGES[s.pos] + '. Use arrow keys, Enter to drop.' }); else this.drop(s.target); }
+        else if (s.lifted && (k === 'ArrowLeft' || k === 'ArrowRight')) { e.preventDefault(); const t = Math.max(0, Math.min(3, s.target + (k === 'ArrowRight' ? 1 : -1))); this.setState({ target: t, live: 'Over ' + this.STAGES[t] + (t >= 2 && s.pos < 2 && un.length ? ' — blocked: needs ' + un.join(', ') : '') + '.' }); }
+        else if (s.lifted && k === 'Escape') { e.preventDefault(); this.setState({ lifted: false, target: s.pos, live: 'Move cancelled.' }); }
+      },
+      moveLeft: () => this.drop(Math.max(0, s.pos - 1)), moveRight: () => this.drop(Math.min(3, s.pos + 1)),
+      dismiss: () => this.setState({ blocked: false }),
+      reset: () => this.setState({ pos: 1, target: 1, lifted: false, blocked: false, reqs: [false, true], live: 'Reset. Deal in Proposal.' }),
+      live: s.live,
+      wide: !compact, compact,
+      fields: [['Deal name', 'Ọja Foods — Q4 supply', sans], ['Account', 'Ọja Foods Ltd', sans], ['Amount', '₦12,500,000.00', mono], ['Close date', 'Sat 31 Oct 2026 · WAT', sans], ['Stage', 'Proposal', sans], ['Owner', 'Tunde Bakare', sans], ['Contact phone', '+234 803 555 0142', mono], ['Source', 'WhatsApp inbound', sans]].map(([l, v, ff]) => ({ l, v, ff })),
+      wonFields: [['Final amount', '₦12,500,000.00', mono], ['Won on', 'Sun 27 Sep 2026', sans], ['Reason', 'Price + local support', sans], ['Hand over to', 'Chiamaka Eze · Onboarding', sans], ['PO number', 'PO-2291', mono], ['Invoice', 'INV-7720', mono]].map(([l, v, ff]) => ({ l, v, ff })),
+      onDrScroll: this.scroll('dr'), onMdScroll: this.scroll('md'),
+      drTopBorder: s.dr.top ? 'var(--k-border)' : 'transparent', drFootShadow: s.dr.more ? '0 -8px 12px -8px rgba(0,0,0,.28)' : 'none',
+      mdTopBorder: s.md.top ? 'var(--k-border)' : 'transparent', mdFootShadow: s.md.more ? '0 -8px 12px -8px rgba(0,0,0,.28)' : 'none'
+    };
+  }
+}
+</script>
+</body>
+</html>

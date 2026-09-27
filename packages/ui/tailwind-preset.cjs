@@ -1,80 +1,223 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable */
 /**
- * Tailwind preset for Kasuwa.
+ * GENERATED FILE — do not edit. Source: packages/ui/src/preset.ts (Design v1.1)
+ * Regenerate with: pnpm ui:tokens
  *
- * Every value points at a CSS custom property rather than a literal, so themes
- * (light/dark, and later per-tenant white-label) switch by swapping variables
- * on :root without rebuilding CSS. White-label theming is a P0 requirement
- * (PRD M1) and this is the mechanism that makes it possible.
- *
- * The variable NAMES here must match packages/ui/src/tokens.ts. They are
- * stable strings by design: when Claude Design output replaces the token
- * VALUES (D-L10), this file does not change.
- *
- * Structured so `apps/web/tailwind.config.ts` is three lines:
+ * Usage in an app:
  *   presets: [require('@kasuwa/ui/tailwind-preset')]
  */
-
-const FAMILIES = ['primary', 'accent', 'success', 'warning', 'danger', 'info', 'neutral'];
-const TONES = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'];
-const TYPE_STEPS = [
-  'display', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-  'body-lg', 'body-md', 'body-sm', 'caption',
-];
-const SPACE_KEYS = [
-  '0', 'px', '0.5', '1', '2', '3', '4', '5', '6', '8', '10', '12', '16', '20', '24', 'touch',
-];
-const RADIUS_KEYS = ['none', 'sm', 'md', 'lg', 'xl', 'full'];
-const SEMANTIC_KEYS = [
-  'surface', 'surface-raised', 'surface-sunken',
-  'border', 'border-strong',
-  'text-primary', 'text-secondary', 'text-muted', 'text-on-primary',
-  'action-primary', 'action-primary-hover',
-  'focus-ring',
-];
-
-function scale() {
-  const colours = {};
-  for (const family of FAMILIES) {
-    colours[family] = Object.fromEntries(
-      TONES.map((tone) => [tone, `var(--kasuwa-${family}-${tone})`]),
-    );
-  }
-  for (const token of SEMANTIC_KEYS) {
-    colours[token] = `var(--kasuwa-${token})`;
-  }
-  return colours;
-}
+const colors = {
+    'bg': 'var(--k-bg)',
+    'surface': 'var(--k-surface)',
+    'surface-raised': 'var(--k-surface-raised)',
+    'surface-sunken': 'var(--k-surface-sunken)',
+    'border': 'var(--k-border)',
+    'border-strong': 'var(--k-border-strong)',
+    'text': 'var(--k-text)',
+    'text-2': 'var(--k-text-2)',
+    'text-muted': 'var(--k-text-muted)',
+    'primary': 'var(--k-primary)',
+    'primary-hover': 'var(--k-primary-hover)',
+    'primary-active': 'var(--k-primary-active)',
+    'on-primary': 'var(--k-on-primary)',
+    'primary-soft': 'var(--k-primary-soft)',
+    'primary-soft-strong': 'var(--k-primary-soft-strong)',
+    'primary-text': 'var(--k-primary-text)',
+    'accent': 'var(--k-accent)',
+    'accent-soft': 'var(--k-accent-soft)',
+    'on-accent': 'var(--k-on-accent)',
+    'accent-text': 'var(--k-accent-text)',
+    'success': 'var(--k-success)',
+    'success-soft': 'var(--k-success-soft)',
+    'success-text': 'var(--k-success-text)',
+    'warning': 'var(--k-warning)',
+    'warning-soft': 'var(--k-warning-soft)',
+    'warning-text': 'var(--k-warning-text)',
+    'danger': 'var(--k-danger)',
+    'danger-hover': 'var(--k-danger-hover)',
+    'danger-active': 'var(--k-danger-active)',
+    'danger-soft': 'var(--k-danger-soft)',
+    'danger-text': 'var(--k-danger-text)',
+    'info': 'var(--k-info)',
+    'info-soft': 'var(--k-info-soft)',
+    'info-text': 'var(--k-info-text)',
+    'disabled-bg': 'var(--k-disabled-bg)',
+    'disabled-text': 'var(--k-disabled-text)',
+    'focus': 'var(--k-focus)',
+    'shadow-1': 'var(--k-shadow-1)',
+    'shadow-2': 'var(--k-shadow-2)',
+    'shadow-3': 'var(--k-shadow-3)',
+    'scrim': 'var(--k-scrim)',
+    'wa-bubble': 'var(--k-wa-bubble)',
+    'note-bg': 'var(--k-note-bg)',
+    'inverse': 'var(--k-inverse)',
+    'on-inverse': 'var(--k-on-inverse)',
+    'shimmer': 'var(--k-shimmer)',
+    'chart-1': 'var(--k-chart-1)',
+    'chart-2': 'var(--k-chart-2)',
+    'chart-3': 'var(--k-chart-3)',
+    'chart-4': 'var(--k-chart-4)',
+    'chart-5': 'var(--k-chart-5)',
+    'chart-6': 'var(--k-chart-6)',
+    'chart-7': 'var(--k-chart-7)',
+    'primary-scale': {
+      '50': 'var(--k-scale-primary-50)',
+      '100': 'var(--k-scale-primary-100)',
+      '200': 'var(--k-scale-primary-200)',
+      '300': 'var(--k-scale-primary-300)',
+      '400': 'var(--k-scale-primary-400)',
+      '500': 'var(--k-scale-primary-500)',
+      '600': 'var(--k-scale-primary-600)',
+      '700': 'var(--k-scale-primary-700)',
+      '800': 'var(--k-scale-primary-800)',
+      '900': 'var(--k-scale-primary-900)',
+      '950': 'var(--k-scale-primary-950)',
+    },
+    'accent-scale': {
+      '50': 'var(--k-scale-accent-50)',
+      '100': 'var(--k-scale-accent-100)',
+      '200': 'var(--k-scale-accent-200)',
+      '300': 'var(--k-scale-accent-300)',
+      '400': 'var(--k-scale-accent-400)',
+      '500': 'var(--k-scale-accent-500)',
+      '600': 'var(--k-scale-accent-600)',
+      '700': 'var(--k-scale-accent-700)',
+      '800': 'var(--k-scale-accent-800)',
+      '900': 'var(--k-scale-accent-900)',
+      '950': 'var(--k-scale-accent-950)',
+    },
+    'success-scale': {
+      '50': 'var(--k-scale-success-50)',
+      '100': 'var(--k-scale-success-100)',
+      '200': 'var(--k-scale-success-200)',
+      '300': 'var(--k-scale-success-300)',
+      '400': 'var(--k-scale-success-400)',
+      '500': 'var(--k-scale-success-500)',
+      '600': 'var(--k-scale-success-600)',
+      '700': 'var(--k-scale-success-700)',
+      '800': 'var(--k-scale-success-800)',
+      '900': 'var(--k-scale-success-900)',
+      '950': 'var(--k-scale-success-950)',
+    },
+    'warning-scale': {
+      '50': 'var(--k-scale-warning-50)',
+      '100': 'var(--k-scale-warning-100)',
+      '200': 'var(--k-scale-warning-200)',
+      '300': 'var(--k-scale-warning-300)',
+      '400': 'var(--k-scale-warning-400)',
+      '500': 'var(--k-scale-warning-500)',
+      '600': 'var(--k-scale-warning-600)',
+      '700': 'var(--k-scale-warning-700)',
+      '800': 'var(--k-scale-warning-800)',
+      '900': 'var(--k-scale-warning-900)',
+      '950': 'var(--k-scale-warning-950)',
+    },
+    'danger-scale': {
+      '50': 'var(--k-scale-danger-50)',
+      '100': 'var(--k-scale-danger-100)',
+      '200': 'var(--k-scale-danger-200)',
+      '300': 'var(--k-scale-danger-300)',
+      '400': 'var(--k-scale-danger-400)',
+      '500': 'var(--k-scale-danger-500)',
+      '600': 'var(--k-scale-danger-600)',
+      '700': 'var(--k-scale-danger-700)',
+      '800': 'var(--k-scale-danger-800)',
+      '900': 'var(--k-scale-danger-900)',
+      '950': 'var(--k-scale-danger-950)',
+    },
+    'info-scale': {
+      '50': 'var(--k-scale-info-50)',
+      '100': 'var(--k-scale-info-100)',
+      '200': 'var(--k-scale-info-200)',
+      '300': 'var(--k-scale-info-300)',
+      '400': 'var(--k-scale-info-400)',
+      '500': 'var(--k-scale-info-500)',
+      '600': 'var(--k-scale-info-600)',
+      '700': 'var(--k-scale-info-700)',
+      '800': 'var(--k-scale-info-800)',
+      '900': 'var(--k-scale-info-900)',
+      '950': 'var(--k-scale-info-950)',
+    },
+    'neutral-scale': {
+      '50': 'var(--k-scale-neutral-50)',
+      '100': 'var(--k-scale-neutral-100)',
+      '200': 'var(--k-scale-neutral-200)',
+      '300': 'var(--k-scale-neutral-300)',
+      '400': 'var(--k-scale-neutral-400)',
+      '500': 'var(--k-scale-neutral-500)',
+      '600': 'var(--k-scale-neutral-600)',
+      '700': 'var(--k-scale-neutral-700)',
+      '800': 'var(--k-scale-neutral-800)',
+      '900': 'var(--k-scale-neutral-900)',
+      '950': 'var(--k-scale-neutral-950)',
+    },
+};
 
 module.exports = {
   theme: {
     extend: {
-      colors: scale(),
+      colors,
       fontFamily: {
-        sans: ['var(--kasuwa-font-sans)'],
-        arabic: ['var(--kasuwa-font-arabic)'],
-        mono: ['var(--kasuwa-font-mono)'],
+        sans: ['var(--k-font-sans)'],
+        arabic: ['var(--k-font-arabic)'],
+        mono: ['var(--k-font-mono)'],
+        icon: ['var(--k-font-icon)'],
       },
-      fontSize: Object.fromEntries(
-        TYPE_STEPS.map((step) => [
-          step,
-          [
-            `var(--kasuwa-font-size-${step})`,
-            {
-              lineHeight: `var(--kasuwa-line-height-${step})`,
-              fontWeight: `var(--kasuwa-font-weight-${step})`,
-              letterSpacing: `var(--kasuwa-tracking-${step})`,
-            },
-          ],
-        ]),
-      ),
-      spacing: Object.fromEntries(SPACE_KEYS.map((key) => [key, `var(--kasuwa-space-${key})`])),
-      borderRadius: Object.fromEntries(
-        RADIUS_KEYS.map((key) => [key, `var(--kasuwa-radius-${key})`]),
-      ),
-      ringColor: { DEFAULT: 'var(--kasuwa-focus-ring)' },
-      minHeight: { touch: 'var(--kasuwa-space-touch)' },
-      minWidth: { touch: 'var(--kasuwa-space-touch)' },
+      fontSize: {
+    'display': ['var(--k-font-size-display)', { lineHeight: 'var(--k-line-height-display)', fontWeight: 'var(--k-font-weight-display)', letterSpacing: 'var(--k-tracking-display)' }],
+    'h1': ['var(--k-font-size-h1)', { lineHeight: 'var(--k-line-height-h1)', fontWeight: 'var(--k-font-weight-h1)', letterSpacing: 'var(--k-tracking-h1)' }],
+    'h2': ['var(--k-font-size-h2)', { lineHeight: 'var(--k-line-height-h2)', fontWeight: 'var(--k-font-weight-h2)', letterSpacing: 'var(--k-tracking-h2)' }],
+    'h3': ['var(--k-font-size-h3)', { lineHeight: 'var(--k-line-height-h3)', fontWeight: 'var(--k-font-weight-h3)', letterSpacing: 'var(--k-tracking-h3)' }],
+    'h4': ['var(--k-font-size-h4)', { lineHeight: 'var(--k-line-height-h4)', fontWeight: 'var(--k-font-weight-h4)', letterSpacing: 'var(--k-tracking-h4)' }],
+    'h5': ['var(--k-font-size-h5)', { lineHeight: 'var(--k-line-height-h5)', fontWeight: 'var(--k-font-weight-h5)', letterSpacing: 'var(--k-tracking-h5)' }],
+    'h6': ['var(--k-font-size-h6)', { lineHeight: 'var(--k-line-height-h6)', fontWeight: 'var(--k-font-weight-h6)', letterSpacing: 'var(--k-tracking-h6)', textTransform: 'uppercase' }],
+    'body-lg': ['var(--k-font-size-body-lg)', { lineHeight: 'var(--k-line-height-body-lg)', fontWeight: 'var(--k-font-weight-body-lg)', letterSpacing: 'var(--k-tracking-body-lg)' }],
+    'body-md': ['var(--k-font-size-body-md)', { lineHeight: 'var(--k-line-height-body-md)', fontWeight: 'var(--k-font-weight-body-md)', letterSpacing: 'var(--k-tracking-body-md)' }],
+    'body-sm': ['var(--k-font-size-body-sm)', { lineHeight: 'var(--k-line-height-body-sm)', fontWeight: 'var(--k-font-weight-body-sm)', letterSpacing: 'var(--k-tracking-body-sm)' }],
+    'caption': ['var(--k-font-size-caption)', { lineHeight: 'var(--k-line-height-caption)', fontWeight: 'var(--k-font-weight-caption)', letterSpacing: 'var(--k-tracking-caption)' }],
+    'mono': ['var(--k-font-size-mono)', { lineHeight: 'var(--k-line-height-mono)', fontWeight: 'var(--k-font-weight-mono)', letterSpacing: 'var(--k-tracking-mono)', fontFeatureSettings: "'tnum' 1" }],
+      },
+      spacing: {
+    '0': 'var(--k-space-0)',
+    '1': 'var(--k-space-1)',
+    '2': 'var(--k-space-2)',
+    '3': 'var(--k-space-3)',
+    '4': 'var(--k-space-4)',
+    '5': 'var(--k-space-5)',
+    '6': 'var(--k-space-6)',
+    '8': 'var(--k-space-8)',
+    '10': 'var(--k-space-10)',
+    '12': 'var(--k-space-12)',
+    '16': 'var(--k-space-16)',
+    'touch': 'var(--k-space-touch)',
+      },
+      borderRadius: {
+    'sm': 'var(--k-radius-sm)',
+    'md': 'var(--k-radius-md)',
+    'lg': 'var(--k-radius-lg)',
+    'xl': 'var(--k-radius-xl)',
+    'full': 'var(--k-radius-full)',
+      },
+      boxShadow: {
+    '0': 'var(--k-elevation-0)',
+    '1': 'var(--k-elevation-1)',
+    '2': 'var(--k-elevation-2)',
+    '3': 'var(--k-elevation-3)',
+      },
+      transitionDuration: {
+    'instant': 'var(--k-duration-instant)',
+    'quick': 'var(--k-duration-quick)',
+    'base': 'var(--k-duration-base)',
+      },
+      transitionTimingFunction: {
+        DEFAULT: 'var(--k-ease)',
+        kasuwa: 'var(--k-ease)',
+      },
+      ringColor: { DEFAULT: 'var(--k-focus)' },
+      outlineColor: { DEFAULT: 'var(--k-focus)' },
+      // WCAG 2.2 AA minimum target size, available as min-h-touch / min-w-touch.
+      minHeight: { touch: 'var(--k-space-touch)' },
+      minWidth: { touch: 'var(--k-space-touch)' },
     },
   },
 };

@@ -24,10 +24,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const t = createTranslator('en-NG');
   return (
     <html lang="en-NG">
-      <body className="min-h-screen bg-surface text-text-primary font-sans antialiased">
+      <body className="min-h-screen bg-bg font-sans text-text antialiased">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface-raised focus:px-4 focus:py-2 focus:ring-2"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface-raised focus:px-4 focus:py-2 focus:ring-2 focus:ring-focus"
         >
           {t.t('nav.skipToContent')}
         </a>

@@ -4,3 +4,14 @@ dist
 coverage
 .nx
 packages/i18n/src/locales/en-XA.json
+
+# Generated artefacts. Prettier must not touch these: CI regenerates them and
+# fails on any diff, so a reformat would break the build with no useful change.
+packages/ui/src/*.generated.css
+packages/ui/src/*.generated.ts
+packages/ui/tailwind-preset.cjs
+apps/web/public/fonts/
+
+# The design export is committed byte-for-byte unchanged.
+docs/design/
+packages/ui/icon-subset.txt

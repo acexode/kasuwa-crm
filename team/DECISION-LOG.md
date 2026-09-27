@@ -176,3 +176,80 @@ Note that `Guard protected paths` now lives in its own workflow
 (`.github/workflows/guard.yml`) so it re-evaluates when the label is applied.
 On PR #1 it did not, because the default `pull_request` event types exclude
 `labeled` — the gate worked, but needed a manual re-run to clear.
+
+
+---
+
+## D-L10 — Design tokens (CLOSED by T-0003)
+**Answered:** 2026-09-27 · **Answer:** Design v1.1 approved and imported.
+
+The provisional scales the scaffold derived from three brand anchors are gone.
+`packages/ui` is now generated from the Claude Design export committed unchanged
+under `docs/design/v1.1/`.
+
+### Deviations from the import, recorded as the hand-off requires
+
+None of these change a token **value**. They are naming and packaging choices
+made while turning an HTML export into a build.
+
+1. **CSS custom property prefix is `--k-`, not `--kasuwa-`.** The export uses
+   `--k-`, and the hand-off says to generate from those properties. The scaffold's
+   `--kasuwa-` names are gone. Consequence: every Tailwind class name in
+   `apps/web` changed (`text-text-primary` → `text-text`, `bg-action-primary` →
+   `bg-primary`).
+
+2. **Scale steps are emitted as `--k-scale-<family>-<tone>`**, not
+   `--k-<family>-<tone>`. Without the `scale` segment, `--k-primary-500` (a ramp
+   step) sits confusingly beside `--k-primary` (the action fill), which are
+   different things — one is a palette entry, the other a role. In Tailwind the
+   scales are exposed as `primary-scale-500` and the semantic tokens as their own
+   names (`bg-primary`, `text-text-muted`).
+
+3. **Colours are machine-extracted, not transcribed.**
+   `pnpm ui:import-design` parses the export; `tokens.colours.generated.ts` is
+   the output and CI fails on drift. Over 150 hex values would be wrong
+   somewhere if typed by hand, and a mistyped semantic token is a contrast
+   failure nobody sees. The importer also **fails** if light and dark define
+   different token names — a token present in one theme only renders as `unset`.
+
+4. **Type, spacing, radius, elevation and motion are hand-encoded** in
+   `tokens.ts`, because the export carries them as rendered markup rather than
+   as data. Each block cites the export section it came from. That is a dozen
+   values, not a hundred and fifty.
+
+5. **Noto Sans Arabic ships the `arabic` subset only.** Google also serves it
+   with Latin subsets; Noto Sans already covers Latin, and shipping both would
+   add ~30 KB of duplicate glyphs on a 256 kbps connection.
+
+6. **Fonts live in `apps/web/public/fonts/`** and the generated `fonts.css`
+   references `/fonts/…`. That couples `packages/ui` to the web app's public
+   path. The alternative — shipping fonts inside the package and copying at
+   build time — is more correct and more machinery than one app justifies.
+   Revisit when the Expo app needs the same fonts.
+
+7. **`tokens.css` is now `tokens.generated.css`**, and the Tailwind preset is
+   generated too. The preset was hand-written in the scaffold; with 53 semantic
+   tokens and 77 scale steps it would have gone stale, and a stale preset does
+   not fail — it silently omits a utility, and someone works around the gap with
+   a raw value.
+
+### One number did not reconcile — reported, not silently accepted
+
+The hand-off quotes an independently computed **3.79** for
+`border-strong on surface`. My computation gives **4.12 (light)** and
+**4.56 (dark)**.
+
+Everything else matches: the text pairs come out at **5.54–11.59** against the
+quoted 5.5–11.6, which is agreement to the precision given and is strong
+evidence the import is faithful. Only this one figure differs, and mine is
+*higher* — the ≥3.0 requirement passes either way, in both themes.
+
+No pairing of `border-strong` in the token set produces 3.79. The nearest are
+**3.88** against `--k-bg` and **3.62** against `--k-surface-sunken`. So 3.79 is
+most likely either a different background than `surface`, or a value carried
+over from v1.0.
+
+Proceeding rather than stopping, because the stated requirement is met with
+margin in both themes and the rest of the import verifies exactly. **If 3.79 was
+measured against a specific pairing, say which and I will add it to
+`CONTRAST_PAIRS`** — every candidate above still clears 3.0.

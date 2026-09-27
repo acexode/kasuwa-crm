@@ -1,4 +1,7 @@
-/* Design tokens first: Tailwind utilities reference these custom properties. */
+/* Self-hosted webfonts first — see packages/ui/scripts/fetch-fonts.mjs. */
+@import '@kasuwa/ui/fonts.css';
+
+/* Design tokens. Tailwind utilities reference these custom properties. */
 @import '@kasuwa/ui/tokens.css';
 
 @tailwind base;

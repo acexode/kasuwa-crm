@@ -19,11 +19,11 @@ export default function NotFound() {
   const t = createTranslator('en-NG');
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-start gap-4 px-6 py-24">
-      <h1 className="text-h1 text-text-primary">{t.t('notFound.title')}</h1>
-      <p className="text-body-lg text-text-secondary">{t.t('notFound.body')}</p>
+      <h1 className="text-h1 text-text">{t.t('notFound.title')}</h1>
+      <p className="text-body-lg text-text-2">{t.t('notFound.body')}</p>
       <Link
         href="/"
-        className="min-h-touch rounded-md bg-action-primary px-4 py-2 text-body-md text-text-on-primary hover:bg-action-primary-hover focus-visible:ring-2"
+        className="min-h-touch rounded-md bg-primary px-4 py-2 text-body-md text-on-primary hover:bg-primary-hover focus-visible:ring-2"
       >
         {t.t('notFound.back')}
       </Link>
