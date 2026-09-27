@@ -2,6 +2,83 @@
 
 ---
 
+## Cycle · 2026-09-27 · three tasks made ready
+
+Resumed in the same session after a compaction dropped context from 85% to 8%.
+The stop condition that ended the previous cycle no longer bound, so under A5
+the work continued rather than waiting for the 17:06 scheduled run.
+
+### Shipped
+
+| Task | Tests | Failing | PR |
+|---|---|---|---|
+| **T-0008** e2e harness (Agent 12) | 15 | 14 | [#7](https://github.com/acexode/kasuwa-crm/pull/7) |
+| **T-0004** adversarial + authz matrix (Agent 12) | 8 | 6 | [#8](https://github.com/acexode/kasuwa-crm/pull/8) |
+| **T-0005** observability + CI (Agent 13) | 9 | 9 | [#9](https://github.com/acexode/kasuwa-crm/pull/9) |
+
+**T-0008 unblocks T-0007 and every screen task after it.** The P01 designs have
+been in since T-0003 and could not be turned into acceptance tests because there
+was nothing to write them in.
+
+### One new decision — D-L25
+
+T-0004's deliverable **is** a set of tests, which makes it the one task where
+applying D-L23 literally would defeat the task: if the lead writes the attacks,
+Agent 12 inherits the lead's imagination and the independence the task exists
+for is gone before it starts.
+
+Resolved by asserting the **shape** of the deliverable — the todos became real
+tests, there are more than nine of them, the suite stays in the blocking gate,
+the diff does not touch tenancy implementation, a report exists — and saying
+nothing about what the attacks should be. The weakness ("more than nine" is a
+count, and counts can be padded) is recorded in the log rather than papered over.
+
+### The three assertions worth knowing about
+
+Each is written so it cannot pass by accident:
+
+- **T-0008's byte budget** is proven by a fixture that must make the run exit
+  non-zero *and mention the budget*. A check only ever observed passing is
+  indistinguishable from one that checks nothing.
+- **T-0008's throttle** compares the same page under both profiles and requires
+  the byte counts to be *identical* — if they differ, the two runs did not load
+  the same thing and the timing comparison proves nothing.
+- **T-0005's PII assertion** does not check that we remembered to redact. It
+  sends a PII-heavy request and greps everything emitted for the exact values
+  it sent. A redaction helper that covers the fields someone thought of is the
+  thing that fails in production.
+
+### Two honesty notes
+
+**Vacuous passing is the failure mode of a test-of-a-test.** One T-0008
+assertion initially passed by iterating an empty file list — caught by reading
+*which* two went green rather than trusting the count, and fixed to require a
+non-empty list first. Three assertions across the two files still pass
+legitimately; each is commented as a negative invariant or as a constraint on
+*how* the work is done, so the counts are not mistaken for coverage.
+
+**The blocking isolation suite is untouched at 56 green.** Everything added here
+is in the `pending` project, outside the gate — as D-L23 and the CI-red stop
+condition both require.
+
+### Progress
+
+**Tasks done: 1 · remaining: 7.** Five now ready to assign — T-0001, T-0002,
+T-0004, T-0005, T-0008 — with **47 failing acceptance tests** between them.
+Agents 1, 2, 12 and 13 all have work; Agent 12 has two.
+
+### Open
+
+- [PR #6](https://github.com/acexode/kasuwa-crm/pull/6) (scheduler, A5) still
+  unmerged. Everything since branched off `main` without it, so
+  `STANDING-ORDERS.md` will diverge if it sits for several more cycles.
+- **D-A4** (monthly per-seat cap) still blank. It partly blocks T-0005's
+  provisioning half, which is why that half is written as plan-and-estimate
+  only — no tfstate, asserted.
+- D-T1–D-T5, D-W1 unanswered. None blocks anything currently ready.
+
+---
+
 ## Cycle · 2026-09-27 · stopped on context
 
 **Stop condition bound: context at 85%**, past the 80% threshold. Usage was
