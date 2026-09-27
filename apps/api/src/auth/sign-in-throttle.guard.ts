@@ -122,10 +122,12 @@ export class SignInThrottleGuard implements CanActivate {
   /**
    * Takes one of this client's concurrent slots, or refuses.
    *
-   * Paired with `releaseInFlight`, which `SignInThrottleInterceptor` calls when
-   * the response finishes — however it finishes. A slot that is taken and never
-   * given back is a client locked out until the process restarts, so the
-   * release lives in a `finalize` and not at the end of a happy path.
+   * Paired with `releaseInFlight`, which `releaseWhenFinished` below calls when
+   * the response ends — however it ends. A slot that is taken and never given
+   * back is a client locked out until the process restarts, so the release
+   * hangs off the response's `close` event rather than off the end of a happy
+   * path: `close` fires on success, on a thrown error, and on a client that
+   * hung up mid-request.
    */
   admitInFlight(client: string): void {
     const limit = this.policy.signInInFlightPerClient;
@@ -164,6 +166,19 @@ export class SignInThrottleGuard implements CanActivate {
    * `close` rather than `finish`: it fires when the response completes AND
    * when the client hangs up mid-request. Hanging up early is free for an
    * attacker, and on `finish` alone it would leak a slot every time.
+   */
+  /*
+   * THERE IS EXACTLY ONE RELEASE PATH, AND THAT IS THE POINT.
+   *
+   * A `SignInThrottleInterceptor` releasing the same slot in `finalize` was
+   * written in parallel with this and deleted by the lead on 2026-09-28. It
+   * was never registered in any module, so it never double-released — but it
+   * was a trap rather than dead weight: wiring it up later would have returned
+   * every slot twice, which does not fail a test. It silently halves the cap
+   * and leaves a control that reports success while admitting twice the
+   * concurrency it claims.
+   *
+   * If a second release path is ever needed, it replaces this one. Never both.
    */
   private releaseWhenFinished(context: ExecutionContext, client: string): void {
     const response = context.switchToHttp().getResponse<Response>();

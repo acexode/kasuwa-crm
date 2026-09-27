@@ -78,12 +78,17 @@ describe('acceptance (pending): authentication', () => {
    * one step either side of the current one, so there are only three codes in
    * play.
    *
-   * The builder offered two fixes and recommended this one over constructing
-   * the app with `rejectReusedTotpCodes: false`. It is right, and for the same
+   * The builder offered two fixes and recommended this one over a
+   * `rejectReusedTotpCodes: false` switch. It was right, and for the same
    * reason the lockout threshold stayed at five: turning a security control
    * off so a test goes green is the mistake, whichever direction it comes
-   * from. It did not make that change itself even though it would have been
-   * the quicker path.
+   * from. It did not take the quicker path even though it had one.
+   *
+   * **That switch no longer exists**, and this comment used to point at it —
+   * which would have sent the next person looking for a way to disable
+   * single-use codes, and finding nothing, inventing one. There is no switch.
+   * Advance the clock, use a code you have not used, or call
+   * `resetSeededTotpUsage(migrationUrl)` between tests.
    *
    * So the control stays on and the fixture's usage record is cleared between
    * tests instead.
