@@ -38,6 +38,22 @@ const MANIFEST = {
 
 
 
+/**
+ * Drain the mock's route handlers before the context closes.
+ *
+ * `P01/1d` ends its test with a sign-in deliberately still in flight — that is
+ * the state under test — and a handler left mid-request makes teardown depend
+ * on timing. `ignoreErrors` because a handler pulled mid-flight is exactly the
+ * case being drained; its rejection is not a test failure.
+ *
+ * This is hygiene, not a fix for the Windows teardown flake described in
+ * team/reports/T-0007.md — that one is in Playwright's own trace writer under
+ * `outputDir`, and it survived this.
+ */
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 const WORKSPACE = 'sahel-bpo';
 const REAL_EMAIL = 'tunde.agent@tenant-a.test';
 const REAL_PASSWORD = 'correct-horse-battery';
@@ -323,9 +339,11 @@ test.describe('P01/1d — slow network', () => {
     /**
      * MEASURED, not guessed. Against a production build of `apps/web`
      * (`pnpm --filter @kasuwa/web build`, then `next start`), a cold load of
-     * `P01/1` transfers 256,908 bytes: 160 KB of JavaScript, 79 KB of
-     * self-hosted fonts, 7.5 KB of CSS and 6 KB of HTML. First contentful paint
-     * is 452 ms unthrottled and 2,092 ms at 256 kbps with 300 ms of latency.
+     * `P01/1` transfers 256,948 bytes with a cold cache: 164,577 of
+     * JavaScript, 78,598 of self-hosted fonts, 7,513 of CSS and 6,260 of HTML.
+     * First contentful paint is 216 ms unthrottled and 1,784 ms at 256 kbps
+     * with 300 ms of latency — a usable sign-in inside two seconds on the
+     * network PRD 2.13 commits to, which is the number that actually matters.
      *
      * PRD 2.13 caps the critical path at 300 KB gzipped, so there is about 16%
      * of headroom. The budget is pinned just above the measurement — 264 KB —
