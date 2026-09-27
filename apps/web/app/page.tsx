@@ -90,7 +90,9 @@ export default function TokensPage() {
           {(Object.keys(TYPE_SCALE) as (keyof typeof TYPE_SCALE)[]).map((step) => (
             <div key={step} className="border-b border-border pb-3">
               <p className="text-caption text-text-muted">{step}</p>
-              <p style={{ fontSize: TYPE_SCALE[step].size, lineHeight: TYPE_SCALE[step].lineHeight }}>
+              <p
+                style={{ fontSize: TYPE_SCALE[step].size, lineHeight: TYPE_SCALE[step].lineHeight }}
+              >
                 {t.t('tokens.sample.text')}
               </p>
             </div>

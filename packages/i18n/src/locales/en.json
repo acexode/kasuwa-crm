@@ -14,5 +14,8 @@
   "tokens.section.radius": "Radius",
   "tokens.contrast.label": "{ratio} to 1 against {background}",
   "tokens.sample.text": "Ìbàdàn · Ọ̀yọ́ · Kàno · ₦1,250,000.00 · +234 803 123 4567",
-  "tokens.scale.count": "{count, plural, one {# step} other {# steps}}"
+  "tokens.scale.count": "{count, plural, one {# step} other {# steps}}",
+  "notFound.title": "Page not found",
+  "notFound.body": "The page you asked for does not exist, or you do not have access to it.",
+  "notFound.back": "Back to the design tokens"
 }
