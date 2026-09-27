@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseReview, DESIGN_MENU_LOCALES, LOCALE_SOURCES } from './catalogues';
-import { deriveSupportedLocales, localeReadiness } from './completeness';
+import { deriveSupportedLocales, localeReadiness, placeholderNames } from './completeness';
 import { requiredPluralCategories } from './plurals';
 import { localeLabel, SUPPORTED_LOCALES, textDirection, translate } from './index';
 
@@ -92,5 +92,35 @@ describe('direction and labels', () => {
   it('falls back to the tag, not to an English name', () => {
     // A tag is obviously a placeholder. An English name silently looks finished.
     expect(localeLabel('zu')).toBe('zu');
+  });
+});
+
+describe('placeholder extraction (regression)', () => {
+  // This is the bug that survived review twice: the obvious regex
+  // /\{\s*(\w+)/g also matches the first word of a plural BRANCH BODY, so a
+  // natural translation reports a placeholder that does not exist.
+  //
+  // It hid because \w is [A-Za-z0-9_]: the Arabic catalogue's `zero {لا خطوات}`
+  // sailed through while the Latin-script catalogues had to be written so every
+  // branch led with `#`. That constraint is invisible, undocumented, and wrong
+  // for any language that does not put the number first.
+  it('does not mistake the first word of a plural branch for a placeholder', () => {
+    expect([...placeholderNames('{count, plural, one {a single step} other {# steps}}')]).toEqual([
+      'count',
+    ]);
+  });
+
+  it('still finds real arguments, including inside a branch', () => {
+    expect(
+      [...placeholderNames('{count, plural, one {{name} has one} other {{name} has #}}')].sort(),
+    ).toEqual(['count', 'name']);
+  });
+
+  it('finds nothing in a message that has no arguments', () => {
+    expect([...placeholderNames('Barka da dawowa')]).toEqual([]);
+  });
+
+  it('ignores the pound sign, which is a value and not a name', () => {
+    expect([...placeholderNames('{n, plural, other {#}}')]).toEqual(['n']);
   });
 });

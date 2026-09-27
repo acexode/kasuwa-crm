@@ -1,7 +1,7 @@
 import { IntlMessageFormat } from 'intl-messageformat';
 import { DESIGN_MENU_LOCALES, LOCALE_SOURCES } from './catalogues';
 import type { LocaleSource } from './catalogues';
-import { requiredPluralCategories, PLURAL_CATEGORIES } from './plurals';
+import { requiredPluralCategories } from './plurals';
 
 /**
  * The completeness gate.
@@ -54,15 +54,59 @@ function isOverlay(locale: string): boolean {
   return locale.includes('-') && baseTag(locale) !== locale;
 }
 
-function placeholderNames(message: string): Set<string> {
+/**
+ * ICU argument node types, from `@formatjs/icu-messageformat-parser`. Named
+ * here rather than imported so this file has no second dependency on the
+ * parser's package layout.
+ */
+const NODE_LITERAL = 0;
+const NODE_POUND = 7;
+const NODE_TAG = 8;
+
+interface AstNode {
+  readonly type: number;
+  readonly value?: unknown;
+  readonly options?: Record<string, { value: readonly AstNode[] }>;
+  readonly children?: readonly AstNode[];
+}
+
+/**
+ * Every argument name in a message, taken from the parsed AST.
+ *
+ * **Do not do this with a regular expression.** The obvious pattern —
+ * `/\{\s*(\w+)/g` — also matches the first word of a plural BRANCH BODY, so
+ * `{count, plural, one {a single step} …}` reports a placeholder named `a`.
+ * The first draft of this function did exactly that, and so did the acceptance
+ * test that was meant to catch it, which is how it survived review twice.
+ *
+ * It hid because it only bites Latin script: `\w` is `[A-Za-z0-9_]`, so the
+ * Arabic catalogue's `zero {لا خطوات}` passed while a Hausa branch had to be
+ * written `{# mataki}` to get through. That is a real cost — it silently
+ * forbids every plural form that does not lead with the number, which is a
+ * normal way to write "a single step" in most of these languages.
+ *
+ * The AST has no such ambiguity: a branch body is a list of literal nodes, and
+ * only an argument node carries a name.
+ */
+export function placeholderNames(message: string): Set<string> {
   const names = new Set<string>();
-  for (const match of message.matchAll(/\{\s*(\w+)/g)) {
-    const name = match[1];
-    if (name === undefined) continue;
-    if (['plural', 'select', 'selectordinal', 'number', 'date', 'time'].includes(name)) continue;
-    if ((PLURAL_CATEGORIES as readonly string[]).includes(name)) continue;
-    names.add(name);
-  }
+
+  const walk = (nodes: readonly AstNode[]): void => {
+    for (const node of nodes) {
+      if (node.type === NODE_LITERAL || node.type === NODE_POUND) continue;
+
+      if (typeof node.value === 'string' && node.type !== NODE_TAG) {
+        names.add(node.value);
+      }
+
+      if (node.options) {
+        for (const branch of Object.values(node.options)) walk(branch.value);
+      }
+      if (node.children) walk(node.children);
+    }
+  };
+
+  walk(new IntlMessageFormat(message, SOURCE_LOCALE).getAst() as readonly AstNode[]);
   return names;
 }
 

@@ -66,16 +66,19 @@ const EnvSchema = z.object({
   WEB_PORT: z.coerce.number().int().positive().default(3000),
   REALTIME_PORT: z.coerce.number().int().positive().default(3002),
 
-  DEFAULT_LOCALE: z.string().default('en'),
-  SUPPORTED_LOCALES: z
-    .string()
-    .default('en,en-NG')
-    .transform((value) =>
-      value
-        .split(',')
-        .map((entry) => entry.trim())
-        .filter(Boolean),
-    ),
+  // NO LOCALE SETTINGS HERE. `@kasuwa/i18n` owns which languages exist and
+  // which are offered, and it DERIVES the offered set from catalogue
+  // completeness plus a named reviewer (D-P1, D-L27).
+  //
+  // A `SUPPORTED_LOCALES` environment variable used to sit here. It was unread
+  // by anything, and it could widen the offered set past what the gate
+  // considers finished — which is precisely the dishonest language menu the
+  // gate exists to prevent, reachable by editing a deployment variable and
+  // touching no code. Two sources of truth for the same fact, one of which can
+  // lie silently. Removed rather than reconciled.
+  //
+  // If a deployment ever needs to offer fewer languages than are ready, that
+  // is a feature flag, and it may only ever NARROW the derived set.
 });
 
 export type KasuwaEnv = z.infer<typeof EnvSchema>;
