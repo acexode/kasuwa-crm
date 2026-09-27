@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&amp;display=block">
+<style>@keyframes kspin{to{transform:rotate(360deg)}}@keyframes kshimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}</style>
+</helmet>
+<div style="font-family:'Noto Sans','Noto Sans Arabic',system-ui,sans-serif;color:var(--k-text);background:var(--k-bg);padding:28px;display:flex;flex-direction:column;gap:24px;border-radius:16px;border:1px solid var(--k-border)">
+
+<!-- ACTIONS -->
+<div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--k-primary-text)">A · Actions</div>
+<div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:18px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px"><h3 style="margin:0;font-size:18px;font-weight:700">Buttons</h3><span style="font-size:13px;color:var(--k-text-muted)">44px height · 8px radius · 15/600</span></div>
+  <div style="display:grid;grid-template-columns:78px repeat(6,minmax(0,1fr));gap:10px 8px;align-items:center">
+    <span></span>
+    <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Default</span>
+    <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Hover</span>
+    <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Focus</span>
+    <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Active</span>
+    <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Disabled</span>
+    <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Loading</span>
+
+    <span style="font-size:13px;font-weight:600;color:var(--k-text-2)">Primary</span>
+    <button style="display:inline-flex;align-items:center;justify-content:center;gap:6px;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:var(--k-primary);color:var(--k-on-primary)">Save</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;gap:6px;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:var(--k-primary-hover);color:var(--k-on-primary)">Save</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;gap:6px;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:var(--k-primary);color:var(--k-on-primary);box-shadow:0 0 0 2px var(--k-surface),0 0 0 4px var(--k-focus)">Save</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;gap:6px;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:var(--k-primary-active);color:var(--k-on-primary);transform:translateY(1px)">Save</button>
+    <button disabled="" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:var(--k-disabled-bg);color:var(--k-disabled-text)">Save</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:var(--k-primary);color:var(--k-on-primary)">{{ spin }}Saving</button>
+
+    <span style="font-size:13px;font-weight:600;color:var(--k-text-2)">Secondary</span>
+    <button style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text)">Export</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid var(--k-border-strong);background:var(--k-surface-sunken);color:var(--k-text)">Export</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);box-shadow:0 0 0 2px var(--k-surface),0 0 0 4px var(--k-focus)">Export</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid var(--k-border-strong);background:var(--k-border);color:var(--k-text);transform:translateY(1px)">Export</button>
+    <button disabled="" style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-disabled-text)">Export</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text)">{{ spin }}Export</button>
+
+    <span style="font-size:13px;font-weight:600;color:var(--k-text-2)">Ghost</span>
+    <button style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:transparent;color:var(--k-primary-text)">Cancel</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:var(--k-primary-soft);color:var(--k-primary-text)">Cancel</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:transparent;color:var(--k-primary-text);box-shadow:0 0 0 2px var(--k-surface),0 0 0 4px var(--k-focus)">Cancel</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:var(--k-primary-soft-strong);color:var(--k-primary-text);transform:translateY(1px)">Cancel</button>
+    <button disabled="" style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:transparent;color:var(--k-disabled-text)">Cancel</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:transparent;color:var(--k-primary-text)">{{ spin }}Undo</button>
+
+    <span style="font-size:13px;font-weight:600;color:var(--k-text-2)">Danger</span>
+    <button style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:var(--k-danger);color:#FFFFFF">Delete</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:var(--k-danger-hover);color:#FFFFFF">Delete</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:var(--k-danger);color:#FFFFFF;box-shadow:0 0 0 2px var(--k-surface),0 0 0 4px var(--k-focus)">Delete</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:var(--k-danger-active);color:#FFFFFF;transform:translateY(1px)">Delete</button>
+    <button disabled="" style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:var(--k-disabled-bg);color:var(--k-disabled-text)">Delete</button>
+    <button style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 12px;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;border:1px solid transparent;background:var(--k-danger);color:#FFFFFF">{{ spin }}Deleting</button>
+
+    <span style="font-size:13px;font-weight:600;color:var(--k-text-2)">Icon</span>
+    <button aria-label="Call" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">call</span></button>
+    <button aria-label="Call" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface-sunken);color:var(--k-text)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">call</span></button>
+    <button aria-label="Call" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);box-shadow:0 0 0 2px var(--k-surface),0 0 0 4px var(--k-focus)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">call</span></button>
+    <button aria-label="Call" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid transparent;background:var(--k-primary);color:var(--k-on-primary)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">call</span></button>
+    <button disabled="" aria-label="Call" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-disabled-text)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">call</span></button>
+    <button aria-label="Connecting" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text)">{{ spin }}</button>
+  </div>
+  <p style="margin:0;font-size:13px;line-height:20px;color:var(--k-text-muted);text-wrap:pretty">One primary per view. Focus ring = 2px surface gap + 2px focus colour (indigo in light, saffron in dark), shown on <b>:focus-visible</b> only. Loading keeps width, swaps label to present tense and sets <span style="font-family:'JetBrains Mono',monospace">aria-busy</span>. Icon buttons always carry an <span style="font-family:'JetBrains Mono',monospace">aria-label</span>; 36px compact size is desktop-only and keeps a 44px hit area.</p>
+</div>
+
+<!-- INPUTS -->
+<div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--k-primary-text)">B · Inputs</div>
+<div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:18px">
+  <h3 style="margin:0;font-size:18px;font-weight:700">Text field</h3>
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 16px">
+    <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Full name · default</span><span style="display:flex;align-items:center;height:44px;padding:0 12px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);font-size:15px;color:var(--k-text-muted)">e.g. Ọláńrewájú Adébáyọ̀</span></label>
+    <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Hover</span><span style="display:flex;align-items:center;height:44px;padding:0 12px;border:1px solid var(--k-text-2);border-radius:8px;background:var(--k-surface);font-size:15px">Chukwuemeka Ọnwụ</span></label>
+    <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Focus</span><span style="display:flex;align-items:center;height:44px;padding:0 12px;border:1px solid var(--k-primary);border-radius:8px;background:var(--k-surface);font-size:15px;box-shadow:0 0 0 3px var(--k-primary-soft-strong)">Ɗanladi Ƙaura<span style="width:1px;height:20px;background:var(--k-text);margin-left:1px"></span></span></label>
+    <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Email · error</span><span style="display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border:2px solid var(--k-danger);border-radius:8px;background:var(--k-surface);font-size:15px">ama.serwaa@<span style="flex:1"></span><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1;color:var(--k-danger-text)">error</span></span><span style="font-size:13px;color:var(--k-danger-text);display:flex;gap:4px">Enter a full email, like ama@asante.com.gh</span></label>
+    <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600;color:var(--k-disabled-text)">Account ID · disabled</span><span style="display:flex;align-items:center;height:44px;padding:0 12px;border:1px solid var(--k-border);border-radius:8px;background:var(--k-disabled-bg);font-size:15px;font-family:'JetBrains Mono',monospace;color:var(--k-disabled-text)">ACC-00481-LOS</span></label>
+    <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">BVN lookup · loading</span><span style="display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);font-size:15px;font-family:'JetBrains Mono',monospace">2234 5678 901<span style="flex:1"></span><span style="color:var(--k-primary-text);display:flex">{{ spin }}</span></span><span style="font-size:13px;color:var(--k-text-muted)">Verifying…</span></label>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px">
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px">
+    <h3 style="margin:0;font-size:18px;font-weight:700">Phone input</h3>
+    <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Mobile number</span>
+      <span style="display:flex;align-items:stretch;height:44px;border:1px solid var(--k-primary);border-radius:8px;background:var(--k-surface);box-shadow:0 0 0 3px var(--k-primary-soft-strong);overflow:hidden">
+        <span style="display:flex;align-items:center;gap:6px;padding:0 8px 0 12px;border-right:1px solid var(--k-border);background:var(--k-surface-sunken)"><span style="width:22px;height:15px;border-radius:2px;background:linear-gradient(90deg,#008751 33%,#FFFFFF 33% 66%,#008751 66%);box-shadow:0 0 0 1px rgba(0,0,0,.15)"></span><span style="font-family:'JetBrains Mono',monospace;font-size:14px">+234</span><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:18px;line-height:1;color:var(--k-text-muted)">expand_more</span></span>
+        <span style="flex:1;display:flex;align-items:center;padding:0 10px;font-family:'JetBrains Mono',monospace;font-size:15px">803 555 0142</span>
+        <span style="display:flex;align-items:center;padding-right:8px"><span style="font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;border:1px solid var(--k-border-strong);color:var(--k-text-2)">MTN</span></span>
+      </span>
+      <span style="font-size:13px;color:var(--k-text-muted)">Network detected from prefix 0803 · ported numbers may differ</span>
+    </label>
+    <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Error</span>
+      <span style="display:flex;align-items:stretch;height:44px;border:2px solid var(--k-danger);border-radius:8px;overflow:hidden">
+        <span style="display:flex;align-items:center;gap:6px;padding:0 8px 0 12px;border-right:1px solid var(--k-border);background:var(--k-surface-sunken)"><span style="width:22px;height:15px;border-radius:2px;background:linear-gradient(#000 28%,#FFFFFF 28% 34%,#BB0000 34% 66%,#FFFFFF 66% 72%,#006600 72%);box-shadow:0 0 0 1px rgba(0,0,0,.15)"></span><span style="font-family:'JetBrains Mono',monospace;font-size:14px">+254</span></span>
+        <span style="flex:1;display:flex;align-items:center;padding:0 10px;font-family:'JetBrains Mono',monospace;font-size:15px">712 33</span>
+      </span>
+      <span style="font-size:13px;color:var(--k-danger-text)">Kenyan mobiles have 9 digits after +254</span>
+    </label>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Network chips — neutral, never brand-coloured</span>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;border:1px solid var(--k-border-strong);color:var(--k-text-2)">MTN</span>
+        <span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;border:1px solid var(--k-border-strong);color:var(--k-text-2)">Airtel</span>
+        <span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;border:1px solid var(--k-border-strong);color:var(--k-text-2)">Glo</span>
+        <span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;border:1px solid var(--k-border-strong);color:var(--k-text-2)">T2</span>
+        <span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;border:1px dashed var(--k-border-strong);color:var(--k-text-muted)">Unknown</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      <span style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 8px;border-radius:6px;background:var(--k-surface-sunken)"><span style="width:18px;height:12px;border-radius:2px;background:linear-gradient(90deg,#008751 33%,#FFFFFF 33% 66%,#008751 66%)"></span>NG</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 8px;border-radius:6px;background:var(--k-surface-sunken)"><span style="width:18px;height:12px;border-radius:2px;background:linear-gradient(#CE1126 33%,#FCD116 33% 66%,#006B3F 66%)"></span>GH</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 8px;border-radius:6px;background:var(--k-surface-sunken)"><span style="width:18px;height:12px;border-radius:2px;background:linear-gradient(#000 28%,#FFFFFF 28% 34%,#BB0000 34% 66%,#FFFFFF 66% 72%,#006600 72%)"></span>KE</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 8px;border-radius:6px;background:var(--k-surface-sunken)"><span style="width:18px;height:12px;border-radius:2px;background:linear-gradient(#E03C31 33%,#FFFFFF 33% 40%,#007749 40% 60%,#FFFFFF 60% 67%,#001489 67%)"></span>ZA</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 8px;border-radius:6px;background:var(--k-surface-sunken)"><span style="width:18px;height:12px;border-radius:2px;background:linear-gradient(90deg,#F77F00 33%,#FFFFFF 33% 66%,#009E60 66%)"></span>CI</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 8px;border-radius:6px;background:var(--k-surface-sunken)"><span style="width:18px;height:12px;border-radius:2px;background:linear-gradient(90deg,#00853F 33%,#FDEF42 33% 66%,#E31B23 66%)"></span>SN</span>
+    </div>
+  </div>
+
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px">
+    <h3 style="margin:0;font-size:18px;font-weight:700">Currency input</h3>
+    <div style="display:flex;gap:4px;padding:4px;border-radius:10px;background:var(--k-surface-sunken)">
+      <sc-for list="{{ curOpts }}" as="c" hint-placeholder-count="5">
+        <button onClick="{{ c.pick }}" style="flex:1;height:36px;border-radius:7px;border:0;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }};box-shadow:{{ c.sh }}">{{ c.code }}</button>
+      </sc-for>
+    </div>
+    <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Deal value · type to try</span>
+      <span style="display:flex;align-items:center;height:44px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);overflow:hidden">
+        <span style="height:100%;display:flex;align-items:center;padding:0 12px;background:var(--k-surface-sunken);border-right:1px solid var(--k-border);font-weight:600;min-width:28px;justify-content:center">{{ curSym }}</span>
+        <input value="{{ curVal }}" onChange="{{ onCur }}" inputmode="decimal" style="flex:1;min-width:0;height:100%;border:0;outline:none;background:transparent;padding:0 12px;font-family:'JetBrains Mono',monospace;font-size:16px;color:var(--k-text);text-align:right">
+      </span>
+      <span style="font-size:13px;color:var(--k-text-muted)">{{ curHint }}</span>
+    </label>
+    <div style="display:flex;flex-direction:column;border:1px solid var(--k-border);border-radius:8px">
+      <sc-for list="{{ curList }}" as="c" hint-placeholder-count="5">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--k-border)"><span style="font-size:13px;color:var(--k-text-muted)">{{ c.label }}</span><span style="font-family:'JetBrains Mono',monospace;font-size:14px">{{ c.val }}</span></div>
+      </sc-for>
+    </div>
+    <p style="margin:0;font-size:13px;line-height:20px;color:var(--k-text-muted)">Store minor units + ISO code; format with the user's locale. CFA (XOF/XAF) has no decimals and trails the amount.</p>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:24px">
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:14px">
+    <h3 style="margin:0;font-size:18px;font-weight:700">Date &amp; time picker</h3>
+    <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Callback</span>
+      <span style="display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border:1px solid var(--k-primary);border-radius:8px;box-shadow:0 0 0 3px var(--k-primary-soft-strong);font-size:15px"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1;color:var(--k-text-muted)">event</span>Fri, 2 Oct 2026 · 14:30<span style="flex:1"></span><span style="font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px;background:var(--k-primary-soft);color:var(--k-primary-text)">WAT</span></span>
+    </label>
+    <div style="border:1px solid var(--k-border);border-radius:12px;background:var(--k-surface-raised);box-shadow:var(--k-shadow-2);display:grid;grid-template-columns:minmax(0,1fr) 108px">
+      <div style="padding:14px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between"><button aria-label="Previous month" style="width:36px;height:36px;border:0;background:transparent;border-radius:8px;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">chevron_left</span></button><b style="font-size:14px">October 2026</b><button aria-label="Next month" style="width:36px;height:36px;border:0;background:transparent;border-radius:8px;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">chevron_right</span></button></div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;font-size:11px;font-weight:700;color:var(--k-text-muted)"><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span></div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">
+          <sc-for list="{{ days }}" as="d" hint-placeholder-count="35">
+            <span style="height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:13px;background:{{ d.bg }};color:{{ d.fg }};font-weight:{{ d.fw }}">{{ d.n }}</span>
+          </sc-for>
+        </div>
+      </div>
+      <div style="border-left:1px solid var(--k-border);padding:14px 8px;display:flex;flex-direction:column;gap:2px;font-family:'JetBrains Mono',monospace;font-size:13px">
+        <span style="padding:7px 10px;border-radius:6px;color:var(--k-text-muted)">13:30</span>
+        <span style="padding:7px 10px;border-radius:6px;color:var(--k-text-muted)">14:00</span>
+        <span style="padding:7px 10px;border-radius:6px;background:var(--k-primary);color:var(--k-on-primary)">14:30</span>
+        <span style="padding:7px 10px;border-radius:6px">15:00</span>
+        <span style="padding:7px 10px;border-radius:6px">15:30</span>
+        <span style="padding:7px 10px;border-radius:6px">16:00</span>
+        <span style="padding:7px 10px;border-radius:6px">16:30</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      <span style="font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--k-primary);color:var(--k-on-primary)">WAT · UTC+1 · Lagos</span>
+      <span style="font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;border:1px solid var(--k-border-strong);color:var(--k-text-2)">GMT · UTC+0 · Accra</span>
+      <span style="font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;border:1px solid var(--k-border-strong);color:var(--k-text-2)">EAT · UTC+3 · Nairobi</span>
+      <span style="font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;border:1px solid var(--k-border-strong);color:var(--k-text-2)">SAST · UTC+2 · Joburg</span>
+    </div>
+    <p style="margin:0;font-size:13px;line-height:20px;color:var(--k-text-muted)">Always print the zone next to a time. When agent and customer differ, add a helper: “Customer local: 16:30 EAT”.</p>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:24px">
+    <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:12px">
+      <h3 style="margin:0;font-size:18px;font-weight:700">Select</h3>
+      <span style="display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border:1px solid var(--k-primary);border-radius:8px;box-shadow:0 0 0 3px var(--k-primary-soft-strong);font-size:15px">Nairobi Support<span style="flex:1"></span><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">expand_less</span></span>
+      <div style="border:1px solid var(--k-border);border-radius:10px;background:var(--k-surface-raised);box-shadow:var(--k-shadow-2);padding:4px;display:flex;flex-direction:column">
+        <span style="display:flex;align-items:center;height:40px;padding:0 10px;border-radius:6px;font-size:14px">Lagos Sales</span>
+        <span style="display:flex;align-items:center;height:40px;padding:0 10px;border-radius:6px;font-size:14px;background:var(--k-surface-sunken)">Accra Collections<span style="flex:1"></span><span style="font-size:11px;color:var(--k-text-muted)">hover</span></span>
+        <span style="display:flex;align-items:center;height:40px;padding:0 10px;border-radius:6px;font-size:14px;background:var(--k-primary-soft);color:var(--k-primary-text);font-weight:600">Nairobi Support<span style="flex:1"></span><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">check</span></span>
+        <span style="display:flex;align-items:center;height:40px;padding:0 10px;border-radius:6px;font-size:14px;color:var(--k-disabled-text)">Joburg Retention · full</span>
+      </div>
+    </div>
+    <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:12px">
+      <h3 style="margin:0;font-size:18px;font-weight:700">Multiselect chips</h3>
+      <span style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:44px;padding:6px 8px;border:1px solid var(--k-border-strong);border-radius:8px">
+        <span style="display:inline-flex;align-items:center;gap:2px;height:30px;padding:0 4px 0 10px;border-radius:6px;background:var(--k-primary-soft);color:var(--k-primary-text);font-size:13px;font-weight:600">Yorùbá<span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:18px;line-height:1;width:24px;text-align:center">close</span></span>
+        <span style="display:inline-flex;align-items:center;gap:2px;height:30px;padding:0 4px 0 10px;border-radius:6px;background:var(--k-primary-soft);color:var(--k-primary-text);font-size:13px;font-weight:600">Hausa<span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:18px;line-height:1;width:24px;text-align:center">close</span></span>
+        <span style="display:inline-flex;align-items:center;gap:2px;height:30px;padding:0 4px 0 10px;border-radius:6px;background:var(--k-primary-soft);color:var(--k-primary-text);font-size:13px;font-weight:600;box-shadow:0 0 0 2px var(--k-focus)">Français<span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:18px;line-height:1;width:24px;text-align:center">close</span></span>
+        <span style="font-size:14px;color:var(--k-text-muted);padding-left:4px">Add language…</span>
+      </span>
+      <span style="font-size:13px;color:var(--k-text-muted)">Backspace removes last chip · focused chip shows ring</span>
+    </div>
+  </div>
+</div>
+
+<div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px">
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <h3 style="margin:0;font-size:18px;font-weight:700">Toggle</h3>
+    <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="4">
+      <button onClick="{{ t.flip }}" role="switch" style="display:flex;align-items:center;gap:12px;min-height:44px;background:none;border:0;padding:0;font-family:inherit;font-size:14px;color:{{ t.labelFg }};cursor:pointer;text-align:left">
+        <span style="width:44px;height:26px;border-radius:999px;background:{{ t.track }};position:relative;flex-shrink:0;box-shadow:{{ t.ring }};transition:background .16s"><span style="position:absolute;top:3px;left:{{ t.knob }}px;width:20px;height:20px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .16s"></span></span>{{ t.label }}
+      </button>
+    </sc-for>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <h3 style="margin:0;font-size:18px;font-weight:700">Checkbox</h3>
+    <span style="display:flex;align-items:center;gap:12px;min-height:44px;font-size:14px"><span style="width:20px;height:20px;border-radius:4px;border:2px solid var(--k-border-strong)"></span>Unchecked</span>
+    <span style="display:flex;align-items:center;gap:12px;min-height:44px;font-size:14px"><span style="width:20px;height:20px;border-radius:4px;background:var(--k-primary);color:var(--k-on-primary);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:18px;line-height:1">check</span></span>Checked</span>
+    <span style="display:flex;align-items:center;gap:12px;min-height:44px;font-size:14px"><span style="width:20px;height:20px;border-radius:4px;background:var(--k-primary);color:var(--k-on-primary);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:18px;line-height:1">remove</span></span>Indeterminate</span>
+    <span style="display:flex;align-items:center;gap:12px;min-height:44px;font-size:14px"><span style="width:20px;height:20px;border-radius:4px;border:2px solid var(--k-border-strong);box-shadow:0 0 0 2px var(--k-surface),0 0 0 4px var(--k-focus)"></span>Focus</span>
+    <span style="display:flex;align-items:center;gap:12px;min-height:44px;font-size:14px;color:var(--k-danger-text)"><span style="width:20px;height:20px;border-radius:4px;border:2px solid var(--k-danger)"></span>Accept terms (required)</span>
+    <span style="display:flex;align-items:center;gap:12px;min-height:44px;font-size:14px;color:var(--k-disabled-text)"><span style="width:20px;height:20px;border-radius:4px;border:2px solid var(--k-border);background:var(--k-disabled-bg)"></span>Disabled</span>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <h3 style="margin:0;font-size:18px;font-weight:700">Radio</h3>
+    <span style="display:flex;align-items:center;gap:12px;min-height:44px;font-size:14px"><span style="width:20px;height:20px;border-radius:50%;border:2px solid var(--k-primary);display:flex;align-items:center;justify-content:center"><span style="width:10px;height:10px;border-radius:50%;background:var(--k-primary)"></span></span>WhatsApp</span>
+    <span style="display:flex;align-items:center;gap:12px;min-height:44px;font-size:14px"><span style="width:20px;height:20px;border-radius:50%;border:2px solid var(--k-border-strong)"></span>SMS</span>
+    <span style="display:flex;align-items:center;gap:12px;min-height:44px;font-size:14px"><span style="width:20px;height:20px;border-radius:50%;border:2px solid var(--k-border-strong);box-shadow:0 0 0 2px var(--k-surface),0 0 0 4px var(--k-focus)"></span>Voice call · focus</span>
+    <span style="display:flex;align-items:center;gap:12px;min-height:44px;font-size:14px;color:var(--k-disabled-text)"><span style="width:20px;height:20px;border-radius:50%;border:2px solid var(--k-border);background:var(--k-disabled-bg)"></span>USSD · unavailable</span>
+  </div>
+</div>
+
+<!-- NAVIGATION -->
+<div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--k-primary-text)">C · Navigation</div>
+<div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:12px;height:60px;padding:0 16px;border-bottom:1px solid var(--k-border);background:var(--k-surface)">
+    <span style="width:32px;height:32px;border-radius:8px;background:var(--k-primary);color:var(--k-accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px">K</span>
+    <b style="font-size:16px">Kasuwa</b>
+    <span style="flex:1;max-width:360px;margin-left:12px;display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:8px;background:var(--k-surface-sunken);color:var(--k-text-muted);font-size:14px"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">search</span>Search contacts, tickets, numbers…<span style="flex:1"></span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:2px 6px;border:1px solid var(--k-border-strong);border-radius:4px">Ctrl K</span></span>
+    <span style="flex:1"></span>
+    <span style="display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:999px;background:var(--k-accent-soft);color:var(--k-accent-text);font-size:12px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:16px;line-height:1">network_check</span>Low-bandwidth</span>
+    <button aria-label="Notifications" style="width:44px;height:44px;border:0;background:transparent;border-radius:8px;color:var(--k-text);position:relative;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">notifications</span><span style="position:absolute;top:9px;right:9px;width:8px;height:8px;border-radius:50%;background:var(--k-danger);box-shadow:0 0 0 2px var(--k-surface)"></span></button>
+    <span style="display:flex;align-items:center;gap:8px;height:44px;padding:0 8px 0 4px;border-radius:999px;border:1px solid var(--k-border)"><span style="position:relative;width:32px;height:32px;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">TB<span style="position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border-radius:50%;background:var(--k-success);box-shadow:0 0 0 2px var(--k-surface)"></span></span><span style="font-size:13px;font-weight:600">Available</span><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:18px;line-height:1">expand_more</span></span>
+  </div>
+  <div style="display:grid;grid-template-columns:232px 72px minmax(0,1fr);min-height:360px">
+    <nav style="border-right:1px solid var(--k-border);background:var(--k-surface-sunken);padding:12px 10px;display:flex;flex-direction:column;gap:2px">
+      <span style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:8px;background:var(--k-primary-soft);color:var(--k-primary-text);font-weight:600;font-size:14px;box-shadow:inset 3px 0 0 var(--k-primary)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">inbox</span>Inbox<span style="flex:1"></span><span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:var(--k-primary);color:var(--k-on-primary)">12</span></span>
+      <span style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:8px;font-size:14px;color:var(--k-text-2);background:var(--k-surface)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">contacts</span>Contacts<span style="flex:1"></span><span style="font-size:11px;color:var(--k-text-muted)">hover</span></span>
+      <span style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:8px;font-size:14px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">handshake</span>Deals</span>
+      <span style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:8px;font-size:14px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">confirmation_number</span>Tickets</span>
+      <span style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:8px;font-size:14px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">headset_mic</span>Calls</span>
+      <span style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:8px;font-size:14px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">campaign</span>Campaigns</span>
+      <span style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:8px;font-size:14px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">bar_chart</span>Reports</span>
+      <span style="flex:1"></span>
+      <span style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:8px;font-size:14px;color:var(--k-text-2);box-shadow:0 0 0 2px var(--k-focus)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">left_panel_close</span>Collapse · focus</span>
+    </nav>
+    <nav style="border-right:1px solid var(--k-border);background:var(--k-surface-sunken);padding:12px 12px;display:flex;flex-direction:column;gap:2px;align-items:center">
+      <span style="position:relative;width:44px;height:44px;border-radius:8px;background:var(--k-primary-soft);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">inbox</span><span style="position:absolute;top:6px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--k-primary)"></span></span>
+      <span style="width:44px;height:44px;border-radius:8px;color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">contacts</span></span>
+      <span style="width:44px;height:44px;border-radius:8px;color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">handshake</span></span>
+      <span style="width:44px;height:44px;border-radius:8px;color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">confirmation_number</span></span>
+      <span style="width:44px;height:44px;border-radius:8px;color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">headset_mic</span></span>
+      <span style="flex:1"></span>
+      <span style="width:44px;height:44px;border-radius:8px;color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">left_panel_open</span></span>
+    </nav>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:20px;min-width:0">
+      <div style="display:flex;align-items:center;gap:4px;font-size:14px;flex-wrap:wrap">
+        <span style="color:var(--k-primary-text);text-decoration:underline;text-underline-offset:3px">Contacts</span><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:18px;line-height:1;color:var(--k-text-muted)">chevron_right</span>
+        <span style="color:var(--k-primary-text);text-decoration:underline;text-underline-offset:3px">Lagos Region</span><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:18px;line-height:1;color:var(--k-text-muted)">chevron_right</span>
+        <span style="font-weight:600" aria-current="page">Adaeze Okonkwo</span>
+      </div>
+      <div style="display:flex;gap:4px;border-bottom:1px solid var(--k-border)">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+          <button onClick="{{ t.pick }}" style="height:44px;padding:0 14px;border:0;background:transparent;font-family:inherit;font-size:14px;font-weight:{{ t.fw }};color:{{ t.fg }};box-shadow:{{ t.bar }};cursor:pointer;display:flex;align-items:center;gap:6px">{{ t.label }}<span style="font-size:11px;padding:1px 6px;border-radius:999px;background:var(--k-surface-sunken);color:var(--k-text-muted)">{{ t.count }}</span></button>
+        </sc-for>
+      </div>
+      <div style="border-radius:12px;border:1px solid var(--k-border);background:var(--k-surface-raised);box-shadow:var(--k-shadow-3);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;border-bottom:1px solid var(--k-border)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1;color:var(--k-text-muted)">search</span><span style="font-size:16px">call ada</span><span style="width:1px;height:20px;background:var(--k-text)"></span><span style="flex:1"></span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:2px 6px;border:1px solid var(--k-border-strong);border-radius:4px;color:var(--k-text-muted)">Esc</span></div>
+        <div style="padding:6px;display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted);padding:6px 10px">Contacts</span>
+          <span style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;background:var(--k-primary-soft)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1;color:var(--k-primary-text)">call</span><span style="font-size:14px;font-weight:600">Call Adaeze Okonkwo</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--k-text-muted)">+234 803 555 0142</span><span style="flex:1"></span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:2px 6px;border:1px solid var(--k-border-strong);border-radius:4px">↵</span></span>
+          <span style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1;color:var(--k-text-muted)">call</span><span style="font-size:14px">Call Adaobi Nwosu</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--k-text-muted)">+234 706 221 8890</span></span>
+          <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted);padding:6px 10px">Actions</span>
+          <span style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1;color:var(--k-text-muted)">chat</span><span style="font-size:14px">Send WhatsApp template…</span><span style="flex:1"></span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--k-text-muted)">W</span></span>
+          <span style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1;color:var(--k-text-muted)">add_task</span><span style="font-size:14px">Create ticket</span><span style="flex:1"></span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--k-text-muted)">T</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DATA -->
+<div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--k-primary-text)">D · Data</div>
+<div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h3 style="margin:0;font-size:18px;font-weight:700">Table</h3>
+    <span style="font-size:13px;color:var(--k-text-muted)">{{ selCount }} selected · drag the Contact column edge to resize</span>
+    <span style="flex:1"></span>
+    <div style="display:flex;gap:4px;padding:3px;border-radius:8px;background:var(--k-surface-sunken)">
+      <button onClick="{{ setComfy }}" style="height:36px;padding:0 12px;border:0;border-radius:6px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:{{ comfyBg }};color:var(--k-text);box-shadow:{{ comfySh }}">Comfortable</button>
+      <button onClick="{{ setDense }}" style="height:36px;padding:0 12px;border:0;border-radius:6px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:{{ denseBg }};color:var(--k-text);box-shadow:{{ denseSh }}">Dense</button>
+    </div>
+  </div>
+  <div style="border:1px solid var(--k-border);border-radius:10px;overflow:auto;max-height:250px">
+    <div style="min-width:max-content">
+      <div style="display:grid;grid-template-columns:{{ gridCols }};position:sticky;top:0;z-index:2;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border);box-shadow:0 2px 4px rgba(0,0,0,.06);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2);height:40px;align-items:center">
+        <button onClick="{{ toggleAll }}" aria-label="Select all" style="width:44px;height:40px;border:0;background:none;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer"><span style="width:18px;height:18px;border-radius:4px;border:{{ allBorder }};background:{{ allBg }};display:flex;align-items:center;justify-content:center;color:var(--k-on-primary)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:16px;line-height:1">{{ allIcon }}</span></span></button>
+        <span style="position:relative;height:100%;display:flex;align-items:center;padding:0 12px">Contact<span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:16px;line-height:1;margin-left:4px">arrow_downward</span><span onMouseDown="{{ startResize }}" style="position:absolute;right:-4px;top:0;bottom:0;width:9px;cursor:col-resize;display:flex;justify-content:center;z-index:1"><span style="width:3px;margin:8px 0;border-radius:2px;background:var(--k-primary)"></span></span></span>
+        <span style="padding:0 12px;border-left:1px solid var(--k-border)">Phone</span>
+        <span style="padding:0 12px;border-left:1px solid var(--k-border)">Channel</span>
+        <span style="padding:0 12px;border-left:1px solid var(--k-border)">Status</span>
+        <span style="padding:0 12px;border-left:1px solid var(--k-border)">SLA</span>
+        <span style="padding:0 12px;border-left:1px solid var(--k-border)">Owner</span>
+        <span style="padding:0 12px;border-left:1px solid var(--k-border);text-align:right">Value</span>
+      </div>
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+        <div style="display:grid;grid-template-columns:{{ gridCols }};height:{{ rowH }}px;align-items:center;border-bottom:1px solid var(--k-border);background:{{ r.bg }};font-size:14px">
+          <button onClick="{{ r.toggle }}" aria-label="Select row" style="width:44px;height:100%;border:0;background:none;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer"><span style="width:18px;height:18px;border-radius:4px;border:{{ r.cbBorder }};background:{{ r.cbBg }};display:flex;align-items:center;justify-content:center;color:var(--k-on-primary)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:16px;line-height:1">{{ r.cbIcon }}</span></span></button>
+          <span style="padding:0 12px;display:flex;flex-direction:column;min-width:0;overflow:hidden"><b style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</b><span style="font-size:12px;color:var(--k-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.co }}</span></span>
+          <span style="padding:0 12px;font-family:'JetBrains Mono',monospace;font-size:13px;white-space:nowrap">{{ r.phone }}</span>
+          <span style="padding:0 12px;display:flex;align-items:center;gap:6px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:18px;line-height:1">{{ r.chIcon }}</span>{{ r.ch }}</span>
+          <span style="padding:0 12px"><span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:{{ r.stBg }};color:{{ r.stFg }}">{{ r.status }}</span></span>
+          <span style="padding:0 12px;font-family:'JetBrains Mono',monospace;font-size:13px;color:{{ r.slaFg }};font-weight:600">{{ r.sla }}</span>
+          <span style="padding:0 8px">
+            <sc-if value="{{ r.editing }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;height:34px;padding:0 8px;border:1px solid var(--k-primary);border-radius:6px;background:var(--k-surface);box-shadow:0 0 0 3px var(--k-primary-soft-strong);font-size:14px">Otieno M.<span style="width:1px;height:16px;background:var(--k-text)"></span></span></sc-if>
+            <sc-if value="{{ r.notEditing }}" hint-placeholder-val="{{ true }}"><span style="padding:0 4px;white-space:nowrap">{{ r.owner }}</span></sc-if>
+          </span>
+          <span style="padding:0 12px;font-family:'JetBrains Mono',monospace;font-size:13px;text-align:right;white-space:nowrap">{{ r.val }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <span style="font-size:13px;color:var(--k-text-muted)">1–25 of 1,284</span>
+    <span style="flex:1"></span>
+    <button aria-label="Previous page" disabled="" style="width:44px;height:44px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-disabled-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">chevron_left</span></button>
+    <button aria-current="page" style="width:44px;height:44px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-weight:700;font-size:14px">1</button>
+    <button style="width:44px;height:44px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px">2</button>
+    <button style="width:44px;height:44px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px">3</button>
+    <span style="width:28px;text-align:center;color:var(--k-text-muted)">…</span>
+    <button style="width:44px;height:44px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px">52</button>
+    <button aria-label="Next page" style="width:44px;height:44px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">chevron_right</span></button>
+  </div>
+  <p style="margin:0;font-size:13px;line-height:20px;color:var(--k-text-muted)">Comfortable 52px rows for touch and agents new to the queue; Dense 36px for desktop power users only. Sticky header with shadow on scroll. Inline edit: Enter saves, Esc cancels, Tab moves to next cell. IDs, phones and amounts use mono with tabular figures.</p>
+</div>
+
+<!-- CRM -->
+<div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--k-primary-text)">E · CRM patterns</div>
+<div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px">
+  <h3 style="margin:0;font-size:18px;font-weight:700">Record header</h3>
+  <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+    <span style="position:relative;width:64px;height:64px;border-radius:50%;background:var(--k-primary-soft-strong);color:var(--k-primary-text);font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">AO<span style="position:absolute;right:0;bottom:0;width:16px;height:16px;border-radius:50%;background:var(--k-success);box-shadow:0 0 0 3px var(--k-surface)"></span></span>
+    <div style="flex:1;min-width:240px;display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:24px;line-height:32px;font-weight:700">Adaeze Okonkwo</h2><span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--k-accent-soft);color:var(--k-accent-text)">Gold tier</span></div>
+      <span style="font-size:14px;color:var(--k-text-2)">Head of Procurement · Ọja Foods Ltd · Ikeja, Lagos · <span style="font-family:'JetBrains Mono',monospace">+234 803 555 0142</span></span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-success-soft);color:var(--k-success-text)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:15px;line-height:1">verified</span>WhatsApp opt-in</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-danger-soft);color:var(--k-danger-text)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:15px;line-height:1">block</span>DND · promo SMS</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-surface-sunken);color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:15px;line-height:1">translate</span>Igbo · English</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button style="display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 16px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:15px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">call</span>Call</button>
+      <button aria-label="WhatsApp" style="width:44px;height:44px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">chat</span></button>
+      <button aria-label="Email" style="width:44px;height:44px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">mail</span></button>
+      <button aria-label="More" style="width:44px;height:44px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">more_horiz</span></button>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:24px">
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:14px">
+    <h3 style="margin:0;font-size:18px;font-weight:700">Timeline · per channel</h3>
+    <div style="display:flex;flex-direction:column">
+      <div style="display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px">
+        <div style="display:flex;flex-direction:column;align-items:center"><span style="width:36px;height:36px;border-radius:50%;background:var(--k-success-soft);color:var(--k-success-text);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">chat</span></span><span style="flex:1;width:2px;background:var(--k-border)"></span></div>
+        <div style="padding-bottom:18px;display:flex;flex-direction:column;gap:6px;align-items:flex-start"><span style="font-size:12px;color:var(--k-text-muted)"><b style="color:var(--k-text-2)">WhatsApp</b> · Adaeze · <span style="font-family:'JetBrains Mono',monospace">14:02 WAT</span></span><span style="max-width:88%;padding:10px 12px;border-radius:12px 12px 12px 4px;background:var(--k-wa-bubble);font-size:14px;line-height:20px">Ẹ káàsán! Can you resend the invoice for PO-2291? The first one had last month's price.<span style="display:flex;justify-content:flex-end;align-items:center;gap:2px;font-size:11px;color:var(--k-success-text);margin-top:2px">Read<span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:15px;line-height:1">done_all</span></span></span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px">
+        <div style="display:flex;flex-direction:column;align-items:center"><span style="width:36px;height:36px;border-radius:50%;background:var(--k-surface-sunken);color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">sms</span></span><span style="flex:1;width:2px;background:var(--k-border)"></span></div>
+        <div style="padding-bottom:18px;display:flex;flex-direction:column;gap:6px;align-items:flex-start"><span style="font-size:12px;color:var(--k-text-muted)"><b style="color:var(--k-text-2)">SMS</b> · Tunde → Adaeze · <span style="font-family:'JetBrains Mono',monospace">14:10 WAT</span></span><span style="max-width:88%;padding:10px 12px;border-radius:12px;border:1px solid var(--k-border);background:var(--k-surface-sunken);font-size:14px;line-height:20px">Invoice INV-7720 resent to your email. Ref: KSW-4481.<span style="display:block;font-size:11px;color:var(--k-text-muted);margin-top:2px">Delivered · 1 part · 58/160 chars</span></span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px">
+        <div style="display:flex;flex-direction:column;align-items:center"><span style="width:36px;height:36px;border-radius:50%;background:var(--k-info-soft);color:var(--k-info-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">mail</span></span><span style="flex:1;width:2px;background:var(--k-border)"></span></div>
+        <div style="padding-bottom:18px;display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;color:var(--k-text-muted)"><b style="color:var(--k-text-2)">Email</b> · billing@kasuwa.africa · <span style="font-family:'JetBrains Mono',monospace">14:11 WAT</span></span><span style="padding:10px 12px;border-radius:10px;border:1px solid var(--k-border);font-size:14px;line-height:20px;display:flex;flex-direction:column;gap:2px"><b>Invoice INV-7720 — Ọja Foods Ltd</b><span style="color:var(--k-text-2)">Please find the corrected invoice attached…</span><span style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--k-text-muted)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:15px;line-height:1">attach_file</span>INV-7720.pdf · 84 KB</span></span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px">
+        <div style="display:flex;flex-direction:column;align-items:center"><span style="width:36px;height:36px;border-radius:50%;background:var(--k-primary-soft);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">call_received</span></span><span style="flex:1;width:2px;background:var(--k-border)"></span></div>
+        <div style="padding-bottom:18px;display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;color:var(--k-text-muted)"><b style="color:var(--k-text-2)">Inbound call</b> · Lagos Sales queue · <span style="font-family:'JetBrains Mono',monospace">15:40 WAT · 04:32</span></span><span style="padding:10px 12px;border-radius:10px;border:1px solid var(--k-border);font-size:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button aria-label="Play recording" style="width:36px;height:36px;border-radius:50%;border:0;background:var(--k-primary);color:var(--k-on-primary);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">play_arrow</span></button><span style="flex:1;min-width:80px;height:4px;border-radius:2px;background:var(--k-border)"></span><span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--k-success-soft);color:var(--k-success-text)">Resolved · first contact</span></span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px">
+        <div style="display:flex;flex-direction:column;align-items:center"><span style="width:36px;height:36px;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">sticky_note_2</span></span></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;color:var(--k-text-muted)"><b style="color:var(--k-text-2)">Internal note</b> · Tunde Bakare · <span style="font-family:'JetBrains Mono',monospace">15:46 WAT</span></span><span style="padding:10px 12px;border-radius:10px;background:var(--k-note-bg);border:1px dashed var(--k-accent);font-size:14px;line-height:20px">Price list in ERP was stale — raised with finance. <b style="color:var(--k-primary-text)">@Chiamaka</b> please confirm Q4 rates. <span style="font-size:11px;color:var(--k-accent-text);font-weight:700">Not visible to customer</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:24px">
+    <div style="background:var(--k-surface-sunken);border:1px solid var(--k-border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px"><b style="font-size:14px">Negotiation</b><span style="font-size:12px;color:var(--k-text-muted)">3 · ₦18.4M</span></div>
+      <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--k-shadow-1)">
+        <div style="display:flex;justify-content:space-between;gap:8px"><b style="font-size:14px">Ọja Foods — Q4 supply</b><span style="font-family:'JetBrains Mono',monospace;font-size:13px">₦12.5M</span></div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--k-warning-soft);color:var(--k-warning-text);display:inline-flex;align-items:center;gap:3px"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:14px;line-height:1">schedule</span>{{ slaText }}</span><span style="font-size:12px;color:var(--k-text-muted)">Due Fri</span><span style="flex:1"></span><span style="width:26px;height:26px;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">TB</span></div>
+      </div>
+      <div style="background:var(--k-surface-raised);border:1px solid var(--k-border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--k-shadow-2)">
+        <div style="display:flex;justify-content:space-between;gap:8px"><b style="font-size:14px">Asante Logistics fleet</b><span style="font-family:'JetBrains Mono',monospace;font-size:13px">GH₵ 84.5K</span></div>
+        <span style="font-size:12px;color:var(--k-text-muted)">Hover · raised</span>
+      </div>
+      <div style="background:var(--k-surface-raised);border:1px solid var(--k-primary);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--k-shadow-3);transform:rotate(-2deg)">
+        <div style="display:flex;justify-content:space-between;gap:8px"><b style="font-size:14px">Téranga Télécom SIMs</b><span style="font-family:'JetBrains Mono',monospace;font-size:13px">4,8 M CFA</span></div>
+        <span style="font-size:12px;color:var(--k-text-muted)">Dragging · Space to lift, arrows to move</span>
+      </div>
+      <div style="height:56px;border:2px dashed var(--k-primary);border-radius:10px;background:var(--k-primary-soft)"></div>
+    </div>
+    <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+      <h3 style="margin:0;font-size:16px;font-weight:700">SLA countdown</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+        <span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;background:var(--k-success-soft);color:var(--k-success-text);font-size:13px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:16px;line-height:1">schedule</span><span style="font-family:'JetBrains Mono',monospace">02:14:09</span>left · on track</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;background:var(--k-warning-soft);color:var(--k-warning-text);font-size:13px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:16px;line-height:1">timer</span><span style="font-family:'JetBrains Mono',monospace">{{ slaClock }}</span>{{ slaWord }}</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;background:var(--k-danger);color:#FFFFFF;font-size:13px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:16px;line-height:1">alarm</span><span style="font-family:'JetBrains Mono',monospace">−00:05:12</span>breached</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--k-border-strong);color:var(--k-text-2);font-size:13px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:16px;line-height:1">pause</span>Paused · awaiting customer</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px">
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:14px">
+    <h3 style="margin:0;font-size:18px;font-weight:700">Badges &amp; status pills</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--k-info-soft);color:var(--k-info-text)">Open</span>
+      <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--k-warning-soft);color:var(--k-warning-text)">Pending</span>
+      <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--k-danger-soft);color:var(--k-danger-text)">Escalated</span>
+      <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--k-success-soft);color:var(--k-success-text)">Resolved</span>
+      <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--k-surface-sunken);color:var(--k-text-2)">Closed</span>
+      <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--k-primary-soft);color:var(--k-primary-text)">New lead</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:4px;background:var(--k-primary);color:var(--k-on-primary)">VIP</span>
+      <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:4px;background:var(--k-accent);color:var(--k-on-accent)">Hot</span>
+      <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:4px;background:var(--k-danger);color:#FFFFFF">P1</span>
+      <span style="min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--k-danger);color:#FFFFFF;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">9+</span>
+    </div>
+    <h3 style="margin:8px 0 0;font-size:16px;font-weight:700">Consent &amp; DND</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-success-soft);color:var(--k-success-text)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:15px;line-height:1">check_circle</span>WhatsApp opt-in · 12 Aug</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-success-soft);color:var(--k-success-text)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:15px;line-height:1">mic</span>Recording consent</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-danger-soft);color:var(--k-danger-text)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:15px;line-height:1">do_not_disturb_on</span>DND · full block</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-warning-soft);color:var(--k-warning-text)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:15px;line-height:1">campaign</span>Marketing opt-out</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;border:1px dashed var(--k-border-strong);color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:15px;line-height:1">help</span>Consent unknown</span>
+    </div>
+    <p style="margin:0;font-size:13px;line-height:20px;color:var(--k-text-muted)">Status never relies on colour alone — every pill carries a word, consent chips carry an icon. DND blocks the related send action, it doesn't just decorate it.</p>
+  </div>
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:14px">
+    <h3 style="margin:0;font-size:18px;font-weight:700">Avatars &amp; presence</h3>
+    <div style="display:flex;gap:18px;flex-wrap:wrap">
+      <span style="display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--k-text-2)"><span style="position:relative;width:44px;height:44px;border-radius:50%;background:var(--k-primary-soft-strong);color:var(--k-primary-text);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center">KM<span style="position:absolute;right:-1px;bottom:-1px;width:14px;height:14px;border-radius:50%;background:var(--k-success);box-shadow:0 0 0 2px var(--k-surface)"></span></span>Available</span>
+      <span style="display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--k-text-2)"><span style="position:relative;width:44px;height:44px;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center">EO<span style="position:absolute;right:-3px;bottom:-3px;width:18px;height:18px;border-radius:50%;background:var(--k-danger);color:#FFFFFF;box-shadow:0 0 0 2px var(--k-surface);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:12px;line-height:1">call</span></span></span>On call</span>
+      <span style="display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--k-text-2)"><span style="position:relative;width:44px;height:44px;border-radius:50%;background:var(--k-info-soft);color:var(--k-info-text);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center">WK<span style="position:absolute;right:-3px;bottom:-3px;width:18px;height:18px;border-radius:50%;background:var(--k-accent);color:var(--k-on-accent);box-shadow:0 0 0 2px var(--k-surface);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:12px;line-height:1">edit_note</span></span></span>Wrap-up</span>
+      <span style="display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--k-text-2)"><span style="position:relative;width:44px;height:44px;border-radius:50%;background:var(--k-success-soft);color:var(--k-success-text);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center">TN<span style="position:absolute;right:-3px;bottom:-3px;width:18px;height:18px;border-radius:50%;background:var(--k-info);color:#FFFFFF;box-shadow:0 0 0 2px var(--k-surface);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:12px;line-height:1">coffee</span></span></span>Break</span>
+      <span style="display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--k-text-muted)"><span style="position:relative;width:44px;height:44px;border-radius:50%;background:var(--k-surface-sunken);color:var(--k-text-muted);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center">AD<span style="position:absolute;right:-1px;bottom:-1px;width:14px;height:14px;border-radius:50%;background:var(--k-surface);border:3px solid var(--k-border-strong);box-sizing:border-box"></span></span>Offline</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      <span style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;background:var(--k-danger-soft);color:var(--k-danger-text);font-size:13px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:var(--k-danger)"></span>On call · <span style="font-family:'JetBrains Mono',monospace">03:12</span></span>
+      <span style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;background:var(--k-accent-soft);color:var(--k-accent-text);font-size:13px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:var(--k-accent)"></span>Wrap-up · <span style="font-family:'JetBrains Mono',monospace">00:45</span></span>
+    </div>
+    <div style="display:flex;align-items:center"><span style="width:36px;height:36px;border-radius:50%;background:var(--k-primary-soft-strong);color:var(--k-primary-text);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--k-surface)">KM</span><span style="width:36px;height:36px;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--k-surface);margin-left:-8px">EO</span><span style="width:36px;height:36px;border-radius:50%;background:var(--k-info-soft);color:var(--k-info-text);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--k-surface);margin-left:-8px">WK</span><span style="width:36px;height:36px;border-radius:50%;background:var(--k-surface-sunken);color:var(--k-text-2);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--k-surface);margin-left:-8px">+14</span></div>
+    <p style="margin:0;font-size:13px;line-height:20px;color:var(--k-text-muted)">Each presence has a unique shape/glyph, not just a colour. Initials by default — photos only when low-bandwidth mode is off.</p>
+  </div>
+</div>
+
+<!-- FEEDBACK -->
+<div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--k-primary-text)">F · Feedback &amp; overlays</div>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px">
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:10px">
+    <h3 style="margin:0 0 4px;font-size:18px;font-weight:700">Toasts</h3>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 8px 10px 14px;border-radius:10px;background:var(--k-inverse);color:var(--k-on-inverse);box-shadow:var(--k-shadow-2);font-size:14px"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1;color:var(--k-success)">check_circle</span><span style="flex:1">Contact saved</span><button style="height:36px;padding:0 10px;border:0;background:transparent;color:inherit;font-family:inherit;font-weight:700;font-size:14px;text-decoration:underline">Undo</button></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 8px 10px 14px;border-radius:10px;background:var(--k-surface-raised);border:1px solid var(--k-border);border-left:0;box-shadow:var(--k-shadow-2);font-size:14px"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1;color:var(--k-danger-text)">error</span><span style="flex:1">SMS to +254 712… failed · carrier timeout</span><button style="height:36px;padding:0 10px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-weight:700;font-size:14px">Retry</button></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 8px 10px 14px;border-radius:10px;background:var(--k-surface-raised);border:1px solid var(--k-border);box-shadow:var(--k-shadow-2);font-size:14px"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1;color:var(--k-info-text)">cloud_upload</span><span style="flex:1">Saved offline · will sync</span><button aria-label="Dismiss" style="width:36px;height:36px;border:0;background:transparent;color:var(--k-text-muted);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">close</span></button></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 8px 10px 14px;border-radius:10px;background:var(--k-warning-soft);color:var(--k-warning-text);box-shadow:var(--k-shadow-1);font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">warning</span><span style="flex:1">Queue at 92% capacity</span></div>
+    <p style="margin:0;font-size:13px;line-height:20px;color:var(--k-text-muted)">Bottom-centre on mobile, bottom-right on desktop. Errors persist until dismissed; others auto-hide after 6s (paused on hover/focus). role="status" / "alert".</p>
+  </div>
+  <div style="border:1px solid var(--k-border);border-radius:12px;background:var(--k-scrim);padding:28px;display:flex;align-items:center;justify-content:center;min-height:300px">
+    <div role="dialog" style="width:100%;max-width:360px;background:var(--k-surface-raised);border-radius:14px;box-shadow:var(--k-shadow-3);padding:22px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:flex-start;gap:12px"><span style="width:40px;height:40px;border-radius:50%;background:var(--k-danger-soft);color:var(--k-danger-text);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">delete</span></span><div style="display:flex;flex-direction:column;gap:4px"><b style="font-size:18px">Delete 3 contacts?</b><span style="font-size:14px;line-height:20px;color:var(--k-text-2)">Their timelines and call recordings go too. This can't be undone.</span></div></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px"><button style="height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600">Keep</button><button style="height:44px;padding:0 16px;border-radius:8px;border:0;background:var(--k-danger);color:#FFFFFF;font-family:inherit;font-size:15px;font-weight:600">Delete 3</button></div>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:24px">
+  <div style="border:1px solid var(--k-border);border-radius:12px;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:340px;background:var(--k-scrim)">
+    <div style="padding:16px;font-size:12px;color:#FFFFFF;opacity:.85">Scrim · click closes</div>
+    <aside style="background:var(--k-surface-raised);box-shadow:var(--k-shadow-3);display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:8px;height:56px;padding:0 8px 0 16px;border-bottom:1px solid var(--k-border)"><b style="font-size:16px;flex:1">New ticket</b><button aria-label="Close" style="width:44px;height:44px;border:0;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:22px;line-height:1">close</span></button></div>
+      <div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:12px">
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Subject</span><span style="display:flex;align-items:center;height:44px;padding:0 12px;border:1px solid var(--k-border-strong);border-radius:8px;font-size:14px">Wrong price on INV-7720</span></label>
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Priority</span><span style="display:flex;align-items:center;height:44px;padding:0 12px;border:1px solid var(--k-border-strong);border-radius:8px;font-size:14px">P2 · 8h SLA<span style="flex:1"></span><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">expand_more</span></span></label>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--k-border)"><button style="height:44px;padding:0 14px;border-radius:8px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:15px;font-weight:600">Cancel</button><button style="height:44px;padding:0 16px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:15px;font-weight:600">Create</button></div>
+    </aside>
+  </div>
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px">
+    <span style="width:64px;height:64px;border-radius:50%;background:var(--k-primary-soft);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:32px;line-height:1">inbox</span></span>
+    <b style="font-size:18px">No tickets in this queue</b>
+    <span style="font-size:14px;line-height:20px;color:var(--k-text-2);max-width:280px;text-wrap:pretty">New WhatsApp, SMS and email conversations for Accra Collections will land here.</span>
+    <button style="margin-top:6px;height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600">Connect a channel</button>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px">
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:14px">
+    <h3 style="margin:0;font-size:18px;font-weight:700">Skeleton loaders</h3>
+    <div style="position:relative;overflow:hidden;display:flex;flex-direction:column;gap:14px" aria-busy="true">
+      <div style="display:flex;gap:12px;align-items:center"><span style="width:44px;height:44px;border-radius:50%;background:var(--k-surface-sunken)"></span><div style="flex:1;display:flex;flex-direction:column;gap:8px"><span style="height:12px;width:60%;border-radius:4px;background:var(--k-surface-sunken)"></span><span style="height:10px;width:40%;border-radius:4px;background:var(--k-surface-sunken)"></span></div></div>
+      <div style="display:flex;gap:12px;align-items:center"><span style="width:44px;height:44px;border-radius:50%;background:var(--k-surface-sunken)"></span><div style="flex:1;display:flex;flex-direction:column;gap:8px"><span style="height:12px;width:72%;border-radius:4px;background:var(--k-surface-sunken)"></span><span style="height:10px;width:30%;border-radius:4px;background:var(--k-surface-sunken)"></span></div></div>
+      <span style="height:64px;border-radius:8px;background:var(--k-surface-sunken)"></span>
+      {{ shimmer }}
+    </div>
+    <p style="margin:0;font-size:13px;line-height:20px;color:var(--k-text-muted)">Match final layout to avoid shift. Shimmer 1.4s; with reduced motion it becomes a static block. After 8s on slow networks, swap to “Still loading on a slow connection…”.</p>
+  </div>
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:12px">
+    <h3 style="margin:0;font-size:18px;font-weight:700">File upload · resumable</h3>
+    <div style="border:2px dashed var(--k-border-strong);border-radius:10px;padding:16px;display:flex;align-items:center;gap:12px;background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:28px;line-height:1;color:var(--k-primary-text)">upload_file</span><span style="font-size:14px;line-height:20px">Drop a CSV of contacts or <b style="color:var(--k-primary-text);text-decoration:underline">browse</b><span style="display:block;font-size:12px;color:var(--k-text-muted)">Up to 50 MB · uploads resume after a dropped connection</span></span></div>
+    <div style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--k-border);border-radius:8px"><div style="display:flex;align-items:center;gap:8px;font-size:14px"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1;color:var(--k-text-muted)">description</span><b style="font-weight:600;flex:1">contacts_lagos.csv</b><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--k-text-muted)">8.0/12.4 MB · 64%</span></div><span style="height:6px;border-radius:3px;background:var(--k-surface-sunken);overflow:hidden"><span style="display:block;height:100%;width:64%;background:var(--k-primary);border-radius:3px"></span></span></div>
+    <div style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--k-warning);border-radius:8px;background:var(--k-warning-soft)"><div style="display:flex;align-items:center;gap:8px;font-size:14px"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1;color:var(--k-warning-text)">pause_circle</span><b style="font-weight:600;flex:1">kyc_docs.zip</b><button style="height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--k-warning-text);background:transparent;color:var(--k-warning-text);font-family:inherit;font-size:13px;font-weight:700">Resume</button></div><span style="height:6px;border-radius:3px;background:var(--k-surface);overflow:hidden"><span style="display:block;height:100%;width:38%;background:var(--k-warning);border-radius:3px"></span></span><span style="font-size:12px;color:var(--k-warning-text)">Paused at 38% · connection lost · 14.2 MB kept</span></div>
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--k-border);border-radius:8px;font-size:14px"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1;color:var(--k-success-text)">check_circle</span><b style="font-weight:600;flex:1">recording_0142.mp3</b><span style="font-size:12px;color:var(--k-success-text);font-weight:600">Uploaded</span></div>
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--k-danger);border-radius:8px;font-size:14px"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1;color:var(--k-danger-text)">error</span><b style="font-weight:600;flex:1">passport.heic</b><span style="font-size:12px;color:var(--k-danger-text)">Unsupported · use JPG/PDF</span></div>
+  </div>
+</div>
+
+<!-- AFRICA-FIRST -->
+<div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--k-primary-text)">G · Connectivity, trust &amp; compliance</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+  <div role="status" style="display:flex;align-items:center;gap:12px;min-height:48px;padding:6px 8px 6px 16px;border-radius:10px;background:var(--k-inverse);color:var(--k-on-inverse);font-size:14px;flex-wrap:wrap"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">cloud_off</span><span style="flex:1"><b>You're offline.</b> 7 changes queued — they'll sync when you reconnect.</span><button style="height:36px;padding:0 12px;border-radius:6px;border:1px solid currentColor;background:transparent;color:inherit;font-family:inherit;font-size:13px;font-weight:700">View queue (7)</button></div>
+  <div role="status" style="display:flex;align-items:center;gap:12px;min-height:48px;padding:6px 16px;border-radius:10px;background:var(--k-info-soft);color:var(--k-info-text);font-size:14px"><span style="display:flex">{{ spin }}</span><span style="flex:1"><b>Reconnected.</b> Syncing 3 of 7 changes…</span></div>
+  <div role="status" style="display:flex;align-items:center;gap:12px;min-height:48px;padding:6px 16px;border-radius:10px;background:var(--k-success-soft);color:var(--k-success-text);font-size:14px"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">cloud_done</span><span style="flex:1"><b>All changes synced.</b> 1 conflict kept both versions — review</span></div>
+  <div role="status" style="display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 8px 8px 16px;border-radius:10px;background:var(--k-primary);color:var(--k-on-primary);font-size:14px;flex-wrap:wrap"><span style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:20px;line-height:1">lock</span></span><span style="flex:1;line-height:20px"><b>Secure payment in progress</b> · recording &amp; screen capture paused. Customer is keying card details on their phone (DTMF masked). <span style="font-family:'JetBrains Mono',monospace">01:24</span></span><button style="height:40px;padding:0 14px;border-radius:8px;border:0;background:var(--k-accent);color:#24201C;font-family:inherit;font-size:14px;font-weight:700">End secure session</button></div>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px">
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:14px">
+    <h3 style="margin:0;font-size:18px;font-weight:700">Low-bandwidth mode</h3>
+    <button onClick="{{ toggleLow }}" role="switch" style="display:flex;align-items:center;gap:14px;padding:14px;border-radius:10px;border:1px solid {{ lowBorder }};background:{{ lowBg }};font-family:inherit;text-align:left;cursor:pointer;color:var(--k-text)">
+      <span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:24px;line-height:1;color:var(--k-accent-text)">network_check</span>
+      <span style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:15px">Low-bandwidth mode</b><span style="font-size:13px;color:var(--k-text-2)">{{ lowSub }}</span></span>
+      <span style="width:44px;height:26px;border-radius:999px;background:{{ lowTrack }};position:relative;flex-shrink:0"><span style="position:absolute;top:3px;left:{{ lowKnob }}px;width:20px;height:20px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .16s"></span></span>
+    </button>
+    <ul style="margin:0;padding-left:18px;font-size:13px;line-height:22px;color:var(--k-text-2)"><li>Images and avatars → placeholders / initials</li><li>Live updates → 60s polling; typing indicators off</li><li>Attachments load on tap; call recordings stream at 16 kbps</li><li>Auto-suggested when latency &gt; 800 ms for 30s</li></ul>
+  </div>
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:14px">
+    <h3 style="margin:0;font-size:18px;font-weight:700">Data-saver image</h3>
+    <sc-if value="{{ lowBw }}" hint-placeholder-val="{{ true }}">
+      <button style="height:180px;border-radius:10px;border:1px dashed var(--k-border-strong);background:repeating-linear-gradient(135deg,var(--k-surface-sunken) 0 10px,var(--k-surface) 10px 20px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-family:inherit;color:var(--k-text-2);cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-weight:400;font-size:28px;line-height:1">image</span><b style="font-size:14px;color:var(--k-text)">Delivery photo · 340 KB</b><span style="font-size:13px">Tap to load</span></button>
+    </sc-if>
+    <sc-if value="{{ highBw }}" hint-placeholder-val="{{ false }}">
+      <div style="height:180px;border-radius:10px;background:linear-gradient(160deg,var(--k-primary-soft-strong),var(--k-accent-soft));display:flex;align-items:flex-end;padding:10px;font-size:12px;color:var(--k-text-2)">Image loaded · 340 KB</div>
+    </sc-if>
+    <span style="font-size:13px;color:var(--k-text-muted)">Always shows file size so users decide whether to spend data. Toggle low-bandwidth mode to compare.</span>
+  </div>
+</div>
+
+<div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:24px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:24px">
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <h3 style="margin:0;font-size:18px;font-weight:700">Charts palette · colour-blind safe</h3>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
+      <span style="height:40px;border-radius:6px;background:var(--k-chart-1)"></span><span style="height:40px;border-radius:6px;background:var(--k-chart-2)"></span><span style="height:40px;border-radius:6px;background:var(--k-chart-3)"></span><span style="height:40px;border-radius:6px;background:var(--k-chart-4)"></span><span style="height:40px;border-radius:6px;background:var(--k-chart-5)"></span><span style="height:40px;border-radius:6px;background:var(--k-chart-6)"></span><span style="height:40px;border-radius:6px;background:var(--k-chart-7)"></span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--k-text-muted);text-align:center"><span>chart-1</span><span>chart-2</span><span>chart-3</span><span>chart-4</span><span>chart-5</span><span>chart-6</span><span>chart-7</span></div>
+    <p style="margin:0;font-size:13px;line-height:20px;color:var(--k-text-muted)">Okabe–Ito derived, anchored on brand indigo. Use in order; beyond 4 series pair colour with direct labels or pattern. Status colours are never reused as series colours.</p>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <span style="font-size:13px;font-weight:600;color:var(--k-text-2)">Conversations by channel · last 6 weeks</span>
+    <div style="display:flex;align-items:flex-end;gap:14px;height:150px;padding-bottom:4px;border-bottom:1px solid var(--k-border)">
+      <sc-for list="{{ bars }}" as="b" hint-placeholder-count="6">
+        <div style="flex:1;display:flex;flex-direction:column-reverse;height:100%;gap:2px">
+          <span style="height:{{ b.a }}%;background:var(--k-chart-1);border-radius:0 0 3px 3px"></span>
+          <span style="height:{{ b.b }}%;background:var(--k-chart-2)"></span>
+          <span style="height:{{ b.c }}%;background:var(--k-chart-3)"></span>
+          <span style="height:{{ b.d }}%;background:var(--k-chart-4);border-radius:3px 3px 0 0"></span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--k-text-2)">
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--k-chart-1)"></span>WhatsApp</span>
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--k-chart-2)"></span>Voice</span>
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--k-chart-3)"></span>SMS</span>
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--k-chart-4)"></span>Email</span>
+    </div>
+  </div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:880},&quot;reducedMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { dense: false, sel: { 1: true, 4: true }, lowBw: true, tog: [true, false, true], amount: 125000000, cur: 'NGN', sla: 760, colW: 200, tab: 1 };
+  componentDidMount() { this.t = setInterval(() => this.setState(s => ({ sla: s.sla - 1 })), 1000); }
+  componentWillUnmount() { clearInterval(this.t); }
+  CUR = { NGN: { sym: '₦', loc: 'en-NG', dec: 2, pre: true, label: 'Nigeria · en-NG' }, GHS: { sym: 'GH₵', loc: 'en-GH', dec: 2, pre: true, label: 'Ghana · en-GH' }, KES: { sym: 'KSh', loc: 'en-KE', dec: 2, pre: true, label: 'Kenya · en-KE' }, ZAR: { sym: 'R', loc: 'en-ZA', dec: 2, pre: true, label: 'South Africa · en-ZA' }, XOF: { sym: 'CFA', loc: 'fr-SN', dec: 0, pre: false, label: 'UEMOA · fr-SN' } };
+  num(code, major) { const c = this.CUR[code]; return new Intl.NumberFormat(c.loc, { minimumFractionDigits: c.dec, maximumFractionDigits: c.dec }).format(major); }
+  fmt(code, major) { const c = this.CUR[code]; const n = this.num(code, major); return c.pre ? c.sym + (c.sym.length > 1 ? ' ' : '') + n : n + ' ' + c.sym; }
+  clock(s) { const a = Math.abs(s), h = Math.floor(a / 3600), m = Math.floor(a % 3600 / 60), x = a % 60; const p = v => String(v).padStart(2, '0'); return (s < 0 ? '−' : '') + p(h) + ':' + p(m) + ':' + p(x); }
+  renderVals() {
+    const s = this.state;
+    const rm = this.props.reducedMotion || (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const spin = React.createElement('span', { 'aria-hidden': true, style: { width: 16, height: 16, border: '2px solid currentColor', borderRightColor: 'transparent', borderRadius: '50%', display: 'inline-block', flexShrink: 0, animation: rm ? 'none' : 'kspin .8s linear infinite', opacity: rm ? .7 : 1 } });
+    const shimmer = React.createElement('div', { 'aria-hidden': true, style: { position: 'absolute', inset: 0, background: 'linear-gradient(90deg,transparent,var(--k-shimmer),transparent)', transform: 'translateX(-100%)', animation: rm ? 'none' : 'kshimmer 1.4s ease-in-out infinite', display: rm ? 'none' : 'block' } });
+    const tone = { info: ['var(--k-info-soft)', 'var(--k-info-text)'], warning: ['var(--k-warning-soft)', 'var(--k-warning-text)'], danger: ['var(--k-danger-soft)', 'var(--k-danger-text)'], success: ['var(--k-success-soft)', 'var(--k-success-text)'] };
+    const data = [
+      { id: 1, name: 'Adaeze Okonkwo', co: 'Ọja Foods Ltd · Lagos', phone: '+234 803 555 0142', ch: 'WhatsApp', chIcon: 'chat', status: 'Open', t: 'info', sla: '01:42:10', slaT: 'ok', owner: 'Tunde Bakare', val: '₦1,250,000.00' },
+      { id: 2, name: 'Kwame Mensah', co: 'Asante Logistics · Kumasi', phone: '+233 24 412 7781', ch: 'Call', chIcon: 'call', status: 'Pending', t: 'warning', sla: '00:12:40', slaT: 'warn', owner: 'Efua Owusu', val: 'GH₵ 84,500.00' },
+      { id: 3, name: 'Wanjiru Kamau', co: 'Tusker Retail · Nairobi', phone: '+254 712 339 004', ch: 'Email', chIcon: 'mail', status: 'Escalated', t: 'danger', sla: '−00:05:12', slaT: 'bad', owner: 'Otieno M.', val: 'KSh 2,400,000.00', editing: true },
+      { id: 4, name: 'Thandiwe Nkosi', co: 'Ubuntu Insure · Durban', phone: '+27 82 555 1934', ch: 'SMS', chIcon: 'sms', status: 'Resolved', t: 'success', sla: '—', slaT: 'none', owner: 'Sipho Dlamini', val: 'R 96 400,00' },
+      { id: 5, name: 'Aïssatou Diallo', co: 'Téranga Télécom · Dakar', phone: '+221 77 450 12 90', ch: 'WhatsApp', chIcon: 'chat', status: 'Open', t: 'info', sla: '03:20:00', slaT: 'ok', owner: 'Moussa Sy', val: '4 800 000 CFA' }
+    ];
+    const slaFg = { ok: 'var(--k-success-text)', warn: 'var(--k-warning-text)', bad: 'var(--k-danger-text)', none: 'var(--k-text-muted)' };
+    const rows = data.map(r => { const on = !!s.sel[r.id]; return { ...r, stBg: tone[r.t][0], stFg: tone[r.t][1], slaFg: slaFg[r.slaT], notEditing: !r.editing, editing: !!r.editing, bg: on ? 'var(--k-primary-soft)' : 'var(--k-surface)', cbBg: on ? 'var(--k-primary)' : 'transparent', cbBorder: on ? '0' : '2px solid var(--k-border-strong)', cbIcon: on ? 'check' : '', toggle: () => this.setState(p => ({ sel: { ...p.sel, [r.id]: !p.sel[r.id] } })) }; });
+    const nSel = data.filter(r => s.sel[r.id]).length;
+    const all = nSel === data.length, some = nSel > 0 && !all;
+    const days = [];
+    [28, 29, 30].forEach(n => days.push({ n, m: true }));
+    for (let i = 1; i <= 31; i++) days.push({ n: i });
+    days.push({ n: 1, m: true });
+    const c = this.CUR[s.cur];
+    const major = s.amount / Math.pow(10, c.dec);
+    const tabs = [['Overview', ''], ['Timeline', '24'], ['Deals', '3'], ['Tickets', '2']].map(([label, count], i) => ({ label, count, fw: i === s.tab ? 700 : 500, fg: i === s.tab ? 'var(--k-primary-text)' : 'var(--k-text-2)', bar: i === s.tab ? 'inset 0 -3px 0 var(--k-primary)' : 'none', pick: () => this.setState({ tab: i }) }));
+    const togLabels = ['Auto-assign chats', 'Play ring sound', 'Show customer local time'];
+    const toggles = togLabels.map((label, i) => ({ label, labelFg: 'var(--k-text)', track: s.tog[i] ? 'var(--k-primary)' : 'var(--k-border-strong)', knob: s.tog[i] ? 21 : 3, ring: i === 2 ? '0 0 0 2px var(--k-surface),0 0 0 4px var(--k-focus)' : 'none', flip: () => this.setState(p => { const t = [...p.tog]; t[i] = !t[i]; return { tog: t }; }) }));
+    toggles.push({ label: 'Call recording (admin-locked)', labelFg: 'var(--k-disabled-text)', track: 'var(--k-disabled-bg)', knob: 3, ring: 'inset 0 0 0 1px var(--k-border)', flip: () => {} });
+    const slaAt = s.sla;
+    return {
+      spin, shimmer, rows, tabs, toggles,
+      gridCols: `44px ${s.colW}px 170px 120px 110px 110px 140px 160px`,
+      rowH: s.dense ? 36 : 52,
+      selCount: nSel,
+      allBg: all || some ? 'var(--k-primary)' : 'transparent', allBorder: all || some ? '0' : '2px solid var(--k-border-strong)', allIcon: all ? 'check' : some ? 'remove' : '',
+      toggleAll: () => this.setState({ sel: all ? {} : Object.fromEntries(data.map(r => [r.id, true])) }),
+      startResize: e => { e.preventDefault(); const x0 = e.clientX, w0 = s.colW; const mv = ev => this.setState({ colW: Math.max(150, Math.min(360, w0 + ev.clientX - x0)) }); const up = () => { window.removeEventListener('mousemove', mv); window.removeEventListener('mouseup', up); }; window.addEventListener('mousemove', mv); window.addEventListener('mouseup', up); },
+      setDense: () => this.setState({ dense: true }), setComfy: () => this.setState({ dense: false }),
+      denseBg: s.dense ? 'var(--k-surface)' : 'transparent', comfyBg: s.dense ? 'transparent' : 'var(--k-surface)',
+      denseSh: s.dense ? 'var(--k-shadow-1)' : 'none', comfySh: s.dense ? 'none' : 'var(--k-shadow-1)',
+      days: days.map(d => ({ n: d.n, bg: !d.m && d.n === 2 ? 'var(--k-primary)' : 'transparent', fg: d.m ? 'var(--k-text-muted)' : d.n === 2 ? 'var(--k-on-primary)' : 'var(--k-text)', fw: !d.m && d.n === 2 ? 700 : 400 })),
+      curOpts: Object.keys(this.CUR).map(code => ({ code, bg: code === s.cur ? 'var(--k-surface)' : 'transparent', fg: code === s.cur ? 'var(--k-text)' : 'var(--k-text-2)', sh: code === s.cur ? 'var(--k-shadow-1)' : 'none', pick: () => this.setState({ cur: code, amount: code === 'XOF' ? 1250000 : 125000000 }) })),
+      curSym: c.sym, curVal: this.num(s.cur, major), curHint: `${c.label} → ${this.fmt(s.cur, major)}`,
+      onCur: e => { const d = e.target.value.replace(/\D/g, '').slice(0, 13); this.setState({ amount: parseInt(d || '0', 10) }); },
+      curList: Object.keys(this.CUR).map(k => ({ label: this.CUR[k].label, val: this.fmt(k, 1250000) })),
+      slaClock: this.clock(slaAt), slaWord: slaAt < 0 ? 'breached' : 'left · at risk', slaText: this.clock(slaAt),
+      lowBw: s.lowBw, highBw: !s.lowBw, toggleLow: () => this.setState(p => ({ lowBw: !p.lowBw })),
+      lowTrack: s.lowBw ? 'var(--k-accent-text)' : 'var(--k-border-strong)', lowKnob: s.lowBw ? 21 : 3,
+      lowBg: s.lowBw ? 'var(--k-accent-soft)' : 'var(--k-surface)', lowBorder: s.lowBw ? 'var(--k-accent)' : 'var(--k-border-strong)',
+      lowSub: s.lowBw ? 'On · saving ~70% data this shift' : 'Off · full media and live updates',
+      bars: [[30, 18, 14, 8], [34, 20, 12, 9], [38, 17, 13, 7], [42, 21, 11, 10], [46, 19, 12, 8], [52, 22, 10, 9]].map(([a, b, c2, d]) => ({ a, b, c: c2, d }))
+    };
+  }
+}
+</script>
+</body>
+</html>

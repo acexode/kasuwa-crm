@@ -25,7 +25,9 @@
     "i18n:pseudo": "pnpm --filter @kasuwa/i18n pseudo",
     "prepare": "husky",
     "ui:tokens": "pnpm --filter @kasuwa/ui tokens",
-    "verify:tasks": "node tools/verify-task-readiness.mjs"
+    "verify:tasks": "node tools/verify-task-readiness.mjs",
+    "ui:import-design": "pnpm --filter @kasuwa/ui import-design",
+    "ui:fetch-fonts": "pnpm --filter @kasuwa/ui fetch-fonts"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.5.0",

@@ -143,7 +143,7 @@ it exists to prove the fallback chain.
 **Blocked:** nothing. **Reversibility:** moderate (message syntax differs between FormatJS and Lingui).
 
 ### D-L10 — Design tokens are provisional
-**Status:** PROCEEDING, flagged
+**Status:** ANSWERED 2026-09-27 — Design v1.1 imported by T-0003. Deviations recorded in DECISION-LOG.md. One unreconciled figure (border-strong 3.79 vs measured 4.12/4.56) flagged there.
 **Context:** `packages/ui` must hold colour scales, semantic tokens, type scale and spacing. Prompt 0
 gives three brand anchors (indigo `#2B2A8C`, saffron `#F2A900`, green `#0B8A4B`) and "warm greys",
 but no actual 50–950 scales — those come out of Claude Design.

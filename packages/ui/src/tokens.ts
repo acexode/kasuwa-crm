@@ -1,255 +1,264 @@
 /**
- * Kasuwa design tokens — PROVISIONAL.
+ * Kasuwa design tokens — Design v1.1, approved.
  *
- * ==========================================================================
- * THESE ARE NOT THE BRAND YET. team/DECISIONS.md D-L10.
+ * This replaces the provisional scales the scaffold generated from three brand
+ * anchors (D-L10, now closed). The source of truth is the Claude Design export
+ * committed unchanged under `docs/design/v1.1/`.
  *
- * Founding pack Prompt 0 gives three anchors — deep indigo #2B2A8C, saffron
- * #F2A900, a success green #0B8A4B — plus "warm greys", and leaves the tonal
- * scales to Claude Design. The scales below were derived from those anchors so
- * the scaffold has something real to render and to contrast-test. Agent 11's
- * first task is to run Prompt 0 and replace this file wholesale.
+ * Two halves, for a reason:
  *
- * What IS settled and must survive that replacement:
- *   - this file is the single source of truth for colour, type and spacing
- *   - packages/ui/src/tokens.css is GENERATED from it (pnpm ui:tokens)
- *   - no hex value may appear anywhere else in the repo (lint-enforced)
- *   - every foreground/background pair in SEMANTIC_CONTRAST_PAIRS is asserted
- *     at WCAG 2.2 AA in a unit test, in both themes
- * ==========================================================================
+ *   - Colours (scales + both semantic token sets) are MACHINE-EXTRACTED into
+ *     `tokens.colours.generated.ts` by `pnpm ui:import-design`. That is over a
+ *     hundred and fifty hex values; hand-transcription would be wrong somewhere,
+ *     and a mistyped digit in a semantic token is a contrast failure nobody
+ *     spots by eye.
+ *   - Type, spacing, radius, elevation and motion are HAND-ENCODED below,
+ *     because the export carries them as rendered markup rather than as data.
+ *     Each block cites the section it came from so it can be checked.
+ *
+ * Nothing here may be edited to make a contrast test pass. If a token cannot
+ * meet AA in the role it is used for, that is a finding about the design, and
+ * it goes to the human — not into a lowered threshold.
  */
 
-export type ToneKey =
-  '50' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900' | '950';
-export type Scale = Record<ToneKey, string>;
+export {
+  COLOUR_SCALES,
+  DESIGN_VERSION,
+  SCALE_ANCHORS,
+  SEMANTIC_DARK,
+  SEMANTIC_LIGHT,
+  SEMANTIC_TOKEN_NAMES,
+  type ColourFamily,
+  type Scale,
+  type SemanticToken,
+  type ToneKey,
+} from './tokens.colours.generated';
 
-export const COLOUR_SCALES = {
-  /** Brand primary. Anchor #2B2A8C sits at 600. */
-  primary: {
-    '50': '#eeeefb',
-    '100': '#dcdcf6',
-    '200': '#b9b9ed',
-    '300': '#9695e3',
-    '400': '#7371da',
-    '500': '#4f4dc9',
-    '600': '#2b2a8c',
-    '700': '#232375',
-    '800': '#1b1b5d',
-    '900': '#141446',
-    '950': '#0c0c2e',
-  },
-  /** Warm accent. Anchor #F2A900 sits at 500. Used for emphasis, never for text on light. */
-  accent: {
-    '50': '#fef6e6',
-    '100': '#fdebc2',
-    '200': '#fbd787',
-    '300': '#f9c44d',
-    '400': '#f7b524',
-    '500': '#f2a900',
-    '600': '#c98c00',
-    '700': '#a06f00',
-    '800': '#775300',
-    '900': '#4e3600',
-    '950': '#2a1d00',
-  },
-  /** Success. Anchor #0B8A4B sits at 500. */
-  success: {
-    '50': '#e7f6ee',
-    '100': '#c6ead6',
-    '200': '#8dd5ae',
-    '300': '#54c085',
-    '400': '#24a867',
-    '500': '#0b8a4b',
-    '600': '#09713d',
-    '700': '#07582f',
-    '800': '#053f22',
-    '900': '#042e19',
-    '950': '#021b0f',
-  },
-  warning: {
-    '50': '#fef3e7',
-    '100': '#fce0c2',
-    '200': '#f9c185',
-    '300': '#f5a248',
-    '400': '#f28a1b',
-    '500': '#d97406',
-    '600': '#b25f05',
-    '700': '#8b4a04',
-    '800': '#653503',
-    '900': '#422202',
-    '950': '#251301',
-  },
-  danger: {
-    '50': '#fdecec',
-    '100': '#fad1d1',
-    '200': '#f3a3a3',
-    '300': '#ec7575',
-    '400': '#e54b4b',
-    '500': '#d92d2d',
-    '600': '#b62424',
-    '700': '#921c1c',
-    '800': '#6e1515',
-    '900': '#4a0e0e',
-    '950': '#2a0808',
-  },
-  info: {
-    '50': '#e9f2fe',
-    '100': '#cce0fc',
-    '200': '#99c1f9',
-    '300': '#66a2f5',
-    '400': '#3384f2',
-    '500': '#0a66de',
-    '600': '#0854b6',
-    '700': '#06418e',
-    '800': '#042f66',
-    '900': '#031f44',
-    '950': '#011226',
-  },
-  /** Warm greys, per Prompt 0 — not blue-greys. */
-  neutral: {
-    '50': '#faf9f7',
-    '100': '#f2f0ec',
-    '200': '#e4e1da',
-    '300': '#cfcbc1',
-    '400': '#a8a398',
-    '500': '#807b70',
-    '600': '#605c54',
-    '700': '#47443e',
-    '800': '#2f2d29',
-    '900': '#1b1a17',
-    '950': '#0e0d0c',
-  },
-} as const satisfies Record<string, Scale>;
+import { SEMANTIC_LIGHT, type SemanticToken } from './tokens.colours.generated';
 
-export type ColourFamily = keyof typeof COLOUR_SCALES;
+/** Every CSS custom property this system emits is prefixed `--k-`. */
+export const CSS_VAR_PREFIX = '--k';
 
-/** Semantic tokens. Components reference these, never a raw scale step. */
-export const SEMANTIC_LIGHT = {
-  surface: COLOUR_SCALES.neutral['50'],
-  'surface-raised': '#ffffff',
-  'surface-sunken': COLOUR_SCALES.neutral['100'],
-  border: COLOUR_SCALES.neutral['200'],
-  // 500, not 300: WCAG 2.2 requires 3:1 for non-text UI boundaries, and a
-  // border that only a designer can see is not a boundary. `border` above is
-  // decorative hairline separation and is deliberately not held to that bar.
-  'border-strong': COLOUR_SCALES.neutral['500'],
-  'text-primary': COLOUR_SCALES.neutral['900'],
-  'text-secondary': COLOUR_SCALES.neutral['700'],
-  'text-muted': COLOUR_SCALES.neutral['600'],
-  'text-on-primary': '#ffffff',
-  'action-primary': COLOUR_SCALES.primary['600'],
-  'action-primary-hover': COLOUR_SCALES.primary['700'],
-  'focus-ring': COLOUR_SCALES.primary['500'],
-} as const;
+// ---------------------------------------------------------------------------
+// Typography — export section "02 Typography"
+//
+// Noto Sans, Noto Sans Arabic and JetBrains Mono: all open-licence, with full
+// Latin Extended A/B plus Additional, which is what Yoruba, Igbo and Hausa
+// diacritics need (ẹ ọ ṣ ɓ ɗ ƙ ƴ ŋ ɛ ɔ).
+//
+// The export is explicit that body line-height never drops below 1.4, so
+// stacked tone marks (ọ̀, ẹ́) clear the line above. Check that before changing
+// any line-height: it is a legibility requirement in three of our languages,
+// not a typographic preference.
+// ---------------------------------------------------------------------------
 
-export const SEMANTIC_DARK = {
-  surface: COLOUR_SCALES.neutral['950'],
-  'surface-raised': COLOUR_SCALES.neutral['900'],
-  'surface-sunken': '#000000',
-  border: COLOUR_SCALES.neutral['800'],
-  'border-strong': COLOUR_SCALES.neutral['500'],
-  'text-primary': COLOUR_SCALES.neutral['50'],
-  'text-secondary': COLOUR_SCALES.neutral['200'],
-  'text-muted': COLOUR_SCALES.neutral['400'],
-  // Dark theme inverts the button: a light primary fill with a dark label.
-  // The instinct is to keep white text and darken the fill, but white on any
-  // primary step dark enough to sit on a near-black page measures below 4.5:1.
-  // A light fill also reads as the raised, actionable element on a dark ground,
-  // which is what a primary button is for.
-  'text-on-primary': COLOUR_SCALES.neutral['950'],
-  'action-primary': COLOUR_SCALES.primary['300'],
-  'action-primary-hover': COLOUR_SCALES.primary['200'],
-  'focus-ring': COLOUR_SCALES.primary['300'],
-} as const;
-
-export type SemanticToken = keyof typeof SEMANTIC_LIGHT;
-
-/**
- * Pairs asserted at WCAG 2.2 AA by tokens.contrast.test.ts, in both themes.
- * The NFRs commit to AA (PRD 2.13) and agents work at speed; an executable
- * rule beats a note in a style guide.
- */
-export const SEMANTIC_CONTRAST_PAIRS: readonly {
-  foreground: SemanticToken;
-  background: SemanticToken;
-  /** 4.5 for body text, 3 for large text and UI boundaries. */
-  minimumRatio: number;
-}[] = [
-  { foreground: 'text-primary', background: 'surface', minimumRatio: 4.5 },
-  { foreground: 'text-primary', background: 'surface-raised', minimumRatio: 4.5 },
-  { foreground: 'text-secondary', background: 'surface', minimumRatio: 4.5 },
-  { foreground: 'text-muted', background: 'surface', minimumRatio: 4.5 },
-  { foreground: 'text-on-primary', background: 'action-primary', minimumRatio: 4.5 },
-  { foreground: 'text-on-primary', background: 'action-primary-hover', minimumRatio: 4.5 },
-  // 3:1 is WCAG 2.2's non-text contrast bar: the button must be distinguishable
-  // from the page it sits on, not only legible once you have found it.
-  { foreground: 'action-primary', background: 'surface', minimumRatio: 3 },
-  { foreground: 'border-strong', background: 'surface', minimumRatio: 3 },
-  { foreground: 'focus-ring', background: 'surface', minimumRatio: 3 },
-];
-
-/**
- * Type scale. Prompt 0 asks for a humanist sans with full Latin Extended so
- * Yoruba/Igbo/Hausa diacritics (ẹ ọ ṣ ɓ ɗ ƙ) render, plus an Arabic fallback.
- * Mono is for ids, E.164 phone numbers and currency in tables.
- */
 export const FONT_FAMILIES = {
-  sans: "'Inter', 'Noto Sans', 'Segoe UI', system-ui, -apple-system, sans-serif",
-  arabic: "'Noto Naskh Arabic', 'Segoe UI', system-ui, sans-serif",
-  mono: "'JetBrains Mono', 'Cascadia Mono', ui-monospace, 'Courier New', monospace",
+  sans: "'Noto Sans', 'Noto Sans Arabic', system-ui, sans-serif",
+  arabic: "'Noto Sans Arabic', 'Noto Sans', system-ui, sans-serif",
+  mono: "'JetBrains Mono', ui-monospace, 'Cascadia Mono', monospace",
+  icon: "'Material Symbols Rounded'",
 } as const;
+
+export const FONT_WEIGHTS = {
+  regular: '400',
+  semibold: '600',
+  extrabold: '800',
+} as const;
+
+export interface TypeStep {
+  size: string;
+  lineHeight: string;
+  weight: string;
+  tracking: string;
+  /** Set where the export specifies it; h6 is the only caps step. */
+  transform?: string;
+  /** Tabular figures, so numbers in tables and money do not jitter. */
+  fontFeature?: string;
+}
 
 export const TYPE_SCALE = {
-  display: { size: '2.75rem', lineHeight: '3.25rem', weight: '700', tracking: '-0.02em' },
-  h1: { size: '2rem', lineHeight: '2.5rem', weight: '700', tracking: '-0.015em' },
-  h2: { size: '1.5rem', lineHeight: '2rem', weight: '600', tracking: '-0.01em' },
-  h3: { size: '1.25rem', lineHeight: '1.75rem', weight: '600', tracking: '0' },
-  h4: { size: '1.125rem', lineHeight: '1.625rem', weight: '600', tracking: '0' },
-  h5: { size: '1rem', lineHeight: '1.5rem', weight: '600', tracking: '0' },
-  h6: { size: '0.875rem', lineHeight: '1.25rem', weight: '600', tracking: '0.01em' },
-  'body-lg': { size: '1rem', lineHeight: '1.625rem', weight: '400', tracking: '0' },
-  'body-md': { size: '0.875rem', lineHeight: '1.375rem', weight: '400', tracking: '0' },
-  'body-sm': { size: '0.8125rem', lineHeight: '1.25rem', weight: '400', tracking: '0' },
-  caption: { size: '0.75rem', lineHeight: '1rem', weight: '500', tracking: '0.01em' },
-} as const;
+  display: { size: '56px', lineHeight: '64px', weight: '800', tracking: '-0.02em' },
+  h1: { size: '40px', lineHeight: '48px', weight: '700', tracking: '-0.01em' },
+  h2: { size: '32px', lineHeight: '40px', weight: '700', tracking: '0' },
+  h3: { size: '24px', lineHeight: '32px', weight: '700', tracking: '0' },
+  h4: { size: '20px', lineHeight: '28px', weight: '600', tracking: '0' },
+  h5: { size: '18px', lineHeight: '26px', weight: '600', tracking: '0' },
+  h6: {
+    size: '14px',
+    lineHeight: '20px',
+    weight: '700',
+    tracking: '0.06em',
+    transform: 'uppercase',
+  },
+  'body-lg': { size: '18px', lineHeight: '28px', weight: '400', tracking: '0' },
+  'body-md': { size: '16px', lineHeight: '24px', weight: '400', tracking: '0' },
+  'body-sm': { size: '14px', lineHeight: '20px', weight: '400', tracking: '0' },
+  caption: { size: '12px', lineHeight: '16px', weight: '500', tracking: '0' },
+  mono: {
+    size: '14px',
+    lineHeight: '20px',
+    weight: '400',
+    tracking: '0',
+    fontFeature: "'tnum' 1",
+  },
+} as const satisfies Record<string, TypeStep>;
 
 export type TypeScaleStep = keyof typeof TYPE_SCALE;
 
-/** 4px base. `touch` is the 44px WCAG 2.2 AA target size from Prompt 0. */
+/**
+ * Arabic script sits taller in the same point size, so the export gives it
+ * +10% line-height. Applied via `[lang="ar"]` in the emitted CSS.
+ */
+export const ARABIC_LINE_HEIGHT_MULTIPLIER = 1.1;
+
+// ---------------------------------------------------------------------------
+// Spacing, radius, elevation, motion — export section "03 Foundations"
+// ---------------------------------------------------------------------------
+
+/** 4px base. Keys are multiples, so `space-4` is 16px. */
 export const SPACING = {
-  '0': '0',
-  px: '1px',
-  '0.5': '0.125rem',
-  '1': '0.25rem',
-  '2': '0.5rem',
-  '3': '0.75rem',
-  '4': '1rem',
-  '5': '1.25rem',
-  '6': '1.5rem',
-  '8': '2rem',
-  '10': '2.5rem',
-  '12': '3rem',
-  '16': '4rem',
-  '20': '5rem',
-  '24': '6rem',
-  touch: '2.75rem',
+  '0': '0px',
+  '1': '4px',
+  '2': '8px',
+  '3': '12px',
+  '4': '16px',
+  '5': '20px',
+  '6': '24px',
+  '8': '32px',
+  '10': '40px',
+  '12': '48px',
+  '16': '64px',
+  /** WCAG 2.2 AA minimum target size. Not from the 4px ramp; it is a floor. */
+  touch: '44px',
 } as const;
 
 export const RADIUS = {
-  none: '0',
-  sm: '0.25rem',
-  md: '0.375rem',
-  lg: '0.5rem',
-  xl: '0.75rem',
-  full: '9999px',
+  sm: '4px',
+  md: '8px',
+  lg: '12px',
+  xl: '16px',
+  full: '999px',
 } as const;
 
-export const CSS_VAR_PREFIX = '--kasuwa';
+/**
+ * Elevation 0 is flat with a border, not a faint shadow — a border survives
+ * both themes and low-quality screens, which a 4% shadow does not.
+ * The shadow values themselves are semantic tokens, so they differ per theme:
+ * dark elevation is a lighter surface plus a deeper shadow.
+ */
+export const ELEVATION = {
+  '0': { shadow: 'none', use: 'Flat, bordered' },
+  '1': { shadow: 'var(--k-shadow-1)', use: 'Cards' },
+  '2': { shadow: 'var(--k-shadow-2)', use: 'Menus, toasts' },
+  '3': { shadow: 'var(--k-shadow-3)', use: 'Modals, drawers' },
+} as const;
 
-export function colourVar(family: ColourFamily, tone: ToneKey): string {
-  return `${CSS_VAR_PREFIX}-${family}-${tone}`;
+export const MOTION = {
+  instant: { duration: '100ms', use: 'Hover, press' },
+  quick: { duration: '160ms', use: 'Toggles, tabs, chips' },
+  base: { duration: '240ms', use: 'Menus, toasts, drawers' },
+} as const;
+
+export const MOTION_EASING = 'cubic-bezier(.2,.8,.2,1)';
+
+// ---------------------------------------------------------------------------
+// Charts
+//
+// The seven chart colours are semantic tokens (they differ per theme) and are
+// chosen to stay distinguishable for the common forms of colour vision
+// deficiency. Series must still carry a label or shape — colour alone is never
+// the only channel.
+// ---------------------------------------------------------------------------
+
+export const CHART_SERIES_COUNT = 7;
+
+export const CHART_TOKENS = [
+  'chart-1',
+  'chart-2',
+  'chart-3',
+  'chart-4',
+  'chart-5',
+  'chart-6',
+  'chart-7',
+] as const satisfies readonly SemanticToken[];
+
+// ---------------------------------------------------------------------------
+// Contrast contract
+//
+// These pairs are asserted in both themes by tokens.contrast.test.ts, and the
+// suite runs in CI. The thresholds come from the T-0003 hand-off and from
+// WCAG 2.2 AA: 4.5:1 for body text, 3:1 for non-text UI boundaries.
+//
+// DO NOT lower a minimum. If a token cannot meet its threshold, the design
+// changes or the token's role changes.
+// ---------------------------------------------------------------------------
+
+export interface ContrastPair {
+  foreground: SemanticToken;
+  background: SemanticToken;
+  minimumRatio: number;
+  note: string;
 }
+
+const STATUS_FAMILIES = ['primary', 'accent', 'success', 'warning', 'danger', 'info'] as const;
+
+/** Every `*-text` colour on its own `*-soft` background. */
+const STATUS_TEXT_PAIRS: ContrastPair[] = STATUS_FAMILIES.map((family) => ({
+  foreground: `${family}-text` as SemanticToken,
+  background: `${family}-soft` as SemanticToken,
+  minimumRatio: 4.5,
+  note: `${family} text on its own soft fill — badges, banners, chips`,
+}));
+
+/** Muted text is the smallest, lowest-contrast text in the system. */
+const MUTED_TEXT_PAIRS: ContrastPair[] = (
+  ['surface', 'surface-raised', 'surface-sunken'] as SemanticToken[]
+).map((background) => ({
+  foreground: 'text-muted' as SemanticToken,
+  background,
+  minimumRatio: 4.5,
+  note: 'hints, meta and captions must clear AA like any other text',
+}));
+
+export const CONTRAST_PAIRS: readonly ContrastPair[] = [
+  ...STATUS_TEXT_PAIRS,
+  ...MUTED_TEXT_PAIRS,
+  {
+    foreground: 'on-primary',
+    background: 'primary',
+    minimumRatio: 4.5,
+    note: 'label on the primary action fill',
+  },
+  {
+    // 3:1 is WCAG 2.2 non-text contrast: an input boundary you cannot see is
+    // not a boundary. The export names this token exactly that way.
+    foreground: 'border-strong',
+    background: 'surface',
+    minimumRatio: 3,
+    note: 'input and control boundaries',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 export function semanticVar(token: SemanticToken): string {
   return `${CSS_VAR_PREFIX}-${token}`;
+}
+
+export function scaleVar(family: string, tone: string): string {
+  return `${CSS_VAR_PREFIX}-scale-${family}-${tone}`;
+}
+
+/** Runtime guard: the contrast contract must only name tokens that exist. */
+export function assertContrastPairsAreValid(): void {
+  for (const pair of CONTRAST_PAIRS) {
+    if (!(pair.foreground in SEMANTIC_LIGHT)) {
+      throw new Error(`Contrast pair names unknown token "${pair.foreground}"`);
+    }
+    if (!(pair.background in SEMANTIC_LIGHT)) {
+      throw new Error(`Contrast pair names unknown token "${pair.background}"`);
+    }
+  }
 }

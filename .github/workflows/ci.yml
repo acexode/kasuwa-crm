@@ -41,12 +41,19 @@ jobs:
       - name: Verify task readiness
         run: pnpm verify:tasks
 
-      # tokens.css is generated from tokens.ts. If they can drift, the design
-      # system has two sources of truth.
-      - name: Check generated design tokens are current
+      # The design tokens are imported from the committed Claude Design export
+      # and the CSS and Tailwind preset are generated from those. If any of the
+      # three can drift, the design system has more than one source of truth —
+      # and the one people edit is never the one that ships.
+      - name: Check imported design tokens are current
+        run: |
+          pnpm ui:import-design
+          git diff --exit-code -- packages/ui/src/tokens.colours.generated.ts
+
+      - name: Check generated tokens CSS and Tailwind preset are current
         run: |
           pnpm ui:tokens
-          git diff --exit-code -- packages/ui/src/tokens.css
+          git diff --exit-code -- packages/ui/src/tokens.generated.css packages/ui/tailwind-preset.cjs
 
   typecheck:
     name: Typecheck

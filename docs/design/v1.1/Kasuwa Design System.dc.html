@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&amp;family=Noto+Sans+Arabic:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&amp;display=block">
+<style>body{margin:0;background:#EFEBE4}a{color:#3C39A8;text-underline-offset:3px}a:hover{color:#22216F}*{box-sizing:border-box}</style>
+</helmet>
+<div style="--k-bg:#FAF8F5;--k-surface:#FFFFFF;--k-surface-raised:#FFFFFF;--k-surface-sunken:#F3F0EB;--k-border:#E6E1D9;--k-border-strong:#847C71;--k-text:#24201C;--k-text-2:#4E4841;--k-text-muted:#665F56;--k-primary:#2B2A8C;--k-primary-hover:#22216F;--k-primary-active:#1A1955;--k-on-primary:#FFFFFF;--k-primary-soft:#EEEEFA;--k-primary-soft-strong:#DCDCF5;--k-primary-text:#3C39A8;--k-accent:#F2A900;--k-accent-soft:#FEF8E7;--k-on-accent:#24201C;--k-accent-text:#7A5104;--k-success:#0B8A4B;--k-success-soft:#E8F6EE;--k-success-text:#086E3C;--k-warning:#E8650F;--k-warning-soft:#FFF4EB;--k-warning-text:#9C3F0B;--k-danger:#B02222;--k-danger-hover:#8F1C1C;--k-danger-active:#721A1A;--k-danger-soft:#FDEEEE;--k-danger-text:#8F1C1C;--k-info:#0E6396;--k-info-soft:#E9F4FB;--k-info-text:#0D4F78;--k-disabled-bg:#F3F0EB;--k-disabled-text:#ABA398;--k-focus:#4E4BBE;--k-shadow-1:0 1px 2px rgba(36,32,28,.08);--k-shadow-2:0 4px 12px rgba(36,32,28,.10);--k-shadow-3:0 16px 40px rgba(36,32,28,.18);--k-scrim:rgba(21,18,16,.48);--k-wa-bubble:#DDF4E6;--k-note-bg:#FEF8E7;--k-inverse:#24201C;--k-on-inverse:#FAF8F5;--k-shimmer:rgba(255,255,255,.7);--k-chart-1:#2B2A8C;--k-chart-2:#E69F00;--k-chart-3:#56B4E9;--k-chart-4:#009E73;--k-chart-5:#D55E00;--k-chart-6:#CC79A7;--k-chart-7:#847C71;width:1880px;padding:72px 64px 96px;display:flex;flex-direction:column;gap:72px;font-family:'Noto Sans','Noto Sans Arabic',system-ui,sans-serif;color:var(--k-text);background:#EFEBE4">
+
+<header data-screen-label="Cover" style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:64px;align-items:end">
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:center;gap:14px"><span style="width:56px;height:56px;border-radius:14px;background:#2B2A8C;color:#F2A900;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:30px">K</span><span style="font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#4E4841">Design system · v1.0 · Sept 2026</span></div>
+    <h1 style="margin:0;font-size:120px;line-height:1;font-weight:800;letter-spacing:-.035em;color:#1A1955">Kasuwa</h1>
+    <p style="margin:0;font-size:24px;line-height:36px;color:#4E4841;max-width:880px;text-wrap:pretty">Tokens, components and patterns for an Africa-first CRM and contact centre — built for BPO agents on 8-hour shifts, sales teams on the move and SME owners on a single Android phone, from Lagos to Nairobi, Accra, Joburg and Dakar.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Legible in every language</b><span style="font-size:14px;line-height:21px;color:#4E4841">Yorùbá, Igbo, Hausa, Kiswahili, isiZulu, French and Ajami — diacritics never clipped.</span></div>
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Works on 2G</b><span style="font-size:14px;line-height:21px;color:#4E4841">Offline queues, low-bandwidth mode and data-saver media are first-class, not fallbacks.</span></div>
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Trust is visible</b><span style="font-size:14px;line-height:21px;color:#4E4841">Consent, DND and secure-payment states are shown where the agent acts.</span></div>
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Built for the shift</b><span style="font-size:14px;line-height:21px;color:#4E4841">Calm surfaces, warm greys, dark theme and dense tables for long hours on the floor.</span></div>
+  </div>
+</header>
+
+<section data-screen-label="01 Colour" style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;align-items:baseline;gap:20px;border-top:2px solid #24201C;padding-top:16px"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#665F56">01</span><h2 style="margin:0;font-size:40px;line-height:48px;font-weight:700">Colour scales</h2><span style="flex:1"></span><span style="font-size:14px;color:#665F56">★ brand anchor · number = contrast vs. the text colour shown · AA ≥ 4.5</span></div>
+  <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:grid;grid-template-columns:200px repeat(11,minmax(0,1fr));gap:6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#665F56"><span></span><span>50</span><span>100</span><span>200</span><span>300</span><span>400</span><span>500</span><span>600</span><span>700</span><span>800</span><span>900</span><span>950</span></div>
+    <sc-for list="{{ scales }}" as="s" hint-placeholder-count="7">
+      <div style="display:grid;grid-template-columns:200px repeat(11,minmax(0,1fr));gap:6px;align-items:stretch">
+        <div style="display:flex;flex-direction:column;justify-content:center;gap:2px"><b style="font-size:16px">{{ s.label }}</b><span style="font-size:12px;color:#665F56;font-family:'JetBrains Mono',monospace">--k-{{ s.key }}-*</span></div>
+        <sc-for list="{{ s.sw }}" as="w" hint-placeholder-count="11">
+          <div style="height:84px;border-radius:8px;background:{{ w.hex }};color:{{ w.fg }};padding:8px;display:flex;flex-direction:column;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)"><span style="display:flex;justify-content:space-between"><span>{{ w.star }}</span><span>{{ w.ratio }}</span></span><span style="font-size:12px;font-weight:600">{{ w.hexU }}</span></div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+  <div style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:24px">
+    <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:12px">
+      <h3 style="margin:0 0 6px;font-size:24px;font-weight:700">Semantic tokens</h3>
+      <div style="display:grid;grid-template-columns:230px 150px 150px minmax(0,1fr);gap:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#665F56;padding-bottom:8px;border-bottom:1px solid #E6E1D9"><span>Token</span><span>Light</span><span>Dark</span><span>Use</span></div>
+      <sc-for list="{{ tokens }}" as="t" hint-placeholder-count="20">
+        <div style="display:grid;grid-template-columns:230px 150px 150px minmax(0,1fr);align-items:center;min-height:40px;border-bottom:1px solid #F3F0EB;font-size:14px">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:13px">{{ t.name }}</span>
+          <span style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#4E4841"><span style="width:22px;height:22px;border-radius:6px;background:{{ t.light }};box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)"></span>{{ t.light }}</span>
+          <span style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#4E4841"><span style="width:22px;height:22px;border-radius:6px;background:{{ t.dark }};box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),0 0 0 1px rgba(0,0,0,.1)"></span>{{ t.dark }}</span>
+          <span style="color:#4E4841">{{ t.use }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:24px">
+      <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:14px">
+        <h3 style="margin:0;font-size:24px;font-weight:700">Contrast pairs · WCAG 2.2</h3>
+        <sc-for list="{{ pairs }}" as="p" hint-placeholder-count="8">
+          <div style="display:flex;align-items:center;gap:12px;height:48px;padding:0 14px;border-radius:8px;background:{{ p.bg }};color:{{ p.fg }};box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)"><b style="font-size:15px;flex:1">{{ p.label }}</b><span style="font-family:'JetBrains Mono',monospace;font-size:13px">{{ p.ratio }}</span><span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(0,0,0,.14)">{{ p.grade }}</span></div>
+        </sc-for>
+      </div>
+      <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:10px">
+        <h3 style="margin:0;font-size:20px;font-weight:700">Colour rules</h3>
+        <ul style="margin:0;padding-left:18px;font-size:15px;line-height:24px;color:#4E4841"><li>Indigo = action &amp; selection. Saffron = attention &amp; highlights, never body text on white (use accent-700+).</li><li>Success green is for outcomes (resolved, delivered, opted-in) — not for “WhatsApp brand”.</li><li>Warning is orange, distinct from saffron, so “at risk” never reads as “featured”.</li><li>Surfaces are warm greys; pure #000 is never used.</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section data-screen-label="02 Typography" style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;align-items:baseline;gap:20px;border-top:2px solid #24201C;padding-top:16px"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#665F56">02</span><h2 style="margin:0;font-size:40px;line-height:48px;font-weight:700">Typography</h2><span style="flex:1"></span><span style="font-size:14px;color:#665F56">Noto Sans · Noto Sans Arabic · JetBrains Mono — all open-licence, full Latin Extended A/B + Additional</span></div>
+  <div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:24px">
+    <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column">
+      <div style="display:grid;grid-template-columns:130px 150px minmax(0,1fr);gap:16px;align-items:baseline;padding:14px 0;border-bottom:1px solid #F3F0EB"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">display</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#665F56">56/64 · 800 · −2%</span><span style="font-size:56px;line-height:64px;font-weight:800;letter-spacing:-.02em">Ẹ káàbọ̀, Adaeze</span></div>
+      <div style="display:grid;grid-template-columns:130px 150px minmax(0,1fr);gap:16px;align-items:baseline;padding:12px 0;border-bottom:1px solid #F3F0EB"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">h1</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#665F56">40/48 · 700 · −1%</span><span style="font-size:40px;line-height:48px;font-weight:700;letter-spacing:-.01em">Ọjà Foods — Q4 supply</span></div>
+      <div style="display:grid;grid-template-columns:130px 150px minmax(0,1fr);gap:16px;align-items:baseline;padding:12px 0;border-bottom:1px solid #F3F0EB"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">h2</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#665F56">32/40 · 700</span><span style="font-size:32px;line-height:40px;font-weight:700">Ƙasuwar Kano · ɗan kasuwa</span></div>
+      <div style="display:grid;grid-template-columns:130px 150px minmax(0,1fr);gap:16px;align-items:baseline;padding:12px 0;border-bottom:1px solid #F3F0EB"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">h3</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#665F56">24/32 · 700</span><span style="font-size:24px;line-height:32px;font-weight:700">Échéance de paiement à Abidjan</span></div>
+      <div style="display:grid;grid-template-columns:130px 150px minmax(0,1fr);gap:16px;align-items:baseline;padding:12px 0;border-bottom:1px solid #F3F0EB"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">h4</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#665F56">20/28 · 600</span><span style="font-size:20px;line-height:28px;font-weight:600">Ị́ nọ̀ọ́ mma? Ndewo, Chukwuemeka</span></div>
+      <div style="display:grid;grid-template-columns:130px 150px minmax(0,1fr);gap:16px;align-items:baseline;padding:12px 0;border-bottom:1px solid #F3F0EB"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">h5</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#665F56">18/26 · 600</span><span style="font-size:18px;line-height:26px;font-weight:600">Habari za asubuhi, Wanjiru</span></div>
+      <div style="display:grid;grid-template-columns:130px 150px minmax(0,1fr);gap:16px;align-items:baseline;padding:12px 0;border-bottom:1px solid #F3F0EB"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">h6</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#665F56">14/20 · 700 · +6% caps</span><span style="font-size:14px;line-height:20px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Ìbéèrè tuntun · New requests</span></div>
+      <div style="display:grid;grid-template-columns:130px 150px minmax(0,1fr);gap:16px;align-items:baseline;padding:12px 0;border-bottom:1px solid #F3F0EB"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">body-lg</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#665F56">18/28 · 400</span><span style="font-size:18px;line-height:28px">Ṣé o fẹ́ kí a pè ọ́ padà ní aago méjì ọ̀sán?</span></div>
+      <div style="display:grid;grid-template-columns:130px 150px minmax(0,1fr);gap:16px;align-items:baseline;padding:12px 0;border-bottom:1px solid #F3F0EB"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">body-md</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#665F56">16/24 · 400</span><span style="font-size:16px;line-height:24px">Rappel : votre rendez-vous est prévu à 14 h 30, heure de Dakar.</span></div>
+      <div style="display:grid;grid-template-columns:130px 150px minmax(0,1fr);gap:16px;align-items:baseline;padding:12px 0;border-bottom:1px solid #F3F0EB"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">body-sm</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#665F56">14/20 · 400</span><span style="font-size:14px;line-height:20px">Sannu da zuwa! Za mu tuntuɓe ka gobe da safe.</span></div>
+      <div style="display:grid;grid-template-columns:130px 150px minmax(0,1fr);gap:16px;align-items:baseline;padding:12px 0;border-bottom:1px solid #F3F0EB"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">caption</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#665F56">12/16 · 500</span><span style="font-size:12px;line-height:16px;font-weight:500;color:#4E4841">Last seen 14:02 WAT · Ikeja, Lagos</span></div>
+      <div style="display:grid;grid-template-columns:130px 150px minmax(0,1fr);gap:16px;align-items:baseline;padding:12px 0"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">mono</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#665F56">14/20 · 400 · tnum</span><span style="font-family:'JetBrains Mono',monospace;font-size:14px;line-height:20px">+234 803 555 0142 · TKT-2026-00481 · ₦1,250,000.00</span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:24px">
+      <div style="background:#2B2A8C;color:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:12px">
+        <span style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#F8C947">Diacritic stress test</span>
+        <span style="font-size:52px;line-height:64px;font-weight:700;letter-spacing:.01em">ẹ ọ ṣ ɓ ɗ ƙ ƴ ŋ ɛ ɔ</span>
+        <span style="font-size:28px;line-height:40px">Ẹ Ọ Ṣ Ɓ Ɗ Ƙ · à á â ǎ ç é è ê ë ï î ô ù û ü œ</span>
+        <span style="font-size:15px;line-height:24px;color:#DCDCF5">Line-height is never below 1.4 for body text so stacked tone marks (ọ̀, ẹ́) clear the line above. Truncation uses ellipsis at grapheme boundaries, never mid-combining mark.</span>
+      </div>
+      <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:12px" dir="rtl">
+        <span style="font-size:13px;font-weight:700;letter-spacing:.06em;color:#665F56;font-family:'Noto Sans Arabic',sans-serif" dir="ltr">Arabic-script fallback · Noto Sans Arabic · +10% line-height</span>
+        <span style="font-family:'Noto Sans Arabic',sans-serif;font-size:40px;line-height:60px;font-weight:700">مرحبًا بكم في كاسوا</span>
+        <span style="font-family:'Noto Sans Arabic',sans-serif;font-size:18px;line-height:32px;color:#4E4841">سنتصل بك غدًا الساعة <bdi dir="ltr" style="font-family:'JetBrains Mono',monospace">14:30 WAT</bdi> على الرقم <bdi dir="ltr" style="font-family:'JetBrains Mono',monospace">+234 803 555 0142</bdi></span>
+      </div>
+      <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+        <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:44px;font-weight:400">Aa</span><span style="font-size:13px;color:#665F56">Regular 400 · body</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:44px;font-weight:600">Aa</span><span style="font-size:13px;color:#665F56">Semibold 600 · labels</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:44px;font-weight:800">Aa</span><span style="font-size:13px;color:#665F56">Extrabold 800 · display</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section data-screen-label="03 Foundations" style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;align-items:baseline;gap:20px;border-top:2px solid #24201C;padding-top:16px"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#665F56">03</span><h2 style="margin:0;font-size:40px;line-height:48px;font-weight:700">Spacing, radius, elevation, motion</h2></div>
+  <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr 1.2fr;gap:24px">
+    <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:10px">
+      <h3 style="margin:0 0 6px;font-size:20px;font-weight:700">Spacing · 4px base</h3>
+      <sc-for list="{{ spaces }}" as="sp" hint-placeholder-count="10">
+        <div style="display:grid;grid-template-columns:70px 44px minmax(0,1fr);align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:12px"><span>space-{{ sp.k }}</span><span style="color:#665F56">{{ sp.v }}px</span><span style="height:12px;width:{{ sp.v }}px;background:#6D6ACF;border-radius:2px"></span></div>
+      </sc-for>
+    </div>
+    <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:14px">
+      <h3 style="margin:0 0 6px;font-size:20px;font-weight:700">Radius</h3>
+      <div style="display:flex;align-items:center;gap:14px"><span style="width:56px;height:56px;border:2px solid #2B2A8C;border-radius:4px"></span><span style="font-family:'JetBrains Mono',monospace;font-size:13px">sm 4 · chips, kbd</span></div>
+      <div style="display:flex;align-items:center;gap:14px"><span style="width:56px;height:56px;border:2px solid #2B2A8C;border-radius:8px"></span><span style="font-family:'JetBrains Mono',monospace;font-size:13px">md 8 · buttons, inputs</span></div>
+      <div style="display:flex;align-items:center;gap:14px"><span style="width:56px;height:56px;border:2px solid #2B2A8C;border-radius:12px"></span><span style="font-family:'JetBrains Mono',monospace;font-size:13px">lg 12 · cards</span></div>
+      <div style="display:flex;align-items:center;gap:14px"><span style="width:56px;height:56px;border:2px solid #2B2A8C;border-radius:16px"></span><span style="font-family:'JetBrains Mono',monospace;font-size:13px">xl 16 · sheets, modals</span></div>
+      <div style="display:flex;align-items:center;gap:14px"><span style="width:56px;height:56px;border:2px solid #2B2A8C;border-radius:999px"></span><span style="font-family:'JetBrains Mono',monospace;font-size:13px">full · pills, avatars</span></div>
+    </div>
+    <div style="background:#F3F0EB;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:18px">
+      <h3 style="margin:0;font-size:20px;font-weight:700">Elevation</h3>
+      <div style="height:56px;border-radius:10px;background:#FFFFFF;display:flex;align-items:center;padding:0 16px;font-family:'JetBrains Mono',monospace;font-size:13px">0 · flat + border</div>
+      <div style="height:56px;border-radius:10px;background:#FFFFFF;box-shadow:0 1px 2px rgba(36,32,28,.08);display:flex;align-items:center;padding:0 16px;font-family:'JetBrains Mono',monospace;font-size:13px">1 · cards</div>
+      <div style="height:56px;border-radius:10px;background:#FFFFFF;box-shadow:0 4px 12px rgba(36,32,28,.10);display:flex;align-items:center;padding:0 16px;font-family:'JetBrains Mono',monospace;font-size:13px">2 · menus, toasts</div>
+      <div style="height:56px;border-radius:10px;background:#FFFFFF;box-shadow:0 16px 40px rgba(36,32,28,.18);display:flex;align-items:center;padding:0 16px;font-family:'JetBrains Mono',monospace;font-size:13px">3 · modals, drawers</div>
+      <span style="font-size:13px;line-height:20px;color:#4E4841">Dark theme: elevation = lighter surface, shadows at 40–60% black.</span>
+    </div>
+    <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:12px">
+      <h3 style="margin:0 0 6px;font-size:20px;font-weight:700">Motion</h3>
+      <div style="display:grid;grid-template-columns:110px 70px minmax(0,1fr);gap:8px;font-size:13px;align-items:baseline"><span style="font-family:'JetBrains Mono',monospace">instant</span><span style="font-family:'JetBrains Mono',monospace;color:#665F56">100ms</span><span style="color:#4E4841">hover, press</span><span style="font-family:'JetBrains Mono',monospace">quick</span><span style="font-family:'JetBrains Mono',monospace;color:#665F56">160ms</span><span style="color:#4E4841">toggles, tabs, chips</span><span style="font-family:'JetBrains Mono',monospace">base</span><span style="font-family:'JetBrains Mono',monospace;color:#665F56">240ms</span><span style="color:#4E4841">menus, toasts, drawers</span><span style="font-family:'JetBrains Mono',monospace">ease</span><span style="font-family:'JetBrains Mono',monospace;color:#665F56;grid-column:span 2">cubic-bezier(.2,.8,.2,1)</span></div>
+      <div style="margin-top:6px;padding:14px;border-radius:10px;background:#FEF8E7;display:flex;flex-direction:column;gap:6px"><b style="font-size:14px;color:#7A5104">prefers-reduced-motion: reduce</b><span style="font-size:13px;line-height:20px;color:#4E4841">Slides &amp; scales → 1-frame opacity fade. Spinners → static ring + “Loading…”. Skeleton shimmer off. Kanban drag → no tilt. SLA timers keep ticking (information, not decoration). Try the <b>Reduced motion</b> tweak.</span></div>
+    </div>
+  </div>
+</section>
+
+<section data-screen-label="04 RTL" style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;align-items:baseline;gap:20px;border-top:2px solid #24201C;padding-top:16px"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#665F56">04</span><h2 style="margin:0;font-size:40px;line-height:48px;font-weight:700">RTL mirroring</h2><span style="flex:1"></span><span style="font-size:14px;color:#665F56">Use logical properties (margin-inline-start, inset-inline-end) — the layout flips from dir alone</span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 0.8fr;gap:24px">
+    <div dir="ltr" style="background:#FFFFFF;border-radius:16px;overflow:hidden;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:6px;padding:14px 20px;border-bottom:1px solid #E6E1D9;font-size:14px"><span style="font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px;background:#F3F0EB;color:#4E4841">LTR</span><span style="color:#3C39A8;text-decoration:underline;text-underline-offset:3px">Contacts</span><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:#665F56">chevron_right</span><b>Amina Bello</b></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:16px 20px"><button aria-label="Back" style="width:44px;height:44px;border:0;border-radius:8px;background:#F3F0EB;color:#24201C;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">arrow_back</span></button><span style="position:relative;width:44px;height:44px;border-radius:50%;background:#DCDCF5;color:#3C39A8;font-weight:700;display:flex;align-items:center;justify-content:center">AB<span style="position:absolute;right:-1px;bottom:-1px;width:13px;height:13px;border-radius:50%;background:#0B8A4B;box-shadow:0 0 0 2px #FFFFFF"></span></span><div style="flex:1;display:flex;flex-direction:column"><b style="font-size:16px">Amina Bello</b><span style="font-size:13px;color:#665F56">Available · Kano</span></div><button aria-label="Call" style="width:44px;height:44px;border:1px solid #847C71;border-radius:8px;background:#FFFFFF;color:#24201C;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">call</span></button></div>
+      <div style="padding:0 20px 16px;display:flex;flex-direction:column;gap:8px;align-items:flex-start"><span style="max-width:80%;padding:10px 12px;border-radius:12px 12px 12px 4px;background:#DDF4E6;font-size:14px;line-height:20px">Please call me back at 14:30 WAT.</span><span style="align-self:flex-end;max-width:80%;padding:10px 12px;border-radius:12px 12px 4px 12px;background:#EEEEFA;font-size:14px;line-height:20px">Confirmed — +234 803 555 0142</span></div>
+      <div style="display:flex;gap:8px;padding:12px 20px;border-top:1px solid #E6E1D9"><span style="flex:1;height:44px;border:1px solid #847C71;border-radius:8px;display:flex;align-items:center;padding:0 12px;font-size:14px;color:#665F56">Type a message…</span><button aria-label="Send" style="width:44px;height:44px;border:0;border-radius:8px;background:#2B2A8C;color:#FFFFFF;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">send</span></button></div>
+    </div>
+    <div dir="rtl" style="background:#FFFFFF;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;font-family:'Noto Sans Arabic','Noto Sans',sans-serif">
+      <div style="display:flex;align-items:center;gap:6px;padding:14px 20px;border-bottom:1px solid #E6E1D9;font-size:14px"><span style="font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px;background:#F3F0EB;color:#4E4841;font-family:'Noto Sans',sans-serif">RTL</span><span style="color:#3C39A8;text-decoration:underline;text-underline-offset:3px">جهات الاتصال</span><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:#665F56">chevron_left</span><b>أمينة بيلو</b></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:16px 20px"><button aria-label="رجوع" style="width:44px;height:44px;border:0;border-radius:8px;background:#F3F0EB;color:#24201C;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">arrow_forward</span></button><span style="position:relative;width:44px;height:44px;border-radius:50%;background:#DCDCF5;color:#3C39A8;font-weight:700;display:flex;align-items:center;justify-content:center">أب<span style="position:absolute;left:-1px;bottom:-1px;width:13px;height:13px;border-radius:50%;background:#0B8A4B;box-shadow:0 0 0 2px #FFFFFF"></span></span><div style="flex:1;display:flex;flex-direction:column"><b style="font-size:16px">أمينة بيلو</b><span style="font-size:13px;color:#665F56">متاحة · كانو</span></div><button aria-label="اتصال" style="width:44px;height:44px;border:1px solid #847C71;border-radius:8px;background:#FFFFFF;color:#24201C;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">call</span></button></div>
+      <div style="padding:0 20px 16px;display:flex;flex-direction:column;gap:8px;align-items:flex-start"><span style="max-width:80%;padding:10px 12px;border-radius:12px 12px 4px 12px;background:#DDF4E6;font-size:15px;line-height:24px">يرجى الاتصال بي الساعة <bdi dir="ltr" style="font-family:'JetBrains Mono',monospace;font-size:13px">14:30 WAT</bdi></span><span style="align-self:flex-end;max-width:80%;padding:10px 12px;border-radius:12px 12px 12px 4px;background:#EEEEFA;font-size:15px;line-height:24px">تم التأكيد — <bdi dir="ltr" style="font-family:'JetBrains Mono',monospace;font-size:13px">+234 803 555 0142</bdi></span></div>
+      <div style="display:flex;gap:8px;padding:12px 20px;border-top:1px solid #E6E1D9"><span style="flex:1;height:44px;border:1px solid #847C71;border-radius:8px;display:flex;align-items:center;padding:0 12px;font-size:14px;color:#665F56">اكتب رسالة…</span><button aria-label="إرسال" style="width:44px;height:44px;border:0;border-radius:8px;background:#2B2A8C;color:#FFFFFF;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1;transform:scaleX(-1)">send</span></button></div>
+    </div>
+    <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:12px">
+      <h3 style="margin:0;font-size:20px;font-weight:700">What flips</h3>
+      <ul style="margin:0;padding-left:18px;font-size:14px;line-height:22px;color:#4E4841"><li>Row order, text alignment, padding, presence dot, bubble tails</li><li>Directional icons: back/forward, chevrons, send, reply, list indent</li></ul>
+      <h3 style="margin:6px 0 0;font-size:20px;font-weight:700">What doesn't</h3>
+      <ul style="margin:0;padding-left:18px;font-size:14px;line-height:22px;color:#4E4841"><li>Phone numbers, IDs, amounts, times — wrapped in <span style="font-family:'JetBrains Mono',monospace">&lt;bdi dir="ltr"&gt;</span></li><li>Phone, check, clock, media-play icons</li><li>Charts' time axis (keeps LTR, labels localised)</li></ul>
+    </div>
+  </div>
+</section>
+
+<section data-screen-label="05 Components" style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;align-items:baseline;gap:20px;border-top:2px solid #24201C;padding-top:16px"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#665F56">05</span><h2 style="margin:0;font-size:40px;line-height:48px;font-weight:700">Components · light &amp; dark</h2><span style="flex:1"></span><span style="font-size:14px;color:#665F56">Same markup, themed only by --k-* tokens · interactive: currency, table (select, density, resize), tabs, toggles, low-bandwidth</span></div>
+  <div style="display:flex;gap:32px;align-items:flex-start">
+    <sc-if value="{{ showLight }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:12px">
+        <span style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">light_mode</span>Light</span>
+        <dc-import name="Kasuwa Components" reduced-motion="{{ reducedMotion }}" hint-size="100%,6200px"></dc-import>
+      </div>
+    </sc-if>
+    <sc-if value="{{ showDark }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:12px;color-scheme:dark;--k-bg:#151210;--k-surface:#1E1A17;--k-surface-raised:#29241F;--k-surface-sunken:#171411;--k-border:#37322D;--k-border-strong:#8A8277;--k-text:#FAF8F5;--k-text-2:#D2CBC0;--k-text-muted:#ABA398;--k-primary:#5754C4;--k-primary-hover:#6360CB;--k-primary-active:#4E4BBE;--k-on-primary:#FFFFFF;--k-primary-soft:#232150;--k-primary-soft-strong:#2F2D68;--k-primary-text:#BBBAEC;--k-accent:#F5B81A;--k-accent-soft:#2E2308;--k-on-accent:#151210;--k-accent-text:#F8C947;--k-success:#27A262;--k-success-soft:#0C2618;--k-success-text:#58BD84;--k-warning:#F97F2A;--k-warning-soft:#2B190B;--k-warning-text:#FFA15C;--k-danger:#CC2E2E;--k-danger-hover:#D63B3B;--k-danger-active:#B02222;--k-danger-soft:#2E1111;--k-danger-text:#EC7777;--k-info:#2E92CC;--k-info-soft:#0C2230;--k-info-text:#5CAEDD;--k-disabled-bg:#29241F;--k-disabled-text:#665F56;--k-focus:#F8C947;--k-shadow-1:0 1px 2px rgba(0,0,0,.4);--k-shadow-2:0 4px 12px rgba(0,0,0,.45);--k-shadow-3:0 16px 40px rgba(0,0,0,.6);--k-scrim:rgba(0,0,0,.62);--k-wa-bubble:#123A25;--k-note-bg:#2E2308;--k-inverse:#F3F0EB;--k-on-inverse:#24201C;--k-shimmer:rgba(255,255,255,.07);--k-chart-1:#8B89E0;--k-chart-2:#E69F00;--k-chart-3:#56B4E9;--k-chart-4:#19B388;--k-chart-5:#E8732A;--k-chart-6:#D98CB6;--k-chart-7:#ABA398">
+        <span style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:#24201C"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">dark_mode</span>Dark</span>
+        <dc-import name="Kasuwa Components" reduced-motion="{{ reducedMotion }}" hint-size="100%,6200px"></dc-import>
+      </div>
+    </sc-if>
+  </div>
+</section>
+
+<section data-screen-label="06 Mobile 360" style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;align-items:baseline;gap:20px;border-top:2px solid #24201C;padding-top:16px"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#665F56">06</span><h2 style="margin:0;font-size:40px;line-height:48px;font-weight:700">Mobile-first · 360px</h2><span style="flex:1"></span><span style="font-size:14px;color:#665F56">Design at 360 first — the most common Android viewport across our markets. Every target ≥ 44px.</span></div>
+  <div style="display:flex;gap:48px;flex-wrap:wrap;padding:8px">
+
+    <div style="display:flex;flex-direction:column;gap:14px;align-items:center">
+      <div style="width:360px;height:760px;border-radius:28px;overflow:hidden;background:var(--k-bg);box-shadow:0 0 0 8px #24201C,0 24px 60px rgba(0,0,0,.25);display:flex;flex-direction:column">
+        <div style="height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:12px;font-weight:600;background:var(--k-surface)"><span>9:41</span><span style="display:flex;gap:4px;align-items:center">4G<span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">signal_cellular_alt</span><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">battery_5_bar</span></span></div>
+        <div style="height:56px;display:flex;align-items:center;gap:4px;padding:0 4px;background:var(--k-surface);border-bottom:1px solid var(--k-border)"><button aria-label="Back" style="width:48px;height:48px;border:0;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">arrow_back</span></button><b style="flex:1;font-size:17px">Contact</b><button aria-label="More" style="width:48px;height:48px;border:0;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">more_vert</span></button></div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--k-surface)">
+          <div style="display:flex;gap:12px;align-items:center"><span style="position:relative;width:52px;height:52px;border-radius:50%;background:var(--k-primary-soft-strong);color:var(--k-primary-text);font-weight:700;font-size:18px;display:flex;align-items:center;justify-content:center">AO<span style="position:absolute;right:0;bottom:0;width:14px;height:14px;border-radius:50%;background:var(--k-success);box-shadow:0 0 0 2px var(--k-surface)"></span></span><div style="display:flex;flex-direction:column"><b style="font-size:19px">Adaeze Okonkwo</b><span style="font-size:13px;color:var(--k-text-2)">Ọja Foods Ltd · Lagos</span></div></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--k-success-soft);color:var(--k-success-text)"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">verified</span>WhatsApp opt-in</span><span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--k-danger-soft);color:var(--k-danger-text)"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">block</span>DND promo</span></div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+            <button style="height:60px;border-radius:10px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:12px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">call</span>Call</button>
+            <button style="height:60px;border-radius:10px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:12px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">chat</span>WhatsApp</button>
+            <button style="height:60px;border-radius:10px;border:1px solid var(--k-border);background:var(--k-disabled-bg);color:var(--k-disabled-text);font-family:inherit;font-size:12px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">sms</span>SMS · DND</button>
+            <button style="height:60px;border-radius:10px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:12px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">mail</span>Email</button>
+          </div>
+        </div>
+        <div style="display:flex;border-bottom:1px solid var(--k-border);background:var(--k-surface);padding:0 8px"><span style="height:48px;padding:0 12px;display:flex;align-items:center;font-size:14px;font-weight:700;color:var(--k-primary-text);box-shadow:inset 0 -3px 0 var(--k-primary)">Timeline</span><span style="height:48px;padding:0 12px;display:flex;align-items:center;font-size:14px;color:var(--k-text-2)">Deals</span><span style="height:48px;padding:0 12px;display:flex;align-items:center;font-size:14px;color:var(--k-text-2)">Tickets</span></div>
+        <div style="flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+          <span style="font-size:12px;color:var(--k-text-muted);text-align:center">Today</span>
+          <span style="align-self:flex-start;max-width:85%;padding:10px 12px;border-radius:12px 12px 12px 4px;background:var(--k-wa-bubble);font-size:14px;line-height:20px">Ẹ káàsán! Can you resend the invoice for PO-2291?<span style="display:block;text-align:right;font-size:11px;color:var(--k-success-text)">14:02 WAT ✓✓</span></span>
+          <span style="align-self:flex-end;max-width:85%;padding:10px 12px;border-radius:12px 12px 4px 12px;background:var(--k-primary-soft);font-size:14px;line-height:20px">Done — INV-7720 is in your inbox.<span style="display:block;text-align:right;font-size:11px;color:var(--k-text-muted)">14:11 WAT</span></span>
+          <span style="padding:10px 12px;border-radius:10px;background:var(--k-note-bg);border:1px dashed var(--k-accent);font-size:13px;line-height:19px"><b>Note</b> · ERP price list was stale.</span>
+        </div>
+        <div style="display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--k-border);background:var(--k-surface)"><span style="flex:1;height:48px;border:1px solid var(--k-border-strong);border-radius:24px;display:flex;align-items:center;padding:0 16px;font-size:14px;color:var(--k-text-muted)">Reply on WhatsApp…</span><button aria-label="Send" style="width:48px;height:48px;border-radius:50%;border:0;background:var(--k-primary);color:var(--k-on-primary);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">send</span></button></div>
+      </div>
+      <span style="font-size:14px;font-weight:600">Record + timeline</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;align-items:center">
+      <div style="width:360px;height:760px;border-radius:28px;overflow:hidden;background:var(--k-surface);box-shadow:0 0 0 8px #24201C,0 24px 60px rgba(0,0,0,.25);display:flex;flex-direction:column">
+        <div style="height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:12px;font-weight:600"><span>9:41</span><span style="display:flex;gap:4px;align-items:center">3G<span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">signal_cellular_alt_2_bar</span></span></div>
+        <div style="height:56px;display:flex;align-items:center;gap:4px;padding:0 4px;border-bottom:1px solid var(--k-border)"><button aria-label="Close" style="width:48px;height:48px;border:0;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">close</span></button><b style="flex:1;font-size:17px">New deal</b></div>
+        <div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:16px;overflow:hidden">
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Contact</span><span style="display:flex;align-items:center;height:48px;padding:0 12px;border:1px solid var(--k-border-strong);border-radius:8px;font-size:16px">Kwame Mensah</span></label>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Mobile</span><span style="display:flex;align-items:stretch;height:48px;border:1px solid var(--k-primary);border-radius:8px;box-shadow:0 0 0 3px var(--k-primary-soft-strong);overflow:hidden"><span style="display:flex;align-items:center;gap:6px;padding:0 8px 0 12px;background:var(--k-surface-sunken);border-right:1px solid var(--k-border)"><span style="width:22px;height:15px;border-radius:2px;background:linear-gradient(#CE1126 33%,#FCD116 33% 66%,#006B3F 66%)"></span><span style="font-family:'JetBrains Mono',monospace;font-size:14px">+233</span></span><span style="flex:1;display:flex;align-items:center;padding:0 10px;font-family:'JetBrains Mono',monospace;font-size:16px">24 412 7781</span><span style="display:flex;align-items:center;padding-right:8px"><span style="font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;border:1px solid var(--k-border-strong);color:var(--k-text-2)">MTN</span></span></span></label>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Value</span><span style="display:flex;align-items:center;height:48px;border:1px solid var(--k-border-strong);border-radius:8px;overflow:hidden"><span style="height:100%;display:flex;align-items:center;padding:0 12px;background:var(--k-surface-sunken);border-right:1px solid var(--k-border);font-weight:600">GH₵</span><span style="flex:1;text-align:right;padding:0 12px;font-family:'JetBrains Mono',monospace;font-size:16px">84,500.00</span></span></label>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Follow-up</span><span style="display:flex;align-items:center;gap:8px;height:48px;padding:0 12px;border:1px solid var(--k-border-strong);border-radius:8px;font-size:15px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-muted)">event</span>Fri 2 Oct · 10:00<span style="flex:1"></span><span style="font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px;background:var(--k-primary-soft);color:var(--k-primary-text)">GMT</span></span><span style="font-size:13px;color:var(--k-text-muted)">Your time: 11:00 WAT</span></label>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Preferred language</span><span style="display:flex;flex-wrap:wrap;gap:8px"><span style="height:40px;display:flex;align-items:center;padding:0 14px;border-radius:999px;background:var(--k-primary);color:var(--k-on-primary);font-size:14px;font-weight:600">Twi</span><span style="height:40px;display:flex;align-items:center;padding:0 14px;border-radius:999px;background:var(--k-primary);color:var(--k-on-primary);font-size:14px;font-weight:600">English</span><span style="height:40px;display:flex;align-items:center;padding:0 14px;border-radius:999px;border:1px solid var(--k-border-strong);font-size:14px">Ewe</span><span style="height:40px;display:flex;align-items:center;padding:0 14px;border-radius:999px;border:1px solid var(--k-border-strong);font-size:14px">Français</span></span></label>
+        </div>
+        <div style="padding:12px 16px 16px;border-top:1px solid var(--k-border)"><button style="width:100%;height:52px;border-radius:10px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:16px;font-weight:700">Save deal</button></div>
+      </div>
+      <span style="font-size:14px;font-weight:600">Form · phone, currency, timezone</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;align-items:center">
+      <div style="position:relative;width:360px;height:760px;border-radius:28px;overflow:hidden;background:var(--k-bg);box-shadow:0 0 0 8px #24201C,0 24px 60px rgba(0,0,0,.25);display:flex;flex-direction:column">
+        <div style="height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:12px;font-weight:600;background:var(--k-surface)"><span>9:41</span><span style="display:flex;gap:4px;align-items:center">E<span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">signal_cellular_connected_no_internet_0_bar</span></span></div>
+        <div role="status" style="display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px;background:var(--k-inverse);color:var(--k-on-inverse);font-size:13px;line-height:18px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">cloud_off</span><span style="flex:1"><b>Offline</b> · 7 changes queued</span><button style="height:44px;padding:0 10px;border:0;background:transparent;color:inherit;font-family:inherit;font-weight:700;font-size:13px;text-decoration:underline">View</button></div>
+        <div style="height:56px;display:flex;align-items:center;gap:8px;padding:0 8px 0 16px;background:var(--k-surface);border-bottom:1px solid var(--k-border)"><b style="flex:1;font-size:18px">Inbox</b><span style="display:flex;align-items:center;gap:4px;height:30px;padding:0 10px;border-radius:999px;background:var(--k-accent-soft);color:var(--k-accent-text);font-size:12px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">network_check</span>Data saver</span><button aria-label="Search" style="width:48px;height:48px;border:0;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">search</span></button></div>
+        <div style="flex:1;display:flex;flex-direction:column;background:var(--k-surface)">
+          <div style="display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--k-border);align-items:center;min-height:72px"><span style="width:44px;height:44px;border-radius:50%;background:var(--k-primary-soft-strong);color:var(--k-primary-text);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0">WK</span><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px"><div style="display:flex;justify-content:space-between"><b style="font-size:15px">Wanjiru Kamau</b><span style="font-size:12px;color:var(--k-text-muted)">EAT 16:12</span></div><span style="font-size:13px;color:var(--k-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Delivery hasn't arrived at Westlands…</span><span style="align-self:flex-start;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--k-danger);color:#FFFFFF;font-family:'JetBrains Mono',monospace">−00:05:12 breached</span></div></div>
+          <div style="display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--k-border);align-items:center;min-height:72px"><span style="width:44px;height:44px;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0">KM</span><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px"><div style="display:flex;justify-content:space-between"><b style="font-size:15px">Kwame Mensah</b><span style="font-size:12px;color:var(--k-text-muted)">GMT 13:40</span></div><span style="font-size:13px;color:var(--k-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Can we move the fleet demo to Monday?</span><span style="align-self:flex-start;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--k-warning-soft);color:var(--k-warning-text);font-family:'JetBrains Mono',monospace">00:12:40 left</span></div></div>
+          <div style="padding:12px 16px;display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;color:var(--k-text-2)">Thandiwe sent a photo</span><button style="height:120px;border-radius:10px;border:1px dashed var(--k-border-strong);background:repeating-linear-gradient(135deg,var(--k-surface-sunken) 0 10px,var(--k-surface) 10px 20px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-family:inherit;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:26px;line-height:1">image</span><b style="font-size:13px;color:var(--k-text)">Photo · 340 KB</b><span style="font-size:12px">Tap to load</span></button></div>
+        </div>
+        <div role="status" style="position:absolute;left:12px;right:12px;bottom:20px;display:flex;align-items:center;gap:10px;padding:10px 8px 10px 14px;border-radius:12px;background:var(--k-surface-raised);border:1px solid var(--k-border);box-shadow:var(--k-shadow-3);font-size:14px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-info-text)">cloud_upload</span><span style="flex:1">Note saved offline · will sync</span><button style="height:44px;padding:0 10px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-weight:700;font-size:14px">Undo</button></div>
+      </div>
+      <span style="font-size:14px;font-weight:600">Offline · data saver · toast</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;align-items:center">
+      <div style="position:relative;width:360px;height:760px;border-radius:28px;overflow:hidden;box-shadow:0 0 0 8px #24201C,0 24px 60px rgba(0,0,0,.25);display:flex;flex-direction:column;color-scheme:dark;--k-bg:#151210;--k-surface:#1E1A17;--k-surface-raised:#29241F;--k-surface-sunken:#171411;--k-border:#37322D;--k-border-strong:#8A8277;--k-text:#FAF8F5;--k-text-2:#D2CBC0;--k-text-muted:#ABA398;--k-primary:#5754C4;--k-on-primary:#FFFFFF;--k-primary-soft:#232150;--k-primary-text:#BBBAEC;--k-accent:#F5B81A;--k-accent-soft:#2E2308;--k-accent-text:#F8C947;--k-success:#27A262;--k-danger:#CC2E2E;--k-info:#2E92CC;--k-scrim:rgba(0,0,0,.62);background:var(--k-bg);color:var(--k-text)">
+        <div style="height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:12px;font-weight:600"><span>21:07</span><span>4G</span></div>
+        <div role="status" style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:#2B2A8C;color:#FFFFFF;font-size:13px;line-height:18px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">lock</span><span style="flex:1"><b>Secure payment</b> · recording paused</span><span style="font-family:'JetBrains Mono',monospace">01:24</span></div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:12px"><span style="position:relative;width:48px;height:48px;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);font-weight:700;display:flex;align-items:center;justify-content:center">EO<span style="position:absolute;right:-3px;bottom:-3px;width:20px;height:20px;border-radius:50%;background:var(--k-danger);color:#FFFFFF;box-shadow:0 0 0 2px var(--k-bg);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:13px;line-height:1">call</span></span></span><div style="display:flex;flex-direction:column"><b style="font-size:17px">Efua Owusu</b><span style="font-size:13px;color:var(--k-text-2)">On call · <span style="font-family:'JetBrains Mono',monospace">03:12</span> · Accra Collections</span></div></div>
+        </div>
+        <div style="flex:1;background:var(--k-scrim)"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:var(--k-surface-raised);border-radius:20px 20px 0 0;padding:8px 8px 20px;display:flex;flex-direction:column">
+          <span style="width:40px;height:4px;border-radius:2px;background:var(--k-border-strong);align-self:center;margin:4px 0 10px"></span>
+          <b style="font-size:17px;padding:0 12px 8px">Set your status</b>
+          <span style="display:flex;align-items:center;gap:14px;height:56px;padding:0 12px;border-radius:10px;font-size:15px"><span style="width:14px;height:14px;border-radius:50%;background:var(--k-success)"></span><span style="flex:1">Available</span></span>
+          <span style="display:flex;align-items:center;gap:14px;height:56px;padding:0 12px;border-radius:10px;font-size:15px;background:var(--k-primary-soft);color:var(--k-primary-text);font-weight:600"><span style="width:14px;height:14px;border-radius:50%;background:var(--k-danger)"></span><span style="flex:1">On call</span><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">check</span></span>
+          <span style="display:flex;align-items:center;gap:14px;height:56px;padding:0 12px;border-radius:10px;font-size:15px"><span style="width:14px;height:14px;border-radius:50%;background:var(--k-accent)"></span><span style="flex:1">Wrap-up</span><span style="font-size:12px;color:var(--k-text-muted)">auto after call</span></span>
+          <span style="display:flex;align-items:center;gap:14px;height:56px;padding:0 12px;border-radius:10px;font-size:15px"><span style="width:14px;height:14px;border-radius:50%;background:var(--k-info)"></span><span style="flex:1">Break</span><span style="font-size:12px;color:var(--k-text-muted)">15 min left today</span></span>
+          <span style="display:flex;align-items:center;gap:14px;height:56px;padding:0 12px;border-radius:10px;font-size:15px;color:var(--k-text-2)"><span style="width:14px;height:14px;border-radius:50%;border:3px solid var(--k-border-strong)"></span><span style="flex:1">Offline</span></span>
+        </div>
+      </div>
+      <span style="font-size:14px;font-weight:600">Dark · presence sheet · PCI</span>
+    </div>
+  </div>
+</section>
+
+<section data-screen-label="07 Accessibility and usage" style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;align-items:baseline;gap:20px;border-top:2px solid #24201C;padding-top:16px"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#665F56">07</span><h2 style="margin:0;font-size:40px;line-height:48px;font-weight:700">Accessibility &amp; usage notes</h2></div>
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px">
+    <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:10px"><span style="font-family:'Material Symbols Rounded';font-size:28px;line-height:1;color:#3C39A8">contrast</span><b style="font-size:18px">Contrast · WCAG 2.2 AA</b><ul style="margin:0;padding-left:18px;font-size:14px;line-height:22px;color:#4E4841"><li>Text ≥ 4.5:1, large text &amp; UI boundaries ≥ 3:1 — input borders use neutral-500, not 300</li><li>Every semantic *-text token is tested on its *-soft background in both themes</li><li>Saffron is a fill, never text on light surfaces</li></ul></div>
+    <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:10px"><span style="font-family:'Material Symbols Rounded';font-size:28px;line-height:1;color:#3C39A8">touch_app</span><b style="font-size:18px">Targets &amp; focus</b><ul style="margin:0;padding-left:18px;font-size:14px;line-height:22px;color:#4E4841"><li>44×44 minimum (2.5.8 asks 24; we exceed it for gloved, one-handed and cracked-screen use)</li><li>Focus ring: 2px gap + 2px indigo (light) / saffron (dark); never obscured by sticky headers (2.4.11)</li><li>Drag actions (Kanban, resize) always have a keyboard or menu alternative (2.5.7)</li></ul></div>
+    <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:10px"><span style="font-family:'Material Symbols Rounded';font-size:28px;line-height:1;color:#3C39A8">translate</span><b style="font-size:18px">Language &amp; locale</b><ul style="margin:0;padding-left:18px;font-size:14px;line-height:22px;color:#4E4841"><li>Set lang on names/messages (yo, ig, ha, sw, fr) so screen readers pronounce them</li><li>Allow +30% text expansion for French; never fixed-width buttons</li><li>Format numbers/currency from locale, not by string concat</li><li>Always show timezone next to time</li></ul></div>
+    <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:10px"><span style="font-family:'Material Symbols Rounded';font-size:28px;line-height:1;color:#3C39A8">signal_cellular_alt_1_bar</span><b style="font-size:18px">Connectivity</b><ul style="margin:0;padding-left:18px;font-size:14px;line-height:22px;color:#4E4841"><li>Every write is optimistic + queued; banner shows the count, never a blocking spinner</li><li>Low-bandwidth mode is suggested, not forced, and persists per device</li><li>Media shows size before download; uploads resume by chunk</li></ul></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:12px">
+      <b style="font-size:18px;color:#086E3C">Do</b>
+      <ul style="margin:0;padding-left:18px;font-size:15px;line-height:24px;color:#4E4841"><li>Use one primary button per view; pair destructive actions with a named confirm (“Delete 3”).</li><li>Put consent &amp; DND badges next to the send/call control they affect — and disable that control.</li><li>Show the PCI banner for the full secure session; pause recording automatically, resume on end.</li><li>Use mono for phone numbers, IDs and amounts so digits align in tables.</li><li>Write copy in plain, warm English; short sentences; no idioms that don't translate.</li></ul>
+    </div>
+    <div style="background:#FFFFFF;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:12px">
+      <b style="font-size:18px;color:#8F1C1C">Don't</b>
+      <ul style="margin:0;padding-left:18px;font-size:15px;line-height:24px;color:#4E4841"><li>Use telco brand colours on network chips, or WhatsApp's brand green as a UI colour.</li><li>Use safari, kente-as-wallpaper or map-of-Africa motifs as decoration.</li><li>Rely on colour alone for presence, SLA or status.</li><li>Truncate names — Oluwaseyifunmi and Nomvuselelo must fit; wrap to two lines instead.</li><li>Assume one timezone, one currency or one phone format per account.</li></ul>
+    </div>
+  </div>
+</section>
+
+<section data-screen-label="08 Pipeline, empty states, overlays" style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;align-items:baseline;gap:20px;border-top:2px solid #24201C;padding-top:16px"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#665F56">08</span><h2 style="margin:0;font-size:40px;line-height:48px;font-weight:700">Pipeline, empty states &amp; overlays</h2><span style="flex:1"></span><span style="font-size:14px;color:#665F56">Added v1.1 · same --k-* tokens · light, dark and 360px</span></div>
+  <div style="display:flex;gap:32px;align-items:flex-start">
+    <div style="flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:12px">
+      <span style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">light_mode</span>Light</span>
+      <dc-import name="Kasuwa Patterns" hint-size="100%,3400px"></dc-import>
+    </div>
+    <div style="flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:12px;color-scheme:dark;--k-bg:#151210;--k-surface:#1E1A17;--k-surface-raised:#29241F;--k-surface-sunken:#171411;--k-border:#37322D;--k-border-strong:#8A8277;--k-text:#FAF8F5;--k-text-2:#D2CBC0;--k-text-muted:#ABA398;--k-primary:#5754C4;--k-primary-hover:#6360CB;--k-primary-active:#4E4BBE;--k-on-primary:#FFFFFF;--k-primary-soft:#232150;--k-primary-soft-strong:#2F2D68;--k-primary-text:#BBBAEC;--k-accent:#F5B81A;--k-accent-soft:#2E2308;--k-on-accent:#151210;--k-accent-text:#F8C947;--k-success:#27A262;--k-success-soft:#0C2618;--k-success-text:#58BD84;--k-warning:#F97F2A;--k-warning-soft:#2B190B;--k-warning-text:#FFA15C;--k-danger:#CC2E2E;--k-danger-hover:#D63B3B;--k-danger-active:#B02222;--k-danger-soft:#2E1111;--k-danger-text:#EC7777;--k-info:#2E92CC;--k-info-soft:#0C2230;--k-info-text:#5CAEDD;--k-disabled-bg:#29241F;--k-disabled-text:#665F56;--k-focus:#F8C947;--k-shadow-1:0 1px 2px rgba(0,0,0,.4);--k-shadow-2:0 4px 12px rgba(0,0,0,.45);--k-shadow-3:0 16px 40px rgba(0,0,0,.6);--k-scrim:rgba(0,0,0,.62);--k-inverse:#F3F0EB;--k-on-inverse:#24201C">
+      <span style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:#24201C"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">dark_mode</span>Dark</span>
+      <dc-import name="Kasuwa Patterns" hint-size="100%,3400px"></dc-import>
+    </div>
+  </div>
+  <div style="display:flex;gap:48px;align-items:flex-start;flex-wrap:wrap">
+    <div style="width:360px;display:flex;flex-direction:column;gap:12px">
+      <span style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">smartphone</span>360px · light</span>
+      <dc-import name="Kasuwa Patterns" compact="{{ true }}" hint-size="360px,5200px"></dc-import>
+    </div>
+    <div style="width:360px;display:flex;flex-direction:column;gap:12px;color-scheme:dark;--k-bg:#151210;--k-surface:#1E1A17;--k-surface-raised:#29241F;--k-surface-sunken:#171411;--k-border:#37322D;--k-border-strong:#8A8277;--k-text:#FAF8F5;--k-text-2:#D2CBC0;--k-text-muted:#ABA398;--k-primary:#5754C4;--k-on-primary:#FFFFFF;--k-primary-soft:#232150;--k-primary-soft-strong:#2F2D68;--k-primary-text:#BBBAEC;--k-accent:#F5B81A;--k-accent-soft:#2E2308;--k-accent-text:#F8C947;--k-success:#27A262;--k-success-soft:#0C2618;--k-success-text:#58BD84;--k-warning:#F97F2A;--k-warning-soft:#2B190B;--k-warning-text:#FFA15C;--k-danger:#CC2E2E;--k-danger-soft:#2E1111;--k-danger-text:#EC7777;--k-info:#2E92CC;--k-info-soft:#0C2230;--k-info-text:#5CAEDD;--k-focus:#F8C947;--k-shadow-1:0 1px 2px rgba(0,0,0,.4);--k-shadow-2:0 4px 12px rgba(0,0,0,.45);--k-shadow-3:0 16px 40px rgba(0,0,0,.6);--k-scrim:rgba(0,0,0,.62)">
+      <span style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:#24201C"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">smartphone</span>360px · dark</span>
+      <dc-import name="Kasuwa Patterns" compact="{{ true }}" hint-size="360px,5200px"></dc-import>
+    </div>
+  </div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;themeView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Side by side&quot;,&quot;Light only&quot;,&quot;Dark only&quot;],&quot;default&quot;:&quot;Side by side&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;reducedMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  lum(hex) { const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+  cr(a, b) { const x = this.lum(a), y = this.lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  renderVals() {
+    const steps = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
+    const S = [
+      ['primary', 'Primary · Indigo', ['#EEEEFA', '#DCDCF5', '#BBBAEC', '#9391DF', '#6D6ACF', '#4E4BBE', '#3C39A8', '#2B2A8C', '#22216F', '#1A1955', '#100F36'], 700],
+      ['accent', 'Accent · Saffron', ['#FEF8E7', '#FDEEC2', '#FBDD85', '#F8C947', '#F5B81A', '#F2A900', '#CC8A00', '#A06A00', '#7A5104', '#5C3D07', '#362303'], 500],
+      ['success', 'Success · Green', ['#E8F6EE', '#C6EAD5', '#93D6AF', '#58BD84', '#27A262', '#129553', '#0B8A4B', '#086E3C', '#075630', '#064226', '#032716'], 600],
+      ['warning', 'Warning · Orange', ['#FFF4EB', '#FFE3CC', '#FFC599', '#FFA15C', '#F97F2A', '#E8650F', '#C4500A', '#9C3F0B', '#7A330F', '#5E2A10', '#361606'], 0],
+      ['danger', 'Danger · Red', ['#FDEEEE', '#FAD5D5', '#F4AAAA', '#EC7777', '#E04A4A', '#CC2E2E', '#B02222', '#8F1C1C', '#721A1A', '#5A1717', '#340B0B'], 0],
+      ['info', 'Info · Blue', ['#E9F4FB', '#CBE5F5', '#97CBEB', '#5CAEDD', '#2E92CC', '#1479B4', '#0E6396', '#0D4F78', '#0E405F', '#0D334A', '#07202F'], 0],
+      ['neutral', 'Neutral · Warm grey', ['#FAF8F5', '#F3F0EB', '#E6E1D9', '#D2CBC0', '#ABA398', '#847C71', '#665F56', '#4E4841', '#37322D', '#24201C', '#151210'], 0]
+    ];
+    const scales = S.map(([key, label, hex, anchor]) => ({ key, label, sw: hex.map((h, i) => { const w = this.cr(h, '#FFFFFF'), d = this.cr(h, '#24201C'); const useW = w >= d; const r = useW ? w : d; return { hex: h, hexU: h.slice(1), fg: useW ? '#FFFFFF' : '#24201C', ratio: r.toFixed(1) + (r >= 4.5 ? '' : ' ✕'), star: steps[i] === anchor ? '★' : '' }; }) }));
+    const tokens = [
+      ['--k-bg', '#FAF8F5', '#151210', 'App canvas'], ['--k-surface', '#FFFFFF', '#1E1A17', 'Cards, panels, inputs'], ['--k-surface-raised', '#FFFFFF', '#29241F', 'Menus, modals (+ shadow)'], ['--k-surface-sunken', '#F3F0EB', '#171411', 'Wells, table header, side nav'],
+      ['--k-border', '#E6E1D9', '#37322D', 'Dividers, card edges'], ['--k-border-strong', '#847C71', '#8A8277', 'Input & control boundaries (3:1)'],
+      ['--k-text', '#24201C', '#FAF8F5', 'Primary text'], ['--k-text-2', '#4E4841', '#D2CBC0', 'Secondary text'], ['--k-text-muted', '#665F56', '#ABA398', 'Hints, meta, captions (≥4.5:1)'],
+      ['--k-primary', '#2B2A8C', '#5754C4', 'Primary action fill'], ['--k-primary-text', '#3C39A8', '#BBBAEC', 'Links, active tab, selected text'], ['--k-primary-soft', '#EEEEFA', '#232150', 'Selected row, hover'],
+      ['--k-accent', '#F2A900', '#F5B81A', 'Highlights, tier, drag targets'], ['--k-success-text', '#086E3C', '#58BD84', 'Positive outcomes'], ['--k-warning-text', '#9C3F0B', '#FFA15C', 'At-risk, paused'],
+      ['--k-danger', '#B02222', '#CC2E2E', 'Destructive fill, breached'], ['--k-info-text', '#0D4F78', '#5CAEDD', 'Neutral system info'],
+      ['--k-focus', '#4E4BBE', '#F8C947', 'Focus ring (2px + 2px gap)'], ['--k-wa-bubble', '#DDF4E6', '#123A25', 'Inbound WhatsApp bubble'], ['--k-inverse', '#24201C', '#F3F0EB', 'Toasts, offline banner']
+    ].map(([name, light, dark, use]) => ({ name, light, dark, use }));
+    const P = [['Text on surface', '#24201C', '#FFFFFF'], ['Muted on surface', '#665F56', '#FFFFFF'], ['White on primary', '#FFFFFF', '#2B2A8C'], ['Ink on saffron', '#24201C', '#F2A900'], ['Success on soft', '#086E3C', '#E8F6EE'], ['Danger on soft', '#8F1C1C', '#FDEEEE'], ['Dark · text-2 on surface', '#D2CBC0', '#1E1A17'], ['Dark · white on primary', '#FFFFFF', '#5754C4']];
+    const pairs = P.map(([label, fg, bg]) => { const r = this.cr(fg, bg); return { label, fg, bg, ratio: r.toFixed(2) + ':1', grade: r >= 7 ? 'AAA' : r >= 4.5 ? 'AA' : 'AA large' }; });
+    const view = this.props.themeView ?? 'Side by side';
+    return {
+      scales, tokens, pairs,
+      spaces: [[1, 4], [2, 8], [3, 12], [4, 16], [5, 20], [6, 24], [8, 32], [10, 40], [12, 48], [16, 64]].map(([k, v]) => ({ k, v })),
+      showLight: view !== 'Dark only', showDark: view !== 'Light only',
+      reducedMotion: !!this.props.reducedMotion
+    };
+  }
+}
+</script>
+</body>
+</html>

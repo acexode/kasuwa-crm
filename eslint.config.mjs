@@ -85,7 +85,8 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/coverage/**',
       '.nx/**',
-      'packages/ui/src/tokens.css',
+      'packages/ui/src/*.generated.css',
+      'apps/web/public/fonts/**',
       'tools/fixtures/**',
     ],
   },
@@ -186,8 +187,31 @@ export default tseslint.config(
 
   // --- tooling scripts are plain node --------------------------------------
   {
-    files: ['tools/**/*.mjs', '**/*.config.mjs', '.claude/hooks/**/*.mjs'],
-    languageOptions: { globals: { process: 'readonly', console: 'readonly' } },
+    files: [
+      'tools/**/*.mjs',
+      '**/scripts/**/*.mjs',
+      '**/*.config.mjs',
+      '.claude/hooks/**/*.mjs',
+    ],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+        Buffer: 'readonly',
+        fetch: 'readonly',
+        URL: 'readonly',
+        __dirname: 'readonly',
+      },
+    },
     rules: { 'no-console': 'off', 'no-undef': 'off' },
+  },
+
+  // --- generated files are not hand-maintained -----------------------------
+  {
+    files: ['**/*.generated.ts', 'packages/ui/tailwind-preset.cjs'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-restricted-syntax': 'off',
+    },
   },
 );

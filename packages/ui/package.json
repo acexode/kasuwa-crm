@@ -7,14 +7,24 @@
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./tokens.css": "./src/tokens.css",
+    "./tokens.css": "./src/tokens.generated.css",
+    "./fonts.css": "./src/fonts.generated.css",
     "./tailwind-preset": "./tailwind-preset.cjs"
   },
   "scripts": {
     "lint": "eslint src scripts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "tokens": "tsx scripts/generate-tokens-css.ts"
+    "tokens": "tsx scripts/generate-tokens-css.ts",
+    "import-design": "node scripts/import-design-tokens.mjs",
+    "fetch-fonts": "node scripts/fetch-fonts.mjs"
   },
-  "devDependencies": { "tsx": "^4.19.2" },
-  "nx": { "tags": ["scope:ui", "type:ui"] }
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  },
+  "nx": {
+    "tags": [
+      "scope:ui",
+      "type:ui"
+    ]
+  }
 }

@@ -17,5 +17,9 @@
 *.woff2 binary
 *.pdf binary
 
+# The Claude Design export is committed byte-for-byte unchanged (T-0003 hand-off),
+# so line-ending normalisation must not touch it.
+docs/design/** -text
+
 pnpm-lock.yaml linguist-generated=true
 packages/ui/src/tokens.css linguist-generated=true

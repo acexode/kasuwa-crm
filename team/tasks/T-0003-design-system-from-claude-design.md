@@ -3,13 +3,13 @@
 | Field | Value |
 |---|---|
 | **id** | T-0003 |
-| **status** | `not-assigned` |
+| **status** | `done` |
 | **module** | M19 + all UIs |
 | **owner** | Agent 11 — Frontend & Design System |
 | **priority** | P0 |
 | **PRD refs** | `docs/prd/M19-mobile.md`; founding pack Part 4 Prompt 0; PRD 2.13 (WCAG 2.2 AA, low bandwidth) |
 | **dependencies** | none |
-| **decisions** | **D-L10 is the whole task.** The current tokens are explicitly provisional. |
+| **decisions** | D-L10 **closed** 2026-09-27. Deviations and one unreconciled contrast figure in `team/DECISION-LOG.md`. |
 | **budget** | 3 sessions before escalating |
 
 ## Goal
