@@ -1,6 +1,6 @@
 [
   "app.name",
-  "tokens.sample.text",
   "tokens.contrast.ratio",
-  "tokens.sample.arabic"
+  "tokens.sample.arabic",
+  "tokens.sample.text"
 ]

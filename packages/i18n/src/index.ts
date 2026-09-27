@@ -198,6 +198,55 @@ export type { LocaleReview, LocaleSource, ReviewStatus } from './catalogues';
 export { EN_CATALOGUE, EN_NG_CATALOGUE } from './catalogues';
 
 /**
+ * A subset of a catalogue, already resolved through the fallback chain.
+ *
+ * WHY THIS EXISTS — it is a bandwidth decision, not an ergonomics one.
+ *
+ * `createTranslator` closes over every registered catalogue. In a React server
+ * component that costs nothing; in a client component it drags all nine
+ * catalogues into the browser bundle, and that set only grows — by the time
+ * thirty screens exist it is most of what a user on 256 kbps waits for, in
+ * order to render one form in one language.
+ *
+ * So a screen resolves its strings on the server, ships the handful it needs,
+ * and the interactive island formats them with the real ICU formatter. The
+ * catalogues stay on the server; the formatter — fixed in size, and needed for
+ * the plural on `auth.attemptsRemaining` and the retry time on `P01/1b` —
+ * is the only part that crosses the wire.
+ */
+export type MessageBundle = Readonly<Record<string, string>>;
+
+/** Resolves `ids` for `locale`. Throws on a missing id, exactly like `t`. */
+export function bundleMessages(locale: string, ids: readonly MessageId[]): MessageBundle {
+  const bundle: Record<string, string> = {};
+  for (const id of ids) {
+    bundle[id] = resolveMessage(locale, id);
+  }
+  return bundle;
+}
+
+/**
+ * A translator over an already-resolved bundle. No catalogue and no fallback
+ * chain: if an id is not in the bundle the screen forgot to ask for it, and
+ * that throws rather than rendering a blank.
+ */
+export function createBundleTranslator(locale: string, messages: MessageBundle): Translator {
+  return {
+    locale,
+    t(id, values) {
+      const message = messages[id];
+      if (message === undefined) {
+        throw new Error(`Message "${id}" is not in the bundle for locale "${locale}"`);
+      }
+      if (values === undefined && !message.includes('{')) {
+        return message;
+      }
+      return new IntlMessageFormat(message, locale).format(values) as string;
+    },
+  };
+}
+
+/**
  * Every registered catalogue, offered or not. `SUPPORTED_LOCALES` is the menu;
  * this is the inventory, and the difference between them is the point.
  */
