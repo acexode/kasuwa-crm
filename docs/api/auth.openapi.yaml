@@ -719,8 +719,11 @@ components:
           the address is real. The same code also appears from the second-factor
           route once a user has got too many codes wrong across every challenge
           they opened.
-        * `too_many_requests` — the client address is calling the expensive
-          routes too fast. This is a resource control, not a credential one: a
+        * `too_many_requests` — the client address is calling the sign-in route
+          too fast, or has too many sign-ins already in flight. **It is only
+          ever returned by `/auth/sign-in`**: the second-factor routes do no
+          password hashing, so putting them on the same budget would refuse a
+          legitimate code because somebody had been typing passwords. This is a resource control, not a credential one: a
           sign-in runs argon2id whether or not the account exists, so an
           unbounded flood would exhaust the cell for every tenant on it. It is
           not evidence about any account at all.
