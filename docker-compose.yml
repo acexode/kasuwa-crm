@@ -1,0 +1,83 @@
+# Local development stack for Kasuwa.
+# Brought up by `pnpm dev` (tools/dev.mjs). Nothing here is production-shaped;
+# infrastructure-as-code for real environments is Agent 13's (DevOps) scope.
+#
+# PORTS: the dev stack deliberately avoids the default ports. A developer with a
+# locally installed Postgres, Redis or OpenSearch would otherwise either fail to
+# start the stack or - far worse - silently connect to the wrong server, because
+# on Windows `localhost` resolves to ::1 and can reach a native service before
+# Docker's proxy. That failure looks like "password authentication failed" and
+# costs an hour. Container-internal ports are unchanged.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kasuwa-postgres
+    environment:
+      POSTGRES_DB: kasuwa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports: ['55432:5432']
+    volumes:
+      # Creates kasuwa_app / kasuwa_migrator / kasuwa_test_admin and their grants.
+      # The Testcontainers harness applies this exact same file — single source of truth.
+      - ./packages/db/sql/bootstrap.sql:/docker-entrypoint-initdb.d/10-bootstrap.sql:ro
+      - kasuwa-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d kasuwa']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: kasuwa-redis
+    ports: ['56379:6379']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  opensearch:
+    image: opensearchproject/opensearch:2.17.1
+    container_name: kasuwa-opensearch
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: 'true'
+      DISABLE_INSTALL_DEMO_CONFIG: 'true'
+      OPENSEARCH_JAVA_OPTS: '-Xms512m -Xmx512m'
+    ports: ['59200:9200']
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fs http://localhost:9200/_cluster/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  # S3-compatible object storage for local parity.
+  #
+  # NOT MinIO, which the founding pack and the brief both name. MinIO's public
+  # Docker Hub images stopped being pullable without a subscription, and Bitnami
+  # moved its catalogue behind a paywall in the same period, so neither survives
+  # the "works on a clean machine" test. SeaweedFS speaks the S3 API, pulls
+  # freely and is a real storage system rather than a mock.
+  #
+  # Running with anonymous S3 access: nothing in the scaffold reads or writes
+  # object storage yet, so credentialled access would be unverifiable
+  # decoration. Agent 13 wires real identities when attachments or recordings
+  # first need them. See team/DECISIONS.md D-L21.
+  seaweedfs:
+    image: chrislusf/seaweedfs:3.80
+    container_name: kasuwa-s3
+    command: server -dir=/data -s3 -s3.port=8333 -master.port=9333 -volume.port=8080 -filer
+    ports: ['59000:8333', '59333:9333']
+    volumes:
+      - kasuwa-s3:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://localhost:9333/cluster/healthz || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  kasuwa-pgdata:
+  kasuwa-s3:

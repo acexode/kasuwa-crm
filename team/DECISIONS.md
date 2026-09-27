@@ -1,0 +1,433 @@
+# DECISIONS.md — open decisions for the human
+
+Format per Addendum §3.3: `id, context, options, recommendation, deadline`, plus **Blocked** (what
+cannot proceed until this is answered) and **Reversibility**.
+
+Rules of engagement:
+- Where a decision is **trivially reversible**, I proceed on my recommendation and record it here as
+  `PROCEEDING`. You can overturn it cheaply.
+- Where it is **not** trivially reversible, or it is product-shaping, the status is `BLOCKED` and
+  nothing in the code will depend on it.
+- Answered decisions move to `DECISION-LOG.md` with your answer and date.
+
+Status key: `BLOCKED` · `PROCEEDING` (recommendation adopted, reversible) · `ANSWERED` (moved to log)
+
+Date opened: 2026-09-26 unless stated.
+
+---
+
+## A. Blockers for the Phase 1 scaffold PR
+
+### D-L01 — No git repository or remote exists
+**Status:** ANSWERED 2026-09-26 — see DECISION-LOG.md (https://github.com/acexode/kasuwa-crm)
+**Context:** `C:\dev\Outsource\kasuwa` is not a git repository and there is no remote. The brief says
+"work in a branch `scaffold/initial`, open one PR, wait for my review." I can create the branch
+locally; I cannot open a PR without a remote.
+**Options:**
+1. You create an empty GitHub repo (private) and give me the remote URL + push rights.
+2. I `git init` locally, commit on `scaffold/initial`, and you review the diff locally (`git diff main...scaffold/initial`); PR comes later.
+3. I `git init` and you connect a remote afterwards.
+**Recommendation:** (1) if you can do it now, else (2) — I will `git init` and commit on the branch so
+no work is lost, and push the moment a remote exists. GitHub Actions CI cannot be *verified* running
+until a remote exists; I will say so explicitly rather than claim CI passes.
+**Blocked:** the PR itself, CI verification, CODEOWNERS enforcement, the `lead-approved` label gate.
+**Reversibility:** n/a.
+
+### D-L02 — CI label gate blocks its own first PR
+**Status:** PROCEEDING
+**Context:** The rule "CI fails if any file under `tests/acceptance/` or `packages/db/migrations/`
+changes in a PR not labelled `lead-approved`" is self-blocking: the scaffold PR is the PR that
+*creates* those directories.
+**Options:** (a) label the scaffold PR `lead-approved`; (b) exempt PRs whose base has no such files;
+(c) exempt the initial commit by SHA.
+**Recommendation:** (a) — apply the label to the scaffold PR. Keep the rule dumb and strict. Also
+note: GitHub labels are applied by anyone with write access, so the gate is a *convention*, not a
+security control, until you restrict label permissions or move the gate to a CODEOWNERS-required
+review on those paths. I recommend adding CODEOWNERS entries for those two paths pointing at you.
+**Blocked:** nothing.
+**Reversibility:** trivial.
+
+### D-L03 — Monorepo tool: Nx vs Turborepo
+**Status:** ANSWERED 2026-09-26 — see DECISION-LOG.md (Nx, ADR-0005)
+**Context:** Founding pack §3.16 says "Nx (or Turborepo)". The hard requirement is *enforced* module
+boundaries: `packages/domain/*` may depend on `db`, `permissions`, `metadata-engine`, never on
+another domain's internals.
+**Options:**
+1. **Nx** — `@nx/enforce-module-boundaries` ESLint rule enforces exactly this via project tags, at
+   lint time, with a clear error. Also gives affected-graph test selection for the post-edit hook.
+   Cost: heavier config, a daemon, more opinionated generators.
+2. **Turborepo** — simpler, faster to reason about, but has **no** boundary enforcement. We would
+   hand-roll it with `eslint-plugin-boundaries` or `depcruise`, which is extra surface we maintain.
+**Recommendation:** **Nx.** Boundary enforcement and `nx affected` are the two things this operating
+model depends on most (13 agents, convention drift is the named risk, hooks need affected-test
+selection). Turborepo's simplicity is not worth rebuilding both.
+**Blocked:** nothing.
+**Reversibility:** moderate — swapping later is a day of work, not a rewrite. Requires ADR-0005.
+
+### D-L04 — DB access layer: Drizzle vs Kysely
+**Status:** ANSWERED 2026-09-26 — see DECISION-LOG.md (Drizzle, ADR-0006)
+**Context:** Founding pack §3.2 says "Drizzle or Kysely (SQL-first) + raw SQL for metadata engine".
+**Options:**
+1. **Drizzle** — schema-in-TS, ships `drizzle-kit` migrations and a runner, good RLS compatibility
+   (it does not fight you about raw SQL), inferred types. Weaker at very dynamic query construction.
+2. **Kysely** — best-in-class dynamic query builder (relevant later for the metadata engine's runtime
+   SQL), but no migration tooling of its own; we would bring `kysely-migrator`/`node-pg-migrate`.
+**Recommendation:** **Drizzle** for the schema, migrations and standard repositories; keep the door
+open to using raw parameterised SQL (and later Kysely as a *query builder only*) inside
+`packages/metadata-engine`, which is the one place dynamic SQL is genuinely needed. Note both are
+irrelevant to RLS: policies are hand-written SQL in migrations either way.
+**Blocked:** nothing.
+**Reversibility:** moderate. ADR-0006.
+
+### D-L05 — Stubbed auth context: how does the API learn tenant/programme/user before real auth?
+**Status:** PROCEEDING (with a fail-closed guard)
+**Context:** The slice needs `app.tenant_id`, `app.programme_ids`, `app.user_id` set per request, but
+real auth (Agent 1, M2) comes later.
+**Options:**
+1. Dev-only request headers (`x-kasuwa-tenant-id`, `x-kasuwa-user-id`, `x-kasuwa-programme-ids`).
+2. An unsigned JWT with the same claims.
+3. A fixed in-process fake user selected by env var.
+**Recommendation:** (1) **plus a hard fail-closed guard**: the stub provider is only registered when
+`KASUWA_AUTH_MODE=stub`, and the app **refuses to boot** if `KASUWA_AUTH_MODE=stub` while
+`NODE_ENV=production`. Headers make the isolation tests (including the URL/header-manipulation
+cases) direct and honest. A test asserts the production refusal.
+**Blocked:** nothing.
+**Reversibility:** trivial — it is one provider behind an interface.
+
+### D-L06 — Can a user be scoped to "all programmes in my tenant"?
+**Status:** ANSWERED 2026-09-26 — see DECISION-LOG.md (no wildcard; explicit enumeration)
+**Context:** Admins, supervisors and reporting users plausibly need tenant-wide reach. RLS needs to
+express that. A wildcard (`app.programme_ids = '*'`) is a single character between "admin" and
+"everything", which is exactly the class of bug the isolation suite exists to catch.
+**Options:**
+1. **No wildcard ever.** The session always carries an explicit, enumerated list of programme ids,
+   computed at login from `user_programme`. Costs a list that can grow to hundreds of ids.
+2. A `tenant_wide` boolean session var, with RLS reading `(tenant_wide OR programme_id = ANY(...))`.
+3. A dedicated "all programmes" sentinel role in the permissions engine (M2), out of scope now.
+**Recommendation:** (1) for the scaffold — explicit enumeration only. It is the safe default and it
+makes the Phase 1 isolation tests meaningful. But the real answer belongs with M2 and I want yours
+before Agent 1 builds the permissions engine, because retrofitting (2) means touching every policy.
+**Blocked:** Agent 1's permissions-engine task (week 1/2). Not blocked: the scaffold.
+**Reversibility:** low once policies exist across dozens of tables. ADR needed when answered.
+
+### D-L07 — Database roles
+**Status:** PROCEEDING
+**Context:** Pack §3.3 requires the app role to have no BYPASSRLS and migrations to use a separate
+role.
+**Recommendation:** three roles — `kasuwa_app` (NOBYPASSRLS, no DDL, used by API/worker/realtime),
+`kasuwa_migrator` (owns schema, runs DDL, used only by the migration runner), `kasuwa_test_admin`
+(Testcontainers only, for harness setup). A test asserts `rolbypassrls = false` for `kasuwa_app` and
+that `kasuwa_app` cannot `ALTER TABLE ... DISABLE ROW LEVEL SECURITY`. Table owners must also not be
+`kasuwa_app`, since a table owner bypasses RLS unless `FORCE ROW LEVEL SECURITY` is set — I will set
+`FORCE` on every tenant table as belt-and-braces.
+**Blocked:** nothing. **Reversibility:** trivial.
+
+### D-L08 — Primary key strategy
+**Status:** PROCEEDING — **UUIDv7 generated in application code**
+**Context:** Postgres 16 has no native `uuidv7()` (that is PG18). v4 keys fragment B-tree indexes at
+CRM scale (50M rows/tenant target).
+**Recommendation:** UUIDv7 from a tiny library, generated in TS, with a DB default of `gen_random_uuid()`
+only as a safety net for rows inserted outside the app. Revisit when we move to PG18.
+**Blocked:** nothing. **Reversibility:** moderate (data migration), but the *type* stays `uuid`.
+
+### D-L09 — i18n stack and the hard-coded-string lint rule
+**Status:** PROCEEDING
+**Context:** Pack §3.14 says "ICU MessageFormat (FormatJS/Lingui)"; brief requires `en`, `en-NG`, a
+pseudo-locale for CI, and a lint rule that fails on hard-coded user-facing strings in `apps/web`.
+**Recommendation:** FormatJS (`react-intl` + `@formatjs/cli` for extraction and pseudo-locale
+generation), with `eslint-plugin-formatjs` for message correctness and a `no-literal-string` rule
+(via `eslint-plugin-i18next`, scoped to `apps/web/**` with an allowlist for `className`, `data-*`,
+`aria-*` attribute values that are not user-facing, and test files). Pseudo-locale `en-XA` generated
+in CI, not committed. Note: `en-NG` will initially be an near-empty overlay on `en` — that is correct,
+it exists to prove the fallback chain.
+**Blocked:** nothing. **Reversibility:** moderate (message syntax differs between FormatJS and Lingui).
+
+### D-L10 — Design tokens are provisional
+**Status:** PROCEEDING, flagged
+**Context:** `packages/ui` must hold colour scales, semantic tokens, type scale and spacing. Prompt 0
+gives three brand anchors (indigo `#2B2A8C`, saffron `#F2A900`, green `#0B8A4B`) and "warm greys",
+but no actual 50–950 scales — those come out of Claude Design.
+**Recommendation:** generate perceptually-even scales from the three anchors, check every
+text-on-surface pair against WCAG 2.2 AA in a unit test, and mark the file
+`PROVISIONAL — replaced by Claude Design export (Prompt 0)`. Agent 11's first task is to run Prompt 0
+and replace them. Nothing may hard-code a hex outside this package (lint rule).
+**Blocked:** nothing, but the tokens are *not* the brand until Agent 11 replaces them.
+**Reversibility:** trivial by design — that is the point of tokens.
+
+### D-L11 — Feature-flag provider
+**Status:** PROCEEDING
+**Recommendation:** OpenFeature SDK with the in-memory provider, wired into API and web, exposing
+zero flags. Unleash/GrowthBook evaluated when the first real flag is needed (Agent 13).
+**Blocked:** nothing. **Reversibility:** trivial (that is OpenFeature's purpose).
+
+### D-L12 — `contact` minimal fields for the slice
+**Status:** PROCEEDING
+**Recommendation:** `id, tenant_id, programme_id, account_id (null), display_name, given_names,
+family_name, phones jsonb, emails jsonb, created_at, updated_at`. Explicitly **not** in this slice:
+`consent_state`, `nin_token`, `bvn_token`, `custom jsonb`, `preferred_channel`,
+`preferred_language`, network detection. Those are Agent 3's (M3) with their own acceptance tests,
+and NIN/BVN need the field-encryption decision first (D-L13).
+**Blocked:** nothing. **Reversibility:** trivial (additive migration).
+
+### D-L13 — Field-level encryption for NIN/BVN
+**Status:** BLOCKED (not needed for the scaffold; needed before M3)
+**Context:** Pack §2.12 requires per-tenant KMS keys and blind indexes for equality search. That is a
+significant design with key-rotation and search consequences.
+**Options:** (1) `pgcrypto` + app-held per-tenant DEK wrapped by a KMS CMK; (2) a dedicated
+encryption service; (3) tokenisation via the identity-verification provider (Smile ID/Dojah) so
+Kasuwa never stores the identifier at all.
+**Recommendation:** (3) where the provider supports it, falling back to (1). But this needs your
+answer plus counsel's, and it shapes M3's schema.
+**Blocked:** M3 contact fields carrying NIN/BVN. Not the scaffold.
+
+### D-L14 — PRD split: verbatim or expanded?
+**Status:** PROCEEDING
+**Context:** Part 2 §2.7 modules are terse prioritised bullet lists. Splitting them into 23 files
+gives 23 thin files.
+**Recommendation:** split **verbatim** (bullets preserved exactly, so the source of truth is not
+silently rewritten), then per file add: (a) addendum deltas clearly marked, (b) the relevant
+cross-cutting requirements from §2.9–§2.13, (c) the user stories from §2.8 that touch the module,
+(d) an `## Open questions` section listing what a builder cannot determine from the text. I will
+**not** invent requirements. M9 and M11 get rewritten headers as integration modules per the
+addendum, with the removed scope listed explicitly so no agent rebuilds it.
+**Blocked:** nothing. **Reversibility:** trivial.
+
+### D-L15 — Windows development environment
+**Status:** PROCEEDING, flagged
+**Context:** You are on Windows 11. Testcontainers and Docker Compose need Docker Desktop with the
+WSL2 backend. Some Node tooling behaves differently on native Windows paths.
+**Recommendation:** document Docker Desktop + WSL2 as the supported local setup; CI runs
+`ubuntu-latest`. I will verify `pnpm install`, `pnpm dev` and `pnpm test` on **this Windows machine**
+and report exactly what passed and what I could not verify. If Docker Desktop is not installed here,
+integration and isolation tests cannot be run locally and I will say so rather than claim they pass.
+**Blocked:** local verification of the Testcontainers-based suites if Docker is unavailable.
+
+### D-L16 — Hooks cannot truly identify "the lead's session"
+**Status:** PROCEEDING, flagged as a known weakness
+**Context:** The brief asks for a hook that blocks edits to `tests/acceptance/` and migrations
+"unless the session is the lead's". Claude Code hooks have no trustworthy session identity — any
+agent session could set the same env var.
+**Recommendation:** implement the hook as a **guardrail against accident, not an adversary**: it
+blocks unless `KASUWA_LEAD_SESSION=1` is set in that session's environment, and prints why. The
+*real* enforcement is CI (label gate) plus branch protection plus your review — those an agent
+cannot set. I will document this honestly in `.claude/hooks/README.md` rather than imply the hook is
+a security boundary.
+**Blocked:** nothing.
+
+### D-L17 — CODEOWNERS with non-existent GitHub teams
+**Status:** ANSWERED 2026-09-26 — see DECISION-LOG.md (@acexode)
+**Context:** CODEOWNERS referencing teams that do not exist produces repo warnings and, with
+"require review from Code Owners" enabled, can make PRs unmergeable.
+**Options:** (1) placeholder comments only, no active owner lines, until real handles exist;
+(2) point everything at your personal handle; (3) create real GitHub teams per agent.
+**Recommendation:** (2) for the paths that genuinely need your eyes (`tests/acceptance/`,
+`packages/db/migrations/`, `.github/`, anything auth/RLS/permissions) and (1) — commented
+placeholders naming the agent per Addendum §3.2 — for the rest. I need your GitHub handle for (2).
+**Blocked:** the auth/RLS/payments review gate from Addendum §3.5 ("human review of every PR touching
+auth, RLS, permissions, payments, recordings") cannot be enforced without it.
+
+### D-L18 — Roster count: 12 or 13 specialists?
+**Status:** BLOCKED (cheap to answer)
+**Context:** Your brief says "12 specialist agents". Addendum §3.2 lists 13 (1–13, DevOps as #13 with
+a footnote offering to fold it into #1). The pilot week you named includes agent 13.
+**Recommendation:** 13 specialists + lead. The footnote itself says you would rather drop a builder
+than lose DevOps or QA. I will write `ROSTER.md` with 13 and mark it pending your confirmation.
+**Blocked:** nothing structural; `ROSTER.md` accuracy.
+
+### D-L19 — PR size limit: 400 or 600 lines?
+**Status:** ANSWERED 2026-09-26 — see DECISION-LOG.md (600 lines)
+**Context:** Pack §3.17 says "≤400 lines where possible"; Addendum §3.3 definition of done says
+"≤ ~600 lines or split". The addendum wins by its own rule.
+**Recommendation:** 600 as the soft cap in `CLAUDE.md`, with a CI *warning* (not a failure) above it.
+Note: the scaffold PR will be far larger than 600 lines — structural PRs are exempt and I will say so
+in the PR description.
+**Blocked:** nothing.
+
+---
+
+## A2. Decisions taken during the scaffold build (2026-09-27)
+
+*These were not foreseeable in Phase 0; they surfaced while making the thing
+actually run. All three are reversible, all three are recorded here because they
+deviate from what the brief or the founding pack specified.*
+
+### D-L20 — rollup is pinned to its WebAssembly build
+**Status:** ANSWERED 2026-09-27 — accepted as TEMPORARY; remove once the devcontainer/cloud environment is confirmed. See DECISION-LOG.md
+**Context:** Vitest depends on Vite, which depends on rollup's native binary.
+Windows **Smart App Control is enforcing on the development machine**
+(`VerifiedAndReputablePolicyState = 1`), and it blocks that unsigned `.node`
+file outright. Without a workaround, `pnpm test` does not run at all on the
+primary development machine — which fails the brief's own definition of done.
+**Options:**
+1. `pnpm.overrides` mapping `rollup` to `@rollup/wasm-node` (what I did). Costs
+   some Vite/Vitest speed; affects CI too, since overrides are global.
+2. Develop in WSL Ubuntu instead, where the policy does not apply. Cleaner
+   repository, but every agent session would have to run there.
+3. Turn Smart App Control off. **I am not recommending this and did not do it:**
+   once disabled it cannot be re-enabled without reinstalling Windows, and it is
+   a machine-wide security posture change to fix one build tool.
+**Recommendation:** keep (1) for now — it is one line, it works everywhere, and
+the speed cost on a workspace this size is small. Revisit if CI build times
+become a problem, at which point (2) is the better long-term answer.
+**Blocked:** nothing. **Reversibility:** trivial (delete the override).
+
+### D-L21 — SeaweedFS instead of MinIO for local object storage
+**Status:** ANSWERED 2026-09-27 — accepted. See DECISION-LOG.md
+**Context:** The founding pack and your brief both name MinIO. MinIO's public
+Docker Hub images are no longer pullable without a subscription, and Bitnami's
+catalogue moved behind a paywall in the same period. Neither survives the
+"works on a clean machine" test — I hit this as a hard failure, not a theory.
+**Recommendation:** SeaweedFS (`chrislusf/seaweedfs`), which speaks the S3 API,
+pulls freely and is a real storage system rather than a mock. Running with
+anonymous S3 access, because nothing in the scaffold reads or writes object
+storage yet and credentialled access would be unverifiable decoration.
+**Consequence for later:** whoever first stores attachments or recordings
+(Agent 6 or Agent 13) should re-check whether production will use AWS S3
+directly — in which case local parity matters less than I assumed — or whether a
+licensed MinIO is wanted for the Lagos Silo cells.
+**Blocked:** nothing. **Reversibility:** trivial.
+
+### D-L22 — the dev stack runs on non-default ports
+**Status:** PROCEEDING
+**Context:** This machine already runs a native PostgreSQL on 5432 and something
+on 6379. On Windows, `localhost` resolves to `::1` first, so the API connected
+to the **native** Postgres instead of the container and failed with "password
+authentication failed" — a message that points nowhere near the actual cause.
+It cost real time to diagnose, and it will happen to anyone with a local
+Postgres installed.
+**Recommendation:** Postgres 55432, Redis 56379, OpenSearch 59200, S3 59000.
+Container-internal ports are unchanged, and Testcontainers is unaffected since
+it allocates random ports.
+**Blocked:** nothing. **Reversibility:** trivial.
+
+### D-L23 — acceptance-test stubs are `todo`, not failing
+**Status:** ANSWERED 2026-09-27 — agreed a weakening; new standing rule now enforced by `pnpm verify:tasks`. See DECISION-LOG.md
+**Context:** Addendum A1 section 3.3 principle 3 says acceptance tests are
+committed **failing** before a task is assigned. The brief also requires CI to
+be green on the first PR. Those two cannot both hold for the pilot tasks, since
+their tests would be failing by design.
+**What I did:** the five pilot tasks have acceptance files under
+`tests/acceptance/` containing `it.todo` entries, each written as the assertion
+it will become rather than a vague heading. CI stays green; the files exist and
+are path-protected.
+**Why this is weaker than the addendum intends:** a `todo` holds nobody to
+anything. The protocol only works if the lead converts them to real failing
+tests **before** each task is assigned. That is a step that can be skipped under
+time pressure, and if it is, the whole "builders cannot edit their own
+acceptance criteria" property quietly stops applying.
+**Recommendation:** treat conversion as part of assigning a task, not part of
+doing it. If you want the stronger form, I can make CI require that no `it.todo`
+exists in `tests/acceptance/` for any task currently marked in progress.
+**Blocked:** nothing.
+
+---
+
+## B. Carried forward from the Addendum — still open, still blocking
+
+These are your own open questions from Addendum §1.3, §2.2 and §3.8. They are restated here because
+this file is the single queue, and several of them gate work in weeks 1–3.
+
+### D-T1 — Does the telephony platform expose a WebRTC client SDK, or do we embed its softphone UI?
+**Status:** BLOCKED
+**Blocked:** Prompt 9 (softphone UI), Agent 6's screen-pop work, the `CallControl` half of the
+telephony adapter contract. **Not blocked:** the event-ingest and click-to-call halves, which I will
+define now. My adapter will separate `TelephonyEvents` / `TelephonyCommands` (definable today) from
+`TelephonySoftphone` (deferred, empty interface with a comment) so this answer does not force rework.
+
+### D-T2 — Who owns the dialer list?
+**Status:** BLOCKED. Your own recommendation (Kasuwa owns contacts + consent, platform receives
+filtered lists) is the one I would make too. **Blocked:** campaign/list contract shape, Agent 5 and 6
+week-2 work.
+
+### D-T3 — Who enforces DND/quiet hours at dial time?
+**Status:** BLOCKED. Your recommendation (platform calls Kasuwa's `may_dial?`, Kasuwa also
+pre-filters) is sound and is defence-in-depth. **Blocked:** whether Kasuwa must expose a
+sub-100 ms synchronous endpoint, which is a real latency/availability commitment with infrastructure
+consequences. This one needs a yes/no from the telephony team, not just from you.
+
+### D-T4 — Does the platform already do recording, retention and PCI masking?
+**Status:** BLOCKED. **Blocked:** M18 client-portal recording playback, retention policy ownership,
+whether PCI is fully out of Kasuwa's scope (pack §2.10 assumes it is; §2.7 M9 P0 assumed we build it;
+the addendum removes it — I need confirmation that the platform actually does it, otherwise there is
+a compliance gap owned by nobody).
+
+### D-T5 — Is the telephony platform multi-tenant with programme scoping, or single-tenant per deployment?
+**Status:** BLOCKED — **highest-leverage telephony question.**
+**Why it matters more than it looks:** if the platform is single-tenant per deployment, then every
+Kasuwa Silo/Bridge tenant implies a telephony deployment, the adapter needs per-tenant connection
+config and credential storage, and "every event carries `tenant_id` + `programme_id`" (§1.2 last row)
+has to be synthesised by Kasuwa from the connection rather than read from the event. That changes the
+adapter's shape and the Pooled/Bridge/Silo model in ADR-0002.
+**Proceeding meanwhile:** the adapter contract assumes events *may* lack tenant/programme and
+requires the adapter implementation to attach them — safe under both answers.
+
+### D-W1 — WFM material (Addendum §2.2)
+**Status:** BLOCKED. Nothing shared yet: no repo, README, data model, API spec, tests or screenshots.
+**Blocked:** the WFM review you asked for, and the real `wfm-adapter` contract. **Proceeding
+meanwhile:** an interface-only `wfm-adapter` derived from §2.1's four stated needs (published
+schedules, adherence, staffing-vs-scheduled, swap/leave links) with in-memory fakes, marked v0 and
+explicitly provisional.
+
+### D-W2 — Does WFM consume the telephony agent-state stream directly, or via Kasuwa?
+**Status:** BLOCKED (named in §2.1). Affects whether Kasuwa is a broker (more load, more
+responsibility, single ingestion point) or a bystander. **Recommendation:** via Kasuwa, so there is
+one normalised agent-state event model and one audit trail — but it makes Kasuwa's realtime path
+load-bearing for WFM's accuracy, which is a real operational commitment.
+
+### D-A1 — Accept the roster split (9 builders + QA + DevOps) or insist on 12 builders?
+**Status:** ANSWERED 2026-09-27 — 12 specialists + lead; #7 Service folds into #5, M13 moves to #8. See DECISION-LOG.md. One loose end (M7 sequences) noted in ROSTER.md.
+
+### D-A2 — Iteration length: 1 week or 2?
+**Status:** ANSWERED 2026-09-27 — 1-week iterations, DECISIONS.md answered daily. See DECISION-LOG.md
+that *your decision latency*, not agent speed, is the constraint. If you cannot answer this file most
+days, 1-week iterations will just produce a weekly pile of blocked tasks; 2 weeks would be more
+honest. Answer D-A5 and your realistic daily availability alongside this one.
+
+### D-A3 — Which PR categories need your personal review?
+**Status:** ANSWERED 2026-09-26 — see DECISION-LOG.md (AI reviewer + CI gate; residual risk recorded)
+e-invoicing, recordings/PCI, data export/DSAR — plus one addition: **anything that changes an RLS
+policy or adds a table without one.** I want this answered before the scaffold merges, because it
+determines the CODEOWNERS lines (D-L17).
+
+### D-A4 — Monthly token/API budget ceiling
+**Status:** STILL BLOCKED — the answer on 2026-09-27 left the ceiling as a
+placeholder (`[your monthly ceiling]`). The per-task default was accepted:
+**3 sessions, escalate on the 4th**, until there is data, with actual spend
+reported per task weekly. Task files already carry that budget, so nothing is
+blocked day to day; what is missing is the number the lead plans the month
+against. **Blocked:** per-task budgets in every task file (Addendum §3.3 requires a
+`Budget:` line), and the escalation threshold that stops a stuck agent thrashing. I cannot write
+meaningful task budgets without a ceiling. Interim: I will write `Budget: 3 sessions, escalate on
+4th` on pilot tasks as a placeholder.
+
+### D-A5 — Are your supervisors/QA leads available for milestone UAT (~2 days per milestone)?
+**Status:** STILL BLOCKED — the 2026-09-27 answer left this as a placeholder
+(`[yes/no + names + which days per milestone]`). This is the named mitigation
+for the model's largest risk (tests pass, behaviour is wrong). If the answer is
+no, the honest response is a longer timeline, not the same plan. **Blocked:** the milestone plan and the shadow-mode pilot in §3.6's estimate.
+This is the named mitigation for the biggest risk in the model (correlated blind spots — tests pass,
+behaviour is wrong). If the answer is no, the honest response is to lengthen the timeline, not to
+proceed and hope.
+
+---
+
+## C. Ambiguities I resolved without needing you (recorded for traceability)
+
+These did not warrant a decision entry but are places where the source documents were silent or in
+tension, and where I made a call:
+
+- **M9/M11 in the PRD split.** Pack §2.7 lists M9 and M11 with P0 build scope that the addendum
+  deletes. The split files will keep the original text in a `## Superseded by Addendum A1` block so
+  the history is visible, with the live requirements rewritten as integration requirements.
+- **`business_unit` for non-BPO tenants.** Pack §3.3 says non-BPO tenants get "a default programme"
+  but is silent on business units. The seed creates one default BU per tenant; tenant provisioning
+  will always create BU + programme so no row ever has a null parent.
+- **RLS on the `tenant` table itself.** Not stated. I am applying it — a session may read only its own
+  tenant row. The control plane (tenant directory) is a separate concern and out of scope.
+- **Cursor pagination encoding.** Not specified. Opaque base64url of `(created_at, id)`, validated by
+  Zod on decode, rejecting malformed cursors with 400. Cursors do **not** encode tenant/programme —
+  that would invite tampering as a path to cross-tenant reads; the session is the only source of
+  scope. This is itself an isolation test case.
+- **`apps/dialer` removed** from pack §3.16 per addendum §1.1; `packages/domain/telephony` and
+  `.../wfm` become thin consumers of the adapters rather than implementations.
+- **`infra/freeswitch/` and `infra/kamailio/`** removed from the pack's tree for the same reason.

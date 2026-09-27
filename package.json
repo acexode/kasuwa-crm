@@ -1,0 +1,51 @@
+{
+  "name": "kasuwa",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.7.0",
+  "engines": {
+    "node": ">=22.11.0",
+    "pnpm": ">=9.7.0"
+  },
+  "scripts": {
+    "dev": "node tools/dev.mjs",
+    "dev:down": "docker compose down",
+    "build": "nx run-many -t build",
+    "lint": "nx run-many -t lint",
+    "lint:fix": "nx run-many -t lint -- --fix",
+    "lint:boundaries:verify": "node tools/verify-boundaries.mjs",
+    "typecheck": "nx run-many -t typecheck",
+    "test": "pnpm test:unit && pnpm test:integration && pnpm test:isolation",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:isolation": "vitest run --project isolation",
+    "db:migrate": "pnpm --filter @kasuwa/db migrate",
+    "db:seed": "pnpm --filter @kasuwa/db seed",
+    "db:reset": "pnpm --filter @kasuwa/db reset",
+    "i18n:pseudo": "pnpm --filter @kasuwa/i18n pseudo",
+    "prepare": "husky",
+    "ui:tokens": "pnpm --filter @kasuwa/ui tokens",
+    "verify:tasks": "node tools/verify-task-readiness.mjs"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.5.0",
+    "@commitlint/config-conventional": "^19.5.0",
+    "@nx/eslint-plugin": "^21.0.0",
+    "@types/node": "^22.10.0",
+    "eslint": "^9.17.0",
+    "eslint-plugin-i18next": "^6.1.1",
+    "husky": "^9.1.7",
+    "nx": "^21.0.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.0",
+    "vitest": "^2.1.8",
+    "@eslint/js": "^9.17.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "rollup": "npm:@rollup/wasm-node@^4.63.5"
+    }
+  }
+}

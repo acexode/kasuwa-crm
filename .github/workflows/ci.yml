@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22.16.0'
+  PNPM_VERSION: '9.7.0'
+
+jobs:
+  # The protected-path guard lives in .github/workflows/guard.yml, because it
+  # must also run on `labeled`/`unlabeled` and re-running every suite on each
+  # label change would be wasteful.
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.7.0' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22.16.0', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+
+      # A configured-but-inert boundary rule is worse than none: everyone stops
+      # thinking about boundaries. This proves the rule actually fires.
+      - name: Verify module boundaries are enforced
+        run: pnpm lint:boundaries:verify
+
+      # No task may be assigned while its acceptance tests are still stubs
+      # (team/DECISION-LOG.md D-L23). Mechanical, because the rule fails at
+      # exactly the moment everyone is busiest.
+      - name: Verify task readiness
+        run: pnpm verify:tasks
+
+      # tokens.css is generated from tokens.ts. If they can drift, the design
+      # system has two sources of truth.
+      - name: Check generated design tokens are current
+        run: |
+          pnpm ui:tokens
+          git diff --exit-code -- packages/ui/src/tokens.css
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.7.0' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22.16.0', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm ui:tokens
+      - run: pnpm typecheck
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.7.0' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22.16.0', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:unit
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    needs: [unit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.7.0' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22.16.0', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # Testcontainers uses the Docker daemon that ubuntu-latest already runs.
+      - run: pnpm test:integration
+
+  # --------------------------------------------------------------------------
+  # The isolation suite is the blocking gate (founding pack 3.3, Addendum 3.5).
+  # It runs as its own job so that a failure is unambiguous in the checks list
+  # and can be made a required status check on its own.
+  # --------------------------------------------------------------------------
+  isolation:
+    name: Tenant isolation suite
+    runs-on: ubuntu-latest
+    needs: [unit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.7.0' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22.16.0', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:isolation
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.7.0' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22.16.0', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm ui:tokens
+      - run: pnpm i18n:pseudo
+      - run: pnpm build

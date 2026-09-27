@@ -1,0 +1,10 @@
+# Lint and typecheck only the projects affected by the working-tree changes.
+#
+# Tests run before opening a pull request and in CI. A commit hook that started
+# Testcontainers would be slow enough that people reach for --no-verify, and a
+# hook that gets bypassed protects nothing.
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+  pnpm exec nx affected -t lint typecheck --uncommitted
+else
+  echo "pre-commit: no HEAD yet (initial commit) — affected checks skipped"
+fi

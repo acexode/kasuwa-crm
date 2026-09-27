@@ -1,0 +1,79 @@
+# CODEOWNERS
+#
+# Status: partially active. See team/DECISIONS.md D-L17.
+#
+# Only @acexode is a real GitHub handle today. The agent entries below are
+# COMMENTS, not owner lines, because CODEOWNERS entries naming teams that do not
+# exist produce repository warnings and can make pull requests unmergeable once
+# "require review from Code Owners" is enabled. When real GitHub teams exist,
+# uncomment them.
+#
+# Review model (DECISION-LOG.md D-A3, revised 2026-09-27): @acexode personally
+# reviews every pull request touching auth, permissions, RLS/migrations,
+# payments/e-invoicing, recordings/PCI, and export/DSAR. Everything else the
+# lead merges on green CI plus reviewer-subagent verdicts.
+#
+# IMPORTANT: these lines are only a GATE if "Require review from Code Owners" is
+# enabled in branch protection. Until then they route and leave an audit trail
+# but do not block a merge. Enabling it is part of T-0005 and needs @acexode.
+
+# Default owner for anything not matched below.
+*                               @acexode
+
+# --- Lead-owned, protected paths -------------------------------------------
+# Changes here also require the `lead-approved` label (.github/workflows/ci.yml).
+/tests/acceptance/              @acexode
+/packages/db/migrations/        @acexode
+/packages/db/sql/               @acexode
+/.github/                       @acexode
+/CODEOWNERS                     @acexode
+/CLAUDE.md                      @acexode
+/team/                          @acexode
+/docs/adr/                      @acexode
+
+# --- Categories @acexode reviews personally (D-A3) --------------------------
+# Keep these routed here even as the roster grows and the paths move. Several do
+# not exist yet; the entries are deliberate, so the first PR that creates them is
+# already covered rather than slipping through on the day it lands.
+
+# auth and sessions
+/apps/api/src/tenancy/          @acexode
+/packages/db/src/session.ts     @acexode
+
+# permissions
+/packages/permissions/          @acexode
+
+# payments and e-invoicing
+/packages/payments/             @acexode
+/packages/einvoice/             @acexode
+/packages/domain/revenue/       @acexode
+
+# recordings and PCI
+/packages/domain/telephony/     @acexode
+
+# data export and DSAR
+/packages/domain/compliance/    @acexode
+
+# --- Per-agent ownership (Addendum A1 section 3.2) --------------------------
+# Uncomment each line once the corresponding GitHub team exists.
+#
+# /packages/permissions/            @kasuwa/agent-01-platform-security
+# /apps/api/src/tenancy/            @kasuwa/agent-01-platform-security
+# /packages/metadata-engine/        @kasuwa/agent-02-metadata
+# /packages/domain/core/            @kasuwa/agent-03-core-crm
+# /packages/domain/revenue/         @kasuwa/agent-04-revenue
+# /packages/domain/messaging/       @kasuwa/agent-05-messaging-service
+# /packages/telephony-adapter/      @kasuwa/agent-06-contact-centre
+# /packages/wfm-adapter/            @kasuwa/agent-06-contact-centre
+# /packages/domain/service/         @kasuwa/agent-05-messaging-service   # #7 folded into #5 (D-A1)
+# /packages/domain/workflow/        @kasuwa/agent-08-automation-api
+# /packages/domain/marketing/       @kasuwa/agent-08-automation-api   # M13 moved from #5 (D-A1)
+# /packages/domain/analytics/       @kasuwa/agent-09-analytics-billing
+# /packages/domain/ai/              @kasuwa/agent-10-ai
+# /packages/ui/                     @kasuwa/agent-11-frontend-design
+# /apps/web/                        @kasuwa/agent-11-frontend-design
+# /packages/i18n/                   @kasuwa/agent-11-frontend-design
+# /packages/testing/                @kasuwa/agent-12-qa
+# /docker-compose.yml               @kasuwa/agent-13-devops
+# /.github/workflows/               @kasuwa/agent-13-devops
+# /infra/                           @kasuwa/agent-13-devops
