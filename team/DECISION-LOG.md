@@ -510,3 +510,42 @@ The guards that do **not** depend on the agent's cooperation are branch
 protection and the CI label gate. **Branch protection on `main` is therefore
 what makes this arrangement safe**, and it was committed to before PR #2 —
 worth verifying it is actually on before leaning on the schedule.
+
+---
+
+## D-L25 — how D-L23 applies to a task whose deliverable is tests
+**Decided:** 2026-09-27 · lead decision, reversible
+
+D-L23 says no task is assigned until its acceptance tests exist and fail for a
+real reason. T-0004 is the one task on the board where applying that literally
+would defeat the task.
+
+T-0004's deliverable **is** a set of adversarial tests. If the lead writes the
+attacks first, Agent 12 inherits the lead's imagination, and the independence
+the task exists for is gone before it starts. The value of T-0004 is entirely in
+the attack nobody listed.
+
+The risk is concrete, not theoretical: the tenancy scaffold and the tests
+asserting it works were written by the same model in the same session. That is a
+correlated blind spot by construction, and it is what Agent 12 is for.
+
+**Resolution.** For a task whose deliverable is tests, the lead writes acceptance
+tests asserting the **shape of the deliverable**, not its content:
+
+- the stub's todos became real tests
+- there are **more** tests than the stub listed — a transcription of the lead's
+  nine guesses is the failure mode, so the tenth test is the deliverable
+- the suite runs inside the blocking isolation gate
+- the diff does not touch tenancy implementation (report defects, do not fix
+  them — fixing makes the finder the author and costs the independence)
+- a completion report exists that either names a new attack class or says
+  plainly that none was found
+
+Committed at `tests/acceptance/platform/authz-matrix.pending.acceptance.test.ts`.
+
+**The weakness, stated.** "More than nine tests" is a count, and a count can be
+satisfied by padding — which the task's own definition of done explicitly asks
+Agent 12 not to do. The assertion is a prompt for a conversation on the PR, not
+a control. A truthful "I could not break it beyond these nine" is a better
+outcome than a tenth variation, and reviewing which one happened is a human
+judgement that no assertion replaces.

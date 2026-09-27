@@ -4,6 +4,7 @@
 |---|---|
 | **id** | T-0004 |
 | **status** | `not-assigned` |
+| **ready to assign** | **Yes** — acceptance tests written and failing (D-L25) |
 | **module** | Cross-cutting |
 | **owner** | Agent 12 — QA & Adversarial Testing |
 | **priority** | P0 |
@@ -55,7 +56,20 @@ You **write** acceptance tests here rather than consuming them — the exception
 to the usual rule, and why this task is yours and not a builder's. Your PR will
 touch `tests/acceptance/` and therefore needs the `lead-approved` label.
 
-Stub committed at `tests/acceptance/tenancy/adversarial.acceptance.test.ts`.
+Stub committed at `tests/acceptance/tenancy/adversarial.acceptance.test.ts` —
+nine `it.todo` entries, the lead's guesses. Convert them, then find the tenth.
+
+**What holds you to it** (D-L25):
+`tests/acceptance/platform/authz-matrix.pending.acceptance.test.ts` — 8
+assertions, 6 failing. It asserts the *shape* of your deliverable and says
+nothing about what the attacks should be, deliberately: if the lead wrote the
+attacks, you would inherit the lead's imagination and this task would be
+pointless.
+
+Read D-L25 before starting. In particular, the "more than nine tests" assertion
+is a prompt for a conversation on your PR, not a bar to clear by padding. A
+truthful "I could not break it beyond these nine" is a better report than a
+tenth variation, and the definition of done says so.
 
 ## Non-goals
 
