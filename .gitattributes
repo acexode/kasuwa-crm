@@ -12,8 +12,15 @@
 # produces a file that parses as nonsense and looks merged. Do not extend this
 # list to code.
 team/DECISION-LOG.md merge=union
+team/DECISIONS.md    merge=union
 team/STATUS.md       merge=union
 
+# DECISIONS.md was added to this list on 2026-09-27, one conflict too late: it
+# is append-only in exactly the same way and had been left out, so PR #17 hit
+# the identical merge failure the driver was introduced to stop. The lesson is
+# narrower than "use union more" — it is that adding the driver to one file and
+# not its obvious twin leaves the problem looking solved while it is not.
+#
 # Ordering caveat, so it is not a surprise: union appends both sides in an
 # order git chooses, so a STATUS.md entry may land below a newer one. Read the
 # dates, and reorder in a follow-up commit if it matters.
