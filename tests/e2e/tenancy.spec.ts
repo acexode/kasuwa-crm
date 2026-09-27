@@ -123,6 +123,18 @@ test.describe('tenancy through the browser', () => {
     const documents: string[] = [];
     for (const id of [contactIn(PROGRAMME_B1), contactIn(PROGRAMME_A2), NO_SUCH_CONTACT]) {
       await page.goto(`${webUrl}/contacts/${id}`);
+
+      // Wait for the page to have DECIDED before asserting what it decided.
+      // Without this, a request that stalls leaves the page in `loading` and
+      // the assertion below times out reporting "rendered a record outside
+      // scope" — a tenancy failure that did not happen. The three states are
+      // mutually exclusive, so whichever settles is the answer.
+      const settled = page
+        .getByTestId('record')
+        .or(page.getByTestId('record-not-found'))
+        .or(page.getByTestId('record-unavailable'));
+      await expect(settled, `the web route never resolved ${id}`).toBeVisible();
+
       const notFound = page.getByTestId('record-not-found');
       await expect(notFound, `the web route rendered a record outside scope: ${id}`).toBeVisible();
       rendered.push((await notFound.innerText()).trim());

@@ -42,11 +42,37 @@ export function RecordView({
   messages: MessageBundle;
 }) {
   const t = createBundleTranslator(locale, messages);
-  const [state, setState] = useState<'loading' | 'found' | 'missing'>('loading');
+  const [state, setState] = useState<'loading' | 'found' | 'missing' | 'unavailable'>(
+    'loading',
+  );
   const [displayName, setDisplayName] = useState('');
 
   useEffect(() => {
     const controller = new AbortController();
+
+    /**
+     * A BOUND on the request, and a distinct state when it is hit.
+     *
+     * Without one, a request that never settles leaves this page spinning for
+     * ever. That is not hypothetical: Next's dev-mode rewrite proxy stalled
+     * one of these during an e2e run and the page sat in `loading` until the
+     * test timed out thirty seconds later, reporting "rendered a record
+     * outside scope" — a tenancy failure that had not happened. A screen that
+     * cannot say "I could not reach the server" says the wrong thing instead.
+     *
+     * It is a SEPARATE state from `missing` on purpose. Collapsing a transport
+     * failure into "not found" would be the mirror image of the existence leak
+     * this route exists to test for: it makes two different facts render the
+     * same, and here that costs a real diagnosis. The three out-of-scope cases
+     * must be indistinguishable from each other; an unreachable server is not
+     * one of them.
+     */
+    const timeout = window.setTimeout(() => controller.abort(), 10_000);
+    let timedOut = false;
+    const onTimeout = () => {
+      timedOut = true;
+    };
+    controller.signal.addEventListener('abort', onTimeout, { once: true });
 
     void (async () => {
       try {
@@ -79,17 +105,33 @@ export function RecordView({
         setDisplayName(name);
         setState('found');
       } catch {
-        setState('missing');
+        // An abort from unmount sets state on a component nobody is looking
+        // at, which React ignores; an abort from the timeout is the one that
+        // has something to say.
+        setState(timedOut ? 'unavailable' : 'missing');
+      } finally {
+        window.clearTimeout(timeout);
       }
     })();
 
-    return () => controller.abort();
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [id]);
 
   if (state === 'loading') {
     return (
       <p role="status" data-testid="record-loading" className="text-body-md text-text-2">
         {t.t('auth.slow.loading')}
+      </p>
+    );
+  }
+
+  if (state === 'unavailable') {
+    return (
+      <p role="alert" data-testid="record-unavailable" className="text-body-md text-danger-text">
+        {t.t('auth.error.network')}
       </p>
     );
   }

@@ -20,7 +20,12 @@ export default async function ContactPage({
       <RecordView
         id={id}
         locale={locale}
-        messages={bundleMessages(locale, ['auth.slow.loading', 'notFound.title', 'notFound.body'])}
+        messages={bundleMessages(locale, [
+          'auth.slow.loading',
+          'auth.error.network',
+          'notFound.title',
+          'notFound.body',
+        ])}
       />
     </div>
   );
