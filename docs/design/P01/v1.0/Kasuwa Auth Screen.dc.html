@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&amp;display=block">
+<style>@keyframes kspin{to{transform:rotate(360deg)}}</style>
+</helmet>
+<div style="width:100%;height:100%;display:flex;background:var(--k-bg);color:var(--k-text);font-family:'Noto Sans','Noto Sans Arabic',system-ui,sans-serif;overflow:hidden;position:relative">
+
+<sc-if value="{{ showPanel }}" hint-placeholder-val="{{ false }}">
+  <aside style="width:520px;flex-shrink:0;background:var(--k-primary-soft);display:flex;flex-direction:column;padding:48px 56px;gap:28px">
+    <div style="display:flex;align-items:center;gap:10px"><span style="width:40px;height:40px;border-radius:10px;background:var(--k-primary);color:var(--k-accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">K</span><b style="font-size:20px">Kasuwa</b></div>
+    <span style="flex:1"></span>
+    <h2 style="margin:0;font-size:44px;line-height:52px;font-weight:800;letter-spacing:-.02em;text-wrap:pretty">Every customer conversation. One place.</h2>
+    <p style="margin:0;font-size:18px;line-height:28px;color:var(--k-text-2);text-wrap:pretty">WhatsApp, calls, SMS and email for sales and support teams in Lagos, Accra, Nairobi, Joburg and Dakar.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      <span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:999px;background:var(--k-surface);font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-success-text)">chat</span>WhatsApp</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:999px;background:var(--k-surface);font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-primary-text)">call</span>Voice</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:999px;background:var(--k-surface);font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-2)">sms</span>SMS</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:999px;background:var(--k-surface);font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-info-text)">mail</span>Email</span>
+    </div>
+    <span style="flex:1"></span>
+    <div style="display:flex;flex-direction:column;gap:12px;padding-top:24px;border-top:1px solid var(--k-primary-soft-strong)">
+      <span style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-success-text)">lock</span>Bank-grade encryption in transit and at rest</span>
+      <span style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-success-text)">verified_user</span>Built for NDPA (Nigeria) and POPIA (South Africa)</span>
+      <span style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-success-text)">public</span>Your data is stored in Africa</span>
+    </div>
+  </aside>
+</sc-if>
+
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
+  <div style="position:relative;display:flex;align-items:center;gap:6px;height:64px;flex-shrink:0;padding:0 12px 0 20px;border-bottom:1px solid {{ topBorder }}">
+    <sc-if value="{{ showTopLogo }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:8px"><span style="width:32px;height:32px;border-radius:8px;background:var(--k-primary);color:var(--k-accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px">K</span><b style="font-size:16px">Kasuwa</b></span></sc-if>
+    <span style="flex:1"></span>
+    <sc-if value="{{ mobileSkip }}" hint-placeholder-val="{{ false }}"><button style="height:44px;padding:0 10px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:14px;font-weight:600">Skip</button></sc-if>
+    <button onClick="{{ toggleLow }}" role="switch" aria-checked="{{ lowBwStr }}" aria-label="Low-bandwidth mode" style="display:inline-flex;align-items:center;gap:6px;height:44px;min-width:44px;justify-content:center;padding:0 10px;border-radius:8px;border:1px solid {{ lowBorder }};background:{{ lowBg }};color:{{ lowFg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">network_check</span>{{ lowLabel }}</button>
+    <button onClick="{{ toggleLang }}" aria-haspopup="listbox" aria-expanded="{{ langOpenStr }}" style="display:inline-flex;align-items:center;gap:4px;height:44px;padding:0 8px 0 10px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">language</span>{{ langLabel }}<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">expand_more</span></button>
+    <sc-if value="{{ langOpen }}" hint-placeholder-val="{{ false }}">
+      <div role="listbox" style="position:absolute;top:60px;right:12px;z-index:5;width:220px;padding:4px;border-radius:10px;border:1px solid var(--k-border);background:var(--k-surface-raised);box-shadow:var(--k-shadow-2);display:flex;flex-direction:column">
+        <sc-for list="{{ langs }}" as="l" hint-placeholder-count="7">
+          <button role="option" onClick="{{ l.pick }}" lang="{{ l.code }}" style="display:flex;align-items:center;gap:8px;height:44px;padding:0 10px;border:0;border-radius:6px;background:{{ l.bg }};color:var(--k-text);font-family:inherit;font-size:14px;font-weight:{{ l.fw }};text-align:left;cursor:pointer"><span style="flex:1">{{ l.name }}</span><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-primary-text)">{{ l.check }}</span></button>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;padding:32px 20px 40px">
+
+    <sc-if value="{{ obDesktop }}" hint-placeholder-val="{{ false }}">
+      <ol aria-label="Setup progress" style="list-style:none;margin:0 0 40px;padding:0;width:100%;max-width:880px;display:flex;align-items:center;gap:10px">
+        <sc-for list="{{ obSteps }}" as="st" hint-placeholder-count="5">
+          <li style="display:flex;align-items:center;gap:10px;flex:{{ st.flex }}"><span style="width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:{{ st.bg }};color:{{ st.fg }};box-shadow:{{ st.ring }}"><span style="font-family:{{ st.ff }};font-size:{{ st.fs }}px;line-height:1">{{ st.mark }}</span></span><span aria-current="{{ st.cur }}" style="font-size:14px;font-weight:{{ st.fw }};color:{{ st.lfg }};white-space:nowrap">{{ st.label }}</span><sc-if value="{{ st.line }}" hint-placeholder-val="{{ true }}"><span style="flex:1;min-width:16px;height:2px;border-radius:1px;background:{{ st.lineBg }}"></span></sc-if></li>
+        </sc-for>
+      </ol>
+    </sc-if>
+    <sc-if value="{{ obMobile }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;display:flex;flex-direction:column;gap:8px;margin-bottom:24px">
+        <span style="font-size:13px;color:var(--k-text-2)"><b style="color:var(--k-text)">Step {{ obN }} of 5</b> · {{ obTitle }}</span>
+        <div role="progressbar" aria-valuemin="0" aria-valuemax="5" aria-valuenow="{{ obN }}" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px"><sc-for list="{{ obSteps }}" as="st" hint-placeholder-count="5"><span style="height:6px;border-radius:3px;background:{{ st.barBg }}"></span></sc-for></div>
+      </div>
+    </sc-if>
+
+    <!-- SIGN IN / WRONG PASSWORD -->
+    <sc-if value="{{ isSignin }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;max-width:400px;display:flex;flex-direction:column;gap:18px;margin:auto 0">
+        <div style="display:flex;flex-direction:column;gap:6px"><h1 lang="{{ lang }}" style="margin:0;font-size:28px;line-height:36px;font-weight:700">{{ tH }}</h1><p style="margin:0;font-size:15px;line-height:22px;color:var(--k-text-2)">Sign in to your Kasuwa workspace.</p></div>
+        <sc-if value="{{ isWrong }}" hint-placeholder-val="{{ false }}">
+          <div role="alert" style="display:flex;gap:10px;padding:12px 14px;border-radius:10px;background:var(--k-danger-soft);color:var(--k-danger-text);font-size:14px;line-height:21px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">error</span><span><b>That email and password don't match.</b> Check for typos and caps lock. 2 more tries before we lock the account for 15 minutes.</span></div>
+        </sc-if>
+        <button style="display:flex;align-items:center;justify-content:center;gap:8px;height:48px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">passkey</span>Sign in with a passkey</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button style="display:flex;align-items:center;justify-content:center;gap:8px;height:48px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600"><span style="width:20px;height:20px;border-radius:4px;border:1.5px solid currentColor;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">G</span>Google</button>
+          <button style="display:flex;align-items:center;justify-content:center;gap:8px;height:48px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600"><span style="width:20px;height:20px;border-radius:4px;border:1.5px solid currentColor;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">M</span>Microsoft</button>
+        </div>
+        <button style="display:flex;align-items:center;justify-content:center;gap:8px;height:48px;border-radius:8px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:15px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">domain</span>Sign in with SSO</button>
+        <div style="display:flex;align-items:center;gap:12px;font-size:13px;color:var(--k-text-muted)"><span style="flex:1;height:1px;background:var(--k-border)"></span>or use your email<span style="flex:1;height:1px;background:var(--k-border)"></span></div>
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Work email</span><span style="display:flex;align-items:center;height:48px;padding:0 14px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);font-size:16px;color:{{ emailFg }}">{{ emailVal }}</span></label>
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="display:flex;justify-content:space-between;font-size:14px;font-weight:600">Password<span style="font-weight:600;color:var(--k-primary-text);text-decoration:underline;text-underline-offset:3px">Forgot password?</span></span>
+          <span style="display:flex;align-items:center;height:48px;padding:0 4px 0 14px;border:{{ pwBorder }};border-radius:8px;background:var(--k-surface);font-size:16px"><span style="flex:1;font-family:'JetBrains Mono',monospace;letter-spacing:{{ pwSpacing }}">{{ pwVal }}</span><button onClick="{{ togglePw }}" aria-label="{{ pwAria }}" style="width:44px;height:44px;border:0;border-radius:6px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ pwIcon }}</span></button></span>
+        </label>
+        <span style="display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px"><span style="width:20px;height:20px;border-radius:4px;background:var(--k-primary);color:var(--k-on-primary);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">check</span></span>Keep me signed in on this device</span>
+        <button lang="{{ lang }}" style="height:48px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:16px;font-weight:600">{{ tB }}</button>
+        <span style="font-size:14px;color:var(--k-text-2);text-align:center">New to Kasuwa? <b style="color:var(--k-primary-text);text-decoration:underline;text-underline-offset:3px">Create an account</b></span>
+      </div>
+    </sc-if>
+
+    <!-- LOCKED -->
+    <sc-if value="{{ isLocked }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;max-width:400px;display:flex;flex-direction:column;gap:18px;margin:auto 0">
+        <span style="width:56px;height:56px;border-radius:50%;background:var(--k-danger-soft);color:var(--k-danger-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:28px;line-height:1">lock_clock</span></span>
+        <div style="display:flex;flex-direction:column;gap:6px"><h1 style="margin:0;font-size:28px;line-height:36px;font-weight:700">Your account is locked for 15 minutes</h1><p style="margin:0;font-size:15px;line-height:23px;color:var(--k-text-2);text-wrap:pretty">There were 5 wrong passwords for <b>a•••@ojafoods.ng</b>. We lock the account to keep your customers' data safe.</p></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;background:var(--k-surface-sunken);font-size:14px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-2)">schedule</span><span style="flex:1">You can try again at <b style="font-family:'JetBrains Mono',monospace">14:47 WAT</b></span></div>
+        <button style="height:48px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:16px;font-weight:600">Reset password by email</button>
+        <button style="height:48px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600">Get a reset code by SMS</button>
+        <span style="font-size:14px;line-height:21px;color:var(--k-text-2)">Wasn't you? <b style="color:var(--k-primary-text);text-decoration:underline;text-underline-offset:3px">Tell your admin</b> — they can see where the attempts came from.</span>
+      </div>
+    </sc-if>
+
+    <!-- SSO -->
+    <sc-if value="{{ isSso }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;max-width:400px;display:flex;flex-direction:column;gap:18px;margin:auto 0">
+        <span style="display:inline-flex;align-items:center;gap:4px;align-self:flex-start;height:44px;font-size:14px;font-weight:600;color:var(--k-primary-text)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">arrow_back</span>Other ways to sign in</span>
+        <div style="display:flex;flex-direction:column;gap:6px"><h1 style="margin:0;font-size:28px;line-height:36px;font-weight:700">Sign in with SSO</h1><p style="margin:0;font-size:15px;line-height:23px;color:var(--k-text-2)">Type your company's email domain. We'll take you to your company's sign-in page.</p></div>
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Work domain</span>
+          <span style="display:flex;align-items:center;height:48px;border:2px solid var(--k-danger);border-radius:8px;background:var(--k-surface);font-size:16px;overflow:hidden"><span style="height:100%;display:flex;align-items:center;padding:0 12px;background:var(--k-surface-sunken);color:var(--k-text-2);font-family:'JetBrains Mono',monospace;font-size:14px;border-right:1px solid var(--k-border)">name@</span><span style="flex:1;padding:0 12px;font-family:'JetBrains Mono',monospace;font-size:15px">ojafoods.ng</span><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-danger-text);padding-right:12px">error</span></span>
+          <span role="alert" style="font-size:14px;line-height:21px;color:var(--k-danger-text)">We couldn't find SSO for <b>ojafoods.ng</b>. Check the spelling, or ask your IT team if SSO is set up for Kasuwa.</span>
+        </label>
+        <button style="height:48px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:16px;font-weight:600">Continue</button>
+        <button style="height:48px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600">Sign in with email instead</button>
+        <span style="font-size:13px;line-height:20px;color:var(--k-text-muted)">Works with Microsoft Entra ID, Google Workspace, Okta and any SAML 2.0 provider.</span>
+      </div>
+    </sc-if>
+
+    <!-- SLOW NETWORK -->
+    <sc-if value="{{ isSlow }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;max-width:400px;display:flex;flex-direction:column;gap:18px;margin:auto 0">
+        <sc-if value="{{ slowWaiting }}" hint-placeholder-val="{{ true }}">
+          <div role="status" style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:10px;background:var(--k-info-soft);color:var(--k-info-text);font-size:14px;line-height:21px">
+            <span style="display:flex;align-items:center;gap:10px"><span style="display:flex">{{ spin }}</span><b>Still connecting…</b></span>
+            <span style="color:var(--k-text-2)">Your network is slow. Low-bandwidth mode loads a lighter page (about 40 KB) with no images.</span>
+            <div style="display:flex;flex-wrap:wrap;gap:8px"><button onClick="{{ toggleLow }}" style="height:44px;padding:0 14px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Switch to low-bandwidth mode</button><button style="height:44px;padding:0 12px;border-radius:8px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:14px;font-weight:600">Keep waiting</button></div>
+          </div>
+          <div aria-hidden="true" style="display:flex;flex-direction:column;gap:14px">
+            <span style="height:28px;width:70%;border-radius:6px;background:var(--k-surface-sunken)"></span>
+            <span style="height:14px;width:55%;border-radius:4px;background:var(--k-surface-sunken)"></span>
+            <span style="height:48px;border-radius:8px;background:var(--k-surface-sunken)"></span>
+            <span style="height:48px;border-radius:8px;background:var(--k-surface-sunken)"></span>
+            <span style="height:48px;border-radius:8px;background:var(--k-surface-sunken)"></span>
+            <span style="height:48px;border-radius:8px;background:var(--k-surface-sunken);opacity:.7"></span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ slowLite }}" hint-placeholder-val="{{ false }}">
+          <div role="status" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;background:var(--k-accent-soft);color:var(--k-accent-text);font-size:14px;line-height:21px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">network_check</span><span><b>Low-bandwidth mode is on.</b> Page size 38 KB. Turn it off any time from the top bar.</span></div>
+          <h1 style="margin:0;font-size:28px;line-height:36px;font-weight:700">Welcome back</h1>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Work email</span><span style="display:flex;align-items:center;height:48px;padding:0 14px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);font-size:16px;color:var(--k-text-muted)">you@company.com</span></label>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Password</span><span style="display:flex;align-items:center;height:48px;padding:0 14px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface)"></span></label>
+          <button style="height:48px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:16px;font-weight:600">Sign in</button>
+          <span style="font-size:13px;color:var(--k-text-muted)">Google, Microsoft, SSO and passkeys load when you tap them.</span>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- MFA (app / sms / expired) -->
+    <sc-if value="{{ isMfa }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;max-width:400px;display:flex;flex-direction:column;gap:18px;margin:auto 0">
+        <span style="width:56px;height:56px;border-radius:50%;background:var(--k-primary-soft);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:28px;line-height:1">{{ mfaIcon }}</span></span>
+        <div style="display:flex;flex-direction:column;gap:6px"><h1 style="margin:0;font-size:28px;line-height:36px;font-weight:700">{{ mfaTitle }}</h1><p style="margin:0;font-size:15px;line-height:23px;color:var(--k-text-2);text-wrap:pretty">{{ mfaSub }}</p></div>
+        <div role="group" aria-label="6-digit code" style="display:flex;gap:8px">
+          <sc-for list="{{ otp }}" as="o" hint-placeholder-count="6">
+            <span style="width:44px;height:52px;border-radius:8px;border:{{ o.border }};box-shadow:{{ o.ring }};background:var(--k-surface);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600">{{ o.d }}</span>
+          </sc-for>
+        </div>
+        <sc-if value="{{ isExpired }}" hint-placeholder-val="{{ false }}">
+          <span role="alert" style="display:flex;gap:8px;font-size:14px;line-height:21px;color:var(--k-danger-text)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">timer_off</span><span><b>This code has expired.</b> Codes work for 10 minutes. Get a new one below — the old code won't work any more.</span></span>
+        </sc-if>
+        <sc-if value="{{ isSms }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px">
+            <sc-if value="{{ otpWaiting }}" hint-placeholder-val="{{ true }}"><span style="color:var(--k-text-2)">Resend code in <b style="font-family:'JetBrains Mono',monospace;color:var(--k-text)">{{ otpClock }}</b></span></sc-if>
+            <sc-if value="{{ otpReady }}" hint-placeholder-val="{{ false }}"><button onClick="{{ resend }}" style="height:44px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Resend code</button></sc-if>
+          </div>
+          <span style="font-size:13px;line-height:20px;color:var(--k-text-muted)">SMS can take up to 2 minutes on busy networks. Still nothing? <b style="color:var(--k-primary-text)">Get the code by voice call</b>.</span>
+        </sc-if>
+        <button style="height:48px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:16px;font-weight:600">{{ mfaCta }}</button>
+        <sc-if value="{{ isApp }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px"><span style="width:20px;height:20px;border-radius:4px;border:2px solid var(--k-border-strong)"></span>Trust this device for 30 days</span></sc-if>
+        <div style="display:flex;flex-direction:column;border-top:1px solid var(--k-border);padding-top:8px">
+          <span style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted);padding:6px 0">Other ways to verify</span>
+          <sc-for list="{{ mfaAlts }}" as="a" hint-placeholder-count="2">
+            <span style="display:flex;align-items:center;gap:12px;min-height:48px;font-size:15px;border-bottom:1px solid var(--k-border)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-2)">{{ a.icon }}</span><span style="flex:1">{{ a.label }}</span><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-muted)">chevron_right</span></span>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- SIGN UP -->
+    <sc-if value="{{ isSignup }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;max-width:520px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-direction:column;gap:6px"><h1 style="margin:0;font-size:28px;line-height:36px;font-weight:700">Create your workspace</h1><p style="margin:0;font-size:15px;line-height:23px;color:var(--k-text-2)">Free for 14 days. No card needed.</p></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Full name</span><span style="display:flex;align-items:center;height:48px;padding:0 14px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);font-size:16px">Adaeze Okonkwo</span></label>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Work email</span><span style="display:flex;align-items:center;height:48px;padding:0 14px;border:1px solid var(--k-primary);box-shadow:0 0 0 3px var(--k-primary-soft-strong);border-radius:8px;background:var(--k-surface);font-size:16px">adaeze@ojafoods.ng</span><span style="font-size:13px;color:var(--k-text-muted)">Use your company email so your team can find you.</span></label>
+        </div>
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Mobile number</span>
+          <span style="display:flex;align-items:stretch;height:48px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);overflow:hidden"><span style="display:flex;align-items:center;gap:6px;padding:0 8px 0 12px;background:var(--k-surface-sunken);border-right:1px solid var(--k-border)"><span style="width:22px;height:15px;border-radius:2px;background:linear-gradient(90deg,#008751 33%,#FFFFFF 33% 66%,#008751 66%);box-shadow:0 0 0 1px rgba(0,0,0,.15)"></span><span style="font-family:'JetBrains Mono',monospace;font-size:14px">+234</span><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-muted)">expand_more</span></span><span style="flex:1;display:flex;align-items:center;padding:0 10px;font-family:'JetBrains Mono',monospace;font-size:16px">803 555 4567</span><span style="display:flex;align-items:center;padding-right:8px"><span style="font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;border:1px solid var(--k-border-strong);color:var(--k-text-2)">MTN</span></span></span>
+          <span style="font-size:13px;color:var(--k-text-muted)">We'll text a code to check it. Country picked from your location — change it if needed.</span>
+        </label>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Company name</span><span style="display:flex;align-items:center;height:48px;padding:0 14px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);font-size:16px">Ọja Foods Ltd</span></label>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Country</span><span style="display:flex;align-items:center;gap:8px;height:48px;padding:0 12px 0 14px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);font-size:16px"><span style="flex:1">Nigeria</span><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">expand_more</span></span></label>
+        </div>
+        <fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px"><legend style="font-size:14px;font-weight:600;padding:0;margin-bottom:8px">Number of employees</legend>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <sc-for list="{{ emps }}" as="e" hint-placeholder-count="5">
+              <button onClick="{{ e.pick }}" aria-pressed="{{ e.pressed }}" style="height:44px;padding:0 14px;border-radius:999px;border:1px solid {{ e.border }};background:{{ e.bg }};color:{{ e.fg }};font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">{{ e.label }}</button>
+            </sc-for>
+          </div>
+        </fieldset>
+        <button onClick="{{ toggleBpo }}" role="switch" aria-checked="{{ bpoStr }}" style="display:flex;align-items:center;gap:14px;padding:14px;border-radius:10px;border:1px solid {{ bpoBorder }};background:{{ bpoBg }};font-family:inherit;text-align:left;color:var(--k-text);cursor:pointer">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:15px">Are you a BPO or contact centre?</b><span style="font-size:13px;line-height:19px;color:var(--k-text-2)">{{ bpoSub }}</span></span>
+          <span style="width:44px;height:26px;border-radius:999px;background:{{ bpoTrack }};position:relative;flex-shrink:0"><span style="position:absolute;top:3px;left:{{ bpoKnob }}px;width:20px;height:20px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .16s"></span></span>
+        </button>
+        <button style="height:48px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:16px;font-weight:600">Create account</button>
+        <span style="font-size:13px;line-height:20px;color:var(--k-text-muted)">By creating an account you agree to the <b style="color:var(--k-primary-text)">Terms</b> and <b style="color:var(--k-primary-text)">Privacy notice</b>. Already have an account? <b style="color:var(--k-primary-text)">Sign in</b></span>
+      </div>
+    </sc-if>
+
+    <!-- VERIFY -->
+    <sc-if value="{{ isVerify }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;max-width:440px;display:flex;flex-direction:column;gap:18px;margin:auto 0">
+        <div style="display:flex;flex-direction:column;gap:6px"><h1 style="margin:0;font-size:28px;line-height:36px;font-weight:700">Check your email and phone</h1><p style="margin:0;font-size:15px;line-height:23px;color:var(--k-text-2)">We need both so we can reach you if something goes wrong with your account.</p></div>
+        <div style="display:flex;gap:12px;padding:16px;border-radius:12px;border:1px solid var(--k-border);background:var(--k-surface)"><span style="width:40px;height:40px;border-radius:50%;background:var(--k-success-soft);color:var(--k-success-text);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">mark_email_read</span></span><div style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:15px">Email verified</b><span style="font-size:14px;color:var(--k-text-2)">adaeze@ojafoods.ng</span></div><span style="align-self:flex-start;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--k-success-soft);color:var(--k-success-text)">Done</span></div>
+        <div style="display:flex;flex-direction:column;gap:14px;padding:16px;border-radius:12px;border:1px solid var(--k-primary);background:var(--k-surface)">
+          <div style="display:flex;gap:12px"><span style="width:40px;height:40px;border-radius:50%;background:var(--k-primary-soft);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">sms</span></span><div style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:15px">Enter the code we texted you</b><span style="font-size:14px;color:var(--k-text-2)">Sent to <span style="font-family:'JetBrains Mono',monospace">+234 803 *** 4567</span> · <b style="color:var(--k-primary-text)">Change</b></span></div></div>
+          <div style="display:flex;gap:8px"><sc-for list="{{ otp }}" as="o" hint-placeholder-count="6"><span style="width:44px;height:52px;border-radius:8px;border:{{ o.border }};box-shadow:{{ o.ring }};background:var(--k-surface);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600">{{ o.d }}</span></sc-for></div>
+          <sc-if value="{{ otpWaiting }}" hint-placeholder-val="{{ true }}"><span style="font-size:14px;color:var(--k-text-2)">Resend code in <b style="font-family:'JetBrains Mono',monospace;color:var(--k-text)">{{ otpClock }}</b></span></sc-if>
+          <sc-if value="{{ otpReady }}" hint-placeholder-val="{{ false }}"><button onClick="{{ resend }}" style="align-self:flex-start;height:44px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Resend code</button></sc-if>
+        </div>
+        <button style="height:48px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:16px;font-weight:600">Verify and continue</button>
+        <span style="font-size:13px;line-height:20px;color:var(--k-text-muted)">Can't find the email? Check spam or Promotions. It comes from no-reply@kasuwa.africa.</span>
+      </div>
+    </sc-if>
+
+    <!-- OB1 REGION -->
+    <sc-if value="{{ isOb1 }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;max-width:640px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-direction:column;gap:6px"><h1 style="margin:0;font-size:28px;line-height:36px;font-weight:700">Where should we store your data?</h1><p style="margin:0;font-size:15px;line-height:23px;color:var(--k-text-2);text-wrap:pretty">This is where your contacts, chats and call recordings live. Moving it later needs a planned migration.</p></div>
+        <div role="radiogroup" style="display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ regions }}" as="r" hint-placeholder-count="3">
+            <button role="radio" aria-checked="{{ r.checked }}" onClick="{{ r.pick }}" style="display:flex;align-items:flex-start;gap:14px;padding:16px;border-radius:12px;border:{{ r.border }};background:{{ r.bg }};font-family:inherit;text-align:left;color:var(--k-text);cursor:pointer">
+              <span style="width:22px;height:22px;margin-top:1px;border-radius:50%;border:2px solid {{ r.dot }};display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="width:10px;height:10px;border-radius:50%;background:{{ r.fill }}"></span></span>
+              <span style="flex:1;display:flex;flex-direction:column;gap:4px"><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:16px">{{ r.name }}</b><span style="font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:{{ r.tagBg }};color:{{ r.tagFg }}">{{ r.tag }}</span></span><span style="font-size:14px;line-height:21px;color:var(--k-text-2)">{{ r.desc }}</span></span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--k-text-muted);white-space:nowrap">{{ r.ms }}</span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:12px;padding:16px;border-radius:12px;background:var(--k-info-soft)"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1;color:var(--k-info-text)">gavel</span><div style="display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:22px"><b style="color:var(--k-info-text)">What Nigeria's data law (NDPA 2023) means for you</b><span style="color:var(--k-text-2)">You can usually keep Nigerian customers' data outside Nigeria if it stays well protected and you tell customers where it goes. Kasuwa signs a data processing agreement with you and never sells your data. If you're a bank, fintech or work with government, your regulator may ask for data in Nigeria — choose Nigeria.</span><span style="font-size:12px;color:var(--k-text-muted)">General guidance, not legal advice.</span></div></div>
+      </div>
+    </sc-if>
+
+    <!-- OB2 CURRENCY -->
+    <sc-if value="{{ isOb2 }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;max-width:640px;display:flex;flex-direction:column;gap:22px">
+        <div style="display:flex;flex-direction:column;gap:6px"><h1 style="margin:0;font-size:28px;line-height:36px;font-weight:700">Currency and language</h1><p style="margin:0;font-size:15px;line-height:23px;color:var(--k-text-2)">These are your workspace defaults. Each deal can still use its own currency.</p></div>
+        <fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:10px"><legend style="font-size:14px;font-weight:600;padding:0;margin-bottom:10px">Main currency</legend>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px">
+            <sc-for list="{{ curs }}" as="c" hint-placeholder-count="6">
+              <button onClick="{{ c.pick }}" aria-pressed="{{ c.pressed }}" style="height:56px;border-radius:10px;border:{{ c.border }};background:{{ c.bg }};color:var(--k-text);font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px"><b style="font-size:16px">{{ c.sym }}</b><span style="font-size:12px;color:var(--k-text-2)">{{ c.code }}</span></button>
+            </sc-for>
+          </div>
+          <span style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;background:var(--k-surface-sunken);font-size:14px">Amounts will look like <b style="font-family:'JetBrains Mono',monospace">{{ curPreview }}</b></span>
+        </fieldset>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Team language</span><span style="display:flex;align-items:center;height:48px;padding:0 12px 0 14px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);font-size:16px"><span style="flex:1">English</span><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">expand_more</span></span><span style="font-size:13px;color:var(--k-text-muted)">Each person can change their own.</span></label>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Time zone</span><span style="display:flex;align-items:center;gap:8px;height:48px;padding:0 12px 0 14px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);font-size:16px"><span style="flex:1">Lagos</span><span style="font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px;background:var(--k-primary-soft);color:var(--k-primary-text)">WAT</span></span><span style="font-size:13px;color:var(--k-text-muted)">Found from your browser.</span></label>
+        </div>
+        <fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px"><legend style="font-size:14px;font-weight:600;padding:0;margin-bottom:8px">Languages your customers use</legend>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <span style="display:inline-flex;align-items:center;gap:4px;height:40px;padding:0 12px;border-radius:999px;background:var(--k-primary);color:var(--k-on-primary);font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">check</span>English</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;height:40px;padding:0 12px;border-radius:999px;background:var(--k-primary);color:var(--k-on-primary);font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">check</span>Pidgin</span>
+            <span lang="yo" style="display:inline-flex;align-items:center;gap:4px;height:40px;padding:0 12px;border-radius:999px;background:var(--k-primary);color:var(--k-on-primary);font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">check</span>Yorùbá</span>
+            <span style="display:inline-flex;align-items:center;height:40px;padding:0 12px;border-radius:999px;border:1px solid var(--k-border-strong);font-size:14px">Hausa</span>
+            <span style="display:inline-flex;align-items:center;height:40px;padding:0 12px;border-radius:999px;border:1px solid var(--k-border-strong);font-size:14px">Igbo</span>
+            <span style="display:inline-flex;align-items:center;height:40px;padding:0 12px;border-radius:999px;border:1px solid var(--k-border-strong);font-size:14px">Français</span>
+            <span style="display:inline-flex;align-items:center;height:40px;padding:0 12px;border-radius:999px;border:1px solid var(--k-border-strong);font-size:14px">Kiswahili</span>
+          </div>
+          <span style="font-size:13px;color:var(--k-text-muted)">Used for message templates and routing chats to agents who speak the language.</span>
+        </fieldset>
+      </div>
+    </sc-if>
+
+    <!-- OB3 WHATSAPP -->
+    <sc-if value="{{ isOb3 }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;max-width:640px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-direction:column;gap:6px"><h1 style="margin:0;font-size:28px;line-height:36px;font-weight:700">Connect WhatsApp Business</h1><p style="margin:0;font-size:15px;line-height:23px;color:var(--k-text-2)">Chat with customers where they already are. It takes about 5 minutes on Meta's secure page.</p></div>
+        <div style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:12px;border:1px solid var(--k-border);background:var(--k-surface)">
+          <b style="font-size:15px">You'll need</b>
+          <span style="display:flex;gap:10px;font-size:14px;line-height:21px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text)">smartphone</span>A phone number that isn't already using the WhatsApp app</span>
+          <span style="display:flex;gap:10px;font-size:14px;line-height:21px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text)">business_center</span>A Meta Business account — you can create one during setup</span>
+          <span style="display:flex;gap:10px;font-size:14px;line-height:21px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text)">description</span>Your business registration (e.g. CAC certificate) for verification</span>
+        </div>
+        <button style="display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:10px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:16px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">open_in_new</span>Continue with Meta</button>
+        <span style="font-size:13px;line-height:20px;color:var(--k-text-muted);margin-top:-8px;text-align:center">Opens a Meta window. Kasuwa never sees your Facebook password.</span>
+        <div style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:12px;background:var(--k-surface-sunken)">
+          <b style="font-size:15px;display:flex;align-items:center;gap:8px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">schedule</span>The 24-hour window</b>
+          <span style="font-size:14px;line-height:22px;color:var(--k-text-2)">When a customer messages you, you can reply freely for 24 hours. After that, you can only send pre-approved <b>template</b> messages until they write again.</span>
+          <div aria-hidden="true" style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;height:10px;border-radius:5px;overflow:hidden"><span style="flex:24;background:var(--k-success)"></span><span style="flex:12;background:var(--k-border-strong);opacity:.5"></span></div><div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--k-text-muted)"><span>Customer writes</span><span>+24h</span><span>Templates only</span></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0;padding:16px;border-radius:12px;border:1px solid var(--k-border);background:var(--k-surface)">
+          <b style="font-size:15px;display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">payments</span>What messages cost</b>
+          <span style="display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--k-border);font-size:14px"><span>Replies inside the 24-hour window</span><b style="color:var(--k-success-text)">Free</b></span>
+          <span style="display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--k-border);font-size:14px"><span>Utility templates (order and payment updates)</span><b>Low</b></span>
+          <span style="display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--k-border);font-size:14px"><span>Authentication (login codes)</span><b>Low</b></span>
+          <span style="display:flex;justify-content:space-between;gap:12px;padding:10px 0;font-size:14px"><span>Marketing templates</span><b>Highest</b></span>
+          <span style="font-size:13px;line-height:20px;color:var(--k-text-muted);margin-top:6px">Meta sets prices per country and changes them from time to time. We charge Meta's price with no markup and show live rates in Billing.</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- OB4 IMPORT -->
+    <sc-if value="{{ isOb4 }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;max-width:640px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-direction:column;gap:6px"><h1 style="margin:0;font-size:28px;line-height:36px;font-weight:700">Bring your contacts and deals</h1><p style="margin:0;font-size:15px;line-height:23px;color:var(--k-text-2)">We copy your data. Nothing changes in your old tool.</p></div>
+        <div role="radiogroup" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px">
+          <sc-for list="{{ imps }}" as="i" hint-placeholder-count="4">
+            <button role="radio" aria-checked="{{ i.checked }}" onClick="{{ i.pick }}" style="display:flex;align-items:center;gap:10px;height:60px;padding:0 12px;border-radius:10px;border:{{ i.border }};background:{{ i.bg }};color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;text-align:left;cursor:pointer"><span style="width:32px;height:32px;border-radius:8px;background:var(--k-surface-sunken);color:var(--k-text-2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0"><span style="font-family:{{ i.ff }};font-size:{{ i.fs }}px;line-height:1">{{ i.mark }}</span></span>{{ i.name }}</button>
+          </sc-for>
+        </div>
+        <sc-if value="{{ impCrm }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:12px;border:1px solid var(--k-border);background:var(--k-surface)">
+            <span style="font-size:14px;line-height:22px;color:var(--k-text-2)">Sign in to <b style="color:var(--k-text)">{{ impName }}</b> and choose what to bring: contacts, companies, deals and notes. Big accounts can take a few hours — we'll email you when it's done.</span>
+            <button style="align-self:flex-start;height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600">Connect {{ impName }}</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ impCsv }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;border:1px solid var(--k-border);background:var(--k-surface)"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1;color:var(--k-success-text)">check_circle</span><span style="flex:1;display:flex;flex-direction:column"><b style="font-size:14px">contacts_lagos.xlsx</b><span style="font-size:13px;color:var(--k-text-2)">2,480 rows · 18 need a look</span></span><button style="height:44px;padding:0 10px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:14px;font-weight:600">Replace</button></div>
+            <div style="border:1px solid var(--k-border);border-radius:10px;overflow:hidden;background:var(--k-surface)">
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr);gap:8px;padding:10px 14px;background:var(--k-surface-sunken);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2)"><span>Your column</span><span></span><span>Kasuwa field</span></div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr);gap:8px;align-items:center;padding:10px 14px;border-top:1px solid var(--k-border);font-size:14px"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">Customer Name</span><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-muted)">arrow_forward</span><span>Full name</span></div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr);gap:8px;align-items:center;padding:10px 14px;border-top:1px solid var(--k-border);font-size:14px"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">Phone</span><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-muted)">arrow_forward</span><span>Mobile <span style="color:var(--k-text-muted)">(adds +234)</span></span></div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr);gap:8px;align-items:center;padding:10px 14px;border-top:1px solid var(--k-border);font-size:14px;background:var(--k-warning-soft)"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">Amt</span><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-warning-text)">help</span><span style="color:var(--k-warning-text);font-weight:600">Choose a field</span></div>
+            </div>
+            <span style="font-size:13px;color:var(--k-text-muted)">Using a spreadsheet? <b style="color:var(--k-primary-text)">Download our template</b>. Uploads resume if your connection drops.</span>
+          </div>
+        </sc-if>
+        <span style="font-size:14px;line-height:21px;color:var(--k-text-2);padding:12px 14px;border-radius:10px;border:1px dashed var(--k-border-strong)">Nothing to import? Start fresh. You can import any time from Settings → Data.</span>
+      </div>
+    </sc-if>
+
+    <!-- OB5 INVITE -->
+    <sc-if value="{{ isOb5 }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;max-width:640px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-direction:column;gap:6px"><h1 style="margin:0;font-size:28px;line-height:36px;font-weight:700">Invite your team</h1><p style="margin:0;font-size:15px;line-height:23px;color:var(--k-text-2)">Add the people who'll answer chats and calls. You can change roles later.</p></div>
+        <div role="tablist" style="display:flex;gap:4px;padding:4px;border-radius:10px;background:var(--k-surface-sunken)">
+          <sc-for list="{{ invTabs }}" as="t" hint-placeholder-count="2">
+            <button role="tab" aria-selected="{{ t.sel }}" onClick="{{ t.pick }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:44px;border-radius:7px;border:0;background:{{ t.bg }};box-shadow:{{ t.sh }};color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ t.icon }}</span>{{ t.label }}</button>
+          </sc-for>
+        </div>
+        <sc-if value="{{ invEmail }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Email addresses</span>
+              <span style="display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px;min-height:96px;padding:8px;border:1px solid var(--k-primary);box-shadow:0 0 0 3px var(--k-primary-soft-strong);border-radius:8px;background:var(--k-surface)">
+                <span style="display:inline-flex;align-items:center;height:32px;padding:0 2px 0 10px;border-radius:6px;background:var(--k-primary-soft);color:var(--k-primary-text);font-size:13px;font-weight:600">tunde@ojafoods.ng<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;width:28px;text-align:center">close</span></span>
+                <span style="display:inline-flex;align-items:center;height:32px;padding:0 2px 0 10px;border-radius:6px;background:var(--k-primary-soft);color:var(--k-primary-text);font-size:13px;font-weight:600">chiamaka@ojafoods.ng<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;width:28px;text-align:center">close</span></span>
+                <span style="display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 2px 0 8px;border-radius:6px;background:var(--k-danger-soft);color:var(--k-danger-text);font-size:13px;font-weight:600;border:1px solid var(--k-danger)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">error</span>bola@ojafoods<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;width:28px;text-align:center">close</span></span>
+              </span>
+              <span style="font-size:13px;line-height:20px;color:var(--k-text-muted)">Paste many at once — separate with commas or new lines. <span style="color:var(--k-danger-text)">“bola@ojafoods” is missing an ending like .ng or .com.</span></span>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:6px;max-width:260px"><span style="font-size:14px;font-weight:600">Role</span><span style="display:flex;align-items:center;height:48px;padding:0 12px 0 14px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);font-size:16px"><span style="flex:1">Agent</span><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">expand_more</span></span></label>
+          </div>
+        </sc-if>
+        <sc-if value="{{ invLink }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:12px;border:1px solid var(--k-border);background:var(--k-surface)">
+            <span style="font-size:14px;line-height:22px;color:var(--k-text-2)">Share this link in your team's WhatsApp group. People who join are added as <b style="color:var(--k-text)">Agents</b> and wait for your approval.</span>
+            <span style="display:flex;align-items:center;height:48px;padding:0 4px 0 14px;border-radius:8px;background:var(--k-surface-sunken);font-family:'JetBrains Mono',monospace;font-size:14px"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">kasuwa.africa/j/ojafoods-7Q2K</span><button style="height:40px;padding:0 12px;border-radius:6px;border:0;background:var(--k-surface);color:var(--k-text);font-family:'Noto Sans',sans-serif;font-size:14px;font-weight:600;display:flex;align-items:center;gap:4px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">content_copy</span>Copy</button></span>
+            <button style="display:flex;align-items:center;justify-content:center;gap:8px;height:48px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-success-text)">share</span>Share on WhatsApp</button>
+            <span style="font-size:13px;color:var(--k-text-muted)">Link expires in 7 days · <b style="color:var(--k-primary-text)">Turn off link</b></span>
+          </div>
+        </sc-if>
+        <div style="display:flex;flex-direction:column;gap:6px;padding:16px;border-radius:12px;background:var(--k-surface-sunken)">
+          <b style="font-size:14px">No one invited yet</b>
+          <span style="font-size:14px;line-height:21px;color:var(--k-text-2)">That's fine — you can invite people any time from Settings → Team.</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- SUCCESS -->
+    <sc-if value="{{ isSuccess }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;max-width:520px;display:flex;flex-direction:column;gap:20px;margin:auto 0">
+        <span style="width:64px;height:64px;border-radius:50%;background:var(--k-success-soft);color:var(--k-success-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:34px;line-height:1">check</span></span>
+        <div style="display:flex;flex-direction:column;gap:6px"><h1 style="margin:0;font-size:32px;line-height:40px;font-weight:700">Ọja Foods is ready</h1><p style="margin:0;font-size:16px;line-height:24px;color:var(--k-text-2)">Here's what's done and what's left. This list stays on your Home page.</p></div>
+        <div role="list" style="display:flex;flex-direction:column;border:1px solid var(--k-border);border-radius:12px;background:var(--k-surface);overflow:hidden">
+          <sc-for list="{{ checklist }}" as="c" hint-placeholder-count="6">
+            <div role="listitem" style="display:flex;align-items:center;gap:12px;min-height:60px;padding:10px 14px;border-bottom:1px solid var(--k-border)">
+              <span style="width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:{{ c.bg }};color:{{ c.fg }};border:{{ c.border }}"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ c.icon }}</span></span>
+              <span style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0"><b style="font-size:15px;font-weight:{{ c.fw }};color:{{ c.tfg }}">{{ c.label }}</b><span style="font-size:13px;color:var(--k-text-2)">{{ c.sub }}</span></span>
+              <sc-if value="{{ c.hasAction }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;font-weight:600;color:var(--k-primary-text);white-space:nowrap">{{ c.action }}</span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px"><button style="flex:1 1 180px;height:48px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:16px;font-weight:600">Go to Inbox</button><button style="flex:1 1 180px;height:48px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600">Take a 2-minute tour</button></div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ authFooter }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 16px;padding:12px 16px;border-top:1px solid var(--k-border);font-size:12px;color:var(--k-text-2)">
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:var(--k-success-text)">lock</span>Encrypted connection</span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:var(--k-success-text)">verified_user</span>NDPA · POPIA</span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:var(--k-success-text)">public</span>Data stored in Africa</span>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isOb }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 20px 16px;border-top:1px solid var(--k-border);background:var(--k-surface)">
+      <button style="display:inline-flex;align-items:center;gap:4px;height:48px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">arrow_back</span>Back</button>
+      <span style="flex:1"></span>
+      <sc-if value="{{ desktopSkip }}" hint-placeholder-val="{{ false }}"><button style="height:48px;padding:0 14px;border-radius:8px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:15px;font-weight:600">Skip for now</button></sc-if>
+      <button style="height:48px;padding:0 22px;min-width:150px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:16px;font-weight:600">{{ obCta }}</button>
+    </div>
+  </sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;signin&quot;,&quot;wrong&quot;,&quot;locked&quot;,&quot;sso&quot;,&quot;slow&quot;,&quot;mfa&quot;,&quot;mfa-sms&quot;,&quot;mfa-expired&quot;,&quot;signup&quot;,&quot;verify&quot;,&quot;ob1&quot;,&quot;ob2&quot;,&quot;ob3&quot;,&quot;ob4&quot;,&quot;ob5&quot;,&quot;success&quot;],&quot;default&quot;:&quot;signin&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;mobile&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;lowBandwidth&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { lang: 'en', langOpen: false, lowBw: null, showPw: false, otpLeft: 42, emp: 2, bpo: true, cur: 'NGN', imp: 3, invTab: 0, region: 0 };
+  componentDidMount() { this.t = setInterval(() => this.setState(s => s.otpLeft > 0 ? { otpLeft: s.otpLeft - 1 } : null), 1000); }
+  componentWillUnmount() { clearInterval(this.t); }
+  L = [['en', 'English', 'EN', 'Welcome back', 'Sign in'], ['fr', 'Français', 'FR', 'Bon retour', 'Se connecter'], ['pcm', 'Pidgin', 'PCM', 'Welcome back, how far?', 'Enter your account'], ['ha', 'Hausa', 'HA', 'Barka da dawowa', 'Shiga'], ['yo', 'Yorùbá', 'YO', 'Ẹ kú àbọ̀', 'Wọlé'], ['ig', 'Igbo', 'IG', 'Nnọọ ọzọ', 'Banye'], ['sw', 'Kiswahili', 'SW', 'Karibu tena', 'Ingia']];
+  CUR = { NGN: ['₦', 'en-NG', 2, true], GHS: ['GH₵', 'en-GH', 2, true], KES: ['KSh', 'en-KE', 2, true], ZAR: ['R', 'en-ZA', 2, true], XOF: ['CFA', 'fr-SN', 0, false], USD: ['US$', 'en-US', 2, true] };
+  renderVals() {
+    const s = this.state, sc = this.props.screen || 'signin', mobile = !!this.props.mobile;
+    const lowBw = s.lowBw === null ? !!this.props.lowBandwidth : s.lowBw;
+    const isOb = /^ob/.test(sc), obN = isOb ? +sc.slice(2) : 0;
+    const isAuth = !isOb;
+    const showPanel = !mobile && !lowBw && isAuth && sc !== 'signup' ? true : (!mobile && !lowBw && sc === 'signup');
+    const lang = this.L.find(l => l[0] === s.lang) || this.L[0];
+    const rm = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const spin = React.createElement('span', { 'aria-hidden': true, style: { width: 18, height: 18, border: '2px solid currentColor', borderRightColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: rm ? 'none' : 'kspin .8s linear infinite' } });
+    const mfaKind = sc === 'mfa' ? 'app' : sc === 'mfa-sms' ? 'sms' : sc === 'mfa-expired' ? 'exp' : null;
+    const digits = sc === 'mfa' ? ['4', '1', '9', '', '', ''] : sc === 'mfa-sms' ? ['2', '0', '', '', '', ''] : sc === 'mfa-expired' ? ['7', '3', '0', '5', '5', '1'] : ['8', '', '', '', '', ''];
+    const focusAt = digits.indexOf('');
+    const otp = digits.map((d, i) => ({ d, border: sc === 'mfa-expired' ? '2px solid var(--k-danger)' : i === focusAt ? '1px solid var(--k-primary)' : '1px solid var(--k-border-strong)', ring: sc !== 'mfa-expired' && i === focusAt ? '0 0 0 3px var(--k-primary-soft-strong)' : 'none' }));
+    const m = Math.floor(s.otpLeft / 60), sec = String(s.otpLeft % 60).padStart(2, '0');
+    const mfaAlts = mfaKind === 'app' ? [['passkey', 'Use a passkey'], ['sms', 'Text a code to +234 803 *** 4567'], ['key', 'Use a backup code']] : [['phone_iphone', 'Use your authenticator app'], ['passkey', 'Use a passkey']];
+    const titles = ['Data region', 'Currency & language', 'WhatsApp', 'Import', 'Team'];
+    const obSteps = titles.map((label, i) => { const n = i + 1, done = n < obN, cur = n === obN; return { label, flex: n < 5 ? '1 1 auto' : '0 0 auto', line: n < 5, lineBg: done ? 'var(--k-success)' : 'var(--k-border)', bg: done ? 'var(--k-success)' : cur ? 'var(--k-primary)' : 'var(--k-surface)', fg: done || cur ? '#FFFFFF' : 'var(--k-text-2)', ring: done || cur ? 'none' : 'inset 0 0 0 2px var(--k-border-strong)', mark: done ? 'check' : String(n), ff: done ? "'Material Symbols Rounded'" : 'inherit', fs: done ? 18 : 13, fw: cur ? 700 : 500, lfg: cur ? 'var(--k-text)' : 'var(--k-text-2)', cur: cur ? 'step' : 'false', barBg: n <= obN ? (n < obN ? 'var(--k-success)' : 'var(--k-primary)') : 'var(--k-border)' }; });
+    const C = this.CUR[s.cur], nf = new Intl.NumberFormat(C[1], { minimumFractionDigits: C[2], maximumFractionDigits: C[2] }).format(1250000);
+    const R = [['South Africa · Johannesburg', 'Default', 'Included in every plan. Fast for most of Africa.', '~38 ms'], ['Nigeria · Lagos', 'Enterprise', 'Keeps data inside Nigeria. For banks, fintechs and government work.', '~9 ms'], ['Kenya · Nairobi', 'Included', 'Best for teams mostly in East Africa.', '~61 ms']];
+    const imps = [['Zoho CRM', 'Z'], ['Salesforce', 'S'], ['HubSpot', 'H'], ['CSV / Excel', 'table']];
+    const chk = [['done', 'Workspace created', 'ojafoods.kasuwa.africa'], ['done', 'Data stored in South Africa', 'Johannesburg region'], ['done', 'WhatsApp connected', '+234 803 555 0142 · verified'], ['prog', 'Import in progress', '2,480 contacts · 18 need a look', 'Review'], ['todo', 'Invite your team', '2 invites sent · 0 joined', 'Invite'], ['todo', 'Make your first call', 'Test your headset and number', 'Start']];
+    return {
+      spin, lang: lang[0], tH: lang[3], tB: lang[4], langLabel: mobile ? lang[2] : lang[1], langOpen: s.langOpen, langOpenStr: String(s.langOpen),
+      langs: this.L.map(l => ({ code: l[0], name: l[1], bg: l[0] === s.lang ? 'var(--k-primary-soft)' : 'transparent', fw: l[0] === s.lang ? 700 : 400, check: l[0] === s.lang ? 'check' : '', pick: () => this.setState({ lang: l[0], langOpen: false }) })),
+      toggleLang: () => this.setState(p => ({ langOpen: !p.langOpen })),
+      toggleLow: () => this.setState({ lowBw: !lowBw }), lowBwStr: String(lowBw),
+      lowLabel: mobile ? '' : lowBw ? 'Lite mode on' : 'Lite mode', lowBg: lowBw ? 'var(--k-accent-soft)' : 'var(--k-surface)', lowFg: lowBw ? 'var(--k-accent-text)' : 'var(--k-text)', lowBorder: lowBw ? 'var(--k-accent)' : 'var(--k-border)',
+      showPanel, showTopLogo: !showPanel, topBorder: isOb ? 'var(--k-border)' : 'transparent',
+      isOb, obN, obTitle: titles[obN - 1] || '', obDesktop: isOb && !mobile, obMobile: isOb && mobile, obSteps,
+      mobileSkip: mobile && obN >= 3, desktopSkip: !mobile && obN >= 3, obCta: obN === 5 ? 'Finish setup' : 'Continue',
+      authFooter: isAuth && !showPanel && sc !== 'success',
+      isSignin: sc === 'signin' || sc === 'wrong', isWrong: sc === 'wrong', isLocked: sc === 'locked', isSso: sc === 'sso', isSlow: sc === 'slow', slowWaiting: sc === 'slow' && !lowBw, slowLite: sc === 'slow' && lowBw,
+      emailVal: sc === 'wrong' ? 'adaeze@ojafoods.ng' : 'you@company.com', emailFg: sc === 'wrong' ? 'var(--k-text)' : 'var(--k-text-muted)',
+      pwVal: sc === 'wrong' ? (s.showPw ? 'Ojafoods2025' : '••••••••••••') : '', pwSpacing: s.showPw ? '0' : '.1em', pwBorder: sc === 'wrong' ? '2px solid var(--k-danger)' : '1px solid var(--k-border-strong)',
+      pwIcon: s.showPw ? 'visibility_off' : 'visibility', pwAria: s.showPw ? 'Hide password' : 'Show password', togglePw: () => this.setState(p => ({ showPw: !p.showPw })),
+      isMfa: !!mfaKind, isApp: mfaKind === 'app', isSms: mfaKind === 'sms', isExpired: mfaKind === 'exp', otp,
+      mfaIcon: mfaKind === 'app' ? 'phone_iphone' : mfaKind === 'exp' ? 'timer_off' : 'sms',
+      mfaTitle: mfaKind === 'app' ? 'Check your authenticator app' : mfaKind === 'exp' ? 'That code has expired' : 'Enter the code we sent',
+      mfaSub: mfaKind === 'app' ? 'Enter the 6-digit code from Google Authenticator, Microsoft Authenticator or a similar app.' : 'Code sent to +234 803 *** 4567 by SMS. It works for 10 minutes.',
+      mfaCta: mfaKind === 'exp' ? 'Send a new code' : 'Verify',
+      mfaAlts: mfaAlts.map(([icon, label]) => ({ icon, label })),
+      otpClock: m + ':' + sec, otpWaiting: s.otpLeft > 0, otpReady: s.otpLeft <= 0, resend: () => this.setState({ otpLeft: 60 }),
+      isSignup: sc === 'signup', isVerify: sc === 'verify',
+      emps: ['1–10', '11–50', '51–200', '201–1,000', '1,000+'].map((label, i) => ({ label, pressed: String(i === s.emp), border: i === s.emp ? 'var(--k-primary)' : 'var(--k-border-strong)', bg: i === s.emp ? 'var(--k-primary)' : 'var(--k-surface)', fg: i === s.emp ? 'var(--k-on-primary)' : 'var(--k-text)', pick: () => this.setState({ emp: i }) })),
+      toggleBpo: () => this.setState(p => ({ bpo: !p.bpo })), bpoStr: String(s.bpo), bpoTrack: s.bpo ? 'var(--k-primary)' : 'var(--k-border-strong)', bpoKnob: s.bpo ? 21 : 3,
+      bpoBg: s.bpo ? 'var(--k-primary-soft)' : 'var(--k-surface)', bpoBorder: s.bpo ? 'var(--k-primary)' : 'var(--k-border-strong)',
+      bpoSub: s.bpo ? "Yes — we'll turn on queues, agent status and wrap-up codes." : "No — you'll start with a simple shared inbox. Turn queues on any time.",
+      isOb1: obN === 1, isOb2: obN === 2, isOb3: obN === 3, isOb4: obN === 4, isOb5: obN === 5, isSuccess: sc === 'success',
+      regions: R.map(([name, tag, desc, ms], i) => { const on = i === s.region; return { name, tag, desc, ms, checked: String(on), border: on ? '2px solid var(--k-primary)' : '1px solid var(--k-border-strong)', bg: on ? 'var(--k-primary-soft)' : 'var(--k-surface)', dot: on ? 'var(--k-primary)' : 'var(--k-border-strong)', fill: on ? 'var(--k-primary)' : 'transparent', tagBg: i === 1 ? 'var(--k-accent-soft)' : i === 0 ? 'var(--k-success-soft)' : 'var(--k-surface-sunken)', tagFg: i === 1 ? 'var(--k-accent-text)' : i === 0 ? 'var(--k-success-text)' : 'var(--k-text-2)', pick: () => this.setState({ region: i }) }; }),
+      curs: Object.keys(this.CUR).map(code => ({ code, sym: this.CUR[code][0], pressed: String(code === s.cur), border: code === s.cur ? '2px solid var(--k-primary)' : '1px solid var(--k-border-strong)', bg: code === s.cur ? 'var(--k-primary-soft)' : 'var(--k-surface)', pick: () => this.setState({ cur: code }) })),
+      curPreview: C[3] ? C[0] + (C[0].length > 1 ? ' ' : '') + nf : nf + ' ' + C[0],
+      imps: imps.map(([name, mark], i) => { const on = i === s.imp, icon = mark.length > 1; return { name, mark, ff: icon ? "'Material Symbols Rounded'" : 'inherit', fs: icon ? 20 : 14, checked: String(on), border: on ? '2px solid var(--k-primary)' : '1px solid var(--k-border-strong)', bg: on ? 'var(--k-primary-soft)' : 'var(--k-surface)', pick: () => this.setState({ imp: i }) }; }),
+      impCrm: s.imp < 3, impCsv: s.imp === 3, impName: imps[s.imp][0],
+      invTabs: [['By email', 'mail'], ['WhatsApp link', 'link']].map(([label, icon], i) => ({ label, icon, sel: String(i === s.invTab), bg: i === s.invTab ? 'var(--k-surface)' : 'transparent', sh: i === s.invTab ? 'var(--k-shadow-1)' : 'none', pick: () => this.setState({ invTab: i }) })),
+      invEmail: s.invTab === 0, invLink: s.invTab === 1,
+      checklist: chk.map(([st, label, sub, action]) => ({ label, sub, action: action || '', hasAction: !!action, icon: st === 'done' ? 'check' : st === 'prog' ? 'sync' : '', bg: st === 'done' ? 'var(--k-success)' : st === 'prog' ? 'var(--k-info-soft)' : 'transparent', fg: st === 'done' ? '#FFFFFF' : 'var(--k-info-text)', border: st === 'todo' ? '2px solid var(--k-border-strong)' : '0', fw: st === 'done' ? 500 : 700, tfg: st === 'done' ? 'var(--k-text-2)' : 'var(--k-text)' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

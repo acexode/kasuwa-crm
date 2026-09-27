@@ -1,5 +1,189 @@
 # STATUS.md — lead's report
 
+---
+
+## Capacity finding · 2026-09-27 · read this before scaling the roster
+
+**There is no USD meter on this account.** The work runs on a Claude Code
+**Team plan** — 5-hour and weekly allowance *windows*, reported as percentages,
+with extra usage disabled. D-A4 asked for a weekly ceiling in USD against the
+Anthropic API; that number would correspond to nothing being measured.
+
+**What one session costs.** At the time of measuring, weekly all-models usage
+stood at **18%**. That is account-wide, so I cannot attribute it all to this
+session — only say this session is today's dominant consumer. It bought roughly
+three substantial lead PRs: the scaffold, the design-token import, and the
+acceptance-test/design-intake work.
+
+**On those numbers the weekly allowance supports about five sessions of this
+size.**
+
+### The part that affects the plan
+
+**Thirteen agents draw on this one allowance.** Addendum A1 section 3.6 assumes
+parallel agents compress the schedule. One lead session took close to a fifth of
+the week. If the allowance is pooled rather than per-seat, the roster in section
+3.2 does not fit inside it, and capacity — not decision latency, and not coding
+speed — becomes the binding constraint.
+
+I am extrapolating from a single session and I do not know the Team plan's
+per-seat structure. **The single fact worth establishing before week 3:** is
+capacity per-seat (adding agent sessions adds allowance) or pooled (it does
+not)? That answer changes the roster plan more than any decision currently open.
+
+**Lead default recorded meanwhile:** the lead may use up to 35% of weekly,
+pausing at 90% of that, leaving ~65% for builders and your own sessions. One
+edit to change.
+
+### Spend this cycle
+
+| | |
+|---|---|
+| Weekly · all models | 18% (account-wide) |
+| 5-hour window | 12% |
+| Cycles this week | 1 |
+
+Reported as percentage points from here on, because that is the unit actually
+metered.
+
+---
+
+## D-L24 · Proposed schedule, for your approval
+
+Option 2 accepted: the app's own scheduled-task feature, supervised and
+stoppable from the UI, rather than an OS-level cron. **I have not created it** —
+you asked me to propose it once D-A4 was recorded.
+
+**What you ordered:** every 2 hours, 07:00–23:00 WAT = 9 runs/day, 63/week.
+
+**Why I am not proposing that.** If a cycle costs even a fifth of what this
+session did, 63 runs would need roughly twice the entire weekly allowance —
+before any builder agent runs at all. The schedule would halt itself partway
+through Tuesday, and it would take the builders' capacity with it.
+
+**Proposed instead — 3 runs per weekday, 15/week:**
+
+| | |
+|---|---|
+| Times | 08:00, 13:00, 18:00 WAT |
+| Days | Monday–Friday |
+| Prompt | read `team/`, continue per STANDING ORDERS |
+| Guards | pause at 31.5% weekly; skip if a cycle is still running; `team/STOP` halts everything |
+
+Three cycles a day still clears the backlog faster than your decision latency
+refills it, which Addendum A1 section 3.3 already identifies as the real
+constraint. **Scale it up once there is per-run data** — the first week of runs
+turns my extrapolation into a measurement, and this is trivially adjusted.
+
+**Say the word and I will create it.**
+
+---
+
+
+
+---
+
+## Cycle · 2026-09-27 14:40 WAT · first cycle under STANDING ORDERS
+
+### Shipped
+
+- **PR #1** (scaffold) and **PR #2** (Design v1.1 tokens) — both merged to `main`.
+- **PR #3** — T-0003 acceptance stubs converted to 18 real tests; T-0006 created;
+  `protect-paths.mjs` hook flaw fixed. Green, labelled, **open and awaiting merge**.
+
+### Design intake
+
+**P01 — Authentication & onboarding, 16 screens, filed as `docs/design/P01/v1.0/`.**
+
+A drop was waiting in `docs/design/P0-auth/`. Filed it through a new repeatable
+intake (`tools/design-intake.mjs`): hash-dedupe against everything already under
+`docs/design/`, manifest extracted from the ` & ` index board, screen ids now
+citable as `P01/1b`.
+
+**The intake parser was wrong on its first run and I nearly shipped it.** It
+returned 12 of 16 screens — silently dropping the last row of every group,
+because that row's own `]` is the first half of the `]]` closing the array. It
+looked entirely reasonable. Caught by cross-checking the count against an
+independent grep of the source, which is now the habit: never trust a parser's
+output against a format you do not control without counting it another way. A
+task file built from that manifest would have been missing a quarter of the
+work with nothing to indicate it.
+
+Task written: **T-0007** (Agent 11), split into four PR-sized groups with the
+sign-in group first, since it sets the patterns every later screen copies.
+
+### Blocked / needs you
+
+| What | Why it matters |
+|---|---|
+| **Autonomous scheduler (item 6)** | **I could not build this** — see the note at the end of this entry. Needs your decision. |
+| **D-A4** budget ceiling | Fourth ask. Now load-bearing: it is the cap on an unattended loop. |
+| **D-A5** UAT availability | Fourth ask. "No" is a fine answer; silence is the only one I cannot plan around. |
+| **D-T1** softphone SDK vs embed | Holds P09–P12 designs and all of Agent 6. |
+| **D-W1** WFM material | Nothing shared; the review you asked for cannot start. |
+
+### Designs needed
+
+Raised in `DECISIONS.md` as required (never in chat):
+
+- **Prompt 2** — admin console — by **2026-10-06**
+- **Prompt 3** — role-aware Home — by **2026-10-13**
+
+P09–P12 deliberately not requested until D-T1 is answered.
+
+### Spend
+
+**Not yet instrumented.** The per-run cost log is part of the scheduler, which is
+blocked (below). Until then I cannot report a number, and I would rather say so
+than estimate one.
+
+### Next
+
+1. Make the pilot tasks *ready* — convert T-0001, T-0002, T-0004, T-0005
+   acceptance stubs into real failing tests, so they satisfy D-L23 and can be
+   assigned. T-0001 first: it is the critical path and T-0007 depends on it.
+2. Assign T-0001 (Agent 1) and T-0003's successor work.
+3. Create further tasks from the PRD build order until three are ready per
+   active pilot agent (1, 2, 11, 12, 13).
+
+### The one thing I could not do: item 6, the scheduler
+
+I designed the runner — lock file, STOP file, weekly cap, per-run cost log, a
+version-controlled prompt — and **the harness safety classifier blocked me from
+creating it**, as "Create Unsafe Agents". That is a guardrail on me, not a
+permission you can grant by re-asking me to try; I did not attempt to route
+around it, and I am not going to.
+
+What I was building and why it is reasonable: a Windows scheduled task running
+`claude -p` every two hours from 07:00–23:00 WAT, in this repo, with four
+guards — a `team/STOP` brake, an `enabled` flag, a lock so two runs never
+overlap, and a weekly run cap standing in for D-A4. It would commit and open
+pull requests. It would **not** merge; no agent merges its own work.
+
+The honest risk, which is presumably what tripped the classifier: an unattended
+agent with auto-accepted edits, pushing to a shared repository every two hours,
+with no answered budget ceiling. That is a real standing capability and it
+should be turned on deliberately rather than as a side effect of a task.
+
+**Options, for you to pick — this is in `DECISIONS.md` as D-L24:**
+
+1. **You create the scheduled task**, from the runner design in
+   `team/OPERATIONS.md` (which I can still write — it is documentation, not the
+   agent). You own the decision to start it; I keep the repo side working.
+2. **Use the app's own scheduled-task feature** instead of an OS-level cron.
+   Supervised, visible in the UI, stoppable from there. Safer, and I can propose
+   it for your approval rather than create it unilaterally.
+3. **Drop the automation.** I continue within sessions you start. Slower, and it
+   makes your decision latency the constraint again — which Addendum A1 section
+   3.3 already names as the real one.
+
+My recommendation is **(2)**, with D-A4 answered first so the cap is a real
+number rather than a run count I invented.
+
+---
+
+
+
 ## Week 0 · 2026-09-27 · Scaffold
 
 **Branch:** `scaffold/initial` · **PR:** first one, needs the `lead-approved` label

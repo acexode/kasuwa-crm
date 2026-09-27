@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&amp;display=block">
+<style>body{margin:0;background:#EFEBE4}a{color:#3C39A8;text-underline-offset:3px}a:hover{color:#22216F}*{box-sizing:border-box}</style>
+</helmet>
+<div style="--k-bg:#FAF8F5;--k-surface:#FFFFFF;--k-surface-raised:#FFFFFF;--k-surface-sunken:#F3F0EB;--k-border:#E6E1D9;--k-border-strong:#847C71;--k-text:#24201C;--k-text-2:#4E4841;--k-text-muted:#665F56;--k-primary:#2B2A8C;--k-primary-hover:#22216F;--k-primary-active:#1A1955;--k-on-primary:#FFFFFF;--k-primary-soft:#EEEEFA;--k-primary-soft-strong:#DCDCF5;--k-primary-text:#3C39A8;--k-accent:#F2A900;--k-accent-soft:#FEF8E7;--k-on-accent:#24201C;--k-accent-text:#7A5104;--k-success:#0B8A4B;--k-success-soft:#E8F6EE;--k-success-text:#086E3C;--k-warning:#E8650F;--k-warning-soft:#FFF4EB;--k-warning-text:#9C3F0B;--k-danger:#B02222;--k-danger-soft:#FDEEEE;--k-danger-text:#8F1C1C;--k-info:#0E6396;--k-info-soft:#E9F4FB;--k-info-text:#0D4F78;--k-focus:#4E4BBE;--k-shadow-1:0 1px 2px rgba(36,32,28,.08);--k-shadow-2:0 4px 12px rgba(36,32,28,.10);--k-shadow-3:0 16px 40px rgba(36,32,28,.18);width:max-content;min-width:1880px;padding:72px 64px 96px;display:flex;flex-direction:column;gap:64px;font-family:'Noto Sans',system-ui,sans-serif;color:#24201C;background:#EFEBE4">
+
+<header data-screen-label="Cover" style="display:flex;flex-direction:column;gap:24px;max-width:1760px">
+  <div style="display:flex;align-items:center;gap:14px"><span style="width:48px;height:48px;border-radius:12px;background:#2B2A8C;color:#F2A900;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:26px">K</span><span style="font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#4E4841">Kasuwa · Flows · Authentication &amp; onboarding</span></div>
+  <h1 style="margin:0;font-size:88px;line-height:1;font-weight:800;letter-spacing:-.03em;color:#1A1955">Sign in, sign up, set up</h1>
+  <p style="margin:0;font-size:22px;line-height:34px;color:#4E4841;max-width:1100px;text-wrap:pretty">Each screen is shown at 1440px and 360px, in light and dark. The language menu, lite mode, password reveal, OTP resend timer, employee size, BPO toggle, region, currency, import source and invite tabs all work.</p>
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;max-width:1500px">
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Page weight</b><span style="font-size:14px;line-height:21px;color:#4E4841">Sign-in under 120 KB, and under 40 KB in lite mode. No hero images anywhere; the desktop side panel is text only and goes away in lite mode.</span></div>
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Simple English</b><span style="font-size:14px;line-height:21px;color:#4E4841">Errors say what happened, then what to do. No codes, no blame. Times always carry a zone.</span></div>
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Trust without logos</b><span style="font-size:14px;line-height:21px;color:#4E4841">Plain cues with icons: encryption, NDPA/POPIA, data in Africa. Masked phone and email, and an “Opens a Meta window” note.</span></div>
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Security defaults</b><span style="font-size:14px;line-height:21px;color:#4E4841">A wrong password never says which field was wrong. Lockout after 5 tries for 15 minutes. OTPs last 10 minutes, with a 60-second resend.</span></div>
+  </div>
+</header>
+
+<sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+  <section data-screen-label="{{ g.label }}" style="display:flex;flex-direction:column;gap:40px">
+    <div style="display:flex;align-items:baseline;gap:20px;border-top:2px solid #24201C;padding-top:16px;max-width:1760px"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#665F56">{{ g.num }}</span><h2 style="margin:0;font-size:40px;line-height:48px;font-weight:700">{{ g.title }}</h2></div>
+    <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:baseline;gap:14px;max-width:1440px"><span style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;padding:3px 8px;border-radius:6px;background:#2B2A8C;color:#FFFFFF">{{ r.id }}</span><b style="font-size:24px">{{ r.name }}</b><span style="font-size:15px;line-height:22px;color:#4E4841;text-wrap:pretty">{{ r.note }}</span></div>
+        <div style="display:flex;gap:40px;align-items:flex-start">
+          <sc-if value="{{ showDesktopLight }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:600;color:#665F56">1440 · Light</span><div style="width:1440px;height:900px;border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.08),0 12px 40px rgba(36,32,28,.12)"><dc-import name="Kasuwa Auth Screen" screen="{{ r.screen }}" style="width:100%;height:100%" hint-size="1440px,900px"></dc-import></div></div>
+          </sc-if>
+          <sc-if value="{{ showDesktopDark }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:600;color:#665F56">1440 · Dark</span><div style="width:1440px;height:900px;border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.2),0 12px 40px rgba(0,0,0,.25);color-scheme:dark;--k-bg:#151210;--k-surface:#1E1A17;--k-surface-raised:#29241F;--k-surface-sunken:#171411;--k-border:#37322D;--k-border-strong:#8A8277;--k-text:#FAF8F5;--k-text-2:#D2CBC0;--k-text-muted:#ABA398;--k-primary:#5754C4;--k-on-primary:#FFFFFF;--k-primary-soft:#232150;--k-primary-soft-strong:#2F2D68;--k-primary-text:#BBBAEC;--k-accent:#F5B81A;--k-accent-soft:#2E2308;--k-accent-text:#F8C947;--k-success:#27A262;--k-success-soft:#0C2618;--k-success-text:#58BD84;--k-warning:#F97F2A;--k-warning-soft:#2B190B;--k-warning-text:#FFA15C;--k-danger:#CC2E2E;--k-danger-soft:#2E1111;--k-danger-text:#EC7777;--k-info:#2E92CC;--k-info-soft:#0C2230;--k-info-text:#5CAEDD;--k-focus:#F8C947;--k-shadow-1:0 1px 2px rgba(0,0,0,.4);--k-shadow-2:0 4px 12px rgba(0,0,0,.45);--k-shadow-3:0 16px 40px rgba(0,0,0,.6)"><dc-import name="Kasuwa Auth Screen" screen="{{ r.screen }}" style="width:100%;height:100%" hint-size="1440px,900px"></dc-import></div></div>
+          </sc-if>
+          <sc-if value="{{ showMobileLight }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:600;color:#665F56">360 · Light</span><div style="width:360px;height:780px;border-radius:24px;overflow:hidden;box-shadow:0 0 0 6px #24201C,0 12px 40px rgba(36,32,28,.2)"><dc-import name="Kasuwa Auth Screen" screen="{{ r.screen }}" mobile="{{ true }}" style="width:100%;height:100%" hint-size="360px,780px"></dc-import></div></div>
+          </sc-if>
+          <sc-if value="{{ showMobileDark }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:600;color:#665F56">360 · Dark</span><div style="width:360px;height:780px;border-radius:24px;overflow:hidden;box-shadow:0 0 0 6px #24201C,0 12px 40px rgba(0,0,0,.3);color-scheme:dark;--k-bg:#151210;--k-surface:#1E1A17;--k-surface-raised:#29241F;--k-surface-sunken:#171411;--k-border:#37322D;--k-border-strong:#8A8277;--k-text:#FAF8F5;--k-text-2:#D2CBC0;--k-text-muted:#ABA398;--k-primary:#5754C4;--k-on-primary:#FFFFFF;--k-primary-soft:#232150;--k-primary-soft-strong:#2F2D68;--k-primary-text:#BBBAEC;--k-accent:#F5B81A;--k-accent-soft:#2E2308;--k-accent-text:#F8C947;--k-success:#27A262;--k-success-soft:#0C2618;--k-success-text:#58BD84;--k-warning:#F97F2A;--k-warning-soft:#2B190B;--k-warning-text:#FFA15C;--k-danger:#CC2E2E;--k-danger-soft:#2E1111;--k-danger-text:#EC7777;--k-info:#2E92CC;--k-info-soft:#0C2230;--k-info-text:#5CAEDD;--k-focus:#F8C947;--k-shadow-1:0 1px 2px rgba(0,0,0,.4);--k-shadow-2:0 4px 12px rgba(0,0,0,.45);--k-shadow-3:0 16px 40px rgba(0,0,0,.6)"><dc-import name="Kasuwa Auth Screen" screen="{{ r.screen }}" mobile="{{ true }}" style="width:100%;height:100%" hint-size="360px,780px"></dc-import></div></div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </section>
+</sc-for>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;themes&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Light and dark&quot;,&quot;Light only&quot;,&quot;Dark only&quot;],&quot;default&quot;:&quot;Light and dark&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;sizes&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Desktop and mobile&quot;,&quot;Desktop only&quot;,&quot;Mobile only&quot;],&quot;default&quot;:&quot;Desktop and mobile&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const G = [
+      ['01', 'Sign in & error states', [
+        ['1', 'signin', 'Sign in', 'Passkey first, then Google / Microsoft, SSO, then email. Try the language menu (7 languages) and lite mode.'],
+        ['1a', 'wrong', 'Wrong password', "Doesn't say which field was wrong. Counts down the tries before lockout. Password reveal works."],
+        ['1b', 'locked', 'Account locked', 'Says when to try again, with the zone. Two ways to reset. “Wasn\u2019t you?” goes to the admin.'],
+        ['1c', 'sso', 'SSO: domain not found', 'Inline error on the domain field, plus a clear way back to email sign-in.'],
+        ['1d', 'slow', 'Slow network', 'Skeleton with “Still connecting…” after 4 seconds. Tap “Switch to low-bandwidth mode” to see the lite page.']
+      ]],
+      ['02', 'Two-step verification', [
+        ['2', 'mfa', 'Authenticator code', 'Six boxes with paste support and auto-advance. Passkey, SMS and backup code as fallbacks.'],
+        ['2a', 'mfa-sms', 'SMS fallback', 'Masked number. The resend timer counts down live, then shows a Resend button. Voice call if SMS is slow.'],
+        ['2b', 'mfa-expired', 'Expired code', 'Explains the 10-minute rule. The main button changes to “Send a new code”.']
+      ]],
+      ['03', 'Sign up & verification', [
+        ['3', 'signup', 'Sign up', 'Country picker defaults to Nigeria (+234) and detects the network. Employee size and the BPO toggle work.'],
+        ['4', 'verify', 'Email & phone verification', 'Email confirmed by link; phone by an OTP with a live resend timer. Explains where the email comes from.']
+      ]],
+      ['04', 'Onboarding wizard', [
+        ['5.1', 'ob1', 'Data region', 'South Africa by default, Nigeria for Enterprise, Kenya. NDPA explained in plain words (not legal advice).'],
+        ['5.2', 'ob2', 'Currency & language', 'Currency choice updates the format preview live. Time zone auto-detected, customer languages as chips.'],
+        ['5.3', 'ob3', 'Connect WhatsApp', 'Meta embedded sign-up. Explains the 24-hour window and message costs by type, without prices that go stale.'],
+        ['5.4', 'ob4', 'Import data', 'Zoho, Salesforce, HubSpot or CSV/Excel. CSV shows column mapping with one field left to fix. “Start fresh” is fine.'],
+        ['5.5', 'ob5', 'Invite team', 'Bulk emails with an inline invalid-address error, or a WhatsApp invite link. Friendly empty state.'],
+        ['6', 'success', 'Success & checklist', 'Done, in progress and to-do states. The checklist stays on Home until it\u2019s finished.']
+      ]]
+    ];
+    const t = this.props.themes ?? 'Light and dark', sz = this.props.sizes ?? 'Desktop and mobile';
+    const L = t !== 'Dark only', D = t !== 'Light only', Dk = sz !== 'Mobile only', Mb = sz !== 'Desktop only';
+    return {
+      groups: G.map(([num, title, rows]) => ({ num, title, label: num + ' ' + title, rows: rows.map(([id, screen, name, note]) => ({ id, screen, name, note })) })),
+      showDesktopLight: L && Dk, showDesktopDark: D && Dk, showMobileLight: L && Mb, showMobileDark: D && Mb
+    };
+  }
+}
+</script>
+</body>
+</html>
