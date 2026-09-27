@@ -4,6 +4,7 @@
 |---|---|
 | **id** | T-0008 |
 | **status** | `not-assigned` |
+| **ready to assign** | **Yes** — acceptance tests written and failing |
 | **module** | Cross-cutting |
 | **owner** | Agent 12 — QA & Adversarial Testing |
 | **priority** | **P0 — unblocks every screen task** |
@@ -74,10 +75,20 @@ CI, against the real app and the real API, including on a throttled connection.
 
 ## Acceptance tests
 
-To be written by the lead when this is assigned, at
-`tests/acceptance/platform/e2e-harness.pending.acceptance.test.ts`.
+**Written.** `tests/acceptance/platform/e2e-harness.pending.acceptance.test.ts`
+— 15 assertions, 14 failing today. Run them with `pnpm test:pending`.
 
-Behaviours they will name:
+Read that file before writing any code: the header states the interface
+contract other tasks will depend on (the `@harness` tag, the metrics JSON, the
+over-budget fixture). Internals are yours; those five points are not.
+
+The suite does not ask whether the harness exists — it **runs** it as a
+subprocess and asserts on the numbers it produced. In particular the byte
+budget is proven by a fixture that must make the run exit non-zero, because a
+check only ever observed passing is indistinguishable from one that checks
+nothing.
+
+Behaviours they name:
 
 - `pnpm test:e2e` runs against a real API and a real database and passes
 - the low-bandwidth fixture measurably throttles: the same page reports higher
@@ -87,7 +98,9 @@ Behaviours they will name:
 - a signed-in user cannot reach another tenant's record by URL editing
 - failures upload a trace and a screenshot
 
-**This task is `not-assigned` until those exist and fail** (D-L23).
+**Ready.** The tests exist and fail (D-L23 satisfied). Assigning this task
+means renaming the file to drop `.pending`, in a lead-approved PR — `pnpm
+verify:tasks` fails if the status says otherwise.
 
 ## Definition of done
 

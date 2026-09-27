@@ -2,6 +2,54 @@
 
 ---
 
+## Cycle · 2026-09-27 · T-0008 made ready
+
+Resumed in the same session after a compaction dropped context from 85% to 8%.
+The stop condition that ended the previous cycle no longer bound, so under A5
+the work continued rather than waiting for the 17:06 scheduled run.
+
+### Shipped this cycle
+
+- **T-0008 is ready.** `tests/acceptance/platform/e2e-harness.pending.acceptance.test.ts`
+  — 15 assertions, **14 failing**, one a deliberate negative invariant that must
+  hold both before and after the harness exists (noted in the file rather than
+  left to look like a readiness check).
+- Task file updated with the interface contract the suite pins down.
+
+**This unblocks T-0007 and every screen task after it** — the designs for P01
+have been in since T-0003 and could not be turned into acceptance tests because
+there was nothing to write them in.
+
+### What the suite does differently
+
+It does not assert that the harness exists. It **runs** it as a subprocess and
+asserts on the numbers it produced:
+
+- the low-bandwidth profile must make the **same page** measurably slower while
+  transferring the **same bytes** — if the byte counts differ, the two runs did
+  not load the same thing and the comparison proves nothing
+- the byte budget must **fail** on a deliberately over-budget fixture, proven by
+  a run that exits non-zero and mentions the budget
+
+The second is the one that matters. A check only ever observed passing is
+indistinguishable from a check that does nothing, and this is the check standing
+between us and quietly abandoning the 256 kbps commitment in PRD 2.13 somewhere
+around the twelfth screen.
+
+### Progress
+
+**Tasks done: 1 · Tasks remaining: 7.** Three now ready to assign — T-0001,
+T-0002, T-0008 — with 30 failing acceptance tests between them. Blocking
+isolation suite: **56 green, unchanged.**
+
+### Open
+
+- [PR #6](https://github.com/acexode/kasuwa-crm/pull/6) (scheduler, A5) is still
+  unmerged. Cycles branch off `main` without it; nothing conflicts today, but
+  `STANDING-ORDERS.md` will diverge if it sits for several more cycles.
+
+---
+
 ## Cycle · 2026-09-27 · stopped on context
 
 **Stop condition bound: context at 85%**, past the 80% threshold. Usage was
