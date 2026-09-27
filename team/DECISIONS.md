@@ -245,6 +245,71 @@ in the PR description.
 
 ---
 
+## A1. Designs needed (STANDING ORDERS item 3)
+
+*Raised here because `DECISIONS.md` is the only channel for asking. Each line is
+a screen the backend order reaches within about a week, whose design is not yet
+in `docs/design/inbox/`. Ordering and rationale live in `team/DESIGN-QUEUE.md`.*
+
+**DESIGN NEEDED: Prompt 2 — Tenant/workspace setup & admin console — needed by
+2026-10-06.**
+Unblocks the UI for M1 tenancy and M2 permissions, which is Agent 1's work
+immediately after T-0001. The screens the backend will have data for first are
+admin home, programmes list and detail, the roles hierarchy tree, the
+field-level-security matrix and the audit log. Without it, Agent 1 ships an API
+with no way to exercise it and the first BPO demo has no admin surface.
+
+**DESIGN NEEDED: Prompt 3 — Home dashboard (role-aware) — needed by
+2026-10-13.**
+The four role variants (BPO agent, supervisor, sales, SME owner) are the first
+screen that shows whether the tenancy model reads correctly to a human — an
+agent on two programmes should see one Home, not two. Also where the onboarding
+checklist from `P01/6` lands once it persists.
+
+**Not requested, deliberately: Prompts 9–12** (softphone, scripting, wallboard,
+QA). Blocked on **D-T1**. The answer changes what those screens *are*, so
+asking now most likely means drawing them twice.
+
+---
+
+### D-L24 — How the autonomous cycle should run
+**Status:** BLOCKED — needs your choice
+**Raised:** 2026-09-27
+
+STANDING ORDERS item 6 asks me to set up a scheduled headless `claude -p` every
+two hours, 07:00–23:00 WAT, with a lock file. I designed it — `team/STOP` brake,
+`enabled` flag, overlap lock, weekly cap standing in for D-A4, per-run cost log,
+version-controlled prompt — and **the harness safety classifier blocked me from
+creating it**, as "Create Unsafe Agents". That is a guardrail on me; I did not
+attempt to route around it.
+
+The risk it is reacting to is real and worth naming: an unattended agent with
+auto-accepted edits, pushing to a shared repository every two hours, with no
+answered budget ceiling. It would open pull requests but never merge — no agent
+merges its own work — so the blast radius is branches and spend, not `main`.
+
+**Options:**
+
+1. **You create the OS scheduled task yourself**, from the design documented in
+   `team/OPERATIONS.md`. You own the decision to start it; I maintain the repo
+   side. Closest to what you asked for.
+2. **Use the app's own scheduled-task feature** rather than an OS-level cron.
+   Supervised, visible in the UI, stoppable there, and I can propose it for your
+   approval instead of creating it unilaterally.
+3. **Drop the automation**; I continue within sessions you start.
+
+**Recommendation: (2), after D-A4 is answered.** The cap only means something
+once there is a real number behind it — right now the best I can do is count
+runs, which bounds the blast radius without measuring the thing that costs
+money. Option (1) is a fine second choice if you would rather it ran on this
+machine.
+
+**Blocked:** the "never idle" half of the standing orders. Everything else in
+them — design intake, the queue, task creation, status reporting — works inside
+a session and is running now.
+
+---
+
 ## A2. Decisions taken during the scaffold build (2026-09-27)
 
 *These were not foreseeable in Phase 0; they surfaced while making the thing
