@@ -4,6 +4,7 @@
 |---|---|
 | **id** | T-0005 |
 | **status** | `not-assigned` |
+| **ready to assign** | **Yes** — acceptance tests written and failing |
 | **module** | Cross-cutting |
 | **owner** | Agent 13 — DevOps & Release |
 | **priority** | P0 |
@@ -50,13 +51,35 @@ and no environment exists beyond a developer's laptop.
 
 ## Acceptance tests
 
-Stub committed at `tests/acceptance/platform/observability.acceptance.test.ts`.
+**Written.** `tests/acceptance/platform/observability-pii.pending.acceptance.test.ts`
+— 9 assertions, all 9 failing. Run with `pnpm test:pending`.
 
-Behaviours it names:
+They supersede the `it.todo` entries in
+`tests/acceptance/platform/observability.acceptance.test.ts` for the behaviours
+that carry real risk; the rest of that stub stays as a checklist.
 
-- every API span carries `tenant_id` and, where applicable, `programme_id`
+The file header states the one interface you must provide:
+`collectTelemetry()` in `packages/testing/src/telemetry.ts`, exported from
+`@kasuwa/testing` — it lives there because that package is already lint-fenced
+out of application code.
+
+**The PII assertion is the point of this task.** It does not check that you
+remembered to redact. It sends a deliberately PII-heavy request and greps
+everything the process emitted for the exact values it sent, because a
+redaction helper that covers the fields someone thought of is the thing that
+fails in production.
+
+Behaviours they name:
+
+- every API span carries `tenant_id`, `programme_id` and `cell`
 - no span attribute or log field contains an email, phone number, NIN or BVN,
   asserted against a deliberately PII-heavy request
+- an error is recorded without the request that caused it
+- a client-supplied id never becomes the trace identity
+- CI scans, caches and uploads artefacts on failure
+- the red-isolation runbook exists and says never to merge past it
+- **nothing was applied** — a cost estimate exists so D-A4 can be answered with
+  numbers, but no tfstate
 
 ## Non-goals
 
