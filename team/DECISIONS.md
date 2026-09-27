@@ -541,3 +541,48 @@ tension, and where I made a call:
 - **`apps/dialer` removed** from pack §3.16 per addendum §1.1; `packages/domain/telephony` and
   `.../wfm` become thin consumers of the adapters rather than implementations.
 - **`infra/freeswitch/` and `infra/kamailio/`** removed from the pack's tree for the same reason.
+
+---
+
+## B3. Raised during T-0002 (2026-09-27)
+
+Both raised by the T-0002 builder and written up as M15 open questions 9 and 13.
+Neither blocks anything today; both get materially more expensive with every
+tenant that defines a field.
+
+### D-P4 — is `api_name` immutable after creation?
+
+The schema currently permits an update. A rename breaks **every formula, layout,
+validation rule and integration** that referenced the old name — silently, at
+the moment someone renames a field because the label looked wrong.
+
+The question is not really "can we allow renames" but "what does a rename
+mean": either it is forbidden (and the UI offers only a label change, which is
+what most people actually want), or it is a refactor that has to rewrite every
+reference, which is a feature, not a column setting.
+
+**Recommendation: immutable, with the label freely editable.** Add the
+constraint now — it costs one line today and a migration plus a data-repair
+script once tenants have custom fields. Salesforce made this exact choice and it
+is the one piece of its metadata model nobody complains about.
+
+### D-P5 — what does the `nin` field type actually store?
+
+PRD M15 lists `nin` as a P0 field type. **Nothing in the schema forces it to
+store a token rather than the number itself.**
+
+`CLAUDE.md` section 6 forbids logging NIN or BVN anywhere, and D-L13 covers
+field-level encryption for them. But a *field type* named `nin` that accepts a
+plain string is an invitation to put a real National Identification Number in a
+custom field, where it will be exported, indexed by OpenSearch, and attached to
+a support ticket — none of which are logging, and all of which are the harm the
+logging rule exists to prevent.
+
+This is the NDPA exposure that arrives through the front door with our own
+blessing, because the product offered a field for it.
+
+**What is needed:** whether `nin` and any comparable type are (a) removed until
+D-L13's encryption exists, (b) restricted to a tokenised reference, or (c)
+allowed as plain text with explicit consent and audit. **Recommendation: (a) or
+(b), never (c).** The cost of removing it now is a PRD edit; the cost of
+removing it later is every tenant that already stored one.

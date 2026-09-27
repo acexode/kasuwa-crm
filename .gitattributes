@@ -17,3 +17,21 @@ team/STATUS.md       merge=union
 # Ordering caveat, so it is not a surprise: union appends both sides in an
 # order git chooses, so a STATUS.md entry may land below a newer one. Read the
 # dates, and reorder in a follow-up commit if it matters.
+
+# Generated artefacts: check out with LF, exactly as their generator writes
+# them.
+#
+# core.autocrlf is true on the Windows dev machines, so git was handing these
+# files back with CRLF while `pnpm ui:tokens` and `pnpm ui:fetch-fonts` write
+# LF. The drift check ("regenerating changes nothing") therefore FAILED on the
+# first run in a fresh checkout and passed on the second, because run one
+# rewrote every line ending. Found by the T-0002 builder while investigating a
+# failure that had nothing to do with its change — which is the cost of a flake
+# nobody has chased: the next person spends their time on it instead.
+#
+# Diagnosed once before, in CI, as "prettier reformatted the generated file".
+# Same root cause, and it was misattributed then.
+packages/ui/src/tokens.colours.generated.ts  text eol=lf
+packages/ui/src/tokens.generated.css         text eol=lf
+packages/ui/src/fonts.generated.css          text eol=lf
+packages/ui/tailwind-preset.cjs              text eol=lf
