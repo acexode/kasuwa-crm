@@ -1,0 +1,827 @@
+openapi: 3.1.0
+
+# ---------------------------------------------------------------------------
+# Kasuwa authentication API — T-0001 (M2, Agent 1).
+#
+# This file is the PUBLISHED CONTRACT for T-0007 (the P01 auth screens). It is
+# committed before the implementation so that Agent 11 can build against a mock
+# server and wire to the real endpoints when T-0001 merges.
+#
+# Three things about this contract are load-bearing and must not be "tidied":
+#
+# 1. AUTHENTICATION CHANGES *WHO*, NEVER *WHAT*. No response here carries
+#    programme ids, roles or any other scope. Scope is resolved server-side from
+#    `user_programme` inside the tenant transaction, on every request. A client
+#    that sends its own scope is rejected (CLAUDE.md section 2, rule 2).
+#
+# 2. NO RESPONSE DISTINGUISHES "no such user" FROM "wrong password" FROM
+#    "wrong tenant" FROM "disabled user". They are one status, one body, one
+#    `code`, and — because argon2id is also run against a dummy hash when the
+#    user does not exist — one timing profile. This is why `P01/1a` does not say
+#    which field was wrong.
+#
+# 3. EVERY FAILURE IS A CONCRETE BODY, not prose. Switch on `error.code` (a
+#    stable machine string), never on `message` (English, and it will change).
+#
+# Status of each operation in T-0001 is given by `x-kasuwa-implemented`:
+#   true     — live when T-0001 merges.
+#   partial  — some arguments work, others return 501. See the description.
+#   false    — contract only. The endpoint is specified so Agent 11 can build
+#              the screen, but T-0001 does not implement it. Keep those screens
+#              on the mock and see the note on each operation for what blocks.
+# ---------------------------------------------------------------------------
+
+info:
+  title: Kasuwa Authentication API
+  version: 1.0.0-T-0001
+  description: |
+    Sign-in, second factor, SSO lookup, sign-up and OTP verification.
+
+    **Localisation.** The API returns an English `message` as a fallback only.
+    The web app must localise from `error.code` using the key
+    `auth.error.<code>` (for example `auth.error.invalid_credentials`). The
+    catalogue keys are Agent 11's to add (T-0007) — T-0001 deliberately adds no
+    i18n keys, because adding a key to `en` alone would make the other
+    catalogues incomplete and silently change which languages are offered.
+
+    **Transport.** Tokens travel in the `Authorization: Bearer` header and
+    nowhere else. A token supplied in a query string or a URL fragment is
+    ignored and the request is unauthenticated — query strings end up in access
+    logs, proxies and `Referer` headers.
+
+servers:
+  - url: http://localhost:3001
+    description: Local development
+  - url: https://{host}
+    description: Deployed cell
+    variables:
+      host:
+        default: api.kasuwa.example
+
+tags:
+  - name: authentication
+    description: Establishing and ending a session.
+  - name: onboarding
+    description: Self-serve sign-up and verification.
+
+paths:
+  /api/v1/auth/sign-in:
+    post:
+      tags: [authentication]
+      summary: First factor — email and password
+      operationId: signIn
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P01/1', 'P01/1a', 'P01/1b', 'P01/1d']
+      description: |
+        Verifies the first factor and, on success, opens a second-factor
+        challenge. **A successful response carries no session and nothing
+        usable on its own** — only a `challengeId`.
+
+        `tenantSlug` names the workspace. It is part of *who the caller claims
+        to be*; it grants nothing. An unknown slug produces exactly the same
+        `401 invalid_credentials` as a wrong password, after the same argon2id
+        work, so slugs cannot be enumerated here either.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SignInRequest' }
+            example:
+              tenantSlug: sahel-bpo
+              email: tunde.agent@tenant-a.test
+              password: '<the password, never logged and never echoed>'
+      responses:
+        '200':
+          description: First factor accepted; a second factor is required.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MfaChallengeStarted' }
+              example:
+                mfaRequired: true
+                challengeId: 7d2b2e14-9f4a-4a0e-8b1f-0c2a6d5e4f31
+                method: totp
+                methods:
+                  - type: totp
+                    available: true
+                    deliveryHint: null
+                  - type: sms
+                    available: false
+                    deliveryHint: '+234 ••• ••• 0142'
+                  - type: backup_code
+                    available: false
+                    deliveryHint: null
+                enrolmentRequired: false
+                expiresAt: '2026-09-27T10:12:00.000Z'
+                resendAvailableAt: null
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/InvalidCredentials' }
+        '429': { $ref: '#/components/responses/AccountLocked' }
+
+  /api/v1/auth/mfa/challenge:
+    post:
+      tags: [authentication]
+      summary: Re-issue or switch the second-factor challenge
+      operationId: reissueMfaChallenge
+      x-kasuwa-implemented: partial
+      x-kasuwa-screens: ['P01/2', 'P01/2a', 'P01/2b']
+      description: |
+        Switches the challenge to another method, or re-sends a one-time code.
+
+        `method: totp` is implemented in T-0001 and simply returns the current
+        challenge (there is nothing to send — the authenticator app already has
+        the secret). `method: sms` and `method: backup_code` are **contract
+        only**: SMS needs a channel provider that does not exist yet (Agent 5,
+        M8) and is an explicit non-goal of T-0001. Calling them returns
+        `501 not_implemented` until then.
+
+        `resendAvailableAt` is 60 seconds after issue and the UI must respect
+        it; the server also enforces it.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MfaChallengeRequest' }
+            example:
+              challengeId: 7d2b2e14-9f4a-4a0e-8b1f-0c2a6d5e4f31
+              method: sms
+      responses:
+        '200':
+          description: The challenge is open.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MfaChallengeStarted' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/MfaChallengeRejected' }
+        '429': { $ref: '#/components/responses/ResendTooSoon' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/auth/mfa:
+    post:
+      tags: [authentication]
+      summary: Second factor — verify the code and establish the session
+      operationId: verifyMfa
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P01/2', 'P01/2b']
+      description: |
+        Verifies the six-digit code against the challenge and, on success,
+        issues the session token. This is the only operation in the API that
+        returns a token.
+
+        The token is opaque: 32 random bytes, base64url, with a `ksw_s1_`
+        prefix. It carries no claims — not the tenant, not the user, and
+        certainly not any scope. Every request re-resolves who and what from
+        the database, which is what makes revocation take effect on the very
+        next request rather than at expiry.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MfaVerifyRequest' }
+            example:
+              challengeId: 7d2b2e14-9f4a-4a0e-8b1f-0c2a6d5e4f31
+              code: '123456'
+      responses:
+        '200':
+          description: Session established.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionEstablished' }
+              example:
+                accessToken: ksw_s1_pQ8s3J1mR4xY7Kd2Lf0Vb9Nc6Wt5Zg1Hj4Ur8Ao3Ei0
+                tokenType: Bearer
+                expiresAt: '2026-09-27T22:00:00.000Z'
+                user:
+                  id: 11111111-0000-4000-8000-0000000d0001
+                  tenantId: 11111111-0000-4000-8000-000000000001
+                  email: tunde.agent@tenant-a.test
+                  displayName: Tunde Adeyemi
+                  locale: en-NG
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/MfaChallengeRejected' }
+
+  /api/v1/auth/sign-out:
+    post:
+      tags: [authentication]
+      summary: Revoke the current session
+      operationId: signOut
+      x-kasuwa-implemented: true
+      description: |
+        Revokes the session immediately. Idempotent, and it returns `204` even
+        when the token is already revoked or unknown — a sign-out that reports
+        "no such session" is an oracle for whether a stolen token is still live.
+      responses:
+        '204': { description: Signed out. }
+
+  /api/v1/auth/me:
+    get:
+      tags: [authentication]
+      summary: The current user
+      operationId: getCurrentUser
+      x-kasuwa-implemented: true
+      description: |
+        Identity only. **No programme ids, no roles, no permissions** — those
+        would be scope, and scope never travels to the client as a fact it can
+        act on. Use this to confirm a session is live and to render the user's
+        name and locale.
+
+        Every call re-reads the session and the user inside the tenant
+        transaction, so a revoked session or a disabled user fails here on the
+        next request rather than at token expiry.
+      responses:
+        '200':
+          description: The authenticated user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CurrentUser' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+
+  /api/v1/auth/sso/lookup:
+    post:
+      tags: [authentication]
+      summary: Find the SSO connection for an email domain
+      operationId: lookupSso
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P01/1', 'P01/1c']
+      description: |
+        Given an email domain, returns the identity provider to redirect to.
+
+        T-0001 implements the lookup and the **not found** path only. No SSO
+        connection can be configured yet — SAML/OIDC is a later M2 task and an
+        explicit non-goal here — so in practice this endpoint returns
+        `404 sso_domain_not_found` today. That is the exact state `P01/1c`
+        renders, so the screen can be built and wired for real now.
+
+        `404` here is not an existence leak: an email domain is public
+        information supplied by the caller, and the response says nothing about
+        whether any account exists.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SsoLookupRequest' }
+            example:
+              domain: sahel-bpo.example
+      responses:
+        '200':
+          description: An SSO connection exists for this domain.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SsoConnection' }
+              example:
+                provider: oidc
+                displayName: Sahel BPO single sign-on
+                redirectUrl: https://api.kasuwa.example/api/v1/auth/sso/start/1f2e
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '404': { $ref: '#/components/responses/SsoDomainNotFound' }
+
+  /api/v1/auth/sign-up:
+    post:
+      tags: [onboarding]
+      summary: Start a self-serve sign-up
+      operationId: signUp
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P01/3']
+      description: |
+        **Contract only in T-0001 — do not wire this screen yet.**
+
+        Creating a workspace means creating a tenant, and where that tenant's
+        data lives (`P01/5.1`: South Africa, Nigeria, Kenya) is a regulatory and
+        architectural decision, not an implementation detail. T-0001 does not
+        provision tenants. The shape below is published so `P01/3` can be built
+        against a mock; the lead must settle tenant provisioning before it is
+        wired.
+
+        Note the response: **always `202`, with the same body, whether or not an
+        account already exists for that email.** An account-already-exists error
+        on a public sign-up form is a user-enumeration oracle. The existing
+        account is told by email instead.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SignUpRequest' }
+            example:
+              fullName: Amina Bello
+              email: amina@example.test
+              phoneE164: '+2348030000000'
+              organisationName: Example Contact Services
+              country: NG
+              employeeSize: '51-200'
+              isBpo: true
+              password: '<the password, never logged and never echoed>'
+              acceptedTermsAt: '2026-09-27T09:58:00.000Z'
+      responses:
+        '202':
+          description: Verification started. Identical for a new and an existing email.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VerificationStarted' }
+              example:
+                verificationId: 4a1c9b60-2d77-4c55-9a3e-8f6b1d0e2c44
+                emailHint: 'a•••a@example.test'
+                phoneHint: '+234 ••• ••• 0000'
+                expiresAt: '2026-09-27T10:08:00.000Z'
+                resendAvailableAt: '2026-09-27T09:59:00.000Z'
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/ResendTooSoon' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/auth/verify-otp:
+    post:
+      tags: [onboarding]
+      summary: Verify an email or phone one-time code
+      operationId: verifyOtp
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P01/4']
+      description: |
+        **Contract only in T-0001 — do not wire this screen yet.** It depends on
+        sign-up above, and delivering an SMS code needs a channel provider that
+        does not exist (Agent 5, M8).
+
+        Codes last ten minutes and allow five attempts. `otp_expired` and
+        `otp_invalid` are separate codes because the caller has already proved
+        possession of the `verificationId`; neither reveals anything about
+        another account.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerifyOtpRequest' }
+            example:
+              verificationId: 4a1c9b60-2d77-4c55-9a3e-8f6b1d0e2c44
+              channel: phone
+              code: '482913'
+      responses:
+        '200':
+          description: Verified.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VerificationResult' }
+              example:
+                emailVerified: true
+                phoneVerified: true
+                nextStep: onboarding
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/OtpRejected' }
+        '429': { $ref: '#/components/responses/OtpTooManyAttempts' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/auth/verify-otp/resend:
+    post:
+      tags: [onboarding]
+      summary: Re-send a verification code
+      operationId: resendOtp
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P01/4']
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResendOtpRequest' }
+      responses:
+        '202':
+          description: A new code has been sent.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VerificationStarted' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/ResendTooSoon' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+components:
+  securitySchemes:
+    sessionToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: |
+        `Authorization: Bearer ksw_s1_…`. The header is the only accepted
+        transport. `?access_token=`, `?token=` and URL fragments are ignored,
+        and a request relying on them is unauthenticated.
+
+  schemas:
+    # --- requests ---------------------------------------------------------
+    SignInRequest:
+      type: object
+      additionalProperties: false
+      required: [tenantSlug, email, password]
+      properties:
+        tenantSlug:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: The workspace slug, e.g. `sahel-bpo`. Identity, not scope.
+        email: { type: string, format: email, maxLength: 320 }
+        password: { type: string, minLength: 1, maxLength: 512, writeOnly: true }
+
+    MfaChallengeRequest:
+      type: object
+      additionalProperties: false
+      required: [challengeId, method]
+      properties:
+        challengeId: { type: string, format: uuid }
+        method: { $ref: '#/components/schemas/MfaMethodType' }
+
+    MfaVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [challengeId, code]
+      properties:
+        challengeId: { type: string, format: uuid }
+        code:
+          type: string
+          writeOnly: true
+          description: Six digits for TOTP or SMS; a backup code otherwise.
+
+    SsoLookupRequest:
+      type: object
+      additionalProperties: false
+      required: [domain]
+      properties:
+        domain:
+          type: string
+          minLength: 3
+          maxLength: 253
+          description: An email domain, without the `@`.
+
+    SignUpRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [fullName, email, phoneE164, organisationName, country, password, acceptedTermsAt]
+      properties:
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        email: { type: string, format: email, maxLength: 320 }
+        phoneE164: { type: string, pattern: '^\+[1-9][0-9]{6,14}$' }
+        organisationName: { type: string, minLength: 1, maxLength: 200 }
+        country: { type: string, pattern: '^[A-Z]{2}$', description: ISO 3166-1 alpha-2. }
+        employeeSize:
+          type: string
+          enum: ['1-10', '11-50', '51-200', '201-1000', '1000+']
+        isBpo: { type: boolean, default: false }
+        password: { type: string, minLength: 12, maxLength: 512, writeOnly: true }
+        acceptedTermsAt: { type: string, format: date-time }
+
+    VerifyOtpRequest:
+      type: object
+      additionalProperties: false
+      required: [verificationId, channel, code]
+      properties:
+        verificationId: { type: string, format: uuid }
+        channel: { type: string, enum: [email, phone] }
+        code: { type: string, pattern: '^[0-9]{6}$', writeOnly: true }
+
+    ResendOtpRequest:
+      type: object
+      additionalProperties: false
+      required: [verificationId, channel]
+      properties:
+        verificationId: { type: string, format: uuid }
+        channel: { type: string, enum: [email, phone] }
+
+    # --- responses --------------------------------------------------------
+    MfaMethodType:
+      type: string
+      enum: [totp, sms, backup_code]
+
+    MfaMethod:
+      type: object
+      required: [type, available]
+      properties:
+        type: { $ref: '#/components/schemas/MfaMethodType' }
+        available:
+          type: boolean
+          description: False when the user has not enrolled it, or T-0001 does not implement it.
+        deliveryHint:
+          type: [string, 'null']
+          description: |
+            A masked destination for display, e.g. `+234 ••• ••• 0142`. Masked
+            server-side; the full number is never sent to the browser.
+
+    MfaChallengeStarted:
+      type: object
+      required: [mfaRequired, challengeId, method, methods, enrolmentRequired, expiresAt]
+      properties:
+        mfaRequired:
+          type: boolean
+          const: true
+          description: |
+            Always true. Kasuwa has no password-only sign-in, so there is no
+            branch where the first factor alone establishes a session.
+        challengeId: { type: string, format: uuid }
+        method: { $ref: '#/components/schemas/MfaMethodType' }
+        methods:
+          type: array
+          items: { $ref: '#/components/schemas/MfaMethod' }
+        enrolmentRequired:
+          type: boolean
+          description: |
+            True when the user has no confirmed factor. T-0001 does not
+            implement enrolment, so such a user cannot finish signing in; the
+            screen should tell them to contact their administrator.
+        expiresAt: { type: string, format: date-time }
+        resendAvailableAt:
+          type: [string, 'null']
+          format: date-time
+          description: Null for TOTP — there is nothing to re-send.
+
+    SessionEstablished:
+      type: object
+      required: [accessToken, tokenType, expiresAt, user]
+      properties:
+        accessToken:
+          type: string
+          description: |
+            Opaque. Send it as `Authorization: Bearer <token>`. Never put it in
+            a URL, and never log it.
+        tokenType: { type: string, const: Bearer }
+        expiresAt:
+          type: string
+          format: date-time
+          description: |
+            Absolute expiry. T-0001 issues 12 hours with no refresh and no
+            concurrent-session limit; session lifetime and refresh policy are an
+            open product decision (see the T-0001 report).
+        user: { $ref: '#/components/schemas/CurrentUser' }
+
+    CurrentUser:
+      type: object
+      required: [id, tenantId, email, displayName, locale]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        locale: { type: string, example: en-NG }
+
+    SsoConnection:
+      type: object
+      required: [provider, displayName, redirectUrl]
+      properties:
+        provider: { type: string, enum: [oidc, saml] }
+        displayName: { type: string }
+        redirectUrl: { type: string, format: uri }
+
+    VerificationStarted:
+      type: object
+      required: [verificationId, expiresAt, resendAvailableAt]
+      properties:
+        verificationId: { type: string, format: uuid }
+        emailHint:
+          type: [string, 'null']
+          description: Masked for display. Never the full address.
+        phoneHint:
+          type: [string, 'null']
+          description: Masked for display. Never the full number.
+        expiresAt: { type: string, format: date-time }
+        resendAvailableAt: { type: string, format: date-time }
+
+    VerificationResult:
+      type: object
+      required: [emailVerified, phoneVerified, nextStep]
+      properties:
+        emailVerified: { type: boolean }
+        phoneVerified: { type: boolean }
+        nextStep: { type: string, enum: [verify_email, verify_phone, onboarding] }
+
+    # --- the error envelope ----------------------------------------------
+    Error:
+      type: object
+      required: [statusCode, error, code, message]
+      description: |
+        Every failure in this API has this shape. It extends the envelope the
+        rest of the API already returns (`statusCode`, `error`, `message`) with
+        a stable `code`.
+
+        **Switch on `code`.** `message` is an English fallback for logs and for
+        a client with no catalogue; it is not a stable interface.
+      properties:
+        statusCode: { type: integer }
+        error: { type: string, description: The HTTP reason phrase. }
+        code:
+          type: string
+          description: Stable machine-readable reason. Localise as `auth.error.<code>`.
+          enum:
+            - validation_failed
+            - invalid_credentials
+            - account_locked
+            - mfa_challenge_invalid
+            - mfa_code_invalid
+            - mfa_challenge_expired
+            - mfa_method_unavailable
+            - resend_too_soon
+            - sso_domain_not_found
+            - otp_invalid
+            - otp_expired
+            - otp_too_many_attempts
+            - not_authenticated
+            - not_implemented
+        message: { type: string }
+        details:
+          type: array
+          description: |
+            Present only on `validation_failed`. Field paths only — never the
+            submitted values, because request bodies here hold credentials.
+          items:
+            type: object
+            required: [path, code]
+            properties:
+              path: { type: string }
+              code: { type: string }
+        attemptsRemaining:
+          type: [integer, 'null']
+          description: |
+            On `invalid_credentials`, how many attempts remain before lockout.
+            Identical for an unknown email and a wrong password, because the
+            counter is keyed on the submitted identifier whether or not an
+            account exists. Null when lockout is disabled.
+        retryAt:
+          type: string
+          format: date-time
+          description: On `account_locked`, `resend_too_soon` and `otp_too_many_attempts`.
+        timeZone:
+          type: string
+          description: |
+            IANA zone the retry time should be rendered in, e.g. `Africa/Lagos`.
+            `P01/1b` must show the zone: "try again in 15 minutes" is useless to
+            someone whose phone clock is on another zone.
+
+  responses:
+    ValidationFailed:
+      description: The request body did not parse.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 400
+            error: Bad Request
+            code: validation_failed
+            message: Validation failed
+            details:
+              - path: email
+                code: invalid_string
+
+    InvalidCredentials:
+      description: |
+        The first factor was not accepted. **This one body covers all of:**
+        unknown workspace slug, unknown email, wrong password, disabled user,
+        user in another tenant. Same status, same body, same timing.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 401
+            error: Unauthorized
+            code: invalid_credentials
+            message: Sign-in failed. Check your email address and password, then try again.
+            attemptsRemaining: 4
+
+    AccountLocked:
+      description: |
+        Too many failed attempts for this workspace and email. Applied to the
+        submitted identifier whether or not an account exists, so a lockout is
+        not evidence that the address is real.
+      headers:
+        Retry-After:
+          schema: { type: integer }
+          description: Seconds.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 429
+            error: Too Many Requests
+            code: account_locked
+            message: Too many sign-in attempts. Try again later.
+            retryAt: '2026-09-27T10:27:00.000Z'
+            timeZone: Africa/Lagos
+
+    MfaChallengeRejected:
+      description: |
+        The second factor failed. Three codes share this response; all are 401.
+
+        * `mfa_code_invalid` — wrong code. `attemptsRemaining` counts down.
+        * `mfa_challenge_expired` — the challenge timed out (ten minutes).
+          `P01/2b` swaps the primary button to "Send a new code" on this.
+        * `mfa_challenge_invalid` — unknown, already used, or already failed too
+          many times. Start again from sign-in.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            wrongCode:
+              value:
+                statusCode: 401
+                error: Unauthorized
+                code: mfa_code_invalid
+                message: That code did not match. Check your authenticator app and try again.
+                attemptsRemaining: 4
+            expired:
+              value:
+                statusCode: 401
+                error: Unauthorized
+                code: mfa_challenge_expired
+                message: That code has expired. Codes last ten minutes.
+            unusable:
+              value:
+                statusCode: 401
+                error: Unauthorized
+                code: mfa_challenge_invalid
+                message: Sign in again to continue.
+
+    ResendTooSoon:
+      description: A code was requested before the 60-second resend window elapsed.
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 429
+            error: Too Many Requests
+            code: resend_too_soon
+            message: Wait a moment before asking for another code.
+            retryAt: '2026-09-27T10:03:00.000Z'
+            timeZone: Africa/Lagos
+
+    SsoDomainNotFound:
+      description: No SSO connection is configured for that domain.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 404
+            error: Not Found
+            code: sso_domain_not_found
+            message: We could not find single sign-on for that domain.
+
+    OtpRejected:
+      description: The one-time code was wrong or has expired.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            invalid:
+              value:
+                statusCode: 401
+                error: Unauthorized
+                code: otp_invalid
+                message: That code did not match. Check it and try again.
+                attemptsRemaining: 4
+            expired:
+              value:
+                statusCode: 401
+                error: Unauthorized
+                code: otp_expired
+                message: That code has expired. Codes last ten minutes.
+
+    OtpTooManyAttempts:
+      description: Too many wrong codes for this verification.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 429
+            error: Too Many Requests
+            code: otp_too_many_attempts
+            message: Too many attempts. Ask for a new code.
+            retryAt: '2026-09-27T10:12:00.000Z'
+            timeZone: Africa/Lagos
+
+    NotAuthenticated:
+      description: |
+        No usable session. Deliberately uninformative: it does not say whether
+        the token was missing, malformed, expired, revoked, belonged to another
+        tenant, or belonged to a user who has since been disabled.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 401
+            error: Unauthorized
+            code: not_authenticated
+            message: Not authenticated
+
+    NotImplemented:
+      description: |
+        Specified but not built in T-0001. The `code` is `not_implemented` and
+        the screen should stay on its mock.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 501
+            error: Not Implemented
+            code: not_implemented
+            message: This endpoint is not available yet.
+
+security:
+  - sessionToken: []
