@@ -1,0 +1,29 @@
+{
+  "name": "@kasuwa/testing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@kasuwa/db": "workspace:*",
+    "@testcontainers/postgresql": "^10.16.0",
+    "@testcontainers/redis": "^10.16.0",
+    "pg": "^8.13.1",
+    "testcontainers": "^10.16.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "vitest": "^2.1.8"
+  },
+  "nx": {
+    "tags": [
+      "scope:testing",
+      "type:testing"
+    ]
+  }
+}

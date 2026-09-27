@@ -1,0 +1,33 @@
+{
+  "name": "@kasuwa/acceptance",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "lint": "eslint . --ext .ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@kasuwa/db": "workspace:*",
+    "@kasuwa/domain-core": "workspace:*",
+    "@kasuwa/testing": "workspace:*",
+    "@kasuwa/api": "workspace:*"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.0.1",
+    "@types/supertest": "^6.0.2",
+    "pg": "^8.13.1",
+    "supertest": "^7.0.0",
+    "vitest": "^2.1.8",
+    "reflect-metadata": "^0.2.2",
+    "@nestjs/common": "^11.0.1",
+    "@nestjs/core": "^11.0.1",
+    "@types/pg": "^8.11.10"
+  },
+  "nx": {
+    "tags": [
+      "scope:test",
+      "type:testing"
+    ]
+  }
+}
