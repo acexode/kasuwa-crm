@@ -2,6 +2,86 @@
 
 ---
 
+## Cycle · 2026-09-27 · T-0009 created and ready
+
+T-0004, T-0005 and T-0008 merged. Continued in the same session — no stop
+condition bound.
+
+### What was wrong that nobody had named
+
+Four of the five pilot agents had ready work. **Agent 11 had none**, and Agent
+11 is the bottleneck for every screen: T-0006 is deferred by design until
+screens exist, and T-0007 waits on both T-0008 and T-0001.
+
+Sitting inside T-0007's sixteen-screen, six-session budget was one line —
+"adding the other five locale files is part of this task". That is not a
+detail. It is a distinct piece of work with its own failure modes, none of them
+visual, and it depends on nothing.
+
+**T-0009** pulls it out. [PR #10](https://github.com/acexode/kasuwa-crm/pull/10),
+11 assertions, 10 failing. Agent 11 can start now, and T-0007 gets its budget
+back for the screens.
+
+### The rule it enforces
+
+> Shipping a menu entry that falls back to English is worse than offering fewer
+> languages.
+
+So the central assertion is not that the catalogues exist. It is that
+`SUPPORTED_LOCALES` is **derived from completeness** rather than hand-kept: the
+list of languages offered and the list finished must be the same list *by
+construction*. A hand-kept list drifts in two directions and one of them ships
+the bug — adding the constant ahead of the catalogue to "unblock the menu".
+
+Two more worth recording:
+
+- **Plural categories per locale.** English has two, so an English developer
+  writes `one`/`other` and every catalogue copies that shape. Arabic needs six.
+  A missing category renders the `other` branch — wrong in a way no
+  English-speaking reviewer catches. Mechanical check, invisible bug.
+- **Arabic ships but is not offered.** RTL is a layout mode, not a translation;
+  retrofitting it across thirty screens is a project, proving it on one is an
+  afternoon. A test asserts it stays off the menu so it cannot drift into being
+  offered just because the file exists.
+
+### Decision raised — D-P1
+
+How the five missing languages are actually translated. Money and quality, so
+it is @acexode's. **It blocks nothing** — the gate is precisely what makes it
+safe to add a language later without auditing anything by hand.
+
+Recommendation: native-speaker review in-house for `ha`/`ig`/`yo`/`pcm`,
+professional translation for `fr`/`sw`, "launch fewer languages" as the standing
+fallback, and **a language with no named reviewer treated as unoffered**.
+
+### Housekeeping
+
+- Six merged branches deleted locally; the remote is `main` alone. Auto-delete
+  head branches is confirmed working — the strongest of the three A7 guards,
+  because it removes the thing to check out rather than asking a hook to catch
+  it afterwards.
+- PR #6 merged, so the A5/A6 divergence risk flagged last cycle is closed.
+
+### Progress
+
+**Tasks done: 1 · remaining: 8.** Six ready to assign — T-0001, T-0002, T-0004,
+T-0005, T-0008, T-0009 — with **58 failing acceptance tests** between them.
+**Every active pilot agent now has ready work**; Agent 12 has two.
+
+Not yet at three ready per agent (STANDING ORDERS item 1). Agents 1, 2, 11 and
+13 have one each. Next cycles should deepen those before adding new agents.
+
+### Open
+
+- **D-A4** (monthly per-seat cap) — blank. Partly gates T-0005's provisioning
+  half, written as plan-and-estimate only.
+- **D-P1** (translation sourcing) — new, above.
+- **DESIGN NEEDED: Prompt 2** (admin console, by 2026-10-06) and **Prompt 3**
+  (role-aware Home, by 2026-10-13) — still not in the inbox.
+- D-T1–D-T5, D-W1 — none blocks anything currently ready.
+
+---
+
 ## Cycle · 2026-09-27 · three tasks made ready
 
 Resumed in the same session after a compaction dropped context from 85% to 8%.

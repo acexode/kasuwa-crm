@@ -552,6 +552,60 @@ judgement that no assertion replaces.
 
 ---
 
+## D-P1 — how the seven UI languages are translated
+**Answered:** 2026-09-27 by @acexode
+
+- **Native-speaker review** for `ha`, `ig`, `yo`, `pcm` (Outsource Global has
+  speakers of all four).
+- **Professional translation** for `fr` and `sw`.
+- **A language without a named reviewer stays unoffered.**
+
+This is the lead's recommendation, accepted as offered.
+
+**What it means in practice, spelled out because it is easy to read as
+permission to ship seven languages.** No reviewer has been named yet and no
+professional translation has been bought. Until both change, the honest state of
+the product is: **English offered, six languages pending.** The completeness
+gate T-0009 builds is what makes that safe — an unfinished locale is simply not
+in `SUPPORTED_LOCALES`, so nothing has to be audited by hand before a release,
+and a language becomes offered because it is complete rather than because
+someone edited a list.
+
+**Still outstanding:** the named reviewer per language. Four names unblock four
+languages. That is the whole remaining cost for `ha`, `ig`, `yo` and `pcm`.
+
+---
+
+## D-L26 — the lead executes tasks through builder subagents
+**Decided:** 2026-09-27 by @acexode
+
+**The gap this closes.** Six tasks were ready and no builder had ever run.
+"Assigning" a task wrote a file; it did not start an agent. The backlog was
+filling faster than it was emptying, and the lead was measuring readiness rather
+than delivery — which is the wrong number to be optimising, and it was not
+obvious from `STATUS.md` because "tasks ready" went up every cycle.
+
+**The change.** From this cycle the lead executes ready tasks using builder
+subagents: one per task, each in its own git worktree, under the persona
+matching the task's owning agent. The lead reviews the result and opens the PR.
+Order set by @acexode: T-0008 and T-0009 first, then T-0001 and T-0002.
+
+**Honest note on how this started.** The instruction said to use "the matching
+`.claude/agents` persona". Only three personas existed and all three were
+**read-only reviewers** — there were no builder personas to match. They were
+written as part of this change (`builder.md` plus one per pilot agent), and the
+first two builders ran with their persona passed inline, because a persona file
+written mid-session does not register as a selectable subagent type until the
+session restarts. Recorded because the instruction assumed something that was
+not there, and the gap is worth knowing about rather than quietly papering over.
+
+**What does not change.** Every quality gate. Builders cannot edit
+`tests/acceptance/` — a hook and CI both block it. Builders do not push and do
+not open pull requests. Nobody merges their own work. The isolation suite stays
+blocking, and a builder that turns it red is a stop-the-line event.
+
+---
+
 ## D-L28 — no byte budget until the e2e job builds the web app
 **Decided:** 2026-09-27 · lead decision during T-0008 review · reversible
 

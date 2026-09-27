@@ -1,25 +1,19 @@
-# Normalise line endings.
+# Append-only team records. Every branch adds an entry at the end (or, for
+# STATUS.md, at the top), so two branches touching them conflict every single
+# time even though neither edits the other's text. That happened three times in
+# one afternoon once builders started running in parallel, and a conflict you
+# resolve by keeping both sides is a conflict a merge driver should resolve.
 #
-# The team develops on Windows and CI runs on Linux. Without this, git rewrites
-# line endings on checkout and every file looks modified to somebody. It also
-# matters for correctness: the migration runner checksums migration files, and a
-# checksum that changes with the checkout would reject already-applied
-# migrations (packages/db/src/migrate.ts normalises before hashing as a second
-# line of defence).
-* text=auto eol=lf
+# `union` keeps both sides rather than failing. It is right here precisely
+# BECAUSE these files are append-only: nobody rewrites an existing entry, so
+# there is no case where one side should win.
+#
+# It is NOT right for anything with syntax — a union merge of source or JSON
+# produces a file that parses as nonsense and looks merged. Do not extend this
+# list to code.
+team/DECISION-LOG.md merge=union
+team/STATUS.md       merge=union
 
-*.png binary
-*.jpg binary
-*.jpeg binary
-*.gif binary
-*.ico binary
-*.woff binary
-*.woff2 binary
-*.pdf binary
-
-# The Claude Design export is committed byte-for-byte unchanged (T-0003 hand-off),
-# so line-ending normalisation must not touch it.
-docs/design/** -text
-
-pnpm-lock.yaml linguist-generated=true
-packages/ui/src/tokens.css linguist-generated=true
+# Ordering caveat, so it is not a surprise: union appends both sides in an
+# order git chooses, so a STATUS.md entry may land below a newer one. Read the
+# dates, and reorder in a follow-up commit if it matters.
