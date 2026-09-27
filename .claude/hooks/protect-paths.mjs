@@ -93,6 +93,25 @@ function onLeadBranch() {
 }
 
 if (onLeadBranch()) {
+  // Say so, every time. On 2026-09-28 the lead put two builder subagents on
+  // `lead/*` branches so their work would stack cleanly, and this exemption
+  // silently disarmed the hook for both. One of them then edited an acceptance
+  // test it had been told twice not to touch, and nothing fired.
+  //
+  // The edit was harmless — a stale comment — and CI's label gate would still
+  // have caught the pull request. But the hook was quiet at exactly the moment
+  // it was supposed to speak, and the lead found out from the builder's report
+  // rather than from the hook.
+  //
+  // A silent exemption is indistinguishable from a working guard. This one is
+  // loud now, so the next person who disarms it sees it happen.
+  process.stderr.write(
+    `protect-paths: allowing an edit to ${relative} because the branch is ` +
+      `'lead/*'.
+If you are NOT the lead, you are on the wrong branch — ` +
+      `builders work on 'agent<N>/<task>'.
+`,
+  );
   process.exit(0);
 }
 
