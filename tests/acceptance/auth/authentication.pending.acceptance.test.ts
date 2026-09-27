@@ -98,24 +98,108 @@ describe('acceptance (pending): authentication', () => {
     // Argon2id on a real hash versus an early return for "no such user" is a
     // timing difference big enough to measure over a network. The fix is to
     // verify against a dummy hash when the user is absent.
+    //
+    // AMENDED BY THE LEAD, 2026-09-27. This originally took five samples
+    // against CREDENTIALS.email, and the indistinguishability test above adds
+    // a sixth failure to the same address — so with the lockout threshold of
+    // 5 that the P01 board specifies, the account was locked before the later
+    // tests tried to sign in, and the suite could not pass.
+    //
+    // The T-0001 builder found it and asked whether to default the threshold
+    // to 10 so the suite would pass. **No.** The design says five, this test
+    // was wrong, and loosening a security default to satisfy a test the lead
+    // wrote is the same mistake as editing a test to satisfy the code, with
+    // worse consequences. Raising it would also have been invisible: the suite
+    // would have gone green and nobody would have known the number moved.
+    //
+    // Fixed by staying under the threshold instead: a dedicated identity that
+    // no other test signs in as, and three samples rather than five.
+    const TIMING_PROBE = 'musa.supervisor@tenant-a.test';
+
     const sample = async (email: string) => {
       const timings: number[] = [];
-      for (let attempt = 0; attempt < 5; attempt += 1) {
+      // Three, not five: the threshold is 5, and a locked account skips
+      // hashing entirely — which would make this test measure the lockout
+      // rather than the hash, and pass for the wrong reason.
+      for (let attempt = 0; attempt < 3; attempt += 1) {
         const start = performance.now();
         await request(server())
           .post(SIGN_IN)
           .send({ tenantSlug: 'sahel-bpo', email, password: 'wrong-either-way' });
         timings.push(performance.now() - start);
       }
-      return timings.sort((a, b) => a - b)[2] as number;
+      return timings.sort((a, b) => a - b)[1] as number;
     };
 
     const unknown = await sample('nobody@tenant-a.test');
-    const known = await sample(CREDENTIALS.email);
+    const known = await sample(TIMING_PROBE);
 
     // Generous: catches "no hashing at all for unknown users", not micro-jitter.
     const ratio = Math.max(unknown, known) / Math.min(unknown, known);
     expect(ratio).toBeLessThan(3);
+  });
+
+  it('locks the account on the fifth consecutive failure, as the design says', async () => {
+    // ADDED BY THE LEAD, 2026-09-27, with the timing fix above.
+    //
+    // The number was only in the design before this. That made it a value
+    // somebody could change in config without anything going red — and the
+    // T-0001 builder was about to be pushed into doing exactly that by a
+    // broken test of mine. A security default that lives only in a picture is
+    // not a default, so it is pinned here.
+    //
+    // A dedicated identity: this test deliberately burns one, and sharing it
+    // is what caused the original problem.
+    const VICTIM = 'emeka.unassigned@tenant-a.test';
+
+    const attempt = () =>
+      request(server())
+        .post(SIGN_IN)
+        .send({ tenantSlug: 'sahel-bpo', email: VICTIM, password: 'wrong' });
+
+    for (let index = 0; index < 4; index += 1) {
+      const response = await attempt();
+      expect(response.status, `attempt ${index + 1} should still be a plain rejection`).toBe(401);
+    }
+
+    const locked = await attempt();
+    expect(locked.status, 'the fifth failure must lock the account').toBe(429);
+
+    // P01/1b: naming the time without naming the zone is useless to someone
+    // whose phone clock is in another one, and BPO rosters span WAT/EAT/SAST.
+    expect(locked.body.code).toBe('account_locked');
+    expect(locked.body.retryAt, 'no retryAt').toBeDefined();
+    expect(locked.body.timeZone, 'no IANA timeZone — see P01/1b').toBeDefined();
+
+    // And still no enumeration: a locked real account and an unknown address
+    // must not be told apart by the lockout either.
+    const unknown = await request(server())
+      .post(SIGN_IN)
+      .send({ tenantSlug: 'sahel-bpo', email: 'nobody-else@tenant-a.test', password: 'wrong' });
+    expect(unknown.status, 'the lockout itself became the enumeration oracle').toBe(401);
+  });
+
+  it('forgets the failed attempts once a sign-in succeeds', async () => {
+    // Without this, four typos spread across a week lock an agent out on the
+    // fifth, which reads as a broken product rather than a security control.
+    const email = 'ngozi.agent@tenant-a.test';
+
+    await request(server())
+      .post(SIGN_IN)
+      .send({ tenantSlug: 'sahel-bpo', email, password: 'wrong' });
+
+    const ok = await request(server())
+      .post(SIGN_IN)
+      .send({ tenantSlug: 'sahel-bpo', email, password: CREDENTIALS.password });
+    expect(ok.status).toBe(200);
+
+    // Four more must still be survivable — the counter restarted.
+    for (let index = 0; index < 4; index += 1) {
+      const response = await request(server())
+        .post(SIGN_IN)
+        .send({ tenantSlug: 'sahel-bpo', email, password: 'wrong' });
+      expect(response.status, `attempt ${index + 1} after a success`).toBe(401);
+    }
   });
 
   it('rejects a session established for tenant A when presented against tenant B', async () => {
