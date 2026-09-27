@@ -476,6 +476,51 @@ proceed and hope.
 
 ---
 
+## B1. New — product decisions
+
+### D-P1 — How are the seven UI languages actually translated?
+
+**Needed by:** before any locale is marked offered. **Does not block T-0009** —
+the mechanism is built either way; this decides what goes into it.
+
+`P01/1` offers English, Français, Hausa, Igbo, Kiswahili, Pidgin and Yorùbá.
+The scaffold has English and an `en-NG` overlay. Somebody has to produce the
+other five, and the choice is a quality and money decision rather than a
+technical one.
+
+**Why this is not a detail.** Machine translation of a CRM interface into
+Yorùbá or Igbo is not merely imperfect — it is frequently wrong in ways a
+reviewer who does not speak the language cannot detect, and the strings in
+question are the ones a user acts on ("Delete", "Approve", "This cannot be
+undone"). A mistranslated confirmation dialog is a data-loss bug wearing a
+translation's clothes.
+
+Two of these languages also have a genuine orthography question: Yorùbá needs
+its diacritics to be read correctly, and Nigerian Pidgin has no single agreed
+written standard, so a house style has to be chosen rather than assumed.
+
+**Options.**
+
+| | Approach | Cost | Risk |
+|---|---|---|---|
+| 1 | Professional translators, per language | Real money, real lead time | Lowest. The strings are few (34 today) so the cost is small and roughly one-off |
+| 2 | Native speakers already at Outsource Global, reviewing a machine first draft | Staff time, no cash | Good for ha/ig/yo/pcm given the company's footprint. Needs a named reviewer per language or it never happens |
+| 3 | Machine translation, unreviewed | Free | Do not. It fails exactly on the destructive-action strings |
+| 4 | Launch with fewer languages and add them as translations land | Free | Honest. The gate T-0009 builds makes this safe by construction |
+
+**Recommendation: 2 for `ha`, `ig`, `yo`, `pcm`, 1 for `fr` and `sw`, with 4 as
+the standing fallback.** Outsource Global has native speakers of the four
+Nigerian languages; French and Kiswahili are likelier to need buying. And
+whichever is chosen, option 4 is not an alternative but the safety net — the
+completeness gate means an unfinished language is simply not offered, so
+nothing has to be audited by hand before a release.
+
+**What is needed from @acexode:** which option per language, and a named
+reviewer for each language under option 2. A language with no named reviewer
+should be treated as option 4 until it has one.
+
+---
+
 ## C. Ambiguities I resolved without needing you (recorded for traceability)
 
 These did not warrant a decision entry but are places where the source documents were silent or in
