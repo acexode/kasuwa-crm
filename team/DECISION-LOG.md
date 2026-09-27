@@ -347,3 +347,105 @@ exist, and four pass — the two indistinguishability ones pass because *both*
 requests 404 identically, which is true and meaningless. They become real the
 moment the endpoints exist. The lead should read a pending suite's failures and
 ask whether the passes are load-bearing, rather than counting red.
+
+
+---
+
+## D-A4 — Budget ceiling: the question needs reframing before it has an answer
+**Answered:** 2026-09-27 (lead default, **please override with a number**)
+
+You asked four times for a *weekly ceiling in USD against the Anthropic API*.
+Rather than ask a fifth time, I measured what is actually being metered.
+
+### There is no USD meter on this account
+
+This work runs on a **Claude Code Team plan**, not API billing. What the account
+has is usage *windows*, not a dollar spend: a 5-hour limit and a weekly limit,
+reported as percentages. `extraUsage` is **disabled**, so there is no overage
+charge accruing either.
+
+A USD ceiling would therefore be a number that corresponds to nothing being
+measured. The meter that exists — and the one that will actually stop work — is
+**percent of the weekly allowance**.
+
+### What one session costs, measured
+
+At the point of writing, account usage was:
+
+| Window | Used |
+|---|---|
+| 5-hour | 12% |
+| Weekly · all models | **18%** |
+| Weekly · Fable | 8% |
+
+That 18% is **account-wide for the week**, so I cannot attribute all of it to
+this session — I can only say this session is the dominant consumer today.
+Treat it as an order-of-magnitude anchor, not an attribution.
+
+What it bought: the scaffold (PR #1), the Design v1.1 token import (PR #2), and
+PR #3 — acceptance tests, the design intake, P01 filing, T-0007, the pending
+convention. Roughly three substantial lead PRs.
+
+**So the weekly allowance supports on the order of five sessions of this size.**
+
+### The finding that matters more than the ceiling
+
+**Twelve builder agents and the lead all draw on this same weekly allowance.**
+
+One long lead session consumed something close to a fifth of the week. The
+delivery model in Addendum A1 section 3.6 assumes agents run in parallel, and
+section 3.2 puts thirteen of them on the roster. On these numbers the plan does
+not have the capacity for that, and the constraint arrives well before the
+timeline does.
+
+I am flagging this as a **planning input, not a crisis**: I am extrapolating
+from a single session, I do not know the Team plan's per-seat structure, and I
+do not know whether others share this account. But it is the first hard number
+we have about delivery capacity, and it points the opposite way from "parallel
+agents compress the schedule".
+
+**Worth checking before scaling past the pilot week:** whether the plan's
+capacity is per-seat (so adding agent sessions adds allowance) or pooled (so it
+does not). That single fact changes the roster plan.
+
+### Lead default, pending your number
+
+- **Ceiling: the lead agent may consume up to 35% of the weekly all-models
+  allowance.** Pause at 90% of that (≈31.5%), per your mechanism.
+- Leaves ~65% for builder agents and your own interactive sessions.
+- STATUS.md reports consumption per cycle as a delta in percentage points,
+  which is the unit that is actually measured.
+- Reviewed weekly, as you specified.
+
+Reversible in one edit. If you would rather have a USD ceiling, that means
+moving this work to API billing or enabling extra usage — a real decision with
+its own trade-offs, not a config change.
+
+---
+
+## D-A5 — Milestone UAT: taking your stated fallback
+**Answered:** 2026-09-27 (adopting the alternative you wrote, reversible)
+
+The names came back blank a fourth time, but you wrote the alternative out:
+*"No; extend milestone timeline accordingly and rely on adversarial QA + my own
+UAT."* Taking that as the answer rather than asking again.
+
+**Operating assumption:** no supervisor or QA-lead UAT. The compensating
+controls are Agent 12's adversarial testing and your own UAT.
+
+**What that costs, stated plainly so it is not a surprise later:**
+
+- Addendum A1 section 3.5 names floor UAT as the mitigation for the model's
+  largest risk — thirteen instances of one model class misreading a requirement
+  the same way. Agent 12 catches what it can *think to test*; it shares the
+  blind spot. Your own UAT is real but is one person's attention.
+- The MVP estimate in section 3.6 assumed a 4–6 week shadow-mode pilot with the
+  floor. Without supervisors in it, that pilot either takes longer to surface
+  the same problems or surfaces fewer of them. **I am planning MVP as 4.5–6
+  months rather than 3.5–5**, and will say so in the milestone plan.
+- The failure this most likely produces is not a bug. It is a screen that works
+  exactly as specified and that a Lagos collections agent cannot use at pace.
+
+**Reversible the moment names appear** — if a supervisor becomes available for
+even one milestone, the highest-value place to spend them is the first pilot of
+the agent workspace, not a later one.

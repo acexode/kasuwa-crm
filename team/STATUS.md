@@ -2,6 +2,87 @@
 
 ---
 
+## Capacity finding · 2026-09-27 · read this before scaling the roster
+
+**There is no USD meter on this account.** The work runs on a Claude Code
+**Team plan** — 5-hour and weekly allowance *windows*, reported as percentages,
+with extra usage disabled. D-A4 asked for a weekly ceiling in USD against the
+Anthropic API; that number would correspond to nothing being measured.
+
+**What one session costs.** At the time of measuring, weekly all-models usage
+stood at **18%**. That is account-wide, so I cannot attribute it all to this
+session — only say this session is today's dominant consumer. It bought roughly
+three substantial lead PRs: the scaffold, the design-token import, and the
+acceptance-test/design-intake work.
+
+**On those numbers the weekly allowance supports about five sessions of this
+size.**
+
+### The part that affects the plan
+
+**Thirteen agents draw on this one allowance.** Addendum A1 section 3.6 assumes
+parallel agents compress the schedule. One lead session took close to a fifth of
+the week. If the allowance is pooled rather than per-seat, the roster in section
+3.2 does not fit inside it, and capacity — not decision latency, and not coding
+speed — becomes the binding constraint.
+
+I am extrapolating from a single session and I do not know the Team plan's
+per-seat structure. **The single fact worth establishing before week 3:** is
+capacity per-seat (adding agent sessions adds allowance) or pooled (it does
+not)? That answer changes the roster plan more than any decision currently open.
+
+**Lead default recorded meanwhile:** the lead may use up to 35% of weekly,
+pausing at 90% of that, leaving ~65% for builders and your own sessions. One
+edit to change.
+
+### Spend this cycle
+
+| | |
+|---|---|
+| Weekly · all models | 18% (account-wide) |
+| 5-hour window | 12% |
+| Cycles this week | 1 |
+
+Reported as percentage points from here on, because that is the unit actually
+metered.
+
+---
+
+## D-L24 · Proposed schedule, for your approval
+
+Option 2 accepted: the app's own scheduled-task feature, supervised and
+stoppable from the UI, rather than an OS-level cron. **I have not created it** —
+you asked me to propose it once D-A4 was recorded.
+
+**What you ordered:** every 2 hours, 07:00–23:00 WAT = 9 runs/day, 63/week.
+
+**Why I am not proposing that.** If a cycle costs even a fifth of what this
+session did, 63 runs would need roughly twice the entire weekly allowance —
+before any builder agent runs at all. The schedule would halt itself partway
+through Tuesday, and it would take the builders' capacity with it.
+
+**Proposed instead — 3 runs per weekday, 15/week:**
+
+| | |
+|---|---|
+| Times | 08:00, 13:00, 18:00 WAT |
+| Days | Monday–Friday |
+| Prompt | read `team/`, continue per STANDING ORDERS |
+| Guards | pause at 31.5% weekly; skip if a cycle is still running; `team/STOP` halts everything |
+
+Three cycles a day still clears the backlog faster than your decision latency
+refills it, which Addendum A1 section 3.3 already identifies as the real
+constraint. **Scale it up once there is per-run data** — the first week of runs
+turns my extrapolation into a measurement, and this is trivially adjusted.
+
+**Say the word and I will create it.**
+
+---
+
+
+
+---
+
 ## Cycle · 2026-09-27 14:40 WAT · first cycle under STANDING ORDERS
 
 ### Shipped
