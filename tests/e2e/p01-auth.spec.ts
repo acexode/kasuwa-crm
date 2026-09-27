@@ -36,21 +36,7 @@ const MANIFEST = {
   notBuilt: ['P01/3', 'P01/4', 'P01/5.1', 'P01/5.2', 'P01/5.3', 'P01/5.4', 'P01/5.5', 'P01/6'],
 } as const;
 
-/**
- * The sign-in page's transferred-byte budget.
- *
- * MEASURED, not guessed. Against a production build of `apps/web`
- * (`pnpm --filter @kasuwa/web build` then `next start`), a cold load of `P01/1`
- * transfers **256,908 bytes** — 160 KB of JavaScript, 79 KB of self-hosted
- * fonts, 7.5 KB of CSS and 6 KB of HTML. First contentful paint is 452 ms
- * unthrottled and 2,092 ms at 256 kbps with 300 ms of latency.
- *
- * PRD 2.13 caps the critical path at 300 KB gzipped, so the page has about 16%
- * of headroom. The budget is pinned just above the measurement rather than at
- * the NFR, because a budget set at the ceiling permits every page between
- * today's weight and the limit — which is most of the room a regression needs.
- */
-const SIGN_IN_BUDGET_BYTES = 264 * 1024;
+
 
 const WORKSPACE = 'sahel-bpo';
 const REAL_EMAIL = 'tunde.agent@tenant-a.test';
@@ -125,7 +111,7 @@ test.describe('P01/1 — sign in', () => {
 
 test.describe('P01/1a — the sign-in failure says nothing it should not', () => {
   test('answers an unknown email and a wrong password identically @enumeration @p01', async ({
-    browser,
+    page,
   }) => {
     const { webUrl } = stack();
 
@@ -139,22 +125,23 @@ test.describe('P01/1a — the sign-in failure says nothing it should not', () =>
      * it gets softened as a "usability improvement" by someone who has not read
      * that section.
      *
-     * Two contexts rather than two submissions in one, because the lockout
-     * counter is keyed on the identifier: sharing a page would compare attempt
-     * one against attempt two and the counters would differ for a reason that
-     * has nothing to do with the property under test.
+     * ONE page, two submissions, and that is not a shortcut: the lockout
+     * counter is keyed on `tenantSlug|email`, so two different addresses have
+     * two independent counters and both of these are a first attempt. Using one
+     * page also removes every other variable — same browser, same session, same
+     * rendering — which is what makes a byte-for-byte comparison of the two
+     * results mean something.
      */
+    await installAuthMock(page);
+
     const capture = async (email: string) => {
-      const context = await browser.newContext();
-      const page = await context.newPage();
-      await installAuthMock(page);
       await page.goto(webUrl);
       await fillSignIn(page, email, 'definitely-not-the-password');
 
       const alert = page.getByTestId('sign-in-error');
       await expect(alert).toBeVisible();
 
-      const result = {
+      return {
         code: await alert.getAttribute('data-error-code'),
         text: (await alert.innerText()).trim(),
         // The counter must advance the same way too, or the counter becomes
@@ -168,9 +155,6 @@ test.describe('P01/1a — the sign-in failure says nothing it should not', () =>
           .getByLabel('Password', { exact: true })
           .getAttribute('aria-invalid'),
       };
-
-      await context.close();
-      return result;
     };
 
     const unknown = await capture(UNKNOWN_EMAIL);
@@ -336,7 +320,21 @@ test.describe('P01/1d — slow network', () => {
     const metrics = await measurePageLoad(page, webUrl, 'default');
     recordProfileMetrics('default', metrics);
 
-    assertWithinByteBudget('the P01/1 sign-in page', metrics.transferredBytes, SIGN_IN_BUDGET_BYTES);
+    /**
+     * MEASURED, not guessed. Against a production build of `apps/web`
+     * (`pnpm --filter @kasuwa/web build`, then `next start`), a cold load of
+     * `P01/1` transfers 256,908 bytes: 160 KB of JavaScript, 79 KB of
+     * self-hosted fonts, 7.5 KB of CSS and 6 KB of HTML. First contentful paint
+     * is 452 ms unthrottled and 2,092 ms at 256 kbps with 300 ms of latency.
+     *
+     * PRD 2.13 caps the critical path at 300 KB gzipped, so there is about 16%
+     * of headroom. The budget is pinned just above the measurement — 264 KB —
+     * rather than at the NFR, because a budget set at the ceiling permits every
+     * page between today's weight and the limit, which is most of the room a
+     * regression needs. The literal is written out so it is the number, not a
+     * constant somebody has to go and look up.
+     */
+    assertWithinByteBudget('the P01/1 sign-in page', metrics.transferredBytes, 270336);
   });
 });
 

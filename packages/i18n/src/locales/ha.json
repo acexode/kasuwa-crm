@@ -17,7 +17,7 @@
   "tokens.scale.count": "{count, plural, one {# mataki} other {# matakai}}",
   "notFound.title": "Ba a sami shafin ba",
   "notFound.body": "Shafin da ka nema babu shi, ko kuma ba ka da izinin ganinsa.",
-  "notFound.back": "Koma zuwa alamomin ƙira",
+  "notFound.back": "Koma zuwa shiga",
   "tokens.approved.notice": "An shigo da shi daga fitarwar Claude Design da aka amince da ita. Na'ura ce ke cire ƙimar launi; gyara su da hannu zai koma baya a shigowa ta gaba.",
   "tokens.section.contrast": "Yarjejeniyar bambancin launi",
   "tokens.section.elevation": "Tsayi",

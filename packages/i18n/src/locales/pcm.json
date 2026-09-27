@@ -17,7 +17,7 @@
   "tokens.scale.count": "{count, plural, one {# step} other {# steps}}",
   "notFound.title": "We no see di page",
   "notFound.body": "Di page wey you ask for no dey, or you no get permission to see am.",
-  "notFound.back": "Go back to di design tokens",
+  "notFound.back": "Go back to di sign-in page",
   "tokens.approved.notice": "Dem bring am from di Claude Design export wey dem approve. Machine na im pull di colour values; if you edit dem by hand, di next import go undo am.",
   "tokens.section.contrast": "Contrast contract",
   "tokens.section.elevation": "Elevation",

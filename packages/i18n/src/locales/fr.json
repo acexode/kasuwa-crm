@@ -17,7 +17,7 @@
   "tokens.scale.count": "{count, plural, one {# palier} many {# paliers} other {# paliers}}",
   "notFound.title": "Page introuvable",
   "notFound.body": "La page demandée n'existe pas, ou vous n'y avez pas accès.",
-  "notFound.back": "Retour aux jetons de design",
+  "notFound.back": "Retour à la connexion",
   "tokens.approved.notice": "Importé depuis l'export Claude Design approuvé. Les valeurs de couleur sont extraites automatiquement ; toute modification manuelle sera annulée par le prochain import.",
   "tokens.section.contrast": "Contrat de contraste",
   "tokens.section.elevation": "Élévation",

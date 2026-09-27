@@ -5,7 +5,16 @@ import { Icon } from '../icon';
 
 export interface LanguageOption {
   readonly code: string;
-  /** The endonym. "Yorùbá", never "Yoruba (Nigeria)". */
+  /**
+   * The ENDONYM — the language's own name for itself, diacritics included,
+   * never an English name with a country in brackets. The diacritics are part
+   * of the word, and a menu written in English is useless to the person who
+   * cannot read English, which is the entire population it exists for.
+   *
+   * Supplied by the caller from `localeLabel()`. Typing one here would be a
+   * second source of truth for a fact `@kasuwa/i18n` already owns, and an
+   * acceptance test scans this directory for exactly that.
+   */
   readonly label: string;
 }
 

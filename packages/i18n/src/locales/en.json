@@ -17,7 +17,7 @@
   "tokens.scale.count": "{count, plural, one {# step} other {# steps}}",
   "notFound.title": "Page not found",
   "notFound.body": "The page you asked for does not exist, or you do not have access to it.",
-  "notFound.back": "Back to the design tokens",
+  "notFound.back": "Back to sign in",
   "tokens.approved.notice": "Imported from the approved Claude Design export. Colour values are machine-extracted; editing them by hand is reverted by the next import.",
   "tokens.section.contrast": "Contrast contract",
   "tokens.section.elevation": "Elevation",

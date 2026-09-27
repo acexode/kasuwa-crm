@@ -17,7 +17,7 @@
   "tokens.scale.count": "{count, plural, one {# hatua} other {# hatua}}",
   "notFound.title": "Ukurasa haukupatikana",
   "notFound.body": "Ukurasa ulioomba haupo, au huna ruhusa ya kuufikia.",
-  "notFound.back": "Rudi kwenye tokeni za muundo",
+  "notFound.back": "Rudi kwenye kuingia",
   "tokens.approved.notice": "Imeingizwa kutoka toleo la Claude Design lililoidhinishwa. Thamani za rangi hutolewa na mashine; kuzihariri kwa mkono kutabatilishwa na uingizaji ujao.",
   "tokens.section.contrast": "Mkataba wa utofautishaji",
   "tokens.section.elevation": "Mwinuko",

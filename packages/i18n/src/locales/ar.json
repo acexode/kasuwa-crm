@@ -17,7 +17,7 @@
   "tokens.scale.count": "{count, plural, zero {لا خطوات} one {خطوة واحدة} two {خطوتان} few {# خطوات} many {# خطوة} other {# خطوة}}",
   "notFound.title": "الصفحة غير موجودة",
   "notFound.body": "الصفحة التي طلبتها غير موجودة، أو ليس لديك صلاحية الوصول إليها.",
-  "notFound.back": "العودة إلى رموز التصميم",
+  "notFound.back": "العودة إلى تسجيل الدخول",
   "tokens.approved.notice": "مستورد من تصدير Claude Design المعتمد. تُستخرج قيم الألوان آليًا؛ وأي تعديل يدوي سيُلغى عند الاستيراد التالي.",
   "tokens.section.contrast": "عقد التباين",
   "tokens.section.elevation": "الارتفاع",
