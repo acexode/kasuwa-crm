@@ -1,0 +1,59 @@
+# CODEOWNERS
+#
+# Status: partially active. See team/DECISIONS.md D-L17.
+#
+# Only @acexode is a real GitHub handle today. The agent entries below are
+# COMMENTS, not owner lines, because CODEOWNERS entries naming teams that do not
+# exist produce repository warnings and can make pull requests unmergeable once
+# "require review from Code Owners" is enabled. When real GitHub teams exist,
+# uncomment them.
+#
+# Note on the review model (DECISION-LOG.md D-A3, answered 2026-09-26): the
+# human does not personally review security-critical pull requests; an AI
+# reviewer agent opens the PR and the human merges once CI is green. The owner
+# lines below therefore serve as routing and audit trail rather than as a
+# required human gate. The residual risk is recorded in DECISION-LOG.md.
+
+# Default owner for anything not matched below.
+*                               @acexode
+
+# --- Lead-owned, protected paths -------------------------------------------
+# Changes here also require the `lead-approved` label (.github/workflows/ci.yml).
+/tests/acceptance/              @acexode
+/packages/db/migrations/        @acexode
+/packages/db/sql/               @acexode
+/.github/                       @acexode
+/CODEOWNERS                     @acexode
+/CLAUDE.md                      @acexode
+/team/                          @acexode
+/docs/adr/                      @acexode
+
+# --- Security-critical surfaces --------------------------------------------
+# Addendum A1 section 3.5 lists these as the categories that most need an
+# independent check. Keep them routed to the lead even as the roster grows.
+/apps/api/src/tenancy/          @acexode
+/packages/db/src/session.ts     @acexode
+/packages/permissions/          @acexode
+
+# --- Per-agent ownership (Addendum A1 section 3.2) --------------------------
+# Uncomment each line once the corresponding GitHub team exists.
+#
+# /packages/permissions/            @kasuwa/agent-01-platform-security
+# /apps/api/src/tenancy/            @kasuwa/agent-01-platform-security
+# /packages/metadata-engine/        @kasuwa/agent-02-metadata
+# /packages/domain/core/            @kasuwa/agent-03-core-crm
+# /packages/domain/revenue/         @kasuwa/agent-04-revenue
+# /packages/domain/messaging/       @kasuwa/agent-05-messaging
+# /packages/telephony-adapter/      @kasuwa/agent-06-contact-centre
+# /packages/wfm-adapter/            @kasuwa/agent-06-contact-centre
+# /packages/domain/service/         @kasuwa/agent-07-service
+# /packages/domain/workflow/        @kasuwa/agent-08-automation-api
+# /packages/domain/analytics/       @kasuwa/agent-09-analytics-billing
+# /packages/domain/ai/              @kasuwa/agent-10-ai
+# /packages/ui/                     @kasuwa/agent-11-frontend-design
+# /apps/web/                        @kasuwa/agent-11-frontend-design
+# /packages/i18n/                   @kasuwa/agent-11-frontend-design
+# /packages/testing/                @kasuwa/agent-12-qa
+# /docker-compose.yml               @kasuwa/agent-13-devops
+# /.github/workflows/               @kasuwa/agent-13-devops
+# /infra/                           @kasuwa/agent-13-devops

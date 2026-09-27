@@ -1,0 +1,21 @@
+{
+  "name": "@kasuwa/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "src/main.ts",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "build": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/main.js --external:pg-native",
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@kasuwa/config": "workspace:*",
+    "bullmq": "^5.34.6",
+    "ioredis": "^5.4.2"
+  },
+  "devDependencies": { "esbuild": "^0.24.2", "tsx": "^4.19.2" },
+  "nx": { "tags": ["scope:app", "type:app"] }
+}
