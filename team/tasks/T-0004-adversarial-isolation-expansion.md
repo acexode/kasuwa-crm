@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0004 |
+| **status** | `not-assigned` |
 | **module** | Cross-cutting |
 | **owner** | Agent 12 — QA & Adversarial Testing |
 | **priority** | P0 |

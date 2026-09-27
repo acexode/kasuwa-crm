@@ -190,28 +190,53 @@ QA is carrying weight the addendum assumed a human reviewer would carry.
 
 ---
 
+## Decisions answered 2026-09-27
+
+- **D-A3 reversed to the safer position.** @acexode personally reviews PRs
+  touching auth, permissions, RLS/migrations, payments/e-invoicing,
+  recordings/PCI and export/DSAR. `CODEOWNERS` and `ROSTER.md` updated. This
+  only becomes a gate when "Require review from Code Owners" is enabled in
+  branch protection — a repository setting, part of T-0005.
+- **D-A2** 1-week iterations, decisions answered daily.
+- **D-A1** 12 specialists + lead, QA and DevOps independent. **One builder still
+  has to fold** — the addendum lists 13 specialists. Three options and a
+  recommendation are in `ROSTER.md`; one word closes it, and nothing is blocked
+  meanwhile.
+- **D-L20** rollup WASM pin accepted as temporary. Noted in `CLAUDE.md` section 4
+  because JSON takes no comments.
+- **D-L21** SeaweedFS accepted.
+- **D-L23** agreed a weakening, and now **enforced rather than remembered**:
+  every task file carries a `status`, and `pnpm verify:tasks` fails CI if a task
+  marked `assigned` or `in-progress` names acceptance tests that are still
+  `.todo`. I verified it catches a violation, not just that it passes.
+
 ## What I need from you
 
 **Blocking the pilot week:**
 
-- **D-A4** — a monthly token/API budget ceiling. Every task file currently says
-  "3 sessions, escalate on 4th" as a placeholder, which is a number I invented.
-- **D-A5** — are your supervisors and QA leads available for milestone UAT? If
-  not, the honest response is a longer timeline, not the same plan with hope
-  attached.
-- **D-A1 / D-L18** — 12 or 13 specialists. Cheap to answer; `ROSTER.md` assumes 13.
-- **D-A2** — 1-week or 2-week iterations. Related to how often you can answer
-  this file.
+- **GitHub authentication.** I cannot push or open the PR. `gh` is not logged in
+  and Git Credential Manager opens a GUI prompt this session cannot complete —
+  that is what hung the first attempt. One command in your terminal:
+  `gh auth login --hostname github.com --git-protocol https --web`.
+- **D-A4** — the monthly ceiling came back as `[your monthly ceiling]`. The
+  per-task default (3 sessions, escalate on the 4th, report actual spend weekly)
+  is accepted and already in the task files, so nothing is blocked day to day;
+  what is missing is the number to plan the month against.
+- **D-A5** — came back as `[yes/no + names + which days]`. Still the named
+  mitigation for the largest risk in the model.
+- **D-A1** — which builder folds. See `ROSTER.md`.
 
 **Blocking week 2 (agents 3 and 6):**
 
 - **D-T1 through D-T5** and the material in Addendum A1 section 1.4 — API spec,
-  event catalogue, auth model, staging environment. The telephony adapter is v0
+  event catalogue, auth model, staging environment. **Nothing was attached**; the
+  answer read `[attach telephony API spec / ...]`. Agents 3 and 6 wait, as you
+  said. The telephony adapter is v0
   and written from your capability table rather than a real spec. Agent 6 cannot
   do meaningful work without this, and **D-T5** (is the platform multi-tenant
   with programme scoping?) is the highest-leverage single answer, because it may
   change the Pooled/Bridge/Silo model in ADR-0002.
-- **D-W1** — anything at all about the existing WFM. Nothing has been shared, so
+- **D-W1** — anything at all about the existing WFM. Still nothing shared, so
   the review you asked for in Addendum 2.2 cannot start.
 
 **Worth your view but not blocking:** D-L20 (rollup/WASM), D-L23 (whether the

@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0005 |
+| **status** | `not-assigned` |
 | **module** | Cross-cutting |
 | **owner** | Agent 13 — DevOps & Release |
 | **priority** | P0 |

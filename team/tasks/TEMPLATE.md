@@ -9,6 +9,7 @@ Copy this file, do not edit it in place.
 | Field | Value |
 |---|---|
 | **id** | T-XXXX |
+| **status** | `not-assigned / assigned / in-progress / blocked / done` |
 | **module** | M<nn> — <name> |
 | **owner** | Agent <n> — <role> |
 | **priority** | P0 / P1 / P2 |
@@ -54,6 +55,10 @@ things that are *not* in scope and say which task or agent owns them instead.
 - [ ] ADR written if architecture changed
 - [ ] Completion report at `team/reports/T-XXXX.md`
 - [ ] PR ≤ ~600 lines, or split, with a description naming the task id
+
+> **Before setting `status` to `assigned`:** the acceptance tests named above
+> must exist and fail for a real reason. `tools/verify-task-readiness.mjs`
+> fails CI otherwise. See `team/DECISION-LOG.md` D-L23.
 
 ## Escalate if
 

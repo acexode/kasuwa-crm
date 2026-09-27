@@ -39,6 +39,56 @@ Do not start all thirteen at once.
 - **Week 3** — review how the protocol held up, fix it, then scale to the full
   roster.
 
+## Review model
+
+**Answered 2026-09-27 (D-A3, revised).** @acexode personally reviews every pull
+request touching:
+
+- authentication and sessions
+- permissions
+- RLS and migrations
+- payments and e-invoicing
+- recordings and PCI
+- data export and DSAR
+
+Everything else the lead merges on green CI plus reviewer-subagent verdicts.
+
+`CODEOWNERS` routes those paths to @acexode. **For this to be a gate rather than
+a routing hint, "Require review from Code Owners" must be enabled in branch
+protection** — a repository setting only @acexode can change. That is part of
+T-0005; until it is on, the list above is a convention.
+
+On every PR regardless of category, the lead runs `tenancy-reviewer`,
+`security-reviewer` and `migration-reviewer`, and reads the diff rather than
+just the test output.
+
+## Cadence
+
+**1-week iterations** (D-A2), with `DECISIONS.md` answered daily. That daily
+turnaround is what makes one-week iterations work: Addendum A1 section 3.3 is
+explicit that decision latency, not agent speed, is the binding constraint.
+
+## Open: which builder folds? (D-A1)
+
+You answered 13 total — 12 specialists plus the lead — and kept QA and DevOps
+independent. Addendum A1 section 3.2 lists **13** specialists, so exactly one
+builder from #1–#11 folds into another. The addendum anticipated the trade
+("I'd rather drop a builder than lose independent QA or DevOps") but did not say
+which. I have not guessed. Three candidates:
+
+| Option | Merge | Case for | Case against |
+|---|---|---|---|
+| **A** (recommended) | **#7 Service into #5 Messaging** — one agent owns M8, M12, M13 | Tickets and the omnichannel inbox share routing, queues, skills, capacity, SLA timers and CSAT delivery. It is the pairing with the most real code overlap and the fewest cross-agent contracts to negotiate. | M12 is P0 and M8 is P0, so that agent carries a heavy MVP load. M13 slips. |
+| **B** | **#4 Revenue into #3 Core CRM** — one agent owns lead-to-cash (M3–M7) | Deals → quotes → invoices → payments is one value chain; fewer handoffs on the sequence a sales user actually walks. | M3–M7 is the largest surface in the product. Likely the new bottleneck. |
+| **C** | **#2 Metadata into #1 Platform** — one agent owns M1, M2, M15 | Tenancy, permissions and the metadata engine are all "the platform", and M15's storage model depends on M1's tenancy decisions anyway. | M15 alone is arguably the biggest module in the PRD. Pairing it with the security work risks both being late. |
+
+**Recommendation: A.** It concentrates genuinely overlapping work rather than
+merely adjacent work, and it defers M13 (marketing, P1) rather than anything
+needed for MVP. If MVP load on #5 proves too heavy, M13 is the natural thing to
+hand back when the roster grows.
+
+Nothing is blocked by this: the folded agent starts in week 3 under every option.
+
 ## Escalation rules
 
 | Situation | What happens |
@@ -49,14 +99,4 @@ Do not start all thirteen at once.
 | You need a new dependency, table, or adapter contract change | That is a decision, not an implementation detail. Raise it. |
 | Your change would touch another agent's module | Raise it with the lead; cross-domain work goes through interfaces or events. |
 | CI is red on `main` | Everyone stops merging until it is green. |
-
-## Review model
-
-**Answered 2026-09-26 (D-A3):** the human does not personally review
-security-critical PRs. An AI reviewer agent reviews and opens the PR against
-`main`; @acexode merges once CI is green.
-
-The lead runs the reviewer subagents (`tenancy-reviewer`, `security-reviewer`,
-`migration-reviewer`) on every PR and reads the diff, not just the test output.
-Residual risk from removing the independent human check is recorded in
-`DECISION-LOG.md`.
+| Your PR touches auth, permissions, RLS, migrations, payments, recordings or export | @acexode reviews personally. Expect to wait; do not merge around it. |

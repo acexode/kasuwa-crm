@@ -78,6 +78,12 @@ jobs:
       - name: Verify module boundaries are enforced
         run: pnpm lint:boundaries:verify
 
+      # No task may be assigned while its acceptance tests are still stubs
+      # (team/DECISION-LOG.md D-L23). Mechanical, because the rule fails at
+      # exactly the moment everyone is busiest.
+      - name: Verify task readiness
+        run: pnpm verify:tasks
+
       # tokens.css is generated from tokens.ts. If they can drift, the design
       # system has two sources of truth.
       - name: Check generated design tokens are current

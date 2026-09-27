@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0001 |
+| **status** | `not-assigned` |
 | **module** | M2 — Security & identity |
 | **owner** | Agent 1 — Platform & Security |
 | **priority** | P0 |

@@ -252,7 +252,7 @@ actually run. All three are reversible, all three are recorded here because they
 deviate from what the brief or the founding pack specified.*
 
 ### D-L20 — rollup is pinned to its WebAssembly build
-**Status:** PROCEEDING, wants your view
+**Status:** ANSWERED 2026-09-27 — accepted as TEMPORARY; remove once the devcontainer/cloud environment is confirmed. See DECISION-LOG.md
 **Context:** Vitest depends on Vite, which depends on rollup's native binary.
 Windows **Smart App Control is enforcing on the development machine**
 (`VerifiedAndReputablePolicyState = 1`), and it blocks that unsigned `.node`
@@ -272,7 +272,7 @@ become a problem, at which point (2) is the better long-term answer.
 **Blocked:** nothing. **Reversibility:** trivial (delete the override).
 
 ### D-L21 — SeaweedFS instead of MinIO for local object storage
-**Status:** PROCEEDING
+**Status:** ANSWERED 2026-09-27 — accepted. See DECISION-LOG.md
 **Context:** The founding pack and your brief both name MinIO. MinIO's public
 Docker Hub images are no longer pullable without a subscription, and Bitnami's
 catalogue moved behind a paywall in the same period. Neither survives the
@@ -301,7 +301,7 @@ it allocates random ports.
 **Blocked:** nothing. **Reversibility:** trivial.
 
 ### D-L23 — acceptance-test stubs are `todo`, not failing
-**Status:** PROCEEDING, flagged as a real compromise
+**Status:** ANSWERED 2026-09-27 — agreed a weakening; new standing rule now enforced by `pnpm verify:tasks`. See DECISION-LOG.md
 **Context:** Addendum A1 section 3.3 principle 3 says acceptance tests are
 committed **failing** before a task is assigned. The brief also requires CI to
 be green on the first PR. Those two cannot both hold for the pilot tasks, since
@@ -375,10 +375,10 @@ one normalised agent-state event model and one audit trail — but it makes Kasu
 load-bearing for WFM's accuracy, which is a real operational commitment.
 
 ### D-A1 — Accept the roster split (9 builders + QA + DevOps) or insist on 12 builders?
-**Status:** BLOCKED. **Recommendation:** accept the split. See also D-L18.
+**Status:** ANSWERED 2026-09-27 (partially) — 12 specialists + lead, QA and DevOps independent. **Which builder folds is still open**; see ROSTER.md for three options and a recommendation.
 
 ### D-A2 — Iteration length: 1 week or 2?
-**Status:** BLOCKED. **Recommendation:** 1 week, as the addendum says — but note §3.3's own finding
+**Status:** ANSWERED 2026-09-27 — 1-week iterations, DECISIONS.md answered daily. See DECISION-LOG.md
 that *your decision latency*, not agent speed, is the constraint. If you cannot answer this file most
 days, 1-week iterations will just produce a weekly pile of blocked tasks; 2 weeks would be more
 honest. Answer D-A5 and your realistic daily availability alongside this one.
@@ -390,13 +390,21 @@ policy or adds a table without one.** I want this answered before the scaffold m
 determines the CODEOWNERS lines (D-L17).
 
 ### D-A4 — Monthly token/API budget ceiling
-**Status:** BLOCKED. **Blocked:** per-task budgets in every task file (Addendum §3.3 requires a
+**Status:** STILL BLOCKED — the answer on 2026-09-27 left the ceiling as a
+placeholder (`[your monthly ceiling]`). The per-task default was accepted:
+**3 sessions, escalate on the 4th**, until there is data, with actual spend
+reported per task weekly. Task files already carry that budget, so nothing is
+blocked day to day; what is missing is the number the lead plans the month
+against. **Blocked:** per-task budgets in every task file (Addendum §3.3 requires a
 `Budget:` line), and the escalation threshold that stops a stuck agent thrashing. I cannot write
 meaningful task budgets without a ceiling. Interim: I will write `Budget: 3 sessions, escalate on
 4th` on pilot tasks as a placeholder.
 
 ### D-A5 — Are your supervisors/QA leads available for milestone UAT (~2 days per milestone)?
-**Status:** BLOCKED. **Blocked:** the milestone plan and the shadow-mode pilot in §3.6's estimate.
+**Status:** STILL BLOCKED — the 2026-09-27 answer left this as a placeholder
+(`[yes/no + names + which days per milestone]`). This is the named mitigation
+for the model's largest risk (tests pass, behaviour is wrong). If the answer is
+no, the honest response is a longer timeline, not the same plan. **Blocked:** the milestone plan and the shadow-mode pilot in §3.6's estimate.
 This is the named mitigation for the biggest risk in the model (correlated blind spots — tests pass,
 behaviour is wrong). If the answer is no, the honest response is to lengthen the timeline, not to
 proceed and hope.

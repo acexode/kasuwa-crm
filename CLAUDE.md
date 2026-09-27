@@ -131,6 +131,11 @@ Docker Desktop with the WSL2 backend is required on Windows; Testcontainers and
   this supersedes the founding pack's 400). Structural PRs are exempt — say so in
   the description.
 - **No new dependencies** without a one-line justification in the PR description.
+- **`pnpm.overrides` pins rollup to its WASM build. This is temporary** (D-L20):
+  Windows Smart App Control blocks rollup's native binary, so without it the
+  test suite will not run on the current development machine. Remove the pin
+  once agents run in the devcontainer or cloud environment. JSON takes no
+  comments, which is why this note is here.
 
 ---
 
