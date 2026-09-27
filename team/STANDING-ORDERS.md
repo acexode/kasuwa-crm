@@ -216,7 +216,7 @@ descending order of strength:
 | | |
 |---|---|
 | "Automatically delete head branches" | Enabled on the repository — a merged branch disappears |
-| `.husky/pre-push` | Refuses the push, naming the merged PR. **Fails open** when `gh` is unavailable, deliberately — a hook that blocks work offline gets bypassed with `--no-verify` and then protects nothing |
+| `.husky/pre-push` | Refuses the push, naming the merged PR. Two deliberate gaps: it **fails open** when `gh` is unavailable (a hook that blocks work offline gets bypassed with `--no-verify`, and then protects nothing), and it only guards branches that **contain the file** — husky hooks live in the working tree, so a branch created before it landed has no hook. Found by testing it, not by reasoning about it |
 | This rule | Convention |
 
 **Open every pull request complete.** At creation, not afterwards:
@@ -240,3 +240,8 @@ after the guard has already failed is a repair, not a process.
 
 **One narrow exception:** continuing on a branch whose PR is still *open* is
 fine — that is the same PR, not a second one. The rule is about merged branches.
+
+**Merged branches are deleted**, on GitHub automatically and by hand for the
+ones that predate the setting. The branch not existing is the strongest of the
+three guards, because it removes the thing to check out rather than asking a
+hook to catch it afterwards.

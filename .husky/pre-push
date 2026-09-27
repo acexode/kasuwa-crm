@@ -12,7 +12,15 @@
 # branch outlives its remote: the delete happens on GitHub, the local copy stays,
 # and the next push recreates it.
 #
-# HONEST LIMITATION: this fails OPEN. If `gh` is missing, unauthenticated or
+# SECOND LIMITATION, found by testing it: the hook only protects branches that
+# CONTAIN it. Husky hooks are files in the working tree, so checking out a
+# branch created before this landed removes the hook along with everything else
+# on that branch. The first negative test of this hook pushed an empty commit to
+# an already-merged branch and the hook never ran, because the branch predated
+# it. That is why "automatically delete head branches" matters more than this
+# file: a branch that does not exist cannot be checked out and pushed to.
+#
+# HONEST LIMITATION: this also fails OPEN. If `gh` is missing, unauthenticated or
 # offline it warns and allows the push, because a hook that blocks all work when
 # the network is down would be bypassed with --no-verify within a day, and then
 # it protects nothing. It is a guardrail against a specific accident, not a
