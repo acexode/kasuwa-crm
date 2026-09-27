@@ -22,6 +22,8 @@
  * ---------------------------------------------------------------------------
  */
 
+import { spawnSync } from 'node:child_process';
+
 const PROTECTED_PREFIXES = ['tests/acceptance/', 'packages/db/migrations/', 'packages/db/sql/'];
 
 function readStdin() {
@@ -67,6 +69,33 @@ if (process.env.KASUWA_LEAD_SESSION === '1') {
   process.exit(0);
 }
 
+/**
+ * Lead work happens on a `lead/*` branch.
+ *
+ * The env var above is the documented escape, and it turned out to be
+ * unusable: an agent cannot set its own session's environment, so the lead was
+ * blocked from the paths the lead owns and the only way through was to route
+ * around the hook with a shell command — which is precisely the habit this hook
+ * exists to discourage.
+ *
+ * A branch name is something the lead can actually set, and unlike the env var
+ * it is visible on the pull request. It is NOT a control: any session could
+ * name its branch `lead/…`. That is fine, because this hook was never a
+ * control — see README.md in this directory. The control is CI's label gate
+ * plus branch protection, neither of which an agent can set.
+ */
+function onLeadBranch() {
+  const result = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+  });
+  return result.status === 0 && /^lead\//.test((result.stdout ?? '').trim());
+}
+
+if (onLeadBranch()) {
+  process.exit(0);
+}
+
 process.stderr.write(
   `Refusing to edit ${relative}\n\n` +
     `${match} is lead-owned (Addendum A1 section 3.3, principle 3). Acceptance\n` +
@@ -76,7 +105,8 @@ process.stderr.write(
     `team/reports/<task-id>.md. Do not change it to make your build pass — CI\n` +
     `fails any pull request touching this path without the 'lead-approved'\n` +
     `label, so the change would be rejected anyway.\n\n` +
-    `If you ARE the lead: set KASUWA_LEAD_SESSION=1 in this session's environment.\n`,
+    `If you ARE the lead: work on a 'lead/*' branch, or set KASUWA_LEAD_SESSION=1\n` +
+    `in the session environment.\n`,
 );
 
 // Exit code 2 blocks the tool call and returns stderr to the model.
