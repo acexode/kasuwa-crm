@@ -134,6 +134,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm ui:tokens
       - run: pnpm i18n:pseudo
+      # The completeness gate. It fails on a menu language with a structural
+      # defect; a language that is merely unreviewed is held back rather than
+      # failed, which is the designed steady state under D-P1.
+      - run: pnpm i18n:validate
       - run: pnpm build
 
   # --------------------------------------------------------------------------

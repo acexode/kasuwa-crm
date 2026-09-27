@@ -107,19 +107,107 @@ describe('acceptance (pending): every offered language is actually translated', 
     // catalogue to "unblock the menu". The second is the one that ships a
     // language that falls back to English.
     //
-    // The list of languages OFFERED and the list of languages FINISHED must be
-    // the same list by construction, not by discipline.
-    const i18n: { SUPPORTED_LOCALES: readonly string[] } = await import(
-      fromRoot('packages/i18n/src/index.ts')
-    );
+    // AMENDED BY THE LEAD after D-P1 was answered. This originally asserted
+    // that all seven menu languages are offered. That was written BEFORE
+    // @acexode answered D-P1, and the answer supersedes its premise: a
+    // language with no named reviewer stays unoffered. No reviewer has been
+    // named, so the honest offered set today is English and its overlay.
+    //
+    // Left as a record of how it was changed, because "the test was wrong" is
+    // the most dangerous sentence in this repository. It was not wrong about
+    // the property; it encoded an assumption a human decision then replaced.
+    // The builder that hit this refused to make it pass and said so, which is
+    // exactly right — a builder must never edit an acceptance test.
+    //
+    // What replaces it is STRICTER, not looser: the offered set must equal the
+    // ready set exactly, and the held-back languages must be provably complete
+    // rather than merely absent.
+    const i18n: {
+      SUPPORTED_LOCALES: readonly string[];
+      allLocaleReadiness: () => readonly {
+        locale: string;
+        complete: boolean;
+        attested: boolean;
+        ready: boolean;
+        problems: readonly string[];
+      }[];
+    } = await import(fromRoot('packages/i18n/src/index.ts'));
 
-    expect([...i18n.SUPPORTED_LOCALES].sort()).toEqual([...OFFERED, 'en-NG'].sort());
+    const readiness = i18n.allLocaleReadiness();
+    const ready = readiness.filter((entry) => entry.ready).map((entry) => entry.locale);
+
+    // Offered is exactly ready. Not a superset (a language that falls back),
+    // not a subset (a finished language nobody switched on).
+    expect([...i18n.SUPPORTED_LOCALES].sort()).toEqual([...ready].sort());
+
+    // Nothing reaches the menu on structural completeness alone. This is the
+    // half D-P1 added and the half a machine can satisfy by itself, so it is
+    // the half most likely to be quietly dropped.
+    for (const locale of i18n.SUPPORTED_LOCALES) {
+      const entry = readiness.find((candidate) => candidate.locale === locale);
+      expect(entry?.attested, `${locale} is offered without a named reviewer`).toBe(true);
+    }
 
     const source = readFileSync(fromRoot('packages/i18n/src/index.ts'), 'utf8');
     expect(
       source,
       'SUPPORTED_LOCALES is still a literal array — an incomplete locale can be added to it',
     ).not.toMatch(/SUPPORTED_LOCALES\s*=\s*\[\s*'/);
+  });
+
+  it('holds languages back for attestation only, never for missing work', async () => {
+    // The replacement for "all seven are offered", and a stronger property.
+    //
+    // If a menu language were held back because its catalogue is full of
+    // holes, "awaiting review" would be a comfortable label on unfinished
+    // work, and the gate would be hiding the backlog rather than reporting it.
+    // Every held-back language must be STRUCTURALLY COMPLETE — so the only
+    // thing standing between it and the menu is a human name.
+    const i18n: {
+      SUPPORTED_LOCALES: readonly string[];
+      allLocaleReadiness: () => readonly {
+        locale: string;
+        complete: boolean;
+        attested: boolean;
+        problems: readonly string[];
+      }[];
+    } = await import(fromRoot('packages/i18n/src/index.ts'));
+
+    const readiness = i18n.allLocaleReadiness();
+
+    for (const locale of OFFERED) {
+      if (i18n.SUPPORTED_LOCALES.includes(locale)) continue;
+
+      const entry = readiness.find((candidate) => candidate.locale === locale);
+      expect(entry, `${locale} is on the P01/1 menu but has no catalogue at all`).toBeDefined();
+      expect(
+        entry?.complete,
+        `${locale} is held back for real gaps, not just review: ${entry?.problems.join('; ')}`,
+      ).toBe(true);
+      expect(entry?.attested, `${locale} is complete and attested but not offered`).toBe(false);
+    }
+  });
+
+  it('gives no deployment a way to widen the offered set', async () => {
+    // Found by the T-0009 builder, and it was real: `@kasuwa/config` carried
+    // its own SUPPORTED_LOCALES environment variable. Nothing read it, but it
+    // could have turned on a language the gate considers unfinished — the
+    // dishonest menu this whole suite exists to prevent, reachable by editing
+    // a deployment variable and touching no code.
+    //
+    // Two sources of truth for one fact, one of which can lie silently.
+    // Removed rather than reconciled (D-L27). A deployment may narrow the set
+    // through a feature flag; it may never widen it.
+    const config = readFileSync(fromRoot('packages/config/src/index.ts'), 'utf8');
+    expect(
+      config,
+      '@kasuwa/config declares SUPPORTED_LOCALES again — it can widen past the gate',
+    ).not.toMatch(/SUPPORTED_LOCALES:/);
+
+    const example = readFileSync(fromRoot('.env.example'), 'utf8');
+    expect(example, '.env.example still advertises SUPPORTED_LOCALES').not.toMatch(
+      /^SUPPORTED_LOCALES=/m,
+    );
   });
 
   it('resolves every key in every offered locale without reaching the English fallback', async () => {
