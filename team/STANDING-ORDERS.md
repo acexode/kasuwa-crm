@@ -281,6 +281,25 @@ hook and CI both block it. Nobody merges their own work. The isolation suite
 stays blocking, and a builder that turns it red is a stop-the-line event, not a
 ticket.
 
+**Builders never work on a `lead/*` branch.**
+
+Added 2026-09-27 after a builder edited `tests/acceptance/` — a path it had been
+told twice not to touch — and the `protect-paths` hook did not fire, because
+the worktree was on `lead/T-0001-implementation`. The hook exempts `lead/*`, and
+**the lead had put the builder there.** The guard was disarmed by the person it
+was meant to help.
+
+So: a builder's branch is `agent<N>/<task>` or `feat/<task>`, never `lead/*`.
+When the lead takes the work over — to wire a fixture, to amend an acceptance
+test — the lead branches off it, or cherry-picks onto a `lead/*` branch of its
+own. Two branches is the cost of keeping the signal honest.
+
+The hook is not a control and never was; `.claude/hooks/README.md` says so, and
+the real controls are CI's label gate and branch protection. But a signal that
+the lead itself switches off is not even a signal, and this is the second time
+the mechanism has been defeated by how the lead set things up rather than by
+anyone circumventing it.
+
 **Judgement the lead keeps.** How many builders to run at once is a capacity
 question, not a throughput one: each costs usage against the seat window, and
 each produces a diff someone has to review properly. Two at a time has been the

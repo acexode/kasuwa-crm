@@ -151,6 +151,9 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.3.0(react@19.3.0)
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
     devDependencies:
       '@types/react':
         specifier: ^19.0.2
@@ -388,6 +391,9 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.23.15
+      yaml:
+        specifier: ^2.9.1
+        version: 2.9.1
 
 packages:
 

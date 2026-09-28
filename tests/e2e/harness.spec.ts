@@ -69,6 +69,9 @@ test.describe('e2e harness', () => {
     await page.goto(webUrl);
     await expect(page).toHaveTitle('Kasuwa');
     await expect(page.locator('h1')).toBeVisible();
+    // The root is `P01/1` now, not the token gallery. Asserted so that the
+    // deletion below cannot quietly stop meaning anything.
+    await expect(page.locator('[data-screen="P01/1"]')).toBeVisible();
 
     // Wired now, while it costs one line. Retrofitting accessibility assertions
     // across thirty screens is a project; adding them screen by screen is a
@@ -90,23 +93,22 @@ test.describe('e2e harness', () => {
     );
 
     /**
-     * KNOWN, AND DELIBERATELY NOT HIDDEN — see team/reports/T-0008.md.
+     * NO EXEMPTIONS. Every serious and critical violation blocks.
      *
-     * The only page apps/web serves today is the design-tokens gallery, which
-     * renders every semantic token as a swatch and every contrast pair as a
-     * chip at caption size. axe reports `color-contrast` on some of those
-     * chips: the pairs are specified against their own minimum ratios, several
-     * of which are the 3:1 large-text threshold, and the demo renders them
-     * small. That is a fact about a demo page, not about a product screen.
+     * T-0008 filtered one rule out here, because the only page apps/web served
+     * was the design-tokens gallery: it renders contrast pairs as caption-sized
+     * chips against their own 3:1 large-text minimums, so axe was right about
+     * the page and the page was a demo. T-0007 moved that gallery to
+     * /design/tokens and put a real screen — `P01/1` — at the root, and the
+     * filter is gone with it.
      *
-     * It is excluded here rather than asserted away, and this exclusion must be
-     * DELETED when T-0007 replaces this page with a real screen. Every other
-     * serious or critical rule blocks, today, on the real app.
+     * Deleting it was the point, and it was made mechanical on purpose (see
+     * tests/acceptance/platform/e2e-harness.acceptance.test.ts). An
+     * accessibility exemption inherited by thirty screens is exactly what
+     * nobody remembers to remove, because by then it has always been there.
      */
-    const blocking = serious.filter((violation) => violation.id !== 'color-contrast');
-
     expect(
-      blocking.map(
+      serious.map(
         (violation) =>
           `${violation.id}: ${violation.help} (${violation.nodes
             .flatMap((node) => node.target)

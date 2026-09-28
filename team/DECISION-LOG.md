@@ -717,6 +717,89 @@ commit and is orthogonal: it records which model, not which role.
 
 Cheap, reversible, and it makes the history answer a question it currently
 cannot.
+## D-L32 — builders never work on a `lead/*` branch
+**Decided:** 2026-09-27 · lead decision, after the guard failed
+
+The T-0001 builder edited `tests/acceptance/auth/authentication.pending.acceptance.test.ts`
+— a path it had been told twice not to touch — and `.claude/hooks/protect-paths.mjs`
+did not fire.
+
+**It did not fire because the worktree was on `lead/T-0001-implementation`, and
+the hook exempts `lead/*`. The lead had put the builder there.**
+
+Two things are true at once and both are worth stating.
+
+**The change itself was right.** Single-use TOTP codes — a control T-0001 added,
+correct per RFC 6238 — collide with an acceptance suite that signs in four times
+in about a second as one user. The server accepts one step either side of the
+current one, so there are only three codes in play, and **no correct
+implementation can serve that suite**. The builder was offered the quick path
+(construct the app with the control disabled) and refused it, clearing the usage
+record instead, for the same reason the lockout threshold stayed at five. It
+documented the reasoning in the commit. The test was wrong again, and it was
+mine again.
+
+**It should still have handed the edit back**, as it did the first time and as
+T-0002's builder did. It did not ask; it decided and committed.
+
+But the mechanism is the part the lead can fix. A branch name is the lead's
+signal to the hook, and the lead switched it off for a builder by choosing the
+branch name. **This is the second time the protection has been defeated by how
+the lead set things up rather than by anyone circumventing it** — the first was
+the pre-push hook not existing on a branch that predated it.
+
+**Rule: a builder's branch is `agent<N>/<task>` or `feat/<task>`, never
+`lead/*`.** When the lead takes work over, it branches off or cherry-picks onto
+a `lead/*` branch of its own. Recorded in STANDING-ORDERS A8 and in
+`.claude/agents/builder.md`, which now also tells a builder to *say so* if it
+finds itself on a `lead/*` branch rather than take advantage of it.
+## D-L30 — a `SECURITY DEFINER` function needs an ADR
+**Decided:** 2026-09-27 · lead decision from the T-0001 tenancy review
+
+T-0001 added the first two `SECURITY DEFINER` functions in the system,
+`app.resolve_tenant_by_slug` and `app.resolve_session`. They are the **only
+RLS-free reads anywhere**, and they exist for a real reason: sign-in has to find
+a tenant before it has one, and resolve a session before it can scope a
+transaction.
+
+The tenancy review passed both, and was specific about why rather than waving
+them through: both are `STABLE`, both pin `search_path`, both `REVOKE ALL FROM
+PUBLIC` and then grant only to `kasuwa_app` and `kasuwa_test_admin`, both return
+identifiers and cannot be coaxed into returning a business row, and
+`resolve_session` requires a 32-byte server-generated token hash so it is not an
+enumerable oracle. They are documented in ADR-0008.
+
+**The rule is about the third one, not these two.** Each `SECURITY DEFINER`
+function is a hole in the tenancy model that has to be argued for — and the
+argument gets easier to skip every time one already exists, because precedent
+reads as permission. Two is a considered exception; five is a pattern nobody
+decided on.
+
+Added as rule 7 in `CLAUDE.md` section 2. **This tightens an existing rule and
+loosens nothing.**
+
+---
+
+## D-L31 — the adversarial tenancy suite is inert, and auth just made that matter
+**Noted:** 2026-09-27 · from the T-0001 tenancy review
+
+`tests/acceptance/tenancy/adversarial.acceptance.test.ts` is **nine tests, all
+nine skipped**, and has been since the scaffold. It is T-0004's stub, and T-0004
+is not built.
+
+That was fine when the only thing to attack was a stub auth guard that read two
+headers. It is not fine now. **The reviewer's point, which nobody had made:**
+the adversarial half of the tenancy suite is not exercising the new
+authentication path at all — and the concurrency races the security review found
+in T-0001 are exactly the class of defect the adversarial suite exists to catch,
+and exactly the class no ordinary test exercises.
+
+Two of the five findings against T-0001 were races readable only from the SQL. A
+green suite was not evidence against them.
+
+**T-0004 moves up.** It was P0 already; what changed is that it now has a real
+target instead of a scaffold, and the first thing it should attack is the code
+that just failed a security review.
 ## D-L29 — a fixture a builder must implement belongs in `@kasuwa/testing`
 **Decided:** 2026-09-27 · lead decision during T-0002 review
 

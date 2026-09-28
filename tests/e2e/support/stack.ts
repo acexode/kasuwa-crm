@@ -1,3 +1,4 @@
+import { test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -21,22 +22,42 @@ export interface StackUrls {
   fixturesUrl: string;
 }
 
-const STACK_FILE = resolve(__dirname, '..', '.artifacts', 'stack.json');
+/**
+ * One file per Playwright project, not one shared `stack.json`.
+ *
+ * Two `pnpm test:e2e` invocations in the same checkout both wrote the shared
+ * name, and the `over-budget` run writes empty urls — so a concurrent normal
+ * run failed every remaining test with `navigating to ""`, which looks exactly
+ * like a broken route and is not. It cost the T-0007 builder three runs, and
+ * then turned the blocking isolation gate red, because the harness acceptance
+ * suite runs `test:e2e` twice by design.
+ *
+ * Keyed on the project name rather than a process id or an environment
+ * variable: the runner already knows it, `test.info()` already carries it, and
+ * `process.env` is reserved for `@kasuwa/config` — see the note above, which
+ * was right and which a first attempt at this fix ignored.
+ */
+function stackFileFor(project: string): string {
+  return resolve(__dirname, '..', '.artifacts', `stack.${project}.json`);
+}
 
-let cached: StackUrls | undefined;
+let cached: (StackUrls & { project: string }) | undefined;
 
 export function stack(): StackUrls {
-  if (cached === undefined) {
+  const project = test.info().project.name;
+  const file = stackFileFor(project);
+
+  if (cached?.project !== project) {
     let raw: string;
     try {
-      raw = readFileSync(STACK_FILE, 'utf8');
+      raw = readFileSync(file, 'utf8');
     } catch {
       throw new Error(
-        `No running stack described at ${STACK_FILE}. Run the suite with "pnpm test:e2e", ` +
+        `No running stack described at ${file}. Run the suite with "pnpm test:e2e", ` +
           'which starts Postgres, the API, the web app and the fixture server first.',
       );
     }
-    cached = JSON.parse(raw) as StackUrls;
+    cached = { project, ...(JSON.parse(raw) as StackUrls) };
   }
   return cached;
 }

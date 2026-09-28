@@ -76,6 +76,33 @@ interface RequestWillBeSentEvent extends RequestEvent {
  * would trade a real signal for a guess, and an acceptance test greps this
  * directory for the Playwright call that does it.
  */
+/**
+ * Applies a network profile to a page that is ALREADY loaded.
+ *
+ * `measurePageLoad` throttles a navigation. This throttles everything after
+ * one, which is what a screen whose slow state is triggered by a REQUEST needs:
+ * `P01/1d` shows "Still connecting…" four seconds into a sign-in, and the
+ * question it answers is what happens to that request on a 256 kbps link with
+ * 300 ms of latency — not how long the page took to arrive.
+ *
+ * It is also the only way to exercise that screen at all until T-0010 (D-L28):
+ * the harness runs `next dev`, and a development bundle at 256 kbps does not
+ * finish navigating inside any sane timeout. That is a fact about the dev
+ * server, not about the product, and throttling the request rather than the
+ * navigation keeps the assertion about the product.
+ */
+export async function throttleTo(page: Page, profileName: ProfileName): Promise<void> {
+  const profile = NETWORK_PROFILES[profileName];
+  const client = await page.context().newCDPSession(page);
+  await client.send('Network.enable');
+  await client.send('Network.emulateNetworkConditions', {
+    offline: false,
+    latency: profile.latencyMs,
+    downloadThroughput: profile.downloadBytesPerSecond ?? -1,
+    uploadThroughput: profile.uploadBytesPerSecond ?? -1,
+  });
+}
+
 export async function measurePageLoad(
   page: Page,
   url: string,
