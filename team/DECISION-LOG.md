@@ -721,3 +721,26 @@ the pre-push hook not existing on a branch that predated it.
 a `lead/*` branch of its own. Recorded in STANDING-ORDERS A8 and in
 `.claude/agents/builder.md`, which now also tells a builder to *say so* if it
 finds itself on a `lead/*` branch rather than take advantage of it.
+## D-L29 — a fixture a builder must implement belongs in `@kasuwa/testing`
+**Decided:** 2026-09-27 · lead decision during T-0002 review
+
+T-0002's acceptance suite declared `seedObjectDef` as a **local constant inside
+the protected file**, stubbed to throw, with a comment saying the builder
+implements it. The same task said never to edit `tests/acceptance/`, which a
+hook and CI both enforce.
+
+Those cannot both hold. **The contradiction was in the task design, not in the
+builder** — and the builder handled it exactly right: it did not route around
+the hook, it implemented the fixture where a builder legitimately can (exported
+from `@kasuwa/testing`, covered end to end by an integration test that mirrors
+the acceptance assertions), and it handed the one-line delegation back to the
+lead with the exact replacement written out.
+
+**Rule from now on: a fixture the builder is expected to implement lives in
+`@kasuwa/testing` from the start, and the acceptance suite imports it.** Then
+nobody ever needs a hand on the acceptance file to finish their task, and the
+"never edit acceptance tests" rule stays absolute rather than having an
+exception the lead has to grant case by case.
+
+An absolute rule that occasionally needs the lead's permission is not absolute;
+it is a rule with a back door that a less careful builder would have used.
