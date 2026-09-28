@@ -9,7 +9,11 @@ import {
   USER_B_AGENT_1,
   withTenantTransaction,
 } from '@kasuwa/db';
-import { readTableSecurity, withForcedScope } from '@kasuwa/testing';
+import {
+  readTableSecurity,
+  seedObjectDef as seedObjectDefFixture,
+  withForcedScope,
+} from '@kasuwa/testing';
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
@@ -48,10 +52,30 @@ describe('acceptance (pending): metadata definition isolation', () => {
     await pool.end();
   });
 
-  /** T-0002 implements this; it is part of the task, not of the contract. */
-  const seedObjectDef = async (_tenantId: string, _objectId: string, _apiName: string) => {
-    throw new Error('T-0002: implement seedObjectDef() for this suite.');
-  };
+  /**
+   * T-0002 implements this; it is part of the task, not of the contract.
+   *
+   * AMENDED BY THE LEAD, 2026-09-27. This was a local stub that threw, and the
+   * task said both "implementing it is yours" and "never edit
+   * tests/acceptance/". Those cannot both hold when the helper lives inside the
+   * protected file — a contradiction in the task design, not in the builder.
+   *
+   * The T-0002 builder spotted it, refused to route around the hook, and
+   * implemented the fixture where a builder legitimately can: exported from
+   * `@kasuwa/testing`, covered end to end by
+   * `packages/testing/src/metadata-factories.integration.test.ts`. This is the
+   * one-line delegation it could not make itself.
+   *
+   * The lesson, recorded for the next pending suite: a fixture a builder must
+   * implement belongs in `@kasuwa/testing` from the start, so nobody ever needs
+   * a hand on the acceptance file to finish their task.
+   *
+   * It runs through `withTenantTransaction` and the real repository — not a
+   * privileged connection — so seeding is subject to the same RLS the
+   * assertions are testing.
+   */
+  const seedObjectDef = async (tenantId: string, objectId: string, apiName: string) =>
+    seedObjectDefFixture(pool, tenantId, objectId, apiName);
 
   it('puts the new tables under the same catalogue invariant as everything else', async () => {
     // RLS enabled AND forced, at least one policy. The same check that guards
