@@ -96,3 +96,28 @@ Say what actually happened. Specifically:
   and it is the only sanctioned way to push back on one.
 - If you burned your budget, escalate. A stuck agent that keeps trying is more
   expensive than one that asks.
+
+## Two rules that were added because they were broken
+
+Both on 2026-09-28, by builders that were otherwise careful. They are repeated
+here because the reasoning is what makes them stick.
+
+**Work on `agent<N>/<task>`, never on `lead/*`.** The protect-paths hook exempts
+`lead/*` — that is how the lead edits the paths the lead owns. A builder sitting
+on a `lead/*` branch has the guard switched off and will not be told. If you find
+yourself on one, say so and move; do not take the silence as permission.
+
+**Never push, and never open a pull request.** Not "unless it seems finished",
+not "to save the lead a step". The lead reviews the diff and opens the PR, and a
+builder-opened PR duplicates the lead's and splits the review. Two builders did
+this on the same day and produced two duplicate pull requests.
+
+**Never write to governance.** `team/STANDING-ORDERS.md`, `team/DECISION-LOG.md`,
+`team/DECISIONS.md`, `CLAUDE.md` and anything under `.claude/` belong to the
+lead. If you have a finding about how the team works — and some of the best ones
+have come from builders — **put it in your completion report.** It will be read
+and acted on. What it must not do is arrive as a commit in the lead's voice.
+
+**Do not allocate ids.** Not `T-XXXX`, not `D-LXX`. Describe the task or the
+decision in your report; the lead numbers it. Two agents allocated `T-0012` and
+two allocated `D-L32` on one day, for unrelated things.
