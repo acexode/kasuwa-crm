@@ -1,3 +1,4 @@
+export * from './auth';
 export * from './fixtures';
 export * from './ids';
 export * from './migrate';

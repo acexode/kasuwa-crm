@@ -56,6 +56,74 @@ const EnvSchema = z.object({
 
   KASUWA_AUTH_MODE: AuthMode.default('stub'),
 
+  // --- authentication policy (T-0001) ------------------------------------
+  // Numbers, not behaviour. They are here rather than hard-coded so that an
+  // operator can tighten them without a deploy, and so that the values a
+  // deployment actually runs with are visible in one place at boot.
+  //
+  // The defaults are the ones the P01 design states: lock after five failed
+  // attempts, for fifteen minutes, counting within a fifteen-minute window.
+  // Raising the threshold to make a test pass would be moving a security
+  // default to suit the code, which is the same mistake as editing the test.
+  KASUWA_AUTH_LOCKOUT_MAX_ATTEMPTS: z.coerce.number().int().min(0).max(100).default(5),
+  KASUWA_AUTH_LOCKOUT_WINDOW_MINUTES: z.coerce.number().int().positive().max(1440).default(15),
+  KASUWA_AUTH_LOCKOUT_MINUTES: z.coerce.number().int().positive().max(1440).default(15),
+
+  // A second factor must be completed within ten minutes of the first, and may
+  // be got wrong five times before the challenge is burned.
+  KASUWA_AUTH_CHALLENGE_MINUTES: z.coerce.number().int().positive().max(60).default(10),
+  KASUWA_AUTH_CHALLENGE_MAX_ATTEMPTS: z.coerce.number().int().positive().max(20).default(5),
+
+  // Wrong codes allowed against one USER before their second factor locks,
+  // across every challenge they open. This is the number that bounds what a
+  // stolen password is worth: burning a single challenge bounds nothing,
+  // because the attacker just opens another.
+  KASUWA_AUTH_MFA_MAX_ATTEMPTS: z.coerce.number().int().positive().max(100).default(10),
+  KASUWA_AUTH_MAX_OPEN_CHALLENGES: z.coerce.number().int().positive().max(50).default(3),
+
+  // NOTE: there is deliberately no switch for single-use TOTP codes. One
+  // existed briefly and was removed rather than left plumbed to nothing: an
+  // operator reading this schema would have believed there was a way to turn
+  // the control off, and there is not. Codes are single-use, always
+  // (RFC 6238 section 5.2). A test suite that needs to sign one user in
+  // repeatedly resets the fixture watermark with `resetSeededTotpUsage`.
+
+  // Sign-in requests one client address may make per minute. A resource
+  // control, not a credential one: argon2id costs 19 MiB per call and runs for
+  // unknown addresses too, so an unbounded flood exhausts the cell for every
+  // tenant on it.
+  KASUWA_AUTH_SIGN_IN_PER_MINUTE: z.coerce.number().int().min(0).max(10_000).default(60),
+
+  // Sign-in requests one client address may have IN FLIGHT at once. The
+  // per-minute count above bounds how often; this bounds how many at a time,
+  // which is what actually bounds argon2 slots and pool connections. A client
+  // may legitimately spend a whole minute's allowance inside one second.
+  KASUWA_AUTH_SIGN_IN_IN_FLIGHT: z.coerce.number().int().min(0).max(1_000).default(4),
+
+  // How many reverse proxies sit in front of this process.
+  //
+  // 0 means "nothing is in front": the per-client throttle keys on the socket
+  // peer, which is then the real client. Any other value means the Nth-from-last
+  // entry of `X-Forwarded-For` is the client, and the hops closer than that are
+  // ours and are not to be believed.
+  //
+  // It is a HOP COUNT rather than a boolean on purpose. "Trust the header" with
+  // no count is the classic spoofable configuration — a caller sets
+  // `X-Forwarded-For: 1.2.3.4` and picks their own rate-limit bucket.
+  KASUWA_TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(8).default(0),
+
+  // The IANA zone a lockout's retry time is labelled with. ONE value per cell,
+  // never per tenant: deriving it from the tenant made the response for a
+  // workspace that does not exist differ from one that does, and disclosed the
+  // hosting region of any workspace an attacker could name.
+  KASUWA_CELL_TIME_ZONE: z.string().min(1).max(64).default('Africa/Lagos'),
+
+  // PROVISIONAL, and flagged as such in team/reports/T-0001.md. Session
+  // lifetime, refresh and concurrent-session policy are product decisions the
+  // human has not made; twelve hours with no refresh is the conservative
+  // reading of "a working day, and sign in again tomorrow".
+  KASUWA_AUTH_SESSION_HOURS: z.coerce.number().int().positive().max(720).default(12),
+
   DATABASE_URL: z.string().url(),
   DATABASE_MIGRATION_URL: z.string().url().optional(),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().max(200).default(10),
@@ -100,6 +168,56 @@ export function assertAuthModeIsSafe(env: Pick<KasuwaEnv, 'NODE_ENV' | 'KASUWA_A
   }
 }
 
+/**
+ * The per-client sign-in throttle must not silently become a cell-wide ceiling.
+ *
+ * `SignInThrottleGuard` keys on the socket peer, so behind a load balancer
+ * every request in the cell arrives from ONE address and shares ONE bucket. At
+ * the shipped default of sixty a minute that is not a rate limit, it is an
+ * availability cliff: the sixty-first legitimate sign-in in a minute — across
+ * every tenant on the cell — gets a 429, and nothing in the logs says why.
+ *
+ * The guard's source comment has always been honest about this. A comment in a
+ * source file is not a deployment control, which is the whole reason this
+ * function exists: the process refuses to start in the configuration that
+ * produces the outage, rather than producing it quietly.
+ *
+ * Two ways to satisfy it, and both are legitimate:
+ *   - set KASUWA_TRUST_PROXY_HOPS, so the throttle keys on the real client; or
+ *   - raise KASUWA_AUTH_SIGN_IN_PER_MINUTE above the cell-wide floor, i.e.
+ *     accept that it is a crude global cap and size it like one.
+ */
+const CELL_WIDE_SIGN_IN_FLOOR = 600;
+
+export function assertThrottleIsNotACellWideCliff(
+  env: Pick<
+    KasuwaEnv,
+    'NODE_ENV' | 'KASUWA_TRUST_PROXY_HOPS' | 'KASUWA_AUTH_SIGN_IN_PER_MINUTE'
+  >,
+): void {
+  if (env.NODE_ENV !== 'production') {
+    return;
+  }
+  if (env.KASUWA_TRUST_PROXY_HOPS > 0) {
+    return;
+  }
+  if (env.KASUWA_AUTH_SIGN_IN_PER_MINUTE === 0) {
+    // Explicitly disabled. A deliberate choice, and not this check's business.
+    return;
+  }
+  if (env.KASUWA_AUTH_SIGN_IN_PER_MINUTE < CELL_WIDE_SIGN_IN_FLOOR) {
+    throw new Error(
+      'Refusing to start: KASUWA_TRUST_PROXY_HOPS is 0, so the sign-in throttle keys ' +
+        'on the socket peer. Behind a load balancer that is ONE bucket for the whole ' +
+        `cell, and KASUWA_AUTH_SIGN_IN_PER_MINUTE=${env.KASUWA_AUTH_SIGN_IN_PER_MINUTE} ` +
+        `would then reject every tenant's sign-ins past that many per minute. Either ` +
+        'set KASUWA_TRUST_PROXY_HOPS to the number of proxies in front of this process, ' +
+        `or raise the limit above ${CELL_WIDE_SIGN_IN_FLOOR} and treat it as the ` +
+        'cell-wide cap it would be.',
+    );
+  }
+}
+
 export function parseEnv(source: NodeJS.ProcessEnv = process.env): KasuwaEnv {
   const parsed = EnvSchema.safeParse(source);
   if (!parsed.success) {
@@ -109,6 +227,7 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): KasuwaEnv {
     throw new Error(`Invalid environment:\n${detail}`);
   }
   assertAuthModeIsSafe(parsed.data);
+  assertThrottleIsNotACellWideCliff(parsed.data);
   return parsed.data;
 }
 

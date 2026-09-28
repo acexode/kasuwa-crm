@@ -12,6 +12,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@kasuwa/auth-crypto": "workspace:*",
     "@kasuwa/config": "workspace:*",
     "@kasuwa/db": "workspace:*",
     "@kasuwa/domain-core": "workspace:*",

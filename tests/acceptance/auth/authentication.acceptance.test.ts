@@ -1,8 +1,24 @@
 import type { INestApplication } from '@nestjs/common';
 import { assertAuthModeIsSafe } from '@kasuwa/config';
 import { TENANT_A, TENANT_B, USER_A_AGENT_1, USER_B_AGENT_1 } from '@kasuwa/db';
+import {
+  disableSeededUser,
+  enableSeededUser,
+  resetSeededTotpUsage,
+  seededCredentialsForTenant,
+  seededTotpCodeForTenant,
+} from '@kasuwa/testing';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  inject,
+  it,
+  onTestFinished,
+} from 'vitest';
 import { createApi } from '../support/api';
 
 /**
@@ -50,6 +66,35 @@ describe('acceptance (pending): authentication', () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  /**
+   * ADDED BY THE LEAD, 2026-09-27, round two.
+   *
+   * TOTP codes are single-use, which is correct (RFC 6238 §5.2) and is a
+   * control T-0001 added. It collides with this suite: `signIn()` runs four
+   * times in about a second as the same user, and **no correct implementation
+   * can serve more than three rapid sign-ins per user** — the server accepts
+   * one step either side of the current one, so there are only three codes in
+   * play.
+   *
+   * The builder offered two fixes and recommended this one over a
+   * `rejectReusedTotpCodes: false` switch. It was right, and for the same
+   * reason the lockout threshold stayed at five: turning a security control
+   * off so a test goes green is the mistake, whichever direction it comes
+   * from. It did not take the quicker path even though it had one.
+   *
+   * **That switch no longer exists**, and this comment used to point at it —
+   * which would have sent the next person looking for a way to disable
+   * single-use codes, and finding nothing, inventing one. There is no switch.
+   * Advance the clock, use a code you have not used, or call
+   * `resetSeededTotpUsage(migrationUrl)` between tests.
+   *
+   * So the control stays on and the fixture's usage record is cleared between
+   * tests instead.
+   */
+  beforeEach(async () => {
+    await resetSeededTotpUsage(inject('migrationUrl'));
   });
 
   const server = () => app.getHttpServer();
@@ -216,6 +261,15 @@ describe('acceptance (pending): authentication', () => {
     const session = await signIn(server(), TENANT_A);
     await request(server()).get(ME).set('authorization', `Bearer ${session}`).expect(200);
 
+    // Undo it when this test finishes. Two later tests sign in as this same
+    // user, and a disable that outlives its test makes them fail at the
+    // sign-in step for a reason that looks like an implementation bug and is
+    // not. The T-0001 builder spotted this and could not fix it from outside
+    // the file.
+    onTestFinished(async () => {
+      await enableSeededUser(inject('migrationUrl'), USER_A_AGENT_1);
+    });
+
     await disableUser(USER_A_AGENT_1);
 
     // A token valid until its own expiry means a dismissed agent keeps access
@@ -267,17 +321,45 @@ describe('acceptance (pending): authentication', () => {
 });
 
 // --- helpers the implementer will need ------------------------------------
-// Deliberately unimplemented: they describe the shape T-0001 must provide.
-// Filling them in is part of the task, not part of the contract.
+//
+// AMENDED BY THE LEAD, 2026-09-27, for the same reason as the metadata suite
+// (D-L29). These were stubs that threw, inside a file the builder is forbidden
+// to edit, with a comment saying the builder fills them in. That is a
+// contradiction in the task design, and it is the SECOND time it has appeared —
+// T-0002 hit the identical shape on the same day.
+//
+// The T-0001 builder did what the T-0002 builder did: it did not touch this
+// file, it implemented the fixtures in `@kasuwa/testing` where a builder
+// legitimately can, and it handed back the delegation written out. This is it.
+//
+// D-L29 now requires such fixtures to live in `@kasuwa/testing` from the start.
+// Two occurrences in one day is the evidence that the rule was needed.
 
-async function signIn(_server: unknown, _tenantId: string): Promise<string> {
-  throw new Error(
-    'T-0001: implement signIn() — complete the two-step flow and return the session token.',
-  );
+async function signIn(server: unknown, tenantId: string): Promise<string> {
+  const credentials = seededCredentialsForTenant(tenantId);
+
+  const started = await request(server as never)
+    .post(SIGN_IN)
+    .send({
+      tenantSlug: credentials.tenantSlug,
+      email: credentials.email,
+      password: credentials.password,
+    })
+    .expect(200);
+
+  const verified = await request(server as never)
+    .post('/api/v1/auth/mfa')
+    .send({
+      challengeId: started.body.challengeId,
+      code: seededTotpCodeForTenant(tenantId),
+    })
+    .expect(200);
+
+  return verified.body.accessToken as string;
 }
 
-async function disableUser(_userId: string): Promise<void> {
-  throw new Error('T-0001: implement disableUser() — set user.status to disabled.');
+async function disableUser(userId: string): Promise<void> {
+  await disableSeededUser(inject('migrationUrl'), userId);
 }
 
 void USER_B_AGENT_1;

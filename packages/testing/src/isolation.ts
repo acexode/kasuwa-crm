@@ -1,3 +1,4 @@
+import { NON_TENANT_SCOPED_TABLES } from '@kasuwa/db';
 import type { Pool, QueryResultRow } from 'pg';
 
 /**
@@ -84,12 +85,34 @@ const TABLE_SECURITY_SQL = `
    WHERE n.nspname = 'public'
      AND c.relkind = 'r'
      AND c.relname NOT LIKE '\\_%'
+     AND c.relname <> ALL ($1::text[])
    ORDER BY c.relname
 `;
 
 /**
- * Reads RLS state for every ordinary table in `public`, skipping internal
- * tables prefixed with `_` (the migration ledger).
+ * Reads RLS state for every ordinary TENANT-SCOPED table in `public`.
+ *
+ * Two things are skipped, and the difference between them matters.
+ *
+ * Tables prefixed with `_` are internal (the migration ledger) and hold no
+ * tenant data at all.
+ *
+ * `NON_TENANT_SCOPED_TABLES` is different: those are real tables that
+ * deliberately carry no `tenant_id`, each with an ADR saying why. They are
+ * skipped ONLY so that the catalogue invariant's set-equality check against
+ * `TENANT_SCOPED_TABLES` still means something. **This is a named exemption,
+ * not a silent one** — the list is an exported constant with a reason per
+ * entry, and `readNonTenantScopedTableSecurity` below reads the RLS state of
+ * exactly those tables so that it can be asserted rather than assumed.
+ *
+ * Where it IS asserted matters, because for a while it was not asserted
+ * anywhere: the helper existed, this comment and ADR-0009 both said it covered
+ * the exempt table, and nothing called it. Two reviewers found that before it
+ * found us. It now runs in the blocking tenancy suite —
+ * `tests/acceptance/tenancy/rls-enforcement.acceptance.test.ts` — and in
+ * `isolation.integration.test.ts` beside this file. An exemption that existed
+ * only as an unexplained `NOT IN` here would be worse than the finding it
+ * answers; so would one whose proof was a function nobody ran.
  *
  * Used by the "no table without RLS" invariant, which is the one check that
  * keeps working when someone adds a table in six months and forgets everything
@@ -103,7 +126,51 @@ export async function readTableSecurity(pool: Pool): Promise<TableSecurityState[
       rls_enabled: boolean;
       rls_forced: boolean;
       policy_count: number;
-    }>(TABLE_SECURITY_SQL);
+    }>(TABLE_SECURITY_SQL, [[...NON_TENANT_SCOPED_TABLES]]);
+    return result.rows.map((row) => ({
+      table: row.table,
+      rlsEnabled: row.rls_enabled,
+      rlsForced: row.rls_forced,
+      policyCount: row.policy_count,
+    }));
+  } finally {
+    client.release();
+  }
+}
+
+const EXEMPT_TABLE_SECURITY_SQL = `
+  SELECT c.relname                        AS table,
+         c.relrowsecurity                 AS rls_enabled,
+         c.relforcerowsecurity            AS rls_forced,
+         (SELECT count(*) FROM pg_policy p WHERE p.polrelid = c.oid)::int AS policy_count
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+   WHERE n.nspname = 'public'
+     AND c.relkind = 'r'
+     AND c.relname = ANY ($1::text[])
+   ORDER BY c.relname
+`;
+
+/**
+ * The other half of the exemption: RLS state for the tables that deliberately
+ * carry no `tenant_id`.
+ *
+ * Being exempt from the tenant-scoping rule does not make a table exempt from
+ * having row-level security enabled, forced and policied. Without this, the
+ * exemption above would be a way to smuggle a table past the invariant
+ * entirely, which is not what it is for.
+ */
+export async function readNonTenantScopedTableSecurity(
+  pool: Pool,
+): Promise<TableSecurityState[]> {
+  const client = await pool.connect();
+  try {
+    const result = await client.query<{
+      table: string;
+      rls_enabled: boolean;
+      rls_forced: boolean;
+      policy_count: number;
+    }>(EXEMPT_TABLE_SECURITY_SQL, [[...NON_TENANT_SCOPED_TABLES]]);
     return result.rows.map((row) => ({
       table: row.table,
       rlsEnabled: row.rls_enabled,

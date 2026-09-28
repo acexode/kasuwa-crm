@@ -9,5 +9,5 @@
     "experimentalDecorators": true,
     "strictPropertyInitialization": false
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "../../types/vitest-provided.d.ts"]
 }

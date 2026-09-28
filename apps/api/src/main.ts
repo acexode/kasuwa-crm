@@ -20,6 +20,21 @@ async function bootstrap(): Promise<void> {
     AppModule.forRoot({
       databaseUrl: configuration.DATABASE_URL,
       poolMax: configuration.DATABASE_POOL_MAX,
+      authMode: configuration.KASUWA_AUTH_MODE,
+      authPolicy: {
+        lockoutMaxAttempts: configuration.KASUWA_AUTH_LOCKOUT_MAX_ATTEMPTS,
+        lockoutWindowMinutes: configuration.KASUWA_AUTH_LOCKOUT_WINDOW_MINUTES,
+        lockoutMinutes: configuration.KASUWA_AUTH_LOCKOUT_MINUTES,
+        challengeMinutes: configuration.KASUWA_AUTH_CHALLENGE_MINUTES,
+        challengeMaxAttempts: configuration.KASUWA_AUTH_CHALLENGE_MAX_ATTEMPTS,
+        mfaMaxAttempts: configuration.KASUWA_AUTH_MFA_MAX_ATTEMPTS,
+        maxOpenChallenges: configuration.KASUWA_AUTH_MAX_OPEN_CHALLENGES,
+        signInPerMinutePerClient: configuration.KASUWA_AUTH_SIGN_IN_PER_MINUTE,
+        signInInFlightPerClient: configuration.KASUWA_AUTH_SIGN_IN_IN_FLIGHT,
+        cellTimeZone: configuration.KASUWA_CELL_TIME_ZONE,
+        trustProxyHops: configuration.KASUWA_TRUST_PROXY_HOPS,
+        sessionHours: configuration.KASUWA_AUTH_SESSION_HOURS,
+      },
     }),
     configuration.NODE_ENV === 'production' ? { logger: ['error', 'warn'] } : {},
   );

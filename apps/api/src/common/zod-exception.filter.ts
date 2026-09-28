@@ -21,6 +21,7 @@ export class ValidationExceptionFilter implements ExceptionFilter {
       response.status(HttpStatus.BAD_REQUEST).json({
         statusCode: HttpStatus.BAD_REQUEST,
         error: 'Bad Request',
+        code: 'invalid_cursor',
         message: 'Invalid cursor',
       });
       return;
@@ -29,6 +30,10 @@ export class ValidationExceptionFilter implements ExceptionFilter {
     response.status(HttpStatus.BAD_REQUEST).json({
       statusCode: HttpStatus.BAD_REQUEST,
       error: 'Bad Request',
+      // Stable machine-readable reason, matching the envelope every auth error
+      // uses (docs/api/auth.openapi.yaml). Clients switch on `code`; `message`
+      // is an English fallback and is not an interface.
+      code: 'validation_failed',
       message: 'Validation failed',
       details: exception.issues.map((issue) => ({
         path: issue.path.join('.'),

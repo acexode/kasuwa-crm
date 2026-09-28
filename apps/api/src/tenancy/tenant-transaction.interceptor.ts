@@ -41,6 +41,32 @@ export class TenantTransactionInterceptor implements NestInterceptor {
     return from(
       withTenantTransaction(this.pool, auth, async (tx) =>
         runWithTx(tx, async () => {
+          // Second, independent check of the session — inside the transaction,
+          // under RLS, with explicit tenant and user predicates as well.
+          //
+          // The guard already resolved this token through
+          // app.resolve_session, which is SECURITY DEFINER and therefore the
+          // one read in the system that RLS does not constrain. Re-reading the
+          // row here means a mistake in that function still cannot serve a
+          // request: the row has to exist, belong to this tenant, belong to
+          // this user, and still be live. It is also what makes revocation and
+          // a disabled user bite on the NEXT request rather than at expiry.
+          if (auth.sessionId !== null) {
+            const live = await tx.query<{ ok: number }>(
+              `SELECT 1 AS ok
+                 FROM auth_session
+                WHERE id = $1
+                  AND tenant_id = $2
+                  AND user_id = $3
+                  AND revoked_at IS NULL
+                  AND expires_at > now()`,
+              [auth.sessionId, auth.tenantId, auth.userId],
+            );
+            if (live.length === 0) {
+              throw new UnauthorizedException('Not authenticated');
+            }
+          }
+
           try {
             // `next.handle()` is an Observable; awaiting the promise form keeps
             // the handler inside both the transaction and the ALS scope.

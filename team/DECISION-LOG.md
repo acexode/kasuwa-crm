@@ -685,6 +685,38 @@ is how a budget becomes whatever the current page happens to weigh.
 
 ---
 
+## D-L32 — every agent commits under one git identity, and it has already misled one
+**Noted:** 2026-09-28 · from the T-0001 round-three hand-back
+
+Every commit in this repository is authored `Kasuwa Lead Agent
+<abubakar.abdulwahab@outsourceglobal.com>` — the lead, four builders and three
+reviewers alike, because the git identity is repository-wide.
+
+**The concrete harm, which is why this is recorded rather than shrugged at.**
+The T-0001 builder read its own six round-three commits as somebody else's,
+concluded the lead had been editing its worktree concurrently, and reported that
+an interceptor had been added by the lead and removed by itself within the hour.
+None of it happened. Nothing was corrupted — but a builder spent attention
+reconciling a collision that did not exist, and wrote it into a hand-back that
+would have entered the record unchallenged if it had not been checked.
+
+**Why it matters beyond one confused report.** D-A3 puts @acexode's personal
+review on auth, permissions, RLS, migrations, payments, recordings and
+export/DSAR. That arrangement assumes it is possible to ask **who wrote this**.
+Today the repository cannot answer, and the security-critical code is exactly
+where the question gets asked.
+
+It also quietly weakens every review: a reviewer reading `git log --author` to
+separate the author's work from the reviewer's gets one undifferentiated list.
+
+**Fix, for the next cycle:** each builder sets a distinct `user.name` in its
+worktree — `Kasuwa Agent 1 — Platform & Security`, and so on — keeping the same
+email so commits stay attributable to the account that is accountable. The lead
+commits as `Kasuwa Lead Agent`. `Co-Authored-By: Claude Opus 5` stays on every
+commit and is orthogonal: it records which model, not which role.
+
+Cheap, reversible, and it makes the history answer a question it currently
+cannot.
 ## D-L32 — builders never work on a `lead/*` branch
 **Decided:** 2026-09-27 · lead decision, after the guard failed
 

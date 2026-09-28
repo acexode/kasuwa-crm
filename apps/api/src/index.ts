@@ -10,6 +10,8 @@
  * barrel, so importing the app never starts a server.
  */
 export { AppModule, type AppModuleOptions } from './app.module';
+export { AUTH_MODE, type ResolvedAuthMode } from './tenancy/kasuwa-auth.guard';
+export { AUTH_POLICY, DEFAULT_AUTH_POLICY, type AuthPolicy } from './auth/auth.policy';
 export {
   FORBIDDEN_SCOPE_HEADERS,
   STUB_TENANT_HEADER,

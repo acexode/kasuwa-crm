@@ -60,6 +60,10 @@ export class StubAuthGuard implements CanActivate {
     request[AUTH_CONTEXT_KEY] = {
       tenantId: parsed.data[STUB_TENANT_HEADER],
       userId: parsed.data[STUB_USER_HEADER],
+      // No session row exists for a stubbed identity; there is nothing to
+      // re-check and nothing to revoke. Another reason it must never run in
+      // production.
+      sessionId: null,
     };
     return true;
   }
