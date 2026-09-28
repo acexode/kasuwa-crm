@@ -639,51 +639,67 @@ removing it later is every tenant that already stored one.
 
 ---
 
-## B4. Escalated during the T-0001 security review (2026-09-27)
+## B5. Raised during T-0007 (2026-09-28)
 
-### D-L13 (field-level encryption) is no longer theoretical — it now guards a live secret
+### D-P6 — `P01/1` needs a workspace field the design does not draw
 
-**Status: still BLOCKED. Now blocking something concrete.**
+The auth contract requires `tenantSlug` on sign-in. The `P01/1` board shows
+email and password only. The builder added the field and flagged it rather than
+quietly redrawing the screen, which is right.
 
-T-0001 stores `user_mfa_factor.secret` — the TOTP shared secret — as **base32
-plaintext**. The builder did not hide this: it is stated in the migration, in
-its report and here. It refused to invent a key-management scheme, which was
-the right call, because inventing one would be guessing at a decision you have
-not made.
+**This is not a missing input box; it is an unanswered question about how a user
+arrives.** Three shapes, and the design implies none of them:
 
-**The independent security review assessed the exposure rather than just
-flagging it**, and the assessment is reassuring in the short term and not in
-the long term:
+| | How the workspace is known | Cost |
+|---|---|---|
+| 1 | **Subdomain** — `sahel-bpo.kasuwa.app` | The usual multi-tenant answer. Needs DNS, certificates and a cell router. The screen loses the field entirely |
+| 2 | **A field on the form**, as built | Works today. Asks a BPO agent to remember a slug, which is the one thing they will get wrong on a shared phone |
+| 3 | **A workspace step before sign-in** | Matches the enumeration rule badly — a "find my workspace" step is an oracle unless it answers identically for real and fake |
 
-- the table has RLS `ENABLE` **and** `FORCE`, a `WITH CHECK` identical to its
-  `USING`, and is in `TENANT_SCOPED_TABLES`
-- the app role holds `NOBYPASSRLS`
-- `secret` is selected exactly once, into a local variable, and never appears
-  in any response shape
-- no SQL injection was found; every statement is parameterised
+**Recommendation: 1, with 2 as the fallback for direct links.** It is what every
+comparable product does, it removes a field from the smallest screen on the
+smallest phone, and it makes the slug a thing the user's bookmark remembers
+rather than a thing they type. But it is infrastructure, it touches the cell
+model, and it is **the designer's call to make on the screen** — so it is here
+rather than decided.
 
-So an attacker needs one of: database credentials, a **backup or filesystem
-copy**, SQL injection, a `BYPASSRLS` role, or a future endpoint that selects the
-column. **The realistic residual is backup exposure** — and at that point the
-incremental loss is specifically that the second factor stops helping, which is
-the whole reason it exists.
+Until it is answered the field stays, and `P01/1` is drawn with it.
 
-**What is needed from @acexode:** unblock D-L13 — per-tenant key management, or
-an interim decision (a single application-level key from the environment is
-weaker than per-tenant keys but far stronger than plaintext, and it is
-reversible).
+### D-P7 — `?locale=ar` renders a locale the menu does not offer
 
-**Recommendation: an interim application key now, per-tenant keys with D-L13.**
-The gap between "plaintext in a backup" and "encrypted with one key in an
-environment variable" is much larger than the gap between one key and per-tenant
-keys, and the first gap is the one that is open today.
+**Decided by the lead; recorded because it is a deliberate hole.**
 
-**Deadline that is real rather than invented:** before the first production
-tenant. After that, every secret written in the meantime is plaintext in every
-backup taken since, and re-encrypting them is a migration plus a key ceremony
-rather than a column change.
+Arabic ships registered-but-unoffered so RTL can be proven on a real screen
+(T-0009, D-P1). The builder wired `?locale=ar` through middleware, setting no
+cookie, so one render is possible without the menu listing it.
 
-One related item is being fixed in T-0001 rather than escalated: `pnpm db:seed`
-had no environment guard, so the committed fixture password and TOTP secrets
-could be installed into a shared environment by a mis-pointed seed. That is a
-missing guard, not a decision, and the builder is fixing it.
+That is the right mechanism and it is **not** the harm the offering rule guards
+against: that harm is a menu *promising* a language and delivering English. This
+is the reverse — a complete catalogue, reachable only by typing, absent from
+every list.
+
+**But an unreviewed Arabic interface shown to a real user is still unreviewed
+content**, and "reachable by typing" is reachable. So: **keep it, and gate it to
+non-production builds.** The RTL proof survives, and nobody meets an
+unattested language by pasting a URL a colleague sent them.
+
+Agent 11 to implement the gate; no design change.
+
+### D-P8 — the web process cannot use `@kasuwa/config`, and that is a real gap
+
+`CLAUDE.md` says no `process.env` outside `@kasuwa/config`. The web process
+cannot comply: `@kasuwa/config` parses one schema that demands `DATABASE_URL`,
+which `apps/web` has none of and must never have.
+
+The builder's workaround is sound — `NEXT_PUBLIC_API_URL` in
+`next.config.mjs`, which is already lint-exempt, rewritten same-origin so no
+application code touches the environment. It raised the gap rather than
+widening the lint exemption, which was the easier move.
+
+**The rule is right and the implementation is too narrow.** `@kasuwa/config`
+should expose per-process schemas — `apiEnv()`, `webEnv()`, `workerEnv()`,
+`realtimeEnv()` — over a shared base, so each process parses exactly what it
+needs and a missing variable fails at boot in the process that needs it rather
+than in every process that does not.
+
+Raised as **T-0014**. Not blocking T-0007.
