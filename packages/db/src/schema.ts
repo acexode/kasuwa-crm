@@ -119,6 +119,61 @@ export const contact = pgTable(
 );
 
 /**
+ * Custom object definitions (M15).
+ *
+ * Tenant-scoped and deliberately NOT programme-scoped — see the header of
+ * packages/db/migrations/0002_metadata_object_and_field_def.sql before adding
+ * a `programmeId` column here. The isolation suite asserts the exception
+ * positively.
+ */
+export const objectDef = pgTable(
+  'object_def',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    apiName: text('api_name').notNull(),
+    label: text('label').notNull(),
+    pluralLabel: text('plural_label'),
+    description: text('description'),
+    isCustom: boolean('is_custom').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('object_def_tenant_idx').on(table.tenantId),
+    // Per tenant, never global: two tenants must both be able to use a name.
+    uniqueIndex('object_def_tenant_id_api_name_key').on(table.tenantId, table.apiName),
+  ],
+);
+
+/** Custom field definitions (M15). Tenant-scoped, not programme-scoped. */
+export const fieldDef = pgTable(
+  'field_def',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    objectId: uuid('object_id').notNull(),
+    apiName: text('api_name').notNull(),
+    label: text('label').notNull(),
+    type: text('type').notNull(),
+    description: text('description'),
+    isRequired: boolean('is_required').notNull().default(false),
+    isCustom: boolean('is_custom').notNull().default(true),
+    config: jsonb('config').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('field_def_tenant_object_idx').on(table.tenantId, table.objectId),
+    uniqueIndex('field_def_tenant_id_object_id_api_name_key').on(
+      table.tenantId,
+      table.objectId,
+      table.apiName,
+    ),
+  ],
+);
+
+/**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
  */
@@ -129,6 +184,8 @@ export const TENANT_SCOPED_TABLES = [
   'user',
   'user_programme',
   'contact',
+  'object_def',
+  'field_def',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];

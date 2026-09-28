@@ -4,6 +4,7 @@
 |---|---|
 | **id** | T-0007 |
 | **status** | `not-assigned` |
+| **ready to assign** | **Yes** — acceptance tests written and failing |
 | **module** | M19 + M2 UI |
 | **owner** | Agent 11 — Frontend & Design System |
 | **priority** | P0 |
@@ -136,15 +137,34 @@ Standard (`CLAUDE.md` section 5), plus, for each group:
 
 ## Acceptance tests
 
-To be written by the lead when this is assigned, at
-`tests/acceptance/auth-ui/`. They will cover, per screen id:
+**Written.** `tests/acceptance/auth-ui/p01-auth-screens.pending.acceptance.test.ts`
+— 11 assertions, **10 failing**. Run with `pnpm test:pending`.
 
-- the failure states render and are reachable
-- `P01/1a` response is identical for unknown email and wrong password
-- no literal string bypasses i18n; every offered language resolves
-- the 256 kbps budget holds
+Read the header first. **This suite is not a visual check** — nothing in it can
+tell you whether a screen looks like its design, and a human comparing the
+export to the browser still has to do that. What it asserts are the properties
+that are invisible in review and expensive to find later: every screen id
+reachable and tested, the sign-in failure leaking nothing, no string bypassing
+i18n, no invented colour, and the byte budget holding.
 
-**This task is `not-assigned` until those exist and fail** (D-L23).
+One assertion passes today and will start meaning something the moment you
+write a screen: *invents no colour outside the design system*.
+
+## Run in parallel with T-0001 (@acexode, 2026-09-27)
+
+This task no longer waits for T-0001 to finish.
+
+1. **Agent 1 publishes the auth API contract first** — OpenAPI plus concrete
+   error shapes for sign-in, MFA, SSO lookup, lockout, signup and OTP — in a
+   small standalone PR.
+2. **You build all sixteen screens against that contract**, with a mock server
+   **generated from the committed spec**, not hand-written. An acceptance test
+   enforces that: a hand-written mock drifts from the contract silently, and
+   the wiring step then discovers sixteen screens built against a fiction.
+3. **Wiring to the real endpoints is the final step**, when T-0001 merges.
+
+If the contract changes while you build, the lead will tell you exactly what
+changed. Say in your report which screens were affected.
 
 ## Escalate if
 
