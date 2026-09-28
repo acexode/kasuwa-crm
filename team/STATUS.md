@@ -2,6 +2,95 @@
 
 ---
 
+## Cycle · 2026-09-27 · four builders ran; auth failed its security review
+
+First cycle under A8 — the lead executing through builder subagents rather than
+writing task files and waiting. Four builders and three reviewers ran.
+
+### Shipped
+
+| Task | Outcome | PR |
+|---|---|---|
+| **T-0009** locales | merged | [#13](https://github.com/acexode/kasuwa-crm/pull/13) |
+| **T-0008** e2e harness | merged | [#14](https://github.com/acexode/kasuwa-crm/pull/14) |
+| **T-0002** metadata | reviewed, open, needs @acexode (D-A3) | [#17](https://github.com/acexode/kasuwa-crm/pull/17) |
+| **T-0001** auth | **failed security review — sent back** | not opened |
+| **T-0007** screens | building | — |
+
+Blocking isolation gate: **56 → 95 green** across the cycle.
+
+### T-0001 failed, and that is the system working
+
+One blocking finding and four major. The blocking one: **the TOTP second factor
+can be brute-forced.** The per-challenge attempt counter is a read-modify-write
+in application code with no `FOR UPDATE` and no conditional predicate, so under
+concurrency the burn never fires and one challenge accepts unlimited guesses —
+and nothing throttles `/auth/mfa` at any layer. An attacker with a stolen
+password defeats the control that exists precisely for stolen passwords.
+
+A second race: the challenge-consume `UPDATE` has no `AND consumed_at IS NULL`,
+so N parallel verifies with one valid code mint N sessions. The code comment
+says "a replayed challenge id cannot mint a second token" — **which is false as
+written, and a false comment is worse than none**, because it tells the next
+reader the problem is handled.
+
+**I verified both by reading the SQL myself before acting.** Neither is caught
+by any existing test, and both were read off the schema rather than observed —
+so a green suite was not evidence against them, and the reviewer said so.
+
+Three more: workspace-slug enumeration through the lockout countdown (an unknown
+tenant always answers `attemptsRemaining: 4`, so two requests distinguish a real
+customer from a fake one — and the 429's timezone discloses the hosting region);
+unauthenticated argon2 CPU/memory exhaustion that takes sign-in down for every
+tenant in the cell; and `pnpm db:seed` having no localhost guard, which turns
+the committed fixture password and TOTP secrets into working credentials for any
+shared environment the seed has touched.
+
+### What the builders got right
+
+Worth recording, because "failed review" is not the whole story:
+
+- **T-0001's tenancy properties are clean.** Auth changed *who*, not *what*. No
+  scope in the token, no caller-supplied tenant or programme,
+  `tests/acceptance/tenancy/` untouched and green. The reviewer traced a forged
+  challenge-id tenant component through every statement and confirmed the
+  builder's claim held.
+- **It found a bug in its own design and fixed it**: throwing inside the tenant
+  transaction rolled back the very row recording the failed attempt, so nothing
+  ever locked. Its note — "the naive version reads better and is wrong" — is
+  the kind of thing that only comes from actually chasing a symptom.
+- **Two builders hit the same contradiction in my task design** and neither
+  routed around the hook. See D-L29.
+
+### Two of my own errors, both found by builders
+
+**The lockout threshold.** My acceptance suite could not pass at the threshold
+the design specifies. The builder proposed raising the default to 10; the answer
+was that the suite was wrong. A security default that lives only in a design is
+not a default — it is now pinned in a test.
+
+**A fixture contradiction, twice in one day.** T-0002 and T-0001 both had
+helpers stubbed to throw inside a file builders may not edit. D-L29 now requires
+such fixtures to live in `@kasuwa/testing` from the start.
+
+### Decisions raised
+
+- **D-L13 escalated** — plaintext TOTP secrets now make it block something
+  concrete. [PR #18](https://github.com/acexode/kasuwa-crm/pull/18).
+- **D-P2** self-serve tenant provisioning is owned by nobody · **D-P3** sign-up
+  must not leak account existence · **D-P4** `api_name` immutability ·
+  **D-P5** the `nin` field type, which is the one to read first.
+- **D-L30** a third `SECURITY DEFINER` function needs an ADR.
+- **D-L31** the adversarial suite is nine skipped tests, and the two races
+  T-0001 shipped are exactly what it exists to catch. **T-0004 moves up.**
+
+### Progress
+
+**Tasks done: 4 · remaining: 7.** T-0007 building; T-0001 reworking against five
+findings; T-0010 and T-0011 ready to write tests for.
+
+---
+
 ## Cycle · 2026-09-27 · T-0009 created and ready
 
 T-0004, T-0005 and T-0008 merged. Continued in the same session — no stop

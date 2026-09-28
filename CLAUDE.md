@@ -72,7 +72,16 @@ These are not style preferences. Breaking one is a defect, not a debate.
 6. **Events go through the outbox**, never a direct call from one domain into
    another. (Outbox is not built yet; do not invent a substitute.)
 
-7. **Adapters are the only place external systems are named.** No module outside
+7. **A `SECURITY DEFINER` function is an ADR, not a convenience.** They are the
+   only RLS-free reads in the system. Two exist — `app.resolve_tenant_by_slug`
+   and `app.resolve_session` — because sign-in has to find a tenant before it
+   has one, and both are narrowly built: `STABLE`, pinned `search_path`,
+   `REVOKE ALL FROM PUBLIC` then granted to `kasuwa_app` only, returning
+   identifiers and never a business row. **A third needs an ADR before it is
+   written.** Each one is a hole in the model that has to be argued for, and
+   the argument gets easier to skip every time one already exists.
+
+8. **Adapters are the only place external systems are named.** No module outside
    `packages/telephony-adapter` may reference the telephony platform. Same for
    WFM, payment providers and channel providers when they arrive.
 
