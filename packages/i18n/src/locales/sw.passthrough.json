@@ -1,6 +1,10 @@
 [
   "app.name",
-  "tokens.sample.text",
+  "auth.panel.channel.sms",
+  "auth.panel.channel.whatsapp",
+  "auth.signIn.google",
+  "auth.signIn.microsoft",
   "tokens.contrast.ratio",
-  "tokens.sample.arabic"
+  "tokens.sample.arabic",
+  "tokens.sample.text"
 ]

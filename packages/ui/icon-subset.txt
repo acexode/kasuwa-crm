@@ -30,6 +30,7 @@ dark_mode
 delete
 description
 do_not_disturb_on
+domain
 done_all
 drag_indicator
 edit_note
@@ -43,10 +44,13 @@ headset_mic
 help
 image
 inbox
+key
+language
 left_panel_close
 left_panel_open
 light_mode
 lock
+lock_clock
 mail
 mic
 more_horiz
@@ -54,9 +58,12 @@ more_vert
 network_check
 notifications
 open_with
+passkey
 pause
 pause_circle
+phone_iphone
 play_arrow
+public
 record_voice_over
 remove
 schedule
@@ -66,8 +73,12 @@ signal_cellular_alt
 smartphone
 sms
 timer
+timer_off
 touch_app
 translate
 upload_file
 verified
+verified_user
+visibility
+visibility_off
 warning

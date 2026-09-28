@@ -9,6 +9,10 @@
     "app.name": "Product name. It is spelled the same in every locale.",
     "tokens.sample.text": "A typographic specimen, not prose. It already mixes Yoruba, Hausa and Igbo glyphs on purpose, and translating it would destroy what it tests.",
     "tokens.contrast.ratio": "A numeric format, \"{ratio}:1\". No words.",
-    "tokens.sample.arabic": "An Arabic script specimen shown to prove the Arabic webfont renders. Translating it would defeat the point."
+    "tokens.sample.arabic": "An Arabic script specimen shown to prove the Arabic webfont renders. Translating it would defeat the point.",
+    "auth.panel.channel.whatsapp": "A product name. WhatsApp is spelled the same in this locale.",
+    "auth.panel.channel.sms": "An abbreviation used unchanged in this locale.",
+    "auth.signIn.google": "A product name. Google is spelled the same in this locale.",
+    "auth.signIn.microsoft": "A product name. Microsoft is spelled the same in this locale."
   }
 }

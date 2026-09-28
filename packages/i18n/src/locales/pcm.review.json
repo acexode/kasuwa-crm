@@ -27,6 +27,20 @@
     "tokens.anchor": "Technical term of art; borrowed as-is.",
     "tokens.chart.series": "Technical term of art; borrowed as-is.",
     "tokens.scale.count": "CLDR gives Pidgin the same one/other plural shape as English, and the counted noun is the same English-lexified word, so the message is identical. Declared rather than silently forgiven.",
-    "tokens.count": "Same as tokens.scale.count."
+    "tokens.count": "Same as tokens.scale.count.",
+    "auth.topbar.language": "Identical to English in this locale: the term is borrowed unchanged, so translating it would invent a word no speaker uses.",
+    "auth.panel.channel.whatsapp": "A product name. WhatsApp is spelled the same in this locale.",
+    "auth.panel.channel.sms": "An abbreviation used unchanged in this locale.",
+    "auth.panel.channel.email": "Identical to English in this locale: the term is borrowed unchanged, so translating it would invent a word no speaker uses.",
+    "auth.signIn.google": "A product name. Google is spelled the same in this locale.",
+    "auth.signIn.microsoft": "A product name. Microsoft is spelled the same in this locale.",
+    "auth.signIn.email.label": "Identical to English in this locale: the term is borrowed unchanged, so translating it would invent a word no speaker uses.",
+    "auth.signIn.password.label": "Identical to English in this locale: the term is borrowed unchanged, so translating it would invent a word no speaker uses.",
+    "auth.locked.tellAdmin": "Identical to English in this locale: the term is borrowed unchanged, so translating it would invent a word no speaker uses.",
+    "auth.sso.domain.label": "Identical to English in this locale: the term is borrowed unchanged, so translating it would invent a word no speaker uses.",
+    "auth.sso.domain.prefix": "Identical to English in this locale: the term is borrowed unchanged, so translating it would invent a word no speaker uses.",
+    "auth.sso.continue": "Identical to English in this locale: the term is borrowed unchanged, so translating it would invent a word no speaker uses.",
+    "auth.mfa.title.app": "Identical to English in this locale: the term is borrowed unchanged, so translating it would invent a word no speaker uses.",
+    "auth.mfa.alt.app": "Identical to English in this locale: the term is borrowed unchanged, so translating it would invent a word no speaker uses."
   }
 }
