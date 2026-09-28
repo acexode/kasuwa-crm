@@ -591,3 +591,99 @@ address is new, so it costs one screen state rather than a redesign.
 
 Raise it with the designer if the wording needs work, but do not implement the
 oracle.
+
+---
+
+## B3. Raised during T-0002 (2026-09-27)
+
+Both raised by the T-0002 builder and written up as M15 open questions 9 and 13.
+Neither blocks anything today; both get materially more expensive with every
+tenant that defines a field.
+
+### D-P4 — is `api_name` immutable after creation?
+
+The schema currently permits an update. A rename breaks **every formula, layout,
+validation rule and integration** that referenced the old name — silently, at
+the moment someone renames a field because the label looked wrong.
+
+The question is not really "can we allow renames" but "what does a rename
+mean": either it is forbidden (and the UI offers only a label change, which is
+what most people actually want), or it is a refactor that has to rewrite every
+reference, which is a feature, not a column setting.
+
+**Recommendation: immutable, with the label freely editable.** Add the
+constraint now — it costs one line today and a migration plus a data-repair
+script once tenants have custom fields. Salesforce made this exact choice and it
+is the one piece of its metadata model nobody complains about.
+
+### D-P5 — what does the `nin` field type actually store?
+
+PRD M15 lists `nin` as a P0 field type. **Nothing in the schema forces it to
+store a token rather than the number itself.**
+
+`CLAUDE.md` section 6 forbids logging NIN or BVN anywhere, and D-L13 covers
+field-level encryption for them. But a *field type* named `nin` that accepts a
+plain string is an invitation to put a real National Identification Number in a
+custom field, where it will be exported, indexed by OpenSearch, and attached to
+a support ticket — none of which are logging, and all of which are the harm the
+logging rule exists to prevent.
+
+This is the NDPA exposure that arrives through the front door with our own
+blessing, because the product offered a field for it.
+
+**What is needed:** whether `nin` and any comparable type are (a) removed until
+D-L13's encryption exists, (b) restricted to a tokenised reference, or (c)
+allowed as plain text with explicit consent and audit. **Recommendation: (a) or
+(b), never (c).** The cost of removing it now is a PRD edit; the cost of
+removing it later is every tenant that already stored one.
+
+---
+
+## B4. Escalated during the T-0001 security review (2026-09-27)
+
+### D-L13 (field-level encryption) is no longer theoretical — it now guards a live secret
+
+**Status: still BLOCKED. Now blocking something concrete.**
+
+T-0001 stores `user_mfa_factor.secret` — the TOTP shared secret — as **base32
+plaintext**. The builder did not hide this: it is stated in the migration, in
+its report and here. It refused to invent a key-management scheme, which was
+the right call, because inventing one would be guessing at a decision you have
+not made.
+
+**The independent security review assessed the exposure rather than just
+flagging it**, and the assessment is reassuring in the short term and not in
+the long term:
+
+- the table has RLS `ENABLE` **and** `FORCE`, a `WITH CHECK` identical to its
+  `USING`, and is in `TENANT_SCOPED_TABLES`
+- the app role holds `NOBYPASSRLS`
+- `secret` is selected exactly once, into a local variable, and never appears
+  in any response shape
+- no SQL injection was found; every statement is parameterised
+
+So an attacker needs one of: database credentials, a **backup or filesystem
+copy**, SQL injection, a `BYPASSRLS` role, or a future endpoint that selects the
+column. **The realistic residual is backup exposure** — and at that point the
+incremental loss is specifically that the second factor stops helping, which is
+the whole reason it exists.
+
+**What is needed from @acexode:** unblock D-L13 — per-tenant key management, or
+an interim decision (a single application-level key from the environment is
+weaker than per-tenant keys but far stronger than plaintext, and it is
+reversible).
+
+**Recommendation: an interim application key now, per-tenant keys with D-L13.**
+The gap between "plaintext in a backup" and "encrypted with one key in an
+environment variable" is much larger than the gap between one key and per-tenant
+keys, and the first gap is the one that is open today.
+
+**Deadline that is real rather than invented:** before the first production
+tenant. After that, every secret written in the meantime is plaintext in every
+backup taken since, and re-encrypting them is a migration plus a key ceremony
+rather than a column change.
+
+One related item is being fixed in T-0001 rather than escalated: `pnpm db:seed`
+had no environment guard, so the committed fixture password and TOTP secrets
+could be installed into a shared environment by a mis-pointed seed. That is a
+missing guard, not a decision, and the builder is fixing it.

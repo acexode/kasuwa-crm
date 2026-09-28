@@ -261,7 +261,14 @@ importers:
         specifier: ^4.19.2
         version: 4.23.15
 
-  packages/metadata-engine: {}
+  packages/metadata-engine:
+    dependencies:
+      '@kasuwa/db':
+        specifier: workspace:*
+        version: link:../db
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
 
   packages/permissions: {}
 
@@ -279,6 +286,9 @@ importers:
       '@kasuwa/db':
         specifier: workspace:*
         version: link:../db
+      '@kasuwa/metadata-engine':
+        specifier: workspace:*
+        version: link:../metadata-engine
       '@testcontainers/postgresql':
         specifier: ^10.16.0
         version: 10.28.0

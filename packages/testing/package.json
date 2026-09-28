@@ -12,6 +12,7 @@
   "dependencies": {
     "@kasuwa/auth-crypto": "workspace:*",
     "@kasuwa/db": "workspace:*",
+    "@kasuwa/metadata-engine": "workspace:*",
     "@testcontainers/postgresql": "^10.16.0",
     "@testcontainers/redis": "^10.16.0",
     "pg": "^8.13.1",
