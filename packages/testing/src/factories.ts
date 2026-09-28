@@ -1,4 +1,6 @@
-import { newId } from '@kasuwa/db';
+import { newId, SEED_TENANTS, withTenantTransaction } from '@kasuwa/db';
+import { createObjectDef, getObjectDefById, type ObjectDef } from '@kasuwa/metadata-engine';
+import type { Pool } from 'pg';
 
 /**
  * Test data factories.
@@ -60,6 +62,44 @@ export const INSERT_CONTACT_SQL = `
      phones, emails, created_at, updated_at)
   VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $9)
 `;
+
+/**
+ * Seeds one object definition for a tenant, idempotently (T-0002).
+ *
+ * Goes through `withTenantTransaction` and the real metadata repository rather
+ * than a privileged connection, so the fixture exercises the same RLS path the
+ * application does — a seed that bypasses RLS can hide the bug the suite is
+ * looking for.
+ *
+ * The acting user is the tenant's first seeded user: no programme is named,
+ * because metadata is tenant-scoped and not programme-scoped, which is exactly
+ * what the metadata acceptance suite asserts.
+ */
+export async function seedObjectDef(
+  pool: Pool,
+  tenantId: string,
+  objectId: string,
+  apiName: string,
+): Promise<ObjectDef> {
+  const seedTenant = SEED_TENANTS.find((candidate) => candidate.id === tenantId);
+  const actingUser = seedTenant?.users[0];
+  if (actingUser === undefined) {
+    throw new Error(`seedObjectDef: no seeded user for tenant ${tenantId}`);
+  }
+
+  return withTenantTransaction(pool, { tenantId, userId: actingUser.id }, async (tx) => {
+    const existing = await getObjectDefById(tx, objectId);
+    if (existing !== null) {
+      return existing;
+    }
+    return createObjectDef(tx, {
+      id: objectId,
+      apiName,
+      label: apiName,
+      isCustom: true,
+    });
+  });
+}
 
 export function insertContactValues(contact: ContactInput): unknown[] {
   return [

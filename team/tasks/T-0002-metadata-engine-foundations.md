@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0002 |
-| **status** | `not-assigned` |
+| **status** | `done` |
 | **module** | M15 — Customisation & app builder |
 | **owner** | Agent 2 — Metadata & Customisation |
 | **priority** | P0 |
