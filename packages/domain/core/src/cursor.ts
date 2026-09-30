@@ -33,10 +33,7 @@ import { z } from 'zod';
  * path can truncate it. That is what `encodeKeysetCursor` / `decodeKeysetCursor`
  * are for, and repositories must use those.
  *
- * `encodeCursor` / `decodeCursor` are the `Date`-valued convenience pair. They
- * are lossy by construction — a `Date` cannot hold microseconds — and exist for
- * callers that genuinely only have a `Date`. Do not build a keyset predicate
- * out of `decodeCursor`.
+ * There is no `Date`-valued pair, deliberately — see the note further down.
  */
 
 export class InvalidCursorError extends Error {
@@ -78,11 +75,6 @@ export interface KeysetCursor {
   id: string;
 }
 
-export interface CursorPosition {
-  createdAt: Date;
-  id: string;
-}
-
 function encode(createdAt: string, id: string): string {
   return Buffer.from(JSON.stringify({ c: createdAt, i: id }), 'utf8').toString('base64url');
 }
@@ -119,13 +111,20 @@ export function decodeKeysetCursor(cursor: string): KeysetCursor {
   return { createdAt: c, id: i };
 }
 
-/** Lossy: milliseconds only. See the precision note above. */
-export function encodeCursor(position: CursorPosition): string {
-  return encode(position.createdAt.toISOString(), position.id);
-}
-
-/** Lossy: milliseconds only. See the precision note above. */
-export function decodeCursor(cursor: string): CursorPosition {
-  const { c, i } = decode(cursor);
-  return { createdAt: new Date(c), id: i };
-}
+/*
+ * THERE IS NO Date-VALUED CURSOR API, AND THAT IS DELIBERATE.
+ *
+ * A lossy `encodeCursor` / `decodeCursor` pair lived here until T-0019. It
+ * truncated microseconds, which is what made keyset pagination silently drop
+ * rows — four of six, in production, on any two rows written in the same
+ * millisecond.
+ *
+ * It was kept at first, documented as lossy. The lead deleted it on review:
+ * nothing but its own tests used it, and **an exported function documented as
+ * lossy is how a fixed bug comes back**, because the next person reads the
+ * name and not the comment. A `Date` cannot represent what this column stores,
+ * so there is no correct way to offer one.
+ *
+ * If you need a Date, convert at the edge where you display it, never where
+ * you encode a position.
+ */

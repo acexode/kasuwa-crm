@@ -17,7 +17,12 @@ import {
   USER_B_AGENT_1,
 } from '@kasuwa/db';
 import { hashRateLimitKey } from '@kasuwa/auth-crypto';
-import { decodeCursor, encodeCursor, InvalidCursorError, listContacts } from '@kasuwa/domain-core';
+import {
+  decodeKeysetCursor,
+  encodeKeysetCursor,
+  InvalidCursorError,
+  listContacts,
+} from '@kasuwa/domain-core';
 import { reseed, withForcedScope } from '@kasuwa/testing';
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
@@ -275,11 +280,15 @@ describe('acceptance: adversarial tenancy attacks', () => {
 
   // --- 4. keyset pagination ------------------------------------------------
 
-  it('CHARACTERISES FINDING-2: keyset pagination drops rows below millisecond resolution', async () => {
+  it('pages to exhaustion at microsecond resolution', async () => {
     // ---------------------------------------------------------------------
-    // THIS TEST ASSERTS A DEFECT. Do not read it as approval.
+    // FIXED by T-0019. This was a characterisation test asserting the defect;
+    // it is now the regression test for the fix, flipped by the lead when the
+    // fix landed, exactly as its comment instructed.
     //
-    // `encodeCursor` writes `Date.toISOString()`, which is millisecond
+    // THE DEFECT IT CAUGHT, kept because the mechanism is easy to reintroduce:
+    //
+    // The old `encodeCursor` wrote `Date.toISOString()`, which is millisecond
     // precision, and `pg` has already truncated the microseconds out of
     // `timestamptz` on the way into a JS `Date`. The cursor therefore names a
     // position EARLIER than the row it came from, and under `ORDER BY
@@ -287,13 +296,14 @@ describe('acceptance: adversarial tenancy attacks', () => {
     // errors, no page looks short, and the rows are simply absent from the
     // listing.
     //
-    // Reachable today: `created_at` defaults to `now()`, which has microsecond
-    // resolution, so any two contacts created in the same millisecond can do
-    // it. A bulk import does it constantly.
+    // Reachable in production: `created_at` defaults to `now()`, which has
+    // microsecond resolution, so any two contacts created in the same
+    // millisecond did it, and a bulk import did it constantly.
     //
-    // Owner: whoever owns packages/domain/core/src/cursor.ts (M3 / Agent 3).
-    // When it is fixed this test goes RED — replace the two assertions marked
-    // below with `expect(seen).toHaveLength(6)`.
+    // It was invisible for weeks because every seeded timestamp is a whole
+    // minute — fixtures chosen for readability hid it. The three sub-
+    // millisecond timestamps below are the entire reason this test works, and
+    // they are why any future keyset test must use them too.
     // ---------------------------------------------------------------------
     const microsecondTimes = [
       '2026-04-01T12:00:00.000900Z',
@@ -353,12 +363,14 @@ describe('acceptance: adversarial tenancy attacks', () => {
       // No duplicates. That half of the invariant does hold.
       expect(new Set(seen).size).toBe(seen.length);
 
-      // And the walk returns four of the six. THIS IS THE BUG.
-      expect(seen.length, 'FINDING-2 appears to be fixed — this should now be 6').toBe(4);
-      expect(seen, 'FINDING-2 appears to be fixed — this row is no longer skipped').not.toContain(
-        ids[1],
+      // Every row, once. Compared against ground truth rather than a
+      // hard-coded number, so seeding changes cannot quietly make it vacuous.
+      expect(seen.length, 'keyset pagination dropped a row — FINDING-2 has regressed').toBe(
+        total,
       );
-      expect(seen).not.toContain(ids[2]);
+      for (const id of ids) {
+        expect(seen, `sub-millisecond row ${id} was skipped`).toContain(id);
+      }
     } finally {
       await reseed(inject('migrationUrl'));
     }
@@ -659,7 +671,7 @@ describe('acceptance: adversarial tenancy attacks', () => {
     expect(roundTripped[0]?.same).toBe(true);
   });
 
-  it('property: decodeCursor yields only positions it could have produced', () => {
+  it('property: decodeKeysetCursor yields only positions it could have produced', () => {
     const random = mulberry32(0x5eed);
     const alphabet = 'abcdefABCDEF0123456789-_{}":,.TZ+ ';
 
@@ -672,15 +684,15 @@ describe('acceptance: adversarial tenancy attacks', () => {
         candidate += alphabet[Math.floor(random() * alphabet.length)] ?? 'a';
       }
       try {
-        const position = decodeCursor(candidate);
+        const position = decodeKeysetCursor(candidate);
         accepted += 1;
         // Whatever comes back must be a position the encoder could have made:
         // a canonical uuid, a real instant, stable under a round trip.
         expect(position.id).toMatch(
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
         );
-        expect(Number.isNaN(position.createdAt.getTime())).toBe(false);
-        expect(decodeCursor(encodeCursor(position))).toEqual(position);
+        expect(Number.isNaN(Date.parse(position.createdAt))).toBe(false);
+        expect(decodeKeysetCursor(encodeKeysetCursor(position))).toEqual(position);
       } catch (error) {
         expect(error).toBeInstanceOf(InvalidCursorError);
         thrown += 1;
@@ -696,11 +708,15 @@ describe('acceptance: adversarial tenancy attacks', () => {
     // The other direction, so the test is not merely "everything throws":
     // every legitimately encoded position round-trips exactly.
     for (let i = 0; i < 200; i += 1) {
+      // Sub-millisecond on purpose. A Date-valued generator here is what made
+      // the old property test blind to FINDING-2: it could not express the
+      // values that broke.
+      const micros = String(Math.floor(random() * 1_000_000)).padStart(6, '0');
       const position = {
-        createdAt: new Date(Math.floor(random() * 4_000_000_000_000)),
+        createdAt: `${new Date(Math.floor(random() * 4_000_000_000_000)).toISOString().slice(0, 19)}.${micros}Z`,
         id: newId(),
       };
-      expect(decodeCursor(encodeCursor(position))).toEqual(position);
+      expect(decodeKeysetCursor(encodeKeysetCursor(position))).toEqual(position);
     }
 
     // And a cursor carrying smuggled scope decodes to a position only: the
@@ -714,7 +730,7 @@ describe('acceptance: adversarial tenancy attacks', () => {
       }),
       'utf8',
     ).toString('base64url');
-    expect(Object.keys(decodeCursor(smuggled)).sort()).toEqual(['createdAt', 'id']);
+    expect(Object.keys(decodeKeysetCursor(smuggled)).sort()).toEqual(['createdAt', 'id']);
   });
 
   // --- 10 onwards. the attacks the stub did not list -----------------------

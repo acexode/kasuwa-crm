@@ -1,26 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import {
-  decodeCursor,
-  decodeKeysetCursor,
-  encodeCursor,
-  encodeKeysetCursor,
-  InvalidCursorError,
-} from './cursor';
+import { decodeKeysetCursor, encodeKeysetCursor, InvalidCursorError } from './cursor';
 
 describe('cursor encoding', () => {
   const position = {
-    createdAt: new Date('2026-01-01T00:05:00.000Z'),
+    createdAt: '2026-01-01T00:05:00.000500Z',
     id: '11111111-0000-4000-8000-0000000e0001',
   };
 
   it('round-trips a position', () => {
-    const decoded = decodeCursor(encodeCursor(position));
+    const decoded = decodeKeysetCursor(encodeKeysetCursor(position));
     expect(decoded.id).toBe(position.id);
-    expect(decoded.createdAt.toISOString()).toBe(position.createdAt.toISOString());
+    expect(decoded.createdAt).toBe(position.createdAt);
   });
 
   it('encodes nothing but the position', () => {
-    const payload = JSON.parse(Buffer.from(encodeCursor(position), 'base64url').toString('utf8'));
+    const payload = JSON.parse(
+      Buffer.from(encodeKeysetCursor(position), 'base64url').toString('utf8'),
+    );
     // If this ever fails because a field was added, read the comment at the top
     // of cursor.ts before changing the test. Authority must not live in a
     // cursor.
@@ -28,8 +24,8 @@ describe('cursor encoding', () => {
   });
 
   it('rejects garbage', () => {
-    expect(() => decodeCursor('not-base64')).toThrow(InvalidCursorError);
-    expect(() => decodeCursor(Buffer.from('{}').toString('base64url'))).toThrow(InvalidCursorError);
+    expect(() => decodeKeysetCursor('not-base64')).toThrow(InvalidCursorError);
+    expect(() => decodeKeysetCursor(Buffer.from('{}').toString('base64url'))).toThrow(InvalidCursorError);
   });
 
   it('rejects a well-formed cursor with an invalid id', () => {
@@ -37,7 +33,7 @@ describe('cursor encoding', () => {
       JSON.stringify({ c: '2026-01-01T00:00:00.000Z', i: "' OR 1=1 --" }),
       'utf8',
     ).toString('base64url');
-    expect(() => decodeCursor(forged)).toThrow(InvalidCursorError);
+    expect(() => decodeKeysetCursor(forged)).toThrow(InvalidCursorError);
   });
 
   it('drops extra fields rather than carrying them forward', () => {
@@ -46,7 +42,7 @@ describe('cursor encoding', () => {
       'utf8',
     ).toString('base64url');
 
-    const decoded = decodeCursor(smuggled);
+    const decoded = decodeKeysetCursor(smuggled);
     expect(Object.keys(decoded).sort()).toEqual(['createdAt', 'id']);
   });
 });
@@ -70,12 +66,17 @@ describe('microsecond cursors (T-0019)', () => {
   });
 
   it('does not let a Date near the encoder, because a Date cannot hold it', () => {
-    // The trap this bug came from, asserted so nobody re-introduces it: a
-    // microsecond instant through a Date names an EARLIER position.
+    // The trap this bug came from, asserted so nobody re-introduces it.
+    //
+    // The lossy `encodeCursor`/`decodeCursor` pair was DELETED by the lead when
+    // T-0019 landed. It was used by nothing but its own tests, and an exported
+    // function documented as lossy is how a fixed bug comes back — the next
+    // person reads the name, not the comment. The invariant that mattered is
+    // asserted directly instead: a Date simply cannot hold this value.
     const precise = '2026-04-01T12:00:00.000500Z';
-    const viaDate = encodeCursor({ createdAt: new Date(precise), id });
-    expect(decodeKeysetCursor(viaDate).createdAt).toBe('2026-04-01T12:00:00.000Z');
-    expect(decodeKeysetCursor(viaDate).createdAt).not.toBe(precise);
+    expect(new Date(precise).toISOString()).toBe('2026-04-01T12:00:00.000Z');
+    expect(new Date(precise).toISOString()).not.toBe(precise);
+
     expect(decodeKeysetCursor(encodeKeysetCursor({ createdAt: precise, id })).createdAt).toBe(
       precise,
     );
@@ -89,7 +90,6 @@ describe('microsecond cursors (T-0019)', () => {
       'utf8',
     ).toString('base64url');
     expect(decodeKeysetCursor(legacy)).toEqual({ createdAt: '2026-04-01T12:00:00.000Z', id });
-    expect(decodeCursor(legacy).createdAt.toISOString()).toBe('2026-04-01T12:00:00.000Z');
   });
 
   it('rejects a timestamp finer than Postgres stores, or malformed', () => {
