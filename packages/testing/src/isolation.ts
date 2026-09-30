@@ -16,6 +16,15 @@ import type { Pool, QueryResultRow } from 'pg';
  * "nothing outside the tenant named in app.tenant_id" — because RLS, not the
  * application, is the last line.
  *
+ * Read that precisely, because it was read too generously for a while (T-0004
+ * FINDING-1). RLS confines whatever scope the GUCs name; it does not decide
+ * WHO may name one. On a single connection under a single role there is no
+ * privilege that separates `withTenantTransaction` from the callback it hands a
+ * `TenantTx` to, so code that can issue arbitrary SQL can re-point the GUCs at
+ * another tenant — and the harness below is deliberately that code. What stops
+ * such a transaction having an effect is a check before COMMIT, not a
+ * prohibition: ADR-0010 sets out why, and what is guaranteed instead.
+ *
  * NEVER import this from application code. The lint config forbids
  * @kasuwa/testing outside test files.
  */

@@ -1,6 +1,8 @@
 # ADR-0009 — One table with no `tenant_id`, because counting failures for tenants that do not exist is the point
 
-- **Status:** Accepted
+- **Status:** Accepted; amended 2026-09-30 (T-0020) — the policy is no longer
+  `USING (true)`. See "Amendment" below. The exemption from `tenant_id` is
+  unchanged.
 - **Date:** 2026-09-27
 - **Deciders:** Agent 1 — Platform & Security; directed by the lead after a security review; @acexode reviews (D-A3)
 - **Source:** T-0001 round two; security review finding "workspace-slug enumeration"
@@ -49,11 +51,18 @@ It replaces `auth_attempt`, which is dropped in migration 0003.
 
 ### What keeps this from being a hole
 
-- **RLS is still enabled and forced, with a policy.** The policy is
+- **RLS is still enabled and forced, with a policy.** ~~The policy is
   `USING (true) WITH CHECK (true)`, which is honest rather than decorative:
   there is no tenant to predicate on. The residual risk is a session
   incrementing or clearing a counter for a key it already knows — which it can
-  do anyway by making sign-in requests. Nothing here is worth reading.
+  do anyway by making sign-in requests. Nothing here is worth reading.~~
+
+  **Struck 2026-09-30 (T-0020).** Every sentence of that is wrong except the
+  first clause, and it is left visible rather than edited away because the shape
+  of the mistake is the useful part: the conclusion ("the exemption is
+  harmless") was right, the argument for the *policy* was not, and nothing in
+  the file distinguished the two. The policy now admits a row only to a session
+  that presents that row's `key_hash`. See the Amendment.
 - **It holds no business data, and its personal data is pseudonymised — not
   absent.** An earlier version of this ADR said "no personal data". That was
   wrong and is corrected here rather than quietly edited, because it is the kind
@@ -91,7 +100,9 @@ It replaces `auth_attempt`, which is dropped in migration 0003.
   asserted something while nothing called it: the claim was true of the code
   and false of the build. Migration 0003 states the deviation in capitals.
 
-- **It also deviates from rule 3, and that deserves saying out loud.**
+- **It also deviated from rule 3, and that deserved saying out loud** (and no
+  longer does — see the Amendment; the paragraph is kept because it is the
+  reasoning the amendment answers).
   `CLAUDE.md` section 2 rule 3 is "RLS is the last line, not the only line":
   repositories filter explicitly as well, so a typo in either layer does not
   leak. `auth_rate_limit` has **one** layer. Its policy is `USING (true)`,
@@ -162,3 +173,83 @@ Whether rate limiting should eventually be shared across instances (Redis) or
 whether an edge/WAF layer should carry part of it. Both are real, both are
 deployment decisions, and neither is a reason to leave the application without
 a bound of its own today.
+
+---
+
+## Amendment, 2026-09-30 — the policy (T-0020, from T-0004 FINDING-3)
+
+### What was wrong
+
+This file justified `USING (true)` on the ground that the worst a session could
+do was "increment or clear a counter for a key it already knows — which it can
+do anyway by making sign-in requests". Against the policy as written, both
+halves were false:
+
+- **SELECT was unrestricted**, so any session in the cell enumerated *every*
+  key. This ADR's own text says the digest is unkeyed over a low-entropy input
+  and that a row therefore evidences that **a named person attempted to sign in
+  at a named workspace**, in NDPA scope. Reading the table was reading that
+  evidence for every other tenant's users. A full table scan is not "a key it
+  already knows".
+- **DELETE was unrestricted and unbounded.** One statement cleared every lockout
+  in the cell, for every tenant. No sign-in request can do that, and lockout is
+  the only bound on password guessing in the system.
+
+The reasoning error is worth naming, because it is easy to repeat: the argument
+that the table needs no `tenant_id` was carried over, unexamined, into an
+argument that the table needs no policy. They are different claims. The first is
+still correct.
+
+### What changed
+
+The policy, and nothing else. Migration `0004_rate_limit_key_scope.sql`:
+
+```sql
+CREATE POLICY auth_rate_limit_presented_key ON auth_rate_limit FOR ALL
+  USING      (key_hash = app.current_rate_limit_key())
+  WITH CHECK (key_hash = app.current_rate_limit_key());
+```
+
+`app.current_rate_limit_key()` reads the transaction-local GUC
+`app.rate_limit_key` and returns NULL when it is unset — so a session that
+presents nothing sees nothing, in the same fail-closed shape as the three
+accessors in migration 0000. It is **not** `SECURITY DEFINER`; it touches no
+table. The count of `SECURITY DEFINER` functions in this system stays at two.
+
+The repository presents the key it is about to act on, transaction-locally,
+immediately before each statement (`presentRateLimitKey` in
+`packages/db/src/auth.ts`) and still writes `key_hash = $1` in the statement
+itself. **The table now has two layers like every other table**, which retires
+the rule-3 deviation above — it was accepted on the contents of a row, and it no
+longer has to be.
+
+### What did NOT change, and why the amendment is safe
+
+**The exemption from `tenant_id` stands.** A counter whose job is to answer
+identically for a workspace that does not exist cannot be scoped to a tenant.
+`NON_TENANT_SCOPED_TABLES` still has exactly one entry.
+
+**The unresolved-workspace write still succeeds**, which is the property the
+whole table exists for. The key is computed from what the caller submitted,
+before anything is resolved, so a slug naming no tenant yields a key as usable
+as a real one; the same statement runs, the countdown counts, and the two paths
+stay indistinguishable. An integration test asserts exactly that against a real
+database rather than leaving it to this paragraph.
+
+**Presenting a key is not a caller choosing its own scope** (root `CLAUDE.md`
+section 2 rule 2). It confines and cannot widen: the GUC admits one hash out of
+the table and carries no tenant, and anyone able to compute that hash can
+already drive that counter by making sign-in requests. It is the narrowest
+possible statement of the claim this ADR originally made and could not back.
+
+**The HMAC is still the right upgrade and is still blocked on D-L13.** This
+amendment reduces who can read a digest; it does not make an unkeyed digest
+unverifiable offline. The retention sweep is still a requirement, not tidiness.
+
+### Consequence for the sweep, which is not built yet
+
+A retention sweep deletes rows by `last_failed_at` — keys it does not know — so
+under this policy it cannot run as `kasuwa_app`. **It must run as
+`kasuwa_migrator`**, which is BYPASSRLS and is already the role for bulk and
+cross-tenant work (ADR-0002). Written here so the sweep task meets this as a
+requirement rather than discovering it as a failure.

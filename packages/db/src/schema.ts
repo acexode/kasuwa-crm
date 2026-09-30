@@ -337,8 +337,16 @@ export const NON_TENANT_SCOPED_TABLES = [
    * `auth_rate_limit` — counts failed sign-ins for a workspace slug that may
    * name no tenant at all. Scoping it to a tenant would make an unknown
    * workspace answer differently from a real one, which is the enumeration
-   * oracle it exists to close. Holds a SHA-256 and three integers: no personal
-   * data, no business data, no tenant id. ADR-0009.
+   * oracle it exists to close. Holds a SHA-256 and three integers: no business
+   * data and no tenant id, but the digest is unkeyed over a low-entropy input
+   * and is therefore pseudonymised personal data under the NDPA, not the
+   * absence of it. ADR-0009.
+   *
+   * Not tenant-scoped is not the same as unscoped: since T-0020 its policy
+   * admits a row only to a session presenting that row's `key_hash` in
+   * `app.rate_limit_key`. Before that it was `USING (true)`, which let any
+   * session enumerate every key in the cell and clear every lockout in it
+   * (T-0004 FINDING-3).
    */
   'auth_rate_limit',
 ] as const;

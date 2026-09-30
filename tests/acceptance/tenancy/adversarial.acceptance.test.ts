@@ -15,6 +15,7 @@ import {
   USER_A_AGENT_2,
   USER_A_SUPERVISOR,
   USER_B_AGENT_1,
+  SessionScopeViolationError,
 } from '@kasuwa/db';
 import { hashRateLimitKey } from '@kasuwa/auth-crypto';
 import {
@@ -735,7 +736,7 @@ describe('acceptance: adversarial tenancy attacks', () => {
 
   // --- 10 onwards. the attacks the stub did not list -----------------------
 
-  it('CHARACTERISES FINDING-1: a TenantTx callback can re-scope itself to any tenant', async () => {
+  it('rolls back and discards the result when a callback re-scopes itself', async () => {
     // ---------------------------------------------------------------------
     // THIS TEST ASSERTS A DEFECT. Do not read it as approval.
     //
@@ -764,7 +765,7 @@ describe('acceptance: adversarial tenancy attacks', () => {
     // When it is closed this test goes RED. Replace the block with
     // `await expect(...).rejects.toThrow()`.
     // ---------------------------------------------------------------------
-    const stolen = await withTenantTransaction(
+    const stolen = withTenantTransaction(
       appPool,
       { tenantId: TENANT_A, userId: USER_A_AGENT_1 },
       async (tx) => {
@@ -779,17 +780,25 @@ describe('acceptance: adversarial tenancy attacks', () => {
       },
     );
 
-    expect(
-      stolen.length,
-      'FINDING-1 appears to be closed — replace this with rejects.toThrow()',
-    ).toBe(3);
-    // `tx.session` still said tenant A throughout. The object a reviewer reads
-    // and the scope the database enforces have diverged, which is what would
-    // make this hard to catch in review.
-    expect(new Set(stolen)).toEqual(new Set([TENANT_B]));
+    // FIXED by T-0020. Flipped from a characterisation test by the lead.
+    //
+    // The re-scoping still WORKS — it cannot be prevented. A framework and its
+    // callback are the same role on the same connection, `SET LOCAL` reaches
+    // the GUC without `set_config`, and Postgres has no write-once transaction
+    // state. ADR-0010 records the attempts and why each fails.
+    //
+    // What changed is that it no longer escapes: `assertScopeIntact` reads the
+    // GUCs back before COMMIT, throws on divergence, and **discards the
+    // callback's return value**. A forged read never leaves the transaction and
+    // a forged write never commits.
+    //
+    // So this asserts detection, not prevention, and the distinction is the
+    // whole point of the ADR — do not "strengthen" it into a claim the system
+    // cannot make.
+    await expect(stolen).rejects.toThrow(SessionScopeViolationError);
   });
 
-  it('CHARACTERISES FINDING-3: any session reads and clears every auth_rate_limit row in the cell', async () => {
+  it('admits no auth_rate_limit row to a session that did not present its key', async () => {
     // ---------------------------------------------------------------------
     // THIS TEST ASSERTS A DEFECT. Do not read it as approval.
     //
@@ -847,14 +856,23 @@ describe('acceptance: adversarial tenancy attacks', () => {
         },
       );
 
-      // A tenant A session read a tenant B user's counter…
+      // FIXED by T-0020, flipped by the lead. The policy is now
+      // `USING (key_hash = app.current_rate_limit_key())`, so a session that
+      // presents no key sees nothing and can delete nothing.
+      //
+      // Both halves matter. Reading was disclosure — ADR-0009's own text calls
+      // a row evidence that a named person attempted to sign in at a named
+      // workspace, which is another tenant's personal data. Deleting was worse:
+      // one statement cleared every lockout in the cell, which is the only
+      // bound on password guessing.
       expect(
         attack.readable.some((row) => row.key_hash.equals(victimKey)),
-        'FINDING-3 appears to be closed — flip this assertion',
-      ).toBe(true);
-      // …and deleted it. `withForcedScope` rolls back, so nothing is actually
-      // lost; the row count is the disclosure.
-      expect(attack.cleared).toBeGreaterThan(0);
+        'FINDING-3 has regressed — a session read a key it did not present',
+      ).toBe(false);
+      expect(
+        attack.cleared,
+        'FINDING-3 has regressed — a session cleared lockouts it did not own',
+      ).toBe(0);
     } finally {
       await migrator.query('DELETE FROM auth_rate_limit WHERE key_hash = $1', [victimKey]);
       await migrator.end();
