@@ -432,3 +432,33 @@ The failure this prevents is quiet and specific: the log says deferred, the PRD
 still says P0, the board never mentions it — so the work is simultaneously
 promised, descoped and untracked, and whichever document a person opens is what
 they believe.
+
+## A13. No scheduler. Work continuously. Pause only on a merge queue.
+
+Issued 2026-09-30 by @acexode. **This voids A6 and item 6 entirely.**
+
+**The scheduler is gone — deleted, not disabled.** Do not recreate it, do not
+propose recreating it, and do not describe the cycle as scheduled anywhere.
+
+It was configured hourly, 24/7, and enabled. It ran **twice in seventy-two
+hours**, and both runs died within ten seconds; the second sat marked "running"
+for six hours having made two tool calls. Every pull request this project has
+ever produced came from a session @acexode started by sending a message. The
+gaps in delivery were not slow cycles — they were no cycles at all, while the
+standing orders described an autonomous loop that was not running.
+
+**What replaces it:**
+
+1. **Work progressively.** Finish a task, start the next one immediately. Do not
+   stop to report, do not wait for acknowledgement, do not ask which is next.
+2. **The only pause is a merge queue: more than five open pull requests
+   awaiting @acexode.** At that point stop opening new ones and say so. Nothing
+   else is a stop — not a decision awaiting an answer, not a design that has not
+   arrived, not a finished task.
+3. **Designs arrive in `docs/design/`.** @acexode adds them there. Check on each
+   pass and turn new screens into work.
+
+The three stop conditions in A5 still apply to a *session* (context, usage,
+`team/STOP`). They are about when this session ends, not about when the work
+pauses — and the work no longer depends on a session surviving, because there
+is no loop to keep alive.

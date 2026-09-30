@@ -888,3 +888,42 @@ something was deferred, the PRD still describes it as P0, and the task board
 never mentions it — so the work is simultaneously promised, descoped and
 untracked, and whichever of the three a person happens to read is what they
 believe.
+
+---
+
+## D-L35 — the scheduler is deleted
+**Decided:** 2026-09-30 by @acexode
+
+`kasuwa-lead-cycle` is deleted. A6 and standing order item 6 are void.
+
+**Why, with the measurement rather than the impression.** It was set to
+`0 * * * *`, enabled, 24/7. `list_task_runs` reported **`totalRuns: 2`** across
+three days: one on 2026-09-27 that "succeeded" after eight seconds, and one on
+2026-09-30 that made two tool calls and then sat marked "running" for six hours.
+It should have fired roughly seventy times.
+
+Pull request timestamps agree: a **fifty-three hour gap** between #26 and #27,
+then five pull requests in forty-five minutes once a session was actually
+running. **Every pull request in this repository came from a session @acexode
+started by sending a message.**
+
+Three things this cost, all of which were invisible while the standing orders
+described a loop that existed:
+
+- Delivery looked slow when it was simply absent.
+- The stale run's prompt still demanded "three tasks ready per agent" and
+  "never push to `main`", both voided the previous day — so had it worked, it
+  would have fought the current rules.
+- A scheduled session shares the working directory and the single git identity,
+  which is a plausible source of at least some of the unexplained worktree edits
+  and duplicate pull requests.
+
+**Replaced by A13:** work continuously, and pause only when more than five open
+pull requests are waiting on @acexode.
+
+The general lesson is worth more than the fix. **A guard or a mechanism that
+nobody has watched run is not a mechanism**, and this project has now hit that
+four times: the pre-push hook that did not exist on the branch it guarded, the
+exemption test that was never called, the interceptor that was never registered,
+and a scheduler that never fired. Each was believed to be working because it was
+configured.
