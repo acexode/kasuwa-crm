@@ -823,3 +823,37 @@ exception the lead has to grant case by case.
 
 An absolute rule that occasionally needs the lead's permission is not absolute;
 it is a rule with a back door that a less careful builder would have used.
+
+---
+
+## D-L34 — there is no branch protection, and there never was
+**Raised:** 2026-09-30 by the lead · **needs @acexode's decision**
+
+D-L24 and `OPERATIONS.md` both say branch protection on `main` is the control
+that makes the autonomous arrangement safe, with the hooks described as
+convention-strength by comparison. The lead has repeated that several times.
+
+**It is not true.** The repository is private on a free plan, and both
+`gh api repos/acexode/kasuwa-crm/branches/main/protection` and `.../rulesets`
+return `403 Upgrade to GitHub Pro or make this repository public`. Verified
+2026-09-30.
+
+So nothing has ever prevented a direct push to `main`, required status checks
+are unavailable, and **every guard in this repository is convention-strength**:
+the hooks, the CI label gate and the new bookkeeping guard alike. The
+distinction drawn between "real controls" and "conventions" was wrong in the
+direction that matters, and it was load-bearing in how the risk of running
+agents autonomously was described.
+
+It is also the most likely explanation for how a second session has been
+pushing branches and merging pull requests unchallenged.
+
+**Options:** make the repository public (free, immediate, but this is a product
+to sell); GitHub Pro with branch protection and the isolation suite required;
+or move to an organisation, which also unlocks real CODEOWNERS and retires the
+non-existent teams noted in D-L17.
+
+**Recommendation: Pro or an organisation.** The isolation suite being a
+*required* check rather than one people agree to read is worth more than the
+subscription, and it is the single change that makes this arrangement
+structurally safe rather than cooperatively safe.
