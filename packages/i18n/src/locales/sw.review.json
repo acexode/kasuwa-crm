@@ -13,6 +13,18 @@
     "auth.panel.channel.whatsapp": "A product name. WhatsApp is spelled the same in this locale.",
     "auth.panel.channel.sms": "An abbreviation used unchanged in this locale.",
     "auth.signIn.google": "A product name. Google is spelled the same in this locale.",
-    "auth.signIn.microsoft": "A product name. Microsoft is spelled the same in this locale."
+    "auth.signIn.microsoft": "A product name. Microsoft is spelled the same in this locale.",
+    "admin.nav.group.bpo": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.nav.group.data": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.nav.item.u-sso": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.home.health.gain": "A format string rather than prose: it carries placeholders and punctuation only.",
+    "admin.home.alerts.meta": "A format string rather than prose: it carries placeholders and punctuation only.",
+    "admin.home.usage.period": "A format string rather than prose: it carries placeholders and punctuation only.",
+    "admin.prog.eyebrow": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.channel.whatsapp": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.channel.sms": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.channel.ussd": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.prog.tab.sla": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.sla.clock.always": "A product name, abbreviation or loanword the admin console uses unchanged in this locale."
   }
 }
