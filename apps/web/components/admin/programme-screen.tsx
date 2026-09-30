@@ -11,6 +11,7 @@ import { Panel } from './panel';
 import { Dialog } from './dialog';
 import { useResource } from './use-resource';
 import { useUnsavedGuard } from './use-unsaved-guard';
+import { PROGRAMME_TABS, type ProgrammeTab } from './programme-tabs';
 import { SlaTab } from './sla-tab';
 import { DispositionsTab } from './dispositions-tab';
 import { AgentsTab } from './agents-tab';
@@ -39,12 +40,6 @@ import { formatCount, formatDate, formatDuration, formatPercent } from '../../li
  * something real.
  */
 
-export const PROGRAMME_TABS = ['overview', 'agents', 'sla', 'dispositions'] as const;
-export type ProgrammeTab = (typeof PROGRAMME_TABS)[number];
-
-export function isProgrammeTab(value: string | undefined): value is ProgrammeTab {
-  return PROGRAMME_TABS.includes((value ?? '') as ProgrammeTab);
-}
 
 const STATUS_TONE: Readonly<Record<ProgrammeStatus, string>> = {
   active: 'bg-success-soft text-success-text',
@@ -91,7 +86,6 @@ export function ProgrammeScreen({
       messages={messages}
       locales={locales}
       activeSettingId="programmes"
-      residency={{ regionName: null }}
     >
       <div data-screen="P02/B2" className="flex flex-col gap-6 pb-24">
         <nav aria-label={t.t('admin.prog.breadcrumb')} className="flex items-center gap-1">

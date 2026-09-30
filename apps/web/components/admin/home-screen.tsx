@@ -114,7 +114,6 @@ export function AdminHomeScreen({
       messages={messages}
       locales={locales}
       activeSettingId="home"
-      residency={{ regionName: summary.data?.dataRegion.displayName ?? null }}
     >
       <div data-screen="P02/A" className="flex flex-col gap-6">
         <div className="flex flex-wrap items-end gap-4">

@@ -1,9 +1,9 @@
 import { bundleMessages, localeLabel, SUPPORTED_LOCALES } from '@kasuwa/i18n';
+import { ProgrammeScreen } from '../../../../components/admin/programme-screen';
 import {
-  ProgrammeScreen,
   isProgrammeTab,
   type ProgrammeTab,
-} from '../../../../components/admin/programme-screen';
+} from '../../../../components/admin/programme-tabs';
 import { ADMIN_PROGRAMME_MESSAGE_IDS } from '../../../../components/admin/message-ids';
 import { activeLocale } from '../../../../lib/locale';
 

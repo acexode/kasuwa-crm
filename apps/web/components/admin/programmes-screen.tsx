@@ -108,7 +108,6 @@ export function ProgrammesScreen({
       messages={messages}
       locales={locales}
       activeSettingId="programmes"
-      residency={{ regionName: null }}
     >
       <div data-screen="P02/B" className="flex flex-col gap-6">
         <div className="flex flex-wrap items-end gap-4">

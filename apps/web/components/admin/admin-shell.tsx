@@ -7,7 +7,7 @@ import { Icon } from '../icon';
 import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
 import { LiteModeToggle } from '../auth/lite-mode';
 import { NAV_GROUPS, filterNav, type NavGroup } from './nav-model';
-import { getSettingsMenuBadges, type Severity } from '../../lib/admin-api';
+import { getHomeSummary, getSettingsMenuBadges, type Severity } from '../../lib/admin-api';
 import { useResource } from './use-resource';
 
 /**
@@ -39,17 +39,11 @@ const SEVERITY_BADGE: Readonly<Record<Severity, string>> = {
   danger: 'bg-danger-soft text-danger-text',
 };
 
-export interface ResidencyProps {
-  /** `null` until `GET /home/summary` answers. Never guessed at. */
-  readonly regionName: string | null;
-}
-
 export function AdminShell({
   locale,
   messages,
   locales,
   activeSettingId,
-  residency,
   children,
 }: {
   locale: string;
@@ -57,7 +51,6 @@ export function AdminShell({
   locales: readonly LanguageOption[];
   /** Which settings-menu item is the current page, for `aria-current`. */
   activeSettingId: string | null;
-  residency: ResidencyProps;
   children: ReactNode;
 }) {
   const t = createBundleTranslator(locale, messages);
@@ -74,6 +67,20 @@ export function AdminShell({
   const drawerButtonRef = useRef<HTMLButtonElement>(null);
 
   const badges = useResource((signal) => getSettingsMenuBadges(signal), []);
+
+  /**
+   * The residency badge is read by the SHELL, not passed in, because it is on
+   * every admin screen and the design is explicit that it never scrolls away.
+   * Threading it through every page as a prop meant each page had to remember
+   * to supply it, and the programme screens have no reason to know the
+   * workspace's region.
+   *
+   * It renders only once the region is KNOWN. There is no placeholder, because
+   * a residency badge is a contractual promise in this market and a badge that
+   * says "—" for a second teaches people that the badge is decoration.
+   */
+  const summary = useResource((signal) => getHomeSummary(signal), []);
+  const regionName = summary.data?.dataRegion.displayName ?? null;
 
   const label = useCallback((id: MessageId) => t.t(id), [t]);
   const groups = useMemo(() => filterNav(NAV_GROUPS, query, label), [query, label]);
@@ -133,16 +140,16 @@ export function AdminShell({
 
         <span className="flex-1" />
 
-        <span
-          data-testid="residency-badge"
-          title={t.t('admin.shell.residency.note')}
-          className="inline-flex items-center gap-2 rounded-full bg-success-soft px-3 py-1 text-body-sm font-semibold text-success-text"
-        >
-          <Icon name="location_on" size="sm" />
-          {residency.regionName === null
-            ? t.t('admin.prog.unknown')
-            : t.t('admin.shell.residency', { region: residency.regionName })}
-        </span>
+        {regionName === null ? null : (
+          <span
+            data-testid="residency-badge"
+            title={t.t('admin.shell.residency.note')}
+            className="inline-flex items-center gap-2 rounded-full bg-success-soft px-3 py-1 text-body-sm font-semibold text-success-text"
+          >
+            <Icon name="location_on" size="sm" />
+            {t.t('admin.shell.residency', { region: regionName })}
+          </span>
+        )}
 
         <LanguageMenu
           options={locales}
