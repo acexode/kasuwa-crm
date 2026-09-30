@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&amp;display=block">
+</helmet>
+<div style="width:100%;height:100%;display:flex;flex-direction:column;background:var(--k-bg);color:var(--k-text);font-family:'Noto Sans',system-ui,sans-serif;font-size:14px;overflow:hidden;position:relative">
+
+<header style="height:60px;flex-shrink:0;display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--k-surface);border-bottom:1px solid var(--k-border);position:relative;z-index:3">
+  <sc-if value="{{ tablet }}" hint-placeholder-val="{{ false }}"><button onClick="{{ toggleNav }}" aria-label="Settings menu" aria-expanded="{{ navOpenStr }}" style="width:44px;height:44px;border:0;border-radius:8px;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">menu</span></button></sc-if>
+  <span style="display:flex;align-items:center;gap:8px;flex-shrink:0;white-space:nowrap"><span style="width:32px;height:32px;border-radius:8px;background:var(--k-primary);color:var(--k-accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px">K</span><b style="font-size:16px">Kasuwa</b><span style="height:22px;padding:0 8px;border-radius:6px;background:var(--k-primary-soft);color:var(--k-primary-text);font-size:12px;font-weight:700;display:inline-flex;align-items:center">Admin</span></span>
+  <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}"><button style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 8px 0 12px;margin-left:8px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-2)">apartment</span>Sabi Contact Centres Ltd<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">expand_more</span></button></sc-if>
+  <span style="flex:1"></span>
+  <span role="note" title="All workspace data, recordings and backups are kept in this AWS region." style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;background:var(--k-success-soft);color:var(--k-success-text);font-size:13px;font-weight:600;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">location_on</span><span>Data stored in: <b>South Africa (af-south-1)</b></span></span>
+  <button aria-label="Help" style="width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">help</span></button>
+  <button aria-label="Notifications, 5 unread" style="position:relative;width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">notifications</span><span style="position:absolute;top:8px;right:9px;width:8px;height:8px;border-radius:50%;background:var(--k-danger);box-shadow:0 0 0 2px var(--k-surface)"></span></button>
+  <span aria-label="Amaka Okafor, tenant admin" style="width:36px;height:36px;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">AO</span>
+</header>
+
+<div style="flex:1;min-height:0;display:flex;position:relative">
+  <sc-if value="{{ drawer }}" hint-placeholder-val="{{ false }}"><div onClick="{{ closeNav }}" style="position:absolute;inset:0;z-index:29;background:rgba(20,16,12,.44)"></div></sc-if>
+  <sc-if value="{{ showNav }}" hint-placeholder-val="{{ true }}">
+  <nav aria-label="Admin settings" style="width:272px;flex-shrink:0;height:100%;overflow-y:auto;background:var(--k-surface);border-right:1px solid var(--k-border);padding:12px 10px 32px;display:flex;flex-direction:column;gap:2px;position:{{ navPos }};left:0;top:0;bottom:0;z-index:30;box-shadow:{{ navShadow }}">
+    <div style="position:relative;margin-bottom:8px">
+      <span style="position:absolute;left:10px;top:10px;font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-muted)">search</span>
+      <input value="{{ navQuery }}" onChange="{{ setNavQuery }}" placeholder="Find a setting" aria-label="Find a setting" style="width:100%;height:40px;padding:0 12px 0 38px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface-sunken);color:var(--k-text);font-family:inherit;font-size:14px" style-focus="outline:2px solid var(--k-focus);outline-offset:1px">
+    </div>
+    <button onClick="{{ goHome }}" aria-current="{{ homeCur }}" style="display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px;border:0;border-radius:8px;background:{{ homeBg }};color:{{ homeFg }};font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;text-align:left" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">space_dashboard</span>Admin home</button>
+    <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="10">
+      <div style="display:flex;flex-direction:column">
+        <button onClick="{{ g.toggle }}" aria-expanded="{{ g.expStr }}" aria-current="{{ g.cur }}" style="display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px;border:0;border-radius:8px;background:{{ g.bg }};color:{{ g.fg }};font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;text-align:left" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ g.icon }}</span><span style="flex:1">{{ g.label }}</span><sc-if value="{{ g.hasAlert }}" hint-placeholder-val="{{ false }}"><span aria-label="Needs attention" style="width:8px;height:8px;border-radius:50%;background:var(--k-warning)"></span></sc-if><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-muted)">{{ g.chev }}</span></button>
+        <sc-if value="{{ g.open }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:1px;padding:2px 0 8px">
+            <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="5">
+              <button onClick="{{ it.go }}" aria-current="{{ it.cur }}" style="display:flex;align-items:center;gap:8px;min-height:36px;padding:0 10px 0 40px;border:0;border-radius:8px;background:{{ it.bg }};color:{{ it.fg }};font-family:inherit;font-size:14px;font-weight:{{ it.fw }};cursor:pointer;text-align:left" style-hover="background:var(--k-surface-sunken)"><span style="flex:1">{{ it.label }}</span><sc-if value="{{ it.badge }}" hint-placeholder-val="{{ false }}"><span style="min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:{{ it.badgeBg }};color:{{ it.badgeFg }};font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{ it.badgeText }}</span></sc-if></button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+    <sc-if value="{{ noNavResults }}" hint-placeholder-val="{{ false }}"><p style="margin:8px 10px;font-size:13px;line-height:19px;color:var(--k-text-muted)">No settings match. Try “MFA”, “WhatsApp” or “retention”.</p></sc-if>
+  </nav>
+  </sc-if>
+
+  <main ref="{{ mainRef }}" style="flex:1;min-width:0;overflow-y:auto;position:relative">
+  <div style="padding:{{ pagePad }};display:flex;flex-direction:column;gap:24px;max-width:1440px">
+<sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px">
+    <div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:6px">
+      <h1 style="margin:0;font-size:28px;line-height:36px;font-weight:800;letter-spacing:-.01em">Admin home</h1>
+      <p style="margin:0;font-size:15px;line-height:22px;color:var(--k-text-2)">Sabi Contact Centres Ltd · Enterprise plan · 6 countries · 214 users</p>
+    </div>
+    <button onClick="{{ goAudit }}" style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">history</span>View audit log</button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:{{ homeCols }};gap:16px;align-items:start">
+    <section aria-labelledby="h-health" style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;align-items:baseline;gap:8px"><h2 id="h-health" style="margin:0;font-size:16px;font-weight:700;flex:1">Setup health</h2><span style="font-size:12px;color:var(--k-text-muted)">Checked 5 min ago</span></div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div role="img" aria-label="Setup health score 78 out of 100" style="width:96px;height:96px;border-radius:50%;background:conic-gradient(var(--k-success) 0 78%,var(--k-surface-sunken) 78% 100%);display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:76px;height:76px;border-radius:50%;background:var(--k-surface);display:flex;flex-direction:column;align-items:center;justify-content:center"><b style="font-size:28px;line-height:30px;font-weight:800">78</b><span style="font-size:11px;color:var(--k-text-muted)">of 100</span></div></div>
+        <div style="display:flex;flex-direction:column;gap:4px"><b style="font-size:15px">Good, with 4 things to fix</b><span style="font-size:13px;line-height:19px;color:var(--k-text-2);text-wrap:pretty">Fixing them adds 22 points. Most take under 5 minutes.</span></div>
+      </div>
+      <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column">
+        <sc-for list="{{ health }}" as="h" hint-placeholder-count="6">
+          <li style="display:flex;align-items:center;gap:10px;min-height:40px;border-top:1px solid var(--k-border)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:{{ h.fg }}">{{ h.icon }}</span><span style="flex:1;font-size:14px;line-height:20px">{{ h.label }}</span><span style="font-size:12px;font-weight:600;color:var(--k-text-muted)">{{ h.pts }}</span><sc-if value="{{ h.fix }}" hint-placeholder-val="{{ false }}"><button style="height:32px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer" style-hover="background:var(--k-primary-soft)">Fix</button></sc-if></li>
+        </sc-for>
+      </ul>
+    </section>
+
+    <section aria-labelledby="h-alerts" style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--k-border)"><h2 id="h-alerts" style="margin:0;font-size:16px;font-weight:700">Alerts</h2><sc-if value="{{ hasAlerts }}" hint-placeholder-val="{{ true }}"><span style="height:22px;padding:0 8px;border-radius:999px;background:var(--k-danger-soft);color:var(--k-danger-text);font-size:12px;font-weight:700;display:inline-flex;align-items:center">{{ alertCount }} open</span></sc-if><span style="flex:1"></span><button style="height:32px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Alert settings</button></div>
+      <sc-if value="{{ hasAlerts }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column">
+          <sc-for list="{{ alerts }}" as="a" hint-placeholder-count="5">
+            <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 12px 14px 20px;border-bottom:1px solid var(--k-border)">
+              <span style="width:36px;height:36px;border-radius:8px;flex-shrink:0;background:{{ a.softBg }};color:{{ a.fg }};display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ a.icon }}</span>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><b style="font-size:14px;line-height:20px">{{ a.title }}</b><span style="font-size:13px;line-height:19px;color:var(--k-text-2);text-wrap:pretty">{{ a.body }}</span><span style="font-size:12px;line-height:18px;color:var(--k-text-muted)">{{ a.meta }}</span></div>
+              <button style="flex-shrink:0;height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--k-surface-sunken)">{{ a.action }}</button>
+              <button onClick="{{ a.dismiss }}" aria-label="Dismiss alert" style="flex-shrink:0;width:36px;height:36px;border:0;border-radius:8px;background:transparent;color:var(--k-text-muted);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">close</span></button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ noAlerts }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 24px;text-align:center"><span style="width:48px;height:48px;border-radius:50%;background:var(--k-success-soft);color:var(--k-success-text);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:26px;line-height:1">task_alt</span><b style="font-size:15px">No open alerts</b><span style="font-size:13px;line-height:19px;color:var(--k-text-2);max-width:340px">Rejected templates, security gaps and plan limits will show up here.</span><button onClick="{{ restoreAlerts }}" style="height:32px;padding:0 8px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Show dismissed alerts</button></div>
+      </sc-if>
+    </section>
+  </div>
+
+  <section aria-labelledby="h-usage" style="display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><h2 id="h-usage" style="margin:0;font-size:18px;font-weight:700;flex:1">Usage this month</h2><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--k-text-2)"><span style="width:2px;height:12px;background:var(--k-text)"></span>Today, 27 of 30 days</span><span style="font-size:12px;color:var(--k-text-muted)">1–30 Sep 2026 · Resets 1 Oct</span></div>
+    <div style="display:grid;grid-template-columns:{{ fourCols }};gap:16px">
+      <sc-for list="{{ meters }}" as="m" hint-placeholder-count="4">
+        <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:8px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ m.icon }}</span><span style="font-size:14px;font-weight:600">{{ m.label }}</span></div>
+          <div style="display:flex;align-items:baseline;gap:6px"><b style="font-size:26px;line-height:32px;font-weight:800">{{ m.value }}</b><span style="font-size:14px;color:var(--k-text-muted)">{{ m.of }}</span></div>
+          <div style="position:relative;height:8px;border-radius:4px;background:var(--k-surface-sunken)"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ m.w }};border-radius:4px;background:{{ m.bar }}"></span><sc-if value="{{ m.hasMark }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-4px;bottom:-4px;left:{{ m.markL }};width:2px;background:var(--k-text)"></span></sc-if></div>
+          <span style="font-size:13px;line-height:19px;color:var(--k-text-2);text-wrap:pretty">{{ m.note }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-recent" style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--k-border)"><h2 id="h-recent" style="margin:0;font-size:16px;font-weight:700;flex:1">Recent admin changes</h2><button onClick="{{ goAudit }}" style="height:32px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">See all in audit log</button></div>
+    <sc-for list="{{ recent }}" as="r" hint-placeholder-count="5">
+      <div style="display:grid;grid-template-columns:150px minmax(140px,1fr) minmax(180px,1.4fr) minmax(0,1.4fr);gap:12px;align-items:center;min-height:48px;padding:0 20px;border-bottom:1px solid var(--k-border);font-size:14px"><span style="color:var(--k-text-muted);font-size:13px">{{ r.t }}</span><span style="font-weight:600">{{ r.actor }}</span><span>{{ r.what }}</span><span style="color:var(--k-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.rec }}</span></div>
+    </sc-for>
+  </section>
+</sc-if>
+
+<sc-if value="{{ isStub }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:600;color:var(--k-text-muted)">{{ stubGroup }}</span><h1 style="margin:0;font-size:28px;line-height:36px;font-weight:800">{{ stubLabel }}</h1></div>
+  <div style="border:1px dashed var(--k-border-strong);border-radius:12px;padding:40px 24px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center"><span style="font-family:'Material Symbols Rounded';font-size:32px;line-height:1;color:var(--k-text-muted)">design_services</span><b style="font-size:16px">Not designed in this round</b><span style="font-size:14px;line-height:21px;color:var(--k-text-2);max-width:440px">Designed so far: Admin home, Programmes, Roles hierarchy, Field-level security and Audit log.</span><div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:6px"><button onClick="{{ goProgrammes }}" style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Programmes</button><button onClick="{{ goRoles }}" style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Roles hierarchy</button><button onClick="{{ goFls }}" style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Field-level security</button><button onClick="{{ goAudit }}" style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Audit log</button></div></div>
+</sc-if>
+
+<sc-if value="{{ isProgList }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px">
+    <div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:13px;font-weight:600;color:var(--k-text-muted)">BPO</span>
+      <h1 style="margin:0;font-size:28px;line-height:36px;font-weight:800;letter-spacing:-.01em">Programmes</h1>
+      <p style="margin:0;font-size:15px;line-height:22px;color:var(--k-text-2);max-width:720px;text-wrap:pretty">A programme is one client engagement: its agents, SLAs, scripts, dispositions and retention rules.</p>
+    </div>
+    <button style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 16px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--k-primary-hover)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">add</span>New programme</button>
+  </div>
+  <sc-if value="{{ hasProgrammes }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+      <div style="position:relative;flex:0 1 300px"><span style="position:absolute;left:10px;top:10px;font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-muted)">search</span><input value="{{ progQuery }}" onChange="{{ setProgQuery }}" placeholder="Search programme or client" aria-label="Search programmes" style="width:100%;height:40px;padding:0 12px 0 38px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px" style-focus="outline:2px solid var(--k-focus);outline-offset:1px"></div>
+      <div role="group" aria-label="Filter by status" style="display:flex;gap:6px;flex-wrap:wrap">
+        <sc-for list="{{ progChips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.pick }}" aria-pressed="{{ c.pressed }}" style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:999px;border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">{{ c.label }}<span style="font-weight:500">{{ c.count }}</span></button></sc-for>
+      </div>
+    </div>
+    <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:hidden">
+      <div style="overflow-x:auto"><div style="min-width:860px">
+        <div style="display:grid;grid-template-columns:minmax(240px,2.4fr) 120px 90px 160px 100px 100px 40px;align-items:center;height:40px;padding:0 12px;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border);font-size:12px;font-weight:700;color:var(--k-text-muted);text-transform:uppercase;letter-spacing:.04em"><span style="padding:0 8px">Programme</span><span style="padding:0 8px">Channels</span><span style="padding:0 8px">Agents</span><span style="padding:0 8px">SLA met (7 days)</span><span style="padding:0 8px">Retention</span><span style="padding:0 8px">Status</span><span></span></div>
+        <sc-for list="{{ progRows }}" as="p" hint-placeholder-count="8">
+          <div role="link" tabindex="0" onClick="{{ p.open }}" style="display:grid;grid-template-columns:minmax(240px,2.4fr) 120px 90px 160px 100px 100px 40px;align-items:center;min-height:60px;padding:0 12px;border-bottom:1px solid var(--k-border);cursor:pointer" style-hover="background:var(--k-surface-sunken)">
+            <div style="padding:0 8px;display:flex;flex-direction:column;gap:2px;min-width:0"><b style="font-size:14px">{{ p.name }}</b><span style="font-size:13px;color:var(--k-text-muted)">{{ p.sub }}</span></div>
+            <div style="padding:0 8px;display:flex;gap:4px"><sc-for list="{{ p.channels }}" as="ch" hint-placeholder-count="2"><span title="{{ ch.name }}" aria-label="{{ ch.name }}" style="width:28px;height:28px;border-radius:6px;background:var(--k-surface-sunken);color:var(--k-text-2);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:17px;line-height:1">{{ ch.icon }}</span></sc-for></div>
+            <span style="padding:0 8px;font-size:14px">{{ p.agentsTxt }}</span>
+            <div style="padding:0 8px;display:flex;align-items:center;gap:8px"><span style="width:56px;height:6px;border-radius:3px;background:var(--k-surface-sunken);position:relative;overflow:hidden"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ p.slaW }};background:{{ p.slaBar }}"></span></span><span style="font-size:14px;font-weight:600;color:{{ p.slaFg }}">{{ p.slaTxt }}</span></div>
+            <span style="padding:0 8px;font-size:14px;color:var(--k-text-2)">{{ p.ret }}</span>
+            <span style="padding:0 8px"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:{{ p.stBg }};color:{{ p.stFg }};font-size:12px;font-weight:700">{{ p.st }}</span></span>
+            <span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-muted)">chevron_right</span>
+          </div>
+        </sc-for>
+      </div></div>
+      <sc-if value="{{ noProgResults }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 24px;text-align:center"><span style="font-family:'Material Symbols Rounded';font-size:32px;line-height:1;color:var(--k-text-muted)">search_off</span><b style="font-size:15px">No programmes match</b><span style="font-size:13px;color:var(--k-text-2)">Check the spelling or clear the filters.</span><button onClick="{{ clearProgSearch }}" style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Clear search and filters</button></div>
+      </sc-if>
+    </div>
+  </sc-if>
+  <sc-if value="{{ progEmpty }}" hint-placeholder-val="{{ false }}">
+    <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:64px 24px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
+      <span style="width:72px;height:72px;border-radius:50%;background:var(--k-primary-soft);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:36px;line-height:1">support_agent</span>
+      <h2 style="margin:0;font-size:22px;line-height:30px;font-weight:700">No programmes yet</h2>
+      <p style="margin:0;font-size:15px;line-height:23px;color:var(--k-text-2);max-width:520px;text-wrap:pretty">Create one programme per client engagement. Agents, SLAs, scripts and retention rules all live inside it, so one client’s data never mixes with another’s.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button onClick="{{ fillProgrammes }}" style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 16px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">add</span>New programme</button><button style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">upload_file</span>Import from spreadsheet</button></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px"><span style="font-size:13px;color:var(--k-text-muted)">Or start from a template:</span><span style="height:28px;padding:0 10px;border-radius:999px;background:var(--k-surface-sunken);font-size:13px;font-weight:600;display:inline-flex;align-items:center">Collections</span><span style="height:28px;padding:0 10px;border-radius:999px;background:var(--k-surface-sunken);font-size:13px;font-weight:600;display:inline-flex;align-items:center">Customer support</span><span style="height:28px;padding:0 10px;border-radius:999px;background:var(--k-surface-sunken);font-size:13px;font-weight:600;display:inline-flex;align-items:center">Outbound sales</span></div>
+    </div>
+  </sc-if>
+</sc-if>
+
+<sc-if value="{{ isProg }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <nav aria-label="Breadcrumb" style="display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600;color:var(--k-text-muted)"><span>BPO</span><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">chevron_right</span><button onClick="{{ goProgrammes }}" style="border:0;background:transparent;padding:0;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px">Programmes</button><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">chevron_right</span><span aria-current="page">{{ prog.name }}</span></nav>
+    <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px">
+      <div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1 style="margin:0;font-size:28px;line-height:36px;font-weight:800;letter-spacing:-.01em">{{ prog.name }}</h1><span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:{{ progStBg }};color:{{ progStFg }};font-size:12px;font-weight:700">{{ prog.st }}</span></div>
+        <p style="margin:0;font-size:15px;line-height:22px;color:var(--k-text-2)">{{ prog.client }} · {{ prog.country }} · <span style="font-family:'JetBrains Mono',monospace;font-size:13px">{{ prog.code }}</span></p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">open_in_new</span>Client portal</button>
+        <button style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">pause</span>Pause</button>
+        <button onClick="{{ openArchive }}" style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-danger);background:var(--k-surface);color:var(--k-danger-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--k-danger-soft)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">archive</span>Archive</button>
+      </div>
+    </div>
+  </div>
+  <div role="tablist" aria-label="Programme settings" style="display:flex;gap:2px;border-bottom:1px solid var(--k-border);overflow-x:auto;margin-top:-4px">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="7"><button role="tab" aria-selected="{{ t.sel }}" onClick="{{ t.pick }}" style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 14px;border:0;border-bottom:3px solid {{ t.bd }};margin-bottom:-1px;background:transparent;color:{{ t.fg }};font-family:inherit;font-size:14px;font-weight:{{ t.fw }};white-space:nowrap;cursor:pointer" style-hover="color:var(--k-text)">{{ t.label }}<sc-if value="{{ t.hasCount }}" hint-placeholder-val="{{ false }}"><span style="min-width:22px;height:20px;padding:0 6px;border-radius:999px;background:var(--k-surface-sunken);color:var(--k-text-2);font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{ t.count }}</span></sc-if></button></sc-for>
+  </div>
+
+  <sc-if value="{{ tOverview }}" hint-placeholder-val="{{ true }}">
+    <div style="display:grid;grid-template-columns:{{ fourCols }};gap:16px">
+      <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4"><div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;font-weight:600;color:var(--k-text-2)">{{ k.label }}</span><b style="font-size:26px;line-height:34px;font-weight:800">{{ k.value }}</b><span style="font-size:13px;font-weight:600;color:{{ k.noteFg }}">{{ k.note }}</span></div></sc-for>
+    </div>
+    <div style="display:grid;grid-template-columns:{{ threeCols }};gap:16px">
+      <sc-for list="{{ ovCards }}" as="c" hint-placeholder-count="3">
+        <section style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-2)">{{ c.icon }}</span><h2 style="margin:0;font-size:15px;font-weight:700;flex:1">{{ c.title }}</h2><button style="height:32px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Edit</button></div>
+          <dl style="margin:0;display:flex;flex-direction:column">
+            <sc-for list="{{ c.rows }}" as="r" hint-placeholder-count="5"><div style="display:flex;gap:12px;padding:8px 0;border-top:1px solid var(--k-border);font-size:14px"><dt style="flex:0 0 130px;color:var(--k-text-muted)">{{ r.k }}</dt><dd style="margin:0;flex:1;font-weight:600">{{ r.v }}</dd></div></sc-for>
+          </dl>
+        </section>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ tAgents }}" hint-placeholder-val="{{ false }}">
+    <div style="display:grid;grid-template-columns:{{ sideCols }};gap:16px;align-items:start">
+      <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--k-border);flex-wrap:wrap"><div style="position:relative;flex:0 1 260px"><span style="position:absolute;left:10px;top:10px;font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-muted)">search</span><input placeholder="Search agents or skills" aria-label="Search agents" style="width:100%;height:40px;padding:0 12px 0 38px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px"></div><span style="flex:1;font-size:13px;color:var(--k-text-muted)">Showing 8 of 64</span><button style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">person_add</span>Add agents</button></div>
+        <div style="overflow-x:auto"><div style="min-width:760px">
+          <div style="display:grid;grid-template-columns:minmax(190px,1.3fr) 80px minmax(220px,2fr) minmax(150px,1.1fr) 100px;align-items:center;height:40px;padding:0 8px;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border);font-size:12px;font-weight:700;color:var(--k-text-muted);text-transform:uppercase;letter-spacing:.04em"><span style="padding:0 8px">Agent</span><span style="padding:0 8px">Team</span><span style="padding:0 8px">Skills</span><span style="padding:0 8px">Languages</span><span style="padding:0 8px">Now</span></div>
+          <sc-for list="{{ agents }}" as="a" hint-placeholder-count="8">
+            <div style="display:grid;grid-template-columns:minmax(190px,1.3fr) 80px minmax(220px,2fr) minmax(150px,1.1fr) 100px;align-items:center;min-height:56px;padding:0 8px;border-bottom:1px solid var(--k-border);font-size:14px">
+              <div style="padding:0 8px;display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:50%;background:var(--k-primary-soft);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">{{ a.ini }}</span><b style="font-weight:600">{{ a.name }}</b></div>
+              <span style="padding:0 8px;color:var(--k-text-2)">{{ a.team }}</span>
+              <div style="padding:6px 8px;display:flex;flex-wrap:wrap;gap:4px"><sc-for list="{{ a.skills }}" as="s" hint-placeholder-count="2"><span style="height:24px;padding:0 8px;border-radius:6px;border:1px solid var(--k-border);font-size:12px;font-weight:600;display:inline-flex;align-items:center">{{ s }}</span></sc-for></div>
+              <span style="padding:0 8px;color:var(--k-text-2);font-size:13px">{{ a.langs }}</span>
+              <span style="padding:0 8px"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:{{ a.stBg }};color:{{ a.stFg }};font-size:12px;font-weight:700;white-space:nowrap">{{ a.status }}</span></span>
+            </div>
+          </sc-for>
+        </div></div>
+      </div>
+      <section style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;flex-direction:column;gap:2px"><h2 style="margin:0;font-size:15px;font-weight:700">Skill cover, day shift</h2><span style="font-size:13px;color:var(--k-text-muted)">Agents rostered vs. needed, Mon 29 Sep</span></div>
+        <sc-for list="{{ cover }}" as="c" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><b style="font-weight:600">{{ c.label }}</b><span style="color:{{ c.fg }};font-weight:600">{{ c.txt }}</span></div><span style="height:6px;border-radius:3px;background:var(--k-surface-sunken);position:relative;overflow:hidden"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ c.w }};background:{{ c.bar }}"></span></span></div></sc-for>
+        <button style="height:36px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Manage skills</button>
+      </section>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ tSla }}" hint-placeholder-val="{{ false }}">
+    <section style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:hidden">
+      <div style="padding:18px 20px;border-bottom:1px solid var(--k-border);display:flex;flex-direction:column;gap:4px"><h2 style="margin:0;font-size:16px;font-weight:700">Response targets</h2><span style="font-size:13px;line-height:19px;color:var(--k-text-2)">Agreed with Eko Commercial Bank in schedule 2 of the contract. The client sees these on their portal.</span></div>
+      <div style="overflow-x:auto"><div style="min-width:640px">
+        <div style="display:grid;grid-template-columns:150px minmax(140px,1fr) minmax(140px,1fr) minmax(160px,1fr);gap:12px;align-items:center;height:40px;padding:0 20px;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border);font-size:12px;font-weight:700;color:var(--k-text-muted);text-transform:uppercase;letter-spacing:.04em"><span>Channel</span><span>First response</span><span>Resolution</span><span>Clock runs</span></div>
+        <sc-for list="{{ slaRows }}" as="r" hint-placeholder-count="4">
+          <div style="display:grid;grid-template-columns:150px minmax(140px,1fr) minmax(140px,1fr) minmax(160px,1fr);gap:12px;align-items:center;min-height:60px;padding:0 20px;border-bottom:1px solid var(--k-border)">
+            <span style="display:flex;align-items:center;gap:8px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-2)">{{ r.icon }}</span>{{ r.ch }}</span>
+            <input value="{{ r.fr }}" onChange="{{ r.setFr }}" aria-label="{{ r.frLabel }}" style="height:40px;padding:0 12px;border-radius:8px;border:1px solid {{ r.frBd }};background:{{ r.frBg }};color:var(--k-text);font-family:inherit;font-size:14px;min-width:0" style-focus="outline:2px solid var(--k-focus);outline-offset:1px">
+            <input value="{{ r.res }}" onChange="{{ r.setRes }}" aria-label="{{ r.resLabel }}" style="height:40px;padding:0 12px;border-radius:8px;border:1px solid {{ r.resBd }};background:{{ r.resBg }};color:var(--k-text);font-family:inherit;font-size:14px;min-width:0" style-focus="outline:2px solid var(--k-focus);outline-offset:1px">
+            <select value="{{ r.clock }}" onChange="{{ r.setClock }}" aria-label="{{ r.clockLabel }}" style="height:40px;padding:0 10px;border-radius:8px;border:1px solid {{ r.clockBd }};background:{{ r.clockBg }};color:var(--k-text);font-family:inherit;font-size:14px"><option value="Business hours">Business hours</option><option value="24 × 7">24 × 7</option></select>
+          </div>
+        </sc-for>
+      </div></div>
+    </section>
+    <div style="display:grid;grid-template-columns:{{ homeCols }};gap:16px;align-items:start">
+      <section style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:4px">
+        <h2 style="margin:0 0 6px;font-size:16px;font-weight:700">Clock</h2>
+        <div style="display:flex;align-items:center;gap:16px;padding:12px 0;border-top:1px solid var(--k-border)"><div style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:14px;font-weight:600">Pause outside operating hours</b><span style="font-size:13px;line-height:19px;color:var(--k-text-2)">Mon–Sat, 08:00–20:00 WAT and Nigerian public holidays</span></div><button role="switch" aria-checked="{{ swPauseHours.str }}" aria-label="Pause outside operating hours" onClick="{{ swPauseHours.toggle }}" style="width:44px;height:26px;border-radius:13px;border:0;padding:3px;background:{{ swPauseHours.track }};display:flex;justify-content:{{ swPauseHours.justify }};cursor:pointer;flex-shrink:0"><span style="width:20px;height:20px;border-radius:50%;background:var(--k-on-primary);box-shadow:var(--k-shadow-1)"></span></button></div>
+        <div style="display:flex;align-items:center;gap:16px;padding:12px 0;border-top:1px solid var(--k-border)"><div style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:14px;font-weight:600">Pause while waiting on the customer</b><span style="font-size:13px;line-height:19px;color:var(--k-text-2)">When the case status is “Awaiting customer”</span></div><button role="switch" aria-checked="{{ swPauseCust.str }}" aria-label="Pause while waiting on the customer" onClick="{{ swPauseCust.toggle }}" style="width:44px;height:26px;border-radius:13px;border:0;padding:3px;background:{{ swPauseCust.track }};display:flex;justify-content:{{ swPauseCust.justify }};cursor:pointer;flex-shrink:0"><span style="width:20px;height:20px;border-radius:50%;background:var(--k-on-primary);box-shadow:var(--k-shadow-1)"></span></button></div>
+      </section>
+      <section style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+        <h2 style="margin:0;font-size:16px;font-weight:700">Escalation</h2>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px"><span style="width:64px;font-weight:600">Warn at</span><select value="{{ warnAt.v }}" onChange="{{ warnAt.set }}" aria-label="Warn at" style="height:40px;padding:0 10px;border-radius:8px;border:1px solid {{ warnAt.bd }};background:{{ warnAt.bg }};color:var(--k-text);font-family:inherit;font-size:14px"><option value="50% of target">50% of target</option><option value="75% of target">75% of target</option><option value="80% of target">80% of target</option><option value="90% of target">90% of target</option></select><span>and notify</span><select value="{{ warnTo.v }}" onChange="{{ warnTo.set }}" aria-label="Warn who" style="height:40px;padding:0 10px;border-radius:8px;border:1px solid {{ warnTo.bd }};background:{{ warnTo.bg }};color:var(--k-text);font-family:inherit;font-size:14px"><option value="Assigned agent">Assigned agent</option><option value="Team lead">Team lead</option><option value="Programme manager">Programme manager</option></select></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px"><span style="width:64px;font-weight:600">On breach</span><span>notify</span><select value="{{ breachTo.v }}" onChange="{{ breachTo.set }}" aria-label="On breach notify" style="height:40px;padding:0 10px;border-radius:8px;border:1px solid {{ breachTo.bd }};background:{{ breachTo.bg }};color:var(--k-text);font-family:inherit;font-size:14px"><option value="Team lead">Team lead</option><option value="Programme manager">Programme manager</option><option value="Programme manager and client">Programme manager and client</option></select></div>
+        <span style="font-size:13px;line-height:19px;color:var(--k-text-2)">Breaches are counted in the monthly service credit report.</span>
+      </section>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ tDisp }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0;flex:1;font-size:14px;line-height:21px;color:var(--k-text-2)">Agents pick one at the end of every interaction. Drag to change the order they see.</p><button style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">add</span>Add disposition</button></div>
+    <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:hidden">
+      <div style="overflow-x:auto"><div style="min-width:820px">
+        <div style="display:grid;grid-template-columns:36px 80px minmax(200px,2fr) 140px 110px 110px 110px 48px;align-items:center;height:40px;padding:0 8px;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border);font-size:12px;font-weight:700;color:var(--k-text-muted);text-transform:uppercase;letter-spacing:.04em"><span></span><span style="padding:0 8px">Code</span><span style="padding:0 8px">Label</span><span style="padding:0 8px">Category</span><span style="padding:0 8px">Note</span><span style="padding:0 8px">Follow-up</span><span style="padding:0 8px">Used, 90 d</span><span></span></div>
+        <sc-for list="{{ disps }}" as="d" hint-placeholder-count="10">
+          <div style="display:grid;grid-template-columns:36px 80px minmax(200px,2fr) 140px 110px 110px 110px 48px;align-items:center;min-height:52px;padding:0 8px;border-bottom:1px solid var(--k-border);font-size:14px">
+            <span aria-hidden="true" style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-muted);cursor:grab;text-align:center">drag_indicator</span>
+            <span style="padding:0 8px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600">{{ d.code }}</span>
+            <span style="padding:0 8px;font-weight:600">{{ d.label }}</span>
+            <span style="padding:0 8px"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:{{ d.catBg }};color:{{ d.catFg }};font-size:12px;font-weight:700;white-space:nowrap">{{ d.cat }}</span></span>
+            <span style="padding:0 8px;display:flex;align-items:center;gap:4px;color:{{ d.noteFg }};font-size:13px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ d.noteIcon }}</span>{{ d.noteTxt }}</span>
+            <span style="padding:0 8px;display:flex;align-items:center;gap:4px;color:{{ d.fuFg }};font-size:13px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ d.fuIcon }}</span>{{ d.fuTxt }}</span>
+            <span style="padding:0 8px;color:var(--k-text-2)">{{ d.used }}</span>
+            <button onClick="{{ d.del }}" aria-label="{{ d.delLabel }}" style="width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:var(--k-text-muted);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--k-danger-soft);color:var(--k-danger-text)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">delete</span></button>
+          </div>
+        </sc-for>
+      </div></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ tScripts }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0;flex:1;font-size:14px;line-height:21px;color:var(--k-text-2)">Agents see the script for the channel and language of each interaction. WhatsApp scripts must match an approved Meta template.</p><button style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">add</span>New script</button></div>
+    <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:hidden">
+      <div style="overflow-x:auto"><div style="min-width:780px">
+        <div style="display:grid;grid-template-columns:minmax(240px,2fr) 140px minmax(160px,1.2fr) 60px 150px 90px;align-items:center;height:40px;padding:0 12px;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border);font-size:12px;font-weight:700;color:var(--k-text-muted);text-transform:uppercase;letter-spacing:.04em"><span style="padding:0 8px">Script</span><span style="padding:0 8px">Channel</span><span style="padding:0 8px">Languages</span><span style="padding:0 8px">Ver.</span><span style="padding:0 8px">Status</span><span style="padding:0 8px">Updated</span></div>
+        <sc-for list="{{ scripts }}" as="s" hint-placeholder-count="6">
+          <div style="display:grid;grid-template-columns:minmax(240px,2fr) 140px minmax(160px,1.2fr) 60px 150px 90px;align-items:center;min-height:52px;padding:0 12px;border-bottom:1px solid var(--k-border);font-size:14px;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><b style="padding:0 8px;font-weight:600">{{ s.name }}</b><span style="padding:0 8px;color:var(--k-text-2)">{{ s.ch }}</span><span style="padding:0 8px;color:var(--k-text-2);font-size:13px">{{ s.langs }}</span><span style="padding:0 8px;font-family:'JetBrains Mono',monospace;font-size:13px">{{ s.ver }}</span><span style="padding:0 8px"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:{{ s.stBg }};color:{{ s.stFg }};font-size:12px;font-weight:700;white-space:nowrap">{{ s.status }}</span></span><span style="padding:0 8px;color:var(--k-text-muted);font-size:13px">{{ s.upd }}</span></div>
+        </sc-for>
+      </div></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ tRet }}" hint-placeholder-val="{{ false }}">
+    <div role="note" style="display:flex;gap:12px;padding:14px 16px;border-radius:10px;background:var(--k-info-soft);color:var(--k-info-text);font-size:14px;line-height:21px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">info</span><span style="text-wrap:pretty">These rules override the workspace default of 2 years. Check the client contract and any sector rules (for example from the Central Bank of Nigeria) before shortening a period. General guidance, not legal advice.</span></div>
+    <section style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:6px 20px">
+      <sc-for list="{{ retRows }}" as="r" hint-placeholder-count="4">
+        <div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--k-border);flex-wrap:wrap"><div style="flex:1 1 260px;display:flex;flex-direction:column;gap:2px"><b style="font-size:14px;font-weight:600">{{ r.label }}</b><span style="font-size:13px;line-height:19px;color:var(--k-text-2)">{{ r.desc }}</span></div><select value="{{ r.v }}" onChange="{{ r.set }}" aria-label="{{ r.aria }}" style="width:180px;height:40px;padding:0 10px;border-radius:8px;border:1px solid {{ r.bd }};background:{{ r.bg }};color:var(--k-text);font-family:inherit;font-size:14px"><option value="30 days">30 days</option><option value="90 days">90 days</option><option value="1 year">1 year</option><option value="2 years">2 years</option><option value="3 years">3 years</option><option value="5 years">5 years</option><option value="7 years">7 years</option><option value="10 years">10 years</option></select></div>
+      </sc-for>
+      <div style="display:flex;flex-direction:column;gap:10px;padding:16px 0;border-bottom:1px solid var(--k-border)"><b style="font-size:14px;font-weight:600">When the period ends</b>
+        <div role="radiogroup" aria-label="When the period ends" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px">
+          <sc-for list="{{ retAfter }}" as="o" hint-placeholder-count="2"><button role="radio" aria-checked="{{ o.checked }}" onClick="{{ o.pick }}" style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:10px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:{{ o.fg }}">{{ o.icon }}</span><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:14px;font-weight:600">{{ o.label }}</b><span style="font-size:13px;line-height:19px;color:var(--k-text-2)">{{ o.desc }}</span></span></button></sc-for>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--k-border)"><div style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:14px;font-weight:600">Redact card numbers, BVN and NIN in transcripts</b><span style="font-size:13px;line-height:19px;color:var(--k-text-2)">Replaced with ••• before storage. Recordings pause while agents take card details.</span></div><button role="switch" aria-checked="{{ swRedact.str }}" aria-label="Redact sensitive numbers" onClick="{{ swRedact.toggle }}" style="width:44px;height:26px;border-radius:13px;border:0;padding:3px;background:{{ swRedact.track }};display:flex;justify-content:{{ swRedact.justify }};cursor:pointer;flex-shrink:0"><span style="width:20px;height:20px;border-radius:50%;background:var(--k-on-primary);box-shadow:var(--k-shadow-1)"></span></button></div>
+      <div style="display:flex;align-items:center;gap:16px;padding:14px 0"><div style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:14px;font-weight:600">Legal hold</b><span style="font-size:13px;line-height:19px;color:var(--k-text-2)">Stops all deletion for this programme until you turn it off. Use only when the client or a regulator asks.</span></div><button role="switch" aria-checked="{{ swHold.str }}" aria-label="Legal hold" onClick="{{ swHold.toggle }}" style="width:44px;height:26px;border-radius:13px;border:0;padding:3px;background:{{ swHold.track }};display:flex;justify-content:{{ swHold.justify }};cursor:pointer;flex-shrink:0"><span style="width:20px;height:20px;border-radius:50%;background:var(--k-on-primary);box-shadow:var(--k-shadow-1)"></span></button></div>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{ tPortal }}" hint-placeholder-val="{{ false }}">
+    <sc-if value="{{ noPortal }}" hint-placeholder-val="{{ true }}">
+      <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:56px 24px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+        <span style="width:64px;height:64px;border-radius:50%;background:var(--k-primary-soft);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:32px;line-height:1">co_present</span>
+        <h2 style="margin:0;font-size:20px;line-height:28px;font-weight:700">No client portal users yet</h2>
+        <p style="margin:0;font-size:15px;line-height:23px;color:var(--k-text-2);max-width:500px;text-wrap:pretty">Invite people from {{ prog.client }} to see live dashboards, QA scores and reports for this programme. They never see other clients’ data.</p>
+        <button onClick="{{ invite }}" style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 16px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">person_add</span>Invite portal user</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ hasPortal }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;justify-content:flex-end"><button onClick="{{ invite }}" style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">person_add</span>Invite another</button></div>
+      <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:hidden">
+        <sc-for list="{{ portal }}" as="p" hint-placeholder-count="1"><div style="display:flex;align-items:center;gap:12px;min-height:60px;padding:0 16px;border-bottom:1px solid var(--k-border);flex-wrap:wrap"><span style="width:32px;height:32px;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">{{ p.ini }}</span><div style="flex:1;min-width:200px;display:flex;flex-direction:column"><b style="font-size:14px;font-weight:600">{{ p.name }}</b><span style="font-size:13px;color:var(--k-text-muted)">{{ p.email }}</span></div><span style="font-size:13px;color:var(--k-text-2)">{{ p.access }}</span><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:var(--k-info-soft);color:var(--k-info-text);font-size:12px;font-weight:700">Invited</span><button style="height:32px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Resend</button></div></sc-for>
+      </div>
+    </sc-if>
+  </sc-if>
+</sc-if>
+
+<sc-if value="{{ isRoles }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px">
+    <div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:13px;font-weight:600;color:var(--k-text-muted)">Users &amp; Access</span>
+      <h1 style="margin:0;font-size:28px;line-height:36px;font-weight:800;letter-spacing:-.01em">Roles hierarchy</h1>
+      <p style="margin:0;font-size:15px;line-height:22px;color:var(--k-text-2);max-width:720px;text-wrap:pretty">Roles decide whose records people can see. Each role sees its own records plus everything owned by roles below it.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button onClick="{{ expandAll }}" style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">unfold_more</span>Expand all</button>
+      <button onClick="{{ collapseAll }}" style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">unfold_less</span>Collapse</button>
+      <button style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 16px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--k-primary-hover)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">add</span>Add role</button>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:{{ rolesCols }};gap:16px;align-items:start">
+    <section aria-label="Role tree" style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--k-border);background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-2)">drag_pan</span><span style="font-size:13px;line-height:19px;color:var(--k-text-2)">Drag a role onto another to change who it reports to. Or pick “Reports to” in the side panel.</span></div>
+      <div role="tree" aria-label="Roles" style="padding:8px;display:flex;flex-direction:column;gap:2px">
+        <sc-for list="{{ treeRows }}" as="n" hint-placeholder-count="16">
+          <div role="treeitem" aria-level="{{ n.level }}" aria-selected="{{ n.selStr }}" aria-expanded="{{ n.expStr }}" tabindex="0" draggable="true" onClick="{{ n.select }}" onDragStart="{{ n.dragStart }}" onDragOver="{{ n.dragOver }}" onDrop="{{ n.drop }}" onDragEnd="{{ n.dragEnd }}" style="display:flex;align-items:center;gap:6px;min-height:44px;padding:0 12px 0 {{ n.pad }};border-radius:8px;background:{{ n.bg }};outline:{{ n.outline }};outline-offset:-2px;opacity:{{ n.op }};cursor:grab;user-select:none" style-hover="background:var(--k-surface-sunken)">
+            <span aria-hidden="true" style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-muted)">drag_indicator</span>
+            <button onClick="{{ n.toggle }}" aria-label="{{ n.chevLabel }}" style="visibility:{{ n.chevVis }};width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ n.chev }}</span></button>
+            <span style="width:28px;height:28px;border-radius:6px;background:{{ n.iconBg }};color:{{ n.iconFg }};display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:17px;line-height:1;flex-shrink:0">{{ n.icon }}</span>
+            <span style="flex:1;min-width:0;font-size:14px;font-weight:{{ n.fw }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ n.name }}</span>
+            <sc-if value="{{ n.isOver }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:999px;background:var(--k-primary);color:var(--k-on-primary);font-size:12px;font-weight:700;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">subdirectory_arrow_right</span>Move under</span></sc-if>
+            <sc-if value="{{ n.moved }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:var(--k-accent-soft);color:var(--k-accent-text);font-size:12px;font-weight:700">Moved</span></sc-if>
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:13px;color:var(--k-text-muted);min-width:44px;justify-content:flex-end"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">person</span>{{ n.users }}</span>
+          </div>
+        </sc-for>
+        <sc-if value="{{ dragging }}" hint-placeholder-val="{{ false }}"><div onDragOver="{{ rootDragOver }}" onDrop="{{ rootDrop }}" style="margin-top:8px;min-height:48px;border:2px dashed {{ rootBd }};background:{{ rootBg }};border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:600;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">vertical_align_top</span>Drop here to make it a top-level role</div></sc-if>
+      </div>
+    </section>
+
+    <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
+    <aside aria-label="Role details" style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;display:flex;flex-direction:column">
+      <div style="padding:18px 20px;border-bottom:1px solid var(--k-border);display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;font-weight:700;color:var(--k-text-muted);text-transform:uppercase;letter-spacing:.04em">Selected role</span><h2 style="margin:0;font-size:18px;line-height:26px;font-weight:700">{{ sr.name }}</h2><span style="font-size:13px;color:var(--k-text-2)">{{ sr.users }} people in this role</span></div>
+      <div style="padding:16px 20px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--k-border);position:relative">
+        <span id="rt-label" style="font-size:13px;font-weight:700">Reports to</span>
+        <button onClick="{{ toggleRt }}" aria-haspopup="listbox" aria-expanded="{{ rtOpenStr }}" aria-labelledby="rt-label" style="display:flex;align-items:center;gap:8px;height:44px;padding:0 10px 0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;text-align:left"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ srParent }}</span><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">expand_more</span></button>
+        <sc-if value="{{ srMoved }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--k-accent-text)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">undo</span>Was under {{ srWasParent }}. Not saved yet.</span></sc-if>
+        <sc-if value="{{ rtOpen }}" hint-placeholder-val="{{ false }}">
+          <div role="listbox" aria-labelledby="rt-label" style="position:absolute;left:20px;right:20px;top:92px;z-index:6;max-height:300px;overflow-y:auto;padding:4px;border-radius:10px;border:1px solid var(--k-border);background:var(--k-surface-raised);box-shadow:var(--k-shadow-2);display:flex;flex-direction:column">
+            <sc-for list="{{ rtOptions }}" as="o" hint-placeholder-count="8"><button role="option" aria-selected="{{ o.sel }}" onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border:0;border-radius:6px;background:{{ o.bg }};color:var(--k-text);font-family:inherit;font-size:14px;text-align:left;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="flex:1">{{ o.name }}</span><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-primary-text)">{{ o.check }}</span></button></sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <div style="padding:16px 20px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--k-border)">
+        <span style="font-size:13px;font-weight:700">Can see records owned by</span>
+        <sc-if value="{{ hasSees }}" hint-placeholder-val="{{ true }}">
+          <span style="font-size:13px;color:var(--k-text-2)">{{ srSeesN }}</span>
+          <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px"><sc-for list="{{ seesList }}" as="s" hint-placeholder-count="3"><li style="display:flex;align-items:center;gap:6px;font-size:14px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:var(--k-text-muted)">subdirectory_arrow_right</span>{{ s.name }}</li></sc-for></ul>
+          <span style="font-size:13px;color:var(--k-text-muted)">{{ seesMore }}</span>
+        </sc-if>
+        <sc-if value="{{ noSees }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;line-height:21px;color:var(--k-text-2)">Only their own records. Sharing rules can add more.</span></sc-if>
+      </div>
+      <div style="padding:16px 20px;display:flex;gap:8px;flex-wrap:wrap">
+        <button style="flex:1;height:40px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">View people</button>
+        <button onClick="{{ deleteRole }}" style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-danger);background:var(--k-surface);color:var(--k-danger-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--k-danger-soft)"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">delete</span>Delete role</button>
+      </div>
+    </aside>
+    </sc-if>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isFls }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px">
+    <div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:13px;font-weight:600;color:var(--k-text-muted)">Users &amp; Access</span>
+      <h1 style="margin:0;font-size:28px;line-height:36px;font-weight:800;letter-spacing:-.01em">Field-level security</h1>
+      <p style="margin:0;font-size:15px;line-height:22px;color:var(--k-text-2);max-width:760px;text-wrap:pretty">Choose who can read or edit each field. Fields without read access are hidden everywhere: lists, reports, exports and the API.</p>
+    </div>
+  </div>
+  <div role="tablist" aria-label="Object" style="display:flex;gap:6px;flex-wrap:wrap">
+    <sc-for list="{{ flsObjs }}" as="o" hint-placeholder-count="5"><button role="tab" aria-selected="{{ o.sel }}" onClick="{{ o.pick }}" style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:8px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.fg }};font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">{{ o.label }}<span style="font-size:12px;font-weight:500">{{ o.count }}</span></button></sc-for>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <div style="position:relative;flex:0 1 280px"><span style="position:absolute;left:10px;top:10px;font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-muted)">search</span><input value="{{ flsQuery }}" onChange="{{ setFlsQuery }}" placeholder="Search fields" aria-label="Search fields" style="width:100%;height:40px;padding:0 12px 0 38px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px" style-focus="outline:2px solid var(--k-focus);outline-offset:1px"></div>
+    <button onClick="{{ toggleSens }}" aria-pressed="{{ sensChip.pressed }}" style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px;border-radius:8px;border:1px solid {{ sensChip.bd }};background:{{ sensChip.bg }};color:{{ sensChip.fg }};font-family:inherit;font-size:14px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ sensChip.icon }}</span>PII and sensitive only</button>
+    <span style="flex:1"></span>
+    <span style="display:flex;align-items:center;gap:14px;font-size:13px;color:var(--k-text-2)"><span style="display:inline-flex;align-items:center;gap:4px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">visibility</span>Read</span><span style="display:inline-flex;align-items:center;gap:4px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">edit</span>Edit</span><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:3px;background:var(--k-accent-soft);border:1px solid var(--k-accent)"></span>Changed</span></span>
+  </div>
+  <sc-if value="{{ flsHasSel }}" hint-placeholder-val="{{ false }}">
+    <div role="region" aria-label="Bulk actions" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px 10px 16px;border-radius:10px;background:var(--k-primary-soft);border:1px solid var(--k-primary-soft-strong)">
+      <b style="font-size:14px;color:var(--k-primary-text)">{{ flsSelTxt }}</b>
+      <span style="font-size:14px">Set access for</span>
+      <select value="{{ bulkSet }}" onChange="{{ setBulkSet }}" aria-label="Permission set" style="height:36px;padding:0 10px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px"><option value="all">All permission sets except Admin</option><option value="agent">Agent</option><option value="tl">Team lead</option><option value="qa">QA analyst</option><option value="pm">Programme manager</option><option value="portal">Client portal</option></select>
+      <div style="display:flex;gap:6px"><button onClick="{{ bulkNone }}" style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">No access</button><button onClick="{{ bulkRead }}" style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Read only</button><button onClick="{{ bulkEdit }}" style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Read and edit</button></div>
+      <span style="flex:1"></span>
+      <button onClick="{{ clearSel }}" style="height:36px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Clear selection</button>
+    </div>
+  </sc-if>
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:auto;max-height:560px">
+    <div style="min-width:1000px">
+      <div style="display:grid;grid-template-columns:minmax(280px,1.7fr) repeat(6,minmax(112px,1fr));position:sticky;top:0;z-index:3;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border)">
+        <div style="position:sticky;left:0;z-index:4;background:var(--k-surface-sunken);display:flex;align-items:center;gap:12px;padding:10px 16px;border-right:1px solid var(--k-border)"><input type="checkbox" checked="{{ allSel }}" onChange="{{ toggleAll }}" aria-label="Select all fields" style="width:18px;height:18px;margin:0;accent-color:var(--k-primary)"><span style="font-size:12px;font-weight:700;color:var(--k-text-muted);text-transform:uppercase;letter-spacing:.04em">Field</span></div>
+        <sc-for list="{{ flsCols }}" as="c" hint-placeholder-count="6"><div style="padding:10px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center;border-left:1px solid var(--k-border)"><span style="display:flex;align-items:center;gap:4px;font-size:13px;font-weight:700">{{ c.name }}<sc-if value="{{ c.locked }}" hint-placeholder-val="{{ false }}"><span title="Admins always have full access" style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:var(--k-text-muted)">lock</span></sc-if></span><span style="font-size:12px;color:var(--k-text-muted)">{{ c.users }}</span></div></sc-for>
+      </div>
+      <sc-for list="{{ flsRows }}" as="r" hint-placeholder-count="14">
+        <div style="display:grid;grid-template-columns:minmax(280px,1.7fr) repeat(6,minmax(112px,1fr));border-bottom:1px solid var(--k-border)">
+          <div style="position:sticky;left:0;z-index:1;background:{{ r.rowBg }};display:flex;align-items:center;gap:12px;padding:8px 16px;min-height:56px;border-right:1px solid var(--k-border)">
+            <input type="checkbox" checked="{{ r.sel }}" onChange="{{ r.toggleSel }}" aria-label="{{ r.selLabel }}" style="width:18px;height:18px;margin:0;accent-color:var(--k-primary);flex-shrink:0">
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600">{{ r.label }}<sc-if value="{{ r.hasTag }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;background:{{ r.tagBg }};color:{{ r.tagFg }};font-size:11px;font-weight:700">{{ r.tag }}</span></sc-if></span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--k-text-muted)">{{ r.api }}</span></div>
+          </div>
+          <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;justify-content:center;gap:4px;background:{{ c.bg }};border-left:1px solid var(--k-border)">
+              <button onClick="{{ c.toggleR }}" aria-pressed="{{ c.rStr }}" aria-label="{{ c.rLabel }}" disabled="{{ c.lock }}" style="width:36px;height:32px;border-radius:6px;border:1px solid {{ c.rBd }};background:{{ c.rBg }};color:{{ c.rFg }};display:flex;align-items:center;justify-content:center;cursor:{{ c.cur }};padding:0"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">visibility</span></button>
+              <button onClick="{{ c.toggleE }}" aria-pressed="{{ c.eStr }}" aria-label="{{ c.eLabel }}" disabled="{{ c.lock }}" style="width:36px;height:32px;border-radius:6px;border:1px solid {{ c.eBd }};background:{{ c.eBg }};color:{{ c.eFg }};display:flex;align-items:center;justify-content:center;cursor:{{ c.cur }};padding:0"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">edit</span></button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+      <sc-if value="{{ noFlsRows }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 24px;text-align:center"><span style="font-family:'Material Symbols Rounded';font-size:32px;line-height:1;color:var(--k-text-muted)">search_off</span><b style="font-size:15px">No fields match</b><button onClick="{{ clearFlsSearch }}" style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Clear search</button></div></sc-if>
+    </div>
+  </div>
+  <span style="font-size:13px;color:var(--k-text-muted)">{{ flsFieldN }} · Edit includes read. Changes apply the next time each person loads a page.</span>
+</sc-if>
+
+<sc-if value="{{ isAudit }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px">
+    <div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:13px;font-weight:600;color:var(--k-text-muted)">Compliance</span>
+      <h1 style="margin:0;font-size:28px;line-height:36px;font-weight:800;letter-spacing:-.01em">Audit log</h1>
+      <p style="margin:0;font-size:15px;line-height:22px;color:var(--k-text-2);max-width:720px;text-wrap:pretty">Every admin, security and data action in this workspace. Entries can’t be edited or deleted and are kept for 7 years.</p>
+    </div>
+    <button onClick="{{ openExport }}" style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">download</span>Export</button>
+  </div>
+  <div role="search" aria-label="Filter audit log" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;padding:16px;background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px">
+    <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700">Actor<select value="{{ aActor }}" onChange="{{ setActor }}" style="height:40px;padding:0 10px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:400"><option value="">Anyone</option><option value="Amaka Okafor">Amaka Okafor</option><option value="Chinedu Eze">Chinedu Eze</option><option value="Fatou Diop">Fatou Diop</option><option value="Kwame Mensah">Kwame Mensah</option><option value="Thabo Nkosi">Thabo Nkosi</option><option value="Wanjiru Kamau">Wanjiru Kamau</option><option value="System">System</option></select></label>
+    <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700">Action<select value="{{ aAction }}" onChange="{{ setAction }}" style="height:40px;padding:0 10px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:400"><option value="">Any action</option><option value="Created">Created</option><option value="Updated">Updated</option><option value="Deleted">Deleted</option><option value="Exported">Exported</option><option value="Invited">Invited</option><option value="Failed sign-in">Failed sign-in</option><option value="Rejected">Rejected</option><option value="Rotated">Rotated</option></select></label>
+    <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700">Object<select value="{{ aObject }}" onChange="{{ setObject }}" style="height:40px;padding:0 10px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:400"><option value="">Any object</option><option value="MFA policy">MFA policy</option><option value="WhatsApp template">WhatsApp template</option><option value="Programme">Programme</option><option value="Session">Session</option><option value="Report">Report</option><option value="Field-level security">Field-level security</option><option value="Retention policy">Retention policy</option><option value="Disposition">Disposition</option><option value="IP allowlist">IP allowlist</option><option value="User">User</option><option value="API key">API key</option><option value="Role">Role</option></select></label>
+    <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700">Date<select value="{{ aRange }}" onChange="{{ setRange }}" style="height:40px;padding:0 10px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:400"><option value="1">Last 24 hours</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="all">All time</option></select></label>
+    <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700">IP address<input value="{{ aIp }}" onChange="{{ setIp }}" placeholder="e.g. 102.89" style="height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:400" style-focus="outline:2px solid var(--k-focus);outline-offset:1px"></label>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:-8px">
+    <span style="font-size:13px;font-weight:600;color:var(--k-text-2)">{{ auditN }}</span>
+    <sc-for list="{{ aChips }}" as="c" hint-placeholder-count="0"><span style="display:inline-flex;align-items:center;gap:2px;height:30px;padding:0 4px 0 10px;border-radius:999px;background:var(--k-primary-soft);color:var(--k-primary-text);font-size:13px;font-weight:600">{{ c.label }}<button onClick="{{ c.clear }}" aria-label="{{ c.clearLabel }}" style="width:24px;height:24px;border:0;border-radius:50%;background:transparent;color:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">close</span></button></span></sc-for>
+    <sc-if value="{{ hasAChips }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearAudit }}" style="height:30px;padding:0 8px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Clear all</button></sc-if>
+  </div>
+  <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:hidden">
+    <sc-if value="{{ hasAudit }}" hint-placeholder-val="{{ true }}">
+    <div style="overflow-x:auto"><div style="min-width:900px">
+      <div style="display:grid;grid-template-columns:160px minmax(170px,1.1fr) 140px minmax(220px,1.6fr) 170px 48px;align-items:center;height:40px;padding:0 8px;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border);font-size:12px;font-weight:700;color:var(--k-text-muted);text-transform:uppercase;letter-spacing:.04em"><span style="padding:0 8px">Time (WAT)</span><span style="padding:0 8px">Actor</span><span style="padding:0 8px">Action</span><span style="padding:0 8px">Object and record</span><span style="padding:0 8px">IP address</span><span></span></div>
+      <sc-for list="{{ auditRows }}" as="a" hint-placeholder-count="12">
+        <div style="border-bottom:1px solid var(--k-border);background:{{ a.rowBg }}">
+          <div style="display:grid;grid-template-columns:160px minmax(170px,1.1fr) 140px minmax(220px,1.6fr) 170px 48px;align-items:center;min-height:56px;padding:0 8px;font-size:14px">
+            <span style="padding:0 8px;font-size:13px;color:var(--k-text-2)">{{ a.t }}</span>
+            <div style="padding:0 8px;display:flex;align-items:center;gap:8px;min-width:0"><sc-if value="{{ a.isSys }}" hint-placeholder-val="{{ false }}"><span style="width:28px;height:28px;border-radius:50%;background:var(--k-surface-sunken);color:var(--k-text-2);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:16px;line-height:1;flex-shrink:0">smart_toy</span></sc-if><sc-if value="{{ a.ini }}" hint-placeholder-val="{{ true }}"><span style="width:28px;height:28px;border-radius:50%;background:var(--k-primary-soft);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">{{ a.ini }}</span></sc-if><div style="display:flex;flex-direction:column;min-width:0"><b style="font-weight:600">{{ a.actor }}</b><span style="font-size:12px;color:var(--k-text-muted)">{{ a.role }}</span></div></div>
+            <span style="padding:0 8px"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:{{ a.acBg }};color:{{ a.acFg }};font-size:12px;font-weight:700;white-space:nowrap">{{ a.action }}</span></span>
+            <div style="padding:0 8px;display:flex;flex-direction:column;min-width:0"><span style="font-weight:600">{{ a.obj }}</span><span style="font-size:13px;color:var(--k-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.rec }}</span></div>
+            <div style="padding:0 8px;display:flex;flex-direction:column"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">{{ a.ip }}</span><span style="font-size:12px;color:var(--k-text-muted)">{{ a.loc }}</span></div>
+            <button onClick="{{ a.toggle }}" aria-expanded="{{ a.expStr }}" aria-label="{{ a.expLabel }}" style="width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">{{ a.chev }}</span></button>
+          </div>
+          <sc-if value="{{ a.open }}" hint-placeholder-val="{{ false }}">
+            <div style="margin:0 16px 14px 176px;border:1px solid var(--k-border);border-radius:8px;background:var(--k-surface);overflow:hidden">
+              <div style="display:grid;grid-template-columns:180px minmax(0,1fr) minmax(0,1fr);gap:12px;padding:8px 14px;background:var(--k-surface-sunken);font-size:12px;font-weight:700;color:var(--k-text-muted);text-transform:uppercase;letter-spacing:.04em"><span>Field</span><span>Before</span><span>After</span></div>
+              <sc-for list="{{ a.diffs }}" as="d" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:180px minmax(0,1fr) minmax(0,1fr);gap:12px;padding:8px 14px;border-top:1px solid var(--k-border);font-size:13px"><span style="font-weight:600">{{ d.f }}</span><span style="font-family:'JetBrains Mono',monospace;color:var(--k-danger-text);text-decoration:line-through">{{ d.b }}</span><span style="font-family:'JetBrains Mono',monospace;color:var(--k-success-text)">{{ d.n }}</span></div></sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div></div>
+    </sc-if>
+    <sc-if value="{{ noAudit }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:64px 24px;text-align:center"><span style="width:56px;height:56px;border-radius:50%;background:var(--k-surface-sunken);color:var(--k-text-2);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:28px;line-height:1">manage_search</span><b style="font-size:16px">No events match these filters</b><span style="font-size:14px;line-height:21px;color:var(--k-text-2);max-width:420px">Try a longer date range or remove a filter. Events older than 7 years are no longer kept.</span><button onClick="{{ clearAudit }}" style="height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Clear filters</button></div>
+    </sc-if>
+  </div>
+</sc-if>
+  </div>
+  </main>
+</div>
+<sc-if value="{{ isDirty }}" hint-placeholder-val="{{ false }}">
+  <div role="region" aria-label="Unsaved changes" style="position:absolute;left:{{ barLeft }};right:0;bottom:20px;z-index:20;display:flex;justify-content:center;padding:0 24px;pointer-events:none">
+    <div style="pointer-events:auto;width:100%;max-width:720px;display:flex;align-items:center;gap:14px;padding:10px 10px 10px 18px;border-radius:12px;background:var(--k-text);color:var(--k-bg);box-shadow:var(--k-shadow-3)">
+      <span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1;color:var(--k-accent)">edit_note</span>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column"><b style="font-size:14px">{{ dirtyTitle }}</b><span style="font-size:13px;color:var(--k-surface-sunken);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ dirtyDetail }}</span></div>
+      <button onClick="{{ discard }}" style="height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border-strong);background:transparent;color:var(--k-bg);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Discard</button>
+      <button onClick="{{ save }}" style="height:40px;padding:0 16px;border-radius:8px;border:0;background:var(--k-accent);color:var(--k-on-accent);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Save changes</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+  <div role="status" style="position:absolute;left:24px;bottom:24px;z-index:25;max-width:440px;display:flex;align-items:center;gap:12px;padding:12px 8px 12px 16px;border-radius:10px;background:var(--k-surface-raised);border:1px solid var(--k-border);box-shadow:var(--k-shadow-3)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-success-text)">check_circle</span><span style="flex:1;font-size:14px;line-height:20px">{{ toastText }}</span><sc-if value="{{ hasUndo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ undo }}" style="height:32px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Undo</button></sc-if><button onClick="{{ closeToast }}" aria-label="Close" style="width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:var(--k-text-muted);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">close</span></button></div>
+</sc-if>
+
+<sc-if value="{{ hasModal }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;inset:0;z-index:40;background:rgba(20,16,12,.5);display:flex;align-items:center;justify-content:center;padding:24px">
+    <div role="dialog" aria-modal="true" aria-labelledby="k-modal-t" style="width:100%;max-width:500px;max-height:100%;overflow-y:auto;background:var(--k-surface-raised);border-radius:16px;box-shadow:var(--k-shadow-3);display:flex;flex-direction:column">
+      <div style="padding:24px 24px 0;display:flex;gap:14px;align-items:flex-start">
+        <span style="width:40px;height:40px;border-radius:10px;flex-shrink:0;background:{{ mIconBg }};color:{{ mIconFg }};display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:22px;line-height:1">{{ modal.icon }}</span>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><h2 id="k-modal-t" style="margin:0;font-size:18px;line-height:26px;font-weight:700;text-wrap:pretty">{{ modal.title }}</h2><p style="margin:0;font-size:14px;line-height:21px;color:var(--k-text-2);text-wrap:pretty">{{ modal.body }}</p></div>
+        <button onClick="{{ closeModal }}" aria-label="Close" style="width:36px;height:36px;margin:-6px -8px 0 0;border:0;border-radius:8px;background:transparent;color:var(--k-text-muted);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">close</span></button>
+      </div>
+      <div style="padding:16px 24px 0 78px;display:flex;flex-direction:column;gap:12px">
+        <sc-if value="{{ mArchive }}" hint-placeholder-val="{{ false }}">
+          <ul style="margin:0;padding:12px 14px;list-style:none;border-radius:10px;background:var(--k-surface-sunken);display:flex;flex-direction:column;gap:8px"><sc-for list="{{ archiveImpacts }}" as="i" hint-placeholder-count="4"><li style="display:flex;gap:8px;font-size:13px;line-height:19px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-2)">{{ i.i }}</span>{{ i.t }}</li></sc-for></ul>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700">Type “archive” to confirm<input value="{{ confirmText }}" onChange="{{ setConfirmText }}" autocomplete="off" style="height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:400" style-focus="outline:2px solid var(--k-focus);outline-offset:1px"></label>
+        </sc-if>
+        <sc-if value="{{ mDisp }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:10px;padding:12px 14px;border-radius:10px;background:var(--k-info-soft);color:var(--k-info-text);font-size:13px;line-height:19px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">lightbulb</span><span>Deactivating hides it from agents but keeps reporting clean. You can turn it back on later.</span></div>
+        </sc-if>
+        <sc-if value="{{ mRole }}" hint-placeholder-val="{{ false }}">
+          <div role="radiogroup" aria-label="Move people to" style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:700">Move people to</span><sc-for list="{{ roleMoveOpts }}" as="o" hint-placeholder-count="3"><button role="radio" aria-checked="{{ o.checked }}" onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:{{ o.fg }}">{{ o.icon }}</span>{{ o.name }}</button></sc-for></div>
+        </sc-if>
+        <sc-if value="{{ mExport }}" hint-placeholder-val="{{ false }}">
+          <div role="radiogroup" aria-label="Format" style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:700">Format</span><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><sc-for list="{{ exFmts }}" as="o" hint-placeholder-count="2"><button role="radio" aria-checked="{{ o.checked }}" onClick="{{ o.pick }}" style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:8px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:{{ o.fg }}">{{ o.icon }}</span><span style="display:flex;flex-direction:column"><b style="font-size:14px">{{ o.label }}</b><span style="font-size:12px;color:var(--k-text-2)">{{ o.desc }}</span></span></button></sc-for></div></div>
+          <div role="radiogroup" aria-label="Which events" style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:700">Which events</span><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><sc-for list="{{ exScopes }}" as="o" hint-placeholder-count="2"><button role="radio" aria-checked="{{ o.checked }}" onClick="{{ o.pick }}" style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:8px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:{{ o.fg }}">{{ o.icon }}</span><span style="display:flex;flex-direction:column"><b style="font-size:14px">{{ o.label }}</b><span style="font-size:12px;color:var(--k-text-2)">{{ o.desc }}</span></span></button></sc-for></div></div>
+          <div style="display:flex;align-items:center;gap:12px"><span style="flex:1;font-size:14px">Include IP addresses and locations</span><button role="switch" aria-checked="{{ exIp.str }}" aria-label="Include IP addresses" onClick="{{ exIp.toggle }}" style="width:44px;height:26px;border-radius:13px;border:0;padding:3px;background:{{ exIp.track }};display:flex;justify-content:{{ exIp.justify }};cursor:pointer;flex-shrink:0"><span style="width:20px;height:20px;border-radius:50%;background:var(--k-on-primary);box-shadow:var(--k-shadow-1)"></span></button></div>
+          <span style="font-size:13px;line-height:19px;color:var(--k-text-2)">We’ll email a download link to amaka.okafor@sabicc.example. It expires after 24 hours.</span>
+        </sc-if>
+        <sc-if value="{{ mLeave }}" hint-placeholder-val="{{ false }}">
+          <ul style="margin:0;padding:12px 14px;list-style:none;border-radius:10px;background:var(--k-surface-sunken);display:flex;flex-direction:column;gap:6px"><sc-for list="{{ leaveParts }}" as="p" hint-placeholder-count="1"><li style="display:flex;justify-content:space-between;gap:8px;font-size:14px"><b style="font-weight:600">{{ p.l }}</b><span style="color:var(--k-text-2)">{{ p.n }}</span></li></sc-for></ul>
+        </sc-if>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;padding:16px 24px;margin-top:20px;border-top:1px solid var(--k-border)">
+        <button onClick="{{ closeModal }}" style="height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">{{ modal.cancel }}</button>
+        <sc-if value="{{ hasAlt }}" hint-placeholder-val="{{ false }}"><button onClick="{{ modalAlt }}" style="height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">{{ modal.alt }}</button></sc-if>
+        <button onClick="{{ confirm }}" aria-disabled="{{ modalDisabled }}" style="height:40px;padding:0 16px;border-radius:8px;border:0;background:{{ mBtnBg }};color:var(--k-on-primary);opacity:{{ mBtnOp }};cursor:{{ mBtnCur }};font-family:inherit;font-size:14px;font-weight:700">{{ modal.confirm }}</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;home-nav&quot;,&quot;prog-list&quot;,&quot;prog-empty&quot;,&quot;prog-overview&quot;,&quot;prog-agents&quot;,&quot;prog-sla&quot;,&quot;prog-dispositions&quot;,&quot;prog-scripts&quot;,&quot;prog-retention&quot;,&quot;prog-portal&quot;,&quot;prog-archive&quot;,&quot;roles&quot;,&quot;roles-drag&quot;,&quot;roles-moved&quot;,&quot;roles-delete&quot;,&quot;fls&quot;,&quot;fls-bulk&quot;,&quot;leave&quot;,&quot;audit&quot;,&quot;audit-empty&quot;,&quot;audit-export&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tablet&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const clone = o => JSON.parse(JSON.stringify(o));
+const TONE = {danger:['var(--k-danger-soft)','var(--k-danger-text)'],warning:['var(--k-warning-soft)','var(--k-warning-text)'],info:['var(--k-info-soft)','var(--k-info-text)'],success:['var(--k-success-soft)','var(--k-success-text)'],neutral:['var(--k-surface-sunken)','var(--k-text-2)'],primary:['var(--k-primary-soft)','var(--k-primary-text)'],accent:['var(--k-accent-soft)','var(--k-accent-text)']};
+const NAV = [
+  {id:'company',label:'Company',icon:'domain',items:[['c-profile','Company profile'],['c-bu','Business units'],['c-fy','Fiscal year'],['c-fx','Currencies & FX rates'],['c-hours','Holidays & business hours']]},
+  {id:'users',label:'Users & Access',icon:'group',items:[['u-users','Users'],['roles','Roles hierarchy'],['u-perm','Permission sets'],['fls','Field-level security'],['u-share','Sharing rules'],['u-sso','SSO / SAML'],['u-mfa','MFA policy'],['u-ip','IP allowlist'],['u-sess','Sessions']]},
+  {id:'bpo',label:'BPO',icon:'support_agent',items:[['b-clients','Clients'],['programmes','Programmes'],['b-sla','SLA policies'],['b-ret','Retention'],['b-disp','Dispositions'],['b-scripts','Scripts'],['b-qa','QA forms'],['b-brand','Client portal branding']]},
+  {id:'channels',label:'Channels',icon:'forum',items:[['ch-wa','WhatsApp numbers'],['ch-sms','SMS sender IDs'],['ch-ussd','USSD codes'],['ch-email','Email domains'],['ch-phone','Phone numbers & trunks']]},
+  {id:'data',label:'Data',icon:'database',items:[['d-io','Import & export'],['d-dedup','Duplicate rules'],['d-bin','Recycle bin'],['d-ret','Data retention']]},
+  {id:'compliance',label:'Compliance',icon:'verified_user',items:[['co-consent','Consent settings'],['co-dnd','DND & quiet hours'],['co-dpia','DPIA records'],['co-dsr','Data-subject requests'],['co-xb','Cross-border transfers'],['audit','Audit log']]},
+  {id:'custom',label:'Customisation',icon:'tune',items:[['cu-obj','Objects'],['cu-fields','Fields'],['cu-layouts','Page layouts'],['cu-val','Validation rules'],['cu-rt','Record types']]},
+  {id:'automation',label:'Automation',icon:'bolt',items:[]},
+  {id:'integrations',label:'Integrations',icon:'extension',items:[]},
+  {id:'billing',label:'Billing',icon:'payments',items:[]}
+];
+const BADGES = {'u-users':['2','warning'],'u-mfa':['2','warning'],'ch-wa':['1','danger'],'co-dsr':['1','warning']};
+const ROUTES = {home:'home',programmes:'programmes',roles:'roles',fls:'fls',audit:'audit','b-sla':'prog:sla','b-ret':'prog:retention','b-disp':'prog:dispositions','b-scripts':'prog:scripts'};
+const TAB_NAV = {sla:'b-sla',retention:'b-ret',dispositions:'b-disp',scripts:'b-scripts'};
+const ALERTS = [
+  {id:'wa',sev:'danger',icon:'block',title:'WhatsApp template rejected',body:'“payment_reminder_v3” for Eko Bank Collections was rejected by Meta: promotional wording in a utility template.',meta:'Meta · 2 hours ago',action:'Edit template'},
+  {id:'mfa',sev:'warning',icon:'lock_open',title:'2 users without MFA',body:'Chidinma Okeke and Kwame Mensah still sign in with a password only. MFA becomes required on 1 Oct 2026.',meta:'Security · since 21 Sep',action:'Remind them'},
+  {id:'dsr',sev:'warning',icon:'schedule',title:'Data-subject request due in 3 days',body:'Access request DSR-0142 from a customer in Kenya. Reply by 30 Sep 2026.',meta:'Compliance · opened 16 Sep',action:'Open request'},
+  {id:'seats',sev:'warning',icon:'event_seat',title:'Seats almost full',body:'142 of 160 seats in use. 12 new agents for Pesa Merchant Onboarding start on 1 Oct.',meta:'Billing · today',action:'Add seats'},
+  {id:'sms',sev:'info',icon:'hourglass_top',title:'SMS sender ID pending',body:'“SABICC” is waiting for approval from MTN Nigeria. This usually takes 3–5 working days.',meta:'Channels · submitted 24 Sep',action:'View status'}
+];
+const HEALTH = [['ok','SSO with Microsoft Entra ID',''],['ok','Retention set for every programme',''],['danger','1 WhatsApp template rejected','+8'],['warning','2 users without MFA','+6'],['warning','Kenya public holidays not set','+4'],['todo','Name a data protection officer','+4']];
+const HICON = {ok:['check_circle','var(--k-success-text)'],danger:['error','var(--k-danger-text)'],warning:['warning','var(--k-warning-text)'],todo:['radio_button_unchecked','var(--k-text-muted)']};
+const METERS = [
+  {icon:'event_seat',label:'Seats',value:'142',of:'of 160',pct:89,note:'18 seats left. 12 agents start on 1 Oct.'},
+  {icon:'chat',label:'WhatsApp conversations',value:'38,420',of:'this month',pct:78,mark:90,note:'₦1,284,300 spent of ₦1,650,000 estimated for September. Final cost follows Meta’s rates.'},
+  {icon:'cloud',label:'Storage',value:'312 GB',of:'of 500 GB',pct:62,note:'Call recordings use 268 GB of this.'},
+  {icon:'auto_awesome',label:'AI credits',value:'7,850',of:'of 10,000',pct:79,mark:90,note:'Mostly call summaries and QA scoring. Resets 1 Oct.'}
+];
+const PROGS = [
+  {id:'eko',name:'Eko Bank Collections',client:'Eko Commercial Bank',country:'Nigeria',ch:['chat','call','sms'],agents:64,sla:96.2,ret:'7 years',st:'Active',code:'PRG-0031'},
+  {id:'volta',name:'Volta Mobile Money Support',client:'Volta Telecom',country:'Ghana',ch:['chat','call','dialpad'],agents:48,sla:91.4,ret:'2 years',st:'Active',code:'PRG-0027'},
+  {id:'soko',name:'Soko Returns & Refunds',client:'Soko Online',country:'Kenya',ch:['chat','mail'],agents:22,sla:88.7,ret:'1 year',st:'Active',code:'PRG-0024'},
+  {id:'twiga',name:'Twiga Fibre Sales',client:'Twiga Networks',country:'Kenya',ch:['call','sms'],agents:30,sla:94.0,ret:'3 years',st:'Active',code:'PRG-0022'},
+  {id:'karoo',name:'Karoo Health Claims',client:'Karoo Medical Aid',country:'South Africa',ch:['call','mail'],agents:36,sla:97.8,ret:'5 years',st:'Active',code:'PRG-0019'},
+  {id:'pesa',name:'Pesa Merchant Onboarding',client:'PesaPoint',country:'Kenya',ch:['chat'],agents:18,sla:93.1,ret:'5 years',st:'Active',code:'PRG-0034'},
+  {id:'arewa',name:'Arewa Cement Dealer Line',client:'Arewa Cement',country:'Nigeria',ch:['chat','call'],agents:12,sla:79.5,ret:'2 years',st:'Paused',code:'PRG-0015'},
+  {id:'teranga',name:'Teranga Air Helpdesk',client:'Teranga Air',country:'Senegal',ch:['mail'],agents:0,sla:null,ret:'Not set',st:'Draft',code:'PRG-0035'}
+];
+const CHN = {chat:'WhatsApp',call:'Voice',sms:'SMS',mail:'Email',dialpad:'USSD'};
+const STT = {Active:'success',Paused:'warning',Draft:'neutral'};
+const AGENTS = [
+  ['Ngozi Adeyemi','NA','Team A',['Collections L3','Restructuring'],'English, Yorùbá, Pidgin','On call'],
+  ['Musa Abdullahi','MA','Team A',['Collections L2'],'English, Hausa','Available'],
+  ['Blessing Okon','BO','Team B',['Collections L1','Verification'],'English, Pidgin','Available'],
+  ['Tunde Bakare','TB','Team B',['Collections L3','Legal referrals'],'English, Yorùbá','On call'],
+  ['Halima Sani','HS','Team C',['Collections L2','Hardship'],'English, Hausa','On break'],
+  ['Emeka Nwankwo','EN','Team C',['Collections L1'],'English, Igbo, Pidgin','Offline'],
+  ['Aisha Lawal','AL','Team A',['Verification','Collections L2'],'English, Hausa, Yorùbá','Available'],
+  ['Chioma Obi','CO','Team B',['Hardship','Restructuring'],'English, Igbo','On call']
+];
+const AST = {'On call':'primary',Available:'success','On break':'warning',Offline:'neutral'};
+const COVER = [['Collections L3',12,10],['Hausa speakers',9,12],['Hardship',8,8],['Igbo speakers',7,6]];
+const SLA0 = {rows:[{ch:'WhatsApp',icon:'chat',fr:'2 min',res:'24 h',clock:'Business hours'},{ch:'Voice',icon:'call',fr:'20 sec',res:'Same call',clock:'Business hours'},{ch:'Email',icon:'mail',fr:'4 h',res:'48 h',clock:'Business hours'},{ch:'SMS',icon:'sms',fr:'15 min',res:'24 h',clock:'24 × 7'}],pauseHours:true,pauseCust:true,warnAt:'80% of target',warnTo:'Team lead',breachTo:'Programme manager and client'};
+const RET0 = {rec:'7 years',chat:'7 years',screen:'90 days',qa:'3 years',after:'delete',redact:true,hold:false};
+const DISPS = [
+  {id:'ptp',code:'PTP',label:'Promise to pay',cat:'Promise to pay',note:true,fu:true,used:'3,214'},
+  {id:'paid',code:'PAID',label:'Paid in full',cat:'Resolved',note:false,fu:false,used:'1,870'},
+  {id:'part',code:'PART',label:'Part payment made',cat:'Resolved',note:true,fu:true,used:'942'},
+  {id:'cb',code:'CB',label:'Callback requested',cat:'Callback',note:false,fu:true,used:'2,406'},
+  {id:'rtp',code:'RTP',label:'Refused to pay',cat:'Escalated',note:true,fu:false,used:'511'},
+  {id:'disp',code:'DISP',label:'Disputes the debt',cat:'Escalated',note:true,fu:false,used:'288'},
+  {id:'hard',code:'HARD',label:'Hardship: refer to restructuring',cat:'Escalated',note:true,fu:true,used:'176'},
+  {id:'wn',code:'WN',label:'Wrong number',cat:'Not reached',note:false,fu:false,used:'1,093'},
+  {id:'na',code:'NA',label:'No answer',cat:'Not reached',note:false,fu:true,used:'6,752'},
+  {id:'dec',code:'DEC',label:'Customer deceased',cat:'Escalated',note:true,fu:false,used:'14'}
+];
+const DCAT = {'Promise to pay':'primary',Resolved:'success',Callback:'info',Escalated:'warning','Not reached':'neutral'};
+const SCRIPTS = [
+  ['Early arrears: first contact','Voice','English, Pidgin, Yorùbá','v4','Published','12 Sep'],
+  ['WhatsApp payment reminder','WhatsApp','English','v3','Rejected by Meta','27 Sep'],
+  ['Promise-to-pay confirmation','SMS','English, Hausa','v2','Published','3 Sep'],
+  ['Identity check before discussing debt','Voice, WhatsApp','English','v5','Published','29 Aug'],
+  ['Hardship and restructuring','Voice','English','v2','Draft','25 Sep'],
+  ['Bereavement: customer deceased','Voice','English','v1','In review','20 Sep']
+];
+const SCT = {Published:'success','Rejected by Meta':'danger',Draft:'neutral','In review':'info'};
+const ROLES = [
+  {id:'md',name:'Managing Director',users:1},{id:'hops',name:'Head of Operations',users:1,p:'md'},
+  {id:'pmb',name:'Programme Manager, Banking',users:3,p:'hops'},{id:'tle',name:'Team Lead, Eko Collections',users:6,p:'pmb'},{id:'age',name:'Agent, Eko Collections',users:58,p:'tle'},
+  {id:'tlp',name:'Team Lead, Pesa Onboarding',users:2,p:'pmb'},{id:'agp',name:'Agent, Pesa Onboarding',users:16,p:'tlp'},
+  {id:'pmt',name:'Programme Manager, Telco',users:2,p:'hops'},{id:'tlv',name:'Team Lead, Volta MoMo',users:5,p:'pmt'},{id:'agv',name:'Agent, Volta MoMo',users:43,p:'tlv'},
+  {id:'qam',name:'QA Manager',users:1,p:'hops'},{id:'qaa',name:'QA Analyst',users:14,p:'qam'},{id:'wfp',name:'Workforce Planner',users:2,p:'hops'},
+  {id:'hs',name:'Head of Sales',users:1,p:'md'},{id:'ad',name:'Account Director',users:4,p:'hs'},{id:'fin',name:'Finance Manager',users:2,p:'md'}
+];
+const P0 = {}; ROLES.forEach(r => { P0[r.id] = r.p || ''; });
+const RN = {}; ROLES.forEach(r => { RN[r.id] = r; });
+const SETS = [['agent','Agent',412],['tl','Team lead',38],['qa','QA analyst',14],['pm','Programme manager',9],['portal','Client portal',26],['admin','Admin',4]];
+const OBJS = [
+  ['contact','Contact',[['name','Full name','full_name',''],['phone','Phone number','phone','PII'],['wa','WhatsApp number','whatsapp_number','PII'],['email','Email','email','PII'],['dob','Date of birth','date_of_birth','PII'],['nin','NIN','national_id_number','Sensitive'],['bvn','BVN','bank_verification_number','Sensitive'],['addr','Home address','home_address','PII'],['bal','Outstanding balance (₦)','outstanding_balance',''],['score','Credit score','credit_score','Sensitive'],['lang','Preferred language','preferred_language',''],['consent','Marketing consent','marketing_consent',''],['owner','Owner','owner_id',''],['notes','Private notes','private_notes','']]],
+  ['lead','Lead',[['name','Full name','full_name',''],['company','Company','company',''],['phone','Phone number','phone','PII'],['email','Email','email','PII'],['source','Lead source','lead_source',''],['budget','Budget','budget',''],['owner','Owner','owner_id','']]],
+  ['case','Case',[['subject','Subject','subject',''],['status','Status','status',''],['priority','Priority','priority',''],['desc','Description','description',''],['attach','Attachments','attachments','PII'],['csat','CSAT score','csat_score',''],['owner','Owner','owner_id','']]],
+  ['deal','Deal',[['name','Deal name','name',''],['amount','Amount','amount',''],['stage','Stage','stage',''],['close','Close date','close_date',''],['discount','Discount %','discount_pct',''],['owner','Owner','owner_id','']]],
+  ['interaction','Interaction',[['channel','Channel','channel',''],['transcript','Transcript','transcript','PII'],['recording','Call recording','recording_url','PII'],['sentiment','Sentiment','sentiment',''],['disposition','Disposition','disposition',''],['qa','QA score','qa_score',''],['agent','Agent','agent_id','']]]
+];
+const FLS0 = {};
+OBJS.forEach(([o,,fs]) => fs.forEach(([f,,,tag]) => SETS.forEach(([s]) => {
+  let v;
+  if (s === 'admin') v = 2;
+  else if (tag === 'Sensitive') v = s === 'pm' ? 1 : 0;
+  else if (tag === 'PII') v = {agent:2,tl:2,qa:1,pm:2,portal:0}[s];
+  else v = {agent:2,tl:2,qa:1,pm:2,portal:1}[s];
+  if (o === 'contact' && s === 'agent' && ['dob','addr','bal'].includes(f)) v = 1;
+  if (f === 'notes' && s === 'portal') v = 0;
+  FLS0[o + '.' + f + '.' + s] = v;
+})));
+const AUDIT = [
+  {id:'a1',d:0,t:'27 Sep, 14:32',actor:'Amaka Okafor',role:'Tenant admin',action:'Updated',obj:'MFA policy',rec:'Workspace MFA policy',ip:'102.89.34.12',loc:'Lagos, NG',diff:[['Requirement','Optional','Required for all users'],['Starts','None','1 Oct 2026'],['Grace period','None','7 days']]},
+  {id:'a2',d:0,t:'27 Sep, 13:05',actor:'System',role:'Meta webhook',action:'Rejected',obj:'WhatsApp template',rec:'payment_reminder_v3',ip:'—',loc:'Meta',diff:[['Status','In review','Rejected'],['Reason','None','Promotional content in a utility template']]},
+  {id:'a3',d:0,t:'27 Sep, 11:48',actor:'Chinedu Eze',role:'Programme manager',action:'Created',obj:'Programme',rec:'Pesa Merchant Onboarding',ip:'105.112.40.7',loc:'Abuja, NG',diff:[['Client','None','PesaPoint'],['Retention','None','5 years']]},
+  {id:'a4',d:0,t:'27 Sep, 09:12',actor:'Kwame Mensah',role:'Team lead',action:'Failed sign-in',obj:'Session',rec:'3 attempts, password',ip:'154.160.2.18',loc:'Accra, GH',diff:[['Result','Signed out','Locked for 15 minutes']]},
+  {id:'a5',d:1,t:'26 Sep, 17:40',actor:'Wanjiru Kamau',role:'QA manager',action:'Exported',obj:'Report',rec:'Soko Returns: weekly QA',ip:'41.90.64.3',loc:'Nairobi, KE',diff:[['Rows','None','4,210'],['Format','None','CSV']]},
+  {id:'a6',d:1,t:'26 Sep, 15:22',actor:'Amaka Okafor',role:'Tenant admin',action:'Updated',obj:'Field-level security',rec:'Contact · BVN',ip:'102.89.34.12',loc:'Lagos, NG',diff:[['Agent','Read','No access'],['Team lead','Read','No access']]},
+  {id:'a7',d:2,t:'25 Sep, 10:03',actor:'Thabo Nkosi',role:'Programme manager',action:'Updated',obj:'Retention policy',rec:'Karoo Health Claims',ip:'41.13.200.5',loc:'Johannesburg, ZA',diff:[['Call recordings','3 years','5 years']]},
+  {id:'a8',d:3,t:'24 Sep, 16:51',actor:'Amaka Okafor',role:'Tenant admin',action:'Deleted',obj:'Disposition',rec:'LEGACY: old callback code',ip:'102.89.34.12',loc:'Lagos, NG',diff:[['Status','Inactive','Deleted']]},
+  {id:'a9',d:4,t:'23 Sep, 08:30',actor:'Fatou Diop',role:'Tenant admin',action:'Updated',obj:'IP allowlist',rec:'Dakar office',ip:'41.82.10.44',loc:'Dakar, SN',diff:[['Range','41.82.10.0/24','41.82.10.0/23']]},
+  {id:'a10',d:5,t:'22 Sep, 12:15',actor:'Chinedu Eze',role:'Programme manager',action:'Invited',obj:'User',rec:'fatima.bello@sabicc.example',ip:'105.112.40.7',loc:'Abuja, NG',diff:[['Role','None','Agent, Eko Collections']]},
+  {id:'a11',d:12,t:'15 Sep, 02:00',actor:'System',role:'Scheduled job',action:'Rotated',obj:'API key',rec:'Paystack integration',ip:'—',loc:'af-south-1',diff:[['Key ending','…8f2a','…c41d']]},
+  {id:'a12',d:19,t:'8 Sep, 14:44',actor:'Amaka Okafor',role:'Tenant admin',action:'Created',obj:'Role',rec:'Workforce Planner',ip:'102.89.34.12',loc:'Lagos, NG',diff:[['Reports to','None','Head of Operations']]}
+];
+const ATONE = {Created:'success',Updated:'info',Deleted:'danger','Failed sign-in':'danger',Rejected:'danger',Exported:'warning',Invited:'neutral',Rotated:'neutral'};
+
+class Component extends DCLogic {
+  state = this.initState(this.props.screen || 'home');
+
+  initState(sc) {
+    const s = {navId:'home',progId:'eko',progOpen:false,tab:'overview',groups:{},navOpen:false,navQuery:'',alerts:ALERTS.map(a => a.id),progFilter:'all',progQuery:'',progEmpty:false,
+      sla:clone(SLA0),slaSaved:clone(SLA0),ret:{...RET0},retSaved:{...RET0},disps:DISPS.slice(),portal:[],
+      parents:{...P0},parentsSaved:{...P0},deleted:{},collapsed:{},selRole:'pmb',dragId:null,overId:null,rtOpen:false,
+      flsObj:'contact',fls:{...FLS0},flsSaved:{...FLS0},flsSel:{},flsQuery:'',flsSens:false,bulkSet:'all',
+      aActor:'',aAction:'',aObject:'',aRange:'30',aIp:'',aOpen:{},exFmt:'csv',exScope:'filtered',exIp:true,
+      modal:null,confirmText:'',moveTo:'',toast:null};
+    const prog = t => { s.navId = TAB_NAV[t] || 'programmes'; s.progOpen = true; s.tab = t; };
+    switch (sc) {
+      case 'prog-list': s.navId = 'programmes'; break;
+      case 'prog-empty': s.navId = 'programmes'; s.progEmpty = true; break;
+      case 'prog-overview': prog('overview'); break;
+      case 'prog-agents': prog('agents'); break;
+      case 'prog-sla': prog('sla'); s.sla.rows[0].fr = '90 sec'; s.sla.warnAt = '75% of target'; break;
+      case 'prog-dispositions': prog('dispositions'); s.modal = {kind:'disp',id:'ptp'}; break;
+      case 'prog-scripts': prog('scripts'); break;
+      case 'prog-retention': prog('retention'); break;
+      case 'prog-portal': prog('portal'); break;
+      case 'prog-archive': prog('overview'); s.modal = {kind:'archive'}; break;
+      case 'roles': s.navId = 'roles'; break;
+      case 'roles-drag': s.navId = 'roles'; s.dragId = 'wfp'; s.overId = 'pmt'; s.selRole = 'wfp'; break;
+      case 'roles-moved': s.navId = 'roles'; s.parents.wfp = 'pmt'; s.selRole = 'wfp'; break;
+      case 'roles-delete': s.navId = 'roles'; s.selRole = 'wfp'; s.modal = {kind:'role',id:'wfp'}; s.moveTo = 'hops'; break;
+      case 'fls': s.navId = 'fls'; break;
+      case 'fls-bulk': s.navId = 'fls'; s.flsSel = {nin:1,bvn:1,score:1}; s.bulkSet = 'qa'; s.fls['contact.dob.agent'] = 0; s.fls['contact.bal.portal'] = 0; s.fls['contact.nin.pm'] = 0; break;
+      case 'leave': s.navId = 'fls'; s.fls['contact.dob.agent'] = 0; s.fls['contact.addr.agent'] = 0; s.modal = {kind:'leave',target:'home'}; break;
+      case 'audit': s.navId = 'audit'; s.aOpen = {a1:true}; break;
+      case 'audit-empty': s.navId = 'audit'; s.aActor = 'Fatou Diop'; s.aAction = 'Deleted'; break;
+      case 'audit-export': s.navId = 'audit'; s.modal = {kind:'export'}; break;
+      case 'home-nav': s.navOpen = true; s.groups.bpo = true; break;
+    }
+    const g = NAV.find(g => g.items.some(i => i[0] === s.navId));
+    if (g) s.groups[g.id] = true;
+    return s;
+  }
+
+  componentWillUnmount() { clearTimeout(this._t); }
+
+  pageOf(navId, progOpen) {
+    const r = ROUTES[navId];
+    if (!r) return 'stub';
+    if (r.startsWith('prog:')) return 'programme';
+    if (r === 'programmes' && progOpen) return 'programme';
+    return r;
+  }
+
+  counts(st) {
+    const d = (a, b) => Object.keys(a).filter(k => JSON.stringify(a[k]) !== JSON.stringify(b[k])).length;
+    let sla = 0;
+    st.sla.rows.forEach((r, i) => ['fr','res','clock'].forEach(k => { if (r[k] !== st.slaSaved.rows[i][k]) sla++; }));
+    ['pauseHours','pauseCust','warnAt','warnTo','breachTo'].forEach(k => { if (st.sla[k] !== st.slaSaved[k]) sla++; });
+    return [['SLA policy', sla], ['Retention', d(st.ret, st.retSaved)], ['Field-level security', d(st.fls, st.flsSaved)], ['Role hierarchy', d(st.parents, st.parentsSaved)]].filter(p => p[1] > 0);
+  }
+
+  toast(text, undo) {
+    clearTimeout(this._t);
+    this.setState({toast:{text, undo}});
+    this._t = setTimeout(() => this.setState({toast:null}), 5000);
+  }
+
+  go(id) {
+    const st = this.state;
+    const dirty = this.counts(st).length > 0;
+    const toPage = this.pageOf(id, ROUTES[id] && ROUTES[id].startsWith('prog:'));
+    const fromPage = this.pageOf(st.navId, st.progOpen);
+    if (dirty && toPage !== fromPage) { this.setState({modal:{kind:'leave',target:id}}); return; }
+    this.doGo(id);
+  }
+
+  doGo(id, extra) {
+    const r = ROUTES[id] || '';
+    const g = NAV.find(g => g.items.some(i => i[0] === id));
+    this.setState(s => ({navId:id, progOpen:r.startsWith('prog:'), tab:r.startsWith('prog:') ? r.slice(5) : s.tab, navOpen:false, rtOpen:false, groups:g ? {...s.groups, [g.id]:true} : s.groups, ...(extra || {})}));
+    if (this._main) this._main.scrollTop = 0;
+  }
+
+  discardAll() {
+    this.setState(s => ({sla:clone(s.slaSaved), ret:{...s.retSaved}, fls:{...s.flsSaved}, parents:{...s.parentsSaved}}));
+  }
+
+  descendants(parents, id) {
+    const out = [];
+    const walk = i => ROLES.forEach(r => { if (!this.state.deleted[r.id] && parents[r.id] === i) { out.push(r.id); walk(r.id); } });
+    walk(id);
+    return out;
+  }
+
+  sw(on, fn) {
+    return {str:String(!!on), toggle:fn, track:on ? 'var(--k-primary)' : 'var(--k-border-strong)', justify:on ? 'flex-end' : 'flex-start'};
+  }
+
+  renderVals() {
+    const st = this.state;
+    const tablet = !!this.props.tablet;
+    const page = this.pageOf(st.navId, st.progOpen);
+    const set = o => this.setState(o);
+    const tone = (t, i) => TONE[t][i];
+
+    const q = st.navQuery.trim().toLowerCase();
+    const navGroups = NAV.map(g => {
+      const gm = g.label.toLowerCase().includes(q);
+      const items = g.items.filter(i => !q || gm || i[1].toLowerCase().includes(q));
+      if (q && !items.length && !gm) return null;
+      const single = !g.items.length;
+      const open = !single && (q ? true : !!st.groups[g.id]);
+      const activeIn = g.items.some(i => i[0] === st.navId) || st.navId === g.id;
+      return {
+        label:g.label, icon:g.icon, open, single, expStr:single ? undefined : String(open), chev:single ? '' : (open ? 'expand_less' : 'expand_more'),
+        bg:single && st.navId === g.id ? 'var(--k-primary-soft)' : 'transparent', fg:activeIn ? 'var(--k-primary-text)' : 'var(--k-text)', cur:single && st.navId === g.id ? 'page' : undefined,
+        hasAlert:!open && g.items.some(i => BADGES[i[0]]),
+        toggle:single ? () => this.go(g.id) : () => this.setState(s => ({groups:{...s.groups, [g.id]:!s.groups[g.id]}})),
+        items:items.map(([id, label]) => {
+          const cur = st.navId === id, b = BADGES[id];
+          return {label, go:() => this.go(id), cur:cur ? 'page' : undefined, bg:cur ? 'var(--k-primary-soft)' : 'transparent', fg:cur ? 'var(--k-primary-text)' : 'var(--k-text-2)', fw:cur ? 700 : 500, badge:!!b, badgeText:b ? b[0] : '', badgeBg:b ? tone(b[1], 0) : '', badgeFg:b ? tone(b[1], 1) : ''};
+        })
+      };
+    }).filter(Boolean);
+    const homeCur = st.navId === 'home';
+    let stubLabel = 'This page';
+    NAV.forEach(g => { if (g.id === st.navId) stubLabel = g.label; g.items.forEach(i => { if (i[0] === st.navId) stubLabel = i[1]; }); });
+    const stubGroup = (NAV.find(g => g.id === st.navId || g.items.some(i => i[0] === st.navId)) || {}).label || '';
+
+    const parts = this.counts(st);
+    const dirtyN = parts.reduce((a, p) => a + p[1], 0);
+
+    // Home
+    const alerts = ALERTS.filter(a => st.alerts.includes(a.id)).map(a => ({...a, softBg:tone(a.sev, 0), fg:tone(a.sev, 1), dismiss:() => set({alerts:st.alerts.filter(x => x !== a.id)})}));
+    const health = HEALTH.map(([k, label, pts]) => ({label, pts, icon:HICON[k][0], fg:HICON[k][1], fix:k !== 'ok'}));
+    const meters = METERS.map(m => ({...m, w:m.pct + '%', bar:m.pct >= 85 ? 'var(--k-warning)' : 'var(--k-primary)', hasMark:!!m.mark, markL:(m.mark || 0) + '%'}));
+    const recent = AUDIT.slice(0, 5).map(a => ({t:a.t + ' WAT', actor:a.actor, what:a.action + ' · ' + a.obj, rec:a.rec}));
+
+    // Programmes
+    const pq = st.progQuery.trim().toLowerCase();
+    const plist = st.progEmpty ? [] : PROGS;
+    const progRows = plist.filter(p => (st.progFilter === 'all' || p.st === st.progFilter) && (!pq || (p.name + ' ' + p.client).toLowerCase().includes(pq))).map(p => {
+      const s = p.sla;
+      const t = s == null ? 'neutral' : s >= 95 ? 'success' : s >= 85 ? 'warning' : 'danger';
+      return {...p, sub:p.client + ' · ' + p.country, channels:p.ch.map(c => ({icon:c, name:CHN[c]})), slaTxt:s == null ? 'No data' : s.toFixed(1) + '%', slaW:(s || 0) + '%', slaBar:t === 'success' ? 'var(--k-success)' : t === 'warning' ? 'var(--k-warning)' : t === 'danger' ? 'var(--k-danger)' : 'transparent', slaFg:tone(t, 1), stBg:tone(STT[p.st], 0), stFg:tone(STT[p.st], 1), agentsTxt:p.agents ? String(p.agents) : 'None yet',
+        open:() => { this.setState({progOpen:true, progId:p.id, tab:'overview', navId:'programmes'}); if (this._main) this._main.scrollTop = 0; }};
+    });
+    const progChips = [['all','All'],['Active','Active'],['Paused','Paused'],['Draft','Draft']].map(([k, l]) => {
+      const on = st.progFilter === k;
+      return {label:l, count:k === 'all' ? plist.length : plist.filter(p => p.st === k).length, pressed:String(on), pick:() => set({progFilter:k}), bg:on ? 'var(--k-primary)' : 'var(--k-surface)', fg:on ? 'var(--k-on-primary)' : 'var(--k-text)', bd:on ? 'var(--k-primary)' : 'var(--k-border)'};
+    });
+    const prog = PROGS.find(p => p.id === st.progId) || PROGS[0];
+    const TABS = [['overview','Overview',''],['agents','Agents & skills',String(prog.agents)],['sla','SLA',''],['dispositions','Dispositions',String(st.disps.length)],['scripts','Scripts','6'],['retention','Retention',''],['portal','Portal users',st.portal.length ? String(st.portal.length) : '']];
+    const tabs = TABS.map(([k, l, c]) => {
+      const on = st.tab === k;
+      return {label:l, count:c, hasCount:!!c, sel:String(on), bd:on ? 'var(--k-primary)' : 'transparent', fg:on ? 'var(--k-primary-text)' : 'var(--k-text-2)', fw:on ? 700 : 600, pick:() => set({tab:k, navId:TAB_NAV[k] || 'programmes'})};
+    });
+    const kpis = [['SLA met, last 7 days','96.2%','Target 95%','success'],['Contacts handled','18,430','Up 6% on last week','neutral'],['Average handle time','6m 12s','Target under 7m','neutral'],['QA score','87%','3 agents below 75%','warning']].map(([l, v, n, t]) => ({label:l, value:v, note:n, noteFg:t === 'neutral' ? 'var(--k-text-2)' : tone(t, 1)}));
+    const ovCards = [
+      {title:'Contract', icon:'contract', rows:[['Client', prog.client], ['Contract ref', 'EKB-BPO-2025-014'], ['Started', '1 Mar 2025'], ['Renews', '28 Feb 2027'], ['Billing', 'Per productive hour']]},
+      {title:'Channels & hours', icon:'forum', rows:[['WhatsApp', '+234 1 700 0200'], ['Voice', '2 SIP trunks, Lagos'], ['SMS sender ID', 'EKOBANK'], ['Hours', 'Mon–Sat, 08:00–20:00 WAT'], ['Holidays', 'Nigeria public holidays']]},
+      {title:'People', icon:'groups', rows:[['Programme manager', 'Chinedu Eze'], ['Team leads', '6'], ['Agents', String(prog.agents)], ['QA analysts', '3'], ['Portal users', String(st.portal.length)]]}
+    ].map(c => ({...c, rows:c.rows.map(([k, v]) => ({k, v}))}));
+    const agents = AGENTS.map(([n, ini, team, skills, langs, status]) => ({name:n, ini, team, skills, langs, status, stBg:tone(AST[status], 0), stFg:tone(AST[status], 1)}));
+    const cover = COVER.map(([l, has, need]) => { const ok = has >= need; return {label:l, txt:has + ' of ' + need + ' needed', w:Math.min(100, Math.round(has / need * 100)) + '%', bar:ok ? 'var(--k-success)' : 'var(--k-warning)', fg:ok ? 'var(--k-text-2)' : 'var(--k-warning-text)'}; });
+
+    const updSla = (i, k) => e => { const v = e.target.value; this.setState(s => { const sla = clone(s.sla); if (i == null) sla[k] = v; else sla.rows[i][k] = v; return {sla}; }); };
+    const slaRows = st.sla.rows.map((r, i) => {
+      const o = st.slaSaved.rows[i];
+      const bd = k => r[k] !== o[k] ? 'var(--k-accent)' : 'var(--k-border-strong)';
+      const bg = k => r[k] !== o[k] ? 'var(--k-accent-soft)' : 'var(--k-surface)';
+      return {...r, frBd:bd('fr'), resBd:bd('res'), clockBd:bd('clock'), frBg:bg('fr'), resBg:bg('res'), clockBg:bg('clock'), setFr:updSla(i, 'fr'), setRes:updSla(i, 'res'), setClock:updSla(i, 'clock'), frLabel:r.ch + ' first response target', resLabel:r.ch + ' resolution target', clockLabel:r.ch + ' clock'};
+    });
+    const slaSel = k => ({v:st.sla[k], set:updSla(null, k), bd:st.sla[k] !== st.slaSaved[k] ? 'var(--k-accent)' : 'var(--k-border-strong)', bg:st.sla[k] !== st.slaSaved[k] ? 'var(--k-accent-soft)' : 'var(--k-surface)'});
+    const swPauseHours = this.sw(st.sla.pauseHours, () => this.setState(s => ({sla:{...clone(s.sla), pauseHours:!s.sla.pauseHours}})));
+    const swPauseCust = this.sw(st.sla.pauseCust, () => this.setState(s => ({sla:{...clone(s.sla), pauseCust:!s.sla.pauseCust}})));
+
+    const disps = st.disps.map(d => ({...d, catBg:tone(DCAT[d.cat], 0), catFg:tone(DCAT[d.cat], 1), noteIcon:d.note ? 'check' : 'remove', noteFg:d.note ? 'var(--k-success-text)' : 'var(--k-text-muted)', noteTxt:d.note ? 'Required' : 'Optional', fuIcon:d.fu ? 'check' : 'remove', fuFg:d.fu ? 'var(--k-success-text)' : 'var(--k-text-muted)', fuTxt:d.fu ? 'Required' : 'No', del:() => set({modal:{kind:'disp', id:d.id}}), delLabel:'Delete ' + d.label}));
+    const scripts = SCRIPTS.map(([n, ch, l, v, s, u]) => ({name:n, ch, langs:l, ver:v, status:s, upd:u, stBg:tone(SCT[s], 0), stFg:tone(SCT[s], 1)}));
+
+    const retSel = k => ({v:st.ret[k], set:e => { const v = e.target.value; this.setState(s => ({ret:{...s.ret, [k]:v}})); }, bd:st.ret[k] !== st.retSaved[k] ? 'var(--k-accent)' : 'var(--k-border-strong)', bg:st.ret[k] !== st.retSaved[k] ? 'var(--k-accent-soft)' : 'var(--k-surface)'});
+    const retRows = [['rec','Call recordings','Audio of every inbound and outbound call.'],['chat','Chat and message transcripts','WhatsApp, SMS and email threads, with attachments.'],['screen','Screen recordings','Agent desktop captures used for QA.'],['qa','QA evaluations','Scores, comments and calibration notes.']].map(([k, l, d]) => ({label:l, desc:d, ...retSel(k), aria:l + ' retention'}));
+    const retAfter = [['delete','Delete permanently','Files and text are erased from storage and backups within 30 days.'],['anon','Anonymise and keep statistics','Names, numbers and IDs are removed. Counts and scores stay for reporting.']].map(([k, l, d]) => { const on = st.ret.after === k; return {label:l, desc:d, checked:String(on), icon:on ? 'radio_button_checked' : 'radio_button_unchecked', fg:on ? 'var(--k-primary-text)' : 'var(--k-text-muted)', bd:on ? 'var(--k-primary)' : 'var(--k-border)', bg:on ? 'var(--k-primary-soft)' : 'var(--k-surface)', pick:() => this.setState(s => ({ret:{...s.ret, after:k}}))}; });
+    const swRedact = this.sw(st.ret.redact, () => this.setState(s => ({ret:{...s.ret, redact:!s.ret.redact}})));
+    const swHold = this.sw(st.ret.hold, () => this.setState(s => ({ret:{...s.ret, hold:!s.ret.hold}})));
+
+    const portal = st.portal.map(p => ({...p}));
+    const invite = () => {
+      const pool = [['Adaeze Nwosu','adaeze.nwosu@ekobank.example','Viewer'],['Ibrahim Yusuf','ibrahim.yusuf@ekobank.example','Viewer'],['Folake Adebayo','folake.adebayo@ekobank.example','Reports only']];
+      const n = pool[st.portal.length % 3];
+      this.setState(s => ({portal:[...s.portal, {name:n[0], email:n[1], access:n[2], ini:n[0].split(' ').map(x => x[0]).join('')}]}));
+      this.toast('Invite sent to ' + n[1]);
+    };
+
+    // Roles
+    const parents = st.parents;
+    const alive = ROLES.filter(r => !st.deleted[r.id]);
+    const kids = id => alive.filter(r => parents[r.id] === id).map(r => r.id);
+    const drag = st.dragId;
+    const dragDesc = drag ? this.descendants(parents, drag) : [];
+    const valid = t => drag && t !== drag && !dragDesc.includes(t) && parents[drag] !== t;
+    const reparent = (id, to) => {
+      if (!id) return;
+      const ds = this.descendants(this.state.parents, id);
+      if (id === to || ds.includes(to)) return;
+      this.setState(s => ({parents:{...s.parents, [id]:to}, dragId:null, overId:null, selRole:id, collapsed:to ? {...s.collapsed, [to]:false} : s.collapsed, rtOpen:false}));
+    };
+    const treeRows = [];
+    const walk = (id, depth) => {
+      const r = RN[id], ks = kids(id), col = !!st.collapsed[id], sel = st.selRole === id, over = st.overId === id && valid(id);
+      treeRows.push({
+        id, name:r.name, users:r.users, level:depth + 1, pad:(12 + depth * 28) + 'px',
+        chev:ks.length ? (col ? 'chevron_right' : 'expand_more') : '', chevVis:ks.length ? 'visible' : 'hidden', expStr:ks.length ? String(!col) : undefined, chevLabel:(col ? 'Expand ' : 'Collapse ') + r.name,
+        icon:ks.length ? 'account_tree' : 'badge', iconBg:sel ? 'var(--k-primary)' : 'var(--k-surface-sunken)', iconFg:sel ? 'var(--k-on-primary)' : 'var(--k-text-2)',
+        bg:over ? 'var(--k-primary-soft)' : sel ? 'var(--k-surface-sunken)' : 'transparent', outline:over ? '2px dashed var(--k-primary)' : 'none', op:drag === id ? 0.45 : (drag && !valid(id) && drag !== id ? 0.6 : 1),
+        fw:sel ? 700 : 500, selStr:String(sel), moved:parents[id] !== st.parentsSaved[id], isOver:over,
+        select:() => set({selRole:id, rtOpen:false}),
+        toggle:e => { e.stopPropagation(); this.setState(s => ({collapsed:{...s.collapsed, [id]:!s.collapsed[id]}})); },
+        dragStart:e => { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch (x) {} this.setState({dragId:id, selRole:id}); },
+        dragOver:e => { if (valid(id)) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (this.state.overId !== id) this.setState({overId:id}); } },
+        drop:e => { e.preventDefault(); if (valid(id)) reparent(this.state.dragId, id); },
+        dragEnd:() => this.setState({dragId:null, overId:null})
+      });
+      if (!col) ks.forEach(k => walk(k, depth + 1));
+    };
+    alive.filter(r => !parents[r.id]).forEach(r => walk(r.id, 0));
+    const rootOver = st.overId === '__root';
+    const sr = RN[st.selRole] && !st.deleted[st.selRole] ? RN[st.selRole] : null;
+    const srDesc = sr ? this.descendants(parents, sr.id) : [];
+    const rtOptions = sr ? [{id:'', name:'No one (top level)'}].concat(alive.filter(r => r.id !== sr.id && !srDesc.includes(r.id))).map(r => { const on = (parents[sr.id] || '') === r.id; return {name:r.name, sel:String(on), bg:on ? 'var(--k-primary-soft)' : 'transparent', check:on ? 'check' : '', pick:() => reparent(sr.id, r.id)}; }) : [];
+    const seesList = srDesc.slice(0, 5).map(i => ({name:RN[i].name}));
+    const seesMore = srDesc.length > 5 ? 'and ' + (srDesc.length - 5) + ' more' : '';
+    const srUsers = sr ? srDesc.reduce((a, i) => a + RN[i].users, 0) : 0;
+    const roleMoveOpts = sr ? [parents[sr.id]].concat(alive.filter(r => r.id !== sr.id && parents[r.id] === parents[sr.id]).map(r => r.id)).filter(Boolean).slice(0, 4).map(id => { const on = st.moveTo === id; return {name:RN[id].name, checked:String(on), icon:on ? 'radio_button_checked' : 'radio_button_unchecked', fg:on ? 'var(--k-primary-text)' : 'var(--k-text-muted)', pick:() => set({moveTo:id})}; }) : [];
+
+    // FLS
+    const objDef = OBJS.find(o => o[0] === st.flsObj);
+    const fq = st.flsQuery.trim().toLowerCase();
+    const fields = objDef[2].filter(f => (!fq || (f[1] + ' ' + f[2]).toLowerCase().includes(fq)) && (!st.flsSens || f[3]));
+    const setLvl = (key, v) => this.setState(s => ({fls:{...s.fls, [key]:v}}));
+    const flsCols = SETS.map(([k, n, u]) => ({name:n, users:u + ' users', locked:k === 'admin'}));
+    const flsRows = fields.map(([f, label, api, tag]) => {
+      const selected = !!st.flsSel[f];
+      return {
+        label, api, tag, hasTag:!!tag, tagBg:tag === 'Sensitive' ? tone('danger', 0) : tone('info', 0), tagFg:tag === 'Sensitive' ? tone('danger', 1) : tone('info', 1),
+        sel:selected, selLabel:'Select ' + label, rowBg:selected ? 'var(--k-primary-soft)' : 'var(--k-surface)',
+        toggleSel:() => this.setState(s => { const n = {...s.flsSel}; if (n[f]) delete n[f]; else n[f] = 1; return {flsSel:n}; }),
+        cells:SETS.map(([s, sn]) => {
+          const key = st.flsObj + '.' + f + '.' + s, v = st.fls[key], lock = s === 'admin', changed = v !== st.flsSaved[key];
+          return {
+            bg:changed ? 'var(--k-accent-soft)' : 'transparent', changed,
+            rStr:String(v >= 1), eStr:String(v >= 2), rLabel:'Read ' + label + ' for ' + sn, eLabel:'Edit ' + label + ' for ' + sn, lock,
+            rBg:v >= 1 ? 'var(--k-primary-soft)' : 'transparent', rFg:v >= 1 ? 'var(--k-primary-text)' : 'var(--k-text-muted)', rBd:v >= 1 ? 'var(--k-primary-soft-strong)' : 'var(--k-border)',
+            eBg:v >= 2 ? 'var(--k-primary)' : 'transparent', eFg:v >= 2 ? 'var(--k-on-primary)' : 'var(--k-text-muted)', eBd:v >= 2 ? 'var(--k-primary)' : 'var(--k-border)',
+            cur:lock ? 'not-allowed' : 'pointer',
+            toggleR:() => { if (!lock) setLvl(key, v >= 1 ? 0 : 1); },
+            toggleE:() => { if (!lock) setLvl(key, v >= 2 ? 1 : 2); }
+          };
+        })
+      };
+    });
+    const flsSelN = Object.keys(st.flsSel).length;
+    const allSel = fields.length > 0 && fields.every(f => st.flsSel[f[0]]);
+    const applyBulk = lv => {
+      const n = {...st.fls};
+      Object.keys(st.flsSel).forEach(f => SETS.forEach(([s]) => { if (s !== 'admin' && (st.bulkSet === 'all' || st.bulkSet === s)) n[st.flsObj + '.' + f + '.' + s] = lv; }));
+      this.setState({fls:n});
+    };
+    const flsObjs = OBJS.map(([k, l, fs]) => { const on = st.flsObj === k; return {label:l, count:fs.length, sel:String(on), bg:on ? 'var(--k-primary)' : 'var(--k-surface)', fg:on ? 'var(--k-on-primary)' : 'var(--k-text)', bd:on ? 'var(--k-primary)' : 'var(--k-border)', pick:() => set({flsObj:k, flsSel:{}})}; });
+    const sensChip = {pressed:String(st.flsSens), bg:st.flsSens ? 'var(--k-primary-soft)' : 'var(--k-surface)', fg:st.flsSens ? 'var(--k-primary-text)' : 'var(--k-text)', bd:st.flsSens ? 'var(--k-primary)' : 'var(--k-border)', icon:st.flsSens ? 'check_box' : 'check_box_outline_blank'};
+
+    // Audit
+    const ip = st.aIp.trim();
+    const auditRows = AUDIT.filter(a => (!st.aActor || a.actor === st.aActor) && (!st.aAction || a.action === st.aAction) && (!st.aObject || a.obj === st.aObject) && (st.aRange === 'all' || a.d < Number(st.aRange)) && (!ip || a.ip.includes(ip))).map(a => {
+      const open = !!st.aOpen[a.id];
+      return {...a, t:a.t + ' WAT', open, expStr:String(open), chev:open ? 'expand_less' : 'expand_more', acBg:tone(ATONE[a.action], 0), acFg:tone(ATONE[a.action], 1), rowBg:open ? 'var(--k-surface-sunken)' : 'transparent', ini:a.actor === 'System' ? '' : a.actor.split(' ').map(x => x[0]).join(''), isSys:a.actor === 'System', diffs:a.diff.map(([f, b, n]) => ({f, b, n})), expLabel:(open ? 'Hide' : 'Show') + ' details for ' + a.action + ' ' + a.obj,
+        toggle:() => this.setState(s => ({aOpen:{...s.aOpen, [a.id]:!s.aOpen[a.id]}}))};
+    });
+    const RANGE = {'1':'Last 24 hours','7':'Last 7 days','30':'Last 30 days',all:'All time'};
+    const aChips = [['aActor', st.aActor, 'Actor'], ['aAction', st.aAction, 'Action'], ['aObject', st.aObject, 'Object'], ['aIp', ip, 'IP']].filter(c => c[1]).map(([k, v, l]) => ({label:l + ': ' + v, clear:() => set({[k]:''}), clearLabel:'Remove filter ' + l}));
+    const clearAudit = () => set({aActor:'', aAction:'', aObject:'', aIp:'', aRange:'30'});
+    const onSel = k => e => set({[k]:e.target.value});
+    const exOpt = (k, v, l, d) => { const on = st[k] === v; return {label:l, desc:d, checked:String(on), icon:on ? 'radio_button_checked' : 'radio_button_unchecked', fg:on ? 'var(--k-primary-text)' : 'var(--k-text-muted)', bd:on ? 'var(--k-primary)' : 'var(--k-border)', bg:on ? 'var(--k-primary-soft)' : 'var(--k-surface)', pick:() => set({[k]:v})}; };
+    const exFmts = [exOpt('exFmt', 'csv', 'CSV', 'Opens in Excel or Google Sheets'), exOpt('exFmt', 'json', 'JSON', 'For SIEM tools and scripts')];
+    const exScopes = [exOpt('exScope', 'filtered', 'Current filters', auditRows.length + ' events'), exOpt('exScope', 'all', 'Everything, last 90 days', 'About 4,800 events')];
+
+    // Modal
+    const m = st.modal;
+    const mk = m ? m.kind : '';
+    const dsel = mk === 'disp' ? st.disps.find(d => d.id === m.id) : null;
+    const rdel = mk === 'role' ? RN[m.id] : null;
+    let modal = {};
+    if (mk === 'archive') modal = {icon:'archive', tone:'danger', title:'Archive ' + prog.name + '?', body:'The programme stops taking new work straight away. You can restore it within 30 days; after that it stays read-only.', confirm:'Archive programme', cancel:'Cancel'};
+    if (dsel) modal = {icon:'delete', tone:'danger', title:'Delete “' + dsel.label + '”?', body:'Agents picked this ' + dsel.used + ' times in the last 90 days. Past interactions keep the label, but agents can’t choose it any more and reports will group it under “Deleted”.', confirm:'Delete disposition', cancel:'Cancel', alt:'Deactivate instead'};
+    if (rdel) modal = {icon:'delete', tone:'danger', title:'Delete the “' + rdel.name + '” role?', body:rdel.users + ' people are in this role. Choose where to move them. Roles below it will report to ' + (RN[parents[rdel.id]] ? RN[parents[rdel.id]].name : 'the top level') + '.', confirm:'Move people and delete', cancel:'Cancel'};
+    if (mk === 'export') modal = {icon:'download', tone:'primary', title:'Export audit log', body:'The export is logged too. Times are in WAT (UTC+1).', confirm:'Start export', cancel:'Cancel'};
+    if (mk === 'leave') modal = {icon:'edit_note', tone:'warning', title:'Leave without saving?', body:'You have ' + dirtyN + ' unsaved change' + (dirtyN === 1 ? '' : 's') + '. If you leave now, they’ll be lost.', confirm:'Discard and leave', cancel:'Keep editing'};
+    const needType = mk === 'archive';
+    const modalDisabled = (needType && st.confirmText.trim().toLowerCase() !== 'archive') || (mk === 'role' && !st.moveTo);
+    const closeModal = () => set({modal:null, confirmText:''});
+    const confirm = () => {
+      if (modalDisabled) return;
+      if (mk === 'archive') { this.setState({modal:null, confirmText:'', progOpen:false, navId:'programmes'}); this.toast(prog.name + ' archived. Restore it from Programmes within 30 days.'); }
+      if (dsel) { const before = st.disps; this.setState({modal:null, disps:st.disps.filter(d => d.id !== dsel.id)}); this.toast('“' + dsel.label + '” deleted', () => this.setState({disps:before, toast:null})); }
+      if (rdel) {
+        const np = {...st.parents}, nps = {...st.parentsSaved};
+        alive.forEach(r => { if (np[r.id] === rdel.id) np[r.id] = np[rdel.id]; if (nps[r.id] === rdel.id) nps[r.id] = nps[rdel.id]; });
+        this.setState({modal:null, deleted:{...st.deleted, [rdel.id]:1}, parents:np, parentsSaved:nps, selRole:np[rdel.id] || 'md', moveTo:''});
+        this.toast(rdel.name + ' deleted. ' + rdel.users + ' people moved to ' + RN[st.moveTo].name + '.');
+      }
+      if (mk === 'export') { this.setState({modal:null}); this.toast('Export started. We’ll email a download link to amaka.okafor@sabicc.example.'); }
+      if (mk === 'leave') { this.discardAll(); this.setState({modal:null}); this.doGo(m.target); }
+    };
+    const modalAlt = () => { if (dsel) { this.setState({modal:null}); this.toast('“' + dsel.label + '” deactivated. Agents won’t see it.'); } };
+
+    const save = () => { this.setState(s => ({slaSaved:clone(s.sla), retSaved:{...s.ret}, flsSaved:{...s.fls}, parentsSaved:{...s.parents}})); this.toast('Changes saved and recorded in the audit log'); };
+
+    return {
+      tablet, desktop:!tablet, showNav:!tablet || st.navOpen, drawer:tablet && st.navOpen,
+      navPos:tablet ? 'absolute' : 'relative', navShadow:tablet ? 'var(--k-shadow-3)' : 'none',
+      navOpenStr:String(st.navOpen), toggleNav:() => set({navOpen:!st.navOpen}), closeNav:() => set({navOpen:false}),
+      navQuery:st.navQuery, setNavQuery:e => set({navQuery:e.target.value}), navGroups, noNavResults:navGroups.length === 0,
+      goHome:() => this.go('home'), homeBg:homeCur ? 'var(--k-primary-soft)' : 'transparent', homeFg:homeCur ? 'var(--k-primary-text)' : 'var(--k-text)', homeCur:homeCur ? 'page' : undefined,
+      mainRef:el => { this._main = el; }, pagePad:tablet ? '24px 24px 120px' : '28px 32px 120px',
+      isHome:page === 'home', isProgList:page === 'programmes', isProg:page === 'programme', isRoles:page === 'roles', isFls:page === 'fls', isAudit:page === 'audit', isStub:page === 'stub',
+      stubLabel, stubGroup, goProgrammes:() => this.go('programmes'), goRoles:() => this.go('roles'), goFls:() => this.go('fls'), goAudit:() => this.go('audit'),
+      homeCols:tablet ? 'minmax(0,1fr)' : 'minmax(0,1fr) minmax(0,1.7fr)', fourCols:tablet ? 'repeat(2,minmax(0,1fr))' : 'repeat(4,minmax(0,1fr))', threeCols:tablet ? 'minmax(0,1fr)' : 'repeat(3,minmax(0,1fr))', sideCols:tablet ? 'minmax(0,1fr)' : 'minmax(0,1fr) 300px', rolesCols:tablet ? 'minmax(0,1fr) 300px' : 'minmax(0,1fr) 380px',
+      health, alerts, alertCount:alerts.length, hasAlerts:alerts.length > 0, noAlerts:alerts.length === 0, restoreAlerts:() => set({alerts:ALERTS.map(a => a.id)}), meters, recent,
+      progEmpty:plist.length === 0, hasProgrammes:plist.length > 0, progRows, noProgResults:plist.length > 0 && progRows.length === 0, progChips, progQuery:st.progQuery, setProgQuery:e => set({progQuery:e.target.value}), clearProgSearch:() => set({progQuery:'', progFilter:'all'}), fillProgrammes:() => set({progEmpty:false}),
+      prog, progStBg:tone(STT[prog.st], 0), progStFg:tone(STT[prog.st], 1), tabs, openArchive:() => set({modal:{kind:'archive'}, confirmText:''}),
+      tOverview:st.tab === 'overview', tAgents:st.tab === 'agents', tSla:st.tab === 'sla', tDisp:st.tab === 'dispositions', tScripts:st.tab === 'scripts', tRet:st.tab === 'retention', tPortal:st.tab === 'portal',
+      kpis, ovCards, agents, cover, slaRows, warnAt:slaSel('warnAt'), warnTo:slaSel('warnTo'), breachTo:slaSel('breachTo'), swPauseHours, swPauseCust,
+      disps, noDisps:disps.length === 0, scripts, retRows, retAfter, swRedact, swHold,
+      portal, hasPortal:portal.length > 0, noPortal:portal.length === 0, invite,
+      treeRows, dragging:!!drag, rootOver, rootBd:rootOver ? 'var(--k-primary)' : 'var(--k-border-strong)', rootBg:rootOver ? 'var(--k-primary-soft)' : 'transparent',
+      rootDragOver:e => { if (drag && parents[drag]) { e.preventDefault(); if (this.state.overId !== '__root') set({overId:'__root'}); } },
+      rootDrop:e => { e.preventDefault(); reparent(this.state.dragId, ''); },
+      expandAll:() => set({collapsed:{}}), collapseAll:() => { const c = {}; alive.forEach(r => { if (kids(r.id).length) c[r.id] = true; }); c.md = false; set({collapsed:c}); },
+      hasSel:!!sr, sr:sr || {name:'', users:0}, srParent:sr && RN[parents[sr.id]] ? RN[parents[sr.id]].name : 'No one (top level)', srMoved:sr ? parents[sr.id] !== st.parentsSaved[sr.id] : false, srWasParent:sr && RN[st.parentsSaved[sr.id]] ? RN[st.parentsSaved[sr.id]].name : 'top level',
+      rtOpen:st.rtOpen, rtOpenStr:String(st.rtOpen), toggleRt:() => set({rtOpen:!st.rtOpen}), rtOptions, seesList, seesMore, hasSees:srDesc.length > 0, noSees:sr && srDesc.length === 0, srSeesN:srDesc.length + ' role' + (srDesc.length === 1 ? '' : 's') + ' below · ' + srUsers + ' people',
+      deleteRole:() => sr && set({modal:{kind:'role', id:sr.id}, moveTo:parents[sr.id] || ''}), roleMoveOpts,
+      flsObjs, flsCols, flsRows, flsFieldN:fields.length + ' of ' + objDef[2].length + ' fields', noFlsRows:fields.length === 0, flsQuery:st.flsQuery, setFlsQuery:e => set({flsQuery:e.target.value}), clearFlsSearch:() => set({flsQuery:'', flsSens:false}),
+      sensChip, toggleSens:() => set({flsSens:!st.flsSens}), flsHasSel:flsSelN > 0, flsSelTxt:flsSelN + ' field' + (flsSelN === 1 ? '' : 's') + ' selected', allSel, toggleAll:() => { const n = {}; if (!allSel) fields.forEach(f => { n[f[0]] = 1; }); set({flsSel:n}); }, clearSel:() => set({flsSel:{}}),
+      bulkSet:st.bulkSet, setBulkSet:onSel('bulkSet'), bulkNone:() => applyBulk(0), bulkRead:() => applyBulk(1), bulkEdit:() => applyBulk(2),
+      auditRows, noAudit:auditRows.length === 0, hasAudit:auditRows.length > 0, auditN:auditRows.length + ' event' + (auditRows.length === 1 ? '' : 's') + ' · ' + RANGE[st.aRange], aChips, hasAChips:aChips.length > 0, clearAudit,
+      aActor:st.aActor, aAction:st.aAction, aObject:st.aObject, aRange:st.aRange, aIp:st.aIp, setActor:onSel('aActor'), setAction:onSel('aAction'), setObject:onSel('aObject'), setRange:onSel('aRange'), setIp:onSel('aIp'),
+      openExport:() => set({modal:{kind:'export'}}), exFmts, exScopes, exIp:this.sw(st.exIp, () => set({exIp:!st.exIp})),
+      hasModal:!!m, modal, mIconBg:modal.tone ? tone(modal.tone, 0) : '', mIconFg:modal.tone ? tone(modal.tone, 1) : '', mBtnBg:mk === 'export' ? 'var(--k-primary)' : 'var(--k-danger)', mBtnOp:modalDisabled ? 0.45 : 1, mBtnCur:modalDisabled ? 'not-allowed' : 'pointer', modalDisabled, hasAlt:!!modal.alt,
+      mArchive:mk === 'archive', mDisp:!!dsel, mRole:!!rdel, mExport:mk === 'export', mLeave:mk === 'leave', leaveParts:parts.map(([l, n]) => ({l, n:n + (n === 1 ? ' change' : ' changes')})),
+      archiveImpacts:[[String(prog.agents || 0) + ' agents lose access to this programme', 'group_off'], ['212 open interactions become read-only', 'lock'], ['Recordings and transcripts stay under the ' + prog.ret + ' retention rule', 'inventory_2'], ['Client portal users are signed out', 'logout']].map(([t, i]) => ({t, i})),
+      confirmText:st.confirmText, setConfirmText:e => set({confirmText:e.target.value}), closeModal, confirm, modalAlt,
+      isDirty:dirtyN > 0 && !m, dirtyTitle:dirtyN + ' unsaved change' + (dirtyN === 1 ? '' : 's'), dirtyDetail:parts.map(([l, n]) => l + ': ' + n).join(' · '), save, discard:() => { this.discardAll(); this.toast('Changes discarded'); }, barLeft:tablet ? '0px' : '272px',
+      hasToast:!!st.toast, toastText:st.toast ? st.toast.text : '', hasUndo:!!(st.toast && st.toast.undo), undo:() => st.toast && st.toast.undo && st.toast.undo(), closeToast:() => set({toast:null})
+    };
+  }
+}
+</script>
+</body>
+</html>
