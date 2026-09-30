@@ -1,0 +1,3194 @@
+openapi: 3.1.0
+
+# ---------------------------------------------------------------------------
+# Kasuwa admin console API — T-0021 (M1/M2, Agent 1).
+#
+# This file is the PUBLISHED CONTRACT for P02, the 22 admin-console screens
+# (docs/design/P02/MANIFEST.md). It is committed before any implementation so
+# that Agent 11 can GENERATE a mock from it and build against that mock. A
+# hand-written mock drifts silently and the wiring step then finds 22 screens
+# built against a fiction.
+#
+# Five things here are load-bearing and must not be "tidied":
+#
+# 1. SCOPE IS RESOLVED, NEVER SUPPLIED. No operation accepts `programmeIds`,
+#    `tenantId` or any other scope argument, in a body, a query string or a
+#    header. A request says *who* it is; the database says *what it can reach*,
+#    by reading `user_programme` inside the tenant transaction, on every
+#    request. A `{programmeId}` in a path is a RECORD IDENTIFIER, not scope —
+#    see point 2.
+#
+# 2. A RECORD OUTSIDE YOUR SCOPE IS 404, NOT 403. `404 not_found` covers all
+#    of: no such programme, a programme in another tenant, and a programme in
+#    this tenant that this caller cannot reach. One status, one body, one
+#    `code`. `403 not_permitted` exists but is narrow: it means "you can
+#    already read this record and you may not perform this action on it". It
+#    is never used to say that something exists.
+#
+# 3. NOTHING HERE CARRIES A NIN, A BVN, A PAN, A DATE OF BIRTH OR A HOME
+#    ADDRESS, and it carries an email address or a phone number only where the
+#    screen cannot work without one — in which case it is masked. The audit
+#    log is the sharp edge: an entry that names its subject is the classic
+#    place personal data escapes a system that is careful everywhere else. See
+#    `AuditEntry` and read the whole description before adding a field to it.
+#
+# 4. EVERY FAILURE IS A CONCRETE BODY, not prose. Switch on `error.code` (a
+#    stable machine string), never on `message` (English, and it will change).
+#    Localise as `admin.error.<code>`.
+#
+# 5. THE ADMIN CONSOLE IS THE MOST AUDITED SURFACE IN THE PRODUCT.
+#    `x-kasuwa-audited: true` marks an operation that MUST write an audit row
+#    when it is implemented. Guardrail 6.7 is not satisfied by a comment.
+#
+# Status of each operation is given by `x-kasuwa-implemented`:
+#   true     — live today.
+#   partial  — some fields are backed by real data, the rest are contract only.
+#              See the description for which.
+#   false    — contract only. Nothing behind it. The shape is published so the
+#              screen can be built; keep that screen on the mock.
+#
+# AT THE TIME OF WRITING EXACTLY ONE OPERATION IS `partial` AND NONE IS `true`.
+# There is no admin controller, no role table, no permission-set table, no
+# field-security table and no audit table. That is the honest state and the
+# point of publishing this now.
+# ---------------------------------------------------------------------------
+
+info:
+  title: Kasuwa Admin API
+  version: 1.0.0-T-0021
+  description: |
+    Programmes, roles, field-level security and the audit log — the read and
+    write surface behind the P02 admin console.
+
+    **What this is not.** It is not a permissions model. `packages/permissions`
+    is a placeholder and the engine has not been designed. This contract names
+    permission *sets* because the field-security screen has a column per set,
+    and it says nothing whatever about how a permission is evaluated, where a
+    grant is stored, or whether a grant is tenant-wide or per-programme. The
+    one operation whose semantics would depend on that answer — writing the
+    field-security matrix — returns `501` today, deliberately.
+
+    **Localisation.** The API returns an English `message` as a fallback only.
+    The web app localises from `error.code` using `admin.error.<code>`. The
+    catalogue keys are Agent 11's (P02 build); T-0021 adds none, because adding
+    a key to `en` alone leaves the other catalogues incomplete.
+
+    **Times.** Every timestamp in every payload is UTC, ISO 8601, with a `Z`.
+    The audit screen labels its column "Time (WAT)" — that conversion is the
+    browser's, using the tenant's display zone. The server never sends a local
+    time and never sends a naive one. A BPO roster spans WAT/EAT/SAST; "the
+    date" is never unambiguous.
+
+    **Money** is minor units plus an ISO currency code, never a float. The
+    usage meters on the admin home are the only place money appears here.
+
+    **Transport.** `Authorization: Bearer ksw_s1_…` and nothing else. A token
+    in a query string is ignored and the request is unauthenticated.
+
+servers:
+  - url: http://localhost:3001
+    description: Local development
+  - url: https://{host}
+    description: Deployed cell
+    variables:
+      host:
+        default: api.kasuwa.example
+
+tags:
+  - name: admin-home
+    description: The landing screen — setup health, alerts, usage, settings menu.
+  - name: programmes
+    description: The BPO isolation boundary and everything configured inside one.
+  - name: roles
+    description: The role hierarchy. Who can see whose records.
+  - name: field-security
+    description: Which permission sets may read or edit which field.
+  - name: audit
+    description: The immutable record of admin, security and data actions.
+
+paths:
+  # =========================================================================
+  # Admin home — P02/A, P02/A1
+  # =========================================================================
+  /api/v1/admin/home/summary:
+    get:
+      tags: [admin-home]
+      summary: Workspace header and setup-health score
+      operationId: getAdminHomeSummary
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/A']
+      description: |
+        The page header ("Sabi Contact Centres Ltd · Enterprise plan · 6
+        countries · 214 users"), the data-residency pill in the top bar, and
+        the setup-health card.
+
+        **The score is derived, not stored.** Each check is a named rule with a
+        point value; the score is the sum of the passing rules over the total.
+        The client must not compute it — a second implementation of the rules
+        in the browser is a second implementation to keep in step. `checkId` is
+        stable and is what the "Fix" button routes on; `settingId` names the
+        settings-menu destination so the client does not hard-code a route map.
+
+        **Nobody owns the health rules.** There is no PRD module that defines
+        which checks exist or what each is worth. Raised in the T-0021 report.
+      responses:
+        '200':
+          description: The workspace summary.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminHomeSummary' }
+              example:
+                tenant:
+                  id: 11111111-0000-4000-8000-000000000001
+                  name: Sabi Contact Centres Ltd
+                  planName: Enterprise
+                  countryCount: 6
+                  userCount: 214
+                dataRegion:
+                  code: af-south-1
+                  displayName: South Africa
+                health:
+                  score: 78
+                  outOf: 100
+                  pointsAvailable: 22
+                  checkedAt: '2026-09-30T09:55:00.000Z'
+                  checks:
+                    - checkId: sso_configured
+                      label: SSO with Microsoft Entra ID
+                      status: pass
+                      points: 0
+                      settingId: u-sso
+                    - checkId: whatsapp_template_rejected
+                      label: 1 WhatsApp template rejected
+                      status: fail
+                      points: 8
+                      settingId: ch-wa
+                    - checkId: users_without_mfa
+                      label: 2 users without MFA
+                      status: warn
+                      points: 6
+                      settingId: u-mfa
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/home/alerts:
+    get:
+      tags: [admin-home]
+      summary: Open workspace alerts
+      operationId: listAdminAlerts
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/A']
+      description: |
+        The alerts card, including its empty state and "Show dismissed alerts".
+
+        Every alert body in the design names something — a template, a user, a
+        request reference. **An alert body must not name a customer**, only
+        Kasuwa users and Kasuwa configuration. The MFA alert naming two staff
+        members is in scope; a DSR alert naming the data subject is not, which
+        is why `DSR-0142` is a reference and not a person.
+
+        The alerts themselves come from six different modules (Meta template
+        state from M8, MFA policy from M2, DSR from M21, seats from M23,
+        sender-ID state from M8). **No module owns the aggregation.** Raised in
+        the T-0021 report.
+      parameters:
+        - name: includeDismissed
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+          description: |
+            The design's "Show dismissed alerts" link. Dismissal is per user,
+            not per workspace — one admin clearing an alert must not hide it
+            from another.
+      responses:
+        '200':
+          description: The alert list. May be empty; the screen has a state for that.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminAlertList' }
+              example:
+                items:
+                  - id: 8f2c7a10-0000-4000-8000-00000000a001
+                    severity: danger
+                    category: channels
+                    title: WhatsApp template rejected
+                    body: '“payment_reminder_v3” for Eko Bank Collections was rejected by Meta: promotional wording in a utility template.'
+                    sourceLabel: Meta
+                    raisedAt: '2026-09-30T07:30:00.000Z'
+                    actionLabel: Edit template
+                    settingId: ch-wa
+                    dismissed: false
+                  - id: 8f2c7a10-0000-4000-8000-00000000a002
+                    severity: warning
+                    category: security
+                    title: 2 users without MFA
+                    body: 2 people still sign in with a password only. MFA becomes required on 1 Oct 2026.
+                    sourceLabel: Security
+                    raisedAt: '2026-09-21T08:00:00.000Z'
+                    actionLabel: Remind them
+                    settingId: u-mfa
+                    dismissed: false
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/home/alerts/{alertId}/dismissal:
+    put:
+      tags: [admin-home]
+      summary: Dismiss an alert for the current user
+      operationId: dismissAdminAlert
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: false
+      x-kasuwa-screens: ['P02/A']
+      description: |
+        Idempotent: dismissing an already-dismissed alert is still `204`.
+        Not audited — dismissing a notice changes nothing anyone else can see.
+      parameters:
+        - $ref: '#/components/parameters/AlertId'
+      responses:
+        '204': { description: Dismissed. }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+    delete:
+      tags: [admin-home]
+      summary: Restore a dismissed alert
+      operationId: restoreAdminAlert
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/A']
+      parameters:
+        - $ref: '#/components/parameters/AlertId'
+      responses:
+        '204': { description: Restored. }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/home/usage:
+    get:
+      tags: [admin-home]
+      summary: Usage meters for the current billing period
+      operationId: getAdminUsage
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/A']
+      description: |
+        Seats, WhatsApp conversations, storage and AI credits.
+
+        **This is M23 (billing and subscription), which has no owner and no
+        task.** The shape is published because the screen has four meters on
+        it; nothing behind it exists. Raised in the T-0021 report.
+
+        `used` and `limit` are integers in the meter's own unit (`unit` names
+        it) so the client never parses "312 GB". `spend` is minor units plus a
+        currency code — never a float, never a bare `amount`, and the client
+        formats it through `@kasuwa/i18n` rather than prefixing a symbol.
+      responses:
+        '200':
+          description: The meters.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UsageSummary' }
+              example:
+                periodStart: '2026-09-01T00:00:00.000Z'
+                periodEnd: '2026-10-01T00:00:00.000Z'
+                meters:
+                  - meterId: seats
+                    label: Seats
+                    unit: seat
+                    used: 142
+                    limit: 160
+                    warnAtPercent: null
+                    note: 18 seats left.
+                    spend: null
+                  - meterId: whatsapp_conversations
+                    label: WhatsApp conversations
+                    unit: conversation
+                    used: 38420
+                    limit: null
+                    warnAtPercent: 90
+                    note: Final cost follows Meta's rates.
+                    spend:
+                      amountMinor: '128430000'
+                      currency: NGN
+                      estimatedTotalMinor: '165000000'
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/settings-menu/badges:
+    get:
+      tags: [admin-home]
+      summary: Counts for the settings-menu badges
+      operationId: getSettingsMenuBadges
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/A1']
+      description: |
+        **The menu structure is the client's, not the server's.** Ten groups
+        and their items are presentation and they live in `apps/web`; a
+        server-rendered navigation tree would make every label a deployment.
+        Only the numbers are data, so only the numbers are here, keyed by the
+        stable `settingId` the client already knows.
+
+        A `settingId` the client does not recognise is ignored, not rendered.
+        That is what lets a new badge ship before the screen it points at.
+      responses:
+        '200':
+          description: Badge counts. Absent means no badge.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SettingsMenuBadges' }
+              example:
+                badges:
+                  - settingId: u-users
+                    count: 2
+                    severity: warning
+                  - settingId: ch-wa
+                    count: 1
+                    severity: danger
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  # =========================================================================
+  # Programmes — P02/B .. P02/B9
+  # =========================================================================
+  /api/v1/admin/programmes:
+    get:
+      tags: [programmes]
+      summary: List programmes the caller can reach
+      operationId: listProgrammes
+      x-kasuwa-implemented: partial
+      x-kasuwa-screens: ['P02/B', 'P02/B1']
+      description: |
+        The programmes table and its empty state.
+
+        **The list is the caller's reachable set, full stop.** It is not
+        filtered by a `programmeIds` argument, because there is no such
+        argument. `user_programme` decides, inside the tenant transaction. A
+        caller with no programmes gets an empty list and the `P02/B1` empty
+        state — which is also what a caller sees when programmes exist but
+        none of them are theirs. Those two are deliberately
+        indistinguishable.
+
+        **`partial`:** `id`, `name`, `clientName` and `isDefault` exist in
+        `packages/db` today. `channels`, `agentCount`, `slaAttainment7d`,
+        `retentionSummary` and `status` do not — they are null or absent until
+        the modules that own them exist (M8/M9 channels, M11 agents, M12 SLA,
+        M21 retention). `status` in particular has no column: `programme` has
+        no lifecycle field, so Active/Paused/Draft/Archived is a schema change
+        and therefore a successor task, not this one.
+
+        `slaAttainment7d` is `null`, not `0`, when there is no data. The design
+        renders "No data" for the draft programme and a percentage otherwise;
+        a zero would render as a red bar and say something false.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema: { type: string, maxLength: 200 }
+          description: Matches programme name and client name. Not a field selector.
+        - name: status
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/ProgrammeStatus' }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: The page of programmes, plus the counts behind the filter chips.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProgrammeList' }
+              example:
+                items:
+                  - id: 11111111-0000-4000-8000-0000000c0001
+                    name: Eko Bank Collections
+                    clientName: Eko Commercial Bank
+                    reference: PRG-0031
+                    countryCode: NG
+                    status: active
+                    channels: [whatsapp, voice, sms]
+                    agentCount: 64
+                    slaAttainment7d: 96.2
+                    retentionSummary: 7 years
+                  - id: 11111111-0000-4000-8000-0000000c0008
+                    name: Teranga Air Helpdesk
+                    clientName: Teranga Air
+                    reference: PRG-0035
+                    countryCode: SN
+                    status: draft
+                    channels: [email]
+                    agentCount: 0
+                    slaAttainment7d: null
+                    retentionSummary: null
+                statusCounts:
+                  active: 6
+                  paused: 1
+                  draft: 1
+                  archived: 0
+                page:
+                  nextCursor: null
+                  hasMore: false
+                  totalCount: 8
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+    post:
+      tags: [programmes]
+      summary: Create a programme
+      operationId: createProgramme
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/B', 'P02/B1']
+      description: |
+        The "New programme" button on both the list and the empty state.
+
+        `templateId` is the design's "Or start from a template: Collections /
+        Customer support / Outbound sales". **Nothing defines what a template
+        contains** — presumably dispositions, an SLA policy and a script set,
+        which belong to M10 and M12. Passing one today is a `400`. Raised in
+        the T-0021 report.
+
+        A duplicate `name` within the tenant is `409 duplicate_name`. Note what
+        that does *not* say: uniqueness is scoped to the tenant, so the
+        response cannot tell you that another tenant has a programme by that
+        name. A constraint message that leaked the conflicting row would be a
+        cross-tenant existence oracle, which is why the error carries the field
+        path and nothing else.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateProgrammeRequest' }
+            example:
+              name: Pesa Merchant Onboarding
+              clientName: PesaPoint
+              countryCode: KE
+              businessUnitId: 11111111-0000-4000-8000-0000000b0001
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Programme' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/programmes/{programmeId}:
+    parameters:
+      - $ref: '#/components/parameters/ProgrammeId'
+    get:
+      tags: [programmes]
+      summary: One programme — header and overview cards
+      operationId: getProgramme
+      x-kasuwa-implemented: partial
+      x-kasuwa-screens: ['P02/B2']
+      description: |
+        The breadcrumb, title, status pill and the three overview cards
+        (Contract, Channels & hours, People).
+
+        **`{programmeId}` is an identifier, not scope.** A programme in another
+        tenant, and a programme in this tenant that the caller cannot reach,
+        both return the same `404 not_found`. There is no `403` here and there
+        must never be one: a `403` would confirm the id names something real.
+
+        **`partial`:** `name` and `clientName` are real; the cards are not. The
+        contract card (reference, start, renewal, billing basis) has no owner —
+        M23 is the nearest and it is unassigned. Channels are M8/M9. Hours and
+        holidays are M1's "Holidays & business hours" settings page, which is
+        not designed. `people` counts need the role model that does not exist.
+      responses:
+        '200':
+          description: The programme.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProgrammeDetail' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [programmes]
+      summary: Rename a programme or change its lifecycle status
+      operationId: updateProgramme
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/B2']
+      description: |
+        Covers the "Pause" button. Archiving is not here — it has consequences
+        the caller must see first, so it has its own preview and its own
+        operation.
+
+        Send only the fields you are changing. `version` is required and is the
+        value from the last `GET`; a stale one is `409 stale_write` and the
+        screen re-reads. Two admins on the same programme is not hypothetical
+        in a BPO.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateProgrammeRequest' }
+            example:
+              version: 7
+              status: paused
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProgrammeDetail' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/programmes/{programmeId}/kpis:
+    get:
+      tags: [programmes]
+      summary: The four overview KPI tiles
+      operationId: getProgrammeKpis
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/B2']
+      description: |
+        SLA met, contacts handled, average handle time, QA score.
+
+        Separate from `GET /programmes/{id}` on purpose: these are analytics
+        (M16) and QA (M11) reads over a time window, they will be slow, and the
+        screen renders the header and the cards before they arrive. Folding
+        them into the detail response would make the whole page wait for the
+        slowest number on it.
+
+        `value` is a number plus a `format` the client renders through i18n —
+        never a pre-formatted string. `6m 12s` is a duration in seconds and
+        `96.2%` is a ratio; the server does not decide how Hausa renders them.
+      parameters:
+        - $ref: '#/components/parameters/ProgrammeId'
+        - name: window
+          in: query
+          required: false
+          schema: { type: string, enum: [last_7_days, last_30_days], default: last_7_days }
+      responses:
+        '200':
+          description: The KPI tiles.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProgrammeKpis' }
+              example:
+                window: last_7_days
+                kpis:
+                  - kpiId: sla_met
+                    label: SLA met
+                    format: percent
+                    value: 96.2
+                    targetValue: 95
+                    status: good
+                  - kpiId: average_handle_time
+                    label: Average handle time
+                    format: duration_seconds
+                    value: 372
+                    targetValue: 420
+                    status: good
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/programmes/{programmeId}/agents:
+    get:
+      tags: [programmes]
+      summary: Agents assigned to the programme, with skills and languages
+      operationId: listProgrammeAgents
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/B3']
+      description: |
+        The agents table: name, team, skills, languages, and a live presence
+        column headed "Now".
+
+        **Presence is not ours.** Agent state lives in the telephony platform
+        (ADR-0003) and reaches Kasuwa through `packages/telephony-adapter`. It
+        is in this response because the column is in the design, and it is
+        nullable because the adapter may be unavailable — a screen that cannot
+        tell "offline" from "we do not know" will tell a supervisor something
+        false. `null` renders as "—", not as "Offline".
+
+        **No email address, no phone number.** The table shows initials and a
+        name; those are all that is here. An admin who needs to contact an
+        agent goes to the user record, which is a different screen with a
+        different audit trail.
+      parameters:
+        - $ref: '#/components/parameters/ProgrammeId'
+        - name: q
+          in: query
+          required: false
+          schema: { type: string, maxLength: 200 }
+          description: Matches agent name and skill name.
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: The page of agents.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProgrammeAgentList' }
+              example:
+                items:
+                  - userId: 11111111-0000-4000-8000-0000000d0011
+                    displayName: Ngozi Adeyemi
+                    initials: NA
+                    teamName: Team A
+                    skills: [Collections L3, Restructuring]
+                    languages: [en, yo, pcm]
+                    presence: on_call
+                page:
+                  nextCursor: null
+                  hasMore: false
+                  totalCount: 64
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/programmes/{programmeId}/skill-cover:
+    get:
+      tags: [programmes]
+      summary: Rostered versus needed, per skill, for one shift
+      operationId: getProgrammeSkillCover
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/B3']
+      description: |
+        The "Skill cover, day shift" card: "9 of 12 needed".
+
+        **`needed` comes from WFM and WFM is not ours to build** (ADR-0003). It
+        arrives through `packages/wfm-adapter`, which is a placeholder. If the
+        adapter cannot answer, `needed` is `null` and the screen shows the
+        rostered count without a judgement — a cover bar that turns amber
+        because the forecast was missing is worse than no bar.
+
+        `shiftDate` is a calendar date and `timeZone` is the programme's IANA
+        zone, sent explicitly. "Monday" is not the same day everywhere on this
+        roster and the client must not infer it from the browser.
+      parameters:
+        - $ref: '#/components/parameters/ProgrammeId'
+        - name: shiftDate
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: shift
+          in: query
+          required: false
+          schema: { type: string, enum: [day, night], default: day }
+      responses:
+        '200':
+          description: Cover per skill.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SkillCover' }
+              example:
+                shiftDate: '2026-09-29'
+                shift: day
+                timeZone: Africa/Lagos
+                items:
+                  - skillId: collections_l3
+                    label: Collections L3
+                    rostered: 12
+                    needed: 10
+                  - skillId: hausa
+                    label: Hausa speakers
+                    rostered: 9
+                    needed: 12
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/programmes/{programmeId}/sla:
+    parameters:
+      - $ref: '#/components/parameters/ProgrammeId'
+    get:
+      tags: [programmes]
+      summary: SLA targets, clock rules and escalation
+      operationId: getProgrammeSla
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/B4']
+      description: |
+        The whole SLA tab in one read, because the whole tab saves at once.
+
+        **Targets are integer seconds, never "2 min".** The design's inputs are
+        free text and the client parses and formats them; the wire is
+        unambiguous and localisable. `null` means the target does not apply —
+        Voice resolution is "Same call", which is the absence of a target, not
+        a very small one.
+      responses:
+        '200':
+          description: The SLA policy.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SlaPolicy' }
+              example:
+                version: 4
+                targets:
+                  - channel: whatsapp
+                    firstResponseSeconds: 120
+                    resolutionSeconds: 86400
+                    clock: business_hours
+                  - channel: voice
+                    firstResponseSeconds: 20
+                    resolutionSeconds: null
+                    clock: business_hours
+                pauseOutsideOperatingHours: true
+                pauseAwaitingCustomer: true
+                warnAtPercentOfTarget: 80
+                warnNotifyRole: team_lead
+                breachNotifyRole: programme_manager_and_client
+                operatingHoursSummary: Mon–Sat, 08:00–20:00 WAT
+                timeZone: Africa/Lagos
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+    put:
+      tags: [programmes]
+      summary: Save the SLA policy
+      operationId: updateProgrammeSla
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/B4', 'P02/D2']
+      description: |
+        A whole-document write, matching the screen: the unsaved-changes bar
+        counts edits across the tab and saves them together. A partial write
+        would let two of four channel targets land and leave the client unsure
+        which.
+
+        `version` is mandatory. A stale one is `409 stale_write` and the screen
+        must re-read rather than retrying — the SLA is a contractual number and
+        silently overwriting a colleague's edit is the failure mode that ends
+        in a service-credit dispute.
+
+        **Who owns SLA policy is undecided.** SLAs are per-programme
+        configuration (PRD 2.10) but no PRD module claims the model; M12 owns
+        ticketing SLAs, M8 owns inbox response targets, and the client-facing
+        breach report is M18. Raised in the T-0021 report.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SlaPolicyWrite' }
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SlaPolicy' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/programmes/{programmeId}/dispositions:
+    parameters:
+      - $ref: '#/components/parameters/ProgrammeId'
+    get:
+      tags: [programmes]
+      summary: The disposition list, in agent order, with usage
+      operationId: listDispositions
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/B5']
+      description: |
+        `usageCount90d` is the number the delete dialog leans on — "Agents
+        picked this 3,214 times in the last 90 days". It is an aggregate over
+        interactions (M10/M16) and is therefore `null`, not `0`, when the count
+        is unavailable; the dialog then omits the sentence rather than telling
+        an admin that a heavily used code is unused before they delete it.
+
+        Order is `position`, ascending, and it is the order agents see.
+      responses:
+        '200':
+          description: The dispositions.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispositionList' }
+              example:
+                items:
+                  - id: 11111111-0000-4000-8000-0000000e0001
+                    code: PTP
+                    label: Promise to pay
+                    category: promise_to_pay
+                    noteRequired: true
+                    followUpRequired: true
+                    active: true
+                    position: 1
+                    usageCount90d: 3214
+                usageWindowDays: 90
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+    post:
+      tags: [programmes]
+      summary: Add a disposition
+      operationId: createDisposition
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/B5']
+      description: |
+        `code` is unique per programme. A clash is `409 duplicate_code` and the
+        body names the field and nothing else — never the conflicting row, and
+        never a database message, because a raw unique-violation text is a
+        reliable way to disclose a row the caller cannot read.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DispositionWrite' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Disposition' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/programmes/{programmeId}/dispositions/order:
+    put:
+      tags: [programmes]
+      summary: Reorder dispositions
+      operationId: reorderDispositions
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/B5']
+      description: |
+        The drag handle. The body is the complete ordered list of ids for the
+        programme; sending a subset is `400`, because a partial reorder has no
+        well-defined result and the screen always knows the whole list.
+      parameters:
+        - $ref: '#/components/parameters/ProgrammeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DispositionOrderRequest' }
+      responses:
+        '200':
+          description: Reordered.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispositionList' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/programmes/{programmeId}/dispositions/{dispositionId}:
+    parameters:
+      - $ref: '#/components/parameters/ProgrammeId'
+      - $ref: '#/components/parameters/DispositionId'
+    patch:
+      tags: [programmes]
+      summary: Edit a disposition, or deactivate it
+      operationId: updateDisposition
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/B5']
+      description: |
+        `active: false` is the dialog's "Deactivate instead": agents stop
+        seeing it, reporting stays clean, and it can be turned back on. It is
+        the recommended path and the destructive one is the alternative, which
+        is why it is a `PATCH` and not a second delete.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DispositionPatch' }
+            example:
+              active: false
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Disposition' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+    delete:
+      tags: [programmes]
+      summary: Delete a disposition
+      operationId: deleteDisposition
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/B5']
+      description: |
+        Past interactions keep the label; agents can no longer choose it and
+        reports group it under "Deleted". So this is a soft delete at the data
+        layer even though it is a `DELETE` at the API — an interaction whose
+        disposition row vanished would break every historical report that
+        joins to it.
+
+        Idempotent: deleting an already-deleted disposition is `204`.
+      responses:
+        '204': { description: Deleted. }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/programmes/{programmeId}/scripts:
+    get:
+      tags: [programmes]
+      summary: Scripts configured for the programme
+      operationId: listProgrammeScripts
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/B6']
+      description: |
+        Read-only here. The script *builder* is M10 and a screen of its own;
+        this is the index the programme tab shows.
+
+        `status` includes `rejected_by_provider`, which is the design's
+        "Rejected by Meta". **The provider is not named in the enum.** No
+        module outside `packages/telephony-adapter` and the channel adapters
+        may name an external system (CLAUDE.md rule 8); `providerName` is a
+        display string the adapter supplies, and the client renders it without
+        branching on it.
+      parameters:
+        - $ref: '#/components/parameters/ProgrammeId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: The scripts.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScriptList' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/programmes/{programmeId}/retention:
+    parameters:
+      - $ref: '#/components/parameters/ProgrammeId'
+    get:
+      tags: [programmes]
+      summary: Retention periods, disposal method and legal hold
+      operationId: getProgrammeRetention
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/B7']
+      description: |
+        Periods are integer days on the wire; the design's dropdown of "30
+        days … 10 years" is a client-side list over the same field. `null` is
+        not allowed — "not set" is a programme-level state the list screen
+        shows, and it is represented by the absence of a policy (`404`), not by
+        a policy full of nulls.
+
+        `redactSensitiveNumbersInTranscripts` is the design's "Redact card
+        numbers, BVN and NIN". It is a policy flag and nothing more: **no
+        endpoint in this file ever returns a NIN, a BVN or a PAN, redacted or
+        otherwise.**
+      responses:
+        '200':
+          description: The retention policy.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetentionPolicy' }
+              example:
+                version: 2
+                callRecordingsDays: 2555
+                messageTranscriptsDays: 2555
+                screenRecordingsDays: 90
+                qaEvaluationsDays: 1095
+                onExpiry: delete
+                redactSensitiveNumbersInTranscripts: true
+                legalHold: false
+                workspaceDefaultDays: 730
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+    put:
+      tags: [programmes]
+      summary: Save the retention policy
+      operationId: updateProgrammeRetention
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/B7', 'P02/D2']
+      description: |
+        Shortening a period destroys data, and which periods are lawful to
+        shorten depends on the client contract and the sector regulator. The
+        API does not judge that — the screen shows the warning — but it does
+        refuse to act while a legal hold is on: turning a hold off and
+        shortening a period in the same request is `409 legal_hold_active`.
+        Two deliberate steps, two audit rows.
+
+        **Retention model ownership is M21 (data management), which is
+        unassigned**, and D-T4 (does the telephony platform already do
+        recording retention?) is BLOCKED — which means the call-recording
+        period here may not be the one that is actually enforced. Raised in the
+        T-0021 report.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RetentionPolicyWrite' }
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetentionPolicy' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/programmes/{programmeId}/portal-users:
+    get:
+      tags: [programmes]
+      summary: Client-portal users for this programme
+      operationId: listPortalUsers
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/B8']
+      description: |
+        Usually empty, which is the designed state.
+
+        **This is the one list that returns an email address**, because the row
+        is an invitation and the address is the invitation's identity — an
+        admin resending an invite has to see where it goes. It is the invited
+        address only, never a customer's, and `emailMasked` is what the row
+        renders; the full address is present only on the invitation the caller
+        just created.
+
+        Portal users are M18. Nothing exists.
+      parameters:
+        - $ref: '#/components/parameters/ProgrammeId'
+      responses:
+        '200':
+          description: The portal users and pending invitations.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PortalUserList' }
+              example:
+                items: []
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/programmes/{programmeId}/portal-users/invitations:
+    post:
+      tags: [programmes]
+      summary: Invite a client-portal user
+      operationId: invitePortalUser
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/B8']
+      description: |
+        Granting an outsider sight of a programme is one of the more
+        consequential things an admin can do here, so it is audited with the
+        programme and the access level — and the audit row records the invited
+        address as a masked hint plus an opaque id, not as a plain address.
+      parameters:
+        - $ref: '#/components/parameters/ProgrammeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InvitePortalUserRequest' }
+            example:
+              email: portal.invitee@client.example
+              displayName: Invited Client User
+              access: viewer
+      responses:
+        '202':
+          description: Invitation sent.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PortalUser' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/programmes/{programmeId}/archive-preview:
+    get:
+      tags: [programmes]
+      summary: What archiving this programme would do
+      operationId: getProgrammeArchivePreview
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/B9']
+      description: |
+        The bullet list in the archive dialog — how many agents lose access,
+        how many open interactions become read-only, which retention rule the
+        recordings stay under, whether portal users are signed out.
+
+        It is a separate `GET` because the numbers must be current at the
+        moment the admin reads them, not as of whenever the page was loaded.
+        The counts are computed, never cached.
+      parameters:
+        - $ref: '#/components/parameters/ProgrammeId'
+      responses:
+        '200':
+          description: The impact summary.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArchivePreview' }
+              example:
+                agentsLosingAccess: 64
+                openInteractionsBecomingReadOnly: 212
+                retentionSummary: 7 years
+                portalUsersSignedOut: 0
+                restorableUntilDays: 30
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/programmes/{programmeId}/archive:
+    post:
+      tags: [programmes]
+      summary: Archive a programme
+      operationId: archiveProgramme
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/B9']
+      description: |
+        The programme stops taking new work immediately and is restorable for
+        30 days.
+
+        `confirmation` must equal the programme's `name`. The design asks the
+        admin to type "archive"; the API asks for the name instead, because a
+        constant word is the same keystrokes on every programme and stops
+        being a check after the second time. The client may still show the word
+        it likes — it has the name.
+
+        **Archiving does not delete anything.** Retention still governs the
+        recordings and transcripts. An operation that quietly shortened them
+        would turn an admin's tidy-up into an unlogged disposal.
+      parameters:
+        - $ref: '#/components/parameters/ProgrammeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ArchiveProgrammeRequest' }
+            example:
+              confirmation: Eko Bank Collections
+      responses:
+        '200':
+          description: Archived.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProgrammeDetail' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  # =========================================================================
+  # Roles — P02/C .. P02/C3
+  # =========================================================================
+  /api/v1/admin/roles:
+    get:
+      tags: [roles]
+      summary: The role hierarchy
+      operationId: listRoles
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/C', 'P02/C1', 'P02/C2']
+      description: |
+        **A flat list with `parentRoleId`, not a nested tree.** The screen
+        drags nodes between parents, so the client holds the edges in one map
+        and re-derives the tree on every frame; a nested payload would have to
+        be flattened before the first drag and re-nested before the first save.
+        Roots have `parentRoleId: null`.
+
+        `userCount` is the people directly in that role. `descendantUserCount`
+        is the people in every role beneath it, which is what the side panel's
+        "N roles below · M people" needs and what the client must not compute
+        itself — record visibility follows this hierarchy and two
+        implementations of "beneath" is exactly how a visibility rule drifts
+        from what the screen promises.
+
+        **Roles are tenant-wide and carry no programme.** That is what the
+        design shows and it is not a decision this contract may take: whether a
+        role grant can be narrowed to a programme belongs with the permissions
+        engine. There is deliberately no `programmeId` on a role here.
+      responses:
+        '200':
+          description: Every role in the tenant.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleList' }
+              example:
+                version: 11
+                items:
+                  - id: 11111111-0000-4000-8000-0000000f0001
+                    name: Managing Director
+                    parentRoleId: null
+                    userCount: 1
+                    descendantUserCount: 213
+                  - id: 11111111-0000-4000-8000-0000000f0002
+                    name: Head of Operations
+                    parentRoleId: 11111111-0000-4000-8000-0000000f0001
+                    userCount: 1
+                    descendantUserCount: 152
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+    post:
+      tags: [roles]
+      summary: Add a role
+      operationId: createRole
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/C']
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateRoleRequest' }
+            example:
+              name: Workforce Planner
+              parentRoleId: 11111111-0000-4000-8000-0000000f0002
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Role' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/roles/hierarchy:
+    put:
+      tags: [roles]
+      summary: Save every pending move at once
+      operationId: updateRoleHierarchy
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/C1', 'P02/C2', 'P02/D2']
+      description: |
+        The screen lets an admin drag several roles and then press Save once;
+        the unsaved-changes bar counts "Role hierarchy: 3 changes". So the save
+        is one request containing every changed edge, applied in one
+        transaction. Applying them one at a time would pass through
+        intermediate shapes that are cycles, and a failure halfway would leave
+        a hierarchy nobody designed.
+
+        A move that would create a cycle is `409 role_hierarchy_cycle` and
+        **nothing is applied** — not the valid moves, not the invalid one. The
+        error names the offending `roleId`s so the screen can highlight them.
+
+        **Changing this hierarchy changes who can see whose records.** It is
+        audited with the full before and after parent for every moved role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleHierarchyWrite' }
+            example:
+              version: 11
+              moves:
+                - roleId: 11111111-0000-4000-8000-0000000f0013
+                  parentRoleId: 11111111-0000-4000-8000-0000000f0008
+      responses:
+        '200':
+          description: Applied.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleList' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/roles/{roleId}:
+    parameters:
+      - $ref: '#/components/parameters/RoleId'
+    get:
+      tags: [roles]
+      summary: One role, for the side panel
+      operationId: getRole
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/C', 'P02/C2']
+      description: |
+        Adds `seesRecordsOwnedBy` — the first few descendant roles by name,
+        plus a total — which is the panel's "Can see records owned by" list. A
+        role with no descendants returns an empty list, and the screen says
+        "Only their own records. Sharing rules can add more."
+
+        Sharing rules are M2 and do not exist; the sentence is a promise the
+        permissions engine has to keep, not something this endpoint computes.
+      responses:
+        '200':
+          description: The role.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleDetail' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+    patch:
+      tags: [roles]
+      summary: Rename a role, or change who it reports to
+      operationId: updateRole
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/C', 'P02/C2']
+      description: |
+        The side panel's "Reports to" picker, for the single-move case. A
+        multi-move save goes to `PUT /roles/hierarchy`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateRoleRequest' }
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleDetail' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+    delete:
+      tags: [roles]
+      summary: Delete a role and move its people
+      operationId: deleteRole
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/C3']
+      description: |
+        `reassignUsersToRoleId` is **required, even when the role has nobody in
+        it**. Making it conditional means the client has to know the user count
+        before it can form a valid request, and a role that gained a member
+        between the page load and the click would silently orphan them.
+
+        Child roles are re-parented to the deleted role's parent, which is what
+        the dialog says. That is not optional and there is no flag for it: the
+        alternative is a forest of orphans with no visibility rules.
+
+        A role someone still holds cannot vanish from the audit trail, so the
+        deletion is recorded with the role name, the destination role and the
+        number of people moved.
+      parameters:
+        - name: reassignUsersToRoleId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+          description: |
+            Where the people in this role go. Must be an existing role that is
+            not the one being deleted and not one of its descendants —
+            otherwise `409 role_hierarchy_cycle`.
+      responses:
+        '204': { description: Deleted. }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  # =========================================================================
+  # Field-level security — P02/D, P02/D1, P02/D2
+  # =========================================================================
+  /api/v1/admin/field-security/objects:
+    get:
+      tags: [field-security]
+      summary: Objects that have field-level security, with field counts
+      operationId: listFieldSecurityObjects
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/D']
+      description: |
+        The object tabs: Contact, Lead, Case, Deal, Interaction.
+
+        Objects come from the metadata engine (`object_def`, which exists), so
+        this list is per tenant and includes custom objects. It is not a
+        hard-coded five.
+      responses:
+        '200':
+          description: The objects.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FieldSecurityObjectList' }
+              example:
+                items:
+                  - objectApiName: contact
+                    label: Contact
+                    fieldCount: 14
+                  - objectApiName: interaction
+                    label: Interaction
+                    fieldCount: 7
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/field-security/permission-sets:
+    get:
+      tags: [field-security]
+      summary: The matrix columns
+      operationId: listPermissionSets
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/D', 'P02/D1']
+      description: |
+        One entry per column: Agent, Team lead, QA analyst, Programme manager,
+        Client portal, Admin.
+
+        `locked: true` marks a set whose cells cannot be changed — the design's
+        padlock on Admin, "Admins always have full access". The server enforces
+        it; the `disabled` attribute on the button is a courtesy.
+
+        **This endpoint names permission sets. It does not define them.** There
+        is no permission-set table, no assignment model, and no statement here
+        about whether a person holds a set tenant-wide or per programme. See
+        `PUT /field-security/matrix`.
+      responses:
+        '200':
+          description: The permission sets.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionSetList' }
+              example:
+                items:
+                  - permissionSetId: agent
+                    label: Agent
+                    userCount: 412
+                    locked: false
+                  - permissionSetId: admin
+                    label: Admin
+                    userCount: 4
+                    locked: true
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/field-security/matrix:
+    get:
+      tags: [field-security]
+      summary: Read the field-security matrix for one object
+      operationId: getFieldSecurityMatrix
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/D', 'P02/D1']
+      description: |
+        One row per field, one cell per permission set, each cell a level:
+        `none`, `read` or `edit`. Edit implies read, which is why it is an
+        ordered enum and not two booleans — two booleans admit the state
+        "edit but not read", which the screen cannot draw and the engine
+        should never store.
+
+        `classification` is `pii`, `sensitive` or `none` and drives the "PII
+        and sensitive only" filter and the row tag. It comes from the field
+        definition, not from this screen; an admin cannot reclassify a field
+        by looking at it.
+
+        **This response never contains a field's data.** It is a description of
+        who may see a field, so it carries `fieldApiName` and `label` and
+        nothing else. There is no sample value, no "example of this field", no
+        record count — a helpful preview of the BVN column would be the exact
+        leak this screen exists to prevent.
+      parameters:
+        - name: object
+          in: query
+          required: true
+          schema: { type: string, maxLength: 64 }
+          description: The object's `api_name`, e.g. `contact`.
+        - name: q
+          in: query
+          required: false
+          schema: { type: string, maxLength: 200 }
+          description: Matches field label and api name.
+        - name: sensitiveOnly
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: The matrix.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FieldSecurityMatrix' }
+              example:
+                objectApiName: contact
+                version: 5
+                totalFieldCount: 14
+                rows:
+                  - fieldApiName: full_name
+                    label: Full name
+                    classification: none
+                    cells:
+                      - permissionSetId: agent
+                        level: edit
+                        locked: false
+                      - permissionSetId: admin
+                        level: edit
+                        locked: true
+                  - fieldApiName: bank_verification_number
+                    label: BVN
+                    classification: sensitive
+                    cells:
+                      - permissionSetId: agent
+                        level: none
+                        locked: false
+                      - permissionSetId: admin
+                        level: edit
+                        locked: true
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+    put:
+      tags: [field-security]
+      summary: Save field-security changes
+      operationId: updateFieldSecurityMatrix
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/D', 'P02/D1', 'P02/D2']
+      description: |
+        **This operation returns `501 not_implemented` today, and it will keep
+        returning it until the lead settles one question. Build the screen
+        against the mock; do not wire it.**
+
+        The question is not whether the request shape is right — it is: a set
+        of `(field, permission set, level)` triples is exactly what the screen
+        produces and it is written down below. The question is what a triple
+        *means*.
+
+        The matrix as designed has two axes, field and permission set. It has
+        no programme axis. So a grant saved here is either:
+
+        - tenant-wide, in which case an agent on "Eko Bank Collections" and an
+          agent on "Volta Mobile Money Support" necessarily have the same sight
+          of the Contact BVN field, and a BPO cannot honour two clients with
+          different contractual rules about the same field; or
+        - per programme, in which case the screen is missing an axis and one
+          admin's save silently overwrites another programme's settings.
+
+        Neither is obviously right and the API must not pick. Answering it by
+        shipping a shape would be the worst version: the decision would be made
+        by whoever wrote the endpoint first, and discovered by whoever read
+        another client's data.
+
+        **There is deliberately no `programmeId` in the request.** Adding one
+        would answer the question. Removing the question is the lead's job, and
+        it is raised in the T-0021 report as a decision for @acexode.
+
+        `version` comes from the last `GET`; a stale one will be
+        `409 stale_write`. Changes apply the next time each affected person
+        loads a page, which is what the screen's footnote promises — sessions
+        are not force-refreshed.
+
+        When it is implemented, **every changed cell is a separate audit row**,
+        with field, permission set, before and after. A bulk action that
+        touched forty cells and wrote one row saying "bulk edit" is not an
+        audit trail.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FieldSecurityWrite' }
+            example:
+              objectApiName: contact
+              version: 5
+              changes:
+                - fieldApiName: date_of_birth
+                  permissionSetId: agent
+                  level: read
+                - fieldApiName: national_id_number
+                  permissionSetId: qa
+                  level: none
+      responses:
+        '200':
+          description: |
+            Saved. **Not reachable today** — the operation returns `501`. The
+            shape is documented so the screen can render its success state from
+            the mock; request it with `Prefer: code=200`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FieldSecurityMatrix' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  # =========================================================================
+  # Audit log — P02/E, P02/E1, P02/E2
+  # =========================================================================
+  /api/v1/admin/audit/events:
+    get:
+      tags: [audit]
+      summary: Search the audit log
+      operationId: listAuditEvents
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/A', 'P02/E', 'P02/E1']
+      description: |
+        The audit table, its filters, its expandable before/after rows, and its
+        empty state. Also the "Recent admin changes" card on the admin home,
+        which is this endpoint with `pageSize=5`.
+
+        **There is no audit table. T-0001 left the write side out deliberately
+        as an M2 task and it is still out.** This specifies the read side only,
+        so `P02/E` can be built. Whoever builds the store owns the write side
+        too — an audit log with a reader and no writer is a screen that says
+        "no events match" forever, and an audit log whose rows can be written
+        by the subject of the audit is not an audit log. Both halves are one
+        task.
+
+        **Personal data.** This is the sharp edge of the whole contract. An
+        audit entry names a Kasuwa user (the actor) and names the thing they
+        changed (the object). It must never name a *customer*, and it must
+        never carry a NIN, a BVN, a phone number or a date of birth — not in
+        `objectLabel`, not in a `before` or an `after`. Read `AuditEntry`
+        before adding a field to it; the rules are written there and they are
+        not stylistic.
+
+        **`sourceIp` is personal data** under the NDPA and is omitted unless
+        the caller's permissions allow it. `null` means "not shown", never "no
+        address was recorded".
+
+        Filters narrow what you already see. They do not widen it: the
+        reachable set is still resolved from `user_programme`, and filtering by
+        an actor you cannot see returns an empty page — the same empty page as
+        an actor who did nothing, which is the `P02/E1` state.
+      parameters:
+        - name: actorId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: action
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/AuditAction' }
+        - name: objectType
+          in: query
+          required: false
+          schema: { type: string, maxLength: 64 }
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+          description: Inclusive, UTC. The design's date ranges are computed by the client.
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+          description: Exclusive, UTC.
+        - name: sourceIpPrefix
+          in: query
+          required: false
+          schema: { type: string, maxLength: 45 }
+          description: |
+            A literal prefix, e.g. `102.89`. Not a regex and not a CIDR —
+            the design's field accepts partial addresses and a regex here is a
+            denial-of-service dressed as a filter.
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: The page of events.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditEventList' }
+              example:
+                items:
+                  - id: 11111111-0000-4000-8000-000000a10001
+                    occurredAt: '2026-09-27T13:32:00.000Z'
+                    actor:
+                      kind: user
+                      id: 11111111-0000-4000-8000-0000000d0001
+                      displayName: Amaka Okafor
+                      roleName: Tenant admin
+                    action: updated
+                    objectType: mfa_policy
+                    objectLabel: Workspace MFA policy
+                    objectId: 11111111-0000-4000-8000-000000b10001
+                    programmeId: null
+                    sourceIp: null
+                    sourceLocation: Lagos, NG
+                    changes:
+                      - field: requirement
+                        before: optional
+                        after: required_for_all_users
+                        redacted: false
+                  - id: 11111111-0000-4000-8000-000000a10002
+                    occurredAt: '2026-09-26T14:22:00.000Z'
+                    actor:
+                      kind: system
+                      id: null
+                      displayName: System
+                      roleName: Scheduled job
+                    action: rotated
+                    objectType: api_key
+                    objectLabel: Payments integration key
+                    objectId: null
+                    programmeId: null
+                    sourceIp: null
+                    sourceLocation: af-south-1
+                    changes:
+                      - field: key_ending
+                        before: null
+                        after: null
+                        redacted: true
+                page:
+                  nextCursor: 'eyJhdCI6IjIwMjYtMDktMjYifQ'
+                  hasMore: true
+                  totalCount: null
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/audit/filter-options:
+    get:
+      tags: [audit]
+      summary: What the filter dropdowns should offer
+      operationId: getAuditFilterOptions
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/E']
+      description: |
+        The actor, action and object-type lists.
+
+        Actors are the people who actually appear in the log the caller can
+        see, not every user in the tenant — a dropdown listing all 214 staff
+        would be a staff directory handed to anyone who can open the audit
+        screen, and it would confirm the existence of users whose actions the
+        caller is not allowed to read. `id` and `displayName` only; no email,
+        no phone.
+      responses:
+        '200':
+          description: The options.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditFilterOptions' }
+              example:
+                actors:
+                  - id: 11111111-0000-4000-8000-0000000d0001
+                    displayName: Amaka Okafor
+                    kind: user
+                  - id: null
+                    displayName: System
+                    kind: system
+                actions: [created, updated, deleted, exported, invited, failed_sign_in, rejected, rotated]
+                objectTypes:
+                  - objectType: mfa_policy
+                    label: MFA policy
+                  - objectType: programme
+                    label: Programme
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/audit/exports:
+    post:
+      tags: [audit]
+      summary: Start an audit-log export
+      operationId: createAuditExport
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P02/E2']
+      description: |
+        **An export is itself audited**, which the dialog says out loud. That
+        row is written before the job starts, not after it succeeds — an export
+        that failed halfway still means somebody asked for the data.
+
+        `202`, never `200`: the file is built by a worker and a link is emailed.
+        The response carries a masked destination hint (`a•••a@example.test`)
+        for the confirmation toast, never the full address, and never a URL —
+        a download link in an API response is a link in a browser history, an
+        access log and a `Referer` header.
+
+        `includeIpAddresses` defaults to **false**. IP addresses are personal
+        data and an export that carries them by default is one an admin
+        produces without deciding to. Setting it true is recorded in the audit
+        row for the export.
+
+        Scope is the caller's, as always: `scope: all` means "everything in the
+        last 90 days that you can see", not everything that exists.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateAuditExportRequest' }
+            example:
+              format: csv
+              scope: filtered
+              includeIpAddresses: false
+              filters:
+                action: exported
+                from: '2026-09-01T00:00:00.000Z'
+      responses:
+        '202':
+          description: Export queued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditExport' }
+              example:
+                exportId: 11111111-0000-4000-8000-000000c10001
+                status: queued
+                format: csv
+                estimatedRowCount: 4800
+                deliveryEmailHint: 'a•••a@example.test'
+                linkExpiresAfterHours: 24
+                requestedAt: '2026-09-30T10:04:00.000Z'
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/audit/exports/{exportId}:
+    get:
+      tags: [audit]
+      summary: Check an export's progress
+      operationId: getAuditExport
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P02/E2']
+      description: |
+        Poll for the toast to become "ready". Returns no download URL: the file
+        is delivered by email to the requester's own address and to nobody
+        else's.
+
+        An `exportId` belonging to another caller is `404`, not `403`.
+      parameters:
+        - name: exportId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The export.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditExport' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+components:
+  securitySchemes:
+    sessionToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: |
+        `Authorization: Bearer ksw_s1_…`, as issued by
+        `POST /api/v1/auth/mfa` in `auth.openapi.yaml`. The header is the only
+        accepted transport.
+
+        The token carries no claims and no scope. Every request in this file
+        re-resolves who the caller is and what they can reach, from the
+        database, inside the tenant transaction.
+
+  parameters:
+    ProgrammeId:
+      name: programmeId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        A record identifier, **not scope**. An id the caller cannot reach —
+        whether it belongs to another tenant, or to a programme in this tenant
+        they are not a member of, or to nothing at all — is `404 not_found`.
+    DispositionId:
+      name: dispositionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    RoleId:
+      name: roleId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    AlertId:
+      name: alertId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string, maxLength: 512 }
+      description: |
+        **Opaque. Echo it back; do not parse it and do not construct one.** It
+        encodes a position, and a client-built cursor is a client-supplied
+        query predicate wearing a hat.
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+
+  schemas:
+    # --- shared -----------------------------------------------------------
+    Page:
+      type: object
+      required: [nextCursor, hasMore]
+      description: |
+        Cursor pagination everywhere. `totalCount` is nullable and expensive —
+        the audit log does not compute it past the first page, and a screen
+        that needs an exact total of a seven-year log is asking the wrong
+        question.
+      properties:
+        nextCursor: { type: [string, 'null'] }
+        hasMore: { type: boolean }
+        totalCount: { type: [integer, 'null'] }
+
+    Money:
+      type: object
+      required: [amountMinor, currency]
+      description: |
+        Minor units as a string (a `bigint` does not survive JSON) plus an ISO
+        4217 code. Never a float, never a bare number called `amount`, and
+        never a currency symbol — the client formats through `@kasuwa/i18n`.
+      properties:
+        amountMinor: { type: string, pattern: '^-?[0-9]+$' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        estimatedTotalMinor: { type: [string, 'null'], pattern: '^-?[0-9]+$' }
+
+    Severity:
+      type: string
+      enum: [info, success, warning, danger]
+
+    # --- admin home -------------------------------------------------------
+    AdminHomeSummary:
+      type: object
+      required: [tenant, dataRegion, health]
+      properties:
+        tenant:
+          type: object
+          required: [id, name, planName, countryCount, userCount]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            planName: { type: string }
+            countryCount: { type: integer }
+            userCount: { type: integer }
+        dataRegion:
+          type: object
+          required: [code, displayName]
+          description: |
+            Where this tenant's data, recordings and backups live. A fact about
+            the cell, surfaced because the design puts it in the top bar and
+            because residency is a contractual promise in this market.
+          properties:
+            code: { type: string, example: af-south-1 }
+            displayName: { type: string }
+        health: { $ref: '#/components/schemas/SetupHealth' }
+
+    SetupHealth:
+      type: object
+      required: [score, outOf, pointsAvailable, checkedAt, checks]
+      properties:
+        score: { type: integer, minimum: 0 }
+        outOf: { type: integer, minimum: 1 }
+        pointsAvailable:
+          type: integer
+          description: Points recoverable by fixing everything currently failing.
+        checkedAt: { type: string, format: date-time }
+        checks:
+          type: array
+          items:
+            type: object
+            required: [checkId, label, status, points]
+            properties:
+              checkId:
+                type: string
+                description: Stable. The client routes and localises on this, not on `label`.
+              label: { type: string }
+              status: { type: string, enum: [pass, warn, fail, todo] }
+              points: { type: integer, description: Points gained by fixing it. Zero when passing. }
+              settingId:
+                type: [string, 'null']
+                description: The settings-menu item the "Fix" button opens.
+
+    AdminAlertList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AdminAlert' }
+
+    AdminAlert:
+      type: object
+      required: [id, severity, category, title, body, raisedAt, dismissed]
+      description: |
+        **An alert body may name Kasuwa users and Kasuwa configuration. It may
+        not name a customer, and it may not carry a contact detail of any
+        kind.** A data-subject-request alert carries the request reference; the
+        subject's identity stays in the DSR screen, behind its own permission
+        and its own audit row.
+      properties:
+        id: { type: string, format: uuid }
+        severity: { $ref: '#/components/schemas/Severity' }
+        category:
+          type: string
+          enum: [security, channels, compliance, billing, data]
+        title: { type: string }
+        body: { type: string }
+        sourceLabel: { type: [string, 'null'] }
+        raisedAt: { type: string, format: date-time }
+        actionLabel: { type: [string, 'null'] }
+        settingId: { type: [string, 'null'] }
+        dismissed: { type: boolean }
+
+    UsageSummary:
+      type: object
+      required: [periodStart, periodEnd, meters]
+      properties:
+        periodStart: { type: string, format: date-time }
+        periodEnd: { type: string, format: date-time }
+        meters:
+          type: array
+          items:
+            type: object
+            required: [meterId, label, unit, used]
+            properties:
+              meterId: { type: string }
+              label: { type: string }
+              unit:
+                type: string
+                description: |
+                  The meter's own unit — `seat`, `conversation`, `byte`,
+                  `credit`. `used` and `limit` are integers in it, so the
+                  client formats "312 GB" and the server never sends a string
+                  it would have to parse back.
+              used: { type: integer }
+              limit: { type: [integer, 'null'], description: Null when the meter is uncapped. }
+              warnAtPercent: { type: [integer, 'null'] }
+              note: { type: [string, 'null'] }
+              spend:
+                oneOf:
+                  - { $ref: '#/components/schemas/Money' }
+                  - { type: 'null' }
+
+    SettingsMenuBadges:
+      type: object
+      required: [badges]
+      properties:
+        badges:
+          type: array
+          items:
+            type: object
+            required: [settingId, count, severity]
+            properties:
+              settingId: { type: string, example: u-mfa }
+              count: { type: integer, minimum: 1 }
+              severity: { $ref: '#/components/schemas/Severity' }
+
+    # --- programmes -------------------------------------------------------
+    ProgrammeStatus:
+      type: string
+      enum: [active, paused, draft, archived]
+      description: |
+        **No column backs this yet.** `programme` has no lifecycle field, so
+        adding one is a migration and a successor task, not T-0021.
+
+    ProgrammeChannel:
+      type: string
+      enum: [whatsapp, voice, sms, email, ussd]
+
+    Programme:
+      type: object
+      required: [id, name, status]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        clientName: { type: [string, 'null'] }
+        reference:
+          type: [string, 'null']
+          description: Human-facing code, e.g. `PRG-0031`. Display only; never a key.
+        countryCode: { type: [string, 'null'], pattern: '^[A-Z]{2}$' }
+        status: { $ref: '#/components/schemas/ProgrammeStatus' }
+        channels:
+          type: array
+          items: { $ref: '#/components/schemas/ProgrammeChannel' }
+        agentCount: { type: [integer, 'null'] }
+        slaAttainment7d:
+          type: [number, 'null']
+          description: |
+            Percentage, one decimal. **Null means no data**, and the screen
+            renders "No data". A zero would render as a red bar and assert
+            something false about a programme that has not started.
+        retentionSummary:
+          type: [string, 'null']
+          description: A short display string such as `7 years`. Null when no policy is set.
+
+    ProgrammeList:
+      type: object
+      required: [items, statusCounts, page]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Programme' }
+        statusCounts:
+          type: object
+          description: |
+            Counts behind the filter chips, over the caller's reachable set and
+            ignoring the current `status` filter but honouring `q`.
+          properties:
+            active: { type: integer }
+            paused: { type: integer }
+            draft: { type: integer }
+            archived: { type: integer }
+        page: { $ref: '#/components/schemas/Page' }
+
+    ProgrammeDetail:
+      allOf:
+        - $ref: '#/components/schemas/Programme'
+        - type: object
+          required: [version]
+          properties:
+            version:
+              type: integer
+              description: Optimistic-concurrency token. Send it back on every write.
+            businessUnitId: { type: string, format: uuid }
+            contract:
+              type: [object, 'null']
+              description: The Contract overview card. Nothing owns this model yet.
+              properties:
+                reference: { type: [string, 'null'] }
+                startedOn: { type: [string, 'null'], format: date }
+                renewsOn: { type: [string, 'null'], format: date }
+                billingBasis: { type: [string, 'null'] }
+            operating:
+              type: [object, 'null']
+              description: The Channels & hours card.
+              properties:
+                timeZone: { type: string, example: Africa/Lagos }
+                hoursSummary: { type: [string, 'null'] }
+                holidayCalendar: { type: [string, 'null'] }
+                channels:
+                  type: array
+                  items:
+                    type: object
+                    required: [channel, label]
+                    properties:
+                      channel: { $ref: '#/components/schemas/ProgrammeChannel' }
+                      label:
+                        type: string
+                        description: |
+                          A display label supplied by the channel adapter, e.g.
+                          `2 SIP trunks, Lagos`. **Not a phone number.** The
+                          numbers behind a programme live on the channel
+                          settings screen, which has its own permission.
+            people:
+              type: [object, 'null']
+              description: The People card. Counts only — no names, no contact details.
+              properties:
+                programmeManagerName: { type: [string, 'null'] }
+                teamLeadCount: { type: [integer, 'null'] }
+                agentCount: { type: [integer, 'null'] }
+                qaAnalystCount: { type: [integer, 'null'] }
+                portalUserCount: { type: [integer, 'null'] }
+
+    CreateProgrammeRequest:
+      type: object
+      additionalProperties: false
+      required: [name, businessUnitId]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        clientName: { type: string, maxLength: 200 }
+        countryCode: { type: string, pattern: '^[A-Z]{2}$' }
+        businessUnitId:
+          type: string
+          format: uuid
+          description: |
+            Must be a business unit in the caller's tenant. One that is not is
+            `404`, not `403` — the same rule as every other identifier here.
+        templateId:
+          type: string
+          maxLength: 64
+          description: |
+            `collections`, `customer_support`, `outbound_sales`. **Undefined
+            today**: nothing specifies what a template contains. Sending one is
+            `400 validation_failed` until it does.
+
+    UpdateProgrammeRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version: { type: integer }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        clientName: { type: [string, 'null'], maxLength: 200 }
+        status:
+          type: string
+          enum: [active, paused]
+          description: |
+            Archiving is not here. It has consequences the admin must see
+            first, so it has `POST /archive` and a preview of its own.
+
+    ArchiveProgrammeRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmation]
+      properties:
+        confirmation:
+          type: string
+          description: Must equal the programme's `name`, exactly.
+
+    ArchivePreview:
+      type: object
+      required: [agentsLosingAccess, openInteractionsBecomingReadOnly, portalUsersSignedOut, restorableUntilDays]
+      properties:
+        agentsLosingAccess: { type: integer }
+        openInteractionsBecomingReadOnly: { type: integer }
+        retentionSummary: { type: [string, 'null'] }
+        portalUsersSignedOut: { type: integer }
+        restorableUntilDays: { type: integer }
+
+    ProgrammeKpis:
+      type: object
+      required: [window, kpis]
+      properties:
+        window: { type: string, enum: [last_7_days, last_30_days] }
+        kpis:
+          type: array
+          items:
+            type: object
+            required: [kpiId, label, format, value]
+            properties:
+              kpiId: { type: string }
+              label: { type: string }
+              format:
+                type: string
+                enum: [percent, count, duration_seconds]
+                description: |
+                  How to render `value`. The server sends a number and a kind;
+                  it does not send `6m 12s`, because how a duration reads in
+                  Hausa is not the API's decision.
+              value: { type: number }
+              targetValue: { type: [number, 'null'] }
+              status: { type: [string, 'null'], enum: [good, warn, bad, null] }
+
+    ProgrammeAgentList:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [userId, displayName, presence]
+            description: |
+              **No email address and no phone number.** The table shows a name,
+              a team, skills and languages, and that is all this carries.
+            properties:
+              userId: { type: string, format: uuid }
+              displayName: { type: string }
+              initials: { type: string, maxLength: 3 }
+              teamName: { type: [string, 'null'] }
+              skills: { type: array, items: { type: string } }
+              languages:
+                type: array
+                items: { type: string }
+                description: BCP 47 tags, e.g. `en`, `yo`, `ha`, `pcm`. Not display names.
+              presence:
+                type: [string, 'null']
+                enum: [available, on_call, on_break, offline, null]
+                description: |
+                  From the telephony adapter. **Null means "we do not know"** —
+                  the adapter is unavailable — and must not render as
+                  "Offline". A supervisor told an agent is offline when the
+                  truth is that we lost the feed will make a staffing decision
+                  on a fiction.
+        page: { $ref: '#/components/schemas/Page' }
+
+    SkillCover:
+      type: object
+      required: [shiftDate, shift, timeZone, items]
+      properties:
+        shiftDate: { type: string, format: date }
+        shift: { type: string, enum: [day, night] }
+        timeZone:
+          type: string
+          description: |
+            The programme's IANA zone, sent explicitly. The client must not
+            infer the shift date from the browser: this roster spans WAT, EAT
+            and SAST and "Monday" is not one day.
+        items:
+          type: array
+          items:
+            type: object
+            required: [skillId, label, rostered]
+            properties:
+              skillId: { type: string }
+              label: { type: string }
+              rostered: { type: integer }
+              needed:
+                type: [integer, 'null']
+                description: |
+                  From `packages/wfm-adapter`, which is a placeholder. Null
+                  when the forecast is unavailable, and the bar then shows the
+                  rostered count without a judgement.
+
+    SlaClock:
+      type: string
+      enum: [business_hours, always]
+
+    SlaNotifyRole:
+      type: string
+      enum: [assigned_agent, team_lead, programme_manager, programme_manager_and_client]
+
+    SlaPolicy:
+      type: object
+      required: [version, targets, pauseOutsideOperatingHours, pauseAwaitingCustomer, warnAtPercentOfTarget]
+      properties:
+        version: { type: integer }
+        targets:
+          type: array
+          items:
+            type: object
+            required: [channel, firstResponseSeconds, resolutionSeconds, clock]
+            properties:
+              channel: { $ref: '#/components/schemas/ProgrammeChannel' }
+              firstResponseSeconds: { type: [integer, 'null'], minimum: 1 }
+              resolutionSeconds:
+                type: [integer, 'null']
+                minimum: 1
+                description: |
+                  Null means there is no resolution target for this channel —
+                  the design's "Same call" for voice. It is the absence of a
+                  target, not a very short one.
+              clock: { $ref: '#/components/schemas/SlaClock' }
+        pauseOutsideOperatingHours: { type: boolean }
+        pauseAwaitingCustomer: { type: boolean }
+        warnAtPercentOfTarget: { type: integer, minimum: 1, maximum: 100 }
+        warnNotifyRole: { $ref: '#/components/schemas/SlaNotifyRole' }
+        breachNotifyRole: { $ref: '#/components/schemas/SlaNotifyRole' }
+        operatingHoursSummary:
+          type: [string, 'null']
+          description: Read-only here; operating hours are edited on their own settings screen.
+        timeZone: { type: string, example: Africa/Lagos }
+
+    SlaPolicyWrite:
+      type: object
+      additionalProperties: false
+      required: [version, targets, pauseOutsideOperatingHours, pauseAwaitingCustomer, warnAtPercentOfTarget, warnNotifyRole, breachNotifyRole]
+      properties:
+        version: { type: integer }
+        targets:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [channel, firstResponseSeconds, resolutionSeconds, clock]
+            properties:
+              channel: { $ref: '#/components/schemas/ProgrammeChannel' }
+              firstResponseSeconds: { type: [integer, 'null'], minimum: 1 }
+              resolutionSeconds: { type: [integer, 'null'], minimum: 1 }
+              clock: { $ref: '#/components/schemas/SlaClock' }
+        pauseOutsideOperatingHours: { type: boolean }
+        pauseAwaitingCustomer: { type: boolean }
+        warnAtPercentOfTarget: { type: integer, minimum: 1, maximum: 100 }
+        warnNotifyRole: { $ref: '#/components/schemas/SlaNotifyRole' }
+        breachNotifyRole: { $ref: '#/components/schemas/SlaNotifyRole' }
+
+    DispositionCategory:
+      type: string
+      enum: [promise_to_pay, resolved, callback, escalated, not_reached]
+      description: |
+        The categories the design shows, for a collections programme. Whether
+        categories are per tenant, per programme or fixed is M10's to decide;
+        a fixed enum is the conservative reading and widening an enum later is
+        cheaper than narrowing one.
+
+    Disposition:
+      type: object
+      required: [id, code, label, category, noteRequired, followUpRequired, active, position]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, maxLength: 16, description: Unique within the programme. }
+        label: { type: string, maxLength: 120 }
+        category: { $ref: '#/components/schemas/DispositionCategory' }
+        noteRequired: { type: boolean }
+        followUpRequired: { type: boolean }
+        active: { type: boolean }
+        position: { type: integer, minimum: 1 }
+        usageCount90d:
+          type: [integer, 'null']
+          description: |
+            How often agents picked it in the window. **Null when unavailable**
+            — the delete dialog then omits the sentence rather than implying a
+            busy code is unused, which is the one wrong answer that gets a code
+            deleted.
+
+    DispositionList:
+      type: object
+      required: [items, usageWindowDays]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Disposition' }
+        usageWindowDays: { type: integer }
+
+    DispositionWrite:
+      type: object
+      additionalProperties: false
+      required: [code, label, category]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 16, pattern: '^[A-Z0-9_]+$' }
+        label: { type: string, minLength: 1, maxLength: 120 }
+        category: { $ref: '#/components/schemas/DispositionCategory' }
+        noteRequired: { type: boolean, default: false }
+        followUpRequired: { type: boolean, default: false }
+
+    DispositionPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        label: { type: string, minLength: 1, maxLength: 120 }
+        category: { $ref: '#/components/schemas/DispositionCategory' }
+        noteRequired: { type: boolean }
+        followUpRequired: { type: boolean }
+        active:
+          type: boolean
+          description: The dialog's "Deactivate instead". The recommended path.
+
+    DispositionOrderRequest:
+      type: object
+      additionalProperties: false
+      required: [dispositionIds]
+      properties:
+        dispositionIds:
+          type: array
+          items: { type: string, format: uuid }
+          description: |
+            The complete ordered list for this programme. A subset is `400`: a
+            partial reorder has no defined result and the screen always holds
+            the whole list.
+
+    ScriptList:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, name, status, version, updatedAt]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              channels:
+                type: array
+                items: { $ref: '#/components/schemas/ProgrammeChannel' }
+              languages: { type: array, items: { type: string } }
+              version: { type: integer }
+              status:
+                type: string
+                enum: [draft, in_review, published, rejected_by_provider]
+                description: |
+                  `rejected_by_provider` is the design's "Rejected by Meta".
+                  **The provider is not named in the enum** — only adapters
+                  name external systems (CLAUDE.md rule 8).
+              providerName:
+                type: [string, 'null']
+                description: A display string from the channel adapter. Do not branch on it.
+              rejectionReason: { type: [string, 'null'] }
+              updatedAt: { type: string, format: date-time }
+        page: { $ref: '#/components/schemas/Page' }
+
+    RetentionPolicy:
+      type: object
+      required: [version, callRecordingsDays, messageTranscriptsDays, screenRecordingsDays, qaEvaluationsDays, onExpiry, redactSensitiveNumbersInTranscripts, legalHold]
+      properties:
+        version: { type: integer }
+        callRecordingsDays: { type: integer, minimum: 1 }
+        messageTranscriptsDays: { type: integer, minimum: 1 }
+        screenRecordingsDays: { type: integer, minimum: 1 }
+        qaEvaluationsDays: { type: integer, minimum: 1 }
+        onExpiry:
+          type: string
+          enum: [delete, anonymise]
+          description: |
+            `anonymise` keeps counts and scores for reporting after names,
+            numbers and identifiers are removed. It is not a softer delete: it
+            is a different promise to the data subject and it is audited as its
+            own value.
+        redactSensitiveNumbersInTranscripts:
+          type: boolean
+          description: |
+            Card numbers, BVN and NIN replaced before storage. A policy flag.
+            **No endpoint in this file ever returns such a number**, redacted
+            or otherwise, whatever this is set to.
+        legalHold:
+          type: boolean
+          description: Stops all deletion for the programme until it is turned off.
+        workspaceDefaultDays:
+          type: [integer, 'null']
+          description: Read-only. What these rules override.
+
+    RetentionPolicyWrite:
+      type: object
+      additionalProperties: false
+      required: [version, callRecordingsDays, messageTranscriptsDays, screenRecordingsDays, qaEvaluationsDays, onExpiry, redactSensitiveNumbersInTranscripts, legalHold]
+      properties:
+        version: { type: integer }
+        callRecordingsDays: { type: integer, minimum: 1 }
+        messageTranscriptsDays: { type: integer, minimum: 1 }
+        screenRecordingsDays: { type: integer, minimum: 1 }
+        qaEvaluationsDays: { type: integer, minimum: 1 }
+        onExpiry: { type: string, enum: [delete, anonymise] }
+        redactSensitiveNumbersInTranscripts: { type: boolean }
+        legalHold: { type: boolean }
+
+    PortalUser:
+      type: object
+      required: [id, displayName, emailMasked, access, status]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        emailMasked:
+          type: string
+          description: |
+            What the row renders, e.g. `p•••e@client.example`. The invited
+            address, never a customer's. The full address is not returned by
+            the list.
+        access: { type: string, enum: [viewer, reports_only] }
+        status: { type: string, enum: [invited, active, suspended] }
+        invitedAt: { type: string, format: date-time }
+
+    PortalUserList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/PortalUser' }
+
+    InvitePortalUserRequest:
+      type: object
+      additionalProperties: false
+      required: [email, access]
+      properties:
+        email: { type: string, format: email, maxLength: 320 }
+        displayName: { type: string, maxLength: 200 }
+        access: { type: string, enum: [viewer, reports_only] }
+
+    # --- roles ------------------------------------------------------------
+    Role:
+      type: object
+      required: [id, name, parentRoleId, userCount]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 120 }
+        parentRoleId:
+          type: [string, 'null']
+          format: uuid
+          description: Null for a top-level role. The design's "No one (top level)".
+        userCount: { type: integer, description: People directly in this role. }
+        descendantUserCount:
+          type: integer
+          description: |
+            People in every role beneath it. Server-computed, because record
+            visibility follows the same relation and a second implementation in
+            the browser is how a visibility rule drifts from what the screen
+            promises.
+
+    RoleList:
+      type: object
+      required: [version, items]
+      description: |
+        **Flat, with `parentRoleId`.** The screen drags nodes between parents
+        and re-derives the tree every frame; a nested payload would be
+        flattened before the first drag.
+      properties:
+        version:
+          type: integer
+          description: Of the hierarchy as a whole. Send it back on `PUT /roles/hierarchy`.
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Role' }
+
+    RoleDetail:
+      allOf:
+        - $ref: '#/components/schemas/Role'
+        - type: object
+          properties:
+            seesRecordsOwnedBy:
+              type: object
+              required: [roleCount, userCount, sample]
+              description: |
+                The side panel's "Can see records owned by". `sample` is the
+                first few descendant role names for display; `roleCount` is the
+                true total.
+              properties:
+                roleCount: { type: integer }
+                userCount: { type: integer }
+                sample:
+                  type: array
+                  items:
+                    type: object
+                    required: [id, name]
+                    properties:
+                      id: { type: string, format: uuid }
+                      name: { type: string }
+
+    CreateRoleRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        parentRoleId: { type: [string, 'null'], format: uuid }
+
+    UpdateRoleRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        parentRoleId: { type: [string, 'null'], format: uuid }
+
+    RoleHierarchyWrite:
+      type: object
+      additionalProperties: false
+      required: [version, moves]
+      properties:
+        version: { type: integer }
+        moves:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [roleId, parentRoleId]
+            properties:
+              roleId: { type: string, format: uuid }
+              parentRoleId: { type: [string, 'null'], format: uuid }
+
+    # --- field-level security ---------------------------------------------
+    FieldSecurityObjectList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [objectApiName, label, fieldCount]
+            properties:
+              objectApiName: { type: string }
+              label: { type: string }
+              fieldCount: { type: integer }
+
+    PermissionSetList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [permissionSetId, label, locked]
+            properties:
+              permissionSetId: { type: string, maxLength: 64 }
+              label: { type: string }
+              userCount: { type: [integer, 'null'] }
+              locked:
+                type: boolean
+                description: |
+                  Cells in this column cannot be changed — the Admin column's
+                  padlock. Enforced server-side; the disabled button is a
+                  courtesy, not the control.
+
+    FieldAccessLevel:
+      type: string
+      enum: [none, read, edit]
+      description: |
+        Ordered, and `edit` implies `read`. Deliberately not two booleans:
+        two booleans admit "edit but not read", which the screen cannot draw
+        and the engine should never store.
+
+    FieldClassification:
+      type: string
+      enum: [none, pii, sensitive]
+      description: |
+        From the field definition, not from this screen. An admin cannot
+        reclassify a field by looking at the matrix.
+
+    FieldSecurityMatrix:
+      type: object
+      required: [objectApiName, version, rows]
+      description: |
+        A description of who may see a field. **It never contains a field's
+        data** — no sample value, no record count, no "example". A helpful
+        preview of the BVN column would be the exact leak this screen exists
+        to prevent.
+      properties:
+        objectApiName: { type: string }
+        version: { type: integer }
+        totalFieldCount:
+          type: integer
+          description: Before `q` and `sensitiveOnly`. The footer's "14 of 14 fields".
+        rows:
+          type: array
+          items:
+            type: object
+            required: [fieldApiName, label, classification, cells]
+            properties:
+              fieldApiName: { type: string }
+              label: { type: string }
+              classification: { $ref: '#/components/schemas/FieldClassification' }
+              cells:
+                type: array
+                items:
+                  type: object
+                  required: [permissionSetId, level, locked]
+                  properties:
+                    permissionSetId: { type: string }
+                    level: { $ref: '#/components/schemas/FieldAccessLevel' }
+                    locked: { type: boolean }
+
+    FieldSecurityWrite:
+      type: object
+      additionalProperties: false
+      required: [objectApiName, version, changes]
+      description: |
+        **There is deliberately no `programmeId` here.** Whether a
+        field-security grant is tenant-wide or per programme is undecided, and
+        adding the property would answer it. Until the lead decides, the
+        operation returns `501`. See its description.
+      properties:
+        objectApiName: { type: string, maxLength: 64 }
+        version: { type: integer }
+        changes:
+          type: array
+          minItems: 1
+          maxItems: 2000
+          description: |
+            Only the cells that changed. The bulk actions produce many of
+            these in one request, and each one is a separate audit row when
+            this is implemented.
+          items:
+            type: object
+            additionalProperties: false
+            required: [fieldApiName, permissionSetId, level]
+            properties:
+              fieldApiName: { type: string, maxLength: 64 }
+              permissionSetId: { type: string, maxLength: 64 }
+              level: { $ref: '#/components/schemas/FieldAccessLevel' }
+
+    # --- audit ------------------------------------------------------------
+    AuditAction:
+      type: string
+      enum:
+        - created
+        - updated
+        - deleted
+        - exported
+        - invited
+        - viewed
+        - failed_sign_in
+        - rejected
+        - rotated
+        - played_recording
+      description: |
+        `viewed` and `played_recording` are here because M2 requires record
+        views of sensitive fields and recording playback to be audited, even
+        though the design's filter does not list them yet.
+
+    AuditActor:
+      type: object
+      required: [kind, displayName]
+      description: |
+        The person or process that acted. **Name and role only.** No email
+        address, no phone number, no employee number — an audit screen is one
+        of the most widely granted admin permissions and it must not double as
+        a staff directory export.
+      properties:
+        kind: { type: string, enum: [user, system] }
+        id:
+          type: [string, 'null']
+          format: uuid
+          description: Null for a system actor. A scheduled job is not a person.
+        displayName: { type: string }
+        roleName: { type: [string, 'null'] }
+
+    AuditChange:
+      type: object
+      required: [field, redacted]
+      description: |
+        One line of the expanded before/after panel.
+
+        **`before` and `after` are configuration values, never record data.**
+        When the changed value is or could contain personal data, the server
+        sends `redacted: true` with both values null and the screen shows
+        "hidden" — the fact that a sensitive field changed is auditable; its
+        content is not. A diff that helpfully showed the old and new value of a
+        customer's phone number would put personal data into an export that an
+        admin can email to themselves.
+      properties:
+        field: { type: string, description: A stable key, localised by the client. }
+        before: { type: [string, 'null'] }
+        after: { type: [string, 'null'] }
+        redacted: { type: boolean }
+
+    AuditEntry:
+      type: object
+      required: [id, occurredAt, actor, action, objectType, objectLabel]
+      description: |
+        One row. Read the constraints before adding a property.
+
+        * `objectLabel` is what the row shows in "Object and record". It names
+          **Kasuwa configuration**, not a customer: `Workspace MFA policy`,
+          `Contact · BVN`, `Pesa Merchant Onboarding`. Where the subject is a
+          person it is their display name — **never their email address**,
+          which is what the design's "Invited · fatima.bello@…" row would have
+          put there. An address is a credential-adjacent identifier and this
+          screen is broadly readable.
+        * It must never contain a NIN, a BVN, a PAN, a phone number, a date of
+          birth or a home address. Not even partially. Not even masked.
+        * `objectId` lets the client link to the record. It is an identifier,
+          and an identifier the caller cannot reach simply does not resolve
+          when they follow it — `404`, as everywhere else.
+        * `programmeId` is present when the action happened inside a
+          programme, so the screen can show which. It is **output, not a
+          filter of scope**: the caller sees the events they can reach, which
+          is decided from `user_programme`, not from this field.
+      properties:
+        id: { type: string, format: uuid }
+        occurredAt:
+          type: string
+          format: date-time
+          description: |
+            UTC, always. The column is headed "Time (WAT)"; that conversion is
+            the browser's, from the tenant's display zone.
+        actor: { $ref: '#/components/schemas/AuditActor' }
+        action: { $ref: '#/components/schemas/AuditAction' }
+        objectType: { type: string, maxLength: 64 }
+        objectLabel: { type: string }
+        objectId: { type: [string, 'null'], format: uuid }
+        programmeId: { type: [string, 'null'], format: uuid }
+        sourceIp:
+          type: [string, 'null']
+          description: |
+            **Personal data under the NDPA.** Omitted — `null` — unless the
+            caller's permissions allow it. Null means "not shown to you", never
+            "none was recorded"; the two must not be distinguishable, or the
+            field becomes an oracle for what the log holds.
+        sourceLocation:
+          type: [string, 'null']
+          description: A coarse label such as `Lagos, NG`. City-level at finest.
+        changes:
+          type: array
+          items: { $ref: '#/components/schemas/AuditChange' }
+
+    AuditEventList:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AuditEntry' }
+        page: { $ref: '#/components/schemas/Page' }
+
+    AuditFilterOptions:
+      type: object
+      required: [actors, actions, objectTypes]
+      properties:
+        actors:
+          type: array
+          description: |
+            Only actors who appear in the log the caller can read. Not every
+            user in the tenant — that would be a staff directory, and it would
+            confirm the existence of users whose actions the caller may not
+            see.
+          items:
+            type: object
+            required: [displayName, kind]
+            properties:
+              id: { type: [string, 'null'], format: uuid }
+              displayName: { type: string }
+              kind: { type: string, enum: [user, system] }
+        actions:
+          type: array
+          items: { $ref: '#/components/schemas/AuditAction' }
+        objectTypes:
+          type: array
+          items:
+            type: object
+            required: [objectType, label]
+            properties:
+              objectType: { type: string }
+              label: { type: string }
+
+    CreateAuditExportRequest:
+      type: object
+      additionalProperties: false
+      required: [format, scope]
+      properties:
+        format: { type: string, enum: [csv, json] }
+        scope:
+          type: string
+          enum: [filtered, last_90_days]
+          description: |
+            `last_90_days` means everything in the last 90 days **that the
+            caller can see**. Scope is still resolved, never widened by an
+            argument.
+        includeIpAddresses:
+          type: boolean
+          default: false
+          description: |
+            Defaults to false. IP addresses are personal data and an export
+            that carries them by default is one an admin produces without
+            deciding to. Setting it true is recorded in the export's own audit
+            row.
+        filters:
+          type: object
+          additionalProperties: false
+          description: Same fields as the `GET /audit/events` query, when `scope` is `filtered`.
+          properties:
+            actorId: { type: string, format: uuid }
+            action: { $ref: '#/components/schemas/AuditAction' }
+            objectType: { type: string, maxLength: 64 }
+            from: { type: string, format: date-time }
+            to: { type: string, format: date-time }
+            sourceIpPrefix: { type: string, maxLength: 45 }
+
+    AuditExport:
+      type: object
+      required: [exportId, status, format, requestedAt]
+      description: |
+        **No download URL, ever.** The file is emailed to the requester's own
+        address. A link in an API response is a link in a browser history, an
+        access log and a `Referer` header, and this file is the entire audit
+        trail of a workspace.
+      properties:
+        exportId: { type: string, format: uuid }
+        status: { type: string, enum: [queued, running, ready, failed, expired] }
+        format: { type: string, enum: [csv, json] }
+        estimatedRowCount: { type: [integer, 'null'] }
+        deliveryEmailHint:
+          type: [string, 'null']
+          description: Masked, for the toast. Never the full address.
+        linkExpiresAfterHours: { type: [integer, 'null'] }
+        requestedAt: { type: string, format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+
+    # --- the error envelope ----------------------------------------------
+    Error:
+      type: object
+      required: [statusCode, error, code, message]
+      description: |
+        Every failure in this API has this shape — the same envelope as
+        `auth.openapi.yaml`.
+
+        **Switch on `code`.** `message` is an English fallback for logs and for
+        a client with no catalogue; it is not a stable interface. Localise as
+        `admin.error.<code>`.
+      properties:
+        statusCode: { type: integer }
+        error: { type: string, description: The HTTP reason phrase. }
+        code:
+          type: string
+          enum:
+            - validation_failed
+            - not_authenticated
+            - not_permitted
+            - not_found
+            - duplicate_name
+            - duplicate_code
+            - stale_write
+            - role_hierarchy_cycle
+            - role_in_use
+            - legal_hold_active
+            - too_many_requests
+            - not_implemented
+            - service_unavailable
+        message: { type: string }
+        details:
+          type: array
+          description: |
+            Present on `validation_failed` and on the conflict codes. **Field
+            paths and stable reason codes only — never the submitted value and
+            never a database message.** A raw unique-violation text names the
+            conflicting row, which is a reliable way to disclose a record the
+            caller cannot read, in another programme or another tenant.
+          items:
+            type: object
+            required: [path, code]
+            properties:
+              path: { type: string }
+              code: { type: string }
+        conflictingIds:
+          type: array
+          description: |
+            On `role_hierarchy_cycle` only, so the screen can highlight the
+            roles involved. Safe because the caller supplied every one of them
+            in the request that failed; it discloses nothing new.
+          items: { type: string, format: uuid }
+        retryAt:
+          type: string
+          format: date-time
+          description: On `too_many_requests`.
+
+  responses:
+    ValidationFailed:
+      description: The request did not parse, or an argument is not accepted yet.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 400
+            error: Bad Request
+            code: validation_failed
+            message: Validation failed
+            details:
+              - path: warnAtPercentOfTarget
+                code: too_big
+
+    NotAuthenticated:
+      description: |
+        No usable session. Deliberately uninformative: it does not say whether
+        the token was missing, malformed, expired, revoked, belonged to another
+        tenant, or belonged to a user who has since been disabled.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 401
+            error: Unauthorized
+            code: not_authenticated
+            message: Not authenticated
+
+    NotFound:
+      description: |
+        **One body for all of:** no such record, a record in another tenant,
+        and a record in this tenant the caller cannot reach.
+
+        This is not politeness, it is the rule (CLAUDE.md 6.4). A `403` here
+        would confirm that the id names something real, which is a working
+        enumeration oracle against a BPO that runs two competitors' programmes
+        on one workspace.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 404
+            error: Not Found
+            code: not_found
+            message: Not found
+
+    NotPermitted:
+      description: |
+        **Narrow, and never a substitute for `404`.** It means: you can already
+        read this record, and you may not perform *this action* on it — an
+        admin who can see a programme but may not archive it.
+
+        If the caller cannot read the record, the answer is `404`. If you are
+        unsure which applies, it is `404`.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 403
+            error: Forbidden
+            code: not_permitted
+            message: You do not have permission to do that.
+
+    Conflict:
+      description: |
+        The write cannot be applied as sent. Six codes share this status and
+        the `code` tells them apart.
+
+        * `stale_write` — `version` is not current. Somebody saved since your
+          last read. Re-read; do not retry blind. Every one of these screens
+          can be open on two desks at once.
+        * `duplicate_name`, `duplicate_code` — a name or code already exists
+          **in this tenant**. Uniqueness is tenant-scoped, so the response
+          cannot tell you anything about another tenant, and it deliberately
+          does not name the conflicting row.
+        * `role_hierarchy_cycle` — a move would make a role its own ancestor,
+          or a delete would reassign users into the subtree being deleted.
+          **Nothing is applied**, including the valid moves in the same
+          request.
+        * `role_in_use` — reserved for a role that cannot be removed at all.
+        * `legal_hold_active` — retention cannot be shortened while a hold is
+          on. Turn the hold off first: two deliberate steps, two audit rows.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            stale:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: stale_write
+                message: Someone else saved changes while you were editing. Reload and try again.
+            cycle:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: role_hierarchy_cycle
+                message: A role cannot report to one of the roles beneath it.
+                conflictingIds:
+                  - 11111111-0000-4000-8000-0000000f0013
+                  - 11111111-0000-4000-8000-0000000f0008
+            duplicate:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: duplicate_code
+                message: That code is already in use in this programme.
+                details:
+                  - path: code
+                    code: duplicate
+            legalHold:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: legal_hold_active
+                message: Retention cannot be shortened while a legal hold is on.
+
+    TooManyRequests:
+      description: |
+        A resource control, not a permission decision. Exports build files from
+        a seven-year log; a handful in flight at once will starve the cell for
+        every tenant on it.
+      headers:
+        Retry-After:
+          schema: { type: integer }
+          description: Seconds.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 429
+            error: Too Many Requests
+            code: too_many_requests
+            message: Too many exports at once. Try again shortly.
+            retryAt: '2026-09-30T10:20:00.000Z'
+
+    NotImplemented:
+      description: |
+        Specified but not built. The screen should stay on its mock.
+
+        **Most operations in this file return this today**, and one of them —
+        `PUT /field-security/matrix` — will keep returning it after the rest
+        are live, because its semantics depend on a decision nobody has taken.
+        That is not an oversight; see the operation's description.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 501
+            error: Not Implemented
+            code: not_implemented
+            message: This endpoint is not available yet.
+
+security:
+  - sessionToken: []
