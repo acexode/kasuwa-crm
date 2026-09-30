@@ -37,6 +37,69 @@ export interface TenantTx {
   query<T extends QueryResultRow>(text: string, values?: readonly unknown[]): Promise<T[]>;
 }
 
+/**
+ * The three session GUCs, as the database reports them.
+ *
+ * Read back before COMMIT and compared with what `withTenantTransaction`
+ * resolved. See `SessionScopeViolationError` for why.
+ */
+export interface SessionScopeSnapshot {
+  tenantId: string | null;
+  userId: string | null;
+  programmeIds: string | null;
+}
+
+/**
+ * True when the context the database is enforcing is not the one that was
+ * resolved for this transaction.
+ *
+ * Pure, and separated from the query so it can be tested without a database.
+ * String comparison is deliberate: the GUCs are text and the policies read
+ * text, so the question is whether that text changed — not whether two
+ * re-interpretations of it happen to mean the same thing.
+ */
+export function scopeDiverged(
+  expected: SessionScopeSnapshot,
+  actual: SessionScopeSnapshot,
+): boolean {
+  return (
+    expected.tenantId !== actual.tenantId ||
+    expected.userId !== actual.userId ||
+    expected.programmeIds !== actual.programmeIds
+  );
+}
+
+/**
+ * Raised when the RLS session context changed inside a transaction.
+ *
+ * `tx.query` is an unrestricted statement channel on the connection that holds
+ * the session GUCs, and `set_config` is executable by `kasuwa_app` — as is
+ * `SET LOCAL`, which no grant can take away for a user-settable parameter. So a
+ * callback CAN re-point `app.tenant_id` at another tenant, and Postgres offers
+ * no way to stop it on the same connection under the same role. ADR-0010 makes
+ * that argument at length rather than leaving this comment to carry it.
+ *
+ * What IS enforceable is that nothing done under a changed context ever has an
+ * effect. The context is read back before COMMIT; a difference rolls the
+ * transaction back and throws this, and the callback's return value is
+ * discarded rather than returned. A forged read cannot leave
+ * `withTenantTransaction` and a forged write cannot commit.
+ *
+ * The message names no identifier, on purpose. It is thrown on a path where the
+ * values in play may belong to another tenant, and an error message is a leak
+ * channel like any other.
+ */
+export class SessionScopeViolationError extends Error {
+  constructor() {
+    super(
+      'The RLS session context changed inside the transaction. Scope is resolved once, ' +
+        'by the session helper, and may not be re-set by a callback. The transaction was ' +
+        'rolled back and its result discarded.',
+    );
+    this.name = 'SessionScopeViolationError';
+  }
+}
+
 export class UnknownSessionUserError extends Error {
   constructor(tenantId: string, userId: string) {
     super(`No active user ${userId} in tenant ${tenantId}`);
@@ -77,6 +140,50 @@ const RESOLVE_SCOPE_SQL = `
 `;
 
 const USER_EXISTS_SQL = `SELECT 1 FROM "user" WHERE id = $1 AND status = 'active'`;
+
+/**
+ * Reads the session GUCs back. Three `current_setting` calls — one round trip
+ * per transaction, not per statement.
+ */
+const READ_CONTEXT_SQL = `
+  SELECT current_setting('app.tenant_id',     true) AS tenant_id,
+         current_setting('app.user_id',       true) AS user_id,
+         current_setting('app.programme_ids', true) AS programme_ids
+`;
+
+/**
+ * Reads the context back and throws `SessionScopeViolationError` if it is not
+ * the one that was set.
+ *
+ * Called immediately before COMMIT, in both `withTenantTransaction` and
+ * `withAuthTransaction`. Deliberately NOT called between every statement: a
+ * subtransaction may legitimately carry the GUCs away and back inside one
+ * transaction (`ROLLBACK TO SAVEPOINT` restores them), and what has to be true
+ * is that the context in force when work becomes durable is the resolved one.
+ * Per-statement checking would also double the round trips on every query for
+ * no additional guarantee — a caller determined to evade this can restore the
+ * GUCs before returning either way. ADR-0010 is explicit that this is a
+ * detection control and not a privilege boundary.
+ */
+export async function assertScopeIntact(
+  client: Pick<PoolClient, 'query'>,
+  expected: SessionScopeSnapshot,
+): Promise<void> {
+  const result = await client.query<{
+    tenant_id: string | null;
+    user_id: string | null;
+    programme_ids: string | null;
+  }>(READ_CONTEXT_SQL);
+  const row = result.rows[0];
+  const actual: SessionScopeSnapshot = {
+    tenantId: row?.tenant_id ?? null,
+    userId: row?.user_id ?? null,
+    programmeIds: row?.programme_ids ?? null,
+  };
+  if (scopeDiverged(expected, actual)) {
+    throw new SessionScopeViolationError();
+  }
+}
 
 /**
  * Opens a transaction, establishes the RLS session context, runs `fn`, then
@@ -123,6 +230,17 @@ export async function withTenantTransaction<T>(
     };
 
     const value = await fn(tx);
+
+    // The context the database is enforcing must still be the context that was
+    // resolved above. If the callback re-set the GUCs, `value` was produced
+    // under a scope nobody authorised — so it is discarded rather than
+    // returned, and nothing the callback wrote is allowed to commit.
+    await assertScopeIntact(client, {
+      tenantId,
+      userId,
+      programmeIds: formatProgrammeIds(programmeIds),
+    });
+
     await client.query('COMMIT');
     return value;
   } catch (error) {

@@ -27,6 +27,9 @@ Mechanics:
 - Each request opens a transaction and sets `app.tenant_id`, `app.user_id` and
   `app.programme_ids` with `set_config(..., is_local => true)`. Transaction-local,
   so settings cannot leak to the next user of a pooled connection.
+- The context is read back and compared immediately before COMMIT, so a
+  transaction whose scope was changed after it was resolved rolls back and
+  returns nothing (ADR-0010).
 - Policies read those GUCs only through the accessor functions in
   `packages/db/migrations/0000`, which return NULL for unset or empty values.
   Unset means deny, always.
@@ -56,6 +59,28 @@ Postgres rather than application code, so it holds even if a controller is
 wrong — which is the property that matters most given thirteen parallel agents
 and no independent human review of security PRs (D-A3). The isolation suite can
 attack the database directly and get a meaningful answer.
+
+**The boundary of that claim, corrected 2026-09-30 (ADR-0010, T-0020).** The
+sentence above said "it holds even if a controller is wrong" without qualifying
+it, and read as written that was not true. RLS reads the session GUCs, and
+`tx.query` is an unrestricted statement channel on the connection that holds
+them: a callback inside `withTenantTransaction` could set `app.tenant_id` to
+another tenant and read it whole, while `tx.session.tenantId` still reported the
+first. No privilege closes that — `SET LOCAL` reaches a user-settable parameter
+whatever is revoked, and the framework and its callback are the same role on the
+same connection. What the guarantee actually is:
+
+- **RLS holds absolutely against a caller that cannot run arbitrary SQL** — a
+  forged header, a tampered cursor, a client-supplied programme list, a wrong
+  predicate in a repository. That is every attack surface a request has, and it
+  is the property this decision was taken for.
+- **Against code that re-sets the session GUCs it is a detection control, not a
+  boundary.** The context is read back before COMMIT: a result read under a
+  changed scope is never returned and a write made under one never commits
+  (ADR-0010). A real boundary against hostile code inside the monolith needs a
+  different connection, role or database — which is what **Bridge** and **Silo**
+  below are, and is now a security argument for them and not only a compliance
+  one.
 
 **Bad.** Every query pays the policy predicate; expect to watch plans on large
 tables. A missing `SET LOCAL` fails closed but looks like an empty result, which

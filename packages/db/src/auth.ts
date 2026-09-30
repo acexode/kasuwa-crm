@@ -1,5 +1,6 @@
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
+import { assertScopeIntact } from './session';
 
 /**
  * The authentication bootstrap: how a request that has no session yet reaches
@@ -107,6 +108,18 @@ export async function withAuthTransaction<T>(
     };
 
     const value = await fn(tx);
+
+    // Same control as `withTenantTransaction`: the context in force when this
+    // work becomes durable must be the context this function set. An
+    // authentication transaction is the narrowest scope in the system — one
+    // tenant, no programmes — so a callback widening it would be the most
+    // valuable re-scope there is. See `SessionScopeViolationError` and ADR-0010.
+    await assertScopeIntact(client, {
+      tenantId: tenantId ?? '',
+      userId: '',
+      programmeIds: '{}',
+    });
+
     await client.query('COMMIT');
     return value;
   } catch (error) {
@@ -187,7 +200,13 @@ export async function resolveSessionIdentity(
 // named in NON_TENANT_SCOPED_TABLES so the catalogue invariant's exemption is
 // visible rather than silent.
 //
-// Every function below is a SINGLE statement. That is not tidiness: the first
+// Not tenant-scoped is not unscoped. Since T-0020 the policy admits a row only
+// to a session presenting that row's key_hash, so every function below runs TWO
+// statements: `presentRateLimitKey`, then its own. It must therefore be called
+// inside a transaction on one connection — see `presentRateLimitKey`.
+//
+// Each function's own statement is a SINGLE statement. That is not tidiness:
+// the first
 // version of this feature read a counter, added one in JavaScript, and wrote
 // the result back, which under READ COMMITTED means N concurrent attempts all
 // read the same value and all write the same value — so the counter never
@@ -197,6 +216,46 @@ export async function resolveSessionIdentity(
 export interface RateLimitState {
   failedCount: number;
   lockedUntil: Date | null;
+}
+
+/**
+ * A minimal client: anything that can run a statement on ONE connection inside
+ * a transaction. `AuthTx` and `TenantTx` both satisfy it.
+ */
+interface StatementRunner {
+  query: <T extends QueryResultRow>(sql: string, values?: readonly unknown[]) => Promise<T[]>;
+}
+
+const PRESENT_KEY_SQL = `SELECT set_config('app.rate_limit_key', encode($1::bytea, 'hex'), true)`;
+
+/**
+ * Presents the key the caller is about to act on, so RLS can admit exactly that
+ * one row.
+ *
+ * `auth_rate_limit` used to be policied `USING (true)`, on the argument that a
+ * session could only ever touch "a key it already knows". It could not: SELECT
+ * returned every key in the cell, and one DELETE cleared every lockout in it
+ * (T-0004 FINDING-3). The policy now admits a row only to a session that
+ * presents that row's `key_hash`, which is what makes the original argument
+ * true instead of merely intended. See migration 0004 and ADR-0009.
+ *
+ * Two properties this must not break, both load-bearing:
+ *
+ *   * the key is computed from what the caller SUBMITTED, before anything is
+ *     resolved, so an unknown workspace slug and a real one take the same
+ *     statement and get the same countdown. Presenting the key changes nothing
+ *     about that: the write for a slug that names no tenant still succeeds.
+ *   * it CONFINES rather than widens. The GUC grants access to one hash and
+ *     nothing else, and a caller that can compute the hash could already drive
+ *     the counter through sign-in requests.
+ *
+ * `is_local => true` means this must run inside a transaction, on the same
+ * connection as the statement that follows. Outside one it lapses immediately
+ * and the next statement sees no row — a loud, closed failure rather than a
+ * quiet unscoped one.
+ */
+async function presentRateLimitKey(client: StatementRunner, keyHash: Buffer): Promise<void> {
+  await client.query(PRESENT_KEY_SQL, [keyHash]);
 }
 
 export interface RateLimitPolicy {
@@ -244,10 +303,11 @@ const REGISTER_FAILURE_SQL = `
  * the counter past the threshold with no lock set.
  */
 export async function registerAuthFailure(
-  client: { query: <T extends QueryResultRow>(sql: string, values?: readonly unknown[]) => Promise<T[]> },
+  client: StatementRunner,
   keyHash: Buffer,
   policy: RateLimitPolicy,
 ): Promise<RateLimitState> {
+  await presentRateLimitKey(client, keyHash);
   const rows = await client.query<{ failed_count: number; locked_until: Date | null }>(
     REGISTER_FAILURE_SQL,
     [
@@ -273,9 +333,10 @@ const READ_LOCK_SQL = `
 
 /** The active lock on a key, or null. */
 export async function readAuthLock(
-  client: { query: <T extends QueryResultRow>(sql: string, values?: readonly unknown[]) => Promise<T[]> },
+  client: StatementRunner,
   keyHash: Buffer,
 ): Promise<RateLimitState | null> {
+  await presentRateLimitKey(client, keyHash);
   const rows = await client.query<{ failed_count: number; locked_until: Date }>(READ_LOCK_SQL, [
     keyHash,
   ]);
@@ -287,8 +348,13 @@ export async function readAuthLock(
 
 /** Forgets a key's failures. Called after the factor it guards succeeds. */
 export async function clearAuthFailures(
-  client: { query: <T extends QueryResultRow>(sql: string, values?: readonly unknown[]) => Promise<T[]> },
+  client: StatementRunner,
   keyHash: Buffer,
 ): Promise<void> {
+  await presentRateLimitKey(client, keyHash);
+  // The predicate is redundant now that the policy admits only the presented
+  // key — and it stays, because two independent layers is the rule (root
+  // CLAUDE.md section 2 rule 3) and this is the one table that until now had
+  // only one.
   await client.query(`DELETE FROM auth_rate_limit WHERE key_hash = $1`, [keyHash]);
 }
