@@ -34,7 +34,20 @@ const UNASSIGNED_STATUSES = new Set(['not-assigned', 'blocked', 'done']);
 const TODO_PATTERN = /\b(?:it|test|describe)\.todo\b/;
 const ACCEPTANCE_PATH_PATTERN = /tests\/acceptance\/[\w./-]*\.acceptance\.test\.ts/g;
 // The value is normally in backticks in the task table; tolerate either form.
-const STATUS_PATTERN = /\|\s*\*\*status\*\*\s*\|\s*`?([a-z-]+)`?\s*\|/i;
+/*
+ * Two accepted shapes, because A11 asks for task files under 25 lines and the
+ * old metadata table was twelve of them before a word of content.
+ *
+ *   | **status** | `not-assigned` |          the original table row
+ *   **status** `not-assigned`                the compact inline form
+ *
+ * Both are matched deliberately rather than migrating every existing file: a
+ * sweep to rewrite fourteen task files would be a thousand lines of
+ * bookkeeping churn in a cycle A12 requires to be 70% code. Files convert as
+ * they are next touched.
+ */
+const STATUS_PATTERN =
+  /(?:\|\s*\*\*status\*\*\s*\|\s*`?([a-z-]+)`?\s*\|)|(?:\*\*status\*\*\s+`?([a-z-]+)`?)/i;
 
 const failures = [];
 
@@ -60,7 +73,7 @@ for (const fileName of taskFiles) {
     continue;
   }
 
-  const status = statusMatch[1].toLowerCase();
+  const status = (statusMatch[1] ?? statusMatch[2]).toLowerCase();
 
   if (!ASSIGNED_STATUSES.has(status) && !UNASSIGNED_STATUSES.has(status)) {
     failures.push(
