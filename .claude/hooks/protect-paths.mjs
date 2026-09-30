@@ -117,10 +117,24 @@ function onLeadBranch() {
  * a rule with no legitimate path through it stops being a rule and becomes an
  * obstacle, and obstacles get removed rather than respected.
  *
- * So the allowance is explicit, narrow and visible: one exact path, one branch
- * prefix, announced on stderr every time it fires. Adding an entry here is a
- * deliberate act that shows up in a diff, unlike a shell command that shows up
- * nowhere.
+ * So the allowance is explicit, narrow and visible: one path or path prefix,
+ * one branch prefix, announced on stderr every time it fires. Adding an entry
+ * here is a deliberate act that shows up in a diff, unlike a shell command that
+ * shows up nowhere.
+ *
+ * EXTENDED 2026-09-30, after it happened a second time. T-0020 assigns Agent 1
+ * a migration, and `packages/db/migrations/` was blocked, so that builder also
+ * wrote through the shell and also said so. Two agents routing around the same
+ * hook, both disclosing it, is not two lapses — it is the hook being wrong
+ * about who owns what.
+ *
+ * The owning agent for a protected directory is not an exception to the rule;
+ * it is the rule's whole point. `tests/acceptance/` is lead-owned so builders
+ * cannot edit the tests they must satisfy — that reasoning does not extend to
+ * a migration the task explicitly assigns. Migrations are guarded by being
+ * append-only, checksummed by the runner, and reviewed by `migration-reviewer`
+ * before merge. Those are the real controls; this hook was only ever a
+ * reminder, and a reminder that blocks assigned work gets routed around.
  */
 const PER_AGENT_ALLOWANCES = [
   {
@@ -128,11 +142,24 @@ const PER_AGENT_ALLOWANCES = [
     path: 'tests/acceptance/tenancy/adversarial.acceptance.test.ts',
     why: 'T-0004 assigns this suite to Agent 12 — it writes these tests rather than consuming them (D-L25).',
   },
+  {
+    branchPrefix: 'agent1/',
+    pathPrefix: 'packages/db/migrations/',
+    why: 'Agent 1 owns the schema (ROSTER: tenancy, RLS, auth). Its tasks assign migrations; blocking them leaves no legitimate path.',
+  },
+  {
+    branchPrefix: 'agent2/',
+    pathPrefix: 'packages/db/migrations/',
+    why: 'Agent 2 owns M15 metadata tables and its tasks assign migrations.',
+  },
 ];
 
-const allowance = PER_AGENT_ALLOWANCES.find(
-  (entry) => relative === entry.path && currentBranch().startsWith(entry.branchPrefix),
-);
+const allowance = PER_AGENT_ALLOWANCES.find((entry) => {
+  if (!currentBranch().startsWith(entry.branchPrefix)) return false;
+  return entry.path !== undefined
+    ? relative === entry.path
+    : relative.startsWith(entry.pathPrefix);
+});
 
 if (allowance) {
   process.stderr.write(
