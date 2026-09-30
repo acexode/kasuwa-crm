@@ -347,3 +347,21 @@ its completion report, where it belongs and where it gets read.
 `T-0012` and two allocated `D-L32` on the same day, for unrelated things,
 because nothing coordinates the numbering. The lead allocates ids. A builder
 proposing a task describes it; it does not number it.
+
+## A9. Scope changes are written down in three places, not one
+
+Issued 2026-09-30 by @acexode, with D-P2 (recorded as D-L33).
+
+**Anything moved out of MVP, or gated within it, gets a PRD edit and a task
+file — not just a log line.**
+
+1. `DECISION-LOG.md`, dated.
+2. **The PRD module file**, so the requirement itself says what changed rather
+   than reading as though nothing did.
+3. **A task file**, so the work counts in "tasks remaining" instead of
+   disappearing into a decision nobody re-reads.
+
+The failure this prevents is quiet and specific: the log says deferred, the PRD
+still says P0, the board never mentions it — so the work is simultaneously
+promised, descoped and untracked, and whichever document a person happens to
+open is what they believe.

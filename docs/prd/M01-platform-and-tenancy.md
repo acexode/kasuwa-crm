@@ -8,6 +8,24 @@
 
 - P0: Multi-tenant org model. Org contains Business Units, which contain Client Programmes (BPO) and Teams. Programme-level data partitioning is enforced at the database (RLS) and API layers.
 - P0: Tenant provisioning, custom subdomain, region selection (ZA primary, NG local cell), trial and plan limits.
+
+  **Split by D-P2 (2026-09-30), and the split is the requirement:**
+
+  - **P0 — sales-led provisioning (T-0015).** An internal admin command creates
+    tenant, slug, region, first admin user and billing identity. **The region is
+    chosen by @acexode per tenant** — default ZA, NG only on explicit
+    instruction. This is the launch path: the first tenants are provisioned by
+    us, not by themselves.
+  - **P0 — self-serve sign-up, built in MVP, enabled at v1 (T-0016).** The
+    public endpoint calls the *same* tenant-creation logic, behind the feature
+    flag `self_serve_signup`, **default off**. Self-serve residency is limited
+    to **ZA**; NG and KE remain sales-only. Ships with the SME tier at v1.
+  - Sequenced after M8 (T-0017), because sign-up cannot verify an address
+    without a channel to send through.
+
+  Building it in MVP and shipping it off is deliberate: the alternative is a
+  v1 scramble to write tenant creation twice, once for us and once for the
+  public, and discover on the second attempt that they disagree.
 - P0: White-label: logo, colours, custom domain, email sender domain, portal branding.
 - P1: Sandboxes (config copy, masked data), config deployment between environments.
 - P2: Reseller/partner tenancy (partners manage sub-tenants and billing).
