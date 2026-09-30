@@ -84,12 +84,66 @@ if (process.env.KASUWA_LEAD_SESSION === '1') {
  * control — see README.md in this directory. The control is CI's label gate
  * plus branch protection, neither of which an agent can set.
  */
+function currentBranch() {
+  const result = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+  });
+  return (result.stdout ?? '').trim();
+}
+
 function onLeadBranch() {
   const result = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
     encoding: 'utf8',
     shell: process.platform === 'win32',
   });
   return result.status === 0 && /^lead\//.test((result.stdout ?? '').trim());
+}
+
+/**
+ * A narrow, per-branch allowance for the one file a task legitimately assigns
+ * to a builder.
+ *
+ * T-0004 makes `tests/acceptance/tenancy/adversarial.acceptance.test.ts` Agent
+ * 12's deliverable — it WRITES that suite rather than consuming it (D-L25).
+ * The hook blocked it anyway, and D-L32 had just told builders not to use the
+ * `lead/*` branch that would have exempted them. So the only way to do the
+ * assigned work was to route around the hook with a shell command, which is
+ * exactly what the builder did — and then said so plainly in its report.
+ *
+ * That is the right disclosure and the wrong situation. **A guardrail that
+ * forbids the assigned work teaches people to go around it**, and the next
+ * person may not mention it. The lesson is not "trust the builder"; it is that
+ * a rule with no legitimate path through it stops being a rule and becomes an
+ * obstacle, and obstacles get removed rather than respected.
+ *
+ * So the allowance is explicit, narrow and visible: one exact path, one branch
+ * prefix, announced on stderr every time it fires. Adding an entry here is a
+ * deliberate act that shows up in a diff, unlike a shell command that shows up
+ * nowhere.
+ */
+const PER_AGENT_ALLOWANCES = [
+  {
+    branchPrefix: 'agent12/',
+    path: 'tests/acceptance/tenancy/adversarial.acceptance.test.ts',
+    why: 'T-0004 assigns this suite to Agent 12 — it writes these tests rather than consuming them (D-L25).',
+  },
+];
+
+const allowance = PER_AGENT_ALLOWANCES.find(
+  (entry) => relative === entry.path && currentBranch().startsWith(entry.branchPrefix),
+);
+
+if (allowance) {
+  process.stderr.write(
+    `protect-paths: allowing ${relative} on '${currentBranch()}'.
+` +
+      `${allowance.why}
+` +
+      `This is the ONLY protected path this branch may touch.
+`,
+  );
+  process.exit(0);
 }
 
 if (onLeadBranch()) {
