@@ -410,3 +410,25 @@ board that grows faster than it empties is the failure A11 exists to stop.
 progress, pull requests awaiting @acexode, decisions open, spend, and the code
 ratio. **@acexode reads two files — `DECISIONS.md` and `STATUS.md`.** Everything
 else in `team/` is for agents.
+
+## A13. Scope changes are written down in three places, not one
+
+Issued 2026-09-30 by @acexode, with D-P2 (recorded as D-L33).
+
+*Numbered A13 rather than A9: `main` already had a different A9 by the time
+this landed. Two sections sharing a number is the same defect as two tasks
+sharing an id, and it is cheaper to renumber than to argue about precedence.*
+
+**Anything moved out of MVP, or gated within it, gets a PRD edit and a task
+file — not just a log line.**
+
+1. `DECISION-LOG.md`, dated.
+2. **The PRD module file**, so the requirement itself says what changed rather
+   than reading as though nothing did.
+3. **A task file**, so the work counts in "tasks remaining" instead of
+   disappearing into a decision nobody re-reads.
+
+The failure this prevents is quiet and specific: the log says deferred, the PRD
+still says P0, the board never mentions it — so the work is simultaneously
+promised, descoped and untracked, and whichever document a person opens is what
+they believe.
