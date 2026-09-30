@@ -331,12 +331,47 @@ const READ_LOCK_SQL = `
      AND locked_until > now()
 `;
 
-/** The active lock on a key, or null. */
+/**
+ * The active lock on a key, or null.
+ *
+ * THE VERIFICATION BELOW IS NOT PARANOIA — IT IS THE ONLY PATH THAT FAILS OPEN.
+ *
+ * `migration-reviewer` found this on 0004: the write path fails LOUDLY when no
+ * key is in scope, because `registerAuthFailure`'s INSERT violates the policy's
+ * WITH CHECK and throws. This read path is a plain SELECT. With no key in scope
+ * it matches nothing, returns `null`, and `activeLock` one layer up reads
+ * `null` as "not locked" and lets sign-in proceed.
+ *
+ * So the database fails closed and the decision built on it fails open, which
+ * is the worst possible pairing: lockout silently stops being enforced and
+ * every test still passes.
+ *
+ * It is safe today only because every caller passes an `AuthTx` from
+ * `withAuthTransaction`. But `StatementRunner` is a structural type that
+ * encodes nothing about being in a transaction, so a future caller handing it a
+ * pool wrapper compiles fine and disables lockout with no error anywhere.
+ *
+ * Reading the GUC back costs one statement and converts a silent failure into
+ * a loud one.
+ */
 export async function readAuthLock(
   client: StatementRunner,
   keyHash: Buffer,
 ): Promise<RateLimitState | null> {
   await presentRateLimitKey(client, keyHash);
+
+  const presented = await client.query<{ key: string | null }>(
+    `SELECT encode(app.current_rate_limit_key(), 'hex') AS key`,
+  );
+  if (presented[0]?.key !== keyHash.toString('hex')) {
+    throw new Error(
+      'readAuthLock: the rate-limit key did not survive to the read. This means ' +
+        'the caller is not on one connection inside a transaction, and a lock ' +
+        'lookup would have returned null — reading as "not locked" and ' +
+        'disabling lockout silently. Use withAuthTransaction.',
+    );
+  }
+
   const rows = await client.query<{ failed_count: number; locked_until: Date }>(READ_LOCK_SQL, [
     keyHash,
   ]);

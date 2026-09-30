@@ -149,6 +149,37 @@ describe('acceptance: RLS enforcement independent of the application', () => {
     }
   });
 
+  it('lets no policy anywhere admit everything', async () => {
+    // MOVED HERE BY THE LEAD from a `DO` block in migration 0004, on
+    // `migration-reviewer`'s finding.
+    //
+    // That block raised if any policy on `auth_rate_limit` was `USING (true)`,
+    // and its comment claimed it protected against a LATER migration reopening
+    // the table. It could not: a `DO` block runs once, when its own migration
+    // is applied. A migration added next month would never re-run it.
+    //
+    // So it guarded a mistake inside one file and read as though it guarded a
+    // standing invariant. **A guard that describes itself as broader than it is
+    // is worse than no guard**, because it stops anyone building the real one.
+    // This repository has now been caught five times by mechanisms believed to
+    // work because they were configured.
+    //
+    // Here it runs on every build, across every table, for ever.
+    const open = await appPool.query<{ table: string; policy: string }>(
+      `SELECT c.relname AS table, p.polname AS policy
+         FROM pg_policy p
+         JOIN pg_class c ON c.oid = p.polrelid
+         JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+          AND pg_get_expr(p.polqual, p.polrelid) = 'true'`,
+    );
+
+    expect(
+      open.rows.map((row) => `${row.table}.${row.policy}`),
+      'a policy admits every row to every session — if this is deliberate, it needs an ADR',
+    ).toEqual([]);
+  });
+
   it('holds the exempt table to the same RLS invariant', async () => {
     // WIRED BY THE LEAD, 2026-09-27, after `migration-reviewer` found that
     // `readNonTenantScopedTableSecurity` was never called by anything.
