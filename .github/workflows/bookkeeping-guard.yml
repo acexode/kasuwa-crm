@@ -1,0 +1,72 @@
+name: Bookkeeping guard
+
+# Bookkeeping is not code (A10). Changes confined to team/**, docs/design/**,
+# docs/prd/** and docs/adr/** may be pushed straight to `main` — no branch, no
+# pull request. This job fails a direct push to `main` that touches anything
+# else.
+#
+# HONEST LIMITATION, AND IT IS A BIG ONE.
+#
+# This runs AFTER the push. It cannot prevent one. A required status check
+# would prevent it, and required status checks need branch protection, and
+# branch protection is unavailable on a private repository on the free plan —
+# verified 2026-09-30, `gh api .../branches/main/protection` returns 403
+# "Upgrade to GitHub Pro or make this repository public".
+#
+# So this is a loud alarm, not a lock. It exists because an alarm that fires
+# within two minutes on a push nobody meant to make is worth a great deal more
+# than nothing, and because the alternative — trusting that everyone remembers
+# the rule — has already failed twice in this repository for other guards.
+#
+# To make it a lock, one of: make the repository public, upgrade to Pro and
+# enable branch protection with this job required, or move to an organisation.
+# That is @acexode's call and it is recorded as D-L34.
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  paths:
+    name: Direct pushes to main touch bookkeeping only
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need the parent commit to diff against.
+          fetch-depth: 2
+
+      - name: Check the pushed paths
+        run: |
+          # A merge commit is a pull request landing, which has been reviewed.
+          # Only DIRECT pushes are in scope here.
+          parents=$(git rev-list --parents -n 1 HEAD | wc -w)
+          if [ "$parents" -gt 2 ]; then
+            echo "Merge commit — this is a pull request landing, not a direct push."
+            exit 0
+          fi
+
+          changed=$(git diff --name-only HEAD~1 HEAD)
+          echo "Changed paths:"
+          echo "$changed"
+          echo ""
+
+          # Everything outside the bookkeeping allowlist.
+          offending=$(echo "$changed" | grep -vE '^(team/|docs/design/|docs/prd/|docs/adr/)' || true)
+
+          if [ -n "$offending" ]; then
+            echo "FAILED: a direct push to main changed paths outside bookkeeping."
+            echo ""
+            echo "$offending"
+            echo ""
+            echo "Bookkeeping is team/**, docs/design/**, docs/prd/** and docs/adr/**."
+            echo "Everything else — code, tests, migrations, CI, agent config —"
+            echo "goes through a pull request (A10)."
+            echo ""
+            echo "If this was a mistake, revert it on main rather than pushing a"
+            echo "fix on top: the point of the rule is that unreviewed code never"
+            echo "sits on main, and a second unreviewed push does not undo the first."
+            exit 1
+          fi
+
+          echo "OK — bookkeeping only."
