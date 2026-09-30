@@ -823,3 +823,68 @@ exception the lead has to grant case by case.
 
 An absolute rule that occasionally needs the lead's permission is not absolute;
 it is a rule with a back door that a less careful builder would have used.
+
+---
+
+## D-P2 — self-serve tenant provisioning: build it in MVP, ship it off
+**Answered:** 2026-09-30 by @acexode
+
+**Decision: build it in MVP, behind a feature flag that stays OFF until v1.**
+
+1. **Sales-led provisioning first** (T-0015, Agent 1, P0). An admin command
+   creates tenant, slug, region, first admin user and billing identity. **Region
+   is chosen by @acexode per tenant** — default ZA, NG only on explicit
+   instruction. This is the launch path.
+2. **Self-serve sign-up** (T-0016, Agent 1, P0), sequenced after M8 and T-0015.
+   The public endpoint calls **the same tenant-creation logic**; OTP through the
+   M8 provider; rate limiting, disposable-email blocking and a bot challenge on
+   the endpoint; **self-serve residency limited to ZA**, NG and KE sales-only.
+   Behind `self_serve_signup`, default off. The 501s in the auth contract are
+   replaced once it is built.
+3. **Screens** (T-0007, Agent 11, now): all eight sign-up and onboarding screens
+   built against the mock, fully tested, behind the same flag.
+4. **Onboarding splits from sign-up** (T-0018). `P01/5.2`–`5.5` — currency and
+   language, WhatsApp connect, import, invite team — are MVP for provisioned
+   tenants too. They become the **first-admin-login flow** and are **not**
+   flag-gated.
+5. **M8 channel provider** (T-0017, Agent 5), created now so OTP has something
+   to send through before the flag is ever considered.
+
+**Why this is better than the recommendation it overrode.** The lead recommended
+leaving self-serve out of MVP entirely. The answer keeps it in and switches it
+off, and the reason is the one the recommendation missed: **T-0015 and T-0016
+must share one tenant-creation path.** Building only the sales path now and the
+public one at v1 means writing tenant creation twice and discovering on the
+second attempt that the two disagree — about slugs, about defaults, about which
+rows exist. Building both and shipping one off costs a flag and buys a single
+code path.
+
+Point 4 is the part that would have been missed either way. The design draws
+sign-up and onboarding as one flow, so gating the whole flow behind the
+self-serve switch was the obvious reading — and it would have left **every
+hand-provisioned launch tenant unable to finish setting itself up**. The split
+is the substance of this decision, not an implementation detail of it.
+
+**Recorded in three places**, per the new general rule below: here, in
+`docs/prd/M01-platform-and-tenancy.md`, and in T-0015, T-0016, T-0017, T-0018
+and the T-0007 amendment.
+
+---
+
+## D-L33 — anything moved out of, or gated within, MVP gets a PRD edit and a task
+**Decided:** 2026-09-30 by @acexode, with D-P2
+
+A log entry alone is not enough. When scope moves out of MVP or is gated behind
+a flag inside it:
+
+1. the decision is recorded in `DECISION-LOG.md`, dated;
+2. **the PRD module file is edited**, so the requirement itself says what
+   changed rather than reading as though nothing did;
+3. **a task file exists**, so the work appears in "tasks remaining" instead of
+   disappearing into a decision nobody re-reads.
+
+The failure this prevents is specific and quiet: a decision log records that
+something was deferred, the PRD still describes it as P0, and the task board
+never mentions it — so the work is simultaneously promised, descoped and
+untracked, and whichever of the three a person happens to read is what they
+believe.

@@ -347,3 +347,88 @@ its completion report, where it belongs and where it gets read.
 `T-0012` and two allocated `D-L32` on the same day, for unrelated things,
 because nothing coordinates the numbering. The lead allocates ids. A builder
 proposing a task describes it; it does not number it.
+
+## A10. Bookkeeping is not code
+
+Issued 2026-09-30 by @acexode.
+
+Changes confined to `team/**`, `docs/design/**`, `docs/prd/**` and `docs/adr/**`
+**commit straight to `main`** — no branch, no pull request. CI still runs, and
+`.github/workflows/bookkeeping-guard.yml` fails a direct push to `main` that
+touches anything else.
+
+**A pull request that mixes code with bookkeeping is split before it is
+opened.**
+
+Avoid shared-file churn:
+
+- `STATUS.md` is **regenerated** from per-cycle files in
+  `team/status/YYYY-MM-DD-HHMM.md`. Never appended to.
+- `DECISION-LOG.md` and `DECISIONS.md` are **append-only, one decision per
+  block, never rewritten in place.**
+- Task files change status through the single-line `status` field, nothing else.
+
+**What the guard job is not.** It runs after the push, so it is an alarm rather
+than a lock. Branch protection would make it a lock and **is unavailable on this
+repository** — private, free plan, `403 Upgrade to GitHub Pro`. See D-L34. Every
+guard here is convention-strength; do not describe any of them as a control.
+
+## A11. One ready task per agent. No backlog padding.
+
+Issued 2026-09-30 by @acexode. **This supersedes A3 and item 1's "three ready
+for each active agent", which are void.**
+
+**Write the next task only when an agent finishes one.**
+
+Task files are **short — under 25 lines**: goal in three lines, acceptance-test
+path, definition of done, dependencies. Reasoning of the kind T-0015 carried in
+"things to get right" **belongs in the acceptance tests and in the pull request
+description when the work is built**, not in the spec.
+
+The reason is worth keeping: a long task file written before the work starts is
+a guess about code nobody has read, and it goes stale in the gap between
+writing and building. An acceptance test cannot go stale — it either passes or
+it does not.
+
+**Existing task files are trimmed when they are next touched, not in a sweep.**
+Rewriting all fourteen at once would be roughly a thousand lines of bookkeeping
+churn in a cycle that A12 requires to be 70% code, which is the rule defeating
+itself. New tasks are short from the start.
+
+## A12. Every cycle ships code
+
+Issued 2026-09-30 by @acexode.
+
+**Target: at least 70% of lines changed per cycle are in `apps/` or
+`packages/`** — not `team/` or `docs/`. Report the ratio in `STATUS.md`.
+
+**If a cycle has nothing to build, build the next ready task yourself with a
+subagent instead of writing more tasks.** Writing tasks is not shipping, and a
+board that grows faster than it empties is the failure A11 exists to stop.
+
+`STATUS.md` fits on one screen and holds five things: modules done / in
+progress, pull requests awaiting @acexode, decisions open, spend, and the code
+ratio. **@acexode reads two files — `DECISIONS.md` and `STATUS.md`.** Everything
+else in `team/` is for agents.
+
+## A13. Scope changes are written down in three places, not one
+
+Issued 2026-09-30 by @acexode, with D-P2 (recorded as D-L33).
+
+*Numbered A13 rather than A9: `main` already had a different A9 by the time
+this landed. Two sections sharing a number is the same defect as two tasks
+sharing an id, and it is cheaper to renumber than to argue about precedence.*
+
+**Anything moved out of MVP, or gated within it, gets a PRD edit and a task
+file — not just a log line.**
+
+1. `DECISION-LOG.md`, dated.
+2. **The PRD module file**, so the requirement itself says what changed rather
+   than reading as though nothing did.
+3. **A task file**, so the work counts in "tasks remaining" instead of
+   disappearing into a decision nobody re-reads.
+
+The failure this prevents is quiet and specific: the log says deferred, the PRD
+still says P0, the board never mentions it — so the work is simultaneously
+promised, descoped and untracked, and whichever document a person opens is what
+they believe.

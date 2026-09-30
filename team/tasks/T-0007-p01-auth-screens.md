@@ -25,6 +25,27 @@ This is the first real UI in Kasuwa. What it establishes — how a screen consum
 tokens, how it handles an error, how it degrades on 2G — is what every later
 screen will copy. Spend the effort here.
 
+## AMENDED 2026-09-30 by D-P2 — build all sixteen, gate eight
+
+Groups 3 and 4 were left unbuilt because sign-up creates a *tenant* and nobody
+owned that. **D-P2 answers it**, and the answer changes this task rather than
+unblocking it unchanged:
+
+- **Build `P01/3`, `P01/4` and `P01/5.1`** against the mock, fully tested,
+  **behind the feature flag `self_serve_signup`, default off.** The endpoints
+  arrive with T-0016 and stay off until v1.
+- **`P01/5.2`–`5.5` and `P01/6` move out of this task entirely** into **T-0018**.
+  They are first-login steps that every tenant needs, including the ones
+  provisioned by hand, so gating them behind a self-serve flag would strand
+  every launch tenant halfway through setup.
+
+`packages/feature-flags` currently asserts in a unit test that `FLAGS` stays
+empty until a real feature needs one. **One does now** — `self_serve_signup` is
+the first entry, and that test changes with it.
+
+The flag must gate the *route*, not just the button. A screen reachable by
+typing its path while the flag is off is not gated; it is hidden.
+
 ## Split this task
 
 Six sessions is the budget for all sixteen screens, which is tight. Take them in
