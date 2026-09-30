@@ -18,6 +18,25 @@ import { z } from 'zod';
  *
  * Do not add tenantId/programmeId here. If you need signed cursors later, sign
  * the position; do not embed authority.
+ *
+ * PRECISION NOTE — T-0019, found as FINDING-2 in team/reports/T-0004.md.
+ *
+ * `created_at` is `timestamptz`, which Postgres stores to the microsecond. A
+ * JavaScript `Date` only holds milliseconds, so a position that passes through
+ * a `Date` names an instant EARLIER than the row it came from, and under
+ * `ORDER BY created_at DESC` every row in between is skipped silently and for
+ * ever. Six rows paged one at a time returned four.
+ *
+ * The fix is to keep the timestamp as a *string* end to end: Postgres renders
+ * it with `to_char(... 'US')`, it travels in the cursor verbatim, and it goes
+ * back into the query as a bound `timestamptz` parameter. No JS type in that
+ * path can truncate it. That is what `encodeKeysetCursor` / `decodeKeysetCursor`
+ * are for, and repositories must use those.
+ *
+ * `encodeCursor` / `decodeCursor` are the `Date`-valued convenience pair. They
+ * are lossy by construction — a `Date` cannot hold microseconds — and exist for
+ * callers that genuinely only have a `Date`. Do not build a keyset predicate
+ * out of `decodeCursor`.
  */
 
 export class InvalidCursorError extends Error {
@@ -27,24 +46,48 @@ export class InvalidCursorError extends Error {
   }
 }
 
+/**
+ * ISO-8601 with an explicit offset and 0–6 fractional digits.
+ *
+ * Written out rather than taken from `z.string().datetime()` because that
+ * helper's `precision` option pins the fractional part to an exact length: we
+ * need "up to microseconds", so that cursors issued before T-0019 (three
+ * digits) still decode. The `refine` rejects the strings the shape allows but
+ * the calendar does not, such as month 13.
+ */
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/;
+
 const CursorPayload = z.object({
-  /** ISO 8601 timestamp of the last row on the previous page. */
-  c: z.string().datetime({ offset: true }),
+  /**
+   * Timestamp of the last row on the previous page, to microsecond precision.
+   * A string, not a number: it is what Postgres rendered and what Postgres will
+   * parse back, and nothing in between is allowed to reinterpret it.
+   */
+  c: z
+    .string()
+    .regex(ISO_TIMESTAMP)
+    .refine((value) => !Number.isNaN(Date.parse(value))),
   /** Row id of the last row on the previous page; breaks ties on `c`. */
   i: z.string().uuid(),
 });
+
+/** A position whose timestamp has not been through a `Date`. */
+export interface KeysetCursor {
+  /** ISO-8601, offset-bearing, up to microsecond precision. Verbatim. */
+  createdAt: string;
+  id: string;
+}
 
 export interface CursorPosition {
   createdAt: Date;
   id: string;
 }
 
-export function encodeCursor(position: CursorPosition): string {
-  const payload = JSON.stringify({ c: position.createdAt.toISOString(), i: position.id });
-  return Buffer.from(payload, 'utf8').toString('base64url');
+function encode(createdAt: string, id: string): string {
+  return Buffer.from(JSON.stringify({ c: createdAt, i: id }), 'utf8').toString('base64url');
 }
 
-export function decodeCursor(cursor: string): CursorPosition {
+function decode(cursor: string): { c: string; i: string } {
   let parsedJson: unknown;
   try {
     parsedJson = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
@@ -55,5 +98,34 @@ export function decodeCursor(cursor: string): CursorPosition {
   if (!parsed.success) {
     throw new InvalidCursorError();
   }
-  return { createdAt: new Date(parsed.data.c), id: parsed.data.i };
+  return { c: parsed.data.c, i: parsed.data.i };
+}
+
+/** Precision-preserving encode. Repositories use this one. */
+export function encodeKeysetCursor(position: KeysetCursor): string {
+  const parsed = CursorPayload.safeParse({ c: position.createdAt, i: position.id });
+  if (!parsed.success) {
+    // The timestamp came out of the database a moment ago; a failure here means
+    // the query stopped rendering it the way this module expects, and emitting
+    // a cursor that silently loses precision is the defect this exists to stop.
+    throw new InvalidCursorError();
+  }
+  return encode(parsed.data.c, parsed.data.i);
+}
+
+/** Precision-preserving decode. Repositories use this one. */
+export function decodeKeysetCursor(cursor: string): KeysetCursor {
+  const { c, i } = decode(cursor);
+  return { createdAt: c, id: i };
+}
+
+/** Lossy: milliseconds only. See the precision note above. */
+export function encodeCursor(position: CursorPosition): string {
+  return encode(position.createdAt.toISOString(), position.id);
+}
+
+/** Lossy: milliseconds only. See the precision note above. */
+export function decodeCursor(cursor: string): CursorPosition {
+  const { c, i } = decode(cursor);
+  return { createdAt: new Date(c), id: i };
 }

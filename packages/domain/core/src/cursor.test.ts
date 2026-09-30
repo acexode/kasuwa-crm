@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { decodeCursor, encodeCursor, InvalidCursorError } from './cursor';
+import {
+  decodeCursor,
+  decodeKeysetCursor,
+  encodeCursor,
+  encodeKeysetCursor,
+  InvalidCursorError,
+} from './cursor';
 
 describe('cursor encoding', () => {
   const position = {
@@ -42,5 +48,76 @@ describe('cursor encoding', () => {
 
     const decoded = decodeCursor(smuggled);
     expect(Object.keys(decoded).sort()).toEqual(['createdAt', 'id']);
+  });
+});
+
+describe('microsecond cursors (T-0019)', () => {
+  // Deliberately NOT whole minutes. Every seeded timestamp in the fixtures was
+  // a whole minute, which is exactly why FINDING-2 survived a passing suite.
+  const id = '11111111-0000-4000-8000-0000000e0002';
+
+  it('round-trips a microsecond timestamp without truncating it', () => {
+    const position = { createdAt: '2026-04-01T12:00:00.000500Z', id };
+    expect(decodeKeysetCursor(encodeKeysetCursor(position))).toEqual(position);
+  });
+
+  it('distinguishes two instants that differ below the millisecond', () => {
+    const earlier = encodeKeysetCursor({ createdAt: '2026-04-01T12:00:00.000100Z', id });
+    const later = encodeKeysetCursor({ createdAt: '2026-04-01T12:00:00.000900Z', id });
+    expect(earlier).not.toBe(later);
+    expect(decodeKeysetCursor(earlier).createdAt).toBe('2026-04-01T12:00:00.000100Z');
+    expect(decodeKeysetCursor(later).createdAt).toBe('2026-04-01T12:00:00.000900Z');
+  });
+
+  it('does not let a Date near the encoder, because a Date cannot hold it', () => {
+    // The trap this bug came from, asserted so nobody re-introduces it: a
+    // microsecond instant through a Date names an EARLIER position.
+    const precise = '2026-04-01T12:00:00.000500Z';
+    const viaDate = encodeCursor({ createdAt: new Date(precise), id });
+    expect(decodeKeysetCursor(viaDate).createdAt).toBe('2026-04-01T12:00:00.000Z');
+    expect(decodeKeysetCursor(viaDate).createdAt).not.toBe(precise);
+    expect(decodeKeysetCursor(encodeKeysetCursor({ createdAt: precise, id })).createdAt).toBe(
+      precise,
+    );
+  });
+
+  it('still accepts a millisecond cursor issued before the fix', () => {
+    // Rejecting them would 400 every in-flight paging session on deploy, and
+    // an old cursor is no worse than it was yesterday. See team/reports/T-0019.md.
+    const legacy = Buffer.from(
+      JSON.stringify({ c: '2026-04-01T12:00:00.000Z', i: id }),
+      'utf8',
+    ).toString('base64url');
+    expect(decodeKeysetCursor(legacy)).toEqual({ createdAt: '2026-04-01T12:00:00.000Z', id });
+    expect(decodeCursor(legacy).createdAt.toISOString()).toBe('2026-04-01T12:00:00.000Z');
+  });
+
+  it('rejects a timestamp finer than Postgres stores, or malformed', () => {
+    for (const c of [
+      '2026-04-01T12:00:00.0005001Z',
+      '2026-04-01T12:00:00.000500',
+      '2026-13-01T12:00:00.000500Z',
+      '2026-04-01 12:00:00.000500Z',
+      '1774000000000',
+    ]) {
+      const forged = Buffer.from(JSON.stringify({ c, i: id }), 'utf8').toString('base64url');
+      expect(() => decodeKeysetCursor(forged), c).toThrow(InvalidCursorError);
+    }
+  });
+
+  it('refuses to issue a cursor from a timestamp it cannot vouch for', () => {
+    expect(() => encodeKeysetCursor({ createdAt: '2026-04-01 12:00:00+00', id })).toThrow(
+      InvalidCursorError,
+    );
+  });
+
+  it('encodes nothing but the position, at microsecond precision too', () => {
+    const payload = JSON.parse(
+      Buffer.from(
+        encodeKeysetCursor({ createdAt: '2026-04-01T12:00:00.000500Z', id }),
+        'base64url',
+      ).toString('utf8'),
+    );
+    expect(Object.keys(payload).sort()).toEqual(['c', 'i']);
   });
 });

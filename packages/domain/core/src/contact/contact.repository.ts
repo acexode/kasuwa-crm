@@ -1,6 +1,6 @@
 import type { TenantTx } from '@kasuwa/db';
 import { z } from 'zod';
-import { decodeCursor, encodeCursor } from '../cursor';
+import { decodeKeysetCursor, encodeKeysetCursor } from '../cursor';
 
 /**
  * Contact reads for the vertical slice.
@@ -58,9 +58,24 @@ interface ContactRow {
   updated_at: Date;
 }
 
+interface ContactPageRow extends ContactRow {
+  /**
+   * `created_at` rendered by Postgres to the microsecond (T-0019). `pg` parses
+   * `timestamptz` into a JS `Date`, which holds only milliseconds, so the
+   * keyset cursor must be built from this column and never from `created_at`.
+   * `to_char` rather than `::text` so the format does not depend on the
+   * session's `DateStyle`.
+   */
+  created_at_cursor: string;
+}
+
 const SELECT_COLUMNS = `
   id, programme_id, display_name, given_names, family_name,
   phones, emails, created_at, updated_at
+`;
+
+const CURSOR_COLUMN = `
+  to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_cursor
 `;
 
 function toContact(row: ContactRow): Contact {
@@ -78,11 +93,11 @@ function toContact(row: ContactRow): Contact {
 }
 
 export async function listContacts(tx: TenantTx, query: ListContactsQuery): Promise<ContactPage> {
-  const position = query.cursor === undefined ? null : decodeCursor(query.cursor);
+  const position = query.cursor === undefined ? null : decodeKeysetCursor(query.cursor);
 
   // Fetch one extra row to decide whether a next page exists, without a count.
-  const rows = await tx.query<ContactRow>(
-    `SELECT ${SELECT_COLUMNS}
+  const rows = await tx.query<ContactPageRow>(
+    `SELECT ${SELECT_COLUMNS}, ${CURSOR_COLUMN}
        FROM contact
       WHERE tenant_id = $1
         AND programme_id = ANY($2::uuid[])
@@ -106,7 +121,7 @@ export async function listContacts(tx: TenantTx, query: ListContactsQuery): Prom
     data: page.map(toContact),
     nextCursor:
       hasMore && last !== undefined
-        ? encodeCursor({ createdAt: last.created_at, id: last.id })
+        ? encodeKeysetCursor({ createdAt: last.created_at_cursor, id: last.id })
         : null,
   };
 }
