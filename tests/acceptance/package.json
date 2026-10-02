@@ -23,7 +23,8 @@
     "reflect-metadata": "^0.2.2",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
-    "@types/pg": "^8.11.10"
+    "@types/pg": "^8.11.10",
+    "yaml": "^2.9.1"
   },
   "nx": {
     "tags": [
