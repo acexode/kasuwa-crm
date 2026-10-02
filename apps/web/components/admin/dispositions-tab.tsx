@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import type { MessageId, Translator } from '@kasuwa/i18n';
+import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { Panel, errorMessageId } from './panel';
 import { Dialog } from './dialog';

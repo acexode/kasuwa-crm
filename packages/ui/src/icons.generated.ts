@@ -28,6 +28,7 @@ export type IconName =
   | 'cloud_done'
   | 'cloud_off'
   | 'cloud_upload'
+  | 'co_present'
   | 'coffee'
   | 'confirmation_number'
   | 'contacts'
@@ -40,7 +41,10 @@ export type IconName =
   | 'do_not_disturb_on'
   | 'domain'
   | 'done_all'
+  | 'download'
   | 'drag_indicator'
+  | 'drag_pan'
+  | 'edit'
   | 'edit_note'
   | 'error'
   | 'event'
@@ -51,6 +55,7 @@ export type IconName =
   | 'filter_alt_off'
   | 'forum'
   | 'group'
+  | 'group_off'
   | 'handshake'
   | 'headset_mic'
   | 'help'
@@ -59,6 +64,7 @@ export type IconName =
   | 'image'
   | 'inbox'
   | 'info'
+  | 'inventory_2'
   | 'key'
   | 'language'
   | 'left_panel_close'
@@ -69,7 +75,9 @@ export type IconName =
   | 'lock'
   | 'lock_clock'
   | 'lock_open'
+  | 'logout'
   | 'mail'
+  | 'manage_search'
   | 'menu'
   | 'mic'
   | 'more_horiz'
@@ -82,6 +90,7 @@ export type IconName =
   | 'pause'
   | 'pause_circle'
   | 'payments'
+  | 'person'
   | 'person_add'
   | 'phone_iphone'
   | 'play_arrow'
@@ -94,9 +103,11 @@ export type IconName =
   | 'search_off'
   | 'send'
   | 'signal_cellular_alt'
+  | 'smart_toy'
   | 'smartphone'
   | 'sms'
   | 'space_dashboard'
+  | 'subdirectory_arrow_right'
   | 'support_agent'
   | 'task_alt'
   | 'timer'
@@ -104,9 +115,12 @@ export type IconName =
   | 'touch_app'
   | 'translate'
   | 'tune'
+  | 'unfold_less'
+  | 'unfold_more'
   | 'upload_file'
   | 'verified'
   | 'verified_user'
+  | 'vertical_align_top'
   | 'visibility'
   | 'visibility_off'
   | 'warning'
@@ -139,6 +153,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'cloud_done',
   'cloud_off',
   'cloud_upload',
+  'co_present',
   'coffee',
   'confirmation_number',
   'contacts',
@@ -151,7 +166,10 @@ export const ICON_NAMES: readonly IconName[] = [
   'do_not_disturb_on',
   'domain',
   'done_all',
+  'download',
   'drag_indicator',
+  'drag_pan',
+  'edit',
   'edit_note',
   'error',
   'event',
@@ -162,6 +180,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'filter_alt_off',
   'forum',
   'group',
+  'group_off',
   'handshake',
   'headset_mic',
   'help',
@@ -170,6 +189,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'image',
   'inbox',
   'info',
+  'inventory_2',
   'key',
   'language',
   'left_panel_close',
@@ -180,7 +200,9 @@ export const ICON_NAMES: readonly IconName[] = [
   'lock',
   'lock_clock',
   'lock_open',
+  'logout',
   'mail',
+  'manage_search',
   'menu',
   'mic',
   'more_horiz',
@@ -193,6 +215,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'pause',
   'pause_circle',
   'payments',
+  'person',
   'person_add',
   'phone_iphone',
   'play_arrow',
@@ -205,9 +228,11 @@ export const ICON_NAMES: readonly IconName[] = [
   'search_off',
   'send',
   'signal_cellular_alt',
+  'smart_toy',
   'smartphone',
   'sms',
   'space_dashboard',
+  'subdirectory_arrow_right',
   'support_agent',
   'task_alt',
   'timer',
@@ -215,9 +240,12 @@ export const ICON_NAMES: readonly IconName[] = [
   'touch_app',
   'translate',
   'tune',
+  'unfold_less',
+  'unfold_more',
   'upload_file',
   'verified',
   'verified_user',
+  'vertical_align_top',
   'visibility',
   'visibility_off',
   'warning',

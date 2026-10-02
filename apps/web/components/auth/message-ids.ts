@@ -1,4 +1,4 @@
-import type { MessageId } from '@kasuwa/i18n';
+import type { MessageId } from '@kasuwa/i18n/bundle';
 
 /**
  * Which strings each P01 screen needs, resolved on the SERVER.

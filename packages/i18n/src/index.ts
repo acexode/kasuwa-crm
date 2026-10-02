@@ -1,6 +1,9 @@
 import { IntlMessageFormat } from 'intl-messageformat';
-import { DESIGN_MENU_LOCALES, LOCALE_LABELS, LOCALE_SOURCES } from './catalogues';
+import { DEFAULT_LOCALE, PSEUDO_LOCALE, fallbackChain } from './bundle';
+import { DESIGN_MENU_LOCALES, LOCALE_SOURCES } from './catalogues';
 import { deriveSupportedLocales, localeReadiness } from './completeness';
+import type { Catalogue, MessageId } from './message-id';
+import type { MessageBundle, Translator } from './bundle';
 import en from './locales/en.json';
 
 /**
@@ -34,8 +37,22 @@ import en from './locales/en.json';
  * ---------------------------------------------------------------------------
  */
 
-export const DEFAULT_LOCALE = 'en';
-export const PSEUDO_LOCALE = 'en-XA';
+/**
+ * The client-safe half of this package lives in `./bundle` and is re-exported
+ * here so server code has one name for everything. A `'use client'` module must
+ * import `@kasuwa/i18n/bundle` directly: anything importing THIS file pulls
+ * every catalogue in the repository with it. See the note in `bundle.ts`.
+ */
+export {
+  DEFAULT_LOCALE,
+  PSEUDO_LOCALE,
+  LOCALE_LABELS,
+  createBundleTranslator,
+  fallbackChain,
+  localeLabel,
+  textDirection,
+} from './bundle';
+export type { MessageBundle, TextDirection, Translator } from './bundle';
 
 /**
  * Derived. Do not turn this back into a literal: an incomplete locale would be
@@ -46,8 +63,7 @@ export const SUPPORTED_LOCALES: readonly string[] = deriveSupportedLocales();
 
 export type SupportedLocale = string;
 
-export type MessageId = keyof typeof en;
-export type Catalogue = Partial<Record<MessageId, string>>;
+export type { Catalogue, MessageId } from './message-id';
 
 /**
  * Every catalogue in the repository — which is NOT the same set as the offered
@@ -59,22 +75,6 @@ export type Catalogue = Partial<Record<MessageId, string>>;
 const BASE: Record<string, Catalogue> = Object.fromEntries(
   Object.entries(LOCALE_SOURCES).map(([locale, entry]) => [locale, entry.messages as Catalogue]),
 );
-
-/**
- * Fallback chain for a locale: most specific first, `en` always last.
- * "en-NG" -> ["en-NG", "en"];  "pcm-NG" -> ["pcm-NG", "pcm", "en"].
- */
-export function fallbackChain(locale: string): string[] {
-  const chain: string[] = [];
-  const parts = locale.split('-');
-  for (let index = parts.length; index > 0; index -= 1) {
-    chain.push(parts.slice(0, index).join('-'));
-  }
-  if (!chain.includes(DEFAULT_LOCALE)) {
-    chain.push(DEFAULT_LOCALE);
-  }
-  return chain;
-}
 
 let pseudoCatalogue: Catalogue | undefined;
 
@@ -98,12 +98,6 @@ function resolveMessage(locale: string, id: MessageId): string {
     }
   }
   throw new Error(`Missing message "${id}" for locale "${locale}"`);
-}
-
-export interface Translator {
-  readonly locale: string;
-  /** Formats a message. Unknown ids throw — a missing string is a bug, not a blank. */
-  t(id: MessageId, values?: Record<string, string | number | Date>): string;
 }
 
 export function createTranslator(locale: string = DEFAULT_LOCALE): Translator {
@@ -149,38 +143,19 @@ export function translate(
 }
 
 /**
- * Scripts written right-to-left, by ISO 639 language subtag. Direction belongs
- * to the language, not the region, so only the base tag is consulted.
+ * Resolves `ids` for `locale` into a plain object a client island can format
+ * from. Throws on a missing id, exactly like `t`.
+ *
+ * SERVER ONLY, and that is the whole point: the catalogues stay here and only
+ * the handful of strings a screen asked for cross the wire. The client half is
+ * `createBundleTranslator` in `./bundle`, which imports no catalogue at all.
  */
-const RTL_LANGUAGES: ReadonlySet<string> = new Set([
-  'ar',
-  'arc',
-  'ckb',
-  'dv',
-  'fa',
-  'he',
-  'ps',
-  'sd',
-  'ug',
-  'ur',
-  'yi',
-]);
-
-export type TextDirection = 'ltr' | 'rtl';
-
-/** `dir` for `<html>`. Unknown locales are `ltr`, which is the safe default. */
-export function textDirection(locale: string): TextDirection {
-  const base = locale.split('-')[0]?.toLowerCase() ?? '';
-  return RTL_LANGUAGES.has(base) ? 'rtl' : 'ltr';
-}
-
-/**
- * The name of a language in that language. "Yorùbá", not "Yoruba (Nigeria)".
- * Falls back to the tag itself rather than to an English name: a tag is
- * obviously a placeholder, an English name silently looks finished.
- */
-export function localeLabel(locale: string): string {
-  return LOCALE_LABELS[locale] ?? locale;
+export function bundleMessages(locale: string, ids: readonly MessageId[]): MessageBundle {
+  const bundle: Record<string, string> = {};
+  for (const id of ids) {
+    bundle[id] = resolveMessage(locale, id);
+  }
+  return bundle;
 }
 
 export const MESSAGE_IDS = Object.keys(en) as MessageId[];
@@ -193,58 +168,9 @@ export {
   localeReadiness,
 } from './completeness';
 export type { LocaleReadiness, LocaleKind } from './completeness';
-export { DESIGN_MENU_LOCALES, LOCALE_LABELS, LOCALE_SOURCES, parseReview } from './catalogues';
+export { DESIGN_MENU_LOCALES, LOCALE_SOURCES, parseReview } from './catalogues';
 export type { LocaleReview, LocaleSource, ReviewStatus } from './catalogues';
 export { EN_CATALOGUE, EN_NG_CATALOGUE } from './catalogues';
-
-/**
- * A subset of a catalogue, already resolved through the fallback chain.
- *
- * WHY THIS EXISTS — it is a bandwidth decision, not an ergonomics one.
- *
- * `createTranslator` closes over every registered catalogue. In a React server
- * component that costs nothing; in a client component it drags all nine
- * catalogues into the browser bundle, and that set only grows — by the time
- * thirty screens exist it is most of what a user on 256 kbps waits for, in
- * order to render one form in one language.
- *
- * So a screen resolves its strings on the server, ships the handful it needs,
- * and the interactive island formats them with the real ICU formatter. The
- * catalogues stay on the server; the formatter — fixed in size, and needed for
- * the plural on `auth.attemptsRemaining` and the retry time on `P01/1b` —
- * is the only part that crosses the wire.
- */
-export type MessageBundle = Readonly<Record<string, string>>;
-
-/** Resolves `ids` for `locale`. Throws on a missing id, exactly like `t`. */
-export function bundleMessages(locale: string, ids: readonly MessageId[]): MessageBundle {
-  const bundle: Record<string, string> = {};
-  for (const id of ids) {
-    bundle[id] = resolveMessage(locale, id);
-  }
-  return bundle;
-}
-
-/**
- * A translator over an already-resolved bundle. No catalogue and no fallback
- * chain: if an id is not in the bundle the screen forgot to ask for it, and
- * that throws rather than rendering a blank.
- */
-export function createBundleTranslator(locale: string, messages: MessageBundle): Translator {
-  return {
-    locale,
-    t(id, values) {
-      const message = messages[id];
-      if (message === undefined) {
-        throw new Error(`Message "${id}" is not in the bundle for locale "${locale}"`);
-      }
-      if (values === undefined && !message.includes('{')) {
-        return message;
-      }
-      return new IntlMessageFormat(message, locale).format(values) as string;
-    },
-  };
-}
 
 /**
  * Every registered catalogue, offered or not. `SUPPORTED_LOCALES` is the menu;

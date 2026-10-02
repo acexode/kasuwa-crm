@@ -25,11 +25,10 @@ import {
  *
  * WHAT IS AND IS NOT COVERED
  *
- * `P02/A`, `A1`, `B`–`B5`, `C`–`C3`, `D`–`D2` and `E`–`E2` are built and
- * exercised. `B6`–`B9` — scripts, retention, portal users and archive — are
- * NOT built; see `team/reports/P02.md` and `team/reports/P02-group4.md`. They
- * are named in the manifest constant below so the gap is visible from this
- * file rather than only from a report.
+ * All twenty-two screens in `docs/design/P02/MANIFEST.md` are built and
+ * exercised. The manifest constant below is asserted against that count, so a
+ * screen quietly dropped from the console fails here rather than in a report
+ * nobody re-reads.
  */
 
 const MANIFEST = {
@@ -49,11 +48,15 @@ const MANIFEST = {
     'P02/D',
     'P02/D1',
     'P02/D2',
+    'P02/B6',
+    'P02/B7',
+    'P02/B8',
+    'P02/B9',
     'P02/E',
     'P02/E1',
     'P02/E2',
   ],
-  notBuilt: ['P02/B6', 'P02/B7', 'P02/B8', 'P02/B9'],
+  notBuilt: [] as readonly string[],
 } as const;
 
 test.afterEach(async ({ page }) => {
@@ -405,6 +408,283 @@ test.describe('P02/B5 — deleting a disposition', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('delete-disposition-dialog')).toHaveCount(0);
     await expect(opener).toBeFocused();
+  });
+});
+
+const PROGRAMME = '11111111-0000-4000-8000-0000000c0001';
+
+test.describe('P02/B6 — scripts', () => {
+  test('renders the provider’s own words and never branches on them @p02', async ({ page }) => {
+    const { webUrl } = stack();
+    await installAdminMock(page);
+    await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}?tab=scripts`);
+
+    await expect(page.getByTestId('script-row')).toHaveCount(6);
+
+    // The design says "Rejected by Meta". The enum says `rejected_by_provider`
+    // and `providerName` carries the name — CLAUDE.md rule 8. The screen must
+    // show the provider WITHOUT the word being in our source.
+    const rejected = page.locator('[data-script-status="rejected_by_provider"]');
+    await expect(rejected).toHaveCount(1);
+    await expect(rejected.getByTestId('script-provider')).toBeVisible();
+    await expect(rejected.getByTestId('script-rejection')).toBeVisible();
+
+    // A draft has not been to a provider. Null is normal and renders nothing,
+    // not "unknown" and not an empty chip.
+    const draft = page.locator('[data-script-status="draft"]');
+    await expect(draft.getByTestId('script-provider')).toHaveCount(0);
+
+    // The script builder is M10. A control that answers 501 must not look live.
+    await expect(page.getByTestId('add-script')).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  test('languages read as endonyms, not as BCP 47 tags @p02', async ({ page }) => {
+    const { webUrl } = stack();
+    await installAdminMock(page);
+    await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}?tab=scripts`);
+
+    // "yo" on a screen is a tag leaking through. The diacritics are part of
+    // the word, and a tag is useless to the person the menu exists for.
+    const row = page.getByTestId('script-row').first();
+    await expect(row).toContainText('Yorùbá');
+    await expect(row).not.toContainText('yo,');
+  });
+
+  test('no scripts is an empty state, not an empty table @p02', async ({ page }) => {
+    const { webUrl } = stack();
+    await installAdminMock(page, { noScripts: true });
+    await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}?tab=scripts`);
+
+    await expect(page.getByTestId('scripts-empty')).toBeVisible();
+    await expect(page.getByTestId('script-row')).toHaveCount(0);
+  });
+});
+
+test.describe('P02/B7 — retention', () => {
+  test('says plainly that Kasuwa may not enforce the recording rule @p02', async ({ page }) => {
+    const { webUrl } = stack();
+    await installAdminMock(page);
+    await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}?tab=retention`);
+
+    // D-T4 is BLOCKED and ADR-0003 says the telephony platform is not ours.
+    // An admin who shortens a recording period and believes the audio is gone
+    // has made a promise to a regulator that we cannot keep — and a screen
+    // would have told them so. This note is the screen not telling them so,
+    // and it is asserted here because it is the first thing a tidy-up removes.
+    const note = page.getByTestId('retention-scope-note');
+    await expect(note).toBeVisible();
+    await expect(note).toContainText('telephony platform');
+
+    await expect(page.getByTestId('retention-notice')).toBeVisible();
+  });
+
+  test('a shortened period is marked before it is saved @p02', async ({ page }) => {
+    const { webUrl } = stack();
+    await installAdminMock(page);
+    await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}?tab=retention`);
+
+    const qa = page.getByTestId('retention-qaEvaluationsDays');
+    await expect(qa).toHaveValue('1095');
+    await expect(page.getByTestId('unsaved-bar')).toHaveCount(0);
+
+    await qa.selectOption('90');
+    await expect(page.getByTestId('unsaved-count')).toContainText('1');
+    // Shortening destroys data. Discovering that from a changed dropdown is
+    // not the same as being told.
+    await expect(page.getByTestId('retention-shortened')).toHaveCount(1);
+
+    // Lengthening is not a warning.
+    await qa.selectOption('3650');
+    await expect(page.getByTestId('retention-shortened')).toHaveCount(0);
+  });
+
+  test('an unwired save shows its 501 and keeps the edit @p02', async ({ page }) => {
+    const { webUrl } = stack();
+    await installAdminMock(page);
+    await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}?tab=retention`);
+
+    await page.getByTestId('retention-hold').click();
+    await page.getByTestId('save-changes').click();
+
+    const error = page.getByTestId('retention-save-error');
+    await expect(error).toBeVisible();
+    await expect(error).toHaveAttribute('data-error-code', 'not_implemented');
+    await expect(page.getByTestId('unsaved-bar')).toBeVisible();
+  });
+
+  test('the whole document goes back with its version @p02', async ({ page }) => {
+    const { webUrl } = stack();
+    const state = await installAdminMock(page, { retentionWritable: true });
+    await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}?tab=retention`);
+
+    await page.getByTestId('retention-screenRecordingsDays').selectOption('30');
+    await page.getByTestId('save-changes').click();
+    await expect(page.getByTestId('retention-toast')).toBeVisible();
+
+    const sent = state.requests.filter((r) => r.operationId === 'updateProgrammeRetention');
+    expect(sent).toHaveLength(1);
+    const body = sent[0]?.body as Record<string, unknown>;
+    // A partial write would let two of four periods land and leave nobody sure
+    // which rule is in force. The screen saves everything together.
+    expect(body['version']).toBe(2);
+    expect(body['screenRecordingsDays']).toBe(30);
+    expect(body['callRecordingsDays']).toBe(2555);
+    expect(body['legalHold']).toBe(false);
+  });
+
+  test('a legal hold refuses the change in its own words @p02', async ({ page }) => {
+    const { webUrl } = stack();
+    await installAdminMock(page, { retentionLegalHold: true });
+    await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}?tab=retention`);
+
+    await page.getByTestId('retention-callRecordingsDays').selectOption('90');
+    await page.getByTestId('save-changes').click();
+
+    const error = page.getByTestId('retention-save-error');
+    await expect(error).toHaveAttribute('data-error-code', 'legal_hold_active');
+  });
+
+  test('leaving the tab with an unsaved rule asks first @p02', async ({ page }) => {
+    const { webUrl } = stack();
+    await installAdminMock(page);
+    await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}?tab=retention`);
+
+    await page.getByTestId('retention-redact').click();
+    await expect(page.getByTestId('unsaved-count')).toBeVisible();
+
+    await page.getByTestId('tab-overview').click();
+    await expect(page.getByTestId('leave-dialog')).toBeVisible();
+    await page.getByTestId('leave-cancel').click();
+    await expect(page.getByTestId('retention-redact')).toHaveAttribute('data-changed', 'true');
+  });
+});
+
+test.describe('P02/B8 — portal users', () => {
+  test('empty is the designed state and the invite is visibly not ready @p02', async ({ page }) => {
+    const { webUrl } = stack();
+    await installAdminMock(page);
+    await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}?tab=portal`);
+
+    await expect(page.getByTestId('portal-empty')).toBeVisible();
+    // Granting an outsider sight of a programme is the last control in this
+    // console that should look live before it is. M18 does not exist.
+    await expect(page.getByTestId('portal-invite')).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  test('a row renders the masked address and never an unmasked one @p02', async ({ page }) => {
+    const { webUrl } = stack();
+    await installAdminMock(page, { portalUsers: true });
+    await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}?tab=portal`);
+
+    const email = page.getByTestId('portal-email');
+    await expect(email).toHaveText(/•/);
+
+    // The mask must not be undone anywhere in the DOM — not in a title, not in
+    // a mailto. The list never carries the full address to begin with.
+    const html = await page.content();
+    expect(html).not.toContain('mailto:');
+    expect(html).not.toContain('portal.invitee@client.example');
+  });
+});
+
+test.describe('P02/B9 — archiving a programme', () => {
+  test('the impact numbers are read when the dialog opens @p02', async ({ page }) => {
+    const { webUrl } = stack();
+    await installAdminMock(page);
+    await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}`);
+
+    const previews: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/archive-preview')) previews.push(request.url());
+    });
+
+    // Not requested on page load: a count from this morning is the wrong
+    // number to make this decision on.
+    expect(previews).toHaveLength(0);
+
+    await page.getByTestId('archive-programme').click();
+    await expect(page.getByTestId('archive-dialog')).toBeVisible();
+    await expect(page.getByTestId('archive-impacts')).toBeVisible();
+    expect(previews.length).toBeGreaterThan(0);
+    await expect(page.getByTestId('archive-retention')).toBeVisible();
+  });
+
+  test('omits the retention line rather than inventing a rule @p02', async ({ page }) => {
+    const { webUrl } = stack();
+    await installAdminMock(page, { archiveRetentionUnknown: true });
+    await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}`);
+
+    await page.getByTestId('archive-programme').click();
+    await expect(page.getByTestId('archive-impacts')).toBeVisible();
+    // Null is "we do not know which rule applies". Saying nothing beats saying
+    // something nobody has checked — see the retention screen on D-T4.
+    await expect(page.getByTestId('archive-retention')).toHaveCount(0);
+  });
+
+  test('confirmation is the programme’s name, and it has to match @p02', async ({ page }) => {
+    const { webUrl } = stack();
+    const state = await installAdminMock(page);
+    await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}`);
+
+    await page.getByTestId('archive-programme').click();
+    const confirm = page.getByTestId('archive-confirm');
+    await expect(confirm).toBeDisabled();
+
+    // The design's constant word "archive" is the same keystrokes on every
+    // programme and stops being a check after the second one.
+    await page.getByTestId('archive-confirmation').fill('archive');
+    await expect(confirm).toBeDisabled();
+
+    await page.getByTestId('archive-confirmation').fill('Eko Bank Collections');
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+
+    const error = page.getByTestId('archive-error');
+    await expect(error).toBeVisible();
+    await expect(error).toHaveAttribute('data-error-code', 'not_implemented');
+    // The dialog stays open with the typed name intact. Closing as though it
+    // worked is how a programme gets "archived" twice.
+    await expect(page.getByTestId('archive-confirmation')).toHaveValue('Eko Bank Collections');
+
+    const sent = state.requests.filter((r) => r.operationId === 'archiveProgramme');
+    expect(sent).toHaveLength(1);
+    expect((sent[0]?.body as Record<string, unknown>)['confirmation']).toBe('Eko Bank Collections');
+  });
+
+  test('the dialog returns focus to the button that opened it @p02', async ({ page }) => {
+    const { webUrl } = stack();
+    await installAdminMock(page);
+    await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}`);
+
+    await page.getByTestId('archive-programme').click();
+    await expect(page.getByTestId('archive-dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('archive-dialog')).toHaveCount(0);
+    await expect(page.getByTestId('archive-programme')).toBeFocused();
+  });
+
+  test('P02/B6–B9 pass axe @p02', async ({ page }, testInfo) => {
+    const { webUrl } = stack();
+    await installAdminMock(page, { portalUsers: true });
+
+    for (const tab of ['scripts', 'retention', 'portal']) {
+      await page.goto(`${webUrl}/admin/programmes/${PROGRAMME}?tab=${tab}`);
+      await expect(page.getByTestId(`tab-${tab}`)).toBeVisible();
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+        .analyze();
+      const blocking = results.violations.filter(
+        (violation) => violation.impact === 'serious' || violation.impact === 'critical',
+      );
+      await testInfo.attach(`axe-${tab}.json`, {
+        body: JSON.stringify(results.violations, null, 2),
+        contentType: 'application/json',
+      });
+      expect(
+        blocking.map((violation) => `${violation.id}: ${violation.help}`),
+        `serious or critical accessibility violations on the ${tab} tab`,
+      ).toEqual([]);
+    }
   });
 });
 
@@ -801,77 +1081,74 @@ test.describe('P02/E — the audit log', () => {
 });
 
 test.describe('the console on a 256 kbps link', () => {
-  test('records what admin home costs @p02', async ({ page }) => {
-    /**
-     * FAILS TODAY, ON PURPOSE, FOR THE SAME REASON `P01/1` DOES (D-L28).
-     *
-     * The harness runs `next dev`. What crosses the wire is a development
-     * bundle — unminified, one request per module, no tree-shaking — and it
-     * does not finish navigating at 256 kbps inside any sane timeout, which is
-     * how this test first failed. A budget set against a dev bundle would be
-     * several times too slack to catch a regression, so it is not set against
-     * one: the assertion below is the REAL budget, and it is `fixme` until
-     * T-0010 makes the e2e job build the app. Flipping one line turns it into
-     * a live gate.
-     *
-     * MEASURED, not guessed, against a production build of `apps/web`
-     * (`pnpm --filter @kasuwa/web build`, then `next start`), cold cache:
-     *
-     *   /admin                          266,632 bytes   FCP 120 ms / 1,972 ms
-     *   /admin/programmes/{id}?tab=sla  274,158 bytes   FCP 128 ms / 1,920 ms
-     *
-     * The second figure in each pair is first contentful paint at 256 kbps with
-     * 300 ms of latency — the network PRD 2.13 commits to. Under two seconds to
-     * a usable admin console on that link is the number that actually matters,
-     * and it holds because the strings are resolved on the SERVER and only the
-     * ones a screen asked for cross the wire.
-     *
-     * PRD 2.13 caps the critical path at 300 KB gzipped, so `/admin` has about
-     * 13% of headroom and the programme screen about 11%. The budget is pinned
-     * just above the measurement — 268 KB — rather than at the ceiling, because
-     * a budget at the ceiling permits every page between today's weight and the
-     * limit, which is most of the room a regression needs.
-     *
-     * -----------------------------------------------------------------------
-     * RE-MEASURED FOR P02 GROUP 4, AND THE NUMBERS HAVE MOVED. Same method,
-     * same production build, cold cache, `next start`:
-     *
-     *   /admin                          298,499 bytes   FCP  80 ms / 2,012 ms
-     *   /admin/programmes/{id}?tab=sla  302,416 bytes   FCP 124 ms / 1,872 ms
-     *   /admin/roles                    297,807 bytes   FCP 136 ms / 1,972 ms
-     *   /admin/field-security           330,122 bytes   FCP 100 ms / 2,032 ms
-     *   /admin/audit                    330,956 bytes   FCP  96 ms / 1,988 ms
-     *
-     * `/admin` has grown ~32 KB of TRANSFERRED bytes against the 266,632 above
-     * on an unchanged route, so the budget of 274,432 would fail today. It is
-     * NOT raised here: a budget moved by the person who tripped it is not a
-     * budget, and the growth is on a route P02 group 4 did not touch. It is
-     * raised in `team/reports/P02-group4.md` for the lead instead.
-     *
-     * The thing PRD 2.13 actually caps — first-load JS on the critical path —
-     * is not what moved. `next build` reports 221 kB for `/admin`, 224 kB for
-     * `/admin/roles` and 223 kB for both `/admin/field-security` and
-     * `/admin/audit`: three new screens for 2–3 kB each, because the strings
-     * are resolved on the SERVER and only the ones a screen asked for cross
-     * the wire. The difference between the two figures is fonts, CSS and
-     * document, and whether the 300 KB cap is meant to cover those is the
-     * question the lead has to answer before this becomes a live gate.
-     *
-     * Every one of the five is still under two seconds to first contentful
-     * paint at 256 kbps with 300 ms of latency, which is the number a BPO
-     * agent on a mid-range Android phone actually experiences.
-     * -----------------------------------------------------------------------
-     */
-    test.fixme(true, 'D-L28: the e2e job runs `next dev`; T-0010 makes it build first.');
+  /**
+   * MEASURED, NOT GUESSED, AND PINNED JUST ABOVE WHAT WAS MEASURED.
+   *
+   * A budget at the 300 KB ceiling permits every page between today's weight
+   * and the limit, which is most of the room a regression needs. Each number
+   * below has about 2% of headroom over the figure beside it, so a route that
+   * grows by a chunk fails here and a route that grows by a sentence does not.
+   *
+   * Method: `pnpm --filter @kasuwa/web build`, `next start`, cold cache, admin
+   * mock installed, CDP `Network.loadingFinished.encodedDataLength` summed over
+   * every request the page makes. That number IS the compressed over-the-wire
+   * size, which is what PRD 2.13's 300 KB caps.
+   *
+   *   route                            transferred   FCP (local / 256 kbps)
+   *   /admin                             219,631 B    108 ms / 2,016 ms
+   *   /admin/programmes                  217,712 B    112 ms / 1,988 ms
+   *   /admin/roles                       219,983 B    112 ms / 2,028 ms
+   *   /admin/field-security              252,260 B     88 ms / 2,012 ms
+   *   /admin/audit                       252,102 B     92 ms / 2,040 ms
+   *   /admin/programmes/{id}?tab=scripts 261,818 B    112 ms / 1,940 ms
+   *
+   * The two heaviest routes carry `jetbrains-mono-latin-400600.woff2` —
+   * 31,714 B for the monospace figures on ids, timestamps and script versions.
+   * It is the single largest avoidable asset left on this console and it is
+   * raised in `team/reports/P02-finish.md` rather than removed here: dropping a
+   * typeface the design asks for is a design decision, not a build one.
+   *
+   * ---------------------------------------------------------------------------
+   * STILL `fixme`, FOR THE SAME REASON AS BEFORE (D-L28).
+   *
+   * The harness runs `next dev`. What crosses the wire is a development
+   * bundle — unminified, one request per module, no tree-shaking — and it does
+   * not finish navigating at 256 kbps inside any sane timeout. A budget set
+   * against a dev bundle would be several times too slack to catch anything, so
+   * it is not set against one. These are the real budgets, and T-0010 — which
+   * makes the e2e job build the app — turns them into a live gate by deleting
+   * one line per test.
+   * ---------------------------------------------------------------------------
+   */
+  const BYTE_BUDGETS: readonly { readonly label: string; readonly path: string; readonly budget: number }[] = [
+    { label: 'P02/A admin home', path: '/admin', budget: 224_000 },
+    { label: 'P02/B the programmes list', path: '/admin/programmes', budget: 222_000 },
+    { label: 'P02/C the role tree', path: '/admin/roles', budget: 224_000 },
+    { label: 'P02/D the field-security matrix', path: '/admin/field-security', budget: 257_000 },
+    { label: 'P02/E the audit log', path: '/admin/audit', budget: 257_000 },
+    {
+      label: 'P02/B6 the scripts tab',
+      path: '/admin/programmes/11111111-0000-4000-8000-0000000c0001?tab=scripts',
+      budget: 266_000,
+    },
+  ];
 
-    const { webUrl } = stack();
-    await installAdminMock(page);
+  for (const { label, path, budget } of BYTE_BUDGETS) {
+    test(`${path} stays inside its transferred-byte budget @p02`, async ({ page }) => {
+      test.fixme(true, 'D-L28: the e2e job runs `next dev`; T-0010 makes it build first.');
 
-    const metrics = await measurePageLoad(page, `${webUrl}/admin`, 'default');
-    recordProfileMetrics('default', metrics);
+      const { webUrl } = stack();
+      await installAdminMock(page);
 
-    assertWithinByteBudget('the P02/A admin home screen', metrics.transferredBytes, 274432);
-  });
+      const metrics = await measurePageLoad(page, `${webUrl}${path}`, 'default');
+      recordProfileMetrics('default', metrics);
+
+      // Every budget is also under the PRD 2.13 ceiling. Asserting that here
+      // means a future edit cannot raise one past the NFR without this failing.
+      expect(budget, `${label} budget is inside the PRD 2.13 cap`).toBeLessThan(300_000);
+      assertWithinByteBudget(label, metrics.transferredBytes, budget);
+    });
+  }
 
   test('a slow read becomes a message and an offer, not a spinner @p02', async ({ page }) => {
     const { webUrl } = stack();

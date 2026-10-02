@@ -5,6 +5,7 @@
   "admin.home.alerts.meta",
   "admin.home.health.gain",
   "admin.home.usage.period",
+  "admin.scripts.version",
   "admin.sla.clock.always",
   "app.name",
   "tokens.contrast.ratio",

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n';
+import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { AdminShell } from './admin-shell';
 import { Panel, errorMessageId } from './panel';
@@ -146,7 +146,7 @@ export function AuditScreen({
             onClick={() => setExportOpen(true)}
             className={SECONDARY_BUTTON}
           >
-            <Icon name="description" size="sm" />
+            <Icon name="download" size="sm" />
             {t.t('admin.audit.export')}
           </button>
         </div>
@@ -260,7 +260,7 @@ export function AuditScreen({
                 data-testid="audit-empty"
                 className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface p-16 text-center"
               >
-                <Icon name="search_off" size="xl" className="text-text-muted" />
+                <Icon name="manage_search" size="xl" className="text-text-muted" />
                 <b className="text-h5">{t.t('admin.audit.empty.title')}</b>
                 <p className="max-w-prose text-body-md text-text-2">
                   {t.t('admin.audit.empty.body')}
@@ -317,7 +317,7 @@ export function AuditScreen({
                           <td className="p-3">
                             <span className="flex items-center gap-2">
                               {entry.actor.kind === 'system' ? (
-                                <Icon name="schedule" size="sm" className="text-text-2" />
+                                <Icon name="smart_toy" size="sm" className="text-text-2" />
                               ) : null}
                               <span className="flex flex-col">
                                 <b className="font-semibold">{entry.actor.displayName}</b>

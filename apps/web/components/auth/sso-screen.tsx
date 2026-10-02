@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n';
+import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { AuthShell } from './auth-shell';
 import { shellStrings } from './shell-strings';

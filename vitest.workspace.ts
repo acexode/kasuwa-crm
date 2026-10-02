@@ -25,6 +25,9 @@ const alias = {
   '@kasuwa/wfm-adapter': resolve(root, 'packages/wfm-adapter/src/index.ts'),
   '@kasuwa/domain-core': resolve(root, 'packages/domain/core/src/index.ts'),
   '@kasuwa/ui': resolve(root, 'packages/ui/src/index.ts'),
+  // The longer key must come first: Vite matches a string alias as a
+  // PREFIX, so '@kasuwa/i18n' would otherwise swallow '@kasuwa/i18n/bundle'.
+  '@kasuwa/i18n/bundle': resolve(root, 'packages/i18n/src/bundle.ts'),
   '@kasuwa/i18n': resolve(root, 'packages/i18n/src/index.ts'),
   '@kasuwa/feature-flags': resolve(root, 'packages/feature-flags/src/index.ts'),
   '@kasuwa/testing': resolve(root, 'packages/testing/src/index.ts'),

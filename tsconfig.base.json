@@ -38,6 +38,7 @@
       "@kasuwa/domain-core": ["packages/domain/core/src/index.ts"],
       "@kasuwa/ui": ["packages/ui/src/index.ts"],
       "@kasuwa/i18n": ["packages/i18n/src/index.ts"],
+      "@kasuwa/i18n/bundle": ["packages/i18n/src/bundle.ts"],
       "@kasuwa/feature-flags": ["packages/feature-flags/src/index.ts"],
       "@kasuwa/testing": ["packages/testing/src/index.ts"]
     }
