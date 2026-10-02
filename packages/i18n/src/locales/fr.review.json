@@ -38,6 +38,12 @@
     "admin.prog.field.agents": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.agents.col.agent": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.disp.col.code": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
-    "admin.disp.col.note": "A product name, abbreviation or loanword the admin console uses unchanged in this locale."
+    "admin.disp.col.note": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.audit.filter.action": "The French word is spelled identically to the English one.",
+    "admin.audit.filter.date": "The French word is spelled identically to the English one.",
+    "admin.audit.col.action": "The French word is spelled identically to the English one.",
+    "admin.audit.export.format": "The French word is spelled identically to the English one.",
+    "admin.audit.export.format.csv": "A file-format name written in Latin capitals. It is the same token in every locale.",
+    "admin.audit.export.format.json": "A file-format name written in Latin capitals. It is the same token in every locale."
   }
 }

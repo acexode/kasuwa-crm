@@ -1,5 +1,11 @@
 [
   "admin.agents.col.agent",
+  "admin.audit.col.action",
+  "admin.audit.export.format",
+  "admin.audit.export.format.csv",
+  "admin.audit.export.format.json",
+  "admin.audit.filter.action",
+  "admin.audit.filter.date",
   "admin.channel.sms",
   "admin.channel.ussd",
   "admin.channel.whatsapp",

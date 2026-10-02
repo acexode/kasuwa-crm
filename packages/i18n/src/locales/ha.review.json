@@ -24,6 +24,8 @@
     "admin.channel.sms": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.channel.ussd": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.prog.tab.sla": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
-    "admin.sla.clock.always": "A product name, abbreviation or loanword the admin console uses unchanged in this locale."
+    "admin.sla.clock.always": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.audit.export.format.csv": "A file-format name written in Latin capitals. It is the same token in every locale.",
+    "admin.audit.export.format.json": "A file-format name written in Latin capitals. It is the same token in every locale."
   }
 }
