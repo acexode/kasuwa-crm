@@ -479,7 +479,7 @@ proceed and hope.
 ## B1. New — product decisions
 
 ### D-P1 — How are the seven UI languages actually translated?
-**Status:** ANSWERED 2026-09-27, completed 2026-10-02 (English + `en-NG` at launch; a language is offered once it has a named reviewer). Native-speaker review for `ha`/`ig`/`yo`/`pcm`, professional translation for `fr`/`sw`, no reviewer means unoffered. See DECISION-LOG.md. **Still outstanding from @acexode: a named reviewer per language.**
+**Status:** REOPENED 2026-10-02 by @acexode — **to discuss once the current round of seven tasks is done.** Direction given: every language goes live; once the app is complete, native speakers test each one and make recommendations. The "English + `en-NG` only at launch" answer recorded earlier the same day is withdrawn. Until the discussion, nothing changes in code. Previous answer, for reference: native-speaker review for `ha`/`ig`/`yo`/`pcm`, professional translation for `fr`/`sw`, no reviewer means unoffered. See DECISION-LOG.md. **Still outstanding from @acexode: a named reviewer per language.**
 
 **Needed by:** before any locale is marked offered. **Does not block T-0009** —
 the mechanism is built either way; this decides what goes into it.
@@ -724,3 +724,20 @@ controls. That is also true of the bookkeeping-straight-to-`main` rule.
 on Team; (3) make it public; (4) accept convention-strength guards and record the risk.
 **Recommendation:** (1) or (2). (3) publishes the security model and tenancy code.
 **Blocked:** nothing day to day; it caps how much any gate here can be trusted.
+
+---
+
+## B7. Raised 2026-10-02
+
+### D-L36 — no feature may be quietly buried
+**Status:** OPEN — to discuss with D-P1 after the current round.
+**Context:** @acexode: "this app has lots of features, I don't want any to be accidentally
+buried." The real risk is features that are flag-gated (for example `self_serve_signup`), held
+back as "not MVP", deferred (telephony, WFM), or mock-only with no backend (P02 today). Each one
+is reasonable on its own, and together they let a feature disappear without anyone deciding it
+should.
+**Lead proposal for the discussion:** one register, `team/FEATURES.md`, listing every PRD
+feature with its state (built / mock-only / flagged off / deferred / not started), the flag
+name if any, and the decision that put it there. It is regenerated from the PRD, task files,
+`x-kasuwa-implemented` flags and the feature-flag registry, so it cannot drift. A verifier
+fails CI if a flag or a deferral has no row.
