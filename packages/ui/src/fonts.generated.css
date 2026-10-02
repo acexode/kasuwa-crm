@@ -60,7 +60,7 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Material Symbols Rounded — subset to the 107 icons the design uses */
+/* Material Symbols Rounded — subset to the 117 icons the design uses */
 @font-face {
   font-family: 'Material Symbols Rounded';
   font-style: normal;
@@ -68,7 +68,7 @@
   font-display: block;
   src:
     url('/fonts/material-symbols-rounded-subset.woff2') format('woff2'),
-    url('https://fonts.gstatic.com/l/font?kit=syl0-zNym6YjUruM-QrEh7-nyTnjDwKNJ_190FjpZIvDmUSVOK7BDB_Qb9vUSzq3wzLK-P0J-V_Zs-QtQth3-jOcbTCVpeRL2w5rwZu2rIelXxeRNccDe81u7DANSS1DH1lE6hjYcjkbXcFSQLJLqF4wONATBT9TAf8fyq-pM9p1UQ9A8-SazuBYoHWZyxt4AzZTaJgceNWEmIh5ftLfBqdn5fdad2xQy5UUDAmXMieWKaJbjUMRDrDCLzs_axmaqGftytLTBM0ByBqWghmnuscUAJvK1N7DDJA&skey=70ddea8fe54d532e&v=v375') format('woff2');
+    url('https://fonts.gstatic.com/l/font?kit=syl0-zNym6YjUruM-QrEh7-nyTnjDwKNJ_190FjpZIvDmUSVOK7BDB_Qb9vUSzq3wzLK-P0J-V_Zs-QtQth3-jOcbTCVpeRL2w5rwZu2rIelXxeRNccDe81u7DANSS1DH1lE6hjYcjkbXcFSQLJLs14wONATBT9TAf8fyq-uM9p1UQ1A8uSazuBYoHWZyxuow165WLFsT0Dnvcs0fSDpbIzH5VpWKhOAnY4YOsgyN_ccCZISvXbNW7ocRW6d0OxIO1PtkzMCkvhIcS6EZ54OGntUDi5qdNvPTLBQukefy8rE&skey=70ddea8fe54d532e&v=v376') format('woff2');
 }
 
 /* Ligature setup for the icon font. */

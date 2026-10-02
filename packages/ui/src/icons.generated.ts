@@ -40,7 +40,10 @@ export type IconName =
   | 'do_not_disturb_on'
   | 'domain'
   | 'done_all'
+  | 'download'
   | 'drag_indicator'
+  | 'drag_pan'
+  | 'edit'
   | 'edit_note'
   | 'error'
   | 'event'
@@ -70,6 +73,7 @@ export type IconName =
   | 'lock_clock'
   | 'lock_open'
   | 'mail'
+  | 'manage_search'
   | 'menu'
   | 'mic'
   | 'more_horiz'
@@ -82,6 +86,7 @@ export type IconName =
   | 'pause'
   | 'pause_circle'
   | 'payments'
+  | 'person'
   | 'person_add'
   | 'phone_iphone'
   | 'play_arrow'
@@ -94,9 +99,11 @@ export type IconName =
   | 'search_off'
   | 'send'
   | 'signal_cellular_alt'
+  | 'smart_toy'
   | 'smartphone'
   | 'sms'
   | 'space_dashboard'
+  | 'subdirectory_arrow_right'
   | 'support_agent'
   | 'task_alt'
   | 'timer'
@@ -104,9 +111,12 @@ export type IconName =
   | 'touch_app'
   | 'translate'
   | 'tune'
+  | 'unfold_less'
+  | 'unfold_more'
   | 'upload_file'
   | 'verified'
   | 'verified_user'
+  | 'vertical_align_top'
   | 'visibility'
   | 'visibility_off'
   | 'warning'
@@ -151,7 +161,10 @@ export const ICON_NAMES: readonly IconName[] = [
   'do_not_disturb_on',
   'domain',
   'done_all',
+  'download',
   'drag_indicator',
+  'drag_pan',
+  'edit',
   'edit_note',
   'error',
   'event',
@@ -181,6 +194,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'lock_clock',
   'lock_open',
   'mail',
+  'manage_search',
   'menu',
   'mic',
   'more_horiz',
@@ -193,6 +207,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'pause',
   'pause_circle',
   'payments',
+  'person',
   'person_add',
   'phone_iphone',
   'play_arrow',
@@ -205,9 +220,11 @@ export const ICON_NAMES: readonly IconName[] = [
   'search_off',
   'send',
   'signal_cellular_alt',
+  'smart_toy',
   'smartphone',
   'sms',
   'space_dashboard',
+  'subdirectory_arrow_right',
   'support_agent',
   'task_alt',
   'timer',
@@ -215,9 +232,12 @@ export const ICON_NAMES: readonly IconName[] = [
   'touch_app',
   'translate',
   'tune',
+  'unfold_less',
+  'unfold_more',
   'upload_file',
   'verified',
   'verified_user',
+  'vertical_align_top',
   'visibility',
   'visibility_off',
   'warning',

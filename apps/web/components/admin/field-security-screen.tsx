@@ -275,7 +275,7 @@ export function FieldSecurityScreen({
               {t.t('admin.fls.legend.read')}
             </span>
             <span className="inline-flex items-center gap-1">
-              <Icon name="edit_note" size="sm" />
+              <Icon name="edit" size="sm" />
               {t.t('admin.fls.legend.edit')}
             </span>
             <span className="inline-flex items-center gap-1">
@@ -490,7 +490,7 @@ export function FieldSecurityScreen({
                                     : 'border-border bg-surface text-text-muted'
                                 }`}
                               >
-                                <Icon name="edit_note" size="sm" />
+                                <Icon name="edit" size="sm" />
                               </button>
                             </span>
                           </td>

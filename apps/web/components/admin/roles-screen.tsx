@@ -169,7 +169,7 @@ export function RolesScreen({
               onClick={() => setCollapsed(new Set())}
               className={SECONDARY_BUTTON}
             >
-              <Icon name="expand_more" size="sm" />
+              <Icon name="unfold_more" size="sm" />
               {t.t('admin.roles.expandAll')}
             </button>
             <button
@@ -178,7 +178,7 @@ export function RolesScreen({
               onClick={() => setCollapsed(new Set(items.map((role) => role.id)))}
               className={SECONDARY_BUTTON}
             >
-              <Icon name="expand_less" size="sm" />
+              <Icon name="unfold_less" size="sm" />
               {t.t('admin.roles.collapseAll')}
             </button>
             {/* `POST /roles` is not built. A control that looks live and
@@ -202,7 +202,7 @@ export function RolesScreen({
                 className="overflow-hidden rounded-lg border border-border bg-surface"
               >
                 <p className="flex items-center gap-2 border-b border-border bg-surface-sunken p-3 text-body-sm text-text-2">
-                  <Icon name="open_with" size="sm" />
+                  <Icon name="drag_pan" size="sm" />
                   {t.t('admin.roles.dragHint')}
                 </p>
                 <div role="tree" aria-label={t.t('admin.roles.tree')} className="flex flex-col p-2">
@@ -296,7 +296,7 @@ export function RolesScreen({
                         </span>
                       ) : null}
                       <span className="inline-flex items-center gap-1 text-body-sm text-text-muted">
-                        <Icon name="group" size="sm" />
+                        <Icon name="person" size="sm" />
                         {formatCount(locale, row.role.userCount)}
                       </span>
                     </div>
@@ -318,7 +318,7 @@ export function RolesScreen({
                       }}
                       className="mt-2 flex min-h-touch items-center justify-center gap-2 rounded-md border-2 border-dashed border-border-strong text-body-sm font-semibold text-text-2"
                     >
-                      <Icon name="arrow_downward" size="sm" />
+                      <Icon name="vertical_align_top" size="sm" />
                       {t.t('admin.roles.rootDrop')}
                     </div>
                   )}
@@ -393,7 +393,7 @@ export function RolesScreen({
                         <ul className="flex flex-col gap-1">
                           {detail.data.seesRecordsOwnedBy.sample.map((role) => (
                             <li key={role.id} className="flex items-center gap-2 text-body-md">
-                              <Icon name="arrow_forward" size="sm" className="text-text-muted" />
+                              <Icon name="subdirectory_arrow_right" size="sm" className="text-text-muted" />
                               {role.name}
                             </li>
                           ))}
