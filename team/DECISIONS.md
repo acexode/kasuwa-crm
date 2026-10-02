@@ -809,3 +809,25 @@ task forbids a migration. With no 403 check yet, any programme member can probe.
 **Resolution (lead):** when the permissions engine lands, `updateProgramme` is restricted to tenant
 admins, who can reach every programme, so the oracle stops crossing a boundary. Until then: no
 environment with real users is deployed (same condition as D-L38).
+
+---
+
+## B10. Raised during T-0005 (2026-10-02)
+
+### D-L41 — 36 known vulnerabilities already in the lockfile
+**Status:** PROCEEDING (lead decision, reversible).
+**Context:** The new blocking dependency scan (osv-scanner, PR #48) found 36 existing advisories
+(1 critical, 13 high). Blocking on all of them would turn every PR red on day one.
+**Decision:** baseline all 36 in `osv-scanner.toml` with a **hard expiry of 2026-10-31**; any new
+advisory blocks immediately. **Triage first:** `drizzle-orm 0.38.4` (GHSA-gpj5-g38j-94v9,
+CVSS 7.5), which is in the API's runtime path through `@kasuwa/db`. It becomes a task for Agent 1
+right after the audit log. Each remaining baselined advisory needs an upgrade or a written
+not-reachable note before the expiry.
+
+### D-L42 — Nest's own exception logger can carry PII
+**Status:** OPEN. Follow-up task to be written.
+In production, Nest's built-in exception handler logs `exception.message` and the stack trace, and a
+pg error message can contain row values. That path is outside OpenTelemetry, so the PII suite
+cannot see it. Fix: a global exception filter that logs only the error class and code, with a test
+that greps the process output for a probe value. Also extend `collectTelemetry` to return span
+events, so a future `recordException` stays inside the PII grep.
