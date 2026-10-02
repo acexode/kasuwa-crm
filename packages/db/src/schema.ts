@@ -159,8 +159,23 @@ export const userMfaFactor = pgTable(
     userId: uuid('user_id').notNull(),
     type: text('type').notNull(),
     label: text('label'),
-    /** Base32 TOTP secret. Never selected into a response. See migration 0002. */
-    secret: text('secret').notNull(),
+    /**
+     * LEGACY base32 TOTP secret, in plaintext. Nullable since 0005.
+     *
+     * Being replaced by the four `secret*` columns below (envelope encryption,
+     * D-L13). Writers populate both during the expand phase; readers take the
+     * envelope first and fall back to this. The contract migration drops it.
+     * Never selected into a response, in either form.
+     */
+    secret: text('secret'),
+    /** TOTP secret under AES-256-GCM with a per-secret data key: iv || tag || body. */
+    secretCiphertext: customBytea('secret_ciphertext'),
+    /** The data key, wrapped by this environment's KMS key. */
+    secretWrappedKey: customBytea('secret_wrapped_key'),
+    /** Which KMS key wrapped it. Per row, so a rotation can be incremental. */
+    secretKeyId: text('secret_key_id'),
+    /** On-disk format marker, e.g. `A256GCM-ENV1`. */
+    secretAlgorithm: text('secret_algorithm'),
     /**
      * Highest TOTP step already accepted. A code at or below it is refused, so
      * a code is single-use rather than valid for its whole drift window.
@@ -172,6 +187,8 @@ export const userMfaFactor = pgTable(
   },
   (table) => [
     index('user_mfa_factor_tenant_user_idx').on(table.tenantId, table.userId),
+    /** The rotation work queue: partial, over encrypted rows only. */
+    index('user_mfa_factor_secret_key_id_idx').on(table.secretKeyId),
     uniqueIndex('user_mfa_factor_tenant_id_user_id_type_key').on(
       table.tenantId,
       table.userId,

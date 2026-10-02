@@ -9,6 +9,7 @@ import {
   newSessionToken,
   verifyPassword,
 } from '@kasuwa/auth-crypto';
+import type { KeyProvider } from '@kasuwa/auth-crypto';
 import {
   clearAuthFailures,
   hasTenant,
@@ -32,6 +33,8 @@ import {
   ssoDomainNotFound,
 } from './auth.errors';
 import { AUTH_POLICY, type AuthPolicy } from './auth.policy';
+import { KEY_PROVIDER } from './key-provider.token';
+import { resolveTotpSecret, type MfaSecretRow } from './mfa-secret';
 import {
   formatChallengeId,
   parseChallengeId,
@@ -79,6 +82,7 @@ export class AuthService {
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
     @Inject(AUTH_POLICY) private readonly policy: AuthPolicy,
+    @Inject(KEY_PROVIDER) private readonly keyProvider: KeyProvider,
   ) {}
 
   /**
@@ -245,15 +249,26 @@ export class AuthService {
           return locked;
         }
 
-        const factors = await tx.query<{ id: string; secret: string; last_used_step: string | null }>(
-          `SELECT id, secret, last_used_step
+        const factors = await tx.query<MfaSecretRow & { last_used_step: string | null }>(
+          `SELECT id, secret, secret_ciphertext, secret_wrapped_key, secret_key_id,
+                  secret_algorithm, last_used_step
              FROM user_mfa_factor
             WHERE tenant_id = $1 AND user_id = $2 AND type = 'totp' AND confirmed_at IS NOT NULL`,
           [tx.tenantId, challenge.userId],
         );
 
         const factor = factors[0];
-        const step = factor === undefined ? null : matchTotpStep(factor.secret, input.code);
+        // The secret is read HERE, once, into a local, and goes no further —
+        // see the note in mfa-secret.ts. `resolveTotpSecret` THROWS if a row
+        // exists but cannot be decrypted; that propagates out of the
+        // transaction rather than being folded into "wrong code" or, far
+        // worse, "no factor enrolled". A sign-in that cannot read the second
+        // factor must fail, loudly.
+        const secret =
+          factor === undefined
+            ? undefined
+            : await resolveTotpSecret(this.keyProvider, tx.tenantId, factor);
+        const step = secret === undefined ? null : matchTotpStep(secret, input.code);
         // A code is usable once. Accepting it for the whole ninety seconds it
         // stays arithmetically valid means a code seen over a shoulder or in a
         // phishing form can be replayed while the victim is still typing.

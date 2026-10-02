@@ -29,6 +29,25 @@ export {
   verifyTotp,
 } from './totp';
 export {
+  ENVELOPE_ALGORITHM,
+  mfaSecretAad,
+  openSecret,
+  sealSecret,
+  type SealedSecret,
+} from './envelope';
+export { KeyManagementError, type DataKey, type KeyProvider } from './key-provider';
+export {
+  createDevelopmentKeyProvider,
+  DEVELOPMENT_KEY_ID,
+  type DevelopmentKeyProviderOptions,
+} from './development-key-provider';
+export {
+  createAwsKmsKeyProvider,
+  type AwsKmsKeyProviderOptions,
+  type KmsClientLike,
+} from './aws-kms-key-provider';
+export { createKeyProvider, type KeyProviderSettings } from './key-provider-factory';
+export {
   hashIdentifier,
   hashRateLimitKey,
   hashSessionToken,

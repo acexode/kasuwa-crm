@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertAuthModeIsSafe, parseEnv } from './index';
+import { assertAuthModeIsSafe, assertKeyProviderIsSafe, nodeEnv, parseEnv } from './index';
 
 const BASE = {
   DATABASE_URL: 'postgres://kasuwa_app:pw@localhost:5432/kasuwa',
@@ -20,6 +20,57 @@ describe('environment validation', () => {
     const env = parseEnv({ ...BASE, API_PORT: '8080' } as NodeJS.ProcessEnv);
     expect(env.API_PORT).toBe(8080);
     expect(() => parseEnv({ ...BASE, DATABASE_POOL_MAX: '0' } as NodeJS.ProcessEnv)).toThrow();
+  });
+});
+
+describe('envelope-encryption key provider guard (D-L13)', () => {
+  /**
+   * The same shape as the stub-auth guard below and for the same reason: the
+   * local provider keeps its master key in the application process, so running
+   * it in production stores the lock next to the key. Two layers — this, and
+   * the provider refusing to be constructed at all under NODE_ENV=production.
+   */
+  it('refuses the local key provider in production', () => {
+    expect(() =>
+      assertKeyProviderIsSafe({ NODE_ENV: 'production', KASUWA_KMS_PROVIDER: 'local' }),
+    ).toThrow(/Refusing to start/);
+  });
+
+  it('refuses at parse time, so no process can start on it', () => {
+    expect(() =>
+      parseEnv({
+        ...BASE,
+        NODE_ENV: 'production',
+        // A real auth mode, so it is this guard that fires and not the one above.
+        KASUWA_AUTH_MODE: 'jwt',
+        KASUWA_TRUST_PROXY_HOPS: '1',
+      } as NodeJS.ProcessEnv),
+    ).toThrow(/KASUWA_KMS_PROVIDER=local/);
+  });
+
+  it('allows the local provider outside production, which is where it belongs', () => {
+    expect(() =>
+      assertKeyProviderIsSafe({ NODE_ENV: 'development', KASUWA_KMS_PROVIDER: 'local' }),
+    ).not.toThrow();
+    expect(() =>
+      assertKeyProviderIsSafe({ NODE_ENV: 'test', KASUWA_KMS_PROVIDER: 'local' }),
+    ).not.toThrow();
+  });
+
+  it('allows a KMS provider in production', () => {
+    expect(() =>
+      assertKeyProviderIsSafe({ NODE_ENV: 'production', KASUWA_KMS_PROVIDER: 'aws-kms' }),
+    ).not.toThrow();
+  });
+
+  it('defaults to the local provider, which is only reachable outside production', () => {
+    expect(parseEnv({ ...BASE } as NodeJS.ProcessEnv).KASUWA_KMS_PROVIDER).toBe('local');
+  });
+
+  it('reads NODE_ENV alone, without demanding the rest of the environment', () => {
+    // The development key provider's guard calls this; it must not require a
+    // DATABASE_URL to be able to say "this is not production".
+    expect(['development', 'test', 'production']).toContain(nodeEnv());
   });
 });
 
