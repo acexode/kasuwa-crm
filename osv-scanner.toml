@@ -175,3 +175,8 @@ reason = "T-0005 baseline, pre-existing: vite 5.4.21 (fixed in 6.4.3, CVSS 5.5)"
 id = "GHSA-5xrq-8626-4rwp"
 ignoreUntil = 2026-10-31T00:00:00Z
 reason = "T-0005 baseline, pre-existing: vitest 2.1.9 (fixed in 3.2.6, CVSS 9.8)"
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2026-10-31T00:00:00Z
+reason = "Published after the T-0005 baseline; caught on the scanner's first CI run. braces 3.0.3, dev-only via tailwindcss (chokidar, micromatch), no fixed version, not in any runtime path (CVSS 8.7). Re-check by the expiry."
