@@ -796,3 +796,16 @@ module global and exported it; Agent 2 passes it into a dynamic module; Agent 3 
 controller on the root module. **Adopt Agent 1's pattern** (global `AUTH_MODE`, one-line module
 import per admin area) when the three PRs merge, and move the shared admin error filter to
 `apps/api/src/admin/`. Whichever of #44/#45 merges after #43 is rebased onto it.
+
+### D-L40 — renaming a programme can confirm a sibling programme's name
+**Status:** TRACKED RISK. Fix rides on the permissions engine.
+**Context (tenancy-reviewer on T-0024):** `programme` names are `UNIQUE (tenant_id, name)`, and
+unique checks ignore RLS. A user assigned only to programme A2 can PATCH A2 to a guessed name and
+learn from the 409 `duplicate_name` that a sibling programme of that exact name exists. In a BPO,
+names carry the end client ("Bank X Collections"), which is sensitive between client teams. No id
+or row leaks; only the name is confirmed.
+**Why not fixed in T-0024:** no remapping helps (any failed write differs from a success), and the
+task forbids a migration. With no 403 check yet, any programme member can probe.
+**Resolution (lead):** when the permissions engine lands, `updateProgramme` is restricted to tenant
+admins, who can reach every programme, so the oracle stops crossing a boundary. Until then: no
+environment with real users is deployed (same condition as D-L38).
