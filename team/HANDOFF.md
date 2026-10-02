@@ -12,6 +12,11 @@ The task files are stale in **both** directions. T-0019, T-0020 and T-0021 all
 read `status: not-assigned` and all three shipped (#32, #34, #36). T-0007 reads
 `not-assigned` and shipped half its scope.
 
+*Corrected 2026-10-02:* T-0004, T-0019, T-0020 and T-0021 now read `done`.
+T-0006 and T-0007 carry a `status note` saying what shipped and what did not.
+In `DECISIONS.md`, D-P2, D-L18, D-P1 and D-L24 had also been settled without
+their status line changing; they now point at the log.
+
 **Do not take a task file's status as evidence.** Check the code.
 
 ## What is actually true
@@ -60,8 +65,14 @@ published and frozen; the mock is generated from it, so the wiring step is
 mechanical if the implementation honours the spec.
 
 ### 2. P01 groups 3 and 4 — 8 screens
-Blocked on **D-P2** (@acexode) and on T-0015 / T-0016. Do not start these
-against the mock; that was already considered and rejected for good reason.
+**Unblocked. Corrected 2026-10-02:** this item originally said "blocked on D-P2,
+do not build against the mock". That was wrong. @acexode answered D-P2 on
+2026-09-30 (`DECISION-LOG.md`), and part 3 of the answer is to **build all
+eight screens against the mock now** (T-0007). `P01/3`, `4` and `5.1` sit
+behind `self_serve_signup`, off until v1. `5.2`–`5.5` are the unflagged
+first-admin-login flow for provisioned tenants (T-0018). The real backend is
+T-0015 (sales-led provisioning, the launch path), then T-0016 (self-serve,
+which also needs M8/T-0017 for OTP).
 
 ### 3. `reissueMfaChallenge` is `partial`
 The one auth operation that is neither done nor absent.

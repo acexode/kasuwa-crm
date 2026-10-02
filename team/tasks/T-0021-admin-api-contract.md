@@ -1,6 +1,6 @@
 # T-0021 — Admin API contract
 
-**owner** Agent 1 · **status** `not-assigned` · **priority** P0 — blocks all 22 P02 screens
+**owner** Agent 1 · **status** `done` (shipped in #36; status corrected 2026-10-02) · **priority** P0 — blocks all 22 P02 screens
 **deps** none · **decisions** none blocking · **budget** 2 sessions
 
 ## Goal

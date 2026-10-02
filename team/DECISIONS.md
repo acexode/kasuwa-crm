@@ -170,7 +170,7 @@ and NIN/BVN need the field-encryption decision first (D-L13).
 **Blocked:** nothing. **Reversibility:** trivial (additive migration).
 
 ### D-L13 — Field-level encryption for NIN/BVN
-**Status:** BLOCKED (not needed for the scaffold; needed before M3)
+**Status:** BLOCKED for NIN/BVN (needed before M3). *Note 2026-10-02:* the envelope-encryption mechanism shipped for TOTP secrets in #39 (`@kasuwa/auth-crypto`, migration 0005) — **expand step only**; the plaintext `secret` column is still populated until a contract migration drops it. Report: `team/reports/D-L13-totp.md`.
 **Context:** Pack §2.12 requires per-tenant KMS keys and blind indexes for equality search. That is a
 significant design with key-rotation and search consequences.
 **Options:** (1) `pgcrypto` + app-held per-tenant DEK wrapped by a KMS CMK; (2) a dedicated
@@ -227,7 +227,7 @@ placeholders naming the agent per Addendum §3.2 — for the rest. I need your G
 auth, RLS, permissions, payments, recordings") cannot be enforced without it.
 
 ### D-L18 — Roster count: 12 or 13 specialists?
-**Status:** BLOCKED (cheap to answer)
+**Status:** ANSWERED 2026-09-27 with D-A1 — 12 specialists + lead. See DECISION-LOG.md ("D-A1 / D-L18").
 **Context:** Your brief says "12 specialist agents". Addendum §3.2 lists 13 (1–13, DevOps as #13 with
 a footnote offering to fold it into #1). The pilot week you named includes agent 13.
 **Recommendation:** 13 specialists + lead. The footnote itself says you would rather drop a builder
@@ -273,7 +273,7 @@ asking now most likely means drawing them twice.
 ---
 
 ### D-L24 — How the autonomous cycle should run
-**Status:** DONE 2026-09-27 — scheduled task created, 3 runs/weekday. See team/OPERATIONS.md.
+**Status:** SUPERSEDED 2026-09-30 by D-L35 — the scheduler is deleted; work continues in sessions, pausing only above five open PRs. See DECISION-LOG.md.
 **Raised:** 2026-09-27
 
 STANDING ORDERS item 6 asks me to set up a scheduled headless `claude -p` every
@@ -479,6 +479,7 @@ proceed and hope.
 ## B1. New — product decisions
 
 ### D-P1 — How are the seven UI languages actually translated?
+**Status:** ANSWERED 2026-09-27 — native-speaker review for `ha`/`ig`/`yo`/`pcm`, professional translation for `fr`/`sw`, no reviewer means unoffered. See DECISION-LOG.md. **Still outstanding from @acexode: a named reviewer per language.**
 
 **Needed by:** before any locale is marked offered. **Does not block T-0009** —
 the mechanism is built either way; this decides what goes into it.
@@ -547,6 +548,7 @@ tension, and where I made a call:
 ## B2. Raised during T-0001 (2026-09-27)
 
 ### D-P2 — who owns self-serve tenant provisioning?
+**Status:** ANSWERED 2026-09-30 — see DECISION-LOG.md. Build in MVP behind `self_serve_signup` (off until v1); sales-led provisioning first (T-0015), self-serve after it and M8 (T-0016); all eight `P01/3`–`6` screens built against the mock now (T-0007); onboarding `5.2`–`5.5` unflagged as the first-admin-login flow (T-0018). *Status line added 2026-10-02; the text below is the original question.*
 
 **Raised by:** the T-0001 builder, correctly, and it declined to decide.
 **Blocks:** P01/3 (sign-up) and P01/4 (OTP verify) wiring to real endpoints.
@@ -703,3 +705,19 @@ needs and a missing variable fails at boot in the process that needs it rather
 than in every process that does not.
 
 Raised as **T-0014**. Not blocking T-0007.
+
+---
+
+## B6. Raised 2026-09-30, logged 2026-10-02
+
+### D-L34 — branch protection is not available on this repository
+**Status:** BLOCKED (cheap to answer)
+**Context:** `acexode/kasuwa-crm` is a private repository on a free plan. GitHub returns
+`403 — Upgrade to GitHub Pro or make this repository public` for branch protection (checked
+2026-10-02). So `main` accepts direct pushes from anyone with write access. The CODEOWNERS
+review, the `lead-approved` label gate and the protect-paths hook are conventions, not
+controls. That is also true of the bookkeeping-straight-to-`main` rule.
+**Options:** (1) GitHub Pro on the personal account; (2) move the repo into an organisation
+on Team; (3) make it public; (4) accept convention-strength guards and record the risk.
+**Recommendation:** (1) or (2). (3) publishes the security model and tenancy code.
+**Blocked:** nothing day to day; it caps how much any gate here can be trusted.

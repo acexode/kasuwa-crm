@@ -3,7 +3,8 @@
 | Field | Value |
 |---|---|
 | **id** | T-0019 |
-| **status** | `not-assigned` |
+| **status** | `done` |
+| **status note** | Shipped in #32; report `team/reports/T-0019.md`. Status corrected 2026-10-02. |
 | **owner** | Agent 3 — Core CRM & Pipeline |
 | **priority** | **P0 — silent data loss, reachable in production** |
 | **dependencies** | none |

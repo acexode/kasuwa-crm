@@ -927,3 +927,16 @@ four times: the pre-push hook that did not exist on the branch it guarded, the
 exemption test that was never called, the interceptor that was never registered,
 and a scheduler that never fired. Each was believed to be working because it was
 configured.
+
+---
+
+## D-P9 — the field-security matrix is tenant-level on permission sets
+**Answered:** 2026-10-02 by @acexode. *Logged 2026-10-02 from commit `58eea60`
+(PR #38); it was recorded in `docs/api/admin.openapi.yaml` but never here.*
+
+The matrix has two axes, field and permission set, and **no `programmeId`**.
+Programme scoping comes from assignment: `user_programme` carries the permission
+set that applies to that person in that programme. Two BPO clients with
+different rules about the same field get agents with different permission sets,
+not the same field stored twice. `PUT /field-security/matrix` is specified on
+that basis.

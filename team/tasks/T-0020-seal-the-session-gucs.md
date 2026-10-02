@@ -3,7 +3,8 @@
 | Field | Value |
 |---|---|
 | **id** | T-0020 |
-| **status** | `not-assigned` |
+| **status** | `done` |
+| **status note** | Shipped in #34; report `team/reports/T-0020.md`. Status corrected 2026-10-02. |
 | **owner** | Agent 1 — Platform & Security |
 | **priority** | **P0 — the last line of defence is not one** |
 | **dependencies** | T-0001 merged |

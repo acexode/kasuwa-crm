@@ -3,7 +3,8 @@
 | Field | Value |
 |---|---|
 | **id** | T-0004 |
-| **status** | `not-assigned` |
+| **status** | `done` |
+| **status note** | Shipped in #30; report `team/reports/T-0004.md`. Status corrected 2026-10-02. |
 | **ready to assign** | **Yes** — acceptance tests written and failing (D-L25) |
 | **module** | Cross-cutting |
 | **owner** | Agent 12 — QA & Adversarial Testing |

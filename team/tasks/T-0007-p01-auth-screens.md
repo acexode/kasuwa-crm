@@ -4,6 +4,7 @@
 |---|---|
 | **id** | T-0007 |
 | **status** | `not-assigned` |
+| **status note** | **Half shipped.** Groups 1–2 (`P01/1`, `1a`, MFA, SSO) merged in #22. Groups 3–4 (`P01/3`–`4`, `5.1`–`5.5`, `6`) not built; unblocked by D-P2 (answered 2026-09-30). Status corrected 2026-10-02. |
 | **ready to assign** | **Yes** — acceptance tests written and failing |
 | **module** | M19 + M2 UI |
 | **owner** | Agent 11 — Frontend & Design System |
