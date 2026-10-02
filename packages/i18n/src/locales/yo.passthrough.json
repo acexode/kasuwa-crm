@@ -20,5 +20,10 @@
   "auth.signIn.microsoft",
   "tokens.contrast.ratio",
   "tokens.sample.arabic",
-  "tokens.sample.text"
+  "tokens.sample.text",
+  "onboarding.step.whatsapp",
+  "import.source.zoho",
+  "import.source.salesforce",
+  "import.source.hubspot",
+  "import.source.csv"
 ]

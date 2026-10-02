@@ -10,5 +10,9 @@
   "app.name",
   "tokens.contrast.ratio",
   "tokens.sample.arabic",
-  "tokens.sample.text"
+  "tokens.sample.text",
+  "import.source.zoho",
+  "import.source.salesforce",
+  "import.source.hubspot",
+  "import.source.csv"
 ]
