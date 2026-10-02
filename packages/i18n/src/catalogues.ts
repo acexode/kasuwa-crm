@@ -38,22 +38,12 @@ import yoReview from './locales/yo.review.json';
 export const DESIGN_MENU_LOCALES = ['en', 'fr', 'pcm', 'ha', 'yo', 'ig', 'sw'] as const;
 
 /**
- * Endonyms, transcribed from `docs/design/P01/v1.0/Kasuwa Auth Screen.dc.html`.
- * A language menu written in English is useless to the person who cannot read
- * English, which is the entire population it exists for. The diacritics are
- * part of the word: "Yorùbá", not "Yoruba (Nigeria)".
+ * The endonym table now lives in `bundle.ts`, which imports no catalogue — the
+ * language menu is a client component, and importing a label from a module
+ * that also imports nine catalogues shipped all nine to the browser. Re-exported
+ * here so this file is still the one place that answers "what is registered".
  */
-export const LOCALE_LABELS: Readonly<Record<string, string>> = {
-  en: 'English',
-  'en-NG': 'English (Naija)',
-  fr: 'Français',
-  ha: 'Hausa',
-  ig: 'Igbo',
-  sw: 'Kiswahili',
-  pcm: 'Pidgin',
-  yo: 'Yorùbá',
-  ar: 'العربية',
-};
+export { LOCALE_LABELS } from './bundle';
 
 /**
  * `source`  — written in this repository, not translated for us. English and

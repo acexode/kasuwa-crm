@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import type { Translator, MessageId } from '@kasuwa/i18n';
+import type { Translator, MessageId } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { useLiteMode } from '../auth/lite-mode';
 import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';

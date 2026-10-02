@@ -1,4 +1,4 @@
-import type { MessageId } from '@kasuwa/i18n';
+import type { MessageId } from '@kasuwa/i18n/bundle';
 import { NAV_MESSAGE_IDS } from './nav-model';
 
 /**

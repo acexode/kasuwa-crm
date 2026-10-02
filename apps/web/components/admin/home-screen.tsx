@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
-import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n';
+import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
 import type { IconName } from '@kasuwa/ui';
 import { Icon } from '../icon';
 import { AdminShell } from './admin-shell';

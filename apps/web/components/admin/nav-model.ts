@@ -1,4 +1,4 @@
-import type { MessageId } from '@kasuwa/i18n';
+import type { MessageId } from '@kasuwa/i18n/bundle';
 import type { IconName } from '@kasuwa/ui';
 
 /**

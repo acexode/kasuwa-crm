@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { localeLabel, type MessageId, type Translator } from '@kasuwa/i18n';
+import { localeLabel, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { Panel } from './panel';
 import { useResource } from './use-resource';

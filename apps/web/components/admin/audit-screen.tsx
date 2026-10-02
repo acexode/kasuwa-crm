@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n';
+import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { AdminShell } from './admin-shell';
 import { Panel, errorMessageId } from './panel';

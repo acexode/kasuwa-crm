@@ -1,4 +1,4 @@
-import type { Translator } from '@kasuwa/i18n';
+import type { Translator } from '@kasuwa/i18n/bundle';
 import type { ShellStrings } from './auth-shell';
 
 /**

@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { MessageBundle } from '@kasuwa/i18n';
-import { createBundleTranslator } from '@kasuwa/i18n';
+import type { MessageBundle } from '@kasuwa/i18n/bundle';
+import { createBundleTranslator } from '@kasuwa/i18n/bundle';
 
 /**
  * A record route, and the first one in `apps/web`.
