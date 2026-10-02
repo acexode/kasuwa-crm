@@ -48,6 +48,8 @@ export const tenant = pgTable('tenant', {
   localeDefault: text('locale_default').notNull().default('en-NG'),
   currencyDefault: char('currency_default', { length: 3 }).notNull().default('NGN'),
   status: text('status').notNull().default('active'),
+  /** RoleList.version — the role hierarchy's optimistic-concurrency counter (0006). */
+  roleHierarchyVersion: integer('role_hierarchy_version').notNull().default(1),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -89,11 +91,14 @@ export const user = pgTable(
     displayName: text('display_name').notNull(),
     locale: text('locale').notNull().default('en-NG'),
     status: text('status').notNull().default('active'),
+    /** The one tenant-wide role this person holds, if any (0006). */
+    roleId: uuid('role_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index('user_tenant_idx').on(table.tenantId),
+    index('user_tenant_role_idx').on(table.tenantId, table.roleId),
     uniqueIndex('user_tenant_email_key').on(table.tenantId, table.email),
   ],
 );
@@ -314,6 +319,43 @@ export const fieldDef = pgTable(
 );
 
 /**
+ * The role hierarchy (M2, migration 0006). Tenant-wide and deliberately NOT
+ * programme-scoped — see the header of 0006 before adding a `programmeId`.
+ * Acyclicity is enforced by the API and, independently, by a trigger.
+ */
+export const role = pgTable(
+  'role',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    name: text('name').notNull(),
+    parentRoleId: uuid('parent_role_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('role_tenant_parent_idx').on(table.tenantId, table.parentRoleId)],
+);
+
+/**
+ * The field-security matrix's columns (M2, migration 0006). Names sets; defines
+ * no grant. Tenant-level per D-P9.
+ */
+export const permissionSet = pgTable(
+  'permission_set',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    key: text('key').notNull(),
+    label: text('label').notNull(),
+    locked: boolean('locked').notNull().default(false),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('permission_set_tenant_id_key_key').on(table.tenantId, table.key)],
+);
+
+/**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
  */
@@ -330,6 +372,8 @@ export const TENANT_SCOPED_TABLES = [
   'user_mfa_factor',
   'auth_challenge',
   'auth_session',
+  'role',
+  'permission_set',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];
