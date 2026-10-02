@@ -85,7 +85,17 @@ export function ScriptsTab({
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-border bg-surface">
+            <div
+              /* A horizontally scrolling table is reachable with a mouse and,
+                 without this, with nothing else. `tabIndex` puts it in the tab
+                 order so the arrow keys can scroll it, and the region needs a
+                 name once it is focusable. axe flags the omission as serious
+                 and it is right to. */
+              role="region"
+              aria-label={t.t('admin.prog.tab.scripts')}
+              tabIndex={0}
+              className="overflow-x-auto rounded-lg border border-border bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            >
               <table className="w-full min-w-max border-collapse text-body-sm">
                 <caption className="sr-only">{t.t('admin.prog.tab.scripts')}</caption>
                 <thead className="bg-surface-sunken text-caption uppercase text-text-muted">
