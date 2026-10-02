@@ -772,3 +772,27 @@ retries into a double send.
   once campaigns exist (Agent 8).
 - Once a real provider is chosen, every number and message body leaves the region. D-P10 needs an
   NDPA cross-border transfer assessment alongside the price.
+
+---
+
+## B9. Raised during T-0022 / T-0024 (2026-10-02)
+
+### D-L38 — admin writes are live but unaudited until the audit log exists
+**Status:** PROCEEDING (lead decision, reversible). @acexode may overturn.
+**Context:** `createRole`, `updateRole`, `deleteRole`, `updateRoleHierarchy` (T-0022) and
+`updateProgramme` (T-0024) are marked `x-kasuwa-audited`, and CLAUDE.md 6.7 says permission changes
+are audited. No audit table exists. The acceptance suites exercise these writes, so putting them
+behind a default-off flag would fail tests that may not be edited.
+**Decision:** merge them unaudited, on three conditions: (1) **the audit log is Agent 1's next task**
+(table, writer, and the four `audit` endpoints P02 already draws); (2) **no environment with real
+users is deployed before it lands**. None exists today, and T-0005 applies no Terraform. (3) Each
+unaudited operation is listed in its PR and report, so the gap is named, not buried (D-L36).
+**Reversibility:** trivial. Audit is additive.
+
+### D-L39 — one wiring pattern for admin modules
+**Status:** PROCEEDING (lead decision).
+Three builders each solved "the auth guard needs `AUTH_MODE`" differently: Agent 1 made the root
+module global and exported it; Agent 2 passes it into a dynamic module; Agent 3 registered the
+controller on the root module. **Adopt Agent 1's pattern** (global `AUTH_MODE`, one-line module
+import per admin area) when the three PRs merge, and move the shared admin error filter to
+`apps/api/src/admin/`. Whichever of #44/#45 merges after #43 is rebased onto it.
