@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { cookies } from 'next/headers';
 import { createTranslator } from '@kasuwa/i18n';
-import { LiteModeProvider, LITE_COOKIE } from '../components/auth/lite-mode';
+import { LiteModeProvider } from '../components/auth/lite-mode';
+import { LITE_COOKIE } from '../lib/lite-cookie';
 import { activeLocale } from '../lib/locale';
 import './globals.css';
 

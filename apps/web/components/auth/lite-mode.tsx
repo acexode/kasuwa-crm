@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { Icon } from '../icon';
+import { LITE_COOKIE } from '../../lib/lite-cookie';
 
 /**
  * Low-bandwidth ("lite") mode.
@@ -14,7 +15,6 @@ import { Icon } from '../icon';
  * buried in a settings page the person never reaches.
  */
 
-export const LITE_COOKIE = 'kasuwa_lite';
 
 interface LiteModeValue {
   readonly lite: boolean;

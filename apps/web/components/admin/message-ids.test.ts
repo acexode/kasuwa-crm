@@ -4,9 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { REGISTERED_LOCALES, bundleMessages, type MessageId } from '@kasuwa/i18n';
 import {
+  ADMIN_AUDIT_MESSAGE_IDS,
+  ADMIN_FLS_MESSAGE_IDS,
   ADMIN_HOME_MESSAGE_IDS,
   ADMIN_PROGRAMMES_MESSAGE_IDS,
   ADMIN_PROGRAMME_MESSAGE_IDS,
+  ADMIN_ROLES_MESSAGE_IDS,
   ADMIN_SHELL_MESSAGE_IDS,
 } from './message-ids';
 
@@ -47,6 +50,9 @@ const SCREENS: Readonly<Record<string, readonly MessageId[]>> = {
   'agents-tab.tsx': ADMIN_PROGRAMME_MESSAGE_IDS,
   'sla-tab.tsx': ADMIN_PROGRAMME_MESSAGE_IDS,
   'dispositions-tab.tsx': ADMIN_PROGRAMME_MESSAGE_IDS,
+  'roles-screen.tsx': ADMIN_ROLES_MESSAGE_IDS,
+  'field-security-screen.tsx': ADMIN_FLS_MESSAGE_IDS,
+  'audit-screen.tsx': ADMIN_AUDIT_MESSAGE_IDS,
 };
 
 function literalIds(file: string): string[] {
@@ -82,6 +88,9 @@ describe('every admin bundle resolves', () => {
     ADMIN_HOME_MESSAGE_IDS,
     ADMIN_PROGRAMMES_MESSAGE_IDS,
     ADMIN_PROGRAMME_MESSAGE_IDS,
+    ADMIN_ROLES_MESSAGE_IDS,
+    ADMIN_FLS_MESSAGE_IDS,
+    ADMIN_AUDIT_MESSAGE_IDS,
   })) {
     it(`${name} resolves in every registered locale`, () => {
       // `bundleMessages` throws on a missing id, so this is the same thing the

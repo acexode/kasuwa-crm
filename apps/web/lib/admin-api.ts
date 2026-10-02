@@ -558,3 +558,343 @@ export function deactivateDisposition(
     { body: { active: false }, ...(signal ? { signal } : {}) },
   );
 }
+
+// ---------------------------------------------------------------------------
+// Roles — P02/C, C1, C2, C3
+// ---------------------------------------------------------------------------
+
+/**
+ * Flat, with `parentRoleId`, because the screen re-derives the tree on every
+ * drag frame. `descendantUserCount` is SERVER-computed and never recomputed
+ * here: record visibility follows the same relation, and a second
+ * implementation of "beneath" in the browser is how a visibility rule drifts
+ * from what the screen promises.
+ */
+export const Role = z.object({
+  id: z.string(),
+  name: z.string(),
+  parentRoleId: z.string().nullable(),
+  userCount: z.number(),
+  descendantUserCount: z.number().optional(),
+});
+export type Role = z.infer<typeof Role>;
+
+export const RoleList = z.object({ version: z.number(), items: z.array(Role) });
+export type RoleList = z.infer<typeof RoleList>;
+
+export const RoleDetail = Role.extend({
+  seesRecordsOwnedBy: z
+    .object({
+      roleCount: z.number(),
+      userCount: z.number(),
+      sample: z.array(z.object({ id: z.string(), name: z.string() })),
+    })
+    .optional(),
+});
+export type RoleDetail = z.infer<typeof RoleDetail>;
+
+export interface RoleMove {
+  readonly roleId: string;
+  readonly parentRoleId: string | null;
+}
+
+export function listRoles(signal?: AbortSignal) {
+  return request('GET', `${BASE}/roles`, RoleList, { ...(signal ? { signal } : {}) });
+}
+
+export function getRole(roleId: string, signal?: AbortSignal) {
+  return request('GET', `${BASE}/roles/${id(roleId)}`, RoleDetail, {
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/**
+ * Every pending move in one request, as the contract requires. Applying them
+ * one at a time would pass through intermediate shapes that are cycles, and a
+ * failure halfway would leave a hierarchy nobody designed.
+ */
+export function saveRoleHierarchy(
+  body: { version: number; moves: readonly RoleMove[] },
+  signal?: AbortSignal,
+) {
+  return request('PUT', `${BASE}/roles/hierarchy`, RoleList, {
+    body,
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/**
+ * `reassignUsersToRoleId` is REQUIRED even when the role has nobody in it —
+ * the contract is explicit. Making it conditional would mean the client had to
+ * know the user count before it could form a valid request, and a role that
+ * gained a member between page load and click would silently orphan them.
+ */
+export function deleteRole(roleId: string, reassignUsersToRoleId: string, signal?: AbortSignal) {
+  const query = `?reassignUsersToRoleId=${encodeURIComponent(reassignUsersToRoleId)}`;
+  return request('DELETE', `${BASE}/roles/${id(roleId)}${query}`, NOTHING, {
+    ...(signal ? { signal } : {}),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Field-level security — P02/D, D1, D2
+// ---------------------------------------------------------------------------
+
+export const FieldAccessLevel = z.enum(['none', 'read', 'edit']);
+export type FieldAccessLevel = z.infer<typeof FieldAccessLevel>;
+
+export const FieldClassification = z.enum(['none', 'pii', 'sensitive']);
+export type FieldClassification = z.infer<typeof FieldClassification>;
+
+export const FieldSecurityObjectList = z.object({
+  items: z.array(z.object({ objectApiName: z.string(), label: z.string(), fieldCount: z.number() })),
+});
+export type FieldSecurityObjectList = z.infer<typeof FieldSecurityObjectList>;
+
+export const PermissionSetList = z.object({
+  items: z.array(
+    z.object({
+      permissionSetId: z.string(),
+      label: z.string(),
+      /** Null when the count is unavailable. Never rendered as zero. */
+      userCount: z.number().nullable().optional(),
+      locked: z.boolean(),
+    }),
+  ),
+});
+export type PermissionSetList = z.infer<typeof PermissionSetList>;
+
+/**
+ * A description of WHO MAY SEE a field. It never carries a field's data — no
+ * sample value, no record count, no "example of this field". A helpful preview
+ * of the BVN column would be the exact leak this screen exists to prevent.
+ */
+export const FieldSecurityMatrix = z.object({
+  objectApiName: z.string(),
+  version: z.number(),
+  totalFieldCount: z.number().optional(),
+  rows: z.array(
+    z.object({
+      fieldApiName: z.string(),
+      label: z.string(),
+      classification: FieldClassification,
+      cells: z.array(
+        z.object({
+          permissionSetId: z.string(),
+          level: FieldAccessLevel,
+          locked: z.boolean(),
+        }),
+      ),
+    }),
+  ),
+});
+export type FieldSecurityMatrix = z.infer<typeof FieldSecurityMatrix>;
+
+export interface FieldSecurityChange {
+  readonly fieldApiName: string;
+  readonly permissionSetId: string;
+  readonly level: FieldAccessLevel;
+}
+
+export function listFieldSecurityObjects(signal?: AbortSignal) {
+  return request('GET', `${BASE}/field-security/objects`, FieldSecurityObjectList, {
+    ...(signal ? { signal } : {}),
+  });
+}
+
+export function listPermissionSets(signal?: AbortSignal) {
+  return request('GET', `${BASE}/field-security/permission-sets`, PermissionSetList, {
+    ...(signal ? { signal } : {}),
+  });
+}
+
+export function getFieldSecurityMatrix(
+  options: { object: string; q?: string; sensitiveOnly?: boolean },
+  signal?: AbortSignal,
+) {
+  const query = new URLSearchParams({ object: options.object });
+  if (options.q !== undefined && options.q !== '') query.set('q', options.q);
+  if (options.sensitiveOnly === true) query.set('sensitiveOnly', 'true');
+  return request('GET', `${BASE}/field-security/matrix?${query.toString()}`, FieldSecurityMatrix, {
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/**
+ * **Two axes, and there is deliberately no `programmeId`** (D-P9).
+ *
+ * The matrix is tenant-level on permission sets. Programme scoping comes from
+ * ASSIGNMENT: `user_programme` carries the permission set that applies to that
+ * person in that programme, so a BPO honours two clients with different rules
+ * about the same Contact field by giving their agents different permission
+ * sets — not by storing the same field twice at different levels.
+ *
+ * `changes` is CELL-LEVEL, never "bulk edit", because every changed cell is a
+ * separate audit row when this is implemented. A bulk action that touched forty
+ * cells and wrote one row saying "bulk edit" is not an audit trail, and the
+ * shape of this request is what decides that.
+ *
+ * `version` comes from the last `GET`; a stale one is `409 stale_write`.
+ */
+export function saveFieldSecurityMatrix(
+  body: {
+    objectApiName: string;
+    version: number;
+    changes: readonly FieldSecurityChange[];
+  },
+  signal?: AbortSignal,
+) {
+  return request('PUT', `${BASE}/field-security/matrix`, FieldSecurityMatrix, {
+    body,
+    ...(signal ? { signal } : {}),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Audit log — P02/E, E1, E2
+// ---------------------------------------------------------------------------
+
+export const AuditAction = z.enum([
+  'created',
+  'updated',
+  'deleted',
+  'exported',
+  'invited',
+  'viewed',
+  'failed_sign_in',
+  'rejected',
+  'rotated',
+  'played_recording',
+]);
+export type AuditAction = z.infer<typeof AuditAction>;
+
+export const AuditActor = z.object({
+  kind: z.enum(['user', 'system']),
+  id: z.string().nullable().optional(),
+  displayName: z.string(),
+  roleName: z.string().nullable().optional(),
+});
+export type AuditActor = z.infer<typeof AuditActor>;
+
+/**
+ * `before` and `after` are configuration values, never record data. When the
+ * changed value is or could contain personal data the server sends
+ * `redacted: true` with both null, and the screen renders THAT A SENSITIVE
+ * FIELD CHANGED without rendering what it changed to.
+ */
+export const AuditChange = z.object({
+  field: z.string(),
+  before: z.string().nullable().optional(),
+  after: z.string().nullable().optional(),
+  redacted: z.boolean(),
+});
+export type AuditChange = z.infer<typeof AuditChange>;
+
+export const AuditEntry = z.object({
+  id: z.string(),
+  occurredAt: z.string(),
+  actor: AuditActor,
+  action: AuditAction,
+  objectType: z.string(),
+  objectLabel: z.string(),
+  objectId: z.string().nullable().optional(),
+  programmeId: z.string().nullable().optional(),
+  /**
+   * Personal data under the NDPA. Null means "not shown to you" — and the
+   * screen must never let that be told apart from "none was recorded", or the
+   * field becomes an oracle for what the log holds.
+   */
+  sourceIp: z.string().nullable().optional(),
+  sourceLocation: z.string().nullable().optional(),
+  changes: z.array(AuditChange).optional(),
+});
+export type AuditEntry = z.infer<typeof AuditEntry>;
+
+export const AuditEntryList = z.object({ items: z.array(AuditEntry), page: Page });
+export type AuditEntryList = z.infer<typeof AuditEntryList>;
+
+export const AuditFilterOptions = z.object({
+  actors: z.array(
+    z.object({
+      id: z.string().nullable().optional(),
+      displayName: z.string(),
+      kind: z.enum(['user', 'system']),
+    }),
+  ),
+  actions: z.array(AuditAction),
+  objectTypes: z.array(z.object({ objectType: z.string(), label: z.string() })),
+});
+export type AuditFilterOptions = z.infer<typeof AuditFilterOptions>;
+
+export const AuditExport = z.object({
+  exportId: z.string(),
+  status: z.enum(['queued', 'running', 'ready', 'failed', 'expired']),
+  format: z.enum(['csv', 'json']),
+  estimatedRowCount: z.number().nullable().optional(),
+  /** Masked. Never the full address, and never a URL. */
+  deliveryEmailHint: z.string().nullable().optional(),
+  linkExpiresAfterHours: z.number().nullable().optional(),
+  requestedAt: z.string(),
+  completedAt: z.string().nullable().optional(),
+});
+export type AuditExport = z.infer<typeof AuditExport>;
+
+export interface AuditQuery {
+  readonly actorId?: string;
+  readonly action?: AuditAction;
+  readonly objectType?: string;
+  readonly from?: string;
+  readonly to?: string;
+  readonly sourceIpPrefix?: string;
+}
+
+/** The query string for an `AuditQuery`, shared by the list and the export. */
+export function auditQueryParams(query: AuditQuery): URLSearchParams {
+  const params = new URLSearchParams();
+  if (query.actorId !== undefined && query.actorId !== '') params.set('actorId', query.actorId);
+  if (query.action !== undefined) params.set('action', query.action);
+  if (query.objectType !== undefined && query.objectType !== '') {
+    params.set('objectType', query.objectType);
+  }
+  if (query.from !== undefined) params.set('from', query.from);
+  if (query.to !== undefined) params.set('to', query.to);
+  if (query.sourceIpPrefix !== undefined && query.sourceIpPrefix !== '') {
+    params.set('sourceIpPrefix', query.sourceIpPrefix);
+  }
+  return params;
+}
+
+export function listAuditEvents(query: AuditQuery, pageSize: number, signal?: AbortSignal) {
+  const params = auditQueryParams(query);
+  params.set('pageSize', String(pageSize));
+  return request('GET', `${BASE}/audit/events?${params.toString()}`, AuditEntryList, {
+    ...(signal ? { signal } : {}),
+  });
+}
+
+export function getAuditFilterOptions(signal?: AbortSignal) {
+  return request('GET', `${BASE}/audit/filter-options`, AuditFilterOptions, {
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/**
+ * `includeIpAddresses` has no default here on purpose: the caller states it.
+ * The contract defaults it to false because an export that carries personal
+ * data by default is one an admin produces without deciding to, and the screen
+ * makes that decision visible rather than inheriting it.
+ */
+export function createAuditExport(
+  body: {
+    format: 'csv' | 'json';
+    scope: 'filtered' | 'last_90_days';
+    includeIpAddresses: boolean;
+    filters?: AuditQuery;
+  },
+  signal?: AbortSignal,
+) {
+  return request('POST', `${BASE}/audit/exports`, AuditExport, {
+    body,
+    ...(signal ? { signal } : {}),
+  });
+}
