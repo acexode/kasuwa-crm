@@ -10,7 +10,8 @@ import { LINK, PRIMARY_BUTTON } from '../auth/button-classes';
 import { OtpInput } from '../auth/otp-input';
 import { ResendControl } from '../auth/resend-control';
 import type { LanguageOption } from '../auth/language-menu';
-import { resendOtp, verifyOtp, type ScreenError } from '../../lib/auth-api';
+import type { ScreenError } from '../../lib/auth-api';
+import { resendOtp, verifyOtp } from '../../lib/sign-up-api';
 import { formatRetryTime } from '../../lib/retry-time';
 
 /**

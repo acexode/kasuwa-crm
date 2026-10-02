@@ -7,7 +7,8 @@ import { AuthShell } from '../auth/auth-shell';
 import { shellStrings } from '../auth/shell-strings';
 import { FIELD, LINK, PRIMARY_BUTTON } from '../auth/button-classes';
 import type { LanguageOption } from '../auth/language-menu';
-import { EMPLOYEE_SIZES, signUp, type EmployeeSize, type ScreenError } from '../../lib/auth-api';
+import type { ScreenError } from '../../lib/auth-api';
+import { EMPLOYEE_SIZES, signUp, type EmployeeSize } from '../../lib/sign-up-api';
 import {
   DEFAULT_SIGN_UP_COUNTRY,
   SIGN_UP_COUNTRIES,

@@ -26,6 +26,32 @@ function previewMinorUnits(currency: OnboardingCurrency): bigint {
   return PREVIEW_MAJOR_UNITS * 10n ** BigInt(minorDigits(currency));
 }
 
+/**
+ * A translated sentence with a money amount set in the MONO face.
+ *
+ * Measured, not stylistic. The naira and cedi signs (U+20A6, U+20B5) fall in
+ * the Latin Extended `unicode-range`, and Noto Sans's Latin Extended file is
+ * 168 KB — drawing one naira sign in the body face downloaded more than half
+ * the PRD 2.13 page budget (`/onboarding` measured 399,576 bytes). JetBrains
+ * Mono's file for the same range is 11.6 KB, and the board already sets
+ * figures in mono. The sentence is split on a sentinel rather than built from
+ * fragments, so each language keeps its own word order around the amount.
+ */
+const AMOUNT_SENTINEL = '\u0000';
+
+function MoneySentence({ sentence, amount }: { sentence: (sample: string) => string; amount: string }) {
+  const [before = '', after = ''] = sentence(AMOUNT_SENTINEL).split(AMOUNT_SENTINEL);
+  return (
+    <>
+      {before}
+      <strong dir="ltr" className="font-mono text-text">
+        {amount}
+      </strong>
+      {after}
+    </>
+  );
+}
+
 const PRESSABLE =
   'min-h-touch rounded-md px-3 text-body-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
 
@@ -92,14 +118,17 @@ export function CurrencyStep({
                   pressed ? 'border-2 border-primary bg-primary-soft' : 'border border-border-strong bg-surface'
                 }`}
               >
-                <strong className="text-body-lg">{currencySymbol(entry)}</strong>
+                <strong className="font-mono text-body-lg">{currencySymbol(entry)}</strong>
                 <span className="font-mono text-caption text-text-2">{entry.code}</span>
               </button>
             );
           })}
         </div>
         <p aria-live="polite" data-testid="currency-preview" className="text-body-sm text-text-2">
-          {t.t('currency.preview', { sample: formatMinorUnits(previewMinorUnits(currency), currency) })}
+          <MoneySentence
+            sentence={(sample) => t.t('currency.preview', { sample })}
+            amount={formatMinorUnits(previewMinorUnits(currency), currency)}
+          />
         </p>
       </fieldset>
 
