@@ -32,4 +32,4 @@ tools/.tmp/
 tests/e2e/.artifacts/
 
 # CI test reports (junit), uploaded as artefacts on failure.
-reports/
+/reports/
