@@ -52,10 +52,13 @@ export function SignInScreen({
   messages,
   locale,
   locales,
+  signUpOpen,
 }: {
   messages: MessageBundle;
   locale: string;
   locales: readonly LanguageOption[];
+  /** `self_serve_signup`, evaluated on the server. Off hides the link as well as the route. */
+  signUpOpen: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const router = useRouter();
@@ -340,12 +343,14 @@ export function SignInScreen({
 
         {lite ? <p className="text-caption text-text-muted">{t.t('auth.lite.deferred')}</p> : null}
 
-        <p className="text-center text-body-sm text-text-2">
-          {t.t('auth.signIn.newHere')}{' '}
-          <a href="/sign-up" className={LINK}>
-            {t.t('auth.signIn.createAccount')}
-          </a>
-        </p>
+        {signUpOpen ? (
+          <p className="text-center text-body-sm text-text-2">
+            {t.t('auth.signIn.newHere')}{' '}
+            <a href="/sign-up" className={LINK}>
+              {t.t('auth.signIn.createAccount')}
+            </a>
+          </p>
+        ) : null}
       </section>
     </AuthShell>
   );

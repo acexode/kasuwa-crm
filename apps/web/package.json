@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@kasuwa/feature-flags": "workspace:*",
     "@kasuwa/i18n": "workspace:*",
     "@kasuwa/ui": "workspace:*",
     "next": "^15.1.3",
