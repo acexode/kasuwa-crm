@@ -560,6 +560,161 @@ export function deactivateDisposition(
 }
 
 // ---------------------------------------------------------------------------
+// Scripts, retention, portal users and archive — P02/B6, B7, B8, B9
+// ---------------------------------------------------------------------------
+
+/**
+ * `rejected_by_provider` is the design's "Rejected by Meta". The provider is
+ * NOT in the enum — only adapters name external systems (CLAUDE.md rule 8) —
+ * and `providerName` is a display string the client renders without branching
+ * on it.
+ */
+export const ScriptStatus = z.enum(['draft', 'in_review', 'published', 'rejected_by_provider']);
+export type ScriptStatus = z.infer<typeof ScriptStatus>;
+
+export const Script = z.object({
+  id: z.string(),
+  name: z.string(),
+  channels: z.array(ProgrammeChannel).optional(),
+  /** BCP 47 tags, e.g. `en`, `yo`, `ha`, `pcm`. Not display names. */
+  languages: z.array(z.string()).optional(),
+  version: z.number(),
+  status: ScriptStatus,
+  providerName: z.string().nullable().optional(),
+  rejectionReason: z.string().nullable().optional(),
+  updatedAt: z.string(),
+});
+export type Script = z.infer<typeof Script>;
+
+export const ScriptList = z.object({ items: z.array(Script), page: Page });
+export type ScriptList = z.infer<typeof ScriptList>;
+
+export function listScripts(programmeId: string, signal?: AbortSignal) {
+  return request('GET', `${BASE}/programmes/${id(programmeId)}/scripts`, ScriptList, {
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/**
+ * Periods are INTEGER DAYS on the wire. The design's "30 days … 10 years"
+ * dropdown is a client-side list over the same field, which is why
+ * `RETENTION_PERIOD_DAYS` lives in the screen and not here.
+ *
+ * `redactSensitiveNumbersInTranscripts` is a policy flag and nothing more. No
+ * endpoint in this contract ever returns a NIN, a BVN or a PAN, redacted or
+ * otherwise, whatever it is set to.
+ */
+export const RetentionExpiry = z.enum(['delete', 'anonymise']);
+export type RetentionExpiry = z.infer<typeof RetentionExpiry>;
+
+export const RetentionPolicy = z.object({
+  version: z.number(),
+  callRecordingsDays: z.number(),
+  messageTranscriptsDays: z.number(),
+  screenRecordingsDays: z.number(),
+  qaEvaluationsDays: z.number(),
+  onExpiry: RetentionExpiry,
+  redactSensitiveNumbersInTranscripts: z.boolean(),
+  legalHold: z.boolean(),
+  /** Read-only. What these rules override. Null when there is no default. */
+  workspaceDefaultDays: z.number().nullable().optional(),
+});
+export type RetentionPolicy = z.infer<typeof RetentionPolicy>;
+
+export interface RetentionPolicyWrite {
+  version: number;
+  callRecordingsDays: number;
+  messageTranscriptsDays: number;
+  screenRecordingsDays: number;
+  qaEvaluationsDays: number;
+  onExpiry: RetentionExpiry;
+  redactSensitiveNumbersInTranscripts: boolean;
+  legalHold: boolean;
+}
+
+export function getRetention(programmeId: string, signal?: AbortSignal) {
+  return request('GET', `${BASE}/programmes/${id(programmeId)}/retention`, RetentionPolicy, {
+    ...(signal ? { signal } : {}),
+  });
+}
+
+export function saveRetention(
+  programmeId: string,
+  body: RetentionPolicyWrite,
+  signal?: AbortSignal,
+) {
+  return request('PUT', `${BASE}/programmes/${id(programmeId)}/retention`, RetentionPolicy, {
+    body,
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/**
+ * The one list in this contract that carries an email address, because the row
+ * IS an invitation and the address is the invitation's identity. `emailMasked`
+ * is what the row renders; the full address is never in the list.
+ */
+export const PortalUser = z.object({
+  id: z.string(),
+  displayName: z.string(),
+  emailMasked: z.string(),
+  access: z.enum(['viewer', 'reports_only']),
+  status: z.enum(['invited', 'active', 'suspended']),
+  invitedAt: z.string().optional(),
+});
+export type PortalUser = z.infer<typeof PortalUser>;
+
+export const PortalUserList = z.object({ items: z.array(PortalUser) });
+export type PortalUserList = z.infer<typeof PortalUserList>;
+
+export function listPortalUsers(programmeId: string, signal?: AbortSignal) {
+  return request('GET', `${BASE}/programmes/${id(programmeId)}/portal-users`, PortalUserList, {
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/**
+ * The counts are computed at the moment the dialog opens, not as of whenever
+ * the page loaded — which is why this is a separate `GET` and why the dialog
+ * reads it on open rather than on mount.
+ *
+ * `retentionSummary` is NULLABLE and the dialog omits the line when it is null.
+ * See the note on the retention screen: Kasuwa does not necessarily enforce the
+ * recording half of that rule (D-T4 is BLOCKED), and a summary invented here
+ * would be a promise nobody has checked.
+ */
+export const ArchivePreview = z.object({
+  agentsLosingAccess: z.number(),
+  openInteractionsBecomingReadOnly: z.number(),
+  retentionSummary: z.string().nullable().optional(),
+  portalUsersSignedOut: z.number(),
+  restorableUntilDays: z.number(),
+});
+export type ArchivePreview = z.infer<typeof ArchivePreview>;
+
+export function getArchivePreview(programmeId: string, signal?: AbortSignal) {
+  return request(
+    'GET',
+    `${BASE}/programmes/${id(programmeId)}/archive-preview`,
+    ArchivePreview,
+    { ...(signal ? { signal } : {}) },
+  );
+}
+
+/**
+ * `confirmation` must equal the programme's NAME. The design asks for the word
+ * "archive"; the contract asks for the name, because a constant word is the
+ * same keystrokes on every programme and stops being a check after the second
+ * time. The screen asks for the name for the same reason.
+ */
+export function archiveProgramme(programmeId: string, confirmation: string, signal?: AbortSignal) {
+  return request('POST', `${BASE}/programmes/${id(programmeId)}/archive`, ProgrammeDetail, {
+    body: { confirmation },
+    ...(signal ? { signal } : {}),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Roles — P02/C, C1, C2, C3
 // ---------------------------------------------------------------------------
 

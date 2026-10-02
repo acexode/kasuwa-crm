@@ -15,6 +15,10 @@ import { PROGRAMME_TABS, type ProgrammeTab } from './programme-tabs';
 import { SlaTab } from './sla-tab';
 import { DispositionsTab } from './dispositions-tab';
 import { AgentsTab } from './agents-tab';
+import { ScriptsTab } from './scripts-tab';
+import { RetentionTab } from './retention-tab';
+import { PortalTab } from './portal-tab';
+import { ArchiveDialog } from './archive-dialog';
 import type { LanguageOption } from '../auth/language-menu';
 import { SECONDARY_BUTTON } from '../auth/button-classes';
 import {
@@ -26,7 +30,8 @@ import {
 import { formatCount, formatDate, formatDuration, formatPercent } from '../../lib/admin-format';
 
 /**
- * `P02/B2`–`P02/B5` — one programme, four tabs, one route.
+ * `P02/B2`–`P02/B9` — one programme, seven tabs and one destructive dialog,
+ * all on one route.
  *
  * The tab lives in the URL (`?tab=sla`) so a link to the SLA tab is a link a
  * person can send to a colleague, and so the back button does what it looks
@@ -73,6 +78,7 @@ export function ProgrammeScreen({
   const [dirtyCount, setDirtyCount] = useState(0);
   const [pending, setPending] = useState<string | null>(null);
   const [discardSignal, setDiscardSignal] = useState(0);
+  const [archiving, setArchiving] = useState(false);
 
   const onIntercept = useCallback((destination: string) => setPending(destination), []);
   useUnsavedGuard(dirtyCount > 0, onIntercept);
@@ -132,13 +138,20 @@ export function ProgrammeScreen({
                   <Icon name="pause" size="sm" />
                   {t.t('admin.prog.pause')}
                 </span>
-                <span
-                  className="pointer-events-none flex min-h-touch items-center justify-center gap-2 rounded-md border border-danger px-4 text-body-md font-semibold text-danger-text opacity-60"
-                  aria-disabled
+                {/* `P02/B9`. The POST is not built and answers 501 — the
+                    `programme` table has no status column — but the dialog is
+                    where the decision is made, and an admin needs to be able
+                    to see the impact and be told plainly that it did not
+                    happen. A disabled button says neither. */}
+                <button
+                  type="button"
+                  data-testid="archive-programme"
+                  onClick={() => setArchiving(true)}
+                  className="flex min-h-touch items-center justify-center gap-2 rounded-md border border-danger px-4 text-body-md font-semibold text-danger-text hover:bg-danger-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                 >
                   <Icon name="archive" size="sm" />
                   {t.t('admin.prog.archive')}
-                </span>
+                </button>
               </div>
             </div>
           )}
@@ -185,7 +198,30 @@ export function ProgrammeScreen({
         {tab === 'dispositions' ? (
           <DispositionsTab t={t} locale={locale} programmeId={programmeId} />
         ) : null}
+        {tab === 'scripts' ? (
+          <ScriptsTab t={t} locale={locale} programmeId={programmeId} />
+        ) : null}
+        {tab === 'retention' ? (
+          <RetentionTab
+            t={t}
+            programmeId={programmeId}
+            onDirtyChange={setDirtyCount}
+            discardSignal={discardSignal}
+          />
+        ) : null}
+        {tab === 'portal' ? (
+          <PortalTab t={t} locale={locale} programmeId={programmeId} detail={programme.data} />
+        ) : null}
       </div>
+
+      {archiving && programme.data !== null ? (
+        <ArchiveDialog
+          t={t}
+          programmeId={programmeId}
+          programmeName={programme.data.name}
+          onClose={() => setArchiving(false)}
+        />
+      ) : null}
 
       {pending === null ? null : (
         <Dialog

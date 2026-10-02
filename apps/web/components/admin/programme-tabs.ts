@@ -13,7 +13,15 @@
  * same note because it cost a full e2e run on P01. It cost another one here.
  */
 
-export const PROGRAMME_TABS = ['overview', 'agents', 'sla', 'dispositions'] as const;
+export const PROGRAMME_TABS = [
+  'overview',
+  'agents',
+  'sla',
+  'dispositions',
+  'scripts',
+  'retention',
+  'portal',
+] as const;
 
 export type ProgrammeTab = (typeof PROGRAMME_TABS)[number];
 

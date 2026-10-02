@@ -14,7 +14,7 @@ Next.js App Router shell. Routes today:
 | `/verify` | `P01/2`, `2a`, `2b` | Second factor |
 | `/admin` | `P02/A`, `A1` | Admin home and the settings menu |
 | `/admin/programmes` | `P02/B`, `B1` | Programmes list and its first-run empty state |
-| `/admin/programmes/[id]` | `P02/B2`–`B5` | Tabs via `?tab=overview\|agents\|sla\|dispositions` |
+| `/admin/programmes/[id]` | `P02/B2`–`B9` | Tabs via `?tab=overview\|agents\|sla\|dispositions\|scripts\|retention\|portal`, plus the archive dialog |
 | `/admin/roles` | `P02/C`–`C3` | Role hierarchy. Dragging is the shortcut; the "Reports to" picker is the control |
 | `/admin/field-security` | `P02/D`–`D2` | Two axes and no programme selector (D-P9) |
 | `/admin/audit` | `P02/E`–`E2` | Read-only against the mock; there is no audit store yet |
@@ -22,9 +22,12 @@ Next.js App Router shell. Routes today:
 | `/design/tokens` | — | The token gallery. It used to be at `/`. |
 
 `P01/3`, `P01/4` and the onboarding wizard (`P01/5.1`–`5.5`, `P01/6`) are not
-built — see `team/reports/T-0007.md`. `P02/B6`–`B9` — scripts, retention,
-portal users and archive — are not built; see `team/reports/P02.md` and
-`team/reports/P02-group4.md`.
+built — see `team/reports/T-0007.md`. All twenty-two P02 screens are.
+
+**`P02/B7` (retention) must not imply Kasuwa enforces retention on call
+recordings.** D-T4 is BLOCKED and ADR-0003 says the telephony platform is not
+ours; `admin.ret.scope.note` says so on the screen, and an e2e test asserts it
+is there. If a copy change would force the claim, escalate rather than edit.
 
 Every admin read goes through `lib/admin-api.ts`, parsed with Zod, and every
 screen renders its four states through `components/admin/panel.tsx`. Three
@@ -45,7 +48,10 @@ and **null renders as "not known", never as "Offline", "0%" or "0 times".**
 
 **Server resolves strings, a client island formats them.** `createTranslator`
 closes over every registered catalogue; shipping nine of them to render one form
-is most of what a user on 256 kbps waits for. Each screen declares its message
+is most of what a user on 256 kbps waits for. A `'use client'` module therefore
+imports **`@kasuwa/i18n/bundle`**, which imports no catalogue — importing
+`@kasuwa/i18n` from one pulls every catalogue in the repository into the browser
+bundle, which it did, for 26.5 KB gzipped on every admin route. Each screen declares its message
 ids in `components/auth/message-ids.ts` — a module with **no** `'use client'`
 directive, because a client module's exports become client references and a
 server component importing one gets a proxy, which fails at request time and not
