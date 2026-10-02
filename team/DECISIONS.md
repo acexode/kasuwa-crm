@@ -764,3 +764,11 @@ A retry after a timeout the provider actually accepted would send a second OTP. 
 required `idempotencyKey` to `SendRequest`, with a matching acceptance assertion, as the first step of
 T-0016. Until then, the adapter treats unclassified send errors as **non-retryable**, so nothing
 retries into a double send.
+
+**Carried from the T-0017 security review (2026-10-02), for T-0016/T-0012 and D-P10:**
+- `TenantScope` on `send`/`getDeliveryStatus` is caller-supplied. The first callers (T-0016, T-0012)
+  must derive it from the session, never the request (CLAUDE.md 2.2). `tenancy-reviewer` checks this on those PRs.
+- A caller can mislabel a campaign `transactional` and skip DND. Audit the stated `purpose` per send
+  once campaigns exist (Agent 8).
+- Once a real provider is chosen, every number and message body leaves the region. D-P10 needs an
+  NDPA cross-border transfer assessment alongside the price.
