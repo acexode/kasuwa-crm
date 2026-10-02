@@ -159,8 +159,12 @@ Standard (`CLAUDE.md` section 5), plus, for each group:
 
 ## Acceptance tests
 
-**Written.** `tests/acceptance/auth-ui/p01-auth-screens.pending.acceptance.test.ts`
-— 11 assertions, **10 failing**. Run with `pnpm test:pending`.
+**Written.** `tests/acceptance/auth-ui/p01-auth-screens.acceptance.test.ts`
+— **active** (promoted out of `.pending` on 2026-10-02 for groups 3–4, under
+D-P2), so it runs in the blocking `pnpm test:isolation` gate. The groups 1–2
+assertions are unchanged and pass; the groups 3–4 block at the end of the file
+fails until `P01/3`–`6` are built, and its header states the e2e contract
+(`@p01`, `@self-serve-off`, `@self-serve-on`, `@enumeration`) it reads.
 
 Read the header first. **This suite is not a visual check** — nothing in it can
 tell you whether a screen looks like its design, and a human comparing the
