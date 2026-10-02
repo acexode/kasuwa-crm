@@ -85,11 +85,10 @@ interface RequestWillBeSentEvent extends RequestEvent {
  * question it answers is what happens to that request on a 256 kbps link with
  * 300 ms of latency — not how long the page took to arrive.
  *
- * It is also the only way to exercise that screen at all until T-0010 (D-L28):
- * the harness runs `next dev`, and a development bundle at 256 kbps does not
- * finish navigating inside any sane timeout. That is a fact about the dev
- * server, not about the product, and throttling the request rather than the
- * navigation keeps the assertion about the product.
+ * (Before T-0010 it was also the only way to exercise that screen at all: the
+ * harness ran `next dev`, whose bundle did not finish navigating at 256 kbps.
+ * The harness now serves a production build, so that reason is gone; the
+ * first one stands on its own.)
  */
 export async function throttleTo(page: Page, profileName: ProfileName): Promise<void> {
   const profile = NETWORK_PROFILES[profileName];

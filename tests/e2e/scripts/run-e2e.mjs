@@ -7,8 +7,10 @@
  *   2. Postgres via Testcontainers, migrated and seeded with the SAME fixtures
  *      the isolation suite uses (`packages/db/src/fixtures.ts`)
  *   3. apps/api, pointed at that container
- *   4. apps/web, warmed up so the first navigation in a spec is not also the
- *      first compile
+ *   4. apps/web, BUILT for production (`next build`) and served with
+ *      `next start` — the thing we deploy, so the bytes a spec measures are the
+ *      bytes a user pays (T-0010, D-L28). Locally and in CI alike: one path, or
+ *      the two sets of numbers disagree and nobody trusts either.
  *   5. Playwright
  *
  * It is plain Node rather than Playwright's own `webServer` because the API's
@@ -250,14 +252,42 @@ function startApi(databaseUrl, port) {
   return child;
 }
 
+/**
+ * `next build`, through apps/web's own wrapper (`build.mjs`), which pins
+ * NODE_ENV=production so the ambient environment cannot change what is built.
+ *
+ * Every run builds afresh. A `.next` left over from an earlier checkout would
+ * be measured as if it were the code under review, and the byte-budget
+ * acceptance suite checks `BUILD_ID` is newer than the run for that reason.
+ *
+ * NEXT_PUBLIC_API_URL is passed at BUILD time as well as at start: the
+ * `/api/v1` rewrite in next.config.mjs is resolved into the routes manifest by
+ * `next build`, so the API's port has to be known before the build starts.
+ */
+function buildWeb(apiUrl) {
+  const child = spawn('node', ['build.mjs'], {
+    cwd: join(repoRoot, 'apps', 'web'),
+    shell: process.platform === 'win32',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, NEXT_PUBLIC_API_URL: apiUrl, NEXT_TELEMETRY_DISABLED: '1' },
+  });
+  pipeTo(child, 'web-build');
+  cleanups.push(async () => killTree(child));
+  return new Promise((done, fail) => {
+    child.on('exit', (code) =>
+      code === 0 ? done() : fail(new Error(`next build exited with ${code}`)),
+    );
+  });
+}
+
 function startWeb(apiUrl, port) {
-  const child = spawn('pnpm', ['exec', 'next', 'dev', '-p', String(port)], {
+  const child = spawn('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
     cwd: join(repoRoot, 'apps', 'web'),
     shell: process.platform === 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
     env: {
       ...process.env,
-      NODE_ENV: 'development',
+      NODE_ENV: 'production',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
     },
@@ -307,6 +337,7 @@ async function main() {
     // Stale numbers from a previous run would be indistinguishable from numbers
     // this run produced, and the acceptance suite reads this file.
     rmSync(join(artifactsDir, 'harness-metrics.json'), { force: true });
+    rmSync(join(artifactsDir, 'critical-path.json'), { force: true });
   }
 
   const fixturesPort = await freePort();
@@ -318,11 +349,21 @@ async function main() {
   let webUrl = '';
 
   if (!wantsOverBudget) {
+    // The API's port is chosen first because the web build needs it (see
+    // buildWeb). The build runs BEFORE the container starts, not beside it:
+    // run side by side on a loaded machine, `next build`'s worker died with a
+    // V8 fatal error once and hung in compile once, while the same build alone
+    // succeeded every time. Forty seconds of wall clock is cheaper than a
+    // harness that fails in setup for reasons unrelated to the change.
+    const apiPort = await freePort();
+    apiUrl = `http://127.0.0.1:${apiPort}`;
+
+    log('building apps/web for production (next build)...');
+    await buildWeb(apiUrl);
+
     log('starting Postgres (Testcontainers), migrating and seeding...');
     const database = await startDatabase();
 
-    const apiPort = await freePort();
-    apiUrl = `http://127.0.0.1:${apiPort}`;
     startApi(database.databaseUrl, apiPort);
     await waitForHttp(`${apiUrl}/health`, 'the API');
     log(`api on ${apiUrl}`);
@@ -330,10 +371,8 @@ async function main() {
     const webPort = await freePort();
     webUrl = `http://127.0.0.1:${webPort}`;
     startWeb(apiUrl, webPort);
-    // Next compiles a route on first request. Doing that here rather than
-    // inside a spec keeps the compile out of the measured navigation.
     await waitForHttp(webUrl, 'the web app');
-    log(`web on ${webUrl}`);
+    log(`web (next start, production build) on ${webUrl}`);
   }
 
   // One file per Playwright project, not a shared `stack.json`. Two

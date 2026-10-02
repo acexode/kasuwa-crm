@@ -1109,15 +1109,10 @@ test.describe('the console on a 256 kbps link', () => {
    * typeface the design asks for is a design decision, not a build one.
    *
    * ---------------------------------------------------------------------------
-   * STILL `fixme`, FOR THE SAME REASON AS BEFORE (D-L28).
-   *
-   * The harness runs `next dev`. What crosses the wire is a development
-   * bundle — unminified, one request per module, no tree-shaking — and it does
-   * not finish navigating at 256 kbps inside any sane timeout. A budget set
-   * against a dev bundle would be several times too slack to catch anything, so
-   * it is not set against one. These are the real budgets, and T-0010 — which
-   * makes the e2e job build the app — turns them into a live gate by deleting
-   * one line per test.
+   * LIVE SINCE T-0010 (D-L28). Held as `fixme` while the harness ran
+   * `next dev`; it now serves `next build` + `next start`, and on the T-0010
+   * build every route above measured within a few hundred bytes of the figure
+   * beside it.
    * ---------------------------------------------------------------------------
    */
   const BYTE_BUDGETS: readonly { readonly label: string; readonly path: string; readonly budget: number }[] = [
@@ -1135,7 +1130,6 @@ test.describe('the console on a 256 kbps link', () => {
 
   for (const { label, path, budget } of BYTE_BUDGETS) {
     test(`${path} stays inside its transferred-byte budget @p02`, async ({ page }) => {
-      test.fixme(true, 'D-L28: the e2e job runs `next dev`; T-0010 makes it build first.');
 
       const { webUrl } = stack();
       await installAdminMock(page);
