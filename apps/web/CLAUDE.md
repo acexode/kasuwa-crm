@@ -15,12 +15,16 @@ Next.js App Router shell. Routes today:
 | `/admin` | `P02/A`, `A1` | Admin home and the settings menu |
 | `/admin/programmes` | `P02/B`, `B1` | Programmes list and its first-run empty state |
 | `/admin/programmes/[id]` | `P02/B2`–`B5` | Tabs via `?tab=overview\|agents\|sla\|dispositions` |
+| `/admin/roles` | `P02/C`–`C3` | Role hierarchy. Dragging is the shortcut; the "Reports to" picker is the control |
+| `/admin/field-security` | `P02/D`–`D2` | Two axes and no programme selector (D-P9) |
+| `/admin/audit` | `P02/E`–`E2` | Read-only against the mock; there is no audit store yet |
 | `/contacts/[id]` | — | Scaffolding. Exists so the tenancy e2e test can tamper with a **web** URL; replace it when M4 builds the real screen. |
 | `/design/tokens` | — | The token gallery. It used to be at `/`. |
 
 `P01/3`, `P01/4` and the onboarding wizard (`P01/5.1`–`5.5`, `P01/6`) are not
-built — see `team/reports/T-0007.md`. `P02/B6`–`B9`, `C`–`C3`, `D`, `D1` and
-`E`–`E2` are not built — see `team/reports/P02.md`.
+built — see `team/reports/T-0007.md`. `P02/B6`–`B9` — scripts, retention,
+portal users and archive — are not built; see `team/reports/P02.md` and
+`team/reports/P02-group4.md`.
 
 Every admin read goes through `lib/admin-api.ts`, parsed with Zod, and every
 screen renders its four states through `components/admin/panel.tsx`. Three
@@ -35,6 +39,7 @@ and **null renders as "not known", never as "Offline", "0%" or "0 times".**
 3. PRD 2.13 budgets: core workspace usable at 256 kbps with 300 ms latency, initial JS under 300 KB gzipped on the critical path. Treat these as requirements, not aspirations. `P01/1` measures 251 KB transferred in a production build, so there is not much room.
 4. WCAG 2.2 AA, 44 px touch targets, visible focus, reduced-motion variants. There is **no axe exemption** in the e2e suite, and there must not be one again.
 5. The real app shell — navigation, command palette, global search, agent state — is still to come (Prompt 2 onward).
+6. **A server component may import only JSX from a `'use client'` module.** A client module's exports become client references; importing a plain value gets a proxy and fails at request time, with nothing at compile time to warn you. `app/client-boundary.test.ts` enforces it.
 
 ## Two patterns worth copying
 
