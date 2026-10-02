@@ -1671,7 +1671,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listFieldSecurityObjects",
     "method": "GET",
     "path": "/api/v1/admin/field-security/objects",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/D"

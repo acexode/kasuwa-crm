@@ -1470,7 +1470,7 @@ paths:
       tags: [field-security]
       summary: Objects that have field-level security, with field counts
       operationId: listFieldSecurityObjects
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/D']
       description: |
         The object tabs: Contact, Lead, Case, Deal, Interaction.
@@ -1478,6 +1478,18 @@ paths:
         Objects come from the metadata engine (`object_def`, which exists), so
         this list is per tenant and includes custom objects. It is not a
         hard-coded five.
+
+        **Live (T-0023).** One item per `object_def` row of the caller's
+        tenant, ordered by `objectApiName`, with the number of `field_def`
+        rows on it (an object with no fields is listed with `0`). Standard
+        objects appear only once the tenant has an `object_def` row for them;
+        nothing is synthesised. Tenant-wide, not programme-wide: metadata is
+        not programme-scoped, so every user of the tenant sees one catalogue.
+        `objectApiName` is immutable (D-P4), so it is a stable tab key.
+
+        There is no `403` yet: with no permissions engine, any authenticated
+        user of the tenant can read this list. It carries names and counts
+        only, never a record.
       responses:
         '200':
           description: The objects.

@@ -5,9 +5,10 @@ import {
   createObjectDef,
   DuplicateApiNameError,
   listObjectDefs,
+  listObjectDefSummaries,
   UnknownObjectDefError,
 } from './repository';
-import { parseFieldConfig } from './types';
+import { FIELD_TYPES, fieldTypeSchema, parseFieldConfig } from './types';
 
 /** A row as pg hands it back. Typed locally so this package needs no pg dependency. */
 type QueryResultRow = Record<string, unknown>;
@@ -153,6 +154,48 @@ describe('metadata repository', () => {
     const { tx, queries } = fakeTx([]);
     await expect(createObjectDef(tx, { apiName: 'Not Valid', label: 'x' })).rejects.toThrow();
     expect(queries).toHaveLength(0);
+  });
+});
+
+describe('listObjectDefSummaries', () => {
+  it('filters both sides of the join on the session tenant, as a bound parameter', async () => {
+    const { tx, queries } = fakeTx([[]]);
+    await listObjectDefSummaries(tx);
+
+    const text = queries[0]?.text ?? '';
+    expect(text).toMatch(/WHERE o\.tenant_id = \$1/);
+    expect(text).toMatch(/f\.tenant_id = \$1/);
+    expect(queries[0]?.values).toEqual([TENANT]);
+  });
+
+  it('returns name, label and count only, including a zero count', async () => {
+    const { tx } = fakeTx([
+      [
+        { api_name: 'branch_audit', label: 'Branch audit', field_count: 0 },
+        { api_name: 'site_visit', label: 'Site visit', field_count: 3 },
+      ],
+    ]);
+    await expect(listObjectDefSummaries(tx)).resolves.toEqual([
+      { apiName: 'branch_audit', label: 'Branch audit', fieldCount: 0 },
+      { apiName: 'site_visit', label: 'Site visit', fieldCount: 3 },
+    ]);
+  });
+
+  it('parses rows rather than casting them: a non-integer count is an error', async () => {
+    // pg returns count(*) as a string unless it is cast; the ::int in the query
+    // is load-bearing, and this is what notices if it goes missing.
+    const { tx } = fakeTx([[{ api_name: 'site_visit', label: 'Site visit', field_count: '3' }]]);
+    await expect(listObjectDefSummaries(tx)).rejects.toThrow();
+  });
+});
+
+describe('field types (D-P5)', () => {
+  it('offers no plain-text identity type', () => {
+    const offered: readonly string[] = FIELD_TYPES;
+    expect(offered).not.toContain('nin');
+    expect(offered).not.toContain('bvn');
+    expect(fieldTypeSchema.safeParse('nin').success).toBe(false);
+    expect(fieldTypeSchema.safeParse('bvn').success).toBe(false);
   });
 });
 
