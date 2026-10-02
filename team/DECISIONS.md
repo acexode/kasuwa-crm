@@ -741,3 +741,26 @@ feature with its state (built / mock-only / flagged off / deferred / not started
 name if any, and the decision that put it there. It is regenerated from the PRD, task files,
 `x-kasuwa-implemented` flags and the feature-flag registry, so it cannot drift. A verifier
 fails CI if a flag or a deferral has no row.
+
+---
+
+## B8. Raised during T-0017 (2026-10-02)
+
+### D-P10 — the first messaging provider
+**Status:** OPEN — lead recommendation below; needs real per-message prices before it is final.
+**Context:** T-0017 built `@kasuwa/channel-adapter` against a fake provider only. OTP for
+self-serve sign-up (T-0016) and MFA recovery (T-0012) both need a real one. Choosing it is spend
+and a contract.
+**Lead recommendation:** **SMS through a Nigerian aggregator first**, for OTP only: it reaches every
+phone with no opt-in or template approval. **WhatsApp through a BSP second**, when M8 proper
+(conversations, templates, the 24-hour window) starts. The lead has **no verified pricing**. Before
+signing, get quotes from two aggregators and record the per-message NGN cost and whether DND lookup
+is included or billed per lookup (T-0017's escalation trigger).
+**Blocked:** T-0016 OTP delivery and T-0012 recovery in production. Nothing in development.
+
+### D-L37 — `send` needs an idempotency key before T-0016
+**Status:** PROCEEDING (lead decision, reversible).
+A retry after a timeout the provider actually accepted would send a second OTP. The lead will add a
+required `idempotencyKey` to `SendRequest`, with a matching acceptance assertion, as the first step of
+T-0016. Until then, the adapter treats unclassified send errors as **non-retryable**, so nothing
+retries into a double send.
