@@ -28,6 +28,7 @@ export type IconName =
   | 'cloud_done'
   | 'cloud_off'
   | 'cloud_upload'
+  | 'co_present'
   | 'coffee'
   | 'confirmation_number'
   | 'contacts'
@@ -54,6 +55,7 @@ export type IconName =
   | 'filter_alt_off'
   | 'forum'
   | 'group'
+  | 'group_off'
   | 'handshake'
   | 'headset_mic'
   | 'help'
@@ -62,6 +64,7 @@ export type IconName =
   | 'image'
   | 'inbox'
   | 'info'
+  | 'inventory_2'
   | 'key'
   | 'language'
   | 'left_panel_close'
@@ -72,6 +75,7 @@ export type IconName =
   | 'lock'
   | 'lock_clock'
   | 'lock_open'
+  | 'logout'
   | 'mail'
   | 'manage_search'
   | 'menu'
@@ -149,6 +153,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'cloud_done',
   'cloud_off',
   'cloud_upload',
+  'co_present',
   'coffee',
   'confirmation_number',
   'contacts',
@@ -175,6 +180,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'filter_alt_off',
   'forum',
   'group',
+  'group_off',
   'handshake',
   'headset_mic',
   'help',
@@ -183,6 +189,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'image',
   'inbox',
   'info',
+  'inventory_2',
   'key',
   'language',
   'left_panel_close',
@@ -193,6 +200,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'lock',
   'lock_clock',
   'lock_open',
+  'logout',
   'mail',
   'manage_search',
   'menu',

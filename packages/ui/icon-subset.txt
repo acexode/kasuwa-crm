@@ -29,6 +29,7 @@ cloud
 cloud_done
 cloud_off
 cloud_upload
+co_present
 coffee
 confirmation_number
 contacts
@@ -55,6 +56,7 @@ extension
 filter_alt_off
 forum
 group
+group_off
 handshake
 headset_mic
 help
@@ -63,6 +65,7 @@ hourglass_top
 image
 inbox
 info
+inventory_2
 key
 language
 left_panel_close
@@ -73,6 +76,7 @@ location_on
 lock
 lock_clock
 lock_open
+logout
 mail
 manage_search
 menu
