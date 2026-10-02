@@ -66,7 +66,7 @@ info:
     and it says nothing whatever about how a permission is evaluated, where a
     grant is stored, or whether a grant is tenant-wide or per-programme. The
     one operation whose semantics would depend on that answer — writing the
-    field-security matrix — returns `501` today, deliberately.
+    field-security matrix — specified; D-P9 settled its semantics on 2026-10-02.
 
     **Localisation.** The API returns an English `message` as a fallback only.
     The web app localises from `error.code` using `admin.error.<code>`. The
@@ -1551,37 +1551,28 @@ paths:
       tags: [field-security]
       summary: Save field-security changes
       operationId: updateFieldSecurityMatrix
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: false  # specified and buildable; endpoint not yet written
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/D', 'P02/D1', 'P02/D2']
       description: |
-        **This operation returns `501 not_implemented` today, and it will keep
-        returning it until the lead settles one question. Build the screen
-        against the mock; do not wire it.**
+        **ANSWERED by D-P9 on 2026-10-02. This operation is specified and
+        buildable.**
 
-        The question is not whether the request shape is right — it is: a set
-        of `(field, permission set, level)` triples is exactly what the screen
-        produces and it is written down below. The question is what a triple
-        *means*.
+        The matrix stays **tenant-level, on permission sets**. There is
+        deliberately no `programmeId` in the request, and that is now a
+        decision rather than an omission.
 
-        The matrix as designed has two axes, field and permission set. It has
-        no programme axis. So a grant saved here is either:
+        **Programme scoping comes from assignment, not from the matrix.**
+        `user_programme` carries the permission set that applies to that person
+        *in that programme*. So a BPO honours two clients with different
+        contractual rules about the same Contact field by giving their agents
+        different permission sets — not by storing the same field twice with
+        different levels.
 
-        - tenant-wide, in which case an agent on "Eko Bank Collections" and an
-          agent on "Volta Mobile Money Support" necessarily have the same sight
-          of the Contact BVN field, and a BPO cannot honour two clients with
-          different contractual rules about the same field; or
-        - per programme, in which case the screen is missing an axis and one
-          admin's save silently overwrites another programme's settings.
-
-        Neither is obviously right and the API must not pick. Answering it by
-        shipping a shape would be the worst version: the decision would be made
-        by whoever wrote the endpoint first, and discovered by whoever read
-        another client's data.
-
-        **There is deliberately no `programmeId` in the request.** Adding one
-        would answer the question. Removing the question is the lead's job, and
-        it is raised in the T-0021 report as a decision for @acexode.
+        That is why the screen has two axes and is not missing a third. A
+        matrix with a programme axis would store the same decision in N places
+        and let one admin's save overwrite another's; this stores it once and
+        resolves it per assignment.
 
         `version` comes from the last `GET`; a stale one will be
         `409 stale_write`. Changes apply the next time each affected person
@@ -3178,8 +3169,9 @@ components:
         Specified but not built. The screen should stay on its mock.
 
         **Most operations in this file return this today**, and one of them —
-        `PUT /field-security/matrix` — will keep returning it after the rest
-        are live, because its semantics depend on a decision nobody has taken.
+        `PUT /field-security/matrix` — answered by D-P9 on 2026-10-02: the
+        matrix is tenant-level on permission sets, and programme scoping comes
+        from `user_programme` carrying the permission set for that assignment.
         That is not an oversight; see the operation's description.
       content:
         application/json:
