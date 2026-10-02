@@ -59,6 +59,26 @@ export interface AdminMockOptions {
   readonly noAuditEvents?: boolean;
   /** `POST /audit/exports` answers its published `202`. */
   readonly auditExportAccepted?: boolean;
+  /** `P02/B6`: the programme has no scripts at all. */
+  readonly noScripts?: boolean;
+  /**
+   * `PUT /retention` answers `200` instead of its published `501`, so `P02/B7`
+   * can be driven through its saved state before the endpoint exists.
+   */
+  readonly retentionWritable?: boolean;
+  /**
+   * `409 legal_hold_active`: the API refuses to turn a hold off and shorten a
+   * period in one request. Two deliberate steps, two audit rows.
+   */
+  readonly retentionLegalHold?: boolean;
+  /** `P02/B8`: one invited portal user, so the non-empty row renders. */
+  readonly portalUsers?: boolean;
+  /**
+   * `P02/B9`: `GET /archive-preview` answers without a `retentionSummary`.
+   * Null is "we do not know which rule applies" and the dialog must omit the
+   * line rather than invent one — D-T4 is why that matters here.
+   */
+  readonly archiveRetentionUnknown?: boolean;
 }
 
 interface MockState {
@@ -69,6 +89,8 @@ interface MockState {
   readonly fieldSecurity: Map<string, string>;
   /** Role moves applied through `PUT /roles/hierarchy`. */
   readonly roleParents: Map<string, string | null>;
+  /** Retention fields saved through `PUT /retention`. */
+  readonly retention: Map<string, number | string | boolean>;
   readonly deletedRoles: Set<string>;
   /** Every body the screens sent, so a test can assert on the REQUEST. */
   readonly requests: { operationId: string; body: unknown }[];
@@ -135,6 +157,7 @@ export async function installAdminMock(
     deactivated: new Set<string>(),
     fieldSecurity: new Map<string, string>(),
     roleParents: new Map<string, string | null>(),
+    retention: new Map<string, number | string | boolean>(),
     deletedRoles: new Set<string>(),
     requests: [],
   };
@@ -338,6 +361,100 @@ export async function installAdminMock(
         state.deactivated.add(id);
         const body = example<{ items: Record<string, unknown>[] }>('listDispositions', 200);
         return json(route, 200, { ...body.items[0], active: false });
+      }
+
+      // ---------------------------------------------------------------------
+      // Scripts, retention, portal users and archive — P02/B6..B9
+      // ---------------------------------------------------------------------
+
+      case 'listProgrammeScripts': {
+        const body = example<{ items: unknown[]; page: Record<string, unknown> }>(
+          'listProgrammeScripts',
+          200,
+        );
+        if (options.noScripts === true) {
+          body.items = [];
+          body.page = { nextCursor: null, hasMore: false, totalCount: 0 };
+        }
+        return json(route, 200, body);
+      }
+
+      case 'getProgrammeRetention': {
+        const body = example<Record<string, number | string | boolean>>(
+          'getProgrammeRetention',
+          200,
+        );
+        for (const [field, value] of state.retention) {
+          body[field] = value;
+        }
+        return json(route, 200, body);
+      }
+
+      case 'updateProgrammeRetention': {
+        const body = request.postDataJSON() as Record<string, number | string | boolean>;
+        state.requests.push({ operationId: 'updateProgrammeRetention', body });
+        if (options.retentionLegalHold === true) {
+          return json(route, 409, contractExample('updateProgrammeRetention', 409, 'legalHold'));
+        }
+        if (options.retentionWritable !== true) {
+          // The published answer today. M21 owns the retention model and it is
+          // unassigned; the screen has to render the 501 rather than pretend.
+          return json(route, 501, contractExample('updateProgrammeRetention', 501));
+        }
+        const saved = example<Record<string, number | string | boolean>>(
+          'getProgrammeRetention',
+          200,
+        );
+        for (const [field, value] of Object.entries(body)) {
+          if (field === 'version') continue;
+          state.retention.set(field, value);
+          saved[field] = value;
+        }
+        saved['version'] = Number(body['version']) + 1;
+        state.retention.set('version', saved['version']);
+        return json(route, 200, saved);
+      }
+
+      case 'listPortalUsers': {
+        if (options.portalUsers !== true) {
+          // `items: []` is the contract's own example, and the DESIGNED state.
+          return json(route, 200, example('listPortalUsers', 200));
+        }
+        // The contract publishes no populated example — portal users are M18
+        // and nothing exists — so the row is built from the `PortalUser` schema
+        // and `invitePortalUser`'s request example, which is the nearest thing
+        // the spec does publish. Flagged in team/reports/P02-finish.md.
+        return json(route, 200, {
+          items: [
+            {
+              id: 'b2f0f7d8-4c21-4b4e-9f7a-2a1d6f4c0e11',
+              displayName: 'Invited Client User',
+              emailMasked: 'p•••e@client.example',
+              access: 'viewer',
+              status: 'invited',
+              invitedAt: '2026-09-28T09:00:00Z',
+            },
+          ],
+        });
+      }
+
+      case 'getProgrammeArchivePreview': {
+        const body = example<{ retentionSummary: string | null }>(
+          'getProgrammeArchivePreview',
+          200,
+        );
+        if (options.archiveRetentionUnknown === true) body.retentionSummary = null;
+        return json(route, 200, body);
+      }
+
+      case 'archiveProgramme': {
+        state.requests.push({
+          operationId: 'archiveProgramme',
+          body: request.postDataJSON() as unknown,
+        });
+        // The `programme` table has no status column, so there is nothing to
+        // archive yet. The published answer is `501` and the dialog shows it.
+        return json(route, 501, contractExample('archiveProgramme', 501));
       }
 
       // ---------------------------------------------------------------------
