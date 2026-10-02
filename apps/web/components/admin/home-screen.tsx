@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n';
 import type { IconName } from '@kasuwa/ui';
@@ -140,10 +141,13 @@ export function AdminHomeScreen({
               </dl>
             )}
           </div>
-          <span className={`${SECONDARY_BUTTON} pointer-events-none opacity-60`} aria-disabled>
+          {/* Live now that `P02/E` exists. It was a disabled control while
+              the audit screen did not: a menu entry that navigates to a 404 is
+              worse than one that is visibly not ready. */}
+          <Link href="/admin/audit" data-testid="go-audit" className={SECONDARY_BUTTON}>
             <Icon name="history" size="sm" />
             {t.t('admin.home.auditLog')}
-          </span>
+          </Link>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
@@ -355,7 +359,13 @@ export function AdminHomeScreen({
             <h2 id="admin-recent" className="flex-1 text-h5">
               {t.t('admin.home.recent.title')}
             </h2>
-            <span className="text-body-sm text-text-muted">{t.t('admin.home.recent.seeAll')}</span>
+            <Link
+              href="/admin/audit"
+              data-testid="recent-see-all"
+              className="text-body-sm font-semibold text-primary-text underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            >
+              {t.t('admin.home.recent.seeAll')}
+            </Link>
           </div>
           <Panel t={t} resource={recent} skeletonRows={3}>
             {(data) => (

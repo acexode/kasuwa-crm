@@ -55,9 +55,9 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     icon: 'group',
     items: [
       item('u-users', 'admin.nav.item.u-users'),
-      item('roles', 'admin.nav.item.roles'),
+      item('roles', 'admin.nav.item.roles', '/admin/roles'),
       item('u-perm', 'admin.nav.item.u-perm'),
-      item('fls', 'admin.nav.item.fls'),
+      item('fls', 'admin.nav.item.fls', '/admin/field-security'),
       item('u-share', 'admin.nav.item.u-share'),
       item('u-sso', 'admin.nav.item.u-sso'),
       item('u-mfa', 'admin.nav.item.u-mfa'),
@@ -113,7 +113,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       item('co-dpia', 'admin.nav.item.co-dpia'),
       item('co-dsr', 'admin.nav.item.co-dsr'),
       item('co-xb', 'admin.nav.item.co-xb'),
-      item('audit', 'admin.nav.item.audit'),
+      item('audit', 'admin.nav.item.audit', '/admin/audit'),
     ],
   },
   {

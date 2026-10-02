@@ -1,4 +1,6 @@
 [
+  "admin.audit.export.format.csv",
+  "admin.audit.export.format.json",
   "admin.channel.sms",
   "admin.channel.ussd",
   "admin.channel.whatsapp",

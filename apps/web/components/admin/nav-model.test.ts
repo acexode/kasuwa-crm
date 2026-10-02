@@ -63,6 +63,13 @@ describe('the settings menu', () => {
     const linked = NAV_GROUPS.flatMap((group) =>
       group.items.filter((item) => item.href !== null).map((item) => item.href),
     );
-    expect(linked).toEqual(['/admin/programmes']);
+    // Grows one entry per screen that is actually built. `roles`,
+    // `field-security` and `audit` joined it with P02 group 4.
+    expect(linked).toEqual([
+      '/admin/roles',
+      '/admin/field-security',
+      '/admin/programmes',
+      '/admin/audit',
+    ]);
   });
 });

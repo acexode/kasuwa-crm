@@ -42,12 +42,36 @@ export interface AdminMockOptions {
   readonly programmeNotFound?: boolean;
   /** Telephony, WFM and the interaction aggregate are all unavailable. */
   readonly unknownSources?: boolean;
+  /**
+   * `PUT /field-security/matrix` answers `200` instead of its published `501`.
+   * The contract documents the success body for exactly this reason — "request
+   * it with `Prefer: code=200`" — so `P02/D` can be driven through its saved
+   * state before the endpoint exists.
+   */
+  readonly fieldSecurityWritable?: boolean;
+  /** `409 stale_write`: somebody else saved while this admin was editing. */
+  readonly fieldSecurityStale?: boolean;
+  /** `PUT /roles/hierarchy` and `DELETE /roles/{id}` answer as if built. */
+  readonly rolesWritable?: boolean;
+  /** `409 role_hierarchy_cycle`, which applies NOTHING — not even valid moves. */
+  readonly roleCycle?: boolean;
+  /** `P02/E1`: no audit events the caller can reach. */
+  readonly noAuditEvents?: boolean;
+  /** `POST /audit/exports` answers its published `202`. */
+  readonly auditExportAccepted?: boolean;
 }
 
 interface MockState {
   readonly dismissed: Set<string>;
   readonly removed: Set<string>;
   readonly deactivated: Set<string>;
+  /** Cell levels saved through `PUT /field-security/matrix`, keyed by field. */
+  readonly fieldSecurity: Map<string, string>;
+  /** Role moves applied through `PUT /roles/hierarchy`. */
+  readonly roleParents: Map<string, string | null>;
+  readonly deletedRoles: Set<string>;
+  /** Every body the screens sent, so a test can assert on the REQUEST. */
+  readonly requests: { operationId: string; body: unknown }[];
 }
 
 function json(route: Route, status: number, body: unknown): Promise<void> {
@@ -74,6 +98,33 @@ interface ProgrammeRow {
   [key: string]: unknown;
 }
 
+interface RoleRow {
+  id: string;
+  name: string;
+  parentRoleId: string | null;
+  userCount: number;
+  [key: string]: unknown;
+}
+
+interface MatrixBody {
+  objectApiName: string;
+  version: number;
+  totalFieldCount?: number;
+  rows: {
+    fieldApiName: string;
+    label: string;
+    classification: string;
+    cells: { permissionSetId: string; level: string; locked: boolean }[];
+  }[];
+}
+
+interface AuditRow {
+  action: string;
+  objectType: string;
+  sourceIp?: string | null;
+  [key: string]: unknown;
+}
+
 export async function installAdminMock(
   page: Page,
   options: AdminMockOptions = {},
@@ -82,6 +133,10 @@ export async function installAdminMock(
     dismissed: new Set<string>(),
     removed: new Set<string>(),
     deactivated: new Set<string>(),
+    fieldSecurity: new Map<string, string>(),
+    roleParents: new Map<string, string | null>(),
+    deletedRoles: new Set<string>(),
+    requests: [],
   };
 
   await page.route('**/api/v1/admin/**', async (route) => {
@@ -137,8 +192,31 @@ export async function installAdminMock(
       case 'getSettingsMenuBadges':
         return json(route, 200, example('getSettingsMenuBadges', 200));
 
-      case 'listAuditEvents':
-        return json(route, 200, example('listAuditEvents', 200));
+      case 'listAuditEvents': {
+        const body = example<{ items: AuditRow[]; page: Record<string, unknown> }>(
+          'listAuditEvents',
+          200,
+        );
+        if (options.noAuditEvents === true) {
+          return json(route, 200, {
+            items: [],
+            page: { nextCursor: null, hasMore: false, totalCount: 0 },
+          });
+        }
+        // Filters NARROW. They never widen: an actor the caller cannot see
+        // returns the same empty page as an actor who did nothing, which is
+        // `P02/E1` and is deliberately indistinguishable.
+        const action = url.searchParams.get('action');
+        const objectType = url.searchParams.get('objectType');
+        const ipPrefix = url.searchParams.get('sourceIpPrefix');
+        body.items = body.items.filter(
+          (entry) =>
+            (action === null || entry.action === action) &&
+            (objectType === null || entry.objectType === objectType) &&
+            (ipPrefix === null || (entry.sourceIp ?? '').startsWith(ipPrefix)),
+        );
+        return json(route, 200, body);
+      }
 
       case 'listProgrammes': {
         const body = example<{
@@ -260,6 +338,167 @@ export async function installAdminMock(
         state.deactivated.add(id);
         const body = example<{ items: Record<string, unknown>[] }>('listDispositions', 200);
         return json(route, 200, { ...body.items[0], active: false });
+      }
+
+      // ---------------------------------------------------------------------
+      // Roles — P02/C, C1, C2, C3
+      // ---------------------------------------------------------------------
+
+      case 'listRoles': {
+        const body = example<{ version: number; items: RoleRow[] }>('listRoles', 200);
+        body.items = body.items.filter((role) => !state.deletedRoles.has(role.id));
+        for (const role of body.items) {
+          const moved = state.roleParents.get(role.id);
+          if (moved !== undefined) role.parentRoleId = moved;
+        }
+        return json(route, 200, body);
+      }
+
+      case 'getRole': {
+        // `RoleDetail` is `Role` plus `seesRecordsOwnedBy`, and the contract
+        // publishes no standalone example for it — the same situation as
+        // `ProgrammeDetail`. The descendants are DERIVED from the list example
+        // rather than invented, because the one thing this panel must not do
+        // is show a visibility claim the hierarchy does not support.
+        const roleId = decodeURIComponent(url.pathname.split('/').at(-1) ?? '');
+        const body = example<{ items: RoleRow[] }>('listRoles', 200);
+        const roles = body.items.filter((role) => !state.deletedRoles.has(role.id));
+        for (const role of roles) {
+          const moved = state.roleParents.get(role.id);
+          if (moved !== undefined) role.parentRoleId = moved;
+        }
+        const role = roles.find((candidate) => candidate.id === roleId);
+        if (role === undefined) return json(route, 404, contractExample('getRole', 404));
+
+        const descendants: RoleRow[] = [];
+        const walk = (parentId: string): void => {
+          for (const child of roles.filter((candidate) => candidate.parentRoleId === parentId)) {
+            descendants.push(child);
+            walk(child.id);
+          }
+        };
+        walk(role.id);
+
+        return json(route, 200, {
+          ...role,
+          seesRecordsOwnedBy: {
+            roleCount: descendants.length,
+            userCount: descendants.reduce((total, child) => total + child.userCount, 0),
+            sample: descendants.slice(0, 3).map((child) => ({ id: child.id, name: child.name })),
+          },
+        });
+      }
+
+      case 'updateRoleHierarchy': {
+        const body = request.postDataJSON() as { moves?: { roleId: string; parentRoleId: string | null }[] };
+        state.requests.push({ operationId: 'updateRoleHierarchy', body });
+        if (options.roleCycle === true) {
+          // Nothing is applied — not the valid moves either.
+          return json(route, 409, contractExample('updateRoleHierarchy', 409, 'cycle'));
+        }
+        if (options.rolesWritable !== true) {
+          return json(route, 501, contractExample('updateRoleHierarchy', 501));
+        }
+        for (const move of body.moves ?? []) state.roleParents.set(move.roleId, move.parentRoleId);
+        const list = example<{ version: number; items: RoleRow[] }>('listRoles', 200);
+        list.version += 1;
+        for (const role of list.items) {
+          const moved = state.roleParents.get(role.id);
+          if (moved !== undefined) role.parentRoleId = moved;
+        }
+        return json(route, 200, list);
+      }
+
+      case 'deleteRole': {
+        const roleId = decodeURIComponent(url.pathname.split('/').at(-1) ?? '');
+        state.requests.push({ operationId: 'deleteRole', body: url.search });
+        if (options.rolesWritable !== true) {
+          return json(route, 501, contractExample('deleteRole', 501));
+        }
+        state.deletedRoles.add(roleId);
+        return route.fulfill({ status: 204, body: '' });
+      }
+
+      // ---------------------------------------------------------------------
+      // Field-level security — P02/D, D1, D2
+      // ---------------------------------------------------------------------
+
+      case 'listFieldSecurityObjects':
+        return json(route, 200, example('listFieldSecurityObjects', 200));
+
+      case 'listPermissionSets':
+        return json(route, 200, example('listPermissionSets', 200));
+
+      case 'getFieldSecurityMatrix': {
+        const body = example<MatrixBody>('getFieldSecurityMatrix', 200);
+        // `q` and `sensitiveOnly` are SERVER filters per the contract, so the
+        // mock applies them here rather than letting the screen filter and
+        // quietly disagree with the footer's "N of M fields".
+        const q = (url.searchParams.get('q') ?? '').toLowerCase();
+        const sensitiveOnly = url.searchParams.get('sensitiveOnly') === 'true';
+        for (const row of body.rows) {
+          for (const cell of row.cells) {
+            const saved = state.fieldSecurity.get(`${row.fieldApiName}\u0000${cell.permissionSetId}`);
+            if (saved !== undefined) cell.level = saved;
+          }
+        }
+        body.version += state.fieldSecurity.size === 0 ? 0 : 1;
+        body.rows = body.rows.filter(
+          (row) =>
+            (q === '' ||
+              row.label.toLowerCase().includes(q) ||
+              row.fieldApiName.toLowerCase().includes(q)) &&
+            (!sensitiveOnly || row.classification !== 'none'),
+        );
+        return json(route, 200, body);
+      }
+
+      case 'updateFieldSecurityMatrix': {
+        const body = request.postDataJSON() as {
+          version: number;
+          changes: { fieldApiName: string; permissionSetId: string; level: string }[];
+        };
+        state.requests.push({ operationId: 'updateFieldSecurityMatrix', body });
+        if (options.fieldSecurityStale === true) {
+          return json(route, 409, contractExample('updateFieldSecurityMatrix', 409, 'stale'));
+        }
+        if (options.fieldSecurityWritable !== true) {
+          // The published answer today. D-P9 settled what a triple MEANS; the
+          // endpoint is still not built, and the screen must render that.
+          return json(route, 501, contractExample('updateFieldSecurityMatrix', 501));
+        }
+        for (const change of body.changes) {
+          state.fieldSecurity.set(
+            `${change.fieldApiName}\u0000${change.permissionSetId}`,
+            change.level,
+          );
+        }
+        const applied = example<MatrixBody>('getFieldSecurityMatrix', 200);
+        applied.version = body.version + 1;
+        for (const row of applied.rows) {
+          for (const cell of row.cells) {
+            const saved = state.fieldSecurity.get(`${row.fieldApiName}\u0000${cell.permissionSetId}`);
+            if (saved !== undefined) cell.level = saved;
+          }
+        }
+        return json(route, 200, applied);
+      }
+
+      // ---------------------------------------------------------------------
+      // Audit log — P02/E, E1, E2
+      // ---------------------------------------------------------------------
+
+      case 'getAuditFilterOptions':
+        return json(route, 200, example('getAuditFilterOptions', 200));
+
+      case 'createAuditExport': {
+        state.requests.push({
+          operationId: 'createAuditExport',
+          body: request.postDataJSON() as unknown,
+        });
+        return options.auditExportAccepted === true
+          ? json(route, 202, contractExample('createAuditExport', 202))
+          : json(route, 501, contractExample('createAuditExport', 501));
       }
 
       default: {
