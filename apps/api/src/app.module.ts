@@ -1,4 +1,9 @@
-import { Module, type DynamicModule } from '@nestjs/common';
+import {
+  Module,
+  type DynamicModule,
+  type MiddlewareConsumer,
+  type NestModule,
+} from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { createDevelopmentKeyProvider, type KeyProvider } from '@kasuwa/auth-crypto';
 import { AuthController } from './auth/auth.controller';
@@ -13,6 +18,13 @@ import { AUTH_MODE, KasuwaAuthGuard, type ResolvedAuthMode } from './tenancy/kas
 import { StubAuthGuard } from './tenancy/stub-auth.guard';
 import { TenantTransactionInterceptor } from './tenancy/tenant-transaction.interceptor';
 import { ValidationExceptionFilter } from './common/zod-exception.filter';
+import {
+  RequestTelemetryMiddleware,
+  TELEMETRY_OPTIONS,
+  telemetryOptions,
+} from './telemetry/request-telemetry';
+
+const CONTROLLERS = [HealthController, AuthController, ContactsController];
 
 export interface AppModuleOptions {
   databaseUrl: string;
@@ -43,6 +55,11 @@ export interface AppModuleOptions {
    * `main.ts` passes the configured one.
    */
   keyProvider?: KeyProvider;
+  /**
+   * The `cell` attribute on every API span (T-0005). Defaults to `local`;
+   * `main.ts` passes KASUWA_CELL.
+   */
+  cell?: string;
 }
 
 /**
@@ -60,7 +77,15 @@ export interface AppModuleOptions {
  * different lockout threshold, without mutating process.env.
  */
 @Module({})
-export class AppModule {
+export class AppModule implements NestModule {
+  /**
+   * One inbound span per request, for every path — including the ones that
+   * match no route, which are the ones an incident is most often about.
+   */
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestTelemetryMiddleware).forRoutes('{*splat}');
+  }
+
   static forRoot(options: AppModuleOptions): DynamicModule {
     return {
       module: AppModule,
@@ -71,7 +96,7 @@ export class AppModule {
             : { databaseUrl: options.databaseUrl, poolMax: options.poolMax },
         ),
       ],
-      controllers: [HealthController, AuthController, ContactsController],
+      controllers: CONTROLLERS,
       providers: [
         AuthService,
         SignInThrottleGuard,
@@ -88,6 +113,10 @@ export class AppModule {
           useValue: options.keyProvider ?? createDevelopmentKeyProvider(),
         },
         { provide: APP_FILTER, useClass: ValidationExceptionFilter },
+        {
+          provide: TELEMETRY_OPTIONS,
+          useValue: telemetryOptions(options.cell ?? 'local', CONTROLLERS),
+        },
       ],
     };
   }

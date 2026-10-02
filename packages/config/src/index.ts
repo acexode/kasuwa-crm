@@ -118,6 +118,21 @@ const EnvSchema = z.object({
   // hosting region of any workspace an attacker could name.
   KASUWA_CELL_TIME_ZONE: z.string().min(1).max(64).default('Africa/Lagos'),
 
+  // --- observability (T-0005) ----------------------------------------------
+  // The cell this process belongs to (`za-1`, a Silo tenant's own cell, ...).
+  // Recorded as the `cell` attribute on every API span, so a trace can be
+  // scoped to a deployment during an incident without anything that names a
+  // person. A short lowercase slug, never free text: it lands in every span.
+  KASUWA_CELL: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9-]{0,31}$/u)
+    .default('local'),
+  // Where spans and logs go. `none` installs nothing (the API calls are no-ops);
+  // `console` writes them to stdout. There is no OTLP option yet because there
+  // is no collector to send to (D-A4); adding one is a dependency and a
+  // decision about where telemetry is hosted, which is an NDPA question.
+  KASUWA_OTEL_EXPORTER: z.enum(['none', 'console']).default('none'),
+
   // PROVISIONAL, and flagged as such in team/reports/T-0001.md. Session
   // lifetime, refresh and concurrent-session policy are product decisions the
   // human has not made; twelve hours with no refresh is the conservative
