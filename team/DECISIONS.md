@@ -831,3 +831,17 @@ pg error message can contain row values. That path is outside OpenTelemetry, so 
 cannot see it. Fix: a global exception filter that logs only the error class and code, with a test
 that greps the process output for a probe value. Also extend `collectTelemetry` to return span
 events, so a future `recordException` stays inside the PII grep.
+
+---
+
+## B11. Raised during T-0010 (2026-10-02)
+
+### D-L43 — self-hosted fonts silently fall back to Google
+**Status:** OPEN. Agent 11 owns it, alongside the 168 KB latin-ext fix (HANDOFF item 6).
+`packages/ui/src/fonts.generated.css` lists `fonts.gstatic.com` as a fallback source in every
+`@font-face`. If a self-hosted font fails, the browser fetches from Google: a third origin on a
+256 kbps link, and **user IPs sent to a third party** (an NDPA processing question we never decided
+to take on). Fix in `fetch-fonts.mjs`: self-hosted sources only, plus a test that greps the
+generated CSS for any external origin.
+**Also from T-0010, for Agent 11:** the P01 sign-in budget (270,336) now has 12.6% headroom over the
+measured 240,015 and should be re-pinned.
