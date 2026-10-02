@@ -132,7 +132,16 @@ rotation is also a re-encryption (it need not be). All out of scope here.
 ## Gates
 
 `pnpm lint`, `pnpm lint:boundaries:verify`, `pnpm typecheck`, `pnpm test:unit`
-(260 passed) — green. `pnpm test:integration` and `pnpm test:isolation` — **not
-run**, blocked on the migration file.
+(260 passed, 27 of them new) — green.
+
+`pnpm test:integration` and `pnpm test:isolation` — **not run**, for two
+independent reasons: the migration is not in the tree, and **the Docker daemon
+is not running in this session** (`docker info` reports the Linux engine pipe
+missing, and the sandbox refuses to launch Docker Desktop). Both gates need
+Testcontainers. I also wrote a script that validates the staged SQL against a
+throwaway Postgres — migrate, seed, round-trip every seeded secret, prove both
+CHECK constraints fire, confirm RLS is still enabled and forced — and it could
+not run for the same reason. It is in the session scratchpad next to the SQL and
+is worth running once the file is installed.
 
 No new external dependency.
