@@ -24,16 +24,34 @@ import {
  *
  * WHAT IS AND IS NOT COVERED HERE
  *
- * `P01/1`, `1a`, `1b`, `1c`, `1d`, `2`, `2a` and `2b` are built and exercised.
- * `P01/3`, `4` and `5.1`–`5.5`, `6` are NOT built yet — see
- * team/reports/T-0007.md. They are named in the manifest constant below so the
+ * `P01/1`, `1a`, `1b`, `1c`, `1d`, `2`, `2a` and `2b` are exercised here.
+ * `P01/3`, `4`, `5.1`–`5.5` and `6` are exercised in `p01-signup.spec.ts`
+ * (T-0007 groups 3–4, team/reports/T-0007b.md). The manifest constant below
+ * keeps the board's sixteen ids in one place so the
  * gap is visible from this file rather than only from a report.
  */
 
 /** The sixteen screens on the P01 index board, and their state in this branch. */
 const MANIFEST = {
-  built: ['P01/1', 'P01/1a', 'P01/1b', 'P01/1c', 'P01/1d', 'P01/2', 'P01/2a', 'P01/2b'],
-  notBuilt: ['P01/3', 'P01/4', 'P01/5.1', 'P01/5.2', 'P01/5.3', 'P01/5.4', 'P01/5.5', 'P01/6'],
+  built: [
+    'P01/1',
+    'P01/1a',
+    'P01/1b',
+    'P01/1c',
+    'P01/1d',
+    'P01/2',
+    'P01/2a',
+    'P01/2b',
+    'P01/3',
+    'P01/4',
+    'P01/5.1',
+    'P01/5.2',
+    'P01/5.3',
+    'P01/5.4',
+    'P01/5.5',
+    'P01/6',
+  ],
+  notBuilt: [] as readonly string[],
 } as const;
 
 
@@ -445,18 +463,18 @@ test.describe('P01/2, P01/2a, P01/2b — two-step verification', () => {
 });
 
 test.describe('the P01 manifest', () => {
-  test('says plainly which screens are not built yet @p01', () => {
+  test('says plainly which screens are not built yet — none, since groups 3–4 landed @p01', () => {
     // The acceptance suite requires every id on the index board to appear in
     // this directory. It must not be possible to satisfy that by naming a
-    // screen in a comment and calling it covered, so the unbuilt ones are named
-    // here, together, and this assertion is what has to change when they land.
+    // screen in a comment and calling it covered, so an unbuilt screen is named
+    // here, and this assertion is what has to change when one is. Groups 3–4
+    // landed with T-0007b; each of their screens is located by its
+    // `data-screen` marker in p01-signup.spec.ts.
     expect(AUTH_CONTRACT_SOURCE).toBe('docs/api/auth.openapi.yaml');
     expect(MANIFEST.built.length + MANIFEST.notBuilt.length, 'the board has sixteen screens').toBe(
       16,
     );
-    expect(
-      MANIFEST.notBuilt,
-      'P01/3, P01/4 and the onboarding wizard are not built — see team/reports/T-0007.md',
-    ).toEqual(['P01/3', 'P01/4', 'P01/5.1', 'P01/5.2', 'P01/5.3', 'P01/5.4', 'P01/5.5', 'P01/6']);
+    expect(new Set(MANIFEST.built).size, 'a screen is listed twice').toBe(16);
+    expect(MANIFEST.notBuilt, 'every screen on the P01 board is built').toEqual([]);
   });
 });

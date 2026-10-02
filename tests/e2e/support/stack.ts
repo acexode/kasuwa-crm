@@ -14,8 +14,14 @@ import { resolve } from 'node:path';
  */
 
 export interface StackUrls {
-  /** apps/web, the Next dev server. */
+  /** apps/web, the Next dev server, every feature flag at its default. */
   webUrl: string;
+  /**
+   * A second apps/web process with `self_serve_signup` switched ON in its
+   * environment (T-0007). Server-side by construction: the flag is per
+   * process, and nothing a browser sends can change it.
+   */
+  webSelfServeUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;
   /** Static fixture pages used by the harness self-tests. */

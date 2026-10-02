@@ -250,9 +250,44 @@ function startApi(databaseUrl, port) {
   return child;
 }
 
-function startWeb(apiUrl, port) {
+/**
+ * THE SECOND WEB SERVER — `self_serve_signup` ON, SERVER-SIDE (T-0007).
+ *
+ * `P01/3`, `P01/4` and `P01/5.1` must be a 404 with the flag at its default
+ * AND render with it on, and the acceptance suite reads both from ONE
+ * Playwright run. A flag is per process, never per request — nothing a browser
+ * sends may turn it on — so the run starts two web processes: the normal one,
+ * with `KASUWA_FEATURE_FLAGS_ON` forced empty so a developer's shell cannot
+ * leak a flag into it, and this one, with the flag named.
+ *
+ * Two `next dev` processes sharing `.next` corrupt each other, so this one
+ * builds into its own directory and is handed its own generated tsconfig (both
+ * gitignored; see `apps/web/next.config.mjs`). Next also rewrites
+ * `next-env.d.ts` to point at whichever build directory started last, and that
+ * file is tracked — so it is put back the moment both servers are up, and again
+ * at teardown.
+ */
+const WEB_DIR = join(repoRoot, 'apps', 'web');
+const SELF_SERVE_DIST_DIR = '.next-self-serve';
+const SELF_SERVE_TSCONFIG = 'tsconfig.e2e-self-serve.json';
+const NEXT_ENV_FILE = join(WEB_DIR, 'next-env.d.ts');
+
+function restoreNextEnv(original) {
+  if (readFileSync(NEXT_ENV_FILE, 'utf8') !== original) {
+    writeFileSync(NEXT_ENV_FILE, original, 'utf8');
+  }
+}
+
+function startWeb(apiUrl, port, { selfServe = false } = {}) {
+  if (selfServe) {
+    writeFileSync(
+      join(WEB_DIR, SELF_SERVE_TSCONFIG),
+      `${JSON.stringify({ extends: './tsconfig.json' }, null, 2)}\n`,
+      'utf8',
+    );
+  }
   const child = spawn('pnpm', ['exec', 'next', 'dev', '-p', String(port)], {
-    cwd: join(repoRoot, 'apps', 'web'),
+    cwd: WEB_DIR,
     shell: process.platform === 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
     env: {
@@ -260,9 +295,13 @@ function startWeb(apiUrl, port) {
       NODE_ENV: 'development',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
+      KASUWA_FEATURE_FLAGS_ON: selfServe ? 'self_serve_signup' : '',
+      ...(selfServe
+        ? { KASUWA_WEB_DIST_DIR: SELF_SERVE_DIST_DIR, KASUWA_WEB_TSCONFIG: SELF_SERVE_TSCONFIG }
+        : {}),
     },
   });
-  pipeTo(child, 'web');
+  pipeTo(child, selfServe ? 'web:self-serve' : 'web');
   cleanups.push(async () => {
     killTree(child);
     await waitForPortClosed(port);
@@ -316,6 +355,7 @@ async function main() {
 
   let apiUrl = '';
   let webUrl = '';
+  let webSelfServeUrl = '';
 
   if (!wantsOverBudget) {
     log('starting Postgres (Testcontainers), migrating and seeding...');
@@ -327,13 +367,24 @@ async function main() {
     await waitForHttp(`${apiUrl}/health`, 'the API');
     log(`api on ${apiUrl}`);
 
+    const nextEnv = readFileSync(NEXT_ENV_FILE, 'utf8');
+    cleanups.push(async () => restoreNextEnv(nextEnv));
+
     const webPort = await freePort();
     webUrl = `http://127.0.0.1:${webPort}`;
+    const selfServePort = await freePort();
+    webSelfServeUrl = `http://127.0.0.1:${selfServePort}`;
     startWeb(apiUrl, webPort);
+    startWeb(apiUrl, selfServePort, { selfServe: true });
     // Next compiles a route on first request. Doing that here rather than
     // inside a spec keeps the compile out of the measured navigation.
-    await waitForHttp(webUrl, 'the web app');
+    await Promise.all([
+      waitForHttp(webUrl, 'the web app'),
+      waitForHttp(webSelfServeUrl, 'the self-serve web app'),
+    ]);
+    restoreNextEnv(nextEnv);
     log(`web on ${webUrl}`);
+    log(`web (self_serve_signup on) on ${webSelfServeUrl}`);
   }
 
   // One file per Playwright project, not a shared `stack.json`. Two
@@ -347,7 +398,7 @@ async function main() {
   // `support/stack.ts` reads the same name from `test.info().project.name`.
   writeFileSync(
     join(artifactsDir, `stack.${projectName}.json`),
-    `${JSON.stringify({ webUrl, apiUrl, fixturesUrl }, null, 2)}\n`,
+    `${JSON.stringify({ webUrl, webSelfServeUrl, apiUrl, fixturesUrl }, null, 2)}\n`,
     'utf8',
   );
 
