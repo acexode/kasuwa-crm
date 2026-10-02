@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@kasuwa/config": "workspace:*",
     "hash-wasm": "^4.11.0"
   },
   "nx": {

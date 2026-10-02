@@ -1,9 +1,11 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
+import { createDevelopmentKeyProvider, type KeyProvider } from '@kasuwa/auth-crypto';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
 import { SignInThrottleGuard } from './auth/sign-in-throttle.guard';
 import { AUTH_POLICY, DEFAULT_AUTH_POLICY, type AuthPolicy } from './auth/auth.policy';
+import { KEY_PROVIDER } from './auth/key-provider.token';
 import { ContactsController } from './contacts/contacts.controller';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
@@ -31,6 +33,16 @@ export interface AppModuleOptions {
   authMode?: ResolvedAuthMode;
   /** Lockout, challenge and session numbers. Defaults to the P01 design's. */
   authPolicy?: Partial<AuthPolicy>;
+  /**
+   * How TOTP secrets are sealed and opened (D-L13, envelope encryption).
+   *
+   * Defaults to the development provider, which mirrors `authMode` defaulting
+   * to `stub`: convenient locally, and impossible to leave switched on by
+   * accident, because the provider refuses to be constructed under
+   * NODE_ENV=production and @kasuwa/config refuses to boot on it there.
+   * `main.ts` passes the configured one.
+   */
+  keyProvider?: KeyProvider;
 }
 
 /**
@@ -70,6 +82,10 @@ export class AppModule {
         {
           provide: AUTH_POLICY,
           useValue: { ...DEFAULT_AUTH_POLICY, ...options.authPolicy },
+        },
+        {
+          provide: KEY_PROVIDER,
+          useValue: options.keyProvider ?? createDevelopmentKeyProvider(),
         },
         { provide: APP_FILTER, useClass: ValidationExceptionFilter },
       ],

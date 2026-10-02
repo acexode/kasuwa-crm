@@ -124,6 +124,26 @@ const EnvSchema = z.object({
   // reading of "a working day, and sign in again tomorrow".
   KASUWA_AUTH_SESSION_HOURS: z.coerce.number().int().positive().max(720).default(12),
 
+  // --- envelope encryption (D-L13) ---------------------------------------
+  // ONE KMS KEY PER ENVIRONMENT, and the key id is recorded on every encrypted
+  // row so a rotation can introduce a second key without a flag day.
+  //
+  // `local` is the development provider: it holds its master key in process,
+  // so it protects a stolen backup and nothing else. `assertKeyProviderIsSafe`
+  // below refuses to boot on it in production, and the provider itself refuses
+  // to be constructed there — two layers, because the first can be skipped by
+  // building the provider directly.
+  KASUWA_KMS_PROVIDER: z.enum(['local', 'aws-kms']).default('local'),
+  /** The environment's key: an ARN or alias for aws-kms, an opaque name for local. */
+  KASUWA_KMS_KEY_ID: z.string().min(1).max(512).optional(),
+  /**
+   * Base64 32-byte master key for the local provider. Optional: without it the
+   * published development constant is used, which is what lets `pnpm db:seed`
+   * and the API agree with no configuration at all. Never set in production —
+   * production cannot use this provider.
+   */
+  KASUWA_KMS_LOCAL_MASTER_KEY: z.string().optional(),
+
   DATABASE_URL: z.string().url(),
   DATABASE_MIGRATION_URL: z.string().url().optional(),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().max(200).default(10),
@@ -166,6 +186,44 @@ export function assertAuthModeIsSafe(env: Pick<KasuwaEnv, 'NODE_ENV' | 'KASUWA_A
         'and must never run with NODE_ENV=production. See docs/adr/0007-stubbed-auth-context.md.',
     );
   }
+}
+
+/**
+ * Fail-closed guard for envelope encryption (team/DECISIONS.md D-L13).
+ *
+ * The local key provider keeps its master key in the application process, next
+ * to the ciphertext it protects. That is useful in development — it is what
+ * makes a stolen backup useless — and it is not a key-management system. In
+ * production the key must live in a KMS, which is the whole of the D-L13
+ * answer, so the process refuses to start on the local provider there.
+ *
+ * Deliberately shaped like `assertAuthModeIsSafe`: same failure, same reason,
+ * and one place to look for "what will stop a mis-configured production boot".
+ */
+export function assertKeyProviderIsSafe(
+  env: Pick<KasuwaEnv, 'NODE_ENV' | 'KASUWA_KMS_PROVIDER'>,
+): void {
+  if (env.NODE_ENV === 'production' && env.KASUWA_KMS_PROVIDER === 'local') {
+    throw new Error(
+      'Refusing to start: KASUWA_KMS_PROVIDER=local holds its master key in this process ' +
+        'and must never run with NODE_ENV=production. Set KASUWA_KMS_PROVIDER=aws-kms and ' +
+        'KASUWA_KMS_KEY_ID to this environment’s KMS key. See team/DECISIONS.md D-L13.',
+    );
+  }
+}
+
+/**
+ * NODE_ENV alone, without parsing the rest of the environment.
+ *
+ * Exists so that a library can refuse to run in production without demanding a
+ * DATABASE_URL — `parseEnv` is all-or-nothing by design, and a test harness
+ * that builds its own connection string has no reason to satisfy it. The one
+ * caller today is the development key provider's production guard.
+ *
+ * Still the only package allowed to read process.env, which is the point.
+ */
+export function nodeEnv(): KasuwaEnv['NODE_ENV'] {
+  return EnvSchema.shape.NODE_ENV.parse(process.env.NODE_ENV);
 }
 
 /**
@@ -227,6 +285,7 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): KasuwaEnv {
     throw new Error(`Invalid environment:\n${detail}`);
   }
   assertAuthModeIsSafe(parsed.data);
+  assertKeyProviderIsSafe(parsed.data);
   assertThrottleIsNotACellWideCliff(parsed.data);
   return parsed.data;
 }

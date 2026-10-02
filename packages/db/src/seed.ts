@@ -1,4 +1,10 @@
-import { hashPassword } from '@kasuwa/auth-crypto';
+import {
+  createDevelopmentKeyProvider,
+  hashPassword,
+  mfaSecretAad,
+  sealSecret,
+  type KeyProvider,
+} from '@kasuwa/auth-crypto';
 import { Client } from 'pg';
 import { SEED_CONTACTS, SEED_PASSWORD, SEED_TENANTS, seedTotpSecret } from './fixtures';
 import { newId } from './ids';
@@ -18,6 +24,16 @@ import { newId } from './ids';
 export interface SeedOptions {
   connectionString: string;
   log?: (message: string) => void;
+  /**
+   * How the fixture TOTP secrets are sealed (D-L13).
+   *
+   * Defaults to the development provider, which is the only one that can ever
+   * apply here: `assertLocalDatabase` already refuses to seed anything but
+   * localhost, and the development provider refuses to exist under
+   * NODE_ENV=production. The option exists so a test can seal under a different
+   * key id and prove the key id is honoured per row.
+   */
+  keyProvider?: KeyProvider;
 }
 
 /**
@@ -63,6 +79,7 @@ export async function runSeed(options: SeedOptions): Promise<void> {
   // every seeded user shares the same fixture password, so hashing per user
   // would add seconds to every `pnpm db:reset` for no extra realism.
   const seededPasswordHash = await hashPassword(SEED_PASSWORD);
+  const keyProvider = options.keyProvider ?? createDevelopmentKeyProvider();
 
   const client = new Client({ connectionString: options.connectionString });
   await client.connect();
@@ -132,10 +149,33 @@ export async function runSeed(options: SeedOptions): Promise<void> {
 
         const totpSecret = seedTotpSecret(user.id);
         if (totpSecret !== undefined) {
+          // EXPAND PHASE (migration 0005): both forms are written. The envelope
+          // is what the API reads; the plaintext column stays populated until
+          // the contract migration drops it, so that rolling back to the
+          // previous application version does not lock every seeded user out.
+          const factorId = newId();
+          const sealed = await sealSecret(
+            keyProvider,
+            totpSecret,
+            mfaSecretAad(tenant.id, factorId),
+          );
           await client.query(
-            `INSERT INTO user_mfa_factor (id, tenant_id, user_id, type, label, secret, confirmed_at)
-             VALUES ($1, $2, $3, 'totp', $4, $5, now())`,
-            [newId(), tenant.id, user.id, 'Authenticator app', totpSecret],
+            `INSERT INTO user_mfa_factor
+               (id, tenant_id, user_id, type, label, secret,
+                secret_ciphertext, secret_wrapped_key, secret_key_id, secret_algorithm,
+                confirmed_at)
+             VALUES ($1, $2, $3, 'totp', $4, $5, $6, $7, $8, $9, now())`,
+            [
+              factorId,
+              tenant.id,
+              user.id,
+              'Authenticator app',
+              totpSecret,
+              sealed.ciphertext,
+              sealed.wrappedKey,
+              sealed.keyId,
+              sealed.algorithm,
+            ],
           );
         }
 

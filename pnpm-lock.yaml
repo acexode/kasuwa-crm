@@ -192,6 +192,9 @@ importers:
 
   packages/auth-crypto:
     dependencies:
+      '@kasuwa/config':
+        specifier: workspace:*
+        version: link:../config
       hash-wasm:
         specifier: ^4.11.0
         version: 4.12.0

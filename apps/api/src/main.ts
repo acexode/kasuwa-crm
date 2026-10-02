@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
+import { createKeyProvider } from '@kasuwa/auth-crypto';
 import { env } from '@kasuwa/config';
 import { initialiseFeatureFlags } from '@kasuwa/feature-flags';
 import { AppModule } from './app.module';
@@ -8,8 +9,9 @@ import { AppModule } from './app.module';
  * API entrypoint.
  *
  * `env()` validates the environment and, critically, refuses to return at all
- * if KASUWA_AUTH_MODE=stub with NODE_ENV=production. That check runs before
- * anything binds a port.
+ * if KASUWA_AUTH_MODE=stub with NODE_ENV=production, or if the local key
+ * provider is configured there (D-L13). Both checks run before anything binds
+ * a port.
  */
 async function bootstrap(): Promise<void> {
   const configuration = env();
@@ -21,6 +23,14 @@ async function bootstrap(): Promise<void> {
       databaseUrl: configuration.DATABASE_URL,
       poolMax: configuration.DATABASE_POOL_MAX,
       authMode: configuration.KASUWA_AUTH_MODE,
+      // No KMS client is passed: nothing is provisioned (D-A4), so asking for
+      // aws-kms here fails at boot with a configuration error rather than at
+      // the first sign-in. That is the right time to find out.
+      keyProvider: createKeyProvider({
+        provider: configuration.KASUWA_KMS_PROVIDER,
+        keyId: configuration.KASUWA_KMS_KEY_ID,
+        localMasterKeyBase64: configuration.KASUWA_KMS_LOCAL_MASTER_KEY,
+      }),
       authPolicy: {
         lockoutMaxAttempts: configuration.KASUWA_AUTH_LOCKOUT_MAX_ATTEMPTS,
         lockoutWindowMinutes: configuration.KASUWA_AUTH_LOCKOUT_WINDOW_MINUTES,
