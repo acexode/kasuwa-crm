@@ -34,8 +34,20 @@
 -- privileges in sql/bootstrap.sql; they are restated explicitly below so this
 -- file does not silently depend on how the database was bootstrapped.
 --
+-- Concurrency: the API's cycle check is safe against concurrent writers only
+-- because every role write first takes the tenant row FOR NO KEY UPDATE
+-- (apps/api/src/admin/roles/roles.service.ts). Any future writer of
+-- role.parent_role_id - an import job, a seed, a script - must take the same
+-- lock, or the trigger below becomes the only thing standing between two
+-- concurrent moves and a committed cycle.
+--
 -- NOTE: `user` is a reserved word and is double-quoted wherever it appears.
 -- ---------------------------------------------------------------------------
+
+-- The ALTERs on tenant and "user" below take ACCESS EXCLUSIVE until COMMIT.
+-- Fail fast rather than queue behind a long transaction and stall every
+-- request in the cell behind us. Transaction-local: the runner wraps each file.
+SET LOCAL lock_timeout = '5s';
 
 -- --- role ------------------------------------------------------------------
 CREATE TABLE role (
@@ -138,12 +150,12 @@ ALTER TABLE tenant ADD COLUMN role_hierarchy_version integer NOT NULL DEFAULT 1;
 -- assigned, and the existing application never reads this column, so the
 -- change is backward compatible (expand only).
 ALTER TABLE "user" ADD COLUMN role_id uuid;
--- Added NOT VALID and validated separately so the validation scan takes only a
--- SHARE UPDATE EXCLUSIVE lock. Every existing row is null, so it is quick.
+-- A plain FK, validated in place: every role_id was null a moment ago, so the
+-- check is trivial, and ADD COLUMN above already holds ACCESS EXCLUSIVE on
+-- "user" for the rest of this transaction anyway.
 ALTER TABLE "user"
   ADD CONSTRAINT user_role_same_tenant_fk
-  FOREIGN KEY (tenant_id, role_id) REFERENCES role (tenant_id, id) NOT VALID;
-ALTER TABLE "user" VALIDATE CONSTRAINT user_role_same_tenant_fk;
+  FOREIGN KEY (tenant_id, role_id) REFERENCES role (tenant_id, id);
 -- Not CONCURRENTLY: "user" is thousands of rows per tenant, not millions, and
 -- CONCURRENTLY cannot run inside the runner's per-file transaction.
 CREATE INDEX user_tenant_role_idx ON "user" (tenant_id, role_id);

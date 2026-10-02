@@ -322,6 +322,10 @@ export const fieldDef = pgTable(
  * The role hierarchy (M2, migration 0006). Tenant-wide and deliberately NOT
  * programme-scoped — see the header of 0006 before adding a `programmeId`.
  * Acyclicity is enforced by the API and, independently, by a trigger.
+ *
+ * Names are unique per tenant CASE-INSENSITIVELY: the SQL index is
+ * `role_tenant_name_key ON role (tenant_id, lower(name))`, an expression index
+ * Drizzle cannot mirror, so it is named here rather than declared below.
  */
 export const role = pgTable(
   'role',
