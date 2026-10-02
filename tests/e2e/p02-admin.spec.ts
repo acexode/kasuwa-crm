@@ -113,6 +113,9 @@ test.describe('P02/A — admin home', () => {
     await page.goto(`${webUrl}/admin`);
 
     const dismiss = page.getByTestId('dismiss-alert');
+    // `count()` does not wait. Read it only once the alerts have rendered, or
+    // a fast or slow run counts zero and fails for no reason (seen on CI).
+    await expect(dismiss.first()).toBeVisible();
     const count = await dismiss.count();
     expect(count).toBeGreaterThan(0);
 
@@ -981,6 +984,8 @@ test.describe('P02/E — the audit log', () => {
     await page.goto(`${webUrl}/admin/audit`);
 
     const cells = page.getByTestId('audit-ip-cell');
+    // `allInnerTexts()` does not wait either; same race as P02/A above.
+    await expect(cells.first()).toBeVisible();
     const texts = await cells.allInnerTexts();
     expect(texts.length).toBeGreaterThan(0);
     // "Not shown to you" and "none recorded" must be indistinguishable, or the
