@@ -18,17 +18,34 @@ jobs:
   # must also run on `labeled`/`unlabeled` and re-running every suite on each
   # label change would be wasteful.
 
+  # --------------------------------------------------------------------------
+  # Lint, typecheck and unit tests are INCREMENTAL (T-0005): `nx affected`
+  # against the base nrwl/nx-set-shas computes (the PR base, or on main the last
+  # green commit), plus the local Nx cache, so a one-file PR does not re-lint
+  # nineteen projects. A change to a shared input (tsconfig.base.json,
+  # eslint.config.mjs, the lockfile) marks everything affected — see
+  # `namedInputs.sharedGlobals` in nx.json.
+  #
+  # The tenancy gate is NOT incremental, and must never be. See `isolation`.
+  # --------------------------------------------------------------------------
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4
         with: { version: '9.7.0' }
       - uses: actions/setup-node@v4
         with: { node-version: '22.16.0', cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
+      - uses: nrwl/nx-set-shas@v4
+      - uses: actions/cache@v4
+        with:
+          path: .nx/cache
+          key: nx-lint-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: nx-lint-${{ hashFiles('pnpm-lock.yaml') }}-
+      - run: pnpm exec nx affected -t lint
 
       # A configured-but-inert boundary rule is worse than none: everyone stops
       # thinking about boundaries. This proves the rule actually fires.
@@ -60,25 +77,51 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4
         with: { version: '9.7.0' }
       - uses: actions/setup-node@v4
         with: { node-version: '22.16.0', cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm ui:tokens
-      - run: pnpm typecheck
+      - uses: nrwl/nx-set-shas@v4
+      - uses: actions/cache@v4
+        with:
+          path: .nx/cache
+          key: nx-typecheck-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: nx-typecheck-${{ hashFiles('pnpm-lock.yaml') }}-
+      - run: pnpm exec nx affected -t typecheck
 
   unit:
     name: Unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4
         with: { version: '9.7.0' }
       - uses: actions/setup-node@v4
         with: { node-version: '22.16.0', cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test:unit
+      - uses: nrwl/nx-set-shas@v4
+      # On a pull request, only the unit tests whose module graph reaches a
+      # changed file (vitest re-runs everything if a package.json or vitest
+      # config changed). On main, all of them: whatever `--changed` missed is
+      # caught one merge later at the latest, not never.
+      - name: Unit tests (related to the change on a PR, all on main)
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            pnpm exec vitest run --project unit --changed "$NX_BASE" --reporter=default --reporter=junit --outputFile.junit=reports/unit/junit.xml
+          else
+            pnpm test:unit --reporter=default --reporter=junit --outputFile.junit=reports/unit/junit.xml
+          fi
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: unit-test-report
+          path: reports/unit
+          retention-days: 7
+          if-no-files-found: warn
 
   integration:
     name: Integration tests
@@ -92,7 +135,14 @@ jobs:
         with: { node-version: '22.16.0', cache: pnpm }
       - run: pnpm install --frozen-lockfile
       # Testcontainers uses the Docker daemon that ubuntu-latest already runs.
-      - run: pnpm test:integration
+      - run: pnpm test:integration --reporter=default --reporter=junit --outputFile.junit=reports/integration/junit.xml
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: integration-test-report
+          path: reports/integration
+          retention-days: 7
+          if-no-files-found: warn
 
   # --------------------------------------------------------------------------
   # The isolation suite is the blocking gate (founding pack 3.3, Addendum 3.5).
@@ -119,7 +169,66 @@ jobs:
       - run: pnpm ui:tokens
       - run: pnpm i18n:pseudo
       - run: pnpm --filter @kasuwa/e2e exec playwright install --with-deps chromium
-      - run: pnpm test:isolation
+      # The WHOLE suite, every time. Never `nx affected`, never `--changed`: a
+      # change to a migration, a guard or an RLS policy breaks isolation in
+      # files the diff never touched. Red here means do not merge —
+      # docs/runbooks/red-isolation-check.md.
+      - run: pnpm test:isolation --reporter=default --reporter=junit --outputFile.junit=reports/isolation/junit.xml
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: isolation-test-report
+          path: |
+            reports/isolation
+            tests/e2e/.artifacts
+          retention-days: 7
+          if-no-files-found: warn
+
+  # --------------------------------------------------------------------------
+  # Scanning (T-0005). Both blocking, both on every PR and every push to main.
+  # --------------------------------------------------------------------------
+
+  # GitGuardian also runs as a GitHub App check, but an App check can be
+  # declined and does not run on a fork. This fails the build. The WHOLE history
+  # is scanned (about two seconds today), so a secret cannot be committed and
+  # then deleted in a later commit of the same PR. Known, deliberate example
+  # values are listed by fingerprint in .gitleaksignore; `--redact` keeps any
+  # real finding out of the job log.
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: '8.30.1'
+      GITLEAKS_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Install gitleaks (pinned, checksum-verified)
+        run: |
+          curl -sSfL -o gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz -C "$RUNNER_TEMP" gitleaks
+      - name: Scan the repository history for secrets
+        run: '"$RUNNER_TEMP/gitleaks" git --redact --no-banner --verbose .'
+
+  # Known vulnerabilities in the resolved dependency tree (pnpm-lock.yaml),
+  # against the OSV database. See osv-scanner.toml for the severity policy and
+  # for how an assessed finding is accepted.
+  dependencies:
+    name: Dependency scan
+    runs-on: ubuntu-latest
+    env:
+      OSV_SCANNER_VERSION: '2.6.0'
+      OSV_SCANNER_SHA256: 'ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install osv-scanner (pinned, checksum-verified)
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/osv-scanner" "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/osv-scanner"
+      - name: Scan the lockfile for known vulnerabilities
+        run: '"$RUNNER_TEMP/osv-scanner" scan source --config=osv-scanner.toml --lockfile=pnpm-lock.yaml'
 
   build:
     name: Build
