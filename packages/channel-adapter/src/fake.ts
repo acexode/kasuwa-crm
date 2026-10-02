@@ -10,6 +10,9 @@ import type {
 } from './contracts';
 import { MessageNotFoundError, ProviderRejectedError, ProviderUnavailableError } from './errors';
 
+/** The fake keeps only the most recent accepted requests, so a long-lived one cannot grow without bound. */
+export const FAKE_SENT_LIMIT = 1_000;
+
 interface StoredMessage {
   scope: TenantScope;
   state: DeliveryState;
@@ -29,7 +32,7 @@ export class FakeChannelProvider implements ChannelProvider {
   private readonly messages = new Map<string, StoredMessage>();
   private pendingFailure: 'unavailable' | 'rejected' | undefined;
 
-  /** Every request the provider accepted, in order. Failed sends are not recorded. */
+  /** The last FAKE_SENT_LIMIT requests the provider accepted, in order. Failed sends are not recorded. */
   get sent(): readonly SendRequest[] {
     return [...this.accepted];
   }
@@ -55,6 +58,7 @@ export class FakeChannelProvider implements ChannelProvider {
 
     const messageId = `fake-${randomUUID()}`;
     this.accepted.push({ ...request, scope: { ...request.scope } });
+    if (this.accepted.length > FAKE_SENT_LIMIT) this.accepted.shift();
     this.messages.set(messageId, {
       scope: { ...request.scope },
       state: 'queued',

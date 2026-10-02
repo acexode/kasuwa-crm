@@ -10,7 +10,7 @@ import {
   ProviderRejectedError,
   ProviderUnavailableError,
 } from './errors';
-import { FakeChannelProvider, FakeDndRegister } from './fake';
+import { FAKE_SENT_LIMIT, FakeChannelProvider, FakeDndRegister } from './fake';
 
 // Invented identifiers only (CLAUDE.md section 6).
 const SCOPE = {
@@ -18,6 +18,7 @@ const SCOPE = {
   programmeId: '11111111-0000-4000-8000-0000000c0001',
 };
 const OTHER_PROGRAMME = { ...SCOPE, programmeId: '11111111-0000-4000-8000-0000000c0002' };
+const OTHER_TENANT = '22222222-0000-4000-8000-000000000002';
 const TO = '+2348090000999';
 const BODY = 'Your code is UNIT-PROBE-77.';
 
@@ -38,6 +39,19 @@ function recordingLogger(): ChannelLogger & { entries: unknown[] } {
     entries.push({ level, message, fields });
   };
   return { entries, debug: at('debug'), info: at('info'), warn: at('warn'), error: at('error') };
+}
+
+/** A provider that ignores scope entirely, as a careless real one might. */
+function stubProvider(): ChannelProvider {
+  let count = 0;
+  return {
+    send: async () => ({ messageId: `stub-${(count += 1)}`, state: 'queued' }),
+    getDeliveryStatus: async (_scope, messageId) => ({
+      messageId,
+      state: 'delivered',
+      updatedAt: new Date(),
+    }),
+  };
 }
 
 function throwingProvider(thrown: unknown): ChannelProvider {
@@ -136,10 +150,77 @@ describe('createChannelAdapter', () => {
       dnd: new FakeDndRegister([]),
     });
     await expect(channel.send(request())).rejects.toBeInstanceOf(ProviderRejectedError);
-    await expect(channel.getDeliveryStatus(SCOPE, 'x')).rejects.toBeInstanceOf(
+    await expect(channel.send(request())).rejects.not.toHaveProperty('cause');
+
+    const statusFails = createChannelAdapter({
+      provider: {
+        ...stubProvider(),
+        getDeliveryStatus: throwingProvider(new Error('x')).getDeliveryStatus,
+      },
+      dnd: new FakeDndRegister([]),
+    });
+    const { messageId } = await statusFails.send(request());
+    await expect(statusFails.getDeliveryStatus(SCOPE, messageId)).rejects.toBeInstanceOf(
       ProviderUnavailableError,
     );
-    await expect(channel.send(request())).rejects.not.toHaveProperty('cause');
+  });
+
+  it.each([undefined, null, 'no', 0, true])(
+    'fails closed when the DND register answers %s instead of false',
+    async (answer) => {
+      const provider = new FakeChannelProvider();
+      const channel = createChannelAdapter({
+        provider,
+        dnd: { isRegistered: async () => answer as boolean },
+      });
+      await expect(channel.send(request({ purpose: 'promotional' }))).rejects.toBeInstanceOf(
+        DndRefusedError,
+      );
+      expect(provider.sent).toHaveLength(0);
+    },
+  );
+
+  it('enforces delivery-status scope even when the provider ignores it', async () => {
+    const channel = createChannelAdapter({
+      provider: stubProvider(),
+      dnd: new FakeDndRegister([]),
+    });
+    const { messageId } = await channel.send(request());
+    await expect(channel.getDeliveryStatus(SCOPE, messageId)).resolves.toMatchObject({ messageId });
+    for (const scope of [OTHER_PROGRAMME, { ...SCOPE, tenantId: OTHER_TENANT }]) {
+      await expect(channel.getDeliveryStatus(scope, messageId)).rejects.toBeInstanceOf(
+        MessageNotFoundError,
+      );
+    }
+    await expect(channel.getDeliveryStatus(SCOPE, 'never-sent')).rejects.toBeInstanceOf(
+      MessageNotFoundError,
+    );
+  });
+
+  it('turns malformed provider output into typed errors', async () => {
+    const badSend = createChannelAdapter({
+      provider: {
+        ...stubProvider(),
+        send: async () => ({ messageId: '', state: 'lost' }) as never,
+      },
+      dnd: new FakeDndRegister([]),
+    });
+    await expect(badSend.send(request())).rejects.toBeInstanceOf(ProviderRejectedError);
+
+    for (const status of [
+      { messageId: 'wrong-id', state: 'sent', updatedAt: new Date() },
+      { messageId: 'stub-1', state: 'sent', updatedAt: 'yesterday' },
+      { messageId: 'stub-1', state: 'teleported', updatedAt: new Date() },
+    ]) {
+      const badStatus = createChannelAdapter({
+        provider: { ...stubProvider(), getDeliveryStatus: async () => status as never },
+        dnd: new FakeDndRegister([]),
+      });
+      const { messageId } = await badStatus.send(request());
+      await expect(badStatus.getDeliveryStatus(SCOPE, messageId)).rejects.toBeInstanceOf(
+        ProviderUnavailableError,
+      );
+    }
   });
 
   it('survives a logger that throws', async () => {
@@ -189,6 +270,12 @@ describe('FakeChannelProvider', () => {
     expect(() => new FakeChannelProvider().setDeliveryState('nope', 'sent')).toThrow(
       MessageNotFoundError,
     );
+  });
+
+  it('keeps only the most recent FAKE_SENT_LIMIT accepted requests', async () => {
+    const provider = new FakeChannelProvider();
+    for (let i = 0; i < FAKE_SENT_LIMIT + 5; i += 1) await provider.send(request());
+    expect(provider.sent).toHaveLength(FAKE_SENT_LIMIT);
   });
 
   it('does not record a failed send, and fails only once', async () => {

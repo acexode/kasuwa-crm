@@ -58,6 +58,14 @@ export interface DeliveryStatus {
 
 export const MessageId = z.string().min(1).max(256);
 
+/** Provider output is parsed, not trusted, before it is returned or logged. */
+export const SendResultOutput = z.object({ messageId: MessageId, state: DeliveryState });
+export const DeliveryStatusOutput = z.object({
+  messageId: MessageId,
+  state: DeliveryState,
+  updatedAt: z.date().refine((date) => !Number.isNaN(date.getTime())),
+});
+
 /**
  * What every provider implements, and what `createChannelAdapter` returns.
  *

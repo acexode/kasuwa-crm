@@ -1,6 +1,8 @@
 import {
+  DeliveryStatusOutput,
   MessageId,
   SendRequest,
+  SendResultOutput,
   TenantScope,
   type ChannelLogger,
   type ChannelProvider,
@@ -22,6 +24,13 @@ export interface ChannelAdapterOptions {
   dnd: DndRegister;
   logger?: ChannelLogger;
 }
+
+/**
+ * How many sent messages the wrapper remembers the owner of. The in-memory
+ * map is a stand-in: with a real provider, ownership must live in a durable
+ * store, or delivery status is unreachable after a restart.
+ */
+export const OWNERSHIP_LIMIT = 10_000;
 
 const silent: ChannelLogger = {
   debug: () => undefined,
@@ -61,6 +70,17 @@ function sanitise(thrown: unknown, fallback: () => ChannelError): ChannelError {
 export function createChannelAdapter(options: ChannelAdapterOptions): ChannelProvider {
   const { provider, dnd } = options;
   const logger = options.logger ?? silent;
+  /** messageId -> the scope that sent it. Enforced here so no provider can leak across scopes. */
+  const owners = new Map<string, TenantScope>();
+  const remember = (messageId: string, scope: TenantScope): void => {
+    owners.delete(messageId);
+    owners.set(messageId, { tenantId: scope.tenantId, programmeId: scope.programmeId });
+    while (owners.size > OWNERSHIP_LIMIT) {
+      const oldest = owners.keys().next();
+      if (oldest.done === true) break;
+      owners.delete(oldest.value);
+    }
+  };
 
   const log = (
     level: keyof ChannelLogger,
@@ -97,27 +117,37 @@ export function createChannelAdapter(options: ChannelAdapterOptions): ChannelPro
       };
 
       if (request.purpose === 'promotional') {
-        let registered: boolean;
+        let answer: unknown;
         try {
-          registered = await dnd.isRegistered(request.to);
+          answer = await dnd.isRegistered(request.to);
         } catch {
           // Fail closed: an unanswered DND lookup never becomes a send.
           return refuse(new ProviderUnavailableError(), 'channel.send.dnd_lookup_failed', context);
         }
-        if (registered) {
+        // Fail closed: only a literal `false` clears a number. `undefined`,
+        // `null` or a truthy non-boolean from a buggy register is a refusal.
+        if (answer !== false) {
           return refuse(new DndRefusedError(), 'channel.send.dnd_refused', context);
         }
       }
 
-      let result: SendResult;
+      let raw: unknown;
       try {
-        result = await provider.send(request);
+        raw = await provider.send(request);
       } catch (thrown) {
         // Unclassified send failures are NOT retryable: without an idempotency
         // key, a retry after an ambiguous failure can deliver an OTP twice.
         const error = sanitise(thrown, () => new ProviderRejectedError());
         return refuse(error, 'channel.send.failed', context);
       }
+
+      const output = SendResultOutput.safeParse(raw);
+      if (!output.success) {
+        // The provider may have sent it; not retryable, for the same reason as above.
+        return refuse(new ProviderRejectedError(), 'channel.send.invalid_output', context);
+      }
+      const result: SendResult = output.data;
+      remember(result.messageId, request.scope);
 
       log('info', 'channel.send.accepted', {
         ...context,
@@ -142,15 +172,32 @@ export function createChannelAdapter(options: ChannelAdapterOptions): ChannelPro
         programmeId: parsedScope.data.programmeId,
       };
 
+      // Scope is enforced here, not trusted to the provider: another tenant's or
+      // programme's message gets the same answer as one that never existed.
+      const owner = owners.get(parsedId.data);
+      if (
+        owner === undefined ||
+        owner.tenantId !== parsedScope.data.tenantId ||
+        owner.programmeId !== parsedScope.data.programmeId
+      ) {
+        throw new MessageNotFoundError();
+      }
+
+      let raw: unknown;
       try {
-        const status = await provider.getDeliveryStatus(parsedScope.data, parsedId.data);
-        return { messageId: status.messageId, state: status.state, updatedAt: status.updatedAt };
+        raw = await provider.getDeliveryStatus(parsedScope.data, parsedId.data);
       } catch (thrown) {
         // A status read is idempotent, so an unclassified failure may be retried.
         const error = sanitise(thrown, () => new ProviderUnavailableError());
         if (error instanceof MessageNotFoundError) throw error;
         return refuse(error, 'channel.status.failed', context);
       }
+
+      const output = DeliveryStatusOutput.safeParse(raw);
+      if (!output.success || output.data.messageId !== parsedId.data) {
+        return refuse(new ProviderUnavailableError(), 'channel.status.invalid_output', context);
+      }
+      return output.data;
     },
   };
 }
