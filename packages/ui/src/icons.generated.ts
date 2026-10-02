@@ -3,14 +3,18 @@
 
 /** Every glyph the self-hosted Material Symbols subset contains. */
 export type IconName =
+  | 'add'
   | 'add_task'
   | 'alarm'
+  | 'archive'
   | 'arrow_back'
   | 'arrow_downward'
   | 'arrow_forward'
   | 'attach_file'
+  | 'auto_awesome'
   | 'bar_chart'
   | 'block'
+  | 'bolt'
   | 'call'
   | 'call_received'
   | 'campaign'
@@ -20,6 +24,7 @@ export type IconName =
   | 'chevron_left'
   | 'chevron_right'
   | 'close'
+  | 'cloud'
   | 'cloud_done'
   | 'cloud_off'
   | 'cloud_upload'
@@ -28,8 +33,10 @@ export type IconName =
   | 'contacts'
   | 'contrast'
   | 'dark_mode'
+  | 'database'
   | 'delete'
   | 'description'
+  | 'dialpad'
   | 'do_not_disturb_on'
   | 'domain'
   | 'done_all'
@@ -37,46 +44,66 @@ export type IconName =
   | 'edit_note'
   | 'error'
   | 'event'
+  | 'event_seat'
   | 'expand_less'
   | 'expand_more'
+  | 'extension'
   | 'filter_alt_off'
+  | 'forum'
+  | 'group'
   | 'handshake'
   | 'headset_mic'
   | 'help'
+  | 'history'
+  | 'hourglass_top'
   | 'image'
   | 'inbox'
+  | 'info'
   | 'key'
   | 'language'
   | 'left_panel_close'
   | 'left_panel_open'
   | 'light_mode'
+  | 'lightbulb'
+  | 'location_on'
   | 'lock'
   | 'lock_clock'
+  | 'lock_open'
   | 'mail'
+  | 'menu'
   | 'mic'
   | 'more_horiz'
   | 'more_vert'
   | 'network_check'
   | 'notifications'
+  | 'open_in_new'
   | 'open_with'
   | 'passkey'
   | 'pause'
   | 'pause_circle'
+  | 'payments'
+  | 'person_add'
   | 'phone_iphone'
   | 'play_arrow'
   | 'public'
+  | 'radio_button_unchecked'
   | 'record_voice_over'
   | 'remove'
   | 'schedule'
   | 'search'
+  | 'search_off'
   | 'send'
   | 'signal_cellular_alt'
   | 'smartphone'
   | 'sms'
+  | 'space_dashboard'
+  | 'support_agent'
+  | 'task_alt'
   | 'timer'
   | 'timer_off'
   | 'touch_app'
   | 'translate'
+  | 'tune'
   | 'upload_file'
   | 'verified'
   | 'verified_user'
@@ -87,14 +114,18 @@ export type IconName =
 
 /** The same list at runtime, for tests and for validating untyped input. */
 export const ICON_NAMES: readonly IconName[] = [
+  'add',
   'add_task',
   'alarm',
+  'archive',
   'arrow_back',
   'arrow_downward',
   'arrow_forward',
   'attach_file',
+  'auto_awesome',
   'bar_chart',
   'block',
+  'bolt',
   'call',
   'call_received',
   'campaign',
@@ -104,6 +135,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'chevron_left',
   'chevron_right',
   'close',
+  'cloud',
   'cloud_done',
   'cloud_off',
   'cloud_upload',
@@ -112,8 +144,10 @@ export const ICON_NAMES: readonly IconName[] = [
   'contacts',
   'contrast',
   'dark_mode',
+  'database',
   'delete',
   'description',
+  'dialpad',
   'do_not_disturb_on',
   'domain',
   'done_all',
@@ -121,46 +155,66 @@ export const ICON_NAMES: readonly IconName[] = [
   'edit_note',
   'error',
   'event',
+  'event_seat',
   'expand_less',
   'expand_more',
+  'extension',
   'filter_alt_off',
+  'forum',
+  'group',
   'handshake',
   'headset_mic',
   'help',
+  'history',
+  'hourglass_top',
   'image',
   'inbox',
+  'info',
   'key',
   'language',
   'left_panel_close',
   'left_panel_open',
   'light_mode',
+  'lightbulb',
+  'location_on',
   'lock',
   'lock_clock',
+  'lock_open',
   'mail',
+  'menu',
   'mic',
   'more_horiz',
   'more_vert',
   'network_check',
   'notifications',
+  'open_in_new',
   'open_with',
   'passkey',
   'pause',
   'pause_circle',
+  'payments',
+  'person_add',
   'phone_iphone',
   'play_arrow',
   'public',
+  'radio_button_unchecked',
   'record_voice_over',
   'remove',
   'schedule',
   'search',
+  'search_off',
   'send',
   'signal_cellular_alt',
   'smartphone',
   'sms',
+  'space_dashboard',
+  'support_agent',
+  'task_alt',
   'timer',
   'timer_off',
   'touch_app',
   'translate',
+  'tune',
   'upload_file',
   'verified',
   'verified_user',

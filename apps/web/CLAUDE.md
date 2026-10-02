@@ -12,11 +12,21 @@ Next.js App Router shell. Routes today:
 | `/` | `P01/1`, `1a`, `1b`, `1d` | Sign in and its failure states |
 | `/sso` | `P01/1c` | SSO by email domain |
 | `/verify` | `P01/2`, `2a`, `2b` | Second factor |
+| `/admin` | `P02/A`, `A1` | Admin home and the settings menu |
+| `/admin/programmes` | `P02/B`, `B1` | Programmes list and its first-run empty state |
+| `/admin/programmes/[id]` | `P02/B2`–`B5` | Tabs via `?tab=overview\|agents\|sla\|dispositions` |
 | `/contacts/[id]` | — | Scaffolding. Exists so the tenancy e2e test can tamper with a **web** URL; replace it when M4 builds the real screen. |
 | `/design/tokens` | — | The token gallery. It used to be at `/`. |
 
 `P01/3`, `P01/4` and the onboarding wizard (`P01/5.1`–`5.5`, `P01/6`) are not
-built — see `team/reports/T-0007.md`.
+built — see `team/reports/T-0007.md`. `P02/B6`–`B9`, `C`–`C3`, `D`, `D1` and
+`E`–`E2` are not built — see `team/reports/P02.md`.
+
+Every admin read goes through `lib/admin-api.ts`, parsed with Zod, and every
+screen renders its four states through `components/admin/panel.tsx`. Three
+fields in that contract are nullable because the system does not know the
+answer — agent `presence`, skill-cover `needed`, disposition `usageCount90d` —
+and **null renders as "not known", never as "Offline", "0%" or "0 times".**
 
 ## Invariants
 

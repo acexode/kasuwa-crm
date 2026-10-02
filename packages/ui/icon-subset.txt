@@ -82,3 +82,33 @@ verified_user
 visibility
 visibility_off
 warning
+
+# Material Symbols Rounded icons used by the P02 admin console.
+# Extracted from docs/design/P02/Kasuwa Admin Screen.dc.html.
+add
+archive
+auto_awesome
+bolt
+cloud
+database
+dialpad
+event_seat
+extension
+forum
+group
+history
+hourglass_top
+info
+lightbulb
+location_on
+lock_open
+menu
+open_in_new
+payments
+person_add
+radio_button_unchecked
+search_off
+space_dashboard
+support_agent
+task_alt
+tune

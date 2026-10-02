@@ -1,0 +1,206 @@
+/**
+ * Formatting and parsing for the admin console, kept pure so it can be tested
+ * without a browser.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY DURATIONS ARE PARSED AND NOT TYPED AS SECONDS
+ *
+ * `docs/api/admin.openapi.yaml` is explicit: an SLA target is an integer number
+ * of seconds on the wire, never the string "2 min". The design (`P02/B4`) shows
+ * a free-text field, and it is right to \u2014 "2 min" is what an operations manager
+ * writes in a contract schedule, and a spin box counting to 86400 is not.
+ *
+ * So the client owns the translation between the two, and that has an i18n trap
+ * in it: an English developer writes an alias table of `sec / min / h` and a
+ * Hausa or French user's input silently fails to parse. The accepted suffixes
+ * are therefore derived from `Intl.NumberFormat`'s own CLDR unit names for the
+ * ACTIVE LOCALE, with the ASCII English forms always accepted on top \u2014 because
+ * a BPO contract schedule is very often written in English even when the
+ * workspace is not.
+ * ---------------------------------------------------------------------------
+ */
+
+export type DurationUnit = 'second' | 'minute' | 'hour' | 'day';
+
+const UNIT_SECONDS: Readonly<Record<DurationUnit, number>> = {
+  second: 1,
+  minute: 60,
+  hour: 3_600,
+  day: 86_400,
+};
+
+/** Always accepted, whatever the locale. See the note above. */
+const ASCII_ALIASES: ReadonlyArray<readonly [string, DurationUnit]> = [
+  ['s', 'second'],
+  ['sec', 'second'],
+  ['secs', 'second'],
+  ['second', 'second'],
+  ['seconds', 'second'],
+  ['m', 'minute'],
+  ['min', 'minute'],
+  ['mins', 'minute'],
+  ['minute', 'minute'],
+  ['minutes', 'minute'],
+  ['h', 'hour'],
+  ['hr', 'hour'],
+  ['hrs', 'hour'],
+  ['hour', 'hour'],
+  ['hours', 'hour'],
+  ['d', 'day'],
+  ['day', 'day'],
+  ['days', 'day'],
+];
+
+/**
+ * Digits a person may actually type. Arabic-Indic and Eastern Arabic-Indic are
+ * here because `ar` is a registered locale and the whole point of registering
+ * it is that RTL is exercised against something real.
+ */
+function normaliseDigits(text: string): string {
+  return text.replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (character) => {
+    const code = character.codePointAt(0) ?? 0;
+    const base = code >= 0x06f0 ? 0x06f0 : 0x0660;
+    return String(code - base);
+  });
+}
+
+/** The unit words CLDR uses for `locale`, short and long, lower-cased. */
+function localeAliases(locale: string): Map<string, DurationUnit> {
+  const aliases = new Map<string, DurationUnit>();
+
+  for (const [alias, unit] of ASCII_ALIASES) {
+    aliases.set(alias, unit);
+  }
+
+  for (const unit of Object.keys(UNIT_SECONDS) as DurationUnit[]) {
+    for (const unitDisplay of ['short', 'long', 'narrow'] as const) {
+      try {
+        const rendered = new Intl.NumberFormat(locale, {
+          style: 'unit',
+          unit,
+          unitDisplay,
+        }).format(1);
+        const word = rendered.replace(/[0-9\u0660-\u0669\u06F0-\u06F9\s\u00A0]/g, '').toLowerCase();
+        if (word !== '') aliases.set(word, unit);
+      } catch {
+        // A runtime without the unit data is not a reason to fail the screen;
+        // the ASCII aliases above still parse everything the design shows.
+      }
+    }
+  }
+
+  return aliases;
+}
+
+/**
+ * Seconds as the shortest whole unit that divides them exactly \u2014 86400 is
+ * "24 h", not "1440 min". Rendered through `Intl`, so the unit word is CLDR's
+ * and not a string this repository would have to translate nine times.
+ */
+export function formatDuration(locale: string, seconds: number): string {
+  const unit: DurationUnit =
+    seconds % UNIT_SECONDS.day === 0 && seconds >= UNIT_SECONDS.day
+      ? 'day'
+      : seconds % UNIT_SECONDS.hour === 0 && seconds >= UNIT_SECONDS.hour
+        ? 'hour'
+        : seconds % UNIT_SECONDS.minute === 0 && seconds >= UNIT_SECONDS.minute
+          ? 'minute'
+          : 'second';
+
+  const value = seconds / UNIT_SECONDS[unit];
+  try {
+    return new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'short' }).format(
+      value,
+    );
+  } catch {
+    return `${value}`;
+  }
+}
+
+/**
+ * `null` when the text is not a duration. The caller marks the field invalid \u2014
+ * it does NOT guess, because guessing "2" means minutes turns a 2-second
+ * first-response target into a contractual number nobody chose.
+ */
+export function parseDuration(locale: string, text: string): number | null {
+  const normalised = normaliseDigits(text).trim().toLowerCase().replace(/\u00A0/g, ' ');
+  const match = /^([0-9]+(?:[.,][0-9]+)?)\s*([^\s0-9]*)$/.exec(normalised);
+  if (match === null) return null;
+
+  const [, rawNumber = '', rawUnit = ''] = match;
+  const amount = Number(rawNumber.replace(',', '.'));
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+
+  const unit = localeAliases(locale).get(rawUnit.replace(/[.]/g, ''));
+  if (unit === undefined) return null;
+
+  const seconds = Math.round(amount * UNIT_SECONDS[unit]);
+  return seconds >= 1 ? seconds : null;
+}
+
+/** A percentage with one decimal, the way the contract sends SLA attainment. */
+export function formatPercent(locale: string, value: number, decimals = 1): string {
+  return new Intl.NumberFormat(locale, {
+    style: 'percent',
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(value / 100);
+}
+
+export function formatCount(locale: string, value: number): string {
+  return new Intl.NumberFormat(locale).format(value);
+}
+
+/**
+ * A usage meter's own unit, rendered. `byte` is the only one that needs a
+ * magnitude \u2014 the contract sends bytes and the design shows "312 GB" \u2014 and
+ * `Intl` does the unit word so no catalogue key is invented for "GB".
+ */
+export function formatMeter(locale: string, value: number, unit: string): string {
+  if (unit === 'byte') {
+    const gigabytes = value / 1_000_000_000;
+    return new Intl.NumberFormat(locale, {
+      style: 'unit',
+      unit: 'gigabyte',
+      unitDisplay: 'short',
+      maximumFractionDigits: 0,
+    }).format(gigabytes);
+  }
+  return formatCount(locale, value);
+}
+
+/**
+ * Money, from minor units and an ISO code. **Never a hard-coded symbol** \u2014
+ * `Intl` knows that `NGN` is `\u20A6` in `en-NG` and `NGN` in `de`, and guessing is
+ * how a currency symbol ends up wrong in the one market that cares.
+ */
+export function formatMoney(locale: string, amountMinor: string, currency: string): string {
+  const minor = Number(amountMinor);
+  if (!Number.isFinite(minor)) return '';
+  // Two minor digits for every currency in scope (NGN, GHS, KES, ZAR).
+  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(minor / 100);
+}
+
+/**
+ * A timestamp in a NAMED zone. `CLAUDE.md` section 4: the database is UTC and
+ * the edges convert explicitly. A BPO roster spans WAT, EAT and SAST, so "the
+ * date" is never unambiguous and the zone is shown, not assumed.
+ */
+export function formatDateTime(locale: string, iso: string, timeZone?: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    ...(timeZone === undefined ? {} : { timeZone }),
+  }).format(date);
+}
+
+export function formatDate(locale: string, iso: string, timeZone?: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: 'medium',
+    ...(timeZone === undefined ? {} : { timeZone }),
+  }).format(date);
+}
