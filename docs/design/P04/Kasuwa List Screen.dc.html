@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&amp;display=block">
+</helmet>
+<div style="width:100%;height:100%;display:flex;flex-direction:column;background:var(--k-bg);color:var(--k-text);font-family:'Noto Sans',system-ui,sans-serif;font-size:14px;overflow:hidden;position:relative">
+
+<sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}"><div onClick="{{ closeMenu }}" style="position:absolute;inset:0;z-index:25"></div></sc-if>
+
+<sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+<header style="height:60px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px 0 16px;background:var(--k-surface);border-bottom:1px solid var(--k-border)">
+  <span style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span style="width:32px;height:32px;border-radius:8px;background:var(--k-primary);color:var(--k-accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px">K</span><b style="font-size:16px">Kasuwa</b></span>
+  <span style="flex:0 1 420px;margin-left:20px;display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:8px;background:var(--k-surface-sunken);color:var(--k-text-muted);font-size:14px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">search</span>Search contacts, deals, tickets, numbers…<span style="flex:1"></span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:2px 6px;border:1px solid var(--k-border-strong);border-radius:4px">Ctrl K</span></span>
+  <span style="flex:1"></span>
+  <sc-if value="{{ bpo }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 10px;border-radius:999px;background:var(--k-success-soft);color:var(--k-success-text);font-size:13px;font-weight:700"><span style="width:8px;height:8px;border-radius:50%;background:var(--k-success)"></span>Available</span></sc-if>
+  <button aria-label="Notifications" style="width:44px;height:44px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">notifications</span></button>
+  <span aria-label="Kemi Adewale" style="width:36px;height:36px;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">KA</span>
+</header>
+
+<div style="flex:1;min-height:0;display:flex">
+  <nav aria-label="Main" style="width:72px;flex-shrink:0;background:var(--k-surface-sunken);border-right:1px solid var(--k-border);padding:12px 0;display:flex;flex-direction:column;align-items:center;gap:4px">
+    <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="8">
+      <span aria-current="{{ n.cur }}" style="width:56px;min-height:52px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:{{ n.bg }};color:{{ n.fg }};font-size:10px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">{{ n.icon }}</span>{{ n.label }}</span>
+    </sc-for>
+  </nav>
+
+  <main style="flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;position:relative">
+
+    <sc-if value="{{ offline }}" hint-placeholder-val="{{ false }}">
+      <div role="status" style="margin:16px 24px 0;display:flex;align-items:center;gap:12px;padding:10px 10px 10px 16px;border-radius:10px;background:var(--k-inverse);color:var(--k-on-inverse);font-size:14px;line-height:20px">
+        <span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">cloud_off</span>
+        <span style="flex:1"><b>You're offline.</b> Showing {{ totalCount }} cached {{ manyLower }} · Last synced <span style="font-family:'JetBrains Mono',monospace">10:42 WAT</span>. Edits are queued and sync when you reconnect.</span>
+        <button style="height:36px;padding:0 14px;border-radius:8px;border:1px solid currentColor;background:transparent;color:inherit;font-family:inherit;font-size:13px;font-weight:700">Retry</button>
+      </div>
+    </sc-if>
+
+    <div style="padding:16px 24px 12px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <h1 style="margin:0;font-size:28px;line-height:36px;font-weight:800;letter-spacing:-.01em">{{ objLabel }}</h1>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;padding:3px 8px;border-radius:6px;background:var(--k-surface-sunken);color:var(--k-text-2)">{{ totalCountFmt }}</span>
+        <sc-if value="{{ bpo }}" hint-placeholder-val="{{ false }}">
+          <button aria-label="Programme: Bank X – Collections. Change programme" style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 8px 0 10px;border-radius:999px;border:1px solid var(--k-accent);background:var(--k-accent-soft);color:var(--k-accent-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">work</span>Programme: Bank X – Collections<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">expand_more</span></button>
+        </sc-if>
+        <div style="position:relative">
+          <button onClick="{{ toggleSaved }}" aria-haspopup="menu" aria-expanded="{{ savedExpanded }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 8px 0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-2)">bookmark</span>{{ savedLabel }}<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">expand_more</span></button>
+          <sc-if value="{{ savedOpen }}" hint-placeholder-val="{{ false }}">
+            <div role="menu" style="position:absolute;top:42px;left:0;z-index:30;width:300px;padding:6px;border-radius:10px;background:var(--k-surface);border:1px solid var(--k-border);box-shadow:var(--k-shadow-2);display:flex;flex-direction:column">
+              <span style="padding:8px 10px 6px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Saved views</span>
+              <sc-for list="{{ savedViews }}" as="v" hint-placeholder-count="6">
+                <button role="menuitemradio" aria-checked="{{ v.checked }}" onClick="{{ v.pick }}" style="display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px;border:0;border-radius:6px;background:{{ v.bg }};color:var(--k-text);font-family:inherit;font-size:14px;text-align:left;cursor:pointer"><span style="width:18px;font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-primary-text)">{{ v.ck }}</span><span style="flex:1">{{ v.label }}</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--k-text-muted)">{{ v.count }}</span></button>
+              </sc-for>
+              <span style="height:1px;background:var(--k-border);margin:6px 0"></span>
+              <button onClick="{{ saveView }}" style="display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:14px;font-weight:600;text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">bookmark_add</span>Save current filters as a view…</button>
+            </div>
+          </sc-if>
+        </div>
+        <span style="flex:1"></span>
+        <div role="group" aria-label="View" style="display:flex;gap:2px;padding:3px;border-radius:10px;background:var(--k-surface-sunken)">
+          <sc-for list="{{ views }}" as="v" hint-placeholder-count="4">
+            <button onClick="{{ v.pick }}" aria-pressed="{{ v.pressed }}" style="display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px;border-radius:7px;border:0;background:{{ v.bg }};box-shadow:{{ v.sh }};color:{{ v.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ v.icon }}</span>{{ v.label }}</button>
+          </sc-for>
+        </div>
+        <div style="position:relative">
+          <button onClick="{{ toggleIo }}" aria-haspopup="menu" aria-expanded="{{ ioExpanded }}" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 10px 0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">import_export</span>Import / export<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">expand_more</span></button>
+          <sc-if value="{{ ioOpen }}" hint-placeholder-val="{{ false }}">
+            <div role="menu" style="position:absolute;top:46px;right:0;z-index:30;width:300px;padding:6px;border-radius:10px;background:var(--k-surface);border:1px solid var(--k-border);box-shadow:var(--k-shadow-2);display:flex;flex-direction:column">
+              <sc-for list="{{ ioItems }}" as="m" hint-placeholder-count="6">
+                <sc-if value="{{ m.sep }}" hint-placeholder-val="{{ false }}"><span style="height:1px;background:var(--k-border);margin:6px 0"></span></sc-if>
+                <button role="menuitem" onClick="{{ m.act }}" disabled="{{ m.disabled }}" style="display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:{{ m.fg }};font-family:inherit;font-size:14px;text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ m.icon }}</span><span style="flex:1">{{ m.label }}</span><span style="font-size:12px;color:var(--k-text-muted)">{{ m.hint }}</span></button>
+              </sc-for>
+              <sc-if value="{{ restricted }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:6px;padding:8px 10px 4px;font-size:12px;line-height:17px;color:var(--k-text-muted)"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">lock</span>Locked columns are left out of exports.</span></sc-if>
+            </div>
+          </sc-if>
+        </div>
+        <button onClick="{{ newRec }}" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 16px 0 12px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">add</span>{{ newLabel }}</button>
+      </div>
+      <sc-if value="{{ bpo }}" hint-placeholder-val="{{ false }}">
+        <span style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:19px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:var(--k-text-muted)">lock</span>Only <b style="color:var(--k-text)">Bank X – Collections</b> records are visible — {{ totalCountFmt }} {{ manyLower }} in this programme. Other programmes are hidden by your role.</span>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ showFilterBar }}" hint-placeholder-val="{{ true }}">
+      <div role="search" style="padding:0 24px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:8px;width:280px;height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text-muted)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">search</span><input value="{{ q }}" onChange="{{ onQ }}" aria-label="{{ searchLabel }}" placeholder="{{ searchPh }}" style="flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;color:var(--k-text);font-family:inherit;font-size:14px"></label>
+        <sc-for list="{{ fChips }}" as="f" hint-placeholder-count="7">
+          <div style="position:relative">
+            <button onClick="{{ f.toggle }}" aria-haspopup="true" aria-expanded="{{ f.expanded }}" aria-label="{{ f.aria }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 8px 0 10px;border-radius:999px;border:1px solid {{ f.bd }};background:{{ f.bg }};color:{{ f.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">{{ f.icon }}</span>{{ f.text }}<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">expand_more</span></button>
+            <sc-if value="{{ f.open }}" hint-placeholder-val="{{ false }}">
+              <div role="menu" style="position:absolute;top:42px;left:0;z-index:30;width:272px;padding:6px;border-radius:10px;background:var(--k-surface);border:1px solid var(--k-border);box-shadow:var(--k-shadow-2);display:flex;flex-direction:column">
+                <span style="padding:8px 10px 6px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">{{ f.label }}</span>
+                <sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="4">
+                  <button role="menuitemcheckbox" aria-checked="{{ o.checked }}" onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--k-text);font-family:inherit;font-size:14px;text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:{{ o.boxFg }}">{{ o.box }}</span><sc-if value="{{ o.hasOi }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-2)">{{ o.oi }}</span></sc-if><span style="flex:1">{{ o.label }}</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--k-text-muted)">{{ o.count }}</span></button>
+                </sc-for>
+                <div style="display:flex;justify-content:space-between;gap:8px;padding:8px 4px 2px;border-top:1px solid var(--k-border);margin-top:6px"><button onClick="{{ f.clearAll }}" style="height:36px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--k-text-2);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Clear</button><button onClick="{{ closeMenu }}" style="height:36px;padding:0 14px;border:0;border-radius:6px;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Done</button></div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <sc-if value="{{ anyFilter }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearFilters }}" style="height:36px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px">Clear all</button></sc-if>
+        <span style="flex:1"></span>
+        <sc-if value="{{ isTable }}" hint-placeholder-val="{{ true }}">
+          <div style="position:relative">
+            <button onClick="{{ toggleCols }}" aria-haspopup="menu" aria-expanded="{{ colsExpanded }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px 0 10px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">view_column</span>Columns</button>
+            <sc-if value="{{ colsOpen }}" hint-placeholder-val="{{ false }}">
+              <div role="menu" style="position:absolute;top:42px;right:0;z-index:30;width:280px;padding:6px;border-radius:10px;background:var(--k-surface);border:1px solid var(--k-border);box-shadow:var(--k-shadow-2);display:flex;flex-direction:column">
+                <span style="padding:8px 10px 6px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Show columns</span>
+                <span style="display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px;font-size:14px;color:var(--k-text-muted)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">check_box</span><span style="flex:1">{{ nameCol }}</span><span style="font-size:12px">Always</span></span>
+                <sc-for list="{{ colItems }}" as="k" hint-placeholder-count="9">
+                  <button role="menuitemcheckbox" aria-checked="{{ k.checked }}" onClick="{{ k.pick }}" style="display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--k-text);font-family:inherit;font-size:14px;text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-muted)">drag_indicator</span><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:{{ k.boxFg }}">{{ k.box }}</span><span style="flex:1">{{ k.label }}</span><sc-if value="{{ k.locked }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;color:var(--k-text-muted)"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">lock</span>Supervisor</span></sc-if></button>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+      <div role="toolbar" aria-label="Bulk actions" style="margin:0 24px 10px;display:flex;align-items:center;gap:2px;flex-wrap:wrap;min-height:48px;padding:4px 6px 4px 16px;border-radius:10px;background:var(--k-inverse);color:var(--k-on-inverse)">
+        <b style="font-size:14px;margin-right:6px">{{ selCount }} selected</b>
+        <button onClick="{{ selectAll }}" style="height:40px;padding:0 8px;border:0;background:transparent;color:inherit;font-family:inherit;font-size:13px;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer">{{ selectAllLabel }}</button>
+        <span style="width:1px;height:24px;background:currentColor;opacity:.3;margin:0 8px"></span>
+        <sc-for list="{{ bulk }}" as="b" hint-placeholder-count="5">
+          <div style="position:relative">
+            <button onClick="{{ b.act }}" disabled="{{ b.disabled }}" title="{{ b.title }}" aria-haspopup="{{ b.popup }}" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 10px;border:0;border-radius:8px;background:{{ b.bg }};color:inherit;opacity:{{ b.op }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:19px;line-height:1">{{ b.icon }}</span>{{ b.label }}</button>
+            <sc-if value="{{ b.open }}" hint-placeholder-val="{{ false }}">
+              <div role="menu" style="position:absolute;top:46px;left:0;z-index:30;width:290px;padding:6px;border-radius:10px;background:var(--k-surface);color:var(--k-text);border:1px solid var(--k-border);box-shadow:var(--k-shadow-2);display:flex;flex-direction:column">
+                <span style="padding:8px 10px 6px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">{{ b.menuTitle }}</span>
+                <sc-for list="{{ b.opts }}" as="o" hint-placeholder-count="3">
+                  <button role="menuitem" onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--k-text);font-family:inherit;font-size:14px;text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-2)">{{ o.icon }}</span>{{ o.label }}</button>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <span style="flex:1"></span>
+        <button onClick="{{ clearSel }}" aria-label="Clear selection" style="width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">close</span></button>
+      </div>
+    </sc-if>
+
+    <div style="flex:1;min-height:0;display:flex;flex-direction:column;padding:0 24px">
+
+      <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+        <div aria-busy="true" aria-label="{{ loadingLabel }}" style="flex:1;min-height:0;border:1px solid var(--k-border);border-radius:12px;background:var(--k-surface);overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:40px;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border)"></div>
+          <sc-for list="{{ skel }}" as="s" hint-placeholder-count="12">
+            <div style="display:grid;grid-template-columns:44px 260px 230px 60px 210px 170px 150px minmax(0,1fr);align-items:center;height:52px;border-bottom:1px solid var(--k-border);padding-right:12px">
+              <span style="width:18px;height:18px;margin-left:13px;border-radius:4px;background:var(--k-surface-sunken)"></span>
+              <span style="display:flex;align-items:center;gap:10px;padding:0 12px"><span style="width:32px;height:32px;border-radius:50%;background:var(--k-surface-sunken)"></span><span style="display:flex;flex-direction:column;gap:6px;flex:1"><span style="height:11px;width:{{ s.w1 }}%;border-radius:4px;background:var(--k-surface-sunken)"></span><span style="height:9px;width:{{ s.w2 }}%;border-radius:4px;background:var(--k-surface-sunken)"></span></span></span>
+              <span style="height:11px;width:75%;margin:0 12px;border-radius:4px;background:var(--k-surface-sunken)"></span>
+              <span style="width:24px;height:24px;margin:0 auto;border-radius:50%;background:var(--k-surface-sunken)"></span>
+              <span style="height:11px;width:{{ s.w3 }}%;margin:0 12px;border-radius:4px;background:var(--k-surface-sunken)"></span>
+              <span style="height:11px;width:60%;margin:0 12px;border-radius:4px;background:var(--k-surface-sunken)"></span>
+              <span style="height:6px;width:70%;margin:0 12px;border-radius:3px;background:var(--k-surface-sunken)"></span>
+              <span style="height:22px;width:{{ s.w4 }}px;margin:0 12px;border-radius:4px;background:var(--k-surface-sunken)"></span>
+            </div>
+          </sc-for>
+          <span role="status" style="padding:12px 16px;font-size:13px;color:var(--k-text-muted)">{{ loadingLabel }}</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:8px 0 48px">
+          <div style="width:100%;max-width:900px;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center">
+            <span style="width:72px;height:72px;border-radius:50%;background:var(--k-primary-soft);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:36px;line-height:1">{{ objIcon }}</span></span>
+            <div style="display:flex;flex-direction:column;gap:8px;align-items:center"><h2 style="margin:0;font-size:28px;line-height:36px;font-weight:800">No {{ manyLower }} yet</h2><p style="margin:0;max-width:600px;font-size:16px;line-height:24px;color:var(--k-text-2);text-wrap:pretty">{{ emptyBody }}</p></div>
+            <div style="width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;text-align:left">
+              <div style="display:flex;flex-direction:column;gap:10px;padding:22px;border-radius:12px;background:var(--k-surface);border:1px solid var(--k-border)">
+                <span style="display:flex;align-items:center;gap:10px"><span style="width:40px;height:40px;border-radius:10px;background:var(--k-surface-sunken);color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">upload_file</span></span><b style="font-size:17px;line-height:24px">Bring your existing {{ manyLower }}</b></span>
+                <span style="font-size:14px;line-height:21px;color:var(--k-text-2);text-wrap:pretty">We map fields, reformat numbers to +234, detect the network and flag duplicates before anything is saved.</span>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+                  <button style="display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 14px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:19px;line-height:1">upload</span>Import CSV</button>
+                  <button style="height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600">From Zoho CRM</button>
+                  <button style="height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600">From Salesforce</button>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px;padding:22px;border-radius:12px;background:var(--k-surface);border:1px solid var(--k-border)">
+                <span style="display:flex;align-items:center;gap:10px"><span style="width:40px;height:40px;border-radius:10px;background:var(--k-success-soft);color:var(--k-success-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">chat</span></span><b style="font-size:17px;line-height:24px">Capture {{ manyLower }} from WhatsApp</b></span>
+                <span style="font-size:14px;line-height:21px;color:var(--k-text-2);text-wrap:pretty">Anyone who messages your WhatsApp Business number becomes a {{ one }}, with opt-in recorded. USSD and missed-call lines work the same way.</span>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+                  <button style="display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:19px;line-height:1">link</span>Connect WhatsApp number</button>
+                  <button style="height:44px;padding:0 12px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:14px;font-weight:700">Set up USSD or missed call</button>
+                </div>
+              </div>
+            </div>
+            <span style="font-size:13px;color:var(--k-text-muted)">Not sure about the format? <a href="#">Download the CSV template</a></span>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ noRes }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;border:1px solid var(--k-border);border-radius:12px;background:var(--k-surface);display:flex;align-items:center;justify-content:center;padding:32px">
+          <div style="max-width:520px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+            <span style="width:56px;height:56px;border-radius:50%;background:var(--k-surface-sunken);color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:28px;line-height:1">search_off</span></span>
+            <h2 style="margin:0;font-size:22px;line-height:30px;font-weight:700">No {{ manyLower }} match</h2>
+            <p style="margin:0;font-size:15px;line-height:23px;color:var(--k-text-2);text-wrap:pretty">{{ noResBody }}</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:4px">
+              <button onClick="{{ clearAllSearch }}" style="height:44px;padding:0 16px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Clear search and filters</button>
+              <sc-if value="{{ anyFilter }}" hint-placeholder-val="{{ true }}"><button onClick="{{ removeLast }}" style="height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Remove last filter</button></sc-if>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showTable }}" hint-placeholder-val="{{ true }}">
+        <div role="grid" aria-label="{{ objLabel }}" aria-rowcount="{{ filteredCount }}" style="flex:1;min-height:0;border:1px solid var(--k-border);border-radius:12px 12px 0 0;background:var(--k-surface);overflow:auto;position:relative">
+          <div role="row" style="position:sticky;top:0;z-index:3;display:grid;grid-template-columns:{{ gridCols }};width:max-content;min-width:100%">
+            <div style="position:sticky;left:0;z-index:4;height:40px;display:flex;align-items:center;justify-content:center;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border)"><button onClick="{{ toggleAll }}" role="checkbox" aria-checked="{{ headChecked }}" aria-label="Select all on this page" style="width:36px;height:36px;border:0;background:transparent;color:{{ headFg }};display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ headBox }}</span></button></div>
+            <div role="columnheader" style="position:sticky;left:44px;z-index:4;height:40px;display:flex;align-items:center;padding:0 12px;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border);box-shadow:inset -1px 0 0 var(--k-border);font-size:12px;font-weight:700;color:var(--k-text-2)">{{ nameCol }}</div>
+            <sc-for list="{{ heads }}" as="h" hint-placeholder-count="9">
+              <div role="columnheader" aria-label="{{ h.aria }}" style="height:40px;display:flex;align-items:center;justify-content:{{ h.justify }};gap:4px;padding:0 12px;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border);font-size:12px;font-weight:700;color:var(--k-text-2);white-space:nowrap">{{ h.label }}<sc-if value="{{ h.locked }}" hint-placeholder-val="{{ false }}"><span title="Your role can't view this field" style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:var(--k-text-muted)">lock</span></sc-if><sc-if value="{{ h.edit }}" hint-placeholder-val="{{ false }}"><span title="Click a cell to edit" style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1;color:var(--k-text-muted)">edit</span></sc-if></div>
+            </sc-for>
+            <div style="height:40px;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border)"></div>
+          </div>
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="14">
+            <div role="row" aria-selected="{{ r.checked }}" style="display:grid;grid-template-columns:{{ gridCols }};width:max-content;min-width:100%">
+              <div style="position:sticky;left:0;z-index:1;height:52px;display:flex;align-items:center;justify-content:center;background:{{ r.bg }};border-bottom:1px solid var(--k-border)"><button onClick="{{ r.toggle }}" role="checkbox" aria-checked="{{ r.checked }}" aria-label="{{ r.cbLabel }}" style="width:36px;height:36px;border:0;background:transparent;color:{{ r.boxFg }};display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ r.box }}</span></button></div>
+              <div role="gridcell" style="position:sticky;left:44px;z-index:1;height:52px;display:flex;align-items:center;gap:10px;min-width:0;padding:0 12px;background:{{ r.bg }};border-bottom:1px solid var(--k-border);box-shadow:inset -1px 0 0 var(--k-border)">
+                <span style="width:32px;height:32px;flex-shrink:0;border-radius:{{ avR }};background:var(--k-primary-soft-strong);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">{{ r.init }}</span>
+                <span style="min-width:0;display:flex;flex-direction:column"><b style="font-size:14px;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</b><span style="font-size:12px;line-height:16px;color:var(--k-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sub }}</span></span>
+                <sc-if value="{{ r.queued }}" hint-placeholder-val="{{ false }}"><span title="Queued — syncs when online" style="margin-left:auto;font-family:'Material Symbols Rounded';font-size:17px;line-height:1;color:var(--k-accent-text)">cloud_upload</span></sc-if>
+              </div>
+              <sc-if value="{{ show.phone }}" hint-placeholder-val="{{ true }}"><div role="gridcell" style="height:52px;display:flex;align-items:center;gap:6px;min-width:0;padding:0 12px;background:{{ r.bg }};border-bottom:1px solid var(--k-border)"><span style="font-family:'JetBrains Mono',monospace;font-size:13px;white-space:nowrap">{{ r.phone }}</span><span style="height:20px;padding:0 6px;display:inline-flex;align-items:center;border-radius:4px;border:1px solid var(--k-border);color:var(--k-text-2);font-size:11px;font-weight:700">{{ r.net }}</span><sc-if value="{{ r.dnd }}" hint-placeholder-val="{{ false }}"><span title="On the NCC Do-Not-Disturb list" style="height:20px;padding:0 6px;display:inline-flex;align-items:center;border-radius:4px;background:var(--k-danger-soft);color:var(--k-danger-text);font-size:11px;font-weight:700">DND</span></sc-if></div></sc-if>
+              <sc-if value="{{ show.wa }}" hint-placeholder-val="{{ true }}"><div role="gridcell" style="height:52px;display:flex;align-items:center;justify-content:center;background:{{ r.bg }};border-bottom:1px solid var(--k-border)"><sc-if value="{{ r.wa }}" hint-placeholder-val="{{ true }}"><span role="img" aria-label="WhatsApp opted in" title="WhatsApp opted in" style="width:28px;height:28px;border-radius:50%;background:var(--k-success-soft);color:var(--k-success-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">chat</span></span></sc-if><sc-if value="{{ r.noWa }}" hint-placeholder-val="{{ false }}"><span role="img" aria-label="Not opted in to WhatsApp" style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-muted)">remove</span></sc-if></div></sc-if>
+              <sc-if value="{{ show.email }}" hint-placeholder-val="{{ true }}"><div role="gridcell" style="height:52px;display:flex;align-items:center;gap:6px;min-width:0;padding:0 12px;background:{{ r.bg }};border-bottom:1px solid var(--k-border)"><sc-if value="{{ restricted }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;font-size:13px;color:var(--k-text-muted)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">lock</span>Restricted</span></sc-if><sc-if value="{{ open }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--k-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.email }}</span></sc-if></div></sc-if>
+              <sc-if value="{{ show.company }}" hint-placeholder-val="{{ true }}"><div role="gridcell" style="height:52px;display:flex;align-items:center;gap:6px;min-width:0;padding:0 12px;background:{{ r.bg }};border-bottom:1px solid var(--k-border)"><sc-if value="{{ restricted }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;font-size:13px;color:var(--k-text-muted)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">lock</span>Restricted</span></sc-if><sc-if value="{{ open }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.company }}</span></sc-if></div></sc-if>
+              <sc-if value="{{ show.owner }}" hint-placeholder-val="{{ true }}"><div role="gridcell" style="position:relative;height:52px;display:flex;align-items:center;padding:0 6px;background:{{ r.bg }};border-bottom:1px solid var(--k-border)">
+                <button onClick="{{ r.editOwner }}" aria-haspopup="listbox" aria-expanded="{{ r.ownerExp }}" aria-label="Owner: {{ r.ownerName }}. Change" style="display:flex;align-items:center;gap:8px;width:100%;height:36px;padding:0 6px;border:0;border-radius:6px;background:transparent;color:var(--k-text);font-family:inherit;font-size:13px;text-align:left;cursor:pointer" style-hover="background:var(--k-surface-sunken)">
+                  <sc-if value="{{ r.hasOwner }}" hint-placeholder-val="{{ true }}"><span style="width:24px;height:24px;flex-shrink:0;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">{{ r.ownerInit }}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.ownerName }}</span></sc-if>
+                  <sc-if value="{{ r.noOwner }}" hint-placeholder-val="{{ false }}"><span style="width:24px;height:24px;flex-shrink:0;border-radius:50%;border:1.5px dashed var(--k-border-strong)"></span><span style="color:var(--k-text-muted)">Unassigned</span></sc-if>
+                </button>
+                <sc-if value="{{ r.ownerOpen }}" hint-placeholder-val="{{ false }}">
+                  <div role="listbox" aria-label="Owner" style="position:absolute;top:46px;left:6px;z-index:30;width:220px;padding:6px;border-radius:10px;background:var(--k-surface);border:1px solid var(--k-border);box-shadow:var(--k-shadow-2);display:flex;flex-direction:column">
+                    <sc-for list="{{ r.ownerOpts }}" as="o" hint-placeholder-count="4">
+                      <button role="option" aria-selected="{{ o.sel }}" onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--k-text);font-family:inherit;font-size:14px;text-align:left;cursor:pointer"><span style="width:18px;font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-primary-text)">{{ o.ck }}</span>{{ o.label }}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div></sc-if>
+              <sc-if value="{{ show.act }}" hint-placeholder-val="{{ true }}"><div role="gridcell" style="height:52px;display:flex;align-items:center;gap:6px;padding:0 12px;background:{{ r.bg }};border-bottom:1px solid var(--k-border);font-size:13px;color:var(--k-text-2);white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:var(--k-text-muted)">{{ r.actIcon }}</span>{{ r.act }}</div></sc-if>
+              <sc-if value="{{ show.score }}" hint-placeholder-val="{{ true }}"><div role="gridcell" aria-label="{{ scoreCol }} {{ r.score }} of 100" style="height:52px;display:flex;align-items:center;gap:8px;padding:0 12px;background:{{ r.bg }};border-bottom:1px solid var(--k-border)"><span style="width:72px;height:6px;border-radius:3px;background:var(--k-surface-sunken);overflow:hidden"><span style="display:block;height:100%;width:{{ r.scoreW }};border-radius:3px;background:var(--k-primary)"></span></span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;min-width:20px">{{ r.score }}</span></div></sc-if>
+              <sc-if value="{{ show.tags }}" hint-placeholder-val="{{ true }}"><div role="gridcell" style="height:52px;display:flex;align-items:center;gap:4px;min-width:0;padding:0 12px;background:{{ r.bg }};border-bottom:1px solid var(--k-border);overflow:hidden"><sc-for list="{{ r.tagList }}" as="t" hint-placeholder-count="2"><span style="height:22px;padding:0 8px;display:inline-flex;align-items:center;border-radius:4px;background:var(--k-surface-sunken);color:var(--k-text-2);font-size:12px;font-weight:600;white-space:nowrap">{{ t }}</span></sc-for><sc-if value="{{ r.tagMore }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:600;color:var(--k-text-muted)">{{ r.tagMoreLabel }}</span></sc-if></div></sc-if>
+              <sc-if value="{{ show.status }}" hint-placeholder-val="{{ true }}"><div role="gridcell" style="position:relative;height:52px;display:flex;align-items:center;padding:0 10px;background:{{ r.bg }};border-bottom:1px solid var(--k-border)">
+                <button onClick="{{ r.editStatus }}" aria-haspopup="listbox" aria-expanded="{{ r.statusExp }}" aria-label="{{ statusCol }}: {{ r.status }}. Change" style="display:inline-flex;align-items:center;gap:2px;height:28px;padding:0 4px 0 10px;border:0;border-radius:999px;background:{{ r.stBg }};color:{{ r.stFg }};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">{{ r.status }}<span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">expand_more</span></button>
+                <sc-if value="{{ r.statusOpen }}" hint-placeholder-val="{{ false }}">
+                  <div role="listbox" aria-label="{{ statusCol }}" style="position:absolute;top:46px;right:6px;z-index:30;width:210px;padding:6px;border-radius:10px;background:var(--k-surface);border:1px solid var(--k-border);box-shadow:var(--k-shadow-2);display:flex;flex-direction:column">
+                    <sc-for list="{{ r.statusOpts }}" as="o" hint-placeholder-count="4">
+                      <button role="option" aria-selected="{{ o.sel }}" onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--k-text);font-family:inherit;font-size:14px;text-align:left;cursor:pointer"><span style="width:18px;font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-primary-text)">{{ o.ck }}</span><span style="height:24px;padding:0 10px;display:inline-flex;align-items:center;border-radius:999px;background:{{ o.bg }};color:{{ o.fg }};font-size:12px;font-weight:700">{{ o.label }}</span></button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div></sc-if>
+              <div style="height:52px;background:{{ r.bg }};border-bottom:1px solid var(--k-border)"></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="flex-shrink:0;display:flex;align-items:center;gap:12px;height:56px;padding:0 8px 0 16px;margin-bottom:16px;border:1px solid var(--k-border);border-top:0;border-radius:0 0 12px 12px;background:var(--k-surface);font-size:13px;color:var(--k-text-2)">
+          <span>Showing <b style="font-family:'JetBrains Mono',monospace;color:var(--k-text)">{{ rangeLabel }}</b></span>
+          <span style="flex:1"></span>
+          <span>Rows per page</span>
+          <div role="group" aria-label="Rows per page" style="display:flex;gap:2px;padding:3px;border-radius:8px;background:var(--k-surface-sunken)">
+            <sc-for list="{{ sizes }}" as="z" hint-placeholder-count="3"><button onClick="{{ z.pick }}" aria-pressed="{{ z.pressed }}" style="height:30px;min-width:40px;padding:0 8px;border-radius:6px;border:0;background:{{ z.bg }};box-shadow:{{ z.sh }};color:{{ z.fg }};font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;cursor:pointer">{{ z.label }}</button></sc-for>
+          </div>
+          <span style="width:1px;height:24px;background:var(--k-border)"></span>
+          <span>{{ pageLabel }}</span>
+          <button onClick="{{ prevPage }}" disabled="{{ prevDis }}" aria-label="Previous page" style="width:40px;height:40px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);color:var(--k-text);display:flex;align-items:center;justify-content:center;opacity:{{ prevOp }};cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">chevron_left</span></button>
+          <button onClick="{{ nextPage }}" disabled="{{ nextDis }}" aria-label="Next page" style="width:40px;height:40px;border:1px solid var(--k-border-strong);border-radius:8px;background:var(--k-surface);color:var(--k-text);display:flex;align-items:center;justify-content:center;opacity:{{ nextOp }};cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">chevron_right</span></button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showKanban }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:flex;gap:12px;overflow-x:auto;padding-bottom:16px">
+          <sc-for list="{{ kanban }}" as="k" hint-placeholder-count="4">
+            <section aria-label="{{ k.name }}" onDragOver="{{ k.over }}" onDrop="{{ k.drop }}" style="flex:0 0 296px;min-height:0;display:flex;flex-direction:column;border-radius:12px;background:var(--k-surface-sunken)">
+              <div style="display:flex;align-items:center;gap:8px;padding:12px 14px 8px"><span style="width:10px;height:10px;border-radius:50%;background:{{ k.dot }}"></span><b style="font-size:14px">{{ k.name }}</b><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--k-text-muted)">{{ k.count }}</span></div>
+              <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px 10px 12px">
+                <sc-for list="{{ k.cards }}" as="c" hint-placeholder-count="4">
+                  <article draggable="true" onDragStart="{{ c.drag }}" style="display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:10px;background:var(--k-surface);border:1px solid var(--k-border);box-shadow:var(--k-shadow-1);cursor:grab">
+                    <div style="display:flex;align-items:center;gap:8px"><span style="width:28px;height:28px;border-radius:{{ avR }};background:var(--k-primary-soft-strong);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">{{ c.init }}</span><b style="flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</b><sc-if value="{{ c.wa }}" hint-placeholder-val="{{ false }}"><span role="img" aria-label="WhatsApp opted in" style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1;color:var(--k-success-text)">chat</span></sc-if></div>
+                    <span style="font-size:12px;color:var(--k-text-2)">{{ c.company }}</span>
+                    <span style="display:flex;align-items:center;gap:6px"><span style="font-family:'JetBrains Mono',monospace;font-size:12px">{{ c.phone }}</span><span style="height:18px;padding:0 5px;display:inline-flex;align-items:center;border-radius:4px;border:1px solid var(--k-border);color:var(--k-text-2);font-size:10px;font-weight:700">{{ c.net }}</span></span>
+                    <div style="display:flex;align-items:center;gap:8px;padding-top:6px;border-top:1px solid var(--k-border)"><span style="width:48px;height:5px;border-radius:3px;background:var(--k-surface-sunken);overflow:hidden"><span style="display:block;height:100%;width:{{ c.scoreW }};background:var(--k-primary)"></span></span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600">{{ c.score }}</span><span style="flex:1"></span><span style="font-size:11px;color:var(--k-text-muted)">{{ c.act }}</span><span style="width:22px;height:22px;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">{{ c.ownerInit }}</span></div>
+                  </article>
+                </sc-for>
+                <sc-if value="{{ k.more }}" hint-placeholder-val="{{ false }}"><button style="height:40px;border:0;border-radius:8px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:700">{{ k.moreLabel }}</button></sc-if>
+              </div>
+            </section>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showMap }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px;padding-bottom:16px">
+          <div role="img" aria-label="{{ mapAria }}" style="position:relative;border-radius:12px;border:1px solid var(--k-border);background-color:var(--k-surface-sunken);background-image:linear-gradient(var(--k-border) 1px,transparent 1px),linear-gradient(90deg,var(--k-border) 1px,transparent 1px);background-size:48px 48px;overflow:hidden">
+            <span style="position:absolute;top:12px;left:12px;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:8px;background:var(--k-surface);box-shadow:var(--k-shadow-1);font-size:12px;font-weight:600;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">layers</span>Grouped by State · map tiles off in lite mode</span>
+            <sc-for list="{{ pins }}" as="p" hint-placeholder-count="7">
+              <button onClick="{{ p.pick }}" aria-label="{{ p.aria }}" style="position:absolute;left:{{ p.x }}%;top:{{ p.y }}%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:4px;border:0;background:transparent;font-family:inherit;cursor:pointer">
+                <span style="width:{{ p.size }}px;height:{{ p.size }}px;border-radius:50%;background:{{ p.bg }};color:var(--k-on-primary);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;box-shadow:0 0 0 4px var(--k-surface),var(--k-shadow-2)">{{ p.count }}</span>
+                <span style="padding:1px 6px;border-radius:4px;background:var(--k-surface);font-size:12px;font-weight:700;color:var(--k-text)">{{ p.name }}</span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="border-radius:12px;border:1px solid var(--k-border);background:var(--k-surface);display:flex;flex-direction:column;min-height:0">
+            <div style="padding:14px 16px;border-bottom:1px solid var(--k-border);display:flex;flex-direction:column;gap:2px"><b style="font-size:15px">By State</b><span style="font-size:12px;color:var(--k-text-muted)">{{ filteredCount }} {{ manyLower }} · click a State to filter</span></div>
+            <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column">
+              <sc-for list="{{ pins }}" as="p" hint-placeholder-count="7">
+                <button onClick="{{ p.pick }}" style="display:grid;grid-template-columns:96px minmax(0,1fr) 40px;align-items:center;gap:10px;min-height:48px;padding:0 16px;border:0;border-bottom:1px solid var(--k-border);background:{{ p.rowBg }};color:var(--k-text);font-family:inherit;font-size:13px;text-align:left;cursor:pointer"><b>{{ p.name }}</b><span style="height:8px;border-radius:4px;background:var(--k-surface-sunken);overflow:hidden"><span style="display:block;height:100%;width:{{ p.pct }}%;background:var(--k-primary)"></span></span><span style="font-family:'JetBrains Mono',monospace;text-align:right">{{ p.count }}</span></button>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showSplit }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:grid;grid-template-columns:380px minmax(0,1fr);border:1px solid var(--k-border);border-radius:12px;background:var(--k-surface);overflow:hidden;margin-bottom:16px">
+          <div role="listbox" aria-label="{{ objLabel }}" style="min-height:0;overflow-y:auto;border-right:1px solid var(--k-border)">
+            <sc-for list="{{ splitRows }}" as="r" hint-placeholder-count="10">
+              <button role="option" aria-selected="{{ r.active }}" onClick="{{ r.pick }}" style="width:100%;display:flex;align-items:center;gap:10px;min-height:64px;padding:8px 14px;border:0;border-bottom:1px solid var(--k-border);background:{{ r.bg }};box-shadow:{{ r.sh }};color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer">
+                <span style="width:36px;height:36px;flex-shrink:0;border-radius:{{ avR }};background:var(--k-primary-soft-strong);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">{{ r.init }}</span>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:center;gap:6px"><b style="flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</b><span style="font-size:11px;color:var(--k-text-muted);white-space:nowrap">{{ r.act }}</span></span><span style="display:flex;align-items:center;gap:6px"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--k-text-2)">{{ r.phone }}</span><sc-if value="{{ r.wa }}" hint-placeholder-val="{{ false }}"><span role="img" aria-label="WhatsApp opted in" style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:var(--k-success-text)">chat</span></sc-if></span></span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="min-height:0;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:20px">
+            <div style="display:flex;align-items:center;gap:14px">
+              <span style="width:56px;height:56px;border-radius:{{ avRL }};background:var(--k-primary-soft-strong);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700">{{ d.init }}</span>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><h2 style="margin:0;font-size:22px;line-height:30px;font-weight:700">{{ d.name }}</h2><span style="font-size:14px;color:var(--k-text-2)">{{ d.company }} · {{ d.geo }}</span></div>
+              <button style="height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600">Open record</button>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px;border-radius:999px;background:{{ d.stBg }};color:{{ d.stFg }};font-size:12px;font-weight:700">{{ d.status }}</span>
+              <sc-if value="{{ d.wa }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px;border-radius:999px;background:var(--k-success-soft);color:var(--k-success-text);font-size:12px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">verified</span>WhatsApp opt-in</span></sc-if>
+              <sc-if value="{{ d.dnd }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px;border-radius:999px;background:var(--k-danger-soft);color:var(--k-danger-text);font-size:12px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">block</span>DND · no promo SMS</span></sc-if>
+              <span style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px;border-radius:999px;background:var(--k-surface-sunken);color:var(--k-text-2);font-size:12px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">translate</span>{{ d.lang }}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+              <button style="height:48px;border-radius:10px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">call</span>Call</button>
+              <button style="height:48px;border-radius:10px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">chat</span>WhatsApp</button>
+              <button disabled="{{ d.dnd }}" style="height:48px;border-radius:10px;border:1px solid var(--k-border-strong);background:{{ d.smsBg }};color:{{ d.smsFg }};font-family:inherit;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">sms</span>{{ d.smsLabel }}</button>
+              <button style="height:48px;border-radius:10px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">mail</span>Email</button>
+            </div>
+            <dl style="margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px">
+              <sc-for list="{{ d.fields }}" as="x" hint-placeholder-count="8">
+                <div style="display:flex;flex-direction:column;gap:2px;padding:10px 0;border-bottom:1px solid var(--k-border)"><dt style="font-size:12px;font-weight:600;color:var(--k-text-muted)">{{ x.k }}</dt><dd style="margin:0;font-size:14px;font-family:{{ x.ff }};color:{{ x.fg }}">{{ x.v }}</dd></div>
+              </sc-for>
+            </dl>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <b style="font-size:15px">Recent activity</b>
+              <sc-for list="{{ d.tl }}" as="t" hint-placeholder-count="3">
+                <div style="display:flex;gap:12px;align-items:flex-start"><span style="width:32px;height:32px;flex-shrink:0;border-radius:50%;background:var(--k-surface-sunken);color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">{{ t.icon }}</span></span><div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;line-height:20px">{{ t.text }}</span><span style="font-size:12px;color:var(--k-text-muted)">{{ t.when }}</span></div></div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </main>
+</div>
+</sc-if>
+
+<sc-if value="{{ mobile }}" hint-placeholder-val="{{ false }}">
+  <div style="height:28px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:12px;font-weight:600;background:var(--k-surface)"><span>9:41</span><span style="display:flex;gap:4px;align-items:center">{{ netLabel }}<span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">{{ netIcon }}</span><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">battery_5_bar</span></span></div>
+  <div style="flex-shrink:0;background:var(--k-surface);border-bottom:1px solid var(--k-border)">
+    <div style="height:56px;display:flex;align-items:center;gap:2px;padding:0 4px">
+      <button aria-label="Menu" style="width:48px;height:48px;border:0;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">menu</span></button>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column"><b style="font-size:18px;line-height:22px">{{ objLabel }}</b><span style="font-size:12px;line-height:16px;color:var(--k-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ savedLabel }} · {{ totalCountFmt }}</span></div>
+      <button aria-label="Saved views" style="width:48px;height:48px;border:0;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">bookmark</span></button>
+      <button aria-label="Import, export and sort" style="width:48px;height:48px;border:0;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">more_vert</span></button>
+    </div>
+    <sc-if value="{{ bpo }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:4px;padding:0 16px 10px">
+        <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--k-accent);background:var(--k-accent-soft);color:var(--k-accent-text);font-size:12px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">work</span>Programme: Bank X – Collections</span>
+        <span style="display:flex;align-items:center;gap:4px;font-size:12px;line-height:16px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1;color:var(--k-text-muted)">lock</span>Only this programme's records are visible.</span>
+      </div>
+    </sc-if>
+    <sc-if value="{{ offline }}" hint-placeholder-val="{{ false }}">
+      <div role="status" style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--k-inverse);color:var(--k-on-inverse);font-size:12px;line-height:17px"><span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">cloud_off</span><span style="flex:1"><b>Offline</b> · cached list · Last synced <span style="font-family:'JetBrains Mono',monospace">10:42 WAT</span></span></div>
+    </sc-if>
+    <sc-if value="{{ notEmpty }}" hint-placeholder-val="{{ true }}">
+      <div role="search" style="display:flex;gap:8px;padding:10px 12px">
+        <label style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:48px;padding:0 14px;border-radius:24px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text-muted)"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">search</span><input value="{{ q }}" onChange="{{ onQ }}" aria-label="{{ searchLabel }}" placeholder="Name or number" style="flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;color:var(--k-text);font-family:inherit;font-size:15px"></label>
+        <button onClick="{{ openSheet }}" aria-label="{{ filterBtnLabel }}" style="position:relative;width:48px;height:48px;border-radius:24px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">tune</span><sc-if value="{{ anyFilter }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-2px;right:-2px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:var(--k-primary);color:var(--k-on-primary);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--k-surface)">{{ activeCount }}</span></sc-if></button>
+      </div>
+      <sc-if value="{{ anyFilter }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;gap:6px;padding:0 12px 10px;overflow-x:auto">
+          <sc-for list="{{ activeChips }}" as="a" hint-placeholder-count="2"><button onClick="{{ a.remove }}" aria-label="Remove filter {{ a.label }}" style="flex-shrink:0;display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 6px 0 10px;border-radius:999px;border:1px solid var(--k-primary);background:var(--k-primary-soft);color:var(--k-primary-text);font-family:inherit;font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer">{{ a.label }}<span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">close</span></button></sc-for>
+        </div>
+      </sc-if>
+    </sc-if>
+  </div>
+
+  <div style="flex:1;min-height:0;overflow-y:auto;background:var(--k-bg);position:relative">
+    <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+      <div aria-busy="true" aria-label="{{ loadingLabel }}">
+        <sc-for list="{{ skelM }}" as="s" hint-placeholder-count="7">
+          <div style="display:flex;gap:12px;padding:14px 16px;background:var(--k-surface);border-bottom:1px solid var(--k-border)"><span style="width:44px;height:44px;border-radius:50%;background:var(--k-surface-sunken);flex-shrink:0"></span><span style="flex:1;display:flex;flex-direction:column;gap:8px;padding-top:2px"><span style="height:12px;width:{{ s.w1 }}%;border-radius:4px;background:var(--k-surface-sunken)"></span><span style="height:10px;width:{{ s.w2 }}%;border-radius:4px;background:var(--k-surface-sunken)"></span><span style="height:10px;width:{{ s.w3 }}%;border-radius:4px;background:var(--k-surface-sunken)"></span></span></div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:40px 20px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
+        <span style="width:64px;height:64px;border-radius:50%;background:var(--k-primary-soft);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:32px;line-height:1">{{ objIcon }}</span></span>
+        <b style="font-size:20px;line-height:28px">No {{ manyLower }} yet</b>
+        <span style="font-size:14px;line-height:21px;color:var(--k-text-2);text-wrap:pretty">{{ emptyBody }}</span>
+        <div style="width:100%;display:flex;flex-direction:column;gap:8px;margin-top:6px">
+          <button style="height:48px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">chat</span>Capture {{ manyLower }} from WhatsApp</button>
+          <button style="height:48px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">upload_file</span>Import from Zoho, Salesforce or CSV</button>
+        </div>
+        <span style="font-size:12px;line-height:18px;color:var(--k-text-muted)">Big imports are easier on a computer — we'll email you a link.</span>
+      </div>
+    </sc-if>
+    <sc-if value="{{ noRes }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:48px 24px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center">
+        <span style="width:56px;height:56px;border-radius:50%;background:var(--k-surface-sunken);color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:28px;line-height:1">search_off</span></span>
+        <b style="font-size:18px;line-height:26px">No {{ manyLower }} match</b>
+        <span style="font-size:14px;line-height:21px;color:var(--k-text-2);text-wrap:pretty">{{ noResBody }}</span>
+        <button onClick="{{ clearAllSearch }}" style="margin-top:6px;height:48px;padding:0 20px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">Clear search and filters</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ hasList }}" hint-placeholder-val="{{ false }}">
+      <span style="display:flex;align-items:center;gap:6px;padding:10px 16px;font-size:12px;color:var(--k-text-muted)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">swipe_left</span>Swipe left or tap ⋮ to call, WhatsApp or SMS</span>
+      <sc-for list="{{ mRows }}" as="c" hint-placeholder-count="6">
+        <div style="position:relative;overflow:hidden;border-bottom:1px solid var(--k-border);background:var(--k-surface-sunken)">
+          <div style="position:absolute;top:0;right:0;bottom:0;display:flex">
+            <button onClick="{{ c.call }}" tabindex="{{ c.trayTab }}" aria-label="Call {{ c.name }}" style="width:68px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:12px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">call</span>Call</button>
+            <button onClick="{{ c.waAct }}" disabled="{{ c.noWa }}" tabindex="{{ c.trayTab }}" aria-label="WhatsApp {{ c.name }}" style="width:68px;border:0;background:{{ c.waBg }};color:{{ c.waFg }};font-family:inherit;font-size:12px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">chat</span>{{ c.waLabel }}</button>
+            <button onClick="{{ c.smsAct }}" disabled="{{ c.dnd }}" tabindex="{{ c.trayTab }}" aria-label="SMS {{ c.name }}" style="width:68px;border:0;background:{{ c.smsBg }};color:{{ c.smsFg }};font-family:inherit;font-size:12px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">sms</span>{{ c.smsLabel }}</button>
+          </div>
+          <div onPointerDown="{{ c.down }}" onPointerUp="{{ c.up }}" style="position:relative;display:flex;align-items:flex-start;gap:12px;padding:12px 4px 12px 16px;background:var(--k-surface);transform:translateX({{ c.tx }}px);transition:transform 240ms cubic-bezier(.2,.8,.2,1);touch-action:pan-y">
+            <span style="width:44px;height:44px;flex-shrink:0;border-radius:{{ avR }};background:var(--k-primary-soft-strong);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">{{ c.init }}</span>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+              <span style="display:flex;align-items:center;gap:6px"><b style="min-width:0;font-size:15px;line-height:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</b><sc-if value="{{ c.wa }}" hint-placeholder-val="{{ false }}"><span role="img" aria-label="WhatsApp opted in" style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:var(--k-success-text)">chat</span></sc-if><sc-if value="{{ c.queued }}" hint-placeholder-val="{{ false }}"><span title="Queued" style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:var(--k-accent-text)">cloud_upload</span></sc-if></span>
+              <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">{{ c.phone }}</span><span style="height:18px;padding:0 5px;display:inline-flex;align-items:center;border-radius:4px;border:1px solid var(--k-border);color:var(--k-text-2);font-size:10px;font-weight:700">{{ c.net }}</span><sc-if value="{{ c.dnd }}" hint-placeholder-val="{{ false }}"><span style="height:18px;padding:0 5px;display:inline-flex;align-items:center;border-radius:4px;background:var(--k-danger-soft);color:var(--k-danger-text);font-size:10px;font-weight:700">DND</span></sc-if></span>
+              <span style="font-size:12px;line-height:17px;color:var(--k-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.metaLine }}</span>
+              <span style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="height:22px;padding:0 8px;display:inline-flex;align-items:center;border-radius:999px;background:{{ c.stBg }};color:{{ c.stFg }};font-size:11px;font-weight:700">{{ c.status }}</span><span style="width:40px;height:5px;border-radius:3px;background:var(--k-surface-sunken);overflow:hidden"><span style="display:block;height:100%;width:{{ c.scoreW }};background:var(--k-primary)"></span></span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--k-text-2)">{{ c.score }}</span></span>
+            </div>
+            <button onClick="{{ c.toggleTray }}" aria-expanded="{{ c.expanded }}" aria-label="Actions for {{ c.name }}" style="width:44px;height:44px;flex-shrink:0;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">more_vert</span></button>
+          </div>
+        </div>
+      </sc-for>
+      <span style="display:block;padding:14px 16px 96px;text-align:center;font-size:12px;color:var(--k-text-muted)">{{ mFooter }}</span>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ notEmpty }}" hint-placeholder-val="{{ true }}">
+    <button onClick="{{ newRec }}" style="position:absolute;right:16px;bottom:80px;z-index:5;height:56px;padding:0 20px 0 16px;border-radius:16px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:var(--k-shadow-2);cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">add</span>{{ newLabelShort }}</button>
+  </sc-if>
+
+  <nav aria-label="Main" style="height:64px;flex-shrink:0;display:grid;grid-template-columns:repeat(5,1fr);background:var(--k-surface);border-top:1px solid var(--k-border)">
+    <sc-for list="{{ mNav }}" as="n" hint-placeholder-count="5">
+      <span aria-current="{{ n.cur }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:600;color:{{ n.fg }}"><span style="width:56px;height:30px;border-radius:15px;background:{{ n.bg }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">{{ n.icon }}</span></span>{{ n.label }}</span>
+    </sc-for>
+  </nav>
+
+  <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;justify-content:flex-end">
+      <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:var(--k-scrim)"></div>
+      <div role="dialog" aria-modal="true" aria-label="Filters" style="position:relative;max-height:86%;display:flex;flex-direction:column;border-radius:16px 16px 0 0;background:var(--k-surface);box-shadow:var(--k-shadow-3)">
+        <span style="align-self:center;width:36px;height:4px;border-radius:2px;background:var(--k-border-strong);margin-top:8px"></span>
+        <div style="display:flex;align-items:center;padding:4px 4px 4px 20px"><b style="flex:1;font-size:18px">Filters</b><button onClick="{{ closeSheet }}" aria-label="Close filters" style="width:48px;height:48px;border:0;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">close</span></button></div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:0 20px 12px;display:flex;flex-direction:column;gap:16px">
+          <sc-for list="{{ sheetGroups }}" as="g" hint-placeholder-count="7">
+            <fieldset style="margin:0;padding:0;border:0;display:flex;flex-direction:column;gap:8px">
+              <legend style="padding:0 0 8px;font-size:13px;font-weight:700;color:var(--k-text-2)">{{ g.label }}</legend>
+              <div style="display:flex;flex-wrap:wrap;gap:8px">
+                <sc-for list="{{ g.opts }}" as="o" hint-placeholder-count="4"><button onClick="{{ o.pick }}" aria-pressed="{{ o.checked }}" style="display:inline-flex;align-items:center;gap:4px;height:40px;padding:0 14px;border-radius:999px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer"><sc-if value="{{ o.on }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">check</span></sc-if>{{ o.short }}</button></sc-for>
+              </div>
+            </fieldset>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:8px;padding:12px 16px 16px;border-top:1px solid var(--k-border)"><button onClick="{{ clearFilters }}" style="height:48px;padding:0 16px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600;cursor:pointer">Clear all</button><button onClick="{{ closeSheet }}" style="flex:1;height:48px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">{{ sheetCta }}</button></div>
+      </div>
+    </div>
+  </sc-if>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+  <div role="status" style="position:absolute;left:50%;bottom:{{ toastBottom }}px;transform:translateX(-50%);z-index:50;max-width:calc(100% - 32px);display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;background:var(--k-inverse);color:var(--k-on-inverse);box-shadow:var(--k-shadow-2);font-size:14px;line-height:20px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ toastIcon }}</span><span>{{ toast }}</span></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;object&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;leads&quot;,&quot;contacts&quot;,&quot;accounts&quot;],&quot;default&quot;:&quot;leads&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;mobile&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;state&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ready&quot;,&quot;empty&quot;,&quot;noresults&quot;,&quot;loading&quot;,&quot;offline&quot;],&quot;default&quot;:&quot;ready&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;table&quot;,&quot;kanban&quot;,&quot;map&quot;,&quot;split&quot;],&quot;default&quot;:&quot;table&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;bpo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;restricted&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;selected&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:0,&quot;tsType&quot;:&quot;number&quot;},&quot;menu&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;filters&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;},&quot;swipeOpen&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;number&quot;},&quot;filterSheet&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const FIRST=['Adaeze','Tunde','Amina','Chukwuemeka','Funmilayo','Ibrahim','Ngozi','Oluwaseun','Halima','Emeka','Folake','Yusuf','Blessing','Kelechi','Zainab','Ṣẹgun','Chiamaka','Musa','Tèmítọ́pẹ́','Ifeoma'];
+const LAST=['Okonkwo','Bakare','Bello','Eze','Adeyemi','Abubakar','Obi','Ajayi','Abdullahi','Nwosu','Adébáyọ̀','Garba','Okafor','Uche','Lawal','Ṣóyẹmí','Nnadi','Danjuma','Salako','Chukwu'];
+const COMP=[['Ọjà Foods Ltd','FMCG'],['Kano Grains Co.','Agriculture'],['Ikeja Motors','Automotive'],['Lekki Pharmacy','Healthcare'],['Aba Leatherworks','Manufacturing'],['Enugu Solar','Energy'],['Ibadan Print Hub','Printing'],['Jos Dairy','Dairy'],['PH Marine Services','Maritime'],['Abuja Freight','Logistics'],['Onitsha Textiles','Textiles'],['Kaduna Agro','Agriculture'],['Yaba Tech Hub','Technology'],['Owerri Bottling','Beverages'],['Surulere Salons','Beauty'],['Benin Timber','Timber'],['Calabar Resorts','Hospitality'],['Makurdi Rice Mill','Agriculture'],['Ilorin Ceramics','Manufacturing'],['Asaba Hotels','Hospitality'],['Sokoto Hides','Leather'],['Abeokuta Adire','Textiles']];
+const NETS=[['MTN',['803','806','813','816','703','706','903']],['Airtel',['802','808','812','701','902']],['Glo',['805','807','815','705']],['9mobile',['809','817','818','909']]];
+const OWN={Me:{n:'Kemi A. (you)',i:'KA'},'Tunde B.':{n:'Tunde B.',i:'TB'},'Amina B.':{n:'Amina B.',i:'AB'},Unassigned:{n:'Unassigned',i:''}};
+const OWNK=['Me','Tunde B.','Amina B.','Unassigned'];
+const ACTS=[['4 min ago','chat'],['38 min ago','call'],['2 h ago','mail'],['Yesterday','call'],['3 d ago','chat'],['1 wk ago','sms'],['3 wk ago','call']];
+const SRC=['WhatsApp','USSD','Missed call','Web form','Referral','Walk-in'];
+const SRCI={WhatsApp:'chat',USSD:'dialpad','Missed call':'phone_missed','Web form':'web',Referral:'group','Walk-in':'storefront'};
+const GEO=['Lagos · Ikeja','Lagos · Eti-Osa','Kano · Nassarawa','FCT · AMAC','Rivers · Obio/Akpor','Oyo · Ibadan North','Enugu · Enugu East','Kaduna · Chikun'];
+const PIN={Lagos:[16,80],Kano:[60,16],FCT:[50,50],Rivers:[52,88],Oyo:[22,66],Enugu:[62,74],Kaduna:[52,32]};
+const LANG=['English','Yorùbá','Hausa','Igbo','Pidgin'];
+const CONS=['Opted in','Pending','Withdrawn'];
+const OBJ={
+  leads:{one:'lead',many:'Leads',nameCol:'Lead',compCol:'Company',scoreCol:'Lead score',statusCol:'Status',N:64,icon:'person_add',status:[['New','info'],['Contacted','primary'],['Qualified','success'],['Unqualified','neutral']],tags:['Q4 promo','SME','Hot','Diaspora','Lagos expo','Wholesale'],tpl:'intro_offer_v2',empty:'Leads from WhatsApp, USSD, missed calls and web forms land here, deduplicated by phone number.'},
+  contacts:{one:'contact',many:'Contacts',nameCol:'Name',compCol:'Account',scoreCol:'Engagement',statusCol:'Status',N:148,icon:'contacts',status:[['Active','success'],['Prospect','primary'],['Former','neutral']],tags:['Decision maker','Billing','SME','Newsletter','Lagos expo'],tpl:'service_update_v1',empty:'Add the people you sell to and support. Numbers are stored as +234 so calls, WhatsApp and SMS just work.'},
+  accounts:{one:'account',many:'Accounts',nameCol:'Account',compCol:'Industry',scoreCol:'Health',statusCol:'Tier',N:38,icon:'apartment',status:[['Enterprise','primary'],['Mid-market','info'],['SME','neutral']],tags:['Key account','Renewal Q1','Distributor','Credit hold'],tpl:'account_update_v1',empty:'Accounts group contacts, deals and tickets by business. Import them, or one is created when you close a deal.'}
+};
+const BPO={N:212,statusCol:'Stage',status:[['Promise to pay','primary'],['In arrears','warning'],['Settled','success'],['Dispute','danger']],tags:['DPD 30','DPD 60','Salary acct','Callback set','Hardship'],tpl:'payment_reminder_v3'};
+const TONE={info:['var(--k-info-soft)','var(--k-info-text)'],primary:['var(--k-primary-soft)','var(--k-primary-text)'],success:['var(--k-success-soft)','var(--k-success-text)'],warning:['var(--k-warning-soft)','var(--k-warning-text)'],danger:['var(--k-danger-soft)','var(--k-danger-text)'],neutral:['var(--k-surface-sunken)','var(--k-text-2)']};
+const DOT={info:'var(--k-info)',primary:'var(--k-primary)',success:'var(--k-success)',warning:'var(--k-warning)',danger:'var(--k-danger)',neutral:'var(--k-border-strong)'};
+const strip=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+
+function gen(c,obj){
+  const out=[];
+  for(let i=0;i<c.N;i++){
+    const f=FIRST[i%20],l=LAST[(i*7+3)%20],co=COMP[(i*5+1)%COMP.length],acc=obj==='accounts'?COMP[i%COMP.length]:null;
+    const net=NETS[(i*3+(i>>1))%4],pre=net[1][i%net[1].length];
+    const d3=String((i*37+214)%900+100),d4=String((i*7919+1234)%10000).padStart(4,'0');
+    const consent=i%7===5?'Withdrawn':(i%5===3?'Pending':'Opted in');
+    const src=SRC[(i*5+2)%6],geo=GEO[(i*3+(i>>2))%GEO.length],a=ACTS[(i*5+(i>>3))%7];
+    const tags=[c.tags[i%c.tags.length]];if(i%3===0)tags.push(c.tags[(i+2)%c.tags.length]);if(i%8===0)tags.push(c.tags[(i+3)%c.tags.length]);
+    const name=acc?acc[0]:f+' '+l;
+    out.push({id:obj+i,name,init:acc?acc[0].split(' ').slice(0,2).map(w=>w[0]).join(''):f[0]+l[0],
+      phone:'+234 '+pre+' '+d3+' '+d4,net:net[0],wa:consent==='Opted in'&&i%4!==2,dnd:i%6===4,
+      email:acc?'hello@'+strip(acc[0]).replace(/[^a-z]/g,'').slice(0,14)+'.ng':strip(f)+'.'+strip(l).replace(/[^a-z]/g,'')+'@'+strip(co[0]).replace(/[^a-z]/g,'').slice(0,12)+'.com.ng',
+      company:acc?acc[1]:co[0],ownerKey:OWNK[(i*3+1)%4],act:a[0],actIcon:a[1],score:(i*37+23)%92+6,tags,
+      status:c.status[(i*3+(i>>2))%c.status.length][0],source:src,geo,lang:LANG[(i*7+(i>>1))%5],consent,
+      sub:obj==='leads'?'via '+src+' · '+geo:geo});
+  }
+  return out;
+}
+
+class Component extends DCLogic {
+  state = {};
+  S(k,d){ return this.state[k]!==undefined?this.state[k]:d; }
+  toast(t,icon){ this.setState({toast:t,toastIcon:icon||'check_circle'}); clearTimeout(this._tt); this._tt=setTimeout(()=>this.setState({toast:null}),4200); }
+  componentWillUnmount(){ clearTimeout(this._tt); }
+  renderVals(){
+    const P=this.props, obj=OBJ[P.object]?P.object:'leads', bpo=!!P.bpo;
+    let c={...OBJ[obj]}; if(bpo&&obj==='contacts') c={...c,...BPO};
+    const key=obj+bpo; if(this._key!==key){this._key=key;this._rows=gen(c,obj);}
+    const mobile=!!P.mobile, st=P.state||'ready', offline=st==='offline', isEmpty=st==='empty', isLoading=st==='loading';
+    const restricted=!!P.restricted, many=c.many, manyLower=many.toLowerCase();
+    const upd=o=>this.setState(o);
+    const view=this.S('view',P.view||'table'), menu=this.S('menu',P.menu||null);
+    const q=this.S('q',st==='noresults'?'Okorafor':''), filters=this.S('filters',st==='noresults'?{source:['USSD'],lang:['Igbo']}:(P.filters||{}));
+    const ov=this.S('ov',{}), edit=this.S('edit',null);
+    const all=this._rows.map(r=>ov[r.id]?{...r,...ov[r.id]}:r);
+    const FD=[
+      {k:'owner',label:'Owner',icon:'person',opts:OWNK,get:r=>r.ownerKey},
+      {k:'status',label:c.statusCol,icon:'flag',opts:c.status.map(s=>s[0]),get:r=>r.status},
+      {k:'source',label:'Source',icon:'input',opts:SRC,get:r=>r.source},
+      {k:'geo',label:'State/LGA',icon:'location_on',opts:GEO,get:r=>r.geo},
+      {k:'lang',label:'Preferred language',icon:'translate',opts:LANG,get:r=>r.lang},
+      {k:'consent',label:'Consent status',icon:'verified_user',opts:CONS,get:r=>r.consent},
+      {k:'dnd',label:'DND',icon:'do_not_disturb_on',opts:['Exclude DND','Only DND'],get:r=>r.dnd?'Only DND':'Exclude DND'}
+    ];
+    const qs=strip(q.trim()); let qd=q.replace(/\D/g,''); if(qd.startsWith('234'))qd=qd.slice(3); if(qd.startsWith('0'))qd=qd.slice(1);
+    const qMatch=r=>!qs||(qd.length>=3&&/^[\d\s+()-]+$/.test(q.trim())?r.phone.replace(/\D/g,'').includes(qd):(strip(r.name).includes(qs)||strip(r.company).includes(qs)||strip(r.email).includes(qs)));
+    const pass=(r,skip)=>qMatch(r)&&FD.every(f=>f.k===skip||!(filters[f.k]&&filters[f.k].length)||filters[f.k].includes(f.get(r)));
+    const filtered=isEmpty?[]:all.filter(r=>pass(r));
+    const activeKeys=FD.filter(f=>(filters[f.k]||[]).length);
+    const anyFilter=activeKeys.length>0;
+    const setFilter=(k,v)=>upd({filters:{...filters,[k]:v},page:0,saved:null});
+    const toggleMenu=k=>()=>upd({menu:menu===k?null:k});
+    const ps=this.S('ps',25), pages=Math.max(1,Math.ceil(filtered.length/ps)), page=Math.min(this.S('page',0),pages-1);
+    const pageRows=filtered.slice(page*ps,page*ps+ps);
+    const sel=this.S('sel',P.selected?pageRows.slice(0,P.selected).map(r=>r.id):[]);
+    const apply=(ids,patch)=>{const n={...ov};ids.forEach(id=>{n[id]={...(n[id]||{}),...patch,queued:offline};});upd({ov:n,edit:null,menu:null});};
+    const tone=s=>{const t=(c.status.find(x=>x[0]===s)||[0,'neutral'])[1];return t;};
+    const hasData=!isEmpty&&!isLoading, noRes=hasData&&filtered.length===0;
+    const disp=(f,v)=>f.k==='owner'&&v==='Me'?'Me':v;
+
+    const fChips=FD.map(f=>{const v=filters[f.k]||[],on=v.length>0,base=all.filter(r=>pass(r,f.k)),open=menu==='f:'+f.k;return{
+      label:f.label,icon:f.icon,open,expanded:String(open),toggle:toggleMenu('f:'+f.k),
+      text:on?f.label+': '+disp(f,v[0])+(v.length>1?' +'+(v.length-1):''):f.label,
+      aria:on?f.label+' filter, '+v.join(', '):f.label+' filter',
+      bg:on?'var(--k-primary-soft)':'var(--k-surface)',fg:on?'var(--k-primary-text)':'var(--k-text)',bd:on?'var(--k-primary)':'var(--k-border-strong)',
+      clearAll:()=>setFilter(f.k,[]),
+      opts:f.opts.map(o=>{const ck=v.includes(o);return{label:f.k==='owner'&&o==='Me'?'Me (Kemi A.)':o,count:base.filter(r=>f.get(r)===o).length,box:ck?'check_box':'check_box_outline_blank',boxFg:ck?'var(--k-primary)':'var(--k-text-muted)',checked:String(ck),hasOi:f.k==='source',oi:SRCI[o]||'',pick:()=>setFilter(f.k,ck?v.filter(x=>x!==o):[...v,o])};})
+    };});
+
+    const COLS=[{k:'phone',label:'Phone',w:260},{k:'wa',label:'WA',w:60,aria:'WhatsApp opt-in'},{k:'email',label:'Email',w:230,lock:1},{k:'company',label:c.compCol,w:190,lock:1},{k:'owner',label:'Owner',w:170,edit:1},{k:'act',label:'Last activity',w:140},{k:'score',label:c.scoreCol,w:150},{k:'tags',label:'Tags',w:230},{k:'status',label:c.statusCol,w:170,edit:1}];
+    const hidden=this.S('hidden',[]), vis=COLS.filter(k=>!hidden.includes(k.k)), show={};
+    COLS.forEach(k=>show[k.k]=!hidden.includes(k.k));
+    const gridCols='44px 260px '+vis.map(k=>k.w+'px').join(' ')+' minmax(0,1fr)';
+
+    const pageIds=pageRows.map(r=>r.id), nSel=pageIds.filter(id=>sel.includes(id)).length, allOn=nSel>0&&nSel===pageIds.length;
+    const rows=pageRows.map(r=>{const s=sel.includes(r.id),t=TONE[tone(r.status)],oo=edit===r.id+':owner',so=edit===r.id+':status';return{...r,
+      bg:s?'var(--k-primary-soft)':'var(--k-surface)',box:s?'check_box':'check_box_outline_blank',boxFg:s?'var(--k-primary)':'var(--k-text-muted)',checked:String(s),cbLabel:'Select '+r.name,
+      toggle:()=>upd({sel:s?sel.filter(x=>x!==r.id):[...sel,r.id]}),noWa:!r.wa,
+      ownerName:OWN[r.ownerKey].n,ownerInit:OWN[r.ownerKey].i,hasOwner:r.ownerKey!=='Unassigned',noOwner:r.ownerKey==='Unassigned',
+      ownerOpen:oo,ownerExp:String(oo),statusOpen:so,statusExp:String(so),
+      editOwner:()=>upd({edit:oo?null:r.id+':owner',menu:oo?null:'edit'}),editStatus:()=>upd({edit:so?null:r.id+':status',menu:so?null:'edit'}),
+      ownerOpts:OWNK.map(k=>({label:OWN[k].n,ck:k===r.ownerKey?'check':'',sel:String(k===r.ownerKey),pick:()=>{apply([r.id],{ownerKey:k});if(offline)this.toast('Saved offline — syncs when you reconnect','cloud_upload');}})),
+      statusOpts:c.status.map(([n,tt])=>({label:n,bg:TONE[tt][0],fg:TONE[tt][1],ck:n===r.status?'check':'',sel:String(n===r.status),pick:()=>{apply([r.id],{status:n});if(offline)this.toast('Saved offline — syncs when you reconnect','cloud_upload');}})),
+      stBg:t[0],stFg:t[1],scoreW:r.score+'%',tagList:r.tags.slice(0,2),tagMore:r.tags.length>2,tagMoreLabel:'+'+(r.tags.length-2),queued:!!r.queued};});
+
+    const selRows=all.filter(r=>sel.includes(r.id)), n=sel.length, nOne=n===1?c.one:manyLower;
+    const campaigns=bpo?['September arrears · WhatsApp','Promise-to-pay follow-up · Voice','Hardship review · SMS']:['Q4 Ọjà promo · WhatsApp','Ramadan hampers · SMS','Diaspora remittance · Email'];
+    const bulkDef=[
+      {k:'assign',label:'Assign',icon:'person_add_alt',menuTitle:'Assign '+n+' '+nOne+' to',opts:OWNK.map(k=>({label:k==='Unassigned'?'Unassign':OWN[k].n,icon:k==='Unassigned'?'person_remove':'person',pick:()=>{apply(sel,{ownerKey:k});this.toast(k==='Unassigned'?'Unassigned '+n+' '+nOne:'Assigned '+n+' '+nOne+' to '+OWN[k].n);}}))},
+      {k:'campaign',label:'Add to campaign',icon:'campaign',menuTitle:'Add to campaign',opts:campaigns.map(x=>({label:x,icon:'campaign',pick:()=>{const d=selRows.filter(r=>r.dnd).length;upd({menu:null});this.toast(n+' added to “'+x+'”'+(d?'. '+d+' on DND get WhatsApp or email only.':'.'));}}))},
+      {k:'field',label:'Update field',icon:'edit_note',menuTitle:'Set '+c.statusCol.toLowerCase()+' for '+n,opts:c.status.map(([s])=>({label:s,icon:'flag',pick:()=>{apply(sel,{status:s});this.toast(c.statusCol+' set to '+s+' for '+n+' '+nOne);}}))},
+      {k:'merge',label:'Merge duplicates',icon:'merge',dis:n<2||n>3,title:n<2||n>3?'Select 2–3 records to merge':'',run:()=>this.toast('Merge review opened — '+(selRows[0]||{}).name+' kept as the main record','merge')},
+      {k:'wa',label:'Send WhatsApp template',icon:'chat',dis:offline,title:offline?'Needs a connection':'',run:()=>{const ok=selRows.filter(r=>r.wa).length,sk=n-ok;this.toast('“'+c.tpl+'” queued for '+ok+(sk?' · '+sk+' skipped — no WhatsApp opt-in':''),'chat');}}
+    ];
+    const bulk=bulkDef.map(b=>{const open=menu==='b:'+b.k;return{label:b.label,icon:b.icon,disabled:!!b.dis,op:b.dis?.45:1,title:b.title||'',popup:b.opts?'menu':'false',open,menuTitle:b.menuTitle||'',opts:b.opts||[],bg:open?'rgba(127,127,127,.28)':'transparent',act:b.opts?toggleMenu('b:'+b.k):()=>{if(!b.dis)b.run();}};});
+
+    const savedDefs=[['All '+manyLower,{}],['My '+manyLower,{owner:['Me']}],['From WhatsApp',{source:['WhatsApp']}],['USSD & missed call',{source:['USSD','Missed call']}],['Lagos · opted in',{geo:['Lagos · Ikeja','Lagos · Eti-Osa'],consent:['Opted in']}],['Unassigned',{owner:['Unassigned']}]];
+    const same=(a,b)=>{const ka=Object.keys(a).filter(k=>a[k].length),kb=Object.keys(b).filter(k=>b[k].length);return ka.length===kb.length&&ka.every(k=>b[k]&&a[k].slice().sort().join()===b[k].slice().sort().join());};
+    const curSaved=savedDefs.find(v=>same(v[1],filters)&&!q);
+    const savedLabel=curSaved?curSaved[0]:'Unsaved view';
+    const cnt=f=>all.filter(r=>FD.every(d=>!(f[d.k]&&f[d.k].length)||f[d.k].includes(d.get(r)))).length;
+    const savedViews=savedDefs.map(v=>{const on=curSaved===v;return{label:v[0],count:cnt(v[1]),checked:String(on),ck:on?'check':'',bg:on?'var(--k-primary-soft)':'transparent',pick:()=>upd({filters:v[1],q:'',page:0,menu:null})};});
+
+    const ioItems=[['upload_file','Import CSV','',0],['cloud_download','Import from Zoho CRM','',0],['cloud_download','Import from Salesforce','',0],['download','Export this view (CSV)',filtered.length+' rows',1],['table_view','Export to Excel','.xlsx',0],['history','Import history','',1]].map(([icon,label,hint,sep])=>({icon,label,hint,sep:!!sep,disabled:offline,fg:offline?'var(--k-text-muted)':'var(--k-text)',act:()=>{upd({menu:null});this.toast(label.startsWith('Export')?'Preparing '+filtered.length+' '+manyLower+' — we’ll notify you when it’s ready':label+' — opening wizard','download');}}));
+
+    const views=[['table','Table','table_rows'],['kanban','Kanban','view_kanban'],['map','Map','map'],['split','Split view','vertical_split']].map(([k,label,icon])=>{const on=view===k;return{label,icon,pressed:String(on),bg:on?'var(--k-surface)':'transparent',fg:on?'var(--k-text)':'var(--k-text-2)',sh:on?'var(--k-shadow-1)':'none',pick:()=>upd({view:k,menu:null})};});
+
+    const kanban=c.status.map(([s,t])=>{const list=filtered.filter(r=>r.status===s);return{name:s,count:list.length,dot:DOT[t],more:list.length>6,moreLabel:'Show '+(list.length-6)+' more',
+      over:e=>e.preventDefault(),drop:e=>{e.preventDefault();if(this._drag)apply([this._drag],{status:s});},
+      cards:list.slice(0,6).map(r=>({...r,scoreW:r.score+'%',ownerInit:OWN[r.ownerKey].i||'—',drag:()=>{this._drag=r.id;}}))};});
+
+    const byState={};filtered.forEach(r=>{const s=r.geo.split(' · ')[0];byState[s]=(byState[s]||0)+1;});
+    const mx=Math.max(1,...Object.values(byState)), geoF=filters.geo||[];
+    const pins=Object.keys(PIN).map(s=>{const n2=byState[s]||0,lgas=GEO.filter(g=>g.startsWith(s+' ')),on=lgas.length&&lgas.every(g=>geoF.includes(g));return{name:s,count:n2,x:PIN[s][0],y:PIN[s][1],size:30+Math.round(n2/mx*26),pct:Math.round(n2/mx*100),bg:on?'var(--k-accent-text)':'var(--k-primary)',rowBg:on?'var(--k-primary-soft)':'transparent',aria:s+': '+n2+' '+manyLower+'. Filter',pick:()=>setFilter('geo',on?[]:lgas)};}).sort((a,b)=>b.count-a.count);
+
+    const splitId=this.S('splitId',null), dRow=filtered.find(r=>r.id===splitId)||filtered[0]||all[0];
+    const splitRows=filtered.slice(0,40).map(r=>{const on=r.id===dRow.id;return{...r,active:String(on),bg:on?'var(--k-primary-soft)':'var(--k-surface)',sh:on?'inset 3px 0 0 var(--k-primary)':'none',pick:()=>upd({splitId:r.id})};});
+    const dt=TONE[tone(dRow.status)];
+    const d={...dRow,stBg:dt[0],stFg:dt[1],smsBg:dRow.dnd?'var(--k-disabled-bg)':'var(--k-surface)',smsFg:dRow.dnd?'var(--k-disabled-text)':'var(--k-text)',smsLabel:dRow.dnd?'SMS · DND':'SMS',
+      fields:[['Phone',dRow.phone+' · '+dRow.net,1],['Email',restricted?'Restricted for your role':dRow.email,0,restricted],[c.compCol,restricted?'Restricted for your role':dRow.company,0,restricted],['Owner',OWN[dRow.ownerKey].n],['State / LGA',dRow.geo],['Source',dRow.source],['Consent',dRow.consent],[c.scoreCol,dRow.score+' / 100',1]].map(([k,v,m,lk])=>({k,v,ff:m?"'JetBrains Mono',monospace":'inherit',fg:lk?'var(--k-text-muted)':'var(--k-text)'})),
+      tl:[{icon:dRow.actIcon,text:(dRow.actIcon==='chat'?'WhatsApp from ':dRow.actIcon==='call'?'Call with ':dRow.actIcon==='sms'?'SMS to ':'Email to ')+dRow.name.split(' ')[0],when:dRow.act+' · '+OWN[dRow.ownerKey].n},{icon:'edit_note',text:c.statusCol+' changed to '+dRow.status,when:'Mon 28 Sep, 16:20 WAT'},{icon:'input',text:'Created from '+dRow.source,when:'Thu 10 Sep, 09:05 WAT'}]};
+
+    const swipe=this.S('swipe',P.swipeOpen!=null&&filtered[P.swipeOpen]?filtered[P.swipeOpen].id:null);
+    const mList=filtered.slice(0,30);
+    const mRows=mList.map(r=>{const o=swipe===r.id,t=TONE[tone(r.status)];return{...r,noWa:!r.wa,stBg:t[0],stFg:t[1],scoreW:r.score+'%',queued:!!r.queued,
+      metaLine:(restricted?'':r.company+' · ')+r.act+' · '+OWN[r.ownerKey].n,
+      tx:o?-204:0,expanded:String(o),trayTab:o?0:-1,toggleTray:()=>upd({swipe:o?null:r.id}),
+      down:e=>{this._sx=e.clientX;},up:e=>{const dx=e.clientX-(this._sx==null?e.clientX:this._sx);this._sx=null;if(dx<-40)upd({swipe:r.id});else if(dx>40&&o)upd({swipe:null});},
+      call:()=>{upd({swipe:null});this.toast('Calling '+r.phone+'…','call');},
+      waBg:r.wa?'var(--k-success)':'var(--k-disabled-bg)',waFg:r.wa?'#FFFFFF':'var(--k-disabled-text)',waLabel:r.wa?'WhatsApp':'No opt-in',
+      waAct:()=>{upd({swipe:null});this.toast(offline?'WhatsApp queued — sends when you reconnect':'Opening WhatsApp chat…','chat');},
+      smsBg:r.dnd?'var(--k-disabled-bg)':'var(--k-info)',smsFg:r.dnd?'var(--k-disabled-text)':'#FFFFFF',smsLabel:r.dnd?'DND':'SMS',
+      smsAct:()=>{upd({swipe:null});this.toast(offline?'SMS queued — sends when you reconnect':'Opening SMS…','sms');}};});
+
+    const sheetOpen=this.S('sheet',!!P.filterSheet);
+    const sheetGroups=FD.map(f=>{const v=filters[f.k]||[];return{label:f.label,opts:f.opts.map(o=>{const on=v.includes(o);return{short:f.k==='owner'&&o==='Me'?'Me':o,on,checked:String(on),bg:on?'var(--k-primary-soft)':'var(--k-surface)',fg:on?'var(--k-primary-text)':'var(--k-text)',bd:on?'var(--k-primary)':'var(--k-border-strong)',pick:()=>setFilter(f.k,on?v.filter(x=>x!==o):[...v,o])};})};});
+    const activeChips=[];FD.forEach(f=>(filters[f.k]||[]).forEach(v=>activeChips.push({label:f.label+': '+disp(f,v),remove:()=>setFilter(f.k,(filters[f.k]||[]).filter(x=>x!==v))})));
+
+    const nav=[['Home','home'],['Inbox','forum'],['Leads','person_add'],['Contacts','contacts'],['Accounts','apartment'],['Deals','handshake'],['Tickets','confirmation_number'],['Reports','bar_chart']];
+    const mNav=[['Home','home'],['Inbox','forum'],[many,c.icon],['Deals','handshake'],['More','menu']];
+    const from=filtered.length?page*ps+1:0,to=Math.min(filtered.length,page*ps+ps);
+    const total=isEmpty?0:all.length, fmt=x=>x.toLocaleString('en-NG');
+    const noResBody=(q?'Nothing for “'+q+'”':'Nothing')+(anyFilter?' with '+activeKeys.length+' filter'+(activeKeys.length>1?'s':'')+' on ('+activeKeys.map(f=>f.label).join(', ')+').':'.')+' Numbers match in any format — 0803…, +234 803… or 803….';
+
+    return {
+      desktop:!mobile,mobile,bpo,offline,restricted,open:!restricted,isEmpty,isLoading,notEmpty:!isEmpty,noRes,
+      objLabel:many,manyLower,one:c.one,objIcon:c.icon,emptyBody:c.empty,nameCol:c.nameCol,scoreCol:c.scoreCol,statusCol:c.statusCol,
+      totalCount:fmt(total),totalCountFmt:fmt(total),newLabel:'New '+c.one,newLabelShort:'New',
+      newRec:()=>this.toast(offline?'New '+c.one+' saved offline — syncs when you reconnect':'New '+c.one+' form opened','add_circle'),
+      avR:obj==='accounts'?'8px':'50%',avRL:obj==='accounts'?'12px':'50%',
+      menuOpen:!!menu,closeMenu:()=>upd({menu:null,edit:null}),
+      navItems:nav.map(([label,icon])=>{const on=label===many;return{label,icon,cur:on?'page':'false',bg:on?'var(--k-primary-soft)':'transparent',fg:on?'var(--k-primary-text)':'var(--k-text-2)'};}),
+      mNav:mNav.map(([label,icon])=>{const on=label===many;return{label,icon,cur:on?'page':'false',bg:on?'var(--k-primary-soft)':'transparent',fg:on?'var(--k-primary-text)':'var(--k-text-2)'};}),
+      savedLabel,savedOpen:menu==='saved',savedExpanded:String(menu==='saved'),toggleSaved:toggleMenu('saved'),savedViews,
+      saveView:()=>{upd({menu:null});this.toast('View saved to “My views”','bookmark_added');},
+      ioOpen:menu==='io',ioExpanded:String(menu==='io'),toggleIo:toggleMenu('io'),ioItems,
+      views,isTable:view==='table',
+      showFilterBar:hasData,q,onQ:e=>upd({q:e.target.value,page:0}),searchLabel:'Search '+manyLower,searchPh:'Search name, number, email…',
+      fChips,anyFilter,activeCount:activeKeys.length,clearFilters:()=>upd({filters:{},page:0}),
+      clearAllSearch:()=>upd({filters:{},q:'',page:0}),removeLast:()=>{const k=activeKeys[activeKeys.length-1];if(k)setFilter(k.k,[]);},noResBody,
+      colsOpen:menu==='cols',colsExpanded:String(menu==='cols'),toggleCols:toggleMenu('cols'),
+      colItems:COLS.map(k=>{const on=!hidden.includes(k.k);return{label:k.label,locked:restricted&&!!k.lock,checked:String(on),box:on?'check_box':'check_box_outline_blank',boxFg:on?'var(--k-primary)':'var(--k-text-muted)',pick:()=>upd({hidden:on?[...hidden,k.k]:hidden.filter(x=>x!==k.k)})};}),
+      hasSel:hasData&&!mobile&&n>0,selCount:n,selectAllLabel:n>=filtered.length?'All '+fmt(filtered.length)+' selected':'Select all '+fmt(filtered.length),
+      selectAll:()=>upd({sel:filtered.map(r=>r.id)}),clearSel:()=>upd({sel:[],menu:null}),bulk,
+      loadingLabel:'Loading '+manyLower+'…',skel:Array.from({length:12},(_,i)=>({w1:55+(i*17)%35,w2:35+(i*23)%30,w3:50+(i*13)%40,w4:60+(i*29)%70})),
+      skelM:Array.from({length:7},(_,i)=>({w1:50+(i*17)%35,w2:60+(i*23)%30,w3:35+(i*13)%35})),
+      showTable:hasData&&!noRes&&view==='table',showKanban:hasData&&!noRes&&view==='kanban',showMap:hasData&&!noRes&&view==='map',showSplit:hasData&&!noRes&&view==='split',
+      gridCols,show,heads:vis.map(k=>({label:k.label,aria:k.aria||k.label,locked:restricted&&!!k.lock,edit:!!k.edit,justify:k.k==='wa'?'center':'flex-start'})),
+      rows,filteredCount:filtered.length,
+      headBox:nSel===0?'check_box_outline_blank':allOn?'check_box':'indeterminate_check_box',headChecked:nSel===0?'false':allOn?'true':'mixed',headFg:nSel?'var(--k-primary)':'var(--k-text-muted)',
+      toggleAll:()=>upd({sel:allOn?sel.filter(id=>!pageIds.includes(id)):[...new Set([...sel,...pageIds])]}),
+      rangeLabel:from+'–'+to+' of '+fmt(filtered.length),pageLabel:'Page '+(page+1)+' of '+pages,
+      sizes:[25,50,100].map(z=>({label:String(z),pressed:String(z===ps),bg:z===ps?'var(--k-surface)':'transparent',fg:z===ps?'var(--k-text)':'var(--k-text-2)',sh:z===ps?'var(--k-shadow-1)':'none',pick:()=>upd({ps:z,page:0})})),
+      prevPage:()=>upd({page:Math.max(0,page-1)}),nextPage:()=>upd({page:Math.min(pages-1,page+1)}),prevDis:page===0,nextDis:page>=pages-1,prevOp:page===0?.4:1,nextOp:page>=pages-1?.4:1,
+      kanban,pins,mapAria:'Map of '+manyLower+' by State',splitRows,d,
+      netLabel:offline?'':'4G',netIcon:offline?'signal_cellular_nodata':'signal_cellular_alt',
+      hasList:hasData&&!noRes,mRows,mFooter:mList.length<filtered.length?'Showing '+mList.length+' of '+fmt(filtered.length)+' · scroll for more':fmt(filtered.length)+' '+manyLower,
+      filterBtnLabel:anyFilter?'Filters, '+activeKeys.length+' active':'Filters',openSheet:()=>upd({sheet:true}),closeSheet:()=>upd({sheet:false}),sheetOpen:mobile&&sheetOpen,sheetGroups,activeChips,
+      sheetCta:'Show '+fmt(filtered.length)+' '+(filtered.length===1?c.one:manyLower),
+      hasToast:!!this.state.toast,toast:this.state.toast||'',toastIcon:this.state.toastIcon||'check_circle',toastBottom:mobile?152:28
+    };
+  }
+}
+</script>
+</body>
+</html>

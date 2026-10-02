@@ -170,7 +170,7 @@ and NIN/BVN need the field-encryption decision first (D-L13).
 **Blocked:** nothing. **Reversibility:** trivial (additive migration).
 
 ### D-L13 — Field-level encryption for NIN/BVN
-**Status:** BLOCKED for NIN/BVN (needed before M3). *Note 2026-10-02:* the envelope-encryption mechanism shipped for TOTP secrets in #39 (`@kasuwa/auth-crypto`, migration 0005) — **expand step only**; the plaintext `secret` column is still populated until a contract migration drops it. Report: `team/reports/D-L13-totp.md`.
+**Status:** ANSWERED 2026-10-02: envelope encryption via `@kasuwa/auth-crypto` plus an HMAC blind index. See DECISION-LOG.md. NDPA counsel review still advised before a real NIN is stored.
 **Context:** Pack §2.12 requires per-tenant KMS keys and blind indexes for equality search. That is a
 significant design with key-rotation and search consequences.
 **Options:** (1) `pgcrypto` + app-held per-tenant DEK wrapped by a KMS CMK; (2) a dedicated
@@ -393,31 +393,31 @@ These are your own open questions from Addendum §1.3, §2.2 and §3.8. They are
 this file is the single queue, and several of them gate work in weeks 1–3.
 
 ### D-T1 — Does the telephony platform expose a WebRTC client SDK, or do we embed its softphone UI?
-**Status:** BLOCKED
+**Status:** DEFERRED 2026-10-02 by @acexode: ignored until reopened.
 **Blocked:** Prompt 9 (softphone UI), Agent 6's screen-pop work, the `CallControl` half of the
 telephony adapter contract. **Not blocked:** the event-ingest and click-to-call halves, which I will
 define now. My adapter will separate `TelephonyEvents` / `TelephonyCommands` (definable today) from
 `TelephonySoftphone` (deferred, empty interface with a comment) so this answer does not force rework.
 
 ### D-T2 — Who owns the dialer list?
-**Status:** BLOCKED. Your own recommendation (Kasuwa owns contacts + consent, platform receives
+**Status:** DEFERRED 2026-10-02 by @acexode: ignored until reopened.
 filtered lists) is the one I would make too. **Blocked:** campaign/list contract shape, Agent 5 and 6
 week-2 work.
 
 ### D-T3 — Who enforces DND/quiet hours at dial time?
-**Status:** BLOCKED. Your recommendation (platform calls Kasuwa's `may_dial?`, Kasuwa also
+**Status:** DEFERRED 2026-10-02 by @acexode: ignored until reopened.
 pre-filters) is sound and is defence-in-depth. **Blocked:** whether Kasuwa must expose a
 sub-100 ms synchronous endpoint, which is a real latency/availability commitment with infrastructure
 consequences. This one needs a yes/no from the telephony team, not just from you.
 
 ### D-T4 — Does the platform already do recording, retention and PCI masking?
-**Status:** BLOCKED. **Blocked:** M18 client-portal recording playback, retention policy ownership,
+**Status:** DEFERRED 2026-10-02 by @acexode: ignored until reopened.
 whether PCI is fully out of Kasuwa's scope (pack §2.10 assumes it is; §2.7 M9 P0 assumed we build it;
 the addendum removes it — I need confirmation that the platform actually does it, otherwise there is
 a compliance gap owned by nobody).
 
 ### D-T5 — Is the telephony platform multi-tenant with programme scoping, or single-tenant per deployment?
-**Status:** BLOCKED — **highest-leverage telephony question.**
+**Status:** DEFERRED 2026-10-02 by @acexode: ignored until reopened.
 **Why it matters more than it looks:** if the platform is single-tenant per deployment, then every
 Kasuwa Silo/Bridge tenant implies a telephony deployment, the adapter needs per-tenant connection
 config and credential storage, and "every event carries `tenant_id` + `programme_id`" (§1.2 last row)
@@ -427,14 +427,14 @@ adapter's shape and the Pooled/Bridge/Silo model in ADR-0002.
 requires the adapter implementation to attach them — safe under both answers.
 
 ### D-W1 — WFM material (Addendum §2.2)
-**Status:** BLOCKED. Nothing shared yet: no repo, README, data model, API spec, tests or screenshots.
+**Status:** DEFERRED 2026-10-02 by @acexode: ignored until reopened.
 **Blocked:** the WFM review you asked for, and the real `wfm-adapter` contract. **Proceeding
 meanwhile:** an interface-only `wfm-adapter` derived from §2.1's four stated needs (published
 schedules, adherence, staffing-vs-scheduled, swap/leave links) with in-memory fakes, marked v0 and
 explicitly provisional.
 
 ### D-W2 — Does WFM consume the telephony agent-state stream directly, or via Kasuwa?
-**Status:** BLOCKED (named in §2.1). Affects whether Kasuwa is a broker (more load, more
+**Status:** DEFERRED 2026-10-02 by @acexode: ignored until reopened.
 responsibility, single ingestion point) or a bystander. **Recommendation:** via Kasuwa, so there is
 one normalised agent-state event model and one audit trail — but it makes Kasuwa's realtime path
 load-bearing for WFM's accuracy, which is a real operational commitment.
@@ -479,7 +479,7 @@ proceed and hope.
 ## B1. New — product decisions
 
 ### D-P1 — How are the seven UI languages actually translated?
-**Status:** ANSWERED 2026-09-27 — native-speaker review for `ha`/`ig`/`yo`/`pcm`, professional translation for `fr`/`sw`, no reviewer means unoffered. See DECISION-LOG.md. **Still outstanding from @acexode: a named reviewer per language.**
+**Status:** ANSWERED 2026-09-27, completed 2026-10-02 (English + `en-NG` at launch; a language is offered once it has a named reviewer). Native-speaker review for `ha`/`ig`/`yo`/`pcm`, professional translation for `fr`/`sw`, no reviewer means unoffered. See DECISION-LOG.md. **Still outstanding from @acexode: a named reviewer per language.**
 
 **Needed by:** before any locale is marked offered. **Does not block T-0009** —
 the mechanism is built either way; this decides what goes into it.
@@ -603,6 +603,7 @@ Neither blocks anything today; both get materially more expensive with every
 tenant that defines a field.
 
 ### D-P4 — is `api_name` immutable after creation?
+**Status:** ANSWERED 2026-10-02 — lead recommendation adopted. See DECISION-LOG.md ("the lead's recommendations"). Immutable.
 
 The schema currently permits an update. A rename breaks **every formula, layout,
 validation rule and integration** that referenced the old name — silently, at
@@ -619,6 +620,7 @@ script once tenants have custom fields. Salesforce made this exact choice and it
 is the one piece of its metadata model nobody complains about.
 
 ### D-P5 — what does the `nin` field type actually store?
+**Status:** ANSWERED 2026-10-02 — lead recommendation adopted. See DECISION-LOG.md ("the lead's recommendations"). Remove `nin`/`bvn` types now; reintroduce as encrypted-only.
 
 PRD M15 lists `nin` as a P0 field type. **Nothing in the schema forces it to
 store a token rather than the number itself.**
@@ -644,6 +646,7 @@ removing it later is every tenant that already stored one.
 ## B5. Raised during T-0007 (2026-09-28)
 
 ### D-P6 — `P01/1` needs a workspace field the design does not draw
+**Status:** ANSWERED 2026-10-02 — lead recommendation adopted. See DECISION-LOG.md ("the lead's recommendations"). Subdomain target, field fallback stays.
 
 The auth contract requires `tenantSlug` on sign-in. The `P01/1` board shows
 email and password only. The builder added the field and flagged it rather than
@@ -711,7 +714,7 @@ Raised as **T-0014**. Not blocking T-0007.
 ## B6. Raised 2026-09-30, logged 2026-10-02
 
 ### D-L34 — branch protection is not available on this repository
-**Status:** BLOCKED (cheap to answer)
+**Status:** ANSWERED 2026-10-02 — lead recommendation adopted. See DECISION-LOG.md ("the lead's recommendations"). GitHub Pro. **Purchase is @acexode's action.**
 **Context:** `acexode/kasuwa-crm` is a private repository on a free plan. GitHub returns
 `403 — Upgrade to GitHub Pro or make this repository public` for branch protection (checked
 2026-10-02). So `main` accepts direct pushes from anyone with write access. The CODEOWNERS

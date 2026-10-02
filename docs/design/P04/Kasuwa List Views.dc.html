@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&amp;display=block">
+<style>body{margin:0;background:#EFEBE4}a{color:#3C39A8;text-underline-offset:3px}a:hover{color:#22216F}*{box-sizing:border-box}</style>
+</helmet>
+<div style="--k-bg:#FAF8F5;--k-surface:#FFFFFF;--k-surface-raised:#FFFFFF;--k-surface-sunken:#F3F0EB;--k-border:#E6E1D9;--k-border-strong:#847C71;--k-text:#24201C;--k-text-2:#4E4841;--k-text-muted:#665F56;--k-primary:#2B2A8C;--k-on-primary:#FFFFFF;--k-primary-soft:#EEEEFA;--k-primary-soft-strong:#DCDCF5;--k-primary-text:#3C39A8;--k-accent:#F2A900;--k-accent-soft:#FEF8E7;--k-accent-text:#7A5104;--k-success:#0B8A4B;--k-success-soft:#E8F6EE;--k-success-text:#086E3C;--k-warning:#E8650F;--k-warning-soft:#FFF4EB;--k-warning-text:#9C3F0B;--k-danger:#B02222;--k-danger-soft:#FDEEEE;--k-danger-text:#8F1C1C;--k-info:#0E6396;--k-info-soft:#E9F4FB;--k-info-text:#0D4F78;--k-disabled-bg:#F3F0EB;--k-disabled-text:#ABA398;--k-focus:#4E4BBE;--k-inverse:#24201C;--k-on-inverse:#FAF8F5;--k-shadow-1:0 1px 2px rgba(36,32,28,.08);--k-shadow-2:0 4px 12px rgba(36,32,28,.10);--k-shadow-3:0 16px 40px rgba(36,32,28,.18);--k-scrim:rgba(21,18,16,.48);width:max-content;min-width:1880px;padding:72px 64px 96px;display:flex;flex-direction:column;gap:64px;font-family:'Noto Sans',system-ui,sans-serif;color:#24201C;background:#EFEBE4">
+
+<header data-screen-label="Cover" style="display:flex;flex-direction:column;gap:24px;max-width:1760px">
+  <div style="display:flex;align-items:center;gap:14px"><span style="width:48px;height:48px;border-radius:12px;background:#2B2A8C;color:#F2A900;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:26px">K</span><span style="font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#4E4841">Kasuwa · Flows · List views</span></div>
+  <h1 style="margin:0;font-size:88px;line-height:1;font-weight:800;letter-spacing:-.03em;color:#1A1955">Leads, Contacts, Accounts</h1>
+  <p style="margin:0;font-size:22px;line-height:34px;color:#4E4841;max-width:1160px;text-wrap:pretty">One list pattern for all three objects, at 1440px and 360px. Everything works: search (names or numbers in any format), filter chips with live counts, saved views, the four view types, bulk actions, inline edit of Owner and Status, the column chooser, 25/50/100 paging, and swipe actions and the filter sheet on mobile.</p>
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;max-width:1500px">
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Numbers first</b><span style="font-size:14px;line-height:21px;color:#4E4841">Phones are stored and shown in E.164 (+234 803 123 4567) with a network chip. DND and WhatsApp opt-in sit next to the number.</span></div>
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Consent-aware bulk</b><span style="font-size:14px;line-height:21px;color:#4E4841">WhatsApp templates skip anyone without opt-in and say how many were skipped. Campaigns route DND numbers to WhatsApp or email only.</span></div>
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Programme scope</b><span style="font-size:14px;line-height:21px;color:#4E4841">BPO agents see the programme chip and a note that only its records are visible. Locked columns show a lock, not an empty cell, and are left out of exports.</span></div>
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Offline</b><span style="font-size:14px;line-height:21px;color:#4E4841">The cached list stays usable with its last sync time. Edits queue with a cloud icon. Anything that needs a connection is disabled and says why.</span></div>
+  </div>
+</header>
+
+<sc-for list="{{ sections }}" as="g" hint-placeholder-count="5">
+  <section data-screen-label="{{ g.label }}" style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:baseline;gap:20px;border-top:2px solid #24201C;padding-top:16px;max-width:1760px"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#665F56">{{ g.num }}</span><h2 style="margin:0;font-size:40px;line-height:48px;font-weight:700;white-space:nowrap">{{ g.title }}</h2><span style="font-size:16px;line-height:24px;color:#4E4841;max-width:1000px;text-wrap:pretty">{{ g.note }}</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start;max-width:3100px">
+      <sc-for list="{{ g.frames }}" as="f" hint-placeholder-count="3">
+        <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0">
+          <span style="font-size:13px;font-weight:600;color:#665F56">{{ f.caption }}</span>
+          <sc-if value="{{ f.isDesk }}" hint-placeholder-val="{{ true }}">
+            <sc-if value="{{ f.dark }}" hint-placeholder-val="{{ false }}">
+              <div style="width:1440px;height:900px;border-radius:12px;overflow:hidden;display:flex;box-shadow:0 0 0 1px rgba(0,0,0,.2),0 12px 40px rgba(0,0,0,.25);color-scheme:dark;--k-bg:#151210;--k-surface:#1E1A17;--k-surface-raised:#29241F;--k-surface-sunken:#171411;--k-border:#37322D;--k-border-strong:#8A8277;--k-text:#FAF8F5;--k-text-2:#D2CBC0;--k-text-muted:#ABA398;--k-primary:#5754C4;--k-on-primary:#FFFFFF;--k-primary-soft:#232150;--k-primary-soft-strong:#2F2D68;--k-primary-text:#BBBAEC;--k-accent:#F5B81A;--k-accent-soft:#2E2308;--k-accent-text:#F8C947;--k-success:#27A262;--k-success-soft:#0C2618;--k-success-text:#58BD84;--k-warning:#F97F2A;--k-warning-soft:#2B190B;--k-warning-text:#FFA15C;--k-danger:#CC2E2E;--k-danger-soft:#2E1111;--k-danger-text:#EC7777;--k-info:#2E92CC;--k-info-soft:#0C2230;--k-info-text:#5CAEDD;--k-disabled-bg:#29241F;--k-disabled-text:#665F56;--k-focus:#F8C947;--k-inverse:#F3F0EB;--k-on-inverse:#24201C;--k-shadow-1:0 1px 2px rgba(0,0,0,.4);--k-shadow-2:0 4px 12px rgba(0,0,0,.45);--k-shadow-3:0 16px 40px rgba(0,0,0,.6);--k-scrim:rgba(0,0,0,.62)"><dc-import name="Kasuwa List Screen" object="{{ f.object }}" state="{{ f.state }}" view="{{ f.view }}" bpo="{{ f.bpo }}" restricted="{{ f.restricted }}" selected="{{ f.selected }}" menu="{{ f.menu }}" style="width:100%;height:100%" hint-size="1440px,900px"></dc-import></div>
+            </sc-if>
+            <sc-if value="{{ f.light }}" hint-placeholder-val="{{ true }}">
+              <div style="width:1440px;height:900px;border-radius:12px;overflow:hidden;display:flex;box-shadow:0 0 0 1px rgba(0,0,0,.08),0 12px 40px rgba(36,32,28,.12)"><dc-import name="Kasuwa List Screen" object="{{ f.object }}" state="{{ f.state }}" view="{{ f.view }}" bpo="{{ f.bpo }}" restricted="{{ f.restricted }}" selected="{{ f.selected }}" menu="{{ f.menu }}" style="width:100%;height:100%" hint-size="1440px,900px"></dc-import></div>
+            </sc-if>
+          </sc-if>
+          <sc-if value="{{ f.isMob }}" hint-placeholder-val="{{ false }}">
+            <sc-if value="{{ f.dark }}" hint-placeholder-val="{{ false }}">
+              <div style="width:360px;height:780px;border-radius:24px;overflow:hidden;box-shadow:0 0 0 6px #24201C,0 12px 40px rgba(0,0,0,.3);color-scheme:dark;--k-bg:#151210;--k-surface:#1E1A17;--k-surface-raised:#29241F;--k-surface-sunken:#171411;--k-border:#37322D;--k-border-strong:#8A8277;--k-text:#FAF8F5;--k-text-2:#D2CBC0;--k-text-muted:#ABA398;--k-primary:#5754C4;--k-on-primary:#FFFFFF;--k-primary-soft:#232150;--k-primary-soft-strong:#2F2D68;--k-primary-text:#BBBAEC;--k-accent:#F5B81A;--k-accent-soft:#2E2308;--k-accent-text:#F8C947;--k-success:#27A262;--k-success-soft:#0C2618;--k-success-text:#58BD84;--k-warning:#F97F2A;--k-warning-soft:#2B190B;--k-warning-text:#FFA15C;--k-danger:#CC2E2E;--k-danger-soft:#2E1111;--k-danger-text:#EC7777;--k-info:#2E92CC;--k-info-soft:#0C2230;--k-info-text:#5CAEDD;--k-disabled-bg:#29241F;--k-disabled-text:#665F56;--k-focus:#F8C947;--k-inverse:#F3F0EB;--k-on-inverse:#24201C;--k-shadow-1:0 1px 2px rgba(0,0,0,.4);--k-shadow-2:0 4px 12px rgba(0,0,0,.45);--k-shadow-3:0 16px 40px rgba(0,0,0,.6);--k-scrim:rgba(0,0,0,.62)"><dc-import name="Kasuwa List Screen" mobile="{{ true }}" object="{{ f.object }}" state="{{ f.state }}" bpo="{{ f.bpo }}" restricted="{{ f.restricted }}" swipe-open="{{ f.swipe }}" filter-sheet="{{ f.sheet }}" filters="{{ f.filters }}" style="width:100%;height:100%" hint-size="360px,780px"></dc-import></div>
+            </sc-if>
+            <sc-if value="{{ f.light }}" hint-placeholder-val="{{ false }}">
+              <div style="width:360px;height:780px;border-radius:24px;overflow:hidden;box-shadow:0 0 0 6px #24201C,0 12px 40px rgba(36,32,28,.2)"><dc-import name="Kasuwa List Screen" mobile="{{ true }}" object="{{ f.object }}" state="{{ f.state }}" bpo="{{ f.bpo }}" restricted="{{ f.restricted }}" swipe-open="{{ f.swipe }}" filter-sheet="{{ f.sheet }}" filters="{{ f.filters }}" style="width:100%;height:100%" hint-size="360px,780px"></dc-import></div>
+            </sc-if>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+</sc-for>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;themes&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Light, plus dark samples&quot;,&quot;Light only&quot;,&quot;Dark only&quot;],&quot;default&quot;:&quot;Light, plus dark samples&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const t = this.props.themes ?? 'Light, plus dark samples';
+    const okT = d => t === 'Light, plus dark samples' || (d ? t === 'Dark only' : t === 'Light only');
+    const L = (o, x) => ({ object: o, ...x });
+    const S = [
+      ['01', 'Leads', 'Dense table with sticky checkbox and name columns (scroll sideways). Three rows are selected to show the bulk bar. Click Owner or Status to edit in place; Merge needs 2–3 rows.', [
+        L('leads', { selected: 3, cap: 'Table · bulk selection' }),
+        L('leads', { m: 1, swipe: 1, cap: 'Card list · swipe open' }),
+        L('leads', { m: 1, sheet: true, filters: { source: ['WhatsApp', 'USSD'] }, cap: 'Filter sheet' })]],
+      ['02', 'Contacts · BPO programme', 'Agent on Bank X – Collections: programme chip, visibility note, programme stages and tags. Email and Account are locked for this role; the column chooser shows why.', [
+        L('contacts', { bpo: true, restricted: true, menu: 'cols', cap: 'Programme scope · locked columns · column chooser' }),
+        L('contacts', { m: 1, bpo: true, restricted: true, swipe: 0, cap: 'Programme scope · swipe' }),
+        L('contacts', { bpo: true, restricted: true, d: 1, cap: 'Programme scope' }),
+        L('contacts', { m: 1, bpo: true, restricted: true, d: 1, cap: 'Programme scope' })]],
+      ['03', 'Accounts', 'Square avatars for businesses. Split view keeps the list on the left and a preview with Call, WhatsApp, SMS (off for DND) and recent activity on the right.', [
+        L('accounts', { view: 'split', cap: 'Split view' }),
+        L('accounts', { m: 1, cap: 'Card list' }),
+        L('accounts', { menu: 'saved', cap: 'Table · saved views' })]],
+      ['04', 'Kanban & Map', 'Kanban groups by Status — drag a card to change it. Map groups by State; click a pin or row to filter by that State’s LGAs.', [
+        L('leads', { view: 'kanban', cap: 'Leads · Kanban' }),
+        L('accounts', { view: 'map', cap: 'Accounts · Map' })]],
+      ['05', 'Empty & no results', 'A new workspace offers imports from CSV, Zoho or Salesforce, and capture from WhatsApp, USSD or missed call. No results names the search and the filters that caused it.', [
+        L('leads', { state: 'empty', cap: 'Leads · empty' }),
+        L('leads', { m: 1, state: 'empty', cap: 'Leads · empty' }),
+        L('contacts', { state: 'noresults', cap: 'Contacts · no results' }),
+        L('contacts', { m: 1, state: 'noresults', cap: 'Contacts · no results' })]],
+      ['06', 'Loading & offline', 'Skeleton rows match the real column widths. Offline shows the cached list with “Last synced 10:42 WAT”; imports, exports and WhatsApp sends are disabled.', [
+        L('leads', { state: 'loading', cap: 'Leads · loading' }),
+        L('leads', { m: 1, state: 'loading', cap: 'Leads · loading' }),
+        L('leads', { state: 'offline', selected: 2, cap: 'Leads · offline' }),
+        L('leads', { m: 1, state: 'offline', cap: 'Leads · offline' })]]
+    ];
+    return {
+      sections: S.map(([num, title, note, fr]) => ({ num, title, note, label: num + ' ' + title,
+        frames: fr.filter(f => okT(!!f.d)).map(f => ({ object: f.object, state: f.state || 'ready', view: f.view || 'table', bpo: !!f.bpo, restricted: !!f.restricted, selected: f.selected || 0, menu: f.menu || null, swipe: f.swipe ?? null, sheet: !!f.sheet, filters: f.filters || null,
+          isDesk: !f.m, isMob: !!f.m, dark: !!f.d, light: !f.d, caption: f.cap + ' · ' + (f.m ? '360' : '1440') + ' · ' + (f.d ? 'Dark' : 'Light') })) }))
+    };
+  }
+}
+</script>
+</body>
+</html>

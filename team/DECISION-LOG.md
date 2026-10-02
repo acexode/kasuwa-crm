@@ -940,3 +940,59 @@ set that applies to that person in that programme. Two BPO clients with
 different rules about the same field get agents with different permission sets,
 not the same field stored twice. `PUT /field-security/matrix` is specified on
 that basis.
+
+---
+
+## 2026-10-02 — the lead's recommendations, adopted wholesale
+**Decided:** 2026-10-02 by @acexode: "for the items that are left for me, I need
+your best recommendations, and we will stick to it." Each answer below is the
+lead's recommendation and is now binding. Overturning one is a new decision.
+
+### D-L13 — NIN/BVN field-level encryption
+**Envelope encryption through `@kasuwa/auth-crypto`**, the same mechanism that
+already protects TOTP secrets (#39): a data key per value, wrapped under a
+per-tenant KMS key, AES-256-GCM with the row bound by AAD. Equality search goes
+through an **HMAC blind index** under a separate per-tenant key, never the
+plaintext. Provider tokenisation (Smile ID/Dojah) is allowed later as a storage
+*alternative* per tenant, not a prerequisite. One mechanism, already reviewed,
+beats a second one designed from scratch. **Caveat that stays:** NDPA counsel
+should read the design before the first production tenant stores a real NIN.
+
+### D-P5 — what the `nin` field type stores
+**(a) now, then (b).** Remove `nin` and `bvn` from the custom field types until
+D-L13's mechanism is wired to M3. When they return, they are encrypted-only types
+with a blind index, and a plain-text identity field is never offered.
+
+### D-P4 — `api_name` is immutable after creation
+**Immutable; the label stays freely editable.** Enforced in the database, not
+only the API.
+
+### D-P6 — how a user reaches their workspace
+**Subdomain (`<slug>.kasuwa.app`) is the target. The workspace field stays as
+the fallback for direct links** until the first real environment has DNS,
+certificates and a cell router. Nothing is built for subdomains this round.
+
+### D-P1 — translation (completing the 2026-09-27 answer)
+**English and `en-NG` are offered at launch. Nothing else is offered until it
+has a named reviewer.** @acexode nominates one native speaker from Outsource
+Global per language for `ha`, `ig`, `yo` and `pcm`. `fr` and `sw` are bought only
+when a customer in those markets signs. No code change; the completeness gate
+already enforces it.
+
+### D-L34 — branch protection
+**GitHub Pro on the `acexode` account** (the cheapest plan that enables
+protection on a private repository). Move to an organisation on Team when a
+second human joins. After the upgrade: require PRs to `main` except for the
+bookkeeping paths, require the `isolation` and `guard-protected-paths` checks,
+and require code-owner review on `tests/acceptance/` and `packages/db/migrations/`.
+**Action for @acexode:** the purchase. The lead configures the rules once it
+exists.
+
+### D-T1–D-T5, D-W1, D-W2 — telephony and WFM
+**Deferred.** Ignored entirely until @acexode reopens them. No task may depend on
+them, and none is written against them.
+
+### This round only: seven PRs open at once
+The standing order says to pause above five open PRs. @acexode asked for all
+seven agents to run in parallel, each opening its own PR, so the cap is lifted
+**for this round**. It returns when these seven are merged or closed.
