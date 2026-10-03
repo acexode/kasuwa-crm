@@ -845,3 +845,27 @@ to take on). Fix in `fetch-fonts.mjs`: self-hosted sources only, plus a test tha
 generated CSS for any external origin.
 **Also from T-0010, for Agent 11:** the P01 sign-in budget (270,336) now has 12.6% headroom over the
 measured 240,015 and should be re-pinned.
+
+---
+
+## B12. Raised during T-0007b (2026-10-03)
+
+### D-P11 — copy on the sign-up region screen (`P01/5.1`) needs counsel or the designer
+**Status:** OPEN. Regulatory wording; the lead will not paraphrase it.
+The NDPA panel is the design's text verbatim, and its last sentence tells the user to "choose
+Nigeria", which D-P2 makes unselectable during self-serve sign-up (ZA only; NG and KE are sales-led).
+Two new strings also need review: "Talk to sales" and "Our sales team sets this region up with you.
+It cannot be chosen during sign-up." The exact text is in `team/reports/T-0007b.md`. Behind
+`self_serve_signup` (off), so no user sees it until v1.
+
+### D-L44 — naira and cedi signs pull in the 168 KB font
+**Status:** OPEN. Agent 11, folded into D-L43 / HANDOFF item 6.
+₦ and ₵ fall in Noto Sans Latin Extended (168 KB). `/onboarding` first measured 399,576 bytes,
+over the 300 KB ceiling, purely from one currency sign. T-0007b worked around it by setting
+amounts in JetBrains Mono (now 243,325 bytes), but **every future screen that shows a naira amount
+will hit this.** Fix in `packages/ui` / `fetch-fonts.mjs`: a small subset carrying the currency
+symbols, served ahead of the full Latin-Extended file.
+
+### Also from T-0007b, for T-0018
+`P01/6` says "This list stays on your Home page", which is untrue until T-0018 persists onboarding
+state. Fix the copy or the state in T-0018.
