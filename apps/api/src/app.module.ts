@@ -7,6 +7,9 @@ import {
 import { APP_FILTER } from '@nestjs/core';
 import { createDevelopmentKeyProvider, type KeyProvider } from '@kasuwa/auth-crypto';
 import { AdminProgrammesController } from './admin/programmes/programmes.controller';
+import { AdminDispositionsModule } from './admin/dispositions/admin-dispositions.module';
+import { DispositionsController } from './admin/dispositions/dispositions.controller';
+import { ProgrammeScriptsController } from './admin/dispositions/programme-scripts.controller';
 import { FieldSecurityAdminModule } from './admin/field-security/field-security.module';
 import { AdminRolesModule } from './admin/roles/admin-roles.module';
 import { PermissionSetsController, RolesController } from './admin/roles/roles.controller';
@@ -47,6 +50,8 @@ const TELEMETRY_CONTROLLERS = [
   RolesController,
   PermissionSetsController,
   FieldSecurityController,
+  DispositionsController,
+  ProgrammeScriptsController,
 ];
 
 export interface AppModuleOptions {
@@ -125,6 +130,7 @@ export class AppModule implements NestModule {
         ),
         FieldSecurityAdminModule.register({ authMode: options.authMode ?? 'stub' }),
         AdminRolesModule,
+        AdminDispositionsModule,
       ],
       controllers: CONTROLLERS,
       providers: [

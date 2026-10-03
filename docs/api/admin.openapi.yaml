@@ -806,7 +806,7 @@ paths:
       tags: [programmes]
       summary: The disposition list, in agent order, with usage
       operationId: listDispositions
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/B5']
       description: |
         `usageCount90d` is the number the delete dialog leans on — "Agents
@@ -841,7 +841,7 @@ paths:
       tags: [programmes]
       summary: Add a disposition
       operationId: createDisposition
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B5']
       description: |
@@ -872,7 +872,7 @@ paths:
       tags: [programmes]
       summary: Reorder dispositions
       operationId: reorderDispositions
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B5']
       description: |
@@ -905,7 +905,7 @@ paths:
       tags: [programmes]
       summary: Edit a disposition, or deactivate it
       operationId: updateDisposition
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B5']
       description: |
@@ -936,7 +936,7 @@ paths:
       tags: [programmes]
       summary: Delete a disposition
       operationId: deleteDisposition
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B5']
       description: |
@@ -959,7 +959,7 @@ paths:
       tags: [programmes]
       summary: Scripts configured for the programme
       operationId: listProgrammeScripts
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/B6']
       description: |
         Read-only here. The script *builder* is M10 and a screen of its own;

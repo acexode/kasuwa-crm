@@ -23,6 +23,7 @@ export type AdminErrorCode =
   | 'not_authenticated'
   | 'not_found'
   | 'duplicate_name'
+  | 'duplicate_code'
   | 'stale_write'
   | 'role_hierarchy_cycle';
 
