@@ -48,10 +48,10 @@ openapi: 3.1.0
 #              screen can be built; keep that screen on the mock.
 #
 # AT THE TIME OF WRITING (T-0021) EXACTLY ONE OPERATION WAS `partial` AND NONE
-# WAS `true`. T-0024 has since built the four programme reads and the rename.
-# There is no admin controller, no role table, no permission-set table, no
-# field-security table and no audit table. That is the honest state and the
-# point of publishing this now.
+# WAS `true`. Since then T-0022 built the roles, T-0024 the four programme
+# reads and the rename, and T-0025 the audit log (table, writer and the four
+# `audit` operations). Each operation's `x-kasuwa-implemented` is the current
+# truth; this paragraph is history.
 # ---------------------------------------------------------------------------
 
 info:
@@ -484,8 +484,14 @@ paths:
         `businessUnitId` outside the caller's tenant is `404 not_found`, the
         same body as one that does not exist. `countryCode` is validated but
         not stored (no column), so the `201` body omits it. Not enforced: `403
-        not_permitted` (no permissions engine — any tenant user may create) and
-        the audit row (no audit table).
+        not_permitted` (no permissions engine — any tenant user may create).
+
+        **Audited (T-0025, D-L52):** one `created` event, `objectType:
+        programme`, with `programmeId: null` and nothing but the new id (as
+        `objectId`, `objectLabel` and an `id` change). The new programme is
+        not in the request's scope, so the event cannot carry it, and a
+        programme-less event is readable tenant-wide — its name or client
+        name there would cross the boundary D-L40 protects.
       requestBody:
         required: true
         content:
@@ -560,11 +566,15 @@ paths:
         screen re-reads. Two admins on the same programme is not hypothetical
         in a BPO.
 
-        **Built (T-0024), with two gaps.** `name` and `clientName` only: any
+        **Built (T-0024), with one gap.** `name` and `clientName` only: any
         `status` is `400 validation_failed` at `status` until a lifecycle
         column exists. Not yet enforced: `403 not_permitted` (no permissions
-        engine — any member of the programme may rename it) and the audit row
-        (no audit table).
+        engine — any member of the programme may rename it).
+
+        **Audited (T-0025):** a write that changes something records one
+        `updated` event, `objectType: programme`, with the programme as
+        `programmeId` (so only its members can read it) and a change per
+        field that moved (`name`, `clientName`).
       requestBody:
         required: true
         content:
@@ -841,7 +851,7 @@ paths:
       tags: [programmes]
       summary: The disposition list, in agent order, with usage
       operationId: listDispositions
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/B5']
       description: |
         `usageCount90d` is the number the delete dialog leans on — "Agents
@@ -876,7 +886,7 @@ paths:
       tags: [programmes]
       summary: Add a disposition
       operationId: createDisposition
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B5']
       description: |
@@ -907,7 +917,7 @@ paths:
       tags: [programmes]
       summary: Reorder dispositions
       operationId: reorderDispositions
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B5']
       description: |
@@ -940,7 +950,7 @@ paths:
       tags: [programmes]
       summary: Edit a disposition, or deactivate it
       operationId: updateDisposition
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B5']
       description: |
@@ -971,7 +981,7 @@ paths:
       tags: [programmes]
       summary: Delete a disposition
       operationId: deleteDisposition
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B5']
       description: |
@@ -994,7 +1004,7 @@ paths:
       tags: [programmes]
       summary: Scripts configured for the programme
       operationId: listProgrammeScripts
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/B6']
       description: |
         Read-only here. The script *builder* is M10 and a screen of its own;
@@ -1183,19 +1193,21 @@ paths:
       tags: [programmes]
       summary: Client-portal users for this programme
       operationId: listPortalUsers
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/B8']
       description: |
-        Usually empty, which is the designed state.
+        Usually empty, which is the designed state. Newest invitation first;
+        unpaginated, because a programme has a handful of portal users at most.
 
-        **This is the one list that returns an email address**, because the row
-        is an invitation and the address is the invitation's identity — an
-        admin resending an invite has to see where it goes. It is the invited
-        address only, never a customer's, and `emailMasked` is what the row
-        renders; the full address is present only on the invitation the caller
-        just created.
+        **No response carries a full email address** (D-L49). The row is an
+        invitation to an outsider, and `emailMasked` (the invited address with
+        all but the first and last character of the local part hidden) is what
+        it renders. Neither this list nor `invitePortalUser` returns the full
+        address; an admin who needs it to resend simply re-invites it.
 
-        Portal users are M18. Nothing exists.
+        A portal user belongs to exactly one programme: an invitation is listed
+        only in the programme it was issued in. Accepting an invitation, and
+        so the `active` and `suspended` states, arrive with M18.
       parameters:
         - $ref: '#/components/parameters/ProgrammeId'
       responses:
@@ -1231,7 +1243,7 @@ paths:
       tags: [programmes]
       summary: Invite a client-portal user
       operationId: invitePortalUser
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B8']
       description: |
@@ -1239,6 +1251,24 @@ paths:
         consequential things an admin can do here, so it is audited with the
         programme and the access level — and the audit row records the invited
         address as a masked hint plus an opaque id, not as a plain address.
+        (The audit row is not written yet: it waits for the audit log, T-0025.)
+
+        The invitation is an email, sent through the channel adapter before the
+        `202` is returned. It carries an acceptance link (single-use once the
+        M18 accept flow exists); the token
+        in it is stored only as a hash, and neither the token nor the address
+        is ever logged. If the email cannot be handed to the provider, nothing
+        is saved and the answer is `503 service_unavailable`.
+
+        **Re-inviting an address already pending in this programme is a
+        resend** (D-L49): `202`, the same portal user `id`, and a new token
+        — the previous link stops working. A resend does not change
+        `displayName` or `access`. Inviting an address that is known in
+        another programme or another tenant is indistinguishable from a fresh
+        invitation: it creates a new portal user in this programme only.
+
+        `displayName` is optional; an unnamed invitation is displayed as its
+        masked address.
       parameters:
         - $ref: '#/components/parameters/ProgrammeId'
       requestBody:
@@ -1262,6 +1292,13 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '501': { $ref: '#/components/responses/NotImplemented' }
+        '503':
+          description: |
+            The invitation email could not be handed to the channel provider.
+            Nothing was saved; it is safe to retry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /api/v1/admin/programmes/{programmeId}/archive-preview:
     get:
@@ -1330,8 +1367,10 @@ paths:
         whatever the body says. Archiving an archived programme is an
         idempotent `200` with the version unchanged. Not built yet: losing
         access (assigned users keep read access until the permissions engine),
-        "stops taking new work", restore (no operation exists), `403
-        not_permitted`, and the audit row.
+        "stops taking new work", restore (no operation exists) and `403
+        not_permitted`. **Audited (T-0025, D-L52):** an archive that changes
+        the status records one `updated` event with a `status` change and the
+        programme as `programmeId`; an idempotent re-archive records nothing.
       parameters:
         - $ref: '#/components/parameters/ProgrammeId'
       requestBody:
@@ -1768,8 +1807,10 @@ paths:
         `403 not_permitted`, an unknown or another tenant's field or set is
         `404 not_found` (the same body as an unknown object), and in either
         case nothing in the request is applied. Unknown is checked before
-        locked. **Not yet audited** (D-L38): the audit rows above land with
-        the T-0025 writer.
+        locked. **Audited (T-0025, D-L52):** one `updated` event per cell whose
+        level moved, `objectType: field_security`, `programmeId: null`
+        (tenant-level, D-P9), with changes `fieldApiName`, `permissionSetId`
+        (the set's key) and `level` (before and after) and nothing else.
       requestBody:
         required: true
         content:
@@ -1808,20 +1849,35 @@ paths:
       tags: [audit]
       summary: Search the audit log
       operationId: listAuditEvents
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/A', 'P02/E', 'P02/E1']
       description: |
         The audit table, its filters, its expandable before/after rows, and its
         empty state. Also the "Recent admin changes" card on the admin home,
         which is this endpoint with `pageSize=5`.
 
-        **There is no audit table. T-0001 left the write side out deliberately
-        as an M2 task and it is still out.** This specifies the read side only,
-        so `P02/E` can be built. Whoever builds the store owns the write side
-        too — an audit log with a reader and no writer is a screen that says
-        "no events match" forever, and an audit log whose rows can be written
-        by the subject of the audit is not an audit log. Both halves are one
-        task.
+        **Built (T-0025), reader and writer together.** The store is
+        `audit_event` (migration 0008), append-only for the application role:
+        it may insert and read, never update or delete, and may only insert
+        events whose actor is the session user. Written today, each in the
+        same transaction as its change and never for a refused write or a
+        read: `createRole`, `updateRole`, `deleteRole` and
+        `updateRoleHierarchy` (`objectType: role`, one event per moved role),
+        `createProgramme`, `updateProgramme` and `archiveProgramme`
+        (`objectType: programme`), `updateFieldSecurityMatrix` (`objectType:
+        field_security`, one event per changed cell) and `createAuditExport`
+        (`objectType: audit_export`). `changes[].field` uses API field names.
+        Newest first; `page.totalCount` is always null.
+
+        **Who sees what (D-L48).** An event with a `programmeId` is visible
+        only to members of that programme; an event with none (role changes,
+        exports) to every user of the tenant, until the permissions engine
+        restricts reading the log to admins. Not yet enforced: `403
+        not_permitted` anywhere in this tag.
+
+        **Source addresses are not recorded yet**, and `sourceIp` and
+        `sourceLocation` are always null. Because nobody may see an address,
+        nobody may filter on one: any `sourceIpPrefix` returns the empty page.
 
         **Personal data.** This is the sharp edge of the whole contract. An
         audit entry names a Kasuwa user (the actor) and names the thing they
@@ -1931,7 +1987,7 @@ paths:
       tags: [audit]
       summary: What the filter dropdowns should offer
       operationId: getAuditFilterOptions
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/E']
       description: |
         The actor, action and object-type lists.
@@ -1970,7 +2026,7 @@ paths:
       tags: [audit]
       summary: Start an audit-log export
       operationId: createAuditExport
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/E2']
       description: |
@@ -1991,6 +2047,20 @@ paths:
 
         Scope is the caller's, as always: `scope: all` means "everything in the
         last 90 days that you can see", not everything that exists.
+
+        **Built (T-0025), request side only.** The request is stored and
+        audited (`action: exported`, `objectType: audit_export`, `objectId`
+        the `exportId`, a change per request field, `includeIpAddresses`
+        always recorded, a `sourceIpPrefix` filter recorded as redacted).
+        `filters` is accepted only with `scope: filtered`, and
+        `filters.objectType` must be one of the object types the log writes
+        (`role`, `programme`, `field_security`, `audit_export`) — the event is
+        readable tenant-wide, so it carries no free text. `filters.actorId`
+        is recorded as redacted, and a `sourceIpPrefix` is not stored on the
+        export, only the fact that one was given. No worker builds
+        the file yet, so an export stays `queued`, and `estimatedRowCount`,
+        `deliveryEmailHint` and `linkExpiresAfterHours` are null. Not yet
+        enforced: `403 not_permitted` and `429`.
       requestBody:
         required: true
         content:
@@ -2028,7 +2098,7 @@ paths:
       tags: [audit]
       summary: Check an export's progress
       operationId: getAuditExport
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/E2']
       description: |
         Poll for the toast to become "ready". Returns no download URL: the file
@@ -2738,8 +2808,8 @@ components:
           type: string
           description: |
             What the row renders, e.g. `p•••e@client.example`. The invited
-            address, never a customer's. The full address is not returned by
-            the list.
+            address, never a customer's. No response returns the full address
+            (D-L49).
         access: { type: string, enum: [viewer, reports_only] }
         status: { type: string, enum: [invited, active, suspended] }
         invitedAt: { type: string, format: date-time }
@@ -3138,7 +3208,7 @@ components:
           properties:
             actorId: { type: string, format: uuid }
             action: { $ref: '#/components/schemas/AuditAction' }
-            objectType: { type: string, maxLength: 64 }
+            objectType: { type: string, enum: [role, programme, field_security, audit_export] }
             from: { type: string, format: date-time }
             to: { type: string, format: date-time }
             sourceIpPrefix: { type: string, maxLength: 45 }

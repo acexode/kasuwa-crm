@@ -9,9 +9,13 @@ import { describe, expect, it } from 'vitest';
 import { KasuwaAuthGuard } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { ADMIN_CONTROLLERS } from './admin.module';
+import { AuditController } from './audit/audit.controller';
 import { AdminErrorFilter } from './common/admin-errors';
+import { DispositionsController } from './dispositions/dispositions.controller';
+import { ProgrammeScriptsController } from './dispositions/programme-scripts.controller';
 import { FieldSecurityMatrixController } from './field-security/field-security-matrix.controller';
 import { FieldSecurityController } from './field-security/field-security.controller';
+import { PortalUsersController } from './portal-users/portal-users.controller';
 import { AdminHomeController, SettingsMenuBadgesController } from './home/home.controller';
 import { AdminProgrammesController } from './programmes/programmes.controller';
 import { PermissionSetsController, RolesController } from './roles/roles.controller';
@@ -32,6 +36,10 @@ describe('AdminModule (D-L39)', () => {
         FieldSecurityMatrixController,
         AdminProgrammesController,
         ProgrammeSlaRetentionController,
+        PortalUsersController,
+        AuditController,
+        DispositionsController,
+        ProgrammeScriptsController,
         AdminHomeController,
         SettingsMenuBadgesController,
       ]),

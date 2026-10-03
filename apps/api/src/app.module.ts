@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { createDevelopmentKeyProvider, type KeyProvider } from '@kasuwa/auth-crypto';
+import { defaultChannelProvider, type ChannelProvider } from '@kasuwa/channel-adapter';
+import { nodeEnv } from '@kasuwa/config';
 import { ADMIN_CONTROLLERS, AdminModule } from './admin/admin.module';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
@@ -15,6 +17,7 @@ import { KEY_PROVIDER } from './auth/key-provider.token';
 import { ContactsController } from './contacts/contacts.controller';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
+import { CHANNEL, createApiChannel } from './messaging/channel';
 import { AUTH_MODE, KasuwaAuthGuard, type ResolvedAuthMode } from './tenancy/kasuwa-auth.guard';
 import { StubAuthGuard } from './tenancy/stub-auth.guard';
 import { TenantTransactionInterceptor } from './tenancy/tenant-transaction.interceptor';
@@ -67,6 +70,18 @@ export interface AppModuleOptions {
    */
   keyProvider?: KeyProvider;
   /**
+   * The messaging provider behind `@kasuwa/channel-adapter` (D-L49, T-0030).
+   *
+   * The API never calls it directly: it is wrapped in `createChannelAdapter`,
+   * which validates, applies DND and sanitises errors. When omitted it is
+   * `defaultChannelProvider(nodeEnv())` (D-L52): the in-memory fake in
+   * development and test, and a null provider in production that refuses
+   * every send - so an invitation is a `503`, never a `202` for an email that
+   * went nowhere - until D-P10 chooses a real provider. Tests pass their own
+   * fake to read what was sent.
+   */
+  channelProvider?: ChannelProvider;
+  /**
    * The `cell` attribute on every API span (T-0005). Defaults to `local`;
    * `main.ts` passes KASUWA_CELL.
    */
@@ -106,7 +121,7 @@ export class AppModule implements NestModule {
       // Every admin area relies on this (D-L39); do not remove it while
       // AdminModule exists.
       global: true,
-      exports: [AUTH_MODE],
+      exports: [AUTH_MODE, CHANNEL],
       imports: [
         DatabaseModule.forRoot(
           options.poolMax === undefined
@@ -131,6 +146,10 @@ export class AppModule implements NestModule {
         {
           provide: KEY_PROVIDER,
           useValue: options.keyProvider ?? createDevelopmentKeyProvider(),
+        },
+        {
+          provide: CHANNEL,
+          useValue: createApiChannel(options.channelProvider ?? defaultChannelProvider(nodeEnv())),
         },
         { provide: APP_FILTER, useClass: ValidationExceptionFilter },
         {

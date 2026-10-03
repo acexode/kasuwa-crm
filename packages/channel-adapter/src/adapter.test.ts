@@ -69,7 +69,7 @@ describe('createChannelAdapter', () => {
   it('passes the parsed request to the provider, not the caller object', async () => {
     const provider = new FakeChannelProvider();
     const channel = createChannelAdapter({ provider, dnd: new FakeDndRegister([]) });
-    await channel.send({ ...request(), extra: 'dropped' } as SendRequest);
+    await channel.send({ ...request(), extra: 'dropped' } as unknown as SendRequest);
     expect(provider.sent).toEqual([request()]);
   });
 
@@ -284,6 +284,104 @@ describe('FakeChannelProvider', () => {
     await expect(provider.send(request())).rejects.toBeInstanceOf(ProviderRejectedError);
     await provider.send(request());
     expect(provider.sent).toHaveLength(1);
+  });
+});
+
+describe('the email channel (D-L49)', () => {
+  // Invented, never a real address (CLAUDE.md section 6).
+  const ADDRESS = 'unit.probe-email@client.example';
+  const email = (overrides: Partial<SendRequest> = {}): SendRequest =>
+    ({
+      scope: SCOPE,
+      channel: 'email',
+      to: ADDRESS,
+      body: 'Accept your invitation: /portal?token=UNIT-PROBE',
+      purpose: 'transactional',
+      ...overrides,
+    }) as SendRequest;
+
+  it('sends to an address, exactly as given', async () => {
+    const provider = new FakeChannelProvider();
+    const channel = createChannelAdapter({ provider, dnd: new FakeDndRegister([]) });
+    await channel.send(email());
+    expect(provider.sent).toEqual([email()]);
+  });
+
+  it('refuses a non-address and names only the failing field, never the value', async () => {
+    const channel = createChannelAdapter({
+      provider: new FakeChannelProvider(),
+      dnd: new FakeDndRegister([]),
+    });
+    for (const to of [
+      'not-an-address',
+      TO,
+      `x${'y'.repeat(320)}@client.example`,
+      'a@b\r\nBcc: c@d.example',
+    ]) {
+      const error = await channel.send(email({ to })).catch((e: unknown) => e);
+      expect(error, to).toBeInstanceOf(InvalidSendRequestError);
+      expect((error as InvalidSendRequestError).fields).toEqual(['to']);
+      expect(inspect(error, { showHidden: true })).not.toContain(to);
+    }
+  });
+
+  it('keeps E.164 on sms and whatsapp: an address is not a phone number', async () => {
+    const channel = createChannelAdapter({
+      provider: new FakeChannelProvider(),
+      dnd: new FakeDndRegister([]),
+    });
+    for (const kind of ['sms', 'whatsapp'] as const) {
+      const error = await channel
+        .send(request({ channel: kind, to: ADDRESS }))
+        .catch((e: unknown) => e);
+      expect(error, kind).toBeInstanceOf(InvalidSendRequestError);
+      expect((error as InvalidSendRequestError).fields).toEqual(['to']);
+    }
+  });
+
+  it('refuses an unknown channel by naming the channel field', async () => {
+    const channel = createChannelAdapter({
+      provider: new FakeChannelProvider(),
+      dnd: new FakeDndRegister([]),
+    });
+    const error = await channel
+      .send({ ...request(), channel: 'fax' } as unknown as SendRequest)
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(InvalidSendRequestError);
+    expect((error as InvalidSendRequestError).fields).toEqual(['channel']);
+  });
+
+  it('never consults the DND register for email, even when promotional', async () => {
+    let lookups = 0;
+    const provider = new FakeChannelProvider();
+    const channel = createChannelAdapter({
+      provider,
+      dnd: {
+        isRegistered: async () => {
+          lookups += 1;
+          return true;
+        },
+      },
+    });
+    await channel.send(email({ purpose: 'promotional' }));
+    expect(lookups).toBe(0);
+    expect(provider.sent).toHaveLength(1);
+  });
+
+  it('never logs the address or the body', async () => {
+    const logger = recordingLogger();
+    const channel = createChannelAdapter({
+      provider: new FakeChannelProvider(),
+      dnd: new FakeDndRegister([]),
+      logger,
+    });
+    await channel.send(email());
+    await channel.send(email({ to: 'not-an-address' })).catch(() => undefined);
+    const logged = JSON.stringify(logger.entries);
+    expect(logger.entries.length).toBeGreaterThan(0);
+    expect(logged).not.toContain(ADDRESS);
+    expect(logged).not.toContain('not-an-address');
+    expect(logged).not.toContain('UNIT-PROBE');
   });
 });
 

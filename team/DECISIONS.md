@@ -479,7 +479,7 @@ proceed and hope.
 ## B1. New — product decisions
 
 ### D-P1 — How are the seven UI languages actually translated?
-**Status:** REOPENED 2026-10-02 by @acexode — **to discuss once the current round of seven tasks is done.** Direction given: every language goes live; once the app is complete, native speakers test each one and make recommendations. The "English + `en-NG` only at launch" answer recorded earlier the same day is withdrawn. Until the discussion, nothing changes in code. Previous answer, for reference: native-speaker review for `ha`/`ig`/`yo`/`pcm`, professional translation for `fr`/`sw`, no reviewer means unoffered. See DECISION-LOG.md. **Still outstanding from @acexode: a named reviewer per language.**
+**Status:** ANSWERED 2026-10-03: every language ships; any language without a named reviewer's sign-off shows **Beta** in the menu with a "help improve this translation" link; native speakers test once the app is feature-complete and their sign-off removes Beta. (Reopened 2026-10-02.) Direction given: every language goes live; once the app is complete, native speakers test each one and make recommendations. The "English + `en-NG` only at launch" answer recorded earlier the same day is withdrawn. Until the discussion, nothing changes in code. Previous answer, for reference: native-speaker review for `ha`/`ig`/`yo`/`pcm`, professional translation for `fr`/`sw`, no reviewer means unoffered. See DECISION-LOG.md. **Still outstanding from @acexode: a named reviewer per language.**
 
 **Needed by:** before any locale is marked offered. **Does not block T-0009** —
 the mechanism is built either way; this decides what goes into it.
@@ -714,7 +714,7 @@ Raised as **T-0014**. Not blocking T-0007.
 ## B6. Raised 2026-09-30, logged 2026-10-02
 
 ### D-L34 — branch protection is not available on this repository
-**Status:** ANSWERED 2026-10-02 — lead recommendation adopted. See DECISION-LOG.md ("the lead's recommendations"). GitHub Pro. **Purchase is @acexode's action.**
+**Status:** ANSWERED 2026-10-03 by @acexode: **no GitHub Pro.** The repo moves to an organisation at the end of development; branch protection is configured then. Until then guards are convention-strength by design (see DECISION-LOG 2026-10-03 "answers").
 **Context:** `acexode/kasuwa-crm` is a private repository on a free plan. GitHub returns
 `403 — Upgrade to GitHub Pro or make this repository public` for branch protection (checked
 2026-10-02). So `main` accepts direct pushes from anyone with write access. The CODEOWNERS
@@ -730,7 +730,7 @@ on Team; (3) make it public; (4) accept convention-strength guards and record th
 ## B7. Raised 2026-10-02
 
 ### D-L36 — no feature may be quietly buried
-**Status:** OPEN — to discuss with D-P1 after the current round.
+**Status:** ANSWERED 2026-10-03: adopt `team/FEATURES.md`, generated from the PRD, task files, `x-kasuwa-implemented` flags and the flag registry, with a CI check that fails on any flag, deferral or mock-only screen without a row. Agent 13, after T-0032 starts.
 **Context:** @acexode: "this app has lots of features, I don't want any to be accidentally
 buried." The real risk is features that are flag-gated (for example `self_serve_signup`), held
 back as "not MVP", deferred (telephony, WFM), or mock-only with no backend (P02 today). Each one
@@ -747,7 +747,33 @@ fails CI if a flag or a deferral has no row.
 ## B8. Raised during T-0017 (2026-10-02)
 
 ### D-P10 — the first messaging provider
-**Status:** OPEN — lead recommendation below; needs real per-message prices before it is final.
+**Status:** OPEN, **recommendation ready (2026-10-03)**. Pending @acexode's go-ahead and sales answers.
+**Research (vendor pages read 2026-10-03; no vendor contacted):**
+
+| | Termii | Africa's Talking | Twilio (reference) |
+|---|---|---|---|
+| NG price/SMS | Not published | ~₦5–6 transactional (search copy, unconfirmed) | US$0.3868 (~60× the local routes) |
+| Reaches DND numbers (OTP) | Yes, explicit DND route | Yes, per-telco transactional route | Not reliably (its own Nigeria guidance) |
+| DND lookup API | **Yes** (`dnd_active`) | None found | None |
+| Delivery reports | Signed webhooks (HMAC-SHA512) | Callbacks (docs blocked) | Yes |
+| Sender ID lead time | Not stated | ≥2 weeks (CAC certificate, ID, letter per telco) | 2–3 weeks |
+| Data location | **Not disclosed** | **Not disclosed** | US by default |
+| GH / KE / ZA | Unverified | KE, ZA yes | Yes |
+| WhatsApp | Yes | Yes | Yes |
+
+**Recommendation:** **Termii primary, Africa's Talking fallback.** Termii is the only one with a DND-route
+plus DND-lookup API (needed later for promotional compliance, not just OTP) and has signed webhooks. AT is a
+different upstream (so one failure does not take out both), has real KE/ZA reach, and reported naira pricing.
+**Start AT's sender-ID registration on day one** (≥2 weeks). **Not Twilio** (cost; unreliable to DND numbers).
+**Three questions for sales before signing:**
+(1) Naira rate on the DND/transactional route per telco at our volume; is the DND lookup billed per call;
+are failed or DND-rejected messages charged?
+(2) NDPA: where are numbers and message content processed and stored, for how long, and with which cloud?
+Will you sign a DPA with transfer clauses and list sub-processors (upstream aggregators, telcos)?
+(3) Direct-to-telco or via resellers; OTP delivery rate to DND numbers per telco; real sender-ID lead time
+per telco; can sender IDs be per tenant (BPO client)?
+**The NDPA cross-border assessment is blocked on question 2:** no Nigerian vendor publishes data location.
+Sources are in the lead's research notes (vendor pricing, developer docs, help articles).
 **Context:** T-0017 built `@kasuwa/channel-adapter` against a fake provider only. OTP for
 self-serve sign-up (T-0016) and MFA recovery (T-0012) both need a real one. Choosing it is spend
 and a contract.
@@ -853,7 +879,7 @@ measured 240,015 and should be re-pinned.
 ## B12. Raised during T-0007b (2026-10-03)
 
 ### D-P11 — copy on the sign-up region screen (`P01/5.1`) needs counsel or the designer
-**Status:** OPEN. Regulatory wording; the lead will not paraphrase it.
+**Status:** ANSWERED 2026-10-03: lead recommendation adopted. Remove the "choose Nigeria" sentence from the self-serve screen; use "Nigerian data residency is set up with our sales team."; counsel signs off the final wording before the flag is lifted.
 The NDPA panel is the design's text verbatim, and its last sentence tells the user to "choose
 Nigeria", which D-P2 makes unselectable during self-serve sign-up (ZA only; NG and KE are sales-led).
 Two new strings also need review: "Talk to sales" and "Our sales team sets this region up with you.
@@ -946,7 +972,7 @@ deferred), and the spec description must say so. Two targets for the same channe
 are a 400. When a write is both stale and violates legal hold, `stale_write` wins (it is checked first).
 
 ### D-L51 — `user_programme` RLS is tenant-only: the database does not guard programme membership
-**Status:** OPEN, **HIGH**. Not exploitable through any endpoint today; the database-level defence is missing.
+**Status:** ANSWERED 2026-10-03: lead recommendation adopted. Fixed inside the permissions engine, Agent 1's next P0 task (T-0032).
 **Found by:** migration-reviewer on T-0029 (0012). The gap predates the wave (0001:134-136).
 `user_programme_isolation` checks only `tenant_id`. Any code path that inserts a `user_programme` row
 can therefore enrol any user in **any existing programme** of the tenant, crossing the BPO client

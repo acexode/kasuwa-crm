@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@kasuwa/auth-crypto": "workspace:*",
+    "@kasuwa/channel-adapter": "workspace:*",
     "@kasuwa/config": "workspace:*",
     "@kasuwa/db": "workspace:*",
     "@kasuwa/domain-core": "workspace:*",

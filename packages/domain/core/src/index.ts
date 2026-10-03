@@ -5,3 +5,6 @@ export * from './programme/programme-lifecycle';
 export * from './programme/programme-version';
 export * from './programme/programme-policy';
 export * from './programme/programme-policy.repository';
+export * from './portal-user/portal-user.repository';
+export * from './portal-user/portal-user-invite';
+export * from './disposition/disposition.repository';

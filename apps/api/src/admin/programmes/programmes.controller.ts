@@ -12,9 +12,10 @@ import {
   listProgrammeMembers,
   listProgrammes,
   StaleProgrammeVersionError,
-  updateProgramme,
+  updateProgrammeWithPrevious,
 } from '@kasuwa/domain-core';
 import { currentTx } from '../../tenancy/tenant-context';
+import { change, changedFields, recordAuditEvent } from '../audit/audit-writer';
 import { AdminController } from '../common/admin-controller.decorator';
 import { duplicateName, notFound, staleWrite } from '../common/admin-errors';
 import { foundOr404, parseIdOr404, parseOr400 as parse } from '../common/admin-input';
@@ -65,9 +66,18 @@ interface Page {
  * all, or not even a uuid — is the one `404 not_found` body.
  *
  * Not built, and said so in team/reports/T-0024.md: `403 not_permitted` (no
- * permissions engine yet — any member of a programme may rename it), and the
- * audit row `x-kasuwa-audited` requires on PATCH (no audit table yet).
- * T-0029 inherits both gaps for create and archive (D-L46).
+ * permissions engine yet — any member of a programme may rename it). T-0029
+ * inherits that gap for create and archive (D-L46).
+ *
+ * Audited (T-0025, D-L52), each in the request transaction:
+ *   - PATCH that changes something: one `updated` event carrying the
+ *     programme, readable only by its members;
+ *   - archive that changes the status: one `updated` event with a `status`
+ *     change, also carrying the programme;
+ *   - create: one `created` event with NO programme and NOTHING but the new
+ *     id. The new programme is not in this transaction's scope, so the event
+ *     cannot carry it, and a programme-less event is readable tenant-wide:
+ *     its name or client name would cross the boundary D-L40 protects.
  */
 @AdminController('api/v1/admin/programmes')
 export class AdminProgrammesController {
@@ -119,10 +129,20 @@ export class AdminProgrammesController {
   async create(@Body() body: unknown): Promise<CreatedProgrammeResponse> {
     const parsed = parse(CreateProgrammeBody, body);
     try {
-      const created = await createProgramme(currentTx(), {
+      const tx = currentTx();
+      const created = await createProgramme(tx, {
         name: parsed.name,
         clientName: parsed.clientName,
         businessUnitId: parsed.businessUnitId,
+      });
+      // D-L52: id only. Never `created.name` or `created.clientName` here.
+      await recordAuditEvent(tx, {
+        action: 'created',
+        objectType: 'programme',
+        objectId: created.id,
+        objectLabel: created.id,
+        programmeId: null,
+        changes: [change('id', null, created.id)],
       });
       return toCreatedProgrammeResponse(created);
     } catch (error) {
@@ -159,12 +179,29 @@ export class AdminProgrammesController {
     const parsed = parse(UpdateProgrammeBody, body);
 
     try {
-      const updated = await updateProgramme(tx, programmeId, parsed.version, {
+      const applied = await updateProgrammeWithPrevious(tx, programmeId, parsed.version, {
         name: parsed.name,
         clientName: parsed.clientName,
       });
-      if (updated === null) {
+      if (applied === null) {
         throw notFound();
+      }
+      const { previous, updated } = applied;
+      // `previous` is the row under the write's lock: the value this write
+      // replaced, not whatever an earlier read happened to see.
+      const changes = changedFields([
+        ['name', previous.name, updated.name],
+        ['clientName', previous.clientName, updated.clientName],
+      ]);
+      if (changes.length > 0) {
+        await recordAuditEvent(tx, {
+          action: 'updated',
+          objectType: 'programme',
+          objectId: updated.id,
+          objectLabel: updated.name,
+          programmeId: updated.id,
+          changes,
+        });
       }
       return toProgrammeDetailResponse(updated);
     } catch (error) {
@@ -229,20 +266,30 @@ export class AdminProgrammesController {
    */
   @Post(':programmeId/archive')
   @HttpCode(HttpStatus.OK)
-  async archive(
-    @Param() params: unknown,
-    @Body() body: unknown,
-  ): Promise<ProgrammeDetailResponse> {
+  async archive(@Param() params: unknown, @Body() body: unknown): Promise<ProgrammeDetailResponse> {
     const programmeId = parseProgrammeId(params);
     const tx = currentTx();
-    if ((await findProgrammeById(tx, programmeId)) === null) {
+    const before = await findProgrammeById(tx, programmeId);
+    if (before === null) {
       throw notFound();
     }
     const parsed = parse(ArchiveProgrammeBody, body);
     try {
-      return toProgrammeDetailResponse(
-        foundOr404(await archiveProgramme(tx, programmeId, parsed.confirmation)),
-      );
+      const archived = foundOr404(await archiveProgramme(tx, programmeId, parsed.confirmation));
+      // Re-archiving is an idempotent 200 that changes nothing, so it records
+      // nothing. (Two concurrent first archives can both see `active` here and
+      // both record; a duplicate row, never a missing or leaked one.)
+      if (before.status !== archived.status) {
+        await recordAuditEvent(tx, {
+          action: 'updated',
+          objectType: 'programme',
+          objectId: archived.id,
+          objectLabel: archived.name,
+          programmeId: archived.id,
+          changes: [change('status', before.status, archived.status)],
+        });
+      }
+      return toProgrammeDetailResponse(archived);
     } catch (error) {
       if (error instanceof ArchiveConfirmationMismatchError) {
         throw confirmationMismatch();

@@ -5,6 +5,7 @@ import {
   type FieldSecurityMatrix,
 } from '@kasuwa/metadata-engine';
 import { currentTx } from '../../tenancy/tenant-context';
+import { change, recordAuditEvent } from '../audit/audit-writer';
 import { AdminController } from '../common/admin-controller.decorator';
 import { notFound, notPermitted, staleWrite } from '../common/admin-errors';
 import { parseOr400 } from '../common/admin-input';
@@ -38,8 +39,8 @@ import {
  *   - No `403` for "you may not administer field security": there is no
  *     permissions engine to ask, so any authenticated user of the tenant can
  *     read and write the matrix this round (same gap as roles, D-L40).
- *   - `updateFieldSecurityMatrix` is `x-kasuwa-audited: true` and is NOT yet
- *     audited (D-L38). See the TODO in `update`.
+ *   - (Closed by T-0025.) `updateFieldSecurityMatrix` writes one audit
+ *     event per changed cell (D-L52), never one "bulk edit" row.
  *   - The matrix is stored and served; nothing enforces it on record reads yet.
  */
 @AdminController('api/v1/admin/field-security/matrix')
@@ -70,7 +71,8 @@ export class FieldSecurityMatrixController {
   @Put()
   async update(@Body() body: unknown): Promise<FieldSecurityMatrix> {
     const write = parseOr400(FieldSecurityWriteBody, body);
-    const result = await writeFieldSecurityMatrix(currentTx(), write);
+    const tx = currentTx();
+    const result = await writeFieldSecurityMatrix(tx, write);
     switch (result.kind) {
       case 'not_found':
         throw notFound();
@@ -79,10 +81,25 @@ export class FieldSecurityMatrixController {
       case 'stale':
         throw staleWrite();
       case 'saved':
-        // TODO(D-L38, T-0025): write one audit row per entry of `result.writes`
-        // (field, permission set, before, after) through the audit writer, in
-        // this transaction, once T-0025 has merged. One row per cell, never a
-        // single "bulk edit" row - the spec is explicit.
+        // One event per cell whose level actually moved (D-L52). No programme:
+        // the matrix is tenant-level (D-P9). The changes carry the field's API
+        // name, the permission set's key and the two levels - configuration
+        // only, never a record value.
+        for (const cell of result.writes) {
+          if (cell.before === cell.after) continue;
+          await recordAuditEvent(tx, {
+            action: 'updated',
+            objectType: 'field_security',
+            objectId: cell.fieldId,
+            objectLabel: cell.fieldApiName,
+            programmeId: null,
+            changes: [
+              change('fieldApiName', null, cell.fieldApiName),
+              change('permissionSetId', null, cell.permissionSetKey),
+              change('level', cell.before, cell.after),
+            ],
+          });
+        }
         return toFieldSecurityMatrixResponse(result.matrix);
     }
   }
