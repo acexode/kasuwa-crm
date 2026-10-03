@@ -1,17 +1,23 @@
 import { Body, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Put } from '@nestjs/common';
 import {
   createDisposition,
-  deleteDisposition,
+  deleteDispositionWithPrevious,
   DuplicateDispositionCodeError,
   findProgrammeById,
   IncompleteDispositionOrderError,
   listDispositions,
-  reorderDispositions,
-  updateDisposition,
+  reorderDispositionsWithPrevious,
+  updateDispositionWithPrevious,
 } from '@kasuwa/domain-core';
 import { currentTx } from '../../tenancy/tenant-context';
 import { AdminController } from '../common/admin-controller.decorator';
 import { foundOr404, parseIdOr404, parseOr400 } from '../common/admin-input';
+import {
+  auditDispositionCreated,
+  auditDispositionDeleted,
+  auditDispositionsReordered,
+  auditDispositionUpdated,
+} from './dispositions.audit';
 import { duplicateCode, incompleteOrder } from './dispositions.errors';
 import {
   toDispositionListResponse,
@@ -47,9 +53,11 @@ import {
  * BEFORE the body is judged, so an unreachable programme is 404 whatever was
  * sent.
  *
+ * Audited (T-0033): every successful write records its event in the write's
+ * transaction (`dispositions.audit.ts`); a refusal records nothing.
+ *
  * Not built: `403 not_permitted` (no permissions engine — any member of a
- * programme may edit its dispositions), the audit rows `x-kasuwa-audited`
- * requires (the audit writer is T-0025), and `usageCount90d`, which is null
+ * programme may edit its dispositions), and `usageCount90d`, which is null
  * until an interactions table exists.
  */
 @AdminController('api/v1/admin/programmes/:programmeId/dispositions')
@@ -68,9 +76,10 @@ export class DispositionsController {
     await requireProgramme(programmeId);
     const parsed = parseOr400(DispositionWriteBody, body);
     try {
-      return toDispositionResponse(
-        foundOr404(await createDisposition(currentTx(), programmeId, parsed)),
-      );
+      const tx = currentTx();
+      const created = foundOr404(await createDisposition(tx, programmeId, parsed));
+      await auditDispositionCreated(tx, programmeId, created);
+      return toDispositionResponse(created);
     } catch (error) {
       if (error instanceof DuplicateDispositionCodeError) {
         throw duplicateCode();
@@ -86,9 +95,12 @@ export class DispositionsController {
     await requireProgramme(programmeId);
     const parsed = parseOr400(DispositionOrderBody, body);
     try {
-      return toDispositionListResponse(
-        foundOr404(await reorderDispositions(currentTx(), programmeId, parsed.dispositionIds)),
+      const tx = currentTx();
+      const applied = foundOr404(
+        await reorderDispositionsWithPrevious(tx, programmeId, parsed.dispositionIds),
       );
+      await auditDispositionsReordered(tx, programmeId, applied.previous, applied.updated);
+      return toDispositionListResponse(applied.updated);
     } catch (error) {
       if (error instanceof IncompleteDispositionOrderError) {
         throw incompleteOrder();
@@ -103,9 +115,12 @@ export class DispositionsController {
     const ids = parseIdOr404(DispositionParams, params);
     await requireProgramme(ids.programmeId);
     const parsed = parseOr400(DispositionPatchBody, body);
-    return toDispositionResponse(
-      foundOr404(await updateDisposition(currentTx(), ids.programmeId, ids.dispositionId, parsed)),
+    const tx = currentTx();
+    const applied = foundOr404(
+      await updateDispositionWithPrevious(tx, ids.programmeId, ids.dispositionId, parsed),
     );
+    await auditDispositionUpdated(tx, ids.programmeId, applied.previous, applied.updated);
+    return toDispositionResponse(applied.updated);
   }
 
   /**
@@ -117,7 +132,11 @@ export class DispositionsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param() params: unknown): Promise<void> {
     const ids = parseIdOr404(DispositionParams, params);
-    foundOr404(await deleteDisposition(currentTx(), ids.programmeId, ids.dispositionId));
+    const tx = currentTx();
+    const applied = foundOr404(
+      await deleteDispositionWithPrevious(tx, ids.programmeId, ids.dispositionId),
+    );
+    await auditDispositionDeleted(tx, ids.programmeId, applied.previous);
   }
 }
 
