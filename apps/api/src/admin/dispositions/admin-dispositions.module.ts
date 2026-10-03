@@ -5,8 +5,9 @@ import { ProgrammeScriptsController } from './programme-scripts.controller';
 /**
  * Admin API: dispositions and programme scripts (T-0027, P02/B5 and B6).
  *
- * No providers of its own, like AdminRolesModule: the guard and interceptor
- * resolve from the global DatabaseModule (PG_POOL) and AppModule (AUTH_MODE).
+ * Imported by AdminModule, like every admin area (D-L39). No providers of its
+ * own: the guard and interceptor resolve PG_POOL from the global DatabaseModule
+ * and AUTH_MODE from the global AppModule.
  */
 @Module({ controllers: [DispositionsController, ProgrammeScriptsController] })
 export class AdminDispositionsModule {}

@@ -1,18 +1,9 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Query,
-  UseFilters,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common';
+import { Get, Param, Query } from '@nestjs/common';
 import { findProgrammeById } from '@kasuwa/domain-core';
-import { KasuwaAuthGuard } from '../../tenancy/kasuwa-auth.guard';
 import { currentTx } from '../../tenancy/tenant-context';
-import { TenantTransactionInterceptor } from '../../tenancy/tenant-transaction.interceptor';
-import { AdminErrorFilter } from '../roles/admin-errors';
-import { invalidCursor, notFound, parseBody } from './dispositions.errors';
+import { AdminController } from '../common/admin-controller.decorator';
+import { invalidCursor } from '../common/admin-errors';
+import { foundOr404, parseIdOr404, parseOr400 } from '../common/admin-input';
 import { ListProgrammeScriptsQuery, ProgrammeIdParam } from './dispositions.schemas';
 
 /** `ScriptList.items[]` (docs/api/admin.openapi.yaml). */
@@ -42,31 +33,23 @@ export interface ProgrammeScriptListResponse {
  * here would be a schema decision this task does not own. So the route is
  * real in everything but its data: the session decides scope, an unreachable
  * programme is the one 404, the query is validated to the spec, and a
- * reachable programme answers the spec's `ScriptList` with no items — which
- * the design treats as its empty state, not an error. When M10 lands its
- * table, only the body of `list` changes.
+ * reachable programme answers the spec's `ScriptList` with no items — the
+ * design's empty state, not an error. When M10 lands its table, only the
+ * body of `list` changes.
  *
  * A cursor is always a 400: this endpoint has never issued one, so any value
  * presented is not a position in this list.
  */
-@Controller('api/v1/admin/programmes/:programmeId/scripts')
-@UseGuards(KasuwaAuthGuard)
-@UseInterceptors(TenantTransactionInterceptor)
-@UseFilters(AdminErrorFilter)
+@AdminController('api/v1/admin/programmes/:programmeId/scripts')
 export class ProgrammeScriptsController {
   @Get()
   async list(
     @Param() params: unknown,
     @Query() query: unknown,
   ): Promise<ProgrammeScriptListResponse> {
-    const parsedParams = ProgrammeIdParam.safeParse(params);
-    if (!parsedParams.success) {
-      throw notFound();
-    }
-    if ((await findProgrammeById(currentTx(), parsedParams.data.programmeId)) === null) {
-      throw notFound();
-    }
-    const parsed = parseBody(ListProgrammeScriptsQuery, query);
+    const { programmeId } = parseIdOr404(ProgrammeIdParam, params);
+    foundOr404(await findProgrammeById(currentTx(), programmeId));
+    const parsed = parseOr400(ListProgrammeScriptsQuery, query);
     if (parsed.cursor !== undefined) {
       throw invalidCursor();
     }

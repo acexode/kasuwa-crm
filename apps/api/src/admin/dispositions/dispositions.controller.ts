@@ -1,18 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Patch,
-  Post,
-  Put,
-  UseFilters,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common';
+import { Body, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Put } from '@nestjs/common';
 import {
   createDisposition,
   deleteDisposition,
@@ -23,12 +9,10 @@ import {
   reorderDispositions,
   updateDisposition,
 } from '@kasuwa/domain-core';
-import type { z } from 'zod';
-import { KasuwaAuthGuard } from '../../tenancy/kasuwa-auth.guard';
 import { currentTx } from '../../tenancy/tenant-context';
-import { TenantTransactionInterceptor } from '../../tenancy/tenant-transaction.interceptor';
-import { AdminErrorFilter } from '../roles/admin-errors';
-import { duplicateCode, incompleteOrder, notFound, parseBody } from './dispositions.errors';
+import { AdminController } from '../common/admin-controller.decorator';
+import { foundOr404, parseIdOr404, parseOr400 } from '../common/admin-input';
+import { duplicateCode, incompleteOrder } from './dispositions.errors';
 import {
   toDispositionListResponse,
   toDispositionResponse,
@@ -63,39 +47,30 @@ import {
  * BEFORE the body is judged, so an unreachable programme is 404 whatever was
  * sent.
  *
- * Not built, and said so in the completion report: `403 not_permitted` (no
- * permissions engine — any member of a programme may edit its dispositions),
- * the audit rows `x-kasuwa-audited` requires (the audit writer is T-0025),
- * and `usageCount90d`, which is null until an interactions table exists.
+ * Not built: `403 not_permitted` (no permissions engine — any member of a
+ * programme may edit its dispositions), the audit rows `x-kasuwa-audited`
+ * requires (the audit writer is T-0025), and `usageCount90d`, which is null
+ * until an interactions table exists.
  */
-@Controller('api/v1/admin/programmes/:programmeId/dispositions')
-@UseGuards(KasuwaAuthGuard)
-@UseInterceptors(TenantTransactionInterceptor)
-@UseFilters(AdminErrorFilter)
+@AdminController('api/v1/admin/programmes/:programmeId/dispositions')
 export class DispositionsController {
   /** `GET …/dispositions` — operationId `listDispositions`. 200 · 401 · 404. */
   @Get()
   async list(@Param() params: unknown): Promise<DispositionListResponse> {
-    const programmeId = parseIds(ProgrammeIdParam, params).programmeId;
-    const items = await listDispositions(currentTx(), programmeId);
-    if (items === null) {
-      throw notFound();
-    }
-    return toDispositionListResponse(items);
+    const { programmeId } = parseIdOr404(ProgrammeIdParam, params);
+    return toDispositionListResponse(foundOr404(await listDispositions(currentTx(), programmeId)));
   }
 
   /** `POST …/dispositions` — operationId `createDisposition`. 201 · 400 · 401 · 404 · 409. */
   @Post()
   async create(@Param() params: unknown, @Body() body: unknown): Promise<DispositionResponse> {
-    const programmeId = parseIds(ProgrammeIdParam, params).programmeId;
+    const { programmeId } = parseIdOr404(ProgrammeIdParam, params);
     await requireProgramme(programmeId);
-    const parsed = parseBody(DispositionWriteBody, body);
+    const parsed = parseOr400(DispositionWriteBody, body);
     try {
-      const created = await createDisposition(currentTx(), programmeId, parsed);
-      if (created === null) {
-        throw notFound();
-      }
-      return toDispositionResponse(created);
+      return toDispositionResponse(
+        foundOr404(await createDisposition(currentTx(), programmeId, parsed)),
+      );
     } catch (error) {
       if (error instanceof DuplicateDispositionCodeError) {
         throw duplicateCode();
@@ -104,22 +79,16 @@ export class DispositionsController {
     }
   }
 
-  /**
-   * `PUT …/dispositions/order` — operationId `reorderDispositions`.
-   * 200 · 400 · 401 · 404. Declared before `:dispositionId` routes; it is a
-   * PUT and they are PATCH/DELETE, so the paths cannot collide anyway.
-   */
+  /** `PUT …/dispositions/order` — operationId `reorderDispositions`. 200 · 400 · 401 · 404. */
   @Put('order')
   async reorder(@Param() params: unknown, @Body() body: unknown): Promise<DispositionListResponse> {
-    const programmeId = parseIds(ProgrammeIdParam, params).programmeId;
+    const { programmeId } = parseIdOr404(ProgrammeIdParam, params);
     await requireProgramme(programmeId);
-    const parsed = parseBody(DispositionOrderBody, body);
+    const parsed = parseOr400(DispositionOrderBody, body);
     try {
-      const items = await reorderDispositions(currentTx(), programmeId, parsed.dispositionIds);
-      if (items === null) {
-        throw notFound();
-      }
-      return toDispositionListResponse(items);
+      return toDispositionListResponse(
+        foundOr404(await reorderDispositions(currentTx(), programmeId, parsed.dispositionIds)),
+      );
     } catch (error) {
       if (error instanceof IncompleteDispositionOrderError) {
         throw incompleteOrder();
@@ -131,19 +100,12 @@ export class DispositionsController {
   /** `PATCH …/dispositions/{dispositionId}` — operationId `updateDisposition`. 200 · 400 · 401 · 404. */
   @Patch(':dispositionId')
   async update(@Param() params: unknown, @Body() body: unknown): Promise<DispositionResponse> {
-    const ids = parseIds(DispositionParams, params);
+    const ids = parseIdOr404(DispositionParams, params);
     await requireProgramme(ids.programmeId);
-    const parsed = parseBody(DispositionPatchBody, body);
-    const updated = await updateDisposition(
-      currentTx(),
-      ids.programmeId,
-      ids.dispositionId,
-      parsed,
+    const parsed = parseOr400(DispositionPatchBody, body);
+    return toDispositionResponse(
+      foundOr404(await updateDisposition(currentTx(), ids.programmeId, ids.dispositionId, parsed)),
     );
-    if (updated === null) {
-      throw notFound();
-    }
-    return toDispositionResponse(updated);
   }
 
   /**
@@ -154,26 +116,12 @@ export class DispositionsController {
   @Delete(':dispositionId')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param() params: unknown): Promise<void> {
-    const ids = parseIds(DispositionParams, params);
-    const deleted = await deleteDisposition(currentTx(), ids.programmeId, ids.dispositionId);
-    if (deleted === null) {
-      throw notFound();
-    }
+    const ids = parseIdOr404(DispositionParams, params);
+    foundOr404(await deleteDisposition(currentTx(), ids.programmeId, ids.dispositionId));
   }
 }
 
 /** The one 404 for an unreachable programme, before any body is looked at. */
 async function requireProgramme(programmeId: string): Promise<void> {
-  if ((await findProgrammeById(currentTx(), programmeId)) === null) {
-    throw notFound();
-  }
-}
-
-/** A malformed id names nothing: the same 404 as an unreachable one. */
-function parseIds<S extends z.ZodTypeAny>(schema: S, params: unknown): z.output<S> {
-  const result = schema.safeParse(params);
-  if (!result.success) {
-    throw notFound();
-  }
-  return result.data as z.output<S>;
+  foundOr404(await findProgrammeById(currentTx(), programmeId));
 }

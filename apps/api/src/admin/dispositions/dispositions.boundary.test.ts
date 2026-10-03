@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { z } from 'zod';
-import { duplicateCode, incompleteOrder, notFound, parseBody } from './dispositions.errors';
+import { notFound } from '../common/admin-errors';
+import { parseOr400 as parseBody } from '../common/admin-input';
+import { duplicateCode, incompleteOrder } from './dispositions.errors';
 import { toDispositionListResponse } from './dispositions.presenter';
 import {
   DispositionOrderBody,
@@ -53,9 +55,9 @@ describe('dispositions boundary (T-0027)', () => {
         { path: key, code: 'unrecognized_keys' },
       ]);
     }
-    expect(
-      detailsOf(DispositionOrderBody, { dispositionIds: [], programmeId: 'x' }),
-    ).toEqual([{ path: 'programmeId', code: 'unrecognized_keys' }]);
+    expect(detailsOf(DispositionOrderBody, { dispositionIds: [], programmeId: 'x' })).toEqual([
+      { path: 'programmeId', code: 'unrecognized_keys' },
+    ]);
   });
 
   it('never echoes the submitted value', () => {
