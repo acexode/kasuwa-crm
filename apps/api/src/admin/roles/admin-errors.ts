@@ -21,6 +21,7 @@ import { ZodError } from 'zod';
 export type AdminErrorCode =
   | 'validation_failed'
   | 'not_authenticated'
+  | 'not_permitted'
   | 'not_found'
   | 'duplicate_name'
   | 'stale_write'
@@ -34,6 +35,7 @@ interface AdminErrorExtra {
 const REASON: Partial<Record<number, string>> = {
   [HttpStatus.BAD_REQUEST]: 'Bad Request',
   [HttpStatus.UNAUTHORIZED]: 'Unauthorized',
+  [HttpStatus.FORBIDDEN]: 'Forbidden',
   [HttpStatus.NOT_FOUND]: 'Not Found',
   [HttpStatus.CONFLICT]: 'Conflict',
 };
@@ -54,6 +56,14 @@ export class AdminError extends HttpException {
 
 /** One body for: no such role, a role in another tenant, a malformed id. */
 export const notFound = () => new AdminError(HttpStatus.NOT_FOUND, 'not_found', 'Not found');
+
+/**
+ * `NotPermitted`: the caller can already see the thing and may not perform this
+ * action on it - e.g. a change to a padlocked permission set. Never used for
+ * something the caller cannot see; that is `notFound`.
+ */
+export const notPermitted = () =>
+  new AdminError(HttpStatus.FORBIDDEN, 'not_permitted', 'You do not have permission to do that.');
 
 export const duplicateName = () =>
   new AdminError(HttpStatus.CONFLICT, 'duplicate_name', 'That name is already in use.', {

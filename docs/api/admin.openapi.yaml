@@ -1570,7 +1570,7 @@ paths:
       tags: [field-security]
       summary: Read the field-security matrix for one object
       operationId: getFieldSecurityMatrix
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/D', 'P02/D1']
       description: |
         One row per field, one cell per permission set, each cell a level:
@@ -1643,7 +1643,7 @@ paths:
       tags: [field-security]
       summary: Save field-security changes
       operationId: updateFieldSecurityMatrix
-      x-kasuwa-implemented: false  # specified and buildable; endpoint not yet written
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/D', 'P02/D1', 'P02/D2']
       description: |
@@ -1666,7 +1666,7 @@ paths:
         and let one admin's save overwrite another's; this stores it once and
         resolves it per assignment.
 
-        `version` comes from the last `GET`; a stale one will be
+        `version` comes from the last `GET`; a stale one is
         `409 stale_write`. Changes apply the next time each affected person
         loads a page, which is what the screen's footnote promises — sessions
         are not force-refreshed.
@@ -1675,6 +1675,14 @@ paths:
         with field, permission set, before and after. A bulk action that
         touched forty cells and wrote one row saying "bulk edit" is not an
         audit trail.
+
+        **Live (T-0026), per D-L45.** A never-saved cell is `edit`; a locked
+        set is always `edit`. The write is atomic: a change to a locked set is
+        `403 not_permitted`, an unknown or another tenant's field or set is
+        `404 not_found` (the same body as an unknown object), and in either
+        case nothing in the request is applied. Unknown is checked before
+        locked. **Not yet audited** (D-L38): the audit rows above land with
+        the T-0025 writer.
       requestBody:
         required: true
         content:
@@ -1693,9 +1701,8 @@ paths:
       responses:
         '200':
           description: |
-            Saved. **Not reachable today** — the operation returns `501`. The
-            shape is documented so the screen can render its success state from
-            the mock; request it with `Prefer: code=200`.
+            Saved. The whole, unfiltered matrix for the object, with its new
+            `version` — exactly what the next `GET` returns. (T-0026.)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/FieldSecurityMatrix' }
@@ -2841,10 +2848,12 @@ components:
       additionalProperties: false
       required: [objectApiName, version, changes]
       description: |
-        **There is deliberately no `programmeId` here.** Whether a
-        field-security grant is tenant-wide or per programme is undecided, and
-        adding the property would answer it. Until the lead decides, the
-        operation returns `501`. See its description.
+        **There is deliberately no `programmeId` here, and supplying one is
+        `400 validation_failed`.** D-P9 (2026-10-02): a field-security grant is
+        tenant-level, on permission sets; programme scoping comes from
+        `user_programme` carrying the permission set for each assignment. The
+        same cell named twice in `changes` is also `400`. See the operation's
+        description.
       properties:
         objectApiName: { type: string, maxLength: 64 }
         version: { type: integer }

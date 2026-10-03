@@ -11,6 +11,7 @@ import { FieldSecurityAdminModule } from './admin/field-security/field-security.
 import { AdminRolesModule } from './admin/roles/admin-roles.module';
 import { PermissionSetsController, RolesController } from './admin/roles/roles.controller';
 import { FieldSecurityController } from './admin/field-security/field-security.controller';
+import { FieldSecurityMatrixController } from './admin/field-security/field-security-matrix.controller';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
 import { SignInThrottleGuard } from './auth/sign-in-throttle.guard';
@@ -47,6 +48,7 @@ const TELEMETRY_CONTROLLERS = [
   RolesController,
   PermissionSetsController,
   FieldSecurityController,
+  FieldSecurityMatrixController,
 ];
 
 export interface AppModuleOptions {

@@ -43,9 +43,9 @@ export function toFieldSecurityObjectList(
  *
  * OpenAPI: docs/api/admin.openapi.yaml, tag `field-security`.
  *
- * Only `listFieldSecurityObjects` is live (T-0023). The permission-set columns
- * and the matrix itself have no table behind them yet and are not routed here;
- * the web app keeps those on the generated mock.
+ * Only `listFieldSecurityObjects` is routed here (T-0023). The permission-set
+ * columns are served by `PermissionSetsController` (T-0022) and the matrix by
+ * `FieldSecurityMatrixController` (T-0026).
  *
  * Scope is the session's. There is no query parameter, header or path segment
  * that names a tenant or a programme, and the list is tenant-wide by design:

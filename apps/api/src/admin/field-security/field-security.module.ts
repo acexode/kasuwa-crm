@@ -1,6 +1,7 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 import { AUTH_MODE, KasuwaAuthGuard, type ResolvedAuthMode } from '../../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../../tenancy/tenant-transaction.interceptor';
+import { FieldSecurityMatrixController } from './field-security-matrix.controller';
 import { FieldSecurityController } from './field-security.controller';
 
 /**
@@ -17,7 +18,7 @@ export class FieldSecurityAdminModule {
   static register(options: { authMode: ResolvedAuthMode }): DynamicModule {
     return {
       module: FieldSecurityAdminModule,
-      controllers: [FieldSecurityController],
+      controllers: [FieldSecurityController, FieldSecurityMatrixController],
       providers: [
         KasuwaAuthGuard,
         TenantTransactionInterceptor,
