@@ -6,9 +6,10 @@ import {
   listProgrammeMembers,
   listProgrammes,
   StaleProgrammeVersionError,
-  updateProgramme,
+  updateProgrammeWithPrevious,
 } from '@kasuwa/domain-core';
 import { currentTx } from '../../tenancy/tenant-context';
+import { changedFields, recordAuditEvent } from '../audit/audit-writer';
 import { AdminController } from '../common/admin-controller.decorator';
 import { duplicateName, notFound, staleWrite } from '../common/admin-errors';
 import { foundOr404, parseIdOr404, parseOr400 as parse } from '../common/admin-input';
@@ -51,8 +52,11 @@ interface Page {
  * all, or not even a uuid — is the one `404 not_found` body.
  *
  * Not built, and said so in team/reports/T-0024.md: `403 not_permitted` (no
- * permissions engine yet — any member of a programme may rename it), and the
- * audit row `x-kasuwa-audited` requires on PATCH (no audit table yet).
+ * permissions engine yet — any member of a programme may rename it).
+ *
+ * Audited (T-0025): a successful PATCH that changes something appends one
+ * `updated` event carrying the programme, in the request transaction. The
+ * event's `programmeId` limits who can read it to that programme's members.
  */
 @AdminController('api/v1/admin/programmes')
 export class AdminProgrammesController {
@@ -115,12 +119,29 @@ export class AdminProgrammesController {
     const parsed = parse(UpdateProgrammeBody, body);
 
     try {
-      const updated = await updateProgramme(tx, programmeId, parsed.version, {
+      const applied = await updateProgrammeWithPrevious(tx, programmeId, parsed.version, {
         name: parsed.name,
         clientName: parsed.clientName,
       });
-      if (updated === null) {
+      if (applied === null) {
         throw notFound();
+      }
+      const { previous, updated } = applied;
+      // `previous` is the row under the write's lock: the value this write
+      // replaced, not whatever an earlier read happened to see.
+      const changes = changedFields([
+        ['name', previous.name, updated.name],
+        ['clientName', previous.clientName, updated.clientName],
+      ]);
+      if (changes.length > 0) {
+        await recordAuditEvent(tx, {
+          action: 'updated',
+          objectType: 'programme',
+          objectId: updated.id,
+          objectLabel: updated.name,
+          programmeId: updated.id,
+          changes,
+        });
       }
       return toProgrammeDetailResponse(updated);
     } catch (error) {

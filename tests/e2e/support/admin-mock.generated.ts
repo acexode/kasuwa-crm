@@ -125,7 +125,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "createAuditExport",
     "method": "POST",
     "path": "/api/v1/admin/audit/exports",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/E2"
@@ -785,7 +785,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getAuditExport",
     "method": "GET",
     "path": "/api/v1/admin/audit/exports/{exportId}",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/E2"
@@ -821,7 +821,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getAuditFilterOptions",
     "method": "GET",
     "path": "/api/v1/admin/audit/filter-options",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/E"
@@ -1512,7 +1512,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listAuditEvents",
     "method": "GET",
     "path": "/api/v1/admin/audit/events",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/A",

@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { KasuwaAuthGuard } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { ADMIN_CONTROLLERS } from './admin.module';
+import { AuditController } from './audit/audit.controller';
 import { AdminErrorFilter } from './common/admin-errors';
 import { FieldSecurityController } from './field-security/field-security.controller';
 import { AdminProgrammesController } from './programmes/programmes.controller';
@@ -27,6 +28,7 @@ describe('AdminModule (D-L39)', () => {
         PermissionSetsController,
         FieldSecurityController,
         AdminProgrammesController,
+        AuditController,
       ]),
     );
   });

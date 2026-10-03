@@ -190,6 +190,29 @@ export async function updateProgramme(
   expectedVersion: number,
   changes: ProgrammeChanges,
 ): Promise<Programme | null> {
+  const applied = await updateProgrammeWithPrevious(tx, id, expectedVersion, changes);
+  return applied === null ? null : applied.updated;
+}
+
+/** The programme as it was under the write's row lock, and as the write left it. */
+export interface AppliedProgrammeUpdate {
+  previous: Programme;
+  updated: Programme;
+}
+
+/**
+ * `updateProgramme`, also returning the row as it stood under the lock.
+ *
+ * For the audit row (T-0025): its `before` must be the value this write
+ * replaced. A read taken before the lock can be a concurrent writer's
+ * predecessor, and an audit trail with a wrong `before` is worse than none.
+ */
+export async function updateProgrammeWithPrevious(
+  tx: TenantTx,
+  id: string,
+  expectedVersion: number,
+  changes: ProgrammeChanges,
+): Promise<AppliedProgrammeUpdate | null> {
   // tenancy-reviewed: tenant_id + session programme ids, as well as RLS.
   const current = await tx.query<ProgrammeRow>(
     `SELECT ${SELECT_PROGRAMME}
@@ -232,7 +255,9 @@ export async function updateProgramme(
       ],
     );
     const written = updated[0];
-    return written === undefined ? null : toProgramme(written);
+    return written === undefined
+      ? null
+      : { previous: toProgramme(row), updated: toProgramme(written) };
   } catch (error) {
     if (isUniqueViolation(error, 'programme_tenant_id_name_key')) {
       throw new DuplicateProgrammeNameError();
