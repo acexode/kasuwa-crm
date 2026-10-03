@@ -10,13 +10,7 @@ import { createDevelopmentKeyProvider, type KeyProvider } from '@kasuwa/auth-cry
 // it is still wrapped in createChannelAdapter, so DND and validation apply.
 // eslint-disable-next-line no-restricted-imports -- D-L49: the default channel provider
 import { FakeChannelProvider, type ChannelProvider } from '@kasuwa/channel-adapter';
-import { AdminProgrammesController } from './admin/programmes/programmes.controller';
-import { FieldSecurityAdminModule } from './admin/field-security/field-security.module';
-import { AdminRolesModule } from './admin/roles/admin-roles.module';
-import { PortalUsersAdminModule } from './admin/portal-users/portal-users.module';
-import { PortalUsersController } from './admin/portal-users/portal-users.controller';
-import { PermissionSetsController, RolesController } from './admin/roles/roles.controller';
-import { FieldSecurityController } from './admin/field-security/field-security.controller';
+import { ADMIN_CONTROLLERS, AdminModule } from './admin/admin.module';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
 import { SignInThrottleGuard } from './auth/sign-in-throttle.guard';
@@ -37,25 +31,16 @@ import {
 } from './telemetry/request-telemetry';
 
 /** Controllers hosted by this module. */
-const CONTROLLERS = [
-  HealthController,
-  AuthController,
-  ContactsController,
-  AdminProgrammesController,
-];
+const CONTROLLERS = [HealthController, AuthController, ContactsController];
 
 /**
  * Every controller in the app, including those hosted by feature modules. Used
  * only for the telemetry vocabulary: a segment missing here becomes `:param` in
- * an unmatched path's `url.template`, which is safe but less useful.
+ * an unmatched path's `url.template`, which is safe but less useful. The admin
+ * areas' controllers are derived from AdminModule, so a new area is covered
+ * without an edit here.
  */
-const TELEMETRY_CONTROLLERS = [
-  ...CONTROLLERS,
-  RolesController,
-  PermissionSetsController,
-  FieldSecurityController,
-  PortalUsersController,
-];
+const TELEMETRY_CONTROLLERS = [...CONTROLLERS, ...ADMIN_CONTROLLERS];
 
 export interface AppModuleOptions {
   databaseUrl: string;
@@ -133,6 +118,8 @@ export class AppModule implements NestModule {
       // Global, exporting AUTH_MODE, so a feature module's controllers can use
       // KasuwaAuthGuard: Nest resolves a guard's dependencies in the module
       // that hosts the controller, and AUTH_MODE is configured only here.
+      // Every admin area relies on this (D-L39); do not remove it while
+      // AdminModule exists.
       global: true,
       exports: [AUTH_MODE, CHANNEL],
       imports: [
@@ -141,9 +128,8 @@ export class AppModule implements NestModule {
             ? { databaseUrl: options.databaseUrl }
             : { databaseUrl: options.databaseUrl, poolMax: options.poolMax },
         ),
-        FieldSecurityAdminModule.register({ authMode: options.authMode ?? 'stub' }),
-        AdminRolesModule,
-        PortalUsersAdminModule,
+        // Every admin area. A new area is added inside AdminModule, not here.
+        AdminModule,
       ],
       controllers: CONTROLLERS,
       providers: [

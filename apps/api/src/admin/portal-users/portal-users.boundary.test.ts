@@ -2,7 +2,7 @@ import { FakeChannelProvider } from '@kasuwa/channel-adapter';
 import { generateInviteToken } from '@kasuwa/domain-core';
 import { describe, expect, it } from 'vitest';
 import { createApiChannel } from '../../messaging/channel';
-import { portalValidationFailed } from './portal-users.errors';
+import { validationFailedFrom } from '../common/admin-errors';
 import { invitationBody, toPortalUserResponse } from './portal-users.presenter';
 import { InvitePortalUserBody } from './portal-users.schemas';
 
@@ -16,7 +16,7 @@ const SCOPE = {
 function detailsOf(input: unknown): unknown[] {
   const result = InvitePortalUserBody.safeParse(input);
   if (result.success) throw new Error('expected a validation failure');
-  return (portalValidationFailed(result.error).getResponse() as { details: unknown[] }).details;
+  return (validationFailedFrom(result.error).getResponse() as { details: unknown[] }).details;
 }
 
 describe('portal users boundary (T-0030)', () => {

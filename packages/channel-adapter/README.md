@@ -1,6 +1,6 @@
 # @kasuwa/channel-adapter
 
-The single boundary between Kasuwa and a messaging provider (SMS, WhatsApp).
+The single boundary between Kasuwa and a messaging provider (SMS, WhatsApp, email).
 `CLAUDE.md` section 2 rule 8: no module outside this package may name or call
 a messaging vendor.
 
@@ -23,11 +23,13 @@ await channel.send({ scope, channel: 'sms', to: '+234...', body, purpose: 'trans
 
 `createChannelAdapter`, in front of every provider:
 
-- validates the request with Zod — `to` must be E.164 and `purpose` is required
-  with no default;
+- validates the request with Zod — a discriminated union on `channel` (D-L49):
+  for `sms` and `whatsapp`, `to` must be E.164; for `email`, `to` must be an
+  address of at most 320 characters. `purpose` is required with no default;
 - refuses `promotional` sends to DND-registered numbers (`DndRefusedError`), and
   fails closed if the DND lookup fails or answers anything but a literal
-  `false`; transactional sends skip the check;
+  `false`; transactional sends skip the check, and so does `email`, which the
+  NCC register does not govern;
 - parses provider output (`messageId`, `state`, `updatedAt`) before returning
   or logging it, and turns malformed output into a typed error;
 - records which tenant and programme sent each message and refuses a

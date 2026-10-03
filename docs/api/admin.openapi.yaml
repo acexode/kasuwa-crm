@@ -981,66 +981,77 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ScriptList' }
-              example:
-                items:
-                  - id: 7b1f2f3a-0001-4a2b-8c3d-9e0f1a2b3c01
-                    name: 'Early arrears: first contact'
-                    channels: [voice]
-                    languages: [en, pcm, yo]
-                    version: 4
-                    status: published
-                    providerName: null
-                    rejectionReason: null
-                    updatedAt: '2026-09-12T09:14:00Z'
-                  - id: 7b1f2f3a-0002-4a2b-8c3d-9e0f1a2b3c02
-                    name: WhatsApp payment reminder
-                    channels: [whatsapp]
-                    languages: [en]
-                    version: 3
-                    status: rejected_by_provider
-                    providerName: WhatsApp Business Platform
-                    rejectionReason: Template contains a prohibited promotional phrase.
-                    updatedAt: '2026-09-27T16:02:00Z'
-                  - id: 7b1f2f3a-0003-4a2b-8c3d-9e0f1a2b3c03
-                    name: Promise-to-pay confirmation
-                    channels: [sms]
-                    languages: [en, ha]
-                    version: 2
-                    status: published
-                    providerName: null
-                    rejectionReason: null
-                    updatedAt: '2026-09-03T11:40:00Z'
-                  - id: 7b1f2f3a-0004-4a2b-8c3d-9e0f1a2b3c04
-                    name: Identity check before discussing debt
-                    channels: [voice, whatsapp]
-                    languages: [en]
-                    version: 5
-                    status: published
-                    providerName: null
-                    rejectionReason: null
-                    updatedAt: '2026-08-29T08:25:00Z'
-                  - id: 7b1f2f3a-0005-4a2b-8c3d-9e0f1a2b3c05
-                    name: Hardship and restructuring
-                    channels: [voice]
-                    languages: [en]
-                    version: 2
-                    status: draft
-                    providerName: null
-                    rejectionReason: null
-                    updatedAt: '2026-09-25T13:05:00Z'
-                  - id: 7b1f2f3a-0006-4a2b-8c3d-9e0f1a2b3c06
-                    name: 'Bereavement: customer deceased'
-                    channels: [voice]
-                    languages: [en]
-                    version: 1
-                    status: in_review
-                    providerName: null
-                    rejectionReason: null
-                    updatedAt: '2026-09-20T10:18:00Z'
-                page:
-                  nextCursor: null
-                  hasMore: false
-                  totalCount: 6
+              examples:
+                default:
+                  summary: Six scripts, one rejected by the channel provider
+                  value:
+                    items:
+                      - id: 7b1f2f3a-0001-4a2b-8c3d-9e0f1a2b3c01
+                        name: 'Early arrears: first contact'
+                        channels: [voice]
+                        languages: [en, pcm, yo]
+                        version: 4
+                        status: published
+                        providerName: null
+                        rejectionReason: null
+                        updatedAt: '2026-09-12T09:14:00Z'
+                      - id: 7b1f2f3a-0002-4a2b-8c3d-9e0f1a2b3c02
+                        name: WhatsApp payment reminder
+                        channels: [whatsapp]
+                        languages: [en]
+                        version: 3
+                        status: rejected_by_provider
+                        providerName: WhatsApp Business Platform
+                        rejectionReason: Template contains a prohibited promotional phrase.
+                        updatedAt: '2026-09-27T16:02:00Z'
+                      - id: 7b1f2f3a-0003-4a2b-8c3d-9e0f1a2b3c03
+                        name: Promise-to-pay confirmation
+                        channels: [sms]
+                        languages: [en, ha]
+                        version: 2
+                        status: published
+                        providerName: null
+                        rejectionReason: null
+                        updatedAt: '2026-09-03T11:40:00Z'
+                      - id: 7b1f2f3a-0004-4a2b-8c3d-9e0f1a2b3c04
+                        name: Identity check before discussing debt
+                        channels: [voice, whatsapp]
+                        languages: [en]
+                        version: 5
+                        status: published
+                        providerName: null
+                        rejectionReason: null
+                        updatedAt: '2026-08-29T08:25:00Z'
+                      - id: 7b1f2f3a-0005-4a2b-8c3d-9e0f1a2b3c05
+                        name: Hardship and restructuring
+                        channels: [voice]
+                        languages: [en]
+                        version: 2
+                        status: draft
+                        providerName: null
+                        rejectionReason: null
+                        updatedAt: '2026-09-25T13:05:00Z'
+                      - id: 7b1f2f3a-0006-4a2b-8c3d-9e0f1a2b3c06
+                        name: 'Bereavement: customer deceased'
+                        channels: [voice]
+                        languages: [en]
+                        version: 1
+                        status: in_review
+                        providerName: null
+                        rejectionReason: null
+                        updatedAt: '2026-09-20T10:18:00Z'
+                    page:
+                      nextCursor: null
+                      hasMore: false
+                      totalCount: 6
+                empty:
+                  summary: No scripts configured yet (P02/B6 empty state)
+                  value:
+                    items: []
+                    page:
+                      nextCursor: null
+                      hasMore: false
+                      totalCount: 0
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '404': { $ref: '#/components/responses/NotFound' }
         '501': { $ref: '#/components/responses/NotImplemented' }
@@ -1127,19 +1138,21 @@ paths:
       tags: [programmes]
       summary: Client-portal users for this programme
       operationId: listPortalUsers
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/B8']
       description: |
-        Usually empty, which is the designed state.
+        Usually empty, which is the designed state. Newest invitation first;
+        unpaginated, because a programme has a handful of portal users at most.
 
-        **This is the one list that returns an email address**, because the row
-        is an invitation and the address is the invitation's identity — an
-        admin resending an invite has to see where it goes. It is the invited
-        address only, never a customer's, and `emailMasked` is what the row
-        renders; the full address is present only on the invitation the caller
-        just created.
+        **No response carries a full email address** (D-L49). The row is an
+        invitation to an outsider, and `emailMasked` (the invited address with
+        all but the first and last character of the local part hidden) is what
+        it renders. Neither this list nor `invitePortalUser` returns the full
+        address; an admin who needs it to resend simply re-invites it.
 
-        Portal users are M18. Nothing exists.
+        A portal user belongs to exactly one programme: an invitation is listed
+        only in the programme it was issued in. Accepting an invitation, and
+        so the `active` and `suspended` states, arrive with M18.
       parameters:
         - $ref: '#/components/parameters/ProgrammeId'
       responses:
@@ -1148,8 +1161,24 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PortalUserList' }
-              example:
-                items: []
+              examples:
+                default:
+                  summary: No portal users - the designed state
+                  value:
+                    items: []
+                invited:
+                  summary: One invitation awaiting acceptance (P02/B8 row)
+                  description: |
+                    The address is masked; the list never carries the full one.
+                    The id and the address are invented.
+                  value:
+                    items:
+                      - id: b2f0f7d8-4c21-4b4e-9f7a-2a1d6f4c0e11
+                        displayName: Invited Client User
+                        emailMasked: 'p•••e@client.example'
+                        access: viewer
+                        status: invited
+                        invitedAt: '2026-09-28T09:00:00Z'
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '404': { $ref: '#/components/responses/NotFound' }
         '501': { $ref: '#/components/responses/NotImplemented' }
@@ -1159,7 +1188,7 @@ paths:
       tags: [programmes]
       summary: Invite a client-portal user
       operationId: invitePortalUser
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B8']
       description: |
@@ -1167,6 +1196,24 @@ paths:
         consequential things an admin can do here, so it is audited with the
         programme and the access level — and the audit row records the invited
         address as a masked hint plus an opaque id, not as a plain address.
+        (The audit row is not written yet: it waits for the audit log, T-0025.)
+
+        The invitation is an email, sent through the channel adapter before the
+        `202` is returned. It carries an acceptance link (single-use once the
+        M18 accept flow exists); the token
+        in it is stored only as a hash, and neither the token nor the address
+        is ever logged. If the email cannot be handed to the provider, nothing
+        is saved and the answer is `503 service_unavailable`.
+
+        **Re-inviting an address already pending in this programme is a
+        resend** (D-L49): `202`, the same portal user `id`, and a new token
+        — the previous link stops working. A resend does not change
+        `displayName` or `access`. Inviting an address that is known in
+        another programme or another tenant is indistinguishable from a fresh
+        invitation: it creates a new portal user in this programme only.
+
+        `displayName` is optional; an unnamed invitation is displayed as its
+        masked address.
       parameters:
         - $ref: '#/components/parameters/ProgrammeId'
       requestBody:
@@ -1190,6 +1237,13 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '501': { $ref: '#/components/responses/NotImplemented' }
+        '503':
+          description: |
+            The invitation email could not be handed to the channel provider.
+            Nothing was saved; it is safe to retry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /api/v1/admin/programmes/{programmeId}/archive-preview:
     get:
@@ -2639,8 +2693,8 @@ components:
           type: string
           description: |
             What the row renders, e.g. `p•••e@client.example`. The invited
-            address, never a customer's. The full address is not returned by
-            the list.
+            address, never a customer's. No response returns the full address
+            (D-L49).
         access: { type: string, enum: [viewer, reports_only] }
         status: { type: string, enum: [invited, active, suspended] }
         invitedAt: { type: string, format: date-time }

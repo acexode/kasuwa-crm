@@ -1,16 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Inject,
-  Param,
-  Post,
-  UseFilters,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common';
+import { Body, Get, HttpCode, HttpStatus, Inject, Param, Post } from '@nestjs/common';
 import { ChannelError, type ChannelProvider } from '@kasuwa/channel-adapter';
 import {
   findProgrammeById,
@@ -22,18 +10,12 @@ import {
   upsertPortalInvitation,
 } from '@kasuwa/domain-core';
 import type { TenantTx } from '@kasuwa/db';
-import type { z } from 'zod';
-import { AdminNotAuthenticatedFilter } from '../field-security/admin-not-authenticated.filter';
 import { CHANNEL } from '../../messaging/channel';
-import { KasuwaAuthGuard } from '../../tenancy/kasuwa-auth.guard';
 import { currentTx } from '../../tenancy/tenant-context';
-import { TenantTransactionInterceptor } from '../../tenancy/tenant-transaction.interceptor';
-import {
-  portalAlreadyMember,
-  portalNotFound,
-  portalSendUnavailable,
-  portalValidationFailed,
-} from './portal-users.errors';
+import { AdminController } from '../common/admin-controller.decorator';
+import { notFound } from '../common/admin-errors';
+import { foundOr404, parseIdOr404, parseOr400 } from '../common/admin-input';
+import { portalAlreadyMember, portalSendUnavailable } from './portal-users.errors';
 import {
   invitationBody,
   toPortalUserResponse,
@@ -68,10 +50,7 @@ import { InvitePortalUserBody, PortalProgrammeIdParam } from './portal-users.sch
  * permissions engine), the audit row `x-kasuwa-audited` asks for (no audit
  * table on main yet), and the accept flow that makes a token single-use (M18).
  */
-@Controller('api/v1/admin/programmes')
-@UseGuards(KasuwaAuthGuard)
-@UseInterceptors(TenantTransactionInterceptor)
-@UseFilters(AdminNotAuthenticatedFilter)
+@AdminController('api/v1/admin/programmes')
 export class PortalUsersController {
   constructor(@Inject(CHANNEL) private readonly channel: ChannelProvider) {}
 
@@ -98,7 +77,7 @@ export class PortalUsersController {
   async invite(@Param() params: unknown, @Body() body: unknown): Promise<PortalUserResponse> {
     const tx = currentTx();
     const programmeId = await reachableProgramme(tx, params);
-    const input = parse(InvitePortalUserBody, body);
+    const input = parseOr400(InvitePortalUserBody, body);
 
     const emailMasked = maskEmail(input.email);
     const displayName = input.displayName?.trim() ?? '';
@@ -123,7 +102,7 @@ export class PortalUsersController {
       throw error;
     }
     if (result === null) {
-      throw portalNotFound();
+      throw notFound();
     }
 
     try {
@@ -147,23 +126,8 @@ export class PortalUsersController {
   }
 }
 
-function parse<S extends z.ZodTypeAny>(schema: S, input: unknown): z.output<S> {
-  const result = schema.safeParse(input);
-  if (!result.success) {
-    throw portalValidationFailed(result.error);
-  }
-  return result.data as z.output<S>;
-}
-
 /** The programme id from the path, if this session reaches it; otherwise the one 404. */
 async function reachableProgramme(tx: TenantTx, params: unknown): Promise<string> {
-  const parsed = PortalProgrammeIdParam.safeParse(params);
-  if (!parsed.success) {
-    throw portalNotFound();
-  }
-  const programme = await findProgrammeById(tx, parsed.data.programmeId);
-  if (programme === null) {
-    throw portalNotFound();
-  }
-  return programme.id;
+  const { programmeId } = parseIdOr404(PortalProgrammeIdParam, params);
+  return foundOr404(await findProgrammeById(tx, programmeId)).id;
 }

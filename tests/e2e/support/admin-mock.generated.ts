@@ -376,7 +376,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "createRole",
     "method": "POST",
     "path": "/api/v1/admin/roles",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/C"
@@ -517,7 +517,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "deleteRole",
     "method": "DELETE",
     "path": "/api/v1/admin/roles/{roleId}",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/C3"
@@ -1279,7 +1279,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getRole",
     "method": "GET",
     "path": "/api/v1/admin/roles/{roleId}",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/C",
@@ -1360,7 +1360,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "invitePortalUser",
     "method": "POST",
     "path": "/api/v1/admin/programmes/{programmeId}/portal-users/invitations",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/B8"
@@ -1715,7 +1715,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listPermissionSets",
     "method": "GET",
     "path": "/api/v1/admin/field-security/permission-sets",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/D",
@@ -1762,7 +1762,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listPortalUsers",
     "method": "GET",
     "path": "/api/v1/admin/programmes/{programmeId}/portal-users",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/B8"
@@ -1771,6 +1771,18 @@ export const ADMIN_OPERATIONS = [
       "200": {
         "default": {
           "items": []
+        },
+        "invited": {
+          "items": [
+            {
+              "id": "b2f0f7d8-4c21-4b4e-9f7a-2a1d6f4c0e11",
+              "displayName": "Invited Client User",
+              "emailMasked": "p•••e@client.example",
+              "access": "viewer",
+              "status": "invited",
+              "invitedAt": "2026-09-28T09:00:00Z"
+            }
+          ]
         }
       },
       "401": {
@@ -2057,6 +2069,14 @@ export const ADMIN_OPERATIONS = [
             "hasMore": false,
             "totalCount": 6
           }
+        },
+        "empty": {
+          "items": [],
+          "page": {
+            "nextCursor": null,
+            "hasMore": false,
+            "totalCount": 0
+          }
         }
       },
       "401": {
@@ -2089,7 +2109,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listRoles",
     "method": "GET",
     "path": "/api/v1/admin/roles",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/C",
@@ -2703,7 +2723,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "updateRole",
     "method": "PATCH",
     "path": "/api/v1/admin/roles/{roleId}",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/C",
@@ -2798,7 +2818,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "updateRoleHierarchy",
     "method": "PUT",
     "path": "/api/v1/admin/roles/hierarchy",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/C1",
