@@ -1035,3 +1035,16 @@ telephony and WFM work (D-T*, D-W*).
    The lesson: the reserving hook change must land **before** builders start, not mid-wave.
 3. **T-0030's builder briefly ran git commands in the shared main checkout** (its worktree directory
    was empty after incident 1). It restored the checkout to `main`; the lead verified it clean.
+
+---
+
+## 2026-10-03 — @acexode's answers on the open items
+- **D-L34:** no GitHub Pro. The repository moves to an organisation at the end of development, and branch protection comes then. **Compensating controls until then:** commitlint and lint run in CI as well as in hooks (so `--no-verify` buys nothing); the bookkeeping guard and the protected-path label gate stay; the lead keeps merge discipline (DECISION-LOG 2026-10-03 merge authority).
+- **D-L51:** the permissions engine becomes Agent 1's next P0 (T-0032), and it includes tightening `user_programme` WITH CHECK. It also owns who may administer roles, field security, programmes and portal invites, closes D-L40 for create and update, and adds the missing 403 on admin endpoints.
+- **D-P10:** the lead researches SMS providers online and brings a comparison and recommendation.
+- **D-P11, D-P1, D-L36:** lead recommendations adopted (status lines in DECISIONS.md).
+- **Agreed, also:**
+  - Read order for the merged D-A3 PRs: #55, #56, #59, then #52, #53, #54.
+  - Hooks mirrored in CI (above).
+  - Builders move to a real cloud or devcontainer environment when available (the "remote" option fell back to local on 2026-10-03), after which the D-L20 rollup pin can go.
+  - Reboot this machine, then run the approved Docker prune.
