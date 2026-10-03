@@ -25,9 +25,138 @@ export const AUTH_CONTRACT_SOURCE = 'docs/api/auth.openapi.yaml';
 
 export const AUTH_OPERATIONS = [
   {
+    "operationId": "confirmMfaEnrolment",
+    "method": "POST",
+    "path": "/api/v1/auth/mfa/enrol/confirm",
+    "implemented": "true",
+    "screens": [
+      "P01/2"
+    ],
+    "responses": {
+      "400": {
+        "default": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "email",
+              "code": "invalid_string"
+            }
+          ]
+        }
+      },
+      "401": {
+        "wrongCode": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "mfa_code_invalid",
+          "message": "That code did not match. Check your authenticator app and try again.",
+          "attemptsRemaining": 4
+        },
+        "expired": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "mfa_challenge_expired",
+          "message": "That code has expired. Codes last ten minutes."
+        },
+        "unusable": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "mfa_challenge_invalid",
+          "message": "Sign in again to continue."
+        }
+      },
+      "403": {
+        "default": {
+          "statusCode": 403,
+          "error": "Forbidden",
+          "code": "mfa_already_enrolled",
+          "message": "Two-step verification is already set up. Sign in with it to change it."
+        }
+      },
+      "429": {
+        "default": {
+          "statusCode": 429,
+          "error": "Too Many Requests",
+          "code": "account_locked",
+          "message": "Too many sign-in attempts. Try again later.",
+          "retryAt": "2026-09-27T10:27:00.000Z",
+          "timeZone": "Africa/Lagos"
+        }
+      }
+    }
+  },
+  {
+    "operationId": "confirmTotpReplacement",
+    "method": "POST",
+    "path": "/api/v1/auth/me/mfa/totp/confirm",
+    "implemented": "true",
+    "screens": [],
+    "responses": {
+      "400": {
+        "default": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "email",
+              "code": "invalid_string"
+            }
+          ]
+        }
+      },
+      "401": {
+        "wrongCode": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "mfa_code_invalid",
+          "message": "That code did not match. Check your authenticator app and try again.",
+          "attemptsRemaining": 9
+        },
+        "noSession": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "not_authenticated",
+          "message": "Not authenticated"
+        }
+      },
+      "429": {
+        "default": {
+          "statusCode": 429,
+          "error": "Too Many Requests",
+          "code": "account_locked",
+          "message": "Too many sign-in attempts. Try again later.",
+          "retryAt": "2026-09-27T10:27:00.000Z",
+          "timeZone": "Africa/Lagos"
+        }
+      }
+    }
+  },
+  {
     "operationId": "getCurrentUser",
     "method": "GET",
     "path": "/api/v1/auth/me",
+    "implemented": "true",
+    "screens": [],
+    "responses": {
+      "401": {
+        "default": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "not_authenticated",
+          "message": "Not authenticated"
+        }
+      }
+    }
+  },
+  {
+    "operationId": "getMyMfa",
+    "method": "GET",
+    "path": "/api/v1/auth/me/mfa",
     "implemented": "true",
     "screens": [],
     "responses": {
@@ -78,6 +207,54 @@ export const AUTH_OPERATIONS = [
           "error": "Not Found",
           "code": "sso_domain_not_found",
           "message": "We could not find single sign-on for that domain."
+        }
+      }
+    }
+  },
+  {
+    "operationId": "regenerateBackupCodes",
+    "method": "POST",
+    "path": "/api/v1/auth/me/mfa/backup-codes",
+    "implemented": "true",
+    "screens": [],
+    "responses": {
+      "400": {
+        "default": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "email",
+              "code": "invalid_string"
+            }
+          ]
+        }
+      },
+      "401": {
+        "wrongCode": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "mfa_code_invalid",
+          "message": "That code did not match. Check your authenticator app and try again.",
+          "attemptsRemaining": 9
+        },
+        "noSession": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "not_authenticated",
+          "message": "Not authenticated"
+        }
+      },
+      "429": {
+        "default": {
+          "statusCode": 429,
+          "error": "Too Many Requests",
+          "code": "account_locked",
+          "message": "Too many sign-in attempts. Try again later.",
+          "retryAt": "2026-09-27T10:27:00.000Z",
+          "timeZone": "Africa/Lagos"
         }
       }
     }
@@ -325,6 +502,118 @@ export const AUTH_OPERATIONS = [
           "error": "Not Implemented",
           "code": "not_implemented",
           "message": "This endpoint is not available yet."
+        }
+      }
+    }
+  },
+  {
+    "operationId": "startMfaEnrolment",
+    "method": "POST",
+    "path": "/api/v1/auth/mfa/enrol",
+    "implemented": "true",
+    "screens": [
+      "P01/2"
+    ],
+    "responses": {
+      "400": {
+        "default": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "email",
+              "code": "invalid_string"
+            }
+          ]
+        }
+      },
+      "401": {
+        "wrongCode": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "mfa_code_invalid",
+          "message": "That code did not match. Check your authenticator app and try again.",
+          "attemptsRemaining": 4
+        },
+        "expired": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "mfa_challenge_expired",
+          "message": "That code has expired. Codes last ten minutes."
+        },
+        "unusable": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "mfa_challenge_invalid",
+          "message": "Sign in again to continue."
+        }
+      },
+      "403": {
+        "default": {
+          "statusCode": 403,
+          "error": "Forbidden",
+          "code": "mfa_already_enrolled",
+          "message": "Two-step verification is already set up. Sign in with it to change it."
+        }
+      },
+      "429": {
+        "default": {
+          "statusCode": 429,
+          "error": "Too Many Requests",
+          "code": "account_locked",
+          "message": "Too many sign-in attempts. Try again later.",
+          "retryAt": "2026-09-27T10:27:00.000Z",
+          "timeZone": "Africa/Lagos"
+        }
+      }
+    }
+  },
+  {
+    "operationId": "startTotpReplacement",
+    "method": "POST",
+    "path": "/api/v1/auth/me/mfa/totp",
+    "implemented": "true",
+    "screens": [],
+    "responses": {
+      "400": {
+        "default": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "email",
+              "code": "invalid_string"
+            }
+          ]
+        }
+      },
+      "401": {
+        "wrongCode": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "mfa_code_invalid",
+          "message": "That code did not match. Check your authenticator app and try again.",
+          "attemptsRemaining": 9
+        },
+        "noSession": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "not_authenticated",
+          "message": "Not authenticated"
+        }
+      },
+      "429": {
+        "default": {
+          "statusCode": 429,
+          "error": "Too Many Requests",
+          "code": "account_locked",
+          "message": "Too many sign-in attempts. Try again later.",
+          "retryAt": "2026-09-27T10:27:00.000Z",
+          "timeZone": "Africa/Lagos"
         }
       }
     }

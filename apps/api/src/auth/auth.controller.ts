@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Inject,
@@ -14,18 +15,45 @@ import type { Request } from 'express';
 import { currentTx } from '../tenancy/tenant-context';
 import { KasuwaAuthGuard, readBearerToken } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
-import { notAuthenticated, notImplemented } from './auth.errors';
+import { AUTH_CONTEXT_KEY } from '../tenancy/stub-auth.guard';
+import { type AuthError, notAuthenticated, notImplemented } from './auth.errors';
 import { AuthService } from './auth.service';
+import { CommitThenFailInterceptor } from './commit-then-fail.interceptor';
+import { MfaService } from './mfa.service';
 import { SignInThrottleGuard } from './sign-in-throttle.guard';
 import {
   MfaChallengeBody,
+  MfaEnrolBody,
+  MfaEnrolConfirmBody,
   MfaVerifyBody,
   SignInBody,
   SsoLookupBody,
+  StepUpBody,
+  TotpConfirmBody,
+  type BackupCodesIssued,
   type CurrentUserResponse,
   type MfaChallengeResponse,
+  type MfaStatusResponse,
   type SessionResponse,
+  type SessionWithBackupCodes,
+  type TotpEnrolmentStarted,
 } from './auth.schemas';
+
+/**
+ * The session id behind this request, or the uninformative 401.
+ *
+ * The MFA routes refuse the `x-kasuwa-*` stub identity (ADR-0007) even where
+ * stub mode is on: changing a credential is the one thing a forged identity
+ * header should never be able to reach, and the isolation suite has no need
+ * for it. A real, server-issued session is required.
+ */
+function requireRealSession(request: Request): string {
+  const sessionId = request[AUTH_CONTEXT_KEY]?.sessionId ?? null;
+  if (sessionId === null) {
+    throw notAuthenticated();
+  }
+  return sessionId;
+}
 
 /**
  * The authentication API. Contract: docs/api/auth.openapi.yaml, which is
@@ -53,7 +81,10 @@ export class AuthController {
    * undefined and every route 500s. Every other provider in this app is wired
    * the same way, for the same reason.
    */
-  constructor(@Inject(AuthService) private readonly auth: AuthService) {}
+  constructor(
+    @Inject(AuthService) private readonly auth: AuthService,
+    @Inject(MfaService) private readonly mfa: MfaService,
+  ) {}
 
   /**
    * POST /api/v1/auth/sign-in — first factor.
@@ -95,6 +126,92 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async verify(@Body() body: unknown): Promise<SessionResponse> {
     return this.auth.verifyMfa(MfaVerifyBody.parse(body));
+  }
+
+  /**
+   * POST /api/v1/auth/mfa/enrol — start enrolment, bound to a sign-in
+   * challenge, for a user with NO confirmed factor. 403 `mfa_already_enrolled`
+   * for anybody else: a password cannot replace a factor.
+   *
+   * The response carries the TOTP secret, once. `no-store` keeps it out of
+   * every cache between here and the screen.
+   */
+  @Post('mfa/enrol')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  async enrol(@Body() body: unknown): Promise<TotpEnrolmentStarted> {
+    return this.auth.startEnrolment(MfaEnrolBody.parse(body));
+  }
+
+  /**
+   * POST /api/v1/auth/mfa/enrol/confirm — confirm the pending factor with a
+   * code from it. Issues the session and the backup codes, the only time the
+   * codes exist in plaintext.
+   */
+  @Post('mfa/enrol/confirm')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  async confirmEnrolment(@Body() body: unknown): Promise<SessionWithBackupCodes> {
+    return this.auth.confirmEnrolment(MfaEnrolConfirmBody.parse(body));
+  }
+
+  /*
+   * The signed-in user's own factor. Guard and tenant transaction exactly like
+   * GET /me, plus CommitThenFailInterceptor OUTSIDE the transaction so a wrong
+   * step-up code is counted even though the request fails (see that class).
+   * Every write needs the current second factor again; a session is not enough.
+   */
+
+  /** GET /api/v1/auth/me/mfa — whether a factor is confirmed and how many codes remain. */
+  @Get('me/mfa')
+  @UseGuards(KasuwaAuthGuard)
+  @UseInterceptors(TenantTransactionInterceptor)
+  @Header('Cache-Control', 'no-store')
+  async myMfa(@Req() request: Request): Promise<MfaStatusResponse> {
+    requireRealSession(request);
+    return this.mfa.status(currentTx());
+  }
+
+  /** POST /api/v1/auth/me/mfa/totp — start replacing the factor (step-up). */
+  @Post('me/mfa/totp')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(KasuwaAuthGuard)
+  @UseInterceptors(CommitThenFailInterceptor, TenantTransactionInterceptor)
+  @Header('Cache-Control', 'no-store')
+  async startTotpReplacement(
+    @Req() request: Request,
+    @Body() body: unknown,
+  ): Promise<TotpEnrolmentStarted | AuthError> {
+    requireRealSession(request);
+    return this.mfa.startReplacement(currentTx(), StepUpBody.parse(body));
+  }
+
+  /** POST /api/v1/auth/me/mfa/totp/confirm — the new secret replaces the old. */
+  @Post('me/mfa/totp/confirm')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(KasuwaAuthGuard)
+  @UseInterceptors(CommitThenFailInterceptor, TenantTransactionInterceptor)
+  @Header('Cache-Control', 'no-store')
+  async confirmTotpReplacement(
+    @Req() request: Request,
+    @Body() body: unknown,
+  ): Promise<MfaStatusResponse | AuthError> {
+    const sessionId = requireRealSession(request);
+    return this.mfa.confirmReplacement(currentTx(), sessionId, TotpConfirmBody.parse(body));
+  }
+
+  /** POST /api/v1/auth/me/mfa/backup-codes — regenerate (step-up); the old set dies. */
+  @Post('me/mfa/backup-codes')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(KasuwaAuthGuard)
+  @UseInterceptors(CommitThenFailInterceptor, TenantTransactionInterceptor)
+  @Header('Cache-Control', 'no-store')
+  async regenerateBackupCodes(
+    @Req() request: Request,
+    @Body() body: unknown,
+  ): Promise<BackupCodesIssued | AuthError> {
+    requireRealSession(request);
+    return this.mfa.regenerateBackupCodes(currentTx(), StepUpBody.parse(body));
   }
 
   /** POST /api/v1/auth/sign-out — revoke. Idempotent, and 204 either way. */

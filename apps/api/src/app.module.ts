@@ -11,6 +11,8 @@ import { nodeEnv } from '@kasuwa/config';
 import { ADMIN_CONTROLLERS, AdminModule } from './admin/admin.module';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
+import { CommitThenFailInterceptor } from './auth/commit-then-fail.interceptor';
+import { MfaService } from './auth/mfa.service';
 import { SignInThrottleGuard } from './auth/sign-in-throttle.guard';
 import { AUTH_POLICY, DEFAULT_AUTH_POLICY, type AuthPolicy } from './auth/auth.policy';
 import { KEY_PROVIDER } from './auth/key-provider.token';
@@ -135,6 +137,8 @@ export class AppModule implements NestModule {
       controllers: CONTROLLERS,
       providers: [
         AuthService,
+        MfaService,
+        CommitThenFailInterceptor,
         SignInThrottleGuard,
         KasuwaAuthGuard,
         StubAuthGuard,

@@ -25,9 +25,11 @@ import {
   accountLocked,
   AuthError,
   invalidCredentials,
+  mfaAlreadyEnrolled,
   mfaChallengeExpired,
   mfaChallengeInvalid,
   mfaCodeInvalid,
+  mfaMethodUnavailable,
   notImplemented,
   signInUnavailable,
   ssoDomainNotFound,
@@ -36,6 +38,18 @@ import { AUTH_POLICY, type AuthPolicy } from './auth.policy';
 import { KEY_PROVIDER } from './key-provider.token';
 import { resolveTotpSecret, type MfaSecretRow } from './mfa-secret';
 import {
+  confirmPendingTotp,
+  consumeBackupCode,
+  countUnusedBackupCodes,
+  findPendingTotp,
+  hasConfirmedFactor,
+  issueBackupCodes,
+  matchBackupCode,
+  matchTotp,
+  otpauthUri,
+  startTotpEnrolment,
+} from './mfa-store';
+import {
   formatChallengeId,
   parseChallengeId,
   type ChallengeReference,
@@ -43,8 +57,12 @@ import {
 import type {
   MfaChallengeInput,
   MfaChallengeResponse,
+  MfaEnrolConfirmInput,
+  MfaEnrolInput,
   MfaVerifyInput,
   SessionResponse,
+  SessionWithBackupCodes,
+  TotpEnrolmentStarted,
   SignInInput,
   SsoLookupInput,
 } from './auth.schemas';
@@ -189,15 +207,20 @@ export class AuthService {
   /**
    * Re-issues or switches the second factor.
    *
-   * Only `totp` is implemented. There is nothing to send for TOTP — the
-   * authenticator app already holds the secret — so this returns the existing
-   * challenge unchanged. SMS and backup codes need a channel provider that does
-   * not exist yet and are an explicit non-goal of T-0001.
+   * `totp` and `backup_code` are implemented. Neither sends anything — the
+   * authenticator app holds the secret and the user holds the codes — so this
+   * records which method the challenge expects and describes it. `sms` needs a
+   * channel provider that does not exist yet (Agent 5, M8) and stays 501.
+   *
+   * Switching to `backup_code` needs at least one unused code; otherwise it is
+   * `mfa_method_unavailable`. That answer is only available to someone holding
+   * a live challenge, who has already presented this user's password.
    */
   async reissueChallenge(input: MfaChallengeInput): Promise<MfaChallengeResponse> {
-    if (input.method !== 'totp') {
+    if (input.method === 'sms') {
       throw notImplemented();
     }
+    const method = input.method;
 
     const reference = parseChallengeId(input.challengeId);
     if (reference === null) {
@@ -213,7 +236,160 @@ export class AuthService {
         if (challenge instanceof AuthError) {
           return challenge;
         }
-        return this.describeChallenge(tx, challenge.userId, reference, challenge.expiresAt);
+        if (
+          method === 'backup_code' &&
+          (await countUnusedBackupCodes(tx, tx.tenantId, challenge.userId)) === 0
+        ) {
+          return mfaMethodUnavailable();
+        }
+        await tx.query(
+          `UPDATE auth_challenge
+              SET method = $3
+            WHERE tenant_id = $1 AND id = $2 AND consumed_at IS NULL`,
+          [tx.tenantId, reference.challengeId, method],
+        );
+        return this.describeChallenge(
+          tx,
+          challenge.userId,
+          reference,
+          challenge.expiresAt,
+          method,
+        );
+      }),
+    );
+  }
+
+  // --- enrolment, bound to a sign-in challenge (T-0012) ----------------------
+  //
+  // No session exists yet: holding the challenge id is the proof of the first
+  // factor, exactly as it is for /auth/mfa. These two routes are ONLY for a
+  // user with no confirmed factor. For anybody else a challenge proves a
+  // password and nothing more, and a password must never be enough to put a
+  // new factor in place of an existing one — that is the classic bypass.
+  //
+  // Wrong codes go through `failSecondFactor`: the same per-challenge (5) and
+  // per-user (10) counters as /auth/mfa, so enrolment is not a side door
+  // around the T-0001 brute-force controls.
+
+  /** POST /auth/mfa/enrol — a fresh pending secret, shown once. */
+  async startEnrolment(input: MfaEnrolInput): Promise<TotpEnrolmentStarted> {
+    const reference = parseChallengeId(input.challengeId);
+    if (reference === null) {
+      throw mfaChallengeInvalid();
+    }
+
+    return this.commitThenFail(
+      withAuthTransaction(this.pool, { tenantId: reference.tenantId }, async (tx) => {
+        if (!hasTenant(tx)) {
+          return mfaChallengeInvalid();
+        }
+        const challenge = await this.findOpenChallenge(tx, reference.challengeId);
+        if (challenge instanceof AuthError) {
+          return challenge;
+        }
+        const mfaKey = hashRateLimitKey('mfa', tx.tenantId, challenge.userId);
+        const locked = await this.activeLock(tx, mfaKey, this.mfaLimits());
+        if (locked !== null) {
+          return locked;
+        }
+        if (await hasConfirmedFactor(tx, tx.tenantId, challenge.userId)) {
+          return mfaAlreadyEnrolled();
+        }
+
+        const account = await this.accountLabel(tx, challenge.userId);
+        const secret = await startTotpEnrolment(
+          tx,
+          this.keyProvider,
+          tx.tenantId,
+          challenge.userId,
+        );
+        return {
+          otpauthUri: otpauthUri(account, secret),
+          secret,
+          expiresAt: challenge.expiresAt.toISOString(),
+        };
+      }),
+    );
+  }
+
+  /**
+   * POST /auth/mfa/enrol/confirm — the ONLY way a pending factor becomes
+   * usable at sign-in. Confirms the factor, consumes the challenge, issues the
+   * session and the backup codes, in one transaction.
+   */
+  async confirmEnrolment(input: MfaEnrolConfirmInput): Promise<SessionWithBackupCodes> {
+    const reference = parseChallengeId(input.challengeId);
+    if (reference === null) {
+      throw mfaChallengeInvalid();
+    }
+
+    return this.commitThenFail(
+      withAuthTransaction(this.pool, { tenantId: reference.tenantId }, async (tx) => {
+        if (!hasTenant(tx)) {
+          return mfaChallengeInvalid();
+        }
+        const challenge = await this.findOpenChallenge(tx, reference.challengeId);
+        if (challenge instanceof AuthError) {
+          return challenge;
+        }
+        const mfaKey = hashRateLimitKey('mfa', tx.tenantId, challenge.userId);
+        const locked = await this.activeLock(tx, mfaKey, this.mfaLimits());
+        if (locked !== null) {
+          return locked;
+        }
+        if (await hasConfirmedFactor(tx, tx.tenantId, challenge.userId)) {
+          // A password-holder cannot slip a factor in through confirm either.
+          return mfaAlreadyEnrolled();
+        }
+
+        const pending = await findPendingTotp(
+          tx,
+          tx.tenantId,
+          challenge.userId,
+          this.policy.challengeMinutes,
+        );
+        const match = await matchTotp(this.keyProvider, tx.tenantId, pending, input.code);
+        if (pending === undefined || match.kind !== 'match') {
+          return this.failSecondFactor(tx, reference, mfaKey, challenge.userId);
+        }
+
+        // Lock order as everywhere else: auth_rate_limit, user_mfa_factor,
+        // auth_challenge.
+        await clearAuthFailures(tx, mfaKey);
+        const confirmedAt = await confirmPendingTotp(
+          tx,
+          tx.tenantId,
+          challenge.userId,
+          pending.id,
+          match.step,
+        );
+        const claimed =
+          confirmedAt === null
+            ? []
+            : await tx.query<{ id: string }>(
+                `UPDATE auth_challenge
+                    SET consumed_at = now()
+                  WHERE tenant_id = $1 AND id = $2 AND consumed_at IS NULL
+              RETURNING id`,
+                [tx.tenantId, reference.challengeId],
+              );
+        if (claimed.length === 0) {
+          // A racing confirm won. THROWN, so this transaction rolls back
+          // whole: it must not leave a factor confirmed with no session.
+          throw mfaChallengeInvalid();
+        }
+
+        const session = await this.issueSession(tx, challenge.userId);
+        if (session instanceof AuthError) {
+          return session;
+        }
+        const backupCodes = await issueBackupCodes(
+          tx,
+          this.keyProvider,
+          tx.tenantId,
+          challenge.userId,
+        );
+        return { ...session, backupCodes };
       }),
     );
   }
@@ -247,6 +423,10 @@ export class AuthService {
         const locked = await this.activeLock(tx, mfaKey, this.mfaLimits());
         if (locked !== null) {
           return locked;
+        }
+
+        if (challenge.method === 'backup_code') {
+          return this.verifyBackupCode(tx, reference, mfaKey, challenge.userId, input.code);
         }
 
         const factors = await tx.query<MfaSecretRow & { last_used_step: string | null }>(
@@ -349,6 +529,49 @@ export class AuthService {
         return this.issueSession(tx, challenge.userId);
       }),
     );
+  }
+
+  /**
+   * The second factor as a backup code (the lost-device path, T-0012).
+   *
+   * Same shape as the TOTP path above, and deliberately the same counters: a
+   * wrong backup code is a wrong second factor, burns an attempt against the
+   * challenge and counts towards the per-user lock. A code is consumed by a
+   * conditional UPDATE, so it establishes exactly one session however many
+   * requests race with it.
+   */
+  private async verifyBackupCode(
+    tx: ResolvedAuthTx,
+    reference: ChallengeReference,
+    mfaKey: Buffer,
+    userId: string,
+    code: string,
+  ): Promise<SessionResponse | AuthError> {
+    const codeId = await matchBackupCode(tx, this.keyProvider, tx.tenantId, userId, code);
+    if (codeId === null) {
+      return this.failSecondFactor(tx, reference, mfaKey, userId);
+    }
+
+    await clearAuthFailures(tx, mfaKey);
+    if (!(await consumeBackupCode(tx, tx.tenantId, userId, codeId))) {
+      // Used by a racing request first. The same answer as any other wrong code.
+      return this.failSecondFactor(tx, reference, mfaKey, userId);
+    }
+
+    const claimed = await tx.query<{ id: string }>(
+      `UPDATE auth_challenge
+          SET consumed_at = now()
+        WHERE tenant_id = $1 AND id = $2 AND consumed_at IS NULL
+    RETURNING id`,
+      [tx.tenantId, reference.challengeId],
+    );
+    if (claimed.length === 0) {
+      // The challenge was consumed underneath us. THROWN, not returned, so the
+      // transaction rolls back and the backup code is not spent on a sign-in
+      // that did not happen. Nothing else here needs to survive.
+      throw mfaChallengeInvalid();
+    }
+    return this.issueSession(tx, userId);
   }
 
   /**
@@ -603,6 +826,7 @@ export class AuthService {
     userId: string,
     reference: ChallengeReference,
     expiresAt: Date,
+    method: 'totp' | 'backup_code' = 'totp',
   ): Promise<MfaChallengeResponse> {
     const enrolled = await tx.query<{ type: string }>(
       `SELECT type
@@ -611,17 +835,19 @@ export class AuthService {
       [tx.tenantId, userId],
     );
     const hasTotp = enrolled.some((factor) => factor.type === 'totp');
+    // A count, never a code or a hash.
+    const backupCodesLeft = await countUnusedBackupCodes(tx, tx.tenantId, userId);
 
     return {
       mfaRequired: true,
       challengeId: formatChallengeId(reference),
-      method: 'totp',
+      method,
       methods: [
         { type: 'totp', available: hasTotp, deliveryHint: null },
-        // Specified in the contract so the screen can render the fallbacks it
+        // Specified in the contract so the screen can render the fallback it
         // is designed with; unavailable until a channel provider exists.
         { type: 'sms', available: false, deliveryHint: null },
-        { type: 'backup_code', available: false, deliveryHint: null },
+        { type: 'backup_code', available: backupCodesLeft > 0, deliveryHint: null },
       ],
       enrolmentRequired: !hasTotp,
       expiresAt: expiresAt.toISOString(),
@@ -632,14 +858,17 @@ export class AuthService {
   private async findOpenChallenge(
     tx: ResolvedAuthTx,
     challengeId: string,
-  ): Promise<{ userId: string; attemptCount: number; expiresAt: Date } | AuthError> {
+  ): Promise<
+    { userId: string; attemptCount: number; expiresAt: Date; method: string } | AuthError
+  > {
     const rows = await tx.query<{
       user_id: string;
       attempt_count: number;
       expires_at: Date;
       consumed_at: Date | null;
+      method: string;
     }>(
-      `SELECT user_id, attempt_count, expires_at, consumed_at
+      `SELECT user_id, attempt_count, expires_at, consumed_at, method
          FROM auth_challenge
         WHERE tenant_id = $1 AND id = $2`,
       [tx.tenantId, challengeId],
@@ -656,7 +885,21 @@ export class AuthService {
       // offer "Send a new code".
       return mfaChallengeExpired();
     }
-    return { userId: row.user_id, attemptCount: row.attempt_count, expiresAt: row.expires_at };
+    return {
+      userId: row.user_id,
+      attemptCount: row.attempt_count,
+      expiresAt: row.expires_at,
+      method: row.method,
+    };
+  }
+
+  /** The account name an authenticator app shows beside the code: the user's address. */
+  private async accountLabel(tx: ResolvedAuthTx, userId: string): Promise<string> {
+    const rows = await tx.query<{ email: string }>(
+      `SELECT email FROM "user" WHERE tenant_id = $1 AND id = $2`,
+      [tx.tenantId, userId],
+    );
+    return rows[0]?.email ?? userId;
   }
 
   private async issueSession(
