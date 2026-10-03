@@ -59,6 +59,9 @@ importers:
       '@kasuwa/auth-crypto':
         specifier: workspace:*
         version: link:../../packages/auth-crypto
+      '@kasuwa/channel-adapter':
+        specifier: workspace:*
+        version: link:../../packages/channel-adapter
       '@kasuwa/config':
         specifier: workspace:*
         version: link:../../packages/config

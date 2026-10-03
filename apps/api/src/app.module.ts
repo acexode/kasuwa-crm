@@ -6,9 +6,15 @@ import {
 } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { createDevelopmentKeyProvider, type KeyProvider } from '@kasuwa/auth-crypto';
+// D-L49 makes the fake the default provider until a real one is chosen (D-P10);
+// it is still wrapped in createChannelAdapter, so DND and validation apply.
+// eslint-disable-next-line no-restricted-imports -- D-L49: the default channel provider
+import { FakeChannelProvider, type ChannelProvider } from '@kasuwa/channel-adapter';
 import { AdminProgrammesController } from './admin/programmes/programmes.controller';
 import { FieldSecurityAdminModule } from './admin/field-security/field-security.module';
 import { AdminRolesModule } from './admin/roles/admin-roles.module';
+import { PortalUsersAdminModule } from './admin/portal-users/portal-users.module';
+import { PortalUsersController } from './admin/portal-users/portal-users.controller';
 import { PermissionSetsController, RolesController } from './admin/roles/roles.controller';
 import { FieldSecurityController } from './admin/field-security/field-security.controller';
 import { AuthController } from './auth/auth.controller';
@@ -19,6 +25,7 @@ import { KEY_PROVIDER } from './auth/key-provider.token';
 import { ContactsController } from './contacts/contacts.controller';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
+import { CHANNEL, createApiChannel } from './messaging/channel';
 import { AUTH_MODE, KasuwaAuthGuard, type ResolvedAuthMode } from './tenancy/kasuwa-auth.guard';
 import { StubAuthGuard } from './tenancy/stub-auth.guard';
 import { TenantTransactionInterceptor } from './tenancy/tenant-transaction.interceptor';
@@ -47,6 +54,7 @@ const TELEMETRY_CONTROLLERS = [
   RolesController,
   PermissionSetsController,
   FieldSecurityController,
+  PortalUsersController,
 ];
 
 export interface AppModuleOptions {
@@ -78,6 +86,16 @@ export interface AppModuleOptions {
    * `main.ts` passes the configured one.
    */
   keyProvider?: KeyProvider;
+  /**
+   * The messaging provider behind `@kasuwa/channel-adapter` (D-L49, T-0030).
+   *
+   * The API never calls it directly: it is wrapped in `createChannelAdapter`,
+   * which validates, applies DND and sanitises errors. Defaults to a
+   * `FakeChannelProvider`, which sends nothing anywhere, because no real
+   * provider has been chosen (D-P10). Tests pass their own fake to read what
+   * was sent.
+   */
+  channelProvider?: ChannelProvider;
   /**
    * The `cell` attribute on every API span (T-0005). Defaults to `local`;
    * `main.ts` passes KASUWA_CELL.
@@ -116,7 +134,7 @@ export class AppModule implements NestModule {
       // KasuwaAuthGuard: Nest resolves a guard's dependencies in the module
       // that hosts the controller, and AUTH_MODE is configured only here.
       global: true,
-      exports: [AUTH_MODE],
+      exports: [AUTH_MODE, CHANNEL],
       imports: [
         DatabaseModule.forRoot(
           options.poolMax === undefined
@@ -125,6 +143,7 @@ export class AppModule implements NestModule {
         ),
         FieldSecurityAdminModule.register({ authMode: options.authMode ?? 'stub' }),
         AdminRolesModule,
+        PortalUsersAdminModule,
       ],
       controllers: CONTROLLERS,
       providers: [
@@ -141,6 +160,10 @@ export class AppModule implements NestModule {
         {
           provide: KEY_PROVIDER,
           useValue: options.keyProvider ?? createDevelopmentKeyProvider(),
+        },
+        {
+          provide: CHANNEL,
+          useValue: createApiChannel(options.channelProvider ?? new FakeChannelProvider()),
         },
         { provide: APP_FILTER, useClass: ValidationExceptionFilter },
         {
