@@ -138,6 +138,25 @@ export function annotateRequestScope(
   record(entry, { tenant_id: session.tenantId, programme_id: [...session.programmeIds] });
 }
 
+/**
+ * Records an unexpected failure on the request span as an `exception` event
+ * (T-0036, D-L42), from values the caller has already reduced to an error
+ * class and a code. Deliberately NOT `span.recordException(error)`, which
+ * copies the message and the stack - where a database error's row values
+ * live - into the trace store.
+ */
+export function recordRequestFailure(
+  request: object,
+  failure: { errorClass: string; code: string | null },
+): void {
+  const entry = requestSpans.get(request);
+  if (entry === undefined) return;
+  entry.span.addEvent('exception', {
+    'exception.type': failure.errorClass,
+    ...(failure.code === null ? {} : { 'exception.code': failure.code }),
+  });
+}
+
 /** The route TEMPLATE Express matched (`/api/v1/contacts/:id`), or null. */
 function matchedRoute(request: Request): string | null {
   const route: unknown = (request as { route?: unknown }).route;
