@@ -53,6 +53,9 @@ importers:
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.4)
+      yaml:
+        specifier: ^2.9.1
+        version: 2.9.1
 
   apps/api:
     dependencies:
@@ -77,6 +80,9 @@ importers:
       '@kasuwa/metadata-engine':
         specifier: workspace:*
         version: link:../../packages/metadata-engine
+      '@kasuwa/permissions':
+        specifier: workspace:*
+        version: link:../../packages/permissions
       '@nestjs/common':
         specifier: ^11.0.1
         version: 11.2.6(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -271,15 +277,34 @@ importers:
 
   packages/domain/core:
     dependencies:
+      '@kasuwa/auth-crypto':
+        specifier: workspace:*
+        version: link:../../auth-crypto
+      '@kasuwa/config':
+        specifier: workspace:*
+        version: link:../../config
       '@kasuwa/db':
         specifier: workspace:*
         version: link:../../db
       '@kasuwa/permissions':
         specifier: workspace:*
         version: link:../../permissions
+      pg:
+        specifier: ^8.13.1
+        version: 8.23.0
+      pg-connection-string:
+        specifier: ^2.14.0
+        version: 2.14.0
       zod:
         specifier: ^3.24.1
         version: 3.25.76
+    devDependencies:
+      '@types/pg':
+        specifier: ^8.11.10
+        version: 8.23.1
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.15
 
   packages/feature-flags:
     dependencies:
@@ -309,7 +334,14 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
 
-  packages/permissions: {}
+  packages/permissions:
+    dependencies:
+      '@kasuwa/db':
+        specifier: workspace:*
+        version: link:../db
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
 
   packages/telephony-adapter:
     dependencies:

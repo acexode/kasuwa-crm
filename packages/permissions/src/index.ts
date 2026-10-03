@@ -1,28 +1,35 @@
 /**
- * Permission policy engine - PLACEHOLDER.
+ * Permission policy engine - Agent 1 (Platform & Security), PRD module M2.
  *
- * Owned by Agent 1 (Platform & Security), PRD module M2. This package exists in
- * the scaffold for one reason: so that the Nx module-boundary rule has a real
- * target from day one and packages/domain/* can legally depend on it. It has no
- * implementation and must not grow one outside an assigned task.
+ * Answers "may this session DO this?" on top of what RLS already decided it
+ * may SEE. Built in T-0032 to the model in team/DECISIONS.md D-L53:
  *
- * NOT blocked on D-L06 — that was answered on 2026-09-26: no wildcard, the
- * session always carries an explicit enumerated list of programme ids. This
- * comment claimed otherwise until 2026-09-30, when the T-0021 builder read it,
- * believed it, and had to be corrected. A stale "blocked on X" is worse than no
- * note: it tells the next person not to proceed on work that is free to start.
+ *   - a permission set is granted per user per programme, on
+ *     `user_programme.permission_set_id` (D-P9);
+ *   - a tenant admin is a flag on the user, `"user".is_tenant_admin`;
+ *   - both are re-read from the database on every request (`grants.ts`);
+ *   - neither ever widens scope (D-L06: no wildcard).
  *
- * What genuinely remains unsettled is how this engine EXPRESSES permission sets
- * and field-level security — see D-P9, raised by the admin contract, on whether
- * a field grant is tenant-wide or per-programme. That one shapes the core data
- * structure; D-L06 no longer does.
+ * Covered today: the admin API's writes. NOT yet modelled: field-level and
+ * record-level decisions for business objects (the authorisation matrix, a
+ * later M2 task), and any permission for a set other than `admin`.
  */
 
-/** Placeholder subject. Replaced by the real evaluator in M2. */
-export interface PermissionSubject {
-  tenantId: string;
-  userId: string;
-  programmeIds: readonly string[];
-}
+export {
+  ADMIN_PERMISSION_SET_KEY,
+  PROGRAMME_ACTIONS,
+  TENANT_ACTIONS,
+  canProgramme,
+  canTenant,
+  type Grants,
+  type ProgrammeAction,
+  type TenantAction,
+} from './policy';
+export { loadGrants, mayProgramme, mayTenant } from './grants';
 
-export const PERMISSIONS_ENGINE_STATUS = 'not-implemented' as const;
+/**
+ * How far the engine reaches. Was `'not-implemented'` until T-0032; the
+ * pending authorisation-matrix suite still expects that value and needs the
+ * lead to update it when its task is assigned.
+ */
+export const PERMISSIONS_ENGINE_STATUS = 'admin-writes' as const;

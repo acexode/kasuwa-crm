@@ -5,14 +5,28 @@
   "type": "commonjs",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./provisioning": "./src/provisioning.ts",
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "lint": "eslint src",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "provision": "tsx src/cli/tenant-provision.ts"
   },
   "dependencies": {
+    "@kasuwa/auth-crypto": "workspace:*",
+    "@kasuwa/config": "workspace:*",
     "@kasuwa/db": "workspace:*",
     "@kasuwa/permissions": "workspace:*",
+    "pg": "^8.13.1",
+    "pg-connection-string": "^2.14.0",
     "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2"
   },
   "nx": { "tags": ["scope:domain", "domain:core", "type:domain"] }
 }

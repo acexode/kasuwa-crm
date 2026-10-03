@@ -79,6 +79,56 @@ jobs:
           pnpm ui:tokens
           git diff --exit-code -- packages/ui/src/tokens.generated.css packages/ui/tailwind-preset.cjs
 
+  # --------------------------------------------------------------------------
+  # The git hooks, mirrored (D-L34). There is no branch protection on this
+  # repository, so `git commit --no-verify` skips .husky/commit-msg and
+  # .husky/pre-commit with nothing to stop it. Every check those hooks run is
+  # therefore also run here, blocking:
+  #   pre-commit  `nx affected -t lint typecheck`  -> the `lint` and `typecheck` jobs
+  #   commit-msg  `commitlint --edit`              -> this job, over EVERY commit
+  #               in the pull request, not just its title (a squash-merge title
+  #               is checked by nobody, and the commits are what `git log` keeps).
+  # --------------------------------------------------------------------------
+  commitlint:
+    name: Commit messages
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      # The whole history: commitlint walks base..head, and a depth-1 checkout
+      # has a single commit, so it would lint nothing it was meant to.
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.7.0' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22.16.0', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Lint every commit in the pull request
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: pnpm exec commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+
+  # --------------------------------------------------------------------------
+  # The feature register (D-L36, T-0034). team/FEATURES.md is generated from
+  # the PRD, the OpenAPI specs, the flag registry, the e2e screen manifests,
+  # the task files and team/DECISIONS.md. A change to any of them that is not
+  # reflected in the register fails here, so a flag, a deferral or a mock-only
+  # screen cannot arrive without a row. Fix: `pnpm features`, commit the result.
+  # --------------------------------------------------------------------------
+  features:
+    name: Feature register
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.7.0' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22.16.0', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Check team/FEATURES.md is current
+        run: pnpm features:check
+
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest

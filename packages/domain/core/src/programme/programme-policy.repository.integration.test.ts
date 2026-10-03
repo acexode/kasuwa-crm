@@ -22,7 +22,9 @@ import {
   findProgrammeSla,
   LegalHoldActiveError,
   replaceProgrammeRetention,
+  replaceProgrammeRetentionWithPrevious,
   replaceProgrammeSla,
+  replaceProgrammeSlaWithPrevious,
   StalePolicyVersionError,
 } from './programme-policy.repository';
 
@@ -183,6 +185,36 @@ describe('programme SLA and retention repository (T-0028)', () => {
       expect(lifted?.legalHold).toBe(false);
       const shortened = await replaceProgrammeRetention(tx, PROGRAMME_A1, 2, shorter);
       expect(shortened).toEqual({ version: 3, ...shorter });
+    });
+  });
+
+  it('returns the policy each write replaced, read under the lock (T-0033, for the audit row)', async () => {
+    await rolledBack(supervisor, async (tx) => {
+      const firstSla = await replaceProgrammeSlaWithPrevious(tx, PROGRAMME_A1, 0, SLA);
+      expect(firstSla?.previous, 'nothing stored: the default').toEqual(defaultSlaPolicy());
+      expect(firstSla?.updated).toEqual({ version: 1, ...SLA });
+      const secondSla = await replaceProgrammeSlaWithPrevious(tx, PROGRAMME_A1, 1, {
+        ...SLA,
+        warnAtPercentOfTarget: 90,
+      });
+      expect(secondSla?.previous, 'targets read before they were replaced').toEqual({
+        version: 1,
+        ...SLA,
+      });
+
+      const firstRetention = await replaceProgrammeRetentionWithPrevious(
+        tx,
+        PROGRAMME_A1,
+        0,
+        RETENTION,
+      );
+      expect(firstRetention?.previous, 'no policy before the first write').toBeNull();
+      const secondRetention = await replaceProgrammeRetentionWithPrevious(tx, PROGRAMME_A1, 1, {
+        ...RETENTION,
+        legalHold: true,
+      });
+      expect(secondRetention?.previous).toEqual({ version: 1, ...RETENTION });
+      expect(secondRetention?.updated).toEqual({ version: 2, ...RETENTION, legalHold: true });
     });
   });
 });

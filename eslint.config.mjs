@@ -34,6 +34,30 @@ const HEX_SELECTOR = {
     'Colour literals belong in packages/ui/src/tokens.ts. Use a semantic token or a scale step.',
 };
 
+/**
+ * The migrator connection string (kasuwa_migrator, BYPASSRLS) is for operator
+ * commands only: migrate, seed, tenant provisioning (D-L07, D-L54). An app
+ * process that reads it has an unscoped connection to every tenant. Matched by
+ * name in every form a read can take: `env().DATABASE_MIGRATION_URL`,
+ * `env()['DATABASE_MIGRATION_URL']` and `const { DATABASE_MIGRATION_URL } = env()`.
+ */
+const MIGRATION_URL_MESSAGE =
+  'DATABASE_MIGRATION_URL is the kasuwa_migrator (BYPASSRLS) connection. Only operator commands (migrate, seed, tenant:provision) may read it; no app process.';
+const MIGRATION_URL_SELECTORS = [
+  {
+    selector: "MemberExpression[property.name='DATABASE_MIGRATION_URL']",
+    message: MIGRATION_URL_MESSAGE,
+  },
+  {
+    selector: "MemberExpression[property.value='DATABASE_MIGRATION_URL']",
+    message: MIGRATION_URL_MESSAGE,
+  },
+  {
+    selector: "ObjectPattern > Property[key.name='DATABASE_MIGRATION_URL']",
+    message: MIGRATION_URL_MESSAGE,
+  },
+];
+
 const BOUNDARY_CONSTRAINTS = [
   {
     // Domain modules may reach shared infrastructure and the external-system
@@ -173,6 +197,48 @@ export default tseslint.config(
     },
   },
 
+  {
+    // Tenant provisioning (T-0015) runs on the migrator connection and is an
+    // operator command. It is exported from @kasuwa/domain-core's main entry
+    // only because the T-0015 acceptance suite loads it from there, so app
+    // code is banned from importing it by name. This block replaces the one
+    // above for apps/**, so it restates both of that block's entries.
+    files: ['apps/**/*.ts', 'apps/**/*.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@kasuwa/testing',
+              message:
+                'The isolation harness can forge RLS session variables. It belongs in tests only.',
+            },
+            {
+              name: '@kasuwa/channel-adapter',
+              importNames: ['FakeChannelProvider', 'FakeDndRegister'],
+              message:
+                'The channel fakes send nothing and clear every DND lookup. They belong in tests only.',
+            },
+            {
+              name: '@kasuwa/domain-core',
+              importNames: ['provisionTenant'],
+              message:
+                'provisionTenant runs on the kasuwa_migrator (BYPASSRLS) connection. It is an operator command (pnpm tenant:provision), never reachable from an app process (D-L54).',
+            },
+          ],
+          patterns: [
+            {
+              group: ['@kasuwa/domain-core/*'],
+              message:
+                'Import @kasuwa/domain-core from its main entry. Operator-only code must not be reachable from apps.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // --- restricted syntax -------------------------------------------------
   // One block, because `no-restricted-syntax` is a single rule: a later config
   // object replaces its whole configuration rather than adding to it. The two
@@ -194,6 +260,13 @@ export default tseslint.config(
     // design system, and every other module reads tokens from it.
     files: ['packages/ui/**/*.ts'],
     rules: { 'no-restricted-syntax': ['error', ENV_SELECTOR] },
+  },
+  {
+    // No app process may read the migrator connection string (D-L07, D-L54).
+    files: ['apps/**/*.ts', 'apps/**/*.tsx'],
+    rules: {
+      'no-restricted-syntax': ['error', ENV_SELECTOR, HEX_SELECTOR, ...MIGRATION_URL_SELECTORS],
+    },
   },
 
   // --- no hard-coded user-facing strings in the web app --------------------
