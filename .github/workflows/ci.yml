@@ -5,6 +5,13 @@ on:
   push:
     branches: [main]
 
+# Least privilege, stated rather than inherited. `actions: read` is what
+# nrwl/nx-set-shas needs to find the last green run on main; without it every
+# push to main failed lint, typecheck and unit before running anything.
+permissions:
+  contents: read
+  actions: read
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
