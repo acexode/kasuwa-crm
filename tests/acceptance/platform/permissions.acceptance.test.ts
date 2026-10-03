@@ -929,6 +929,33 @@ describe('acceptance: permissions engine (T-0032)', () => {
       expect(escalated, 'a session scoped to A1 rewrote a membership in A2').toBe(0);
     });
 
+    it('an UPDATE of an in-scope programme does not let the same transaction enrol anyone in a sibling (the creation marker cannot be forged)', async () => {
+      // D-L55: UPDATE-ing A1 stamps A1's xmin with this transaction's xid. That
+      // must not make a membership in A2 look "created in this transaction".
+      const scope = { tenantId: TENANT_A, userId: USER_A_SUPERVISOR, programmeIds: [PROGRAMME_A1] };
+      await expect(
+        withForcedScope(appPool, scope, async (query) => {
+          await query(`UPDATE programme SET updated_at = now() WHERE id = $1`, [PROGRAMME_A1]);
+          await query(
+            `INSERT INTO user_programme (user_id, programme_id, tenant_id, permission_set_id)
+             VALUES ($1, $2, $3, $4)`,
+            [USER_A_AGENT_1, PROGRAMME_A2, TENANT_A, ADMIN_SET],
+          );
+        }),
+      ).rejects.toMatchObject(RLS_REFUSED);
+    });
+
+    it('kasuwa_app cannot make any user a tenant admin (column privilege on "user")', async () => {
+      // D-L55: the only proof the REVOKE in 0015 is live. The flag is writable
+      // by the migrator (provisioning, seed) and never by the application role.
+      const scope = { tenantId: TENANT_A, userId: USER_A_SUPERVISOR, programmeIds: [PROGRAMME_A1] };
+      await expect(
+        withForcedScope(appPool, scope, (query) =>
+          query(`UPDATE "user" SET is_tenant_admin = true WHERE id = $1`, [USER_A_AGENT_1]),
+        ),
+      ).rejects.toMatchObject(RLS_REFUSED);
+    });
+
     it('membership in a programme already in scope, and the creator’s enrolment through createProgramme, still work', async () => {
       // In scope: RLS admits it. Whether the CALLER may assign people is the
       // engine's decision in the application; the database's job is the
