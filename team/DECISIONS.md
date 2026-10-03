@@ -869,3 +869,76 @@ symbols, served ahead of the full Latin-Extended file.
 ### Also from T-0007b, for T-0018
 `P01/6` says "This list stays on your Home page", which is untrue until T-0018 persists onboarding
 state. Fix the copy or the state in T-0018.
+
+---
+
+## B13. Wave decisions (2026-10-03, lead, reversible)
+
+### D-L45 — field-security matrix semantics (T-0026)
+**Status:** PROCEEDING.
+The spec is silent on five points; the lead settles them so the builder does not guess:
+- **`classification`** gets a column on `field_def` (migration 0009, Agent 2's area). It is not derived.
+- **Default level** for a never-saved cell is `edit`, matching today's effective behaviour (no FLS is
+  enforced yet). Admin is always `edit`. Tightening the default is a product decision for later.
+- **Locked column:** a change to a locked permission set gets 403 `not_permitted`.
+- **Atomic PUT:** a refused change (locked, or an unknown or cross-tenant field or set) applies
+  **nothing**; the whole request fails.
+- **Unknown field or set** inside `changes` gets 404 `not_found`, the same as an unknown object.
+- Also fix the stale `FieldSecurityWrite.description` in the spec that still says "undecided / 501".
+
+### D-L46 — creating a programme under RLS, without a third SECURITY DEFINER (T-0029)
+**Status:** PROCEEDING (lead). **D-A3: changes an RLS policy → @acexode reviews the PR.**
+The `programme` policy's WITH CHECK requires the row's id to be in the session's programme ids,
+which a new programme can never satisfy, and T-0020 sealed the session GUCs so a transaction cannot
+re-scope itself. **Ruling:** migration 0012 adds a permissive `FOR INSERT` policy on `programme`
+whose WITH CHECK is `tenant_id = app.current_tenant_id()` only. The existing `FOR ALL` policy (WITH
+CHECK = USING, programme-scoped) is unchanged, so reads and updates stay programme-scoped. The
+creator's `user_programme` row is inserted in the same transaction (that table is tenant-scoped).
+The response is built from the inserted values, not a re-read the session cannot yet see. **No
+SECURITY DEFINER function, so no ADR (CLAUDE.md 2.7).** Who may create a programme is an
+authorisation question for the permissions engine; until then, any tenant user can (same gap as D-L40).
+Also for T-0029: a new programme starts `active`; the unfiltered list includes every status (the
+spec's `status` filter narrows it); archiving an already-archived programme is an idempotent 200;
+archive deletes nothing, and assigned users keep **read** access. Enforcing "losing access" waits
+for the permissions engine, and there is no restore endpoint yet (named, not buried: D-L36).
+
+### D-L47 — dispositions and admin-home semantics (T-0027, T-0031)
+**Status:** PROCEEDING (lead).
+- **Dispositions:** delete is soft. A deleted disposition is absent from `listDispositions` and
+  excluded from the "complete list" `reorderDispositions` expects. Its `code` stays reserved (not
+  reusable), so historical outcomes never change meaning. A reorder with a foreign or unknown id is
+  400 `validation_failed`. A new disposition is appended last.
+- **Admin home:** alerts belong to a programme. A tenant-wide alert is stored once per programme it
+  concerns; there is no programme-less alert in this wave. `userCount` and `seats.used` count
+  distinct users who share at least one programme with the caller (a caller with no programme
+  counts only themselves). Restoring a never-dismissed alert is an idempotent 204.
+
+### D-L48 — audit-log conventions (T-0025)
+**Status:** PROCEEDING (lead).
+The writer's pinned conventions are adopted: `objectType` is `role` or `programme`, plus `audit_export`
+for export events; `changes[].field` uses API field names (`name`, `parentRoleId`); an export records
+`includeIpAddresses` as a change; events are newest-first; a new export is `queued`; `sourceIp` is
+null for everyone until a permission grants it. **Visibility:** an event with a `programmeId` is
+visible only to members of that programme; an event with no programme (role changes) is visible to
+every user of the tenant until the permissions engine restricts audit reading to admins.
+`deleteRole` records the destination role id and the moved-user count as changes
+(`reassignedToRoleId`, `movedUserCount`).
+
+### D-L49 — the channel adapter gains an `email` channel (T-0030)
+**Status:** PROCEEDING (lead). An adapter contract change, recorded per CLAUDE.md section 8.
+`ChannelKind` becomes `sms | whatsapp | email`, as a discriminated union: SMS and WhatsApp keep
+the E.164 rule, and email requires an RFC-valid address. The DND check applies only to sms and
+whatsapp. Never log the address (CLAUDE.md 6.1). Still the fake provider only (D-P10).
+The API takes `AppModuleOptions.channelProvider` (default `FakeChannelProvider`) so tests can observe sends.
+**Portal invites:** a re-invite of the same address to the same programme is a **resend**: 202, the
+same id, and a **rotated** token (the old one stops working). The list **never** returns a full
+address, only `emailMasked`; the spec text saying otherwise is wrong and is corrected in T-0030.
+
+### D-L50 — SLA and retention semantics (T-0028)
+**Status:** PROCEEDING (lead).
+An unconfigured SLA returns the platform default policy (voice and WhatsApp targets defined in code,
+version 0). An unconfigured retention policy is a 404, as the spec says; **the first retention
+write sends `version: 0`**, and 0 is stale once a policy exists. `callRecordingsDays` is stored and
+returned but **not enforced by Kasuwa**: recording retention belongs to the telephony platform (D-T4,
+deferred), and the spec description must say so. Two targets for the same channel in one SLA write
+are a 400. When a write is both stale and violates legal hold, `stale_write` wins (it is checked first).
