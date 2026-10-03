@@ -885,7 +885,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getFieldSecurityMatrix",
     "method": "GET",
     "path": "/api/v1/admin/field-security/matrix",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/D",
@@ -2343,7 +2343,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "updateFieldSecurityMatrix",
     "method": "PUT",
     "path": "/api/v1/admin/field-security/matrix",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/D",

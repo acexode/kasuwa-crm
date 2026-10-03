@@ -806,8 +806,10 @@ names carry the end client ("Bank X Collections"), which is sensitive between cl
 or row leaks; only the name is confirmed.
 **Why not fixed in T-0024:** no remapping helps (any failed write differs from a success), and the
 task forbids a migration. With no 403 check yet, any programme member can probe.
-**Resolution (lead):** when the permissions engine lands, `updateProgramme` is restricted to tenant
-admins, who can reach every programme, so the oracle stops crossing a boundary. Until then: no
+**Extended 2026-10-03 (T-0029 tenancy review):** `createProgramme` has the same oracle, and it is
+cheaper there: it needs only a business-unit id from the caller's own tenant.
+**Resolution (lead):** when the permissions engine lands, `updateProgramme` **and `createProgramme`** are
+restricted to tenant admins, who can reach every programme, so the oracle stops crossing a boundary. Until then: no
 environment with real users is deployed (same condition as D-L38).
 
 ---
@@ -942,3 +944,18 @@ write sends `version: 0`**, and 0 is stale once a policy exists. `callRecordings
 returned but **not enforced by Kasuwa**: recording retention belongs to the telephony platform (D-T4,
 deferred), and the spec description must say so. Two targets for the same channel in one SLA write
 are a 400. When a write is both stale and violates legal hold, `stale_write` wins (it is checked first).
+
+### D-L51 — `user_programme` RLS is tenant-only: the database does not guard programme membership
+**Status:** OPEN, **HIGH**. Not exploitable through any endpoint today; the database-level defence is missing.
+**Found by:** migration-reviewer on T-0029 (0012). The gap predates the wave (0001:134-136).
+`user_programme_isolation` checks only `tenant_id`. Any code path that inserts a `user_programme` row
+can therefore enrol any user in **any existing programme** of the tenant, crossing the BPO client
+boundary. Today the only insert is T-0029's `createProgramme`, which enrols the session user in the
+programme it just created (the user id comes from the session; reviewed). So the API layer holds,
+and CLAUDE.md rule 3 ("RLS is the last line, not the only line") is half-met.
+**Lead recommendation:** tighten `user_programme`'s INSERT and UPDATE WITH CHECK so a row can only be
+written for a programme already in `app.current_programme_ids()`, or for a programme created in the
+same transaction (marked via a transaction-local setting the session cannot otherwise set). Do this
+together with the permissions engine, which owns "who may assign people to programmes". Also add an
+isolation test listing every permissive `FOR INSERT` policy, so a weak one cannot slip in unnoticed
+(0012 introduced the first).
