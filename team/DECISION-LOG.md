@@ -1055,3 +1055,21 @@ telephony and WFM work (D-T*, D-W*).
 @acexode: T-0015 (sales-led provisioning) joins the next wave, owned by Agent 6. Run all five builders at once
 (T-0015, T-0032, T-0033, T-0034, T-0035); the lead keeps the two-slot turn-taking for heavy commands
 as a safeguard. T-0033 and T-0035 wait for T-0028 (#58) to merge before their builders start.
+
+---
+
+## 2026-10-03 — GitHub Actions minutes exhausted: unverified work goes to `dev`
+**Decided:** 2026-10-03 by @acexode. Every Actions job now fails before starting ("recent account
+payments have failed or your spending limit needs to be increased"). This is a private repo on the
+free plan, and the allowance is used up. @acexode cannot reboot for ~12 hours (another long-running
+job), so local Docker stays down.
+**Rule until CI or Docker is back:**
+- **`main` stays verified.** Nothing merges to `main` without the full gates (integration, isolation,
+  e2e) seen passing.
+- **A `dev` branch** (cut from `main` at the time) takes finished wave PRs once they pass lint,
+  typecheck and unit locally, and their static reviewers (migration, tenancy, security as relevant).
+  PRs are retargeted to `dev`, squash-merged, and labelled; each verification comment states plainly
+  that the Docker gates have **not** run.
+- **Promotion:** once @acexode reboots (or Actions minutes are restored), the lead runs the full
+  gates on `dev`, fixes anything they catch, then opens one `dev` → `main` PR with the results.
+  Bookkeeping still commits straight to `main`.
