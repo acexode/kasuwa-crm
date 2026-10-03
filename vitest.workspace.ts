@@ -26,6 +26,8 @@ const alias = {
   '@kasuwa/telephony-adapter': resolve(root, 'packages/telephony-adapter/src/index.ts'),
   '@kasuwa/channel-adapter': resolve(root, 'packages/channel-adapter/src/index.ts'),
   '@kasuwa/wfm-adapter': resolve(root, 'packages/wfm-adapter/src/index.ts'),
+  // Longer key first (prefix match): the operator-only provisioning subpath.
+  '@kasuwa/domain-core/provisioning': resolve(root, 'packages/domain/core/src/provisioning.ts'),
   '@kasuwa/domain-core': resolve(root, 'packages/domain/core/src/index.ts'),
   '@kasuwa/ui': resolve(root, 'packages/ui/src/index.ts'),
   // The longer key must come first: Vite matches a string alias as a

@@ -1,7 +1,7 @@
 import { createInterface } from 'node:readline';
 import { parseArgs } from 'node:util';
 import { env } from '@kasuwa/config';
-import { provisionTenant, TENANT_REGIONS, type TenantRegion } from '../tenant/provision-tenant';
+import { provisionTenant, TENANT_REGIONS, type TenantRegion } from '@kasuwa/domain-core/provisioning';
 
 /**
  * `pnpm tenant:provision`, the sales-led provisioning command (T-0015).

@@ -4,8 +4,8 @@
  * always have full access", so its column cannot be edited.
  *
  * ONE list, read by two writers: the seed (`fixtures.ts`, with fixed ids) and
- * tenant provisioning (`provisionTenant` in @kasuwa/domain-core, T-0015, with
- * fresh ids). Two copies of "what a new tenant starts with" drift apart, and
+ * tenant provisioning (`provisionTenant` in `@kasuwa/domain-core/provisioning`,
+ * T-0015, with fresh ids). Two copies of "what a new tenant starts with" drift apart, and
  * the drift is found on a customer's tenant.
  *
  * These name sets and grant nothing; there is no assignment model yet (D-P9
