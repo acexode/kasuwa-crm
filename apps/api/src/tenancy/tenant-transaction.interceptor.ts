@@ -6,6 +6,7 @@ import type { Request } from 'express';
 import type { Observable } from 'rxjs';
 import { from } from 'rxjs';
 import { PG_POOL } from '../database/database.module';
+import { annotateRequestScope } from '../telemetry/request-telemetry';
 import { AUTH_CONTEXT_KEY } from './stub-auth.guard';
 import { runWithTx } from './tenant-context';
 
@@ -41,6 +42,10 @@ export class TenantTransactionInterceptor implements NestInterceptor {
     return from(
       withTenantTransaction(this.pool, auth, async (tx) =>
         runWithTx(tx, async () => {
+          // The scope the database resolved — not what the caller claimed —
+          // is what the request's span reports (T-0005).
+          annotateRequestScope(request, tx.session);
+
           // Second, independent check of the session — inside the transaction,
           // under RLS, with explicit tenant and user predicates as well.
           //

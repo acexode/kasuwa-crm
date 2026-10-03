@@ -1,0 +1,17 @@
+# gitleaks findings that have been looked at and are NOT secrets (T-0005).
+#
+# One line per finding, by fingerprint (commit:file:rule:line), so the entry
+# covers exactly that occurrence and nothing else: the same value committed
+# again somewhere new is a new fingerprint and fails the scan again.
+#
+# Adding a line here is a review question. Say what the value is and why it is
+# safe; "the scan was red" is not a reason.
+
+# The documented example session token in the auth OpenAPI spec, and the e2e
+# mock generated from it. An invented value; no deployment ever issued it.
+382e082a31b0787510057004772ba09c26ba503c:docs/api/auth.openapi.yaml:generic-api-key:193
+fbc126dc9e4f77fdf2e7dc016d214e38af4d32d1:docs/api/auth.openapi.yaml:generic-api-key:193
+f705aa71fa8cc10722a5e40f07c88b44a3a3e3cb:tests/e2e/support/auth-mock.generated.ts:generic-api-key:344
+
+# An invented base32 TOTP fixture ("not a real enrolment", per the test).
+aa05abe9071a8771c51c32e2154e3bc496fa3682:apps/api/src/auth/mfa-secret.test.ts:generic-api-key:22

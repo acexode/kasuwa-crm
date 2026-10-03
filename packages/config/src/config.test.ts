@@ -21,6 +21,18 @@ describe('environment validation', () => {
     expect(env.API_PORT).toBe(8080);
     expect(() => parseEnv({ ...BASE, DATABASE_POOL_MAX: '0' } as NodeJS.ProcessEnv)).toThrow();
   });
+
+  it('accepts a cell slug for telemetry and refuses free text (T-0005)', () => {
+    const env = parseEnv({ ...BASE } as NodeJS.ProcessEnv);
+    expect(env.KASUWA_CELL).toBe('local');
+    expect(env.KASUWA_OTEL_EXPORTER).toBe('none');
+    expect(parseEnv({ ...BASE, KASUWA_CELL: 'za-1' } as NodeJS.ProcessEnv).KASUWA_CELL).toBe(
+      'za-1',
+    );
+    expect(() => parseEnv({ ...BASE, KASUWA_CELL: 'Adaeze Okonkwo' } as NodeJS.ProcessEnv)).toThrow(
+      /KASUWA_CELL/,
+    );
+  });
 });
 
 describe('envelope-encryption key provider guard (D-L13)', () => {
