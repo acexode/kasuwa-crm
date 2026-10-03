@@ -997,3 +997,25 @@ them, and none is written against them.
 The standing order says to pause above five open PRs. @acexode asked for all
 seven agents to run in parallel, each opening its own PR, so the cap is lifted
 **for this round**. It returns when these seven are merged or closed.
+
+---
+
+## 2026-10-03 — the lead merges verified PRs; the admin API goes in one wave
+**Decided:** 2026-10-03 by @acexode: "go ahead and merge the pr to main, do not wait for me."
+
+**Merging.** Until @acexode says otherwise, the lead merges a PR itself once **all** of the
+following hold: every CI gate is green; the PR's acceptance suite is confirmed in the CI isolation
+log as run and passing (a skipped test looks green); the matching reviewer (migration, tenancy or
+security) has passed it; and the PR carries `lead-approved`. Squash-merge, delete the branch.
+This replaces "the lead never merges" for this period. It does not change D-A3: a PR on that list
+still gets its review report posted for @acexode to read afterwards.
+
+**The wave.** Instead of one task per agent in sequence, 27 of the remaining 29 admin operations are
+built in one parallel wave (T-0025–T-0031), after a lead prep PR (shared admin wiring, per-task
+migration allowances, missing spec examples). Migration numbers are reserved per task (0008–0014).
+Builders run only lint, typecheck and unit tests locally; **GitHub CI is the Docker-backed gate**,
+because local Docker failed under seven concurrent agents on 2026-10-02 and is down again. Acceptance
+tests are proven failing in CI too: the test commit is pushed to the builder's branch as a draft PR,
+and the isolation log is read for each failure before the builder starts.
+`getProgrammeKpis` and `getProgrammeSkillCover` stay unbuilt: their data comes from the deferred
+telephony and WFM work (D-T*, D-W*).
