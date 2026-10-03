@@ -5,6 +5,7 @@ import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { normaliseMethod } from '../telemetry/attributes';
 import { recordRequestFailure } from '../telemetry/request-telemetry';
+import { scrubError, scrubbedFields, type ScrubbedError } from './scrub-error';
 import { ValidationExceptionFilter } from './zod-exception.filter';
 
 /**
@@ -48,55 +49,6 @@ export const INTERNAL_ERROR_BODY = Object.freeze({
   message: 'Something went wrong on our side. Please try again.',
 });
 
-/** A JavaScript identifier of sane length: what a class name looks like. */
-const IDENTIFIER = /^[A-Za-z_$][\w$]{0,63}$/;
-/** A PostgreSQL SQLSTATE: five digits or upper-case letters. */
-const SQLSTATE = /^[0-9A-Z]{5}$/;
-/** A Node system error code (`ECONNREFUSED`): letters and underscores only. */
-const NODE_CODE = /^E[A-Z_]{2,31}$/;
-
-export interface ScrubbedError {
-  /** The class (`DatabaseError`, `TypeError`, ...), or `UnknownError`. */
-  errorClass: string;
-  /** SQLSTATE or Node system code, when the error carries one. */
-  code: string | null;
-}
-
-/**
- * Reduces an unknown thrown value to two things that cannot carry personal
- * data. The constructor name comes first because pg's `DatabaseError` sets
- * `name` to the protocol message type (`'error'`), which says nothing.
- */
-export function scrubError(exception: unknown): ScrubbedError {
-  if (typeof exception !== 'object' || exception === null) {
-    return { errorClass: 'UnknownError', code: null };
-  }
-  const constructorName = safeString(
-    () => (exception as { constructor?: { name?: unknown } }).constructor?.name,
-  );
-  const name = safeString(() => (exception as { name?: unknown }).name);
-  const errorClass =
-    [constructorName, name].find(
-      (candidate): candidate is string =>
-        candidate !== null && candidate !== 'Object' && IDENTIFIER.test(candidate),
-    ) ?? 'UnknownError';
-
-  const rawCode = safeString(() => (exception as { code?: unknown }).code);
-  const code =
-    rawCode !== null && (SQLSTATE.test(rawCode) || NODE_CODE.test(rawCode)) ? rawCode : null;
-  return { errorClass, code };
-}
-
-/** Reads a property that might be a throwing getter; only strings survive. */
-function safeString(read: () => unknown): string | null {
-  try {
-    const value = read();
-    return typeof value === 'string' ? value : null;
-  } catch {
-    return null;
-  }
-}
-
 /** The route TEMPLATE Express matched (`/api/v1/contacts/:id`), never the URL. */
 export function routeTemplate(request: unknown): string {
   const route: unknown = (request as { route?: unknown } | undefined)?.route;
@@ -113,16 +65,25 @@ export function unexpectedErrorLine(
   method: string,
   route: string,
 ): string {
-  const code = scrubbed.code === null ? '' : ` code=${scrubbed.code}`;
-  return `unexpected error class=${scrubbed.errorClass}${code} method=${method} route=${route}`;
+  return `unexpected error ${scrubbedFields(scrubbed)} method=${method} route=${route}`;
 }
 
-/** Errors from the `http-errors` package with a 4xx status, as Nest answers them. */
+/** What an unexposed client error says instead of its own message. */
+export const CLIENT_ERROR_MESSAGE = 'The request could not be processed.';
+
+/**
+ * Errors from the `http-errors` package with a 4xx status (body-parser's 413,
+ * for one), answered as Nest's base filter answers them - except that the
+ * message is echoed only when the error says it is safe to (`expose === true`,
+ * which `http-errors` sets on its own 4xx messages). Anything else gets a
+ * fixed text.
+ */
 function httpClientError(exception: unknown): { statusCode: number; message: string } | null {
   if (!(exception instanceof Error)) return null;
   const status: unknown = (exception as { statusCode?: unknown }).statusCode;
   if (typeof status !== 'number' || status < 400 || status >= 500) return null;
-  return { statusCode: status, message: exception.message };
+  const exposed = (exception as { expose?: unknown }).expose === true;
+  return { statusCode: status, message: exposed ? exception.message : CLIENT_ERROR_MESSAGE };
 }
 
 @Catch()
@@ -167,9 +128,8 @@ export class UnexpectedErrorFilter implements ExceptionFilter {
 
     const client = httpClientError(exception);
     if (client !== null) {
-      // An `http-errors` 4xx (body-parser's 413, for one) keeps the body Nest's
-      // base filter gave it. That text goes back to the caller who caused it;
-      // it is never logged - the line above is the only log.
+      // An `http-errors` 4xx keeps its status (see `httpClientError` for the
+      // message). It is never logged - the line above is the only log.
       this.reply(response, client.statusCode, client);
       return;
     }
@@ -177,11 +137,25 @@ export class UnexpectedErrorFilter implements ExceptionFilter {
     this.reply(response, HttpStatus.INTERNAL_SERVER_ERROR, { ...INTERNAL_ERROR_BODY });
   }
 
+  /**
+   * Writes the answer. If writing itself throws (a body that will not
+   * serialise, a socket already gone), the fallback is a bare 500 - and the
+   * second error is deliberately NOT logged: it can carry the same values.
+   */
   private reply(response: Response, status: number, body: object): void {
-    if (response.headersSent) {
-      response.end();
-      return;
+    try {
+      if (response.headersSent) {
+        response.end();
+        return;
+      }
+      response.status(status).json(body);
+    } catch {
+      try {
+        if (!response.headersSent) response.status(HttpStatus.INTERNAL_SERVER_ERROR);
+        response.end();
+      } catch {
+        // Nothing left to write to.
+      }
     }
-    response.status(status).json(body);
   }
 }

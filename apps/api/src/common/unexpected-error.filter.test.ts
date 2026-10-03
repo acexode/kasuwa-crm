@@ -2,36 +2,28 @@ import type { ArgumentsHost } from '@nestjs/common';
 import { ConflictException, HttpException, Logger, NotFoundException } from '@nestjs/common';
 import { InvalidCursorError } from '@kasuwa/domain-core';
 import { inspect } from 'node:util';
+import { DatabaseError } from 'pg';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
   INTERNAL_ERROR_BODY,
   UnexpectedErrorFilter,
+  CLIENT_ERROR_MESSAGE,
   routeTemplate,
-  scrubError,
 } from './unexpected-error.filter';
 
 /** Invented probe values (CLAUDE.md 6): none can occur in a log by chance. */
 const EMAIL = 'ngozi.okafor.unit-probe@example.test';
-const NIN = '00000000099';
 
-/** Shaped like pg's DatabaseError: `name` is the protocol message type. */
-class DatabaseError extends Error {
-  override name = 'error';
-  constructor(
-    message: string,
-    readonly code: string,
-    readonly detail: string,
-  ) {
-    super(message);
-  }
-}
-
+/** A real pg DatabaseError, as the driver builds it: `name` is `'error'`. */
 function uniqueViolation(): DatabaseError {
-  return new DatabaseError(
-    'duplicate key value violates unique constraint "portal_user_email_key"',
-    '23505',
-    `Key (programme_id, email)=(x, ${EMAIL}) already exists.`,
+  return Object.assign(
+    new DatabaseError(
+      'duplicate key value violates unique constraint "portal_user_email_key"',
+      0,
+      'error',
+    ),
+    { code: '23505', detail: `Key (programme_id, email)=(x, ${EMAIL}) already exists.` },
   );
 }
 
@@ -80,36 +72,6 @@ function recordLogs(): string[] {
 
 afterEach(() => {
   vi.restoreAllMocks();
-});
-
-describe('scrubError', () => {
-  it('names a pg error by its class and SQLSTATE, not by pg’s `name` of "error"', () => {
-    expect(scrubError(uniqueViolation())).toEqual({ errorClass: 'DatabaseError', code: '23505' });
-  });
-
-  it('keeps a Node system code and drops a code that could be data', () => {
-    const refused = Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
-    expect(scrubError(refused).code).toBe('ECONNREFUSED');
-    expect(scrubError(Object.assign(new Error('x'), { code: NIN })).code).toBeNull();
-    expect(scrubError(Object.assign(new Error('x'), { code: EMAIL })).code).toBeNull();
-  });
-
-  it('never takes a class name that is not an identifier', () => {
-    const odd = Object.assign(Object.create(null) as object, { name: EMAIL });
-    expect(scrubError(odd).errorClass).toBe('UnknownError');
-    expect(scrubError({ name: EMAIL }).errorClass).toBe('UnknownError');
-    expect(scrubError('a string thrown').errorClass).toBe('UnknownError');
-    expect(scrubError(null)).toEqual({ errorClass: 'UnknownError', code: null });
-  });
-
-  it('survives a throwing getter', () => {
-    const hostile = {
-      get code(): string {
-        throw new Error(EMAIL);
-      },
-    };
-    expect(scrubError(hostile)).toEqual({ errorClass: 'UnknownError', code: null });
-  });
 });
 
 describe('routeTemplate', () => {
@@ -208,5 +170,56 @@ describe('UnexpectedErrorFilter', () => {
     const { host, sent } = httpHost({}, true);
     filter.catch(new Error(EMAIL), host);
     expect(sent).toEqual({ ended: true });
+  });
+
+  it('does not echo an http-errors message unless the error marks it exposed', () => {
+    recordLogs();
+    for (const expose of [false, undefined, 'true']) {
+      const leaky = Object.assign(new Error(`unsupported charset "${EMAIL}"`), {
+        statusCode: 415,
+        ...(expose === undefined ? {} : { expose }),
+      });
+      const { host, sent } = httpHost({ method: 'POST' });
+      filter.catch(leaky, host);
+      expect(sent).toEqual({
+        status: 415,
+        body: { statusCode: 415, message: CLIENT_ERROR_MESSAGE },
+      });
+    }
+  });
+
+  it('falls back to a bare 500 when writing the body throws, and logs nothing about it', () => {
+    const lines = recordLogs();
+    const sent: Sent = {};
+    const response = {
+      headersSent: false,
+      statusCode: 0,
+      status(code: number) {
+        sent.status = code;
+        return response;
+      },
+      json(): never {
+        throw new Error(`cannot serialise ${EMAIL}`);
+      },
+      end() {
+        sent.ended = true;
+      },
+    };
+    const host = {
+      getType: () => 'http',
+      switchToHttp: () => ({ getResponse: () => response, getRequest: () => ({}) }),
+    } as unknown as ArgumentsHost;
+
+    expect(() => filter.catch(new Error('boom'), host)).not.toThrow();
+    expect(sent).toEqual({ status: 500, ended: true });
+    expect(lines).toEqual(['unexpected error class=Error method=_OTHER route=(unmatched)']);
+  });
+
+  it('logs a thrown plain object as UnknownError, never by the name it carries', () => {
+    const lines = recordLogs();
+    const { host, sent } = httpHost({ method: 'GET' });
+    filter.catch({ name: 'Chidinma', code: '12345' }, host);
+    expect(sent.body).toEqual(INTERNAL_ERROR_BODY);
+    expect(lines).toEqual(['unexpected error class=UnknownError method=GET route=(unmatched)']);
   });
 });
