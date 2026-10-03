@@ -3,8 +3,11 @@
 --
 -- Contract: docs/api/admin.openapi.yaml, operations listAuditEvents,
 -- getAuditFilterOptions, createAuditExport and getAuditExport, and the
--- `x-kasuwa-audited` writes that already exist (createRole, updateRole,
--- deleteRole, updateRoleHierarchy, updateProgramme). Closes D-L38.
+-- `x-kasuwa-audited` writes implemented when this landed: createRole,
+-- updateRole, deleteRole, updateRoleHierarchy, createProgramme,
+-- updateProgramme, archiveProgramme, updateFieldSecurityMatrix (D-L52) and
+-- createAuditExport itself. With every implemented audited write covered,
+-- this closes D-L38; each audited operation built later writes its own event.
 --
 -- ---------------------------------------------------------------------------
 -- READ THIS BEFORE GRANTING ANYTHING ON THESE TABLES.
@@ -139,7 +142,8 @@ CREATE TRIGGER audit_event_append_only
 -- A request for an export. The file is built by a worker (not yet written) and
 -- emailed to the requester; this row never holds a URL. The worker must
 -- re-resolve the requester's scope from user_programme when it runs, exactly as
--- a request would - `filters` narrows, it never carries scope.
+-- a request would - `filters` narrows, it never carries scope. A
+-- sourceIpPrefix filter is stored as null (given, value not kept).
 CREATE TABLE audit_export (
   id                    uuid        PRIMARY KEY,
   tenant_id             uuid        NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,

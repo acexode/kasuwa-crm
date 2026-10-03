@@ -37,13 +37,17 @@ export const AUDIT_ACTIONS = [
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
-/** D-L48. Add a type here, with its label in `AUDIT_OBJECT_TYPE_LABELS`, before writing one. */
-export const AUDIT_OBJECT_TYPES = ['role', 'programme', 'audit_export'] as const;
+/**
+ * D-L48, plus `field_security` for matrix cells (D-L52). Add a type here, with
+ * its label in `AUDIT_OBJECT_TYPE_LABELS`, before writing one.
+ */
+export const AUDIT_OBJECT_TYPES = ['role', 'programme', 'field_security', 'audit_export'] as const;
 export type AuditObjectType = (typeof AUDIT_OBJECT_TYPES)[number];
 
 export const AUDIT_OBJECT_TYPE_LABELS: Record<AuditObjectType, string> = {
   role: 'Role',
   programme: 'Programme',
+  field_security: 'Field security',
   audit_export: 'Audit log export',
 };
 

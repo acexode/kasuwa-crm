@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AUDIT_ACTIONS } from './audit-writer';
+import { AUDIT_ACTIONS, AUDIT_OBJECT_TYPES } from './audit-writer';
 
 /**
  * Boundary schemas for the audit routes (docs/api/admin.openapi.yaml, tag
@@ -43,7 +43,15 @@ export const ListAuditEventsQuery = z
   .strict();
 export type ListAuditEventsQuery = z.infer<typeof ListAuditEventsQuery>;
 
-export const AuditFilters = z.object(filterFields).strict();
+/**
+ * An export's filters. `objectType` is the closed list, not free text: the
+ * request is recorded in the export's audit event, which every user of the
+ * tenant can read, so a free-text field there would be a tenant-wide message
+ * board (and a place for personal data to land).
+ */
+export const AuditFilters = z
+  .object({ ...filterFields, objectType: z.enum(AUDIT_OBJECT_TYPES).optional() })
+  .strict();
 export type AuditFilters = z.infer<typeof AuditFilters>;
 
 export const CreateAuditExportBody = z

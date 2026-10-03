@@ -2,7 +2,7 @@ import type { TenantTx } from '@kasuwa/db';
 import { InvalidCursorError } from '@kasuwa/domain-core';
 import { describe, expect, it } from 'vitest';
 import { CreateAuditExportBody, ListAuditEventsQuery } from './audit.schemas';
-import { exportChanges, listAuditEvents, toEntry } from './audit.service';
+import { exportChanges, listAuditEvents, storedExportFilters, toEntry } from './audit.service';
 
 const TENANT = '99999999-0000-4000-8000-000000000001';
 const USER = '99999999-0000-4000-8000-000000000002';
@@ -149,5 +149,34 @@ describe('exportChanges', () => {
       after: 'false',
       redacted: false,
     });
+  });
+});
+
+describe('export filters (D-L52 review fixes)', () => {
+  const ACTOR = '99999999-0000-4000-8000-0000000000cc';
+
+  it('records filters.actorId only as redacted: which person was looked into is not tenant-wide news', () => {
+    const changes = exportChanges(
+      CreateAuditExportBody.parse({
+        format: 'csv',
+        scope: 'filtered',
+        filters: { actorId: ACTOR },
+      }),
+    );
+    expect(changes).toContainEqual({
+      field: 'filters.actorId',
+      before: null,
+      after: null,
+      redacted: true,
+    });
+    expect(JSON.stringify(changes)).not.toContain(ACTOR);
+  });
+
+  it('stores a sourceIpPrefix as given-but-null, never the partial address', () => {
+    const stored = storedExportFilters({ action: 'deleted', sourceIpPrefix: '102.89' });
+    expect(stored).toEqual({ action: 'deleted', sourceIpPrefix: null });
+    expect(JSON.stringify(stored)).not.toContain('102.89');
+    expect(storedExportFilters(undefined)).toEqual({});
+    expect(storedExportFilters({ objectType: 'role' })).toEqual({ objectType: 'role' });
   });
 });

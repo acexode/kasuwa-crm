@@ -285,8 +285,9 @@ function toExport(row: ExportRow): AuditExportView {
 }
 
 /**
- * The export's own audit lines. `sourceIpPrefix` is a partial address — it is
- * recorded as having been set, never with its value.
+ * The export's own audit lines. Two filters are recorded only as having been
+ * set: `sourceIpPrefix` (a partial address) and `actorId` (which person the
+ * requester was looking into - the event is readable tenant-wide).
  */
 export function exportChanges(body: CreateAuditExportBody): AuditChange[] {
   const changes = [
@@ -295,12 +296,25 @@ export function exportChanges(body: CreateAuditExportBody): AuditChange[] {
     change('includeIpAddresses', null, String(body.includeIpAddresses)),
   ];
   const filters: AuditFilters = body.filters ?? {};
-  for (const key of ['actorId', 'action', 'objectType', 'from', 'to'] as const) {
+  if (filters.actorId !== undefined) changes.push(redactedChange('filters.actorId'));
+  for (const key of ['action', 'objectType', 'from', 'to'] as const) {
     const value = filters[key];
     if (value !== undefined) changes.push(change(`filters.${key}`, null, value));
   }
   if (filters.sourceIpPrefix !== undefined) changes.push(redactedChange('filters.sourceIpPrefix'));
   return changes;
+}
+
+/**
+ * The filters as stored on the export row. A `sourceIpPrefix` is kept only as
+ * the fact that one was given (`null`), never the partial address: no address
+ * is recorded on any event, so the filter can only ever match nothing, and the
+ * worker needs to know that and nothing more.
+ */
+export function storedExportFilters(filters: AuditFilters | undefined): Record<string, unknown> {
+  if (filters === undefined) return {};
+  const { sourceIpPrefix, ...rest } = filters;
+  return sourceIpPrefix === undefined ? rest : { ...rest, sourceIpPrefix: null };
 }
 
 /**
@@ -324,7 +338,7 @@ export async function createAuditExport(
       tx.session.userId,
       body.format,
       body.scope,
-      JSON.stringify(body.filters ?? {}),
+      JSON.stringify(storedExportFilters(body.filters)),
       body.includeIpAddresses,
     ],
   );

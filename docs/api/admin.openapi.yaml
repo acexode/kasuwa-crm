@@ -467,8 +467,14 @@ paths:
         `businessUnitId` outside the caller's tenant is `404 not_found`, the
         same body as one that does not exist. `countryCode` is validated but
         not stored (no column), so the `201` body omits it. Not enforced: `403
-        not_permitted` (no permissions engine — any tenant user may create) and
-        the audit row (no audit table).
+        not_permitted` (no permissions engine — any tenant user may create).
+
+        **Audited (T-0025, D-L52):** one `created` event, `objectType:
+        programme`, with `programmeId: null` and nothing but the new id (as
+        `objectId`, `objectLabel` and an `id` change). The new programme is
+        not in the request's scope, so the event cannot carry it, and a
+        programme-less event is readable tenant-wide — its name or client
+        name there would cross the boundary D-L40 protects.
       requestBody:
         required: true
         content:
@@ -1302,8 +1308,10 @@ paths:
         whatever the body says. Archiving an archived programme is an
         idempotent `200` with the version unchanged. Not built yet: losing
         access (assigned users keep read access until the permissions engine),
-        "stops taking new work", restore (no operation exists), `403
-        not_permitted`, and the audit row.
+        "stops taking new work", restore (no operation exists) and `403
+        not_permitted`. **Audited (T-0025, D-L52):** an archive that changes
+        the status records one `updated` event with a `status` change and the
+        programme as `programmeId`; an idempotent re-archive records nothing.
       parameters:
         - $ref: '#/components/parameters/ProgrammeId'
       requestBody:
@@ -1740,8 +1748,10 @@ paths:
         `403 not_permitted`, an unknown or another tenant's field or set is
         `404 not_found` (the same body as an unknown object), and in either
         case nothing in the request is applied. Unknown is checked before
-        locked. **Not yet audited** (D-L38): the audit rows above land with
-        the T-0025 writer.
+        locked. **Audited (T-0025, D-L52):** one `updated` event per cell whose
+        level moved, `objectType: field_security`, `programmeId: null`
+        (tenant-level, D-P9), with changes `fieldApiName`, `permissionSetId`
+        (the set's key) and `level` (before and after) and nothing else.
       requestBody:
         required: true
         content:
@@ -1794,7 +1804,9 @@ paths:
         same transaction as its change and never for a refused write or a
         read: `createRole`, `updateRole`, `deleteRole` and
         `updateRoleHierarchy` (`objectType: role`, one event per moved role),
-        `updateProgramme` (`objectType: programme`) and `createAuditExport`
+        `createProgramme`, `updateProgramme` and `archiveProgramme`
+        (`objectType: programme`), `updateFieldSecurityMatrix` (`objectType:
+        field_security`, one event per changed cell) and `createAuditExport`
         (`objectType: audit_export`). `changes[].field` uses API field names.
         Newest first; `page.totalCount` is always null.
 
@@ -1981,7 +1993,12 @@ paths:
         audited (`action: exported`, `objectType: audit_export`, `objectId`
         the `exportId`, a change per request field, `includeIpAddresses`
         always recorded, a `sourceIpPrefix` filter recorded as redacted).
-        `filters` is accepted only with `scope: filtered`. No worker builds
+        `filters` is accepted only with `scope: filtered`, and
+        `filters.objectType` must be one of the object types the log writes
+        (`role`, `programme`, `field_security`, `audit_export`) — the event is
+        readable tenant-wide, so it carries no free text. `filters.actorId`
+        is recorded as redacted, and a `sourceIpPrefix` is not stored on the
+        export, only the fact that one was given. No worker builds
         the file yet, so an export stays `queued`, and `estimatedRowCount`,
         `deliveryEmailHint` and `linkExpiresAfterHours` are null. Not yet
         enforced: `403 not_permitted` and `429`.
@@ -3127,7 +3144,7 @@ components:
           properties:
             actorId: { type: string, format: uuid }
             action: { $ref: '#/components/schemas/AuditAction' }
-            objectType: { type: string, maxLength: 64 }
+            objectType: { type: string, enum: [role, programme, field_security, audit_export] }
             from: { type: string, format: date-time }
             to: { type: string, format: date-time }
             sourceIpPrefix: { type: string, maxLength: 45 }

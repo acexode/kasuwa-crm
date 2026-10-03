@@ -56,6 +56,11 @@ describe('CreateAuditExportBody', () => {
     [{ format: 'csv', scope: 'filtered', includeIpAddresses: 'yes' }, 'includeIpAddresses'],
     [{ format: 'csv', scope: 'filtered', programmeIds: [] }, 'programmeIds'],
     [{ format: 'csv', scope: 'filtered', filters: { tenantId: 'x' } }, 'filters.tenantId'],
+    // Free text would land in an event every tenant user can read.
+    [
+      { format: 'csv', scope: 'filtered', filters: { objectType: 'call me' } },
+      'filters.objectType',
+    ],
     [{ format: 'csv', scope: 'last_90_days', filters: { action: 'created' } }, 'filters'],
   ])('refuses %j at %s', (body, path) => {
     expect(pathsOf(CreateAuditExportBody, body)).toContain(path);
