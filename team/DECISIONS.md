@@ -1019,3 +1019,22 @@ isolation test listing every permissive `FOR INSERT` policy, so a weak one canno
 - **Deliberate behaviour change:** a non-admin's duplicate-name create is now 403, not 409 (this is
   D-L40's fix). One existing acceptance assertion (programme-lifecycle) is updated by the lead as a
   requirements change, recorded here, not to make code pass.
+
+### D-L54 — provisioning and audit-coverage semantics (T-0015, T-0033)
+**Status:** PROCEEDING (lead).
+- **Provisioning runs as an operator command on the migrator connection.** No tenant exists yet, so
+  there is no tenant context to open. This is the `db:seed` precedent, not an application "admin
+  connection" (CLAUDE.md 2.1). `apps/api` has no migrator URL in its config, so the app cannot call
+  it. Inside the command, the default programme is created through the same reusable
+  `createProgramme` under a tenant transaction for the new tenant, so the RLS rules are exercised,
+  not bypassed. The builder argues this in the PR. A third SECURITY DEFINER function still needs an ADR.
+- **First admin:** a one-time setup credential (argon2id-hashed, printed once, never logged) that
+  works as the sign-in password. MFA enrolment is required on first sign-in. Forcing a credential
+  change waits for a change-password endpoint (with T-0012). The provisioning audit event waits for
+  a system-actor policy (D-L52); recorded as a gap, not skipped silently.
+- Region: ZA maps to `za-1`, recorded in `tenant.region_cell`. NG and KE cells are a later
+  cell-routing decision. Reserved slugs are `admin`, `api`, `www`; length 2 to 63.
+- **Audit objectTypes** added: `sla_policy`, `retention_policy`, `disposition`, `portal_user`.
+  A reorder is one event per request. A portal re-invite is audited (it rotates the token). The
+  invitee's address and display name never appear in an event; `email` is a redacted change.
+  Change values are strings.
