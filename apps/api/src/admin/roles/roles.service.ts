@@ -1,4 +1,5 @@
 import { newId, type TenantTx } from '@kasuwa/db';
+import { change, changedFields, recordAuditEvent } from '../audit/audit-writer';
 import { duplicateName, notFound, staleWrite } from '../common/admin-errors';
 import { hierarchyCycle } from './roles.errors';
 import {
@@ -23,6 +24,13 @@ import type { CreateRoleBody, RoleHierarchyBody, UpdateRoleBody } from './roles.
  * concurrent moves that are each acyclic on their own could both pass and
  * commit a loop together. The 0006 trigger would catch that too — as a 500 —
  * so the lock is what makes it a clean answer rather than a crash.
+ *
+ * Audit (T-0025): every successful write appends its event through
+ * `recordAuditEvent` on the same `tx`, after the write, so the two commit
+ * together. A refused write throws before that point and records nothing; a
+ * write that changes nothing (a PATCH repeating the current values, a move to
+ * the parent a role already has) records nothing either. Role events carry no
+ * programme: roles are tenant-wide (D-L48).
  */
 
 export interface RoleView {
@@ -171,6 +179,14 @@ export async function createRole(tx: TenantTx, body: CreateRoleBody): Promise<Ro
     ]),
   );
   await bumpVersion(tx);
+  await recordAuditEvent(tx, {
+    action: 'created',
+    objectType: 'role',
+    objectId: id,
+    objectLabel: body.name,
+    programmeId: null,
+    changes: [change('name', null, body.name), change('parentRoleId', null, parentRoleId)],
+  });
   return { id, name: body.name, parentRoleId, userCount: 0, descendantUserCount: 0 };
 }
 
@@ -185,6 +201,14 @@ export async function updateRole(
   if (current === undefined) throw notFound();
 
   const { parentRoleId, name } = body;
+  const changes = changedFields([
+    ['name', current.name, name ?? current.name],
+    [
+      'parentRoleId',
+      current.parent_role_id,
+      parentRoleId === undefined ? current.parent_role_id : parentRoleId,
+    ],
+  ]);
   if (parentRoleId !== undefined && parentRoleId !== current.parent_role_id) {
     if (parentRoleId !== null && !rows.some((row) => row.id === parentRoleId)) throw notFound();
     const conflicts = cycleConflicts(parentMap(rows), [{ roleId, parentRoleId }]);
@@ -206,6 +230,16 @@ export async function updateRole(
         name,
       ]),
     );
+  }
+  if (changes.length > 0) {
+    await recordAuditEvent(tx, {
+      action: 'updated',
+      objectType: 'role',
+      objectId: roleId,
+      objectLabel: name ?? current.name,
+      programmeId: null,
+      changes,
+    });
   }
   return getRole(tx, roleId);
 }
@@ -239,6 +273,23 @@ export async function updateRoleHierarchy(
     ),
   );
   await bumpVersion(tx);
+
+  // "Audited with the full before and after parent for every moved role":
+  // one event per role whose parent actually changed. A move naming the
+  // parent a role already has changed nothing and is not recorded.
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  for (const move of moves) {
+    const before = byId.get(move.roleId);
+    if (before === undefined || before.parent_role_id === move.parentRoleId) continue;
+    await recordAuditEvent(tx, {
+      action: 'updated',
+      objectType: 'role',
+      objectId: move.roleId,
+      objectLabel: before.name,
+      programmeId: null,
+      changes: [change('parentRoleId', before.parent_role_id, move.parentRoleId)],
+    });
+  }
   return listRoles(tx);
 }
 
@@ -248,13 +299,21 @@ export async function deleteRole(
   reassignUsersToRoleId: string,
 ): Promise<void> {
   await lockHierarchy(tx);
-  const plan = planRoleDeletion(parentMap(await loadRoles(tx)), roleId, reassignUsersToRoleId);
+  const rows = await loadRoles(tx);
+  const plan = planRoleDeletion(parentMap(rows), roleId, reassignUsersToRoleId);
   if (plan.kind === 'not_found') throw notFound();
   if (plan.kind === 'cycle') throw hierarchyCycle(plan.conflictingIds);
+  const doomed = rows.find((row) => row.id === roleId);
+  if (doomed === undefined) throw notFound();
 
   const tenantId = tenantOf(tx);
-  await tx.query(
-    `UPDATE "user" SET role_id = $3, updated_at = now() WHERE tenant_id = $1 AND role_id = $2`,
+  const moved = await tx.query<{ count: number }>(
+    `WITH moved AS (
+       UPDATE "user" SET role_id = $3, updated_at = now()
+        WHERE tenant_id = $1 AND role_id = $2
+       RETURNING 1
+     )
+     SELECT count(*)::int AS count FROM moved`,
     [tenantId, roleId, reassignUsersToRoleId],
   );
   await tx.query(
@@ -264,6 +323,20 @@ export async function deleteRole(
   );
   await tx.query(`DELETE FROM role WHERE tenant_id = $1 AND id = $2`, [tenantId, roleId]);
   await bumpVersion(tx);
+  // "Recorded with the role name, the destination role and the number of
+  // people moved" (D-L48). The name lives in objectLabel, so the row still
+  // reads correctly after the role is gone.
+  await recordAuditEvent(tx, {
+    action: 'deleted',
+    objectType: 'role',
+    objectId: roleId,
+    objectLabel: doomed.name,
+    programmeId: null,
+    changes: [
+      change('reassignedToRoleId', null, reassignUsersToRoleId),
+      change('movedUserCount', null, String(moved[0]?.count ?? 0)),
+    ],
+  });
 }
 
 export interface PermissionSetView {

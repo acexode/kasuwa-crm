@@ -125,7 +125,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "createAuditExport",
     "method": "POST",
     "path": "/api/v1/admin/audit/exports",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/E2"
@@ -195,7 +195,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "createDisposition",
     "method": "POST",
     "path": "/api/v1/admin/programmes/{programmeId}/dispositions",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/B5"
@@ -470,7 +470,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "deleteDisposition",
     "method": "DELETE",
     "path": "/api/v1/admin/programmes/{programmeId}/dispositions/{dispositionId}",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/B5"
@@ -785,7 +785,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getAuditExport",
     "method": "GET",
     "path": "/api/v1/admin/audit/exports/{exportId}",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/E2"
@@ -821,7 +821,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getAuditFilterOptions",
     "method": "GET",
     "path": "/api/v1/admin/audit/filter-options",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/E"
@@ -1512,7 +1512,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listAuditEvents",
     "method": "GET",
     "path": "/api/v1/admin/audit/events",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/A",
@@ -1617,7 +1617,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listDispositions",
     "method": "GET",
     "path": "/api/v1/admin/programmes/{programmeId}/dispositions",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/B5"
@@ -1960,7 +1960,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listProgrammeScripts",
     "method": "GET",
     "path": "/api/v1/admin/programmes/{programmeId}/scripts",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/B6"
@@ -2160,7 +2160,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "reorderDispositions",
     "method": "PUT",
     "path": "/api/v1/admin/programmes/{programmeId}/dispositions/order",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/B5"
@@ -2249,7 +2249,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "updateDisposition",
     "method": "PATCH",
     "path": "/api/v1/admin/programmes/{programmeId}/dispositions/{dispositionId}",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/B5"
