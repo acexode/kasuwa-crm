@@ -31,6 +31,32 @@ describe('assertProvisioningTarget', () => {
     }
   });
 
+  it('decides on the host pg will actually use, not the URL hostname', () => {
+    for (const connectionString of [
+      // ?host= overrides the authority in pg's parser; new URL() would say localhost.
+      'postgres://m@localhost:5432/kasuwa?host=prod.internal',
+      'postgres://m@127.0.0.1/kasuwa?host=10.0.0.5',
+      // A Unix socket can front a proxy to anywhere.
+      'postgres://m@localhost/kasuwa?host=/var/run/postgresql',
+      // No host: pg falls back to PGHOST or a default this guard cannot see.
+      'postgres:///kasuwa',
+      // A multi-host list is not "localhost" because it starts with it.
+      'postgres://m@localhost,prod.internal/kasuwa',
+    ]) {
+      expect(() => assertProvisioningTarget(connectionString, false, quiet), connectionString).toThrow(
+        /non-local/i,
+      );
+    }
+  });
+
+  it('names the effective host in the opt-in warning, not the decoy', () => {
+    const logs: string[] = [];
+    assertProvisioningTarget('postgres://m@localhost/kasuwa?host=prod.internal', true, (m) =>
+      logs.push(m),
+    );
+    expect(logs[0]).toContain('prod.internal');
+  });
+
   it('lets a non-local host through with the opt-in, and logs it loudly with the host', () => {
     const logs: string[] = [];
     assertProvisioningTarget('postgres://m@db.prod.internal/kasuwa', true, (m) => logs.push(m));

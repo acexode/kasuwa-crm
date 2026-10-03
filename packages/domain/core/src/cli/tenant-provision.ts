@@ -1,16 +1,31 @@
+import { createInterface } from 'node:readline';
 import { parseArgs } from 'node:util';
 import { env } from '@kasuwa/config';
 import { provisionTenant, TENANT_REGIONS, type TenantRegion } from '../tenant/provision-tenant';
 
 /**
- * `pnpm tenant:provision` — the sales-led provisioning command (T-0015).
+ * `pnpm tenant:provision`, the sales-led provisioning command (T-0015).
+ * INTERACTIVE TERMINAL ONLY.
  *
- *   pnpm -s tenant:provision --slug <slug> --name <name> --admin-email <email> \
- *     --admin-name <display name> [--region ZA|NG|KE] [--allow-non-local]
+ *   pnpm -s tenant:provision --slug <slug> --name <name> [--region ZA|NG|KE]
+ *     [--allow-non-local] [--print-credential]
  *
- * `-s` matters: without it pnpm echoes the full command line, admin email
- * included, as a lifecycle banner before this code runs. The inner pnpm call
- * in the root script is already `--silent`; the outer one is the operator's.
+ * and then answer two prompts: the admin's email and display name.
+ *
+ * WHY PROMPTS. pnpm echoes a script's full command line as a lifecycle banner
+ * before any of this code runs, so an email passed as an argument lands in the
+ * terminal scrollback and in any CI log. Read from stdin, it never appears in
+ * argv. `--admin-email` and `--admin-name` are still accepted (they are the
+ * T-0015 interface), but a warning is printed when they are used. The inner
+ * pnpm call in the root script is `--silent`; `-s` on the outer call is the
+ * operator's. Piped input works too: one line for the email, then one for the
+ * name.
+ *
+ * WHY A TERMINAL. The one-time setup credential is printed to stdout, once.
+ * If stdout is a pipe or a file, "once, to the operator" becomes "into
+ * whatever captured it". So the command refuses to start, before it creates
+ * anything, unless stdout is a TTY or `--print-credential` was given to say
+ * the capture is deliberate.
  *
  * A thin wrapper over `provisionTenant`, which holds every rule and the
  * local-database guard (a guard on the command line would protect only the
@@ -18,18 +33,49 @@ import { provisionTenant, TENANT_REGIONS, type TenantRegion } from '../tenant/pr
  * DATABASE_MIGRATION_URL through @kasuwa/config exactly as `db:seed` does.
  *
  * OUTPUT DISCIPLINE. Progress and the audit-event shape go to stderr. The
- * one-time setup credential goes to stdout, once, and nowhere else: not to
- * stderr, not to a file, not into an error. The admin's email and name are
- * never printed — the operator typed them and does not need them echoed into
- * a terminal scrollback or a CI log.
+ * credential goes to stdout once, and nowhere else: not to stderr, not to a
+ * file, not into an error. The admin's email and name are never printed.
  */
 
 const USAGE =
-  'usage: pnpm -s tenant:provision --slug <slug> --name <name> --admin-email <email> ' +
-  '--admin-name <display name> [--region ZA|NG|KE] [--allow-non-local]';
+  'usage: pnpm -s tenant:provision --slug <slug> --name <name> [--region ZA|NG|KE] ' +
+  '[--allow-non-local] [--print-credential]   (prompts for the admin email and name; ' +
+  'interactive terminal only)';
 
 function isRegion(value: string): value is TenantRegion {
   return (TENANT_REGIONS as readonly string[]).includes(value);
+}
+
+/**
+ * Reads the missing answers from stdin, one line each. Prompts go to stderr,
+ * and only when stdin is a terminal. Nothing read here is ever written back
+ * out by this code.
+ */
+async function readMissing(
+  questions: readonly { key: 'email' | 'name'; prompt: string }[],
+): Promise<Partial<Record<'email' | 'name', string>>> {
+  const answers: Partial<Record<'email' | 'name', string>> = {};
+  if (questions.length === 0) {
+    return answers;
+  }
+  const interactive = process.stdin.isTTY === true;
+  const rl = createInterface({ input: process.stdin, terminal: false });
+  const lines = rl[Symbol.asyncIterator]();
+  try {
+    for (const question of questions) {
+      if (interactive) {
+        process.stderr.write(question.prompt);
+      }
+      const next = await lines.next();
+      if (next.done === true) {
+        throw new Error(`No ${question.key} given on stdin. ${USAGE}`);
+      }
+      answers[question.key] = String(next.value).trim();
+    }
+  } finally {
+    rl.close();
+  }
+  return answers;
 }
 
 async function main(): Promise<void> {
@@ -41,6 +87,7 @@ async function main(): Promise<void> {
       'admin-name': { type: 'string' },
       region: { type: 'string' },
       'allow-non-local': { type: 'boolean', default: false },
+      'print-credential': { type: 'boolean', default: false },
       help: { type: 'boolean', default: false },
     },
     strict: true,
@@ -52,24 +99,33 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Before anything is created: a credential printed into a pipe is a
+  // credential written to wherever the pipe goes.
+  if (process.stdout.isTTY !== true && !values['print-credential']) {
+    throw new Error(
+      'Refusing to run: stdout is not an interactive terminal, and the one-time setup ' +
+        'credential would be written into whatever is capturing it. Run this in a terminal, ' +
+        'or pass --print-credential if capturing it is deliberate.',
+    );
+  }
+
   const slug = values.slug;
   const name = values.name;
-  const adminEmail = values['admin-email'];
-  const adminDisplayName = values['admin-name'];
-  if (
-    slug === undefined ||
-    name === undefined ||
-    adminEmail === undefined ||
-    adminDisplayName === undefined
-  ) {
+  if (slug === undefined || name === undefined) {
     throw new Error(USAGE);
   }
 
-  // Region is a code or nothing (D-P2: omitted means ZA). Anything else is
-  // handed to provisionTenant as-is so it raises the one InvalidRegionError.
+  // A region is a code or nothing (D-P2: omitted means ZA).
   const region = values.region;
   if (region !== undefined && !isRegion(region)) {
     throw new Error(`--region must be one of ${TENANT_REGIONS.join(', ')}`);
+  }
+
+  if (values['admin-email'] !== undefined || values['admin-name'] !== undefined) {
+    process.stderr.write(
+      'WARNING: --admin-email / --admin-name put personal data on the command line, which ' +
+        'pnpm echoes and shells keep in history. Prefer the prompts.\n',
+    );
   }
 
   const connectionString = env().DATABASE_MIGRATION_URL;
@@ -78,6 +134,17 @@ async function main(): Promise<void> {
       'DATABASE_MIGRATION_URL is not set. Provisioning runs as kasuwa_migrator, like db:seed.',
     );
   }
+
+  const questions: { key: 'email' | 'name'; prompt: string }[] = [];
+  if (values['admin-email'] === undefined) {
+    questions.push({ key: 'email', prompt: 'First admin email: ' });
+  }
+  if (values['admin-name'] === undefined) {
+    questions.push({ key: 'name', prompt: 'First admin display name: ' });
+  }
+  const answers = await readMissing(questions);
+  const adminEmail = values['admin-email'] ?? answers.email ?? '';
+  const adminDisplayName = values['admin-name'] ?? answers.name ?? '';
 
   const result = await provisionTenant({
     connectionString,

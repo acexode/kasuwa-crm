@@ -6,18 +6,22 @@ import {
   withTenantTransaction,
   type TenantTx,
 } from '@kasuwa/db';
-import { Client, type Pool, type PoolClient } from 'pg';
+import { Client } from 'pg';
+import { parse as parseConnectionString } from 'pg-connection-string';
 import { z } from 'zod';
 import { createProgramme } from '../programme/programme-lifecycle';
 import { isUniqueViolation } from '../programme/programme.repository';
+import { savepointPool } from './savepoint-pool';
 import { slugSkeleton, tenantSlugProblem, type TenantSlugProblem } from './tenant-slug';
 
 /**
  * Sales-led tenant provisioning (T-0015; D-P2, D-L54).
  *
- * `provisionTenant` is the one implementation of "create a tenant". The
- * operator CLI (`pnpm tenant:provision`) wraps it today; the self-serve
- * sign-up endpoint (T-0016) must call it too, so the two can never drift.
+ * `provisionTenant` is the operator's implementation of "create a tenant",
+ * wrapped by the CLI (`pnpm tenant:provision`). It holds migrator credentials
+ * and is for operator use only. Nothing under apps/** may import it (ESLint),
+ * and the self-serve sign-up endpoint (T-0016) needs its own design that
+ * never holds migrator credentials.
  *
  * ---------------------------------------------------------------------------
  * WHY THIS RUNS ON THE MIGRATOR CONNECTION (CLAUDE.md 2.1, D-L54)
@@ -38,20 +42,28 @@ import { slugSkeleton, tenantSlugProblem, type TenantSlugProblem } from './tenan
  * the admin's membership) is written inside a real `withTenantTransaction`
  * for the new tenant, through the reusable `createProgramme`, with the tenant
  * id taken from `tx.session` and never from this function's arguments.
+ * That is structure, not enforcement; see "WHAT KEEPS IT SAFE" below.
  *
  * ONE TRANSACTION. That tenant transaction runs on the SAME connection, as a
- * savepoint inside the outer transaction (`savepointPool` below), so a failure
- * anywhere — a taken slug found late, a constraint, a dropped connection —
- * leaves no half-created tenant. `withTenantTransaction` is called unmodified;
- * only what its BEGIN/COMMIT/ROLLBACK mean is narrowed to a savepoint.
+ * savepoint inside the outer transaction (`savepoint-pool.ts`). A failure
+ * anywhere, whether a taken slug found late, a constraint or a dropped
+ * connection, rolls back everything. `withTenantTransaction` is called
+ * unmodified. The adapter rewrites exactly its BEGIN/COMMIT/ROLLBACK and
+ * throws on any other transaction-control statement.
  *
- * WHAT THIS DOES NOT GIVE: RLS enforcement on those writes. kasuwa_migrator
- * holds BYPASSRLS, and BYPASSRLS overrides FORCE. The session resolution,
- * the sealed-scope check and every explicit `tenant_id` predicate in the
- * reused code do run; the policies themselves are not consulted. Making them
- * consulted needs kasuwa_migrator to be able to `SET ROLE kasuwa_app` (a grant
- * in sql/bootstrap.sql), which is a role-model decision — raised in the
- * T-0015 report, not taken here.
+ * RLS IS NOT EXERCISED HERE (D-L54 as amended). kasuwa_migrator holds
+ * BYPASSRLS, and BYPASSRLS overrides FORCE, so no policy is consulted on any
+ * write in this file, including the ones inside `withTenantTransaction`.
+ *
+ * WHAT KEEPS IT SAFE is explicit and local:
+ *   - every row written carries the new tenant's id, taken from
+ *     `tx.session` (or, for the two bootstrap rows, from the id generated
+ *     a few lines above), and every read repeats `tenant_id`;
+ *   - every id is fresh (`newId()`), so no statement here can address an
+ *     existing row in another tenant, and the only cross-tenant read is the
+ *     slug list;
+ *   - the operator boundary: the connection string is an argument, the
+ *     local-database guard runs first, and apps/** cannot import this.
  *
  * No SECURITY DEFINER function is added (CLAUDE.md 2.7).
  * ---------------------------------------------------------------------------
@@ -180,6 +192,15 @@ const LOCAL_DATABASE_HOSTS: ReadonlySet<string> = new Set([
   '[::1]',
 ]);
 
+/**
+ * The host pg will ACTUALLY connect to, decided by `pg-connection-string`,
+ * which is the parser pg itself uses. Reading `new URL().hostname` would be
+ * wrong: `postgres://localhost/kasuwa?host=prod.internal` has hostname
+ * `localhost`, but pg connects to `prod.internal`.
+ *
+ * Returns '' when no host is named. pg then falls back to PGHOST or a default
+ * this function cannot see, so the caller treats '' as non-local.
+ */
 export function databaseHost(connectionString: string): string {
   let url: URL;
   try {
@@ -191,9 +212,22 @@ export function databaseHost(connectionString: string): string {
   if (url.protocol !== 'postgres:' && url.protocol !== 'postgresql:') {
     throw new InvalidProvisioningInputError('connectionString');
   }
-  return url.hostname;
+  let host: string | null | undefined;
+  try {
+    host = parseConnectionString(connectionString).host;
+  } catch {
+    throw new InvalidProvisioningInputError('connectionString');
+  }
+  return host ?? '';
 }
 
+/**
+ * Local means a loopback TCP host, exactly. NOT local:
+ *   - a Unix socket path (`?host=/var/run/postgresql`). A socket can front a
+ *     proxy to anywhere (cloud SQL proxies are sockets);
+ *   - an empty host, because pg's fallback is not visible here;
+ *   - a multi-host list, even if it starts with localhost.
+ */
 export function isLocalDatabaseHost(host: string): boolean {
   return LOCAL_DATABASE_HOSTS.has(host);
 }
@@ -207,7 +241,7 @@ export function assertProvisioningTarget(
   allowNonLocalDatabase: boolean,
   log: (message: string) => void,
 ): void {
-  const host = databaseHost(connectionString);
+  const host = databaseHost(connectionString) || '(no host: PGHOST or the pg default)';
   if (isLocalDatabaseHost(host)) {
     return;
   }
@@ -345,36 +379,6 @@ export function buildTenantProvisionedAuditEvent(
   };
 }
 
-// --- the savepoint adapter -------------------------------------------------
-
-const SAVEPOINT = 'kasuwa_provision_tenant_tx';
-
-const SAVEPOINT_STATEMENTS: Readonly<Record<string, string>> = {
-  BEGIN: `SAVEPOINT ${SAVEPOINT}`,
-  COMMIT: `RELEASE SAVEPOINT ${SAVEPOINT}`,
-  ROLLBACK: `ROLLBACK TO SAVEPOINT ${SAVEPOINT}`,
-};
-
-/**
- * A one-connection "pool" whose transaction is a savepoint in the caller's
- * already-open transaction, so `withTenantTransaction` can run, unmodified,
- * inside provisioning's single transaction.
- *
- * Local to this file and not exported. It does not widen anything: the
- * connection it wraps is the operator's migrator connection, which this
- * function already holds; the adapter only stops the tenant transaction from
- * committing or rolling back the outer one on its own.
- */
-function savepointPool(client: Client): Pool {
-  const borrowed = {
-    query: (text: string, values?: unknown[]) =>
-      client.query(SAVEPOINT_STATEMENTS[text] ?? text, values),
-    release: () => undefined,
-  };
-  const pool = { connect: async () => borrowed as unknown as PoolClient };
-  return pool as unknown as Pool;
-}
-
 // --- provisioning ----------------------------------------------------------
 
 /**
@@ -396,7 +400,7 @@ const PROVISIONING_LOCK_SQL = `SELECT pg_advisory_xact_lock(hashtext('kasuwa:ten
  * local-database guard, region, slug, the remaining inputs. Each refusal is a
  * typed error and writes nothing.
  *
- * NOT created (reported as gaps in team/reports/T-0015.md): billing identity
+ * NOT created (gaps in the T-0015 completion report): billing identity
  * (no table; may need a payment-provider account first, which the task says is
  * a product decision), and the persisted audit event (see above).
  */
