@@ -912,3 +912,24 @@ for the permissions engine, and there is no restore endpoint yet (named, not bur
   concerns; there is no programme-less alert in this wave. `userCount` and `seats.used` count
   distinct users who share at least one programme with the caller (a caller with no programme
   counts only themselves). Restoring a never-dismissed alert is an idempotent 204.
+
+### D-L48 — audit-log conventions (T-0025)
+**Status:** PROCEEDING (lead).
+The writer's pinned conventions are adopted: `objectType` is `role` or `programme`, plus `audit_export`
+for export events; `changes[].field` uses API field names (`name`, `parentRoleId`); an export records
+`includeIpAddresses` as a change; events are newest-first; a new export is `queued`; `sourceIp` is
+null for everyone until a permission grants it. **Visibility:** an event with a `programmeId` is
+visible only to members of that programme; an event with no programme (role changes) is visible to
+every user of the tenant until the permissions engine restricts audit reading to admins.
+`deleteRole` records the destination role id and the moved-user count as changes
+(`reassignedToRoleId`, `movedUserCount`).
+
+### D-L49 — the channel adapter gains an `email` channel (T-0030)
+**Status:** PROCEEDING (lead). An adapter contract change, recorded per CLAUDE.md section 8.
+`ChannelKind` becomes `sms | whatsapp | email`, as a discriminated union: SMS and WhatsApp keep
+the E.164 rule, and email requires an RFC-valid address. The DND check applies only to sms and
+whatsapp. Never log the address (CLAUDE.md 6.1). Still the fake provider only (D-P10).
+The API takes `AppModuleOptions.channelProvider` (default `FakeChannelProvider`) so tests can observe sends.
+**Portal invites:** a re-invite of the same address to the same programme is a **resend**: 202, the
+same id, and a **rotated** token (the old one stops working). The list **never** returns a full
+address, only `emailMasked`; the spec text saying otherwise is wrong and is corrected in T-0030.
