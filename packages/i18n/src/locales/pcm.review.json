@@ -269,6 +269,7 @@
     "invite.role.agent": "Pidgin is English-lexified; this is the ordinary Pidgin wording.",
     "invite.role.supervisor": "Pidgin is English-lexified; this is the ordinary Pidgin wording.",
     "invite.role.admin": "Pidgin is English-lexified; this is the ordinary Pidgin wording.",
-    "done.item.call": "Pidgin is English-lexified; this is the ordinary Pidgin wording."
+    "done.item.call": "Pidgin is English-lexified; this is the ordinary Pidgin wording.",
+    "lang.beta": "\"Beta\" is the loanword Pidgin speakers use for an unfinished release; a coined word would be one no speaker recognises."
   }
 }

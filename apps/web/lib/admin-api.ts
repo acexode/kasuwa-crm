@@ -45,6 +45,8 @@ export const AdminErrorCode = z.enum([
   'too_many_requests',
   'not_implemented',
   'service_unavailable',
+  // T-0036: the code on every unexpected 500. Additive; generic copy.
+  'internal_error',
 ]);
 export type AdminErrorCode = z.infer<typeof AdminErrorCode>;
 

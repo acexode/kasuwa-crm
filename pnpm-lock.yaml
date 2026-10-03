@@ -467,6 +467,9 @@ importers:
       '@kasuwa/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@kasuwa/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@kasuwa/testing':
         specifier: workspace:*
         version: link:../../packages/testing

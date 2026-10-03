@@ -214,9 +214,7 @@ export function localeReadiness(locale: string): LocaleReadiness {
       // name, an abbreviation, a loanword — but an undeclared match is
       // indistinguishable from an untranslated string, and treating the two the
       // same is how half a catalogue ships.
-      problems.push(
-        `${id}: identical to English and not declared in ${locale}.passthrough.json`,
-      );
+      problems.push(`${id}: identical to English and not declared in ${locale}.passthrough.json`);
       continue;
     }
 
@@ -271,4 +269,27 @@ export function deriveSupportedLocales(): readonly string[] {
   );
 
   return [...offered, ...overlays];
+}
+
+/**
+ * The BETA set (D-P1, answered 2026-10-03): languages on the design's menu
+ * whose catalogue is COMPLETE but which no named reviewer has signed off.
+ *
+ * "Every language ships; one without a reviewer's sign-off shows Beta." That
+ * is not a licence to relax the first half of the gate. A Beta language is
+ * still finished — every id present, nothing silently in English, every
+ * plural category — so picking it never produces an English form. What it
+ * lacks is a human who reads the language saying the words are right, and the
+ * menu says so with a badge rather than by hiding it.
+ *
+ * Kept SEPARATE from `deriveSupportedLocales` on purpose. `SUPPORTED_LOCALES`
+ * stays the attested list, the acceptance suite pins it to exactly that, and
+ * a reviewer's sign-off moves a language from here to there with no edit to
+ * any list.
+ */
+export function deriveBetaLocales(): readonly string[] {
+  return DESIGN_MENU_LOCALES.filter((locale) => {
+    const readiness = localeReadiness(locale);
+    return readiness.complete && !readiness.attested;
+  });
 }

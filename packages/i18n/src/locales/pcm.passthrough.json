@@ -262,5 +262,6 @@
   "invite.role.agent",
   "invite.role.supervisor",
   "invite.role.admin",
-  "done.item.call"
+  "done.item.call",
+  "lang.beta"
 ]

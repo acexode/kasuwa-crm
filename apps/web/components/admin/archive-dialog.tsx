@@ -53,11 +53,14 @@ export function ArchiveDialog({
   programmeId,
   programmeName,
   onClose,
+  onArchived,
 }: {
   t: Translator;
   programmeId: string;
   programmeName: string;
   onClose: () => void;
+  /** Re-read the programme, so the status chip says what just happened. */
+  onArchived?: () => void;
 }) {
   const preview = useResource(
     useCallback((signal: AbortSignal) => getArchivePreview(programmeId, signal), [programmeId]),
@@ -98,9 +101,13 @@ export function ArchiveDialog({
     if (!matches) return;
     setBusy(true);
     setError(null);
-    const result = await archiveProgramme(programmeId, confirmation.trim());
+    // The check above is case-insensitive; the API compares the name exactly
+    // (D-L46). Once the person has shown they know WHICH programme, the
+    // request carries its canonical name rather than their capitalisation.
+    const result = await archiveProgramme(programmeId, programmeName);
     setBusy(false);
     if (result.ok) {
+      onArchived?.();
       onClose();
       return;
     }

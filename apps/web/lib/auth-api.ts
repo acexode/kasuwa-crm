@@ -32,6 +32,8 @@ export const AuthErrorCode = z.enum([
   'otp_too_many_attempts',
   'not_authenticated',
   'not_implemented',
+  // T-0036: the code on every unexpected 500. Additive; generic copy.
+  'internal_error',
 ]);
 export type AuthErrorCode = z.infer<typeof AuthErrorCode>;
 

@@ -1107,6 +1107,22 @@ test.describe('the console on a 256 kbps link', () => {
    *   /admin/audit                       252,102 B     92 ms / 2,040 ms
    *   /admin/programmes/{id}?tab=scripts 261,818 B    112 ms / 1,940 ms
    *
+   * Re-measured in T-0035 (same method, local `next start`), after the
+   * language menu gained its Beta entries and the programme screen its
+   * sample-data frame and retention model:
+   *
+   *   /admin                             221,392 B
+   *   /admin/programmes                  218,930 B
+   *   /admin/roles                       221,244 B
+   *   /admin/field-security              253,519 B
+   *   /admin/audit                       253,870 B
+   *   /admin/programmes/{id}?tab=scripts 264,134 B
+   *
+   * Every route is still inside its original budget, none is loosened. The
+   * sample-data module is loaded with a dynamic import only on the live
+   * console, which took 872 B off the scripts tab's default route. No route
+   * requests `noto-sans-latin-ext` (D-L44).
+   *
    * The two heaviest routes carry `jetbrains-mono-latin-400600.woff2` —
    * 31,714 B for the monospace figures on ids, timestamps and script versions.
    * It is the single largest avoidable asset left on this console and it is

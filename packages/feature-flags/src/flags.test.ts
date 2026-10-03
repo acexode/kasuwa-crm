@@ -13,7 +13,7 @@ describe('feature flags', () => {
    * review question — which task, and who turns it on — not a refactor.
    */
   it('declares exactly the flags a task has asked for', () => {
-    expect(Object.keys(FLAGS)).toEqual(['self_serve_signup']);
+    expect(Object.keys(FLAGS)).toEqual(['self_serve_signup', 'admin_live_api']);
   });
 
   it('ships self_serve_signup OFF (D-P2)', () => {
@@ -37,6 +37,18 @@ describe('feature flags', () => {
 
   it('marks self_serve_signup not production-ready until T-0016 ships its endpoints', () => {
     expect(FLAGS.self_serve_signup.productionReady).toBe(false);
+  });
+
+  it('ships admin_live_api OFF and not production-ready until T-0032 adds the 403s (T-0035)', () => {
+    expect(FLAGS.admin_live_api.defaultValue).toBe(false);
+    expect(FLAGS.admin_live_api.productionReady).toBe(false);
+    expect(flagConfiguration([]).admin_live_api.defaultVariant).toBe('off');
+    expect(flagConfiguration(['admin_live_api']).admin_live_api.defaultVariant).toBe('on');
+    // Switching one flag on leaves the other at its default.
+    expect(flagConfiguration(['admin_live_api']).self_serve_signup.defaultVariant).toBe('off');
+    expect(() =>
+      assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: ['admin_live_api'] }),
+    ).toThrow(/Refusing to start.*admin_live_api/);
   });
 
   it('refuses an unknown flag name instead of ignoring it', () => {
@@ -80,6 +92,8 @@ describe('production flag guard', () => {
   });
 
   it('allows production when nothing is switched on', () => {
-    expect(() => assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: [] })).not.toThrow();
+    expect(() =>
+      assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: [] }),
+    ).not.toThrow();
   });
 });

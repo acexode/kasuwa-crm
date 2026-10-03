@@ -29,6 +29,13 @@ export interface StackUrls {
    * measure bytes against it — a dev bundle is not a budget.
    */
   webSelfServeUrl: string;
+  /**
+   * The same process as `webSelfServeUrl`, which also has `admin_live_api` ON
+   * (T-0035): the P02 console against the real API and the seeded database.
+   * `next dev` for the same reason — the flag is not production-ready until
+   * T-0032 — so never measure bytes here either.
+   */
+  webLiveUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;
   /** Static fixture pages used by the harness self-tests. */

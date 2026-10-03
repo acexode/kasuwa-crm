@@ -19,7 +19,7 @@ screen.
 3. Every pair in `CONTRAST_PAIRS` is asserted at WCAG 2.2 AA in both themes, and a test rejects any `minimumRatio` that is not 4.5 (text) or 3 (non-text). Do NOT lower a threshold to make a colour fit — if a colour cannot meet AA in a role, that is a finding about the design, and it goes to the human.
 4. Colour values are machine-extracted from the export, so they are the values the designer approved. Type, spacing, radius, elevation and motion are hand-encoded in `tokens.ts` because the export carries them as markup; each cites its source section.
 5. Adding an icon to a screen means adding its name to `icon-subset.txt` and re-running `pnpm ui:fetch-fonts` — the Material Symbols font is subset to 69 glyphs, so an unlisted icon renders as a blank box.
-6. Fonts are self-hosted for a reason (256 kbps NFR, and no third-party request carrying the user's IP). Google Fonts stays second in each `src` as a fallback only.
+6. Fonts are self-hosted, and ONLY self-hosted (D-L43): 256 kbps NFR, and no third-party request carrying the user's IP. Every `src` is one file under `/fonts/`; `src/fonts.test.ts` fails on any external origin. The naira and cedi signs come from a ~3 KB currency subset listed ahead of Latin-Extended, and are carved out of Latin-Extended's `unicode-range` (D-L44) — never let a large face claim them again.
 7. The prefix is `--k-`, matching the export. Semantic tokens are their own Tailwind names (`bg-primary`, `text-text-muted`); ramp steps are `primary-scale-500`.
 
 ## Before you open a PR
