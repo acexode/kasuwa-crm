@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import {
   dummyPasswordHash,
   HashingOverloadedError,
@@ -78,12 +78,26 @@ import type {
  *      however many requests race for it.
  */
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
     @Inject(AUTH_POLICY) private readonly policy: AuthPolicy,
     @Inject(KEY_PROVIDER) private readonly keyProvider: KeyProvider,
   ) {}
+
+  /**
+   * Computes the dummy hash before the first request, not during it.
+   *
+   * Left lazy, the first unknown-user sign-in after boot paid for TWO argon2
+   * tasks (make the dummy, then verify against it) where a known user pays for
+   * one — a timing difference — and was the one request that could meet a full
+   * queue on the dummy rather than on the verify. Awaited, so the API does not
+   * listen with a cold cache. A failure is swallowed: refusing to boot over it
+   * would be worse than the lazy path, which retries on next use.
+   */
+  async onModuleInit(): Promise<void> {
+    await dummyPasswordHash().catch(() => undefined);
+  }
 
   /**
    * First factor. Returns a challenge; never a session.
@@ -141,8 +155,14 @@ export class AuthService {
     // runs on a worker thread and this awaits a message. Unknown-user and
     // known-user verifies share that one pool and queue, with the same
     // parameters, so where the work runs cannot differ between them.
-    const hash = prepared.account?.passwordHash ?? (await dummyPasswordHash());
-    const passwordMatches = await this.verify(hash, input.password);
+    //
+    // The dummy hash is fetched INSIDE `verify`, under the same 503 mapping:
+    // when its cache is cold and the queue is full, an unknown user must be
+    // refused exactly as a known user is, not with a 500 of its own.
+    const passwordMatches = await this.verify(
+      prepared.account?.passwordHash ?? null,
+      input.password,
+    );
 
     // --- phase three: record what happened --------------------------------
     return this.commitThenFail(
@@ -178,10 +198,15 @@ export class AuthService {
    * credentials were wrong when they were never checked — misleading to a real
    * user, and a cheap oracle to an attacker, because a shed request comes back
    * far faster than a hashed one.
+   *
+   * `hash === null` means there is no usable credential (no workspace, no
+   * account, or no password set), and the dummy hash is verified instead. That
+   * lookup is inside the same try: the dummy can itself be refused for
+   * overload, and both branches must answer with the same 503.
    */
-  private async verify(hash: string, password: string): Promise<boolean> {
+  private async verify(hash: string | null, password: string): Promise<boolean> {
     try {
-      return await verifyPassword(hash, password);
+      return await verifyPassword(hash ?? (await dummyPasswordHash()), password);
     } catch (error) {
       if (error instanceof HashingOverloadedError) {
         throw signInUnavailable();

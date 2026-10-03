@@ -4,6 +4,7 @@ import {
   WorkerPool,
   WorkerPoolClosedError,
   WorkerPoolOverloadedError,
+  WorkerPoolUnavailableError,
   WorkerTaskError,
 } from './worker-pool';
 
@@ -25,9 +26,11 @@ parentPort.on('message', ({ id, payload }) => {
   if (payload.hold) { return; }
   if (payload.spinMs) { const end = Date.now() + payload.spinMs; while (Date.now() < end) {} }
   if (payload.fail) { parentPort.postMessage({ id, ok: false, message: 'boom' }); return; }
+  if (payload.wrongId) { parentPort.postMessage({ id: id + 1000, ok: true, value: 'stray' }); return; }
   const reply = () => parentPort.postMessage({ id, ok: true, value: payload.echo });
   if (payload.delayMs) { setTimeout(reply, payload.delayMs); } else { reply(); }
 });
+parentPort.postMessage({ ready: true });
 `;
 
 const pools: WorkerPool[] = [];
@@ -185,6 +188,103 @@ describe('WorkerPool', () => {
     expect(keepAlive(), 'a busy worker must keep the process alive').toBeGreaterThan(before);
     await held;
     expect(keepAlive(), 'idle workers must not keep the process alive').toBe(before);
+  });
+
+  it('retires a worker whose task outlives the timeout, and serves the next task on a fresh one', async () => {
+    const pool = new WorkerPool({
+      size: 1,
+      maxQueued: 4,
+      taskTimeoutMs: 50,
+      createWorker: () => {
+        spawned += 1;
+        return new Worker(TEST_WORKER, { eval: true });
+      },
+    });
+    pools.push(pool);
+    // Started first, so the timeout is the stuck TASK and not a slow start.
+    expect(await pool.run({ echo: 'warm' })).toBe('warm');
+    const stuck = pool.run({ hold: true });
+    const behind = pool.run({ echo: 'behind-the-stuck-one' });
+    await expect(stuck).rejects.toThrow(/timed out/);
+    expect(await behind).toBe('behind-the-stuck-one');
+    expect(spawned).toBe(2);
+    expect(pool.pressure()).toMatchObject({ active: 0, queued: 0 });
+  });
+
+  it('retires a worker that answers with the wrong id, rather than routing the reply', async () => {
+    const pool = testPool(1, 4);
+    const outcomes = await Promise.allSettled([
+      pool.run({ wrongId: true }),
+      pool.run({ echo: 'after' }),
+    ]);
+    expect(outcomes[0]?.status).toBe('rejected');
+    expect((outcomes[0] as PromiseRejectedResult).reason).toBeInstanceOf(WorkerTaskError);
+    // Nobody received the stray value; the next caller got its own.
+    expect(outcomes[1]).toEqual({ status: 'fulfilled', value: 'after' });
+    expect(spawned).toBe(2);
+  });
+
+  it('backs off respawning a worker that cannot start, refusing at once meanwhile', async () => {
+    // A worker that dies before saying it is ready — what a missing module
+    // looks like. Without back-off every request would spawn a thread.
+    let clock = 1_000;
+    const pool = new WorkerPool({
+      size: 1,
+      maxQueued: 4,
+      respawnBackoffMs: { initial: 100, max: 400 },
+      now: () => clock,
+      createWorker: () => {
+        spawned += 1;
+        return new Worker(`process.exit(1);`, { eval: true });
+      },
+    });
+    pools.push(pool);
+
+    await expect(pool.run({ echo: 1 })).rejects.toBeInstanceOf(WorkerTaskError);
+    expect(spawned).toBe(1);
+
+    // Inside the back-off: refused immediately, and no new thread.
+    await expect(pool.run({ echo: 2 })).rejects.toBeInstanceOf(WorkerPoolUnavailableError);
+    await expect(pool.run({ echo: 3 })).rejects.toBeInstanceOf(WorkerPoolUnavailableError);
+    expect(spawned).toBe(1);
+
+    // After it: one more attempt, which fails again and doubles the wait.
+    clock += 100;
+    await expect(pool.run({ echo: 4 })).rejects.toBeInstanceOf(WorkerTaskError);
+    expect(spawned).toBe(2);
+    clock += 100;
+    await expect(pool.run({ echo: 5 })).rejects.toBeInstanceOf(WorkerPoolUnavailableError);
+    expect(spawned).toBe(2);
+    clock += 100;
+    await expect(pool.run({ echo: 6 })).rejects.toBeInstanceOf(WorkerTaskError);
+    expect(spawned).toBe(3);
+  });
+
+  it('retires a worker that hangs while starting, as a failed start', async () => {
+    const clock = 1_000;
+    const pool = new WorkerPool({
+      size: 1,
+      maxQueued: 4,
+      startTimeoutMs: 50,
+      now: () => clock,
+      createWorker: () => {
+        spawned += 1;
+        // Alive, never ready, never exits.
+        return new Worker(`setInterval(() => {}, 1000);`, { eval: true });
+      },
+    });
+    pools.push(pool);
+    await expect(pool.run({ echo: 1 })).rejects.toThrow(/did not start/);
+    // Counted as a failed start: backing off, not respawning per request.
+    await expect(pool.run({ echo: 2 })).rejects.toBeInstanceOf(WorkerPoolUnavailableError);
+    expect(spawned).toBe(1);
+  });
+
+  it('a worker that started and then crashed on a task is replaced at once, without back-off', async () => {
+    // Otherwise one poisonous payload could stall the pool for everybody.
+    const pool = testPool(1, 4);
+    await expect(pool.run({ crash: true })).rejects.toBeInstanceOf(WorkerTaskError);
+    expect(await pool.run({ echo: 'straight-away' })).toBe('straight-away');
   });
 
   it('rejects a nonsensical size or queue bound', () => {

@@ -80,6 +80,15 @@ function hashWorkerCount(): number {
 const MAX_QUEUED_HASHES = 32;
 
 /**
+ * A single hash that has run this long is not going to finish: its worker is
+ * retired and replaced, so it cannot hold a slot forever. ~86 ms is normal;
+ * this is two orders of magnitude of headroom for a starved node. Time spent
+ * QUEUED does not count — the clock starts when a worker takes the task. The
+ * same budget bounds a worker's start-up (spawn until it reports ready).
+ */
+const HASH_TASK_TIMEOUT_MS = 10_000;
+
+/**
  * Thrown when the queue is full. The API turns it into a 503, NOT a 401:
  * refusing to do the work is not the same as deciding the credentials were
  * wrong, and answering 401 here would both mislead the caller and — because
@@ -135,6 +144,8 @@ parentPort.on('message', async ({ id, payload }) => {
     parentPort.postMessage({ id, ok: false, message: 'argon2 failed' });
   }
 });
+// Loaded hash-wasm and listening: tell the pool this worker started.
+parentPort.postMessage({ ready: true });
 `;
 
 /**
@@ -163,6 +174,8 @@ function hashPool(): WorkerPool {
     pool = new WorkerPool({
       size: hashWorkerCount(),
       maxQueued: MAX_QUEUED_HASHES,
+      taskTimeoutMs: HASH_TASK_TIMEOUT_MS,
+      startTimeoutMs: HASH_TASK_TIMEOUT_MS,
       createWorker: () => new Worker(ARGON2_WORKER_SOURCE, { eval: true, workerData }),
     });
   }
