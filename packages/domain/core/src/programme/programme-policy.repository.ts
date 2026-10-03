@@ -149,11 +149,39 @@ export async function replaceProgrammeSla(
   expectedVersion: number,
   fields: SlaPolicyFields,
 ): Promise<SlaPolicy | null> {
+  const applied = await replaceProgrammeSlaWithPrevious(tx, programmeId, expectedVersion, fields);
+  return applied === null ? null : applied.updated;
+}
+
+/** A policy as it stood under the write's row lock, and as the write left it. */
+export interface AppliedPolicyWrite<P, Previous = P> {
+  previous: Previous;
+  updated: P;
+}
+
+/**
+ * `replaceProgrammeSla`, also returning the policy as it stood under the lock
+ * (the platform default, version 0, when none was stored).
+ *
+ * For the audit row (T-0033): its `before` must be the value this write
+ * replaced, not whatever an earlier unlocked read happened to see.
+ */
+export async function replaceProgrammeSlaWithPrevious(
+  tx: TenantTx,
+  programmeId: string,
+  expectedVersion: number,
+  fields: SlaPolicyFields,
+): Promise<AppliedPolicyWrite<SlaPolicy> | null> {
   if (!(await reachable(tx, programmeId))) {
     return null;
   }
   const { tenantId, programmeIds } = tx.session;
   const current = await readSlaRow(tx, programmeId, true);
+  // Under the row lock, and before the targets are replaced below.
+  const previous =
+    current === undefined
+      ? defaultSlaPolicy()
+      : toSlaPolicy(current, await readSlaTargets(tx, programmeId));
   const scalars = [
     fields.pauseOutsideOperatingHours,
     fields.pauseAwaitingCustomer,
@@ -238,7 +266,7 @@ export async function replaceProgrammeSla(
     ],
   );
 
-  return toSlaPolicy(written, await readSlaTargets(tx, programmeId));
+  return { previous, updated: toSlaPolicy(written, await readSlaTargets(tx, programmeId)) };
 }
 
 // --- retention ---------------------------------------------------------------
@@ -314,6 +342,25 @@ export async function replaceProgrammeRetention(
   expectedVersion: number,
   fields: RetentionPolicyFields,
 ): Promise<RetentionPolicy | null> {
+  const applied = await replaceProgrammeRetentionWithPrevious(
+    tx,
+    programmeId,
+    expectedVersion,
+    fields,
+  );
+  return applied === null ? null : applied.updated;
+}
+
+/**
+ * `replaceProgrammeRetention`, also returning the policy as it stood under the
+ * lock: `null` when this write created the first one (T-0033, for the audit row).
+ */
+export async function replaceProgrammeRetentionWithPrevious(
+  tx: TenantTx,
+  programmeId: string,
+  expectedVersion: number,
+  fields: RetentionPolicyFields,
+): Promise<AppliedPolicyWrite<RetentionPolicy, RetentionPolicy | null> | null> {
   if (!(await reachable(tx, programmeId))) {
     return null;
   }
@@ -379,5 +426,8 @@ export async function replaceProgrammeRetention(
   if (written === undefined) {
     throw new StalePolicyVersionError();
   }
-  return toRetentionPolicy(written);
+  return {
+    previous: current === undefined ? null : toRetentionPolicy(current),
+    updated: toRetentionPolicy(written),
+  };
 }
