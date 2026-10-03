@@ -1073,3 +1073,13 @@ job), so local Docker stays down.
 - **Promotion:** once @acexode reboots (or Actions minutes are restored), the lead runs the full
   gates on `dev`, fixes anything they catch, then opens one `dev` → `main` PR with the results.
   Bookkeeping still commits straight to `main`.
+
+---
+
+## 2026-10-03 — D-L23 under the `dev` arrangement
+While neither CI nor local Docker can run, a new acceptance suite cannot be **seen** failing before its
+builder starts. For tasks started in this period, the lead preserves each test-only commit on its own
+`lead/T-00xx-acceptance` branch on GitHub. During the first Docker run, the lead checks out each one and
+confirms it fails for the real reason before promoting `dev` to `main`. A suite that turns out not to
+fail first, or to fail for the wrong reason, blocks promotion of its task. This is a deferral of the
+evidence, not a waiver.
