@@ -19,6 +19,7 @@ import { PortalUsersController } from './portal-users/portal-users.controller';
 import { AdminHomeController, SettingsMenuBadgesController } from './home/home.controller';
 import { AdminProgrammesController } from './programmes/programmes.controller';
 import { PermissionSetsController, RolesController } from './roles/roles.controller';
+import { ProgrammeSlaRetentionController } from './sla-retention/sla-retention.controller';
 
 const metadata = (key: string, target: object): unknown[] => {
   const value: unknown = Reflect.getMetadata(key, target);
@@ -34,6 +35,7 @@ describe('AdminModule (D-L39)', () => {
         FieldSecurityController,
         FieldSecurityMatrixController,
         AdminProgrammesController,
+        ProgrammeSlaRetentionController,
         PortalUsersController,
         AuditController,
         DispositionsController,
