@@ -1,13 +1,17 @@
-import type { Programme, ProgrammeMember } from '@kasuwa/domain-core';
+import type {
+  ArchivePreview,
+  Programme,
+  ProgrammeMember,
+  ProgrammeStatus,
+} from '@kasuwa/domain-core';
 
 /**
  * Domain records -> the admin contract's response shapes.
  *
  * Every field the spec publishes but no column backs is sent as `null` (where
  * the schema makes it nullable) or left out (where it does not), never as a
- * plausible-looking default. `status` is the exception the lead ruled on:
- * `programme` has no lifecycle column, every programme that exists is live, so
- * it is the constant `active` until the migration that adds one.
+ * plausible-looking default. `status` is the `programme.status` column
+ * (0012, T-0029); T-0024's constant `active` is gone.
  */
 
 export interface ProgrammeResponse {
@@ -16,7 +20,7 @@ export interface ProgrammeResponse {
   clientName: string | null;
   reference: null;
   countryCode: null;
-  status: 'active';
+  status: ProgrammeStatus;
   agentCount: null;
   slaAttainment7d: null;
   retentionSummary: null;
@@ -47,10 +51,40 @@ export function toProgrammeResponse(programme: Programme): ProgrammeResponse {
     clientName: programme.clientName,
     reference: null,
     countryCode: null,
-    status: 'active',
+    status: programme.status,
     agentCount: null,
     slaAttainment7d: null,
     retentionSummary: null,
+  };
+}
+
+/**
+ * The `201` body of `createProgramme`. `countryCode` is left out, not `null`
+ * and not echoed: it was validated but no column stores it, so `null` would
+ * contradict what the caller just sent and an echo would claim it was saved.
+ */
+export type CreatedProgrammeResponse = Omit<ProgrammeResponse, 'countryCode'>;
+
+export function toCreatedProgrammeResponse(programme: Programme): CreatedProgrammeResponse {
+  const { countryCode: _unstored, ...response } = toProgrammeResponse(programme);
+  return response;
+}
+
+export interface ArchivePreviewResponse {
+  agentsLosingAccess: number;
+  openInteractionsBecomingReadOnly: number;
+  retentionSummary: string | null;
+  portalUsersSignedOut: number;
+  restorableUntilDays: number;
+}
+
+export function toArchivePreviewResponse(preview: ArchivePreview): ArchivePreviewResponse {
+  return {
+    agentsLosingAccess: preview.agentsLosingAccess,
+    openInteractionsBecomingReadOnly: preview.openInteractionsBecomingReadOnly,
+    retentionSummary: preview.retentionSummary,
+    portalUsersSignedOut: preview.portalUsersSignedOut,
+    restorableUntilDays: preview.restorableUntilDays,
   };
 }
 
