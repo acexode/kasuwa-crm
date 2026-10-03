@@ -1,22 +1,13 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Put,
-  Query,
-  UseFilters,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common';
+import { Body, Get, Put, Query } from '@nestjs/common';
 import {
   readFieldSecurityMatrix,
   writeFieldSecurityMatrix,
   type FieldSecurityMatrix,
 } from '@kasuwa/metadata-engine';
-import { KasuwaAuthGuard } from '../../tenancy/kasuwa-auth.guard';
 import { currentTx } from '../../tenancy/tenant-context';
-import { TenantTransactionInterceptor } from '../../tenancy/tenant-transaction.interceptor';
-import { AdminErrorFilter, notFound, notPermitted, staleWrite } from '../roles/admin-errors';
+import { AdminController } from '../common/admin-controller.decorator';
+import { notFound, notPermitted, staleWrite } from '../common/admin-errors';
+import { parseOr400 } from '../common/admin-input';
 import {
   FieldSecurityMatrixQuery,
   FieldSecurityWriteBody,
@@ -40,10 +31,8 @@ import {
  * A write is all-or-nothing; the tenant transaction rolls back on any throw,
  * and nothing is written until every change has been checked anyway.
  *
- * Its own controller, rather than two more routes on FieldSecurityController,
- * because it needs the admin error envelope (`AdminErrorFilter`: 400, 403, 404,
- * 409 with a `code`), and moving `listFieldSecurityObjects` onto that filter
- * would change what an existing route answers on a 400.
+ * Declared with `@AdminController` (D-L39): guard, tenant transaction and the
+ * shared admin error envelope (400, 403, 404, 409, each with a `code`).
  *
  * KNOWN GAPS, named rather than buried (D-L36):
  *   - No `403` for "you may not administer field security": there is no
@@ -53,10 +42,7 @@ import {
  *     audited (D-L38). See the TODO in `update`.
  *   - The matrix is stored and served; nothing enforces it on record reads yet.
  */
-@Controller('api/v1/admin/field-security/matrix')
-@UseGuards(KasuwaAuthGuard)
-@UseInterceptors(TenantTransactionInterceptor)
-@UseFilters(AdminErrorFilter)
+@AdminController('api/v1/admin/field-security/matrix')
 export class FieldSecurityMatrixController {
   /**
    * operationId: getFieldSecurityMatrix
@@ -67,7 +53,7 @@ export class FieldSecurityMatrixController {
    */
   @Get()
   async get(@Query() query: unknown): Promise<FieldSecurityMatrix> {
-    const { object, q, sensitiveOnly } = FieldSecurityMatrixQuery.parse(query);
+    const { object, q, sensitiveOnly } = parseOr400(FieldSecurityMatrixQuery, query);
     const matrix = await readFieldSecurityMatrix(currentTx(), object, { q, sensitiveOnly });
     if (matrix === null) throw notFound();
     return toFieldSecurityMatrixResponse(matrix);
@@ -83,7 +69,7 @@ export class FieldSecurityMatrixController {
    */
   @Put()
   async update(@Body() body: unknown): Promise<FieldSecurityMatrix> {
-    const write = FieldSecurityWriteBody.parse(body);
+    const write = parseOr400(FieldSecurityWriteBody, body);
     const result = await writeFieldSecurityMatrix(currentTx(), write);
     switch (result.kind) {
       case 'not_found':

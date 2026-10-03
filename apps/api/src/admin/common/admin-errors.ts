@@ -1,0 +1,169 @@
+import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
+import { Catch, HttpException, HttpStatus } from '@nestjs/common';
+import { InvalidCursorError } from '@kasuwa/domain-core';
+import type { Response } from 'express';
+import { ZodError, type ZodIssue } from 'zod';
+
+/**
+ * The error envelope of the whole admin API (`#/components/schemas/Error` in
+ * docs/api/admin.openapi.yaml): `{ statusCode, error, code, message }`, plus
+ * `details` on validation and the conflict codes. One file for every admin
+ * area (D-L39); an area adds its own constructors (see roles' `hierarchyCycle`)
+ * on top of `AdminError`, never a second envelope.
+ *
+ * Applied to admin controllers ONLY, through `@AdminController`. It does not
+ * change the global behaviour the auth and contacts routes depend on.
+ *
+ * What is NOT in this file matters as much: no database message, no submitted
+ * value, and no identifier the caller did not send. A unique-violation text
+ * names the conflicting row; a 404 that differs between "absent" and "another
+ * tenant's" is an enumeration oracle.
+ */
+
+/** The spec's `Error.code` enum, verbatim. */
+export type AdminErrorCode =
+  | 'validation_failed'
+  | 'not_authenticated'
+  | 'not_permitted'
+  | 'not_found'
+  | 'duplicate_name'
+  | 'duplicate_code'
+  | 'stale_write'
+  | 'role_hierarchy_cycle'
+  | 'role_in_use'
+  | 'legal_hold_active'
+  | 'too_many_requests'
+  | 'not_implemented'
+  | 'service_unavailable';
+
+export interface AdminErrorDetail {
+  path: string;
+  code: string;
+}
+
+export interface AdminErrorExtra {
+  details?: AdminErrorDetail[];
+  /** Only ever ids the caller submitted. */
+  conflictingIds?: string[];
+}
+
+const REASON: Partial<Record<number, string>> = {
+  [HttpStatus.BAD_REQUEST]: 'Bad Request',
+  [HttpStatus.UNAUTHORIZED]: 'Unauthorized',
+  [HttpStatus.FORBIDDEN]: 'Forbidden',
+  [HttpStatus.NOT_FOUND]: 'Not Found',
+  [HttpStatus.CONFLICT]: 'Conflict',
+  [HttpStatus.TOO_MANY_REQUESTS]: 'Too Many Requests',
+  [HttpStatus.NOT_IMPLEMENTED]: 'Not Implemented',
+  [HttpStatus.SERVICE_UNAVAILABLE]: 'Service Unavailable',
+};
+
+export class AdminError extends HttpException {
+  constructor(
+    status: HttpStatus,
+    code: AdminErrorCode,
+    message: string,
+    extra: AdminErrorExtra = {},
+  ) {
+    super(
+      { statusCode: status, error: REASON[status] ?? 'Error', code, message, ...extra },
+      status,
+    );
+  }
+}
+
+export const notAuthenticated = (): AdminError =>
+  new AdminError(HttpStatus.UNAUTHORIZED, 'not_authenticated', 'Not authenticated');
+
+/**
+ * THE one 404 body. Use it for: no such record, another tenant's record, a
+ * sibling programme's record, and an id that is not even well-formed. Never
+ * add the id, the type of record, or a reason - each one is an oracle.
+ */
+export const notFound = (): AdminError =>
+  new AdminError(HttpStatus.NOT_FOUND, 'not_found', 'Not found');
+
+/**
+ * `NotPermitted`: narrow, and never a substitute for `notFound`. The caller can
+ * already see the thing and may not perform this action on it - e.g. a change
+ * to a padlocked permission set (T-0026). If unsure, it is `notFound`.
+ */
+export const notPermitted = (): AdminError =>
+  new AdminError(HttpStatus.FORBIDDEN, 'not_permitted', 'You do not have permission to do that.');
+
+export const staleWrite = (): AdminError =>
+  new AdminError(
+    HttpStatus.CONFLICT,
+    'stale_write',
+    'Someone else saved changes while you were editing. Reload and try again.',
+  );
+
+/** Field path only. Never the conflicting row, never the database's text. */
+export const duplicateName = (message = 'That name is already in use.'): AdminError =>
+  new AdminError(HttpStatus.CONFLICT, 'duplicate_name', message, {
+    details: [{ path: 'name', code: 'duplicate' }],
+  });
+
+export const validationFailed = (details: AdminErrorDetail[] = []): AdminError =>
+  new AdminError(HttpStatus.BAD_REQUEST, 'validation_failed', 'Validation failed', { details });
+
+/** The spec has no `invalid_cursor` code; a bad cursor is `validation_failed` at `cursor`. */
+export const invalidCursor = (): AdminError =>
+  validationFailed([{ path: 'cursor', code: 'invalid_cursor' }]);
+
+/** Paths and reason codes only - never the submitted value, never Zod's message. */
+export const validationFailedFrom = (error: ZodError): AdminError =>
+  validationFailed(error.issues.flatMap(toDetails));
+
+/**
+ * An unexpected key is reported at its own path, so `{ programmeIds: [...] }`
+ * names `programmeIds` rather than the root. A custom issue may carry a stable
+ * `params.reason`, which becomes the code.
+ */
+export function toDetails(issue: ZodIssue): AdminErrorDetail[] {
+  const base = issue.path.map(String);
+  if (issue.code === 'unrecognized_keys') {
+    return issue.keys.map((key) => ({ path: [...base, key].join('.'), code: issue.code }));
+  }
+  const reason: unknown = issue.code === 'custom' ? issue.params?.['reason'] : undefined;
+  return [{ path: base.join('.'), code: typeof reason === 'string' ? reason : issue.code }];
+}
+
+/**
+ * Maps everything an admin route can throw onto the envelope.
+ *
+ * Guards run inside the route's exception zone, so the stub guard's bare
+ * `UnauthorizedException`, the session guard's `AuthError` and the
+ * scope-header `BadRequestException` arrive here too and leave with a `code`
+ * and no echo of their message. Any other status keeps its own body; a
+ * non-HTTP error is not caught and stays a plain 500.
+ */
+export function toAdminError(
+  exception: HttpException | ZodError | InvalidCursorError,
+): HttpException {
+  if (exception instanceof ZodError) return validationFailedFrom(exception);
+  if (exception instanceof InvalidCursorError) return invalidCursor();
+  if (exception instanceof AdminError) return exception;
+  switch (exception.getStatus()) {
+    case HttpStatus.BAD_REQUEST:
+      return validationFailed();
+    case HttpStatus.UNAUTHORIZED:
+      return notAuthenticated();
+    case HttpStatus.NOT_FOUND:
+      return notFound();
+    default:
+      return exception;
+  }
+}
+
+@Catch(HttpException, ZodError, InvalidCursorError)
+export class AdminErrorFilter implements ExceptionFilter {
+  catch(exception: HttpException | ZodError | InvalidCursorError, host: ArgumentsHost): void {
+    const mapped = toAdminError(exception);
+    host
+      .switchToHttp()
+      .getResponse<Response>()
+      .status(mapped.getStatus())
+      .json(mapped.getResponse());
+  }
+}

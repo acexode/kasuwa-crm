@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { notPermitted } from '../common/admin-errors';
 import {
   FieldSecurityMatrixQuery,
   FieldSecurityWriteBody,
@@ -86,5 +87,17 @@ describe('toFieldSecurityMatrixResponse', () => {
   it('refuses to publish anything the spec does not name', () => {
     const leaky = { ...matrix, programmeId: 'p' };
     expect(() => toFieldSecurityMatrixResponse(leaky)).toThrow();
+  });
+});
+
+describe('notPermitted (the locked column)', () => {
+  it('is the spec’s NotPermitted body: 403 Forbidden, code not_permitted', () => {
+    expect(notPermitted().getStatus()).toBe(403);
+    expect(notPermitted().getResponse()).toEqual({
+      statusCode: 403,
+      error: 'Forbidden',
+      code: 'not_permitted',
+      message: 'You do not have permission to do that.',
+    });
   });
 });

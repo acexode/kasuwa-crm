@@ -1771,6 +1771,18 @@ export const ADMIN_OPERATIONS = [
       "200": {
         "default": {
           "items": []
+        },
+        "invited": {
+          "items": [
+            {
+              "id": "b2f0f7d8-4c21-4b4e-9f7a-2a1d6f4c0e11",
+              "displayName": "Invited Client User",
+              "emailMasked": "p•••e@client.example",
+              "access": "viewer",
+              "status": "invited",
+              "invitedAt": "2026-09-28T09:00:00Z"
+            }
+          ]
         }
       },
       "401": {
@@ -2056,6 +2068,14 @@ export const ADMIN_OPERATIONS = [
             "nextCursor": null,
             "hasMore": false,
             "totalCount": 6
+          }
+        },
+        "empty": {
+          "items": [],
+          "page": {
+            "nextCursor": null,
+            "hasMore": false,
+            "totalCount": 0
           }
         }
       },

@@ -1,10 +1,8 @@
-import { Controller, Get, UseFilters, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Get } from '@nestjs/common';
 import { listObjectDefSummaries, type ObjectDefSummary } from '@kasuwa/metadata-engine';
 import { z } from 'zod';
-import { KasuwaAuthGuard } from '../../tenancy/kasuwa-auth.guard';
 import { currentTx } from '../../tenancy/tenant-context';
-import { TenantTransactionInterceptor } from '../../tenancy/tenant-transaction.interceptor';
-import { AdminNotAuthenticatedFilter } from './admin-not-authenticated.filter';
+import { AdminController } from '../common/admin-controller.decorator';
 
 /**
  * `FieldSecurityObjectList` (docs/api/admin.openapi.yaml). Strict, and parsed
@@ -58,10 +56,7 @@ export function toFieldSecurityObjectList(
  * counts only - never a record - but it is still an admin surface, and the
  * check belongs here as soon as M2's permission sets exist.
  */
-@Controller('api/v1/admin/field-security')
-@UseGuards(KasuwaAuthGuard)
-@UseInterceptors(TenantTransactionInterceptor)
-@UseFilters(AdminNotAuthenticatedFilter)
+@AdminController('api/v1/admin/field-security')
 export class FieldSecurityController {
   /**
    * operationId: listFieldSecurityObjects

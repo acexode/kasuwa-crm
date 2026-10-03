@@ -135,8 +135,31 @@ function onLeadBranch() {
  * append-only, checksummed by the runner, and reviewed by `migration-reviewer`
  * before merge. Those are the real controls; this hook was only ever a
  * reminder, and a reminder that blocks assigned work gets routed around.
+ *
+ * EXTENDED 2026-10-03 for the admin-API wave (T-0025-T-0031). Seven builders
+ * run in parallel and each task reserves one migration number (0008-0014), so
+ * two branches can never claim the same file. An entry may now match a
+ * `pathPattern` (a RegExp over the repo-relative path) instead of a fixed
+ * `path` or a directory `pathPrefix`, and the wave entries use it to allow ONE
+ * filename prefix per task branch: `agent3/T-0027-*` may create
+ * `packages/db/migrations/0010_*.sql` and nothing else under migrations. They
+ * are listed first so the narrow entry, not a blanket one, is what the stderr
+ * notice names. Remove them when the wave has merged.
  */
+const WAVE_WHY =
+  "Admin-API wave (DECISION-LOG 2026-10-03, 'the admin API goes in one wave'): migration numbers are reserved per task, and this branch may create only its own.";
+
+/** One reserved migration file per wave task: `<NNNN>_*.sql`, directly in migrations/. */
+const reservedMigration = (number) => new RegExp(`^packages/db/migrations/${number}_[^/]+\\.sql$`);
+
 const PER_AGENT_ALLOWANCES = [
+  { branchPrefix: 'agent1/T-0025', pathPattern: reservedMigration('0008'), why: WAVE_WHY },
+  { branchPrefix: 'agent2/T-0026', pathPattern: reservedMigration('0009'), why: WAVE_WHY },
+  { branchPrefix: 'agent3/T-0027', pathPattern: reservedMigration('0010'), why: WAVE_WHY },
+  { branchPrefix: 'agent4/T-0028', pathPattern: reservedMigration('0011'), why: WAVE_WHY },
+  { branchPrefix: 'agent6/T-0029', pathPattern: reservedMigration('0012'), why: WAVE_WHY },
+  { branchPrefix: 'agent5/T-0030', pathPattern: reservedMigration('0013'), why: WAVE_WHY },
+  { branchPrefix: 'agent7/T-0031', pathPattern: reservedMigration('0014'), why: WAVE_WHY },
   {
     branchPrefix: 'agent12/',
     path: 'tests/acceptance/tenancy/adversarial.acceptance.test.ts',
@@ -154,12 +177,16 @@ const PER_AGENT_ALLOWANCES = [
   },
 ];
 
-const allowance = PER_AGENT_ALLOWANCES.find((entry) => {
-  if (!currentBranch().startsWith(entry.branchPrefix)) return false;
-  return entry.path !== undefined
-    ? relative === entry.path
-    : relative.startsWith(entry.pathPrefix);
-});
+function allows(entry, path) {
+  if (entry.path !== undefined) return path === entry.path;
+  if (entry.pathPattern !== undefined) return entry.pathPattern.test(path);
+  return path.startsWith(entry.pathPrefix);
+}
+
+const branch = currentBranch();
+const allowance = PER_AGENT_ALLOWANCES.find(
+  (entry) => branch.startsWith(entry.branchPrefix) && allows(entry, relative),
+);
 
 if (allowance) {
   process.stderr.write(
