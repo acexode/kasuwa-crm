@@ -806,8 +806,10 @@ names carry the end client ("Bank X Collections"), which is sensitive between cl
 or row leaks; only the name is confirmed.
 **Why not fixed in T-0024:** no remapping helps (any failed write differs from a success), and the
 task forbids a migration. With no 403 check yet, any programme member can probe.
-**Resolution (lead):** when the permissions engine lands, `updateProgramme` is restricted to tenant
-admins, who can reach every programme, so the oracle stops crossing a boundary. Until then: no
+**Extended 2026-10-03 (T-0029 tenancy review):** `createProgramme` has the same oracle, and it is
+cheaper there: it needs only a business-unit id from the caller's own tenant.
+**Resolution (lead):** when the permissions engine lands, `updateProgramme` **and `createProgramme`** are
+restricted to tenant admins, who can reach every programme, so the oracle stops crossing a boundary. Until then: no
 environment with real users is deployed (same condition as D-L38).
 
 ---
