@@ -116,7 +116,7 @@ paths:
       tags: [admin-home]
       summary: Workspace header and setup-health score
       operationId: getAdminHomeSummary
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/A']
       description: |
         The page header ("Sabi Contact Centres Ltd · Enterprise plan · 6
@@ -132,6 +132,15 @@ paths:
 
         **Nobody owns the health rules.** There is no PRD module that defines
         which checks exist or what each is worth. Raised in the T-0021 report.
+
+        **As built (T-0031):** `userCount` counts distinct users who share at
+        least one programme with the caller (D-L47), never the tenant as a
+        whole. Three placeholder rules exist, worth 100 points together:
+        `users_without_mfa` (40), `open_critical_alerts` (35) and
+        `open_warning_alerts` (25), each computed over the caller's reachable
+        users and alerts. `planName` is `Not set` (or `Trial` for a trial
+        tenant) until M23 stores a plan, and `countryCount` is the number of
+        distinct locale regions among reachable users and the tenant default.
       responses:
         '200':
           description: The workspace summary.
@@ -177,7 +186,7 @@ paths:
       tags: [admin-home]
       summary: Open workspace alerts
       operationId: listAdminAlerts
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/A']
       description: |
         The alerts card, including its empty state and "Show dismissed alerts".
@@ -229,6 +238,7 @@ paths:
                     actionLabel: Remind them
                     settingId: u-mfa
                     dismissed: false
+        '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '501': { $ref: '#/components/responses/NotImplemented' }
 
@@ -237,7 +247,7 @@ paths:
       tags: [admin-home]
       summary: Dismiss an alert for the current user
       operationId: dismissAdminAlert
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: false
       x-kasuwa-screens: ['P02/A']
       description: |
@@ -254,7 +264,7 @@ paths:
       tags: [admin-home]
       summary: Restore a dismissed alert
       operationId: restoreAdminAlert
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/A']
       parameters:
         - $ref: '#/components/parameters/AlertId'
@@ -269,7 +279,7 @@ paths:
       tags: [admin-home]
       summary: Usage meters for the current billing period
       operationId: getAdminUsage
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/A']
       description: |
         Seats, WhatsApp conversations, storage and AI credits.
@@ -277,6 +287,13 @@ paths:
         **This is M23 (billing and subscription), which has no owner and no
         task.** The shape is published because the screen has four meters on
         it; nothing behind it exists. Raised in the T-0021 report.
+
+        **As built (T-0031):** only the `seats` meter is returned. `used` is
+        the number of distinct users who share at least one programme with the
+        caller (a caller with no programme counts only themselves, D-L47);
+        `limit` and `spend` are null until a subscription exists. The period is
+        the current UTC calendar month. The other three meters are absent
+        rather than zero, because a zero would be a fabricated number.
 
         `used` and `limit` are integers in the meter's own unit (`unit` names
         it) so the client never parses "312 GB". `spend` is minor units plus a
@@ -319,7 +336,7 @@ paths:
       tags: [admin-home]
       summary: Counts for the settings-menu badges
       operationId: getSettingsMenuBadges
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/A1']
       description: |
         **The menu structure is the client's, not the server's.** Ten groups
