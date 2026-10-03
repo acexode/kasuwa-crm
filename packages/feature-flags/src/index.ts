@@ -1,5 +1,9 @@
 import { InMemoryProvider, OpenFeature, type Client } from '@openfeature/server-sdk';
-import { enabledFeatureFlags } from '@kasuwa/config/feature-flags';
+import {
+  enabledFeatureFlags,
+  flagProcessNodeEnv,
+  type FlagProcessNodeEnv,
+} from '@kasuwa/config/feature-flags';
 
 /**
  * Feature flags.
@@ -26,6 +30,13 @@ export interface FlagDefinition {
   readonly defaultValue: boolean;
   /** The task or decision that owns turning it on. */
   readonly owner: string;
+  /**
+   * Whether `KASUWA_FEATURE_FLAGS_ON` may switch this flag on in a production
+   * process. `false` makes the process refuse to boot instead — for a flag
+   * whose backing work does not exist yet. Lifting it is a deliberate one-line
+   * change, made by whoever ships that work.
+   */
+  readonly productionReady: boolean;
 }
 
 export const FLAGS = {
@@ -39,6 +50,10 @@ export const FLAGS = {
     description: 'Public sign-up, verification and data-region choice (P01/3, P01/4, P01/5.1).',
     defaultValue: false,
     owner: 'T-0016 (endpoint), T-0007 (screens), D-P2',
+    // NOT production-ready: the sign-up, verify-otp and resend endpoints are
+    // contract-only (x-kasuwa-implemented: false) until T-0016. Turned on in
+    // production today, every submission would answer 501. T-0016 flips this.
+    productionReady: false,
   },
 } as const satisfies Record<string, FlagDefinition>;
 
@@ -78,6 +93,31 @@ export function flagConfiguration(enabled: readonly string[]): Record<FlagName, 
   return Object.fromEntries(entries) as Record<FlagName, InMemoryFlag>;
 }
 
+/**
+ * Fail-closed guard: a production process may not switch on a flag whose
+ * backing work is not production-ready.
+ *
+ * Shaped like `assertAuthModeIsSafe` in `@kasuwa/config`: same failure, same
+ * reason. Without it, one deployment variable would put self-serve sign-up in
+ * front of the public before T-0016's endpoints exist.
+ */
+export function assertFlagsAreProductionSafe(env: {
+  readonly nodeEnv: FlagProcessNodeEnv;
+  readonly enabled: readonly string[];
+}): void {
+  if (env.nodeEnv !== 'production') {
+    return;
+  }
+  const blocked = env.enabled.filter((name) => isFlagName(name) && !FLAGS[name].productionReady);
+  if (blocked.length > 0) {
+    throw new Error(
+      `Refusing to start: KASUWA_FEATURE_FLAGS_ON switches on ${blocked.join(', ')} with ` +
+        'NODE_ENV=production, and the registry marks it not production-ready. Its backing ' +
+        'work does not exist yet (see FLAGS in @kasuwa/feature-flags for the owner).',
+    );
+  }
+}
+
 const EVALUATION_CONTEXT_KEYS = ['tenantId', 'programmeId', 'userId'] as const;
 
 /**
@@ -101,9 +141,11 @@ export async function initialiseFeatureFlags(): Promise<void> {
   if (initialised) {
     return;
   }
-  await OpenFeature.setProviderAndWait(
-    new InMemoryProvider(flagConfiguration(enabledFeatureFlags())),
-  );
+  const enabled = enabledFeatureFlags();
+  // Unknown names are refused by flagConfiguration; production-readiness here.
+  const configuration = flagConfiguration(enabled);
+  assertFlagsAreProductionSafe({ nodeEnv: flagProcessNodeEnv(), enabled });
+  await OpenFeature.setProviderAndWait(new InMemoryProvider(configuration));
   initialised = true;
 }
 

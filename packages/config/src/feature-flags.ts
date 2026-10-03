@@ -35,6 +35,29 @@ const FlagList = z
   )
   .pipe(z.array(z.string().regex(FLAG_NAME, 'not a flag name')));
 
+const NodeEnv = z.enum(['development', 'test', 'production']).default('development');
+export type FlagProcessNodeEnv = z.infer<typeof NodeEnv>;
+
+/**
+ * NODE_ENV for the flag guard, from the same `.env`-free entry point.
+ *
+ * `@kasuwa/feature-flags` refuses to boot when this says `production` and
+ * `KASUWA_FEATURE_FLAGS_ON` names a flag that is not production-ready. It is
+ * read here rather than through the index's `nodeEnv()` because importing the
+ * index loads the workspace `.env` into the web process. Same enum and default
+ * as `EnvSchema.NODE_ENV`; an unrecognised value throws rather than silently
+ * reading as "not production".
+ */
+export function flagProcessNodeEnv(
+  source: Readonly<Record<string, string | undefined>> = process.env,
+): FlagProcessNodeEnv {
+  const parsed = NodeEnv.safeParse(source.NODE_ENV);
+  if (!parsed.success) {
+    throw new Error(`Invalid environment: NODE_ENV must be development, test or production`);
+  }
+  return parsed.data;
+}
+
 export function enabledFeatureFlags(
   source: Readonly<Record<string, string | undefined>> = process.env,
 ): readonly string[] {

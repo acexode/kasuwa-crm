@@ -6,7 +6,7 @@
     "dev": "next dev -p 3000",
     "build": "node build.mjs",
     "start": "next start -p 3000",
-    "lint": "eslint app components lib",
+    "lint": "eslint app components lib instrumentation.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
