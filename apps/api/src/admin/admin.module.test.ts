@@ -10,6 +10,8 @@ import { KasuwaAuthGuard } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { ADMIN_CONTROLLERS } from './admin.module';
 import { AdminErrorFilter } from './common/admin-errors';
+import { DispositionsController } from './dispositions/dispositions.controller';
+import { ProgrammeScriptsController } from './dispositions/programme-scripts.controller';
 import { FieldSecurityMatrixController } from './field-security/field-security-matrix.controller';
 import { FieldSecurityController } from './field-security/field-security.controller';
 import { AdminHomeController, SettingsMenuBadgesController } from './home/home.controller';
@@ -30,6 +32,8 @@ describe('AdminModule (D-L39)', () => {
         FieldSecurityController,
         FieldSecurityMatrixController,
         AdminProgrammesController,
+        DispositionsController,
+        ProgrammeScriptsController,
         AdminHomeController,
         SettingsMenuBadgesController,
       ]),

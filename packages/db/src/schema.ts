@@ -366,6 +366,31 @@ export const permissionSet = pgTable(
 );
 
 /**
+ * Dispositions (M10 configuration, migration 0010). Programme-scoped, in the
+ * `contact` pattern. Soft-deleted (D-L47): a deleted row keeps its `code`,
+ * which stays reserved, and has a null `position`. The two unique keys —
+ * `(tenant_id, programme_id, code)` and the DEFERRABLE
+ * `(tenant_id, programme_id, position)` — are constraints in the SQL; the
+ * deferrable one has no Drizzle representation, so neither is declared here.
+ */
+export const disposition = pgTable('disposition', {
+  id: uuid('id').primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  programmeId: uuid('programme_id').notNull(),
+  code: text('code').notNull(),
+  label: text('label').notNull(),
+  category: text('category').notNull(),
+  noteRequired: boolean('note_required').notNull().default(false),
+  followUpRequired: boolean('follow_up_required').notNull().default(false),
+  active: boolean('active').notNull().default(true),
+  /** Null exactly when the row is deleted. */
+  position: integer('position'),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
  * Admin-home alerts (P02/A, migration 0014, T-0031). Programme-scoped: an
  * alert belongs to one programme (D-L47); a tenant-wide alert is stored once
  * per programme it concerns.
@@ -455,6 +480,7 @@ export const TENANT_SCOPED_TABLES = [
   'auth_session',
   'role',
   'permission_set',
+  'disposition',
   'admin_alert',
   'admin_alert_dismissal',
   'field_security_grant',
