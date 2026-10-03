@@ -1081,3 +1081,7 @@ Fixed in T-0032 itself: the creation marker also requires `created_at` within th
 - **`db:reset` drop list** in `packages/db/src/cli/reset.ts` is missing about 15 tables; replace it with
   a catalogue query.
 - Step-up lockout is a flat 10 per 15 minutes per user and does not escalate; policy owner to decide.
+- **Open (product): should replacing a factor invalidate the old backup codes?** Today they stay valid,
+  and the T-0012 suite asserts that (`backupCodesRemaining` is unchanged after a replacement). The
+  lead's recommendation is yes: return a fresh set on confirm. That needs a lead edit to the suite
+  first. Not changed under the dev arrangement.
