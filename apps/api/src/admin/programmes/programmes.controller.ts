@@ -19,6 +19,7 @@ import { change, changedFields, recordAuditEvent } from '../audit/audit-writer';
 import { AdminController } from '../common/admin-controller.decorator';
 import { duplicateName, notFound, staleWrite } from '../common/admin-errors';
 import { foundOr404, parseIdOr404, parseOr400 as parse } from '../common/admin-input';
+import { requireProgrammePermission, requireTenantPermission } from '../common/admin-permissions';
 import { confirmationMismatch } from './programmes.errors';
 import {
   toArchivePreviewResponse,
@@ -65,9 +66,11 @@ interface Page {
  * caller cannot reach — another tenant's, an unassigned sibling's, nothing at
  * all, or not even a uuid — is the one `404 not_found` body.
  *
- * Not built, and said so in team/reports/T-0024.md: `403 not_permitted` (no
- * permissions engine yet — any member of a programme may rename it). T-0029
- * inherits that gap for create and archive (D-L46).
+ * Permissions (T-0032, D-L53, D-L40): create and update are tenant-level
+ * and need a tenant admin; archive needs the `admin` set in that programme or
+ * a tenant admin. Order: 404 (unreachable programme), then 403
+ * `not_permitted`, then 400 - see common/admin-permissions.ts. A non-admin's
+ * duplicate name is therefore a 403, never the 409 oracle D-L40 describes.
  *
  * Audited (T-0025, D-L52), each in the request transaction:
  *   - PATCH that changes something: one `updated` event carrying the
@@ -117,7 +120,7 @@ export class AdminProgrammesController {
 
   /**
    * `POST /api/v1/admin/programmes` — operationId `createProgramme`.
-   * 201 · 400 · 401 · 404 (business unit not in the caller's tenant — one body
+   * 201 · 400 · 401 · 403 (not a tenant admin) · 404 (business unit not in the caller's tenant — one body
    * for foreign and nonexistent) · 409 `duplicate_name`.
    *
    * The caller becomes the programme's first member (D-L46); scope is
@@ -127,6 +130,7 @@ export class AdminProgrammesController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() body: unknown): Promise<CreatedProgrammeResponse> {
+    await requireTenantPermission(currentTx(), 'programme.create');
     const parsed = parse(CreateProgrammeBody, body);
     try {
       const tx = currentTx();
@@ -165,7 +169,7 @@ export class AdminProgrammesController {
 
   /**
    * `PATCH /api/v1/admin/programmes/{programmeId}` — operationId
-   * `updateProgramme`. 200 · 400 · 401 · 404 · 409 (`stale_write`,
+   * `updateProgramme`. 200 · 400 · 401 · 403 (not a tenant admin) · 404 · 409 (`stale_write`,
    * `duplicate_name`). The id is resolved before the body is judged, so an
    * unreachable programme is 404 whatever was sent.
    */
@@ -176,6 +180,7 @@ export class AdminProgrammesController {
     if ((await findProgrammeById(tx, programmeId)) === null) {
       throw notFound();
     }
+    await requireTenantPermission(tx, 'programme.update');
     const parsed = parse(UpdateProgrammeBody, body);
 
     try {
@@ -259,7 +264,7 @@ export class AdminProgrammesController {
 
   /**
    * `POST /api/v1/admin/programmes/{programmeId}/archive` — operationId
-   * `archiveProgramme`. 200 · 400 · 401 · 404. The id is resolved before the
+   * `archiveProgramme`. 200 · 400 · 401 · 403 · 404. The id is resolved before the
    * body is judged, so an unreachable programme is 404 whatever was sent —
    * a wrong confirmation on a sibling never becomes a 400 that confirms it.
    * Deletes nothing; re-archiving is an idempotent 200 (D-L46).
@@ -273,6 +278,7 @@ export class AdminProgrammesController {
     if (before === null) {
       throw notFound();
     }
+    await requireProgrammePermission(tx, 'programme.archive', programmeId);
     const parsed = parse(ArchiveProgrammeBody, body);
     try {
       const archived = foundOr404(await archiveProgramme(tx, programmeId, parsed.confirmation));

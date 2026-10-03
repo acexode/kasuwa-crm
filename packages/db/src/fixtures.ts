@@ -127,7 +127,21 @@ export interface SeedTenant {
   slug: string;
   businessUnit: { id: string; name: string };
   programmes: { id: string; name: string; clientName: string | null; isDefault: boolean }[];
-  users: { id: string; email: string; displayName: string; programmeIds: string[] }[];
+  users: SeedUser[];
+}
+
+export interface SeedUser {
+  id: string;
+  email: string;
+  displayName: string;
+  programmeIds: string[];
+  /** D-L53: the tenant-level flag `"user".is_tenant_admin`. */
+  isTenantAdmin: boolean;
+  /**
+   * The permission-set key this user holds in every programme of
+   * `programmeIds` (`user_programme.permission_set_id`, D-P9).
+   */
+  permissionSetKey: string;
 }
 
 export const SEED_TENANTS: readonly SeedTenant[] = [
@@ -146,24 +160,32 @@ export const SEED_TENANTS: readonly SeedTenant[] = [
         email: 'tunde.agent@tenant-a.test',
         displayName: 'Tunde Adeyemi',
         programmeIds: [PROGRAMME_A1],
+        isTenantAdmin: false,
+        permissionSetKey: 'agent',
       },
       {
         id: USER_A_AGENT_2,
         email: 'ngozi.agent@tenant-a.test',
         displayName: 'Ngozi Okeke',
         programmeIds: [PROGRAMME_A2],
+        isTenantAdmin: false,
+        permissionSetKey: 'agent',
       },
       {
         id: USER_A_SUPERVISOR,
         email: 'musa.supervisor@tenant-a.test',
         displayName: 'Musa Bello',
         programmeIds: [PROGRAMME_A1, PROGRAMME_A2],
+        isTenantAdmin: true,
+        permissionSetKey: 'admin',
       },
       {
         id: USER_A_NO_PROGRAMME,
         email: 'emeka.unassigned@tenant-a.test',
         displayName: 'Emeka Nwosu',
         programmeIds: [],
+        isTenantAdmin: false,
+        permissionSetKey: 'agent',
       },
     ],
   },
@@ -182,6 +204,9 @@ export const SEED_TENANTS: readonly SeedTenant[] = [
         email: 'wanjiru.agent@tenant-b.test',
         displayName: 'Wanjiru Kamau',
         programmeIds: [PROGRAMME_B1],
+        // Tenant B's only user administers it (D-L53).
+        isTenantAdmin: true,
+        permissionSetKey: 'admin',
       },
     ],
   },
@@ -263,8 +288,9 @@ export interface SeedPermissionSet {
  * matrix's columns, in the design's order (P02/D). Admin is `locked`: "Admins
  * always have full access", so its column cannot be edited.
  *
- * Kind `00000010` in the id scheme above. These name sets and grant nothing;
- * there is no assignment model yet (D-P9 puts it on `user_programme`).
+ * Kind `00000010` in the id scheme above. A set is granted per user per
+ * programme on `user_programme.permission_set_id` (D-P9, T-0032); what each
+ * set permits is `@kasuwa/permissions`.
  */
 const DEFAULT_PERMISSION_SETS: readonly (readonly [string, string, boolean])[] = [
   ['agent', 'Agent', false],

@@ -234,6 +234,39 @@ export async function createDisposition(
 }
 
 /**
+ * Whether `id` names a disposition of this reachable programme - live only,
+ * unless `includeDeleted`. A reachable programme in the path with another
+ * programme's disposition id is `false`, the same as nothing at all.
+ *
+ * For the handler's 404, which must be decided BEFORE the permission check
+ * (T-0032): an unpermitted caller probing ids would otherwise learn from a
+ * 403 that a disposition exists. Update targets live rows, so it asks without
+ * deleted ones; delete is idempotent on deleted rows, so it asks with them.
+ */
+export async function dispositionExists(
+  tx: TenantTx,
+  programmeId: string,
+  id: string,
+  options: { includeDeleted: boolean },
+): Promise<boolean> {
+  if (!(await isReachable(tx, programmeId))) {
+    return false;
+  }
+  // tenancy-reviewed: tenant_id + programme_id + session programme ids, as well as RLS.
+  const rows = await tx.query<{ id: string }>(
+    `SELECT id
+       FROM disposition
+      WHERE id = $1
+        AND tenant_id = $2
+        AND programme_id = $3
+        AND programme_id = ANY($4::uuid[])
+        AND ($5::boolean OR deleted_at IS NULL)`,
+    [id, tx.session.tenantId, programmeId, tx.session.programmeIds, options.includeDeleted],
+  );
+  return rows.length > 0;
+}
+
+/**
  * Applies `changes` to a live disposition. `null` when the programme is
  * unreachable, or the id names nothing live IN THIS programme — a reachable
  * programme in the path with another programme's id is the same `null`.

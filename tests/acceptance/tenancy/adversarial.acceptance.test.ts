@@ -408,29 +408,33 @@ describe('acceptance: adversarial tenancy attacks', () => {
   // --- 5. membership changing under a live session -------------------------
 
   it('cannot widen an in-flight transaction’s scope by granting itself a membership', async () => {
-    // The scope GUC is set once, from user_programme, at the top of the
-    // transaction. Writing a new membership row inside that transaction must
-    // not change what the transaction can already reach — otherwise any code
-    // that can insert into user_programme can read the whole tenant.
+    // D-L51 (2026-10-03): the database itself now refuses a membership row for
+    // a programme outside the session's scope (restrictive policy on
+    // user_programme). This test used to accept the INSERT and only check that
+    // scope did not widen; the guarantee is now stronger, so the INSERT must
+    // fail with insufficient_privilege, and scope must still not widen.
     const outcome = await withTenantTransaction(
       appPool,
       { tenantId: TENANT_A, userId: USER_A_AGENT_1 },
       async (tx) => {
         expect(tx.session.programmeIds).toEqual([PROGRAMME_A1]);
-        await tx.query(
-          `INSERT INTO user_programme (user_id, programme_id, tenant_id) VALUES ($1, $2, $3)`,
-          [USER_A_AGENT_1, PROGRAMME_A2, TENANT_A],
-        );
-        const rows = await tx.query<{ programme_id: string }>('SELECT programme_id FROM contact');
-        const programmes = new Set(rows.map((row) => row.programme_id));
-        // Deliberately fail the transaction so the grant never commits.
-        throw Object.assign(new Error('deliberate rollback'), { programmes });
+        let code: string | undefined;
+        try {
+          await tx.query(
+            `INSERT INTO user_programme (user_id, programme_id, tenant_id) VALUES ($1, $2, $3)`,
+            [USER_A_AGENT_1, PROGRAMME_A2, TENANT_A],
+          );
+        } catch (error) {
+          code = (error as { code?: string }).code;
+        }
+        // Deliberately fail the transaction either way so nothing commits.
+        throw Object.assign(new Error('deliberate rollback'), { code });
       },
-    ).catch((error: Error & { programmes?: Set<string> }) => error.programmes ?? new Set<string>());
+    ).catch((error: Error & { code?: string }) => error.code);
 
-    expect(outcome).toEqual(new Set([PROGRAMME_A1]));
+    expect(outcome, 'out-of-scope membership INSERT must be refused by RLS').toBe('42501');
 
-    // And the rollback held: the next session is still narrow.
+    // And the next session is still narrow.
     const after = await withTenantTransaction(
       appPool,
       { tenantId: TENANT_A, userId: USER_A_AGENT_1 },
