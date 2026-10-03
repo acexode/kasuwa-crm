@@ -81,6 +81,12 @@ function seededUser(id: string): string {
 const BANK_X = seededProgramme(PROGRAMME_A1);
 const TELCO_Y = seededProgramme(PROGRAMME_A2);
 const ADMIN_NAME = seededUser(LIVE_ADMIN.userId);
+// Since T-0032 every admin WRITE needs tenant admin or the programme's admin
+// set. The live console writes as Musa, the seed's Tenant A administrator; if
+// the seed ever stops making him one, fail here rather than as twenty 403s.
+if (tenantA.users.find((user) => user.id === LIVE_ADMIN.userId)?.isTenantAdmin !== true) {
+  throw new Error('the live admin identity is not a seeded tenant administrator');
+}
 /** Members of A1 in the seed: the A1 agent and the supervisor. */
 const A1_MEMBERS = (tenantA.users ?? [])
   .filter((user) => user.programmeIds.includes(PROGRAMME_A1))

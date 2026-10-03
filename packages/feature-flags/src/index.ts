@@ -56,20 +56,26 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
-   * T-0035: the twenty-two P02 admin screens answer from the real admin API
-   * against the tenant's own data. Off, the console renders exactly as it did
-   * before the API existed. KPIs (`P02/B2`) and skill cover (`P02/B3`) have no
-   * endpoint behind them yet, so with this ON they show labelled sample data
-   * that lives inside apps/web.
+   * T-0035: the P02 console's PRESENTATION of the two panels the admin API has
+   * not built. With it ON, KPIs (`P02/B2`) and skill cover (`P02/B3`) show
+   * labelled sample data from inside apps/web instead of calling their
+   * missing endpoints, and the e2e harness drives the console against the
+   * real API on the flag-on process.
+   *
+   * IT IS NOT AN ACCESS CONTROL, AND IT DOES NOT GATE THE ADMIN API.
+   * `apps/web/lib/admin-api.ts` calls the same same-origin `/api/v1/admin`
+   * paths whether it is on or off, and nothing on the API reads it. Who may
+   * read or write admin data is decided by the API's session and the
+   * permissions engine (T-0032), never by this flag.
    */
   admin_live_api: {
-    description: 'P02 admin console reads and writes the real admin API (T-0035).',
+    description:
+      'P02 KPIs and skill cover show labelled sample data in place of their unbuilt endpoints (T-0035). Not an access control.',
     defaultValue: false,
-    owner: 'T-0035 (screens), T-0032 (authorisation)',
-    // NOT production-ready, and not because of the screens: the admin
-    // endpoints do not yet answer 403 to a caller without admin rights — the
-    // permissions engine (T-0032, D-L51) adds that. Until it lands, any
-    // authenticated user in a tenant can call them. T-0032 flips this.
+    owner: 'T-0035',
+    // Kept NOT production-ready for now (lead, 2026-10-03): sample figures in
+    // front of a production supervisor are a product decision, made with the
+    // T-0032 authorisation work reviewed end to end, not as a side effect.
     productionReady: false,
   },
 } as const satisfies Record<string, FlagDefinition>;

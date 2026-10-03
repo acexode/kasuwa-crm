@@ -38,6 +38,10 @@ export async function selfServeSignupEnabled(): Promise<boolean> {
  * evaluation carries a sentinel that no per-tenant rule can match, exactly
  * like sign-up above. Read by the P02 server pages and passed to the client
  * screens as a boolean; a `'use client'` module never evaluates a flag.
+ *
+ * It switches presentation only — KPIs and skill cover to labelled sample
+ * data. It grants and withholds nothing: the admin API is called the same way
+ * either way, and access is the API's permissions engine (T-0032).
  */
 const ADMIN_CONSOLE = 'process:admin-console';
 

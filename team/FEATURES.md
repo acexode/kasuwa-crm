@@ -153,7 +153,7 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | Kind | ID | Feature | State | Flag | Decision | Source |
 |---|---|---|---|---|---|---|
 | flag | `self_serve_signup` | Public sign-up, verification and data-region choice (P01/3, P01/4, P01/5.1). | flagged-off | `self_serve_signup` | D-P2 | packages/feature-flags/src/index.ts |
-| flag | `admin_live_api` | P02 admin console reads and writes the real admin API (T-0035). | flagged-off | `admin_live_api` | — | packages/feature-flags/src/index.ts |
+| flag | `admin_live_api` | P02 KPIs and skill cover show labelled sample data in place of their unbuilt endpoints (T-0035). Not an access control. | flagged-off | `admin_live_api` | — | packages/feature-flags/src/index.ts |
 
 ## Deferred decisions
 

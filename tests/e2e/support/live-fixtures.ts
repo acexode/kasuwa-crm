@@ -21,7 +21,11 @@ import { TENANT_A, USER_A_SUPERVISOR } from '@kasuwa/db';
 
 const A = '11111111-0000-4000-8000-';
 
-/** The live console signs in as Musa Bello: Tenant A, member of A1 and A2. */
+/**
+ * The live console signs in as Musa Bello: Tenant A, member of A1 and A2, and
+ * the seed's tenant administrator — which T-0032's permissions engine requires
+ * for every admin write the live spec makes.
+ */
 export const LIVE_ADMIN = { tenantId: TENANT_A, userId: USER_A_SUPERVISOR } as const;
 
 export const LIVE_OBJECT = {

@@ -35,17 +35,20 @@ just the link to it — is hidden. The e2e run starts a second web server with
 the flags on in its environment (`tests/e2e/scripts/run-e2e.mjs`); nothing a
 browser sends can turn one on, and a test tries.
 
-**`admin_live_api` (T-0035)** is the second flag, also not production-ready
-(the admin endpoints have no 403 until T-0032). The console calls the same
-`/api/v1/admin` paths either way; what the flag changes is the two panels the
-API cannot answer yet. With it ON, KPIs (`P02/B2`) and skill cover (`P02/B3`)
-render sample data from `lib/admin-sample.ts` inside `components/admin/
-sample-data.tsx` — `data-source="mock"` plus a visible, translated "Sample
-data" label. Sample data lives in the app, never in a test mock. The
-programme page reads the flag and passes a `live` boolean down; no client
-module names the flag. `tests/e2e/p02-live.spec.ts` (`@p02-live`) drives all
-twenty-two screens against the real API and the seeded database with no
-interception; `p02-admin.spec.ts` keeps the contract-mock states.
+**`admin_live_api` (T-0035)** is the second flag, also not production-ready.
+**It is not an access control and it does not gate the admin API**: the
+console calls the same same-origin `/api/v1/admin` paths either way, and who
+may read or write is decided by the API session and the permissions engine
+(T-0032). What the flag changes is presentation: with it ON, KPIs (`P02/B2`)
+and skill cover (`P02/B3`) — the two reads the API has not built — render
+sample data from `lib/admin-sample.ts` inside `components/admin/
+sample-data.tsx`, with `data-source="mock"` plus a visible, translated "Sample
+data" label; and the e2e harness runs the live console on the flag-on process.
+Sample data lives in the app, never in a test mock. The programme page reads
+the flag and passes a `live` boolean down; no client module names the flag.
+`tests/e2e/p02-live.spec.ts` (`@p02-live`) drives all twenty-two screens
+against the real API and the seeded database with no interception;
+`p02-admin.spec.ts` keeps the contract-mock states.
 
 **A programme with no retention policy answers `404`** (D-L50). `P02/B7` shows
 that as "no rules saved yet" with every period unchosen — never pre-selected —

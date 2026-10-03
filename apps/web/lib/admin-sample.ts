@@ -7,8 +7,10 @@ import type { ProgrammeKpis, Result, SkillCover } from './admin-api';
  * `getProgrammeKpis` and `getProgrammeSkillCover` are the only operations in
  * `docs/api/admin.openapi.yaml` still marked `x-kasuwa-implemented: false`:
  * KPIs need an interaction aggregate and skill cover needs the WFM forecast
- * (ADR-0003), and neither exists. With `admin_live_api` ON, every other read
- * on the console comes from the real API, and these two come from HERE.
+ * (ADR-0003), and neither exists. Every other read on the console is the real
+ * `/api/v1/admin` request whatever the flag says; with `admin_live_api` ON,
+ * these two come from HERE instead of their missing endpoints. The flag is a
+ * presentation switch, not an access control (that is T-0032's engine).
  *
  * Three rules, and the screen is wrong if any of them breaks:
  *

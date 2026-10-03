@@ -197,11 +197,22 @@ function startDatabase() {
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 
+  // Listened for at SPAWN, not at teardown. When start-stack fails early (no
+  // container runtime, a bad migration) its 'exit' has already fired by the
+  // time teardown runs, and a listener attached then waits forever — the
+  // whole run hung after printing its error (found in T-0035, on a machine
+  // without Docker).
+  const exited = new Promise((done) => child.once('exit', done));
+
   cleanups.push(async () => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      return;
+    }
     child.stdin.end();
-    const exited = new Promise((done) => child.on('exit', done));
     const timer = setTimeout(() => killTree(child), SHUTDOWN_GRACE_MS);
-    await exited;
+    // Bounded even after the kill: on Windows `taskkill` of the shim may not
+    // deliver an 'exit' for the process we hold, and teardown must finish.
+    await Promise.race([exited, sleep(SHUTDOWN_GRACE_MS * 2)]);
     clearTimeout(timer);
   });
 
@@ -356,11 +367,13 @@ function startWeb(apiUrl, port) {
  * `apps/web/next.config.mjs`).
  *
  * `admin_live_api` RIDES ON THE SAME PROCESS (T-0035). It is not
- * production-ready either (the admin endpoints have no 403 until T-0032), so a
- * flag-on console could only ever be `next dev` too, and a third Next process
- * would cost the CI runner another gigabyte for no extra evidence. The two
- * flags gate disjoint routes — sign-up's three screens and the P02 console's
- * data source — so neither can mask the other. The `@p02-live` specs reach the
+ * production-ready either, so a flag-on console could only ever be `next dev`
+ * too, and a third Next process would cost the CI runner another gigabyte for
+ * no extra evidence. It is a presentation switch, not an access control: it
+ * swaps the two unbuilt KPI and skill-cover panels for labelled sample data,
+ * and the console calls the same admin API either way. The two flags touch
+ * disjoint screens — sign-up's three routes and two P02 panels — so neither
+ * can mask the other. The `@p02-live` specs reach the
  * real API and the seeded database through this process with no interception;
  * the mocked `@p02` suite keeps running against the default server above, with
  * every flag at its default.
