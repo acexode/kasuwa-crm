@@ -27,8 +27,10 @@ import { asUser, createApi } from '../support/api';
  * THE INTERFACE THE BUILDER MUST PROVIDE
  * ------------------------------------------------------------------------
  *
- * 1. An importable function, exported from `@kasuwa/domain-core`
- *    (packages/domain/core/src/index.ts), defined in a file under
+ * 1. An importable function, exported from the SUBPATH
+ *    `@kasuwa/domain-core/provisioning` (NOT the main entry, which apps/api
+ *    imports — D-L54 amended 2026-10-03 after the T-0015 security review),
+ *    defined in a file under
  *    packages/domain/core/src/ — the same package as `createProgramme`, which
  *    it must call:
  *
@@ -56,7 +58,7 @@ import { asUser, createApi } from '../support/api';
  *        setupCredential: string;         // one-time; returned once, never stored or logged
  *      }
  *
- *    plus three error classes, also exported from `@kasuwa/domain-core`:
+ *    plus three error classes, also exported from `@kasuwa/domain-core/provisioning`:
  *      TenantSlugTakenError    — the slug already exists (any tenant)
  *      InvalidTenantSlugError  — reserved, too short/long, non-ASCII, punycode, ...
  *      InvalidRegionError      — anything that is not one of the region codes
@@ -156,7 +158,8 @@ const REQUIRED_EXPORTS: readonly (keyof ProvisioningModule)[] = [
 
 // Typed as `string`, not as the literal, so tsc checks this file against the
 // local interface above rather than against exports that do not exist yet.
-const DOMAIN_CORE: string = '@kasuwa/domain-core';
+const DOMAIN_CORE: string = '@kasuwa/domain-core/provisioning';
+const DOMAIN_CORE_MAIN: string = '@kasuwa/domain-core';
 
 async function loadProvisioning(): Promise<ProvisioningModule> {
   const loaded = (await import(DOMAIN_CORE)) as Partial<Record<keyof ProvisioningModule, unknown>>;
@@ -242,6 +245,14 @@ describe('acceptance: sales-led tenant provisioning (T-0015)', () => {
   const server = () => app.getHttpServer();
 
   // --- immediately usable ----------------------------------------------------
+
+  it('keeps provisioning OFF the domain-core main entry that apps/api imports (D-L54)', async () => {
+    const main = (await import(DOMAIN_CORE_MAIN)) as Record<string, unknown>;
+    expect(
+      main.provisionTenant,
+      'provisionTenant must only be reachable via the provisioning subpath',
+    ).toBeUndefined();
+  });
 
   it('lets the first admin sign in through the real auth API with the one-time setup credential', async () => {
     const options = primaryOptions();
