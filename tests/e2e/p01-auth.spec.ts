@@ -315,22 +315,15 @@ test.describe('P01/1d — slow network', () => {
 
   test('records what the sign-in page costs @p01', async ({ page }) => {
     /**
-     * FAILS TODAY, ON PURPOSE, AND THE REASON IS THE POINT (D-L28).
-     *
-     * The harness runs `next dev`. What crosses the wire here is a development
-     * bundle — unminified, one request per module, no tree-shaking — and it
-     * measures about 2.3 MB against the 251 KB the same screen weighs when
-     * built. A budget set against 2.3 MB would be nine times too slack to catch
-     * any regression; the real budget cannot pass against a dev server.
-     *
-     * The instruction was not to split that difference, so this does not: the
-     * assertion is the REAL one, pinned near the production weight, and it is
-     * marked `fixme` until T-0010 makes the e2e job build the app. Flipping one
-     * line then turns it into a live gate. A budget quietly loosened to make a
-     * dev server pass is indistinguishable from no budget at all, and it is
-     * what nobody would ever come back to tighten.
+     * LIVE SINCE T-0010 (D-L28). This was held as `fixme` while the harness
+     * ran `next dev`, whose ~2.3 MB development bundle made any budget here
+     * meaningless. The harness now serves `next build` + `next start`, so this
+     * is measured against what ships. On the T-0010 build this page transferred
+     * 240,015 bytes — lighter than the 256,948 recorded below, so the budget
+     * has more headroom than the paragraph below describes; re-pinning it is
+     * this screen's owner's call. The sign-in critical path is also held to its
+     * own, tighter budget in `byte-budget.spec.ts`.
      */
-    test.fixme(true, 'D-L28: the e2e job runs `next dev`; T-0010 makes it build first.');
 
     const { webUrl } = stack();
     const metrics = await measurePageLoad(page, webUrl, 'default');

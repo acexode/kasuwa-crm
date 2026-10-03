@@ -14,7 +14,7 @@ import { resolve } from 'node:path';
  */
 
 export interface StackUrls {
-  /** apps/web, the Next dev server. */
+  /** apps/web, a production build served by `next start` (T-0010). */
   webUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;

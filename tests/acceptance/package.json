@@ -12,7 +12,8 @@
     "@kasuwa/domain-core": "workspace:*",
     "@kasuwa/testing": "workspace:*",
     "@kasuwa/api": "workspace:*",
-    "@kasuwa/config": "workspace:*"
+    "@kasuwa/config": "workspace:*",
+    "@kasuwa/channel-adapter": "workspace:*"
   },
   "devDependencies": {
     "@nestjs/testing": "^11.0.1",

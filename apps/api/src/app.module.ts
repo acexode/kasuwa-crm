@@ -6,6 +6,11 @@ import {
 } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { createDevelopmentKeyProvider, type KeyProvider } from '@kasuwa/auth-crypto';
+import { AdminProgrammesController } from './admin/programmes/programmes.controller';
+import { FieldSecurityAdminModule } from './admin/field-security/field-security.module';
+import { AdminRolesModule } from './admin/roles/admin-roles.module';
+import { PermissionSetsController, RolesController } from './admin/roles/roles.controller';
+import { FieldSecurityController } from './admin/field-security/field-security.controller';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
 import { SignInThrottleGuard } from './auth/sign-in-throttle.guard';
@@ -24,7 +29,25 @@ import {
   telemetryOptions,
 } from './telemetry/request-telemetry';
 
-const CONTROLLERS = [HealthController, AuthController, ContactsController];
+/** Controllers hosted by this module. */
+const CONTROLLERS = [
+  HealthController,
+  AuthController,
+  ContactsController,
+  AdminProgrammesController,
+];
+
+/**
+ * Every controller in the app, including those hosted by feature modules. Used
+ * only for the telemetry vocabulary: a segment missing here becomes `:param` in
+ * an unmatched path's `url.template`, which is safe but less useful.
+ */
+const TELEMETRY_CONTROLLERS = [
+  ...CONTROLLERS,
+  RolesController,
+  PermissionSetsController,
+  FieldSecurityController,
+];
 
 export interface AppModuleOptions {
   databaseUrl: string;
@@ -89,12 +112,19 @@ export class AppModule implements NestModule {
   static forRoot(options: AppModuleOptions): DynamicModule {
     return {
       module: AppModule,
+      // Global, exporting AUTH_MODE, so a feature module's controllers can use
+      // KasuwaAuthGuard: Nest resolves a guard's dependencies in the module
+      // that hosts the controller, and AUTH_MODE is configured only here.
+      global: true,
+      exports: [AUTH_MODE],
       imports: [
         DatabaseModule.forRoot(
           options.poolMax === undefined
             ? { databaseUrl: options.databaseUrl }
             : { databaseUrl: options.databaseUrl, poolMax: options.poolMax },
         ),
+        FieldSecurityAdminModule.register({ authMode: options.authMode ?? 'stub' }),
+        AdminRolesModule,
       ],
       controllers: CONTROLLERS,
       providers: [
@@ -115,7 +145,7 @@ export class AppModule implements NestModule {
         { provide: APP_FILTER, useClass: ValidationExceptionFilter },
         {
           provide: TELEMETRY_OPTIONS,
-          useValue: telemetryOptions(options.cell ?? 'local', CONTROLLERS),
+          useValue: telemetryOptions(options.cell ?? 'local', TELEMETRY_CONTROLLERS),
         },
       ],
     };

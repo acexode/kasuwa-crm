@@ -6,7 +6,13 @@ import {
   type KeyProvider,
 } from '@kasuwa/auth-crypto';
 import { Client } from 'pg';
-import { SEED_CONTACTS, SEED_PASSWORD, SEED_TENANTS, seedTotpSecret } from './fixtures';
+import {
+  SEED_CONTACTS,
+  SEED_PASSWORD,
+  SEED_PERMISSION_SETS,
+  SEED_TENANTS,
+  seedTotpSecret,
+} from './fixtures';
 import { newId } from './ids';
 
 /**
@@ -187,6 +193,14 @@ export async function runSeed(options: SeedOptions): Promise<void> {
           );
         }
       }
+    }
+
+    for (const set of SEED_PERMISSION_SETS) {
+      await client.query(
+        `INSERT INTO permission_set (id, tenant_id, key, label, locked, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [set.id, set.tenantId, set.key, set.label, set.locked, set.sortOrder],
+      );
     }
 
     for (const contact of SEED_CONTACTS) {
