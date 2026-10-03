@@ -83,7 +83,7 @@ have closed.
 ## Acceptance tests
 
 To be written by the lead when this is assigned, at
-`tests/acceptance/platform/auth-availability.pending.acceptance.test.ts`.
+`tests/acceptance/platform/auth-availability.acceptance.test.ts`.
 
 Behaviours they will name:
 

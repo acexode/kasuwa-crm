@@ -95,7 +95,7 @@ Two more corrections belong with the sweep:
 ## Acceptance tests
 
 To be written by the lead when this is assigned, at
-`tests/acceptance/auth/enrolment.pending.acceptance.test.ts`.
+`tests/acceptance/auth/enrolment.acceptance.test.ts`.
 
 Behaviours they will name:
 
