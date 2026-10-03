@@ -4,7 +4,14 @@ import { createKeyProvider } from '@kasuwa/auth-crypto';
 import { env } from '@kasuwa/config';
 import { initialiseFeatureFlags } from '@kasuwa/feature-flags';
 import { AppModule } from './app.module';
+import { installProcessErrorHandlers } from './common/process-errors';
 import { startTelemetry } from './telemetry/sdk';
+
+// First, before anything can throw: an uncaught error or unhandled rejection
+// logs only its scrubbed class and code (T-0036), then exits 1 as Node would.
+installProcessErrorHandlers(process, (line) => {
+  process.stderr.write(`${line}\n`);
+});
 
 /**
  * API entrypoint.

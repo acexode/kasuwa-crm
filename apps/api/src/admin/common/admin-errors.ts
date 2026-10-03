@@ -34,7 +34,8 @@ export type AdminErrorCode =
   | 'legal_hold_active'
   | 'too_many_requests'
   | 'not_implemented'
-  | 'service_unavailable';
+  | 'service_unavailable'
+  | 'internal_error';
 
 export interface AdminErrorDetail {
   path: string;
@@ -136,7 +137,9 @@ export function toDetails(issue: ZodIssue): AdminErrorDetail[] {
  * `UnauthorizedException`, the session guard's `AuthError` and the
  * scope-header `BadRequestException` arrive here too and leave with a `code`
  * and no echo of their message. Any other status keeps its own body; a
- * non-HTTP error is not caught and stays a plain 500.
+ * non-HTTP error is not caught here: it falls through to the global
+ * `UnexpectedErrorFilter` (T-0036), which answers the fixed `internal_error`
+ * 500 and logs only the error's class, code and route template.
  */
 export function toAdminError(
   exception: HttpException | ZodError | InvalidCursorError,

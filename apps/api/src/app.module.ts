@@ -21,6 +21,7 @@ import { CHANNEL, createApiChannel } from './messaging/channel';
 import { AUTH_MODE, KasuwaAuthGuard, type ResolvedAuthMode } from './tenancy/kasuwa-auth.guard';
 import { StubAuthGuard } from './tenancy/stub-auth.guard';
 import { TenantTransactionInterceptor } from './tenancy/tenant-transaction.interceptor';
+import { UnexpectedErrorFilter } from './common/unexpected-error.filter';
 import { ValidationExceptionFilter } from './common/zod-exception.filter';
 import {
   RequestTelemetryMiddleware,
@@ -152,6 +153,10 @@ export class AppModule implements NestModule {
           useValue: createApiChannel(options.channelProvider ?? defaultChannelProvider(nodeEnv())),
         },
         { provide: APP_FILTER, useClass: ValidationExceptionFilter },
+        // The catch-all (T-0036, D-L42): replaces Nest's default handler, which
+        // logs an unexpected error's message and stack. It delegates Zod and
+        // cursor errors to the filter above, so their order does not matter.
+        { provide: APP_FILTER, useClass: UnexpectedErrorFilter },
         {
           provide: TELEMETRY_OPTIONS,
           useValue: telemetryOptions(options.cell ?? 'local', TELEMETRY_CONTROLLERS),

@@ -3284,6 +3284,10 @@ components:
         **Switch on `code`.** `message` is an English fallback for logs and for
         a client with no catalogue; it is not a stable interface. Localise as
         `admin.error.<code>`.
+
+        `internal_error` (500) is ONE fixed body for every unexpected failure
+        (T-0036): it carries no database text, SQLSTATE, class name or id, so
+        it never says which constraint or code path was hit.
       properties:
         statusCode: { type: integer }
         error: { type: string, description: The HTTP reason phrase. }
@@ -3303,6 +3307,7 @@ components:
             - too_many_requests
             - not_implemented
             - service_unavailable
+            - internal_error
         message: { type: string }
         details:
           type: array

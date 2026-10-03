@@ -9,7 +9,12 @@ import { resolve } from 'node:path';
  *
  *   `packages/testing/src/telemetry.ts`, exported from `@kasuwa/testing`:
  *     collectTelemetry(fn): Promise<{
- *       spans: { name: string; traceId: string; attributes: Record<string, unknown> }[];
+ *       spans: {
+ *         name: string;
+ *         traceId: string;
+ *         attributes: Record<string, unknown>;
+ *         events: { name: string; attributes: Record<string, unknown> }[];
+ *       }[];
  *       logs:  Record<string, unknown>[];
  *     }>
  *
@@ -19,6 +24,15 @@ import { resolve } from 'node:path';
  *
  *   `traceId` is the span's own trace id as the SDK recorded it
  *   (`spanContext().traceId`, 32 lowercase hex characters).
+ *
+ *   `events` (added by T-0036, D-L42) is every event the SDK recorded on the
+ *   span (`ReadableSpan.events`), in order: its `name` and a copy of its
+ *   `attributes` (`{}` when it has none), on EVERY span, an empty array when
+ *   there were none. `span.recordException(error)` is an event named
+ *   `exception` carrying `exception.message` and `exception.stacktrace`, which
+ *   is exactly where a database error's text would land; without this field
+ *   the PII grep cannot see it. The T-0036 suite fails on a span without an
+ *   `events` array rather than treating it as "no events".
  *
  *   An INBOUND API span is identified the way OpenTelemetry's HTTP semantic
  *   conventions identify one: it carries an `http.route` attribute. Client
@@ -30,6 +44,14 @@ import { resolve } from 'node:path';
 export interface RecordedSpan {
   name: string;
   traceId: string;
+  attributes: Record<string, unknown>;
+  /** T-0036: the span's events, in order; `[]` when there were none. */
+  events: RecordedSpanEvent[];
+}
+
+/** One event recorded on a span (T-0036), e.g. `exception` from `recordException`. */
+export interface RecordedSpanEvent {
+  name: string;
   attributes: Record<string, unknown>;
 }
 
