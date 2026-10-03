@@ -1,6 +1,5 @@
 import {
   Body,
-  Controller,
   Delete,
   Get,
   HttpCode,
@@ -10,14 +9,10 @@ import {
   Post,
   Put,
   Query,
-  UseFilters,
-  UseGuards,
-  UseInterceptors,
 } from '@nestjs/common';
-import { KasuwaAuthGuard } from '../../tenancy/kasuwa-auth.guard';
 import { currentTx } from '../../tenancy/tenant-context';
-import { TenantTransactionInterceptor } from '../../tenancy/tenant-transaction.interceptor';
-import { AdminErrorFilter, notFound } from './admin-errors';
+import { AdminController } from '../common/admin-controller.decorator';
+import { parseIdOr404 } from '../common/admin-input';
 import {
   CreateRoleBody,
   DeleteRoleQuery,
@@ -42,10 +37,7 @@ import * as roles from './roles.service';
  *   - createRole, updateRole, deleteRole and updateRoleHierarchy are
  *     `x-kasuwa-audited: true`, and there is no audit table to write to.
  */
-@Controller('api/v1/admin/roles')
-@UseGuards(KasuwaAuthGuard)
-@UseInterceptors(TenantTransactionInterceptor)
-@UseFilters(AdminErrorFilter)
+@AdminController('api/v1/admin/roles')
 export class RolesController {
   /** `GET /api/v1/admin/roles` — operationId `listRoles`. 200 `RoleList`; 401. */
   @Get()
@@ -96,10 +88,7 @@ export class RolesController {
  * `GET /api/v1/admin/field-security/permission-sets` — operationId
  * `listPermissionSets`. 200 `PermissionSetList`; 401. Tenant-level (D-P9).
  */
-@Controller('api/v1/admin/field-security/permission-sets')
-@UseGuards(KasuwaAuthGuard)
-@UseInterceptors(TenantTransactionInterceptor)
-@UseFilters(AdminErrorFilter)
+@AdminController('api/v1/admin/field-security/permission-sets')
 export class PermissionSetsController {
   @Get()
   list() {
@@ -109,7 +98,5 @@ export class PermissionSetsController {
 
 /** A malformed id names nothing, so it is `404`, never a `400` that says "that is not an id". */
 function parseRoleId(params: unknown): string {
-  const parsed = RoleIdParam.safeParse(params);
-  if (!parsed.success) throw notFound();
-  return parsed.data.roleId;
+  return parseIdOr404(RoleIdParam, params).roleId;
 }
