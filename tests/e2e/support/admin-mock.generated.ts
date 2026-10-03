@@ -31,7 +31,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "archiveProgramme",
     "method": "POST",
     "path": "/api/v1/admin/programmes/{programmeId}/archive",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/B9"
@@ -289,7 +289,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "createProgramme",
     "method": "POST",
     "path": "/api/v1/admin/programmes",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/B",
@@ -376,7 +376,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "createRole",
     "method": "POST",
     "path": "/api/v1/admin/roles",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/C"
@@ -517,7 +517,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "deleteRole",
     "method": "DELETE",
     "path": "/api/v1/admin/roles/{roleId}",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/C3"
@@ -1007,7 +1007,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getProgrammeArchivePreview",
     "method": "GET",
     "path": "/api/v1/admin/programmes/{programmeId}/archive-preview",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/B9"
@@ -1279,7 +1279,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getRole",
     "method": "GET",
     "path": "/api/v1/admin/roles/{roleId}",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/C",
@@ -1715,7 +1715,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listPermissionSets",
     "method": "GET",
     "path": "/api/v1/admin/field-security/permission-sets",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/D",
@@ -2089,7 +2089,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listRoles",
     "method": "GET",
     "path": "/api/v1/admin/roles",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/C",
@@ -2703,7 +2703,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "updateRole",
     "method": "PATCH",
     "path": "/api/v1/admin/roles/{roleId}",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/C",
@@ -2798,7 +2798,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "updateRoleHierarchy",
     "method": "PUT",
     "path": "/api/v1/admin/roles/hierarchy",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/C1",

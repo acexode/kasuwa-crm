@@ -64,6 +64,16 @@ export function duplicateName(): AdminError {
   );
 }
 
+/**
+ * `confirmation` was not the programme's exact name. Path and reason only —
+ * neither the submitted text nor the name is echoed.
+ */
+export function confirmationMismatch(): AdminError {
+  return new AdminError(HttpStatus.BAD_REQUEST, 'validation_failed', 'Validation failed', [
+    { path: 'confirmation', code: 'mismatch' },
+  ]);
+}
+
 export function invalidCursor(): AdminError {
   return new AdminError(HttpStatus.BAD_REQUEST, 'validation_failed', 'Validation failed', [
     { path: 'cursor', code: 'invalid_cursor' },
