@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validationFailed } from './programmes.errors';
+import { validationFailedFrom } from '../common/admin-errors';
 import { initialsOf } from './programmes.presenter';
 import { ListProgrammesQuery, UpdateProgrammeBody } from './programmes.schemas';
 
@@ -11,7 +11,7 @@ function detailsOf(
   if (result.success) {
     throw new Error('expected a validation failure');
   }
-  return (validationFailed(result.error).getResponse() as { details: unknown[] }).details;
+  return (validationFailedFrom(result.error).getResponse() as { details: unknown[] }).details;
 }
 
 describe('programmes boundary (T-0024)', () => {
