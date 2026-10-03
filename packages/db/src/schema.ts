@@ -281,6 +281,8 @@ export const objectDef = pgTable(
     pluralLabel: text('plural_label'),
     description: text('description'),
     isCustom: boolean('is_custom').notNull().default(true),
+    /** The field-security matrix's optimistic-concurrency version (0009). */
+    fieldSecurityVersion: integer('field_security_version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -305,6 +307,8 @@ export const fieldDef = pgTable(
     isRequired: boolean('is_required').notNull().default(false),
     isCustom: boolean('is_custom').notNull().default(true),
     config: jsonb('config').notNull().default({}),
+    /** `none` | `pii` | `sensitive` (0009, D-L45). Drives the matrix's filter and row tag. */
+    classification: text('classification').notNull().default('none'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -385,6 +389,28 @@ export const disposition = pgTable('disposition', {
 });
 
 /**
+ * The field-security matrix's decisions (migration 0009, T-0026): one row per
+ * (field, permission set). Tenant-level and deliberately NOT programme-scoped
+ * (D-P9) - see the header of 0009 before adding a `programmeId`. A missing row
+ * means the default level (`edit`, D-L45).
+ */
+export const fieldSecurityGrant = pgTable(
+  'field_security_grant',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    fieldId: uuid('field_id').notNull(),
+    permissionSetId: uuid('permission_set_id').notNull(),
+    level: text('level').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tenantId, table.fieldId, table.permissionSetId] }),
+    index('field_security_grant_tenant_set_idx').on(table.tenantId, table.permissionSetId),
+  ],
+);
+
+/**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
  */
@@ -404,6 +430,7 @@ export const TENANT_SCOPED_TABLES = [
   'role',
   'permission_set',
   'disposition',
+  'field_security_grant',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];
