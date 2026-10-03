@@ -933,3 +933,12 @@ The API takes `AppModuleOptions.channelProvider` (default `FakeChannelProvider`)
 **Portal invites:** a re-invite of the same address to the same programme is a **resend**: 202, the
 same id, and a **rotated** token (the old one stops working). The list **never** returns a full
 address, only `emailMasked`; the spec text saying otherwise is wrong and is corrected in T-0030.
+
+### D-L50 — SLA and retention semantics (T-0028)
+**Status:** PROCEEDING (lead).
+An unconfigured SLA returns the platform default policy (voice and WhatsApp targets defined in code,
+version 0). An unconfigured retention policy is a 404, as the spec says; **the first retention
+write sends `version: 0`**, and 0 is stale once a policy exists. `callRecordingsDays` is stored and
+returned but **not enforced by Kasuwa**: recording retention belongs to the telephony platform (D-T4,
+deferred), and the spec description must say so. Two targets for the same channel in one SLA write
+are a 400. When a write is both stale and violates legal hold, `stale_write` wins (it is checked first).
