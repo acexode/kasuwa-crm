@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 120 rows; built 49, partial 11, mock-only 27, flagged-off 5, deferred 10, not-started 18.
+Totals: 126 rows; built 55, partial 11, mock-only 27, flagged-off 5, deferred 10, not-started 18.
 
 ## Modules
 
@@ -55,7 +55,7 @@ Every screen in the P01 and P02 e2e manifests. A screen never claims more than i
 | screen | `P01/1b` | Account locked — 1 of 1 operations built | built | — | — | tests/e2e/p01-auth.spec.ts |
 | screen | `P01/1c` | SSO domain not found — 1 of 1 operations built | built | — | — | tests/e2e/p01-auth.spec.ts |
 | screen | `P01/1d` | Slow network — 1 of 1 operations built | built | — | — | tests/e2e/p01-auth.spec.ts |
-| screen | `P01/2` | Two-step verification — 1 of 2 operations built; reissueMfaChallenge partial | partial | — | — | tests/e2e/p01-auth.spec.ts |
+| screen | `P01/2` | Two-step verification — 3 of 4 operations built; reissueMfaChallenge partial | partial | — | — | tests/e2e/p01-auth.spec.ts |
 | screen | `P01/2a` | Two-step verification, switch method — 0 of 1 operations built; reissueMfaChallenge partial | partial | — | — | tests/e2e/p01-auth.spec.ts |
 | screen | `P01/2b` | Two-step verification, wrong code — 1 of 2 operations built; reissueMfaChallenge partial | partial | — | — | tests/e2e/p01-auth.spec.ts |
 | screen | `P01/3` | Sign up — 0 of 1 operations built; signUp not-started | flagged-off | `self_serve_signup` | D-P2 | tests/e2e/p01-auth.spec.ts |
@@ -139,6 +139,12 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `signIn` | POST /api/v1/auth/sign-in — First factor — email and password | built | — | — | docs/api/auth.openapi.yaml |
 | operation | `reissueMfaChallenge` | POST /api/v1/auth/mfa/challenge — Re-issue or switch the second-factor challenge | partial | — | — | docs/api/auth.openapi.yaml |
 | operation | `verifyMfa` | POST /api/v1/auth/mfa — Second factor — verify the code and establish the session | built | — | — | docs/api/auth.openapi.yaml |
+| operation | `startMfaEnrolment` | POST /api/v1/auth/mfa/enrol — Start TOTP enrolment for a user with no second factor (T-0012) | built | — | — | docs/api/auth.openapi.yaml |
+| operation | `confirmMfaEnrolment` | POST /api/v1/auth/mfa/enrol/confirm — Confirm the pending factor and establish the session (T-0012) | built | — | — | docs/api/auth.openapi.yaml |
+| operation | `getMyMfa` | GET /api/v1/auth/me/mfa — The current user's second-factor status (T-0012) | built | — | — | docs/api/auth.openapi.yaml |
+| operation | `startTotpReplacement` | POST /api/v1/auth/me/mfa/totp — Start replacing the TOTP factor (step-up, T-0012) | built | — | — | docs/api/auth.openapi.yaml |
+| operation | `confirmTotpReplacement` | POST /api/v1/auth/me/mfa/totp/confirm — Confirm the replacement factor (T-0012) | built | — | — | docs/api/auth.openapi.yaml |
+| operation | `regenerateBackupCodes` | POST /api/v1/auth/me/mfa/backup-codes — Regenerate the backup codes (step-up, T-0012) | built | — | — | docs/api/auth.openapi.yaml |
 | operation | `signOut` | POST /api/v1/auth/sign-out — Revoke the current session | built | — | — | docs/api/auth.openapi.yaml |
 | operation | `getCurrentUser` | GET /api/v1/auth/me — The current user | built | — | — | docs/api/auth.openapi.yaml |
 | operation | `lookupSso` | POST /api/v1/auth/sso/lookup — Find the SSO connection for an email domain | built | — | — | docs/api/auth.openapi.yaml |
