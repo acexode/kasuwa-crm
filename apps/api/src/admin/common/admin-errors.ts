@@ -83,6 +83,14 @@ export const notAuthenticated = (): AdminError =>
 export const notFound = (): AdminError =>
   new AdminError(HttpStatus.NOT_FOUND, 'not_found', 'Not found');
 
+/**
+ * `NotPermitted`: narrow, and never a substitute for `notFound`. The caller can
+ * already see the thing and may not perform this action on it - e.g. a change
+ * to a padlocked permission set (T-0026). If unsure, it is `notFound`.
+ */
+export const notPermitted = (): AdminError =>
+  new AdminError(HttpStatus.FORBIDDEN, 'not_permitted', 'You do not have permission to do that.');
+
 export const staleWrite = (): AdminError =>
   new AdminError(
     HttpStatus.CONFLICT,
