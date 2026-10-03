@@ -1,21 +1,21 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import { PROGRAMME_A1, SEED_CONTACTS, TENANT_A, USER_A_AGENT_1 } from '@kasuwa/db';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { asUser, createApi } from '../support/api';
+import { collectTelemetry, isInboundApiSpan, type RecordedSpan } from '../support/telemetry';
 
 /**
  * ACCEPTANCE — T-0005, observability skeleton (Agent 13, DevOps).
  *
- * PENDING. `pnpm test:pending` runs them. Renaming this file to drop
- * `.pending` is what assigns the task.
+ * ACTIVE. Promoted out of `.pending` when T-0005 was assigned (D-L23), so the
+ * blocking `isolation` project enforces it from here on.
  *
- * These supersede the `it.todo` entries in
- * `tests/acceptance/platform/observability.acceptance.test.ts` for the two
- * behaviours that actually carry risk. The rest of that stub stays as a
- * checklist.
+ * Scope of this file is the telemetry path only. The CI assertions that used
+ * to sit here moved to `platform/ci-hardening.acceptance.test.ts`, and the
+ * "nothing was provisioned" assertion to
+ * `platform/environments.pending.acceptance.test.ts`, because environments are
+ * not part of this round of T-0005.
  *
  * ------------------------------------------------------------------------
  * WHY THE PII ASSERTION IS THE WHOLE POINT
@@ -38,28 +38,13 @@ import { asUser, createApi } from '../support/api';
  * fields someone thought of is not what is being asserted here.
  * ------------------------------------------------------------------------
  *
- * THE CONTRACT for Agent 13. Internals are yours; these are not:
- *
- *   `packages/testing/src/telemetry.ts`, exported from `@kasuwa/testing`:
- *     collectTelemetry(fn): Promise<{
- *       spans: { name: string; attributes: Record<string, unknown> }[];
- *       logs:  Record<string, unknown>[];
- *     }>
- *
- *   It installs an in-memory span exporter and log sink for the duration of
- *   `fn` and restores whatever was there before. It lives in `@kasuwa/testing`
- *   because that package is already lint-fenced out of application code.
+ * The contract Agent 13 must provide (`collectTelemetry()` in
+ * `packages/testing/src/telemetry.ts`) is stated in `../support/telemetry.ts`.
  */
 
 /** A seeded contact tenant A can legitimately read — reused, never re-invented. */
 const CONTACT_A1_1 = SEED_CONTACTS.filter((contact) => contact.programmeId === PROGRAMME_A1)[0]
   ?.id;
-
-const repoRoot = resolve(__dirname, '..', '..', '..');
-
-function fromRoot(...segments: string[]): string {
-  return resolve(repoRoot, ...segments);
-}
 
 /**
  * Deliberately PII-heavy, and deliberately values that cannot occur by chance.
@@ -77,37 +62,28 @@ const PII = {
   name: 'Adaeze Okonkwo-PiiProbe',
 } as const;
 
-/** A recorded span, reduced to the two things these assertions care about. */
-interface RecordedSpan {
-  name: string;
-  attributes: Record<string, unknown>;
-}
-
-interface Telemetry {
-  spans: RecordedSpan[];
-  logs: Record<string, unknown>[];
-}
-
 /**
- * Loaded by path rather than by package name, so this file typechecks before
- * `collectTelemetry` exists. It is a pending test: it has to compile today and
- * fail at runtime, not fail the typecheck gate for everyone else.
- *
- * Agent 13 may delete this indirection and import from '@kasuwa/testing'
- * directly once the export lands.
+ * Every form a value can take once it has passed through a URL. A value sent in
+ * a query string is recorded percent-encoded (`url.full`, `http.target`), so
+ * `+2348030000000` lands in a span as `%2B2348030000000` — which does not
+ * contain the raw string. Grepping only the raw form would pass on exactly the
+ * leak the query-string probe exists to catch.
  */
-async function collectTelemetry(fn: () => Promise<void>): Promise<Telemetry> {
-  const module: { collectTelemetry?: (fn: () => Promise<void>) => Promise<Telemetry> } =
-    await import(resolve(repoRoot, 'packages/testing/src/telemetry.ts'));
-
-  if (typeof module.collectTelemetry !== 'function') {
-    throw new Error('T-0005: packages/testing/src/telemetry.ts must export collectTelemetry()');
-  }
-
-  return module.collectTelemetry(fn);
+function formsOf(value: string): string[] {
+  return [...new Set([value, encodeURIComponent(value)])];
 }
 
-describe('acceptance (pending): telemetry never carries personal data', () => {
+function expectNoPii(haystack: string, what: string): void {
+  for (const [label, value] of Object.entries(PII)) {
+    for (const form of formsOf(value)) {
+      expect(haystack, `${what} leaked the ${label} it was sent (as "${form}")`).not.toContain(
+        form,
+      );
+    }
+  }
+}
+
+describe('acceptance: telemetry never carries personal data', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
@@ -141,11 +117,7 @@ describe('acceptance (pending): telemetry never carries personal data', () => {
     // Grep everything, rather than checking the fields we thought of. A
     // redaction helper that covers the known fields is the thing that fails
     // in production; this catches the unknown one.
-    const haystack = JSON.stringify({ spans, logs });
-
-    for (const [label, value] of Object.entries(PII)) {
-      expect(haystack, `telemetry leaked the ${label} it was sent`).not.toContain(value);
-    }
+    expectNoPii(JSON.stringify({ spans, logs }), 'telemetry');
   });
 
   it('records an error without recording the request that caused it', async () => {
@@ -160,16 +132,14 @@ describe('acceptance (pending): telemetry never carries personal data', () => {
 
     const haystack = JSON.stringify({ spans, logs });
 
-    for (const [label, value] of Object.entries(PII)) {
-      expect(haystack, `error telemetry leaked the ${label}`).not.toContain(value);
-    }
+    expectNoPii(haystack, 'error telemetry');
 
     // It must still be diagnosable: the route and the error type, which name
     // nobody.
     expect(haystack, 'the error is unattributable to a route').toMatch(/contacts/);
   });
 
-  it('carries tenant_id, programme_id and cell on the spans it does emit', async () => {
+  it('carries tenant_id, programme_id and cell on every API span it emits', async () => {
     // Without these a trace cannot be scoped to a tenant during an incident,
     // and the first instinct of whoever is debugging will be to add the one
     // attribute that identifies the customer — which is a person.
@@ -179,10 +149,20 @@ describe('acceptance (pending): telemetry never carries personal data', () => {
         .set(asUser(TENANT_A, USER_A_AGENT_1));
     });
 
-    const http = spans.filter((span: RecordedSpan) => 'tenant_id' in span.attributes);
-    expect(http.length, 'no span carries tenant_id').toBeGreaterThan(0);
+    // The inbound request span is held to the rule whether or not it carries
+    // tenant_id. Selecting only spans that already carry tenant_id would make
+    // the assertion check itself: an API span WITHOUT it would never be looked
+    // at, which is the defect this test exists to catch.
+    const inbound = spans.filter(isInboundApiSpan);
+    expect(inbound.length, 'no inbound API span (one with http.route) was recorded').toBeGreaterThan(
+      0,
+    );
 
-    for (const span of http) {
+    const held = spans.filter(
+      (span: RecordedSpan) => isInboundApiSpan(span) || 'tenant_id' in span.attributes,
+    );
+
+    for (const span of held) {
       expect(span.attributes.tenant_id, `${span.name}: wrong tenant_id`).toBe(TENANT_A);
       expect(span.attributes.cell, `${span.name}: no cell attribute`).toBeDefined();
       // Programme scope is resolved, never supplied — so a programme-scoped
@@ -203,65 +183,13 @@ describe('acceptance (pending): telemetry never carries personal data', () => {
         .set('x-request-id', forged);
     });
 
+    // Without this the assertion below passes on a process that records
+    // nothing, which is not the same as one that records safely.
+    expect(spans.length, 'no spans were recorded at all — is telemetry wired?').toBeGreaterThan(
+      0,
+    );
+
     const haystack = JSON.stringify(spans);
     expect(haystack, 'a client-supplied id became the trace identity').not.toContain(forged);
-  });
-});
-
-describe('acceptance (pending): CI is hardened', () => {
-  const ci = () => readFileSync(fromRoot('.github/workflows/ci.yml'), 'utf8');
-
-  it('scans for secrets, vulnerable dependencies and container CVEs', () => {
-    // NOTE: GitGuardian already runs as a GitHub App check on every PR, so
-    // secret scanning is not absent today. The ask is an in-repo scanner as
-    // well, for two reasons: it runs on a fork and on a developer's machine,
-    // where the App does not, and it fails the build rather than posting a
-    // check someone can decline to read. Dependency and container scanning
-    // have no equivalent at all.
-    const workflow = ci();
-
-    expect(workflow, 'no secret scanning').toMatch(/gitleaks|trufflehog/i);
-    expect(workflow, 'no dependency scanning').toMatch(/osv-scanner|audit|snyk/i);
-  });
-
-  it('does not rebuild the world for a one-file change', () => {
-    // Stated as a measured improvement in the task's definition of done; this
-    // is the structural half of it.
-    expect(ci(), 'CI does not use nx affected or remote caching').toMatch(
-      /nx affected|nx-cloud|NX_CLOUD/,
-    );
-  });
-
-  it('uploads test reports when a job fails', () => {
-    // A red build that cannot be diagnosed without re-running it locally gets
-    // re-run rather than read, and then gets ignored.
-    const workflow = ci();
-    expect(workflow).toMatch(/upload-artifact/);
-    expect(workflow).toMatch(/if:\s*failure\(\)/);
-  });
-
-  it('writes down what a red isolation check means', () => {
-    // The one runbook that has to exist before there is an incident, because
-    // the pressure during one is always toward merging past it.
-    const runbook = fromRoot('docs/runbooks/red-isolation-check.md');
-    expect(existsSync(runbook), 'docs/runbooks/red-isolation-check.md is missing').toBe(true);
-
-    const text = readFileSync(runbook, 'utf8');
-    expect(text, 'the runbook does not say never to merge past it').toMatch(/never merge/i);
-  });
-});
-
-describe('acceptance (pending): nothing was provisioned', () => {
-  it('writes Terraform but applies none of it', () => {
-    // D-A4 is unanswered. The task is to produce a plan and a cost estimate so
-    // it can be answered with numbers rather than a guess — not to spend money
-    // while waiting for permission to spend money.
-    const stateFiles = ['infra/terraform.tfstate', 'infra/terraform.tfstate.backup'];
-    for (const file of stateFiles) {
-      expect(existsSync(fromRoot(file)), `${file} exists — something was applied`).toBe(false);
-    }
-
-    const estimate = fromRoot('infra/COST-ESTIMATE.md');
-    expect(existsSync(estimate), 'no cost estimate for D-A4 to be answered with').toBe(true);
   });
 });

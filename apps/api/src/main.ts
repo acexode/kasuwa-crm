@@ -4,6 +4,7 @@ import { createKeyProvider } from '@kasuwa/auth-crypto';
 import { env } from '@kasuwa/config';
 import { initialiseFeatureFlags } from '@kasuwa/feature-flags';
 import { AppModule } from './app.module';
+import { startTelemetry } from './telemetry/sdk';
 
 /**
  * API entrypoint.
@@ -18,10 +19,14 @@ async function bootstrap(): Promise<void> {
 
   await initialiseFeatureFlags();
 
+  // Before the app is built, so the first request is already traced.
+  startTelemetry(configuration.KASUWA_OTEL_EXPORTER);
+
   const app = await NestFactory.create(
     AppModule.forRoot({
       databaseUrl: configuration.DATABASE_URL,
       poolMax: configuration.DATABASE_POOL_MAX,
+      cell: configuration.KASUWA_CELL,
       authMode: configuration.KASUWA_AUTH_MODE,
       // No KMS client is passed: nothing is provisioned (D-A4), so asking for
       // aws-kms here fails at boot with a configuration error rather than at

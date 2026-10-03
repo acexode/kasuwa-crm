@@ -35,3 +35,5 @@ tests/e2e/.artifacts/
 # directory and the tsconfig Next generates for it. See apps/web/next.config.mjs.
 apps/web/.next-*/
 apps/web/tsconfig.e2e-*.json
+# CI test reports (junit), uploaded as artefacts on failure.
+/reports/
