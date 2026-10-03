@@ -1026,8 +1026,13 @@ isolation test listing every permissive `FOR INSERT` policy, so a weak one canno
   there is no tenant context to open. This is the `db:seed` precedent, not an application "admin
   connection" (CLAUDE.md 2.1). `apps/api` has no migrator URL in its config, so the app cannot call
   it. Inside the command, the default programme is created through the same reusable
-  `createProgramme` under a tenant transaction for the new tenant, so the RLS rules are exercised,
-  not bypassed. The builder argues this in the PR. A third SECURITY DEFINER function still needs an ADR.
+  `createProgramme` under a tenant transaction for the new tenant. **Amended 2026-10-03 (T-0015
+  security review):** RLS is **not** exercised there, because `kasuwa_migrator` is BYPASSRLS, which
+  overrides FORCE. Safety rests on explicit `tenant_id` predicates, freshly generated ids, the composite
+  tenant FKs, and a savepoint adapter that throws on any unrecognised transaction statement. Running
+  those writes under the app role (`GRANT kasuwa_app TO kasuwa_migrator` + `SET LOCAL ROLE`) is to be
+  re-evaluated once Docker can verify it. `provisionTenant` lives on its own subpath, which `apps/**`
+  may not import. The builder argues this in the PR. A third SECURITY DEFINER function still needs an ADR.
 - **First admin:** a one-time setup credential (argon2id-hashed, printed once, never logged) that
   works as the sign-in password. MFA enrolment is required on first sign-in. Forcing a credential
   change waits for a change-password endpoint (with T-0012). The provisioning audit event waits for
