@@ -1048,3 +1048,18 @@ isolation test listing every permissive `FOR INSERT` policy, so a weak one canno
   A reorder is one event per request. A portal re-invite is audited (it rotates the token). The
   invitee's address and display name never appear in an event; `email` is a redacted change.
   Change values are strings.
+
+### D-L55 — permissions-engine hardening carried as known gaps (from the T-0032 security review)
+**Status:** TRACKED. Not exploitable through any endpoint today; each needs a fix before an endpoint
+that writes the relevant table ships.
+- `user_programme.permission_set_id` is writable by kasuwa_app for any membership in a reachable
+  programme (the T-0032 acceptance suite deliberately allows it). It must be column-restricted
+  before any "assign permissions" endpoint exists.
+- `user_programme` DELETE is still tenant-only (predates T-0032).
+- No acceptance test yet proves kasuwa_app gets 42501 on `UPDATE "user" SET is_tenant_admin`, or
+  that an UPDATE of an in-scope programme followed by a sibling membership INSERT is refused. The
+  lead adds both before T-0032 is promoted from `dev` to `main`.
+- Any future `ON UPDATE CASCADE` into `programme`, or an owner or definer trigger writing `programme`,
+  creates a forge path for the creation marker and needs a security review.
+Fixed in T-0032 itself: the creation marker also requires `created_at` within the current transaction
+(xid wraparound); `permission_set.key` is no longer updatable by the app.
