@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 119 rows; built 45, partial 11, mock-only 27, flagged-off 4, deferred 10, not-started 22.
+Totals: 119 rows; built 49, partial 11, mock-only 27, flagged-off 4, deferred 10, not-started 18.
 
 ## Modules
 
@@ -72,7 +72,7 @@ Every screen in the P01 and P02 e2e manifests. A screen never claims more than i
 | screen | `P02/B1` | No programmes yet — 2 of 2 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
 | screen | `P02/B2` | Overview — 2 of 3 operations built; getProgrammeKpis deferred; answers from the generated admin mock until T-0035 | mock-only | — | D-T1, D-T2, D-T3, D-T4, D-T5 | tests/e2e/p02-admin.spec.ts |
 | screen | `P02/B3` | Agents & skills — 1 of 2 operations built; getProgrammeSkillCover deferred; answers from the generated admin mock until T-0035 | mock-only | — | D-W1, D-W2 | tests/e2e/p02-admin.spec.ts |
-| screen | `P02/B4` | SLA, with unsaved changes — 0 of 2 operations built; getProgrammeSla not-started, updateProgrammeSla not-started; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
+| screen | `P02/B4` | SLA, with unsaved changes — 2 of 2 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
 | screen | `P02/B5` | Delete a disposition — 5 of 5 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
 | screen | `P02/C` | Role tree — 4 of 4 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
 | screen | `P02/C1` | While dragging — 2 of 2 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
@@ -80,9 +80,9 @@ Every screen in the P01 and P02 e2e manifests. A screen never claims more than i
 | screen | `P02/C3` | Delete a role — 1 of 1 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
 | screen | `P02/D` | Matrix — 4 of 4 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
 | screen | `P02/D1` | Bulk actions — 3 of 3 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
-| screen | `P02/D2` | Leave without saving? — 2 of 4 operations built; updateProgrammeSla not-started, updateProgrammeRetention not-started; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
+| screen | `P02/D2` | Leave without saving? — 4 of 4 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
 | screen | `P02/B6` | Scripts — 1 of 1 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
-| screen | `P02/B7` | Retention — 0 of 2 operations built; getProgrammeRetention not-started, updateProgrammeRetention not-started; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
+| screen | `P02/B7` | Retention — 2 of 2 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
 | screen | `P02/B8` | Portal users, empty — 2 of 2 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
 | screen | `P02/B9` | Archive programme — 2 of 2 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
 | screen | `P02/E` | Audit log — 2 of 2 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
@@ -108,16 +108,16 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `getProgrammeKpis` | GET /api/v1/admin/programmes/{programmeId}/kpis — The four overview KPI tiles (deferred: contacts handled and handle time come from the deferred telephony integration) | deferred | — | D-T1, D-T2, D-T3, D-T4, D-T5 | docs/api/admin.openapi.yaml · team/DECISION-LOG.md |
 | operation | `listProgrammeAgents` | GET /api/v1/admin/programmes/{programmeId}/agents — Agents assigned to the programme, with skills and languages | built | — | — | docs/api/admin.openapi.yaml · T-0024 |
 | operation | `getProgrammeSkillCover` | GET /api/v1/admin/programmes/{programmeId}/skill-cover — Rostered versus needed, per skill, for one shift (deferred: `needed` comes from the deferred WFM integration) | deferred | — | D-W1, D-W2 | docs/api/admin.openapi.yaml · team/DECISION-LOG.md |
-| operation | `getProgrammeSla` | GET /api/v1/admin/programmes/{programmeId}/sla — SLA targets, clock rules and escalation (contract only) | not-started | — | — | docs/api/admin.openapi.yaml · T-0028 |
-| operation | `updateProgrammeSla` | PUT /api/v1/admin/programmes/{programmeId}/sla — Save the SLA policy (contract only) | not-started | — | — | docs/api/admin.openapi.yaml · T-0028 · T-0033 |
+| operation | `getProgrammeSla` | GET /api/v1/admin/programmes/{programmeId}/sla — SLA targets, clock rules and escalation | built | — | — | docs/api/admin.openapi.yaml · T-0028 |
+| operation | `updateProgrammeSla` | PUT /api/v1/admin/programmes/{programmeId}/sla — Save the SLA policy | built | — | — | docs/api/admin.openapi.yaml · T-0028 · T-0033 |
 | operation | `listDispositions` | GET /api/v1/admin/programmes/{programmeId}/dispositions — The disposition list, in agent order, with usage | built | — | — | docs/api/admin.openapi.yaml · T-0027 |
 | operation | `createDisposition` | POST /api/v1/admin/programmes/{programmeId}/dispositions — Add a disposition | built | — | — | docs/api/admin.openapi.yaml · T-0027 |
 | operation | `reorderDispositions` | PUT /api/v1/admin/programmes/{programmeId}/dispositions/order — Reorder dispositions | built | — | — | docs/api/admin.openapi.yaml · T-0027 |
 | operation | `deleteDisposition` | DELETE /api/v1/admin/programmes/{programmeId}/dispositions/{dispositionId} — Delete a disposition | built | — | — | docs/api/admin.openapi.yaml · T-0027 |
 | operation | `updateDisposition` | PATCH /api/v1/admin/programmes/{programmeId}/dispositions/{dispositionId} — Edit a disposition, or deactivate it | built | — | — | docs/api/admin.openapi.yaml · T-0027 |
 | operation | `listProgrammeScripts` | GET /api/v1/admin/programmes/{programmeId}/scripts — Scripts configured for the programme | built | — | — | docs/api/admin.openapi.yaml · T-0027 |
-| operation | `getProgrammeRetention` | GET /api/v1/admin/programmes/{programmeId}/retention — Retention periods, disposal method and legal hold (contract only) | not-started | — | — | docs/api/admin.openapi.yaml · T-0028 |
-| operation | `updateProgrammeRetention` | PUT /api/v1/admin/programmes/{programmeId}/retention — Save the retention policy (contract only) | not-started | — | — | docs/api/admin.openapi.yaml · T-0028 · T-0033 |
+| operation | `getProgrammeRetention` | GET /api/v1/admin/programmes/{programmeId}/retention — Retention periods, disposal method and legal hold | built | — | — | docs/api/admin.openapi.yaml · T-0028 |
+| operation | `updateProgrammeRetention` | PUT /api/v1/admin/programmes/{programmeId}/retention — Save the retention policy | built | — | — | docs/api/admin.openapi.yaml · T-0028 · T-0033 |
 | operation | `listPortalUsers` | GET /api/v1/admin/programmes/{programmeId}/portal-users — Client-portal users for this programme | built | — | — | docs/api/admin.openapi.yaml · T-0030 |
 | operation | `invitePortalUser` | POST /api/v1/admin/programmes/{programmeId}/portal-users/invitations — Invite a client-portal user | built | — | — | docs/api/admin.openapi.yaml · T-0030 · T-0033 |
 | operation | `getProgrammeArchivePreview` | GET /api/v1/admin/programmes/{programmeId}/archive-preview — What archiving this programme would do | built | — | — | docs/api/admin.openapi.yaml · T-0029 |
