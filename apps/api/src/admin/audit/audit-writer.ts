@@ -38,10 +38,20 @@ export const AUDIT_ACTIONS = [
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 /**
- * D-L48, plus `field_security` for matrix cells (D-L52). Add a type here, with
- * its label in `AUDIT_OBJECT_TYPE_LABELS`, before writing one.
+ * D-L48, plus `field_security` for matrix cells (D-L52), plus the programme
+ * configuration types of D-L54 (T-0033). Add a type here, with its label in
+ * `AUDIT_OBJECT_TYPE_LABELS`, before writing one.
  */
-export const AUDIT_OBJECT_TYPES = ['role', 'programme', 'field_security', 'audit_export'] as const;
+export const AUDIT_OBJECT_TYPES = [
+  'role',
+  'programme',
+  'field_security',
+  'audit_export',
+  'sla_policy',
+  'retention_policy',
+  'disposition',
+  'portal_user',
+] as const;
 export type AuditObjectType = (typeof AUDIT_OBJECT_TYPES)[number];
 
 export const AUDIT_OBJECT_TYPE_LABELS: Record<AuditObjectType, string> = {
@@ -49,6 +59,10 @@ export const AUDIT_OBJECT_TYPE_LABELS: Record<AuditObjectType, string> = {
   programme: 'Programme',
   field_security: 'Field security',
   audit_export: 'Audit log export',
+  sla_policy: 'SLA policy',
+  retention_policy: 'Retention policy',
+  disposition: 'Disposition',
+  portal_user: 'Client-portal user',
 };
 
 export interface AuditChange {
