@@ -108,8 +108,8 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function example<T>(operationId: AdminOperationId, status: number): T {
-  return clone(contractExample(operationId, status) as T);
+function example<T>(operationId: AdminOperationId, status: number, name = 'default'): T {
+  return clone(contractExample(operationId, status, name) as T);
 }
 
 interface ProgrammeRow {
@@ -367,17 +367,12 @@ export async function installAdminMock(
       // Scripts, retention, portal users and archive — P02/B6..B9
       // ---------------------------------------------------------------------
 
-      case 'listProgrammeScripts': {
-        const body = example<{ items: unknown[]; page: Record<string, unknown> }>(
-          'listProgrammeScripts',
+      case 'listProgrammeScripts':
+        return json(
+          route,
           200,
+          example('listProgrammeScripts', 200, options.noScripts === true ? 'empty' : 'default'),
         );
-        if (options.noScripts === true) {
-          body.items = [];
-          body.page = { nextCursor: null, hasMore: false, totalCount: 0 };
-        }
-        return json(route, 200, body);
-      }
 
       case 'getProgrammeRetention': {
         const body = example<Record<string, number | string | boolean>>(
@@ -415,28 +410,14 @@ export async function installAdminMock(
         return json(route, 200, saved);
       }
 
-      case 'listPortalUsers': {
-        if (options.portalUsers !== true) {
-          // `items: []` is the contract's own example, and the DESIGNED state.
-          return json(route, 200, example('listPortalUsers', 200));
-        }
-        // The contract publishes no populated example — portal users are M18
-        // and nothing exists — so the row is built from the `PortalUser` schema
-        // and `invitePortalUser`'s request example, which is the nearest thing
-        // the spec does publish. Flagged in team/reports/P02-finish.md.
-        return json(route, 200, {
-          items: [
-            {
-              id: 'b2f0f7d8-4c21-4b4e-9f7a-2a1d6f4c0e11',
-              displayName: 'Invited Client User',
-              emailMasked: 'p•••e@client.example',
-              access: 'viewer',
-              status: 'invited',
-              invitedAt: '2026-09-28T09:00:00Z',
-            },
-          ],
-        });
-      }
+      case 'listPortalUsers':
+        // `default` (`items: []`) is the DESIGNED state; `invited` is the
+        // contract's one-row example, so the non-empty row renders.
+        return json(
+          route,
+          200,
+          example('listPortalUsers', 200, options.portalUsers === true ? 'invited' : 'default'),
+        );
 
       case 'getProgrammeArchivePreview': {
         const body = example<{ retentionSummary: string | null }>(
