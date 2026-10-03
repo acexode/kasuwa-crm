@@ -869,3 +869,19 @@ symbols, served ahead of the full Latin-Extended file.
 ### Also from T-0007b, for T-0018
 `P01/6` says "This list stays on your Home page", which is untrue until T-0018 persists onboarding
 state. Fix the copy or the state in T-0018.
+
+---
+
+## B13. Wave decisions (2026-10-03, lead, reversible)
+
+### D-L45 — field-security matrix semantics (T-0026)
+**Status:** PROCEEDING.
+The spec is silent on five points; the lead settles them so the builder does not guess:
+- **`classification`** gets a column on `field_def` (migration 0009, Agent 2's area). It is not derived.
+- **Default level** for a never-saved cell is `edit`, matching today's effective behaviour (no FLS is
+  enforced yet). Admin is always `edit`. Tightening the default is a product decision for later.
+- **Locked column:** a change to a locked permission set gets 403 `not_permitted`.
+- **Atomic PUT:** a refused change (locked, or an unknown or cross-tenant field or set) applies
+  **nothing**; the whole request fails.
+- **Unknown field or set** inside `changes` gets 404 `not_found`, the same as an unknown object.
+- Also fix the stale `FieldSecurityWrite.description` in the spec that still says "undecided / 501".
