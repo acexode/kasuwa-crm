@@ -1,3 +1,4 @@
+import { PROGRAMME_STATUSES, type ProgrammeStatus } from '@kasuwa/domain-core';
 import { z } from 'zod';
 
 /**
@@ -9,8 +10,8 @@ import { z } from 'zod';
  * or widened something.
  */
 
-export const PROGRAMME_STATUSES = ['active', 'paused', 'draft', 'archived'] as const;
-export type ProgrammeStatus = (typeof PROGRAMME_STATUSES)[number];
+/** One list, owned by the domain next to the column's CHECK constraint (0012). */
+export { PROGRAMME_STATUSES, type ProgrammeStatus };
 
 const PageSize = z.coerce.number().int().min(1).max(200).default(50);
 const Cursor = z.string().min(1).max(512).optional();
@@ -61,3 +62,47 @@ export const UpdateProgrammeBody = z
   })
   .strict();
 export type UpdateProgrammeBody = z.infer<typeof UpdateProgrammeBody>;
+
+/** `templateId` is undefined in the spec today: "Sending one is 400". */
+const NotSupported = z
+  .unknown()
+  .refine(() => false, { params: { reason: 'not_supported' } })
+  .optional();
+
+/**
+ * `CreateProgrammeRequest`. No `status`: a new programme starts `active`
+ * (D-L46), and an undeclared field is refused by `.strict()` at its own path.
+ *
+ * `countryCode` is validated against the spec's pattern but **not stored** —
+ * `programme` has no country column, and adding one is outside T-0029's
+ * migration. The create response therefore omits it rather than echo a value
+ * nothing persisted.
+ */
+export const CreateProgrammeBody = z
+  .object({
+    name: Name,
+    clientName: z
+      .string()
+      .trim()
+      .max(200)
+      .optional()
+      .transform((value) => (value === undefined || value === '' ? null : value)),
+    countryCode: z
+      .string()
+      .regex(/^[A-Z]{2}$/u)
+      .optional(),
+    businessUnitId: z.string().uuid(),
+    templateId: NotSupported,
+  })
+  .strict();
+export type CreateProgrammeBody = z.infer<typeof CreateProgrammeBody>;
+
+/**
+ * `ArchiveProgrammeRequest`. `confirmation` is compared byte for byte with the
+ * programme's name — never trimmed or case-folded, so `"Name "` is a mismatch.
+ * The comparison itself happens against the locked row, not here.
+ */
+export const ArchiveProgrammeBody = z
+  .object({ confirmation: z.string().max(1000) })
+  .strict();
+export type ArchiveProgrammeBody = z.infer<typeof ArchiveProgrammeBody>;
