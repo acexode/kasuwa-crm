@@ -516,6 +516,44 @@ export const fieldSecurityGrant = pgTable(
 );
 
 /**
+ * Client-portal users and their pending invitations (M18 groundwork, migration
+ * 0013, T-0030). Programme-scoped: a portal user sees exactly one programme.
+ * The invite token is never stored, only its SHA-256.
+ *
+ * Unique per programme on the address CASE-INSENSITIVELY: the SQL index is
+ * `portal_user_programme_email_key ON portal_user (tenant_id, programme_id,
+ * lower(email))`, an expression index Drizzle cannot mirror.
+ */
+export const portalUser = pgTable(
+  'portal_user',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    /** The invited address. Never returned by a list, never logged. */
+    email: text('email').notNull(),
+    emailMasked: text('email_masked').notNull(),
+    displayName: text('display_name').notNull(),
+    access: text('access').notNull(),
+    status: text('status').notNull().default('invited'),
+    /** SHA-256 of the current invite token. The token itself is never stored. */
+    inviteTokenHash: customBytea('invite_token_hash'),
+    inviteTokenExpiresAt: timestamp('invite_token_expires_at', { withTimezone: true }),
+    invitedAt: timestamp('invited_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('portal_user_programme_list_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.invitedAt,
+      table.id,
+    ),
+  ],
+);
+
+/**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
  */
@@ -538,6 +576,7 @@ export const TENANT_SCOPED_TABLES = [
   'admin_alert',
   'admin_alert_dismissal',
   'field_security_grant',
+  'portal_user',
   'audit_event',
   'audit_export',
 ] as const;

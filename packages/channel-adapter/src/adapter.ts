@@ -1,5 +1,6 @@
 import {
   DeliveryStatusOutput,
+  isDndChannel,
   MessageId,
   SendRequest,
   SendResultOutput,
@@ -56,11 +57,13 @@ function sanitise(thrown: unknown, fallback: () => ChannelError): ChannelError {
 /**
  * The compliance boundary every send goes through, in front of any provider:
  *
- *   1. Zod-validates the request. `purpose` is required with no default, and
- *      the destination must be E.164 so a national-format number cannot slip
- *      past a register keyed on E.164.
- *   2. Checks DND for promotional traffic only. A transactional message (an
- *      OTP the person asked for) is lawful to a registered number.
+ *   1. Zod-validates the request. `purpose` is required with no default; an
+ *      SMS or WhatsApp destination must be E.164 so a national-format number
+ *      cannot slip past a register keyed on E.164, and an email destination
+ *      must be an address.
+ *   2. Checks DND for promotional SMS and WhatsApp only. A transactional
+ *      message (an OTP the person asked for) is lawful to a registered number,
+ *      and email is outside the NCC register (D-L49).
  *   3. Calls the provider and replaces whatever it throws with a typed
  *      ChannelError carrying no message, cause or request from the provider.
  *
@@ -116,7 +119,8 @@ export function createChannelAdapter(options: ChannelAdapterOptions): ChannelPro
         purpose: request.purpose,
       };
 
-      if (request.purpose === 'promotional') {
+      // DND governs SMS and WhatsApp only (D-L49); email has no NCC register.
+      if (request.purpose === 'promotional' && isDndChannel(request.channel)) {
         let answer: unknown;
         try {
           answer = await dnd.isRegistered(request.to);

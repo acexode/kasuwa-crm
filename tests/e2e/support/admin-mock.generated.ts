@@ -1360,7 +1360,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "invitePortalUser",
     "method": "POST",
     "path": "/api/v1/admin/programmes/{programmeId}/portal-users/invitations",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/B8"
@@ -1762,7 +1762,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listPortalUsers",
     "method": "GET",
     "path": "/api/v1/admin/programmes/{programmeId}/portal-users",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/B8"

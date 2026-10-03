@@ -1178,19 +1178,21 @@ paths:
       tags: [programmes]
       summary: Client-portal users for this programme
       operationId: listPortalUsers
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/B8']
       description: |
-        Usually empty, which is the designed state.
+        Usually empty, which is the designed state. Newest invitation first;
+        unpaginated, because a programme has a handful of portal users at most.
 
-        **This is the one list that returns an email address**, because the row
-        is an invitation and the address is the invitation's identity — an
-        admin resending an invite has to see where it goes. It is the invited
-        address only, never a customer's, and `emailMasked` is what the row
-        renders; the full address is present only on the invitation the caller
-        just created.
+        **No response carries a full email address** (D-L49). The row is an
+        invitation to an outsider, and `emailMasked` (the invited address with
+        all but the first and last character of the local part hidden) is what
+        it renders. Neither this list nor `invitePortalUser` returns the full
+        address; an admin who needs it to resend simply re-invites it.
 
-        Portal users are M18. Nothing exists.
+        A portal user belongs to exactly one programme: an invitation is listed
+        only in the programme it was issued in. Accepting an invitation, and
+        so the `active` and `suspended` states, arrive with M18.
       parameters:
         - $ref: '#/components/parameters/ProgrammeId'
       responses:
@@ -1226,7 +1228,7 @@ paths:
       tags: [programmes]
       summary: Invite a client-portal user
       operationId: invitePortalUser
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B8']
       description: |
@@ -1234,6 +1236,24 @@ paths:
         consequential things an admin can do here, so it is audited with the
         programme and the access level — and the audit row records the invited
         address as a masked hint plus an opaque id, not as a plain address.
+        (The audit row is not written yet: it waits for the audit log, T-0025.)
+
+        The invitation is an email, sent through the channel adapter before the
+        `202` is returned. It carries an acceptance link (single-use once the
+        M18 accept flow exists); the token
+        in it is stored only as a hash, and neither the token nor the address
+        is ever logged. If the email cannot be handed to the provider, nothing
+        is saved and the answer is `503 service_unavailable`.
+
+        **Re-inviting an address already pending in this programme is a
+        resend** (D-L49): `202`, the same portal user `id`, and a new token
+        — the previous link stops working. A resend does not change
+        `displayName` or `access`. Inviting an address that is known in
+        another programme or another tenant is indistinguishable from a fresh
+        invitation: it creates a new portal user in this programme only.
+
+        `displayName` is optional; an unnamed invitation is displayed as its
+        masked address.
       parameters:
         - $ref: '#/components/parameters/ProgrammeId'
       requestBody:
@@ -1257,6 +1277,13 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '501': { $ref: '#/components/responses/NotImplemented' }
+        '503':
+          description: |
+            The invitation email could not be handed to the channel provider.
+            Nothing was saved; it is safe to retry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /api/v1/admin/programmes/{programmeId}/archive-preview:
     get:
@@ -2761,8 +2788,8 @@ components:
           type: string
           description: |
             What the row renders, e.g. `p•••e@client.example`. The invited
-            address, never a customer's. The full address is not returned by
-            the list.
+            address, never a customer's. No response returns the full address
+            (D-L49).
         access: { type: string, enum: [viewer, reports_only] }
         status: { type: string, enum: [invited, active, suspended] }
         invitedAt: { type: string, format: date-time }
