@@ -75,6 +75,8 @@ export const programme = pgTable(
     name: text('name').notNull(),
     clientName: text('client_name'),
     isDefault: boolean('is_default').notNull().default(false),
+    /** active | paused | draft | archived — CHECK `programme_status_check` (0012). */
+    status: text('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

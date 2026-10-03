@@ -380,9 +380,13 @@ paths:
         renders "No data" for the draft programme and a percentage otherwise;
         a zero would render as a red bar and say something false.
 
-        **Built (T-0024):** `status` is the constant `active` until a lifecycle
-        column exists, so `statusCounts` counts every match as `active`. The
-        unbacked fields are `null`; `channels` is absent.
+        **Built (T-0024):** the unbacked fields are `null`; `channels` is
+        absent.
+
+        **Since T-0029:** `status` is the `programme.status` column (migration
+        0012). The unfiltered list includes every status, archived included;
+        `status` narrows it, and `statusCounts` counts the reachable set per
+        status, honouring `q` (D-L46).
       parameters:
         - name: q
           in: query
@@ -438,7 +442,7 @@ paths:
       tags: [programmes]
       summary: Create a programme
       operationId: createProgramme
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B', 'P02/B1']
       description: |
@@ -456,6 +460,15 @@ paths:
         name. A constraint message that leaked the conflicting row would be a
         cross-tenant existence oracle, which is why the error carries the field
         path and nothing else.
+
+        **Built (T-0029, D-L46):** the programme starts `active` and the
+        caller becomes its first member (a `user_programme` row in the same
+        transaction), so it is reachable from the next request. A
+        `businessUnitId` outside the caller's tenant is `404 not_found`, the
+        same body as one that does not exist. `countryCode` is validated but
+        not stored (no column), so the `201` body omits it. Not enforced: `403
+        not_permitted` (no permissions engine — any tenant user may create) and
+        the audit row (no audit table).
       requestBody:
         required: true
         content:
@@ -1238,7 +1251,7 @@ paths:
       tags: [programmes]
       summary: What archiving this programme would do
       operationId: getProgrammeArchivePreview
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/B9']
       description: |
         The bullet list in the archive dialog — how many agents lose access,
@@ -1248,6 +1261,12 @@ paths:
         It is a separate `GET` because the numbers must be current at the
         moment the admin reads them, not as of whenever the page was loaded.
         The counts are computed, never cached.
+
+        **Built (T-0029):** `agentsLosingAccess` counts the programme's
+        `user_programme` rows. `openInteractionsBecomingReadOnly` and
+        `portalUsersSignedOut` are `0` and `retentionSummary` is `null` — no
+        interaction, portal-user or retention model exists yet.
+        `restorableUntilDays` is `30`.
       parameters:
         - $ref: '#/components/parameters/ProgrammeId'
       responses:
@@ -1271,7 +1290,7 @@ paths:
       tags: [programmes]
       summary: Archive a programme
       operationId: archiveProgramme
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B9']
       description: |
@@ -1287,6 +1306,15 @@ paths:
         **Archiving does not delete anything.** Retention still governs the
         recordings and transcripts. An operation that quietly shortened them
         would turn an admin's tidy-up into an unlogged disposal.
+
+        **Built (T-0029, D-L46):** sets `status` to `archived` and nothing
+        else; no row is deleted. A confirmation that is not the exact name is
+        `400 validation_failed` at `confirmation`; an unreachable id is `404`
+        whatever the body says. Archiving an archived programme is an
+        idempotent `200` with the version unchanged. Not built yet: losing
+        access (assigned users keep read access until the permissions engine),
+        "stops taking new work", restore (no operation exists), `403
+        not_permitted`, and the audit row.
       parameters:
         - $ref: '#/components/parameters/ProgrammeId'
       requestBody:
@@ -2224,8 +2252,8 @@ components:
       type: string
       enum: [active, paused, draft, archived]
       description: |
-        **No column backs this yet.** `programme` has no lifecycle field, so
-        adding one is a migration and a successor task, not T-0021.
+        Backed by `programme.status` since T-0029 (migration 0012, CHECK on
+        exactly these four values). A new programme starts `active`.
 
     ProgrammeChannel:
       type: string
