@@ -1,5 +1,6 @@
 import { newId, type TenantTx } from '@kasuwa/db';
-import { duplicateName, hierarchyCycle, notFound, staleWrite } from './admin-errors';
+import { duplicateName, notFound, staleWrite } from '../common/admin-errors';
+import { hierarchyCycle } from './roles.errors';
 import {
   cycleConflicts,
   descendantIndex,
