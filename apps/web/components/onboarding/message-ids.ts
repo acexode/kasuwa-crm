@@ -15,6 +15,7 @@ const ERROR_IDS: readonly MessageId[] = [
   'auth.error.otp_expired',
   'auth.error.otp_too_many_attempts',
   'auth.error.not_implemented',
+  'auth.error.internal_error',
   'auth.error.network',
   'auth.locked.retryAt',
 ];
