@@ -82,7 +82,45 @@ export async function findPendingTotp(
 }
 
 /**
+ * Which enrolment this is.
+ *
+ *   * `first` — the pre-session, challenge-bound path. Only for a user with NO
+ *     confirmed factor, re-checked under the user lock. It never deletes a
+ *     confirmed factor: a challenge proves a password and nothing more.
+ *   * `replace` — the session path, after step-up with the current factor.
+ *     Confirming retires the old confirmed factor.
+ */
+export type EnrolmentMode = 'first' | 'replace';
+
+/**
+ * Serialises every factor write for one user (T-0012 review).
+ *
+ * Two enrolment starts racing for the same user would each delete "no pending
+ * row" and then both INSERT, and the second would hit
+ * `user_mfa_factor_pending_key` (23505) and surface as a 500. Two first-time
+ * confirms could each see "no confirmed factor". Locking the user's own row
+ * first makes the check and the write that depends on it one critical section.
+ *
+ * LOCK ORDER: `auth_rate_limit`, then this row, then `user_mfa_factor`, then
+ * `auth_challenge`. Callers clear or bump the rate-limit counter before calling
+ * anything that takes this lock.
+ */
+export async function lockUserForFactorWrite(
+  tx: Tx,
+  tenantId: string,
+  userId: string,
+): Promise<void> {
+  await tx.query(`SELECT id FROM "user" WHERE tenant_id = $1 AND id = $2 FOR UPDATE`, [
+    tenantId,
+    userId,
+  ]);
+}
+
+/**
  * Starts (or restarts) enrolment: a fresh secret in a new PENDING row.
+ *
+ * Runs under the user lock. In `first` mode it returns null, writing nothing,
+ * if the user already has a confirmed factor.
  *
  * Any earlier pending row is deleted first, so a restarted enrolment cannot be
  * confirmed with the secret from the previous screen — and the earlier secret
@@ -94,7 +132,13 @@ export async function startTotpEnrolment(
   provider: KeyProvider,
   tenantId: string,
   userId: string,
-): Promise<string> {
+  mode: EnrolmentMode,
+): Promise<string | null> {
+  await lockUserForFactorWrite(tx, tenantId, userId);
+  if (mode === 'first' && (await hasConfirmedFactor(tx, tenantId, userId))) {
+    return null;
+  }
+
   await tx.query(
     `DELETE FROM user_mfa_factor
       WHERE tenant_id = $1 AND user_id = $2 AND type = 'totp' AND confirmed_at IS NULL`,
@@ -187,8 +231,19 @@ export async function claimTotpStep(
   return rows.length > 0;
 }
 
+export type ConfirmOutcome =
+  | { kind: 'confirmed'; confirmedAt: Date }
+  /** `first` mode only: a confirmed factor appeared. Nothing was written. */
+  | { kind: 'already_enrolled' }
+  /** The pending row was replaced or confirmed by a racing request. */
+  | { kind: 'lost_race' };
+
 /**
- * Makes a pending factor the user's factor, retiring any confirmed one.
+ * Makes a pending factor the user's factor, under the user lock.
+ *
+ * `first` mode re-checks that no confirmed factor exists and NEVER deletes one:
+ * the pre-session path must not be able to remove a factor, whatever raced it.
+ * `replace` mode retires the old confirmed factor in the same transaction.
  *
  * The conditional UPDATE is the claim: of two racing confirms, one matches
  * `confirmed_at IS NULL` and the other updates nothing and is refused. The
@@ -201,13 +256,21 @@ export async function confirmPendingTotp(
   userId: string,
   factorId: string,
   step: number,
-): Promise<Date | null> {
-  await tx.query(
-    `DELETE FROM user_mfa_factor
-      WHERE tenant_id = $1 AND user_id = $2 AND type = 'totp'
-        AND confirmed_at IS NOT NULL AND id <> $3`,
-    [tenantId, userId, factorId],
-  );
+  mode: EnrolmentMode,
+): Promise<ConfirmOutcome> {
+  await lockUserForFactorWrite(tx, tenantId, userId);
+  if (mode === 'first') {
+    if (await hasConfirmedFactor(tx, tenantId, userId)) {
+      return { kind: 'already_enrolled' };
+    }
+  } else {
+    await tx.query(
+      `DELETE FROM user_mfa_factor
+        WHERE tenant_id = $1 AND user_id = $2 AND type = 'totp'
+          AND confirmed_at IS NOT NULL AND id <> $3`,
+      [tenantId, userId, factorId],
+    );
+  }
   const rows = await tx.query<{ confirmed_at: Date }>(
     `UPDATE user_mfa_factor
         SET confirmed_at = now(), last_used_step = $4, updated_at = now()
@@ -215,7 +278,8 @@ export async function confirmPendingTotp(
   RETURNING confirmed_at`,
     [tenantId, userId, factorId, step],
   );
-  return rows[0]?.confirmed_at ?? null;
+  const confirmedAt = rows[0]?.confirmed_at;
+  return confirmedAt === undefined ? { kind: 'lost_race' } : { kind: 'confirmed', confirmedAt };
 }
 
 export async function hasConfirmedFactor(

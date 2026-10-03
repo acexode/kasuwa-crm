@@ -95,7 +95,11 @@ export class MfaService {
       `SELECT email FROM "user" WHERE tenant_id = $1 AND id = $2`,
       [tenantId, userId],
     );
-    const secret = await startTotpEnrolment(tx, this.keyProvider, tenantId, userId);
+    const secret = await startTotpEnrolment(tx, this.keyProvider, tenantId, userId, 'replace');
+    if (secret === null) {
+      // Unreachable: `replace` mode never refuses. Fail closed regardless.
+      throw mfaCodeInvalid(null);
+    }
     return {
       otpauthUri: otpauthUri(rows[0]?.email ?? userId, secret),
       secret,
@@ -128,8 +132,15 @@ export class MfaService {
     }
 
     await clearAuthFailures(tx, mfaKey);
-    const confirmedAt = await confirmPendingTotp(tx, tenantId, userId, pending.id, match.step);
-    if (confirmedAt === null) {
+    const outcome = await confirmPendingTotp(
+      tx,
+      tenantId,
+      userId,
+      pending.id,
+      match.step,
+      'replace',
+    );
+    if (outcome.kind !== 'confirmed') {
       // A racing confirm won. Thrown, so nothing here half-applies.
       throw mfaCodeInvalid(null);
     }

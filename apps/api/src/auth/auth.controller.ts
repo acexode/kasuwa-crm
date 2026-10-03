@@ -110,6 +110,8 @@ export class AuthController {
   @Post('sign-in')
   @UseGuards(SignInThrottleGuard)
   @HttpCode(HttpStatus.OK)
+  // The challenge id is a short-lived credential; nothing should cache it.
+  @Header('Cache-Control', 'no-store')
   async signIn(@Body() body: unknown): Promise<MfaChallengeResponse> {
     return this.auth.signIn(SignInBody.parse(body));
   }
@@ -124,6 +126,8 @@ export class AuthController {
   /** POST /api/v1/auth/mfa — second factor. The only route that issues a token. */
   @Post('mfa')
   @HttpCode(HttpStatus.OK)
+  // Carries the bearer token. A cached copy is a session anyone can replay.
+  @Header('Cache-Control', 'no-store')
   async verify(@Body() body: unknown): Promise<SessionResponse> {
     return this.auth.verifyMfa(MfaVerifyBody.parse(body));
   }

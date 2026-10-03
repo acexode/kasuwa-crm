@@ -292,17 +292,20 @@ export class AuthService {
         if (locked !== null) {
           return locked;
         }
-        if (await hasConfirmedFactor(tx, tx.tenantId, challenge.userId)) {
-          return mfaAlreadyEnrolled();
-        }
-
         const account = await this.accountLabel(tx, challenge.userId);
+        // `first`: under the user lock, refuses (writing nothing) when a
+        // confirmed factor exists, so the check and the insert cannot be
+        // separated by a racing request.
         const secret = await startTotpEnrolment(
           tx,
           this.keyProvider,
           tx.tenantId,
           challenge.userId,
+          'first',
         );
+        if (secret === null) {
+          return mfaAlreadyEnrolled();
+        }
         return {
           otpauthUri: otpauthUri(account, secret),
           secret,
@@ -353,18 +356,26 @@ export class AuthService {
           return this.failSecondFactor(tx, reference, mfaKey, challenge.userId);
         }
 
-        // Lock order as everywhere else: auth_rate_limit, user_mfa_factor,
-        // auth_challenge.
+        // Lock order as everywhere else: auth_rate_limit, the user row,
+        // user_mfa_factor, auth_challenge.
         await clearAuthFailures(tx, mfaKey);
-        const confirmedAt = await confirmPendingTotp(
+        // `first`: promotes the pending row only. It never deletes a confirmed
+        // factor, and it re-checks under the user lock that none exists.
+        const outcome = await confirmPendingTotp(
           tx,
           tx.tenantId,
           challenge.userId,
           pending.id,
           match.step,
+          'first',
         );
+        if (outcome.kind === 'already_enrolled') {
+          // A factor was confirmed between the check above and the lock.
+          // Thrown, so nothing here (including the cleared counter) commits.
+          throw mfaAlreadyEnrolled();
+        }
         const claimed =
-          confirmedAt === null
+          outcome.kind !== 'confirmed'
             ? []
             : await tx.query<{ id: string }>(
                 `UPDATE auth_challenge

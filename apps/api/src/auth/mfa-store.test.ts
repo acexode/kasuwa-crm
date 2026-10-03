@@ -10,6 +10,7 @@ import type { QueryResultRow } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { StepUpBody } from './auth.schemas';
 import {
+  confirmPendingTotp,
   issueBackupCodes,
   matchBackupCode,
   matchTotp,
@@ -71,12 +72,45 @@ describe('otpauthUri', () => {
   });
 });
 
-describe('startTotpEnrolment', () => {
-  it('deletes the earlier pending factor and writes the new one envelope-only', async () => {
-    const tx = recordingTx();
-    const secret = await startTotpEnrolment(tx, createDevelopmentKeyProvider(), TENANT, USER);
+/**
+ * A tx that answers "does a confirmed factor exist" as told, and records
+ * everything. The user lock and the UPDATE ... RETURNING are answered too.
+ */
+function scriptedTx(options: { confirmedExists: boolean; promotes: boolean }): Tx & {
+  statements: { text: string; values: readonly unknown[] }[];
+} {
+  const statements: { text: string; values: readonly unknown[] }[] = [];
+  return {
+    statements,
+    query: async <T extends QueryResultRow>(text: string, values: readonly unknown[] = []) => {
+      statements.push({ text, values });
+      if (/FROM user_mfa_factor[\s\S]*confirmed_at IS NOT NULL[\s\S]*LIMIT 1/u.test(text)) {
+        return (options.confirmedExists ? [{ ok: 1 }] : []) as unknown as T[];
+      }
+      if (/^\s*UPDATE user_mfa_factor[\s\S]*RETURNING confirmed_at/u.test(text)) {
+        return (options.promotes ? [{ confirmed_at: new Date() }] : []) as unknown as T[];
+      }
+      if (/FOR UPDATE/u.test(text)) {
+        return [{ id: values[1] }] as unknown as T[];
+      }
+      return [] as T[];
+    },
+  };
+}
 
-    const [remove, insert] = tx.statements;
+const USER_LOCK = /^SELECT id FROM "user" WHERE tenant_id = \$1 AND id = \$2 FOR UPDATE$/u;
+const DELETES_CONFIRMED = /DELETE FROM user_mfa_factor[\s\S]*confirmed_at IS NOT NULL/u;
+
+describe('startTotpEnrolment', () => {
+  it('locks the user row first, then deletes the earlier pending factor and writes the new one envelope-only', async () => {
+    const tx = recordingTx();
+    const secret =
+      (await startTotpEnrolment(tx, createDevelopmentKeyProvider(), TENANT, USER, 'replace')) ??
+      '';
+
+    const [lock, remove, insert] = tx.statements;
+    expect(lock?.text).toMatch(USER_LOCK);
+    expect(lock?.values).toEqual([TENANT, USER]);
     expect(remove?.text).toMatch(/DELETE FROM user_mfa_factor[\s\S]*confirmed_at IS NULL/u);
     expect(insert?.text).toMatch(/INSERT INTO user_mfa_factor/u);
     // The legacy plaintext column is written as a literal NULL, and the secret
@@ -88,6 +122,74 @@ describe('startTotpEnrolment', () => {
       expect(text).not.toContain(secret);
       expect(text).not.toContain(raw.toString('hex'));
     }
+  });
+
+  it('in first mode, checks for a confirmed factor UNDER the lock and writes nothing if one exists', async () => {
+    const tx = scriptedTx({ confirmedExists: true, promotes: true });
+    const secret = await startTotpEnrolment(
+      tx,
+      createDevelopmentKeyProvider(),
+      TENANT,
+      USER,
+      'first',
+    );
+    expect(secret).toBeNull();
+    expect(tx.statements[0]?.text).toMatch(USER_LOCK);
+    expect(tx.statements[1]?.text).toMatch(/confirmed_at IS NOT NULL/u);
+    expect(tx.statements.some((s) => /DELETE|INSERT/u.test(s.text))).toBe(false);
+  });
+
+  it('in first mode with no confirmed factor, proceeds after the lock and the check', async () => {
+    const tx = scriptedTx({ confirmedExists: false, promotes: true });
+    const secret = await startTotpEnrolment(
+      tx,
+      createDevelopmentKeyProvider(),
+      TENANT,
+      USER,
+      'first',
+    );
+    expect(secret).toEqual(expect.any(String));
+    expect(tx.statements.map((s) => s.text.trim().split(/\s+/u)[0])).toEqual([
+      'SELECT',
+      'SELECT',
+      'DELETE',
+      'INSERT',
+    ]);
+  });
+});
+
+describe('confirmPendingTotp', () => {
+  it('first mode never deletes a confirmed factor, and promotes only the pending row', async () => {
+    const tx = scriptedTx({ confirmedExists: false, promotes: true });
+    const outcome = await confirmPendingTotp(tx, TENANT, USER, FACTOR, 42, 'first');
+    expect(outcome.kind).toBe('confirmed');
+    expect(tx.statements[0]?.text).toMatch(USER_LOCK);
+    expect(tx.statements.some((s) => DELETES_CONFIRMED.test(s.text))).toBe(false);
+    expect(tx.statements.some((s) => /^\s*DELETE/u.test(s.text))).toBe(false);
+  });
+
+  it('first mode re-checks under the lock and refuses, writing nothing, if a factor appeared', async () => {
+    const tx = scriptedTx({ confirmedExists: true, promotes: true });
+    const outcome = await confirmPendingTotp(tx, TENANT, USER, FACTOR, 42, 'first');
+    expect(outcome.kind).toBe('already_enrolled');
+    expect(tx.statements[0]?.text).toMatch(USER_LOCK);
+    expect(tx.statements.some((s) => /^\s*(DELETE|UPDATE)/u.test(s.text))).toBe(false);
+  });
+
+  it('replace mode locks, retires the old confirmed factor, then promotes', async () => {
+    const tx = scriptedTx({ confirmedExists: true, promotes: true });
+    const outcome = await confirmPendingTotp(tx, TENANT, USER, FACTOR, 42, 'replace');
+    expect(outcome.kind).toBe('confirmed');
+    expect(tx.statements[0]?.text).toMatch(USER_LOCK);
+    expect(tx.statements[1]?.text).toMatch(DELETES_CONFIRMED);
+    expect(tx.statements[2]?.text).toMatch(/^\s*UPDATE user_mfa_factor/u);
+  });
+
+  it('reports a lost race when the pending row is gone', async () => {
+    const tx = scriptedTx({ confirmedExists: false, promotes: false });
+    expect((await confirmPendingTotp(tx, TENANT, USER, FACTOR, 42, 'first')).kind).toBe(
+      'lost_race',
+    );
   });
 });
 
