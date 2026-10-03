@@ -747,7 +747,33 @@ fails CI if a flag or a deferral has no row.
 ## B8. Raised during T-0017 (2026-10-02)
 
 ### D-P10 — the first messaging provider
-**Status:** OPEN: @acexode asked the lead to research providers online (2026-10-03); comparison and recommendation to follow here.
+**Status:** OPEN, **recommendation ready (2026-10-03)**. Pending @acexode's go-ahead and sales answers.
+**Research (vendor pages read 2026-10-03; no vendor contacted):**
+
+| | Termii | Africa's Talking | Twilio (reference) |
+|---|---|---|---|
+| NG price/SMS | Not published | ~₦5–6 transactional (search copy, unconfirmed) | US$0.3868 (~60× the local routes) |
+| Reaches DND numbers (OTP) | Yes, explicit DND route | Yes, per-telco transactional route | Not reliably (its own Nigeria guidance) |
+| DND lookup API | **Yes** (`dnd_active`) | None found | None |
+| Delivery reports | Signed webhooks (HMAC-SHA512) | Callbacks (docs blocked) | Yes |
+| Sender ID lead time | Not stated | ≥2 weeks (CAC certificate, ID, letter per telco) | 2–3 weeks |
+| Data location | **Not disclosed** | **Not disclosed** | US by default |
+| GH / KE / ZA | Unverified | KE, ZA yes | Yes |
+| WhatsApp | Yes | Yes | Yes |
+
+**Recommendation:** **Termii primary, Africa's Talking fallback.** Termii is the only one with a DND-route
+plus DND-lookup API (needed later for promotional compliance, not just OTP) and has signed webhooks. AT is a
+different upstream (so one failure does not take out both), has real KE/ZA reach, and reported naira pricing.
+**Start AT's sender-ID registration on day one** (≥2 weeks). **Not Twilio** (cost; unreliable to DND numbers).
+**Three questions for sales before signing:**
+(1) Naira rate on the DND/transactional route per telco at our volume; is the DND lookup billed per call;
+are failed or DND-rejected messages charged?
+(2) NDPA: where are numbers and message content processed and stored, for how long, and with which cloud?
+Will you sign a DPA with transfer clauses and list sub-processors (upstream aggregators, telcos)?
+(3) Direct-to-telco or via resellers; OTP delivery rate to DND numbers per telco; real sender-ID lead time
+per telco; can sender IDs be per tenant (BPO client)?
+**The NDPA cross-border assessment is blocked on question 2:** no Nigerian vendor publishes data location.
+Sources are in the lead's research notes (vendor pricing, developer docs, help articles).
 **Context:** T-0017 built `@kasuwa/channel-adapter` against a fake provider only. OTP for
 self-serve sign-up (T-0016) and MFA recovery (T-0012) both need a real one. Choosing it is spend
 and a contract.
