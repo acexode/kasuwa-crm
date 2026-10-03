@@ -165,7 +165,7 @@ export class AdminHomeController {
     const tx = currentTx();
     const { alertId } = parseIdOr404(AlertIdParam, params);
     const alert = foundOr404(await repo.findReachableAlert(tx, alertId));
-    await repo.deleteDismissal(tx, alert.id);
+    await repo.deleteDismissal(tx, alert);
   }
 
   /**

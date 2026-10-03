@@ -4,6 +4,14 @@ import type { BadgeGroup, HealthInputs, Severity } from './home.rules';
 /**
  * SQL for the admin home (T-0031).
  *
+ * tenancy-reviewed: every statement carries an explicit `tenant_id` predicate
+ * bound to `tx.session.tenantId`, and every statement over admin_alert or
+ * admin_alert_dismissal an explicit programme predicate (the session's
+ * programme list, or the reachable alert's own programme), IN ADDITION to the
+ * RLS policy on the table — two independent layers, so a typo in one does not
+ * leak (CLAUDE.md 2.3). Nothing here reads a tenant or programme id from the
+ * request.
+ *
  * Every function takes the request's `TenantTx` and reads scope from
  * `tx.session` — resolved by withTenantTransaction from `user_programme`,
  * never from the request. Each statement repeats the tenant and programme
@@ -157,6 +165,7 @@ export async function listAlerts(tx: TenantTx, includeDismissed: boolean): Promi
        LEFT JOIN admin_alert_dismissal d
               ON d.alert_id = a.id
              AND d.tenant_id = a.tenant_id
+             AND d.programme_id = a.programme_id
              AND d.user_id = $2
       WHERE a.tenant_id = $1
         AND a.programme_id = ANY ($3::uuid[])
@@ -210,13 +219,17 @@ export async function insertDismissal(
 }
 
 /** Idempotent: restoring a never-dismissed alert deletes nothing (D-L47). */
-export async function deleteDismissal(tx: TenantTx, alertId: string): Promise<void> {
+export async function deleteDismissal(
+  tx: TenantTx,
+  alert: { id: string; programmeId: string },
+): Promise<void> {
   await tx.query(
     `DELETE FROM admin_alert_dismissal
       WHERE alert_id = $1
         AND user_id = $2
-        AND tenant_id = $3`,
-    [alertId, tx.session.userId, tx.session.tenantId],
+        AND tenant_id = $3
+        AND programme_id = $4`,
+    [alert.id, tx.session.userId, tx.session.tenantId, alert.programmeId],
   );
 }
 
@@ -232,6 +245,7 @@ export async function badgeGroups(tx: TenantTx): Promise<BadgeGroup[]> {
        LEFT JOIN admin_alert_dismissal d
               ON d.alert_id = a.id
              AND d.tenant_id = a.tenant_id
+             AND d.programme_id = a.programme_id
              AND d.user_id = $2
       WHERE a.tenant_id = $1
         AND a.programme_id = ANY ($3::uuid[])

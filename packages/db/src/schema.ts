@@ -360,10 +360,6 @@ export const permissionSet = pgTable(
 );
 
 /**
- * Every table that carries tenant data. The schema-invariant test iterates this
- * list; adding a table to the schema without adding it here fails that test too.
- */
-/**
  * Admin-home alerts (P02/A, migration 0014, T-0031). Programme-scoped: an
  * alert belongs to one programme (D-L47); a tenant-wide alert is stored once
  * per programme it concerns.
@@ -388,7 +384,7 @@ export const adminAlert = pgTable(
     index('admin_alert_tenant_programme_raised_idx').on(
       table.tenantId,
       table.programmeId,
-      table.raisedAt,
+      table.raisedAt.desc(),
     ),
   ],
 );
@@ -412,6 +408,10 @@ export const adminAlertDismissal = pgTable(
   ],
 );
 
+/**
+ * Every table that carries tenant data. The schema-invariant test iterates this
+ * list; adding a table to the schema without adding it here fails that test too.
+ */
 export const TENANT_SCOPED_TABLES = [
   'tenant',
   'business_unit',
