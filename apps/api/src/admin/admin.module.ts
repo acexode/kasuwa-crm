@@ -1,5 +1,6 @@
 import { Module, type Type } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
+import { AdminDispositionsModule } from './dispositions/admin-dispositions.module';
 import { FieldSecurityAdminModule } from './field-security/field-security.module';
 import { AdminAuditModule } from './audit/audit.module';
 import { AdminHomeModule } from './home/admin-home.module';
@@ -30,6 +31,7 @@ const ADMIN_AREAS: readonly Type[] = [
   FieldSecurityAdminModule,
   AdminProgrammesModule,
   AdminAuditModule,
+  AdminDispositionsModule,
   AdminHomeModule,
 ];
 

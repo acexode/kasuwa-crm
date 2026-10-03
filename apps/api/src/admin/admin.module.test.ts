@@ -11,6 +11,8 @@ import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.inte
 import { ADMIN_CONTROLLERS } from './admin.module';
 import { AuditController } from './audit/audit.controller';
 import { AdminErrorFilter } from './common/admin-errors';
+import { DispositionsController } from './dispositions/dispositions.controller';
+import { ProgrammeScriptsController } from './dispositions/programme-scripts.controller';
 import { FieldSecurityMatrixController } from './field-security/field-security-matrix.controller';
 import { FieldSecurityController } from './field-security/field-security.controller';
 import { AdminHomeController, SettingsMenuBadgesController } from './home/home.controller';
@@ -32,6 +34,8 @@ describe('AdminModule (D-L39)', () => {
         FieldSecurityMatrixController,
         AdminProgrammesController,
         AuditController,
+        DispositionsController,
+        ProgrammeScriptsController,
         AdminHomeController,
         SettingsMenuBadgesController,
       ]),
