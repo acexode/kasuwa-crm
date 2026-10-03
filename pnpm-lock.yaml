@@ -80,6 +80,9 @@ importers:
       '@kasuwa/metadata-engine':
         specifier: workspace:*
         version: link:../../packages/metadata-engine
+      '@kasuwa/permissions':
+        specifier: workspace:*
+        version: link:../../packages/permissions
       '@nestjs/common':
         specifier: ^11.0.1
         version: 11.2.6(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -331,7 +334,14 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
 
-  packages/permissions: {}
+  packages/permissions:
+    dependencies:
+      '@kasuwa/db':
+        specifier: workspace:*
+        version: link:../db
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
 
   packages/telephony-adapter:
     dependencies:

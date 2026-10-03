@@ -36,6 +36,11 @@ const tx: TenantTx = {
   session: { tenantId: TENANT, userId: USER, programmeIds: [PROGRAMME] },
   query: <T>(text: string, values: readonly unknown[] = []) => {
     if (text.includes('INSERT INTO audit_event')) inserts.push([...values]);
+    // The permissions engine's read (T-0032): this caller is a tenant admin,
+    // so every write here is permitted and reaches the audit writer.
+    if (text.includes('SELECT is_tenant_admin')) {
+      return Promise.resolve([{ is_tenant_admin: true }] as T[]);
+    }
     return Promise.resolve([] as T[]);
   },
 };
@@ -44,6 +49,8 @@ vi.mock('../../tenancy/tenant-context', () => ({ currentTx: () => tx }));
 
 const domain = vi.hoisted(() => ({
   findProgrammeById: vi.fn(),
+  // T-0032: the disposition 404 check before the permission check.
+  dispositionExists: vi.fn(() => Promise.resolve(true)),
   replaceProgrammeSlaWithPrevious: vi.fn(),
   replaceProgrammeRetentionWithPrevious: vi.fn(),
   createDisposition: vi.fn(),

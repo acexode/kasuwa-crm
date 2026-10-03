@@ -1,4 +1,5 @@
 import { newId, type TenantTx } from '@kasuwa/db';
+import { ADMIN_PERMISSION_SET_KEY } from '@kasuwa/permissions';
 import { versionFromUpdatedAt, NEXT_UPDATED_AT_SQL } from './programme-version';
 import {
   DuplicateProgrammeNameError,
@@ -98,6 +99,12 @@ export async function createProgramme(
 
   // One instant for both columns, truncated to the version's millisecond
   // precision, rendered the way programme-version.ts parses.
+  //
+  // LOAD-BEARING FOR RLS (0015): created_at must be
+  // date_trunc('milliseconds', clock_timestamp()) - never earlier than
+  // date_trunc('milliseconds', transaction_timestamp()). The creation marker
+  // ANDs that with the xmin test so a frozen pre-wraparound row can never
+  // pass as "created in this transaction". Do not backdate it.
   const clock = await tx.query<{ at: string }>(
     `SELECT to_char(date_trunc('milliseconds', clock_timestamp()) AT TIME ZONE 'UTC',
                     'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS at`,
@@ -134,10 +141,17 @@ export async function createProgramme(
     throw error;
   }
 
-  // tenancy-reviewed: tenant_id + user id from the session.
+  // tenancy-reviewed: tenant_id + user id from the session. The creator
+  // administers what they made: they hold the tenant's `admin` set here
+  // (T-0032), or no set at all if the tenant has none (NULL = no permission).
+  // RLS admits this row only because the programme was written by THIS
+  // transaction: 0015's user_programme_insert_in_scope compares the
+  // programme row's xmin with the current transaction id (D-L51).
   await tx.query(
-    `INSERT INTO user_programme (user_id, programme_id, tenant_id) VALUES ($1, $2, $3)`,
-    [userId, id, tenantId],
+    `INSERT INTO user_programme (user_id, programme_id, tenant_id, permission_set_id)
+     VALUES ($1, $2, $3,
+             (SELECT ps.id FROM permission_set ps WHERE ps.tenant_id = $3 AND ps.key = $4))`,
+    [userId, id, tenantId, ADMIN_PERMISSION_SET_KEY],
   );
 
   return {
