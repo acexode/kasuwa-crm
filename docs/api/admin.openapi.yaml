@@ -762,7 +762,7 @@ paths:
       tags: [programmes]
       summary: SLA targets, clock rules and escalation
       operationId: getProgrammeSla
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/B4']
       description: |
         The whole SLA tab in one read, because the whole tab saves at once.
@@ -772,6 +772,10 @@ paths:
         unambiguous and localisable. `null` means the target does not apply —
         Voice resolution is "Same call", which is the absence of a target, not
         a very small one.
+
+        **A programme with no saved policy returns the platform default at
+        `version: 0`** (D-L50) — voice and WhatsApp targets defined in code —
+        never a 404. Saving with `version: 0` creates the programme's policy.
       responses:
         '200':
           description: The SLA policy.
@@ -803,14 +807,15 @@ paths:
       tags: [programmes]
       summary: Save the SLA policy
       operationId: updateProgrammeSla
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B4', 'P02/D2']
       description: |
         A whole-document write, matching the screen: the unsaved-changes bar
         counts edits across the tab and saves them together. A partial write
         would let two of four channel targets land and leave the client unsure
-        which.
+        which. Two targets for the same channel in one write are
+        `400 validation_failed` at `targets.<n>.channel` (D-L50).
 
         `version` is mandatory. A stale one is `409 stale_write` and the screen
         must re-read rather than retrying — the SLA is a contractual number and
@@ -1103,7 +1108,7 @@ paths:
       tags: [programmes]
       summary: Retention periods, disposal method and legal hold
       operationId: getProgrammeRetention
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/B7']
       description: |
         Periods are integer days on the wire; the design's dropdown of "30
@@ -1139,7 +1144,7 @@ paths:
       tags: [programmes]
       summary: Save the retention policy
       operationId: updateProgrammeRetention
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B7', 'P02/D2']
       description: |
@@ -1155,6 +1160,16 @@ paths:
         recording retention?) is BLOCKED — which means the call-recording
         period here may not be the one that is actually enforced. Raised in the
         T-0021 report.
+
+        **`callRecordingsDays` is stored and returned but not enforced by
+        Kasuwa** (D-L50): recording retention belongs to the telephony
+        platform (D-T4, deferred). No Kasuwa job deletes a recording on it.
+
+        **The first write sends `version: 0`** (D-L50): a programme with no
+        policy has no version a read could have returned, and 0 is never one.
+        Once a policy exists, `version: 0` is stale like any other old version.
+        When a write is both stale and refused by the legal hold, the answer is
+        `stale_write` — the version is checked first.
       requestBody:
         required: true
         content:
@@ -2739,7 +2754,12 @@ components:
       required: [version, callRecordingsDays, messageTranscriptsDays, screenRecordingsDays, qaEvaluationsDays, onExpiry, redactSensitiveNumbersInTranscripts, legalHold]
       properties:
         version: { type: integer }
-        callRecordingsDays: { type: integer, minimum: 1 }
+        callRecordingsDays:
+          type: integer
+          minimum: 1
+          description: |
+            Stored and returned, **not enforced by Kasuwa**: recording
+            retention belongs to the telephony platform (D-T4, deferred; D-L50).
         messageTranscriptsDays: { type: integer, minimum: 1 }
         screenRecordingsDays: { type: integer, minimum: 1 }
         qaEvaluationsDays: { type: integer, minimum: 1 }
