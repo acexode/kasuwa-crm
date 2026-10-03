@@ -1,6 +1,7 @@
 import { bundleMessages, localeLabel, SUPPORTED_LOCALES } from '@kasuwa/i18n';
 import { SignInScreen } from '../components/auth/sign-in-screen';
 import { SIGN_IN_MESSAGE_IDS } from '../components/auth/message-ids';
+import { selfServeSignupEnabled } from '../lib/feature-flags';
 import { activeLocale } from '../lib/locale';
 
 /**
@@ -22,12 +23,15 @@ import { activeLocale } from '../lib/locale';
 export default async function SignInPage() {
 
   const { locale } = await activeLocale();
+  // D-P2: a link to a route that 404s is worse than no link. Server-side only.
+  const signUpOpen = await selfServeSignupEnabled();
 
   return (
     <SignInScreen
       locale={locale}
       messages={bundleMessages(locale, SIGN_IN_MESSAGE_IDS)}
       locales={SUPPORTED_LOCALES.map((code) => ({ code, label: localeLabel(code) }))}
+      signUpOpen={signUpOpen}
     />
   );
 }

@@ -132,7 +132,7 @@ export function toScreenError(error: ApiError): ScreenError {
 
 export const NETWORK_FAILURE: ScreenError = { code: NETWORK_ERROR_CODE };
 
-async function post<T>(
+export async function post<T>(
   path: string,
   body: unknown,
   schema: z.ZodType<T>,

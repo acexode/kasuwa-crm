@@ -20,5 +20,12 @@
   "auth.signIn.microsoft",
   "tokens.contrast.ratio",
   "tokens.sample.arabic",
-  "tokens.sample.text"
+  "tokens.sample.text",
+  "signup.country.KE",
+  "onboarding.step.whatsapp",
+  "region.ke.name",
+  "import.source.zoho",
+  "import.source.salesforce",
+  "import.source.hubspot",
+  "import.source.csv"
 ]

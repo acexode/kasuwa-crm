@@ -12,6 +12,10 @@ Next.js App Router shell. Routes today:
 | `/` | `P01/1`, `1a`, `1b`, `1d` | Sign in and its failure states |
 | `/sso` | `P01/1c` | SSO by email domain |
 | `/verify` | `P01/2`, `2a`, `2b` | Second factor |
+| `/sign-up` | `P01/3` | **Behind `self_serve_signup`** (D-P2): a real 404 while it is off. No "already registered" state, ever (D-P3) |
+| `/sign-up/verify` | `P01/4` | Behind the flag. Email by link, phone by OTP; shows only the server's masked hints |
+| `/sign-up/region` | `P01/5.1` | Behind the flag. ZA selectable; NG and KE shown sales-only (D-P2) |
+| `/onboarding` | `P01/5.2`–`5.5`, `P01/6` | First-admin login. **Never** behind the flag (T-0018). Step state is client-side until T-0018 gives it a server home |
 | `/admin` | `P02/A`, `A1` | Admin home and the settings menu |
 | `/admin/programmes` | `P02/B`, `B1` | Programmes list and its first-run empty state |
 | `/admin/programmes/[id]` | `P02/B2`–`B9` | Tabs via `?tab=overview\|agents\|sla\|dispositions\|scripts\|retention\|portal`, plus the archive dialog |
@@ -21,8 +25,14 @@ Next.js App Router shell. Routes today:
 | `/contacts/[id]` | — | Scaffolding. Exists so the tenancy e2e test can tamper with a **web** URL; replace it when M4 builds the real screen. |
 | `/design/tokens` | — | The token gallery. It used to be at `/`. |
 
-`P01/3`, `P01/4` and the onboarding wizard (`P01/5.1`–`5.5`, `P01/6`) are not
-built — see `team/reports/T-0007.md`. All twenty-two P02 screens are.
+All sixteen P01 screens are built (`team/reports/T-0007.md`, `T-0007b.md`), and
+all twenty-two P02 screens.
+
+**Feature flags are read on the server only**, through `lib/feature-flags.ts`.
+A gated page calls `notFound()` before rendering anything, so the route — not
+just the link to it — is hidden. The e2e run starts a second web server with
+the flag on in its environment (`tests/e2e/scripts/run-e2e.mjs`); nothing a
+browser sends can turn one on, and a test tries.
 
 **`P02/B7` (retention) must not imply Kasuwa enforces retention on call
 recordings.** D-T4 is BLOCKED and ADR-0003 says the telephony platform is not

@@ -16,6 +16,7 @@
     "app/**/*.ts",
     "app/**/*.tsx",
     "components/**/*.tsx",
+    "instrumentation.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": ["node_modules"]

@@ -54,6 +54,19 @@ export interface MockOptions {
   readonly forceSignIn?: 'locked';
   /** Force the next MFA verify to this outcome. */
   readonly forceMfa?: 'expired' | 'unusable';
+  /**
+   * Answer the self-serve operations (`signUp`, `verifyOtp`) from the
+   * contract's own examples instead of its 501. They are
+   * `x-kasuwa-implemented: false` — T-0016 builds them — and their screens sit
+   * behind `self_serve_signup`, so only the flag-on specs set this.
+   *
+   * `resendOtp` stays 501 even then: the contract publishes no 202 example
+   * for it, and inventing one here is exactly the drift this mock exists to
+   * prevent. Reported in team/reports/T-0007b.md.
+   */
+  readonly selfServe?: boolean;
+  /** Force the next one-time-code verify (P01/4) to this outcome. */
+  readonly forceOtp?: 'expired' | 'locked';
 }
 
 interface MockState {
@@ -117,16 +130,25 @@ export async function installAuthMock(page: Page, options: MockOptions = {}): Pr
       );
     }
 
+    const raw = request.postData();
+    const body: Record<string, unknown> =
+      raw === null ? {} : (JSON.parse(raw) as Record<string, unknown>);
+
+    if (options.selfServe === true && operation.operationId === 'signUp') {
+      await handleSignUp(route);
+      return;
+    }
+    if (options.selfServe === true && operation.operationId === 'verifyOtp') {
+      await handleVerifyOtp(route, body, options);
+      return;
+    }
+
     // Operations the contract marks `false` are contract-only in T-0001 and
-    // answer 501 everywhere — P01/3 and P01/4 stay on this mock by design.
+    // answer 501 unless a spec opted into their examples above.
     if (operation.implemented === 'false') {
       await json(route, 501, contractExample(operation.operationId as AuthOperationId, 501));
       return;
     }
-
-    const raw = request.postData();
-    const body: Record<string, unknown> =
-      raw === null ? {} : (JSON.parse(raw) as Record<string, unknown>);
 
     switch (operation.operationId) {
       case 'signIn':
@@ -232,4 +254,45 @@ async function handleReissue(route: Route, body: Record<string, unknown>): Promi
         method === 'sms' ? new Date(Date.now() + 60 * 1_000).toISOString() : null,
     }),
   );
+}
+
+/**
+ * `P01/3`. The contract's 202, with its two timestamps moved to now so the
+ * resend countdown on `P01/4` counts down rather than reading as long expired.
+ *
+ * THERE IS NO BRANCH ON WHETHER THE ADDRESS HAS AN ACCOUNT, and there must never
+ * be one (D-P3). The contract answers one body for both — the existing account
+ * is told by email — and the `@enumeration` spec for `P01/3` submits a known
+ * and an unknown address against this handler to prove the SCREEN adds no
+ * difference of its own.
+ */
+async function handleSignUp(route: Route): Promise<void> {
+  const example = contractExample('signUp', 202) as Record<string, unknown>;
+  await json(route, 202, {
+    ...example,
+    expiresAt: new Date(Date.now() + 10 * 60 * 1_000).toISOString(),
+    resendAvailableAt: new Date(Date.now() + 60 * 1_000).toISOString(),
+  });
+}
+
+/** `P01/4`. The contract's named examples; the valid code is the MFA one. */
+async function handleVerifyOtp(
+  route: Route,
+  body: Record<string, unknown>,
+  options: MockOptions,
+): Promise<void> {
+  if (options.forceOtp === 'expired') {
+    await json(route, 401, contractExample('verifyOtp', 401, 'expired'));
+    return;
+  }
+  if (options.forceOtp === 'locked') {
+    const example = contractExample('verifyOtp', 429) as Record<string, unknown>;
+    await json(route, 429, { ...example, retryAt: new Date(Date.now() + 10 * 60 * 1_000).toISOString() });
+    return;
+  }
+  if (String(body.code ?? '') === VALID_MFA_CODE) {
+    await json(route, 200, contractExample('verifyOtp', 200));
+    return;
+  }
+  await json(route, 401, contractExample('verifyOtp', 401, 'invalid'));
 }

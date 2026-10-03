@@ -28,6 +28,15 @@
     "admin.sla.clock.always": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.audit.export.format.csv": "A file-format name written in Latin capitals. It is the same token in every locale.",
     "admin.audit.export.format.json": "A file-format name written in Latin capitals. It is the same token in every locale.",
-    "admin.scripts.version": "A format string rather than prose: it carries placeholders and punctuation only."
+    "admin.scripts.version": "A format string rather than prose: it carries placeholders and punctuation only.",
+    "signup.country.GH": "A place name spelled the same in this locale.",
+    "signup.country.KE": "A place name spelled the same in this locale.",
+    "onboarding.step.whatsapp": "A product name. It is spelled the same in this locale.",
+    "region.ke.name": "A place name spelled the same in this locale.",
+    "import.source.zoho": "A product name. It is spelled the same in this locale.",
+    "import.source.salesforce": "A product name. It is spelled the same in this locale.",
+    "import.source.hubspot": "A product name. It is spelled the same in this locale.",
+    "import.source.csv": "File-format names (CSV, Excel) used unchanged in this locale.",
+    "import.field.email": "A loanword used unchanged in this locale."
   }
 }

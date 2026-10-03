@@ -1,7 +1,12 @@
 import { InMemoryProvider, OpenFeature, type Client } from '@openfeature/server-sdk';
+import {
+  enabledFeatureFlags,
+  flagProcessNodeEnv,
+  type FlagProcessNodeEnv,
+} from '@kasuwa/config/feature-flags';
 
 /**
- * Feature flags — infrastructure present, deliberately unused.
+ * Feature flags.
  *
  * The convention (founding pack 3.17) is that every user-visible change ships
  * behind a flag, which is what makes trunk-based development safe with thirteen
@@ -9,16 +14,109 @@ import { InMemoryProvider, OpenFeature, type Client } from '@openfeature/server-
  * first feature does — otherwise the first person who needs a flag invents
  * their own.
  *
- * `FLAGS` is empty and must stay empty until a real feature needs one. The
- * scaffold asserts this in a unit test, so "unused" is enforced rather than
- * hoped for.
+ * `FLAGS` holds only flags a task has asked for, each with the task that owns
+ * it. A unit test pins the list, so a flag added without a task has to justify
+ * itself in review.
  *
  * Provider choice (D-L11): the in-memory provider now; Unleash or GrowthBook
  * when the first flag needs per-tenant targeting. Swapping providers is what
  * OpenFeature exists for, so this is a cheap decision to defer.
  */
 
-export const FLAGS: Record<string, never> = {};
+export interface FlagDefinition {
+  /** What the flag hides, in one sentence. */
+  readonly description: string;
+  /** The value when nothing has switched it. */
+  readonly defaultValue: boolean;
+  /** The task or decision that owns turning it on. */
+  readonly owner: string;
+  /**
+   * Whether `KASUWA_FEATURE_FLAGS_ON` may switch this flag on in a production
+   * process. `false` makes the process refuse to boot instead — for a flag
+   * whose backing work does not exist yet. Lifting it is a deliberate one-line
+   * change, made by whoever ships that work.
+   */
+  readonly productionReady: boolean;
+}
+
+export const FLAGS = {
+  /**
+   * D-P2: self-serve sign-up is built in MVP and shipped OFF until v1. It gates
+   * the ROUTES of `P01/3`, `P01/4` and `P01/5.1` — a screen reachable by typing
+   * its path is hidden, not gated. The first-admin onboarding steps
+   * (`P01/5.2`–`5.5`, `P01/6`) are deliberately NOT behind it (T-0018).
+   */
+  self_serve_signup: {
+    description: 'Public sign-up, verification and data-region choice (P01/3, P01/4, P01/5.1).',
+    defaultValue: false,
+    owner: 'T-0016 (endpoint), T-0007 (screens), D-P2',
+    // NOT production-ready: the sign-up, verify-otp and resend endpoints are
+    // contract-only (x-kasuwa-implemented: false) until T-0016. Turned on in
+    // production today, every submission would answer 501. T-0016 flips this.
+    productionReady: false,
+  },
+} as const satisfies Record<string, FlagDefinition>;
+
+export type FlagName = keyof typeof FLAGS;
+
+export function isFlagName(name: string): name is FlagName {
+  return Object.prototype.hasOwnProperty.call(FLAGS, name);
+}
+
+interface InMemoryFlag {
+  readonly variants: { readonly on: boolean; readonly off: boolean };
+  readonly defaultVariant: 'on' | 'off';
+  readonly disabled: boolean;
+}
+
+/**
+ * The in-memory provider's configuration: every declared flag at its default,
+ * except the ones named in `enabled`.
+ *
+ * An unknown name THROWS. A typo in a deployment variable must stop the boot —
+ * the alternative is a flag that someone believes is on and is not.
+ */
+export function flagConfiguration(enabled: readonly string[]): Record<FlagName, InMemoryFlag> {
+  const unknown = enabled.filter((name) => !isFlagName(name));
+  if (unknown.length > 0) {
+    throw new Error(`Unknown feature flag(s) in KASUWA_FEATURE_FLAGS_ON: ${unknown.join(', ')}`);
+  }
+  const on = new Set(enabled);
+  const entries = (Object.keys(FLAGS) as FlagName[]).map((name): [FlagName, InMemoryFlag] => [
+    name,
+    {
+      variants: { on: true, off: false },
+      defaultVariant: on.has(name) || FLAGS[name].defaultValue ? 'on' : 'off',
+      disabled: false,
+    },
+  ]);
+  return Object.fromEntries(entries) as Record<FlagName, InMemoryFlag>;
+}
+
+/**
+ * Fail-closed guard: a production process may not switch on a flag whose
+ * backing work is not production-ready.
+ *
+ * Shaped like `assertAuthModeIsSafe` in `@kasuwa/config`: same failure, same
+ * reason. Without it, one deployment variable would put self-serve sign-up in
+ * front of the public before T-0016's endpoints exist.
+ */
+export function assertFlagsAreProductionSafe(env: {
+  readonly nodeEnv: FlagProcessNodeEnv;
+  readonly enabled: readonly string[];
+}): void {
+  if (env.nodeEnv !== 'production') {
+    return;
+  }
+  const blocked = env.enabled.filter((name) => isFlagName(name) && !FLAGS[name].productionReady);
+  if (blocked.length > 0) {
+    throw new Error(
+      `Refusing to start: KASUWA_FEATURE_FLAGS_ON switches on ${blocked.join(', ')} with ` +
+        'NODE_ENV=production, and the registry marks it not production-ready. Its backing ' +
+        'work does not exist yet (see FLAGS in @kasuwa/feature-flags for the owner).',
+    );
+  }
+}
 
 const EVALUATION_CONTEXT_KEYS = ['tenantId', 'programmeId', 'userId'] as const;
 
@@ -35,11 +133,19 @@ export interface KasuwaEvaluationContext {
 
 let initialised = false;
 
+/**
+ * Registers the provider once per process. The flags switched on come from the
+ * process environment through `@kasuwa/config` — never from a request.
+ */
 export async function initialiseFeatureFlags(): Promise<void> {
   if (initialised) {
     return;
   }
-  await OpenFeature.setProviderAndWait(new InMemoryProvider({}));
+  const enabled = enabledFeatureFlags();
+  // Unknown names are refused by flagConfiguration; production-readiness here.
+  const configuration = flagConfiguration(enabled);
+  assertFlagsAreProductionSafe({ nodeEnv: flagProcessNodeEnv(), enabled });
+  await OpenFeature.setProviderAndWait(new InMemoryProvider(configuration));
   initialised = true;
 }
 

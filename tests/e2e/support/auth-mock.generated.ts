@@ -387,6 +387,16 @@ export const AUTH_OPERATIONS = [
           "code": "mfa_challenge_invalid",
           "message": "Sign in again to continue."
         }
+      },
+      "429": {
+        "default": {
+          "statusCode": 429,
+          "error": "Too Many Requests",
+          "code": "account_locked",
+          "message": "Too many sign-in attempts. Try again later.",
+          "retryAt": "2026-09-27T10:27:00.000Z",
+          "timeZone": "Africa/Lagos"
+        }
       }
     }
   },

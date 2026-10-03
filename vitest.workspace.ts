@@ -17,6 +17,8 @@ const root = __dirname;
 
 const alias = {
   '@kasuwa/auth-crypto': resolve(root, 'packages/auth-crypto/src/index.ts'),
+  // Longer key first, for the same prefix reason as @kasuwa/i18n/bundle below.
+  '@kasuwa/config/feature-flags': resolve(root, 'packages/config/src/feature-flags.ts'),
   '@kasuwa/config': resolve(root, 'packages/config/src/index.ts'),
   '@kasuwa/db': resolve(root, 'packages/db/src/index.ts'),
   '@kasuwa/permissions': resolve(root, 'packages/permissions/src/index.ts'),

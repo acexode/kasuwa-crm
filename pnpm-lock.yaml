@@ -154,6 +154,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@kasuwa/feature-flags':
+        specifier: workspace:*
+        version: link:../../packages/feature-flags
       '@kasuwa/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -277,6 +280,9 @@ importers:
 
   packages/feature-flags:
     dependencies:
+      '@kasuwa/config':
+        specifier: workspace:*
+        version: link:../config
       '@openfeature/server-sdk':
         specifier: ^1.16.0
         version: 1.23.0(@openfeature/core@1.12.0)

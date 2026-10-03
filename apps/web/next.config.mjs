@@ -21,12 +21,34 @@
  */
 const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:3001';
 
+/**
+ * HARNESS-ONLY: a second dev server in the same checkout (T-0007).
+ *
+ * The e2e run starts one web server at the flag defaults and a second with
+ * `self_serve_signup` switched on server-side, so one Playwright run can prove
+ * both that `P01/3` is a 404 and that it renders. Two `next dev` processes
+ * sharing `.next` corrupt each other, so the second one gets its own build
+ * directory — and its own generated tsconfig, because Next rewrites the
+ * tsconfig it is given to include `<distDir>/types`, and the tracked one must
+ * not change under a test run. Unset, both are the defaults.
+ *
+ * Neither of these is a feature flag. The flag itself is read by
+ * `@kasuwa/feature-flags` from `KASUWA_FEATURE_FLAGS_ON` through
+ * `@kasuwa/config`, never here and never from a request.
+ */
+const DIST_DIR = process.env.KASUWA_WEB_DIST_DIR ?? '.next';
+const TSCONFIG = process.env.KASUWA_WEB_TSCONFIG ?? 'tsconfig.json';
+
 const nextConfig = {
   reactStrictMode: true,
+  distDir: DIST_DIR,
+  typescript: { tsconfigPath: TSCONFIG },
   // @kasuwa/* packages ship TypeScript source rather than a build step, so Next
   // compiles them alongside the app. Keeps the edit-refresh loop instant, which
-  // matters more than build purity for a workspace this size.
-  transpilePackages: ['@kasuwa/ui', '@kasuwa/i18n'],
+  // matters more than build purity for a workspace this size. The flag and
+  // config packages are server-only: they are imported by server components
+  // and never reach a browser bundle.
+  transpilePackages: ['@kasuwa/ui', '@kasuwa/i18n', '@kasuwa/feature-flags', '@kasuwa/config'],
   async rewrites() {
     return [{ source: '/api/v1/:path*', destination: `${API_ORIGIN}/api/v1/:path*` }];
   },

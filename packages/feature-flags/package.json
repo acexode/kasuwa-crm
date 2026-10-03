@@ -5,7 +5,18 @@
   "type": "commonjs",
   "main": "src/index.ts",
   "types": "src/index.ts",
-  "scripts": { "lint": "eslint src", "typecheck": "tsc -p tsconfig.json --noEmit" },
-  "dependencies": { "@openfeature/server-sdk": "^1.16.0" },
-  "nx": { "tags": ["scope:shared", "type:util"] }
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@kasuwa/config": "workspace:*",
+    "@openfeature/server-sdk": "^1.16.0"
+  },
+  "nx": {
+    "tags": [
+      "scope:shared",
+      "type:util"
+    ]
+  }
 }

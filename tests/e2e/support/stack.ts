@@ -14,8 +14,21 @@ import { resolve } from 'node:path';
  */
 
 export interface StackUrls {
-  /** apps/web, a production build served by `next start` (T-0010). */
+  /**
+   * apps/web, a production build served by `next start` (T-0010), every
+   * feature flag at its default. The only web server whose bytes are measured.
+   */
   webUrl: string;
+  /**
+   * A second apps/web process with `self_serve_signup` switched ON in its
+   * environment (T-0007). Server-side by construction: the flag is per
+   * process, and nothing a browser sends can change it.
+   *
+   * It is `next dev`, not a production build: the flag is not production-ready
+   * and a production process that names it refuses to boot until T-0016. Never
+   * measure bytes against it — a dev bundle is not a budget.
+   */
+  webSelfServeUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;
   /** Static fixture pages used by the harness self-tests. */
