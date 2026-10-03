@@ -2,30 +2,35 @@
 
 *One screen. Everything else is for agents.*
 
-**2026-10-03** — `main` at `60f7bd2`.
+**2026-10-03, afternoon.** `main` (verified) at the T-0028 merge; **`dev` (unverified)** at `39ec154`.
 
-## Modules
+## ⚠ CI is down: GitHub Actions minutes are exhausted
+Every Actions job fails before starting ("spending limit"). Per your instruction, finished work goes to
+**`dev`**; `main` stays verified. **When you can reboot** (or restore Actions minutes), the lead runs
+the full Docker gates (integration, isolation, e2e) on `dev`, fixes what they catch, and opens one
+`dev` → `main` PR with the results.
 
-| | |
-|---|---|
-| **Done** | Tenancy · auth (5/9 ops) · metadata engine · design system · locales · e2e harness with production byte budget · CI hardening and OTel · channel adapter (null provider in prod) · **admin API 39/41** · audit log (append-only; every audited write on main records an event) |
-| **Screens** | P01: 16/16 (sign-up behind `self_serve_signup`, off) · P02: 22/22, still on the **mock**; T-0035 moves them to the real API |
-| **In progress** | Next wave: T-0032 permissions engine · T-0015 sales-led provisioning · T-0033 audit coverage · T-0034 feature register · T-0035 admin console on the live API |
-| **Deferred (by you)** | Telephony and WFM (D-T*, D-W*). `getProgrammeKpis` and `getProgrammeSkillCover` wait on them |
+## On `dev`, waiting for the Docker gates
+| | What | Local evidence |
+|---|---|---|
+| T-0034 | Feature register (`team/FEATURES.md`) + commitlint/lint mirrored in CI | acceptance 11/11 (file-only) |
+| T-0033 | Every audited write records an event (16/16 operations) | reviews pass |
+| T-0032 | **Permissions engine**: tenant-admin flag, per-programme permission sets, 403s, D-L51 RLS on memberships | reviews' blockers fixed (xid wraparound) |
+| T-0015 | **Sales-led tenant provisioning** (`pnpm -s tenant:provision`) | reviews' blockers fixed (subpath, honest RLS note) |
+| D-L55 | Two lead permission-hardening tests | |
 
-## Merged today (lead-verified, then merged under your authority)
-Prep #59 · T-0026 #52 · T-0029 #55 · T-0031 #54 · T-0027 #53 · T-0025 #56 · T-0030 #57 · T-0028 #58
+**`dev` as a whole:** lint and typecheck 19/19, **unit 638/638**, feature register current, boundaries verified. **No database test has run on any of it.**
 
-**For you to read after the fact (D-A3), in this order:** #55 (new RLS insert policy) · #56 (audit log) · #59 (auth wiring) · #52 · #53 · #54 · #57 · #58. Each has its verification and review summary posted.
+**Still building:** T-0035 (admin console on the live API, plus copy and font fixes).
 
 ## Waiting on you
-
 | | |
 |---|---|
-| **D-P10** | Get quotes from **Termii** (primary) and **Africa's Talking** (fallback) using the three questions in DECISIONS.md. Start AT sender-ID registration now (≥2 weeks) |
-| **Machine** | Reboot, so the lead can run the Docker prune you approved (~45 GB) |
+| **Reboot** | So the lead can run Docker (the gates on `dev`, plus the approved Docker prune) |
+| **D-P10** | Quotes from Termii and Africa's Talking; start AT sender-ID registration (≥2 weeks) |
+| **Read (D-A3)** | On `main`: #55, #56, #59, #52, #53, #54, #57, #58. On `dev`: #64 (permissions/RLS), #62 (provisioning), #63, #60 |
 
 ## Risks the lead is carrying
-- **D-L51 (high):** the database does not guard programme membership; only the app does. Fixed in T-0032 (in progress).
-- Builders run on this laptop ("cloud" fell back to local). Five at once, taking turns on heavy commands.
-- No branch protection until the org move (D-L34). Compensating: commitlint and lint mirrored in CI (T-0034).
+- Four tasks' SQL (migrations 0015, 0016) has never run on Postgres. The Docker run on `dev` is the first time.
+- D-L55: membership permission set still app-writable within reachable programmes; membership DELETE tenant-only.
+- No branch protection until the org move (D-L34).
