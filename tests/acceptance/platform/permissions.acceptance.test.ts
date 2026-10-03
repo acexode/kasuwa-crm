@@ -45,36 +45,45 @@ import { asUser, createApi } from '../support/api';
  *       it). There is no tenant-wide wildcard grant and no wildcard scope
  *       (D-L06). Nullability is yours; a NULL set means no permission.
  *
- *   M2. What a set allows is yours to model. This suite relies on exactly two
- *       facts about the seeded sets (`SEED_PERMISSION_SETS`):
- *         * the locked `admin` set permits every operation listed below in
- *           the programme it is held in;
- *         * the `agent` set permits none of them.
+ *   M2. What a set allows is yours to model. This suite relies on these
+ *       facts about the seeded sets (`SEED_PERMISSION_SETS`), per D-L53:
+ *         * the locked `admin` set permits every PROGRAMME-SCOPED write below
+ *           (archiveProgramme, create/update/delete/reorderDisposition,
+ *           invitePortalUser) in the programme it is held in, and nowhere
+ *           else;
+ *         * every other set (`agent`, `team_lead`, `qa_analyst`,
+ *           `programme_manager`, `client_portal`) permits none of them this
+ *           round;
+ *         * no set, `admin` included, permits a TENANT-LEVEL write (M4).
  *
- *   M3. The decision is re-resolved from `user_programme` on EVERY request,
- *       exactly as scope is. The suite changes a membership row's set between
- *       two requests and expects the second request to see it. A permission
- *       cached in the session token, or in process memory, fails here.
+ *   M3. The decision is re-resolved from the database on EVERY request,
+ *       exactly as scope is. The suite changes a membership row's set, and a
+ *       user's tenant-admin flag, between two requests and expects the second
+ *       request to see it. A permission cached in the session token, or in
+ *       process memory, fails here.
  *
- *   M4. D-L40: `createProgramme` and `updateProgramme` require a TENANT
- *       ADMIN. How "tenant admin" is computed is yours (D-L06 leaves
- *       tenant-wide permissions to Agent 1), within two constraints:
- *         * USER_A_SUPERVISOR, holding `admin` in both of tenant A's
- *           programmes, IS one;
- *         * holding `admin` in SOME but not all of the tenant's programmes is
- *           NOT enough. That is the whole point of D-L40: an admin of A1 only
- *           must not be able to probe A2's name through a 409.
- *       The other listed writes need the permission in the programme they
- *       name (programme-scoped operations) or the tenant-level permission the
- *       builder defines (roles, field security, audit export); USER_A_SUPERVISOR
- *       must pass and an `agent`-only user must not.
+ *   M4. TENANT ADMIN is a tenant-level flag on the user (D-L53): a column
+ *       `"user".is_tenant_admin boolean`. It is NOT derived from programme
+ *       membership, and holding `admin` in one, some or all programmes does
+ *       not make anyone a tenant admin.
+ *         * TENANT-LEVEL writes require it: createProgramme, updateProgramme
+ *           (D-L40), createRole, updateRole, deleteRole, updateRoleHierarchy,
+ *           updateFieldSecurityMatrix, createAuditExport.
+ *         * PROGRAMME-SCOPED writes require the `admin` set in that programme
+ *           OR tenant admin.
+ *         * Tenant admin NEVER widens scope (D-L06): a tenant admin who is
+ *           not a member of a programme gets 404 there, exactly like anybody
+ *           else. RLS scope is unchanged by this task.
  *
- *   M5. The seed (`packages/db/src/seed.ts`) assigns: USER_A_SUPERVISOR
- *       `admin` in A1 and A2; USER_A_AGENT_1 `agent` in A1; USER_A_AGENT_2
- *       `agent` in A2. This suite also plants exactly those values before
- *       every test (through `kasuwa_migrator`), so it states what it relies on
- *       rather than trusting the seed silently — the seed must still match,
- *       because every other admin suite drives USER_A_SUPERVISOR for writes.
+ *   M5. The seed (`packages/db/src/seed.ts`) sets `is_tenant_admin` true for
+ *       USER_A_SUPERVISOR and USER_B_AGENT_1 (tenant B's only user) and false
+ *       for every other user, and assigns: USER_A_SUPERVISOR `admin` in A1 and
+ *       A2; USER_A_AGENT_1 `agent` in A1; USER_A_AGENT_2 `agent` in A2
+ *       (USER_B_AGENT_1's set in B1 is yours). This suite also plants tenant
+ *       A's values before every test (through `kasuwa_migrator`), so it
+ *       states what it relies on rather than trusting the seed silently —
+ *       the seed must still match, because every other admin suite drives
+ *       USER_A_SUPERVISOR and USER_B_AGENT_1 for writes.
  *
  *   M6. D-L51: `user_programme` INSERT and UPDATE are tightened IN THE
  *       DATABASE so a row can only be written for a programme already in
@@ -92,19 +101,23 @@ import { asUser, createApi } from '../support/api';
  *       changes it, not you.
  *
  * ------------------------------------------------------------------------
- * ORDER OF ANSWERS, which the spec fixes and this suite holds:
- *   400 for a supplied scope header (the guard) — unchanged, not re-tested;
- *   404 for a record the caller cannot reach — ALWAYS before 403, because a
- *       403 would confirm the record exists (spec `NotPermitted`, CLAUDE.md
- *       6.4);
- *   403 not_permitted for a record the caller can read but may not act on.
+ * ORDER OF ANSWERS (D-L53), which this suite holds:
+ *   400 for a supplied scope header — the guard, before any of this;
+ *       unchanged and not re-tested here;
+ *   404 for a record the caller cannot reach — ALWAYS first, because a 403
+ *       would confirm the record exists (spec `NotPermitted`, CLAUDE.md 6.4).
+ *       "The record" is the one the path names: a reachable programme in the
+ *       path with an unreachable disposition id is still 404;
+ *   403 not_permitted for a record the caller can read but may not act on —
+ *       decided BEFORE the body is validated, so an unpermitted caller learns
+ *       nothing from validation either;
+ *   400 validation_failed only for a permitted caller.
  *
- * NOT asserted, because nothing defines it: whether a refused write is
- * itself audited (the suite compares the target table only, never
- * `audit_event`); the 403-vs-400 order for a body that is both invalid and
- * unpermitted; `updateProgrammeSla` and `updateProgrammeRetention`, which list
- * 403 but are `x-kasuwa-implemented: false`; `reorderDispositions`, which is a
- * write but does not list 403 (raised in the report).
+ * A refused write is NOT audited (D-L53): a 403 writes no `audit_event` row.
+ *
+ * NOT asserted: `updateProgrammeSla` and `updateProgrammeRetention`, which
+ * list 403 but are `x-kasuwa-implemented: false`. `reorderDispositions` gains
+ * a 403 in the spec as part of this task (D-L53) and is in the table below.
  *
  * Writes. Every test reseeds afterwards, and `afterAll` reseeds again.
  */
@@ -151,6 +164,10 @@ function permissionSet(key: string): string {
 
 const ADMIN_SET = permissionSet('admin');
 const AGENT_SET = permissionSet('agent');
+/** D-L53 ruling 6: read-only for admin writes this round. */
+const READ_ONLY_SETS = ['team_lead', 'qa_analyst', 'programme_manager', 'client_portal'].map(
+  permissionSet,
+);
 
 function seededName(id: string): string {
   const programme = SEED_TENANTS.flatMap((tenant) => tenant.programmes).find(
@@ -209,8 +226,20 @@ describe('acceptance: permissions engine (T-0032)', () => {
     );
   }
 
+  /** M4: set one tenant-A user's tenant-admin flag. */
+  async function setTenantAdmin(userId: string, value: boolean) {
+    await observer.query(
+      'UPDATE "user" SET is_tenant_admin = $1 WHERE id = $2 AND tenant_id = $3',
+      [value, userId, TENANT_A],
+    );
+  }
+
   beforeEach(async () => {
     // M5: exactly what the seed must already say.
+    await setTenantAdmin(USER_A_SUPERVISOR, true);
+    for (const userId of [USER_A_AGENT_1, USER_A_AGENT_2, USER_A_NO_PROGRAMME]) {
+      await setTenantAdmin(userId, false);
+    }
     await assign(USER_A_SUPERVISOR, PROGRAMME_A1, ADMIN_SET);
     await assign(USER_A_SUPERVISOR, PROGRAMME_A2, ADMIN_SET);
     await assign(USER_A_AGENT_1, PROGRAMME_A1, AGENT_SET);
@@ -227,6 +256,10 @@ describe('acceptance: permissions engine (T-0032)', () => {
     const result = await observer.query<{ v: unknown }>(sql, values);
     return result.rows[0]?.v ?? null;
   }
+
+  /** D-L53: a refused write is not audited. */
+  const auditRows = () =>
+    one('SELECT count(*)::int AS v FROM audit_event WHERE tenant_id = $1', [TENANT_A]);
 
   const programmeRow = (id: string) =>
     one('SELECT to_jsonb(p) AS v FROM programme p WHERE id = $1', [id]);
@@ -261,8 +294,10 @@ describe('acceptance: permissions engine (T-0032)', () => {
 
   interface Operation {
     name: string;
-    /** True when the path names a programme: the decision is per programme. */
+    /** True when the path names a programme, so an unreachable one is 404. */
     programmeScoped: boolean;
+    /** M4: needs tenant admin. Otherwise `admin` in the programme OR tenant admin. */
+    tenantLevel: boolean;
     prepare: (programmeId: string) => Promise<Context>;
     send: (headers: Headers, programmeId: string, context: Context) => request.Test;
     /** What the write would change, read through the observer. */
@@ -274,6 +309,7 @@ describe('acceptance: permissions engine (T-0032)', () => {
     {
       name: 'createProgramme',
       programmeScoped: false,
+      tenantLevel: true,
       prepare: async () => ({ name: uniqueName('Pesa Merchant Onboarding') }),
       send: (headers, _programmeId, context) =>
         request(server())
@@ -292,6 +328,7 @@ describe('acceptance: permissions engine (T-0032)', () => {
     {
       name: 'updateProgramme',
       programmeScoped: true,
+      tenantLevel: true,
       prepare: async (programmeId) => ({
         version: await versionOf(SUPERVISOR, programmeId),
         name: uniqueName('Renamed'),
@@ -307,6 +344,7 @@ describe('acceptance: permissions engine (T-0032)', () => {
     {
       name: 'archiveProgramme',
       programmeScoped: true,
+      tenantLevel: false,
       prepare: async () => ({}),
       send: (headers, programmeId) =>
         request(server())
@@ -319,6 +357,7 @@ describe('acceptance: permissions engine (T-0032)', () => {
     {
       name: 'createDisposition',
       programmeScoped: true,
+      tenantLevel: false,
       prepare: async () => ({ code: uniqueCode() }),
       send: (headers, programmeId, context) =>
         request(server())
@@ -332,6 +371,7 @@ describe('acceptance: permissions engine (T-0032)', () => {
     {
       name: 'updateDisposition',
       programmeScoped: true,
+      tenantLevel: false,
       prepare: async (programmeId) => ({ id: await createDispositionAsSupervisor(programmeId) }),
       send: (headers, programmeId, context) =>
         request(server())
@@ -345,6 +385,7 @@ describe('acceptance: permissions engine (T-0032)', () => {
     {
       name: 'deleteDisposition',
       programmeScoped: true,
+      tenantLevel: false,
       prepare: async (programmeId) => ({ id: await createDispositionAsSupervisor(programmeId) }),
       send: (headers, programmeId, context) =>
         request(server())
@@ -355,8 +396,36 @@ describe('acceptance: permissions engine (T-0032)', () => {
       success: 204,
     },
     {
+      name: 'reorderDispositions',
+      programmeScoped: true,
+      tenantLevel: false,
+      prepare: async (programmeId) => {
+        await createDispositionAsSupervisor(programmeId);
+        await createDispositionAsSupervisor(programmeId);
+        const list = await request(server())
+          .get(`${PROGRAMMES}/${programmeId}/dispositions`)
+          .set(SUPERVISOR);
+        expect(list.status, `listDispositions: ${JSON.stringify(list.body)}`).toBe(200);
+        const ids = (list.body.items as { id: string }[]).map((item) => item.id);
+        return { reversed: ids.reverse().join(',') };
+      },
+      send: (headers, programmeId, context) =>
+        request(server())
+          .put(`${PROGRAMMES}/${programmeId}/dispositions/order`)
+          .set(headers)
+          .send({ dispositionIds: String(context.reversed).split(',') }),
+      snapshot: (programmeId) =>
+        one(
+          `SELECT coalesce(jsonb_agg(id ORDER BY position), '[]'::jsonb) AS v
+             FROM disposition WHERE programme_id = $1 AND deleted_at IS NULL`,
+          [programmeId],
+        ),
+      success: 200,
+    },
+    {
       name: 'invitePortalUser',
       programmeScoped: true,
+      tenantLevel: false,
       prepare: async () => ({ email: uniqueAddress() }),
       send: (headers, programmeId, context) =>
         request(server())
@@ -370,6 +439,7 @@ describe('acceptance: permissions engine (T-0032)', () => {
     {
       name: 'createRole',
       programmeScoped: false,
+      tenantLevel: true,
       prepare: async () => ({ name: uniqueName('Collections Lead') }),
       send: (headers, _programmeId, context) =>
         request(server()).post(ROLES).set(headers).send({ name: context.name, parentRoleId: null }),
@@ -379,6 +449,7 @@ describe('acceptance: permissions engine (T-0032)', () => {
     {
       name: 'updateRole',
       programmeScoped: false,
+      tenantLevel: true,
       prepare: async () => ({ id: await createRoleAsSupervisor(), name: uniqueName('Renamed') }),
       send: (headers, _programmeId, context) =>
         request(server()).patch(`${ROLES}/${context.id}`).set(headers).send({ name: context.name }),
@@ -389,6 +460,7 @@ describe('acceptance: permissions engine (T-0032)', () => {
     {
       name: 'deleteRole',
       programmeScoped: false,
+      tenantLevel: true,
       prepare: async () => ({
         id: await createRoleAsSupervisor(),
         target: await createRoleAsSupervisor(),
@@ -405,6 +477,7 @@ describe('acceptance: permissions engine (T-0032)', () => {
     {
       name: 'updateRoleHierarchy',
       programmeScoped: false,
+      tenantLevel: true,
       prepare: async () => {
         const parent = await createRoleAsSupervisor();
         const child = await createRoleAsSupervisor();
@@ -431,6 +504,7 @@ describe('acceptance: permissions engine (T-0032)', () => {
     {
       name: 'updateFieldSecurityMatrix',
       programmeScoped: false,
+      tenantLevel: true,
       prepare: async () => {
         await observer.query(
           `INSERT INTO object_def (id, tenant_id, api_name, label, is_custom)
@@ -472,6 +546,7 @@ describe('acceptance: permissions engine (T-0032)', () => {
     {
       name: 'createAuditExport',
       programmeScoped: false,
+      tenantLevel: true,
       prepare: async () => ({}),
       send: (headers) =>
         request(server()).post(EXPORTS).set(headers).send({ format: 'csv', scope: 'last_90_days' }),
@@ -489,14 +564,23 @@ describe('acceptance: permissions engine (T-0032)', () => {
     return operation;
   };
 
+  /** Every operation, with archiveProgramme last: an archived programme may refuse writes. */
+  const archiveLast = (operations: Operation[]) => [
+    ...operations.filter((candidate) => candidate.name !== 'archiveProgramme'),
+    ...operations.filter((candidate) => candidate.name === 'archiveProgramme'),
+  ];
+  const PROGRAMME_LEVEL = OPERATIONS.filter((candidate) => !candidate.tenantLevel);
+  const TENANT_LEVEL = OPERATIONS.filter((candidate) => candidate.tenantLevel);
+
   describe('every implemented admin write whose spec lists 403', () => {
     for (const operation of OPERATIONS) {
-      it(`${operation.name}: 403 not_permitted and no change for an agent-only caller who can read the target; ${operation.success} for an admin`, async () => {
+      it(`${operation.name}: 403 not_permitted, no change and no audit row for an agent-only caller who can read the target; ${operation.success} for a tenant admin`, async () => {
         const context = await operation.prepare(PROGRAMME_A1);
         const before = await operation.snapshot(PROGRAMME_A1, context);
+        const auditBefore = await auditRows();
 
         // USER_A_AGENT_1 is a member of A1 — he can read the record — but
-        // holds only the `agent` set there.
+        // holds only the `agent` set there and is not a tenant admin.
         const refused = await operation.send(AGENT_1, PROGRAMME_A1, context);
         const body = expectError(refused, 403, 'not_permitted');
         expect(JSON.stringify(body), '403 never carries an id').not.toMatch(UUID);
@@ -504,11 +588,14 @@ describe('acceptance: permissions engine (T-0032)', () => {
           await operation.snapshot(PROGRAMME_A1, context),
           `${operation.name}: a refused write changed something`,
         ).toEqual(before);
+        expect(await auditRows(), `${operation.name}: a refused write was audited (D-L53)`).toBe(
+          auditBefore,
+        );
 
         const allowed = await operation.send(SUPERVISOR, PROGRAMME_A1, context);
         expect(
           allowed.status,
-          `${operation.name} as an admin: ${JSON.stringify(allowed.body)}`,
+          `${operation.name} as a tenant admin: ${JSON.stringify(allowed.body)}`,
         ).toBe(operation.success);
         expect(
           await operation.snapshot(PROGRAMME_A1, context),
@@ -517,7 +604,7 @@ describe('acceptance: permissions engine (T-0032)', () => {
       });
     }
 
-    it('a programme the caller cannot reach is still 404 — never 403 — on every programme-scoped write, and nothing changes', async () => {
+    it('a programme the caller cannot reach is still 404 — never 403 — on every write whose path names one, and nothing changes', async () => {
       const nothing = await request(server()).get(`${PROGRAMMES}/${NOWHERE}`).set(AGENT_1);
       expectError(nothing, 404, 'not_found');
 
@@ -549,9 +636,83 @@ describe('acceptance: permissions engine (T-0032)', () => {
         ).toEqual(before);
       }
     });
+
+    it('permission is decided before the body is validated: 404, then 403, then 400', async () => {
+      // D-L53. An unpermitted caller learns nothing from validation either.
+      // Each request carries an empty body, which every one of these
+      // operations rejects as `validation_failed` for a permitted caller.
+      const cases: {
+        name: string;
+        programmeScoped: boolean;
+        send: (headers: Headers, programmeId: string) => request.Test;
+      }[] = [
+        {
+          name: 'createProgramme',
+          programmeScoped: false,
+          send: (h) => request(server()).post(PROGRAMMES).set(h).send({}),
+        },
+        {
+          name: 'updateProgramme',
+          programmeScoped: true,
+          send: (h, p) => request(server()).patch(`${PROGRAMMES}/${p}`).set(h).send({}),
+        },
+        {
+          name: 'createDisposition',
+          programmeScoped: true,
+          send: (h, p) => request(server()).post(`${PROGRAMMES}/${p}/dispositions`).set(h).send({}),
+        },
+        {
+          name: 'reorderDispositions',
+          programmeScoped: true,
+          send: (h, p) =>
+            request(server()).put(`${PROGRAMMES}/${p}/dispositions/order`).set(h).send({}),
+        },
+        {
+          name: 'invitePortalUser',
+          programmeScoped: true,
+          send: (h, p) =>
+            request(server()).post(`${PROGRAMMES}/${p}/portal-users/invitations`).set(h).send({}),
+        },
+        {
+          name: 'createRole',
+          programmeScoped: false,
+          send: (h) => request(server()).post(ROLES).set(h).send({}),
+        },
+        {
+          name: 'updateRoleHierarchy',
+          programmeScoped: false,
+          send: (h) => request(server()).put(HIERARCHY).set(h).send({}),
+        },
+        {
+          name: 'updateFieldSecurityMatrix',
+          programmeScoped: false,
+          send: (h) => request(server()).put(MATRIX).set(h).send({}),
+        },
+        {
+          name: 'createAuditExport',
+          programmeScoped: false,
+          send: (h) => request(server()).post(EXPORTS).set(h).send({}),
+        },
+      ];
+
+      for (const { name, programmeScoped, send } of cases) {
+        const refused = await send(AGENT_1, PROGRAMME_A1);
+        expect(refused.status, `${name}: unpermitted + invalid body`).toBe(403);
+        expectError(refused, 403, 'not_permitted');
+
+        const invalid = await send(SUPERVISOR, PROGRAMME_A1);
+        expect(invalid.status, `${name}: permitted + invalid body`).toBe(400);
+        expectError(invalid, 400, 'validation_failed');
+
+        if (programmeScoped) {
+          const unreachable = await send(AGENT_1, PROGRAMME_A2);
+          expect(unreachable.status, `${name}: unreachable + invalid body`).toBe(404);
+        }
+      }
+    });
   });
 
-  // --- D-L40 ------------------------------------------------------------------
+  // --- D-L40 / D-L53 ------------------------------------------------------------
 
   describe('D-L40: the duplicate-name oracle is closed to non-admins', () => {
     it('createProgramme and updateProgramme with a sibling’s exact name are 403 — not 409 — to non-admins, and still 409 to a tenant admin', async () => {
@@ -590,8 +751,7 @@ describe('acceptance: permissions engine (T-0032)', () => {
       ).toBe(programmesBefore);
       expect(await programmeRow(PROGRAMME_A1)).toEqual(a1Before);
 
-      // A tenant admin can already read every programme, so the 409 tells
-      // them nothing they could not see — it stays.
+      // A tenant admin is trusted tenant-wide, so the 409 stays.
       expectError(
         await request(server())
           .post(PROGRAMMES)
@@ -611,47 +771,83 @@ describe('acceptance: permissions engine (T-0032)', () => {
     });
   });
 
-  // --- the decision is per programme -------------------------------------------
+  // --- per programme, and the tenant-admin flag ---------------------------------
 
-  describe('the decision is per programme, and re-resolved on every request', () => {
-    it('admin in A1 does not carry into A2, and a programme admin is not a tenant admin', async () => {
-      // USER_A_AGENT_1: `admin` in A1, `agent` in A2 — a member of both, so
-      // A2 is readable and the honest answer there is 403, not 404.
+  describe('the decision is per programme, tenant admin is a flag, and both are re-resolved on every request', () => {
+    it('admin in A1 permits every programme-scoped write in A1, none in A2, and no tenant-level write', async () => {
+      // USER_A_AGENT_1: `admin` in A1, `agent` in A2, not a tenant admin — a
+      // member of both, so A2 is readable and the honest answer there is 403.
       await assign(USER_A_AGENT_1, PROGRAMME_A1, ADMIN_SET);
       await assign(USER_A_AGENT_1, PROGRAMME_A2, AGENT_SET);
 
-      for (const name of ['createDisposition', 'invitePortalUser']) {
-        const operation = byName(name);
+      // M4: a programme admin — of one programme out of two here — is not a
+      // tenant admin. This is D-L40's point: no 409 oracle on A2's name.
+      for (const operation of TENANT_LEVEL) {
+        const context = await operation.prepare(PROGRAMME_A1);
+        const before = await operation.snapshot(PROGRAMME_A1, context);
+        expectError(await operation.send(AGENT_1, PROGRAMME_A1, context), 403, 'not_permitted');
+        expect(await operation.snapshot(PROGRAMME_A1, context)).toEqual(before);
+      }
 
-        const inA1 = await operation.prepare(PROGRAMME_A1);
-        const allowed = await operation.send(AGENT_1, PROGRAMME_A1, inA1);
-        expect(allowed.status, `${name} in A1: ${JSON.stringify(allowed.body)}`).toBe(
-          operation.success,
-        );
-
+      for (const operation of archiveLast(PROGRAMME_LEVEL)) {
         const inA2 = await operation.prepare(PROGRAMME_A2);
         const before = await operation.snapshot(PROGRAMME_A2, inA2);
         expectError(await operation.send(AGENT_1, PROGRAMME_A2, inA2), 403, 'not_permitted');
         expect(await operation.snapshot(PROGRAMME_A2, inA2)).toEqual(before);
       }
 
-      // D-L40 (M4): admin of one programme out of two is not a tenant admin.
+      for (const operation of archiveLast(PROGRAMME_LEVEL)) {
+        const inA1 = await operation.prepare(PROGRAMME_A1);
+        const allowed = await operation.send(AGENT_1, PROGRAMME_A1, inA1);
+        expect(allowed.status, `${operation.name} in A1: ${JSON.stringify(allowed.body)}`).toBe(
+          operation.success,
+        );
+      }
+    });
+
+    it('every set other than admin is read-only for admin writes', async () => {
+      // D-L53 ruling 6, for this round.
+      for (const setId of READ_ONLY_SETS) {
+        await assign(USER_A_AGENT_1, PROGRAMME_A1, setId);
+        for (const operation of PROGRAMME_LEVEL) {
+          const context = await operation.prepare(PROGRAMME_A1);
+          const before = await operation.snapshot(PROGRAMME_A1, context);
+          const response = await operation.send(AGENT_1, PROGRAMME_A1, context);
+          expect(response.status, `${operation.name} with set ${setId}`).toBe(403);
+          expect(await operation.snapshot(PROGRAMME_A1, context)).toEqual(before);
+        }
+      }
+    });
+
+    it('the tenant-admin flag permits every write in reachable programmes, never widens scope, and applies on the next request', async () => {
+      // USER_A_AGENT_1 keeps only the `agent` set in A1 and is not in A2.
+      await setTenantAdmin(USER_A_AGENT_1, true);
+
+      // D-L06: tenant admin is a permission, not a scope. A2 is still 404.
+      const nothing = await request(server()).get(`${PROGRAMMES}/${NOWHERE}`).set(AGENT_1);
+      for (const operation of OPERATIONS.filter((candidate) => candidate.programmeScoped)) {
+        const inA2 = await operation.prepare(PROGRAMME_A2);
+        const before = await operation.snapshot(PROGRAMME_A2, inA2);
+        const response = await operation.send(AGENT_1, PROGRAMME_A2, inA2);
+        expect(response.status, `${operation.name} in unreachable A2 as a tenant admin`).toBe(404);
+        expect(response.body).toEqual(nothing.body);
+        expect(await operation.snapshot(PROGRAMME_A2, inA2)).toEqual(before);
+      }
+
+      for (const operation of archiveLast(OPERATIONS)) {
+        const inA1 = await operation.prepare(PROGRAMME_A1);
+        const allowed = await operation.send(AGENT_1, PROGRAMME_A1, inA1);
+        expect(
+          allowed.status,
+          `${operation.name} as a tenant admin with the agent set: ${JSON.stringify(allowed.body)}`,
+        ).toBe(operation.success);
+      }
+
+      // M3: revoked on the very next request.
+      await setTenantAdmin(USER_A_AGENT_1, false);
+      const createRole = byName('createRole');
       expectError(
-        await request(server())
-          .post(PROGRAMMES)
-          .set(AGENT_1)
-          .send({ name: uniqueName('Programme admin create'), businessUnitId: BU_A }),
-        403,
-        'not_permitted',
-      );
-      expectError(
-        await request(server())
-          .patch(`${PROGRAMMES}/${PROGRAMME_A1}`)
-          .set(AGENT_1)
-          .send({
-            version: await versionOf(AGENT_1, PROGRAMME_A1),
-            name: uniqueName('Programme admin rename'),
-          }),
+        await createRole.send(AGENT_1, PROGRAMME_A1, await createRole.prepare(PROGRAMME_A1)),
         403,
         'not_permitted',
       );
