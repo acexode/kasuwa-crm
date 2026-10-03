@@ -1107,6 +1107,21 @@ test.describe('the console on a 256 kbps link', () => {
    *   /admin/audit                       252,102 B     92 ms / 2,040 ms
    *   /admin/programmes/{id}?tab=scripts 261,818 B    112 ms / 1,940 ms
    *
+   * Re-measured in T-0035 (same method, local `next start`), after the
+   * language menu gained its Beta entries and the programme screen its
+   * sample-data frame and retention model:
+   *
+   *   /admin                             221,375 B    100 ms / 2,028 ms
+   *   /admin/programmes                  219,468 B     76 ms / 2,028 ms
+   *   /admin/roles                       221,730 B     92 ms / 2,024 ms
+   *   /admin/field-security              254,003 B     88 ms / 2,028 ms
+   *   /admin/audit                       253,853 B    104 ms / 2,036 ms
+   *   /admin/programmes/{id}?tab=scripts 265,006 B     84 ms / 1,880 ms
+   *
+   * Every route stayed inside its budget, but the scripts tab kept only
+   * 994 B of headroom; it is re-pinned to 268,000 (1.1%). No route requests
+   * `noto-sans-latin-ext` (D-L44).
+   *
    * The two heaviest routes carry `jetbrains-mono-latin-400600.woff2` —
    * 31,714 B for the monospace figures on ids, timestamps and script versions.
    * It is the single largest avoidable asset left on this console and it is
@@ -1129,7 +1144,7 @@ test.describe('the console on a 256 kbps link', () => {
     {
       label: 'P02/B6 the scripts tab',
       path: '/admin/programmes/11111111-0000-4000-8000-0000000c0001?tab=scripts',
-      budget: 266_000,
+      budget: 268_000,
     },
   ];
 

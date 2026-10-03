@@ -387,8 +387,14 @@ test.describe('P01/3, P01/4, P01/5.1 — with self_serve_signup on @self-serve-o
       await expect(page.locator(`[data-region="${region}"]`)).toHaveAttribute('aria-checked', 'false');
       await expect(page.locator(`[data-region="${region}"]`)).toContainText('Talk to sales');
     }
-    // The NDPA panel is regulatory copy: the designer's words, verbatim.
-    await expect(page.getByTestId('region-law')).toHaveText(EN['region.law.body'] ?? '');
+    // The NDPA panel is regulatory copy: the designer's words, less the
+    // sentence that told the reader to "choose Nigeria" (D-P11), plus the
+    // adopted sales sentence in its place.
+    await expect(page.getByTestId('region-law')).toHaveText(EN['region.law.guidance'] ?? '');
+    await expect(page.getByTestId('region-law-sales')).toHaveText(
+      'Nigerian data residency is set up with our sales team.',
+    );
+    await expect(page.locator('[data-screen="P01/5.1"]')).not.toContainText('choose Nigeria');
 
     await expectAccessible(page, 'P01/5.1');
 

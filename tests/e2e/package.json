@@ -13,6 +13,7 @@
   "dependencies": {
     "@kasuwa/api": "workspace:*",
     "@kasuwa/db": "workspace:*",
+    "@kasuwa/i18n": "workspace:*",
     "@kasuwa/testing": "workspace:*"
   },
   "devDependencies": {

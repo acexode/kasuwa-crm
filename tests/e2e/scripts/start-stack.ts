@@ -1,4 +1,6 @@
+import { createPool, withTenantTransaction } from '@kasuwa/db';
 import { startTestStack } from '@kasuwa/testing';
+import { LIVE_ADMIN, LIVE_FIELDS, LIVE_OBJECT } from '../support/live-fixtures';
 
 /**
  * Hold a seeded Postgres container open for the duration of an e2e run.
@@ -17,8 +19,43 @@ import { startTestStack } from '@kasuwa/testing';
  * so does SIGTERM, and if the parent dies without either, Testcontainers' own
  * reaper removes the container.
  */
+/**
+ * One metadata object for the live field-security screens (T-0035; see
+ * `support/live-fixtures.ts` for why it is not in the shared seed). Written as
+ * kasuwa_app inside a tenant transaction, so RLS checks it like any other row.
+ */
+async function seedLiveAdminFixtures(databaseUrl: string): Promise<void> {
+  const pool = createPool({ connectionString: databaseUrl, max: 1, applicationName: 'e2e-seed' });
+  try {
+    await withTenantTransaction(pool, LIVE_ADMIN, async (tx) => {
+      await tx.query(
+        `INSERT INTO object_def (id, tenant_id, api_name, label, is_custom)
+         VALUES ($1, $2, $3, $4, true)`,
+        [LIVE_OBJECT.id, LIVE_ADMIN.tenantId, LIVE_OBJECT.apiName, LIVE_OBJECT.label],
+      );
+      for (const field of LIVE_FIELDS) {
+        await tx.query(
+          `INSERT INTO field_def (id, tenant_id, object_id, api_name, label, type, classification)
+           VALUES ($1, $2, $3, $4, $5, 'text', $6)`,
+          [
+            field.id,
+            LIVE_ADMIN.tenantId,
+            LIVE_OBJECT.id,
+            field.apiName,
+            field.label,
+            field.classification,
+          ],
+        );
+      }
+    });
+  } finally {
+    await pool.end();
+  }
+}
+
 async function main(): Promise<void> {
   const stack = await startTestStack({ seed: true, redis: false });
+  await seedLiveAdminFixtures(stack.databaseUrl);
 
   process.stdout.write(
     `${JSON.stringify({ databaseUrl: stack.databaseUrl, migrationUrl: stack.migrationUrl })}\n`,
