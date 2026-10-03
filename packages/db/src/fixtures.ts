@@ -13,6 +13,7 @@
  *                  0000000c   programme
  *                  0000000d   user
  *                  0000000e   contact
+ *                  00000010   permission set
  *
  * Tenant A deliberately models the BPO shape: two client programmes, an agent
  * on each, a supervisor across both, and a user with no programme membership at
@@ -245,4 +246,47 @@ export const SEED_CONTACTS: readonly SeedContact[] = [
     ['Kaweria', 'Mutua', '+254712345032'],
     ['Lilian', 'Njeri', '+254712345033'],
   ]),
+];
+
+export interface SeedPermissionSet {
+  id: string;
+  tenantId: string;
+  /** The spec's `permissionSetId`. */
+  key: string;
+  label: string;
+  locked: boolean;
+  sortOrder: number;
+}
+
+/**
+ * The default permission sets every tenant starts with — the field-security
+ * matrix's columns, in the design's order (P02/D). Admin is `locked`: "Admins
+ * always have full access", so its column cannot be edited.
+ *
+ * Kind `00000010` in the id scheme above. These name sets and grant nothing;
+ * there is no assignment model yet (D-P9 puts it on `user_programme`).
+ */
+const DEFAULT_PERMISSION_SETS: readonly (readonly [string, string, boolean])[] = [
+  ['agent', 'Agent', false],
+  ['team_lead', 'Team lead', false],
+  ['qa_analyst', 'QA analyst', false],
+  ['programme_manager', 'Programme manager', false],
+  ['client_portal', 'Client portal', false],
+  ['admin', 'Admin', true],
+];
+
+function permissionSetsFor(tenantId: string, prefix: string): SeedPermissionSet[] {
+  return DEFAULT_PERMISSION_SETS.map(([key, label, locked], index) => ({
+    id: `${prefix}00000010${String(index + 1).padStart(4, '0')}`,
+    tenantId,
+    key,
+    label,
+    locked,
+    sortOrder: (index + 1) * 10,
+  }));
+}
+
+export const SEED_PERMISSION_SETS: readonly SeedPermissionSet[] = [
+  ...permissionSetsFor(TENANT_A, A),
+  ...permissionSetsFor(TENANT_B, B),
 ];
