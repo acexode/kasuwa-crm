@@ -1275,7 +1275,7 @@ paths:
       tags: [roles]
       summary: The role hierarchy
       operationId: listRoles
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/C', 'P02/C1', 'P02/C2']
       description: |
         **A flat list with `parentRoleId`, not a nested tree.** The screen
@@ -1320,7 +1320,7 @@ paths:
       tags: [roles]
       summary: Add a role
       operationId: createRole
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/C']
       requestBody:
@@ -1349,7 +1349,7 @@ paths:
       tags: [roles]
       summary: Save every pending move at once
       operationId: updateRoleHierarchy
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/C1', 'P02/C2', 'P02/D2']
       description: |
@@ -1396,7 +1396,7 @@ paths:
       tags: [roles]
       summary: One role, for the side panel
       operationId: getRole
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/C', 'P02/C2']
       description: |
         Adds `seesRecordsOwnedBy` — the first few descendant roles by name,
@@ -1419,7 +1419,7 @@ paths:
       tags: [roles]
       summary: Rename a role, or change who it reports to
       operationId: updateRole
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/C', 'P02/C2']
       description: |
@@ -1446,7 +1446,7 @@ paths:
       tags: [roles]
       summary: Delete a role and move its people
       operationId: deleteRole
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/C3']
       description: |
@@ -1488,7 +1488,7 @@ paths:
       tags: [field-security]
       summary: Objects that have field-level security, with field counts
       operationId: listFieldSecurityObjects
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/D']
       description: |
         The object tabs: Contact, Lead, Case, Deal, Interaction.
@@ -1496,6 +1496,18 @@ paths:
         Objects come from the metadata engine (`object_def`, which exists), so
         this list is per tenant and includes custom objects. It is not a
         hard-coded five.
+
+        **Live (T-0023).** One item per `object_def` row of the caller's
+        tenant, ordered by `objectApiName`, with the number of `field_def`
+        rows on it (an object with no fields is listed with `0`). Standard
+        objects appear only once the tenant has an `object_def` row for them;
+        nothing is synthesised. Tenant-wide, not programme-wide: metadata is
+        not programme-scoped, so every user of the tenant sees one catalogue.
+        `objectApiName` is immutable (D-P4), so it is a stable tab key.
+
+        There is no `403` yet: with no permissions engine, any authenticated
+        user of the tenant can read this list. It carries names and counts
+        only, never a record.
       responses:
         '200':
           description: The objects.
@@ -1518,7 +1530,7 @@ paths:
       tags: [field-security]
       summary: The matrix columns
       operationId: listPermissionSets
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/D', 'P02/D1']
       description: |
         One entry per column: Agent, Team lead, QA analyst, Programme manager,
@@ -1528,9 +1540,11 @@ paths:
         padlock on Admin, "Admins always have full access". The server enforces
         it; the `disabled` attribute on the button is a courtesy.
 
-        **This endpoint names permission sets. It does not define them.** There
-        is no permission-set table, no assignment model, and no statement here
-        about whether a person holds a set tenant-wide or per programme. See
+        **This endpoint names permission sets. It does not define them.** The
+        `permission_set` table (T-0022) holds the names and the padlock only;
+        there is no assignment model yet, so `userCount` is `null` rather than
+        a number that would claim nobody holds the set. Per D-P9 the
+        assignment will live on `user_programme`. See
         `PUT /field-security/matrix`.
       responses:
         '200':

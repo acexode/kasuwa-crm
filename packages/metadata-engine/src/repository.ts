@@ -4,11 +4,13 @@ import {
   createObjectDefInputSchema,
   fieldDefSchema,
   objectDefSchema,
+  objectDefSummarySchema,
   parseFieldConfig,
   type CreateFieldDefInput,
   type CreateObjectDefInput,
   type FieldDef,
   type ObjectDef,
+  type ObjectDefSummary,
 } from './types';
 
 /**
@@ -188,6 +190,47 @@ export async function listObjectDefs(tx: TenantTx): Promise<ObjectDef[]> {
     [tx.session.tenantId],
   );
   return rows.map(toObjectDef);
+}
+
+interface ObjectDefSummaryRow {
+  api_name: string;
+  label: string;
+  field_count: number;
+  [key: string]: unknown;
+}
+
+/**
+ * Every object definition the tenant has, with how many fields each carries.
+ *
+ * Tenant-wide, not programme-wide (see the 0002 header). An object with no
+ * fields is listed with a count of zero rather than dropped: it is still a tab
+ * on the field-security screen.
+ *
+ * Both sides of the join filter on the session's tenant explicitly, so RLS is
+ * the second line here and not the only one. `count(...)::int` because a
+ * bigint arrives from pg as a string; a definition catalogue never approaches
+ * 2^31 fields per object.
+ */
+export async function listObjectDefSummaries(tx: TenantTx): Promise<ObjectDefSummary[]> {
+  const rows = await tx.query<ObjectDefSummaryRow>(
+    `SELECT o.api_name, o.label, count(f.id)::int AS field_count
+       FROM object_def o
+       LEFT JOIN field_def f
+         ON f.tenant_id = o.tenant_id
+        AND f.object_id = o.id
+        AND f.tenant_id = $1
+      WHERE o.tenant_id = $1
+      GROUP BY o.id, o.api_name, o.label
+      ORDER BY o.api_name`,
+    [tx.session.tenantId],
+  );
+  return rows.map((row) =>
+    objectDefSummarySchema.parse({
+      apiName: row.api_name,
+      label: row.label,
+      fieldCount: row.field_count,
+    }),
+  );
 }
 
 export async function createFieldDef(tx: TenantTx, input: CreateFieldDefInput): Promise<FieldDef> {

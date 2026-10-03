@@ -2,6 +2,8 @@ import { Module, type DynamicModule } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { createDevelopmentKeyProvider, type KeyProvider } from '@kasuwa/auth-crypto';
 import { AdminProgrammesController } from './admin/programmes/programmes.controller';
+import { FieldSecurityAdminModule } from './admin/field-security/field-security.module';
+import { AdminRolesModule } from './admin/roles/admin-roles.module';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
 import { SignInThrottleGuard } from './auth/sign-in-throttle.guard';
@@ -65,12 +67,19 @@ export class AppModule {
   static forRoot(options: AppModuleOptions): DynamicModule {
     return {
       module: AppModule,
+      // Global, exporting AUTH_MODE, so a feature module's controllers can use
+      // KasuwaAuthGuard: Nest resolves a guard's dependencies in the module
+      // that hosts the controller, and AUTH_MODE is configured only here.
+      global: true,
+      exports: [AUTH_MODE],
       imports: [
         DatabaseModule.forRoot(
           options.poolMax === undefined
             ? { databaseUrl: options.databaseUrl }
             : { databaseUrl: options.databaseUrl, poolMax: options.poolMax },
         ),
+        FieldSecurityAdminModule.register({ authMode: options.authMode ?? 'stub' }),
+        AdminRolesModule,
       ],
       controllers: [
         HealthController,
