@@ -22,6 +22,7 @@
     "db:migrate": "pnpm --filter @kasuwa/db migrate",
     "db:seed": "pnpm --filter @kasuwa/db seed",
     "db:reset": "pnpm --filter @kasuwa/db reset",
+    "tenant:provision": "pnpm --silent --filter @kasuwa/domain-core provision",
     "i18n:pseudo": "pnpm --filter @kasuwa/i18n pseudo",
     "i18n:validate": "pnpm --filter @kasuwa/i18n validate",
     "prepare": "husky",
