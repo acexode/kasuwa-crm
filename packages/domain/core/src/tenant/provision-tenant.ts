@@ -6,6 +6,7 @@ import {
   withTenantTransaction,
   type TenantTx,
 } from '@kasuwa/db';
+import { ADMIN_PERMISSION_SET_KEY } from '@kasuwa/permissions';
 import { Client } from 'pg';
 import { parse as parseConnectionString } from 'pg-connection-string';
 import { z } from 'zod';
@@ -162,6 +163,22 @@ export class RegionNotServedError extends Error {
     );
     this.name = 'RegionNotServedError';
     this.region = region;
+  }
+}
+
+/**
+ * The first admin's default-programme membership did not get the tenant's
+ * `admin` permission set. An internal invariant, not an input problem: the
+ * provisioning is rolled back rather than leaving a tenant with no
+ * administrator.
+ */
+export class FirstAdminGrantMissingError extends Error {
+  constructor() {
+    super(
+      "Provisioning invariant failed: the first admin does not hold the tenant's admin " +
+        'permission set in the default programme. Nothing was created.',
+    );
+    this.name = 'FirstAdminGrantMissingError';
   }
 }
 
@@ -461,14 +478,16 @@ export async function provisionTenant(options: ProvisionTenantOptions): Promise<
       }
       throw error;
     }
+    // D-L53: the first admin is a TENANT admin, the tenant-level flag
+    // `"user".is_tenant_admin`. Written here, by the migrator, because 0015
+    // deliberately withholds that column from kasuwa_app: no application
+    // session can make anyone a tenant admin. Without it a new tenant has no
+    // administrator.
     await client.query(
-      `INSERT INTO "user" (id, tenant_id, email, display_name, status)
-       VALUES ($1, $2, $3, $4, 'active')`,
+      `INSERT INTO "user" (id, tenant_id, email, display_name, status, is_tenant_admin)
+       VALUES ($1, $2, $3, $4, 'active', true)`,
       [adminUserId, tenantId, inputs.adminEmail, inputs.adminDisplayName],
     );
-    // TODO(T-0032): set the tenant-admin flag on this user once T-0032's
-    // column is on main. D-L53: the first admin is a TENANT admin (a
-    // tenant-level flag on the user), not "admin in every programme".
 
     const created = await withTenantTransaction(
       savepointPool(client),
@@ -544,10 +563,28 @@ async function populateTenant(
     );
   }
 
-  // The reusable path (T-0029): it also makes the session's user — the admin —
-  // the programme's first member, which is what gives them exactly one
-  // programme on their first request.
+  // The reusable path (T-0029, T-0032): it also makes the session's user (the
+  // admin) the programme's first member, holding the tenant's `admin`
+  // permission set (`user_programme.permission_set_id`). That is why the sets
+  // are inserted ABOVE this call: createProgramme looks the set up by key and
+  // falls back to NULL (no permission) when the tenant has none.
   const programme = await createProgramme(tx, { name, businessUnitId, isDefault: true });
+
+  // The NULL fallback is right for createProgramme in general, but here it
+  // would quietly provision a tenant whose only user administers nothing. So
+  // check it, and fail (rolling everything back) rather than hand that out.
+  // tenancy-reviewed: tenant_id + user id from the session.
+  const grant = await tx.query<{ key: string }>(
+    `SELECT ps.key
+       FROM user_programme up
+       JOIN permission_set ps
+         ON ps.id = up.permission_set_id AND ps.tenant_id = up.tenant_id
+      WHERE up.tenant_id = $1 AND up.user_id = $2 AND up.programme_id = $3`,
+    [tenantId, userId, programme.id],
+  );
+  if (grant[0]?.key !== ADMIN_PERMISSION_SET_KEY) {
+    throw new FirstAdminGrantMissingError();
+  }
 
   return {
     businessUnitId,

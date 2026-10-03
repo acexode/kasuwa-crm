@@ -1,6 +1,6 @@
 import type * as Pg from 'pg';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { provisionTenant } from './provision-tenant';
+import { FirstAdminGrantMissingError, provisionTenant } from './provision-tenant';
 import { PROVISIONING_SAVEPOINT } from './savepoint-pool';
 
 /**
@@ -17,11 +17,21 @@ import { PROVISIONING_SAVEPOINT } from './savepoint-pool';
 
 interface FakeState {
   sent: string[];
+  /** Parameters of each statement, index-aligned with `sent`. */
+  params: unknown[][];
   failOn: string | null;
+  /** What the first admin's grant lookup answers; null = no set granted. */
+  grantKey: string | null;
   ended: boolean;
 }
 
-const state = vi.hoisted((): FakeState => ({ sent: [], failOn: null, ended: false }));
+const state = vi.hoisted((): FakeState => ({
+  sent: [],
+  params: [],
+  failOn: null,
+  grantKey: 'admin',
+  ended: false,
+}));
 
 vi.mock('pg', async (importOriginal) => {
   const original = await importOriginal<typeof Pg>();
@@ -37,8 +47,10 @@ vi.mock('pg', async (importOriginal) => {
 
     async query(arg: unknown, values?: unknown[]) {
       const text = typeof arg === 'string' ? arg : (arg as { text: string }).text;
-      const params = (typeof arg === 'string' ? values : (arg as { values?: unknown[] }).values) ?? [];
+      const params =
+        (typeof arg === 'string' ? values : (arg as { values?: unknown[] }).values) ?? [];
       state.sent.push(text);
+      state.params.push(params);
       if (state.failOn !== null && text.includes(state.failOn)) {
         throw new Error('injected failure');
       }
@@ -58,6 +70,11 @@ vi.mock('pg', async (importOriginal) => {
       }
       if (text.includes('FROM business_unit')) {
         return { rows: [{ id: 'bu' }], rowCount: 1 };
+      }
+      if (text.includes('JOIN permission_set')) {
+        return state.grantKey === null
+          ? { rows: [], rowCount: 0 }
+          : { rows: [{ key: state.grantKey }], rowCount: 1 };
       }
       if (text.includes('clock_timestamp()')) {
         return { rows: [{ at: '2026-10-03T10:00:00.000000Z' }], rowCount: 1 };
@@ -79,7 +96,9 @@ const options = {
 
 beforeEach(() => {
   state.sent = [];
+  state.params = [];
   state.failOn = null;
+  state.grantKey = 'admin';
   state.ended = false;
 });
 
@@ -128,5 +147,45 @@ describe('provisionTenant transaction control', () => {
     expect(state.sent).not.toContain('COMMIT');
     expect(state.sent).not.toContain(`SAVEPOINT ${PROVISIONING_SAVEPOINT}`);
     expect(state.sent.at(-1)).toBe('ROLLBACK');
+  });
+});
+
+describe('the first admin is an administrator (D-L53, T-0032)', () => {
+  const indexOf = (prefix: string) => state.sent.findIndex((s) => s.trimStart().startsWith(prefix));
+
+  it('writes "user".is_tenant_admin = true on the migrator connection, outside the tenant transaction', async () => {
+    await provisionTenant(options);
+    const userAt = indexOf('INSERT INTO "user"');
+    expect(state.sent[userAt]).toMatch(/is_tenant_admin\)\s*VALUES \(.*'active', true\)/s);
+    expect(userAt).toBeLessThan(state.sent.indexOf(`SAVEPOINT ${PROVISIONING_SAVEPOINT}`));
+  });
+
+  it('seeds the permission sets before createProgramme enrols the admin with the admin set', async () => {
+    await provisionTenant(options);
+    const lastSetAt = state.sent.findLastIndex((s) =>
+      s.trimStart().startsWith('INSERT INTO permission_set'),
+    );
+    const programmeAt = indexOf('INSERT INTO programme');
+    const membershipAt = indexOf('INSERT INTO user_programme');
+    expect(
+      state.params
+        .filter((_, i) => state.sent[i]?.trimStart().startsWith('INSERT INTO permission_set'))
+        .map((p) => p[2]),
+    ).toContain('admin');
+    expect(lastSetAt).toBeGreaterThan(-1);
+    expect(lastSetAt).toBeLessThan(programmeAt);
+    expect(state.sent[membershipAt]).toContain('permission_set_id');
+    expect(state.params[membershipAt]).toContain('admin');
+  });
+
+  it('rolls everything back rather than provision a tenant whose admin holds no admin set', async () => {
+    for (const grantKey of [null, 'agent']) {
+      state.sent = [];
+      state.params = [];
+      state.grantKey = grantKey;
+      await expect(provisionTenant(options)).rejects.toBeInstanceOf(FirstAdminGrantMissingError);
+      expect(state.sent).not.toContain('COMMIT');
+      expect(state.sent.at(-1)).toBe('ROLLBACK');
+    }
   });
 });
