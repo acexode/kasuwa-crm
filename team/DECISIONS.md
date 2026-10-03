@@ -1004,3 +1004,18 @@ isolation test listing every permissive `FOR INSERT` policy, so a weak one canno
   limiting; a paginated list. The token lookup before any session exists needs a third
   SECURITY DEFINER function, so **an ADR first** (CLAUDE.md 2.7).
 - Export `objectType` filters are restricted to known types; the raw `sourceIpPrefix` is not stored.
+
+### D-L53 — permissions model for T-0032
+**Status:** PROCEEDING (lead).
+- **Tenant admin is a tenant-level flag on the user**, not "admin in every programme" (that definition
+  would strip every other admin the moment one admin creates a programme). Seed: USER_A_SUPERVISOR and
+  USER_B_AGENT_1 (tenant B's only seeded user) are tenant admins.
+- **Tenant-level writes** (roles, the field-security matrix, programme create/update, audit export)
+  require tenant admin. **Programme-scoped writes** (archive, dispositions incl. reorder, portal invite,
+  SLA/retention) require the `admin` permission set in that programme or tenant admin, always only
+  inside programmes the session can already reach (RLS scope unchanged, D-L06).
+- **Order:** 404, then 403, then 400. Refused writes are not audited. Other permission sets are
+  read-only for admin writes this round.
+- **Deliberate behaviour change:** a non-admin's duplicate-name create is now 403, not 409 (this is
+  D-L40's fix). One existing acceptance assertion (programme-lifecycle) is updated by the lead as a
+  requirements change, recorded here, not to make code pass.
