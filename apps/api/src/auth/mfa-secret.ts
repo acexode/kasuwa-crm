@@ -9,8 +9,9 @@ import { mfaSecretAad, openSecret, type KeyProvider } from '@kasuwa/auth-crypto'
  *
  * TWO PROPERTIES, BOTH LOAD-BEARING.
  *
- *   1. The secret is returned as a local value to exactly one caller
- *      (`AuthService.verifyMfa`) and is never put in a response shape, a log
+ *   1. The secret is returned as a local value to the code check only
+ *      (`AuthService.verifyMfa`, and `matchTotp` in mfa-store.ts for
+ *      enrolment and step-up, T-0012) and is never put in a response shape, a log
  *      line, an error or an exception body. Encrypting it at rest and then
  *      widening where the plaintext travels would be a net loss.
  *

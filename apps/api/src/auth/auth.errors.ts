@@ -26,6 +26,7 @@ export type AuthErrorCode =
   | 'mfa_code_invalid'
   | 'mfa_challenge_expired'
   | 'mfa_method_unavailable'
+  | 'mfa_already_enrolled'
   | 'resend_too_soon'
   | 'sso_domain_not_found'
   | 'otp_invalid'
@@ -77,7 +78,7 @@ export function accountLocked(retryAt: Date, timeZone: string): AuthError {
   );
 }
 
-export function mfaCodeInvalid(attemptsRemaining: number): AuthError {
+export function mfaCodeInvalid(attemptsRemaining: number | null): AuthError {
   return new AuthError(
     HttpStatus.UNAUTHORIZED,
     'mfa_code_invalid',
@@ -100,6 +101,32 @@ export function mfaChallengeInvalid(): AuthError {
     HttpStatus.UNAUTHORIZED,
     'mfa_challenge_invalid',
     'Sign in again to continue.',
+  );
+}
+
+/**
+ * The user already has a confirmed second factor, so the challenge-bound
+ * enrolment route will not issue another. A password (which is all a challenge
+ * proves) cannot replace a factor; replacing one is the session route, and it
+ * requires the current factor (T-0012).
+ *
+ * Not an existence leak: only the holder of a live challenge — someone who has
+ * just presented this user's password — can get this answer.
+ */
+export function mfaAlreadyEnrolled(): AuthError {
+  return new AuthError(
+    HttpStatus.FORBIDDEN,
+    'mfa_already_enrolled',
+    'Two-step verification is already set up. Sign in with it to change it.',
+  );
+}
+
+/** The user has nothing to verify with by this method (no unused backup codes). */
+export function mfaMethodUnavailable(): AuthError {
+  return new AuthError(
+    HttpStatus.BAD_REQUEST,
+    'mfa_method_unavailable',
+    'That verification method is not available for this account.',
   );
 }
 
@@ -151,6 +178,8 @@ function reasonPhrase(status: HttpStatus): string {
       return 'Bad Request';
     case HttpStatus.UNAUTHORIZED:
       return 'Unauthorized';
+    case HttpStatus.FORBIDDEN:
+      return 'Forbidden';
     case HttpStatus.NOT_FOUND:
       return 'Not Found';
     case HttpStatus.TOO_MANY_REQUESTS:
