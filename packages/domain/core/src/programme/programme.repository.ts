@@ -16,12 +16,34 @@ import {
  * scope, only an identifier, and an identifier outside the session is `null`.
  */
 
+/** The published `ProgrammeStatus` values; `programme_status_check` admits exactly these (0012). */
+export const PROGRAMME_STATUSES = ['active', 'paused', 'draft', 'archived'] as const;
+export type ProgrammeStatus = (typeof PROGRAMME_STATUSES)[number];
+
+/** The column held a value outside the CHECK — impossible unless the schema drifted. */
+export class UnknownProgrammeStatusError extends Error {
+  constructor() {
+    super('programme.status holds a value outside ProgrammeStatus');
+    this.name = 'UnknownProgrammeStatusError';
+  }
+}
+
+export function toProgrammeStatus(value: string): ProgrammeStatus {
+  const status = PROGRAMME_STATUSES.find((candidate) => candidate === value);
+  if (status === undefined) {
+    throw new UnknownProgrammeStatusError();
+  }
+  return status;
+}
+
 export interface Programme {
   id: string;
   businessUnitId: string;
   name: string;
   clientName: string | null;
   isDefault: boolean;
+  /** The lifecycle column (0012). A new programme starts `active` (D-L46). */
+  status: ProgrammeStatus;
   /** Derived from `updated_at` — see programme-version.ts. */
   version: number;
 }
@@ -41,6 +63,12 @@ export interface ListProgrammesOptions {
   q?: string | undefined;
   limit: number;
   cursor?: string | undefined;
+}
+
+export interface ProgrammeFilter {
+  q?: string | undefined;
+  /** Narrows to one status. Absent means every status, archived included (D-L46). */
+  status?: ProgrammeStatus | undefined;
 }
 
 /** Somebody saved since the caller's read. */
@@ -69,12 +97,13 @@ interface ProgrammeRow {
   name: string;
   client_name: string | null;
   is_default: boolean;
+  status: string;
   updated_at_text: string;
   created_at_cursor: string;
 }
 
 const SELECT_PROGRAMME = `
-  id, business_unit_id, name, client_name, is_default,
+  id, business_unit_id, name, client_name, is_default, status,
   ${UPDATED_AT_TEXT_SQL} AS updated_at_text,
   to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_cursor
 `;
@@ -91,6 +120,7 @@ function toProgramme(row: ProgrammeRow): Programme {
     name: row.name,
     clientName: row.client_name,
     isDefault: row.is_default,
+    status: toProgrammeStatus(row.status),
     version: versionFromUpdatedAt(row.updated_at_text),
   };
 }
@@ -116,7 +146,7 @@ function pageOf<R extends { created_at_cursor: string }, T>(
 /** The caller's reachable programmes, oldest first. Throws InvalidCursorError. */
 export async function listProgrammes(
   tx: TenantTx,
-  options: ListProgrammesOptions,
+  options: ListProgrammesOptions & Pick<ProgrammeFilter, 'status'>,
 ): Promise<KeysetPage<Programme>> {
   const position = options.cursor === undefined ? null : decodeKeysetCursor(options.cursor);
   // tenancy-reviewed: tenant_id + session programme ids, as well as RLS.
@@ -127,6 +157,7 @@ export async function listProgrammes(
         AND id = ANY($2::uuid[])
         AND ${MATCHES_Q}
         AND ($4::timestamptz IS NULL OR (created_at, id) > ($4::timestamptz, $5::uuid))
+        AND ($7::text IS NULL OR status = $7::text)
       ORDER BY created_at ASC, id ASC
       LIMIT $6`,
     [
@@ -136,23 +167,54 @@ export async function listProgrammes(
       position?.createdAt ?? null,
       position?.id ?? null,
       options.limit + 1,
+      options.status ?? null,
     ],
   );
   return pageOf(rows, options.limit, (row) => row.id, toProgramme);
 }
 
-/** How many reachable programmes match `q`, ignoring the cursor. */
-export async function countProgrammes(tx: TenantTx, q: string | undefined): Promise<number> {
+/** How many reachable programmes match `q` (and `status`, if given), ignoring the cursor. */
+export async function countProgrammes(
+  tx: TenantTx,
+  q: string | undefined,
+  status?: ProgrammeStatus,
+): Promise<number> {
   // tenancy-reviewed: tenant_id + session programme ids, as well as RLS.
   const rows = await tx.query<{ n: number }>(
     `SELECT count(*)::int AS n
        FROM programme
       WHERE tenant_id = $1
         AND id = ANY($2::uuid[])
-        AND ${MATCHES_Q}`,
-    [tx.session.tenantId, tx.session.programmeIds, q ?? null],
+        AND ${MATCHES_Q}
+        AND ($4::text IS NULL OR status = $4::text)`,
+    [tx.session.tenantId, tx.session.programmeIds, q ?? null, status ?? null],
   );
   return rows[0]?.n ?? 0;
+}
+
+/**
+ * Reachable programmes matching `q`, counted per status — the list's filter
+ * chips. Every status is present, zero when nothing matches it.
+ */
+export async function countProgrammesByStatus(
+  tx: TenantTx,
+  q: string | undefined,
+): Promise<Record<ProgrammeStatus, number>> {
+  // tenancy-reviewed: tenant_id + session programme ids, as well as RLS.
+  const rows = await tx.query<{ status: string; n: number }>(
+    `SELECT status, count(*)::int AS n
+       FROM programme
+      WHERE tenant_id = $1
+        AND id = ANY($2::uuid[])
+        AND ${MATCHES_Q}
+      GROUP BY status`,
+    [tx.session.tenantId, tx.session.programmeIds, q ?? null],
+  );
+  const counts: Record<ProgrammeStatus, number> = { active: 0, paused: 0, draft: 0, archived: 0 };
+  for (const row of rows) {
+    counts[toProgrammeStatus(row.status)] = row.n;
+  }
+  return counts;
 }
 
 export async function findProgrammeById(tx: TenantTx, id: string): Promise<Programme | null> {
@@ -266,7 +328,7 @@ export async function updateProgrammeWithPrevious(
   }
 }
 
-function isUniqueViolation(error: unknown, constraint: string): boolean {
+export function isUniqueViolation(error: unknown, constraint: string): boolean {
   if (typeof error !== 'object' || error === null) {
     return false;
   }

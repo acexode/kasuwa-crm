@@ -31,7 +31,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "archiveProgramme",
     "method": "POST",
     "path": "/api/v1/admin/programmes/{programmeId}/archive",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/B9"
@@ -289,7 +289,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "createProgramme",
     "method": "POST",
     "path": "/api/v1/admin/programmes",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/B",
@@ -885,7 +885,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getFieldSecurityMatrix",
     "method": "GET",
     "path": "/api/v1/admin/field-security/matrix",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/D",
@@ -1007,7 +1007,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getProgrammeArchivePreview",
     "method": "GET",
     "path": "/api/v1/admin/programmes/{programmeId}/archive-preview",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/B9"
@@ -2343,7 +2343,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "updateFieldSecurityMatrix",
     "method": "PUT",
     "path": "/api/v1/admin/field-security/matrix",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/D",

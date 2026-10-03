@@ -380,9 +380,13 @@ paths:
         renders "No data" for the draft programme and a percentage otherwise;
         a zero would render as a red bar and say something false.
 
-        **Built (T-0024):** `status` is the constant `active` until a lifecycle
-        column exists, so `statusCounts` counts every match as `active`. The
-        unbacked fields are `null`; `channels` is absent.
+        **Built (T-0024):** the unbacked fields are `null`; `channels` is
+        absent.
+
+        **Since T-0029:** `status` is the `programme.status` column (migration
+        0012). The unfiltered list includes every status, archived included;
+        `status` narrows it, and `statusCounts` counts the reachable set per
+        status, honouring `q` (D-L46).
       parameters:
         - name: q
           in: query
@@ -438,7 +442,7 @@ paths:
       tags: [programmes]
       summary: Create a programme
       operationId: createProgramme
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B', 'P02/B1']
       description: |
@@ -456,6 +460,15 @@ paths:
         name. A constraint message that leaked the conflicting row would be a
         cross-tenant existence oracle, which is why the error carries the field
         path and nothing else.
+
+        **Built (T-0029, D-L46):** the programme starts `active` and the
+        caller becomes its first member (a `user_programme` row in the same
+        transaction), so it is reachable from the next request. A
+        `businessUnitId` outside the caller's tenant is `404 not_found`, the
+        same body as one that does not exist. `countryCode` is validated but
+        not stored (no column), so the `201` body omits it. Not enforced: `403
+        not_permitted` (no permissions engine — any tenant user may create) and
+        the audit row (no audit table).
       requestBody:
         required: true
         content:
@@ -1227,7 +1240,7 @@ paths:
       tags: [programmes]
       summary: What archiving this programme would do
       operationId: getProgrammeArchivePreview
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/B9']
       description: |
         The bullet list in the archive dialog — how many agents lose access,
@@ -1237,6 +1250,12 @@ paths:
         It is a separate `GET` because the numbers must be current at the
         moment the admin reads them, not as of whenever the page was loaded.
         The counts are computed, never cached.
+
+        **Built (T-0029):** `agentsLosingAccess` counts the programme's
+        `user_programme` rows. `openInteractionsBecomingReadOnly` and
+        `portalUsersSignedOut` are `0` and `retentionSummary` is `null` — no
+        interaction, portal-user or retention model exists yet.
+        `restorableUntilDays` is `30`.
       parameters:
         - $ref: '#/components/parameters/ProgrammeId'
       responses:
@@ -1260,7 +1279,7 @@ paths:
       tags: [programmes]
       summary: Archive a programme
       operationId: archiveProgramme
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/B9']
       description: |
@@ -1276,6 +1295,15 @@ paths:
         **Archiving does not delete anything.** Retention still governs the
         recordings and transcripts. An operation that quietly shortened them
         would turn an admin's tidy-up into an unlogged disposal.
+
+        **Built (T-0029, D-L46):** sets `status` to `archived` and nothing
+        else; no row is deleted. A confirmation that is not the exact name is
+        `400 validation_failed` at `confirmation`; an unreachable id is `404`
+        whatever the body says. Archiving an archived programme is an
+        idempotent `200` with the version unchanged. Not built yet: losing
+        access (assigned users keep read access until the permissions engine),
+        "stops taking new work", restore (no operation exists), `403
+        not_permitted`, and the audit row.
       parameters:
         - $ref: '#/components/parameters/ProgrammeId'
       requestBody:
@@ -1601,7 +1629,7 @@ paths:
       tags: [field-security]
       summary: Read the field-security matrix for one object
       operationId: getFieldSecurityMatrix
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P02/D', 'P02/D1']
       description: |
         One row per field, one cell per permission set, each cell a level:
@@ -1674,7 +1702,7 @@ paths:
       tags: [field-security]
       summary: Save field-security changes
       operationId: updateFieldSecurityMatrix
-      x-kasuwa-implemented: false  # specified and buildable; endpoint not yet written
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P02/D', 'P02/D1', 'P02/D2']
       description: |
@@ -1697,7 +1725,7 @@ paths:
         and let one admin's save overwrite another's; this stores it once and
         resolves it per assignment.
 
-        `version` comes from the last `GET`; a stale one will be
+        `version` comes from the last `GET`; a stale one is
         `409 stale_write`. Changes apply the next time each affected person
         loads a page, which is what the screen's footnote promises — sessions
         are not force-refreshed.
@@ -1706,6 +1734,14 @@ paths:
         with field, permission set, before and after. A bulk action that
         touched forty cells and wrote one row saying "bulk edit" is not an
         audit trail.
+
+        **Live (T-0026), per D-L45.** A never-saved cell is `edit`; a locked
+        set is always `edit`. The write is atomic: a change to a locked set is
+        `403 not_permitted`, an unknown or another tenant's field or set is
+        `404 not_found` (the same body as an unknown object), and in either
+        case nothing in the request is applied. Unknown is checked before
+        locked. **Not yet audited** (D-L38): the audit rows above land with
+        the T-0025 writer.
       requestBody:
         required: true
         content:
@@ -1724,9 +1760,8 @@ paths:
       responses:
         '200':
           description: |
-            Saved. **Not reachable today** — the operation returns `501`. The
-            shape is documented so the screen can render its success state from
-            the mock; request it with `Prefer: code=200`.
+            Saved. The whole, unfiltered matrix for the object, with its new
+            `version` — exactly what the next `GET` returns. (T-0026.)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/FieldSecurityMatrix' }
@@ -2228,8 +2263,8 @@ components:
       type: string
       enum: [active, paused, draft, archived]
       description: |
-        **No column backs this yet.** `programme` has no lifecycle field, so
-        adding one is a migration and a successor task, not T-0021.
+        Backed by `programme.status` since T-0029 (migration 0012, CHECK on
+        exactly these four values). A new programme starts `active`.
 
     ProgrammeChannel:
       type: string
@@ -2894,10 +2929,12 @@ components:
       additionalProperties: false
       required: [objectApiName, version, changes]
       description: |
-        **There is deliberately no `programmeId` here.** Whether a
-        field-security grant is tenant-wide or per programme is undecided, and
-        adding the property would answer it. Until the lead decides, the
-        operation returns `501`. See its description.
+        **There is deliberately no `programmeId` here, and supplying one is
+        `400 validation_failed`.** D-P9 (2026-10-02): a field-security grant is
+        tenant-level, on permission sets; programme scoping comes from
+        `user_programme` carrying the permission set for each assignment. The
+        same cell named twice in `changes` is also `400`. See the operation's
+        description.
       properties:
         objectApiName: { type: string, maxLength: 64 }
         version: { type: integer }
