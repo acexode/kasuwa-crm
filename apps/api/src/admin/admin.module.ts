@@ -3,6 +3,7 @@ import { MODULE_METADATA } from '@nestjs/common/constants';
 import { FieldSecurityAdminModule } from './field-security/field-security.module';
 import { AdminProgrammesModule } from './programmes/programmes.module';
 import { AdminRolesModule } from './roles/admin-roles.module';
+import { AdminSlaRetentionModule } from './sla-retention/sla-retention.module';
 
 /**
  * Every admin area, in one place (D-L39).
@@ -27,6 +28,7 @@ const ADMIN_AREAS: readonly Type[] = [
   AdminRolesModule,
   FieldSecurityAdminModule,
   AdminProgrammesModule,
+  AdminSlaRetentionModule,
 ];
 
 @Module({ imports: [...ADMIN_AREAS] })

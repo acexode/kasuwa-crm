@@ -360,6 +360,70 @@ export const permissionSet = pgTable(
 );
 
 /**
+ * A programme's SLA policy (T-0028, migration 0011). One row per configured
+ * programme; no row means the API answers with the platform default (version
+ * 0). Programme-scoped. Targets are in `programme_sla_target`.
+ */
+export const programmeSla = pgTable(
+  'programme_sla',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    version: integer('version').notNull().default(1),
+    pauseOutsideOperatingHours: boolean('pause_outside_operating_hours').notNull(),
+    pauseAwaitingCustomer: boolean('pause_awaiting_customer').notNull(),
+    warnAtPercentOfTarget: integer('warn_at_percent_of_target').notNull(),
+    warnNotifyRole: text('warn_notify_role').notNull(),
+    breachNotifyRole: text('breach_notify_role').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.tenantId, table.programmeId] })],
+);
+
+/** One channel target of a programme's SLA policy. Integer seconds; null = no target. */
+export const programmeSlaTarget = pgTable(
+  'programme_sla_target',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    channel: text('channel').notNull(),
+    firstResponseSeconds: integer('first_response_seconds'),
+    resolutionSeconds: integer('resolution_seconds'),
+    clock: text('clock').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.tenantId, table.programmeId, table.channel] })],
+);
+
+/**
+ * A programme's record-retention policy (T-0028, migration 0011). No row means
+ * "not set" (the API answers 404). `callRecordingsDays` is stored, NOT
+ * enforced by Kasuwa: recording retention belongs to the telephony platform
+ * (D-T4).
+ */
+export const programmeRetention = pgTable(
+  'programme_retention',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    version: integer('version').notNull().default(1),
+    callRecordingsDays: integer('call_recordings_days').notNull(),
+    messageTranscriptsDays: integer('message_transcripts_days').notNull(),
+    screenRecordingsDays: integer('screen_recordings_days').notNull(),
+    qaEvaluationsDays: integer('qa_evaluations_days').notNull(),
+    onExpiry: text('on_expiry').notNull(),
+    redactSensitiveNumbersInTranscripts: boolean(
+      'redact_sensitive_numbers_in_transcripts',
+    ).notNull(),
+    legalHold: boolean('legal_hold').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.tenantId, table.programmeId] })],
+);
+
+/**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
  */
@@ -378,6 +442,9 @@ export const TENANT_SCOPED_TABLES = [
   'auth_session',
   'role',
   'permission_set',
+  'programme_sla',
+  'programme_sla_target',
+  'programme_retention',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];

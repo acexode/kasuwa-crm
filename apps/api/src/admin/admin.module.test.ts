@@ -13,6 +13,7 @@ import { AdminErrorFilter } from './common/admin-errors';
 import { FieldSecurityController } from './field-security/field-security.controller';
 import { AdminProgrammesController } from './programmes/programmes.controller';
 import { PermissionSetsController, RolesController } from './roles/roles.controller';
+import { ProgrammeSlaRetentionController } from './sla-retention/sla-retention.controller';
 
 const metadata = (key: string, target: object): unknown[] => {
   const value: unknown = Reflect.getMetadata(key, target);
@@ -27,6 +28,7 @@ describe('AdminModule (D-L39)', () => {
         PermissionSetsController,
         FieldSecurityController,
         AdminProgrammesController,
+        ProgrammeSlaRetentionController,
       ]),
     );
   });
