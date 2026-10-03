@@ -13,7 +13,16 @@ import { apiNameSchema } from './api-name';
  * of packages/db/migrations/0002_metadata_object_and_field_def.sql.
  */
 
-/** The P0 field types from the PRD. Mirrors field_def_type_check in 0002. */
+/**
+ * The P0 field types from the PRD. Mirrors field_def_type_check, last set by
+ * migration 0007.
+ *
+ * There is no `nin` and no `bvn` (D-P5). A plain-text identity-number field is
+ * never offered; when they return it is as encrypted-only types with a blind
+ * index, once D-L13's envelope encryption is wired to M3. Adding one back here
+ * without the matching migration fails the T-0023 acceptance suite, which
+ * checks this list against the database in both directions.
+ */
 export const FIELD_TYPES = [
   'text',
   'textarea',
@@ -30,7 +39,6 @@ export const FIELD_TYPES = [
   'phone',
   'email',
   'url',
-  'nin',
 ] as const;
 
 export const fieldTypeSchema = z.enum(FIELD_TYPES);
@@ -68,6 +76,19 @@ export const createObjectDefInputSchema = z.object({
   isCustom: z.boolean().default(true),
 });
 export type CreateObjectDefInput = z.input<typeof createObjectDefInputSchema>;
+
+/**
+ * One object as the field-security screen (P02/D) lists it: its name, its
+ * label and how many fields it has. No id and no tenant id - the screen keys
+ * on api_name, which is immutable (D-P4), and nothing outside the session's
+ * tenant is ever in the list.
+ */
+export const objectDefSummarySchema = z.object({
+  apiName: apiNameSchema,
+  label: labelSchema,
+  fieldCount: z.number().int().nonnegative(),
+});
+export type ObjectDefSummary = z.infer<typeof objectDefSummarySchema>;
 
 /** Type-specific settings. Shape varies by type; validated per type below. */
 export const fieldConfigSchema = z.record(z.unknown());

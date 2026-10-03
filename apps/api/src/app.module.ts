@@ -1,6 +1,7 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { createDevelopmentKeyProvider, type KeyProvider } from '@kasuwa/auth-crypto';
+import { FieldSecurityAdminModule } from './admin/field-security/field-security.module';
 import { AdminRolesModule } from './admin/roles/admin-roles.module';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
@@ -76,6 +77,7 @@ export class AppModule {
             ? { databaseUrl: options.databaseUrl }
             : { databaseUrl: options.databaseUrl, poolMax: options.poolMax },
         ),
+        FieldSecurityAdminModule.register({ authMode: options.authMode ?? 'stub' }),
         AdminRolesModule,
       ],
       controllers: [HealthController, AuthController, ContactsController],
