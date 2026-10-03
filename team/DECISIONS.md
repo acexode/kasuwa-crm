@@ -885,3 +885,30 @@ The spec is silent on five points; the lead settles them so the builder does not
   **nothing**; the whole request fails.
 - **Unknown field or set** inside `changes` gets 404 `not_found`, the same as an unknown object.
 - Also fix the stale `FieldSecurityWrite.description` in the spec that still says "undecided / 501".
+
+### D-L46 — creating a programme under RLS, without a third SECURITY DEFINER (T-0029)
+**Status:** PROCEEDING (lead). **D-A3: changes an RLS policy → @acexode reviews the PR.**
+The `programme` policy's WITH CHECK requires the row's id to be in the session's programme ids,
+which a new programme can never satisfy, and T-0020 sealed the session GUCs so a transaction cannot
+re-scope itself. **Ruling:** migration 0012 adds a permissive `FOR INSERT` policy on `programme`
+whose WITH CHECK is `tenant_id = app.current_tenant_id()` only. The existing `FOR ALL` policy (WITH
+CHECK = USING, programme-scoped) is unchanged, so reads and updates stay programme-scoped. The
+creator's `user_programme` row is inserted in the same transaction (that table is tenant-scoped).
+The response is built from the inserted values, not a re-read the session cannot yet see. **No
+SECURITY DEFINER function, so no ADR (CLAUDE.md 2.7).** Who may create a programme is an
+authorisation question for the permissions engine; until then, any tenant user can (same gap as D-L40).
+Also for T-0029: a new programme starts `active`; the unfiltered list includes every status (the
+spec's `status` filter narrows it); archiving an already-archived programme is an idempotent 200;
+archive deletes nothing, and assigned users keep **read** access. Enforcing "losing access" waits
+for the permissions engine, and there is no restore endpoint yet (named, not buried: D-L36).
+
+### D-L47 — dispositions and admin-home semantics (T-0027, T-0031)
+**Status:** PROCEEDING (lead).
+- **Dispositions:** delete is soft. A deleted disposition is absent from `listDispositions` and
+  excluded from the "complete list" `reorderDispositions` expects. Its `code` stays reserved (not
+  reusable), so historical outcomes never change meaning. A reorder with a foreign or unknown id is
+  400 `validation_failed`. A new disposition is appended last.
+- **Admin home:** alerts belong to a programme. A tenant-wide alert is stored once per programme it
+  concerns; there is no programme-less alert in this wave. `userCount` and `seats.used` count
+  distinct users who share at least one programme with the caller (a caller with no programme
+  counts only themselves). Restoring a never-dismissed alert is an idempotent 204.
