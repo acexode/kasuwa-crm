@@ -1,5 +1,10 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { argon2id, argon2Verify } from 'hash-wasm';
+import { randomBytes, randomFillSync, timingSafeEqual } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { availableParallelism } from 'node:os';
+import { join } from 'node:path';
+import { Worker } from 'node:worker_threads';
+import { WorkerPool, WorkerPoolOverloadedError } from './worker-pool';
 
 /**
  * Password hashing — argon2id (founding pack 3.11).
@@ -27,62 +32,52 @@ const HASH_LENGTH = 32;
 const SALT_LENGTH = 16;
 
 /**
- * How many argon2id buffers may be live at once, process-wide.
+ * WHERE THE HASH RUNS, AND WHY IT MOVED (T-0013).
  *
- * READ THIS BEFORE RELYING ON IT. An earlier version of this comment called it
- * "the bound that actually protects the cell". It is not, and a security
- * review measured why: `hash-wasm`'s argon2id at these parameters runs
- * **synchronously on the main thread** — about 86 ms per hash on the
- * development machine, during which the event loop does not turn. Six
- * concurrent hashes took 464 ms and were fully serialised.
+ * `hash-wasm`'s argon2id runs synchronously on whatever thread calls it. A
+ * security review measured it on the main thread: ~86 ms per hash with the
+ * event loop stopped for all of it, six concurrent = 464 ms fully serialised.
+ * Every unauthenticated sign-in froze the whole API for every tenant in the
+ * cell, and about a dozen source addresses could keep it frozen with no
+ * account, no workspace and no password.
  *
- * So the real concurrency was already one, and this semaphore does not reduce
- * peak memory below what the runtime would have allowed. What it does:
+ * So every hash and verify now runs on a worker thread (`worker-pool.ts`). The
+ * main thread posts the password, the salt and the parameters, and awaits the
+ * answer. The parameters are unchanged and still live here, in one place; the
+ * worker only forwards them.
  *
- *   * it bounds how many 19 MiB buffers can be ALLOCATED AND LIVE at once if
- *     the implementation ever becomes genuinely concurrent (a worker thread, or
- *     a native binding that releases the loop), and
- *   * it makes the queue explicit and observable via `hashPressure()`.
+ * THE BOUNDS
  *
- * What it does NOT do, and what nothing in this package currently does:
+ *   * Concurrency = the number of workers, sized from the CPU count: one per
+ *     core with one left for the main thread, between 1 and
+ *     `MAX_HASH_WORKERS`. Each worker runs one hash at a time, so this is also
+ *     the bound on live 19 MiB argon2 buffers. It replaces the semaphore that
+ *     used to sit here, which bounded nothing while the hash was synchronous.
+ *   * Queue = `MAX_QUEUED_HASHES`. Past that, a caller is refused at once with
+ *     `HashingOverloadedError` (the API answers 503) rather than queueing
+ *     without limit.
  *
- *   * it does not bound event-loop blocking. **Each unauthenticated sign-in
- *     makes the single-threaded API unresponsive for ~86 ms**, so on the order
- *     of a dozen source addresses can stall a whole cell with no account, no
- *     valid workspace slug and no credentials.
- *   * the hash also runs inside an open `withAuthTransaction`, so that traffic
- *     holds a pool connection for the duration as well.
- *
- * The real fix is argon2 on a worker thread, and moving the hash outside the
- * open transaction. That is a threading change, it is raised as its own task,
- * and it deliberately did not happen in T-0001. The per-client throttle in
- * `apps/api` is what stands in front of this in the meantime, and it is a
- * weaker control than it sounds — see `SignInThrottleGuard`.
- *
- * Both paths — real account and dummy hash — go through this same gate, so the
- * queueing cannot reintroduce a timing difference between them.
+ * Both paths — real account and dummy hash — go through this same pool, in
+ * the same queue, with the same parameters, so queueing cannot reintroduce a
+ * timing difference between them.
  */
-const MAX_CONCURRENT_HASHES = 6;
+const MAX_HASH_WORKERS = 4;
 
-let activeHashes = 0;
-const hashQueue: (() => void)[] = [];
+function hashWorkerCount(): number {
+  return Math.min(MAX_HASH_WORKERS, Math.max(1, availableParallelism() - 1));
+}
 
 /**
- * How many callers may wait for a slot before the next one is refused outright.
+ * How many callers may wait for a worker before the next one is refused.
  *
- * The queue was unbounded, which made it the very thing the semaphore was meant
- * to prevent: requests that cannot be served yet still each pinned an argon2
- * call, a pending promise and — before the hash moved out of the transaction —
- * a pooled database connection, for as long as the flood lasted. A bound turns
- * "everything gets slower until something falls over" into "the work in hand
- * finishes and the surplus is refused immediately", which is the whole point of
- * load shedding.
- *
- * Twenty-four is four rounds of work at the current concurrency. Past that, a
- * caller is better served by a fast 503 it can retry than by a socket held open
- * for seconds.
+ * Capacity is workers + this, so at least 33 even on a single-core node. The
+ * floor that matters is sixteen: a BPO shift change is dozens of agents signing
+ * in inside a minute, and sixteen concurrent sign-ins drawing a 503 would be an
+ * outage we built ourselves (the T-0013 acceptance suite pins it). The ceiling
+ * matters too: a queued task is a held socket and a pending promise, and at
+ * ~86 ms a hash, thirty-two queued on one worker is already ~3 s of waiting.
  */
-const MAX_QUEUED_HASHES = 24;
+const MAX_QUEUED_HASHES = 32;
 
 /**
  * Thrown when the queue is full. The API turns it into a 503, NOT a 401:
@@ -98,26 +93,90 @@ export class HashingOverloadedError extends Error {
   }
 }
 
-async function withHashSlot<T>(work: () => Promise<T>): Promise<T> {
-  if (activeHashes >= MAX_CONCURRENT_HASHES && hashQueue.length >= MAX_QUEUED_HASHES) {
-    throw new HashingOverloadedError();
-  }
-
-  // `while`, not `if`. A woken waiter used to take a slot without re-checking,
-  // so two resolutions landing in the same microtask could both proceed and
-  // push the count past the maximum — making the invariant this file asserts
-  // quietly false. The window is tiny and there is no exploit in it; the point
-  // is that a comment claiming a bound should not be defeated by the code
-  // underneath it.
-  while (activeHashes >= MAX_CONCURRENT_HASHES) {
-    await new Promise<void>((resolve) => hashQueue.push(resolve));
-  }
-  activeHashes += 1;
+/**
+ * The worker body. Plain CommonJS, run with `eval: true` so the same code works
+ * under vitest, tsx and the esbuild bundle without a separately compiled file.
+ * It loads `hash-wasm` from an absolute path the main thread resolved, does
+ * exactly what it is told, and answers once per task.
+ *
+ * It never echoes the password or a library error message back: the reply is
+ * the result, or a fixed string.
+ */
+const ARGON2_WORKER_SOURCE = `
+'use strict';
+const { parentPort, workerData } = require('node:worker_threads');
+const { argon2id, argon2Verify } = require(workerData.hashWasmPath);
+parentPort.on('message', async ({ id, payload }) => {
   try {
-    return await work();
-  } finally {
-    activeHashes -= 1;
-    hashQueue.shift()?.();
+    if (payload.op === 'hash') {
+      const value = await argon2id({
+        password: payload.password,
+        salt: new Uint8Array(payload.salt),
+        memorySize: payload.memorySize,
+        iterations: payload.iterations,
+        parallelism: payload.parallelism,
+        hashLength: payload.hashLength,
+        outputType: 'encoded',
+      });
+      parentPort.postMessage({ id, ok: true, value });
+    } else if (payload.op === 'verify') {
+      let value;
+      try {
+        value = await argon2Verify({ password: payload.password, hash: payload.hash });
+      } catch {
+        // A stored hash that cannot be parsed denies, like a wrong password.
+        value = false;
+      }
+      parentPort.postMessage({ id, ok: true, value: value === true });
+    } else {
+      parentPort.postMessage({ id, ok: false, message: 'unknown operation' });
+    }
+  } catch {
+    parentPort.postMessage({ id, ok: false, message: 'argon2 failed' });
+  }
+});
+`;
+
+/**
+ * Where the worker loads `hash-wasm` from.
+ *
+ * Resolved on the main thread, where module resolution knows this package's
+ * dependencies; an eval worker resolves bare specifiers from the working
+ * directory, which under pnpm does not see them. A bundled build (esbuild,
+ * `apps/api` `build`) has no `node_modules` beside it, so the build emits a
+ * self-contained copy as `hash-wasm.cjs` next to the bundle, and that wins when
+ * present. If neither exists the worker fails to start and every hash rejects
+ * — loudly, as a 500 — rather than quietly falling back to the main thread.
+ */
+function hashWasmPath(): string {
+  const bundled = join(__dirname, 'hash-wasm.cjs');
+  // `createRequire` rather than `require.resolve`, which esbuild flags in
+  // every bundle that includes this file; the result is the same.
+  return existsSync(bundled) ? bundled : createRequire(__filename).resolve('hash-wasm');
+}
+
+let pool: WorkerPool | undefined;
+
+function hashPool(): WorkerPool {
+  if (pool === undefined) {
+    const workerData = { hashWasmPath: hashWasmPath() };
+    pool = new WorkerPool({
+      size: hashWorkerCount(),
+      maxQueued: MAX_QUEUED_HASHES,
+      createWorker: () => new Worker(ARGON2_WORKER_SOURCE, { eval: true, workerData }),
+    });
+  }
+  return pool;
+}
+
+async function runOnPool(payload: unknown, transfer: ArrayBuffer[] = []): Promise<unknown> {
+  try {
+    return await hashPool().run<unknown>(payload, transfer);
+  } catch (error) {
+    if (error instanceof WorkerPoolOverloadedError) {
+      throw new HashingOverloadedError();
+    }
+    throw error;
   }
 }
 
@@ -128,26 +187,56 @@ export function hashPressure(): {
   limit: number;
   queueLimit: number;
 } {
-  return {
-    active: activeHashes,
-    queued: hashQueue.length,
-    limit: MAX_CONCURRENT_HASHES,
-    queueLimit: MAX_QUEUED_HASHES,
-  };
+  return (
+    pool?.pressure() ?? {
+      active: 0,
+      queued: 0,
+      limit: hashWorkerCount(),
+      queueLimit: MAX_QUEUED_HASHES,
+    }
+  );
+}
+
+/**
+ * Terminates the hashing workers. Anything queued or running rejects. The next
+ * hash starts a fresh pool, so this is safe to call from a test or a shutdown
+ * hook in a process that may hash again.
+ *
+ * Idle workers are already `unref`ed and do not hold a process open, so nothing
+ * HAS to call this for a CLI to exit. The API deliberately does not call it on
+ * application shutdown: the pool is process-wide, and tests boot several
+ * applications in one process.
+ */
+export async function shutdownPasswordHashing(): Promise<void> {
+  const closing = pool;
+  pool = undefined;
+  await closing?.shutdown();
 }
 
 export async function hashPassword(password: string): Promise<string> {
-  return withHashSlot(async () =>
-    argon2id({
+  // A dedicated ArrayBuffer holding exactly the salt, so it can be transferred
+  // rather than copied — and not `randomBytes`, whose small Buffers are slices
+  // of a shared pool that must never cross the thread boundary whole.
+  const saltBuffer = new ArrayBuffer(SALT_LENGTH);
+  randomFillSync(new Uint8Array(saltBuffer));
+  const encoded = await runOnPool(
+    {
+      op: 'hash',
       password,
-      salt: randomBytes(SALT_LENGTH),
+      salt: saltBuffer,
       memorySize: MEMORY_KIB,
       iterations: ITERATIONS,
       parallelism: PARALLELISM,
       hashLength: HASH_LENGTH,
-      outputType: 'encoded',
-    }),
+    },
+    [saltBuffer],
   );
+  if (typeof encoded !== 'string' || !encoded.startsWith('$argon2id$')) {
+    // Never store something that is not a PHC string; an unverifiable
+    // credential row is a locked-out user discovered much later.
+    throw new Error('argon2 worker returned an unexpected result');
+  }
+  return encoded;
 }
 
 /**
@@ -157,20 +246,16 @@ export async function hashPassword(password: string): Promise<string> {
  * hash we cannot parse must deny, and it must deny in the same shape as a wrong
  * password — an exception here would surface as a 500 and tell an attacker that
  * this particular account exists and is in an unusual state.
+ *
+ * That swallowing happens INSIDE the worker, around the library call only.
+ * `HashingOverloadedError` (the queue was full) and a worker failure must
+ * escape: turning "we refused to do the work" into "the password was wrong" is
+ * both a lie to the caller and a cheap oracle for whether a request reached
+ * argon2.
  */
 export async function verifyPassword(hash: string, password: string): Promise<boolean> {
-  // The try/catch is INSIDE the slot on purpose. A malformed stored hash must
-  // deny like a wrong password, but `HashingOverloadedError` is raised before
-  // the slot is granted and must escape — swallowing it here would turn "we
-  // refused to do the work" into "the password was wrong", which is both a lie
-  // to the caller and a cheap oracle for whether a request reached argon2.
-  return withHashSlot(async () => {
-    try {
-      return await argon2Verify({ password, hash });
-    } catch {
-      return false;
-    }
-  });
+  // Only a literal `true` from the worker is a match; anything else denies.
+  return (await runOnPool({ op: 'verify', password, hash })) === true;
 }
 
 /**
@@ -189,7 +274,20 @@ export async function verifyPassword(hash: string, password: string): Promise<bo
 let dummyHash: Promise<string> | undefined;
 
 export function dummyPasswordHash(): Promise<string> {
-  dummyHash ??= hashPassword(randomBytes(32).toString('base64'));
+  if (dummyHash === undefined) {
+    const pending = hashPassword(randomBytes(32).toString('base64'));
+    dummyHash = pending;
+    // A FAILED dummy hash must not be cached. If the very first unknown-user
+    // sign-in after boot landed on a full queue, caching its rejection would
+    // make every later unknown-user sign-in fail with a 503 while known users
+    // still got 401 — a permanent outage for one branch, and a clean
+    // enumeration oracle between the two.
+    pending.catch(() => {
+      if (dummyHash === pending) {
+        dummyHash = undefined;
+      }
+    });
+  }
   return dummyHash;
 }
 

@@ -18,6 +18,7 @@ export {
   hashPassword,
   HashingOverloadedError,
   hashPressure,
+  shutdownPasswordHashing,
   verifyPassword,
 } from './password';
 export {

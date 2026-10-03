@@ -137,6 +137,10 @@ export class AuthService {
     }
 
     // --- phase two: the expensive part, holding nothing --------------------
+    // No connection, and since T-0013 not the event loop either: the verify
+    // runs on a worker thread and this awaits a message. Unknown-user and
+    // known-user verifies share that one pool and queue, with the same
+    // parameters, so where the work runs cannot differ between them.
     const hash = prepared.account?.passwordHash ?? (await dummyPasswordHash());
     const passwordMatches = await this.verify(hash, input.password);
 
