@@ -5,7 +5,7 @@
 | **id** | T-0013 |
 | **status** | `not-assigned` |
 | **module** | M2 security and identity |
-| **owner** | Agent 1 — Platform & Security |
+| **owner** | Agent 12 (reassigned 2026-10-03: the deliverable is a measured responsiveness bound; Agent 1 is on T-0012) |
 | **priority** | **P0 — before any deployment serving real traffic** |
 | **PRD refs** | PRD 2.13 (availability) |
 | **dependencies** | T-0001 (merging) |
