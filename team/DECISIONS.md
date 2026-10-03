@@ -1019,6 +1019,11 @@ isolation test listing every permissive `FOR INSERT` policy, so a weak one canno
 - **Deliberate behaviour change:** a non-admin's duplicate-name create is now 403, not 409 (this is
   D-L40's fix). One existing acceptance assertion (programme-lifecycle) is updated by the lead as a
   requirements change, recorded here, not to make code pass.
+- **Two more lead edits, same reason (2026-10-03, commit 65522d4 on the T-0032 branch):**
+  `tenancy/adversarial`: an out-of-scope membership INSERT now expects RLS to refuse it (42501). That is
+  stronger than the old "accepted, but scope did not widen". `admin/audit-api`: the filter-options test makes
+  agent 2 a tenant admin for that one test, because renaming a programme now needs one. Its visibility
+  assertion is unchanged.
 
 ### D-L54 — provisioning and audit-coverage semantics (T-0015, T-0033)
 **Status:** PROCEEDING (lead).
