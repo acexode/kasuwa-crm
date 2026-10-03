@@ -366,6 +366,37 @@ export const permissionSet = pgTable(
 );
 
 /**
+ * The admin audit log (M2, migration 0008). APPEND-ONLY for kasuwa_app: the
+ * migration grants SELECT and INSERT and revokes everything else, and a trigger
+ * refuses UPDATE for every role. Events with a `programmeId` are visible only
+ * to that programme's members; events without one to the whole tenant (D-L48).
+ * The actor's display name is NOT stored - it is joined from "user" at read
+ * time, so the log never holds a second copy of anyone's identity.
+ */
+export const auditEvent = pgTable(
+  'audit_event',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+    actorKind: text('actor_kind').notNull(),
+    actorUserId: uuid('actor_user_id'),
+    actorRoleName: text('actor_role_name'),
+    action: text('action').notNull(),
+    objectType: text('object_type').notNull(),
+    objectId: uuid('object_id'),
+    objectLabel: text('object_label').notNull(),
+    programmeId: uuid('programme_id'),
+    changes: jsonb('changes').notNull().default([]),
+  },
+  (table) => [
+    index('audit_event_tenant_actor_idx').on(table.tenantId, table.actorUserId),
+    index('audit_event_tenant_object_idx').on(table.tenantId, table.objectId),
+    index('audit_event_tenant_programme_idx').on(table.tenantId, table.programmeId),
+  ],
+);
+
+/**
  * Dispositions (M10 configuration, migration 0010). Programme-scoped, in the
  * `contact` pattern. Soft-deleted (D-L47): a deleted row keeps its `code`,
  * which stays reserved, and has a null `position`. The two unique keys —
@@ -417,6 +448,29 @@ export const adminAlert = pgTable(
       table.programmeId,
       table.raisedAt.desc(),
     ),
+  ],
+);
+
+/**
+ * Audit-log export requests (migration 0008). Visible only to the requester.
+ * Never holds a URL; the file is emailed by a worker that does not exist yet.
+ */
+export const auditExport = pgTable(
+  'audit_export',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    requestedByUserId: uuid('requested_by_user_id').notNull(),
+    format: text('format').notNull(),
+    scope: text('scope').notNull(),
+    filters: jsonb('filters').notNull().default({}),
+    includeIpAddresses: boolean('include_ip_addresses').notNull().default(false),
+    status: text('status').notNull().default('queued'),
+    requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('audit_export_tenant_requester_idx').on(table.tenantId, table.requestedByUserId),
   ],
 );
 
@@ -484,6 +538,8 @@ export const TENANT_SCOPED_TABLES = [
   'admin_alert',
   'admin_alert_dismissal',
   'field_security_grant',
+  'audit_event',
+  'audit_export',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];
