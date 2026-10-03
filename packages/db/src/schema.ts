@@ -366,6 +366,55 @@ export const permissionSet = pgTable(
 );
 
 /**
+ * Admin-home alerts (P02/A, migration 0014, T-0031). Programme-scoped: an
+ * alert belongs to one programme (D-L47); a tenant-wide alert is stored once
+ * per programme it concerns.
+ */
+export const adminAlert = pgTable(
+  'admin_alert',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    severity: text('severity').notNull(),
+    category: text('category').notNull(),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    sourceLabel: text('source_label'),
+    raisedAt: timestamp('raised_at', { withTimezone: true }).notNull().defaultNow(),
+    actionLabel: text('action_label'),
+    settingId: text('setting_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('admin_alert_tenant_programme_raised_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.raisedAt.desc(),
+    ),
+  ],
+);
+
+/**
+ * Per-user alert dismissal (migration 0014). One row per user per alert; the
+ * policy admits only the session's own rows.
+ */
+export const adminAlertDismissal = pgTable(
+  'admin_alert_dismissal',
+  {
+    alertId: uuid('alert_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    dismissedAt: timestamp('dismissed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.alertId, table.userId] }),
+    index('admin_alert_dismissal_tenant_user_idx').on(table.tenantId, table.userId),
+  ],
+);
+
+/**
  * The field-security matrix's decisions (migration 0009, T-0026): one row per
  * (field, permission set). Tenant-level and deliberately NOT programme-scoped
  * (D-P9) - see the header of 0009 before adding a `programmeId`. A missing row
@@ -406,6 +455,8 @@ export const TENANT_SCOPED_TABLES = [
   'auth_session',
   'role',
   'permission_set',
+  'admin_alert',
+  'admin_alert_dismissal',
   'field_security_grant',
 ] as const;
 
