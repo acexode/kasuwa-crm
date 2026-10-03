@@ -973,6 +973,7 @@ the fallback for direct links** until the first real environment has DNS,
 certificates and a cell router. Nothing is built for subdomains this round.
 
 ### D-P1 — translation (completing the 2026-09-27 answer)
+**WITHDRAWN later on 2026-10-02 — reopened by @acexode; see DECISIONS.md D-P1.**
 **English and `en-NG` are offered at launch. Nothing else is offered until it
 has a named reviewer.** @acexode nominates one native speaker from Outsource
 Global per language for `ha`, `ig`, `yo` and `pcm`. `fr` and `sw` are bought only

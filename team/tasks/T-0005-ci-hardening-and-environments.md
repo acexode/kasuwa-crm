@@ -51,14 +51,20 @@ and no environment exists beyond a developer's laptop.
 
 ## Acceptance tests
 
-**Written.** `tests/acceptance/platform/observability-pii.pending.acceptance.test.ts`
-— 9 assertions, all 9 failing. Run with `pnpm test:pending`.
+**Written, round one (scopes 1 and 3) active** — run with `pnpm test:isolation`:
 
-They supersede the `it.todo` entries in
-`tests/acceptance/platform/observability.acceptance.test.ts` for the behaviours
-that carry real risk; the rest of that stub stays as a checklist.
+- `tests/acceptance/platform/observability-pii.acceptance.test.ts` — 4 tests, telemetry and PII
+- `tests/acceptance/platform/observability.acceptance.test.ts` — 1 test, trace correlation
+  (the former `it.todo` checklist; the other six todos are covered by the PII suite)
+- `tests/acceptance/platform/ci-hardening.acceptance.test.ts` — 7 tests, parsed from `.github/workflows/*.yml`
 
-The file header states the one interface you must provide:
+**Round two (scope 2) is not part of this assignment.** Its one test is the
+pending `environments` suite under `tests/acceptance/platform/` (`pnpm
+test:pending`). It is deliberately not named by path here: `pnpm verify:tasks`
+would refuse an assigned task that names a pending suite. When scope 2 is
+assigned, it should get a task file of its own that names it.
+
+The contract (`../support/telemetry.ts`) states the one interface you must provide:
 `collectTelemetry()` in `packages/testing/src/telemetry.ts`, exported from
 `@kasuwa/testing` — it lives there because that package is already lint-fenced
 out of application code.
