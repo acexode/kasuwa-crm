@@ -1111,7 +1111,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getProgrammeRetention",
     "method": "GET",
     "path": "/api/v1/admin/programmes/{programmeId}/retention",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/B7"
@@ -1217,7 +1217,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getProgrammeSla",
     "method": "GET",
     "path": "/api/v1/admin/programmes/{programmeId}/sla",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/B4"
@@ -2533,7 +2533,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "updateProgrammeRetention",
     "method": "PUT",
     "path": "/api/v1/admin/programmes/{programmeId}/retention",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/B7",
@@ -2628,7 +2628,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "updateProgrammeSla",
     "method": "PUT",
     "path": "/api/v1/admin/programmes/{programmeId}/sla",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/B4",
