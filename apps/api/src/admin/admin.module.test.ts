@@ -12,6 +12,7 @@ import { ADMIN_CONTROLLERS } from './admin.module';
 import { AdminErrorFilter } from './common/admin-errors';
 import { FieldSecurityMatrixController } from './field-security/field-security-matrix.controller';
 import { FieldSecurityController } from './field-security/field-security.controller';
+import { AdminHomeController, SettingsMenuBadgesController } from './home/home.controller';
 import { AdminProgrammesController } from './programmes/programmes.controller';
 import { PermissionSetsController, RolesController } from './roles/roles.controller';
 import { ProgrammeSlaRetentionController } from './sla-retention/sla-retention.controller';
@@ -31,6 +32,8 @@ describe('AdminModule (D-L39)', () => {
         FieldSecurityMatrixController,
         AdminProgrammesController,
         ProgrammeSlaRetentionController,
+        AdminHomeController,
+        SettingsMenuBadgesController,
       ]),
     );
   });
