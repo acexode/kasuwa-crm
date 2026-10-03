@@ -1063,3 +1063,21 @@ that writes the relevant table ships.
   creates a forge path for the creation marker and needs a security review.
 Fixed in T-0032 itself: the creation marker also requires `created_at` within the current transaction
 (xid wraparound); `permission_set.key` is no longer updatable by the app.
+
+### D-L56 — auth gaps carried from the T-0012 / T-0013 reviews
+**Status:** TRACKED (lead). None blocks the `dev` merge; each is a follow-up task or a decision.
+- **First enrolment is password-only by design.** Whoever holds a factor-less account's password can
+  enrol their own TOTP. Safety rests on the D-L54 setup credential (one-time, printed once). Before
+  self-service password reset or invites ship, the setup credential needs an expiry and single use.
+- **MFA audit events** (enrol, replace, regenerate codes) wait for the D-L52 system-actor policy and a
+  new `mfa_factor` objectType. Recorded as a gap, not skipped silently.
+- **Admin factor reset** for another user waits on a T-0032 permission plus the same audit decision.
+- **Auth-table retention:** a worker job pruning `auth_challenge`, `auth_session`, `auth_rate_limit`
+  (attacker-driven growth) with stated retention. Plus keying the rate-limit hash with HMAC, or correcting
+  ADR-0009's "no personal data" claim.
+- **Pool connection timeout** (5 s since T-0013) surfaces as 500, not 503; needs an exception mapping.
+- **Bundled deploys** must ship `dist/hash-wasm.cjs` beside `main.js` (T-0013); add it to the image
+  build when the Dockerfile exists.
+- **`db:reset` drop list** in `packages/db/src/cli/reset.ts` is missing about 15 tables; replace it with
+  a catalogue query.
+- Step-up lockout is a flat 10 per 15 minutes per user and does not escalate; policy owner to decide.
