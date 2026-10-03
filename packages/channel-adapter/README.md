@@ -8,9 +8,14 @@ a messaging vendor.
 
 **Which real provider sits behind this interface has not been decided** (T-0017:
 it is spend and a contract, so it is the product owner's call, raised through
-`team/DECISIONS.md`). Until it is, the only implementation is
-`FakeChannelProvider`, which sends nothing. Do not add a vendor SDK, URL or name
-here before that decision lands — the T-0017 acceptance suite fails if you do.
+`team/DECISIONS.md`). Until it is, there are two implementations, and neither
+sends anything: `FakeChannelProvider` records what it was given (tests and local
+development), and `NullChannelProvider` refuses every send with
+`ProviderUnavailableError`. `defaultChannelProvider(environment)` picks the fake
+in development and test and the null provider in production (D-L52), so
+production never reports a message as sent when it went nowhere. Do not add a
+vendor SDK, URL or name here before that decision lands — the T-0017 acceptance
+suite fails if you do.
 
 ## Using it
 

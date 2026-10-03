@@ -1,8 +1,9 @@
-import { FakeChannelProvider } from '@kasuwa/channel-adapter';
-import { generateInviteToken } from '@kasuwa/domain-core';
+import { ChannelError, FakeChannelProvider, NullChannelProvider } from '@kasuwa/channel-adapter';
+import { generateInviteToken, maskEmail } from '@kasuwa/domain-core';
 import { describe, expect, it } from 'vitest';
 import { createApiChannel } from '../../messaging/channel';
 import { validationFailedFrom } from '../common/admin-errors';
+import { portalSendUnavailable } from './portal-users.errors';
 import { invitationBody, toPortalUserResponse } from './portal-users.presenter';
 import { InvitePortalUserBody } from './portal-users.schemas';
 
@@ -98,5 +99,29 @@ describe('portal users boundary (T-0030)', () => {
       }),
     ).rejects.toHaveProperty('code', 'provider_unavailable');
     expect(provider.sent.map((message) => message.channel)).toEqual(['email']);
+  });
+
+  it('with the production default (null provider) an invitation send fails as a 503, never a 202', async () => {
+    const channel = createApiChannel(new NullChannelProvider());
+    const error = await channel
+      .send({
+        scope: SCOPE,
+        channel: 'email',
+        to: ADDRESS,
+        body: 'probe',
+        purpose: 'transactional',
+      })
+      .catch((e: unknown) => e);
+    // The controller maps any ChannelError to portalSendUnavailable and rolls back.
+    expect(error).toBeInstanceOf(ChannelError);
+    const response = portalSendUnavailable();
+    expect(response.getStatus()).toBe(503);
+    expect(response.getResponse()).toMatchObject({ code: 'service_unavailable' });
+  });
+
+  it('never lets the masked fallback display name exceed the 200-character limit', () => {
+    const longest = `pq@${'d'.repeat(309)}.example`;
+    expect(InvitePortalUserBody.safeParse({ email: longest, access: 'viewer' }).success).toBe(true);
+    expect(Array.from(maskEmail(longest)).length).toBeLessThanOrEqual(200);
   });
 });

@@ -42,6 +42,11 @@ export function hashInviteToken(token: string): Buffer {
  * characters keeps only its first, so the mask never contains the whole local
  * part unless the local part is a single character. Counted in code points, so
  * a non-ASCII address is never cut through a surrogate pair.
+ *
+ * Never longer than MASKED_EMAIL_MAX code points: an address may be 320
+ * characters, almost all of them domain, and the masked form doubles as the
+ * display name of an unnamed invitation, which the database caps at 200. A
+ * longer result keeps its start and ends in `…`.
  */
 export function maskEmail(address: string): string {
   const at = address.lastIndexOf('@');
@@ -49,5 +54,11 @@ export function maskEmail(address: string): string {
   const domain = at < 0 ? '' : address.slice(at);
   const first = local[0] ?? '';
   const last = local.length > 2 ? (local.at(-1) ?? '') : '';
-  return `${first}${MASK}${last}${domain}`;
+  const masked = Array.from(`${first}${MASK}${last}${domain}`);
+  return masked.length <= MASKED_EMAIL_MAX
+    ? masked.join('')
+    : `${masked.slice(0, MASKED_EMAIL_MAX - 1).join('')}…`;
 }
+
+/** Upper bound on `maskEmail`'s output, in code points; well under the 200-character display-name CHECK. */
+export const MASKED_EMAIL_MAX = 120;

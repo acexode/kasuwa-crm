@@ -6,10 +6,8 @@ import {
 } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { createDevelopmentKeyProvider, type KeyProvider } from '@kasuwa/auth-crypto';
-// D-L49 makes the fake the default provider until a real one is chosen (D-P10);
-// it is still wrapped in createChannelAdapter, so DND and validation apply.
-// eslint-disable-next-line no-restricted-imports -- D-L49: the default channel provider
-import { FakeChannelProvider, type ChannelProvider } from '@kasuwa/channel-adapter';
+import { defaultChannelProvider, type ChannelProvider } from '@kasuwa/channel-adapter';
+import { nodeEnv } from '@kasuwa/config';
 import { ADMIN_CONTROLLERS, AdminModule } from './admin/admin.module';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
@@ -75,10 +73,12 @@ export interface AppModuleOptions {
    * The messaging provider behind `@kasuwa/channel-adapter` (D-L49, T-0030).
    *
    * The API never calls it directly: it is wrapped in `createChannelAdapter`,
-   * which validates, applies DND and sanitises errors. Defaults to a
-   * `FakeChannelProvider`, which sends nothing anywhere, because no real
-   * provider has been chosen (D-P10). Tests pass their own fake to read what
-   * was sent.
+   * which validates, applies DND and sanitises errors. When omitted it is
+   * `defaultChannelProvider(nodeEnv())` (D-L52): the in-memory fake in
+   * development and test, and a null provider in production that refuses
+   * every send - so an invitation is a `503`, never a `202` for an email that
+   * went nowhere - until D-P10 chooses a real provider. Tests pass their own
+   * fake to read what was sent.
    */
   channelProvider?: ChannelProvider;
   /**
@@ -149,7 +149,7 @@ export class AppModule implements NestModule {
         },
         {
           provide: CHANNEL,
-          useValue: createApiChannel(options.channelProvider ?? new FakeChannelProvider()),
+          useValue: createApiChannel(options.channelProvider ?? defaultChannelProvider(nodeEnv())),
         },
         { provide: APP_FILTER, useClass: ValidationExceptionFilter },
         {
