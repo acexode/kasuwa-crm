@@ -1,6 +1,7 @@
 import type { Programme } from '@kasuwa/domain-core';
 import { describe, expect, it } from 'vitest';
-import { confirmationMismatch, validationFailed } from './programmes.errors';
+import { validationFailedFrom } from '../common/admin-errors';
+import { confirmationMismatch } from './programmes.errors';
 import { toCreatedProgrammeResponse, toProgrammeResponse } from './programmes.presenter';
 import { ArchiveProgrammeBody, CreateProgrammeBody } from './programmes.schemas';
 
@@ -14,7 +15,7 @@ function detailsOf(
   if (result.success) {
     throw new Error('expected a validation failure');
   }
-  const body = validationFailed(result.error).getResponse() as {
+  const body = validationFailedFrom(result.error).getResponse() as {
     details: { path: string; code: string }[];
   };
   return body.details;

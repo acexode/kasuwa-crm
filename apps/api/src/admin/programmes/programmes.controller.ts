@@ -1,16 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common';
+import { Body, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import {
   ArchiveConfirmationMismatchError,
   archiveProgramme,
@@ -21,24 +9,16 @@ import {
   DuplicateProgrammeNameError,
   findProgrammeById,
   getProgrammeArchivePreview,
-  InvalidCursorError,
   listProgrammeMembers,
   listProgrammes,
   StaleProgrammeVersionError,
   updateProgramme,
 } from '@kasuwa/domain-core';
-import type { z } from 'zod';
-import { KasuwaAuthGuard } from '../../tenancy/kasuwa-auth.guard';
 import { currentTx } from '../../tenancy/tenant-context';
-import { TenantTransactionInterceptor } from '../../tenancy/tenant-transaction.interceptor';
-import {
-  confirmationMismatch,
-  duplicateName,
-  invalidCursor,
-  notFound,
-  staleWrite,
-  validationFailed,
-} from './programmes.errors';
+import { AdminController } from '../common/admin-controller.decorator';
+import { duplicateName, notFound, staleWrite } from '../common/admin-errors';
+import { foundOr404, parseIdOr404, parseOr400 as parse } from '../common/admin-input';
+import { confirmationMismatch } from './programmes.errors';
 import {
   toArchivePreviewResponse,
   toCreatedProgrammeResponse,
@@ -89,9 +69,7 @@ interface Page {
  * audit row `x-kasuwa-audited` requires on PATCH (no audit table yet).
  * T-0029 inherits both gaps for create and archive (D-L46).
  */
-@Controller('api/v1/admin/programmes')
-@UseGuards(KasuwaAuthGuard)
-@UseInterceptors(TenantTransactionInterceptor)
+@AdminController('api/v1/admin/programmes')
 export class AdminProgrammesController {
   /** `GET /api/v1/admin/programmes` — operationId `listProgrammes`. 200 · 400 · 401. */
   @Get()
@@ -108,14 +86,14 @@ export class AdminProgrammesController {
     const statusCounts = await countProgrammesByStatus(tx, parsed.q);
     const matching = await countProgrammes(tx, parsed.q, parsed.status);
 
-    const page = await withCursor(() =>
-      listProgrammes(tx, {
-        q: parsed.q,
-        status: parsed.status,
-        limit: parsed.pageSize,
-        cursor: parsed.cursor,
-      }),
-    );
+    // A bad cursor throws InvalidCursorError, which the admin filter answers
+    // as `validation_failed` at `cursor`.
+    const page = await listProgrammes(tx, {
+      q: parsed.q,
+      status: parsed.status,
+      limit: parsed.pageSize,
+      cursor: parsed.cursor,
+    });
     return {
       items: page.data.map(toProgrammeResponse),
       statusCounts,
@@ -152,7 +130,7 @@ export class AdminProgrammesController {
         throw notFound();
       }
       if (error instanceof DuplicateProgrammeNameError) {
-        throw duplicateName();
+        throw duplicateName('That name is already in use in this workspace.');
       }
       throw error;
     }
@@ -162,11 +140,7 @@ export class AdminProgrammesController {
   @Get(':programmeId')
   async findOne(@Param() params: unknown): Promise<ProgrammeDetailResponse> {
     const programmeId = parseProgrammeId(params);
-    const programme = await findProgrammeById(currentTx(), programmeId);
-    if (programme === null) {
-      throw notFound();
-    }
-    return toProgrammeDetailResponse(programme);
+    return toProgrammeDetailResponse(foundOr404(await findProgrammeById(currentTx(), programmeId)));
   }
 
   /**
@@ -198,7 +172,7 @@ export class AdminProgrammesController {
         throw staleWrite();
       }
       if (error instanceof DuplicateProgrammeNameError) {
-        throw duplicateName();
+        throw duplicateName('That name is already in use in this workspace.');
       }
       throw error;
     }
@@ -220,16 +194,13 @@ export class AdminProgrammesController {
       throw notFound();
     }
     const parsed = parse(ListProgrammeAgentsQuery, query);
-    const page = await withCursor(() =>
-      listProgrammeMembers(tx, programmeId, {
+    const page = foundOr404(
+      await listProgrammeMembers(tx, programmeId, {
         q: parsed.q,
         limit: parsed.pageSize,
         cursor: parsed.cursor,
       }),
     );
-    if (page === null) {
-      throw notFound();
-    }
     return {
       items: page.data.map(toProgrammeAgentResponse),
       page: { nextCursor: page.nextCursor, hasMore: page.nextCursor !== null },
@@ -244,11 +215,9 @@ export class AdminProgrammesController {
   @Get(':programmeId/archive-preview')
   async archivePreview(@Param() params: unknown): Promise<ArchivePreviewResponse> {
     const programmeId = parseProgrammeId(params);
-    const preview = await getProgrammeArchivePreview(currentTx(), programmeId);
-    if (preview === null) {
-      throw notFound();
-    }
-    return toArchivePreviewResponse(preview);
+    return toArchivePreviewResponse(
+      foundOr404(await getProgrammeArchivePreview(currentTx(), programmeId)),
+    );
   }
 
   /**
@@ -271,11 +240,9 @@ export class AdminProgrammesController {
     }
     const parsed = parse(ArchiveProgrammeBody, body);
     try {
-      const archived = await archiveProgramme(tx, programmeId, parsed.confirmation);
-      if (archived === null) {
-        throw notFound();
-      }
-      return toProgrammeDetailResponse(archived);
+      return toProgrammeDetailResponse(
+        foundOr404(await archiveProgramme(tx, programmeId, parsed.confirmation)),
+      );
     } catch (error) {
       if (error instanceof ArchiveConfirmationMismatchError) {
         throw confirmationMismatch();
@@ -285,31 +252,7 @@ export class AdminProgrammesController {
   }
 }
 
-function parse<S extends z.ZodTypeAny>(schema: S, input: unknown): z.output<S> {
-  const result = schema.safeParse(input);
-  if (!result.success) {
-    throw validationFailed(result.error);
-  }
-  return result.data as z.output<S>;
-}
-
 /** A malformed id is the same 404 as an unreachable one: it names nothing. */
 function parseProgrammeId(params: unknown): string {
-  const result = ProgrammeIdParam.safeParse(params);
-  if (!result.success) {
-    throw notFound();
-  }
-  return result.data.programmeId;
-}
-
-/** The spec has no `invalid_cursor` code; a bad cursor is `validation_failed` at `cursor`. */
-async function withCursor<T>(read: () => Promise<T>): Promise<T> {
-  try {
-    return await read();
-  } catch (error) {
-    if (error instanceof InvalidCursorError) {
-      throw invalidCursor();
-    }
-    throw error;
-  }
+  return parseIdOr404(ProgrammeIdParam, params).programmeId;
 }
