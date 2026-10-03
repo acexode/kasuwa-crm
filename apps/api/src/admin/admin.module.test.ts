@@ -14,6 +14,7 @@ import { DispositionsController } from './dispositions/dispositions.controller';
 import { ProgrammeScriptsController } from './dispositions/programme-scripts.controller';
 import { FieldSecurityMatrixController } from './field-security/field-security-matrix.controller';
 import { FieldSecurityController } from './field-security/field-security.controller';
+import { AdminHomeController, SettingsMenuBadgesController } from './home/home.controller';
 import { AdminProgrammesController } from './programmes/programmes.controller';
 import { PermissionSetsController, RolesController } from './roles/roles.controller';
 
@@ -33,6 +34,8 @@ describe('AdminModule (D-L39)', () => {
         AdminProgrammesController,
         DispositionsController,
         ProgrammeScriptsController,
+        AdminHomeController,
+        SettingsMenuBadgesController,
       ]),
     );
   });

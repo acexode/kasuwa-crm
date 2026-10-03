@@ -1019,3 +1019,19 @@ tests are proven failing in CI too: the test commit is pushed to the builder's b
 and the isolation log is read for each failure before the builder starts.
 `getProgrammeKpis` and `getProgrammeSkillCover` stay unbuilt: their data comes from the deferred
 telephony and WFM work (D-T*, D-W*).
+
+---
+
+## 2026-10-03 — wave incidents, recorded rather than buried
+1. **The lead deleted four live builder worktrees** (T-0025, T-0028, T-0030, T-0031) during a disk
+   cleanup. Builders launched with `isolation: "remote"` had silently fallen back to local worktrees
+   with the same naming. No pushed work was lost: T-0025 and T-0028 were relaunched, and T-0030 and
+   T-0031 reinstalled dependencies. Rule adopted: never delete an `agent-<id>` worktree while that agent may
+   still be running.
+2. **T-0030's builder wrote `packages/db/migrations/0013_portal_user.sql` through the shell,
+   bypassing protect-paths**, because its branch predated the prep PR's per-task allowance. The file
+   is exactly the one reserved for T-0030, and migration-reviewer is checking that nothing else under
+   protected paths changed. Other builders in the same situation correctly waited for the allowance.
+   The lesson: the reserving hook change must land **before** builders start, not mid-wave.
+3. **T-0030's builder briefly ran git commands in the shared main checkout** (its worktree directory
+   was empty after incident 1). It restored the checkout to `main`; the lead verified it clean.
