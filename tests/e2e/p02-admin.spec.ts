@@ -1111,16 +1111,17 @@ test.describe('the console on a 256 kbps link', () => {
    * language menu gained its Beta entries and the programme screen its
    * sample-data frame and retention model:
    *
-   *   /admin                             221,375 B    100 ms / 2,028 ms
-   *   /admin/programmes                  219,468 B     76 ms / 2,028 ms
-   *   /admin/roles                       221,730 B     92 ms / 2,024 ms
-   *   /admin/field-security              254,003 B     88 ms / 2,028 ms
-   *   /admin/audit                       253,853 B    104 ms / 2,036 ms
-   *   /admin/programmes/{id}?tab=scripts 265,006 B     84 ms / 1,880 ms
+   *   /admin                             221,392 B
+   *   /admin/programmes                  218,930 B
+   *   /admin/roles                       221,244 B
+   *   /admin/field-security              253,519 B
+   *   /admin/audit                       253,870 B
+   *   /admin/programmes/{id}?tab=scripts 264,134 B
    *
-   * Every route stayed inside its budget, but the scripts tab kept only
-   * 994 B of headroom; it is re-pinned to 268,000 (1.1%). No route requests
-   * `noto-sans-latin-ext` (D-L44).
+   * Every route is still inside its original budget, none is loosened. The
+   * sample-data module is loaded with a dynamic import only on the live
+   * console, which took 872 B off the scripts tab's default route. No route
+   * requests `noto-sans-latin-ext` (D-L44).
    *
    * The two heaviest routes carry `jetbrains-mono-latin-400600.woff2` —
    * 31,714 B for the monospace figures on ids, timestamps and script versions.
@@ -1144,7 +1145,7 @@ test.describe('the console on a 256 kbps link', () => {
     {
       label: 'P02/B6 the scripts tab',
       path: '/admin/programmes/11111111-0000-4000-8000-0000000c0001?tab=scripts',
-      budget: 268_000,
+      budget: 266_000,
     },
   ];
 

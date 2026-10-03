@@ -34,7 +34,6 @@ import {
   type ProgrammeStatus,
 } from '../../lib/admin-api';
 import { formatCount, formatDate, formatDuration, formatPercent } from '../../lib/admin-format';
-import { sampleProgrammeKpis, sampleResult } from '../../lib/admin-sample';
 
 /**
  * `P02/B2`–`P02/B9` — one programme, seven tabs and one destructive dialog,
@@ -312,7 +311,11 @@ function OverviewTab({
     useCallback(
       (signal: AbortSignal) =>
         live
-          ? sampleResult(sampleProgrammeKpis((id) => t.t(id)))
+          ? // Loaded only on the live console: the default route does not
+            // pay for sample data it never shows (T-0010 budget).
+            import('../../lib/admin-sample').then((sample) =>
+              sample.sampleResult(sample.sampleProgrammeKpis((id) => t.t(id))),
+            )
           : getProgrammeKpis(programmeId, signal),
       // `t` is rebuilt every render; the locale is what changes its output.
       [programmeId, live, locale],

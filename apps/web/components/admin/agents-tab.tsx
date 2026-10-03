@@ -13,7 +13,6 @@ import {
   type SkillCover,
 } from '../../lib/admin-api';
 import { formatCount, formatDate } from '../../lib/admin-format';
-import { sampleResult, sampleSkillCover } from '../../lib/admin-sample';
 import { SampleData } from './sample-data';
 
 /**
@@ -76,7 +75,10 @@ export function AgentsTab({
     useCallback(
       (signal: AbortSignal) =>
         live
-          ? sampleResult(sampleSkillCover((id) => t.t(id), new Date()))
+          ? // Loaded only on the live console (see programme-screen.tsx).
+            import('../../lib/admin-sample').then((sample) =>
+              sample.sampleResult(sample.sampleSkillCover((id) => t.t(id), new Date())),
+            )
           : getSkillCover(programmeId, signal),
       // `t` is rebuilt every render; the locale is what changes its output.
       [programmeId, live, locale],
