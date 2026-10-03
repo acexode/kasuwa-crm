@@ -12,8 +12,25 @@
  * third-party request carrying the user's IP on every page load, which is an
  * NDPA question we do not need to have.
  *
- * Google Fonts stays in the `src` list as a genuine fallback: if the local file
- * 404s after a bad deploy, the browser tries the CDN before giving up.
+ * SELF-HOSTED ONLY (D-L43). Every `src` names a file under `/fonts/` and
+ * nothing else. There used to be a `fonts.gstatic.com` fallback second in each
+ * list, and it quietly undid the paragraph above: a self-hosted file that
+ * failed sent the browser to Google, which is a third origin on a 256 kbps
+ * link and the user's IP handed to a third party. If a local file 404s after a
+ * bad deploy, the text renders in the fallback stack and the deploy is fixed;
+ * that is the right failure. `src/fonts.test.ts` greps the generated CSS for
+ * any external origin.
+ *
+ * CURRENCY SIGNS (D-L44)
+ *
+ * The naira (U+20A6) and cedi (U+20B5) fall inside Noto Sans Latin-Extended,
+ * a 168 KB file. One `₦` on a screen used to download all of it, which put
+ * `/onboarding` over the 300 KB ceiling by itself. So the currency signs get a
+ * subset of their own — a few KB, requested with Google's `text=` parameter —
+ * listed AHEAD of Latin-Extended, and they are cut out of Latin-Extended's
+ * `unicode-range` so no large face claims them. A face is downloaded only when
+ * the page uses a code point in its range, so a naira amount now costs the
+ * small file and Yorùbá, Igbo and Hausa diacritics still get the large one.
  *
  * ICON SUBSETTING
  *
@@ -56,6 +73,8 @@ const FAMILIES = [
     family: 'Noto Sans',
     subsets: DEFAULT_SUBSETS,
     note: 'Latin Extended A/B + Additional — Yoruba, Igbo, Hausa diacritics',
+    // D-L44: a small face for the currency signs, carved out of latin-ext.
+    currency: true,
   },
   {
     id: 'noto-sans-arabic',
@@ -72,6 +91,16 @@ const FAMILIES = [
     note: 'ids, E.164 phone numbers, money — tabular figures',
   },
 ];
+
+/** ₦ (naira) and ₵ (cedi): the signs D-L44 found pulling in Latin-Extended. */
+const CURRENCY_CODE_POINTS = [0x20a6, 0x20b5];
+
+/**
+ * A currency subset is a handful of glyphs. Anything near the size of the file
+ * it replaces means `text=` stopped subsetting, and shipping it would put the
+ * 168 KB back on every screen with a naira amount.
+ */
+const CURRENCY_SUBSET_MAX_BYTES = 20 * 1024;
 
 async function fetchText(url) {
   const response = await fetch(url, { headers: { 'User-Agent': UA } });
@@ -111,16 +140,59 @@ function parseFaces(css) {
   return faces;
 }
 
-function renderFace({ family, localPath, remoteUrl, style, weight, unicodeRange, display }) {
+/** `U+0100-02BA, U+20AD` -> [[0x100, 0x2ba], [0x20ad, 0x20ad]]. */
+function parseRange(value) {
+  return value
+    .split(',')
+    .map((part) => part.trim().replace(/^U\+/i, ''))
+    .filter((part) => part !== '')
+    .map((part) => {
+      const [start, end] = part.split('-');
+      const low = parseInt(start, 16);
+      return [low, end === undefined ? low : parseInt(end, 16)];
+    });
+}
+
+function hex(codePoint) {
+  return codePoint.toString(16).toUpperCase().padStart(4, '0');
+}
+
+function formatRange(ranges) {
+  return ranges
+    .map(([start, end]) => (start === end ? `U+${hex(start)}` : `U+${hex(start)}-${hex(end)}`))
+    .join(', ');
+}
+
+/**
+ * Removes `codePoints` from a `unicode-range`, splitting any span that holds
+ * one. `U+20A0-20AB` minus U+20A6 is `U+20A0-20A5, U+20A7-20AB`.
+ */
+function withoutCodePoints(unicodeRange, codePoints) {
+  let ranges = parseRange(unicodeRange);
+  for (const point of codePoints) {
+    ranges = ranges.flatMap(([start, end]) => {
+      if (point < start || point > end) return [[start, end]];
+      const pieces = [];
+      if (start < point) pieces.push([start, point - 1]);
+      if (point < end) pieces.push([point + 1, end]);
+      return pieces;
+    });
+  }
+  return formatRange(ranges);
+}
+
+/**
+ * One `@font-face`, self-hosted only (D-L43). There is deliberately no remote
+ * URL parameter: a second `src` is how a third-party origin got back in.
+ */
+function renderFace({ family, localPath, style, weight, unicodeRange, display }) {
   const lines = [
     '@font-face {',
     `  font-family: '${family}';`,
     `  font-style: ${style};`,
     `  font-weight: ${weight};`,
     `  font-display: ${display};`,
-    `  src:`,
-    `    url('${localPath}') format('woff2'),`,
-    `    url('${remoteUrl}') format('woff2');`,
+    `  src: url('${localPath}') format('woff2');`,
   ];
   if (unicodeRange) {
     lines.push(`  unicode-range: ${unicodeRange};`);
@@ -135,8 +207,8 @@ async function main() {
   const blocks = [
     '/* GENERATED FILE — do not edit. Source: pnpm ui:fetch-fonts */',
     '/*',
-    ' * Self-hosted webfonts. Google Fonts is listed second in each src as a',
-    ' * fallback only — see packages/ui/scripts/fetch-fonts.mjs for why.',
+    ' * Self-hosted webfonts, and ONLY self-hosted: every src is a file under',
+    ' * /fonts/ (D-L43). See packages/ui/scripts/fetch-fonts.mjs for why.',
     ' */',
     '',
   ];
@@ -159,6 +231,39 @@ async function main() {
 
     blocks.push(`/* ${spec.family} — ${spec.note} */`);
 
+    if (spec.currency === true) {
+      // Ahead of latin-ext, and carrying only the signs, so the small file is
+      // the one a naira amount downloads (D-L44).
+      const text = encodeURIComponent(String.fromCodePoint(...CURRENCY_CODE_POINTS));
+      const currencyCss = await fetchText(`${spec.css}&text=${text}`);
+      const [currencyFace] = parseFaces(currencyCss);
+      if (currencyFace === undefined) {
+        throw new Error(`No currency subset returned for ${spec.family}.`);
+      }
+      const fileName = `${spec.id}-currency-${currencyFace.weight.replace(/\s+/g, '')}.woff2`;
+      const bytes = await fetchBinary(currencyFace.url);
+      if (bytes.byteLength > CURRENCY_SUBSET_MAX_BYTES) {
+        throw new Error(
+          `${spec.family} currency subset is ${bytes.byteLength} bytes, over ` +
+            `${CURRENCY_SUBSET_MAX_BYTES}; text= has stopped subsetting.`,
+        );
+      }
+      writeFileSync(resolve(fontDir, fileName), bytes);
+      downloaded += 1;
+      blocks.push(
+        renderFace({
+          family: spec.family,
+          localPath: `/fonts/${fileName}`,
+          style: currencyFace.style,
+          weight: currencyFace.weight,
+          // Stated here rather than copied from the response: these are the
+          // code points the file was asked for, and the ones carved out below.
+          unicodeRange: formatRange(CURRENCY_CODE_POINTS.map((point) => [point, point])),
+          display: 'swap',
+        }),
+      );
+    }
+
     for (const face of faces) {
       const fileName = `${spec.id}-${face.subset}-${face.weight.replace(/\s+/g, '')}.woff2`;
       writeFileSync(resolve(fontDir, fileName), await fetchBinary(face.url));
@@ -167,10 +272,12 @@ async function main() {
         renderFace({
           family: spec.family,
           localPath: `/fonts/${fileName}`,
-          remoteUrl: face.url,
           style: face.style,
           weight: face.weight,
-          unicodeRange: face.unicodeRange,
+          unicodeRange:
+            spec.currency === true && face.unicodeRange !== ''
+              ? withoutCodePoints(face.unicodeRange, CURRENCY_CODE_POINTS)
+              : face.unicodeRange,
           // Text must be readable while the font loads; on a slow connection
           // `block` means a blank screen.
           display: 'swap',
@@ -234,7 +341,6 @@ async function main() {
       renderFace({
         family: 'Material Symbols Rounded',
         localPath: `/fonts/${fileName}`,
-        remoteUrl: face.url,
         style: face.style,
         weight: face.weight,
         unicodeRange: face.unicodeRange,
