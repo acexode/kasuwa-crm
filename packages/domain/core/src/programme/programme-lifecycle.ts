@@ -99,6 +99,12 @@ export async function createProgramme(
 
   // One instant for both columns, truncated to the version's millisecond
   // precision, rendered the way programme-version.ts parses.
+  //
+  // LOAD-BEARING FOR RLS (0015): created_at must be
+  // date_trunc('milliseconds', clock_timestamp()) - never earlier than
+  // date_trunc('milliseconds', transaction_timestamp()). The creation marker
+  // ANDs that with the xmin test so a frozen pre-wraparound row can never
+  // pass as "created in this transaction". Do not backdate it.
   const clock = await tx.query<{ at: string }>(
     `SELECT to_char(date_trunc('milliseconds', clock_timestamp()) AT TIME ZONE 'UTC',
                     'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS at`,

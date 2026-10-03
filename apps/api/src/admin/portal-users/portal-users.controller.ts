@@ -16,6 +16,7 @@ import { AdminController } from '../common/admin-controller.decorator';
 import { notFound } from '../common/admin-errors';
 import { foundOr404, parseIdOr404, parseOr400 } from '../common/admin-input';
 import { requireProgrammePermission } from '../common/admin-permissions';
+import { auditPortalUserInvited } from './portal-users.audit';
 import { portalAlreadyMember, portalSendUnavailable } from './portal-users.errors';
 import {
   invitationBody,
@@ -50,8 +51,12 @@ import { InvitePortalUserBody, PortalProgrammeIdParam } from './portal-users.sch
  * Permissions (T-0032, D-L53): inviting needs the `admin` set in the
  * programme or a tenant admin (403 `not_permitted` otherwise, after the 404).
  *
- * Not built, and said so in the T-0030 report: the audit row `x-kasuwa-audited` asks for (no audit
- * table on main yet), and the accept flow that makes a token single-use (M18).
+ * Audited (T-0033): one `invited` event per successful invite or resend, in
+ * the request's transaction (`portal-users.audit.ts`); the address is a
+ * redacted change and the display name is never recorded (D-L52, D-L54).
+ *
+ * Not built, and said so in the T-0030 report: the accept flow that makes a
+ * token single-use (M18).
  */
 @AdminController('api/v1/admin/programmes')
 export class PortalUsersController {
@@ -109,6 +114,14 @@ export class PortalUsersController {
     if (result === null) {
       throw notFound();
     }
+
+    // Before the send, so an email never leaves unaudited; a failed send
+    // below throws and rolls this event back with the invitation.
+    await auditPortalUserInvited(tx, programmeId, {
+      portalUserId: result.user.id,
+      access: result.user.access,
+      outcome: result.outcome,
+    });
 
     try {
       await this.channel.send({

@@ -34,6 +34,19 @@
 --    kasuwa_app until that migration grants it. That is deliberate: a column
 --    on the table that defines privilege is opted in, not inherited.
 --
+-- 2b. permission_set.key is immutable to kasuwa_app.
+--
+--    @kasuwa/permissions decides authority by the set's key (`admin`). A
+--    mutable key is therefore an escalation path: re-key `agent` to `admin`
+--    and every agent administers. kasuwa_app loses table-level UPDATE on
+--    permission_set and gets it back on every column except `key` (and the
+--    identity columns). INSERT is unchanged: a fixture creates a set through
+--    the app role, and (tenant_id, key) is unique, so an INSERT cannot mint a
+--    second `admin`. No application code updates permission_set today.
+--    Known gap, recorded by the lead: user_programme.permission_set_id stays
+--    writable by kasuwa_app (within scope); who may assign sets is the
+--    engine's application-level decision.
+--
 -- 3. D-L51 - the database guards programme membership.
 --
 --    user_programme_isolation (0001) checks only tenant_id, so any code path
@@ -44,6 +57,12 @@
 --    INSERTed or UPDATEd membership row is for a programme that is EITHER
 --      (a) already in the session's scope, app.current_programme_ids(); OR
 --      (b) created by this very transaction.
+--    Be precise about what each branch is worth. (a) reads a GUC that
+--    kasuwa_app CAN set from any statement on the request connection, so it
+--    is only as strong as ADR-0010's scope seal: withTenantTransaction reads
+--    the GUCs back before COMMIT and rolls back if they changed. That is
+--    detection, not a privilege boundary. Only (b), the creation marker, is
+--    something the session cannot forge.
 --    No new PERMISSIVE FOR INSERT policy is added (permissive policies are
 --    OR-ed; a new one could only widen). SELECT and DELETE are untouched: the
 --    session resolver reads user_programme before programme scope is known.
@@ -58,6 +77,7 @@
 --    stamps it with the id of the transaction that wrote the row version, and
 --    no SQL can choose it. "Created in this transaction" is therefore
 --      p.xmin = pg_current_xact_id_if_assigned()::xid
+--      AND p.created_at >= date_trunc('milliseconds', transaction_timestamp())
 --    - the 32-bit xid of the current top-level transaction. `_if_assigned`
 --    rather than pg_current_xact_id(): it never forces an xid onto a
 --    read-only transaction (the predicate also sits in a SELECT policy on
@@ -71,6 +91,22 @@
 --    does not match, so a membership for it is REFUSED, never admitted.
 --    No code path does that today.
 --
+--    WHY THE created_at TERM (xid wraparound). xids are 32 bits and wrap.
+--    `xmin` reports the raw stored xid even for a frozen tuple, so long after
+--    wraparound an OLD programme row in the same tenant can carry the same
+--    32-bit value as a new transaction's xid. The xmin test alone would then
+--    admit that old row - to the SELECT policy and to both membership
+--    policies. The second term rules it out: createProgramme writes
+--    created_at = date_trunc('milliseconds', clock_timestamp()), which is never
+--    earlier than date_trunc('milliseconds', transaction_timestamp()) in the
+--    transaction that inserts it, while a row from an earlier transaction has
+--    an earlier created_at. kasuwa_app can only change created_at on a
+--    programme it can already UPDATE, i.e. one already in scope. Residual
+--    edge, recorded rather than hidden: a row whose created_at was written in
+--    the future by the migrator (never done) AND whose frozen xmin collides.
+--    This cannot be exercised by a test without a real wraparound; the
+--    reasoning above is the evidence.
+--
 --    For (b) to be checkable at all, the policy's subquery must be able to
 --    see the new programme row, and today it cannot: the FOR ALL policy only
 --    admits ids already in scope (that is why createProgramme cannot use
@@ -78,8 +114,9 @@
 --    policy, programme_visible_to_creating_transaction, with the same
 --    predicate plus the tenant. It admits exactly the rows this transaction
 --    itself wrote and already knows, for the rest of that transaction, and
---    nothing else: no other session's row can ever carry this transaction's
---    xid. It is FOR SELECT only, so it grants no UPDATE or DELETE (those stay
+--    nothing else. The xid alone does NOT guarantee that (a frozen row from
+--    before a wraparound can carry the same 32-bit value); the xid AND the
+--    created_at term together do, as argued above. It is FOR SELECT only, so it grants no UPDATE or DELETE (those stay
 --    with the FOR ALL policy), and it is not a FOR INSERT policy, so the
 --    permissive-INSERT allow-list (permissions acceptance) is unchanged.
 --    CLAUDE.md 2.4 ("WITH CHECK identical to USING") is still held by the
@@ -120,6 +157,11 @@ GRANT INSERT (id, tenant_id, email, display_name, locale, status, role_id, creat
 GRANT UPDATE (email, display_name, locale, status, role_id, updated_at)
   ON "user" TO kasuwa_app;
 
+-- --- 2b. permission_set.key -------------------------------------------------
+
+REVOKE UPDATE ON permission_set FROM kasuwa_app;
+GRANT UPDATE (label, locked, sort_order, updated_at) ON permission_set TO kasuwa_app;
+
 -- --- 3. D-L51 ------------------------------------------------------------------
 
 CREATE POLICY programme_visible_to_creating_transaction ON programme
@@ -128,6 +170,7 @@ CREATE POLICY programme_visible_to_creating_transaction ON programme
   USING (
     tenant_id = app.current_tenant_id()
     AND xmin = pg_catalog.pg_current_xact_id_if_assigned()::xid
+    AND created_at >= date_trunc('milliseconds', transaction_timestamp())
   );
 
 CREATE POLICY user_programme_insert_in_scope ON user_programme
@@ -143,6 +186,7 @@ CREATE POLICY user_programme_insert_in_scope ON user_programme
          WHERE p.tenant_id = user_programme.tenant_id
            AND p.id = user_programme.programme_id
            AND p.xmin = pg_catalog.pg_current_xact_id_if_assigned()::xid
+           AND p.created_at >= date_trunc('milliseconds', transaction_timestamp())
       )
     )
   );
@@ -160,6 +204,7 @@ CREATE POLICY user_programme_update_in_scope ON user_programme
          WHERE p.tenant_id = user_programme.tenant_id
            AND p.id = user_programme.programme_id
            AND p.xmin = pg_catalog.pg_current_xact_id_if_assigned()::xid
+           AND p.created_at >= date_trunc('milliseconds', transaction_timestamp())
       )
     )
   )
@@ -173,6 +218,7 @@ CREATE POLICY user_programme_update_in_scope ON user_programme
          WHERE p.tenant_id = user_programme.tenant_id
            AND p.id = user_programme.programme_id
            AND p.xmin = pg_catalog.pg_current_xact_id_if_assigned()::xid
+           AND p.created_at >= date_trunc('milliseconds', transaction_timestamp())
       )
     )
   );

@@ -277,7 +277,32 @@ export async function updateDisposition(
   id: string,
   changes: DispositionChanges,
 ): Promise<Disposition | null> {
+  const applied = await updateDispositionWithPrevious(tx, programmeId, id, changes);
+  return applied === null ? null : applied.updated;
+}
+
+/** A disposition as it stood under the write's lock, and as the write left it. */
+export interface AppliedDispositionUpdate {
+  previous: Disposition;
+  updated: Disposition;
+}
+
+/**
+ * `updateDisposition`, also returning the row as it stood under the programme
+ * lock every disposition writer takes first (T-0033: the audit row's `before`
+ * must be the value this write replaced).
+ */
+export async function updateDispositionWithPrevious(
+  tx: TenantTx,
+  programmeId: string,
+  id: string,
+  changes: DispositionChanges,
+): Promise<AppliedDispositionUpdate | null> {
   if (!(await lockReachable(tx, programmeId))) {
+    return null;
+  }
+  const previous = await readLiveById(tx, programmeId, id);
+  if (previous === null) {
     return null;
   }
   // tenancy-reviewed: tenant_id + programme_id + session programme ids, as well as RLS.
@@ -308,6 +333,27 @@ export async function updateDisposition(
     ],
   );
   const row = rows[0];
+  return row === undefined ? null : { previous, updated: toDisposition(row) };
+}
+
+/** One live disposition of the programme, or `null`. Callers hold the programme lock. */
+async function readLiveById(
+  tx: TenantTx,
+  programmeId: string,
+  id: string,
+): Promise<Disposition | null> {
+  // tenancy-reviewed: tenant_id + programme_id + session programme ids, as well as RLS.
+  const rows = await tx.query<DispositionRow>(
+    `SELECT ${SELECT_DISPOSITION}
+       FROM disposition
+      WHERE id = $1
+        AND tenant_id = $2
+        AND programme_id = $3
+        AND programme_id = ANY($4::uuid[])
+        AND deleted_at IS NULL`,
+    [id, tx.session.tenantId, programmeId, tx.session.programmeIds],
+  );
+  const row = rows[0];
   return row === undefined ? null : toDisposition(row);
 }
 
@@ -323,9 +369,28 @@ export async function deleteDisposition(
   programmeId: string,
   id: string,
 ): Promise<true | null> {
+  return (await deleteDispositionWithPrevious(tx, programmeId, id)) === null ? null : true;
+}
+
+/** The outcome of a soft delete: what was live before it, if anything. */
+export interface AppliedDispositionDelete {
+  /** The live row this delete removed; `null` when it was already deleted (idempotent 204). */
+  previous: Disposition | null;
+}
+
+/**
+ * `deleteDisposition`, also saying whether this call is the one that deleted
+ * it — so a repeated delete, which changes nothing, records nothing (T-0033).
+ */
+export async function deleteDispositionWithPrevious(
+  tx: TenantTx,
+  programmeId: string,
+  id: string,
+): Promise<AppliedDispositionDelete | null> {
   if (!(await lockReachable(tx, programmeId))) {
     return null;
   }
+  const previous = await readLiveById(tx, programmeId, id);
   // tenancy-reviewed: tenant_id + programme_id + session programme ids, as well as RLS.
   const rows = await tx.query<{ id: string }>(
     `UPDATE disposition
@@ -339,7 +404,7 @@ export async function deleteDisposition(
       RETURNING id`,
     [id, tx.session.tenantId, programmeId, tx.session.programmeIds],
   );
-  return rows.length > 0 ? true : null;
+  return rows.length > 0 ? { previous } : null;
 }
 
 /**
@@ -352,6 +417,22 @@ export async function reorderDispositions(
   programmeId: string,
   orderedIds: readonly string[],
 ): Promise<Disposition[] | null> {
+  const applied = await reorderDispositionsWithPrevious(tx, programmeId, orderedIds);
+  return applied === null ? null : applied.updated;
+}
+
+/** The live list in agent order under the write's lock, and as the write left it. */
+export interface AppliedDispositionReorder {
+  previous: Disposition[];
+  updated: Disposition[];
+}
+
+/** `reorderDispositions`, also returning the order it replaced (T-0033, for the audit row). */
+export async function reorderDispositionsWithPrevious(
+  tx: TenantTx,
+  programmeId: string,
+  orderedIds: readonly string[],
+): Promise<AppliedDispositionReorder | null> {
   if (!(await lockReachable(tx, programmeId))) {
     return null;
   }
@@ -381,7 +462,7 @@ export async function reorderDispositions(
       [tx.session.tenantId, programmeId, tx.session.programmeIds, orderedIds],
     );
   }
-  return readLive(tx, programmeId);
+  return { previous: live, updated: await readLive(tx, programmeId) };
 }
 
 function isUniqueViolation(error: unknown, constraint: string): boolean {

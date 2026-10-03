@@ -4,8 +4,8 @@ import {
   findProgrammeRetention,
   findProgrammeSla,
   LegalHoldActiveError,
-  replaceProgrammeRetention,
-  replaceProgrammeSla,
+  replaceProgrammeRetentionWithPrevious,
+  replaceProgrammeSlaWithPrevious,
   StalePolicyVersionError,
   type RetentionPolicy,
   type SlaPolicy,
@@ -15,6 +15,7 @@ import { AdminController } from '../common/admin-controller.decorator';
 import { staleWrite } from '../common/admin-errors';
 import { foundOr404, parseIdOr404, parseOr400 } from '../common/admin-input';
 import { requireProgrammePermission } from '../common/admin-permissions';
+import { auditRetentionSaved, auditSlaSaved } from './sla-retention.audit';
 import { legalHoldActive } from './sla-retention.errors';
 import {
   ProgrammeIdParam,
@@ -51,8 +52,11 @@ export interface RetentionPolicyResponse extends RetentionPolicy {
  * 400, then `409 stale_write`, then `409 legal_hold_active` (D-L50: stale
  * wins).
  *
- * Not built, and said so in the report: the audit row `x-kasuwa-audited` asks for (T-0025's table), the
- * `timeZone` field (no programme time-zone column), and enforcement of any
+ * Audited (T-0033): one `updated` event per successful save, in the write's
+ * transaction (`sla-retention.audit.ts`); a refused write records nothing.
+ *
+ * Not built, and said so in the report: the `timeZone` field (no programme
+ * time-zone column), and enforcement of any
  * retention period — `callRecordingsDays` in particular is stored and
  * returned but never enforced by Kasuwa (D-T4).
  */
@@ -72,9 +76,12 @@ export class ProgrammeSlaRetentionController {
     await requireProgrammePermission(currentTx(), 'programme_policy.write', programmeId);
     const { version, ...fields } = parseOr400(SlaPolicyWriteBody, body);
     try {
-      return toSlaResponse(
-        foundOr404(await replaceProgrammeSla(currentTx(), programmeId, version, fields)),
+      const tx = currentTx();
+      const applied = foundOr404(
+        await replaceProgrammeSlaWithPrevious(tx, programmeId, version, fields),
       );
+      await auditSlaSaved(tx, programmeId, applied.previous, applied.updated);
+      return toSlaResponse(applied.updated);
     } catch (error) {
       throw mapConflict(error);
     }
@@ -101,9 +108,12 @@ export class ProgrammeSlaRetentionController {
     await requireProgrammePermission(currentTx(), 'programme_policy.write', programmeId);
     const { version, ...fields } = parseOr400(RetentionPolicyWriteBody, body);
     try {
-      return toRetentionResponse(
-        foundOr404(await replaceProgrammeRetention(currentTx(), programmeId, version, fields)),
+      const tx = currentTx();
+      const applied = foundOr404(
+        await replaceProgrammeRetentionWithPrevious(tx, programmeId, version, fields),
       );
+      await auditRetentionSaved(tx, programmeId, applied.previous, applied.updated);
+      return toRetentionResponse(applied.updated);
     } catch (error) {
       throw mapConflict(error);
     }

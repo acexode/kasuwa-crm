@@ -1,20 +1,26 @@
 import { Body, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Put } from '@nestjs/common';
 import {
   createDisposition,
-  deleteDisposition,
   dispositionExists,
+  deleteDispositionWithPrevious,
   DuplicateDispositionCodeError,
   findProgrammeById,
   IncompleteDispositionOrderError,
   listDispositions,
-  reorderDispositions,
-  updateDisposition,
+  reorderDispositionsWithPrevious,
+  updateDispositionWithPrevious,
 } from '@kasuwa/domain-core';
 import { currentTx } from '../../tenancy/tenant-context';
 import { AdminController } from '../common/admin-controller.decorator';
 import { notFound } from '../common/admin-errors';
 import { foundOr404, parseIdOr404, parseOr400 } from '../common/admin-input';
 import { requireProgrammePermission } from '../common/admin-permissions';
+import {
+  auditDispositionCreated,
+  auditDispositionDeleted,
+  auditDispositionsReordered,
+  auditDispositionUpdated,
+} from './dispositions.audit';
 import { duplicateCode, incompleteOrder } from './dispositions.errors';
 import {
   toDispositionListResponse,
@@ -55,8 +61,10 @@ import {
  * programme, and for update and delete the disposition too), then 403
  * `not_permitted`, then 400.
  *
- * Not built: the audit rows `x-kasuwa-audited` requires (the audit writer is
- * T-0025), and `usageCount90d`, which is null until an interactions table
+ * Audited (T-0033): every successful write records its event in the write's
+ * transaction (`dispositions.audit.ts`); a refusal records nothing.
+ *
+ * Not built: `usageCount90d`, which is null until an interactions table
  * exists.
  */
 @AdminController('api/v1/admin/programmes/:programmeId/dispositions')
@@ -76,9 +84,10 @@ export class DispositionsController {
     await requireProgrammePermission(currentTx(), 'disposition.write', programmeId);
     const parsed = parseOr400(DispositionWriteBody, body);
     try {
-      return toDispositionResponse(
-        foundOr404(await createDisposition(currentTx(), programmeId, parsed)),
-      );
+      const tx = currentTx();
+      const created = foundOr404(await createDisposition(tx, programmeId, parsed));
+      await auditDispositionCreated(tx, programmeId, created);
+      return toDispositionResponse(created);
     } catch (error) {
       if (error instanceof DuplicateDispositionCodeError) {
         throw duplicateCode();
@@ -95,9 +104,12 @@ export class DispositionsController {
     await requireProgrammePermission(currentTx(), 'disposition.write', programmeId);
     const parsed = parseOr400(DispositionOrderBody, body);
     try {
-      return toDispositionListResponse(
-        foundOr404(await reorderDispositions(currentTx(), programmeId, parsed.dispositionIds)),
+      const tx = currentTx();
+      const applied = foundOr404(
+        await reorderDispositionsWithPrevious(tx, programmeId, parsed.dispositionIds),
       );
+      await auditDispositionsReordered(tx, programmeId, applied.previous, applied.updated);
+      return toDispositionListResponse(applied.updated);
     } catch (error) {
       if (error instanceof IncompleteDispositionOrderError) {
         throw incompleteOrder();
@@ -113,9 +125,12 @@ export class DispositionsController {
     await requireDisposition(ids.programmeId, ids.dispositionId, { includeDeleted: false });
     await requireProgrammePermission(currentTx(), 'disposition.write', ids.programmeId);
     const parsed = parseOr400(DispositionPatchBody, body);
-    return toDispositionResponse(
-      foundOr404(await updateDisposition(currentTx(), ids.programmeId, ids.dispositionId, parsed)),
+    const tx = currentTx();
+    const applied = foundOr404(
+      await updateDispositionWithPrevious(tx, ids.programmeId, ids.dispositionId, parsed),
     );
+    await auditDispositionUpdated(tx, ids.programmeId, applied.previous, applied.updated);
+    return toDispositionResponse(applied.updated);
   }
 
   /**
@@ -129,7 +144,11 @@ export class DispositionsController {
     const ids = parseIdOr404(DispositionParams, params);
     await requireDisposition(ids.programmeId, ids.dispositionId, { includeDeleted: true });
     await requireProgrammePermission(currentTx(), 'disposition.write', ids.programmeId);
-    foundOr404(await deleteDisposition(currentTx(), ids.programmeId, ids.dispositionId));
+    const tx = currentTx();
+    const applied = foundOr404(
+      await deleteDispositionWithPrevious(tx, ids.programmeId, ids.dispositionId),
+    );
+    await auditDispositionDeleted(tx, ids.programmeId, applied.previous);
   }
 }
 

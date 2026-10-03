@@ -98,6 +98,11 @@ export const user = pgTable(
     /**
      * D-L53: a tenant-level permission flag, never derived from membership and
      * never a scope (D-L06). Not writable by kasuwa_app (0015 column grants).
+     *
+     * Consequence: kasuwa_app holds only COLUMN-level INSERT/UPDATE on "user".
+     * A Drizzle `insert(user)` as kasuwa_app emits every column, this one
+     * included, and fails with a privilege error. Writes to "user" from the
+     * app must name only granted columns.
      */
     isTenantAdmin: boolean('is_tenant_admin').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
