@@ -5,7 +5,7 @@
 | **id** | T-0015 |
 | **status** | `not-assigned` |
 | **module** | M1 platform and tenancy |
-| **owner** | Agent 1 — Platform & Security |
+| **owner** | Agent 6 (reassigned 2026-10-03 by @acexode: Agent 6 built the reusable `createProgramme` this calls; Agent 1 is on T-0032) |
 | **priority** | **P0 — this is the launch path** |
 | **PRD refs** | `docs/prd/M01-platform-and-tenancy.md` (P0 provisioning, split by D-P2) |
 | **dependencies** | T-0001 (auth) for the first admin user |

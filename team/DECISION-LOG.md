@@ -1048,3 +1048,10 @@ telephony and WFM work (D-T*, D-W*).
   - Hooks mirrored in CI (above).
   - Builders move to a real cloud or devcontainer environment when available (the "remote" option fell back to local on 2026-10-03), after which the D-L20 rollup pin can go.
   - Reboot this machine, then run the approved Docker prune.
+
+---
+
+## 2026-10-03 — next wave shape
+@acexode: T-0015 (sales-led provisioning) joins the next wave, owned by Agent 6. Run all five builders at once
+(T-0015, T-0032, T-0033, T-0034, T-0035); the lead keeps the two-slot turn-taking for heavy commands
+as a safeguard. T-0033 and T-0035 wait for T-0028 (#58) to merge before their builders start.
