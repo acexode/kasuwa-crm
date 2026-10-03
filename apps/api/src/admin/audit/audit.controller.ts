@@ -2,6 +2,7 @@ import { Body, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/com
 import { currentTx } from '../../tenancy/tenant-context';
 import { AdminController } from '../common/admin-controller.decorator';
 import { parseIdOr404, parseOr400 } from '../common/admin-input';
+import { requireTenantPermission } from '../common/admin-permissions';
 import { CreateAuditExportBody, ExportIdParam, ListAuditEventsQuery } from './audit.schemas';
 import * as audit from './audit.service';
 
@@ -15,9 +16,11 @@ import * as audit from './audit.service';
  * Every input is parsed BEFORE anything is written, so a refused export
  * request leaves no export row and no audit row.
  *
- * KNOWN GAP: no `403 not_permitted`. There is no permissions engine, so any
- * authenticated user of the tenant can read the events D-L48 makes visible to
- * them and can request an export of the same.
+ * Permissions (T-0032, D-L53): requesting an export is tenant-level and needs
+ * a tenant admin (403 `not_permitted`, decided before the body is parsed).
+ * KNOWN GAP: reading is not restricted yet - any user of the tenant reads the
+ * events D-L48 makes visible to them. Restricting audit reads to admins is a
+ * separate decision (D-L48 names it), not part of this round.
  */
 @AdminController('api/v1/admin/audit')
 export class AuditController {
@@ -35,13 +38,15 @@ export class AuditController {
 
   /**
    * `POST /api/v1/admin/audit/exports` — operationId `createAuditExport`.
-   * 202 `AuditExport`; 400, 401. Itself audited, in the same transaction.
+   * 202 `AuditExport`; 400, 401, 403. Itself audited, in the same transaction.
    */
   @Post('exports')
   @HttpCode(HttpStatus.ACCEPTED)
-  createExport(@Body() body: unknown) {
+  async createExport(@Body() body: unknown) {
+    const tx = currentTx();
+    await requireTenantPermission(tx, 'audit.export');
     const parsed = parseOr400(CreateAuditExportBody, body);
-    return audit.createAuditExport(currentTx(), parsed);
+    return audit.createAuditExport(tx, parsed);
   }
 
   /**

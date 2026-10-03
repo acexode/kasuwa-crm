@@ -37,7 +37,7 @@ function fakeTx(respond: Responder): { tx: TenantTx; calls: Call[] } {
   const calls: Call[] = [];
   const tx: TenantTx = {
     session: { tenantId: TENANT, userId: USER, programmeIds: [OWN] },
-    query: async <T,>(text: string, values: readonly unknown[] = []) => {
+    query: async <T>(text: string, values: readonly unknown[] = []) => {
       calls.push({ text, values });
       const result = respond(text, values);
       if (result instanceof Error) {
@@ -96,7 +96,8 @@ describe('createProgramme (T-0029, D-L46)', () => {
     expect(insert?.values[0]).toBe(created.id);
 
     const membership = calls.find((call) => call.text.includes('INSERT INTO user_programme'));
-    expect(membership?.values).toEqual([USER, created.id, TENANT]);
+    // The creator holds the tenant's `admin` set in what they made (T-0032).
+    expect(membership?.values).toEqual([USER, created.id, TENANT, 'admin']);
     expect(calls.filter((call) => call.text.includes('INSERT')).length).toBe(2);
   });
 

@@ -95,6 +95,11 @@ export const user = pgTable(
     status: text('status').notNull().default('active'),
     /** The one tenant-wide role this person holds, if any (0006). */
     roleId: uuid('role_id'),
+    /**
+     * D-L53: a tenant-level permission flag, never derived from membership and
+     * never a scope (D-L06). Not writable by kasuwa_app (0015 column grants).
+     */
+    isTenantAdmin: boolean('is_tenant_admin').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -112,11 +117,18 @@ export const userProgramme = pgTable(
     programmeId: uuid('programme_id').notNull(),
     tenantId: uuid('tenant_id').notNull(),
     skills: text('skills').array().notNull().default([]),
+    /**
+     * The permission set this person holds in this programme (D-P9, 0015).
+     * NULL means no permission. Composite FK `(tenant_id, permission_set_id)`
+     * -> `permission_set (tenant_id, id)`.
+     */
+    permissionSetId: uuid('permission_set_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     primaryKey({ columns: [table.userId, table.programmeId] }),
     index('user_programme_tenant_user_idx').on(table.tenantId, table.userId),
+    index('user_programme_tenant_permission_set_idx').on(table.tenantId, table.permissionSetId),
   ],
 );
 

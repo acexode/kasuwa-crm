@@ -9,6 +9,7 @@ import { change, recordAuditEvent } from '../audit/audit-writer';
 import { AdminController } from '../common/admin-controller.decorator';
 import { notFound, notPermitted, staleWrite } from '../common/admin-errors';
 import { parseOr400 } from '../common/admin-input';
+import { requireTenantPermission } from '../common/admin-permissions';
 import {
   FieldSecurityMatrixQuery,
   FieldSecurityWriteBody,
@@ -36,9 +37,9 @@ import {
  * shared admin error envelope (400, 403, 404, 409, each with a `code`).
  *
  * KNOWN GAPS, named rather than buried (D-L36):
- *   - No `403` for "you may not administer field security": there is no
- *     permissions engine to ask, so any authenticated user of the tenant can
- *     read and write the matrix this round (same gap as roles, D-L40).
+ *   - (Closed by T-0032.) Writing the matrix is tenant-level and needs a
+ *     tenant admin: anyone else gets 403 `not_permitted` before the body is
+ *     parsed (D-L53). Reading stays open to every user of the tenant.
  *   - (Closed by T-0025.) `updateFieldSecurityMatrix` writes one audit
  *     event per changed cell (D-L52), never one "bulk edit" row.
  *   - The matrix is stored and served; nothing enforces it on record reads yet.
@@ -65,13 +66,15 @@ export class FieldSecurityMatrixController {
    * PUT /api/v1/admin/field-security/matrix
    * 200: FieldSecurityMatrix (the whole, unfiltered matrix, with its new
    * version). 400 validation_failed. 401 not_authenticated. 403 not_permitted
-   * (a change to a locked permission set). 404 not_found (unknown object,
+   * (not a tenant admin - checked first; or a change to a locked permission
+   * set). 404 not_found (unknown object,
    * field or set). 409 stale_write.
    */
   @Put()
   async update(@Body() body: unknown): Promise<FieldSecurityMatrix> {
-    const write = parseOr400(FieldSecurityWriteBody, body);
     const tx = currentTx();
+    await requireTenantPermission(tx, 'field_security.write');
+    const write = parseOr400(FieldSecurityWriteBody, body);
     const result = await writeFieldSecurityMatrix(tx, write);
     switch (result.kind) {
       case 'not_found':

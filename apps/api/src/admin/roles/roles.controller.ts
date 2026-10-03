@@ -13,6 +13,7 @@ import {
 import { currentTx } from '../../tenancy/tenant-context';
 import { AdminController } from '../common/admin-controller.decorator';
 import { parseIdOr404 } from '../common/admin-input';
+import { requireTenantPermission } from '../common/admin-permissions';
 import {
   CreateRoleBody,
   DeleteRoleQuery,
@@ -31,11 +32,10 @@ import * as roles from './roles.service';
  * reads a tenant or programme id from the request. Another tenant's role is
  * `404 not_found` with the same body as no role at all.
  *
- * KNOWN GAPS, both raised in team/reports/T-0022.md rather than papered over:
- *   - No `403 not_permitted`. There is no permissions engine, so any
- *     authenticated user of the tenant can administer roles this round.
- *   - createRole, updateRole, deleteRole and updateRoleHierarchy are
- *     `x-kasuwa-audited: true`, and there is no audit table to write to.
+ * Permissions (T-0032, D-L53): every write is tenant-level and needs a
+ * tenant admin, else 403 `not_permitted` - after the 404 for an unknown role
+ * in the path, and before the body or query is parsed. Reads stay open to
+ * every user of the tenant.
  */
 @AdminController('api/v1/admin/roles')
 export class RolesController {
@@ -45,20 +45,24 @@ export class RolesController {
     return roles.listRoles(currentTx());
   }
 
-  /** `POST /api/v1/admin/roles` — operationId `createRole`. 201 `Role`; 400, 401, 404, 409. */
+  /** `POST /api/v1/admin/roles` — operationId `createRole`. 201 `Role`; 400, 401, 403, 404, 409. */
   @Post()
-  create(@Body() body: unknown) {
-    return roles.createRole(currentTx(), CreateRoleBody.parse(body));
+  async create(@Body() body: unknown) {
+    const tx = currentTx();
+    await requireTenantPermission(tx, 'role.write');
+    return roles.createRole(tx, CreateRoleBody.parse(body));
   }
 
   /**
    * `PUT /api/v1/admin/roles/hierarchy` — operationId `updateRoleHierarchy`.
-   * 200 `RoleList`; 400, 401, 404, 409 `stale_write` | `role_hierarchy_cycle`.
+   * 200 `RoleList`; 400, 401, 403, 404, 409 `stale_write` | `role_hierarchy_cycle`.
    * Declared before `:roleId` so the literal segment is never read as an id.
    */
   @Put('hierarchy')
-  updateHierarchy(@Body() body: unknown) {
-    return roles.updateRoleHierarchy(currentTx(), RoleHierarchyBody.parse(body));
+  async updateHierarchy(@Body() body: unknown) {
+    const tx = currentTx();
+    await requireTenantPermission(tx, 'role.write');
+    return roles.updateRoleHierarchy(tx, RoleHierarchyBody.parse(body));
   }
 
   /** `GET /api/v1/admin/roles/{roleId}` — operationId `getRole`. 200 `RoleDetail`; 401, 404. */
@@ -67,20 +71,26 @@ export class RolesController {
     return roles.getRole(currentTx(), parseRoleId(params));
   }
 
-  /** `PATCH /api/v1/admin/roles/{roleId}` — operationId `updateRole`. 200 `RoleDetail`; 400, 401, 404, 409. */
+  /** `PATCH /api/v1/admin/roles/{roleId}` — operationId `updateRole`. 200 `RoleDetail`; 400, 401, 403, 404, 409. */
   @Patch(':roleId')
-  update(@Param() params: unknown, @Body() body: unknown) {
+  async update(@Param() params: unknown, @Body() body: unknown) {
     const roleId = parseRoleId(params);
-    return roles.updateRole(currentTx(), roleId, UpdateRoleBody.parse(body));
+    const tx = currentTx();
+    await roles.getRole(tx, roleId); // 404 first
+    await requireTenantPermission(tx, 'role.write');
+    return roles.updateRole(tx, roleId, UpdateRoleBody.parse(body));
   }
 
-  /** `DELETE /api/v1/admin/roles/{roleId}` — operationId `deleteRole`. 204; 400, 401, 404, 409. */
+  /** `DELETE /api/v1/admin/roles/{roleId}` — operationId `deleteRole`. 204; 400, 401, 403, 404, 409. */
   @Delete(':roleId')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param() params: unknown, @Query() query: unknown): Promise<void> {
     const roleId = parseRoleId(params);
+    const tx = currentTx();
+    await roles.getRole(tx, roleId); // 404 first
+    await requireTenantPermission(tx, 'role.write');
     const { reassignUsersToRoleId } = DeleteRoleQuery.parse(query);
-    await roles.deleteRole(currentTx(), roleId, reassignUsersToRoleId);
+    await roles.deleteRole(tx, roleId, reassignUsersToRoleId);
   }
 }
 

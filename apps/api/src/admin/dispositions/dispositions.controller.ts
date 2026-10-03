@@ -2,6 +2,7 @@ import { Body, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Put } from
 import {
   createDisposition,
   deleteDisposition,
+  dispositionExists,
   DuplicateDispositionCodeError,
   findProgrammeById,
   IncompleteDispositionOrderError,
@@ -11,7 +12,9 @@ import {
 } from '@kasuwa/domain-core';
 import { currentTx } from '../../tenancy/tenant-context';
 import { AdminController } from '../common/admin-controller.decorator';
+import { notFound } from '../common/admin-errors';
 import { foundOr404, parseIdOr404, parseOr400 } from '../common/admin-input';
+import { requireProgrammePermission } from '../common/admin-permissions';
 import { duplicateCode, incompleteOrder } from './dispositions.errors';
 import {
   toDispositionListResponse,
@@ -47,10 +50,14 @@ import {
  * BEFORE the body is judged, so an unreachable programme is 404 whatever was
  * sent.
  *
- * Not built: `403 not_permitted` (no permissions engine — any member of a
- * programme may edit its dispositions), the audit rows `x-kasuwa-audited`
- * requires (the audit writer is T-0025), and `usageCount90d`, which is null
- * until an interactions table exists.
+ * Permissions (T-0032, D-L53): every write needs the `admin` set in the
+ * programme or a tenant admin; other sets are read-only. Order: 404 (the
+ * programme, and for update and delete the disposition too), then 403
+ * `not_permitted`, then 400.
+ *
+ * Not built: the audit rows `x-kasuwa-audited` requires (the audit writer is
+ * T-0025), and `usageCount90d`, which is null until an interactions table
+ * exists.
  */
 @AdminController('api/v1/admin/programmes/:programmeId/dispositions')
 export class DispositionsController {
@@ -61,11 +68,12 @@ export class DispositionsController {
     return toDispositionListResponse(foundOr404(await listDispositions(currentTx(), programmeId)));
   }
 
-  /** `POST …/dispositions` — operationId `createDisposition`. 201 · 400 · 401 · 404 · 409. */
+  /** `POST …/dispositions` — operationId `createDisposition`. 201 · 400 · 401 · 403 · 404 · 409. */
   @Post()
   async create(@Param() params: unknown, @Body() body: unknown): Promise<DispositionResponse> {
     const { programmeId } = parseIdOr404(ProgrammeIdParam, params);
     await requireProgramme(programmeId);
+    await requireProgrammePermission(currentTx(), 'disposition.write', programmeId);
     const parsed = parseOr400(DispositionWriteBody, body);
     try {
       return toDispositionResponse(
@@ -79,11 +87,12 @@ export class DispositionsController {
     }
   }
 
-  /** `PUT …/dispositions/order` — operationId `reorderDispositions`. 200 · 400 · 401 · 404. */
+  /** `PUT …/dispositions/order` — operationId `reorderDispositions`. 200 · 400 · 401 · 403 · 404. */
   @Put('order')
   async reorder(@Param() params: unknown, @Body() body: unknown): Promise<DispositionListResponse> {
     const { programmeId } = parseIdOr404(ProgrammeIdParam, params);
     await requireProgramme(programmeId);
+    await requireProgrammePermission(currentTx(), 'disposition.write', programmeId);
     const parsed = parseOr400(DispositionOrderBody, body);
     try {
       return toDispositionListResponse(
@@ -97,11 +106,12 @@ export class DispositionsController {
     }
   }
 
-  /** `PATCH …/dispositions/{dispositionId}` — operationId `updateDisposition`. 200 · 400 · 401 · 404. */
+  /** `PATCH …/dispositions/{dispositionId}` — operationId `updateDisposition`. 200 · 400 · 401 · 403 · 404. */
   @Patch(':dispositionId')
   async update(@Param() params: unknown, @Body() body: unknown): Promise<DispositionResponse> {
     const ids = parseIdOr404(DispositionParams, params);
-    await requireProgramme(ids.programmeId);
+    await requireDisposition(ids.programmeId, ids.dispositionId, { includeDeleted: false });
+    await requireProgrammePermission(currentTx(), 'disposition.write', ids.programmeId);
     const parsed = parseOr400(DispositionPatchBody, body);
     return toDispositionResponse(
       foundOr404(await updateDisposition(currentTx(), ids.programmeId, ids.dispositionId, parsed)),
@@ -110,13 +120,15 @@ export class DispositionsController {
 
   /**
    * `DELETE …/dispositions/{dispositionId}` — operationId `deleteDisposition`.
-   * 204 · 401 · 404. Soft (D-L47) and idempotent: an already-deleted
+   * 204 · 401 · 403 · 404. Soft (D-L47) and idempotent: an already-deleted
    * disposition of this programme is 204 again.
    */
   @Delete(':dispositionId')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param() params: unknown): Promise<void> {
     const ids = parseIdOr404(DispositionParams, params);
+    await requireDisposition(ids.programmeId, ids.dispositionId, { includeDeleted: true });
+    await requireProgrammePermission(currentTx(), 'disposition.write', ids.programmeId);
     foundOr404(await deleteDisposition(currentTx(), ids.programmeId, ids.dispositionId));
   }
 }
@@ -124,4 +136,19 @@ export class DispositionsController {
 /** The one 404 for an unreachable programme, before any body is looked at. */
 async function requireProgramme(programmeId: string): Promise<void> {
   foundOr404(await findProgrammeById(currentTx(), programmeId));
+}
+
+/**
+ * The one 404 for an unreachable programme OR a disposition that is not this
+ * programme's - decided before the permission check, so a 403 never confirms
+ * that a guessed disposition id exists.
+ */
+async function requireDisposition(
+  programmeId: string,
+  dispositionId: string,
+  options: { includeDeleted: boolean },
+): Promise<void> {
+  if (!(await dispositionExists(currentTx(), programmeId, dispositionId, options))) {
+    throw notFound();
+  }
 }

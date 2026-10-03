@@ -5,13 +5,18 @@
 
 ## What this package is
 
-Permission policy engine (M2). PLACEHOLDER — no implementation.
+Permission policy engine (M2). Built in T-0032 to the model in `team/DECISIONS.md` D-L53:
+`policy.ts` is the pure decision, `grants.ts` loads its inputs inside the request's tenant
+transaction. Covers the admin API's writes today; field- and record-level decisions are a
+later task.
 
 ## Invariants
 
-1. This package exists so the module-boundary rule has a real target. Do not grow an implementation outside an assigned task.
-2. Tenancy (which tenant and programme a session can reach) is NOT this package. That is RLS plus `packages/db`. This package answers "which objects, fields and records may this subject act on", which is a different question with a different failure mode.
-3. Blocked on the follow-on to D-L06: how tenant-wide permissions are expressed as distinct from programme membership.
+1. Tenancy (which tenant and programme a session can reach) is NOT this package. That is RLS plus `packages/db`. This package answers "may this session do this", which is a different question with a different failure mode.
+2. A permission never widens scope (D-L06). Every programme decision first requires the programme to be in the session's resolved scope, tenant admin included.
+3. Grants are re-read from the database on every decision. Never cache them in the token, the session object or process memory.
+4. Tenant admin is `"user".is_tenant_admin`, never derived from membership. A set grants programme-scoped actions only, through the allow-list in `policy.ts`; an unlisted set grants nothing.
+5. The caller answers 404 for an unreachable record BEFORE asking this package, so a 403 never confirms existence.
 
 ## Before you open a PR
 
