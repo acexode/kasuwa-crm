@@ -4,15 +4,26 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { Panel, errorMessageId } from './panel';
-import { useResource } from './use-resource';
+import { useResource, type Resource } from './use-resource';
 import { SECONDARY_BUTTON } from '../auth/button-classes';
 import {
   getRetention,
   saveRetention,
   type RetentionExpiry,
-  type RetentionPolicy,
   type ScreenError,
 } from '../../lib/admin-api';
+import {
+  RETENTION_PERIOD_DAYS,
+  UNSET_RETENTION,
+  baselineOf,
+  changedRetentionFields,
+  draftOf,
+  retentionWrite,
+  shortenedFields,
+  type PeriodField,
+  type RetentionBaseline,
+  type RetentionDraft,
+} from './retention-model';
 
 /**
  * `P02/B7` — retention periods, disposal method and legal hold.
@@ -40,22 +51,19 @@ import {
  * ---------------------------------------------------------------------------
  *
  * The write is the WHOLE document with its `version`, like the SLA tab, and a
- * `409 stale_write` re-reads rather than retrying. `PUT /retention` is not
- * built today and answers `501`; the save bar is live and the 501 surfaces as
- * `admin.error.not_implemented`, because a save control that silently does
- * nothing is worse than one that says what happened.
+ * `409 stale_write` re-reads rather than retrying. Any failure — a `501` from
+ * the contract mock included — surfaces through `admin.error.<code>`, because
+ * a save control that silently does nothing is worse than one that says what
+ * happened.
+ *
+ * A programme with no stored policy answers `404` (D-L50). That is rendered
+ * as "no rules saved yet" with every period unchosen — see `retention-model.ts`
+ * for why nothing is pre-selected.
  *
  * `409 legal_hold_active` is its own message: the API refuses to turn a hold
  * off and shorten a period in one request. Two deliberate steps, two audit
  * rows.
  */
-
-/**
- * The design's dropdown, as integer days — which is what the wire carries. One
- * message id per option rather than a plural rule: these are eight fixed
- * phrases, and "2 years" is not a pluralisation of anything a user typed.
- */
-export const RETENTION_PERIOD_DAYS: readonly number[] = [30, 90, 365, 730, 1095, 1825, 2555, 3650];
 
 const PERIOD_ID: Readonly<Record<number, MessageId>> = {
   30: 'admin.ret.period.30d',
@@ -67,12 +75,6 @@ const PERIOD_ID: Readonly<Record<number, MessageId>> = {
   2555: 'admin.ret.period.7y',
   3650: 'admin.ret.period.10y',
 };
-
-type PeriodField =
-  | 'callRecordingsDays'
-  | 'messageTranscriptsDays'
-  | 'screenRecordingsDays'
-  | 'qaEvaluationsDays';
 
 interface PeriodRow {
   readonly field: PeriodField;
@@ -101,45 +103,6 @@ const PERIOD_ROWS: readonly PeriodRow[] = [
 
 const EXPIRY_OPTIONS: readonly RetentionExpiry[] = ['delete', 'anonymise'];
 
-interface Draft {
-  readonly callRecordingsDays: number;
-  readonly messageTranscriptsDays: number;
-  readonly screenRecordingsDays: number;
-  readonly qaEvaluationsDays: number;
-  readonly onExpiry: RetentionExpiry;
-  readonly redactSensitiveNumbersInTranscripts: boolean;
-  readonly legalHold: boolean;
-}
-
-function toDraft(policy: RetentionPolicy): Draft {
-  return {
-    callRecordingsDays: policy.callRecordingsDays,
-    messageTranscriptsDays: policy.messageTranscriptsDays,
-    screenRecordingsDays: policy.screenRecordingsDays,
-    qaEvaluationsDays: policy.qaEvaluationsDays,
-    onExpiry: policy.onExpiry,
-    redactSensitiveNumbersInTranscripts: policy.redactSensitiveNumbersInTranscripts,
-    legalHold: policy.legalHold,
-  };
-}
-
-/** Which fields differ from what was loaded. The amber marks and the count. */
-export function changedRetentionFields(policy: RetentionPolicy, draft: Draft): readonly string[] {
-  const base = toDraft(policy);
-  return (Object.keys(base) as (keyof Draft)[]).filter((key) => base[key] !== draft[key]);
-}
-
-/**
- * Shortening a period destroys data. The screen does not judge WHETHER that is
- * lawful — the client contract and the sector regulator decide that, and the
- * banner says so — but it does say which rows got shorter, because "you are
- * about to delete four years of QA evaluations" is not something to discover
- * from a changed dropdown.
- */
-export function shortenedFields(policy: RetentionPolicy, draft: Draft): readonly PeriodField[] {
-  return PERIOD_ROWS.map((row) => row.field).filter((field) => draft[field] < policy[field]);
-}
-
 export function RetentionTab({
   t,
   programmeId,
@@ -156,15 +119,29 @@ export function RetentionTab({
     [programmeId],
   );
 
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draft, setDraft] = useState<RetentionDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<ScreenError | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const loaded = policy.data;
+  // A 404 on a programme the page has already loaded is "no policy stored
+  // yet" (D-L50), not a missing programme. See `retention-model.ts`.
+  const unset = policy.error?.code === 'not_found';
+  const stored = policy.data;
+  const loaded = useMemo<RetentionBaseline | null>(
+    () => (stored !== null ? baselineOf(stored) : unset ? UNSET_RETENTION : null),
+    [stored, unset],
+  );
+  const view: Resource<RetentionBaseline> = {
+    data: loaded,
+    error: unset ? null : policy.error,
+    loading: policy.loading,
+    slow: policy.slow,
+    reload: policy.reload,
+  };
 
   useEffect(() => {
-    if (loaded !== null) setDraft(toDraft(loaded));
+    if (loaded !== null) setDraft(draftOf(loaded));
   }, [loaded, discardSignal]);
 
   const changed = useMemo(
@@ -177,15 +154,18 @@ export function RetentionTab({
     [loaded, draft],
   );
 
+  /** Null while a period or the disposal method is still unchosen. */
+  const write = loaded === null || draft === null ? null : retentionWrite(loaded, draft);
+
   useEffect(() => {
     onDirtyChange(changed.length);
   }, [changed.length, onDirtyChange]);
 
   const save = async () => {
-    if (loaded === null || draft === null) return;
+    if (write === null) return;
     setSaving(true);
     setSaveError(null);
-    const result = await saveRetention(programmeId, { version: loaded.version, ...draft });
+    const result = await saveRetention(programmeId, write);
     setSaving(false);
     if (result.ok) {
       setToast(t.t('admin.unsaved.saved'));
@@ -198,7 +178,7 @@ export function RetentionTab({
     if (result.error.code === 'stale_write') policy.reload();
   };
 
-  const mark = (field: string) =>
+  const mark = (field: keyof RetentionDraft) =>
     changed.includes(field) ? 'border-accent bg-accent-soft' : 'border-border-strong bg-surface';
 
   return (
@@ -211,7 +191,7 @@ export function RetentionTab({
       >
         <Icon name="info" size="sm" />
         <span>
-          {loaded?.workspaceDefaultDays === null || loaded?.workspaceDefaultDays === undefined
+          {loaded === null || loaded.workspaceDefaultDays === null
             ? t.t('admin.ret.notice.noDefault')
             : t.t('admin.ret.notice', {
                 days: t.t(PERIOD_ID[loaded.workspaceDefaultDays] ?? 'admin.prog.unknown'),
@@ -231,7 +211,18 @@ export function RetentionTab({
         <span>{t.t('admin.ret.scope.note')}</span>
       </p>
 
-      <Panel t={t} resource={policy} skeletonRows={6}>
+      {unset ? (
+        <div
+          role="note"
+          data-testid="retention-unset"
+          className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4"
+        >
+          <b className="text-body-md font-semibold">{t.t('admin.ret.unset.title')}</b>
+          <span className="text-body-sm text-text-2">{t.t('admin.ret.unset.body')}</span>
+        </div>
+      ) : null}
+
+      <Panel t={t} resource={view} skeletonRows={6}>
         {(data) =>
           draft === null ? null : (
             <section className="flex flex-col rounded-lg border border-border bg-surface px-5">
@@ -257,19 +248,23 @@ export function RetentionTab({
                   <select
                     aria-label={t.t(row.label)}
                     data-testid={`retention-${row.field}`}
-                    value={String(draft[row.field])}
+                    value={draft[row.field] === null ? '' : String(draft[row.field])}
                     onChange={(event) =>
-                      setDraft({ ...draft, [row.field]: Number(event.target.value) })
+                      setDraft({
+                        ...draft,
+                        [row.field]: event.target.value === '' ? null : Number(event.target.value),
+                      })
                     }
                     className={`min-h-touch w-48 rounded-md border px-3 text-body-md text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${mark(row.field)}`}
                   >
-                    {/* A period the server already holds but the design never
-                        listed is still rendered, or saving would silently
-                        change it to whatever happened to be first. */}
-                    {(RETENTION_PERIOD_DAYS.includes(data[row.field])
-                      ? RETENTION_PERIOD_DAYS
-                      : [...RETENTION_PERIOD_DAYS, data[row.field]].sort((a, b) => a - b)
-                    ).map((days) => (
+                    {/* Unchosen on a first write: a placeholder, never a
+                        pre-selected period (see retention-model.ts). */}
+                    {draft[row.field] === null ? (
+                      <option value="" disabled>
+                        {t.t('admin.ret.period.choose')}
+                      </option>
+                    ) : null}
+                    {periodOptions(data[row.field]).map((days) => (
                       <option key={days} value={String(days)}>
                         {t.t(PERIOD_ID[days] ?? 'admin.ret.period.days', { days })}
                       </option>
@@ -371,7 +366,7 @@ export function RetentionTab({
             type="button"
             data-testid="discard-changes"
             onClick={() => {
-              if (loaded !== null) setDraft(toDraft(loaded));
+              if (loaded !== null) setDraft(draftOf(loaded));
               setSaveError(null);
               setToast(t.t('admin.unsaved.discarded'));
             }}
@@ -382,7 +377,7 @@ export function RetentionTab({
           <button
             type="button"
             data-testid="save-changes"
-            disabled={saving}
+            disabled={saving || write === null}
             onClick={() => void save()}
             className="flex min-h-touch items-center justify-center rounded-md bg-accent px-4 text-body-md font-bold text-on-accent disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
@@ -392,6 +387,17 @@ export function RetentionTab({
       )}
     </div>
   );
+}
+
+/**
+ * The dropdown's options. A period the server already holds but the design
+ * never listed is still rendered, or saving would silently change it to
+ * whatever happened to be first.
+ */
+function periodOptions(stored: number | null): readonly number[] {
+  return stored === null || RETENTION_PERIOD_DAYS.includes(stored)
+    ? RETENTION_PERIOD_DAYS
+    : [...RETENTION_PERIOD_DAYS, stored].sort((a, b) => a - b);
 }
 
 function RetentionToggle({

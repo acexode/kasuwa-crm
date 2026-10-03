@@ -1,7 +1,7 @@
-import { bundleMessages, localeLabel, SUPPORTED_LOCALES } from '@kasuwa/i18n';
+import { bundleMessages } from '@kasuwa/i18n';
 import { MfaScreen } from '../../components/auth/mfa-screen';
 import { MFA_MESSAGE_IDS } from '../../components/auth/message-ids';
-import { activeLocale } from '../../lib/locale';
+import { activeLocale, languageOptions } from '../../lib/locale';
 
 /**
  * `P01/2`, `P01/2a`, `P01/2b` — the second factor.
@@ -29,7 +29,7 @@ export default async function VerifyPage({
     <MfaScreen
       locale={locale}
       messages={bundleMessages(locale, MFA_MESSAGE_IDS)}
-      locales={SUPPORTED_LOCALES.map((code) => ({ code, label: localeLabel(code) }))}
+      locales={languageOptions(locale)}
       challengeId={challenge}
       initialMethod={method}
       initialHint={hint}

@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation';
-import { bundleMessages, localeLabel, SUPPORTED_LOCALES } from '@kasuwa/i18n';
+import { bundleMessages } from '@kasuwa/i18n';
 import { SignUpScreen } from '../../components/onboarding/sign-up-screen';
 import { SIGN_UP_MESSAGE_IDS } from '../../components/onboarding/message-ids';
 import { selfServeSignupEnabled } from '../../lib/feature-flags';
-import { activeLocale } from '../../lib/locale';
+import { activeLocale, languageOptions } from '../../lib/locale';
 
 /**
  * `P01/3` — sign up. Behind `self_serve_signup` (D-P2), default OFF.
@@ -24,7 +24,7 @@ export default async function SignUpPage() {
     <SignUpScreen
       locale={locale}
       messages={bundleMessages(locale, SIGN_UP_MESSAGE_IDS)}
-      locales={SUPPORTED_LOCALES.map((code) => ({ code, label: localeLabel(code) }))}
+      locales={languageOptions(locale)}
     />
   );
 }

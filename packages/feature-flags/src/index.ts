@@ -55,6 +55,23 @@ export const FLAGS = {
     // production today, every submission would answer 501. T-0016 flips this.
     productionReady: false,
   },
+  /**
+   * T-0035: the twenty-two P02 admin screens answer from the real admin API
+   * against the tenant's own data. Off, the console renders exactly as it did
+   * before the API existed. KPIs (`P02/B2`) and skill cover (`P02/B3`) have no
+   * endpoint behind them yet, so with this ON they show labelled sample data
+   * that lives inside apps/web.
+   */
+  admin_live_api: {
+    description: 'P02 admin console reads and writes the real admin API (T-0035).',
+    defaultValue: false,
+    owner: 'T-0035 (screens), T-0032 (authorisation)',
+    // NOT production-ready, and not because of the screens: the admin
+    // endpoints do not yet answer 403 to a caller without admin rights — the
+    // permissions engine (T-0032, D-L51) adds that. Until it lands, any
+    // authenticated user in a tenant can call them. T-0032 flips this.
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

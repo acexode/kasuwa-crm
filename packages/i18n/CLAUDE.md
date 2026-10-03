@@ -31,8 +31,15 @@ concrete way available, that the language menu was decoration.
    shape of the declaration for that reason.
 4. **Registered is not offered.** `ar` ships so RTL can be exercised against
    real strings with `dir="rtl" lang="ar"`, and is deliberately not on the
-   `P01/1` menu. `REGISTERED_LOCALES` is the inventory; `SUPPORTED_LOCALES` is
-   the menu; the difference between them is the point.
+   `P01/1` menu. `REGISTERED_LOCALES` is the inventory; `MENU_LOCALES` is the
+   menu; the difference between them is the point.
+4a. **Beta is complete-but-unattested, and it is a separate list (D-P1,
+   answered 2026-10-03).** Every menu language ships; one with no named
+   reviewer's sign-off is in `BETA_LOCALES` and the menu shows it with a Beta
+   badge and a "help improve this translation" link. `SUPPORTED_LOCALES` stays
+   the ATTESTED list — the locale-completeness acceptance suite pins it — and
+   `MENU_LOCALES` is the two together in the design's order. Beta never relaxes
+   completeness: an incomplete catalogue is on neither list.
 5. **Two halves to "finished", and both are mechanical.**
    - *complete* — every id present, nothing silently left in English, every
      plural category the language requires, no invented or dropped

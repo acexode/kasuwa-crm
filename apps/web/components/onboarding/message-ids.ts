@@ -117,7 +117,8 @@ export const REGION_MESSAGE_IDS: readonly MessageId[] = [
   'region.tag.sales',
   'region.sales.note',
   'region.law.title',
-  'region.law.body',
+  'region.law.guidance',
+  'region.law.sales',
   'region.law.disclaimer',
 ];
 

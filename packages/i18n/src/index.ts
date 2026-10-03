@@ -1,7 +1,7 @@
 import { IntlMessageFormat } from 'intl-messageformat';
 import { DEFAULT_LOCALE, PSEUDO_LOCALE, fallbackChain } from './bundle';
 import { DESIGN_MENU_LOCALES, LOCALE_SOURCES } from './catalogues';
-import { deriveSupportedLocales, localeReadiness } from './completeness';
+import { deriveBetaLocales, deriveSupportedLocales, localeReadiness } from './completeness';
 import type { Catalogue, MessageId } from './message-id';
 import type { MessageBundle, Translator } from './bundle';
 import en from './locales/en.json';
@@ -60,6 +60,27 @@ export type { MessageBundle, TextDirection, Translator } from './bundle';
  * this declaration for that reason.
  */
 export const SUPPORTED_LOCALES: readonly string[] = deriveSupportedLocales();
+
+/**
+ * Complete but unattested menu languages (D-P1): offered, with a Beta badge
+ * and a "help improve this translation" link. Derived, like the list above,
+ * and disjoint from it — a sign-off moves a language across, nothing else.
+ */
+export const BETA_LOCALES: readonly string[] = deriveBetaLocales();
+
+/**
+ * Everything the language menu lists, in the design's order: the attested and
+ * the Beta languages, then any attested regional overlay (`en-NG`) after the
+ * languages the design names.
+ */
+export const MENU_LOCALES: readonly string[] = [
+  ...DESIGN_MENU_LOCALES.filter(
+    (locale) => SUPPORTED_LOCALES.includes(locale) || BETA_LOCALES.includes(locale),
+  ),
+  ...SUPPORTED_LOCALES.filter(
+    (locale) => !(DESIGN_MENU_LOCALES as readonly string[]).includes(locale),
+  ),
+];
 
 export type SupportedLocale = string;
 
@@ -126,11 +147,7 @@ export function createTranslator(locale: string = DEFAULT_LOCALE): Translator {
  * plausible values for every placeholder in the catalogue. Application code
  * should use `createTranslator`, which is strict.
  */
-export function translate(
-  locale: string,
-  id: string,
-  values?: Record<string, unknown>,
-): string {
+export function translate(locale: string, id: string, values?: Record<string, unknown>): string {
   const message = resolveMessage(locale, id as MessageId);
   if (values === undefined && !message.includes('{')) {
     return message;
@@ -164,6 +181,7 @@ export { requiredPluralCategories, PLURAL_CATEGORIES } from './plurals';
 export type { PluralCategory } from './plurals';
 export {
   allLocaleReadiness,
+  deriveBetaLocales,
   deriveSupportedLocales,
   localeReadiness,
 } from './completeness';

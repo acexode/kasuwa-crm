@@ -1,9 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
+import {
+  createBundleTranslator,
+  type MessageBundle,
+  type MessageId,
+  type Translator,
+} from '@kasuwa/i18n/bundle';
 import type { IconName } from '@kasuwa/ui';
 import { Icon } from '../icon';
 import { AdminShell } from './admin-shell';
@@ -19,6 +24,7 @@ import { ScriptsTab } from './scripts-tab';
 import { RetentionTab } from './retention-tab';
 import { PortalTab } from './portal-tab';
 import { ArchiveDialog } from './archive-dialog';
+import { SampleData } from './sample-data';
 import type { LanguageOption } from '../auth/language-menu';
 import { SECONDARY_BUTTON } from '../auth/button-classes';
 import {
@@ -28,6 +34,7 @@ import {
   type ProgrammeStatus,
 } from '../../lib/admin-api';
 import { formatCount, formatDate, formatDuration, formatPercent } from '../../lib/admin-format';
+import { sampleProgrammeKpis, sampleResult } from '../../lib/admin-sample';
 
 /**
  * `P02/B2`–`P02/B9` — one programme, seven tabs and one destructive dialog,
@@ -45,7 +52,6 @@ import { formatCount, formatDate, formatDuration, formatPercent } from '../../li
  * something real.
  */
 
-
 const STATUS_TONE: Readonly<Record<ProgrammeStatus, string>> = {
   active: 'bg-success-soft text-success-text',
   paused: 'bg-warning-soft text-warning-text',
@@ -59,12 +65,19 @@ export function ProgrammeScreen({
   locales,
   programmeId,
   tab,
+  live,
 }: {
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
   programmeId: string;
   tab: ProgrammeTab;
+  /**
+   * The live-API flag, evaluated on the server (T-0035). When true, KPIs and
+   * skill cover render labelled sample data instead of calling the two
+   * endpoints the API has not built.
+   */
+  live: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const router = useRouter();
@@ -87,12 +100,7 @@ export function ProgrammeScreen({
     `/admin/programmes/${encodeURIComponent(programmeId)}?tab=${next}`;
 
   return (
-    <AdminShell
-      locale={locale}
-      messages={messages}
-      locales={locales}
-      activeSettingId="programmes"
-    >
+    <AdminShell locale={locale} messages={messages} locales={locales} activeSettingId="programmes">
       <div data-screen="P02/B2" className="flex flex-col gap-6 pb-24">
         <nav aria-label={t.t('admin.prog.breadcrumb')} className="flex items-center gap-1">
           <span className="text-body-sm font-semibold text-text-muted">
@@ -130,19 +138,24 @@ export function ProgrammeScreen({
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <span className={`${SECONDARY_BUTTON} pointer-events-none opacity-60`} aria-disabled>
+                <span
+                  className={`${SECONDARY_BUTTON} pointer-events-none opacity-60`}
+                  aria-disabled
+                >
                   <Icon name="open_in_new" size="sm" />
                   {t.t('admin.prog.portal')}
                 </span>
-                <span className={`${SECONDARY_BUTTON} pointer-events-none opacity-60`} aria-disabled>
+                <span
+                  className={`${SECONDARY_BUTTON} pointer-events-none opacity-60`}
+                  aria-disabled
+                >
                   <Icon name="pause" size="sm" />
                   {t.t('admin.prog.pause')}
                 </span>
-                {/* `P02/B9`. The POST is not built and answers 501 — the
-                    `programme` table has no status column — but the dialog is
-                    where the decision is made, and an admin needs to be able
-                    to see the impact and be told plainly that it did not
-                    happen. A disabled button says neither. */}
+                {/* `P02/B9`. The dialog is where the decision is made: it
+                    reads the impact when it opens, asks for the name, and on
+                    success the programme is re-read so the status chip says
+                    what happened. Any failure is shown, never swallowed. */}
                 <button
                   type="button"
                   data-testid="archive-programme"
@@ -181,10 +194,16 @@ export function ProgrammeScreen({
         </div>
 
         {tab === 'overview' ? (
-          <OverviewTab t={t} locale={locale} programmeId={programmeId} detail={programme.data} />
+          <OverviewTab
+            t={t}
+            locale={locale}
+            programmeId={programmeId}
+            detail={programme.data}
+            live={live}
+          />
         ) : null}
         {tab === 'agents' ? (
-          <AgentsTab t={t} locale={locale} programmeId={programmeId} />
+          <AgentsTab t={t} locale={locale} programmeId={programmeId} live={live} />
         ) : null}
         {tab === 'sla' ? (
           <SlaTab
@@ -198,9 +217,7 @@ export function ProgrammeScreen({
         {tab === 'dispositions' ? (
           <DispositionsTab t={t} locale={locale} programmeId={programmeId} />
         ) : null}
-        {tab === 'scripts' ? (
-          <ScriptsTab t={t} locale={locale} programmeId={programmeId} />
-        ) : null}
+        {tab === 'scripts' ? <ScriptsTab t={t} locale={locale} programmeId={programmeId} /> : null}
         {tab === 'retention' ? (
           <RetentionTab
             t={t}
@@ -220,6 +237,7 @@ export function ProgrammeScreen({
           programmeId={programmeId}
           programmeName={programme.data.name}
           onClose={() => setArchiving(false)}
+          onArchived={programme.reload}
         />
       ) : null}
 
@@ -282,15 +300,24 @@ function OverviewTab({
   locale,
   programmeId,
   detail,
+  live,
 }: {
   t: Translator;
   locale: string;
   programmeId: string;
   detail: ProgrammeDetail | null;
+  live: boolean;
 }) {
   const kpis = useResource(
-    useCallback((signal: AbortSignal) => getProgrammeKpis(programmeId, signal), [programmeId]),
-    [programmeId],
+    useCallback(
+      (signal: AbortSignal) =>
+        live
+          ? sampleResult(sampleProgrammeKpis((id) => t.t(id)))
+          : getProgrammeKpis(programmeId, signal),
+      // `t` is rebuilt every render; the locale is what changes its output.
+      [programmeId, live, locale],
+    ),
+    [programmeId, live, locale],
   );
 
   const value = (format: 'percent' | 'count' | 'duration_seconds', raw: number) =>
@@ -311,36 +338,38 @@ function OverviewTab({
       {/* KPIs are a SEPARATE read on purpose: they are analytics over a window
           and they will be slow. Folding them into the detail response would
           make the whole page wait for the slowest number on it. */}
-      <Panel t={t} resource={kpis} skeletonRows={1}>
-        {(data) => (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {data.kpis.map((kpi) => (
-              <div key={kpi.kpiId} className={CARD} data-kpi-id={kpi.kpiId}>
-                <span className="flex items-center gap-2 text-body-sm font-semibold text-text-2">
-                  <Icon name={KPI_ICON[kpi.kpiId] ?? 'bar_chart'} size="sm" />
-                  {kpi.label}
-                </span>
-                <b className="text-h3">{value(kpi.format, kpi.value)}</b>
-                {kpi.targetValue === null || kpi.targetValue === undefined ? null : (
-                  <span
-                    className={`text-body-sm font-semibold ${
-                      kpi.status === 'bad'
-                        ? 'text-danger-text'
-                        : kpi.status === 'warn'
-                          ? 'text-warning-text'
-                          : 'text-success-text'
-                    }`}
-                  >
-                    {t.t('admin.prog.kpi.target', {
-                      value: value(kpi.format, kpi.targetValue),
-                    })}
+      <KpiFrame t={t} live={live}>
+        <Panel t={t} resource={kpis} skeletonRows={1}>
+          {(data) => (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {data.kpis.map((kpi) => (
+                <div key={kpi.kpiId} className={CARD} data-kpi-id={kpi.kpiId}>
+                  <span className="flex items-center gap-2 text-body-sm font-semibold text-text-2">
+                    <Icon name={KPI_ICON[kpi.kpiId] ?? 'bar_chart'} size="sm" />
+                    {kpi.label}
                   </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </Panel>
+                  <b className="text-h3">{value(kpi.format, kpi.value)}</b>
+                  {kpi.targetValue === null || kpi.targetValue === undefined ? null : (
+                    <span
+                      className={`text-body-sm font-semibold ${
+                        kpi.status === 'bad'
+                          ? 'text-danger-text'
+                          : kpi.status === 'warn'
+                            ? 'text-warning-text'
+                            : 'text-success-text'
+                      }`}
+                    >
+                      {t.t('admin.prog.kpi.target', {
+                        value: value(kpi.format, kpi.targetValue),
+                      })}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Panel>
+      </KpiFrame>
 
       {detail === null ? null : (
         <div className="grid gap-4 xl:grid-cols-3">
@@ -420,7 +449,10 @@ function OverviewTab({
                 term={t.t('admin.prog.field.agents')}
                 detailValue={number(detail.people?.agentCount)}
               />
-              <Row term={t.t('admin.prog.field.qa')} detailValue={number(detail.people?.qaAnalystCount)} />
+              <Row
+                term={t.t('admin.prog.field.qa')}
+                detailValue={number(detail.people?.qaAnalystCount)}
+              />
               <Row
                 term={t.t('admin.prog.field.portalUsers')}
                 detailValue={number(detail.people?.portalUserCount)}
@@ -430,6 +462,20 @@ function OverviewTab({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * KPIs on the live console are SAMPLE data and say so (T-0035); against the
+ * contract they render bare, exactly as before the API existed.
+ */
+function KpiFrame({ t, live, children }: { t: Translator; live: boolean; children: ReactNode }) {
+  return live ? (
+    <SampleData t={t} testId="kpi-sample">
+      {children}
+    </SampleData>
+  ) : (
+    <>{children}</>
   );
 }
 

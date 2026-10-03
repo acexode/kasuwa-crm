@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation';
-import { bundleMessages, localeLabel, SUPPORTED_LOCALES } from '@kasuwa/i18n';
+import { bundleMessages } from '@kasuwa/i18n';
 import { VerifyScreen } from '../../../components/onboarding/verify-screen';
 import { VERIFY_MESSAGE_IDS } from '../../../components/onboarding/message-ids';
 import { selfServeSignupEnabled } from '../../../lib/feature-flags';
-import { activeLocale } from '../../../lib/locale';
+import { activeLocale, languageOptions } from '../../../lib/locale';
 
 /**
  * `P01/4` — email and phone verification. Behind `self_serve_signup`; 404
@@ -31,7 +31,7 @@ export default async function VerifyPage({
     <VerifyScreen
       locale={locale}
       messages={bundleMessages(locale, VERIFY_MESSAGE_IDS)}
-      locales={SUPPORTED_LOCALES.map((code) => ({ code, label: localeLabel(code) }))}
+      locales={languageOptions(locale)}
       verificationId={text(search.verification) ?? ''}
       emailHint={text(search.email)}
       phoneHint={text(search.phone)}

@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation';
-import { bundleMessages, localeLabel, SUPPORTED_LOCALES } from '@kasuwa/i18n';
+import { bundleMessages } from '@kasuwa/i18n';
 import { RegionScreen } from '../../../components/onboarding/region-screen';
 import { REGION_MESSAGE_IDS } from '../../../components/onboarding/message-ids';
 import { selfServeSignupEnabled } from '../../../lib/feature-flags';
-import { activeLocale } from '../../../lib/locale';
+import { activeLocale, languageOptions } from '../../../lib/locale';
 
 /**
  * `P01/5.1` — data region. Behind `self_serve_signup`; 404 while it is off.
@@ -23,7 +23,7 @@ export default async function RegionPage() {
     <RegionScreen
       locale={locale}
       messages={bundleMessages(locale, REGION_MESSAGE_IDS)}
-      locales={SUPPORTED_LOCALES.map((code) => ({ code, label: localeLabel(code) }))}
+      locales={languageOptions(locale)}
     />
   );
 }

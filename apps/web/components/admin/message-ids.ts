@@ -1,5 +1,6 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
 import { NAV_MESSAGE_IDS } from './nav-model';
+import { SAMPLE_MESSAGE_IDS } from '../../lib/admin-sample';
 
 /**
  * Which strings each P02 screen needs, resolved on the SERVER.
@@ -159,6 +160,10 @@ export const ADMIN_PROGRAMME_MESSAGE_IDS: readonly MessageId[] = [
   ...ADMIN_SHELL_MESSAGE_IDS,
   ...PROGRAMME_STATUS_MESSAGE_IDS,
   ...CHANNEL_MESSAGE_IDS,
+  // KPIs and skill cover on labelled sample data while `admin_live_api` is on
+  // (T-0035). Bundled either way: a few short strings, and a bundle that
+  // changed shape with a flag would be a second thing to keep in step.
+  ...SAMPLE_MESSAGE_IDS,
   'admin.prog.eyebrow',
   'admin.prog.title',
   'admin.prog.breadcrumb',
@@ -198,6 +203,9 @@ export const ADMIN_PROGRAMME_MESSAGE_IDS: readonly MessageId[] = [
   'admin.ret.hold.note',
   'admin.ret.notice',
   'admin.ret.notice.noDefault',
+  'admin.ret.unset.title',
+  'admin.ret.unset.body',
+  'admin.ret.period.choose',
   'admin.ret.onExpiry',
   'admin.ret.onExpiry.anonymise',
   'admin.ret.onExpiry.anonymise.note',
