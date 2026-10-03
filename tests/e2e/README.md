@@ -89,6 +89,29 @@ Pick the budget from what the screen actually needs, not from what it currently
 costs. If a screen cannot meet the profile, that is a finding about the screen
 and it belongs in `team/DECISIONS.md` — **not** in a relaxed profile here.
 
+### Every number here is a production number (T-0010)
+
+`pnpm test:e2e` runs `next build` for `apps/web` on every run and serves the
+result with `next start` — locally and in CI alike, so the two agree. There is
+no `next dev` in this harness any more; a budget set against a development
+bundle is meaningless in both directions (D-L28). A fresh build per run is
+deliberate: a `.next` left over from another checkout would be measured as if
+it were the code under review.
+
+### The sign-in critical path (`@byte-budget`)
+
+```bash
+pnpm test:e2e -- --grep @byte-budget
+```
+
+`support/critical-path.ts` is the only definition of "critical path": on `/`,
+the Document, Script, Stylesheet and Font requests sent at or before first
+contentful paint, summed as **gzipped transfer** (CDP `encodedDataLength`),
+never decoded bytes. `SIGN_IN_CRITICAL_PATH_BUDGET_BYTES` is pinned near the
+measured weight, not at the 300,000-byte PRD 2.13 ceiling; the run writes the
+full breakdown to `.artifacts/critical-path.json`. If it fails, that file says
+which request grew.
+
 ## Why `fixtures/over-budget.spec.ts` is red on purpose
 
 It loads a 400 KiB page against a 64 KiB budget, and it must fail. A budget
@@ -107,6 +130,7 @@ Everything a failed run produced lands in `.artifacts/` (git-ignored):
 | Path | What |
 |---|---|
 | `harness-metrics.json` | `{ "<profile>": { fcpMs, transferredBytes } }` |
+| `critical-path.json` | the `@byte-budget` measurement: every request, counted or not |
 | `stack.json` | the URLs this run's servers bound to |
 | `test-results/` | traces and screenshots, retained on failure |
 | `report/` | the HTML report |

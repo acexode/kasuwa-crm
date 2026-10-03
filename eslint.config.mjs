@@ -143,6 +143,36 @@ export default tseslint.config(
     },
   },
 
+  {
+    // The channel fakes are exported from the adapter's main entry because the
+    // T-0017 acceptance suite loads them from there. Runtime code must never
+    // send through a fake (or a fake DND register that clears every number),
+    // so apps and domains may not import them. `no-restricted-imports` is one
+    // rule: this block replaces the one above for these paths, so it restates
+    // the @kasuwa/testing ban. Tests are exempted by the block further down.
+    files: ['apps/**/*.ts', 'apps/**/*.tsx', 'packages/domain/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@kasuwa/testing',
+              message:
+                'The isolation harness can forge RLS session variables. It belongs in tests only.',
+            },
+            {
+              name: '@kasuwa/channel-adapter',
+              importNames: ['FakeChannelProvider', 'FakeDndRegister'],
+              message:
+                'The channel fakes send nothing and clear every DND lookup. They belong in tests only.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // --- restricted syntax -------------------------------------------------
   // One block, because `no-restricted-syntax` is a single rule: a later config
   // object replaces its whole configuration rather than adding to it. The two

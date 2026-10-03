@@ -7,8 +7,10 @@
  *   2. Postgres via Testcontainers, migrated and seeded with the SAME fixtures
  *      the isolation suite uses (`packages/db/src/fixtures.ts`)
  *   3. apps/api, pointed at that container
- *   4. apps/web, warmed up so the first navigation in a spec is not also the
- *      first compile
+ *   4. apps/web, BUILT for production (`next build`) and served with
+ *      `next start` — the thing we deploy, so the bytes a spec measures are the
+ *      bytes a user pays (T-0010, D-L28). Locally and in CI alike: one path, or
+ *      the two sets of numbers disagree and nobody trusts either.
  *   5. Playwright
  *
  * It is plain Node rather than Playwright's own `webServer` because the API's
@@ -250,43 +252,118 @@ function startApi(databaseUrl, port) {
   return child;
 }
 
-/**
- * THE SECOND WEB SERVER — `self_serve_signup` ON, SERVER-SIDE (T-0007).
- *
- * `P01/3`, `P01/4` and `P01/5.1` must be a 404 with the flag at its default
- * AND render with it on, and the acceptance suite reads both from ONE
- * Playwright run. A flag is per process, never per request — nothing a browser
- * sends may turn it on — so the run starts two web processes: the normal one,
- * with `KASUWA_FEATURE_FLAGS_ON` forced empty so a developer's shell cannot
- * leak a flag into it, and this one, with the flag named.
- *
- * Two `next dev` processes sharing `.next` corrupt each other, so this one
- * builds into its own directory and is handed its own generated tsconfig (both
- * gitignored; see `apps/web/next.config.mjs`). Next also rewrites
- * `next-env.d.ts` to point at whichever build directory started last, and that
- * file is tracked — so it is put back the moment both servers are up, and again
- * at teardown.
- */
 const WEB_DIR = join(repoRoot, 'apps', 'web');
-const SELF_SERVE_DIST_DIR = '.next-self-serve';
-const SELF_SERVE_TSCONFIG = 'tsconfig.e2e-self-serve.json';
 const NEXT_ENV_FILE = join(WEB_DIR, 'next-env.d.ts');
 
+/**
+ * Next rewrites the TRACKED `next-env.d.ts` to point at whichever build
+ * directory it last used. `next build` into the default `.next` writes the
+ * same content it already has (Next skips an identical write), but the
+ * self-serve dev server below uses `.next-self-serve` and does change it. So
+ * the file is snapshotted before anything runs and put back after the build,
+ * once both servers are up, and at teardown — a test run must not leave the
+ * checkout dirty.
+ */
 function restoreNextEnv(original) {
   if (readFileSync(NEXT_ENV_FILE, 'utf8') !== original) {
     writeFileSync(NEXT_ENV_FILE, original, 'utf8');
   }
 }
 
-function startWeb(apiUrl, port, { selfServe = false } = {}) {
-  if (selfServe) {
-    writeFileSync(
-      join(WEB_DIR, SELF_SERVE_TSCONFIG),
-      `${JSON.stringify({ extends: './tsconfig.json' }, null, 2)}\n`,
-      'utf8',
+/**
+ * `next build`, through apps/web's own wrapper (`build.mjs`), which pins
+ * NODE_ENV=production so the ambient environment cannot change what is built.
+ *
+ * Every run builds afresh. A `.next` left over from an earlier checkout would
+ * be measured as if it were the code under review, and the byte-budget
+ * acceptance suite checks `BUILD_ID` is newer than the run for that reason.
+ *
+ * NEXT_PUBLIC_API_URL is passed at BUILD time as well as at start: the
+ * `/api/v1` rewrite in next.config.mjs is resolved into the routes manifest by
+ * `next build`, so the API's port has to be known before the build starts.
+ *
+ * KASUWA_FEATURE_FLAGS_ON is forced empty here too: the build evaluates nothing
+ * flag-dependent today, but a developer's shell must never leak a flag into
+ * the artefact the default server serves.
+ */
+function buildWeb(apiUrl) {
+  const child = spawn('node', ['build.mjs'], {
+    cwd: WEB_DIR,
+    shell: process.platform === 'win32',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      NEXT_PUBLIC_API_URL: apiUrl,
+      NEXT_TELEMETRY_DISABLED: '1',
+      KASUWA_FEATURE_FLAGS_ON: '',
+    },
+  });
+  pipeTo(child, 'web-build');
+  cleanups.push(async () => killTree(child));
+  return new Promise((done, fail) => {
+    child.on('exit', (code) =>
+      code === 0 ? done() : fail(new Error(`next build exited with ${code}`)),
     );
-  }
-  const child = spawn('pnpm', ['exec', 'next', 'dev', '-p', String(port)], {
+  });
+}
+
+/**
+ * THE DEFAULT WEB SERVER — the production build, every flag at its default
+ * (T-0010). `KASUWA_FEATURE_FLAGS_ON` is forced empty so a developer's shell
+ * cannot leak a flag into it. This is the only server the byte budget measures.
+ */
+function startWeb(apiUrl, port) {
+  const child = spawn('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
+    cwd: WEB_DIR,
+    shell: process.platform === 'win32',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      NODE_ENV: 'production',
+      NEXT_PUBLIC_API_URL: apiUrl,
+      NEXT_TELEMETRY_DISABLED: '1',
+      KASUWA_FEATURE_FLAGS_ON: '',
+    },
+  });
+  pipeTo(child, 'web');
+  cleanups.push(async () => {
+    killTree(child);
+    await waitForPortClosed(port);
+  });
+  return child;
+}
+
+/**
+ * THE SECOND WEB SERVER — `self_serve_signup` ON, SERVER-SIDE (T-0007).
+ *
+ * `P01/3`, `P01/4` and `P01/5.1` must be a 404 with the flag at its default
+ * AND render with it on, and the acceptance suite reads both from ONE
+ * Playwright run. A flag is per process, never per request — nothing a browser
+ * sends may turn it on — so the run starts a second web process with the flag
+ * named in its environment.
+ *
+ * IT IS `next dev`, NOT A PRODUCTION BUILD, AND IT CANNOT BE ONE.
+ * `self_serve_signup` is marked `productionReady: false` in
+ * `@kasuwa/feature-flags`, and a NODE_ENV=production process that names it in
+ * `KASUWA_FEATURE_FLAGS_ON` refuses to boot (apps/web/instrumentation.ts) until
+ * T-0016 ships the endpoints. That guard is the point; the harness does not
+ * work around it. When T-0016 lifts the flag, this server can follow T-0010
+ * onto `next start`. Nothing measures bytes here — a dev bundle is not a budget.
+ *
+ * It must not share `.next` with the production build, so it gets its own
+ * build directory and its own generated tsconfig (both gitignored; see
+ * `apps/web/next.config.mjs`).
+ */
+const SELF_SERVE_DIST_DIR = '.next-self-serve';
+const SELF_SERVE_TSCONFIG = 'tsconfig.e2e-self-serve.json';
+
+function startSelfServeWeb(apiUrl, port) {
+  writeFileSync(
+    join(WEB_DIR, SELF_SERVE_TSCONFIG),
+    `${JSON.stringify({ extends: './tsconfig.json' }, null, 2)}\n`,
+    'utf8',
+  );
+  const child = spawn('pnpm', ['exec', 'next', 'dev', '-p', String(port), '-H', '127.0.0.1'], {
     cwd: WEB_DIR,
     shell: process.platform === 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -295,13 +372,12 @@ function startWeb(apiUrl, port, { selfServe = false } = {}) {
       NODE_ENV: 'development',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
-      KASUWA_FEATURE_FLAGS_ON: selfServe ? 'self_serve_signup' : '',
-      ...(selfServe
-        ? { KASUWA_WEB_DIST_DIR: SELF_SERVE_DIST_DIR, KASUWA_WEB_TSCONFIG: SELF_SERVE_TSCONFIG }
-        : {}),
+      KASUWA_FEATURE_FLAGS_ON: 'self_serve_signup',
+      KASUWA_WEB_DIST_DIR: SELF_SERVE_DIST_DIR,
+      KASUWA_WEB_TSCONFIG: SELF_SERVE_TSCONFIG,
     },
   });
-  pipeTo(child, selfServe ? 'web:self-serve' : 'web');
+  pipeTo(child, 'web:self-serve');
   cleanups.push(async () => {
     killTree(child);
     await waitForPortClosed(port);
@@ -346,6 +422,7 @@ async function main() {
     // Stale numbers from a previous run would be indistinguishable from numbers
     // this run produced, and the acceptance suite reads this file.
     rmSync(join(artifactsDir, 'harness-metrics.json'), { force: true });
+    rmSync(join(artifactsDir, 'critical-path.json'), { force: true });
   }
 
   const fixturesPort = await freePort();
@@ -358,33 +435,45 @@ async function main() {
   let webSelfServeUrl = '';
 
   if (!wantsOverBudget) {
-    log('starting Postgres (Testcontainers), migrating and seeding...');
-    const database = await startDatabase();
-
+    // The API's port is chosen first because the web build needs it (see
+    // buildWeb). The build runs BEFORE the container starts, not beside it:
+    // run side by side on a loaded machine, `next build`'s worker died with a
+    // V8 fatal error once and hung in compile once, while the same build alone
+    // succeeded every time. Forty seconds of wall clock is cheaper than a
+    // harness that fails in setup for reasons unrelated to the change.
     const apiPort = await freePort();
     apiUrl = `http://127.0.0.1:${apiPort}`;
-    startApi(database.databaseUrl, apiPort);
-    await waitForHttp(`${apiUrl}/health`, 'the API');
-    log(`api on ${apiUrl}`);
 
     const nextEnv = readFileSync(NEXT_ENV_FILE, 'utf8');
     cleanups.push(async () => restoreNextEnv(nextEnv));
+
+    log('building apps/web for production (next build)...');
+    await buildWeb(apiUrl);
+    restoreNextEnv(nextEnv);
+
+    log('starting Postgres (Testcontainers), migrating and seeding...');
+    const database = await startDatabase();
+
+    startApi(database.databaseUrl, apiPort);
+    await waitForHttp(`${apiUrl}/health`, 'the API');
+    log(`api on ${apiUrl}`);
 
     const webPort = await freePort();
     webUrl = `http://127.0.0.1:${webPort}`;
     const selfServePort = await freePort();
     webSelfServeUrl = `http://127.0.0.1:${selfServePort}`;
     startWeb(apiUrl, webPort);
-    startWeb(apiUrl, selfServePort, { selfServe: true });
-    // Next compiles a route on first request. Doing that here rather than
-    // inside a spec keeps the compile out of the measured navigation.
+    startSelfServeWeb(apiUrl, selfServePort);
+    // The production server is ready when it answers; the dev server also
+    // compiles its first route on that request, which keeps the compile out of
+    // a spec's navigation.
     await Promise.all([
       waitForHttp(webUrl, 'the web app'),
       waitForHttp(webSelfServeUrl, 'the self-serve web app'),
     ]);
     restoreNextEnv(nextEnv);
-    log(`web on ${webUrl}`);
-    log(`web (self_serve_signup on) on ${webSelfServeUrl}`);
+    log(`web (next start, production build) on ${webUrl}`);
+    log(`web (next dev, self_serve_signup on) on ${webSelfServeUrl}`);
   }
 
   // One file per Playwright project, not a shared `stack.json`. Two

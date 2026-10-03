@@ -479,7 +479,7 @@ proceed and hope.
 ## B1. New — product decisions
 
 ### D-P1 — How are the seven UI languages actually translated?
-**Status:** ANSWERED 2026-09-27, completed 2026-10-02 (English + `en-NG` at launch; a language is offered once it has a named reviewer). Native-speaker review for `ha`/`ig`/`yo`/`pcm`, professional translation for `fr`/`sw`, no reviewer means unoffered. See DECISION-LOG.md. **Still outstanding from @acexode: a named reviewer per language.**
+**Status:** REOPENED 2026-10-02 by @acexode — **to discuss once the current round of seven tasks is done.** Direction given: every language goes live; once the app is complete, native speakers test each one and make recommendations. The "English + `en-NG` only at launch" answer recorded earlier the same day is withdrawn. Until the discussion, nothing changes in code. Previous answer, for reference: native-speaker review for `ha`/`ig`/`yo`/`pcm`, professional translation for `fr`/`sw`, no reviewer means unoffered. See DECISION-LOG.md. **Still outstanding from @acexode: a named reviewer per language.**
 
 **Needed by:** before any locale is marked offered. **Does not block T-0009** —
 the mechanism is built either way; this decides what goes into it.
@@ -724,3 +724,148 @@ controls. That is also true of the bookkeeping-straight-to-`main` rule.
 on Team; (3) make it public; (4) accept convention-strength guards and record the risk.
 **Recommendation:** (1) or (2). (3) publishes the security model and tenancy code.
 **Blocked:** nothing day to day; it caps how much any gate here can be trusted.
+
+---
+
+## B7. Raised 2026-10-02
+
+### D-L36 — no feature may be quietly buried
+**Status:** OPEN — to discuss with D-P1 after the current round.
+**Context:** @acexode: "this app has lots of features, I don't want any to be accidentally
+buried." The real risk is features that are flag-gated (for example `self_serve_signup`), held
+back as "not MVP", deferred (telephony, WFM), or mock-only with no backend (P02 today). Each one
+is reasonable on its own, and together they let a feature disappear without anyone deciding it
+should.
+**Lead proposal for the discussion:** one register, `team/FEATURES.md`, listing every PRD
+feature with its state (built / mock-only / flagged off / deferred / not started), the flag
+name if any, and the decision that put it there. It is regenerated from the PRD, task files,
+`x-kasuwa-implemented` flags and the feature-flag registry, so it cannot drift. A verifier
+fails CI if a flag or a deferral has no row.
+
+---
+
+## B8. Raised during T-0017 (2026-10-02)
+
+### D-P10 — the first messaging provider
+**Status:** OPEN — lead recommendation below; needs real per-message prices before it is final.
+**Context:** T-0017 built `@kasuwa/channel-adapter` against a fake provider only. OTP for
+self-serve sign-up (T-0016) and MFA recovery (T-0012) both need a real one. Choosing it is spend
+and a contract.
+**Lead recommendation:** **SMS through a Nigerian aggregator first**, for OTP only: it reaches every
+phone with no opt-in or template approval. **WhatsApp through a BSP second**, when M8 proper
+(conversations, templates, the 24-hour window) starts. The lead has **no verified pricing**. Before
+signing, get quotes from two aggregators and record the per-message NGN cost and whether DND lookup
+is included or billed per lookup (T-0017's escalation trigger).
+**Blocked:** T-0016 OTP delivery and T-0012 recovery in production. Nothing in development.
+
+### D-L37 — `send` needs an idempotency key before T-0016
+**Status:** PROCEEDING (lead decision, reversible).
+A retry after a timeout the provider actually accepted would send a second OTP. The lead will add a
+required `idempotencyKey` to `SendRequest`, with a matching acceptance assertion, as the first step of
+T-0016. Until then, the adapter treats unclassified send errors as **non-retryable**, so nothing
+retries into a double send.
+
+**Carried from the T-0017 security review (2026-10-02), for T-0016/T-0012 and D-P10:**
+- `TenantScope` on `send`/`getDeliveryStatus` is caller-supplied. The first callers (T-0016, T-0012)
+  must derive it from the session, never the request (CLAUDE.md 2.2). `tenancy-reviewer` checks this on those PRs.
+- A caller can mislabel a campaign `transactional` and skip DND. Audit the stated `purpose` per send
+  once campaigns exist (Agent 8).
+- Once a real provider is chosen, every number and message body leaves the region. D-P10 needs an
+  NDPA cross-border transfer assessment alongside the price.
+
+---
+
+## B9. Raised during T-0022 / T-0024 (2026-10-02)
+
+### D-L38 — admin writes are live but unaudited until the audit log exists
+**Status:** PROCEEDING (lead decision, reversible). @acexode may overturn.
+**Context:** `createRole`, `updateRole`, `deleteRole`, `updateRoleHierarchy` (T-0022) and
+`updateProgramme` (T-0024) are marked `x-kasuwa-audited`, and CLAUDE.md 6.7 says permission changes
+are audited. No audit table exists. The acceptance suites exercise these writes, so putting them
+behind a default-off flag would fail tests that may not be edited.
+**Decision:** merge them unaudited, on three conditions: (1) **the audit log is Agent 1's next task**
+(table, writer, and the four `audit` endpoints P02 already draws); (2) **no environment with real
+users is deployed before it lands**. None exists today, and T-0005 applies no Terraform. (3) Each
+unaudited operation is listed in its PR and report, so the gap is named, not buried (D-L36).
+**Reversibility:** trivial. Audit is additive.
+
+### D-L39 — one wiring pattern for admin modules
+**Status:** PROCEEDING (lead decision).
+Three builders each solved "the auth guard needs `AUTH_MODE`" differently: Agent 1 made the root
+module global and exported it; Agent 2 passes it into a dynamic module; Agent 3 registered the
+controller on the root module. **Adopt Agent 1's pattern** (global `AUTH_MODE`, one-line module
+import per admin area) when the three PRs merge, and move the shared admin error filter to
+`apps/api/src/admin/`. Whichever of #44/#45 merges after #43 is rebased onto it.
+
+### D-L40 — renaming a programme can confirm a sibling programme's name
+**Status:** TRACKED RISK. Fix rides on the permissions engine.
+**Context (tenancy-reviewer on T-0024):** `programme` names are `UNIQUE (tenant_id, name)`, and
+unique checks ignore RLS. A user assigned only to programme A2 can PATCH A2 to a guessed name and
+learn from the 409 `duplicate_name` that a sibling programme of that exact name exists. In a BPO,
+names carry the end client ("Bank X Collections"), which is sensitive between client teams. No id
+or row leaks; only the name is confirmed.
+**Why not fixed in T-0024:** no remapping helps (any failed write differs from a success), and the
+task forbids a migration. With no 403 check yet, any programme member can probe.
+**Resolution (lead):** when the permissions engine lands, `updateProgramme` is restricted to tenant
+admins, who can reach every programme, so the oracle stops crossing a boundary. Until then: no
+environment with real users is deployed (same condition as D-L38).
+
+---
+
+## B10. Raised during T-0005 (2026-10-02)
+
+### D-L41 — 36 known vulnerabilities already in the lockfile
+**Status:** PROCEEDING (lead decision, reversible).
+**Context:** The new blocking dependency scan (osv-scanner, PR #48) found 36 existing advisories
+(1 critical, 13 high). Blocking on all of them would turn every PR red on day one.
+**Decision:** baseline all 36 in `osv-scanner.toml` with a **hard expiry of 2026-10-31**; any new
+advisory blocks immediately. **Triage first:** `drizzle-orm 0.38.4` (GHSA-gpj5-g38j-94v9,
+CVSS 7.5), which is in the API's runtime path through `@kasuwa/db`. It becomes a task for Agent 1
+right after the audit log. Each remaining baselined advisory needs an upgrade or a written
+not-reachable note before the expiry.
+
+### D-L42 — Nest's own exception logger can carry PII
+**Status:** OPEN. Follow-up task to be written.
+In production, Nest's built-in exception handler logs `exception.message` and the stack trace, and a
+pg error message can contain row values. That path is outside OpenTelemetry, so the PII suite
+cannot see it. Fix: a global exception filter that logs only the error class and code, with a test
+that greps the process output for a probe value. Also extend `collectTelemetry` to return span
+events, so a future `recordException` stays inside the PII grep.
+
+---
+
+## B11. Raised during T-0010 (2026-10-02)
+
+### D-L43 — self-hosted fonts silently fall back to Google
+**Status:** OPEN. Agent 11 owns it, alongside the 168 KB latin-ext fix (HANDOFF item 6).
+`packages/ui/src/fonts.generated.css` lists `fonts.gstatic.com` as a fallback source in every
+`@font-face`. If a self-hosted font fails, the browser fetches from Google: a third origin on a
+256 kbps link, and **user IPs sent to a third party** (an NDPA processing question we never decided
+to take on). Fix in `fetch-fonts.mjs`: self-hosted sources only, plus a test that greps the
+generated CSS for any external origin.
+**Also from T-0010, for Agent 11:** the P01 sign-in budget (270,336) now has 12.6% headroom over the
+measured 240,015 and should be re-pinned.
+
+---
+
+## B12. Raised during T-0007b (2026-10-03)
+
+### D-P11 — copy on the sign-up region screen (`P01/5.1`) needs counsel or the designer
+**Status:** OPEN. Regulatory wording; the lead will not paraphrase it.
+The NDPA panel is the design's text verbatim, and its last sentence tells the user to "choose
+Nigeria", which D-P2 makes unselectable during self-serve sign-up (ZA only; NG and KE are sales-led).
+Two new strings also need review: "Talk to sales" and "Our sales team sets this region up with you.
+It cannot be chosen during sign-up." The exact text is in `team/reports/T-0007b.md`. Behind
+`self_serve_signup` (off), so no user sees it until v1.
+
+### D-L44 — naira and cedi signs pull in the 168 KB font
+**Status:** OPEN. Agent 11, folded into D-L43 / HANDOFF item 6.
+₦ and ₵ fall in Noto Sans Latin Extended (168 KB). `/onboarding` first measured 399,576 bytes,
+over the 300 KB ceiling, purely from one currency sign. T-0007b worked around it by setting
+amounts in JetBrains Mono (now 243,325 bytes), but **every future screen that shows a naira amount
+will hit this.** Fix in `packages/ui` / `fetch-fonts.mjs`: a small subset carrying the currency
+symbols, served ahead of the full Latin-Extended file.
+
+### Also from T-0007b, for T-0018
+`P01/6` says "This list stays on your Home page", which is untrue until T-0018 persists onboarding
+state. Fix the copy or the state in T-0018.

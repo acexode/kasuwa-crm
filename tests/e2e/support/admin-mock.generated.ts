@@ -979,7 +979,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getProgramme",
     "method": "GET",
     "path": "/api/v1/admin/programmes/{programmeId}",
-    "implemented": "partial",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/B2"
@@ -1671,7 +1671,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listFieldSecurityObjects",
     "method": "GET",
     "path": "/api/v1/admin/field-security/objects",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/D"
@@ -1803,7 +1803,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listProgrammeAgents",
     "method": "GET",
     "path": "/api/v1/admin/programmes/{programmeId}/agents",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/B3"
@@ -1866,7 +1866,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listProgrammes",
     "method": "GET",
     "path": "/api/v1/admin/programmes",
-    "implemented": "partial",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/B",
@@ -2419,7 +2419,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "updateProgramme",
     "method": "PATCH",
     "path": "/api/v1/admin/programmes/{programmeId}",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P02/B2"

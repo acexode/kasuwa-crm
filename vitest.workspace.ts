@@ -24,6 +24,7 @@ const alias = {
   '@kasuwa/permissions': resolve(root, 'packages/permissions/src/index.ts'),
   '@kasuwa/metadata-engine': resolve(root, 'packages/metadata-engine/src/index.ts'),
   '@kasuwa/telephony-adapter': resolve(root, 'packages/telephony-adapter/src/index.ts'),
+  '@kasuwa/channel-adapter': resolve(root, 'packages/channel-adapter/src/index.ts'),
   '@kasuwa/wfm-adapter': resolve(root, 'packages/wfm-adapter/src/index.ts'),
   '@kasuwa/domain-core': resolve(root, 'packages/domain/core/src/index.ts'),
   '@kasuwa/ui': resolve(root, 'packages/ui/src/index.ts'),
