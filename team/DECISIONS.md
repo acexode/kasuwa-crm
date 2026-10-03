@@ -959,3 +959,22 @@ same transaction (marked via a transaction-local setting the session cannot othe
 together with the permissions engine, which owns "who may assign people to programmes". Also add an
 isolation test listing every permissive `FOR INSERT` policy, so a weak one cannot slip in unnoticed
 (0012 introduced the first).
+
+### D-L52 — auditing writes that sit outside session scope; no fake provider in production
+**Status:** PROCEEDING (lead), from the T-0025 and T-0030 security reviews.
+- **createProgramme** is audited with `programme_id` NULL (the new programme is not in the sealed
+  session scope), and the event carries **only the new programme's id**, never its name or
+  `clientName`, which would otherwise become visible tenant-wide (D-L40's boundary).
+  **archiveProgramme** is a normal programme-scoped event. **updateFieldSecurityMatrix** is
+  tenant-level (`programme_id` NULL, D-P9) and records only field api name, permission-set key and
+  before/after level. D-L38 counts as closed only when every `x-kasuwa-audited` write on main
+  writes an event.
+- **Production never uses `FakeChannelProvider`** (amends D-L49). It would report "invited" when
+  nothing was sent, and it keeps plaintext tokens and addresses in memory. Production defaults to a
+  null provider that answers 503 until D-P10 picks a real one.
+- **Gates on M18 (accepting a portal invite), from the T-0030 reviews:** an authorisation check on
+  who may invite; an audit row per invite; the token in a URL fragment or POST exchange, never a
+  query string; the send moved to an outbox (not inside the DB transaction); per-address rate
+  limiting; a paginated list. The token lookup before any session exists needs a third
+  SECURITY DEFINER function, so **an ADR first** (CLAUDE.md 2.7).
+- Export `objectType` filters are restricted to known types; the raw `sourceIpPrefix` is not stored.
