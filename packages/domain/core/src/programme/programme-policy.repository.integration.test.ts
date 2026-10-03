@@ -32,15 +32,19 @@ import {
  */
 class Rollback extends Error {}
 
+/**
+ * Targets are listed in the repository's fixed read order (whatsapp, voice,
+ * sms, email, ussd), so a round-trip compares equal without sorting.
+ */
 const SLA: SlaPolicyFields = {
   targets: [
-    { channel: 'voice', firstResponseSeconds: 20, resolutionSeconds: null, clock: 'always' },
     {
       channel: 'whatsapp',
       firstResponseSeconds: 120,
       resolutionSeconds: 86_400,
       clock: 'business_hours',
     },
+    { channel: 'voice', firstResponseSeconds: 20, resolutionSeconds: null, clock: 'always' },
   ],
   pauseOutsideOperatingHours: false,
   pauseAwaitingCustomer: true,
