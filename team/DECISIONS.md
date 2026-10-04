@@ -747,7 +747,20 @@ fails CI if a flag or a deferral has no row.
 ## B8. Raised during T-0017 (2026-10-02)
 
 ### D-P10 — the first messaging provider
-**Status:** OPEN, **recommendation ready (2026-10-03)**. Pending @acexode's go-ahead and sales answers.
+**Status:** ANSWERED by @acexode, 2026-10-04: **Dotgo for now.** This replaces the Termii/AT
+recommendation below, which stays on record as the fallback analysis.
+- **What Dotgo is:** a Gupshup company. It provides RCS Business Messaging and runs MTN Nigeria's RBM
+  launch with Google (2021).
+- **Lead caveat 1, reach:** RCS reaches only RCS-capable (mostly Android) handsets on networks that
+  support it. OTP and MFA recovery need **SMS fallback** for every other phone, and that includes
+  numbers on the DND register. Before T-0016 is built, the lead confirms with Dotgo/Gupshup that they
+  provide SMS fallback, on which Nigerian route, and at what naira rate.
+- **Lead caveat 2, data:** the three sales questions below still apply unchanged. That covers rates,
+  NDPA data location plus a DPA, and per-tenant sender IDs.
+- **Engineering:** the vendor name lives only in `packages/channel-adapter` (CLAUDE.md 2.8).
+  Everything else stays provider-neutral, so switching to Termii or AT later is one adapter.
+- Per-SMS market context found 2026-10-04: Nigerian transactional routes cost about ₦5.80–₦9.00, after
+  the February 2025 increase approved by the NCC. Sender-ID / DND whitelisting takes about 4–6 weeks.
 **Research (vendor pages read 2026-10-03; no vendor contacted):**
 
 | | Termii | Africa's Talking | Twilio (reference) |
