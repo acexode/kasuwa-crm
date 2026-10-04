@@ -7,6 +7,11 @@ import { ZodError } from 'zod';
 import { normaliseMethod } from '../telemetry/attributes';
 import { recordRequestFailure } from '../telemetry/request-telemetry';
 import { scrubError, scrubbedFields, type ScrubbedError } from './scrub-error';
+import {
+  SERVICE_UNAVAILABLE_BODY,
+  SERVICE_UNAVAILABLE_HEADERS,
+  SERVICE_UNAVAILABLE_RETRY_AFTER_SECONDS,
+} from './service-unavailable';
 import { ValidationExceptionFilter } from './zod-exception.filter';
 
 /**
@@ -50,28 +55,9 @@ export const INTERNAL_ERROR_BODY = Object.freeze({
   message: 'Something went wrong on our side. Please try again.',
 });
 
-/**
- * The fixed 503 body for an exhausted connection pool (T-0045, D-L56).
- *
- * ONE body and ONE `Retry-After` for every route. In particular a bearer read
- * must not answer 401 (that signs a real user out because the database was
- * busy), and the two sign-in branches - a workspace that exists and one that
- * does not - must not differ (the ADR-0009 enumeration oracle). Nothing in it
- * comes from the request or the error.
- */
-export const SERVICE_UNAVAILABLE_BODY = Object.freeze({
-  statusCode: HttpStatus.SERVICE_UNAVAILABLE,
-  error: 'Service Unavailable',
-  code: 'service_unavailable',
-  message: 'The service is busy right now. Please try again in a moment.',
-});
-
-/**
- * Seconds a client should wait before retrying after a pool timeout. A
- * constant, never derived from load: a value that moved with pool pressure
- * would be a side channel on other tenants' traffic.
- */
-export const SERVICE_UNAVAILABLE_RETRY_AFTER_SECONDS = 5;
+// The 503 body and Retry-After live in ./service-unavailable, shared with the
+// hashing-overload 503 so both kinds of load shedding answer identically.
+export { SERVICE_UNAVAILABLE_BODY, SERVICE_UNAVAILABLE_RETRY_AFTER_SECONDS };
 
 /** The route TEMPLATE Express matched (`/api/v1/contacts/:id`), never the URL. */
 export function routeTemplate(request: unknown): string {
@@ -140,6 +126,9 @@ export class UnexpectedErrorFilter implements ExceptionFilter {
         response,
         status,
         typeof body === 'object' ? body : { statusCode: status, message: body },
+        // Every 503 says when to come back (T-0045), including the
+        // hashing-overload one, which shares the pool-timeout body.
+        status === HttpStatus.SERVICE_UNAVAILABLE ? SERVICE_UNAVAILABLE_HEADERS : {},
       );
       return;
     }
@@ -157,7 +146,7 @@ export class UnexpectedErrorFilter implements ExceptionFilter {
         response,
         HttpStatus.SERVICE_UNAVAILABLE,
         { ...SERVICE_UNAVAILABLE_BODY },
-        { 'Retry-After': String(SERVICE_UNAVAILABLE_RETRY_AFTER_SECONDS) },
+        SERVICE_UNAVAILABLE_HEADERS,
       );
       return;
     }

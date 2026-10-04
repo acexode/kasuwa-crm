@@ -7,8 +7,8 @@ import {
   AUTH_RETENTION_JOB_NAME,
   AUTH_RETENTION_QUEUE,
   AUTH_RETENTION_SCHEDULER_ID,
+  authRetentionJob,
   authRetentionLine,
-  runAuthRetention,
 } from './auth-retention';
 
 /**
@@ -69,10 +69,12 @@ async function main(): Promise<void> {
   const authRetentionWorker = new Worker(
     AUTH_RETENTION_QUEUE,
     async () => {
-      const run = await runAuthRetention(
+      // Throws AuthRetentionJobError (class name only) on failure, so BullMQ's
+      // stored failedReason and stack never carry a pg message.
+      const run = await authRetentionJob(
         (appPool, options) => pruneAuthTables(appPool, options),
         pool,
-        { now: new Date() },
+        new Date(),
       );
       process.stdout.write(`${authRetentionLine(run)}\n`);
       return run;

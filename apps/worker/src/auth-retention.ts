@@ -78,3 +78,40 @@ export function authRetentionLine(run: AuthRetentionRun): string {
     `rate_limits=${run.authRateLimit} batches=${run.batches}`
   );
 }
+
+/** An error's class name, if it is a plain identifier; never its message. */
+function errorClass(error: unknown): string {
+  const name: unknown =
+    typeof error === 'object' && error !== null
+      ? (error as { constructor?: { name?: unknown } }).constructor?.name
+      : undefined;
+  return typeof name === 'string' && /^[A-Za-z][A-Za-z0-9]{0,63}$/.test(name)
+    ? name
+    : 'UnknownError';
+}
+
+/**
+ * What a failed run throws to BullMQ. BullMQ stores a failed job's message as
+ * `failedReason` and its stack in Redis, and a pg error's message or detail
+ * can carry row values. So the job never rethrows the original: it throws this,
+ * which names the error's class and nothing else, and carries no `cause`.
+ */
+export class AuthRetentionJobError extends Error {
+  constructor(error: unknown) {
+    super(`auth retention failed: ${errorClass(error)}`);
+    this.name = 'AuthRetentionJobError';
+  }
+}
+
+/** The job body: one retention run, with any failure sanitised for BullMQ. */
+export async function authRetentionJob(
+  prune: Prune,
+  pool: Pool,
+  now: Date,
+): Promise<AuthRetentionRun> {
+  try {
+    return await runAuthRetention(prune, pool, { now });
+  } catch (error) {
+    throw new AuthRetentionJobError(error);
+  }
+}

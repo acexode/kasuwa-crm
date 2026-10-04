@@ -5,6 +5,7 @@ import { inspect } from 'node:util';
 import { DatabaseError } from 'pg';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+import { signInUnavailable } from '../auth/auth.errors';
 import {
   INTERNAL_ERROR_BODY,
   SERVICE_UNAVAILABLE_BODY,
@@ -273,6 +274,23 @@ describe('UnexpectedErrorFilter: pool connection timeout (T-0045)', () => {
       'unexpected error class=Error method=GET route=/api/v1/contacts',
     ]);
     expect(lines.join('\n')).not.toMatch(/timeout|terminated/);
+  });
+
+  it('answers the hashing-overload 503 with the same body and the same Retry-After', () => {
+    recordLogs();
+    const pool = hostWithHeaders();
+    const hashing = hostWithHeaders();
+    filter.catch(new Error('timeout exceeded when trying to connect'), pool.host);
+    filter.catch(signInUnavailable(), hashing.host);
+    expect(hashing.sent.status).toBe(503);
+    expect(JSON.stringify(hashing.sent.body)).toBe(JSON.stringify(pool.sent.body));
+    expect(hashing.headers).toEqual(pool.headers);
+  });
+
+  it('adds no Retry-After to other HttpExceptions', () => {
+    const { host, headers } = hostWithHeaders();
+    filter.catch(new NotFoundException(), host);
+    expect(headers).toEqual({});
   });
 
   it('keeps every other plain Error a 500, without Retry-After', () => {

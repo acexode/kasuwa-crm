@@ -1221,8 +1221,9 @@ components:
     ServiceUnavailable:
       description: |
         Load shedding, not an authentication decision. The password hashing
-        queue was full, so the request was refused before the credentials were
-        checked at all.
+        queue was full, or no database connection came free in time, so the
+        request was refused before the credentials were checked at all. Both
+        causes answer with this one body and a numeric `Retry-After` (T-0045).
 
         Deliberately not a `401`: saying the credentials were wrong when they
         were never examined misleads a real user, and hands an attacker an
@@ -1235,7 +1236,11 @@ components:
             statusCode: 503
             error: Service Unavailable
             code: service_unavailable
-            message: Too many people are signing in at once. Try again in a moment.
+            message: The service is busy right now. Please try again in a moment.
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying. A constant, not a measure of load.
+          schema: { type: integer, minimum: 1 }
 
     NotImplemented:
       description: |
