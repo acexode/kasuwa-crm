@@ -36,6 +36,13 @@ export interface StackUrls {
    * T-0032 — so never measure bytes here either.
    */
   webLiveUrl: string;
+  /**
+   * A third apps/web process with `crm_records` ON (T-0042): the SAME
+   * production build as `webUrl`, served by `next start` with NODE_ENV=test
+   * because the flag is not production-ready (D-L64). The `/contacts` byte
+   * budget is measured here.
+   */
+  webRecordsUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;
   /** Static fixture pages used by the harness self-tests. */

@@ -23,7 +23,8 @@ Next.js App Router shell. Routes today:
 | `/admin/field-security` | `P02/D`–`D2` | Two axes and no programme selector (D-P9) |
 | `/admin/audit` | `P02/E`–`E2` | The audit log and its export |
 | `/translations` | — | Where the language menu's "help improve this translation" link lands (D-P1). Server-only, no client JS |
-| `/contacts/[id]` | — | Scaffolding. Exists so the tenancy e2e test can tamper with a **web** URL; replace it when M4 builds the real screen. |
+| `/contacts` | `P04/02`, `P04/05`, `P04/06` | **Behind `crm_records`** (T-0042, D-L64): a real 404 while it is off. The CRM shell (`components/crm/`), not the admin one. Read from the browser through `lib/records-api.ts` against the contract mock until T-0041 is live |
+| `/contacts/[id]` | — | Scaffolding, **behind `crm_records`** (D-L64). Exists so the tenancy e2e test can tamper with a **web** URL; replace it when M4 builds the real screen. |
 | `/design/tokens` | — | The token gallery. It used to be at `/`. |
 
 All sixteen P01 screens are built (`team/reports/T-0007.md`, `T-0007b.md`), and
@@ -49,6 +50,21 @@ the flag and passes a `live` boolean down; no client module names the flag.
 `tests/e2e/p02-live.spec.ts` (`@p02-live`) drives all twenty-two screens
 against the real API and the seeded database with no interception;
 `p02-admin.spec.ts` keeps the contract-mock states.
+
+**`crm_records` (T-0042)** is the third flag, not production-ready until
+T-0041 serves `q`, the filters and `withheldFields` live. The e2e harness runs
+it on a third web process (`webRecordsUrl`): the SAME production build as the
+default server, `next start` with `NODE_ENV=test` because the boot guard
+refuses a not-ready flag under `production` (D-L64). The `/contacts` byte
+budget is measured there. On `/contacts`: a withheld field is a lock and a
+`null` is "Not set", decided per row; the programme chip and the owner and
+account cells are neutral labels, never ids, until T-0043 adds names; the list
+survives going offline in memory only, never on the device (D-L64); and the
+search term never enters the URL.
+
+**`?locale=en-XA`** renders the pseudo-locale, derived from `en` at runtime by
+`@kasuwa/i18n` (`src/pseudo.ts`). Like `ar` it is a preview: on no menu,
+persisted nowhere.
 
 **A programme with no retention policy answers `404`** (D-L50). `P02/B7` shows
 that as "no rules saved yet" with every period unchosen — never pre-selected —

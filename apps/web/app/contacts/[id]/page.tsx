@@ -1,17 +1,25 @@
+import { notFound } from 'next/navigation';
 import { bundleMessages } from '@kasuwa/i18n';
 import { RecordView } from './record-view';
 import { activeLocale } from '../../../lib/locale';
+import { crmRecordsEnabled } from '../../../lib/feature-flags';
 
 /**
  * Scaffolding, not a screen — see the note in `record-view.tsx`. It exists so
  * the tenancy e2e test can tamper with a WEB url, which is the half T-0008
  * could not write.
+ *
+ * Behind `crm_records` (D-L64), like `/contacts`: a real 404 while it is off,
+ * decided before anything renders or any id is read.
  */
 export default async function ContactPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  if (!(await crmRecordsEnabled())) {
+    notFound();
+  }
   const { id } = await params;
   const { locale } = await activeLocale();
 

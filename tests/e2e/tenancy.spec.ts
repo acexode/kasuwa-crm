@@ -99,7 +99,10 @@ test.describe('tenancy through the browser', () => {
   test('a signed-in user cannot reach another tenant by editing a WEB url @harness', async ({
     browser,
   }) => {
-    const { webUrl } = stack();
+    // `/contacts/{id}` is behind `crm_records` (D-L64), so it is driven on the
+    // process that has the flag on; on the default server it is a 404 before
+    // any id is read.
+    const { webRecordsUrl: webUrl } = stack();
 
     // The same three tamperings, through the browser's own router this time.
     // `/contacts/{id}` fetches by id from client-side JavaScript — deliberately
