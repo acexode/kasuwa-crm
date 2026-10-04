@@ -75,7 +75,7 @@ this worth fixing now is that it *cannot* be forgotten once it is in the schema.
 ## Acceptance tests
 
 To be written by the lead when this is assigned, at
-`tests/acceptance/tenancy/schema-hygiene.pending.acceptance.test.ts`.
+`tests/acceptance/tenancy/schema-hygiene.acceptance.test.ts`.
 
 Behaviours they will name:
 
@@ -94,3 +94,9 @@ Behaviours they will name:
 - A "redundant" index turns out to serve a query plan the unique index does
   not. Say so with the `EXPLAIN` output — that is a finding, and the index
   stays.
+
+**Builder running (Agent 1, `agent1/T-0011-schema-hygiene`); the suite lands with that PR.** Suite written
+2026-10-04 on `lead/T-0011-acceptance` (9c3d0ed). On main 4 of 8 tests fail. Twelve redundant indexes are
+flagged, including `programme_tenant_idx` and `user_credential_tenant_idx`, and none of the 16 tables with
+`updated_at` advances it. **Trap:** a trigger that always sets `now()` breaks the programme version guard
+(`now()` is fixed per transaction). Set it only when the statement left `updated_at` unchanged.
