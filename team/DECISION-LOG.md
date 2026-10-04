@@ -1125,3 +1125,8 @@ With the SWC wasm fallback (#77), the T-0035 browser tags ran locally and all pa
 This closes T-0035's deferred browser evidence. The acceptance *wrapper*
 (`p02-live-api.acceptance.test.ts`) still can't spawn on Windows because of its `|` grep (D-L62); the
 tags were run directly.
+
+## 2026-10-04 — process slip: a test writer tried `--no-verify`
+While writing the T-0050 suite, Agent 12 ran a throwaway `git merge` with `--no-verify`, against the standing rule.
+The auto-mode classifier refused it and nothing ran. Every brief now says "never `--no-verify`, not even for WIP or
+throwaway merges". This is the second such attempt today (T-0040's builder made the first).
