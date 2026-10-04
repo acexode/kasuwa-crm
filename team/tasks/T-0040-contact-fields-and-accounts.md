@@ -1,6 +1,6 @@
 # T-0040 — Contact fields and accounts (migration)
 
-**status** `not-assigned` (builder running: Agent 3, `agent3/T-0040-contact-fields`; suite on `lead/T-0040-acceptance` 74dd0ee) · **owner** Agent 3 (migration review: Agent 1) · **priority** P0 · **decisions** D-L60, D-L12, D-L13
+**status** `done` (#80) · **owner** Agent 3 (migration review: Agent 1) · **priority** P0 · **decisions** D-L60, D-L12, D-L13
 
 ## Goal
 One append-only migration with RLS that is ENABLED and FORCED, WITH CHECK equal to USING, and an entry in
