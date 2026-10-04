@@ -60,22 +60,30 @@
 --
 -- 3. user_programme_delete_in_scope  (FOR DELETE, D-L55 gap 2)
 --
---    DELETE was tenant-only (0001). It is now programme-scoped like INSERT
---    (D-L51): a membership in a programme the session does not reach is
---    filtered, 0 rows. Unlike 0015's INSERT and UPDATE policies this one has
---    NO creation-marker branch, deliberately. No code path deletes a
---    membership of a programme created in the same transaction, and without
---    the branch the marker forge (UPDATE a reachable programme to stamp its
---    xmin, then delete in an unreachable one) has nothing to borrow. A
---    session can still delete its own membership in a programme it reaches;
---    the narrowed scope applies from the next transaction, because scope is
---    resolved once at transaction start.
+--    DELETE was tenant-only (0001). It now requires BOTH:
+--      (a) programme scope, like INSERT (D-L51): a membership in a programme
+--          the session does not reach is filtered, 0 rows; AND
+--      (b) a tenant-admin session, the same check as policy 1 (lead ruling on
+--          the T-0046 review). Without it, any member of a programme could
+--          delete the tenant admin's membership there: a lockout. It is also
+--          defence in depth behind the T-0032 engine. A non-admin DELETE is
+--          filtered, 0 rows, the same answer as "no such row" (CLAUDE.md 6.4).
+--    Tenant admin never widens scope: (a) still bounds an admin (D-L53 M4).
+--    Unlike 0015's INSERT and UPDATE policies this one has NO creation-marker
+--    branch, deliberately. No code path deletes a membership of a programme
+--    created in the same transaction, and without the branch the marker forge
+--    (UPDATE a reachable programme to stamp its xmin, then delete in an
+--    unreachable one) has nothing to borrow. A tenant admin can still delete
+--    his own membership in a programme he reaches; the narrowed scope applies
+--    from the next transaction, because scope is resolved once at transaction
+--    start. No application code deletes from user_programme today (checked
+--    for T-0046). FK cascades from "user" or programme are referential
+--    actions, which bypass row security, so they are unaffected.
 --
---    NOT changed, and recorded: DELETE does not require tenant admin (the task
---    scopes it, it does not restrict it), and a non-admin may still INSERT a
---    membership with a NULL set into a programme he reaches. Neither grants a
---    permission; both are the engine's application-level decision until an
---    endpoint that writes memberships exists.
+--    NOT changed, and recorded: a non-admin may still INSERT a membership with
+--    a NULL set into a programme he reaches. It grants no permission; it is
+--    the engine's application-level decision until an endpoint that writes
+--    memberships exists.
 -- ---------------------------------------------------------------------------
 
 -- CREATE POLICY takes ACCESS EXCLUSIVE on user_programme until COMMIT. The
@@ -133,4 +141,11 @@ CREATE POLICY user_programme_delete_in_scope ON user_programme
   USING (
     tenant_id = app.current_tenant_id()
     AND programme_id = ANY (app.current_programme_ids())
+    AND EXISTS (
+      SELECT 1
+        FROM "user" u
+       WHERE u.tenant_id = app.current_tenant_id()
+         AND u.id = app.current_user_id()
+         AND u.is_tenant_admin
+    )
   );
