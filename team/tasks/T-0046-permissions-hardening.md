@@ -1,6 +1,6 @@
 # T-0046 — Permissions-engine hardening (the D-L55 gaps)
 
-**status** `not-assigned` · **owner** Agent 1 · **priority** P1 (before any "assign permissions" endpoint) · **decisions** D-L55, D-L53, D-L51
+**status** `not-assigned` (builder running: Agent 1, `agent1/T-0046-permissions-hardening`; suite on `lead/T-0046-acceptance` 51f080f) · **owner** Agent 1 · **priority** P1 (before any "assign permissions" endpoint) · **decisions** D-L55, D-L53, D-L51
 
 ## Goal
 Close the gaps the T-0032 security review left open (D-L55):
@@ -14,3 +14,11 @@ Close the gaps the T-0032 security review left open (D-L55):
 
 ## Acceptance tests
 `tests/acceptance/platform/permissions-hardening.acceptance.test.ts`, written by the lead.
+
+**Suite design (H1–H5):**
+- A RESTRICTIVE `FOR UPDATE` policy requires the session user to be a tenant admin. A non-admin UPDATE then
+  affects 0 rows, and a non-admin INSERT carrying a set fails with 42501.
+- Side doors are closed: delete-and-reinsert, rewriting `user_id`, and upsert.
+- There are still exactly two SECURITY DEFINER functions.
+- **Residual (ADR-0010 class), recorded but not asserted:** a callback can forge `app.user_id` to a tenant admin's id
+  and restore it before commit.
