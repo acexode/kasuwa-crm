@@ -7,7 +7,7 @@
 --      contact.account_id.
 --   3. An integer `version` on contact and account, for the optimistic
 --      concurrency the T-0039 records contract requires (the same pattern as
---      programme_sla.version). The repository increments it (T-0041).
+--      programme_sla.version). The schema maintains it; see VERSION below.
 --
 -- NOT here (D-L13): NIN and BVN. They arrive later as encrypted-only types
 -- with a blind index. No column in this file may hold or derive from either.
@@ -76,6 +76,22 @@
 -- schema-hygiene suite (which reads the catalogue) is what holds this table
 -- to the rule.
 --
+-- VERSION ON contact AND account (migration review finding M1). The schema
+-- maintains it, as 0018 does for updated_at. app.bump_version() is a BEFORE
+-- UPDATE trigger that sets NEW.version := OLD.version + 1, and it fires only
+-- when the statement left version unchanged.
+--   - Why: during a rolling deploy, an old-app write or a script that forgets
+--     to bump version would otherwise slip past T-0039's 409 stale_write
+--     check without anyone noticing.
+--   - A repository that writes `version = version + 1` itself (T-0041) is
+--     left alone, so the value moves exactly once either way.
+--   - Known consequence, as with updated_at: an UPDATE that deliberately
+--     re-assigns version its OLD value is indistinguishable from one that
+--     never mentioned it, and is bumped.
+--   - Not SECURITY DEFINER (CLAUDE.md 2.7). It runs as the caller, reads no
+--     table and only assigns to NEW. search_path is pinned. Firing a trigger
+--     needs no EXECUTE grant, so EXECUTE is revoked from PUBLIC.
+--
 -- GRANTS: the same as contact (full DML for kasuwa_app and kasuwa_test_admin).
 -- Restated explicitly, as in 0014, so this file does not silently depend on
 -- the bootstrap's default privileges.
@@ -84,8 +100,10 @@
 -- and trigger first. The ALTER TABLE contact, which takes ACCESS EXCLUSIVE on
 -- a hot table, comes last, so that lock is held for the shortest time.
 --   - The constant defaults are metadata-only (no rewrite).
---   - The CHECKs and FKs validate by scanning contact. Every existing row is
---     NULL or default in the new columns, so the scan is quick.
+--   - The CHECKs and FKs validate by scanning every row of contact while
+--     ACCESS EXCLUSIVE is held. Rows whose new columns are NULL or default
+--     are still read. That is accepted for this migration only, because no
+--     populated cell exists yet (D-L65).
 --   - The two indexes on contact come after the ALTER, in the same
 --     transaction, so the lock is already held.
 --   - lock_timeout bounds the wait for the lock.
@@ -101,8 +119,8 @@ CREATE TABLE account (
   tenant_id     uuid        NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
   programme_id  uuid        NOT NULL,
   name          text        NOT NULL,
-  -- Optimistic-concurrency counter (T-0039 contract). The repository bumps
-  -- it on update (T-0041); no trigger does.
+  -- Optimistic-concurrency counter (T-0039 contract), maintained by
+  -- account_bump_version below.
   version       integer     NOT NULL DEFAULT 1 CHECK (version >= 1),
   created_at    timestamptz NOT NULL DEFAULT now(),
   updated_at    timestamptz NOT NULL DEFAULT now(),
@@ -134,6 +152,23 @@ CREATE TRIGGER account_touch_updated_at
   WHEN (NEW.updated_at IS NOT DISTINCT FROM OLD.updated_at)
   EXECUTE FUNCTION app.touch_updated_at();
 
+-- --- version: one trigger function, bumped when a statement forgets to ----
+CREATE FUNCTION app.bump_version() RETURNS trigger
+  LANGUAGE plpgsql
+  SET search_path = pg_catalog
+AS $$
+BEGIN
+  NEW.version := OLD.version + 1;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION app.bump_version() FROM PUBLIC;
+
+CREATE TRIGGER account_bump_version
+  BEFORE UPDATE ON account FOR EACH ROW
+  WHEN (NEW.version IS NOT DISTINCT FROM OLD.version)
+  EXECUTE FUNCTION app.bump_version();
+
 -- --- contact: the M3 columns -------------------------------------------------
 ALTER TABLE contact
   ADD COLUMN owner_user_id      uuid,
@@ -150,7 +185,7 @@ ALTER TABLE contact
   ADD COLUMN phone_network      text,
   ADD COLUMN account_id         uuid,
   -- Optimistic-concurrency counter (T-0039: updateContact answers 409
-  -- stale_write on a mismatch). The repository bumps it (T-0041); no trigger.
+  -- stale_write on a mismatch). Maintained by contact_bump_version below.
   ADD COLUMN version            integer NOT NULL DEFAULT 1,
 
   ADD CONSTRAINT contact_owner_same_tenant_fk
@@ -195,3 +230,10 @@ CREATE INDEX contact_account_idx
   ON contact (tenant_id, programme_id, account_id) WHERE account_id IS NOT NULL;
 CREATE INDEX contact_owner_idx
   ON contact (tenant_id, owner_user_id) WHERE owner_user_id IS NOT NULL;
+
+-- After the column exists. CREATE TRIGGER needs only SHARE ROW EXCLUSIVE, and
+-- the ALTER above already holds a stronger lock on contact.
+CREATE TRIGGER contact_bump_version
+  BEFORE UPDATE ON contact FOR EACH ROW
+  WHEN (NEW.version IS NOT DISTINCT FROM OLD.version)
+  EXECUTE FUNCTION app.bump_version();

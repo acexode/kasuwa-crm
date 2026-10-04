@@ -204,7 +204,7 @@ export const contact = pgTable(
     phoneNetwork: text('phone_network'),
     /** Composite FK (tenant_id, programme_id, account_id) -> account. */
     accountId: uuid('account_id'),
-    /** Optimistic-concurrency counter (T-0039); the repository bumps it on update. */
+    /** Optimistic-concurrency counter (T-0039); kept moving by app.bump_version(). */
     version: integer('version').notNull().default(1),
   },
   (table) => [
@@ -229,7 +229,7 @@ export const account = pgTable(
     tenantId: uuid('tenant_id').notNull(),
     programmeId: uuid('programme_id').notNull(),
     name: text('name').notNull(),
-    /** Optimistic-concurrency counter (T-0039); the repository bumps it on update. */
+    /** Optimistic-concurrency counter (T-0039); kept moving by app.bump_version(). */
     version: integer('version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     /** Maintained by the app.touch_updated_at() trigger when a statement leaves it unchanged. */
