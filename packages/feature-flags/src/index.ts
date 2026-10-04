@@ -78,6 +78,24 @@ export const FLAGS = {
     // T-0032 authorisation work reviewed end to end, not as a side effect.
     productionReady: false,
   },
+  /**
+   * T-0042 (D-L60, D-L64): the CRM app shell and the P04 Contacts list at
+   * `/contacts`. It gates the ROUTES — `/contacts` and the `/contacts/[id]`
+   * scaffolding answer a real 404 while it is off.
+   *
+   * Like `admin_live_api` it is a presentation switch, not an access control:
+   * the list reads `GET /api/v1/contacts`, where the session and
+   * `user_programme` decide what a caller reaches whether this is on or off.
+   */
+  crm_records: {
+    description: 'The CRM shell and the P04 Contacts list at /contacts (T-0042).',
+    defaultValue: false,
+    owner: 'T-0042 (screens), T-0041 (live API), D-L64',
+    // NOT production-ready until T-0041 serves q, the filters and
+    // withheldFields on the live wire (D-L64). The screen is built against the
+    // contract mock until then.
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;
