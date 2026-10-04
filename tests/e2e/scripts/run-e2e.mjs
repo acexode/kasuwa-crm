@@ -466,9 +466,13 @@ function startRecordsWeb(apiUrl, port) {
     env: {
       ...process.env,
       NODE_ENV: 'test',
+      // The real mode, as on the default server: the web process proxies
+      // `/api/v1` and authenticates nobody itself (T-0014).
+      KASUWA_AUTH_MODE: 'jwt',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
       KASUWA_FEATURE_FLAGS_ON: 'crm_records',
+      ...NO_DATABASE_URLS,
     },
   });
   pipeTo(child, 'web:records');
