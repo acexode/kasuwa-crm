@@ -1293,3 +1293,15 @@ oracle across the BPO isolation boundary.
 **Rule:** `ownerUserId` must have a `user_programme` row in the contact's programme. Anything else gets the same 400
 `unknown_reference` body as an id that names nothing. T-0041 enforces this in the repository's owner check. A schema-level
 guard (a trigger or FK through `user_programme`) can follow later under the D-L65 rules.
+
+### D-L68 — follow-ups from the T-0041 reviews (tracked)
+**Status:** TRACKED.
+- **`displayName` undercuts field security on the name parts.** It is never withheld and is always searched, so withholding
+  `givenNames` or `familyName` protects little. Needs a decision: withhold `displayName` whenever either name part is withheld,
+  or compose it per caller.
+- **Search cost.** `q` folds and scans every row in scope, with no index, and the tag filter unnests. Needs a trigram or
+  functional index migration under D-L65, plus a search-latency budget, before PRD-scale tenants arrive.
+- **Two lead suite edits are pending,** blocked in auto mode and waiting on @acexode:
+  - The `adversarial` FINDING-4 tripwire forbids `INSERT INTO contact`. The tenancy review confirmed the id is always
+    `newId()` and that a client-sent `id` is rejected, so the tripwire should instead assert exactly that.
+  - The `observability-pii` probe NIN `00000000001` collides with tenant A's id. Change the probe.
