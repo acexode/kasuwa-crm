@@ -58,6 +58,17 @@
     "import.source.hubspot": "A product name. It is spelled the same in this locale.",
     "import.source.csv": "File-format names (CSV, Excel) used unchanged in this locale.",
     "import.field.mobile": "The French word is spelled identically to the English one.",
-    "invite.role.agent": "The French word is spelled identically to the English one."
+    "invite.role.agent": "The French word is spelled identically to the English one.",
+    "records.nav.contacts": "A loanword this locale uses unchanged for a CRM contact record.",
+    "records.nav.tickets": "A loanword this locale uses unchanged for a support ticket.",
+    "records.title": "A loanword this locale uses unchanged for a CRM contact record.",
+    "records.filter.source": "A loanword this locale uses unchanged.",
+    "records.col.whatsappOptIn": "A product name. WhatsApp is spelled the same in this locale.",
+    "records.col.source": "A loanword this locale uses unchanged.",
+    "records.source.whatsapp": "A product name. WhatsApp is spelled the same in this locale.",
+    "records.source.ussd": "An abbreviation used unchanged in this locale.",
+    "records.source.api": "An abbreviation used unchanged in this locale.",
+    "records.channel.whatsapp": "A product name. WhatsApp is spelled the same in this locale.",
+    "records.channel.sms": "An abbreviation used unchanged in this locale."
   }
 }

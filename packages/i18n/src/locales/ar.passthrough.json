@@ -8,11 +8,13 @@
   "admin.scripts.version",
   "admin.sla.clock.always",
   "app.name",
+  "import.source.csv",
+  "import.source.hubspot",
+  "import.source.salesforce",
+  "import.source.zoho",
+  "records.filter.active",
+  "records.source.ussd",
   "tokens.contrast.ratio",
   "tokens.sample.arabic",
-  "tokens.sample.text",
-  "import.source.zoho",
-  "import.source.salesforce",
-  "import.source.hubspot",
-  "import.source.csv"
+  "tokens.sample.text"
 ]
