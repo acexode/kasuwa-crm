@@ -7,6 +7,7 @@ import {
 } from '@kasuwa/auth-crypto';
 import { Client } from 'pg';
 import {
+  SEED_ACCOUNTS,
   SEED_CONTACTS,
   SEED_PASSWORD,
   SEED_PERMISSION_SETS,
@@ -217,6 +218,13 @@ export async function runSeed(options: SeedOptions): Promise<void> {
       }
     }
 
+    for (const account of SEED_ACCOUNTS) {
+      await client.query(
+        `INSERT INTO account (id, tenant_id, programme_id, name) VALUES ($1, $2, $3, $4)`,
+        [account.id, account.tenantId, account.programmeId, account.name],
+      );
+    }
+
     for (const contact of SEED_CONTACTS) {
       await client.query(
         `INSERT INTO contact
@@ -242,7 +250,7 @@ export async function runSeed(options: SeedOptions): Promise<void> {
       `seeded ${SEED_TENANTS.length} tenants, ` +
         `${SEED_TENANTS.reduce((n, t) => n + t.programmes.length, 0)} programmes, ` +
         `${SEED_TENANTS.reduce((n, t) => n + t.users.length, 0)} users, ` +
-        `${SEED_CONTACTS.length} contacts`,
+        `${SEED_CONTACTS.length} contacts, ${SEED_ACCOUNTS.length} accounts`,
     );
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);

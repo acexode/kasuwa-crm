@@ -14,6 +14,7 @@
  *                  0000000d   user
  *                  0000000e   contact
  *                  00000010   permission set
+ *                  00000013   account
  *
  * Tenant A deliberately models the BPO shape: two client programmes, an agent
  * on each, a supervisor across both, and a user with no programme membership at
@@ -273,6 +274,41 @@ export const SEED_CONTACTS: readonly SeedContact[] = [
     ['Kaweria', 'Mutua', '+254712345032'],
     ['Lilian', 'Njeri', '+254712345033'],
   ]),
+];
+
+export interface SeedAccount {
+  id: string;
+  tenantId: string;
+  programmeId: string;
+  name: string;
+}
+
+/**
+ * One account per programme (T-0040), kind `00000013`. No seeded contact links
+ * to one: `contact.account_id` stays NULL on every seeded contact, which the
+ * T-0040 suite relies on. The rows exist so every table carrying updated_at has
+ * something for the T-0011 updated_at probe to update.
+ */
+export const SEED_ACCOUNTS: readonly SeedAccount[] = [
+  { id: `${A}000000130001`, tenantId: TENANT_A, programmeId: PROGRAMME_A1, name: 'Ikoyi Traders' },
+  {
+    id: `${A}000000130002`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A2,
+    name: 'Sabon Gari Mart',
+  },
+  {
+    id: `${B}000000130003`,
+    tenantId: TENANT_B,
+    programmeId: PROGRAMME_B1,
+    name: 'Westlands Supplies',
+  },
+  {
+    id: `${B}000000130004`,
+    tenantId: TENANT_B,
+    programmeId: PROGRAMME_B2,
+    name: 'Mombasa Road Hardware',
+  },
 ];
 
 export interface SeedPermissionSet {
