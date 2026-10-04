@@ -1253,3 +1253,16 @@ the rule is ≤ 1.05 × measured). This edit **tightens** the budget. The lead d
 placed on another agent, so the edit is left to @acexode: make it yourself, or switch auto mode off for that step.
 **Also for @acexode:** the `en-XA` pseudo-locale preview is now reachable in production, as `ar` is. Should
 it be dev-only? Lead recommendation: yes, dev and test only.
+
+### D-L65 — migrations on hot tables: no populated cell yet, and the rule from now on
+**Status:** PROCEEDING (lead). The 0019 migration review measured about 4.6 s of ACCESS EXCLUSIVE on `contact` at 5M rows,
+because CHECK and FK validation and index builds scan the table. At PRD 2.13 scale that becomes about 25–60 s.
+- **No populated production cell exists.** There is no deploy target (T-0005 scope 2 is unbuilt), so 0019 is
+  accepted as written. Its header says so.
+- **From the first deployed cell onward, migrations on `contact` and other hot tables must:**
+  - add CHECKs and FKs `NOT VALID`, then `VALIDATE CONSTRAINT` in a later migration (SHARE UPDATE EXCLUSIVE);
+  - build indexes `CONCURRENTLY`.
+- **The runner can't build indexes concurrently yet.** It always wraps a file in a transaction
+  (`packages/db/src/migrate.ts:103`). A **runner task** must add a marked non-transactional mode before the first
+  cell is populated. That task belongs to Agent 1, before T-0005 scope 2.
+- `version` is maintained by a trigger (added to 0019 after review M1), the same pattern as 0018's `updated_at`.
