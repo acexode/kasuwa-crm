@@ -1208,3 +1208,21 @@ Remove the pin once agents run in the devcontainer or on Linux. Bump it with `ne
 `pnpm test:e2e --grep "@p02|@locale-beta|…"` through `cmd.exe`, which splits on `|`. That is a suite
 portability defect needing a lead edit to the suite (shell-quoting, or `shell: false`), which auto mode
 blocks. Until it is fixed, the lead runs the tags directly.
+
+### D-L63 — contacts API rulings pinned by the T-0041 suite (lead, reversible)
+**Status:** PROCEEDING.
+- **Permission:** a new programme-scoped action `contact.write` covers create and update. It is granted by the
+  `admin` set in the target programme, or by the tenant-admin flag (the D-L53 rule unchanged). Every other
+  set is read-only for contacts.
+- **The tenant-admin flag does not lift field security.** A withheld field stays withheld for everyone
+  the matrix withholds it from. Writing it gives 403 `not_permitted` with `field_not_editable`.
+- **No contact name in audit labels.** It follows D-L54: a person's name is PII and stays out of events.
+  The label is the record id.
+- **Scope headers** get 400 `validation_failed` in the shared envelope. This changes the shared stub
+  guard's body (Agent 1's), not its decision.
+
+### D-P14 — may agents edit contacts? (P04 shows inline Owner and Status edits)
+**Status:** OPEN, needs @acexode. Not blocking: T-0041 ships admin-only writes, and one test flips if the answer is yes.
+**Lead recommendation:** yes, but narrowly. Add an `agent` permission for **status and owner reassignment
+to themselves** only, on contacts in their programme. No other fields. This matches how BPO agents work a
+queue, without letting them rewrite customer data.
