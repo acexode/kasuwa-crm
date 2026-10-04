@@ -1,6 +1,6 @@
 # T-0044 — Migration runner: a marked non-transactional mode
 
-**status** `not-assigned` (builder running: Agent 1, `agent1/T-0044-runner-no-transaction`; suite on `lead/T-0044-acceptance` f9d07ec) · **owner** Agent 1 · **priority** P1 (must land before the first populated cell, D-L65) · **decisions** D-L65
+**status** `done` (#82) · **owner** Agent 1 · **priority** P1 (must land before the first populated cell, D-L65) · **decisions** D-L65
 
 ## Goal
 `packages/db/src/migrate.ts` always wraps a file in BEGIN/COMMIT, so `CREATE INDEX CONCURRENTLY` and similar
