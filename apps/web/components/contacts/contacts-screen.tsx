@@ -31,7 +31,7 @@ import { useContactList } from './use-contact-list';
 
 /**
  * `P04/02` — the Contacts list — with `P04/05` (empty, no results) and `P04/06`
- * (loading, offline), behind `crm_records` (T-0042).
+ * (loading, offline), behind the CRM records flag, which only the server page reads (T-0042).
  *
  * ---------------------------------------------------------------------------
  * A LOCK IS NOT AN EMPTY CELL, AND AN EMPTY CELL IS NOT A LOCK.
