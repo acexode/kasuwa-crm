@@ -18,6 +18,7 @@ const CREDENTIAL_ROUTES: Route[] = [
   'enrol',
   'confirmEnrolment',
   'startTotpReplacement',
+  'confirmTotpReplacement',
   'regenerateBackupCodes',
 ];
 

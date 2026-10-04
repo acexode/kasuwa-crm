@@ -15,6 +15,7 @@ import {
   matchBackupCode,
   matchTotp,
   otpauthUri,
+  retireUnusedBackupCodes,
   startTotpEnrolment,
   type FactorRow,
   type Tx,
@@ -266,6 +267,25 @@ describe('backup codes in the store', () => {
     const untouched = recordingTx(rows);
     expect(await matchBackupCode(untouched, provider, TENANT, USER, '123456')).toBeNull();
     expect(untouched.statements).toHaveLength(0);
+  });
+});
+
+describe('retireUnusedBackupCodes (D-L58)', () => {
+  it("marks only this user's unused codes used, scoped by tenant and user, and counts them", async () => {
+    const statements: { text: string; values: readonly unknown[] }[] = [];
+    const tx: Tx = {
+      query: async <T extends QueryResultRow>(text: string, values: readonly unknown[] = []) => {
+        statements.push({ text, values });
+        return [{ id: 'a' }, { id: 'b' }] as unknown as T[];
+      },
+    };
+    expect(await retireUnusedBackupCodes(tx, TENANT, USER)).toBe(2);
+    expect(statements).toHaveLength(1);
+    const [only] = statements;
+    expect(only?.text).toMatch(/^\s*UPDATE user_mfa_backup_code\s+SET used_at = now\(\)/u);
+    expect(only?.text).toMatch(/tenant_id = \$1 AND user_id = \$2 AND used_at IS NULL/u);
+    expect(only?.text).not.toMatch(/DELETE/u);
+    expect(only?.values).toEqual([TENANT, USER]);
   });
 });
 
