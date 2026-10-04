@@ -1113,3 +1113,15 @@ task. Every suite fails, and for the reason its task fixes:
 | T-0037 | 3/6 fail | drizzle-orm 0.38.4 still resolves, and the advisory is still baselined |
 T-0035 is a browser suite. It was **not run** on @acexode's instruction, because the Windows host can't run it.
 The D-L23 deferral of 2026-10-03 is now closed for every task except T-0035.
+
+## 2026-10-04 — T-0035 browser coverage finally runs (after D-L62)
+With the SWC wasm fallback (#77), the T-0035 browser tags ran locally and all passed:
+- `@p02` (including every `@p02-live` real-API journey): 86/86
+- `@locale-beta`: 7/7
+- `@fonts`: 2/2
+- `@budget`: 1/1
+- `@byte-budget`: 1/1
+
+This closes T-0035's deferred browser evidence. The acceptance *wrapper*
+(`p02-live-api.acceptance.test.ts`) still can't spawn on Windows because of its `|` grep (D-L62); the
+tags were run directly.

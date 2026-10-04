@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0011 |
-| **status** | `not-assigned` |
+| **status** | `done` |
 | **module** | M1 platform |
 | **owner** | Agent 1 — Platform & Security |
 | **priority** | P2 — cheap now, not cheap later |
