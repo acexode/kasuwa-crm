@@ -34,11 +34,18 @@ export class DatabaseModule implements OnApplicationShutdown {
    */
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
-  static forRoot(options: { databaseUrl: string; poolMax?: number }): DynamicModule {
+  static forRoot(options: {
+    databaseUrl: string;
+    poolMax?: number;
+    connectionTimeoutMillis?: number;
+  }): DynamicModule {
     const pool = createPool({
       connectionString: options.databaseUrl,
       max: options.poolMax ?? 10,
       applicationName: 'kasuwa-api',
+      ...(options.connectionTimeoutMillis === undefined
+        ? {}
+        : { connectionTimeoutMillis: options.connectionTimeoutMillis }),
     });
 
     return {

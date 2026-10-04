@@ -1,6 +1,11 @@
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
-import { assertScopeIntact } from './session';
+import {
+  assertRoleIntact,
+  assertScopeIntact,
+  releaseClean,
+  SessionScopeViolationError,
+} from './session';
 
 /**
  * The authentication bootstrap: how a request that has no session yet reaches
@@ -58,7 +63,8 @@ const SET_AUTH_CONTEXT_SQL = `
   SELECT
     set_config('app.tenant_id',     $1, true),
     set_config('app.user_id',       '', true),
-    set_config('app.programme_ids', '{}', true)
+    set_config('app.programme_ids', '{}', true),
+    current_user = session_user AS role_intact
 `;
 
 const RESOLVE_TENANT_BY_SLUG_SQL = `SELECT app.resolve_tenant_by_slug($1) AS tenant_id`;
@@ -93,11 +99,16 @@ export async function withAuthTransaction<T>(
   fn: (tx: AuthTx) => Promise<T>,
 ): Promise<T> {
   const client: PoolClient = await pool.connect();
+  let discard = false;
   try {
     await client.query('BEGIN');
 
     const tenantId = await resolveTenantId(client, selector);
-    await client.query(SET_AUTH_CONTEXT_SQL, [tenantId ?? '']);
+    const context = await client.query<{ role_intact: boolean | null }>(SET_AUTH_CONTEXT_SQL, [
+      tenantId ?? '',
+    ]);
+    // No role may be left on the connection (T-0045; see `assertRoleIntact`).
+    assertRoleIntact(context.rows[0]);
 
     const tx: AuthTx = {
       tenantId,
@@ -123,14 +134,16 @@ export async function withAuthTransaction<T>(
     await client.query('COMMIT');
     return value;
   } catch (error) {
+    if (error instanceof SessionScopeViolationError) discard = true;
     try {
       await client.query('ROLLBACK');
     } catch {
-      // Already broken; releasing below discards the connection.
+      // Already broken: discard rather than reuse it.
+      discard = true;
     }
     throw error;
   } finally {
-    client.release();
+    await releaseClean(client, discard);
   }
 }
 

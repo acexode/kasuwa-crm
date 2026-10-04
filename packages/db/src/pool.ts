@@ -41,3 +41,25 @@ export function createPool(options: PoolOptions): Pool {
     idle_in_transaction_session_timeout: 15_000,
   });
 }
+
+/**
+ * The two messages `pg-pool` gives a caller that could not get a connection in
+ * `connectionTimeoutMillis` (T-0045). Neither error carries a code or a class
+ * of its own, so the message is the only signal the driver offers; keeping the
+ * match here, beside `createPool`, means no other package names pg internals.
+ *
+ *   - every pooled connection is busy and none came free in time;
+ *   - a NEW connection was being opened and did not finish in time.
+ *
+ * Both mean the same to a caller: the database is unavailable right now and a
+ * retry later may succeed. Neither says anything about the request.
+ */
+const POOL_TIMEOUT_MESSAGES: ReadonlySet<string> = new Set([
+  'timeout exceeded when trying to connect',
+  'Connection terminated due to connection timeout',
+]);
+
+/** True for a `pg` pool connection timeout, and for nothing else. */
+export function isPoolConnectionTimeout(error: unknown): boolean {
+  return error instanceof Error && POOL_TIMEOUT_MESSAGES.has(error.message);
+}

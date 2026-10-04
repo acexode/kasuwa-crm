@@ -3288,6 +3288,10 @@ components:
         `internal_error` (500) is ONE fixed body for every unexpected failure
         (T-0036): it carries no database text, SQLSTATE, class name or id, so
         it never says which constraint or code path was hit.
+
+        `service_unavailable` (503) with a numeric `Retry-After` header is
+        ALSO the answer, on every operation, when no database connection came
+        free in time (T-0045): one fixed body, the same on every route.
       properties:
         statusCode: { type: integer }
         error: { type: string, description: The HTTP reason phrase. }

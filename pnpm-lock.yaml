@@ -212,6 +212,9 @@ importers:
       '@kasuwa/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@kasuwa/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       bullmq:
         specifier: ^5.34.6
         version: 5.81.5

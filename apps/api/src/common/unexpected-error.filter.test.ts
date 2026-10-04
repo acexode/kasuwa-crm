@@ -5,8 +5,11 @@ import { inspect } from 'node:util';
 import { DatabaseError } from 'pg';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+import { signInUnavailable } from '../auth/auth.errors';
 import {
   INTERNAL_ERROR_BODY,
+  SERVICE_UNAVAILABLE_BODY,
+  SERVICE_UNAVAILABLE_RETRY_AFTER_SECONDS,
   UnexpectedErrorFilter,
   CLIENT_ERROR_MESSAGE,
   routeTemplate,
@@ -221,5 +224,81 @@ describe('UnexpectedErrorFilter', () => {
     filter.catch({ name: 'Chidinma', code: '12345' }, host);
     expect(sent.body).toEqual(INTERNAL_ERROR_BODY);
     expect(lines).toEqual(['unexpected error class=UnknownError method=GET route=(unmatched)']);
+  });
+});
+
+describe('UnexpectedErrorFilter: pool connection timeout (T-0045)', () => {
+  const filter = new UnexpectedErrorFilter();
+
+  function hostWithHeaders(request: Record<string, unknown> = {}): {
+    host: ArgumentsHost;
+    sent: Sent;
+    headers: Record<string, string>;
+  } {
+    const { host, sent } = httpHost(request);
+    const headers: Record<string, string> = {};
+    const response: Record<string, unknown> = host.switchToHttp().getResponse();
+    response.setHeader = (name: string, value: string): void => {
+      headers[name.toLowerCase()] = value;
+    };
+    return { host, sent, headers };
+  }
+
+  it('answers both pg-pool timeouts with one fixed 503 and a numeric Retry-After', () => {
+    const lines = recordLogs();
+    const waiting = hostWithHeaders({ method: 'post', route: { path: '/api/v1/auth/sign-in' } });
+    const opening = hostWithHeaders({ method: 'get', route: { path: '/api/v1/contacts' } });
+
+    filter.catch(new Error('timeout exceeded when trying to connect'), waiting.host);
+    filter.catch(
+      new Error('Connection terminated due to connection timeout', { cause: new Error(EMAIL) }),
+      opening.host,
+    );
+
+    for (const { sent, headers } of [waiting, opening]) {
+      expect(sent.status).toBe(503);
+      expect(sent.body).toEqual(SERVICE_UNAVAILABLE_BODY);
+      expect(Object.keys(sent.body as object).sort()).toEqual([
+        'code',
+        'error',
+        'message',
+        'statusCode',
+      ]);
+      expect(headers['retry-after']).toBe(String(SERVICE_UNAVAILABLE_RETRY_AFTER_SECONDS));
+      expect(headers['retry-after']).toMatch(/^[1-9]\d*$/);
+    }
+    expect(JSON.stringify(waiting.sent.body)).toBe(JSON.stringify(opening.sent.body));
+    // Logged like any unexpected error: the class, never pg's message.
+    expect(lines).toEqual([
+      'unexpected error class=Error method=POST route=/api/v1/auth/sign-in',
+      'unexpected error class=Error method=GET route=/api/v1/contacts',
+    ]);
+    expect(lines.join('\n')).not.toMatch(/timeout|terminated/);
+  });
+
+  it('answers the hashing-overload 503 with the same body and the same Retry-After', () => {
+    recordLogs();
+    const pool = hostWithHeaders();
+    const hashing = hostWithHeaders();
+    filter.catch(new Error('timeout exceeded when trying to connect'), pool.host);
+    filter.catch(signInUnavailable(), hashing.host);
+    expect(hashing.sent.status).toBe(503);
+    expect(JSON.stringify(hashing.sent.body)).toBe(JSON.stringify(pool.sent.body));
+    expect(hashing.headers).toEqual(pool.headers);
+  });
+
+  it('adds no Retry-After to other HttpExceptions', () => {
+    const { host, headers } = hostWithHeaders();
+    filter.catch(new NotFoundException(), host);
+    expect(headers).toEqual({});
+  });
+
+  it('keeps every other plain Error a 500, without Retry-After', () => {
+    recordLogs();
+    const { host, sent, headers } = hostWithHeaders();
+    filter.catch(new Error('Connection terminated unexpectedly'), host);
+    expect(sent.status).toBe(500);
+    expect(sent.body).toEqual(INTERNAL_ERROR_BODY);
+    expect(headers).toEqual({});
   });
 });

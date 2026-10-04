@@ -1,11 +1,17 @@
 import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import { Catch, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { isPoolConnectionTimeout } from '@kasuwa/db';
 import { InvalidCursorError } from '@kasuwa/domain-core';
 import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { normaliseMethod } from '../telemetry/attributes';
 import { recordRequestFailure } from '../telemetry/request-telemetry';
 import { scrubError, scrubbedFields, type ScrubbedError } from './scrub-error';
+import {
+  SERVICE_UNAVAILABLE_BODY,
+  SERVICE_UNAVAILABLE_HEADERS,
+  SERVICE_UNAVAILABLE_RETRY_AFTER_SECONDS,
+} from './service-unavailable';
 import { ValidationExceptionFilter } from './zod-exception.filter';
 
 /**
@@ -48,6 +54,10 @@ export const INTERNAL_ERROR_BODY = Object.freeze({
   code: 'internal_error',
   message: 'Something went wrong on our side. Please try again.',
 });
+
+// The 503 body and Retry-After live in ./service-unavailable, shared with the
+// hashing-overload 503 so both kinds of load shedding answer identically.
+export { SERVICE_UNAVAILABLE_BODY, SERVICE_UNAVAILABLE_RETRY_AFTER_SECONDS };
 
 /** The route TEMPLATE Express matched (`/api/v1/contacts/:id`), never the URL. */
 export function routeTemplate(request: unknown): string {
@@ -116,6 +126,9 @@ export class UnexpectedErrorFilter implements ExceptionFilter {
         response,
         status,
         typeof body === 'object' ? body : { statusCode: status, message: body },
+        // Every 503 says when to come back (T-0045), including the
+        // hashing-overload one, which shares the pool-timeout body.
+        status === HttpStatus.SERVICE_UNAVAILABLE ? SERVICE_UNAVAILABLE_HEADERS : {},
       );
       return;
     }
@@ -125,6 +138,18 @@ export class UnexpectedErrorFilter implements ExceptionFilter {
     const route = routeTemplate(request);
     this.logger.error(unexpectedErrorLine(scrubbed, method, route));
     recordRequestFailure(request, scrubbed);
+
+    if (isPoolConnectionTimeout(exception)) {
+      // Load, not a fault in the request: 503 with a Retry-After. Logged above
+      // like any other unexpected error (class only - pg's message is not).
+      this.reply(
+        response,
+        HttpStatus.SERVICE_UNAVAILABLE,
+        { ...SERVICE_UNAVAILABLE_BODY },
+        SERVICE_UNAVAILABLE_HEADERS,
+      );
+      return;
+    }
 
     const client = httpClientError(exception);
     if (client !== null) {
@@ -142,12 +167,18 @@ export class UnexpectedErrorFilter implements ExceptionFilter {
    * serialise, a socket already gone), the fallback is a bare 500 - and the
    * second error is deliberately NOT logged: it can carry the same values.
    */
-  private reply(response: Response, status: number, body: object): void {
+  private reply(
+    response: Response,
+    status: number,
+    body: object,
+    headers: Readonly<Record<string, string>> = {},
+  ): void {
     try {
       if (response.headersSent) {
         response.end();
         return;
       }
+      for (const [name, value] of Object.entries(headers)) response.setHeader(name, value);
       response.status(status).json(body);
     } catch {
       try {

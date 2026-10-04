@@ -1,4 +1,5 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { SERVICE_UNAVAILABLE_BODY } from '../common/service-unavailable';
 
 /**
  * The error vocabulary of the authentication API (docs/api/auth.openapi.yaml).
@@ -156,10 +157,12 @@ export function notAuthenticated(): AuthError {
  * microseconds where a verified one takes tens of milliseconds.
  */
 export function signInUnavailable(): AuthError {
+  // The same body as a pool timeout (T-0045): which resource ran out is not
+  // the caller's business. The global filter adds the shared Retry-After.
   return new AuthError(
     HttpStatus.SERVICE_UNAVAILABLE,
-    'service_unavailable',
-    'Too many people are signing in at once. Try again in a moment.',
+    SERVICE_UNAVAILABLE_BODY.code,
+    SERVICE_UNAVAILABLE_BODY.message,
   );
 }
 

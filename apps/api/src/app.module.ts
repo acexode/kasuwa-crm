@@ -47,6 +47,13 @@ export interface AppModuleOptions {
   databaseUrl: string;
   poolMax?: number;
   /**
+   * How long a request waits for a pooled connection before it is answered
+   * 503 `service_unavailable` with `Retry-After` (T-0045). Passed to
+   * `createPool`'s `connectionTimeoutMillis`; omitted, `createPool`'s 5 s
+   * default (T-0013) applies.
+   */
+  poolConnectionTimeoutMillis?: number;
+  /**
    * Which identity transports are accepted.
    *
    * `stub` additionally accepts the `x-kasuwa-*` headers (ADR-0007); `jwt`
@@ -126,11 +133,13 @@ export class AppModule implements NestModule {
       global: true,
       exports: [AUTH_MODE, CHANNEL],
       imports: [
-        DatabaseModule.forRoot(
-          options.poolMax === undefined
-            ? { databaseUrl: options.databaseUrl }
-            : { databaseUrl: options.databaseUrl, poolMax: options.poolMax },
-        ),
+        DatabaseModule.forRoot({
+          databaseUrl: options.databaseUrl,
+          ...(options.poolMax === undefined ? {} : { poolMax: options.poolMax }),
+          ...(options.poolConnectionTimeoutMillis === undefined
+            ? {}
+            : { connectionTimeoutMillis: options.poolConnectionTimeoutMillis }),
+        }),
         // Every admin area. A new area is added inside AdminModule, not here.
         AdminModule,
       ],

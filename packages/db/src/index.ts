@@ -1,4 +1,5 @@
 export * from './auth';
+export * from './auth-retention';
 export * from './fixtures';
 export * from './ids';
 export * from './migrate';
