@@ -16,6 +16,10 @@
 --                       the seed can write across tenants. Never serves traffic.
 --   kasuwa_test_admin - Testcontainers only: truncation between tests and
 --                       catalogue assertions.
+--   kasuwa_sweeper    - NOLOGIN, NOBYPASSRLS. Entered only by SET LOCAL ROLE
+--                       from a kasuwa_app transaction, to prune auth rows past
+--                       retention (D-L66, ADR-0012). Its only policies admit
+--                       rows already dead; SELECT and DELETE on three tables.
 -- ---------------------------------------------------------------------------
 
 DO $$
@@ -29,6 +33,9 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kasuwa_test_admin') THEN
     CREATE ROLE kasuwa_test_admin LOGIN PASSWORD 'kasuwa_test_admin_dev' BYPASSRLS;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kasuwa_sweeper') THEN
+    CREATE ROLE kasuwa_sweeper NOLOGIN NOBYPASSRLS;
+  END IF;
 END
 $$;
 
@@ -38,6 +45,13 @@ $$;
 ALTER ROLE kasuwa_app NOBYPASSRLS;
 ALTER ROLE kasuwa_app NOCREATEDB NOCREATEROLE NOSUPERUSER;
 
+-- The sweeper is bounded only by its policies; it must never bypass them.
+ALTER ROLE kasuwa_sweeper NOLOGIN NOBYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE;
+-- INHERIT FALSE is load-bearing: with inheritance the sweeper's dead-row
+-- policies would apply to every kasuwa_app session. SET TRUE lets the prune
+-- enter it with SET LOCAL ROLE. PostgreSQL 16 syntax; migration 0020 asserts it.
+GRANT kasuwa_sweeper TO kasuwa_app WITH INHERIT FALSE, SET TRUE;
+
 REVOKE ALL ON DATABASE kasuwa FROM PUBLIC;
 
 GRANT CONNECT ON DATABASE kasuwa TO kasuwa_app, kasuwa_migrator, kasuwa_test_admin;
@@ -45,7 +59,7 @@ GRANT CREATE ON DATABASE kasuwa TO kasuwa_migrator;
 
 -- Postgres 15+ no longer grants CREATE on public to PUBLIC.
 GRANT USAGE, CREATE ON SCHEMA public TO kasuwa_migrator;
-GRANT USAGE ON SCHEMA public TO kasuwa_app, kasuwa_test_admin;
+GRANT USAGE ON SCHEMA public TO kasuwa_app, kasuwa_test_admin, kasuwa_sweeper;
 
 -- Everything the migrator creates is readable/writable by the app role, but the
 -- app role never owns anything and therefore can never ALTER ... DISABLE RLS.
