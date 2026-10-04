@@ -1311,3 +1311,28 @@ guard (a trigger or FK through `user_programme`) can follow later under the D-L6
   `withTenantTransaction` must assert `current_user = session_user` (equivalently `current_setting('role') = 'none'`)
   both at the start and at the commit-time check. The pool must also reset the role on checkout. T-0045 does not merge
   until both are in, with an acceptance-style test proving the forged role is refused.
+
+### D-P16 — the auth tables are writable by any app-role SQL (within a tenant)
+**Status:** OPEN, needs @acexode (architecture). Found by the T-0048 suite writer, who probed on main.
+**What happens.** Given arbitrary SQL on `kasuwa_app` inside a tenant, any member could do all of these:
+- insert an `auth_session` for the tenant admin, which is then a valid session with no password and no MFA;
+- overwrite their `user_credential.password_hash`;
+- delete their MFA factors;
+- create a backdoor `"user"` with a credential.
+
+**Why.** The policies on `auth_session`, `user_credential` and `user_mfa_factor` are tenant-only, and the database cannot tell the
+auth code apart from any other code, because all of it runs as `kasuwa_app`.
+
+**Severity.** This is not a cross-tenant leak. It needs the same attacker as T-0046 to T-0048 (SQL injection, or an app bug), and
+that attacker can already forge `app.user_id` (the ADR-0010 residual). So it is defence in depth, not a live exploit.
+Still, closing `"user".status` while leaving `auth_session` open is inconsistent.
+
+**Lead recommendation.**
+- Add a separate LOGIN role, `kasuwa_auth`, used only by the auth module's own pool.
+- Make it the only role with INSERT, UPDATE and DELETE on `auth_session`, `auth_challenge`, `user_credential`,
+  `user_mfa_factor` and `user_mfa_backup_code`.
+- Leave `kasuwa_app` with SELECT where it needs it (session resolution already goes through `app.resolve_session`).
+- Record the decision in an ADR. Cost: a second pool and a migration. Benefit: an injection anywhere outside auth can no longer mint
+  sessions or rewrite credentials.
+
+**Until decided:** tracked; no task assigned.
