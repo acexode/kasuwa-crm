@@ -1284,3 +1284,12 @@ because CHECK and FK validation and index builds scan the table. At PRD 2.13 sca
   - `kasuwa_app` itself still sees nothing across tenants. The T-0045 suite's adversarial guards check this.
 - **Bootstrap edit:** this is the first edit to `bootstrap.sql` since it was written. It is a protected path, so the lead reviews the
   role diff line by line.
+
+### D-L67 — a contact's owner must belong to the contact's programme (answers the open D-L61 item)
+**Status:** DECIDED (lead, reversible). This came from the T-0041 tenancy review (major finding).
+Without the rule, an agent in A1 could assign an A1 contact to a user who belongs only to A2, and in doing so learn
+that the user id exists: a real id is accepted where an invented one gets 400. That is a programme-level existence
+oracle across the BPO isolation boundary.
+**Rule:** `ownerUserId` must have a `user_programme` row in the contact's programme. Anything else gets the same 400
+`unknown_reference` body as an id that names nothing. T-0041 enforces this in the repository's owner check. A schema-level
+guard (a trigger or FK through `user_programme`) can follow later under the D-L65 rules.
