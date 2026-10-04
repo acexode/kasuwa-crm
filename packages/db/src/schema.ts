@@ -135,6 +135,39 @@ export const userProgramme = pgTable(
   ],
 );
 
+// --- contact value sets (D-L61) -------------------------------------------
+// Stored values are snake_case codes; display labels live in @kasuwa/i18n.
+// Enforced by CHECK constraints in 0019; these lists must match them exactly.
+
+export const CONTACT_STATUSES = [
+  'new',
+  'contacted',
+  'qualified',
+  'unqualified',
+  'customer',
+] as const;
+export type ContactStatus = (typeof CONTACT_STATUSES)[number];
+
+export const CONTACT_SOURCES = [
+  'whatsapp',
+  'ussd',
+  'web_form',
+  'missed_call',
+  'import',
+  'api',
+  'manual',
+  'referral',
+  'walk_in',
+] as const;
+export type ContactSource = (typeof CONTACT_SOURCES)[number];
+
+export const CONTACT_PREFERRED_CHANNELS = ['whatsapp', 'sms', 'voice', 'email'] as const;
+export type ContactPreferredChannel = (typeof CONTACT_PREFERRED_CHANNELS)[number];
+
+/** NOT NULL, default 'unknown'. Never defaults to consent. */
+export const CONTACT_CONSENT_STATES = ['unknown', 'opted_in', 'pending', 'withdrawn'] as const;
+export type ContactConsentState = (typeof CONTACT_CONSENT_STATES)[number];
+
 export const contact = pgTable(
   'contact',
   {
@@ -148,9 +181,67 @@ export const contact = pgTable(
     emails: jsonb('emails').notNull().default([]),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    // --- M3 fields (migration 0019, T-0040, D-L61) ---
+    /** Composite FK (tenant_id, owner_user_id) -> "user" (tenant_id, id). */
+    ownerUserId: uuid('owner_user_id'),
+    status: text('status', { enum: CONTACT_STATUSES }),
+    source: text('source', { enum: CONTACT_SOURCES }),
+    tags: text('tags').array(),
+    /** BCP-47 tag, format-checked in SQL. */
+    preferredLanguage: text('preferred_language'),
+    preferredChannel: text('preferred_channel', { enum: CONTACT_PREFERRED_CHANNELS }),
+    state: text('state'),
+    lga: text('lga'),
+    /**
+     * false means "not known to be on the NCC register", NOT "checked and clear".
+     * No promotional send may rely on it (D-L61).
+     */
+    dnd: boolean('dnd').notNull().default(false),
+    whatsappOptIn: boolean('whatsapp_opt_in').notNull().default(false),
+    consentState: text('consent_state', { enum: CONTACT_CONSENT_STATES })
+      .notNull()
+      .default('unknown'),
+    phoneNetwork: text('phone_network'),
+    /** Composite FK (tenant_id, programme_id, account_id) -> account. */
+    accountId: uuid('account_id'),
+    /** Optimistic-concurrency counter (T-0039); kept moving by app.bump_version(). */
+    version: integer('version').notNull().default(1),
   },
   (table) => [
     index('contact_keyset_idx').on(table.tenantId, table.programmeId, table.createdAt, table.id),
+    index('contact_account_idx')
+      .on(table.tenantId, table.programmeId, table.accountId)
+      .where(sql`account_id IS NOT NULL`),
+    index('contact_owner_idx')
+      .on(table.tenantId, table.ownerUserId)
+      .where(sql`owner_user_id IS NOT NULL`),
+  ],
+);
+
+/**
+ * Programme-scoped exactly like contact (migration 0019, T-0040). A contact
+ * links to an account in its own programme only.
+ */
+export const account = pgTable(
+  'account',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    name: text('name').notNull(),
+    /** Optimistic-concurrency counter (T-0039); kept moving by app.bump_version(). */
+    version: integer('version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Maintained by the app.touch_updated_at() trigger when a statement leaves it unchanged. */
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('account_tenant_id_programme_id_id_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.id,
+    ),
+    index('account_keyset_idx').on(table.tenantId, table.programmeId, table.createdAt, table.id),
   ],
 );
 
@@ -677,6 +768,7 @@ export const TENANT_SCOPED_TABLES = [
   'user',
   'user_programme',
   'contact',
+  'account',
   'object_def',
   'field_def',
   'user_credential',
