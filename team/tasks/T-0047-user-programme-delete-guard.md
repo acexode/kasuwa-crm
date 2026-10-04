@@ -1,6 +1,6 @@
 # T-0047 — Guard DELETE on `"user"` and `programme` (the second lockout path)
 
-**status** `not-assigned` (builder running: Agent 1, `agent1/T-0047-delete-guard`; suite on `lead/T-0047-acceptance` e88bc75) · **owner** Agent 1 · **priority** P1 (raised: tenant and business_unit too) · **decisions** D-L55
+**status** `done` (#86) · **owner** Agent 1 · **priority** P1 (raised: tenant and business_unit too) · **decisions** D-L55
 
 ## Goal
 `kasuwa_app` holds DELETE on `"user"` and `programme`, and `user_isolation` is tenant-only. A non-admin can therefore
