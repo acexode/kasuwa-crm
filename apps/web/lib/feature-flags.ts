@@ -53,3 +53,24 @@ export async function adminLiveApiEnabled(): Promise<boolean> {
     toEvaluationContext({ tenantId: ADMIN_CONSOLE }),
   );
 }
+
+/**
+ * `crm_records` (T-0042, D-L64) gates the ROUTES of the CRM shell: `/contacts`
+ * and the `/contacts/[id]` scaffolding call `notFound()` while it is off, so
+ * typing the path gets a real 404 and nothing of the screen is shipped.
+ *
+ * Per process, like the two above: the browser's session decides the tenant at
+ * the API, so the evaluation carries a sentinel no per-tenant rule can match.
+ * It decides nothing about access — the contacts API scopes every row from the
+ * session and `user_programme` whether this is on or off.
+ */
+const CRM_SHELL = 'process:crm-shell';
+
+export async function crmRecordsEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_records',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}

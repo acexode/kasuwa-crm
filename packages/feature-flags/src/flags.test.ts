@@ -13,7 +13,7 @@ describe('feature flags', () => {
    * review question — which task, and who turns it on — not a refactor.
    */
   it('declares exactly the flags a task has asked for', () => {
-    expect(Object.keys(FLAGS)).toEqual(['self_serve_signup', 'admin_live_api']);
+    expect(Object.keys(FLAGS)).toEqual(['self_serve_signup', 'admin_live_api', 'crm_records']);
   });
 
   it('ships self_serve_signup OFF (D-P2)', () => {
@@ -49,6 +49,18 @@ describe('feature flags', () => {
     expect(() =>
       assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: ['admin_live_api'] }),
     ).toThrow(/Refusing to start.*admin_live_api/);
+  });
+
+  it('ships crm_records OFF and not production-ready until T-0041 is live (T-0042, D-L64)', () => {
+    expect(FLAGS.crm_records.defaultValue).toBe(false);
+    expect(FLAGS.crm_records.productionReady).toBe(false);
+    expect(flagConfiguration([]).crm_records.defaultVariant).toBe('off');
+    expect(flagConfiguration(['crm_records']).crm_records.defaultVariant).toBe('on');
+    expect(flagConfiguration(['crm_records']).admin_live_api.defaultVariant).toBe('off');
+    expect(() =>
+      assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: ['crm_records'] }),
+    ).toThrow(/Refusing to start.*crm_records/);
+    expect(() => assertFlagsAreProductionSafe({ nodeEnv: 'test', enabled: ['crm_records'] })).not.toThrow();
   });
 
   it('refuses an unknown flag name instead of ignoring it', () => {
