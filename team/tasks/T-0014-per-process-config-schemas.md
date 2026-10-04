@@ -61,7 +61,7 @@ the easier move and the wrong one.
 ## Acceptance tests
 
 To be written by the lead when this is assigned, at
-`tests/acceptance/platform/config-schemas.pending.acceptance.test.ts`.
+`tests/acceptance/platform/config-schemas.acceptance.test.ts`.
 
 Behaviours they will name:
 
@@ -80,3 +80,8 @@ Behaviours they will name:
   configuration out of the browser bundle without a server component boundary
   that does not exist yet. That is a finding about the app shell, not about
   config, and it belongs in `DECISIONS.md`.
+
+**Builder running (Agent 1, `agent1/T-0014-config-schemas`); the suite lands with that PR.** Suite written 2026-10-04 on `lead/T-0014-acceptance` (813bb18). On main, 20 tests fail and 16 scanner
+self-tests pass. Exemption list: `apps/web/build.mjs` (the `...process.env` spread) only. Finding:
+importing `@kasuwa/config` loads `.env`, so it puts `DATABASE_URL` into the web process. Resolve that
+in this task.
