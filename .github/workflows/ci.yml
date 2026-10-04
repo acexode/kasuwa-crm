@@ -79,6 +79,13 @@ jobs:
           pnpm ui:tokens
           git diff --exit-code -- packages/ui/src/tokens.generated.css packages/ui/tailwind-preset.cjs
 
+      # The icon font holds only the names in packages/ui/icon-subset.txt; any
+      # other name renders as a blank box, silently and only in production.
+      # The IconName union catches most at compile time; this catches the rest
+      # (raw k-icon spans, ternary arms, any app). Unused glyphs only warn.
+      - name: Verify every icon used is in the font subset
+        run: pnpm verify:icons
+
   # --------------------------------------------------------------------------
   # The git hooks, mirrored (D-L34). There is no branch protection on this
   # repository, so `git commit --no-verify` skips .husky/commit-msg and
