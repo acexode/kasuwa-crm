@@ -1085,3 +1085,18 @@ Fixed in T-0032 itself: the creation marker also requires `created_at` within th
   and the T-0012 suite asserts that (`backupCodesRemaining` is unchanged after a replacement). The
   lead's recommendation is yes: return a fresh set on confirm. That needs a lead edit to the suite
   first. Not changed under the dev arrangement.
+
+### D-L57 — lead suite fixes from the first Docker run on `dev` (2026-10-04)
+**Status:** DONE (lead, approved by @acexode in chat). PR #70.
+The first isolation run on `dev` (447/457) found three defects in lead-owned suites. They are fixed
+without loosening any assertion:
+- **permissions (T-0032):** the versions are now read before the supertest request is built. Awaiting
+  another request inside `.send()` closed the shared listener (ECONNREFUSED).
+- **permissions (T-0032):** archive confirms with the programme's current name. An earlier
+  `updateProgramme` in the same loop renames it.
+- **audit-coverage (T-0033):** the actor test grants agent 2 the `admin` set in A2 first. Since T-0032
+  the `agent` set may not create dispositions.
+The remaining failures were not code defects. The six T-0035 browser tests cannot run on this Windows
+host (Smart App Control blocks Next's SWC binary, and `cmd.exe` splits the `--grep` on `|`), and are
+**skipped at @acexode's instruction** until a Linux runner is available. The old auth timing test
+(ratio < 3) failed once under host load and passed alone.
