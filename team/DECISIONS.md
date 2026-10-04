@@ -1243,3 +1243,13 @@ queue, without letting them rewrite customer data.
   Until then T-0042 shows a neutral label.
 - **The pin is accepted.** The T-0042 suite pins its e2e spec and mock by sha256, because `tests/e2e` is not
   path-protected. Changing either file needs a lead edit.
+
+### D-P15 — T-0042 waits on one test-file edit by @acexode (permission boundary)
+**Status:** OPEN, needs @acexode. PR #81 (Contacts screen) passes 27/28 acceptance and every e2e tag
+(`@p04` 23/23 + 1 fixme, `@p02` 86/86, `@locale-beta` 7/7, `@byte-budget` 1/1, `@harness` 6/6).
+The one failure is the budget re-pin. Auto mode refused the builder's edit to
+`tests/e2e/p04-contacts.spec.ts`, which changes `CONTACTS_BUDGET_BYTES = 240_000` to `226_000` (measured 216,100 B;
+the rule is ≤ 1.05 × measured). This edit **tightens** the budget. The lead does not route around a block
+placed on another agent, so the edit is left to @acexode: make it yourself, or switch auto mode off for that step.
+**Also for @acexode:** the `en-XA` pseudo-locale preview is now reachable in production, as `ar` is. Should
+it be dev-only? Lead recommendation: yes, dev and test only.
