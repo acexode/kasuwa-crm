@@ -1,6 +1,6 @@
 # T-0049 — A separate `kasuwa_auth` role owns writes to the auth tables
 
-**status** `not-assigned` · **owner** Agent 1 · **priority** P1 · **decisions** D-P16 (answered), ADR-0013 (to write)
+**status** `blocked` (suite on `lead/T-0049-acceptance` 206c815; needs the lead acceptance-edit window) · **owner** Agent 1 · **priority** P1 · **decisions** D-P16 (answered), ADR-0013 (to write)
 
 ## Goal
 Today any `kasuwa_app` SQL in a tenant can mint an `auth_session` for the tenant admin, rewrite a password hash,
@@ -17,3 +17,17 @@ delete MFA factors, or create a backdoor user with a credential. Make the auth m
 
 ## Acceptance tests
 `tests/acceptance/platform/auth-role.acceptance.test.ts`, written by the lead.
+
+**Suite written 2026-10-04 (41 tests; 33 fail on main for the real reason).** Pinned interfaces:
+- `kasuwa_auth` role, `DATABASE_AUTH_URL`, `AppModuleOptions.authDatabaseUrl`
+- `AUTH_PG_POOL` under `apps/api/src/auth/`
+- `inject('authDatabaseUrl')`
+
+**Blocked because** adding the second pool needs lead edits that auto mode refuses:
+- `tests/acceptance/support/api.ts` (`createApi` reads the auth URL)
+- five suites that call `AppModule.forRoot` directly
+- `config-schemas` fixtures
+- the `bootstrap.sql` role, which is lead-owned and the lead applies it
+- `run-e2e.mjs`, `.env.example` and docker-compose
+
+Do them together with the other pending acceptance edits (D-P15 / D-L68 / T-0042) in one session with auto mode off.
