@@ -1120,3 +1120,12 @@ When a replacement factor is confirmed, every unused backup code of that user is
 confirm response returns a fresh set of ten (`Cache-Control: no-store`). Codes kept with a lost device
 must not outlive it. The lead edits the T-0012 lost-device assertion (`backupCodesRemaining`) first,
 then a builder implements it. This is queued as a small follow-up task after `dev` is promoted to `main`.
+
+### D-L59 — auth timing test flaky under full-suite load (follow-up for Agent 12)
+**Status:** TRACKED.
+`tests/acceptance/auth/authentication.acceptance.test.ts`, "does not leak which addresses exist through
+response timing" (unknown/known ratio < 3), failed in both full isolation runs on 2026-10-04 (ratio
+about 4.1) and passed every time it ran alone. T-0013 moved hashing onto a worker pool, so the first
+thing to check is a real unknown-vs-known asymmetry under CPU contention, for example dummy-hash
+warm-up or queueing differences. Only after ruling that out may it be treated as noise. Do **not**
+widen the threshold to make it pass.
