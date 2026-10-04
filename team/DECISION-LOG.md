@@ -1097,3 +1097,19 @@ using the normal PR flow.
 - the full re-run, minus the browser file, is recorded in STATUS when it finishes.
 **D-L23** (each preserved `lead/T-00xx-acceptance` suite must fail without its code) had not yet been run
 at promotion. The lead runs it afterwards and reports any suite that fails for the wrong reason.
+
+## 2026-10-04 — D-L23 evidence for the wave, run after promotion
+Each preserved `lead/T-00xx-acceptance` commit was run with Docker against the code as it was **before** its
+task. Every suite fails, and for the reason its task fixes:
+| Task | Result before the task | Why it fails (the right reason) |
+|---|---|---|
+| T-0012 | 16/16 fail | The enrolment and `/auth/me/mfa` routes 404 (not built) |
+| T-0013 | 3/8 fail | The event loop stalls about 101 ms and `/health` takes about 147 ms during a sign-in burst (bound about 35 ms) |
+| T-0015 | suite guard fails (14 skipped) | `@kasuwa/domain-core` lacks `provisionTenant` and its errors |
+| T-0032 | 27/42 fail | 409 `duplicate_name` where 403 `not_permitted` is required, and so on |
+| T-0033 | 10/12 fail | Audited writes record 0 events |
+| T-0034 | 10/11 fail | `tools/generate-features.mjs` and the CI register steps are missing |
+| T-0036 | 8/8 fail | No class or SQLSTATE in the log line, so telemetry is unscrubbed |
+| T-0037 | 3/6 fail | drizzle-orm 0.38.4 still resolves, and the advisory is still baselined |
+T-0035 is a browser suite. It was **not run** on @acexode's instruction, because the Windows host can't run it.
+The D-L23 deferral of 2026-10-03 is now closed for every task except T-0035.
