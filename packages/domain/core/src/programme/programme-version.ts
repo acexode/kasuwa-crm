@@ -60,6 +60,12 @@ export function versionFromUpdatedAt(rendered: string): number {
  * earlier than one millisecond after its current value. Two writes inside the
  * same millisecond — or a clock that steps backwards — still produce two
  * different versions, so a stale token can never match again by accident.
+ *
+ * EVERY `UPDATE programme` must set `updated_at` to this. Migration 0018's
+ * trigger sets `now()` on any UPDATE that leaves `updated_at` alone, and
+ * `now()` is the transaction start: after an earlier statement in the same
+ * transaction wrote this value, an UPDATE that forgot it would move the
+ * version backwards, and a stale token could match again.
  */
 export const NEXT_UPDATED_AT_SQL = `GREATEST(
   date_trunc('milliseconds', clock_timestamp()),

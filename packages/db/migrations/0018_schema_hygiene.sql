@@ -72,16 +72,7 @@
 
 SET LOCAL lock_timeout = '5s';
 
--- --- 1. redundant indexes ---------------------------------------------------
-
-DROP INDEX business_unit_tenant_idx;
-DROP INDEX programme_tenant_idx;
-DROP INDEX user_tenant_idx;
-DROP INDEX user_credential_tenant_idx;
-DROP INDEX object_def_tenant_idx;
-DROP INDEX field_def_tenant_object_idx;
-
--- --- 2. updated_at ----------------------------------------------------------
+-- --- 1. updated_at ----------------------------------------------------------
 
 CREATE FUNCTION app.touch_updated_at() RETURNS trigger
   LANGUAGE plpgsql
@@ -196,3 +187,17 @@ BEGIN
   END IF;
 END
 $$;
+
+-- --- 2. redundant indexes ---------------------------------------------------
+-- Last on purpose (migration-reviewer, T-0011): DROP INDEX takes ACCESS
+-- EXCLUSIVE on the table and holds it until COMMIT. Done first, those locks
+-- would be held on "user" and programme - blocking sign-in reads - while the
+-- transaction queued for sixteen trigger locks above. Here they are held only
+-- for the final catalogue change.
+
+DROP INDEX business_unit_tenant_idx;
+DROP INDEX programme_tenant_idx;
+DROP INDEX user_tenant_idx;
+DROP INDEX user_credential_tenant_idx;
+DROP INDEX object_def_tenant_idx;
+DROP INDEX field_def_tenant_object_idx;
