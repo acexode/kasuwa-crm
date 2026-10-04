@@ -91,7 +91,15 @@
 -- is held; fail fast rather than queue behind a long transaction and block
 -- every session resolution behind it. Transaction-local: the runner wraps each
 -- file.
-SET LOCAL lock_timeout = '5s';
+-- ROW LOCKS (migration-reviewer, T-0046): PostgreSQL applies UPDATE policies'
+-- USING to SELECT ... FOR UPDATE / FOR SHARE. Any row lock taken on
+-- user_programme - directly, or a FOR UPDATE without OF on a join that includes
+-- it - silently returns 0 rows to a non-admin. Never lock user_programme in
+-- scope resolution or a join; it would fail closed into an outage.
+--
+-- 2s, not 5s: every request's scope resolution reads user_programme, and new
+-- readers queue behind CREATE POLICY's ACCESS EXCLUSIVE while it waits.
+SET LOCAL lock_timeout = '2s';
 
 -- --- 1. only a tenant admin may change a membership ---------------------------
 

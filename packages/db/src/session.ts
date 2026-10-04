@@ -131,6 +131,9 @@ const SET_CONTEXT_SQL = `
     current_user = session_user AS role_intact
 `;
 
+// Never add FOR UPDATE / FOR SHARE here: migration 0021's restrictive UPDATE
+// policies apply to row locks, so a locked read would resolve every non-admin
+// to zero programmes (fail closed, but an outage).
 const RESOLVE_SCOPE_SQL = `
   SELECT up.programme_id
     FROM user_programme up
