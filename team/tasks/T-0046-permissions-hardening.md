@@ -1,6 +1,6 @@
 # T-0046 — Permissions-engine hardening (the D-L55 gaps)
 
-**status** `not-assigned` (builder running: Agent 1, `agent1/T-0046-permissions-hardening`; suite on `lead/T-0046-acceptance` 51f080f) · **owner** Agent 1 · **priority** P1 (before any "assign permissions" endpoint) · **decisions** D-L55, D-L53, D-L51
+**status** `done` (#85) · **owner** Agent 1 · **priority** P1 (before any "assign permissions" endpoint) · **decisions** D-L55, D-L53, D-L51
 
 ## Goal
 Close the gaps the T-0032 security review left open (D-L55):
