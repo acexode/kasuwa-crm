@@ -108,3 +108,8 @@ Standard (`CLAUDE.md` section 5), plus:
 - The icon name cannot be statically determined in some real case (a name built
   from data). Say so — the answer is probably a runtime fallback glyph plus a
   logged warning, and that is a design decision, not an implementation detail.
+
+**Builder running (Agent 11, `agent11/T-0006-verify-icons`); the suite lands with that PR.** Suite written
+2026-10-04 on `lead/T-0006-acceptance` (702b141). On main 7 of 9 tests fail; the 2 font tests pass
+genuinely, and a planted failure was demonstrated. Interface pinned in the suite header:
+`tools/verify-icons.mjs [--root <dir>]`.
