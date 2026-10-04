@@ -127,7 +127,8 @@ const SET_CONTEXT_SQL = `
   SELECT
     set_config('app.tenant_id',     $1, true),
     set_config('app.user_id',       $2, true),
-    set_config('app.programme_ids', $3, true)
+    set_config('app.programme_ids', $3, true),
+    current_user = session_user AS role_intact
 `;
 
 const RESOLVE_SCOPE_SQL = `
@@ -148,8 +149,51 @@ const USER_EXISTS_SQL = `SELECT 1 FROM "user" WHERE id = $1 AND status = 'active
 const READ_CONTEXT_SQL = `
   SELECT current_setting('app.tenant_id',     true) AS tenant_id,
          current_setting('app.user_id',       true) AS user_id,
-         current_setting('app.programme_ids', true) AS programme_ids
+         current_setting('app.programme_ids', true) AS programme_ids,
+         current_user = session_user                AS role_intact
 `;
+
+/**
+ * Throws `SessionScopeViolationError` unless the row says the role in force is
+ * the role the connection logged in as (T-0045).
+ *
+ * WHY THE ROLE IS PART OF THE SCOPE. Since D-L66, kasuwa_app is a member of
+ * `kasuwa_sweeper` (NOINHERIT, SET), so that `pruneAuthTables` can enter it.
+ * Membership with SET means any statement on a kasuwa_app connection can
+ * switch to it - `SET ROLE`, or `set_config('role', 'kasuwa_sweeper', ...)`,
+ * which works inside a SELECT. Under the sweeper the dead-row policies apply
+ * across every tenant while every app.* GUC still reads as resolved, so the
+ * GUC comparison alone would pass. Nothing in a tenant or auth transaction
+ * ever changes role legitimately, so the check is simply equality with
+ * session_user.
+ */
+export function assertRoleIntact(row: { role_intact?: boolean | null } | undefined): void {
+  if (row?.role_intact !== true) {
+    throw new SessionScopeViolationError();
+  }
+}
+
+/**
+ * Returns a connection to the pool with no role left on it.
+ *
+ * `set_config('role', ..., false)` - session-scoped - survives COMMIT, and a
+ * callback can hide it at commit time behind a transaction-local reset. So
+ * every helper that hands a connection to caller-supplied SQL resets the role
+ * on the way out, before the next checkout can see it. A connection that
+ * cannot be reset, or that the caller asks to discard (a scope violation, a
+ * failed ROLLBACK), is destroyed instead of returned.
+ */
+export async function releaseClean(client: PoolClient, discard: boolean): Promise<void> {
+  let destroy = discard;
+  if (!destroy) {
+    try {
+      await client.query('RESET ROLE');
+    } catch {
+      destroy = true;
+    }
+  }
+  client.release(destroy);
+}
 
 /**
  * Reads the context back and throws `SessionScopeViolationError` if it is not
@@ -173,8 +217,10 @@ export async function assertScopeIntact(
     tenant_id: string | null;
     user_id: string | null;
     programme_ids: string | null;
+    role_intact: boolean | null;
   }>(READ_CONTEXT_SQL);
   const row = result.rows[0];
+  assertRoleIntact(row);
   const actual: SessionScopeSnapshot = {
     tenantId: row?.tenant_id ?? null,
     userId: row?.user_id ?? null,
@@ -198,13 +244,20 @@ export async function withTenantTransaction<T>(
   const userId = Uuid.parse(request.userId);
 
   const client: PoolClient = await pool.connect();
+  let discard = false;
   try {
     await client.query('BEGIN');
 
     // Phase 1: tenant scope only. `user` and `user_programme` are tenant-scoped
     // (not programme-scoped) precisely so that this lookup is possible before
-    // the programme scope is known.
-    await client.query(SET_CONTEXT_SQL, [tenantId, userId, '{}']);
+    // the programme scope is known. The same statement confirms no role was
+    // left on the connection (see `assertRoleIntact`).
+    const started = await client.query<{ role_intact: boolean | null }>(SET_CONTEXT_SQL, [
+      tenantId,
+      userId,
+      '{}',
+    ]);
+    assertRoleIntact(started.rows[0]);
 
     const exists = await client.query(USER_EXISTS_SQL, [userId]);
     if (exists.rowCount === 0) {
@@ -244,14 +297,16 @@ export async function withTenantTransaction<T>(
     await client.query('COMMIT');
     return value;
   } catch (error) {
+    // A connection whose scope or role was tampered with is not trusted again.
+    if (error instanceof SessionScopeViolationError) discard = true;
     try {
       await client.query('ROLLBACK');
     } catch {
-      // The connection is already broken; releasing it below with an error
-      // tells pg to discard rather than reuse it.
+      // The connection is already broken: discard rather than reuse it.
+      discard = true;
     }
     throw error;
   } finally {
-    client.release();
+    await releaseClean(client, discard);
   }
 }

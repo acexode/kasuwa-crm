@@ -60,10 +60,11 @@ vi.mock('pg', async (importOriginal) => {
           user_id: String(params[1]),
           programme_ids: String(params[2]),
         };
-        return { rows: [{}], rowCount: 1 };
+        return { rows: [{ role_intact: true }], rowCount: 1 };
       }
       if (text.includes("current_setting('app.tenant_id'")) {
-        return { rows: [{ ...this.gucs }], rowCount: 1 };
+        // role_intact: assertScopeIntact also checks no role was switched (T-0045).
+        return { rows: [{ ...this.gucs, role_intact: true }], rowCount: 1 };
       }
       if (text.includes('SELECT 1 FROM "user"')) {
         return { rows: [{}], rowCount: 1 };
