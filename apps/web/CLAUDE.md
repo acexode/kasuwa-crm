@@ -94,7 +94,9 @@ server component importing one gets a proxy, which fails at request time and not
 at compile time.
 
 **The API is same-origin.** Every fetch is a relative `/api/v1/...` path;
-`next.config.mjs` rewrites it. No `process.env` in app code, and no extra DNS
+`next.config.mjs` rewrites it, reading the origin through `webEnv()` from
+`@kasuwa/config/web` (T-0014). No `process.env` anywhere in apps/web (bar the
+`...process.env` spread in `build.mjs`), and no extra DNS
 lookup, TLS handshake or CORS preflight on a 300 ms link.
 
 ## Icons

@@ -22,11 +22,43 @@ import i18next from 'eslint-plugin-i18next';
  *                               externalised for nine locales and RTL
  */
 
-const ENV_SELECTOR = {
-  selector: "MemberExpression[object.name='process'][property.name='env']",
-  message:
-    'Read configuration through @kasuwa/config, which validates the environment with Zod at one boundary.',
-};
+const ENV_MESSAGE =
+  'Read configuration through @kasuwa/config (apiEnv/webEnv/workerEnv/realtimeEnv), which validates the environment with Zod at one boundary.';
+
+/**
+ * Every form of process-environment access the T-0014 acceptance scan knows,
+ * so that lint, not only the scan, enforces "no process.env outside
+ * @kasuwa/config": `process.env`, `process['env']`, `process[key]`,
+ * `globalThis.process.env`, `const { env } = process`, and importing the
+ * `process` module (which renames `process` out of sight).
+ *
+ * `ENV_SELECTORS_EXCEPT_SPREAD` is the same list with the plain member read
+ * narrowed so that a `...process.env` spread passes. It is used for exactly one
+ * file, `apps/web/build.mjs` (see the block below).
+ */
+const PROCESS_ENV_MEMBER = "MemberExpression[object.name='process'][property.name='env']";
+const ENV_SELECTORS_OTHER = [
+  "MemberExpression[object.name='process'][property.value='env']",
+  "MemberExpression[object.name='process'][computed=true][property.type!='Literal']",
+  "MemberExpression[object.property.name='process'][property.name='env']",
+  "MemberExpression[object.property.value='process'][property.name='env']",
+  "VariableDeclarator[init.name='process'] > ObjectPattern > Property[key.name='env']",
+  "VariableDeclarator[init.property.name='process'] > ObjectPattern > Property[key.name='env']",
+  'ImportDeclaration[source.value=/^(node:)?process$/]',
+  "CallExpression[callee.name='require'][arguments.0.value=/^(node:)?process$/]",
+  'ImportExpression[source.value=/^(node:)?process$/]',
+].map((selector) => ({ selector, message: ENV_MESSAGE }));
+const ENV_SELECTORS = [
+  { selector: PROCESS_ENV_MEMBER, message: ENV_MESSAGE },
+  ...ENV_SELECTORS_OTHER,
+];
+const ENV_SELECTORS_EXCEPT_SPREAD = [
+  { selector: `:not(SpreadElement) > ${PROCESS_ENV_MEMBER}`, message: ENV_MESSAGE },
+  ...ENV_SELECTORS_OTHER,
+];
+
+/** Every source extension in the workspace, not only TypeScript. */
+const ALL_SOURCES = ['**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}'];
 
 const HEX_SELECTOR = {
   selector: 'Literal[value=/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/]',
@@ -243,29 +275,53 @@ export default tseslint.config(
   // One block, because `no-restricted-syntax` is a single rule: a later config
   // object replaces its whole configuration rather than adding to it. The two
   // exemptions below therefore re-state the selector they still want.
+  //
+  // Every source extension, not only `.ts`/`.tsx` (T-0014): a `.mjs` config
+  // file is exactly where `process.env` reads used to hide.
   {
-    files: ['**/*.ts', '**/*.tsx'],
+    files: ALL_SOURCES,
     rules: {
-      'no-restricted-syntax': ['error', ENV_SELECTOR, HEX_SELECTOR],
+      'no-restricted-syntax': ['error', ...ENV_SELECTORS, HEX_SELECTOR],
     },
   },
   {
-    // @kasuwa/config is the one place that may read process.env - it is the
-    // validated boundary everything else goes through.
-    files: ['packages/config/**/*.ts', 'tools/**', '**/*.config.ts', '**/*.config.mjs'],
+    // @kasuwa/config is the one place in the product that may read process.env:
+    // it is the validated boundary everything else goes through. The others are
+    // not product code: repository tooling, the e2e launcher (which starts each
+    // process with the environment it needs), and the lead's git hooks.
+    //
+    // There is deliberately no `**/*.config.*` wildcard any more. It is how
+    // apps/web/next.config.mjs came to read three variables unvalidated.
+    files: ['packages/config/**', 'tools/**', 'tests/e2e/scripts/**', '.claude/hooks/**'],
     rules: { 'no-restricted-syntax': ['error', HEX_SELECTOR] },
   },
   {
     // packages/ui is the one place that may contain colour literals - it is the
     // design system, and every other module reads tokens from it.
-    files: ['packages/ui/**/*.ts'],
-    rules: { 'no-restricted-syntax': ['error', ENV_SELECTOR] },
+    files: ['packages/ui/**'],
+    rules: { 'no-restricted-syntax': ['error', ...ENV_SELECTORS] },
   },
   {
     // No app process may read the migrator connection string (D-L07, D-L54).
-    files: ['apps/**/*.ts', 'apps/**/*.tsx'],
+    files: ['apps/**'],
     rules: {
-      'no-restricted-syntax': ['error', ENV_SELECTOR, HEX_SELECTOR, ...MIGRATION_URL_SELECTORS],
+      'no-restricted-syntax': ['error', ...ENV_SELECTORS, HEX_SELECTOR, ...MIGRATION_URL_SELECTORS],
+    },
+  },
+  {
+    // The one named exemption (T-0014 acceptance suite): apps/web/build.mjs may
+    // SPREAD the environment, unread, into the `next build` child process with
+    // NODE_ENV overridden. Node has no other way to override one variable for
+    // a child while passing the rest through. Any other access in this file,
+    // `process.env.FOO` included, is still an error.
+    files: ['apps/web/build.mjs'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...ENV_SELECTORS_EXCEPT_SPREAD,
+        HEX_SELECTOR,
+        ...MIGRATION_URL_SELECTORS,
+      ],
     },
   },
 
@@ -311,6 +367,16 @@ export default tseslint.config(
       },
     },
     rules: { 'no-console': 'off', 'no-undef': 'off' },
+  },
+
+  // --- plain-node JavaScript that is not tooling ---------------------------
+  // @kasuwa/config's schemas are checked JavaScript (Next imports them from
+  // next.config.mjs natively, T-0014), and apps/web/build.mjs is the web build
+  // wrapper. Both are Node modules and need Node's globals; neither gets the
+  // tooling block's `no-console: off`.
+  {
+    files: ['packages/config/**/*.mjs', 'apps/web/build.mjs'],
+    languageOptions: { globals: { process: 'readonly' } },
   },
 
   // --- generated files are not hand-maintained -----------------------------

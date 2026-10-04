@@ -1,4 +1,4 @@
-import { env } from '@kasuwa/config';
+import { loadWorkspaceEnv, realtimeEnv } from '@kasuwa/config';
 import { WebSocketServer } from 'ws';
 
 /**
@@ -20,7 +20,8 @@ import { WebSocketServer } from 'ws';
  *      filter" is how a wallboard leaks another client's queue statistics.
  */
 async function main(): Promise<void> {
-  const configuration = env();
+  loadWorkspaceEnv();
+  const configuration = realtimeEnv();
   const server = new WebSocketServer({ port: configuration.REALTIME_PORT });
 
   server.on('connection', (socket) => {

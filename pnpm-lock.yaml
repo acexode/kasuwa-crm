@@ -163,6 +163,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@kasuwa/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@kasuwa/feature-flags':
         specifier: workspace:*
         version: link:../../packages/feature-flags

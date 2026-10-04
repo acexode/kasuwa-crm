@@ -1,4 +1,4 @@
-import { env } from '@kasuwa/config';
+import { loadWorkspaceEnv, workerEnv } from '@kasuwa/config';
 import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 
@@ -23,7 +23,8 @@ import IORedis from 'ioredis';
 const HEARTBEAT_QUEUE = 'kasuwa.heartbeat';
 
 async function main(): Promise<void> {
-  const configuration = env();
+  loadWorkspaceEnv();
+  const configuration = workerEnv();
   const connection = new IORedis(configuration.REDIS_URL, { maxRetriesPerRequest: null });
 
   const heartbeat = new Queue(HEARTBEAT_QUEUE, { connection });

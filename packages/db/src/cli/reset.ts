@@ -1,4 +1,4 @@
-import { env } from '@kasuwa/config';
+import { loadWorkspaceEnv, migratorEnv } from '@kasuwa/config';
 import { Client } from 'pg';
 import { runMigrations } from '../migrate';
 import { runSeed } from '../seed';
@@ -11,7 +11,8 @@ import { runSeed } from '../seed';
  * kasuwa_migrator owns the tables but not the schema itself.
  */
 async function main(): Promise<void> {
-  const url = env().DATABASE_MIGRATION_URL;
+  loadWorkspaceEnv();
+  const url = migratorEnv().DATABASE_MIGRATION_URL;
   if (!url) {
     throw new Error('DATABASE_MIGRATION_URL is not set.');
   }

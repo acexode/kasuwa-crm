@@ -1,37 +1,133 @@
 import { describe, expect, it } from 'vitest';
-import { assertAuthModeIsSafe, assertKeyProviderIsSafe, nodeEnv, parseEnv } from './index';
+import {
+  apiEnv,
+  assertAuthModeIsSafe,
+  assertKeyProviderIsSafe,
+  migratorEnv,
+  nodeEnv,
+  realtimeEnv,
+  webBuildEnv,
+  webEnv,
+  workerEnv,
+  type EnvSource,
+} from './index';
+import * as webEntry from './web.mjs';
 
-const BASE = {
-  DATABASE_URL: 'postgres://kasuwa_app:pw@localhost:5432/kasuwa',
-};
+// Invented values only. The marker lets a test prove a refusal never echoes it.
+const MARKER = 'n0t-a-pw-unit-91x';
+const DATABASE_URL = `postgres://kasuwa_app:${MARKER}@localhost:5432/kasuwa`;
+const MIGRATION_URL = `postgres://kasuwa_migrator:${MARKER}@localhost:5432/kasuwa`;
 
-describe('environment validation', () => {
+const API_BASE: EnvSource = { DATABASE_URL };
+
+describe('api environment', () => {
   it('parses a minimal valid environment', () => {
-    const env = parseEnv({ ...BASE } as NodeJS.ProcessEnv);
+    const env = apiEnv({ ...API_BASE });
     expect(env.NODE_ENV).toBe('development');
     expect(env.KASUWA_AUTH_MODE).toBe('stub');
   });
 
   it('refuses to start without a database url', () => {
-    expect(() => parseEnv({} as NodeJS.ProcessEnv)).toThrow(/DATABASE_URL/);
+    expect(() => apiEnv({})).toThrow(/DATABASE_URL/);
   });
 
   it('coerces and bounds numeric settings', () => {
-    const env = parseEnv({ ...BASE, API_PORT: '8080' } as NodeJS.ProcessEnv);
-    expect(env.API_PORT).toBe(8080);
-    expect(() => parseEnv({ ...BASE, DATABASE_POOL_MAX: '0' } as NodeJS.ProcessEnv)).toThrow();
+    expect(apiEnv({ ...API_BASE, API_PORT: '8080' }).API_PORT).toBe(8080);
+    expect(() => apiEnv({ ...API_BASE, DATABASE_POOL_MAX: '0' })).toThrow();
   });
 
   it('accepts a cell slug for telemetry and refuses free text (T-0005)', () => {
-    const env = parseEnv({ ...BASE } as NodeJS.ProcessEnv);
+    const env = apiEnv({ ...API_BASE });
     expect(env.KASUWA_CELL).toBe('local');
     expect(env.KASUWA_OTEL_EXPORTER).toBe('none');
-    expect(parseEnv({ ...BASE, KASUWA_CELL: 'za-1' } as NodeJS.ProcessEnv).KASUWA_CELL).toBe(
-      'za-1',
+    expect(apiEnv({ ...API_BASE, KASUWA_CELL: 'za-1' }).KASUWA_CELL).toBe('za-1');
+    expect(() => apiEnv({ ...API_BASE, KASUWA_CELL: 'Adaeze Okonkwo' })).toThrow(/KASUWA_CELL/);
+  });
+
+  it('does not carry the migrator url, which no app process may hold', () => {
+    const env: Record<string, unknown> = {
+      ...apiEnv({ ...API_BASE, DATABASE_MIGRATION_URL: MIGRATION_URL }),
+    };
+    expect(env).not.toHaveProperty('DATABASE_MIGRATION_URL');
+  });
+
+  it('does not leak the database credential when it refuses one', () => {
+    let message = '';
+    try {
+      apiEnv({ DATABASE_URL: `not a url ${MARKER}` });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toMatch(/DATABASE_URL/);
+    expect(message).not.toContain(MARKER);
+  });
+});
+
+describe('per-process schemas parse only what their process needs', () => {
+  it('worker, realtime and migrator do not need a DATABASE_URL', () => {
+    expect(() => workerEnv({})).not.toThrow();
+    expect(() => realtimeEnv({})).not.toThrow();
+    expect(() => migratorEnv({})).not.toThrow();
+  });
+
+  it('reads each process its own settings', () => {
+    expect(workerEnv({ REDIS_URL: 'redis://cache.example:6379' }).REDIS_URL).toBe(
+      'redis://cache.example:6379',
     );
-    expect(() => parseEnv({ ...BASE, KASUWA_CELL: 'Adaeze Okonkwo' } as NodeJS.ProcessEnv)).toThrow(
-      /KASUWA_CELL/,
+    expect(realtimeEnv({ REALTIME_PORT: '4002' }).REALTIME_PORT).toBe(4002);
+    expect(migratorEnv({ DATABASE_MIGRATION_URL: MIGRATION_URL }).DATABASE_MIGRATION_URL).toBe(
+      MIGRATION_URL,
     );
+  });
+
+  it('judges the object it is given, not process.env', () => {
+    // Nothing but the argument decides: an empty object parses to defaults.
+    expect(webEnv({}).NEXT_PUBLIC_API_URL).toBe('http://127.0.0.1:3001');
+    expect(() => apiEnv({})).toThrow(/DATABASE_URL/);
+  });
+});
+
+describe('web environment', () => {
+  it('parses with nothing set, using the harness defaults', () => {
+    const env = webEnv({});
+    expect(env.KASUWA_WEB_DIST_DIR).toBe('.next');
+    expect(env.KASUWA_WEB_TSCONFIG).toBe('tsconfig.json');
+  });
+
+  it('refuses DATABASE_URL and DATABASE_MIGRATION_URL by name, without echoing them', () => {
+    for (const name of ['DATABASE_URL', 'DATABASE_MIGRATION_URL']) {
+      for (const parse of [webEnv, webBuildEnv]) {
+        let message = '';
+        try {
+          parse({ [name]: DATABASE_URL });
+        } catch (error) {
+          message = (error as Error).message;
+        }
+        expect(message, `${parse.name} accepted ${name}`).toMatch(new RegExp(`${name}:`));
+        expect(message).not.toContain(MARKER);
+      }
+    }
+  });
+
+  it('refuses an EMPTY database url too: presence is the test, not validity', () => {
+    expect(() => webEnv({ DATABASE_URL: '' })).toThrow(/DATABASE_URL/);
+  });
+
+  it('reports a forbidden name and a schema error together', () => {
+    expect(() => webEnv({ DATABASE_URL, NEXT_PUBLIC_API_URL: 'not a url' })).toThrow(
+      /DATABASE_URL[\s\S]*NEXT_PUBLIC_API_URL/,
+    );
+  });
+
+  it('the build does not run the stub-auth guard; the server does', () => {
+    const production: EnvSource = { NODE_ENV: 'production' };
+    expect(() => webBuildEnv(production)).not.toThrow();
+    expect(() => webEnv(production)).toThrow(/Refusing to start/);
+    expect(() => webEnv({ ...production, KASUWA_AUTH_MODE: 'jwt' })).not.toThrow();
+  });
+
+  it('the web entry point exports the web schema and nothing that loads .env', () => {
+    expect(Object.keys(webEntry).sort()).toEqual(['webBuildEnv', 'webEnv']);
   });
 });
 
@@ -48,15 +144,15 @@ describe('envelope-encryption key provider guard (D-L13)', () => {
     ).toThrow(/Refusing to start/);
   });
 
-  it('refuses at parse time, so no process can start on it', () => {
+  it('refuses at parse time, so the API cannot start on it', () => {
     expect(() =>
-      parseEnv({
-        ...BASE,
+      apiEnv({
+        ...API_BASE,
         NODE_ENV: 'production',
-        // A real auth mode, so it is this guard that fires and not the one above.
+        // A real auth mode, so it is this guard that fires and not the one below.
         KASUWA_AUTH_MODE: 'jwt',
         KASUWA_TRUST_PROXY_HOPS: '1',
-      } as NodeJS.ProcessEnv),
+      }),
     ).toThrow(/KASUWA_KMS_PROVIDER=local/);
   });
 
@@ -76,13 +172,16 @@ describe('envelope-encryption key provider guard (D-L13)', () => {
   });
 
   it('defaults to the local provider, which is only reachable outside production', () => {
-    expect(parseEnv({ ...BASE } as NodeJS.ProcessEnv).KASUWA_KMS_PROVIDER).toBe('local');
+    expect(apiEnv({ ...API_BASE }).KASUWA_KMS_PROVIDER).toBe('local');
   });
 
   it('reads NODE_ENV alone, without demanding the rest of the environment', () => {
     // The development key provider's guard calls this; it must not require a
     // DATABASE_URL to be able to say "this is not production".
     expect(['development', 'test', 'production']).toContain(nodeEnv());
+    expect(nodeEnv({})).toBe('development');
+    expect(nodeEnv({ NODE_ENV: 'production' })).toBe('production');
+    expect(() => nodeEnv({ NODE_ENV: 'prod' })).toThrow();
   });
 });
 
@@ -98,10 +197,15 @@ describe('stub auth guard', () => {
     ).toThrow(/Refusing to start/);
   });
 
-  it('refuses at parse time, so no process can start with it', () => {
-    expect(() =>
-      parseEnv({ ...BASE, NODE_ENV: 'production', KASUWA_AUTH_MODE: 'stub' } as NodeJS.ProcessEnv),
-    ).toThrow(/Refusing to start/);
+  it('refuses at parse time in every process schema, explicit or defaulted', () => {
+    const server: EnvSource = { ...API_BASE, NODE_ENV: 'production' };
+    for (const parse of [apiEnv, workerEnv, realtimeEnv, migratorEnv, webEnv]) {
+      const env = parse === webEnv ? { NODE_ENV: 'production' } : server;
+      expect(() => parse({ ...env, KASUWA_AUTH_MODE: 'stub' }), parse.name).toThrow(
+        /Refusing to start/,
+      );
+      expect(() => parse(env), `${parse.name} with the stub default`).toThrow(/Refusing to start/);
+    }
   });
 
   it('allows stub auth outside production', () => {
