@@ -1226,3 +1226,20 @@ blocks. Until it is fixed, the lead runs the tags directly.
 **Lead recommendation:** yes, but narrowly. Add an `agent` permission for **status and owner reassignment
 to themselves** only, on contacts in their programme. No other fields. This matches how BPO agents work a
 queue, without letting them rewrite customer data.
+
+### D-L64 — Contacts screen rulings from the T-0042 suite (lead, reversible)
+**Status:** PROCEEDING.
+- **Flag and e2e harness.** `crm_records` is `productionReady: false` until T-0041 is live. The e2e harness gets a
+  `webRecordsUrl` process that serves the same build with the flag on. If the production boot guard refuses a
+  not-ready flag, run that one process with `NODE_ENV=test`, the same way T-0035's `web:flags-on` handled
+  `admin_live_api`. The guard itself is never loosened.
+- **No contact rows on the device.** For offline use the list survives in memory only; it is never written to
+  localStorage or IndexedDB. Storing personal data on the device is an NDPA decision nobody has made.
+- **`/contacts/[id]` goes behind `crm_records` too.** It is existing scaffolding and is not gated today.
+- **`q` (phone numbers) must be redacted** from API access logs and spans. This goes to T-0041 and Agent 1.
+- **Contract gap, to become a new task (T-0043): display names.** The contract returns ids only, but the
+  screen must never print a UUID, so it cannot show "Bank X – Collections" or an owner's name. T-0043 adds a
+  scoped lookup: the caller's programmes with their names, plus owner display names within reach.
+  Until then T-0042 shows a neutral label.
+- **The pin is accepted.** The T-0042 suite pins its e2e spec and mock by sha256, because `tests/e2e` is not
+  path-protected. Changing either file needs a lead edit.
