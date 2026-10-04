@@ -82,7 +82,9 @@ import { collectTelemetry } from '../support/telemetry';
  *
  *   POST /api/v1/auth/me/mfa/totp/confirm
  *     body  { code }   (from the NEW secret)
- *     2xx   The new secret replaces the old; the old one stops working.
+ *     2xx   { backupCodes: string[] }, Cache-Control: no-store. The new secret
+ *           replaces the old; the old one stops working. D-L58: every old
+ *           backup code dies too, and this fresh set is the only copy.
  *
  *   POST /api/v1/auth/me/mfa/backup-codes        (regenerate)
  *     body  { code, method?: 'totp' | 'backup_code' }
@@ -849,11 +851,18 @@ describe('acceptance: MFA enrolment and recovery (T-0012)', () => {
       .expect(200);
     const replacement = secretFrom(started.body);
 
-    await request(server())
+    // D-L58: codes kept with the lost device must not outlive it. Confirming
+    // the replacement kills every old code and returns a fresh set, once.
+    const confirmed = await request(server())
       .post(ME_TOTP_CONFIRM)
       .set(auth)
-      .send({ code: await admin.phone.code(replacement) })
-      .expect((response) => expect(response.status).toBeLessThan(300));
+      .send({ code: await admin.phone.code(replacement) });
+    expect(confirmed.status).toBeLessThan(300);
+    expect(confirmed.headers['cache-control']).toMatch(/no-store/);
+    const fresh = confirmed.body.backupCodes as string[];
+    expect(Array.isArray(fresh), 'the confirm response carries a fresh set').toBe(true);
+    expect(fresh.length).toBeGreaterThanOrEqual(8);
+    expect(fresh.some((code) => admin.backupCodes.includes(code))).toBe(false);
 
     expect((await signInWithTotp(admin, admin.secret)).status, 'the lost phone still works').toBe(
       401,
@@ -864,7 +873,14 @@ describe('acceptance: MFA enrolment and recovery (T-0012)', () => {
     expect((await signInWithBackupCode(admin, toReplace)).status).toBe(401);
 
     const status = await request(server()).get(ME_MFA).set(auth).expect(200);
-    expect(status.body.backupCodesRemaining).toBe(admin.backupCodes.length - 2);
+    expect(status.body.backupCodesRemaining).toBe(fresh.length);
+
+    // An old code that was never used is dead too; a fresh one works.
+    expect(
+      (await signInWithBackupCode(admin, admin.backupCodes[2] as string)).status,
+      'an unused code from before the replacement still works',
+    ).toBe(401);
+    expect((await signInWithBackupCode(admin, fresh[0] as string)).status).toBe(200);
   });
 
   // --- rate limiting -------------------------------------------------------------

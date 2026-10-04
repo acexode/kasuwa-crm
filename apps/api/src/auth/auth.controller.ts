@@ -190,7 +190,10 @@ export class AuthController {
     return this.mfa.startReplacement(currentTx(), StepUpBody.parse(body));
   }
 
-  /** POST /api/v1/auth/me/mfa/totp/confirm — the new secret replaces the old. */
+  /**
+   * POST /api/v1/auth/me/mfa/totp/confirm — the new secret replaces the old.
+   * D-L58: the old backup codes die too, and the fresh set is in this response.
+   */
   @Post('me/mfa/totp/confirm')
   @HttpCode(HttpStatus.OK)
   @UseGuards(KasuwaAuthGuard)
@@ -199,7 +202,7 @@ export class AuthController {
   async confirmTotpReplacement(
     @Req() request: Request,
     @Body() body: unknown,
-  ): Promise<MfaStatusResponse | AuthError> {
+  ): Promise<BackupCodesIssued | AuthError> {
     const sessionId = requireRealSession(request);
     return this.mfa.confirmReplacement(currentTx(), sessionId, TotpConfirmBody.parse(body));
   }

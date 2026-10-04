@@ -350,6 +350,11 @@ paths:
         working in the same transaction. Every other session the user holds is
         revoked — a factor is usually replaced because a device was lost. The
         pending secret expires ten minutes after it was issued.
+
+        For the same reason every backup code issued before the replacement,
+        used or not, stops working in that transaction (D-L58, T-0038): codes
+        kept with a lost device must not outlive it. The response carries a
+        fresh set, once (`Cache-Control: no-store`), and it is the only copy.
       requestBody:
         required: true
         content:
@@ -357,10 +362,12 @@ paths:
             schema: { $ref: '#/components/schemas/TotpConfirmRequest' }
       responses:
         '200':
-          description: Replaced.
+          description: Replaced. The fresh backup-code set. Shown once.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/MfaStatus' }
+              schema: { $ref: '#/components/schemas/BackupCodesIssued' }
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/StepUpRejected' }
         '429': { $ref: '#/components/responses/TooManyAttempts' }

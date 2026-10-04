@@ -339,6 +339,30 @@ export async function issueBackupCodes(
   return codes;
 }
 
+/**
+ * Kills every unused backup code of the user (D-L58), and returns how many.
+ *
+ * Called when a replacement factor is confirmed, under the user lock and in
+ * the same transaction, before `issueBackupCodes` hands out a fresh set: codes
+ * kept with a lost device must not outlive it. The rows are marked used rather
+ * than deleted so that, if the issue path ever stopped replacing the whole
+ * set, the old codes would still be dead.
+ */
+export async function retireUnusedBackupCodes(
+  tx: Tx,
+  tenantId: string,
+  userId: string,
+): Promise<number> {
+  const rows = await tx.query<{ id: string }>(
+    `UPDATE user_mfa_backup_code
+        SET used_at = now()
+      WHERE tenant_id = $1 AND user_id = $2 AND used_at IS NULL
+  RETURNING id`,
+    [tenantId, userId],
+  );
+  return rows.length;
+}
+
 export async function countUnusedBackupCodes(
   tx: Tx,
   tenantId: string,

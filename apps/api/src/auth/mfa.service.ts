@@ -28,6 +28,7 @@ import {
   matchBackupCode,
   matchTotp,
   otpauthUri,
+  retireUnusedBackupCodes,
   startTotpEnrolment,
 } from './mfa-store';
 
@@ -112,12 +113,19 @@ export class MfaService {
    * factor. The old factor is deleted in the same transaction, and every other
    * session the user holds is revoked: a factor is usually replaced because a
    * device was lost, and a session on that device should not outlive it.
+   *
+   * D-L58: for the same reason, every unused backup code dies with the old
+   * factor, and a fresh set is issued and returned — once, and the only copy
+   * (the controller sends it `no-store`). Both happen after
+   * `confirmPendingTotp` has taken the per-user lock, so they sit inside the
+   * same critical section and the same transaction as the factor swap: if any
+   * of it fails, the old factor and the old codes are both still there.
    */
   async confirmReplacement(
     tx: TenantTx,
     sessionId: string,
     input: TotpConfirmInput,
-  ): Promise<MfaStatusResponse | AuthError> {
+  ): Promise<BackupCodesIssued | AuthError> {
     const { tenantId, userId } = tx.session;
     const mfaKey = hashRateLimitKey('mfa', tenantId, userId);
     const locked = await this.activeLock(tx, mfaKey);
@@ -150,7 +158,8 @@ export class MfaService {
         WHERE tenant_id = $1 AND user_id = $2 AND id <> $3 AND revoked_at IS NULL`,
       [tenantId, userId, sessionId],
     );
-    return this.status(tx);
+    await retireUnusedBackupCodes(tx, tenantId, userId);
+    return { backupCodes: await issueBackupCodes(tx, this.keyProvider, tenantId, userId) };
   }
 
   /** POST /auth/me/mfa/backup-codes — a new set; the previous one stops working. */
