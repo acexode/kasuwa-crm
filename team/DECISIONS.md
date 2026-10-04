@@ -1305,3 +1305,9 @@ guard (a trigger or FK through `user_programme`) can follow later under the D-L6
   - The `adversarial` FINDING-4 tripwire forbids `INSERT INTO contact`. The tenancy review confirmed the id is always
     `newId()` and that a client-sent `id` is rejected, so the tripwire should instead assert exactly that.
   - The `observability-pii` probe NIN `00000000001` collides with tenant A's id. Change the probe.
+- **2026-10-04, from the T-0045 security review (major):** granting a role to `kasuwa_app` opens a new path.
+  SQL injected inside a tenant transaction can call `set_config('role','kasuwa_sweeper', …)`, which works inside a
+  SELECT, unlike `SET ROLE`, and ADR-0010's verifier (`assertScopeIntact`) checks only the scope GUCs. **Ruling:**
+  `withTenantTransaction` must assert `current_user = session_user` (equivalently `current_setting('role') = 'none'`)
+  both at the start and at the commit-time check. The pool must also reset the role on checkout. T-0045 does not merge
+  until both are in, with an acceptance-style test proving the forged role is refused.
