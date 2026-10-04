@@ -1178,3 +1178,21 @@ would be capped (for example "1,000+"), computed within the caller's scope, and 
 touches a field-secured column. Per-chip live counts are left out of MVP: a count per filter per page load
 is costly on Postgres, and on a secured field a count reveals what exists. T-0042 then draws "Load more",
 or next/previous without "Page X of Y".
+
+### D-L61 — T-0040 value sets and the DND flag (lead, reversible)
+**Status:** PROCEEDING. The value sets are pinned by the T-0040 suite (`lead/T-0040-acceptance`). The database stores
+snake_case codes; display labels live in i18n.
+| Field | Values |
+|---|---|
+| status | new, contacted, qualified, unqualified, customer |
+| source | whatsapp, ussd, web_form, missed_call, import, api, manual, referral, walk_in |
+| preferred_channel | whatsapp, sms, voice, email |
+| consent_state | unknown (the default, NOT NULL), opted_in, pending, withdrawn |
+| preferred_language | BCP-47 format check only |
+
+- P04's Contacts list shows Active / Prospect / Former. Those can be added later; they are not rejected.
+- **DND:** `dnd boolean NOT NULL DEFAULT false` cannot tell "checked against the NCC register, not listed"
+  from "never checked". **No promotional send may rely on it** until a `dnd_checked_at` (or a register
+  lookup at send time) exists. That gate belongs to M8/M13 and is recorded here so it isn't forgotten.
+- Still open: what happens to contacts when an account or owner is deleted, and whether an owner must
+  belong to the contact's programme.
