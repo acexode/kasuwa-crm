@@ -1134,3 +1134,36 @@ about 4.1) and passed every time it ran alone. T-0013 moved hashing onto a worke
 thing to check is a real unknown-vs-known asymmetry under CPU contention, for example dummy-hash
 warm-up or queueing differences. Only after ruling that out may it be treated as noise. Do **not**
 widen the threshold to make it pass.
+
+### D-P12 — duplicate detection and merge semantics (PRD M03 Q3)
+**Status:** OPEN, needs @acexode. It does **not** block the first Phase 2 slice: dedupe and merge come later.
+PRD M03 makes dedupe and merge P0, but leaves undecided what counts as a match, which value wins, and
+whether a merge can be undone.
+**Lead recommendation:**
+- **Match:** normalised E.164 phone (exact) or lower-cased email (exact), within one programme. Fuzzy name
+  matching comes later, as *suggestions* only, never an automatic merge.
+- **Merge:** the user picks the surviving record. Each field defaults to the most recently updated
+  non-empty value, and the user can override it field by field.
+- **Activities:** timelines and activities move to the survivor.
+- **Undo:** the merged-away record is soft-deleted, and the merge can be undone for 30 days through a
+  merge record. Each merge writes one audit event.
+- **Scope:** never merge across programmes. That would break BPO isolation, and a duplicate in another
+  programme is a different client's customer.
+
+### D-L60 — Phase 2 shape: the first slice (lead, reversible)
+**Status:** PROCEEDING. **Goal:** the first screen a real user recognises as a CRM, Contacts in P04's list
+view, with real data behind it.
+1. **T-0039 — records contract (Agent 3).** `docs/api/records.openapi.yaml`: contacts list with search
+   ("name or number"), filters, sort and keyset paging; get, create and update. ADR-0004 (contracts first).
+2. **T-0040 — contact fields and accounts (Agent 3; migration review by Agent 1).**
+   - **Fields:** the M3 fields D-L12 deferred, namely owner, status, source, tags, preferred language and
+     channel, State and LGA, DND flag, WhatsApp opt-in, consent state, and phone network.
+   - **Accounts:** an `account` table, plus `contact.account_id`.
+   - **Out of this slice:** NIN/BVN tokens (D-L13), which come in a later slice.
+3. **T-0041 — contacts write, search and filter API (Agent 3)** against T-0039.
+4. **T-0042 — CRM app shell plus the P04 Contacts list (Agent 11)**, behind a new `crm_records` flag:
+   table view, search, filter chips, column chooser, the locked-column treatment, and the empty, loading
+   and offline states.
+**Next slice:** custom-field value storage (Agent 2, the T-0002 follow-up), accounts and leads screens,
+P03 home, CSV import, then dedupe and merge (D-P12).
+Each task waits for its acceptance suite (D-L23).
