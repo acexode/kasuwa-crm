@@ -1,6 +1,6 @@
 # T-0043 — Scoped display names for records screens
 
-**status** `not-assigned` · **owner** Agent 3 (contract) + Agent 1 (scope review) · **priority** P0 (T-0042 shows neutral labels until this lands) · **decisions** D-L64
+**status** `not-assigned` (suite on `lead/T-0043-acceptance` 48df859; assign after T-0041) · **owner** Agent 3 (contract) + Agent 1 (scope review) · **priority** P0 (T-0042 shows neutral labels until this lands) · **decisions** D-L64
 
 ## Goal
 The records screens may never print a UUID, but `records.openapi.yaml` returns only ids. Add a scoped lookup
@@ -16,3 +16,8 @@ to the contract and implement it, so screens can render names:
 
 ## Escalate if
 Showing an owner's name across programmes would reveal that another programme exists (BPO isolation).
+
+**Suite ruling (2026-10-04):** the owner name is embedded as `Contact.owner: { id, displayName } | null`, read in the
+same scoped query. There is no batch user-lookup endpoint, because one could act as a directory: RLS on `user`
+is tenant-only. `/me/programmes` items are exactly `{ id, name }`, sent with `no-store` or `private`, and tenant
+admin does not widen them. Order: T-0040, then T-0041, then T-0043.
