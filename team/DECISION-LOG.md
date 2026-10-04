@@ -1083,3 +1083,17 @@ builder starts. For tasks started in this period, the lead preserves each test-o
 confirms it fails for the real reason before promoting `dev` to `main`. A suite that turns out not to
 fail first, or to fail for the wrong reason, blocks promotion of its task. This is a deferral of the
 evidence, not a waiver.
+
+## 2026-10-04 — `dev` promoted to `main` by @acexode (PR #71)
+@acexode merged #70 into `dev` (the lead's suite fixes, D-L57), then merged `dev` into `main` as #71. The
+`dev` branch was deleted. That ends the `dev` arrangement of 2026-10-03: new work targets `main` again,
+using the normal PR flow.
+**Evidence at promotion**, with the Docker gates run locally on the host after the reboot:
+- integration: 98/98;
+- isolation, first run: 447/457. Of the 10 failures, 3 were suite defects fixed in #70, 6 were T-0035
+  browser tests that cannot run on Windows (skipped on @acexode's instruction), and 1 was a flaky timing
+  test that passes alone.
+- the 3 fixed suites: 52/52;
+- the full re-run, minus the browser file, is recorded in STATUS when it finishes.
+**D-L23** (each preserved `lead/T-00xx-acceptance` suite must fail without its code) had not yet been run
+at promotion. The lead runs it afterwards and reports any suite that fails for the wrong reason.
