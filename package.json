@@ -28,6 +28,7 @@
     "prepare": "husky",
     "ui:tokens": "pnpm --filter @kasuwa/ui tokens",
     "verify:tasks": "node tools/verify-task-readiness.mjs",
+    "verify:icons": "node tools/verify-icons.mjs",
     "ui:import-design": "pnpm --filter @kasuwa/ui import-design",
     "ui:fetch-fonts": "pnpm --filter @kasuwa/ui fetch-fonts",
     "test:pending": "vitest run --project pending",

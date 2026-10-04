@@ -4,10 +4,11 @@ import type { IconName } from '@kasuwa/ui';
  * A glyph from the self-hosted Material Symbols subset.
  *
  * `name` is a union generated from `packages/ui/icon-subset.txt`, not a string.
- * The font ships 80 glyphs — about 10 KB instead of several megabytes, which is
- * what makes it affordable at 256 kbps — and a name outside that set renders as
- * a BLANK BOX: silently, only in production, with nothing in any log. A union
- * turns that into a compile error on the line that typed the name.
+ * The font ships only the glyphs that file lists — kilobytes instead of several
+ * megabytes, which is what makes it affordable at 256 kbps — and a name outside
+ * that set renders as a BLANK BOX: silently, only in production, with nothing in
+ * any log. A union turns that into a compile error on the line that typed the
+ * name; `pnpm verify:icons` (run in CI) catches the cases the union cannot see.
  *
  * To add one: put it in `icon-subset.txt`, run `pnpm ui:fetch-fonts`, and the
  * union regenerates with it.
