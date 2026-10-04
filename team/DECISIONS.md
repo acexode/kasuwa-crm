@@ -1336,3 +1336,25 @@ Still, closing `"user".status` while leaving `auth_session` open is inconsistent
   sessions or rewrite credentials.
 
 **Until decided:** tracked; no task assigned.
+
+## Answers, 2026-10-04 (@acexode: "let's go with your recommendation")
+- **D-P12, dedupe and merge: ANSWERED.**
+  - Matching is on exact E.164 phone or lower-cased email, within one programme. Fuzzy matches are suggestions only.
+  - The user picks the survivor. Each field defaults to the most recently updated non-empty value.
+  - Activities move to the survivor. The record merged away is soft-deleted, and the merge can be undone for 30 days.
+  - One audit event per merge. Never merge across programmes.
+  - Scheduled for a later Phase 2 slice.
+- **D-P13, total counts: ANSWERED.**
+  - Keyset paging stays.
+  - An approximate total is available only on request, capped (e.g. "1,000+"), and computed within scope.
+  - The total is omitted when a filter touches a field-secured column. There are no per-chip live counts in the MVP.
+- **D-P14, agent edits: ANSWERED.** The `agent` set may change `status` and assign `owner` to themselves, on contacts in their
+  own programme, and nothing else. This needs a lead edit to the T-0041 suite ("the agent set may not write") plus a
+  small API change. Queued after #83 merges.
+- **D-P15, en-XA in production: ANSWERED.** The pseudo-locale preview is for development and test only, and production refuses it.
+  Small web task.
+- **D-P16, auth tables: ANSWERED.**
+  - A separate LOGIN role, `kasuwa_auth`, used only by the auth module's own pool.
+  - It is the only role with INSERT, UPDATE and DELETE on `auth_session`, `auth_challenge`, `user_credential`, `user_mfa_factor` and
+    `user_mfa_backup_code`. `kasuwa_app` keeps SELECT only where it needs it.
+  - An ADR is required (ADR-0013). Agent 1 does the work, as T-0049.
