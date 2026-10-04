@@ -1,0 +1,749 @@
+openapi: 3.1.0
+
+# ---------------------------------------------------------------------------
+# Kasuwa records API — T-0039 (M3, Agent 3). Contacts first (D-L60).
+#
+# This file is the PUBLISHED CONTRACT (ADR-0004) for the P04 list screens and
+# for T-0041, which implements it. It is committed before the write, search and
+# filter implementation so that T-0042 (the P04 Contacts list, Agent 11) can
+# generate a mock from it and build against that mock.
+#
+# It is modelled on admin.openapi.yaml and shares that file's Error schema by
+# reference rather than copying it: one envelope, one `code` enum, one place to
+# add a code. The rules below are the same rules, restated because they are
+# what breaks first.
+#
+# 1. SCOPE IS RESOLVED, NEVER SUPPLIED. No operation takes `programmeIds`,
+#    `tenantId` or any scope argument in a query, header, cookie or body. The
+#    session says who the caller is; `user_programme`, read inside the tenant
+#    transaction, says which programmes they reach. The one `programmeId` a
+#    caller may send is createContact's TARGET, which must be one they already
+#    reach (an unreachable target is 404, exactly like a missing record).
+#
+# 2. A RECORD OUTSIDE YOUR SCOPE IS 404, NOT 403. No such contact, a contact in
+#    another tenant, and a contact in another programme of this tenant all get
+#    one body. Reads never answer 403. `403 not_permitted` exists on writes
+#    only and means "you can already read this record, and you may not do this
+#    to it" (the T-0032 permission engine).
+#
+# 3. FIELD SECURITY OMITS, IT NEVER NULLS. A field the caller's permission sets
+#    may not read is LEFT OUT of the object, and its name is listed in
+#    `withheldFields`. `null` always means "no value", never "hidden". A screen
+#    draws a lock for a withheld field and an empty cell for a null one (P04/02).
+#
+# 4. KEYSET PAGING ONLY. `{ data, nextCursor }`. No total, no offset, no page
+#    number (D-P13 is open; it can be relaxed additively later).
+#
+# 5. NOTHING HERE CARRIES A NIN, BVN, PAN OR DATE OF BIRTH. NIN/BVN tokens come
+#    in a later slice (D-L13, D-L60).
+#
+# Status of each operation is `x-kasuwa-implemented`, strictly true or false:
+#   true   — a route answers today. See the description for where the live wire
+#            still differs from this contract.
+#   false  — contract only. Keep the screen on the mock.
+# ---------------------------------------------------------------------------
+
+info:
+  title: Kasuwa Records API
+  version: 0.1.0-T-0039
+  description: |
+    Contacts: list (search, filters, sort, keyset paging), get, create and
+    update. Accounts, leads and custom-field values follow in later slices
+    (D-L60) and will be added to this file.
+
+    **Errors.** Every failure uses the shared `Error` envelope from
+    `admin.openapi.yaml`. Switch on `code`, never on `message`. The web app
+    localises as `records.error.<code>`.
+
+    **Times** are UTC, ISO 8601, with a `Z`. Display conversion to the tenant's
+    zone (WAT/EAT/SAST) is the browser's.
+
+    **Phones** are E.164 (`+2348031234567`) on the wire, in and out.
+
+    **Money.** No contact field carries money. When an Account grows one it is
+    minor units as a string plus an ISO 4217 code, never a float (admin's
+    `Money`).
+
+    **Transport.** `Authorization: Bearer ksw_s1_…` and nothing else.
+
+servers:
+  - url: http://localhost:3001
+    description: Local development
+  - url: https://{host}
+    description: Deployed cell
+    variables:
+      host:
+        default: api.kasuwa.example
+
+tags:
+  - name: contacts
+    description: People a programme sells to, serves or collects from.
+
+paths:
+  /api/v1/contacts:
+    get:
+      tags: [contacts]
+      summary: List contacts — search, filter, sort, keyset page
+      operationId: listContacts
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P04/02', 'P04/05', 'P04/06']
+      description: |
+        The P04 Contacts list. Rows come only from the programmes the session
+        reaches. A BPO agent on one programme sees that programme's contacts
+        and nothing else, with no parameter that could change that.
+
+        **Live today (T-0003):** `cursor` and `limit` only, ordered `-createdAt`.
+        `q`, the filters and `sort` are T-0041. A malformed cursor currently
+        answers `code: invalid_cursor`; this contract says
+        `validation_failed` with `details[].code: invalid_cursor` (admin's
+        convention), and T-0041 aligns the wire.
+
+        **Field security and the query.** `q` matches only fields the caller
+        may read. A filter on a field withheld from the caller is
+        `400 validation_failed` with `details[].code: field_withheld`. Field
+        names are part of the schema, not data, so this discloses nothing.
+        Ignoring the filter instead would return rows that look filtered and
+        are not. Sorting is limited to the `sort` enum, whose keys are fields
+        field security never withholds.
+
+        **No totals** (D-P13). P04's "1–25 of 1,234" and the live chip counts are
+        not served. The screen draws "Load more" or next/previous.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: |
+            Search by name or number. The name part matches the display, given
+            and family names, case- and diacritic-insensitively (`Adebayo`
+            finds `Adébáyọ̀`). The number part is normalised to E.164 with the
+            tenant's default country before matching, so `0803 123 4567`,
+            `2348031234567` and `+234 803 123 4567` all find `+2348031234567`.
+            It matches only phones the caller may read.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+            description: Name or number. A phone is matched in E.164.
+        - name: owner
+          in: query
+          required: false
+          description: |
+            Owner filter, any of. Each value is a user id, `me` (the caller),
+            or `unassigned` (no owner). Repeat the parameter for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 20
+            items:
+              type: string
+              pattern: '^(me|unassigned|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$'
+        - name: status
+          in: query
+          required: false
+          description: Any of. Repeat the parameter for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 10
+            items: { $ref: '#/components/schemas/ContactStatus' }
+        - name: source
+          in: query
+          required: false
+          description: Any of. Repeat the parameter for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 10
+            items: { $ref: '#/components/schemas/ContactSource' }
+        - name: tag
+          in: query
+          required: false
+          description: Contacts carrying any of these tags. Exact match, case-insensitive.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 20
+            items: { type: string, minLength: 1, maxLength: 64 }
+        - name: state
+          in: query
+          required: false
+          description: |
+            State (first-level subdivision), any of. Matched against the stored
+            value exactly, case-insensitively. Whether it is a name or an ISO
+            3166-2 code is T-0040's column decision.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 40
+            items: { type: string, minLength: 1, maxLength: 64 }
+        - name: lga
+          in: query
+          required: false
+          description: Local government area, any of. Same matching as `state`.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 40
+            items: { type: string, minLength: 1, maxLength: 64 }
+        - name: dnd
+          in: query
+          required: false
+          description: |
+            `true`: only numbers on the NCC Do-Not-Disturb register. `false`:
+            only numbers not on it. Absent: both.
+          schema: { type: boolean }
+        - name: whatsappOptIn
+          in: query
+          required: false
+          description: '`true`: opted in to WhatsApp. `false`: not. Absent: both.'
+          schema: { type: boolean }
+        - name: sort
+          in: query
+          required: false
+          description: |
+            One of a fixed set; a leading `-` is descending. **Deliberately not
+            a free column name.** Ordering by a withheld field would leak its
+            values one comparison at a time. Ties break on `id`, so the keyset
+            is total.
+          schema:
+            type: string
+            enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt', 'displayName', '-displayName']
+            default: '-createdAt'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContactPage' }
+              example:
+                data:
+                  - id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    version: 3
+                    displayName: Adaeze Okonkwo
+                    givenNames: Adaeze
+                    familyName: Okonkwo
+                    phones: [{ type: mobile, e164: '+2348030000001' }]
+                    ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    status: contacted
+                    source: whatsapp
+                    tags: [Callback set]
+                    preferredLanguage: en
+                    preferredChannel: whatsapp
+                    state: Lagos
+                    lga: Ikeja
+                    dnd: false
+                    whatsappOptIn: true
+                    consentState: opted_in
+                    phoneNetwork: MTN
+                    createdAt: '2026-10-01T09:12:00.000Z'
+                    updatedAt: '2026-10-03T14:40:00.000Z'
+                    withheldFields: [emails, accountId]
+                nextCursor: eyJjIjoiMjAyNi0xMC0wMVQwOToxMjowMC4wMDAwMDBaIiwiaSI6IjNmMGM5YTUyIn0
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+
+    post:
+      tags: [contacts]
+      summary: Create a contact
+      operationId: createContact
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P04/02', 'P04/05']
+      description: |
+        **Target programme.** If the caller reaches exactly one programme,
+        `programmeId` may be omitted and the server uses that one. If they
+        reach several, it is required (`400 validation_failed` at
+        `programmeId` when missing). A `programmeId` they do not reach is
+        `404 not_found`, the same body as a programme that does not exist. It
+        is never `403`, which would confirm the programme is real.
+
+        **Permission.** Creating needs create on contacts in the target
+        programme (T-0032). Without it: `403 not_permitted`. Setting a field the
+        caller may not edit is also `403 not_permitted`, naming the field in
+        `details[].path`.
+
+        **Response.** The created record, through the same field-security rule
+        as a read: a field the caller may write but not read is still omitted
+        and listed in `withheldFields`.
+
+        Every create writes an audit event (T-0033 pattern). Duplicate detection
+        and merge are not part of this slice (D-P12).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateContactRequest' }
+            example:
+              displayName: Tunde Bakare
+              phones: [{ type: mobile, e164: '+2348060000002' }]
+              source: manual
+              status: new
+              preferredChannel: whatsapp
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Contact' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/contacts/{contactId}:
+    parameters:
+      - $ref: '#/components/parameters/ContactId'
+    get:
+      tags: [contacts]
+      summary: Get one contact
+      operationId: getContact
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P04/02']
+      description: |
+        **Live today (T-0003)** with the slice's fields only. `version`,
+        `withheldFields` and the T-0040 fields arrive with T-0041. The live
+        `404` body is Nest's default, without `code`; T-0041 aligns it to
+        `NotFound` below.
+
+        Out of scope is `404`, never `403`.
+      responses:
+        '200':
+          description: The contact, field security applied.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Contact' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+    patch:
+      tags: [contacts]
+      summary: Update a contact (inline edit of owner, status and the rest)
+      operationId: updateContact
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P04/01', 'P04/02', 'P04/04']
+      description: |
+        Partial update: absent properties are unchanged; `null` clears a
+        nullable field. `version` is required and must equal the record's
+        current `version`, otherwise `409 stale_write`. Re-read; do not retry
+        blind. P04's inline Owner/Status edit and the Kanban drag can both be
+        in flight on two desks.
+
+        **No `programmeId`.** Moving a record across the BPO isolation boundary
+        is not a field edit; sending it is `400` (the body is closed).
+
+        **Permission.** The record must be readable (else `404`). Editing it
+        needs edit on contacts (else `403 not_permitted`), and each field sent
+        needs edit under field security (else `403 not_permitted` naming it in
+        `details[].path`). A caller cannot clear a field they cannot read.
+
+        Every update writes an audit event recording which fields changed,
+        never their values.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateContactRequest' }
+            example:
+              version: 3
+              status: qualified
+              ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+      responses:
+        '200':
+          description: The updated contact, field security applied. `version` has advanced.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Contact' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/StaleWrite' }
+
+  # Deliberately absent: the P04/04 Map view (M03 P2), saved views, bulk
+  # actions, export, merge and per-chip counts. No PRD module in this slice owns
+  # them; see the T-0039 report. A map operation, when one is added, starts as
+  # `x-kasuwa-implemented: false` with a 501.
+
+components:
+  securitySchemes:
+    sessionToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: |
+        `Authorization: Bearer ksw_s1_…` (auth.openapi.yaml). The token carries
+        no claims and no scope; every request re-resolves both from the
+        database.
+
+  parameters:
+    ContactId:
+      name: contactId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        A record identifier. An id the caller cannot reach, whether in another
+        tenant, another programme or nowhere, is `404 not_found`. A value that
+        is not a uuid is `400`.
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 512 }
+      description: |
+        **Opaque.** Echo `nextCursor` back unchanged; do not parse it or build
+        one. It is valid only with the same `q`, filters and `sort` that
+        produced it. A malformed cursor is `400`. A well-formed cursor pointing
+        outside the caller's scope yields rows from their scope only, never
+        anyone else's (cursor-tampering.acceptance.test.ts).
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      description: Rows per page. P04 offers 25, 50 and 100. Out of range is `400`, never clamped.
+
+  schemas:
+    ContactStatus:
+      type: string
+      enum: [new, contacted, qualified, unqualified, customer]
+      description: |
+        Snake_case codes, as stored (T-0040); P04's labels ("Qualified") are
+        i18n strings, never values. The tenant-wide default set. Programme-specific stages (P04/02 shows a
+        collections programme's "Promise to pay", "In arrears") are not modelled
+        in this slice.
+
+    ContactSource:
+      type: string
+      enum: [whatsapp, ussd, web_form, missed_call, import, api, manual, referral, walk_in]
+
+    PreferredChannel:
+      type: string
+      enum: [whatsapp, sms, voice, email]
+
+    ConsentState:
+      type: string
+      enum: [unknown, opted_in, pending, withdrawn]
+      default: unknown
+      description: |
+        Marketing consent under NDPA. Never null; a new contact is `unknown`.
+        Changes are audited.
+
+    Phone:
+      type: object
+      additionalProperties: false
+      required: [type, e164]
+      properties:
+        type: { type: string, enum: [mobile, work, home, other] }
+        e164:
+          type: string
+          pattern: '^\+[1-9][0-9]{6,14}$'
+          description: E.164 only. A write in any other format is `400`.
+
+    Contact:
+      type: object
+      required: [id, programmeId, version, displayName, createdAt, updatedAt, withheldFields]
+      description: |
+        One contact as the caller may see it.
+
+        **Withheld fields are omitted, never nulled.** A property the caller's
+        permission sets may not read is absent from the object and its name is
+        in `withheldFields`. A present `null` means the record has no value.
+        That is why every withholdable property is optional and why `emails`,
+        which P04/02 locks for the agent role, is not nullable: an empty list
+        means none.
+
+        `id`, `programmeId`, `version`, `displayName`, `createdAt`, `updatedAt`
+        and `withheldFields` are never withheld.
+      properties:
+        id: { type: string, format: uuid }
+        programmeId:
+          type: string
+          format: uuid
+          description: The programme the record belongs to. Read-only; set once at create.
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic-concurrency token. Send it back on updateContact.
+        displayName: { type: string, maxLength: 200 }
+        givenNames: { type: [string, 'null'], maxLength: 200 }
+        familyName: { type: [string, 'null'], maxLength: 200 }
+        phones:
+          type: array
+          items: { $ref: '#/components/schemas/Phone' }
+        emails:
+          type: array
+          items: { type: string, format: email }
+        accountId: { type: [string, 'null'], format: uuid }
+        ownerUserId:
+          type: [string, 'null']
+          format: uuid
+          description: '`null` is unassigned.'
+        status:
+          description: '`null` when never set (the column is nullable).'
+          oneOf:
+            - { $ref: '#/components/schemas/ContactStatus' }
+            - { type: 'null' }
+        source:
+          description: '`null` when not recorded (the column is nullable).'
+          oneOf:
+            - { $ref: '#/components/schemas/ContactSource' }
+            - { type: 'null' }
+        tags:
+          type: array
+          description: Empty when none; a stored NULL is sent as `[]`.
+          items: { type: string, maxLength: 64 }
+        preferredLanguage:
+          type: [string, 'null']
+          maxLength: 35
+          description: BCP 47 tag, e.g. `en`, `yo`, `ha`, `ig`, `pcm`. Format-checked, no enum.
+        preferredChannel:
+          oneOf:
+            - { $ref: '#/components/schemas/PreferredChannel' }
+            - { type: 'null' }
+        state: { type: [string, 'null'], maxLength: 64 }
+        lga: { type: [string, 'null'], maxLength: 64 }
+        dnd:
+          type: boolean
+          default: false
+          description: |
+            On the NCC Do-Not-Disturb register. Read-only here: set by register
+            lookup or import, never by an inline edit. Clearing it by hand would
+            license promotional traffic to that number.
+        whatsappOptIn: { type: boolean, default: false }
+        consentState: { $ref: '#/components/schemas/ConsentState' }
+        phoneNetwork:
+          type: [string, 'null']
+          maxLength: 32
+          description: Read-only, server-derived (network detection is PRD Q5; null until then).
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        withheldFields:
+          type: array
+          description: |
+            Names of the properties above that field security withheld from
+            this caller. Those properties are omitted from the object, never
+            sent as `null`. Always present; empty when nothing was withheld.
+          items: { type: string }
+
+    ContactPage:
+      type: object
+      required: [data, nextCursor]
+      description: |
+        Keyset page. No total, offset or page number (D-P13). `nextCursor` is
+        `null` on the last page.
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Contact' }
+        nextCursor: { type: [string, 'null'] }
+
+    CreateContactRequest:
+      type: object
+      additionalProperties: false
+      required: [displayName]
+      description: |
+        Closed: an unknown property, or a server-owned one (`id`, `version`,
+        `dnd`, `phoneNetwork`, timestamps, `withheldFields`), is `400`.
+      properties:
+        programmeId:
+          type: string
+          format: uuid
+          description: Target programme; see the operation. Unreachable is `404`.
+        displayName: { type: string, minLength: 1, maxLength: 200 }
+        givenNames: { type: [string, 'null'], maxLength: 200 }
+        familyName: { type: [string, 'null'], maxLength: 200 }
+        phones:
+          type: array
+          maxItems: 10
+          items: { $ref: '#/components/schemas/Phone' }
+        emails:
+          type: array
+          maxItems: 10
+          items: { type: string, format: email, maxLength: 254 }
+        accountId: { type: [string, 'null'], format: uuid }
+        ownerUserId: { type: [string, 'null'], format: uuid }
+        status: { $ref: '#/components/schemas/ContactStatus' }
+        source: { $ref: '#/components/schemas/ContactSource' }
+        tags:
+          type: array
+          maxItems: 50
+          items: { type: string, minLength: 1, maxLength: 64 }
+        preferredLanguage: { type: [string, 'null'], maxLength: 35 }
+        preferredChannel:
+          oneOf:
+            - { $ref: '#/components/schemas/PreferredChannel' }
+            - { type: 'null' }
+        state: { type: [string, 'null'], maxLength: 64 }
+        lga: { type: [string, 'null'], maxLength: 64 }
+        whatsappOptIn: { type: boolean }
+        consentState: { $ref: '#/components/schemas/ConsentState' }
+
+    UpdateContactRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      minProperties: 2
+      description: |
+        Closed. `version` plus at least one field. There is no `programmeId`
+        and no `source` (how a contact arrived does not change). Server-owned
+        properties are `400`.
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          description: The `version` from your last read. Not current is `409 stale_write`.
+        displayName: { type: string, minLength: 1, maxLength: 200 }
+        givenNames: { type: [string, 'null'], maxLength: 200 }
+        familyName: { type: [string, 'null'], maxLength: 200 }
+        phones:
+          type: array
+          maxItems: 10
+          description: Replaces the whole list.
+          items: { $ref: '#/components/schemas/Phone' }
+        emails:
+          type: array
+          maxItems: 10
+          description: Replaces the whole list.
+          items: { type: string, format: email, maxLength: 254 }
+        accountId: { type: [string, 'null'], format: uuid }
+        ownerUserId: { type: [string, 'null'], format: uuid }
+        status: { $ref: '#/components/schemas/ContactStatus' }
+        tags:
+          type: array
+          maxItems: 50
+          description: Replaces the whole list.
+          items: { type: string, minLength: 1, maxLength: 64 }
+        preferredLanguage: { type: [string, 'null'], maxLength: 35 }
+        preferredChannel:
+          oneOf:
+            - { $ref: '#/components/schemas/PreferredChannel' }
+            - { type: 'null' }
+        state: { type: [string, 'null'], maxLength: 64 }
+        lga: { type: [string, 'null'], maxLength: 64 }
+        whatsappOptIn: { type: boolean }
+        consentState: { $ref: '#/components/schemas/ConsentState' }
+
+  responses:
+    ValidationFailed:
+      description: |
+        The request did not parse: a bad query value, a malformed cursor, a
+        non-uuid id, an unknown or server-owned body property, a filter on a
+        withheld field, or a scope header (the auth guard rejects those
+        outright). `details` names paths and reason codes, never the submitted
+        value.
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            badField:
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: phones.0.e164
+                    code: invalid_string
+            badCursor:
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: cursor
+                    code: invalid_cursor
+            withheldFilter:
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: lga
+                    code: field_withheld
+
+    NotAuthenticated:
+      description: |
+        No usable session. It does not say whether the token was missing,
+        expired, revoked or from another tenant.
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          example:
+            statusCode: 401
+            error: Unauthorized
+            code: not_authenticated
+            message: Not authenticated
+
+    NotFound:
+      description: |
+        **One body for all of:** no such contact, a contact in another tenant,
+        a contact in a programme of this tenant the caller does not reach, and
+        (on create) a target programme they do not reach. A `403` here would
+        confirm the id names something real: an enumeration oracle against a
+        BPO running two competitors' programmes on one workspace.
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          example:
+            statusCode: 404
+            error: Not Found
+            code: not_found
+            message: Not found
+
+    NotPermitted:
+      description: |
+        **Writes only, and never a substitute for `404`.** The caller can read
+        the record (or reaches the target programme) and may not perform this
+        write, or may not edit a field they sent. If they cannot read it, the
+        answer is `404`.
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            action:
+              summary: No create or edit permission on contacts
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+            field:
+              summary: A field the caller may not edit
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: emails
+                    code: field_not_editable
+
+    StaleWrite:
+      description: |
+        `version` is not current: somebody saved since your last read. Nothing
+        was applied. Re-read and re-apply; do not retry blind.
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          example:
+            statusCode: 409
+            error: Conflict
+            code: stale_write
+            message: Someone else saved changes while you were editing. Reload and try again.
+
+security:
+  - sessionToken: []

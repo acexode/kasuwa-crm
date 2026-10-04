@@ -8,6 +8,7 @@ so that a front-end task is not blocked waiting for a back-end task to merge.
 |---|---|---|---|
 | `auth.openapi.yaml` | Agent 1 — Platform & Security | T-0001 | T-0007 (P01 auth screens) |
 | `admin.openapi.yaml` | Agent 1 — Platform & Security | T-0021 | P02 (22 admin-console screens) |
+| `records.openapi.yaml` | Agent 3 — Core CRM records | T-0039 | T-0041 (contacts API), T-0042 (P04 Contacts list) |
 
 ## Running a mock server
 
@@ -16,6 +17,7 @@ No dependency is added for this; run it ad hoc.
 ```bash
 npx @stoplight/prism-cli mock docs/api/auth.openapi.yaml --port 4010
 npx @stoplight/prism-cli mock docs/api/admin.openapi.yaml --port 4011
+npx @stoplight/prism-cli mock docs/api/records.openapi.yaml --port 4012
 ```
 
 Prism serves the `example` on each response, which is why every failure in the
@@ -63,6 +65,7 @@ Two ad-hoc checks, neither of which needs a dependency in the repo:
 ```bash
 # parses, and every $ref resolves
 npx @redocly/cli lint docs/api/admin.openapi.yaml
+npx @redocly/cli lint docs/api/records.openapi.yaml
 
 # a specific failure rather than the happy path
 curl -sS 'http://localhost:4011/api/v1/admin/roles/hierarchy' -X PUT \
@@ -83,8 +86,8 @@ curl -sS 'http://localhost:4011/api/v1/admin/roles/hierarchy' -X PUT \
   comment, and an operation carrying this flag with no audit row is a review
   finding.
 - Switch on `error.code`, never on `error.message`. `message` is an English
-  fallback; the web app localises from the code as `auth.error.<code>` or
-  `admin.error.<code>`.
+  fallback; the web app localises from the code as `auth.error.<code>`,
+  `admin.error.<code>` or `records.error.<code>`.
 
 ## When the contract changes
 
