@@ -65,16 +65,34 @@ describe('api environment', () => {
 });
 
 describe('per-process schemas parse only what their process needs', () => {
-  it('worker, realtime and migrator do not need a DATABASE_URL', () => {
-    expect(() => workerEnv({})).not.toThrow();
+  it('realtime and migrator do not need a DATABASE_URL', () => {
     expect(() => realtimeEnv({})).not.toThrow();
     expect(() => migratorEnv({})).not.toThrow();
   });
 
+  it('the worker needs DATABASE_URL (T-0045) and never keeps the migrator URL', () => {
+    expect(() => workerEnv({})).toThrow(/DATABASE_URL/);
+    const env: Record<string, unknown> = {
+      ...workerEnv({ DATABASE_URL, DATABASE_MIGRATION_URL: MIGRATION_URL }),
+    };
+    expect(env.DATABASE_URL).toBe(DATABASE_URL);
+    expect(env).not.toHaveProperty('DATABASE_MIGRATION_URL');
+  });
+
+  it('refuses a production worker on the local key provider', () => {
+    const production = {
+      DATABASE_URL,
+      NODE_ENV: 'production',
+      KASUWA_AUTH_MODE: 'jwt',
+    } satisfies EnvSource;
+    expect(() => workerEnv(production)).toThrow(/KASUWA_KMS_PROVIDER=local/);
+    expect(() => workerEnv({ ...production, KASUWA_KMS_PROVIDER: 'aws-kms' })).not.toThrow();
+  });
+
   it('reads each process its own settings', () => {
-    expect(workerEnv({ REDIS_URL: 'redis://cache.example:6379' }).REDIS_URL).toBe(
-      'redis://cache.example:6379',
-    );
+    expect(
+      workerEnv({ DATABASE_URL, REDIS_URL: 'redis://cache.example:6379' }).REDIS_URL,
+    ).toBe('redis://cache.example:6379');
     expect(realtimeEnv({ REALTIME_PORT: '4002' }).REALTIME_PORT).toBe(4002);
     expect(migratorEnv({ DATABASE_MIGRATION_URL: MIGRATION_URL }).DATABASE_MIGRATION_URL).toBe(
       MIGRATION_URL,

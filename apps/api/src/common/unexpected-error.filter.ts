@@ -1,5 +1,6 @@
 import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import { Catch, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { isPoolConnectionTimeout } from '@kasuwa/db';
 import { InvalidCursorError } from '@kasuwa/domain-core';
 import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
@@ -48,6 +49,29 @@ export const INTERNAL_ERROR_BODY = Object.freeze({
   code: 'internal_error',
   message: 'Something went wrong on our side. Please try again.',
 });
+
+/**
+ * The fixed 503 body for an exhausted connection pool (T-0045, D-L56).
+ *
+ * ONE body and ONE `Retry-After` for every route. In particular a bearer read
+ * must not answer 401 (that signs a real user out because the database was
+ * busy), and the two sign-in branches - a workspace that exists and one that
+ * does not - must not differ (the ADR-0009 enumeration oracle). Nothing in it
+ * comes from the request or the error.
+ */
+export const SERVICE_UNAVAILABLE_BODY = Object.freeze({
+  statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+  error: 'Service Unavailable',
+  code: 'service_unavailable',
+  message: 'The service is busy right now. Please try again in a moment.',
+});
+
+/**
+ * Seconds a client should wait before retrying after a pool timeout. A
+ * constant, never derived from load: a value that moved with pool pressure
+ * would be a side channel on other tenants' traffic.
+ */
+export const SERVICE_UNAVAILABLE_RETRY_AFTER_SECONDS = 5;
 
 /** The route TEMPLATE Express matched (`/api/v1/contacts/:id`), never the URL. */
 export function routeTemplate(request: unknown): string {
@@ -126,6 +150,18 @@ export class UnexpectedErrorFilter implements ExceptionFilter {
     this.logger.error(unexpectedErrorLine(scrubbed, method, route));
     recordRequestFailure(request, scrubbed);
 
+    if (isPoolConnectionTimeout(exception)) {
+      // Load, not a fault in the request: 503 with a Retry-After. Logged above
+      // like any other unexpected error (class only - pg's message is not).
+      this.reply(
+        response,
+        HttpStatus.SERVICE_UNAVAILABLE,
+        { ...SERVICE_UNAVAILABLE_BODY },
+        { 'Retry-After': String(SERVICE_UNAVAILABLE_RETRY_AFTER_SECONDS) },
+      );
+      return;
+    }
+
     const client = httpClientError(exception);
     if (client !== null) {
       // An `http-errors` 4xx keeps its status (see `httpClientError` for the
@@ -142,12 +178,18 @@ export class UnexpectedErrorFilter implements ExceptionFilter {
    * serialise, a socket already gone), the fallback is a bare 500 - and the
    * second error is deliberately NOT logged: it can carry the same values.
    */
-  private reply(response: Response, status: number, body: object): void {
+  private reply(
+    response: Response,
+    status: number,
+    body: object,
+    headers: Readonly<Record<string, string>> = {},
+  ): void {
     try {
       if (response.headersSent) {
         response.end();
         return;
       }
+      for (const [name, value] of Object.entries(headers)) response.setHeader(name, value);
       response.status(status).json(body);
     } catch {
       try {

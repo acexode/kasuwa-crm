@@ -932,6 +932,13 @@ components:
 
         `internal_error` (500) is ONE fixed body for every unexpected failure
         (T-0036): it carries no database text, SQLSTATE, class name or id.
+
+        `service_unavailable` (503) with a numeric `Retry-After` header is
+        ALSO the answer, on every operation, when no database connection came
+        free in time (T-0045). It is one fixed body with only `statusCode`,
+        `error`, `code` and `message`, identical for sign-in to a workspace
+        that exists and to one that does not, and for a bearer request — a
+        busy database never answers 401.
       properties:
         statusCode: { type: integer }
         error: { type: string, description: The HTTP reason phrase. }

@@ -190,17 +190,25 @@ const ApiSchema = z.object({
 
 const WorkerSchema = z.object({
   ...baseShape,
-  // BullMQ's connection. The worker reads nothing else today. When the first
-  // job that touches tenant data lands, it adds DATABASE_URL here, and the
-  // worker starts failing at boot without one, which is the point.
-  //
-  // GUARDS: today the worker runs only the stub-auth guard, because it holds
-  // no database connection and no key provider. The day it gains either (a
-  // DATABASE_URL, or any job that encrypts or decrypts with envelope
-  // encryption), it must add the KMS fields here AND call
-  // `assertKeyProviderIsSafe` in `workerEnv`, exactly as `apiEnv` does.
-  // Otherwise a production worker could run on the in-process local key.
+  // BullMQ's connection.
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
+
+  // kasuwa_app: no BYPASSRLS, no DDL - the same role and the same rule as the
+  // API (D-L07, D-L54). Required since T-0045, whose auth-table prune is the
+  // worker's first database job, so a worker without it fails at boot. The
+  // migrator URL is deliberately NOT here: the prune runs as kasuwa_app and
+  // enters the NOBYPASSRLS `kasuwa_sweeper` role (D-L66), and no app process
+  // may hold the BYPASSRLS connection. Zod strips an unknown key, so a stray
+  // DATABASE_MIGRATION_URL in the environment never reaches the worker.
+  DATABASE_URL: z.string().url(),
+  DATABASE_POOL_MAX: z.coerce.number().int().positive().max(200).default(2),
+
+  // GUARDS: the worker holds a database connection now, so it runs the
+  // key-provider guard as `apiEnv` does (the rule this comment used to state
+  // for that day). Only the provider is read: no worker job encrypts or
+  // decrypts yet, so the worker holds no key id and no local master key. The
+  // first job that does must add those fields beside this one.
+  KASUWA_KMS_PROVIDER: z.enum(['local', 'aws-kms']).default('local'),
 });
 /** @typedef {z.infer<typeof WorkerSchema>} WorkerEnv */
 
@@ -341,7 +349,8 @@ export function apiEnv(source = process.env) {
 }
 
 /**
- * The BullMQ worker process.
+ * The BullMQ worker process. Requires `DATABASE_URL` (kasuwa_app) since
+ * T-0045; runs the stub-auth and key-provider guards.
  *
  * @param {EnvSource} [source]
  * @returns {WorkerEnv}
@@ -349,6 +358,7 @@ export function apiEnv(source = process.env) {
 export function workerEnv(source = process.env) {
   const parsed = parseOrThrow('worker', WorkerSchema, source);
   assertAuthModeIsSafe(parsed);
+  assertKeyProviderIsSafe(parsed);
   return parsed;
 }
 
