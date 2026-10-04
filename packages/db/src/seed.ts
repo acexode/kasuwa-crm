@@ -94,8 +94,10 @@ export async function runSeed(options: SeedOptions): Promise<void> {
     await client.query('BEGIN');
 
     // CASCADE reaches business_unit, programme, user, user_programme and contact
-    // through their tenant_id foreign keys.
-    await client.query('TRUNCATE TABLE tenant CASCADE');
+    // through their tenant_id foreign keys. auth_rate_limit has no tenant key
+    // (ADR-0009), so it is named explicitly: a lockout must not outlive a
+    // reseed (D-L59).
+    await client.query('TRUNCATE TABLE tenant, auth_rate_limit CASCADE');
 
     for (const tenant of SEED_TENANTS) {
       await client.query(
