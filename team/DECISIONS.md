@@ -1196,3 +1196,15 @@ snake_case codes; display labels live in i18n.
   lookup at send time) exists. That gate belongs to M8/M13 and is recorded here so it isn't forgotten.
 - Still open: what happens to contacts when an account or owner is deleted, and whether an owner must
   belong to the contact's programme.
+
+### D-L62 — Next's SWC wasm fallback; browser tests run locally again (2026-10-04)
+**Status:** DONE (#77). Temporary, like D-L20.
+Smart App Control blocked `@next/swc-win32-x64-msvc`, so `next build` and all web e2e failed on this host.
+`@next/swc-wasm-nodejs` (pinned to the resolved `next`, 15.5.26) lets Next fall back to wasm.
+`pnpm test:e2e --grep @p02` now passes **86/86**, including every `@p02-live` journey. That is T-0035's browser
+coverage, which had never run since T-0035 merged.
+Remove the pin once agents run in the devcontainer or on Linux. Bump it with `next`.
+**Still broken:** the T-0035 *acceptance wrapper* (`p02-live-api.acceptance.test.ts`) spawns
+`pnpm test:e2e --grep "@p02|@locale-beta|…"` through `cmd.exe`, which splits on `|`. That is a suite
+portability defect needing a lead edit to the suite (shell-quoting, or `shell: false`), which auto mode
+blocks. Until it is fixed, the lead runs the tags directly.
