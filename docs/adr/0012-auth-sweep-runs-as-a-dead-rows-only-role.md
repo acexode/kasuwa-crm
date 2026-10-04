@@ -1,6 +1,6 @@
 # ADR-0012 — The auth-table sweep runs as a NOBYPASSRLS role whose policies admit only dead rows
 
-- **Status:** Proposed (T-0045, D-L66). Amends ADR-0009 and migration 0004's header.
+- **Status:** Accepted, implemented in #84 (T-0045, D-L66); @acexode reviews (D-A3). Amends ADR-0009 and migration 0004's header.
 - **Date:** 2026-10-04
 - **Deciders:** Lead; Agent 1 drafted it; @acexode reviews (D-A3)
 
@@ -54,6 +54,18 @@ SECURITY DEFINER function is rejected too (CLAUDE.md 2.7).
   missing or mis-shaped.
 - **Retention lives in two places,** the policy and the prune's WHERE clause, so they must change
   together. If the maximum lockout window (1 day) is ever raised, the rate-limit policy must follow.
+
+## Role forgery (added after the security review)
+Once `kasuwa_app` is a member of any role, SQL injected anywhere can call `set_config('role', …)`, which works
+inside a SELECT. So the role becomes part of the verified scope:
+- `withTenantTransaction` and `withAuthTransaction` assert `current_user = session_user` when they start and again
+  at commit.
+- `releaseClean` runs `RESET ROLE` before a connection goes back to the pool.
+
+**Residual limit:** a callback can switch the role, read under it, and switch back before commit. That is not
+detected. It is the same class of limit ADR-0010 accepts for the scope GUCs. The reach is dead auth rows only,
+because the sweeper's privileges are DELETE plus column-level SELECT on the three tables, and none of those
+columns identifies a tenant or a user.
 
 ## Alternatives rejected
 - **Run the sweep as the migrator.** That puts a BYPASSRLS credential in an app process.
