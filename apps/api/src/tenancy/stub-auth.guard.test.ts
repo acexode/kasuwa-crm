@@ -1,5 +1,6 @@
 import { BadRequestException, type ExecutionContext } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
+import { toAdminError } from '../admin/common/admin-errors';
 import { FORBIDDEN_SCOPE_HEADERS } from './auth-context';
 import { StubAuthGuard } from './stub-auth.guard';
 
@@ -29,6 +30,23 @@ describe('StubAuthGuard scope headers (D-L63)', () => {
       });
       expect(JSON.stringify(body)).not.toContain(value);
       expect(JSON.stringify(body)).not.toContain(header);
+
+      // Through the shared envelope filter (contacts and admin routes): the
+      // fixed detail survives, and still nothing the request sent.
+      const mapped = toAdminError(thrown as BadRequestException).getResponse();
+      expect(mapped).toMatchObject({
+        code: 'validation_failed',
+        details: [{ path: 'headers', code: 'scope_header_not_accepted' }],
+      });
+      expect(JSON.stringify(mapped)).not.toContain(value);
+      expect(JSON.stringify(mapped)).not.toContain(header);
     },
   );
+
+  it('does not let any other 400 borrow the scope-header detail', () => {
+    const other = toAdminError(
+      new BadRequestException({ code: 'validation_failed', details: [{ path: 'x', code: 'y' }] }),
+    ).getResponse();
+    expect(other).toMatchObject({ code: 'validation_failed', details: [] });
+  });
 });

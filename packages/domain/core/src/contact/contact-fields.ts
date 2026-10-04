@@ -15,6 +15,8 @@
  *     writes and never what a person can see, so nothing here reads it.
  *   - A membership with NO set gets, per field, the least any unlocked set
  *     gets: having no set must never see more than having the weakest one.
+ *   - A reachable programme with NO membership row at all (a revocation that
+ *     committed mid-request) is `none` for every field: fail closed.
  *
  * Pure: the caller loads the matrix (metadata-engine) and the memberships
  * (permissions) and hands them in. Every rule here is unit-tested.
@@ -91,8 +93,17 @@ export function resolveContactFieldAccess(input: {
   const rows = new Map((input.matrix ?? []).map((row) => [row.fieldApiName, row]));
   const access = new Map<string, Map<WithholdableContactField, ContactFieldLevel>>();
   for (const programmeId of input.reachableProgrammeIds) {
-    const setKey = input.programmeSets.get(programmeId) ?? null;
     const levels = new Map<WithholdableContactField, ContactFieldLevel>();
+    if (!input.programmeSets.has(programmeId)) {
+      // FAIL CLOSED. A programme in the session's scope with no membership
+      // row in this read (revoked mid-request, or a read that returned
+      // nothing) has no known set, and the matrix that came with it cannot be
+      // trusted to be complete: every field is `none`, never the default.
+      for (const field of WITHHOLDABLE_CONTACT_FIELDS) levels.set(field, 'none');
+      access.set(programmeId, levels);
+      continue;
+    }
+    const setKey = input.programmeSets.get(programmeId) ?? null;
     for (const field of WITHHOLDABLE_CONTACT_FIELDS) {
       const row = rows.get(contactFieldApiName(field));
       levels.set(field, row === undefined ? DEFAULT_LEVEL : levelFor(row, setKey));

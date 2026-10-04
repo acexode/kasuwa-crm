@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { decodeSortedCursor, encodeSortedCursor, InvalidCursorError } from './cursor';
+import {
+  decodeSortedCursor,
+  encodeSortedCursor,
+  InvalidCursorError,
+  MAX_CURSOR_LENGTH,
+  MAX_TEXT_SORT_POSITION,
+} from './cursor';
 
 const id = '11111111-0000-4000-8000-0000000e0001';
 const raw = (payload: unknown) =>
@@ -43,6 +49,23 @@ describe('sorted cursors (T-0041)', () => {
       decodeSortedCursor(
         raw({ s: 'displayName', v: 'A', i: id, tenantId: 'x' }),
         'displayName',
+        'text',
+      ),
+    ).toThrow(InvalidCursorError);
+  });
+
+  it('fits the worst-case text position inside MAX_CURSOR_LENGTH, and refuses a longer one', () => {
+    for (const unit of ['\u001f', '\u{1F600}', '"', 'ọ̀']) {
+      const value = [...unit.repeat(MAX_TEXT_SORT_POSITION)]
+        .slice(0, MAX_TEXT_SORT_POSITION)
+        .join('');
+      const cursor = encodeSortedCursor({ sort: '-displayName', value, id }, 'text');
+      expect(cursor.length, JSON.stringify(unit)).toBeLessThanOrEqual(MAX_CURSOR_LENGTH);
+      expect(decodeSortedCursor(cursor, '-displayName', 'text').value).toBe(value);
+    }
+    expect(() =>
+      encodeSortedCursor(
+        { sort: 'displayName', value: 'a'.repeat(MAX_TEXT_SORT_POSITION + 1), id },
         'text',
       ),
     ).toThrow(InvalidCursorError);

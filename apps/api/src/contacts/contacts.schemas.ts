@@ -3,6 +3,7 @@ import {
   DEFAULT_CONTACT_SORT,
   DEFAULT_PAGE_SIZE,
   E164,
+  MAX_CURSOR_LENGTH,
   MAX_PAGE_SIZE,
 } from '@kasuwa/domain-core';
 import { z } from 'zod';
@@ -77,7 +78,7 @@ export const ListContactsQuery = z.object({
   dnd: queryBoolean,
   whatsappOptIn: queryBoolean,
   sort: z.enum(CONTACT_SORTS).default(DEFAULT_CONTACT_SORT),
-  cursor: z.string().min(1).max(512).optional(),
+  cursor: z.string().min(1).max(MAX_CURSOR_LENGTH).optional(),
   limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
 });
 export type ListContactsQuery = z.infer<typeof ListContactsQuery>;

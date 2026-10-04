@@ -146,13 +146,29 @@ export function decodeKeysetCursor(cursor: string): KeysetCursor {
 
 export type SortedCursorKind = 'timestamp' | 'text';
 
-/** Long enough for any display name (200 characters, 4 bytes each at worst). */
-const MAX_TEXT_POSITION = 800;
+/**
+ * The longest text sort position, in code points. A repository that sorts by
+ * text must sort by a key no longer than this (the contacts list sorts by
+ * `left(display_name, 200)`), so the cursor never outgrows MAX_CURSOR_LENGTH.
+ */
+export const MAX_TEXT_SORT_POSITION = 200;
+
+/**
+ * The longest cursor this module can issue, for the HTTP boundary's limit.
+ * Worst case: a text position of 200 control characters, each JSON-escaped
+ * to six bytes (`\u001f`), plus the envelope (`{"s":…,"v":"","i":uuid}`,
+ * under 100 bytes), base64url at 4/3. That is 1,734 characters; 2,048 leaves
+ * headroom. `sorted-cursor.test.ts` builds the worst case and checks it.
+ */
+export const MAX_CURSOR_LENGTH = 2048;
 
 const SortedCursorPayload = z
   .object({
     s: z.string().min(1).max(32),
-    v: z.string().max(MAX_TEXT_POSITION),
+    v: z
+      .string()
+      .max(MAX_TEXT_SORT_POSITION * 2)
+      .refine((value) => [...value].length <= MAX_TEXT_SORT_POSITION),
     i: z.string().uuid(),
   })
   .strict();

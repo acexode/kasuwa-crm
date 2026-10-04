@@ -3,6 +3,18 @@ import { Catch, HttpException, HttpStatus } from '@nestjs/common';
 import { InvalidCursorError } from '@kasuwa/domain-core';
 import type { Response } from 'express';
 import { ZodError, type ZodIssue } from 'zod';
+import { SCOPE_HEADER_REJECTED_BODY } from '../../tenancy/auth-context';
+
+/** True only for the guards' fixed scope-header body, compared field by field. */
+function isScopeHeaderRefusal(body: unknown): boolean {
+  if (typeof body !== 'object' || body === null) return false;
+  const { code, details } = body as { code?: unknown; details?: unknown };
+  const [expected] = SCOPE_HEADER_REJECTED_BODY.details;
+  if (code !== SCOPE_HEADER_REJECTED_BODY.code || !Array.isArray(details)) return false;
+  if (details.length !== 1) return false;
+  const [detail] = details as { path?: unknown; code?: unknown }[];
+  return detail?.path === expected.path && detail.code === expected.code;
+}
 
 /**
  * The error envelope of the whole admin API (`#/components/schemas/Error` in
@@ -149,7 +161,12 @@ export function toAdminError(
   if (exception instanceof AdminError) return exception;
   switch (exception.getStatus()) {
     case HttpStatus.BAD_REQUEST:
-      return validationFailed();
+      // The auth guards' scope-header refusal (D-L63) keeps its one fixed
+      // detail. Matched by value, so nothing the request sent can ride along:
+      // the header name and value are never in the body.
+      return isScopeHeaderRefusal(exception.getResponse())
+        ? validationFailed([...SCOPE_HEADER_REJECTED_BODY.details])
+        : validationFailed();
     case HttpStatus.UNAUTHORIZED:
       return notAuthenticated();
     case HttpStatus.NOT_FOUND:

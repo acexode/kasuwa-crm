@@ -10,7 +10,7 @@ import {
   programmeAccountExists,
   programmesReading,
   loadContactFieldAccess,
-  tenantUserExists,
+  programmeMemberExists,
   updateContactIfVersion,
   withheldAnywhere,
   type ContactFilters,
@@ -81,7 +81,10 @@ async function checkReferences(
   values: ContactValues,
 ): Promise<void> {
   const details: AdminErrorDetail[] = [];
-  if (typeof values.ownerUserId === 'string' && !(await tenantUserExists(tx, values.ownerUserId))) {
+  if (
+    typeof values.ownerUserId === 'string' &&
+    !(await programmeMemberExists(tx, programmeId, values.ownerUserId))
+  ) {
     details.push({ path: 'ownerUserId', code: 'unknown_reference' });
   }
   if (
@@ -185,12 +188,21 @@ function createTarget(tx: TenantTx, raw: Record<string, unknown>): string {
 }
 
 export async function createContactFor(tx: TenantTx, body: unknown): Promise<ContactWire> {
+  // Nobody to write for: an unreachable target, whatever the body says.
+  if (tx.session.programmeIds.length === 0) throw notFound(); // 404
+  // D-L53 gate: a caller who may create in NONE of its programmes is 403
+  // before the body is read at all. Otherwise a missing programmeId (400 for
+  // several programmes, accepted for one) would tell an unpermitted caller how
+  // many programmes it reaches.
+  const grants = await loadGrants(tx);
+  if (!tx.session.programmeIds.some((id) => canProgramme(grants, ACTION, id))) {
+    throw notPermitted(); // 403
+  }
   const keys = plainKeys(body);
   if (keys === null) throw validationFailed([{ path: '', code: 'invalid_type' }]);
   const raw = body as Record<string, unknown>;
 
   const programmeId = createTarget(tx, raw); // 404
-  const grants = await loadGrants(tx);
   if (!canProgramme(grants, ACTION, programmeId)) throw notPermitted(); // 403
   const access = await loadContactFieldAccess(tx);
   const locked = notEditableContactFields(access, programmeId, keys);

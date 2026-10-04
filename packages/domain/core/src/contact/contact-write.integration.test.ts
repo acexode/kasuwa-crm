@@ -19,7 +19,7 @@ import {
   listContacts,
   loadTenantDefaultCountry,
   programmeAccountExists,
-  tenantUserExists,
+  programmeMemberExists,
   updateContactIfVersion,
 } from './contact.repository';
 import { loadContactFieldAccess } from './contact-field-access.repository';
@@ -82,11 +82,16 @@ describe('contact writes and search (T-0041)', () => {
     });
   });
 
-  it('cannot tell another tenant’s user, or another programme’s account, from nothing', async () => {
+  it('cannot tell another tenant’s or another programme’s user or account from nothing', async () => {
     const a1Account = SEED_ACCOUNTS.find((account) => account.programmeId === PROGRAMME_A1);
     await inRollback(USER_A_SUPERVISOR, async (tx) => {
-      expect(await tenantUserExists(tx, USER_A_AGENT_2)).toBe(true);
-      expect(await tenantUserExists(tx, USER_B_AGENT_1)).toBe(false);
+      // D-L67: an owner must be a member of the contact's programme.
+      expect(await programmeMemberExists(tx, PROGRAMME_A2, USER_A_AGENT_2)).toBe(true);
+      // Cross-programme: agent 2 is real, in this tenant, but only in A2.
+      expect(await programmeMemberExists(tx, PROGRAMME_A1, USER_A_AGENT_2)).toBe(false);
+      // Cross-tenant and nowhere: the same false.
+      expect(await programmeMemberExists(tx, PROGRAMME_A1, USER_B_AGENT_1)).toBe(false);
+      expect(await programmeMemberExists(tx, PROGRAMME_A1, newId())).toBe(false);
       expect(await programmeAccountExists(tx, PROGRAMME_A1, a1Account?.id ?? '')).toBe(true);
       expect(await programmeAccountExists(tx, PROGRAMME_A2, a1Account?.id ?? '')).toBe(false);
     });

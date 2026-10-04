@@ -86,6 +86,21 @@ describe('resolveContactFieldAccess', () => {
     expect(contactFieldLevel(access, A1, 'phones')).toBe('edit');
   });
 
+  it('fails closed for a reachable programme with no membership row, matrix or not', () => {
+    // A revocation that commits mid-request: scope still names A1, the
+    // membership read found nothing. Nothing may default to edit.
+    for (const matrix of [null, [], MATRIX]) {
+      const access = resolveContactFieldAccess({
+        programmeSets: new Map(),
+        reachableProgrammeIds: [A1],
+        matrix,
+      });
+      expect(contactFieldLevel(access, A1, 'status')).toBe('none');
+      expect(contactFieldLevel(access, A1, 'phones')).toBe('none');
+      expect(withheldAnywhere(access, 'emails')).toBe(true);
+    }
+  });
+
   it('fails closed for a programme it was not told about', () => {
     const access = resolveContactFieldAccess({
       programmeSets: new Map([[A1, 'admin']]),

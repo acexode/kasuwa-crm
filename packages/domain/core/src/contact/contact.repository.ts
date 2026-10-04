@@ -4,6 +4,7 @@ import {
   decodeSortedCursor,
   encodeKeysetCursor,
   encodeSortedCursor,
+  MAX_TEXT_SORT_POSITION,
   type SortedCursorKind,
 } from '../cursor';
 import { foldForSearch, tenantDefaultCountry, type DefaultCountry } from './phone';
@@ -81,8 +82,18 @@ export const CONTACT_SORTS = [
 export type ContactSort = (typeof CONTACT_SORTS)[number];
 export const DEFAULT_CONTACT_SORT: ContactSort = '-createdAt';
 
+/**
+ * The name sort key: the first MAX_TEXT_SORT_POSITION code points of the display
+ * name. The cursor carries this value, so it is bounded whatever the column
+ * holds (no CHECK limits contact.display_name), and the cursor schema can be
+ * sized for the worst case. Names sharing their first 200 characters tie and
+ * break on id, which keeps the keyset total.
+ */
+const DISPLAY_NAME_KEY = `left(display_name, ${MAX_TEXT_SORT_POSITION})`;
+
 interface SortSpec {
-  column: 'created_at' | 'updated_at' | 'display_name';
+  /** A fixed SQL expression, never user input. */
+  column: string;
   direction: 'ASC' | 'DESC';
   kind: SortedCursorKind;
 }
@@ -92,8 +103,8 @@ const SORT_SPECS: Record<ContactSort, SortSpec> = {
   createdAt: { column: 'created_at', direction: 'ASC', kind: 'timestamp' },
   '-updatedAt': { column: 'updated_at', direction: 'DESC', kind: 'timestamp' },
   updatedAt: { column: 'updated_at', direction: 'ASC', kind: 'timestamp' },
-  displayName: { column: 'display_name', direction: 'ASC', kind: 'text' },
-  '-displayName': { column: 'display_name', direction: 'DESC', kind: 'text' },
+  displayName: { column: DISPLAY_NAME_KEY, direction: 'ASC', kind: 'text' },
+  '-displayName': { column: DISPLAY_NAME_KEY, direction: 'DESC', kind: 'text' },
 };
 
 /** Filters, already parsed. Each one is "any of"; different filters AND. */
@@ -232,6 +243,13 @@ class Params {
   }
 }
 
+// tenancy-reviewed: searchClause, filterClauses and keysetClause only ever
+// NARROW listContacts, whose WHERE always starts with `tenant_id = session
+// tenant AND programme_id = ANY(session programmes)`; each clause is ANDed
+// onto that. The per-field programme lists in `ContactSearch` are subsets the
+// caller computed from the session's own scope, and a list naming a programme
+// outside it cannot widen anything (the scope predicate still applies). Every
+// value is a bound parameter; column names come from constants.
 function searchClause(search: ContactSearch, params: Params): string {
   const folded = params.add(foldForSearch(search.text));
   const alternatives = [`strpos(${fold('display_name')}, ${folded}) > 0`];
@@ -325,6 +343,8 @@ export async function listContacts(
   const spec = SORT_SPECS[sort];
   const params = new Params();
 
+  // tenancy-reviewed: tenant AND session programmes first, always; every other
+  // clause is ANDed on and can only narrow (see searchClause).
   const where = [
     `tenant_id = ${params.add(tx.session.tenantId)}`,
     `programme_id = ANY(${params.add([...tx.session.programmeIds])}::uuid[])`,
@@ -488,6 +508,9 @@ export async function updateContactIfVersion(
   values: ContactValues,
 ): Promise<Contact | null> {
   assertInScope(tx, target.programmeId);
+  // tenancy-reviewed: id AND tenant (from the session) AND programme (checked
+  // against the session above) AND version; RLS USING and WITH CHECK besides.
+  // SET never names tenant_id or programme_id: WRITABLE_COLUMNS has neither.
   const params = new Params();
   const sets = assignments(values, params).map((entry) => `${entry.column} = ${entry.placeholder}`);
   sets.push('version = version + 1');
@@ -506,14 +529,32 @@ export async function updateContactIfVersion(
 }
 
 /**
- * Is `userId` a user of the session's tenant? Another tenant's user and no
- * user at all are the same `false` (RLS hides the first; the tenant predicate
- * repeats it), so a caller can never tell them apart.
+ * May `userId` own a contact in `programmeId`? D-L67: only a member of that
+ * programme (a `user_programme` row there). Another tenant's user, a user who
+ * belongs only to a sibling programme, and no user at all are the same
+ * `false`, so the API answers all three with one body and an owner field is
+ * never an existence oracle across the BPO isolation boundary.
+ *
+ * tenancy-reviewed: tenant from the session, the programme required in SQL to
+ * be in the session's scope, the user joined on (tenant_id, id); RLS on both
+ * tables besides. Reads ids only, never a user's name or address.
  */
-export async function tenantUserExists(tx: TenantTx, userId: string): Promise<boolean> {
+export async function programmeMemberExists(
+  tx: TenantTx,
+  programmeId: string,
+  userId: string,
+): Promise<boolean> {
   const rows = await tx.query<{ ok: number }>(
-    `SELECT 1 AS ok FROM "user" WHERE tenant_id = $1 AND id = $2`,
-    [tx.session.tenantId, userId],
+    `SELECT 1 AS ok
+       FROM user_programme up
+       JOIN "user" u
+         ON u.tenant_id = up.tenant_id
+        AND u.id = up.user_id
+      WHERE up.tenant_id = $1
+        AND up.programme_id = $2
+        AND up.programme_id = ANY($3::uuid[])
+        AND up.user_id = $4`,
+    [tx.session.tenantId, programmeId, tx.session.programmeIds, userId],
   );
   return rows.length > 0;
 }
@@ -522,6 +563,9 @@ export async function tenantUserExists(tx: TenantTx, userId: string): Promise<bo
  * Is `accountId` an account in `programmeId`? The contact FK only accepts an
  * account in the contact's own programme; answering that here turns what
  * would be a 23503 (a 500) into the same refusal as an id that names nothing.
+ *
+ * tenancy-reviewed: tenant from the session, the programme both named and
+ * required to be in the session's scope, RLS on account besides.
  */
 export async function programmeAccountExists(
   tx: TenantTx,
@@ -540,7 +584,12 @@ export async function programmeAccountExists(
   return rows.length > 0;
 }
 
-/** The session tenant's default country for phone search (S4). */
+/**
+ * The session tenant's default country for phone search (S4).
+ *
+ * tenancy-reviewed: the session's own tenant row only (`id = session
+ * tenant`), under tenant_isolation RLS; two settings columns, nothing else.
+ */
 export async function loadTenantDefaultCountry(tx: TenantTx): Promise<DefaultCountry | null> {
   const rows = await tx.query<{ locale_default: string | null; currency_default: string | null }>(
     `SELECT locale_default, currency_default FROM tenant WHERE id = $1`,

@@ -282,11 +282,14 @@ paths:
         **Live (T-0041).** The permission is `contact.write`, held by the
         `admin` set in the target programme or by the tenant-admin flag
         (D-L63); every other set is read-only for contacts. The tenant-admin
-        flag never lifts field security. An `ownerUserId` that is not a user
-        of this tenant, or an `accountId` that is not an account in the target
-        programme, is `400 validation_failed` with `details[].code:
-        unknown_reference`, the same body whether it names another tenant's
-        row or nothing at all. The audit event is `objectType: contact`,
+        flag never lifts field security. A caller holding `contact.write` in
+        none of its programmes is `403` before the body is read, so the
+        `programmeId` rules above never tell it how many programmes it
+        reaches. An `ownerUserId` that is not a member of the target programme
+        (D-L67), or an `accountId` that is not an account in it, is
+        `400 validation_failed` with `details[].code: unknown_reference`, the
+        same body whether it names another programme's or another tenant's
+        row, or nothing at all. The audit event is `objectType: contact`,
         labelled with the record id; every change is a redacted one (the field
         name, never a value).
       requestBody:
@@ -414,7 +417,7 @@ components:
       name: cursor
       in: query
       required: false
-      schema: { type: string, minLength: 1, maxLength: 512 }
+      schema: { type: string, minLength: 1, maxLength: 2048 }
       description: |
         **Opaque.** Echo `nextCursor` back unchanged; do not parse it or build
         one. It is valid only with the same `q`, filters and `sort` that
