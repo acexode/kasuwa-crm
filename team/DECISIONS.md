@@ -1100,3 +1100,10 @@ The remaining failures were not code defects. The six T-0035 browser tests canno
 host (Smart App Control blocks Next's SWC binary, and `cmd.exe` splits the `--grep` on `|`), and are
 **skipped at @acexode's instruction** until a Linux runner is available. The old auth timing test
 (ratio < 3) failed once under host load and passed alone.
+
+### D-L58 — replacing an MFA factor invalidates the old backup codes (answers the D-L56 open item)
+**Status:** ANSWERED by @acexode, 2026-10-04 (adopted the lead's recommendation).
+When a replacement factor is confirmed, every unused backup code of that user is marked used, and the
+confirm response returns a fresh set of ten (`Cache-Control: no-store`). Codes kept with a lost device
+must not outlive it. The lead edits the T-0012 lost-device assertion (`backupCodesRemaining`) first,
+then a builder implements it. This is queued as a small follow-up task after `dev` is promoted to `main`.
