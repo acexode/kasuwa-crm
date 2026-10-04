@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0014 |
-| **status** | `not-assigned` |
+| **status** | `done` |
 | **module** | Cross-cutting |
 | **owner** | Agent 1 — Platform & Security |
 | **priority** | P2 |
