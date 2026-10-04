@@ -1122,7 +1122,12 @@ must not outlive it. The lead edits the T-0012 lost-device assertion (`backupCod
 then a builder implements it. This is queued as a small follow-up task after `dev` is promoted to `main`.
 
 ### D-L59 — auth timing test flaky under full-suite load (follow-up for Agent 12)
-**Status:** TRACKED.
+**Status:** FIXED 2026-10-04 (#72). **Cause:** test state leaked between suites; it was not a code
+asymmetry. T-0013's suite locks the same probe address, and the seed never truncated `auth_rate_limit`,
+which has no tenant FK. A locked known user answered 429 without hashing. Agent 12 measured ratio
+1.01–1.31 with the probe clear (including under full CPU load) and 6.10 with it locked. The seed now
+truncates `auth_rate_limit`. **Still open (lead, suite edit):** assert that every timing sample is 401,
+interleave the samples, and discard a warm-up request.
 `tests/acceptance/auth/authentication.acceptance.test.ts`, "does not leak which addresses exist through
 response timing" (unknown/known ratio < 3), failed in both full isolation runs on 2026-10-04 (ratio
 about 4.1) and passed every time it ran alone. T-0013 moved hashing onto a worker pool, so the first
