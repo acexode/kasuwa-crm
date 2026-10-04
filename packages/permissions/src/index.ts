@@ -10,7 +10,8 @@
  *   - both are re-read from the database on every request (`grants.ts`);
  *   - neither ever widens scope (D-L06: no wildcard).
  *
- * Covered today: the admin API's writes. NOT yet modelled: field-level and
+ * Covered today: the admin API's writes, and `contact.write` for the contacts
+ * API (T-0041, D-L63). NOT yet modelled: field-level and
  * record-level decisions for business objects (the authorisation matrix, a
  * later M2 task), and any permission for a set other than `admin`.
  */

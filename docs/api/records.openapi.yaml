@@ -92,11 +92,12 @@ paths:
         reaches. A BPO agent on one programme sees that programme's contacts
         and nothing else, with no parameter that could change that.
 
-        **Live today (T-0003):** `cursor` and `limit` only, ordered `-createdAt`.
-        `q`, the filters and `sort` are T-0041. A malformed cursor currently
-        answers `code: invalid_cursor`; this contract says
-        `validation_failed` with `details[].code: invalid_cursor` (admin's
-        convention), and T-0041 aligns the wire.
+        **Live (T-0041):** `q`, every filter, `sort` and keyset paging under
+        each sort. A malformed cursor, or one issued for a different `sort`,
+        is `validation_failed` with `details[].code: invalid_cursor`. Unknown
+        query parameters are ignored, never honoured. A filter on a field
+        withheld from the caller in ANY programme they reach is
+        `field_withheld`.
 
         **Field security and the query.** `q` matches only fields the caller
         may read. A filter on a field withheld from the caller is
@@ -255,7 +256,7 @@ paths:
       tags: [contacts]
       summary: Create a contact
       operationId: createContact
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/02', 'P04/05']
       description: |
@@ -277,6 +278,17 @@ paths:
 
         Every create writes an audit event (T-0033 pattern). Duplicate detection
         and merge are not part of this slice (D-P12).
+
+        **Live (T-0041).** The permission is `contact.write`, held by the
+        `admin` set in the target programme or by the tenant-admin flag
+        (D-L63); every other set is read-only for contacts. The tenant-admin
+        flag never lifts field security. An `ownerUserId` that is not a user
+        of this tenant, or an `accountId` that is not an account in the target
+        programme, is `400 validation_failed` with `details[].code:
+        unknown_reference`, the same body whether it names another tenant's
+        row or nothing at all. The audit event is `objectType: contact`,
+        labelled with the record id; every change is a redacted one (the field
+        name, never a value).
       requestBody:
         required: true
         content:
@@ -309,10 +321,8 @@ paths:
       x-kasuwa-implemented: true
       x-kasuwa-screens: ['P04/02']
       description: |
-        **Live today (T-0003)** with the slice's fields only. `version`,
-        `withheldFields` and the T-0040 fields arrive with T-0041. The live
-        `404` body is Nest's default, without `code`; T-0041 aligns it to
-        `NotFound` below.
+        **Live (T-0041)** with every Contact property, `version` and
+        `withheldFields`, and the `NotFound` body below.
 
         Out of scope is `404`, never `403`.
       responses:
@@ -329,7 +339,7 @@ paths:
       tags: [contacts]
       summary: Update a contact (inline edit of owner, status and the rest)
       operationId: updateContact
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/01', 'P04/02', 'P04/04']
       description: |
@@ -349,6 +359,10 @@ paths:
 
         Every update writes an audit event recording which fields changed,
         never their values.
+
+        **Live (T-0041).** Same permission, reference and audit rules as
+        createContact, judged in the record's programme. Order: `404`, `403`
+        (including `field_not_editable`), `400`, then `409 stale_write`.
       requestBody:
         required: true
         content:
