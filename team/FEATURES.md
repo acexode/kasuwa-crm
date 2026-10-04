@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 130 rows; built 57, partial 11, mock-only 27, flagged-off 5, deferred 10, not-started 20.
+Totals: 130 rows; built 59, partial 11, mock-only 27, flagged-off 5, deferred 10, not-started 18.
 
 ## Modules
 
@@ -152,9 +152,9 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `verifyOtp` | POST /api/v1/auth/verify-otp — Verify an email or phone one-time code (contract only) | not-started | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |
 | operation | `resendOtp` | POST /api/v1/auth/verify-otp/resend — Re-send a verification code (contract only) | not-started | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |
 | operation | `listContacts` | GET /api/v1/contacts — List contacts — search, filter, sort, keyset page | built | — | — | docs/api/records.openapi.yaml |
-| operation | `createContact` | POST /api/v1/contacts — Create a contact (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `createContact` | POST /api/v1/contacts — Create a contact | built | — | — | docs/api/records.openapi.yaml |
 | operation | `getContact` | GET /api/v1/contacts/{contactId} — Get one contact | built | — | — | docs/api/records.openapi.yaml |
-| operation | `updateContact` | PATCH /api/v1/contacts/{contactId} — Update a contact (inline edit of owner, status and the rest) (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `updateContact` | PATCH /api/v1/contacts/{contactId} — Update a contact (inline edit of owner, status and the rest) | built | — | — | docs/api/records.openapi.yaml |
 
 ## Flags
 
