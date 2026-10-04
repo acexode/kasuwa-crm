@@ -345,12 +345,16 @@ describe('acceptance: permissions engine (T-0032)', () => {
       name: 'archiveProgramme',
       programmeScoped: true,
       tenantLevel: false,
-      prepare: async () => ({}),
-      send: (headers, programmeId) =>
+      // The confirmation is the programme's CURRENT name: an earlier
+      // updateProgramme in the same loop may already have renamed it.
+      prepare: async (programmeId) => ({
+        confirmation: String(await one('SELECT name AS v FROM programme WHERE id = $1', [programmeId])),
+      }),
+      send: (headers, programmeId, context) =>
         request(server())
           .post(`${PROGRAMMES}/${programmeId}/archive`)
           .set(headers)
-          .send({ confirmation: seededName(programmeId) }),
+          .send({ confirmation: context.confirmation }),
       snapshot: (programmeId) => programmeRow(programmeId),
       success: 200,
     },
@@ -739,10 +743,14 @@ describe('acceptance: permissions engine (T-0032)', () => {
         expect(JSON.stringify(body)).not.toContain(PROGRAMME_A2);
       }
 
+      // Versions are read BEFORE the request is built: awaiting another
+      // supertest request inside `.send(...)` lets it close the ephemeral
+      // listener the outer request is about to connect to (ECONNREFUSED).
+      const agentVersion = await versionOf(AGENT_1, PROGRAMME_A1);
       const renamed = await request(server())
         .patch(`${PROGRAMMES}/${PROGRAMME_A1}`)
         .set(AGENT_1)
-        .send({ version: await versionOf(AGENT_1, PROGRAMME_A1), name: takenName });
+        .send({ version: agentVersion, name: takenName });
       const body = expectError(renamed, 403, 'not_permitted');
       expect(JSON.stringify(body)).not.toContain(takenName);
 
@@ -760,11 +768,12 @@ describe('acceptance: permissions engine (T-0032)', () => {
         409,
         'duplicate_name',
       );
+      const supervisorVersion = await versionOf(SUPERVISOR, PROGRAMME_A1);
       expectError(
         await request(server())
           .patch(`${PROGRAMMES}/${PROGRAMME_A1}`)
           .set(SUPERVISOR)
-          .send({ version: await versionOf(SUPERVISOR, PROGRAMME_A1), name: takenName }),
+          .send({ version: supervisorVersion, name: takenName }),
         409,
         'duplicate_name',
       );
