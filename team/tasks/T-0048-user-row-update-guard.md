@@ -1,6 +1,6 @@
 # T-0048 — Guard UPDATE on `"user"` (status and email are member-writable)
 
-**status** `not-assigned` (builder running: Agent 1, `agent1/T-0048-user-update-guard`; suite on `lead/T-0048-acceptance` ac7fdfc) · **owner** Agent 1 · **priority** P1 · **decisions** D-L55, D-P16
+**status** `done` (#87) · **owner** Agent 1 · **priority** P1 · **decisions** D-L55, D-P16
 
 ## Goal
 `"user".status` and `email` are column-granted to `kasuwa_app` (0015), and `user_isolation` checks only the tenant. Found
