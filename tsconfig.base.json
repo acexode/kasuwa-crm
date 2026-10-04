@@ -20,6 +20,12 @@
     "sourceMap": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
+    // @kasuwa/config keeps its schemas in checked JavaScript (`// @ts-check`)
+    // because apps/web/next.config.mjs imports them natively (T-0014). Every
+    // project reaches them through @kasuwa/config, so every project must be
+    // able to read their types. Only imported JS is affected: each project's
+    // `include` still lists TypeScript only.
+    "allowJs": true,
     "skipLibCheck": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": false,
@@ -31,6 +37,7 @@
       "@kasuwa/auth-crypto": ["packages/auth-crypto/src/index.ts"],
       "@kasuwa/config": ["packages/config/src/index.ts"],
       "@kasuwa/config/feature-flags": ["packages/config/src/feature-flags.ts"],
+      "@kasuwa/config/web": ["packages/config/src/web.mjs"],
       "@kasuwa/db": ["packages/db/src/index.ts"],
       "@kasuwa/permissions": ["packages/permissions/src/index.ts"],
       "@kasuwa/metadata-engine": ["packages/metadata-engine/src/index.ts"],

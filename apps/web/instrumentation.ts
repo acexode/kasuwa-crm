@@ -1,3 +1,4 @@
+import { webEnv } from '@kasuwa/config/web';
 import { initialiseFeatureFlags } from '@kasuwa/feature-flags';
 
 /**
@@ -22,6 +23,13 @@ import { initialiseFeatureFlags } from '@kasuwa/feature-flags';
  */
 export async function register(): Promise<void> {
   try {
+    // The web schema and the stub-auth guard, at boot, in every start mode
+    // (T-0014). next.config.mjs runs `webEnv()` too, but a standalone build
+    // (`output: 'standalone'`, `node server.js`) never loads next.config.mjs,
+    // and this hook runs however the server is started. It refuses a database
+    // URL or a server credential in the environment, and stub auth (or an
+    // unset auth mode) under NODE_ENV=production.
+    webEnv();
     await initialiseFeatureFlags();
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

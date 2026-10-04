@@ -6,10 +6,11 @@
     "dev": "next dev -p 3000",
     "build": "node build.mjs",
     "start": "next start -p 3000",
-    "lint": "eslint app components lib instrumentation.ts",
+    "lint": "eslint app components lib instrumentation.ts middleware.ts build.mjs next.config.mjs postcss.config.mjs tailwind.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@kasuwa/config": "workspace:*",
     "@kasuwa/feature-flags": "workspace:*",
     "@kasuwa/i18n": "workspace:*",
     "@kasuwa/ui": "workspace:*",

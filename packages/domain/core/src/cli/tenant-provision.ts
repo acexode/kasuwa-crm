@@ -1,6 +1,6 @@
 import { createInterface } from 'node:readline';
 import { parseArgs } from 'node:util';
-import { env } from '@kasuwa/config';
+import { loadWorkspaceEnv, migratorEnv } from '@kasuwa/config';
 import { provisionTenant, TENANT_REGIONS, type TenantRegion } from '@kasuwa/domain-core/provisioning';
 
 /**
@@ -128,7 +128,8 @@ async function main(): Promise<void> {
     );
   }
 
-  const connectionString = env().DATABASE_MIGRATION_URL;
+  loadWorkspaceEnv();
+  const connectionString = migratorEnv().DATABASE_MIGRATION_URL;
   if (!connectionString) {
     throw new Error(
       'DATABASE_MIGRATION_URL is not set. Provisioning runs as kasuwa_migrator, like db:seed.',

@@ -1,4 +1,4 @@
-import { env } from '@kasuwa/config';
+import { loadWorkspaceEnv, migratorEnv } from '@kasuwa/config';
 import { runSeed } from '../seed';
 
 /**
@@ -13,7 +13,8 @@ import { runSeed } from '../seed';
  * fine as fixtures; running them somewhere real is what makes them a way in.
  */
 async function main(): Promise<void> {
-  const url = env().DATABASE_MIGRATION_URL;
+  loadWorkspaceEnv();
+  const url = migratorEnv().DATABASE_MIGRATION_URL;
   if (!url) {
     throw new Error('DATABASE_MIGRATION_URL is not set. The seed runs as kasuwa_migrator.');
   }

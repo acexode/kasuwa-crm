@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { createKeyProvider } from '@kasuwa/auth-crypto';
-import { env } from '@kasuwa/config';
+import { apiEnv, loadWorkspaceEnv } from '@kasuwa/config';
 import { initialiseFeatureFlags } from '@kasuwa/feature-flags';
 import { AppModule } from './app.module';
 import { installProcessErrorHandlers } from './common/process-errors';
@@ -16,13 +16,18 @@ installProcessErrorHandlers(process, (line) => {
 /**
  * API entrypoint.
  *
- * `env()` validates the environment and, critically, refuses to return at all
- * if KASUWA_AUTH_MODE=stub with NODE_ENV=production, or if the local key
+ * `apiEnv()` validates the environment and, critically, refuses to return at
+ * all if KASUWA_AUTH_MODE=stub with NODE_ENV=production, or if the local key
  * provider is configured there (D-L13). Both checks run before anything binds
  * a port.
+ *
+ * `loadWorkspaceEnv()` first: importing `@kasuwa/config` no longer loads the
+ * workspace `.env` as a side effect (T-0014), so each server process asks for
+ * it. A real environment variable still wins over the file.
  */
 async function bootstrap(): Promise<void> {
-  const configuration = env();
+  loadWorkspaceEnv();
+  const configuration = apiEnv();
 
   await initialiseFeatureFlags();
 

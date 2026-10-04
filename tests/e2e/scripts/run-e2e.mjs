@@ -264,6 +264,24 @@ function startApi(databaseUrl, port) {
 }
 
 const WEB_DIR = join(repoRoot, 'apps', 'web');
+
+/**
+ * What no web process is given (T-0014). The web schema refuses to start, or
+ * build, with a database URL or a server credential in its environment
+ * (`WEB_FORBIDDEN` in packages/config/src/schemas.mjs): a browser-facing
+ * process must never hold one. The harness inherits whatever shell started it,
+ * so it drops them explicitly rather than trusting that shell. Node skips
+ * `undefined` values when building a child's environment.
+ */
+const NO_DATABASE_URLS = {
+  DATABASE_URL: undefined,
+  DATABASE_MIGRATION_URL: undefined,
+  KASUWA_KMS_LOCAL_MASTER_KEY: undefined,
+  S3_ACCESS_KEY_ID: undefined,
+  S3_SECRET_ACCESS_KEY: undefined,
+  REDIS_URL: undefined,
+  OPENSEARCH_URL: undefined,
+};
 const NEXT_ENV_FILE = join(WEB_DIR, 'next-env.d.ts');
 
 /**
@@ -307,6 +325,7 @@ function buildWeb(apiUrl) {
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
       KASUWA_FEATURE_FLAGS_ON: '',
+      ...NO_DATABASE_URLS,
     },
   });
   pipeTo(child, 'web-build');
@@ -331,9 +350,16 @@ function startWeb(apiUrl, port) {
     env: {
       ...process.env,
       NODE_ENV: 'production',
+      // Every production process refuses an unset or `stub` auth mode
+      // (T-0014), the web server included. The web process resolves no caller
+      // itself: it proxies `/api/v1` to the API, which authenticates (and which
+      // runs stub, under NODE_ENV=test, in this harness). So the web server
+      // states the real mode, as a deployment would.
+      KASUWA_AUTH_MODE: 'jwt',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
       KASUWA_FEATURE_FLAGS_ON: '',
+      ...NO_DATABASE_URLS,
     },
   });
   pipeTo(child, 'web');
@@ -397,6 +423,7 @@ function startSelfServeWeb(apiUrl, port) {
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
       KASUWA_FEATURE_FLAGS_ON: 'self_serve_signup,admin_live_api',
+      ...NO_DATABASE_URLS,
       KASUWA_WEB_DIST_DIR: SELF_SERVE_DIST_DIR,
       KASUWA_WEB_TSCONFIG: SELF_SERVE_TSCONFIG,
     },
@@ -405,6 +432,18 @@ function startSelfServeWeb(apiUrl, port) {
   cleanups.push(async () => {
     killTree(child);
     await waitForPortClosed(port);
+    // The dev build directory goes too. It is compiled output inside apps/web,
+    // and the T-0014 acceptance scan walks apps/** for `process.env` reads,
+    // skipping `.next` by name but not this sibling. Left behind, Next's
+    // generated `middleware-build-manifest.js` fails that scan for any run
+    // that follows an e2e run. `next dev` compiles on demand, so the next run
+    // loses nothing it needs.
+    rmSync(join(WEB_DIR, SELF_SERVE_DIST_DIR), {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 200,
+    });
   });
   return child;
 }
