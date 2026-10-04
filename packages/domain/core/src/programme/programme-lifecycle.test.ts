@@ -37,7 +37,7 @@ function fakeTx(respond: Responder): { tx: TenantTx; calls: Call[] } {
   const calls: Call[] = [];
   const tx: TenantTx = {
     session: { tenantId: TENANT, userId: USER, programmeIds: [OWN] },
-    query: async <T,>(text: string, values: readonly unknown[] = []) => {
+    query: async <T>(text: string, values: readonly unknown[] = []) => {
       calls.push({ text, values });
       const result = respond(text, values);
       if (result instanceof Error) {
@@ -94,9 +94,16 @@ describe('createProgramme (T-0029, D-L46)', () => {
     expect(insert?.text).not.toMatch(/RETURNING/iu);
     expect(insert?.values.slice(1, 3)).toEqual([TENANT, BU]);
     expect(insert?.values[0]).toBe(created.id);
+    // created_at and updated_at are the transaction-clock instant read first:
+    // 0015's creation marker relies on created_at never predating the
+    // transaction (xid-wraparound guard). Not testable against a real
+    // wraparound; this pins the value the policy depends on.
+    expect(insert?.text).toMatch(/\$8::timestamptz, \$8::timestamptz/u);
+    expect(insert?.values[7]).toBe(AT);
 
     const membership = calls.find((call) => call.text.includes('INSERT INTO user_programme'));
-    expect(membership?.values).toEqual([USER, created.id, TENANT]);
+    // The creator holds the tenant's `admin` set in what they made (T-0032).
+    expect(membership?.values).toEqual([USER, created.id, TENANT, 'admin']);
     expect(calls.filter((call) => call.text.includes('INSERT')).length).toBe(2);
   });
 

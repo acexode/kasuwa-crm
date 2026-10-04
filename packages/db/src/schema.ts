@@ -13,6 +13,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 /**
  * `bytea` as a Node Buffer. Drizzle has no built-in for it.
@@ -95,6 +96,16 @@ export const user = pgTable(
     status: text('status').notNull().default('active'),
     /** The one tenant-wide role this person holds, if any (0006). */
     roleId: uuid('role_id'),
+    /**
+     * D-L53: a tenant-level permission flag, never derived from membership and
+     * never a scope (D-L06). Not writable by kasuwa_app (0015 column grants).
+     *
+     * Consequence: kasuwa_app holds only COLUMN-level INSERT/UPDATE on "user".
+     * A Drizzle `insert(user)` as kasuwa_app emits every column, this one
+     * included, and fails with a privilege error. Writes to "user" from the
+     * app must name only granted columns.
+     */
+    isTenantAdmin: boolean('is_tenant_admin').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -112,11 +123,18 @@ export const userProgramme = pgTable(
     programmeId: uuid('programme_id').notNull(),
     tenantId: uuid('tenant_id').notNull(),
     skills: text('skills').array().notNull().default([]),
+    /**
+     * The permission set this person holds in this programme (D-P9, 0015).
+     * NULL means no permission. Composite FK `(tenant_id, permission_set_id)`
+     * -> `permission_set (tenant_id, id)`.
+     */
+    permissionSetId: uuid('permission_set_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     primaryKey({ columns: [table.userId, table.programmeId] }),
     index('user_programme_tenant_user_idx').on(table.tenantId, table.userId),
+    index('user_programme_tenant_permission_set_idx').on(table.tenantId, table.permissionSetId),
   ],
 );
 
@@ -196,11 +214,48 @@ export const userMfaFactor = pgTable(
     index('user_mfa_factor_tenant_user_idx').on(table.tenantId, table.userId),
     /** The rotation work queue: partial, over encrypted rows only. */
     index('user_mfa_factor_secret_key_id_idx').on(table.secretKeyId),
-    uniqueIndex('user_mfa_factor_tenant_id_user_id_type_key').on(
+    /**
+     * At most one confirmed and one pending factor per user and type (0017),
+     * so a replacement can be confirmed while the old factor keeps working.
+     */
+    uniqueIndex('user_mfa_factor_confirmed_key')
+      .on(table.tenantId, table.userId, table.type)
+      .where(sql`confirmed_at IS NOT NULL`),
+    uniqueIndex('user_mfa_factor_pending_key')
+      .on(table.tenantId, table.userId, table.type)
+      .where(sql`confirmed_at IS NULL`),
+  ],
+);
+
+/**
+ * Single-use MFA backup codes (migration 0017, T-0012).
+ *
+ * The code itself is never stored. `codeHash` is HMAC-SHA256 under a per-set
+ * data key that is stored only wrapped by the KeyProvider (D-L13), so a dump of
+ * this table is not something guesses can be tested against offline.
+ */
+export const userMfaBackupCode = pgTable(
+  'user_mfa_backup_code',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    codeHash: customBytea('code_hash').notNull(),
+    hashKeyWrapped: customBytea('hash_key_wrapped').notNull(),
+    hashKeyId: text('hash_key_id').notNull(),
+    hashAlgorithm: text('hash_algorithm').notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('user_mfa_backup_code_user_hash_key').on(
       table.tenantId,
       table.userId,
-      table.type,
+      table.codeHash,
     ),
+    index('user_mfa_backup_code_unused_idx')
+      .on(table.tenantId, table.userId)
+      .where(sql`used_at IS NULL`),
   ],
 );
 
@@ -632,6 +687,7 @@ export const TENANT_SCOPED_TABLES = [
   'field_def',
   'user_credential',
   'user_mfa_factor',
+  'user_mfa_backup_code',
   'auth_challenge',
   'auth_session',
   'role',

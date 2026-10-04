@@ -4,8 +4,8 @@ import {
   findProgrammeRetention,
   findProgrammeSla,
   LegalHoldActiveError,
-  replaceProgrammeRetention,
-  replaceProgrammeSla,
+  replaceProgrammeRetentionWithPrevious,
+  replaceProgrammeSlaWithPrevious,
   StalePolicyVersionError,
   type RetentionPolicy,
   type SlaPolicy,
@@ -14,6 +14,8 @@ import { currentTx } from '../../tenancy/tenant-context';
 import { AdminController } from '../common/admin-controller.decorator';
 import { staleWrite } from '../common/admin-errors';
 import { foundOr404, parseIdOr404, parseOr400 } from '../common/admin-input';
+import { requireProgrammePermission } from '../common/admin-permissions';
+import { auditRetentionSaved, auditSlaSaved } from './sla-retention.audit';
 import { legalHoldActive } from './sla-retention.errors';
 import {
   ProgrammeIdParam,
@@ -45,12 +47,16 @@ export interface RetentionPolicyResponse extends RetentionPolicy {
  * and is decided BEFORE the body is judged. A reachable programme with no
  * retention policy is that same body.
  *
- * Order of refusals on a write: 404, then 400, then `409 stale_write`, then
- * `409 legal_hold_active` (D-L50: stale wins).
+ * Order of refusals on a write: 404, then 403 `not_permitted` (the `admin`
+ * set in the programme or a tenant admin is required, T-0032 / D-L53), then
+ * 400, then `409 stale_write`, then `409 legal_hold_active` (D-L50: stale
+ * wins).
  *
- * Not built, and said so in the report: `403 not_permitted` (no permissions
- * engine), the audit row `x-kasuwa-audited` asks for (T-0025's table), the
- * `timeZone` field (no programme time-zone column), and enforcement of any
+ * Audited (T-0033): one `updated` event per successful save, in the write's
+ * transaction (`sla-retention.audit.ts`); a refused write records nothing.
+ *
+ * Not built, and said so in the report: the `timeZone` field (no programme
+ * time-zone column), and enforcement of any
  * retention period — `callRecordingsDays` in particular is stored and
  * returned but never enforced by Kasuwa (D-T4).
  */
@@ -63,15 +69,19 @@ export class ProgrammeSlaRetentionController {
     return toSlaResponse(policy);
   }
 
-  /** `PUT …/sla` — operationId `updateProgrammeSla`. 200 · 400 · 401 · 404 · 409. */
+  /** `PUT …/sla` — operationId `updateProgrammeSla`. 200 · 400 · 401 · 403 · 404 · 409. */
   @Put('sla')
   async updateSla(@Param() params: unknown, @Body() body: unknown): Promise<SlaPolicyResponse> {
     const programmeId = await reachableProgrammeId(params);
+    await requireProgrammePermission(currentTx(), 'programme_policy.write', programmeId);
     const { version, ...fields } = parseOr400(SlaPolicyWriteBody, body);
     try {
-      return toSlaResponse(
-        foundOr404(await replaceProgrammeSla(currentTx(), programmeId, version, fields)),
+      const tx = currentTx();
+      const applied = foundOr404(
+        await replaceProgrammeSlaWithPrevious(tx, programmeId, version, fields),
       );
+      await auditSlaSaved(tx, programmeId, applied.previous, applied.updated);
+      return toSlaResponse(applied.updated);
     } catch (error) {
       throw mapConflict(error);
     }
@@ -86,7 +96,7 @@ export class ProgrammeSlaRetentionController {
 
   /**
    * `PUT …/retention` — operationId `updateProgrammeRetention`. 200 · 400 ·
-   * 401 · 404 · 409 (`stale_write`, `legal_hold_active`). The first write for
+   * 401 · 403 · 404 · 409 (`stale_write`, `legal_hold_active`). The first write for
    * a programme with no policy sends `version: 0` (D-L50).
    */
   @Put('retention')
@@ -95,11 +105,15 @@ export class ProgrammeSlaRetentionController {
     @Body() body: unknown,
   ): Promise<RetentionPolicyResponse> {
     const programmeId = await reachableProgrammeId(params);
+    await requireProgrammePermission(currentTx(), 'programme_policy.write', programmeId);
     const { version, ...fields } = parseOr400(RetentionPolicyWriteBody, body);
     try {
-      return toRetentionResponse(
-        foundOr404(await replaceProgrammeRetention(currentTx(), programmeId, version, fields)),
+      const tx = currentTx();
+      const applied = foundOr404(
+        await replaceProgrammeRetentionWithPrevious(tx, programmeId, version, fields),
       );
+      await auditRetentionSaved(tx, programmeId, applied.previous, applied.updated);
+      return toRetentionResponse(applied.updated);
     } catch (error) {
       throw mapConflict(error);
     }

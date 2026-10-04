@@ -128,12 +128,13 @@ paths:
       description: |
         Switches the challenge to another method, or re-sends a one-time code.
 
-        `method: totp` is implemented in T-0001 and simply returns the current
-        challenge (there is nothing to send — the authenticator app already has
-        the secret). `method: sms` and `method: backup_code` are **contract
-        only**: SMS needs a channel provider that does not exist yet (Agent 5,
-        M8) and is an explicit non-goal of T-0001. Calling them returns
-        `501 not_implemented` until then.
+        `method: totp` returns the current challenge (there is nothing to send
+        — the authenticator app already has the secret). `method: backup_code`
+        (T-0012) switches the challenge so that the next `POST /auth/mfa`
+        expects a backup code, which it then consumes; it is
+        `400 mfa_method_unavailable` when the user has no unused codes.
+        `method: sms` is **contract only**: it needs a channel provider that
+        does not exist yet (Agent 5, M8) and returns `501 not_implemented`.
 
         `resendAvailableAt` is 60 seconds after issue and the UI must respect
         it; the server also enforces it.
@@ -152,6 +153,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MfaChallengeStarted' }
+        # 400 is also `mfa_method_unavailable` (same envelope) for `backup_code`
+        # when the user has no unused codes; see the description.
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/MfaChallengeRejected' }
         '429': { $ref: '#/components/responses/ResendTooSoon' }
@@ -201,6 +204,193 @@ paths:
                   locale: en-NG
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/MfaChallengeRejected' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
+
+  /api/v1/auth/mfa/enrol:
+    post:
+      tags: [authentication]
+      summary: Start TOTP enrolment for a user with no second factor (T-0012)
+      operationId: startMfaEnrolment
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P01/2']
+      description: |
+        Bound to a sign-in challenge (holding the `challengeId` is the proof of
+        the first factor; no session exists yet). Only for a user whose
+        challenge said `enrolmentRequired: true` — the provisioned first admin
+        (D-L54), or anyone who has never enrolled.
+
+        Returns a fresh 160-bit secret, as an `otpauth://` URI for the web app
+        to draw as a QR code and as base32 for manual entry. **This is the only
+        response that ever carries it**, and it is sent with
+        `Cache-Control: no-store`. Calling this again on the same challenge
+        issues a NEW secret and the earlier one can no longer be confirmed.
+        The factor is pending until confirmed and never satisfies a challenge.
+
+        For a user who already has a confirmed factor this is
+        `403 mfa_already_enrolled`: a password (which is all a challenge
+        proves) cannot replace a factor. Replacement is `POST /auth/me/mfa/totp`
+        and requires the current factor.
+
+        The body is addressed by challenge only. A body naming a workspace or
+        an address is a `400`, identical whether or not the person exists.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MfaEnrolRequest' }
+      responses:
+        '200':
+          description: 'A pending factor. Shown once, with Cache-Control no-store.'
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TotpEnrolmentStarted' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/MfaChallengeRejected' }
+        '403': { $ref: '#/components/responses/MfaAlreadyEnrolled' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
+
+  /api/v1/auth/mfa/enrol/confirm:
+    post:
+      tags: [authentication]
+      summary: Confirm the pending factor and establish the session (T-0012)
+      operationId: confirmMfaEnrolment
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P01/2']
+      description: |
+        A code from the pending secret marks the factor confirmed, consumes the
+        challenge and issues the session — and returns the backup codes, **the
+        only time they exist in plaintext** (`Cache-Control: no-store`). This is
+        the only way a pending factor becomes usable.
+
+        Wrong codes count against the same per-challenge (5) and per-user (10)
+        limits as `POST /auth/mfa`: the fifth burns the challenge, the tenth
+        overall locks the user's second factor (`429 account_locked`).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MfaEnrolConfirmRequest' }
+      responses:
+        '200':
+          description: Factor confirmed, session established, backup codes issued.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionWithBackupCodes' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/MfaChallengeRejected' }
+        '403': { $ref: '#/components/responses/MfaAlreadyEnrolled' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
+
+  /api/v1/auth/me/mfa:
+    get:
+      tags: [authentication]
+      summary: The current user's second-factor status (T-0012)
+      operationId: getMyMfa
+      x-kasuwa-implemented: true
+      description: |
+        Whether a TOTP factor is confirmed, and how many backup codes remain.
+        **Never the secret, never a code, never a hash.** Requires a real
+        session; the development stub identity is refused on every
+        `/auth/me/mfa` route.
+      responses:
+        '200':
+          description: Status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MfaStatus' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+
+  /api/v1/auth/me/mfa/totp:
+    post:
+      tags: [authentication]
+      summary: Start replacing the TOTP factor (step-up, T-0012)
+      operationId: startTotpReplacement
+      x-kasuwa-implemented: true
+      description: |
+        Requires the CURRENT second factor again (step-up): a session alone is
+        not enough to swap the factor out from under its owner, and a password
+        is not a second factor. `method: backup_code` is the lost-device path
+        and consumes that backup code.
+
+        Returns a new pending secret, once (`Cache-Control: no-store`). The old
+        factor keeps working until the new one is confirmed.
+
+        Wrong codes count against the same per-user MFA counter as sign-in.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StepUpRequest' }
+      responses:
+        '200':
+          description: A pending replacement factor. Shown once.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TotpEnrolmentStarted' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/StepUpRejected' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
+
+  /api/v1/auth/me/mfa/totp/confirm:
+    post:
+      tags: [authentication]
+      summary: Confirm the replacement factor (T-0012)
+      operationId: confirmTotpReplacement
+      x-kasuwa-implemented: true
+      description: |
+        A code from the NEW secret makes it the factor; the old one stops
+        working in the same transaction. Every other session the user holds is
+        revoked — a factor is usually replaced because a device was lost. The
+        pending secret expires ten minutes after it was issued.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TotpConfirmRequest' }
+      responses:
+        '200':
+          description: Replaced.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MfaStatus' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/StepUpRejected' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
+
+  /api/v1/auth/me/mfa/backup-codes:
+    post:
+      tags: [authentication]
+      summary: Regenerate the backup codes (step-up, T-0012)
+      operationId: regenerateBackupCodes
+      x-kasuwa-implemented: true
+      description: |
+        Requires the current second factor, like every write under
+        `/auth/me/mfa`. Returns a fresh set, once (`Cache-Control: no-store`);
+        the previous set, used or not, stops working. Codes are stored only as
+        a keyed hash and cannot be read back from any endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StepUpRequest' }
+      responses:
+        '200':
+          description: The new set. Shown once.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BackupCodesIssued' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/StepUpRejected' }
         '429': { $ref: '#/components/responses/TooManyAttempts' }
 
   /api/v1/auth/sign-out:
@@ -397,6 +587,13 @@ paths:
         '501': { $ref: '#/components/responses/NotImplemented' }
 
 components:
+  headers:
+    NoStore:
+      description: |
+        `no-store`. Every response that carries a TOTP secret or backup codes
+        sends it, so neither is kept by a browser, proxy or CDN cache.
+      schema: { type: string, const: no-store }
+
   securitySchemes:
     sessionToken:
       type: http
@@ -440,6 +637,56 @@ components:
           type: string
           writeOnly: true
           description: Six digits for TOTP or SMS; a backup code otherwise.
+
+    MfaEnrolRequest:
+      type: object
+      additionalProperties: false
+      required: [challengeId]
+      properties:
+        challengeId: { $ref: '#/components/schemas/ChallengeId' }
+
+    MfaEnrolConfirmRequest:
+      type: object
+      additionalProperties: false
+      required: [challengeId, code]
+      properties:
+        challengeId: { $ref: '#/components/schemas/ChallengeId' }
+        code:
+          type: string
+          writeOnly: true
+          maxLength: 32
+          description: Six digits from the pending secret.
+
+    StepUpRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      description: |
+        The CURRENT second factor, presented again before a write. There is no
+        `password` property: a password is not a second factor, and a body
+        carrying one is a `400`.
+      properties:
+        code:
+          type: string
+          writeOnly: true
+          maxLength: 32
+          description: Six TOTP digits, or a backup code when `method` is `backup_code`.
+        method:
+          type: string
+          enum: [totp, backup_code]
+          default: totp
+          description: '`backup_code` is the lost-device path; it consumes the code.'
+
+    TotpConfirmRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          writeOnly: true
+          maxLength: 32
+          description: Six digits from the NEW secret.
 
     SsoLookupRequest:
       type: object
@@ -538,9 +785,9 @@ components:
         enrolmentRequired:
           type: boolean
           description: |
-            True when the user has no confirmed factor. T-0001 does not
-            implement enrolment, so such a user cannot finish signing in; the
-            screen should tell them to contact their administrator.
+            True when the user has no confirmed factor. The screen then enrols
+            them with `POST /auth/mfa/enrol` and `/auth/mfa/enrol/confirm`
+            (T-0012), using this same `challengeId`.
         expiresAt: { type: string, format: date-time }
         resendAvailableAt:
           type: [string, 'null']
@@ -565,6 +812,64 @@ components:
             concurrent-session limit; session lifetime and refresh policy are an
             open product decision (see the T-0001 report).
         user: { $ref: '#/components/schemas/CurrentUser' }
+
+    TotpEnrolmentStarted:
+      type: object
+      required: [otpauthUri, secret, expiresAt]
+      description: |
+        A pending TOTP factor. **Sent once**, with `Cache-Control: no-store`,
+        and never returned by any other response. Do not log it, store it or
+        put it in a URL.
+      properties:
+        otpauthUri:
+          type: string
+          description: |
+            `otpauth://totp/Kasuwa:<email>?secret=<base32>&issuer=Kasuwa&...`.
+            The web app renders the QR code from this; the server sends no image.
+        secret:
+          type: string
+          description: The same base32 secret (160 bits), for manual entry.
+        expiresAt:
+          type: string
+          format: date-time
+          description: After this the pending factor can no longer be confirmed.
+
+    SessionWithBackupCodes:
+      allOf:
+        - { $ref: '#/components/schemas/SessionEstablished' }
+        - type: object
+          required: [backupCodes]
+          properties:
+            backupCodes: { $ref: '#/components/schemas/BackupCodeList' }
+
+    BackupCodesIssued:
+      type: object
+      required: [backupCodes]
+      properties:
+        backupCodes: { $ref: '#/components/schemas/BackupCodeList' }
+
+    BackupCodeList:
+      type: array
+      minItems: 10
+      maxItems: 10
+      description: |
+        Ten single-use codes, `xxxxx-xxxxx` (lower case, no `0 o 1 l i`; case,
+        hyphens and spaces are ignored on input). **Shown once.** Stored only as
+        a keyed hash; no endpoint can return them again. Regenerating replaces
+        the whole set.
+      items: { type: string }
+
+    MfaStatus:
+      type: object
+      required: [totp, backupCodesRemaining]
+      description: Never the secret, never a code, never a hash.
+      properties:
+        totp:
+          type: object
+          required: [confirmedAt]
+          properties:
+            confirmedAt: { type: [string, 'null'], format: date-time }
+        backupCodesRemaining: { type: integer, minimum: 0 }
 
     CurrentUser:
       type: object
@@ -617,6 +922,9 @@ components:
 
         **Switch on `code`.** `message` is an English fallback for logs and for
         a client with no catalogue; it is not a stable interface.
+
+        `internal_error` (500) is ONE fixed body for every unexpected failure
+        (T-0036): it carries no database text, SQLSTATE, class name or id.
       properties:
         statusCode: { type: integer }
         error: { type: string, description: The HTTP reason phrase. }
@@ -632,6 +940,7 @@ components:
             - mfa_code_invalid
             - mfa_challenge_expired
             - mfa_method_unavailable
+            - mfa_already_enrolled
             - resend_too_soon
             - sso_domain_not_found
             - otp_invalid
@@ -640,6 +949,7 @@ components:
             - not_authenticated
             - not_implemented
             - service_unavailable
+            - internal_error
         message: { type: string }
         details:
           type: array
@@ -780,6 +1090,45 @@ components:
                 error: Unauthorized
                 code: mfa_challenge_invalid
                 message: Sign in again to continue.
+
+    MfaAlreadyEnrolled:
+      description: |
+        The user already has a confirmed second factor. A sign-in challenge
+        proves only a password, and a password cannot replace a factor; use
+        `POST /auth/me/mfa/totp`, which requires the current one. Only the
+        holder of a live challenge can receive this.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 403
+            error: Forbidden
+            code: mfa_already_enrolled
+            message: Two-step verification is already set up. Sign in with it to change it.
+
+    StepUpRejected:
+      description: |
+        `not_authenticated` without a real session, or `mfa_code_invalid` for a
+        wrong current factor. `attemptsRemaining` counts down the per-user MFA
+        limit shared with sign-in (null when a just-used code was replayed,
+        which is refused but not counted).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            wrongCode:
+              value:
+                statusCode: 401
+                error: Unauthorized
+                code: mfa_code_invalid
+                message: That code did not match. Check your authenticator app and try again.
+                attemptsRemaining: 9
+            noSession:
+              value:
+                statusCode: 401
+                error: Unauthorized
+                code: not_authenticated
+                message: Not authenticated
 
     ResendTooSoon:
       description: A code was requested before the 60-second resend window elapsed.

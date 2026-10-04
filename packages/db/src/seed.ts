@@ -132,16 +132,29 @@ export async function runSeed(options: SeedOptions): Promise<void> {
         );
       }
 
+      // Before the users: a membership names its permission set through a
+      // composite foreign key (0015).
+      for (const set of SEED_PERMISSION_SETS.filter(
+        (candidate) => candidate.tenantId === tenant.id,
+      )) {
+        await client.query(
+          `INSERT INTO permission_set (id, tenant_id, key, label, locked, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [set.id, set.tenantId, set.key, set.label, set.locked, set.sortOrder],
+        );
+      }
+
       for (const user of tenant.users) {
         await client.query(
-          `INSERT INTO "user" (id, tenant_id, email, display_name, locale)
-           VALUES ($1, $2, $3, $4, $5)`,
+          `INSERT INTO "user" (id, tenant_id, email, display_name, locale, is_tenant_admin)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
           [
             user.id,
             tenant.id,
             user.email,
             user.displayName,
             tenant.slug.includes('rift') ? 'en' : 'en-NG',
+            user.isTenantAdmin,
           ],
         );
         // Every seeded user can actually sign in: a password and an enrolled
@@ -185,22 +198,21 @@ export async function runSeed(options: SeedOptions): Promise<void> {
           );
         }
 
+        const permissionSet = SEED_PERMISSION_SETS.find(
+          (candidate) =>
+            candidate.tenantId === tenant.id && candidate.key === user.permissionSetKey,
+        );
+        if (permissionSet === undefined) {
+          throw new Error(`Seed fixture names an unknown permission set: ${user.permissionSetKey}`);
+        }
         for (const programmeId of user.programmeIds) {
           await client.query(
-            `INSERT INTO user_programme (user_id, programme_id, tenant_id, skills)
-             VALUES ($1, $2, $3, $4)`,
-            [user.id, programmeId, tenant.id, ['voice']],
+            `INSERT INTO user_programme (user_id, programme_id, tenant_id, skills, permission_set_id)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [user.id, programmeId, tenant.id, ['voice'], permissionSet.id],
           );
         }
       }
-    }
-
-    for (const set of SEED_PERMISSION_SETS) {
-      await client.query(
-        `INSERT INTO permission_set (id, tenant_id, key, label, locked, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [set.id, set.tenantId, set.key, set.label, set.locked, set.sortOrder],
-      );
     }
 
     for (const contact of SEED_CONTACTS) {

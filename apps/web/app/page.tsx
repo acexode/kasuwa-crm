@@ -1,8 +1,8 @@
-import { bundleMessages, localeLabel, SUPPORTED_LOCALES } from '@kasuwa/i18n';
+import { bundleMessages } from '@kasuwa/i18n';
 import { SignInScreen } from '../components/auth/sign-in-screen';
 import { SIGN_IN_MESSAGE_IDS } from '../components/auth/message-ids';
 import { selfServeSignupEnabled } from '../lib/feature-flags';
-import { activeLocale } from '../lib/locale';
+import { activeLocale, languageOptions } from '../lib/locale';
 
 /**
  * `P01/1` — sign in. The application's front door.
@@ -12,13 +12,13 @@ import { activeLocale } from '../lib/locale';
  * closes over every registered catalogue, and shipping nine of them to render
  * one form is most of what a user on 256 kbps would be waiting for.
  *
- * THE LANGUAGE MENU COMES FROM `SUPPORTED_LOCALES` AND FROM NOWHERE ELSE.
- * That constant is derived from catalogue completeness plus a named reviewer
- * (D-P1), so it offers exactly the languages that are finished. Today it is two
- * — `en` and `en-NG`. Six more are structurally complete and deliberately held
- * back until a human who reads each one signs it off, and the menu shows what
- * the gate offers rather than what the design hoped for. Shipping a menu entry
- * that falls back to English is worse than offering fewer languages.
+ * THE LANGUAGE MENU COMES FROM `languageOptions()` AND FROM NOWHERE ELSE.
+ * It lists `SUPPORTED_LOCALES` — complete and signed off by a named reviewer —
+ * plus `BETA_LOCALES`, complete but not yet signed off, each with a Beta badge
+ * and a "help improve this translation" link (D-P1, answered 2026-10-03). Both
+ * lists are derived from the catalogues, so every entry is finished: shipping
+ * a menu entry that falls back to English is worse than offering fewer
+ * languages, and a Beta entry is unreviewed, never incomplete.
  */
 export default async function SignInPage() {
 
@@ -30,7 +30,7 @@ export default async function SignInPage() {
     <SignInScreen
       locale={locale}
       messages={bundleMessages(locale, SIGN_IN_MESSAGE_IDS)}
-      locales={SUPPORTED_LOCALES.map((code) => ({ code, label: localeLabel(code) }))}
+      locales={languageOptions(locale)}
       signUpOpen={signUpOpen}
     />
   );

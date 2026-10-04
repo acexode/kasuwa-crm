@@ -6,8 +6,14 @@ import { Icon } from '../icon';
 import { Panel } from './panel';
 import { useResource } from './use-resource';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
-import { getSkillCover, listProgrammeAgents, type Presence } from '../../lib/admin-api';
+import {
+  getSkillCover,
+  listProgrammeAgents,
+  type Presence,
+  type SkillCover,
+} from '../../lib/admin-api';
 import { formatCount, formatDate } from '../../lib/admin-format';
+import { SampleData } from './sample-data';
 
 /**
  * `P02/B3` — agents and skills.
@@ -44,10 +50,17 @@ export function AgentsTab({
   t,
   locale,
   programmeId,
+  live,
 }: {
   t: Translator;
   locale: string;
   programmeId: string;
+  /**
+   * The live-API flag (T-0035), evaluated on the server. The agent list is
+   * the real API either way; skill cover has no endpoint yet, so on the live
+   * console it is labelled sample data from `lib/admin-sample.ts`.
+   */
+  live: boolean;
 }) {
   const [query, setQuery] = useState('');
 
@@ -59,8 +72,24 @@ export function AgentsTab({
     [programmeId, query],
   );
   const cover = useResource(
-    useCallback((signal: AbortSignal) => getSkillCover(programmeId, signal), [programmeId]),
-    [programmeId],
+    useCallback(
+      (signal: AbortSignal) =>
+        live
+          ? // Loaded only on the live console (see programme-screen.tsx).
+            import('../../lib/admin-sample').then((sample) =>
+              sample.sampleResult(sample.sampleSkillCover((id) => t.t(id), new Date())),
+            )
+          : getSkillCover(programmeId, signal),
+      // `t` is rebuilt every render; the locale is what changes its output.
+      [programmeId, live, locale],
+    ),
+    [programmeId, live, locale],
+  );
+
+  const coverPanel = (
+    <Panel t={t} resource={cover} skeletonRows={4}>
+      {(data) => <CoverList t={t} locale={locale} data={data} />}
+    </Panel>
   );
 
   return (
@@ -178,76 +207,84 @@ export function AgentsTab({
       </div>
 
       <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5">
-        <Panel t={t} resource={cover} skeletonRows={4}>
-          {(data) => (
-            <>
-              <div className="flex flex-col gap-1">
-                <h2 className="text-h5">
-                  {t.t('admin.agents.cover.title', {
-                    shift: t.t(`admin.agents.shift.${data.shift}` as MessageId),
-                  })}
-                </h2>
-                <span className="text-body-sm text-text-muted">
-                  {t.t('admin.agents.cover.subtitle', {
-                    // The programme's own zone, sent explicitly by the
-                    // contract. "Monday" is not one day across WAT, EAT and
-                    // SAST, and the browser's zone is not this roster's.
-                    date: formatDate(locale, `${data.shiftDate}T00:00:00.000Z`, data.timeZone),
-                    zone: data.timeZone,
-                  })}
-                </span>
-              </div>
-
-              {data.items.map((item) => {
-                const needed = item.needed ?? null;
-                const ratio = needed === null || needed === 0 ? null : item.rostered / needed;
-                return (
-                  <div key={item.skillId} className="flex flex-col gap-2" data-skill-id={item.skillId}>
-                    <div className="flex justify-between gap-2 text-body-sm">
-                      <b className="font-semibold">{item.label}</b>
-                      {needed === null ? (
-                        <span data-testid="cover-unknown" className="text-text-muted">
-                          {t.t('admin.agents.cover.rostered', {
-                            rostered: formatCount(locale, item.rostered),
-                          })}
-                        </span>
-                      ) : (
-                        <span
-                          className={
-                            ratio !== null && ratio < 1
-                              ? 'font-semibold text-warning-text'
-                              : 'font-semibold text-success-text'
-                          }
-                        >
-                          {t.t('admin.agents.cover.value', {
-                            rostered: formatCount(locale, item.rostered),
-                            needed: formatCount(locale, needed),
-                          })}
-                        </span>
-                      )}
-                    </div>
-                    {ratio === null ? (
-                      <span className="text-caption text-text-muted">
-                        {t.t('admin.agents.cover.noForecast')}
-                      </span>
-                    ) : (
-                      <span className="h-2 overflow-hidden rounded-full bg-surface-sunken">
-                        <span
-                          className={`block h-full ${ratio < 1 ? 'bg-warning' : 'bg-success'}`}
-                          style={{ inlineSize: `${Math.min(100, ratio * 100)}%` }}
-                        />
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </>
-          )}
-        </Panel>
+        {live ? (
+          <SampleData t={t} testId="cover-sample">
+            {coverPanel}
+          </SampleData>
+        ) : (
+          coverPanel
+        )}
         <span className={`${SECONDARY_BUTTON} pointer-events-none opacity-60`} aria-disabled>
           {t.t('admin.agents.manageSkills')}
         </span>
       </section>
     </div>
+  );
+}
+
+function CoverList({ t, locale, data }: { t: Translator; locale: string; data: SkillCover }) {
+  return (
+    <>
+      <div className="flex flex-col gap-1">
+        <h2 className="text-h5">
+          {t.t('admin.agents.cover.title', {
+            shift: t.t(`admin.agents.shift.${data.shift}` as MessageId),
+          })}
+        </h2>
+        <span className="text-body-sm text-text-muted">
+          {t.t('admin.agents.cover.subtitle', {
+            // The programme's own zone, sent explicitly by the
+            // contract. "Monday" is not one day across WAT, EAT and
+            // SAST, and the browser's zone is not this roster's.
+            date: formatDate(locale, `${data.shiftDate}T00:00:00.000Z`, data.timeZone),
+            zone: data.timeZone,
+          })}
+        </span>
+      </div>
+
+      {data.items.map((item) => {
+        const needed = item.needed ?? null;
+        const ratio = needed === null || needed === 0 ? null : item.rostered / needed;
+        return (
+          <div key={item.skillId} className="flex flex-col gap-2" data-skill-id={item.skillId}>
+            <div className="flex justify-between gap-2 text-body-sm">
+              <b className="font-semibold">{item.label}</b>
+              {needed === null ? (
+                <span data-testid="cover-unknown" className="text-text-muted">
+                  {t.t('admin.agents.cover.rostered', {
+                    rostered: formatCount(locale, item.rostered),
+                  })}
+                </span>
+              ) : (
+                <span
+                  className={
+                    ratio !== null && ratio < 1
+                      ? 'font-semibold text-warning-text'
+                      : 'font-semibold text-success-text'
+                  }
+                >
+                  {t.t('admin.agents.cover.value', {
+                    rostered: formatCount(locale, item.rostered),
+                    needed: formatCount(locale, needed),
+                  })}
+                </span>
+              )}
+            </div>
+            {ratio === null ? (
+              <span className="text-caption text-text-muted">
+                {t.t('admin.agents.cover.noForecast')}
+              </span>
+            ) : (
+              <span className="h-2 overflow-hidden rounded-full bg-surface-sunken">
+                <span
+                  className={`block h-full ${ratio < 1 ? 'bg-warning' : 'bg-success'}`}
+                  style={{ inlineSize: `${Math.min(100, ratio * 100)}%` }}
+                />
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </>
   );
 }

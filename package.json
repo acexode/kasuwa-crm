@@ -22,6 +22,7 @@
     "db:migrate": "pnpm --filter @kasuwa/db migrate",
     "db:seed": "pnpm --filter @kasuwa/db seed",
     "db:reset": "pnpm --filter @kasuwa/db reset",
+    "tenant:provision": "pnpm --silent --filter @kasuwa/domain-core provision",
     "i18n:pseudo": "pnpm --filter @kasuwa/i18n pseudo",
     "i18n:validate": "pnpm --filter @kasuwa/i18n validate",
     "prepare": "husky",
@@ -30,11 +31,14 @@
     "ui:import-design": "pnpm --filter @kasuwa/ui import-design",
     "ui:fetch-fonts": "pnpm --filter @kasuwa/ui fetch-fonts",
     "test:pending": "vitest run --project pending",
-    "test:e2e": "node tests/e2e/scripts/run-e2e.mjs"
+    "test:e2e": "node tests/e2e/scripts/run-e2e.mjs",
+    "features": "node tools/generate-features.mjs",
+    "features:check": "node tools/generate-features.mjs --check"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.5.0",
     "@commitlint/config-conventional": "^19.5.0",
+    "@eslint/js": "^9.17.0",
     "@nx/eslint-plugin": "^21.0.0",
     "@types/node": "^22.10.0",
     "eslint": "^9.17.0",
@@ -46,7 +50,7 @@
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.18.0",
     "vitest": "^2.1.8",
-    "@eslint/js": "^9.17.0"
+    "yaml": "^2.9.1"
   },
   "pnpm": {
     "overrides": {

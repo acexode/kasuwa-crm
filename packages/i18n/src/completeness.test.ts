@@ -1,11 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { parseReview, DESIGN_MENU_LOCALES, LOCALE_SOURCES } from './catalogues';
-import { deriveSupportedLocales, localeReadiness, placeholderNames } from './completeness';
+import {
+  deriveBetaLocales,
+  deriveSupportedLocales,
+  localeReadiness,
+  placeholderNames,
+} from './completeness';
 import { requiredPluralCategories } from './plurals';
-import { localeLabel, SUPPORTED_LOCALES, textDirection, translate } from './index';
+import {
+  BETA_LOCALES,
+  localeLabel,
+  MENU_LOCALES,
+  SUPPORTED_LOCALES,
+  textDirection,
+  translate,
+} from './index';
 
 describe('requiredPluralCategories', () => {
-  it('does not impose English\'s two-category shape on other languages', () => {
+  it("does not impose English's two-category shape on other languages", () => {
     // The bug this exists to stop: `one`/`other` copied into every catalogue.
     expect(requiredPluralCategories('ar')).toEqual(['zero', 'one', 'two', 'few', 'many', 'other']);
     expect(requiredPluralCategories('fr')).toEqual(['one', 'many', 'other']);
@@ -57,6 +69,35 @@ describe('the completeness gate', () => {
 
   it('derives the offered list rather than reading a constant', () => {
     expect([...SUPPORTED_LOCALES]).toEqual([...deriveSupportedLocales()]);
+  });
+});
+
+describe('Beta languages (D-P1, answered 2026-10-03)', () => {
+  it('lists the complete-but-unattested menu languages, and nothing attested', () => {
+    expect([...BETA_LOCALES]).toEqual([...deriveBetaLocales()]);
+    // Today: the six drafts. A reviewer's sign-off moves one to SUPPORTED.
+    expect([...BETA_LOCALES].sort()).toEqual(['fr', 'ha', 'ig', 'pcm', 'sw', 'yo']);
+    for (const locale of BETA_LOCALES) {
+      const readiness = localeReadiness(locale);
+      expect(readiness.complete, `${locale}: ${readiness.problems.join('; ')}`).toBe(true);
+      expect(readiness.attested).toBe(false);
+      expect(SUPPORTED_LOCALES).not.toContain(locale);
+    }
+  });
+
+  it('never makes Arabic a Beta language — it is not on the design menu', () => {
+    expect(BETA_LOCALES).not.toContain('ar');
+    expect(MENU_LOCALES).not.toContain('ar');
+  });
+
+  it('builds the menu in the design order, with attested overlays after it', () => {
+    expect([...MENU_LOCALES]).toEqual([
+      ...DESIGN_MENU_LOCALES.filter(
+        (locale) => SUPPORTED_LOCALES.includes(locale) || BETA_LOCALES.includes(locale),
+      ),
+      'en-NG',
+    ]);
+    expect(MENU_LOCALES[0]).toBe('en');
   });
 });
 

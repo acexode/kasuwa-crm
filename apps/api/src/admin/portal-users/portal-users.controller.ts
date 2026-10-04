@@ -15,6 +15,8 @@ import { currentTx } from '../../tenancy/tenant-context';
 import { AdminController } from '../common/admin-controller.decorator';
 import { notFound } from '../common/admin-errors';
 import { foundOr404, parseIdOr404, parseOr400 } from '../common/admin-input';
+import { requireProgrammePermission } from '../common/admin-permissions';
+import { auditPortalUserInvited } from './portal-users.audit';
 import { portalAlreadyMember, portalSendUnavailable } from './portal-users.errors';
 import {
   invitationBody,
@@ -46,9 +48,15 @@ import { InvitePortalUserBody, PortalProgrammeIdParam } from './portal-users.sch
  * forms that leave are the masked address (response) and the token inside
  * the email body (provider).
  *
- * Not built, and said so in the T-0030 report: `403 not_permitted` (no
- * permissions engine), the audit row `x-kasuwa-audited` asks for (no audit
- * table on main yet), and the accept flow that makes a token single-use (M18).
+ * Permissions (T-0032, D-L53): inviting needs the `admin` set in the
+ * programme or a tenant admin (403 `not_permitted` otherwise, after the 404).
+ *
+ * Audited (T-0033): one `invited` event per successful invite or resend, in
+ * the request's transaction (`portal-users.audit.ts`); the address is a
+ * redacted change and the display name is never recorded (D-L52, D-L54).
+ *
+ * Not built, and said so in the T-0030 report: the accept flow that makes a
+ * token single-use (M18).
  */
 @AdminController('api/v1/admin/programmes')
 export class PortalUsersController {
@@ -65,7 +73,7 @@ export class PortalUsersController {
 
   /**
    * `POST .../{programmeId}/portal-users/invitations` - operationId
-   * `invitePortalUser`. 202 · 400 · 401 · 404 · 409 · 503.
+   * `invitePortalUser`. 202 · 400 · 401 · 403 · 404 · 409 · 503.
    *
    * Inviting an address known elsewhere (another programme, another tenant)
    * is indistinguishable from a fresh invitation: a portal user belongs to one
@@ -77,6 +85,8 @@ export class PortalUsersController {
   async invite(@Param() params: unknown, @Body() body: unknown): Promise<PortalUserResponse> {
     const tx = currentTx();
     const programmeId = await reachableProgramme(tx, params);
+    // T-0032: 404 first (above), then 403, then the body.
+    await requireProgrammePermission(tx, 'portal_user.invite', programmeId);
     const input = parseOr400(InvitePortalUserBody, body);
 
     const emailMasked = maskEmail(input.email);
@@ -104,6 +114,14 @@ export class PortalUsersController {
     if (result === null) {
       throw notFound();
     }
+
+    // Before the send, so an email never leaves unaudited; a failed send
+    // below throws and rolls this event back with the invitation.
+    await auditPortalUserInvited(tx, programmeId, {
+      portalUserId: result.user.id,
+      access: result.user.access,
+      outcome: result.outcome,
+    });
 
     try {
       await this.channel.send({

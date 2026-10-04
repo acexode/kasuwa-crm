@@ -54,6 +54,7 @@ const SCREENS: Readonly<Record<string, readonly MessageId[]>> = {
   'retention-tab.tsx': ADMIN_PROGRAMME_MESSAGE_IDS,
   'portal-tab.tsx': ADMIN_PROGRAMME_MESSAGE_IDS,
   'archive-dialog.tsx': ADMIN_PROGRAMME_MESSAGE_IDS,
+  'sample-data.tsx': ADMIN_PROGRAMME_MESSAGE_IDS,
   'roles-screen.tsx': ADMIN_ROLES_MESSAGE_IDS,
   'field-security-screen.tsx': ADMIN_FLS_MESSAGE_IDS,
   'audit-screen.tsx': ADMIN_AUDIT_MESSAGE_IDS,

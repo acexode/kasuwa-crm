@@ -29,7 +29,8 @@ async function main(): Promise<void> {
     // already exists.
     await client.query(
       'DROP TABLE IF EXISTS ' +
-        'auth_rate_limit, auth_session, auth_challenge, user_mfa_factor, user_credential, ' +
+        'auth_rate_limit, auth_session, auth_challenge, user_mfa_backup_code, user_mfa_factor, ' +
+        'user_credential, ' +
         'contact, user_programme, "user", programme, business_unit, tenant, ' +
         '_kasuwa_migration CASCADE',
     );

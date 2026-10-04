@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { BETA_LOCALES, MENU_LOCALES } from '@kasuwa/i18n';
 import { stack } from './support/stack';
 import { installAuthMock } from './support/auth-mock';
 import { AUTH_CONTRACT_SOURCE } from './support/auth-mock.generated';
@@ -94,15 +95,17 @@ test.describe('P01/1 — sign in', () => {
     await expect(page.locator('[data-screen="P01/1"]')).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
-    // The language menu must come from SUPPORTED_LOCALES — the DERIVED list of
-    // finished, attested catalogues. Today that is `en` and `en-NG`. Six more
-    // are complete and held back on D-P1, and offering one of them would be a
-    // menu entry that falls back to English, which is worse than offering
-    // fewer languages.
+    // The language menu is MENU_LOCALES: the attested SUPPORTED_LOCALES plus
+    // the Beta languages — complete, not yet signed off (D-P1, answered
+    // 2026-10-03). Both are DERIVED from the catalogues, so the count is read
+    // from @kasuwa/i18n rather than typed here, and a reviewer's sign-off
+    // changes nothing in this file. Per-language Beta badges are asserted in
+    // `locale-beta.spec.ts`.
     await page.getByRole('button', { name: /language/i }).click();
     const options = page.getByRole('option');
-    await expect(options).toHaveCount(2);
+    await expect(options).toHaveCount(MENU_LOCALES.length);
     await expect(page.getByRole('option', { name: 'English', exact: true })).toBeVisible();
+    await expect(page.getByTestId('language-beta')).toHaveCount(BETA_LOCALES.length);
 
     // Escape closes it and focus RETURNS to the button that opened it.
     await page.keyboard.press('Escape');
@@ -336,11 +339,16 @@ test.describe('P01/1d — slow network', () => {
      * LIVE SINCE T-0010 (D-L28). This was held as `fixme` while the harness
      * ran `next dev`, whose ~2.3 MB development bundle made any budget here
      * meaningless. The harness now serves `next build` + `next start`, so this
-     * is measured against what ships. On the T-0010 build this page transferred
-     * 240,015 bytes — lighter than the 256,948 recorded below, so the budget
-     * has more headroom than the paragraph below describes; re-pinning it is
-     * this screen's owner's call. The sign-in critical path is also held to its
-     * own, tighter budget in `byte-budget.spec.ts`.
+     * is measured against what ships. The sign-in critical path is also held
+     * to its own, tighter budget in `byte-budget.spec.ts`.
+     *
+     * RE-PINNED IN T-0035 (D-L43 note). On the T-0010 build this page
+     * transferred 240,015 bytes; the old 270,336 left 12.6% of headroom, room
+     * enough for a whole font file to arrive unnoticed. It is now 252,000 —
+     * inside 5% of that measurement, which also absorbs the language menu's
+     * Beta badges and help link (D-P1, a few hundred bytes). Since D-L43 the
+     * CSS names no remote font fallback, so the stylesheet is slightly lighter
+     * too.
      */
 
     const { webUrl } = stack();
@@ -356,14 +364,13 @@ test.describe('P01/1d — slow network', () => {
      * with 300 ms of latency — a usable sign-in inside two seconds on the
      * network PRD 2.13 commits to, which is the number that actually matters.
      *
-     * PRD 2.13 caps the critical path at 300 KB gzipped, so there is about 16%
-     * of headroom. The budget is pinned just above the measurement — 264 KB —
-     * rather than at the NFR, because a budget set at the ceiling permits every
-     * page between today's weight and the limit, which is most of the room a
-     * regression needs. The literal is written out so it is the number, not a
-     * constant somebody has to go and look up.
+     * PRD 2.13 caps the critical path at 300 KB gzipped. The budget is pinned
+     * just above the measurement rather than at the NFR, because a budget set
+     * at the ceiling permits every page between today's weight and the limit,
+     * which is most of the room a regression needs. The literal is written out
+     * so it is the number, not a constant somebody has to go and look up.
      */
-    assertWithinByteBudget('the P01/1 sign-in page', metrics.transferredBytes, 270336);
+    assertWithinByteBudget('the P01/1 sign-in page', metrics.transferredBytes, 252000);
   });
 });
 

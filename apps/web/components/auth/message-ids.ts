@@ -82,6 +82,7 @@ export const SIGN_IN_MESSAGE_IDS: readonly MessageId[] = [
   'auth.error.account_locked',
   'auth.error.not_authenticated',
   'auth.error.not_implemented',
+  'auth.error.internal_error',
   'auth.error.network',
 ];
 
@@ -101,6 +102,7 @@ export const SSO_MESSAGE_IDS: readonly MessageId[] = [
   'auth.error.sso_domain_not_found',
   'auth.error.not_authenticated',
   'auth.error.not_implemented',
+  'auth.error.internal_error',
   'auth.error.network',
 ];
 
@@ -135,5 +137,6 @@ export const MFA_MESSAGE_IDS: readonly MessageId[] = [
   'auth.error.resend_too_soon',
   'auth.error.not_authenticated',
   'auth.error.not_implemented',
+  'auth.error.internal_error',
   'auth.error.network',
 ];

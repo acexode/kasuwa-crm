@@ -38,6 +38,7 @@
       "@kasuwa/channel-adapter": ["packages/channel-adapter/src/index.ts"],
       "@kasuwa/wfm-adapter": ["packages/wfm-adapter/src/index.ts"],
       "@kasuwa/domain-core": ["packages/domain/core/src/index.ts"],
+      "@kasuwa/domain-core/provisioning": ["packages/domain/core/src/provisioning.ts"],
       "@kasuwa/ui": ["packages/ui/src/index.ts"],
       "@kasuwa/i18n": ["packages/i18n/src/index.ts"],
       "@kasuwa/i18n/bundle": ["packages/i18n/src/bundle.ts"],

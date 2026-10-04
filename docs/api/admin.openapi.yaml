@@ -483,8 +483,13 @@ paths:
         transaction), so it is reachable from the next request. A
         `businessUnitId` outside the caller's tenant is `404 not_found`, the
         same body as one that does not exist. `countryCode` is validated but
-        not stored (no column), so the `201` body omits it. Not enforced: `403
-        not_permitted` (no permissions engine — any tenant user may create).
+        not stored (no column), so the `201` body omits it. The creator is
+        enrolled holding the tenant's `admin` permission set.
+
+        **Permissions (T-0032, D-L53, D-L40):** tenant-level - only a tenant
+        admin may create. Anyone else gets `403 not_permitted`, decided before
+        the body is validated, so a non-admin never reaches the
+        `duplicate_name` answer that would confirm a sibling's name.
 
         **Audited (T-0025, D-L52):** one `created` event, `objectType:
         programme`, with `programmeId: null` and nothing but the new id (as
@@ -568,8 +573,12 @@ paths:
 
         **Built (T-0024), with one gap.** `name` and `clientName` only: any
         `status` is `400 validation_failed` at `status` until a lifecycle
-        column exists. Not yet enforced: `403 not_permitted` (no permissions
-        engine — any member of the programme may rename it).
+        column exists.
+
+        **Permissions (T-0032, D-L53, D-L40):** tenant-level - only a tenant
+        admin may update. An unreachable programme is `404` first; a reachable
+        one is `403 not_permitted` for anyone else, before the body is
+        validated.
 
         **Audited (T-0025):** a write that changes something records one
         `updated` event, `objectType: programme`, with the programme as
@@ -822,6 +831,11 @@ paths:
         silently overwriting a colleague's edit is the failure mode that ends
         in a service-credit dispute.
 
+        **Audited (T-0033, D-L54):** one `updated` event per successful save,
+        `objectType: sla_policy`, `objectId` and `programmeId` the programme,
+        with a change per field that moved (`version` always; targets as
+        `targets.<channel>.<key>`). A refused save records nothing.
+
         **Who owns SLA policy is undecided.** SLAs are per-programme
         configuration (PRD 2.10) but no PRD module claims the model; M12 owns
         ticketing SLAs, M8 owns inbox response targets, and the client-facing
@@ -924,6 +938,12 @@ paths:
         The drag handle. The body is the complete ordered list of ids for the
         programme; sending a subset is `400`, because a partial reorder has no
         well-defined result and the screen always knows the whole list.
+
+        Audited as ONE `updated` event per request (D-L54), `objectType:
+        disposition`, `objectId` null, recording `dispositionCount` and
+        `movedCount`. The other disposition writes are `created`, `updated`
+        (only when a field moved) and `deleted` events with `objectId` the
+        disposition; all carry the programme (T-0033).
       parameters:
         - $ref: '#/components/parameters/ProgrammeId'
       requestBody:
@@ -939,6 +959,7 @@ paths:
               schema: { $ref: '#/components/schemas/DispositionList' }
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
         '404': { $ref: '#/components/responses/NotFound' }
         '501': { $ref: '#/components/responses/NotImplemented' }
 
@@ -991,7 +1012,8 @@ paths:
         disposition row vanished would break every historical report that
         joins to it.
 
-        Idempotent: deleting an already-deleted disposition is `204`.
+        Idempotent: deleting an already-deleted disposition is `204`, and
+        records no second audit event (it changed nothing).
       responses:
         '204': { description: Deleted. }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
@@ -1153,7 +1175,10 @@ paths:
         API does not judge that — the screen shows the warning — but it does
         refuse to act while a legal hold is on: turning a hold off and
         shortening a period in the same request is `409 legal_hold_active`.
-        Two deliberate steps, two audit rows.
+        Two deliberate steps, two audit rows: each successful save is one
+        `updated` event, `objectType: retention_policy`, `objectId` and
+        `programmeId` the programme, with a change per field that moved
+        (T-0033). A refused save records nothing.
 
         **Retention model ownership is M21 (data management), which is
         unassigned**, and D-T4 (does the telephony platform already do
@@ -1249,9 +1274,15 @@ paths:
       description: |
         Granting an outsider sight of a programme is one of the more
         consequential things an admin can do here, so it is audited with the
-        programme and the access level — and the audit row records the invited
-        address as a masked hint plus an opaque id, not as a plain address.
-        (The audit row is not written yet: it waits for the audit log, T-0025.)
+        programme and the access level. **Audited (T-0033, D-L52, D-L54):**
+        one `invited` event, `objectType: portal_user`, `objectId` the
+        opaque portal user id, `programmeId` the programme, `objectLabel` the
+        fixed type label. A fresh invitation records `access` as a change and
+        `email` as a redacted change (`redacted: true`, both values null); a
+        resend records the token rotation as a redacted `inviteToken` change.
+        The invited address — not even its masked hint — and the display name
+        never appear in an event. A refused invitation (400, 404, 409, 503)
+        records nothing.
 
         The invitation is an email, sent through the channel adapter before the
         `202` is returned. It carries an acceptance link (single-use once the
@@ -1366,9 +1397,10 @@ paths:
         `400 validation_failed` at `confirmation`; an unreachable id is `404`
         whatever the body says. Archiving an archived programme is an
         idempotent `200` with the version unchanged. Not built yet: losing
-        access (assigned users keep read access until the permissions engine),
-        "stops taking new work", restore (no operation exists) and `403
-        not_permitted`. **Audited (T-0025, D-L52):** an archive that changes
+        access (assigned users keep read access), "stops taking new work" and
+        restore (no operation exists). **Permissions (T-0032):** the `admin`
+        permission set in this programme or a tenant admin; anyone else who
+        can read the programme gets `403 not_permitted`. **Audited (T-0025, D-L52):** an archive that changes
         the status records one `updated` event with a `status` change and the
         programme as `programmeId`; an idempotent re-archive records nothing.
       parameters:
@@ -1631,9 +1663,9 @@ paths:
         not programme-scoped, so every user of the tenant sees one catalogue.
         `objectApiName` is immutable (D-P4), so it is a stable tab key.
 
-        There is no `403` yet: with no permissions engine, any authenticated
-        user of the tenant can read this list. It carries names and counts
-        only, never a record.
+        There is no `403`: the permissions engine (T-0032) governs writes, and
+        any authenticated user of the tenant can read this list. It carries
+        names and counts only, never a record.
       responses:
         '200':
           description: The objects.
@@ -1866,14 +1898,19 @@ paths:
         `createProgramme`, `updateProgramme` and `archiveProgramme`
         (`objectType: programme`), `updateFieldSecurityMatrix` (`objectType:
         field_security`, one event per changed cell) and `createAuditExport`
-        (`objectType: audit_export`). `changes[].field` uses API field names.
+        (`objectType: audit_export`). Since T-0033 (D-L54), also
+        `updateProgrammeSla` (`sla_policy`), `updateProgrammeRetention`
+        (`retention_policy`), the four disposition writes (`disposition`; a
+        reorder is one event per request) and `invitePortalUser`
+        (`portal_user`, a resend included), each carrying its programme.
+        `changes[].field` uses API field names; values are strings.
         Newest first; `page.totalCount` is always null.
 
         **Who sees what (D-L48).** An event with a `programmeId` is visible
         only to members of that programme; an event with none (role changes,
-        exports) to every user of the tenant, until the permissions engine
-        restricts reading the log to admins. Not yet enforced: `403
-        not_permitted` anywhere in this tag.
+        exports) to every user of the tenant, until reading the log is
+        restricted to admins (not yet decided). Requesting an export needs a
+        tenant admin (T-0032, D-L53): anyone else gets `403 not_permitted`.
 
         **Source addresses are not recorded yet**, and `sourceIp` and
         `sourceLocation` are always null. Because nobody may see an address,
@@ -2054,7 +2091,8 @@ paths:
         always recorded, a `sourceIpPrefix` filter recorded as redacted).
         `filters` is accepted only with `scope: filtered`, and
         `filters.objectType` must be one of the object types the log writes
-        (`role`, `programme`, `field_security`, `audit_export`) — the event is
+        (`role`, `programme`, `field_security`, `audit_export`, `sla_policy`,
+        `retention_policy`, `disposition`, `portal_user`) — the event is
         readable tenant-wide, so it carries no free text. `filters.actorId`
         is recorded as redacted, and a `sourceIpPrefix` is not stored on the
         export, only the fact that one was given. No worker builds
@@ -3208,7 +3246,9 @@ components:
           properties:
             actorId: { type: string, format: uuid }
             action: { $ref: '#/components/schemas/AuditAction' }
-            objectType: { type: string, enum: [role, programme, field_security, audit_export] }
+            objectType:
+              type: string
+              enum: [role, programme, field_security, audit_export, sla_policy, retention_policy, disposition, portal_user]
             from: { type: string, format: date-time }
             to: { type: string, format: date-time }
             sourceIpPrefix: { type: string, maxLength: 45 }
@@ -3244,6 +3284,10 @@ components:
         **Switch on `code`.** `message` is an English fallback for logs and for
         a client with no catalogue; it is not a stable interface. Localise as
         `admin.error.<code>`.
+
+        `internal_error` (500) is ONE fixed body for every unexpected failure
+        (T-0036): it carries no database text, SQLSTATE, class name or id, so
+        it never says which constraint or code path was hit.
       properties:
         statusCode: { type: integer }
         error: { type: string, description: The HTTP reason phrase. }
@@ -3263,6 +3307,7 @@ components:
             - too_many_requests
             - not_implemented
             - service_unavailable
+            - internal_error
         message: { type: string }
         details:
           type: array

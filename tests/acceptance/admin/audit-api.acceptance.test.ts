@@ -783,6 +783,17 @@ describe('acceptance: admin audit log API (T-0025)', () => {
   it('getAuditFilterOptions lists only actors who appear in the log the caller can read', async () => {
     try {
       // Agent 2 acts only inside A2; the supervisor acts tenant-wide.
+      // D-L53 (2026-10-03): renaming a programme needs a tenant admin, so agent 2
+      // is made one for this test only (reseeded in `finally`). The event still
+      // carries programme A2, which is what this test's visibility check is about.
+      const migrator = createPool({ connectionString: inject('migrationUrl'), max: 1 });
+      try {
+        await migrator.query('UPDATE "user" SET is_tenant_admin = true WHERE id = $1', [
+          USER_A_AGENT_2,
+        ]);
+      } finally {
+        await migrator.end();
+      }
       await renameProgramme(asUser(TENANT_A, USER_A_AGENT_2), PROGRAMME_A2, uniqueName('Telco Y'));
       await createRole(uniqueName('Workforce Analyst'));
 

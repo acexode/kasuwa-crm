@@ -26,6 +26,17 @@ export interface CollectedSpan {
   /** `spanContext().traceId` as the SDK recorded it: 32 lowercase hex. */
   traceId: string;
   attributes: Record<string, unknown>;
+  /**
+   * T-0036 (D-L42): every event the SDK recorded on the span, in order; `[]`
+   * when there were none. `recordException` lands here, so the PII grep must.
+   */
+  events: CollectedSpanEvent[];
+}
+
+export interface CollectedSpanEvent {
+  name: string;
+  /** A copy of the event's attributes; `{}` when it has none. */
+  attributes: Record<string, unknown>;
 }
 
 export interface CollectedTelemetry {
@@ -78,6 +89,10 @@ export async function collectTelemetry(fn: () => Promise<void>): Promise<Collect
         name: span.name,
         traceId: span.spanContext().traceId,
         attributes: { ...span.attributes },
+        events: span.events.map((event) => ({
+          name: event.name,
+          attributes: { ...(event.attributes ?? {}) },
+        })),
       })),
       logs: logExporter.getFinishedLogRecords().map((record) => ({
         ...record.attributes,

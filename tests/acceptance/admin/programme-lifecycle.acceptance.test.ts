@@ -329,9 +329,14 @@ describe('acceptance: programme lifecycle (T-0029)', () => {
         const takenName = seededName(PROGRAMME_A2);
 
         // USER_A_AGENT_1 cannot read A2; the conflict must still not name it.
+        // D-L53 (lead, T-0032): createProgramme needs a tenant admin, so
+        // USER_A_AGENT_1 is refused 403 before the 409 oracle is reached.
         for (const headers of [SUPERVISOR, AGENT_1]) {
           const clash = await post(headers, BASE, { name: takenName, businessUnitId: BU_A });
-          const body = expectError(clash, 409, 'duplicate_name');
+          const body =
+            headers === AGENT_1
+              ? expectError(clash, 403, 'not_permitted')
+              : expectError(clash, 409, 'duplicate_name');
           const raw = JSON.stringify(body);
           expect(raw).not.toContain(PROGRAMME_A2);
           expect(raw, 'never a database message').not.toMatch(/programme_tenant_id_name_key|23505/);

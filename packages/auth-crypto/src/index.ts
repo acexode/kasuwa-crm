@@ -18,6 +18,7 @@ export {
   hashPassword,
   HashingOverloadedError,
   hashPressure,
+  shutdownPasswordHashing,
   verifyPassword,
 } from './password';
 export {
@@ -28,6 +29,16 @@ export {
   totpCode,
   verifyTotp,
 } from './totp';
+export {
+  BACKUP_CODE_ALPHABET,
+  BACKUP_CODE_COUNT,
+  BACKUP_CODE_HASH_ALGORITHM,
+  BACKUP_CODE_LENGTH,
+  generateBackupCode,
+  generateBackupCodes,
+  hashBackupCode,
+  normaliseBackupCode,
+} from './backup-codes';
 export {
   ENVELOPE_ALGORITHM,
   mfaSecretAad,

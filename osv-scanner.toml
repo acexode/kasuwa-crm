@@ -8,9 +8,10 @@
 # BASELINE, NOT ACCEPTANCE. Every entry below was already in the lockfile when
 # the scan was introduced (2026-10-02): 36 findings in 14 packages, 1 critical
 # and 13 high. Most are in dev and test tooling (vitest, vite, nx, esbuild,
-# testcontainers' undici and uuid). One is in the API's runtime path —
-# drizzle-orm, via @kasuwa/db — and is the first to triage. Fixing them needs
-# major upgrades (vitest 3/4, nx 22, vite 6), which is its own task.
+# testcontainers' undici and uuid). One was in the API's runtime path —
+# drizzle-orm, via @kasuwa/db — and was upgraded to 0.45.3 by T-0037, so its
+# entry (GHSA-gpj5-g38j-94v9) is gone. Fixing the rest needs major upgrades
+# (vitest 3/4, nx 22, vite 6), which is its own task.
 #
 # They expire together on 2026-10-31. After that date the scan goes red until
 # each is fixed or re-accepted with a real, per-finding reason. That is
@@ -22,14 +23,9 @@ ignoreUntil = 2026-10-31T00:00:00Z
 reason = "T-0005 baseline, pre-existing: @vitest/mocker 2.1.9 (fixed in 4.1.11, CVSS 5.9); vitest 2.1.9 (fixed in 4.1.11, CVSS 5.9)"
 
 [[IgnoredVulns]]
-id = "GHSA-gpj5-g38j-94v9"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: drizzle-orm 0.38.4 (fixed in 0.45.2, CVSS 7.5)"
-
-[[IgnoredVulns]]
 id = "GHSA-67mh-4wv8-2f99"
 ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: esbuild 0.18.20 (fixed in 0.25.0, CVSS 5.3); esbuild 0.19.12 (fixed in 0.25.0, CVSS 5.3); esbuild 0.21.5 (fixed in 0.25.0, CVSS 5.3); esbuild 0.24.2 (fixed in 0.25.0, CVSS 5.3)"
+reason = "T-0005 baseline, pre-existing: esbuild 0.18.20 (fixed in 0.25.0, CVSS 5.3); esbuild 0.21.5 (fixed in 0.25.0, CVSS 5.3); esbuild 0.24.2 (fixed in 0.25.0, CVSS 5.3). The esbuild 0.19 line left the lockfile with the drizzle-kit 0.31 bump (T-0037)."
 
 [[IgnoredVulns]]
 id = "GHSA-23c5-xmqv-rm74"

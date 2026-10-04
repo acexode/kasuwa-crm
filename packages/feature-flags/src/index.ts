@@ -55,6 +55,29 @@ export const FLAGS = {
     // production today, every submission would answer 501. T-0016 flips this.
     productionReady: false,
   },
+  /**
+   * T-0035: the P02 console's PRESENTATION of the two panels the admin API has
+   * not built. With it ON, KPIs (`P02/B2`) and skill cover (`P02/B3`) show
+   * labelled sample data from inside apps/web instead of calling their
+   * missing endpoints, and the e2e harness drives the console against the
+   * real API on the flag-on process.
+   *
+   * IT IS NOT AN ACCESS CONTROL, AND IT DOES NOT GATE THE ADMIN API.
+   * `apps/web/lib/admin-api.ts` calls the same same-origin `/api/v1/admin`
+   * paths whether it is on or off, and nothing on the API reads it. Who may
+   * read or write admin data is decided by the API's session and the
+   * permissions engine (T-0032), never by this flag.
+   */
+  admin_live_api: {
+    description:
+      'P02 KPIs and skill cover show labelled sample data in place of their unbuilt endpoints (T-0035). Not an access control.',
+    defaultValue: false,
+    owner: 'T-0035',
+    // Kept NOT production-ready for now (lead, 2026-10-03): sample figures in
+    // front of a production supervisor are a product decision, made with the
+    // T-0032 authorisation work reviewed end to end, not as a side effect.
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

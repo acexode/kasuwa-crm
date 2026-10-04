@@ -1,11 +1,12 @@
-import { bundleMessages, localeLabel, SUPPORTED_LOCALES } from '@kasuwa/i18n';
+import { bundleMessages } from '@kasuwa/i18n';
 import { ProgrammeScreen } from '../../../../components/admin/programme-screen';
 import {
   isProgrammeTab,
   type ProgrammeTab,
 } from '../../../../components/admin/programme-tabs';
 import { ADMIN_PROGRAMME_MESSAGE_IDS } from '../../../../components/admin/message-ids';
-import { activeLocale } from '../../../../lib/locale';
+import { activeLocale, languageOptions } from '../../../../lib/locale';
+import { adminLiveApiEnabled } from '../../../../lib/feature-flags';
 
 /**
  * `P02/B2`–`P02/B5` — one programme and its tabs.
@@ -14,6 +15,11 @@ import { activeLocale } from '../../../../lib/locale';
  * SLA tab is a link a person can send to a colleague and the back button does
  * what it looks like it does. An unknown value falls back to the overview
  * rather than erroring: a mistyped query string is not a missing record.
+ *
+ * `admin_live_api` (T-0035) is read HERE, on the server, and handed down as a
+ * boolean. With it on, KPIs and skill cover — the two reads the API cannot
+ * answer yet — render labelled sample data from `lib/admin-sample.ts`; every
+ * other read on the screen is the same request either way.
  */
 export default async function ProgrammePage({
   params,
@@ -28,14 +34,16 @@ export default async function ProgrammePage({
 
   const requested = Array.isArray(query.tab) ? query.tab[0] : query.tab;
   const tab: ProgrammeTab = isProgrammeTab(requested) ? requested : 'overview';
+  const live = await adminLiveApiEnabled();
 
   return (
     <ProgrammeScreen
       locale={locale}
       messages={bundleMessages(locale, ADMIN_PROGRAMME_MESSAGE_IDS)}
-      locales={SUPPORTED_LOCALES.map((code) => ({ code, label: localeLabel(code) }))}
+      locales={languageOptions(locale)}
       programmeId={programmeId}
       tab={tab}
+      live={live}
     />
   );
 }

@@ -85,3 +85,64 @@ export interface SessionResponse {
   expiresAt: string;
   user: CurrentUserResponse;
 }
+
+// --- MFA enrolment and recovery (T-0012) --------------------------------------
+//
+// Note what these bodies do NOT accept. Enrolment is addressed by a challenge,
+// never by a slug or an email: a body naming a person is a 400 whether or not
+// the person exists. And no step-up body accepts a password — a password is not
+// a second factor, and a field that took one would be the bypass this task
+// exists to prevent.
+
+export const MfaEnrolBody = z
+  .object({
+    challengeId: z.string().min(1).max(128),
+  })
+  .strict();
+export type MfaEnrolInput = z.infer<typeof MfaEnrolBody>;
+
+export const MfaEnrolConfirmBody = z
+  .object({
+    challengeId: z.string().min(1).max(128),
+    code: z.string().min(1).max(32),
+  })
+  .strict();
+export type MfaEnrolConfirmInput = z.infer<typeof MfaEnrolConfirmBody>;
+
+/** The current second factor, presented again before a write (step-up). */
+export const StepUpBody = z
+  .object({
+    code: z.string().min(1).max(32),
+    method: z.enum(['totp', 'backup_code']).default('totp'),
+  })
+  .strict();
+export type StepUpInput = z.infer<typeof StepUpBody>;
+
+/** A code from the NEW secret. */
+export const TotpConfirmBody = z
+  .object({
+    code: z.string().min(1).max(32),
+  })
+  .strict();
+export type TotpConfirmInput = z.infer<typeof TotpConfirmBody>;
+
+/** Sent once. Never logged, never cached (`Cache-Control: no-store`). */
+export interface TotpEnrolmentStarted {
+  otpauthUri: string;
+  secret: string;
+  expiresAt: string;
+}
+
+export interface SessionWithBackupCodes extends SessionResponse {
+  backupCodes: string[];
+}
+
+export interface BackupCodesIssued {
+  backupCodes: string[];
+}
+
+/** Never the secret, never a code, never a hash. */
+export interface MfaStatusResponse {
+  totp: { confirmedAt: string | null };
+  backupCodesRemaining: number;
+}

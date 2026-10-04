@@ -31,3 +31,25 @@ export async function selfServeSignupEnabled(): Promise<boolean> {
     toEvaluationContext({ tenantId: PRE_TENANT }),
   );
 }
+
+/**
+ * `admin_live_api` (T-0035) is per PROCESS too. The admin console has no tenant
+ * on the server side — the browser's session decides that, at the API — so the
+ * evaluation carries a sentinel that no per-tenant rule can match, exactly
+ * like sign-up above. Read by the P02 server pages and passed to the client
+ * screens as a boolean; a `'use client'` module never evaluates a flag.
+ *
+ * It switches presentation only — KPIs and skill cover to labelled sample
+ * data. It grants and withholds nothing: the admin API is called the same way
+ * either way, and access is the API's permissions engine (T-0032).
+ */
+const ADMIN_CONSOLE = 'process:admin-console';
+
+export async function adminLiveApiEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'admin_live_api',
+    false,
+    toEvaluationContext({ tenantId: ADMIN_CONSOLE }),
+  );
+}

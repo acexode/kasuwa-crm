@@ -15,6 +15,7 @@ const ERROR_IDS: readonly MessageId[] = [
   'auth.error.otp_expired',
   'auth.error.otp_too_many_attempts',
   'auth.error.not_implemented',
+  'auth.error.internal_error',
   'auth.error.network',
   'auth.locked.retryAt',
 ];
@@ -117,7 +118,8 @@ export const REGION_MESSAGE_IDS: readonly MessageId[] = [
   'region.tag.sales',
   'region.sales.note',
   'region.law.title',
-  'region.law.body',
+  'region.law.guidance',
+  'region.law.sales',
   'region.law.disclaimer',
 ];
 
