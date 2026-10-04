@@ -1266,3 +1266,21 @@ because CHECK and FK validation and index builds scan the table. At PRD 2.13 sca
   (`packages/db/src/migrate.ts:103`). A **runner task** must add a marked non-transactional mode before the first
   cell is populated. That task belongs to Agent 1, before T-0005 scope 2.
 - `version` is maintained by a trigger (added to 0019 after review M1), the same pattern as 0018's `updated_at`.
+
+### D-L66 — the auth-table sweep gets its own NOBYPASSRLS role (supersedes ADR-0009's "run as migrator")
+**Status:** PROCEEDING (lead). An ADR is required, and is drafted by the T-0045 builder.
+- **The problem:** ADR-0009's amendment, and migration 0004's header, say the sweep "must run as kasuwa_migrator (BYPASSRLS)".
+  But the sweep runs in `apps/worker`, and CLAUDE.md 2.1 and the db invariant 6 forbid any app process from holding the migration
+  URL. A BYPASSRLS pool in a long-running worker is precisely the escape hatch the model rules out.
+- **The decision:** a dedicated role, `kasuwa_sweeper`, created in `packages/db/sql/bootstrap.sql`:
+  - **no BYPASSRLS, no LOGIN.**
+  - **Granted to `kasuwa_app`.** The worker's prune enters it with `SET LOCAL ROLE` inside a transaction.
+  - **Policies only for this role,** on `auth_challenge`, `auth_session` and `auth_rate_limit`, admitting **only rows already past retention**.
+    The retention rule is the policy predicate.
+  - **Grants:** `SELECT` and `DELETE` only.
+- **What still holds after this change:**
+  - exactly two SECURITY DEFINER functions;
+  - nothing reachable from `kasuwa_app` has BYPASSRLS;
+  - `kasuwa_app` itself still sees nothing across tenants. The T-0045 suite's adversarial guards check this.
+- **Bootstrap edit:** this is the first edit to `bootstrap.sql` since it was written. It is a protected path, so the lead reviews the
+  role diff line by line.

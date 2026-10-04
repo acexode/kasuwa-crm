@@ -1,6 +1,6 @@
 # T-0045 — Auth-table retention job, and pool exhaustion answered as 503
 
-**status** `not-assigned` · **owner** Agent 1 · **priority** P1 · **decisions** D-L56, ADR-0009
+**status** `not-assigned` (builder running: Agent 1, `agent1/T-0045-auth-retention`; suite on `lead/T-0045-acceptance` a337c43) · **owner** Agent 1 · **priority** P1 · **decisions** D-L56, D-L66, ADR-0009
 
 ## Goal
 1. **Retention job.** An `apps/worker` job prunes `auth_challenge`, `auth_session` and `auth_rate_limit` on a stated
