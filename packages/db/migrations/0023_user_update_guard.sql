@@ -58,7 +58,7 @@
 -- Last-admin self-deactivation is ruled an application concern (suite header).
 --
 -- ORDER. Triggers fire in name order: user_touch_updated_at (0018) runs
--- before user_update_guard. It only sets updated_at, which the guard does not
+-- before zz_user_update_guard. It only sets updated_at, which the guard does not
 -- compare, so the order does not change any decision.
 -- ---------------------------------------------------------------------------
 
@@ -74,7 +74,11 @@ CREATE FUNCTION app.guard_user_update() RETURNS trigger
   SET search_path = pg_catalog
 AS $$
 BEGIN
-  IF current_user <> 'kasuwa_app' THEN
+  -- Guarded whenever EITHER identity is the app role (migration-reviewer,
+  -- T-0048): a SET ROLE from an app connection stays guarded even if some
+  -- future role it can enter is ever granted UPDATE on "user". Only genuine
+  -- non-app sessions (the migrator, the seed) pass through.
+  IF current_user <> 'kasuwa_app' AND session_user <> 'kasuwa_app' THEN
     RETURN NEW;
   END IF;
 
@@ -90,6 +94,7 @@ BEGIN
      WHERE u.tenant_id = app.current_tenant_id()
        AND u.id = app.current_user_id()
        AND u.is_tenant_admin
+       AND u.status = 'active'
   ) THEN
     RETURN NEW;
   END IF;
@@ -109,7 +114,10 @@ $$;
 
 REVOKE ALL ON FUNCTION app.guard_user_update() FROM PUBLIC;
 
-CREATE TRIGGER user_update_guard
+-- Named to sort LAST among BEFORE UPDATE triggers on "user" (they fire in name
+-- order): a later trigger that rewrote NEW.email/status/role_id after the
+-- guard would otherwise slip past it.
+CREATE TRIGGER zz_user_update_guard
   BEFORE UPDATE ON "user"
   FOR EACH ROW
   EXECUTE FUNCTION app.guard_user_update();
