@@ -68,6 +68,69 @@ Four things people get wrong, in order of how often:
 4. **Money or timestamps typed loosely.** `bigint` minor units plus an ISO
    currency column; `timestamptz`, never `timestamp`.
 
+### Hot tables: build indexes CONCURRENTLY, validate constraints later (D-L65)
+
+Once a cell holds real data, a plain `CREATE INDEX` or a validating `ADD
+CONSTRAINT` on `contact` or another hot table holds a lock that blocks writes
+while it scans. The rule from D-L65:
+
+- add CHECKs and FKs `NOT VALID` in an ordinary migration;
+- validate them, and build or drop indexes, in a **separate** migration whose
+  first line is exactly:
+
+```sql
+-- kasuwa:no-transaction
+-- 0042: D-L65, contact is hot. Validates the check added NOT VALID in 0041.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS contact_phone_idx ON contact (tenant_id, phone);
+DROP INDEX CONCURRENTLY IF EXISTS contact_phone_old_idx;
+ALTER TABLE contact VALIDATE CONSTRAINT contact_phone_format_ck;
+```
+
+How the marker works:
+
+- It counts only as the exact first line, with no indentation, no other text
+  and no change of case. A marker anywhere else does nothing, and the file runs
+  in a transaction, where `CONCURRENTLY` fails.
+- The runner sends a marked file without `BEGIN`/`COMMIT`, **one statement at a
+  time**.
+- A marked file may contain only `CREATE [UNIQUE] INDEX CONCURRENTLY`, `DROP
+  INDEX CONCURRENTLY` and `ALTER TABLE ... VALIDATE CONSTRAINT`, with no other
+  action in the same statement. Comments are fine. The runner refuses anything
+  else, including `SET`, `BEGIN`, `DO`, `VACUUM`, `REINDEX` and a plain `CREATE
+  INDEX`. It checks the whole file before running any of it. Put everything
+  else in an ordinary migration.
+- The marker line is part of the checksum. Adding it to an applied file, or
+  removing it, counts as an edit, and the runner refuses it.
+- Use `IF NOT EXISTS` and `IF EXISTS`. Without a transaction, a file that fails
+  on its third statement has already applied the first two. The file is **not
+  recorded**, so the next run starts it from the top, and the `IF` clauses make
+  that safe.
+
+#### When a CONCURRENTLY build fails: clean up the INVALID index
+
+A failed `CREATE [UNIQUE] INDEX CONCURRENTLY` (duplicate keys, a deadlock, a
+cancelled deploy) does not roll back. It leaves the index behind marked
+**INVALID**. Postgres maintains it on every write but never uses it for reads,
+and a re-run then fails with "already exists". With `IF NOT EXISTS`, a re-run
+silently keeps the broken index, which is worse. To recover:
+
+1. Find it:
+   ```sql
+   SELECT c.relname FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
+    WHERE NOT i.indisvalid;
+   ```
+2. Fix the cause, for example remove the duplicate rows that broke a unique build.
+3. Drop the INVALID index without locking the table:
+   `DROP INDEX CONCURRENTLY IF EXISTS <name>;` Run it on its own, outside a
+   transaction, as `kasuwa_migrator`.
+4. Run `pnpm db:migrate` again. The failed file was not recorded, so it runs
+   again from its first statement.
+
+You can correct the failed file itself before the re-run, because a failed
+marked file is never recorded. First check that no other cell or environment
+has applied it. Once a file is recorded anywhere, the usual append-only rule
+holds.
+
 ## 3. Mirror it in the Drizzle schema
 
 Add the table to `packages/db/src/schema.ts`. This is a *mirror* — the SQL is

@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { Client } from 'pg';
+import { Client, type QueryConfig } from 'pg';
+import { checkNoTransactionFile, hasNoTransactionMarker, NO_TRANSACTION_MARKER } from './migration-sql';
 
 /**
  * Migration runner.
@@ -14,7 +15,15 @@ import { Client } from 'pg';
  * Runs as kasuwa_migrator (DATABASE_MIGRATION_URL), never as kasuwa_app.
  *
  * Properties:
- *   - applied in filename order, one transaction per file
+ *   - applied in filename order, one transaction per file — unless the file's
+ *     first line is exactly `-- kasuwa:no-transaction` (T-0044, D-L65). A
+ *     marked file runs without a transaction, one statement per query, and may
+ *     contain only CREATE/DROP INDEX CONCURRENTLY and ALTER TABLE ... VALIDATE
+ *     CONSTRAINT (see migration-sql.ts). Every pending marked file is checked
+ *     before anything in the run is applied. A marked file that fails part way
+ *     is not recorded, so it runs again once fixed; a failed CONCURRENTLY build
+ *     leaves an INVALID index to drop first (the create-rls-migration skill
+ *     documents the cleanup)
  *   - recorded with a sha256 checksum; editing an applied migration is an error
  *     rather than a silent no-op (expand/migrate/contract means new files, never
  *     edits — see docs/adr/0004 and the migration-reviewer checklist)
@@ -86,6 +95,25 @@ export async function runMigrations(options: MigrateOptions): Promise<MigrateRes
     );
     const byId = new Map(existing.rows.map((row) => [row.id, row.checksum]));
 
+    // Refuse a bad marked file before ANYTHING in this run is applied: without a
+    // transaction there is nothing to roll back, so the check has to come first.
+    const plans = new Map<string, string[]>();
+    for (const migration of migrations) {
+      if (byId.has(migration.id) || !hasNoTransactionMarker(migration.sql)) {
+        continue;
+      }
+      const check = checkNoTransactionFile(migration.sql);
+      if (check.violations.length > 0) {
+        throw new Error(
+          `Migration ${migration.id} is marked ${NO_TRANSACTION_MARKER} and was refused; nothing was applied.\n` +
+            `A no-transaction migration may contain only CREATE [UNIQUE] INDEX CONCURRENTLY, ` +
+            `DROP INDEX CONCURRENTLY and ALTER TABLE ... VALIDATE CONSTRAINT, one action per statement.\n` +
+            check.violations.map((violation) => `  - ${violation}`).join('\n'),
+        );
+      }
+      plans.set(migration.id, check.statements);
+    }
+
     for (const migration of migrations) {
       const recorded = byId.get(migration.id);
       if (recorded !== undefined) {
@@ -96,6 +124,40 @@ export async function runMigrations(options: MigrateOptions): Promise<MigrateRes
           );
         }
         alreadyApplied.push(migration.id);
+        continue;
+      }
+
+      const statements = plans.get(migration.id);
+      if (statements !== undefined) {
+        log(`applying ${migration.id} (no transaction, ${statements.length} statements)`);
+        try {
+          for (const statement of statements) {
+            // The extended protocol, not the simple one: Postgres refuses more
+            // than one command in an extended-protocol query, so if the splitter
+            // ever under-split a file the server would reject it rather than
+            // run the hidden remainder. (@types/pg lacks `queryMode`; pg has it.)
+            const query: QueryConfig & { queryMode: 'extended' } = {
+              text: statement,
+              queryMode: 'extended',
+            };
+            await client.query(query);
+          }
+        } catch (error) {
+          // Earlier statements have committed; the file is deliberately NOT
+          // recorded, so the next run starts it again.
+          throw new Error(
+            `Migration ${migration.id} failed: ${(error as Error).message}\n` +
+              `It ran without a transaction (${NO_TRANSACTION_MARKER}) and has not been recorded. ` +
+              `Statements before the failing one have taken effect. If a CONCURRENTLY build failed, ` +
+              `drop the INVALID index it left with DROP INDEX CONCURRENTLY, fix the cause, and run again.`,
+            { cause: error },
+          );
+        }
+        await client.query(`INSERT INTO ${MIGRATION_TABLE} (id, checksum) VALUES ($1, $2)`, [
+          migration.id,
+          migration.checksum,
+        ]);
+        applied.push(migration.id);
         continue;
       }
 
