@@ -21,14 +21,6 @@ export {
   assertThrottleIsNotACellWideCliff,
 } from './guards.mjs';
 export type { AuthMode, KmsProvider, NodeEnvName } from './guards.mjs';
-export {
-  apiEnv,
-  migratorEnv,
-  nodeEnv,
-  realtimeEnv,
-  webBuildEnv,
-  webEnv,
-  workerEnv,
-} from './schemas.mjs';
+export { apiEnv, migratorEnv, nodeEnv, realtimeEnv, webEnv, workerEnv } from './schemas.mjs';
 export type { ApiEnv, EnvSource, MigratorEnv, RealtimeEnv, WebEnv, WorkerEnv } from './schemas.mjs';
 export { loadWorkspaceEnv } from './dotenv';

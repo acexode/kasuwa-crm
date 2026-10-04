@@ -90,6 +90,38 @@ const MIGRATION_URL_SELECTORS = [
   },
 ];
 
+/**
+ * What app code may not import (the `apps/**` block below). Shared so that the
+ * apps/web block, which replaces it there, can restate it rather than drift.
+ */
+const APP_RESTRICTED_IMPORT_PATHS = [
+  {
+    name: '@kasuwa/testing',
+    message: 'The isolation harness can forge RLS session variables. It belongs in tests only.',
+  },
+  {
+    name: '@kasuwa/channel-adapter',
+    importNames: ['FakeChannelProvider', 'FakeDndRegister'],
+    message:
+      'The channel fakes send nothing and clear every DND lookup. They belong in tests only.',
+  },
+  {
+    name: '@kasuwa/domain-core',
+    importNames: ['provisionTenant'],
+    message:
+      'provisionTenant runs on the kasuwa_migrator (BYPASSRLS) connection. It is an operator command (pnpm tenant:provision), never reachable from an app process (D-L54).',
+  },
+];
+const APP_RESTRICTED_IMPORT_PATTERNS = [
+  {
+    group: ['@kasuwa/domain-core/*'],
+    message:
+      'Import @kasuwa/domain-core from its main entry. Operator-only code must not be reachable from apps.',
+  },
+];
+const WEB_CONFIG_IMPORT_MESSAGE =
+  'apps/web imports configuration only from @kasuwa/config/web or @kasuwa/config/feature-flags. The main entry exports loadWorkspaceEnv(), which would load the workspace .env (and DATABASE_URL) into the web process (T-0014).';
+
 const BOUNDARY_CONSTRAINTS = [
   {
     // Domain modules may reach shared infrastructure and the external-system
@@ -239,31 +271,44 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': [
         'error',
+        { paths: APP_RESTRICTED_IMPORT_PATHS, patterns: APP_RESTRICTED_IMPORT_PATTERNS },
+      ],
+    },
+  },
+
+  {
+    // THE WEB PROCESS NEVER LOADS `.env` (T-0014). `@kasuwa/config`'s main
+    // entry exports `loadWorkspaceEnv()` and every server schema; one call from
+    // a server component would put DATABASE_URL into the web process. So
+    // apps/web may import only the two entry points that load nothing:
+    // `@kasuwa/config/web` and `@kasuwa/config/feature-flags`, plus the deep
+    // path to the same web module that next.config.mjs needs because Node
+    // resolves it natively (no TypeScript path aliases there). Every file
+    // extension, because next.config.mjs is where this would most likely go
+    // wrong. This block replaces the one above for apps/web, so it restates it.
+    files: ['apps/web/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
         {
           paths: [
-            {
-              name: '@kasuwa/testing',
-              message:
-                'The isolation harness can forge RLS session variables. It belongs in tests only.',
-            },
-            {
-              name: '@kasuwa/channel-adapter',
-              importNames: ['FakeChannelProvider', 'FakeDndRegister'],
-              message:
-                'The channel fakes send nothing and clear every DND lookup. They belong in tests only.',
-            },
-            {
-              name: '@kasuwa/domain-core',
-              importNames: ['provisionTenant'],
-              message:
-                'provisionTenant runs on the kasuwa_migrator (BYPASSRLS) connection. It is an operator command (pnpm tenant:provision), never reachable from an app process (D-L54).',
-            },
+            ...APP_RESTRICTED_IMPORT_PATHS,
+            { name: '@kasuwa/config', message: WEB_CONFIG_IMPORT_MESSAGE },
           ],
           patterns: [
+            ...APP_RESTRICTED_IMPORT_PATTERNS,
             {
-              group: ['@kasuwa/domain-core/*'],
-              message:
-                'Import @kasuwa/domain-core from its main entry. Operator-only code must not be reachable from apps.',
+              group: [
+                '@kasuwa/config/*',
+                '!@kasuwa/config/web',
+                '!@kasuwa/config/feature-flags',
+                // gitignore semantics: a file under an excluded directory cannot
+                // be re-included, so src/ is re-included first, then narrowed.
+                '!@kasuwa/config/src',
+                '@kasuwa/config/src/**',
+                '!@kasuwa/config/src/web.mjs',
+              ],
+              message: WEB_CONFIG_IMPORT_MESSAGE,
             },
           ],
         },

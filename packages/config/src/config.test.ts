@@ -6,12 +6,13 @@ import {
   migratorEnv,
   nodeEnv,
   realtimeEnv,
-  webBuildEnv,
   webEnv,
   workerEnv,
   type EnvSource,
 } from './index';
+import * as mainEntry from './index';
 import * as webEntry from './web.mjs';
+import { webBuildEnv } from './web.mjs';
 
 // Invented values only. The marker lets a test prove a refusal never echoes it.
 const MARKER = 'n0t-a-pw-unit-91x';
@@ -94,8 +95,16 @@ describe('web environment', () => {
     expect(env.KASUWA_WEB_TSCONFIG).toBe('tsconfig.json');
   });
 
-  it('refuses DATABASE_URL and DATABASE_MIGRATION_URL by name, without echoing them', () => {
-    for (const name of ['DATABASE_URL', 'DATABASE_MIGRATION_URL']) {
+  it('refuses the database urls and server credentials by name, without echoing them', () => {
+    for (const name of [
+      'DATABASE_URL',
+      'DATABASE_MIGRATION_URL',
+      'KASUWA_KMS_LOCAL_MASTER_KEY',
+      'S3_ACCESS_KEY_ID',
+      'S3_SECRET_ACCESS_KEY',
+      'REDIS_URL',
+      'OPENSEARCH_URL',
+    ]) {
       for (const parse of [webEnv, webBuildEnv]) {
         let message = '';
         try {
@@ -128,6 +137,24 @@ describe('web environment', () => {
 
   it('the web entry point exports the web schema and nothing that loads .env', () => {
     expect(Object.keys(webEntry).sort()).toEqual(['webBuildEnv', 'webEnv']);
+  });
+
+  it('keeps the guard-free build parse off the main entry', () => {
+    expect(Object.keys(mainEntry)).not.toContain('webBuildEnv');
+  });
+});
+
+describe('error messages never echo the input', () => {
+  it('rewrites an enum issue from its options, without the received value', () => {
+    let message = '';
+    try {
+      apiEnv({ ...API_BASE, KASUWA_AUTH_MODE: MARKER });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toMatch(/KASUWA_AUTH_MODE: must be one of 'stub' \| 'jwt'/);
+    expect(message).not.toContain(MARKER);
+    expect(message).not.toMatch(/received/);
   });
 });
 

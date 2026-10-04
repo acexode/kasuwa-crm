@@ -266,13 +266,22 @@ function startApi(databaseUrl, port) {
 const WEB_DIR = join(repoRoot, 'apps', 'web');
 
 /**
- * What no web process is given (T-0014). `apps/web/next.config.mjs` refuses to
- * start, or build, with a database URL in its environment: a browser-facing
+ * What no web process is given (T-0014). The web schema refuses to start, or
+ * build, with a database URL or a server credential in its environment
+ * (`WEB_FORBIDDEN` in packages/config/src/schemas.mjs): a browser-facing
  * process must never hold one. The harness inherits whatever shell started it,
- * so it drops both explicitly rather than trusting that shell. Node skips
+ * so it drops them explicitly rather than trusting that shell. Node skips
  * `undefined` values when building a child's environment.
  */
-const NO_DATABASE_URLS = { DATABASE_URL: undefined, DATABASE_MIGRATION_URL: undefined };
+const NO_DATABASE_URLS = {
+  DATABASE_URL: undefined,
+  DATABASE_MIGRATION_URL: undefined,
+  KASUWA_KMS_LOCAL_MASTER_KEY: undefined,
+  S3_ACCESS_KEY_ID: undefined,
+  S3_SECRET_ACCESS_KEY: undefined,
+  REDIS_URL: undefined,
+  OPENSEARCH_URL: undefined,
+};
 const NEXT_ENV_FILE = join(WEB_DIR, 'next-env.d.ts');
 
 /**

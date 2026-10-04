@@ -13,10 +13,11 @@ import { z } from 'zod';
  *   - SERVER-SIDE ONLY. Nothing a browser sends can reach this: no header, no
  *     cookie, no query string. A flag that a request can flip is not a flag, it
  *     is a public switch.
- *   - A SEPARATE ENTRY POINT from `@kasuwa/config`. That module loads the
- *     workspace `.env` and validates the API's whole environment, including a
- *     `DATABASE_URL` the web process does not have and must not be handed. This
- *     file loads nothing and parses one variable.
+ *   - A SEPARATE ENTRY POINT from `@kasuwa/config`. The main entry exports
+ *     every process schema and the `.env` loader (`loadWorkspaceEnv`), and
+ *     `apps/web` is lint-banned from importing it, so the web process cannot
+ *     load the workspace `.env` and its `DATABASE_URL` (T-0014). This file
+ *     loads nothing and parses one variable.
  *   - IT DOES NOT KNOW THE FLAG NAMES. `@kasuwa/feature-flags` owns those and
  *     rejects a name it does not declare — a typo here must fail the boot, not
  *     silently leave a flag off while someone believes it is on.

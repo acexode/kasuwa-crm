@@ -193,6 +193,13 @@ const WorkerSchema = z.object({
   // BullMQ's connection. The worker reads nothing else today. When the first
   // job that touches tenant data lands, it adds DATABASE_URL here, and the
   // worker starts failing at boot without one, which is the point.
+  //
+  // GUARDS: today the worker runs only the stub-auth guard, because it holds
+  // no database connection and no key provider. The day it gains either (a
+  // DATABASE_URL, or any job that encrypts or decrypts with envelope
+  // encryption), it must add the KMS fields here AND call
+  // `assertKeyProviderIsSafe` in `workerEnv`, exactly as `apiEnv` does.
+  // Otherwise a production worker could run on the in-process local key.
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
 });
 /** @typedef {z.infer<typeof WorkerSchema>} WorkerEnv */
@@ -249,10 +256,23 @@ const WebSchema = z.object({
  * database URL is the mistake the whole rule exists to prevent; the migrator
  * URL (BYPASSRLS, D-L07, D-L54) is the worst version of it.
  *
+ * The rest are the other server-side credentials and internal endpoints the
+ * development `.env` carries: the local KMS master key, the object-store
+ * credentials, and the Redis and OpenSearch URLs. None is read by the web
+ * process, and each is something a browser-facing process should not hold.
+ *
  * Presence is the test, not validity: an empty `DATABASE_URL=` is refused too.
  * The value is never echoed.
  */
-const WEB_FORBIDDEN = ['DATABASE_URL', 'DATABASE_MIGRATION_URL'];
+const WEB_FORBIDDEN = [
+  'DATABASE_URL',
+  'DATABASE_MIGRATION_URL',
+  'KASUWA_KMS_LOCAL_MASTER_KEY',
+  'S3_ACCESS_KEY_ID',
+  'S3_SECRET_ACCESS_KEY',
+  'REDIS_URL',
+  'OPENSEARCH_URL',
+];
 
 // --- parsing ---------------------------------------------------------------
 
@@ -261,9 +281,19 @@ const WEB_FORBIDDEN = ['DATABASE_URL', 'DATABASE_MIGRATION_URL'];
  * @returns {string[]}
  */
 function describeIssues(error) {
-  // Path and message only. Zod's messages for these schemas do not include the
-  // input for a URL or a string check, and nothing here appends it.
-  return error.issues.map((issue) => `  ${issue.path.join('.') || '(root)'}: ${issue.message}`);
+  // Path and message only, and never the input. Zod's URL, string, regex and
+  // number messages do not include the value, but its enum message does
+  // ("Invalid enum value. Expected 'a' | 'b', received '<input>'"), so enum
+  // issues are rewritten from their options alone. An operator who pastes a
+  // secret into the wrong variable must not find it echoed in a boot log.
+  return error.issues.map((issue) => {
+    const path = issue.path.join('.') || '(root)';
+    const message =
+      issue.code === 'invalid_enum_value'
+        ? `must be one of ${issue.options.map((option) => `'${String(option)}'`).join(' | ')}`
+        : issue.message;
+    return `  ${path}: ${message}`;
+  });
 }
 
 /**
@@ -291,7 +321,8 @@ function webProblems(source) {
   return WEB_FORBIDDEN.filter((name) => source[name] !== undefined).map(
     (name) =>
       `  ${name}: must not be set for the web process. It is browser-facing and must never ` +
-      'hold a database connection string (T-0014). Remove it from this process environment.',
+      'hold a database connection string or a server credential (T-0014). Remove it from ' +
+      'this process environment.',
   );
 }
 
