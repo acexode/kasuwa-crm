@@ -1,6 +1,6 @@
 # T-0039 — Records API contract (contacts first)
 
-**status** `not-assigned` · **owner** Agent 3 · **priority** P0 (blocks T-0041, T-0042) · **decisions** D-L60, D-L12
+**status** `not-assigned` (builder running: Agent 3, `agent3/T-0039-records-contract`; suite on `lead/T-0039-acceptance` 256cd41) · **owner** Agent 3 · **priority** P0 (blocks T-0041, T-0042) · **decisions** D-L60, D-L12
 
 ## Goal
 Write `docs/api/records.openapi.yaml`, the contract only (ADR-0004), modelled on `admin.openapi.yaml`:

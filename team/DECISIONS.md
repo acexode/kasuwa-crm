@@ -1167,3 +1167,14 @@ view, with real data behind it.
 **Next slice:** custom-field value storage (Agent 2, the T-0002 follow-up), accounts and leads screens,
 P03 home, CSV import, then dedupe and merge (D-P12).
 Each task waits for its acceptance suite (D-L23).
+
+### D-P13 — total counts in record lists ("1–25 of 1,234", live chip counts)
+**Status:** OPEN, needs @acexode. Does not block T-0039, which forbids totals for now and is easy to relax.
+P04 shows "1–25 of 1,234", "Page 1 of 50", and live counts on filter chips and saved views. The T-0039
+contract uses keyset paging (`data`, `nextCursor`) with no total, no offset and no page number, the
+same as the live contacts endpoint.
+**Lead recommendation:** keep keyset paging, and offer **an approximate total only on request**. It
+would be capped (for example "1,000+"), computed within the caller's scope, and omitted when a filter
+touches a field-secured column. Per-chip live counts are left out of MVP: a count per filter per page load
+is costly on Postgres, and on a secured field a count reveals what exists. T-0042 then draws "Load more",
+or next/previous without "Page X of Y".
