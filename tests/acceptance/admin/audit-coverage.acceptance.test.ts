@@ -1487,6 +1487,22 @@ describe('acceptance: audit coverage of every audited write (T-0033)', () => {
 
   it('an A2 member writing in A2 is the actor, and a non-member is not offered them as an actor', async () => {
     try {
+      // Since T-0032 a disposition write needs the `admin` set in the
+      // programme; the seed gives agent 2 `agent` in A2. This test is about
+      // who the actor is, not about permissions, so grant it first. `fresh()`
+      // reseeds afterwards.
+      const migrator = createPool({ connectionString: inject('migrationUrl'), max: 1 });
+      try {
+        await migrator.query(
+          `UPDATE user_programme SET permission_set_id =
+             (SELECT id FROM permission_set
+               WHERE tenant_id = user_programme.tenant_id AND key = 'admin')
+           WHERE user_id = $1 AND programme_id = $2`,
+          [USER_A_AGENT_2, PROGRAMME_A2],
+        );
+      } finally {
+        await migrator.end();
+      }
       const { added } = await callAndCollect({
         label: 'createDisposition by USER_A_AGENT_2',
         send: () =>
