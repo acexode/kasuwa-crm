@@ -64,7 +64,6 @@ export const businessUnit = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('business_unit_tenant_idx').on(table.tenantId)],
 );
 
 export const programme = pgTable(
@@ -81,7 +80,6 @@ export const programme = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('programme_tenant_idx').on(table.tenantId)],
 );
 
 /** Table name is the reserved word `user`; Drizzle quotes identifiers, so this is safe. */
@@ -110,7 +108,6 @@ export const user = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('user_tenant_idx').on(table.tenantId),
     index('user_tenant_role_idx').on(table.tenantId, table.roleId),
     uniqueIndex('user_tenant_email_key').on(table.tenantId, table.email),
   ],
@@ -173,7 +170,6 @@ export const userCredential = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('user_credential_tenant_idx').on(table.tenantId)],
 );
 
 export const userMfaFactor = pgTable(
@@ -344,7 +340,6 @@ export const objectDef = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('object_def_tenant_idx').on(table.tenantId),
     // Per tenant, never global: two tenants must both be able to use a name.
     uniqueIndex('object_def_tenant_id_api_name_key').on(table.tenantId, table.apiName),
   ],
@@ -370,7 +365,6 @@ export const fieldDef = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('field_def_tenant_object_idx').on(table.tenantId, table.objectId),
     uniqueIndex('field_def_tenant_id_object_id_api_name_key').on(
       table.tenantId,
       table.objectId,
