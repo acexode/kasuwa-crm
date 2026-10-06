@@ -12,7 +12,7 @@ import { reseed, withForcedScope } from '@kasuwa/testing';
 import { Client, type Pool } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, inject, it, vi } from 'vitest';
-import { asUser } from '../support/api';
+import { asUser, withAuthDatabase } from '../support/api';
 
 /**
  * ACCEPTANCE — T-0045: auth-table retention, and pool exhaustion answered as 503.
@@ -863,11 +863,11 @@ describe('acceptance: pool exhaustion is answered 503 (T-0045 part 2)', () => {
 
     // Built as a variable, not a literal, so the new option typechecks on main
     // before it exists; the builder adds it to AppModuleOptions.
-    const options: AppModuleOptions & { poolConnectionTimeoutMillis: number } = {
+    const options: AppModuleOptions & { poolConnectionTimeoutMillis: number } = withAuthDatabase({
       databaseUrl: inject('databaseUrl'),
       poolMax: POOL_MAX,
       poolConnectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
-    };
+    });
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule.forRoot(options)],
     }).compile();
