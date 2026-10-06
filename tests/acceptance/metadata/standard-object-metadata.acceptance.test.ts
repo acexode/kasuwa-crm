@@ -208,14 +208,34 @@ function contractSchema(name: string): SchemaShape | null {
 /** Not a field: the list of what was withheld. Never a field_def. */
 const META_PROPERTY = 'withheldFields';
 
+/**
+ * Derived properties: read-only views of another property, withheld exactly
+ * when their source is (T-0043 `owner`, D-L72 `account`). A derived property
+ * gets NO field_def of its own, because a second matrix cell for it could
+ * disagree with its source; the source must be a withholdable field instead.
+ * Added by the lead when T-0043's `Contact.owner` reached main.
+ */
+const DERIVED: Readonly<Record<string, string>> = {
+  owner: 'ownerUserId',
+  account: 'accountId',
+};
+
 /** Contact field_defs: `required` must exist, nothing outside `allowed`. */
 function contactFieldExpectation(): { required: string[]; allowed: Set<string> } {
   const contact = contractSchema('Contact');
   if (contact === null) throw new Error('records.openapi.yaml has no Contact schema');
   const withholdable = contact.properties.filter((name) => !contact.required.includes(name));
+  for (const [derived, source] of Object.entries(DERIVED)) {
+    if (withholdable.includes(derived) && !withholdable.includes(source)) {
+      throw new Error(`Contact.${derived} is derived from ${source}, which is not withholdable`);
+    }
+  }
+  const fields = (names: string[]) => names.filter((name) => !(name in DERIVED));
   return {
-    required: withholdable.map(snake),
-    allowed: new Set(contact.properties.filter((name) => name !== META_PROPERTY).map(snake)),
+    required: fields(withholdable).map(snake),
+    allowed: new Set(
+      fields(contact.properties.filter((name) => name !== META_PROPERTY)).map(snake),
+    ),
   };
 }
 
