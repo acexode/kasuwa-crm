@@ -1,6 +1,6 @@
 # T-0049 — A separate `kasuwa_auth` role owns writes to the auth tables
 
-**status** `blocked` (suite on `lead/T-0049-acceptance` 206c815; needs the lead acceptance-edit window) · **owner** Agent 1 · **priority** P1 · **decisions** D-P16 (answered), ADR-0013 (to write)
+**status** `done` (#93) · **owner** Agent 1 · **priority** P1 · **decisions** D-P16 (answered), ADR-0013 (to write)
 
 ## Goal
 Today any `kasuwa_app` SQL in a tenant can mint an `auth_session` for the tenant admin, rewrite a password hash,
