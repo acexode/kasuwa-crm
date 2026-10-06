@@ -1372,12 +1372,26 @@ describe('acceptance: contacts API (T-0041)', () => {
         requireT0040();
         await plant(AMAKA.id, { status: 'new' });
         const before = await contactRow(AMAKA.id);
+        const auditBefore = await auditIds();
         const response = await update(AGENT_1, AMAKA.id, {
           version: Number(before?.version),
           status: 'contacted',
         });
         expect(response.status, JSON.stringify(response.body)).toBe(200);
         expect(expectContact(response.body, 'agent status').status).toBe('contacted');
+
+        // An agent's write is audited like any other (S2), as the agent.
+        const events = await auditSince(auditBefore);
+        expect(events, 'an agent update writes exactly one audit event').toHaveLength(1);
+        expect(events[0]).toMatchObject({
+          actor_kind: 'user',
+          actor_user_id: USER_A_AGENT_1,
+          action: 'updated',
+          object_type: 'contact',
+          object_id: AMAKA.id,
+          programme_id: PROGRAMME_A1,
+        });
+        expect(events[0]?.changes.map((change) => change.field)).toEqual(['status']);
 
         const after = await contactRow(AMAKA.id);
         expect(after?.status).toBe('contacted');
