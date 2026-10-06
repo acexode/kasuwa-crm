@@ -2,43 +2,35 @@
 
 *One screen. Everything else is for agents.*
 
-**2026-10-04, evening.** `main` is verified, and every merge is checked locally with Docker (CI minutes are exhausted).
+**2026-10-06.** `main` is verified at `b680668`. Every merge is checked locally with Docker, because CI minutes are exhausted.
+**New lead session? Read `team/HANDOFF.md` first.** Phases and designs are in `team/ROADMAP.md`.
 
-## Phase 1: done
-| Task | What |
-|---|---|
-| T-0038 | Replacing an MFA factor invalidates the old backup codes |
-| T-0006 | CI fails on an icon missing from the font |
-| T-0011 | Redundant indexes dropped; `updated_at` maintained |
-| T-0014 | Per-process config. Web can't see DB or storage secrets |
-| T-0044 | Migration runner can build indexes concurrently |
-| D-L59 | Timing-test flake fixed (cross-suite lockout state) |
-| D-L62 | SWC wasm fallback, so browser tests run locally (T-0035's coverage passes) |
+## Done
+- **Phase 0:** the foundation.
+- **Phase 1, clean-up:** T-0038, T-0006, T-0011, T-0014, T-0044, D-L59, D-L62.
+- **Security hardening:** T-0045 (auth sweep and pool 503), T-0046 (memberships need a tenant admin), T-0047 (no cascading
+  deletes from the app role), T-0048 (only a tenant admin may change another user; email frozen).
+- **Phase 2, first slice:** T-0039 (records contract) and T-0040 (contact fields and accounts).
 
-## Phase 2 (Contacts): first slice
+## Phase 2 (Contacts), first slice
 | Task | State |
 |---|---|
-| T-0039 records contract | ✅ merged |
-| T-0040 contact fields + accounts | ✅ merged |
-| T-0041 contacts API (#83) | ✅ verified; **waiting on 2 suite edits (you)** |
-| T-0042 Contacts screen (#81) | ✅ verified; **waiting on 1 budget edit (you)** |
-| T-0043 display names | suite written; starts after T-0041 |
-| T-0045 auth retention + 503 | building |
+| T-0041 Contacts API (#83) | Verified. Waiting on 2 lead suite edits |
+| T-0042 Contacts screen (#81) | Verified. Waiting on 1 budget edit |
+| T-0043 display names | Suite written. Starts after #83 |
+| D-P14 agent edits | Answered. Starts after #83 |
+| T-0050 pseudo-locale dev only | Suite written. Starts after #81 |
+| T-0049 auth role (D-P16) | Suite written. Needs lead harness edits |
 
 ## Waiting on you
-**Three test-file edits** that auto mode blocks. Switch auto mode off briefly and tell the lead; it makes them and you approve:
-1. `tests/e2e/p04-contacts.spec.ts`: change the budget from `240_000` to `226_000`. This tightens it (T-0042).
-2. `adversarial` suite: the FINDING-4 tripwire should assert "id is always `newId()`" (T-0041).
-3. `observability-pii` suite: change the probe NIN, which collides with tenant A's id (T-0041).
-
-**Decisions** (none block work; each has a lead recommendation):
-- **D-P12:** dedupe and merge.
-- **D-P13:** total counts on lists.
-- **D-P14:** may agents edit contacts?
-- **D-P15:** en-XA in production.
-- **Dotgo:** sales answers on SMS fallback, rates and data location.
+| | |
+|---|---|
+| **Auto mode off, one session** | The lead makes the blocked test edits (HANDOFF §3) and you approve each one |
+| **Design exports** | P05 (360° record) first, then P06, P18, P28, P07, P27, P26 |
+| **Dotgo** | SMS fallback, naira rates, data location, DPA |
+| **Cloud provider, CI minutes or the org move** | Phase 4 |
 
 ## Risks the lead is carrying
-- D-L55, D-L56 and D-L68 follow-ups. Notable: `displayName` undercuts withheld name parts, and search has no index yet.
-- No production cell exists yet. D-L65 sets the migration rule for when one does.
-- No branch protection until the org move (D-L34).
+- D-L68: `displayName` undercuts withheld name parts, and search has no index yet.
+- The ADR-0010 residual: a forged `app.user_id` inside a transaction.
+- No production cell yet (the D-L65 rule applies when one exists). No branch protection until the org move (D-L34).

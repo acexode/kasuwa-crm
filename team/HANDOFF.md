@@ -1,115 +1,100 @@
-# HANDOFF — the state of P01 and P02, and the six open items
+# Lead handoff — finish Phase 2
 
-**Written** 2026-10-02, after an audit of `origin/main` at `efc70b1`.
-**Read `CLAUDE.md` first.** This file is the delta: what the backlog says that
-is not true, and what is actually left.
+*Written 2026-10-06 by the outgoing Lead Agent session. `main` is at `b680668`. Read this first, then
+`CLAUDE.md`, `team/ROADMAP.md`, `team/STATUS.md` and the open entries in `team/DECISIONS.md`.*
+*This replaces the 2026-10-02 handoff, which is still in git history at `3ec49f0`.*
 
----
+## 1. Where things stand
+- **Phase 0 and Phase 1 are complete** and on `main`. That includes the security hardening T-0045 to T-0048 (#84–#87).
+- **Phase 2, first slice (Contacts), is 2 of 5 merged.** T-0039 (contract, #76) and T-0040 (fields and accounts, #80) are on `main`.
+- **Migrations end at `0023`.** The next free number is `0024`.
+- `team/ROADMAP.md` maps every phase and all 32 design prompts.
 
-## Read this before you trust `team/tasks/`
+## 2. Open PRs: both verified, both waiting on lead-only test edits
+| PR | Task | Verified | Blocker |
+|---|---|---|---|
+| #83 `agent3/T-0041-contacts-api` | Contacts API: write, search, filter | Own suite 82/82. Security and tenancy reviews passed; all fixes are in. Unit 879, integration 108 | Two lead suite edits (§3). Without them `adversarial` and `observability-pii` go red on `main` |
+| #81 `agent11/T-0042-contacts-list` | CRM shell and the Contacts screen behind `crm_records` | 27/28. Browser: `@p04` 23 + 1 fixme, `@p02` 86, `@locale-beta` 7, `@byte-budget` 1, `@harness` 6 | One budget edit (§3) |
 
-The task files are stale in **both** directions. T-0019, T-0020 and T-0021 all
-read `status: not-assigned` and all three shipped (#32, #34, #36). T-0007 reads
-`not-assigned` and shipped half its scope.
+Rebase each onto `main` before merging. Both were mergeable at the time of writing.
 
-*Corrected 2026-10-02:* T-0004, T-0019, T-0020 and T-0021 now read `done`.
-T-0006 and T-0007 carry a `status note` saying what shipped and what did not.
-In `DECISIONS.md`, D-P2, D-L18, D-P1 and D-L24 had also been settled without
-their status line changing; they now point at the log.
+## 3. The lead-only edits (auto mode refuses them, so ask @acexode to switch auto mode OFF)
+Edits under `tests/acceptance/**` (and the pinned e2e spec) are refused by the auto-mode classifier even when the user
+says yes in chat. Ask @acexode to switch the session to "ask" mode, make the edits so they can approve each one, and then
+they switch back. Make them on `lead/*` branches; the protect-paths hook allows `lead/*`.
 
-**Do not take a task file's status as evidence.** Check the code.
+1. **T-0042 budget.** In `tests/e2e/p04-contacts.spec.ts`, change `CONTACTS_BUDGET_BYTES = 240_000` to `226_000`. The screen
+   measured 216,100, and the rule is ≤ 1.05 × measured. The edit goes on the #81 branch (or a lead branch merged into it).
+   The suite's sha256 pin ignores this line.
+2. **T-0041, `tests/acceptance/tenancy/adversarial.acceptance.test.ts` (around l.268–280).** The FINDING-4 tripwire fails on
+   any `INSERT INTO contact`. Replace it with an assertion that `insertContact` binds the id only from `newId()` and that
+   `CreateContactBody` has no `id`. The tenancy review confirmed both are true.
+3. **T-0041, `tests/acceptance/platform/observability-pii.acceptance.test.ts`.** The probe NIN `00000000001` is a substring
+   of tenant A's id (`…-000000000001`). Change the probe to a value that collides with no fixture id.
+4. **D-P14** (answered: agents may change `status` and assign `owner` to themselves). In the T-0041 suite, flip the
+   "the agent set may not write" test to the narrow rule, then have a builder implement it. Do this after #83 merges.
+5. **T-0049 (auth role, D-P16 answered).** Its suite is on `lead/T-0049-acceptance` (206c815). It needs:
+   - the `kasuwa_auth` role in `packages/db/sql/bootstrap.sql`. That file is lead-owned; apply the diff yourself on a `lead/*` branch, as was done for T-0045.
+   - `tests/acceptance/support/api.ts` changed so `createApi` reads the auth URL;
+   - the five suites that call `AppModule.forRoot` directly: audit-coverage, portal-users, auth-availability, auth-retention, exception-log-pii;
+   - the `config-schemas` fixtures;
+   - `run-e2e.mjs`, `.env.example` and docker-compose.
 
-## What is actually true
+   After those, assign a builder (Agent 1).
+6. **Optional:** the T-0035 wrapper (`p02-live-api.acceptance.test.ts`) spawns `pnpm test:e2e --grep "a|b"` through
+   `cmd.exe`, which splits on `|`. Spawn `node run-e2e.mjs` with `shell:false`, one tag per run, as the T-0042 wrapper does.
 
-**P01 — 8 of 16 screens.** Groups 1 and 2 (sign-in, MFA, SSO) are finished, not
-sketched: every manifest state reachable, every failure state has an e2e test,
-axe blocks with no exemptions, RTL proven. Groups 3 and 4 (sign-up `P01/3`–`4`,
-onboarding `P01/5.1`–`5.5`, `6`) were **never built**, deliberately — they create
-a *tenant* and ask for a data region, `signUp`/`verifyOtp`/`resendOtp` are all
-`x-kasuwa-implemented: false`, and **D-P2** records that nobody owns self-serve
-provisioning. Building them would have produced the only screens in the repo
-that no endpoint will ever answer.
+## 4. Queue after the edits (each suite is already written on `lead/T-00xx-acceptance`)
+| Order | Task | Owner | Starts when |
+|---|---|---|---|
+| 1 | Merge #83, then #81 | lead | §3 items 1–3 are done |
+| 2 | T-0043 display names (`lead/T-0043-acceptance` 48df859; the owner name is embedded, not a batch lookup) | Agent 3 | #83 merged |
+| 3 | D-P14 agent edits | Agent 3 | #83 merged, and §3 item 4 done |
+| 4 | T-0050 pseudo-locale for dev and test only (`lead/T-0050-acceptance` e05afef) | Agent 11 | #81 merged. Re-check that test 1 fails for the real reason first |
+| 5 | T-0049 auth role | Agent 1 + lead | §3 item 5 done |
 
-**P01 is the only part of the product with a real backend.** Five of nine auth
-operations are live against NestJS: `signIn`, `verifyMfa`, `signOut`,
-`getCurrentUser`, `lookupSso`.
+## 5. The rest of Phase 2 (no task files yet; each needs a task, then a suite (D-L23), then a builder)
+In this order, with the design prompt in brackets. Only P03 and P04 are exported, so **ask @acexode for P05 first**.
+1. Accounts and Leads screens (P04, exported). Accounts already exist in the DB; leads need an M03 model decision.
+2. 360° record view (P05, design needed).
+3. Pipeline Kanban and deal detail (P06, design needed). It needs M04 deals, which are new tables.
+4. Custom-field value storage (P18, design needed). This is the T-0002 follow-up and Agent 2's.
+5. Home dashboards (P03, exported). Build the agent and SME variants first.
+6. CSV import, dedupe and merge (P28, design needed). The rules are in D-P12.
+7. Activities, tasks and calendar (P07), and the in-call script screen (P10).
+8. Global search and the command palette (P27), and notifications (P26).
+9. Search indexes (D-L68), following the D-L65 rules.
 
-**P02 — 22 of 22 screens, 0 of 41 endpoints.** `apps/api` has exactly three
-controllers: `auth`, `contacts`, `health`. There is **no admin controller**.
+## 6. How this team works (keep doing it)
+- **One task: a lead-written suite first, and it must fail for the real reason (D-L23).** Then one builder in its own
+  worktree, then reviewers, then a merge.
+  - The suite writer is Agent 12 (`agent-12-qa`), on branch `lead/T-00xx-acceptance`, under the active name.
+  - The builder branches from that lead branch: `agentN/T-00xx-…`.
+  - Builders commit locally; **the lead pushes and opens the PR**. The `builder` agent type refuses to push.
+  - **Reviewers:** `security-reviewer` for anything touching auth, scope, PII or a new API. `tenancy-reviewer` for queries or
+    scope. `migration-reviewer` for every migration.
+  - Rebase onto `main`, re-run the key suites yourself, and squash-merge with the `lead-approved` label. @acexode authorised
+    the lead to merge.
+- **Bookkeeping goes straight to `main`, never in a PR.** That covers `team/**` and `docs/adr|prd|design/**`. Exception:
+  `team/FEATURES.md` is generated. Regenerate it with `pnpm -s features` (needs `node_modules`; run it in `.claude/worktrees/lead-devcheck`),
+  either in the PR whose contract changed it or straight to `main`.
+- **CI minutes are exhausted.** Every merge is verified locally with Docker, which works. Say so in each PR comment.
+- **Every builder brief includes these rules:**
+  - Take the RAM lock (`mkdir …/scratchpad/node-slot-1|2`; a lock older than 20 min is stale).
+  - Never use `--no-verify`, not even for WIP or a throwaway merge. Two agents tried this on 2026-10-04.
+  - Use a unique commit-message file name, and conventional lower-case commits.
+  - Never edit `tests/acceptance/**` or `team/**`.
+  - Never use a worktree path that contains a space: unit tests break. Lead check worktrees go under `.claude/worktrees/`.
+- **Never delete a `.claude/worktrees/agent-*` folder while that agent may still be running.** About 30 finished
+  worktrees exist now; clean them up only once no agents are running.
+- **Known host flakes, not regressions:**
+  - The `auth-availability` timing bound fails under load, and on `main` too.
+  - The 6 `p02-live-api` wrapper tests fail on Windows (§3 item 6). Run the e2e tags directly instead; they pass.
+- **Browser tests work locally** through the SWC wasm fallback (D-L62). Run one tag per call.
 
-| `x-kasuwa-implemented` in `admin.openapi.yaml` | count |
-|---|---|
-| `false` | 39 |
-| `partial` | 2 |
-| `true` | **0** |
-
-`apps/web/lib/admin-api.ts` makes 35 typed calls against `/api/v1/admin`. The
-only thing answering them is `page.route('**/api/v1/admin/**')` in
-`tests/e2e/support/admin-mock.ts` — **Playwright request interception, which
-exists only inside a test process.** In a real browser every one of those calls
-falls through the `next.config.mjs` rewrite to the API origin and returns 404.
-
-That is a legitimate contract-first state and it is what we planned. It is not
-"P02 is complete" without the qualifier.
-
----
-
-## The six items
-
-### 1. Build the admin API — 41 operations
-The largest gap in the project and **it is not in the backlog at all**. Every
-P02 screen depends on it. Too large for one task: split by domain across
-Agent 1 (roles, field security, audit), Agent 2 (metadata-backed field
-security objects) and Agent 3 (programmes, dispositions, SLA). Contract is
-published and frozen; the mock is generated from it, so the wiring step is
-mechanical if the implementation honours the spec.
-
-### 2. P01 groups 3 and 4 — 8 screens
-**Unblocked. Corrected 2026-10-02:** this item originally said "blocked on D-P2,
-do not build against the mock". That was wrong. @acexode answered D-P2 on
-2026-09-30 (`DECISION-LOG.md`), and part 3 of the answer is to **build all
-eight screens against the mock now** (T-0007). `P01/3`, `4` and `5.1` sit
-behind `self_serve_signup`, off until v1. `5.2`–`5.5` are the unflagged
-first-admin-login flow for provisioned tenants (T-0018). The real backend is
-T-0015 (sales-led provisioning, the launch path), then T-0016 (self-serve,
-which also needs M8/T-0017 for OTP).
-
-### 3. `reissueMfaChallenge` is `partial`
-The one auth operation that is neither done nor absent.
-
-### 4. Two P02 success paths are untestable
-`listProgrammeScripts` and the portal-user list have no `200` example in the
-spec, so the generated mock can only answer their `501`. The one hand-built
-row in the mock is there for this reason and should be deleted when the
-examples land.
-
-### 5. `P02/E` pagination is unbuilt
-The contract has a cursor; the mock returns one page; the screen does not page.
-
-### 6. `noto-sans-latin-ext-400800.woff2` is 167,960 B
-Five times the basic-latin subset. `unicode-range` keeps it off an English
-page, but a **Yorùbá, Hausa or Igbo** admin pays it, which puts several routes
-back over the 300 KB NFR **in exactly the languages this product exists for**.
-The fix is in `fetch-fonts.mjs` and it affects every screen.
-
----
-
-## Standing instructions from @acexode
-
-- No scheduler. Work progressively; finish one task, start the next, do not pause.
-- Pause only when **more than five** PRs are open and unmerged.
-- Bookkeeping (`team/**`, `docs/design/**`, `docs/prd/**`, `docs/adr/**`) commits
-  straight to `main` — no branch, no PR. Everything else goes through a PR.
-- Max **one** ready task per agent. Write the next one when an agent finishes.
-- Task files under 25 lines: goal, acceptance-test path, done-when, deps.
-- At least **70%** of lines changed per cycle in `apps/` or `packages/`.
-- @acexode reads two files: `team/DECISIONS.md` and `team/STATUS.md`.
-
-## The failure class worth remembering
-
-**A mechanism nobody has watched run is not a mechanism.** Five instances so
-far: a pre-push hook absent on the branch it guarded; `readNonTenantScopedTable
-Security` as dead code; `SignInThrottleInterceptor` never registered; a
-migration `DO` guard claiming to protect future migrations; a scheduler with
-two runs in 72 hours. This audit is a sixth — 22 screens tested green against a
-mock nobody had checked was the only responder.
+## 7. Waiting on @acexode
+- **The auto-mode-off session** for §3.
+- **Design exports, P05 first.** P06, P18, P28, P07, P27 and P26 follow (ROADMAP order).
+- **Dotgo's answers:** SMS fallback, naira rates, data location and the DPA. These gate the Phase 3 inbox.
+- **A cloud provider** (Phase 4), and **Actions minutes or the org move** (CI).
+- **Optional review (D-A3):** #69, #64, #62, #83.
