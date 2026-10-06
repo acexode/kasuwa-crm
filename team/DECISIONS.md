@@ -1509,3 +1509,26 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
 - **Lead recommendation:** a tenant may **raise** a standard field's classification, never lower it.
   - Enforce it in the same trigger that freezes type and required (T-0053 fix).
   - Custom fields stay freely classifiable.
+### D-L72 — T-0059 timeline rulings (lead, reversible; from the T-0059 suite writer)
+**Status:** PROCEEDING (lead).
+- **Before and after values come from audit, for non-PII fields only.**
+  - Contact audit today records which fields changed, never their values (D-L63).
+  - From T-0061, the update audit records `before` and `after` for the non-PII enumerated fields: `status`, `source`,
+    `preferredChannel`, `preferredLanguage`, `consentState`, `whatsappOptIn`, `state`, `lga`, `tags`.
+  - Every other field is recorded by name only.
+  - `before` and `after` stay optional in the contract, because past events carry none.
+- **Field names whose values never appear:** phones, emails, given name, family name and display name. A person's name is PII
+  (D-L63), which goes beyond the phones and emails the task named.
+- **Owner changes carry no values.** An owner change appears by field name only. Raw user ids must never be printed (D-L64),
+  and showing past owners' names would edge T-0043 towards a user directory.
+- **The account summary sits on `Contact`, so list rows carry it too.** Any role that can read `accountId` sees the account's
+  name: accounts are programme-scoped and readable by every set in the programme. The summary is withheld together with
+  `accountId`.
+- **Timeline item types are closed to `field_changed`, `consent_changed` and `activity`.** A later module adds its own type
+  through a lead suite edit.
+- **Item ids are per item, never the audit event id.** One audit event may yield several items. This is pinned in T-0061's
+  API suite.
+- **The suite pins three leaks the task did not name:**
+  - withheld items are omitted *before* paging, so a short page with a cursor reveals nothing;
+  - a tie-break for items sharing one `occurredAt`;
+  - consent items follow `consentState`'s field security.
