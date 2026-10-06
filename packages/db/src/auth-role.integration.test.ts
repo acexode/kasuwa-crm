@@ -92,6 +92,52 @@ describe('kasuwa_auth through the @kasuwa/db helpers (T-0049)', () => {
     expect(outcomes).toEqual({ expires_at: '42501', user_id: '42501', token_hash: '42501' });
   });
 
+  it('may INSERT a factor envelope-only, but never the legacy plaintext secret column', async () => {
+    const envelope = withAuthTransaction(auth, { tenantId: TENANT_A }, (tx) =>
+      tx.query(
+        `INSERT INTO user_mfa_factor
+           (id, tenant_id, user_id, type, label,
+            secret_ciphertext, secret_wrapped_key, secret_key_id, secret_algorithm)
+         VALUES ($1, $2, $3, 'totp', 'Invented', $4, $5, 'invented-key', 'A256GCM-ENV1')`,
+        [randomUUID(), TENANT_A, USER_A_AGENT_1, randomBytes(48), randomBytes(48)],
+      ),
+    );
+    expect(await refusal(envelope)).toBe('committed');
+
+    const plaintext = withAuthTransaction(auth, { tenantId: TENANT_A }, (tx) =>
+      tx.query(
+        `INSERT INTO user_mfa_factor (id, tenant_id, user_id, type, label, secret)
+         VALUES ($1, $2, $3, 'totp', 'Invented', 'JBSWY3DPEHPK3PXP')`,
+        [randomUUID(), TENANT_A, USER_A_SUPERVISOR],
+      ),
+    );
+    expect(await refusal(plaintext)).toBe('42501');
+  });
+
+  it('may UPDATE user_credential.password_hash and no other credential column', async () => {
+    const outcomes: Record<string, string> = {};
+    for (const [column, value] of [
+      ['password_hash', 'password_hash'],
+      ['password_updated_at', 'now()'],
+      ['user_id', 'user_id'],
+      ['tenant_id', 'tenant_id'],
+    ] as const) {
+      outcomes[column] = await refusal(
+        withAuthTransaction(auth, { tenantId: TENANT_A }, (tx) =>
+          tx.query(`UPDATE user_credential SET ${column} = ${value} WHERE user_id = $1`, [
+            USER_A_AGENT_1,
+          ]),
+        ),
+      );
+    }
+    expect(outcomes).toEqual({
+      password_hash: 'committed',
+      password_updated_at: '42501',
+      user_id: '42501',
+      tenant_id: '42501',
+    });
+  });
+
   it('withTenantTransaction on the auth pool resolves the user programme scope (the /auth/me/mfa path)', async () => {
     const scope = await withTenantTransaction(
       auth,
