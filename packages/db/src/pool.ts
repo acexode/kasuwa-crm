@@ -3,8 +3,10 @@ import { Pool } from 'pg';
 /**
  * Connection pools.
  *
- * Two distinct connection strings, two distinct Postgres roles:
+ * Three distinct connection strings, three distinct Postgres roles:
  *   - DATABASE_URL           -> kasuwa_app       (NOBYPASSRLS, no DDL)  runtime
+ *   - DATABASE_AUTH_URL      -> kasuwa_auth      (NOBYPASSRLS, no DDL)  the API's auth
+ *                               module only; the sole writer of the auth tables (T-0049)
  *   - DATABASE_MIGRATION_URL -> kasuwa_migrator  (owns schema)          migrations + seed
  *
  * Nothing in apps/ may open a pool with the migration URL. See D-L07.
