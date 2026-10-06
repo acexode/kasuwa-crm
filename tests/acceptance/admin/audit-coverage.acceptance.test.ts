@@ -25,7 +25,7 @@ import type { Pool } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { parse } from 'yaml';
-import { asUser } from '../support/api';
+import { asUser, withAuthDatabase } from '../support/api';
 
 /**
  * ACCEPTANCE — T-0033, audit the writes that landed after T-0025 (Agent 1, M2).
@@ -353,7 +353,7 @@ async function createAuditApi(
   databaseUrl: string,
   channelProvider: FakeChannelProvider,
 ): Promise<INestApplication> {
-  const options = { databaseUrl, poolMax: 5, channelProvider };
+  const options = withAuthDatabase({ databaseUrl, poolMax: 5, channelProvider });
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule.forRoot(options)],
   }).compile();
