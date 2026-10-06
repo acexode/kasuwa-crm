@@ -1491,9 +1491,10 @@ describe('acceptance: contacts API (T-0041)', () => {
 
     it('the permission is per programme: admin in A2 does not permit writing in A1', async () => {
       requireT0040();
-      // The supervisor stripped to a plain member: agent in A1, admin in A2.
+      // The supervisor stripped to a plain member: read-only in A1, admin in A2.
+      // team_lead, not agent: since D-P14 the agent set may change status.
       await setTenantAdmin(USER_A_SUPERVISOR, false);
-      await assign(TENANT_A, USER_A_SUPERVISOR, PROGRAMME_A1, 'agent');
+      await assign(TENANT_A, USER_A_SUPERVISOR, PROGRAMME_A1, 'team_lead');
       await assign(TENANT_A, USER_A_SUPERVISOR, PROGRAMME_A2, 'admin');
 
       expectError(
@@ -1528,7 +1529,8 @@ describe('acceptance: contacts API (T-0041)', () => {
       });
       expect(first.status, JSON.stringify(first.body)).toBe(200);
 
-      await assign(TENANT_A, USER_A_AGENT_1, PROGRAMME_A1, 'agent');
+      // Revoked to a read-only set. Not agent: since D-P14 it may change status.
+      await assign(TENANT_A, USER_A_AGENT_1, PROGRAMME_A1, 'team_lead');
       expectError(
         await update(AGENT_1, AMAKA.id, { version: await versionOf(AMAKA.id), status: 'customer' }),
         403,
@@ -1982,7 +1984,8 @@ describe('acceptance: contacts API (T-0041)', () => {
       const refusals = [
         await create(SUPERVISOR, createBody({ dnd: true })), // 400
         await create(AGENT_1, createBody()), // 403
-        await update(AGENT_1, AMAKA.id, { version: version + 1, status: 'customer' }), // 403
+        // A field outside the D-P14 agent grant (status and self-ownership only).
+        await update(AGENT_1, AMAKA.id, { version: version + 1, tags: ['t0041-refused'] }), // 403
         await update(SUPERVISOR, GRACE.id, { version: 1, status: 'customer' }), // 404
         await create(SUPERVISOR, createBody({ programmeId: PROGRAMME_B1 })), // 404
         await update(SUPERVISOR, AMAKA.id, { version, status: 'customer' }), // 409
