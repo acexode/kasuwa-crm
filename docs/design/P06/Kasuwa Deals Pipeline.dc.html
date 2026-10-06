@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&amp;display=block">
+<style>body{margin:0;background:#EFEBE4}a{color:#3C39A8;text-underline-offset:3px}a:hover{color:#22216F}*{box-sizing:border-box}</style>
+</helmet>
+<div style="--k-bg:#FAF8F5;--k-surface:#FFFFFF;--k-surface-raised:#FFFFFF;--k-surface-sunken:#F3F0EB;--k-border:#E6E1D9;--k-border-strong:#847C71;--k-text:#24201C;--k-text-2:#4E4841;--k-text-muted:#665F56;--k-primary:#2B2A8C;--k-on-primary:#FFFFFF;--k-primary-soft:#EEEEFA;--k-primary-soft-strong:#DCDCF5;--k-primary-text:#3C39A8;--k-accent:#F2A900;--k-accent-soft:#FEF8E7;--k-accent-text:#7A5104;--k-success:#0B8A4B;--k-success-soft:#E8F6EE;--k-success-text:#086E3C;--k-warning:#E8650F;--k-warning-soft:#FFF4EB;--k-warning-text:#9C3F0B;--k-danger:#B02222;--k-danger-soft:#FDEEEE;--k-danger-text:#8F1C1C;--k-info:#0E6396;--k-info-soft:#E9F4FB;--k-info-text:#0D4F78;--k-disabled-bg:#F3F0EB;--k-disabled-text:#ABA398;--k-focus:#4E4BBE;--k-shadow-1:0 1px 2px rgba(36,32,28,.08);--k-shadow-2:0 4px 12px rgba(36,32,28,.10);--k-shadow-3:0 16px 40px rgba(36,32,28,.18);--k-scrim:rgba(21,18,16,.48);--k-inverse:#24201C;--k-on-inverse:#FAF8F5;--k-chart-1:#2B2A8C;width:max-content;min-width:1880px;padding:72px 64px 96px;display:flex;flex-direction:column;gap:64px;font-family:'Noto Sans',system-ui,sans-serif;color:#24201C;background:#EFEBE4">
+
+<header data-screen-label="Cover" style="display:flex;flex-direction:column;gap:24px;max-width:1760px">
+  <div style="display:flex;align-items:center;gap:14px"><span style="width:48px;height:48px;border-radius:12px;background:#2B2A8C;color:#F2A900;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:26px">K</span><span style="font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#4E4841">Kasuwa · Flows · Deals</span></div>
+  <h1 style="margin:0;font-size:88px;line-height:1;font-weight:800;letter-spacing:-.03em;color:#1A1955">Pipeline &amp; deal detail</h1>
+  <p style="margin:0;font-size:22px;line-height:34px;color:#4E4841;max-width:1160px;text-wrap:pretty">Every frame works. Drag cards between stages (desktop) or use “Move stage” (mobile). Gated stages open “Complete to move”. Skipping a stage, missing KYC or a pending approval gives a blocked transition. Filters, Show US$, the template picker and the stage path all work too.</p>
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;max-width:1500px">
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Stage rules</b><span style="font-size:14px;line-height:21px;color:#4E4841">A lock on a column means it has entry requirements. Forward moves go one stage at a time; moving back is always allowed. Won is only reachable from Contract.</span></div>
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Complete to move</b><span style="font-size:14px;line-height:21px;color:#4E4841">Required fields, checklist, attachment and approval, with a progress count. If an approval is needed, the deal waits in its stage with a visible “Waiting for approval” band.</span></div>
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Money</b><span style="font-size:14px;line-height:21px;color:#4E4841">Cards show full ₦; columns show compact total and weighted (× stage probability). US$ lines are optional and labelled ≈ with the rate. Deal lines use the locked FX rate.</span></div>
+    <div style="background:#FFFFFF;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">Card signals</b><span style="font-size:14px;line-height:21px;color:#4E4841">Days in stage (grey, then stale at 7d, rotting at 14d), close date (red if overdue), next step (amber if missing), last WhatsApp contact, owner.</span></div>
+  </div>
+</header>
+
+<sc-for list="{{ sections }}" as="g" hint-placeholder-count="7">
+  <section data-screen-label="{{ g.label }}" style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:baseline;gap:20px;border-top:2px solid #24201C;padding-top:16px;max-width:1760px"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#665F56">{{ g.num }}</span><h2 style="margin:0;font-size:40px;line-height:48px;font-weight:700;white-space:nowrap">{{ g.title }}</h2><span style="font-size:16px;line-height:24px;color:#4E4841;max-width:960px;text-wrap:pretty">{{ g.note }}</span></div>
+    <div style="display:flex;gap:40px;align-items:flex-start">
+      <sc-for list="{{ g.frames }}" as="f" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0">
+          <span style="font-size:13px;font-weight:600;color:#665F56">{{ f.caption }}</span>
+          <sc-if value="{{ f.light }}" hint-placeholder-val="{{ true }}">
+            <div style="width:{{ f.w }}px;height:{{ f.h }};border-radius:{{ f.r }}px;overflow:hidden;box-shadow:{{ f.sh }};background:var(--k-bg)"><dc-import name="Kasuwa Deals Screen" layout-view="{{ f.lv }}" view="{{ f.view }}" mobile="{{ f.mobile }}" modal="{{ f.modal }}" show-usd="{{ f.usd }}" mobile-stage="{{ f.stage }}" style="width:100%;height:100%" hint-size="100%,100%"></dc-import></div>
+          </sc-if>
+          <sc-if value="{{ f.dark }}" hint-placeholder-val="{{ false }}">
+            <div style="width:{{ f.w }}px;height:{{ f.h }};border-radius:{{ f.r }}px;overflow:hidden;box-shadow:{{ f.sh }};color-scheme:dark;--k-bg:#151210;--k-surface:#1E1A17;--k-surface-raised:#29241F;--k-surface-sunken:#171411;--k-border:#37322D;--k-border-strong:#8A8277;--k-text:#FAF8F5;--k-text-2:#D2CBC0;--k-text-muted:#ABA398;--k-primary:#5754C4;--k-on-primary:#FFFFFF;--k-primary-soft:#232150;--k-primary-soft-strong:#2F2D68;--k-primary-text:#BBBAEC;--k-accent:#F5B81A;--k-accent-soft:#2E2308;--k-accent-text:#F8C947;--k-success:#27A262;--k-success-soft:#0C2618;--k-success-text:#58BD84;--k-warning:#F97F2A;--k-warning-soft:#2B190B;--k-warning-text:#FFA15C;--k-danger:#CC2E2E;--k-danger-soft:#2E1111;--k-danger-text:#EC7777;--k-info:#2E92CC;--k-info-soft:#0C2230;--k-info-text:#5CAEDD;--k-disabled-bg:#29241F;--k-disabled-text:#665F56;--k-focus:#F8C947;--k-shadow-1:0 1px 2px rgba(0,0,0,.4);--k-shadow-2:0 4px 12px rgba(0,0,0,.45);--k-shadow-3:0 16px 40px rgba(0,0,0,.6);--k-scrim:rgba(0,0,0,.62);--k-inverse:#F3F0EB;--k-on-inverse:#24201C;--k-chart-1:#8B89E0;background:var(--k-bg)"><dc-import name="Kasuwa Deals Screen" layout-view="{{ f.lv }}" view="{{ f.view }}" mobile="{{ f.mobile }}" modal="{{ f.modal }}" show-usd="{{ f.usd }}" mobile-stage="{{ f.stage }}" style="width:100%;height:100%" hint-size="100%,100%"></dc-import></div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+</sc-for>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;themes&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Light and dark&quot;,&quot;Light only&quot;,&quot;Dark only&quot;],&quot;default&quot;:&quot;Light and dark&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const t = this.props.themes ?? 'Light and dark';
+    const okT = d => t === 'Light and dark' || (d ? t === 'Dark only' : t === 'Light only');
+    const F = (view, mobile, dark, o = {}) => ({ view, mobile, dark, ...o });
+    const S = [
+      ['01', 'Pipeline Kanban', 'Pipeline selector, owner avatars and close/amount/territory filters, stage totals with weighted amounts, and rich cards. Light shows ₦ only; dark has Show US$ on.', [F('kanban', 0, 0), F('kanban', 0, 1, { usd: true })]],
+      ['01b', 'Pipeline list view', 'The same deals and filters as a sortable table: stage pill with a dropdown to move (same gates and blocks as the board), ₦ amount and weighted, close date, owner, days in stage, next step and last WhatsApp contact. Totals sit in the footer.', [F('kanban', 0, 0, { list: true }), F('kanban', 0, 1, { list: true, usd: true })]],
+      ['02', 'Complete to move', 'Ikeja Motors fleet dropped on Negotiation: 3 fields, 2 checks, a signed quote and approval for its 18% discount. Fill everything, request approval, submit — the card then waits in Proposal with a “Waiting for approval” band.', [F('kanban', 0, 0, { modal: 'complete' }), F('kanban', 1, 1, { modal: 'complete' })]],
+      ['03', 'Blocked transition', 'Kwara MFB dragged to Contract without KYC. The card snaps back with a red outline and the banner explains why and offers the fix. Try dragging Kano Agro from Proposal to Contract to see the “one stage at a time” block.', [F('kanban', 0, 1, { modal: 'blocked' }), F('kanban', 1, 0, { modal: 'blocked', stage: 4 })]],
+      ['04', 'Mobile pipeline · 360', 'Stage columns become a horizontal swipe list that snaps per stage, with a matching stage switcher above. “Move stage” opens a sheet showing which moves are blocked or gated.', [F('kanban', 1, 0, { stage: 0 }), F('kanban', 1, 1, { stage: 3 }), F('kanban', 1, 0, { stage: 2, usd: true })]],
+      ['05', 'Deal detail', 'Stage path showing done, current, the allowed next stage (with its requirement count) and stages not allowed yet. Products on the Enterprise US$ price book at the locked rate, with an expiry warning. AI risk with reasons, contact roles, competitors, quotes and approval history.', [F('detail', 0, 0), F('detail', 0, 1)]],
+      ['06', 'Deal detail · 360', 'Stacked: header, a swipeable stage path, AI risk first, then key fields, products as a list, and activity. “Move to Contract” opens Complete to move full screen.', [F('detail', 1, 0), F('detail', 1, 1), F('detail', 1, 0, { modal: 'complete' })]],
+      ['07', 'Empty pipeline', 'New tenant: pick a template (B2B sales, Real estate, Loans, Distribution) and preview its stages and gates before creating. Create it to see the empty board.', [F('empty', 0, 0), F('empty', 1, 1)]]
+    ];
+    return {
+      sections: S.map(([num, title, note, frames]) => ({ num, title, note, label: num + ' ' + title,
+        frames: frames.filter(f => okT(f.dark)).map(f => ({ lv: f.list ? 'list' : 'board', view: f.view, mobile: !!f.mobile, modal: f.modal || 'none', usd: !!f.usd, stage: f.stage || 0, light: !f.dark, dark: !!f.dark,
+          w: f.mobile ? 360 : 1440, h: f.mobile ? '780px' : (f.view === 'detail' ? '2080px' : '900px'), r: f.mobile ? 24 : 12,
+          sh: f.mobile ? '0 0 0 6px #24201C,0 12px 40px rgba(0,0,0,.25)' : '0 0 0 1px rgba(0,0,0,.1),0 12px 40px rgba(36,32,28,.14)',
+          caption: [f.mobile ? '360' : '1440', f.dark ? 'Dark' : 'Light', f.usd ? 'US$ on' : '', f.modal ? f.modal : ''].filter(Boolean).join(' · ') })) }))
+    };
+  }
+}
+</script>
+</body>
+</html>
