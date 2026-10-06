@@ -7,8 +7,8 @@
 | Phase | Goal | Status | Done | Pending |
 |---|---|---|---|---|
 | **0. Foundation** | Tenancy, auth, admin console, the first wave | ✅ Complete | Tenancy and RLS, sign-in and MFA, permissions engine, audit, provisioning, admin console (P02, 22 screens), feature register | — |
-| **1. Clean-up and hardening** | Close gaps before building the product | ✅ Complete | 11 tasks merged (see below) | T-0049 auth-role separation (blocked) |
-| **2. The CRM itself** | The app users work in: Contacts first | 🟡 In progress (first slice 2/5 merged) | Records contract, contact fields and accounts | Contacts API, Contacts screen, display names, then the next slices |
+| **1. Clean-up and hardening** | Close gaps before building the product | ✅ Complete | 12 tasks merged, including T-0049 auth-role separation (#93) | — |
+| **2. The CRM itself** | The app users work in: Contacts first | 🟡 In progress (first slice done; accounts and 360° view under way) | Contacts API and screen, display names, agent edits, accounts contract, standard-object metadata, 360° contract | Account fields and API, leads (D-P17), 360° screens, pipeline, activities, import, search |
 | **3. Africa-first features** | What sets Kasuwa apart | ⬜ Not started | — | WhatsApp/SMS inbox, self-serve sign-up, onboarding, local money and e-invoicing, BPO client portal |
 | **4. Scale and operations** | Production readiness and the rest of the PRD | ⬜ Not started | Migration runner ready for live databases (T-0044) | Cloud environments, CI runner, remaining modules |
 
@@ -30,7 +30,7 @@
 | D-L59 | Fixed a flaky timing test | #72 |
 | D-L62 | Browser tests run on the development machine again | #77 |
 
-**Still pending from this phase:** T-0049, a separate database role for the sign-in code (D-P16). The tests are written. It is blocked on test-harness edits that need auto mode off.
+T-0049 (#93), a separate database role for the sign-in code (D-P16, ADR-0013), merged 2026-10-06. Follow-up: T-0075 (D-L70).
 
 ---
 
@@ -42,13 +42,25 @@
 |---|---|---|
 | T-0039 | Records API contract | ✅ Merged (#76) |
 | T-0040 | New contact fields + accounts table | ✅ Merged (#80) |
-| T-0041 | Contacts API: create, edit, search, filter | 🟠 Built and verified, PR #83. Waiting on 2 test edits |
-| T-0042 | CRM shell + Contacts screen | 🟠 Built and verified, PR #81. Waiting on 1 test edit |
-| T-0043 | Show names instead of IDs (programmes, owners) | ⬜ Tests written. Starts after #83 |
-| D-P14 | Agents may change status and assign contacts to themselves | ⬜ Decided. Starts after #83 |
-| T-0050 | Pseudo-language preview for dev/test only | ⬜ Tests written. Starts after #81 |
+| T-0041 | Contacts API: create, edit, search, filter | ✅ Merged (#83) |
+| T-0042 | CRM shell + Contacts screen | ✅ Merged (#81) |
+| T-0043 | Show names instead of IDs (programmes, owners) | ✅ Merged (#92) |
+| T-0051 (D-P14) | Agents may change status and assign contacts to themselves | ✅ Merged (#89) |
+| T-0050 | Pseudo-language preview for dev/test only | ✅ Merged (#90) |
 
-### Next slices (not started; design prompt in brackets)
+### Second slice: accounts and the 360° record (plan: D-L69)
+
+| Task | What | Status |
+|---|---|---|
+| T-0053 | Standard objects as metadata; field security for any object | ✅ Merged (#91) |
+| T-0052 | Accounts contract | ✅ Merged (#88) |
+| T-0054 | Account fields (migration 0026) | 🟠 Builder running |
+| T-0055 | Accounts API | ⬜ Task written |
+| T-0059 | 360° record contract (contact side) | ✅ Merged (#94) |
+| T-0060 / T-0061 | Activity table; timeline and activity API | ⬜ Tasks written (T-0061 agent rights wait on D-P18) |
+| Leads (T-0056, T-0058) | Leads API and screen | ⛔ Waits on D-P17 |
+
+### Next slices (design prompt in brackets)
 - Accounts and Leads screens (P04, exported)
 - 360° record view (P05, **design needed**)
 - Pipeline Kanban and deal detail (P06, **design needed**). Moved here from Phase 4: it is core CRM.
