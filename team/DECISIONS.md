@@ -1571,3 +1571,17 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
     or returned. The same applies to contact.
 - **Hook.** `agent3/T-0054` may create `packages/db/migrations/0026_*.sql` only. This is the same narrow allowance T-0040 had.
 - **PR size.** The suite is about 1,670 lines, so the PR is marked exempt from the ~600-line guide (structural, as T-0053's).
+## Answers, 2026-10-06 (@acexode: "go with your recommendations for both")
+- **D-P17, leads: ANSWERED. A lead is a stage of a contact, not its own object.**
+  - The Leads screen lists contacts whose status is `new`, `contacted`, `qualified` or `unqualified`.
+  - `contact` gains a `company_name`.
+  - "Convert" qualifies the contact, then links it to an existing account or creates one. It runs in one transaction, writes
+    one audit event and is idempotent.
+  - Zoho Leads are mapped onto contacts at import (P28).
+- **D-P18, agent rights: ANSWERED.**
+  - **Activities:** the `agent` set may log and complete notes, tasks and calls in its programme.
+  - **Deals:** the `agent` set may create deals and move deals it owns. `admin`, `team_lead` and `programme_manager` may
+    move any deal.
+  - **Accounts:** writes stay admin-only (`account.write`: the `admin` set or the tenant-admin flag).
+  - **Contacts:** `team_lead` and `programme_manager` get at least D-P14's agent rights: change `status`, and assign the owner
+    to themselves.

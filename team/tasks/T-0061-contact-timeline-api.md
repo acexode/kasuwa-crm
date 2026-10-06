@@ -1,6 +1,6 @@
 # T-0061 — Contact timeline, account summary and activity writes
 
-**status** `not-assigned` (suite after T-0060; **agent rights wait on D-P18**) · **owner** Agent 3 · **priority** P1 (blocks T-0062) · **decisions** D-L63, D-L64, D-L72, D-L73, D-P18 (open)
+**status** `not-assigned` (suite after T-0060) · **owner** Agent 3 · **priority** P1 (blocks T-0062) · **decisions** D-L63, D-L64, D-L72, D-L73, D-P18 (answered)
 
 ## Goal
 Serve what T-0059 contracted, and add activity writes.
@@ -14,8 +14,8 @@ Serve what T-0059 contracted, and add activity writes.
 - **`Contact.account`:** serve `{ id, name } | null`, and move it from the `allOf` part into `Contact.properties` in the same
   change (D-L73). Add it to the `listContacts` example.
 - **Activities:** `POST /activities` and `PATCH /activities/{id}` (complete, reassign).
-  - A new `activity.write` action. Who holds it waits on D-P18: until it is answered, the `admin` set and the tenant-admin
-    flag only.
+  - A new `activity.write` action, held by the `agent`, `team_lead`, `programme_manager` and `admin` sets in the activity's
+    programme, and by the tenant-admin flag (D-P18).
   - Every write is audited and labelled by record id. Bodies are never logged.
 
 ## Acceptance tests
