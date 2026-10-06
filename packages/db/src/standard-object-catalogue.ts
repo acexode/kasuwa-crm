@@ -10,8 +10,24 @@ import { newId } from './ids';
  * `@kasuwa/domain-core/provisioning`). Tenants that existed before the rows
  * did were backfilled by migration 0025, which carries a frozen copy of this
  * list; the T-0053 acceptance suite asserts that all three produce the same
- * catalogue. Adding a standard field therefore means: add it here AND
- * backfill it in a new migration. Never edit 0025.
+ * catalogue. Never edit 0025.
+ *
+ * ADDING A STANDARD FIELD (or object):
+ *   1. add it here;
+ *   2. in a NEW migration, FIRST check for clashes: any tenant that already has
+ *      a field of that api_name on that object (a tenant's own custom field)
+ *      must stop the migration with a RAISE naming the object, the field and
+ *      the number of tenants affected, before anything is inserted. A custom
+ *      field cannot silently become standard (0025's trigger refuses it), and
+ *      which one wins is a human decision, not a migration's;
+ *   3. then INSERT the new rows for every tenant, `is_custom = false`;
+ *   4. a new standard OBJECT also needs 0025's restrictive INSERT policies
+ *      replaced to name it, or a tenant admin cannot restore its rows.
+ *
+ * DEPLOY WINDOW. A tenant provisioned by the previous release between `pnpm
+ * db:migrate` and the new release's rollout gets no standard rows. Either do
+ * not provision in that window, or call `ensureStandardObjectDefs` for every
+ * tenant after rollout; it is idempotent.
  *
  * Field api_names are the snake_case of the records contract's wire names
  * (`givenNames` -> `given_names`, S3). `contact` carries the properties field
@@ -105,39 +121,39 @@ export const STANDARD_OBJECT_CATALOGUE: readonly StandardObjectDef[] = [
 export type StandardCatalogueQuery = (text: string, values: readonly unknown[]) => Promise<unknown>;
 
 /**
- * Writes the standard catalogue for ONE tenant, in the caller's transaction,
- * in two statements whatever the catalogue's size. Fresh ids (D-L08) for every
- * row, never shared between tenants.
+ * Makes ONE tenant's standard catalogue complete, in the caller's
+ * transaction, in two statements whatever the catalogue's size. Fresh ids
+ * (D-L08) for every row it writes, never shared between tenants.
  *
- * For a NEW tenant only: a plain INSERT, so a tenant that somehow already has
- * a `contact` definition fails loudly instead of being half-merged.
+ * IDEMPOTENT: `ON CONFLICT DO NOTHING`, so it is safe to call again - on a
+ * new tenant (seed, provisioning) it writes everything; on a tenant that
+ * already has the rows it writes nothing and changes nothing (an existing
+ * row keeps its id, label and field-security decisions). That is what makes
+ * the deploy-window repair in the header a single call per tenant. Fields
+ * attach to the tenant's STANDARD object of that name, never a custom one.
  *
- * tenancy-reviewed: `tenantId` is the only tenant named; provisioning passes
- * `tx.session.tenantId` and the seed its fixture tenant. Every value is a
- * bound parameter; no identifier is built from data.
+ * tenancy-reviewed: `tenantId` is the only tenant named, in every statement
+ * and in the join; provisioning passes `tx.session.tenantId` and the seed its
+ * fixture tenant. Every value is a bound parameter; no identifier is built
+ * from data.
  */
-export async function insertStandardObjectDefs(
+export async function ensureStandardObjectDefs(
   query: StandardCatalogueQuery,
   tenantId: string,
-): Promise<{ objects: number; fields: number }> {
-  const objectIds = new Map(STANDARD_OBJECT_CATALOGUE.map((object) => [object.apiName, newId()]));
-  const objectId = (apiName: string): string => {
-    const id = objectIds.get(apiName);
-    if (id === undefined) throw new Error(`standard object ${apiName} has no id`);
-    return id;
-  };
+): Promise<void> {
   const fields = STANDARD_OBJECT_CATALOGUE.flatMap((object) =>
-    object.fields.map((definition) => ({ objectId: objectId(object.apiName), ...definition })),
+    object.fields.map((definition) => ({ objectApiName: object.apiName, ...definition })),
   );
 
   await query(
     `INSERT INTO object_def (id, tenant_id, api_name, label, plural_label, is_custom)
      SELECT o.id, $1::uuid, o.api_name, o.label, o.plural_label, false
        FROM unnest($2::uuid[], $3::text[], $4::text[], $5::text[])
-            AS o (id, api_name, label, plural_label)`,
+            AS o (id, api_name, label, plural_label)
+     ON CONFLICT (tenant_id, api_name) DO NOTHING`,
     [
       tenantId,
-      STANDARD_OBJECT_CATALOGUE.map((object) => objectId(object.apiName)),
+      STANDARD_OBJECT_CATALOGUE.map(() => newId()),
       STANDARD_OBJECT_CATALOGUE.map((object) => object.apiName),
       STANDARD_OBJECT_CATALOGUE.map((object) => object.label),
       STANDARD_OBJECT_CATALOGUE.map((object) => object.pluralLabel),
@@ -146,15 +162,18 @@ export async function insertStandardObjectDefs(
   await query(
     `INSERT INTO field_def
        (id, tenant_id, object_id, api_name, label, type, classification, is_required, is_custom, config)
-     SELECT f.id, $1::uuid, f.object_id, f.api_name, f.label, f.type, f.classification,
+     SELECT f.id, $1::uuid, o.id, f.api_name, f.label, f.type, f.classification,
             f.is_required, false, f.config
-       FROM unnest($2::uuid[], $3::uuid[], $4::text[], $5::text[], $6::text[], $7::text[],
+       FROM unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[],
                    $8::boolean[], $9::jsonb[])
-            AS f (id, object_id, api_name, label, type, classification, is_required, config)`,
+            AS f (id, object_api_name, api_name, label, type, classification, is_required, config)
+       JOIN object_def o
+         ON o.tenant_id = $1::uuid AND o.api_name = f.object_api_name AND NOT o.is_custom
+     ON CONFLICT (tenant_id, object_id, api_name) DO NOTHING`,
     [
       tenantId,
       fields.map(() => newId()),
-      fields.map((definition) => definition.objectId),
+      fields.map((definition) => definition.objectApiName),
       fields.map((definition) => definition.apiName),
       fields.map((definition) => definition.label),
       fields.map((definition) => definition.type),
@@ -163,5 +182,4 @@ export async function insertStandardObjectDefs(
       fields.map((definition) => JSON.stringify(definition.config)),
     ],
   );
-  return { objects: STANDARD_OBJECT_CATALOGUE.length, fields: fields.length };
 }

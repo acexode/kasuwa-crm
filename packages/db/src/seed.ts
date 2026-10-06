@@ -15,7 +15,7 @@ import {
   seedTotpSecret,
 } from './fixtures';
 import { newId } from './ids';
-import { insertStandardObjectDefs } from './standard-object-catalogue';
+import { ensureStandardObjectDefs } from './standard-object-catalogue';
 
 /**
  * Seeds two tenants, each with a business unit, two programmes, users and
@@ -151,7 +151,7 @@ export async function runSeed(options: SeedOptions): Promise<void> {
       // The standard objects as metadata rows (T-0053): the same catalogue
       // provisioning writes for a new tenant, so a seeded tenant is not a
       // special case. TRUNCATE above removed the previous run's rows.
-      await insertStandardObjectDefs(
+      await ensureStandardObjectDefs(
         (text, values) => client.query(text, [...values]),
         tenant.id,
       );

@@ -142,7 +142,9 @@ export async function createObjectDef(
         parsed.label,
         parsed.pluralLabel ?? null,
         parsed.description ?? null,
-        parsed.isCustom,
+        // Always custom (T-0053 review): a standard definition comes from the
+        // catalogue, written by a migration, the seed or provisioning.
+        true,
       ],
     );
     const row = rows[0];
@@ -262,7 +264,9 @@ export async function createFieldDef(tx: TenantTx, input: CreateFieldDefInput): 
         parsed.type,
         parsed.description ?? null,
         parsed.isRequired,
-        parsed.isCustom,
+        // Always custom (T-0053 review): a standard definition comes from the
+        // catalogue, written by a migration, the seed or provisioning.
+        true,
         JSON.stringify(config),
       ],
     );

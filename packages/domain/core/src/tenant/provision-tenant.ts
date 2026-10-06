@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { hashPassword } from '@kasuwa/auth-crypto';
 import {
   DEFAULT_PERMISSION_SET_CATALOGUE,
-  insertStandardObjectDefs,
+  ensureStandardObjectDefs,
   newId,
   withTenantTransaction,
   type TenantTx,
@@ -570,7 +570,7 @@ async function populateTenant(
   // the seed writes. Inside this transaction, so a provisioning that fails
   // later leaves none of them behind.
   // tenancy-reviewed: tenant_id from the session; fresh ids.
-  await insertStandardObjectDefs((text, values) => tx.query(text, values), tenantId);
+  await ensureStandardObjectDefs((text, values) => tx.query(text, values), tenantId);
 
   // The reusable path (T-0029, T-0032): it also makes the session's user (the
   // admin) the programme's first member, holding the tenant's `admin`

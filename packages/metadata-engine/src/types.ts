@@ -66,6 +66,11 @@ export type ObjectDef = z.infer<typeof objectDefSchema>;
  * `tenantId` is absent on purpose. The session decides scope; a caller that can
  * name its own tenant is a tenancy bug. The repository takes it from
  * `tx.session.tenantId`.
+ *
+ * `isCustom` is absent too (T-0053 review): everything created through this
+ * engine is custom. Standard definitions come only from the catalogue
+ * (STANDARD_OBJECT_CATALOGUE in @kasuwa/db), and 0025's restrictive INSERT
+ * policies refuse kasuwa_app a standard row outside it.
  */
 export const createObjectDefInputSchema = z.object({
   id: uuidSchema.optional(),
@@ -73,7 +78,6 @@ export const createObjectDefInputSchema = z.object({
   label: labelSchema,
   pluralLabel: labelSchema.nullish(),
   description: z.string().max(2000).nullish(),
-  isCustom: z.boolean().default(true),
 });
 export type CreateObjectDefInput = z.input<typeof createObjectDefInputSchema>;
 
@@ -117,7 +121,6 @@ export const createFieldDefInputSchema = z.object({
   type: fieldTypeSchema,
   description: z.string().max(2000).nullish(),
   isRequired: z.boolean().default(false),
-  isCustom: z.boolean().default(true),
   config: fieldConfigSchema.default({}),
 });
 export type CreateFieldDefInput = z.input<typeof createFieldDefInputSchema>;

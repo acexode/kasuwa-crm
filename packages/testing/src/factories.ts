@@ -96,7 +96,6 @@ export async function seedObjectDef(
       id: objectId,
       apiName,
       label: apiName,
-      isCustom: true,
     });
   });
 }
