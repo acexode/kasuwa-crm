@@ -295,6 +295,9 @@ importers:
       '@kasuwa/db':
         specifier: workspace:*
         version: link:../../db
+      '@kasuwa/metadata-engine':
+        specifier: workspace:*
+        version: link:../../metadata-engine
       '@kasuwa/permissions':
         specifier: workspace:*
         version: link:../../permissions

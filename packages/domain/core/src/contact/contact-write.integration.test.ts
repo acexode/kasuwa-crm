@@ -148,24 +148,24 @@ describe('contact writes and search (T-0041)', () => {
       const before = await loadContactFieldAccess(tx);
       expect(withheldContactFields(before, PROGRAMME_A2)).toEqual([]);
 
-      const objectId = newId();
-      await tx.query(
-        `INSERT INTO object_def (id, tenant_id, api_name, label, is_custom)
-         VALUES ($1, $2, 'contact', 'Contact', false)`,
-        [objectId, TENANT_A],
-      );
+      // The seeded tenant's standard contact definitions (T-0053): decisions
+      // attach to the field_defs every tenant has, never to planted ones.
       for (const [field, setId, level] of [
         ['emails', agentSet?.id, 'none'],
         ['lga', agentSet?.id, 'read'],
         // A locked set is edit whatever is stored.
         ['phones', adminSet?.id, 'none'],
       ] as const) {
-        const fieldId = newId();
-        await tx.query(
-          `INSERT INTO field_def (id, tenant_id, object_id, api_name, label, type, is_custom)
-           VALUES ($1, $2, $3, $4, $4, 'text', false)`,
-          [fieldId, TENANT_A, objectId, field],
+        const rows = await tx.query<{ id: string }>(
+          `SELECT f.id
+             FROM field_def f
+             JOIN object_def o ON o.tenant_id = f.tenant_id AND o.id = f.object_id
+            WHERE f.tenant_id = $1 AND o.api_name = 'contact' AND f.api_name = $2
+              AND NOT f.is_custom`,
+          [TENANT_A, field],
         );
+        const fieldId = rows[0]?.id;
+        if (fieldId === undefined) throw new Error(`no standard contact.${field} field_def`);
         await tx.query(
           `INSERT INTO field_security_grant (tenant_id, field_id, permission_set_id, level)
            VALUES ($1, $2, $3, $4)`,

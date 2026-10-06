@@ -119,6 +119,8 @@ describe('provisionTenant transaction control', () => {
     'INSERT INTO business_unit',
     'INSERT INTO user_credential',
     'INSERT INTO permission_set',
+    'INSERT INTO object_def',
+    'INSERT INTO field_def',
     'INSERT INTO programme',
     'INSERT INTO user_programme',
   ]) {
@@ -188,5 +190,26 @@ describe('the first admin is an administrator (D-L53, T-0032)', () => {
       expect(state.sent).not.toContain('COMMIT');
       expect(state.sent.at(-1)).toBe('ROLLBACK');
     }
+  });
+});
+
+describe('the standard object definitions (T-0053)', () => {
+  const indexOf = (prefix: string) => state.sent.findIndex((s) => s.trimStart().startsWith(prefix));
+
+  it('are written inside the tenant transaction, for the new tenant, before COMMIT', async () => {
+    await provisionTenant(options);
+    const savepointAt = state.sent.indexOf(`SAVEPOINT ${PROVISIONING_SAVEPOINT}`);
+    const releaseAt = state.sent.indexOf(`RELEASE SAVEPOINT ${PROVISIONING_SAVEPOINT}`);
+    const objectsAt = indexOf('INSERT INTO object_def');
+    const fieldsAt = indexOf('INSERT INTO field_def');
+    expect(objectsAt).toBeGreaterThan(savepointAt);
+    expect(fieldsAt).toBeGreaterThan(objectsAt);
+    expect(fieldsAt).toBeLessThan(releaseAt);
+
+    // The tenant id is the one the bootstrap row was created with.
+    const tenantId = state.params[indexOf('INSERT INTO tenant')]?.[0];
+    expect(state.params[objectsAt]?.[0]).toBe(tenantId);
+    expect(state.params[fieldsAt]?.[0]).toBe(tenantId);
+    expect(state.params[objectsAt]?.[2]).toEqual(['contact', 'account']);
   });
 });

@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { hashPassword } from '@kasuwa/auth-crypto';
 import {
   DEFAULT_PERMISSION_SET_CATALOGUE,
+  ensureStandardObjectDefs,
   newId,
   withTenantTransaction,
   type TenantTx,
@@ -408,6 +409,7 @@ const PROVISIONING_LOCK_SQL = `SELECT pg_advisory_xact_lock(hashtext('kasuwa:ten
 /**
  * Creates, in one transaction: the tenant (status `active`, region recorded
  * once in `region_cell`), one business unit, the default permission sets, the
+ * standard object and field definitions (T-0053), the
  * first admin user with a one-time argon2id setup credential and no second
  * factor (MFA enrolment is required at first sign-in, T-0012), and the
  * default programme — through `createProgramme`, which makes the admin its
@@ -562,6 +564,13 @@ async function populateTenant(
       [newId(), tenantId, set.key, set.label, set.locked, set.sortOrder],
     );
   }
+
+  // The standard objects as metadata rows (T-0053, D-L69): contact and
+  // account, with one field_def per standard field, from the same catalogue
+  // the seed writes. Inside this transaction, so a provisioning that fails
+  // later leaves none of them behind.
+  // tenancy-reviewed: tenant_id from the session; fresh ids.
+  await ensureStandardObjectDefs((text, values) => tx.query(text, values), tenantId);
 
   // The reusable path (T-0029, T-0032): it also makes the session's user (the
   // admin) the programme's first member, holding the tenant's `admin`

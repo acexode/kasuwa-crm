@@ -210,12 +210,15 @@ describe('acceptance: T-0023 field-security objects and metadata decisions', () 
       const bNames = b.map((item) => item.objectApiName);
 
       // Both non-empty, so that a broken endpoint returning [] cannot pass.
+      // Since T-0053 (D-L69) every tenant also has the standard `contact` and
+      // `account` objects, so tenant B's list is its one custom object plus
+      // those two, and nothing of tenant A's.
       expect(aNames).toContain('site_visit');
-      expect(bNames).toEqual(['competitor_intel']);
+      expect([...bNames].sort()).toEqual(['account', 'competitor_intel', 'contact']);
       expect(aNames).not.toContain('competitor_intel');
       expect(bNames).not.toContain('site_visit');
       expect(bNames).not.toContain('branch_audit');
-      expect(b[0]?.fieldCount).toBe(2);
+      expect(b.find((item) => item.objectApiName === 'competitor_intel')?.fieldCount).toBe(2);
     });
 
     it('is tenant-scoped, not programme-scoped: agents on different programmes see one catalogue', async () => {
