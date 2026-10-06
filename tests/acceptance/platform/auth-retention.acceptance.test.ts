@@ -687,8 +687,17 @@ describe('acceptance: auth-table retention (T-0045 part 1)', () => {
         for (const table of ['auth_challenge', 'auth_session', 'auth_rate_limit']) {
           const seen = await client.query<{ n: string }>(`SELECT count(*) AS n FROM ${table}`);
           expect(Number(seen.rows[0]?.n), `${table} is readable with no session context`).toBe(0);
-          const deleted = await client.query(`DELETE FROM ${table}`);
-          expect(deleted.rowCount, `${table} is deletable with no session context`).toBe(0);
+          // Refused either way: RLS hides every row (0 deleted), or, since
+          // T-0049 (D-P16), kasuwa_app holds no DELETE on the auth tables and
+          // the statement is 42501. A savepoint keeps the transaction usable.
+          await client.query('SAVEPOINT probe');
+          try {
+            const deleted = await client.query(`DELETE FROM ${table}`);
+            expect(deleted.rowCount, `${table} is deletable with no session context`).toBe(0);
+          } catch (error) {
+            expect((error as { code?: string }).code, `${table}: ${String(error)}`).toBe('42501');
+            await client.query('ROLLBACK TO SAVEPOINT probe');
+          }
         }
       } finally {
         await client.query('ROLLBACK');
@@ -727,10 +736,19 @@ describe('acceptance: auth-table retention (T-0045 part 1)', () => {
               [TENANT_B],
             );
             expect(Number(seen[0]?.n), `tenant A can read tenant B's ${table}`).toBe(0);
-            const deleted = await query(`DELETE FROM ${table} WHERE tenant_id = $1 RETURNING 1`, [
-              TENANT_B,
-            ]);
-            expect(deleted.length, `tenant A can delete tenant B's ${table}`).toBe(0);
+            // Refused either way: RLS hides tenant B's rows (0 deleted), or,
+            // since T-0049 (D-P16), kasuwa_app holds no DELETE here (42501).
+            await query('SAVEPOINT probe');
+            try {
+              const deleted = await query(
+                `DELETE FROM ${table} WHERE tenant_id = $1 RETURNING 1`,
+                [TENANT_B],
+              );
+              expect(deleted.length, `tenant A can delete tenant B's ${table}`).toBe(0);
+            } catch (error) {
+              expect((error as { code?: string }).code, `${table}: ${String(error)}`).toBe('42501');
+              await query('ROLLBACK TO SAVEPOINT probe');
+            }
           }
           const keys = await query<{ n: string }>(`SELECT count(*) AS n FROM auth_rate_limit`);
           expect(Number(keys[0]?.n), 'a tenant session can enumerate rate-limit digests').toBe(0);
