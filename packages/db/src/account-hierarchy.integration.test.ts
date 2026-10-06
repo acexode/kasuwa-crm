@@ -24,8 +24,15 @@ import { withTenantTransaction, type TenantTx } from './session';
  *     a child under a subtree's leaf while another moves the subtree deeper;
  *   - writes that cannot lengthen a chain never wait for the lock: clearing a
  *     parent, an unrelated update, a parent set in another programme;
- *   - a tenant can still be offboarded with a hierarchy in it (NO ACTION);
- *   - a Phone object with a key the contract does not have is refused.
+ *   - a tenant can still be offboarded with a hierarchy in it, and a parent
+ *     and its children can be deleted in one statement (RESTRICT);
+ *   - a Phone object with a key the contract does not have is refused;
+ *   - the id-rotation bypass found by the migration review is closed, for
+ *     kasuwa_app (account.id is immutable: 42501) and for the migrator (the
+ *     parent FK is RESTRICT: 23503): a rotation that closes a cycle, a
+ *     writable CTE that hands a deleted parent's id to a descendant, and a
+ *     rotation that makes a depth-7 chain. With a NO ACTION parent FK and a
+ *     mutable id, each of the three commits a broken hierarchy.
  *
  * USER_A_SUPERVISOR reaches A1 and A2. Rows the race tests commit are deleted
  * afterwards as kasuwa_migrator; everything else rolls back.
@@ -386,5 +393,161 @@ describe('app.is_phone_list (0026)', () => {
       { role: 'kasuwa_sweeper', can: false },
       { role: 'kasuwa_test_admin', can: true },
     ]);
+  });
+});
+
+describe('account id rotation cannot re-point children (0026, migration review M1)', () => {
+  let appPool: Pool;
+  let migrator: Pool;
+
+  beforeAll(() => {
+    appPool = createPool({ connectionString: inject('databaseUrl'), max: 2 });
+    migrator = createPool({ connectionString: inject('migrationUrl'), max: 2 });
+  });
+
+  afterAll(async () => {
+    await appPool.end();
+    await migrator.end();
+  });
+
+  type Run = (sql: string, values: unknown[]) => Promise<unknown>;
+
+  /** One rolled-back kasuwa_migrator transaction; the refusal, or 'accepted'. */
+  async function attemptAsMigrator(work: (run: Run) => Promise<void>) {
+    const client: PoolClient = await migrator.connect();
+    try {
+      await client.query('BEGIN');
+      await work((text, values) => client.query(text, values));
+      return 'accepted' as const;
+    } catch (error) {
+      return refusalOf(error);
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+  }
+
+  /** The same attack as kasuwa_app (tenant A session) and as the migrator. */
+  async function asBoth(attack: (run: Run) => Promise<void>) {
+    return {
+      app: await attemptAsApp(appPool, (tx) => attack((text, values) => tx.query(text, values))),
+      migrator: await attemptAsMigrator(attack),
+    };
+  }
+
+  /**
+   * The rotation: C takes A's id and A takes a fresh one, in one statement.
+   * A must sort and be stored before C (create it first: ids are UUIDv7), so
+   * that A leaves its id before C takes it.
+   */
+  const rotate = (run: Run, a: string, c: string) =>
+    run(
+      `UPDATE account SET id = CASE id WHEN $1::uuid THEN $2::uuid ELSE $1::uuid END
+        WHERE tenant_id = $3 AND id IN ($1::uuid, $4::uuid)`,
+      [a, newId(), TENANT_A, c],
+    );
+
+  const at = (ids: readonly string[], index: number): string => {
+    const id = ids[index];
+    if (id === undefined) throw new Error(`no element ${index}`);
+    return id;
+  };
+
+  const REFUSED = {
+    app: { code: '42501', constraint: undefined },
+    migrator: { code: '23503', constraint: 'account_parent_same_programme_fk' },
+  };
+
+  it('a rotation that would close a cycle is refused (A <- B <- C; C takes A’s id)', async () => {
+    // Without the fix: B's parent becomes C, C's parent is B. A cycle, and
+    // parent_account_id was never written, so the hierarchy guard never ran.
+    const outcomes = await asBoth(async (run) => {
+      const ids = [newId(), newId(), newId()];
+      await plantChain(run, TENANT_A, PROGRAMME_A1, ids);
+      await rotate(run, at(ids, 0), at(ids, 2));
+    });
+    expect(outcomes).toEqual(REFUSED);
+  });
+
+  it('a writable CTE that hands a deleted parent’s id to a descendant is refused', async () => {
+    // P <- B <- X: delete P and give X its id. Without the fix: B -> X -> B.
+    const outcomes = await asBoth(async (run) => {
+      const ids = [newId(), newId(), newId()];
+      await plantChain(run, TENANT_A, PROGRAMME_A1, ids);
+      await run(
+        `WITH d AS (DELETE FROM account WHERE tenant_id = $1 AND id = $2 RETURNING id)
+         UPDATE account SET id = (SELECT id FROM d) WHERE tenant_id = $1 AND id = $3`,
+        [TENANT_A, at(ids, 0), at(ids, 2)],
+      );
+    });
+    expect(outcomes).toEqual(REFUSED);
+  });
+
+  it('a rotation that would hang a three-level subtree under depth 5 (depth 7) is refused', async () => {
+    // The leaf at depth 5 takes the subtree root's id, and the root's
+    // children follow it: without the fix, the deepest row is at depth 7.
+    const outcomes = await asBoth(async (run) => {
+      // The subtree first: ids are UUIDv7, so its root sorts, and is stored,
+      // before the leaf. The UPDATE then moves the root off its id before the
+      // leaf takes it, whichever way the plan visits the two rows; the other
+      // order would trip the primary key (23505) and prove nothing.
+      const subtree = [newId(), newId(), newId()];
+      const chain = Array.from({ length: 5 }, () => newId());
+      await plantChain(run, TENANT_A, PROGRAMME_A1, subtree);
+      await plantChain(run, TENANT_A, PROGRAMME_A1, chain);
+      await rotate(run, at(subtree, 0), at(chain, 4));
+    });
+    expect(outcomes).toEqual(REFUSED);
+  });
+
+  it('kasuwa_app cannot change any account id; the migrator can still correct a leaf’s', async () => {
+    const outcomes = await asBoth(async (run) => {
+      const leaf = newId();
+      await run(INSERT, [leaf, TENANT_A, PROGRAMME_A1, null]);
+      await run(`UPDATE account SET id = $1 WHERE tenant_id = $2 AND id = $3`, [
+        newId(),
+        TENANT_A,
+        leaf,
+      ]);
+    });
+    expect(outcomes).toEqual({ app: REFUSED.app, migrator: 'accepted' });
+  });
+
+  it('a parent and its children can still be deleted in one statement', async () => {
+    const outcomes = await asBoth(async (run) => {
+      const ids = [newId(), newId(), newId()];
+      await plantChain(run, TENANT_A, PROGRAMME_A1, ids);
+      await run('DELETE FROM account WHERE tenant_id = $1 AND id = ANY ($2::uuid[])', [
+        TENANT_A,
+        ids,
+      ]);
+    });
+    expect(outcomes).toEqual({ app: 'accepted', migrator: 'accepted' });
+  });
+
+  it('documents the per-row limit: one UPDATE can move a whole hierarchy to another programme', async () => {
+    // The header's MOVING BETWEEN PROGRAMMES: one linked row is refused, a
+    // whole hierarchy named in one statement is not. So T-0055's PATCH must
+    // never accept programmeId (D-L76 tracks closing this in the schema).
+    const moving = (count: number, moved: (ids: string[]) => string[]) =>
+      attemptAsApp(appPool, async (tx) => {
+        const run: Run = (text, values) => tx.query(text, values);
+        const ids = Array.from({ length: count }, () => newId());
+        await plantChain(run, TENANT_A, PROGRAMME_A1, ids);
+        await run(
+          'UPDATE account SET programme_id = $1 WHERE tenant_id = $2 AND id = ANY ($3::uuid[])',
+          [PROGRAMME_A2, TENANT_A, moved(ids)],
+        );
+      });
+    const outcomes = {
+      childAlone: await moving(2, (ids) => ids.slice(1)),
+      parentAlone: await moving(2, (ids) => ids.slice(0, 1)),
+      wholeHierarchy: await moving(3, (ids) => ids),
+    };
+    expect(outcomes).toEqual({
+      childAlone: { code: '23503', constraint: 'account_parent_same_programme_fk' },
+      parentAlone: { code: '23503', constraint: 'account_parent_same_programme_fk' },
+      wholeHierarchy: 'accepted',
+    });
   });
 });

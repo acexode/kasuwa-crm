@@ -23,7 +23,8 @@
 --   3. the phone-shape function, the columns, keys and checks;
 --   4. indexes;
 --   5. the hierarchy guard;
---   6. the field_def backfill for every existing tenant, and its proof.
+--   6. account.id made immutable for kasuwa_app;
+--   7. the field_def backfill for every existing tenant, and its proof.
 -- One transaction: a failure anywhere leaves no trace, not even a ledger row.
 --
 -- ---------------------------------------------------------------------------
@@ -37,20 +38,55 @@
 --   - parent: (tenant_id, programme_id, parent_account_id) -> account
 --     (tenant_id, programme_id, id), using 0019's UNIQUE. A parent is always in
 --     the same programme. A session that reaches A1 and A2 is not stopped by
---     RLS from linking across them; only the key stops it. Because the key
---     carries programme_id and has no ON UPDATE action, moving a linked parent
---     or child to another programme is refused too (a CASCADE would silently
---     carry a child across a BPO client boundary).
+--     RLS from linking across them; only the key stops it.
 --   - An unreachable parent id and an invented one fail the same FK with the
 --     same message: no existence oracle across the programme boundary.
 --
--- ON DELETE: NO ACTION, the default, written out. D-L74 says "the default,
--- RESTRICT"; the default is in fact NO ACTION, which also refuses the delete.
--- It is the right one of the two for the reason 0019 gives: NO ACTION is
--- checked at the end of the statement, so a tenant or programme offboarding
--- that cascades over a whole hierarchy deletes parents and children together
--- and succeeds; RESTRICT is checked row by row and could fail on cascade
--- order. What happens to children when a parent is deleted stays open (D-L61).
+-- MOVING BETWEEN PROGRAMMES. The key carries programme_id and has no CASCADE,
+-- so moving ONE linked row is refused: a child alone no longer finds its
+-- parent, and a parent alone strands its children. That holds per row only.
+-- A single `UPDATE account SET programme_id = ...` that names a whole
+-- hierarchy (its top-level account and every descendant) moves it: every row
+-- still finds its parent at the end of the statement, and no row is left
+-- referencing the old key. kasuwa_app can do that for any two programmes its
+-- session reaches. The contract has no programmeId on UpdateAccountRequest,
+-- and T-0055's PATCH must not accept one: moving a record between BPO
+-- clients is a deliberate operation, never a field edit (D-L76 tracks
+-- closing this in the schema). The hierarchy itself is unharmed by such a
+-- move: depth and acyclicity do not change, and nothing in the target
+-- programme can reference the moved rows before they commit.
+--
+-- ON DELETE / ON UPDATE of the parent FK: RESTRICT, both (D-L74, corrected).
+--   - Why not NO ACTION, the default: NO ACTION accepts a referenced key that
+--     is replaced within the same statement, because it checks only that SOME
+--     row holds the key at the end. That lets one statement re-point every
+--     child of A at another row without touching parent_account_id, so the
+--     hierarchy guard (which watches parent_account_id) never fires. The
+--     migration review committed a real cycle and a depth-7 chain that way:
+--       UPDATE account SET id = CASE id WHEN A THEN <fresh> ELSE A END
+--        WHERE id IN (A, C);
+--     and the same with a writable CTE that deletes A and gives C its id.
+--     RESTRICT refuses the change or delete of a key that a child still
+--     references, whatever else the statement does, so both are refused.
+--   - RESTRICT does not break offboarding: a tenant or programme delete
+--     cascades into account through the RI machinery, which queues the
+--     RESTRICT checks until the cascade has removed the children too, so
+--     parent and child go together. A multi-row DELETE naming a parent and
+--     its children succeeds for the same reason. (0019's header says the
+--     opposite of RESTRICT; that reasoning was wrong, and 0019's
+--     contact_account_same_programme_fk has the rotation exposure, D-L76.)
+--   - Belt and braces: account.id is immutable for kasuwa_app (a BEFORE
+--     UPDATE trigger, app.guard_account_id_fixed(), 42501), so the
+--     application role cannot rotate an account id at all. That also closes
+--     the account side of contact_account_same_programme_fk for that role.
+--     The migrator may still correct an id; RESTRICT still guards the
+--     hierarchy for it. Both identities are tested, as in 0023 and 0025, so a
+--     SET ROLE from an app connection is still guarded.
+--   - What should happen to children when a parent is deleted stays open
+--     (D-L61); refusing is the answer that loses nothing.
+-- The owner FK stays NO ACTION, as 0019's on contact: "user".id is not
+-- writable by kasuwa_app (0015's column grants), so the rotation does not
+-- apply, and no guard depends on it.
 --
 -- ---------------------------------------------------------------------------
 -- VALUES
@@ -69,12 +105,22 @@
 --     so it does not depend on standard_conforming_strings). Extra keys are
 --     refused: the contract's Phone is closed (additionalProperties: false),
 --     and a key stored here would be served back by T-0055 in breach of it.
+--       The CHECK is `phones = '[]' OR app.is_phone_list(phones)`. The empty
+--     list, which every existing row holds when this file runs and most rows
+--     will hold afterwards, is accepted by a built-in comparison without
+--     calling the function. The function is plpgsql, not SQL: a SQL function
+--     with a subquery cannot be inlined, and the review measured it at about
+--     33 us/row. See LOCK IMPACT for the numbers.
 --       The function is IMMUTABLE and its rules are literals. Changing them
 --     (a new phone type, a DND flag per number) is a new migration that
---     replaces the function AND re-validates the constraint (DROP/ADD, or
---     NOT VALID then VALIDATE): CREATE OR REPLACE alone does not re-check the
---     rows already stored. Not SECURITY DEFINER; reads no table. CHECK
---     evaluation runs as the writer, so kasuwa_app needs EXECUTE.
+--     replaces the function AND re-validates the constraint, and it MUST do
+--     so as ADD CONSTRAINT ... NOT VALID in an ordinary migration, then
+--     VALIDATE CONSTRAINT (SHARE UPDATE EXCLUSIVE: reads and writes carry on)
+--     in a following `-- kasuwa:no-transaction` file. By then rows hold real
+--     phone lists and a validating ADD would hold ACCESS EXCLUSIVE for the
+--     whole scan. CREATE OR REPLACE alone does not re-check stored rows.
+--     Not SECURITY DEFINER; reads no table. CHECK evaluation runs as the
+--     writer, so kasuwa_app needs EXECUTE.
 --     contact.phones still has no database check (the API enforces it); the
 --     function is written so contact could adopt it later.
 --
@@ -111,6 +157,10 @@
 --     (the composite key), and the writer must reach that programme to have
 --     written the row at all (the policy's WITH CHECK). So no SECURITY DEFINER
 --     (CLAUDE.md 2.7): the census stays at two.
+--   - It watches parent_account_id only. A statement that re-points children
+--     WITHOUT writing that column (by handing a parent's id to another row)
+--     is what the RESTRICT parent FK and the immutable account.id stop: see
+--     KEYS. The guard is sound only together with them.
 --
 -- CONCURRENCY: how two transactions are stopped from each adding half a cycle.
 --   A walk that only reads committed rows cannot see a concurrent, uncommitted
@@ -215,14 +265,36 @@
 --     FK is validated by reading every account row, and the three indexes are
 --     built by scanning it, all while that lock is held: reads and writes of
 --     accounts wait for the rest of the file.
---   - "user": SHARE ROW EXCLUSIVE while the owner FK is added and validated
---     (blocks writes to "user", such as sign-in bookkeeping, not reads).
+--   - "user": SHARE ROW EXCLUSIVE, taken up front, for the whole file (it is
+--     what adding the owner FK takes anyway). It blocks writes to "user",
+--     such as sign-in bookkeeping, not reads.
+--   - How long, measured at 2M account rows (PG16 container, en_US.utf8,
+--     ten programmes):
+--       * the migration review, with the first version of this file: about
+--         53 s under ACCESS EXCLUSIVE, about 48 s of it the phones CHECK (a
+--         SQL function with a subquery, about 33 us/row);
+--       * this version, on the builder's host: the whole ALTER TABLE (eight
+--         columns, two FKs, four CHECKs) 0.6 s, of which the phones CHECK is
+--         negligible, because every existing row holds '[]' and the CHECK
+--         accepts that without calling the function. The first version's
+--         CHECK took 11.8 s on the same host, so the review's 48 s scales to
+--         about 1 s or less here;
+--       * account_name_keyset_idx 12.7 s (a text sort under the database
+--         collation), the owner and parent indexes 0.5 s together;
+--       * in all about 14 s on this host, now dominated by the name index.
+--     When phone lists are real (two numbers a row), the plpgsql function
+--     costs about 11 us/row on this host (23 s at 2M rows, against 29 s for
+--     the SQL version). That is why a later change to the phone rules must
+--     go NOT VALID, then VALIDATE in a no-transaction file (VALUES).
 --   - lock_timeout = 5s: the file fails fast instead of queueing behind a long
 --     transaction (and making everything behind it queue too).
 --   - At volume (the first populated cell onward) this would be split: the
 --     CHECKs and FKs added NOT VALID here, then VALIDATE CONSTRAINT (SHARE
 --     UPDATE EXCLUSIVE) and CREATE INDEX CONCURRENTLY in a following
---     `-- kasuwa:no-transaction` file.
+--     `-- kasuwa:no-transaction` file. This file does not split the phones
+--     CHECK: inside one transaction NOT VALID then VALIDATE would hold the
+--     same ACCESS EXCLUSIVE, and the empty-list short-circuit already makes
+--     its validation as cheap as a built-in check.
 -- Steady-state cost: the guard runs only on writes that set a parent, reads
 -- at most ten rows by key, and serialises only such writes, per programme.
 --
@@ -239,8 +311,10 @@
 --   2. export the values of the eight columns if they hold data; dropping
 --      them loses it;
 --   3. in a NEW migration, as kasuwa_migrator: DROP TRIGGER
---      account_hierarchy_guard_insert and account_hierarchy_guard_update; DROP
---      FUNCTION app.guard_account_hierarchy(); DROP INDEX the three indexes;
+--      account_hierarchy_guard_insert, account_hierarchy_guard_update and
+--      account_id_fixed; DROP FUNCTION app.guard_account_hierarchy() and
+--      app.guard_account_id_fixed() (keep the id guard if D-L76's follow-up
+--      has come to rely on it); DROP INDEX the three indexes;
 --      ALTER TABLE account DROP COLUMN the eight (their constraints and FKs
 --      go with them); DROP FUNCTION app.is_phone_list(jsonb); DELETE the eight
 --      standard field_defs on `account` (their field_security_grant rows go
@@ -255,6 +329,8 @@ SET LOCAL lock_timeout = '5s';
 -- --- 1. locks, in a fixed order ----------------------------------------------
 LOCK TABLE object_def, field_def IN ACCESS EXCLUSIVE MODE;
 LOCK TABLE account IN ACCESS EXCLUSIVE MODE;
+-- What the owner FK takes anyway; taken here so every lock is in this order.
+LOCK TABLE "user" IN SHARE ROW EXCLUSIVE MODE;
 
 -- --- 2. the clash pre-check, before anything changes (D-P24) -----------------
 DO $$
@@ -283,29 +359,42 @@ END
 $$;
 
 -- --- 3. columns, keys and checks ---------------------------------------------
--- The contract's Phone, closed: see VALUES in the header.
+-- The contract's Phone, closed: see VALUES in the header. plpgsql, one
+-- element at a time, returning at the first bad one; each test runs only
+-- once the ones before it have established the type it needs.
 CREATE FUNCTION app.is_phone_list(phones jsonb) RETURNS boolean
-  LANGUAGE sql
+  LANGUAGE plpgsql
   IMMUTABLE
   PARALLEL SAFE
   SECURITY INVOKER
   SET search_path = pg_catalog
 AS $$
-  SELECT CASE
-    WHEN pg_catalog.jsonb_typeof(phones) IS DISTINCT FROM 'array' THEN false
-    ELSE NOT EXISTS (
-      SELECT 1
-        FROM pg_catalog.jsonb_array_elements(phones) AS e (phone)
-       WHERE CASE
-         WHEN pg_catalog.jsonb_typeof(e.phone) <> 'object' THEN true
-         WHEN (e.phone - 'type' - 'e164') <> '{}'::jsonb THEN true
-         WHEN pg_catalog.jsonb_typeof(e.phone -> 'type') IS DISTINCT FROM 'string' THEN true
-         WHEN (e.phone ->> 'type') NOT IN ('mobile', 'work', 'home', 'other') THEN true
-         WHEN pg_catalog.jsonb_typeof(e.phone -> 'e164') IS DISTINCT FROM 'string' THEN true
-         WHEN (e.phone ->> 'e164') !~ '^[+][1-9][0-9]{6,14}$' THEN true
-         ELSE false
-       END)
-  END
+DECLARE
+  phone jsonb;
+BEGIN
+  IF jsonb_typeof(phones) IS DISTINCT FROM 'array' THEN
+    RETURN false;
+  END IF;
+  FOR phone IN SELECT e.value FROM jsonb_array_elements(phones) AS e LOOP
+    IF jsonb_typeof(phone) <> 'object' THEN
+      RETURN false;
+    END IF;
+    IF (phone - 'type' - 'e164') <> '{}'::jsonb THEN
+      RETURN false;  -- a key the contract does not have
+    END IF;
+    IF jsonb_typeof(phone -> 'type') IS DISTINCT FROM 'string'
+       OR jsonb_typeof(phone -> 'e164') IS DISTINCT FROM 'string' THEN
+      RETURN false;
+    END IF;
+    IF (phone ->> 'type') NOT IN ('mobile', 'work', 'home', 'other') THEN
+      RETURN false;
+    END IF;
+    IF (phone ->> 'e164') !~ '^[+][1-9][0-9]{6,14}$' THEN
+      RETURN false;
+    END IF;
+  END LOOP;
+  RETURN true;
+END;
 $$;
 REVOKE ALL ON FUNCTION app.is_phone_list(jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION app.is_phone_list(jsonb) TO kasuwa_app, kasuwa_test_admin;
@@ -325,15 +414,17 @@ ALTER TABLE account
     REFERENCES "user" (tenant_id, id) ON DELETE NO ACTION,
   ADD CONSTRAINT account_parent_same_programme_fk
     FOREIGN KEY (tenant_id, programme_id, parent_account_id)
-    REFERENCES account (tenant_id, programme_id, id) ON DELETE NO ACTION,
+    REFERENCES account (tenant_id, programme_id, id)
+    ON DELETE RESTRICT ON UPDATE RESTRICT,  -- not NO ACTION: see KEYS
 
   ADD CONSTRAINT account_tier_check
     CHECK (tier IN ('enterprise', 'mid_market', 'sme')),
   -- A tag list may be empty; a NULL element is never a tag.
   ADD CONSTRAINT account_tags_no_null_element_check
     CHECK (array_position(tags, NULL) IS NULL),
+  -- The empty list without a function call: every row this file finds.
   ADD CONSTRAINT account_phones_shape_check
-    CHECK (app.is_phone_list(phones)),
+    CHECK (phones = '[]'::jsonb OR app.is_phone_list(phones)),
   -- The trigger below handles every longer cycle.
   ADD CONSTRAINT account_parent_not_self_check
     CHECK (parent_account_id <> id);
@@ -439,7 +530,36 @@ CREATE TRIGGER account_hierarchy_guard_update
         AND NEW.parent_account_id IS DISTINCT FROM OLD.parent_account_id)
   EXECUTE FUNCTION app.guard_account_hierarchy();
 
--- --- 6. the standard field_defs: backfill, then prove ------------------------
+-- --- 6. account.id is fixed for the application role ------------------------
+-- See KEYS: with the RESTRICT parent FK, this is what stops a statement from
+-- re-pointing children by handing a parent's id to another row. Both
+-- identities are tested, as in 0023 and 0025, so SET ROLE from an app
+-- connection stays guarded; every other role passes through (the migrator may
+-- still correct an id, and RESTRICT still guards the hierarchy for it).
+CREATE FUNCTION app.guard_account_id_fixed() RETURNS trigger
+  LANGUAGE plpgsql
+  SECURITY INVOKER
+  SET search_path = pg_catalog
+AS $$
+BEGIN
+  IF current_user = 'kasuwa_app' OR session_user = 'kasuwa_app' THEN
+    RAISE EXCEPTION 'account.id is fixed at creation and cannot be changed by the application role'
+      USING ERRCODE = 'insufficient_privilege';  -- 42501, as 0023 and 0025
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION app.guard_account_id_fixed() FROM PUBLIC;
+
+-- BEFORE, so the row is refused before any FK or hierarchy check runs. Fires
+-- for every row of a bulk UPDATE and for the DO UPDATE arm of an upsert.
+CREATE TRIGGER account_id_fixed
+  BEFORE UPDATE OF id ON account
+  FOR EACH ROW
+  WHEN (NEW.id IS DISTINCT FROM OLD.id)
+  EXECUTE FUNCTION app.guard_account_id_fixed();
+
+-- --- 7. the standard field_defs: backfill, then prove ------------------------
 DO $$
 DECLARE
   -- Frozen copy of the eight new `account` entries of
@@ -474,6 +594,20 @@ BEGIN
                  is_required boolean, config jsonb)
    WHERE o.api_name = 'account' AND NOT o.is_custom
   ON CONFLICT (tenant_id, object_id, api_name) DO NOTHING;
+
+  -- A tenant with no standard `account` object got no fields above (a tenant
+  -- provisioned by a release before 0025's, in its deploy window). Say so
+  -- with the remedy, rather than as a missing field. Counts only.
+  SELECT pg_catalog.count(*)
+    INTO affected_tenants
+    FROM public.tenant t
+   WHERE NOT EXISTS (
+           SELECT 1 FROM public.object_def o
+            WHERE o.tenant_id = t.id AND o.api_name = 'account' AND NOT o.is_custom);
+  IF affected_tenants > 0 THEN
+    RAISE EXCEPTION '0026: % tenant(s) have no standard account object, so they cannot be given the new account fields. Nothing was applied. Run ensureStandardObjectDefs (packages/db) for each of those tenants, as kasuwa_migrator, then re-run.',
+      affected_tenants;
+  END IF;
 
   -- Every tenant has every new field: standard, on its standard account
   -- object, with the catalogue's meaning and at least its classification.
