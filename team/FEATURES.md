@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 138 rows; built 60, partial 11, mock-only 27, flagged-off 6, deferred 10, not-started 24.
+Totals: 139 rows; built 60, partial 11, mock-only 27, flagged-off 6, deferred 10, not-started 25.
 
 ## Modules
 
@@ -155,6 +155,7 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `createContact` | POST /api/v1/contacts — Create a contact | built | — | — | docs/api/records.openapi.yaml |
 | operation | `getContact` | GET /api/v1/contacts/{contactId} — Get one contact | built | — | — | docs/api/records.openapi.yaml |
 | operation | `updateContact` | PATCH /api/v1/contacts/{contactId} — Update a contact (inline edit of owner, status and the rest) | built | — | — | docs/api/records.openapi.yaml |
+| operation | `listContactTimeline` | GET /api/v1/contacts/{contactId}/timeline — The contact's timeline — field and consent changes, newest first (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
 | operation | `listMyProgrammes` | GET /api/v1/me/programmes — The caller's programmes, with their display names | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listAccounts` | GET /api/v1/accounts — List accounts — search, filter, sort, keyset page (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
 | operation | `createAccount` | POST /api/v1/accounts — Create an account (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
