@@ -1347,19 +1347,117 @@ describe('acceptance: contacts API (T-0041)', () => {
   // =========================================================================
 
   describe('permissions: writes need contact.write in the target programme', () => {
-    it('the agent set may not write: 403 not_permitted, nothing written', async () => {
-      requireT0040();
-      const name = unique('T0041 AgentCreate');
-      expectError(await create(AGENT_1, createBody({ displayName: name })), 403, 'not_permitted');
-      expect(await contactsNamed(name)).toBe(0);
+    // D-P14 (answered 2026-10-04) replaces "the agent set may not write", as S1
+    // foresaw. The agent set may change `status`, and may assign the owner to
+    // THEMSELVES, on contacts in a programme where they hold it, and nothing
+    // else: no create, no other field, no other owner, no clearing the owner.
+    // A refused body is refused whole; nothing in it is written.
+    describe('the agent set (D-P14): status, and owner to self, nothing else', () => {
+      /** Every column the agent did not ask to change, as the observer sees it. */
+      const untouched = (row: Json | null, changed: readonly string[]) =>
+        Object.fromEntries(
+          Object.entries(row ?? {}).filter(
+            ([column]) => ![...changed, 'version', 'updated_at'].includes(column),
+          ),
+        );
 
-      const before = await contactRow(AMAKA.id);
-      expectError(
-        await update(AGENT_1, AMAKA.id, { version: Number(before?.version), status: 'customer' }),
-        403,
-        'not_permitted',
-      );
-      expect(await contactRow(AMAKA.id)).toEqual(before);
+      it('may not create: 403 not_permitted, nothing written', async () => {
+        requireT0040();
+        const name = unique('T0041 AgentCreate');
+        expectError(await create(AGENT_1, createBody({ displayName: name })), 403, 'not_permitted');
+        expect(await contactsNamed(name)).toBe(0);
+      });
+
+      it('may change status in its own programme: 200, and only status moves', async () => {
+        requireT0040();
+        await plant(AMAKA.id, { status: 'new' });
+        const before = await contactRow(AMAKA.id);
+        const response = await update(AGENT_1, AMAKA.id, {
+          version: Number(before?.version),
+          status: 'contacted',
+        });
+        expect(response.status, JSON.stringify(response.body)).toBe(200);
+        expect(expectContact(response.body, 'agent status').status).toBe('contacted');
+
+        const after = await contactRow(AMAKA.id);
+        expect(after?.status).toBe('contacted');
+        expect(Number(after?.version)).toBe(Number(before?.version) + 1);
+        expect(untouched(after, ['status'])).toEqual(untouched(before, ['status']));
+      });
+
+      it('may assign the owner to themselves, taking it from another member: 200', async () => {
+        requireT0040();
+        await plant(AMAKA.id, { owner_user_id: USER_A_SUPERVISOR });
+        const before = await contactRow(AMAKA.id);
+        const response = await update(AGENT_1, AMAKA.id, {
+          version: Number(before?.version),
+          ownerUserId: USER_A_AGENT_1,
+        });
+        expect(response.status, JSON.stringify(response.body)).toBe(200);
+        expect(expectContact(response.body, 'agent owner').ownerUserId).toBe(USER_A_AGENT_1);
+
+        const after = await contactRow(AMAKA.id);
+        expect(after?.owner_user_id).toBe(USER_A_AGENT_1);
+        expect(untouched(after, ['owner_user_id'])).toEqual(untouched(before, ['owner_user_id']));
+      });
+
+      it('may set status and own the record in one request: 200', async () => {
+        requireT0040();
+        await plant(AMAKA.id, { status: 'new', owner_user_id: null });
+        const before = await contactRow(AMAKA.id);
+        const response = await update(AGENT_1, AMAKA.id, {
+          version: Number(before?.version),
+          status: 'qualified',
+          ownerUserId: USER_A_AGENT_1,
+        });
+        expect(response.status, JSON.stringify(response.body)).toBe(200);
+        const after = await contactRow(AMAKA.id);
+        expect(after?.status).toBe('qualified');
+        expect(after?.owner_user_id).toBe(USER_A_AGENT_1);
+      });
+
+      it.each([
+        // A reachable member of the same programme: the D-L67 rule would accept
+        // this owner from an admin, so a refusal here is the agent rule.
+        ['another member as owner', { ownerUserId: USER_A_SUPERVISOR }],
+        ['clearing the owner', { ownerUserId: null }],
+        ['displayName', { displayName: 'T0041 Agent Rename' }],
+        ['familyName', { familyName: 'Agent' }],
+        ['phones', { phones: [{ type: 'mobile', e164: '+2348039990001' }] }],
+        ['tags', { tags: ['agent-tag'] }],
+        ['consentState', { consentState: 'opted_in' }],
+        ['accountId', { accountId: null }],
+        ['status alongside a field it may not write', { status: 'customer', lga: 'Ikeja' }],
+        ['owner to self alongside a field it may not write', {
+          ownerUserId: USER_A_AGENT_1,
+          tags: ['agent-tag'],
+        }],
+      ])('may not write %s: 403 not_permitted, nothing written', async (_label, fields) => {
+        requireT0040();
+        await plant(AMAKA.id, { status: 'new', owner_user_id: USER_A_AGENT_1 });
+        const before = await contactRow(AMAKA.id);
+        expectError(
+          await update(AGENT_1, AMAKA.id, { version: Number(before?.version), ...fields }),
+          403,
+          'not_permitted',
+        );
+        expect(await contactRow(AMAKA.id)).toEqual(before);
+      });
+
+      it('stops at the programme boundary: a contact in a programme it is not in is 404', async () => {
+        requireT0040();
+        // Agent 1 holds the agent set in A1 only; Damilola is in A2.
+        const before = await contactRow(DAMILOLA.id);
+        expectError(
+          await update(AGENT_1, DAMILOLA.id, {
+            version: Number(before?.version),
+            status: 'contacted',
+          }),
+          404,
+          'not_found',
+        );
+        expect(await contactRow(DAMILOLA.id)).toEqual(before);
+      });
     });
 
     it.each(READ_ONLY_KEYS)(
