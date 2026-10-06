@@ -45,12 +45,17 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.1.0-T-0039
+  version: 0.2.0-T-0043
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
     update. Accounts (T-0052, contract only until T-0055): list, get, create,
     update, and an account's contacts. Leads (D-P17) and custom-field values
     follow in later slices (D-L60) and will be added to this file.
+
+    **Display names (T-0043, D-L64).** A records screen never prints a UUID.
+    Programme names come from `listMyProgrammes`; an owner's name is embedded
+    on the contact as `owner`. There is deliberately no operation that turns
+    caller-supplied user ids into names: that would be a user directory.
 
     **Errors.** Every failure uses the shared `Error` envelope from
     `admin.openapi.yaml`. Switch on `code`, never on `message`. The web app
@@ -81,6 +86,8 @@ tags:
     description: Organisations a programme sells to, serves or collects from.
   - name: contacts
     description: People a programme sells to, serves or collects from.
+  - name: me
+    description: The caller's own scope, as the session resolves it.
 
 paths:
   /api/v1/contacts:
@@ -237,6 +244,9 @@ paths:
                     familyName: Okonkwo
                     phones: [{ type: mobile, e164: '+2348030000001' }]
                     ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    owner:
+                      id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                      displayName: Kemi Balogun
                     status: contacted
                     source: whatsapp
                     tags: [Callback set]
@@ -401,6 +411,52 @@ paths:
         '403': { $ref: '#/components/responses/NotPermitted' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/StaleWrite' }
+
+  /api/v1/me/programmes:
+    get:
+      tags: [me]
+      summary: The caller's programmes, with their display names
+      operationId: listMyProgrammes
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P04/02']
+      description: |
+        The programmes the caller belongs to, so a records screen can print
+        "Bank X Collections" where the contract otherwise gives a
+        `programmeId` (D-L64).
+
+        **Scope is the session's.** Exactly the caller's own `user_programme`
+        rows, read inside the tenant transaction on every request. There is no
+        parameter, header or body that chooses whose programmes are listed;
+        unknown query parameters are ignored, never honoured, and a scope
+        header is `400 validation_failed`. The tenant-admin flag does not widen
+        it (D-L53): an admin sees the programmes they belong to, not every
+        programme in the tenant. A user with no membership gets `{ data: [] }`.
+
+        **Closed items: `{ id, name }` and nothing else.** No `clientName`
+        (the BPO's customer is a separate, confidential fact), no status, no
+        member count.
+
+        **Never cached by a shared cache.** The URL is the same for every user
+        of every tenant, so the response carries `Cache-Control: no-store`.
+
+        Order is by name, then id. Not paged: the list is the caller's own
+        memberships.
+      responses:
+        '200':
+          description: The caller's programmes.
+          headers:
+            Cache-Control:
+              description: Always `no-store`.
+              schema: { type: string, enum: ['no-store'] }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyProgrammeList' }
+              example:
+                data:
+                  - id: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    name: Bank X Collections
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
 
   # Deliberately absent: the P04/04 Map view (M03 P2), saved views, bulk
   # actions, export, merge and per-chip counts. No PRD module in this slice owns
@@ -912,6 +968,20 @@ components:
           type: [string, 'null']
           format: uuid
           description: '`null` is unassigned.'
+        owner:
+          description: |
+            The owner, with a display name to print (T-0043, D-L64). `null`
+            exactly when `ownerUserId` is `null`; otherwise `owner.id` equals
+            `ownerUserId`. Read in the same scoped query as the contact, so a
+            name is only ever sent for the owner of a record the caller can
+            already see: this is not a user directory.
+
+            Withheld with `ownerUserId`: when field security withholds
+            `ownerUserId`, `owner` is omitted too and both are listed in
+            `withheldFields`. Read-only; a write sets `ownerUserId`.
+          oneOf:
+            - { $ref: '#/components/schemas/ContactOwner' }
+            - { type: 'null' }
         status:
           description: '`null` when never set (the column is nullable).'
           oneOf:
@@ -958,6 +1028,35 @@ components:
             this caller. Those properties are omitted from the object, never
             sent as `null`. Always present; empty when nothing was withheld.
           items: { type: string }
+
+    ContactOwner:
+      type: object
+      additionalProperties: false
+      required: [id, displayName]
+      description: |
+        Closed: an id and a name to print, nothing else. No email, phone,
+        locale or status.
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+
+    MyProgramme:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      description: One programme the caller belongs to. Closed.
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    MyProgrammeList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/MyProgramme' }
 
     ContactPage:
       type: object
