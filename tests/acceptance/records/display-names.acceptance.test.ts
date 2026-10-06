@@ -937,13 +937,16 @@ describe('acceptance: scoped display names (T-0043)', () => {
       // speaking, not a missing route.
       expectMyProgrammes(await myProgrammes(AGENT_1), 'agent 1 (control)');
 
-      const cases: [string, request.Test][] = [
-        ['no credentials', request(server()).get(ME_PROGRAMMES)],
-        ['a real user under the wrong tenant', myProgrammes(asUser(TENANT_B, USER_A_AGENT_2))],
-        ['an unknown user', myProgrammes(asUser(TENANT_A, NOWHERE_USER))],
+      // Factories, not requests: supertest closes its ephemeral listener when
+      // the first request built against it finishes, so requests built up
+      // front and awaited one by one hit a closed port (ECONNREFUSED).
+      const cases: [string, () => request.Test][] = [
+        ['no credentials', () => request(server()).get(ME_PROGRAMMES)],
+        ['a real user under the wrong tenant', () => myProgrammes(asUser(TENANT_B, USER_A_AGENT_2))],
+        ['an unknown user', () => myProgrammes(asUser(TENANT_A, NOWHERE_USER))],
       ];
-      for (const [label, pending] of cases) {
-        const response = await pending;
+      for (const [label, send] of cases) {
+        const response = await send();
         expect(response.status, `${label}: ${response.status} ${response.text}`).toBe(401);
         expectAbsent(response.text, foreignProgrammeStrings([]), `${label} body`);
       }
