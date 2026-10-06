@@ -45,14 +45,17 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.3.0-T-0059
+  version: 0.4.0-T-0056
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
     update. Accounts (T-0052, contract only until T-0055): list, get, create,
     update, and an account's contacts. The contact record view (P05, T-0059,
     contract only until T-0061): the contact's timeline and its account
-    summary. Leads (D-P17) and custom-field values follow in later slices
-    (D-L60) and will be added to this file.
+    summary. Leads (T-0056, D-P17, contract only until T-0076): a lead is a
+    contact at a lead stage, not its own record, so leads add a list view
+    (`listLeads`), one action (`convertContact`) and one contact field
+    (`companyName`). Custom-field values follow in a later slice (D-L60) and
+    will be added to this file.
 
     **Display names (T-0043, D-L64).** A records screen never prints a UUID.
     Programme names come from `listMyProgrammes`; an owner's name is embedded
@@ -88,6 +91,8 @@ tags:
     description: Organisations a programme sells to, serves or collects from.
   - name: contacts
     description: People a programme sells to, serves or collects from.
+  - name: leads
+    description: Contacts at a lead stage (D-P17). A view and an action, not a record type.
   - name: me
     description: The caller's own scope, as the session resolves it.
 
@@ -542,6 +547,258 @@ paths:
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '404': { $ref: '#/components/responses/NotFound' }
+
+  # -------------------------------------------------------------------------
+  # Leads (T-0056, D-P17, D-L75). CONTRACT ONLY: no route answers yet; T-0076
+  # implements it and flips `x-kasuwa-implemented`. A lead is a contact at a
+  # lead stage, not its own record: there is no Lead schema and nothing
+  # addresses a lead by id. The five rules at the top of this file apply
+  # unchanged.
+  #
+  # Deliberately absent (D-L69, D-P12): merge (dedupe is D-P12), lead score
+  # (M17) and a Leads Map view (M03 P2). The task allowed a 501 stub or
+  # absence; absence was chosen so this file does not invent paths those
+  # modules own. The screen hides each.
+  # -------------------------------------------------------------------------
+
+  /api/v1/contacts/{contactId}/convert:
+    parameters:
+      - $ref: '#/components/parameters/ContactId'
+    post:
+      tags: [leads]
+      summary: Convert a lead — qualify it and link an account, once
+      operationId: convertContact
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P04/01', 'P05/01']
+      description: |
+        Converts a lead (D-P17): qualifies the contact and links it to an
+        account, either an existing one (`accountId`) or one it creates
+        (`newAccount`). The P04/01 Leads table's row action and, once drawn,
+        the P05/01 record header's.
+
+        **One transaction, one audit event.** The status change, the account
+        it creates (if any) and the link are written in one database
+        transaction: all of it or none of it. It writes exactly one audit
+        event, on the contact (`objectType: contact`), naming the changed
+        fields (`status`, `accountId`) and never their values. An account
+        created here is recorded in that same event, not in a second one.
+
+        **What it does to the contact.** A contact whose `status` is `new`,
+        `contacted`, `unqualified` or `null` becomes `qualified`. A
+        `qualified` contact stays `qualified`. A `customer` is never demoted:
+        its status stays `customer`, and the account link follows the same
+        rules as for a lead. A converted contact stays on the Leads list
+        (listLeads), because `qualified` is a lead status (D-P17, D-L75).
+        `companyName` is neither copied nor cleared.
+
+        **Idempotent.** A repeat or retry of a convert whose result is
+        already in place answers the same `200` with the current contact and
+        account, whatever `version` it carries, and writes nothing: no second
+        account, no second audit event, and `version` does not advance. The
+        result is in place when the contact is `qualified` or `customer` and
+        its `accountId` is the requested `accountId`, or, for `newAccount`,
+        when its account's `name` equals the requested `name` exactly. This
+        is how a retry after a lost response meets the version check: it
+        carries the version the first call made stale, and it is answered
+        `200`, not `409`. Any other request on a stale `version` is
+        `409 stale_write`: re-read, do not retry blind.
+
+        **A contact already linked to a different account.** When the
+        contact already has an account and the request names another (a
+        different `accountId`, or a `newAccount` whose name differs from its
+        account's), the answer is `400 validation_failed` with
+        `details[].code: already_linked` at `accountId` or `newAccount`, and
+        nothing is written. Convert never moves a contact between accounts;
+        that is an `accountId` edit on updateContact.
+
+        **Scope: the contact's programme.** The contact must be readable by
+        the caller, else `404 not_found`, never `403`. An existing account
+        must be in the contact's programme, and a new one is created in it.
+        An account in another programme is answered `404 not_found`, the
+        same body as an account that does not exist or one in another
+        tenant, even when the caller reaches that other programme too: a
+        caller in A1 and A2 cannot link an A1 lead to an A2 account. This
+        differs in form from createContact and updateContact, which answer an
+        unreachable `accountId` with `400 unknown_reference`; both forms hide
+        existence (D-L75).
+
+        **Permission.** Convert needs `contact.write` in the contact's
+        programme (the `admin` set or the tenant-admin flag, D-L63). The
+        narrow contact edit the `agent` set holds (D-P14, D-P18) does not
+        include it, because convert sets `accountId`. Creating an account
+        (`newAccount`) also needs `account.write` in that programme, which is
+        admin-only (D-P18). Field security applies to both contact fields
+        convert writes: the caller must be able to read and edit `status`
+        and `accountId`, otherwise `403 not_permitted` with
+        `details[].code: field_not_editable` naming the field. A caller who
+        may not read `accountId` would otherwise learn the existing link from
+        the `account` in a repeat's answer. The tenant-admin flag never lifts
+        field security. A caller without `contact.write` is `403` before the
+        body is read, so no account check ever tells it what exists.
+
+        **Order:** `404` for the contact, `403` (including
+        `field_not_editable`), `400` for the body, `404` for the account, the
+        repeat rule, `409 stale_write`, then `400 already_linked`.
+
+        **Response.** `{ contact, account }`: the contact as getContact
+        returns it and the account as getAccount returns it, each through its
+        own field security.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConvertContactRequest' }
+            examples:
+              existingAccount:
+                summary: Link an existing account
+                value:
+                  version: 4
+                  accountId: 5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01
+              newAccount:
+                summary: Create an account and link it
+                value:
+                  version: 4
+                  newAccount:
+                    name: Kano Grains Co.
+      responses:
+        '200':
+          description: |
+            Converted, or an exact repeat of a convert already in place. The
+            contact and its account, field security applied.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConvertContactResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/StaleWrite' }
+
+  /api/v1/leads:
+    get:
+      tags: [leads]
+      summary: List leads — contacts at a lead stage
+      operationId: listLeads
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P04/01', 'P04/04', 'P04/05', 'P04/06']
+      description: |
+        The P04/01 Leads table and the P04/04 Kanban's columns. A lead is a
+        contact at a lead stage (D-P17), not its own record, so this is a
+        VIEW of contacts: the same `ContactPage` as listContacts, the same
+        Contact rows under the same field security, the same keyset paging,
+        and no total (D-P13). There is no lead id: a row's `id` is a contact
+        id, read with getContact and changed with updateContact or
+        convertContact.
+
+        **What a lead is.** A contact whose `status` is `new`, `contacted`,
+        `qualified` or `unqualified`. A `customer` is not a lead, and neither
+        is a contact whose `status` is `null` (never set). A converted
+        contact is `qualified` (or stays `customer`), so a converted lead
+        stays on this list until its status moves to `customer` (D-L75).
+
+        Rows come only from the programmes the session reaches, exactly as
+        for listContacts. No parameter widens or narrows that set. Unknown
+        query parameters are ignored, never honoured.
+
+        **Why a separate operation, not a filter on listContacts (D-L75).**
+        The live listContacts ignores unknown query parameters, so a lead
+        filter added there would be silently dropped by today's server and
+        the screen would list customers as leads. Until T-0076 serves this
+        operation the live API answers `404` here: never wrong rows.
+
+        **Field security and the query.** `q` matches only fields the caller
+        may read. A filter on a field withheld from the caller in ANY
+        programme they reach is `400 validation_failed` with
+        `details[].code: field_withheld`, as on listContacts. Sorting is
+        limited to the `sort` enum, whose keys are fields field security
+        never withholds.
+
+        **When `status` is withheld.** This view IS a filter on `status`: a
+        row's presence says the contact is a lead and not a customer. So if
+        field security withholds `status` from the caller in any programme
+        they reach, the answer is `400 validation_failed` with
+        `details[].code: field_withheld` at `details[].path: status`, with
+        or without a `status` parameter. Rows are never returned then.
+
+        A malformed cursor, or one issued for a different `sort`, is
+        `validation_failed` with `details[].code: invalid_cursor`.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: |
+            Search, as listContacts' `q`: names (case- and
+            diacritic-insensitive) and numbers (normalised to E.164), and
+            `companyName` once T-0076 serves it. It matches only fields the
+            caller may read: a hit on a withheld company or number would
+            disclose its value one query at a time.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+            description: Name, number or company. A phone is matched in E.164.
+        - name: owner
+          in: query
+          required: false
+          description: |
+            Owner filter, any of, as on listContacts: a user id, `me` or
+            `unassigned`. Repeat the parameter for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 20
+            items:
+              type: string
+              pattern: '^(me|unassigned|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$'
+        - name: status
+          in: query
+          required: false
+          description: |
+            Narrows the view to some lead statuses, any of (one Kanban column
+            is one value). Only lead statuses: `customer` is
+            `400 validation_failed`, because this list never widens beyond
+            leads. Repeat the parameter for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 4
+            items:
+              type: string
+              enum: [new, contacted, qualified, unqualified]
+        - name: source
+          in: query
+          required: false
+          description: Any of, as on listContacts. Repeat the parameter for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 10
+            items: { $ref: '#/components/schemas/ContactSource' }
+        - name: sort
+          in: query
+          required: false
+          description: |
+            As listContacts' `sort`: a fixed set of never-withheld keys, a
+            leading `-` descending, ties broken on `id`. Never `companyName`,
+            which field security can withhold.
+          schema:
+            type: string
+            enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt', 'displayName', '-displayName']
+            default: '-createdAt'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of leads, field security applied.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContactPage' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
 
   /api/v1/me/programmes:
     get:
@@ -1079,7 +1336,8 @@ components:
         **Specified, not yet served.** The `allOf` part below adds properties
         this contract specifies and the live API does not send yet (each is
         marked `x-kasuwa-implemented: false`): today, the `account` summary
-        (T-0059; T-0061 serves it). `properties` here is exactly what the live
+        (T-0059; T-0061 serves it) and `companyName` (T-0056; T-0076 serves
+        it). `properties` here is exactly what the live
         wire carries; the task that serves a pending property moves it into
         `properties` in the same change.
       allOf:
@@ -1211,6 +1469,29 @@ components:
           oneOf:
             - { $ref: '#/components/schemas/ContactAccountSummary' }
             - { type: 'null' }
+        companyName:
+          x-kasuwa-implemented: false
+          type: [string, 'null']
+          maxLength: 200
+          description: |
+            The organisation the person says they are with, as free text
+            (D-P17: `contact` gains a `company_name`). The P04/01 Leads
+            table's Company column. It is not a link: an `accountId` is the
+            link, and a lead often has a company long before anyone creates
+            an account for it. `null` means no company was recorded.
+
+            **Field-secured like every other contact field.** Withheld is
+            omitted and listed in `withheldFields`, never sent as `null`.
+            Writable on createContact and updateContact under the same
+            field security. convertContact neither copies it into the new
+            account nor clears it; a screen may prefill the new account's
+            name from it.
+
+            **Not yet served (T-0076).** Until then the live record leaves it
+            out and does not list it in `withheldFields`, and the live write
+            bodies answer `400` to it. T-0076 moves it into
+            `Contact.properties` in the same change that serves it, and adds
+            its `field_def`.
 
     ContactAccountSummary:
       type: object
@@ -1427,6 +1708,15 @@ components:
         displayName: { type: string, minLength: 1, maxLength: 200 }
         givenNames: { type: [string, 'null'], maxLength: 200 }
         familyName: { type: [string, 'null'], maxLength: 200 }
+        companyName:
+          x-kasuwa-implemented: false
+          type: [string, 'null']
+          maxLength: 200
+          description: |
+            Free-text company (Contact.companyName). Declared here, not only
+            on Contact, because this body is closed. **Not yet accepted
+            (T-0076):** the live body answers `400 validation_failed` to it
+            until T-0076 serves the field.
         phones:
           type: array
           maxItems: 10
@@ -1470,6 +1760,14 @@ components:
         displayName: { type: string, minLength: 1, maxLength: 200 }
         givenNames: { type: [string, 'null'], maxLength: 200 }
         familyName: { type: [string, 'null'], maxLength: 200 }
+        companyName:
+          x-kasuwa-implemented: false
+          type: [string, 'null']
+          maxLength: 200
+          description: |
+            Free-text company (Contact.companyName); `null` clears it.
+            **Not yet accepted (T-0076):** the live body answers
+            `400 validation_failed` to it until T-0076 serves the field.
         phones:
           type: array
           maxItems: 10
@@ -1497,6 +1795,63 @@ components:
         lga: { type: [string, 'null'], maxLength: 64 }
         whatsappOptIn: { type: boolean }
         consentState: { $ref: '#/components/schemas/ConsentState' }
+
+    ConvertContactRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      description: |
+        Closed. `version` plus EXACTLY ONE of `accountId` (link an existing
+        account) or `newAccount` (create one and link it). Both, or neither,
+        is `400 validation_failed`. There is no `status` (convert always
+        qualifies, and never demotes a customer), no `programmeId` (the
+        account is the contact's programme's, full stop) and no contact id
+        (the path names the contact).
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          description: |
+            The contact's `version` from your last read. Not current is
+            `409 stale_write`, except for an exact repeat whose result is
+            already in place (see convertContact).
+        accountId:
+          type: string
+          format: uuid
+          description: |
+            An existing account in the contact's programme. Never `null`: a
+            convert always links an account. An account the caller cannot
+            reach, or one in another programme, is `404 not_found`.
+        newAccount: { $ref: '#/components/schemas/ConvertNewAccount' }
+      oneOf:
+        - required: [accountId]
+        - required: [newAccount]
+
+    ConvertNewAccount:
+      type: object
+      additionalProperties: false
+      required: [name]
+      description: |
+        The account convert creates, in the contact's programme. Closed, and
+        deliberately small: a name. It has no `programmeId` (the contact's
+        programme decides) and no owner (the new account is unassigned; set
+        `ownerUserId` afterwards with updateAccount). Every other account
+        field is set on the account afterwards.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+
+    ConvertContactResponse:
+      type: object
+      additionalProperties: false
+      required: [contact, account]
+      description: |
+        Closed: the converted contact and its account, each under its own
+        field security, and nothing else. The first call and an exact repeat
+        answer with the same shape; nothing here says whether this call
+        created the account.
+      properties:
+        contact: { $ref: '#/components/schemas/Contact' }
+        account: { $ref: '#/components/schemas/Account' }
 
     AccountTier:
       type: string
