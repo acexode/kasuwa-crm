@@ -9,6 +9,8 @@ import { createDevelopmentKeyProvider, type KeyProvider } from '@kasuwa/auth-cry
 import { defaultChannelProvider, type ChannelProvider } from '@kasuwa/channel-adapter';
 import { nodeEnv } from '@kasuwa/config';
 import { ADMIN_CONTROLLERS, AdminModule } from './admin/admin.module';
+import { AuthDatabaseModule } from './auth/auth-database.module';
+import { AuthTenantTransactionInterceptor } from './auth/auth-tenant-transaction.interceptor';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
 import { CommitThenFailInterceptor } from './auth/commit-then-fail.interceptor';
@@ -45,13 +47,23 @@ const CONTROLLERS = [HealthController, AuthController, ContactsController, MeCon
 const TELEMETRY_CONTROLLERS = [...CONTROLLERS, ...ADMIN_CONTROLLERS];
 
 export interface AppModuleOptions {
+  /** kasuwa_app (NOBYPASSRLS). Every route's tenant transaction runs on it. */
   databaseUrl: string;
+  /**
+   * kasuwa_auth (NOBYPASSRLS, a member of no role): the auth module's own
+   * pool, and the only connection that may write the auth tables (T-0049,
+   * D-P16, ADR-0013). `main.ts` passes DATABASE_AUTH_URL. Required: an API
+   * without it could not record a sign-in, and would find out at the first
+   * one rather than at boot.
+   */
+  authDatabaseUrl: string;
+  /** Size of EACH pool (the app pool and the auth pool). */
   poolMax?: number;
   /**
    * How long a request waits for a pooled connection before it is answered
    * 503 `service_unavailable` with `Retry-After` (T-0045). Passed to
-   * `createPool`'s `connectionTimeoutMillis`; omitted, `createPool`'s 5 s
-   * default (T-0013) applies.
+   * `createPool`'s `connectionTimeoutMillis` for both pools; omitted,
+   * `createPool`'s 5 s default (T-0013) applies.
    */
   poolConnectionTimeoutMillis?: number;
   /**
@@ -141,6 +153,15 @@ export class AppModule implements NestModule {
             ? {}
             : { connectionTimeoutMillis: options.poolConnectionTimeoutMillis }),
         }),
+        // The auth module's pool (T-0049). Not global and not re-exported:
+        // only the auth providers hosted below can inject it.
+        AuthDatabaseModule.forRoot({
+          authDatabaseUrl: options.authDatabaseUrl,
+          ...(options.poolMax === undefined ? {} : { poolMax: options.poolMax }),
+          ...(options.poolConnectionTimeoutMillis === undefined
+            ? {}
+            : { connectionTimeoutMillis: options.poolConnectionTimeoutMillis }),
+        }),
         // Every admin area. A new area is added inside AdminModule, not here.
         AdminModule,
       ],
@@ -153,6 +174,7 @@ export class AppModule implements NestModule {
         KasuwaAuthGuard,
         StubAuthGuard,
         TenantTransactionInterceptor,
+        AuthTenantTransactionInterceptor,
         { provide: AUTH_MODE, useValue: options.authMode ?? 'stub' },
         {
           provide: AUTH_POLICY,

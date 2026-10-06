@@ -53,7 +53,7 @@ const STORED_HASH =
   '$argon2id$v=19$m=19456,t=2,p=1$a2FzdXdhLXQwMDEzLXNsdA$fsuclpjg4utgztGHSjdVA8cslilj2/aeNvWU0rz8YxM';
 
 function service(): AuthService {
-  return new AuthService({} as Pool, DEFAULT_AUTH_POLICY, {} as KeyProvider);
+  return new AuthService({} as Pool, {} as Pool, DEFAULT_AUTH_POLICY, {} as KeyProvider);
 }
 
 /** The status and body a caller would see, or the raw error if it is not an HTTP one. */

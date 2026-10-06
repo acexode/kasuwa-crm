@@ -125,6 +125,7 @@ describe('authentication', () => {
       imports: [
         AppModule.forRoot({
           databaseUrl: inject('databaseUrl'),
+          authDatabaseUrl: inject('authDatabaseUrl'),
           poolMax: 5,
           // NO policy overrides. This file runs against the same numbers a
           // deployment runs against — the real lockout threshold, the real

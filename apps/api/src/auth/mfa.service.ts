@@ -37,7 +37,10 @@ import {
  * regenerate the backup codes.
  *
  * Runs inside the request's tenant transaction (KasuwaAuthGuard +
- * TenantTransactionInterceptor, exactly like GET /auth/me). Nothing here reads
+ * TenantTransactionInterceptor, exactly like GET /auth/me). The three WRITES
+ * run that transaction on the auth pool (AuthTenantTransactionInterceptor,
+ * T-0049), because only kasuwa_auth may write these tables; `status` is a read
+ * and stays on the app pool. Nothing here reads
  * or decides a programme: a factor belongs to a user, and identity is all these
  * routes deal in.
  *

@@ -21,6 +21,7 @@ import {
 import type { AuthTx, RateLimitPolicy, ResolvedAuthTx } from '@kasuwa/db';
 import type { Pool } from 'pg';
 import { PG_POOL } from '../database/database.module';
+import { AUTH_PG_POOL } from './auth-database.module';
 import {
   accountLocked,
   AuthError,
@@ -94,11 +95,29 @@ import type {
  *      mode is silent: the threshold is simply never reached.
  *   5. A challenge is consumed conditionally, so it mints exactly one session
  *      however many requests race for it.
+ *
+ * TWO POOLS, AND WHICH ONE IS WHICH (T-0049, D-P16, ADR-0013). Every
+ * transaction that WRITES an auth table runs on `authPool`, which logs in as
+ * `kasuwa_auth`, the only role holding those writes. `appPool` (`kasuwa_app`)
+ * is used for exactly two reads:
+ *
+ *   * sign-in's phase one (the lock read and the account lookup), which
+ *     writes nothing. On the app pool it shares the fate of every other
+ *     request: when that pool is exhausted, BOTH sign-in branches answer the
+ *     one 503, and neither can block on a lock behind a starved cell while
+ *     the other answers 401 (T-0045's no-oracle rule). See `signIn`.
+ *   * `app.resolve_session` in sign-out, the SECURITY DEFINER read that is
+ *     granted to `kasuwa_app` only; the auth role is not given a second door
+ *     around RLS for the sake of one revoke.
+ *
+ * Writing through `appPool` fails with 42501 by design. Reading through
+ * `authPool` works, but keep it to transactions that also write.
  */
 @Injectable()
 export class AuthService implements OnModuleInit {
   constructor(
-    @Inject(PG_POOL) private readonly pool: Pool,
+    @Inject(PG_POOL) private readonly appPool: Pool,
+    @Inject(AUTH_PG_POOL) private readonly authPool: Pool,
     @Inject(AUTH_POLICY) private readonly policy: AuthPolicy,
     @Inject(KEY_PROVIDER) private readonly keyProvider: KeyProvider,
   ) {}
@@ -148,8 +167,11 @@ export class AuthService implements OnModuleInit {
     const rateKey = hashRateLimitKey('signin', input.tenantSlug, input.email);
 
     // --- phase one: read, then let the connection go ----------------------
+    // On the APP pool: it writes nothing, and it must fail (503) together
+    // with every other request when that pool is exhausted, for a real
+    // workspace and a fake one alike. See the class comment.
     const prepared = await withAuthTransaction(
-      this.pool,
+      this.appPool,
       { tenantSlug: input.tenantSlug },
       async (tx) => ({
         locked: await this.activeLock(tx, rateKey, this.signInLimits()),
@@ -183,8 +205,10 @@ export class AuthService implements OnModuleInit {
     );
 
     // --- phase three: record what happened --------------------------------
+    // On the AUTH pool: the counter, the challenge and the cleared failures
+    // are auth-table writes, which only kasuwa_auth may make.
     return this.commitThenFail(
-      withAuthTransaction(this.pool, { tenantSlug: input.tenantSlug }, async (tx) => {
+      withAuthTransaction(this.authPool, { tenantSlug: input.tenantSlug }, async (tx) => {
         const account = prepared.account;
 
         // Status is checked here rather than in the query so that a disabled
@@ -257,7 +281,7 @@ export class AuthService implements OnModuleInit {
     }
 
     return this.commitThenFail(
-      withAuthTransaction(this.pool, { tenantId: reference.tenantId }, async (tx) => {
+      withAuthTransaction(this.authPool, { tenantId: reference.tenantId }, async (tx) => {
         if (!hasTenant(tx)) {
           return mfaChallengeInvalid();
         }
@@ -308,7 +332,7 @@ export class AuthService implements OnModuleInit {
     }
 
     return this.commitThenFail(
-      withAuthTransaction(this.pool, { tenantId: reference.tenantId }, async (tx) => {
+      withAuthTransaction(this.authPool, { tenantId: reference.tenantId }, async (tx) => {
         if (!hasTenant(tx)) {
           return mfaChallengeInvalid();
         }
@@ -356,7 +380,7 @@ export class AuthService implements OnModuleInit {
     }
 
     return this.commitThenFail(
-      withAuthTransaction(this.pool, { tenantId: reference.tenantId }, async (tx) => {
+      withAuthTransaction(this.authPool, { tenantId: reference.tenantId }, async (tx) => {
         if (!hasTenant(tx)) {
           return mfaChallengeInvalid();
         }
@@ -442,7 +466,7 @@ export class AuthService implements OnModuleInit {
     }
 
     return this.commitThenFail(
-      withAuthTransaction(this.pool, { tenantId: reference.tenantId }, async (tx) => {
+      withAuthTransaction(this.authPool, { tenantId: reference.tenantId }, async (tx) => {
         if (!hasTenant(tx)) {
           return mfaChallengeInvalid();
         }
@@ -623,11 +647,14 @@ export class AuthService implements OnModuleInit {
     if (token === null) {
       return;
     }
-    const identity = await resolveSessionIdentity(this.pool, hashSessionToken(token));
+    // The token is resolved on the app pool, exactly as the guard resolves it
+    // (app.resolve_session is granted to kasuwa_app only); the revoke is a
+    // write, so it runs on the auth pool.
+    const identity = await resolveSessionIdentity(this.appPool, hashSessionToken(token));
     if (identity === null) {
       return;
     }
-    await withAuthTransaction(this.pool, { tenantId: identity.tenantId }, async (tx) => {
+    await withAuthTransaction(this.authPool, { tenantId: identity.tenantId }, async (tx) => {
       if (!hasTenant(tx)) {
         return;
       }
