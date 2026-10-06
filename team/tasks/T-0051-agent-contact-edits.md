@@ -1,6 +1,6 @@
 # T-0051 — Agents may change a contact's status and take ownership of it
 
-**status** `assigned` (suite edit on `lead/T-0041-dp14` 2a6c836) · **owner** Agent 3 · **priority** P1 · **decisions** D-P14 (answered), D-L63, D-L67
+**status** `done` (#89) · **owner** Agent 3 · **priority** P1 · **decisions** D-P14 (answered), D-L63, D-L67
 
 ## Goal
 P04 shows agents editing Owner and Status inline. D-P14 allows exactly that, narrowly:
