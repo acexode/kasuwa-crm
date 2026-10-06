@@ -518,6 +518,17 @@ function cell(page: Page, field: string, set: string) {
     .first();
 }
 
+/**
+ * Opens the live object's matrix. Since T-0053 (#91, D-L69) every tenant also
+ * has the standard `account` and `contact` objects, which sort first, so the
+ * screen no longer opens on the live custom object by itself.
+ */
+async function openLiveObject(page: Page) {
+  const object = page.locator(`[data-object="${LIVE_OBJECT.apiName}"]`);
+  await expect(object).toBeVisible(FIRST_LOAD);
+  await object.click();
+}
+
 test.describe('P02/D–D2 on the live API @p02-live', () => {
   const [plain] = LIVE_FIELDS;
   const sensitive = LIVE_FIELDS.filter((field) => field.classification !== 'none');
@@ -527,7 +538,7 @@ test.describe('P02/D–D2 on the live API @p02-live', () => {
   }) => {
     const page = await openLive(browser, '/admin/field-security');
     await expect(page.locator('[data-screen="P02/D"]')).toBeVisible(FIRST_LOAD);
-    await expect(page.locator(`[data-object="${LIVE_OBJECT.apiName}"]`)).toBeVisible();
+    await openLiveObject(page);
     await expect(page.getByTestId('fls-row')).toHaveCount(LIVE_FIELDS.length);
     await expect(page.getByTestId('fls-scope-note')).toBeVisible();
 
@@ -543,6 +554,7 @@ test.describe('P02/D–D2 on the live API @p02-live', () => {
     browser,
   }) => {
     const page = await openLive(browser, '/admin/field-security');
+    await openLiveObject(page);
     await expect(page.getByTestId('fls-row')).toHaveCount(LIVE_FIELDS.length, FIRST_LOAD);
     await page.getByTestId('fls-select-all').check();
     await expect(page.getByTestId('fls-bulk')).toBeVisible();
@@ -551,6 +563,7 @@ test.describe('P02/D–D2 on the live API @p02-live', () => {
     await expect(page.getByTestId('fls-toast')).toBeVisible();
 
     await page.reload(FIRST_LOAD);
+    await openLiveObject(page);
     await expect(cell(page, plain?.apiName ?? '', 'agent')).toHaveAttribute(
       'data-level',
       'read',
@@ -563,6 +576,7 @@ test.describe('P02/D–D2 on the live API @p02-live', () => {
     browser,
   }) => {
     const page = await openLive(browser, '/admin/field-security');
+    await openLiveObject(page);
     const target = cell(page, plain?.apiName ?? '', 'team_lead');
     await expect(target).toBeVisible(FIRST_LOAD);
     await target.getByTestId('fls-edit').click();
