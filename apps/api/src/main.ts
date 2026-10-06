@@ -37,6 +37,8 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(
     AppModule.forRoot({
       databaseUrl: configuration.DATABASE_URL,
+      // kasuwa_auth: the only writer of the auth tables (T-0049, D-P16).
+      authDatabaseUrl: configuration.DATABASE_AUTH_URL,
       poolMax: configuration.DATABASE_POOL_MAX,
       cell: configuration.KASUWA_CELL,
       authMode: configuration.KASUWA_AUTH_MODE,

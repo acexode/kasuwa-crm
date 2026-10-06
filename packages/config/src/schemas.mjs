@@ -168,6 +168,14 @@ const ApiSchema = z.object({
   DATABASE_URL: z.string().url(),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().max(200).default(10),
 
+  // kasuwa_auth: no BYPASSRLS, a member of no role. The ONLY role that may
+  // write the auth tables (D-P16, T-0049, ADR-0013), used by the API's auth
+  // module through its own pool and by nothing else. Required: without it no
+  // sign-in can be recorded, so the API refuses to boot rather than 42501 on
+  // the first one. API only - the worker's sweep runs as kasuwa_app entering
+  // kasuwa_sweeper (D-L66) and needs none; the web process refuses it below.
+  DATABASE_AUTH_URL: z.string().url(),
+
   API_PORT: z.coerce.number().int().positive().default(3001),
 
   // NO LOCALE SETTINGS HERE. `@kasuwa/i18n` owns which languages exist and
@@ -275,6 +283,7 @@ const WebSchema = z.object({
 const WEB_FORBIDDEN = [
   'DATABASE_URL',
   'DATABASE_MIGRATION_URL',
+  'DATABASE_AUTH_URL',
   'KASUWA_KMS_LOCAL_MASTER_KEY',
   'S3_ACCESS_KEY_ID',
   'S3_SECRET_ACCESS_KEY',
@@ -335,7 +344,8 @@ function webProblems(source) {
 }
 
 /**
- * The API process. Requires `DATABASE_URL`; runs all three boot guards.
+ * The API process. Requires `DATABASE_URL` and `DATABASE_AUTH_URL` (T-0049);
+ * runs all three boot guards.
  *
  * @param {EnvSource} [source]
  * @returns {ApiEnv}

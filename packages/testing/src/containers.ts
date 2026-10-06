@@ -27,6 +27,11 @@ const SUPERUSER_PASSWORD = 'postgres';
 export interface TestStack {
   /** Connection string for kasuwa_app — NOBYPASSRLS. What the API uses. */
   databaseUrl: string;
+  /**
+   * Connection string for kasuwa_auth — NOBYPASSRLS, a member of no role. The
+   * API's auth pool, and the only role that may write the auth tables (T-0049).
+   */
+  authDatabaseUrl: string;
   /** Connection string for kasuwa_migrator — owns the schema, BYPASSRLS. */
   migrationUrl: string;
   /** Connection string for kasuwa_test_admin — test setup and catalogue reads. */
@@ -86,6 +91,7 @@ export async function startTestStack(options: StartStackOptions = {}): Promise<T
 
   return {
     databaseUrl: urlFor(postgres, 'kasuwa_app', 'kasuwa_app_dev'),
+    authDatabaseUrl: urlFor(postgres, 'kasuwa_auth', 'kasuwa_auth_dev'),
     migrationUrl,
     testAdminUrl: urlFor(postgres, 'kasuwa_test_admin', 'kasuwa_test_admin_dev'),
     redisUrl: redis?.getConnectionUrl() ?? '',

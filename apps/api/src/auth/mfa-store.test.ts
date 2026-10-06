@@ -114,9 +114,13 @@ describe('startTotpEnrolment', () => {
     expect(lock?.values).toEqual([TENANT, USER]);
     expect(remove?.text).toMatch(/DELETE FROM user_mfa_factor[\s\S]*confirmed_at IS NULL/u);
     expect(insert?.text).toMatch(/INSERT INTO user_mfa_factor/u);
-    // The legacy plaintext column is written as a literal NULL, and the secret
-    // appears in no parameter in any form.
-    expect(insert?.text).toMatch(/NULL, \$4/u);
+    // The legacy plaintext column is not named at all (kasuwa_auth holds no
+    // INSERT on it since T-0049, so naming it, even as NULL, is a 42501), and
+    // the secret appears in no parameter in any form.
+    const columns = /INSERT INTO user_mfa_factor\s*\(([^)]*)\)/u.exec(insert?.text ?? '')?.[1] ?? '';
+    const named = columns.split(',').map((column) => column.trim());
+    expect(named).toContain('secret_ciphertext');
+    expect(named).not.toContain('secret');
     const raw = base32Decode(secret);
     for (const value of insert?.values ?? []) {
       const text = Buffer.isBuffer(value) ? value.toString('hex') : String(value);

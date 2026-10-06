@@ -97,15 +97,18 @@ function freshSeededCode(userId: string): string {
 describe('authentication hardening', () => {
   let app: INestApplication;
   let databaseUrl: string;
+  let authDatabaseUrl: string;
   let migrationUrl: string;
 
   beforeAll(async () => {
     databaseUrl = inject('databaseUrl');
+    authDatabaseUrl = inject('authDatabaseUrl');
     migrationUrl = inject('migrationUrl');
     const moduleRef = await Test.createTestingModule({
       imports: [
         AppModule.forRoot({
           databaseUrl,
+          authDatabaseUrl,
           poolMax: 10,
           // The throttle is a resource control and is exercised in its own test
           // below with a deliberately low limit. Leaving it at the default here
@@ -435,6 +438,7 @@ describe('authentication hardening', () => {
         imports: [
           AppModule.forRoot({
             databaseUrl,
+            authDatabaseUrl,
             poolMax: 5,
             // The real defaults. The point is that a normal client never meets
             // either limit.
@@ -467,6 +471,7 @@ describe('authentication hardening', () => {
         imports: [
           AppModule.forRoot({
             databaseUrl,
+            authDatabaseUrl,
             poolMax: 5,
             authPolicy: { signInPerMinutePerClient: 3, lockoutMaxAttempts: 0 },
           }),
@@ -502,6 +507,7 @@ describe('authentication hardening', () => {
         imports: [
           AppModule.forRoot({
             databaseUrl,
+            authDatabaseUrl,
             poolMax: 5,
             authPolicy: {
               signInPerMinutePerClient: 0,
@@ -586,6 +592,7 @@ describe('authentication hardening', () => {
         imports: [
           AppModule.forRoot({
             databaseUrl,
+            authDatabaseUrl,
             poolMax: 3,
             authPolicy: { signInPerMinutePerClient: 0, signInInFlightPerClient: 0 },
           }),

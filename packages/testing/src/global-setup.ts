@@ -16,6 +16,7 @@ let stack: TestStack | undefined;
 export async function setup(project: TestProject): Promise<void> {
   stack = await startTestStack({ seed: true, redis: false });
   project.provide('databaseUrl', stack.databaseUrl);
+  project.provide('authDatabaseUrl', stack.authDatabaseUrl);
   project.provide('migrationUrl', stack.migrationUrl);
   project.provide('testAdminUrl', stack.testAdminUrl);
 }

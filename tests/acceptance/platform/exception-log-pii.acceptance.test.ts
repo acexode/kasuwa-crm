@@ -21,6 +21,7 @@ import {
 import type { Pool } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, inject, it, vi } from 'vitest';
+import { withAuthDatabase } from '../support/api';
 import { collectTelemetry, isInboundApiSpan, type Telemetry } from '../support/telemetry';
 
 /**
@@ -381,7 +382,7 @@ describe('acceptance: an unexpected error leaves no personal data in any log, sp
     });
 
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule.forRoot({ databaseUrl, poolMax: 5 }), ExceptionProbeModule],
+      imports: [AppModule.forRoot(withAuthDatabase({ databaseUrl, poolMax: 5 })), ExceptionProbeModule],
     }).compile();
 
     // NOT `logger: false` (which `createApi` uses): silencing the logger would

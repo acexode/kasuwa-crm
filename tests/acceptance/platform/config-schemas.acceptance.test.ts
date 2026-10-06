@@ -91,6 +91,13 @@ const AMBIENT: Env = {
 const LEAK_MARKER = 'n0t-a-real-pw-7f3k';
 const DATABASE_URL = `postgres://kasuwa_app:${LEAK_MARKER}@db.internal.example:5432/kasuwa`;
 const DATABASE_MIGRATION_URL = `postgres://kasuwa_migrator:${LEAK_MARKER}@db.internal.example:5432/kasuwa`;
+/**
+ * The auth module's own connection (T-0049, D-P16). apiEnv requires it, so
+ * every API environment below that is meant to parse carries it, and every one
+ * meant to fail for a DIFFERENT variable carries it too, so the failure can
+ * only be the variable under test.
+ */
+const DATABASE_AUTH_URL = `postgres://kasuwa_auth:${LEAK_MARKER}@db.internal.example:5432/kasuwa`;
 
 /** Development, nothing API-specific: what the web process legitimately starts with. */
 const WEB_DEV: Env = { ...AMBIENT, NODE_ENV: 'development' };
@@ -107,6 +114,7 @@ const SERVER_PROD_SAFE: Env = {
   KASUWA_AUTH_MODE: 'jwt',
   KASUWA_CELL: 'za-1',
   DATABASE_URL,
+  DATABASE_AUTH_URL,
   REDIS_URL: 'redis://redis.internal.example:6379',
   KASUWA_TRUST_PROXY_HOPS: '1',
   KASUWA_KMS_PROVIDER: 'aws-kms',
@@ -192,8 +200,12 @@ describe('acceptance: a missing API-only variable fails the API and only the API
     const apiEnv = await exported('apiEnv');
     // The control: the same environment WITH the variable parses. Without it,
     // an apiEnv that fails on anything would satisfy the next assertion.
-    expect(() => apiEnv({ ...AMBIENT, NODE_ENV: 'development', DATABASE_URL })).not.toThrow();
-    expect(() => apiEnv({ ...AMBIENT, NODE_ENV: 'development' })).toThrow(/DATABASE_URL/);
+    expect(() =>
+      apiEnv({ ...AMBIENT, NODE_ENV: 'development', DATABASE_URL, DATABASE_AUTH_URL }),
+    ).not.toThrow();
+    expect(() => apiEnv({ ...AMBIENT, NODE_ENV: 'development', DATABASE_AUTH_URL })).toThrow(
+      /DATABASE_URL/,
+    );
   });
 
   it('does not fail webEnv() on the same environment', async () => {
@@ -211,7 +223,9 @@ describe('acceptance: a missing API-only variable fails the API and only the API
     const apiEnv = await exported('apiEnv');
     const webEnv = await exported('webEnv');
     expect(() => webEnv({ ...AMBIENT, NODE_ENV: 'development' })).not.toThrow();
-    expect(() => apiEnv({ ...AMBIENT, NODE_ENV: 'development' })).toThrow(/DATABASE_URL/);
+    expect(() => apiEnv({ ...AMBIENT, NODE_ENV: 'development', DATABASE_AUTH_URL })).toThrow(
+      /DATABASE_URL/,
+    );
   });
 });
 

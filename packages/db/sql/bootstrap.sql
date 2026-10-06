@@ -20,6 +20,12 @@
 --                       from a kasuwa_app transaction, to prune auth rows past
 --                       retention (D-L66, ADR-0012). Its only policies admit
 --                       rows already dead; SELECT and DELETE on three tables.
+--   kasuwa_auth       - used only by the API's auth module, through its own
+--                       pool (D-P16, ADR-0013). NOBYPASSRLS. The only role
+--                       that may write the auth tables. A member of no role,
+--                       and no role is a member of it, so kasuwa_app can never
+--                       SET ROLE to it. Its table grants are explicit, in
+--                       migrations: no default privilege ever names it.
 -- ---------------------------------------------------------------------------
 
 DO $$
@@ -35,6 +41,9 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kasuwa_sweeper') THEN
     CREATE ROLE kasuwa_sweeper NOLOGIN NOBYPASSRLS;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kasuwa_auth') THEN
+    CREATE ROLE kasuwa_auth LOGIN PASSWORD 'kasuwa_auth_dev' NOBYPASSRLS;
   END IF;
 END
 $$;
@@ -52,14 +61,18 @@ ALTER ROLE kasuwa_sweeper NOLOGIN NOBYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROL
 -- enter it with SET LOCAL ROLE. PostgreSQL 16 syntax; migration 0020 asserts it.
 GRANT kasuwa_sweeper TO kasuwa_app WITH INHERIT FALSE, SET TRUE;
 
+-- The auth role is bounded by tenant RLS and by grants that name each table.
+-- No membership in either direction: the T-0049 suite asserts both.
+ALTER ROLE kasuwa_auth LOGIN NOBYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+
 REVOKE ALL ON DATABASE kasuwa FROM PUBLIC;
 
-GRANT CONNECT ON DATABASE kasuwa TO kasuwa_app, kasuwa_migrator, kasuwa_test_admin;
+GRANT CONNECT ON DATABASE kasuwa TO kasuwa_app, kasuwa_migrator, kasuwa_test_admin, kasuwa_auth;
 GRANT CREATE ON DATABASE kasuwa TO kasuwa_migrator;
 
 -- Postgres 15+ no longer grants CREATE on public to PUBLIC.
 GRANT USAGE, CREATE ON SCHEMA public TO kasuwa_migrator;
-GRANT USAGE ON SCHEMA public TO kasuwa_app, kasuwa_test_admin, kasuwa_sweeper;
+GRANT USAGE ON SCHEMA public TO kasuwa_app, kasuwa_test_admin, kasuwa_sweeper, kasuwa_auth;
 
 -- Everything the migrator creates is readable/writable by the app role, but the
 -- app role never owns anything and therefore can never ALTER ... DISABLE RLS.

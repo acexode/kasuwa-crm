@@ -2,9 +2,10 @@
 /**
  * `pnpm dev` — one command from a clean checkout to a running stack.
  *
- *   1. create .env from .env.example if it is missing
+ *   1. create .env from .env.example if it is missing, and add any database
+ *      connection a newer .env.example names that it lacks
  *   2. bring up Postgres, Redis, OpenSearch and MinIO, and wait for health
- *   3. migrate and seed
+ *   3. re-apply the role bootstrap (idempotent), migrate and seed
  *   4. run api, web, worker and realtime together, prefixing their output
  *
  * Written in plain Node rather than a shell script because the team develops on
@@ -12,7 +13,7 @@
  * primary developer's machine is the unsupported one.
  */
 import { spawn, spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
@@ -41,12 +42,72 @@ function run(command, args, options = {}) {
   }
 }
 
+/**
+ * Database connections the API cannot boot without, which a .env created
+ * before they existed will not have. Copied from .env.example (development
+ * values only; that file is committed) rather than left for the API to fail
+ * on. Never overwrites a value the developer has set.
+ */
+const REQUIRED_DATABASE_SETTINGS = ['DATABASE_AUTH_URL'];
+
+/** `NAME=value` lines of an env file, by name. Comments and blanks skipped. */
+function envLines(text) {
+  const lines = new Map();
+  for (const line of text.split(/\r?\n/)) {
+    const match = /^([A-Z0-9_]+)=/.exec(line);
+    if (match) {
+      lines.set(match[1], line);
+    }
+  }
+  return lines;
+}
+
 function ensureEnvFile() {
   const envPath = resolve(root, '.env');
+  const examplePath = resolve(root, '.env.example');
   if (!existsSync(envPath)) {
-    copyFileSync(resolve(root, '.env.example'), envPath);
+    copyFileSync(examplePath, envPath);
     console.log('created .env from .env.example');
+    return;
   }
+  const present = envLines(readFileSync(envPath, 'utf8'));
+  const example = envLines(readFileSync(examplePath, 'utf8'));
+  for (const name of REQUIRED_DATABASE_SETTINGS) {
+    const line = example.get(name);
+    if (!present.has(name) && line !== undefined) {
+      appendFileSync(envPath, `\n${line}\n`);
+      // The name only: the line carries a (development) password.
+      console.log(`added ${name} to .env from .env.example`);
+    }
+  }
+}
+
+/**
+ * Re-applies packages/db/sql/bootstrap.sql as the superuser.
+ *
+ * Postgres runs its init directory only when the volume is first created, so
+ * a role added to the bootstrap later (kasuwa_sweeper in T-0045, kasuwa_auth
+ * in T-0049) does not exist in an older dev database, and the migration that
+ * needs it stops. The file is idempotent and is already mounted in the
+ * container, so applying it on every start costs a few milliseconds.
+ */
+function applyBootstrap() {
+  run('docker', [
+    'compose',
+    'exec',
+    '-T',
+    'postgres',
+    'psql',
+    '-q',
+    '-U',
+    'postgres',
+    '-d',
+    'kasuwa',
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-f',
+    '/docker-entrypoint-initdb.d/10-bootstrap.sql',
+  ]);
 }
 
 function containerHealth(service) {
@@ -143,6 +204,8 @@ async function main() {
   run('docker', ['compose', 'up', '-d', ...SERVICES]);
   await waitForHealth();
 
+  console.log('applying the role bootstrap...');
+  applyBootstrap();
   console.log('migrating...');
   run('pnpm', ['--filter', '@kasuwa/db', 'migrate']);
   console.log('seeding...');

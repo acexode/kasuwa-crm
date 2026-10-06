@@ -43,7 +43,13 @@ describe('GET /api/v1/me/programmes (T-0043)', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule.forRoot({ databaseUrl: inject('databaseUrl'), poolMax: 3 })],
+      imports: [
+        AppModule.forRoot({
+          databaseUrl: inject('databaseUrl'),
+          authDatabaseUrl: inject('authDatabaseUrl'),
+          poolMax: 3,
+        }),
+      ],
     }).compile();
     app = moduleRef.createNestApplication({ logger: false });
     await app.init();

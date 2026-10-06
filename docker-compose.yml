@@ -18,8 +18,11 @@ services:
       POSTGRES_PASSWORD: postgres
     ports: ['55432:5432']
     volumes:
-      # Creates kasuwa_app / kasuwa_migrator / kasuwa_test_admin and their grants.
-      # The Testcontainers harness applies this exact same file — single source of truth.
+      # Creates kasuwa_app / kasuwa_migrator / kasuwa_test_admin / kasuwa_sweeper /
+      # kasuwa_auth and their grants. The Testcontainers harness applies this exact
+      # same file — single source of truth. It runs only when the volume is new;
+      # `pnpm dev` re-applies it (it is idempotent) so an older volume gains a role
+      # added since (packages/db/CLAUDE.md).
       - ./packages/db/sql/bootstrap.sql:/docker-entrypoint-initdb.d/10-bootstrap.sql:ro
       - kasuwa-pgdata:/var/lib/postgresql/data
     healthcheck:

@@ -125,7 +125,9 @@ export async function lockUserForFactorWrite(
  * Any earlier pending row is deleted first, so a restarted enrolment cannot be
  * confirmed with the secret from the previous screen — and the earlier secret
  * is gone from the database, not merely superseded. The new secret is written
- * envelope-only (D-L13): the legacy plaintext `secret` column stays NULL.
+ * envelope-only (D-L13): the legacy plaintext `secret` column is not named,
+ * so it stays NULL, and since T-0049 kasuwa_auth may not INSERT into it at
+ * all (migration 0024's column grant).
  */
 export async function startTotpEnrolment(
   tx: Tx,
@@ -150,9 +152,9 @@ export async function startTotpEnrolment(
   const sealed = await sealSecret(provider, secret, mfaSecretAad(tenantId, factorId));
   await tx.query(
     `INSERT INTO user_mfa_factor
-       (id, tenant_id, user_id, type, label, secret,
+       (id, tenant_id, user_id, type, label,
         secret_ciphertext, secret_wrapped_key, secret_key_id, secret_algorithm)
-     VALUES ($1, $2, $3, 'totp', 'Authenticator app', NULL, $4, $5, $6, $7)`,
+     VALUES ($1, $2, $3, 'totp', 'Authenticator app', $4, $5, $6, $7)`,
     [
       factorId,
       tenantId,

@@ -19,6 +19,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, inject, it } from 'v
  * threshold was never reached and nothing ever locked. Testing it here rather
  * than only through the API means the next such failure names the counter
  * instead of appearing as an unrelated assertion four layers up.
+ *
+ * It runs as kasuwa_auth, the store's only writer since migration 0024
+ * (T-0049): kasuwa_app may read a presented key's row but write none.
  */
 
 const LIMITS: RateLimitPolicy = { maxAttempts: 5, windowMinutes: 15, lockMinutes: 15 };
@@ -33,14 +36,19 @@ function key(label: string): Buffer {
 }
 
 describe('the authentication rate-limit store', () => {
+  /** kasuwa_auth: the API's auth pool, the only role that may write the store. */
   let pool: Pool;
+  /** kasuwa_app: every other request's pool. */
+  let appPool: Pool;
 
   beforeAll(() => {
-    pool = createPool({ connectionString: inject('databaseUrl'), max: 10 });
+    pool = createPool({ connectionString: inject('authDatabaseUrl'), max: 10 });
+    appPool = createPool({ connectionString: inject('databaseUrl'), max: 2 });
   });
 
   afterAll(async () => {
     await pool.end();
+    await appPool.end();
   });
 
   beforeEach(async () => {
@@ -64,8 +72,11 @@ describe('the authentication rate-limit store', () => {
    * a transaction the setting lapses before the next statement runs and the
    * write is refused, rather than quietly running unscoped.
    */
-  async function inTransaction<T>(fn: (tx: StatementRunner) => Promise<T>): Promise<T> {
-    const client = await pool.connect();
+  async function inTransaction<T>(
+    fn: (tx: StatementRunner) => Promise<T>,
+    on: Pool = pool,
+  ): Promise<T> {
+    const client = await on.connect();
     try {
       await client.query('BEGIN');
       const tx: StatementRunner = {
@@ -154,8 +165,11 @@ describe('the authentication rate-limit store', () => {
   // key in the cell, and one DELETE cleared every lockout in it. The exemption
   // from `tenant_id` is unchanged and still right; what changed is the policy.
   describe('a session reaches only the key it presents', () => {
-    /** The unrestricted channel a compromised caller would use. */
-    async function asAppRole<T>(fn: (tx: StatementRunner) => Promise<T>): Promise<T> {
+    /**
+     * The unrestricted channel a compromised caller would use, on the role
+     * that CAN write the store: the policy is what confines it there.
+     */
+    async function asAuthRole<T>(fn: (tx: StatementRunner) => Promise<T>): Promise<T> {
       return inTransaction(fn);
     }
 
@@ -163,7 +177,7 @@ describe('the authentication rate-limit store', () => {
       const victim = key('victim');
       await fail(victim);
 
-      const rows = await asAppRole((tx) =>
+      const rows = await asAuthRole((tx) =>
         tx.query<{ key_hash: Buffer }>('SELECT key_hash FROM auth_rate_limit'),
       );
       expect(rows, 'enumeration of every key in the cell').toEqual([]);
@@ -175,7 +189,7 @@ describe('the authentication rate-limit store', () => {
       await fail(mine);
       await fail(theirs);
 
-      const rows = await asAppRole(async (tx) => {
+      const rows = await asAuthRole(async (tx) => {
         await tx.query(`SELECT set_config('app.rate_limit_key', encode($1::bytea, 'hex'), true)`, [
           mine,
         ]);
@@ -194,7 +208,7 @@ describe('the authentication rate-limit store', () => {
       }
       expect(await lockOn(victim)).not.toBeNull();
 
-      const deleted = await asAppRole((tx) =>
+      const deleted = await asAuthRole((tx) =>
         tx.query<{ key_hash: Buffer }>('DELETE FROM auth_rate_limit RETURNING key_hash'),
       );
       expect(deleted, 'a mass clear of every lockout in the cell').toEqual([]);
@@ -210,7 +224,7 @@ describe('the authentication rate-limit store', () => {
       const other = key('other');
 
       await expect(
-        asAppRole(async (tx) => {
+        asAuthRole(async (tx) => {
           await tx.query(`SELECT set_config('app.rate_limit_key', encode($1::bytea, 'hex'), true)`, [
             presented,
           ]);
@@ -253,6 +267,67 @@ describe('the authentication rate-limit store', () => {
           LIMITS,
         ),
       ).rejects.toThrow();
+    });
+  });
+
+  // --- kasuwa_app writes none of it (T-0049 review, major 1) ----------------
+  //
+  // Presenting a key is all the policy asks, and a user's MFA key is a hash of
+  // its tenant and user ids. So before 0024, SQL injected anywhere on the app
+  // pool could present a victim's key and DELETE their MFA lockout row. Now
+  // the write is refused as a privilege, whatever key is presented.
+  describe('kasuwa_app cannot write the store, even presenting the right key', () => {
+    const sqlState = async (work: Promise<unknown>): Promise<string> => {
+      try {
+        await work;
+        return 'committed';
+      } catch (error) {
+        const code = (error as { code?: unknown }).code;
+        return typeof code === 'string' ? code : `not a database error: ${String(error)}`;
+      }
+    };
+
+    const presenting = (target: Buffer, sql: string, values: unknown[]) =>
+      inTransaction(async (tx) => {
+        await tx.query(`SELECT set_config('app.rate_limit_key', encode($1::bytea, 'hex'), true)`, [
+          target,
+        ]);
+        return tx.query(sql, values);
+      }, appPool);
+
+    it('DELETE, INSERT and UPDATE are 42501, and the lockout survives', async () => {
+      const victim = key('app-role-victim');
+      for (let attempt = 0; attempt < LIMITS.maxAttempts; attempt += 1) {
+        await fail(victim);
+      }
+      expect(await lockOn(victim), 'precondition: the victim is locked').not.toBeNull();
+
+      expect(
+        await sqlState(presenting(victim, 'DELETE FROM auth_rate_limit WHERE key_hash = $1', [victim])),
+      ).toBe('42501');
+      expect(
+        await sqlState(
+          presenting(victim, 'UPDATE auth_rate_limit SET locked_until = NULL WHERE key_hash = $1', [
+            victim,
+          ]),
+        ),
+      ).toBe('42501');
+      expect(
+        await sqlState(
+          presenting(key('app-role-new'), 'INSERT INTO auth_rate_limit (key_hash) VALUES ($1)', [
+            key('app-role-new'),
+          ]),
+        ),
+      ).toBe('42501');
+
+      expect(await lockOn(victim), 'the lockout was cleared through kasuwa_app').not.toBeNull();
+    });
+
+    it('can still read the row for a key it presents (sign-in phase one reads the lock)', async () => {
+      const target = key('app-role-reader');
+      await fail(target);
+      const rows = await presenting(target, 'SELECT failed_count FROM auth_rate_limit', []);
+      expect(rows).toEqual([{ failed_count: 1 }]);
     });
   });
 });

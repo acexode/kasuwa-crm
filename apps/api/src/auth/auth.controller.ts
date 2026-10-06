@@ -16,6 +16,7 @@ import { currentTx } from '../tenancy/tenant-context';
 import { KasuwaAuthGuard, readBearerToken } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { AUTH_CONTEXT_KEY } from '../tenancy/stub-auth.guard';
+import { AuthTenantTransactionInterceptor } from './auth-tenant-transaction.interceptor';
 import { type AuthError, notAuthenticated, notImplemented } from './auth.errors';
 import { AuthService } from './auth.service';
 import { CommitThenFailInterceptor } from './commit-then-fail.interceptor';
@@ -164,6 +165,11 @@ export class AuthController {
    * GET /me, plus CommitThenFailInterceptor OUTSIDE the transaction so a wrong
    * step-up code is counted even though the request fails (see that class).
    * Every write needs the current second factor again; a session is not enough.
+   *
+   * The three WRITES run their tenant transaction on the auth pool
+   * (AuthTenantTransactionInterceptor): since T-0049 only kasuwa_auth may
+   * write the factor, backup-code and session tables. The read stays on the
+   * app pool, like GET /me.
    */
 
   /** GET /api/v1/auth/me/mfa — whether a factor is confirmed and how many codes remain. */
@@ -180,7 +186,7 @@ export class AuthController {
   @Post('me/mfa/totp')
   @HttpCode(HttpStatus.OK)
   @UseGuards(KasuwaAuthGuard)
-  @UseInterceptors(CommitThenFailInterceptor, TenantTransactionInterceptor)
+  @UseInterceptors(CommitThenFailInterceptor, AuthTenantTransactionInterceptor)
   @Header('Cache-Control', 'no-store')
   async startTotpReplacement(
     @Req() request: Request,
@@ -197,7 +203,7 @@ export class AuthController {
   @Post('me/mfa/totp/confirm')
   @HttpCode(HttpStatus.OK)
   @UseGuards(KasuwaAuthGuard)
-  @UseInterceptors(CommitThenFailInterceptor, TenantTransactionInterceptor)
+  @UseInterceptors(CommitThenFailInterceptor, AuthTenantTransactionInterceptor)
   @Header('Cache-Control', 'no-store')
   async confirmTotpReplacement(
     @Req() request: Request,
@@ -211,7 +217,7 @@ export class AuthController {
   @Post('me/mfa/backup-codes')
   @HttpCode(HttpStatus.OK)
   @UseGuards(KasuwaAuthGuard)
-  @UseInterceptors(CommitThenFailInterceptor, TenantTransactionInterceptor)
+  @UseInterceptors(CommitThenFailInterceptor, AuthTenantTransactionInterceptor)
   @Header('Cache-Control', 'no-store')
   async regenerateBackupCodes(
     @Req() request: Request,

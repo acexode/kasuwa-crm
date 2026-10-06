@@ -5,17 +5,13 @@ import {
   type NestModule,
 } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
-import { createDevelopmentKeyProvider, type KeyProvider } from '@kasuwa/auth-crypto';
+import type { KeyProvider } from '@kasuwa/auth-crypto';
 import { defaultChannelProvider, type ChannelProvider } from '@kasuwa/channel-adapter';
 import { nodeEnv } from '@kasuwa/config';
 import { ADMIN_CONTROLLERS, AdminModule } from './admin/admin.module';
 import { AuthController } from './auth/auth.controller';
-import { AuthService } from './auth/auth.service';
-import { CommitThenFailInterceptor } from './auth/commit-then-fail.interceptor';
-import { MfaService } from './auth/mfa.service';
-import { SignInThrottleGuard } from './auth/sign-in-throttle.guard';
-import { AUTH_POLICY, DEFAULT_AUTH_POLICY, type AuthPolicy } from './auth/auth.policy';
-import { KEY_PROVIDER } from './auth/key-provider.token';
+import { AuthModule } from './auth/auth.module';
+import type { AuthPolicy } from './auth/auth.policy';
 import { ContactsController } from './contacts/contacts.controller';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
@@ -32,8 +28,8 @@ import {
   telemetryOptions,
 } from './telemetry/request-telemetry';
 
-/** Controllers hosted by this module. */
-const CONTROLLERS = [HealthController, AuthController, ContactsController, MeController];
+/** Controllers hosted by this module. AuthController is hosted by AuthModule. */
+const CONTROLLERS = [HealthController, ContactsController, MeController];
 
 /**
  * Every controller in the app, including those hosted by feature modules. Used
@@ -42,16 +38,26 @@ const CONTROLLERS = [HealthController, AuthController, ContactsController, MeCon
  * areas' controllers are derived from AdminModule, so a new area is covered
  * without an edit here.
  */
-const TELEMETRY_CONTROLLERS = [...CONTROLLERS, ...ADMIN_CONTROLLERS];
+const TELEMETRY_CONTROLLERS = [...CONTROLLERS, AuthController, ...ADMIN_CONTROLLERS];
 
 export interface AppModuleOptions {
+  /** kasuwa_app (NOBYPASSRLS). Every route's tenant transaction runs on it. */
   databaseUrl: string;
+  /**
+   * kasuwa_auth (NOBYPASSRLS, a member of no role): the auth module's own
+   * pool, and the only connection that may write the auth tables (T-0049,
+   * D-P16, ADR-0013). `main.ts` passes DATABASE_AUTH_URL. Required: an API
+   * without it could not record a sign-in, and would find out at the first
+   * one rather than at boot.
+   */
+  authDatabaseUrl: string;
+  /** Size of EACH pool (the app pool and the auth pool). */
   poolMax?: number;
   /**
    * How long a request waits for a pooled connection before it is answered
    * 503 `service_unavailable` with `Retry-After` (T-0045). Passed to
-   * `createPool`'s `connectionTimeoutMillis`; omitted, `createPool`'s 5 s
-   * default (T-0013) applies.
+   * `createPool`'s `connectionTimeoutMillis` for both pools; omitted,
+   * `createPool`'s 5 s default (T-0013) applies.
    */
   poolConnectionTimeoutMillis?: number;
   /**
@@ -141,27 +147,28 @@ export class AppModule implements NestModule {
             ? {}
             : { connectionTimeoutMillis: options.poolConnectionTimeoutMillis }),
         }),
+        // Authentication, with its own pool (T-0049). AuthModule is the only
+        // importer of that pool's module and exports nothing, so nothing
+        // outside src/auth can reach the role that writes the auth tables.
+        // It also refuses to boot unless each pool logs in as its role.
+        AuthModule.forRoot({
+          authDatabaseUrl: options.authDatabaseUrl,
+          ...(options.poolMax === undefined ? {} : { poolMax: options.poolMax }),
+          ...(options.poolConnectionTimeoutMillis === undefined
+            ? {}
+            : { connectionTimeoutMillis: options.poolConnectionTimeoutMillis }),
+          ...(options.authPolicy === undefined ? {} : { authPolicy: options.authPolicy }),
+          ...(options.keyProvider === undefined ? {} : { keyProvider: options.keyProvider }),
+        }),
         // Every admin area. A new area is added inside AdminModule, not here.
         AdminModule,
       ],
       controllers: CONTROLLERS,
       providers: [
-        AuthService,
-        MfaService,
-        CommitThenFailInterceptor,
-        SignInThrottleGuard,
         KasuwaAuthGuard,
         StubAuthGuard,
         TenantTransactionInterceptor,
         { provide: AUTH_MODE, useValue: options.authMode ?? 'stub' },
-        {
-          provide: AUTH_POLICY,
-          useValue: { ...DEFAULT_AUTH_POLICY, ...options.authPolicy },
-        },
-        {
-          provide: KEY_PROVIDER,
-          useValue: options.keyProvider ?? createDevelopmentKeyProvider(),
-        },
         {
           provide: CHANNEL,
           useValue: createApiChannel(options.channelProvider ?? defaultChannelProvider(nodeEnv())),

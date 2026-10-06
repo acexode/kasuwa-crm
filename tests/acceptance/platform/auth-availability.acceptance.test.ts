@@ -8,7 +8,7 @@ import { reseed } from '@kasuwa/testing';
 import { Client } from 'pg';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, inject, it } from 'vitest';
-import { asUser } from '../support/api';
+import { asUser, withAuthDatabase } from '../support/api';
 
 /**
  * ACCEPTANCE — T-0013, argon2 off the event loop and out of the transaction.
@@ -152,13 +152,15 @@ function unknownEmail(label: string): string {
 async function bootApi(poolMax: number): Promise<{ app: INestApplication; url: string }> {
   const moduleRef = await Test.createTestingModule({
     imports: [
-      AppModule.forRoot({
-        databaseUrl: inject('databaseUrl'),
-        poolMax,
-        // One trusted hop, so each request's X-Forwarded-For is its client and
-        // the throttle runs at its real defaults. See the header.
-        authPolicy: { trustProxyHops: 1 },
-      }),
+      AppModule.forRoot(
+        withAuthDatabase({
+          databaseUrl: inject('databaseUrl'),
+          poolMax,
+          // One trusted hop, so each request's X-Forwarded-For is its client and
+          // the throttle runs at its real defaults. See the header.
+          authPolicy: { trustProxyHops: 1 },
+        }),
+      ),
     ],
   }).compile();
   const app = moduleRef.createNestApplication({ logger: false });

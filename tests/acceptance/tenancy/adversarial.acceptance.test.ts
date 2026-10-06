@@ -900,10 +900,20 @@ describe('acceptance: adversarial tenancy attacks', () => {
           const readable = await query<{ key_hash: Buffer; failed_count: number }>(
             'SELECT key_hash, failed_count FROM auth_rate_limit',
           );
-          const cleared = await query<{ key_hash: Buffer }>(
-            'DELETE FROM auth_rate_limit RETURNING key_hash',
-          );
-          return { readable, cleared: cleared.length };
+          // Since T-0049 (security review, major 1) kasuwa_app holds no DELETE
+          // on auth_rate_limit at all, so the statement may be refused outright
+          // (42501): that is zero rows cleared. Any other error still fails.
+          await query('SAVEPOINT probe');
+          try {
+            const cleared = await query<{ key_hash: Buffer }>(
+              'DELETE FROM auth_rate_limit RETURNING key_hash',
+            );
+            return { readable, cleared: cleared.length };
+          } catch (error) {
+            expect((error as { code?: string }).code, String(error)).toBe('42501');
+            await query('ROLLBACK TO SAVEPOINT probe');
+            return { readable, cleared: 0 };
+          }
         },
       );
 
