@@ -53,11 +53,17 @@ const CONTACT_A1_1 = SEED_CONTACTS.filter((contact) => contact.programmeId === P
  *
  * These are invented. `CLAUDE.md` section 6 forbids real identifiers in
  * fixtures as firmly as in logs.
+ *
+ * "Cannot occur by chance" includes the fixture ids, which every trace
+ * carries. They end in long runs of zeros (`…-000000000001`), so the NIN
+ * probe was once `00000000001` and matched tenant A's id in every span: a
+ * failure that named a leak which was not there. The probe now uses digits
+ * with no runs, which no hand-written fixture id contains.
  */
 const PII = {
   email: 'adaeze.okonkwo.pii-probe@example.test',
   phone: '+2348030000000',
-  nin: '00000000001',
+  nin: '70451962038',
   bvn: '22000000001',
   name: 'Adaeze Okonkwo-PiiProbe',
 } as const;

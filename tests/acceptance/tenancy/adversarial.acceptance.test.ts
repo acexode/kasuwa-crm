@@ -270,13 +270,60 @@ describe('acceptance: adversarial tenancy attacks', () => {
     // violation on a caller-chosen id is an existence oracle across tenants;
     // the only reason it is out of reach is that no write path accepts an id
     // from a client. If that changes, this fails and the oracle needs an answer.
-    const source = readFileSync(
+    //
+    // Until T-0041 this forbade any INSERT INTO contact. T-0041 added the first
+    // write path, so the tripwire now pins the two facts that keep the oracle
+    // shut (T-0041 tenancy review, D-L68): the one INSERT binds its id from
+    // newId() and nothing else, and the create body is closed with no `id`.
+    // The behavioural half, a create carrying `id` is 400 and writes nothing,
+    // is in records/contacts-api.acceptance.test.ts.
+    const repository = readFileSync(
       resolve(repoRoot, 'packages/domain/core/src/contact/contact.repository.ts'),
       'utf8',
     );
-    expect(source, 'contact.repository gained an INSERT — re-check FINDING-4').not.toMatch(
-      /INSERT\s+INTO\s+contact/i,
+    expect(
+      repository.match(/INSERT\s+INTO\s+contact\b/gi) ?? [],
+      'contact.repository has a second INSERT INTO contact — re-check FINDING-4',
+    ).toHaveLength(1);
+
+    const start = repository.indexOf('export async function insertContact(');
+    expect(start, 'insertContact is gone — re-check FINDING-4').toBeGreaterThanOrEqual(0);
+    const end = repository.indexOf('\nexport ', start + 1);
+    const insertContact = repository.slice(start, end === -1 ? undefined : end);
+    expect(insertContact, 'the INSERT is no longer inside insertContact').toMatch(
+      /INSERT\s+INTO\s+contact\b/i,
     );
+    // The id column is named exactly once in the whole file, here, and bound
+    // from newId(). The writable-column map cannot name it as well.
+    expect(
+      repository.match(/column:\s*'id'/g) ?? [],
+      'a second binding of the contact id column — re-check FINDING-4',
+    ).toHaveLength(1);
+    expect(insertContact, 'insertContact binds the id from something other than newId()').toMatch(
+      /\{\s*column:\s*'id',\s*placeholder:\s*`\$\{params\.add\(newId\(\)\)\}::uuid`\s*\}/,
+    );
+
+    const schemas = readFileSync(
+      resolve(repoRoot, 'apps/api/src/contacts/contacts.schemas.ts'),
+      'utf8',
+    );
+    const createStart = schemas.indexOf('export const CreateContactBody = z');
+    expect(createStart, 'CreateContactBody is gone — re-check FINDING-4').toBeGreaterThanOrEqual(0);
+    const createEnd = schemas.indexOf('.strict();', createStart);
+    expect(createEnd, 'CreateContactBody is no longer closed with .strict()').toBeGreaterThan(
+      createStart,
+    );
+    const createBody = schemas.slice(createStart, createEnd);
+    expect(createBody, 'CreateContactBody accepts an id').not.toMatch(/^\s*id\s*:/m);
+    expect(createBody, 'CreateContactBody spreads something other than writableFields').not.toMatch(
+      /\.\.\.(?!writableFields\b)/,
+    );
+    const writable = schemas.slice(
+      schemas.indexOf('const writableFields = {'),
+      schemas.indexOf('};', schemas.indexOf('const writableFields = {')),
+    );
+    expect(writable, 'writableFields is gone — re-check FINDING-4').not.toBe('');
+    expect(writable, 'writableFields accepts an id').not.toMatch(/^\s*id\s*:/m);
   });
 
   // --- 4. keyset pagination ------------------------------------------------
