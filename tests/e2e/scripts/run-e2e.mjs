@@ -238,7 +238,7 @@ function startDatabase() {
   });
 }
 
-function startApi(databaseUrl, port) {
+function startApi(databaseUrl, authDatabaseUrl, port) {
   const child = spawn('pnpm', ['exec', 'tsx', join('src', 'main.ts')], {
     cwd: join(repoRoot, 'apps', 'api'),
     shell: process.platform === 'win32',
@@ -251,6 +251,9 @@ function startApi(databaseUrl, port) {
       // refuses to boot this combination with NODE_ENV=production.
       KASUWA_AUTH_MODE: 'stub',
       DATABASE_URL: databaseUrl,
+      // kasuwa_auth: the only role that may write the auth tables (T-0049).
+      // The API refuses to boot without it.
+      DATABASE_AUTH_URL: authDatabaseUrl,
       API_PORT: String(port),
       LOG_LEVEL: 'error',
     },
@@ -276,6 +279,7 @@ const WEB_DIR = join(repoRoot, 'apps', 'web');
 const NO_DATABASE_URLS = {
   DATABASE_URL: undefined,
   DATABASE_MIGRATION_URL: undefined,
+  DATABASE_AUTH_URL: undefined,
   KASUWA_KMS_LOCAL_MASTER_KEY: undefined,
   S3_ACCESS_KEY_ID: undefined,
   S3_SECRET_ACCESS_KEY: undefined,
@@ -553,7 +557,7 @@ async function main() {
     log('starting Postgres (Testcontainers), migrating and seeding...');
     const database = await startDatabase();
 
-    startApi(database.databaseUrl, apiPort);
+    startApi(database.databaseUrl, database.authDatabaseUrl, apiPort);
     await waitForHttp(`${apiUrl}/health`, 'the API');
     log(`api on ${apiUrl}`);
 

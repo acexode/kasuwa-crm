@@ -58,7 +58,11 @@ async function main(): Promise<void> {
   await seedLiveAdminFixtures(stack.databaseUrl);
 
   process.stdout.write(
-    `${JSON.stringify({ databaseUrl: stack.databaseUrl, migrationUrl: stack.migrationUrl })}\n`,
+    `${JSON.stringify({
+      databaseUrl: stack.databaseUrl,
+      authDatabaseUrl: stack.authDatabaseUrl,
+      migrationUrl: stack.migrationUrl,
+    })}\n`,
   );
 
   let stopping = false;
