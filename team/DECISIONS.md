@@ -1550,3 +1550,24 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
   - how contact creation appears on the timeline;
   - the timeline actor for a user who has left the programme, a tenant admin outside the programme, or a deleted user. The
     contract keeps `null` for system.
+### D-L74 — T-0054 suite rulings (lead, reversible)
+**Status:** PROCEEDING (lead). These came from the T-0054 suite writer.
+- **Hierarchy depth cap: 5.** A top-level account is depth 1. Five covers group → subsidiary → region → branch → outlet, and keeps
+  every walk of the chain at five rows or fewer. Raising it later needs a migration and a suite edit.
+- **The suite pins three cycle cases beyond the task:**
+  - two concurrent transactions each adding half a cycle;
+  - a cycle or excess depth created within a single statement;
+  - a re-parent that counts the moved subtree's own height.
+
+  The builder's migration header must say how commits that land at the same instant are closed.
+- **Indexes.** Plain `CREATE INDEX` inside `0026` is acceptable, because no populated cell exists (D-L65). A separate
+  non-transactional `0027` is allowed but not required.
+- **Phones.** The database checks the contract's `Phone` shape on `account.phones`, because T-0054 has no API layer.
+  `account.phones` is classified `pii`: a sole trader's number is personal data.
+- **ON DELETE for the two new FKs** stays at the default, RESTRICT. Deletion behaviour is still the open D-L61 item.
+- **For T-0055:**
+  - Owner membership in the account's programme (D-L67) is checked in the repository.
+  - Postgres error `detail` (for example "Failing row contains (…)", which can carry a name and phones) must never be logged
+    or returned. The same applies to contact.
+- **Hook.** `agent3/T-0054` may create `packages/db/migrations/0026_*.sql` only. This is the same narrow allowance T-0040 had.
+- **PR size.** The suite is about 1,670 lines, so the PR is marked exempt from the ~600-line guide (structural, as T-0053's).

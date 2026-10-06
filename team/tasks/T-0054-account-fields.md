@@ -1,6 +1,6 @@
 # T-0054 — Account fields
 
-**status** `not-assigned` (suite to be written after T-0053 #91 merges) · **owner** Agent 3 (Agent 1 reviews the migration) · **priority** P0 (blocks T-0055) · **decisions** D-L69, D-L65, D-L67, D-P24
+**status** `assigned` (suite on `lead/T-0054-acceptance`) · **owner** Agent 3 (Agent 1 reviews the migration) · **priority** P0 (blocks T-0055) · **decisions** D-L69, D-L65, D-L67, D-P24
 
 ## Goal
 Give `account` the columns the T-0052 contract names. **Migration `0026`** (reserved).
