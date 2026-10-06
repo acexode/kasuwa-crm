@@ -1459,3 +1459,33 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
   a cell does exist, deploy the new API with `DATABASE_AUTH_URL` before running 0024, or roll forward.
 - **Shared local database hazard.** Once any worktree migrates the shared `kasuwa-postgres` container past 0024, worktrees
   still on an older main cannot sign in until they rebase. Run `pnpm db:reset` after pulling 0024.
+### D-P23 — a contact's owner who has left its programme (the open D-L61 item; raised by the T-0043 reviews)
+**Status:** OPEN, needs @acexode. It does not block #92.
+- **What happens.** D-L67 checks membership only when the owner is written. If the owner later leaves the contact's programme,
+  everyone who can read the contact keeps seeing their current display name, including any rename.
+- **What it is not.** It is not a directory or a cross-programme oracle: the caller cannot choose the id, and nothing about
+  the user's other programmes is revealed.
+- **What it is.** The name of a person who no longer shares a programme with the reader.
+
+**Lead recommendation:**
+- On removal from a programme, **unassign** that user's contacts in the programme. It is one audited statement, and it matches
+  how BPO queues reassign work.
+- Until that exists, show a neutral "former owner" label.
+  - This is a contract change: `owner: { id, displayName: null }`.
+  - Add a membership predicate to the owner subquery, and stop throwing `ContactOwnerUnresolvedError` in that case.
+- Raise the priority before the Phase 2 screens ship if BPO clients treat agent names as confidential to the programme.
+
+### D-L71 — review follow-ups tracked from T-0051 and T-0053 (lead, 2026-10-06)
+**Status:** TRACKED.
+- **Audit of a takeover (T-0051 security minor 3).** When an agent takes a contact from a colleague, the audit records only
+  that `ownerUserId` changed. Recording the before and after owner ids would change S2's redaction rule. A staff id is not
+  customer PII, so the lead recommends recording both. That is for @acexode, alongside D-P18.
+- **`status = 'customer'` (T-0051 security minor 4).** D-P14 lets an agent set any status. Reopen this for that value when the
+  first logic acts on it: billing, commission, conversion reporting, or the NCC/DND existing-customer test.
+- **`isCustom` on metadata create (T-0053 security minor 2).** It must be server-set before any metadata-create endpoint exists,
+  so that a tenant cannot plant an undeletable "standard" row.
+- **Testcontainers superuser password literal** in the T-0053 suite (security minor 3). Export it from `@kasuwa/testing` with the
+  next suite edit.
+- **Approval provenance.** The acceptance edits made on 2026-10-06 after 18:00 were made while @acexode had the session in
+  accept-edits mode, at their instruction to "do the lead-only edits… I'll approve each one". They were approved by that mode,
+  not one by one in chat. Each commit names the review finding it answers.
