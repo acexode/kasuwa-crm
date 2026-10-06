@@ -19,6 +19,7 @@
     "@kasuwa/auth-crypto": "workspace:*",
     "@kasuwa/config": "workspace:*",
     "@kasuwa/db": "workspace:*",
+    "@kasuwa/metadata-engine": "workspace:*",
     "@kasuwa/permissions": "workspace:*",
     "pg": "^8.13.1",
     "pg-connection-string": "^2.14.0",

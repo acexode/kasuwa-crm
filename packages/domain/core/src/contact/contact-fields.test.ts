@@ -1,7 +1,10 @@
+import { STANDARD_OBJECT_CATALOGUE } from '@kasuwa/db';
 import { describe, expect, it } from 'vitest';
 import {
+  contactFieldAccessFromObjectAccess,
   contactFieldApiName,
   contactFieldLevel,
+  WITHHOLDABLE_CONTACT_FIELDS,
   notEditableContactFields,
   programmesReading,
   resolveContactFieldAccess,
@@ -128,6 +131,45 @@ describe('notEditableContactFields', () => {
   it('leaves unknown, never-withheld and server-owned names to the body schema', () => {
     expect(notEditableContactFields(access, A1, ['version', 'displayName', 'nickname'])).toEqual(
       [],
+    );
+  });
+});
+
+describe('contact field access from the generic per-object loader (T-0053)', () => {
+  it('re-keys snake_case field_def names to wire names, per reachable programme', () => {
+    const generic = new Map([
+      [
+        A1,
+        new Map<string, 'none' | 'read' | 'edit'>(
+          WITHHOLDABLE_CONTACT_FIELDS.map((field) => [contactFieldApiName(field), 'edit']),
+        ),
+      ],
+    ]);
+    generic.get(A1)?.set('given_names', 'read');
+    generic.get(A1)?.set('whatsapp_opt_in', 'none');
+
+    const access = contactFieldAccessFromObjectAccess(generic, [A1]);
+    expect(contactFieldLevel(access, A1, 'givenNames')).toBe('read');
+    expect(withheldContactFields(access, A1)).toEqual(['whatsappOptIn']);
+  });
+
+  it('fails closed: a programme or a field the generic answer lacks is none, never the default', () => {
+    const generic = new Map([[A1, new Map<string, 'none' | 'read' | 'edit'>([['emails', 'edit']])]]);
+    const access = contactFieldAccessFromObjectAccess(generic, [A1, A2]);
+    expect(withheldContactFields(access, A1)).toEqual(
+      WITHHOLDABLE_CONTACT_FIELDS.filter((field) => field !== 'emails'),
+    );
+    expect(withheldContactFields(access, A2)).toEqual([...WITHHOLDABLE_CONTACT_FIELDS]);
+  });
+
+  it('the standard contact catalogue has a field_def for exactly the withholdable properties', () => {
+    // If these drift, the fail-closed rule above withholds a field from
+    // everyone (catalogue short) or the matrix shows a row that does nothing
+    // (catalogue long). A new withholdable property needs a catalogue entry
+    // and a backfilling migration in the same change.
+    const contact = STANDARD_OBJECT_CATALOGUE.find((object) => object.apiName === 'contact');
+    expect(contact?.fields.map((field) => field.apiName).sort()).toEqual(
+      WITHHOLDABLE_CONTACT_FIELDS.map(contactFieldApiName).sort(),
     );
   });
 });

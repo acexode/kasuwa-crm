@@ -79,8 +79,9 @@ export class DuplicateApiNameError extends Error {
  * tenant": errors must not leak existence, so this maps to 404, never 403.
  */
 export class UnknownObjectDefError extends Error {
-  constructor(objectId: string) {
-    super(`No object definition ${objectId}`);
+  /** Without an argument the message names nothing: for lookups by an attacker-chosen name. */
+  constructor(objectId?: string) {
+    super(objectId === undefined ? 'No object definition' : `No object definition ${objectId}`);
     this.name = 'UnknownObjectDefError';
   }
 }

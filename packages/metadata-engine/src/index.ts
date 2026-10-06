@@ -19,3 +19,4 @@ export * from './api-name';
 export * from './repository';
 export * from './types';
 export * from './field-security';
+export * from './field-access';

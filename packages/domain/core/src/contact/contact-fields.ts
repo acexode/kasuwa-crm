@@ -113,6 +113,33 @@ export function resolveContactFieldAccess(input: {
   return access;
 }
 
+/**
+ * Contact field access from the generic per-object answer (T-0053):
+ * `loadFieldAccess(tx, 'contact')` keys fields by `field_def.api_name`; this
+ * re-keys them by wire name for every reachable programme.
+ *
+ * FAIL CLOSED on anything missing: a reachable programme the generic answer
+ * does not carry, or a withholdable field with no `field_def`, is `none`.
+ * Since T-0053 every tenant has a standard, undeletable `field_def` for each
+ * withholdable property, so a gap means a broken catalogue, never "no
+ * decision saved" - and a broken catalogue must not read as `edit`.
+ */
+export function contactFieldAccessFromObjectAccess(
+  objectAccess: ReadonlyMap<string, ReadonlyMap<string, ContactFieldLevel>>,
+  reachableProgrammeIds: readonly string[],
+): ContactFieldAccess {
+  const access = new Map<string, Map<WithholdableContactField, ContactFieldLevel>>();
+  for (const programmeId of reachableProgrammeIds) {
+    const fields = objectAccess.get(programmeId);
+    const levels = new Map<WithholdableContactField, ContactFieldLevel>();
+    for (const field of WITHHOLDABLE_CONTACT_FIELDS) {
+      levels.set(field, fields?.get(contactFieldApiName(field)) ?? 'none');
+    }
+    access.set(programmeId, levels);
+  }
+  return access;
+}
+
 function levelFor(row: ContactMatrixRow, setKey: string | null): ContactFieldLevel {
   if (setKey !== null) {
     return row.cells.find((cell) => cell.permissionSetId === setKey)?.level ?? DEFAULT_LEVEL;
