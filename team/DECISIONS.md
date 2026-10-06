@@ -1358,3 +1358,84 @@ Still, closing `"user".status` while leaving `auth_session` open is inconsistent
   - It is the only role with INSERT, UPDATE and DELETE on `auth_session`, `auth_challenge`, `user_credential`, `user_mfa_factor` and
     `user_mfa_backup_code`. `kasuwa_app` keeps SELECT only where it needs it.
   - An ADR is required (ADR-0013). Agent 1 does the work, as T-0049.
+
+## B14. Phase 2 plan, the next slices (2026-10-06)
+
+### D-L69 — Phase 2 slice plan and the lead's reversible rulings
+**Status:** PROCEEDING (lead). The plan breaks the rest of Phase 2 into tasks T-0052 onward: Accounts and Leads (P04), the 360° view
+(P05), Pipeline (P06) and Activities (P07). Each task still needs its own suite (D-L23).
+- **Enablers come first.**
+  - Field security is hard-wired to contacts (`contact-field-access.repository.ts` joins `api_name = 'contact'`).
+  - No tenant has `object_def` rows for standard objects.
+  - So **T-0053 (Agent 2)** backfills `object_def` and `field_def` rows for contact and account, creates them when a tenant
+    is set up, and generalises the loader to `loadFieldAccess(tx, objectApiName)`. This answers M15 Q10 for standard objects:
+    they are metadata rows, not a field list in code.
+- **The accounts track does not wait on the leads decision (D-P17).** T-0052 is the accounts contract. T-0054 adds account
+  fields and T-0055 is the Accounts API. Account writes are admin-only, as contact writes were in T-0041, until D-P18 answers.
+- **Contact relationship status.** P04 shows Active/Prospect/Former. That will be a separate `relationship_status` column,
+  never mixed into the lifecycle `status` (D-L61).
+- **Pipelines are programme-scoped.** A pipeline name such as "Bank X – Loans" would otherwise leak across BPO clients (D-L40).
+- **Money and probability.**
+  - Probability is stored in basis points.
+  - The weighted amount is rounded half-even, once per deal, before summing.
+  - Amounts are `bigint` minor units plus a currency, and are never summed across currencies.
+- **Left out of Phase 2 screens:**
+  - "Show US$" (FX) returns 501 until M05 provides rates.
+  - Lead score and account Health are hidden until M17 provides an engine.
+  - The Map view returns 501 (T-0039).
+- **Design conflicts, ruled.**
+  - The P05/P06 "access denied" page shows the record id, the programme owner and "Request access". That breaks CLAUDE.md
+    6.4, so screens draw a generic not-found page instead.
+  - Hidden until their modules exist:
+    - recording playback (ADR-0003);
+    - "last WhatsApp contact" and bulk WhatsApp (M08, D-P10);
+    - NIN last-4 (D-L13);
+    - P04 "1–25 of 1,234" and live chip counts (D-P13).
+- **Migration numbers are assigned when a task starts, not when it is planned.** 0024 is T-0049's. The next free number is 0025.
+
+### D-P17 — is a lead its own object or a stage of a contact? (M03)
+**Status:** OPEN, needs @acexode. It blocks the Leads API and screen (T-0056, T-0058), not the accounts track.
+M03 lists leads as their own P0 object, and the sponsor's Zoho has a Leads module. P04's Leads statuses, though, are exactly the
+contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified).
+**Lead recommendation: a stage of a contact.**
+- The Leads screen lists contacts whose status is new, contacted, qualified or unqualified, plus a `company_name`.
+- "Convert" means: qualify the contact, then link it to an account or create one, in one transaction with one audit event.
+- **Why:** one E.164 identity for dedupe (D-P12) and screen-pop, consent and DND held once, and the status set already exists.
+- **Cost:** Zoho Leads must be mapped on import.
+
+### D-P18 — what may agents do on accounts, deals and activities? (extends D-P14)
+**Status:** OPEN, needs @acexode.
+**Lead recommendation:**
+- Agents log and complete activities in their programme.
+- Agents may create deals, and move deals they own.
+- Admin, team lead and programme manager may move any deal.
+- Account writes stay admin-only.
+- **Also asked:** D-P14 gives `agent` status and self-ownership on contacts, but `team_lead` and `programme_manager` stay
+  read-only, which leaves a supervisor with less than an agent. The recommendation is that both get at least the agent's
+  rights. That is a small suite and permissions change after T-0051.
+
+### D-P19 — pipeline column totals versus D-P13
+**Status:** OPEN, needs @acexode. P06 shows a sum and a count on each stage column.
+**Lead recommendation:**
+- Exact per-stage sums and counts, computed within the caller's scope.
+- One total per currency, never converted.
+- Left out when `amount` is a withheld field for the caller.
+- D-P13 stays as it is for record lists.
+
+### D-P20 — stage gating in the MVP (M04's headline feature)
+**Status:** OPEN, needs @acexode.
+**Lead recommendation:**
+- **Now:** transition rules, required fields and checklists, enforced in the write path and not only in the UI.
+- **Later:** approvals, which need an approvals engine and a role hierarchy.
+- **Later:** attachments, because no file API exists yet.
+
+### D-P21 — offline edit queues on the device (P04, P05, P07)
+**Status:** OPEN, needs @acexode and counsel (NDPA; D-L64; M06 Q3).
+**Until it is answered:** editing offline is disabled. Lists survive in memory only, as D-L64 already rules.
+
+### D-P22 — calendar sync, booking pages and public holidays (M06 Q1, Q2)
+**Status:** OPEN, needs @acexode. The lead recommends deferring all three out of Phase 2.
+- **Calendar sync** needs a new integration adapter (CLAUDE.md 2.8) and storage for OAuth tokens.
+- **Booking pages** need a public write before sign-in, which means a third SECURITY DEFINER function. That needs an ADR
+  (CLAUDE.md 2.7).
+- **Public holidays:** someone has to own and maintain the holiday calendar.
