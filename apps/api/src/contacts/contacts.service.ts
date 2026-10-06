@@ -17,7 +17,7 @@ import {
   type ContactSearch,
   type ContactValues,
 } from '@kasuwa/domain-core';
-import { canProgramme, loadGrants } from '@kasuwa/permissions';
+import { canProgramme, canUpdateContact, loadGrants } from '@kasuwa/permissions';
 import { recordAuditEvent } from '../admin/audit/audit-writer';
 import {
   AdminError,
@@ -53,6 +53,7 @@ import {
  * query string (telemetry/attributes.ts).
  */
 
+/** Create needs full `contact.write`; update also accepts D-P14's grant (`canUpdateContact`). */
 const ACTION = 'contact.write' as const;
 
 function fieldNotEditable(fields: readonly string[]): AdminError {
@@ -225,7 +226,12 @@ export async function updateContactFor(
   const current = await findContactById(tx, id);
   if (current === null) throw notFound(); // 404
   const grants = await loadGrants(tx);
-  if (!canProgramme(grants, ACTION, current.programmeId)) throw notPermitted(); // 403
+  // `contact.write`, or D-P14's narrow agent grant covering this whole body
+  // (status, and the owner set to the session's own user). Judged on the raw
+  // body, before validation, so it stays 403 before 400.
+  if (!canUpdateContact(grants, current.programmeId, tx.session.userId, body)) {
+    throw notPermitted(); // 403
+  }
   const access = await loadContactFieldAccess(tx);
   const keys = plainKeys(body) ?? [];
   const locked = notEditableContactFields(access, current.programmeId, keys);

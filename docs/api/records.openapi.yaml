@@ -284,7 +284,8 @@ paths:
 
         **Live (T-0041).** The permission is `contact.write`, held by the
         `admin` set in the target programme or by the tenant-admin flag
-        (D-L63); every other set is read-only for contacts. The tenant-admin
+        (D-L63); every other set may not create contacts (the `agent` set's
+        narrow edit is on updateContact only, D-P14). The tenant-admin
         flag never lifts field security. A caller holding `contact.write` in
         none of its programmes is `403` before the body is read, so the
         `programmeId` rules above never tell it how many programmes it
@@ -369,6 +370,17 @@ paths:
         **Live (T-0041).** Same permission, reference and audit rules as
         createContact, judged in the record's programme. Order: `404`, `403`
         (including `field_not_editable`), `400`, then `409 stale_write`.
+
+        **Agents (D-P14, T-0051).** The `agent` set held in the record's
+        programme may send `status`, and `ownerUserId` set to the caller's
+        own user id, and nothing else (besides `version`). Another owner,
+        `null` (clearing the owner) or any other property is
+        `403 not_permitted` for the whole body, even alongside a field it may
+        write, and nothing is written. This is decided on the body as sent,
+        before validation. Field security still applies on top, and a
+        successful agent update is audited like any other. `team_lead`,
+        `qa_analyst`, `programme_manager` and `client_portal` remain
+        read-only for contacts.
       requestBody:
         required: true
         content:
