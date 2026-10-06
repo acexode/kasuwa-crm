@@ -15,16 +15,17 @@ import type { Pool } from 'pg';
  *
  * THE TOKEN STAYS IN THIS DIRECTORY. No file under apps/ outside
  * apps/api/src/auth/ may name `AUTH_PG_POOL` (the T-0049 suite checks it
- * statically). The module is deliberately NOT global and AppModule does not
- * re-export the token, so a feature module cannot inject the pool even by
- * accident; AppModule imports this class and hosts the auth providers that use
- * it.
+ * statically). The module is deliberately NOT global, and its ONLY importer is
+ * `AuthModule` (auth.module.ts), which exports nothing. So the pool can be
+ * injected only by providers AuthModule hosts, and a controller elsewhere that
+ * uses `AuthTenantTransactionInterceptor` fails at boot (auth.module.test.ts).
  *
  * WHAT THE POOL KEEPS. Nothing here weakens the tenancy model: every query on
  * this pool goes through `withAuthTransaction` or `withTenantTransaction`
  * (@kasuwa/db), so it runs under tenant RLS, under the role-forgery check
  * (`current_user = session_user` at start and at commit), and returns its
- * connection through `releaseClean`. There is no bare `pool.query` on it.
+ * connection through `releaseClean`. The one bare `pool.query` on it is the
+ * boot-time `SELECT current_user` in pool-identity.ts, which reads no table.
  */
 export const AUTH_PG_POOL = Symbol('AUTH_PG_POOL');
 

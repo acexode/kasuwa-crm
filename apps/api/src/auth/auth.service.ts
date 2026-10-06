@@ -97,9 +97,10 @@ import type {
  *      however many requests race for it.
  *
  * TWO POOLS, AND WHICH ONE IS WHICH (T-0049, D-P16, ADR-0013). Every
- * transaction that WRITES an auth table runs on `authPool`, which logs in as
- * `kasuwa_auth`, the only role holding those writes. `appPool` (`kasuwa_app`)
- * is used for exactly two reads:
+ * transaction that WRITES an auth table (the five identity tables and
+ * `auth_rate_limit`) runs on `authPool`, which logs in as `kasuwa_auth`, the
+ * only role holding those writes since migration 0024. `appPool`
+ * (`kasuwa_app`) is used for exactly two reads:
  *
  *   * sign-in's phase one (the lock read and the account lookup), which
  *     writes nothing. On the app pool it shares the fate of every other
@@ -110,8 +111,9 @@ import type {
  *     granted to `kasuwa_app` only; the auth role is not given a second door
  *     around RLS for the sake of one revoke.
  *
- * Writing through `appPool` fails with 42501 by design. Reading through
- * `authPool` works, but keep it to transactions that also write.
+ * Writing any of the six tables through `appPool` fails with 42501 by design;
+ * `readAuthLock` on it is a read (it presents a key and SELECTs). Reading
+ * through `authPool` works, but keep it to transactions that also write.
  */
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -205,8 +207,9 @@ export class AuthService implements OnModuleInit {
     );
 
     // --- phase three: record what happened --------------------------------
-    // On the AUTH pool: the counter, the challenge and the cleared failures
-    // are auth-table writes, which only kasuwa_auth may make.
+    // On the AUTH pool: the failure counter (auth_rate_limit), the challenge
+    // and the cleared failures are writes that only kasuwa_auth may make
+    // (migration 0024 revokes all six tables' writes from kasuwa_app).
     return this.commitThenFail(
       withAuthTransaction(this.authPool, { tenantSlug: input.tenantSlug }, async (tx) => {
         const account = prepared.account;
