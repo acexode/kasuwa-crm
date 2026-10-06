@@ -1489,3 +1489,23 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
 - **Approval provenance.** The acceptance edits made on 2026-10-06 after 18:00 were made while @acexode had the session in
   accept-edits mode, at their instruction to "do the lead-only edits… I'll approve each one". They were approved by that mode,
   not one by one in chat. Each commit names the review finding it answers.
+### D-P24 — a reserved namespace for custom fields on standard objects (M15; raised by the T-0053 migration review)
+**Status:** OPEN, needs @acexode. Answer it before any M15 create-field API ships.
+- **The problem.** A tenant may create a custom field on `contact` or `account` whose name a later release then wants for a
+  standard field (for example `industry` or `relationship_status`). That later migration must then fail for the whole cell, on
+  one tenant. Failing is correct, because the tenant's field has its own meaning and data, the same rule as 0007.
+- **Lead recommendation:** reserve a namespace now, while no tenant has custom fields on standard objects.
+  - Custom field api names on a standard object carry a fixed suffix, `__c` as Salesforce does, or a `cf_` prefix.
+  - The standard catalogue never uses it.
+  - Until then, each standard-field migration pre-checks for clashes and stops with a message naming the object, the field and
+    the number of tenants (T-0053 review, major 4).
+
+### D-P25 — may a tenant lower a standard field's data classification?
+**Status:** OPEN, needs @acexode. Raised by the T-0053 migration review.
+- **Today.** `kasuwa_app` can change `contact.phones` from `pii` to `none`. The 0025 header says classification is editable
+  "per D-P4", but D-P4 covers labels only.
+- **Why it matters.** Classification will drive redaction, export and DSAR handling (NDPA). Declassifying a phone number
+  would remove those protections.
+- **Lead recommendation:** a tenant may **raise** a standard field's classification, never lower it.
+  - Enforce it in the same trigger that freezes type and required (T-0053 fix).
+  - Custom fields stay freely classifiable.
