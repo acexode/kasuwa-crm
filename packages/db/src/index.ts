@@ -8,3 +8,4 @@ export * from './pool';
 export * from './schema';
 export * from './seed';
 export * from './session';
+export * from './standard-object-catalogue';
