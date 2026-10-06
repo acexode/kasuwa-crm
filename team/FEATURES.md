@@ -161,7 +161,7 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `getAccountMap` | GET /api/v1/accounts/map — Accounts map view (not built) (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
 | operation | `getAccount` | GET /api/v1/accounts/{accountId} — Get one account (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
 | operation | `updateAccount` | PATCH /api/v1/accounts/{accountId} — Update an account (inline edit of owner, tier and the rest) (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `listAccountContacts` | GET /api/v1/accounts/{accountId}/contacts — The account's contacts the caller can reach (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `listAccountContacts` | GET /api/v1/accounts/{accountId}/contacts — The account's contacts the caller can reach (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0055 |
 
 ## Flags
 

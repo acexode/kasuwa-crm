@@ -50,17 +50,18 @@ const accessWith = (level: ContactFieldLevel): ContactFieldAccess =>
     ],
   ]);
 
-const ownerAccess = (level: 'none' | 'read' | 'edit') =>
-  resolveContactFieldAccess({
-    programmeSets: new Map([[A1, 'agent']]),
-    reachableProgrammeIds: [A1],
-    matrix: [
-      {
-        fieldApiName: 'owner_user_id',
-        cells: [{ permissionSetId: 'agent', level, locked: false }],
-      },
+/** Every field edit in A1, except ownerUserId at `level`. */
+const ownerAccess = (level: ContactFieldLevel): ContactFieldAccess =>
+  new Map([
+    [
+      A1,
+      new Map(
+        WITHHOLDABLE_CONTACT_FIELDS.map(
+          (field) => [field, field === 'ownerUserId' ? level : 'edit'] as const,
+        ),
+      ),
     ],
-  });
+  ]);
 
 const owned: Contact = { ...contact, ownerUserId: OWNER.id, owner: OWNER };
 
