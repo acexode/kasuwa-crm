@@ -47,6 +47,21 @@ export const StubAuthHeaders = z.object({
   [STUB_USER_HEADER]: z.string().uuid(),
 });
 
+/**
+ * The response body for a request carrying a scope header (D-L63): the shared
+ * `Error` envelope, `400 validation_failed`, as `ValidationFailed` in
+ * records.openapi.yaml lists it. The decision is unchanged; only the body is.
+ * It names no header and echoes no value: the caller knows what it sent, and a
+ * body that repeated it would put a forged scope into whatever logs bodies.
+ */
+export const SCOPE_HEADER_REJECTED_BODY = {
+  statusCode: 400,
+  error: 'Bad Request',
+  code: 'validation_failed',
+  message: 'Validation failed',
+  details: [{ path: 'headers', code: 'scope_header_not_accepted' }],
+} as const;
+
 export class ScopeHeaderRejectedError extends Error {
   constructor(header: string) {
     super(

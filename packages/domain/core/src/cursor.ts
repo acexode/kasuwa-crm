@@ -128,3 +128,91 @@ export function decodeKeysetCursor(cursor: string): KeysetCursor {
  * If you need a Date, convert at the edge where you display it, never where
  * you encode a position.
  */
+
+/*
+ * SORTED CURSORS (T-0041).
+ *
+ * A list that can be ordered by something other than `-createdAt` needs a
+ * position in THAT order: the sort key's value for the last row, plus its id
+ * to break ties. The same rules hold as above - a position, never a scope, and
+ * a timestamp that never passes through a `Date`.
+ *
+ * The sort the cursor was issued for travels in it (`s`), and decoding refuses
+ * a cursor issued for a different sort: a `displayName` position replayed
+ * under `-updatedAt` would otherwise compare a name against a timestamp. The
+ * default `-createdAt` order keeps the original `{ c, i }` shape above, so
+ * every cursor issued before T-0041 still decodes.
+ */
+
+export type SortedCursorKind = 'timestamp' | 'text';
+
+/**
+ * The longest text sort position, in code points. A repository that sorts by
+ * text must sort by a key no longer than this (the contacts list sorts by
+ * `left(display_name, 200)`), so the cursor never outgrows MAX_CURSOR_LENGTH.
+ */
+export const MAX_TEXT_SORT_POSITION = 200;
+
+/**
+ * The longest cursor this module can issue, for the HTTP boundary's limit.
+ * Worst case: a text position of 200 control characters, each JSON-escaped
+ * to six bytes (`\u001f`), plus the envelope (`{"s":…,"v":"","i":uuid}`,
+ * under 100 bytes), base64url at 4/3. That is 1,734 characters; 2,048 leaves
+ * headroom. `sorted-cursor.test.ts` builds the worst case and checks it.
+ */
+export const MAX_CURSOR_LENGTH = 2048;
+
+const SortedCursorPayload = z
+  .object({
+    s: z.string().min(1).max(32),
+    v: z
+      .string()
+      .max(MAX_TEXT_SORT_POSITION * 2)
+      .refine((value) => [...value].length <= MAX_TEXT_SORT_POSITION),
+    i: z.string().uuid(),
+  })
+  .strict();
+
+export interface SortedCursor {
+  /** The sort key the position belongs to, e.g. `displayName`. */
+  sort: string;
+  /** The last row's sort value: an ISO timestamp verbatim, or text. */
+  value: string;
+  id: string;
+}
+
+function validValue(kind: SortedCursorKind, value: string): boolean {
+  if (kind === 'text') return true;
+  return ISO_TIMESTAMP.test(value) && !Number.isNaN(Date.parse(value));
+}
+
+export function encodeSortedCursor(position: SortedCursor, kind: SortedCursorKind): string {
+  const parsed = SortedCursorPayload.safeParse({
+    s: position.sort,
+    v: position.value,
+    i: position.id,
+  });
+  if (!parsed.success || !validValue(kind, parsed.data.v)) {
+    throw new InvalidCursorError();
+  }
+  return Buffer.from(JSON.stringify(parsed.data), 'utf8').toString('base64url');
+}
+
+/** Throws InvalidCursorError for garbage, a bad value, or a cursor issued for another sort. */
+export function decodeSortedCursor(
+  cursor: string,
+  sort: string,
+  kind: SortedCursorKind,
+): SortedCursor {
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+  } catch {
+    throw new InvalidCursorError();
+  }
+  const parsed = SortedCursorPayload.safeParse(parsedJson);
+  if (!parsed.success || parsed.data.s !== sort || !validValue(kind, parsed.data.v)) {
+    throw new InvalidCursorError();
+  }
+  return { sort: parsed.data.s, value: parsed.data.v, id: parsed.data.i };
+}

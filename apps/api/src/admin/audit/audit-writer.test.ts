@@ -111,7 +111,7 @@ describe('recordAuditEvent', () => {
   it('refuses an object type nobody has agreed on', async () => {
     const { tx } = fakeTx();
     await expect(
-      recordAuditEvent(tx, { ...roleEvent, objectType: 'contact' as 'role' }),
+      recordAuditEvent(tx, { ...roleEvent, objectType: 'invoice' as 'role' }),
     ).rejects.toBeInstanceOf(InvalidAuditEventError);
   });
 

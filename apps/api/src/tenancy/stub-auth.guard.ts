@@ -3,7 +3,7 @@ import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/
 import type { Request } from 'express';
 import {
   FORBIDDEN_SCOPE_HEADERS,
-  ScopeHeaderRejectedError,
+  SCOPE_HEADER_REJECTED_BODY,
   STUB_TENANT_HEADER,
   STUB_USER_HEADER,
   StubAuthHeaders,
@@ -42,7 +42,10 @@ export class StubAuthGuard implements CanActivate {
 
     for (const header of FORBIDDEN_SCOPE_HEADERS) {
       if (request.headers[header] !== undefined) {
-        throw new BadRequestException(new ScopeHeaderRejectedError(header).message);
+        throw new BadRequestException({
+          ...SCOPE_HEADER_REJECTED_BODY,
+          details: [...SCOPE_HEADER_REJECTED_BODY.details],
+        });
       }
     }
 

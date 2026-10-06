@@ -8,7 +8,7 @@ import { notAuthenticated } from '../auth/auth.errors';
 import { PG_POOL } from '../database/database.module';
 import {
   FORBIDDEN_SCOPE_HEADERS,
-  ScopeHeaderRejectedError,
+  SCOPE_HEADER_REJECTED_BODY,
   STUB_TENANT_HEADER,
   STUB_USER_HEADER,
 } from './auth-context';
@@ -58,7 +58,10 @@ export class KasuwaAuthGuard implements CanActivate {
     // request that tries to set its own programme scope is an attack or a bug.
     for (const header of FORBIDDEN_SCOPE_HEADERS) {
       if (request.headers[header] !== undefined) {
-        throw new BadRequestException(new ScopeHeaderRejectedError(header).message);
+        throw new BadRequestException({
+          ...SCOPE_HEADER_REJECTED_BODY,
+          details: [...SCOPE_HEADER_REJECTED_BODY.details],
+        });
       }
     }
 

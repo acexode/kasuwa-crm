@@ -46,6 +46,12 @@ export const PROGRAMME_ACTIONS = [
   'portal_user.invite',
   /** updateProgrammeSla, updateProgrammeRetention. */
   'programme_policy.write',
+  /**
+   * createContact and updateContact (T-0041, D-L63), in the TARGET programme:
+   * the record's programme on update, `programmeId` on create. Every set but
+   * `admin` is read-only for contacts this round (D-P14 is open).
+   */
+  'contact.write',
 ] as const;
 
 export type TenantAction = (typeof TENANT_ACTIONS)[number];

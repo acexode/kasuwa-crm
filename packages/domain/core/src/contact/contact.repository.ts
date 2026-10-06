@@ -1,9 +1,16 @@
-import type { TenantTx } from '@kasuwa/db';
-import { z } from 'zod';
-import { decodeKeysetCursor, encodeKeysetCursor } from '../cursor';
+import { newId, type TenantTx } from '@kasuwa/db';
+import {
+  decodeKeysetCursor,
+  decodeSortedCursor,
+  encodeKeysetCursor,
+  encodeSortedCursor,
+  MAX_TEXT_SORT_POSITION,
+  type SortedCursorKind,
+} from '../cursor';
+import { foldForSearch, tenantDefaultCountry, type DefaultCountry } from './phone';
 
 /**
- * Contact reads for the vertical slice.
+ * Contact reads and writes (T-0003 slice, extended by T-0041).
  *
  * Defence in depth (founding pack 3.3): the WHERE clauses below repeat the
  * tenant and programme predicates that RLS already enforces. That redundancy is
@@ -12,17 +19,20 @@ import { decodeKeysetCursor, encodeKeysetCursor } from '../cursor';
  * rather than through HTTP so a bug in the API cannot mask a bug here.
  *
  * There is no way to call these functions without a TenantTx, and no way to get
- * a TenantTx without a resolved session.
+ * a TenantTx without a resolved session. Nothing here takes a tenant id or a
+ * programme list from its caller: both come from `tx.session`. The one
+ * programme id a caller passes (a create's target, an update's record
+ * programme) is checked against the session's scope before it is used.
+ *
+ * No SQL here is built from user input. Column names come from the fixed maps
+ * below; every value is a bound parameter.
+ *
+ * Nothing here decides permission or field security. The API does that, and
+ * hands in which programmes may be searched by which field (`ContactSearch`).
  */
 
 export const MAX_PAGE_SIZE = 100;
 export const DEFAULT_PAGE_SIZE = 25;
-
-export const ListContactsQuery = z.object({
-  limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
-  cursor: z.string().min(1).optional(),
-});
-export type ListContactsQuery = z.infer<typeof ListContactsQuery>;
 
 export interface ContactPhone {
   type: string;
@@ -32,11 +42,25 @@ export interface ContactPhone {
 export interface Contact {
   id: string;
   programmeId: string;
+  version: number;
   displayName: string;
   givenNames: string | null;
   familyName: string | null;
   phones: ContactPhone[];
   emails: string[];
+  accountId: string | null;
+  ownerUserId: string | null;
+  status: string | null;
+  source: string | null;
+  tags: string[];
+  preferredLanguage: string | null;
+  preferredChannel: string | null;
+  state: string | null;
+  lga: string | null;
+  dnd: boolean;
+  whatsappOptIn: boolean;
+  consentState: string;
+  phoneNetwork: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -46,83 +70,307 @@ export interface ContactPage {
   nextCursor: string | null;
 }
 
+/** The contract's `sort` enum. A key outside it never reaches SQL. */
+export const CONTACT_SORTS = [
+  '-createdAt',
+  'createdAt',
+  '-updatedAt',
+  'updatedAt',
+  'displayName',
+  '-displayName',
+] as const;
+export type ContactSort = (typeof CONTACT_SORTS)[number];
+export const DEFAULT_CONTACT_SORT: ContactSort = '-createdAt';
+
+/**
+ * The name sort key: the first MAX_TEXT_SORT_POSITION code points of the display
+ * name. The cursor carries this value, so it is bounded whatever the column
+ * holds (no CHECK limits contact.display_name), and the cursor schema can be
+ * sized for the worst case. Names sharing their first 200 characters tie and
+ * break on id, which keeps the keyset total.
+ */
+const DISPLAY_NAME_KEY = `left(display_name, ${MAX_TEXT_SORT_POSITION})`;
+
+interface SortSpec {
+  /** A fixed SQL expression, never user input. */
+  column: string;
+  direction: 'ASC' | 'DESC';
+  kind: SortedCursorKind;
+}
+
+const SORT_SPECS: Record<ContactSort, SortSpec> = {
+  '-createdAt': { column: 'created_at', direction: 'DESC', kind: 'timestamp' },
+  createdAt: { column: 'created_at', direction: 'ASC', kind: 'timestamp' },
+  '-updatedAt': { column: 'updated_at', direction: 'DESC', kind: 'timestamp' },
+  updatedAt: { column: 'updated_at', direction: 'ASC', kind: 'timestamp' },
+  displayName: { column: DISPLAY_NAME_KEY, direction: 'ASC', kind: 'text' },
+  '-displayName': { column: DISPLAY_NAME_KEY, direction: 'DESC', kind: 'text' },
+};
+
+/** Filters, already parsed. Each one is "any of"; different filters AND. */
+export interface ContactFilters {
+  /** User ids; `me` already resolved to the session user by the caller. */
+  ownerUserIds?: readonly string[] | undefined;
+  /** Include contacts with no owner. */
+  ownerUnassigned?: boolean | undefined;
+  status?: readonly string[] | undefined;
+  source?: readonly string[] | undefined;
+  /** Exact, case-insensitive. */
+  tags?: readonly string[] | undefined;
+  /** Exact, case-insensitive. */
+  states?: readonly string[] | undefined;
+  /** Exact, case-insensitive. */
+  lgas?: readonly string[] | undefined;
+  dnd?: boolean | undefined;
+  whatsappOptIn?: boolean | undefined;
+}
+
+/**
+ * `q`, with what field security allows. Each `...ProgrammeIds` list names
+ * the programmes in which that field may be matched: a field the caller may
+ * not read in a programme is never matched there, or `q` would be an oracle
+ * for its value. `displayName` is never withheld and is always matched.
+ */
+export interface ContactSearch {
+  text: string;
+  /** `q` normalised to E.164, or null when it does not read as a number. */
+  phoneE164: string | null;
+  phoneProgrammeIds: readonly string[];
+  givenNamesProgrammeIds: readonly string[];
+  familyNameProgrammeIds: readonly string[];
+}
+
+export interface ListContactsOptions {
+  limit: number;
+  cursor?: string | undefined;
+  sort?: ContactSort | undefined;
+  search?: ContactSearch | undefined;
+  filters?: ContactFilters | undefined;
+}
+
 interface ContactRow {
   id: string;
   programme_id: string;
+  version: number;
   display_name: string;
   given_names: string | null;
   family_name: string | null;
   phones: ContactPhone[];
   emails: string[];
+  account_id: string | null;
+  owner_user_id: string | null;
+  status: string | null;
+  source: string | null;
+  tags: string[] | null;
+  preferred_language: string | null;
+  preferred_channel: string | null;
+  state: string | null;
+  lga: string | null;
+  dnd: boolean;
+  whatsapp_opt_in: boolean;
+  consent_state: string;
+  phone_network: string | null;
   created_at: Date;
   updated_at: Date;
 }
 
 interface ContactPageRow extends ContactRow {
   /**
-   * `created_at` rendered by Postgres to the microsecond (T-0019). `pg` parses
-   * `timestamptz` into a JS `Date`, which holds only milliseconds, so the
-   * keyset cursor must be built from this column and never from `created_at`.
-   * `to_char` rather than `::text` so the format does not depend on the
-   * session's `DateStyle`.
+   * The sort key of the row, rendered for the cursor. For a timestamp,
+   * Postgres renders it to the microsecond (T-0019): `pg` parses `timestamptz`
+   * into a JS `Date`, which holds only milliseconds, so the keyset cursor must
+   * be built from this column and never from the Date. `to_char` rather than
+   * `::text` so the format does not depend on the session's `DateStyle`.
    */
-  created_at_cursor: string;
+  sort_cursor: string;
 }
 
 const SELECT_COLUMNS = `
-  id, programme_id, display_name, given_names, family_name,
-  phones, emails, created_at, updated_at
+  id, programme_id, version, display_name, given_names, family_name,
+  phones, emails, account_id, owner_user_id, status, source, tags,
+  preferred_language, preferred_channel, state, lga, dnd, whatsapp_opt_in,
+  consent_state, phone_network, created_at, updated_at
 `;
 
-const CURSOR_COLUMN = `
-  to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_cursor
-`;
+function cursorColumn(spec: SortSpec): string {
+  return spec.kind === 'timestamp'
+    ? `to_char(${spec.column} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS sort_cursor`
+    : `${spec.column} AS sort_cursor`;
+}
+
+/**
+ * Case- and diacritic-folding in SQL, the twin of `foldForSearch`: NFD, drop
+ * U+0300-U+036F, lower. The regex escapes are Postgres's (`\\u` reaches the
+ * server as `\u`), not JavaScript's.
+ */
+const fold = (expression: string) =>
+  `lower(regexp_replace(normalize(coalesce(${expression}, ''), NFD), '[\\u0300-\\u036f]', '', 'g'))`;
 
 function toContact(row: ContactRow): Contact {
   return {
     id: row.id,
     programmeId: row.programme_id,
+    version: row.version,
     displayName: row.display_name,
     givenNames: row.given_names,
     familyName: row.family_name,
     phones: row.phones,
     emails: row.emails,
+    accountId: row.account_id,
+    ownerUserId: row.owner_user_id,
+    status: row.status,
+    source: row.source,
+    tags: row.tags ?? [],
+    preferredLanguage: row.preferred_language,
+    preferredChannel: row.preferred_channel,
+    state: row.state,
+    lga: row.lga,
+    dnd: row.dnd,
+    whatsappOptIn: row.whatsapp_opt_in,
+    consentState: row.consent_state,
+    phoneNetwork: row.phone_network,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-export async function listContacts(tx: TenantTx, query: ListContactsQuery): Promise<ContactPage> {
-  const position = query.cursor === undefined ? null : decodeKeysetCursor(query.cursor);
+/** Bound parameters, numbered as they are added. */
+class Params {
+  readonly values: unknown[] = [];
+  add(value: unknown): string {
+    this.values.push(value);
+    return `$${this.values.length}`;
+  }
+}
+
+// tenancy-reviewed: searchClause, filterClauses and keysetClause only ever
+// NARROW listContacts, whose WHERE always starts with `tenant_id = session
+// tenant AND programme_id = ANY(session programmes)`; each clause is ANDed
+// onto that. The per-field programme lists in `ContactSearch` are subsets the
+// caller computed from the session's own scope, and a list naming a programme
+// outside it cannot widen anything (the scope predicate still applies). Every
+// value is a bound parameter; column names come from constants.
+function searchClause(search: ContactSearch, params: Params): string {
+  const folded = params.add(foldForSearch(search.text));
+  const alternatives = [`strpos(${fold('display_name')}, ${folded}) > 0`];
+  alternatives.push(
+    `(programme_id = ANY(${params.add([...search.givenNamesProgrammeIds])}::uuid[])
+      AND strpos(${fold('given_names')}, ${folded}) > 0)`,
+  );
+  alternatives.push(
+    `(programme_id = ANY(${params.add([...search.familyNameProgrammeIds])}::uuid[])
+      AND strpos(${fold('family_name')}, ${folded}) > 0)`,
+  );
+  if (search.phoneE164 !== null) {
+    alternatives.push(
+      `(programme_id = ANY(${params.add([...search.phoneProgrammeIds])}::uuid[])
+        AND phones @> jsonb_build_array(jsonb_build_object('e164', ${params.add(search.phoneE164)}::text)))`,
+    );
+  }
+  return `(${alternatives.join(' OR ')})`;
+}
+
+function filterClauses(filters: ContactFilters, params: Params): string[] {
+  const clauses: string[] = [];
+  const ownerIds = filters.ownerUserIds ?? [];
+  if (ownerIds.length > 0 || filters.ownerUnassigned === true) {
+    const parts: string[] = [];
+    if (ownerIds.length > 0)
+      parts.push(`owner_user_id = ANY(${params.add([...ownerIds])}::uuid[])`);
+    if (filters.ownerUnassigned === true) parts.push('owner_user_id IS NULL');
+    clauses.push(`(${parts.join(' OR ')})`);
+  }
+  if (filters.status !== undefined && filters.status.length > 0) {
+    clauses.push(`status = ANY(${params.add([...filters.status])}::text[])`);
+  }
+  if (filters.source !== undefined && filters.source.length > 0) {
+    clauses.push(`source = ANY(${params.add([...filters.source])}::text[])`);
+  }
+  if (filters.tags !== undefined && filters.tags.length > 0) {
+    const lowered = filters.tags.map((tag) => tag.toLowerCase());
+    clauses.push(
+      `EXISTS (SELECT 1 FROM unnest(tags) AS t(tag)
+                WHERE lower(t.tag) = ANY(${params.add(lowered)}::text[]))`,
+    );
+  }
+  if (filters.states !== undefined && filters.states.length > 0) {
+    const lowered = filters.states.map((value) => value.toLowerCase());
+    clauses.push(`lower(state) = ANY(${params.add(lowered)}::text[])`);
+  }
+  if (filters.lgas !== undefined && filters.lgas.length > 0) {
+    const lowered = filters.lgas.map((value) => value.toLowerCase());
+    clauses.push(`lower(lga) = ANY(${params.add(lowered)}::text[])`);
+  }
+  if (filters.dnd !== undefined) clauses.push(`dnd = ${params.add(filters.dnd)}::boolean`);
+  if (filters.whatsappOptIn !== undefined) {
+    clauses.push(`whatsapp_opt_in = ${params.add(filters.whatsappOptIn)}::boolean`);
+  }
+  return clauses;
+}
+
+/** Throws InvalidCursorError for a cursor this server did not issue for this sort. */
+function keysetClause(sort: ContactSort, cursor: string, params: Params): string {
+  const spec = SORT_SPECS[sort];
+  let value: string;
+  let id: string;
+  if (sort === DEFAULT_CONTACT_SORT) {
+    // The pre-T-0041 shape, so outstanding cursors keep working.
+    const position = decodeKeysetCursor(cursor);
+    value = position.createdAt;
+    id = position.id;
+  } else {
+    const position = decodeSortedCursor(cursor, sort, spec.kind);
+    value = position.value;
+    id = position.id;
+  }
+  const cast = spec.kind === 'timestamp' ? 'timestamptz' : 'text';
+  const operator = spec.direction === 'DESC' ? '<' : '>';
+  return `(${spec.column}, id) ${operator} (${params.add(value)}::${cast}, ${params.add(id)}::uuid)`;
+}
+
+function encodeCursor(sort: ContactSort, row: ContactPageRow): string {
+  if (sort === DEFAULT_CONTACT_SORT) {
+    return encodeKeysetCursor({ createdAt: row.sort_cursor, id: row.id });
+  }
+  return encodeSortedCursor({ sort, value: row.sort_cursor, id: row.id }, SORT_SPECS[sort].kind);
+}
+
+export async function listContacts(
+  tx: TenantTx,
+  options: ListContactsOptions,
+): Promise<ContactPage> {
+  const sort = options.sort ?? DEFAULT_CONTACT_SORT;
+  const spec = SORT_SPECS[sort];
+  const params = new Params();
+
+  // tenancy-reviewed: tenant AND session programmes first, always; every other
+  // clause is ANDed on and can only narrow (see searchClause).
+  const where = [
+    `tenant_id = ${params.add(tx.session.tenantId)}`,
+    `programme_id = ANY(${params.add([...tx.session.programmeIds])}::uuid[])`,
+  ];
+  if (options.cursor !== undefined) where.push(keysetClause(sort, options.cursor, params));
+  if (options.search !== undefined) where.push(searchClause(options.search, params));
+  if (options.filters !== undefined) where.push(...filterClauses(options.filters, params));
 
   // Fetch one extra row to decide whether a next page exists, without a count.
+  const limit = params.add(options.limit + 1);
   const rows = await tx.query<ContactPageRow>(
-    `SELECT ${SELECT_COLUMNS}, ${CURSOR_COLUMN}
+    `SELECT ${SELECT_COLUMNS}, ${cursorColumn(spec)}
        FROM contact
-      WHERE tenant_id = $1
-        AND programme_id = ANY($2::uuid[])
-        AND ($3::timestamptz IS NULL OR (created_at, id) < ($3::timestamptz, $4::uuid))
-      ORDER BY created_at DESC, id DESC
-      LIMIT $5`,
-    [
-      tx.session.tenantId,
-      tx.session.programmeIds,
-      position?.createdAt ?? null,
-      position?.id ?? null,
-      query.limit + 1,
-    ],
+      WHERE ${where.join('\n        AND ')}
+      ORDER BY ${spec.column} ${spec.direction}, id ${spec.direction}
+      LIMIT ${limit}`,
+    params.values,
   );
 
-  const hasMore = rows.length > query.limit;
-  const page = hasMore ? rows.slice(0, query.limit) : rows;
+  const hasMore = rows.length > options.limit;
+  const page = hasMore ? rows.slice(0, options.limit) : rows;
   const last = page.at(-1);
 
   return {
     data: page.map(toContact),
-    nextCursor:
-      hasMore && last !== undefined
-        ? encodeKeysetCursor({ createdAt: last.created_at_cursor, id: last.id })
-        : null,
+    nextCursor: hasMore && last !== undefined ? encodeCursor(sort, last) : null,
   };
 }
 
@@ -137,4 +385,221 @@ export async function findContactById(tx: TenantTx, id: string): Promise<Contact
   );
   const row = rows[0];
   return row === undefined ? null : toContact(row);
+}
+
+// --- writes ------------------------------------------------------------------
+
+/** The properties a write may set, as the wire names them. */
+export interface ContactValues {
+  displayName?: string | undefined;
+  givenNames?: string | null | undefined;
+  familyName?: string | null | undefined;
+  phones?: ContactPhone[] | undefined;
+  emails?: string[] | undefined;
+  accountId?: string | null | undefined;
+  ownerUserId?: string | null | undefined;
+  status?: string | undefined;
+  source?: string | undefined;
+  tags?: string[] | undefined;
+  preferredLanguage?: string | null | undefined;
+  preferredChannel?: string | null | undefined;
+  state?: string | null | undefined;
+  lga?: string | null | undefined;
+  whatsappOptIn?: boolean | undefined;
+  consentState?: string | undefined;
+}
+
+type ColumnCast = 'text' | 'uuid' | 'jsonb' | 'text[]' | 'boolean';
+
+/** Wire name -> column. Server-owned columns (dnd, phone_network, version) are absent. */
+const WRITABLE_COLUMNS: Record<keyof ContactValues, { column: string; cast: ColumnCast }> = {
+  displayName: { column: 'display_name', cast: 'text' },
+  givenNames: { column: 'given_names', cast: 'text' },
+  familyName: { column: 'family_name', cast: 'text' },
+  phones: { column: 'phones', cast: 'jsonb' },
+  emails: { column: 'emails', cast: 'jsonb' },
+  accountId: { column: 'account_id', cast: 'uuid' },
+  ownerUserId: { column: 'owner_user_id', cast: 'uuid' },
+  status: { column: 'status', cast: 'text' },
+  source: { column: 'source', cast: 'text' },
+  tags: { column: 'tags', cast: 'text[]' },
+  preferredLanguage: { column: 'preferred_language', cast: 'text' },
+  preferredChannel: { column: 'preferred_channel', cast: 'text' },
+  state: { column: 'state', cast: 'text' },
+  lga: { column: 'lga', cast: 'text' },
+  whatsappOptIn: { column: 'whatsapp_opt_in', cast: 'boolean' },
+  consentState: { column: 'consent_state', cast: 'text' },
+};
+
+function isWritable(key: string): key is keyof ContactValues {
+  return Object.prototype.hasOwnProperty.call(WRITABLE_COLUMNS, key);
+}
+
+function assignments(
+  values: ContactValues,
+  params: Params,
+): { column: string; placeholder: string }[] {
+  const result: { column: string; placeholder: string }[] = [];
+  for (const [key, value] of Object.entries(values)) {
+    if (value === undefined || !isWritable(key)) continue;
+    const { column, cast } = WRITABLE_COLUMNS[key];
+    const bound = cast === 'jsonb' && value !== null ? JSON.stringify(value) : value;
+    result.push({ column, placeholder: `${params.add(bound)}::${cast}` });
+  }
+  return result;
+}
+
+/** Thrown for a programme outside the session. The API answers 404 before this. */
+export class ContactProgrammeOutOfScopeError extends Error {
+  constructor() {
+    super('Refusing to write a contact in a programme outside the session scope');
+    this.name = 'ContactProgrammeOutOfScopeError';
+  }
+}
+
+function assertInScope(tx: TenantTx, programmeId: string): void {
+  if (!tx.session.programmeIds.includes(programmeId)) {
+    throw new ContactProgrammeOutOfScopeError();
+  }
+}
+
+/**
+ * Inserts a contact in `programmeId`, which must be in the session's scope.
+ * tenancy-reviewed: tenant from the session, programme checked against the
+ * session, and RLS WITH CHECK refuses either independently.
+ */
+export async function insertContact(
+  tx: TenantTx,
+  programmeId: string,
+  values: ContactValues & { displayName: string },
+): Promise<Contact> {
+  assertInScope(tx, programmeId);
+  const params = new Params();
+  const fixed = [
+    { column: 'id', placeholder: `${params.add(newId())}::uuid` },
+    { column: 'tenant_id', placeholder: `${params.add(tx.session.tenantId)}::uuid` },
+    { column: 'programme_id', placeholder: `${params.add(programmeId)}::uuid` },
+  ];
+  const columns = [...fixed, ...assignments(values, params)];
+  const rows = await tx.query<ContactRow>(
+    `INSERT INTO contact (${columns.map((entry) => entry.column).join(', ')})
+     VALUES (${columns.map((entry) => entry.placeholder).join(', ')})
+     RETURNING ${SELECT_COLUMNS}`,
+    params.values,
+  );
+  const row = rows[0];
+  if (row === undefined) throw new Error('INSERT ... RETURNING returned no row');
+  return toContact(row);
+}
+
+/**
+ * Applies `values` to one contact iff its version is still `version`.
+ *
+ * Returns null when no row matched: the version moved (or the row went), which
+ * the API answers `409 stale_write`. The statement sets `version = version + 1`
+ * itself; the 0019 trigger fires only when a statement leaves version alone,
+ * so the value moves exactly once. Under READ COMMITTED a concurrent writer
+ * with the same version blocks on the row lock, re-evaluates the WHERE against
+ * the committed row, matches nothing, and gets null: exactly one wins.
+ */
+export async function updateContactIfVersion(
+  tx: TenantTx,
+  target: { id: string; programmeId: string; version: number },
+  values: ContactValues,
+): Promise<Contact | null> {
+  assertInScope(tx, target.programmeId);
+  // tenancy-reviewed: id AND tenant (from the session) AND programme (checked
+  // against the session above) AND version; RLS USING and WITH CHECK besides.
+  // SET never names tenant_id or programme_id: WRITABLE_COLUMNS has neither.
+  const params = new Params();
+  const sets = assignments(values, params).map((entry) => `${entry.column} = ${entry.placeholder}`);
+  sets.push('version = version + 1');
+  const rows = await tx.query<ContactRow>(
+    `UPDATE contact
+        SET ${sets.join(', ')}
+      WHERE id = ${params.add(target.id)}::uuid
+        AND tenant_id = ${params.add(tx.session.tenantId)}::uuid
+        AND programme_id = ${params.add(target.programmeId)}::uuid
+        AND version = ${params.add(target.version)}::integer
+      RETURNING ${SELECT_COLUMNS}`,
+    params.values,
+  );
+  const row = rows[0];
+  return row === undefined ? null : toContact(row);
+}
+
+/**
+ * May `userId` own a contact in `programmeId`? D-L67: only a member of that
+ * programme (a `user_programme` row there). Another tenant's user, a user who
+ * belongs only to a sibling programme, and no user at all are the same
+ * `false`, so the API answers all three with one body and an owner field is
+ * never an existence oracle across the BPO isolation boundary.
+ *
+ * tenancy-reviewed: tenant from the session, the programme required in SQL to
+ * be in the session's scope, the user joined on (tenant_id, id); RLS on both
+ * tables besides. Reads ids only, never a user's name or address.
+ */
+export async function programmeMemberExists(
+  tx: TenantTx,
+  programmeId: string,
+  userId: string,
+): Promise<boolean> {
+  const rows = await tx.query<{ ok: number }>(
+    `SELECT 1 AS ok
+       FROM user_programme up
+       JOIN "user" u
+         ON u.tenant_id = up.tenant_id
+        AND u.id = up.user_id
+      WHERE up.tenant_id = $1
+        AND up.programme_id = $2
+        AND up.programme_id = ANY($3::uuid[])
+        AND up.user_id = $4`,
+    [tx.session.tenantId, programmeId, tx.session.programmeIds, userId],
+  );
+  return rows.length > 0;
+}
+
+/**
+ * Is `accountId` an account in `programmeId`? The contact FK only accepts an
+ * account in the contact's own programme; answering that here turns what
+ * would be a 23503 (a 500) into the same refusal as an id that names nothing.
+ *
+ * tenancy-reviewed: tenant from the session, the programme both named and
+ * required to be in the session's scope, RLS on account besides.
+ */
+export async function programmeAccountExists(
+  tx: TenantTx,
+  programmeId: string,
+  accountId: string,
+): Promise<boolean> {
+  const rows = await tx.query<{ ok: number }>(
+    `SELECT 1 AS ok
+       FROM account
+      WHERE tenant_id = $1
+        AND programme_id = $2
+        AND programme_id = ANY($3::uuid[])
+        AND id = $4`,
+    [tx.session.tenantId, programmeId, tx.session.programmeIds, accountId],
+  );
+  return rows.length > 0;
+}
+
+/**
+ * The session tenant's default country for phone search (S4).
+ *
+ * tenancy-reviewed: the session's own tenant row only (`id = session
+ * tenant`), under tenant_isolation RLS; two settings columns, nothing else.
+ */
+export async function loadTenantDefaultCountry(tx: TenantTx): Promise<DefaultCountry | null> {
+  const rows = await tx.query<{ locale_default: string | null; currency_default: string | null }>(
+    `SELECT locale_default, currency_default FROM tenant WHERE id = $1`,
+    [tx.session.tenantId],
+  );
+  const row = rows[0];
+  return row === undefined
+    ? null
+    : tenantDefaultCountry({
+        localeDefault: row.locale_default,
+        currencyDefault: row.currency_default,
+      });
 }
