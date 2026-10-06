@@ -1,6 +1,6 @@
 # T-0052 — Records contract: accounts
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 3 · **priority** P0 (blocks T-0055, T-0057) · **decisions** D-L69, D-L63, D-L67, D-P13
+**status** `done` (#88) · **owner** Agent 3 · **priority** P0 (blocks T-0055, T-0057) · **decisions** D-L69, D-L63, D-L67, D-P13
 
 ## Goal
 Extend `docs/api/records.openapi.yaml` with accounts. This is the contract only (ADR-0004), in the same style as the contacts
