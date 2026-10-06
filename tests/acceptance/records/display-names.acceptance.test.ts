@@ -27,7 +27,7 @@ import type { Pool } from 'pg';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, inject, it, vi } from 'vitest';
 import { parse } from 'yaml';
-import { asUser } from '../support/api';
+import { asUser, withAuthDatabase } from '../support/api';
 import { collectTelemetry, isInboundApiSpan, type Telemetry } from '../support/telemetry';
 
 /**
@@ -586,7 +586,9 @@ describe('acceptance: scoped display names (T-0043)', () => {
   beforeAll(async () => {
     await reseed(inject('migrationUrl'));
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule.forRoot({ databaseUrl: inject('databaseUrl'), poolMax: 5 })],
+      imports: [
+        AppModule.forRoot(withAuthDatabase({ databaseUrl: inject('databaseUrl'), poolMax: 5 })),
+      ],
     }).compile();
     app = moduleRef.createNestApplication({ logger: new RecordingLogger() });
     await app.init();

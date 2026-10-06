@@ -76,7 +76,8 @@ These are not style preferences. Breaking one is a defect, not a debate.
    only RLS-free reads in the system. Two exist — `app.resolve_tenant_by_slug`
    and `app.resolve_session` — because sign-in has to find a tenant before it
    has one, and both are narrowly built: `STABLE`, pinned `search_path`,
-   `REVOKE ALL FROM PUBLIC` then granted to `kasuwa_app` only, returning
+   `REVOKE ALL FROM PUBLIC` then granted to the serving roles only
+   (`kasuwa_app` both; `kasuwa_auth` the slug resolver alone, T-0049), returning
    identifiers and never a business row. **A third needs an ADR before it is
    written.** Each one is a hole in the model that has to be argued for, and
    the argument gets easier to skip every time one already exists.
