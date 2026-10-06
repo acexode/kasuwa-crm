@@ -1564,7 +1564,13 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
   non-transactional `0027` is allowed but not required.
 - **Phones.** The database checks the contract's `Phone` shape on `account.phones`, because T-0054 has no API layer.
   `account.phones` is classified `pii`: a sole trader's number is personal data.
-- **ON DELETE for the two new FKs** stays at the default, RESTRICT. Deletion behaviour is still the open D-L61 item.
+- **ON DELETE / ON UPDATE for the two new FKs** (corrected 2026-10-06 after the migration review):
+  - The parent FK is **RESTRICT**, on both delete and update. NO ACTION, the Postgres default, accepts a referenced key that is
+    replaced in the same statement. The review used that to commit a real cycle past the hierarchy guard by rotating
+    `account.id`.
+  - RESTRICT still lets tenant and programme offboarding cascade.
+  - `account.id` is immutable for `kasuwa_app`.
+  - Deletion semantics otherwise remain the open D-L61 item.
 - **For T-0055:**
   - Owner membership in the account's programme (D-L67) is checked in the repository.
   - Postgres error `detail` (for example "Failing row contains (…)", which can carry a name and phones) must never be logged
@@ -1611,3 +1617,12 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
   - no scope or status field is accepted in the convert body;
   - the response is exactly `{ contact, account }`, with one success code.
 - **PR size.** The suite is about 1,475 lines, so the PR is marked exempt (structural).
+### D-L76 — id rotation on composite FKs (tracked, from the T-0054 migration review)
+**Status:** TRACKED.
+- **The weakness.** With NO ACTION, one statement can swap which row holds a referenced key. 0019's
+  `contact_account_same_programme_fk` has that exposure: an `UPDATE account SET id = …` rotation silently re-points contacts
+  to another account.
+- **T-0054 closes it for the account hierarchy:** RESTRICT, plus an immutable `account.id`.
+- **Follow-up:** a migration that makes record ids immutable for `kasuwa_app` on `contact` and `account`. That means a trigger,
+  or narrowing the UPDATE privilege to exclude `id`, `tenant_id` and `programme_id`. Moving a record between programmes
+  should be a deliberate operation, never a field edit. Not yet assigned.
