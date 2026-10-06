@@ -1,4 +1,5 @@
 import { cookies, headers } from 'next/headers';
+import { flagProcessNodeEnv, type FlagProcessNodeEnv } from '@kasuwa/config/feature-flags';
 import {
   BETA_LOCALES,
   DEFAULT_LOCALE,
@@ -48,21 +49,82 @@ export interface ActiveLocale {
   readonly preview: boolean;
 }
 
-export async function activeLocale(): Promise<ActiveLocale> {
-  const requestHeaders = await headers();
-  const preview = requestHeaders.get(PREVIEW_LOCALE_HEADER);
+/** The process's NODE_ENV, as `@kasuwa/config` parses it. */
+export type LocaleNodeEnv = FlagProcessNodeEnv;
 
-  // `en-XA` is derived, not registered, and previewable for the same reason as
-  // `ar`: a check (strings never externalised) that needs a real screen.
-  if (preview !== null && (REGISTERED_LOCALES.includes(preview) || preview === PSEUDO_LOCALE)) {
+/** Everything a request contributes to its locale, already read out of it. */
+export interface LocaleRequest {
+  /** The `x-kasuwa-preview-locale` header (`PREVIEW_LOCALE_HEADER`), or null. */
+  readonly preview: string | null;
+  /** The `kasuwa_locale` cookie (`LOCALE_COOKIE`), or null. */
+  readonly cookie: string | null;
+  /** NODE_ENV, read at RUNTIME by the caller (see `activeLocale`). */
+  readonly nodeEnv: LocaleNodeEnv;
+}
+
+/**
+ * The environments in which `en-XA` may be previewed (D-P15, answered): the
+ * pseudo-locale is a development and test tool, and production refuses it.
+ * An allowlist, so that anything else fails closed.
+ */
+const PSEUDO_PREVIEW_ENVS: readonly LocaleNodeEnv[] = ['development', 'test'];
+
+/**
+ * Whether a preview value may be honoured. The match is EXACT: no trimming,
+ * case-folding or `_`-to-`-` normalisation, because each of those would be a
+ * second spelling of `en-XA` for the production gate to miss.
+ *
+ * `ar` is registered and previews in every environment: RTL is proven on a
+ * real screen, in production too. `en-XA` is derived, not registered, and
+ * previewable only where `PSEUDO_PREVIEW_ENVS` says.
+ */
+function previewAllowed(preview: string, nodeEnv: LocaleNodeEnv): boolean {
+  if (REGISTERED_LOCALES.includes(preview)) {
+    return true;
+  }
+  return preview === PSEUDO_LOCALE && PSEUDO_PREVIEW_ENVS.includes(nodeEnv);
+}
+
+/**
+ * Which language a request renders in, as a pure function of what the request
+ * carries. No `next/headers`, no environment read: `activeLocale()` reads both
+ * and passes them in, which is what makes this testable for every NODE_ENV.
+ *
+ * The gate is here, not in `middleware.ts`, because the middleware forwards
+ * every incoming header: a client can send `x-kasuwa-preview-locale: en-XA`
+ * with no `?locale=` at all. A refused preview is treated exactly as an absent
+ * one, so it falls through to the cookie rather than discarding the user's
+ * menu choice.
+ */
+export function resolveActiveLocale(request: LocaleRequest): ActiveLocale {
+  const { preview, cookie, nodeEnv } = request;
+  if (preview !== null && previewAllowed(preview, nodeEnv)) {
     return { locale: preview, dir: textDirection(preview), preview: true };
   }
 
-  const store = await cookies();
-  const chosen = store.get(LOCALE_COOKIE)?.value ?? '';
+  const chosen = cookie ?? '';
   const locale = MENU_LOCALES.includes(chosen) ? chosen : DEFAULT_LOCALE;
-
   return { locale, dir: textDirection(locale), preview: false };
+}
+
+/**
+ * The request's locale. Reads the preview header, the cookie and NODE_ENV,
+ * and decides nothing itself.
+ *
+ * NODE_ENV is read at RUNTIME through `@kasuwa/config/feature-flags`, the same
+ * `.env`-free read the feature-flag boot guard uses. Never as a literal
+ * `process.env.NODE_ENV`: Next inlines that at build time, the build is always
+ * `production`, and the e2e server is that build started with NODE_ENV=test
+ * (D-L64). An inlined read would refuse `en-XA` there and fail `@p04-pseudo`.
+ */
+export async function activeLocale(): Promise<ActiveLocale> {
+  const requestHeaders = await headers();
+  const store = await cookies();
+  return resolveActiveLocale({
+    preview: requestHeaders.get(PREVIEW_LOCALE_HEADER),
+    cookie: store.get(LOCALE_COOKIE)?.value ?? null,
+    nodeEnv: flagProcessNodeEnv(),
+  });
 }
 
 /** Where the menu's "help improve this translation" link goes (`app/translations`). */
