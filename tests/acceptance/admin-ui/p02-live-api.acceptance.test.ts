@@ -34,12 +34,13 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *      the 168 KB Noto Sans Latin-Extended file.
  *   6. Every route inside its byte budget, and the P01 budget re-pinned.
  *
- * THE E2E CONTRACT. Everything below that needs a browser is read from ONE run
- * of
+ * THE E2E CONTRACT. Everything below that needs a browser is read from one run
+ * per tag (see E2E_TAGS for why it is not one run of a `|` pattern) of
  *
- *     pnpm test:e2e -- --grep "@p02|@locale-beta|@fonts|@budget|@byte-budget"
+ *     node tests/e2e/scripts/run-e2e.mjs --grep <tag>
  *
- * through the reporter this suite owns (`support/e2e-outcomes-reporter.ts`),
+ * for each of @p02, @locale-beta, @fonts, @budget and @byte-budget, with no
+ * shell, through the reporter this suite owns (`support/e2e-outcomes-reporter.ts`),
  * so a test that was skipped, `fixme`d or never matched the grep does not
  * count as a pass. Note that the `@p02` pattern also matches `@p02-live`.
  *
@@ -82,8 +83,18 @@ function fromRoot(...segments: string[]): string {
 
 const LIVE_FLAG = 'admin_live_api';
 
-const E2E_GREP = '@p02|@locale-beta|@fonts|@budget|@byte-budget';
+/**
+ * One run per tag, spawned with no shell (D-L62, HANDOFF 2026-10-06 item 6).
+ * This suite once ran `pnpm test:e2e --grep "@p02|@locale-beta|…"` through a
+ * shell, and `cmd.exe` split the pattern on `|`, so on Windows it never reached
+ * Playwright. run-e2e.mjs forwards its arguments through a shell on Windows as
+ * well, so a single tag with no shell metacharacter is the portable form, as
+ * the T-0042 wrapper does it. `@p02` also selects `@p02-live`.
+ */
+const E2E_TAGS = ['@p02', '@locale-beta', '@fonts', '@budget', '@byte-budget'] as const;
+const E2E_GREP = E2E_TAGS.join(', ');
 
+/** Per run: each one builds the web app afresh. */
 const E2E_RUN_TIMEOUT_MS = 1_200_000;
 
 /** The twenty-two screens on the P02 index board, as `p02-admin.spec.ts` lists them. */
@@ -374,40 +385,51 @@ describe('acceptance: T-0035 — admin_live_api exists, is off, and cannot reach
 
 describe('acceptance: T-0035 — the console answers from the real API, in a browser', () => {
   beforeAll(() => {
-    // Stale outcomes from an earlier run would be indistinguishable from this
-    // run's, so the file goes first.
-    rmSync(OUTCOMES_FILE, { force: true });
-
     // Relative to tests/e2e, which is where run-e2e.mjs starts Playwright.
     const reporter = relative(
       fromRoot('tests', 'e2e'),
       fromRoot('tests', 'acceptance', 'support', 'e2e-outcomes-reporter.ts'),
     ).replace(/\\/g, '/');
 
-    const run = spawnSync(
-      'pnpm',
-      ['test:e2e', '--', '--grep', `"${E2E_GREP}"`, `--reporter=list,${reporter}`],
-      {
-        cwd: repoRoot,
-        encoding: 'utf8',
-        shell: true,
-        timeout: E2E_RUN_TIMEOUT_MS,
-      },
-    );
+    let status: number | null = 0;
+    let output = '';
+    // Keyed by title: a test carrying two of the tags runs twice, and a failure
+    // in either run must survive the merge.
+    let outcomes: Map<string, E2eOutcome> | undefined;
+    for (const tag of E2E_TAGS) {
+      // Stale outcomes from an earlier run would be indistinguishable from this
+      // run's, so the file goes first.
+      rmSync(OUTCOMES_FILE, { force: true });
+      const run = spawnSync(
+        process.execPath,
+        [fromRoot('tests/e2e/scripts/run-e2e.mjs'), '--grep', tag, `--reporter=list,${reporter}`],
+        {
+          cwd: repoRoot,
+          encoding: 'utf8',
+          shell: false,
+          timeout: E2E_RUN_TIMEOUT_MS,
+          maxBuffer: 64 * 1024 * 1024,
+        },
+      );
+      if (status === 0 && run.status !== 0) status = run.status;
+      output += `\n--- ${tag} (exit ${String(run.status)}) ---\n${run.stdout ?? ''}${run.stderr ?? ''}`;
+      if (existsSync(OUTCOMES_FILE)) {
+        outcomes ??= new Map();
+        for (const outcome of JSON.parse(readFileSync(OUTCOMES_FILE, 'utf8')) as E2eOutcome[]) {
+          const earlier = outcomes.get(outcome.title);
+          const earlierFailed = earlier !== undefined && earlier.status !== earlier.expectedStatus;
+          if (!earlierFailed) outcomes.set(outcome.title, outcome);
+        }
+      }
+    }
 
-    e2eRun = {
-      status: run.status,
-      output: `${run.stdout ?? ''}${run.stderr ?? ''}`,
-      outcomes: existsSync(OUTCOMES_FILE)
-        ? (JSON.parse(readFileSync(OUTCOMES_FILE, 'utf8')) as E2eOutcome[])
-        : undefined,
-    };
-  }, E2E_RUN_TIMEOUT_MS);
+    e2eRun = { status, output, outcomes: outcomes ? [...outcomes.values()] : undefined };
+  }, E2E_RUN_TIMEOUT_MS * E2E_TAGS.length);
 
   it('keeps the whole run green, the mocked @p02 suite with the flag at its default included', () => {
     expect(
       e2eRun.status,
-      `pnpm test:e2e --grep "${E2E_GREP}" did not exit 0:\n${e2eRun.output.slice(-6000)}`,
+      `run-e2e.mjs --grep, once for each of ${E2E_GREP}, did not exit 0:\n${e2eRun.output.slice(-6000)}`,
     ).toBe(0);
   });
 
