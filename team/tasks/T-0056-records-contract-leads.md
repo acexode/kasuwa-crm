@@ -1,6 +1,6 @@
 # T-0056 — Records contract: leads (D-P17)
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 3 · **priority** P1 (blocks T-0076, T-0058) · **decisions** D-P17 (answered), D-L61, D-L69, D-P13
+**status** `done` (#97) · **owner** Agent 3 · **priority** P1 (blocks T-0076, T-0058) · **decisions** D-P17 (answered), D-L61, D-L69, D-P13
 
 ## Goal
 Extend `docs/api/records.openapi.yaml` (ADR-0004, the contract only). A lead is a contact at a lead stage (D-P17), so there is no
