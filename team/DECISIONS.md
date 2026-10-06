@@ -1626,6 +1626,9 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
 - **Follow-up:** a migration that makes record ids immutable for `kasuwa_app` on `contact` and `account`. That means a trigger,
   or narrowing the UPDATE privilege to exclude `id`, `tenant_id` and `programme_id`. Moving a record between programmes
   should be a deliberate operation, never a field edit. Not yet assigned.
+- **The guard must be an allow-list** (T-0054 migration re-review). 0026's `app.guard_account_id_fixed()` refuses only
+  `kasuwa_app`, by name, and lets every other role through. `kasuwa_test_admin` (BYPASSRLS) can already change `account.id`.
+  The follow-up migration replaces it with "refuse unless `kasuwa_migrator`". T-0060 uses the allow-list form from the start.
 ### D-L77 — T-0060 activity table rulings (lead, reversible; from the T-0060 suite writer)
 **Status:** PROCEEDING (lead).
 - **Migration number.** T-0060 takes **0027**; `agent3/T-0060` may create that file only. T-0054 holds 0026 (#98). The suite
