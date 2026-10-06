@@ -1,4 +1,9 @@
-import { resolveContactFieldAccess, type Contact } from '@kasuwa/domain-core';
+import {
+  WITHHOLDABLE_CONTACT_FIELDS,
+  type Contact,
+  type ContactFieldAccess,
+  type ContactFieldLevel,
+} from '@kasuwa/domain-core';
 import { describe, expect, it } from 'vitest';
 import { toContactWire, withheldWireFields } from './contact-wire';
 
@@ -34,14 +39,16 @@ const contact: Contact = {
   updatedAt: new Date('2026-01-02T00:00:00Z'),
 };
 
-const accessWith = (level: 'none' | 'read' | 'edit') =>
-  resolveContactFieldAccess({
-    programmeSets: new Map([[A1, 'agent']]),
-    reachableProgrammeIds: [A1],
-    matrix: [
-      { fieldApiName: 'emails', cells: [{ permissionSetId: 'agent', level, locked: false }] },
+/** Every field edit in A1, except emails at `level`. */
+const accessWith = (level: ContactFieldLevel): ContactFieldAccess =>
+  new Map([
+    [
+      A1,
+      new Map(
+        WITHHOLDABLE_CONTACT_FIELDS.map((field) => [field, field === 'emails' ? level : 'edit'] as const),
+      ),
     ],
-  });
+  ]);
 
 const ownerAccess = (level: 'none' | 'read' | 'edit') =>
   resolveContactFieldAccess({

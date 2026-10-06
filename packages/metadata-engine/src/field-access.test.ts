@@ -1,7 +1,12 @@
 import { STANDARD_OBJECT_CATALOGUE, type TenantTx } from '@kasuwa/db';
 import { describe, expect, it } from 'vitest';
 import { isValidApiName } from './api-name';
-import { loadFieldAccess, resolveFieldAccess, type FieldAccessGrant } from './field-access';
+import {
+  fieldLevel,
+  loadFieldAccess,
+  resolveFieldAccess,
+  type FieldAccessGrant,
+} from './field-access';
 import { FIELD_CLASSIFICATIONS } from './field-security';
 import { UnknownObjectDefError } from './repository';
 import { FIELD_TYPES, parseFieldConfig } from './types';
@@ -104,6 +109,22 @@ describe('resolveFieldAccess', () => {
       reachableProgrammeIds: [A1],
     });
     expect([...(access.get(A1)?.keys() ?? [])]).toEqual(['name']);
+  });
+});
+
+describe('fieldLevel', () => {
+  const access = resolve([{ programmeId: A1, permissionSetId: AGENT, locked: false }]);
+
+  it('reads the resolved level', () => {
+    expect(fieldLevel(access, A1, 'emails')).toBe('none');
+    expect(fieldLevel(access, A1, 'phones')).toBe('read');
+    expect(fieldLevel(access, A1, 'given_names')).toBe('edit');
+  });
+
+  it('fails closed on a programme or a field the map does not carry, never the default', () => {
+    expect(fieldLevel(access, A2, 'given_names')).toBe('none');
+    expect(fieldLevel(access, A1, 'no_such_field')).toBe('none');
+    expect(fieldLevel(new Map(), A1, 'emails')).toBe('none');
   });
 });
 

@@ -39,8 +39,27 @@ import { UnknownObjectDefError } from './repository';
  * and its fields are the tenant's; only the memberships are per programme.
  */
 
-/** Programme id -> field api_name -> level. */
+/**
+ * Programme id -> field api_name -> level.
+ *
+ * Read it with `fieldLevel`, not `.get()`: `.get()` answers `undefined` for a
+ * programme or field the map does not carry, and a caller that treats
+ * `undefined` as "no decision, so the D-L45 default" fails OPEN.
+ */
 export type FieldAccess = ReadonlyMap<string, ReadonlyMap<string, FieldAccessLevel>>;
+
+/**
+ * The caller's level for one field in one programme. Anything the access map
+ * does not carry - a programme outside the session's scope, a field the object
+ * does not have - is `none`: fail closed, never the default.
+ */
+export function fieldLevel(
+  access: FieldAccess,
+  programmeId: string,
+  fieldApiName: string,
+): FieldAccessLevel {
+  return access.get(programmeId)?.get(fieldApiName) ?? 'none';
+}
 
 export interface FieldAccessGrant {
   fieldApiName: string;

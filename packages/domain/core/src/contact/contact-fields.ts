@@ -18,8 +18,10 @@
  *   - A reachable programme with NO membership row at all (a revocation that
  *     committed mid-request) is `none` for every field: fail closed.
  *
- * Pure: the caller loads the matrix (metadata-engine) and the memberships
- * (permissions) and hands them in. Every rule here is unit-tested.
+ * Pure. Since T-0053 the matrix rules above are applied by
+ * `loadFieldAccess(tx, 'contact')` in @kasuwa/metadata-engine (and unit-tested
+ * there); this file maps that answer to wire names and answers the questions
+ * the contacts API asks of it.
  */
 
 export type ContactFieldLevel = 'none' | 'read' | 'edit';
@@ -62,56 +64,11 @@ export function contactFieldApiName(field: WithholdableContactField): string {
   return field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
 
-const RANK: Record<ContactFieldLevel, number> = { none: 0, read: 1, edit: 2 };
-
-/** D-L45: a cell nobody saved. */
-const DEFAULT_LEVEL: ContactFieldLevel = 'edit';
-
-/** The matrix for `contact`, as metadata-engine reads it (only what is needed). */
-export interface ContactMatrixRow {
-  fieldApiName: string;
-  cells: readonly { permissionSetId: string; level: ContactFieldLevel; locked: boolean }[];
-}
-
 /** Programme id -> wire field -> level, for every programme the session reaches. */
 export type ContactFieldAccess = ReadonlyMap<
   string,
   ReadonlyMap<WithholdableContactField, ContactFieldLevel>
 >;
-
-/**
- * Resolves the caller's level for every withholdable field in every programme
- * they reach. `matrix` is null when the tenant has no `contact` object yet,
- * which means no decision was ever saved: everything is `edit` (D-L45).
- */
-export function resolveContactFieldAccess(input: {
-  /** Programme id -> the set key held there, or null for no set. */
-  programmeSets: ReadonlyMap<string, string | null>;
-  reachableProgrammeIds: readonly string[];
-  matrix: readonly ContactMatrixRow[] | null;
-}): ContactFieldAccess {
-  const rows = new Map((input.matrix ?? []).map((row) => [row.fieldApiName, row]));
-  const access = new Map<string, Map<WithholdableContactField, ContactFieldLevel>>();
-  for (const programmeId of input.reachableProgrammeIds) {
-    const levels = new Map<WithholdableContactField, ContactFieldLevel>();
-    if (!input.programmeSets.has(programmeId)) {
-      // FAIL CLOSED. A programme in the session's scope with no membership
-      // row in this read (revoked mid-request, or a read that returned
-      // nothing) has no known set, and the matrix that came with it cannot be
-      // trusted to be complete: every field is `none`, never the default.
-      for (const field of WITHHOLDABLE_CONTACT_FIELDS) levels.set(field, 'none');
-      access.set(programmeId, levels);
-      continue;
-    }
-    const setKey = input.programmeSets.get(programmeId) ?? null;
-    for (const field of WITHHOLDABLE_CONTACT_FIELDS) {
-      const row = rows.get(contactFieldApiName(field));
-      levels.set(field, row === undefined ? DEFAULT_LEVEL : levelFor(row, setKey));
-    }
-    access.set(programmeId, levels);
-  }
-  return access;
-}
 
 /**
  * Contact field access from the generic per-object answer (T-0053):
@@ -138,18 +95,6 @@ export function contactFieldAccessFromObjectAccess(
     access.set(programmeId, levels);
   }
   return access;
-}
-
-function levelFor(row: ContactMatrixRow, setKey: string | null): ContactFieldLevel {
-  if (setKey !== null) {
-    return row.cells.find((cell) => cell.permissionSetId === setKey)?.level ?? DEFAULT_LEVEL;
-  }
-  // No set: never more than the weakest unlocked set.
-  let weakest: ContactFieldLevel = DEFAULT_LEVEL;
-  for (const cell of row.cells) {
-    if (!cell.locked && RANK[cell.level] < RANK[weakest]) weakest = cell.level;
-  }
-  return weakest;
 }
 
 /**
