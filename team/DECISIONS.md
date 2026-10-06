@@ -1439,3 +1439,23 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
 - **Booking pages** need a public write before sign-in, which means a third SECURITY DEFINER function. That needs an ADR
   (CLAUDE.md 2.7).
 - **Public holidays:** someone has to own and maintain the holiday calendar.
+### D-L70 — T-0049 review rulings (lead, 2026-10-06)
+**Status:** PROCEEDING (lead). It came from the security, tenancy and migration reviews of T-0049.
+- **`auth_rate_limit` joins the revoke.** `kasuwa_app` loses INSERT, UPDATE, DELETE and TRUNCATE on it in 0024.
+  - The lockout key is an unkeyed hash of ids a tenant member already knows. So an injection could clear a victim's MFA lockout
+    and brute-force TOTP. The migration review reproduced this on a real Postgres.
+  - Every writer already runs on the auth pool, so the revoke costs nothing.
+  - The FINDING-3 guard now accepts 42501 (bcc52cf).
+- **Accepted deviation from D-P16: sign-in's read phase stays on the app pool.** This means `kasuwa_app` keeps SELECT on password
+  hashes, and on the MFA columns, which hold envelope ciphertext. That is not a regression: it could read them before T-0049.
+  - **Why accepted for now:** the T-0045 part-2 starvation test as written needs one 503 from one pool.
+  - **Follow-up, T-0075:**
+    1. Restate T-0045 part 2 as "either pool exhausted" (a lead suite edit).
+    2. Move phase one to the auth pool.
+    3. Revoke `kasuwa_app`'s SELECT, column by column, on `user_credential.password_hash`, the `user_mfa_factor.secret*` columns and
+       `user_mfa_backup_code.code_hash` / `hash_key_wrapped`.
+    4. Drop the legacy plaintext `user_mfa_factor.secret` column.
+- **Expand and contract ship in one file (0024).** That is acceptable only under D-L65, because no populated cell exists. When
+  a cell does exist, deploy the new API with `DATABASE_AUTH_URL` before running 0024, or roll forward.
+- **Shared local database hazard.** Once any worktree migrates the shared `kasuwa-postgres` container past 0024, worktrees
+  still on an older main cannot sign in until they rebase. Run `pnpm db:reset` after pulling 0024.
