@@ -2,6 +2,7 @@ import { IntlMessageFormat } from 'intl-messageformat';
 import { DEFAULT_LOCALE, PSEUDO_LOCALE, fallbackChain } from './bundle';
 import { DESIGN_MENU_LOCALES, LOCALE_SOURCES } from './catalogues';
 import { deriveBetaLocales, deriveSupportedLocales, localeReadiness } from './completeness';
+import { pseudoCatalogue } from './pseudo';
 import type { Catalogue, MessageId } from './message-id';
 import type { MessageBundle, Translator } from './bundle';
 import en from './locales/en.json';
@@ -97,16 +98,27 @@ const BASE: Record<string, Catalogue> = Object.fromEntries(
   Object.entries(LOCALE_SOURCES).map(([locale, entry]) => [locale, entry.messages as Catalogue]),
 );
 
-let pseudoCatalogue: Catalogue | undefined;
+/**
+ * The pseudo-locale, DERIVED from `en` on first use (T-0042). Nothing ever
+ * called the old `registerPseudoCatalogue`, so `?locale=en-XA` silently
+ * rendered English and the check it exists for could not run. Deriving it
+ * costs one pass over `en` on the server, never ships a catalogue to the
+ * browser, and cannot drift from the source the way a generated file can.
+ *
+ * `en-XA` is a PREVIEW locale like `ar`: reachable by `?locale=`, on no menu,
+ * persisted nowhere (`apps/web/lib/locale.ts`).
+ */
+let pseudo: Catalogue | undefined;
 
-/** Registers the generated pseudo-locale. Called by the web app in CI builds. */
+/** Overrides the derived pseudo-locale, for a test that needs a fixed one. */
 export function registerPseudoCatalogue(catalogue: Catalogue): void {
-  pseudoCatalogue = catalogue;
+  pseudo = catalogue;
 }
 
 function catalogueFor(locale: string): Catalogue | undefined {
   if (locale === PSEUDO_LOCALE) {
-    return pseudoCatalogue;
+    pseudo ??= pseudoCatalogue(en) as Catalogue;
+    return pseudo;
   }
   return BASE[locale];
 }
@@ -177,6 +189,7 @@ export function bundleMessages(locale: string, ids: readonly MessageId[]): Messa
 
 export const MESSAGE_IDS = Object.keys(en) as MessageId[];
 
+export { pseudoCatalogue, pseudoMessage } from './pseudo';
 export { requiredPluralCategories, PLURAL_CATEGORIES } from './plurals';
 export type { PluralCategory } from './plurals';
 export {

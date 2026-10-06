@@ -3,6 +3,7 @@ import {
   BETA_LOCALES,
   DEFAULT_LOCALE,
   MENU_LOCALES,
+  PSEUDO_LOCALE,
   REGISTERED_LOCALES,
   SUPPORTED_LOCALES,
   createTranslator,
@@ -51,7 +52,9 @@ export async function activeLocale(): Promise<ActiveLocale> {
   const requestHeaders = await headers();
   const preview = requestHeaders.get(PREVIEW_LOCALE_HEADER);
 
-  if (preview !== null && REGISTERED_LOCALES.includes(preview)) {
+  // `en-XA` is derived, not registered, and previewable for the same reason as
+  // `ar`: a check (strings never externalised) that needs a real screen.
+  if (preview !== null && (REGISTERED_LOCALES.includes(preview) || preview === PSEUDO_LOCALE)) {
     return { locale: preview, dir: textDirection(preview), preview: true };
   }
 

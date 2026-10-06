@@ -448,6 +448,41 @@ function startSelfServeWeb(apiUrl, port) {
   return child;
 }
 
+/**
+ * THE THIRD WEB SERVER — `crm_records` ON, SERVER-SIDE (T-0042, D-L64).
+ *
+ * The SAME production build as the default server (`next start` over `.next`),
+ * because the `/contacts` byte budget is measured here and a dev bundle is not
+ * a budget (D-L28). `crm_records` is not production-ready until T-0041 is live,
+ * and a NODE_ENV=production process that names it refuses to boot — so this
+ * one process runs with NODE_ENV=test, exactly as D-L64 rules. The guard itself
+ * is untouched; the default server above stays flagless.
+ */
+function startRecordsWeb(apiUrl, port) {
+  const child = spawn('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
+    cwd: WEB_DIR,
+    shell: process.platform === 'win32',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      NODE_ENV: 'test',
+      // The real mode, as on the default server: the web process proxies
+      // `/api/v1` and authenticates nobody itself (T-0014).
+      KASUWA_AUTH_MODE: 'jwt',
+      NEXT_PUBLIC_API_URL: apiUrl,
+      NEXT_TELEMETRY_DISABLED: '1',
+      KASUWA_FEATURE_FLAGS_ON: 'crm_records',
+      ...NO_DATABASE_URLS,
+    },
+  });
+  pipeTo(child, 'web:records');
+  cleanups.push(async () => {
+    killTree(child);
+    await waitForPortClosed(port);
+  });
+  return child;
+}
+
 function runPlaywright() {
   const args = [
     'exec',
@@ -496,6 +531,7 @@ async function main() {
   let apiUrl = '';
   let webUrl = '';
   let webSelfServeUrl = '';
+  let webRecordsUrl = '';
 
   if (!wantsOverBudget) {
     // The API's port is chosen first because the web build needs it (see
@@ -525,18 +561,23 @@ async function main() {
     webUrl = `http://127.0.0.1:${webPort}`;
     const selfServePort = await freePort();
     webSelfServeUrl = `http://127.0.0.1:${selfServePort}`;
+    const recordsPort = await freePort();
+    webRecordsUrl = `http://127.0.0.1:${recordsPort}`;
     startWeb(apiUrl, webPort);
     startSelfServeWeb(apiUrl, selfServePort);
+    startRecordsWeb(apiUrl, recordsPort);
     // The production server is ready when it answers; the dev server also
     // compiles its first route on that request, which keeps the compile out of
     // a spec's navigation.
     await Promise.all([
       waitForHttp(webUrl, 'the web app'),
       waitForHttp(webSelfServeUrl, 'the self-serve web app'),
+      waitForHttp(webRecordsUrl, 'the crm_records web app'),
     ]);
     restoreNextEnv(nextEnv);
     log(`web (next start, production build) on ${webUrl}`);
     log(`web (next dev, self_serve_signup + admin_live_api on) on ${webSelfServeUrl}`);
+    log(`web (next start, production build, crm_records on) on ${webRecordsUrl}`);
   }
 
   // One file per Playwright project, not a shared `stack.json`. Two
@@ -553,7 +594,7 @@ async function main() {
     `${JSON.stringify(
       // `webLiveUrl` is the same process as `webSelfServeUrl`; the second name
       // says which flag a spec is relying on (T-0035).
-      { webUrl, webSelfServeUrl, webLiveUrl: webSelfServeUrl, apiUrl, fixturesUrl },
+      { webUrl, webSelfServeUrl, webLiveUrl: webSelfServeUrl, webRecordsUrl, apiUrl, fixturesUrl },
       null,
       2,
     )}\n`,
