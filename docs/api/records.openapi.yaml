@@ -48,8 +48,9 @@ info:
   version: 0.1.0-T-0039
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
-    update. Accounts, leads and custom-field values follow in later slices
-    (D-L60) and will be added to this file.
+    update. Accounts (T-0052, contract only until T-0055): list, get, create,
+    update, and an account's contacts. Leads (D-P17) and custom-field values
+    follow in later slices (D-L60) and will be added to this file.
 
     **Errors.** Every failure uses the shared `Error` envelope from
     `admin.openapi.yaml`. Switch on `code`, never on `message`. The web app
@@ -76,6 +77,8 @@ servers:
         default: api.kasuwa.example
 
 tags:
+  - name: accounts
+    description: Organisations a programme sells to, serves or collects from.
   - name: contacts
     description: People a programme sells to, serves or collects from.
 
@@ -392,6 +395,387 @@ paths:
   # them; see the T-0039 report. A map operation, when one is added, starts as
   # `x-kasuwa-implemented: false` with a 501.
 
+  # -------------------------------------------------------------------------
+  # Accounts (T-0052, D-L69). CONTRACT ONLY: no route answers yet; T-0055
+  # implements it and flips `x-kasuwa-implemented`. The five rules at the top
+  # of this file apply unchanged. Account writes are admin-only until D-P18
+  # answers (D-L69), exactly as contact writes were in T-0041 (D-L63).
+  #
+  # Deliberately absent (D-L69): account Health and any score (M17), a rollup
+  # of deals or pipeline value (no owning module), counts of related records
+  # or children (D-P13), "Show US$" (FX, M05), and DND on account phones (no
+  # decision yet says where that flag lives for an account). Leads are not
+  # here (D-P17).
+  # -------------------------------------------------------------------------
+
+  /api/v1/accounts:
+    get:
+      tags: [accounts]
+      summary: List accounts — search, filter, sort, keyset page
+      operationId: listAccounts
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P04/03', 'P04/05', 'P04/06']
+      description: |
+        The P04 Accounts list (frame 03: table, card list, split view). Rows
+        come only from the programmes the session reaches. There is no
+        parameter that narrows or widens that set; in particular there is no
+        `programme` filter, because a client-supplied programme list is what
+        CLAUDE.md 2.2 calls a bug. A screen that wants one programme's
+        accounts filters client-side on `programmeId`.
+
+        Unknown query parameters are ignored, never honoured. A scope header
+        is `400 validation_failed` (D-L63).
+
+        **Field security and the query.** `q` matches `name` only, which is
+        never withheld. A filter on a field withheld from the caller in ANY
+        programme they reach is `400 validation_failed` with
+        `details[].code: field_withheld`, naming the parameter in
+        `details[].path`. Field names are part of the schema, not data, so
+        this discloses nothing; ignoring the filter instead would return rows
+        that look filtered and are not. Sorting is limited to the `sort` enum,
+        whose keys are fields field security never withholds.
+
+        **No totals** (D-P13). P04's "1–25 of 1,234" and live chip counts are
+        not served.
+
+        A malformed cursor, or one issued for a different `sort`, is
+        `validation_failed` with `details[].code: invalid_cursor`.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: |
+            Search by account name: a case- and diacritic-insensitive
+            substring match on `name` (`Oja` finds `Ọjà Foods Ltd`). Accounts
+            are not searched by phone in this slice.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+            description: Part of the account name.
+        - name: owner
+          in: query
+          required: false
+          description: |
+            Owner filter, any of. Each value is a user id, `me` (the caller),
+            or `unassigned` (no owner). Repeat the parameter for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 20
+            items:
+              type: string
+              pattern: '^(me|unassigned|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$'
+        - name: tier
+          in: query
+          required: false
+          description: Any of. Repeat the parameter for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 10
+            items: { $ref: '#/components/schemas/AccountTier' }
+        - name: industry
+          in: query
+          required: false
+          description: |
+            Any of. Matched against the stored value exactly,
+            case-insensitively. Repeat the parameter for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 20
+            items: { type: string, minLength: 1, maxLength: 64 }
+        - name: tag
+          in: query
+          required: false
+          description: Accounts carrying any of these tags. Exact match, case-insensitive.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 20
+            items: { type: string, minLength: 1, maxLength: 64 }
+        - name: state
+          in: query
+          required: false
+          description: |
+            State (first-level subdivision), any of. Matched as on
+            listContacts: the stored value exactly, case-insensitively.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 40
+            items: { type: string, minLength: 1, maxLength: 64 }
+        - name: lga
+          in: query
+          required: false
+          description: Local government area, any of. Same matching as `state`.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 40
+            items: { type: string, minLength: 1, maxLength: 64 }
+        - name: sort
+          in: query
+          required: false
+          description: |
+            One of a fixed set; a leading `-` is descending. **Deliberately not
+            a free column name**, and every key is a field field security
+            never withholds: ordering by `tier`, `industry` or the owner would
+            leak a withheld value one comparison at a time. Ties break on `id`,
+            so the keyset is total.
+          schema:
+            type: string
+            enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt', 'name', '-name']
+            default: 'name'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountPage' }
+              example:
+                data:
+                  - id: 5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    version: 2
+                    name: Ọjà Foods Ltd
+                    ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    owner:
+                      id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                      displayName: Kemi Balogun
+                    industry: FMCG
+                    tier: mid_market
+                    tags: [Distributor]
+                    phones: [{ type: work, e164: '+2348030000101' }]
+                    state: Lagos
+                    lga: Ikeja
+                    parentAccountId: null
+                    createdAt: '2026-10-01T09:12:00.000Z'
+                    updatedAt: '2026-10-03T14:40:00.000Z'
+                    withheldFields: []
+                nextCursor: null
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+
+    post:
+      tags: [accounts]
+      summary: Create an account
+      operationId: createAccount
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P04/03', 'P04/05']
+      description: |
+        **Target programme.** As createContact. If the caller reaches exactly
+        one programme, `programmeId` may be omitted and the server uses that
+        one. If they reach several, it is required (`400 validation_failed`
+        at `programmeId` when missing). A `programmeId` they do not reach is
+        `404 not_found`, the same body as a programme that does not exist;
+        never `403`, which would confirm the programme is real.
+
+        **Permission.** Creating needs `account.write` in the target programme,
+        held by the `admin` set or the tenant-admin flag, as `contact.write`
+        is (D-L63, D-L69; D-P18 may widen it). Without it: `403 not_permitted`,
+        decided before the body is read, so the `programmeId` rules above never
+        tell a caller without the permission how many programmes it reaches.
+        Setting a field the caller may not edit is `403 not_permitted` with
+        `details[].code: field_not_editable`. The tenant-admin flag never lifts
+        field security.
+
+        **References.** `ownerUserId` must be a member of the target programme
+        (D-L67, as for contacts). `parentAccountId` must name an account in the
+        target programme: an account hierarchy never crosses the BPO boundary,
+        so a caller who can read an account can always reach its parent.
+        Anything else, whether it names another programme's or another
+        tenant's row or nothing at all, is `400 validation_failed` with
+        `details[].code: unknown_reference`.
+
+        **Response.** The created record, through the same field-security rule
+        as a read. Every create writes an audit event (`objectType: account`,
+        labelled with the record id; changes are field names, never values).
+        Duplicate detection and merge are not part of this slice (D-P12).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateAccountRequest' }
+            example:
+              name: Kano Grains Co.
+              industry: Agriculture
+              tier: sme
+              phones: [{ type: work, e164: '+2348060000102' }]
+              state: Kano
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Account' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/AccountNotPermitted' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+
+  # A concrete path, so it is matched before /api/v1/accounts/{accountId}
+  # (and `map` is not a uuid, so it could never name an account).
+  /api/v1/accounts/map:
+    get:
+      tags: [accounts]
+      summary: Accounts map view (not built)
+      operationId: getAccountMap
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P04/04']
+      description: |
+        **Not built; answers `501 not_implemented`** after authentication
+        (an unauthenticated call is still `401`). The P04/04 Map groups
+        accounts by State with a pin per State, which is a count per group:
+        a total by another name (D-P13), and on a withheld `state` a
+        disclosure. The Map view is M03 P2 and no slice owns it (D-L69). The
+        screen hides the Map view switch until this operation is built.
+      responses:
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/accounts/{accountId}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [accounts]
+      summary: Get one account
+      operationId: getAccount
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P04/03']
+      description: |
+        The split-view preview (P04/03). Out of scope is `404`, never `403`:
+        no such account, an account in another tenant and an account in a
+        programme of this tenant the caller does not reach get one body.
+
+        Recent activity, calls and messages in the preview are not account
+        properties; they come from the activities slice (P07), not here.
+      responses:
+        '200':
+          description: The account, field security applied.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Account' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+
+    patch:
+      tags: [accounts]
+      summary: Update an account (inline edit of owner, tier and the rest)
+      operationId: updateAccount
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P04/03']
+      description: |
+        Partial update: absent properties are unchanged; `null` clears a
+        nullable field. `version` is required and must equal the record's
+        current `version`, otherwise `409 stale_write`. Re-read; do not retry
+        blind.
+
+        **No `programmeId`.** Moving an account across the BPO isolation
+        boundary is not a field edit; sending it is `400` (the body is closed).
+
+        **Permission.** The record must be readable (else `404`). Editing it
+        needs `account.write` in the record's programme (else
+        `403 not_permitted`), and each field sent needs edit under field
+        security (else `403 not_permitted` with
+        `details[].code: field_not_editable`). A caller cannot clear a field
+        they cannot read.
+
+        **References.** As createAccount, judged in the record's programme:
+        `ownerUserId` must be a member of it (D-L67) and `parentAccountId` an
+        account in it, else `400 unknown_reference`. An account may not be its
+        own ancestor: a `parentAccountId` that would close a cycle is
+        `400 validation_failed` with `details[].code: parent_cycle` at
+        `parentAccountId`.
+
+        Order: `404`, `403` (including `field_not_editable`), `400`, then
+        `409 stale_write`. Every update writes an audit event recording which
+        fields changed, never their values.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateAccountRequest' }
+            example:
+              version: 2
+              tier: enterprise
+              ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+      responses:
+        '200':
+          description: The updated account, field security applied. `version` has advanced.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Account' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/AccountNotPermitted' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '409': { $ref: '#/components/responses/StaleWrite' }
+
+  /api/v1/accounts/{accountId}/contacts:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [accounts]
+      summary: The account's contacts the caller can reach
+      operationId: listAccountContacts
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P04/03', 'P04/05', 'P04/06']
+      description: |
+        Contacts whose `accountId` is this account, as `Contact` rows under
+        Contact field security: exactly what listContacts would return for
+        the filter `accountId = {accountId}`. A contact's account is always in
+        the contact's programme (the composite foreign key), so every row is
+        in the account's programme. Same keyset paging and page shape as
+        listContacts, and no total (D-P13).
+
+        **Out of scope is `404`, never `403`.** An account the caller cannot
+        reach gets the same body as one that does not exist; that check comes
+        first.
+
+        **When `accountId` is withheld.** Listing an account's contacts IS a
+        filter on the contact's `accountId`, and it discloses exactly the link
+        field security withholds (P04/02 locks a contact's Account column for
+        the agent role). So if field security withholds the contact field
+        `accountId` from the caller in the account's programme, the answer is
+        `400 validation_failed` with `details[].code: field_withheld` at
+        `details[].path: accountId`, the same rule as a filter on a withheld
+        field on listContacts. Rows are never returned in that case.
+      parameters:
+        - name: sort
+          in: query
+          required: false
+          description: |
+            As listContacts' `sort`: a fixed set of never-withheld keys, a
+            leading `-` descending, ties broken on `id`.
+          schema:
+            type: string
+            enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt', 'displayName', '-displayName']
+            default: 'displayName'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of the account's contacts, field security applied.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContactPage' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+
 components:
   securitySchemes:
     sessionToken:
@@ -413,6 +797,15 @@ components:
         A record identifier. An id the caller cannot reach, whether in another
         tenant, another programme or nowhere, is `404 not_found`. A value that
         is not a uuid is `400`.
+    AccountId:
+      name: accountId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        An account identifier. An id the caller cannot reach, whether in
+        another tenant, another programme or nowhere, is `404 not_found`. A
+        value that is not a uuid is `400`.
     Cursor:
       name: cursor
       in: query
@@ -652,6 +1045,189 @@ components:
         whatsappOptIn: { type: boolean }
         consentState: { $ref: '#/components/schemas/ConsentState' }
 
+    AccountTier:
+      type: string
+      enum: [enterprise, mid_market, sme]
+      description: |
+        Snake_case codes (D-L61); P04's labels ("Enterprise", "Mid-market",
+        "SME") are i18n strings, never values. The column is T-0054's; this
+        set is the contract it must store.
+
+    AccountOwner:
+      type: object
+      additionalProperties: false
+      required: [id, displayName]
+      description: |
+        Closed: an id and a name to print, nothing else. No email, phone,
+        locale, status or programme. The same shape as the contact's owner
+        (T-0043); the two may become one shared schema.
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+
+    Account:
+      type: object
+      required: [id, programmeId, name, version, createdAt, updatedAt, withheldFields]
+      description: |
+        One account (an organisation) as the caller may see it.
+
+        **Withheld fields are omitted, never nulled.** A property the caller's
+        permission sets may not read is absent from the object and its name is
+        in `withheldFields`. A present `null` means the record has no value.
+        That is why every withholdable property is optional, and why `tags`
+        and `phones` are never nullable: an empty list means none.
+
+        `id`, `programmeId`, `name`, `version`, `createdAt`, `updatedAt` and
+        `withheldFields` are never withheld; `sort` uses only these.
+
+        **Not here, deliberately (D-L69):** Health or any score (M17), deal or
+        pipeline rollups, counts of contacts or other related records (D-P13),
+        and a list of child accounts. The hierarchy is the one
+        `parentAccountId` link.
+      properties:
+        id: { type: string, format: uuid }
+        programmeId:
+          type: string
+          format: uuid
+          description: The programme the account belongs to. Read-only; set once at create.
+        name: { type: string, minLength: 1, maxLength: 200 }
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic-concurrency token. Send it back on updateAccount.
+        ownerUserId:
+          type: [string, 'null']
+          format: uuid
+          description: |
+            `null` is unassigned. Withheld together with `owner`: when field
+            security withholds the owner, both are omitted and listed.
+        owner:
+          description: |
+            The owner with a display name to print, embedded as T-0043 does
+            for contacts. `null` exactly when `ownerUserId` is `null`;
+            otherwise `owner.id` equals `ownerUserId`. Read in the same scoped
+            query as the account, so a name is only ever sent for the owner of
+            a record the caller can already see: this is not a user directory.
+            Read-only; a write sets `ownerUserId`.
+          oneOf:
+            - { $ref: '#/components/schemas/AccountOwner' }
+            - { type: 'null' }
+        industry:
+          type: [string, 'null']
+          maxLength: 64
+          description: Free text as the tenant records it (`FMCG`, `Agriculture`). No enum in this slice.
+        tier:
+          description: '`null` when not set.'
+          oneOf:
+            - { $ref: '#/components/schemas/AccountTier' }
+            - { type: 'null' }
+        tags:
+          type: array
+          description: Empty when none.
+          items: { type: string, maxLength: 64 }
+        phones:
+          type: array
+          description: |
+            E.164. No DND flag here yet: no decision says where it lives for an
+            account's numbers, so a screen must not infer one.
+          items: { $ref: '#/components/schemas/Phone' }
+        state: { type: [string, 'null'], maxLength: 64 }
+        lga: { type: [string, 'null'], maxLength: 64 }
+        parentAccountId:
+          type: [string, 'null']
+          format: uuid
+          description: |
+            The parent organisation, always in the same programme. `null` for a
+            top-level account.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        withheldFields:
+          type: array
+          description: |
+            Names of the properties above that field security withheld from
+            this caller. Those properties are omitted from the object, never
+            sent as `null`. Always present; empty when nothing was withheld.
+          items: { type: string }
+
+    AccountPage:
+      type: object
+      required: [data, nextCursor]
+      description: |
+        Keyset page. No total, offset or page number (D-P13). `nextCursor` is
+        `null` on the last page.
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Account' }
+        nextCursor: { type: [string, 'null'] }
+
+    CreateAccountRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      description: |
+        Closed: an unknown property, or a server-owned one (`id`, `version`,
+        `owner`, timestamps, `withheldFields`), is `400`. The owner is set by
+        `ownerUserId`; its display name is the server's.
+      properties:
+        programmeId:
+          type: string
+          format: uuid
+          description: Target programme; see the operation. Unreachable is `404`.
+        name: { type: string, minLength: 1, maxLength: 200 }
+        ownerUserId: { type: [string, 'null'], format: uuid }
+        industry: { type: [string, 'null'], minLength: 1, maxLength: 64 }
+        tier:
+          oneOf:
+            - { $ref: '#/components/schemas/AccountTier' }
+            - { type: 'null' }
+        tags:
+          type: array
+          maxItems: 50
+          items: { type: string, minLength: 1, maxLength: 64 }
+        phones:
+          type: array
+          maxItems: 10
+          items: { $ref: '#/components/schemas/Phone' }
+        state: { type: [string, 'null'], maxLength: 64 }
+        lga: { type: [string, 'null'], maxLength: 64 }
+        parentAccountId: { type: [string, 'null'], format: uuid }
+
+    UpdateAccountRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      minProperties: 2
+      description: |
+        Closed. `version` plus at least one field. There is no `programmeId`
+        (an account does not move between programmes) and no `owner` (set
+        `ownerUserId`). Server-owned properties are `400`.
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          description: The `version` from your last read. Not current is `409 stale_write`.
+        name: { type: string, minLength: 1, maxLength: 200 }
+        ownerUserId: { type: [string, 'null'], format: uuid }
+        industry: { type: [string, 'null'], minLength: 1, maxLength: 64 }
+        tier:
+          oneOf:
+            - { $ref: '#/components/schemas/AccountTier' }
+            - { type: 'null' }
+        tags:
+          type: array
+          maxItems: 50
+          description: Replaces the whole list.
+          items: { type: string, minLength: 1, maxLength: 64 }
+        phones:
+          type: array
+          maxItems: 10
+          description: Replaces the whole list.
+          items: { $ref: '#/components/schemas/Phone' }
+        state: { type: [string, 'null'], maxLength: 64 }
+        lga: { type: [string, 'null'], maxLength: 64 }
+        parentAccountId: { type: [string, 'null'], format: uuid }
+
   responses:
     ValidationFailed:
       description: |
@@ -761,6 +1337,62 @@ components:
             error: Conflict
             code: stale_write
             message: Someone else saved changes while you were editing. Reload and try again.
+
+    AccountNotFound:
+      description: |
+        **One body for all of:** no such account, an account in another
+        tenant, an account in a programme of this tenant the caller does not
+        reach, and (on create) a target programme they do not reach. A `403`
+        here would confirm the id names something real.
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          example:
+            statusCode: 404
+            error: Not Found
+            code: not_found
+            message: Not found
+
+    AccountNotPermitted:
+      description: |
+        **Writes only, and never a substitute for `404`.** The caller can read
+        the account (or reaches the target programme) and may not perform this
+        write, or may not edit a field they sent. If they cannot read it, the
+        answer is `404`.
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            action:
+              summary: No create or edit permission on accounts
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+            field:
+              summary: A field the caller may not edit
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: tier
+                    code: field_not_editable
+
+    NotImplemented:
+      description: |
+        Specified, not built. One fixed body; the screen hides the feature
+        rather than drawing an error.
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          example:
+            statusCode: 501
+            error: Not Implemented
+            code: not_implemented
+            message: Not implemented
 
 security:
   - sessionToken: []
