@@ -49,6 +49,26 @@ describe('contactChanges', () => {
     expect(changes).toEqual([{ field: 'status', before: null, after: null, redacted: true }]);
   });
 
+  it('compares ids case-insensitively: an upper-case owner or account that is already set is no change', () => {
+    // A uuid is the same value in either case; Postgres stores it lower case.
+    // An `!==` on the raw strings would record a false "owner changed" event.
+    const OWNER = '11111111-0000-4000-8000-0000000d0001';
+    const ACCOUNT = '11111111-0000-4000-8000-000000130001';
+    const owned: Contact = { ...before, ownerUserId: OWNER, accountId: ACCOUNT };
+    expect(
+      contactChanges({ ownerUserId: OWNER.toUpperCase(), accountId: ACCOUNT.toUpperCase() }, owned),
+    ).toEqual([]);
+    // A different id still moves, whatever its case.
+    const OTHER = '11111111-0000-4000-8000-0000000d0003';
+    expect(
+      contactChanges({ ownerUserId: OTHER.toUpperCase() }, owned).map((entry) => entry.field),
+    ).toEqual(['ownerUserId']);
+    // Clearing a set id still moves.
+    expect(contactChanges({ accountId: null }, owned).map((entry) => entry.field)).toEqual([
+      'accountId',
+    ]);
+  });
+
   it('on create, records every field that was set', () => {
     const changes = contactChanges(
       { displayName: 'X', status: 'new', ownerUserId: null, whatsappOptIn: false },

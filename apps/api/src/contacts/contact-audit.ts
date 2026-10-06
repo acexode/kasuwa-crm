@@ -45,6 +45,18 @@ const WHEN_CHANGED: readonly (keyof ContactValues & keyof Contact)[] = [
   'accountId',
 ];
 
+/** Uuid-valued fields: the same id in either case is the same value. */
+const ID_FIELDS: ReadonlySet<keyof ContactValues> = new Set(['ownerUserId', 'accountId']);
+
+/**
+ * The value as it is compared for "did it move". Uuids are canonicalised to
+ * lower case (how Postgres returns them), so an upper-case spelling of the id
+ * already stored is not recorded as a change.
+ */
+function comparable(field: keyof ContactValues, value: unknown): unknown {
+  return ID_FIELDS.has(field) && typeof value === 'string' ? value.toLowerCase() : value;
+}
+
 /** The changes a write records. `before` is null for a create. */
 export function contactChanges(values: ContactValues, before: Contact | null): AuditChange[] {
   const changes: AuditChange[] = [];
@@ -54,7 +66,10 @@ export function contactChanges(values: ContactValues, before: Contact | null): A
   for (const field of WHEN_CHANGED) {
     const next = values[field];
     if (next === undefined) continue;
-    const moved = before === null ? next !== null : before[field] !== next;
+    const moved =
+      before === null
+        ? next !== null
+        : comparable(field, before[field]) !== comparable(field, next);
     if (moved) changes.push(redactedChange(field));
   }
   return changes;

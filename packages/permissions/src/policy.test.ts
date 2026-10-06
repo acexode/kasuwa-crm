@@ -151,6 +151,11 @@ describe('canUpdateContact (D-P14: agent may set status and own the record, noth
     ['status with another field', { version: 3, status: 'customer', lga: 'Ikeja' }],
     ['owner to self with another field', { version: 3, ownerUserId: ME, tags: ['x'] }],
     ['a __proto__ key', JSON.parse('{"version":3,"__proto__":{"tags":["x"]}}') as unknown],
+    // Keys match exactly: a case variant or padded key is not the field.
+    ['a case-variant Status key', { version: 3, Status: 'contacted' }],
+    ['an OWNERUSERID key', { version: 3, OWNERUSERID: ME }],
+    ['an ownerUserID key', { version: 3, ownerUserID: ME }],
+    ['a padded " status" key', { version: 3, ' status': 'contacted' }],
     ['an array body', [{ status: 'contacted' }]],
     ['a null body', null],
     ['a string body', 'status=contacted'],
