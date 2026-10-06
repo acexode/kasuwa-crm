@@ -45,12 +45,14 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.2.0-T-0043
+  version: 0.3.0-T-0059
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
     update. Accounts (T-0052, contract only until T-0055): list, get, create,
-    update, and an account's contacts. Leads (D-P17) and custom-field values
-    follow in later slices (D-L60) and will be added to this file.
+    update, and an account's contacts. The contact record view (P05, T-0059,
+    contract only until T-0061): the contact's timeline and its account
+    summary. Leads (D-P17) and custom-field values follow in later slices
+    (D-L60) and will be added to this file.
 
     **Display names (T-0043, D-L64).** A records screen never prints a UUID.
     Programme names come from `listMyProgrammes`; an owner's name is embedded
@@ -336,12 +338,25 @@ paths:
       summary: Get one contact
       operationId: getContact
       x-kasuwa-implemented: true
-      x-kasuwa-screens: ['P04/02']
+      x-kasuwa-screens: ['P04/02', 'P05/01', 'P05/02', 'P05/05', 'P05/06']
       description: |
         **Live (T-0041)** with every Contact property, `version` and
-        `withheldFields`, and the `NotFound` body below.
+        `withheldFields`, and the `NotFound` body below. **Not yet served:**
+        the embedded `account` summary (T-0059 contract, T-0061 implements
+        it); until then the live record leaves it out and does not list it in
+        `withheldFields`.
 
-        Out of scope is `404`, never `403`.
+        Out of scope is `404`, never `403`. This is also the P05 record
+        view's read: P05/06's "access denied" frame, which shows the record
+        id, the owning programme and "Request access", is not drawn. An
+        out-of-scope record is the generic not-found page (D-L69, CLAUDE.md
+        6.4).
+
+        The rest of P05 is not part of this operation and has no operation
+        in this file yet: the WhatsApp composer and 24-hour window (M08), the
+        AI summary and next-best action (M17), recording playback (ADR-0003),
+        NIN last-4 (D-L13), addresses (no module owns them yet) and follow
+        (P26). The screen hides each until its module publishes a contract.
       responses:
         '200':
           description: The contact, field security applied.
@@ -411,6 +426,122 @@ paths:
         '403': { $ref: '#/components/responses/NotPermitted' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/StaleWrite' }
+
+  # -------------------------------------------------------------------------
+  # The contact record view (P05, T-0059; D-L69, D-L72). CONTRACT ONLY: no
+  # route answers yet; T-0061 implements it and flips `x-kasuwa-implemented`.
+  # The five rules at the top of this file apply unchanged.
+  #
+  # Deliberately absent, each until its module publishes a contract (D-L69):
+  # the WhatsApp composer, the 24-hour window and "last WhatsApp contact"
+  # (M08); the AI summary and next-best action (M17); recording playback
+  # (ADR-0003); NIN last-4 (D-L13); addresses (no module named); follow
+  # (P26). The task allowed a 501 stub or absence; absence was chosen so this
+  # file does not invent paths those modules own. Timeline items for calls,
+  # messages, notes, tickets, payments and invoices are absent for the same
+  # reason: the union is closed (D-L72).
+  # -------------------------------------------------------------------------
+
+  /api/v1/contacts/{contactId}/timeline:
+    parameters:
+      - $ref: '#/components/parameters/ContactId'
+    get:
+      tags: [contacts]
+      summary: The contact's timeline — field and consent changes, newest first
+      operationId: listContactTimeline
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P05/01', 'P05/02', 'P05/05']
+      description: |
+        The centre column of the P05 contact record: what changed on this
+        contact, and who changed it, read from the contact's audit trail.
+
+        **Scope.** The contact must be readable by the caller, exactly as for
+        getContact; anything else (no such contact, another tenant, a
+        programme the caller does not reach) is the same `404 not_found`,
+        never `403` (D-L69). That check comes first, and nothing about the
+        contact's history is read before it passes.
+
+        **Order: newest first.** Items are ordered by `occurredAt`
+        descending. Ties are common, not an edge case: one update that
+        changes three fields is one audit event and three items with the
+        same `occurredAt`. The tie-break is the item `id`, descending, so the
+        keyset `(occurredAt, id)` is total and a page edge that falls inside
+        one event neither drops nor repeats an item.
+
+        **Field security omits, before paging.** Field security is judged in
+        the contact's programme, against the caller's permission sets today
+        (not at the time of the change). An item for a field withheld from
+        the caller is omitted entirely: its value AND its name. Nothing marks
+        the gap, and the page carries no count of omitted items. A
+        `consent_changed` item is a change to `consentState` by another name,
+        so it follows `consentState`'s field security: when `consentState`
+        is withheld, every `consent_changed` item is omitted too. Likewise an
+        item naming `ownerUserId` follows `ownerUserId`, and one naming
+        `accountId` follows `accountId`.
+
+        Omission happens before paging: withheld items are filtered out
+        before the page is cut, so every page holds `limit` items unless it
+        is the last. A short page with a non-null `nextCursor` would tell the
+        caller that hidden changes exist, and the server never produces one.
+
+        **Values (D-L72).** A `field_changed` item names the field by its
+        Contact wire name. It carries `before` and `after` only for the
+        non-PII enumerated fields, and only for changes recorded from T-0061
+        onward; older changes were audited by name only (D-L63) and carry
+        none. Phones, emails and every name part (`displayName`,
+        `givenNames`, `familyName`) never carry a value: a change to them is
+        shown, by name, as a redacted item. Owner and account changes are
+        also by name only: a raw user or account id is never printed (D-L64),
+        and past owners' names would turn this into a user directory.
+
+        **Item types are closed (D-L72):** `field_changed` and
+        `consent_changed`. `activity` is reserved for the activities slice
+        (T-0060) and joins the union when that slice defines its shape. Calls,
+        WhatsApp, SMS, email, notes, tickets, payments and invoices belong to
+        modules that are not built and are not item types.
+
+        **Paging.** Keyset only: `{ data, nextCursor }`, no total, count or
+        offset (D-P13). A malformed cursor, or one issued for another
+        contact, is `400 validation_failed` with
+        `details[].code: invalid_cursor`.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of the contact's timeline, field security applied.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimelinePage' }
+              example:
+                data:
+                  - id: ti_k7Rq2mXbQ9
+                    type: field_changed
+                    occurredAt: '2026-10-03T14:40:00.000Z'
+                    actor:
+                      id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                      displayName: Kemi Balogun
+                    field: status
+                    before: new
+                    after: contacted
+                  - id: ti_k7Rq2mXbP4
+                    type: field_changed
+                    occurredAt: '2026-10-03T14:40:00.000Z'
+                    actor:
+                      id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                      displayName: Kemi Balogun
+                    field: phones
+                    redacted: true
+                  - id: ti_c3Hw8nVdL1
+                    type: consent_changed
+                    occurredAt: '2026-10-01T09:12:00.000Z'
+                    actor: null
+                    before: unknown
+                    after: opted_in
+                nextCursor: dGltZWxpbmUtY3Vyc29yLWV4YW1wbGU
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /api/v1/me/programmes:
     get:
@@ -944,6 +1075,15 @@ components:
 
         `id`, `programmeId`, `version`, `displayName`, `createdAt`, `updatedAt`
         and `withheldFields` are never withheld.
+
+        **Specified, not yet served.** The `allOf` part below adds properties
+        this contract specifies and the live API does not send yet (each is
+        marked `x-kasuwa-implemented: false`): today, the `account` summary
+        (T-0059; T-0061 serves it). `properties` here is exactly what the live
+        wire carries; the task that serves a pending property moves it into
+        `properties` in the same change.
+      allOf:
+        - $ref: '#/components/schemas/ContactPendingProperties'
       properties:
         id: { type: string, format: uuid }
         programmeId:
@@ -1039,6 +1179,208 @@ components:
       properties:
         id: { type: string, format: uuid }
         displayName: { type: string }
+
+    ContactPendingProperties:
+      type: object
+      description: |
+        Contact properties this contract specifies and the live API does not
+        serve yet. Composed into `Contact` (so every Contact-shaped response,
+        list rows included, carries them once served) and kept out of
+        `Contact.properties` until then, because `Contact.properties` is the
+        live wire's key set: the T-0041 suite checks every one of them is
+        present or listed in `withheldFields`. Optional, like every
+        withholdable property; a client must cope with their absence.
+      properties:
+        account:
+          x-kasuwa-implemented: false
+          description: |
+            The contact's account, with a name to print (P05/01's related
+            records; T-0059, D-L72). `null` exactly when `accountId` is
+            `null`; otherwise `account.id` equals `accountId`. Read in the
+            same scoped query as the contact. Accounts are programme-scoped
+            and a contact's account is always in the contact's programme, so
+            this never names an account the caller's programme cannot see.
+
+            **Withheld with `accountId`.** When field security withholds
+            `accountId`, `account` is omitted too and both are listed in
+            `withheldFields`. Read-only: neither write body takes `account`;
+            a write sets `accountId`.
+
+            **Not yet served (T-0061).** Until then the live record leaves it
+            out and does not list it in `withheldFields`.
+          oneOf:
+            - { $ref: '#/components/schemas/ContactAccountSummary' }
+            - { type: 'null' }
+
+    ContactAccountSummary:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      description: |
+        Closed: an account id and its name, nothing else. No owner, tier,
+        industry or phones; the account record has those, under its own
+        field security (getAccount).
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    TimelinePage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      description: |
+        Keyset page of timeline items, newest first. No total, count or
+        offset (D-P13), and nothing that says items were left out for field
+        security. `nextCursor` is `null` on the last page.
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/TimelineItem' }
+        nextCursor: { type: [string, 'null'] }
+
+    TimelineItem:
+      description: |
+        One thing that happened to the contact. A closed union on `type`
+        (D-L72): `field_changed` and `consent_changed`. `activity` is
+        reserved for T-0060 and is added here when that slice defines its
+        shape; no other type is added without a lead decision.
+
+        An item for a field withheld from the caller is omitted from the
+        timeline, value and name; see listContactTimeline.
+      oneOf:
+        - $ref: '#/components/schemas/FieldChangedItem'
+        - $ref: '#/components/schemas/ConsentChangedItem'
+      discriminator:
+        propertyName: type
+        mapping:
+          field_changed: '#/components/schemas/FieldChangedItem'
+          consent_changed: '#/components/schemas/ConsentChangedItem'
+
+    TimelineActor:
+      type: object
+      additionalProperties: false
+      required: [id, displayName]
+      description: |
+        Who made a change: an id and a name to print, nothing else (the
+        T-0043 owner shape). No email, phone, role or programme. Read in the
+        same scoped query as the item, so a name is only ever sent for the
+        author of a change to a record the caller can already see.
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+
+    FieldChangedItem:
+      description: |
+        A change to one Contact field, named by its contract wire name. One
+        audit event that changed several fields is several items (one per
+        field) sharing an `occurredAt`.
+
+        Two shapes, by field (D-L72):
+        - `FieldChangeWithValues`: the non-PII enumerated fields. `before`
+          and `after` are present for changes recorded from T-0061 onward and
+          absent on older ones, which were audited by name only (D-L63).
+        - `FieldChangeRedacted`: phones, emails, the name parts, the owner
+          and the account. Never a value, only the field name and
+          `redacted: true`.
+
+        `consentState` is not a `field_changed` field: its changes are
+        `consent_changed` items.
+      oneOf:
+        - $ref: '#/components/schemas/FieldChangeWithValues'
+        - $ref: '#/components/schemas/FieldChangeRedacted'
+
+    FieldChangeWithValues:
+      type: object
+      additionalProperties: false
+      required: [id, type, occurredAt, actor, field]
+      properties:
+        id:
+          type: string
+          description: |
+            Opaque and unique per item; never the audit event id (one event
+            yields several items). The tie-break for items sharing an
+            `occurredAt`.
+        type: { type: string, const: field_changed }
+        occurredAt: { type: string, format: date-time }
+        actor:
+          description: '`null` is the system (an import, a register lookup, a migration).'
+          oneOf:
+            - { $ref: '#/components/schemas/TimelineActor' }
+            - { type: 'null' }
+        field:
+          type: string
+          enum: [status, source, preferredChannel, preferredLanguage, whatsappOptIn, state, lga, tags]
+          description: The Contact property that changed.
+        before:
+          description: |
+            The value before the change, in the Contact property's own wire
+            type (a code, a string, a boolean or a list of tags); `null` when
+            it had none. Absent on changes recorded before T-0061.
+          type: [string, boolean, array, 'null']
+          items: { type: string }
+        after:
+          description: The value after the change. Same rules as `before`.
+          type: [string, boolean, array, 'null']
+          items: { type: string }
+
+    FieldChangeRedacted:
+      type: object
+      additionalProperties: false
+      required: [id, type, occurredAt, actor, field, redacted]
+      description: |
+        A change shown by field name only. Phones and emails (D-L54) and a
+        person's name (D-L63) are PII and never leave the audit trail as
+        values. Owner and account changes carry no ids either (D-L64, D-L72).
+      properties:
+        id:
+          type: string
+          description: Opaque and unique per item; never the audit event id.
+        type: { type: string, const: field_changed }
+        occurredAt: { type: string, format: date-time }
+        actor:
+          description: '`null` is the system (an import, a register lookup, a migration).'
+          oneOf:
+            - { $ref: '#/components/schemas/TimelineActor' }
+            - { type: 'null' }
+        field:
+          type: string
+          enum: [displayName, givenNames, familyName, phones, emails, ownerUserId, accountId]
+          description: The Contact property that changed.
+        redacted:
+          type: boolean
+          const: true
+          description: Always `true`. The change happened; its values are not shown.
+
+    ConsentChangedItem:
+      type: object
+      additionalProperties: false
+      required: [id, type, occurredAt, actor]
+      description: |
+        A change to the contact's marketing consent (`consentState`, NDPA).
+        It follows `consentState`'s field security: omitted whenever
+        `consentState` is withheld from the caller.
+      properties:
+        id:
+          type: string
+          description: Opaque and unique per item; never the audit event id.
+        type: { type: string, const: consent_changed }
+        occurredAt: { type: string, format: date-time }
+        actor:
+          description: '`null` is the system (an import, a register lookup, a migration).'
+          oneOf:
+            - { $ref: '#/components/schemas/TimelineActor' }
+            - { type: 'null' }
+        before:
+          description: |
+            The consent state before the change (never null: a contact's
+            consent starts at `unknown`). Absent on changes recorded before
+            T-0061, which were audited by name only (D-L63).
+          allOf:
+            - { $ref: '#/components/schemas/ConsentState' }
+        after:
+          description: The consent state after the change. Absent on changes recorded before T-0061.
+          allOf:
+            - { $ref: '#/components/schemas/ConsentState' }
 
     MyProgramme:
       type: object
