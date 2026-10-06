@@ -1532,3 +1532,21 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
   - withheld items are omitted *before* paging, so a short page with a cursor reveals nothing;
   - a tie-break for items sharing one `occurredAt`;
   - consent items follow `consentState`'s field security.
+### D-L73 — merge-order and contract rulings (lead, 2026-10-06)
+**Status:** PROCEEDING (lead, reversible).
+- **0025 merged before 0024.**
+  - T-0053 (#91) merged while T-0049 (#93), which carries `0024`, was still held for a timing investigation.
+  - The migration re-review applied both orders cleanly on Postgres 16; the two touch different objects.
+  - No populated cell exists (D-L65). Databases that already ran `0025` apply `0024` when #93 lands.
+  - The runner applies any unapplied file in sort order, and does not check it sorts after the last one applied.
+- **`Contact.account` sits in an `allOf` part (`ContactPendingProperties`, `x-kasuwa-implemented: false`) until T-0061 serves
+  it.**
+  - The live T-0041 suite requires every Contact property to be served or listed in `withheldFields`.
+  - So **T-0061 must move `account` into `Contact.properties` in the same change that serves it.**
+  - T-0061 must also add `account` to the `listContacts` example, which the e2e mock copies.
+- **Derived properties.** `owner` (from `ownerUserId`) and `account` (from `accountId`) get no `field_def` of their own. The
+  T-0053 suite now treats them that way (38deb20).
+- **Open for T-0061, to be pinned in its suite:**
+  - how contact creation appears on the timeline;
+  - the timeline actor for a user who has left the programme, a tenant admin outside the programme, or a deleted user. The
+    contract keeps `null` for system.

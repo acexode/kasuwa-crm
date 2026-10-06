@@ -1,6 +1,6 @@
 # T-0053 — Standard objects get metadata rows, and field security reads them for any object
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 2 (Agent 1 reviews the migration) · **priority** P0 (blocks field security on accounts, deals, activities) · **decisions** D-L69, D-P4, D-P9, D-L45
+**status** `done` (#91) · **owner** Agent 2 (Agent 1 reviews the migration) · **priority** P0 (blocks field security on accounts, deals, activities) · **decisions** D-L69, D-P4, D-P9, D-L45
 
 ## Goal
 Field security is hard-wired to contacts: `packages/domain/core/src/contact/contact-field-access.repository.ts` joins

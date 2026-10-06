@@ -1,6 +1,6 @@
 # T-0043 — Scoped display names for records screens
 
-**status** `not-assigned` (suite on `lead/T-0043-acceptance` 48df859; assign after T-0041) · **owner** Agent 3 (contract) + Agent 1 (scope review) · **priority** P0 (T-0042 shows neutral labels until this lands) · **decisions** D-L64
+**status** `done` (#92); was `not-assigned` (suite on `lead/T-0043-acceptance` 48df859; assign after T-0041) · **owner** Agent 3 (contract) + Agent 1 (scope review) · **priority** P0 (T-0042 shows neutral labels until this lands) · **decisions** D-L64
 
 ## Goal
 The records screens may never print a UUID, but `records.openapi.yaml` returns only ids. Add a scoped lookup
