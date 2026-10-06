@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -42,6 +43,15 @@ import {
  * `not_found` with ONE body for absent, another tenant's and a sibling
  * programme's record, `not_permitted`, `stale_write`.
  */
+/**
+ * Every contact response is a person's data and, since T-0043, a staff
+ * member's name (`owner.displayName`), at URLs that are the same for every
+ * user of every tenant. `no-store` on every handler keeps them out of shared
+ * and browser caches (as listMyProgrammes does).
+ */
+const CACHE_CONTROL = 'Cache-Control';
+const NO_STORE = 'no-store';
+
 @Controller('api/v1/contacts')
 @UseGuards(KasuwaAuthGuard)
 @UseInterceptors(TenantTransactionInterceptor)
@@ -53,12 +63,14 @@ export class ContactsController {
    * name) and keyset paging. Unknown query parameters are ignored.
    */
   @Get()
+  @Header(CACHE_CONTROL, NO_STORE)
   async list(@Query() query: unknown): Promise<{ data: ContactWire[]; nextCursor: string | null }> {
     return listContactsFor(currentTx(), ListContactsQuery.parse(query));
   }
 
   /** getContact. Out of scope is 404, never 403. */
   @Get(':id')
+  @Header(CACHE_CONTROL, NO_STORE)
   async findOne(@Param() params: unknown): Promise<ContactWire> {
     const { id } = ContactIdParam.parse(params);
     return getContactFor(currentTx(), id);
@@ -67,12 +79,14 @@ export class ContactsController {
   /** createContact (`x-kasuwa-audited`). 404, then 403, then 400 (D-L53). */
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @Header(CACHE_CONTROL, NO_STORE)
   async create(@Body() body: unknown): Promise<ContactWire> {
     return createContactFor(currentTx(), body);
   }
 
   /** updateContact (`x-kasuwa-audited`). 404, 403, 400, then 409 stale_write. */
   @Patch(':id')
+  @Header(CACHE_CONTROL, NO_STORE)
   async update(@Param() params: unknown, @Body() body: unknown): Promise<ContactWire> {
     const { id } = ContactIdParam.parse(params);
     return updateContactFor(currentTx(), id, body);

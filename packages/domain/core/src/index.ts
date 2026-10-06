@@ -4,6 +4,7 @@ export * from './contact/contact-fields';
 export * from './contact/contact-field-access.repository';
 export * from './contact/phone';
 export * from './programme/programme.repository';
+export * from './programme/my-programmes.repository';
 export * from './programme/programme-lifecycle';
 export * from './programme/programme-version';
 export * from './programme/programme-policy';

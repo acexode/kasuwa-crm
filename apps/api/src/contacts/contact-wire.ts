@@ -2,9 +2,44 @@ import {
   withheldContactFields,
   type Contact,
   type ContactFieldAccess,
+  type ContactOwner,
   type ContactPhone,
   type WithholdableContactField,
 } from '@kasuwa/domain-core';
+
+/**
+ * Wire properties that are not in the field-security matrix themselves but
+ * are DERIVED from one that is, and are withheld exactly when it is. `owner`
+ * (T-0043) is `ownerUserId` with a name attached: a name that survived a
+ * withheld id would hand back what field security took away. There is no
+ * matrix row for `owner`, deliberately, so the two can never disagree.
+ */
+type DerivedContactField = 'owner';
+
+const DERIVED: readonly (readonly [
+  derived: DerivedContactField,
+  source: WithholdableContactField,
+])[] = [['owner', 'ownerUserId']];
+
+/** A name `withheldFields` may carry. */
+export type WithheldContactWireField = WithholdableContactField | DerivedContactField;
+
+/**
+ * The wire's `withheldFields` for the matrix's withheld list: each withheld
+ * field, followed by any property derived from it, in contract order.
+ */
+export function withheldWireFields(
+  withheld: readonly WithholdableContactField[],
+): WithheldContactWireField[] {
+  const result: WithheldContactWireField[] = [];
+  for (const field of withheld) {
+    result.push(field);
+    for (const [derived, source] of DERIVED) {
+      if (source === field) result.push(derived);
+    }
+  }
+  return result;
+}
 
 /**
  * `#/components/schemas/Contact` on the wire, field security applied.
@@ -27,6 +62,8 @@ export interface ContactWire {
   emails?: string[];
   accountId?: string | null;
   ownerUserId?: string | null;
+  /** T-0043: withheld with `ownerUserId`, never on its own. */
+  owner?: ContactOwner | null;
   status?: string | null;
   source?: string | null;
   tags?: string[];
@@ -40,18 +77,19 @@ export interface ContactWire {
   phoneNetwork?: string | null;
   createdAt: string;
   updatedAt: string;
-  withheldFields: WithholdableContactField[];
+  withheldFields: WithheldContactWireField[];
 }
 
 export function toContactWire(contact: Contact, access: ContactFieldAccess): ContactWire {
-  const withheld = withheldContactFields(access, contact.programmeId);
-  const readable: Partial<Record<WithholdableContactField, unknown>> = {
+  const withheld = withheldWireFields(withheldContactFields(access, contact.programmeId));
+  const readable: Partial<Record<WithheldContactWireField, unknown>> = {
     givenNames: contact.givenNames,
     familyName: contact.familyName,
     phones: contact.phones,
     emails: contact.emails,
     accountId: contact.accountId,
     ownerUserId: contact.ownerUserId,
+    owner: contact.owner,
     status: contact.status,
     source: contact.source,
     tags: contact.tags,
