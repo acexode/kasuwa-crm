@@ -18,8 +18,9 @@ import { webBuildEnv } from './web.mjs';
 const MARKER = 'n0t-a-pw-unit-91x';
 const DATABASE_URL = `postgres://kasuwa_app:${MARKER}@localhost:5432/kasuwa`;
 const MIGRATION_URL = `postgres://kasuwa_migrator:${MARKER}@localhost:5432/kasuwa`;
+const AUTH_URL = `postgres://kasuwa_auth:${MARKER}@localhost:5432/kasuwa`;
 
-const API_BASE: EnvSource = { DATABASE_URL };
+const API_BASE: EnvSource = { DATABASE_URL, DATABASE_AUTH_URL: AUTH_URL };
 
 describe('api environment', () => {
   it('parses a minimal valid environment', () => {
@@ -55,12 +56,45 @@ describe('api environment', () => {
   it('does not leak the database credential when it refuses one', () => {
     let message = '';
     try {
-      apiEnv({ DATABASE_URL: `not a url ${MARKER}` });
+      apiEnv({ DATABASE_URL: `not a url ${MARKER}`, DATABASE_AUTH_URL: AUTH_URL });
     } catch (error) {
       message = (error as Error).message;
     }
     expect(message).toMatch(/DATABASE_URL/);
     expect(message).not.toContain(MARKER);
+  });
+
+  describe('the auth connection (T-0049, D-P16)', () => {
+    it('requires DATABASE_AUTH_URL and returns it', () => {
+      expect(apiEnv({ ...API_BASE }).DATABASE_AUTH_URL).toBe(AUTH_URL);
+      expect(() => apiEnv({ DATABASE_URL })).toThrow(/DATABASE_AUTH_URL/);
+    });
+
+    it('refuses a malformed one by name, without echoing it', () => {
+      let message = '';
+      try {
+        apiEnv({ DATABASE_URL, DATABASE_AUTH_URL: `not a url ${MARKER}` });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toMatch(/DATABASE_AUTH_URL/);
+      expect(message).not.toContain(MARKER);
+    });
+
+    it('is carried by no other process schema', () => {
+      const worker: Record<string, unknown> = {
+        ...workerEnv({ DATABASE_URL, DATABASE_AUTH_URL: AUTH_URL }),
+      };
+      const realtime: Record<string, unknown> = {
+        ...realtimeEnv({ DATABASE_AUTH_URL: AUTH_URL }),
+      };
+      const migrator: Record<string, unknown> = {
+        ...migratorEnv({ DATABASE_AUTH_URL: AUTH_URL }),
+      };
+      expect(worker).not.toHaveProperty('DATABASE_AUTH_URL');
+      expect(realtime).not.toHaveProperty('DATABASE_AUTH_URL');
+      expect(migrator).not.toHaveProperty('DATABASE_AUTH_URL');
+    });
   });
 });
 
@@ -117,6 +151,7 @@ describe('web environment', () => {
     for (const name of [
       'DATABASE_URL',
       'DATABASE_MIGRATION_URL',
+      'DATABASE_AUTH_URL',
       'KASUWA_KMS_LOCAL_MASTER_KEY',
       'S3_ACCESS_KEY_ID',
       'S3_SECRET_ACCESS_KEY',
@@ -138,6 +173,8 @@ describe('web environment', () => {
 
   it('refuses an EMPTY database url too: presence is the test, not validity', () => {
     expect(() => webEnv({ DATABASE_URL: '' })).toThrow(/DATABASE_URL/);
+    expect(() => webEnv({ DATABASE_AUTH_URL: '' })).toThrow(/DATABASE_AUTH_URL/);
+    expect(() => webBuildEnv({ DATABASE_AUTH_URL: '' })).toThrow(/DATABASE_AUTH_URL/);
   });
 
   it('reports a forbidden name and a schema error together', () => {

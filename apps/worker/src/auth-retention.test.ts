@@ -102,24 +102,40 @@ ${error.stack ?? ''}`).not.toContain(probe);
 describe('retention is pinned to what the API can be configured with', () => {
   const DATABASE_URL = 'postgres://kasuwa_app:not-a-secret@localhost:5432/kasuwa';
 
+  /**
+   * The problems `apiEnv` reports for an environment, or '' when it parses.
+   *
+   * Asked of `apiEnv` with only the one setting under test, so the answer is
+   * whether THAT setting is accepted: the API's other required settings (its
+   * second connection, which this process deliberately never names) make the
+   * parse fail for reasons this file does not care about, and those reasons
+   * never mention the setting under test.
+   */
+  function apiProblems(setting: Record<string, string>): string {
+    try {
+      apiEnv({ DATABASE_URL, ...setting });
+      return '';
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+  }
+
   it('keeps rate-limit rows at least as long as the longest permitted failure window', () => {
     // KASUWA_AUTH_LOCKOUT_WINDOW_MINUTES max is 1440. If that maximum rises,
     // this fails, and the retention here AND the policy in migration 0020
     // must rise with it - or the sweep resets live countdowns.
-    expect(() => apiEnv({ DATABASE_URL, KASUWA_AUTH_LOCKOUT_WINDOW_MINUTES: '1440' })).not.toThrow();
-    expect(() => apiEnv({ DATABASE_URL, KASUWA_AUTH_LOCKOUT_WINDOW_MINUTES: '1441' })).toThrow(
-      /KASUWA_AUTH_LOCKOUT_WINDOW_MINUTES/,
-    );
+    const SETTING = /KASUWA_AUTH_LOCKOUT_WINDOW_MINUTES/;
+    expect(apiProblems({ KASUWA_AUTH_LOCKOUT_WINDOW_MINUTES: '1440' })).not.toMatch(SETTING);
+    expect(apiProblems({ KASUWA_AUTH_LOCKOUT_WINDOW_MINUTES: '1441' })).toMatch(SETTING);
     expect(AUTH_RETENTION.rateLimitAfterLastFailureMinutes).toBeGreaterThanOrEqual(1440);
   });
 
   it('keeps the revoked-session shortcut sound: no session outlives the session retention', () => {
     // The revoked-session statement also requires `expires_at < now`, which
     // holds only while a session lives no longer than the retention period.
-    expect(() => apiEnv({ DATABASE_URL, KASUWA_AUTH_SESSION_HOURS: '720' })).not.toThrow();
-    expect(() => apiEnv({ DATABASE_URL, KASUWA_AUTH_SESSION_HOURS: '721' })).toThrow(
-      /KASUWA_AUTH_SESSION_HOURS/,
-    );
+    const SETTING = /KASUWA_AUTH_SESSION_HOURS/;
+    expect(apiProblems({ KASUWA_AUTH_SESSION_HOURS: '720' })).not.toMatch(SETTING);
+    expect(apiProblems({ KASUWA_AUTH_SESSION_HOURS: '721' })).toMatch(SETTING);
     expect(AUTH_RETENTION.sessionAfterEndMinutes).toBeGreaterThanOrEqual(720 * 60);
   });
 });
