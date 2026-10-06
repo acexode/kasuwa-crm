@@ -1585,3 +1585,29 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
   - **Accounts:** writes stay admin-only (`account.write`: the `admin` set or the tenant-admin flag).
   - **Contacts:** `team_lead` and `programme_manager` get at least D-P14's agent rights: change `status`, and assign the owner
     to themselves.
+### D-L75 — T-0056 leads contract rulings (lead, reversible)
+**Status:** PROCEEDING (lead). These came from the T-0056 suite writer.
+- **A separate `listLeads` (`GET /api/v1/leads`), not a filter on `listContacts`.** It returns the same `ContactPage`.
+  - The live contacts route ignores unknown query parameters. A new filter there would be silently dropped until T-0076, and
+    the Leads screen would list customers as leads.
+  - A separate operation answers 404 until it is served.
+- **A repeated convert.** An exact repeat whose result is already in place returns the same 200, whatever `version` it
+  carries. That keeps convert idempotent. A different request on a stale version is still 409.
+- **Converting a `customer`** never demotes it. The status stays `customer`, and the account link follows the same rules. The
+  response code for a contact already linked to a *different* account is the builder's, documented in the contract.
+- **Converted (`qualified`) contacts stay on the Leads list,** as D-P17's lead set includes `qualified`.
+- **D-L73 extends to request bodies.** `companyName` on the closed create and update bodies carries
+  `x-kasuwa-implemented: false` until T-0076, because the live strict bodies would reject it.
+- **Convert's screens** must also name a P05 frame (`P05/01`). It lives under `/contacts/{id}`, and T-0059's suite requires one.
+- **An unreachable account in a convert body is 404,** indistinguishable from a missing one, as the suite pins. This differs
+  from `createContact`/`updateContact`, which answer 400 `unknown_reference` for an unreachable `accountId`. Both forms hide
+  existence; leave it.
+- **The suite pins seven leaks beyond the brief:**
+  - a withheld `status` filters as 400 `field_withheld`;
+  - `q` matches only readable fields;
+  - `companyName` is declared in each closed body's own properties;
+  - convert names `field_not_editable`, `contact.write` and `account.write`;
+  - convert is confined to the contact's programme;
+  - no scope or status field is accepted in the convert body;
+  - the response is exactly `{ contact, account }`, with one success code.
+- **PR size.** The suite is about 1,475 lines, so the PR is marked exempt (structural).
