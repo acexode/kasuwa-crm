@@ -64,7 +64,12 @@ search term never enters the URL.
 
 **`?locale=en-XA`** renders the pseudo-locale, derived from `en` at runtime by
 `@kasuwa/i18n` (`src/pseudo.ts`). Like `ar` it is a preview: on no menu,
-persisted nowhere.
+persisted nowhere. **Unlike `ar`, it is development and test only** (D-P15,
+T-0050): under `NODE_ENV=production` `resolveActiveLocale()` in `lib/locale.ts`
+treats it as if no preview had been sent. NODE_ENV is read at runtime through
+`@kasuwa/config/feature-flags`, never as `process.env.NODE_ENV`, which Next
+inlines as `production` at build time and which would break `@p04-pseudo` on
+the `NODE_ENV=test` e2e server.
 
 **A programme with no retention policy answers `404`** (D-L50). `P02/B7` shows
 that as "no rules saved yet" with every period unchosen — never pre-selected —
