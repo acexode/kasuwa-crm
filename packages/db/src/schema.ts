@@ -218,6 +218,18 @@ export const contact = pgTable(
   ],
 );
 
+// --- account value sets (T-0054) -------------------------------------------
+// The records contract's `AccountTier` (T-0052). Enforced by
+// account_tier_check in 0026; this list must match it exactly.
+export const ACCOUNT_TIERS = ['enterprise', 'mid_market', 'sme'] as const;
+export type AccountTier = (typeof ACCOUNT_TIERS)[number];
+
+/**
+ * The deepest an account may sit in its hierarchy; a top-level account is
+ * depth 1 (D-L74). Enforced by app.guard_account_hierarchy() in 0026.
+ */
+export const ACCOUNT_MAX_DEPTH = 5;
+
 /**
  * Programme-scoped exactly like contact (migration 0019, T-0040). A contact
  * links to an account in its own programme only.
@@ -234,6 +246,30 @@ export const account = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     /** Maintained by the app.touch_updated_at() trigger when a statement leaves it unchanged. */
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    // --- the T-0052 contract's fields (migration 0026, T-0054) ---
+    /**
+     * Composite FK (tenant_id, owner_user_id) -> "user" (tenant_id, id). That
+     * the owner belongs to the account's programme (D-L67) is the repository's
+     * check, not the schema's.
+     */
+    ownerUserId: uuid('owner_user_id'),
+    industry: text('industry'),
+    tier: text('tier', { enum: ACCOUNT_TIERS }),
+    /** Never null; no NULL element (account_tags_no_null_element_check). */
+    tags: text('tags')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    /** The contract's Phone list, shape-checked in SQL by app.is_phone_list(). */
+    phones: jsonb('phones').notNull().default([]),
+    state: text('state'),
+    lga: text('lga'),
+    /**
+     * Composite FK (tenant_id, programme_id, parent_account_id) -> account: a
+     * parent is always in the same programme. No cycle, depth at most
+     * ACCOUNT_MAX_DEPTH (the 0026 hierarchy guard).
+     */
+    parentAccountId: uuid('parent_account_id'),
   },
   (table) => [
     uniqueIndex('account_tenant_id_programme_id_id_key').on(
@@ -242,6 +278,13 @@ export const account = pgTable(
       table.id,
     ),
     index('account_keyset_idx').on(table.tenantId, table.programmeId, table.createdAt, table.id),
+    index('account_name_keyset_idx').on(table.tenantId, table.programmeId, table.name, table.id),
+    index('account_owner_idx')
+      .on(table.tenantId, table.ownerUserId)
+      .where(sql`owner_user_id IS NOT NULL`),
+    index('account_parent_idx')
+      .on(table.tenantId, table.programmeId, table.parentAccountId)
+      .where(sql`parent_account_id IS NOT NULL`),
   ],
 );
 

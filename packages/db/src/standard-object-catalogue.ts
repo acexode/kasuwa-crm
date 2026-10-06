@@ -10,7 +10,9 @@ import { newId } from './ids';
  * `@kasuwa/domain-core/provisioning`). Tenants that existed before the rows
  * did were backfilled by migration 0025, which carries a frozen copy of this
  * list; the T-0053 acceptance suite asserts that all three produce the same
- * catalogue. Never edit 0025.
+ * catalogue. Never edit 0025. The account fields after `name` were added by
+ * 0026 (T-0054), which carries its own frozen copy of them and backfilled the
+ * tenants that pre-date it.
  *
  * ADDING A STANDARD FIELD (or object):
  *   1. add it here;
@@ -37,11 +39,12 @@ import { newId } from './ids';
  * be matrix rows that do nothing. `account` carries its business columns.
  *
  * Types: the closest P0 type that needs no per-type configuration, except
- * `account_id`, a real lookup to `account`. Enumerated values (status, source,
- * channel, consent) are `text` rather than `picklist`: their values live in
- * the contract and the column CHECKs, and copying them into `config` would be
- * a third list to drift. `owner_user_id` is `text` because there is no `user`
- * object definition to look up (and `user` is a reserved api_name).
+ * `account_id` and `parent_account_id`, real lookups to `account`. Enumerated
+ * values (status, source, channel, consent, account tier) are `text` rather
+ * than `picklist`: their values live in the contract and the column CHECKs,
+ * and copying them into `config` would be a third list to drift.
+ * `owner_user_id` is `text` because there is no `user` object definition to
+ * look up (and `user` is a reserved api_name).
  *
  * Metadata is tenant-scoped, NOT programme-scoped (0002 header): nothing here
  * carries a programme.
@@ -114,7 +117,22 @@ export const STANDARD_OBJECT_CATALOGUE: readonly StandardObjectDef[] = [
     apiName: 'account',
     label: 'Account',
     pluralLabel: 'Accounts',
-    fields: [field('name', 'Name', 'text', { isRequired: true })],
+    fields: [
+      field('name', 'Name', 'text', { isRequired: true }),
+      // Migration 0026 (T-0054): the T-0052 `Account` contract's columns.
+      // `owner` is derived from owner_user_id and gets no field (D-L73).
+      field('owner_user_id', 'Owner', 'text'),
+      field('industry', 'Industry', 'text'),
+      field('tier', 'Tier', 'text'),
+      field('tags', 'Tags', 'text'),
+      // A sole trader's number is personal data (D-L74).
+      field('phones', 'Phones', 'phone', { classification: 'pii' }),
+      field('state', 'State', 'text'),
+      field('lga', 'LGA', 'text'),
+      field('parent_account_id', 'Parent account', 'lookup', {
+        config: { targetObjectApiName: 'account' },
+      }),
+    ],
   },
 ];
 

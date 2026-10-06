@@ -166,6 +166,11 @@ const PER_AGENT_ALLOWANCES = [
     why: 'T-0040 (D-L60) assigns Agent 3 one migration, number 0019 reserved; T-0011 holds 0018.',
   },
   {
+    branchPrefix: 'agent3/T-0054',
+    pathPattern: reservedMigration('0026'),
+    why: 'T-0054 (D-L69, D-L74) assigns Agent 3 one migration, number 0026 reserved; 0025 is T-0053.',
+  },
+  {
     branchPrefix: 'agent12/',
     path: 'tests/acceptance/tenancy/adversarial.acceptance.test.ts',
     why: 'T-0004 assigns this suite to Agent 12 — it writes these tests rather than consuming them (D-L25).',
