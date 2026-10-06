@@ -152,7 +152,7 @@ export async function runSeed(options: SeedOptions): Promise<void> {
       // provisioning writes for a new tenant, so a seeded tenant is not a
       // special case. TRUNCATE above removed the previous run's rows.
       await ensureStandardObjectDefs(
-        (text, values) => client.query(text, [...values]),
+        (text, values) => client.query(text, [...values]).then((result) => result.rows),
         tenant.id,
       );
 

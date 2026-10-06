@@ -4,17 +4,22 @@ import { TENANT_A, USER_A_AGENT_1, USER_A_SUPERVISOR } from './fixtures';
 import { newId } from './ids';
 import { createPool } from './pool';
 import { withTenantTransaction, type TenantTx } from './session';
-import { ensureStandardObjectDefs, STANDARD_OBJECT_CATALOGUE } from './standard-object-catalogue';
+import {
+  ensureStandardObjectDefs,
+  STANDARD_OBJECT_CATALOGUE,
+  StandardCatalogueIncompleteError,
+} from './standard-object-catalogue';
 
 /**
  * Migration 0025's guards on standard definitions, beyond what the T-0053
  * acceptance suite pins (review fixes on PR #91):
  *
- *   - kasuwa_app inserts a standard row only for a catalogue object, and only
- *     as an active tenant admin (restrictive INSERT policies);
+ *   - kasuwa_app never inserts a standard row, tenant admin included
+ *     (restrictive INSERT policies); custom rows are untouched;
  *   - kasuwa_app cannot change a standard field's type, config or
  *     is_required, while the migrator still can and labels stay editable;
- *   - `ensureStandardObjectDefs` is idempotent and restores a missing row.
+ *   - `ensureStandardObjectDefs` is idempotent, restores a missing row, and
+ *     throws when something in the tenant stops it completing the catalogue.
  *
  * USER_A_SUPERVISOR is tenant A's tenant admin; USER_A_AGENT_1 is not. Every
  * write rolls back.
@@ -83,33 +88,44 @@ describe('standard definition guards (0025)', () => {
         [newId(), TENANT_A, objectId, apiName, isCustom],
       );
 
-    it('refuses a standard object outside the catalogue, even for the tenant admin', async () => {
-      expect(await asApp(appPool, USER_A_SUPERVISOR, insertObject('t0053_rogue', false))).toEqual({
+    it.each([
+      ['the tenant admin', USER_A_SUPERVISOR],
+      ['an agent', USER_A_AGENT_1],
+    ])('refuses %s any standard object, catalogue name or not', async (_who, userId) => {
+      expect(await asApp(appPool, userId, insertObject('t0053_rogue', false))).toEqual({
+        code: '42501',
+      });
+      // 42501 (policy), not 23505 (contact exists): the policy is the first refusal.
+      expect(await asApp(appPool, userId, insertObject('contact', false))).toEqual({
         code: '42501',
       });
       // The same object as custom is the ordinary path.
-      expect(await asApp(appPool, USER_A_SUPERVISOR, insertObject('t0053_rogue', true))).toEqual({
-        ok: [],
-      });
+      expect(await asApp(appPool, userId, insertObject('t0053_rogue', true))).toEqual({ ok: [] });
     });
 
-    it('refuses a standard catalogue object to a non-admin before any uniqueness check', async () => {
-      // 42501 (policy), not 23505 (contact exists): the policy is the first refusal.
-      expect(await asApp(appPool, USER_A_AGENT_1, insertObject('contact', false))).toEqual({
+    it.each([
+      ['the tenant admin', USER_A_SUPERVISOR],
+      ['an agent', USER_A_AGENT_1],
+    ])('refuses %s any standard field, on a standard object or a custom one', async (_who, userId) => {
+      const { contactId } = await standardIds(migrator);
+      expect(await asApp(appPool, userId, insertField(contactId, 't0053_extra', false))).toEqual({
         code: '42501',
       });
-    });
-
-    it('lets only the tenant admin add a standard field, and only on a standard catalogue object', async () => {
-      const { contactId } = await standardIds(migrator);
+      // Re-review finding: a standard, required currency field minted on
+      // contact would be undeletable, frozen, and would pre-empt a later
+      // catalogue field of that name.
       expect(
-        await asApp(appPool, USER_A_AGENT_1, insertField(contactId, 't0053_extra', false)),
+        await asApp(appPool, userId, (tx) =>
+          tx.query(
+            `INSERT INTO field_def
+               (id, tenant_id, object_id, api_name, label, type, is_required, is_custom, config)
+             VALUES ($1, $2, $3, 'x_std', 'X', 'currency', true, false, '{"currencyCode": "NGN"}')`,
+            [newId(), TENANT_A, contactId],
+          ),
+        ),
       ).toEqual({ code: '42501' });
-      expect(
-        await asApp(appPool, USER_A_SUPERVISOR, insertField(contactId, 't0053_extra', false)),
-      ).toEqual({ ok: [] });
 
-      const custom = await asApp(appPool, USER_A_SUPERVISOR, async (tx) => {
+      const onCustom = await asApp(appPool, userId, async (tx) => {
         const objectId = newId();
         await tx.query(
           `INSERT INTO object_def (id, tenant_id, api_name, label) VALUES ($1, $2, 't0053_parent', 'P')`,
@@ -117,7 +133,7 @@ describe('standard definition guards (0025)', () => {
         );
         return insertField(objectId, 't0053_extra', false)(tx);
       });
-      expect(custom).toEqual({ code: '42501' });
+      expect(onCustom).toEqual({ code: '42501' });
     });
 
     it('still lets anyone in the tenant add a custom field to a standard object', async () => {
@@ -200,7 +216,10 @@ describe('standard definition guards (0025)', () => {
           )
         ).rows;
       const run = () =>
-        ensureStandardObjectDefs((text, values) => client.query(text, [...values]), TENANT_A);
+        ensureStandardObjectDefs(
+          (text, values) => client.query(text, [...values]).then((result) => result.rows),
+          TENANT_A,
+        );
       try {
         await client.query('BEGIN');
         const before = await snapshot();
@@ -223,6 +242,61 @@ describe('standard definition guards (0025)', () => {
         await client.query('ROLLBACK');
         client.release();
       }
+    });
+
+    /** Plants `setUp` as the migrator, runs ensure, rolls back; returns what ensure threw. */
+    async function ensureAfter(setUp: string[]): Promise<unknown> {
+      const client = await migrator.connect();
+      try {
+        await client.query('BEGIN');
+        for (const statement of setUp) await client.query(statement, [TENANT_A]);
+        await ensureStandardObjectDefs(
+          (text, values) => client.query(text, [...values]).then((result) => result.rows),
+          TENANT_A,
+        );
+        return undefined;
+      } catch (error) {
+        return error;
+      } finally {
+        await client.query('ROLLBACK');
+        client.release();
+      }
+    }
+
+    it('throws, naming the entries, when a custom object holds a standard object name', async () => {
+      const error = await ensureAfter([
+        `DELETE FROM object_def WHERE tenant_id = $1 AND api_name = 'contact'`,
+        `INSERT INTO object_def (id, tenant_id, api_name, label, is_custom)
+         VALUES (gen_random_uuid(), $1, 'contact', 'Contact', true)`,
+      ]);
+      expect(error).toBeInstanceOf(StandardCatalogueIncompleteError);
+      const entries = (error as StandardCatalogueIncompleteError).entries;
+      expect(entries).toContain('contact');
+      expect(entries).toContain('contact.emails');
+      expect(entries.some((entry) => entry.startsWith('account'))).toBe(false);
+    });
+
+    it('throws when a custom field holds a standard field name', async () => {
+      const error = await ensureAfter([
+        `DELETE FROM field_def f USING object_def o
+          WHERE o.tenant_id = f.tenant_id AND o.id = f.object_id
+            AND f.tenant_id = $1 AND o.api_name = 'contact' AND f.api_name = 'lga'`,
+        `INSERT INTO field_def (id, tenant_id, object_id, api_name, label, type, is_custom)
+         SELECT gen_random_uuid(), $1, o.id, 'lga', 'LGA', 'text', true
+           FROM object_def o WHERE o.tenant_id = $1 AND o.api_name = 'contact'`,
+      ]);
+      expect(error).toBeInstanceOf(StandardCatalogueIncompleteError);
+      expect((error as StandardCatalogueIncompleteError).entries).toEqual(['contact.lga']);
+    });
+
+    it('throws when an existing standard field has another type', async () => {
+      const error = await ensureAfter([
+        `UPDATE field_def f SET type = 'text'
+           FROM object_def o
+          WHERE o.tenant_id = f.tenant_id AND o.id = f.object_id
+            AND f.tenant_id = $1 AND o.api_name = 'contact' AND f.api_name = 'emails'`,
+      ]);
+      expect((error as StandardCatalogueIncompleteError).entries).toEqual(['contact.emails']);
     });
   });
 });

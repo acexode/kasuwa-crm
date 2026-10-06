@@ -20,9 +20,10 @@ import { newId } from './ids';
  *      the number of tenants affected, before anything is inserted. A custom
  *      field cannot silently become standard (0025's trigger refuses it), and
  *      which one wins is a human decision, not a migration's;
- *   3. then INSERT the new rows for every tenant, `is_custom = false`;
- *   4. a new standard OBJECT also needs 0025's restrictive INSERT policies
- *      replaced to name it, or a tenant admin cannot restore its rows.
+ *   3. then INSERT the new rows for every tenant, `is_custom = false`, as the
+ *      migrator (kasuwa_app may insert custom definitions only, 0025);
+ *   4. end with a check that every tenant has every catalogue entry, and that
+ *      nothing standard falls outside the catalogue, as 0025's does.
  *
  * DEPLOY WINDOW. A tenant provisioned by the previous release between `pnpm
  * db:migrate` and the new release's rollout gets no standard rows. Either do
@@ -117,12 +118,18 @@ export const STANDARD_OBJECT_CATALOGUE: readonly StandardObjectDef[] = [
   },
 ];
 
-/** Anything that runs one parameterised statement: a `TenantTx`, or a seed client. */
-export type StandardCatalogueQuery = (text: string, values: readonly unknown[]) => Promise<unknown>;
+/**
+ * Anything that runs one parameterised statement and returns its rows: a
+ * `TenantTx`, or a seed client wrapped as `.then((result) => result.rows)`.
+ */
+export type StandardCatalogueQuery = (
+  text: string,
+  values: readonly unknown[],
+) => Promise<readonly Record<string, unknown>[]>;
 
 /**
  * Makes ONE tenant's standard catalogue complete, in the caller's
- * transaction, in two statements whatever the catalogue's size. Fresh ids
+ * transaction, in three statements whatever the catalogue's size. Fresh ids
  * (D-L08) for every row it writes, never shared between tenants.
  *
  * IDEMPOTENT: `ON CONFLICT DO NOTHING`, so it is safe to call again - on a
@@ -131,6 +138,10 @@ export type StandardCatalogueQuery = (text: string, values: readonly unknown[]) 
  * row keeps its id, label and field-security decisions). That is what makes
  * the deploy-window repair in the header a single call per tenant. Fields
  * attach to the tenant's STANDARD object of that name, never a custom one.
+ *
+ * VERIFIED: a third statement checks every catalogue entry per name, and it
+ * throws `StandardCatalogueIncompleteError` (rolling the caller back) when
+ * something in the tenant prevented a row from being written.
  *
  * tenancy-reviewed: `tenantId` is the only tenant named, in every statement
  * and in the join; provisioning passes `tx.session.tenantId` and the seed its
@@ -182,4 +193,63 @@ export async function ensureStandardObjectDefs(
       fields.map((definition) => JSON.stringify(definition.config)),
     ],
   );
+
+  // ON CONFLICT DO NOTHING cannot tell "already there" from "something else
+  // is in the way" (a custom object called `contact`, a custom field of a
+  // catalogue name, a mis-typed adopted row). So check the result, per name,
+  // as 0025's backfill proof does, and refuse to report success on a tenant
+  // whose catalogue is still incomplete. Classification is not compared: a
+  // tenant may have edited it (open as D-P25).
+  const missing = await query(
+    `SELECT c.object_api_name AS entry
+       FROM unnest($2::text[]) AS c (object_api_name)
+      WHERE NOT EXISTS (
+              SELECT 1 FROM object_def o
+               WHERE o.tenant_id = $1::uuid AND o.api_name = c.object_api_name
+                 AND NOT o.is_custom)
+     UNION ALL
+     SELECT c.object_api_name || '.' || c.api_name
+       FROM unnest($3::text[], $4::text[], $5::text[], $6::boolean[], $7::jsonb[])
+            AS c (object_api_name, api_name, type, is_required, config)
+      WHERE NOT EXISTS (
+              SELECT 1
+                FROM field_def f
+                JOIN object_def o ON o.tenant_id = f.tenant_id AND o.id = f.object_id
+               WHERE f.tenant_id = $1::uuid
+                 AND o.api_name = c.object_api_name AND NOT o.is_custom
+                 AND f.api_name = c.api_name AND NOT f.is_custom
+                 AND f.type = c.type
+                 AND f.is_required = c.is_required
+                 AND f.config = c.config)
+      ORDER BY 1`,
+    [
+      tenantId,
+      STANDARD_OBJECT_CATALOGUE.map((object) => object.apiName),
+      fields.map((definition) => definition.objectApiName),
+      fields.map((definition) => definition.apiName),
+      fields.map((definition) => definition.type),
+      fields.map((definition) => definition.isRequired),
+      fields.map((definition) => JSON.stringify(definition.config)),
+    ],
+  );
+  if (missing.length > 0) {
+    throw new StandardCatalogueIncompleteError(missing.map((row) => String(row.entry)));
+  }
+}
+
+/**
+ * `ensureStandardObjectDefs` could not make a tenant's catalogue complete,
+ * because something already in the tenant is in the way. Names catalogue
+ * entries only (never tenant data); which row wins is a human decision.
+ */
+export class StandardCatalogueIncompleteError extends Error {
+  readonly entries: readonly string[];
+  constructor(entries: readonly string[]) {
+    super(
+      `The standard catalogue is incomplete for this tenant; missing or mis-typed: ` +
+        `${entries.join(', ')}. Something already in the tenant is in the way.`,
+    );
+    this.name = 'StandardCatalogueIncompleteError';
+    this.entries = entries;
+  }
 }

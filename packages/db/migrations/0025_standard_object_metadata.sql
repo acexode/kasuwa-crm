@@ -15,9 +15,11 @@
 --      is needed to mark a definition standard.
 --   2. PROTECTION, so that a standard definition stays what it is:
 --        - kasuwa_app cannot DELETE it (restrictive policies);
---        - kasuwa_app cannot INSERT a standard row except a catalogue object,
---          or a field on one, and only as an active tenant admin (restrictive
---          policies) - a tenant cannot mint undeletable definitions;
+--        - kasuwa_app cannot INSERT a standard row at all, tenant admin or not
+--          (restrictive policies): a tenant cannot mint undeletable, frozen
+--          definitions, nor pre-empt a name a later catalogue addition needs.
+--          Every writer of standard rows (migrations, the seed, provisioning,
+--          the deploy-window repair) runs as kasuwa_migrator;
 --        - its api_name cannot change (already true since 0007, D-P4);
 --        - no role can flip is_custom, and no role can move a standard field
 --          to another object (trigger);
@@ -76,9 +78,7 @@
 -- standard rows could never be removed. RESTRICTIVE policies bind kasuwa_app
 -- only - the migrator is BYPASSRLS, so the seed, provisioning and offboarding
 -- are untouched, and referential cascades skip row security. A refused DELETE
--- matches zero rows, so it reveals nothing about which rows exist. The
--- catalogue's object names ('contact', 'account') are written into the
--- INSERT policies; a migration that adds a standard object replaces them.
+-- matches zero rows, so it reveals nothing about which rows exist.
 --
 -- WHY A TRIGGER FOR UPDATE. A policy cannot compare OLD with NEW, and every
 -- rule here is that comparison. The WHEN clauses mean an ordinary label edit
@@ -139,6 +139,7 @@ DECLARE
   -- is only ever raised by the backfill.
   classification_rank constant text[] := ARRAY['none', 'pii', 'sensitive'];
   affected_tenants bigint;
+  stray_rows bigint;
   problem text;
 BEGIN
   -- Objects. A pre-existing row of the same name is kept and, if it was
@@ -193,13 +194,15 @@ BEGIN
   END IF;
 
   -- ...and every standard field, standard, on its standard object, with the
-  -- catalogue's type and is_required, and at least its classification.
+  -- catalogue's type, config and is_required, and at least its
+  -- classification.
   SELECT pg_catalog.count(DISTINCT t.id),
          pg_catalog.string_agg(DISTINCT c.object || '.' || c.api_name, ', ')
     INTO affected_tenants, problem
     FROM public.tenant t
    CROSS JOIN jsonb_to_recordset(standard_fields)
-           AS c (object text, api_name text, type text, classification text, is_required boolean)
+           AS c (object text, api_name text, type text, classification text,
+                 is_required boolean, config jsonb)
    WHERE NOT EXISTS (
            SELECT 1
              FROM public.field_def f
@@ -208,12 +211,43 @@ BEGIN
               AND o.api_name = c.object AND NOT o.is_custom
               AND f.api_name = c.api_name AND NOT f.is_custom
               AND f.type = c.type
+              AND f.config = c.config
               AND f.is_required = c.is_required
               AND pg_catalog.array_position(classification_rank, f.classification)
                >= pg_catalog.array_position(classification_rank, c.classification));
   IF affected_tenants > 0 THEN
     RAISE EXCEPTION '0025 backfill incomplete: % tenant(s) lack or mis-type the standard field(s) %',
       affected_tenants, problem;
+  END IF;
+
+  -- The other direction: nothing is standard that the catalogue does not
+  -- name. A standard row outside it (planted through the old isCustom input,
+  -- say) would be undeletable and frozen once the guards below exist, so a
+  -- human decides what it is before this migration applies. Names here are
+  -- tenant data: only counts are reported.
+  SELECT pg_catalog.count(*), pg_catalog.count(DISTINCT o.tenant_id)
+    INTO stray_rows, affected_tenants
+    FROM public.object_def o
+   WHERE NOT o.is_custom
+     AND o.api_name NOT IN (SELECT c.api_name
+                              FROM jsonb_to_recordset(standard_objects) AS c (api_name text));
+  IF stray_rows > 0 THEN
+    RAISE EXCEPTION '0025: % standard object_def row(s) in % tenant(s) are not in the standard catalogue; mark them custom or remove them, then re-run',
+      stray_rows, affected_tenants;
+  END IF;
+
+  SELECT pg_catalog.count(*), pg_catalog.count(DISTINCT f.tenant_id)
+    INTO stray_rows, affected_tenants
+    FROM public.field_def f
+    JOIN public.object_def o ON o.tenant_id = f.tenant_id AND o.id = f.object_id
+   WHERE NOT f.is_custom
+     AND NOT EXISTS (
+           SELECT 1
+             FROM jsonb_to_recordset(standard_fields) AS c (object text, api_name text)
+            WHERE c.object = o.api_name AND c.api_name = f.api_name);
+  IF stray_rows > 0 THEN
+    RAISE EXCEPTION '0025: % standard field_def row(s) in % tenant(s) are not in the standard catalogue; mark them custom or remove them, then re-run',
+      stray_rows, affected_tenants;
   END IF;
 END
 $$;
@@ -232,54 +266,25 @@ CREATE POLICY field_def_delete_custom_only ON field_def
   FOR DELETE
   USING (tenant_id = app.current_tenant_id() AND is_custom);
 
--- --- 3. kasuwa_app inserts a standard row only for the catalogue, as an admin -
--- A custom row (the metadata engine's only kind) is untouched. A standard one
--- is allowed only where it can restore the catalogue - an object named in it,
--- or a field on a standard object named in it - and only for an active tenant
--- admin (0021/0023's test). The migrator, which writes the catalogue in the
--- seed and provisioning, is BYPASSRLS and never reaches these.
-CREATE POLICY object_def_insert_standard_by_tenant_admin ON object_def
+-- --- 3. kasuwa_app inserts custom definitions only ---------------------------
+-- No application caller writes standard rows: the catalogue is written by
+-- migrations, the seed, provisioning and the deploy-window repair, all as
+-- kasuwa_migrator (BYPASSRLS, never reaches these). A standard row inserted by
+-- the application would be undeletable and frozen by the guards here, and
+-- would silently pre-empt a later catalogue addition of the same name (the
+-- addition's ON CONFLICT keeps the existing row). So: custom only, whoever
+-- the caller is, tenant admin included. Restrictive, AND-ed with 0002's
+-- permissive *_isolation policy; the tenant predicate is repeated so each
+-- reads correctly on its own.
+CREATE POLICY object_def_insert_custom_only ON object_def
   AS RESTRICTIVE
   FOR INSERT
-  WITH CHECK (
-    is_custom
-    OR (
-      api_name IN ('contact', 'account')
-      AND EXISTS (
-        SELECT 1
-          FROM "user" u
-         WHERE u.tenant_id = app.current_tenant_id()
-           AND u.id = app.current_user_id()
-           AND u.is_tenant_admin
-           AND u.status = 'active'
-      )
-    )
-  );
+  WITH CHECK (tenant_id = app.current_tenant_id() AND is_custom);
 
-CREATE POLICY field_def_insert_standard_by_tenant_admin ON field_def
+CREATE POLICY field_def_insert_custom_only ON field_def
   AS RESTRICTIVE
   FOR INSERT
-  WITH CHECK (
-    is_custom
-    OR (
-      EXISTS (
-        SELECT 1
-          FROM object_def o
-         WHERE o.tenant_id = app.current_tenant_id()
-           AND o.id = field_def.object_id
-           AND NOT o.is_custom
-           AND o.api_name IN ('contact', 'account')
-      )
-      AND EXISTS (
-        SELECT 1
-          FROM "user" u
-         WHERE u.tenant_id = app.current_tenant_id()
-           AND u.id = app.current_user_id()
-           AND u.is_tenant_admin
-           AND u.status = 'active'
-      )
-    )
-  );
+  WITH CHECK (tenant_id = app.current_tenant_id() AND is_custom);
 
 -- --- 4. what UPDATE may not change -------------------------------------------
 -- Messages name the table and the rule, never a value: an api_name is tenant
@@ -365,8 +370,7 @@ BEGIN
     RAISE EXCEPTION '0025: the restrictive DELETE policies are missing or not restrictive';
   END IF;
   IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_policy p
-       WHERE p.polname IN ('object_def_insert_standard_by_tenant_admin',
-                           'field_def_insert_standard_by_tenant_admin')
+       WHERE p.polname IN ('object_def_insert_custom_only', 'field_def_insert_custom_only')
          AND NOT p.polpermissive AND p.polcmd = 'a') <> 2 THEN
     RAISE EXCEPTION '0025: the restrictive INSERT policies are missing or not restrictive';
   END IF;

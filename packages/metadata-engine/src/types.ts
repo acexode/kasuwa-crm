@@ -69,8 +69,8 @@ export type ObjectDef = z.infer<typeof objectDefSchema>;
  *
  * `isCustom` is absent too (T-0053 review): everything created through this
  * engine is custom. Standard definitions come only from the catalogue
- * (STANDARD_OBJECT_CATALOGUE in @kasuwa/db), and 0025's restrictive INSERT
- * policies refuse kasuwa_app a standard row outside it.
+ * (STANDARD_OBJECT_CATALOGUE in @kasuwa/db), written as kasuwa_migrator, and
+ * 0025's restrictive INSERT policies refuse kasuwa_app any standard row.
  */
 export const createObjectDefInputSchema = z.object({
   id: uuidSchema.optional(),
