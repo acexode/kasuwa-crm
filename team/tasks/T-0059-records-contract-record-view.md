@@ -1,6 +1,6 @@
 # T-0059 — Records contract: the 360° record view (contact side)
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 3 · **priority** P1 · **decisions** D-L69, D-L63, D-L64, D-P13, P05 design (exported)
+**status** `done` (#94) · **owner** Agent 3 · **priority** P1 · **decisions** D-L69, D-L63, D-L64, D-P13, P05 design (exported)
 
 ## Goal
 Extend `docs/api/records.openapi.yaml` (ADR-0004, the contract only) with what P05's contact record screen needs beyond
