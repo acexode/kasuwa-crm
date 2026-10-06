@@ -65,13 +65,36 @@ describe('GET /api/v1/me/programmes (T-0043)', () => {
     for (const row of body.data) expect(Object.keys(row).sort()).toEqual(['id', 'name']);
   });
 
-  it.each([
+  const UNAUTHENTICATED: [string, Record<string, string>][] = [
     ['no credentials', {}],
     ['a real user under the wrong tenant', as(TENANT_B, USER_A_AGENT_2)],
     ['an unknown user', as(TENANT_A, NOWHERE_USER)],
-  ])('%s is 401 and names no programme', async (_label, headers) => {
+  ];
+
+  it.each(UNAUTHENTICATED)('%s is 401 and names no programme', async (_label, headers) => {
     const response = await request(app.getHttpServer()).get(ME_PROGRAMMES).set(headers);
     expect(response.status, response.text).toBe(401);
     for (const name of programmeNames) expect(response.text).not.toContain(name);
+  });
+
+  it('answers all three unauthenticated callers with one identical body (no oracle)', async () => {
+    const bodies: string[] = [];
+    for (const [, headers] of UNAUTHENTICATED) {
+      // Built and awaited one at a time (see the header).
+      const response = await request(app.getHttpServer()).get(ME_PROGRAMMES).set(headers);
+      expect(response.status, response.text).toBe(401);
+      bodies.push(response.text);
+    }
+    // Vacuity guard: an empty body would make "identical" meaningless.
+    expect(bodies[0]?.length ?? 0).toBeGreaterThan(0);
+    expect(new Set(bodies).size, `distinguishable 401 bodies: ${bodies.join(' | ')}`).toBe(1);
+  });
+
+  it('sends the contact list Cache-Control: no-store too (it carries owner names)', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/v1/contacts')
+      .set(as(TENANT_A, USER_A_AGENT_1));
+    expect(response.status, response.text).toBe(200);
+    expect(response.headers['cache-control']).toBe('no-store');
   });
 });
