@@ -1,6 +1,6 @@
 # T-0060 — The `activity` table
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 3 (Agent 1 reviews the migration) · **priority** P1 (blocks T-0061's activity items) · **decisions** D-L69, D-L65, D-L67, D-L72
+**status** `assigned` (suite on `lead/T-0060-acceptance`; migration 0027) · **owner** Agent 3 (Agent 1 reviews the migration) · **priority** P1 (blocks T-0061's activity items) · **decisions** D-L69, D-L65, D-L67, D-L72
 
 ## Goal
 A programme-scoped `activity` table: notes, tasks and logged calls against a contact or an account. Migration number:

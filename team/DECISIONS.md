@@ -1626,3 +1626,22 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
 - **Follow-up:** a migration that makes record ids immutable for `kasuwa_app` on `contact` and `account`. That means a trigger,
   or narrowing the UPDATE privilege to exclude `id`, `tenant_id` and `programme_id`. Moving a record between programmes
   should be a deliberate operation, never a field edit. Not yet assigned.
+### D-L77 — T-0060 activity table rulings (lead, reversible; from the T-0060 suite writer)
+**Status:** PROCEEDING (lead).
+- **Migration number.** T-0060 takes **0027**; `agent3/T-0060` may create that file only. T-0054 holds 0026 (#98). The suite
+  finds the migration by content, not by number.
+- **Accepted pins beyond the task:**
+  - `subject` is classified `pii` as well as `body`;
+  - `created_by_user_id` has a composite FK to `"user"` on tenant;
+  - a contact or account with activities cannot be moved to another programme, and neither can the activity;
+  - offboarding still cascades;
+  - `kasuwa_app` has SELECT, INSERT and UPDATE only, with no TRUNCATE; the migrator owns the table.
+- **Also ruled (not pinned by the suite; the builder implements it):** `activity.programme_id` and `tenant_id` are immutable
+  for `kasuwa_app`, as `id` is (D-L76). Re-homing an activity, body and all, is never a field edit.
+- **Contact key.** Contact gains `UNIQUE (tenant_id, programme_id, id)` for the composite FK. That is acceptable on a hot table
+  because no populated cell exists (D-L65).
+- **Schema hygiene.** The builder seeds at least one activity, so the schema-hygiene suite finds a row for the new
+  `updated_at` table.
+- **Ordering.** "Newest first" sorts by `created_at`. A call logged after it happened sorts by when it was logged. P07's
+  calendar fields (start and end) will add when it happened.
+- **Left to the builder:** whether `due_at` and `completed_at` may be set on a note or a call.
