@@ -12,6 +12,11 @@ declare module 'vitest' {
   interface ProvidedContext {
     /** kasuwa_app connection string - NOBYPASSRLS. What the API uses. */
     databaseUrl: string;
+    /**
+     * kasuwa_auth connection string - NOBYPASSRLS, a member of no role. The
+     * API's auth pool; the only writer of the auth tables (T-0049, D-P16).
+     */
+    authDatabaseUrl: string;
     /** kasuwa_migrator connection string - owns the schema, BYPASSRLS. */
     migrationUrl: string;
     /** kasuwa_test_admin connection string - test setup and catalogue reads. */
