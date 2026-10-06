@@ -39,6 +39,15 @@ export interface ContactPhone {
   e164: string;
 }
 
+/**
+ * A contact's owner, with the name a screen prints (T-0043, D-L64). Closed:
+ * an id and a display name, never an email, phone or status.
+ */
+export interface ContactOwner {
+  id: string;
+  displayName: string;
+}
+
 export interface Contact {
   id: string;
   programmeId: string;
@@ -50,6 +59,8 @@ export interface Contact {
   emails: string[];
   accountId: string | null;
   ownerUserId: string | null;
+  /** `null` exactly when `ownerUserId` is null; otherwise `owner.id === ownerUserId`. */
+  owner: ContactOwner | null;
   status: string | null;
   source: string | null;
   tags: string[];
@@ -159,6 +170,8 @@ interface ContactRow {
   emails: string[];
   account_id: string | null;
   owner_user_id: string | null;
+  /** The owner's `"user".display_name`, read in the same statement (OWNER_DISPLAY_NAME). */
+  owner_display_name: string | null;
   status: string | null;
   source: string | null;
   tags: string[] | null;
@@ -185,11 +198,34 @@ interface ContactPageRow extends ContactRow {
   sort_cursor: string;
 }
 
+/**
+ * The owner's display name, embedded in the same statement as the contact row
+ * (T-0043). It is a correlated subquery on THIS row, so a name is only ever
+ * read for the owner of a contact the statement already returns: the
+ * contact's own tenant and programme predicates (and RLS) decide which rows
+ * those are, and nothing here is keyed on an id the caller supplied. That is
+ * what keeps it from being a user directory, which matters because RLS on
+ * "user" is tenant-only.
+ *
+ * tenancy-reviewed: the user is matched on (tenant_id, id) to the contact's
+ * own tenant and owner, the same pair as the composite FK (0019); RLS on
+ * "user" besides. A subquery rather than a join so that every unqualified
+ * column elsewhere in these statements still means the contact's, and so it
+ * also works in INSERT/UPDATE ... RETURNING.
+ */
+const OWNER_DISPLAY_NAME = `(
+  SELECT owner_user.display_name
+    FROM "user" owner_user
+   WHERE owner_user.tenant_id = contact.tenant_id
+     AND owner_user.id = contact.owner_user_id
+) AS owner_display_name`;
+
 const SELECT_COLUMNS = `
   id, programme_id, version, display_name, given_names, family_name,
   phones, emails, account_id, owner_user_id, status, source, tags,
   preferred_language, preferred_channel, state, lga, dnd, whatsapp_opt_in,
-  consent_state, phone_network, created_at, updated_at
+  consent_state, phone_network, created_at, updated_at,
+  ${OWNER_DISPLAY_NAME}
 `;
 
 function cursorColumn(spec: SortSpec): string {
@@ -206,6 +242,29 @@ function cursorColumn(spec: SortSpec): string {
 const fold = (expression: string) =>
   `lower(regexp_replace(normalize(coalesce(${expression}, ''), NFD), '[\\u0300-\\u036f]', '', 'g'))`;
 
+/**
+ * A contact names an owner whose name could not be read. The composite FK
+ * (0019) makes this impossible; if the schema ever drifts, failing is better
+ * than sending `owner: null` beside a set `ownerUserId`, which the contract
+ * says means "unassigned". Carries no identifier.
+ */
+export class ContactOwnerUnresolvedError extends Error {
+  constructor() {
+    super('A contact owner could not be resolved to a user');
+    this.name = 'ContactOwnerUnresolvedError';
+  }
+}
+
+/** The embedded owner, from a row's owner id and the name read beside it. */
+export function contactOwnerOf(
+  ownerUserId: string | null,
+  ownerDisplayName: string | null,
+): ContactOwner | null {
+  if (ownerUserId === null) return null;
+  if (ownerDisplayName === null) throw new ContactOwnerUnresolvedError();
+  return { id: ownerUserId, displayName: ownerDisplayName };
+}
+
 function toContact(row: ContactRow): Contact {
   return {
     id: row.id,
@@ -218,6 +277,7 @@ function toContact(row: ContactRow): Contact {
     emails: row.emails,
     accountId: row.account_id,
     ownerUserId: row.owner_user_id,
+    owner: contactOwnerOf(row.owner_user_id, row.owner_display_name),
     status: row.status,
     source: row.source,
     tags: row.tags ?? [],

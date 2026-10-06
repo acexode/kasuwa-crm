@@ -19,6 +19,7 @@ import { KEY_PROVIDER } from './auth/key-provider.token';
 import { ContactsController } from './contacts/contacts.controller';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
+import { MeController } from './me/me.controller';
 import { CHANNEL, createApiChannel } from './messaging/channel';
 import { AUTH_MODE, KasuwaAuthGuard, type ResolvedAuthMode } from './tenancy/kasuwa-auth.guard';
 import { StubAuthGuard } from './tenancy/stub-auth.guard';
@@ -32,7 +33,7 @@ import {
 } from './telemetry/request-telemetry';
 
 /** Controllers hosted by this module. */
-const CONTROLLERS = [HealthController, AuthController, ContactsController];
+const CONTROLLERS = [HealthController, AuthController, ContactsController, MeController];
 
 /**
  * Every controller in the app, including those hosted by feature modules. Used

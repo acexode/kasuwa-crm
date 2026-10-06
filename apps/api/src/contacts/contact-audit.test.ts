@@ -17,6 +17,7 @@ const before: Contact = {
   emails: [EMAIL],
   accountId: null,
   ownerUserId: null,
+  owner: null,
   status: 'new',
   source: 'manual',
   tags: [],
