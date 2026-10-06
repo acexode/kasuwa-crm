@@ -10,18 +10,23 @@
  *   - both are re-read from the database on every request (`grants.ts`);
  *   - neither ever widens scope (D-L06: no wildcard).
  *
- * Covered today: the admin API's writes, and `contact.write` for the contacts
- * API (T-0041, D-L63). NOT yet modelled: field-level and
- * record-level decisions for business objects (the authorisation matrix, a
- * later M2 task), and any permission for a set other than `admin`.
+ * Covered today: the admin API's writes, `contact.write` for the contacts API
+ * (T-0041, D-L63), and the agent set's field-limited contact update,
+ * `contact.claim_and_set_status` (D-P14, T-0051). NOT yet modelled:
+ * field-level and record-level decisions for business objects in general (the
+ * authorisation matrix, a later M2 task), and any permission for a set other
+ * than `admin` beyond that one `agent` grant.
  */
 
 export {
   ADMIN_PERMISSION_SET_KEY,
+  AGENT_PERMISSION_SET_KEY,
   PROGRAMME_ACTIONS,
   TENANT_ACTIONS,
   canProgramme,
   canTenant,
+  canUpdateContact,
+  contactUpdateWithinClaim,
   type Grants,
   type ProgrammeAction,
   type TenantAction,

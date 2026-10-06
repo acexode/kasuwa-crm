@@ -17,7 +17,9 @@
  *   - PROGRAMME-SCOPED actions need the `admin` set in THAT programme
  *     (`user_programme.permission_set_id`), or the tenant-admin flag - and
  *     always only inside a programme the session can reach.
- *   - Every other set is read-only for admin writes this round.
+ *   - Every other set is read-only for admin writes this round. The one
+ *     exception is D-P14: `agent` holds `contact.claim_and_set_status`, a
+ *     field-limited contact update (`canUpdateContact`).
  *
  * No I/O here, so every rule is unit-testable; `grants.ts` loads the inputs.
  */
@@ -48,10 +50,19 @@ export const PROGRAMME_ACTIONS = [
   'programme_policy.write',
   /**
    * createContact and updateContact (T-0041, D-L63), in the TARGET programme:
-   * the record's programme on update, `programmeId` on create. Every set but
-   * `admin` is read-only for contacts this round (D-P14 is open).
+   * the record's programme on update, `programmeId` on create. Held by
+   * `admin` only; `agent` holds the narrow grant below and nothing more.
    */
   'contact.write',
+  /**
+   * D-P14 (answered 2026-10-04): updateContact limited to `status`, and to
+   * `ownerUserId` set to the caller's OWN user id, in the record's programme.
+   * Never create, never another field, never another owner, never clearing
+   * the owner. Which bodies it covers is `contactUpdateWithinClaim`; the whole
+   * decision is `canUpdateContact`. Implied by `admin`, as every programme
+   * action is.
+   */
+  'contact.claim_and_set_status',
 ] as const;
 
 export type TenantAction = (typeof TENANT_ACTIONS)[number];
@@ -64,6 +75,9 @@ export type ProgrammeAction = (typeof PROGRAMME_ACTIONS)[number];
  */
 export const ADMIN_PERMISSION_SET_KEY = 'admin';
 
+/** The key of the seeded `agent` permission set (D-P14), matched by key like `admin`. */
+export const AGENT_PERMISSION_SET_KEY = 'agent';
+
 /**
  * What each permission set permits, by key. A key that is not listed - or a
  * NULL set - permits nothing. Deliberately an allow-list: a new set grants
@@ -71,6 +85,9 @@ export const ADMIN_PERMISSION_SET_KEY = 'admin';
  */
 const SET_PERMITS: Readonly<Record<string, readonly ProgrammeAction[]>> = {
   [ADMIN_PERMISSION_SET_KEY]: PROGRAMME_ACTIONS,
+  // D-P14: an agent works its queue (status, and taking a record) and does
+  // not rewrite customer data. Every other set stays read-only (D-L53).
+  [AGENT_PERMISSION_SET_KEY]: ['contact.claim_and_set_status'],
 };
 
 /** Everything a decision needs, resolved from the database for one request. */
@@ -110,4 +127,63 @@ export function canProgramme(
     ? SET_PERMITS[key]
     : undefined;
   return permitted?.includes(action) ?? false;
+}
+
+/**
+ * The updateContact properties `contact.claim_and_set_status` may carry
+ * (D-P14), plus `version`, which is the concurrency token and writes nothing.
+ * Wire names, as the request body spells them.
+ */
+const CLAIM_AND_STATUS_KEYS: ReadonlySet<string> = new Set(['version', 'status', 'ownerUserId']);
+
+/**
+ * Whether an updateContact body stays inside `contact.claim_and_set_status`:
+ * a plain object naming no property but `version`, `status` and `ownerUserId`,
+ * where `ownerUserId`, if sent, is the caller's own user id. `null` (clearing
+ * the owner) and anybody else's id are outside it.
+ *
+ * Judged on the RAW body, before validation, so a body outside the grant is
+ * `403` whatever its values (D-L53: an unpermitted caller learns nothing from
+ * validation). Anything that is not a plain object is outside it too. The
+ * values of `status` and `version` are not decided here; the caller validates
+ * them afterwards and answers `400`, as it does for any permitted writer.
+ *
+ * UUIDs compare case-insensitively: the caller's own id in upper case is
+ * still the caller.
+ */
+export function contactUpdateWithinClaim(body: unknown, callerUserId: string): boolean {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return false;
+  for (const [key, value] of Object.entries(body)) {
+    if (!CLAIM_AND_STATUS_KEYS.has(key)) return false;
+    if (
+      key === 'ownerUserId' &&
+      (typeof value !== 'string' || value.toLowerCase() !== callerUserId.toLowerCase())
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * May this session apply this updateContact body to a record in `programmeId`?
+ * Yes with `contact.write` there, whatever the body; otherwise only with
+ * `contact.claim_and_set_status` there AND a body inside that grant. A body
+ * mixing an allowed field with any other is refused whole (D-P14).
+ *
+ * `callerUserId` must be the session's user (`tx.session.userId`), never a
+ * value from the request. Field security is a separate, later check: this
+ * answers the action, not the field (D-L63).
+ */
+export function canUpdateContact(
+  grants: Grants,
+  programmeId: string,
+  callerUserId: string,
+  body: unknown,
+): boolean {
+  if (canProgramme(grants, 'contact.write', programmeId)) return true;
+  return (
+    canProgramme(grants, 'contact.claim_and_set_status', programmeId) &&
+    contactUpdateWithinClaim(body, callerUserId)
+  );
 }
