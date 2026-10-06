@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 131 rows; built 59, partial 11, mock-only 27, flagged-off 6, deferred 10, not-started 18.
+Totals: 137 rows; built 59, partial 11, mock-only 27, flagged-off 6, deferred 10, not-started 24.
 
 ## Modules
 
@@ -155,6 +155,12 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `createContact` | POST /api/v1/contacts — Create a contact | built | — | — | docs/api/records.openapi.yaml |
 | operation | `getContact` | GET /api/v1/contacts/{contactId} — Get one contact | built | — | — | docs/api/records.openapi.yaml |
 | operation | `updateContact` | PATCH /api/v1/contacts/{contactId} — Update a contact (inline edit of owner, status and the rest) | built | — | — | docs/api/records.openapi.yaml |
+| operation | `listAccounts` | GET /api/v1/accounts — List accounts — search, filter, sort, keyset page (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `createAccount` | POST /api/v1/accounts — Create an account (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `getAccountMap` | GET /api/v1/accounts/map — Accounts map view (not built) (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `getAccount` | GET /api/v1/accounts/{accountId} — Get one account (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `updateAccount` | PATCH /api/v1/accounts/{accountId} — Update an account (inline edit of owner, tier and the rest) (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `listAccountContacts` | GET /api/v1/accounts/{accountId}/contacts — The account's contacts the caller can reach (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
 
 ## Flags
 
