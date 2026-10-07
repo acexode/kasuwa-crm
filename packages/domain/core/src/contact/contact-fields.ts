@@ -34,6 +34,7 @@ export type ContactFieldLevel = 'none' | 'read' | 'edit';
 export const WITHHOLDABLE_CONTACT_FIELDS = [
   'givenNames',
   'familyName',
+  'companyName',
   'phones',
   'emails',
   'accountId',

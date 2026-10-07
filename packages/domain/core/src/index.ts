@@ -4,6 +4,7 @@ export * from './contact/contact-fields';
 export * from './contact/contact-field-access.repository';
 export * from './contact/contact-timeline.repository';
 export * from './contact/phone';
+export * from './contact/contact-lead';
 export * from './account/account.repository';
 export * from './account/account-fields';
 export * from './account/account-hierarchy';
