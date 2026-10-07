@@ -92,3 +92,51 @@ describe('UpdateContactBody', () => {
     );
   });
 });
+
+describe('free text refuses a NUL (D-L78): 400, never a Postgres 22021 and a 500', () => {
+  const NUL = 'Probe\u0000 Person';
+
+  it('displayName, givenNames and familyName on create and update', () => {
+    for (const field of ['displayName', 'givenNames', 'familyName'] as const) {
+      const create = CreateContactBody.safeParse({ displayName: 'Probe', [field]: NUL });
+      expect(create.success, `create ${field}`).toBe(false);
+      const issue = create.error?.issues[0];
+      expect(issue?.path).toEqual([field]);
+      expect(issue?.code === 'custom' ? issue.params?.['reason'] : undefined).toBe(
+        'invalid_character',
+      );
+      expect(
+        UpdateContactBody.safeParse({ version: 1, [field]: NUL }).success,
+        `update ${field}`,
+      ).toBe(false);
+    }
+  });
+
+  it('keeps the length limits: displayName 1..200, the name parts 0..200 or null', () => {
+    expect(CreateContactBody.safeParse({ displayName: '' }).success).toBe(false);
+    expect(CreateContactBody.safeParse({ displayName: 'D'.repeat(200) }).success).toBe(true);
+    expect(CreateContactBody.safeParse({ displayName: 'D'.repeat(201) }).success).toBe(false);
+    for (const field of ['givenNames', 'familyName'] as const) {
+      for (const value of ['', 'G'.repeat(200), null]) {
+        expect(
+          CreateContactBody.safeParse({ displayName: 'Probe', [field]: value }).success,
+          `${field} ${JSON.stringify(value)}`,
+        ).toBe(true);
+      }
+      expect(
+        CreateContactBody.safeParse({ displayName: 'Probe', [field]: 'G'.repeat(201) }).success,
+      ).toBe(false);
+    }
+    // Code points, as the contract and Postgres count: 200 emoji are 200 characters.
+    expect(CreateContactBody.safeParse({ displayName: '\u{1F600}'.repeat(200) }).success).toBe(
+      true,
+    );
+  });
+
+  it('listContacts q: a NUL is 400; 1..100 characters as before', () => {
+    expect(ListContactsQuery.safeParse({ q: 'Ama\u0000ka' }).success).toBe(false);
+    expect(ListContactsQuery.safeParse({ q: '' }).success).toBe(false);
+    expect(ListContactsQuery.safeParse({ q: 'a'.repeat(100) }).success).toBe(true);
+    expect(ListContactsQuery.safeParse({ q: 'a'.repeat(101) }).success).toBe(false);
+  });
+});
