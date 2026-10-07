@@ -1581,10 +1581,21 @@ describe('acceptance: the activity table (T-0060)', () => {
       ] as const) {
         const row = byName.get(name);
         if (row === undefined) continue;
-        if (
-          row.type !== 'lookup' ||
-          row.config !== JSON.stringify({ targetObjectApiName: target })
-        ) {
+        // Compare the parsed value, not the text: Postgres renders jsonb as
+        // `{"targetObjectApiName": "contact"}`, with a space JSON.stringify
+        // never writes. Found by the T-0060 builder; the stored rows were right.
+        let config: unknown;
+        try {
+          config = JSON.parse(row.config);
+        } catch {
+          config = undefined;
+        }
+        const isLookupTo =
+          typeof config === 'object' &&
+          config !== null &&
+          Object.keys(config).length === 1 &&
+          (config as Record<string, unknown>).targetObjectApiName === target;
+        if (row.type !== 'lookup' || !isLookupTo) {
           problems.push(`${name}: ${row.type} ${row.config}, expected a lookup to ${target}`);
         }
       }
