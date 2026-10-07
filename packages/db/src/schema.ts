@@ -337,14 +337,33 @@ export const activity = pgTable(
   },
   (table) => [
     index('activity_contact_keyset_idx')
-      .on(table.tenantId, table.programmeId, table.contactId, table.createdAt, table.id)
+      .on(
+        table.tenantId,
+        table.programmeId,
+        table.contactId,
+        table.createdAt.desc(),
+        table.id.desc(),
+      )
       .where(sql`contact_id IS NOT NULL`),
     index('activity_account_keyset_idx')
-      .on(table.tenantId, table.programmeId, table.accountId, table.createdAt, table.id)
+      .on(
+        table.tenantId,
+        table.programmeId,
+        table.accountId,
+        table.createdAt.desc(),
+        table.id.desc(),
+      )
       .where(sql`account_id IS NOT NULL`),
     index('activity_owner_due_idx')
       .on(table.tenantId, table.ownerUserId, table.dueAt)
       .where(sql`owner_user_id IS NOT NULL`),
+    /** Not partial: the tenant and programme FK lookup, and a programme-wide feed. */
+    index('activity_programme_recent_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
   ],
 );
 

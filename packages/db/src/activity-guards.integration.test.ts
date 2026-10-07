@@ -200,14 +200,49 @@ describe('activity guards (0027)', () => {
       });
     });
 
-    it('an UPDATE that leaves the keys alone is not touched by the guard', async () => {
+    it('an UPDATE that rewrites the keys to their own values is not touched by the guard', async () => {
+      // As the test admin: kasuwa_app holds no UPDATE on the key columns at all.
+      const id = seededActivityA?.id ?? '';
+      const outcome = await rolledBack(testAdmin, async (client) =>
+        attempt(
+          (sql, values) => client.query(sql, values),
+          `UPDATE activity SET subject = 'T-0060 edited', id = id, tenant_id = tenant_id,
+                  programme_id = programme_id
+            WHERE tenant_id = $1 AND id = $2`,
+          [TENANT_A, id],
+        ),
+      );
+      expect(outcome).toEqual({ ok: true });
+    });
+  });
+
+  describe('column-level UPDATE for kasuwa_app: the timeline actor and ordering cannot be forged', () => {
+    it.each([
+      ['created_by_user_id', USER_A_SUPERVISOR],
+      ['created_at', '2020-01-01T00:00:00Z'],
+    ] as const)('kasuwa_app gets 42501 writing %s', async (column, value) => {
       const id = seededActivityA?.id ?? '';
       const outcome = await asApp(appPool, USER_A_AGENT_1, async (tx) =>
         attempt(
           (sql, values) => tx.query(sql, values),
-          `UPDATE activity SET subject = 'T-0060 edited', id = id, programme_id = programme_id
-            WHERE tenant_id = $1 AND id = $2`,
-          [TENANT_A, id],
+          `UPDATE activity SET ${column} = $1 WHERE tenant_id = $2 AND id = $3`,
+          [value, TENANT_A, id],
+        ),
+      );
+      expect(outcome).toEqual({ ok: false, code: '42501' });
+    });
+
+    it('while every business column, version and updated_at stay writable (not vacuous)', async () => {
+      const id = seededActivityA?.id ?? '';
+      const outcome = await asApp(appPool, USER_A_AGENT_1, async (tx) =>
+        attempt(
+          (sql, values) => tx.query(sql, values),
+          `UPDATE activity
+              SET subject = 'T-0060 edited', body = 'T-0060 body, names no one.',
+                  owner_user_id = $1, contact_id = NULL, account_id = account_id,
+                  version = version + 1, updated_at = now()
+            WHERE tenant_id = $2 AND id = $3`,
+          [USER_A_AGENT_1, TENANT_A, id],
         ),
       );
       expect(outcome).toEqual({ ok: true });
@@ -268,6 +303,23 @@ describe('activity guards (0027)', () => {
         expect(result).toEqual({ rotation: { ok: false, code: '23503' }, pointsAt: ['T-0060 X'] });
       },
     );
+  });
+
+  describe('indexes', () => {
+    it('a NON-partial index leads with (tenant_id, programme_id): the offboarding FK lookup (review M1)', async () => {
+      // Both keyset indexes are partial on their target, so neither serves
+      // `WHERE tenant_id = $1 AND programme_id = $2` alone; deleting a
+      // programme or tenant would seq-scan activity once per deleted row.
+      const rows = await migrator.query<{ name: string }>(
+        `SELECT i.relname AS name
+           FROM pg_index x JOIN pg_class i ON i.oid = x.indexrelid
+          WHERE x.indrelid = 'public.activity'::regclass
+            AND x.indisvalid AND x.indpred IS NULL
+            AND pg_get_indexdef(x.indexrelid, 1, true) = 'tenant_id'
+            AND pg_get_indexdef(x.indexrelid, 2, true) = 'programme_id'`,
+      );
+      expect(rows.rows.map((row) => row.name)).toEqual(['activity_programme_recent_idx']);
+    });
   });
 
   describe('deletes', () => {

@@ -111,8 +111,12 @@
 -- Re-homing an activity is never a field edit: it would carry a body that may
 -- hold PII into another BPO client's programme. An activity's own programme
 -- move is also refused by the target FK (the target stays behind) and, for a
--- session that cannot reach the new programme, by the policy's WITH CHECK;
--- the trigger answers first, the same 42501 for every role and every row.
+-- session that cannot reach the new programme, by the policy's WITH CHECK.
+-- kasuwa_app holds no UPDATE on the key columns at all (column grants, see
+-- TENANCY), so its statement fails 42501 before any row is read; for every
+-- other role but the migrator the trigger answers first, also 42501. Two
+-- independent layers: the grant can be widened by mistake, the trigger binds
+-- every role.
 -- The guard reads no table and only compares: SECURITY INVOKER, pinned
 -- search_path, EXECUTE revoked (firing a trigger needs none). Not a SECURITY
 -- DEFINER (CLAUDE.md 2.7): the census stays at two.
@@ -125,6 +129,15 @@
 --   - GRANTS (D-P18: agents log and complete; D-L77): kasuwa_app reads,
 --     inserts and updates. It never TRUNCATEs (TRUNCATE skips RLS), and no
 --     role it can enter may either; the self-check below asserts both.
+--   - UPDATE is COLUMN-level for kasuwa_app (review): type, subject, body,
+--     due_at, completed_at, owner_user_id, contact_id, account_id, version and
+--     updated_at. Not created_by_user_id or created_at: they are the timeline's
+--     actor and its ordering (D-L72, D-L77 "Ordering"), and an edit must never
+--     be able to forge who logged an activity or when. Not id, tenant_id or
+--     programme_id either; for those the key guard (below) is what binds every
+--     role, because a column grant does not bind kasuwa_test_admin or a future
+--     role given table-level UPDATE. An UPDATE naming an ungranted column
+--     fails with 42501 on the statement, before any row is read.
 --   - DELETE (D-L77 rules "SELECT, INSERT and UPDATE only"): kasuwa_app keeps
 --     the DELETE privilege, but a RESTRICTIVE policy, activity_no_delete,
 --     admits no row to DELETE for any role subject to RLS. Why not REVOKE: a
@@ -150,10 +163,18 @@
 --   - activity_owner_due_idx (tenant_id, owner_user_id, due_at) WHERE
 --     owner_user_id IS NOT NULL: "my tasks" by due time, and the owner FK
 --     lookup.
---   - The programme and tenant FK lookups use the keyset indexes' leading
---     (tenant_id, programme_id). created_by_user_id has no index: its FK is
---     only checked when a "user" row is deleted or re-keyed, which nothing
---     does today (0022, 0015); add one when a user delete path exists.
+--   - activity_programme_recent_idx (tenant_id, programme_id, created_at DESC,
+--     id DESC), NOT partial: the lookup for the tenant and programme FKs
+--     (review finding M1). Both keyset indexes above are partial on their
+--     target, so the planner cannot use them for `WHERE tenant_id = $1 AND
+--     programme_id = $2` alone; without this index, offboarding (deleting a
+--     programme or a tenant) seq-scanned activity once per deleted parent
+--     row. It also serves a programme-wide feed, newest first. Same shape as
+--     contact_keyset_idx and account_keyset_idx; its leading tenant_id serves
+--     the tenant FK.
+--   - created_by_user_id has no index: its FK is only checked when a "user"
+--     row is deleted or re-keyed, which nothing does today (0022, 0015); add
+--     one when a user delete path exists.
 --   - The activity indexes are built on an empty table here, so they cost
 --     nothing.
 --
@@ -199,18 +220,23 @@
 --   - contact: ACCESS EXCLUSIVE for the whole file. ADD CONSTRAINT ... UNIQUE
 --     builds a b-tree over (tenant_id, programme_id, id) by scanning every
 --     contact row; reads and writes of contacts wait until COMMIT. This is the
---     cost of the file. Measured on the builder's host (postgres:16
---     container, default settings, maintenance_work_mem 64MB; 2M contact rows
---     with 0019's columns, one phone each, ten programmes, contact_keyset_idx
---     present; three runs, each rolled back):
---       * the ADD CONSTRAINT took 4.0 s, 5.3 s and 8.1 s (the spread is host
---         load); everything else in this file works on an empty table or on
---         catalogue rows and adds well under 0.1 s;
---       * so roughly 2-4 s per million rows: about 10-20 s of blocked contact
---         reads and writes at PRD 2.13's 5M, which is why the split below is
---         mandatory once a cell is populated.
+--     cost of the file. Measured at 2M contact rows (postgres:16 containers,
+--     default settings, maintenance_work_mem 64MB; 0019's columns, one phone
+--     each, ten programmes, contact_keyset_idx present):
+--       * the builder's host: 4.0 s, 5.3 s and 8.1 s over three runs;
+--       * the migration review: 8 s to 25 s;
+--       * so plan on about 4-12 s per million rows, which is about 20-60 s of
+--         blocked contact reads and writes at PRD 2.13's 5M. The spread is
+--         host load. Everything else in this file works on an empty table or
+--         on catalogue rows and adds well under 0.1 s.
 --   - object_def, field_def: ACCESS EXCLUSIVE for the whole file, as 0025 and
---     0026 (catalogue tables, dozens of rows per tenant).
+--     0026 (catalogue tables, dozens of rows per tenant). Because they are
+--     taken first, they are HELD THROUGH THE CONTACT SCAN: every metadata read
+--     (the field-security loader on every records request, the admin
+--     catalogue screens) waits for the same 20-60 s at volume. That is
+--     accepted here only because no populated cell exists (D-L65, D-L77).
+--     The order exists so the clash pre-check runs against a locked catalogue
+--     before the expensive scan, and a clash costs nothing.
 --   - tenant, programme, "user", account: SHARE ROW EXCLUSIVE for the whole
 --     file, which is what creating an FK that references them takes anyway.
 --     It blocks writes to those tables (sign-in bookkeeping on "user", account
@@ -219,10 +245,16 @@
 --     contact), so this file cannot deadlock against itself and fails fast:
 --     lock_timeout = 5s refuses to queue behind a long transaction (and make
 --     everything behind it queue too).
---   - At volume (the first populated cell onward) this would be split: CREATE
---     UNIQUE INDEX CONCURRENTLY on contact in a `-- kasuwa:no-transaction`
---     file first, then ADD CONSTRAINT ... UNIQUE USING INDEX (catalogue only,
---     a brief ACCESS EXCLUSIVE) together with the table in an ordinary file.
+--   - At volume (the first populated cell onward) this MUST be split:
+--       1. a `-- kasuwa:no-transaction` file: CREATE UNIQUE INDEX CONCURRENTLY
+--          on contact (tenant_id, programme_id, id) (SHARE UPDATE EXCLUSIVE:
+--          reads and writes carry on; the review measured 7.4 s at 2M rows);
+--       2. an ordinary file that does the contact work FIRST, taking the
+--          catalogue lock only AFTER it: ALTER TABLE contact ADD CONSTRAINT
+--          ... UNIQUE USING INDEX (catalogue-only, a brief ACCESS EXCLUSIVE;
+--          the review measured 3.8 ms), then LOCK object_def, field_def, the
+--          clash pre-check, the table and the backfill. Nothing in that file
+--          then scans a populated table, so neither lock is held for long.
 --   - Steady state: the new unique index costs every contact INSERT one more
 --     b-tree insert, and an UPDATE that changes tenant_id, programme_id or id
 --     (none of which the API does) one more. The activity triggers run only on
@@ -368,6 +400,10 @@ CREATE INDEX activity_account_keyset_idx
 CREATE INDEX activity_owner_due_idx
   ON activity (tenant_id, owner_user_id, due_at)
   WHERE owner_user_id IS NOT NULL;
+-- Not partial: the tenant and programme FK lookup (offboarding) and a
+-- programme-wide feed, newest first. See INDEXES in the header.
+CREATE INDEX activity_programme_recent_idx
+  ON activity (tenant_id, programme_id, created_at DESC, id DESC);
 
 ALTER TABLE activity ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity FORCE ROW LEVEL SECURITY;
@@ -386,7 +422,13 @@ CREATE POLICY activity_no_delete ON activity
 -- Explicit, so this file does not silently depend on the bootstrap's default
 -- privileges, and so TRUNCATE, REFERENCES and TRIGGER are never held.
 REVOKE ALL ON activity FROM PUBLIC, kasuwa_app, kasuwa_test_admin;
-GRANT SELECT, INSERT, UPDATE, DELETE ON activity TO kasuwa_app, kasuwa_test_admin;
+GRANT SELECT, INSERT, DELETE ON activity TO kasuwa_app;
+-- Column-level: never created_by_user_id or created_at, nor the keys. See
+-- TENANCY in the header.
+GRANT UPDATE (type, subject, body, due_at, completed_at, owner_user_id, contact_id, account_id,
+              version, updated_at)
+  ON activity TO kasuwa_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON activity TO kasuwa_test_admin;
 
 -- --- 5. triggers ---------------------------------------------------------------
 -- 0018's and 0019's functions, attached; no second copy of either.
@@ -417,8 +459,9 @@ BEGIN
 END;
 $$;
 -- Only the trigger calls it; firing a trigger needs no EXECUTE. The bootstrap's
--- default privileges grant EXECUTE on new functions to kasuwa_app and
--- kasuwa_test_admin by name, so they are revoked by name too.
+-- default EXECUTE grants are IN SCHEMA public only and do not reach this
+-- function in schema app; naming kasuwa_app and kasuwa_test_admin here is
+-- belt and braces, so the REVOKE holds even if a later default changes.
 REVOKE ALL ON FUNCTION app.guard_activity_keys_fixed() FROM PUBLIC, kasuwa_app, kasuwa_test_admin;
 
 -- BEFORE, so the row is refused before any FK or policy check runs. No column
@@ -544,8 +587,20 @@ BEGIN
   END IF;
   IF NOT (pg_catalog.has_table_privilege(app_role, 'public.activity', 'SELECT')
           AND pg_catalog.has_table_privilege(app_role, 'public.activity', 'INSERT')
-          AND pg_catalog.has_table_privilege(app_role, 'public.activity', 'UPDATE')) THEN
+          AND pg_catalog.has_column_privilege(app_role, 'public.activity', 'completed_at', 'UPDATE')
+          AND pg_catalog.has_column_privilege(app_role, 'public.activity', 'body', 'UPDATE')) THEN
     RAISE EXCEPTION '0027: kasuwa_app cannot read, log and complete activities (D-P18)';
+  END IF;
+  -- The timeline's actor and ordering, and the keys, are never writable by an
+  -- UPDATE from kasuwa_app (has_column_privilege also sees a table-level
+  -- grant, so this fails if one is ever added back).
+  SELECT pg_catalog.string_agg(c.col, ', ' ORDER BY c.col)
+    INTO held
+    FROM pg_catalog.unnest(ARRAY['id', 'tenant_id', 'programme_id', 'created_by_user_id',
+                                 'created_at']) AS c(col)
+   WHERE pg_catalog.has_column_privilege(app_role, 'public.activity', c.col, 'UPDATE');
+  IF held IS NOT NULL THEN
+    RAISE EXCEPTION '0027: kasuwa_app may UPDATE activity column(s) it must not: %', held;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_policy p
                   WHERE p.polrelid = 'public.activity'::pg_catalog.regclass
