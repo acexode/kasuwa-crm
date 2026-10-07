@@ -142,12 +142,23 @@ describe('contactChanges', () => {
     ).toEqual(['companyName']);
   });
 
-  it('a convert names exactly the fields that moved: status and accountId, redacted', () => {
+  it('a convert names exactly the fields that moved: status with values (D-L72), accountId redacted', () => {
     const ACCOUNT = '11111111-0000-4000-8000-00007600aa01';
-    expect(contactChanges({ status: 'qualified', accountId: ACCOUNT }, before)).toEqual([
-      { field: 'status', before: null, after: null, redacted: true },
-      { field: 'accountId', before: null, after: null, redacted: true },
-    ]);
+    const changes = contactChanges({ status: 'qualified', accountId: ACCOUNT }, before);
+    expect(changes.map((entry) => entry.field).sort()).toEqual(['accountId', 'status']);
+    expect(changes).toContainEqual({
+      field: 'status',
+      before: 'new',
+      after: 'qualified',
+      redacted: false,
+    });
+    expect(changes).toContainEqual({
+      field: 'accountId',
+      before: null,
+      after: null,
+      redacted: true,
+    });
+    expect(JSON.stringify(changes)).not.toContain(ACCOUNT);
     // A customer keeps its status: only the link moved.
     const customer: Contact = { ...before, status: 'customer' };
     expect(
