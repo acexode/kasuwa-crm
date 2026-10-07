@@ -13,5 +13,10 @@ Serve the T-0056 contract.
   - Idempotent, one transaction, one audit event labelled by record id.
   - The account must be in the contact's programme.
 
+## Watch for (T-0055 tenancy review)
+`ContactFilters.accountId` exists in the contact repository since T-0055, but nothing on `GET /contacts` reaches it. If this task
+exposes an account filter on contacts or leads, add `account: 'accountId'` to `FILTER_FIELDS`
+(`apps/api/src/contacts/contacts.schemas.ts`) in the same change. Otherwise a filter on a withheld `accountId` becomes an oracle.
+
 ## Acceptance tests
 `tests/acceptance/records/leads-api.acceptance.test.ts`, written by the lead.
