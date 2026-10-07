@@ -2027,3 +2027,34 @@ Every recommendation below was taken as written in its entry. What each one now 
     headers (T-0079 or a small task);
   - a contact timeline item id is md5(event id, field), so one audit row naming a field twice would collide. No writer
     produces that today; a writer-side assertion would make it impossible.
+
+### D-L91 — T-0112 in-call script contract rulings (lead, reversible)
+**Status:** PROCEEDING (lead). From the T-0112 contract writer, with three lead additions.
+- **Frames:** P10/01 agent mid-call (with the version banner), P10/02 required field missing, P10/03 disposition blocked, P10/04
+  from the start, P10/05 the admin script builder.
+- **Node kinds** are the design's six: say, question, form, branch, compliance, end. There is no disposition node; completion
+  sets the disposition, and an `end` node may carry `suggestedDispositionId`.
+- **The concurrency token is `revision`**, since "version" means a published script version. Stale writes are `409 stale_write`.
+- **Errors:** nine new codes in admin's shared `Error.code` enum. The decision order is published as `x-kasuwa-error-order`;
+  `x-kasuwa-permission` and `x-kasuwa-classification: pii` (on answers) are new extensions.
+- **Who sees authoring:** reading a script needs `script.write`. Anyone else gets 404, so the authoring writes have no 403. Run
+  reads are open to `script.run` holders in the programme; run writes are for the run's own agent (others 403).
+- **A withheld field stops the run** (`200`, `status: stopped`, `stopReason: field_withheld`). A stopped run can only be
+  completed.
+- **Added operations:** `listContactScripts`, `getScriptRunScript` (the pinned wording without `script.write`), and dispositions
+  read through the run, so no programme id appears in a path.
+- **Completion:** an unknown, cross-programme, inactive or deleted disposition is one `409 disposition_not_live`. A missing note
+  or follow-up is `disposition_requirements_unmet`. Task and call activity are owned by the caller. An exact repeat returns 200
+  and writes nothing.
+- **Graphs:** shape is checked on save (400) and completeness on publish (`409 script_invalid`). Graphs are acyclic.
+- **Content:** the seven design-menu locales; variables `contact.*`, `agent.displayName` and `answer.*`; callbacks in UTC;
+  script names not unique; multi-programme publishing left out.
+- **Lead additions:**
+  - **A dropped call** completes with `outcome: interrupted`. That excuses the current node and any node not yet passed, never
+    one already passed, and never produces an acknowledgement. The server records the unacknowledged compliance nodes on the
+    run. This keeps a cut-off call from forcing a false "read in full".
+  - **Idempotent start:** the same agent, contact and script with a run in progress returns that run with 200.
+  - **No expiry in Phase 2.** A run stays in progress until its agent completes it; supervisor close waits for the role
+    hierarchy (tracked).
+- **Tracked:** `tests/e2e/support/admin-mock.generated.ts` is stale on main (reported by T-0078 and T-0112); regenerate it in
+  the next admin-touching PR.
