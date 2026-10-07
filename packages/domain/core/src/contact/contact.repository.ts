@@ -134,6 +134,18 @@ export interface ContactFilters {
   lgas?: readonly string[] | undefined;
   dnd?: boolean | undefined;
   whatsappOptIn?: boolean | undefined;
+  /**
+   * Contacts linked to this account (listAccountContacts, T-0055). The API
+   * judges field security on `accountId` before it sets this: the filter IS
+   * a read of that link.
+   */
+  accountId?: string | undefined;
+  /**
+   * Narrows to these programmes, within the session's scope (never beyond it:
+   * the scope predicate still applies). listAccountContacts passes the
+   * account's own programme, which the composite key already implies.
+   */
+  withinProgrammeIds?: readonly string[] | undefined;
 }
 
 /**
@@ -364,6 +376,12 @@ function filterClauses(filters: ContactFilters, params: Params): string[] {
   if (filters.dnd !== undefined) clauses.push(`dnd = ${params.add(filters.dnd)}::boolean`);
   if (filters.whatsappOptIn !== undefined) {
     clauses.push(`whatsapp_opt_in = ${params.add(filters.whatsappOptIn)}::boolean`);
+  }
+  if (filters.accountId !== undefined) {
+    clauses.push(`account_id = ${params.add(filters.accountId)}::uuid`);
+  }
+  if (filters.withinProgrammeIds !== undefined) {
+    clauses.push(`programme_id = ANY(${params.add([...filters.withinProgrammeIds])}::uuid[])`);
   }
   return clauses;
 }
