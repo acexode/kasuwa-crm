@@ -139,6 +139,28 @@ export const FLAGS = {
     // (D-L84, T-0079).
     productionReady: false,
   },
+  /**
+   * T-0058 (D-L64, D-L86): the P04 Leads list and its Kanban by status, with
+   * convert, at `/leads`. It gates the ROUTE: `/leads` answers a real 404
+   * while it is off, whatever `crm_records` and `crm_accounts` say. The CRM
+   * shell's nav links `/leads` only on a process where this is on.
+   *
+   * A presentation switch, not an access control, like the others: the
+   * screen reads `/api/v1/leads` and writes through updateContact and
+   * convertContact, where the session, `user_programme`, the D-P14/D-P18
+   * rights and field security decide what a caller reaches and may change
+   * whether this is on or off. Write controls show to every caller and the
+   * API's 403 is the gate (D-L84).
+   */
+  crm_leads: {
+    description: 'The P04 Leads list, Kanban by status and convert at /leads (T-0058).',
+    defaultValue: false,
+    owner: 'T-0058 (screen), T-0076 (live API), D-L64, D-L86',
+    // NOT production-ready: the screen is proven against the contract mock,
+    // and hiding convert from callers without contact.write waits on a
+    // capability read (D-L84, T-0079). Lifting it is a deliberate one-line change.
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

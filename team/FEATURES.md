@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 163 rows; built 71, partial 11, mock-only 27, flagged-off 8, deferred 10, not-started 36.
+Totals: 164 rows; built 71, partial 11, mock-only 27, flagged-off 9, deferred 10, not-started 36.
 
 ## Modules
 
@@ -197,6 +197,7 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `crm_records` | The CRM shell and the P04 Contacts list at /contacts (T-0042). | flagged-off | `crm_records` | D-L64 | packages/feature-flags/src/index.ts |
 | flag | `crm_accounts` | The P04 Accounts list, create and edit at /accounts (T-0057). | flagged-off | `crm_accounts` | D-L64, D-L84 | packages/feature-flags/src/index.ts |
 | flag | `crm_record_view` | The P05 contact record (the 360° view) at /contacts/[id] (T-0062). | flagged-off | `crm_record_view` | D-L85 | packages/feature-flags/src/index.ts |
+| flag | `crm_leads` | The P04 Leads list, Kanban by status and convert at /leads (T-0058). | flagged-off | `crm_leads` | D-L64, D-L86 | packages/feature-flags/src/index.ts |
 
 ## Deferred decisions
 
