@@ -48,8 +48,11 @@ export type PreferredChannel = z.infer<typeof PreferredChannel>;
 export const ConsentState = z.enum(['unknown', 'opted_in', 'pending', 'withdrawn']);
 export type ConsentState = z.infer<typeof ConsentState>;
 
-const Phone = z.object({
-  type: z.enum(['mobile', 'work', 'home', 'other']),
+export const PhoneType = z.enum(['mobile', 'work', 'home', 'other']);
+export type PhoneType = z.infer<typeof PhoneType>;
+
+export const Phone = z.object({
+  type: PhoneType,
   e164: z.string(),
 });
 export type Phone = z.infer<typeof Phone>;
@@ -121,8 +124,16 @@ const ApiError = z.object({
 export const NETWORK_ERROR_CODE = 'network' as const;
 export type RecordsScreenErrorCode = RecordsErrorCode | typeof NETWORK_ERROR_CODE;
 
+/** One `details[]` entry: a path and a reason code, never the submitted value. */
+export interface RecordsErrorDetail {
+  readonly path: string;
+  readonly code: string;
+}
+
 export interface RecordsError {
   readonly code: RecordsScreenErrorCode;
+  /** The reasons the contract names (`field_withheld`, `field_not_editable`, ...). */
+  readonly details?: readonly RecordsErrorDetail[];
 }
 
 export type RecordsResult<T> =
@@ -161,16 +172,31 @@ export function contactListSearch(query: ContactListQuery): string {
   return search === '' ? '' : `?${search}`;
 }
 
-export async function listContacts(
-  query: ContactListQuery,
-  signal?: AbortSignal,
-): Promise<RecordsResult<ContactPage>> {
+/**
+ * One same-origin records request, its answer parsed with `schema`. Every
+ * records client goes through here (contacts, accounts), so a refusal is read
+ * the same way everywhere: by `code` and `details[].code`, never `message`.
+ *
+ * `path` is a RELATIVE `/api/v1/...` path, always. There is no header
+ * argument: nothing a screen sends may name a scope.
+ */
+export async function requestRecords<T>(
+  path: string,
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  init: { readonly method: 'GET' | 'POST' | 'PATCH'; readonly body?: unknown; readonly signal?: AbortSignal } = {
+    method: 'GET',
+  },
+): Promise<RecordsResult<T>> {
   let response: Response;
   try {
-    response = await fetch(`${CONTACTS_PATH}${contactListSearch(query)}`, {
-      method: 'GET',
-      headers: { accept: 'application/json' },
-      ...(signal === undefined ? {} : { signal }),
+    response = await fetch(path, {
+      method: init.method,
+      headers:
+        init.body === undefined
+          ? { accept: 'application/json' }
+          : { accept: 'application/json', 'content-type': 'application/json' },
+      ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+      ...(init.signal === undefined ? {} : { signal: init.signal }),
     });
   } catch {
     return { ok: false, error: NETWORK_FAILURE };
@@ -179,12 +205,28 @@ export async function listContacts(
   const payload: unknown = await response.json().catch(() => null);
 
   if (response.ok) {
-    const parsed = ContactPage.safeParse(payload);
+    const parsed = schema.safeParse(payload);
     // An answer the contract does not describe is not the user's fault and is
     // not dressed up as one.
     return parsed.success ? { ok: true, value: parsed.data } : { ok: false, error: NETWORK_FAILURE };
   }
 
   const parsed = ApiError.safeParse(payload);
-  return { ok: false, error: parsed.success ? { code: parsed.data.code } : NETWORK_FAILURE };
+  if (!parsed.success) {
+    return { ok: false, error: NETWORK_FAILURE };
+  }
+  const { code, details } = parsed.data;
+  return { ok: false, error: details === undefined ? { code } : { code, details } };
+}
+
+/** `true` when a refusal names `reason` in its `details`. */
+export function hasDetail(error: RecordsError | null, reason: string): boolean {
+  return error?.details?.some((detail) => detail.code === reason) ?? false;
+}
+
+export function listContacts(query: ContactListQuery, signal?: AbortSignal): Promise<RecordsResult<ContactPage>> {
+  return requestRecords(`${CONTACTS_PATH}${contactListSearch(query)}`, ContactPage, {
+    method: 'GET',
+    ...(signal === undefined ? {} : { signal }),
+  });
 }

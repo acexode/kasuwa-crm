@@ -1,13 +1,24 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
-import { StillConnecting } from '../admin/panel';
 import type { LanguageOption } from '../auth/language-menu';
 import { PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { isWithheld, type Contact } from '../../lib/records-api';
+import {
+  ColumnChooser,
+  FilterOptions,
+  ListError,
+  ListLoading,
+  LoadMore,
+  LockedValue,
+  Muted,
+  OfflineBanner,
+  HeaderLock,
+} from '../records/list-parts';
+import { CHIP, CHIP_OFF, CHIP_ON, FOCUS, POPOVER } from '../records/list-classes';
 import {
   COLUMNS,
   FILTERS,
@@ -15,7 +26,6 @@ import {
   activeFilterKeys,
   defaultHiddenColumns,
   formatPhone,
-  formatSyncedAt,
   initials,
   listState,
   lockedColumns,
@@ -54,11 +64,6 @@ import { useContactList } from './use-contact-list';
  * ---------------------------------------------------------------------------
  */
 
-const FOCUS =
-  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
-
-const CHIP = `flex min-h-touch items-center gap-2 rounded-full border px-4 text-body-sm font-semibold ${FOCUS}`;
-
 const STATUS_TONE: Readonly<Record<string, string>> = {
   new: 'bg-info-soft text-info-text',
   contacted: 'bg-primary-soft text-primary-text',
@@ -73,10 +78,13 @@ export function ContactsScreen({
   locale,
   messages,
   locales,
+  live,
 }: {
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
+  /** Nav ids whose route is on here (`crmLiveNav()`), for the shell's links. */
+  live: readonly string[];
 }) {
   const t = createBundleTranslator(locale, messages);
   const [q, setQ] = useState('');
@@ -88,7 +96,7 @@ export function ContactsScreen({
   const searchId = useId();
   const list = useContactList(q, filters);
 
-  const searched = list.answered.q.trim() !== '' || activeFilterKeys(list.answered.filters).length > 0;
+  const searched = list.answered.q.trim() !== '' || activeFilterKeys(list.answered.view).length > 0;
   const state = listState({ phase: list.phase, rowCount: list.rows.length, searching: searched });
   const locked = lockedColumns(list.rows);
   const visibleColumns = COLUMNS.filter((column) => !hidden.includes(column.key));
@@ -134,23 +142,9 @@ export function ContactsScreen({
   const offline = !list.online;
 
   return (
-    <CrmShell t={t} locale={locale} locales={locales} current="contacts">
+    <CrmShell t={t} locale={locale} locales={locales} current="contacts" live={live}>
       <div data-screen="P04/02" data-list-state={state} className="flex min-w-0 flex-col gap-4">
-        {offline ? (
-          <div
-            role="status"
-            data-testid="offline-banner"
-            className="flex items-start gap-3 rounded-lg border border-warning bg-warning-soft p-3 text-body-sm text-warning-text"
-          >
-            <Icon name="cloud_off" size="sm" />
-            <p>
-              <b>{t.t('records.offline.title')}</b>{' '}
-              {list.syncedAt === null
-                ? t.t('records.offline.never')
-                : t.t('records.offline.synced', { time: formatSyncedAt(locale, list.syncedAt) })}
-            </p>
-          </div>
-        ) : null}
+        {offline ? <OfflineBanner t={t} locale={locale} syncedAt={list.syncedAt} /> : null}
 
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-3">
@@ -209,18 +203,14 @@ export function ContactsScreen({
                   aria-haspopup="true"
                   aria-expanded={popover === `filter:${spec.key}`}
                   onClick={(event) => open(`filter:${spec.key}`, event.currentTarget)}
-                  className={`${CHIP} ${
-                    filters[spec.key].length > 0
-                      ? 'border-primary bg-primary-soft text-primary-text'
-                      : 'border-border bg-surface text-text hover:bg-surface-sunken'
-                  }`}
+                  className={`${CHIP} ${filters[spec.key].length > 0 ? CHIP_ON : CHIP_OFF}`}
                 >
                   {chipText(t, spec, filters)}
                   <Icon name="expand_more" size="sm" />
                 </button>
                 {popover === `filter:${spec.key}` ? (
-                  <div className="absolute start-0 top-full z-20 mt-1 w-64 rounded-lg border border-border bg-surface-raised p-2 shadow-2">
-                    <FilterOptions t={t} spec={spec} filters={filters} onToggle={(value) => setFilters((current) => toggleFilter(current, spec.key, value))} />
+                  <div className={`absolute start-0 top-full mt-1 w-64 ${POPOVER}`}>
+                    <ContactFilterOptions t={t} spec={spec} filters={filters} onToggle={(value) => setFilters((current) => toggleFilter(current, spec.key, value))} />
                     <div className="mt-2 flex justify-end gap-2 border-t border-border pt-2">
                       <button
                         type="button"
@@ -261,6 +251,7 @@ export function ContactsScreen({
             {popover === 'columns' ? (
               <ColumnChooser
                 t={t}
+                columns={COLUMNS}
                 hidden={hidden}
                 locked={locked}
                 onToggle={(key) => setHidden((current) => toggleColumn(current, key))}
@@ -335,7 +326,7 @@ function UnavailableAction({
   );
 }
 
-function FilterOptions({
+function ContactFilterOptions({
   t,
   spec,
   filters,
@@ -347,88 +338,13 @@ function FilterOptions({
   onToggle: (value: string) => void;
 }) {
   return (
-    <div data-filter-menu={spec.key} role="group" aria-label={t.t(spec.label)} className="flex flex-col">
-      {spec.options.map((value) => {
-        const selected = filters[spec.key].includes(value);
-        return (
-          <button
-            key={value}
-            type="button"
-            data-filter-option={value}
-            aria-pressed={selected}
-            onClick={() => onToggle(value)}
-            className={`flex min-h-touch items-center gap-2 rounded-md px-2 text-start text-body-sm hover:bg-surface-sunken ${FOCUS} ${
-              selected ? 'font-semibold text-primary-text' : 'text-text'
-            }`}
-          >
-            <span aria-hidden="true" className={`flex h-5 w-5 items-center justify-center rounded-sm border ${selected ? 'border-primary bg-primary text-on-primary' : 'border-border-strong'}`}>
-              {selected ? <Icon name="check" size="sm" /> : null}
-            </span>
-            {t.t(optionLabel(spec.key, value))}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function ColumnChooser({
-  t,
-  hidden,
-  locked,
-  onToggle,
-}: {
-  t: Translator;
-  hidden: readonly ColumnKey[];
-  locked: readonly ColumnKey[];
-  onToggle: (key: ColumnKey) => void;
-}) {
-  const titleId = useId();
-  return (
-    <div
-      data-testid="column-chooser-panel"
-      role="group"
-      aria-labelledby={titleId}
-      className="absolute end-0 top-full z-20 mt-1 w-72 rounded-lg border border-border bg-surface-raised p-2 shadow-2"
-    >
-      <p id={titleId} className="px-2 py-1 text-caption font-bold text-text-muted">
-        {t.t('records.columns.title')}
-      </p>
-      {COLUMNS.map((column) => {
-        const shown = !hidden.includes(column.key);
-        const isLocked = locked.includes(column.key);
-        return (
-          <button
-            key={column.key}
-            type="button"
-            data-column-option={column.key}
-            data-locked={isLocked ? 'true' : undefined}
-            aria-pressed={shown}
-            disabled={column.fixed === true}
-            onClick={() => onToggle(column.key)}
-            className={`flex min-h-touch w-full items-center gap-2 rounded-md px-2 text-start text-body-sm text-text hover:bg-surface-sunken disabled:hover:bg-transparent ${FOCUS}`}
-          >
-            <span aria-hidden="true" className={`flex h-5 w-5 items-center justify-center rounded-sm border ${shown ? 'border-primary bg-primary text-on-primary' : 'border-border-strong'}`}>
-              {shown ? <Icon name="check" size="sm" /> : null}
-            </span>
-            <span className="flex-1">{t.t(column.label)}</span>
-            {column.fixed === true ? <span className="text-caption text-text-muted">{t.t('records.columns.always')}</span> : null}
-            {isLocked ? (
-              <>
-                <Icon name="lock" size="sm" className="text-text-muted" />
-                <span className="sr-only">{t.t('records.locked.header')}</span>
-              </>
-            ) : null}
-          </button>
-        );
-      })}
-      {locked.length > 0 ? (
-        <p data-testid="locked-columns-note" className="mt-2 flex gap-2 border-t border-border px-2 pt-2 text-caption text-text-2">
-          <Icon name="lock" size="sm" />
-          {t.t('records.columns.lockedNote')}
-        </p>
-      ) : null}
-    </div>
+    <FilterOptions
+      menu={spec.key}
+      label={t.t(spec.label)}
+      options={spec.options.map((value) => ({ value, label: t.t(optionLabel(spec.key, value)) }))}
+      selected={filters[spec.key]}
+      onToggle={onToggle}
+    />
   );
 }
 
@@ -501,7 +417,7 @@ function FilterSheet({
         {FILTERS.map((spec) => (
           <div key={spec.key} className="flex flex-col gap-1">
             <b className="text-body-sm">{t.t(spec.label)}</b>
-            <FilterOptions t={t} spec={spec} filters={filters} onToggle={(value) => onToggle(spec.key, value)} />
+            <ContactFilterOptions t={t} spec={spec} filters={filters} onToggle={(value) => onToggle(spec.key, value)} />
           </div>
         ))}
         <div className="sticky bottom-0 flex gap-2 border-t border-border bg-surface pt-3">
@@ -538,48 +454,25 @@ function Body({
   rows: readonly Contact[];
   columns: readonly ColumnKey[];
   locked: readonly ColumnKey[];
-  answered: { readonly q: string; readonly filters: FilterState };
+  answered: { readonly q: string; readonly view: FilterState };
   offline: boolean;
   onClear: () => void;
 }) {
   if (state === 'loading') {
-    return (
-      <div aria-busy="true" className="flex flex-col gap-3">
-        {list.slow ? <StillConnecting t={t} /> : null}
-        <span role="status" className="sr-only">
-          {t.t('records.loading')}
-        </span>
-        <div aria-hidden="true" className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3">
-          {Array.from({ length: 6 }, (_, index) => (
-            <div key={index} data-testid="skeleton-row" className="flex items-center gap-3 py-2">
-              <span className="h-8 w-8 shrink-0 rounded-full bg-surface-sunken" />
-              <span className="h-4 w-40 rounded-sm bg-surface-sunken" />
-              <span className="hidden h-4 w-32 rounded-sm bg-surface-sunken sm:block" />
-              <span className="hidden h-4 flex-1 rounded-sm bg-surface-sunken md:block" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <ListLoading t={t} slow={list.slow} label="records.loading" />;
   }
 
   if (state === 'error') {
+    const code = list.error?.code ?? 'network';
     return (
-      <div
-        role="alert"
-        data-testid="list-error"
-        data-error-code={list.error?.code ?? 'network'}
-        className="flex flex-col items-start gap-2 rounded-lg border border-danger bg-danger-soft p-4 text-body-sm text-danger-text"
-      >
-        <p className="flex items-center gap-2 font-bold">
-          <Icon name="error" size="sm" />
-          {t.t('records.error.title')}
-        </p>
-        <p>{t.t(`records.error.${list.error?.code ?? 'network'}` as MessageId)}</p>
-        <button type="button" data-requires-connection="" disabled={offline} onClick={list.reload} className={QUIET_BUTTON}>
-          {t.t('records.retry')}
-        </button>
-      </div>
+      <ListError
+        t={t}
+        heading="records.error.title"
+        message={`records.error.${code}` as MessageId}
+        code={code}
+        offline={offline}
+        onRetry={list.reload}
+      />
     );
   }
 
@@ -594,9 +487,9 @@ function Body({
         <h2 className="text-h3">{t.t('records.noResults.title')}</h2>
         <p data-testid="no-results-message" className="max-w-xl text-body-md text-text-2">
           {answered.q.trim() === '' ? null : t.t('records.noResults.query', { query: answered.q.trim() })}{' '}
-          {activeFilterKeys(answered.filters).length === 0
+          {activeFilterKeys(answered.view).length === 0
             ? null
-            : t.t('records.noResults.filters', { filters: describeFilters(t, answered.filters) })}
+            : t.t('records.noResults.filters', { filters: describeFilters(t, answered.view) })}
         </p>
         <button type="button" data-action="clear-search-filters" onClick={onClear} className={SECONDARY_BUTTON}>
           {t.t('records.noResults.clear')}
@@ -626,12 +519,7 @@ function Body({
                   <th key={key} role="columnheader" scope="col" data-column={key} className="p-3 text-start font-bold">
                     <span className="inline-flex items-center gap-1">
                       {column === undefined ? null : t.t(column.label)}
-                      {locked.includes(key) ? (
-                        <>
-                          <Icon name="lock" size="sm" />
-                          <span className="sr-only">{t.t('records.locked.header')}</span>
-                        </>
-                      ) : null}
+                      {locked.includes(key) ? <HeaderLock t={t} /> : null}
                     </span>
                   </th>
                 );
@@ -678,18 +566,7 @@ function Body({
       )}
 
       {list.nextCursor === null ? null : (
-        <div className="flex justify-center">
-          <button
-            type="button"
-            data-testid="load-more"
-            data-requires-connection=""
-            disabled={offline || list.loadingMore}
-            onClick={list.loadMore}
-            className={SECONDARY_BUTTON}
-          >
-            {list.loadingMore ? t.t('records.loadingMore') : t.t('records.loadMore')}
-          </button>
-        </div>
+        <LoadMore t={t} loading={list.loadingMore} offline={offline} onLoadMore={list.loadMore} />
       )}
     </div>
   );
@@ -721,10 +598,6 @@ function NameCell({ row }: { row: Contact }) {
   );
 }
 
-function Muted({ children }: { children: ReactNode }) {
-  return <span className="text-text-muted">{children}</span>;
-}
-
 /** One cell: a lock when the row withholds the field, the value otherwise. */
 function FieldCell({
   t,
@@ -742,10 +615,7 @@ function FieldCell({
   if (isWithheld(row, field)) {
     return (
       <Tag data-field={field} data-locked="true" className={`${padding} text-text-muted`}>
-        <span className="inline-flex items-center gap-1">
-          <Icon name="lock" size="sm" />
-          {t.t('records.locked')}
-        </span>
+        <LockedValue t={t} />
       </Tag>
     );
   }

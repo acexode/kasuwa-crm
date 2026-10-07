@@ -176,71 +176,7 @@ export function toListQuery(q: string, filters: FilterState, cursor?: string): C
 export const PAGE_SIZE = 25;
 
 // ---------------------------------------------------------------------------
-// The list state
+// The list state and the display formats, shared with every P04 list
 // ---------------------------------------------------------------------------
 
-export type ListState = 'loading' | 'ready' | 'empty' | 'no-results' | 'error';
-
-/**
- * "No contacts yet" and "nothing matches" are different screens (P04/05), and
- * neither may be shown while a request is in flight or after one failed — a
- * failed read is not an empty workspace.
- */
-export function listState(input: {
-  readonly phase: 'loading' | 'loaded' | 'error';
-  readonly rowCount: number;
-  readonly searching: boolean;
-}): ListState {
-  if (input.phase === 'loading') return 'loading';
-  if (input.phase === 'error') return 'error';
-  if (input.rowCount > 0) return 'ready';
-  return input.searching ? 'no-results' : 'empty';
-}
-
-// ---------------------------------------------------------------------------
-// Display
-// ---------------------------------------------------------------------------
-
-/**
- * E.164 grouped for reading: `+2348030000001` -> `+234 803 000 0001`. Nigerian
- * numbers get the national grouping; anything else is shown as stored, because
- * a wrong grouping is worse than none.
- */
-export function formatPhone(e164: string): string {
-  const nigerian = /^\+234(\d{3})(\d{3})(\d{4})$/.exec(e164);
-  if (nigerian !== null) {
-    return `+234 ${nigerian[1]} ${nigerian[2]} ${nigerian[3]}`;
-  }
-  return e164;
-}
-
-/** Up to two initials, for the decorative avatar (always aria-hidden). */
-export function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter((part) => part !== '')
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-}
-
-/**
- * "Last synced" with the zone named. A bare `10:42` is useless to somebody
- * whose phone clock is in another zone, and BPO rosters span WAT, EAT and
- * SAST. The browser's zone is the one the person reads their clock in.
- */
-export function formatSyncedAt(locale: string, at: Date): string {
-  try {
-    return new Intl.DateTimeFormat(locale, {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZoneName: 'short',
-    }).format(at);
-  } catch {
-    return new Intl.DateTimeFormat('en', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZoneName: 'short',
-    }).format(at);
-  }
-}
+export { formatPhone, formatSyncedAt, initials, listState, type ListState } from '../records/list-model';

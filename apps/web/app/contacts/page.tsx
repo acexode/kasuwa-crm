@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { bundleMessages } from '@kasuwa/i18n';
 import { ContactsScreen } from '../../components/contacts/contacts-screen';
 import { CONTACTS_MESSAGE_IDS } from '../../components/contacts/message-ids';
-import { crmRecordsEnabled } from '../../lib/feature-flags';
+import { crmLiveNav, crmRecordsEnabled } from '../../lib/feature-flags';
 import { activeLocale, languageOptions } from '../../lib/locale';
 
 /**
@@ -27,6 +27,7 @@ export default async function ContactsPage() {
       locale={locale}
       messages={bundleMessages(locale, CONTACTS_MESSAGE_IDS)}
       locales={languageOptions(locale)}
+      live={await crmLiveNav()}
     />
   );
 }
