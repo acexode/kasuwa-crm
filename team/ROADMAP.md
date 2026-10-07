@@ -56,11 +56,11 @@ T-0049 (#93), a separate database role for the sign-in code (D-P16, ADR-0013), m
 | T-0054 / T-0055 | Account fields (0026); Accounts API | ✅ Merged |
 | T-0059 / T-0060 / T-0061 | 360° contract; activity table (0027); timeline and activity API | ✅ Merged (#94, #102) |
 | T-0056 / T-0076 / T-0077 | Leads contract and API (0028); D-P18 rights | ✅ Merged (#101, #103) |
-| T-0078 | Audit values follow field security (release gate, D-L83) | 🟠 #105, final checks |
-| T-0057 | Accounts screen (P04) | 🟠 #104, verifying |
-| T-0062 | Contact record screen (P05) | 🟠 Review fixes |
-| T-0058 | Leads screen and Kanban (P04) | 🟠 Builder running |
-| T-0080 | Timeline activity versions; account timeline | 🟠 Suite being written |
+| T-0078 | Audit values follow field security (release gate, D-L83) | ✅ Merged (#105) |
+| T-0057 | Accounts screen (P04) | ✅ Merged (#104) |
+| T-0062 | Contact record screen (P05) | 🟠 PR next (rebased on #104) |
+| T-0058 | Leads screen and Kanban (P04) | 🟠 PR after T-0062 |
+| T-0080 | Timeline activity versions; account timeline | 🟠 Builder running |
 | T-0063 | Account record screen (P05) | ⬜ After T-0080 |
 | T-0079 / T-0075 | Capability read; sign-in reads on the auth pool | ⬜ Suites to write |
 

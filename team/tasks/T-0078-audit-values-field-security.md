@@ -1,6 +1,6 @@
 # T-0078 — The admin audit API applies field security to change values
 
-**status** `assigned` (suite on `lead/T-0078-acceptance`) · **owner** Agent 1 · **priority** P1 (before any deployed cell) · **decisions** D-L63, D-L72, D-L81
+**status** `done` (#105) · **owner** Agent 1 · **priority** P1 (before any deployed cell) · **decisions** D-L63, D-L72, D-L81
 
 ## Goal
 From T-0061, a contact update's `audit_event.changes` carry `before` and `after` for D-L72's value fields. `/admin/audit`

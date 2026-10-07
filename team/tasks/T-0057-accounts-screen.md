@@ -1,6 +1,6 @@
 # T-0057 — Accounts screen (P04)
 
-**status** `assigned` (suite on `lead/T-0057-acceptance`) · **owner** Agent 11 · **priority** P1 · **decisions** D-L64, D-L69, D-L78, D-L80, D-P13, D-P21
+**status** `done` (#104) · **owner** Agent 11 · **priority** P1 · **decisions** D-L64, D-L69, D-L78, D-L80, D-P13, D-P21
 
 ## Goal
 P04's Accounts frames (03, 05 and 06) on the real API (T-0055), in the CRM shell (T-0042), behind a new `crm_accounts` flag.
