@@ -527,7 +527,19 @@ paths:
         server evaluates it on entry and follows it (see advanceScriptRun),
         so a script that opens on a branch can start already `stopped`.
 
-        Audited as `created` on the run, naming the script and version.
+        **Idempotent per agent, contact and script (D-L91).** When the same
+        agent, contact and script already have an `in_progress` run (the
+        caller's own), this answers `200` with THAT run, as it is and on the
+        version it pinned, and starts nothing. A different script or a
+        different agent starts a new run (`201`). A `stopped` or `completed`
+        run is not in progress, so starting again makes a new one.
+
+        **No expiry in Phase 2.** A run stays in progress until its agent
+        completes it. A supervisor closing another agent's run waits for the
+        role hierarchy (tracked, D-L91).
+
+        Audited as `created` on the run, naming the script and version. The
+        `200` replay creates nothing and writes no audit event.
       requestBody:
         required: true
         content:
@@ -537,6 +549,15 @@ paths:
               scriptId: 6c3a9e10-5b2d-4f71-9a8e-0d4c2b7f1a01
               contactId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e41
       responses:
+        '200':
+          description: The caller's run already in progress for this contact and script. Nothing was started.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScriptRun' }
+              examples:
+                default: { $ref: '#/components/examples/ScriptRunInProgress' }
         '201':
           description: The new run, at its first node.
           headers:
@@ -581,6 +602,7 @@ paths:
               examples:
                 default: { $ref: '#/components/examples/ScriptRunInProgress' }
                 completed: { $ref: '#/components/examples/ScriptRunCompleted' }
+                interrupted: { $ref: '#/components/examples/ScriptRunInterrupted' }
                 stopped: { $ref: '#/components/examples/ScriptRunStopped' }
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
@@ -848,15 +870,33 @@ paths:
         Closes the run. A run may be completed from any node, including a
         `stopped` run, because the call still needs an outcome.
 
+        **`outcome` says how the call ended (D-L91):**
+
+        - `completed`: the script was worked to where the agent stopped
+          it. Every compliance node on the path, the current node included,
+          must be acknowledged.
+        - `interrupted`: the call dropped or was cut short. The current node,
+          and any node not yet passed, needs no acknowledgement. A node
+          already passed was acknowledged when it was passed (advanceScriptRun
+          refuses otherwise), and that still holds. The server records
+          `outcome: interrupted` and lists, in
+          `unacknowledgedComplianceNodeIds`, the compliance nodes on the path
+          that were NOT acknowledged. The client never supplies that list.
+          **`interrupted` never produces an acknowledgement**: completion
+          adds nothing to `acknowledgements`, so a dropped call is never
+          recorded as a statement read in full.
+
         **Preconditions, checked in this order after the body parses:**
 
-        1. **Every compliance node on the path is acknowledged**, otherwise
-           `409 compliance_unacknowledged` with `details[]` naming the node
-           ids. The path is every node the run has entered, the current node
-           included. The acknowledgement is the server's timestamp from
-           acknowledgeScriptRunNode; this body cannot supply one.
-        2. **A live disposition is chosen**: `dispositionId` names an active,
-           undeleted disposition of the run's programme. An id that is
+        1. **Every compliance node on the path is acknowledged** (for
+           `completed`), or every compliance node already passed (for
+           `interrupted`), otherwise `409 compliance_unacknowledged` with
+           `details[]` naming the node ids. The path is every node the run
+           has entered, the current node included. The acknowledgement is the
+           server's timestamp from acknowledgeScriptRunNode; this body cannot
+           supply one.
+        2. **A live disposition is chosen**, for either outcome:
+           `dispositionId` names an active, undeleted disposition of the run's programme. An id that is
            unknown, in another programme, deactivated or deleted is one
            answer, `409 disposition_not_live`; the body does not say which.
         3. **The disposition's requirements are met**: a `note` when it has
@@ -865,7 +905,8 @@ paths:
            `followUp` in `details[].path`.
 
         **In one transaction**, completion: sets `status: completed`,
-        `dispositionId` and `completedAt`; logs a `call` activity on the
+        `outcome`, `unacknowledgedComplianceNodeIds`, `dispositionId` and
+        `completedAt`; logs a `call` activity on the
         contact whose `subject` is the disposition's label and whose `body`
         is `note`, owned by the caller, linked as `activityId`; and, when
         `followUp` is sent (always, for a disposition with
@@ -879,7 +920,7 @@ paths:
         contact field.
 
         **Idempotent.** A repeat of the request that completed the run (the
-        same `dispositionId`, `note` and `followUp`) answers `200` with the
+        same `outcome`, `dispositionId`, `note` and `followUp`) answers `200` with the
         run as it is, whatever `revision` it carries, and writes nothing.
         Any other write to a completed run is `409 run_completed`.
 
@@ -896,11 +937,21 @@ paths:
               promiseToPay:
                 value:
                   revision: 11
+                  outcome: completed
                   dispositionId: 9d1b4e70-2c5a-4e8f-b6d3-1a7c0e9f4b21
                   note: Promised ₦25,000 on Thu 15 Oct by bank transfer.
               callBack:
                 value:
                   revision: 6
+                  outcome: completed
+                  dispositionId: 9d1b4e70-2c5a-4e8f-b6d3-1a7c0e9f4b25
+                  followUp:
+                    dueAt: '2026-10-08T14:00:00Z'
+              droppedDuringReadBack:
+                summary: The call dropped on a compliance node (D-L91)
+                value:
+                  revision: 10
+                  outcome: interrupted
                   dispositionId: 9d1b4e70-2c5a-4e8f-b6d3-1a7c0e9f4b25
                   followUp:
                     dueAt: '2026-10-08T14:00:00Z'
@@ -914,6 +965,7 @@ paths:
               schema: { $ref: '#/components/schemas/ScriptRun' }
               examples:
                 default: { $ref: '#/components/examples/ScriptRunCompleted' }
+                interrupted: { $ref: '#/components/examples/ScriptRunInterrupted' }
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '403': { $ref: '#/components/responses/NotPermitted' }
@@ -1597,11 +1649,16 @@ components:
     ScriptRun:
       type: object
       additionalProperties: false
-      required: [id, programmeId, contactId, scriptId, versionId, versionNumber, latestVersion, status, stopReason, currentNodeId, path, acknowledgements, answers, startedBy, startedAt, completedAt, dispositionId, activityId, followUpTaskId, revision]
+      required: [id, programmeId, contactId, scriptId, versionId, versionNumber, latestVersion, status, outcome, unacknowledgedComplianceNodeIds, stopReason, currentNodeId, path, acknowledgements, answers, startedBy, startedAt, completedAt, dispositionId, activityId, followUpTaskId, revision]
       description: |
         One agent walking one published version for one contact. The run
         pins `versionId` at start and never changes it; `latestVersion` is
         informational and read-only.
+
+        **No expiry in Phase 2.** A run stays `in_progress` (or `stopped`)
+        until its own agent completes it; nothing times it out. A supervisor
+        closing another agent's run waits for the role hierarchy (tracked,
+        D-L91).
       properties:
         id: { type: string, format: uuid }
         programmeId:
@@ -1629,7 +1686,27 @@ components:
           enum: [in_progress, stopped, completed]
           description: |
             `stopped`: the server could not go on (see `stopReason`); the run
-            can only be completed. `completed`: closed with a disposition.
+            can only be completed. `completed`: closed with a disposition;
+            `outcome` says how.
+        outcome:
+          type: [string, 'null']
+          enum: [completed, interrupted, null]
+          readOnly: true
+          description: |
+            Set at completion from the request; `null` until then.
+            `interrupted`: the call dropped, and the compliance nodes it left
+            unread are in `unacknowledgedComplianceNodeIds` (D-L91).
+        unacknowledgedComplianceNodeIds:
+          type: array
+          readOnly: true
+          maxItems: 200
+          description: |
+            Set by the server at completion, never by the client: the
+            compliance nodes on the path that were NOT acknowledged. Empty
+            unless `outcome` is `interrupted`. These nodes are not in
+            `acknowledgements` and never will be; an interrupted run is never
+            recorded as having read them.
+          items: { $ref: '#/components/schemas/NodeId' }
         stopReason:
           type: [string, 'null']
           enum: [field_withheld, null]
@@ -1757,13 +1834,23 @@ components:
     CompleteScriptRunRequest:
       type: object
       additionalProperties: false
-      required: [revision, dispositionId]
+      required: [revision, outcome, dispositionId]
       description: |
         Closed. No activity subject (the server uses the disposition's
-        label), no owner (the caller), no acknowledgement or time, and no
-        contact field.
+        label), no owner (the caller), no acknowledgement or time, no list
+        of unacknowledged nodes (the server works it out), and no contact
+        field.
       properties:
         revision: { type: integer, minimum: 1 }
+        outcome:
+          type: string
+          enum: [completed, interrupted]
+          description: |
+            `completed` needs every compliance node on the path acknowledged,
+            the current one included. `interrupted` (a dropped call) excuses
+            the current node and any node not yet passed, and is recorded on
+            the run with the nodes left unacknowledged. Neither acknowledges
+            anything (D-L91).
         dispositionId: { type: string, format: uuid }
         note:
           type: string
@@ -1934,6 +2021,8 @@ components:
           publishedAt: '2026-10-07T13:55:00Z'
           publishedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a802, displayName: Kemi Adeyinka }
         status: in_progress
+        outcome: null
+        unacknowledgedComplianceNodeIds: []
         stopReason: null
         currentNodeId: payq
         path:
@@ -1969,6 +2058,8 @@ components:
           publishedAt: '2026-10-02T09:00:00Z'
           publishedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a802, displayName: Kemi Adeyinka }
         status: stopped
+        outcome: null
+        unacknowledgedComplianceNodeIds: []
         stopReason: field_withheld
         currentNodeId: cust
         path:
@@ -2003,6 +2094,8 @@ components:
           publishedAt: '2026-10-07T13:55:00Z'
           publishedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a802, displayName: Kemi Adeyinka }
         status: completed
+        outcome: completed
+        unacknowledgedComplianceNodeIds: []
         stopReason: null
         currentNodeId: null
         path:
@@ -2034,6 +2127,53 @@ components:
         activityId: 8a9b0c1d-2e3f-4a5b-9c6d-7e8f9a0b1c51
         followUpTaskId: null
         revision: 12
+
+    ScriptRunInterrupted:
+      summary: The call dropped during the read-back; nothing was acknowledged for it (D-L91)
+      value:
+        id: 4a7e2c91-8b3d-4f60-a5e2-7c9d1b0f3e40
+        programmeId: 0b5e7a12-3c4d-4e5f-8a6b-7c8d9e0f1a21
+        contactId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e41
+        scriptId: 6c3a9e10-5b2d-4f71-9a8e-0d4c2b7f1a01
+        versionId: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f12
+        versionNumber: 12
+        latestVersion:
+          id: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f12
+          number: 12
+          publishedAt: '2026-10-02T09:00:00Z'
+          publishedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a802, displayName: Kemi Adeyinka }
+        status: completed
+        outcome: interrupted
+        unacknowledgedComplianceNodeIds: [readback]
+        stopReason: null
+        currentNodeId: null
+        path:
+          - { nodeId: greet, enteredAt: '2026-10-07T13:20:02Z' }
+          - { nodeId: rec, enteredAt: '2026-10-07T13:20:20Z' }
+          - { nodeId: idq, enteredAt: '2026-10-07T13:20:41Z' }
+          - { nodeId: cust, enteredAt: '2026-10-07T13:21:10Z', branchOutcome: true }
+          - { nodeId: payq, enteredAt: '2026-10-07T13:21:10Z' }
+          - { nodeId: ptp, enteredAt: '2026-10-07T13:22:30Z' }
+          - { nodeId: readback, enteredAt: '2026-10-07T13:24:05Z' }
+        acknowledgements:
+          - { nodeId: rec, acknowledgedAt: '2026-10-07T13:20:38Z' }
+        answers:
+          idq: { type: question, choiceKey: 'yes', answeredAt: '2026-10-07T13:21:10Z' }
+          payq: { type: question, choiceKey: ptp, answeredAt: '2026-10-07T13:22:30Z' }
+          ptp:
+            type: form
+            values:
+              date: '2026-10-15'
+              amount: { amountMinor: '2500000', currency: NGN }
+              reason: salary_delayed
+            updatedAt: '2026-10-07T13:24:01Z'
+        startedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a801, displayName: Tunde Bakare }
+        startedAt: '2026-10-07T13:20:02Z'
+        completedAt: '2026-10-07T13:25:30Z'
+        dispositionId: 9d1b4e70-2c5a-4e8f-b6d3-1a7c0e9f4b25
+        activityId: 8a9b0c1d-2e3f-4a5b-9c6d-7e8f9a0b1c53
+        followUpTaskId: 8a9b0c1d-2e3f-4a5b-9c6d-7e8f9a0b1c54
+        revision: 11
 
   responses:
     ValidationFailed:

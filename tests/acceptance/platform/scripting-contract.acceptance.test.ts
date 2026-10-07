@@ -63,6 +63,14 @@ import { parse } from 'yaml';
  *   read-only. Completion refuses unacknowledged compliance and a disposition
  *   that is not live, and the server stamps acknowledgements.
  *
+ *   D-L91 (lead rulings on the first draft): completion takes `outcome`
+ *   `completed | interrupted`. `interrupted` (a dropped call) excuses the
+ *   current node and nodes not yet passed, never creates an acknowledgement,
+ *   and the server lists the unread compliance nodes on the run read.
+ *   startScriptRun is idempotent per (agent, contact, script) while a run is
+ *   `in_progress`: 200 with that run, 201 for a new one. Runs never expire in
+ *   Phase 2; a supervisor close waits for the role hierarchy.
+ *
  * ---------------------------------------------------------------------------
  *
  * D-L23: on main this suite runs before the spec exists. Every test that
@@ -1715,16 +1723,26 @@ describe('acceptance: scripting contract (T-0112)', () => {
       expect(text, 'the callback task').toMatch(/callback[\s\S]*`task`/i);
     });
 
-    it('the completion body is closed: revision, a uuid dispositionId, note and followUp; no subject or acknowledgement', () => {
+    it('the completion body is closed: revision, outcome, a uuid dispositionId, note and followUp; no subject or acknowledgement', () => {
       const body = requestSchema(operation('completeScriptRun'));
       expect(body, 'no body').toBeDefined();
       if (!body) return;
       expect(isMapping(body.node) ? body.node.additionalProperties : undefined, 'closed').toBe(
         false,
       );
-      expect(required(body).sort()).toEqual(['dispositionId', 'revision']);
+      expect(required(body).sort()).toEqual(['dispositionId', 'outcome', 'revision']);
       const props = properties(body);
-      expect([...props.keys()].sort()).toEqual(['dispositionId', 'followUp', 'note', 'revision']);
+      expect([...props.keys()].sort()).toEqual([
+        'dispositionId',
+        'followUp',
+        'note',
+        'outcome',
+        'revision',
+      ]);
+      expect(enumOf(props.get('outcome') ?? at({})), 'outcome (D-L91)').toEqual([
+        'completed',
+        'interrupted',
+      ]);
       expect(
         isMapping(props.get('dispositionId')?.node)
           ? (props.get('dispositionId')?.node as Mapping).format
@@ -1794,6 +1812,168 @@ describe('acceptance: scripting contract (T-0112)', () => {
       expect(describedAs(operation('listScriptRunDispositions').op), 'only live ones').toMatch(
         /live/i,
       );
+    });
+  });
+
+  describe('a dropped call completes as interrupted, and is never acknowledged (D-L91)', () => {
+    /** The run examples the contract publishes on every operation that answers a run. */
+    function runExamples(): { label: string; run: Mapping }[] {
+      const out: { label: string; run: Mapping }[] = [];
+      for (const op of operations()) {
+        for (const [status, response] of responses(op)) {
+          if (!/^2/.test(status)) continue;
+          const schema = jsonSchema(response);
+          if (!schema || schema.node !== schemaOf('getScriptRun', '200').node) continue;
+          for (const { name, value } of exampleValues(response)) {
+            if (isMapping(value)) out.push({ label: `${op.id} ${status} ${name}`, run: value });
+          }
+        }
+      }
+      return out;
+    }
+
+    /** Node id -> kind, from the graph of the version the example runs are pinned to. */
+    function exampleNodeKinds(): Map<string, string> {
+      const kinds = new Map<string, string>();
+      for (const { value } of exampleValues(
+        responses(operation('getScriptRunScript')).get('200'),
+      )) {
+        const graph = isMapping(value) && isMapping(value.graph) ? value.graph : {};
+        for (const node of Array.isArray(graph.nodes) ? graph.nodes : []) {
+          if (isMapping(node)) kinds.set(str(node.id), str(node.type));
+        }
+      }
+      return kinds;
+    }
+
+    it('the run records outcome and the unacknowledged compliance node ids, both server-set and read-only', () => {
+      const run = schemaOf('getScriptRun', '200');
+      expect(required(run)).toEqual(
+        expect.arrayContaining(['outcome', 'unacknowledgedComplianceNodeIds']),
+      );
+      expect(enumOf(properties(run).get('outcome') ?? at({}))).toEqual([
+        'completed',
+        'interrupted',
+        null,
+      ]);
+      expect(rawProperty(run, 'outcome')?.readOnly, 'outcome readOnly').toBe(true);
+      const list = properties(run).get('unacknowledgedComplianceNodeIds');
+      expect(list ? types(list) : [], 'a list').toContain('array');
+      expect(
+        rawProperty(run, 'unacknowledgedComplianceNodeIds')?.readOnly,
+        'the server sets the list',
+      ).toBe(true);
+      const item = list ? child(list, 'items') : undefined;
+      const nodeId = resolveRef('#/components/schemas/NodeId', SPEC_PATH);
+      expect(nodeId, 'NodeId schema').toBeDefined();
+      expect(item?.node === nodeId?.node, 'items are NodeIds').toBe(true);
+    });
+
+    it('no request body anywhere supplies an unacknowledged list or an outcome but completion', () => {
+      const offending: string[] = [];
+      for (const op of operations()) {
+        const body = requestSchema(op);
+        for (const { where, name } of body ? propertyNamesUnder(body) : []) {
+          if (/unacknowledg/i.test(name)) offending.push(`${op.id}${where}.${name}`);
+          if (/^outcome$/i.test(name) && !(op.id === 'completeScriptRun' && where === '')) {
+            offending.push(`${op.id}${where}.${name}`);
+          }
+        }
+      }
+      expect(offending).toEqual([]);
+    });
+
+    it('completion documents both outcomes: what each excuses, and that interrupted never acknowledges', () => {
+      const text = describedAs(operation('completeScriptRun').op);
+      expect(text).toMatch(/`completed`[\s\S]*current node included/i);
+      expect(text).toMatch(/`interrupted`[\s\S]*current node[\s\S]*not yet passed/i);
+      expect(text).toMatch(/already passed was acknowledged when it was passed/i);
+      expect(text).toMatch(/client never supplies that list/i);
+      expect(text).toMatch(/`interrupted` never produces an acknowledgement/i);
+      expect(text, 'a live disposition is still required').toMatch(
+        /live disposition is chosen\*\*, for either outcome/i,
+      );
+      expect(
+        exampleValues(requestBody(operation('completeScriptRun'))).some(
+          ({ value }) => isMapping(value) && value.outcome === 'interrupted',
+        ),
+        'no interrupted completion example',
+      ).toBe(true);
+    });
+
+    it("an interrupted run's unacknowledged nodes are visible on the run read, and none is acknowledged", () => {
+      const runs = runExamples();
+      const kinds = exampleNodeKinds();
+      expect(kinds.size, 'the pinned version example has no graph').toBeGreaterThan(0);
+      const problems: string[] = [];
+      for (const { label, run } of runs) {
+        const unacked = Array.isArray(run.unacknowledgedComplianceNodeIds)
+          ? run.unacknowledgedComplianceNodeIds.map(str)
+          : [];
+        const acked = (Array.isArray(run.acknowledgements) ? run.acknowledgements : [])
+          .filter(isMapping)
+          .map((ack) => str(ack.nodeId));
+        const path = (Array.isArray(run.path) ? run.path : [])
+          .filter(isMapping)
+          .map((step) => str(step.nodeId));
+        if (run.outcome !== 'interrupted' && unacked.length > 0) {
+          problems.push(`${label}: lists unacknowledged nodes without being interrupted`);
+        }
+        for (const id of unacked) {
+          if (acked.includes(id))
+            problems.push(`${label}: ${id} is both unacknowledged and acknowledged`);
+          if (!path.includes(id)) problems.push(`${label}: ${id} is not on the path`);
+          if (kinds.get(id) !== 'compliance')
+            problems.push(`${label}: ${id} is not a compliance node`);
+        }
+        if (run.outcome === 'completed') {
+          for (const id of path.filter((node) => kinds.get(node) === 'compliance')) {
+            if (!acked.includes(id)) problems.push(`${label}: completed with ${id} unacknowledged`);
+          }
+        }
+      }
+      expect(problems).toEqual([]);
+      const interrupted = runs.filter(({ run }) => run.outcome === 'interrupted');
+      expect(
+        interrupted.map(({ label }) => label),
+        'getScriptRun publishes no interrupted run',
+      ).toEqual(expect.arrayContaining([expect.stringMatching(/^getScriptRun 200 /)]));
+      expect(
+        interrupted.some(
+          ({ run }) =>
+            Array.isArray(run.unacknowledgedComplianceNodeIds) &&
+            run.unacknowledgedComplianceNodeIds.length > 0,
+        ),
+        'no interrupted example shows an unread compliance node',
+      ).toBe(true);
+    });
+  });
+
+  describe('starting is idempotent per agent, contact and script; runs never expire (D-L91)', () => {
+    it('startScriptRun answers 200 with the in-progress run, or 201 with a new one, both a ScriptRun', () => {
+      const all = responses(operation('startScriptRun'));
+      const run = schemaOf('getScriptRun', '200').node;
+      expect(jsonSchema(all.get('200'))?.node, '200 is the existing run').toBe(run);
+      expect(jsonSchema(all.get('201'))?.node, '201 is the new run').toBe(run);
+      const text = describedAs(operation('startScriptRun').op);
+      expect(text).toMatch(/same\s+agent, contact and script/i);
+      expect(text).toMatch(/`in_progress` run/);
+      expect(text).toMatch(/`200` with THAT run/);
+      expect(text).toMatch(/different script or a\s+different agent starts a new run/i);
+    });
+
+    it('no expiry: a run stays in progress until its agent completes it; supervisor close waits', () => {
+      for (const text of [
+        describedAs(operation('startScriptRun').op),
+        describedAs(schemaOf('getScriptRun', '200')),
+      ]) {
+        expect(text).toMatch(/No expiry in Phase 2/);
+        // Descriptions wrap, so every space here is \s+.
+        expect(text).toMatch(/until\s+its\s+(own\s+)?agent\s+completes\s+it/i);
+        expect(text).toMatch(
+          /supervisor\s+closing\s+another\s+agent's\s+run\s+waits\s+for\s+the\s+role\s+hierarchy/i,
+        );
+      }
     });
   });
 
