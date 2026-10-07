@@ -40,7 +40,17 @@ openapi: 3.1.0
 # 5. ANSWERS ARE SENSITIVE PERSONAL DATA. A run's answers are classified
 #    `sensitive` (they can hold health or hardship data, NDPA sensitive; the
 #    security review on D-L91): never logged, never in a trace or an error
-#    body, audited by name only (D-L88).
+#    body, and never in the audit log, not even by field key.
+#
+# 5b. A RUN'S AUDIT EVENTS NAME NO NODE AND NO ANSWER KEY (T-0112 re-review,
+#    R1). Which node a run ended on, or which compliance node it left
+#    unread, tells an auditor which side of a branch the customer took, and
+#    so something about a value. Run events name only `outcome`,
+#    `stopReason`, the disposition id, and the activity, follow-up task and
+#    script-version ids (`x-kasuwa-audit-names`). The path stays on the run,
+#    readable by its own agent; a field-secured supervisor read is M11's
+#    (tracked). Authoring audit may name compliance node ids: that reveals
+#    the graph, not a run's path.
 #
 # 5a. A RUN IS ITS OWN AGENT'S. In Phase 2 every run operation answers only
 #    the agent who started the run; anyone else gets 404, never 403. A
@@ -62,10 +72,12 @@ openapi: 3.1.0
 # `x-kasuwa-error-order` lists the failures an operation can answer, as
 # `<status> <code>`, in the order they are decided: the first that applies is
 # the one returned. `401` precedes all of them and is not listed. The order is
-# always 404, then 403, then 400, then 409 (D-L88), with one ruled exception:
-# startScriptRun decides its 403 on the contact's programme BEFORE it looks
-# up the script, so its script `404` follows the `403` (D-L91 review). A
-# parenthesised word after the code says which record an entry is about.
+# always 404, then 403, then 400, then 409 (D-L88), with two ruled exceptions,
+# both on startScriptRun: it parses its body first (a malformed body is
+# `400 (body)` before anything else), and it decides its 403 on the
+# contact's programme BEFORE it looks up the script, so its script `404`
+# follows the `403` (D-L91 review; T-0112 re-review N5). A parenthesised
+# word after the code says which record or stage an entry is about.
 #
 # `x-kasuwa-permission` names the permission the operation needs in the
 # record's programme: `script.write` (the `admin` set, or the tenant-admin
@@ -372,7 +384,10 @@ paths:
         suggested disposition that is not live in the script's programme) and
         `unchanged` (nothing changed since the latest version), and
         `sensitive_field` (a branch or a variable on any contact field
-        classified `sensitive`, refused until D-L13 rules on them).
+        classified `sensitive`, refused until D-L13 rules on them), and
+        `branch_on_withheld_field` (a branch or a variable on a contact field
+        that any permission set holding `script.run` in the programme
+        cannot read at publish time, so no agent's run is built to stop).
 
         **Reachability is checked in linear time**: one pass over the nodes
         and edges (every node reachable from the start, every node reaches
@@ -461,8 +476,8 @@ paths:
         (`400`). A key that names no node, choice or field of the draft is
         `400`.
 
-        A node with no text in the agent's locale falls back to the source
-        locale, and the screen says so ("No Hausa text – showing English").
+        A node whose translation has no `text` key in the agent's locale
+        falls back to the source wording, and the screen says so ("No Hausa text – showing English").
         Translations are published with the draft, never on their own.
 
         Compliance wording in translation follows the same rule as in the
@@ -548,9 +563,10 @@ paths:
       operationId: startScriptRun
       x-kasuwa-implemented: false
       x-kasuwa-audited: true
+      x-kasuwa-audit-names: [versionId, stopReason, outcome]
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/04']
-      x-kasuwa-error-order: ['404 not_found (contact)', '403 not_permitted', '404 not_found (script)', '400 validation_failed', '409 script_not_published']
+      x-kasuwa-error-order: ['400 validation_failed (body)', '404 not_found (contact)', '403 not_permitted', '404 not_found (script)', '400 validation_failed (semantic)', '409 script_not_published']
       description: |
         Starts a run, by hand, for one contact. The run belongs to the
         contact's programme, and the script must be in that same programme.
@@ -559,17 +575,21 @@ paths:
         latest published version at this moment, and keeps it until it
         completes. The body cannot choose a version.
 
-        **Decided in this order** (`x-kasuwa-error-order`):
+        **Decided in this order** (`x-kasuwa-error-order`, T-0112 re-review
+        N5):
 
-        1. A contact the caller cannot read is `404`.
-        2. A caller who reads the contact and holds no `script.run` in **the
+        1. The body is parsed first: a body that is not the closed
+           `{ scriptId, contactId }` of uuids is `400`.
+        2. A contact the caller cannot read is `404`.
+        3. A caller who reads the contact and holds no `script.run` in **the
            contact's programme** is `403 not_permitted`. This is decided
            before the script is looked up, so a real script id and a random
            one get the same answer from a caller without `script.run`.
-        3. Then the script: one `404` for a script that does not exist and a
+        4. Then the script: one `404` for a script that does not exist and a
            script in any other programme than the contact's.
-        4. A body that does not parse is `400`.
-        5. A script with no published version is `409 script_not_published`.
+        5. Then the semantic `400`s, which need the resolved script (none
+           in this slice; the place in the order is fixed for later fields).
+        6. A script with no published version is `409 script_not_published`.
 
         The run enters the start node. A `branch` is never a current node: the
         server evaluates it on entry and follows it (see advanceScriptRun),
@@ -581,10 +601,18 @@ paths:
         version it pinned, and starts nothing. The same holds for the
         caller's own run on this contact and script that is `stopped` with
         `stopReason: field_withheld` on the version a new run would pin:
-        `200` with that run, so repeated starts do not mint runs that stop at
-        the same branch. A different script or a different agent starts a
-        new run (`201`), and so does a `completed` run, or a `stopped` one on
-        an older version.
+        `200` with that run, while the field is still withheld from the
+        caller, so repeated starts do not mint runs that stop at the same
+        branch. A different script or a different agent starts a new run
+        (`201`), and so does a `completed` run, or a `stopped` one on an
+        older version.
+
+        **Supersede (T-0112 re-review N6).** When that stopped run's field is
+        now readable by the caller, the start supersedes it: in the same
+        transaction the server closes the old run with `status: completed`
+        and `outcome: superseded`, with no disposition, no call activity and
+        no follow-up task, and starts a new run (`201`). `superseded` is
+        server-only; no request can send it.
 
         **The replay looks only at the caller's own runs.** Another agent's
         run is never returned and never revealed (runs are visible only to
@@ -599,8 +627,11 @@ paths:
         completes it. A supervisor closing another agent's run waits for the
         role hierarchy (tracked, D-L91).
 
-        Audited as `created` on the run, naming the script and version. The
-        `200` replay creates nothing and writes no audit event.
+        **Audited** as `created` on the new run, naming (`x-kasuwa-audit-names`)
+        the script-version id and, when it starts `stopped`, the
+        `stopReason`; a superseded run gets its own `updated` event naming
+        `outcome` and `stopReason`. No node id, ever (R1). The `200` replay
+        creates nothing and writes no audit event.
       requestBody:
         required: true
         content:
@@ -669,6 +700,7 @@ paths:
                 completed: { $ref: '#/components/examples/ScriptRunCompleted' }
                 interrupted: { $ref: '#/components/examples/ScriptRunInterrupted' }
                 stopped: { $ref: '#/components/examples/ScriptRunStopped' }
+                superseded: { $ref: '#/components/examples/ScriptRunSuperseded' }
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -720,7 +752,7 @@ paths:
       x-kasuwa-implemented: false
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/01', 'P10/02']
-      x-kasuwa-error-order: ['404 not_found', '403 not_permitted', '400 validation_failed', '409 run_completed', '409 run_stopped', '409 stale_write', '409 run_at_end', '409 compliance_unacknowledged', '409 answers_incomplete']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed', '409 run_completed', '409 run_stopped', '409 stale_write', '409 run_at_end', '409 compliance_unacknowledged', '409 answers_incomplete']
       description: |
         Moves the run from its current node to the next, **chosen by the
         server**:
@@ -744,10 +776,17 @@ paths:
         caller something about a value they may not read. A stopped run can
         only be completed.
 
+        **A field that is now `sensitive`** (T-0112 re-review N7): a branch
+        on it, or a variable on it in the wording of the node the run enters,
+        stops the run with `stopReason: sensitive_field`, and the screen
+        renders the variable as a placeholder. The field was publishable
+        when the version was published; its classification changed since.
+
         Only the agent who started the run moves it; anyone else gets `404`
-        (the run is not theirs to see). The run's own agent who no longer
-        holds `script.run` there is `403 not_permitted`. `revision` must be current
-        (`409 stale_write`). Not audited: the path is kept on the run.
+        (the run is not theirs to see), and so does its own agent who no
+        longer holds `script.run` there (N4): a run operation never answers
+        `403`. `revision` must be current (`409 stale_write`). Not
+        audited: the path is kept on the run.
       requestBody:
         required: true
         content:
@@ -769,7 +808,6 @@ paths:
                 stopped: { $ref: '#/components/examples/ScriptRunStopped' }
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
-        '403': { $ref: '#/components/responses/NotPermitted' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/AdvanceConflict' }
 
@@ -782,22 +820,28 @@ paths:
       operationId: acknowledgeScriptRunNode
       x-kasuwa-implemented: false
       x-kasuwa-audited: true
+      x-kasuwa-audit-names: [versionId]
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/01']
-      x-kasuwa-error-order: ['404 not_found', '403 not_permitted', '400 validation_failed', '409 run_completed', '409 run_stopped', '409 stale_write']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed', '409 run_completed', '409 run_stopped', '409 stale_write']
       description: |
         "I read this statement to the customer in full." `nodeId` must be a
         `compliance` node on the run's path; anything else is `400`.
-        `locale` is the language the statement was shown in, recorded with
-        the acknowledgement.
+        `locale` is **the locale the client reports it showed**. The server
+        records it on the run's acknowledgement, beside the agent's profile
+        locale (`profileLocale`, server-set), and never in the audit log.
+        When the pinned version's translation for that locale has no `text`
+        key for this node, the screen showed the source wording, so the
+        server records the source locale instead.
 
         **The server stamps the time** (`acknowledgedAt`); the body carries
         none, so an acknowledgement cannot be backdated. Acknowledging again
         keeps the first time and changes nothing.
 
-        Only the run's agent acknowledges; anyone else gets `404`, and the
-        run's agent without `script.run` there `403`. Audited as
-        `updated` on the run, naming the node id.
+        Only the run's agent acknowledges; anyone else gets `404`, and so
+        does its own agent without `script.run` there (N4). Audited as
+        `updated` on the run, naming only the script-version id: no node id
+        (R1).
       requestBody:
         required: true
         content:
@@ -817,7 +861,6 @@ paths:
               schema: { $ref: '#/components/schemas/ScriptRun' }
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
-        '403': { $ref: '#/components/responses/NotPermitted' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/RunWriteConflict' }
 
@@ -830,9 +873,10 @@ paths:
       operationId: recordScriptRunAnswers
       x-kasuwa-implemented: false
       x-kasuwa-audited: true
+      x-kasuwa-audit-names: [versionId]
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/02']
-      x-kasuwa-error-order: ['404 not_found', '403 not_permitted', '400 validation_failed', '409 run_completed', '409 run_stopped', '409 stale_write']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed', '409 run_completed', '409 run_stopped', '409 stale_write']
       description: |
         Merges `values` into the answers of one `form` node on the run's
         path; `null` clears a value. Partial saves are fine; advancing checks
@@ -846,10 +890,15 @@ paths:
         form. The design's "Writes to record" panel is not drawn.
 
         **Answers are `sensitive`**: never logged, never echoed in an error, and
-        audited as `updated` on the run naming the node and field keys only.
+        audited as `updated` on the run naming only the script-version id:
+        no node id and no field key (R1).
 
-        Only the run's agent records answers; anyone else gets `404`, and the
-        run's agent without `script.run` there `403`.
+        **Size.** A run's answers together are capped at 262144 bytes
+        (256 KiB) serialised; a write that would exceed it is `400`
+        (`details[].code: too_big`) and nothing is written (N9).
+
+        Only the run's agent records answers; anyone else gets `404`, and so
+        does its own agent without `script.run` there (N4).
       requestBody:
         required: true
         content:
@@ -872,7 +921,6 @@ paths:
               schema: { $ref: '#/components/schemas/ScriptRun' }
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
-        '403': { $ref: '#/components/responses/NotPermitted' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/RunWriteConflict' }
 
@@ -937,7 +985,7 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/03']
-      x-kasuwa-audit-names: [dispositionId, activityId, followUpTaskId, outcome, unacknowledgedComplianceNodeIds, endedAtNodeId]
+      x-kasuwa-audit-names: [outcome, stopReason, dispositionId, activityId, followUpTaskId, versionId]
       x-kasuwa-error-order: ['404 not_found', '403 not_permitted', '400 validation_failed', '409 run_completed', '409 stale_write', '409 compliance_unacknowledged', '409 disposition_not_live', '409 disposition_requirements_unmet']
       description: |
         Closes the run. A run may be completed from any node, including a
@@ -1010,16 +1058,24 @@ paths:
         writes nothing. Any other write to a completed run is
         `409 run_completed`.
 
-        Only the run's agent completes it; anyone else gets `404`. Logging
-        the call needs `activity.write` in the programme, which every
-        `script.run` set holds today (D-P18); the run's agent without it, or
-        without `script.run`, is `403 not_permitted`.
+        Only the run's agent completes it; anyone else gets `404`, and so
+        does its own agent without `script.run` there (N4). Logging the call
+        needs `activity.write` in the programme, which every `script.run`
+        set holds today (D-P18). The run's own agent who holds `script.run`
+        but not `activity.write` is `403 not_permitted`: the only `403`
+        any run operation answers.
 
         **Audited** as `updated` on the run, naming (`x-kasuwa-audit-names`)
-        the disposition id, the activity ids, `outcome`,
-        `unacknowledgedComplianceNodeIds` and `endedAtNodeId`: configuration
-        ids only, never an answer or a note. Tracked follow-ups: showing the
-        outcome on the call activity, and the QA read path (M11).
+        `outcome`, `stopReason`, the disposition id, the activity and
+        follow-up task ids and the script-version id: configuration ids
+        only, never an answer or a note, and **no node id**. In particular
+        `endedAtNodeId` and `unacknowledgedComplianceNodeIds` are NOT
+        audited (R1): where a run ended, or which statement it left unread,
+        tells which side of a branch the customer took. They stay on the run,
+        readable by its own agent; a field-secured supervisor read is M11's
+        (tracked). An interrupted completion is still visible in the audit
+        through `outcome`. Tracked follow-ups: showing the outcome on the
+        call activity, and the QA read path (M11).
       requestBody:
         required: true
         content:
@@ -1109,8 +1165,9 @@ components:
         A run identifier. **A run is visible only to its own agent** (Phase
         2). Another agent's run, whoever asks (a team lead, a programme
         manager and an admin included), a run in another tenant or
-        programme, and no run at all are one `404 not_found`, on every run
-        operation. Not a uuid is `400`.
+        programme, its own agent's run once that agent no longer holds
+        `script.run` there, and no run at all are one `404 not_found`, on
+        every run operation. Not a uuid is `400`.
     ContactId:
       name: contactId
       in: path
@@ -1720,11 +1777,13 @@ components:
     ScriptAnswers:
       type: object
       x-kasuwa-classification: sensitive
+      x-kasuwa-max-serialised-bytes: 262144
       description: |
         **Classification: `sensitive`** (not merely `pii`): what the
         customer said, keyed by node id, which can include health or hardship
         details, NDPA sensitive personal data. Never logged, never in a trace, an error body or an analytics event;
-        audited by node and field keys only, never by value (D-L88). Kept on
+        never in the audit log, not by value and not by node or field key
+        (R1, superseding D-L88's "by name"). Kept on
         the run and nowhere else: no answer is written to a contact field
         (D-P31 is open).
       propertyNames: { $ref: '#/components/schemas/NodeId' }
@@ -1745,12 +1804,24 @@ components:
     Acknowledgement:
       type: object
       additionalProperties: false
-      required: [nodeId, locale, acknowledgedAt]
+      required: [nodeId, locale, profileLocale, acknowledgedAt]
+      description: Kept on the run only; never in the audit log (R1).
       properties:
         nodeId: { $ref: '#/components/schemas/NodeId' }
         locale:
           $ref: '#/components/schemas/ScriptLocale'
-          description: The locale whose wording was shown when it was acknowledged.
+          description: |
+            The locale the client reports it showed, or the source locale when
+            the translation had no `text` key for this node.
+        profileLocale:
+          readOnly: true
+          description: |
+            Server-set: the agent's profile locale at that moment, recorded
+            beside the reported one. `null` when the profile has none of the
+            script locales.
+          oneOf:
+            - $ref: '#/components/schemas/ScriptLocale'
+            - type: 'null'
         acknowledgedAt:
           type: string
           format: date-time
@@ -1802,14 +1873,17 @@ components:
           enum: [in_progress, stopped, completed]
           description: |
             `stopped`: the server could not go on (see `stopReason`); the run
-            can only be completed. `completed`: closed with a disposition;
-            `outcome` says how.
+            can only be completed. `completed`: closed; `outcome` says how,
+            and only `outcome: superseded` closes without a disposition.
         outcome:
           type: [string, 'null']
-          enum: [completed, interrupted, null]
+          enum: [completed, interrupted, superseded, null]
           readOnly: true
           description: |
             Set at completion from the request; `null` until then.
+            `superseded` is server-only (N6): a start closed this stopped
+            run because its withheld field became readable; it has no
+            disposition, no call activity and no follow-up task.
             `interrupted`: the call dropped, and the compliance nodes it left
             unread are in `unacknowledgedComplianceNodeIds` (D-L91).
         unacknowledgedComplianceNodeIds:
@@ -1835,10 +1909,12 @@ components:
             - type: 'null'
         stopReason:
           type: [string, 'null']
-          enum: [field_withheld, null]
+          enum: [field_withheld, sensitive_field, null]
           description: |
             Why a `stopped` run stopped; `null` otherwise. `field_withheld`:
             a branch read a contact field withheld from the agent.
+            `sensitive_field`: a branch or a variable used a field
+            classified `sensitive` since publish (N7).
         currentNodeId:
           oneOf:
             - $ref: '#/components/schemas/NodeId'
@@ -1944,10 +2020,10 @@ components:
         locale:
           $ref: '#/components/schemas/ScriptLocale'
           description: |
-            The locale whose wording the agent's screen showed for this node.
-            When the pinned version has no text for the node in that locale,
-            the screen showed the source wording, and the server records the
-            source locale.
+            The locale the client reports it showed for this node. When the
+            pinned version's translation for that locale has no `text` key
+            for the node, the screen showed the source wording, and the
+            server records the source locale.
 
     RecordScriptRunAnswersRequest:
       type: object
@@ -2171,7 +2247,7 @@ components:
           - { nodeId: cust, enteredAt: '2026-10-07T13:21:10Z', branchOutcome: true }
           - { nodeId: payq, enteredAt: '2026-10-07T13:21:10Z' }
         acknowledgements:
-          - { nodeId: rec, locale: pcm, acknowledgedAt: '2026-10-07T13:20:38Z' }
+          - { nodeId: rec, locale: pcm, profileLocale: pcm, acknowledgedAt: '2026-10-07T13:20:38Z' }
         answers:
           idq: { type: question, choiceKey: 'yes', answeredAt: '2026-10-07T13:21:10Z' }
         startedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a801, displayName: Tunde Bakare }
@@ -2208,7 +2284,7 @@ components:
           - { nodeId: idq, enteredAt: '2026-10-07T13:20:41Z' }
           - { nodeId: cust, enteredAt: '2026-10-07T13:21:10Z', branchOutcome: null }
         acknowledgements:
-          - { nodeId: rec, locale: pcm, acknowledgedAt: '2026-10-07T13:20:38Z' }
+          - { nodeId: rec, locale: pcm, profileLocale: pcm, acknowledgedAt: '2026-10-07T13:20:38Z' }
         answers:
           idq: { type: question, choiceKey: 'yes', answeredAt: '2026-10-07T13:21:10Z' }
         startedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a801, displayName: Tunde Bakare }
@@ -2249,8 +2325,8 @@ components:
           - { nodeId: readback, enteredAt: '2026-10-07T13:24:05Z' }
           - { nodeId: close, enteredAt: '2026-10-07T13:24:40Z' }
         acknowledgements:
-          - { nodeId: rec, locale: pcm, acknowledgedAt: '2026-10-07T13:20:38Z' }
-          - { nodeId: readback, locale: en, acknowledgedAt: '2026-10-07T13:24:37Z' }
+          - { nodeId: rec, locale: pcm, profileLocale: pcm, acknowledgedAt: '2026-10-07T13:20:38Z' }
+          - { nodeId: readback, locale: en, profileLocale: pcm, acknowledgedAt: '2026-10-07T13:24:37Z' }
         answers:
           idq: { type: question, choiceKey: 'yes', answeredAt: '2026-10-07T13:21:10Z' }
           payq: { type: question, choiceKey: ptp, answeredAt: '2026-10-07T13:22:30Z' }
@@ -2298,7 +2374,7 @@ components:
           - { nodeId: ptp, enteredAt: '2026-10-07T13:22:30Z' }
           - { nodeId: readback, enteredAt: '2026-10-07T13:24:05Z' }
         acknowledgements:
-          - { nodeId: rec, locale: pcm, acknowledgedAt: '2026-10-07T13:20:38Z' }
+          - { nodeId: rec, locale: pcm, profileLocale: pcm, acknowledgedAt: '2026-10-07T13:20:38Z' }
         answers:
           idq: { type: question, choiceKey: 'yes', answeredAt: '2026-10-07T13:21:10Z' }
           payq: { type: question, choiceKey: ptp, answeredAt: '2026-10-07T13:22:30Z' }
@@ -2316,6 +2392,43 @@ components:
         activityId: 8a9b0c1d-2e3f-4a5b-9c6d-7e8f9a0b1c53
         followUpTaskId: 8a9b0c1d-2e3f-4a5b-9c6d-7e8f9a0b1c54
         revision: 11
+
+    ScriptRunSuperseded:
+      summary: A stopped run closed by a later start once its field became readable (N6)
+      value:
+        id: 4a7e2c91-8b3d-4f60-a5e2-7c9d1b0f3e40
+        programmeId: 0b5e7a12-3c4d-4e5f-8a6b-7c8d9e0f1a21
+        contactId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e41
+        scriptId: 6c3a9e10-5b2d-4f71-9a8e-0d4c2b7f1a01
+        versionId: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f12
+        versionNumber: 12
+        latestVersion:
+          id: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f12
+          number: 12
+          publishedAt: '2026-10-02T09:00:00Z'
+          publishedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a802, displayName: Kemi Adeyinka }
+        status: completed
+        outcome: superseded
+        unacknowledgedComplianceNodeIds: []
+        endedAtNodeId: cust
+        stopReason: field_withheld
+        currentNodeId: null
+        path:
+          - { nodeId: greet, enteredAt: '2026-10-07T13:20:02Z' }
+          - { nodeId: rec, enteredAt: '2026-10-07T13:20:20Z' }
+          - { nodeId: idq, enteredAt: '2026-10-07T13:20:41Z' }
+          - { nodeId: cust, enteredAt: '2026-10-07T13:21:10Z', branchOutcome: null }
+        acknowledgements:
+          - { nodeId: rec, locale: pcm, profileLocale: pcm, acknowledgedAt: '2026-10-07T13:20:38Z' }
+        answers:
+          idq: { type: question, choiceKey: 'yes', answeredAt: '2026-10-07T13:21:10Z' }
+        startedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a801, displayName: Tunde Bakare }
+        startedAt: '2026-10-07T13:20:02Z'
+        completedAt: '2026-10-07T15:02:44Z'
+        dispositionId: null
+        activityId: null
+        followUpTaskId: null
+        revision: 6
 
   responses:
     ValidationFailed:
@@ -2407,7 +2520,8 @@ components:
         **Writes only, and never a substitute for `404`.** The caller can read
         the record (or reaches the target programme) and may not do this:
         no `script.write` or `script.run` there, or no `activity.write` to
-        log the call. Another agent's run is never `403`: it is `404`.
+        log the call. Another agent's run is never `403`: it is `404`, and
+        so is a run whose own agent lost `script.run`.
       headers:
         Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:

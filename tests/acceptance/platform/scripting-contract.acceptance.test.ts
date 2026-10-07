@@ -80,6 +80,14 @@ import { parse } from 'yaml';
  *   `sensitive`; bounds, NUL, size, follow-up horizon, cursor scope,
  *   acknowledgement locale, plain-text wording and sensitive-field refusals.
  *
+ *   T-0112 re-review (lead rulings), pinned in "the T-0112 re-review" block:
+ *   a run's audit events name no node id and no answer key, only outcome,
+ *   stopReason, the disposition and the activity, task and version ids (R1);
+ *   publish refuses fields a script.run set cannot read (N1); the reported and
+ *   profile locales on acknowledgements (N3); no run 403 but completion's
+ *   activity.write (N4); start parses its body first (N5); superseded runs
+ *   (N6); sensitive_field stops (N7); a 256 KiB answers cap (N9).
+ *
  * ---------------------------------------------------------------------------
  *
  * D-L23: on main this suite runs before the spec exists. Every test that
@@ -740,11 +748,13 @@ const EXPECTED: Expected[] = [
     audited: true,
     // D-L91 review, minor 1: the 403 is decided on the contact's programme
     // BEFORE the script is looked up, so the script's 404 follows it.
+    // T-0112 re-review N5: the body is parsed first, semantic 400s come later.
     errors: [
+      '400 validation_failed (body)',
       '404 not_found (contact)',
       '403 not_permitted',
       '404 not_found (script)',
-      '400 validation_failed',
+      '400 validation_failed (semantic)',
       '409 script_not_published',
     ],
   },
@@ -775,7 +785,6 @@ const EXPECTED: Expected[] = [
     audited: false,
     errors: [
       '404 not_found',
-      '403 not_permitted',
       '400 validation_failed',
       '409 run_completed',
       '409 run_stopped',
@@ -794,7 +803,6 @@ const EXPECTED: Expected[] = [
     audited: true,
     errors: [
       '404 not_found',
-      '403 not_permitted',
       '400 validation_failed',
       '409 run_completed',
       '409 run_stopped',
@@ -810,7 +818,6 @@ const EXPECTED: Expected[] = [
     audited: true,
     errors: [
       '404 not_found',
-      '403 not_permitted',
       '400 validation_failed',
       '409 run_completed',
       '409 run_stopped',
@@ -864,6 +871,8 @@ const STATUS_RANK: Record<string, number> = { '404': 0, '403': 1, '400': 2, '409
 const ORDER_EXCEPTIONS = [
   // D-L91 review, minor 1: no oracle on script ids for a caller without script.run.
   'startScriptRun: 404 not_found (script)',
+  // T-0112 re-review N5: the body is parsed before anything is looked up.
+  'startScriptRun: 400 validation_failed (body)',
 ];
 /** Run operations: visible to the run's own agent only (D-L91 review, B2). */
 const RUN_OPERATIONS = [
@@ -1720,7 +1729,9 @@ describe('acceptance: scripting contract (T-0112)', () => {
       expect(text, 'answers description').toMatch(/\bsensitive\b/);
       expect(text, 'why: health or hardship, NDPA').toMatch(/health or hardship[\s\S]*NDPA/i);
       expect(text, 'answers description').toMatch(/never logged/i);
-      expect(text, 'answers are audited by name only').toMatch(/audited by .*(name|key)/i);
+      expect(text, 'answers are never audited, not even by key (R1)').toMatch(
+        /never in the audit log, not by value and not by node or field key/,
+      );
       const values = properties(requestSchema(operation('recordScriptRunAnswers')) ?? at({})).get(
         'values',
       );
@@ -1904,6 +1915,7 @@ describe('acceptance: scripting contract (T-0112)', () => {
       expect(enumOf(properties(run).get('outcome') ?? at({}))).toEqual([
         'completed',
         'interrupted',
+        'superseded',
         null,
       ]);
       expect(rawProperty(run, 'outcome')?.readOnly, 'outcome readOnly').toBe(true);
@@ -2011,6 +2023,15 @@ describe('acceptance: scripting contract (T-0112)', () => {
             problems.push(
               `${label}: outcome completed at a ${kinds.get(str(ended)) ?? '?'} node, not an end, on a run that never stopped`,
             );
+          }
+          // T-0112 re-review N6: superseded closes a field_withheld stop, with
+          // no disposition, no call activity and no follow-up task.
+          if (run.outcome === 'superseded') {
+            if (run.stopReason !== 'field_withheld')
+              problems.push(`${label}: superseded a run that did not stop on field_withheld`);
+            for (const key of ['dispositionId', 'activityId', 'followUpTaskId']) {
+              if (run[key] !== null) problems.push(`${label}: superseded with ${key}`);
+            }
           }
         } else {
           if (ended !== null) problems.push(`${label}: endedAtNodeId set before completion`);
@@ -2176,7 +2197,8 @@ describe('acceptance: scripting contract (T-0112)', () => {
       expect(idText).toMatch(/A run is visible only to its own agent/);
       expect(idText).toMatch(/team lead, a programme manager and an admin included/);
       expect(idText).toMatch(/are one `404 not_found`, on every run operation/);
-      const forbidden = responses(operation('advanceScriptRun')).get('403');
+      // advanceScriptRun has no 403 since the re-review (N4); completion keeps one.
+      const forbidden = responses(operation('completeScriptRun')).get('403');
       expect(prose(forbidden)).toMatch(/Another agent's run is never `403`: it is `404`/);
       const read = prose(operation('getScriptRun').op);
       expect(read).toMatch(
@@ -2197,13 +2219,14 @@ describe('acceptance: scripting contract (T-0112)', () => {
 
     it('M1: completion audits outcome, the unacknowledged ids and endedAtNodeId, by id only, interrupted always', () => {
       const names = auditNames('completeScriptRun');
+      // T-0112 re-review R1 and N1: no node ids; stopReason added.
       expect(names).toEqual([
+        'outcome',
+        'stopReason',
         'dispositionId',
         'activityId',
         'followUpTaskId',
-        'outcome',
-        'unacknowledgedComplianceNodeIds',
-        'endedAtNodeId',
+        'versionId',
       ]);
       const runProps = [...properties(schemaOf('getScriptRun', '200')).keys()];
       expect(
@@ -2243,7 +2266,7 @@ describe('acceptance: scripting contract (T-0112)', () => {
       expect(order.indexOf('403 not_permitted'), '403 before the script 404').toBeLessThan(
         order.indexOf('404 not_found (script)'),
       );
-      expect(order.indexOf('404 not_found (contact)'), 'the contact 404 first').toBe(0);
+      expect(order.indexOf('404 not_found (contact)'), 'the contact 404 after the body').toBe(1);
       const text = prose(operation('startScriptRun').op);
       expect(text).toMatch(/decided before the script is looked up/);
       expect(text).toMatch(/a real script id and a random one get the same answer/);
@@ -2403,6 +2426,197 @@ describe('acceptance: scripting contract (T-0112)', () => {
         ]),
       );
       expect(prose(operation('publishScript').op)).toMatch(/node ids only, never their wording/);
+    });
+  });
+
+  describe('the T-0112 re-review: run audit names no node, and the non-blockers', () => {
+    function prose(...located: (Located | Mapping | undefined)[]): string {
+      return describedAs(...located).replace(/\s+/g, ' ');
+    }
+
+    function auditNames(id: string): string[] | undefined {
+      const raw = operation(id).op['x-kasuwa-audit-names'];
+      return Array.isArray(raw) ? raw.map(str) : undefined;
+    }
+
+    function componentSchema(name: string): Located {
+      const found = resolveRef(`#/components/schemas/${name}`, SPEC_PATH);
+      if (!found) throw new Error(`no components.schemas.${name}`);
+      return at(found.node, found.file);
+    }
+
+    /** R1: the only things a run's audit event may name. */
+    const RUN_AUDIT_ALLOWED = [
+      'outcome',
+      'stopReason',
+      'dispositionId',
+      'activityId',
+      'followUpTaskId',
+      'versionId',
+    ];
+    const RUN_AUDIT: Record<string, string[]> = {
+      startScriptRun: ['versionId', 'stopReason', 'outcome'],
+      acknowledgeScriptRunNode: ['versionId'],
+      recordScriptRunAnswers: ['versionId'],
+      completeScriptRun: [
+        'outcome',
+        'stopReason',
+        'dispositionId',
+        'activityId',
+        'followUpTaskId',
+        'versionId',
+      ],
+    };
+
+    it('R1: every audited run operation names its audit fields, all from the allowed set, no node or key', () => {
+      const problems: string[] = [];
+      const runOps = operations().filter((op) => op.path.startsWith('/api/v1/script-runs'));
+      expect(runOps.length, 'run operations').toBe(RUN_OPERATIONS.length + 1);
+      for (const op of runOps) {
+        if (op.op['x-kasuwa-audited'] !== true) continue;
+        const names = auditNames(op.id);
+        if (!names || names.length === 0) {
+          problems.push(`${op.id}: audited with no x-kasuwa-audit-names`);
+          continue;
+        }
+        for (const name of names) {
+          if (!RUN_AUDIT_ALLOWED.includes(name)) problems.push(`${op.id}: audits ${name}`);
+          if (/node|field|key|answer|unacknowledg|endedAt|path/i.test(name)) {
+            problems.push(`${op.id}: ${name} names a node, a path or an answer`);
+          }
+        }
+      }
+      expect(problems).toEqual([]);
+      for (const [id, names] of Object.entries(RUN_AUDIT)) {
+        expect(auditNames(id), `${id} audit names`).toEqual(names);
+      }
+    });
+
+    it('R1: the descriptions say no node id, no field key, and where the path is kept instead', () => {
+      const complete = prose(operation('completeScriptRun').op);
+      expect(complete).toMatch(
+        /`endedAtNodeId` and `unacknowledgedComplianceNodeIds` are NOT audited \(R1\)/,
+      );
+      expect(complete).toMatch(/They stay on the run, readable by its own agent/);
+      expect(complete).toMatch(
+        /An interrupted completion is still visible in the audit through `outcome`/,
+      );
+      expect(prose(operation('acknowledgeScriptRunNode').op)).toMatch(/no node id \(R1\)/);
+      expect(prose(operation('recordScriptRunAnswers').op)).toMatch(
+        /no node id and no field key \(R1\)/,
+      );
+      expect(prose(operation('startScriptRun').op)).toMatch(/No node id, ever \(R1\)/);
+      const stale = RUN_OPERATIONS.concat(['startScriptRun']).filter((id) =>
+        // Audit wording only: a 409's details[] naming a node goes to the
+        // run's own agent, not to the audit log.
+        /audited[^.]{0,60}naming the node|node and field keys/i.test(prose(operation(id).op)),
+      );
+      expect(stale, 'a run operation still audits a node').toEqual([]);
+      expect(prose(componentSchema('Acknowledgement'))).toMatch(/never in the audit log \(R1\)/);
+    });
+
+    it('N1: publish refuses a branch or variable on a field any script.run set cannot read', () => {
+      const publish = prose(operation('publishScript').op);
+      expect(publish).toMatch(/`branch_on_withheld_field`/);
+      expect(publish).toMatch(
+        /any permission set holding `script\.run` in the programme cannot read at publish time/,
+      );
+    });
+
+    it('N3: an acknowledgement records the reported locale and the server-set profile locale, on the run only', () => {
+      const ack = componentSchema('Acknowledgement');
+      expect(required(ack)).toEqual(expect.arrayContaining(['locale', 'profileLocale']));
+      expect(rawProperty(ack, 'profileLocale')?.readOnly, 'profileLocale is server-set').toBe(true);
+      expect(types(properties(ack).get('profileLocale') ?? at({})).sort()).toEqual([
+        'null',
+        'string',
+      ]);
+      const body = requestSchema(operation('acknowledgeScriptRunNode'));
+      expect(
+        body ? [...properties(body).keys()] : [],
+        'the client cannot send a profile locale',
+      ).not.toContain('profileLocale');
+      expect(prose(body ? rawProperty(body, 'locale') : undefined)).toMatch(
+        /the locale the client reports it showed/i,
+      );
+      const op = prose(operation('acknowledgeScriptRunNode').op);
+      expect(op).toMatch(/the locale the client reports it showed/);
+      expect(op).toMatch(/has no `text` key for this node/);
+      expect(op).toMatch(/never in the audit log/);
+      expect(prose(operation('putScriptTranslation').op)).toMatch(/has no `text` key/);
+    });
+
+    it('N4: no run operation answers 403 except completion, and only for a missing activity.write', () => {
+      const with403 = RUN_OPERATIONS.filter((id) => responses(operation(id)).has('403'));
+      expect(with403).toEqual(['completeScriptRun']);
+      const complete = prose(operation('completeScriptRun').op);
+      expect(complete).toMatch(
+        /holds `script\.run` but not `activity\.write` is `403 not_permitted`/,
+      );
+      expect(complete).toMatch(/the only `403` any run operation answers/);
+      const runId = operation('getScriptRun').params.find(
+        (parameter) => parameter.name === 'runId',
+      );
+      expect(prose(runId)).toMatch(
+        /its own agent's run once that agent no longer holds `script\.run`/,
+      );
+      expect(prose(operation('advanceScriptRun').op)).toMatch(
+        /a run operation never answers `403`/,
+      );
+    });
+
+    it('N5: startScriptRun parses its body first, and semantic 400s come after the script', () => {
+      const order = errorOrder(operation('startScriptRun'));
+      expect(order[0]).toBe('400 validation_failed (body)');
+      expect(order.indexOf('400 validation_failed (semantic)')).toBeGreaterThan(
+        order.indexOf('404 not_found (script)'),
+      );
+      const text = prose(operation('startScriptRun').op);
+      expect(text).toMatch(/The body is parsed first/);
+      expect(text).toMatch(/Then the semantic `400`s/);
+    });
+
+    it('N6: a start supersedes a field_withheld stop once the field is readable; superseded is server-only', () => {
+      const run = schemaOf('getScriptRun', '200');
+      expect(enumOf(properties(run).get('outcome') ?? at({}))).toContain('superseded');
+      const body = requestSchema(operation('completeScriptRun'));
+      expect(enumOf(body ? (properties(body).get('outcome') ?? at({})) : at({}))).not.toContain(
+        'superseded',
+      );
+      const text = prose(operation('startScriptRun').op);
+      expect(text).toMatch(
+        /closes the old run with `status: completed` and `outcome: superseded`, with no disposition, no call activity and no follow-up task/,
+      );
+      expect(text).toMatch(/`superseded` is server-only/);
+      expect(text).toMatch(/while the field is still withheld from the caller/);
+      const examples = exampleValues(responses(operation('getScriptRun')).get('200'))
+        .map(({ value }) => value)
+        .filter(isMapping);
+      expect(
+        examples.some((value) => value.outcome === 'superseded'),
+        'getScriptRun publishes no superseded run',
+      ).toBe(true);
+    });
+
+    it('N7: a branch or variable on a now-sensitive field stops the run as sensitive_field', () => {
+      const run = schemaOf('getScriptRun', '200');
+      expect(enumOf(properties(run).get('stopReason') ?? at({}))).toEqual([
+        'field_withheld',
+        'sensitive_field',
+        null,
+      ]);
+      const advance = prose(operation('advanceScriptRun').op);
+      expect(advance).toMatch(/stops the run with `stopReason: sensitive_field`/);
+      expect(advance).toMatch(/renders the variable as a placeholder/);
+    });
+
+    it("N9: a run's answers are capped at 256 KiB serialised", () => {
+      expect(componentSchema('ScriptAnswers').node).toMatchObject({
+        'x-kasuwa-max-serialised-bytes': 262144,
+      });
+      const text = prose(operation('recordScriptRunAnswers').op);
+      expect(text).toMatch(/capped at 262144 bytes \(256 KiB\) serialised/);
+      expect(text).toMatch(/too_big/);
     });
   });
 
