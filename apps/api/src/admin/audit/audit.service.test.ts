@@ -180,3 +180,81 @@ describe('export filters (D-L52 review fixes)', () => {
     expect(storedExportFilters({ objectType: 'role' })).toEqual({ objectType: 'role' });
   });
 });
+
+describe('listAuditEvents applies the reader’s field security (T-0078)', () => {
+  const PROGRAMME = '99999999-0000-4000-8000-0000000000a1';
+  const SET = '99999999-0000-4000-8000-0000000000b1';
+  const contactRow = (id: string) => ({
+    ...row,
+    id,
+    object_type: 'contact',
+    object_label: id,
+    object_id: id,
+    programme_id: PROGRAMME,
+    changes: [
+      { field: 'lga', before: 'Invented Lga One', after: 'Invented Lga Two', redacted: false },
+      { field: 'status', before: 'new', after: 'contacted', redacted: false },
+    ],
+  });
+  const rows = [
+    contactRow('99999999-0000-4000-8000-0000000000c1'),
+    contactRow('99999999-0000-4000-8000-0000000000c2'),
+    contactRow('99999999-0000-4000-8000-0000000000c3'),
+  ];
+
+  /** Answers the field-access query with lga at none for the held set, and anything else with `rows`. */
+  function dispatchingTx(): { tx: TenantTx; accessQueries: () => number } {
+    let accessQueries = 0;
+    const tx: TenantTx = {
+      session: { tenantId: TENANT, userId: USER, programmeIds: [PROGRAMME] },
+      query: <T>(text: string) => {
+        if (text.includes('FROM object_def o')) {
+          accessQueries += 1;
+          return Promise.resolve([
+            {
+              fields: ['lga', 'status'],
+              grants: [{ field: 'lga', set: SET, locked: false, level: 'none' }],
+              memberships: [{ programme: PROGRAMME, set: SET, locked: false }],
+            },
+          ] as T[]);
+        }
+        return Promise.resolve(rows as T[]);
+      },
+    };
+    return { tx, accessQueries: () => accessQueries };
+  }
+
+  it('redacts a withheld field per change, reading the matrix once for the whole page', async () => {
+    const fake = dispatchingTx();
+    const page = await listAuditEvents(fake.tx, ListAuditEventsQuery.parse({ pageSize: '2' }));
+    expect(fake.accessQueries()).toBe(1);
+    expect(page.items).toHaveLength(2);
+    for (const item of page.items) {
+      expect(item.changes).toEqual([
+        { field: 'lga', before: null, after: null, redacted: true },
+        { field: 'status', before: 'new', after: 'contacted', redacted: false },
+      ]);
+    }
+    expect(JSON.stringify(page)).not.toContain('Invented Lga');
+    // Paging is untouched by redaction: the cursor is the last row's position.
+    expect(page.page.hasMore).toBe(true);
+    const decoded = JSON.parse(
+      Buffer.from(page.page.nextCursor ?? '', 'base64url').toString('utf8'),
+    ) as { i: string };
+    expect(decoded.i).toBe(rows[1]?.id);
+  });
+
+  it('uses the loader it is given, once per object, and fails closed on a field its answer lacks', async () => {
+    const { tx } = fakeTx(rows);
+    let calls = 0;
+    const page = await listAuditEvents(tx, ListAuditEventsQuery.parse({}), () => {
+      calls += 1;
+      return Promise.resolve(new Map([[PROGRAMME, new Map([['lga', 'read' as const]])]]));
+    });
+    expect(calls).toBe(1);
+    expect(page.items[0]?.changes).toEqual([
+      { field: 'lga', before: 'Invented Lga One', after: 'Invented Lga Two', redacted: false },
+      { field: 'status', before: null, after: null, redacted: true },
+    ]);
+  });
+});

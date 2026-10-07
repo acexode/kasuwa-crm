@@ -1908,9 +1908,20 @@ paths:
         change redacted), carrying the contact's programme. Since T-0055,
         also `createAccount` and `updateAccount` (`account`, labelled with the
         record id, every change a field name only), carrying the account's
-        programme.
+        programme. Since T-0061, also records.openapi.yaml's `createActivity`
+        and `updateActivity` (`activity`, every change a field name only), and
+        contact events carry `before`/`after` for D-L72's value fields.
         `changes[].field` uses API field names; values are strings.
         Newest first; `page.totalCount` is always null.
+
+        **Field security (T-0078).** A contact, account or activity change
+        carries its values only when the caller's matrix lets them read that
+        field in the event's programme; otherwise it is redacted for them (see
+        `AuditChange`). Filters never match on a change value.
+
+        **Never cached** (T-0078): every audit response carries
+        `Cache-Control: no-store`. The URL is the same for every user of every
+        tenant, and what it returns depends on the caller's field security.
 
         **Who sees what (D-L48).** An event with a `programmeId` is visible
         only to members of that programme; an event with none (role changes,
@@ -1974,6 +1985,10 @@ paths:
       responses:
         '200':
           description: The page of events.
+          headers:
+            Cache-Control:
+              description: Always `no-store` (T-0078).
+              schema: { type: string, enum: ['no-store'] }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuditEventList' }
@@ -2044,6 +2059,10 @@ paths:
       responses:
         '200':
           description: The options.
+          headers:
+            Cache-Control:
+              description: Always `no-store` (T-0078).
+              schema: { type: string, enum: ['no-store'] }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuditFilterOptions' }
@@ -2120,6 +2139,10 @@ paths:
       responses:
         '202':
           description: Export queued.
+          headers:
+            Cache-Control:
+              description: Always `no-store` (T-0078).
+              schema: { type: string, enum: ['no-store'] }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuditExport' }
@@ -2158,6 +2181,10 @@ paths:
       responses:
         '200':
           description: The export.
+          headers:
+            Cache-Control:
+              description: Always `no-store` (T-0078).
+              schema: { type: string, enum: ['no-store'] }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuditExport' }
@@ -3129,6 +3156,22 @@ components:
         content is not. A diff that helpfully showed the old and new value of a
         customer's phone number would put personal data into an export that an
         admin can email to themselves.
+
+        **Withheld values are redacted for the reader (T-0078).** Since T-0061
+        a contact event stores `before` and `after` for the non-PII value
+        fields D-L72 names. For an event of a field-secured object (`contact`,
+        `account`, `activity`), a change shows its values only when the
+        READER's field-security matrix lets them read that field (`read` or
+        `edit`) in the EVENT's `programmeId`, judged when the log is read, not
+        when the event was written. Otherwise the change is sent as `{ field,
+        redacted: true }` with both values null: the change and its event are
+        kept, so the list, its order and its cursors are the same whatever the
+        matrix says. The tenant-admin flag does not lift this (D-L63). An
+        event with no `programmeId` has no programme to judge the matrix in,
+        so all its values are redacted for every reader; so is any field the
+        object's field security does not govern. `field` is the wire name (the
+        matrix judges its `field_def.api_name`, e.g. `preferredChannel` as
+        `preferred_channel`).
       properties:
         field: { type: string, description: A stable key, localised by the client. }
         before: { type: [string, 'null'] }
