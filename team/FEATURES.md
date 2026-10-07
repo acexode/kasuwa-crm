@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 141 rows; built 65, partial 11, mock-only 27, flagged-off 6, deferred 10, not-started 22.
+Totals: 143 rows; built 68, partial 11, mock-only 27, flagged-off 6, deferred 10, not-started 21.
 
 ## Modules
 
@@ -155,7 +155,9 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `createContact` | POST /api/v1/contacts — Create a contact | built | — | — | docs/api/records.openapi.yaml |
 | operation | `getContact` | GET /api/v1/contacts/{contactId} — Get one contact | built | — | — | docs/api/records.openapi.yaml |
 | operation | `updateContact` | PATCH /api/v1/contacts/{contactId} — Update a contact (inline edit of owner, status and the rest) | built | — | — | docs/api/records.openapi.yaml |
-| operation | `listContactTimeline` | GET /api/v1/contacts/{contactId}/timeline — The contact's timeline — field and consent changes, newest first (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `listContactTimeline` | GET /api/v1/contacts/{contactId}/timeline — The contact's timeline — field and consent changes and activities, newest first | built | — | — | docs/api/records.openapi.yaml |
+| operation | `createActivity` | POST /api/v1/activities — Log an activity — a note, a task or a call | built | — | — | docs/api/records.openapi.yaml |
+| operation | `updateActivity` | PATCH /api/v1/activities/{activityId} — Complete or reassign an activity | built | — | — | docs/api/records.openapi.yaml |
 | operation | `convertContact` | POST /api/v1/contacts/{contactId}/convert — Convert a lead — qualify it and link an account, once (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
 | operation | `listLeads` | GET /api/v1/leads — List leads — contacts at a lead stage (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
 | operation | `listMyProgrammes` | GET /api/v1/me/programmes — The caller's programmes, with their display names | built | — | — | docs/api/records.openapi.yaml |
@@ -164,7 +166,7 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `getAccountMap` | GET /api/v1/accounts/map — Accounts map view (not built) (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
 | operation | `getAccount` | GET /api/v1/accounts/{accountId} — Get one account | built | — | — | docs/api/records.openapi.yaml |
 | operation | `updateAccount` | PATCH /api/v1/accounts/{accountId} — Update an account (inline edit of owner, tier and the rest) | built | — | — | docs/api/records.openapi.yaml |
-| operation | `listAccountContacts` | GET /api/v1/accounts/{accountId}/contacts — The account's contacts the caller can reach | built | — | — | docs/api/records.openapi.yaml · T-0055 |
+| operation | `listAccountContacts` | GET /api/v1/accounts/{accountId}/contacts — The account's contacts the caller can reach | built | — | — | docs/api/records.openapi.yaml · T-0055 · T-0063 |
 
 ## Flags
 

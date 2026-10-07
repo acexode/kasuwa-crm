@@ -17,10 +17,13 @@
  *   - PROGRAMME-SCOPED actions need the `admin` set in THAT programme
  *     (`user_programme.permission_set_id`), or the tenant-admin flag - and
  *     always only inside a programme the session can reach.
- *   - Every other set is read-only for admin writes this round. The one
- *     exception is D-P14: `agent` holds `contact.claim_and_set_status`, a
+ *   - Every other set is read-only for admin writes this round. The
+ *     exceptions: D-P14 gives `agent` `contact.claim_and_set_status`, a
  *     field-limited contact update (`canUpdateContact`), and since D-P18 so
- *     do `team_lead` and `programme_manager`.
+ *     do `team_lead` and `programme_manager` (T-0077); D-P18 (T-0061) gives
+ *     `agent`, `team_lead` and `programme_manager` `activity.write`, and
+ *     `team_lead` and `programme_manager` also `activity.reassign`
+ *     (`canWriteActivity`).
  *
  * No I/O here, so every rule is unit-testable; `grants.ts` loads the inputs.
  */
@@ -74,6 +77,21 @@ export const PROGRAMME_ACTIONS = [
    * contact rights do not carry over to accounts.
    */
   'account.write',
+  /**
+   * D-P18 (answered 2026-10-06), T-0061: createActivity and updateActivity in
+   * the ACTIVITY'S programme (its target's, on create): log a note, a task or
+   * a call, and complete a task. Held by `agent`, `team_lead`,
+   * `programme_manager` and `admin`, and by the tenant-admin flag. Giving an
+   * activity to anyone but the caller also needs `activity.reassign`.
+   */
+  'activity.write',
+  /**
+   * D-L81 (D-P14's rule, carried to activities): set an activity's owner to
+   * any member of its programme, or clear it. Held by `team_lead`,
+   * `programme_manager` and `admin`, and by the tenant-admin flag. The `agent`
+   * set may only take an activity itself.
+   */
+  'activity.reassign',
 ] as const;
 
 export type TenantAction = (typeof TENANT_ACTIONS)[number];
@@ -89,6 +107,10 @@ export const ADMIN_PERMISSION_SET_KEY = 'admin';
 /** The key of the seeded `agent` permission set (D-P14), matched by key like `admin`. */
 export const AGENT_PERMISSION_SET_KEY = 'agent';
 
+/** The seeded supervisory sets (D-P18), matched by key like `admin`. */
+export const TEAM_LEAD_PERMISSION_SET_KEY = 'team_lead';
+export const PROGRAMME_MANAGER_PERMISSION_SET_KEY = 'programme_manager';
+
 /**
  * What each permission set permits, by key. A key that is not listed - or a
  * NULL set - permits nothing. Deliberately an allow-list: a new set grants
@@ -97,11 +119,21 @@ export const AGENT_PERMISSION_SET_KEY = 'agent';
 const SET_PERMITS: Readonly<Record<string, readonly ProgrammeAction[]>> = {
   [ADMIN_PERMISSION_SET_KEY]: PROGRAMME_ACTIONS,
   // D-P14: an agent works its queue (status, and taking a record) and does
-  // not rewrite customer data. D-P18: a supervisor has at least the agent's
-  // rights. Every other set stays read-only (D-L53).
-  [AGENT_PERMISSION_SET_KEY]: ['contact.claim_and_set_status'],
-  team_lead: ['contact.claim_and_set_status'],
-  programme_manager: ['contact.claim_and_set_status'],
+  // not rewrite customer data. D-P18: it logs and completes activities, and
+  // may take one itself, never hand one to somebody else (D-L81). A
+  // supervisor has at least the agent's rights (D-P18, T-0077), and also
+  // reassigns activities (D-L81). Every other set stays read-only (D-L53).
+  [AGENT_PERMISSION_SET_KEY]: ['contact.claim_and_set_status', 'activity.write'],
+  [TEAM_LEAD_PERMISSION_SET_KEY]: [
+    'contact.claim_and_set_status',
+    'activity.write',
+    'activity.reassign',
+  ],
+  [PROGRAMME_MANAGER_PERMISSION_SET_KEY]: [
+    'contact.claim_and_set_status',
+    'activity.write',
+    'activity.reassign',
+  ],
 };
 
 /** Everything a decision needs, resolved from the database for one request. */
@@ -199,5 +231,55 @@ export function canUpdateContact(
   return (
     canProgramme(grants, 'contact.claim_and_set_status', programmeId) &&
     contactUpdateWithinClaim(body, callerUserId)
+  );
+}
+
+/**
+ * Whether an activity write body gives the activity to somebody other than
+ * the caller: it names `ownerUserId` (as an own property) with anything but
+ * the caller's own id. On update, `null` (clearing the owner) counts: it takes
+ * the activity off whoever holds it. On create there is no holder yet, so
+ * `allowNull` lets an unowned activity through.
+ *
+ * Judged on the RAW body, before validation, as `contactUpdateWithinClaim` is,
+ * so an agent's attempt is `403` whatever the value. A body that is not a
+ * plain object assigns nothing (the schema answers it `400`). UUIDs compare
+ * case-insensitively: the caller's own id in upper case is still the caller.
+ */
+export function activityBodyAssignsOther(
+  body: unknown,
+  callerUserId: string,
+  allowNull = false,
+): boolean {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return false;
+  if (!Object.prototype.hasOwnProperty.call(body, 'ownerUserId')) return false;
+  const value: unknown = (body as Record<string, unknown>).ownerUserId;
+  if (value === null) return !allowNull;
+  return typeof value !== 'string' || value.toLowerCase() !== callerUserId.toLowerCase();
+}
+
+/**
+ * May this session write this activity body (createActivity or
+ * updateActivity) in `programmeId`, the activity's programme?
+ * `activity.write` there always; and when the body gives the activity to
+ * anyone but the caller, `activity.reassign` there too (D-L81: the `agent`
+ * set may set the owner to itself only; `team_lead`, `programme_manager`,
+ * `admin` and the tenant-admin flag may assign any member).
+ *
+ * `callerUserId` must be the session's user (`tx.session.userId`), never a
+ * value from the request. Whether the owner is a member of the programme
+ * (D-L67) and field security are separate, later checks.
+ */
+export function canWriteActivity(
+  grants: Grants,
+  programmeId: string,
+  callerUserId: string,
+  body: unknown,
+  mode: 'create' | 'update',
+): boolean {
+  if (!canProgramme(grants, 'activity.write', programmeId)) return false;
+  return (
+    !activityBodyAssignsOther(body, callerUserId, mode === 'create') ||
+    canProgramme(grants, 'activity.reassign', programmeId)
   );
 }

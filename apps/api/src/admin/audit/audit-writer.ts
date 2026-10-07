@@ -17,8 +17,10 @@ import { z } from 'zod';
  * `actor_user_id = app.current_user_id()`.
  *
  * WHAT is recorded is limited to what `AuditEntry` names. `before`/`after`
- * are configuration values (role names, parent ids, programme names), never
- * record data; anything that is or could be personal data goes in as
+ * are configuration values (role names, parent ids, programme names) and,
+ * since T-0061, the closed-set and label values of a contact that D-L72
+ * names (status, source, channel, language, consent, WhatsApp opt-in, State,
+ * LGA, tags); anything that is or could be personal data goes in as
  * `redactedChange`, which stores the field name and no value. The actor's
  * display name and email are NOT stored here at all.
  */
@@ -39,8 +41,8 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 /**
  * D-L48, plus `field_security` for matrix cells (D-L52), plus the programme
- * configuration types of D-L54 (T-0033), plus `contact` (T-0041) and `account`
- * (T-0055). Add a type here, with its label in
+ * configuration types of D-L54 (T-0033), plus `contact` (T-0041), `account`
+ * (T-0055) and `activity` (T-0061). Add a type here, with its label in
  * `AUDIT_OBJECT_TYPE_LABELS`, before writing one.
  */
 export const AUDIT_OBJECT_TYPES = [
@@ -60,6 +62,12 @@ export const AUDIT_OBJECT_TYPES = [
    * only, never values (D-L78).
    */
   'account',
+  /**
+   * createActivity, updateActivity (T-0061). The label is the record id; a
+   * subject or body holds names in practice and never appears (D-L77).
+   * Changes are field names only, never values.
+   */
+  'activity',
 ] as const;
 export type AuditObjectType = (typeof AUDIT_OBJECT_TYPES)[number];
 
@@ -74,6 +82,7 @@ export const AUDIT_OBJECT_TYPE_LABELS: Record<AuditObjectType, string> = {
   portal_user: 'Client-portal user',
   contact: 'Contact',
   account: 'Account',
+  activity: 'Activity',
 };
 
 export interface AuditChange {
@@ -113,11 +122,18 @@ export function changedFields(
     .map(([field, before, after]) => change(field, before, after));
 }
 
+/**
+ * The longest `before` or `after` an event may carry, in UTF-16 units (Zod's
+ * count). A writer whose value could be longer records the change redacted
+ * rather than have the whole write refused (`contact-audit.ts`).
+ */
+export const AUDIT_CHANGE_VALUE_MAX_LENGTH = 300;
+
 const Change = z
   .object({
     field: z.string().min(1).max(64),
-    before: z.string().max(300).nullable(),
-    after: z.string().max(300).nullable(),
+    before: z.string().max(AUDIT_CHANGE_VALUE_MAX_LENGTH).nullable(),
+    after: z.string().max(AUDIT_CHANGE_VALUE_MAX_LENGTH).nullable(),
     redacted: z.boolean(),
   })
   .strict()

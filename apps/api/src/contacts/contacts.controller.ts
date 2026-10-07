@@ -17,6 +17,7 @@ import { AdminErrorFilter } from '../admin/common/admin-errors';
 import { KasuwaAuthGuard } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { currentTx } from '../tenancy/tenant-context';
+import { listContactTimelineFor, type TimelinePageWire } from './contact-timeline';
 import type { ContactWire } from './contact-wire';
 import { ContactIdParam, ListContactsQuery } from './contacts.schemas';
 import {
@@ -28,7 +29,8 @@ import {
 
 /**
  * The contacts API: `docs/api/records.openapi.yaml` (T-0039), implemented by
- * T-0041 (listContacts, getContact, createContact, updateContact).
+ * T-0041 (listContacts, getContact, createContact, updateContact), and the
+ * contact's timeline (listContactTimeline, T-0061).
  *
  * Note what the controller does NOT do: it never reads a tenant id or programme
  * id from the request. Scope arrives through `currentTx()`, which came from the
@@ -74,6 +76,19 @@ export class ContactsController {
   async findOne(@Param() params: unknown): Promise<ContactWire> {
     const { id } = ContactIdParam.parse(params);
     return getContactFor(currentTx(), id);
+  }
+
+  /**
+   * listContactTimeline (T-0061). The contact's field and consent changes and
+   * its activities, newest first, field security applied before paging.
+   * Readable by every set that reads the contact: out of scope is 404, never
+   * 403. `no-store`: activity bodies and staff names.
+   */
+  @Get(':id/timeline')
+  @Header(CACHE_CONTROL, NO_STORE)
+  async timeline(@Param() params: unknown, @Query() query: unknown): Promise<TimelinePageWire> {
+    const { id } = ContactIdParam.parse(params);
+    return listContactTimelineFor(currentTx(), id, query);
   }
 
   /** createContact (`x-kasuwa-audited`). 404, then 403, then 400 (D-L53). */

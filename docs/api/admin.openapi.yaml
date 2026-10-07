@@ -2098,7 +2098,7 @@ paths:
         `filters` is accepted only with `scope: filtered`, and
         `filters.objectType` must be one of the object types the log writes
         (`role`, `programme`, `field_security`, `audit_export`, `sla_policy`,
-        `retention_policy`, `disposition`, `portal_user`, `contact`, `account`) — the event is
+        `retention_policy`, `disposition`, `portal_user`, `contact`, `account`, `activity`) — the event is
         readable tenant-wide, so it carries no free text. `filters.actorId`
         is recorded as redacted, and a `sourceIpPrefix` is not stored on the
         export, only the fact that one was given. No worker builds
@@ -3254,7 +3254,7 @@ components:
             action: { $ref: '#/components/schemas/AuditAction' }
             objectType:
               type: string
-              enum: [role, programme, field_security, audit_export, sla_policy, retention_policy, disposition, portal_user, contact, account]
+              enum: [role, programme, field_security, audit_export, sla_policy, retention_policy, disposition, portal_user, contact, account, activity]
             from: { type: string, format: date-time }
             to: { type: string, format: date-time }
             sourceIpPrefix: { type: string, maxLength: 45 }

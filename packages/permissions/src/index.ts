@@ -13,11 +13,11 @@
  * Covered today: the admin API's writes, `contact.write` for the contacts API
  * (T-0041, D-L63), the field-limited contact update
  * `contact.claim_and_set_status`, held by the `agent` set (D-P14, T-0051) and
- * the `team_lead` and `programme_manager` sets (D-P18, T-0077), and
- * `account.write` for the accounts API (T-0055, admin-only per D-P18). NOT yet
- * modelled: field-level and record-level decisions for business objects in
- * general (the authorisation matrix, a later M2 task), and any permission for
- * a set other than `admin` beyond that one grant.
+ * the `team_lead` and `programme_manager` sets (D-P18, T-0077),
+ * `account.write` for the accounts API (T-0055, admin-only per D-P18), and
+ * activity writes, `activity.write` and `activity.reassign` (D-P18, D-L81,
+ * T-0061). NOT yet modelled: field-level and record-level decisions for
+ * business objects in general (the authorisation matrix, a later M2 task).
  */
 
 export {
@@ -26,8 +26,12 @@ export {
   PROGRAMME_ACTIONS,
   TENANT_ACTIONS,
   canProgramme,
+  PROGRAMME_MANAGER_PERMISSION_SET_KEY,
+  TEAM_LEAD_PERMISSION_SET_KEY,
+  activityBodyAssignsOther,
   canTenant,
   canUpdateContact,
+  canWriteActivity,
   contactUpdateWithinClaim,
   type Grants,
   type ProgrammeAction,

@@ -5,8 +5,10 @@ import {
   PROGRAMME_ACTIONS,
   TENANT_ACTIONS,
   canProgramme,
+  activityBodyAssignsOther,
   canTenant,
   canUpdateContact,
+  canWriteActivity,
   contactUpdateWithinClaim,
   type Grants,
 } from './policy';
@@ -55,25 +57,26 @@ describe('canTenant (D-L53: tenant-level writes need the tenant-admin flag)', ()
 });
 
 describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', () => {
-  it('permits every programme action where the admin set is held, and only the D-P14 grant where agent is', () => {
+  it('permits every programme action where the admin set is held, and only the agent grants where agent is', () => {
     const subject = grants();
     for (const action of PROGRAMME_ACTIONS) {
       expect(canProgramme(subject, action, P1), `${action} in P1`).toBe(true);
       expect(canProgramme(subject, action, P2), `${action} in P2 (agent)`).toBe(
-        action === 'contact.claim_and_set_status',
+        action === 'contact.claim_and_set_status' || action === 'activity.write',
       );
     }
   });
 
-  // D-P14 for agent; D-P18 (answered 2026-10-06, T-0077) for the two supervisor sets.
-  it.each([AGENT_PERMISSION_SET_KEY, 'team_lead', 'programme_manager'])(
-    'gives the %s set nothing but contact.claim_and_set_status (D-P14, D-P18)',
-    (key) => {
-      const subject = grants({ programmeSets: new Map([[P1, key]]) });
-      const permitted = PROGRAMME_ACTIONS.filter((action) => canProgramme(subject, action, P1));
-      expect(permitted).toEqual(['contact.claim_and_set_status']);
-    },
-  );
+  // The merged allow-lists, pinned exactly (D-P14, D-P18, T-0077, D-L81).
+  it.each([
+    [AGENT_PERMISSION_SET_KEY, ['contact.claim_and_set_status', 'activity.write']],
+    ['team_lead', ['contact.claim_and_set_status', 'activity.write', 'activity.reassign']],
+    ['programme_manager', ['contact.claim_and_set_status', 'activity.write', 'activity.reassign']],
+  ])('gives the %s set exactly %j', (key, expected) => {
+    const subject = grants({ programmeSets: new Map([[P1, key]]) });
+    const permitted = PROGRAMME_ACTIONS.filter((action) => canProgramme(subject, action, P1));
+    expect(permitted).toEqual(expected);
+  });
 
   it('treats qa_analyst, client_portal, an unknown key and a NULL set as read-only', () => {
     for (const key of [
@@ -233,9 +236,10 @@ describe('canUpdateContact (D-P14: agent may set status and own the record, noth
   it('keeps qa_analyst, client_portal and a NULL set read-only, even for status alone', () => {
     for (const key of ['qa_analyst', 'client_portal', null]) {
       const subject = grants({ programmeSets: new Map([[P1, key]]) });
-      expect(canUpdateContact(subject, P1, ME, { version: 1, status: 'contacted' }), String(key)).toBe(
-        false,
-      );
+      expect(
+        canUpdateContact(subject, P1, ME, { version: 1, status: 'contacted' }),
+        String(key),
+      ).toBe(false);
     }
   });
 
@@ -247,6 +251,94 @@ describe('canUpdateContact (D-P14: agent may set status and own the record, noth
   it('exposes the body rule on its own, for the same answer', () => {
     expect(contactUpdateWithinClaim({ version: 1, ownerUserId: ME }, ME)).toBe(true);
     expect(contactUpdateWithinClaim({ version: 1, ownerUserId: SOMEONE_ELSE }, ME)).toBe(false);
+  });
+});
+
+describe('canWriteActivity (D-P18: log and complete; D-L81: an agent assigns only itself)', () => {
+  const ME = '11111111-0000-4000-8000-000000610001';
+  const SOMEONE_ELSE = '11111111-0000-4000-8000-000000610002';
+  const withSet = (key: string | null) => grants({ programmeSets: new Map([[P1, key]]) });
+
+  it.each(['agent', 'team_lead', 'programme_manager', 'admin'])(
+    'lets the %s set log and complete, unowned or owned by itself',
+    (key) => {
+      const subject = withSet(key);
+      expect(canWriteActivity(subject, P1, ME, { type: 'note' }, 'create')).toBe(true);
+      expect(canWriteActivity(subject, P1, ME, { type: 'task', ownerUserId: null }, 'create')).toBe(
+        true,
+      );
+      expect(
+        canWriteActivity(
+          subject,
+          P1,
+          ME,
+          { type: 'task', ownerUserId: ME.toUpperCase() },
+          'create',
+        ),
+      ).toBe(true);
+      expect(canWriteActivity(subject, P1, ME, { version: 1, completed: true }, 'update')).toBe(
+        true,
+      );
+      expect(canWriteActivity(subject, P1, ME, { version: 1, ownerUserId: ME }, 'update')).toBe(
+        true,
+      );
+    },
+  );
+
+  it('refuses the agent set an owner other than itself, and clearing the owner on update', () => {
+    const agent = withSet('agent');
+    expect(canWriteActivity(agent, P1, ME, { ownerUserId: SOMEONE_ELSE }, 'create')).toBe(false);
+    expect(
+      canWriteActivity(agent, P1, ME, { version: 1, ownerUserId: SOMEONE_ELSE }, 'update'),
+    ).toBe(false);
+    expect(canWriteActivity(agent, P1, ME, { version: 1, ownerUserId: null }, 'update')).toBe(
+      false,
+    );
+    // Judged before validation: a value that is not a uuid is still not the caller.
+    expect(canWriteActivity(agent, P1, ME, { version: 1, ownerUserId: 7 }, 'update')).toBe(false);
+  });
+
+  it('lets team_lead, programme_manager, admin and the tenant-admin flag assign anyone', () => {
+    for (const subject of [
+      withSet('team_lead'),
+      withSet('programme_manager'),
+      withSet('admin'),
+      grants({ isTenantAdmin: true, programmeSets: new Map([[P1, 'qa_analyst']]) }),
+    ]) {
+      expect(canWriteActivity(subject, P1, ME, { ownerUserId: SOMEONE_ELSE }, 'create')).toBe(true);
+      expect(canWriteActivity(subject, P1, ME, { version: 1, ownerUserId: null }, 'update')).toBe(
+        true,
+      );
+    }
+  });
+
+  it.each(['qa_analyst', 'client_portal', 'not_a_set', null])(
+    'refuses the %s set everything',
+    (key) => {
+      const subject = withSet(key);
+      expect(canWriteActivity(subject, P1, ME, { type: 'note' }, 'create')).toBe(false);
+      expect(canWriteActivity(subject, P1, ME, { version: 1, completed: true }, 'update')).toBe(
+        false,
+      );
+    },
+  );
+
+  it('never widens scope: a writer set on an unreachable programme counts for nothing', () => {
+    const subject = grants({
+      isTenantAdmin: true,
+      programmeSets: new Map([[OUTSIDE, 'admin']]),
+    });
+    expect(canWriteActivity(subject, OUTSIDE, ME, { type: 'note' }, 'create')).toBe(false);
+  });
+
+  it('reads the owner as an own property only, and a non-object body assigns nothing', () => {
+    expect(activityBodyAssignsOther(JSON.parse('{"__proto__":{"ownerUserId":"x"}}'), ME)).toBe(
+      false,
+    );
+    expect(activityBodyAssignsOther([{ ownerUserId: SOMEONE_ELSE }], ME)).toBe(false);
+    expect(activityBodyAssignsOther(null, ME)).toBe(false);
+    expect(activityBodyAssignsOther({ ownerUserId: null }, ME, true)).toBe(false);
+    expect(activityBodyAssignsOther({ ownerUserId: null }, ME)).toBe(true);
   });
 });
 

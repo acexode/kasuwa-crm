@@ -45,13 +45,15 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.5.0-T-0055
+  version: 0.6.0-T-0061
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
     update. Accounts (T-0052, served since T-0055): list, get, create,
-    update, and an account's contacts; the Map view answers 501. The contact record view (P05, T-0059,
-    contract only until T-0061): the contact's timeline and its account
-    summary. Leads (T-0056, D-P17, contract only until T-0076): a lead is a
+    update, and an account's contacts; the Map view answers 501. The contact
+    record view (P05, T-0059, served by T-0061): the contact's timeline and
+    its account summary. Activities (T-0061, D-P18): log a note, task or call
+    against a contact or an account, and complete or reassign it; activities
+    are read on the contact's timeline. Leads (T-0056, D-P17, contract only until T-0076): a lead is a
     contact at a lead stage, not its own record, so leads add a list view
     (`listLeads`), one action (`convertContact`) and one contact field
     (`companyName`). Custom-field values follow in a later slice (D-L60) and
@@ -89,6 +91,8 @@ servers:
 tags:
   - name: accounts
     description: Organisations a programme sells to, serves or collects from.
+  - name: activities
+    description: Notes, tasks and logged calls against a contact or an account.
   - name: contacts
     description: People a programme sells to, serves or collects from.
   - name: leads
@@ -267,7 +271,7 @@ paths:
                     phoneNetwork: MTN
                     createdAt: '2026-10-01T09:12:00.000Z'
                     updatedAt: '2026-10-03T14:40:00.000Z'
-                    withheldFields: [emails, accountId]
+                    withheldFields: [emails, accountId, account]
                 nextCursor: eyJjIjoiMjAyNi0xMC0wMVQwOToxMjowMC4wMDAwMDBaIiwiaSI6IjNmMGM5YTUyIn0
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
@@ -346,10 +350,9 @@ paths:
       x-kasuwa-screens: ['P04/02', 'P05/01', 'P05/02', 'P05/05', 'P05/06']
       description: |
         **Live (T-0041)** with every Contact property, `version` and
-        `withheldFields`, and the `NotFound` body below. **Not yet served:**
-        the embedded `account` summary (T-0059 contract, T-0061 implements
-        it); until then the live record leaves it out and does not list it in
-        `withheldFields`.
+        `withheldFields`, and the `NotFound` body below. The embedded
+        `account` summary is served since T-0061, withheld together with
+        `accountId`.
 
         Out of scope is `404`, never `403`. This is also the P05 record
         view's read: P05/06's "access denied" frame, which shows the record
@@ -433,8 +436,7 @@ paths:
         '409': { $ref: '#/components/responses/StaleWrite' }
 
   # -------------------------------------------------------------------------
-  # The contact record view (P05, T-0059; D-L69, D-L72). CONTRACT ONLY: no
-  # route answers yet; T-0061 implements it and flips `x-kasuwa-implemented`.
+  # The contact record view (P05, T-0059; D-L69, D-L72). Served by T-0061.
   # The five rules at the top of this file apply unchanged.
   #
   # Deliberately absent, each until its module publishes a contract (D-L69):
@@ -444,7 +446,7 @@ paths:
   # (P26). The task allowed a 501 stub or absence; absence was chosen so this
   # file does not invent paths those modules own. Timeline items for calls,
   # messages, notes, tickets, payments and invoices are absent for the same
-  # reason: the union is closed (D-L72).
+  # reason: the union is closed (D-L72); `activity` joined it with T-0061.
   # -------------------------------------------------------------------------
 
   /api/v1/contacts/{contactId}/timeline:
@@ -452,9 +454,9 @@ paths:
       - $ref: '#/components/parameters/ContactId'
     get:
       tags: [contacts]
-      summary: The contact's timeline — field and consent changes, newest first
+      summary: The contact's timeline — field and consent changes and activities, newest first
       operationId: listContactTimeline
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P05/01', 'P05/02', 'P05/05']
       description: |
         The centre column of the P05 contact record: what changed on this
@@ -499,16 +501,45 @@ paths:
         also by name only: a raw user or account id is never printed (D-L64),
         and past owners' names would turn this into a user directory.
 
-        **Item types are closed (D-L72):** `field_changed` and
-        `consent_changed`. `activity` is reserved for the activities slice
-        (T-0060) and joins the union when that slice defines its shape. Calls,
-        WhatsApp, SMS, email, notes, tickets, payments and invoices belong to
-        modules that are not built and are not item types.
+        **Item types are closed (D-L72):** `field_changed`, `consent_changed`
+        and `activity` (T-0061). WhatsApp, SMS, email, tickets, payments and
+        invoices belong to modules that are not built and are not item types.
+
+        **Activities.** One `activity` item per note, task or logged call
+        whose contact is this contact (an activity on the contact's account
+        only is not on the contact's timeline). The item shows the activity's
+        CURRENT state: completing a task changes its item and never adds one,
+        and its `occurredAt` is when the activity was logged (D-L77), so
+        completion never moves it. The activity's own audit events are not
+        items. Activity items follow the activity object's field security in
+        the contact's programme: a withheld `subject`, `body`, `dueAt` or
+        `completedAt` is omitted from the item, and when the activity's
+        contact link (`contact_id`) is withheld from the caller no activity
+        item is shown at all.
+
+        **Creation.** A contact's creation is rendered like an update (D-L81):
+        one item per field the create set, by the creator, at the moment of
+        creation. A value field shows `before: null`; consent shows
+        `before: unknown`. A field the create did not send yields no item.
+
+        **Actors (D-L81).** `actor` is the person who acted, named as they are
+        named NOW (a rename shows on every past item), whatever their
+        membership is today: a former member of the programme, a tenant admin
+        no longer in it and a disabled user are all still shown by name.
+        `null` means the system only.
+
+        **Item ids** are opaque and depend only on the item's own change (or
+        activity): adding, withholding or removing other changes never moves
+        an id, and ids are the same for every caller. The tie-break compares
+        them in plain code-unit order.
 
         **Paging.** Keyset only: `{ data, nextCursor }`, no total, count or
         offset (D-P13). A malformed cursor, or one issued for another
         contact, is `400 validation_failed` with
-        `details[].code: invalid_cursor`.
+        `details[].code: invalid_cursor`. `limit` out of 1..100 is `400`,
+        never clamped. Every reader of the contact may read its timeline: no
+        permission set is refused (out of scope is still `404`).
+        `Cache-Control: no-store`.
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -543,10 +574,152 @@ paths:
                     actor: null
                     before: unknown
                     after: opted_in
+                  - id: ti_a9Fe4kQzT2
+                    type: activity
+                    occurredAt: '2026-09-30T16:05:00.000Z'
+                    actor:
+                      id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                      displayName: Kemi Balogun
+                    activityId: 5e2a7b1c-3d4f-4a6b-8c9d-0e1f2a3b4c01
+                    activityType: task
+                    subject: Call back about the payment plan
+                    body: Asked for a call after 4pm.
+                    dueAt: '2026-10-02T15:00:00.000Z'
+                    completedAt: null
                 nextCursor: dGltZWxpbmUtY3Vyc29yLWV4YW1wbGU
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '404': { $ref: '#/components/responses/NotFound' }
+
+  # -------------------------------------------------------------------------
+  # Activities (T-0061; D-P18, D-L77, D-L79, D-L81). A note, a task or a
+  # logged call against a contact, an account or both, in the target's
+  # programme. Read on the contact's timeline (listContactTimeline); there is
+  # no activity list or get yet. The five rules at the top of this file apply
+  # unchanged.
+  # -------------------------------------------------------------------------
+
+  /api/v1/activities:
+    post:
+      tags: [activities]
+      summary: Log an activity — a note, a task or a call
+      operationId: createActivity
+      x-kasuwa-implemented: true
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P05/01']
+      description: |
+        **Target and programme.** At least one of `contactId` and `accountId`.
+        There is no `programmeId`: the activity's programme is its target's
+        (the contact's when both are given). An unreachable target (no such
+        record, another tenant's, a programme the caller does not reach) is
+        `404 not_found`, one body. A second target outside the first one's
+        programme is `400 validation_failed` with `details[].code:
+        unknown_reference` at its path, one body whether it names a record
+        elsewhere or nothing, even for a caller who can read both programmes.
+
+        **Ids (D-L79).** The server mints the activity's id; a client `id` is
+        `400`, one body whether or not it names a real activity. The activity
+        is logged by the session's user, never by a value in the body.
+
+        **Owner (D-L67, D-L79).** `ownerUserId`, if set, must be a member of
+        the activity's programme, else `400 unknown_reference` at
+        `ownerUserId`, one body for a member of another programme, a user of
+        another tenant, a user in no programme and an invented id. Omitted, the
+        activity has no owner.
+
+        **Permission (D-P18).** `activity.write` in the activity's programme,
+        held by the `agent`, `team_lead`, `programme_manager` and `admin` sets
+        and by the tenant-admin flag, never beyond the session's programmes.
+        `qa_analyst` and `client_portal` get `403 not_permitted`. Setting
+        `ownerUserId` to anyone but the caller also needs `activity.reassign`
+        (`team_lead`, `programme_manager`, `admin`, the tenant-admin flag;
+        D-L81). Writing a field withheld from, or read-only for, the caller is
+        `403 not_permitted` with `details[].code: field_not_editable`. Order:
+        `404`, `403`, `400` (D-L53).
+
+        **Validation.** `dueAt` on a note or a call is `400` (`task_only`). A NUL
+        character in `subject` or `body` is `400` (`invalid_character`).
+
+        **Response.** The created activity through field security, as a
+        read: a field the caller may write but not read is omitted and listed
+        in `withheldFields`.
+
+        Every create writes one audit event, `objectType: activity`, labelled
+        with the activity id, the session user as actor; its changes name the
+        fields set and never their values, so no subject or body text is ever
+        in the log.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateActivityRequest' }
+            example:
+              type: task
+              subject: Call back about the payment plan
+              dueAt: '2026-10-02T15:00:00.000Z'
+              contactId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Activity' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/activities/{activityId}:
+    parameters:
+      - $ref: '#/components/parameters/ActivityId'
+    patch:
+      tags: [activities]
+      summary: Complete or reassign an activity
+      operationId: updateActivity
+      x-kasuwa-implemented: true
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P05/01']
+      description: |
+        `version` (required) plus `completed: true` and/or `ownerUserId`
+        (D-L81). Completing sets `completedAt` to the server's time and keeps
+        it if the task was already complete; only a task can be completed
+        (`400 task_only` for a note or a call). Reopening is not in this
+        slice. The activity cannot be retargeted or moved between programmes:
+        `contactId`, `accountId`, `programmeId` and every server-owned field
+        are `400` (the body is closed). A stale `version` is
+        `409 stale_write`.
+
+        **Permission.** `activity.write` in the activity's programme, as for
+        createActivity. Reassigning follows D-P14 (D-L81): the `agent` set may
+        set the owner to itself only; `team_lead`, `programme_manager`,
+        `admin` and the tenant-admin flag may assign any member of the
+        activity's programme, or clear the owner. The owner must be a member
+        of the activity's programme, as on create. Field security applies to
+        `completedAt` and `ownerUserId`.
+
+        Out of scope (another programme, another tenant, no such activity) is
+        `404 not_found`, one body. Order: `404`, `403`, `400`, `409`. Every
+        update writes one audit event naming the fields that changed, never
+        their values.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateActivityRequest' }
+            example:
+              version: 1
+              completed: true
+      responses:
+        '200':
+          description: The updated activity, field security applied. `version` has advanced.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Activity' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/StaleWrite' }
 
   # -------------------------------------------------------------------------
   # Leads (T-0056, D-P17, D-L75). CONTRACT ONLY: no route answers yet; T-0076
@@ -1273,6 +1446,15 @@ components:
         An account identifier. An id the caller cannot reach, whether in
         another tenant, another programme or nowhere, is `404 not_found`. A
         value that is not a uuid is `400`.
+    ActivityId:
+      name: activityId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        An activity identifier. An id the caller cannot reach, whether in
+        another tenant, another programme or nowhere, is `404 not_found`. A
+        value that is not a uuid is `400`.
     Cursor:
       name: cursor
       in: query
@@ -1346,11 +1528,10 @@ components:
 
         **Specified, not yet served.** The `allOf` part below adds properties
         this contract specifies and the live API does not send yet (each is
-        marked `x-kasuwa-implemented: false`): today, the `account` summary
-        (T-0059; T-0061 serves it) and `companyName` (T-0056; T-0076 serves
-        it). `properties` here is exactly what the live
-        wire carries; the task that serves a pending property moves it into
-        `properties` in the same change.
+        marked `x-kasuwa-implemented: false`): today, `companyName` (T-0056;
+        T-0076 serves it). `properties` here is exactly what the live wire
+        carries; the task that serves a pending property moves it into
+        `properties` in the same change, as T-0061 did for `account`.
       allOf:
         - $ref: '#/components/schemas/ContactPendingProperties'
       properties:
@@ -1373,6 +1554,23 @@ components:
           type: array
           items: { type: string, format: email }
         accountId: { type: [string, 'null'], format: uuid }
+        account:
+          description: |
+            The contact's account, with a name to print (P05/01's related
+            records; T-0059, D-L72; served since T-0061). `null` exactly when
+            `accountId` is `null`; otherwise `account.id` equals `accountId`.
+            Read in the same scoped query as the contact. Accounts are
+            programme-scoped and a contact's account is always in the
+            contact's programme, so this never names an account the caller's
+            programme cannot see.
+
+            **Withheld with `accountId`.** When field security withholds
+            `accountId`, `account` is omitted too and both are listed in
+            `withheldFields`. Read-only: neither write body takes `account`;
+            a write sets `accountId`.
+          oneOf:
+            - { $ref: '#/components/schemas/ContactAccountSummary' }
+            - { type: 'null' }
         ownerUserId:
           type: [string, 'null']
           format: uuid
@@ -1460,26 +1658,6 @@ components:
         present or listed in `withheldFields`. Optional, like every
         withholdable property; a client must cope with their absence.
       properties:
-        account:
-          x-kasuwa-implemented: false
-          description: |
-            The contact's account, with a name to print (P05/01's related
-            records; T-0059, D-L72). `null` exactly when `accountId` is
-            `null`; otherwise `account.id` equals `accountId`. Read in the
-            same scoped query as the contact. Accounts are programme-scoped
-            and a contact's account is always in the contact's programme, so
-            this never names an account the caller's programme cannot see.
-
-            **Withheld with `accountId`.** When field security withholds
-            `accountId`, `account` is omitted too and both are listed in
-            `withheldFields`. Read-only: neither write body takes `account`;
-            a write sets `accountId`.
-
-            **Not yet served (T-0061).** Until then the live record leaves it
-            out and does not list it in `withheldFields`.
-          oneOf:
-            - { $ref: '#/components/schemas/ContactAccountSummary' }
-            - { type: 'null' }
         companyName:
           x-kasuwa-implemented: false
           type: [string, 'null']
@@ -1533,20 +1711,21 @@ components:
     TimelineItem:
       description: |
         One thing that happened to the contact. A closed union on `type`
-        (D-L72): `field_changed` and `consent_changed`. `activity` is
-        reserved for T-0060 and is added here when that slice defines its
-        shape; no other type is added without a lead decision.
+        (D-L72): `field_changed`, `consent_changed` and `activity` (T-0061);
+        no other type is added without a lead decision.
 
         An item for a field withheld from the caller is omitted from the
         timeline, value and name; see listContactTimeline.
       oneOf:
         - $ref: '#/components/schemas/FieldChangedItem'
         - $ref: '#/components/schemas/ConsentChangedItem'
+        - $ref: '#/components/schemas/ActivityItem'
       discriminator:
         propertyName: type
         mapping:
           field_changed: '#/components/schemas/FieldChangedItem'
           consent_changed: '#/components/schemas/ConsentChangedItem'
+          activity: '#/components/schemas/ActivityItem'
 
     TimelineActor:
       type: object
@@ -1673,6 +1852,173 @@ components:
           description: The consent state after the change. Absent on changes recorded before T-0061.
           allOf:
             - { $ref: '#/components/schemas/ConsentState' }
+
+    ActivityItem:
+      type: object
+      additionalProperties: false
+      required: [id, type, occurredAt, actor, activityId, activityType]
+      description: |
+        A note, a task or a logged call on this contact (T-0061), in its
+        current state: completing a task changes this item and never adds
+        one. `occurredAt` is when the activity was logged (D-L77), and
+        `actor` who logged it (`null`: the system, such as an import).
+
+        Follows the activity object's field security in the contact's
+        programme: a `subject`, `body`, `dueAt` or `completedAt` the caller
+        may not read is omitted from the item (never sent as `null`). A
+        present `null` means no value.
+      properties:
+        id:
+          type: string
+          description: Opaque and unique per item; never the activity id or an audit event id.
+        type: { type: string, const: activity }
+        occurredAt: { type: string, format: date-time }
+        actor:
+          description: '`null` is the system (an import, a migration).'
+          oneOf:
+            - { $ref: '#/components/schemas/TimelineActor' }
+            - { type: 'null' }
+        activityId:
+          type: string
+          format: uuid
+          description: The activity, for updateActivity.
+        activityType: { $ref: '#/components/schemas/ActivityType' }
+        subject: { type: [string, 'null'], maxLength: 200 }
+        body: { type: [string, 'null'], maxLength: 10000 }
+        dueAt:
+          type: [string, 'null']
+          format: date-time
+          description: Tasks only; `null` on a note or a call.
+        completedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Set by the server when a task is completed; `null` until then.
+
+    ActivityType:
+      type: string
+      enum: [note, task, call]
+      description: |
+        Snake_case codes, as stored (0027); labels are i18n strings. Only a
+        task has a due time and can be completed.
+
+    Activity:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, type, createdByUserId, version, createdAt, updatedAt, withheldFields]
+      description: |
+        One activity as the caller may see it (T-0061). The Contact rules
+        apply: a property the caller's permission set may not read in the
+        activity's programme is omitted and named in `withheldFields`, never
+        sent as `null`. `id`, `programmeId`, `type`, `createdByUserId`,
+        `version`, `createdAt`, `updatedAt` and `withheldFields` are never
+        withheld. No tenant id.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Minted by the server (D-L79).
+        programmeId:
+          type: string
+          format: uuid
+          description: The programme of the activity's target. Read-only; set once at create.
+        type: { $ref: '#/components/schemas/ActivityType' }
+        subject: { type: [string, 'null'], maxLength: 200 }
+        body: { type: [string, 'null'], maxLength: 10000 }
+        dueAt:
+          type: [string, 'null']
+          format: date-time
+          description: Tasks only.
+        completedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Set by the server when a task is completed.
+        ownerUserId:
+          type: [string, 'null']
+          format: uuid
+          description: '`null` is unassigned. Always a member of the activity''s programme.'
+        contactId: { type: [string, 'null'], format: uuid }
+        accountId: { type: [string, 'null'], format: uuid }
+        createdByUserId:
+          type: [string, 'null']
+          format: uuid
+          description: Who logged it, from the session (D-L79). `null` is the system.
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic-concurrency token. Send it back on updateActivity.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        withheldFields:
+          type: array
+          description: |
+            Names of the properties above that field security withheld from
+            this caller. Always present; empty when nothing was withheld.
+          items:
+            type: string
+            enum: [subject, body, dueAt, completedAt, ownerUserId, contactId, accountId]
+
+    CreateActivityRequest:
+      type: object
+      additionalProperties: false
+      required: [type]
+      description: |
+        Closed. At least one of `contactId` and `accountId`. No `id` (D-L79),
+        no `programmeId` (the target's), no creator (the session's), no
+        `completedAt` (the server's), no `version`: each is `400`.
+      properties:
+        type: { $ref: '#/components/schemas/ActivityType' }
+        subject:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 200
+          description: Free text; never logged. A NUL character is `400`.
+        body:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 10000
+          description: Free text; never logged. A NUL character is `400`.
+        dueAt:
+          type: [string, 'null']
+          format: date-time
+          description: Tasks only (`400 task_only` on a note or a call). UTC, with a `Z`.
+        ownerUserId:
+          type: [string, 'null']
+          format: uuid
+          description: |
+            A member of the activity's programme (D-L67). Anyone but the
+            caller needs `activity.reassign` (D-L81).
+        contactId:
+          type: [string, 'null']
+          format: uuid
+          description: Decides the programme when given.
+        accountId:
+          type: [string, 'null']
+          format: uuid
+          description: Decides the programme when it is the only target; else must be in the contact's.
+
+    UpdateActivityRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      description: |
+        Closed: `version` plus `completed: true` and/or `ownerUserId`
+        (D-L81). Retargeting, moving programme and every server-owned field
+        are `400`. Reopening a task is not in this slice.
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          description: The activity's current `version`; a stale one is `409 stale_write`.
+        completed:
+          type: boolean
+          enum: [true]
+          description: Complete a task; the server sets `completedAt`. A note or a call is `400 task_only`.
+        ownerUserId:
+          type: [string, 'null']
+          format: uuid
+          description: |
+            Reassign to a member of the activity's programme, or `null` to
+            clear. The `agent` set may set only itself (D-L81).
 
     MyProgramme:
       type: object
