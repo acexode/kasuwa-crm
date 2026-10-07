@@ -2058,3 +2058,18 @@ Every recommendation below was taken as written in its entry. What each one now 
     hierarchy (tracked).
 - **Tracked:** `tests/e2e/support/admin-mock.generated.ts` is stale on main (reported by T-0078 and T-0112); regenerate it in
   the next admin-touching PR.
+
+### D-L92 — `kasuwa_test_admin` is created by the shared bootstrap (lead, 2026-10-08; raised by the T-0102 migration review)
+**Status:** PROCEEDING (lead). T-0117, P0 before any populated cell.
+- **The problem.** `bootstrap.sql` creates `kasuwa_test_admin`, a BYPASSRLS login with the password `kasuwa_test_admin_dev`, and
+  gives it DML on every future table. Real environments apply the same file through their own provisioning
+  (`packages/db/CLAUDE.md`, ADR-0013), so a real cell would get a cross-tenant login whose password is in the repository,
+  unless provisioning remembered to drop it. The header's "Testcontainers only" describes intent, not what the file does.
+- **Ruling.** The test role moves to a test-only bootstrap file; real provisioning never applies it; the migration runner
+  refuses a non-dev, non-test database that has the role (T-0117).
+- **Not affected:** `kasuwa_migrator` stays BYPASSRLS by design (it owns the schema and never serves traffic), with its real
+  password from the secrets manager.
+- **T-0102 review follow-ups folded into 0029:** the rollback note (DROP TRIGGER is ACCESS EXCLUSIVE; use `lock_timeout`, and
+  disable by name first); the header says "no role may lower it by UPDATE"; the self-check pins the trigger's WHEN clause.
+  Also noted: the trigger does not fire under `session_replication_role = replica`, so a future logical-replication cell move
+  (ADR-0002 tooling) must re-check on the subscriber.
