@@ -1680,3 +1680,19 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
 - **Erasure path (tracked under D-L61).** Contact and account deletes now get 23503 once activities exist, and `kasuwa_app`
   cannot delete activities. No delete path exists in `apps/` today, but an NDPA erasure request will need a deliberate,
   audited path, decided with D-L61.
+### D-L80 — T-0055 security review follow-ups (tracked)
+**Status:** TRACKED.
+- **Names inside paging cursors.** With the default `name` sort, `nextCursor` is base64url JSON holding the last row's name.
+  Clients send it back in the query string. A sole trader's account name, or a contact's `displayName` (T-0041, the same
+  pattern), is a person's name (D-L63).
+  - The app is clean: request telemetry keeps only the route template.
+  - The risk is ingress, load-balancer and CDN access logs, and browser history.
+  - **Lead recommendation:** cursors carry the id only, and the server resolves the sort position
+    (`(name, id) > (SELECT name, id … WHERE id = $cursorId AND <scope>)`) before the first deployed cell. Until then, the
+    ingress must strip query strings from access logs. Assign it with the D-L68 search work.
+- **Search scans.** `q` on accounts, as on contacts (D-L68), reads every row in scope; it has no functional or trigram index.
+  This goes into the D-L68 search-index task.
+- **Fixed in #100 before merge:**
+  - a NUL character in a cursor;
+  - an unbounded `version` (both returned 500);
+  - inherited properties on the request body.
