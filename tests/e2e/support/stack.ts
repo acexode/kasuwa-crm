@@ -43,6 +43,12 @@ export interface StackUrls {
    * budget is measured here.
    */
   webRecordsUrl: string;
+  /**
+   * The same process as `webRecordsUrl`, which also has `crm_accounts` ON
+   * (T-0057): the P04 Accounts list. The `/accounts` byte budget is measured
+   * here. The second name says which flag a spec relies on.
+   */
+  webAccountsUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;
   /** Static fixture pages used by the harness self-tests. */
