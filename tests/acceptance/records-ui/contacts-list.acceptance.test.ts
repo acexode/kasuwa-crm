@@ -398,7 +398,18 @@ describe('acceptance: T-0042 — the contacts list in a browser', () => {
     const startedAt = Date.now();
     const run = spawnSync(
       process.execPath,
-      [fromRoot('tests', 'e2e', 'scripts', 'run-e2e.mjs'), '--grep', E2E_TAG, `--reporter=list,${reporter}`],
+      // `--grep` is a regex, so `@p04` also selects T-0057's `@p04-accounts…`
+      // journeys, which the Accounts suite runs and judges itself. Excluding
+      // them keeps this run about the Contacts screen. No shell metacharacter
+      // in either pattern (D-L62).
+      [
+        fromRoot('tests', 'e2e', 'scripts', 'run-e2e.mjs'),
+        '--grep',
+        E2E_TAG,
+        '--grep-invert',
+        '@p04-accounts',
+        `--reporter=list,${reporter}`,
+      ],
       {
         cwd: repoRoot,
         encoding: 'utf8',
