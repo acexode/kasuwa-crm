@@ -2,6 +2,7 @@ import { newId, type TenantTx } from '@kasuwa/db';
 import { decodeKeysetCursor, encodeKeysetCursor, type KeysetCursor } from '@kasuwa/domain-core';
 import { z } from 'zod';
 import { notFound } from '../common/admin-errors';
+import { applyAuditFieldSecurity } from './audit-field-security';
 import {
   AUDIT_OBJECT_TYPE_LABELS,
   change,
@@ -21,6 +22,13 @@ import type { AuditFilters, CreateAuditExportBody, ListAuditEventsQuery } from '
  * programmes)`, and for exports `requested_by_user_id = session user`. Two
  * independent layers (CLAUDE.md 2.3). Filters only ever add predicates; none
  * of them can reach a row the session cannot.
+ *
+ * Field security (T-0078): a contact, account or activity change carries its
+ * values only when the READER's matrix lets them read that field in the
+ * event's programme; otherwise it is `{ field, redacted: true }`. See
+ * `audit-field-security.ts`. It is applied after the page is cut, and it only
+ * ever removes values, so paging, cursors and filters are the same whatever
+ * the matrix says (no side channel).
  *
  * Personal data: an entry is built from the columns `AuditEntry` names and no
  * others. The actor is a display name and a role name, joined at read time;
@@ -142,6 +150,10 @@ const EMPTY_PAGE: AuditEventListView = {
  * position only (see @kasuwa/domain-core cursor.ts): replayed by another
  * tenant it moves a window over that tenant's own rows and nothing else.
  * Throws InvalidCursorError for a cursor the server did not issue.
+ *
+ * Change values are judged against the SESSION's own matrix (read from `tx`):
+ * there is deliberately no parameter through which a caller could supply
+ * another answer.
  */
 export async function listAuditEvents(
   tx: TenantTx,
@@ -191,7 +203,7 @@ export async function listAuditEvents(
   const page = hasMore ? rows.slice(0, query.pageSize) : rows;
   const last = page.at(-1);
   return {
-    items: page.map(toEntry),
+    items: await applyAuditFieldSecurity(page.map(toEntry), tx),
     page: {
       nextCursor:
         hasMore && last !== undefined
@@ -320,7 +332,18 @@ export function storedExportFilters(filters: AuditFilters | undefined): Record<s
 /**
  * Queues an export and audits the request in the same transaction — "written
  * before the job starts, not after it succeeds". The requester is the session
- * user; the worker that builds the file must re-resolve their scope then.
+ * user.
+ *
+ * THE WORKER THAT BUILDS THE FILE (not built yet; it needs its own acceptance
+ * test, F9 of T-0078) must, at build time, re-resolve the REQUESTER's scope
+ * AND field-security matrix: open a tenant transaction as the requester, with
+ * programmes resolved afresh from `user_programme` (never the scope stored or
+ * remembered from the request), and pass every event through
+ * `applyAuditFieldSecurity(entries, tx)` with THAT transaction, exactly as
+ * `listAuditEvents` does. It takes the transaction, not a loader or a matrix,
+ * so the matrix is always the one that transaction's session reads now. A
+ * file built from raw `audit_event` rows, or from a transaction opened as the
+ * worker or anyone else, leaks the values the list withholds.
  */
 export async function createAuditExport(
   tx: TenantTx,

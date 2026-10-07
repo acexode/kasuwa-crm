@@ -1,6 +1,6 @@
 import type { TenantTx } from '@kasuwa/db';
 import { InvalidCursorError } from '@kasuwa/domain-core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { CreateAuditExportBody, ListAuditEventsQuery } from './audit.schemas';
 import { exportChanges, listAuditEvents, storedExportFilters, toEntry } from './audit.service';
 
@@ -178,5 +178,92 @@ describe('export filters (D-L52 review fixes)', () => {
     expect(JSON.stringify(stored)).not.toContain('102.89');
     expect(storedExportFilters(undefined)).toEqual({});
     expect(storedExportFilters({ objectType: 'role' })).toEqual({ objectType: 'role' });
+  });
+});
+
+describe('listAuditEvents applies the reader’s field security (T-0078)', () => {
+  const PROGRAMME = '99999999-0000-4000-8000-0000000000a1';
+  const SET = '99999999-0000-4000-8000-0000000000b1';
+  const contactRow = (id: string) => ({
+    ...row,
+    id,
+    object_type: 'contact',
+    object_label: id,
+    object_id: id,
+    programme_id: PROGRAMME,
+    changes: [
+      { field: 'lga', before: 'Invented Lga One', after: 'Invented Lga Two', redacted: false },
+      { field: 'status', before: 'new', after: 'contacted', redacted: false },
+    ],
+  });
+  const rows = [
+    contactRow('99999999-0000-4000-8000-0000000000c1'),
+    contactRow('99999999-0000-4000-8000-0000000000c2'),
+    contactRow('99999999-0000-4000-8000-0000000000c3'),
+  ];
+
+  /**
+   * Answers the session's own field-access query (the real `loadFieldAccess`
+   * SQL) with `fields` as the catalogue and lga at `lgaLevel` for the held
+   * set, and anything else with `rows`. There is no loader parameter to
+   * inject: this is the only way to steer the matrix.
+   */
+  function dispatchingTx(
+    fields: string[] = ['lga', 'status'],
+    lgaLevel: 'none' | 'read' = 'none',
+  ): { tx: TenantTx; accessQueries: () => number } {
+    let accessQueries = 0;
+    const tx: TenantTx = {
+      session: { tenantId: TENANT, userId: USER, programmeIds: [PROGRAMME] },
+      query: <T>(text: string) => {
+        if (text.includes('FROM object_def o')) {
+          accessQueries += 1;
+          return Promise.resolve([
+            {
+              fields,
+              grants: [{ field: 'lga', set: SET, locked: false, level: lgaLevel }],
+              memberships: [{ programme: PROGRAMME, set: SET, locked: false }],
+            },
+          ] as T[]);
+        }
+        return Promise.resolve(rows as T[]);
+      },
+    };
+    return { tx, accessQueries: () => accessQueries };
+  }
+
+  it('redacts a withheld field per change, reading the matrix once for the whole page', async () => {
+    const fake = dispatchingTx();
+    const page = await listAuditEvents(fake.tx, ListAuditEventsQuery.parse({ pageSize: '2' }));
+    expect(fake.accessQueries()).toBe(1);
+    expect(page.items).toHaveLength(2);
+    for (const item of page.items) {
+      expect(item.changes).toEqual([
+        { field: 'lga', before: null, after: null, redacted: true },
+        { field: 'status', before: 'new', after: 'contacted', redacted: false },
+      ]);
+    }
+    expect(JSON.stringify(page)).not.toContain('Invented Lga');
+    // Paging is untouched by redaction: the cursor is the last row's position.
+    expect(page.page.hasMore).toBe(true);
+    const decoded = JSON.parse(
+      Buffer.from(page.page.nextCursor ?? '', 'base64url').toString('utf8'),
+    ) as { i: string };
+    expect(decoded.i).toBe(rows[1]?.id);
+  });
+
+  it('judges against the session’s own matrix, and fails closed on a field its catalogue lacks', async () => {
+    const fake = dispatchingTx(['lga'], 'read');
+    const page = await listAuditEvents(fake.tx, ListAuditEventsQuery.parse({}));
+    expect(fake.accessQueries()).toBe(1);
+    expect(page.items[0]?.changes).toEqual([
+      { field: 'lga', before: 'Invented Lga One', after: 'Invented Lga Two', redacted: false },
+      { field: 'status', before: null, after: null, redacted: true },
+    ]);
+  });
+
+  it('takes no loader: the matrix cannot be supplied by a caller (asserted by tsc, `pnpm typecheck`)', () => {
+    // A third parameter, optional or not, makes this a type error.
+    expectTypeOf(listAuditEvents).parameters.toEqualTypeOf<[TenantTx, ListAuditEventsQuery]>();
   });
 });
