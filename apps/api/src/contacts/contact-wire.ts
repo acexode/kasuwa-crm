@@ -64,6 +64,8 @@ export interface ContactWire {
   displayName: string;
   givenNames?: string | null;
   familyName?: string | null;
+  /** T-0076 (D-P17): free text, field-secured as `company_name`. */
+  companyName?: string | null;
   phones?: ContactPhone[];
   emails?: string[];
   accountId?: string | null;
@@ -93,6 +95,7 @@ export function toContactWire(contact: Contact, access: ContactFieldAccess): Con
   const readable: Partial<Record<WithheldContactWireField, unknown>> = {
     givenNames: contact.givenNames,
     familyName: contact.familyName,
+    companyName: contact.companyName,
     phones: contact.phones,
     emails: contact.emails,
     accountId: contact.accountId,

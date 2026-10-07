@@ -7,6 +7,7 @@ import {
   MAX_PAGE_SIZE,
 } from '@kasuwa/domain-core';
 import { z } from 'zod';
+import { text } from '../common/text';
 
 /**
  * Boundary schemas for the contacts API, transcribed from
@@ -128,6 +129,8 @@ const writableFields = {
   displayName: z.string().min(1).max(200),
   givenNames: z.string().max(200).nullable().optional(),
   familyName: z.string().max(200).nullable().optional(),
+  // T-0076 (D-L82): 1..200 code points, no NUL; `null` clears it, "" is 400.
+  companyName: text(1, 200).nullable().optional(),
   phones: z.array(Phone).max(10).optional(),
   emails: z.array(Email).max(10).optional(),
   accountId: z.string().uuid().nullable().optional(),

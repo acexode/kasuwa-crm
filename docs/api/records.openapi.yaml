@@ -53,7 +53,8 @@ info:
     record view (P05, T-0059, served by T-0061): the contact's timeline and
     its account summary. Activities (T-0061, D-P18): log a note, task or call
     against a contact or an account, and complete or reassign it; activities
-    are read on the contact's timeline. Leads (T-0056, D-P17, contract only until T-0076): a lead is a
+    are read on the contact's timeline. Leads (T-0056, D-P17, served since
+    T-0076): a lead is a
     contact at a lead stage, not its own record, so leads add a list view
     (`listLeads`), one action (`convertContact`) and one contact field
     (`companyName`). Custom-field values follow in a later slice (D-L60) and
@@ -253,6 +254,7 @@ paths:
                     displayName: Adaeze Okonkwo
                     givenNames: Adaeze
                     familyName: Okonkwo
+                    companyName: Okonkwo Fabrics
                     phones: [{ type: mobile, e164: '+2348030000001' }]
                     ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
                     owner:
@@ -722,11 +724,10 @@ paths:
         '409': { $ref: '#/components/responses/StaleWrite' }
 
   # -------------------------------------------------------------------------
-  # Leads (T-0056, D-P17, D-L75). CONTRACT ONLY: no route answers yet; T-0076
-  # implements it and flips `x-kasuwa-implemented`. A lead is a contact at a
-  # lead stage, not its own record: there is no Lead schema and nothing
-  # addresses a lead by id. The five rules at the top of this file apply
-  # unchanged.
+  # Leads (T-0056, D-P17, D-L75). Served since T-0076 (D-L82). A lead is a
+  # contact at a lead stage, not its own record: there is no Lead schema and
+  # nothing addresses a lead by id. The five rules at the top of this file
+  # apply unchanged.
   #
   # Deliberately absent (D-L69, D-P12): merge (dedupe is D-P12), lead score
   # (M17) and a Leads Map view (M03 P2). The task allowed a 501 stub or
@@ -741,7 +742,7 @@ paths:
       tags: [leads]
       summary: Convert a lead — qualify it and link an account, once
       operationId: convertContact
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/01', 'P05/01']
       description: |
@@ -755,7 +756,11 @@ paths:
         transaction: all of it or none of it. It writes exactly one audit
         event, on the contact (`objectType: contact`), naming the changed
         fields (`status`, `accountId`) and never their values. An account
-        created here is recorded in that same event, not in a second one.
+        created here is recorded in that same event, not in a second one: the
+        event is `updated` on the contact, names only the fields whose values
+        changed (a `customer` keeps its status, so only `accountId`), and
+        carries neither the new account's id nor its name (D-L82). A repeat or
+        a refusal writes no event.
 
         **What it does to the contact.** A contact whose `status` is `new`,
         `contacted`, `unqualified` or `null` becomes `qualified`. A
@@ -775,7 +780,9 @@ paths:
         is how a retry after a lost response meets the version check: it
         carries the version the first call made stale, and it is answered
         `200`, not `409`. Any other request on a stale `version` is
-        `409 stale_write`: re-read, do not retry blind.
+        `409 stale_write`: re-read, do not retry blind. A `version` above
+        2147483647 (the column is a 32-bit integer) is
+        `400 validation_failed`, never `409`.
 
         **A contact already linked to a different account.** When the
         contact already has an account and the request names another (a
@@ -853,7 +860,7 @@ paths:
       tags: [leads]
       summary: List leads — contacts at a lead stage
       operationId: listLeads
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P04/01', 'P04/04', 'P04/05', 'P04/06']
       description: |
         The P04/01 Leads table and the P04/04 Kanban's columns. A lead is a
@@ -876,9 +883,15 @@ paths:
 
         **Why a separate operation, not a filter on listContacts (D-L75).**
         The live listContacts ignores unknown query parameters, so a lead
-        filter added there would be silently dropped by today's server and
-        the screen would list customers as leads. Until T-0076 serves this
-        operation the live API answers `404` here: never wrong rows.
+        filter added there would be silently dropped by an older server and
+        the screen would list customers as leads. A server without this
+        operation answers `404` here: never wrong rows.
+
+        **No account filter.** Neither listLeads nor listContacts filters on
+        the linked account. `account` and `accountId` are unknown parameters
+        and ignored like any other, so the answer never depends on which
+        account they name (a filter on a withheld `accountId` would otherwise
+        be an oracle on the link).
 
         **Field security and the query.** `q` matches only fields the caller
         may read. A filter on a field withheld from the caller in ANY
@@ -902,10 +915,12 @@ paths:
           required: false
           description: |
             Search, as listContacts' `q`: names (case- and
-            diacritic-insensitive) and numbers (normalised to E.164), and
-            `companyName` once T-0076 serves it. It matches only fields the
-            caller may read: a hit on a withheld company or number would
-            disclose its value one query at a time.
+            diacritic-insensitive) and numbers (normalised to E.164), and also
+            `companyName` (case- and diacritic-insensitive). Each field is
+            matched only in the programmes where the caller may read it, row
+            by row: a hit on a withheld company or number would disclose its
+            value one query at a time. A NUL character is
+            `400 validation_failed`.
           schema:
             type: string
             minLength: 1
@@ -1528,10 +1543,11 @@ components:
 
         **Specified, not yet served.** The `allOf` part below adds properties
         this contract specifies and the live API does not send yet (each is
-        marked `x-kasuwa-implemented: false`): today, `companyName` (T-0056;
-        T-0076 serves it). `properties` here is exactly what the live wire
-        carries; the task that serves a pending property moves it into
-        `properties` in the same change, as T-0061 did for `account`.
+        marked `x-kasuwa-implemented: false`): none today. `properties` here
+        is exactly what the live wire carries; the task that serves a pending
+        property moves it into `properties` in the same change, as T-0061 did
+        for `account` and T-0076 for `companyName`. The part stays, empty, so
+        the next pending property has a place to go.
       allOf:
         - $ref: '#/components/schemas/ContactPendingProperties'
       properties:
@@ -1547,6 +1563,28 @@ components:
         displayName: { type: string, maxLength: 200 }
         givenNames: { type: [string, 'null'], maxLength: 200 }
         familyName: { type: [string, 'null'], maxLength: 200 }
+        companyName:
+          type: [string, 'null']
+          maxLength: 200
+          description: |
+            The organisation the person says they are with, as free text
+            (D-P17: `contact` gains a `company_name`, T-0076). The P04/01 Leads
+            table's Company column. It is not a link: an `accountId` is the
+            link, and a lead often has a company long before anyone creates
+            an account for it. `null` means no company was recorded.
+
+            **Field-secured like every other contact field** (field
+            `company_name`). Withheld is omitted and listed in
+            `withheldFields`, never sent as `null`. Writable on createContact
+            and updateContact under the same field security, by `contact.write`
+            only: the narrow edit the `agent`, `team_lead` and
+            `programme_manager` sets hold (D-P14, D-P18) does not include it.
+            convertContact neither copies it into the new account nor clears
+            it; a screen may prefill the new account's name from it.
+
+            Classified `pii` (D-L82): a sole trader's company is a person's
+            name. The audit trail and the timeline name a change to it, never
+            its value.
         phones:
           type: array
           items: { $ref: '#/components/schemas/Phone' }
@@ -1657,30 +1695,8 @@ components:
         live wire's key set: the T-0041 suite checks every one of them is
         present or listed in `withheldFields`. Optional, like every
         withholdable property; a client must cope with their absence.
-      properties:
-        companyName:
-          x-kasuwa-implemented: false
-          type: [string, 'null']
-          maxLength: 200
-          description: |
-            The organisation the person says they are with, as free text
-            (D-P17: `contact` gains a `company_name`). The P04/01 Leads
-            table's Company column. It is not a link: an `accountId` is the
-            link, and a lead often has a company long before anyone creates
-            an account for it. `null` means no company was recorded.
-
-            **Field-secured like every other contact field.** Withheld is
-            omitted and listed in `withheldFields`, never sent as `null`.
-            Writable on createContact and updateContact under the same
-            field security. convertContact neither copies it into the new
-            account nor clears it; a screen may prefill the new account's
-            name from it.
-
-            **Not yet served (T-0076).** Until then the live record leaves it
-            out and does not list it in `withheldFields`, and the live write
-            bodies answer `400` to it. T-0076 moves it into
-            `Contact.properties` in the same change that serves it, and adds
-            its `field_def`.
+        Empty today: `account` (T-0061) and `companyName` (T-0076) are served.
+      properties: {}
 
     ContactAccountSummary:
       type: object
@@ -1750,9 +1766,9 @@ components:
         - `FieldChangeWithValues`: the non-PII enumerated fields. `before`
           and `after` are present for changes recorded from T-0061 onward and
           absent on older ones, which were audited by name only (D-L63).
-        - `FieldChangeRedacted`: phones, emails, the name parts, the owner
-          and the account. Never a value, only the field name and
-          `redacted: true`.
+        - `FieldChangeRedacted`: phones, emails, the name parts, the
+          company (T-0076, D-L82), the owner and the account. Never a value,
+          only the field name and `redacted: true`.
 
         `consentState` is not a `field_changed` field: its changes are
         `consent_changed` items.
@@ -1815,8 +1831,10 @@ components:
             - { type: 'null' }
         field:
           type: string
-          enum: [displayName, givenNames, familyName, phones, emails, ownerUserId, accountId]
-          description: The Contact property that changed.
+          enum: [displayName, givenNames, familyName, companyName, phones, emails, ownerUserId, accountId]
+          description: |
+            The Contact property that changed. `companyName` (T-0076) is free
+            text that is often a person's name, so it is shown by name only.
         redacted:
           type: boolean
           const: true
@@ -2066,14 +2084,14 @@ components:
         givenNames: { type: [string, 'null'], maxLength: 200 }
         familyName: { type: [string, 'null'], maxLength: 200 }
         companyName:
-          x-kasuwa-implemented: false
           type: [string, 'null']
+          minLength: 1
           maxLength: 200
           description: |
             Free-text company (Contact.companyName). Declared here, not only
-            on Contact, because this body is closed. **Not yet accepted
-            (T-0076):** the live body answers `400 validation_failed` to it
-            until T-0076 serves the field.
+            on Contact, because this body is closed. 1 to 200 characters;
+            `""`, a NUL character or more than 200 is `400 validation_failed`
+            (D-L82). `null` or absent records none.
         phones:
           type: array
           maxItems: 10
@@ -2118,13 +2136,15 @@ components:
         givenNames: { type: [string, 'null'], maxLength: 200 }
         familyName: { type: [string, 'null'], maxLength: 200 }
         companyName:
-          x-kasuwa-implemented: false
           type: [string, 'null']
+          minLength: 1
           maxLength: 200
           description: |
-            Free-text company (Contact.companyName); `null` clears it.
-            **Not yet accepted (T-0076):** the live body answers
-            `400 validation_failed` to it until T-0076 serves the field.
+            Free-text company (Contact.companyName); `null` clears it. 1 to
+            200 characters; `""`, a NUL character or more than 200 is
+            `400 validation_failed` (D-L82). Needs `contact.write`: the D-P14
+            narrow edit does not cover it, so a body carrying it from the
+            `agent`, `team_lead` or `programme_manager` set is `403`.
         phones:
           type: array
           maxItems: 10

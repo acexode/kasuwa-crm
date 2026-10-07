@@ -13,6 +13,7 @@ const before: Contact = {
   displayName: 'Probe Person',
   givenNames: 'Probe',
   familyName: 'Person',
+  companyName: 'Probe Person Trading',
   phones: [{ type: 'mobile', e164: PHONE }],
   emails: [EMAIL],
   accountId: null,
@@ -126,6 +127,32 @@ describe('contactChanges', () => {
       { field: 'consentState', before: 'unknown', after: 'opted_in', redacted: false },
       { field: 'whatsappOptIn', before: null, after: 'false', redacted: false },
     ]);
+  });
+
+  it('records companyName whenever sent, by name only, and never its value (T-0076, D-L82)', () => {
+    for (const companyName of ['Probe Person Trading', 'Another Probe Co', null]) {
+      const changes = contactChanges({ companyName }, before);
+      expect(changes).toEqual([
+        { field: 'companyName', before: null, after: null, redacted: true },
+      ]);
+      expect(JSON.stringify(changes)).not.toContain('Probe');
+    }
+    expect(
+      contactChanges({ companyName: 'Probe Co' }, null).map((entry) => entry.field),
+    ).toEqual(['companyName']);
+  });
+
+  it('a convert names exactly the fields that moved: status and accountId, redacted', () => {
+    const ACCOUNT = '11111111-0000-4000-8000-00007600aa01';
+    expect(contactChanges({ status: 'qualified', accountId: ACCOUNT }, before)).toEqual([
+      { field: 'status', before: null, after: null, redacted: true },
+      { field: 'accountId', before: null, after: null, redacted: true },
+    ]);
+    // A customer keeps its status: only the link moved.
+    const customer: Contact = { ...before, status: 'customer' };
+    expect(
+      contactChanges({ accountId: ACCOUNT }, customer).map((entry) => entry.field),
+    ).toEqual(['accountId']);
   });
 
   it('never carries a phone or an address', () => {

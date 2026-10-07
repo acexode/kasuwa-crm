@@ -62,6 +62,8 @@ export const TIMELINE_REDACTED_FIELDS = [
   'displayName',
   'givenNames',
   'familyName',
+  // T-0076 (D-L82): free text, often a sole trader's own name. Never a value.
+  'companyName',
   'phones',
   'emails',
   'ownerUserId',
