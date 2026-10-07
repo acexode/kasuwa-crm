@@ -9,10 +9,11 @@
 -- and a lead often has a company long before anyone creates an account.
 --
 -- In this one file:
---   1. locks, taken up front in a fixed order;
+--   1. the catalogue lock (object_def, field_def);
 --   2. the clash pre-check (D-P24), BEFORE anything changes;
---   3. the column and its CHECK;
---   4. the standard field_def for every existing tenant, and the proof.
+--   3. the standard field_def for every existing tenant, and the proof;
+--   4. only then the contact lock, the column and its CHECK.
+-- Locks are always taken catalogue first, then contact.
 -- One transaction: a failure anywhere leaves no trace, not even a ledger row.
 --
 -- ---------------------------------------------------------------------------
@@ -26,18 +27,23 @@
 --     empty string is refused rather than stored because "" and NULL would be
 --     two spellings of "no company". U+0000 cannot be stored in text at all;
 --     the API refuses it as 400 (D-L78).
---   - Added NOT VALID (D-L65: contact is the hot table). NOT VALID skips the
---     scan of existing rows and still binds every INSERT and UPDATE from now
---     on. No existing row can break it: the column is created by this same
---     transaction, so every existing row holds NULL, which a CHECK accepts.
---     Validating it later is a catalogue formality (`ALTER TABLE contact
---     VALIDATE CONSTRAINT contact_company_name_length_check` in a
---     `-- kasuwa:no-transaction` file, SHARE UPDATE EXCLUSIVE), not a repair.
+--   - contact_company_name_length_check STAYS NOT VALID, ON PURPOSE (D-L65:
+--     contact is the hot table). A validating ADD CONSTRAINT scans all of
+--     contact under the ACCESS EXCLUSIVE lock (the migration review measured
+--     0.5-0.8 s at 3M rows), which D-L65 forbids. NOT VALID skips that scan
+--     and still binds every INSERT and UPDATE from now on. No existing row
+--     can break it: the column is created by this same transaction, so every
+--     existing row holds NULL, which a CHECK accepts. A later migration MAY
+--     validate it, in a `-- kasuwa:no-transaction` file:
+--       ALTER TABLE contact VALIDATE CONSTRAINT contact_company_name_length_check;
+--     which takes only SHARE UPDATE EXCLUSIVE (reads and writes carry on). It
+--     is a catalogue formality, not a repair.
 --   - No index. `q` on listLeads matches company_name with the same strpos
 --     scan as the name parts (D-L68 tracks a search index for all of them).
 --     No sort key uses it: field security can withhold it.
---   - Grants: contact's table-level SELECT, INSERT, UPDATE for kasuwa_app
---     (0001/0019) cover the new column. No column grant to add or revoke.
+--   - Grants: contact's table-level SELECT, INSERT, UPDATE and DELETE for
+--     kasuwa_app (0001/0019) cover the new column. No column grant to add or
+--     revoke.
 --   - RLS: contact keeps ENABLED, FORCED and its 0001 policy; a new column
 --     needs no policy of its own. TENANT_SCOPED_TABLES is unchanged.
 --
@@ -79,21 +85,22 @@
 -- LOCK IMPACT (D-L65)
 -- ---------------------------------------------------------------------------
 -- No populated cell exists yet (D-L65), but this file is cheap at any size:
---   - object_def and field_def: SHARE ROW EXCLUSIVE for the whole file. It
---     blocks writes to the catalogue (a tenant admin creating a custom field,
---     so no custom `company_name` can appear between the pre-check and the
---     backfill) and lets every read through, so field security keeps
---     answering. The backfill writes one row per tenant.
---   - contact: ACCESS EXCLUSIVE for the whole file (what ALTER TABLE takes
---     anyway, taken up front so the order is fixed). Its duration is short
---     and does not grow with the table: ADD COLUMN with no default is a
---     catalogue change (no rewrite), and the CHECK is added NOT VALID (no
---     scan). Reads and writes of contacts wait only for the rest of this
---     file, which touches the catalogue tables, not contact.
---   - Not timed at volume, and it does not need to be: nothing in this file
---     reads, rewrites or indexes contact rows, so the time contact is locked
---     does not grow with the table. What it does scale with is the number of
---     tenants (one field_def row each, and the proof's per-tenant checks).
+--   - object_def and field_def: SHARE ROW EXCLUSIVE for the whole file, taken
+--     first. It blocks writes to the catalogue (a tenant admin creating a
+--     custom field, so no custom `company_name` can appear between the
+--     pre-check and the backfill) and lets every read through, so field
+--     security keeps answering. The backfill and its proof scale with the
+--     number of tenants (one field_def row each, per-tenant checks).
+--   - contact: ACCESS EXCLUSIVE, taken LAST (step 4), after all the
+--     per-tenant work, and held only for ADD COLUMN, the NOT VALID CHECK and
+--     the COMMENT until COMMIT. None of those reads a contact row: ADD COLUMN
+--     with no default is a catalogue change (no rewrite) and NOT VALID skips
+--     the scan. So contact's blocking time grows with neither the table nor
+--     the number of tenants. The migration review measured about 1 s of
+--     contact blocking at 2,000 tenants when contact was locked up front
+--     (held across the backfill), and about 5 ms with this order.
+--   - Lock order is always catalogue, then contact, so this file cannot
+--     deadlock against another that follows the same order.
 --   - lock_timeout = 5s: the file fails fast instead of queueing behind a long
 --     transaction (and making everything behind it queue too).
 -- Steady-state cost: the CHECK on writes that set company_name, nothing else.
@@ -122,9 +129,8 @@
 
 SET LOCAL lock_timeout = '5s';
 
--- --- 1. locks, in a fixed order ----------------------------------------------
+-- --- 1. the catalogue lock (contact is locked last, in step 4) --------------
 LOCK TABLE object_def, field_def IN SHARE ROW EXCLUSIVE MODE;
-LOCK TABLE contact IN ACCESS EXCLUSIVE MODE;
 
 -- --- 2. the clash pre-check, before anything changes (D-P24) -----------------
 DO $$
@@ -145,17 +151,7 @@ BEGIN
 END
 $$;
 
--- --- 3. the column and its check ---------------------------------------------
-ALTER TABLE contact ADD COLUMN company_name text;
-
-ALTER TABLE contact
-  ADD CONSTRAINT contact_company_name_length_check
-  CHECK (pg_catalog.char_length(company_name) BETWEEN 1 AND 200) NOT VALID;
-
-COMMENT ON COLUMN contact.company_name IS
-  'Free-text company the person says they are with (D-P17). Not a link: account_id is. Classified pii (D-L82). NULL is none.';
-
--- --- 4. the standard field_def: backfill, then prove -------------------------
+-- --- 3. the standard field_def: backfill, then prove -------------------------
 DO $$
 DECLARE
   -- Frozen copy of the new `contact` entry of STANDARD_OBJECT_CATALOGUE
@@ -239,3 +235,17 @@ BEGIN
   END IF;
 END
 $$;
+
+-- --- 4. only now lock contact: the column and its check -----------------------
+-- Last, so contact is held ACCESS EXCLUSIVE only for the catalogue-only
+-- statements below, never across the per-tenant work above (LOCK IMPACT).
+LOCK TABLE contact IN ACCESS EXCLUSIVE MODE;
+
+ALTER TABLE contact ADD COLUMN company_name text;
+
+ALTER TABLE contact
+  ADD CONSTRAINT contact_company_name_length_check
+  CHECK (pg_catalog.char_length(company_name) BETWEEN 1 AND 200) NOT VALID;
+
+COMMENT ON COLUMN contact.company_name IS
+  'Free-text company the person says they are with (D-P17). Not a link: account_id is. Classified pii (D-L82). NULL is none.';
