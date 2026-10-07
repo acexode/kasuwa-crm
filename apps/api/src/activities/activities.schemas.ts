@@ -28,13 +28,16 @@ const VERSION = z.number().int().min(1).max(2_147_483_647);
  * UTC ISO 8601 with a `Z` (the contract's times) and a real calendar date:
  * the shape alone admits `2026-02-30`, which Postgres would refuse later as a
  * 500. `Date` rolls an impossible day into the next month, so a round trip
- * that changes the date catches it.
+ * that changes the date catches it. The year is held to 1970..9999: `Date`
+ * accepts year 0000, which Postgres rejects (22008), also a 500.
  */
 const UtcDateTime = z
   .string()
   .datetime()
   .refine(
     (value) => {
+      const year = Number(value.slice(0, 4));
+      if (!(year >= 1970 && year <= 9999)) return false;
       const parsed = new Date(value);
       return (
         !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value.slice(0, 10)

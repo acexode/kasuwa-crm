@@ -107,13 +107,25 @@ export interface ListContactTimelineOptions {
 const TIMELINE_ITEM_ID = /^ti_[0-9a-f]{32}$/;
 const MS_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
+/**
+ * A cursor timestamp Postgres will accept back as `timestamptz`, exactly as
+ * this module rendered it. `Date.parse` alone is not enough: V8 rolls an
+ * impossible date forward (`2026-02-30` becomes 2 March) and accepts year
+ * 0000, which Postgres refuses with 22008, a 500. So the value must round-trip
+ * through `Date` unchanged, and its year must be 1970..9999.
+ */
+export function isTimelineCursorTimestamp(value: string): boolean {
+  if (!MS_TIMESTAMP.test(value)) return false;
+  const year = Number(value.slice(0, 4));
+  if (year < 1970 || year > 9999) return false;
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === value;
+}
+
 const TimelineCursorPayload = z
   .object({
     k: z.string().uuid(),
-    t: z
-      .string()
-      .regex(MS_TIMESTAMP)
-      .refine((value) => !Number.isNaN(Date.parse(value))),
+    t: z.string().refine(isTimelineCursorTimestamp),
     i: z.string().regex(TIMELINE_ITEM_ID),
   })
   .strict();
@@ -321,7 +333,14 @@ export async function listContactTimeline(
   if (position !== undefined) values.push(position.occurredAt, position.itemId);
 
   const raws = await tx.query(TIMELINE_SQL(position !== undefined), values);
-  const rows = raws.map((raw) => toRow(RawRow.parse(raw)));
+  const rows = raws.map((raw) => {
+    // A row this statement produced that does not fit is the server's bug:
+    // a plain Error (a scrubbed 500), never the ZodError the error filter
+    // would turn into a 400 naming internal columns.
+    const parsed = RawRow.safeParse(raw);
+    if (!parsed.success) throw new Error('timeline row does not match the expected shape');
+    return toRow(parsed.data);
+  });
   const hasMore = rows.length > options.limit;
   const page = hasMore ? rows.slice(0, options.limit) : rows;
   const last = page.at(-1);

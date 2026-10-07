@@ -73,6 +73,9 @@ describe('CreateActivityBody (T-0061)', () => {
       { type: 'meeting', contactId: CONTACT },
       { type: 'task', contactId: CONTACT, dueAt: 'tomorrow' },
       { type: 'task', contactId: CONTACT, dueAt: '2026-02-30T09:00:00.000Z' },
+      // Year 0 passes Zod and the round trip, and Postgres refuses it (22008).
+      { type: 'task', contactId: CONTACT, dueAt: '0000-01-01T00:00:00Z' },
+      { type: 'task', contactId: CONTACT, dueAt: '1969-12-31T23:59:59Z' },
     ]) {
       expect(CreateActivityBody.safeParse(body).success, JSON.stringify(body)).toBe(false);
     }

@@ -46,6 +46,18 @@ describe('timeline cursors (T-0061)', () => {
       Buffer.from(JSON.stringify({ k: CONTACT, t: AT, i: ITEM, p: OTHER })).toString('base64url'),
     ],
     [
+      'a date V8 rolls forward (30 February)',
+      Buffer.from(JSON.stringify({ k: CONTACT, t: '2026-02-30T00:00:00.000Z', i: ITEM })).toString(
+        'base64url',
+      ),
+    ],
+    [
+      'year 0000, which Postgres refuses',
+      Buffer.from(JSON.stringify({ k: CONTACT, t: '0000-01-01T00:00:00.000Z', i: ITEM })).toString(
+        'base64url',
+      ),
+    ],
+    [
       'an impossible date',
       Buffer.from(JSON.stringify({ k: CONTACT, t: '2026-13-40T10:00:01.123Z', i: ITEM })).toString(
         'base64url',
