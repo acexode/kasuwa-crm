@@ -1743,3 +1743,35 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
 - **A filter on a withheld owner** answers 400 `field_withheld` naming the query parameter, as accounts does.
 - **Migration 0028** is reserved for T-0076; `agent3/T-0076` may create that file only.
 - **PR size.** The suite is about 3,700 lines, so the PR is marked exempt (structural).
+### D-L83 — T-0061 review follow-ups (lead, 2026-10-07)
+**Status:** TRACKED, with one hard gate.
+- **HARD GATE before the first deployed cell: T-0078.** From T-0061, contact audit rows hold before and after values for
+  D-L72's fields, and `/admin/audit` and its export return them unfiltered to an admin whose matrix withholds those fields.
+  That is a leak inside the programme, and it binds the tenant-admin flag too (D-L63). No cell may be populated until T-0078
+  merges. This is recorded in STATUS and HANDOFF as a release gate.
+- **Retention and erasure (into D-L61 and the NDPA assessment).**
+  - `audit_event` is append-only, and audit change values (state, LGA, tags) for a person now live there with no retention
+    job.
+  - The DSAR and erasure path must cover them, for example by rewriting the change values redacted when a contact is
+    erased.
+- **Timeline cost.** Each page expands the contact's whole history before the LIMIT, and activity creates have no rate limit.
+  Before long-history contacts exist: rate-limit activity creates per user, or cap the scan per branch. This goes into the
+  D-L68 performance work.
+- **Field-security admin.** Refuse `none` on fields the API always sends (`activity.type`), so the matrix cannot promise
+  what the API does not do. A small follow-up, not yet assigned.
+- **Fixed in T-0061 before merge:**
+  - an impossible-date or year-0 cursor;
+  - a year-0 `dueAt` (both returned 500);
+  - an internal row-parse error that would surface as a 400.
+### D-P26 — what may a client-portal user see on a contact's timeline? (raised by the T-0061 security review)
+**Status:** OPEN, needs @acexode. It matters before the BPO client portal (M18, Phase 3) gives portal users access.
+- **Today.** The `client_portal` set is read-only, and nothing stops it reading the contact timeline. A portal user (the BPO's
+  client) would see:
+  - staff display names as actors;
+  - activity subjects and bodies: an agent's internal call notes about the client's own customer;
+  - before and after values for D-L72's fields.
+- **Lead recommendation:**
+  - `client_portal` gets the timeline's field changes and consent changes, but not activity bodies or subjects.
+  - Actors are shown as a role label ("Agent"), not a name.
+  - Enforce it in the default field-security matrix for `client_portal` on the `activity` object, plus an actor-label rule
+    in the timeline. Decide before M18.
