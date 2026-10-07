@@ -1905,7 +1905,10 @@ paths:
         (`portal_user`, a resend included), each carrying its programme.
         Since T-0041 (D-L63), also records.openapi.yaml's `createContact`
         and `updateContact` (`contact`, labelled with the record id, every
-        change redacted), carrying the contact's programme.
+        change redacted), carrying the contact's programme. Since T-0055,
+        also `createAccount` and `updateAccount` (`account`, labelled with the
+        record id, every change a field name only), carrying the account's
+        programme.
         `changes[].field` uses API field names; values are strings.
         Newest first; `page.totalCount` is always null.
 
@@ -2095,7 +2098,7 @@ paths:
         `filters` is accepted only with `scope: filtered`, and
         `filters.objectType` must be one of the object types the log writes
         (`role`, `programme`, `field_security`, `audit_export`, `sla_policy`,
-        `retention_policy`, `disposition`, `portal_user`, `contact`) — the event is
+        `retention_policy`, `disposition`, `portal_user`, `contact`, `account`) — the event is
         readable tenant-wide, so it carries no free text. `filters.actorId`
         is recorded as redacted, and a `sourceIpPrefix` is not stored on the
         export, only the fact that one was given. No worker builds
@@ -3251,7 +3254,7 @@ components:
             action: { $ref: '#/components/schemas/AuditAction' }
             objectType:
               type: string
-              enum: [role, programme, field_security, audit_export, sla_policy, retention_policy, disposition, portal_user, contact]
+              enum: [role, programme, field_security, audit_export, sla_policy, retention_policy, disposition, portal_user, contact, account]
             from: { type: string, format: date-time }
             to: { type: string, format: date-time }
             sourceIpPrefix: { type: string, maxLength: 45 }
