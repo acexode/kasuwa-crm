@@ -1931,3 +1931,57 @@ Every recommendation below was taken as written in its entry. What each one now 
   account `created`.
 - **D-L71, takeover audit: ANSWERED.** An owner change records the before and after owner ids (staff ids are not customer PII).
 - **P10** (in-call agent script screen) exported to `docs/design/P10/` on 2026-10-07.
+
+### D-L88 — the pipeline (P06) and in-call script (P10) plan, and its rulings (lead, 2026-10-07)
+**Status:** PROCEEDING (lead). Tasks T-0105 to T-0116 in `team/ROADMAP.md`. These rulings follow D-P18, D-P19 and D-P20.
+- **New tables approved (CLAUDE.md section 8):** `pipeline`, `pipeline_stage`, `pipeline_stage_transition`,
+  `pipeline_stage_requirement`, `deal`, `deal_requirement_check` (T-0106); `script`, `script_version` (T-0113); `script_run`
+  (T-0114); `activity.deal_id` (T-0111). Each in the 0027 pattern: RLS ENABLED+FORCED with WITH CHECK, TENANT_SCOPED_TABLES,
+  composite FKs RESTRICT, the D-L76 allow-list key guard. No ADR: no new role, function or dependency.
+- **Pipeline:**
+  - **Money** on the wire as `amountMinor` (string) plus `currency`; one currency per deal, never converted. Probability in
+    basis points; weighted amounts rounded half-even per deal, then summed.
+  - **Stages** are `open`, `won` or `lost`, exactly one won and one lost per pipeline. Lost is reachable from any open stage
+    through the move sheet, not a column. Leaving won or lost needs move-any rights.
+  - **Transitions** are an allow-list seeded from the template: forward one stage, back to any open stage, won only from the
+    last open stage. `409 transition_not_allowed`; `422 requirements_unmet` naming requirement ids only.
+  - **Requirements** are `field` (a deal field_def) or `check` (who and when); filled in the move's own transaction. A required
+    field the mover may not edit is `403 field_not_editable`.
+  - **Rights:** create for agent, team lead, programme manager, admin (an agent's deal is theirs); agents move and edit their
+    own, the others any; reassign by team lead, programme manager, admin; pipeline configuration admin-only
+    (`pipeline.write`), API only in Phase 2 (no stage-editor design).
+  - **Board:** exact per-stage `count` and per-currency totals over the scoped, filtered set; left out when `amount` is
+    withheld; a filter on a withheld field is `400 field_withheld`; cards page per stage on id-only cursors; won covers
+    `closedSince`, default 90 days; `no-store`.
+  - **Scope:** pipelines are programme-scoped; a deal lives in its pipeline's programme; `stage_id` changes only through
+    `moveDeal`. One primary contact and one account, both in that programme.
+  - **Audit:** names only, except a move records the from and to stage ids (configuration ids).
+  - **Rotting:** `rotting_after_days` per stage (default 14), "stale" at half; alerts wait for notifications.
+  - **Hidden:** US$/FX, territories, AI risk, products and quotes, approvals, attachments, last WhatsApp contact, contact roles,
+    competitors, locked KYC checks, and the Loans template (NIN/BVN gates, D-L13).
+- **In-call script (P10), manual mode only in Phase 2:**
+  - Authoring, draft and published versions, translations; runs started by hand from the contact record; compliance
+    acknowledgements; a mandatory disposition; a callback booked as a task.
+  - **Wait for M09 and the inbox socket:** screen-pop, call-bound runs, the call bar, wrap-up and agent state. Also waiting:
+    SMS reminders, AI, QA toggles, calling-hours limits, `loan.*` variables.
+  - A run pins its script version; republishing never changes a run in progress (M10 Q2).
+  - Scripts are programme-scoped. `script.write` for the admin set; `script.run` for agent, team lead, programme manager and
+    admin, in the contact's programme.
+  - Branches are evaluated on the server; a branch on a withheld field stops the run with `field_withheld`.
+  - Completion is refused until every compliance node on the path is acknowledged (server timestamp) and a live disposition is
+    chosen. `follow_up_required` creates the callback task in the same transaction.
+  - Completion logs a `call` activity (subject = the disposition label) linked by `script_run.activity_id`.
+  - Answers are classified `pii`, never logged, audited by name only.
+  - Contract in its own file, `docs/api/scripting.openapi.yaml`, so it runs alongside the records contract queue.
+- **Contract queue for `records.openapi.yaml`:** T-0080, T-0103, T-0081, T-0105, then the rest.
+
+### D-P31 — may a script's form write CRM fields? (P10; raised by the Phase 2 plan)
+**Status:** OPEN, needs @acexode.
+- **The conflict.** Form nodes that write contact fields would let an agent edit more than D-P14 allows (status and owner).
+- **Lead recommendation:** in Phase 2, answers stay on the script run only. Later, a grant scoped to the script's bound
+  fields, audited.
+
+### D-P32 — who edits and approves compliance wording in scripts (M10 Q1)
+**Status:** OPEN, needs @acexode.
+- **Lead recommendation:** the admin set, until the BPO floor rules otherwise. A "compliance approver" role waits for the
+  role hierarchy.
