@@ -17,7 +17,7 @@ import {
   type TimelineItem,
 } from '../../lib/contact-record-api';
 import { STILL_CONNECTING_MS } from '../admin/use-resource';
-import { appendPage, mergeHead, withCompleted } from './record-model';
+import { appendPage, mergeHead, readOutcome, withCompleted, type ReadOutcome } from './record-model';
 
 /**
  * The contact record as a screen on a 256 kbps link has it (P05/01, /05, /06).
@@ -34,6 +34,8 @@ import { appendPage, mergeHead, withCompleted } from './record-model';
  * NOTHING OPTIMISTIC. What is drawn is what the server last served. A refused
  * or stale edit therefore leaves the served value on screen by construction,
  * and a 409 re-reads the record so the next attempt carries a real version.
+ * If that re-read fails, the stale record comes off the screen: not-found if
+ * it is gone, "did not load" otherwise (`readOutcome`).
  *
  * VERSIONS ARE NEVER INVENTED. A task can be completed only with a version a
  * 201 or 200 for it actually carried. A timeline item carries none (the
@@ -73,11 +75,6 @@ export interface ContactRecordState {
   readonly complete: (activityId: string) => Promise<RecordsResult<Activity>>;
 }
 
-/** getContact answers 400 for an id that is not a uuid: from the address bar, that is "not found". */
-function isNotFound(error: RecordsError): boolean {
-  return error.code === 'not_found' || error.code === 'validation_failed';
-}
-
 export function useContactRecord(id: string): ContactRecordState {
   const [phase, setPhase] = useState<RecordPhase>('loading');
   const [error, setError] = useState<RecordsError | null>(null);
@@ -99,6 +96,22 @@ export function useContactRecord(id: string): ContactRecordState {
     setRecord(next);
     setSyncedAt(new Date());
   }, []);
+
+  /** Applies a getContact answer: the record, or a state in which none is shown. */
+  const settle = useCallback(
+    (outcome: ReadOutcome) => {
+      if (outcome.phase === 'ready') {
+        accept(outcome.record);
+        setError(null);
+      } else {
+        current.current = null;
+        setRecord(null);
+        setError(outcome.phase === 'unavailable' ? outcome.error : null);
+      }
+      setPhase(outcome.phase);
+    },
+    [accept],
+  );
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -133,21 +146,13 @@ export function useContactRecord(id: string): ContactRecordState {
       if (controller.signal.aborted) return;
       window.clearTimeout(timer);
       setSlow(false);
-      if (result.ok) {
-        accept(result.value);
-        setPhase('ready');
-      } else if (isNotFound(result.error)) {
-        setPhase('not-found');
-      } else {
-        setError(result.error);
-        setPhase('unavailable');
-      }
+      settle(readOutcome(result));
     });
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [id, attempt, accept]);
+  }, [id, attempt, settle]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -193,13 +198,13 @@ export function useContactRecord(id: string): ContactRecordState {
         accept(result.value);
         refreshHead();
       } else if (result.error.code === 'stale_write') {
-        // Somebody saved first. Show what they saved, with its version.
-        const fresh = await getContact(served.id);
-        if (fresh.ok) accept(fresh.value);
+        // Somebody saved first. Show what they saved, with its version; and if
+        // that read fails, never leave the stale record on screen as current.
+        settle(readOutcome(await getContact(served.id)));
       }
       return result;
     },
-    [accept, refreshHead],
+    [settle, refreshHead],
   );
 
   const log = useCallback(

@@ -13,6 +13,7 @@ import {
   languageLabel,
   localToUtc,
   mergeHead,
+  readOutcome,
   withCompleted,
   writeErrorId,
 } from './record-model';
@@ -25,8 +26,8 @@ function record(overrides: Partial<ContactRecord> = {}): ContactRecord {
     displayName: 'Adaeze Okonkwo',
     givenNames: 'Adaeze',
     familyName: 'Okonkwo',
-    phones: [{ type: 'work', e164: '+2348030000001' }],
-    emails: ['adaeze@example.ng'],
+    phones: [{ type: 'work', e164: '+2340000000001' }],
+    emails: ['adaeze@example.com'],
     accountId: null,
     account: null,
     ownerUserId: null,
@@ -104,8 +105,8 @@ describe('the details panel', () => {
   });
 
   it('groups a Nigerian number and leaves any other as stored; initials skip markup', () => {
-    expect(formatPhone('+2348030000001')).toBe('+234 803 000 0001');
-    expect(formatPhone('+254712345678')).toBe('+254712345678');
+    expect(formatPhone('+2340000000001')).toBe('+234 000 000 0001');
+    expect(formatPhone('+2540000000001')).toBe('+2540000000001');
     expect(initials('Adaeze Okonkwo')).toBe('AO');
     expect(initials('<b>Adé</b> Bùkọ́lá')).toBe('B');
   });
@@ -136,15 +137,15 @@ describe('the full edit sends only what changed', () => {
   it('reads lists one per line or by comma, and keeps a known number’s type', () => {
     const served = record();
     expect(changedFields(served, { ...draftOf(served), tags: 'Callback set,  VIP ,' }).body).toEqual({ tags: ['Callback set', 'VIP'] });
-    expect(changedFields(served, { ...draftOf(served), emails: 'a@example.ng\nb@example.ng' }).body).toEqual({
-      emails: ['a@example.ng', 'b@example.ng'],
+    expect(changedFields(served, { ...draftOf(served), emails: 'a@example.com\nb@example.com' }).body).toEqual({
+      emails: ['a@example.com', 'b@example.com'],
     });
     expect(
-      changedFields(served, { ...draftOf(served), phones: '+234 803 000 0001\n+2348030000009' }).body,
+      changedFields(served, { ...draftOf(served), phones: '+234 000 000 0001\n+2340000000009' }).body,
     ).toEqual({
       phones: [
-        { type: 'work', e164: '+2348030000001' },
-        { type: 'mobile', e164: '+2348030000009' },
+        { type: 'work', e164: '+2340000000001' },
+        { type: 'mobile', e164: '+2340000000009' },
       ],
     });
     expect(changedFields(served, { ...draftOf(served), whatsappOptIn: false }).body).toEqual({ whatsappOptIn: false });
@@ -157,7 +158,7 @@ describe('the full edit sends only what changed', () => {
     for (const key of ['programmeId', 'source', 'dnd', 'phoneNetwork', 'status', 'ownerUserId']) {
       expect(keys as string[]).not.toContain(key);
     }
-    const draft = { ...draftOf(locked), phones: '+2348030000009', displayName: 'Chidi Eze-Okafor' };
+    const draft = { ...draftOf(locked), phones: '+2340000000009', displayName: 'Chidi Eze-Okafor' };
     expect(changedFields(locked, draft).body).toEqual({ displayName: 'Chidi Eze-Okafor' });
   });
 });
@@ -200,6 +201,24 @@ describe('the timeline', () => {
     const done = withCompleted([item('a'), task], 'act-1', '2026-10-07T10:00:00.000Z');
     expect(done).toHaveLength(2);
     expect(done[1]).toMatchObject({ id: 't1', completedAt: '2026-10-07T10:00:00.000Z' });
+  });
+});
+
+describe('reading the record, first and after a 409', () => {
+  it('shows the record only when the read succeeds', () => {
+    const served = record({ version: 4 });
+    expect(readOutcome({ ok: true, value: served })).toEqual({ phase: 'ready', record: served });
+  });
+
+  it('turns a gone record into the generic not-found, never the stale copy', () => {
+    expect(readOutcome({ ok: false, error: { code: 'not_found' } })).toEqual({ phase: 'not-found' });
+    expect(readOutcome({ ok: false, error: { code: 'validation_failed' } })).toEqual({ phase: 'not-found' });
+  });
+
+  it('turns any other failed read into "did not load", never the stale copy', () => {
+    for (const code of ['network', 'not_authenticated', 'service_unavailable', 'internal_error'] as const) {
+      expect(readOutcome({ ok: false, error: { code } })).toEqual({ phase: 'unavailable', error: { code } });
+    }
   });
 });
 

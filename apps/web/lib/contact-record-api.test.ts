@@ -4,7 +4,9 @@ import {
   createActivity,
   createActivityBody,
   getContact,
+  getCurrentUser,
   listContactTimeline,
+  listMyProgrammes,
   timelineSearch,
   updateContact,
 } from './contact-record-api';
@@ -51,6 +53,18 @@ describe('the contact record client', () => {
     expect(result.ok && 'account' in result.value).toBe(false);
     // No scope travels: no header names a programme or a tenant.
     expect(JSON.stringify(sent[0]?.init.headers ?? {})).not.toMatch(/programme|tenant/i);
+  });
+
+  it('keeps every read and write out of the browser cache, the current user included', async () => {
+    const sent = serve(200, { id: 'u-1', displayName: 'Staff Member', email: 'staff@example.com' });
+    await getCurrentUser();
+    await listMyProgrammes();
+    await getContact(CONTACT.id);
+    await listContactTimeline(CONTACT.id, null);
+    await updateContact(CONTACT.id, { version: 3, status: 'qualified' });
+    await completeActivity('a-1', 1);
+    expect(sent.map((entry) => entry.init.cache)).toEqual(Array(6).fill('no-store'));
+    expect(sent[0]?.url).toBe('/api/v1/auth/me');
   });
 
   it('turns an answer the contract does not describe into a network failure, not a record', async () => {

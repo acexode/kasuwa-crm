@@ -167,6 +167,9 @@ async function call<T>(
   try {
     response = await fetch(path, {
       method: init.method ?? 'GET',
+      // Never into the browser's HTTP cache: every answer here is a person's
+      // record or a staff member's identity, on a shared desk (T-0062 review).
+      cache: 'no-store',
       headers:
         init.body === undefined
           ? { accept: 'application/json' }

@@ -5,6 +5,8 @@ import {
   ContactStatus,
   PreferredChannel,
   type Phone,
+  type RecordsError,
+  type RecordsResult,
   type RecordsScreenErrorCode,
 } from '../../lib/records-api';
 import type { ChangeValue, ContactRecord, TimelineItem, TimelinePage } from '../../lib/contact-record-api';
@@ -412,6 +414,23 @@ export function writeErrorId(code: RecordsScreenErrorCode): MessageId {
   if (code === 'validation_failed') return 'record.error.invalid';
   if (code === 'stale_write') return 'record.error.stale';
   return `records.error.${code}` as MessageId;
+}
+
+/**
+ * What a getContact answer means for the screen, on first load and on the
+ * re-read after a 409. A 400 for an id from the address bar is "not found".
+ * A re-read that fails NEVER leaves the stale record standing as if it were
+ * current: gone is the generic not-found, anything else is "did not load".
+ */
+export type ReadOutcome =
+  | { readonly phase: 'ready'; readonly record: ContactRecord }
+  | { readonly phase: 'not-found' }
+  | { readonly phase: 'unavailable'; readonly error: RecordsError };
+
+export function readOutcome(result: RecordsResult<ContactRecord>): ReadOutcome {
+  if (result.ok) return { phase: 'ready', record: result.value };
+  if (result.error.code === 'not_found' || result.error.code === 'validation_failed') return { phase: 'not-found' };
+  return { phase: 'unavailable', error: result.error };
 }
 
 /** The status codes the inline edit offers: exactly the contract's set. */
