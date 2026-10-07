@@ -1453,7 +1453,7 @@ paths:
       tags: [accounts]
       summary: The account's timeline — field changes and activities, newest first
       operationId: listAccountTimeline
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P05/04']
       description: |
         The centre column of the P05 account record (T-0063): what changed on

@@ -23,6 +23,7 @@ import { CHANNEL, createApiChannel } from './messaging/channel';
 import { AUTH_MODE, KasuwaAuthGuard, type ResolvedAuthMode } from './tenancy/kasuwa-auth.guard';
 import { StubAuthGuard } from './tenancy/stub-auth.guard';
 import { TenantTransactionInterceptor } from './tenancy/tenant-transaction.interceptor';
+import { NO_STORE_ROUTES, NoStoreMiddleware } from './common/no-store.middleware';
 import { UnexpectedErrorFilter } from './common/unexpected-error.filter';
 import { ValidationExceptionFilter } from './common/zod-exception.filter';
 import {
@@ -137,6 +138,8 @@ export class AppModule implements NestModule {
    */
   configure(consumer: MiddlewareConsumer): void {
     consumer.apply(RequestTelemetryMiddleware).forRoutes('{*splat}');
+    // `no-store` on the timelines' 400 and 404 too, which `@Header` never reaches (T-0080).
+    consumer.apply(NoStoreMiddleware).forRoutes(...NO_STORE_ROUTES);
   }
 
   static forRoot(options: AppModuleOptions): DynamicModule {
