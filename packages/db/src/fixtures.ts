@@ -15,6 +15,7 @@
  *                  0000000e   contact
  *                  00000010   permission set
  *                  00000013   account
+ *                  00000014   activity
  *
  * Tenant A deliberately models the BPO shape: two client programmes, an agent
  * on each, a supervisor across both, and a user with no programme membership at
@@ -308,6 +309,47 @@ export const SEED_ACCOUNTS: readonly SeedAccount[] = [
     tenantId: TENANT_B,
     programmeId: PROGRAMME_B2,
     name: 'Mombasa Road Hardware',
+  },
+];
+
+export interface SeedActivity {
+  id: string;
+  tenantId: string;
+  programmeId: string;
+  type: 'note' | 'task' | 'call';
+  subject: string;
+  body: string;
+  ownerUserId: string;
+  accountId: string;
+}
+
+/**
+ * One activity per tenant (T-0060, D-L77), kind `00000014`, each on its
+ * programme's seeded ACCOUNT and owned by a member of that programme. They
+ * exist so the T-0011 updated_at probe has an activity row to update. They sit
+ * on accounts, never contacts, so no contact suite's view of a seeded contact
+ * changes. Subjects and bodies are invented and name no one.
+ */
+export const SEED_ACTIVITIES: readonly SeedActivity[] = [
+  {
+    id: `${A}000000140001`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A1,
+    type: 'note',
+    subject: 'Seeded note',
+    body: 'Seed fixture: invented text that names no one.',
+    ownerUserId: USER_A_AGENT_1,
+    accountId: `${A}000000130001`,
+  },
+  {
+    id: `${B}000000140002`,
+    tenantId: TENANT_B,
+    programmeId: PROGRAMME_B1,
+    type: 'task',
+    subject: 'Seeded task',
+    body: 'Seed fixture: invented text that names no one.',
+    ownerUserId: USER_B_AGENT_1,
+    accountId: `${B}000000130003`,
   },
 ];
 
