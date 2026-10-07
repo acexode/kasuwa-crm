@@ -66,5 +66,9 @@
   "accounts.filter.lga",
   "accounts.col.programme",
   "accounts.col.actions",
-  "accounts.field.programme"
+  "accounts.field.programme",
+  "record.activity.type.note",
+  "record.language.ig",
+  "record.language.sw",
+  "record.language.yo"
 ]

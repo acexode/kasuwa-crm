@@ -73,6 +73,10 @@
     "accounts.filter.lga": "An abbreviation (Local Government Area, Nigeria) used unchanged in this locale, as in records.col.state.",
     "accounts.col.programme": "The same word in this locale, as in admin.prog.col.programme.",
     "accounts.col.actions": "The same word in this locale.",
-    "accounts.field.programme": "The same word in this locale, as in admin.prog.col.programme."
+    "accounts.field.programme": "The same word in this locale, as in admin.prog.col.programme.",
+    "record.language.ig": "A language name used unchanged in French.",
+    "record.language.yo": "A language name used unchanged in French (without the Yoruba tone marks, as French writes it).",
+    "record.language.sw": "A language name used unchanged in French.",
+    "record.activity.type.note": "\"Note\" is the ordinary French word for a note on a record."
   }
 }
