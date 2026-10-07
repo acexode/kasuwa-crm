@@ -1,3 +1,43 @@
+# Resume here (2026-10-07, lead session stopped at a usage limit)
+
+**Merged this session:** #81–#103. That is 23 PRs: Phase 1 is complete; Phase 2 has the contacts, accounts, leads, activity
+and timeline APIs plus the Contacts screen. Decisions D-L69 to D-L86 and D-P17 to D-P26 are recorded; D-P17 and D-P18 are
+answered.
+
+**Open PRs and paused work (resume in this order):**
+1. **#105, T-0078 (HARD release gate, D-L83).** The security review passed; four hardening fixes were sent to the builder and
+   may be partly done in `.claude/worktrees/agent-a7235637931228281` (branch `agent1/T-0078-audit-field-security`).
+   - Finish:
+     - an unconditional access load;
+     - a per-object value allow-list (contact = `CONTACT_AUDIT_VALUE_FIELDS`, account and activity = none);
+     - `no-store` on guard errors;
+     - the export-worker comment, and the test-only loader seam.
+   - Then verify and merge. It is on @acexode's D-A3 review list.
+2. **#104, T-0057 Accounts screen.** It is pushed with the lead re-pin (budget 235,000; the search count polled). Its full
+   verification was stopped: re-run `verify.ps1` on `.claude/worktrees/agent-a814f29ef8b027a46`, then merge.
+3. **T-0062, contact record screen.** The builder was stopped mid-work in its `agent11/T-0062-contact-record` worktree. The
+   suite is on `lead/T-0062-acceptance`. Resume the builder.
+4. **T-0058, Leads screen.** The builder was stopped just after starting. The suite is on `lead/T-0058-acceptance` (D-L86).
+   Restart the builder.
+
+**Follow-ups filed, not started:**
+- T-0075: sign-in reads on the auth pool.
+- T-0079: a capability read, so screens can hide write controls.
+- T-0080: `version` on timeline activity items.
+- D-L76: ids immutable for contact and account, with an allow-list guard.
+- D-L80: id-only cursors.
+- D-L84: the colour lint.
+- The field-security admin should refuse `none` on always-sent fields (D-L83).
+
+**Waiting on @acexode:**
+- D-P19 to D-P26;
+- the D-L82 note (should a convert-created account get its own audit event?);
+- confirmation of the P07 design export;
+- the designs P18, P28, P10, P27, P26.
+
+**Next after the screens:** the T-0063 account record screen, then the pipeline slice (needs D-P19 and D-P20).
+
+---
 # Lead handoff — finish Phase 2
 
 *Written 2026-10-06 by the outgoing Lead Agent session. `main` is at `b680668`. Read this first, then
