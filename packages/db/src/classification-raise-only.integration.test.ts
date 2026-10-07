@@ -215,10 +215,13 @@ describe('classification raise-only guard (0029)', () => {
       app_can_execute: boolean;
       trigger_type: number;
       enabled: string;
+      when_clause: string | null;
     }>(
       `SELECT p.prosecdef AS definer, p.proconfig AS config,
               has_function_privilege('kasuwa_app', p.oid, 'EXECUTE') AS app_can_execute,
-              t.tgtype::int AS trigger_type, t.tgenabled::text AS enabled
+              t.tgtype::int AS trigger_type, t.tgenabled::text AS enabled,
+              (regexp_match(pg_get_triggerdef(t.oid), ' WHEN \\((.*)\\) EXECUTE FUNCTION '))[1]
+                AS when_clause
          FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
         WHERE t.tgrelid = 'public.field_def'::regclass
           AND t.tgname = 'field_def_classification_raise_only'`,
@@ -231,6 +234,9 @@ describe('classification raise-only guard (0029)', () => {
         // ROW (1) + UPDATE (16), no BEFORE bit: AFTER UPDATE FOR EACH ROW.
         trigger_type: 17,
         enabled: 'O',
+        // Exactly 0029's: a narrower WHEN would silently exempt rows.
+        when_clause:
+          '((NOT old.is_custom) AND (old.classification IS DISTINCT FROM new.classification))',
       },
     ]);
   });

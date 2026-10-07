@@ -14,17 +14,30 @@
 --   1. the catalogue lock;
 --   2. app.guard_field_def_classification_raise_only() and its trigger;
 --   3. a self-check that the guard is in place, that it is what this header
---      says, and that the scale it ranks is exactly the CHECK's values.
+--      says (its WHEN clause included), and that the scale it ranks is
+--      exactly the CHECK's values.
 -- One transaction: a failure anywhere leaves no trace, not even a ledger row.
 -- No data changes, no new tables, no new policies, no grants.
 --
 -- ---------------------------------------------------------------------------
 -- THE RULE (D-L89)
 -- ---------------------------------------------------------------------------
---   - An UPDATE of a field_def row whose OLD row is standard (`is_custom =
+--   - No role may lower a standard field's classification BY UPDATE: an
+--     UPDATE of a field_def row whose OLD row is standard (`is_custom =
 --     false`) and whose new classification ranks BELOW the old one is
 --     refused. Judged on OLD.is_custom, so a statement that also flips
---     is_custom cannot dodge it (0025 refuses every flip in any case).
+--     is_custom cannot dodge it (0025 refuses every flip in any case). This
+--     covers every path that UPDATEs a row: a plain UPDATE, the DO UPDATE arm
+--     of an upsert, and MERGE.
+--   - DELETE THEN RE-INSERT is not an UPDATE, so this trigger does not see it.
+--     kasuwa_app cannot do it: 0025's restrictive policies refuse it DELETE
+--     of a standard row and INSERT of one. The BYPASSRLS roles,
+--     kasuwa_migrator and kasuwa_test_admin, skip those policies and can still
+--     delete a standard field_def and insert it again at a lower
+--     classification (losing its id and its field_security_grant rows on the
+--     way). That is a migration's power, and a migration that uses it says so
+--     in its header. kasuwa_test_admin must never exist in a real cell
+--     (D-L92, T-0117).
 --   - THE SCALE is ranked explicitly, weakest first: none < pii < sensitive,
 --     the same `classification_rank` 0025 to 0028 use, and exactly the values
 --     field_def_classification_check (0009) admits. The values happen to sort
@@ -42,9 +55,10 @@
 --   - Raising succeeds. Setting the same value is not a change: the WHEN
 --     clause skips the function and the UPDATE succeeds, including a
 --     whole-table `SET classification = classification`.
---   - NO ROLE IS EXEMPT: kasuwa_app, kasuwa_migrator and kasuwa_test_admin
---     alike (D-L89; the T-0102 suite checks that these are the only roles
---     that can UPDATE the column). Superusers are outside the model. A FUTURE
+--   - NO ROLE IS EXEMPT from the UPDATE rule: kasuwa_app, kasuwa_migrator and
+--     kasuwa_test_admin alike (D-L89; the T-0102 suite checks that these are
+--     the only roles that can UPDATE the column). Superusers are outside the
+--     model. A FUTURE
 --     MIGRATION THAT MUST LOWER ONE says so explicitly, as the table's owner
 --     (kasuwa_migrator), in one file and so one transaction:
 --         ALTER TABLE field_def DISABLE TRIGGER field_def_classification_raise_only;
@@ -128,12 +142,25 @@
 -- No data is changed, so undoing this file loses nothing. If it fails, nothing
 -- was applied (one transaction; the runner records it only on COMMIT): fix the
 -- cause and run `pnpm db:migrate` again. To undo it after it has applied, never
--- edit or delete this file or its ledger row (append-only); instead, in a NEW
--- migration, as kasuwa_migrator:
---     DROP TRIGGER field_def_classification_raise_only ON field_def;
---     DROP FUNCTION app.guard_field_def_classification_raise_only();
--- That reopens D-P25, so it needs the decision reversed first; the T-0102
--- suite would go red, as it should.
+-- edit or delete this file or its ledger row (append-only). That reopens
+-- D-P25, so the decision must be reversed first; the T-0102 suite would go
+-- red, as it should. Then, as kasuwa_migrator, in two NEW migrations:
+--   1. first, the gentle step, which lets reads carry on:
+--        SET LOCAL lock_timeout = '5s';
+--        ALTER TABLE field_def DISABLE TRIGGER field_def_classification_raise_only;
+--      DISABLE TRIGGER takes SHARE ROW EXCLUSIVE, which blocks writes to
+--      field_def until COMMIT but not reads. Name the trigger. NEVER use
+--      DISABLE TRIGGER ALL or DISABLE TRIGGER USER: either would also switch
+--      off 0025's field_def_standard_fixed and 0018's
+--      field_def_touch_updated_at;
+--   2. later, the clean-up:
+--        SET LOCAL lock_timeout = '5s';
+--        DROP TRIGGER field_def_classification_raise_only ON field_def;
+--        DROP FUNCTION app.guard_field_def_classification_raise_only();
+--      DROP TRIGGER takes ACCESS EXCLUSIVE on field_def, which blocks READS
+--      too (field security stops answering while it waits). That is why
+--      lock_timeout is required: the file must fail fast, not queue behind a
+--      long transaction with every reader queued behind it.
 -- ---------------------------------------------------------------------------
 
 SET LOCAL lock_timeout = '5s';
@@ -195,6 +222,12 @@ DECLARE
   scale constant text[] := ARRAY['none', 'pii', 'sensitive'];
   guard constant pg_catalog.regprocedure :=
     'app.guard_field_def_classification_raise_only()'::pg_catalog.regprocedure;
+  -- The WHEN clause as Postgres deparses the one created in step 2. Only the
+  -- clause is compared, not the whole definition, so the table's schema
+  -- qualification (which depends on search_path) cannot make this flaky.
+  expected_when constant text :=
+    '((NOT old.is_custom) AND (old.classification IS DISTINCT FROM new.classification))';
+  actual_when text;
   admitted text[];
   holders text;
 BEGIN
@@ -209,6 +242,19 @@ BEGIN
          AND t.tgtype = 17
          AND t.tgfoid = guard) <> 1 THEN
     RAISE EXCEPTION '0029: the trigger field_def_classification_raise_only is missing, disabled, or not AFTER UPDATE FOR EACH ROW';
+  END IF;
+
+  -- The WHEN clause is exactly step 2's: a narrower one (custom rows only, a
+  -- single tenant, a role test) would silently exempt rows from the rule.
+  SELECT (pg_catalog.regexp_match(pg_catalog.pg_get_triggerdef(t.oid),
+                                  ' WHEN \((.*)\) EXECUTE FUNCTION '))[1]
+    INTO actual_when
+    FROM pg_catalog.pg_trigger t
+   WHERE t.tgrelid = 'public.field_def'::pg_catalog.regclass
+     AND t.tgname = 'field_def_classification_raise_only';
+  IF actual_when IS DISTINCT FROM expected_when THEN
+    RAISE EXCEPTION '0029: the trigger''s WHEN clause is % but must be %',
+      coalesce(actual_when, 'missing'), expected_when;
   END IF;
 
   -- The function: invoker's rights, search_path pinned (CLAUDE.md 2.7).
