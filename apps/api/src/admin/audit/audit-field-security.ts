@@ -180,14 +180,20 @@ export function loaderFor(tx: TenantTx): FieldAccessLoader {
 }
 
 /**
- * A page of entries as the reader may see them: each needed object's access
- * loaded once (sequentially, on the request's one connection), then every
- * entry judged in its own programme.
+ * A page of entries as the reader of `tx` may see them: each needed object's
+ * access loaded once (sequentially, on the request's one connection) from
+ * THAT SESSION's own matrix, then every entry judged in its own programme.
+ *
+ * It takes the transaction, never a loader or an access map: no caller (the
+ * future export worker included) can hand it a forged, cached or someone
+ * else's matrix. Whoever calls it must already be inside a tenant transaction
+ * opened as the reader whose view this is.
  */
 export async function applyAuditFieldSecurity<T extends AuditValueSubject>(
   entries: readonly T[],
-  load: FieldAccessLoader,
+  tx: TenantTx,
 ): Promise<T[]> {
+  const load = loaderFor(tx);
   const access = new Map<FieldSecuredObject, FieldAccess>();
   for (const object of objectsToLoad(entries)) {
     access.set(object, await load(object));

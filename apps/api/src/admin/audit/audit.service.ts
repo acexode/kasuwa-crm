@@ -2,7 +2,7 @@ import { newId, type TenantTx } from '@kasuwa/db';
 import { decodeKeysetCursor, encodeKeysetCursor, type KeysetCursor } from '@kasuwa/domain-core';
 import { z } from 'zod';
 import { notFound } from '../common/admin-errors';
-import { applyAuditFieldSecurity, loaderFor } from './audit-field-security';
+import { applyAuditFieldSecurity } from './audit-field-security';
 import {
   AUDIT_OBJECT_TYPE_LABELS,
   change,
@@ -151,7 +151,7 @@ const EMPTY_PAGE: AuditEventListView = {
  * tenant it moves a window over that tenant's own rows and nothing else.
  * Throws InvalidCursorError for a cursor the server did not issue.
  *
- * Change values are judged against the SESSION's own matrix (`loaderFor(tx)`):
+ * Change values are judged against the SESSION's own matrix (read from `tx`):
  * there is deliberately no parameter through which a caller could supply
  * another answer.
  */
@@ -203,7 +203,7 @@ export async function listAuditEvents(
   const page = hasMore ? rows.slice(0, query.pageSize) : rows;
   const last = page.at(-1);
   return {
-    items: await applyAuditFieldSecurity(page.map(toEntry), loaderFor(tx)),
+    items: await applyAuditFieldSecurity(page.map(toEntry), tx),
     page: {
       nextCursor:
         hasMore && last !== undefined
@@ -339,10 +339,11 @@ export function storedExportFilters(filters: AuditFilters | undefined): Record<s
  * AND field-security matrix: open a tenant transaction as the requester, with
  * programmes resolved afresh from `user_programme` (never the scope stored or
  * remembered from the request), and pass every event through
- * `applyAuditFieldSecurity(entries, loaderFor(tx))` inside that transaction,
- * exactly as `listAuditEvents` does. A file built from raw `audit_event` rows,
- * or judged against the worker's own or a cached matrix, leaks the values the
- * list withholds.
+ * `applyAuditFieldSecurity(entries, tx)` with THAT transaction, exactly as
+ * `listAuditEvents` does. It takes the transaction, not a loader or a matrix,
+ * so the matrix is always the one that transaction's session reads now. A
+ * file built from raw `audit_event` rows, or from a transaction opened as the
+ * worker or anyone else, leaks the values the list withholds.
  */
 export async function createAuditExport(
   tx: TenantTx,

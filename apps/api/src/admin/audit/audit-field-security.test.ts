@@ -1,6 +1,6 @@
 import type { TenantTx } from '@kasuwa/db';
 import type { FieldAccess } from '@kasuwa/metadata-engine';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { CONTACT_AUDIT_VALUE_FIELDS } from '../../contacts/contact-audit';
 import {
   applyAuditFieldSecurity,
@@ -8,7 +8,6 @@ import {
   objectsToLoad,
   redactForReader,
   type AuditValueSubject,
-  type FieldSecuredObject,
   type ReaderFieldAccess,
 } from './audit-field-security';
 import { change, redactedChange } from './audit-writer';
@@ -229,6 +228,28 @@ describe('redactForReader (T-0078)', () => {
     ]);
   });
 
+  it('a `tenant` event (provisioning, not in AUDIT_OBJECT_TYPES) is fully redacted: a conscious fail-closed rule', () => {
+    // The shape provision-tenant.ts writes: system actor, no programme, values.
+    const provisioned = event('tenant', null, [
+      change('slug', null, 'invented-slug'),
+      change('region', null, 'ZA'),
+      change('region_cell', null, 'za-1'),
+      change('business_unit_id', null, '99999999-0000-4000-8000-0000000000d1'),
+      change('default_programme_id', null, P1),
+      change('admin_user_id', null, USER),
+      redactedChange('admin_email'),
+    ]);
+    const judged = redactForReader(provisioned, EDIT_EVERYTHING(['slug', 'region']));
+    expect(judged.changes).toEqual(
+      provisioned.changes.map((original) => redactedChange(original.field)),
+    );
+    // Even if a tenant event ever carried a programme, it stays redacted.
+    expect(
+      redactForReader({ ...provisioned, programmeId: P1 }, EDIT_EVERYTHING(['slug'])).changes,
+    ).toEqual(provisioned.changes.map((original) => redactedChange(original.field)));
+    expect(objectsToLoad([provisioned, { ...provisioned, programmeId: P1 }])).toEqual([]);
+  });
+
   it('keeps the event, every change and its field order, and every other property', () => {
     const entry = { ...event('contact', P1, [LGA, STATUS]), objectLabel: 'x', action: 'updated' };
     const judged = redactForReader(entry, new Map());
@@ -261,18 +282,58 @@ describe('objectsToLoad (no oracle on stored content)', () => {
 });
 
 describe('applyAuditFieldSecurity', () => {
-  it('loads the contact access once per request, however many events and programmes the page holds', async () => {
-    const load = vi.fn((_object: FieldSecuredObject) =>
-      Promise.resolve(accessOf({ [P1]: { lga: 'none', status: 'read' }, [P2]: { lga: 'read' } })),
-    );
+  const S1 = '99999999-0000-4000-8000-0000000000b1';
+  const S2 = '99999999-0000-4000-8000-0000000000b2';
+
+  /**
+   * A tenant transaction whose session reaches P1 (set S1: lga none) and P2
+   * (set S2: lga read). It answers the real `loadFieldAccess` SQL and records
+   * which object each access query asked for; any other query is a test bug.
+   */
+  function accessTx(): { tx: TenantTx; accessQueries: unknown[] } {
+    const accessQueries: unknown[] = [];
+    const tx: TenantTx = {
+      session: { tenantId: TENANT, userId: USER, programmeIds: [P1, P2] },
+      query: <T>(text: string, values: readonly unknown[] = []) => {
+        if (!text.includes('FROM object_def o')) {
+          return Promise.reject(new Error(`unexpected query: ${text.slice(0, 40)}`));
+        }
+        accessQueries.push(values[1]);
+        return Promise.resolve([
+          {
+            fields: ['lga', 'status'],
+            grants: [
+              { field: 'lga', set: S1, locked: false, level: 'none' },
+              { field: 'lga', set: S2, locked: false, level: 'read' },
+            ],
+            memberships: [
+              { programme: P1, set: S1, locked: false },
+              { programme: P2, set: S2, locked: false },
+            ],
+          },
+        ] as T[]);
+      },
+    };
+    return { tx, accessQueries };
+  }
+
+  it('takes the transaction, never a loader or an access map (asserted by tsc, `pnpm typecheck`)', () => {
+    // Any other second parameter (a loader, a matrix) makes this a type error.
+    expectTypeOf(applyAuditFieldSecurity<AuditValueSubject>).parameters.toEqualTypeOf<
+      [readonly AuditValueSubject[], TenantTx]
+    >();
+  });
+
+  it('reads the session’s own contact matrix once per request, however many events and programmes', async () => {
+    const { tx, accessQueries } = accessTx();
     const page = [
       event('contact', P1, [LGA, STATUS]),
       event('contact', P2, [LGA]),
       event('contact', P1, [redactedChange('lga')]),
       event('account', P1, [change('tier', 'sme', 'enterprise')]),
     ];
-    const judged = await applyAuditFieldSecurity(page, load);
-    expect(load.mock.calls).toEqual([['contact']]);
+    const judged = await applyAuditFieldSecurity(page, tx);
+    expect(accessQueries).toEqual(['contact']);
     expect(judged.map((entry) => entry.changes)).toEqual([
       [redactedChange('lga'), STATUS],
       [LGA],
@@ -281,22 +342,22 @@ describe('applyAuditFieldSecurity', () => {
     ]);
   });
 
-  it('loads the same whether a page’s contact changes carry values or not', async () => {
-    const withValues = vi.fn(() => Promise.resolve(accessOf({})));
-    const without = vi.fn(() => Promise.resolve(accessOf({})));
-    await applyAuditFieldSecurity([event('contact', P1, [LGA])], withValues);
-    await applyAuditFieldSecurity([event('contact', P1, [redactedChange('lga')])], without);
-    expect(withValues.mock.calls).toEqual(without.mock.calls);
-    expect(withValues).toHaveBeenCalledTimes(1);
+  it('queries the same whether a page’s contact changes carry values or not', async () => {
+    const withValues = accessTx();
+    const without = accessTx();
+    await applyAuditFieldSecurity([event('contact', P1, [LGA])], withValues.tx);
+    await applyAuditFieldSecurity([event('contact', P1, [redactedChange('lga')])], without.tx);
+    expect(withValues.accessQueries).toEqual(without.accessQueries);
+    expect(withValues.accessQueries).toEqual(['contact']);
   });
 
-  it('loads nothing for a page with no contact event in a programme', async () => {
-    const load = vi.fn(() => Promise.resolve(accessOf({})));
+  it('queries nothing for a page with no contact event in a programme', async () => {
+    const { tx, accessQueries } = accessTx();
     const judged = await applyAuditFieldSecurity(
       [event('role', null, [change('name', 'a', 'b')]), event('contact', null, [LGA])],
-      load,
+      tx,
     );
-    expect(load).not.toHaveBeenCalled();
+    expect(accessQueries).toEqual([]);
     expect(judged[1]?.changes).toEqual([redactedChange('lga')]);
   });
 });
