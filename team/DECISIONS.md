@@ -1985,3 +1985,20 @@ Every recommendation below was taken as written in its entry. What each one now 
 **Status:** OPEN, needs @acexode.
 - **Lead recommendation:** the admin set, until the BPO floor rules otherwise. A "compliance approver" role waits for the
   role hierarchy.
+
+### D-L89 — T-0102 classification suite rulings (lead, reversible)
+**Status:** PROCEEDING (lead). These came from the T-0102 suite writer.
+- **The scale** is `field_def.classification`: `none < pii < sensitive` (0009's CHECK; 0025-0028 already rank it). A fourth
+  value fails the suite until someone ranks it. The trigger ranks explicitly: the values happen to sort alphabetically, so no
+  test can tell the difference, and the header says so.
+- **The refusal** is `23514` with `CONSTRAINT = 'field_def_classification_raise_only'`, as 0026's `account_hierarchy` does.
+  23001 and 42501 already mean other refusals on `field_def`, and the CHECK's own 23514 is told apart by the constraint name.
+  Its message, detail and hint name no id or label.
+- **No role is exempt:** kasuwa_app, kasuwa_migrator and kasuwa_test_admin may raise or set equal, never lower. A future
+  migration that must lower one says so explicitly.
+- **Equal is success**, for every role, including a whole-table `SET classification = classification`.
+- **Atomic:** one lowering inside a bulk statement refuses the whole statement.
+- **RLS:** a lowering aimed at another tenant's row behaves exactly like an id that does not exist.
+- **Custom fields on standard objects** use the `__c` suffix in fixtures (D-P24).
+- **The HTTP 400 moves to T-0089**, the first create-field API; T-0102 has no HTTP part.
+- **Migration 0029** is T-0102's. The next migration task takes 0030.
