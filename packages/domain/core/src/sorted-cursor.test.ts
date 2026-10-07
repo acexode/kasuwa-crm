@@ -54,6 +54,17 @@ describe('sorted cursors (T-0041)', () => {
     ).toThrow(InvalidCursorError);
   });
 
+  it('refuses a position holding U+0000, which Postgres text cannot bind (a 500, not a 400)', () => {
+    for (const v of ['\u0000', 'Ada\u0000', '\u0000Ada']) {
+      expect(() =>
+        decodeSortedCursor(raw({ s: 'displayName', v, i: id }), 'displayName', 'text'),
+      ).toThrow(InvalidCursorError);
+      expect(() => encodeSortedCursor({ sort: 'name', value: v, id }, 'text')).toThrow(
+        InvalidCursorError,
+      );
+    }
+  });
+
   it('fits the worst-case text position inside MAX_CURSOR_LENGTH, and refuses a longer one', () => {
     for (const unit of ['\u001f', '\u{1F600}', '"', 'ọ̀']) {
       const value = [...unit.repeat(MAX_TEXT_SORT_POSITION)]
