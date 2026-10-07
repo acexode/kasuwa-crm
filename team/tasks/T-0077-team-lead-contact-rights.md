@@ -1,6 +1,6 @@
 # T-0077 — Team leads and programme managers get the agent's contact rights (D-P18)
 
-**status** `not-assigned` (**needs a lead suite edit with auto mode off**) · **owner** Agent 3 · **priority** P2 · **decisions** D-P18, D-P14, T-0051
+**status** `done` (#101) · **owner** Agent 3 · **priority** P2 · **decisions** D-P18, D-P14, T-0051
 
 ## Goal
 D-P18: the `team_lead` and `programme_manager` sets may do what D-P14 lets `agent` do on contacts. That means changing `status`
