@@ -3,7 +3,7 @@ import { HttpException } from '@nestjs/common';
 import { HEADERS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { describe, expect, it } from 'vitest';
 import { AccountsController } from './accounts.controller';
-import { refusalDetail } from './accounts.service';
+import { plainKeys, refusalDetail } from './accounts.service';
 
 /**
  * Route metadata Nest applies, read without a database: every account
@@ -58,5 +58,26 @@ describe('refusalDetail (a refusal is one 400 detail, at the field, with no valu
     ['parent_depth', { path: 'parentAccountId', code: 'parent_depth' }],
   ] as const)('%s', (reason, detail) => {
     expect(refusalDetail(reason)).toEqual(detail);
+  });
+});
+
+describe('plainKeys (the keys field security judges are the keys Zod parses)', () => {
+  it('reads the own keys of a plain object, a JSON body or a null-prototype one', () => {
+    expect(plainKeys(JSON.parse('{"version":1,"tier":"sme"}'))).toEqual(['version', 'tier']);
+    expect(plainKeys(Object.assign(Object.create(null) as object, { tier: 'sme' }))).toEqual([
+      'tier',
+    ]);
+    // JSON.parse makes `__proto__` an own key, so it is judged (and Zod refuses it).
+    expect(plainKeys(JSON.parse('{"__proto__":{"tier":"sme"}}'))).toEqual(['__proto__']);
+  });
+
+  it('refuses anything that is not a plain object', () => {
+    class Body {
+      version = 1;
+    }
+    const inherited = Object.create({ tier: 'sme' }) as object;
+    for (const body of [null, undefined, 'x', 7, [], [{ tier: 'sme' }], new Body(), inherited]) {
+      expect(plainKeys(body), JSON.stringify(body)).toBeNull();
+    }
   });
 });

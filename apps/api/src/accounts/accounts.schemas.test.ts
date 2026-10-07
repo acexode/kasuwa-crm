@@ -156,4 +156,13 @@ describe('UpdateAccountBody', () => {
       );
     }
   });
+
+  it('bounds version to a Postgres integer, so a huge one is 400 rather than a 500', () => {
+    for (const version of [2_147_483_648, 1e10, 1e21]) {
+      expect(UpdateAccountBody.safeParse({ version, tier: 'sme' }).success, String(version)).toBe(
+        false,
+      );
+    }
+    expect(UpdateAccountBody.safeParse({ version: 2_147_483_647, tier: 'sme' }).success).toBe(true);
+  });
 });

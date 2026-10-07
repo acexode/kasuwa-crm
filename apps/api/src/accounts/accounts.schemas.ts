@@ -127,7 +127,8 @@ export type CreateAccountBody = z.infer<typeof CreateAccountBody>;
  */
 export const UpdateAccountBody = z
   .object({
-    version: z.number().int().min(1),
+    // Postgres `integer`: anything larger is 22003 at `::integer`, a 500, not a 400.
+    version: z.number().int().min(1).max(2_147_483_647),
     ...writableFields,
     name: writableFields.name.optional(),
   })

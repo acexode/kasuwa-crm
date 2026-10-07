@@ -71,11 +71,22 @@ function fieldNotEditable(fields: readonly string[]): AdminError {
   );
 }
 
-function plainKeys(body: unknown): string[] | null {
-  return typeof body === 'object' && body !== null && !Array.isArray(body)
-    ? Object.keys(body)
-    : null;
+/**
+ * The keys of a write body, or null when it is not a PLAIN object (an array,
+ * a primitive, or an object whose prototype is anything but Object.prototype
+ * or null). The field-security check reads these keys and Zod parses the same
+ * body; requiring a plain object keeps the two from ever seeing different
+ * properties (an inherited one would be parsed and never judged). A JSON body
+ * is always plain; anything else is answered 400.
+ */
+export function plainKeys(body: unknown): string[] | null {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return null;
+  const prototype: unknown = Object.getPrototypeOf(body);
+  if (prototype !== Object.prototype && prototype !== null) return null;
+  return Object.keys(body);
 }
+
+const notAPlainObject = () => validationFailed([{ path: '', code: 'invalid_type' }]);
 
 /** A refusal (the API's own, or the database's mapped one) as its one 400 detail. */
 export function refusalDetail(reason: AccountWriteRefusal): AdminErrorDetail {
@@ -259,7 +270,7 @@ export async function createAccountFor(tx: TenantTx, body: unknown): Promise<Acc
     throw notPermitted(); // 403
   }
   const keys = plainKeys(body);
-  if (keys === null) throw validationFailed([{ path: '', code: 'invalid_type' }]);
+  if (keys === null) throw notAPlainObject(); // 400
   const raw = body as Record<string, unknown>;
 
   const programmeId = createTarget(tx, raw); // 404 (or 400 for a missing/bad target)
@@ -286,8 +297,10 @@ export async function updateAccountFor(
   if (current === null) throw notFound(); // 404
   const grants = await loadGrants(tx);
   if (!canProgramme(grants, ACTION, current.programmeId)) throw notPermitted(); // 403
+  const keys = plainKeys(body);
+  if (keys === null) throw notAPlainObject(); // 400: no fields to judge
   const access = await loadAccountFieldAccess(tx);
-  const locked = notEditableAccountFields(access, current.programmeId, plainKeys(body) ?? []);
+  const locked = notEditableAccountFields(access, current.programmeId, keys);
   if (locked.length > 0) throw fieldNotEditable(locked); // 403, naming the fields
 
   const { version, ...values } = UpdateAccountBody.parse(body); // 400
