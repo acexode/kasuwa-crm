@@ -19,7 +19,8 @@
  *     always only inside a programme the session can reach.
  *   - Every other set is read-only for admin writes this round. The one
  *     exception is D-P14: `agent` holds `contact.claim_and_set_status`, a
- *     field-limited contact update (`canUpdateContact`).
+ *     field-limited contact update (`canUpdateContact`), and since D-P18 so
+ *     do `team_lead` and `programme_manager`.
  *
  * No I/O here, so every rule is unit-testable; `grants.ts` loads the inputs.
  */
@@ -51,7 +52,8 @@ export const PROGRAMME_ACTIONS = [
   /**
    * createContact and updateContact (T-0041, D-L63), in the TARGET programme:
    * the record's programme on update, `programmeId` on create. Held by
-   * `admin` only; `agent` holds the narrow grant below and nothing more.
+   * `admin` only; `agent`, `team_lead` and `programme_manager` hold the
+   * narrow grant below and nothing more.
    */
   'contact.write',
   /**
@@ -59,8 +61,9 @@ export const PROGRAMME_ACTIONS = [
    * `ownerUserId` set to the caller's OWN user id, in the record's programme.
    * Never create, never another field, never another owner, never clearing
    * the owner. Which bodies it covers is `contactUpdateWithinClaim`; the whole
-   * decision is `canUpdateContact`. Implied by `admin`, as every programme
-   * action is.
+   * decision is `canUpdateContact`. Held by `agent` and, since D-P18
+   * (answered 2026-10-06, T-0077), by `team_lead` and `programme_manager`.
+   * Implied by `admin`, as every programme action is.
    */
   'contact.claim_and_set_status',
   /**
@@ -94,8 +97,11 @@ export const AGENT_PERMISSION_SET_KEY = 'agent';
 const SET_PERMITS: Readonly<Record<string, readonly ProgrammeAction[]>> = {
   [ADMIN_PERMISSION_SET_KEY]: PROGRAMME_ACTIONS,
   // D-P14: an agent works its queue (status, and taking a record) and does
-  // not rewrite customer data. Every other set stays read-only (D-L53).
+  // not rewrite customer data. D-P18: a supervisor has at least the agent's
+  // rights. Every other set stays read-only (D-L53).
   [AGENT_PERMISSION_SET_KEY]: ['contact.claim_and_set_status'],
+  team_lead: ['contact.claim_and_set_status'],
+  programme_manager: ['contact.claim_and_set_status'],
 };
 
 /** Everything a decision needs, resolved from the database for one request. */

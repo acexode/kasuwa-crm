@@ -65,17 +65,19 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
     }
   });
 
-  it('gives the agent set nothing but contact.claim_and_set_status (D-P14)', () => {
-    const subject = grants({ programmeSets: new Map([[P1, AGENT_PERMISSION_SET_KEY]]) });
-    const permitted = PROGRAMME_ACTIONS.filter((action) => canProgramme(subject, action, P1));
-    expect(permitted).toEqual(['contact.claim_and_set_status']);
-  });
+  // D-P14 for agent; D-P18 (answered 2026-10-06, T-0077) for the two supervisor sets.
+  it.each([AGENT_PERMISSION_SET_KEY, 'team_lead', 'programme_manager'])(
+    'gives the %s set nothing but contact.claim_and_set_status (D-P14, D-P18)',
+    (key) => {
+      const subject = grants({ programmeSets: new Map([[P1, key]]) });
+      const permitted = PROGRAMME_ACTIONS.filter((action) => canProgramme(subject, action, P1));
+      expect(permitted).toEqual(['contact.claim_and_set_status']);
+    },
+  );
 
-  it('treats every set other than admin and agent, an unknown key and a NULL set as read-only', () => {
+  it('treats qa_analyst, client_portal, an unknown key and a NULL set as read-only', () => {
     for (const key of [
-      'team_lead',
       'qa_analyst',
-      'programme_manager',
       'client_portal',
       'not_a_set',
       // Not an own property of the allow-list: must not reach Object.prototype.
@@ -209,8 +211,27 @@ describe('canUpdateContact (D-P14: agent may set status and own the record, noth
     expect(canUpdateContact(flagged, P1, ME, body)).toBe(true);
   });
 
-  it('keeps every other set read-only, even for status alone', () => {
-    for (const key of ['team_lead', 'qa_analyst', 'programme_manager', 'client_portal', null]) {
+  it.each(['team_lead', 'programme_manager'])(
+    'gives the %s set exactly the agent rule: status and owner to self, nothing else (D-P18)',
+    (key) => {
+      const subject = grants({ programmeSets: new Map([[P1, key]]) });
+      expect(canUpdateContact(subject, P1, ME, { version: 1, status: 'contacted' })).toBe(true);
+      expect(canUpdateContact(subject, P1, ME, { version: 1, ownerUserId: ME })).toBe(true);
+      for (const body of [
+        { version: 1, ownerUserId: SOMEONE_ELSE },
+        { version: 1, ownerUserId: null },
+        { version: 1, tags: ['x'] },
+        { version: 1, status: 'customer', lga: 'Ikeja' },
+      ]) {
+        expect(canUpdateContact(subject, P1, ME, body), JSON.stringify(body)).toBe(false);
+      }
+      // Per programme, as for agent: the grant in P1 does not reach P2.
+      expect(canUpdateContact(subject, P2, ME, { version: 1, status: 'contacted' })).toBe(false);
+    },
+  );
+
+  it('keeps qa_analyst, client_portal and a NULL set read-only, even for status alone', () => {
+    for (const key of ['qa_analyst', 'client_portal', null]) {
       const subject = grants({ programmeSets: new Map([[P1, key]]) });
       expect(canUpdateContact(subject, P1, ME, { version: 1, status: 'contacted' }), String(key)).toBe(
         false,
