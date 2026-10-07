@@ -1,6 +1,6 @@
 # T-0078 — The admin audit API applies field security to change values
 
-**status** `not-assigned` (suite to be written; after T-0061) · **owner** Agent 1 · **priority** P1 (before any deployed cell) · **decisions** D-L63, D-L72, D-L81
+**status** `assigned` (suite on `lead/T-0078-acceptance`) · **owner** Agent 1 · **priority** P1 (before any deployed cell) · **decisions** D-L63, D-L72, D-L81
 
 ## Goal
 From T-0061, a contact update's `audit_event.changes` carry `before` and `after` for D-L72's value fields. `/admin/audit`
@@ -12,3 +12,9 @@ From T-0061, a contact update's `audit_event.changes` carry `before` and `after`
 
 ## Acceptance tests
 `tests/acceptance/admin/audit-field-security.acceptance.test.ts`, written by the lead.
+## Suite rulings (lead, 2026-10-07)
+- **No programme:** a value-carrying event with no `programmeId` is redacted for every reader (F4, fail closed).
+- **Objects:** account and activity events follow the same rule (F7).
+- **Shape:** a withheld change is kept, as `{ field, redacted: true }` with null or absent values. The timeline omits it instead; that difference is by design.
+- **Not built yet:** there is no detail route and no export file. A tripwire guards each, and the export worker needs its own test, which re-resolves scope and the matrix at build time.
+- **Also in this task:** `/admin/audit/events` sends `Cache-Control: no-store`.
