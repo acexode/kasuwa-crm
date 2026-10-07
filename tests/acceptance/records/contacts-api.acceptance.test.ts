@@ -189,7 +189,15 @@ function permissionSet(tenantId: string, key: string): string {
   return set.id;
 }
 
-const READ_ONLY_KEYS = ['team_lead', 'qa_analyst', 'programme_manager', 'client_portal'] as const;
+/**
+ * Sets with no contact write at all. Since D-P18 (answered 2026-10-06,
+ * T-0077) `team_lead` and `programme_manager` hold the agent's D-P14 rights
+ * and are covered by the D-P14 block instead.
+ */
+const READ_ONLY_KEYS = ['qa_analyst', 'client_portal'] as const;
+
+/** Sets that hold exactly D-P14's narrow rights: status, and owner to self. */
+const CLAIM_KEYS = ['agent', 'team_lead', 'programme_manager'] as const;
 
 /** Unique per run so a probe name never matches an earlier, unreseeded run. */
 const RUN = Date.now().toString(36);
@@ -1370,6 +1378,48 @@ describe('acceptance: contacts API (T-0041)', () => {
         expect(await contactsNamed(name)).toBe(0);
       });
 
+      // D-P18 (answered 2026-10-06, T-0077): team_lead and programme_manager hold
+      // exactly the agent's rights. Agent 1 is given each set in A1 in turn.
+      it.each(CLAIM_KEYS.filter((key) => key !== 'agent'))(
+        'the %s set has exactly the same rights: status and owner to self, nothing else',
+        async (key) => {
+          requireT0040();
+          await assign(TENANT_A, USER_A_AGENT_1, PROGRAMME_A1, key);
+
+          const name = unique(`T0077 ${key} Create`);
+          expectError(await create(AGENT_1, createBody({ displayName: name })), 403, 'not_permitted');
+          expect(await contactsNamed(name)).toBe(0);
+
+          await plant(AMAKA.id, { status: 'new', owner_user_id: USER_A_SUPERVISOR });
+          const status = await update(AGENT_1, AMAKA.id, {
+            version: await versionOf(AMAKA.id),
+            status: 'contacted',
+          });
+          expect(status.status, JSON.stringify(status.body)).toBe(200);
+          const owner = await update(AGENT_1, AMAKA.id, {
+            version: await versionOf(AMAKA.id),
+            ownerUserId: USER_A_AGENT_1,
+          });
+          expect(owner.status, JSON.stringify(owner.body)).toBe(200);
+          expect((await contactRow(AMAKA.id))?.owner_user_id).toBe(USER_A_AGENT_1);
+
+          for (const fields of [
+            { tags: ['t0077-refused'] },
+            { ownerUserId: USER_A_SUPERVISOR },
+            { ownerUserId: null },
+            { status: 'customer', lga: 'Ikeja' },
+          ]) {
+            const before = await contactRow(AMAKA.id);
+            expectError(
+              await update(AGENT_1, AMAKA.id, { version: Number(before?.version), ...fields }),
+              403,
+              'not_permitted',
+            );
+            expect(await contactRow(AMAKA.id)).toEqual(before);
+          }
+        },
+      );
+
       it('may change status in its own programme: 200, and only status moves', async () => {
         requireT0040();
         await plant(AMAKA.id, { status: 'new' });
@@ -1508,9 +1558,10 @@ describe('acceptance: contacts API (T-0041)', () => {
     it('the permission is per programme: admin in A2 does not permit writing in A1', async () => {
       requireT0040();
       // The supervisor stripped to a plain member: read-only in A1, admin in A2.
-      // team_lead, not agent: since D-P14 the agent set may change status.
+      // qa_analyst: since D-P14 and D-P18 agent, team_lead and
+      // programme_manager may all change status.
       await setTenantAdmin(USER_A_SUPERVISOR, false);
-      await assign(TENANT_A, USER_A_SUPERVISOR, PROGRAMME_A1, 'team_lead');
+      await assign(TENANT_A, USER_A_SUPERVISOR, PROGRAMME_A1, 'qa_analyst');
       await assign(TENANT_A, USER_A_SUPERVISOR, PROGRAMME_A2, 'admin');
 
       expectError(
@@ -1545,8 +1596,9 @@ describe('acceptance: contacts API (T-0041)', () => {
       });
       expect(first.status, JSON.stringify(first.body)).toBe(200);
 
-      // Revoked to a read-only set. Not agent: since D-P14 it may change status.
-      await assign(TENANT_A, USER_A_AGENT_1, PROGRAMME_A1, 'team_lead');
+      // Revoked to a read-only set. Not agent, team_lead or programme_manager:
+      // since D-P14 and D-P18 they may change status.
+      await assign(TENANT_A, USER_A_AGENT_1, PROGRAMME_A1, 'qa_analyst');
       expectError(
         await update(AGENT_1, AMAKA.id, { version: await versionOf(AMAKA.id), status: 'customer' }),
         403,
