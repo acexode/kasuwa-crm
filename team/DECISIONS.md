@@ -1415,7 +1415,7 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
   rights. That is a small suite and permissions change after T-0051.
 
 ### D-P19 — pipeline column totals versus D-P13
-**Status:** OPEN, needs @acexode. P06 shows a sum and a count on each stage column.
+**Status:** ANSWERED 2026-10-07: the lead recommendation, as written (see "Answers, 2026-10-07").
 **Lead recommendation:**
 - Exact per-stage sums and counts, computed within the caller's scope.
 - One total per currency, never converted.
@@ -1423,18 +1423,18 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
 - D-P13 stays as it is for record lists.
 
 ### D-P20 — stage gating in the MVP (M04's headline feature)
-**Status:** OPEN, needs @acexode.
+**Status:** ANSWERED 2026-10-07: the lead recommendation, as written (see "Answers, 2026-10-07").
 **Lead recommendation:**
 - **Now:** transition rules, required fields and checklists, enforced in the write path and not only in the UI.
 - **Later:** approvals, which need an approvals engine and a role hierarchy.
 - **Later:** attachments, because no file API exists yet.
 
 ### D-P21 — offline edit queues on the device (P04, P05, P07)
-**Status:** OPEN, needs @acexode and counsel (NDPA; D-L64; M06 Q3).
+**Status:** ANSWERED 2026-10-07: the lead recommendation, as written (see "Answers, 2026-10-07").
 **Until it is answered:** editing offline is disabled. Lists survive in memory only, as D-L64 already rules.
 
 ### D-P22 — calendar sync, booking pages and public holidays (M06 Q1, Q2)
-**Status:** OPEN, needs @acexode. The lead recommends deferring all three out of Phase 2.
+**Status:** ANSWERED 2026-10-07: the lead recommendation, as written (see "Answers, 2026-10-07").
 - **Calendar sync** needs a new integration adapter (CLAUDE.md 2.8) and storage for OAuth tokens.
 - **Booking pages** need a public write before sign-in, which means a third SECURITY DEFINER function. That needs an ADR
   (CLAUDE.md 2.7).
@@ -1460,7 +1460,7 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
 - **Shared local database hazard.** Once any worktree migrates the shared `kasuwa-postgres` container past 0024, worktrees
   still on an older main cannot sign in until they rebase. Run `pnpm db:reset` after pulling 0024.
 ### D-P23 — a contact's owner who has left its programme (the open D-L61 item; raised by the T-0043 reviews)
-**Status:** OPEN, needs @acexode. It does not block #92.
+**Status:** ANSWERED 2026-10-07: the lead recommendation, as written (see "Answers, 2026-10-07").
 - **What happens.** D-L67 checks membership only when the owner is written. If the owner later leaves the contact's programme,
   everyone who can read the contact keeps seeing their current display name, including any rename.
 - **What it is not.** It is not a directory or a cross-programme oracle: the caller cannot choose the id, and nothing about
@@ -1490,7 +1490,7 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
   accept-edits mode, at their instruction to "do the lead-only edits… I'll approve each one". They were approved by that mode,
   not one by one in chat. Each commit names the review finding it answers.
 ### D-P24 — a reserved namespace for custom fields on standard objects (M15; raised by the T-0053 migration review)
-**Status:** OPEN, needs @acexode. Answer it before any M15 create-field API ships.
+**Status:** ANSWERED 2026-10-07: the lead recommendation, as written (see "Answers, 2026-10-07").
 - **The problem.** A tenant may create a custom field on `contact` or `account` whose name a later release then wants for a
   standard field (for example `industry` or `relationship_status`). That later migration must then fail for the whole cell, on
   one tenant. Failing is correct, because the tenant's field has its own meaning and data, the same rule as 0007.
@@ -1501,7 +1501,7 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
     the number of tenants (T-0053 review, major 4).
 
 ### D-P25 — may a tenant lower a standard field's data classification?
-**Status:** OPEN, needs @acexode. Raised by the T-0053 migration review.
+**Status:** ANSWERED 2026-10-07: the lead recommendation, as written (see "Answers, 2026-10-07").
 - **Today.** `kasuwa_app` can change `contact.phones` from `pii` to `none`. The 0025 header says classification is editable
   "per D-P4", but D-P4 covers labels only.
 - **Why it matters.** Classification will drive redaction, export and DSAR handling (NDPA). Declassifying a phone number
@@ -1764,7 +1764,7 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
   - a year-0 `dueAt` (both returned 500);
   - an internal row-parse error that would surface as a 400.
 ### D-P26 — what may a client-portal user see on a contact's timeline? (raised by the T-0061 security review)
-**Status:** OPEN, needs @acexode. It matters before the BPO client portal (M18, Phase 3) gives portal users access.
+**Status:** ANSWERED 2026-10-07: the lead recommendation, as written (see "Answers, 2026-10-07").
 - **Today.** The `client_portal` set is read-only, and nothing stops it reading the contact timeline. A portal user (the BPO's
   client) would see:
   - staff display names as actors;
@@ -1861,7 +1861,7 @@ P07, P18, P26, P27 and P28 exports, M06, M15, M21 and M22.
 - **The command palette** is built from `packages/ui`; no `cmdk` dependency.
 
 ### D-P27 — deletion, the recycle bin and merge (raised by the Phase 2 plan; the open D-L61 item)
-**Status:** OPEN, needs @acexode. Blocks T-0095 (merge).
+**Status:** ANSWERED 2026-10-07: the lead recommendation, as written (see "Answers, 2026-10-07").
 - **The problem.** D-P12 says the merged-away record is soft-deleted, but no deletion model exists yet: no `deleted_at`, no
   recycle bin, and erasure (D-L79, D-L83) is undefined for a soft-deleted row.
 - **Lead recommendation:**
@@ -1871,7 +1871,7 @@ P07, P18, P26, P27 and P28 exports, M06, M15, M21 and M22.
   - a merge keeps an undo snapshot for the same 30 days.
 
 ### D-P28 — compliance fields on merge and import
-**Status:** OPEN, needs @acexode (and counsel for consent). Blocks T-0095, and constrains T-0094.
+**Status:** ANSWERED 2026-10-07: the lead recommendation, as written (see "Answers, 2026-10-07").
 - **The problem.** How do `dnd`, `consent_state` and `whatsapp_opt_in` combine when two contacts merge, and may an import set
   them? P28/C1 shows "keeps the most recent choice" for SMS consent.
 - **Lead recommendation:**
@@ -1881,7 +1881,7 @@ P07, P18, P26, P27 and P28 exports, M06, M15, M21 and M22.
   - both are audited by field name.
 
 ### D-P29 — what a notification may contain (M22 Q1)
-**Status:** OPEN, needs @acexode. Blocks T-0099.
+**Status:** ANSWERED 2026-10-07: the lead recommendation, as written (see "Answers, 2026-10-07").
 - **Lead recommendation:**
   - a notification stores only (kind, object type, object id, actor id), never a name, subject or value;
   - its title is built when it is read, under the reader's current scope and field security;
@@ -1889,7 +1889,7 @@ P07, P18, P26, P27 and P28 exports, M06, M15, M21 and M22.
   - in-app only in Phase 2; email, WhatsApp, SMS and push wait for their modules.
 
 ### D-P30 — three architecture approvals for the rest of Phase 2
-**Status:** OPEN, needs @acexode. Each becomes an ADR before its task starts.
+**Status:** ANSWERED 2026-10-07: the lead recommendation, as written (see "Answers, 2026-10-07").
 1. **Object storage for imports (T-0092).** A new `packages/storage-adapter` over S3-compatible storage (SeaweedFS in dev),
    with new dependencies `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` and `csv-parse`.
    - Presigned multipart upload, tenant-prefixed keys with no filenames, raw files deleted after a retention window.
@@ -1903,3 +1903,31 @@ P07, P18, P26, P27 and P28 exports, M06, M15, M21 and M22.
 3. **Search in Postgres for Phase 2, OpenSearch deferred** (D-L87). The founding pack names OpenSearch, so this is a
    departure on record.
    - **Recommend:** approve; revisit when conversations and KB arrive.
+
+## Answers, 2026-10-07 (@acexode: "go with your recommendations for all of them")
+Every recommendation below was taken as written in its entry. What each one now commits the team to:
+- **D-P19, pipeline totals: ANSWERED.** Exact per-stage sums and counts within the caller's scope, one total per currency, never
+  converted, omitted when `amount` is withheld. D-P13 stands for record lists.
+- **D-P20, stage gating: ANSWERED.** Transition rules, required fields and checklists now, enforced in the write path.
+  Approvals and attachments later.
+- **D-P21, offline edits: ANSWERED.** Offline editing stays disabled; lists stay in memory only. Revisit after counsel rules.
+- **D-P22, calendar sync, booking pages, holidays: ANSWERED.** All three deferred out of Phase 2.
+- **D-P23, a former owner: ANSWERED.** Removing a user from a programme unassigns their contacts there, in one audited
+  statement. Until that ships, the owner reads as a neutral "former owner" (`owner: { id, displayName: null }`).
+- **D-P24, custom-field namespace: ANSWERED.** Custom field api names on a standard object carry a fixed `__c` suffix; the
+  standard catalogue never uses it. Enforced from the first create-field API (T-0089).
+- **D-P25, classification: ANSWERED.** A tenant may raise a standard field's classification, never lower it; enforced in the
+  T-0053 freeze trigger. Custom fields stay freely classifiable.
+- **D-P26, portal timeline: ANSWERED.** `client_portal` sees field and consent changes, not activity subjects or bodies; actors
+  show as a role label. Enforced before M18.
+- **D-P27, deletion and merge: ANSWERED.** `deleted_at` with a 30-day recycle bin (restorable by a tenant admin, audited), then a
+  sweeper hard delete; a merge keeps a 30-day undo snapshot.
+- **D-P28, compliance fields: ANSWERED.** On merge the most restrictive value wins; an import may restrict, never grant consent.
+- **D-P29, notification content: ANSWERED.** Ids only; titles built at read time under the reader's scope and field security;
+  unreadable ones dropped; in-app only in Phase 2.
+- **D-P30, architecture: ANSWERED, all three approved.** The storage adapter and its three dependencies; the outbox with a
+  `kasuwa_relay` role; Postgres search in Phase 2 with OpenSearch deferred. Each still gets its ADR before its task starts.
+- **D-L82, convert audit: ANSWERED.** A convert that creates an account writes two events: the contact `updated` and the
+  account `created`.
+- **D-L71, takeover audit: ANSWERED.** An owner change records the before and after owner ids (staff ids are not customer PII).
+- **P10** (in-call agent script screen) exported to `docs/design/P10/` on 2026-10-07.
