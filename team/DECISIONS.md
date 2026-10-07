@@ -1775,3 +1775,30 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
   - Actors are shown as a role label ("Agent"), not a name.
   - Enforce it in the default field-security matrix for `client_portal` on the `activity` object, plus an actor-label rule
     in the timeline. Decide before M18.
+### D-L84 — T-0057 Accounts screen suite rulings (lead, reversible)
+**Status:** PROCEEDING (lead). These came from the T-0057 suite writer.
+- **Who sees write controls.** No operation tells the screen whether the caller holds `account.write`:
+  `getCurrentUser` carries no permissions, and `/me/programmes` is `{ id, name }` only. So, for now:
+  - write controls show to every caller;
+  - the API's 403 is the gate, shown as a translated `role=alert` that keeps the sheet and what was typed;
+  - the suite's `@p04-accounts-writers` journey stays a `fixme`.
+- **Follow-up T-0079 (contract first):** a scoped capability read, for example `GET /me/capabilities` or per-programme
+  `{ id, name, can: [...] }` on `/me/programmes`. It must reveal only the caller's own permissions. It lets screens hide
+  controls the caller cannot use. Not yet assigned.
+- **Tag clash.** Playwright's `--grep` is a regex, so T-0042's `--grep @p04` also ran T-0057's `@p04-accounts…` journeys.
+  The T-0042 wrapper now adds `--grep-invert @p04-accounts` (lead edit 99b624c, on the T-0057 branch). Rule for later
+  screens: a parent tag must not have another screen's parent tag as a prefix.
+- **Accepted pins beyond the brief:**
+  - account names with markup render as text;
+  - no link on the page may 404, so no row links to `/accounts/[id]` until T-0063;
+  - a colour detector wider than the lint rule.
+- **Follow-up for Agent 11 (lint owner): the colour lint is narrower than CLAUDE.md claims.** `HEX_SELECTOR` matches only a
+  whole-string hex value, so all of these pass the lint:
+  - `text-[#c00]`;
+  - `rgb()`;
+  - inline `style={{ color }}`;
+  - default Tailwind palette classes such as `bg-red-500`, which compile because the preset extends the default palette.
+
+  Fix: widen the rule, and make the Tailwind preset replace the palette rather than extend it. The suite writer's detector
+  found 0 hits in today's `apps/web`.
+- **PR size.** The suite, spec and mock are about 2,990 lines, so the PR is marked exempt (structural).
