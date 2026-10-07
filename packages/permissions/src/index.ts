@@ -11,8 +11,9 @@
  *   - neither ever widens scope (D-L06: no wildcard).
  *
  * Covered today: the admin API's writes, `contact.write` for the contacts API
- * (T-0041, D-L63), and the agent set's field-limited contact update,
- * `contact.claim_and_set_status` (D-P14, T-0051). NOT yet modelled:
+ * (T-0041, D-L63), the agent set's field-limited contact update,
+ * `contact.claim_and_set_status` (D-P14, T-0051), and `account.write` for the
+ * accounts API (T-0055, admin-only per D-P18). NOT yet modelled:
  * field-level and record-level decisions for business objects in general (the
  * authorisation matrix, a later M2 task), and any permission for a set other
  * than `admin` beyond that one `agent` grant.

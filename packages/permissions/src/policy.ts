@@ -63,6 +63,14 @@ export const PROGRAMME_ACTIONS = [
    * action is.
    */
   'contact.claim_and_set_status',
+  /**
+   * createAccount and updateAccount (T-0055), in the TARGET programme: the
+   * record's programme on update, `programmeId` on create. Held by `admin`
+   * only (D-L69; D-P18 answered 2026-10-06: account writes stay admin-only).
+   * No other set holds it, and no narrow grant exists: the agent's D-P14
+   * contact rights do not carry over to accounts.
+   */
+  'account.write',
 ] as const;
 
 export type TenantAction = (typeof TENANT_ACTIONS)[number];
