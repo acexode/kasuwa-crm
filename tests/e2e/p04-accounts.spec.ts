@@ -146,7 +146,7 @@ const SCREEN = '[data-screen="P04/03"]';
  * under 245,000 bytes and within 5% of what this run measures, so re-pin it to
  * the measurement once the screen exists. Why 245,000: see the budget test.
  */
-const ACCOUNTS_BUDGET_BYTES = 245_000;
+const ACCOUNTS_BUDGET_BYTES = 235_000;
 
 const NAME_WITH_NO_MATCH = 'Okorafor';
 const RENAMED = 'Ọjà Foods Nigeria Ltd';
@@ -668,7 +668,9 @@ test.describe('P04/03 — the accounts table', () => {
     );
     await box.fill(long);
     expect((new URL((await sent).url()).searchParams.get('q') ?? '').length).toBeLessThanOrEqual(100);
-    expect(mock.requests.length).toBeGreaterThan(2);
+    // Polled: Playwright's `request` event fires before the mock's route
+    // handler records the request, so a bare read here can see one too few.
+    await expect.poll(() => mock.requests.length).toBeGreaterThan(2);
   });
 
   test('filter chips are exactly the contract filter parameters, with no live counts @p04-accounts @p04-accounts-filters', async ({
