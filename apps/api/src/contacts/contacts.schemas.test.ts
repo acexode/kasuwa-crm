@@ -80,4 +80,15 @@ describe('UpdateContactBody', () => {
     expect(UpdateContactBody.safeParse({ version: 1, source: 'manual' }).success).toBe(false);
     expect(UpdateContactBody.safeParse({ version: 1, status: 'new' }).success).toBe(true);
   });
+
+  it('bounds version to a Postgres integer, so a huge one is 400 rather than a 500', () => {
+    for (const version of [2_147_483_648, 1e10, 1e21]) {
+      expect(UpdateContactBody.safeParse({ version, status: 'new' }).success, String(version)).toBe(
+        false,
+      );
+    }
+    expect(UpdateContactBody.safeParse({ version: 2_147_483_647, status: 'new' }).success).toBe(
+      true,
+    );
+  });
 });

@@ -39,7 +39,8 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 /**
  * D-L48, plus `field_security` for matrix cells (D-L52), plus the programme
- * configuration types of D-L54 (T-0033), plus `contact` (T-0041). Add a type here, with its label in
+ * configuration types of D-L54 (T-0033), plus `contact` (T-0041) and `account`
+ * (T-0055). Add a type here, with its label in
  * `AUDIT_OBJECT_TYPE_LABELS`, before writing one.
  */
 export const AUDIT_OBJECT_TYPES = [
@@ -53,6 +54,12 @@ export const AUDIT_OBJECT_TYPES = [
   'portal_user',
   /** createContact, updateContact (T-0041). The label is the record id, never a name (D-L63). */
   'contact',
+  /**
+   * createAccount, updateAccount (T-0055). The label is the record id: a sole
+   * trader's account name is a person's name (D-L63). Changes are field names
+   * only, never values (D-L78).
+   */
+  'account',
 ] as const;
 export type AuditObjectType = (typeof AUDIT_OBJECT_TYPES)[number];
 
@@ -66,6 +73,7 @@ export const AUDIT_OBJECT_TYPE_LABELS: Record<AuditObjectType, string> = {
   disposition: 'Disposition',
   portal_user: 'Client-portal user',
   contact: 'Contact',
+  account: 'Account',
 };
 
 export interface AuditChange {

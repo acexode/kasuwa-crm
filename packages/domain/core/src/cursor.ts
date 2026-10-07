@@ -168,7 +168,11 @@ const SortedCursorPayload = z
     v: z
       .string()
       .max(MAX_TEXT_SORT_POSITION * 2)
-      .refine((value) => [...value].length <= MAX_TEXT_SORT_POSITION),
+      .refine((value) => [...value].length <= MAX_TEXT_SORT_POSITION)
+      // Postgres `text` cannot hold U+0000: bound as `::text` it is 22021, a
+      // scrubbed 500. No stored value holds one, so no issued cursor does; a
+      // forged one is `invalid_cursor` (T-0055 review).
+      .refine((value) => !value.includes('\u0000')),
     i: z.string().uuid(),
   })
   .strict();

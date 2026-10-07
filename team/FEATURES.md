@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 141 rows; built 60, partial 11, mock-only 27, flagged-off 6, deferred 10, not-started 27.
+Totals: 141 rows; built 65, partial 11, mock-only 27, flagged-off 6, deferred 10, not-started 22.
 
 ## Modules
 
@@ -159,12 +159,12 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `convertContact` | POST /api/v1/contacts/{contactId}/convert — Convert a lead — qualify it and link an account, once (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
 | operation | `listLeads` | GET /api/v1/leads — List leads — contacts at a lead stage (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
 | operation | `listMyProgrammes` | GET /api/v1/me/programmes — The caller's programmes, with their display names | built | — | — | docs/api/records.openapi.yaml |
-| operation | `listAccounts` | GET /api/v1/accounts — List accounts — search, filter, sort, keyset page (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `createAccount` | POST /api/v1/accounts — Create an account (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `listAccounts` | GET /api/v1/accounts — List accounts — search, filter, sort, keyset page | built | — | — | docs/api/records.openapi.yaml |
+| operation | `createAccount` | POST /api/v1/accounts — Create an account | built | — | — | docs/api/records.openapi.yaml |
 | operation | `getAccountMap` | GET /api/v1/accounts/map — Accounts map view (not built) (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `getAccount` | GET /api/v1/accounts/{accountId} — Get one account (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `updateAccount` | PATCH /api/v1/accounts/{accountId} — Update an account (inline edit of owner, tier and the rest) (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `listAccountContacts` | GET /api/v1/accounts/{accountId}/contacts — The account's contacts the caller can reach (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0055 |
+| operation | `getAccount` | GET /api/v1/accounts/{accountId} — Get one account | built | — | — | docs/api/records.openapi.yaml |
+| operation | `updateAccount` | PATCH /api/v1/accounts/{accountId} — Update an account (inline edit of owner, tier and the rest) | built | — | — | docs/api/records.openapi.yaml |
+| operation | `listAccountContacts` | GET /api/v1/accounts/{accountId}/contacts — The account's contacts the caller can reach | built | — | — | docs/api/records.openapi.yaml · T-0055 |
 
 ## Flags
 

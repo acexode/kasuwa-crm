@@ -45,11 +45,11 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.4.0-T-0056
+  version: 0.5.0-T-0055
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
-    update. Accounts (T-0052, contract only until T-0055): list, get, create,
-    update, and an account's contacts. The contact record view (P05, T-0059,
+    update. Accounts (T-0052, served since T-0055): list, get, create,
+    update, and an account's contacts; the Map view answers 501. The contact record view (P05, T-0059,
     contract only until T-0061): the contact's timeline and its account
     summary. Leads (T-0056, D-P17, contract only until T-0076): a lead is a
     contact at a lead stage, not its own record, so leads add a list view
@@ -852,8 +852,8 @@ paths:
   # `x-kasuwa-implemented: false` with a 501.
 
   # -------------------------------------------------------------------------
-  # Accounts (T-0052, D-L69). CONTRACT ONLY: no route answers yet; T-0055
-  # implements it and flips `x-kasuwa-implemented`. The five rules at the top
+  # Accounts (T-0052, D-L69). Served since T-0055, except getAccountMap,
+  # which answers 501 by design. The five rules at the top
   # of this file apply unchanged. Account writes are admin-only until D-P18
   # answers (D-L69), exactly as contact writes were in T-0041 (D-L63).
   #
@@ -869,7 +869,7 @@ paths:
       tags: [accounts]
       summary: List accounts — search, filter, sort, keyset page
       operationId: listAccounts
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P04/03', 'P04/05', 'P04/06']
       description: |
         The P04 Accounts list (frame 03: table, card list, split view). Rows
@@ -1026,7 +1026,7 @@ paths:
       tags: [accounts]
       summary: Create an account
       operationId: createAccount
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/03', 'P04/05']
       description: |
@@ -1053,6 +1053,11 @@ paths:
         Anything else, whether it names another programme's or another
         tenant's row or nothing at all, is `400 validation_failed` with
         `details[].code: unknown_reference`.
+
+        **Hierarchy (D-L74, D-L78).** A hierarchy is at most five levels deep
+        (a top-level account is level 1). A `parentAccountId` that would put
+        the new account below level 5 is `400 validation_failed` with
+        `details[].code: parent_depth` at `parentAccountId`.
 
         **Response.** The created record, through the same field-security rule
         as a read. Every create writes an audit event (`objectType: account`,
@@ -1107,7 +1112,7 @@ paths:
       tags: [accounts]
       summary: Get one account
       operationId: getAccount
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P04/03']
       description: |
         The split-view preview (P04/03). Out of scope is `404`, never `403`:
@@ -1130,7 +1135,7 @@ paths:
       tags: [accounts]
       summary: Update an account (inline edit of owner, tier and the rest)
       operationId: updateAccount
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/03']
       description: |
@@ -1152,9 +1157,15 @@ paths:
         **References.** As createAccount, judged in the record's programme:
         `ownerUserId` must be a member of it (D-L67) and `parentAccountId` an
         account in it, else `400 unknown_reference`. An account may not be its
-        own ancestor: a `parentAccountId` that would close a cycle is
-        `400 validation_failed` with `details[].code: parent_cycle` at
-        `parentAccountId`.
+        own ancestor: a `parentAccountId` that would close a cycle (itself
+        included) is `400 validation_failed` with `details[].code:
+        parent_cycle` at `parentAccountId`. A hierarchy is at most five levels
+        deep, counting the subtree that moves with the account (D-L74): a
+        `parentAccountId` that would put the account or any of its descendants
+        below level 5 is `400 validation_failed` with `details[].code:
+        parent_depth` at `parentAccountId` (D-L78). Both hold under concurrent
+        writes: whichever of two writes the database serialises second is
+        refused with the same code, never a `500`.
 
         Order: `404`, `403` (including `field_not_editable`), `400`, then
         `409 stale_write`. Every update writes an audit event recording which
@@ -1187,7 +1198,7 @@ paths:
       tags: [accounts]
       summary: The account's contacts the caller can reach
       operationId: listAccountContacts
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P04/03', 'P04/05', 'P04/06']
       description: |
         Contacts whose `accountId` is this account, as `Contact` rows under

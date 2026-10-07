@@ -115,6 +115,32 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
   });
 });
 
+describe('account.write (T-0055, D-P18: account writes are admin-only)', () => {
+  it('is held by the admin set in that programme and by no other set', () => {
+    expect(canProgramme(grants(), 'account.write', P1), 'admin in P1').toBe(true);
+    for (const key of [
+      AGENT_PERMISSION_SET_KEY,
+      'team_lead',
+      'qa_analyst',
+      'programme_manager',
+      'client_portal',
+      null,
+    ]) {
+      const subject = grants({ programmeSets: new Map([[P1, key]]) });
+      expect(canProgramme(subject, 'account.write', P1), String(key)).toBe(false);
+    }
+  });
+
+  it('is per programme: admin in P1 does not permit writing an account in P2', () => {
+    expect(canProgramme(grants(), 'account.write', P2)).toBe(false);
+  });
+
+  it('is granted by the tenant-admin flag, whatever set is held, but never outside scope', () => {
+    expect(canProgramme(grants({ isTenantAdmin: true }), 'account.write', P2)).toBe(true);
+    expect(canProgramme(grants({ isTenantAdmin: true }), 'account.write', OUTSIDE)).toBe(false);
+  });
+});
+
 describe('canUpdateContact (D-P14: agent may set status and own the record, nothing else)', () => {
   const ME = '11111111-0000-4000-8000-000000510001';
   const SOMEONE_ELSE = '11111111-0000-4000-8000-000000510002';

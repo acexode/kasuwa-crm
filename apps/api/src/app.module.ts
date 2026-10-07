@@ -8,6 +8,7 @@ import { APP_FILTER } from '@nestjs/core';
 import type { KeyProvider } from '@kasuwa/auth-crypto';
 import { defaultChannelProvider, type ChannelProvider } from '@kasuwa/channel-adapter';
 import { nodeEnv } from '@kasuwa/config';
+import { AccountsController } from './accounts/accounts.controller';
 import { ADMIN_CONTROLLERS, AdminModule } from './admin/admin.module';
 import { AuthController } from './auth/auth.controller';
 import { AuthModule } from './auth/auth.module';
@@ -29,7 +30,7 @@ import {
 } from './telemetry/request-telemetry';
 
 /** Controllers hosted by this module. AuthController is hosted by AuthModule. */
-const CONTROLLERS = [HealthController, ContactsController, MeController];
+const CONTROLLERS = [HealthController, ContactsController, AccountsController, MeController];
 
 /**
  * Every controller in the app, including those hosted by feature modules. Used

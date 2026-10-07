@@ -159,7 +159,8 @@ export type CreateContactBody = z.infer<typeof CreateContactBody>;
  */
 export const UpdateContactBody = z
   .object({
-    version: z.number().int().min(1),
+    // Postgres `integer`: anything larger is 22003 at `::integer`, a 500, not a 400.
+    version: z.number().int().min(1).max(2_147_483_647),
     ...writableFields,
     displayName: writableFields.displayName.optional(),
   })
