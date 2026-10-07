@@ -17,6 +17,8 @@ Serve what T-0059 contracted, and add activity writes.
   - A new `activity.write` action, held by the `agent`, `team_lead`, `programme_manager` and `admin` sets in the activity's
     programme, and by the tenant-admin flag (D-P18).
   - Every write is audited and labelled by record id. Bodies are never logged.
+  - Ids are minted on the server; `created_by_user_id` comes from the session; the owner must be in the activity's programme
+    (D-L79).
 
 ## Acceptance tests
 `tests/acceptance/records/contact-timeline.acceptance.test.ts`, written by the lead.

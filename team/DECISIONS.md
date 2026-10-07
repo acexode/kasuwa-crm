@@ -1663,3 +1663,20 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
   Postgres 22021 and so a scrubbed 500. It leaks nothing, but client input must never cause a 500. Fix it with a
   NUL-refusing Zod refinement shared by every free-text field, and pin it in the next contacts suite edit.
 - **PR size.** The suite is about 2,950 lines, so the PR is marked exempt (structural).
+### D-L79 — T-0060 review rulings (lead, 2026-10-07)
+**Status:** PROCEEDING (lead). These came from the T-0060 migration and tenancy review.
+- **D-L77 amendment: DELETE on `activity`.** `kasuwa_app` keeps the DELETE privilege, but a restrictive
+  `activity_no_delete USING (false)` policy means it deletes nothing. The suite expects a bare DELETE to return no rows
+  rather than raise, so a REVOKE would fail it. The effect for RLS-bound roles is the same. The one behavioural difference:
+  a MERGE … DELETE on a visible row raises 42501.
+- **Column-level UPDATE.** `kasuwa_app` may not update `created_by_user_id` or `created_at`, which would forge the timeline
+  actor and the order. T-0060 adds this.
+- **For T-0061 (pin it in its suite):**
+  - Activity ids are minted on the server and never accepted from a client. The global primary key is an existence oracle
+    otherwise, as on contact and account.
+  - `created_by_user_id` comes from the session, never from the request body.
+  - The owner must be a member of the activity's programme (D-L67). The database accepts an owner from another programme of
+    the same tenant, so the repository checks it before writing, answering the same 400 as an invented id.
+- **Erasure path (tracked under D-L61).** Contact and account deletes now get 23503 once activities exist, and `kasuwa_app`
+  cannot delete activities. No delete path exists in `apps/` today, but an NDPA erasure request will need a deliberate,
+  audited path, decided with D-L61.
