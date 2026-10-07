@@ -166,7 +166,7 @@ const SCREEN = '[data-screen="P04/01"]';
  * under 255,000 bytes and within 5% of what this run measures, so re-pin it to
  * the measurement once the screen exists. Why 255,000: see the budget test.
  */
-const LEADS_BUDGET_BYTES = 255_000;
+const LEADS_BUDGET_BYTES = 234_900;
 
 const NAME_WITH_NO_MATCH = 'Okorafor';
 const NEW_ACCOUNT_NAME = 'Bakare Logistics';
