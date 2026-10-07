@@ -1037,7 +1037,11 @@ paths:
         `updateScript`, `publishScript`, versions and translations) and agent
         runs. Build the builder (P10) against that file, not this one. Until
         T-0113 adds the script table this route stays empty-backed; then it
-        lists the programme's scripts. M10 scripts are only ever `draft` or
+        lists the programme's scripts. **Once backed by M10 it requires
+        `script.write` in the programme** (anyone else gets `404`, the same
+        body as an unreachable programme), and every response carries
+        `Cache-Control: no-store`, as scripting.openapi.yaml does (D-L91
+        security review). M10 scripts are only ever `draft` or
         `published`;
         `in_review` and `rejected_by_provider` describe channel templates
         (M08) and M10 never produces them.

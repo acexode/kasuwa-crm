@@ -71,6 +71,15 @@ import { parse } from 'yaml';
  *   `in_progress`: 200 with that run, 201 for a new one. Runs never expire in
  *   Phase 2; a supervisor close waits for the role hierarchy.
  *
+ *   D-L91 security review (lead rulings), each pinned in "the D-L91 security
+ *   review" block below: `completed` only at an `end` node or on a `stopped`
+ *   run, with `endedAtNodeId` recorded (B1); a run is visible to its own
+ *   agent only, everyone else 404 (B2); the completion and publish audit
+ *   names (M1, minor 13); listProgrammeScripts needs script.write once
+ *   backed (M2); retention and erasure with the contact (M3); answers are
+ *   `sensitive`; bounds, NUL, size, follow-up horizon, cursor scope,
+ *   acknowledgement locale, plain-text wording and sensitive-field refusals.
+ *
  * ---------------------------------------------------------------------------
  *
  * D-L23: on main this suite runs before the spec exists. Every test that
@@ -729,9 +738,12 @@ const EXPECTED: Expected[] = [
     permission: 'script.run',
     screens: ['P10/04'],
     audited: true,
+    // D-L91 review, minor 1: the 403 is decided on the contact's programme
+    // BEFORE the script is looked up, so the script's 404 follows it.
     errors: [
-      '404 not_found',
+      '404 not_found (contact)',
       '403 not_permitted',
+      '404 not_found (script)',
       '400 validation_failed',
       '409 script_not_published',
     ],
@@ -848,6 +860,21 @@ const RUN_WRITES = [
   'completeScriptRun',
 ];
 const STATUS_RANK: Record<string, number> = { '404': 0, '403': 1, '400': 2, '409': 3 };
+/** Entries ruled out of the 404 < 403 < 400 < 409 order, each with its ruling. */
+const ORDER_EXCEPTIONS = [
+  // D-L91 review, minor 1: no oracle on script ids for a caller without script.run.
+  'startScriptRun: 404 not_found (script)',
+];
+/** Run operations: visible to the run's own agent only (D-L91 review, B2). */
+const RUN_OPERATIONS = [
+  'getScriptRun',
+  'getScriptRunScript',
+  'advanceScriptRun',
+  'acknowledgeScriptRunNode',
+  'recordScriptRunAnswers',
+  'listScriptRunDispositions',
+  'completeScriptRun',
+];
 const NODE_KINDS = ['say', 'question', 'form', 'branch', 'compliance', 'end'];
 const P10_FRAME = /^P10\/0[1-5]$/;
 
@@ -1261,8 +1288,11 @@ describe('acceptance: scripting contract (T-0112)', () => {
         const order = errorOrder(op);
         expect(order, 'x-kasuwa-error-order').toEqual(expected.errors);
 
-        // Always 404, then 403, then 400, then 409 (D-L88).
-        const ranks = order.map((entry) => STATUS_RANK[entry.split(' ')[0] ?? ''] ?? 99);
+        // Always 404, then 403, then 400, then 409 (D-L88). The one ruled
+        // exception is ORDER_EXCEPTIONS (startScriptRun's script 404).
+        const ranks = order
+          .filter((entry) => !ORDER_EXCEPTIONS.includes(`${expected.id}: ${entry}`))
+          .map((entry) => STATUS_RANK[entry.split(' ')[0] ?? ''] ?? 99);
         expect(ranks, 'the order is not 404 < 403 < 400 < 409').toEqual(
           [...ranks].sort((a, b) => a - b),
         );
@@ -1285,7 +1315,8 @@ describe('acceptance: scripting contract (T-0112)', () => {
           .flatMap(([status, response]) =>
             exampleCodes(response).map((code) => `${status} ${code}`),
           );
-        expect([...new Set(documented)].sort(), 'documented 4xx codes').toEqual([...order].sort());
+        const listed = [...new Set(order.map((entry) => entry.split(' ').slice(0, 2).join(' ')))];
+        expect([...new Set(documented)].sort(), 'documented 4xx codes').toEqual(listed.sort());
       });
     }
 
@@ -1677,16 +1708,17 @@ describe('acceptance: scripting contract (T-0112)', () => {
     }
   });
 
-  describe('answers are classified pii', () => {
-    it("the run's answers and the answers body are x-kasuwa-classification: pii, never logged", () => {
+  describe('answers are classified sensitive (D-L91 review, minor 11)', () => {
+    it("the run's answers and the answers body are x-kasuwa-classification: sensitive, never logged", () => {
       const answers = properties(schemaOf('getScriptRun', '200')).get('answers');
       expect(answers, 'ScriptRun has no answers').toBeDefined();
       if (!answers || !isMapping(answers.node)) return;
       expect(answers.node['x-kasuwa-classification'], 'ScriptRun.answers classification').toBe(
-        'pii',
+        'sensitive',
       );
       const text = describedAs(answers);
-      expect(text, 'answers description').toMatch(/\bpii\b/);
+      expect(text, 'answers description').toMatch(/\bsensitive\b/);
+      expect(text, 'why: health or hardship, NDPA').toMatch(/health or hardship[\s\S]*NDPA/i);
       expect(text, 'answers description').toMatch(/never logged/i);
       expect(text, 'answers are audited by name only').toMatch(/audited by .*(name|key)/i);
       const values = properties(requestSchema(operation('recordScriptRunAnswers')) ?? at({})).get(
@@ -1695,7 +1727,25 @@ describe('acceptance: scripting contract (T-0112)', () => {
       expect(
         isMapping(values?.node) ? values.node['x-kasuwa-classification'] : undefined,
         'answers body classification',
-      ).toBe('pii');
+      ).toBe('sensitive');
+      // No schema anywhere still calls answers merely pii.
+      const doc = spec();
+      const stale: string[] = [];
+      const queue: unknown[] = [doc];
+      while (queue.length > 0) {
+        const node = queue.pop();
+        if (Array.isArray(node)) queue.push(...node);
+        else if (isMapping(node)) {
+          if (
+            node['x-kasuwa-classification'] !== undefined &&
+            node['x-kasuwa-classification'] !== 'sensitive'
+          ) {
+            stale.push(String(node['x-kasuwa-classification']));
+          }
+          queue.push(...Object.values(node));
+        }
+      }
+      expect(stale, 'a classification other than sensitive').toEqual([]);
     });
   });
 
@@ -1711,7 +1761,7 @@ describe('acceptance: scripting contract (T-0112)', () => {
           'disposition_requirements_unmet',
         ]),
       );
-      const text = describedAs(operation('completeScriptRun').op);
+      const text = describedAs(operation('completeScriptRun').op).replace(/\s+/g, ' ');
       expect(text, 'every compliance node on the path').toMatch(
         /every compliance node on the path/i,
       );
@@ -1884,7 +1934,7 @@ describe('acceptance: scripting contract (T-0112)', () => {
     });
 
     it('completion documents both outcomes: what each excuses, and that interrupted never acknowledges', () => {
-      const text = describedAs(operation('completeScriptRun').op);
+      const text = describedAs(operation('completeScriptRun').op).replace(/\s+/g, ' ');
       expect(text).toMatch(/`completed`[\s\S]*current node included/i);
       expect(text).toMatch(/`interrupted`[\s\S]*current node[\s\S]*not yet passed/i);
       expect(text).toMatch(/already passed was acknowledged when it was passed/i);
@@ -1931,8 +1981,47 @@ describe('acceptance: scripting contract (T-0112)', () => {
             if (!acked.includes(id)) problems.push(`${label}: completed with ${id} unacknowledged`);
           }
         }
+        // B1 (D-L91 review): interrupted lists EVERY unread compliance node
+        // on the path, the current one included, and nothing else.
+        if (run.outcome === 'interrupted') {
+          const expected = [
+            ...new Set(
+              path.filter((node) => kinds.get(node) === 'compliance' && !acked.includes(node)),
+            ),
+          ].sort();
+          if (JSON.stringify([...unacked].sort()) !== JSON.stringify(expected)) {
+            problems.push(
+              `${label}: lists ${JSON.stringify(unacked)}, the path leaves ${JSON.stringify(expected)} unread`,
+            );
+          }
+        }
+        // B1: completed only at an end node, or on a stopped run; endedAtNodeId
+        // is where the run was, and is null until completion.
+        const ended = run.endedAtNodeId;
+        if (run.status === 'completed') {
+          if (typeof ended !== 'string') problems.push(`${label}: completed with no endedAtNodeId`);
+          else if (ended !== path[path.length - 1])
+            problems.push(`${label}: endedAtNodeId ${ended} is not where the path ends`);
+          if (run.currentNodeId !== null) problems.push(`${label}: completed with a currentNodeId`);
+          if (
+            run.outcome === 'completed' &&
+            kinds.get(str(ended)) !== 'end' &&
+            run.stopReason === null
+          ) {
+            problems.push(
+              `${label}: outcome completed at a ${kinds.get(str(ended)) ?? '?'} node, not an end, on a run that never stopped`,
+            );
+          }
+        } else {
+          if (ended !== null) problems.push(`${label}: endedAtNodeId set before completion`);
+          if (run.outcome !== null) problems.push(`${label}: outcome set before completion`);
+        }
       }
       expect(problems).toEqual([]);
+      expect(
+        runs.filter(({ run }) => run.outcome === 'completed').length,
+        'no completed example to hold to the end-node rule',
+      ).toBeGreaterThan(0);
       const interrupted = runs.filter(({ run }) => run.outcome === 'interrupted');
       expect(
         interrupted.map(({ label }) => label),
@@ -1955,7 +2044,7 @@ describe('acceptance: scripting contract (T-0112)', () => {
       const run = schemaOf('getScriptRun', '200').node;
       expect(jsonSchema(all.get('200'))?.node, '200 is the existing run').toBe(run);
       expect(jsonSchema(all.get('201'))?.node, '201 is the new run').toBe(run);
-      const text = describedAs(operation('startScriptRun').op);
+      const text = describedAs(operation('startScriptRun').op).replace(/\s+/g, ' ');
       expect(text).toMatch(/same\s+agent, contact and script/i);
       expect(text).toMatch(/`in_progress` run/);
       expect(text).toMatch(/`200` with THAT run/);
@@ -1974,6 +2063,346 @@ describe('acceptance: scripting contract (T-0112)', () => {
           /supervisor\s+closing\s+another\s+agent's\s+run\s+waits\s+for\s+the\s+role\s+hierarchy/i,
         );
       }
+    });
+  });
+
+  describe('the D-L91 security review: blockers, majors and minors', () => {
+    /** Descriptions wrap; compare them with whitespace collapsed. */
+    function prose(...located: (Located | Mapping | undefined)[]): string {
+      return describedAs(...located).replace(/\s+/g, ' ');
+    }
+
+    function infoProse(): string {
+      const info = spec().info;
+      return isMapping(info) ? str(info.description).replace(/\s+/g, ' ') : '';
+    }
+
+    /** Every `description` string anywhere in the spec. */
+    function allDescriptions(): string[] {
+      const out: string[] = [];
+      const queue: unknown[] = [spec()];
+      while (queue.length > 0) {
+        const node = queue.pop();
+        if (Array.isArray(node)) queue.push(...node);
+        else if (isMapping(node)) {
+          if (typeof node.description === 'string') out.push(node.description.replace(/\s+/g, ' '));
+          queue.push(...Object.values(node));
+        }
+      }
+      return out;
+    }
+
+    function auditNames(id: string): string[] {
+      const raw = operation(id).op['x-kasuwa-audit-names'];
+      return Array.isArray(raw) ? raw.map(str) : [];
+    }
+
+    function componentSchema(name: string): Located {
+      const found = resolveRef(`#/components/schemas/${name}`, SPEC_PATH);
+      if (!found) throw new Error(`no components.schemas.${name}`);
+      return at(found.node, found.file);
+    }
+
+    // --- B1 -----------------------------------------------------------------
+
+    it('B1: completed only at an end node or on a stopped run; anything else is interrupted or refused not_at_end', () => {
+      const text = prose(operation('completeScriptRun').op);
+      expect(text).toMatch(
+        /`completed` is allowed only when the current node is an `end` node, or when the run is `stopped`/,
+      );
+      expect(text).toMatch(
+        /must be `interrupted`; `completed` is refused with `409 compliance_unacknowledged`/,
+      );
+      expect(text).toMatch(/`code: not_at_end`/);
+      expect(text).toMatch(
+        /every compliance node on the path, the current node included, that was NOT acknowledged/,
+      );
+      const refused = exampleValues(responses(operation('completeScriptRun')).get('409'))
+        .map(({ value }) => value)
+        .filter(isMapping)
+        .filter((value) => value.code === 'compliance_unacknowledged')
+        .flatMap((value) => (Array.isArray(value.details) ? value.details : []))
+        .filter(isMapping);
+      expect(
+        refused.some((detail) => detail.path === 'outcome' && detail.code === 'not_at_end'),
+        'no 409 example refuses completed away from an end node',
+      ).toBe(true);
+      const outcome = properties(requestSchema(operation('completeScriptRun')) ?? at({})).get(
+        'outcome',
+      );
+      expect(prose(outcome)).toMatch(/allowed only at an `end` node or on a `stopped` run/);
+    });
+
+    it('B1: the run records endedAtNodeId, server-set, read-only, and no body supplies it', () => {
+      const run = schemaOf('getScriptRun', '200');
+      expect(required(run)).toContain('endedAtNodeId');
+      expect(rawProperty(run, 'endedAtNodeId')?.readOnly, 'endedAtNodeId readOnly').toBe(true);
+      expect(types(properties(run).get('endedAtNodeId') ?? at({})).sort()).toEqual([
+        'null',
+        'string',
+      ]);
+      expect(prose(rawProperty(run, 'endedAtNodeId'))).toMatch(/`currentNodeId` becomes `null`/);
+      const offending = operations().flatMap((op) => {
+        const body = requestSchema(op);
+        return body
+          ? propertyNamesUnder(body)
+              .filter(({ name }) => /^endedAt/i.test(name))
+              .map(({ where, name }) => `${op.id}${where}.${name}`)
+          : [];
+      });
+      expect(offending).toEqual([]);
+    });
+
+    // --- B2 -----------------------------------------------------------------
+
+    for (const id of RUN_OPERATIONS) {
+      it(`B2: ${id} answers only the run's own agent; everyone else is 404`, () => {
+        const text = prose(operation(id).op);
+        expect(text, `${id} does not say only the run's own agent`).toMatch(
+          /only (by )?(its|the run's) own agent|Only the run's agent|Only the agent who started the run/i,
+        );
+        expect(text, `${id} does not say everyone else gets 404`).toMatch(
+          /(anyone|everyone) else[^.]*gets `404`/i,
+        );
+        expect(errorOrder(operation(id))[0], `${id} decides 404 first`).toBe('404 not_found');
+      });
+    }
+
+    it("B2: the run id, 404 and 403 bodies say another agent's run is 404, never 403; supervisor reads wait for M11", () => {
+      const runId = operation('getScriptRun').params.find(
+        (parameter) => parameter.name === 'runId',
+      );
+      const idText = prose(runId);
+      expect(idText).toMatch(/A run is visible only to its own agent/);
+      expect(idText).toMatch(/team lead, a programme manager and an admin included/);
+      expect(idText).toMatch(/are one `404 not_found`, on every run operation/);
+      const forbidden = responses(operation('advanceScriptRun')).get('403');
+      expect(prose(forbidden)).toMatch(/Another agent's run is never `403`: it is `404`/);
+      const read = prose(operation('getScriptRun').op);
+      expect(read).toMatch(
+        /team lead, a programme manager or an admin included, gets `404`, never `403`/,
+      );
+      expect(read).toMatch(/supervisor or QA read[\s\S]*waits for M11/);
+    });
+
+    it('B2: nothing in the file says a run is readable by other script.run holders', () => {
+      const offending = allDescriptions().filter((text) =>
+        /readable by any|any `script\.run` holder|open to `?script\.run`? holders/i.test(text),
+      );
+      expect(offending).toEqual([]);
+      expect(allDescriptions().length, 'descriptions inspected').toBeGreaterThan(100);
+    });
+
+    // --- M1, M2, M3 ---------------------------------------------------------
+
+    it('M1: completion audits outcome, the unacknowledged ids and endedAtNodeId, by id only, interrupted always', () => {
+      const names = auditNames('completeScriptRun');
+      expect(names).toEqual([
+        'dispositionId',
+        'activityId',
+        'followUpTaskId',
+        'outcome',
+        'unacknowledgedComplianceNodeIds',
+        'endedAtNodeId',
+      ]);
+      const runProps = [...properties(schemaOf('getScriptRun', '200')).keys()];
+      expect(
+        names.filter((name) => !runProps.includes(name)),
+        'audit names a run property',
+      ).toEqual([]);
+      const text = prose(operation('completeScriptRun').op);
+      expect(text).toMatch(
+        /`interrupted` with any disposition stays allowed, and is always audited as interrupted/,
+      );
+      expect(text).toMatch(/configuration ids only, never an answer or a note/);
+      expect(text).toMatch(
+        /Tracked follow-ups: showing the outcome on the call activity, and the QA read path/,
+      );
+    });
+
+    it('M2: listProgrammeScripts, once backed by M10, requires script.write (404 otherwise) and is no-store', () => {
+      const list = operationsOf(ADMIN_PATH).find((op) => op.id === 'listProgrammeScripts');
+      const text = prose(list?.op);
+      expect(text).toMatch(/Once backed by M10 it requires `script\.write` in the programme/);
+      expect(text).toMatch(/anyone else gets `404`/);
+      expect(text).toMatch(/`Cache-Control: no-store`/);
+    });
+
+    it('M3: a run follows its programme retention and is erased with its contact, runs first (D-P27)', () => {
+      const text = prose(schemaOf('getScriptRun', '200'));
+      expect(text).toMatch(/A run follows its programme's retention policy/);
+      expect(text).toMatch(
+        /the D-P27 sweeper deletes a contact's runs before it deletes the contact/,
+      );
+    });
+
+    // --- minors -------------------------------------------------------------
+
+    it('minor 1: startScriptRun decides the 403 on the contact before it looks up the script', () => {
+      const order = errorOrder(operation('startScriptRun'));
+      expect(order.indexOf('403 not_permitted'), '403 before the script 404').toBeLessThan(
+        order.indexOf('404 not_found (script)'),
+      );
+      expect(order.indexOf('404 not_found (contact)'), 'the contact 404 first').toBe(0);
+      const text = prose(operation('startScriptRun').op);
+      expect(text).toMatch(/decided before the script is looked up/);
+      expect(text).toMatch(/a real script id and a random one get the same answer/);
+    });
+
+    it('minor 2: the start replay looks only at the caller own runs; another agent gets a new run', () => {
+      const text = prose(operation('startScriptRun').op);
+      expect(text).toMatch(/The replay looks only at the caller's own runs/);
+      expect(text).toMatch(/decided before any replay check/);
+      expect(text).toMatch(/a different agent always gets a new run/);
+    });
+
+    it('minor 3: a run stopped by field_withheld on the same version is replayed; T-0114 gets a partial index', () => {
+      const text = prose(operation('startScriptRun').op);
+      expect(text).toMatch(
+        /`stopped` with `stopReason: field_withheld` on the version a new run would pin: `200` with that run/,
+      );
+      expect(text).toMatch(/unique partial index/);
+      expect(text).toMatch(/for `in_progress` runs/);
+    });
+
+    it('minor 4: every integer a request can carry is bounded; revision is 1..2147483647', () => {
+      const problems: string[] = [];
+      let integers = 0;
+      for (const op of operations()) {
+        const body = requestSchema(op);
+        if (!body) continue;
+        walkSchemas(body, (where, schema) => {
+          if (!types(schema).includes('integer') || !isMapping(schema.node)) return;
+          if (schema.node.type !== 'integer') return;
+          integers += 1;
+          if (typeof schema.node.minimum !== 'number' || typeof schema.node.maximum !== 'number') {
+            problems.push(`${op.id}${where}: an unbounded integer`);
+          }
+        });
+        const revision = properties(body).get('revision');
+        if (revision && isMapping(revision.node)) {
+          if (revision.node.minimum !== 1 || revision.node.maximum !== 2147483647) {
+            problems.push(`${op.id}.revision is not 1..2147483647`);
+          }
+        }
+      }
+      for (const [name, schema] of [
+        ['Script', schemaOf('getScript', '200')],
+        ['ScriptRun', schemaOf('getScriptRun', '200')],
+      ] as const) {
+        const revision = properties(schema).get('revision');
+        if (!revision || !isMapping(revision.node) || revision.node.maximum !== 2147483647) {
+          problems.push(`${name}.revision has no 2147483647 maximum`);
+        }
+      }
+      const INT32 = { minimum: -2147483648, maximum: 2147483647 };
+      const bounded = (schema: Located | undefined): boolean =>
+        !!schema &&
+        isMapping(schema.node) &&
+        schema.node.minimum === INT32.minimum &&
+        schema.node.maximum === INT32.maximum;
+      for (const name of ['AnswerValue', 'ConditionValue']) {
+        const variants = componentSchema(name).node;
+        const integer = (isMapping(variants) && Array.isArray(variants.oneOf) ? variants.oneOf : [])
+          .map((variant) => at(variant))
+          .find((variant) => isMapping(variant.node) && variant.node.type === 'integer');
+        if (!bounded(integer)) problems.push(`${name}: its integer is not -2147483648..2147483647`);
+      }
+      const field = componentSchema('FormField');
+      for (const key of ['minimum', 'maximum']) {
+        if (!bounded(properties(field).get(key)))
+          problems.push(`FormField.${key} is not int32-bounded`);
+      }
+      expect(problems).toEqual([]);
+      expect(integers, 'request integers inspected').toBeGreaterThan(10);
+      expect(infoProse()).toMatch(/`revision` is 1\.\.2147483647/);
+      expect(infoProse()).toMatch(/-2147483648\.\.2147483647/);
+    });
+
+    it('minor 5: a NUL in any string is 400 nul_character, documented and exemplified', () => {
+      expect(infoProse()).toMatch(/A NUL character \(`\\u0000`\) in any string/);
+      expect(infoProse()).toMatch(/wording, an answer, a note, a name or a translation, is `400`/);
+      expect(infoProse()).toMatch(/`details\[\]\.code: nul_character`/);
+      const details = exampleValues(responses(operation('completeScriptRun')).get('400'))
+        .map(({ value }) => value)
+        .filter(isMapping)
+        .flatMap((value) => (Array.isArray(value.details) ? value.details : []))
+        .filter(isMapping);
+      expect(
+        details.some((detail) => detail.code === 'nul_character'),
+        'no nul_character example',
+      ).toBe(true);
+    });
+
+    it('minor 6: a version is capped at 256 KiB serialised, and publish checks reachability linearly', () => {
+      expect(componentSchema('ScriptVersion').node).toMatchObject({
+        'x-kasuwa-max-serialised-bytes': 262144,
+      });
+      const publish = prose(operation('publishScript').op);
+      expect(publish).toMatch(/Reachability is checked in linear time/);
+      expect(publish).toMatch(/never by enumerating paths/);
+      for (const id of ['updateScript', 'putScriptTranslation']) {
+        const text = prose(operation(id).op);
+        expect(text, `${id} cap`).toMatch(/262144 bytes \(256 KiB\)/);
+        expect(text, `${id} too_big`).toMatch(/too_big/);
+      }
+    });
+
+    it('minor 7: a callback is due at most 366 days ahead', () => {
+      const body = requestSchema(operation('completeScriptRun'));
+      const followUp = body ? properties(body).get('followUp') : undefined;
+      const dueAt = followUp ? properties(followUp).get('dueAt') : undefined;
+      expect(prose(dueAt)).toMatch(/at most 366 days ahead; anything else is `400`/);
+    });
+
+    it('minor 8: a cursor id is resolved inside its own list; anything else is invalid_cursor, like a missing id', () => {
+      const cursor = operation('listScripts').params.find(
+        (parameter) => parameter.name === 'cursor',
+      );
+      const text = prose(cursor);
+      expect(text).toMatch(/The id is resolved inside the list's own filter/);
+      expect(text).toMatch(/`details\[\]\.code: invalid_cursor`/);
+      expect(text).toMatch(/exactly as for an id that does not exist/);
+      expect(text).toMatch(/D-L90/);
+    });
+
+    it('minor 9: an acknowledgement records the locale its wording was shown in', () => {
+      const locale = componentSchema('ScriptLocale').node;
+      const body = requestSchema(operation('acknowledgeScriptRunNode'));
+      expect(body ? required(body) : [], 'the body requires locale').toContain('locale');
+      expect(body ? properties(body).get('locale')?.node === locale : false, 'a ScriptLocale').toBe(
+        true,
+      );
+      const ack = componentSchema('Acknowledgement');
+      expect(required(ack), 'the acknowledgement records locale').toContain('locale');
+      expect(properties(ack).get('locale')?.node === locale, 'a ScriptLocale').toBe(true);
+    });
+
+    it('minor 10: wording is plain text; substitution produces text, never HTML', () => {
+      const graph = prose(componentSchema('ScriptGraph'));
+      expect(graph).toMatch(/Wording is plain text/);
+      expect(graph).toMatch(/Substitution produces text, never HTML/);
+      expect(infoProse()).toMatch(/produces text, never HTML/);
+    });
+
+    it('minor 12: publish refuses a branch or variable on a sensitive field until D-L13', () => {
+      const publish = prose(operation('publishScript').op);
+      expect(publish).toMatch(
+        /`sensitive_field` \(a branch or a variable on any contact field classified `sensitive`/,
+      );
+      expect(publish).toMatch(/until D-L13/);
+      expect(prose(componentSchema('ScriptGraph'))).toMatch(/`sensitive_field`/);
+    });
+
+    it('minor 13: the publish audit names the compliance nodes added, removed or changed, by id', () => {
+      expect(auditNames('publishScript')).toEqual(
+        expect.arrayContaining([
+          'complianceNodesAdded',
+          'complianceNodesRemoved',
+          'complianceNodesChanged',
+        ]),
+      );
+      expect(prose(operation('publishScript').op)).toMatch(/node ids only, never their wording/);
     });
   });
 
@@ -2035,7 +2464,7 @@ describe('acceptance: scripting contract (T-0112)', () => {
     });
 
     it('startScriptRun pins the latest published version on the server, and refuses an unpublished script', () => {
-      const text = describedAs(operation('startScriptRun').op);
+      const text = describedAs(operation('startScriptRun').op).replace(/\s+/g, ' ');
       expect(text).toMatch(/latest published version/i);
       expect(errorOrder(operation('startScriptRun'))).toContain('409 script_not_published');
     });
