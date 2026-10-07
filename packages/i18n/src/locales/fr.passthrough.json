@@ -62,5 +62,9 @@
   "signup.country.KE",
   "tokens.contrast.ratio",
   "tokens.sample.arabic",
-  "tokens.sample.text"
+  "tokens.sample.text",
+  "accounts.filter.lga",
+  "accounts.col.programme",
+  "accounts.col.actions",
+  "accounts.field.programme"
 ]

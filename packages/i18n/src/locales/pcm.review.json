@@ -302,6 +302,13 @@
     "records.channel.sms": "An abbreviation used unchanged in this locale.",
     "records.channel.email": "A loanword this locale uses unchanged.",
     "records.loadMore": "A phrase this locale uses unchanged.",
-    "records.empty.capture.action": "A loanword this locale uses unchanged."
+    "records.empty.capture.action": "A loanword this locale uses unchanged.",
+    "accounts.filter.tag": "A loanword used unchanged in this locale, as in records.col.tags.",
+    "accounts.filter.state": "A loanword used unchanged in this locale, as in records.col.state.",
+    "accounts.filter.lga": "An abbreviation (Local Government Area, Nigeria) used unchanged in this locale, as in records.col.state.",
+    "accounts.col.programme": "The same word in this locale, as in admin.prog.col.programme.",
+    "accounts.sheet.close": "A loanword used unchanged in this locale, as in admin.dialog.close.",
+    "accounts.sheet.cancel": "A loanword used unchanged in this locale, as in admin.archive.cancel.",
+    "accounts.field.programme": "The same word in this locale, as in admin.prog.col.programme."
   }
 }
