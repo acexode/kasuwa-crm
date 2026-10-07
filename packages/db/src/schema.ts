@@ -208,6 +208,8 @@ export const contact = pgTable(
     version: integer('version').notNull().default(1),
   },
   (table) => [
+    /** Migration 0027: the target of activity's composite contact FK. */
+    uniqueIndex('contact_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
     index('contact_keyset_idx').on(table.tenantId, table.programmeId, table.createdAt, table.id),
     index('contact_account_idx')
       .on(table.tenantId, table.programmeId, table.accountId)
@@ -285,6 +287,83 @@ export const account = pgTable(
     index('account_parent_idx')
       .on(table.tenantId, table.programmeId, table.parentAccountId)
       .where(sql`parent_account_id IS NOT NULL`),
+  ],
+);
+
+// --- activity (migration 0027, T-0060) --------------------------------------
+
+/** The activity kinds: codes, never labels (a CHECK in 0027). */
+export const ACTIVITY_TYPES = ['note', 'task', 'call'] as const;
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+
+/**
+ * A note, a task or a logged call against a contact, an account or both
+ * (migration 0027, T-0060). Programme-scoped like contact; every FK is
+ * composite and carries tenant_id, and the contact and account FKs carry
+ * programme_id too, so a target is always in the activity's own programme.
+ *
+ * Not expressed here (SQL only): at least one target is set; due_at and
+ * completed_at are for tasks only; id, tenant_id and programme_id are fixed
+ * for every role but kasuwa_migrator (app.guard_activity_keys_fixed); and
+ * kasuwa_app may not DELETE (a restrictive policy). subject and body are free
+ * text that may hold PII: never log them.
+ */
+export const activity = pgTable(
+  'activity',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    type: text('type', { enum: ACTIVITY_TYPES }).notNull(),
+    subject: text('subject'),
+    body: text('body'),
+    /** Tasks only. */
+    dueAt: timestamp('due_at', { withTimezone: true }),
+    /** Tasks only. */
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    /** Composite FK (tenant_id, owner_user_id) -> "user" (tenant_id, id). */
+    ownerUserId: uuid('owner_user_id'),
+    /** Composite FK (tenant_id, programme_id, contact_id) -> contact. */
+    contactId: uuid('contact_id'),
+    /** Composite FK (tenant_id, programme_id, account_id) -> account. */
+    accountId: uuid('account_id'),
+    /** Composite FK (tenant_id, created_by_user_id) -> "user". NULL is the system. */
+    createdByUserId: uuid('created_by_user_id'),
+    /** Optimistic-concurrency counter; kept moving by app.bump_version(). */
+    version: integer('version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Maintained by the app.touch_updated_at() trigger when a statement leaves it unchanged. */
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('activity_contact_keyset_idx')
+      .on(
+        table.tenantId,
+        table.programmeId,
+        table.contactId,
+        table.createdAt.desc(),
+        table.id.desc(),
+      )
+      .where(sql`contact_id IS NOT NULL`),
+    index('activity_account_keyset_idx')
+      .on(
+        table.tenantId,
+        table.programmeId,
+        table.accountId,
+        table.createdAt.desc(),
+        table.id.desc(),
+      )
+      .where(sql`account_id IS NOT NULL`),
+    index('activity_owner_due_idx')
+      .on(table.tenantId, table.ownerUserId, table.dueAt)
+      .where(sql`owner_user_id IS NOT NULL`),
+    /** Not partial: the tenant and programme FK lookup, and a programme-wide feed. */
+    index('activity_programme_recent_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
   ],
 );
 
@@ -812,6 +891,7 @@ export const TENANT_SCOPED_TABLES = [
   'user_programme',
   'contact',
   'account',
+  'activity',
   'object_def',
   'field_def',
   'user_credential',

@@ -189,10 +189,11 @@ describe('the standard object catalogue (T-0053) is valid metadata', () => {
     object.fields.map((field) => ({ object: object.apiName, ...field })),
   );
 
-  it('names contact and account, with valid, unique api_names', () => {
+  it('names contact, account and activity, with valid, unique api_names', () => {
     expect(STANDARD_OBJECT_CATALOGUE.map((object) => object.apiName)).toEqual([
       'contact',
       'account',
+      'activity',
     ]);
     for (const object of STANDARD_OBJECT_CATALOGUE) {
       expect(isValidApiName(object.apiName), object.apiName).toBe(true);

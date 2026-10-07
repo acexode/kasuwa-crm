@@ -8,11 +8,11 @@ import { newId } from './ids';
  * ONE list, read by two writers, exactly as DEFAULT_PERMISSION_SET_CATALOGUE:
  * the seed (`runSeed`) and tenant provisioning (`provisionTenant` in
  * `@kasuwa/domain-core/provisioning`). Tenants that existed before the rows
- * did were backfilled by migration 0025, which carries a frozen copy of this
- * list; the T-0053 acceptance suite asserts that all three produce the same
- * catalogue. Never edit 0025. The account fields after `name` were added by
- * 0026 (T-0054), which carries its own frozen copy of them and backfilled the
- * tenants that pre-date it.
+ * did were backfilled by migration 0025 (contact, account `name`), 0026
+ * (T-0054, the account fields after `name`) and 0027 (T-0060, activity), each
+ * carrying a frozen copy of its part of this list; the T-0053, T-0054 and
+ * T-0060 acceptance suites assert that all three sources produce the same
+ * catalogue. Never edit any of those migrations.
  *
  * ADDING A STANDARD FIELD (or object):
  *   1. add it here;
@@ -51,7 +51,8 @@ import { newId } from './ids';
  */
 
 /** The subset of metadata-engine's FIELD_TYPES the standard catalogue uses. */
-export type StandardFieldType = 'text' | 'phone' | 'email' | 'boolean' | 'lookup';
+export type StandardFieldType =
+  'text' | 'textarea' | 'datetime' | 'phone' | 'email' | 'boolean' | 'lookup';
 export type StandardFieldClassification = 'none' | 'pii' | 'sensitive';
 
 export interface StandardFieldDef {
@@ -132,6 +133,25 @@ export const STANDARD_OBJECT_CATALOGUE: readonly StandardObjectDef[] = [
       field('parent_account_id', 'Parent account', 'lookup', {
         config: { targetObjectApiName: 'account' },
       }),
+    ],
+  },
+  {
+    // Migration 0027 (T-0060). Notes, tasks and logged calls. subject and body
+    // are free text that holds names in practice ("Call back Mrs X"), so both
+    // are pii (D-L77). Timestamps are `datetime`, the body `textarea`; the
+    // targets are real lookups; the owner is `text`, as on contact.
+    apiName: 'activity',
+    label: 'Activity',
+    pluralLabel: 'Activities',
+    fields: [
+      field('type', 'Type', 'text', { isRequired: true }),
+      field('subject', 'Subject', 'text', { classification: 'pii' }),
+      field('body', 'Body', 'textarea', { classification: 'pii' }),
+      field('due_at', 'Due', 'datetime'),
+      field('completed_at', 'Completed', 'datetime'),
+      field('owner_user_id', 'Owner', 'text'),
+      field('contact_id', 'Contact', 'lookup', { config: { targetObjectApiName: 'contact' } }),
+      field('account_id', 'Account', 'lookup', { config: { targetObjectApiName: 'account' } }),
     ],
   },
 ];

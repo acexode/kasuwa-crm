@@ -210,6 +210,6 @@ describe('the standard object definitions (T-0053)', () => {
     const tenantId = state.params[indexOf('INSERT INTO tenant')]?.[0];
     expect(state.params[objectsAt]?.[0]).toBe(tenantId);
     expect(state.params[fieldsAt]?.[0]).toBe(tenantId);
-    expect(state.params[objectsAt]?.[2]).toEqual(['contact', 'account']);
+    expect(state.params[objectsAt]?.[2]).toEqual(['contact', 'account', 'activity']);
   });
 });

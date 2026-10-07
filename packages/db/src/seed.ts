@@ -8,6 +8,7 @@ import {
 import { Client } from 'pg';
 import {
   SEED_ACCOUNTS,
+  SEED_ACTIVITIES,
   SEED_CONTACTS,
   SEED_PASSWORD,
   SEED_PERMISSION_SETS,
@@ -254,12 +255,34 @@ export async function runSeed(options: SeedOptions): Promise<void> {
       );
     }
 
+    // After accounts (their FK target). created_by is the owner: a seeded
+    // activity was logged by the user it belongs to.
+    for (const activity of SEED_ACTIVITIES) {
+      await client.query(
+        `INSERT INTO activity
+           (id, tenant_id, programme_id, type, subject, body,
+            owner_user_id, created_by_user_id, account_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8)`,
+        [
+          activity.id,
+          activity.tenantId,
+          activity.programmeId,
+          activity.type,
+          activity.subject,
+          activity.body,
+          activity.ownerUserId,
+          activity.accountId,
+        ],
+      );
+    }
+
     await client.query('COMMIT');
     log(
       `seeded ${SEED_TENANTS.length} tenants, ` +
         `${SEED_TENANTS.reduce((n, t) => n + t.programmes.length, 0)} programmes, ` +
         `${SEED_TENANTS.reduce((n, t) => n + t.users.length, 0)} users, ` +
-        `${SEED_CONTACTS.length} contacts, ${SEED_ACCOUNTS.length} accounts`,
+        `${SEED_CONTACTS.length} contacts, ${SEED_ACCOUNTS.length} accounts, ` +
+        `${SEED_ACTIVITIES.length} activities`,
     );
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
