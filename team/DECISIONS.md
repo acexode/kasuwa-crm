@@ -1802,3 +1802,20 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
   Fix: widen the rule, and make the Tailwind preset replace the palette rather than extend it. The suite writer's detector
   found 0 hits in today's `apps/web`.
 - **PR size.** The suite, spec and mock are about 2,990 lines, so the PR is marked exempt (structural).
+### D-L85 — T-0062 contact record screen suite rulings (lead, reversible)
+**Status:** PROCEEDING (lead). These came from the T-0062 suite writer.
+- **Contract gap: activity versions.** `updateActivity` requires `version`, but timeline activity items carry none, and no
+  activity read exists. So the screen can only complete a task it logged in the same session.
+  - `@p05-contact-complete-served` stays a `fixme`.
+  - **Follow-up T-0080 (contract first, then API):** add `version` to the timeline's activity item. That is the smaller
+    change than an activity read. Not yet assigned.
+- **Accepted pins beyond the brief:**
+  - the document title never contains the contact's name, because titles land in browser history on shared desks (D-L63);
+  - every write sends only the changed fields;
+  - times are rendered in `<time datetime>` elements, shown in the browser's time zone;
+  - past owner and account changes show neither name;
+  - a refused or stale inline edit restores the served value, never an optimistic one.
+- **Harness.** `webRecordViewUrl` serves with `crm_record_view` and `crm_records` on. The `@harness` tenancy spec's
+  `record`, `record-not-found` and `record-unavailable` test ids must keep passing.
+- **Budget.** The `/contacts/[id]` ceiling is provisionally 245,000 B; the lead re-pins it within 5% of the first measurement.
+- **PR size.** The suite, spec and mock are structural, so the PR is marked exempt.

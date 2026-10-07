@@ -1,6 +1,6 @@
 # T-0062 — Contact record screen, the 360° view (P05)
 
-**status** `not-assigned` (suite after T-0061) · **owner** Agent 11 · **priority** P1 · **decisions** D-L69, D-L72, D-L73, D-L81, D-P21, D-P23
+**status** `assigned` (suite on `lead/T-0062-acceptance`) · **owner** Agent 11 · **priority** P1 · **decisions** D-L69, D-L72, D-L73, D-L81, D-P21, D-P23
 
 ## Goal
 P05 frames 01, 02, 05 (field security) and 06 (loading) for a contact, on the real API, behind a new `crm_record_view` flag.
