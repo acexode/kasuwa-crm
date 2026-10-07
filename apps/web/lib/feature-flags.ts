@@ -74,3 +74,32 @@ export async function crmRecordsEnabled(): Promise<boolean> {
     toEvaluationContext({ tenantId: CRM_SHELL }),
   );
 }
+
+/**
+ * `crm_accounts` (T-0057, D-L84) gates the ROUTE of the P04 Accounts list:
+ * `/accounts` calls `notFound()` while it is off, so typing the path gets a
+ * real 404 and nothing of the screen ships. Its own flag, not `crm_records`:
+ * the two screens are switched on separately.
+ *
+ * A presentation switch, like the others: the accounts API scopes every row
+ * from the session and refuses a write without `account.write` whether this
+ * is on or off.
+ */
+export async function crmAccountsEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_accounts',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/**
+ * The CRM shell's nav entries whose ROUTE is on in this process, by nav id.
+ * An entry links only to a screen that answers; one whose flag is off is drawn
+ * as "not available yet", exactly like an unbuilt one (`components/crm/crm-nav.ts`).
+ */
+export async function crmLiveNav(): Promise<string[]> {
+  const [contacts, accounts] = await Promise.all([crmRecordsEnabled(), crmAccountsEnabled()]);
+  return [...(contacts ? ['contacts'] : []), ...(accounts ? ['accounts'] : [])];
+}

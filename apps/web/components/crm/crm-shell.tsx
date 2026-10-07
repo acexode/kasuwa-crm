@@ -6,7 +6,7 @@ import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
 import { LiteModeToggle } from '../auth/lite-mode';
-import { CRM_NAV, type CrmNavItem } from './crm-nav';
+import { CRM_NAV, liveHref, type CrmNavItem } from './crm-nav';
 
 /**
  * The CRM app shell (T-0042) — the frame every record screen sits in, and NOT
@@ -26,10 +26,10 @@ import { CRM_NAV, type CrmNavItem } from './crm-nav';
 const LINK_FOCUS =
   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
 
-function SideItem({ item, current, t }: { item: CrmNavItem; current: string; t: Translator }) {
+function SideItem({ item, href, current, t }: { item: CrmNavItem; href: string | null; current: string; t: Translator }) {
   const active = item.id === current;
   const className = `flex min-h-touch items-center gap-3 rounded-md px-3 text-body-sm font-semibold ${LINK_FOCUS}`;
-  if (item.href === null) {
+  if (href === null) {
     return (
       <span aria-disabled="true" className={`${className} text-text-muted`}>
         <Icon name={item.icon} size="sm" />
@@ -40,7 +40,7 @@ function SideItem({ item, current, t }: { item: CrmNavItem; current: string; t: 
   }
   return (
     <Link
-      href={item.href}
+      href={href}
       aria-current={active ? 'page' : undefined}
       className={`${className} ${active ? 'bg-primary-soft text-primary-text' : 'text-text hover:bg-surface-sunken'}`}
     >
@@ -50,7 +50,7 @@ function SideItem({ item, current, t }: { item: CrmNavItem; current: string; t: 
   );
 }
 
-function BottomItem({ item, current, t }: { item: CrmNavItem; current: string; t: Translator }) {
+function BottomItem({ item, href, current, t }: { item: CrmNavItem; href: string | null; current: string; t: Translator }) {
   const active = item.id === current;
   const className = `flex min-h-touch min-w-0 flex-col items-center justify-center gap-1 px-1 text-caption font-semibold ${LINK_FOCUS}`;
   const inner = (
@@ -59,7 +59,7 @@ function BottomItem({ item, current, t }: { item: CrmNavItem; current: string; t
       <span className="max-w-full truncate">{t.t(item.label)}</span>
     </>
   );
-  if (item.href === null) {
+  if (href === null) {
     return (
       <span aria-disabled="true" className={`${className} text-text-muted`}>
         {inner}
@@ -69,7 +69,7 @@ function BottomItem({ item, current, t }: { item: CrmNavItem; current: string; t
   }
   return (
     <Link
-      href={item.href}
+      href={href}
       aria-current={active ? 'page' : undefined}
       className={`${className} ${active ? 'text-primary-text' : 'text-text'}`}
     >
@@ -83,6 +83,7 @@ export function CrmShell({
   locale,
   locales,
   current,
+  live,
   children,
 }: {
   t: Translator;
@@ -90,12 +91,17 @@ export function CrmShell({
   locales: readonly LanguageOption[];
   /** The nav item id of the screen inside, for `aria-current`. */
   current: string;
+  /** Nav ids whose route is on in this process (`crmLiveNav()`); only these link. */
+  live: readonly string[];
   children: ReactNode;
 }) {
+  // The wordmark goes to the first screen that answers here: the one inside
+  // is always among them, so it is never a link to a 404.
+  const home = CRM_NAV.map((item) => liveHref(item, live)).find((href) => href !== null) ?? null;
   return (
     <div data-shell="crm" className="flex min-h-screen flex-col bg-bg text-text">
       <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
-        <Link href="/contacts" className={`flex shrink-0 items-center gap-2 rounded-md ${LINK_FOCUS}`}>
+        <Link href={home ?? `/${current}`} className={`flex shrink-0 items-center gap-2 rounded-md ${LINK_FOCUS}`}>
           <span
             aria-hidden="true"
             className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-body-md font-extrabold text-accent"
@@ -128,7 +134,7 @@ export function CrmShell({
           className="hidden w-56 shrink-0 flex-col gap-1 border-e border-border bg-surface p-3 md:flex"
         >
           {CRM_NAV.map((item) => (
-            <SideItem key={item.id} item={item} current={current} t={t} />
+            <SideItem key={item.id} item={item} href={liveHref(item, live)} current={current} t={t} />
           ))}
         </nav>
         <div className="min-w-0 flex-1 p-4 pb-16 md:p-6">{children}</div>
@@ -139,7 +145,7 @@ export function CrmShell({
         className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-5 border-t border-border bg-surface md:hidden"
       >
         {CRM_NAV.filter((item) => item.mobile).map((item) => (
-          <BottomItem key={item.id} item={item} current={current} t={t} />
+          <BottomItem key={item.id} item={item} href={liveHref(item, live)} current={current} t={t} />
         ))}
       </nav>
     </div>

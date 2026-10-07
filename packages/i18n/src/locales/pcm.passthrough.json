@@ -295,5 +295,12 @@
   "whatsapp.cost.marketing",
   "whatsapp.cost.service",
   "whatsapp.window.mark",
-  "whatsapp.window.title"
+  "whatsapp.window.title",
+  "accounts.filter.tag",
+  "accounts.filter.state",
+  "accounts.filter.lga",
+  "accounts.col.programme",
+  "accounts.sheet.close",
+  "accounts.sheet.cancel",
+  "accounts.field.programme"
 ]

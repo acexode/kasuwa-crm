@@ -453,14 +453,22 @@ function startSelfServeWeb(apiUrl, port) {
 }
 
 /**
- * THE THIRD WEB SERVER — `crm_records` ON, SERVER-SIDE (T-0042, D-L64).
+ * THE THIRD WEB SERVER — `crm_records` AND `crm_accounts` ON, SERVER-SIDE
+ * (T-0042, T-0057, D-L64).
  *
  * The SAME production build as the default server (`next start` over `.next`),
- * because the `/contacts` byte budget is measured here and a dev bundle is not
- * a budget (D-L28). `crm_records` is not production-ready until T-0041 is live,
- * and a NODE_ENV=production process that names it refuses to boot — so this
- * one process runs with NODE_ENV=test, exactly as D-L64 rules. The guard itself
- * is untouched; the default server above stays flagless.
+ * because the `/contacts` and `/accounts` byte budgets are measured here and a
+ * dev bundle is not a budget (D-L28). Neither flag is production-ready, and a
+ * NODE_ENV=production process that names one refuses to boot — so this one
+ * process runs with NODE_ENV=test, exactly as D-L64 rules. The guard itself is
+ * untouched; the default server above stays flagless.
+ *
+ * `crm_accounts` RIDES ON THIS PROCESS (T-0057) rather than a fourth one: a
+ * Next process costs the runner about a gigabyte, and the two flags gate
+ * disjoint routes (`/contacts`, `/accounts`) in one CRM shell, whose nav links
+ * each only where its flag is on. The stack file names it twice —
+ * `webRecordsUrl` and `webAccountsUrl` — so a spec says which flag it relies
+ * on, as `webLiveUrl` does for `webSelfServeUrl`.
  */
 function startRecordsWeb(apiUrl, port) {
   const child = spawn('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
@@ -475,7 +483,7 @@ function startRecordsWeb(apiUrl, port) {
       KASUWA_AUTH_MODE: 'jwt',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
-      KASUWA_FEATURE_FLAGS_ON: 'crm_records',
+      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts',
       ...NO_DATABASE_URLS,
     },
   });
@@ -576,12 +584,12 @@ async function main() {
     await Promise.all([
       waitForHttp(webUrl, 'the web app'),
       waitForHttp(webSelfServeUrl, 'the self-serve web app'),
-      waitForHttp(webRecordsUrl, 'the crm_records web app'),
+      waitForHttp(webRecordsUrl, 'the crm_records and crm_accounts web app'),
     ]);
     restoreNextEnv(nextEnv);
     log(`web (next start, production build) on ${webUrl}`);
     log(`web (next dev, self_serve_signup + admin_live_api on) on ${webSelfServeUrl}`);
-    log(`web (next start, production build, crm_records on) on ${webRecordsUrl}`);
+    log(`web (next start, production build, crm_records + crm_accounts on) on ${webRecordsUrl}`);
   }
 
   // One file per Playwright project, not a shared `stack.json`. Two
@@ -596,9 +604,18 @@ async function main() {
   writeFileSync(
     join(artifactsDir, `stack.${projectName}.json`),
     `${JSON.stringify(
-      // `webLiveUrl` is the same process as `webSelfServeUrl`; the second name
-      // says which flag a spec is relying on (T-0035).
-      { webUrl, webSelfServeUrl, webLiveUrl: webSelfServeUrl, webRecordsUrl, apiUrl, fixturesUrl },
+      // `webLiveUrl` is the same process as `webSelfServeUrl`, and
+      // `webAccountsUrl` as `webRecordsUrl`; the second name says which flag a
+      // spec is relying on (T-0035, T-0057).
+      {
+        webUrl,
+        webSelfServeUrl,
+        webLiveUrl: webSelfServeUrl,
+        webRecordsUrl,
+        webAccountsUrl: webRecordsUrl,
+        apiUrl,
+        fixturesUrl,
+      },
       null,
       2,
     )}\n`,

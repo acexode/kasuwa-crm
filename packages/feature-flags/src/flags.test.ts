@@ -13,7 +13,7 @@ describe('feature flags', () => {
    * review question — which task, and who turns it on — not a refactor.
    */
   it('declares exactly the flags a task has asked for', () => {
-    expect(Object.keys(FLAGS)).toEqual(['self_serve_signup', 'admin_live_api', 'crm_records']);
+    expect(Object.keys(FLAGS)).toEqual(['self_serve_signup', 'admin_live_api', 'crm_records', 'crm_accounts']);
   });
 
   it('ships self_serve_signup OFF (D-P2)', () => {
@@ -61,6 +61,22 @@ describe('feature flags', () => {
       assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: ['crm_records'] }),
     ).toThrow(/Refusing to start.*crm_records/);
     expect(() => assertFlagsAreProductionSafe({ nodeEnv: 'test', enabled: ['crm_records'] })).not.toThrow();
+  });
+
+  it('ships crm_accounts OFF, separate from crm_records, and not production-ready (T-0057, D-L84)', () => {
+    expect(FLAGS.crm_accounts.defaultValue).toBe(false);
+    expect(FLAGS.crm_accounts.productionReady).toBe(false);
+    expect(flagConfiguration([]).crm_accounts.defaultVariant).toBe('off');
+    expect(flagConfiguration(['crm_accounts']).crm_accounts.defaultVariant).toBe('on');
+    // Its own switch: neither flag turns the other on.
+    expect(flagConfiguration(['crm_accounts']).crm_records.defaultVariant).toBe('off');
+    expect(flagConfiguration(['crm_records']).crm_accounts.defaultVariant).toBe('off');
+    expect(() =>
+      assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: ['crm_accounts'] }),
+    ).toThrow(/Refusing to start.*crm_accounts/);
+    expect(() =>
+      assertFlagsAreProductionSafe({ nodeEnv: 'test', enabled: ['crm_records', 'crm_accounts'] }),
+    ).not.toThrow();
   });
 
   it('refuses an unknown flag name instead of ignoring it', () => {

@@ -96,6 +96,27 @@ export const FLAGS = {
     // contract mock until then.
     productionReady: false,
   },
+  /**
+   * T-0057 (D-L64, D-L84): the P04 Accounts list, with its create and edit
+   * sheet, at `/accounts`. It gates the ROUTE: `/accounts` answers a real 404
+   * while it is off, whatever `crm_records` says. The CRM shell's nav links
+   * `/accounts` only on a process where this is on.
+   *
+   * A presentation switch, not an access control, like `crm_records`: the
+   * screen reads and writes `/api/v1/accounts`, where the session,
+   * `user_programme` and `account.write` decide what a caller reaches and may
+   * change whether this is on or off. Write controls show to every caller and
+   * the API's 403 is the gate (D-L84).
+   */
+  crm_accounts: {
+    description: 'The P04 Accounts list, create and edit at /accounts (T-0057).',
+    defaultValue: false,
+    owner: 'T-0057 (screen), T-0055 (live API), D-L64, D-L84',
+    // NOT production-ready: the screen is proven against the contract mock,
+    // and "non-writers see no write controls" waits on a capability read
+    // (D-L84, T-0079). Lifting it is a deliberate one-line change.
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

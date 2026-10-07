@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 143 rows; built 70, partial 11, mock-only 27, flagged-off 6, deferred 10, not-started 19.
+Totals: 144 rows; built 70, partial 11, mock-only 27, flagged-off 7, deferred 10, not-started 19.
 
 ## Modules
 
@@ -177,6 +177,7 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `self_serve_signup` | Public sign-up, verification and data-region choice (P01/3, P01/4, P01/5.1). | flagged-off | `self_serve_signup` | D-P2 | packages/feature-flags/src/index.ts |
 | flag | `admin_live_api` | P02 KPIs and skill cover show labelled sample data in place of their unbuilt endpoints (T-0035). Not an access control. | flagged-off | `admin_live_api` | — | packages/feature-flags/src/index.ts |
 | flag | `crm_records` | The CRM shell and the P04 Contacts list at /contacts (T-0042). | flagged-off | `crm_records` | D-L64 | packages/feature-flags/src/index.ts |
+| flag | `crm_accounts` | The P04 Accounts list, create and edit at /accounts (T-0057). | flagged-off | `crm_accounts` | D-L64, D-L84 | packages/feature-flags/src/index.ts |
 
 ## Deferred decisions
 
