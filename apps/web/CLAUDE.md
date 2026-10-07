@@ -25,6 +25,7 @@ Next.js App Router shell. Routes today:
 | `/translations` | — | Where the language menu's "help improve this translation" link lands (D-P1). Server-only, no client JS |
 | `/contacts` | `P04/02`, `P04/05`, `P04/06` | **Behind `crm_records`** (T-0042, D-L64): a real 404 while it is off. The CRM shell (`components/crm/`), not the admin one. Read from the browser through `lib/records-api.ts` against the contract mock until T-0041 is live |
 | `/contacts/[id]` | — | Scaffolding, **behind `crm_records`** (D-L64). Exists so the tenancy e2e test can tamper with a **web** URL; replace it when M4 builds the real screen. |
+| `/accounts` | `P04/03`, `P04/05`, `P04/06` | **Behind `crm_accounts`** (T-0057, D-L84), its own flag: a real 404 while it is off. The CRM shell, the list pieces in `components/records/`, and a create/edit sheet. Reads and writes through `lib/accounts-api.ts`. No row links anywhere until T-0063 builds the record page |
 | `/design/tokens` | — | The token gallery. It used to be at `/`. |
 
 All sixteen P01 screens are built (`team/reports/T-0007.md`, `T-0007b.md`), and
@@ -61,6 +62,29 @@ budget is measured there. On `/contacts`: a withheld field is a lock and a
 account cells are neutral labels, never ids, until T-0043 adds names; the list
 survives going offline in memory only, never on the device (D-L64); and the
 search term never enters the URL.
+
+**`crm_accounts` (T-0057)** is the fourth flag, not production-ready. It rides
+on the `crm_records` e2e process (`webAccountsUrl` names the same URL as
+`webRecordsUrl`), where the `/accounts` budget is measured. The CRM shell's
+nav links a screen only where its flag is on (`crmLiveNav()`), so neither
+flag's process ever links the other's 404. On `/accounts`:
+- **Write controls show to every caller and the API's 403 is the gate**
+  (D-L84). No read tells the screen whether the caller holds `account.write`
+  until T-0079; a refusal is a translated `role=alert` in the sheet, which
+  keeps what was typed.
+- An edit sends the served `version` and only what changed, never a withheld
+  field (drawn as a lock, not an input). Offline, Save is off (D-P21).
+- A filter whose field the caller has been shown withheld is a locked chip;
+  if the server still answers `field_withheld`, that is an error state, never
+  "no results".
+- Programme names come from `listMyProgrammes`, owner names embedded on the
+  row; no id is printed. No Map, Health, bulk actions, rollups or DND marker
+  (D-L69).
+
+Both P04 lists share `components/records/`: `use-keyset-list.ts` (in memory
+only, search and cursor never in the URL, stale answers dropped),
+`list-parts.tsx` (offline banner, skeleton, error, column chooser, filter
+options, lock) and `list-model.ts`. Fix a list behaviour there, once.
 
 **`?locale=en-XA`** renders the pseudo-locale, derived from `en` at runtime by
 `@kasuwa/i18n` (`src/pseudo.ts`). Like `ar` it is a preview: on no menu,
