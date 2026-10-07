@@ -1840,3 +1840,66 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
 - **CRM nav.** Each web process links only the routes it serves (T-0057's `crmLiveNav()`), so the shell tests on every process
   find no dead link.
 - **The isolation gate** is red on any branch carrying a screen suite until its screen lands (T-0057, T-0062, T-0058). Expected.
+### D-L87 — the remaining Phase 2 plan, and its reversible rulings (lead, 2026-10-07)
+**Status:** PROCEEDING (lead). The plan is in `team/ROADMAP.md` (T-0081 to T-0101). It came from a planning pass over the
+P07, P18, P26, P27 and P28 exports, M06, M15, M21 and M22.
+- **Activities (P07):**
+  - P07/01's "Undo" after completing a task is **hidden**: D-L81 keeps reopening a task out of the MVP.
+  - A `meeting` type and snoozing (moving `dueAt`) follow D-P18's activity rights: whoever may update the activity may do
+    both. No new right.
+  - P07/05 shows Kasuwa events only; external calendars wait on D-P22.
+- **Search (P27):** the programme menu may **narrow** within the programmes the session already resolved. The server
+  intersects; it never widens (contract rule 1 holds, as for the contacts list's programme filter). Results from programmes
+  the caller cannot reach are never counted, shown or hinted (CLAUDE.md 6.4).
+- **Search engine for Phase 2:** Postgres (`pg_trgm` and jsonb GIN indexes, T-0084), with OpenSearch's deferral recorded in an
+  ADR, since the founding pack names OpenSearch. Indexing withheld fields and keeping an index in sync are avoided until
+  conversations and KB need OpenSearch. This is reversible; see D-P30.
+- **Notifications** poll the API in Phase 2. The authenticated socket belongs with the inbox (P08).
+- **P08 and P09 constraints on Phase 2:** the search `types` enum and the notification `kind` stay additive; the `call`
+  activity stays open to additive wrap-up columns from the telephony adapter.
+- **Hidden frames** (their modules are later phases): listed in ROADMAP "Remaining slices".
+- **The command palette** is built from `packages/ui`; no `cmdk` dependency.
+
+### D-P27 — deletion, the recycle bin and merge (raised by the Phase 2 plan; the open D-L61 item)
+**Status:** OPEN, needs @acexode. Blocks T-0095 (merge).
+- **The problem.** D-P12 says the merged-away record is soft-deleted, but no deletion model exists yet: no `deleted_at`, no
+  recycle bin, and erasure (D-L79, D-L83) is undefined for a soft-deleted row.
+- **Lead recommendation:**
+  - `deleted_at` on contact (and account), hidden from every read by the repository and by RLS-backed views;
+  - a 30-day recycle bin, restorable by a tenant admin, audited;
+  - after 30 days, the row is hard-deleted by the sweeper role, and its audit values follow erasure rules;
+  - a merge keeps an undo snapshot for the same 30 days.
+
+### D-P28 — compliance fields on merge and import
+**Status:** OPEN, needs @acexode (and counsel for consent). Blocks T-0095, and constrains T-0094.
+- **The problem.** How do `dnd`, `consent_state` and `whatsapp_opt_in` combine when two contacts merge, and may an import set
+  them? P28/C1 shows "keeps the most recent choice" for SMS consent.
+- **Lead recommendation:**
+  - on merge, the **most restrictive** value wins for every compliance field, whatever the survivor or the date;
+  - an import may **restrict** these fields (opt out, mark DND), never grant consent; a granted consent needs its own
+    evidence trail (NDPA);
+  - both are audited by field name.
+
+### D-P29 — what a notification may contain (M22 Q1)
+**Status:** OPEN, needs @acexode. Blocks T-0099.
+- **Lead recommendation:**
+  - a notification stores only (kind, object type, object id, actor id), never a name, subject or value;
+  - its title is built when it is read, under the reader's current scope and field security;
+  - one the reader can no longer see is dropped from the list, not shown redacted;
+  - in-app only in Phase 2; email, WhatsApp, SMS and push wait for their modules.
+
+### D-P30 — three architecture approvals for the rest of Phase 2
+**Status:** OPEN, needs @acexode. Each becomes an ADR before its task starts.
+1. **Object storage for imports (T-0092).** A new `packages/storage-adapter` over S3-compatible storage (SeaweedFS in dev),
+   with new dependencies `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` and `csv-parse`.
+   - Presigned multipart upload, tenant-prefixed keys with no filenames, raw files deleted after a retention window.
+   - The storage host joins the web CSP's `connect-src`.
+   - **Recommend:** approve.
+2. **The outbox (T-0098; CLAUDE.md 2.6).** An `outbox_event` table plus a relay in `apps/worker`.
+   - The relay must read across tenants, so it gets its own LOGIN NOBYPASSRLS role, `kasuwa_relay`, whose policies admit
+     only undispatched outbox rows: the ADR-0012 sweeper pattern.
+   - It is never granted to `kasuwa_app`. No SECURITY DEFINER function is needed.
+   - **Recommend:** approve.
+3. **Search in Postgres for Phase 2, OpenSearch deferred** (D-L87). The founding pack names OpenSearch, so this is a
+   departure on record.
+   - **Recommend:** approve; revisit when conversations and KB arrive.

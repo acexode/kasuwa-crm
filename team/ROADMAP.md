@@ -48,28 +48,41 @@ T-0049 (#93), a separate database role for the sign-in code (D-P16, ADR-0013), m
 | T-0051 (D-P14) | Agents may change status and assign contacts to themselves | ✅ Merged (#89) |
 | T-0050 | Pseudo-language preview for dev/test only | ✅ Merged (#90) |
 
-### Second slice: accounts and the 360° record (plan: D-L69)
+### Second slice: accounts, leads and the 360° record (plan: D-L69)
 
 | Task | What | Status |
 |---|---|---|
-| T-0053 | Standard objects as metadata; field security for any object | ✅ Merged (#91) |
-| T-0052 | Accounts contract | ✅ Merged (#88) |
-| T-0054 | Account fields (migration 0026) | 🟠 Builder running |
-| T-0055 | Accounts API | ⬜ Task written |
-| T-0059 | 360° record contract (contact side) | ✅ Merged (#94) |
-| T-0060 / T-0061 | Activity table; timeline and activity API | ⬜ Tasks written (T-0061 agent rights wait on D-P18) |
-| Leads (T-0056, T-0058) | Leads API and screen | ⛔ Waits on D-P17 |
+| T-0052 / T-0053 | Accounts contract; standard objects as metadata | ✅ Merged (#88, #91) |
+| T-0054 / T-0055 | Account fields (0026); Accounts API | ✅ Merged |
+| T-0059 / T-0060 / T-0061 | 360° contract; activity table (0027); timeline and activity API | ✅ Merged (#94, #102) |
+| T-0056 / T-0076 / T-0077 | Leads contract and API (0028); D-P18 rights | ✅ Merged (#101, #103) |
+| T-0078 | Audit values follow field security (release gate, D-L83) | 🟠 #105, final checks |
+| T-0057 | Accounts screen (P04) | 🟠 #104, verifying |
+| T-0062 | Contact record screen (P05) | 🟠 Review fixes |
+| T-0058 | Leads screen and Kanban (P04) | 🟠 Builder running |
+| T-0080 | Timeline activity versions; account timeline | 🟠 Suite being written |
+| T-0063 | Account record screen (P05) | ⬜ After T-0080 |
+| T-0079 / T-0075 | Capability read; sign-in reads on the auth pool | ⬜ Suites to write |
 
-### Next slices (design prompt in brackets)
-- Accounts and Leads screens (P04, exported)
-- 360° record view (P05, **design needed**)
-- Pipeline Kanban and deal detail (P06, **design needed**). Moved here from Phase 4: it is core CRM.
-- Custom fields (P18, **design needed**)
-- Home dashboards (P03, exported). They grow as later modules arrive.
-- CSV import, duplicate detection and merge (P28, **design needed**; rules in D-P12)
-- Activities, tasks and calendar (P07), and the in-call agent script screen (P10)
-- Global search and command palette (P27), notifications (P26)
-- Search indexes, before large tenants arrive (D-L68)
+### Remaining slices (plan of 2026-10-07; designs P07, P18, P26, P27, P28 exported)
+
+| Slice | Tasks | Blocked by |
+|---|---|---|
+| Activities, tasks, calendar (P07) | T-0081 contract, T-0082 API (`meeting`, start/end; migration), T-0083 screen | none (calendar sync deferred, D-P22) |
+| Search indexes (D-L68) | T-0084 trigram and jsonb GIN indexes, id-only cursors | ADR: Postgres search in Phase 2, OpenSearch deferred |
+| Search and command palette (P27) | T-0085 contract, T-0086 API (fan-out over scoped repositories), T-0087 screen | T-0084 |
+| Custom fields (P18) | T-0088 contract, T-0089 API (jsonb + GIN; migration), T-0090 studio, T-0091 on records | **D-P24, D-P25**; ADR on storage |
+| Import (P28) | T-0092 storage adapter (ADR, new deps), T-0093 contract, T-0094 import API (migration), T-0096 screen | ADR on object storage |
+| Dedupe and merge (P28) | T-0095 merge API (migration), T-0097 screen | **D-P27, D-P28** |
+| Notifications (P26) | T-0098 outbox (ADR, `kasuwa_relay` role), T-0099 contract, T-0100 API, T-0101 screen | ADR on the outbox; **D-P29** |
+| Pipeline (P06) | numbered after T-0101 | **D-P19, D-P20** |
+| Home dashboards (P03) | grow as modules arrive | none |
+| In-call agent script (P10) | not yet planned | **design needed** |
+
+Hidden in Phase 2 (their modules come later): calendar sync, booking pages, holidays, field check-in, AI briefs, offline
+queues; custom objects, layouts, validation rules, formulas; Zoho/Salesforce migration, the export centre, DSAR; search results
+"counted" from other programmes, facet counts, non-CRM search groups; approvals, push, and every non-in-app notification
+channel. Details in D-L87.
 
 ---
 
