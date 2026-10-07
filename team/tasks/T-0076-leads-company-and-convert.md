@@ -1,6 +1,6 @@
 # T-0076 — Leads: `contact.company_name`, the Leads list and convert
 
-**status** `not-assigned` (suite after T-0056) · **owner** Agent 3 (Agent 1 reviews the migration) · **priority** P1 · **decisions** D-P17, D-P18, D-L63, D-L67
+**status** `assigned` (suite on `lead/T-0076-acceptance`; migration 0028) · **owner** Agent 3 (Agent 1 reviews the migration) · **priority** P1 · **decisions** D-P17, D-P18, D-L63, D-L67
 
 ## Goal
 Serve the T-0056 contract.

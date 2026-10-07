@@ -1722,3 +1722,24 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
   binds the tenant-admin flag too (D-L63). This lands before any deployed cell.
 - **Tie-break.** Item ids are compared in code-unit order (`COLLATE "C"`).
 - **PR size.** The suite is about 2,930 lines, so the PR is marked exempt (structural).
+### D-L82 — T-0076 leads API suite rulings (lead, reversible)
+**Status:** PROCEEDING (lead). These came from the T-0076 suite writer.
+- **The convert audit event.**
+  - One event per successful convert, as D-P17 (answered) says.
+  - On the contact: `action 'updated'`, naming only the fields that changed (`status`, and `accountId` redacted with no
+    values).
+  - A repeat or a refusal writes none.
+  - The created account is not named, and gets no event of its own, because an account name can be a person's name and the
+    timeline's field list is closed.
+- **Tracked for @acexode:** a convert-created account therefore has no audit event of its own. It is created only
+  through convert or the Accounts API, and the latter audits it. If an account's own history must show its creation, D-P17's
+  "one audit event" becomes two (a contact `updated` plus an account `created`). That is a small change to the suite and
+  the builder.
+- **`company_name`:**
+  - classified `pii` (a sole trader's company is a person's name);
+  - `""` is 400; `null` clears it;
+  - at most 200 characters, and NUL is 400.
+- **`version` above 2^31** is 400, never 500 (T-0055 bounded it).
+- **A filter on a withheld owner** answers 400 `field_withheld` naming the query parameter, as accounts does.
+- **Migration 0028** is reserved for T-0076; `agent3/T-0076` may create that file only.
+- **PR size.** The suite is about 3,700 lines, so the PR is marked exempt (structural).
