@@ -1,6 +1,6 @@
 # T-0055 — Accounts API
 
-**status** `not-assigned` (suite after T-0054) · **owner** Agent 3 · **priority** P0 (blocks T-0057, T-0063) · **decisions** D-L63, D-L67, D-L69, D-P13, D-P18 (open; admin-only writes until answered)
+**status** `assigned` (suite on `lead/T-0055-acceptance`) · **owner** Agent 3 · **priority** P0 (blocks T-0057, T-0063) · **decisions** D-L63, D-L67, D-L69, D-P13, D-P18 (answered: admin-only writes), D-L78
 
 ## Goal
 Implement the T-0052 account operations (`records.openapi.yaml`), and flip `x-kasuwa-implemented` to true.

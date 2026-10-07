@@ -1648,3 +1648,18 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
 - **Ordering.** "Newest first" sorts by `created_at`. A call logged after it happened sorts by when it was logged. P07's
   calendar fields (start and end) will add when it happened.
 - **Left to the builder:** whether `due_at` and `completed_at` may be set on a note or a call.
+### D-L78 — T-0055 accounts API suite rulings (lead, reversible)
+**Status:** PROCEEDING (lead). These came from the T-0055 suite writer.
+- **Excess depth is 400 `validation_failed`** with `details[].code: parent_depth` at `parentAccountId`. The T-0055 builder adds
+  this code to the contract's `updateAccount` and `createAccount` descriptions, beside `parent_cycle`.
+- **Account audit records field names only, never values,** as the accounts contract says. D-L72's before and after values are
+  for the contact timeline only.
+- **Accepted pins beyond the brief:**
+  - account reads send `Cache-Control: no-store` (or `private`);
+  - no response header carries a total or a count;
+  - a NUL character in a name or tag is 400, never 500 and never silently stripped;
+  - an owner filter naming a user in a sibling programme or another tenant answers byte-identically to an invented id.
+- **Tracked follow-up (Agent 3):** the live **contacts** write path likely turns a NUL character in `displayName` into a
+  Postgres 22021 and so a scrubbed 500. It leaks nothing, but client input must never cause a 500. Fix it with a
+  NUL-refusing Zod refinement shared by every free-text field, and pin it in the next contacts suite edit.
+- **PR size.** The suite is about 2,950 lines, so the PR is marked exempt (structural).
