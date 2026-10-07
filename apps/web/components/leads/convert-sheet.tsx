@@ -9,11 +9,12 @@ import { FOCUS, MENU_ROW } from '../records/list-classes';
 import { CheckMark } from '../records/list-parts';
 import { SEARCH_DEBOUNCE_MS } from '../records/use-keyset-list';
 import { listAccounts, type Account } from '../../lib/accounts-api';
-import { convertLead, type ConvertLeadResult, type Lead } from '../../lib/leads-api';
+import { convertLead, type ConvertLeadBody, type ConvertLeadResult, type Lead } from '../../lib/leads-api';
 import type { RecordsError } from '../../lib/records-api';
 import {
   NEW_ACCOUNT_NAME_MAX,
-  convertBody,
+  convertAttempt,
+  convertInDoubt,
   convertRefusal,
   pickableAccounts,
   suggestedAccountName,
@@ -34,8 +35,10 @@ import {
  *     sheet, which stays open with what was chosen. `already_linked` has its
  *     own sentence. A 409 re-reads the lead, so the next press is not blind.
  *   - A LOST ANSWER is not a refusal: the server may have converted it. The
- *     sheet says so and the next press re-sends the SAME body, which the
- *     contract answers 200 as an exact repeat — one account, one event.
+ *     sheet says so, LOCKS every choice, and the next press re-sends the
+ *     exact body that was lost, which the contract answers 200 as an exact
+ *     repeat — one account, one event. The lock lifts on a definitive answer;
+ *     closing the sheet forgets it.
  *   - CONVERT IS ONCE. While a request is in flight the button is
  *     `aria-disabled` (not `disabled`, which would drop keyboard focus) and a
  *     second press does nothing. OFFLINE it is off (D-P21: no offline queue).
@@ -76,6 +79,10 @@ export function ConvertSheet({
   const [invalid, setInvalid] = useState<MessageId | null>(null);
   const [refusal, setRefusal] = useState<MessageId | null>(null);
   const [busy, setBusy] = useState(false);
+  // The body whose answer was lost, if any. While it is held, every choice is
+  // locked and the next press re-sends it unchanged (D-L86).
+  const [lost, setLost] = useState<ConvertLeadBody | null>(null);
+  const held = lost !== null;
   const sequence = useRef(0);
   const formId = useId();
   const blocked = busy || !online;
@@ -109,7 +116,7 @@ export function ConvertSheet({
     event.preventDefault();
     if (blocked) return;
     setRefusal(null);
-    const checked = convertBody(lead, { mode, accountId: picked?.id ?? null, name });
+    const checked = convertAttempt(lost, lead, { mode, accountId: picked?.id ?? null, name });
     if (!checked.ok) {
       setInvalid(checked.invalid);
       return;
@@ -122,6 +129,7 @@ export function ConvertSheet({
       return;
     }
     setBusy(false);
+    setLost(convertInDoubt(result.error) ? checked.body : null);
     setRefusal(convertRefusal(result.error, mode));
     if (result.error.code === 'stale_write') onStale(lead.id);
   };
@@ -170,6 +178,7 @@ export function ConvertSheet({
                 value={option}
                 data-convert-mode={option}
                 checked={mode === option}
+                disabled={held}
                 onChange={() => {
                   setMode(option);
                   setInvalid(null);
@@ -188,6 +197,7 @@ export function ConvertSheet({
             term={term}
             search={search}
             picked={picked}
+            held={held}
             onTerm={setTerm}
             onPick={(account) => {
               setPicked(account);
@@ -208,8 +218,9 @@ export function ConvertSheet({
               autoComplete="off"
               aria-required="true"
               aria-invalid={invalid === null ? undefined : 'true'}
+              disabled={held}
               onChange={(event) => setName(event.target.value)}
-              className={`${FIELD} w-full`}
+              className={`${FIELD} w-full disabled:cursor-not-allowed disabled:bg-surface-sunken`}
             />
           </div>
         )}
@@ -239,6 +250,7 @@ function Picker({
   term,
   search,
   picked,
+  held,
   onTerm,
   onPick,
 }: {
@@ -247,6 +259,8 @@ function Picker({
   term: string;
   search: Search;
   picked: Account | null;
+  /** A lost answer is held: the choice stays as it was sent. */
+  held: boolean;
   onTerm: (term: string) => void;
   onPick: (account: Account) => void;
 }) {
@@ -261,9 +275,10 @@ function Picker({
         value={term}
         maxLength={100}
         autoComplete="off"
+        disabled={held}
         aria-describedby={`${id}-hint`}
         onChange={(event) => onTerm(event.target.value)}
-        className={`${FIELD} w-full`}
+        className={`${FIELD} w-full disabled:cursor-not-allowed disabled:bg-surface-sunken`}
       />
       <p id={`${id}-hint`} className="text-caption text-text-2">
         {t.t('leads.convert.search.hint')}
@@ -292,6 +307,7 @@ function Picker({
                 type="button"
                 data-account-option={account.id}
                 aria-pressed={picked?.id === account.id}
+                disabled={held}
                 onClick={() => onPick(account)}
                 className={`${MENU_ROW} ${picked?.id === account.id ? 'font-semibold text-primary-text' : 'text-text'}`}
               >

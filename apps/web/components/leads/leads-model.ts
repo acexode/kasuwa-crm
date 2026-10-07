@@ -292,8 +292,12 @@ export function pickableAccounts(accounts: readonly Account[], programmeId: stri
 
 export const NEW_ACCOUNT_NAME_MAX = 200;
 
-/** The new account's name, prefilled from a readable `companyName` (the contract allows it). */
+/**
+ * The new account's name, prefilled from a READABLE `companyName` (the
+ * contract allows it). A withheld one is never read, whatever the row holds.
+ */
 export function suggestedAccountName(lead: Lead): string {
+  if (isWithheld(lead, 'companyName')) return '';
   return typeof lead.companyName === 'string' ? lead.companyName.slice(0, NEW_ACCOUNT_NAME_MAX) : '';
 }
 
@@ -316,6 +320,29 @@ export function convertBody(
   const name = choice.name.trim();
   if (name === '' || name.length > NEW_ACCOUNT_NAME_MAX) return { ok: false, invalid: 'accounts.invalid.name' };
   return { ok: true, body: { version: lead.version, newAccount: { name } } };
+}
+
+/**
+ * The body the next press sends. After a LOST answer it is exactly the body
+ * that was lost — the server may have applied it, and only the identical
+ * request is answered as the exact repeat (200, nothing written, D-L86). Any
+ * other press builds a fresh body from what is chosen.
+ */
+export function convertAttempt(
+  lost: ConvertLeadBody | null,
+  lead: Lead,
+  choice: { readonly mode: ConvertMode; readonly accountId: string | null; readonly name: string },
+): { ok: true; body: ConvertLeadBody } | { ok: false; invalid: ConvertInvalid } {
+  if (lost !== null) return { ok: true, body: lost };
+  return convertBody(lead, choice);
+}
+
+/**
+ * Whether an answer leaves the convert in doubt. Only a lost answer does: the
+ * choices are then held as sent until a definitive answer or the sheet closes.
+ */
+export function convertInDoubt(error: RecordsError): boolean {
+  return error.code === 'network';
 }
 
 /**

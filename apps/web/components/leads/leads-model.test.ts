@@ -8,7 +8,9 @@ import {
   LEAD_SORTS,
   LEAD_STATUSES,
   NO_LEAD_FILTERS,
+  convertAttempt,
   convertBody,
+  convertInDoubt,
   convertOffer,
   convertRefusal,
   leadCellWithheld,
@@ -218,6 +220,27 @@ describe('convert', () => {
     expect(suggestedAccountName(lead())).toBe('Bakare Logistics');
     expect(suggestedAccountName(lead({ companyName: null }))).toBe('');
     expect(suggestedAccountName(withheld(['companyName']))).toBe('');
+    // Listed as withheld but still carried (a row that disagrees with itself):
+    // the list wins, and the value is never read.
+    expect(suggestedAccountName(lead({ withheldFields: ['companyName'], companyName: 'Should Not Show' }))).toBe('');
+  });
+
+  it('after a lost answer re-sends exactly the lost body, whatever is chosen now', () => {
+    const lost = { version: 2, newAccount: { name: 'Bakare Logistics' } } as const;
+    const changed = { mode: 'existing' as const, accountId: 'a9', name: 'Something else' };
+    expect(convertAttempt(lost, lead({ version: 3 }), changed)).toEqual({ ok: true, body: lost });
+    // With nothing lost, a press builds a fresh body from the choice.
+    expect(convertAttempt(null, lead({ version: 3 }), changed)).toEqual({
+      ok: true,
+      body: { version: 3, accountId: 'a9' },
+    });
+  });
+
+  it('only a lost answer leaves a convert in doubt; a refusal is definitive', () => {
+    expect(convertInDoubt({ code: 'network' })).toBe(true);
+    for (const code of ['not_permitted', 'stale_write', 'not_found', 'validation_failed', 'internal_error'] as const) {
+      expect(convertInDoubt({ code }), code).toBe(false);
+    }
   });
 
   it('already_linked has its own sentence, and a lost answer says a retry is safe', () => {
