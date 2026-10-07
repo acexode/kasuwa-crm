@@ -49,6 +49,12 @@ export interface StackUrls {
    * here. The second name says which flag a spec relies on.
    */
   webAccountsUrl: string;
+  /**
+   * The same process as `webRecordsUrl`, which also has `crm_record_view` ON
+   * (T-0062, D-L85): the P05 contact record at `/contacts/[id]`, on the same
+   * production build, where its byte budget is measured.
+   */
+  webRecordViewUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;
   /** Static fixture pages used by the harness self-tests. */

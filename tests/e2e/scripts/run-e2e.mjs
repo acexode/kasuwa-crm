@@ -469,6 +469,13 @@ function startSelfServeWeb(apiUrl, port) {
  * each only where its flag is on. The stack file names it twice —
  * `webRecordsUrl` and `webAccountsUrl` — so a spec says which flag it relies
  * on, as `webLiveUrl` does for `webSelfServeUrl`.
+ *
+ * `crm_record_view` RIDES ON THIS PROCESS TOO (T-0062, D-L85): the P05 contact
+ * record at `/contacts/[id]`. It sits in the CRM shell, whose Contacts link
+ * needs `crm_records` wherever the record is served, and its byte budget is
+ * measured on this same production build. `webRecordViewUrl` names this
+ * process as well. The `@harness` tenancy spec drives `/contacts/[id]` here
+ * against the real API, so it exercises the real record screen.
  */
 function startRecordsWeb(apiUrl, port) {
   const child = spawn('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
@@ -483,7 +490,7 @@ function startRecordsWeb(apiUrl, port) {
       KASUWA_AUTH_MODE: 'jwt',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
-      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts',
+      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view',
       ...NO_DATABASE_URLS,
     },
   });
@@ -589,7 +596,7 @@ async function main() {
     restoreNextEnv(nextEnv);
     log(`web (next start, production build) on ${webUrl}`);
     log(`web (next dev, self_serve_signup + admin_live_api on) on ${webSelfServeUrl}`);
-    log(`web (next start, production build, crm_records + crm_accounts on) on ${webRecordsUrl}`);
+    log(`web (next start, production build, crm_records + crm_accounts + crm_record_view on) on ${webRecordsUrl}`);
   }
 
   // One file per Playwright project, not a shared `stack.json`. Two
@@ -605,14 +612,15 @@ async function main() {
     join(artifactsDir, `stack.${projectName}.json`),
     `${JSON.stringify(
       // `webLiveUrl` is the same process as `webSelfServeUrl`, and
-      // `webAccountsUrl` as `webRecordsUrl`; the second name says which flag a
-      // spec is relying on (T-0035, T-0057).
+      // `webAccountsUrl` and `webRecordViewUrl` as `webRecordsUrl`; the second
+      // name says which flag a spec is relying on (T-0035, T-0057, T-0062).
       {
         webUrl,
         webSelfServeUrl,
         webLiveUrl: webSelfServeUrl,
         webRecordsUrl,
         webAccountsUrl: webRecordsUrl,
+        webRecordViewUrl: webRecordsUrl,
         apiUrl,
         fixturesUrl,
       },
