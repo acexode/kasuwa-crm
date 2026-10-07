@@ -1696,3 +1696,29 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
   - a NUL character in a cursor;
   - an unbounded `version` (both returned 500);
   - inherited properties on the request body.
+### D-L81 — T-0061 suite rulings (lead, reversible)
+**Status:** PROCEEDING (lead). These came from the T-0061 suite writer.
+- **Creation on the timeline.** A `created` event renders like an update: one item per field the create set, by the creator.
+  Value fields show `before: null`, and consent shows `before: 'unknown'`.
+- **Actors.**
+  - Former members, tenant admins outside the programme and disabled users are shown by name, never as `null`; `null` means
+    the system.
+  - The name is read at request time.
+  - A user in the audit log is never hard-deleted (0008).
+  - Consistent with D-P23 being open; if D-P23 lands on a neutral label for former owners, actors stay named. An actor
+    acted inside the programme.
+- **Activity writes.**
+  - `POST /api/v1/activities` and `PATCH /api/v1/activities/{id}`.
+  - The update body is `version` plus `completed: true` and/or `ownerUserId`. Reopening a task is not in the MVP.
+  - Reassigning follows D-P14:
+    - the `agent` set may set the owner to itself only;
+    - `team_lead`, `programme_manager` and `admin` (and the tenant-admin flag) may assign any member of the activity's
+      programme.
+- **Values.** D-L72's value fields stand: tags, state and lga keep before and after values. Tags are operator-assigned
+  labels, and the timeline omits any field withheld from the reader. The builder encodes booleans and arrays in the
+  `AuditChange` string type.
+- **Follow-up T-0078: the admin audit API must apply field security to change values.** Once audit rows carry values, an
+  admin whose matrix withholds a field must not read its before and after values through `/admin/audit`. Field security
+  binds the tenant-admin flag too (D-L63). This lands before any deployed cell.
+- **Tie-break.** Item ids are compared in code-unit order (`COLLATE "C"`).
+- **PR size.** The suite is about 2,930 lines, so the PR is marked exempt (structural).
