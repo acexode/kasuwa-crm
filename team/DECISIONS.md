@@ -2002,3 +2002,28 @@ Every recommendation below was taken as written in its entry. What each one now 
 - **Custom fields on standard objects** use the `__c` suffix in fixtures (D-P24).
 - **The HTTP 400 moves to T-0089**, the first create-field API; T-0102 has no HTTP part.
 - **Migration 0029** is T-0102's. The next migration task takes 0030.
+
+### D-L90 — T-0080 timeline suite rulings (lead, reversible)
+**Status:** PROCEEDING (lead). These came from the T-0080 suite writer.
+- **`AccountTimelinePage`, not the shared `TimelinePage`.** The shared field enums name Contact wire names (the T-0059 suite
+  pins that) and would let account `tags`, `state` and `lga` carry values. The page shape and the activity item schema are
+  one node on both pages; the suite checks it.
+- **Account field changes are `{ field, redacted: true }` always**, even when an audit row stores values (D-L78, T-0078). A
+  name that is not an Account field gives no item. Accounts never get a `consent_changed` item.
+- **A withheld activity `account_id` hides every activity item** on the account timeline, mirroring `contact_id` on the
+  contact timeline. A withheld `contact_id` there is the builder's to decide and report.
+- **Audit events count only when recorded in the account's programme**, for an admin of both programmes too.
+- **A non-uuid id is 404** on this operation (its own path parameter), unlike the contact timeline's 400. Safer: nothing
+  distinguishes a malformed id. The contact timeline is not changed here.
+- **A scope header is 400 even on an unreachable account**, one body in reach or out.
+- **"Position only"** means no name (account, actor, subject, contact) and no id the pages so far did not show; the record's own
+  id is allowed. A cursor is refused on another account, on a contact timeline and on listAccounts.
+- **`Cache-Control: no-store` exactly, on 200, 400 and 404.** Nest's `@Header` reaches only successful responses, so the builder
+  needs a middleware (T-0078's `NoStoreMiddleware` pattern).
+- **Client-portal parity** with the agent set on both timelines (D-P26's rules land before M18, not here).
+- **The T-0061 suite edit** (a93073a) adds `version` to the pinned activity item keys. Nothing was loosened.
+- **Tracked follow-ups:**
+  - every records error response lacks `no-store` today; one shared middleware for `/api/v1` should replace per-handler
+    headers (T-0079 or a small task);
+  - a contact timeline item id is md5(event id, field), so one audit row naming a field twice would collide. No writer
+    produces that today; a writer-side assertion would make it impossible.

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0080 |
-| **status** | `not-assigned` (suite to be written) |
+| **status** | `assigned` (suite `lead/T-0080-acceptance`: 07bf06f, a93073a) |
 | **module** | M03 — Core CRM records; M06 — Activities |
 | **owner** | Agent 3 — Core CRM |
 | **priority** | P1 (unblocks T-0062's served-task completion and T-0063) |
@@ -25,8 +25,8 @@ Two changes to `docs/api/records.openapi.yaml`. **The contract goes first, in th
    timeline is the only place a screen reads an activity, so today a task can be completed only in the session that logged
    it. Add `version` to the activity item of `TimelineItem`; it is the row's `activity.version`, unchanged by field security
    (a version is never withheld).
-2. **`listAccountTimeline`: `GET /api/v1/accounts/{accountId}/timeline`.** It has the same shape as `listContactTimeline`
-   (`TimelinePage`), so both are the same schema:
+2. **`listAccountTimeline`: `GET /api/v1/accounts/{accountId}/timeline`.** It returns `AccountTimelinePage`, which shares the
+   page shape and the activity item schema node with `TimelinePage` but names Account fields only (D-L90):
    - **Field changes:** the account's audit events as field-change items, **by name only** (D-L78, and T-0078's account
      policy has no value fields).
    - **Activities:** activities whose `account_id` is this account, read on `activity_account_keyset_idx`.
@@ -44,7 +44,8 @@ and its fail-closed field-security path. Do not fork it: extract the shared part
 
 Written by the lead, committed and failing before a builder starts:
 - `tests/acceptance/records/timeline-v2.acceptance.test.ts`
-- `tests/acceptance/records/contact-timeline.acceptance.test.ts` (T-0061's suite) must still pass, unmodified.
+- `tests/acceptance/records/contact-timeline.acceptance.test.ts` (T-0061's suite), with the lead's edit a93073a: the activity
+  item's key set now includes `version`.
 
 ## Non-goals
 
