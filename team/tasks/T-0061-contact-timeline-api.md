@@ -1,6 +1,6 @@
 # T-0061 — Contact timeline, account summary and activity writes
 
-**status** `assigned` (suite on `lead/T-0061-acceptance`) · **owner** Agent 3 · **priority** P1 (blocks T-0062) · **decisions** D-L63, D-L64, D-L72, D-L73, D-P18 (answered)
+**status** `done` (#102) · **owner** Agent 3 · **priority** P1 (blocks T-0062) · **decisions** D-L63, D-L64, D-L72, D-L73, D-P18 (answered)
 
 ## Goal
 Serve what T-0059 contracted, and add activity writes.
