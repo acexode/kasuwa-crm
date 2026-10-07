@@ -266,8 +266,13 @@ export class AuthController {
    * inside the tenant transaction and under RLS, so a user who has just been
    * disabled, or whose session has just been revoked, fails here rather than
    * being served from anything the guard cached.
+   *
+   * `no-store` (T-0062 review): the body carries the staff member's email and
+   * tenant id at a URL that is the same for every user, and the P05 record
+   * reads it from the browser on shared BPO desks.
    */
   @Get('me')
+  @Header('Cache-Control', 'no-store')
   @UseGuards(KasuwaAuthGuard)
   @UseInterceptors(TenantTransactionInterceptor)
   async me(): Promise<CurrentUserResponse> {
