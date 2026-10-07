@@ -1021,12 +1021,35 @@ describe('acceptance: the activity table (T-0060)', () => {
       );
       expect(owner.rows[0]?.owner).toBe('kasuwa_migrator');
 
+      // UPDATE is column-level (D-L79): the business columns are writable, and
+      // the creator, creation time and keys are not, so the timeline actor and
+      // order cannot be forged. has_table_privilege(UPDATE) is false for a
+      // column-only grant, so UPDATE is checked column by column.
       const app = await migrator.query<Record<string, boolean>>(
         `SELECT has_table_privilege('kasuwa_app', 'public.activity', 'SELECT') AS select,
                 has_table_privilege('kasuwa_app', 'public.activity', 'INSERT') AS insert,
-                has_table_privilege('kasuwa_app', 'public.activity', 'UPDATE') AS update`,
+                has_any_column_privilege('kasuwa_app', 'public.activity', 'UPDATE') AS update`,
       );
       expect(app.rows[0]).toEqual({ select: true, insert: true, update: true });
+      const columns = await migrator.query<{ column: string; writable: boolean }>(
+        `SELECT c AS column, has_column_privilege('kasuwa_app', 'public.activity', c, 'UPDATE') AS writable
+           FROM unnest(ARRAY['subject', 'body', 'due_at', 'completed_at', 'owner_user_id',
+                             'id', 'tenant_id', 'programme_id', 'created_by_user_id', 'created_at']) AS c
+          ORDER BY 1`,
+      );
+      const writable = Object.fromEntries(columns.rows.map((row) => [row.column, row.writable]));
+      expect(writable).toEqual({
+        body: true,
+        completed_at: true,
+        created_at: false,
+        created_by_user_id: false,
+        due_at: true,
+        id: false,
+        owner_user_id: true,
+        programme_id: false,
+        subject: true,
+        tenant_id: false,
+      });
 
       // Every role kasuwa_app is a member of, whatever the INHERIT option
       // (it can SET ROLE to kasuwa_sweeper, D-L66), and kasuwa_app itself.
