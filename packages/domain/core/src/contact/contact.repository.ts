@@ -48,6 +48,17 @@ export interface ContactOwner {
   displayName: string;
 }
 
+/**
+ * A contact's account, with the name a screen prints (T-0059 contract,
+ * served by T-0061, D-L72). Closed: an id and a name, never the account's
+ * owner, tier, industry or phones (getAccount has those, under its own field
+ * security).
+ */
+export interface ContactAccountSummary {
+  id: string;
+  name: string;
+}
+
 export interface Contact {
   id: string;
   programmeId: string;
@@ -58,6 +69,8 @@ export interface Contact {
   phones: ContactPhone[];
   emails: string[];
   accountId: string | null;
+  /** `null` exactly when `accountId` is null; otherwise `account.id === accountId`. */
+  account: ContactAccountSummary | null;
   ownerUserId: string | null;
   /** `null` exactly when `ownerUserId` is null; otherwise `owner.id === ownerUserId`. */
   owner: ContactOwner | null;
@@ -181,6 +194,8 @@ interface ContactRow {
   phones: ContactPhone[];
   emails: string[];
   account_id: string | null;
+  /** The account's `name`, read in the same statement (ACCOUNT_NAME). */
+  account_name: string | null;
   owner_user_id: string | null;
   /** The owner's `"user".display_name`, read in the same statement (OWNER_DISPLAY_NAME). */
   owner_display_name: string | null;
@@ -232,12 +247,32 @@ const OWNER_DISPLAY_NAME = `(
      AND owner_user.id = contact.owner_user_id
 ) AS owner_display_name`;
 
+/**
+ * The account's name, embedded in the same statement as the contact row
+ * (T-0061, D-L72), exactly as the owner's name is. A correlated subquery on
+ * THIS row: a name is only ever read for the account a contact the statement
+ * already returns is linked to, never for an id the caller supplied.
+ *
+ * tenancy-reviewed: the account is matched on (tenant_id, programme_id, id)
+ * to the contact's own tenant, programme and account, the triple of the
+ * composite FK (0019), so it is always an account in the contact's own
+ * programme; RLS on account besides.
+ */
+const ACCOUNT_NAME = `(
+  SELECT contact_account.name
+    FROM account contact_account
+   WHERE contact_account.tenant_id = contact.tenant_id
+     AND contact_account.programme_id = contact.programme_id
+     AND contact_account.id = contact.account_id
+) AS account_name`;
+
 const SELECT_COLUMNS = `
   id, programme_id, version, display_name, given_names, family_name,
   phones, emails, account_id, owner_user_id, status, source, tags,
   preferred_language, preferred_channel, state, lga, dnd, whatsapp_opt_in,
   consent_state, phone_network, created_at, updated_at,
-  ${OWNER_DISPLAY_NAME}
+  ${OWNER_DISPLAY_NAME},
+  ${ACCOUNT_NAME}
 `;
 
 function cursorColumn(spec: SortSpec): string {
@@ -277,6 +312,29 @@ export function contactOwnerOf(
   return { id: ownerUserId, displayName: ownerDisplayName };
 }
 
+/**
+ * A contact names an account whose name could not be read. The composite FK
+ * (0019) makes this impossible; failing is better than sending
+ * `account: null` beside a set `accountId`, which the contract says means "no
+ * account". Carries no identifier.
+ */
+export class ContactAccountUnresolvedError extends Error {
+  constructor() {
+    super('A contact account could not be resolved');
+    this.name = 'ContactAccountUnresolvedError';
+  }
+}
+
+/** The embedded account summary, from a row's account id and the name read beside it. */
+export function contactAccountOf(
+  accountId: string | null,
+  accountName: string | null,
+): ContactAccountSummary | null {
+  if (accountId === null) return null;
+  if (accountName === null) throw new ContactAccountUnresolvedError();
+  return { id: accountId, name: accountName };
+}
+
 function toContact(row: ContactRow): Contact {
   return {
     id: row.id,
@@ -288,6 +346,7 @@ function toContact(row: ContactRow): Contact {
     phones: row.phones,
     emails: row.emails,
     accountId: row.account_id,
+    account: contactAccountOf(row.account_id, row.account_name),
     ownerUserId: row.owner_user_id,
     owner: contactOwnerOf(row.owner_user_id, row.owner_display_name),
     status: row.status,

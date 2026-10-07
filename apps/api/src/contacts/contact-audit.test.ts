@@ -1,6 +1,6 @@
 import type { Contact } from '@kasuwa/domain-core';
 import { describe, expect, it } from 'vitest';
-import { contactAuditEvent, contactChanges } from './contact-audit';
+import { contactAuditEvent, contactChanges, encodeContactAuditValue } from './contact-audit';
 
 // Invented values only (CLAUDE.md 6.1).
 const PHONE = '+2348069990041';
@@ -16,6 +16,7 @@ const before: Contact = {
   phones: [{ type: 'mobile', e164: PHONE }],
   emails: [EMAIL],
   accountId: null,
+  account: null,
   ownerUserId: null,
   owner: null,
   status: 'new',
@@ -45,9 +46,46 @@ describe('contactChanges', () => {
     }
   });
 
-  it('records a closed-set field only when it moved, and never its value', () => {
+  it('records a value field only when it moved, with its before and after (D-L72)', () => {
     const changes = contactChanges({ status: 'qualified', consentState: 'unknown' }, before);
-    expect(changes).toEqual([{ field: 'status', before: null, after: null, redacted: true }]);
+    expect(changes).toEqual([
+      { field: 'status', before: 'new', after: 'qualified', redacted: false },
+    ]);
+  });
+
+  it('encodes booleans and tag lists in the string type, and null as had-none (D-L81)', () => {
+    const changes = contactChanges(
+      { whatsappOptIn: true, tags: ['Late payer', 'VIP'], state: 'Lagos', lga: null },
+      { ...before, tags: ['Late payer'], lga: 'Ikeja' },
+    );
+    expect(changes).toEqual([
+      { field: 'whatsappOptIn', before: 'false', after: 'true', redacted: false },
+      { field: 'state', before: null, after: 'Lagos', redacted: false },
+      { field: 'lga', before: 'Ikeja', after: null, redacted: false },
+      { field: 'tags', before: '["Late payer"]', after: '["Late payer","VIP"]', redacted: false },
+    ]);
+  });
+
+  it('records nothing for a value field sent unchanged, tags and State included', () => {
+    const same = { ...before, tags: ['VIP'], state: 'Lagos' };
+    expect(contactChanges({ tags: ['VIP'], state: 'Lagos', status: 'new' }, same)).toEqual([]);
+  });
+
+  it('records the owner and the account by name only, never their ids', () => {
+    const OWNER = '11111111-0000-4000-8000-0000000d0001';
+    const ACCOUNT = '11111111-0000-4000-8000-000000130001';
+    const changes = contactChanges({ ownerUserId: OWNER, accountId: ACCOUNT }, before);
+    expect(changes).toEqual([
+      { field: 'ownerUserId', before: null, after: null, redacted: true },
+      { field: 'accountId', before: null, after: null, redacted: true },
+    ]);
+  });
+
+  it('records a value too long for the writer by name only, rather than refusing the write', () => {
+    const tags = Array.from({ length: 50 }, (_, index) => `tag-${index}-`.padEnd(64, 'x'));
+    expect(contactChanges({ tags }, before)).toEqual([
+      { field: 'tags', before: null, after: null, redacted: true },
+    ]);
   });
 
   it('compares ids case-insensitively: an upper-case owner or account that is already set is no change', () => {
@@ -70,12 +108,24 @@ describe('contactChanges', () => {
     ]);
   });
 
-  it('on create, records every field that was set', () => {
+  it('on create, records every field that was set: values from null, consent from unknown (D-L81)', () => {
     const changes = contactChanges(
-      { displayName: 'X', status: 'new', ownerUserId: null, whatsappOptIn: false },
+      {
+        displayName: 'X',
+        status: 'new',
+        ownerUserId: null,
+        whatsappOptIn: false,
+        consentState: 'opted_in',
+        lga: null,
+      },
       null,
     );
-    expect(changes.map((entry) => entry.field)).toEqual(['displayName', 'status', 'whatsappOptIn']);
+    expect(changes).toEqual([
+      { field: 'displayName', before: null, after: null, redacted: true },
+      { field: 'status', before: null, after: 'new', redacted: false },
+      { field: 'consentState', before: 'unknown', after: 'opted_in', redacted: false },
+      { field: 'whatsappOptIn', before: null, after: 'false', redacted: false },
+    ]);
   });
 
   it('never carries a phone or an address', () => {
@@ -87,6 +137,16 @@ describe('contactChanges', () => {
     expect(text).not.toContain(PHONE);
     expect(text).not.toContain(PHONE.slice(1));
     expect(text).not.toContain(EMAIL);
+  });
+});
+
+describe('encodeContactAuditValue', () => {
+  it('keeps strings, spells booleans, writes arrays as JSON and absence as null', () => {
+    expect(encodeContactAuditValue('contacted')).toBe('contacted');
+    expect(encodeContactAuditValue(false)).toBe('false');
+    expect(encodeContactAuditValue(['a', 'b'])).toBe('["a","b"]');
+    expect(encodeContactAuditValue(null)).toBeNull();
+    expect(encodeContactAuditValue(undefined)).toBeNull();
   });
 });
 

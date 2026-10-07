@@ -1,6 +1,7 @@
 import {
   withheldContactFields,
   type Contact,
+  type ContactAccountSummary,
   type ContactFieldAccess,
   type ContactOwner,
   type ContactPhone,
@@ -13,13 +14,18 @@ import {
  * (T-0043) is `ownerUserId` with a name attached: a name that survived a
  * withheld id would hand back what field security took away. There is no
  * matrix row for `owner`, deliberately, so the two can never disagree.
+ * `account` (T-0061, D-L72) is `accountId` with the account's name attached,
+ * for the same reason.
  */
-type DerivedContactField = 'owner';
+type DerivedContactField = 'owner' | 'account';
 
 const DERIVED: readonly (readonly [
   derived: DerivedContactField,
   source: WithholdableContactField,
-])[] = [['owner', 'ownerUserId']];
+])[] = [
+  ['owner', 'ownerUserId'],
+  ['account', 'accountId'],
+];
 
 /** A name `withheldFields` may carry. */
 export type WithheldContactWireField = WithholdableContactField | DerivedContactField;
@@ -61,6 +67,8 @@ export interface ContactWire {
   phones?: ContactPhone[];
   emails?: string[];
   accountId?: string | null;
+  /** T-0061: withheld with `accountId`, never on its own. */
+  account?: ContactAccountSummary | null;
   ownerUserId?: string | null;
   /** T-0043: withheld with `ownerUserId`, never on its own. */
   owner?: ContactOwner | null;
@@ -88,6 +96,7 @@ export function toContactWire(contact: Contact, access: ContactFieldAccess): Con
     phones: contact.phones,
     emails: contact.emails,
     accountId: contact.accountId,
+    account: contact.account,
     ownerUserId: contact.ownerUserId,
     owner: contact.owner,
     status: contact.status,

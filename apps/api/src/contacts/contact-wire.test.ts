@@ -22,6 +22,7 @@ const contact: Contact = {
   phones: [],
   emails: [EMAIL],
   accountId: null,
+  account: null,
   ownerUserId: null,
   owner: null,
   status: null,
@@ -45,7 +46,9 @@ const accessWith = (level: ContactFieldLevel): ContactFieldAccess =>
     [
       A1,
       new Map(
-        WITHHOLDABLE_CONTACT_FIELDS.map((field) => [field, field === 'emails' ? level : 'edit'] as const),
+        WITHHOLDABLE_CONTACT_FIELDS.map(
+          (field) => [field, field === 'emails' ? level : 'edit'] as const,
+        ),
       ),
     ],
   ]);
@@ -86,7 +89,7 @@ describe('toContactWire', () => {
     expect(wire.version).toBe(2);
     expect(wire.createdAt).toBe('2026-01-01T00:00:00.123Z');
     expect(Object.keys(wire)).not.toContain('tenantId');
-    expect(Object.keys(wire)).toHaveLength(25);
+    expect(Object.keys(wire)).toHaveLength(26);
   });
 });
 
@@ -109,6 +112,41 @@ describe('toContactWire: the embedded owner (T-0043)', () => {
   });
 });
 
+const ACCOUNT = { id: '11111111-0000-4000-8000-0000006100a1', name: 'Probe Traders Q4' };
+const linked: Contact = { ...contact, accountId: ACCOUNT.id, account: ACCOUNT };
+
+/** Every field edit in A1, except accountId at `level`. */
+const accountAccess = (level: ContactFieldLevel): ContactFieldAccess =>
+  new Map([
+    [
+      A1,
+      new Map(
+        WITHHOLDABLE_CONTACT_FIELDS.map(
+          (field) => [field, field === 'accountId' ? level : 'edit'] as const,
+        ),
+      ),
+    ],
+  ]);
+
+describe('toContactWire: the embedded account (T-0061)', () => {
+  it('sends account beside accountId when the id is readable, and null when unlinked', () => {
+    const wire = toContactWire(linked, accountAccess('read'));
+    expect(wire.account).toEqual(ACCOUNT);
+    expect(wire.accountId).toBe(ACCOUNT.id);
+    expect(wire.withheldFields).toEqual([]);
+    expect(toContactWire(contact, accountAccess('edit')).account).toBeNull();
+  });
+
+  it('withholds account WITH accountId: both omitted, both named, the name nowhere', () => {
+    const wire = toContactWire(linked, accountAccess('none'));
+    expect('accountId' in wire).toBe(false);
+    expect('account' in wire).toBe(false);
+    expect(wire.withheldFields).toEqual(['accountId', 'account']);
+    expect(JSON.stringify(wire)).not.toContain(ACCOUNT.name);
+    expect(JSON.stringify(wire)).not.toContain(ACCOUNT.id);
+  });
+});
+
 describe('withheldWireFields', () => {
   it('follows a withheld ownerUserId with owner, keeping contract order', () => {
     expect(withheldWireFields(['emails', 'ownerUserId', 'status'])).toEqual([
@@ -119,8 +157,12 @@ describe('withheldWireFields', () => {
     ]);
   });
 
-  it('adds nothing when ownerUserId is readable', () => {
-    expect(withheldWireFields(['emails', 'accountId'])).toEqual(['emails', 'accountId']);
+  it('follows a withheld accountId with account (T-0061)', () => {
+    expect(withheldWireFields(['emails', 'accountId'])).toEqual(['emails', 'accountId', 'account']);
+  });
+
+  it('adds nothing when ownerUserId and accountId are readable', () => {
+    expect(withheldWireFields(['emails', 'status'])).toEqual(['emails', 'status']);
     expect(withheldWireFields([])).toEqual([]);
   });
 });
