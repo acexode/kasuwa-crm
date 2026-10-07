@@ -206,6 +206,11 @@ export const contact = pgTable(
     accountId: uuid('account_id'),
     /** Optimistic-concurrency counter (T-0039); kept moving by app.bump_version(). */
     version: integer('version').notNull().default(1),
+    /**
+     * Migration 0028 (T-0076, D-P17): free-text company, 1..200 characters
+     * (CHECK, NOT VALID). Not a link: account_id is. Classified pii (D-L82).
+     */
+    companyName: text('company_name'),
   },
   (table) => [
     /** Migration 0027: the target of activity's composite contact FK. */

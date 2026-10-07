@@ -9,10 +9,11 @@ import { newId } from './ids';
  * the seed (`runSeed`) and tenant provisioning (`provisionTenant` in
  * `@kasuwa/domain-core/provisioning`). Tenants that existed before the rows
  * did were backfilled by migration 0025 (contact, account `name`), 0026
- * (T-0054, the account fields after `name`) and 0027 (T-0060, activity), each
- * carrying a frozen copy of its part of this list; the T-0053, T-0054 and
- * T-0060 acceptance suites assert that all three sources produce the same
- * catalogue. Never edit any of those migrations.
+ * (T-0054, the account fields after `name`), 0027 (T-0060, activity) and
+ * 0028 (T-0076, contact `company_name`), each carrying a frozen copy of its
+ * part of this list; the T-0053, T-0054, T-0060 and T-0076 acceptance suites
+ * assert that all three sources produce the same catalogue. Never edit any of
+ * those migrations.
  *
  * ADDING A STANDARD FIELD (or object):
  *   1. add it here;
@@ -97,6 +98,9 @@ export const STANDARD_OBJECT_CATALOGUE: readonly StandardObjectDef[] = [
     fields: [
       field('given_names', 'Given names', 'text', { classification: 'pii' }),
       field('family_name', 'Family name', 'text', { classification: 'pii' }),
+      // Migration 0028 (T-0076, D-P17). Free text that is often a person's
+      // name (a sole trader's business), so pii (D-L82).
+      field('company_name', 'Company', 'text', { classification: 'pii' }),
       field('phones', 'Phones', 'phone', { classification: 'pii' }),
       field('emails', 'Emails', 'email', { classification: 'pii' }),
       field('account_id', 'Account', 'lookup', { config: { targetObjectApiName: 'account' } }),

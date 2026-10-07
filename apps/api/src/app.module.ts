@@ -17,6 +17,7 @@ import type { AuthPolicy } from './auth/auth.policy';
 import { ContactsController } from './contacts/contacts.controller';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
+import { LeadsController } from './leads/leads.controller';
 import { MeController } from './me/me.controller';
 import { CHANNEL, createApiChannel } from './messaging/channel';
 import { AUTH_MODE, KasuwaAuthGuard, type ResolvedAuthMode } from './tenancy/kasuwa-auth.guard';
@@ -34,6 +35,7 @@ import {
 const CONTROLLERS = [
   HealthController,
   ContactsController,
+  LeadsController,
   AccountsController,
   ActivitiesController,
   MeController,

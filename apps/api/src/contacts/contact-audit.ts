@@ -44,6 +44,8 @@ const REDACTED_WHEN_SENT: readonly (keyof ContactValues)[] = [
   'displayName',
   'givenNames',
   'familyName',
+  // T-0076 (D-L82): free text, often a sole trader's own name. By name only.
+  'companyName',
   'phones',
   'emails',
 ];

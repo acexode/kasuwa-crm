@@ -72,7 +72,15 @@ describe('visibleChangeFields', () => {
     const fields = visibleChangeFields(contactAccess(), A1);
     expect(fields).not.toContain('dnd');
     expect(fields).not.toContain('phoneNetwork');
-    expect(fields).toHaveLength(16);
+    // T-0076 added companyName (redacted): 17.
+    expect(fields).toContain('companyName');
+    expect(fields).toHaveLength(17);
+  });
+
+  it('omits companyName where it is withheld (T-0076)', () => {
+    expect(visibleChangeFields(contactAccess({ companyName: 'none' }), A1)).not.toContain(
+      'companyName',
+    );
   });
 
   it('fails closed for a programme the access map does not carry', () => {
@@ -104,6 +112,22 @@ describe('toTimelineItems: change items (D-L72, D-L81)', () => {
       actor: ACTOR,
       field: 'status',
     });
+  });
+
+  it('shows a companyName change by name only, even if a row carries values (T-0076, D-L82)', () => {
+    const [item] = map([
+      change('companyName', { redacted: false, before: 'Probe Old Co', after: 'Probe New Co' }),
+    ]);
+    expect(item).toEqual({
+      id: `ti_${'0'.repeat(31)}1`,
+      type: 'field_changed',
+      occurredAt: AT,
+      actor: ACTOR,
+      field: 'companyName',
+      redacted: true,
+    });
+    expect(JSON.stringify(item)).not.toContain('Probe Old Co');
+    expect(JSON.stringify(item)).not.toContain('Probe New Co');
   });
 
   it('never sends a value for a redacted field, even if a row carries one', () => {

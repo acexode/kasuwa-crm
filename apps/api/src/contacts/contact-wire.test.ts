@@ -19,6 +19,7 @@ const contact: Contact = {
   displayName: 'Probe Person',
   givenNames: 'Probe',
   familyName: null,
+  companyName: 'Probe Wire Co',
   phones: [],
   emails: [EMAIL],
   accountId: null,
@@ -89,7 +90,31 @@ describe('toContactWire', () => {
     expect(wire.version).toBe(2);
     expect(wire.createdAt).toBe('2026-01-01T00:00:00.123Z');
     expect(Object.keys(wire)).not.toContain('tenantId');
-    expect(Object.keys(wire)).toHaveLength(26);
+    // T-0061 added account, T-0076 companyName.
+    expect(Object.keys(wire)).toHaveLength(27);
+  });
+
+  it('serves companyName, null when none, and omits and names it when withheld (T-0076)', () => {
+    const readable = toContactWire(contact, accessWith('edit'));
+    expect(readable.companyName).toBe('Probe Wire Co');
+    expect(toContactWire({ ...contact, companyName: null }, accessWith('edit')).companyName).toBeNull();
+
+    const withheld = toContactWire(
+      contact,
+      new Map([
+        [
+          A1,
+          new Map(
+            WITHHOLDABLE_CONTACT_FIELDS.map(
+              (field) => [field, field === 'companyName' ? 'none' : 'edit'] as const,
+            ),
+          ),
+        ],
+      ]),
+    );
+    expect('companyName' in withheld).toBe(false);
+    expect(withheld.withheldFields).toEqual(['companyName']);
+    expect(JSON.stringify(withheld)).not.toContain('Probe Wire Co');
   });
 });
 

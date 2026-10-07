@@ -7,6 +7,7 @@ import {
   MAX_PAGE_SIZE,
 } from '@kasuwa/domain-core';
 import { z } from 'zod';
+import { text } from '../common/text';
 
 /**
  * Boundary schemas for the contacts API, transcribed from
@@ -62,7 +63,8 @@ const queryBoolean = z
   .optional();
 
 export const ListContactsQuery = z.object({
-  q: z.string().min(1).max(100).optional(),
+  // text(): a NUL is 400, never a Postgres 22021 and so a 500 (D-L78).
+  q: text(1, 100).optional(),
   owner: many(
     z
       .string()
@@ -123,11 +125,17 @@ const BCP47 = new RegExp(
     ')|([Xx](-[A-Za-z0-9]{1,8})+))$',
 );
 
-/** Properties both writes accept, as the contract names them. */
+/**
+ * Properties both writes accept, as the contract names them. The free-text
+ * names go through `text()` (D-L78): a NUL is 400 `invalid_character`, never
+ * a Postgres 22021 (a 500); lengths are counted in code points.
+ */
 const writableFields = {
-  displayName: z.string().min(1).max(200),
-  givenNames: z.string().max(200).nullable().optional(),
-  familyName: z.string().max(200).nullable().optional(),
+  displayName: text(1, 200),
+  givenNames: text(0, 200).nullable().optional(),
+  familyName: text(0, 200).nullable().optional(),
+  // T-0076 (D-L82): 1..200 code points, no NUL; `null` clears it, "" is 400.
+  companyName: text(1, 200).nullable().optional(),
   phones: z.array(Phone).max(10).optional(),
   emails: z.array(Email).max(10).optional(),
   accountId: z.string().uuid().nullable().optional(),

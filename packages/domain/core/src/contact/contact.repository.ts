@@ -66,6 +66,8 @@ export interface Contact {
   displayName: string;
   givenNames: string | null;
   familyName: string | null;
+  /** Free text (T-0076, D-P17); `null` when none was recorded. Not a link: `accountId` is. */
+  companyName: string | null;
   phones: ContactPhone[];
   emails: string[];
   accountId: string | null;
@@ -174,6 +176,12 @@ export interface ContactSearch {
   phoneProgrammeIds: readonly string[];
   givenNamesProgrammeIds: readonly string[];
   familyNameProgrammeIds: readonly string[];
+  /**
+   * Programmes in which `companyName` may be matched (listLeads, T-0076).
+   * Absent: the company is not searched at all (listContacts' `q` is names
+   * and numbers, as its contract says).
+   */
+  companyNameProgrammeIds?: readonly string[] | undefined;
 }
 
 export interface ListContactsOptions {
@@ -191,6 +199,7 @@ interface ContactRow {
   display_name: string;
   given_names: string | null;
   family_name: string | null;
+  company_name: string | null;
   phones: ContactPhone[];
   emails: string[];
   account_id: string | null;
@@ -267,7 +276,7 @@ const ACCOUNT_NAME = `(
 ) AS account_name`;
 
 const SELECT_COLUMNS = `
-  id, programme_id, version, display_name, given_names, family_name,
+  id, programme_id, version, display_name, given_names, family_name, company_name,
   phones, emails, account_id, owner_user_id, status, source, tags,
   preferred_language, preferred_channel, state, lga, dnd, whatsapp_opt_in,
   consent_state, phone_network, created_at, updated_at,
@@ -343,6 +352,7 @@ function toContact(row: ContactRow): Contact {
     displayName: row.display_name,
     givenNames: row.given_names,
     familyName: row.family_name,
+    companyName: row.company_name,
     phones: row.phones,
     emails: row.emails,
     accountId: row.account_id,
@@ -392,6 +402,12 @@ function searchClause(search: ContactSearch, params: Params): string {
     `(programme_id = ANY(${params.add([...search.familyNameProgrammeIds])}::uuid[])
       AND strpos(${fold('family_name')}, ${folded}) > 0)`,
   );
+  if (search.companyNameProgrammeIds !== undefined) {
+    alternatives.push(
+      `(programme_id = ANY(${params.add([...search.companyNameProgrammeIds])}::uuid[])
+        AND strpos(${fold('company_name')}, ${folded}) > 0)`,
+    );
+  }
   if (search.phoneE164 !== null) {
     alternatives.push(
       `(programme_id = ANY(${params.add([...search.phoneProgrammeIds])}::uuid[])
@@ -531,6 +547,7 @@ export interface ContactValues {
   displayName?: string | undefined;
   givenNames?: string | null | undefined;
   familyName?: string | null | undefined;
+  companyName?: string | null | undefined;
   phones?: ContactPhone[] | undefined;
   emails?: string[] | undefined;
   accountId?: string | null | undefined;
@@ -553,6 +570,7 @@ const WRITABLE_COLUMNS: Record<keyof ContactValues, { column: string; cast: Colu
   displayName: { column: 'display_name', cast: 'text' },
   givenNames: { column: 'given_names', cast: 'text' },
   familyName: { column: 'family_name', cast: 'text' },
+  companyName: { column: 'company_name', cast: 'text' },
   phones: { column: 'phones', cast: 'jsonb' },
   emails: { column: 'emails', cast: 'jsonb' },
   accountId: { column: 'account_id', cast: 'uuid' },

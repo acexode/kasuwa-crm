@@ -18,6 +18,7 @@ import { KasuwaAuthGuard } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { currentTx } from '../tenancy/tenant-context';
 import { listContactTimelineFor, type TimelinePageWire } from './contact-timeline';
+import { convertContactFor, type ConvertContactWire } from './contact-convert';
 import type { ContactWire } from './contact-wire';
 import { ContactIdParam, ListContactsQuery } from './contacts.schemas';
 import {
@@ -105,5 +106,18 @@ export class ContactsController {
   async update(@Param() params: unknown, @Body() body: unknown): Promise<ContactWire> {
     const { id } = ContactIdParam.parse(params);
     return updateContactFor(currentTx(), id, body);
+  }
+
+  /**
+   * convertContact (T-0076, `x-kasuwa-audited`): qualify a lead and link an
+   * account, once. 200, not 201: an exact repeat answers the same 200, and
+   * nothing in the answer says whether this call created the account.
+   */
+  @Post(':id/convert')
+  @HttpCode(HttpStatus.OK)
+  @Header(CACHE_CONTROL, NO_STORE)
+  async convert(@Param() params: unknown, @Body() body: unknown): Promise<ConvertContactWire> {
+    const { id } = ContactIdParam.parse(params);
+    return convertContactFor(currentTx(), id, body);
   }
 }

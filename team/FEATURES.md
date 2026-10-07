@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 143 rows; built 68, partial 11, mock-only 27, flagged-off 6, deferred 10, not-started 21.
+Totals: 143 rows; built 70, partial 11, mock-only 27, flagged-off 6, deferred 10, not-started 19.
 
 ## Modules
 
@@ -158,8 +158,8 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `listContactTimeline` | GET /api/v1/contacts/{contactId}/timeline — The contact's timeline — field and consent changes and activities, newest first | built | — | — | docs/api/records.openapi.yaml |
 | operation | `createActivity` | POST /api/v1/activities — Log an activity — a note, a task or a call | built | — | — | docs/api/records.openapi.yaml |
 | operation | `updateActivity` | PATCH /api/v1/activities/{activityId} — Complete or reassign an activity | built | — | — | docs/api/records.openapi.yaml |
-| operation | `convertContact` | POST /api/v1/contacts/{contactId}/convert — Convert a lead — qualify it and link an account, once (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `listLeads` | GET /api/v1/leads — List leads — contacts at a lead stage (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `convertContact` | POST /api/v1/contacts/{contactId}/convert — Convert a lead — qualify it and link an account, once | built | — | — | docs/api/records.openapi.yaml |
+| operation | `listLeads` | GET /api/v1/leads — List leads — contacts at a lead stage | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listMyProgrammes` | GET /api/v1/me/programmes — The caller's programmes, with their display names | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listAccounts` | GET /api/v1/accounts — List accounts — search, filter, sort, keyset page | built | — | — | docs/api/records.openapi.yaml |
 | operation | `createAccount` | POST /api/v1/accounts — Create an account | built | — | — | docs/api/records.openapi.yaml |
