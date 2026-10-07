@@ -2,7 +2,7 @@ import { newId, type TenantTx } from '@kasuwa/db';
 import { decodeKeysetCursor, encodeKeysetCursor, type KeysetCursor } from '@kasuwa/domain-core';
 import { z } from 'zod';
 import { notFound } from '../common/admin-errors';
-import { applyAuditFieldSecurity, loaderFor, type FieldAccessLoader } from './audit-field-security';
+import { applyAuditFieldSecurity, loaderFor } from './audit-field-security';
 import {
   AUDIT_OBJECT_TYPE_LABELS,
   change,
@@ -151,13 +151,13 @@ const EMPTY_PAGE: AuditEventListView = {
  * tenant it moves a window over that tenant's own rows and nothing else.
  * Throws InvalidCursorError for a cursor the server did not issue.
  *
- * `loadAccess` is the field-access loader; the default reads the session's
- * matrix (one round trip per field-secured object on the page, at most).
+ * Change values are judged against the SESSION's own matrix (`loaderFor(tx)`):
+ * there is deliberately no parameter through which a caller could supply
+ * another answer.
  */
 export async function listAuditEvents(
   tx: TenantTx,
   query: ListAuditEventsQuery,
-  loadAccess: FieldAccessLoader = loaderFor(tx),
 ): Promise<AuditEventListView> {
   const position: KeysetCursor | null =
     query.cursor === undefined ? null : decodeKeysetCursor(query.cursor);
@@ -203,7 +203,7 @@ export async function listAuditEvents(
   const page = hasMore ? rows.slice(0, query.pageSize) : rows;
   const last = page.at(-1);
   return {
-    items: await applyAuditFieldSecurity(page.map(toEntry), loadAccess),
+    items: await applyAuditFieldSecurity(page.map(toEntry), loaderFor(tx)),
     page: {
       nextCursor:
         hasMore && last !== undefined
@@ -332,7 +332,17 @@ export function storedExportFilters(filters: AuditFilters | undefined): Record<s
 /**
  * Queues an export and audits the request in the same transaction — "written
  * before the job starts, not after it succeeds". The requester is the session
- * user; the worker that builds the file must re-resolve their scope then.
+ * user.
+ *
+ * THE WORKER THAT BUILDS THE FILE (not built yet; it needs its own acceptance
+ * test, F9 of T-0078) must, at build time, re-resolve the REQUESTER's scope
+ * AND field-security matrix: open a tenant transaction as the requester, with
+ * programmes resolved afresh from `user_programme` (never the scope stored or
+ * remembered from the request), and pass every event through
+ * `applyAuditFieldSecurity(entries, loaderFor(tx))` inside that transaction,
+ * exactly as `listAuditEvents` does. A file built from raw `audit_event` rows,
+ * or judged against the worker's own or a cached matrix, leaks the values the
+ * list withholds.
  */
 export async function createAuditExport(
   tx: TenantTx,

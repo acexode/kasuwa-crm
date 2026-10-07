@@ -1,6 +1,6 @@
 import type { TenantTx } from '@kasuwa/db';
 import { InvalidCursorError } from '@kasuwa/domain-core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { CreateAuditExportBody, ListAuditEventsQuery } from './audit.schemas';
 import { exportChanges, listAuditEvents, storedExportFilters, toEntry } from './audit.service';
 
@@ -202,8 +202,16 @@ describe('listAuditEvents applies the reader’s field security (T-0078)', () =>
     contactRow('99999999-0000-4000-8000-0000000000c3'),
   ];
 
-  /** Answers the field-access query with lga at none for the held set, and anything else with `rows`. */
-  function dispatchingTx(): { tx: TenantTx; accessQueries: () => number } {
+  /**
+   * Answers the session's own field-access query (the real `loadFieldAccess`
+   * SQL) with `fields` as the catalogue and lga at `lgaLevel` for the held
+   * set, and anything else with `rows`. There is no loader parameter to
+   * inject: this is the only way to steer the matrix.
+   */
+  function dispatchingTx(
+    fields: string[] = ['lga', 'status'],
+    lgaLevel: 'none' | 'read' = 'none',
+  ): { tx: TenantTx; accessQueries: () => number } {
     let accessQueries = 0;
     const tx: TenantTx = {
       session: { tenantId: TENANT, userId: USER, programmeIds: [PROGRAMME] },
@@ -212,8 +220,8 @@ describe('listAuditEvents applies the reader’s field security (T-0078)', () =>
           accessQueries += 1;
           return Promise.resolve([
             {
-              fields: ['lga', 'status'],
-              grants: [{ field: 'lga', set: SET, locked: false, level: 'none' }],
+              fields,
+              grants: [{ field: 'lga', set: SET, locked: false, level: lgaLevel }],
               memberships: [{ programme: PROGRAMME, set: SET, locked: false }],
             },
           ] as T[]);
@@ -244,17 +252,18 @@ describe('listAuditEvents applies the reader’s field security (T-0078)', () =>
     expect(decoded.i).toBe(rows[1]?.id);
   });
 
-  it('uses the loader it is given, once per object, and fails closed on a field its answer lacks', async () => {
-    const { tx } = fakeTx(rows);
-    let calls = 0;
-    const page = await listAuditEvents(tx, ListAuditEventsQuery.parse({}), () => {
-      calls += 1;
-      return Promise.resolve(new Map([[PROGRAMME, new Map([['lga', 'read' as const]])]]));
-    });
-    expect(calls).toBe(1);
+  it('judges against the session’s own matrix, and fails closed on a field its catalogue lacks', async () => {
+    const fake = dispatchingTx(['lga'], 'read');
+    const page = await listAuditEvents(fake.tx, ListAuditEventsQuery.parse({}));
+    expect(fake.accessQueries()).toBe(1);
     expect(page.items[0]?.changes).toEqual([
       { field: 'lga', before: 'Invented Lga One', after: 'Invented Lga Two', redacted: false },
       { field: 'status', before: null, after: null, redacted: true },
     ]);
+  });
+
+  it('takes no loader: the matrix cannot be supplied by a caller (asserted by tsc, `pnpm typecheck`)', () => {
+    // A third parameter, optional or not, makes this a type error.
+    expectTypeOf(listAuditEvents).parameters.toEqualTypeOf<[TenantTx, ListAuditEventsQuery]>();
   });
 });

@@ -1,18 +1,12 @@
 import type { TenantTx } from '@kasuwa/db';
-import {
-  accountFieldApiName,
-  activityFieldApiName,
-  contactFieldApiName,
-  isSecuredActivityField,
-  isWithholdableAccountField,
-  isWithholdableContactField,
-} from '@kasuwa/domain-core';
+import { contactFieldApiName, isWithholdableContactField } from '@kasuwa/domain-core';
 import {
   fieldLevel,
   loadFieldAccess,
   UnknownObjectDefError,
   type FieldAccess,
 } from '@kasuwa/metadata-engine';
+import { CONTACT_AUDIT_VALUE_FIELDS } from '../../contacts/contact-audit';
 import { redactedChange, type AuditChange, type AuditObjectType } from './audit-writer';
 
 /**
@@ -26,22 +20,24 @@ import { redactedChange, type AuditChange, type AuditObjectType } from './audit-
  * stored values stay recoverable for whoever may read them later):
  *
  *   - an event of a FIELD-SECURED object (contact, account, activity) shows a
- *     change's values only when the field is one that object's field
- *     security governs AND the reader's level for it, in the EVENT's
- *     programme, is `read` or `edit`. Anything else is `{ field, redacted:
- *     true }`: the change and the event are kept, only the values go;
+ *     change's values only when BOTH hold:
+ *       1. the field is on that object's VALUE ALLOW-LIST: for a contact,
+ *          D-L72's value fields (`CONTACT_AUDIT_VALUE_FIELDS`, each also one
+ *          the contact matrix governs); for an account or an activity, NONE
+ *          until a decision says otherwise (D-L78 records them by name only).
+ *          So a stored value on a name part, a phone, an email, a subject or
+ *          a body is never shown, whatever the reader's level;
+ *       2. the reader's level for it, in the EVENT's programme, is `read` or
+ *          `edit`.
+ *     Anything else is `{ field, redacted: true }`: the change and the event
+ *     are kept, only the values go;
  *   - judged by `loadFieldAccess(tx, object)` + `fieldLevel`, so the set the
  *     reader holds in that programme counts (D-P9), the locked admin set is
  *     `edit`, a membership with no set gets the weakest unlocked level, and
  *     the TENANT-ADMIN FLAG IS NOT READ (D-L63);
  *   - an event with NO programme has nowhere to judge the matrix: every value
  *     is redacted, for every reader (F4, fail closed);
- *   - a field the object does not secure (an unknown name, or one the record
- *     API never withholds such as a contact's `displayName`) is redacted: the
- *     allow-list is the object's secured fields, never "not known to be
- *     withheld";
- *   - an object type this file does not know is treated as field-secured
- *     with nothing readable: every value redacted;
+ *   - an object type this file does not know has every value redacted;
  *   - a change already stored redacted stays redacted (`toChanges`).
  *
  * Configuration objects (roles, programmes, matrix cells, policies,
@@ -50,9 +46,12 @@ import { redactedChange, type AuditChange, type AuditObjectType } from './audit-
  * `AUDIT_VALUE_POLICY` is a `Record` over `AuditObjectType`, so a new audited
  * object type does not compile until somebody decides which it is.
  *
- * COST: each field-secured object's access is loaded ONCE per request (one
- * round trip, covering every programme the session reaches), and only when a
- * page actually holds a value that needs judging.
+ * COST, AND NO ORACLE: an object's access is loaded ONCE per request (one
+ * round trip, covering every programme the session reaches) whenever the page
+ * holds an event of that object with a programme and the object has a value
+ * allow-list at all. Whether it is loaded never depends on what a stored
+ * change holds, so neither the timing nor a load failure tells the reader
+ * whether a withheld change carried a value.
  */
 
 /** The objects whose fields the T-0026 matrix governs. */
@@ -64,11 +63,24 @@ type ValuePolicy =
   | {
       kind: 'field_secured';
       object: FieldSecuredObject;
-      /** The matrix's `field_def.api_name` for a wire field, or null when the object does not secure it. */
-      apiNameOf: (field: string) => string | null;
+      /**
+       * The fields that may carry a value: wire name -> the matrix's
+       * `field_def.api_name`. Empty: no value of this object is ever shown.
+       */
+      valueFields: ReadonlyMap<string, string>;
     };
 
 const CONFIGURATION: ValuePolicy = { kind: 'configuration' };
+
+/** D-L72's value fields, each judged by its contact `field_def`. Both lists must agree on a field. */
+const CONTACT_VALUE_FIELDS: ReadonlyMap<string, string> = new Map(
+  CONTACT_AUDIT_VALUE_FIELDS.filter(isWithholdableContactField).map((field) => [
+    field,
+    contactFieldApiName(field),
+  ]),
+);
+
+const NO_VALUE_FIELDS: ReadonlyMap<string, string> = new Map();
 
 export const AUDIT_VALUE_POLICY: Readonly<Record<AuditObjectType, ValuePolicy>> = {
   role: CONFIGURATION,
@@ -79,21 +91,10 @@ export const AUDIT_VALUE_POLICY: Readonly<Record<AuditObjectType, ValuePolicy>> 
   retention_policy: CONFIGURATION,
   disposition: CONFIGURATION,
   portal_user: CONFIGURATION,
-  contact: {
-    kind: 'field_secured',
-    object: 'contact',
-    apiNameOf: (field) => (isWithholdableContactField(field) ? contactFieldApiName(field) : null),
-  },
-  account: {
-    kind: 'field_secured',
-    object: 'account',
-    apiNameOf: (field) => (isWithholdableAccountField(field) ? accountFieldApiName(field) : null),
-  },
-  activity: {
-    kind: 'field_secured',
-    object: 'activity',
-    apiNameOf: (field) => (isSecuredActivityField(field) ? activityFieldApiName(field) : null),
-  },
+  contact: { kind: 'field_secured', object: 'contact', valueFields: CONTACT_VALUE_FIELDS },
+  // Names only (D-L78, D-L77) until a decision allows a value field.
+  account: { kind: 'field_secured', object: 'account', valueFields: NO_VALUE_FIELDS },
+  activity: { kind: 'field_secured', object: 'activity', valueFields: NO_VALUE_FIELDS },
 };
 
 /** An object type outside the closed list: nothing in it is readable. */
@@ -116,19 +117,17 @@ export interface AuditValueSubject {
 export type ReaderFieldAccess = ReadonlyMap<FieldSecuredObject, FieldAccess>;
 
 /**
- * Which objects' access a page needs: only events with a programme and at
- * least one change not already redacted. An event with no programme is
- * redacted without asking the matrix, and an unknown object never needs one.
- * (Every unredacted change is judged, a valueless one included, so a change's
- * shape never depends on what else shares its page.)
+ * Which objects' access a page needs: every field-secured object with a value
+ * allow-list that has an event WITH A PROGRAMME on the page. Deliberately
+ * blind to the changes themselves (see COST, AND NO ORACLE above). An event
+ * with no programme is redacted without asking the matrix.
  */
 export function objectsToLoad(entries: readonly AuditValueSubject[]): FieldSecuredObject[] {
   const needed = new Set<FieldSecuredObject>();
   for (const entry of entries) {
     const policy = policyOf(entry.objectType);
-    if (policy.kind !== 'field_secured') continue;
-    if (entry.programmeId === null) continue;
-    if (entry.changes.some((change) => !change.redacted)) needed.add(policy.object);
+    if (policy.kind !== 'field_secured' || policy.valueFields.size === 0) continue;
+    if (entry.programmeId !== null) needed.add(policy.object);
   }
   return [...needed];
 }
@@ -151,8 +150,8 @@ export function redactForReader<T extends AuditValueSubject>(
   const changes = entry.changes.map((change) => {
     if (change.redacted) return redactedChange(change.field);
     if (programmeId === null) return redactedChange(change.field);
-    const apiName = policy.apiNameOf(change.field);
-    if (apiName === null) return redactedChange(change.field);
+    const apiName = policy.valueFields.get(change.field);
+    if (apiName === undefined) return redactedChange(change.field);
     return fieldLevel(objectAccess, programmeId, apiName) === 'none'
       ? redactedChange(change.field)
       : change;
@@ -160,11 +159,11 @@ export function redactForReader<T extends AuditValueSubject>(
   return { ...entry, changes };
 }
 
-/** Loads one object's access. Injectable so the per-request cost is unit-tested. */
+/** Loads one object's access. */
 export type FieldAccessLoader = (object: FieldSecuredObject) => Promise<FieldAccess>;
 
 /**
- * The reader's field access for one object, failing closed on a missing
+ * The SESSION's own field access for one object, failing closed on a missing
  * catalogue: a tenant with no definition for the object reads as "nothing
  * readable", never as an error page and never as the D-L45 default.
  */

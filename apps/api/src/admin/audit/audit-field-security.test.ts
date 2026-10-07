@@ -1,6 +1,7 @@
 import type { TenantTx } from '@kasuwa/db';
 import type { FieldAccess } from '@kasuwa/metadata-engine';
 import { describe, expect, it, vi } from 'vitest';
+import { CONTACT_AUDIT_VALUE_FIELDS } from '../../contacts/contact-audit';
 import {
   applyAuditFieldSecurity,
   loaderFor,
@@ -42,6 +43,17 @@ function event(
 const LGA = change('lga', 'Invented Lga One', 'Invented Lga Two');
 const STATUS = change('status', 'new', 'contacted');
 
+/** A reader who may edit every field of every object in both programmes. */
+const EDIT_EVERYTHING = (fields: string[]): ReaderFieldAccess => {
+  const all = Object.fromEntries(fields.map((field) => [field, 'edit' as const]));
+  const access = accessOf({ [P1]: all, [P2]: all });
+  return new Map([
+    ['contact', access],
+    ['account', access],
+    ['activity', access],
+  ]);
+};
+
 describe('redactForReader (T-0078)', () => {
   it('per field: a field the reader holds at none is redacted, a readable one in the same event is kept', () => {
     const access: ReaderFieldAccess = new Map([
@@ -63,6 +75,22 @@ describe('redactForReader (T-0078)', () => {
     }
   });
 
+  it('every D-L72 value field can carry a value for a reader who may read it', () => {
+    const access = EDIT_EVERYTHING([
+      'status',
+      'source',
+      'preferred_language',
+      'preferred_channel',
+      'consent_state',
+      'whatsapp_opt_in',
+      'state',
+      'lga',
+      'tags',
+    ]);
+    const changes = CONTACT_AUDIT_VALUE_FIELDS.map((field) => change(field, null, 'invented'));
+    expect(redactForReader(event('contact', P1, changes), access).changes).toEqual(changes);
+  });
+
   it('per programme: judged in the EVENT’s programme, never "withheld anywhere" or "readable anywhere"', () => {
     const access: ReaderFieldAccess = new Map([
       ['contact', accessOf({ [P1]: { lga: 'none' }, [P2]: { lga: 'read' } })],
@@ -81,10 +109,10 @@ describe('redactForReader (T-0078)', () => {
   });
 
   it('no programme: every value is redacted, even for a reader who may edit the field everywhere (F4)', () => {
-    const access: ReaderFieldAccess = new Map([
-      ['contact', accessOf({ [P1]: { lga: 'edit', status: 'edit' } })],
-    ]);
-    const judged = redactForReader(event('contact', null, [STATUS, LGA]), access);
+    const judged = redactForReader(
+      event('contact', null, [STATUS, LGA]),
+      EDIT_EVERYTHING(['lga', 'status']),
+    );
     expect(judged.changes).toEqual([redactedChange('status'), redactedChange('lga')]);
   });
 
@@ -104,31 +132,56 @@ describe('redactForReader (T-0078)', () => {
     ]);
   });
 
-  it('an unknown field fails closed: a name the object does not secure is redacted, whatever the map says', () => {
-    const access: ReaderFieldAccess = new Map([
-      [
-        'contact',
-        accessOf({
-          [P1]: { nickname: 'edit', display_name: 'edit', displayName: 'edit', lga: 'edit' },
-        }),
-      ],
-    ]);
+  it('the contact VALUE allow-list: a stored value on a name part, phone, email, owner, account or unknown field is redacted for a reader with edit', () => {
+    const fields = [
+      'givenNames',
+      'familyName',
+      'displayName',
+      'companyName',
+      'phones',
+      'emails',
+      'ownerUserId',
+      'accountId',
+      'dnd',
+      'phoneNetwork',
+      'nickname',
+    ];
+    const snake = fields.map((field) => field.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`));
+    const access = EDIT_EVERYTHING([...fields, ...snake, 'lga']);
     const judged = redactForReader(
-      event('contact', P1, [
-        change('nickname', null, 'Invented'),
-        change('displayName', null, 'Invented Person'),
-        LGA,
-      ]),
+      event('contact', P1, [...fields.map((field) => change(field, 'Invented', 'Invented')), LGA]),
       access,
     );
-    expect(judged.changes).toEqual([
-      redactedChange('nickname'),
-      redactedChange('displayName'),
-      LGA,
-    ]);
+    expect(judged.changes).toEqual([...fields.map((field) => redactedChange(field)), LGA]);
   });
 
-  it('a secured field missing from the access map (a broken catalogue) is none', () => {
+  it('account and activity carry no value at all, for a reader with edit on every field', () => {
+    const accountFields = ['name', 'industry', 'tier', 'tags', 'phones', 'state', 'lga'];
+    const activityFields = ['type', 'subject', 'body', 'dueAt', 'completedAt', 'due_at'];
+    const access = EDIT_EVERYTHING([...accountFields, ...activityFields]);
+    expect(
+      redactForReader(
+        event(
+          'account',
+          P1,
+          accountFields.map((field) => change(field, 'Invented', 'Invented')),
+        ),
+        access,
+      ).changes,
+    ).toEqual(accountFields.map((field) => redactedChange(field)));
+    expect(
+      redactForReader(
+        event(
+          'activity',
+          P1,
+          activityFields.map((field) => change(field, 'Invented', 'Invented')),
+        ),
+        access,
+      ).changes,
+    ).toEqual(activityFields.map((field) => redactedChange(field)));
+  });
+
+  it('a value field missing from the access map (a broken catalogue) is none', () => {
     const access: ReaderFieldAccess = new Map([['contact', accessOf({ [P1]: {} })]]);
     expect(redactForReader(event('contact', P1, [LGA]), access).changes).toEqual([
       redactedChange('lga'),
@@ -141,40 +194,22 @@ describe('redactForReader (T-0078)', () => {
     ]);
   });
 
+  it('judges a contact by the CONTACT matrix only', () => {
+    const access: ReaderFieldAccess = new Map([
+      ['account', accessOf({ [P1]: { lga: 'edit' } })],
+      ['activity', accessOf({ [P1]: { lga: 'edit' } })],
+    ]);
+    expect(redactForReader(event('contact', P1, [LGA]), access).changes).toEqual([
+      redactedChange('lga'),
+    ]);
+  });
+
   it('a stored redacted change stays redacted, values dropped, for a reader who may edit the field', () => {
     const access: ReaderFieldAccess = new Map([['contact', accessOf({ [P1]: { lga: 'edit' } })]]);
     const stored = { field: 'lga', before: 'Invented', after: 'Invented', redacted: true };
     expect(redactForReader(event('contact', P1, [stored]), access).changes).toEqual([
       redactedChange('lga'),
     ]);
-  });
-
-  it('account and activity are judged by THEIR object’s matrix, not the contact’s', () => {
-    const access: ReaderFieldAccess = new Map([
-      ['contact', accessOf({ [P1]: { industry: 'edit', subject: 'edit', tier: 'edit' } })],
-      ['account', accessOf({ [P1]: { industry: 'none', tier: 'read' } })],
-      ['activity', accessOf({ [P1]: { subject: 'none', due_at: 'read' } })],
-    ]);
-    const industry = change('industry', null, 'Invented Industry');
-    const tier = change('tier', 'sme', 'enterprise');
-    expect(redactForReader(event('account', P1, [industry, tier]), access).changes).toEqual([
-      redactedChange('industry'),
-      tier,
-    ]);
-    const subject = change('subject', null, 'Invented Subject');
-    const due = change('dueAt', null, '2026-12-01T09:00:00.000Z');
-    expect(redactForReader(event('activity', P1, [subject, due]), access).changes).toEqual([
-      redactedChange('subject'),
-      due,
-    ]);
-  });
-
-  it('an account name (never withheld on the wire, never recorded as a value) is redacted', () => {
-    const access: ReaderFieldAccess = new Map([['account', accessOf({ [P1]: { name: 'edit' } })]]);
-    expect(
-      redactForReader(event('account', P1, [change('name', null, 'Invented Name')]), access)
-        .changes,
-    ).toEqual([redactedChange('name')]);
   });
 
   it('configuration objects pass unchanged; an object type outside the closed list is redacted', () => {
@@ -185,10 +220,11 @@ describe('redactForReader (T-0078)', () => {
     expect(redactForReader(event('programme', P1, [roleChange]), new Map()).changes).toEqual([
       roleChange,
     ]);
-    expect(redactForReader(event('mystery_object', P1, [LGA]), new Map()).changes).toEqual([
+    const anything = EDIT_EVERYTHING(['lga']);
+    expect(redactForReader(event('mystery_object', P1, [LGA]), anything).changes).toEqual([
       redactedChange('lga'),
     ]);
-    expect(redactForReader(event('toString', P1, [LGA]), new Map()).changes).toEqual([
+    expect(redactForReader(event('toString', P1, [LGA]), anything).changes).toEqual([
       redactedChange('lga'),
     ]);
   });
@@ -204,51 +240,57 @@ describe('redactForReader (T-0078)', () => {
   });
 });
 
-describe('objectsToLoad', () => {
-  it('names each field-secured object a page needs, once, and nothing for no-programme, configuration or redacted-only events', () => {
+describe('objectsToLoad (no oracle on stored content)', () => {
+  it('loads the contact matrix for any contact event with a programme, whatever its changes hold', () => {
+    for (const changes of [[LGA], [redactedChange('lga')], [change('lga', null, null)], []]) {
+      expect(objectsToLoad([event('contact', P1, changes)])).toEqual(['contact']);
+    }
+  });
+
+  it('never loads for no-programme, configuration, unknown, account or activity events', () => {
     expect(
       objectsToLoad([
-        event('contact', P1, [LGA]),
-        event('contact', P2, [STATUS]),
+        event('contact', null, [LGA]),
         event('account', P1, [change('tier', 'sme', 'enterprise')]),
-        event('activity', P1, [redactedChange('subject')]),
-        event('activity', null, [change('subject', null, 'x')]),
+        event('activity', P1, [change('subject', null, 'x')]),
         event('role', null, [change('name', 'a', 'b')]),
         event('mystery_object', P1, [LGA]),
-      ]).sort(),
-    ).toEqual(['account', 'contact']);
+      ]),
+    ).toEqual([]);
   });
 });
 
 describe('applyAuditFieldSecurity', () => {
-  it('loads each object’s access once per request, however many events and programmes the page holds', async () => {
-    const load = vi.fn((object: FieldSecuredObject) =>
-      Promise.resolve(
-        object === 'contact'
-          ? accessOf({ [P1]: { lga: 'none', status: 'read' }, [P2]: { lga: 'read' } })
-          : accessOf({ [P1]: { tier: 'read' } }),
-      ),
+  it('loads the contact access once per request, however many events and programmes the page holds', async () => {
+    const load = vi.fn((_object: FieldSecuredObject) =>
+      Promise.resolve(accessOf({ [P1]: { lga: 'none', status: 'read' }, [P2]: { lga: 'read' } })),
     );
     const page = [
       event('contact', P1, [LGA, STATUS]),
       event('contact', P2, [LGA]),
-      event('contact', P1, [LGA]),
+      event('contact', P1, [redactedChange('lga')]),
       event('account', P1, [change('tier', 'sme', 'enterprise')]),
-      event('account', P1, [change('tier', 'enterprise', 'sme')]),
     ];
     const judged = await applyAuditFieldSecurity(page, load);
-    expect(load).toHaveBeenCalledTimes(2);
-    expect(load.mock.calls.map(([object]) => object).sort()).toEqual(['account', 'contact']);
+    expect(load.mock.calls).toEqual([['contact']]);
     expect(judged.map((entry) => entry.changes)).toEqual([
       [redactedChange('lga'), STATUS],
       [LGA],
       [redactedChange('lga')],
-      [change('tier', 'sme', 'enterprise')],
-      [change('tier', 'enterprise', 'sme')],
+      [redactedChange('tier')],
     ]);
   });
 
-  it('loads nothing for a page with no value to judge', async () => {
+  it('loads the same whether a page’s contact changes carry values or not', async () => {
+    const withValues = vi.fn(() => Promise.resolve(accessOf({})));
+    const without = vi.fn(() => Promise.resolve(accessOf({})));
+    await applyAuditFieldSecurity([event('contact', P1, [LGA])], withValues);
+    await applyAuditFieldSecurity([event('contact', P1, [redactedChange('lga')])], without);
+    expect(withValues.mock.calls).toEqual(without.mock.calls);
+    expect(withValues).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads nothing for a page with no contact event in a programme', async () => {
     const load = vi.fn(() => Promise.resolve(accessOf({})));
     const judged = await applyAuditFieldSecurity(
       [event('role', null, [change('name', 'a', 'b')]), event('contact', null, [LGA])],
@@ -283,7 +325,7 @@ describe('loaderFor', () => {
 
   it('an object the tenant has no definition for reads as nothing readable, not an error', async () => {
     const { tx, queries } = fakeTx([P1], () => Promise.resolve([]));
-    expect((await loaderFor(tx)('activity')).size).toBe(0);
+    expect((await loaderFor(tx)('contact')).size).toBe(0);
     expect(queries).toHaveLength(1);
   });
 

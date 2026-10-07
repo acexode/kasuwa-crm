@@ -1915,13 +1915,14 @@ paths:
         Newest first; `page.totalCount` is always null.
 
         **Field security (T-0078).** A contact, account or activity change
-        carries its values only when the caller's matrix lets them read that
-        field in the event's programme; otherwise it is redacted for them (see
-        `AuditChange`). Filters never match on a change value.
+        carries its values only for a field on its object's value allow-list
+        that the caller's matrix lets them read in the event's programme;
+        otherwise it is redacted for them (see `AuditChange`). Filters never match on a change value.
 
         **Never cached** (T-0078): every audit response carries
-        `Cache-Control: no-store`. The URL is the same for every user of every
-        tenant, and what it returns depends on the caller's field security.
+        `Cache-Control: no-store`, the guard's `401` and `400` included. The URL
+        is the same for every user of every tenant, and what it returns depends
+        on the caller's field security.
 
         **Who sees what (D-L48).** An event with a `programmeId` is visible
         only to members of that programme; an event with none (role changes,
@@ -1986,9 +1987,7 @@ paths:
         '200':
           description: The page of events.
           headers:
-            Cache-Control:
-              description: Always `no-store` (T-0078).
-              schema: { type: string, enum: ['no-store'] }
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuditEventList' }
@@ -2036,8 +2035,8 @@ paths:
                   nextCursor: 'eyJhdCI6IjIwMjYtMDktMjYifQ'
                   hasMore: true
                   totalCount: null
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '400': { $ref: '#/components/responses/AuditValidationFailed' }
+        '401': { $ref: '#/components/responses/AuditNotAuthenticated' }
         '501': { $ref: '#/components/responses/NotImplemented' }
 
   /api/v1/admin/audit/filter-options:
@@ -2060,9 +2059,7 @@ paths:
         '200':
           description: The options.
           headers:
-            Cache-Control:
-              description: Always `no-store` (T-0078).
-              schema: { type: string, enum: ['no-store'] }
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuditFilterOptions' }
@@ -2080,7 +2077,7 @@ paths:
                     label: MFA policy
                   - objectType: programme
                     label: Programme
-        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '401': { $ref: '#/components/responses/AuditNotAuthenticated' }
         '501': { $ref: '#/components/responses/NotImplemented' }
 
   /api/v1/admin/audit/exports:
@@ -2140,9 +2137,7 @@ paths:
         '202':
           description: Export queued.
           headers:
-            Cache-Control:
-              description: Always `no-store` (T-0078).
-              schema: { type: string, enum: ['no-store'] }
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuditExport' }
@@ -2154,9 +2149,9 @@ paths:
                 deliveryEmailHint: 'a•••a@example.test'
                 linkExpiresAfterHours: 24
                 requestedAt: '2026-09-30T10:04:00.000Z'
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/NotAuthenticated' }
-        '403': { $ref: '#/components/responses/NotPermitted' }
+        '400': { $ref: '#/components/responses/AuditValidationFailed' }
+        '401': { $ref: '#/components/responses/AuditNotAuthenticated' }
+        '403': { $ref: '#/components/responses/AuditNotPermitted' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '501': { $ref: '#/components/responses/NotImplemented' }
 
@@ -2182,14 +2177,12 @@ paths:
         '200':
           description: The export.
           headers:
-            Cache-Control:
-              description: Always `no-store` (T-0078).
-              schema: { type: string, enum: ['no-store'] }
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuditExport' }
-        '401': { $ref: '#/components/responses/NotAuthenticated' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '401': { $ref: '#/components/responses/AuditNotAuthenticated' }
+        '404': { $ref: '#/components/responses/AuditNotFound' }
         '501': { $ref: '#/components/responses/NotImplemented' }
 
 components:
@@ -3160,16 +3153,20 @@ components:
         **Withheld values are redacted for the reader (T-0078).** Since T-0061
         a contact event stores `before` and `after` for the non-PII value
         fields D-L72 names. For an event of a field-secured object (`contact`,
-        `account`, `activity`), a change shows its values only when the
-        READER's field-security matrix lets them read that field (`read` or
-        `edit`) in the EVENT's `programmeId`, judged when the log is read, not
-        when the event was written. Otherwise the change is sent as `{ field,
+        `account`, `activity`), a change shows its values only when BOTH hold:
+        the field is on that object's value allow-list (for a contact, D-L72's
+        nine value fields: `status`, `source`, `preferredLanguage`,
+        `preferredChannel`, `consentState`, `whatsappOptIn`, `state`, `lga`,
+        `tags`; for an account or an activity, none), and the READER's
+        field-security matrix lets them read that field (`read` or `edit`) in
+        the EVENT's `programmeId`, judged when the log is read, not when the
+        event was written. A name part, a phone, an email, a subject or a body
+        never shows a value, whatever the reader's level. Otherwise the change is sent as `{ field,
         redacted: true }` with both values null: the change and its event are
         kept, so the list, its order and its cursors are the same whatever the
         matrix says. The tenant-admin flag does not lift this (D-L63). An
         event with no `programmeId` has no programme to judge the matrix in,
-        so all its values are redacted for every reader; so is any field the
-        object's field security does not govern. `field` is the wire name (the
+        so all its values are redacted for every reader. `field` is the wire name (the
         matrix judges its `field_def.api_name`, e.g. `preferredChannel` as
         `preferred_channel`).
       properties:
@@ -3388,6 +3385,14 @@ components:
           format: date-time
           description: On `too_many_requests`.
 
+  headers:
+    NoStore:
+      description: |
+        Always `no-store` (T-0078). Set on every answer an audit route gives,
+        errors included: it is applied before the auth guard runs, so a `401`
+        or a scope-header `400` carries it too.
+      schema: { type: string, enum: ['no-store'] }
+
   responses:
     ValidationFailed:
       description: The request did not parse, or an argument is not accepted yet.
@@ -3443,6 +3448,69 @@ components:
 
         If the caller cannot read the record, the answer is `404`. If you are
         unsure which applies, it is `404`.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 403
+            error: Forbidden
+            code: not_permitted
+            message: You do not have permission to do that.
+
+    AuditValidationFailed:
+      description: |
+        `ValidationFailed`, on an audit route: the same body, with
+        `Cache-Control: no-store` (T-0078).
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 400
+            error: Bad Request
+            code: validation_failed
+            message: Validation failed
+            details:
+              - path: warnAtPercentOfTarget
+                code: too_big
+
+    AuditNotAuthenticated:
+      description: |
+        `NotAuthenticated`, on an audit route: the same body, with
+        `Cache-Control: no-store` (T-0078).
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 401
+            error: Unauthorized
+            code: not_authenticated
+            message: Not authenticated
+
+    AuditNotFound:
+      description: |
+        `NotFound`, on an audit route: the same body, with
+        `Cache-Control: no-store` (T-0078).
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 404
+            error: Not Found
+            code: not_found
+            message: Not found
+
+    AuditNotPermitted:
+      description: |
+        `NotPermitted`, on an audit route: the same body, with
+        `Cache-Control: no-store` (T-0078).
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
