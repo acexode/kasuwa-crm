@@ -1819,3 +1819,24 @@ contact lifecycle T-0040 already stores (new, contacted, qualified, unqualified)
   `record`, `record-not-found` and `record-unavailable` test ids must keep passing.
 - **Budget.** The `/contacts/[id]` ceiling is provisionally 245,000 B; the lead re-pins it within 5% of the first measurement.
 - **PR size.** The suite, spec and mock are structural, so the PR is marked exempt.
+### D-L86 — T-0058 Leads screen suite rulings (lead, reversible)
+**Status:** PROCEEDING (lead). These came from the T-0058 suite writer. Parent tag `@leads-p04`: neither `--grep @p04` nor
+`--grep @p04-accounts` selects it.
+- **Accepted pins beyond the brief:**
+  - **Kanban columns:** each column reads `listLeads` for its own status only and pages inside the column. Column headers show
+    no number (D-P13). Pipeline totals are D-P19, which is open; leads are not the pipeline.
+  - **The account picker** offers only accounts in the lead's own programme.
+  - **Moving a card:**
+    - every card has a keyboard "move" control besides drag (WCAG 2.2 SC 2.5.7), offering lead stages only;
+    - the screen's only contact write is exactly `{ version, status }`; there is no inline owner edit on this screen;
+    - dropping a card on its own column sends nothing, and `customer` is never a target.
+  - **Convert:**
+    - it goes through `convertContact`, never create-then-link (D-P17: one transaction, one audit event), and never reads
+      `listContacts`;
+    - it is not offered on a row whose `status` or `accountId` is withheld;
+    - a retry after a lost answer re-sends the same body (the idempotent repeat);
+    - `already_linked` shows its own translated message, never the generic one.
+  - **Budget:** `/leads` provisionally 255,000 B, re-pinned within 5% of the first measurement.
+- **CRM nav.** Each web process links only the routes it serves (T-0057's `crmLiveNav()`), so the shell tests on every process
+  find no dead link.
+- **The isolation gate** is red on any branch carrying a screen suite until its screen lands (T-0057, T-0062, T-0058). Expected.
