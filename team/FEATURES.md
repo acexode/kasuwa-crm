@@ -115,7 +115,7 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `reorderDispositions` | PUT /api/v1/admin/programmes/{programmeId}/dispositions/order — Reorder dispositions | built | — | — | docs/api/admin.openapi.yaml · T-0027 |
 | operation | `deleteDisposition` | DELETE /api/v1/admin/programmes/{programmeId}/dispositions/{dispositionId} — Delete a disposition | built | — | — | docs/api/admin.openapi.yaml · T-0027 |
 | operation | `updateDisposition` | PATCH /api/v1/admin/programmes/{programmeId}/dispositions/{dispositionId} — Edit a disposition, or deactivate it | built | — | — | docs/api/admin.openapi.yaml · T-0027 |
-| operation | `listProgrammeScripts` | GET /api/v1/admin/programmes/{programmeId}/scripts — Scripts configured for the programme | built | — | — | docs/api/admin.openapi.yaml · T-0027 |
+| operation | `listProgrammeScripts` | GET /api/v1/admin/programmes/{programmeId}/scripts — Scripts configured for the programme | built | — | — | docs/api/admin.openapi.yaml · T-0027 · T-0112 |
 | operation | `getProgrammeRetention` | GET /api/v1/admin/programmes/{programmeId}/retention — Retention periods, disposal method and legal hold | built | — | — | docs/api/admin.openapi.yaml · T-0028 |
 | operation | `updateProgrammeRetention` | PUT /api/v1/admin/programmes/{programmeId}/retention — Save the retention policy | built | — | — | docs/api/admin.openapi.yaml · T-0028 · T-0033 |
 | operation | `listPortalUsers` | GET /api/v1/admin/programmes/{programmeId}/portal-users — Client-portal users for this programme | built | — | — | docs/api/admin.openapi.yaml · T-0030 |
