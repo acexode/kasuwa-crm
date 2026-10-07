@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0&amp;display=block">
+</helmet>
+<sc-if value="{{ isShell }}" hint-placeholder-val="{{ true }}">
+<div style="width:100%;height:100%;display:flex;flex-direction:column;background:var(--k-bg);color:var(--k-text);font-family:'Noto Sans',system-ui,sans-serif;font-size:14px;overflow:hidden;position:relative">
+<header style="height:60px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px 0 16px;background:var(--k-surface);border-bottom:1px solid var(--k-border);position:relative;z-index:5">
+  <span style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span style="width:32px;height:32px;border-radius:8px;background:var(--k-primary);color:var(--k-accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px">K</span><sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}"><b style="font-size:16px">Kasuwa</b></sc-if></span>
+  <div style="flex:0 1 560px;min-width:0;margin-left:16px;display:flex;align-items:center;gap:8px;height:42px;padding:0 8px 0 10px;border-radius:10px;background:var(--k-surface-sunken);border:1px solid var(--k-border);color:var(--k-text-muted)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">search</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Search contacts, deals, tickets…</span><span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:4px;border:1px solid var(--k-border-strong);color:var(--k-text-2);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600">/</span></div>
+  <span style="flex:1"></span>
+  <span style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 10px;border-radius:8px;border:1px solid var(--k-border);color:var(--k-text-2);font-size:13px;font-weight:600;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">bolt</span><sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}"><span>Commands</span></sc-if><span style="display:inline-flex;align-items:center;height:20px;padding:0 5px;border-radius:4px;border:1px solid var(--k-border-strong);font-family:'JetBrains Mono',monospace;font-size:11px">Ctrl K</span></span>
+  <button onClick="{{ toggleBell }}" aria-label="{{ bellLabel }}" aria-haspopup="dialog" aria-expanded="{{ openStr }}" style="position:relative;width:40px;height:40px;border:0;border-radius:8px;background:{{ bellBg }};color:{{ bellFg }};display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1;font-variation-settings:'FILL' {{ bellFill }}">{{ bellIcon }}</span><sc-if value="{{ hasBadge }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;top:2px;left:19px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--k-danger);color:#FFFFFF;font-size:11px;font-weight:700;line-height:18px;text-align:center;border:2px solid var(--k-surface);box-sizing:content-box;white-space:nowrap">{{ badge }}</span></sc-if></button>
+  <span title="Amaka Obi · Sales lead" style="width:36px;height:36px;flex-shrink:0;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">AO</span>
+</header>
+
+<sc-if value="{{ showCritBanner }}" hint-placeholder-val="{{ false }}">
+  <div role="alert" style="flex-shrink:0;display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:10px 16px;background:var(--k-danger);color:#FFFFFF;font-size:14px;line-height:20px;position:relative;z-index:4"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1;font-variation-settings:'FILL' 1">gpp_maybe</span><span style="flex:1 1 360px;min-width:0;text-wrap:pretty"><b>Unrecognised sign-in to your account.</b> Chrome on Windows in Abuja at 10:42. If this wasn't you, secure your account now.</span><div style="display:flex;gap:8px"><button onClick="{{ critMe }}" style="height:34px;padding:0 12px;border-radius:7px;border:1px solid #FFFFFF;background:transparent;color:#FFFFFF;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">This was me</button><button onClick="{{ critSecure }}" style="height:34px;padding:0 12px;border-radius:7px;border:0;background:#FFFFFF;color:#8F1C1C;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">Secure account</button></div></div>
+</sc-if>
+
+<div style="flex:1;min-height:0;display:flex">
+  <nav aria-label="Main" style="width:72px;flex-shrink:0;background:var(--k-surface-sunken);border-right:1px solid var(--k-border);padding:12px 0;display:flex;flex-direction:column;align-items:center;gap:4px">
+    <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="7"><span aria-label="{{ n.label }}" style="width:56px;min-height:52px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:{{ n.bg }};color:{{ n.fg }};font-size:10px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">{{ n.icon }}</span>{{ n.label }}</span></sc-for>
+  </nav>
+  <main style="flex:1;min-width:0;overflow-y:auto;position:relative">
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:{{ pad }};display:flex;flex-direction:column;gap:16px;max-width:1280px">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+          <div style="display:flex;align-items:baseline;gap:12px;flex:1 1 auto"><h1 style="margin:0;font-size:26px;line-height:34px;font-weight:800;letter-spacing:-.01em">Tickets</h1><span style="font-size:14px;color:var(--k-text-2)">My queue · 24 open</span></div>
+          <sc-if value="{{ showDemo }}" hint-placeholder-val="{{ false }}"><div role="group" aria-label="Fire a toast (prototype only)" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 6px 6px 12px;border-radius:10px;border:1px dashed var(--k-border-strong)"><span style="font-size:12px;font-weight:700;color:var(--k-text-2)">Prototype: fire a toast</span><sc-for list="{{ demoBtns }}" as="b" hint-placeholder-count="6"><button onClick="{{ b.run }}" style="height:30px;padding:0 10px;border-radius:999px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--k-surface-sunken)">{{ b.label }}</button></sc-for></div></sc-if>
+        </div>
+        <div role="table" aria-label="Tickets" style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:hidden">
+          <div role="row" style="display:grid;grid-template-columns:80px minmax(0,1.6fr) minmax(0,1fr) 160px;gap:12px;align-items:center;min-height:40px;padding:0 16px;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border);font-size:12px;font-weight:700;color:var(--k-text-2)"><span>Ticket</span><span>Subject</span><span>Contact</span><span>SLA</span></div>
+          <sc-for list="{{ tickets }}" as="t" hint-placeholder-count="6"><div role="row" style="display:grid;grid-template-columns:80px minmax(0,1.6fr) minmax(0,1fr) 160px;gap:12px;align-items:center;min-height:56px;padding:0 16px;border-bottom:1px solid var(--k-border)"><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--k-text-2)">{{ t.id }}</span><b style="font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.subj }}</b><span style="font-size:13px;color:var(--k-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.who }}</span><span style="justify-self:start;display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:999px;background:{{ t.bg }};color:{{ t.fg }};font-size:12px;font-weight:700;white-space:nowrap">{{ t.sla }}</span></div></sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isCentre }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:{{ pad }};display:flex;flex-direction:column;gap:16px;max-width:1180px">
+        <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px">
+          <div style="flex:1 1 280px;display:flex;flex-direction:column;gap:2px"><h1 style="margin:0;font-size:26px;line-height:34px;font-weight:800;letter-spacing:-.01em">Notifications</h1><span style="font-size:14px;color:var(--k-text-2)">{{ unreadTxt }}</span></div>
+          <button onClick="{{ markAll }}" disabled="{{ noUnread }}" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;opacity:{{ markOp }}"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">done_all</span>Mark all read</button>
+          <button onClick="{{ goPrefs }}" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">tune</span>Preferences</button>
+        </div>
+        <div style="display:grid;grid-template-columns:{{ cCols }};gap:20px;align-items:start">
+          <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+            <aside aria-label="Filters" style="display:flex;flex-direction:column;gap:16px;padding:12px;background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px">
+              <div role="tablist" aria-label="Show" style="display:flex;flex-direction:column;gap:2px"><sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4"><button role="tab" aria-selected="{{ t.onStr }}" onClick="{{ t.pick }}" style="display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px;border:0;border-radius:8px;background:{{ t.sideBg }};color:{{ t.sideFg }};font-family:inherit;font-size:14px;font-weight:600;text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ t.icon }}</span><span style="flex:1">{{ t.label }}</span><span style="font-size:12px;font-variant-numeric:tabular-nums">{{ t.count }}</span></button></sc-for></div>
+              <div style="display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--k-border);padding-top:12px"><span style="padding:0 10px 6px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2)">Type</span><sc-for list="{{ types }}" as="t" hint-placeholder-count="9"><button role="radio" aria-checked="{{ t.onStr }}" onClick="{{ t.pick }}" style="display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px;border:0;border-radius:8px;background:{{ t.bg }};color:var(--k-text);font-family:inherit;font-size:13px;font-weight:{{ t.w }};text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-2)">{{ t.icon }}</span><span style="flex:1">{{ t.label }}</span><span style="font-size:12px;color:var(--k-text-muted);font-variant-numeric:tabular-nums">{{ t.count }}</span></button></sc-for></div>
+            </aside>
+          </sc-if>
+          <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+            <sc-if value="{{ tablet }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px"><div role="tablist" style="display:flex;flex-wrap:wrap;gap:6px;flex:1"><sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4"><button role="tab" aria-selected="{{ t.onStr }}" onClick="{{ t.pick }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:999px;border:1px solid {{ t.bd }};background:{{ t.bg }};color:{{ t.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">{{ t.label }}<span style="opacity:.85">{{ t.count }}</span></button></sc-for></div><label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--k-text-2)">Type<select value="{{ ty }}" onChange="{{ setTy }}" style="height:36px;padding:0 10px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px"><sc-for list="{{ types }}" as="t" hint-placeholder-count="9"><option value="{{ t.k }}">{{ t.label }}</option></sc-for></select></label></div>
+            </sc-if>
+            <div style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:hidden">
+              <sc-for list="{{ days }}" as="d" hint-placeholder-count="2">
+                <div role="group" aria-label="{{ d.label }}" style="display:flex;flex-direction:column;gap:2px;padding:4px 8px 8px">
+                  <div style="display:flex;align-items:center;padding:12px 10px 4px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2)"><span style="flex:1">{{ d.label }}</span><span style="font-weight:500;letter-spacing:0;text-transform:none;color:var(--k-text-muted)">{{ d.count }}</span></div>
+                  <sc-for list="{{ d.items }}" as="n" hint-placeholder-count="3">
+                    <div role="article" aria-label="{{ n.aria }}" onClick="{{ n.open }}" style="display:flex;gap:12px;padding:12px;border-radius:10px;border:1px solid {{ n.bd }};background:{{ n.bg }};cursor:pointer">
+                      <span style="width:40px;height:40px;flex-shrink:0;border-radius:10px;background:{{ n.ibg }};color:{{ n.ifg }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">{{ n.icon }}</span></span>
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                        <div style="display:flex;align-items:flex-start;gap:8px"><span style="flex:1;min-width:0;font-size:15px;line-height:21px;font-weight:{{ n.tw }};text-wrap:pretty">{{ n.title }}</span><sc-if value="{{ n.crit }}" hint-placeholder-val="{{ false }}"><span style="flex-shrink:0;height:20px;padding:0 8px;border-radius:999px;background:var(--k-danger);color:#FFFFFF;font-size:11px;font-weight:700;line-height:20px">Critical</span></sc-if><span style="flex-shrink:0;font-size:12px;line-height:21px;color:var(--k-text-muted);white-space:nowrap">{{ n.time }}</span></div>
+                        <span style="font-size:14px;line-height:20px;color:var(--k-text-2);text-wrap:pretty">{{ n.body }}</span>
+                        <span style="display:flex;align-items:center;gap:6px;font-size:12px;line-height:18px;color:var(--k-text-muted)"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">{{ n.recIcon }}</span>{{ n.rec }}</span>
+                        <sc-if value="{{ n.hasActs }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"><sc-for list="{{ n.acts }}" as="a" hint-placeholder-count="2"><button onClick="{{ a.run }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:1px solid {{ a.bd }};background:{{ a.bg }};color:{{ a.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ a.icon }}</span>{{ a.label }}</button></sc-for></div></sc-if>
+                        <sc-if value="{{ n.rejecting }}" hint-placeholder-val="{{ false }}"><div onClick="{{ stop }}" style="display:flex;flex-direction:column;gap:8px;margin-top:6px;max-width:520px"><label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--k-text-2)">Reason, shared with {{ n.actorFirst }}<input value="{{ reason }}" onChange="{{ setReason }}" placeholder="e.g. Max 15% without a 2-year term" style="height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px"></label><div style="display:flex;gap:8px"><button onClick="{{ n.confirmReject }}" style="height:36px;padding:0 14px;border-radius:8px;border:0;background:var(--k-danger);color:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Reject request</button><button onClick="{{ n.cancelReject }}" style="height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Cancel</button></div></div></sc-if>
+                        <sc-if value="{{ n.hasDec }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;margin-top:4px;font-size:13px;line-height:19px;font-weight:600;color:{{ n.decFg }}"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ n.decIcon }}</span><span style="flex:1;min-width:0">{{ n.decTxt }}</span><sc-if value="{{ n.canUndo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ n.undo }}" style="height:28px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Undo</button></sc-if></div></sc-if>
+                      </div>
+                      <button onClick="{{ n.toggleRead }}" aria-label="{{ n.readLabel }}" title="{{ n.readLabel }}" style="flex-shrink:0;width:28px;height:28px;border:0;border-radius:6px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="width:10px;height:10px;border-radius:50%;background:{{ n.dot }};border:{{ n.dotBd }};box-sizing:border-box"></span></button>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-for>
+              <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:56px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px"><span style="width:56px;height:56px;border-radius:50%;background:var(--k-surface-sunken);color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:28px;line-height:1">{{ empty.icon }}</span></span><b style="font-size:17px;line-height:24px">{{ empty.title }}</b><span style="font-size:14px;line-height:20px;color:var(--k-text-2);max-width:420px;text-wrap:pretty">{{ empty.body }}</span><button onClick="{{ empty.run }}" style="margin-top:8px;height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">{{ empty.btn }}</button></div></sc-if>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isPrefs }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:{{ pad }};display:flex;flex-direction:column;gap:20px;max-width:1320px">
+        <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px">
+          <div style="flex:1 1 360px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--k-text-2)"><span>Settings</span><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">chevron_right</span><button onClick="{{ goCentre }}" style="height:24px;padding:0 4px;border:0;border-radius:4px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Notifications</button></div>
+            <h1 style="margin:0;font-size:26px;line-height:34px;font-weight:800;letter-spacing:-.01em">Notification preferences</h1>
+            <span style="font-size:14px;line-height:20px;color:var(--k-text-2);text-wrap:pretty">Choose where each event reaches you. Locked cells are required by your workspace admin.</span>
+          </div>
+          <button onClick="{{ sendTest }}" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">send</span>Send me a test</button>
+        </div>
+        <div style="display:grid;grid-template-columns:{{ pCols }};gap:20px;align-items:start">
+          <section aria-label="Channels by event" style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:{{ mCols }};gap:4px;align-items:end;padding:14px 16px 12px;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border)"><span style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2)">Event</span><sc-for list="{{ chans }}" as="c" hint-placeholder-count="5"><span style="display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-2)">{{ c.icon }}</span><b style="font-size:13px">{{ c.label }}</b><span style="font-size:11px;line-height:14px;color:var(--k-text-muted)">{{ c.sub }}</span></span></sc-for></div>
+            <sc-for list="{{ mGroups }}" as="g" hint-placeholder-count="4">
+              <div role="group" aria-label="{{ g.label }}" style="display:flex;flex-direction:column">
+                <span style="padding:14px 16px 4px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2)">{{ g.label }}</span>
+                <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="2">
+                  <div style="display:grid;grid-template-columns:{{ mCols }};gap:4px;align-items:center;min-height:60px;padding:6px 16px;border-bottom:1px solid var(--k-border)">
+                    <span style="display:flex;align-items:center;gap:12px;min-width:0"><span style="width:32px;height:32px;flex-shrink:0;border-radius:8px;background:{{ r.ibg }};color:{{ r.ifg }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ r.icon }}</span></span><span style="display:flex;flex-direction:column;min-width:0"><b style="font-size:14px;line-height:20px">{{ r.label }}</b><span style="font-size:12px;line-height:17px;color:var(--k-text-2);text-wrap:pretty">{{ r.desc }}</span></span></span>
+                    <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="5"><span style="display:flex;justify-content:center"><button role="checkbox" aria-checked="{{ c.onStr }}" aria-label="{{ c.aria }}" title="{{ c.title }}" onClick="{{ c.toggle }}" style="width:44px;height:44px;border:0;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:{{ c.cur }}" style-hover="background:var(--k-surface-sunken)"><span style="width:22px;height:22px;border-radius:5px;border:{{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};display:flex;align-items:center;justify-content:center;box-sizing:border-box"><span style="font-family:'Material Symbols Rounded';font-size:{{ c.isz }};line-height:1">{{ c.icon }}</span></span></button></span></sc-for>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+            <sc-if value="{{ smsNote }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;background:var(--k-surface-sunken);font-size:13px;line-height:19px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">info</span><span style="flex:1;text-wrap:pretty">{{ smsTxt }}</span></div></sc-if>
+          </section>
+          <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+            <section aria-label="Quiet hours" style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:14px">
+              <div style="display:flex;align-items:center;gap:12px"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1;color:var(--k-primary-text)">bedtime</span><span style="flex:1;display:flex;flex-direction:column"><b style="font-size:16px;line-height:22px">Quiet hours</b><span style="font-size:12px;color:var(--k-text-2)">Africa/Lagos (WAT)</span></span><button role="switch" aria-checked="{{ qOn.onStr }}" aria-label="Quiet hours" onClick="{{ qOn.run }}" style="width:46px;height:28px;flex-shrink:0;border-radius:999px;border:0;padding:3px;background:{{ qOn.bg }};cursor:pointer;display:flex"><span style="width:22px;height:22px;border-radius:50%;background:#FFFFFF;box-shadow:var(--k-shadow-1);transform:translateX({{ qOn.x }})"></span></button></div>
+              <sc-if value="{{ quietOn }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;flex-direction:column;gap:14px">
+                  <div style="display:flex;gap:10px"><label style="flex:1;display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--k-text-2)">From<select value="{{ qFrom }}" onChange="{{ setFrom }}" style="height:40px;padding:0 10px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px"><option>19:00</option><option>20:00</option><option>21:00</option><option>22:00</option><option>23:00</option></select></label><label style="flex:1;display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--k-text-2)">Until<select value="{{ qTo }}" onChange="{{ setTo }}" style="height:40px;padding:0 10px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px"><option>05:00</option><option>06:00</option><option>07:00</option><option>08:00</option></select></label></div>
+                  <div role="group" aria-label="Days" style="display:flex;gap:6px"><sc-for list="{{ qDays }}" as="d" hint-placeholder-count="7"><button aria-pressed="{{ d.onStr }}" aria-label="{{ d.full }}" onClick="{{ d.toggle }}" style="flex:1;height:36px;border-radius:8px;border:1px solid {{ d.bd }};background:{{ d.bg }};color:{{ d.fg }};font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">{{ d.label }}</button></sc-for></div>
+                  <span style="font-size:13px;line-height:19px;color:var(--k-text-2);text-wrap:pretty">Push, WhatsApp and SMS wait until quiet hours end. In-app and email arrive as usual.</span>
+                  <div style="display:flex;flex-direction:column;border-top:1px solid var(--k-border);padding-top:6px"><span style="padding:6px 0;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2)">Still let through</span><sc-for list="{{ qThrough }}" as="t" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:12px;min-height:48px"><span style="flex:1;display:flex;flex-direction:column"><span style="font-size:14px;line-height:20px;font-weight:600">{{ t.label }}</span><span style="font-size:12px;line-height:17px;color:var(--k-text-2)">{{ t.sub }}</span></span><button role="switch" aria-checked="{{ t.onStr }}" aria-label="{{ t.label }}" onClick="{{ t.run }}" title="{{ t.title }}" style="width:46px;height:28px;flex-shrink:0;border-radius:999px;border:0;padding:3px;background:{{ t.bg }};opacity:{{ t.op }};cursor:{{ t.cur }};display:flex"><span style="width:22px;height:22px;border-radius:50%;background:#FFFFFF;box-shadow:var(--k-shadow-1);transform:translateX({{ t.x }})"></span></button></div></sc-for></div>
+                </div>
+              </sc-if>
+            </section>
+            <section aria-label="Email digest" style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;align-items:center;gap:12px"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1;color:var(--k-primary-text)">inbox</span><b style="flex:1;font-size:16px;line-height:22px">Email digest</b></div>
+              <div role="radiogroup" aria-label="Email timing" style="display:flex;flex-direction:column;gap:2px"><sc-for list="{{ dgOpts }}" as="o" hint-placeholder-count="3"><button role="radio" aria-checked="{{ o.onStr }}" onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 6px;border:0;border-radius:8px;background:transparent;color:var(--k-text);font-family:inherit;font-size:14px;text-align:left;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="width:20px;height:20px;border-radius:50%;flex-shrink:0;border:{{ o.ring }};display:flex;align-items:center;justify-content:center;box-sizing:border-box"><span style="width:10px;height:10px;border-radius:50%;background:var(--k-primary);opacity:{{ o.chk }}"></span></span><span style="flex:1;display:flex;flex-direction:column"><span style="font-weight:600">{{ o.label }}</span><span style="font-size:12px;color:var(--k-text-2)">{{ o.sub }}</span></span></button></sc-for></div>
+              <sc-if value="{{ digestOn }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--k-border);padding-top:12px"><span style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2)">Bundle into the digest</span><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ bundle }}" as="b" hint-placeholder-count="4"><button aria-pressed="{{ b.onStr }}" onClick="{{ b.toggle }}" style="display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px 0 8px;border-radius:999px;border:1px solid {{ b.bd }};background:{{ b.bg }};color:{{ b.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ b.icon }}</span>{{ b.label }}</button></sc-for></div><span style="font-size:12px;line-height:17px;color:var(--k-text-2);text-wrap:pretty">Approvals, SLA warnings, e-invoice failures and security alerts always email instantly.</span></div></sc-if>
+            </section>
+          </div>
+        </div>
+      </div>
+      <sc-if value="{{ dirty }}" hint-placeholder-val="{{ false }}"><div style="position:sticky;bottom:0;z-index:6;display:flex;align-items:center;gap:10px;padding:12px 20px;background:var(--k-surface);border-top:1px solid var(--k-border);box-shadow:0 -4px 12px rgba(36,32,28,.08)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-accent-text)">edit_note</span><span style="flex:1;font-size:14px;font-weight:600">{{ dirtyTxt }}</span><button onClick="{{ discard }}" style="height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Discard</button><button onClick="{{ save }}" style="height:40px;padding:0 18px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--k-primary-hover)">Save changes</button></div></sc-if>
+    </sc-if>
+  </main>
+</div>
+
+<sc-if value="{{ open }}" hint-placeholder-val="{{ false }}">
+  <div role="dialog" aria-label="Notifications" style="position:absolute;top:56px;right:{{ ddRight }};width:{{ ddW }};max-height:calc(100% - 72px);z-index:20;display:flex;flex-direction:column;background:var(--k-surface);border:1px solid var(--k-border);border-radius:14px;box-shadow:var(--k-shadow-3)">
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 8px 8px 16px"><b style="font-size:16px;line-height:22px">Notifications</b><span style="font-size:13px;color:var(--k-text-muted)">{{ unreadShort }}</span><span style="flex:1"></span><button onClick="{{ markAll }}" disabled="{{ noUnread }}" style="height:32px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;opacity:{{ markOp }};white-space:nowrap">Mark all read</button><button onClick="{{ goPrefs }}" aria-label="Notification preferences" style="width:36px;height:36px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">settings</span></button></div>
+    <div role="tablist" aria-label="Show" style="display:flex;gap:6px;padding:0 16px 10px;border-bottom:1px solid var(--k-border)"><sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4"><button role="tab" aria-selected="{{ t.onStr }}" onClick="{{ t.pick }}" style="display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border-radius:999px;border:1px solid {{ t.bd }};background:{{ t.bg }};color:{{ t.fg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">{{ t.label }}<span style="opacity:.85">{{ t.count }}</span></button></sc-for></div>
+    <sc-if value="{{ hasExtra }}" hint-placeholder-val="{{ false }}"><div style="margin:10px 12px 0;padding:12px;border-radius:10px;background:var(--k-accent-soft);display:flex;flex-direction:column;gap:8px;font-size:13px;line-height:19px"><span style="text-wrap:pretty"><b>{{ unreadTotal }} unread.</b> {{ extraTxt }}</span><div style="display:flex;flex-wrap:wrap;gap:8px"><button onClick="{{ markAsg }}" style="height:32px;padding:0 12px;border-radius:7px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">{{ markAsgTxt }}</button><button onClick="{{ goCentre }}" style="height:32px;padding:0 8px;border:0;border-radius:7px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Review by type</button></div></div></sc-if>
+    <div style="flex:1;min-height:0;overflow-y:auto">
+      <sc-for list="{{ days }}" as="d" hint-placeholder-count="2">
+        <div role="group" aria-label="{{ d.label }}" style="display:flex;flex-direction:column;gap:2px;padding:2px 6px 6px">
+          <span style="padding:10px 10px 2px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2)">{{ d.label }}</span>
+          <sc-for list="{{ d.items }}" as="n" hint-placeholder-count="3">
+            <div role="article" aria-label="{{ n.aria }}" onClick="{{ n.open }}" style="display:flex;gap:12px;padding:10px;border-radius:10px;border:1px solid {{ n.bd }};background:{{ n.bg }};cursor:pointer">
+              <span style="width:36px;height:36px;flex-shrink:0;border-radius:10px;background:{{ n.ibg }};color:{{ n.ifg }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ n.icon }}</span></span>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                <div style="display:flex;align-items:flex-start;gap:8px"><span style="flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:{{ n.tw }};text-wrap:pretty">{{ n.title }}</span><sc-if value="{{ n.crit }}" hint-placeholder-val="{{ false }}"><span style="flex-shrink:0;height:20px;padding:0 7px;border-radius:999px;background:var(--k-danger);color:#FFFFFF;font-size:11px;font-weight:700;line-height:20px">Critical</span></sc-if><span style="flex-shrink:0;font-size:12px;line-height:20px;color:var(--k-text-muted);white-space:nowrap">{{ n.time }}</span></div>
+                <span style="font-size:13px;line-height:19px;color:var(--k-text-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ n.body }}</span>
+                <sc-if value="{{ n.hasActs }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"><sc-for list="{{ n.acts }}" as="a" hint-placeholder-count="2"><button onClick="{{ a.run }}" style="display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:8px;border:1px solid {{ a.bd }};background:{{ a.bg }};color:{{ a.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ a.icon }}</span>{{ a.label }}</button></sc-for></div></sc-if>
+                <sc-if value="{{ n.rejecting }}" hint-placeholder-val="{{ false }}"><div onClick="{{ stop }}" style="display:flex;flex-direction:column;gap:8px;margin-top:6px"><label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--k-text-2)">Reason, shared with {{ n.actorFirst }}<input value="{{ reason }}" onChange="{{ setReason }}" placeholder="e.g. Max 15% without a 2-year term" style="height:38px;padding:0 10px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px"></label><div style="display:flex;gap:8px"><button onClick="{{ n.confirmReject }}" style="height:34px;padding:0 12px;border-radius:8px;border:0;background:var(--k-danger);color:#FFFFFF;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Reject request</button><button onClick="{{ n.cancelReject }}" style="height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Cancel</button></div></div></sc-if>
+                <sc-if value="{{ n.hasDec }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:6px;margin-top:4px;font-size:13px;line-height:19px;font-weight:600;color:{{ n.decFg }}"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ n.decIcon }}</span><span style="flex:1;min-width:0">{{ n.decTxt }}</span><sc-if value="{{ n.canUndo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ n.undo }}" style="height:28px;padding:0 6px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Undo</button></sc-if></div></sc-if>
+              </div>
+              <button onClick="{{ n.toggleRead }}" aria-label="{{ n.readLabel }}" title="{{ n.readLabel }}" style="flex-shrink:0;width:28px;height:28px;border:0;border-radius:6px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="width:10px;height:10px;border-radius:50%;background:{{ n.dot }};border:{{ n.dotBd }};box-sizing:border-box"></span></button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+      <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px"><span style="width:52px;height:52px;border-radius:50%;background:var(--k-surface-sunken);color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:28px;line-height:1">{{ empty.icon }}</span></span><b style="font-size:16px;line-height:24px">{{ empty.title }}</b><span style="font-size:13px;line-height:19px;color:var(--k-text-2);max-width:320px;text-wrap:pretty">{{ empty.body }}</span><button onClick="{{ empty.run }}" style="margin-top:6px;height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">{{ empty.btn }}</button></div></sc-if>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 8px 8px 12px;border-top:1px solid var(--k-border)"><button onClick="{{ goCentre }}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;border:0;border-radius:8px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer" style-hover="background:var(--k-primary-soft)">Open notification centre<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">arrow_forward</span></button></div>
+  </div>
+</sc-if>
+
+<div aria-live="polite" style="position:absolute;right:20px;bottom:20px;z-index:30;display:flex;flex-direction:column;gap:10px;width:{{ toastW }}">
+  <sc-for list="{{ toasts }}" as="t" hint-placeholder-count="0">
+    <div role="{{ t.role }}" style="display:flex;gap:12px;padding:14px 8px 14px 14px;border-radius:12px;background:var(--k-surface-raised);border:1px solid {{ t.bd }};box-shadow:var(--k-shadow-3)">
+      <span style="width:32px;height:32px;flex-shrink:0;border-radius:50%;background:{{ t.ibg }};color:{{ t.ifg }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ t.icon }}</span></span>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><b style="font-size:14px;line-height:20px">{{ t.title }}</b><span style="font-size:13px;line-height:19px;color:var(--k-text-2);text-wrap:pretty">{{ t.body }}</span><sc-if value="{{ t.hasActs }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"><sc-for list="{{ t.acts }}" as="a" hint-placeholder-count="1"><button onClick="{{ a.run }}" style="height:32px;padding:0 12px;border-radius:7px;border:1px solid {{ a.bd }};background:{{ a.bg }};color:{{ a.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">{{ a.label }}</button></sc-for></div></sc-if></div>
+      <button onClick="{{ t.close }}" aria-label="Dismiss" style="width:32px;height:32px;flex-shrink:0;border:0;border-radius:6px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">close</span></button>
+    </div>
+  </sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isLock }}" hint-placeholder-val="{{ false }}">
+<div style="width:100%;height:100%;position:relative;overflow:hidden;background:#22216F;color:#FFFFFF;font-family:'Noto Sans',system-ui,sans-serif;display:flex;flex-direction:column">
+  <div style="height:50px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:6px 30px 0;font-size:15px;font-weight:600"><span>MTN NG</span><span style="display:flex;gap:4px;font-family:'Material Symbols Rounded';font-size:18px;line-height:1"><span>signal_cellular_alt</span><span>wifi</span><span>battery_5_bar</span></span></div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:14px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;font-variation-settings:'FILL' 1">lock</span><span style="font-size:17px;font-weight:600;margin-top:6px">Wednesday 7 October</span><span style="font-size:88px;line-height:1;font-weight:700;letter-spacing:-.02em">10:46</span></div>
+  <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;padding:30px 10px 0">
+    <button onClick="{{ mOpenCentre }}" style="text-align:left;display:flex;flex-direction:column;gap:3px;padding:12px 14px 13px;border-radius:22px;border:2px solid #B02222;background:rgba(250,248,245,.96);color:#24201C;font-family:inherit;cursor:pointer"><span style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#4E4841"><span style="width:20px;height:20px;border-radius:5px;background:#2B2A8C;color:#F2A900;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">K</span><span style="letter-spacing:.04em">KASUWA</span><span style="display:inline-flex;align-items:center;gap:3px;color:#B02222;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1;font-variation-settings:'FILL' 1">gpp_maybe</span>Time sensitive</span><span style="flex:1"></span><span>4m ago</span></span><b style="font-size:15px;line-height:20px">Unrecognised sign-in to your account</b><span style="font-size:14px;line-height:19px">Chrome on Windows in Abuja. Not you? Tap to secure your account.</span></button>
+    <button onClick="{{ mOpenActions }}" style="text-align:left;display:flex;flex-direction:column;gap:3px;padding:12px 14px 13px;border-radius:22px;border:0;background:rgba(250,248,245,.92);color:#24201C;font-family:inherit;cursor:pointer"><span style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#4E4841"><span style="width:20px;height:20px;border-radius:5px;background:#2B2A8C;color:#F2A900;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">K</span><span style="letter-spacing:.04em">KASUWA</span><span style="flex:1"></span><span>31m ago</span></span><b style="font-size:15px;line-height:20px">Approve an 18% discount?</b><span style="font-size:14px;line-height:19px">Tunde Bakare · Dangote Cement renewal, ₦42,500,000. Press and hold to approve or reject.</span></button>
+    <div style="display:flex;flex-direction:column;gap:3px;padding:12px 14px 13px;border-radius:22px;background:rgba(250,248,245,.92);color:#24201C"><span style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#4E4841"><span style="width:20px;height:20px;border-radius:5px;background:#2B2A8C;color:#F2A900;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">K</span><span style="letter-spacing:.04em">KASUWA</span><span style="flex:1"></span><span>48m ago</span></span><b style="font-size:15px;line-height:20px">Payment received: ₦3,750,000</b><span style="font-size:14px;line-height:19px">Shoprite Nigeria paid INV-2041 via Paystack.</span></div>
+    <div style="display:flex;flex-direction:column;align-items:center">
+      <div style="align-self:stretch;display:flex;flex-direction:column;gap:3px;padding:12px 14px 13px;border-radius:22px;background:rgba(250,248,245,.92);color:#24201C;position:relative;z-index:2"><span style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#4E4841"><span style="width:20px;height:20px;border-radius:5px;background:#2B2A8C;color:#F2A900;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">K</span><span style="letter-spacing:.04em">KASUWA</span><span style="flex:1"></span><span>1h ago</span></span><b style="font-size:15px;line-height:20px">First response due in 25 minutes</b><span style="font-size:14px;line-height:19px">MTN refund dispute · Ticket #8812</span></div>
+      <span style="width:93%;height:10px;margin-top:-2px;border-radius:0 0 16px 16px;background:rgba(250,248,245,.6)"></span>
+      <span style="width:86%;height:8px;border-radius:0 0 14px 14px;background:rgba(250,248,245,.35)"></span>
+      <span style="margin-top:8px;font-size:13px;font-weight:600;color:#FFFFFF">4 more from Kasuwa</span>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:space-between;padding:0 46px 22px"><span style="width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:24px;line-height:1">flashlight_on</span><span style="width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:24px;line-height:1">photo_camera</span></div>
+  <span style="align-self:center;width:136px;height:5px;border-radius:3px;background:#FFFFFF;margin-bottom:8px"></span>
+</div>
+</sc-if>
+
+<sc-if value="{{ isActions }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ mBack }}" style="width:100%;height:100%;position:relative;overflow:hidden;background:#141340;color:#FFFFFF;font-family:'Noto Sans',system-ui,sans-serif;display:flex;flex-direction:column;gap:10px;padding:96px 10px 0">
+  <div onClick="{{ stop }}" style="display:flex;flex-direction:column;gap:6px;padding:14px 16px 16px;border-radius:24px;background:#FAF8F5;color:#24201C">
+    <span style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#4E4841"><span style="width:20px;height:20px;border-radius:5px;background:#2B2A8C;color:#F2A900;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">K</span><span style="letter-spacing:.04em">KASUWA · APPROVAL</span><span style="flex:1"></span><span>31m ago</span></span>
+    <b style="font-size:18px;line-height:24px">Approve an 18% discount?</b>
+    <span style="font-size:14px;line-height:20px;color:#4E4841">Tunde Bakare asked for this on the Dangote Cement renewal. It's above the 15% he can give without you.</span>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px;padding-top:12px;border-top:1px solid #E6E1D9"><span style="display:flex;flex-direction:column"><span style="font-size:12px;color:#665F56">Deal value</span><b style="font-size:15px">₦42,500,000</b></span><span style="display:flex;flex-direction:column"><span style="font-size:12px;color:#665F56">After discount</span><b style="font-size:15px">₦34,850,000</b></span><span style="display:flex;flex-direction:column"><span style="font-size:12px;color:#665F56">Requested</span><b style="font-size:15px">18%</b></span><span style="display:flex;flex-direction:column"><span style="font-size:12px;color:#665F56">Tunde's limit</span><b style="font-size:15px">15%</b></span></div>
+    <sc-if value="{{ mApproved }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:10px 12px;border-radius:12px;background:#E8F6EE;color:#086E3C;font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;font-variation-settings:'FILL' 1">check_circle</span>Approved. Tunde can send the quote.</div></sc-if>
+  </div>
+  <sc-if value="{{ mPending }}" hint-placeholder-val="{{ true }}">
+    <div onClick="{{ stop }}" style="width:250px;display:flex;flex-direction:column;border-radius:16px;background:rgba(250,248,245,.96);color:#24201C;overflow:hidden">
+      <button onClick="{{ mApprove }}" style="display:flex;align-items:center;gap:10px;min-height:52px;padding:0 16px;border:0;border-bottom:1px solid #E6E1D9;background:transparent;color:#24201C;font-family:inherit;font-size:16px;font-weight:600;text-align:left;cursor:pointer"><span style="flex:1">Approve</span><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">check</span></button>
+      <button onClick="{{ mReject }}" style="display:flex;align-items:center;gap:10px;min-height:58px;padding:6px 16px;border:0;border-bottom:1px solid #E6E1D9;background:transparent;color:#B02222;font-family:inherit;text-align:left;cursor:pointer"><span style="flex:1;display:flex;flex-direction:column"><span style="font-size:16px;font-weight:600">Reject…</span><span style="font-size:12px;color:#665F56">Opens Kasuwa to add a reason</span></span><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">close</span></button>
+      <button onClick="{{ mOpenCentre }}" style="display:flex;align-items:center;gap:10px;min-height:52px;padding:0 16px;border:0;background:transparent;color:#24201C;font-family:inherit;font-size:16px;font-weight:600;text-align:left;cursor:pointer"><span style="flex:1">Open deal</span><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">open_in_new</span></button>
+    </div>
+  </sc-if>
+  <span style="margin-top:auto;align-self:center;font-size:13px;color:#DCDCF5;padding-bottom:24px">Tap outside to go back</span>
+</div>
+</sc-if>
+
+<sc-if value="{{ isMCentre }}" hint-placeholder-val="{{ false }}">
+<div style="width:100%;height:100%;display:flex;flex-direction:column;background:var(--k-bg);color:var(--k-text);font-family:'Noto Sans',system-ui,sans-serif;overflow:hidden">
+  <div style="height:48px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:6px 30px 0;font-size:15px;font-weight:600"><span>10:47</span><span style="display:flex;gap:4px;font-family:'Material Symbols Rounded';font-size:18px;line-height:1"><span>signal_cellular_alt</span><span>wifi</span><span>battery_5_bar</span></span></div>
+  <div style="display:flex;align-items:center;gap:4px;padding:6px 4px 6px 16px"><h1 style="flex:1;margin:0;font-size:26px;line-height:34px;font-weight:800">Notifications</h1><button onClick="{{ markAll }}" disabled="{{ noUnread }}" style="height:44px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;opacity:{{ markOp }}">Mark all read</button><button aria-label="Preferences" style="width:44px;height:44px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">tune</span></button></div>
+  <div role="tablist" style="display:flex;gap:8px;padding:2px 16px 12px;overflow-x:auto;flex-shrink:0"><sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4"><button role="tab" aria-selected="{{ t.onStr }}" onClick="{{ t.pick }}" style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:999px;border:1px solid {{ t.bd }};background:{{ t.bg }};color:{{ t.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">{{ t.label }}<span style="opacity:.85">{{ t.count }}</span></button></sc-for></div>
+  <div style="flex:1;min-height:0;overflow-y:auto;border-top:1px solid var(--k-border);background:var(--k-surface)">
+    <sc-for list="{{ days }}" as="d" hint-placeholder-count="2">
+      <div role="group" aria-label="{{ d.label }}" style="display:flex;flex-direction:column;gap:2px;padding:2px 6px 6px">
+        <span style="padding:12px 10px 2px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2)">{{ d.label }}</span>
+        <sc-for list="{{ d.items }}" as="n" hint-placeholder-count="3">
+          <div role="article" aria-label="{{ n.aria }}" onClick="{{ n.open }}" style="display:flex;gap:12px;padding:10px;border-radius:12px;border:1px solid {{ n.bd }};background:{{ n.bg }}">
+            <span style="width:36px;height:36px;flex-shrink:0;border-radius:10px;background:{{ n.ibg }};color:{{ n.ifg }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ n.icon }}</span></span>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+              <div style="display:flex;align-items:flex-start;gap:6px"><span style="flex:1;min-width:0;font-size:15px;line-height:21px;font-weight:{{ n.tw }};text-wrap:pretty">{{ n.title }}</span><span style="flex-shrink:0;font-size:12px;line-height:21px;color:var(--k-text-muted)">{{ n.time }}</span></div>
+              <sc-if value="{{ n.crit }}" hint-placeholder-val="{{ false }}"><span style="align-self:flex-start;height:20px;padding:0 8px;border-radius:999px;background:var(--k-danger);color:#FFFFFF;font-size:11px;font-weight:700;line-height:20px">Critical</span></sc-if>
+              <span style="font-size:14px;line-height:20px;color:var(--k-text-2);text-wrap:pretty">{{ n.body }}</span>
+              <sc-if value="{{ n.hasActs }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"><sc-for list="{{ n.acts }}" as="a" hint-placeholder-count="2"><button onClick="{{ a.run }}" style="flex:1 1 auto;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:44px;padding:0 14px;border-radius:10px;border:1px solid {{ a.bd }};background:{{ a.bg }};color:{{ a.fg }};font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ a.icon }}</span>{{ a.label }}</button></sc-for></div></sc-if>
+              <sc-if value="{{ n.rejecting }}" hint-placeholder-val="{{ false }}"><div onClick="{{ stop }}" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"><label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--k-text-2)">Reason, shared with {{ n.actorFirst }}<input value="{{ reason }}" onChange="{{ setReason }}" placeholder="e.g. Max 15% without a 2-year term" style="height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px"></label><div style="display:flex;gap:8px"><button onClick="{{ n.confirmReject }}" style="flex:1;height:44px;border-radius:10px;border:0;background:var(--k-danger);color:#FFFFFF;font-family:inherit;font-size:14px;font-weight:600">Reject request</button><button onClick="{{ n.cancelReject }}" style="flex:1;height:44px;border-radius:10px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600">Cancel</button></div></div></sc-if>
+              <sc-if value="{{ n.hasDec }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:13px;line-height:19px;font-weight:600;color:{{ n.decFg }}"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ n.decIcon }}</span><span style="flex:1;min-width:0">{{ n.decTxt }}</span><sc-if value="{{ n.canUndo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ n.undo }}" style="height:44px;padding:0 8px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:14px;font-weight:700">Undo</button></sc-if></div></sc-if>
+            </div>
+            <span style="flex-shrink:0;width:10px;height:10px;margin-top:6px;border-radius:50%;background:{{ n.dot }}"></span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:48px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px"><span style="font-family:'Material Symbols Rounded';font-size:32px;line-height:1;color:var(--k-text-2)">{{ empty.icon }}</span><b style="font-size:17px">{{ empty.title }}</b><span style="font-size:14px;line-height:20px;color:var(--k-text-2)">{{ empty.body }}</span></div></sc-if>
+  </div>
+  <nav aria-label="App" style="height:82px;flex-shrink:0;display:flex;padding:6px 6px 22px;background:var(--k-surface);border-top:1px solid var(--k-border)"><sc-for list="{{ mTabs }}" as="t" hint-placeholder-count="5"><span style="flex:1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:{{ t.fg }};font-size:11px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1;font-variation-settings:'FILL' {{ t.fill }}">{{ t.icon }}</span>{{ t.label }}<sc-if value="{{ t.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:0;left:calc(50% + 4px);min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--k-danger);color:#FFFFFF;font-size:10px;font-weight:700;line-height:16px;text-align:center">{{ t.badge }}</span></sc-if></span></sc-for></nav>
+</div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;bell&quot;,&quot;bell-99&quot;,&quot;bell-critical&quot;,&quot;bell-empty&quot;,&quot;centre&quot;,&quot;centre-approvals&quot;,&quot;centre-empty&quot;,&quot;toasts&quot;,&quot;prefs&quot;,&quot;prefs-dirty&quot;,&quot;push-lock&quot;,&quot;push-actions&quot;,&quot;m-centre&quot;],&quot;default&quot;:&quot;bell&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tablet&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;mobile&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const TY = {
+  assignment: { icon: 'assignment_ind', bg: 'var(--k-primary-soft)', fg: 'var(--k-primary-text)', label: 'Assignments' },
+  mention: { icon: 'alternate_email', bg: 'var(--k-primary-soft)', fg: 'var(--k-primary-text)', label: 'Mentions' },
+  approval: { icon: 'approval', bg: 'var(--k-accent-soft)', fg: 'var(--k-accent-text)', label: 'Approvals' },
+  sla: { icon: 'timer', bg: 'var(--k-warning-soft)', fg: 'var(--k-warning-text)', label: 'SLA warnings' },
+  campaign: { icon: 'campaign', bg: 'var(--k-success-soft)', fg: 'var(--k-success-text)', label: 'Campaigns' },
+  import: { icon: 'upload_file', bg: 'var(--k-info-soft)', fg: 'var(--k-info-text)', label: 'Imports' },
+  payment: { icon: 'payments', bg: 'var(--k-success-soft)', fg: 'var(--k-success-text)', label: 'Payments' },
+  einvoice: { icon: 'receipt_long', bg: 'var(--k-danger-soft)', fg: 'var(--k-danger-text)', label: 'E-invoices' },
+  security: { icon: 'shield_person', bg: 'var(--k-danger-soft)', fg: 'var(--k-danger-text)', label: 'Security' }
+};
+const APR = [['Approve', 'primary', 'approve', 'check'], ['Reject', 'secondary', 'reject', 'close']];
+const NOTES = [
+  { id: 'sec1', type: 'security', day: 0, time: '10:42', title: 'Unrecognised sign-in to your account', body: "Chrome on Windows in Abuja signed in with your password. If this wasn't you, secure your account now.", rec: 'Security', critical: true, critOnly: true, acts: [['Secure account', 'danger', 'secure', 'lock'], ['This was me', 'secondary', 'me', 'verified_user']] },
+  { id: 'ap1', type: 'approval', day: 0, time: '10:15', actor: 'Tunde Bakare', title: 'Tunde Bakare asked you to approve an 18% discount', body: 'Dangote Cement renewal · ₦42,500,000. That is above the 15% he can give without you.', rec: 'Deal · Dangote Cement renewal', acts: APR },
+  { id: 'pay1', type: 'payment', day: 0, time: '09:58', title: 'Payment received: ₦3,750,000', body: 'Shoprite Nigeria paid INV-2041 in full via Paystack.', rec: 'Invoice · INV-2041' },
+  { id: 'sla1', type: 'sla', day: 0, time: '09:40', title: 'First response due in 25 minutes', body: 'MTN refund dispute is waiting on you. It breaches at 11:30.', rec: 'Ticket · #8812', acts: [['Open ticket', 'secondary', 'open', 'open_in_new']] },
+  { id: 'men1', type: 'mention', day: 0, time: '09:12', title: 'Ngozi Eze mentioned you', body: '“@Amaka can you confirm the delivery date with Jumia before Friday?”', rec: 'Deal · Jumia logistics', acts: [['Reply', 'secondary', 'open', 'reply']] },
+  { id: 'asg1', type: 'assignment', day: 0, time: '08:30', title: '3 tickets assigned to you', body: 'Routing rule “Lagos priority” moved them into your queue.', rec: 'Queue · Paygo Wallet' },
+  { id: 'inv1', type: 'einvoice', day: 1, time: '17:20', title: 'E-invoice INV-2038 was rejected by FIRS', body: "The buyer TIN on Access Bank doesn't match FIRS records. The invoice isn't valid until it's resubmitted.", rec: 'Invoice · INV-2038', acts: [['Fix and resubmit', 'primary', 'resubmit', 'build']] },
+  { id: 'camp1', type: 'campaign', day: 1, time: '16:05', title: 'Campaign “Detty December promo” completed', body: '48,210 sent on WhatsApp. 61% read, 1,904 replies.', rec: 'Campaign · Detty December promo' },
+  { id: 'imp1', type: 'import', day: 1, time: '14:48', title: 'Import finished: 2,340 contacts added', body: 'lagos-leads-oct.csv. 12 rows skipped because the phone number already exists.', rec: 'Import · lagos-leads-oct.csv', read0: true },
+  { id: 'ap2', type: 'approval', day: 1, time: '13:02', actor: 'Chidi Okafor', title: 'Chidi Okafor requested a ₦185,000 refund', body: 'Konga order KG-55120 arrived damaged. Photos are on the ticket.', rec: 'Ticket · #8790', acts: APR },
+  { id: 'men2', type: 'mention', day: 2, time: '15:30', title: 'Musa Bello mentioned you in a note', body: '“Looping in @Amaka for the Kano distributor pricing.”', rec: 'Account · Kano Agro Ltd', read0: true },
+  { id: 'pay2', type: 'payment', day: 2, time: '11:04', title: 'Payment received: ₦1,200,000', body: 'Konga Online paid INV-2033 by bank transfer.', rec: 'Invoice · INV-2033', read0: true },
+  { id: 'sec2', type: 'security', day: 2, time: '08:15', title: 'New sign-in from iPhone in Lagos', body: 'Kasuwa for iOS. You confirmed this was you.', rec: 'Security', read0: true },
+  { id: 'asg2', type: 'assignment', day: 2, time: '08:02', title: 'Deal reassigned to you', body: 'Halima Yusuf handed over Flutterwave POS rollout · ₦18,000,000.', rec: 'Deal · Flutterwave POS rollout', read0: true }
+];
+const DAYS = ['Today', 'Yesterday', 'Monday 5 October'];
+const REC_ICON = { Deal: 'handshake', Ticket: 'confirmation_number', Invoice: 'receipt', Queue: 'inbox', Campaign: 'campaign', Import: 'upload_file', Account: 'apartment', Security: 'shield' };
+const DEC = {
+  approve: { t: (n) => 'Approved by you just now. ' + n.actor.split(' ')[0] + ' has been told.', fg: 'var(--k-success-text)', icon: 'check_circle', undo: true },
+  reject: { t: (n, r) => 'Rejected' + (r ? ': “' + r + '”' : '') + '. ' + n.actor.split(' ')[0] + ' has been told.', fg: 'var(--k-danger-text)', icon: 'cancel', undo: true },
+  me: { t: () => 'You confirmed this sign-in. No action needed.', fg: 'var(--k-text-2)', icon: 'verified_user' },
+  secure: { t: () => 'Other sessions signed out. Change your password next.', fg: 'var(--k-success-text)', icon: 'lock_reset' },
+  resubmit: { t: () => "Resubmitted to FIRS. We'll tell you when it clears.", fg: 'var(--k-info-text)', icon: 'sync' }
+};
+const TONE = { success: ['var(--k-success-soft)', 'var(--k-success-text)'], warning: ['var(--k-warning-soft)', 'var(--k-warning-text)'], danger: ['var(--k-danger-soft)', 'var(--k-danger-text)'], accent: ['var(--k-accent-soft)', 'var(--k-accent-text)'], primary: ['var(--k-primary-soft)', 'var(--k-primary-text)'], info: ['var(--k-info-soft)', 'var(--k-info-text)'] };
+const TOASTS = {
+  pay: { icon: 'payments', tone: 'success', title: 'Payment received: ₦3,750,000', body: 'Shoprite Nigeria paid INV-2041 via Paystack.', acts: [['View invoice']] },
+  sla: { icon: 'timer', tone: 'warning', title: 'First response due in 25 minutes', body: 'Ticket #8812 · MTN refund dispute', acts: [['Open ticket']] },
+  appr: { icon: 'approval', tone: 'accent', title: 'Tunde Bakare needs your approval', body: '18% discount on Dangote Cement renewal · ₦42,500,000', acts: [['Approve', 'primary'], ['Review']] },
+  einv: { icon: 'error', tone: 'danger', title: 'E-invoice INV-2038 rejected by FIRS', body: "Buyer TIN doesn't match. This stays until you act on it.", acts: [['Fix and resubmit', 'primary']], sticky: true },
+  men: { icon: 'alternate_email', tone: 'primary', title: 'Ngozi Eze mentioned you', body: '“Can you confirm the delivery date with Jumia?”', acts: [['Reply']] },
+  imp: { icon: 'upload_file', tone: 'info', title: 'Import finished: 2,340 contacts', body: '12 rows skipped as duplicates.', acts: [['View contacts']] },
+  saved: { icon: 'check_circle', tone: 'success', title: 'Preferences saved', body: 'Changes apply to new notifications.', acts: [] },
+  test: { icon: 'send', tone: 'info', title: 'Test notification sent', body: 'Check in-app, email and push on your 2 devices.', acts: [] }
+};
+const CH = [['In-app', 'notifications', 'This app'], ['Email', 'mail', 'amaka@zenith.ng'], ['Push', 'smartphone', '2 devices'], ['WhatsApp', 'chat', '+234 803 ••• 4412'], ['SMS', 'sms', '₦4 per message']];
+const MATRIX = [
+  ['Work', [['assignment', 'Assigned to me', 'Tickets, deals and tasks routed or handed to you'], ['mention', 'Mentions', '@mentions in notes, deals and conversations'], ['approval', 'Approval requests', 'Discounts, refunds and quotes waiting on you'], ['sla', 'SLA warnings', '30 minutes before a response or resolution is due']]],
+  ['Marketing and data', [['campaign', 'Campaign completed', 'Final send, read and reply figures'], ['import', 'Import finished', 'Rows added, updated and skipped']]],
+  ['Finance', [['payment', 'Payment received', 'Paystack, Flutterwave and transfers matched to an invoice'], ['einvoice', 'E-invoice failed', "FIRS rejected or couldn't validate an invoice"]]],
+  ['Security', [['security', 'Security alerts', 'New sign-ins, password and 2-step changes']]]
+];
+const PDEF = { assignment: [1, 1, 1, 0, 0], mention: [1, 1, 1, 0, 0], approval: [1, 1, 1, 1, 0], sla: [1, 0, 1, 1, 0], campaign: [1, 1, 0, 0, 0], import: [1, 1, 0, 0, 0], payment: [1, 1, 1, 0, 0], einvoice: [1, 1, 1, 0, 0], security: [1, 1, 1, 0, 1] };
+const LOCK = { security: [1, 1, 0, 0, 0] };
+const QDEF = { on: true, from: '21:00', to: '07:00', days: [1, 1, 1, 1, 1, 1, 1], sla: true, big: false };
+const BDEF = { campaign: 1, import: 1, payment: 0, assignment: 0 };
+const TICKETS = [['#8812', 'MTN refund dispute', 'Adaeze Nwosu', '25 min left', 'w'], ['#8809', 'Card not linking to wallet', 'Emeka Obi', '1 h 10 min', 'o'], ['#8803', 'Agent PIN reset', 'Fatima Sani', '2 h', 'o'], ['#8798', 'Duplicate debit on transfer', 'Segun Adeyemi', '3 h 40 min', 'o'], ['#8790', 'Konga order arrived damaged', 'Chidi Okafor', 'Paused, approval', 'm'], ['#8784', 'Statement request for Q3', 'Bisi Lawal', '6 h', 'o'], ['#8779', 'USSD session timing out', 'Garba Musa', '7 h 20 min', 'o']];
+const DAYN = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+class Component extends DCLogic {
+  state = this.init(this.props.screen ?? 'bell');
+  init(s) {
+    const crit = ['bell-critical', 'toasts', 'push-lock', 'push-actions', 'm-centre'].includes(s);
+    const notes = s === 'centre-empty' ? [] : NOTES.filter(n => crit || !n.critOnly);
+    const read = {};
+    notes.forEach(n => { if (n.read0 || s === 'bell-empty') read[n.id] = true; });
+    const filter = s === 'bell-empty' ? 'unread' : s === 'centre-approvals' ? 'approvals' : 'all';
+    const p = JSON.parse(JSON.stringify(PDEF)), q = JSON.parse(JSON.stringify(QDEF)), b = { ...BDEF };
+    const base = JSON.stringify({ p, q, dg: 'daily', b });
+    let dg = 'daily';
+    if (s === 'prefs-dirty') { p.mention[3] = 1; p.sla[4] = 1; q.from = '22:00'; q.days = [1, 1, 1, 1, 1, 0, 0]; }
+    const view = s.startsWith('centre') ? 'centre' : s.startsWith('prefs') ? 'prefs' : 'home';
+    const mview = s === 'push-actions' ? 'actions' : s === 'm-centre' ? 'centre' : 'lock';
+    return {
+      notes, read, filter, ty: 'all', snap: filter === 'unread' ? notes.filter(n => !read[n.id]).map(n => n.id) : null,
+      dec: {}, rejecting: null, reason: '', open: s.startsWith('bell'), view, mview, mDec: null,
+      extra: s === 'bell-99' ? { assignment: 104, sla: 18, mention: 3, import: 6 } : {},
+      toasts: s === 'toasts' ? ['pay', 'sla', 'einv'].map((k, i) => ({ id: k + i, k })) : [],
+      p, q, dg, b, base, demo: s === 'toasts'
+    };
+  }
+  componentWillUnmount() { (this._tm || []).forEach(clearTimeout); }
+  toast(k) {
+    const id = k + Date.now();
+    this.setState(s => ({ toasts: [...s.toasts, { id, k }].slice(-4) }));
+    if (!TOASTS[k].sticky) { this._tm = this._tm || []; this._tm.push(setTimeout(() => this.closeToast(id), 6000)); }
+  }
+  closeToast(id) { this.setState(s => ({ toasts: s.toasts.filter(t => t.id !== id) })); }
+  markRead(id, v) { this.setState(s => ({ read: { ...s.read, [id]: v } })); }
+  decide(n, d) { this.setState(s => ({ dec: { ...s.dec, [n.id]: { d, r: s.reason } }, read: { ...s.read, [n.id]: true }, rejecting: null, reason: '' })); }
+  act(n, d) {
+    if (d === 'open') return this.markRead(n.id, true);
+    if (d === 'reject') return this.setState({ rejecting: n.id, reason: '' });
+    this.decide(n, d);
+  }
+  markAll() {
+    this.setState(s => { const read = { ...s.read }; s.notes.forEach(n => { read[n.id] = true; }); return { read, extra: {}, snap: s.filter === 'unread' ? [] : null }; });
+  }
+  setFilter(f) { this.setState(s => ({ filter: f, ty: 'all', snap: f === 'unread' ? s.notes.filter(n => !s.read[n.id]).map(n => n.id) : null })); }
+  renderVals() {
+    const st = this.state, tablet = !!this.props.tablet, desktop = !tablet;
+    const isUnread = n => !st.read[n.id];
+    const pending = n => n.type === 'approval' && !st.dec[n.id];
+    const unreadList = st.notes.filter(isUnread).length;
+    const extraSum = Object.values(st.extra).reduce((a, b) => a + b, 0);
+    const unreadTotal = unreadList + extraSum;
+    const mentionsU = st.notes.filter(n => n.type === 'mention' && isUnread(n)).length;
+    const apprP = st.notes.filter(pending).length;
+    const btn = k => k === 'primary' ? { bg: 'var(--k-primary)', fg: 'var(--k-on-primary)', bd: 'var(--k-primary)' } : k === 'danger' ? { bg: 'var(--k-danger)', fg: '#FFFFFF', bd: 'var(--k-danger)' } : { bg: 'var(--k-surface)', fg: 'var(--k-text)', bd: 'var(--k-border-strong)' };
+    let list = st.notes.filter(n => st.filter === 'all' || (st.filter === 'unread' && (st.snap ? st.snap.includes(n.id) : isUnread(n))) || (st.filter === 'mentions' && n.type === 'mention') || (st.filter === 'approvals' && n.type === 'approval'));
+    if (st.ty !== 'all') list = list.filter(n => n.type === st.ty);
+    const stop = e => e.stopPropagation();
+    const vm = n => {
+      const T = TY[n.type], un = isUnread(n), dc = st.dec[n.id], rej = st.rejecting === n.id, crit = n.critical && !dc;
+      const D = dc && DEC[dc.d];
+      return {
+        id: n.id, title: n.title, body: n.body, time: n.time, rec: n.rec, recIcon: REC_ICON[n.rec.split(' ')[0]] || 'link',
+        aria: (un ? 'Unread. ' : '') + n.title, crit, icon: crit ? 'gpp_maybe' : T.icon,
+        ibg: crit ? 'var(--k-danger)' : T.bg, ifg: crit ? '#FFFFFF' : T.fg,
+        bg: crit ? 'var(--k-danger-soft)' : 'transparent', bd: crit ? 'var(--k-danger)' : 'transparent',
+        tw: un ? 700 : 500, dot: un ? 'var(--k-primary)' : 'transparent', dotBd: un ? '0' : '1.5px solid var(--k-border-strong)',
+        readLabel: un ? 'Mark as read' : 'Mark as unread',
+        toggleRead: e => { e.stopPropagation(); this.markRead(n.id, un); },
+        open: () => this.markRead(n.id, true),
+        hasActs: !!n.acts && !dc && !rej,
+        acts: (n.acts || []).map(([label, k, d, icon]) => ({ label, icon, ...btn(k), run: e => { e.stopPropagation(); this.act(n, d); } })),
+        rejecting: rej, actorFirst: (n.actor || '').split(' ')[0],
+        confirmReject: e => { e.stopPropagation(); this.decide(n, 'reject'); },
+        cancelReject: e => { e.stopPropagation(); this.setState({ rejecting: null }); },
+        hasDec: !!D, decTxt: D ? D.t(n, dc.r) : '', decFg: D ? D.fg : '', decIcon: D ? D.icon : '', canUndo: !!(D && D.undo),
+        undo: e => { e.stopPropagation(); this.setState(s => { const dec = { ...s.dec }; delete dec[n.id]; return { dec }; }); }
+      };
+    };
+    const days = DAYS.map((label, i) => { const items = list.filter(n => n.day === i).map(vm); const u = list.filter(n => n.day === i && isUnread(n)).length; return { label, items, count: u ? u + ' unread' : '' }; }).filter(d => d.items.length);
+    const tabsDef = [['all', 'All', 'inbox', st.notes.length ? '' : ''], ['unread', 'Unread', 'mark_email_unread', unreadTotal ? (unreadTotal > 99 ? '99+' : String(unreadTotal)) : ''], ['mentions', 'Mentions', 'alternate_email', mentionsU ? String(mentionsU) : ''], ['approvals', 'Approvals', 'approval', apprP ? String(apprP) : '']];
+    const tabs = tabsDef.map(([k, label, icon, count]) => { const on = st.filter === k; return { label, icon, count, onStr: String(on), pick: () => this.setFilter(k), bg: on ? 'var(--k-primary)' : 'var(--k-surface)', fg: on ? 'var(--k-on-primary)' : 'var(--k-text)', bd: on ? 'var(--k-primary)' : 'var(--k-border)', sideBg: on ? 'var(--k-primary-soft)' : 'transparent', sideFg: on ? 'var(--k-primary-text)' : 'var(--k-text)' }; });
+    const types = [{ k: 'all', label: 'All types', icon: 'category', count: '' }].concat(Object.keys(TY).map(k => ({ k, label: TY[k].label, icon: TY[k].icon, count: String(st.notes.filter(n => n.type === k).length) }))).map(t => { const on = st.ty === t.k; return { ...t, onStr: String(on), bg: on ? 'var(--k-surface-sunken)' : 'transparent', w: on ? 700 : 500, pick: () => this.setState({ ty: t.k }) }; });
+    const showAll = () => this.setFilter('all');
+    const empty = !st.notes.length
+      ? { icon: 'notifications', title: 'No notifications yet', body: "You'll hear here when work is assigned to you, someone mentions you or an approval needs you.", btn: 'Set preferences', run: () => this.setState({ view: 'prefs', open: false }) }
+      : st.filter === 'unread' ? { icon: 'done_all', title: "You're all caught up", body: 'Nothing unread. Older notifications stay in All for 90 days.', btn: 'Show all', run: showAll }
+      : st.filter === 'approvals' ? { icon: 'approval', title: 'No approvals waiting', body: 'Requests that need your sign-off land here.', btn: 'Show all', run: showAll }
+      : { icon: 'alternate_email', title: 'No mentions', body: 'When someone @mentions you, it shows here.', btn: 'Show all', run: showAll };
+    const sec = st.notes.find(n => n.id === 'sec1');
+    const critActive = !!sec && !st.dec.sec1;
+    const nav = [['home', 'Home'], ['inbox', 'Inbox'], ['contacts', 'Contacts'], ['handshake', 'Deals'], ['confirmation_number', 'Tickets'], ['bar_chart', 'Reports'], ['settings', 'Settings']];
+    const navCur = st.view === 'prefs' ? 'Settings' : st.view === 'home' ? 'Tickets' : '';
+    // prefs
+    const P = st.p, Q = st.q;
+    const setP = (k, i) => this.setState(s => { const p = JSON.parse(JSON.stringify(s.p)); p[k][i] = p[k][i] ? 0 : 1; return { p }; });
+    const mGroups = MATRIX.map(([label, rows]) => ({ label, rows: rows.map(([k, l, desc]) => ({ label: l, desc, icon: TY[k].icon, ibg: TY[k].bg, ifg: TY[k].fg, cells: CH.map(([cl], i) => { const on = !!P[k][i], lk = !!(LOCK[k] && LOCK[k][i]); return { onStr: String(on), aria: l + ' by ' + cl, title: lk ? 'Required by your admin' : '', cur: lk ? 'not-allowed' : 'pointer', bd: on ? (lk ? '0' : '0') : '1.5px solid var(--k-border-strong)', bg: on ? (lk ? 'var(--k-surface-sunken)' : 'var(--k-primary)') : 'var(--k-surface)', fg: lk ? 'var(--k-text-2)' : 'var(--k-on-primary)', icon: lk ? 'lock' : on ? 'check' : '', isz: lk ? '15px' : '18px', toggle: () => { if (!lk) setP(k, i); } }; }) })) }));
+    const smsN = Object.keys(P).filter(k => P[k][4]).length;
+    const sw = (on, run, lk) => ({ onStr: String(on), run: lk ? () => {} : run, bg: on ? 'var(--k-primary)' : 'var(--k-border-strong)', x: on ? '18px' : '0px', op: lk ? 0.6 : 1, cur: lk ? 'not-allowed' : 'pointer', title: lk ? 'Required by your admin' : '' });
+    const setQ = patch => this.setState(s => ({ q: { ...s.q, ...patch } }));
+    const cur = JSON.stringify({ p: st.p, q: st.q, dg: st.dg, b: st.b });
+    const baseO = JSON.parse(st.base);
+    let changes = 0;
+    Object.keys(P).forEach(k => P[k].forEach((v, i) => { if (v !== baseO.p[k][i]) changes++; }));
+    ['on', 'from', 'to', 'sla', 'big'].forEach(k => { if (Q[k] !== baseO.q[k]) changes++; });
+    if (JSON.stringify(Q.days) !== JSON.stringify(baseO.q.days)) changes++;
+    if (st.dg !== baseO.dg) changes++;
+    if (JSON.stringify(st.b) !== JSON.stringify(baseO.b)) changes++;
+    const mTab = (icon, label, on, badge) => ({ icon, label, fg: on ? 'var(--k-primary-text)' : 'var(--k-text-2)', fill: on ? 1 : 0, hasBadge: !!badge, badge });
+    return {
+      isShell: !this.props.mobile, isLock: !!this.props.mobile && st.mview === 'lock', isActions: !!this.props.mobile && st.mview === 'actions', isMCentre: !!this.props.mobile && st.mview === 'centre',
+      desktop, tablet, pad: desktop ? '28px 32px' : '20px', stop,
+      toggleBell: () => this.setState(s => ({ open: !s.open })), open: st.open, openStr: String(st.open),
+      bellBg: st.open ? 'var(--k-primary-soft)' : 'transparent', bellFg: st.open ? 'var(--k-primary-text)' : 'var(--k-text-2)', bellFill: st.open ? 1 : 0, bellIcon: critActive ? 'notification_important' : 'notifications',
+      bellLabel: 'Notifications, ' + unreadTotal + ' unread', hasBadge: unreadTotal > 0, badge: unreadTotal > 99 ? '99+' : String(unreadTotal),
+      showCritBanner: critActive && !this.props.mobile, critMe: () => this.decide(sec, 'me'), critSecure: () => this.decide(sec, 'secure'),
+      navItems: nav.map(([icon, label]) => ({ icon, label, bg: label === navCur ? 'var(--k-primary-soft)' : 'transparent', fg: label === navCur ? 'var(--k-primary-text)' : 'var(--k-text-2)' })),
+      isHome: st.view === 'home', isCentre: st.view === 'centre', isPrefs: st.view === 'prefs',
+      showDemo: st.demo, demoBtns: [['pay', 'Payment'], ['sla', 'SLA warning'], ['appr', 'Approval'], ['einv', 'E-invoice failed'], ['men', 'Mention'], ['imp', 'Import']].map(([k, label]) => ({ label, run: () => this.toast(k) })),
+      tickets: TICKETS.map(([id, subj, who, sla, t]) => ({ id, subj, who, sla, bg: t === 'w' ? 'var(--k-warning-soft)' : t === 'm' ? 'var(--k-surface-sunken)' : 'var(--k-success-soft)', fg: t === 'w' ? 'var(--k-warning-text)' : t === 'm' ? 'var(--k-text-2)' : 'var(--k-success-text)' })),
+      unreadTotal, unreadTxt: unreadTotal ? unreadTotal + ' unread · ' + st.notes.length + ' in the last 90 days' : st.notes.length ? 'All read' : 'Nothing yet', unreadShort: unreadTotal ? unreadTotal + ' unread' : '',
+      noUnread: !unreadTotal, markOp: unreadTotal ? 1 : 0.45, markAll: () => this.markAll(),
+      goPrefs: () => this.setState({ view: 'prefs', open: false }), goCentre: () => this.setState({ view: 'centre', open: false }),
+      cCols: desktop ? '240px minmax(0,1fr)' : 'minmax(0,1fr)', tabs, types, ty: st.ty, setTy: e => this.setState({ ty: e.target.value }),
+      days, isEmpty: !days.length, empty,
+      reason: st.reason, setReason: e => this.setState({ reason: e.target.value }),
+      hasExtra: extraSum > 0, extraTxt: 'Most are assignments (' + (st.extra.assignment || 0) + ') from routing and SLA warnings (' + (st.extra.sla || 0) + '). Clear the noise, keep what needs you.',
+      markAsgTxt: 'Mark ' + ((st.extra.assignment || 0) + 1) + ' assignments read',
+      markAsg: () => this.setState(s => { const e = { ...s.extra }; delete e.assignment; const read = { ...s.read }; s.notes.filter(n => n.type === 'assignment').forEach(n => { read[n.id] = true; }); return { extra: e, read }; }),
+      ddW: desktop ? '440px' : '420px', ddRight: '12px', toastW: desktop ? '380px' : '360px',
+      toasts: st.toasts.map(t => { const D = TOASTS[t.k], [ibg, ifg] = TONE[D.tone]; return { title: D.title, body: D.body, icon: D.icon, ibg, ifg, role: D.tone === 'danger' ? 'alert' : 'status', bd: D.tone === 'danger' ? 'var(--k-danger)' : 'var(--k-border)', hasActs: D.acts.length > 0, acts: D.acts.map(([label, k]) => ({ label, ...btn(k || 'secondary'), run: () => this.closeToast(t.id) })), close: () => this.closeToast(t.id) }; }),
+      pCols: desktop ? 'minmax(0,1fr) 380px' : 'minmax(0,1fr)', mCols: desktop ? 'minmax(0,1fr) repeat(5,88px)' : 'minmax(0,1fr) repeat(5,76px)',
+      chans: CH.map(([label, icon, sub]) => ({ label, icon, sub })), mGroups,
+      smsNote: smsN > 0, smsTxt: 'SMS is billed to your workspace at ₦4 per message. You have ' + smsN + (smsN === 1 ? ' event' : ' events') + ' set to SMS. Push and WhatsApp are free.',
+      quietOn: Q.on, qOn: sw(Q.on, () => setQ({ on: !Q.on })), qFrom: Q.from, qTo: Q.to,
+      setFrom: e => setQ({ from: e.target.value }), setTo: e => setQ({ to: e.target.value }),
+      qDays: ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => { const on = !!Q.days[i]; return { label, full: DAYN[i], onStr: String(on), bg: on ? 'var(--k-primary-soft)' : 'var(--k-surface)', fg: on ? 'var(--k-primary-text)' : 'var(--k-text-2)', bd: on ? 'var(--k-primary-text)' : 'var(--k-border)', toggle: () => { const d = Q.days.slice(); d[i] = d[i] ? 0 : 1; setQ({ days: d }); } }; }),
+      qThrough: [{ label: 'Security alerts', sub: 'Always delivered. Required by your admin.', ...sw(true, null, true) }, { label: 'SLA breaches', sub: 'Only when a breach is under 15 minutes away', ...sw(Q.sla, () => setQ({ sla: !Q.sla })) }, { label: 'Approvals over ₦5,000,000', sub: 'Large deals that can\'t wait for morning', ...sw(Q.big, () => setQ({ big: !Q.big })) }],
+      dgOpts: [['instant', 'Instant emails', 'One email per event'], ['daily', 'Daily digest at 08:00', 'One summary each weekday morning'], ['weekly', 'Weekly digest', 'Monday at 08:00']].map(([k, label, sub]) => { const on = st.dg === k; return { label, sub, onStr: String(on), ring: on ? '2px solid var(--k-primary)' : '1.5px solid var(--k-border-strong)', chk: on ? 1 : 0, pick: () => this.setState({ dg: k }) }; }),
+      digestOn: st.dg !== 'instant',
+      bundle: Object.keys(BDEF).map(k => { const on = !!st.b[k]; return { label: TY[k].label, icon: on ? 'check' : TY[k].icon, onStr: String(on), bg: on ? 'var(--k-primary-soft)' : 'var(--k-surface)', fg: on ? 'var(--k-primary-text)' : 'var(--k-text)', bd: on ? 'var(--k-primary-text)' : 'var(--k-border)', toggle: () => this.setState(s => ({ b: { ...s.b, [k]: s.b[k] ? 0 : 1 } })) }; }),
+      dirty: cur !== st.base, dirtyTxt: changes + (changes === 1 ? ' unsaved change' : ' unsaved changes'),
+      discard: () => { const b = JSON.parse(st.base); this.setState({ p: b.p, q: b.q, dg: b.dg, b: b.b }); },
+      save: () => { this.setState({ base: cur }); this.toast('saved'); }, sendTest: () => this.toast('test'),
+      mOpenCentre: e => { if (e) e.stopPropagation(); this.setState({ mview: 'centre' }); }, mOpenActions: () => this.setState({ mview: 'actions' }), mBack: () => this.setState({ mview: 'lock', mDec: null }),
+      mApproved: st.mDec === 'approve', mPending: !st.mDec,
+      mApprove: e => { e.stopPropagation(); this.setState(s => ({ mDec: 'approve', dec: { ...s.dec, ap1: { d: 'approve' } }, read: { ...s.read, ap1: true } })); },
+      mReject: e => { e.stopPropagation(); this.setState({ mview: 'centre', rejecting: 'ap1', reason: '' }); },
+      mTabs: [mTab('home', 'Home', false), mTab('inbox', 'Inbox', false, '3'), mTab('handshake', 'Deals', false), mTab('notifications', 'Alerts', true, unreadTotal ? (unreadTotal > 99 ? '99+' : String(unreadTotal)) : ''), mTab('menu', 'More', false)]
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&amp;display=block">
+</helmet>
+<div style="position:relative;width:100%;height:100%;display:flex;flex-direction:column;background:var(--k-bg);color:var(--k-text);font-family:'Noto Sans',system-ui,sans-serif;font-size:14px;overflow:hidden">
+
+<sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+  <header style="height:60px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px 0 16px;background:var(--k-surface);border-bottom:1px solid var(--k-border)">
+    <span style="display:flex;align-items:center;gap:8px"><span style="width:32px;height:32px;border-radius:8px;background:var(--k-primary);color:var(--k-accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px">K</span><b style="font-size:16px">Kasuwa</b></span>
+    <span style="flex:0 1 420px;margin-left:20px;display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:8px;background:var(--k-surface-sunken);color:var(--k-text-muted);font-size:14px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">search</span>Search contacts, deals, tickets, numbers…<span style="flex:1"></span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:2px 6px;border:1px solid var(--k-border-strong);border-radius:4px;white-space:nowrap">Ctrl K</span></span>
+    <span style="flex:1"></span>
+    <button aria-label="Notifications" style="width:44px;height:44px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">notifications</span></button>
+    <span style="width:36px;height:36px;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">TB</span>
+  </header>
+</sc-if>
+<sc-if value="{{ mobileChrome }}" hint-placeholder-val="{{ false }}">
+  <header style="flex-shrink:0;display:flex;flex-direction:column;background:var(--k-surface);border-bottom:1px solid var(--k-border)">
+    <div style="height:56px;display:flex;align-items:center;gap:4px;padding:0 4px 0 16px"><b style="flex:1;font-size:18px">{{ mTitle }}</b><sc-if value="{{ isTasks }}" hint-placeholder-val="{{ true }}"><button onClick="{{ toggleMSelect }}" style="height:44px;padding:0 10px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:14px;font-weight:700">{{ mSelectLabel }}</button></sc-if><button onClick="{{ openComposer }}" aria-label="New activity" style="width:48px;height:48px;border:0;background:transparent;color:var(--k-primary-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:26px;line-height:1">add_circle</span></button></div>
+    <div role="tablist" style="display:flex;padding:0 8px">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button role="tab" aria-selected="{{ t.sel }}" onClick="{{ t.pick }}" style="flex:1;height:44px;border:0;background:transparent;font-family:inherit;font-size:14px;font-weight:{{ t.fw }};color:{{ t.fg }};box-shadow:{{ t.bar }};cursor:pointer">{{ t.label }}</button></sc-for>
+    </div>
+  </header>
+</sc-if>
+
+<div style="flex:1;min-height:0;display:flex">
+  <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+    <nav aria-label="Main" style="width:72px;flex-shrink:0;background:var(--k-surface-sunken);border-right:1px solid var(--k-border);padding:12px 0;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="7"><span aria-current="{{ n.cur }}" style="width:56px;min-height:52px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:{{ n.bg }};color:{{ n.fg }};font-size:10px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">{{ n.icon }}</span>{{ n.label }}</span></sc-for>
+    </nav>
+  </sc-if>
+
+  <main style="flex:1;min-width:0;overflow-y:auto;display:flex;flex-direction:column">
+    <div style="padding:{{ pad }};display:flex;flex-direction:column;gap:{{ gap }}px;min-width:0;flex:1">
+
+      <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px">
+          <h1 style="margin:0;font-size:28px;line-height:36px;font-weight:800;letter-spacing:-.01em">Activities</h1>
+          <div role="tablist" style="display:flex;gap:2px;padding:3px;border-radius:10px;background:var(--k-surface-sunken)">
+            <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button role="tab" aria-selected="{{ t.sel }}" onClick="{{ t.pick }}" style="display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 12px;border-radius:7px;border:0;background:{{ t.bg }};box-shadow:{{ t.sh }};color:{{ t.fg2 }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ t.icon }}</span>{{ t.label }}</button></sc-for>
+          </div>
+          <span style="flex:1"></span>
+          <span style="display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 10px;border-radius:999px;background:var(--k-primary-soft);color:var(--k-primary-text);font-size:12px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">schedule</span>WAT · UTC+1 · Lagos</span>
+          <button onClick="{{ openComposer }}" style="display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 16px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:15px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">add</span>New activity</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ offline }}" hint-placeholder-val="{{ false }}">
+        <div role="status" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;min-height:48px;padding:8px 8px 8px 14px;border-radius:10px;background:var(--k-inverse);color:var(--k-on-inverse);font-size:14px;line-height:20px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">cloud_off</span><span style="flex:1 1 200px"><b>You're offline.</b> {{ queueText }}</span><button style="height:40px;padding:0 12px;border-radius:6px;border:1px solid currentColor;background:transparent;color:inherit;font-family:inherit;font-size:13px;font-weight:700">View queue ({{ queueN }})</button></div>
+      </sc-if>
+
+      <!-- ================= TASKS ================= -->
+      <sc-if value="{{ isTasks }}" hint-placeholder-val="{{ true }}">
+        <sc-if value="{{ tasksEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:32px 8px">
+            <div style="max-width:440px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px">
+              <div aria-hidden="true" style="position:relative;width:120px;height:96px;display:flex;align-items:center;justify-content:center">
+                <span style="position:absolute;left:8px;top:14px;width:10px;height:10px;border-radius:2px;background:var(--k-accent);transform:rotate(20deg)"></span><span style="position:absolute;right:12px;top:6px;width:8px;height:8px;border-radius:50%;background:var(--k-chart-3)"></span><span style="position:absolute;right:0;bottom:22px;width:12px;height:5px;border-radius:2px;background:var(--k-primary);transform:rotate(-30deg)"></span><span style="position:absolute;left:0;bottom:16px;width:7px;height:7px;border-radius:50%;background:var(--k-success)"></span><span style="position:absolute;left:30px;top:0;width:6px;height:12px;border-radius:2px;background:var(--k-chart-5);transform:rotate(35deg)"></span>
+                <span style="width:72px;height:72px;border-radius:50%;background:var(--k-success-soft);color:var(--k-success-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:40px;line-height:1">task_alt</span></span>
+              </div>
+              <h2 style="margin:0;font-size:24px;line-height:32px;font-weight:800">You're all caught up</h2>
+              <span style="font-size:15px;line-height:23px;color:var(--k-text-2);text-wrap:pretty">No tasks due. You finished <b style="color:var(--k-text)">23 this week</b> — your best week since August. Well done, Tunde.</span>
+              <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:4px"><button onClick="{{ openComposer }}" style="height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Add a task</button><button onClick="{{ goCal }}" style="height:44px;padding:0 14px;border-radius:8px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Plan tomorrow in Calendar</button></div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ tasksReady }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+            <sc-for list="{{ taskFilters }}" as="f" hint-placeholder-count="4"><button onClick="{{ f.pick }}" aria-pressed="{{ f.pressed }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:999px;border:1px solid {{ f.border }};background:{{ f.bg }};color:{{ f.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">{{ f.label }}<span style="font-size:11px;opacity:.85">{{ f.n }}</span></button></sc-for>
+            <span style="flex:1"></span>
+            <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--k-text-muted)">{{ doneToday }} done today</span></sc-if>
+          </div>
+
+          <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+            <div role="toolbar" aria-label="Bulk actions" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 8px 8px 14px;border-radius:10px;background:var(--k-primary);color:var(--k-on-primary);position:sticky;top:0;z-index:5">
+              <b style="font-size:14px;flex:1 1 auto">{{ selCount }} selected</b>
+              <label style="position:relative;display:flex;align-items:center"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Reassign to</span><span style="position:absolute;left:10px;font-family:'Material Symbols Rounded';font-size:18px;line-height:1;pointer-events:none;color:var(--k-text)">person</span><select value="{{ bulkOwner }}" onChange="{{ pickBulkOwner }}" style="height:40px;padding:0 30px 0 34px;border-radius:8px;border:0;background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;appearance:none;-webkit-appearance:none;cursor:pointer"><sc-for list="{{ ownerOpts }}" as="o" hint-placeholder-count="5"><option value="{{ o.v }}">{{ o.label }}</option></sc-for></select><span style="position:absolute;right:8px;font-family:'Material Symbols Rounded';font-size:18px;line-height:1;pointer-events:none;color:var(--k-text)">expand_more</span></label>
+              <button onClick="{{ bulkReassign }}" disabled="{{ noBulkOwner }}" style="height:40px;padding:0 12px;border-radius:8px;border:0;background:var(--k-accent);color:#24201C;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;opacity:{{ bulkOp }}">Reassign</button>
+              <button onClick="{{ bulkSnooze }}" style="height:40px;padding:0 10px;border-radius:8px;border:1px solid rgba(255,255,255,.5);background:transparent;color:inherit;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Snooze to tomorrow</button>
+              <button onClick="{{ bulkDone }}" style="height:40px;padding:0 10px;border-radius:8px;border:1px solid rgba(255,255,255,.5);background:transparent;color:inherit;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Complete</button>
+              <button onClick="{{ clearSel }}" aria-label="Clear selection" style="width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">close</span></button>
+            </div>
+          </sc-if>
+
+          <sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+            <section aria-label="{{ g.label }}" style="display:flex;flex-direction:column;border-radius:12px;background:var(--k-surface);border:1px solid {{ g.border }};overflow:visible">
+              <div style="display:flex;align-items:center;gap:8px;min-height:48px;padding:0 14px;border-bottom:1px solid var(--k-border)">
+                <sc-if value="{{ showChecks }}" hint-placeholder-val="{{ true }}"><button onClick="{{ g.toggleAll }}" role="checkbox" aria-checked="{{ g.allAria }}" aria-label="Select all {{ g.label }}" style="width:32px;height:44px;margin-left:-6px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:18px;height:18px;border-radius:4px;border:{{ g.allBorder }};background:{{ g.allBg }};display:flex;align-items:center;justify-content:center;color:var(--k-on-primary)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">{{ g.allIcon }}</span></span></button></sc-if>
+                <span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:{{ g.fg }}">{{ g.icon }}</span>
+                <h2 style="margin:0;font-size:15px;font-weight:700;color:{{ g.fg }}">{{ g.label }}</h2>
+                <span style="font-size:12px;font-weight:700;padding:1px 8px;border-radius:999px;background:{{ g.nBg }};color:{{ g.nFg }}">{{ g.n }}</span>
+              </div>
+              <sc-for list="{{ g.rows }}" as="t" hint-placeholder-count="3">
+                <div style="position:relative;display:flex;align-items:flex-start;gap:8px;padding:8px 10px 8px 8px;border-bottom:1px solid var(--k-border);background:{{ t.bg }}">
+                  <sc-if value="{{ showChecks }}" hint-placeholder-val="{{ true }}"><button onClick="{{ t.toggleSel }}" role="checkbox" aria-checked="{{ t.selAria }}" aria-label="Select {{ t.title }}" style="width:32px;height:44px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0"><span style="width:18px;height:18px;border-radius:4px;border:{{ t.selBorder }};background:{{ t.selBg }};display:flex;align-items:center;justify-content:center;color:var(--k-on-primary)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">{{ t.selIcon }}</span></span></button></sc-if>
+                  <button onClick="{{ t.complete }}" aria-label="{{ t.doneAria }}" style="width:44px;height:44px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:{{ t.ckFg }}"><span style="width:24px;height:24px;border-radius:50%;border:2px solid {{ t.ckBorder }};background:{{ t.ckBg }};display:flex;align-items:center;justify-content:center;color:#FFFFFF"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ t.ckIcon }}</span></span></button>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;padding:6px 0">
+                    <span style="font-size:15px;line-height:21px;font-weight:600;color:{{ t.titleFg }};text-decoration:{{ t.strike }}">{{ t.title }}</span>
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font-size:12px;color:var(--k-text-2)">
+                      <span style="display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 7px;border-radius:999px;background:{{ t.prBg }};color:{{ t.prFg }};font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">{{ t.prIcon }}</span>{{ t.pr }}</span>
+                      <span style="display:inline-flex;align-items:center;gap:3px;font-weight:600;color:{{ t.dueFg }}"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">schedule</span>{{ t.due }}</span>
+                      <sc-if value="{{ t.hasRel }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;gap:3px;color:var(--k-primary-text);font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">{{ t.relIcon }}</span>{{ t.rel }}</span></sc-if>
+                      <sc-if value="{{ t.queued }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:2px;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:var(--k-info-soft);color:var(--k-info-text)"><span style="font-family:'Material Symbols Rounded';font-size:13px;line-height:1">schedule_send</span>Queued</span></sc-if>
+                      <sc-if value="{{ t.snoozed }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:2px;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:var(--k-surface-sunken);color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:13px;line-height:1">snooze</span>{{ t.snoozeLabel }}</span></sc-if>
+                    </div>
+                  </div>
+                  <span title="{{ t.ownerName }}" aria-label="Owner {{ t.ownerName }}" style="width:30px;height:30px;margin-top:7px;border-radius:50%;background:{{ t.ownBg }};color:{{ t.ownFg }};font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ t.own }}</span>
+                  <button onClick="{{ t.openSnooze }}" aria-label="Snooze {{ t.title }}" aria-expanded="{{ t.snzAria }}" style="width:44px;height:44px;border:0;border-radius:8px;background:{{ t.snzBg }};color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">snooze</span></button>
+                  <sc-if value="{{ t.snoozeOpen }}" hint-placeholder-val="{{ false }}">
+                    <div role="menu" style="position:absolute;right:10px;top:52px;z-index:6;width:220px;padding:4px;border-radius:10px;border:1px solid var(--k-border);background:var(--k-surface-raised);box-shadow:var(--k-shadow-2);display:flex;flex-direction:column">
+                      <sc-for list="{{ t.snzOpts }}" as="o" hint-placeholder-count="4"><button role="menuitem" onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:8px;height:44px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--k-text);font-family:inherit;font-size:14px;text-align:left;cursor:pointer"><span style="flex:1">{{ o.label }}</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--k-text-muted)">{{ o.hint }}</span></button></sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <sc-if value="{{ g.empty }}" hint-placeholder-val="{{ false }}"><span style="padding:14px 16px;font-size:13px;color:var(--k-text-2)">{{ g.emptyText }}</span></sc-if>
+            </section>
+          </sc-for>
+        </sc-if>
+      </sc-if>
+
+      <!-- ================= CALENDAR ================= -->
+      <sc-if value="{{ isCal }}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{ notConnected }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;padding:14px 16px;border-radius:12px;border:1px solid var(--k-primary);background:var(--k-primary-soft)">
+            <span style="font-family:'Material Symbols Rounded';font-size:26px;line-height:1;color:var(--k-primary-text)">event_available</span>
+            <div style="flex:1 1 260px;display:flex;flex-direction:column;gap:2px"><b style="font-size:15px">Your work calendar isn't connected</b><span style="font-size:13px;line-height:19px;color:var(--k-text-2)">You're only seeing meetings booked in Kasuwa. Connect Google or Microsoft so we can warn you about clashes and keep both in sync.</span></div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px"><button style="display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600"><span style="width:20px;height:20px;border-radius:4px;border:1.5px solid currentColor;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">G</span>Connect Google</button><button style="display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600"><span style="width:20px;height:20px;border-radius:4px;border:1.5px solid currentColor;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">M</span>Connect Microsoft</button></div>
+          </div>
+        </sc-if>
+
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px">
+          <div style="display:flex;align-items:center;gap:2px"><button aria-label="Previous" style="width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">chevron_left</span></button><button aria-label="Next" style="width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">chevron_right</span></button></div>
+          <b style="font-size:{{ rangeFs }}px">{{ rangeLabel }}</b>
+          <button style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600">Today</button>
+          <span style="flex:1"></span>
+          <div role="group" aria-label="Calendar view" style="display:flex;gap:2px;padding:3px;border-radius:10px;background:var(--k-surface-sunken)">
+            <sc-for list="{{ cvOpts }}" as="v" hint-placeholder-count="3"><button onClick="{{ v.pick }}" aria-pressed="{{ v.pressed }}" style="height:36px;padding:0 12px;border-radius:7px;border:0;background:{{ v.bg }};box-shadow:{{ v.sh }};color:{{ v.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">{{ v.label }}</button></sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:12px;color:var(--k-text-2)">
+          <sc-for list="{{ legend }}" as="l" hint-placeholder-count="5"><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:{{ l.tint }};border:1.5px solid {{ l.c }}"></span>{{ l.label }}</span></sc-for>
+          <span style="flex:1"></span>
+          <sc-for list="{{ sources }}" as="src" hint-placeholder-count="3"><span style="display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px;border-radius:999px;background:var(--k-surface-sunken)"><span style="width:16px;height:16px;border-radius:4px;border:1.5px solid currentColor;font-size:9px;font-weight:800;display:inline-flex;align-items:center;justify-content:center">{{ src.k }}</span>{{ src.label }}</span></sc-for>
+        </div>
+
+        <sc-if value="{{ hasConflicts }}" hint-placeholder-val="{{ false }}">
+          <div role="alert" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 10px 10px 14px;border-radius:10px;background:var(--k-warning-soft);border:1px solid var(--k-warning);color:var(--k-warning-text);font-size:13px;line-height:19px">
+            <span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">event_busy</span>
+            <span style="flex:1 1 260px"><b>{{ conflictTitle }}</b> {{ conflictBody }}</span>
+            <button onClick="{{ reviewConflict }}" style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--k-warning-text);background:var(--k-surface);color:var(--k-warning-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Review</button>
+          </div>
+        </sc-if>
+
+        <div style="display:grid;grid-template-columns:{{ calCols }};gap:16px;align-items:start;min-width:0">
+          <div style="min-width:0;display:flex;flex-direction:column;gap:12px">
+
+            <sc-if value="{{ showGrid }}" hint-placeholder-val="{{ true }}">
+              <div style="border-radius:12px;border:1px solid var(--k-border);background:var(--k-surface);overflow:hidden">
+                <div style="display:grid;grid-template-columns:{{ gridCols }};border-bottom:1px solid var(--k-border)">
+                  <span style="display:flex;align-items:flex-end;justify-content:center;padding:6px 2px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--k-text-muted)">WAT</span>
+                  <sc-for list="{{ dayHeads }}" as="d" hint-placeholder-count="7">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border-left:1px solid var(--k-border);background:{{ d.bg }}"><span style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--k-text-2)">{{ d.dow }}</span><span style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;background:{{ d.numBg }};color:{{ d.numFg }}">{{ d.num }}</span></div>
+                  </sc-for>
+                </div>
+                <div style="display:grid;grid-template-columns:{{ gridCols }};border-bottom:1px solid var(--k-border);min-height:34px">
+                  <span style="display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--k-text-muted)">All day</span>
+                  <sc-for list="{{ dayHeads }}" as="d" hint-placeholder-count="7">
+                    <div style="border-left:1px solid var(--k-border);padding:3px">
+                      <sc-if value="{{ d.holiday }}" hint-placeholder-val="{{ false }}"><span title="Nigerian public holiday" style="display:flex;align-items:center;gap:4px;min-height:26px;padding:3px 8px;border-radius:6px;background:var(--k-accent);color:#24201C;font-size:11px;line-height:14px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">flag</span>{{ d.holidayLabel }}</span></sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:grid;grid-template-columns:{{ gridCols }};position:relative">
+                  <div style="display:flex;flex-direction:column">
+                    <sc-for list="{{ hours }}" as="h" hint-placeholder-count="10"><span style="height:{{ hourH }}px;padding:0 6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--k-text-muted);text-align:right;transform:translateY(-6px)">{{ h.label }}</span></sc-for>
+                  </div>
+                  <sc-for list="{{ dayCols }}" as="c" hint-placeholder-count="7">
+                    <div onDragOver="{{ c.dragOver }}" onDrop="{{ c.drop }}" onDragLeave="{{ c.dragLeave }}" style="position:relative;height:{{ gridH }}px;border-left:1px solid var(--k-border);background:{{ c.bg }};background-image:repeating-linear-gradient(to bottom,transparent 0,transparent {{ hourLine }}px,var(--k-border) {{ hourLine }}px,var(--k-border) {{ hourH }}px)">
+                      <sc-if value="{{ c.hasNow }}" hint-placeholder-val="{{ false }}"><span aria-label="Now 10:12" style="position:absolute;left:0;right:0;top:{{ nowY }}px;height:2px;background:var(--k-danger);z-index:3"><span style="position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--k-danger)"></span></span></sc-if>
+                      <sc-if value="{{ c.hasGhost }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:3px;right:3px;top:{{ c.ghostY }}px;height:{{ c.ghostH }}px;border-radius:6px;border:2px dashed {{ c.ghostC }};background:{{ c.ghostBg }};z-index:4;display:flex;align-items:flex-start;padding:3px 6px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:{{ c.ghostFg }}">{{ c.ghostLabel }}</span></sc-if>
+                      <sc-for list="{{ c.events }}" as="e" hint-placeholder-count="2">
+                        <button draggable="true" onDragStart="{{ e.dragStart }}" onDragEnd="{{ dragEnd }}" onClick="{{ e.select }}" aria-label="{{ e.aria }}" style="position:absolute;top:{{ e.y }}px;height:{{ e.h }}px;left:{{ e.left }}%;width:{{ e.width }}%;padding:3px 6px;border-radius:6px;border:{{ e.border }};background:{{ e.tint }};color:var(--k-text);font-family:inherit;text-align:left;overflow:hidden;cursor:grab;display:flex;flex-direction:column;gap:1px;box-shadow:{{ e.shadow }};opacity:{{ e.op }};z-index:2">
+                          <span style="display:flex;align-items:center;gap:3px;font-size:12px;line-height:15px;font-weight:700;min-width:0"><sc-if value="{{ e.conflict }}" hint-placeholder-val="{{ false }}"><span aria-label="Conflict" style="font-family:'Material Symbols Rounded';font-size:13px;line-height:1;color:var(--k-warning-text)">warning</span></sc-if><sc-if value="{{ e.short }}" hint-placeholder-val="{{ false }}"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--k-text-2);flex-shrink:0">{{ e.startLabel }}</span></sc-if><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:{{ e.ws }};display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:{{ e.clamp }}">{{ e.title }}</span></span>
+                          <sc-if value="{{ e.notShort }}" hint-placeholder-val="{{ true }}"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;line-height:13px;color:var(--k-text-2);white-space:nowrap;flex-shrink:0">{{ e.time }}</span></sc-if>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;color:var(--k-text-muted)">Drag an event to reschedule in 30-minute steps. Attendees get the new time by their usual channel. Moves to Google/Microsoft events sync back.</span></sc-if>
+            </sc-if>
+
+            <sc-if value="{{ showMonth }}" hint-placeholder-val="{{ false }}">
+              <div style="border-radius:12px;border:1px solid var(--k-border);background:var(--k-surface);overflow:hidden">
+                <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-bottom:1px solid var(--k-border)"><sc-for list="{{ dows }}" as="w" hint-placeholder-count="7"><span style="padding:8px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--k-text-2);text-align:{{ monthAlign }}">{{ w }}</span></sc-for></div>
+                <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr))">
+                  <sc-for list="{{ monthCells }}" as="m" hint-placeholder-count="35">
+                    <button onClick="{{ m.pick }}" aria-label="{{ m.aria }}" style="min-height:{{ cellH }}px;display:flex;flex-direction:column;align-items:{{ cellAlign }};gap:3px;padding:6px;border:0;border-right:1px solid var(--k-border);border-bottom:1px solid var(--k-border);background:{{ m.bg }};color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer;min-width:0">
+                      <span style="width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:{{ m.fw }};background:{{ m.numBg }};color:{{ m.numFg }}">{{ m.n }}</span>
+                      <sc-if value="{{ m.holiday }}" hint-placeholder-val="{{ false }}"><span style="align-self:stretch;padding:2px 6px;border-radius:4px;background:var(--k-accent);color:#24201C;font-size:10px;line-height:13px;font-weight:700;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">{{ m.holidayText }}</span></sc-if>
+                      <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}"><sc-for list="{{ m.chips }}" as="ch" hint-placeholder-count="2"><span style="align-self:stretch;display:flex;align-items:center;gap:4px;padding:1px 5px;border-radius:4px;background:{{ ch.tint }};font-size:11px;line-height:16px;overflow:hidden;white-space:nowrap"><span style="width:6px;height:6px;border-radius:50%;background:{{ ch.c }};flex-shrink:0"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ ch.label }}</span></span></sc-for><sc-if value="{{ m.hasMore }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:600;color:var(--k-text-2);padding-left:4px">{{ m.more }}</span></sc-if></sc-if>
+                      <sc-if value="{{ mobile }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center"><sc-for list="{{ m.dots }}" as="dt" hint-placeholder-count="2"><span style="width:6px;height:6px;border-radius:50%;background:{{ dt }}"></span></sc-for></span></sc-if>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ showAgenda }}" hint-placeholder-val="{{ false }}">
+              <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">
+                <sc-for list="{{ dayHeads }}" as="d" hint-placeholder-count="7"><button onClick="{{ d.pick }}" aria-pressed="{{ d.pressed }}" style="height:60px;border:0;border-radius:10px;background:{{ d.stripBg }};color:{{ d.stripFg }};font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;position:relative"><span style="font-size:11px;font-weight:700">{{ d.dow }}</span><b style="font-size:17px">{{ d.num }}</b><sc-if value="{{ d.holiday }}" hint-placeholder-val="{{ false }}"><span aria-label="Public holiday" style="position:absolute;bottom:5px;width:14px;height:3px;border-radius:2px;background:var(--k-accent)"></span></sc-if></button></sc-for>
+              </div>
+              <sc-if value="{{ agHoliday }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:8px;padding:10px 12px;border-radius:10px;background:var(--k-accent);color:#24201C;font-size:13px;line-height:19px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">flag</span><span><b>Independence Day · public holiday.</b> Most customer offices are closed.</span></div></sc-if>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ agenda }}" as="e" hint-placeholder-count="4">
+                  <button onClick="{{ e.select }}" style="display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;align-items:stretch;padding:0;border:0;background:transparent;font-family:inherit;text-align:left;color:var(--k-text);cursor:pointer">
+                    <span style="display:flex;flex-direction:column;padding-top:10px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--k-text-2)">{{ e.start }}<span style="font-size:10px;color:var(--k-text-muted)">{{ e.end }}</span></span>
+                    <span style="display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:10px;background:{{ e.tint }};border:{{ e.border }};min-height:56px"><b style="font-size:14px;line-height:20px;display:flex;gap:4px;align-items:center"><sc-if value="{{ e.conflict }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:var(--k-warning-text)">warning</span></sc-if>{{ e.title }}</b><span style="font-size:12px;color:var(--k-text-2)">{{ e.meta }}</span><sc-if value="{{ e.conflict }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:600;color:var(--k-warning-text)">{{ e.conflictText }}</span></sc-if></span>
+                  </button>
+                </sc-for>
+                <sc-if value="{{ agEmpty }}" hint-placeholder-val="{{ false }}"><span style="padding:20px 12px;text-align:center;font-size:14px;color:var(--k-text-2)">Nothing scheduled. Tap + to add a visit or call.</span></sc-if>
+              </div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ showSide }}" hint-placeholder-val="{{ true }}">
+            <aside aria-label="Event details" style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:12px;background:var(--k-surface);border:1px solid var(--k-border);position:sticky;top:0">
+              <div style="display:flex;align-items:flex-start;gap:8px"><span style="width:12px;height:12px;margin-top:6px;border-radius:3px;background:{{ sel.c }};flex-shrink:0"></span><div style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:17px;line-height:24px">{{ sel.title }}</b><span style="font-size:13px;color:var(--k-text-2)">{{ sel.when }}</span></div></div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px"><span style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 9px;border-radius:999px;background:var(--k-surface-sunken);font-size:12px;font-weight:600;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">{{ sel.locIcon }}</span>{{ sel.loc }}</span><span style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 9px;border-radius:999px;background:var(--k-surface-sunken);font-size:12px;font-weight:600;color:var(--k-text-2)">{{ sel.srcLabel }}</span></div>
+              <sc-if value="{{ sel.conflict }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:6px;padding:8px 10px;border-radius:8px;background:var(--k-warning-soft);color:var(--k-warning-text);font-size:13px;line-height:19px"><span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">warning</span>{{ sel.conflictText }}</span></sc-if>
+              <sc-if value="{{ sel.hasRel }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:6px;font-size:13px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:var(--k-text-2)">link</span><span style="color:var(--k-primary-text);font-weight:600;text-decoration:underline;text-underline-offset:3px">{{ sel.rel }}</span></span></sc-if>
+              <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Attendees</span>
+                <sc-for list="{{ sel.people }}" as="pp" hint-placeholder-count="3"><span style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="width:28px;height:28px;border-radius:50%;background:var(--k-primary-soft-strong);color:var(--k-primary-text);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ pp.init }}</span><span style="flex:1">{{ pp.name }}</span><span style="font-size:11px;font-weight:700;color:{{ pp.fg }}">{{ pp.rsvp }}</span></span></sc-for>
+              </div>
+              <sc-if value="{{ sel.hasBrief }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:10px;background:var(--k-primary-soft)">
+                  <span style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--k-primary-text)"><span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">auto_awesome</span>Meeting prep · AI brief</span>
+                  <sc-for list="{{ sel.brief }}" as="b" hint-placeholder-count="3">
+                    <div style="display:flex;flex-direction:column;gap:3px"><b style="font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--k-text-2)">{{ b.h }}</b><ul style="margin:0;padding-left:18px;font-size:13px;line-height:19px"><sc-for list="{{ b.items }}" as="it" hint-placeholder-count="2"><li>{{ it }}</li></sc-for></ul></div>
+                  </sc-for>
+                  <span style="font-size:11px;color:var(--k-text-2)">From the deal, last 3 calls and 14 WhatsApp messages. Check before sharing.</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ sel.synced }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;line-height:19px;color:var(--k-text-2)">Internal event synced from {{ sel.srcName }}. No customer is linked, so there's no prep brief.</span></sc-if>
+              <div style="display:flex;flex-wrap:wrap;gap:8px"><button style="flex:1 1 auto;height:44px;padding:0 14px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ sel.ctaIcon }}</span>{{ sel.cta }}</button><button style="height:44px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600">Reschedule</button></div>
+            </aside>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- ================= BOOKING ================= -->
+      <sc-if value="{{ isBookDesigner }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:20px;align-items:start">
+          <section aria-label="Booking page settings" style="display:flex;flex-direction:column;gap:16px;padding:18px;border-radius:12px;background:var(--k-surface);border:1px solid var(--k-border)">
+            <div style="display:flex;align-items:center;gap:8px"><h2 style="margin:0;font-size:17px;font-weight:700;flex:1">Booking page</h2><span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--k-success-soft);color:var(--k-success-text)">Live</span></div>
+            <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Page title</span><span style="display:flex;align-items:center;height:44px;padding:0 12px;border:1px solid var(--k-border-strong);border-radius:8px;font-size:14px">Book a demo with Tunde</span></label>
+            <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Link</span><span style="display:flex;align-items:center;height:44px;padding:0 4px 0 12px;border:1px solid var(--k-border-strong);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:13px"><span style="color:var(--k-text-muted)">kasuwa.africa/b/</span>tunde-bakare<span style="flex:1"></span><button aria-label="Copy link" style="width:36px;height:36px;border:0;border-radius:6px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">content_copy</span></button></span></label>
+            <fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px"><legend style="font-size:14px;font-weight:600;padding:0;margin-bottom:8px">Length</legend><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ durOpts }}" as="d" hint-placeholder-count="4"><button onClick="{{ d.pick }}" aria-pressed="{{ d.pressed }}" style="height:40px;padding:0 14px;border-radius:999px;border:1px solid {{ d.border }};background:{{ d.bg }};color:{{ d.fg }};font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">{{ d.label }}</button></sc-for></div></fieldset>
+            <fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:4px"><legend style="font-size:14px;font-weight:600;padding:0;margin-bottom:6px">Where</legend><sc-for list="{{ locOpts }}" as="l" hint-placeholder-count="3"><button role="radio" aria-checked="{{ l.checked }}" onClick="{{ l.pick }}" style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0;border:0;background:transparent;color:var(--k-text);font-family:inherit;font-size:14px;text-align:left;cursor:pointer"><span style="width:20px;height:20px;border-radius:50%;border:2px solid {{ l.dot }};display:flex;align-items:center;justify-content:center"><span style="width:10px;height:10px;border-radius:50%;background:{{ l.fill }}"></span></span><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-2)">{{ l.icon }}</span>{{ l.label }}</button></sc-for></fieldset>
+            <div style="display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:10px;background:var(--k-surface-sunken);font-size:13px;line-height:19px"><b style="font-size:14px">Availability</b><span>Mon–Fri · 09:00–17:00 <b>WAT</b> · 15 min gap between bookings</span><span>Shows each visitor times in their own zone (e.g. EAT for Nairobi).</span><button onClick="{{ toggleHol }}" role="switch" aria-checked="{{ holStr }}" style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0;border:0;background:transparent;color:var(--k-text);font-family:inherit;font-size:13px;text-align:left;cursor:pointer"><span style="width:40px;height:24px;border-radius:999px;background:{{ holTrack }};position:relative;flex-shrink:0"><span style="position:absolute;top:3px;left:{{ holKnob }}px;width:18px;height:18px;border-radius:50%;background:#FFFFFF;transition:left .16s"></span></span>Block Nigerian public holidays</button></div>
+            <fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px"><legend style="font-size:14px;font-weight:600;padding:0;margin-bottom:6px">Questions</legend><sc-for list="{{ bQuestions }}" as="q" hint-placeholder-count="4"><span style="display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:8px;border:1px solid var(--k-border);font-size:13px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-muted)">drag_indicator</span><span style="flex:1">{{ q.label }}</span><span style="font-size:11px;font-weight:700;color:{{ q.fg }}">{{ q.req }}</span></span></sc-for></fieldset>
+            <fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:4px"><legend style="font-size:14px;font-weight:600;padding:0;margin-bottom:6px">Send confirmation by</legend>
+              <sc-for list="{{ chOpts }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.toggle }}" role="switch" aria-checked="{{ c.on }}" style="display:flex;align-items:center;gap:10px;min-height:48px;padding:0;border:0;background:transparent;color:var(--k-text);font-family:inherit;font-size:14px;text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-2)">{{ c.icon }}</span><span style="flex:1;display:flex;flex-direction:column"><b style="font-size:14px">{{ c.label }}</b><span style="font-size:12px;color:var(--k-text-muted)">{{ c.note }}</span></span><span style="width:40px;height:24px;border-radius:999px;background:{{ c.track }};position:relative;flex-shrink:0"><span style="position:absolute;top:3px;left:{{ c.knob }}px;width:18px;height:18px;border-radius:50%;background:#FFFFFF;transition:left .16s"></span></span></button></sc-for>
+              <span style="font-size:12px;color:var(--k-text-muted)">Reminder 1 hour before on the same channels. Customers can reschedule by replying.</span>
+            </fieldset>
+          </section>
+          <section aria-label="Live preview" style="display:flex;flex-direction:column;gap:10px;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px"><b style="font-size:14px;flex:1">Live preview</b><span style="font-size:12px;color:var(--k-text-muted)">What customers see · try it</span></div>
+            <div style="border-radius:12px;border:1px solid var(--k-border);background:var(--k-surface-sunken);overflow:hidden">
+              <div style="display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-bottom:1px solid var(--k-border);background:var(--k-surface)"><span style="display:flex;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:var(--k-border-strong)"></span><span style="width:10px;height:10px;border-radius:50%;background:var(--k-border-strong)"></span><span style="width:10px;height:10px;border-radius:50%;background:var(--k-border-strong)"></span></span><span style="flex:1;max-width:340px;height:24px;border-radius:6px;background:var(--k-surface-sunken);display:flex;align-items:center;gap:6px;padding:0 10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:13px;line-height:1">lock</span>kasuwa.africa/b/tunde-bakare</span></div>
+              <div style="padding:24px;display:flex;justify-content:center">
+                <div style="width:100%;max-width:640px;display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);border-radius:14px;background:var(--k-surface);border:1px solid var(--k-border);box-shadow:var(--k-shadow-2);overflow:hidden">
+                  <div style="padding:18px;border-right:1px solid var(--k-border);display:flex;flex-direction:column;gap:8px"><span style="width:44px;height:44px;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);font-weight:700;display:flex;align-items:center;justify-content:center">TB</span><span style="font-size:12px;color:var(--k-text-2)">Tunde Bakare · Ọja Foods sales</span><b style="font-size:17px;line-height:23px">Book a demo with Tunde</b><span style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">schedule</span>{{ bDurLabel }}</span><span style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">{{ bLocIcon }}</span>{{ bLocLabel }}</span><span style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">public</span>WAT · Lagos</span></div>
+                  <div style="padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0">
+                    <sc-if value="{{ bPick }}" hint-placeholder-val="{{ true }}">
+                      <b style="font-size:14px">Choose a day</b>
+                      <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px"><sc-for list="{{ bDays }}" as="d" hint-placeholder-count="5"><button onClick="{{ d.pick }}" disabled="{{ d.disabled }}" aria-pressed="{{ d.pressed }}" style="min-height:56px;padding:4px;border-radius:8px;border:1px solid {{ d.border }};background:{{ d.bg }};color:{{ d.fg }};font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer"><span style="font-size:11px;font-weight:700">{{ d.dow }}</span><b style="font-size:15px">{{ d.num }}</b><span style="font-size:9px;font-weight:700">{{ d.note }}</span></button></sc-for></div>
+                      <b style="font-size:14px">Choose a time <span style="font-weight:500;color:var(--k-text-muted)">(WAT)</span></b>
+                      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:6px"><sc-for list="{{ bSlots }}" as="t" hint-placeholder-count="8"><button onClick="{{ t.pick }}" disabled="{{ t.disabled }}" style="height:40px;border-radius:8px;border:1px solid {{ t.border }};background:{{ t.bg }};color:{{ t.fg }};font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;text-decoration:{{ t.strike }};cursor:pointer">{{ t.label }}</button></sc-for></div>
+                    </sc-if>
+                    <sc-if value="{{ bForm }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ bBack }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:4px;height:36px;padding:0;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">arrow_back</span>{{ bWhen }}</button>
+                      <label style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;font-weight:600">Your name</span><span style="display:flex;align-items:center;height:40px;padding:0 10px;border:1px solid var(--k-border-strong);border-radius:8px;font-size:14px">Adaeze Nwosu</span></label>
+                      <label style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;font-weight:600">WhatsApp / mobile number</span><span style="display:flex;align-items:center;gap:8px;height:40px;padding:0 10px;border:1px solid var(--k-border-strong);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:14px"><span style="width:18px;height:12px;border-radius:2px;background:linear-gradient(90deg,#008751 33%,#FFFFFF 33% 66%,#008751 66%);box-shadow:0 0 0 1px rgba(0,0,0,.15)"></span>+234 806 221 7710</span></label>
+                      <label style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;font-weight:600">Company</span><span style="display:flex;align-items:center;height:40px;padding:0 10px;border:1px solid var(--k-border-strong);border-radius:8px;font-size:14px">Lekki Pharma Ltd</span></label>
+                      <button onClick="{{ bConfirm }}" style="height:44px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">Confirm booking</button>
+                    </sc-if>
+                    <sc-if value="{{ bDone }}" hint-placeholder-val="{{ false }}">
+                      <span style="width:44px;height:44px;border-radius:50%;background:var(--k-success-soft);color:var(--k-success-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:26px;line-height:1">check</span></span>
+                      <b style="font-size:17px">You're booked, Adaeze</b>
+                      <span style="font-size:13px;line-height:19px;color:var(--k-text-2)">{{ bWhen }} · {{ bLocLabel }}. {{ bSentText }}</span>
+                      <sc-for list="{{ bPreviews }}" as="pv" hint-placeholder-count="2">
+                        <div style="display:flex;flex-direction:column;gap:4px"><span style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--k-text-muted)"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">{{ pv.icon }}</span>{{ pv.label }}</span><span style="padding:8px 10px;border-radius:{{ pv.radius }};background:{{ pv.bg }};border:{{ pv.border }};font-size:12px;line-height:18px">{{ pv.text }}</span></div>
+                      </sc-for>
+                      <button onClick="{{ bReset }}" style="align-self:flex-start;height:36px;padding:0;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Reset preview</button>
+                    </sc-if>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isBookPublic }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;gap:12px;align-items:center"><span style="width:48px;height:48px;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">TB</span><div style="display:flex;flex-direction:column"><b style="font-size:18px;line-height:24px">Book a demo with Tunde</b><span style="font-size:13px;color:var(--k-text-2)">{{ bDurLabel }} · {{ bLocLabel }}</span></div></div>
+          <sc-if value="{{ bPick }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">public</span>Times in <b style="color:var(--k-text)">WAT · Lagos</b><span style="color:var(--k-primary-text);font-weight:600">Change</span></div>
+            <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px"><sc-for list="{{ bDays }}" as="d" hint-placeholder-count="5"><button onClick="{{ d.pick }}" disabled="{{ d.disabled }}" aria-pressed="{{ d.pressed }}" style="min-height:64px;padding:4px;border-radius:10px;border:1px solid {{ d.border }};background:{{ d.bg }};color:{{ d.fg }};font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px"><span style="font-size:11px;font-weight:700">{{ d.dow }}</span><b style="font-size:17px">{{ d.num }}</b><span style="font-size:9px;font-weight:700">{{ d.note }}</span></button></sc-for></div>
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px"><sc-for list="{{ bSlots }}" as="t" hint-placeholder-count="9"><button onClick="{{ t.pick }}" disabled="{{ t.disabled }}" style="height:48px;border-radius:10px;border:1px solid {{ t.border }};background:{{ t.bg }};color:{{ t.fg }};font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;text-decoration:{{ t.strike }}">{{ t.label }}</button></sc-for></div>
+          </sc-if>
+          <sc-if value="{{ bForm }}" hint-placeholder-val="{{ false }}">
+            <span style="display:flex;align-items:center;gap:6px;padding:10px 12px;border-radius:10px;background:var(--k-primary-soft);color:var(--k-primary-text);font-size:14px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">event</span>{{ bWhen }}</span>
+            <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Your name</span><span style="display:flex;align-items:center;height:48px;padding:0 12px;border:1px solid var(--k-border-strong);border-radius:8px;font-size:16px">Adaeze Nwosu</span></label>
+            <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">WhatsApp / mobile number</span><span style="display:flex;align-items:center;gap:8px;height:48px;padding:0 12px;border:1px solid var(--k-border-strong);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:15px"><span style="width:20px;height:14px;border-radius:2px;background:linear-gradient(90deg,#008751 33%,#FFFFFF 33% 66%,#008751 66%);box-shadow:0 0 0 1px rgba(0,0,0,.15)"></span>+234 806 221 7710</span></label>
+            <button onClick="{{ bConfirm }}" style="height:52px;border-radius:10px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:16px;font-weight:700">Confirm booking</button>
+          </sc-if>
+          <sc-if value="{{ bDone }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:12px;background:var(--k-surface);border:1px solid var(--k-border)"><span style="width:48px;height:48px;border-radius:50%;background:var(--k-success-soft);color:var(--k-success-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:28px;line-height:1">check</span></span><b style="font-size:19px">You're booked, Adaeze</b><span style="font-size:14px;line-height:21px;color:var(--k-text-2)">{{ bWhen }} · {{ bLocLabel }}. {{ bSentText }}</span><span style="display:flex;gap:8px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600;color:var(--k-primary-text)">Add to calendar</span><span style="font-size:13px;font-weight:600;color:var(--k-primary-text)">Reschedule</span></span></div>
+            <sc-for list="{{ bPreviews }}" as="pv" hint-placeholder-count="2">
+              <div style="display:flex;flex-direction:column;gap:4px"><span style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--k-text-muted)"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">{{ pv.icon }}</span>{{ pv.label }}</span><span style="padding:10px 12px;border-radius:{{ pv.radius }};background:{{ pv.bg }};border:{{ pv.border }};font-size:13px;line-height:19px">{{ pv.text }}</span></div>
+            </sc-for>
+          </sc-if>
+          <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--k-text-muted)"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">lock</span>Powered by Kasuwa · your number is only used for this booking</span>
+        </div>
+      </sc-if>
+
+      <!-- ================= CHECK-IN ================= -->
+      <sc-if value="{{ isCheckin }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:14px;max-width:440px;width:100%;margin:0 auto">
+          <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Field visit · 10:00 WAT</span><b style="font-size:19px;line-height:26px">Lekki Pharmacy chain</b><span style="font-size:13px;color:var(--k-text-2)">Lekki Pharma Ltd · Deal ₦9,750,000</span></div>
+          <div role="img" aria-label="Your location: Admiralty Way, Lekki Phase 1, 40 metres from the visit address" style="position:relative;height:{{ mapH }}px;border-radius:12px;overflow:hidden;border:1px solid var(--k-border);background:var(--k-surface-sunken);background-image:linear-gradient(var(--k-border) 1px,transparent 1px),linear-gradient(90deg,var(--k-border) 1px,transparent 1px);background-size:28px 28px">
+            <span style="position:absolute;left:0;right:0;top:46%;height:14px;background:var(--k-surface);opacity:.9"></span><span style="position:absolute;top:0;bottom:0;left:58%;width:10px;background:var(--k-surface);opacity:.9"></span>
+            <span style="position:absolute;left:50%;top:44%;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:40px;line-height:1;color:var(--k-primary)">location_on</span></span>
+            <span style="position:absolute;left:50%;top:44%;width:56px;height:56px;border-radius:50%;transform:translate(-50%,-50%);border:2px solid var(--k-primary);opacity:.35"></span>
+            <span style="position:absolute;left:8px;bottom:8px;right:8px;display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:8px;background:var(--k-surface);box-shadow:var(--k-shadow-1);font-size:12px;line-height:17px"><b style="font-size:13px">Admiralty Way, Lekki Phase 1</b><span style="font-family:'JetBrains Mono',monospace;color:var(--k-text-2)">6.4474° N, 3.4723° E · ±12 m</span><span style="display:flex;align-items:center;gap:4px;color:var(--k-success-text);font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">check_circle</span>40 m from the visit address</span></span>
+            <span style="position:absolute;top:8px;right:8px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--k-surface);color:var(--k-text-2)">Lite map · 6 KB</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Photo</span>
+            <sc-if value="{{ ciNoPhoto }}" hint-placeholder-val="{{ true }}"><button onClick="{{ ciTakePhoto }}" style="display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 14px;border-radius:10px;border:2px dashed var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:28px;line-height:1;color:var(--k-primary-text)">photo_camera</span><span style="display:flex;flex-direction:column;gap:1px"><b style="font-size:14px">Take a photo</b><span style="font-size:12px;color:var(--k-text-muted)">Shelf, storefront or signed delivery note · compressed to ~180 KB</span></span></button></sc-if>
+            <sc-if value="{{ ciHasPhoto }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:12px;padding:8px;border-radius:10px;border:1px solid var(--k-border);background:var(--k-surface)"><span style="width:64px;height:64px;border-radius:8px;background:repeating-linear-gradient(135deg,var(--k-surface-sunken) 0 8px,var(--k-border) 8px 16px);display:flex;align-items:center;justify-content:center;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">image</span></span><span style="flex:1;display:flex;flex-direction:column;gap:1px"><b style="font-size:14px">Shelf photo</b><span style="font-size:12px;color:var(--k-text-2)">182 KB · 10:07 WAT · location stamped</span></span><button onClick="{{ ciRemovePhoto }}" aria-label="Remove photo" style="width:44px;height:44px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">delete</span></button></div></sc-if>
+          </div>
+          <fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px"><legend style="font-size:14px;font-weight:600;padding:0;margin-bottom:8px">What happened?</legend><div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ ciOutcomes }}" as="o" hint-placeholder-count="5"><button onClick="{{ o.toggle }}" aria-pressed="{{ o.pressed }}" style="display:inline-flex;align-items:center;gap:4px;height:40px;padding:0 12px;border-radius:999px;border:1px solid {{ o.border }};background:{{ o.bg }};color:{{ o.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">{{ o.icon }}</span>{{ o.label }}</button></sc-for></div></fieldset>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Notes</span><textarea value="{{ ciNote }}" onChange="{{ ciOnNote }}" rows="3" placeholder="What did you agree? Type or use voice." style="min-height:84px;padding:10px 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;line-height:22px;resize:vertical;outline:none"></textarea></label>
+          <sc-if value="{{ ciIdle }}" hint-placeholder-val="{{ true }}"><button onClick="{{ ciSubmit }}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:10px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:16px;font-weight:700;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ ciBtnIcon }}</span>{{ ciBtnLabel }}</button></sc-if>
+          <sc-if value="{{ ciSending }}" hint-placeholder-val="{{ false }}"><span role="status" style="display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:10px;background:var(--k-info-soft);color:var(--k-info-text);font-size:15px;font-weight:700">Sending…</span></sc-if>
+          <sc-if value="{{ ciQueued }}" hint-placeholder-val="{{ false }}">
+            <div role="status" style="display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:12px;background:var(--k-info-soft);color:var(--k-info-text)">
+              <b style="display:flex;align-items:center;gap:6px;font-size:15px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">schedule_send</span>Checked in · saved on this phone</b>
+              <span style="font-size:13px;line-height:19px;color:var(--k-text)">It will sync with the photo when you're back online. Time and location are recorded now, so they stay accurate.</span>
+              <div style="display:flex;flex-direction:column;border-top:1px solid var(--k-info);padding-top:6px">
+                <sc-for list="{{ ciQueue }}" as="q" hint-placeholder-count="4"><span style="display:flex;align-items:center;gap:8px;min-height:32px;font-size:12px;color:var(--k-text)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:var(--k-info-text)">{{ q.icon }}</span><span style="flex:1">{{ q.label }}</span><span style="font-family:'JetBrains Mono',monospace;color:var(--k-text-2)">{{ q.size }}</span></span></sc-for>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ ciSynced }}" hint-placeholder-val="{{ false }}"><div role="status" style="display:flex;gap:8px;padding:14px;border-radius:12px;background:var(--k-success-soft);color:var(--k-success-text);font-size:14px;line-height:21px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">cloud_done</span><span><b>Checked in at 10:08 WAT.</b> Added to the Lekki Pharmacy deal timeline. Your manager can see it.</span></div></sc-if>
+        </div>
+      </sc-if>
+    </div>
+  </main>
+</div>
+
+<sc-if value="{{ mSheet }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeSel }}" style="position:absolute;inset:0;background:var(--k-scrim);z-index:20"></div>
+  <div role="dialog" aria-modal="true" aria-label="Event details" style="position:absolute;left:0;right:0;bottom:0;z-index:21;max-height:82%;overflow-y:auto;background:var(--k-surface-raised);border-radius:20px 20px 0 0;box-shadow:var(--k-shadow-3);padding:8px 16px 20px;display:flex;flex-direction:column;gap:12px">
+    <span aria-hidden="true" style="width:40px;height:4px;border-radius:2px;background:var(--k-border-strong);align-self:center;margin-top:4px"></span>
+    <div style="display:flex;align-items:flex-start;gap:8px"><span style="width:12px;height:12px;margin-top:6px;border-radius:3px;background:{{ sel.c }}"></span><div style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:17px;line-height:24px">{{ sel.title }}</b><span style="font-size:13px;color:var(--k-text-2)">{{ sel.when }} · {{ sel.loc }}</span></div><button onClick="{{ closeSel }}" aria-label="Close" style="width:44px;height:44px;margin:-6px -8px 0 0;border:0;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">close</span></button></div>
+    <sc-if value="{{ sel.conflict }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:6px;padding:8px 10px;border-radius:8px;background:var(--k-warning-soft);color:var(--k-warning-text);font-size:13px;line-height:19px"><span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">warning</span>{{ sel.conflictText }}</span></sc-if>
+    <sc-if value="{{ sel.hasBrief }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:10px;background:var(--k-primary-soft)">
+        <span style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--k-primary-text)"><span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">auto_awesome</span>Meeting prep · AI brief</span>
+        <sc-for list="{{ sel.brief }}" as="b" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:3px"><b style="font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--k-text-2)">{{ b.h }}</b><ul style="margin:0;padding-left:18px;font-size:13px;line-height:19px"><sc-for list="{{ b.items }}" as="it" hint-placeholder-count="2"><li>{{ it }}</li></sc-for></ul></div></sc-for>
+      </div>
+    </sc-if>
+    <button style="height:48px;border-radius:10px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:15px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ sel.ctaIcon }}</span>{{ sel.cta }}</button>
+  </div>
+</sc-if>
+
+<sc-if value="{{ compOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeComposer }}" style="position:absolute;inset:0;background:var(--k-scrim);z-index:30"></div>
+  <div style="position:absolute;inset:{{ cInset }};z-index:31;display:flex;align-items:center;justify-content:center;pointer-events:none">
+    <div role="dialog" aria-modal="true" aria-labelledby="comp-t" style="pointer-events:auto;width:100%;max-width:{{ cMaxW }};height:{{ cH }};max-height:100%;background:var(--k-surface-raised);border-radius:{{ cRadius }};box-shadow:var(--k-shadow-3);display:flex;flex-direction:column;min-height:0;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;min-height:60px;padding:6px 8px 6px 20px;border-bottom:1px solid var(--k-border)"><b id="comp-t" style="flex:1;font-size:18px">Log activity</b><button onClick="{{ closeComposer }}" aria-label="Close" style="width:44px;height:44px;border:0;border-radius:8px;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">close</span></button></div>
+      <div role="tablist" aria-label="Activity type" style="display:flex;gap:2px;padding:4px 8px 0;border-bottom:1px solid var(--k-border);overflow-x:auto">
+        <sc-for list="{{ cTypes }}" as="t" hint-placeholder-count="5"><button role="tab" aria-selected="{{ t.sel }}" onClick="{{ t.pick }}" style="display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 12px;border:0;background:transparent;font-family:inherit;font-size:14px;font-weight:{{ t.fw }};color:{{ t.fg }};box-shadow:{{ t.bar }};cursor:pointer;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ t.icon }}</span>{{ t.label }}</button></sc-for>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px">
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Subject</span><input value="{{ cSubject }}" onChange="{{ cOnSubject }}" style="height:44px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;outline:none"></label>
+        <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Related to</span><span style="display:flex;flex-wrap:wrap;gap:6px"><span style="display:inline-flex;align-items:center;gap:4px;height:34px;padding:0 4px 0 10px;border-radius:8px;background:var(--k-primary-soft);color:var(--k-primary-text);font-size:13px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">handshake</span>Deal · Ikeja Motors fleet<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;width:28px;text-align:center">close</span></span><span style="display:inline-flex;align-items:center;gap:4px;height:34px;padding:0 4px 0 10px;border-radius:8px;background:var(--k-primary-soft);color:var(--k-primary-text);font-size:13px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">person</span>Femi Adeyemi<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;width:28px;text-align:center">close</span></span></span></div>
+        <sc-if value="{{ cTimed }}" hint-placeholder-val="{{ true }}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
+            <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Day</span><span style="position:relative"><select value="{{ cDay }}" onChange="{{ cOnDay }}" style="width:100%;height:44px;padding:0 34px 0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;appearance:none;-webkit-appearance:none"><sc-for list="{{ cDayOpts }}" as="o" hint-placeholder-count="7"><option value="{{ o.v }}">{{ o.label }}</option></sc-for></select><span style="position:absolute;right:8px;top:11px;font-family:'Material Symbols Rounded';font-size:20px;line-height:1;pointer-events:none">expand_more</span></span></label>
+            <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Start <span style="font-weight:500;color:var(--k-text-muted)">WAT</span></span><span style="position:relative"><select value="{{ cStart }}" onChange="{{ cOnStart }}" style="width:100%;height:44px;padding:0 34px 0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:'JetBrains Mono',monospace;font-size:14px;appearance:none;-webkit-appearance:none"><sc-for list="{{ cStartOpts }}" as="o" hint-placeholder-count="20"><option value="{{ o.v }}">{{ o.label }}</option></sc-for></select><span style="position:absolute;right:8px;top:11px;font-family:'Material Symbols Rounded';font-size:20px;line-height:1;pointer-events:none">expand_more</span></span></label>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Duration</span><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ cDurOpts }}" as="d" hint-placeholder-count="5"><button onClick="{{ d.pick }}" aria-pressed="{{ d.pressed }}" style="height:40px;padding:0 12px;border-radius:999px;border:1px solid {{ d.border }};background:{{ d.bg }};color:{{ d.fg }};font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">{{ d.label }}</button></sc-for></div></div>
+          <sc-if value="{{ cHasConflict }}" hint-placeholder-val="{{ false }}">
+            <div role="alert" style="display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:10px;background:var(--k-warning-soft);border:1px solid var(--k-warning);color:var(--k-warning-text)">
+              <b style="display:flex;align-items:center;gap:6px;font-size:14px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">event_busy</span>{{ cConflictTitle }}</b>
+              <sc-for list="{{ cConflicts }}" as="c" hint-placeholder-count="2"><span style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:19px;color:var(--k-text)"><span style="width:8px;height:8px;border-radius:2px;background:{{ c.c }}"></span>{{ c.text }}</span></sc-for>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><button onClick="{{ cNextFree }}" style="height:40px;padding:0 12px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Use next free slot · {{ cNextFreeLabel }}</button><span style="font-size:12px;color:var(--k-text-2)">or save anyway — you'll be double-booked</span></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ cFree }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--k-success-text)"><span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">event_available</span>You're free then. Femi's calendar is free too.</span></sc-if>
+          <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Remind the customer by</span><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ cRemind }}" as="r" hint-placeholder-count="3"><button onClick="{{ r.toggle }}" aria-pressed="{{ r.pressed }}" style="display:inline-flex;align-items:center;gap:4px;height:40px;padding:0 12px;border-radius:999px;border:1px solid {{ r.border }};background:{{ r.bg }};color:{{ r.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">{{ r.icon }}</span>{{ r.label }}</button></sc-for></div><span style="font-size:12px;color:var(--k-text-muted)">1 hour before. Femi has WhatsApp opt-in; promotional SMS is blocked by DND, but reminders still go through.</span></div>
+        </sc-if>
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Notes</span><textarea rows="3" placeholder="Agenda, outcome or next step…" style="min-height:76px;padding:10px 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;line-height:22px;resize:vertical;outline:none"></textarea></label>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 20px 16px;border-top:1px solid var(--k-border)"><span style="flex:1 1 140px;font-size:12px;color:var(--k-text-muted)">{{ cFoot }}</span><button onClick="{{ closeComposer }}" style="height:48px;padding:0 16px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:15px;font-weight:600;cursor:pointer">Cancel</button><button onClick="{{ cSave }}" style="height:48px;padding:0 18px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">{{ cSaveLabel }}</button></div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+  <div role="status" style="position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:40;width:max-content;max-width:calc(100% - 24px);display:flex;align-items:center;gap:10px;padding:10px 8px 10px 14px;border-radius:10px;background:var(--k-inverse);color:var(--k-on-inverse);box-shadow:var(--k-shadow-2);font-size:14px;line-height:20px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ toastIcon }}</span><span style="flex:1">{{ toastText }}</span><sc-if value="{{ toastUndo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ undo }}" style="height:36px;padding:0 10px;border:0;background:transparent;color:inherit;font-family:inherit;font-weight:700;font-size:14px;text-decoration:underline;cursor:pointer">Undo</button></sc-if></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:960},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;tasks&quot;,&quot;calendar&quot;,&quot;booking&quot;,&quot;checkin&quot;],&quot;default&quot;:&quot;tasks&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;mobile&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;state&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ready&quot;,&quot;empty&quot;,&quot;offline&quot;,&quot;notConnected&quot;,&quot;bulk&quot;],&quot;default&quot;:&quot;ready&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;calView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;day&quot;,&quot;week&quot;,&quot;month&quot;],&quot;default&quot;:&quot;week&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;calDay&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:2,&quot;tsType&quot;:&quot;number&quot;,&quot;min&quot;:0,&quot;max&quot;:6},&quot;selEvent&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;composer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;bookStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;pick&quot;,&quot;form&quot;,&quot;done&quot;],&quot;default&quot;:&quot;pick&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;checkinStatus&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;idle&quot;,&quot;queued&quot;,&quot;synced&quot;],&quot;default&quot;:&quot;idle&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;checkinPhoto&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { view: null, done: {}, sel: null, snoozed: {}, snzFor: null, owners: {}, bulkOwner: '', tf: 'all', mSelect: false, cv: null, events: null, selEv: null, mSel: false, drag: null, ghost: null, comp: null, cType: 'meeting', cSubject: null, cDay: null, cStart: null, cDur: null, cRemind: { wa: true, sms: true, email: false }, bDur: 30, bLoc: 0, ch: { wa: true, sms: true, email: true }, hol: true, bDay: 1, bSlot: null, bStep: null, ciPhoto: null, ciOut: { met: true }, ciNote: 'Buyer wants 2 more cartons of Panadol Extra on credit. Shelf at Admiralty branch is half empty.', ciStatus: 'idle', toast: null, prevEvents: null, prevDone: null, aDay: null };
+  OWN = { TB: 'Tunde Bakare', KA: 'Kemi Adebayo', CE: 'Chinedu Eze', AB: 'Aisha Bello' };
+  DAYS = [['Mon', 28, 'Sep'], ['Tue', 29, 'Sep'], ['Wed', 30, 'Sep'], ['Thu', 1, 'Oct'], ['Fri', 2, 'Oct'], ['Sat', 3, 'Oct'], ['Sun', 4, 'Oct']];
+  TYPE = { meeting: ['CRM meeting', 'groups', 'var(--k-chart-1)'], demo: ['Demo', 'co_present', 'var(--k-chart-2)'], call: ['Call', 'call', 'var(--k-chart-3)'], visit: ['Field visit', 'location_on', 'var(--k-chart-4)'], internal: ['Internal · synced', 'event', 'var(--k-chart-7)'] };
+  EV0() { return [
+    ['e1', 0, 9, .5, 'Team stand-up', 'internal', 'google', 'Google Meet'], ['e2', 0, 11, 1, 'Discovery · Abuja Estates', 'meeting', 'kasuwa', 'Google Meet', 'Deal · Abuja Estates CRM'],
+    ['e3', 1, 10, .75, 'Call · Kemi Adeyinka', 'call', 'kasuwa', 'Phone · +234 809 330 1288', 'Contact · Kemi Adeyinka'], ['e4', 1, 14, 1.5, 'Site visit · Bodija Supermarkets', 'visit', 'kasuwa', 'Bodija, Ibadan', 'Deal · Bodija retail POS'],
+    ['e5', 2, 9, .5, 'Pipeline review', 'internal', 'microsoft', 'Teams'], ['e6', 2, 11, .75, 'Demo · Ikeja Motors fleet', 'demo', 'kasuwa', 'Ikeja Motors, Allen Avenue', 'Deal · Ikeja Motors fleet'], ['e7', 2, 11.5, .5, 'Lunch & learn: WhatsApp templates', 'internal', 'google', 'Room 3, Ikeja office'],
+    ['e8', 2, 15.5, 1, 'QBR · Ọja Foods Ltd', 'meeting', 'kasuwa', 'Ọja Foods, Oba Akran Avenue', 'Deal · Ọja Foods — Q4 supply'],
+    ['e9', 3, 10, 1, 'Call · Kano Agro (follow-up)', 'call', 'kasuwa', 'Phone', 'Deal · Kano Agro Inputs'],
+    ['e10', 4, 10, 1, 'Site visit · Lekki Pharmacy', 'visit', 'kasuwa', 'Admiralty Way, Lekki Phase 1', 'Deal · Lekki Pharmacy chain'], ['e11', 4, 13, .5, 'Call · Chiamaka Eze', 'call', 'kasuwa', 'Phone', 'Contact · Chiamaka Eze'], ['e12', 4, 16, 1, 'Coaching with Funmilayo', 'internal', 'microsoft', 'Teams']
+  ].map(([id, day, start, dur, title, type, src, loc, rel]) => ({ id, day, start, dur, title, type, src, loc, rel: rel || '' })); }
+  TASKS = [
+    ['t1', 'od', 'Send revised quote to Kano Agro', 'High', 'Deal · Kano Agro Inputs', 'handshake', 'Mon 28 Sep', 'TB'],
+    ['t2', 'od', 'Call back Bisi Ogunleye about her refund', 'High', 'Ticket · TKT-4812', 'confirmation_number', 'Yesterday 16:00', 'TB'],
+    ['t3', 'od', 'Upload signed PO for Obajana pilot', 'Medium', 'Deal · Obajana haulage pilot', 'handshake', 'Yesterday', 'TB'],
+    ['t4', 'td', 'WhatsApp Emeka Obi — hold price till Friday', 'Medium', 'Contact · Emeka Obi', 'person', '12:00', 'TB'],
+    ['t5', 'td', 'Prep QBR deck for Ọja Foods', 'High', 'Account · Ọja Foods Ltd', 'domain', '15:00', 'TB'],
+    ['t6', 'td', 'Move Thursday call — Independence Day', 'Medium', 'Deal · Kano Agro Inputs', 'handshake', '16:00', 'TB'],
+    ['t7', 'td', 'Log wrap-up for 3 morning calls', 'Low', '', '', '17:00', 'TB'],
+    ['t8', 'up', 'Site visit · Lekki Pharmacy, Admiralty Way', 'Medium', 'Deal · Lekki Pharmacy chain', 'handshake', 'Fri 2 Oct 10:00', 'TB'],
+    ['t9', 'up', 'Renewal reminder · Ubuntu Insure', 'Low', 'Account · Ubuntu Insure', 'domain', 'Mon 5 Oct', 'TB'],
+    ['t10', 'up', 'Quarterly KYC refresh · Kwara MFB', 'Low', 'Account · Kwara Microfinance Bank', 'domain', 'Wed 7 Oct', 'KA']
+  ];
+  hm(h) { return String(Math.floor(h)).padStart(2, '0') + ':' + String(Math.round((h % 1) * 60)).padStart(2, '0'); }
+  layoutDay(evs) { const sorted = [...evs].sort((a, b) => a.start - b.start), out = []; let ends = [], cluster = [], cEnd = -1;
+    const flush = () => { const n = cluster.reduce((m, c) => Math.max(m, c.lane + 1), 1); cluster.forEach(c => c.n = n); cluster = []; };
+    sorted.forEach(e => { if (e.start >= cEnd) { flush(); ends = []; } let lane = ends.findIndex(x => x <= e.start); if (lane < 0) { lane = ends.length; ends.push(0); } ends[lane] = e.start + e.dur; const o = { ...e, lane }; out.push(o); cluster.push(o); cEnd = Math.max(cEnd, e.start + e.dur); }); flush(); return out; }
+  clashes(evs, day, start, dur, skipId) { return evs.filter(e => e.id !== skipId && e.day === day && e.start < start + dur && start < e.start + e.dur); }
+  toast(text, icon, undo) { clearTimeout(this.tt); this.setState({ toast: { text, icon: icon || 'check_circle', undo: undo || null } }); this.tt = setTimeout(() => this.setState({ toast: null }), 5000); }
+  componentWillUnmount() { clearTimeout(this.tt); clearTimeout(this.st); }
+  renderVals() {
+    const s = this.state, p = this.props, mobile = !!p.mobile, desktop = !mobile;
+    const view = s.view || p.view || 'tasks', st = p.state || 'ready';
+    const offline = st === 'offline', notConnected = st === 'notConnected';
+    const H = mobile ? 48 : 46, H0 = 8, H1 = 18;
+    let events = s.events || this.EV0(); if (notConnected) events = events.filter(e => e.src === 'kasuwa');
+    const holiday = 3;
+    const conflictOf = e => { const c = this.clashes(events, e.day, e.start, e.dur, e.id); if (c.length) return 'Overlaps ' + c.map(x => x.title + ' (' + this.hm(x.start) + ')').join(', '); if (e.day === holiday && e.type !== 'internal') return 'Independence Day is a public holiday — most customer offices are closed.'; return ''; };
+    const cv = s.cv || p.calView || (mobile ? 'day' : 'week');
+    const aDay = s.aDay ?? (p.calDay ?? 2);
+    const T = this.TYPE, tint = c => `color-mix(in oklch, ${c} 18%, var(--k-surface))`;
+    const selId = s.selEv || p.selEvent || 'e8', selE = events.find(e => e.id === selId) || events[0];
+    const mkEv = e => { const t = T[e.type], conf = conflictOf(e); return { ...e, c: t[2], tint: tint(t[2]), conflict: !!conf, conflictText: conf, time: this.hm(e.start) + '–' + this.hm(e.start + e.dur), aria: `${e.title}, ${this.DAYS[e.day][0]} ${this.hm(e.start)} to ${this.hm(e.start + e.dur)} WAT${conf ? ', conflict' : ''}` }; };
+    const dayIdxs = cv === 'day' ? [aDay] : [0, 1, 2, 3, 4, 5, 6];
+    const toSlot = (ev, el) => { const r = el.getBoundingClientRect(); const y = Math.max(0, ev.clientY - r.top); return Math.min(H1 - .5, H0 + Math.floor(y / (H / 2)) / 2); };
+    const dragE = s.drag && events.find(e => e.id === s.drag);
+    const dayCols = dayIdxs.map(d => { const g = s.ghost && s.ghost.day === d && dragE ? s.ghost : null; const gClash = g ? this.clashes(events, d, g.start, dragE.dur, dragE.id).length > 0 || (d === holiday && dragE.type !== 'internal') : false;
+      return { bg: d === holiday ? 'color-mix(in oklch, var(--k-accent) 7%, var(--k-surface))' : d >= 5 ? 'var(--k-surface-sunken)' : 'var(--k-surface)', hasNow: d === 2,
+        hasGhost: !!g, ghostY: g ? (g.start - H0) * H : 0, ghostH: dragE ? dragE.dur * H - 2 : 0, ghostLabel: g ? this.hm(g.start) + (gClash ? ' · clash' : '') : '', ghostC: gClash ? 'var(--k-warning)' : 'var(--k-primary)', ghostBg: gClash ? 'var(--k-warning-soft)' : 'var(--k-primary-soft)', ghostFg: gClash ? 'var(--k-warning-text)' : 'var(--k-primary-text)',
+        dragOver: ev => { if (!s.drag) return; ev.preventDefault(); const t = toSlot(ev, ev.currentTarget); if (!s.ghost || s.ghost.day !== d || s.ghost.start !== t) this.setState({ ghost: { day: d, start: t } }); },
+        dragLeave: () => {},
+        drop: ev => { ev.preventDefault(); if (!s.drag) return; const t = toSlot(ev, ev.currentTarget), prev = events; const id = s.drag; const nv = (s.events || this.EV0()).map(e => e.id === id ? { ...e, day: d, start: t } : e); this.setState({ events: nv, drag: null, ghost: null, prevEvents: prev, selEv: id }); const e = nv.find(x => x.id === id); const clash = this.clashes(nv, d, t, e.dur, id).length || (d === holiday && e.type !== 'internal'); this.toast((clash ? 'Moved, but it clashes · ' : 'Moved to ') + this.DAYS[d][0] + ' ' + this.DAYS[d][1] + ' ' + this.DAYS[d][2] + ', ' + this.hm(t) + ' WAT' + (e.src === 'kasuwa' ? ' · attendees notified' : ' · synced to ' + (e.src === 'google' ? 'Google' : 'Microsoft')), clash ? 'warning' : 'event_available', 'events'); },
+        events: this.layoutDay(events.filter(e => e.day === d)).map(e => { const m = mkEv(e), on = e.id === selE.id; return { ...m, y: (e.start - H0) * H + 1, h: Math.max(22, e.dur * H - 3), left: e.lane / e.n * 100, width: 100 / e.n - 1, short: e.dur <= .5, notShort: e.dur > .5, startLabel: this.hm(e.start), ws: e.dur >= 1.5 ? 'normal' : 'nowrap', clamp: e.dur >= 1.5 ? 2 : 1,
+          border: on ? '2px solid ' + m.c : '1px solid ' + m.c, shadow: on ? 'var(--k-shadow-2)' : 'none', op: s.drag === e.id ? .4 : 1,
+          dragStart: ev => { ev.dataTransfer.effectAllowed = 'move'; try { ev.dataTransfer.setData('text/plain', e.id); } catch (_) {} this.setState({ drag: e.id }); }, select: () => this.setState({ selEv: e.id, mSel: true }) }; }) }; });
+    const allConf = events.filter(e => conflictOf(e));
+    const pairs = events.filter(e => this.clashes(events, e.day, e.start, e.dur, e.id).length).length / 2;
+    const holConf = events.filter(e => e.day === holiday && e.type !== 'internal').length;
+    const dayHeads = dayIdxs.map(d => { const today = d === 2; return { dow: this.DAYS[d][0], num: this.DAYS[d][1], holiday: d === holiday, holidayLabel: cv === 'day' ? 'Independence Day · public holiday' : 'Independence Day', bg: d === holiday ? 'color-mix(in oklch, var(--k-accent) 10%, var(--k-surface))' : 'var(--k-surface)', numBg: today ? 'var(--k-primary)' : 'transparent', numFg: today ? 'var(--k-on-primary)' : 'var(--k-text)' }; });
+    const stripHeads = [0, 1, 2, 3, 4, 5, 6].map(d => ({ dow: this.DAYS[d][0].slice(0, 2), num: this.DAYS[d][1], holiday: d === holiday, pressed: String(d === aDay), stripBg: d === aDay ? 'var(--k-primary)' : d === 2 ? 'var(--k-primary-soft)' : 'var(--k-surface)', stripFg: d === aDay ? 'var(--k-on-primary)' : 'var(--k-text)', pick: () => this.setState({ aDay: d }) }));
+    const sel = (() => { const m = mkEv(selE), t = T[selE.type], synced = selE.src !== 'kasuwa';
+      const ppl = selE.id === 'e8' ? [['OA', 'Oluwaseun Adébáyọ̀', 'Accepted', 's'], ['CE', 'Chiamaka Eze', 'No reply', 'w'], ['KA', 'Kemi Adeyinka', 'Accepted', 's'], ['TB', 'Tunde Bakare (you)', 'Organiser', 'n']] : synced ? [['TB', 'Tunde Bakare (you)', 'Accepted', 's'], ['KA', 'Kemi Adebayo', 'Accepted', 's'], ['AB', 'Aisha Bello', 'Maybe', 'w']] : [['FA', selE.title.split('·')[1] ? selE.title.split('·')[1].trim() : 'Customer', 'Accepted', 's'], ['TB', 'Tunde Bakare (you)', 'Organiser', 'n']];
+      const brief = selE.id === 'e8' ? [['What to know', ['Q4 supply deal (₦11.3M) is in Negotiation, 9 days. Prices are held until Friday.', 'They paid INV-7720 yesterday; INV-7702 (₦380,000) is 9 days overdue.']], ['Open issues', ['Finance approver Chiamaka hasn\u2019t replied — she\u2019s invited, so confirm she\u2019s coming.', 'The FX lock at ₦1,372/$ expires today.']], ['Suggested agenda', ['Review Q3 service: 2 billing disputes, both fixed', 'Walk through the revised Q-2291 v2 quote', 'Agree Abuja delivery start date']]]
+        : [['What to know', [selE.rel ? selE.rel.replace('·', '—') + ' is active; last contact was 2 days ago on WhatsApp.' : 'First meeting with this contact.', 'Prefers short calls after 14:00 WAT.']], ['Talking points', ['Confirm budget and decision timeline', 'Offer a WhatsApp follow-up summary']]];
+      return { ...m, title: selE.title, when: this.DAYS[selE.day][0] + ' ' + this.DAYS[selE.day][1] + ' ' + this.DAYS[selE.day][2] + ' · ' + m.time + ' WAT', loc: selE.loc, locIcon: /Meet|Teams/.test(selE.loc) ? 'videocam' : /Phone/.test(selE.loc) ? 'call' : 'location_on',
+        srcLabel: selE.src === 'google' ? 'Synced · Google' : selE.src === 'microsoft' ? 'Synced · Microsoft' : 'Kasuwa · ' + t[0], srcName: selE.src === 'google' ? 'Google Calendar' : 'Microsoft Outlook', synced, hasBrief: !synced, brief: brief.map(([h, items]) => ({ h, items })), hasRel: !!selE.rel, rel: selE.rel,
+        people: ppl.map(([init, name, rsvp, tt]) => ({ init, name, rsvp, fg: tt === 's' ? 'var(--k-success-text)' : tt === 'w' ? 'var(--k-warning-text)' : 'var(--k-text-muted)' })),
+        cta: /Meet|Teams/.test(selE.loc) ? 'Join' : /Phone/.test(selE.loc) ? 'Call now' : 'Directions', ctaIcon: /Meet|Teams/.test(selE.loc) ? 'videocam' : /Phone/.test(selE.loc) ? 'call' : 'directions' }; })();
+    const MO = [['Ọja Foods renewal call', 9, 'meeting'], ['Kano Agro close date', 14, 'demo'], ['Lagos sales offsite', 20, 'internal'], ['Obajana pilot go-live', 30, 'meeting'], ['Abuja Estates demo', 22, 'demo']];
+    const monthCells = Array.from({ length: 35 }, (_, i) => { const inSep = i < 3, n = inSep ? 28 + i : i - 2 <= 31 ? i - 2 : i - 33; const other = inSep || i - 2 > 31;
+      const wkIdx = i < 7 ? i : -1; const evs = wkIdx >= 0 ? events.filter(e => e.day === wkIdx) : MO.filter(m => !other && m[1] === n).map(m => ({ title: m[0], type: m[2] }));
+      const hol = !other && n === 1, today = inSep && n === 30;
+      return { n, fw: today ? 800 : 500, numBg: today ? 'var(--k-primary)' : 'transparent', numFg: today ? 'var(--k-on-primary)' : other ? 'var(--k-text-muted)' : 'var(--k-text)', bg: hol ? 'color-mix(in oklch, var(--k-accent) 10%, var(--k-surface))' : other ? 'var(--k-surface-sunken)' : 'var(--k-surface)', holiday: hol, holidayText: mobile ? 'Holiday' : 'Independence Day',
+        chips: evs.slice(0, 2).map(e => ({ label: e.title, c: T[e.type][2], tint: tint(T[e.type][2]) })), hasMore: evs.length > 2, more: '+' + (evs.length - 2) + ' more', dots: evs.slice(0, 4).map(e => T[e.type][2]),
+        aria: (inSep ? n + ' September' : n + ' October') + ', ' + evs.length + ' events' + (hol ? ', Independence Day' : ''), pick: () => { if (wkIdx >= 0) this.setState({ cv: 'day', aDay: wkIdx }); } }; });
+    const agendaEvs = events.filter(e => e.day === aDay).sort((a, b) => a.start - b.start).map(e => { const m = mkEv(e); return { ...m, start: this.hm(e.start), end: this.hm(e.start + e.dur), meta: T[e.type][0] + ' · ' + e.loc, border: m.conflict ? '1px solid var(--k-warning)' : '1px solid ' + m.c, select: () => this.setState({ selEv: e.id, mSel: true }) }; });
+
+    // tasks
+    const empty = st === 'empty';
+    const done = { ...(p.state === 'bulk' ? {} : {}), ...s.done };
+    const selMap = s.sel || (p.state === 'bulk' ? { t1: true, t3: true, t9: true } : {});
+    const TT = this.TASKS.filter(t => !empty).map(([id, g, title, pr, rel, relIcon, due, own]) => ({ id, g, title, pr, rel, relIcon, due, own: s.owners[id] || own }));
+    const prT = { High: ['var(--k-danger-soft)', 'var(--k-danger-text)', 'priority_high'], Medium: ['var(--k-warning-soft)', 'var(--k-warning-text)', 'drag_handle'], Low: ['var(--k-surface-sunken)', 'var(--k-text-2)', 'south'] };
+    const showChecks = desktop || s.mSelect || p.state === 'bulk';
+    const filterFn = t => s.tf === 'all' || (s.tf === 'high' && t.pr === 'High') || (s.tf === 'deals' && /^Deal/.test(t.rel)) || (s.tf === 'mine' && t.own === 'TB');
+    const SNZ = [['Later today', '17:00'], ['Tomorrow morning', 'Thu 09:00'], ['Next working day', 'Fri 09:00'], ['Next week', 'Mon 09:00']];
+    const row = t => { const d = !!done[t.id], on = !!selMap[t.id], sn = s.snoozed[t.id], pt = prT[t.pr];
+      return { ...t, hasRel: !!t.rel, ownerName: this.OWN[t.own], ownBg: t.own === 'TB' ? 'var(--k-accent-soft)' : 'var(--k-primary-soft-strong)', ownFg: t.own === 'TB' ? 'var(--k-accent-text)' : 'var(--k-primary-text)',
+        prBg: pt[0], prFg: pt[1], prIcon: pt[2], dueFg: t.g === 'od' && !d ? 'var(--k-danger-text)' : 'var(--k-text-2)', due: t.g === 'od' ? 'Overdue · ' + t.due : t.due + (t.g === 'td' ? ' WAT' : ''),
+        bg: on ? 'var(--k-primary-soft)' : 'var(--k-surface)', titleFg: d ? 'var(--k-text-muted)' : 'var(--k-text)', strike: d ? 'line-through' : 'none',
+        ckBorder: d ? 'var(--k-success)' : 'var(--k-border-strong)', ckBg: d ? 'var(--k-success)' : 'transparent', ckIcon: d ? 'check' : '', ckFg: 'var(--k-text)', doneAria: d ? 'Mark not done' : 'Complete ' + t.title,
+        queued: d && offline, snoozed: !!sn, snoozeLabel: sn ? 'Until ' + sn : '',
+        selAria: String(on), selBorder: on ? '0' : '2px solid var(--k-border-strong)', selBg: on ? 'var(--k-primary)' : 'transparent', selIcon: on ? 'check' : '',
+        toggleSel: () => this.setState({ sel: { ...selMap, [t.id]: !on } }),
+        complete: () => { this.setState({ done: { ...s.done, [t.id]: !d }, prevDone: s.done }); if (!d) this.toast(offline ? 'Done · will sync when online' : 'Task completed', offline ? 'schedule_send' : 'check_circle', 'done'); },
+        snoozeOpen: s.snzFor === t.id, snzAria: String(s.snzFor === t.id), snzBg: s.snzFor === t.id ? 'var(--k-surface-sunken)' : 'transparent', openSnooze: () => this.setState({ snzFor: s.snzFor === t.id ? null : t.id }),
+        snzOpts: SNZ.map(([label, hint]) => ({ label, hint, pick: () => { this.setState({ snoozed: { ...s.snoozed, [t.id]: hint }, snzFor: null }); this.toast('Snoozed until ' + hint + ' WAT', 'snooze'); } })) }; };
+    const GR = [['od', 'Overdue', 'error', 'var(--k-danger-text)', 'var(--k-danger)'], ['td', 'Today · Wed 30 Sep', 'today', 'var(--k-text)', 'var(--k-primary)'], ['up', 'Upcoming', 'upcoming', 'var(--k-text)', 'var(--k-border-strong)']];
+    const groups = GR.map(([g, label, icon, fg, nb]) => { const rows = TT.filter(t => t.g === g && filterFn(t)).map(row); const ids = rows.map(r => r.id), allOn = ids.length && ids.every(i => selMap[i]), some = ids.some(i => selMap[i]);
+      return { label, icon, fg, n: rows.filter(r => !done[r.id]).length, nBg: g === 'od' ? 'var(--k-danger)' : 'var(--k-surface-sunken)', nFg: g === 'od' ? '#FFFFFF' : 'var(--k-text-2)', border: g === 'od' ? 'var(--k-danger)' : 'var(--k-border)', rows, empty: rows.length === 0, emptyText: g === 'od' ? 'Nothing overdue.' : 'Nothing here for this filter.',
+        allAria: allOn ? 'true' : some ? 'mixed' : 'false', allBorder: allOn || some ? '0' : '2px solid var(--k-border-strong)', allBg: allOn || some ? 'var(--k-primary)' : 'transparent', allIcon: allOn ? 'check' : some ? 'remove' : '',
+        toggleAll: () => { const n = { ...selMap }; ids.forEach(i => n[i] = !allOn); this.setState({ sel: n }); } }; });
+    const selIds = Object.keys(selMap).filter(k => selMap[k]);
+    const bulkOwner = s.bulkOwner;
+
+    // composer
+    const compOpen = s.comp === null ? !!p.composer : s.comp;
+    const cDay = s.cDay ?? 2, cStart = s.cStart ?? 11.5, cDur = s.cDur ?? .5, cType = s.cType, cTimed = cType !== 'note' && cType !== 'task';
+    const cCl = cTimed ? this.clashes(events, cDay, cStart, cDur) : [];
+    const cHol = cTimed && cDay === holiday;
+    const nextFree = (() => { for (let t = cStart + .5; t + cDur <= H1; t += .5) if (!this.clashes(events, cDay, t, cDur).length) return t; return null; })();
+    const CT = [['call', 'Call', 'call'], ['meeting', 'Meeting', 'groups'], ['visit', 'Visit', 'location_on'], ['task', 'Task', 'task_alt'], ['note', 'Note', 'sticky_note_2']];
+    const cSubject = s.cSubject ?? 'Demo follow-up · Ikeja Motors fleet';
+
+    // booking
+    const bDays = [['Thu', 1, 'hol'], ['Fri', 2], ['Mon', 5], ['Tue', 6], ['Wed', 7]];
+    const bStep = s.bStep || p.bookStep || 'pick';
+    const busy = { 1: [10, 13], 2: [9, 15.5], 3: [11], 4: [14] };
+    const slots = []; for (let t = 9; t + s.bDur / 60 <= 17; t += (s.bDur + 15) / 60) slots.push(Math.round(t * 4) / 4);
+    const hmQ = h => String(Math.floor(h)).padStart(2, '0') + ':' + String(Math.round((h % 1) * 60)).padStart(2, '0');
+    const bSlotLabel = s.bSlot != null ? hmQ(s.bSlot) : '10:00';
+    const bDayLabel = (() => { const d = bDays[s.bDay]; return d[0] + ' ' + d[1] + ' Oct'; })();
+    const LOC = [['Google Meet', 'videocam'], ['Phone call', 'call'], ['In person · Ikeja office', 'location_on']];
+    const bWhen = bDayLabel + ', ' + bSlotLabel + ' WAT';
+    const chOn = Object.keys(s.ch).filter(k => s.ch[k]);
+    const bPreviews = [s.ch.wa && ['WhatsApp', 'chat', 'Ẹ káàsán Adaeze! Your ' + s.bDur + '-min demo with Tunde Bakare (Ọja Foods) is confirmed for ' + bWhen + ' on ' + LOC[s.bLoc][0] + '. Reply 1 to reschedule or 2 to cancel.', '10px 10px 10px 3px', 'var(--k-wa-bubble)', '0'], s.ch.sms && ['SMS', 'sms', 'Ọja Foods: demo with Tunde confirmed ' + bWhen + '. Reschedule: kasuwa.africa/r/7QK', '10px', 'var(--k-surface-sunken)', '1px solid var(--k-border)'], s.ch.email && ['Email', 'mail', 'Subject: Confirmed — demo with Tunde Bakare, ' + bWhen + ' (calendar invite attached)', '8px', 'var(--k-surface)', '1px solid var(--k-border)']].filter(Boolean).map(([label, icon, text, radius, bg, border]) => ({ label, icon, text, radius, bg, border }));
+
+    // check-in
+    const ciPhoto = s.ciPhoto === null ? (p.state === 'offline' || p.checkinPhoto) : s.ciPhoto;
+    const ciStatus = s.ciStatus === 'idle' && p.checkinStatus ? p.checkinStatus : s.ciStatus;
+    const OUT = [['met', 'Met the buyer', 'handshake'], ['order', 'Order taken', 'shopping_cart'], ['samples', 'Left samples', 'inventory_2'], ['away', 'Buyer not in', 'person_off'], ['closed', 'Shop closed', 'block']];
+
+    const queueN = (offline ? 3 : 0) + Object.values(s.done).filter(Boolean).length + (ciStatus === 'queued' ? 1 : 0);
+    const TABS = [['tasks', 'My tasks', 'task_alt'], ['calendar', 'Calendar', 'calendar_month'], [mobile ? 'checkin' : 'booking', mobile ? 'Check-in' : 'Booking pages', mobile ? 'where_to_vote' : 'event_available']];
+    const isBookPublic = view === 'booking' && mobile;
+    return {
+      mobile, desktop, mobileChrome: mobile && !isBookPublic, offline, notConnected,
+      nav: [['home', 'Home'], ['inbox', 'Inbox'], ['contacts', 'Contacts'], ['handshake', 'Deals'], ['event_note', 'Activities'], ['confirmation_number', 'Tickets'], ['bar_chart', 'Reports']].map(([icon, label]) => { const on = label === 'Activities'; return { icon, label, cur: on ? 'page' : 'false', bg: on ? 'var(--k-primary-soft)' : 'transparent', fg: on ? 'var(--k-primary-text)' : 'var(--k-text-2)' }; }),
+      tabs: TABS.map(([k, label, icon]) => { const on = k === view; return { label, icon, sel: String(on), fw: on ? 700 : 500, fg: on ? 'var(--k-primary-text)' : 'var(--k-text-2)', fg2: on ? 'var(--k-text)' : 'var(--k-text-2)', bar: on ? 'inset 0 -3px 0 var(--k-primary)' : 'none', bg: on ? 'var(--k-surface)' : 'transparent', sh: on ? 'var(--k-shadow-1)' : 'none', pick: () => this.setState({ view: k }) }; }),
+      mTitle: view === 'calendar' ? 'Calendar' : view === 'checkin' ? 'Check in' : 'My tasks',
+      pad: isBookPublic ? '20px 16px 32px' : mobile ? '12px 16px 32px' : '24px 28px 40px', gap: mobile ? 12 : 16,
+      queueN, queueText: queueN + ' change' + (queueN === 1 ? '' : 's') + ' saved on this phone — they\u2019ll sync when you reconnect.',
+      isTasks: view === 'tasks', isCal: view === 'calendar', isBookDesigner: view === 'booking' && desktop, isBookPublic, isCheckin: view === 'checkin',
+      tasksEmpty: empty, tasksReady: !empty, groups, showChecks, hasSel: selIds.length > 0, selCount: selIds.length, doneToday: 4 + Object.values(s.done).filter(Boolean).length,
+      taskFilters: [['all', 'All'], ['high', 'High priority'], ['deals', 'Deals'], ['mine', 'Mine only']].map(([k, label]) => { const on = s.tf === k; return { label, n: TT.filter(t => (k === 'all' || (k === 'high' && t.pr === 'High') || (k === 'deals' && /^Deal/.test(t.rel)) || (k === 'mine' && t.own === 'TB')) && !done[t.id]).length, pressed: String(on), border: on ? 'var(--k-primary)' : 'var(--k-border-strong)', bg: on ? 'var(--k-primary)' : 'var(--k-surface)', fg: on ? 'var(--k-on-primary)' : 'var(--k-text)', pick: () => this.setState({ tf: k }) }; }),
+      ownerOpts: [['', 'Reassign to…'], ...Object.keys(this.OWN).map(k => [k, this.OWN[k]])].map(([v, label]) => ({ v, label })), bulkOwner, pickBulkOwner: e => this.setState({ bulkOwner: e.target.value }), noBulkOwner: !bulkOwner, bulkOp: bulkOwner ? 1 : .6,
+      bulkReassign: () => { if (!bulkOwner) return; const o = { ...s.owners }; selIds.forEach(i => o[i] = bulkOwner); this.setState({ owners: o, sel: {}, bulkOwner: '' }); this.toast(selIds.length + ' tasks reassigned to ' + this.OWN[bulkOwner] + ' · they\u2019ve been notified', 'person'); },
+      bulkSnooze: () => { const n = { ...s.snoozed }; selIds.forEach(i => n[i] = 'Thu 09:00'); this.setState({ snoozed: n, sel: {} }); this.toast(selIds.length + ' tasks snoozed to Thu 09:00 WAT', 'snooze'); },
+      bulkDone: () => { const n = { ...s.done }; selIds.forEach(i => n[i] = true); this.setState({ done: n, sel: {}, prevDone: s.done }); this.toast(selIds.length + ' tasks completed', 'check_circle', 'done'); },
+      clearSel: () => this.setState({ sel: {} }), toggleMSelect: () => this.setState({ mSelect: !s.mSelect, sel: {} }), mSelectLabel: s.mSelect ? 'Done' : 'Select',
+      goCal: () => this.setState({ view: 'calendar' }),
+      rangeLabel: cv === 'day' ? (mobile ? 'Sep – Oct 2026' : this.DAYS[aDay][0] + ' ' + this.DAYS[aDay][1] + ' ' + this.DAYS[aDay][2] + ' 2026') : cv === 'month' ? (mobile ? 'October' : 'October 2026') : '28 Sep – 4 Oct 2026', rangeFs: mobile ? 16 : 18,
+      cvOpts: (mobile ? [['day', 'Day'], ['month', 'Month']] : [['day', 'Day'], ['week', 'Week'], ['month', 'Month']]).map(([k, label]) => { const on = cv === k; return { label, pressed: String(on), bg: on ? 'var(--k-surface)' : 'transparent', sh: on ? 'var(--k-shadow-1)' : 'none', fg: on ? 'var(--k-text)' : 'var(--k-text-2)', pick: () => this.setState({ cv: k }) }; }),
+      legend: Object.keys(T).filter(k => !(notConnected && k === 'internal')).map(k => ({ label: T[k][0], c: T[k][2], tint: tint(T[k][2]) })),
+      sources: desktop ? (notConnected ? [['K', 'Kasuwa only']] : [['G', 'Google · synced 2 min ago'], ['M', 'Microsoft · synced 5 min ago']]).map(([k, label]) => ({ k, label })) : [],
+      hasConflicts: allConf.length > 0, conflictTitle: (pairs + holConf) + ' clash' + (pairs + holConf === 1 ? '' : 'es') + ' this week.', conflictBody: [pairs ? pairs + ' overlap' + (pairs === 1 ? '' : 's') + ' on Wednesday' : '', holConf ? holConf + ' customer meeting on Independence Day (Thu 1 Oct)' : ''].filter(Boolean).join(' and ') + '. Drag to reschedule, or open one to review.',
+      reviewConflict: () => this.setState({ selEv: allConf[0] && allConf[0].id, mSel: true, cv: mobile ? 'day' : cv, aDay: allConf[0] ? allConf[0].day : aDay }),
+      calCols: desktop && cv !== 'month' ? 'minmax(0,1fr) 340px' : 'minmax(0,1fr)', showSide: desktop && cv !== 'month', showGrid: desktop && cv !== 'month', showMonth: cv === 'month', showAgenda: mobile && cv === 'day',
+      gridCols: cv === 'day' ? '52px minmax(0,1fr)' : '52px repeat(7,minmax(0,1fr))', dayHeads, dayCols, hourH: H, hourLine: H - 1, gridH: (H1 - H0) * H, nowY: (10.2 - H0) * H,
+      hours: Array.from({ length: H1 - H0 }, (_, i) => ({ label: i === 0 ? '' : String(H0 + i).padStart(2, '0') + ':00' })), dragEnd: () => this.setState({ drag: null, ghost: null }),
+      dows: mobile ? ['M', 'T', 'W', 'T', 'F', 'S', 'S'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], monthCells, cellH: mobile ? 64 : 112, cellAlign: mobile ? 'center' : 'stretch', monthAlign: mobile ? 'center' : 'left',
+      sel, mSheet: mobile && view === 'calendar' && (s.mSel || (!!p.selEvent && s.selEv === null)), closeSel: () => this.setState({ mSel: false, selEv: 'none-x' }),
+      agenda: agendaEvs, agEmpty: agendaEvs.length === 0, agHoliday: aDay === holiday,
+      openComposer: () => this.setState({ comp: true }), closeComposer: () => this.setState({ comp: false }), compOpen,
+      cInset: mobile ? '0' : '24px', cMaxW: mobile ? '100%' : '560px', cH: mobile ? '100%' : 'auto', cRadius: mobile ? '0' : '16px',
+      cTypes: CT.map(([k, label, icon]) => { const on = k === cType; return { label, icon, sel: String(on), fw: on ? 700 : 500, fg: on ? 'var(--k-primary-text)' : 'var(--k-text-2)', bar: on ? 'inset 0 -3px 0 var(--k-primary)' : 'none', pick: () => this.setState({ cType: k }) }; }),
+      cSubject, cOnSubject: e => this.setState({ cSubject: e.target.value }), cTimed,
+      cDay: String(cDay), cOnDay: e => this.setState({ cDay: +e.target.value }), cDayOpts: this.DAYS.map((d, i) => ({ v: String(i), label: d[0] + ' ' + d[1] + ' ' + d[2] + (i === holiday ? ' · holiday' : i === 2 ? ' · today' : '') })),
+      cStart: String(cStart), cOnStart: e => this.setState({ cStart: +e.target.value }), cStartOpts: Array.from({ length: 20 }, (_, i) => 8 + i / 2).map(h => ({ v: String(h), label: this.hm(h) })),
+      cDurOpts: [[.25, '15 min'], [.5, '30 min'], [.75, '45 min'], [1, '1 hour'], [1.5, '1½ hours']].map(([v, label]) => { const on = v === cDur; return { label, pressed: String(on), border: on ? 'var(--k-primary)' : 'var(--k-border-strong)', bg: on ? 'var(--k-primary)' : 'var(--k-surface)', fg: on ? 'var(--k-on-primary)' : 'var(--k-text)', pick: () => this.setState({ cDur: v }) }; }),
+      cHasConflict: cCl.length > 0 || cHol, cFree: cTimed && !cCl.length && !cHol,
+      cConflictTitle: cCl.length ? 'This clashes with ' + cCl.length + ' event' + (cCl.length > 1 ? 's' : '') : 'Thu 1 Oct is a public holiday',
+      cConflicts: [...cCl.map(e => ({ c: T[e.type][2], text: e.title + ' · ' + this.hm(e.start) + '–' + this.hm(e.start + e.dur) + (e.src !== 'kasuwa' ? ' (' + (e.src === 'google' ? 'Google' : 'Microsoft') + ')' : '') })), ...(cHol ? [{ c: 'var(--k-accent)', text: 'Independence Day — most customer offices are closed' }] : [])],
+      cNextFreeLabel: nextFree != null ? this.hm(nextFree) : 'none today', cNextFree: () => { if (nextFree != null) this.setState({ cStart: nextFree }); else this.setState({ cDay: Math.min(6, cDay + 1), cStart: 9 }); },
+      cRemind: [['wa', 'WhatsApp', 'chat'], ['sms', 'SMS', 'sms'], ['email', 'Email', 'mail']].map(([k, label, icon]) => { const on = !!s.cRemind[k]; return { label, icon, pressed: String(on), border: on ? 'var(--k-primary)' : 'var(--k-border-strong)', bg: on ? 'var(--k-primary-soft)' : 'var(--k-surface)', fg: on ? 'var(--k-primary-text)' : 'var(--k-text)', toggle: () => this.setState({ cRemind: { ...s.cRemind, [k]: !on } }) }; }),
+      cFoot: offline ? 'Offline — this will be saved on your phone and synced later.' : cTimed ? 'Saved to Kasuwa and your Google calendar.' : 'Saved to the deal timeline.',
+      cSaveLabel: offline ? 'Save offline' : cType === 'task' ? 'Add task' : cType === 'note' ? 'Save note' : 'Save',
+      cSave: () => { const ty = cType === 'call' ? 'call' : cType === 'visit' ? 'visit' : 'meeting'; if (cTimed) { const id = 'n' + Date.now(); this.setState({ events: [...(s.events || this.EV0()), { id, day: cDay, start: cStart, dur: cDur, title: cSubject, type: ty, src: 'kasuwa', loc: ty === 'call' ? 'Phone' : 'Ikeja Motors, Allen Avenue', rel: 'Deal · Ikeja Motors fleet' }], comp: false, selEv: id, view: 'calendar', cv: mobile ? 'day' : (s.cv || cv), aDay: cDay }); } else this.setState({ comp: false }); this.toast(offline ? 'Saved on this phone · will sync' : 'Saved · ' + (cTimed ? 'reminder by ' + Object.keys(s.cRemind).filter(k => s.cRemind[k]).map(k => ({ wa: 'WhatsApp', sms: 'SMS', email: 'email' })[k]).join(' and ') + ' 1 hour before' : 'added to Ikeja Motors fleet'), offline ? 'schedule_send' : 'check_circle'); },
+      hasToast: !!s.toast, toastText: s.toast ? s.toast.text : '', toastIcon: s.toast ? s.toast.icon : '', toastUndo: !!(s.toast && s.toast.undo),
+      undo: () => { if (s.toast.undo === 'events') this.setState({ events: s.prevEvents, toast: null }); else this.setState({ done: s.prevDone || {}, toast: null }); },
+      durOpts: [15, 30, 45, 60].map(m => { const on = m === s.bDur; return { label: m + ' min', pressed: String(on), border: on ? 'var(--k-primary)' : 'var(--k-border-strong)', bg: on ? 'var(--k-primary)' : 'var(--k-surface)', fg: on ? 'var(--k-on-primary)' : 'var(--k-text)', pick: () => this.setState({ bDur: m, bSlot: null, bStep: 'pick' }) }; }),
+      locOpts: LOC.map(([label, icon], i) => ({ label, icon, checked: String(i === s.bLoc), dot: i === s.bLoc ? 'var(--k-primary)' : 'var(--k-border-strong)', fill: i === s.bLoc ? 'var(--k-primary)' : 'transparent', pick: () => this.setState({ bLoc: i }) })),
+      toggleHol: () => this.setState({ hol: !s.hol }), holStr: String(s.hol), holTrack: s.hol ? 'var(--k-primary)' : 'var(--k-border-strong)', holKnob: s.hol ? 19 : 3,
+      bQuestions: [['Name', 1], ['WhatsApp / mobile number', 1], ['Company', 0], ['What would you like to discuss?', 0]].map(([label, r]) => ({ label, req: r ? 'Required' : 'Optional', fg: r ? 'var(--k-text)' : 'var(--k-text-muted)' })),
+      chOpts: [['wa', 'WhatsApp', 'chat', 'Free inside 24h; uses a utility template otherwise'], ['sms', 'SMS', 'sms', 'Service message · reaches DND numbers'], ['email', 'Email', 'mail', 'With a calendar invite']].map(([k, label, icon, note]) => { const on = !!s.ch[k]; return { label, icon, note, on: String(on), track: on ? 'var(--k-primary)' : 'var(--k-border-strong)', knob: on ? 19 : 3, toggle: () => this.setState({ ch: { ...s.ch, [k]: !on } }) }; }),
+      bDurLabel: s.bDur + ' minutes', bLocLabel: LOC[s.bLoc][0], bLocIcon: LOC[s.bLoc][1],
+      bDays: bDays.map(([dow, num, hol], i) => { const blocked = hol && s.hol, on = i === s.bDay; return { dow, num, note: blocked ? 'Holiday' : '', disabled: !!blocked, pressed: String(on), border: on ? 'var(--k-primary)' : 'var(--k-border-strong)', bg: blocked ? 'var(--k-surface-sunken)' : on ? 'var(--k-primary)' : 'var(--k-surface)', fg: blocked ? 'var(--k-text-muted)' : on ? 'var(--k-on-primary)' : 'var(--k-text)', pick: () => this.setState({ bDay: i, bSlot: null }) }; }),
+      bSlots: slots.slice(0, mobile ? 12 : 16).map(t => { const taken = (busy[s.bDay] || []).some(b => Math.abs(b - t) < .26), on = s.bSlot === t; return { label: hmQ(t), disabled: taken, strike: taken ? 'line-through' : 'none', border: on ? 'var(--k-primary)' : taken ? 'var(--k-border)' : 'var(--k-primary-soft-strong)', bg: on ? 'var(--k-primary)' : taken ? 'var(--k-surface-sunken)' : 'var(--k-surface)', fg: on ? 'var(--k-on-primary)' : taken ? 'var(--k-text-muted)' : 'var(--k-primary-text)', pick: () => this.setState({ bSlot: t, bStep: 'form' }) }; }),
+      bPick: bStep === 'pick', bForm: bStep === 'form', bDone: bStep === 'done', bWhen, bBack: () => this.setState({ bStep: 'pick' }), bConfirm: () => this.setState({ bStep: 'done' }), bReset: () => this.setState({ bStep: 'pick', bSlot: null }),
+      bPreviews, bSentText: chOn.length ? 'We\u2019ve sent the details by ' + chOn.map(k => ({ wa: 'WhatsApp', sms: 'SMS', email: 'email' })[k]).join(', ').replace(/, ([^,]*)$/, ' and $1') + '.' : 'No confirmation channel is on.',
+      mapH: 200, ciNoPhoto: !ciPhoto, ciHasPhoto: !!ciPhoto, ciTakePhoto: () => this.setState({ ciPhoto: true }), ciRemovePhoto: () => this.setState({ ciPhoto: false }),
+      ciOutcomes: OUT.map(([k, label, icon]) => { const on = !!s.ciOut[k]; return { label, icon, pressed: String(on), border: on ? 'var(--k-primary)' : 'var(--k-border-strong)', bg: on ? 'var(--k-primary)' : 'var(--k-surface)', fg: on ? 'var(--k-on-primary)' : 'var(--k-text)', toggle: () => this.setState({ ciOut: { ...s.ciOut, [k]: !on } }) }; }),
+      ciNote: s.ciNote, ciOnNote: e => this.setState({ ciNote: e.target.value }),
+      ciIdle: ciStatus === 'idle', ciSending: ciStatus === 'sending', ciQueued: ciStatus === 'queued', ciSynced: ciStatus === 'synced',
+      ciBtnLabel: offline ? 'Check in · save offline' : 'Check in', ciBtnIcon: offline ? 'schedule_send' : 'where_to_vote',
+      ciSubmit: () => { if (offline) this.setState({ ciStatus: 'queued' }); else { this.setState({ ciStatus: 'sending' }); clearTimeout(this.st); this.st = setTimeout(() => this.setState({ ciStatus: 'synced' }), 1100); } },
+      ciQueue: [['where_to_vote', 'Check-in · Lekki Pharmacy · 10:08', '2 KB'], ['photo_camera', 'Shelf photo', '182 KB'], ['task_alt', 'Task done · WhatsApp Emeka Obi', '1 KB'], ['edit_note', 'Note · Bodija Supermarkets', '1 KB']].map(([icon, label, size]) => ({ icon, label, size }))
+    };
+  }
+}
+</script>
+</body>
+</html>

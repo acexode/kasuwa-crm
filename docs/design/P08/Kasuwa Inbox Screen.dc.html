@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&amp;display=block">
+<style>@keyframes k-arrive{0%{transform:translateY(-16px);opacity:0;background:var(--k-accent-soft)}25%{transform:none;opacity:1;background:var(--k-accent-soft)}100%{background:var(--k-surface)}}@keyframes k-spin{to{transform:rotate(360deg)}}@keyframes k-load{from{width:4%}to{width:100%}}@keyframes k-pulse{0%,100%{opacity:1}50%{opacity:.35}}</style>
+</helmet>
+<div style="position:relative;width:100%;height:100%;display:flex;flex-direction:column;background:var(--k-bg);color:var(--k-text);font-family:'Noto Sans',system-ui,sans-serif;font-size:14px;overflow:hidden">
+
+<sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+  <header style="height:60px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px 0 16px;background:var(--k-surface);border-bottom:1px solid var(--k-border)">
+    <span style="display:flex;align-items:center;gap:8px"><span style="width:32px;height:32px;border-radius:8px;background:var(--k-primary);color:var(--k-accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px">K</span><b style="font-size:16px">Kasuwa</b></span>
+    <span style="flex:0 1 420px;margin-left:20px;display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:8px;background:var(--k-surface-sunken);color:var(--k-text-muted);font-size:14px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">search</span>Search conversations, contacts, numbers…<span style="flex:1"></span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:2px 6px;border:1px solid var(--k-border-strong);border-radius:4px;white-space:nowrap">Ctrl K</span></span>
+    <span style="flex:1"></span>
+    <span style="display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 10px;border-radius:999px;background:var(--k-primary-soft);color:var(--k-primary-text);font-size:12px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">schedule</span>10:21 WAT</span>
+    <button aria-label="Notifications" style="width:44px;height:44px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">notifications</span></button>
+    <span style="width:36px;height:36px;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">TB</span>
+  </header>
+</sc-if>
+
+<sc-if value="{{ recon }}" hint-placeholder-val="{{ false }}">
+  <div role="status" style="flex-shrink:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-height:44px;padding:6px 8px 6px 14px;background:var(--k-inverse);color:var(--k-on-inverse);font-size:14px;line-height:20px">
+    <span aria-hidden="true" style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;animation:k-spin 1.2s linear infinite">sync</span>
+    <span style="flex:1 1 180px"><b>Connection lost.</b> {{ reconText }}</span>
+    <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;opacity:.85">Replies you send are queued and go out when you’re back.</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;opacity:.85">Last sync 10:18 WAT</span></sc-if>
+    <button onClick="{{ retry }}" style="height:36px;padding:0 12px;border-radius:6px;border:1px solid currentColor;background:transparent;color:inherit;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Retry now</button>
+  </div>
+</sc-if>
+
+<div style="flex:1;min-height:0;display:flex">
+  <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+    <nav aria-label="Main" style="width:72px;flex-shrink:0;background:var(--k-surface-sunken);border-right:1px solid var(--k-border);padding:12px 0;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="7"><span aria-current="{{ n.cur }}" style="position:relative;width:56px;min-height:52px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:{{ n.bg }};color:{{ n.fg }};font-size:10px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">{{ n.icon }}</span>{{ n.label }}<sc-if value="{{ n.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:4px;right:8px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--k-danger);color:#FFFFFF;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ n.badge }}</span></sc-if></span></sc-for>
+    </nav>
+  </sc-if>
+
+  <!-- ============ LEFT: queues, filters, list ============ -->
+  <sc-if value="{{ showList }}" hint-placeholder-val="{{ true }}">
+    <section aria-label="Conversations" style="width:{{ listW }};flex-shrink:0;display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--k-surface);border-right:1px solid var(--k-border)">
+      <div style="display:flex;flex-direction:column;gap:12px;padding:14px 14px 12px;border-bottom:1px solid var(--k-border)">
+        <div style="display:flex;align-items:center;gap:6px">
+          <h1 style="margin:0;flex:1;font-size:24px;line-height:32px;font-weight:800;letter-spacing:-.01em">Inbox</h1>
+          <span title="Your status and chat load" style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:999px;background:{{ statusBg }};color:{{ statusFg }};font-size:12px;font-weight:700;white-space:nowrap"><span style="width:8px;height:8px;border-radius:50%;background:{{ statusDot }}"></span>{{ statusText }}</span>
+          <button onClick="{{ toggleSound }}" aria-pressed="{{ soundAria }}" aria-label="{{ soundLabel }}" title="{{ soundLabel }}" style="width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">{{ soundIcon }}</span></button>
+          <sc-if value="{{ mobile }}" hint-placeholder-val="{{ false }}"><button aria-label="Search" style="width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">search</span></button></sc-if>
+        </div>
+        <div role="tablist" aria-label="Queues" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:3px;border-radius:10px;background:var(--k-surface-sunken)">
+          <sc-for list="{{ queues }}" as="t" hint-placeholder-count="4"><button role="tab" aria-selected="{{ t.sel }}" onClick="{{ t.pick }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;min-height:44px;padding:2px 2px;border-radius:7px;border:0;background:{{ t.bg }};box-shadow:{{ t.sh }};color:{{ t.fg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;min-width:0"><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.label }}</span><b style="font-size:13px">{{ t.n }}</b></button></sc-for>
+        </div>
+        <div role="group" aria-label="Channels" style="display:flex;flex-wrap:{{ chWrap }};gap:6px;overflow-x:auto;margin:0 -2px;padding:0 2px">
+          <button onClick="{{ clearCh }}" aria-pressed="{{ allChAria }}" style="flex-shrink:0;height:36px;padding:0 12px;border-radius:999px;border:1px solid {{ allChBorder }};background:{{ allChBg }};color:{{ allChFg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">All</button>
+          <sc-for list="{{ chans }}" as="c" hint-placeholder-count="8"><button onClick="{{ c.toggle }}" aria-pressed="{{ c.pressed }}" aria-label="{{ c.aria }}" title="{{ c.label }}" style="flex-shrink:0;display:inline-flex;align-items:center;gap:4px;height:36px;padding:0 9px 0 7px;border-radius:999px;border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.fg }};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;opacity:{{ c.op }}"><span style="width:20px;height:20px;border-radius:6px;background:{{ c.ib }};color:{{ c.if }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:13px;line-height:1">{{ c.icon }}</span></span>{{ c.n }}</button></sc-for>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;min-height:36px;padding:4px 14px;font-size:12px;color:var(--k-text-muted);border-bottom:1px solid var(--k-border)">
+        <span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">sort</span><span style="flex:1">Sorted by SLA · most urgent first</span>
+        <sc-if value="{{ lowBw }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:999px;background:var(--k-info-soft);color:var(--k-info-text);font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">data_saver_on</span>Data saver</span></sc-if>
+      </div>
+      <sc-if value="{{ atCap }}" hint-placeholder-val="{{ false }}">
+        <div role="status" style="display:flex;gap:10px;margin:10px 12px 0;padding:10px 12px;border-radius:10px;background:var(--k-warning-soft);border:1px solid var(--k-warning);color:var(--k-warning-text);font-size:13px;line-height:19px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">hourglass_full</span><span><b>You’re at capacity ({{ capText }}).</b> New chats go to Team Lagos Retail until you resolve one. <span style="font-weight:700;text-decoration:underline;text-underline-offset:3px">Resolve finished chats (2)</span></span></div>
+      </sc-if>
+      <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column">
+        <sc-for list="{{ rows }}" as="c" hint-placeholder-count="7">
+          <button onClick="{{ c.open }}" aria-current="{{ c.cur }}" aria-label="{{ c.aria }}" style="flex-shrink:0;position:relative;display:flex;gap:12px;align-items:flex-start;width:100%;padding:12px 14px 12px 14px;border:0;border-bottom:1px solid var(--k-border);background:{{ c.bg }};box-shadow:{{ c.bar }};text-align:left;font-family:inherit;color:var(--k-text);cursor:pointer;animation:{{ c.anim }}">
+            <span style="position:relative;flex-shrink:0;width:40px;height:40px;border-radius:50%;background:var(--k-primary-soft-strong);color:var(--k-primary-text);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ c.init }}<span title="{{ c.chLabel }}" style="position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;border-radius:6px;border:2px solid var(--k-surface);background:{{ c.chBg }};color:{{ c.chFg }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:12px;line-height:1">{{ c.chIcon }}</span></span></span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+              <span style="display:flex;align-items:baseline;gap:8px"><span style="flex:1;min-width:0;font-size:15px;line-height:20px;font-weight:{{ c.fw }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.name }}</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--k-text-muted);white-space:nowrap">{{ c.wait }}</span></span>
+              <span style="font-size:13px;line-height:18px;color:{{ c.pvFg }};font-weight:{{ c.pvFw }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.preview }}</span>
+              <span style="display:flex;align-items:center;gap:6px;margin-top:3px">
+                <span style="display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 7px;border-radius:999px;background:{{ c.slaBg }};color:{{ c.slaFg }};font-size:11px;font-weight:700;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:13px;line-height:1">{{ c.slaIcon }}</span>{{ c.slaText }}</span>
+                <span title="{{ c.langName }}" style="display:inline-flex;align-items:center;height:22px;padding:0 6px;border-radius:5px;border:1px solid var(--k-border-strong);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--k-text-2)">{{ c.lang }}</span>
+                <sc-if value="{{ c.showOwner }}" hint-placeholder-val="{{ false }}"><span title="{{ c.ownerName }}" style="width:22px;height:22px;border-radius:50%;background:var(--k-surface-sunken);color:var(--k-text-2);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ c.own }}</span></sc-if>
+                <sc-if value="{{ c.isNew }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;font-weight:800;letter-spacing:.06em;padding:2px 6px;border-radius:4px;background:var(--k-accent);color:#24201C">NEW</span></sc-if>
+                <span style="flex:1"></span>
+                <sc-if value="{{ c.hasUnread }}" hint-placeholder-val="{{ false }}"><span aria-label="{{ c.unreadAria }}" style="min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--k-primary);color:var(--k-on-primary);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ c.unread }}</span></sc-if>
+              </span>
+            </span>
+          </button>
+        </sc-for>
+        <sc-if value="{{ listEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:32px 20px">
+            <div style="max-width:300px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px">
+              <span style="width:64px;height:64px;border-radius:50%;background:var(--k-success-soft);color:var(--k-success-text);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:32px;line-height:1">{{ emptyIcon }}</span></span>
+              <b style="font-size:18px;line-height:24px">{{ emptyTitle }}</b>
+              <span style="font-size:14px;line-height:21px;color:var(--k-text-2);text-wrap:pretty">{{ emptyBody }}</span>
+              <sc-if value="{{ emptyIsFilter }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearCh }}" style="height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Show all channels</button></sc-if>
+              <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--k-text-muted)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">{{ soundIcon }}</span>{{ emptySound }}</span><button style="height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600">Review resolved today (38)</button></sc-if>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </section>
+  </sc-if>
+
+  <!-- ============ CENTRE: thread ============ -->
+  <sc-if value="{{ showThread }}" hint-placeholder-val="{{ true }}">
+    <section aria-label="Conversation" style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;background:var(--k-surface-sunken)">
+      <sc-if value="{{ hasCur }}" hint-placeholder-val="{{ true }}">
+        <div style="flex-shrink:0;display:flex;align-items:center;gap:10px;min-height:64px;padding:8px 10px 8px {{ thPadL }}px;background:var(--k-surface);border-bottom:1px solid var(--k-border)">
+          <sc-if value="{{ mobile }}" hint-placeholder-val="{{ false }}"><button onClick="{{ back }}" aria-label="Back to inbox" style="width:44px;height:44px;margin-left:-4px;border:0;border-radius:8px;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">arrow_back</span></button></sc-if>
+          <span style="position:relative;flex-shrink:0;width:40px;height:40px;border-radius:50%;background:var(--k-primary-soft-strong);color:var(--k-primary-text);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ cur.init }}<span style="position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;border-radius:6px;border:2px solid var(--k-surface);background:{{ cur.chBg }};color:{{ cur.chFg }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:12px;line-height:1">{{ cur.chIcon }}</span></span></span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+            <b style="font-size:16px;line-height:22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ cur.name }}</b>
+            <span style="font-size:12px;line-height:17px;color:var(--k-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ cur.headMeta }}</span>
+          </div>
+          <span style="flex-shrink:0;display:inline-flex;align-items:center;gap:3px;height:26px;padding:0 8px;border-radius:999px;background:{{ cur.slaBg }};color:{{ cur.slaFg }};font-size:12px;font-weight:700;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">{{ cur.slaIcon }}</span>{{ cur.slaText }}</span>
+          <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+            <span title="{{ cur.langName }}" style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 8px;border-radius:6px;border:1px solid var(--k-border-strong);font-size:12px;font-weight:600;color:var(--k-text-2);white-space:nowrap"><span style="font-family:'JetBrains Mono',monospace;font-size:10px">{{ cur.lang }}</span>{{ cur.langName }}</span>
+            <button onClick="{{ resolve }}" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">check_circle</span>Resolve</button>
+          </sc-if>
+          <sc-if value="{{ mobile }}" hint-placeholder-val="{{ false }}"><button onClick="{{ openInfo }}" aria-label="Contact details" style="width:44px;height:44px;border:0;border-radius:8px;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">info</span></button></sc-if>
+        </div>
+
+        <div ref="{{ threadRef }}" role="log" aria-label="Messages" style="flex:1;min-height:0;overflow-y:auto;padding:16px {{ thPadX }}px 20px;display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ items }}" as="m" hint-placeholder-count="6">
+            <sc-if value="{{ m.isDay }}" hint-placeholder-val="{{ false }}"><span style="align-self:center;padding:4px 12px;border-radius:999px;background:var(--k-surface);color:var(--k-text-2);font-size:12px;font-weight:600;box-shadow:var(--k-shadow-1)">{{ m.text }}</span></sc-if>
+            <sc-if value="{{ m.isSys }}" hint-placeholder-val="{{ false }}"><div role="note" style="align-self:center;max-width:min(92%,560px);display:flex;align-items:flex-start;gap:6px;padding:6px 12px;border-radius:8px;background:{{ m.sysBg }};border:{{ m.sysBorder }};color:{{ m.sysFg }};font-size:12px;line-height:18px;text-align:left"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:18px">{{ m.icon }}</span><span style="flex:1">{{ m.text }}</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;opacity:.85;white-space:nowrap">{{ m.time }}</span></div></sc-if>
+            <sc-if value="{{ m.isNote }}" hint-placeholder-val="{{ false }}">
+              <div style="align-self:flex-end;width:min(88%,520px);display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:10px;background:var(--k-accent-soft);border:1px solid var(--k-accent);color:var(--k-text)">
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--k-accent-text)"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">lock</span>Internal note · {{ m.by }}<span style="flex:1"></span><span style="font-family:'JetBrains Mono',monospace;font-weight:400">{{ m.time }}</span></span>
+                <span style="font-size:14px;line-height:21px;text-wrap:pretty">{{ m.text }}</span>
+                <span style="font-size:11px;color:var(--k-accent-text)">Only your team can see this</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ m.isMsg }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;justify-content:{{ m.justify }}">
+                <div style="max-width:min(80%,480px);display:flex;flex-direction:column;gap:6px;padding:8px 10px 6px;border-radius:{{ m.radius }};background:{{ m.bBg }};border:{{ m.bBorder }};box-shadow:var(--k-shadow-1)">
+                  <sc-if value="{{ m.hasBy }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:700;color:var(--k-primary-text)">{{ m.by }}</span></sc-if>
+                  <sc-if value="{{ m.hasSubj }}" hint-placeholder-val="{{ false }}"><b style="font-size:13px;line-height:18px">{{ m.subj }}</b></sc-if>
+                  <sc-if value="{{ m.isReply }}" hint-placeholder-val="{{ false }}"><span style="display:flex;flex-direction:column;gap:2px;padding:4px 8px;border-left:3px solid var(--k-success);border-radius:4px;background:var(--k-surface-sunken);font-size:11px;color:var(--k-text-2)">Tapped a button<b style="font-size:14px;color:var(--k-text);display:flex;align-items:center;gap:4px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">reply</span>{{ m.text }}</b></span></sc-if>
+
+                  <sc-if value="{{ m.isImg }}" hint-placeholder-val="{{ false }}">
+                    <sc-if value="{{ m.imgReady }}" hint-placeholder-val="{{ true }}"><div role="img" aria-label="Photo: payment receipt" style="width:248px;max-width:100%;height:168px;border-radius:8px;background:repeating-linear-gradient(135deg,var(--k-surface-sunken) 0 10px,var(--k-border) 10px 20px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:30px;line-height:1">receipt_long</span><span style="font-size:12px;font-weight:600">Receipt photo · {{ m.size }}</span></div></sc-if>
+                    <sc-if value="{{ m.imgLocked }}" hint-placeholder-val="{{ false }}"><button onClick="{{ m.load }}" style="width:248px;max-width:100%;height:120px;border-radius:8px;border:1.5px dashed var(--k-border-strong);background:var(--k-surface-sunken);color:var(--k-text);font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:28px;line-height:1;color:var(--k-primary-text)">download</span><b style="font-size:14px">Tap to load photo</b><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--k-text-2)">{{ m.size }} · JPG</span></button></sc-if>
+                    <sc-if value="{{ m.imgLoading }}" hint-placeholder-val="{{ false }}"><div role="status" style="width:248px;max-width:100%;height:120px;border-radius:8px;background:var(--k-surface-sunken);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0 24px;color:var(--k-text-2);font-size:12px">Loading {{ m.size }}…<span style="align-self:stretch;height:4px;border-radius:2px;background:var(--k-border);overflow:hidden"><span style="display:block;height:100%;background:var(--k-primary);animation:k-load 1.4s linear forwards"></span></span></div></sc-if>
+                  </sc-if>
+
+                  <sc-if value="{{ m.isVoice }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;gap:10px;width:290px;max-width:100%">
+                      <button onClick="{{ m.vAct }}" aria-label="{{ m.vAria }}" style="width:40px;height:40px;flex-shrink:0;border-radius:50%;border:0;background:{{ m.vBtnBg }};color:{{ m.vBtnFg }};display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1">{{ m.vIcon }}</span></button>
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                        <span aria-hidden="true" style="display:flex;align-items:center;gap:2px;height:28px;overflow:hidden"><sc-for list="{{ m.bars }}" as="b" hint-placeholder-count="30"><span style="flex:1;min-width:2px;max-width:4px;height:{{ b.h }}px;border-radius:2px;background:{{ b.c }}"></span></sc-for></span>
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--k-text-2)">{{ m.vTime }}</span>
+                      </div>
+                      <button onClick="{{ cycleSpeed }}" aria-label="Playback speed" style="height:28px;padding:0 8px;border-radius:999px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;cursor:pointer">{{ speedLabel }}</button>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:4px;padding-top:6px;border-top:1px solid var(--k-border)">
+                      <span style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">subtitles</span>{{ m.trLabel }}<span style="flex:1"></span><button onClick="{{ m.toggleTr }}" style="height:28px;padding:0 4px;border:0;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">{{ m.trBtn }}</button></span>
+                      <span style="font-size:14px;line-height:21px;font-style:italic;text-wrap:pretty">{{ m.trText }}</span>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ m.hasText }}" hint-placeholder-val="{{ true }}"><span style="font-size:14px;line-height:21px;white-space:pre-wrap;text-wrap:pretty">{{ m.text }}</span></sc-if>
+
+                  <sc-if value="{{ m.isList }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;flex-direction:column;border-radius:8px;background:var(--k-surface);border:1px solid var(--k-border);overflow:hidden">
+                      <sc-for list="{{ m.rows }}" as="r" hint-placeholder-count="3"><span style="display:flex;align-items:center;gap:8px;min-height:36px;padding:6px 10px;border-bottom:1px solid var(--k-border);font-size:13px"><span style="width:14px;height:14px;border-radius:50%;border:2px solid var(--k-border-strong);flex-shrink:0"></span><span style="flex:1">{{ r.a }}</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--k-text-2)">{{ r.b }}</span></span></sc-for>
+                    </div>
+                    <span style="display:flex;align-items:center;justify-content:center;gap:6px;height:36px;border-top:1px solid var(--k-border);color:var(--k-info-text);font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">list</span>{{ m.listBtn }}</span>
+                  </sc-if>
+
+                  <sc-if value="{{ m.isPay }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:8px;background:var(--k-surface);border:1px solid var(--k-border);min-width:240px">
+                      <span style="width:36px;height:36px;border-radius:8px;background:var(--k-success-soft);color:var(--k-success-text);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">payments</span></span>
+                      <span style="display:flex;flex-direction:column;gap:2px;min-width:0"><b style="font-size:15px">₦18,400.00</b><span style="font-size:12px;color:var(--k-text-2)">Payment link · ORD-55102 · Paystack</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--k-primary-text);text-decoration:underline;text-underline-offset:3px">pay.kasuwa.africa/p/7Q2K</span><span style="font-size:11px;color:var(--k-text-muted)">Expires in 24 hours</span></span>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ m.isTpl }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;align-self:flex-start;font-size:11px;font-weight:700;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">description</span>{{ m.tplLabel }}</span></sc-if>
+
+                  <sc-if value="{{ m.hasBtns }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;flex-direction:column;margin:0 -10px">
+                      <sc-for list="{{ m.btns }}" as="b" hint-placeholder-count="3"><span style="display:flex;align-items:center;justify-content:center;gap:6px;height:38px;border-top:1px solid var(--k-border);color:var(--k-info-text);font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">reply</span>{{ b }}</span></sc-for>
+                    </div>
+                  </sc-if>
+
+                  <span style="display:flex;align-items:center;justify-content:flex-end;gap:4px;font-size:11px;color:var(--k-text-muted)">
+                    <sc-if value="{{ m.hasVia }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:2px;font-weight:700;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:13px;line-height:1">{{ m.viaIcon }}</span>{{ m.via }}</span><span>·</span></sc-if>
+                    <span style="font-family:'JetBrains Mono',monospace">{{ m.time }}</span>
+                    <sc-if value="{{ m.hasTick }}" hint-placeholder-val="{{ false }}"><span title="{{ m.tickLabel }}" aria-label="{{ m.tickLabel }}" style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:{{ m.tickFg }}">{{ m.tickIcon }}</span></sc-if>
+                  </span>
+                </div>
+              </div>
+            </sc-if>
+          </sc-for>
+        </div>
+
+        <!-- unassigned -->
+        <sc-if value="{{ showAssign }}" hint-placeholder-val="{{ false }}">
+          <div style="flex-shrink:0;display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:14px 16px;background:var(--k-surface);border-top:1px solid var(--k-border)">
+            <span style="font-family:'Material Symbols Rounded';font-size:24px;line-height:1;color:var(--k-text-2)">move_to_inbox</span>
+            <span style="flex:1 1 220px;display:flex;flex-direction:column;gap:2px;font-size:14px;line-height:20px"><b>Unassigned · waiting {{ cur.wait }}</b><span style="font-size:13px;color:{{ assignNoteFg }}">{{ assignNote }}</span></span>
+            <button onClick="{{ assign }}" disabled="{{ atCap }}" style="height:44px;padding:0 16px;border-radius:8px;border:0;background:{{ assignBg }};color:{{ assignFg }};font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Assign to me</button>
+          </div>
+        </sc-if>
+
+        <!-- 24h closed: template picker -->
+        <sc-if value="{{ showLocked }}" hint-placeholder-val="{{ false }}">
+          <div style="flex-shrink:0;max-height:{{ lockMaxH }};overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:{{ cmpPad }};background:var(--k-surface);border-top:1px solid var(--k-border)">
+            <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:var(--k-warning-soft);color:var(--k-warning-text);font-size:13px;line-height:19px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">lock_clock</span><span style="color:var(--k-text)"><b style="color:var(--k-warning-text)">The 24-hour window has closed.</b> You can’t send free text until {{ cur.first }} writes again. Pick an approved WhatsApp template to restart the chat.</span></div>
+            <sc-if value="{{ tplWaiting }}" hint-placeholder-val="{{ false }}"><div role="status" style="display:flex;gap:8px;padding:10px 12px;border-radius:10px;background:var(--k-success-soft);color:var(--k-success-text);font-size:13px;line-height:19px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">schedule_send</span><span>Template sent. Free text unlocks as soon as {{ cur.first }} replies.</span></div></sc-if>
+            <div role="tablist" aria-label="Template category" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+              <sc-for list="{{ tplCats }}" as="t" hint-placeholder-count="3"><button role="tab" aria-selected="{{ t.sel }}" onClick="{{ t.pick }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-height:52px;padding:6px 10px;border-radius:8px;border:{{ t.border }};background:{{ t.bg }};color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer;min-width:0"><b style="font-size:13px;color:{{ t.fg }}">{{ t.label }}</b><span style="font-size:11px;color:var(--k-text-2);white-space:nowrap">{{ t.cost }} each</span></button></sc-for>
+            </div>
+            <div style="display:grid;grid-template-columns:{{ tplCols }};gap:12px;align-items:start">
+              <div role="radiogroup" aria-label="Templates" style="display:flex;flex-direction:column;gap:6px">
+                <sc-for list="{{ tpls }}" as="t" hint-placeholder-count="2"><button role="radio" aria-checked="{{ t.sel }}" onClick="{{ t.pick }}" style="display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:8px;border:{{ t.border }};background:{{ t.bg }};color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer"><span style="width:18px;height:18px;margin-top:1px;border-radius:50%;border:2px solid {{ t.dot }};display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="width:8px;height:8px;border-radius:50%;background:{{ t.fill }}"></span></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px"><span style="display:flex;align-items:center;gap:6px"><b style="font-family:'JetBrains Mono',monospace;font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</b><span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;background:var(--k-success-soft);color:var(--k-success-text)">Approved</span></span><span style="font-size:12px;line-height:17px;color:var(--k-text-2);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden">{{ t.body }}</span></span></button></sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:10px;background:var(--k-surface-sunken)">
+                <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Preview · English</span>
+                <div style="align-self:flex-end;max-width:100%;display:flex;flex-direction:column;gap:6px;padding:8px 10px 6px;border-radius:12px 12px 4px 12px;background:var(--k-wa-bubble);box-shadow:var(--k-shadow-1)"><span style="font-size:14px;line-height:21px;text-wrap:pretty">{{ tplPreview }}</span><div style="display:flex;flex-direction:column;margin:0 -10px"><sc-for list="{{ tplBtns }}" as="b" hint-placeholder-count="1"><span style="display:flex;align-items:center;justify-content:center;gap:6px;height:36px;border-top:1px solid var(--k-border);color:var(--k-info-text);font-size:13px;font-weight:600">{{ b }}</span></sc-for></div></div>
+                <span style="font-size:12px;line-height:17px;color:var(--k-text-2)">{{ tplVars }}</span>
+              </div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px">
+              <span style="flex:1 1 200px;display:flex;flex-direction:column;gap:1px;font-size:13px;line-height:18px"><span>Estimated cost <b>{{ tplCost }}</b> · {{ tplCatLabel }}</span><span style="font-size:12px;color:var(--k-text-muted)">Meta rate for Nigeria (+234), charged on delivery · Wallet ₦42,180</span></span>
+              <button onClick="{{ sendTpl }}" style="display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 16px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">send</span>Send template</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- normal composer -->
+        <sc-if value="{{ showComposer }}" hint-placeholder-val="{{ true }}">
+          <div style="position:relative;flex-shrink:0;display:flex;flex-direction:column;gap:8px;padding:{{ cmpPad }};background:var(--k-surface);border-top:1px solid var(--k-border)">
+            <sc-if value="{{ cannedOpen }}" hint-placeholder-val="{{ false }}">
+              <div role="listbox" aria-label="Canned responses" style="position:absolute;left:10px;right:10px;bottom:calc(100% - 6px);z-index:8;max-height:320px;overflow-y:auto;padding:6px;border-radius:12px;border:1px solid var(--k-border);background:var(--k-surface-raised);box-shadow:var(--k-shadow-3);display:flex;flex-direction:column;gap:2px">
+                <span style="display:flex;align-items:center;gap:6px;padding:4px 8px 6px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Canned responses<span style="flex:1"></span><span style="text-transform:none;letter-spacing:0;font-weight:500">Type to filter</span></span>
+                <sc-for list="{{ canned }}" as="r" hint-placeholder-count="5"><button role="option" onClick="{{ r.pick }}" style="display:grid;grid-template-columns:84px minmax(0,1fr);gap:10px;align-items:start;padding:8px 10px;border:0;border-radius:8px;background:{{ r.bg }};color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer"><span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--k-primary-text);padding-top:1px">{{ r.key }}</span><span style="display:flex;flex-direction:column;gap:1px;min-width:0"><b style="font-size:14px">{{ r.title }}</b><span style="font-size:12px;line-height:17px;color:var(--k-text-2);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden">{{ r.body }}</span></span></button></sc-for>
+                <sc-if value="{{ cannedNone }}" hint-placeholder-val="{{ false }}"><span style="padding:10px;font-size:13px;color:var(--k-text-2)">No match. Try /refund or /delay.</span></sc-if>
+              </div>
+            </sc-if>
+            <sc-if value="{{ chOpen }}" hint-placeholder-val="{{ false }}">
+              <div role="menu" aria-label="Reply channel" style="position:absolute;right:10px;bottom:calc(100% - 6px);z-index:8;width:min(320px,calc(100% - 20px));padding:4px;border-radius:12px;border:1px solid var(--k-border);background:var(--k-surface-raised);box-shadow:var(--k-shadow-3);display:flex;flex-direction:column">
+                <sc-for list="{{ chOpts }}" as="o" hint-placeholder-count="3"><button role="menuitemradio" aria-checked="{{ o.sel }}" onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:10px;min-height:52px;padding:6px 10px;border:0;border-radius:8px;background:{{ o.bg }};color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer"><span style="width:28px;height:28px;border-radius:8px;background:{{ o.ib }};color:{{ o.if }};display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">{{ o.icon }}</span></span><span style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0"><b style="font-size:14px">{{ o.label }}</b><span style="font-size:12px;color:{{ o.noteFg }}">{{ o.note }}</span></span><sc-if value="{{ o.on }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-primary-text)">check</span></sc-if></button></sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ emojiOpen }}" hint-placeholder-val="{{ false }}">
+              <div role="menu" aria-label="Emoji" style="position:absolute;left:10px;bottom:56px;z-index:8;display:grid;grid-template-columns:repeat(8,40px);gap:2px;padding:6px;border-radius:12px;border:1px solid var(--k-border);background:var(--k-surface-raised);box-shadow:var(--k-shadow-3)">
+                <sc-for list="{{ emojis }}" as="e" hint-placeholder-count="8"><button role="menuitem" onClick="{{ e.pick }}" aria-label="{{ e.label }}" style="width:40px;height:40px;border:0;border-radius:8px;background:transparent;font-size:22px;line-height:1;cursor:pointer">{{ e.ch }}</button></sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ aiOpen }}" hint-placeholder-val="{{ false }}">
+              <div role="region" aria-label="Draft reply" style="display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:12px;background:var(--k-primary-soft);border:1px solid var(--k-primary-soft-strong)">
+                <div style="display:flex;align-items:center;gap:6px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-primary-text)">auto_awesome</span><b style="flex:1;font-size:14px;color:var(--k-primary-text)">Draft reply</b><button onClick="{{ closeAi }}" aria-label="Close draft reply" style="width:36px;height:36px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">close</span></button></div>
+                <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;font-weight:700;color:var(--k-text-2)">Language</span><div role="radiogroup" aria-label="Language" style="display:flex;flex-wrap:{{ chWrap }};gap:6px;overflow-x:auto"><sc-for list="{{ aiLangs }}" as="l" hint-placeholder-count="7"><button role="radio" aria-checked="{{ l.sel }}" onClick="{{ l.pick }}" style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 10px;border-radius:999px;border:1px solid {{ l.border }};background:{{ l.bg }};color:{{ l.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">{{ l.label }}<sc-if value="{{ l.detected }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;font-weight:700;opacity:.85">· detected</span></sc-if></button></sc-for></div></div>
+                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px"><span style="font-size:12px;font-weight:700;color:var(--k-text-2)">Tone</span><div role="radiogroup" aria-label="Tone" style="display:flex;gap:2px;padding:3px;border-radius:9px;background:var(--k-surface)"><sc-for list="{{ tones }}" as="t" hint-placeholder-count="4"><button role="radio" aria-checked="{{ t.sel }}" onClick="{{ t.pick }}" style="height:32px;padding:0 10px;border-radius:6px;border:0;background:{{ t.bg }};color:{{ t.fg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">{{ t.label }}</button></sc-for></div><span style="flex:1"></span><button onClick="{{ genAi }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">{{ genIcon }}</span>{{ genLabel }}</button></div>
+                <sc-if value="{{ aiBusy }}" hint-placeholder-val="{{ false }}"><span role="status" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;background:var(--k-surface);font-size:13px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;animation:k-pulse 1s ease-in-out infinite;color:var(--k-primary-text)">auto_awesome</span>Writing in {{ aiLangName }}…</span></sc-if>
+                <sc-if value="{{ hasAiOut }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:8px;background:var(--k-surface)">
+                    <span style="font-size:14px;line-height:21px;text-wrap:pretty">{{ aiOut }}</span>
+                    <span style="font-size:11px;line-height:16px;color:var(--k-text-muted)">{{ aiMeta }}</span>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px"><button onClick="{{ useAi }}" style="height:36px;padding:0 12px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Use draft</button><button onClick="{{ genAi }}" style="height:36px;padding:0 10px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Try again</button></div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <div style="display:flex;align-items:center;gap:8px">
+              <div role="tablist" aria-label="Message type" style="display:flex;gap:2px;padding:3px;border-radius:9px;background:var(--k-surface-sunken)"><sc-for list="{{ modes }}" as="t" hint-placeholder-count="2"><button role="tab" aria-selected="{{ t.sel }}" onClick="{{ t.pick }}" style="display:inline-flex;align-items:center;gap:4px;height:34px;padding:0 10px;border-radius:6px;border:0;background:{{ t.bg }};box-shadow:{{ t.sh }};color:{{ t.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">{{ t.icon }}</span>{{ t.label }}</button></sc-for></div>
+              <span style="flex:1"></span>
+              <sc-if value="{{ isReply }}" hint-placeholder-val="{{ true }}"><button onClick="{{ toggleCh }}" aria-haspopup="menu" aria-expanded="{{ chOpenAria }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 6px 0 4px;border-radius:999px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;min-width:0"><span style="width:26px;height:26px;border-radius:999px;background:{{ rc.ib }};color:{{ rc.if }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1">{{ rc.icon }}</span></span>{{ rcLabel }}<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">expand_more</span></button></sc-if>
+            </div>
+            <sc-if value="{{ payOn }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;padding:6px 6px 6px 10px;border-radius:10px;border:1px solid var(--k-border);background:var(--k-success-soft)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-success-text)">payments</span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><b style="font-size:13px">Payment link · ₦18,400.00</b><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--k-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">pay.kasuwa.africa/p/7Q2K · ORD-55102 · 24 h</span></span><button onClick="{{ removePay }}" aria-label="Remove payment link" style="width:36px;height:36px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">close</span></button></div></sc-if>
+            <label style="display:flex"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">{{ taLabel }}</span><textarea value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" rows="2" placeholder="{{ taPh }}" style="flex:1;min-height:{{ taH }}px;padding:10px 12px;border-radius:10px;border:1px solid {{ taBorder }};background:{{ taBg }};color:var(--k-text);font-family:inherit;font-size:15px;line-height:22px;resize:none;outline:none"></textarea></label>
+            <div style="display:flex;align-items:center;gap:2px">
+              <button onClick="{{ attach }}" aria-label="Attach file" style="width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">attach_file</span></button>
+              <button onClick="{{ toggleEmoji }}" aria-label="Emoji" aria-expanded="{{ emojiAria }}" style="width:40px;height:40px;border:0;border-radius:8px;background:{{ emojiBg }};color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">mood</span></button>
+              <button onClick="{{ addPay }}" aria-label="Insert payment link" title="Insert payment link" style="width:40px;height:40px;border:0;border-radius:8px;background:{{ payBg }};color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:19px;font-weight:700">₦</button>
+              <button onClick="{{ slash }}" aria-label="Canned responses" title="Canned responses ( / )" style="width:40px;height:40px;border:0;border-radius:8px;background:{{ slashBg }};color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600">/</button>
+              <button onClick="{{ toggleAi }}" aria-expanded="{{ aiAria }}" style="display:inline-flex;align-items:center;gap:5px;height:40px;padding:0 10px;margin-left:2px;border-radius:8px;border:0;background:{{ aiBtnBg }};color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">auto_awesome</span>{{ aiBtnLabel }}</button>
+              <span style="flex:1"></span>
+              <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;color:{{ hintFg }};margin-right:8px;white-space:nowrap">{{ hint }}</span></sc-if>
+              <button onClick="{{ send }}" aria-label="{{ sendLabel }}" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;height:44px;min-width:44px;padding:{{ sendPad }};border-radius:10px;border:0;background:{{ sendBg }};color:{{ sendFg }};font-family:inherit;font-size:14px;font-weight:700;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ sendIcon }}</span><sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">{{ sendLabel }}</sc-if></button>
+            </div>
+            <sc-if value="{{ mobileHint }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:{{ hintFg }}">{{ hint }}</span></sc-if>
+          </div>
+        </sc-if>
+      </sc-if>
+
+      <sc-if value="{{ noCur }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:32px">
+          <div style="max-width:380px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;color:var(--k-text-2)">
+            <span style="font-family:'Material Symbols Rounded';font-size:40px;line-height:1;color:var(--k-text-muted)">forum</span>
+            <b style="font-size:17px;color:var(--k-text)">Nothing to reply to</b>
+            <span style="font-size:14px;line-height:21px;text-wrap:pretty">New chats open here automatically, oldest SLA first. Your average first reply today is <b style="color:var(--k-text)">2 min 40 s</b>.</span>
+          </div>
+        </div>
+      </sc-if>
+    </section>
+  </sc-if>
+
+  <!-- ============ RIGHT: contact context ============ -->
+  <sc-if value="{{ showRight }}" hint-placeholder-val="{{ true }}">
+    <sc-if value="{{ mobile }}" hint-placeholder-val="{{ false }}"><div onClick="{{ closeInfo }}" style="position:absolute;inset:0;background:var(--k-scrim);z-index:20"></div></sc-if>
+    <aside aria-label="Contact details" style="position:{{ rp.pos }};left:0;right:0;bottom:0;z-index:{{ rp.z }};width:{{ rp.w }};max-height:{{ rp.mh }};flex-shrink:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:{{ rp.pad }};background:var(--k-bg);border-left:1px solid var(--k-border);border-radius:{{ rp.r }};box-shadow:{{ rp.sh }}">
+      <sc-if value="{{ mobile }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px"><span aria-hidden="true" style="position:absolute;left:50%;top:8px;transform:translateX(-50%);width:40px;height:4px;border-radius:2px;background:var(--k-border-strong)"></span><b style="flex:1;font-size:17px;padding-top:8px">Contact</b><button onClick="{{ closeInfo }}" aria-label="Close" style="width:44px;height:44px;border:0;background:transparent;color:var(--k-text);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">close</span></button></div></sc-if>
+      <div style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:12px;background:var(--k-surface);border:1px solid var(--k-border)">
+        <div style="display:flex;gap:12px;align-items:center"><span style="width:52px;height:52px;border-radius:50%;background:var(--k-primary-soft-strong);color:var(--k-primary-text);font-size:17px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ cur.init }}</span><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><b style="font-size:17px;line-height:23px">{{ cur.name }}</b><span style="font-size:13px;color:var(--k-text-2)">{{ cur.co }}</span></div></div>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--k-text)">{{ cur.phone }}</span>
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ ctx.tags }}" as="t" hint-placeholder-count="2"><span style="font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-surface-sunken);color:var(--k-text-2)">{{ t }}</span></sc-for><span style="font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-primary-soft);color:var(--k-primary-text)">Prefers {{ cur.langName }}</span></div>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:2px">
+          <sc-for list="{{ actions }}" as="a" hint-placeholder-count="4"><button onClick="{{ a.run }}" aria-expanded="{{ a.exp }}" style="display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 10px;border-radius:8px;border:1px solid {{ a.border }};background:{{ a.bg }};color:{{ a.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;min-width:0;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ a.icon }}</span>{{ a.label }}</button></sc-for>
+        </div>
+        <sc-if value="{{ xferOpen }}" hint-placeholder-val="{{ false }}"><div role="menu" aria-label="Transfer to" style="display:flex;flex-direction:column;border-radius:8px;border:1px solid var(--k-border);overflow:hidden"><sc-for list="{{ xferOpts }}" as="o" hint-placeholder-count="4"><button role="menuitem" onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:8px;min-height:44px;padding:0 10px;border:0;border-bottom:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-2)">{{ o.icon }}</span><span style="flex:1">{{ o.label }}</span><span style="font-size:11px;color:var(--k-text-muted)">{{ o.note }}</span></button></sc-for></div></sc-if>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:12px;background:var(--k-primary-soft)">
+        <span style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--k-primary-text)"><span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">auto_awesome</span>AI summary</span>
+        <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px;font-size:13px;line-height:19px"><sc-for list="{{ ctx.sum }}" as="it" hint-placeholder-count="3"><li>{{ it }}</li></sc-for></ul>
+        <span style="display:flex;gap:6px;padding:8px 10px;border-radius:8px;background:var(--k-surface);font-size:13px;line-height:19px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:19px;color:var(--k-primary-text)">lightbulb</span><span><b>Next step:</b> {{ ctx.next }}</span></span>
+        <span style="font-size:11px;color:var(--k-text-2)">{{ ctx.src }}</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:12px;background:var(--k-surface);border:1px solid var(--k-border)">
+        <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted)">Open tickets &amp; deals</span>
+        <sc-for list="{{ ctx.open }}" as="o" hint-placeholder-count="2"><span style="display:flex;gap:10px;align-items:flex-start;padding:4px 0"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:20px;color:var(--k-text-2)">{{ o.icon }}</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;font-weight:600;color:var(--k-primary-text);text-decoration:underline;text-underline-offset:3px">{{ o.title }}</span><span style="font-size:12px;color:var(--k-text-2)">{{ o.meta }}</span></span><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:{{ o.bg }};color:{{ o.fg }};white-space:nowrap">{{ o.status }}</span></span></sc-for>
+        <sc-if value="{{ ctx.noOpen }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--k-text-2)">Nothing open. Create a ticket or lead from this chat.</span></sc-if>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:4px;padding:14px;border-radius:12px;background:var(--k-surface);border:1px solid var(--k-border)">
+        <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted);margin-bottom:4px">Previous conversations</span>
+        <sc-for list="{{ ctx.prev }}" as="o" hint-placeholder-count="3"><span style="display:flex;align-items:center;gap:10px;min-height:40px"><span style="width:24px;height:24px;border-radius:7px;background:{{ o.ib }};color:{{ o.if }};display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">{{ o.icon }}</span></span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:13px;font-weight:600">{{ o.title }}</span><span style="font-size:12px;color:var(--k-text-2)">{{ o.meta }}</span></span></span></sc-for>
+        <sc-if value="{{ ctx.noPrev }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--k-text-2)">First conversation with this contact.</span></sc-if>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:4px;padding:14px;border-radius:12px;background:var(--k-surface);border:1px solid var(--k-border)">
+        <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--k-text-muted);margin-bottom:4px">Consent</span>
+        <sc-for list="{{ ctx.consent }}" as="o" hint-placeholder-count="3"><span style="display:flex;align-items:flex-start;gap:8px;min-height:36px;padding:3px 0"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:20px;color:{{ o.fg }}">{{ o.icon }}</span><span style="flex:1;display:flex;flex-direction:column"><b style="font-size:13px;line-height:20px">{{ o.ch }}</b><span style="font-size:12px;line-height:17px;color:var(--k-text-2)">{{ o.note }}</span></span><span style="font-size:11px;font-weight:700;color:{{ o.fg }};line-height:20px">{{ o.status }}</span></span></sc-for>
+      </div>
+    </aside>
+  </sc-if>
+</div>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+  <div role="status" style="position:absolute;left:50%;bottom:{{ toastBottom }}px;transform:translateX(-50%);z-index:40;width:max-content;max-width:calc(100% - 24px);display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:var(--k-inverse);color:var(--k-on-inverse);box-shadow:var(--k-shadow-2);font-size:14px;line-height:20px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ toastIcon }}</span><span style="flex:1">{{ toastText }}</span></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;mobile&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;state&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ready&quot;,&quot;arriving&quot;,&quot;capacity&quot;,&quot;reconnecting&quot;,&quot;lowBandwidth&quot;,&quot;empty&quot;],&quot;default&quot;:&quot;ready&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;conv&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;c1&quot;,&quot;c2&quot;,&quot;c3&quot;,&quot;c4&quot;,&quot;c5&quot;,&quot;c6&quot;,&quot;c7&quot;,&quot;c8&quot;,&quot;c9&quot;],&quot;default&quot;:&quot;c1&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;queue&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;un&quot;,&quot;team&quot;,&quot;prog&quot;],&quot;default&quot;:&quot;mine&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;mview&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;thread&quot;,&quot;info&quot;],&quot;default&quot;:&quot;list&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tool&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;canned&quot;,&quot;ai&quot;,&quot;channel&quot;,&quot;note&quot;,&quot;pay&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = { q: null, chf: [], sel: null, mview: null, draft: null, mode: null, chOpen: null, replyCh: {}, aiOpen: null, aiLang: null, tone: null, aiOut: undefined, aiBusy: false, emoji: false, pay: null, msgs: {}, extra: [], assigned: {}, tplCat: null, tplSel: null, tplSent: {}, sound: true, toast: null, loaded: {}, loading: {}, vp: {}, playing: null, showTr: {}, cd: 5, info: null, xfer: false, speed: 1, read: {} };
+  threadRef = React.createRef();
+  tm = [];
+  CH = { wa: ['WhatsApp', 'chat', 'var(--k-success)', '#FFFFFF'], sms: ['SMS', 'sms', 'var(--k-info)', '#FFFFFF'], email: ['Email', 'mail', 'var(--k-primary)', '#FFFFFF'], web: ['Web chat', 'forum', 'var(--k-warning)', '#FFFFFF'], fb: ['Facebook', 'thumb_up', 'var(--k-chart-6)', '#FFFFFF'], ig: ['Instagram', 'photo_camera', 'var(--k-danger)', '#FFFFFF'], tg: ['Telegram', 'send', 'var(--k-chart-3)', '#24201C'], ussd: ['USSD', 'dialpad', 'var(--k-inverse)', 'var(--k-on-inverse)'] };
+  CHORD = ['wa', 'sms', 'email', 'web', 'fb', 'ig', 'tg', 'ussd'];
+  LANG = { EN: 'English', PCM: 'Pidgin', HA: 'Hausa', YO: 'Yorùbá', IG: 'Igbo', FR: 'Français', SW: 'Kiswahili' };
+  OWN = { TB: 'Tunde Bakare (you)', KA: 'Kemi Adeyinka', FO: 'Funmilayo Ojo' };
+  RC = { wa: ['wa', 'sms', 'email'], sms: ['sms', 'wa'], email: ['email', 'sms'], web: ['web', 'email'], fb: ['fb'], ig: ['ig'], tg: ['tg'], ussd: ['sms'] };
+  C = [
+    ['c1', 'wa', 'Bisi Ogunleye', 'BO', 'Bisi Stores · Ojota, Lagos', '+234 802 314 6620', 'PCM', 'Voice note (0:23)', '18m', 6, 2, 'mine prog', 'TB', '09:12'],
+    ['c2', 'wa', 'Emeka Obi', 'EO', 'Obi & Sons Provisions · Onitsha', '+234 803 771 2094', 'EN', 'Okay, I’ll think about it', '1d', null, 0, 'mine', 'TB', '09:52'],
+    ['c3', 'sms', 'Aminu Danjuma', 'AD', 'Danjuma Ventures · Kano', '+234 806 552 0187', 'HA', 'Ina so in canza adireshin isarwa zuwa Sabon Gari.', '41m', -11, 1, 'un', '', '09:40'],
+    ['c4', 'email', 'Wanjiru Kamau', 'WK', 'Tusker Retail · Nairobi', '+254 712 339 004', 'SW', 'Re: INV-7702 — VAT amount looks wrong', '2h', 25, 1, 'team prog', 'KA', '08:21'],
+    ['c5', 'web', 'Aïssatou Diallo', 'AD', 'Téranga Télécom · Dakar', '+221 77 450 12 90', 'FR', 'Bonjour, mon colis n’est pas arrivé.', '9m', 21, 3, 'mine prog', 'TB', '10:12'],
+    ['c6', 'fb', 'Chinedu Okafor', 'CO', 'Facebook Messenger · Enugu', 'No phone shared', 'IG', 'Ego ole ka otu katọn mmanụ ji?', '5m', 55, 1, 'mine', 'TB', '10:16'],
+    ['c7', 'ig', 'Folake Adeyemi', 'FA', '@folakes_kitchen · Ibadan', 'No phone shared', 'YO', 'Ṣé ẹ ní ìrẹsì 25kg?', '1h 12m', 12, 0, 'team prog', 'FO', '09:09'],
+    ['c8', 'ussd', '+234 805 ••• 4471', 'US', 'USSD *347*22# · MTN', '+234 805 ••• 4471', 'EN', 'Menu: Check balance → Talk to an agent', '3m', 27, 1, 'mine', 'TB', '10:18'],
+    ['c9', 'tg', 'Kofi Boateng', 'KB', 'Telegram · Accra', '@kofi_b', 'EN', 'Can I pay by bank transfer?', '22m', 8, 1, 'un', '', '09:59']
+  ].map(this.mkC);
+  C0 = this.mkC(['c0', 'wa', 'Halima Sani', 'HS', 'Halima Provisions · Kaduna', '+234 809 118 3305', 'HA', 'Sannu, ina son yin odar kayan abinci.', 'now', 30, 1, 'mine', 'TB', '10:21']);
+  mkC(a) { const [id, ch, name, init, co, phone, lang, preview, wait, sla, unread, qs, own, t0] = a; return { id, ch, name, init, co, phone, lang, preview, wait, sla, unread, qs: qs.split(' '), own, t0, first: name.split(' ')[0] }; }
+  BODY = { c3: 'Ina so in canza adireshin isarwa zuwa Sabon Gari, Kano. Odar ita ce ORD-55140.', c4: 'Hello, the VAT on INV-7702 is 7.5% of the full amount, but delivery should be exempt. Please send a corrected invoice before Friday. — Wanjiru', c5: 'Bonjour, mon colis n’est pas arrivé. Commande ORD-55077, livraison prévue hier à Dakar.', c9: 'Hi, can I pay by bank transfer instead of card? My card keeps failing.' };
+  TH = {
+    c1: [
+      { k: 'day', text: 'Today · Tue 6 Oct' },
+      { k: 'sys', icon: 'campaign', text: 'Bisi started this chat from a Click-to-WhatsApp ad · “Indomie carton promo”', time: '09:12' },
+      { k: 'in', t: 'text', text: 'Good morning. Abeg I order 2 cartons of Indomie since Monday, una never deliver am. I don pay ₦18,400.', time: '09:12' },
+      { k: 'out', t: 'text', by: 'Kasuwa Assistant · bot', text: 'Sorry about that, Bisi. What would you like to do?', btns: ['Track my order', 'Ask for a refund', 'Talk to an agent'], time: '09:12', tick: 'read' },
+      { k: 'in', t: 'reply', text: 'Talk to an agent', time: '09:13' },
+      { k: 'sys', icon: 'person_add', text: 'Assigned to you by auto-routing · Pidgin · Lagos Retail', time: '09:13' },
+      { k: 'in', t: 'img', id: 'c1-img', text: 'See the receipt', size: '240 KB', time: '09:14' },
+      { k: 'out', t: 'text', by: 'Tunde Bakare', text: 'Good morning Bisi, I dey check am now. Give me 2 minutes abeg.', time: '09:15', tick: 'read' },
+      { k: 'note', by: 'Kemi Adeyinka', text: '@Tunde ORD-55102 is stuck at the Ikeja hub. Courier says Thursday. Refund is pre-approved if she asks.', time: '09:20' },
+      { k: 'in', t: 'text', text: 'Una dey there?', time: '10:02' },
+      { k: 'in', t: 'voice', id: 'c1-voice', dur: 23, size: '38 KB', tr: 'Na since Monday I dey wait. My shop customers dey ask me. If una no fit bring am by tomorrow, make una just return my money.', trEn: 'I’ve been waiting since Monday and my shop customers keep asking. If you can’t deliver by tomorrow, just refund my money.', time: '10:03' }
+    ],
+    c2: [
+      { k: 'day', text: 'Mon 5 Oct' },
+      { k: 'sys', icon: 'swap_horiz', text: 'Transferred from Kemi Adeyinka to you · price enquiry', time: '09:40' },
+      { k: 'in', t: 'text', text: 'Good morning. Can you hold the bulk price for 50 bags of rice until Friday?', time: '09:50' },
+      { k: 'out', t: 'list', by: 'Tunde Bakare', text: 'Good morning Emeka. Here are this week’s bulk prices, held until Friday 9 Oct.', listBtn: 'View prices', rows: [['Mama Gold 50 kg', '₦78,500'], ['Royal Stallion 50 kg', '₦81,000'], ['Caprice 50 kg', '₦76,200']], time: '09:55', tick: 'read' },
+      { k: 'in', t: 'text', text: 'Okay, I’ll think about it', time: '09:58' },
+      { k: 'day', text: 'Today · Tue 6 Oct' },
+      { k: 'sys', icon: 'timer_off', warn: true, text: 'WhatsApp 24-hour window closed. Only approved templates can be sent until Emeka replies.', time: '09:58' }
+    ]
+  };
+  gen(c) {
+    const ch = this.CH[c.ch][0], a = [{ k: 'day', text: 'Today · Tue 6 Oct' }];
+    if (c.ch === 'ussd') { a.push({ k: 'sys', icon: 'dialpad', text: 'USSD session on *347*22# · MTN · 3 screens', time: c.t0 }, { k: 'in', t: 'text', text: '1 Check balance → Balance ₦2,350 → 4 Talk to an agent', time: c.t0 }, { k: 'sys', icon: 'info', text: 'USSD can’t receive replies. Your reply goes by SMS.', time: c.t0 }); }
+    else { a.push({ k: 'sys', icon: 'login', text: 'Started on ' + ch, time: c.t0 }, { k: 'in', t: 'text', subj: c.ch === 'email' ? c.preview : '', text: this.BODY[c.id] || c.preview, time: c.t0 }); }
+    if (!c.qs.includes('un')) a.push({ k: 'sys', icon: 'person_add', text: c.own === 'TB' ? 'Assigned to you by auto-routing · ' + this.LANG[c.lang] : 'Assigned to ' + this.OWN[c.own], time: c.t0 });
+    return a;
+  }
+  CAN = [['/greet', 'Greeting', 'Good morning {first}, thanks for reaching Ọja Foods. How can I help today?'], ['/delay', 'Delivery delay', 'I’m sorry your order is late, {first}. I’ve checked and it will reach you by Thursday.'], ['/refund', 'Refund confirmed', 'Your refund of ₦18,400 is approved, {first}. It will reach your account within 24 hours.'], ['/hours', 'Opening hours', 'We’re open Monday to Saturday, 08:00–18:00 WAT.'], ['/close', 'Close out', 'Is there anything else I can help with today, {first}?']];
+  D1 = {
+    EN: 'Hi Bisi, I’m so sorry your order is late. It’s at our Ikeja hub and will reach you by Thursday. If you’d rather not wait, I can refund your ₦18,400 today.',
+    PCM: 'Bisi, abeg no vex say your order late. E dey our Ikeja hub, e go reach you by Thursday. If you no wan wait, I fit refund your ₦18,400 today.',
+    HA: 'Sannu Bisi, muna ba da hakuri kan jinkirin odarki. Tana ofishinmu na Ikeja, za ta iso ranar Alhamis. Idan ba kya son jira, zan iya mayar miki da ₦18,400 yau.',
+    YO: 'Ẹ káàárọ̀ Bisi, ẹ jọ̀wọ́ ẹ má bínú pé ọjà yín pẹ́. Ó wà ní ọ́fíìsì wa ní Ikeja, yóò dé ọ̀dọ̀ yín ní Ọjọ́bọ̀. Bí ẹ kò bá fẹ́ dúró, mo lè dá ₦18,400 padà fún yín lónìí.',
+    IG: 'Ndewo Bisi, biko gbaghara anyị na ihe i zụrụ egbuola oge. Ọ nọ n’ọfịs anyị dị na Ikeja, ọ ga-eru gị aka na Tọsde. Ọ bụrụ na ịchọghị ichere, enwere m ike ịkwụghachi gị ₦18,400 taa.',
+    FR: 'Bonjour Bisi, toutes nos excuses pour le retard de votre commande. Elle est à notre dépôt d’Ikeja et arrivera jeudi. Si vous préférez, je peux vous rembourser 18 400 ₦ aujourd’hui.',
+    SW: 'Habari Bisi, samahani kwa kuchelewa kwa oda yako. Iko kwenye kituo chetu cha Ikeja na itakufikia Alhamisi. Ukipenda, naweza kukurudishia ₦18,400 leo.'
+  };
+  DG = {
+    EN: 'Thanks for your message, {first}. I’m checking this now and will get back to you in a few minutes.',
+    PCM: 'Thank you for your message, {first}. I dey check am now, I go get back to you small time.',
+    HA: 'Na gode da saƙonka, {first}. Ina dubawa yanzu, zan dawo maka nan da ’yan mintuna.',
+    YO: 'Ẹ ṣé fún ìfiránṣẹ́ yín, {first}. Mo ń wò ó báyìí, màá padà sí yín láìpẹ́.',
+    IG: 'Daalụ maka ozi gị, {first}. Ana m elele ya ugbu a, aga m alaghachikwute gị n’oge na-adịghị anya.',
+    FR: 'Merci pour votre message, {first}. Je vérifie maintenant et je reviens vers vous dans quelques minutes.',
+    SW: 'Asante kwa ujumbe wako, {first}. Ninaangalia sasa na nitakujibu baada ya dakika chache.'
+  };
+  TPL = {
+    Marketing: ['₦80.20', [['bulk_price_hold', 'Hi {1}, your bulk price is held until {2}. Mama Gold 50 kg is {3} a bag. Reply YES to reserve your bags.', ['Emeka', 'Friday 9 Oct', '₦78,500'], ['Reserve now', 'Stop promotions']], ['restock_alert', 'Good news, {1}! {2} is back in stock at the Onitsha depot. Order before Saturday for free delivery.', ['Emeka', 'Royal Stallion 50 kg'], ['Order now']]]],
+    Utility: ['₦10.40', [['enquiry_follow_up', 'Hi {1}, following up on your question about {2}. Reply to this message and an agent will continue the chat.', ['Emeka', 'bulk rice prices'], ['Reply now']], ['quote_ready', 'Hi {1}, your quote {2} is ready. Total: {3}. Tap below to view it.', ['Emeka', 'Q-2318', '₦3,925,000'], ['View quote']]]],
+    Authentication: ['₦9.95', [['login_code', '{1} is your Ọja Foods verification code. For your security, do not share this code.', ['482 913'], ['Copy code']]]]
+  };
+  VARN = { bulk_price_hold: ['first name', 'hold date', 'price'], restock_alert: ['first name', 'product'], enquiry_follow_up: ['first name', 'topic'], quote_ready: ['first name', 'quote no.', 'total'], login_code: ['code'] };
+  RP = {
+    c1: { tags: ['Retailer', 'Since 2023', '₦1.24M lifetime'], sum: ['Paid ₦18,400 on Mon 5 Oct for 2 cartons of Indomie (ORD-55102).', 'Not delivered: stuck at the Ikeja hub, courier says Thursday.', 'Wants delivery by tomorrow or a refund. Getting more frustrated.'], next: 'offer the pre-approved refund, or free express delivery.', src: 'From 11 messages, the voice note transcript and Kemi’s note. Check before acting.',
+      open: [['confirmation_number', 'TKT-4812 · Refund for ORD-55102', 'Opened 09:16 · SLA 4h', 'Open · High', 'danger'], ['handshake', 'Bisi Stores · monthly restock', '₦240,000 · close 30 Oct', 'Qualified', 'info']],
+      prev: [['sms', 'Delivery confirmed', '12 Sep · resolved in 6 min'], ['wa', 'Asked for price list', '28 Aug · resolved'], ['email', 'Account setup', '2 Aug · resolved']],
+      consent: [['WhatsApp', 'Opted in 12 Mar 2026 via ad', 'Opted in', 'ok'], ['SMS', 'On the NCC DND list · service messages only', 'DND', 'warn'], ['Email', 'bisi@bisistores.ng', 'Subscribed', 'ok']] },
+    c2: { tags: ['Wholesaler', 'Since 2024'], sum: ['Asked us to hold the bulk rice price (50 bags) until Friday.', 'Price list sent Mon 09:55. He said he’d think about it.', 'Bought 40 bags in August; likely to buy again.'], next: 'send the bulk_price_hold or enquiry_follow_up template.', src: 'From 4 messages and the linked deal. Check before acting.',
+      open: [['handshake', 'Obi & Sons · 50 bags rice', '₦3,925,000 · close 9 Oct', 'Proposal', 'info']],
+      prev: [['wa', 'Ordered 40 bags rice', '14 Aug · won'], ['sms', 'Delivery window', '20 Aug · resolved']],
+      consent: [['WhatsApp', 'Opted in 3 Feb 2026 · marketing allowed', 'Opted in', 'ok'], ['SMS', 'Transactional and promotional', 'Allowed', 'ok'], ['Email', 'No address on file', 'None', 'none']] }
+  };
+  ctxFor(c) {
+    const r = this.RP[c.id] || { tags: [c.ch === 'ussd' ? 'Unknown caller' : 'New contact'], sum: ['Asking: “' + (this.BODY[c.id] || c.preview) + '”', 'Writes in ' + this.LANG[c.lang] + '. No earlier history.'], next: 'reply in ' + this.LANG[c.lang] + ' — Draft reply can help.', src: 'From 1 message. Check before acting.', open: [], prev: [], consent: [[this.CH[c.ch][0], 'Contacted us first · ' + c.t0 + ' today', 'Opted in', 'ok']] };
+    const tone = { ok: ['var(--k-success-text)', 'check_circle'], warn: ['var(--k-warning-text)', 'do_not_disturb_on'], none: ['var(--k-text-muted)', 'remove_circle_outline'] };
+    const st = { danger: ['var(--k-danger-soft)', 'var(--k-danger-text)'], info: ['var(--k-info-soft)', 'var(--k-info-text)'] };
+    return { tags: r.tags, sum: r.sum, next: r.next, src: r.src, noOpen: !r.open.length, noPrev: !r.prev.length,
+      open: r.open.map(([icon, title, meta, status, t]) => ({ icon, title, meta, status, bg: st[t][0], fg: st[t][1] })),
+      prev: r.prev.map(([ch, title, meta]) => ({ icon: this.CH[ch][1], ib: this.CH[ch][2], if: this.CH[ch][3], title, meta: this.CH[ch][0] + ' · ' + meta })),
+      consent: r.consent.map(([ch, note, status, t]) => ({ ch, note, status, fg: tone[t][0], icon: tone[t][1] })) };
+  }
+  BARS = [6, 10, 14, 20, 12, 8, 16, 24, 18, 10, 6, 12, 22, 26, 14, 8, 10, 18, 24, 16, 10, 6, 14, 20, 12, 8, 16, 10, 6, 12];
+  sla(m) { if (m === null || m === undefined) return ['Window closed', 'var(--k-surface-sunken)', 'var(--k-text-2)', 'timer_off']; if (m < 0) return ['Breached ' + (-m) + 'm', 'var(--k-danger-soft)', 'var(--k-danger-text)', 'error']; if (m <= 15) return [m + 'm left', 'var(--k-warning-soft)', 'var(--k-warning-text)', 'timer']; return [m + 'm left', 'var(--k-success-soft)', 'var(--k-success-text)', 'timer']; }
+  fmt(t) { t = Math.floor(t); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+  later(fn, ms) { const id = setTimeout(fn, ms); this.tm.push(id); return id; }
+  toast(text, icon) { clearTimeout(this.tt); this.setState({ toast: { text, icon: icon || 'check_circle' } }); this.tt = setTimeout(() => this.setState({ toast: null }), 4500); }
+  beep() { if (!this.state.sound || !this.ac) return; try { const a = this.ac, o = a.createOscillator(), g = a.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(.0001, a.currentTime); g.gain.exponentialRampToValueAtTime(.08, a.currentTime + .02); g.gain.exponentialRampToValueAtTime(.0001, a.currentTime + .35); o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + .4); } catch (e) {} }
+  push(cid, items) { this.setState(s => ({ msgs: { ...s.msgs, [cid]: [...(s.msgs[cid] || []), ...items] } })); }
+  setTick(cid, ids, tick) { this.setState(s => ({ msgs: { ...s.msgs, [cid]: (s.msgs[cid] || []).map(m => ids.includes(m.id) ? { ...m, tick } : m) } })); }
+  now() { const d = new Date(); return '10:' + String(21 + Math.min(38, Math.floor((Date.now() - this.t0) / 60000))).padStart(2, '0'); }
+  componentDidMount() {
+    this.t0 = Date.now();
+    const st = this.props.state;
+    if (st === 'arriving') this.later(() => { this.setState(s => ({ extra: [this.C0] })); this.beep(); this.toast('New WhatsApp · Halima Sani · Hausa', 'mark_chat_unread'); }, 1400);
+    if (st === 'reconnecting') this.ri = setInterval(() => this.setState(s => ({ cd: s.cd > 0 ? s.cd - 1 : 5 })), 1000);
+    this.scrollEnd();
+  }
+  componentDidUpdate() { if (this._tk !== this._lastTk) { this._lastTk = this._tk; this.scrollEnd(); } }
+  componentWillUnmount() { this.tm.forEach(clearTimeout); clearTimeout(this.tt); clearInterval(this.ri); clearInterval(this.pi); }
+  scrollEnd() { const el = this.threadRef.current; if (el) el.scrollTop = el.scrollHeight; }
+  play(id, dur) {
+    if (this.state.playing === id) { clearInterval(this.pi); this.setState({ playing: null }); return; }
+    clearInterval(this.pi); this.setState({ playing: id });
+    this.pi = setInterval(() => { const v = (this.state.vp[id] || 0) + .25 * this.state.speed; if (v >= dur) { clearInterval(this.pi); this.setState(s => ({ playing: null, vp: { ...s.vp, [id]: 0 } })); } else this.setState(s => ({ vp: { ...s.vp, [id]: v } })); }, 250);
+  }
+  load(id) { this.setState(s => ({ loading: { ...s.loading, [id]: true } })); this.later(() => this.setState(s => ({ loading: { ...s.loading, [id]: false }, loaded: { ...s.loaded, [id]: true } })), 1400); }
+  draftFor(c, lang, tone) {
+    let t = (c.id === 'c1' ? this.D1 : this.DG)[lang].replace('{first}', c.first);
+    if (tone === 'Brief') t = t.split(/(?<=[.!?])\s+/).slice(0, 2).join(' ');
+    if (tone === 'Formal' && lang === 'EN') t = t.replace(/^Hi /, 'Dear ').replace('I’m so sorry', 'We sincerely apologise that').replace('I’m checking', 'I am checking');
+    return t;
+  }
+  renderVals() {
+    const s = this.state, p = this.props, mobile = !!p.mobile, desktop = !mobile, st = p.state || 'ready', tool = p.tool || 'none';
+    const lowBw = st === 'lowBandwidth', recon = st === 'reconnecting', empty = st === 'empty', capSt = st === 'capacity';
+    const all = empty ? [] : [...s.extra, ...this.C];
+    const isUn = c => c.qs.includes('un') && !s.assigned[c.id];
+    const inQ = (c, q) => q === 'team' ? true : q === 'mine' ? (c.qs.includes('mine') || !!s.assigned[c.id]) : q === 'un' ? isUn(c) : c.qs.includes('prog');
+    const q = s.q || p.queue || 'mine';
+    const qList = all.filter(c => inQ(c, q));
+    const chf = s.chf;
+    const list = qList.filter(c => !chf.length || chf.includes(c.ch)).sort((a, b) => (a.sla ?? 9999) - (b.sla ?? 9999));
+    const limit = capSt ? 5 : 8, mineN = all.filter(c => inQ(c, 'mine')).length, atCap = capSt;
+    const selId = s.sel || p.conv || 'c1';
+    const cur0 = empty ? null : (all.find(c => c.id === selId) || list[0] || null);
+    const mview = s.mview || p.mview || 'list';
+    const opened = cur0 && (desktop || mview !== 'list') ? cur0.id : null;
+    const CH = this.CH;
+
+    const rows = list.map(c => { const [sl, sb, sf, si] = this.sla(c.sla), on = c.id === opened, un = s.read[c.id] || on ? 0 : c.unread, ch = CH[c.ch];
+      return { ...c, chLabel: ch[0], chIcon: ch[1], chBg: ch[2], chFg: ch[3], slaText: sl, slaBg: sb, slaFg: sf, slaIcon: si, langName: this.LANG[c.lang], unread: un, hasUnread: un > 0, unreadAria: un + ' unread',
+        fw: un ? 800 : 600, pvFg: un ? 'var(--k-text)' : 'var(--k-text-2)', pvFw: un ? 600 : 400, cur: on ? 'true' : 'false', bg: on ? 'var(--k-primary-soft)' : 'var(--k-surface)', bar: on ? 'inset 3px 0 0 var(--k-primary)' : 'none',
+        showOwner: q === 'team' || q === 'prog', ownerName: c.own ? this.OWN[c.own] : 'Unassigned', own: c.own || '—', isNew: c.id === 'c0', anim: c.id === 'c0' ? 'k-arrive 1.6s ease-out' : 'none',
+        aria: `${c.name}, ${ch[0]}, ${sl}, waiting ${c.wait}${un ? ', ' + un + ' unread' : ''}`,
+        open: () => this.setState(x => ({ sel: c.id, mview: 'thread', read: { ...x.read, [c.id]: true }, chOpen: false, aiOpen: false, aiOut: null, emoji: false, xfer: false, draft: '', pay: false, mode: 'reply', info: false })) }; });
+
+    const Q = [['mine', 'Mine'], ['un', 'Unassigned'], ['team', 'Team'], ['prog', 'Programme']];
+    const queues = Q.map(([k, label]) => { const on = k === q; return { label, n: all.filter(c => inQ(c, k)).length, sel: String(on), bg: on ? 'var(--k-surface)' : 'transparent', sh: on ? 'var(--k-shadow-1)' : 'none', fg: on ? 'var(--k-text)' : 'var(--k-text-2)', pick: () => this.setState({ q: k }) }; });
+    const chans = this.CHORD.map(k => { const n = qList.filter(c => c.ch === k).length, on = chf.includes(k), ch = CH[k];
+      return { label: ch[0], icon: ch[1], ib: ch[2], if: ch[3], n: n || '', aria: ch[0] + ', ' + n + ' conversations', pressed: String(on), border: on ? 'var(--k-primary)' : 'var(--k-border)', bg: on ? 'var(--k-primary-soft)' : 'var(--k-surface)', fg: on ? 'var(--k-primary-text)' : 'var(--k-text-2)', op: n || on ? 1 : .55,
+        toggle: () => this.setState(x => ({ chf: x.chf.includes(k) ? x.chf.filter(z => z !== k) : [...x.chf, k] })) }; });
+    const noF = !chf.length;
+    const listEmpty = !list.length, emptyIsFilter = listEmpty && !!qList.length;
+    const qName = Q.find(x => x[0] === q)[1];
+
+    // current conversation
+    let cur = null, items = [], ctx = { tags: [], sum: [], open: [], prev: [], consent: [] };
+    if (cur0) {
+      const c = cur0, ch = CH[c.ch], [sl, sb, sf, si] = this.sla(c.sla);
+      cur = { ...c, chBg: ch[2], chFg: ch[3], chIcon: ch[1], slaText: sl, slaBg: sb, slaFg: sf, slaIcon: si, langName: this.LANG[c.lang], headMeta: mobile ? `${ch[0]} · ${this.LANG[c.lang]}` : `${ch[0]} · ${c.phone} · ${c.co}` };
+      const outBg = c.ch === 'wa' ? 'var(--k-wa-bubble)' : 'var(--k-primary-soft)';
+      const base = this.TH[c.id] || this.gen(c);
+      const TK = { pending: ['schedule', 'var(--k-text-muted)', 'Queued, not sent yet'], sent: ['check', 'var(--k-text-muted)', 'Sent'], delivered: ['done_all', 'var(--k-text-muted)', 'Delivered'], read: ['done_all', 'var(--k-info)', 'Read'] };
+      items = [...base, ...(s.msgs[c.id] || [])].map((m, i) => {
+        const out = m.k === 'out', inn = m.k === 'in', o = { ...m, isDay: m.k === 'day', isSys: m.k === 'sys', isNote: m.k === 'note', isMsg: out || inn };
+        if (o.isSys) Object.assign(o, { sysBg: m.warn ? 'var(--k-warning-soft)' : 'var(--k-surface)', sysFg: m.warn ? 'var(--k-warning-text)' : 'var(--k-text-2)', sysBorder: m.warn ? '1px solid var(--k-warning)' : '1px solid var(--k-border)' });
+        if (!o.isMsg) return o;
+        const tk = TK[m.tick] || TK.read, via = m.via && m.via !== c.ch ? m.via : null;
+        Object.assign(o, { justify: out ? 'flex-end' : 'flex-start', bBg: out ? (via ? 'var(--k-primary-soft)' : outBg) : 'var(--k-surface)', bBorder: out ? '1px solid transparent' : '1px solid var(--k-border)', radius: out ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
+          hasBy: out && !!m.by, hasSubj: !!m.subj, isReply: m.t === 'reply', isImg: m.t === 'img', isVoice: m.t === 'voice', isList: m.t === 'list', isPay: m.t === 'pay', isTpl: m.t === 'tpl',
+          hasText: !!m.text && m.t !== 'reply', hasBtns: !!(m.btns && m.btns.length), btns: m.btns || [], rows: (m.rows || []).map(([a, b]) => ({ a, b })),
+          hasTick: out, tickIcon: tk[0], tickFg: tk[1], tickLabel: tk[2], hasVia: !!via, via: via ? 'via ' + CH[via][0] : '', viaIcon: via ? CH[via][1] : '', tplLabel: m.tplLabel || '' });
+        if (m.t === 'img') { const ld = s.loading[m.id], ok = !lowBw || s.loaded[m.id]; Object.assign(o, { imgReady: ok && !ld, imgLocked: !ok && !ld, imgLoading: !!ld, load: () => this.load(m.id) }); }
+        if (m.t === 'voice') { const ld = s.loading[m.id], locked = lowBw && !s.loaded[m.id], pos = s.vp[m.id] || 0, playing = s.playing === m.id, frac = pos / m.dur, en = !!s.showTr[m.id];
+          Object.assign(o, { vIcon: ld ? 'hourglass_top' : locked ? 'download' : playing ? 'pause' : 'play_arrow', vAria: locked ? 'Load voice note, ' + m.size : playing ? 'Pause voice note' : 'Play voice note', vBtnBg: locked ? 'var(--k-surface-sunken)' : 'var(--k-success)', vBtnFg: locked ? 'var(--k-primary-text)' : '#FFFFFF',
+            vAct: () => locked ? (!ld && this.load(m.id)) : this.play(m.id, m.dur), vTime: locked ? (ld ? 'Loading ' + m.size + '…' : '0:' + m.dur + ' · ' + m.size + ' · tap to load') : this.fmt(pos) + ' / ' + this.fmt(m.dur),
+            bars: this.BARS.map((h, j) => ({ h: locked ? 4 : h, c: !locked && j / this.BARS.length < frac ? 'var(--k-success)' : 'var(--k-border-strong)' })),
+            trLabel: en ? 'Translation · English' : 'Transcript · ' + this.LANG[c.lang] + ' · auto', trBtn: en ? 'Show original' : 'Translate to English', trText: en ? m.trEn : m.tr, toggleTr: () => this.setState(x => ({ showTr: { ...x.showTr, [m.id]: !x.showTr[m.id] } })) }); }
+        return o;
+      });
+      this._tk = c.id + ':' + items.length;
+      ctx = this.ctxFor(c);
+    }
+
+    // composer
+    const unBar = !!cur && isUn(cur0), locked = !!cur && cur0.sla === null && cur0.ch === 'wa' && !unBar;
+    const rcK = cur ? (s.replyCh[cur.id] || this.RC[cur.ch][0]) : 'wa', rcCh = CH[rcK];
+    const draft = s.draft ?? (tool === 'canned' ? '/' : tool === 'note' ? 'She’s a VIP retailer — if we refund, add free delivery on her next order. @Kemi okay?' : tool === 'pay' ? 'Bisi, here’s the link for the replacement order. Once you pay, we deliver tomorrow morning.' : '');
+    const mode = s.mode || (tool === 'note' ? 'note' : 'reply'), isNoteM = mode === 'note';
+    const aiOpen = !isNoteM && (s.aiOpen ?? tool === 'ai');
+    const aiLang = s.aiLang || (cur ? cur.lang : 'EN'), tone = s.tone || 'Apologetic';
+    const aiOut = s.aiOut !== undefined ? s.aiOut : (tool === 'ai' && cur ? this.draftFor(cur0, aiLang, tone) : null);
+    const payOn = !isNoteM && (s.pay ?? tool === 'pay');
+    const chOpen = !isNoteM && (s.chOpen ?? tool === 'channel');
+    const cannedOpen = !isNoteM && draft.startsWith('/') && !draft.includes(' ');
+    const cq = draft.slice(1).toLowerCase();
+    const canned = this.CAN.filter(([k, t]) => !cq || k.includes(cq) || t.toLowerCase().includes(cq)).map(([key, title, body], i) => { const b = body.replace('{first}', cur ? cur.first : ''); return { key, title, body: b, bg: i === 0 ? 'var(--k-primary-soft)' : 'transparent', pick: () => this.setState({ draft: b }) }; });
+    const smsLen = draft.length, smsSeg = Math.max(1, Math.ceil(smsLen / 160));
+    const winLeft = cur && cur.ch === 'wa' && rcK === 'wa' ? 'Window open · ' + (cur.id === 'c1' ? '13 h 01 m' : '23 h 40 m') + ' left' : '';
+    const hint = recon ? 'Offline · replies will queue' : isNoteM ? 'Only your team sees notes' : rcK === 'sms' ? `${smsLen}/160 · ${smsSeg} SMS · ₦4.00 each` : winLeft || 'Enter to send · Shift+Enter for a new line';
+    const chNotes = { wa: [winLeft || 'Free text while the window is open', 'var(--k-text-2)'], sms: [cur && cur.id === 'c1' ? 'DND — service messages only · ₦4.00' : '₦4.00 per 160 characters', cur && cur.id === 'c1' ? 'var(--k-warning-text)' : 'var(--k-text-2)'], email: [cur && cur.id === 'c1' ? 'bisi@bisistores.ng' : 'Reply in the same email thread', 'var(--k-text-2)'], web: ['Visitor is online now', 'var(--k-text-2)'], fb: ['Messenger · 24 h standard window', 'var(--k-text-2)'], ig: ['Instagram DM · 24 h window', 'var(--k-text-2)'], tg: ['No window limit', 'var(--k-text-2)'] };
+    const send = () => {
+      if (!cur) return; const txt = (this.state.draft ?? draft).trim(), pay = this.state.pay ?? (tool === 'pay');
+      if (!txt && !(pay && !isNoteM)) return;
+      const t = this.now(), cid = cur.id, id = 'm' + Date.now();
+      if (isNoteM) { this.push(cid, [{ k: 'note', by: 'Tunde Bakare (you)', text: txt, time: t }]); this.setState({ draft: '' }); return; }
+      const tick = recon ? 'pending' : 'sent', add = [];
+      if (pay) add.push({ id: id + 'p', k: 'out', t: 'pay', by: 'Tunde Bakare', time: t, tick, via: rcK });
+      if (txt) add.push({ id: id + 't', k: 'out', t: 'text', by: 'Tunde Bakare', text: txt, time: t, tick, via: rcK });
+      this.push(cid, add); this.setState({ draft: '', pay: false, aiOut: null, aiOpen: false, emoji: false, chOpen: false });
+      const ids = add.map(a => a.id);
+      if (recon) { this.toast('Queued · sends when you’re back online', 'schedule_send'); return; }
+      this.later(() => this.setTick(cid, ids, 'delivered'), 900);
+      if (rcK === 'wa' || rcK === 'web') this.later(() => this.setTick(cid, ids, 'read'), 2600);
+    };
+    const genAi = () => { this.setState({ aiBusy: true, aiOut: null }); this.later(() => this.setState({ aiBusy: false, aiOut: this.draftFor(cur0, this.state.aiLang || cur0.lang, this.state.tone || 'Apologetic') }), 900); };
+
+    // templates
+    const tplCat = s.tplCat || 'Utility', [cost, tlist] = this.TPL[tplCat];
+    const tSelName = s.tplSel && tlist.find(t => t[0] === s.tplSel) ? s.tplSel : tlist[0][0];
+    const tSel = tlist.find(t => t[0] === tSelName);
+    const fill = (b, v) => b.replace(/\{(\d)\}/g, (_, n) => v[n - 1]);
+    const tplVars = 'Variables filled from the contact and deal: ' + tSel[2].map((v, i) => (this.VARN[tSel[0]][i] || 'value') + ' = ' + v).join(' · ');
+
+    const RP_d = { pos: 'relative', z: 1, w: '340px', mh: 'none', pad: '14px', r: '0', sh: 'none' }, RP_m = { pos: 'absolute', z: 21, w: 'auto', mh: '86%', pad: '8px 14px 20px', r: '20px 20px 0 0', sh: 'var(--k-shadow-3)' };
+    const mInfo = mobile && !!cur && mview !== 'list' && (s.info ?? p.mview === 'info');
+    const XO = [['groups', 'Team Lagos Retail', '3 online'], ['groups', 'Billing & refunds', '2 online'], ['translate', 'Hausa desk', '1 online'], ['person', 'Kemi Adeyinka · supervisor', 'Online']];
+    const act = (icon, label, run, danger) => ({ icon, label, run, exp: 'false', border: danger ? 'var(--k-danger)' : 'var(--k-border-strong)', bg: 'var(--k-surface)', fg: danger ? 'var(--k-danger-text)' : 'var(--k-text)' });
+    const sysAdd = (icon, text, warn) => cur && this.push(cur.id, [{ k: 'sys', icon, text, time: this.now(), warn }]);
+    const actions = [
+      act('confirmation_number', 'Create ticket', () => { sysAdd('confirmation_number', 'Ticket TKT-4830 created from this conversation by you'); this.toast('Ticket TKT-4830 created · linked to this chat', 'confirmation_number'); }),
+      act('person_add', 'Create lead', () => { sysAdd('person_add', 'Lead created by you · ' + cur.name); this.toast('Lead created · ' + cur.name, 'person_add'); }),
+      { ...act('swap_horiz', 'Transfer', () => this.setState(x => ({ xfer: !x.xfer }))), exp: String(!!s.xfer), bg: s.xfer ? 'var(--k-primary-soft)' : 'var(--k-surface)' },
+      act('priority_high', 'Escalate', () => { sysAdd('priority_high', 'Escalated to supervisor Kemi Adeyinka by you · SLA timer keeps running', true); this.toast('Escalated to Kemi Adeyinka', 'priority_high'); }, true)
+    ];
+    const statusCap = (capSt ? 5 : mineN) + '/' + limit;
+    const sendIcon = isNoteM ? 'sticky_note_2' : recon ? 'schedule_send' : 'send';
+
+    return {
+      mobile, desktop, lowBw, recon, empty, atCap, capText: (capSt ? 5 : mineN) + ' of ' + limit + ' chats',
+      reconText: s.cd > 0 ? `Reconnecting in ${s.cd} s…` : 'Reconnecting…', retry: () => { this.setState({ cd: 0 }); this.later(() => this.setState({ cd: 5 }), 1500); },
+      nav: [['home', 'Home'], ['inbox', 'Inbox'], ['contacts', 'Contacts'], ['handshake', 'Deals'], ['event_note', 'Activities'], ['confirmation_number', 'Tickets'], ['bar_chart', 'Reports']].map(([icon, label]) => { const on = label === 'Inbox'; const b = on && !empty ? all.reduce((n, c) => n + (c.unread ? 1 : 0), 0) : 0; return { icon, label, cur: on ? 'page' : 'false', bg: on ? 'var(--k-primary-soft)' : 'transparent', fg: on ? 'var(--k-primary-text)' : 'var(--k-text-2)', hasBadge: b > 0, badge: b }; }),
+      showList: desktop || mview === 'list', showThread: desktop || mview !== 'list', listW: desktop ? '372px' : '100%', chWrap: desktop ? 'wrap' : 'nowrap',
+      statusText: recon ? 'Offline' : capSt ? 'At capacity · ' + statusCap : 'Available · ' + statusCap, statusBg: recon ? 'var(--k-surface-sunken)' : capSt ? 'var(--k-warning-soft)' : 'var(--k-success-soft)', statusFg: recon ? 'var(--k-text-2)' : capSt ? 'var(--k-warning-text)' : 'var(--k-success-text)', statusDot: recon ? 'var(--k-text-muted)' : capSt ? 'var(--k-warning)' : 'var(--k-success)',
+      soundIcon: s.sound ? 'volume_up' : 'volume_off', soundAria: String(s.sound), soundLabel: s.sound ? 'Sound on for new chats' : 'Sound off for new chats',
+      toggleSound: () => { if (!this.ac) { try { const A = window.AudioContext || window.webkitAudioContext; if (A) this.ac = new A(); } catch (e) {} } const on = !this.state.sound; this.setState({ sound: on }); this.toast(on ? 'Sound on · we’ll chime for new chats' : 'Sound off · new chats still flash', on ? 'volume_up' : 'volume_off'); if (on) setTimeout(() => this.beep(), 50); },
+      queues, chans, clearCh: () => this.setState({ chf: [] }), allChAria: String(noF), allChBorder: noF ? 'var(--k-primary)' : 'var(--k-border)', allChBg: noF ? 'var(--k-primary-soft)' : 'var(--k-surface)', allChFg: noF ? 'var(--k-primary-text)' : 'var(--k-text-2)',
+      rows, listEmpty, emptyIsFilter,
+      emptyIcon: emptyIsFilter ? 'filter_alt_off' : 'inbox', emptyTitle: emptyIsFilter ? 'No chats on these channels' : empty ? 'Queue clear' : 'Nothing in ' + qName,
+      emptyBody: emptyIsFilter ? `${qName} has ${qList.length} chats on other channels.` : empty ? 'No open conversations in Mine, Unassigned, Team or Programme. New WhatsApp, SMS, email and social chats land here, most urgent first.' : 'New conversations will land here, most urgent first.',
+      emptySound: s.sound ? 'Sound is on — we’ll chime when one arrives' : 'Sound is off — new chats will flash',
+      hasCur: !!cur, noCur: !cur, cur: cur || {}, items, threadRef: this.threadRef, thPadL: mobile ? 4 : 16, thPadX: mobile ? 10 : 20,
+      back: () => this.setState({ mview: 'list', info: false }), openInfo: () => this.setState({ info: true }), closeInfo: () => this.setState({ info: false }),
+      resolve: () => { sysAdd('check_circle', 'Resolved by you · customer gets a 1-question rating on ' + CH[cur.ch][0]); this.toast('Resolved · rating request sent', 'check_circle'); },
+      cycleSpeed: () => this.setState(x => ({ speed: x.speed === 1 ? 1.5 : x.speed === 1.5 ? 2 : 1 })), speedLabel: s.speed + '×',
+      showAssign: unBar, assign: () => { if (atCap) return; this.setState(x => ({ assigned: { ...x.assigned, [cur.id]: true } })); sysAdd('person_add', 'Assigned to you · picked up from Unassigned'); this.toast(cur.name + ' is now yours', 'person_add'); },
+      assignNote: atCap ? `You’re at capacity (${statusCap}). Resolve a chat first or ask a supervisor.` : 'Assign it to yourself to reply. The SLA clock is already running.', assignNoteFg: atCap ? 'var(--k-warning-text)' : 'var(--k-text-2)', assignBg: atCap ? 'var(--k-disabled-bg)' : 'var(--k-primary)', assignFg: atCap ? 'var(--k-disabled-text)' : 'var(--k-on-primary)',
+      showLocked: locked, showComposer: !!cur && !unBar && !locked, lockMaxH: mobile ? '64%' : '440px', cmpPad: mobile ? '10px' : '12px 16px 14px', tplCols: desktop ? 'minmax(0,1fr) minmax(0,1fr)' : 'minmax(0,1fr)',
+      tplWaiting: !!(cur && s.tplSent[cur.id]),
+      tplCats: Object.keys(this.TPL).map(k => { const on = k === tplCat; return { label: k, cost: '≈ ' + this.TPL[k][0], sel: String(on), border: on ? '2px solid var(--k-primary)' : '1px solid var(--k-border)', bg: on ? 'var(--k-primary-soft)' : 'var(--k-surface)', fg: on ? 'var(--k-primary-text)' : 'var(--k-text)', pick: () => this.setState({ tplCat: k, tplSel: null }) }; }),
+      tpls: tlist.map(t => { const on = t[0] === tSelName; return { name: t[0], body: fill(t[1], t[2]), sel: String(on), border: on ? '2px solid var(--k-primary)' : '1px solid var(--k-border)', bg: on ? 'var(--k-primary-soft)' : 'var(--k-surface)', dot: on ? 'var(--k-primary)' : 'var(--k-border-strong)', fill: on ? 'var(--k-primary)' : 'transparent', pick: () => this.setState({ tplSel: t[0] }) }; }),
+      tplPreview: fill(tSel[1], tSel[2]), tplBtns: tSel[3], tplVars, tplCost: cost, tplCatLabel: tplCat,
+      sendTpl: () => { const id = 'tp' + Date.now(), cid = cur.id; this.push(cid, [{ id, k: 'out', t: 'text', by: 'Tunde Bakare', tplLabel: 'Template · ' + tSel[0] + ' · ' + tplCat + ' · ' + cost, text: fill(tSel[1], tSel[2]), btns: tSel[3], time: this.now(), tick: recon ? 'pending' : 'sent' }]); this.setState(x => ({ tplSent: { ...x.tplSent, [cid]: true } })); this.toast('Template sent · ' + cost + ' estimated', 'schedule_send'); if (!recon) this.later(() => this.setTick(cid, [id], 'delivered'), 1000); },
+      cannedOpen, canned, cannedNone: !canned.length, chOpen, chOpenAria: String(chOpen), toggleCh: () => this.setState({ chOpen: !chOpen, emoji: false }),
+      chOpts: cur ? this.RC[cur.ch].map(k => { const on = k === rcK, n = chNotes[k] || ['', 'var(--k-text-2)']; return { label: 'Reply via ' + CH[k][0], icon: CH[k][1], ib: CH[k][2], if: CH[k][3], note: n[0], noteFg: n[1], on, sel: String(on), bg: on ? 'var(--k-primary-soft)' : 'transparent', pick: () => this.setState(x => ({ replyCh: { ...x.replyCh, [cur.id]: k }, chOpen: false })) }; }) : [],
+      rc: { icon: rcCh[1], ib: rcCh[2], if: rcCh[3] }, rcLabel: (desktop ? 'Reply via ' : '') + rcCh[0],
+      emojiOpen: !!s.emoji && !isNoteM, emojiAria: String(!!s.emoji), emojiBg: s.emoji ? 'var(--k-surface-sunken)' : 'transparent', toggleEmoji: () => this.setState(x => ({ emoji: !x.emoji, chOpen: false })),
+      emojis: [['🙏', 'Thank you'], ['👍', 'Thumbs up'], ['😊', 'Smile'], ['✅', 'Done'], ['🎉', 'Celebrate'], ['🙌', 'Hooray'], ['😔', 'Sorry'], ['❤️', 'Heart']].map(([ch, label]) => ({ ch, label, pick: () => this.setState(x => ({ draft: (x.draft ?? draft) + ch, emoji: false })) })),
+      aiOpen, aiAria: String(aiOpen), aiBtnBg: aiOpen ? 'var(--k-primary-soft)' : 'transparent', aiBtnLabel: desktop ? 'Draft reply' : 'Draft', toggleAi: () => this.setState({ aiOpen: !aiOpen, mode: 'reply', chOpen: false, emoji: false }), closeAi: () => this.setState({ aiOpen: false }),
+      aiLangs: Object.keys(this.LANG).map(k => { const on = k === aiLang; return { label: this.LANG[k], detected: cur && k === cur.lang, sel: String(on), border: on ? 'var(--k-primary)' : 'var(--k-border)', bg: on ? 'var(--k-primary)' : 'var(--k-surface)', fg: on ? 'var(--k-on-primary)' : 'var(--k-text)', pick: () => this.setState({ aiLang: k }) }; }),
+      tones: ['Friendly', 'Formal', 'Apologetic', 'Brief'].map(t => { const on = t === tone; return { label: t, sel: String(on), bg: on ? 'var(--k-primary-soft-strong)' : 'transparent', fg: on ? 'var(--k-primary-text)' : 'var(--k-text-2)', pick: () => this.setState({ tone: t }) }; }),
+      genAi, genLabel: aiOut ? 'Rewrite' : 'Write draft', genIcon: aiOut ? 'refresh' : 'auto_awesome', aiBusy: s.aiBusy, aiLangName: this.LANG[aiLang], hasAiOut: !!aiOut && !s.aiBusy, aiOut: aiOut || '',
+      aiMeta: `${this.LANG[aiLang]} · ${tone} · uses this chat${cur && cur.id === 'c1' ? ', ORD-55102 and Kemi’s note' : ''}. Read it before you send.`,
+      useAi: () => this.setState({ draft: aiOut, aiOpen: false }),
+      modes: [['reply', 'Reply', 'reply'], ['note', 'Internal note', 'lock']].map(([k, label, icon]) => { const on = k === mode; return { label, icon, sel: String(on), bg: on ? (k === 'note' ? 'var(--k-accent-soft)' : 'var(--k-surface)') : 'transparent', sh: on ? 'var(--k-shadow-1)' : 'none', fg: on ? (k === 'note' ? 'var(--k-accent-text)' : 'var(--k-text)') : 'var(--k-text-2)', pick: () => this.setState({ mode: k, chOpen: false, aiOpen: false }) }; }),
+      isReply: !isNoteM, payOn, removePay: () => this.setState({ pay: false }), addPay: () => { this.setState({ pay: true, mode: 'reply' }); }, payBg: payOn ? 'var(--k-success-soft)' : 'transparent',
+      slash: () => this.setState({ draft: '/', mode: 'reply' }), slashBg: cannedOpen ? 'var(--k-primary-soft)' : 'transparent', attach: () => this.toast(lowBw ? 'Data saver: photos are compressed to ~180 KB before sending' : 'Choose a photo, PDF or voice note', 'attach_file'),
+      draft, onDraft: e => this.setState({ draft: e.target.value }), onKey: e => { if (e.key === 'Escape' && cannedOpen) { this.setState({ draft: '' }); return; } if (e.key === 'Enter' && !e.shiftKey && !cannedOpen) { e.preventDefault(); send(); } },
+      taPh: isNoteM ? 'Note for your team. @mention to notify.' : 'Reply to ' + (cur ? cur.first : '') + ' · type / for canned responses', taLabel: isNoteM ? 'Internal note' : 'Reply', taBg: isNoteM ? 'var(--k-accent-soft)' : 'var(--k-surface)', taBorder: isNoteM ? 'var(--k-accent)' : 'var(--k-border-strong)', taH: mobile ? 48 : 66,
+      hint, hintFg: recon ? 'var(--k-warning-text)' : rcK === 'sms' && smsSeg > 1 ? 'var(--k-warning-text)' : 'var(--k-text-muted)', mobileHint: mobile && (recon || rcK === 'sms' || isNoteM),
+      send, sendLabel: isNoteM ? 'Add note' : recon ? 'Queue' : 'Send', sendIcon, sendPad: desktop ? '0 16px' : '0', sendBg: isNoteM ? 'var(--k-accent)' : 'var(--k-primary)', sendFg: isNoteM ? '#24201C' : 'var(--k-on-primary)',
+      showRight: !!cur && (desktop || mInfo), rp: desktop ? RP_d : RP_m, ctx, actions, xferOpen: !!s.xfer,
+      xferOpts: XO.map(([icon, label, note]) => ({ icon, label, note, pick: () => { this.setState({ xfer: false }); sysAdd('swap_horiz', 'Transferred to ' + label + ' by you · history and notes go with it'); this.toast('Transferred to ' + label, 'swap_horiz'); } })),
+      hasToast: !!s.toast, toastText: s.toast ? s.toast.text : '', toastIcon: s.toast ? s.toast.icon : 'check_circle', toastBottom: mobile ? 150 : 24
+    };
+  }
+}
+</script>
+</body>
+</html>

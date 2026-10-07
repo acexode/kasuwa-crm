@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&amp;display=block">
+</helmet>
+<div ref="{{ rootRef }}" onMouseEnter="{{ hotOn }}" onMouseLeave="{{ hotOff }}" style="width:100%;height:100%;display:flex;flex-direction:column;background:var(--k-bg);color:var(--k-text);font-family:'Noto Sans',system-ui,sans-serif;font-size:14px;overflow:hidden;position:relative">
+<header style="height:60px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px 0 16px;background:var(--k-surface);border-bottom:1px solid var(--k-border);position:relative;z-index:5">
+  <span style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span style="width:32px;height:32px;border-radius:8px;background:var(--k-primary);color:var(--k-accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px">K</span><sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}"><b style="font-size:16px">Kasuwa</b></sc-if></span>
+  <div ref="{{ wrapRef }}" style="position:relative;flex:0 1 600px;min-width:0;margin-left:16px">
+    <div style="display:flex;align-items:center;gap:6px;height:42px;padding:0 6px 0 5px;border-radius:10px;background:{{ sb.bg }};border:1px solid {{ sb.bd }};box-shadow:{{ sb.sh }}">
+      <sc-if value="{{ bpo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ toggleScopeMenu }}" aria-haspopup="menu" aria-expanded="{{ scopeMenuStr }}" title="Search scope: which programme's records you search" style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 6px 0 9px;border-radius:7px;border:0;background:var(--k-primary-soft);color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">badge</span>{{ scopeShort }}<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">expand_more</span></button></sc-if>
+      <sc-if value="{{ notBpo }}" hint-placeholder-val="{{ true }}"><span style="padding-left:6px;font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-text-muted)">search</span></sc-if>
+      <input ref="{{ inRef }}" value="{{ q }}" onChange="{{ setQ }}" onFocus="{{ onFocus }}" onBlur="{{ onBlur }}" onKeyDown="{{ onKey }}" placeholder="{{ ph }}" aria-label="Search everything" role="combobox" aria-expanded="{{ openStr }}" style="flex:1;min-width:0;height:100%;border:0;background:transparent;color:var(--k-text);font-family:inherit;font-size:14px;outline:none;padding:0 4px">
+      <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearQ }}" aria-label="Clear search" style="width:30px;height:30px;flex-shrink:0;border:0;border-radius:6px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">close</span></button></sc-if>
+      <sc-if value="{{ showSlash }}" hint-placeholder-val="{{ true }}"><span title="Press / to search" style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 5px;border-radius:4px;border:1px solid var(--k-border-strong);color:var(--k-text-2);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;margin-right:4px">/</span></sc-if>
+    </div>
+
+    <sc-if value="{{ scopeMenuOpen }}" hint-placeholder-val="{{ false }}">
+      <div role="menu" aria-label="Search scope" style="position:absolute;top:48px;left:0;width:340px;z-index:12;background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;box-shadow:var(--k-shadow-3);padding:6px;display:flex;flex-direction:column">
+        <span style="padding:8px 10px 6px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2)">Search in</span>
+        <sc-for list="{{ scopeOpts }}" as="o" hint-placeholder-count="3"><button role="menuitemradio" aria-checked="{{ o.onStr }}" onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 10px;border:0;border-radius:8px;background:{{ o.bg }};color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-primary-text)">{{ o.icon }}</span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><b style="font-size:14px;line-height:20px">{{ o.label }}</b><span style="font-size:12px;color:var(--k-text-2)">{{ o.sub }}</span></span><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-primary-text);opacity:{{ o.chk }}">check</span></button></sc-for>
+        <span style="display:flex;gap:8px;padding:10px 10px 6px;margin-top:4px;border-top:1px solid var(--k-border);font-size:12px;line-height:17px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">lock</span>Programmes you're not assigned to are never searched. Switching scope doesn't change your queue.</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ open }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;top:48px;left:0;width:{{ ddW }};max-height:{{ ddMaxH }};z-index:10;display:flex;flex-direction:column;background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;box-shadow:var(--k-shadow-3)">
+        <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ true }}">
+          <div style="position:relative;z-index:4;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--k-border)">
+            <div role="group" aria-label="Object" style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ objChips }}" as="c" hint-placeholder-count="5"><button onClick="{{ c.pick }}" aria-pressed="{{ c.onStr }}" style="white-space:nowrap;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 10px;border-radius:999px;border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">{{ c.label }}<span style="font-weight:500;opacity:.85">{{ c.count }}</span></button></sc-for></div>
+            <span style="flex:1"></span>
+            <sc-for list="{{ menus }}" as="m" hint-placeholder-count="2"><div style="position:relative">
+              <button onClick="{{ m.toggle }}" aria-haspopup="menu" aria-expanded="{{ m.openStr }}" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 6px 0 10px;border-radius:8px;border:1px solid {{ m.bd }};background:{{ m.bg }};color:{{ m.fg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">{{ m.icon }}</span>{{ m.label }}<span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">expand_more</span></button>
+              <sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}"><div role="menu" style="position:absolute;top:36px;right:0;width:200px;z-index:3;background:var(--k-surface);border:1px solid var(--k-border);border-radius:10px;box-shadow:var(--k-shadow-2);padding:4px;display:flex;flex-direction:column"><sc-for list="{{ m.opts }}" as="o" hint-placeholder-count="3"><button role="menuitemradio" aria-checked="{{ o.onStr }}" onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:8px;height:38px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--k-text);font-family:inherit;font-size:13px;font-weight:{{ o.w }};text-align:left;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="flex:1">{{ o.label }}</span><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-primary-text);opacity:{{ o.chk }}">check</span></button></sc-for></div></sc-if>
+            </div></sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ phoneMode }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--k-info-soft);color:var(--k-info-text);font-size:12px;line-height:17px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">dialpad</span><span style="color:var(--k-text)">Phone number search. <b>{{ q }}</b> also matches <b>{{ phoneFmt }}</b>, with or without spaces, 0 or +234.</span></div>
+        </sc-if>
+        <div role="listbox" aria-label="Search results" style="flex:1;min-height:0;overflow-y:auto;padding:4px 0 8px">
+          <sc-if value="{{ showRecent }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:6px;padding:10px 16px 8px">
+              <div style="display:flex;align-items:center;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2)"><span style="flex:1">Recent searches</span><button onClick="{{ clearRecent }}" style="height:26px;padding:0 6px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:12px;font-weight:700;letter-spacing:0;text-transform:none;cursor:pointer">Clear</button></div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ recentQ }}" as="r" hint-placeholder-count="4"><button onClick="{{ r.pick }}" style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px 0 8px;border-radius:999px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:var(--k-text-muted)">{{ r.icon }}</span>{{ r.label }}</button></sc-for></div>
+              <sc-if value="{{ noRecentQ }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--k-text-muted)">Searches you run will show here.</span></sc-if>
+            </div>
+          </sc-if>
+          <sc-if value="{{ showSkel }}" hint-placeholder-val="{{ false }}">
+            <div aria-live="polite" style="display:flex;flex-direction:column;gap:2px;padding:6px 0">
+              <span style="display:flex;align-items:center;gap:8px;padding:6px 16px 8px;font-size:12px;color:var(--k-text-muted)"><span style="width:12px;height:12px;border-radius:50%;border:2px solid var(--k-border);border-top-color:var(--k-primary)"></span>Searching contacts, deals, tickets and more…</span>
+              <span style="width:90px;height:10px;margin:6px 16px;border-radius:4px;background:var(--k-surface-sunken)"></span>
+              <div style="display:flex;align-items:center;gap:12px;height:52px;padding:0 16px"><span style="width:32px;height:32px;border-radius:8px;background:var(--k-surface-sunken)"></span><span style="flex:1;display:flex;flex-direction:column;gap:6px"><span style="width:42%;height:12px;border-radius:4px;background:var(--k-surface-sunken)"></span><span style="width:64%;height:10px;border-radius:4px;background:var(--k-surface-sunken)"></span></span><span style="width:52px;height:10px;border-radius:4px;background:var(--k-surface-sunken)"></span></div>
+              <div style="display:flex;align-items:center;gap:12px;height:52px;padding:0 16px"><span style="width:32px;height:32px;border-radius:8px;background:var(--k-surface-sunken)"></span><span style="flex:1;display:flex;flex-direction:column;gap:6px"><span style="width:34%;height:12px;border-radius:4px;background:var(--k-surface-sunken)"></span><span style="width:52%;height:10px;border-radius:4px;background:var(--k-surface-sunken)"></span></span><span style="width:52px;height:10px;border-radius:4px;background:var(--k-surface-sunken)"></span></div>
+              <span style="width:70px;height:10px;margin:14px 16px 6px;border-radius:4px;background:var(--k-surface-sunken)"></span>
+              <div style="display:flex;align-items:center;gap:12px;height:52px;padding:0 16px"><span style="width:32px;height:32px;border-radius:8px;background:var(--k-surface-sunken)"></span><span style="flex:1;display:flex;flex-direction:column;gap:6px"><span style="width:56%;height:12px;border-radius:4px;background:var(--k-surface-sunken)"></span><span style="width:38%;height:10px;border-radius:4px;background:var(--k-surface-sunken)"></span></span><span style="width:52px;height:10px;border-radius:4px;background:var(--k-surface-sunken)"></span></div>
+              <div style="display:flex;align-items:center;gap:12px;height:52px;padding:0 16px"><span style="width:32px;height:32px;border-radius:8px;background:var(--k-surface-sunken)"></span><span style="flex:1;display:flex;flex-direction:column;gap:6px"><span style="width:48%;height:12px;border-radius:4px;background:var(--k-surface-sunken)"></span><span style="width:60%;height:10px;border-radius:4px;background:var(--k-surface-sunken)"></span></span><span style="width:52px;height:10px;border-radius:4px;background:var(--k-surface-sunken)"></span></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ showGroups }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+              <div role="group" aria-label="{{ g.label }}" style="display:flex;flex-direction:column;padding-top:4px">
+                <div style="display:flex;align-items:center;gap:8px;height:30px;padding:0 16px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2)"><span>{{ g.label }}</span><span style="font-weight:500;letter-spacing:0;color:var(--k-text-muted)">{{ g.countTxt }}</span><span style="flex:1"></span><sc-if value="{{ g.more }}" hint-placeholder-val="{{ false }}"><button onClick="{{ g.seeAll }}" style="height:26px;padding:0 6px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:12px;font-weight:700;letter-spacing:0;text-transform:none;cursor:pointer" style-hover="background:var(--k-primary-soft)">{{ g.moreTxt }}</button></sc-if></div>
+                <sc-for list="{{ g.items }}" as="r" hint-placeholder-count="3">
+                  <button role="option" aria-selected="{{ r.selStr }}" onClick="{{ r.open }}" onMouseEnter="{{ r.hover }}" style="width:100%;display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 16px;border:0;background:{{ r.bg }};color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer">
+                    <span style="width:32px;height:32px;border-radius:8px;flex-shrink:0;background:{{ r.iconBg }};color:{{ r.iconFg }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ r.icon }}</span></span>
+                    <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+                      <span style="font-size:14px;line-height:20px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><sc-for list="{{ r.t }}" as="s" hint-placeholder-count="1"><span style="font-weight:{{ s.w }};background:{{ s.bg }};border-radius:3px">{{ s.x }}</span></sc-for></span>
+                      <span style="font-size:12px;line-height:18px;color:var(--k-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><sc-for list="{{ r.s }}" as="s" hint-placeholder-count="1"><span style="font-weight:{{ s.w }};background:{{ s.bg }};color:{{ s.fg }};border-radius:3px">{{ s.x }}</span></sc-for></span>
+                    </span>
+                    <sc-if value="{{ r.hasStatus }}" hint-placeholder-val="{{ false }}"><span style="flex-shrink:0;display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:{{ r.stBg }};color:{{ r.stFg }};font-size:11px;font-weight:700">{{ r.status }}</span></sc-if>
+                    <sc-if value="{{ r.showProg }}" hint-placeholder-val="{{ false }}"><span style="flex-shrink:0;display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;border:1px solid var(--k-border);color:var(--k-text-2);font-size:11px;font-weight:600;white-space:nowrap">{{ r.prog }}</span></sc-if>
+                    <span style="flex-shrink:0;min-width:70px;text-align:right;font-size:12px;color:var(--k-text-muted);white-space:nowrap">{{ r.upd }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:28px 24px 20px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px">
+              <span style="width:48px;height:48px;border-radius:50%;background:var(--k-surface-sunken);color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:26px;line-height:1">search_off</span></span>
+              <b style="font-size:16px;line-height:24px">No matches for “{{ q }}”</b>
+              <span style="font-size:13px;line-height:19px;color:var(--k-text-2);max-width:420px;text-wrap:pretty">{{ emptyHint }}</span>
+              <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:8px">
+                <button onClick="{{ createContact }}" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--k-primary-hover)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">person_add</span>{{ createLabel }}</button>
+                <button onClick="{{ createLead }}" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--k-surface-sunken)">Create lead</button>
+              </div>
+              <sc-if value="{{ hasEmptyAlt }}" hint-placeholder-val="{{ false }}"><button onClick="{{ emptyAlt.run }}" style="margin-top:2px;height:32px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">{{ emptyAlt.label }}</button></sc-if>
+            </div>
+          </sc-if>
+        </div>
+        <sc-if value="{{ showScopeNote }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 12px 8px 16px;border-top:1px solid var(--k-border);background:var(--k-primary-soft);font-size:13px;line-height:18px"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-primary-text)">badge</span><span style="flex:1;min-width:0">{{ scopeNote }}</span><button onClick="{{ scopeAll }}" style="flex-shrink:0;height:30px;padding:0 10px;border-radius:7px;border:1px solid var(--k-primary-text);background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Search all my programmes</button></div>
+        </sc-if>
+        <sc-if value="{{ showHidden }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 16px;border-top:1px solid var(--k-border);background:var(--k-surface-sunken);font-size:13px;line-height:18px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">lock</span><span style="flex:1;min-width:0"><b style="color:var(--k-text)">{{ hiddenTxt }}</b> {{ hiddenWhy }}</span></div>
+        </sc-if>
+        <div style="display:flex;align-items:center;gap:14px;padding:8px 12px 8px 16px;border-top:1px solid var(--k-border);font-size:12px;color:var(--k-text-muted)">
+          <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 4px;border-radius:4px;border:1px solid var(--k-border);background:var(--k-surface-sunken);color:var(--k-text-2);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600">↑↓</span>Move</span>
+          <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 4px;border-radius:4px;border:1px solid var(--k-border);background:var(--k-surface-sunken);color:var(--k-text-2);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600">↵</span>Open</span>
+          <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 4px;border-radius:4px;border:1px solid var(--k-border);background:var(--k-surface-sunken);color:var(--k-text-2);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600">Esc</span>Close</span>
+          <span style="flex:1"></span>
+          <sc-if value="{{ showSeeAll }}" hint-placeholder-val="{{ false }}"><button onClick="{{ goResults }}" style="display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" style-hover="background:var(--k-primary-soft)">{{ seeAllTxt }}<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">arrow_forward</span></button></sc-if>
+          <sc-if value="{{ notQ }}" hint-placeholder-val="{{ true }}"><button onClick="{{ openCmd }}" style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:var(--k-text-2);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--k-surface-sunken)"><span style="display:inline-flex;align-items:center;justify-content:center;height:20px;padding:0 5px;border-radius:4px;border:1px solid var(--k-border);background:var(--k-surface-sunken);font-family:'JetBrains Mono',monospace;font-size:11px">Ctrl K</span>Commands and AI</button></sc-if>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+  <span style="flex:1"></span>
+  <sc-if value="{{ low }}" hint-placeholder-val="{{ false }}"><button onClick="{{ toggleLow }}" role="switch" aria-checked="true" aria-label="Low-bandwidth mode" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 10px;border-radius:999px;border:0;background:var(--k-warning-soft);color:var(--k-warning-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">network_check</span>Low-bandwidth on</button></sc-if>
+  <button onClick="{{ openCmd }}" aria-label="Open command palette, Ctrl K" style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 10px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text-2);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">bolt</span><sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}"><span>Commands</span></sc-if><span style="display:inline-flex;align-items:center;height:20px;padding:0 5px;border-radius:4px;border:1px solid var(--k-border-strong);font-family:'JetBrains Mono',monospace;font-size:11px">Ctrl K</span></button>
+  <button aria-label="Notifications" style="width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:var(--k-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">notifications</span></button>
+  <span aria-label="{{ user.name }}" title="{{ user.name }} · {{ user.role }}" style="width:36px;height:36px;flex-shrink:0;border-radius:50%;background:var(--k-accent-soft);color:var(--k-accent-text);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">{{ user.init }}</span>
+</header>
+
+<div style="flex:1;min-height:0;display:flex">
+  <nav aria-label="Main" style="width:72px;flex-shrink:0;background:var(--k-surface-sunken);border-right:1px solid var(--k-border);padding:12px 0;display:flex;flex-direction:column;align-items:center;gap:4px">
+    <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="7"><span aria-label="{{ n.label }}" aria-current="{{ n.cur }}" style="width:56px;min-height:52px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:{{ n.bg }};color:{{ n.fg }};font-size:10px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1">{{ n.icon }}</span>{{ n.label }}</span></sc-for>
+  </nav>
+  <main style="flex:1;min-width:0;overflow-y:auto">
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:{{ pad }};display:flex;flex-direction:column;gap:16px;max-width:1280px">
+        <div style="display:flex;align-items:baseline;gap:12px"><h1 style="margin:0;font-size:26px;line-height:34px;font-weight:800;letter-spacing:-.01em">Contacts</h1><span style="font-size:14px;color:var(--k-text-2)">{{ bgCount }}</span></div>
+        <div role="table" aria-label="Contacts" style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:hidden">
+          <div role="row" style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1.3fr) 110px;gap:12px;align-items:center;min-height:40px;padding:0 16px;background:var(--k-surface-sunken);border-bottom:1px solid var(--k-border);font-size:12px;font-weight:700;color:var(--k-text-2)"><span>Name</span><span>Phone</span><span>Details</span><span>Updated</span></div>
+          <sc-for list="{{ bgRows }}" as="c" hint-placeholder-count="6"><div role="row" style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1.3fr) 110px;gap:12px;align-items:center;min-height:56px;padding:0 16px;border-bottom:1px solid var(--k-border)"><span style="display:flex;align-items:center;gap:10px;min-width:0"><span style="width:32px;height:32px;border-radius:50%;flex-shrink:0;background:var(--k-primary-soft);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">{{ c.init }}</span><b style="font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.name }}</b></span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--k-text-2);white-space:nowrap">{{ c.phone }}</span><span style="font-size:13px;color:var(--k-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.sub }}</span><span style="font-size:13px;color:var(--k-text-muted)">{{ c.upd }}</span></div></sc-for>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isResults }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:{{ pad }};display:flex;flex-direction:column;gap:16px;max-width:1280px">
+        <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 16px">
+          <div style="flex:1 1 360px;min-width:0;display:flex;flex-direction:column;gap:4px">
+            <button onClick="{{ backHome }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 6px 0 2px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">arrow_back</span>Back to Contacts</button>
+            <h1 style="margin:0;font-size:26px;line-height:34px;font-weight:800;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Results for “{{ q }}”</h1>
+            <span style="font-size:14px;color:var(--k-text-2)">{{ resCountTxt }}</span>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--k-text-2)">Sort<span style="position:relative"><select value="{{ sort }}" onChange="{{ setSort }}" style="height:40px;padding:0 36px 0 12px;border-radius:8px;border:1px solid var(--k-border-strong);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;appearance:none;cursor:pointer"><option value="rel">Best match</option><option value="recent">Recently updated</option></select><span style="position:absolute;right:8px;top:10px;font-family:'Material Symbols Rounded';font-size:20px;line-height:1;pointer-events:none">expand_more</span></span></label>
+        </div>
+        <sc-if value="{{ phoneMode }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:var(--k-info-soft);font-size:13px;line-height:19px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-info-text)">dialpad</span><span>Phone number search. <b>{{ q }}</b> also matches <b>{{ phoneFmt }}</b>, with or without spaces, 0 or +234.</span></div></sc-if>
+        <sc-if value="{{ showScopeNote }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 10px 10px 14px;border-radius:10px;background:var(--k-primary-soft);font-size:13px;line-height:19px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-primary-text)">badge</span><span style="flex:1 1 300px">{{ scopeNote }}</span><button onClick="{{ scopeAll }}" style="height:32px;padding:0 12px;border-radius:7px;border:1px solid var(--k-primary-text);background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">Search all my programmes</button></div></sc-if>
+        <div style="display:grid;grid-template-columns:{{ resCols }};gap:20px;align-items:start">
+          <aside aria-label="Filters" style="display:flex;flex-direction:column;gap:18px;padding:16px;background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px">
+            <div style="display:flex;align-items:center"><b style="flex:1;font-size:15px">Filters</b><sc-if value="{{ anyFacet }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearFacets }}" style="height:28px;padding:0 6px;border:0;border-radius:6px;background:transparent;color:var(--k-primary-text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Clear all</button></sc-if></div>
+            <div role="group" aria-label="Object" style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2);padding-bottom:4px">Object</span>
+              <sc-for list="{{ fObj }}" as="f" hint-placeholder-count="6"><button role="checkbox" aria-checked="{{ f.onStr }}" onClick="{{ f.toggle }}" style="display:flex;align-items:center;gap:10px;min-height:36px;padding:0 6px;border:0;border-radius:6px;background:transparent;color:var(--k-text);font-family:inherit;font-size:14px;text-align:left;cursor:pointer;opacity:{{ f.op }}" style-hover="background:var(--k-surface-sunken)"><span style="width:18px;height:18px;border-radius:4px;flex-shrink:0;border:{{ f.boxBd }};background:{{ f.boxBg }};color:var(--k-on-primary);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1;opacity:{{ f.chk }}">check</span></span><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:var(--k-text-2)">{{ f.icon }}</span><span style="flex:1">{{ f.label }}</span><span style="font-size:12px;color:var(--k-text-muted);font-variant-numeric:tabular-nums">{{ f.count }}</span></button></sc-for>
+            </div>
+            <sc-for list="{{ fRadios }}" as="fr" hint-placeholder-count="2"><div role="radiogroup" aria-label="{{ fr.label }}" style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2);padding-bottom:4px">{{ fr.label }}</span>
+              <sc-for list="{{ fr.opts }}" as="o" hint-placeholder-count="3"><button role="radio" aria-checked="{{ o.onStr }}" onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:10px;min-height:36px;padding:0 6px;border:0;border-radius:6px;background:transparent;color:var(--k-text);font-family:inherit;font-size:14px;text-align:left;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="width:18px;height:18px;border-radius:50%;flex-shrink:0;border:{{ o.ringBd }};display:flex;align-items:center;justify-content:center"><span style="width:8px;height:8px;border-radius:50%;background:var(--k-primary);opacity:{{ o.chk }}"></span></span><span style="flex:1">{{ o.label }}</span><span style="font-size:12px;color:var(--k-text-muted);font-variant-numeric:tabular-nums">{{ o.count }}</span></button></sc-for>
+            </div></sc-for>
+          </aside>
+          <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+            <div role="list" aria-label="Results" style="background:var(--k-surface);border:1px solid var(--k-border);border-radius:12px;overflow:hidden">
+              <sc-for list="{{ resRows }}" as="r" hint-placeholder-count="8">
+                <button role="listitem" onClick="{{ r.open }}" style="width:100%;display:grid;grid-template-columns:{{ rowCols }};gap:14px;align-items:center;min-height:68px;padding:10px 16px;border:0;border-bottom:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer" style-hover="background:var(--k-surface-sunken)">
+                  <span style="width:40px;height:40px;border-radius:10px;background:{{ r.iconBg }};color:{{ r.iconFg }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ r.icon }}</span></span>
+                  <span style="min-width:0;display:flex;flex-direction:column;gap:3px">
+                    <span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="font-size:15px;line-height:21px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><sc-for list="{{ r.t }}" as="s" hint-placeholder-count="1"><span style="font-weight:{{ s.w }};background:{{ s.bg }};border-radius:3px">{{ s.x }}</span></sc-for></span><span style="flex-shrink:0;display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:6px;background:var(--k-surface-sunken);color:var(--k-text-2);font-size:11px;font-weight:700">{{ r.type }}</span><sc-if value="{{ r.hasStatus }}" hint-placeholder-val="{{ false }}"><span style="flex-shrink:0;display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:999px;background:{{ r.stBg }};color:{{ r.stFg }};font-size:11px;font-weight:700">{{ r.status }}</span></sc-if></span>
+                    <span style="font-size:13px;line-height:19px;color:var(--k-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><sc-for list="{{ r.s }}" as="s" hint-placeholder-count="1"><span style="font-weight:{{ s.w }};background:{{ s.bg }};color:{{ s.fg }};border-radius:3px">{{ s.x }}</span></sc-for></span>
+                  </span>
+                  <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--k-text-2);min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">person</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.owner }}</span></span></sc-if>
+                  <span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span style="font-size:12px;color:var(--k-text-muted);white-space:nowrap">{{ r.upd }}</span><sc-if value="{{ r.showProg }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:6px;border:1px solid var(--k-border);color:var(--k-text-2);font-size:11px;font-weight:600;white-space:nowrap">{{ r.prog }}</span></sc-if></span>
+                </button>
+              </sc-for>
+              <sc-if value="{{ resEmpty }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px">
+                  <span style="width:48px;height:48px;border-radius:50%;background:var(--k-surface-sunken);color:var(--k-text-2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:26px;line-height:1">search_off</span></span>
+                  <b style="font-size:16px">Nothing matches these filters</b><span style="font-size:13px;color:var(--k-text-2)">{{ emptyHint }}</span>
+                  <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:6px"><button onClick="{{ createContact }}" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;border:0;background:var(--k-primary);color:var(--k-on-primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">person_add</span>{{ createLabel }}</button><sc-if value="{{ anyFacet }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearFacets }}" style="height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Clear filters</button></sc-if></div>
+                </div>
+              </sc-if>
+            </div>
+            <sc-if value="{{ showHidden }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:10px;border:1px dashed var(--k-border-strong);font-size:13px;line-height:19px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:20px">lock</span><span><b style="color:var(--k-text)">{{ hiddenTxt }}</b> {{ hiddenWhy }}</span></div></sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+</div>
+
+<sc-if value="{{ cmd }}" hint-placeholder-val="{{ false }}">
+  <div onMouseDown="{{ cmdBackdrop }}" style="position:absolute;inset:0;z-index:20;background:rgba(20,17,14,.42);display:flex;justify-content:center;align-items:flex-start;padding-top:{{ cmdTop }}">
+    <div role="dialog" aria-modal="true" aria-label="Command palette" onMouseDown="{{ stop }}" style="width:660px;max-width:calc(100% - 48px);max-height:{{ cmdMaxH }};display:flex;flex-direction:column;background:var(--k-surface);border:1px solid var(--k-border);border-radius:14px;box-shadow:var(--k-shadow-3);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;height:58px;flex-shrink:0;padding:0 14px;border-bottom:1px solid var(--k-border)">
+        <sc-if value="{{ cIsList }}" hint-placeholder-val="{{ true }}"><span style="font-family:'Material Symbols Rounded';font-size:22px;line-height:1;color:var(--k-text-muted)">bolt</span></sc-if>
+        <sc-if value="{{ cHasChip }}" hint-placeholder-val="{{ false }}"><button onClick="{{ cBack }}" title="Back to all commands" style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 6px;border-radius:7px;border:0;background:{{ cChip.bg }};color:{{ cChip.fg }};font-family:inherit;font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">arrow_back</span><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ cChip.icon }}</span>{{ cChip.label }}</button></sc-if>
+        <input ref="{{ cRef }}" value="{{ cq }}" onChange="{{ setCq }}" onKeyDown="{{ cOnKey }}" placeholder="{{ cPh }}" aria-label="Command" style="flex:1;min-width:0;height:100%;border:0;background:transparent;color:var(--k-text);font-family:inherit;font-size:16px;outline:none">
+        <button onClick="{{ closeCmd }}" style="display:inline-flex;align-items:center;justify-content:center;height:24px;padding:0 6px;border-radius:4px;border:1px solid var(--k-border);background:var(--k-surface-sunken);color:var(--k-text-2);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;cursor:pointer">Esc</button>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;padding:6px 0 8px">
+        <sc-if value="{{ cIsList }}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{ cSections }}" as="sec" hint-placeholder-count="3">
+            <div role="group" aria-label="{{ sec.label }}" style="display:flex;flex-direction:column;padding-top:4px">
+              <span style="height:28px;display:flex;align-items:center;padding:0 18px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2)">{{ sec.label }}</span>
+              <sc-for list="{{ sec.items }}" as="it" hint-placeholder-count="4">
+                <button onClick="{{ it.run }}" onMouseEnter="{{ it.hover }}" aria-selected="{{ it.selStr }}" style="display:flex;align-items:center;gap:12px;min-height:48px;margin:0 6px;padding:6px 12px;border:0;border-radius:8px;background:{{ it.bg }};color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer">
+                  <span style="width:30px;height:30px;border-radius:8px;flex-shrink:0;background:{{ it.iconBg }};color:{{ it.iconFg }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ it.icon }}</span></span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;line-height:20px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.label }}</span><sc-if value="{{ it.hasHint }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;line-height:17px;color:var(--k-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.hint }}</span></sc-if></span>
+                  <span style="display:flex;gap:3px;flex-shrink:0"><sc-for list="{{ it.keys }}" as="k" hint-placeholder-count="2"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:4px;border:1px solid var(--k-border);background:var(--k-surface-sunken);color:var(--k-text-2);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600">{{ k.k }}</span></sc-for></span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-for>
+        </sc-if>
+        <sc-if value="{{ cIsSwitch }}" hint-placeholder-val="{{ false }}">
+          <span style="height:28px;display:flex;align-items:center;padding:4px 18px 0;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2)">Your programmes</span>
+          <sc-for list="{{ progRows }}" as="p" hint-placeholder-count="2">
+            <button onClick="{{ p.pick }}" onMouseEnter="{{ p.hover }}" style="width:calc(100% - 12px);display:flex;align-items:center;gap:12px;min-height:60px;margin:0 6px;padding:8px 12px;border:0;border-radius:8px;background:{{ p.bg }};color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer">
+              <span style="width:36px;height:36px;border-radius:8px;flex-shrink:0;background:var(--k-primary-soft);color:var(--k-primary-text);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">{{ p.init }}</span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column"><b style="font-size:14px;line-height:20px">{{ p.name }}</b><span style="font-size:12px;line-height:17px;color:var(--k-text-2)">{{ p.sub }}</span></span>
+              <sc-if value="{{ p.cur }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:999px;background:var(--k-success-soft);color:var(--k-success-text);font-size:12px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">check</span>Current</span></sc-if>
+            </button>
+          </sc-for>
+          <span style="display:flex;gap:8px;padding:12px 18px 4px;font-size:12px;line-height:17px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">info</span>Switching changes your queue, scripts and search scope. Only programmes you're assigned to appear here.</span>
+        </sc-if>
+        <sc-if value="{{ cIsAi }}" hint-placeholder-val="{{ false }}">
+          <sc-if value="{{ aiIdle }}" hint-placeholder-val="{{ false }}">
+            <span style="height:28px;display:flex;align-items:center;padding:4px 18px 0;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-text-2)">Try asking</span>
+            <sc-for list="{{ aiSugs }}" as="it" hint-placeholder-count="3"><button onClick="{{ it.run }}" onMouseEnter="{{ it.hover }}" style="width:calc(100% - 12px);display:flex;align-items:center;gap:12px;min-height:46px;margin:0 6px;padding:6px 12px;border:0;border-radius:8px;background:{{ it.bg }};color:var(--k-text);font-family:inherit;font-size:14px;text-align:left;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1;color:var(--k-accent-text)">auto_awesome</span>{{ it.label }}</button></sc-for>
+            <span style="display:flex;gap:8px;padding:12px 18px 4px;font-size:12px;line-height:17px;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">lock</span>{{ aiScopeTxt }}</span>
+          </sc-if>
+          <sc-if value="{{ aiAsked }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:16px;padding:14px 20px 8px">
+              <div style="display:flex;align-items:flex-start;gap:12px"><span style="width:30px;height:30px;border-radius:50%;flex-shrink:0;background:var(--k-accent-soft);color:var(--k-accent-text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">{{ user.init }}</span><b style="font-size:15px;line-height:30px">{{ aiQ }}</b></div>
+              <div style="display:flex;align-items:flex-start;gap:12px">
+                <span style="width:30px;height:30px;border-radius:8px;flex-shrink:0;background:var(--k-primary);color:var(--k-accent);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">auto_awesome</span></span>
+                <sc-if value="{{ aiBusy }}" hint-placeholder-val="{{ false }}"><div aria-live="polite" style="flex:1;display:flex;flex-direction:column;gap:8px;padding-top:4px"><span style="font-size:13px;color:var(--k-text-2)">{{ aiBusyTxt }}</span><span style="width:92%;height:12px;border-radius:4px;background:var(--k-surface-sunken)"></span><span style="width:78%;height:12px;border-radius:4px;background:var(--k-surface-sunken)"></span><span style="width:54%;height:12px;border-radius:4px;background:var(--k-surface-sunken)"></span></div></sc-if>
+                <sc-if value="{{ aiDone }}" hint-placeholder-val="{{ false }}">
+                  <div aria-live="polite" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px">
+                    <p style="margin:0;font-size:14px;line-height:22px;text-wrap:pretty">{{ ai.text }}</p>
+                    <sc-if value="{{ ai.hasStats }}" hint-placeholder-val="{{ false }}"><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px"><sc-for list="{{ ai.stats }}" as="st" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:10px;background:var(--k-surface-sunken)"><b style="font-family:'JetBrains Mono',monospace;font-size:20px;line-height:26px">{{ st.v }}</b><span style="font-size:12px;line-height:16px;color:var(--k-text-2)">{{ st.l }}</span></div></sc-for></div></sc-if>
+                    <sc-if value="{{ ai.hasRecs }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;border:1px solid var(--k-border);border-radius:10px;overflow:hidden"><sc-for list="{{ ai.recs }}" as="r" hint-placeholder-count="3"><button onClick="{{ r.open }}" style="display:flex;align-items:center;gap:10px;min-height:46px;padding:6px 12px;border:0;border-bottom:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text);font-family:inherit;text-align:left;cursor:pointer" style-hover="background:var(--k-surface-sunken)"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:{{ r.iconFg }}">{{ r.icon }}</span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.title }}</span><span style="font-size:12px;color:var(--k-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.sub }}</span></span></button></sc-for></div></sc-if>
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font-size:12px;font-weight:700;color:var(--k-text-2)">Sources</span><sc-for list="{{ ai.sources }}" as="so" hint-placeholder-count="2"><span style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:6px;border:1px solid var(--k-border);font-size:12px;color:var(--k-text-2);white-space:nowrap;flex-shrink:0"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">description</span>{{ so.l }}</span></sc-for></div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ ai.actions }}" as="a" hint-placeholder-count="2"><button onClick="{{ a.run }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:8px;border:1px solid {{ a.bd }};background:{{ a.bg }};color:{{ a.fg }};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">{{ a.icon }}</span>{{ a.label }}</button></sc-for></div>
+                    <span style="font-size:12px;line-height:17px;color:var(--k-text-muted)">{{ aiScopeTxt }} AI can be wrong: check the source before acting.</span>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-if>
+        </sc-if>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;flex-shrink:0;padding:8px 14px;border-top:1px solid var(--k-border);background:var(--k-surface-sunken);font-size:12px;color:var(--k-text-muted)">
+        <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 4px;border-radius:4px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text-2);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600">↑↓</span>Move</span>
+        <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 4px;border-radius:4px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text-2);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600">↵</span>{{ cEnterTxt }}</span>
+        <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 4px;border-radius:4px;border:1px solid var(--k-border);background:var(--k-surface);color:var(--k-text-2);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600">?</span>Ask AI</span>
+        <span style="flex:1"></span>
+        <sc-if value="{{ bpo }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;font-weight:600;color:var(--k-text-2)"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">badge</span>{{ progName }}</span></sc-if>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+  <div role="status" style="position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:10px;max-width:560px;padding:12px 16px;border-radius:10px;background:var(--k-text);color:var(--k-bg);box-shadow:var(--k-shadow-3);font-size:14px;line-height:20px"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">{{ toast.icon }}</span><span>{{ toast.text }}</span></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;1440px&quot;,&quot;height&quot;:&quot;900px&quot;},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;search-recent&quot;,&quot;search-instant&quot;,&quot;search-phone&quot;,&quot;search-filters&quot;,&quot;search-loading&quot;,&quot;search-empty&quot;,&quot;search-bpo&quot;,&quot;search-bpo-scope&quot;,&quot;results&quot;,&quot;results-bpo&quot;,&quot;cmd&quot;,&quot;cmd-type&quot;,&quot;cmd-switch&quot;,&quot;cmd-ai&quot;],&quot;default&quot;:&quot;search-recent&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tablet&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  inRef = React.createRef(); cRef = React.createRef(); wrapRef = React.createRef(); rootRef = React.createRef();
+  T = { contact: ['Contacts', 'person', 'Contact', 'var(--k-primary-soft)', 'var(--k-primary-text)'], account: ['Accounts', 'apartment', 'Account', 'var(--k-info-soft)', 'var(--k-info-text)'], deal: ['Deals', 'handshake', 'Deal', 'var(--k-success-soft)', 'var(--k-success-text)'], ticket: ['Tickets', 'confirmation_number', 'Ticket', 'var(--k-warning-soft)', 'var(--k-warning-text)'], conv: ['Conversations', 'forum', 'Conversation', 'var(--k-accent-soft)', 'var(--k-accent-text)'], kb: ['KB', 'menu_book', 'Article', 'var(--k-surface-sunken)', 'var(--k-text-2)'] };
+  ORDER = ['contact', 'account', 'deal', 'ticket', 'conv', 'kb'];
+  PROGS = { paygo: ['Paygo Wallet', 'Tier 1 care', 14, 'PW'], zuma: ['Zuma Telecom', 'Prepaid support', 6, 'ZT'], lumen: ['Lumen Power', 'Billing'], ona: ['Ọ̀nà Insurance', 'Claims'], all: ['All programmes'] };
+  MINE = ['paygo', 'zuma']; LOCK = ['lumen', 'ona']; OWN = ['Tolu Adebisi', 'Bisi Kalu', 'Emeka Obi', 'Halima Sani'];
+  R = [
+    ['contact', 'Adaeze Nwosu', 'Lagos · Wallet customer since 2022', '2348034561290', 'paygo', 0, 1],
+    ['contact', 'Adebayo Ogunleye', 'Ibadan · Prepaid subscriber', '2348034567781', 'zuma', 3, 0],
+    ['contact', 'Kemi Adeleke', 'Port Harcourt · Merchant', '2348034569012', 'paygo', 12, 1],
+    ['contact', 'Tunde Adeyemi', 'Abuja · Prepaid meter', '2348051123344', 'lumen', 1, 0],
+    ['contact', 'Musa Abdullahi', 'Kano · Data bundle user', '2348032216670', 'zuma', 5, 0],
+    ['contact', 'Chiamaka Obi', 'Enugu · Wallet customer', '2348129084410', 'paygo', 40, 0],
+    ['contact', 'Fatima Bello', 'Kaduna · Policy holder', '2347063301182', 'ona', 2, 0],
+    ['contact', 'Amina Yusuf', 'Nairobi · Roaming customer', '254712345678', 'zuma', 9, 1],
+    ['account', 'Adewale Foods Ltd', 'FMCG distributor · Kano · 40 outlets', '2348090004521', 'paygo', 6, 1],
+    ['account', 'Ade & Sons Logistics', 'Fleet operator · Lagos', '2348021187730', 'zuma', 18, 0],
+    ['account', 'Adekunle Pharmacy', 'Retail pharmacy · Ibadan', '', 'lumen', 4, 0],
+    ['deal', 'Adewale Foods · 40 POS terminals', '₦18.4M · closes 24 Oct', '', 'paygo', 1, 1, 'Negotiation', 'info'],
+    ['deal', 'Ade & Sons · Fleet SIM bundle', '₦6.2M · proposal sent 2 Oct', '', 'zuma', 8, 0, 'Proposal', 'info'],
+    ['deal', 'Kemi Adeleke · Merchant upgrade', '₦1.2M · qualified', '', 'paygo', 22, 1, 'Qualified', 'info'],
+    ['ticket', 'TKT-20931 · Wallet debit not reversed', 'Adaeze Nwosu · High priority', '', 'paygo', 0, 1, 'Open', 'warning'],
+    ['ticket', 'TKT-20940 · Card blocked after 3 PIN tries', 'Kemi Adeleke', '', 'paygo', 1, 0, 'Open', 'warning'],
+    ['ticket', 'TKT-20877 · SIM swap request', 'Adebayo Ogunleye · NIN check pending', '', 'zuma', 3, 0, 'Pending', 'neutral'],
+    ['ticket', 'TKT-20902 · Meter token not received', 'Tunde Adeyemi', '', 'lumen', 1, 0, 'Open', 'warning'],
+    ['ticket', 'TKT-20855 · Claim documents follow-up', 'Fatima Bello', '', 'ona', 2, 0, 'Pending', 'neutral'],
+    ['conv', 'WhatsApp · Adaeze Nwosu', '“I was debited twice for the same transfer…”', '2348034561290', 'paygo', 0, 1],
+    ['conv', 'Call · Adebayo Ogunleye', 'Inbound · 6 min 12 s · resolved', '2348034567781', 'zuma', 3, 0],
+    ['conv', 'SMS · Musa Abdullahi', '“My data bundle is not working since morning”', '2348032216670', 'zuma', 5, 0],
+    ['conv', 'Email · Adewale Foods Ltd', 'Re: POS delivery schedule for Kano outlets', '', 'paygo', 2, 1],
+    ['kb', 'How to reverse a failed wallet debit', 'Paygo Wallet · 3 min read', '', 'paygo', 14],
+    ['kb', 'Trade-in: merchant upgrade checklist', 'Paygo Wallet · 2 min read', '', 'paygo', 20],
+    ['kb', 'SIM swap: identity checks with NIN', 'Zuma Telecom · 4 min read', '', 'zuma', 30],
+    ['kb', 'Adding a payout bank account', 'All programmes · 2 min read', '', 'all', 60],
+    ['kb', 'Escalating meter token issues', 'Lumen Power · 3 min read', '', 'lumen', 7]
+  ].map((r, i) => ({ i, type: r[0], title: r[1], sub: r[2], phone: r[3], prog: r[4], days: r[5], mine: !!r[6], status: r[7] || '', tone: r[8] || '', owner: r[6] ? 'You' : this.OWN[i % 4] }));
+  RECENT = [0, 14, 8, 11, 23];
+  state = this.init(this.props.screen);
+  init(sc) {
+    const b = { q: '', open: false, focus: false, sel: -1, loading: false, forceLoad: false, obj: 'all', owner: 'any', date: 'any', menu: null, view: 'home', objs: [], sort: 'rel', prog: 'paygo', scope: 'paygo', low: false, cmd: false, cq: '', csel: 0, cmode: 'list', aiQ: '', aiState: 'idle', toast: null, recentQ: ['0803 456', 'TKT-20931', 'Adewale', 'sim swap'] };
+    const M = {
+      'search-recent': { open: true }, 'search-instant': { open: true, q: 'ade', sel: 0 }, 'search-phone': { open: true, q: '0803 456', sel: 0 },
+      'search-filters': { open: true, q: 'ade', sel: 0, owner: 'me', menu: 'date' }, 'search-loading': { open: true, q: 'adaeze nw', loading: true, forceLoad: true },
+      'search-empty': { open: true, q: 'Tolu Bakare' }, 'search-bpo': { open: true, q: 'ade', sel: 0 }, 'search-bpo-scope': { menu: 'scope', q: 'ade' },
+      'results': { view: 'results', q: 'ade' }, 'results-bpo': { view: 'results', q: '0803 456' },
+      'cmd': { cmd: true }, 'cmd-type': { cmd: true, cq: 'call' }, 'cmd-switch': { cmd: true, cmode: 'switch' },
+      'cmd-ai': { cmd: true, cmode: 'ai', aiQ: 'How many Paygo tickets breached SLA this week?', aiState: 'done' }
+    };
+    return { ...b, ...(M[sc || 'search-recent'] || {}) };
+  }
+  get bpo() { const sc = this.props.screen || ''; return sc.includes('bpo') || sc.startsWith('cmd'); }
+  componentDidMount() {
+    this._key = e => {
+      if (!this._hot) return;
+      const tag = (document.activeElement || {}).tagName, typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); this.openCmd(); }
+      else if (e.key === '/' && !typing) { e.preventDefault(); this.inRef.current && this.inRef.current.focus(); this.setState({ open: true, cmd: false }); }
+      else if (e.key === 'Escape' && !typing) this.setState({ open: false, menu: null, cmd: false });
+    };
+    this._down = e => {
+      const w = this.wrapRef.current;
+      if ((this.state.open || this.state.menu) && w && !w.contains(e.target) && this.rootRef.current && this.rootRef.current.contains(e.target)) this.setState({ open: false, menu: null });
+    };
+    document.addEventListener('keydown', this._key); document.addEventListener('mousedown', this._down);
+  }
+  componentWillUnmount() { document.removeEventListener('keydown', this._key); document.removeEventListener('mousedown', this._down); clearTimeout(this._lt); clearTimeout(this._tt); clearTimeout(this._at); }
+  componentDidUpdate(p) { if (p.screen !== this.props.screen) this.setState(this.init(this.props.screen)); }
+  toast(icon, text) { clearTimeout(this._tt); this.setState({ toast: { icon, text } }); this._tt = setTimeout(() => this.setState({ toast: null }), 3400); }
+  openCmd = () => { this.setState({ cmd: true, cq: '', csel: 0, cmode: 'list', open: false, menu: null }); setTimeout(() => this.cRef.current && this.cRef.current.focus(), 30); };
+  fold = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  fmt(d) { if (!d) return ''; const cc = d.slice(0, 3), r = d.slice(3); const g = [r.slice(0, 3), r.slice(3, 6), r.slice(6)].filter(Boolean); return '+' + cc + (g.length ? ' ' + g.join(' ') : ''); }
+  phoneQ(q) {
+    if (!q || !/^[+\d\s\-()]+$/.test(q)) return null;
+    const d = q.replace(/\D/g, ''); if (d.length < 3) return null;
+    if (q.trim().startsWith('+') || d.startsWith('234') || d.startsWith('254')) return { norms: [d], show: d };
+    if (d[0] === '0') return { norms: ['234' + d.slice(1), '254' + d.slice(1)], show: '234' + d.slice(1) };
+    return { norms: [d], show: null };
+  }
+  segs(str, ranges, hlFg) {
+    if (!ranges.length) return [{ x: str, w: 'inherit', bg: 'transparent', fg: 'inherit' }];
+    ranges = ranges.slice().sort((a, b) => a[0] - b[0]); const out = []; let p = 0;
+    ranges.forEach(([a, b]) => { if (a < p) a = p; if (b <= a) return; if (a > p) out.push({ x: str.slice(p, a), w: 'inherit', bg: 'transparent', fg: 'inherit' }); out.push({ x: str.slice(a, b), w: '800', bg: 'var(--k-accent-soft)', fg: hlFg || 'inherit' }); p = b; });
+    if (p < str.length) out.push({ x: str.slice(p), w: 'inherit', bg: 'transparent', fg: 'inherit' });
+    return out;
+  }
+  textRanges(str, toks) { const f = this.fold(str); if (f.length !== str.length) return []; const r = []; toks.forEach(t => { const i = f.indexOf(t); if (i >= 0) r.push([i, i + t.length]); }); return r; }
+  match(r, q, ph) {
+    let score = 0, pm = null;
+    if (ph && r.phone) for (const n of ph.norms) { const i = r.phone.indexOf(n); if (i >= 0) { pm = [i, n.length]; score = 120 - i; break; } }
+    const toks = this.fold(q).split(/\s+/).filter(Boolean);
+    const T = this.fold(r.title), S = this.fold(r.sub);
+    let tScore = 0;
+    if (toks.length && toks.every(t => T.includes(t) || S.includes(t))) toks.forEach(t => { tScore += T.startsWith(t) ? 100 : (T.includes(' ' + t) || T.includes('-' + t)) ? 80 : T.includes(t) ? 60 : 30; });
+    score = Math.max(score, tScore);
+    return score > 0 ? { r, score, pm, toks } : null;
+  }
+  ago(d) { return d === 0 ? 'Today' : d === 1 ? 'Yesterday' : d < 7 ? d + ' days ago' : d < 30 ? Math.round(d / 7) + ' wk ago' : Math.round(d / 30) + ' mo ago'; }
+  row(m, extra) {
+    const r = m.r, t = this.T[r.type];
+    let s;
+    if (r.phone && (m.pm || r.type === 'contact' || r.type === 'account')) {
+      const f = this.fmt(r.phone); let rng = [];
+      if (m.pm) { const [a, len] = m.pm; let di = 0, st = -1, en = -1; for (let k = 0; k < f.length; k++) { if (/\d/.test(f[k])) { if (di === a) st = k; if (di === a + len - 1) en = k + 1; di++; } } if (st >= 0 && en > st) rng = [[st, en]]; }
+      s = [...this.segs(f, rng, 'var(--k-text)'), ...this.segs(' · ' + r.sub, m.toks ? this.textRanges(' · ' + r.sub, m.toks) : [], 'var(--k-text)')];
+    } else s = this.segs(r.sub, m.toks ? this.textRanges(r.sub, m.toks) : [], 'var(--k-text)');
+    const tone = { info: ['var(--k-info-soft)', 'var(--k-info-text)'], warning: ['var(--k-warning-soft)', 'var(--k-warning-text)'], neutral: ['var(--k-surface-sunken)', 'var(--k-text-2)'] }[r.tone] || ['', ''];
+    return { icon: t[1], iconBg: t[3], iconFg: t[4], type: t[2], t: this.segs(r.title, m.toks ? this.textRanges(r.title, m.toks) : []), s, hasStatus: !!r.status, status: r.status, stBg: tone[0], stFg: tone[1], showProg: this.bpo, prog: this.PROGS[r.prog][0], upd: this.ago(r.days), owner: r.owner, open: () => { this.setState({ open: false, menu: null }); this.toast('open_in_new', 'Opening ' + r.title); }, ...extra };
+  }
+  renderVals() {
+    const s = this.state, bpo = this.bpo, tablet = !!this.props.tablet, desktop = !tablet;
+    const user = bpo ? { name: 'Ibrahim Musa', init: 'IM', role: 'BPO agent' } : { name: 'Ngozi Okafor', init: 'NO', role: 'Customer success lead' };
+    const qf = s.q.trim(), ph = this.phoneQ(qf), loading = s.loading || s.forceLoad;
+    const all = qf ? this.R.map(r => this.match(r, qf, ph)).filter(Boolean) : [];
+    const restricted = all.filter(m => this.LOCK.includes(m.r.prog));
+    const acc = all.filter(m => !this.LOCK.includes(m.r.prog));
+    const inScope = (r, sc) => !bpo || sc === 'all' || r.prog === sc || r.prog === 'all';
+    const passOD = r => (s.owner === 'any' || r.mine) && (s.date === 'any' || r.days <= +s.date);
+    const scopeHidden = acc.filter(m => !inScope(m.r, s.scope) && passOD(m.r));
+    const base = acc.filter(m => inScope(m.r, s.scope) && passOD(m.r)).sort((a, b) => b.score - a.score);
+    const cnt = k => base.filter(m => m.r.type === k).length;
+    const ddList = s.obj === 'all' ? base : base.filter(m => m.r.type === s.obj);
+    const sv = o => this.setState(o);
+    const filtersOn = s.obj !== 'all' || s.owner !== 'any' || s.date !== 'any';
+    let flat = [];
+    const groups = [];
+    if (!qf) {
+      const items = this.RECENT.map(i => this.R[i]).filter(r => !this.LOCK.includes(r.prog) && inScope(r, bpo ? 'all' : s.scope)).map(r => ({ r, toks: null, pm: null }));
+      groups.push({ label: 'Recently viewed', countTxt: '', more: false, items });
+    } else {
+      const lim = s.obj === 'all' ? 3 : 8;
+      this.ORDER.forEach(k => { const g = ddList.filter(m => m.r.type === k); if (!g.length) return; groups.push({ label: this.T[k][0] === 'KB' ? 'Knowledge base' : this.T[k][0], countTxt: String(g.length), more: g.length > lim, moreTxt: 'See all ' + g.length, seeAll: () => this.goResults([k]), items: g.slice(0, lim) }); });
+    }
+    let idx = 0;
+    const gOut = groups.map(g => ({ ...g, items: g.items.map(m => { const my = idx++; flat.push(m); const sel = my === s.sel; return this.row(m, { selStr: String(sel), bg: sel ? 'var(--k-primary-soft)' : 'transparent', hover: () => this.state.sel !== my && sv({ sel: my }) }); }) }));
+    this._flat = flat;
+    const phoneFmt = ph && ph.show ? this.fmt(ph.show) : '';
+    const scopeOther = [...new Set(scopeHidden.map(m => this.PROGS[m.r.prog][0]))].join(' and ');
+    const hiddenTxt = restricted.length + (restricted.length === 1 ? ' result hidden.' : ' results hidden.');
+    const hiddenWhy = bpo ? 'They\'re in programmes you\'re not assigned to. Ask your team lead if you need access.' : 'They belong to teams you don\'t have access to. Ask an admin if you need one.';
+    const progName = this.PROGS[s.prog][0];
+    // results page
+    const rBase = s.objs.length ? base.filter(m => s.objs.includes(m.r.type)) : base;
+    const rSorted = s.sort === 'recent' ? rBase.slice().sort((a, b) => a.r.days - b.r.days) : rBase;
+    const facetBase = acc.filter(m => inScope(m.r, s.scope));
+    const radio = (label, key, opts) => ({ label, opts: opts.map(([v, l, c]) => { const on = s[key] === v; return { label: l, count: c == null ? '' : String(c), onStr: String(on), chk: on ? 1 : 0, ringBd: on ? '2px solid var(--k-primary)' : '2px solid var(--k-border-strong)', pick: () => sv(key === 'scope' ? { scope: v } : { [key]: v }) }; }) });
+    const fRadios = [
+      radio('Owner', 'owner', [['any', 'Anyone', facetBase.filter(m => s.date === 'any' || m.r.days <= +s.date).length], ['me', 'Owned by me', facetBase.filter(m => m.r.mine && (s.date === 'any' || m.r.days <= +s.date)).length]]),
+      radio('Updated', 'date', [['any', 'Any time'], ['7', 'Last 7 days'], ['30', 'Last 30 days']])
+    ];
+    if (bpo) fRadios.push(radio('Programme', 'scope', [...this.MINE.map(k => [k, this.PROGS[k][0], acc.filter(m => inScope(m.r, k) && passOD(m.r)).length]), ['all', 'All my programmes', acc.filter(m => passOD(m.r)).length]]));
+    const anyFacet = s.objs.length > 0 || s.owner !== 'any' || s.date !== 'any' || (bpo && s.scope !== s.prog);
+    // palette
+    const cq = s.cq.trim(), cph = this.phoneQ(cq);
+    const it = (icon, label, hint, keys, run, tone) => ({ icon, label, hint: hint || '', hasHint: !!hint, keys: (keys || []).map(k => ({ k })), run, iconBg: tone ? tone[0] : 'var(--k-surface-sunken)', iconFg: tone ? tone[1] : 'var(--k-text-2)' });
+    const close = (icon, text) => { this.setState({ cmd: false }); this.toast(icon, text); };
+    const prim = ['var(--k-primary-soft)', 'var(--k-primary-text)'], acc2 = ['var(--k-accent-soft)', 'var(--k-accent-text)'];
+    const actions = [
+      it('person_add', 'Create lead', 'Opens a blank lead form', ['C', 'L'], () => close('person_add', 'New lead form opened.'), prim),
+      it('call', 'Call last contact', 'Adaeze Nwosu · +234 803 456 1290', ['C', 'C'], () => close('call', 'Calling Adaeze Nwosu on +234 803 456 1290…'), prim),
+      it('confirmation_number', 'Create ticket', 'For a contact or account', ['C', 'T'], () => close('confirmation_number', 'New ticket form opened.'), prim),
+      bpo ? it('swap_horiz', 'Switch programme', 'Now: ' + progName, ['P'], () => this.setState({ cmode: 'switch', cq: '', csel: this.MINE.indexOf(s.prog) }), prim) : null,
+      it('monitoring', 'Go to wallboard', bpo ? 'Live queues and SLA for ' + progName : 'Live queues and SLA', ['G', 'W'], () => close('monitoring', 'Opening wallboard…'), prim),
+      it('network_check', s.low ? 'Turn off low-bandwidth mode' : 'Turn on low-bandwidth mode', s.low ? 'Bring back images, avatars and previews' : 'Text only: no images, avatars or previews', ['Ctrl', '⇧', 'L'], () => { this.setState({ cmd: false, low: !s.low }); this.toast('network_check', s.low ? 'Low-bandwidth mode is off.' : 'Low-bandwidth mode is on. Images and previews are paused.'); }, prim)
+    ].filter(Boolean);
+    const nav = [['home', 'Home', 'H'], ['inbox', 'Inbox', 'I'], ['contacts', 'Contacts', 'C'], ['handshake', 'Deals', 'D'], ['confirmation_number', 'Tickets', 'T'], ['headset_mic', 'Calls', 'A'], ['bar_chart', 'Reports', 'R'], ['settings', 'Settings', 'S']].map(([i, l, k]) => it(i, l, '', ['G', k], () => close('arrow_forward', 'Going to ' + l + '…')));
+    const askRow = q => it('auto_awesome', q ? 'Ask AI: “' + q + '”' : 'Ask Kasuwa AI', q ? 'Answers from records you can see' : 'Questions about your data, in plain words', q ? ['↵'] : ['?'], () => q ? this.ask(q) : this.setState({ cmode: 'ai', cq: '', csel: 0, aiState: 'idle' }), acc2);
+    let secs;
+    if (!cq) secs = [['Suggested', actions], ['Go to', nav], ['AI', [askRow('')]]];
+    else if (cq.startsWith('?')) secs = [['AI', [askRow(cq.slice(1).trim())]]];
+    else {
+      const f = this.fold(cq), hit = x => this.fold(x.label + ' ' + x.hint).includes(f);
+      const recs = this.R.map(r => this.match(r, cq, cph)).filter(m => m && !this.LOCK.includes(m.r.prog) && inScope(m.r, s.scope)).sort((a, b) => b.score - a.score).slice(0, 4)
+        .map(m => { const t = this.T[m.r.type]; return it(t[1], m.r.title, (m.r.phone ? this.fmt(m.r.phone) + ' · ' : '') + m.r.sub, [], () => close('open_in_new', 'Opening ' + m.r.title), [t[3], t[4]]); });
+      const callNum = cph && cph.show && cph.show.length >= 12 ? [it('call', 'Call ' + this.fmt(cph.show), 'Dial this number', [], () => close('call', 'Calling ' + this.fmt(cph.show) + '…'), prim)] : [];
+      secs = [['Actions', [...callNum, ...actions.filter(hit)]], ['Go to', nav.filter(hit)], ['Records', recs], ['AI', [askRow(cq)]]].filter(x => x[1].length);
+    }
+    let ci = 0; const cFlat = [];
+    const cSections = secs.map(([label, items]) => ({ label, items: items.map(x => { const my = ci++; cFlat.push(x); const sel = my === s.csel; return { ...x, selStr: String(sel), bg: sel ? 'var(--k-primary-soft)' : 'transparent', hover: () => this.state.csel !== my && sv({ csel: my }) }; }) }));
+    const progRows = this.MINE.map((k, i) => { const p = this.PROGS[k]; return { name: p[0], init: p[3], sub: p[1] + ' · ' + p[2] + ' waiting', cur: s.prog === k, bg: s.csel === i ? 'var(--k-primary-soft)' : 'transparent', hover: () => sv({ csel: i }), pick: () => { this.setState({ prog: k, scope: k, cmd: false }); this.toast('swap_horiz', 'Now working in ' + p[0] + '. Queue, scripts and search scope updated.'); } }; });
+    const sugQ = [bpo ? 'How many Paygo tickets breached SLA this week?' : 'How many tickets breached SLA this week?', 'Summarise Adaeze Nwosu\'s last conversations', 'Which deals close this month?'];
+    const aiSugs = sugQ.map((q, i) => ({ label: q, run: () => this.ask(q), hover: () => sv({ csel: i }), bg: s.csel === i ? 'var(--k-primary-soft)' : 'transparent' }));
+    this._cFlat = s.cmode === 'switch' ? progRows.map(p => ({ run: p.pick })) : s.cmode === 'ai' ? (s.aiState === 'idle' ? aiSugs : []) : cFlat;
+    const ai = this.answer(s.aiQ, inScope, s.scope);
+    const scopeLabel = bpo ? (s.scope === 'all' ? 'all your programmes' : this.PROGS[s.scope][0]) : 'your workspace';
+    const pad = desktop ? '28px 32px 40px' : '20px 20px 32px';
+    return {
+      rootRef: this.rootRef, wrapRef: this.wrapRef, inRef: this.inRef, cRef: this.cRef,
+      hotOn: () => { this._hot = true; }, hotOff: () => { this._hot = false; },
+      desktop, bpo, notBpo: !bpo, user, low: s.low, pad, progName,
+      q: s.q, hasQ: !!qf, notQ: !qf, openStr: String(s.open), open: s.open,
+      ph: bpo ? 'Search ' + (s.scope === 'all' ? 'all my programmes' : this.PROGS[s.scope][0]) + '…' : 'Search contacts, deals, tickets, numbers…',
+      showSlash: !s.focus && !qf,
+      sb: s.open || s.focus ? { bg: 'var(--k-surface)', bd: 'var(--k-focus)', sh: '0 0 0 3px var(--k-primary-soft)' } : { bg: 'var(--k-surface-sunken)', bd: 'var(--k-surface-sunken)', sh: 'none' },
+      setQ: e => { const v = e.target.value; clearTimeout(this._lt); this.setState({ q: v, open: true, sel: v.trim() ? 0 : -1, loading: !!v.trim(), forceLoad: false, menu: null }); this._lt = setTimeout(() => this.setState({ loading: false }), 320); },
+      clearQ: () => { this.setState({ q: '', sel: -1, open: true, loading: false, forceLoad: false }); this.inRef.current && this.inRef.current.focus(); },
+      onFocus: () => this.setState({ focus: true, open: true, menu: this.state.menu === 'scope' ? null : this.state.menu }),
+      onBlur: () => this.setState({ focus: false }),
+      onKey: e => {
+        const n = this._flat.length;
+        if (e.key === 'ArrowDown') { e.preventDefault(); sv({ sel: Math.min(n - 1, this.state.sel + 1), open: true }); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); sv({ sel: Math.max(0, this.state.sel - 1) }); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (!qf) return; if (e.shiftKey || this.state.sel < 0 || !this._flat[this.state.sel]) this.goResults(); else this.row(this._flat[this.state.sel]).open(); }
+        else if (e.key === 'Escape') { sv({ open: false, menu: null }); e.target.blur(); }
+      },
+      ddW: desktop ? '680px' : '600px', ddMaxH: desktop ? '760px' : '640px',
+      scopeShort: s.scope === 'all' ? 'All my programmes' : this.PROGS[s.scope][0],
+      scopeMenuOpen: s.menu === 'scope', scopeMenuStr: String(s.menu === 'scope'),
+      toggleScopeMenu: () => sv({ menu: s.menu === 'scope' ? null : 'scope', open: false }),
+      scopeOpts: [...this.MINE.map(k => [k, this.PROGS[k][0], this.PROGS[k][1] + (k === s.prog ? ' · your current programme' : ''), 'badge']), ['all', 'All my programmes', 'Paygo Wallet and Zuma Telecom', 'select_all']].map(([k, label, sub, icon]) => ({ label, sub, icon, onStr: String(s.scope === k), chk: s.scope === k ? 1 : 0, bg: s.scope === k ? 'var(--k-primary-soft)' : 'transparent', pick: () => { sv({ scope: k, menu: null, open: !!qf || s.view !== 'results' }); } })),
+      objChips: [['all', 'All', base.length], ...this.ORDER.map(k => [k, this.T[k][0], cnt(k)]).filter(c => c[2] > 0 || c[0] === s.obj)].map(([k, label, count]) => { const on = s.obj === k; return { label, count: String(count), onStr: String(on), bd: on ? 'var(--k-primary)' : 'var(--k-border)', bg: on ? 'var(--k-primary)' : 'var(--k-surface)', fg: on ? 'var(--k-on-primary)' : 'var(--k-text)', pick: () => sv({ obj: k, sel: 0 }) }; }),
+      menus: [['owner', 'person', { any: 'Any owner', me: 'Owned by me' }, [['any', 'Any owner'], ['me', 'Owned by me']]], ['date', 'calendar_today', { any: 'Any time', '7': 'Last 7 days', '30': 'Last 30 days' }, [['any', 'Any time'], ['7', 'Last 7 days'], ['30', 'Last 30 days']]]].map(([key, icon, names, opts]) => { const on = s[key] !== 'any', op = s.menu === key; return { icon, label: names[s[key]], open: op, openStr: String(op), bd: on ? 'var(--k-primary-text)' : 'var(--k-border)', bg: on ? 'var(--k-primary-soft)' : 'var(--k-surface)', fg: on ? 'var(--k-primary-text)' : 'var(--k-text-2)', toggle: () => sv({ menu: op ? null : key }), opts: opts.map(([v, l]) => ({ label: l, onStr: String(s[key] === v), chk: s[key] === v ? 1 : 0, w: s[key] === v ? 700 : 500, pick: () => sv({ [key]: v, menu: null, sel: 0 }) })) }; }),
+      phoneMode: !!(qf && ph && ph.show), phoneFmt,
+      showRecent: !qf, recentQ: s.recentQ.map(l => ({ label: l, icon: this.phoneQ(l) ? 'dialpad' : 'history', pick: () => { this.setState({ q: l, sel: 0, open: true, loading: true }); clearTimeout(this._lt); this._lt = setTimeout(() => this.setState({ loading: false }), 320); } })), noRecentQ: !s.recentQ.length, clearRecent: () => sv({ recentQ: [] }),
+      showSkel: !!qf && loading, showGroups: (!qf || !loading) && gOut.length > 0, groups: gOut,
+      showEmpty: !!qf && !loading && ddList.length === 0,
+      emptyHint: ph ? 'No contact, account or conversation has this number. You can save it as a new contact.' : filtersOn ? 'Filters may be hiding a match. Clear them, or create the record.' : 'Check the spelling, or try a phone number or ticket ID.',
+      createLabel: ph && ph.show ? 'Create contact with ' + phoneFmt : 'Create contact “' + (qf.length > 22 ? qf.slice(0, 22) + '…' : qf) + '”',
+      createContact: () => { this.setState({ open: false }); this.toast('person_add', 'New contact form opened with “' + qf + '” filled in.'); },
+      createLead: () => { this.setState({ open: false }); this.toast('person_add', 'New lead form opened with “' + qf + '” filled in.'); },
+      hasEmptyAlt: filtersOn || scopeHidden.length > 0,
+      emptyAlt: filtersOn ? { label: 'Clear filters', run: () => sv({ obj: 'all', owner: 'any', date: 'any' }) } : { label: 'Search all my programmes (' + scopeHidden.length + ')', run: () => sv({ scope: 'all' }) },
+      showScopeNote: !!qf && !loading && bpo && s.scope !== 'all' && scopeHidden.length > 0,
+      scopeNote: scopeHidden.length + ' more in ' + scopeOther + ', your other programme. Search is set to ' + this.PROGS[s.scope][0] + '.',
+      scopeAll: () => sv({ scope: 'all' }),
+      showHidden: !!qf && !loading && restricted.length > 0, hiddenTxt, hiddenWhy,
+      showSeeAll: !!qf && ddList.length > 0, seeAllTxt: 'See all ' + ddList.length + ' results',
+      goResults: () => this.goResults(),
+      openCmd: this.openCmd, toggleLow: () => { sv({ low: !s.low }); this.toast('network_check', s.low ? 'Low-bandwidth mode is off.' : 'Low-bandwidth mode is on.'); },
+      navItems: [['home', 'Home'], ['inbox', 'Inbox'], ['contacts', 'Contacts'], ['handshake', 'Deals'], ['confirmation_number', 'Tickets'], ['headset_mic', 'Calls'], ['bar_chart', 'Reports']].map(([icon, label]) => { const cur = s.view === 'home' && label === 'Contacts'; return { icon, label, cur: cur ? 'page' : 'false', bg: cur ? 'var(--k-primary-soft)' : 'transparent', fg: cur ? 'var(--k-primary-text)' : 'var(--k-text-2)' }; }),
+      isHome: s.view === 'home', isResults: s.view === 'results',
+      bgRows: this.R.filter(r => r.type === 'contact' && !this.LOCK.includes(r.prog) && inScope(r, s.scope)).map(r => ({ name: r.title, init: r.title.split(' ').map(w => w[0]).join(''), phone: this.fmt(r.phone), sub: r.sub, upd: this.ago(r.days) })),
+      bgCount: bpo ? 'in ' + this.PROGS[s.scope][0] : '1,284 contacts',
+      backHome: () => sv({ view: 'home' }),
+      resCountTxt: rSorted.length + (rSorted.length === 1 ? ' result' : ' results') + (bpo ? ' in ' + scopeLabel : ''),
+      sort: s.sort, setSort: e => sv({ sort: e.target.value }),
+      resCols: desktop ? '260px minmax(0,1fr)' : '220px minmax(0,1fr)', rowCols: desktop ? '40px minmax(0,1fr) 150px 120px' : '40px minmax(0,1fr) 110px',
+      fObj: this.ORDER.map(k => { const on = s.objs.includes(k), c = cnt(k); return { label: this.T[k][0] === 'KB' ? 'Knowledge base' : this.T[k][0], icon: this.T[k][1], count: String(c), onStr: String(on), chk: on ? 1 : 0, op: c || on ? 1 : .5, boxBd: on ? '2px solid var(--k-primary)' : '2px solid var(--k-border-strong)', boxBg: on ? 'var(--k-primary)' : 'transparent', toggle: () => sv({ objs: on ? s.objs.filter(x => x !== k) : [...s.objs, k] }) }; }),
+      fRadios, anyFacet, clearFacets: () => sv({ objs: [], owner: 'any', date: 'any', scope: s.prog }),
+      resRows: rSorted.map(m => this.row(m, {})), resEmpty: rSorted.length === 0,
+      cmd: s.cmd, cmdTop: desktop ? '96px' : '64px', cmdMaxH: desktop ? 'calc(100% - 150px)' : 'calc(100% - 110px)',
+      cmdBackdrop: () => sv({ cmd: false }), stop: e => e.stopPropagation(), closeCmd: () => sv({ cmd: false }),
+      cIsList: s.cmode === 'list', cIsSwitch: s.cmode === 'switch', cIsAi: s.cmode === 'ai', cHasChip: s.cmode !== 'list',
+      cChip: s.cmode === 'switch' ? { icon: 'swap_horiz', label: 'Switch programme', bg: 'var(--k-primary-soft)', fg: 'var(--k-primary-text)' } : { icon: 'auto_awesome', label: 'Ask AI', bg: 'var(--k-accent-soft)', fg: 'var(--k-accent-text)' },
+      cBack: () => sv({ cmode: 'list', cq: '', csel: 0 }),
+      cPh: s.cmode === 'switch' ? 'Pick a programme' : s.cmode === 'ai' ? (s.aiState === 'idle' ? 'Ask about your customers, tickets or team…' : 'Ask a follow-up…') : 'Type a command, a page, a name or a number…',
+      cq: s.cq, setCq: e => sv({ cq: e.target.value, csel: 0 }),
+      cOnKey: e => {
+        const n = this._cFlat.length, st = this.state;
+        if (e.key === 'ArrowDown') { e.preventDefault(); sv({ csel: Math.min(n - 1, st.csel + 1) }); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); sv({ csel: Math.max(0, st.csel - 1) }); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (st.cmode === 'ai' && st.cq.trim()) this.ask(st.cq.trim()); else if (this._cFlat[st.csel]) this._cFlat[st.csel].run(); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); st.cmode !== 'list' ? sv({ cmode: 'list', cq: '', csel: 0 }) : sv({ cmd: false }); }
+        else if (e.key === 'Backspace' && !st.cq && st.cmode !== 'list') sv({ cmode: 'list', csel: 0 });
+      },
+      cSections, progRows, aiSugs,
+      aiIdle: s.aiState === 'idle', aiAsked: s.aiState !== 'idle', aiBusy: s.aiState === 'thinking', aiDone: s.aiState === 'done', aiQ: s.aiQ, ai,
+      aiBusyTxt: 'Reading records you can see in ' + scopeLabel + '…',
+      aiScopeTxt: 'Kasuwa AI only uses records you have access to in ' + scopeLabel + '.',
+      cEnterTxt: s.cmode === 'ai' ? 'Ask' : 'Run',
+      hasToast: !!s.toast, toast: s.toast || { icon: '', text: '' }
+    };
+  }
+  goResults(objs) { this.setState(st => ({ view: 'results', open: false, menu: null, objs: objs || (st.obj === 'all' ? [] : [st.obj]), recentQ: st.q.trim() && !st.recentQ.includes(st.q.trim()) ? [st.q.trim(), ...st.recentQ].slice(0, 5) : st.recentQ })); this.inRef.current && this.inRef.current.blur(); }
+  ask(q) { clearTimeout(this._at); this.setState({ cmode: 'ai', aiQ: q, cq: '', aiState: 'thinking' }); this._at = setTimeout(() => this.setState({ aiState: 'done' }), 1100); }
+  answer(q, inScope, scope) {
+    const btn = (icon, label, run, primary) => ({ icon, label, run, bd: primary ? 'var(--k-primary)' : 'var(--k-border)', bg: primary ? 'var(--k-primary)' : 'var(--k-surface)', fg: primary ? 'var(--k-on-primary)' : 'var(--k-text)' });
+    const done = (icon, t) => { this.setState({ cmd: false }); this.toast(icon, t); };
+    if (/sla|breach/i.test(q || '')) return { text: '12 Paygo Wallet tickets missed their first-response SLA this week, up from 7 last week. 9 of them came in on WhatsApp between 18:00 and 21:00, when 3 agents were on shift.', hasStats: true, stats: [{ v: '12', l: 'Breached this week' }, { v: '7', l: 'Last week' }, { v: '9', l: 'WhatsApp, 18:00–21:00' }], hasRecs: false, recs: [], sources: [{ l: 'Tickets · SLA by channel' }, { l: 'Shift schedule · week 41' }], actions: [btn('list', 'Open the 12 tickets', () => done('list', 'Opening 12 tickets in a list view…'), true), btn('content_copy', 'Copy answer', () => done('content_copy', 'Answer copied.'))] };
+    const ms = this.R.map(r => this.match(r, (q || '').replace(/[?'’]/g, ' ').split(/\s+/).filter(w => w.length > 3 && /^[A-Z]/.test(w)).slice(0, 2).join(' ') || '~~', null)).filter(m => m && !this.LOCK.includes(m.r.prog) && inScope(m.r, scope)).slice(0, 3);
+    if (/deal/i.test(q || '')) return { text: '2 open deals you can see close this month, worth ₦19.6M together. The Adewale Foods deal is the biggest and is in negotiation.', hasStats: false, stats: [], hasRecs: true, recs: this.R.filter(r => r.type === 'deal' && r.days < 10 && inScope(r, scope)).map(r => ({ icon: 'handshake', iconFg: 'var(--k-success-text)', title: r.title, sub: r.sub, open: () => done('open_in_new', 'Opening ' + r.title) })), sources: [{ l: 'Deals · close date this month' }], actions: [btn('view_kanban', 'Open in pipeline', () => done('view_kanban', 'Opening pipeline…'), true)] };
+    if (ms.length) return { text: 'Adaeze Nwosu wrote on WhatsApp today saying she was debited twice for one transfer. Ticket TKT-20931 is open at high priority, and the reversal article applies.', hasStats: false, stats: [], hasRecs: true, recs: ms.map(m => ({ icon: this.T[m.r.type][1], iconFg: this.T[m.r.type][4], title: m.r.title, sub: m.r.sub, open: () => done('open_in_new', 'Opening ' + m.r.title) })), sources: [{ l: 'Conversations · last 30 days' }, { l: 'Tickets' }], actions: [btn('reply', 'Draft a reply', () => done('edit_note', 'Reply drafted in the conversation.'), true), btn('content_copy', 'Copy answer', () => done('content_copy', 'Answer copied.'))] };
+    return { text: 'I couldn\'t find anything about that in records you can see. Try naming a contact, ticket or programme, or search instead.', hasStats: false, stats: [], hasRecs: false, recs: [], sources: [{ l: 'No matching records' }], actions: [btn('search', 'Search instead', () => { this.setState({ cmd: false, q: q, open: true, view: 'home' }); }, true)] };
+  }
+}
+</script>
+</body>
+</html>
