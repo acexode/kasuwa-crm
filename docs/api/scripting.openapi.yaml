@@ -1,0 +1,2268 @@
+openapi: 3.1.0
+
+# ---------------------------------------------------------------------------
+# Kasuwa scripting API — T-0112 (M10, Agent 6). In-call scripts, manual mode.
+#
+# This file is the PUBLISHED CONTRACT (ADR-0004) for P10, the script builder
+# and the agent's in-call script screen. It is committed before the tables
+# exist (T-0113 authoring, T-0114 runs) so that T-0115 (builder) and T-0116
+# (agent screen) can build against it. It is its own file, not a section of
+# records.openapi.yaml, so it can move alongside the records contract queue
+# (D-L88).
+#
+# It follows records.openapi.yaml and shares the `Error` schema from
+# admin.openapi.yaml by reference: one envelope, one `code` enum. The security
+# scheme is COPIED from records.openapi.yaml, because OpenAPI resolves a
+# security requirement against the file's own `components.securitySchemes`
+# and cannot reference another file's.
+#
+# The records rules apply unchanged, restated because they are what breaks
+# first:
+#
+# 1. SCOPE IS RESOLVED, NEVER SUPPLIED. No operation takes `programmeIds`,
+#    `tenantId` or a scope argument in a query, header, cookie or body. The
+#    one `programmeId` a caller sends is createScript's TARGET, and an
+#    unreachable target is 404, exactly like a missing record. A run's
+#    programme is its contact's; the caller never names it.
+#
+# 2. A RECORD OUTSIDE YOUR SCOPE IS 404, NOT 403. Reads never answer 403.
+#    `403 not_permitted` means "you can read this, and you may not do this to
+#    it".
+#
+# 3. KEYSET PAGING ONLY. `{ data, nextCursor }`. No total, count, offset or
+#    page number, anywhere in this file. A cursor carries the last row's id
+#    and nothing else (D-L80); the server resolves the sort position inside
+#    the caller's scope.
+#
+# 4. EVERY RESPONSE IS `Cache-Control: no-store`. A run carries a customer's
+#    answers; a script carries a programme's compliance wording.
+#
+# 5. ANSWERS ARE PERSONAL DATA. A run's answers are classified `pii`: never
+#    logged, never in a trace or an error body, audited by name only (D-L88).
+#
+# 6. NOTHING HERE WRITES A CONTACT FIELD (D-P31 is open). A form's answers
+#    stay on the run. The only records a run creates are the `call` activity
+#    and, when the disposition asks for one, the callback task, both at
+#    completion (D-L88).
+#
+# 7. A RUN PINS ITS VERSION. A published version is immutable. A run carries
+#    the `versionId` it started on until it completes; republishing never
+#    changes a run in progress (M10 Q2, D-L88).
+#
+# `x-kasuwa-implemented` is strictly true or false (records' rule). Every
+# operation here is `false` until T-0113 and T-0114 serve it.
+#
+# `x-kasuwa-error-order` lists the failures an operation can answer, as
+# `<status> <code>`, in the order they are decided: the first that applies is
+# the one returned. `401` precedes all of them and is not listed. The order is
+# always 404, then 403, then 400, then 409 (D-L88).
+#
+# `x-kasuwa-permission` names the permission the operation needs in the
+# record's programme: `script.write` (the `admin` set, or the tenant-admin
+# flag) or `script.run` (the `agent`, `team_lead`, `programme_manager` and
+# `admin` sets) (D-L88).
+# ---------------------------------------------------------------------------
+
+info:
+  title: Kasuwa Scripting API
+  version: 0.1.0-T-0112
+  description: |
+    In-call scripts in manual mode (P10, D-L88). Authoring: list, create, read
+    and edit a programme's draft script, publish an immutable version, list
+    versions, and translate per locale. Runs: an agent starts a run by hand
+    from a contact's record, walks it node by node, acknowledges compliance
+    statements, records answers, and completes it with one of the
+    programme's live dispositions.
+
+    **Not in this file** (D-L88): runs bound to a call, screen-pop, the call
+    bar, wrap-up timers and agent state (M09); live push of a republished
+    version (P08, the inbox socket); AI suggestions and summaries (M17); QA
+    toggles; SMS reminders; calling-hours limits on a callback; `loan.*`
+    variables; assigning one script to several programmes (scripts are
+    programme-scoped). The P10 design draws all of them; the screens hide
+    them until their module publishes a contract.
+
+    **Errors.** Every failure uses the shared `Error` envelope from
+    `admin.openapi.yaml`. Switch on `code`, never on `message`. The web app
+    localises as `scripting.error.<code>`.
+
+    **Times** are UTC, ISO 8601, with a `Z`. Display conversion to the
+    tenant's zone (WAT/EAT/SAST) is the browser's.
+
+    **Money** in a form answer is minor units as a string plus an ISO 4217
+    code, never a float.
+
+    **Transport.** `Authorization: Bearer ksw_s1_…` and nothing else.
+
+servers:
+  - url: http://localhost:3001
+    description: Local development
+  - url: https://{host}
+    description: Deployed cell
+    variables:
+      host:
+        default: api.kasuwa.example
+
+tags:
+  - name: scripts
+    description: Authoring. A programme's scripts, their draft and their published versions.
+  - name: script-runs
+    description: An agent walking a published script for one contact.
+
+paths:
+  # -------------------------------------------------------------------------
+  # Authoring (script.write). A caller who does not hold `script.write` in a
+  # script's programme cannot read the script here at all: it is 404, and a
+  # list leaves it out. Agents see published content through their runs.
+  # -------------------------------------------------------------------------
+
+  /api/v1/scripts:
+    get:
+      tags: [scripts]
+      summary: List the scripts the caller may author
+      operationId: listScripts
+      x-kasuwa-implemented: false
+      x-kasuwa-permission: script.write
+      x-kasuwa-screens: ['P10/05']
+      x-kasuwa-error-order: ['400 validation_failed']
+      description: |
+        Scripts in the programmes where the session holds `script.write`.
+        Anyone else gets an empty page, never `403`. Order is by name, then
+        id. Names are not unique, so no write here can confirm another
+        script's name (D-L40).
+
+        **No totals** (D-P13).
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of scripts.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScriptPage' }
+              example:
+                data:
+                  - id: 6c3a9e10-5b2d-4f71-9a8e-0d4c2b7f1a01
+                    programmeId: 0b5e7a12-3c4d-4e5f-8a6b-7c8d9e0f1a21
+                    name: Collections – Promise to pay
+                    sourceLocale: en
+                    translatedLocales: [pcm, ha]
+                    hasUnpublishedChanges: true
+                    latestVersion:
+                      id: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f12
+                      number: 12
+                      publishedAt: '2026-10-02T09:00:00Z'
+                      publishedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a802, displayName: Kemi Adeyinka }
+                    updatedAt: '2026-10-07T12:55:00Z'
+                  - id: 6c3a9e10-5b2d-4f71-9a8e-0d4c2b7f1a03
+                    programmeId: 0b5e7a12-3c4d-4e5f-8a6b-7c8d9e0f1a21
+                    name: Hardship and restructuring
+                    sourceLocale: en
+                    translatedLocales: []
+                    hasUnpublishedChanges: true
+                    latestVersion: null
+                    updatedAt: '2026-09-25T13:05:00Z'
+                nextCursor: eyJpZCI6IjZjM2E5ZTEwLTViMmQtNGY3MS05YThlLTBkNGMyYjdmMWEwMyJ9
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+    post:
+      tags: [scripts]
+      summary: Create a draft script in a programme
+      operationId: createScript
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-permission: script.write
+      x-kasuwa-screens: ['P10/05']
+      x-kasuwa-error-order: ['404 not_found', '403 not_permitted', '400 validation_failed']
+      description: |
+        Creates a script with an empty or supplied draft and no published
+        version. `programmeId` is the TARGET and must be a programme the
+        session reaches, otherwise `404`, the same body as a missing one. A
+        programme the caller reaches without `script.write` there is
+        `403 not_permitted`.
+
+        The draft graph is checked for shape here (`400`). Whether it is
+        complete enough to publish is checked by publishScript.
+
+        Audited as `created`, naming the script, never its wording.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateScriptRequest' }
+            example:
+              programmeId: 0b5e7a12-3c4d-4e5f-8a6b-7c8d9e0f1a21
+              name: Collections – Promise to pay
+              sourceLocale: en
+      responses:
+        '201':
+          description: The new script, its draft and no published version.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Script' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/scripts/{scriptId}:
+    parameters:
+      - $ref: '#/components/parameters/ScriptId'
+    get:
+      tags: [scripts]
+      summary: Get a script, with its draft and translations
+      operationId: getScript
+      x-kasuwa-implemented: false
+      x-kasuwa-permission: script.write
+      x-kasuwa-screens: ['P10/05']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
+      description: |
+        The builder's read: the draft graph, the draft's translations and a
+        summary of the latest published version. A script in a programme the
+        caller does not reach, or reaches without `script.write`, is `404`.
+      responses:
+        '200':
+          description: The script.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Script' }
+              examples:
+                default: { $ref: '#/components/examples/Script' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [scripts]
+      summary: Edit the draft (name, source locale, graph)
+      operationId: updateScript
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-permission: script.write
+      x-kasuwa-screens: ['P10/05']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed', '409 stale_write']
+      description: |
+        Partial update of the DRAFT. A published version is never edited:
+        publishing snapshots the draft, and the next edit changes the draft
+        only. `graph`, when sent, replaces the whole draft graph. `revision`
+        must equal the script's current `revision`, otherwise
+        `409 stale_write`.
+
+        Reading the script already needs `script.write`, so there is no
+        `403` here: a caller who may not author it gets `404`.
+
+        **Compliance wording.** Compliance nodes are edited by the same
+        `script.write` holders as everything else. Who approves compliance
+        wording is D-P32, which is open; this contract models no approver.
+
+        Audited as `updated`, naming which parts changed (`name`,
+        `sourceLocale`, `graph`), never the wording.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateScriptRequest' }
+            example:
+              revision: 41
+              name: Collections – Promise to pay
+      responses:
+        '200':
+          description: The script; `revision` has advanced and `hasUnpublishedChanges` is true.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Script' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/StaleWrite' }
+
+  /api/v1/scripts/{scriptId}/versions:
+    parameters:
+      - $ref: '#/components/parameters/ScriptId'
+    get:
+      tags: [scripts]
+      summary: List a script's published versions, newest first
+      operationId: listScriptVersions
+      x-kasuwa-implemented: false
+      x-kasuwa-permission: script.write
+      x-kasuwa-screens: ['P10/05']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
+      description: |
+        The builder's version menu. Newest first, by `number`. Each row is a
+        summary; read one with getScriptVersion.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of versions.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScriptVersionPage' }
+              example:
+                data:
+                  - id: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f13
+                    number: 13
+                    publishedAt: '2026-10-07T13:55:00Z'
+                    publishedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a802, displayName: Kemi Adeyinka }
+                  - id: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f12
+                    number: 12
+                    publishedAt: '2026-10-02T09:00:00Z'
+                    publishedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a802, displayName: Kemi Adeyinka }
+                nextCursor: eyJpZCI6IjJmOGU2ZDE0LTdhM2ItNGM5ZS04ZDIxLTViMGE5YzNlN2YxMiJ9
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [scripts]
+      summary: Publish the draft as a new, immutable version
+      operationId: publishScript
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-permission: script.write
+      x-kasuwa-screens: ['P10/05']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed', '409 stale_write', '409 script_invalid']
+      description: |
+        Snapshots the draft graph and its translations as version
+        `latestVersion.number + 1` (1 for the first). **A published version
+        is immutable**: no operation edits or deletes one. New runs start on
+        it; runs already in progress keep the version they started on
+        (M10 Q2, D-L88).
+
+        The draft must be complete, otherwise `409 script_invalid` with
+        `details[]` naming node paths and reason codes, never wording:
+        `missing_start`, `unknown_target` (a `next`, choice or branch target
+        that names no node), `unreachable_end` (a path that never reaches an
+        `end`), `cycle`, `unknown_field` (a branch on a field that is not a
+        contact field), `unknown_variable`, `disposition_not_live` (a
+        suggested disposition that is not live in the script's programme) and
+        `unchanged` (nothing changed since the latest version).
+
+        Audited as `published`, naming the script and the version number.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PublishScriptRequest' }
+            example:
+              revision: 42
+              changes:
+                - Minimum promise is now ₦5,000
+                - Read-back adds the PIN warning
+      responses:
+        '201':
+          description: The new version, in full.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScriptVersion' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/PublishConflict' }
+
+  /api/v1/scripts/{scriptId}/versions/{versionId}:
+    parameters:
+      - $ref: '#/components/parameters/ScriptId'
+      - $ref: '#/components/parameters/VersionId'
+    get:
+      tags: [scripts]
+      summary: Read one published version (read-only)
+      operationId: getScriptVersion
+      x-kasuwa-implemented: false
+      x-kasuwa-permission: script.write
+      x-kasuwa-screens: ['P10/05']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
+      description: |
+        The builder's "Viewing v12 · read-only". A version of another script
+        is `404`, the same body as a missing one.
+      responses:
+        '200':
+          description: The version, its graph and its translations.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScriptVersion' }
+              examples:
+                default: { $ref: '#/components/examples/ScriptVersion' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/scripts/{scriptId}/translations/{locale}:
+    parameters:
+      - $ref: '#/components/parameters/ScriptId'
+      - $ref: '#/components/parameters/Locale'
+    put:
+      tags: [scripts]
+      summary: Set the draft's translation for one locale
+      operationId: putScriptTranslation
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-permission: script.write
+      x-kasuwa-screens: ['P10/05']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed', '409 stale_write']
+      description: |
+        Replaces the draft's whole translation for `locale`. An empty `texts`
+        removes it. The source locale is not translated (`400`). A key that
+        names no node, choice or field of the draft is `400`.
+
+        A node with no text in the agent's locale falls back to the source
+        locale, and the screen says so ("No Hausa text – showing English").
+        Translations are published with the draft, never on their own.
+
+        Compliance wording in translation follows the same rule as in the
+        source (D-P32 is open).
+
+        Audited as `updated`, naming the locale, never the wording.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PutScriptTranslationRequest' }
+            example:
+              revision: 42
+              texts:
+                greet: { text: 'Good afternoon, {contact.displayName}. My name na {agent.displayName}. You get small time to talk?' }
+      responses:
+        '200':
+          description: The script; `revision` has advanced.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Script' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/StaleWrite' }
+
+  # -------------------------------------------------------------------------
+  # Runs (script.run). Manual mode only: an agent starts a run by hand from
+  # the contact's record. A run belongs to the contact's programme.
+  # -------------------------------------------------------------------------
+
+  /api/v1/contacts/{contactId}/scripts:
+    parameters:
+      - $ref: '#/components/parameters/ContactId'
+    get:
+      tags: [script-runs]
+      summary: The published scripts the caller may run for this contact
+      operationId: listContactScripts
+      x-kasuwa-implemented: false
+      x-kasuwa-permission: script.run
+      x-kasuwa-screens: ['P10/04']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
+      description: |
+        Scripts in the contact's programme that have a published version,
+        for the "Start script" menu on the contact record. A contact the
+        caller cannot read is `404`. A caller who reads the contact but holds
+        no `script.run` in its programme gets an empty page, never `403`.
+        Order is by name, then id. Read only; nothing here touches the
+        contact.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of runnable scripts.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RunnableScriptPage' }
+              example:
+                data:
+                  - id: 6c3a9e10-5b2d-4f71-9a8e-0d4c2b7f1a01
+                    name: Collections – Promise to pay
+                    sourceLocale: en
+                    translatedLocales: [pcm, ha]
+                    latestVersion:
+                      id: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f13
+                      number: 13
+                      publishedAt: '2026-10-07T13:55:00Z'
+                      publishedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a802, displayName: Kemi Adeyinka }
+                nextCursor: null
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/script-runs:
+    post:
+      tags: [script-runs]
+      summary: Start a run for a contact, on the latest published version
+      operationId: startScriptRun
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-permission: script.run
+      x-kasuwa-screens: ['P10/04']
+      x-kasuwa-error-order: ['404 not_found', '403 not_permitted', '400 validation_failed', '409 script_not_published']
+      description: |
+        Starts a run, by hand, for one contact. The run belongs to the
+        contact's programme, and the script must be in that same programme.
+
+        **The server pins the version.** The run starts on the script's
+        latest published version at this moment, and keeps it until it
+        completes. The body cannot choose a version.
+
+        **404, one body for all of:** a contact the caller cannot read, a
+        script that does not exist, and a script in any other programme than
+        the contact's. A caller who reads the contact and holds no
+        `script.run` in its programme is `403 not_permitted`. A script with
+        no published version is `409 script_not_published`.
+
+        The run enters the start node. A `branch` is never a current node: the
+        server evaluates it on entry and follows it (see advanceScriptRun),
+        so a script that opens on a branch can start already `stopped`.
+
+        Audited as `created` on the run, naming the script and version.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StartScriptRunRequest' }
+            example:
+              scriptId: 6c3a9e10-5b2d-4f71-9a8e-0d4c2b7f1a01
+              contactId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e41
+      responses:
+        '201':
+          description: The new run, at its first node.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScriptRun' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/StartConflict' }
+
+  /api/v1/script-runs/{runId}:
+    parameters:
+      - $ref: '#/components/parameters/RunId'
+    get:
+      tags: [script-runs]
+      summary: Read a run, with the latest published version for the update banner
+      operationId: getScriptRun
+      x-kasuwa-implemented: false
+      x-kasuwa-permission: script.run
+      x-kasuwa-screens: ['P10/01', 'P10/02', 'P10/03']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
+      description: |
+        Readable by any `script.run` holder in the run's programme; anyone
+        else gets `404`. Carries the run's answers, which are `pii`.
+
+        `versionId` is the version the run is on and never changes.
+        `latestVersion` is the script's latest published version, read-only:
+        when it differs from the run's, the screen shows "Script updated to
+        v13 during your shift … you'll finish this call on v12". It is a
+        read, not a push; live push waits for the inbox socket (P08).
+      responses:
+        '200':
+          description: The run.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScriptRun' }
+              examples:
+                default: { $ref: '#/components/examples/ScriptRunInProgress' }
+                completed: { $ref: '#/components/examples/ScriptRunCompleted' }
+                stopped: { $ref: '#/components/examples/ScriptRunStopped' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/script-runs/{runId}/script:
+    parameters:
+      - $ref: '#/components/parameters/RunId'
+    get:
+      tags: [script-runs]
+      summary: The version the run is pinned to, graph and translations
+      operationId: getScriptRunScript
+      x-kasuwa-implemented: false
+      x-kasuwa-permission: script.run
+      x-kasuwa-screens: ['P10/01', 'P10/04']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
+      description: |
+        The agent's copy of the script: always the version named by the
+        run's `versionId`, never the latest. This is how an agent without
+        `script.write` reads published wording. The screen switches language
+        from the `translations` here without asking the server.
+
+        **Variables** (`{contact.<field>}`, `{agent.displayName}`,
+        `{answer.<nodeId>.<fieldKey>}`) are substituted by the client from
+        data it already holds: the contact as getContact returned it, field
+        security applied. A variable on a withheld field renders as a
+        placeholder; this operation never returns contact values.
+      responses:
+        '200':
+          description: The pinned version.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScriptVersion' }
+              examples:
+                default: { $ref: '#/components/examples/ScriptVersion' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/script-runs/{runId}/advance:
+    parameters:
+      - $ref: '#/components/parameters/RunId'
+    post:
+      tags: [script-runs]
+      summary: Finish the current node and move to the next
+      operationId: advanceScriptRun
+      x-kasuwa-implemented: false
+      x-kasuwa-permission: script.run
+      x-kasuwa-screens: ['P10/01', 'P10/02']
+      x-kasuwa-error-order: ['404 not_found', '403 not_permitted', '400 validation_failed', '409 run_completed', '409 run_stopped', '409 stale_write', '409 run_at_end', '409 compliance_unacknowledged', '409 answers_incomplete']
+      description: |
+        Moves the run from its current node to the next, **chosen by the
+        server**:
+
+        - `say`: its `next`.
+        - `compliance`: its `next`, only once acknowledged, otherwise
+          `409 compliance_unacknowledged`.
+        - `question`: the target of `choiceKey`, which is required here and
+          must be one of the node's choices (`400`). The choice is recorded
+          in the run's answers.
+        - `form`: its `next`, only once every required field has an answer,
+          otherwise `409 answers_incomplete` naming the field keys.
+        - `end`: nothing follows; `409 run_at_end`. Complete the run.
+
+        **Branches are evaluated on the server**, on entry, and never become
+        the current node. A branch on a contact field reads the field in the
+        contact's programme under the caller's field security. **A branch on
+        a field withheld from the caller stops the run**: the answer is `200`,
+        the run's `status` is `stopped` with `stopReason: field_withheld`, and
+        `currentNodeId` is the branch. Following either side would tell the
+        caller something about a value they may not read. A stopped run can
+        only be completed.
+
+        Only the agent who started the run moves it; anyone else who can read
+        it is `403 not_permitted`. `revision` must be current
+        (`409 stale_write`). Not audited: the path is kept on the run.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdvanceScriptRunRequest' }
+            example:
+              revision: 7
+              choiceKey: ptp
+      responses:
+        '200':
+          description: The run, at its new node (or stopped).
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScriptRun' }
+              examples:
+                default: { $ref: '#/components/examples/ScriptRunInProgress' }
+                stopped: { $ref: '#/components/examples/ScriptRunStopped' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/AdvanceConflict' }
+
+  /api/v1/script-runs/{runId}/acknowledgements:
+    parameters:
+      - $ref: '#/components/parameters/RunId'
+    post:
+      tags: [script-runs]
+      summary: Acknowledge a compliance statement as read in full
+      operationId: acknowledgeScriptRunNode
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-permission: script.run
+      x-kasuwa-screens: ['P10/01']
+      x-kasuwa-error-order: ['404 not_found', '403 not_permitted', '400 validation_failed', '409 run_completed', '409 run_stopped', '409 stale_write']
+      description: |
+        "I read this statement to the customer in full." `nodeId` must be a
+        `compliance` node on the run's path; anything else is `400`.
+
+        **The server stamps the time** (`acknowledgedAt`); the body carries
+        none, so an acknowledgement cannot be backdated. Acknowledging again
+        keeps the first time and changes nothing.
+
+        Only the run's agent acknowledges (`403` otherwise). Audited as
+        `updated` on the run, naming the node id.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AcknowledgeScriptRunNodeRequest' }
+            example:
+              revision: 3
+              nodeId: rec
+      responses:
+        '200':
+          description: The run; the acknowledgement is in `acknowledgements`.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScriptRun' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/RunWriteConflict' }
+
+  /api/v1/script-runs/{runId}/answers:
+    parameters:
+      - $ref: '#/components/parameters/RunId'
+    patch:
+      tags: [script-runs]
+      summary: Record a form node's answers on the run
+      operationId: recordScriptRunAnswers
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-permission: script.run
+      x-kasuwa-screens: ['P10/02']
+      x-kasuwa-error-order: ['404 not_found', '403 not_permitted', '400 validation_failed', '409 run_completed', '409 run_stopped', '409 stale_write']
+      description: |
+        Merges `values` into the answers of one `form` node on the run's
+        path; `null` clears a value. Partial saves are fine; advancing checks
+        the required fields. A key that names no field of the node, or a
+        value that breaks the field's rules (type, bounds, options), is `400`
+        with `details[]` naming `values.<key>` and a reason code, never the
+        value. Question choices are recorded by advanceScriptRun.
+
+        **Answers stay on the run (D-P31 is open).** Nothing here, and nothing
+        at completion, writes a contact field or any other record from a
+        form. The design's "Writes to record" panel is not drawn.
+
+        **Answers are `pii`**: never logged, never echoed in an error, and
+        audited as `updated` on the run naming the node and field keys only.
+
+        Only the run's agent records answers (`403` otherwise).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecordScriptRunAnswersRequest' }
+            example:
+              revision: 8
+              nodeId: ptp
+              values:
+                date: '2026-10-15'
+                amount: { amountMinor: '2500000', currency: NGN }
+                reason: salary_delayed
+      responses:
+        '200':
+          description: The run, with the node's answers merged.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScriptRun' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/RunWriteConflict' }
+
+  /api/v1/script-runs/{runId}/dispositions:
+    parameters:
+      - $ref: '#/components/parameters/RunId'
+    get:
+      tags: [script-runs]
+      summary: The live dispositions of the run's programme, in agent order
+      operationId: listScriptRunDispositions
+      x-kasuwa-implemented: false
+      x-kasuwa-permission: script.run
+      x-kasuwa-screens: ['P10/03']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
+      description: |
+        The disposition picker. Only LIVE dispositions: active and not
+        deleted (admin's `updateDisposition` and `deleteDisposition`). Order
+        is `position`, then id, as the admin list orders them. Configuration
+        only: no usage counts, which are the admin's.
+
+        A run the caller cannot read is `404`.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of live dispositions.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RunDispositionPage' }
+              example:
+                data:
+                  - id: 9d1b4e70-2c5a-4e8f-b6d3-1a7c0e9f4b21
+                    code: PTP
+                    label: Promise to pay
+                    category: promise_to_pay
+                    noteRequired: true
+                    followUpRequired: false
+                    position: 1
+                  - id: 9d1b4e70-2c5a-4e8f-b6d3-1a7c0e9f4b25
+                    code: CALLBACK
+                    label: Call back
+                    category: callback
+                    noteRequired: false
+                    followUpRequired: true
+                    position: 3
+                nextCursor: eyJpZCI6IjlkMWI0ZTcwLTJjNWEtNGU4Zi1iNmQzLTFhN2MwZTlmNGIyNSJ9
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/script-runs/{runId}/complete:
+    parameters:
+      - $ref: '#/components/parameters/RunId'
+    post:
+      tags: [script-runs]
+      summary: Complete the run with a disposition
+      operationId: completeScriptRun
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-permission: script.run
+      x-kasuwa-screens: ['P10/03']
+      x-kasuwa-error-order: ['404 not_found', '403 not_permitted', '400 validation_failed', '409 run_completed', '409 stale_write', '409 compliance_unacknowledged', '409 disposition_not_live', '409 disposition_requirements_unmet']
+      description: |
+        Closes the run. A run may be completed from any node, including a
+        `stopped` run, because the call still needs an outcome.
+
+        **Preconditions, checked in this order after the body parses:**
+
+        1. **Every compliance node on the path is acknowledged**, otherwise
+           `409 compliance_unacknowledged` with `details[]` naming the node
+           ids. The path is every node the run has entered, the current node
+           included. The acknowledgement is the server's timestamp from
+           acknowledgeScriptRunNode; this body cannot supply one.
+        2. **A live disposition is chosen**: `dispositionId` names an active,
+           undeleted disposition of the run's programme. An id that is
+           unknown, in another programme, deactivated or deleted is one
+           answer, `409 disposition_not_live`; the body does not say which.
+        3. **The disposition's requirements are met**: a `note` when it has
+           `noteRequired`, and `followUp` when it has `followUpRequired`,
+           otherwise `409 disposition_requirements_unmet` naming `note` or
+           `followUp` in `details[].path`.
+
+        **In one transaction**, completion: sets `status: completed`,
+        `dispositionId` and `completedAt`; logs a `call` activity on the
+        contact whose `subject` is the disposition's label and whose `body`
+        is `note`, owned by the caller, linked as `activityId`; and, when
+        `followUp` is sent (always, for a disposition with
+        `followUpRequired`), creates the callback as a `task` activity due at
+        `followUp.dueAt`, owned by the caller, linked as `followUpTaskId`.
+        Either all of it is written or none of it.
+        Assigning the callback to a team queue, calling-hours limits and the
+        SMS reminder are not in this slice.
+
+        **Answers stay on the run (D-P31 is open).** Completion writes no
+        contact field.
+
+        **Idempotent.** A repeat of the request that completed the run (the
+        same `dispositionId`, `note` and `followUp`) answers `200` with the
+        run as it is, whatever `revision` it carries, and writes nothing.
+        Any other write to a completed run is `409 run_completed`.
+
+        Only the run's agent completes it, and logging the call needs
+        `activity.write` in the programme, which every `script.run` set holds
+        today (D-P18); otherwise `403 not_permitted`. Audited as `updated` on
+        the run, naming the disposition id and the activity ids.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CompleteScriptRunRequest' }
+            examples:
+              promiseToPay:
+                value:
+                  revision: 11
+                  dispositionId: 9d1b4e70-2c5a-4e8f-b6d3-1a7c0e9f4b21
+                  note: Promised ₦25,000 on Thu 15 Oct by bank transfer.
+              callBack:
+                value:
+                  revision: 6
+                  dispositionId: 9d1b4e70-2c5a-4e8f-b6d3-1a7c0e9f4b25
+                  followUp:
+                    dueAt: '2026-10-08T14:00:00Z'
+      responses:
+        '200':
+          description: The completed run, with its activity and any callback task.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScriptRun' }
+              examples:
+                default: { $ref: '#/components/examples/ScriptRunCompleted' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/CompleteConflict' }
+
+components:
+  securitySchemes:
+    sessionToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: |
+        `Authorization: Bearer ksw_s1_…` (auth.openapi.yaml). Copied from
+        records.openapi.yaml: a security requirement can only name a scheme
+        in its own file. The token carries no claims and no scope; every
+        request re-resolves both from the database.
+
+  headers:
+    NoStore:
+      description: |
+        Always `no-store`, on every response in this file, errors included.
+        A run carries a customer's answers, and a script a programme's
+        compliance wording; neither belongs in any cache.
+      schema: { type: string, enum: ['no-store'] }
+
+  parameters:
+    ScriptId:
+      name: scriptId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        A script identifier. A script the caller cannot author, whether in
+        another tenant, another programme, a programme where they lack
+        `script.write`, or nowhere, is `404 not_found`. Not a uuid is `400`.
+    VersionId:
+      name: versionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: A published version of the script in the path. Any other id is `404`.
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        A run identifier. A run the caller cannot read, whether in another
+        tenant, another programme, a programme where they lack `script.run`,
+        or nowhere, is `404 not_found`. Not a uuid is `400`.
+    ContactId:
+      name: contactId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        A contact identifier (records.openapi.yaml). A contact the caller
+        cannot read is `404 not_found`. Not a uuid is `400`.
+    Locale:
+      name: locale
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/ScriptLocale' }
+      description: The locale to translate into. Not a supported locale, or the script's source locale, is `400`.
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 512 }
+      description: |
+        **Opaque.** Echo `nextCursor` back unchanged; do not parse it or
+        build one. It carries the id of the last row and nothing else, never
+        a name (D-L80); the server resolves the sort position inside the
+        caller's scope. It is valid only for the operation and path that
+        issued it. A malformed cursor is `400`. A cursor naming a row outside
+        the caller's scope yields rows from their scope only.
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      description: Rows per page. Out of range is `400`, never clamped.
+
+  schemas:
+    ScriptLocale:
+      type: string
+      enum: [en, fr, pcm, ha, yo, ig, sw]
+      description: |
+        A language a script's wording is written or translated in. The same
+        seven as the app's locale menu (`DESIGN_MENU_LOCALES` in
+        `@kasuwa/i18n`).
+
+    StaffRef:
+      type: object
+      additionalProperties: false
+      required: [id, displayName]
+      description: A staff member, as an id and a name to print (the T-0043 shape). Not customer data.
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+
+    NodeId:
+      type: string
+      pattern: '^[a-z][a-z0-9_]{0,39}$'
+      description: |
+        An author-chosen key for a node, unique within the graph. It is
+        configuration, never customer data, so it may appear in audit events
+        and in `details[]`.
+
+    ChoiceKey:
+      type: string
+      pattern: '^[a-z][a-z0-9_]{0,39}$'
+
+    ScriptGraph:
+      type: object
+      additionalProperties: false
+      required: [startNodeId, nodes]
+      description: |
+        A typed graph, never a free-form object. Each node is one of six
+        kinds, discriminated on `type`: `say`, `question`, `form`, `branch`,
+        `compliance` and `end`. The disposition is not a node: it is chosen
+        when the run completes, and an `end` node may suggest one.
+
+        A draft may be incomplete (a target that names no node yet). A
+        published graph is complete: it has its start node, every target
+        names a node, every path reaches an `end`, and it has no cycle
+        (publishScript, `409 script_invalid`).
+
+        **Wording** (`text`, `title`, labels) is in the script's source
+        locale, and may hold variables: `{contact.<field>}`,
+        `{agent.displayName}` and `{answer.<nodeId>.<fieldKey>}`. Nothing
+        else; `loan.*` waits (D-L88).
+      properties:
+        startNodeId: { $ref: '#/components/schemas/NodeId' }
+        nodes:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items: { $ref: '#/components/schemas/ScriptNode' }
+
+    ScriptNode:
+      oneOf:
+        - $ref: '#/components/schemas/SayNode'
+        - $ref: '#/components/schemas/QuestionNode'
+        - $ref: '#/components/schemas/FormNode'
+        - $ref: '#/components/schemas/BranchNode'
+        - $ref: '#/components/schemas/ComplianceNode'
+        - $ref: '#/components/schemas/EndNode'
+      discriminator:
+        propertyName: type
+        mapping:
+          say: '#/components/schemas/SayNode'
+          question: '#/components/schemas/QuestionNode'
+          form: '#/components/schemas/FormNode'
+          branch: '#/components/schemas/BranchNode'
+          compliance: '#/components/schemas/ComplianceNode'
+          end: '#/components/schemas/EndNode'
+
+    CanvasPosition:
+      type: object
+      additionalProperties: false
+      required: [x, y]
+      description: Where the builder draws the node. Layout only; it never changes a run.
+      properties:
+        x: { type: integer, minimum: 0, maximum: 100000 }
+        y: { type: integer, minimum: 0, maximum: 100000 }
+
+    SayNode:
+      type: object
+      additionalProperties: false
+      required: [id, type, title, text, next]
+      description: A line the agent reads.
+      properties:
+        id: { $ref: '#/components/schemas/NodeId' }
+        type: { type: string, enum: [say] }
+        title: { type: string, minLength: 1, maxLength: 120 }
+        text: { type: string, minLength: 1, maxLength: 4000 }
+        next: { $ref: '#/components/schemas/NodeId' }
+        position: { $ref: '#/components/schemas/CanvasPosition' }
+
+    QuestionNode:
+      type: object
+      additionalProperties: false
+      required: [id, type, title, text, choices]
+      description: |
+        The agent asks, and picks the customer's answer. The choice routes
+        the run and is kept in the run's answers.
+      properties:
+        id: { $ref: '#/components/schemas/NodeId' }
+        type: { type: string, enum: [question] }
+        title: { type: string, minLength: 1, maxLength: 120 }
+        text: { type: string, minLength: 1, maxLength: 4000 }
+        hint:
+          type: [string, 'null']
+          maxLength: 500
+          description: Shown to the agent only, never read out.
+        choices:
+          type: array
+          minItems: 2
+          maxItems: 12
+          items:
+            type: object
+            additionalProperties: false
+            required: [key, label, next]
+            properties:
+              key: { $ref: '#/components/schemas/ChoiceKey' }
+              label: { type: string, minLength: 1, maxLength: 120 }
+              next: { $ref: '#/components/schemas/NodeId' }
+        position: { $ref: '#/components/schemas/CanvasPosition' }
+
+    FormNode:
+      type: object
+      additionalProperties: false
+      required: [id, type, title, text, fields, next]
+      description: |
+        Fields the agent fills in. **The answers stay on the run.** A field
+        names no contact field and binds to no record: D-P31 (may a form
+        write CRM fields?) is open.
+      properties:
+        id: { $ref: '#/components/schemas/NodeId' }
+        type: { type: string, enum: [form] }
+        title: { type: string, minLength: 1, maxLength: 120 }
+        text: { type: string, minLength: 1, maxLength: 4000 }
+        fields:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { $ref: '#/components/schemas/FormField' }
+        next: { $ref: '#/components/schemas/NodeId' }
+        position: { $ref: '#/components/schemas/CanvasPosition' }
+
+    FormField:
+      type: object
+      additionalProperties: false
+      required: [key, label, type, required]
+      description: |
+        One input. Closed: it has no property that could bind it to a
+        contact or any other record (D-P31). Which bounds apply depends on
+        `type`: `maxLength` for `text`; `minimum`/`maximum` for `number`;
+        `currency`, `minimumMinor`/`maximumMinor` for `money` (all three
+        required for `money`); `minDaysAhead`/`maxDaysAhead` for `date`
+        (counted in the tenant's zone); `options` for `choice` (required).
+      properties:
+        key: { $ref: '#/components/schemas/ChoiceKey' }
+        label: { type: string, minLength: 1, maxLength: 120 }
+        type: { type: string, enum: [text, number, money, date, choice] }
+        required: { type: boolean }
+        maxLength: { type: integer, minimum: 1, maximum: 2000 }
+        minimum: { type: integer }
+        maximum: { type: integer }
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: ISO 4217. One currency per field, never converted.
+        minimumMinor: { type: string, pattern: '^[0-9]{1,18}$', description: Minor units. }
+        maximumMinor: { type: string, pattern: '^[0-9]{1,18}$', description: Minor units. }
+        minDaysAhead: { type: integer, minimum: 0, maximum: 366 }
+        maxDaysAhead: { type: integer, minimum: 0, maximum: 366 }
+        options:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items:
+            type: object
+            additionalProperties: false
+            required: [key, label]
+            properties:
+              key: { $ref: '#/components/schemas/ChoiceKey' }
+              label: { type: string, minLength: 1, maxLength: 120 }
+
+    BranchNode:
+      type: object
+      additionalProperties: false
+      required: [id, type, title, condition, whenTrue, whenFalse]
+      description: |
+        Evaluated by the server, never by the agent and never the current
+        node. Nothing to read out, so no `text`. A branch on a contact field
+        withheld from the run's agent stops the run (`field_withheld`).
+      properties:
+        id: { $ref: '#/components/schemas/NodeId' }
+        type: { type: string, enum: [branch] }
+        title: { type: string, minLength: 1, maxLength: 120 }
+        condition: { $ref: '#/components/schemas/BranchCondition' }
+        whenTrue: { $ref: '#/components/schemas/NodeId' }
+        whenFalse: { $ref: '#/components/schemas/NodeId' }
+        position: { $ref: '#/components/schemas/CanvasPosition' }
+
+    BranchCondition:
+      oneOf:
+        - $ref: '#/components/schemas/ContactFieldCondition'
+        - $ref: '#/components/schemas/AnswerCondition'
+      discriminator:
+        propertyName: source
+        mapping:
+          contact_field: '#/components/schemas/ContactFieldCondition'
+          answer: '#/components/schemas/AnswerCondition'
+
+    ConditionOperator:
+      type: string
+      enum: [equals, not_equals, one_of, is_set, is_not_set, greater_than, less_than]
+      description: |
+        A missing or `null` value is "not set", and every comparison with it
+        is false. `is_set` and `is_not_set` take no `value`; `one_of` takes a
+        list.
+
+    ConditionValue:
+      oneOf:
+        - { type: string, maxLength: 200 }
+        - { type: integer }
+        - { type: boolean }
+        - type: array
+          maxItems: 20
+          items: { type: string, maxLength: 200 }
+
+    ContactFieldCondition:
+      type: object
+      additionalProperties: false
+      required: [source, field, operator]
+      description: |
+        Reads one field of the run's contact. `field` is a Contact wire name
+        (records.openapi.yaml), checked at publish. Read, never written.
+      properties:
+        source: { type: string, enum: [contact_field] }
+        field: { type: string, pattern: '^[a-z][A-Za-z0-9]{0,63}$' }
+        operator: { $ref: '#/components/schemas/ConditionOperator' }
+        value: { $ref: '#/components/schemas/ConditionValue' }
+
+    AnswerCondition:
+      type: object
+      additionalProperties: false
+      required: [source, nodeId, operator]
+      description: |
+        Reads an answer already on the run: a question's choice key, or (with
+        `fieldKey`) a form field's value.
+      properties:
+        source: { type: string, enum: [answer] }
+        nodeId: { $ref: '#/components/schemas/NodeId' }
+        fieldKey: { $ref: '#/components/schemas/ChoiceKey' }
+        operator: { $ref: '#/components/schemas/ConditionOperator' }
+        value: { $ref: '#/components/schemas/ConditionValue' }
+
+    ComplianceNode:
+      type: object
+      additionalProperties: false
+      required: [id, type, title, text, next]
+      description: |
+        A mandatory statement, read word for word. The run cannot advance
+        past it, and cannot be completed while it is on the path, until the
+        agent acknowledges it (server timestamp). Who approves the wording is
+        D-P32, open.
+      properties:
+        id: { $ref: '#/components/schemas/NodeId' }
+        type: { type: string, enum: [compliance] }
+        title: { type: string, minLength: 1, maxLength: 120 }
+        text: { type: string, minLength: 1, maxLength: 4000 }
+        next: { $ref: '#/components/schemas/NodeId' }
+        position: { $ref: '#/components/schemas/CanvasPosition' }
+
+    EndNode:
+      type: object
+      additionalProperties: false
+      required: [id, type, title]
+      description: |
+        The end of a path. Reaching it does not complete the run; the agent
+        completes it with a disposition. `suggestedDispositionId`, when set,
+        is pre-selected in the picker ("Suggested from script"); the agent
+        may choose another.
+      properties:
+        id: { $ref: '#/components/schemas/NodeId' }
+        type: { type: string, enum: [end] }
+        title: { type: string, minLength: 1, maxLength: 120 }
+        text: { type: [string, 'null'], maxLength: 4000 }
+        suggestedDispositionId:
+          type: [string, 'null']
+          format: uuid
+          description: A disposition of the script's programme, live at publish.
+        position: { $ref: '#/components/schemas/CanvasPosition' }
+
+    NodeTranslation:
+      type: object
+      additionalProperties: false
+      description: |
+        A node's wording in one locale. Absent keys fall back to the source
+        locale. `choices` and `fields` map a choice or field key to its label.
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        text: { type: string, minLength: 1, maxLength: 4000 }
+        hint: { type: string, minLength: 1, maxLength: 500 }
+        choices:
+          type: object
+          maxProperties: 12
+          propertyNames: { $ref: '#/components/schemas/ChoiceKey' }
+          additionalProperties: { type: string, minLength: 1, maxLength: 120 }
+        fields:
+          type: object
+          maxProperties: 20
+          propertyNames: { $ref: '#/components/schemas/ChoiceKey' }
+          additionalProperties: { type: string, minLength: 1, maxLength: 120 }
+
+    TranslationTexts:
+      type: object
+      maxProperties: 200
+      description: One locale's wording, keyed by node id.
+      propertyNames: { $ref: '#/components/schemas/NodeId' }
+      additionalProperties: { $ref: '#/components/schemas/NodeTranslation' }
+
+    Translations:
+      type: object
+      description: Translations keyed by locale. The source locale is never a key.
+      propertyNames: { $ref: '#/components/schemas/ScriptLocale' }
+      additionalProperties: { $ref: '#/components/schemas/TranslationTexts' }
+
+    ScriptVersionSummary:
+      type: object
+      additionalProperties: false
+      required: [id, number, publishedAt, publishedBy]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: integer, minimum: 1, description: '1, 2, 3 … per script. The "v12" the screens print.' }
+        publishedAt: { type: string, format: date-time }
+        publishedBy:
+          description: Who published it. `null` only for a user removed from the tenant's directory.
+          oneOf:
+            - $ref: '#/components/schemas/StaffRef'
+            - type: 'null'
+
+    ScriptSummary:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, name, sourceLocale, translatedLocales, hasUnpublishedChanges, latestVersion, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        programmeId:
+          type: string
+          format: uuid
+          description: The script's programme. Set once at create; a script never moves.
+        name: { type: string, minLength: 1, maxLength: 120 }
+        sourceLocale: { $ref: '#/components/schemas/ScriptLocale' }
+        translatedLocales:
+          type: array
+          items: { $ref: '#/components/schemas/ScriptLocale' }
+        hasUnpublishedChanges: { type: boolean }
+        latestVersion:
+          description: The latest published version; `null` before the first publish.
+          oneOf:
+            - $ref: '#/components/schemas/ScriptVersionSummary'
+            - type: 'null'
+        updatedAt: { type: string, format: date-time }
+
+    Script:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, name, sourceLocale, translatedLocales, hasUnpublishedChanges, latestVersion, draft, revision, createdAt, updatedAt]
+      description: |
+        The authoring view: the script and its DRAFT. The draft is the only
+        editable thing; a published version is read with getScriptVersion.
+      properties:
+        id: { type: string, format: uuid }
+        programmeId:
+          type: string
+          format: uuid
+          description: The script's programme. Set once at create; a script never moves.
+        name: { type: string, minLength: 1, maxLength: 120 }
+        sourceLocale: { $ref: '#/components/schemas/ScriptLocale' }
+        translatedLocales:
+          type: array
+          items: { $ref: '#/components/schemas/ScriptLocale' }
+        hasUnpublishedChanges: { type: boolean }
+        latestVersion:
+          readOnly: true
+          description: The latest published version; `null` before the first publish.
+          oneOf:
+            - $ref: '#/components/schemas/ScriptVersionSummary'
+            - type: 'null'
+        draft:
+          type: object
+          additionalProperties: false
+          required: [graph, translations]
+          properties:
+            graph: { $ref: '#/components/schemas/ScriptGraph' }
+            translations: { $ref: '#/components/schemas/Translations' }
+        revision:
+          type: integer
+          minimum: 1
+          description: |
+            Optimistic-concurrency token for the draft; send it back on every
+            write. Named `revision`, not records' `version`, because a
+            "version" here is a published script version.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ScriptVersion:
+      type: object
+      additionalProperties: false
+      required: [id, scriptId, number, name, sourceLocale, graph, translations, changes, publishedAt, publishedBy]
+      description: An immutable published version. No operation edits or deletes one.
+      properties:
+        id: { type: string, format: uuid }
+        scriptId: { type: string, format: uuid }
+        number: { type: integer, minimum: 1 }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        sourceLocale: { $ref: '#/components/schemas/ScriptLocale' }
+        graph: { $ref: '#/components/schemas/ScriptGraph' }
+        translations: { $ref: '#/components/schemas/Translations' }
+        changes:
+          type: array
+          maxItems: 10
+          description: The publisher's list of what changed, for the update banner.
+          items: { type: string, maxLength: 200 }
+        publishedAt: { type: string, format: date-time }
+        publishedBy:
+          oneOf:
+            - $ref: '#/components/schemas/StaffRef'
+            - type: 'null'
+
+    ScriptPage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      description: Keyset page. No total, count or offset (D-P13). `nextCursor` is `null` on the last page.
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ScriptSummary' }
+        nextCursor: { type: [string, 'null'] }
+
+    ScriptVersionPage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      description: Keyset page, newest first. No total, count or offset.
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ScriptVersionSummary' }
+        nextCursor: { type: [string, 'null'] }
+
+    RunnableScript:
+      type: object
+      additionalProperties: false
+      required: [id, name, sourceLocale, translatedLocales, latestVersion]
+      description: A script an agent may start for this contact. Published content only; no draft.
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        sourceLocale: { $ref: '#/components/schemas/ScriptLocale' }
+        translatedLocales:
+          type: array
+          items: { $ref: '#/components/schemas/ScriptLocale' }
+        latestVersion:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ScriptVersionSummary'
+
+    RunnableScriptPage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      description: Keyset page. No total, count or offset.
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/RunnableScript' }
+        nextCursor: { type: [string, 'null'] }
+
+    RunDisposition:
+      type: object
+      additionalProperties: false
+      required: [id, code, label, category, noteRequired, followUpRequired, position]
+      description: |
+        A live disposition as an agent sees it: admin's `Disposition` without
+        `active` (always true here) or usage counts.
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, maxLength: 16 }
+        label: { type: string, maxLength: 120 }
+        category: { $ref: './admin.openapi.yaml#/components/schemas/DispositionCategory' }
+        noteRequired: { type: boolean }
+        followUpRequired: { type: boolean }
+        position: { type: integer, minimum: 1 }
+
+    RunDispositionPage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      description: Keyset page in agent order. No total, count or offset.
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/RunDisposition' }
+        nextCursor: { type: [string, 'null'] }
+
+    Money:
+      type: object
+      additionalProperties: false
+      required: [amountMinor, currency]
+      description: Minor units as a string plus an ISO 4217 code. Never a float.
+      properties:
+        amountMinor: { type: string, pattern: '^[0-9]{1,18}$' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+
+    AnswerValue:
+      description: |
+        One form field's value: text, a date (`YYYY-MM-DD`) or a choice key
+        as a string; a whole number; or `Money`. `null` clears it.
+      oneOf:
+        - { type: string, maxLength: 2000 }
+        - { type: integer }
+        - $ref: '#/components/schemas/Money'
+        - { type: 'null' }
+
+    NodeAnswer:
+      oneOf:
+        - $ref: '#/components/schemas/QuestionAnswer'
+        - $ref: '#/components/schemas/FormAnswer'
+      discriminator:
+        propertyName: type
+        mapping:
+          question: '#/components/schemas/QuestionAnswer'
+          form: '#/components/schemas/FormAnswer'
+
+    QuestionAnswer:
+      type: object
+      additionalProperties: false
+      required: [type, choiceKey, answeredAt]
+      properties:
+        type: { type: string, enum: [question] }
+        choiceKey: { $ref: '#/components/schemas/ChoiceKey' }
+        answeredAt: { type: string, format: date-time, readOnly: true }
+
+    FormAnswer:
+      type: object
+      additionalProperties: false
+      required: [type, values, updatedAt]
+      properties:
+        type: { type: string, enum: [form] }
+        values:
+          type: object
+          maxProperties: 20
+          propertyNames: { $ref: '#/components/schemas/ChoiceKey' }
+          additionalProperties: { $ref: '#/components/schemas/AnswerValue' }
+        updatedAt: { type: string, format: date-time, readOnly: true }
+
+    ScriptAnswers:
+      type: object
+      x-kasuwa-classification: pii
+      description: |
+        **Classification: `pii`.** What the customer said, keyed by node id.
+        Never logged, never in a trace, an error body or an analytics event;
+        audited by node and field keys only, never by value (D-L88). Kept on
+        the run and nowhere else: no answer is written to a contact field
+        (D-P31 is open).
+      propertyNames: { $ref: '#/components/schemas/NodeId' }
+      additionalProperties: { $ref: '#/components/schemas/NodeAnswer' }
+
+    RunStep:
+      type: object
+      additionalProperties: false
+      required: [nodeId, enteredAt]
+      description: A node the run entered, in order. A branch step records which side the server took.
+      properties:
+        nodeId: { $ref: '#/components/schemas/NodeId' }
+        enteredAt: { type: string, format: date-time, readOnly: true }
+        branchOutcome:
+          type: [boolean, 'null']
+          description: On a branch step only; `null` when the branch stopped the run.
+
+    Acknowledgement:
+      type: object
+      additionalProperties: false
+      required: [nodeId, acknowledgedAt]
+      properties:
+        nodeId: { $ref: '#/components/schemas/NodeId' }
+        acknowledgedAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: The server's clock when the acknowledgement arrived. Never the client's.
+
+    ScriptRun:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, contactId, scriptId, versionId, versionNumber, latestVersion, status, stopReason, currentNodeId, path, acknowledgements, answers, startedBy, startedAt, completedAt, dispositionId, activityId, followUpTaskId, revision]
+      description: |
+        One agent walking one published version for one contact. The run
+        pins `versionId` at start and never changes it; `latestVersion` is
+        informational and read-only.
+      properties:
+        id: { type: string, format: uuid }
+        programmeId:
+          type: string
+          format: uuid
+          description: The contact's programme, fixed at start.
+        contactId: { type: string, format: uuid }
+        scriptId: { type: string, format: uuid }
+        versionId:
+          type: string
+          format: uuid
+          readOnly: true
+          description: The version the run is on. Pinned at start; republishing never changes it.
+        versionNumber: { type: integer, minimum: 1, readOnly: true }
+        latestVersion:
+          readOnly: true
+          description: |
+            The script's latest published version now. Differs from
+            `versionId` when the script was republished during the run; the
+            run carries on, on its own version.
+          allOf:
+            - $ref: '#/components/schemas/ScriptVersionSummary'
+        status:
+          type: string
+          enum: [in_progress, stopped, completed]
+          description: |
+            `stopped`: the server could not go on (see `stopReason`); the run
+            can only be completed. `completed`: closed with a disposition.
+        stopReason:
+          type: [string, 'null']
+          enum: [field_withheld, null]
+          description: |
+            Why a `stopped` run stopped; `null` otherwise. `field_withheld`:
+            a branch read a contact field withheld from the agent.
+        currentNodeId:
+          oneOf:
+            - $ref: '#/components/schemas/NodeId'
+            - type: 'null'
+          description: Never a branch unless the run stopped on it. `null` once completed.
+        path:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/RunStep' }
+        acknowledgements:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/Acknowledgement' }
+        answers: { $ref: '#/components/schemas/ScriptAnswers' }
+        startedBy: { $ref: '#/components/schemas/StaffRef' }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+        dispositionId: { type: [string, 'null'], format: uuid }
+        activityId:
+          type: [string, 'null']
+          format: uuid
+          description: The `call` activity logged at completion (records.openapi.yaml).
+        followUpTaskId:
+          type: [string, 'null']
+          format: uuid
+          description: The callback `task` created at completion when a `followUp` was sent.
+        revision:
+          type: integer
+          minimum: 1
+          description: Optimistic-concurrency token; send it back on every run write.
+
+    CreateScriptRequest:
+      type: object
+      additionalProperties: false
+      required: [programmeId, name, sourceLocale]
+      description: Closed. `programmeId` is the target, reachable or `404`.
+      properties:
+        programmeId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        sourceLocale: { $ref: '#/components/schemas/ScriptLocale' }
+        graph: { $ref: '#/components/schemas/ScriptGraph' }
+
+    UpdateScriptRequest:
+      type: object
+      additionalProperties: false
+      required: [revision]
+      description: Closed. No `programmeId`, because a script never moves between programmes.
+      properties:
+        revision: { type: integer, minimum: 1 }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        sourceLocale: { $ref: '#/components/schemas/ScriptLocale' }
+        graph: { $ref: '#/components/schemas/ScriptGraph' }
+
+    PublishScriptRequest:
+      type: object
+      additionalProperties: false
+      required: [revision]
+      properties:
+        revision: { type: integer, minimum: 1 }
+        changes:
+          type: array
+          maxItems: 10
+          items: { type: string, minLength: 1, maxLength: 200 }
+
+    PutScriptTranslationRequest:
+      type: object
+      additionalProperties: false
+      required: [revision, texts]
+      properties:
+        revision: { type: integer, minimum: 1 }
+        texts: { $ref: '#/components/schemas/TranslationTexts' }
+
+    StartScriptRunRequest:
+      type: object
+      additionalProperties: false
+      required: [scriptId, contactId]
+      description: |
+        Closed. No version (the server pins the latest published one), no
+        programme (the contact's) and no call or interaction id (call-bound
+        runs wait for M09).
+      properties:
+        scriptId: { type: string, format: uuid }
+        contactId: { type: string, format: uuid }
+
+    AdvanceScriptRunRequest:
+      type: object
+      additionalProperties: false
+      required: [revision]
+      description: Closed. The server picks the next node; the client names only the choice on a question.
+      properties:
+        revision: { type: integer, minimum: 1 }
+        choiceKey: { $ref: '#/components/schemas/ChoiceKey' }
+
+    AcknowledgeScriptRunNodeRequest:
+      type: object
+      additionalProperties: false
+      required: [revision, nodeId]
+      description: Closed. No time; the server stamps it.
+      properties:
+        revision: { type: integer, minimum: 1 }
+        nodeId: { $ref: '#/components/schemas/NodeId' }
+
+    RecordScriptRunAnswersRequest:
+      type: object
+      additionalProperties: false
+      required: [revision, nodeId, values]
+      description: Closed. `values` is `pii`, like the answers it becomes.
+      properties:
+        revision: { type: integer, minimum: 1 }
+        nodeId: { $ref: '#/components/schemas/NodeId' }
+        values:
+          type: object
+          x-kasuwa-classification: pii
+          minProperties: 1
+          maxProperties: 20
+          propertyNames: { $ref: '#/components/schemas/ChoiceKey' }
+          additionalProperties: { $ref: '#/components/schemas/AnswerValue' }
+
+    CompleteScriptRunRequest:
+      type: object
+      additionalProperties: false
+      required: [revision, dispositionId]
+      description: |
+        Closed. No activity subject (the server uses the disposition's
+        label), no owner (the caller), no acknowledgement or time, and no
+        contact field.
+      properties:
+        revision: { type: integer, minimum: 1 }
+        dispositionId: { type: string, format: uuid }
+        note:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: Becomes the call activity's `body`. Free text; never logged.
+        followUp:
+          type: object
+          additionalProperties: false
+          required: [dueAt]
+          description: |
+            The callback. Required when the disposition has
+            `followUpRequired`; allowed with any other, and then it books the
+            callback too.
+          properties:
+            dueAt:
+              type: string
+              format: date-time
+              description: UTC with a `Z`, in the future. Calling-hours limits are not checked in this slice.
+
+  examples:
+    Script:
+      summary: A draft with one translation, one version already published
+      value:
+        id: 6c3a9e10-5b2d-4f71-9a8e-0d4c2b7f1a01
+        programmeId: 0b5e7a12-3c4d-4e5f-8a6b-7c8d9e0f1a21
+        name: Collections – Promise to pay
+        sourceLocale: en
+        translatedLocales: [pcm]
+        hasUnpublishedChanges: true
+        latestVersion:
+          id: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f12
+          number: 12
+          publishedAt: '2026-10-02T09:00:00Z'
+          publishedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a802, displayName: Kemi Adeyinka }
+        draft:
+          graph: &exampleGraph
+            startNodeId: greet
+            nodes:
+              - id: greet
+                type: say
+                title: Greeting
+                text: 'Good afternoon, {contact.displayName}. My name is {agent.displayName}. Is this a good time to talk?'
+                next: rec
+                position: { x: 40, y: 30 }
+              - id: rec
+                type: compliance
+                title: Recording notice
+                text: Before we continue, please note this call is recorded for quality and training purposes.
+                next: idq
+                position: { x: 40, y: 160 }
+              - id: idq
+                type: question
+                title: Speaking to the account holder?
+                text: 'Am I speaking with {contact.displayName}?'
+                hint: Confirm the name before discussing the account.
+                choices:
+                  - { key: 'yes', label: 'Yes, confirmed', next: cust }
+                  - { key: 'no', label: No / not the account holder, next: idfail }
+                position: { x: 40, y: 290 }
+              - id: idfail
+                type: end
+                title: Not the account holder
+                text: I'm sorry, I can only discuss this with the account holder. When can we reach them?
+                suggestedDispositionId: 9d1b4e70-2c5a-4e8f-b6d3-1a7c0e9f4b25
+                position: { x: 330, y: 290 }
+              - id: cust
+                type: branch
+                title: Existing customer?
+                condition: { source: contact_field, field: status, operator: one_of, value: [customer] }
+                whenTrue: payq
+                whenFalse: intro
+                position: { x: 40, y: 420 }
+              - id: intro
+                type: say
+                title: Introduce the offer
+                text: Thank you. I'm calling about the application you started with us.
+                next: payq
+                position: { x: 330, y: 420 }
+              - id: payq
+                type: question
+                title: Can pay today?
+                text: Are you able to make a payment today, or shall we agree a date that works for you?
+                choices:
+                  - { key: ptp, label: Agrees a promise to pay, next: ptp }
+                  - { key: refuse, label: Refuses to pay, next: refused }
+                  - { key: cb, label: Asks for a call back, next: cbend }
+                position: { x: 40, y: 550 }
+              - id: ptp
+                type: form
+                title: Promise to pay
+                text: Let's agree the date and amount you can pay.
+                fields:
+                  - { key: date, label: Promise date, type: date, required: true, minDaysAhead: 0, maxDaysAhead: 14 }
+                  - { key: amount, label: Amount, type: money, required: true, currency: NGN, minimumMinor: '500000', maximumMinor: '100000000' }
+                  - key: reason
+                    label: Reason for delay
+                    type: choice
+                    required: true
+                    options:
+                      - { key: salary_delayed, label: Salary delayed }
+                      - { key: business_slow, label: Business slow }
+                      - { key: medical, label: Medical expense }
+                      - { key: other, label: Other }
+                next: readback
+                position: { x: 40, y: 690 }
+              - id: refused
+                type: end
+                title: Refused
+                text: I understand. I'll note that a payment isn't possible today.
+                suggestedDispositionId: null
+                position: { x: 330, y: 690 }
+              - id: cbend
+                type: end
+                title: Wants a call back
+                text: No problem, I'll book a call back at a time that suits you.
+                suggestedDispositionId: 9d1b4e70-2c5a-4e8f-b6d3-1a7c0e9f4b25
+                position: { x: 620, y: 690 }
+              - id: readback
+                type: compliance
+                title: Read-back and PIN warning
+                text: "To confirm: you'll pay {answer.ptp.amount} on {answer.ptp.date}. We will never ask for your PIN."
+                next: close
+                position: { x: 40, y: 830 }
+              - id: close
+                type: end
+                title: Close
+                text: 'Thank you for your time, {contact.displayName}.'
+                suggestedDispositionId: 9d1b4e70-2c5a-4e8f-b6d3-1a7c0e9f4b21
+                position: { x: 40, y: 960 }
+          translations: &exampleTranslations
+            pcm:
+              greet: { text: 'Good afternoon, {contact.displayName}. My name na {agent.displayName}. You get small time to talk?' }
+              rec: { text: 'Before we continue, make you know say we dey record this call for quality and training.' }
+              payq:
+                text: You fit pay today, or make we agree one date wey go work for you?
+                choices: { ptp: Agree to pay, refuse: No go pay, cb: Call back later }
+        revision: 42
+        createdAt: '2026-08-14T10:00:00Z'
+        updatedAt: '2026-10-07T12:55:00Z'
+
+    ScriptVersion:
+      summary: Version 12, the one the example run is pinned to
+      value:
+        id: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f12
+        scriptId: 6c3a9e10-5b2d-4f71-9a8e-0d4c2b7f1a01
+        number: 12
+        name: Collections – Promise to pay
+        sourceLocale: en
+        graph: *exampleGraph
+        translations: *exampleTranslations
+        changes: [Hausa greeting corrected]
+        publishedAt: '2026-10-02T09:00:00Z'
+        publishedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a802, displayName: Kemi Adeyinka }
+
+    ScriptRunInProgress:
+      summary: Mid-call on v12 while v13 is live (P10/01, the update banner)
+      value:
+        id: 4a7e2c91-8b3d-4f60-a5e2-7c9d1b0f3e40
+        programmeId: 0b5e7a12-3c4d-4e5f-8a6b-7c8d9e0f1a21
+        contactId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e41
+        scriptId: 6c3a9e10-5b2d-4f71-9a8e-0d4c2b7f1a01
+        versionId: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f12
+        versionNumber: 12
+        latestVersion:
+          id: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f13
+          number: 13
+          publishedAt: '2026-10-07T13:55:00Z'
+          publishedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a802, displayName: Kemi Adeyinka }
+        status: in_progress
+        stopReason: null
+        currentNodeId: payq
+        path:
+          - { nodeId: greet, enteredAt: '2026-10-07T13:20:02Z' }
+          - { nodeId: rec, enteredAt: '2026-10-07T13:20:20Z' }
+          - { nodeId: idq, enteredAt: '2026-10-07T13:20:41Z' }
+          - { nodeId: cust, enteredAt: '2026-10-07T13:21:10Z', branchOutcome: true }
+          - { nodeId: payq, enteredAt: '2026-10-07T13:21:10Z' }
+        acknowledgements:
+          - { nodeId: rec, acknowledgedAt: '2026-10-07T13:20:38Z' }
+        answers:
+          idq: { type: question, choiceKey: 'yes', answeredAt: '2026-10-07T13:21:10Z' }
+        startedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a801, displayName: Tunde Bakare }
+        startedAt: '2026-10-07T13:20:02Z'
+        completedAt: null
+        dispositionId: null
+        activityId: null
+        followUpTaskId: null
+        revision: 7
+
+    ScriptRunStopped:
+      summary: A branch read a field withheld from the agent
+      value:
+        id: 4a7e2c91-8b3d-4f60-a5e2-7c9d1b0f3e40
+        programmeId: 0b5e7a12-3c4d-4e5f-8a6b-7c8d9e0f1a21
+        contactId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e41
+        scriptId: 6c3a9e10-5b2d-4f71-9a8e-0d4c2b7f1a01
+        versionId: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f12
+        versionNumber: 12
+        latestVersion:
+          id: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f12
+          number: 12
+          publishedAt: '2026-10-02T09:00:00Z'
+          publishedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a802, displayName: Kemi Adeyinka }
+        status: stopped
+        stopReason: field_withheld
+        currentNodeId: cust
+        path:
+          - { nodeId: greet, enteredAt: '2026-10-07T13:20:02Z' }
+          - { nodeId: rec, enteredAt: '2026-10-07T13:20:20Z' }
+          - { nodeId: idq, enteredAt: '2026-10-07T13:20:41Z' }
+          - { nodeId: cust, enteredAt: '2026-10-07T13:21:10Z', branchOutcome: null }
+        acknowledgements:
+          - { nodeId: rec, acknowledgedAt: '2026-10-07T13:20:38Z' }
+        answers:
+          idq: { type: question, choiceKey: 'yes', answeredAt: '2026-10-07T13:21:10Z' }
+        startedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a801, displayName: Tunde Bakare }
+        startedAt: '2026-10-07T13:20:02Z'
+        completedAt: null
+        dispositionId: null
+        activityId: null
+        followUpTaskId: null
+        revision: 5
+
+    ScriptRunCompleted:
+      summary: Completed with a promise to pay (P10/03)
+      value:
+        id: 4a7e2c91-8b3d-4f60-a5e2-7c9d1b0f3e40
+        programmeId: 0b5e7a12-3c4d-4e5f-8a6b-7c8d9e0f1a21
+        contactId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e41
+        scriptId: 6c3a9e10-5b2d-4f71-9a8e-0d4c2b7f1a01
+        versionId: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f12
+        versionNumber: 12
+        latestVersion:
+          id: 2f8e6d14-7a3b-4c9e-8d21-5b0a9c3e7f13
+          number: 13
+          publishedAt: '2026-10-07T13:55:00Z'
+          publishedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a802, displayName: Kemi Adeyinka }
+        status: completed
+        stopReason: null
+        currentNodeId: null
+        path:
+          - { nodeId: greet, enteredAt: '2026-10-07T13:20:02Z' }
+          - { nodeId: rec, enteredAt: '2026-10-07T13:20:20Z' }
+          - { nodeId: idq, enteredAt: '2026-10-07T13:20:41Z' }
+          - { nodeId: cust, enteredAt: '2026-10-07T13:21:10Z', branchOutcome: true }
+          - { nodeId: payq, enteredAt: '2026-10-07T13:21:10Z' }
+          - { nodeId: ptp, enteredAt: '2026-10-07T13:22:30Z' }
+          - { nodeId: readback, enteredAt: '2026-10-07T13:24:05Z' }
+          - { nodeId: close, enteredAt: '2026-10-07T13:24:40Z' }
+        acknowledgements:
+          - { nodeId: rec, acknowledgedAt: '2026-10-07T13:20:38Z' }
+          - { nodeId: readback, acknowledgedAt: '2026-10-07T13:24:37Z' }
+        answers:
+          idq: { type: question, choiceKey: 'yes', answeredAt: '2026-10-07T13:21:10Z' }
+          payq: { type: question, choiceKey: ptp, answeredAt: '2026-10-07T13:22:30Z' }
+          ptp:
+            type: form
+            values:
+              date: '2026-10-15'
+              amount: { amountMinor: '2500000', currency: NGN }
+              reason: salary_delayed
+            updatedAt: '2026-10-07T13:24:01Z'
+        startedBy: { id: 5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a801, displayName: Tunde Bakare }
+        startedAt: '2026-10-07T13:20:02Z'
+        completedAt: '2026-10-07T13:26:12Z'
+        dispositionId: 9d1b4e70-2c5a-4e8f-b6d3-1a7c0e9f4b21
+        activityId: 8a9b0c1d-2e3f-4a5b-9c6d-7e8f9a0b1c51
+        followUpTaskId: null
+        revision: 12
+
+  responses:
+    ValidationFailed:
+      description: |
+        The request did not parse: a non-uuid id, an unsupported locale, a
+        bad query value or cursor, an unknown or server-owned body property,
+        a graph of the wrong shape, a node that is not on the run's path, a
+        choice that is not the node's, or an answer that breaks its field's
+        rules. `details` names paths and reason codes, never the submitted
+        value (an answer is `pii`).
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            badCursor:
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: cursor
+                    code: invalid_cursor
+            notOnPath:
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: nodeId
+                    code: not_on_path
+            badAnswer:
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: values.amount
+                    code: too_small
+
+    NotAuthenticated:
+      description: |
+        No usable session. It does not say whether the token was missing,
+        expired, revoked or from another tenant.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          example:
+            statusCode: 401
+            error: Unauthorized
+            code: not_authenticated
+            message: Not authenticated
+
+    NotFound:
+      description: |
+        **One body for all of:** no such record, a record in another tenant,
+        a record in a programme the caller does not reach, and a record the
+        caller may not read (a script without `script.write`, a run without
+        `script.run`). A `403` here would confirm the id names something
+        real.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          example:
+            statusCode: 404
+            error: Not Found
+            code: not_found
+            message: Not found
+
+    NotPermitted:
+      description: |
+        **Writes only, and never a substitute for `404`.** The caller can read
+        the record (or reaches the target programme) and may not do this:
+        no `script.write` or `script.run` there, or a run that is another
+        agent's.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          example:
+            statusCode: 403
+            error: Forbidden
+            code: not_permitted
+            message: You do not have permission to do that.
+
+    StaleWrite:
+      description: |
+        `revision` is not current: somebody saved since your last read.
+        Nothing was applied. Re-read and re-apply; do not retry blind.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          example:
+            statusCode: 409
+            error: Conflict
+            code: stale_write
+            message: Someone else saved changes while you were editing. Reload and try again.
+
+    PublishConflict:
+      description: Nothing was published.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            staleWrite:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: stale_write
+                message: Someone else saved changes while you were editing. Reload and try again.
+            scriptInvalid:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: script_invalid
+                message: The script cannot be published yet.
+                details:
+                  - path: nodes.payq.choices.cb.next
+                    code: unknown_target
+                  - path: nodes.ptp
+                    code: unreachable_end
+
+    StartConflict:
+      description: No run was started.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            scriptNotPublished:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: script_not_published
+                message: This script has no published version yet.
+
+    AdvanceConflict:
+      description: The run did not move.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            runCompleted:
+              value: { statusCode: 409, error: Conflict, code: run_completed, message: This run is already completed. }
+            runStopped:
+              value: { statusCode: 409, error: Conflict, code: run_stopped, message: This run has stopped. Complete it with a disposition. }
+            staleWrite:
+              value: { statusCode: 409, error: Conflict, code: stale_write, message: Someone else saved changes while you were editing. Reload and try again. }
+            runAtEnd:
+              value: { statusCode: 409, error: Conflict, code: run_at_end, message: This is the end of the script. Choose a disposition. }
+            complianceUnacknowledged:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: compliance_unacknowledged
+                message: Confirm you read the statement in full first.
+                details:
+                  - { path: nodes.rec, code: not_acknowledged }
+            answersIncomplete:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: answers_incomplete
+                message: Fill in the required fields first.
+                details:
+                  - { path: values.date, code: required }
+                  - { path: values.reason, code: required }
+
+    RunWriteConflict:
+      description: Nothing was written.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            runCompleted:
+              value: { statusCode: 409, error: Conflict, code: run_completed, message: This run is already completed. }
+            runStopped:
+              value: { statusCode: 409, error: Conflict, code: run_stopped, message: This run has stopped. Complete it with a disposition. }
+            staleWrite:
+              value: { statusCode: 409, error: Conflict, code: stale_write, message: Someone else saved changes while you were editing. Reload and try again. }
+
+    CompleteConflict:
+      description: The run was not completed, and no activity or task was written.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            runCompleted:
+              value: { statusCode: 409, error: Conflict, code: run_completed, message: This run is already completed. }
+            staleWrite:
+              value: { statusCode: 409, error: Conflict, code: stale_write, message: Someone else saved changes while you were editing. Reload and try again. }
+            complianceUnacknowledged:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: compliance_unacknowledged
+                message: Some compliance statements have not been confirmed as read.
+                details:
+                  - { path: nodes.readback, code: not_acknowledged }
+            dispositionNotLive:
+              value: { statusCode: 409, error: Conflict, code: disposition_not_live, message: That disposition is no longer available. Choose another. }
+            dispositionRequirementsUnmet:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: disposition_requirements_unmet
+                message: This disposition needs more before it can be saved.
+                details:
+                  - { path: followUp, code: required }
+
+security:
+  - sessionToken: []
