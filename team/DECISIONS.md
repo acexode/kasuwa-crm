@@ -2122,3 +2122,15 @@ Every recommendation below was taken as written in its entry. What each one now 
   `bootstrap.sql` (migrator, app, auth); `kasuwa_sweeper` stays NOLOGIN with no password.
 - **Tracked:** isolation's `auth-availability` timing suite fails whenever two heavy jobs share the host. Give it its own
   serial stage in `test:isolation` (a lead edit to the test setup).
+- **D-L94 addendum, from the rewritten T-0117 suite (2026-10-08):**
+  - **Judge what `pg` will use.** `pg-connection-string` lets `?host=` and `?password=` override the URL and percent-decodes
+    the password. Every guard parses the URL the way `pg` does, never with `new URL()` alone.
+  - **`PGHOST`, `PGPASSWORD` and `PGUSER`** in the environment are refused outside development and test (read through
+    `@kasuwa/config`), since `pg` falls back to them.
+  - **The worker** refuses dev passwords the same way as the API.
+  - **API and worker boot:** in production, refuse to start when `kasuwa_test_admin` can log in or bypass RLS (readable from
+    `pg_roles` as `kasuwa_app`). The runner's check runs only at migration time; this one runs at every deploy.
+  - **Accepted limits:** the migrator cannot read whether a NOLOGIN role has a password (superuser-only), so a "password alone"
+    refusal is not possible, and a role made a login is caught at the next boot or migration. An explicit
+    `NODE_ENV=development` against a remote host is not refused. `NODE_ENV=''` is invalid, not unset. "Unset" is read raw,
+    not through `nodeEnv()`.
