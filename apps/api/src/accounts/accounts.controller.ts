@@ -143,8 +143,8 @@ export class AccountsController {
    * `listAccountTimeline` (T-0080). 200 · 400 · 401 · 404. Reachability
    * first, and a path id that is not a uuid is that same 404 (never a 400),
    * then the query, then the cursor. `no-store` on every answer: the header
-   * here covers a 200, and `NoStoreMiddleware` (app.module.ts) covers the
-   * 400 and 404, which `@Header` never reaches.
+   * here, which Nest sets after the guards, and `NoStoreMiddleware`
+   * (app.module.ts), which also covers the guard's 401 and 400.
    */
   @Get(':accountId/timeline')
   @Header(CACHE_CONTROL, NO_STORE)

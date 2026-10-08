@@ -1,22 +1,24 @@
-import { Injectable, RequestMethod, type NestMiddleware } from '@nestjs/common';
+import { Injectable, type NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 
 /**
  * `Cache-Control: no-store` on EVERY answer of the routes it is applied to,
- * errors included (T-0080).
+ * set before the guard runs (T-0078 for the audit routes; T-0080 for every
+ * records route, closing D-L90's follow-up). The one copy in the app.
  *
- * Nest's `@Header` is applied only when a handler returns: a `400` or `404`
- * thrown inside it, or a `401` from the guard, is written by an exception
- * filter and never carries the header. A middleware runs before the guard,
- * the interceptor and the handler, so the header is set on the response
- * before anything can answer, and every filter's `status().json()` keeps it.
- * An error body names no record, but the answer for one of these URLs is
- * still not something a shared or browser cache may keep and replay: they
- * are the same for every user of every tenant.
+ * The handlers' `@Header` does not reach every answer: Nest sets it AFTER the
+ * guards run (router-execution-context.js: guards, then status and headers,
+ * then interceptors and the handler). So a 400 or 404 thrown by an
+ * interceptor or a handler carries it, but `KasuwaAuthGuard`'s 401 and its
+ * scope-header 400 go out without it, as would any route that forgot the
+ * decorator. Middleware runs before guards, so every answer such a route
+ * gives, error or not, is marked, and every exception filter's
+ * `status().json()` keeps the header. Error bodies name nothing, but a URL
+ * that is identical for every user of every tenant is never one a shared
+ * cache should keep.
  *
- * Applied in `AppModule.configure` to `NO_STORE_ROUTES` only. A middleware
- * for every `/api/v1` route, replacing the per-handler headers, is the
- * tracked follow-up in D-L90, not this change.
+ * Applied by `AdminAuditModule` (the audit controller) and by `AppModule`
+ * (`RECORDS_CONTROLLERS`). The handlers keep their own `@Header` as well.
  */
 @Injectable()
 export class NoStoreMiddleware implements NestMiddleware {
@@ -25,11 +27,3 @@ export class NoStoreMiddleware implements NestMiddleware {
     next();
   }
 }
-
-/** The routes whose every answer, 200, 400 and 404 alike, is `no-store`. */
-export const NO_STORE_ROUTES = [
-  // listContactTimeline (T-0061) and listAccountTimeline (T-0080): one
-  // shared implementation, one caching rule.
-  { path: 'api/v1/contacts/:contactId/timeline', method: RequestMethod.GET },
-  { path: 'api/v1/accounts/:accountId/timeline', method: RequestMethod.GET },
-];

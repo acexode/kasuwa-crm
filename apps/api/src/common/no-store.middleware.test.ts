@@ -1,17 +1,21 @@
 import 'reflect-metadata';
-import { RequestMethod } from '@nestjs/common';
-import { PATH_METADATA } from '@nestjs/common/constants';
+import type { MiddlewareConsumer } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 import { describe, expect, it, vi } from 'vitest';
 import { AccountsController } from '../accounts/accounts.controller';
+import { ActivitiesController } from '../activities/activities.controller';
+import { AppModule, RECORDS_CONTROLLERS } from '../app.module';
 import { ContactsController } from '../contacts/contacts.controller';
-import { NO_STORE_ROUTES, NoStoreMiddleware } from './no-store.middleware';
+import { LeadsController } from '../leads/leads.controller';
+import { MeController } from '../me/me.controller';
+import { NoStoreMiddleware } from './no-store.middleware';
 
 /**
- * T-0080: `@Header` never reaches a thrown 400 or 404, so the timelines'
- * `no-store` on errors comes from a middleware. Without a database: the
- * middleware sets the header before calling on, and its routes are exactly
- * the two timeline routes the controllers declare.
+ * T-0080: `@Header` is set after the guards, so it never reaches a guard's
+ * 401 or 400; every records answer gets `no-store` from the one shared
+ * middleware as well. Without a database: what the middleware does, and that
+ * the app applies it to every records controller (the integration test
+ * contacts/records-no-store.integration.test.ts proves it on the wire).
  */
 
 describe('NoStoreMiddleware', () => {
@@ -23,19 +27,36 @@ describe('NoStoreMiddleware', () => {
     expect(setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
     expect(order).toEqual(['header', 'next']);
   });
+});
 
-  it('covers both timeline routes, GET only, as the controllers declare them', () => {
-    const route = (controller: object, handler: object) =>
-      `${String(Reflect.getMetadata(PATH_METADATA, controller))}/${String(
-        Reflect.getMetadata(PATH_METADATA, handler),
-      )}`;
-    const declared = [
-      route(ContactsController, ContactsController.prototype.timeline),
-      route(AccountsController, AccountsController.prototype.timeline),
-    ].map((path) => path.replace(/:[A-Za-z]+/g, ':id'));
-    expect(NO_STORE_ROUTES.map((entry) => entry.path.replace(/:[A-Za-z]+/g, ':id'))).toEqual(
-      declared,
-    );
-    for (const entry of NO_STORE_ROUTES) expect(entry.method).toBe(RequestMethod.GET);
+describe('AppModule applies it to every records controller (T-0080, D-L90)', () => {
+  it('names contacts, leads, accounts, activities and me', () => {
+    expect([...RECORDS_CONTROLLERS]).toEqual([
+      ContactsController,
+      LeadsController,
+      AccountsController,
+      ActivitiesController,
+      MeController,
+    ]);
+  });
+
+  it('configure() routes NoStoreMiddleware to exactly those controllers, excluding nothing', () => {
+    const applied: { middleware: unknown[]; routes: unknown[] }[] = [];
+    const consumer = {
+      apply: (...middleware: unknown[]) => ({
+        forRoutes: (...routes: unknown[]) => {
+          applied.push({ middleware, routes });
+          return consumer;
+        },
+        exclude: () => {
+          throw new Error('no records route is excluded');
+        },
+      }),
+    };
+    new AppModule().configure(consumer as unknown as MiddlewareConsumer);
+    const noStore = applied.filter((entry) => entry.middleware.includes(NoStoreMiddleware));
+    expect(noStore).toHaveLength(1);
+    expect(noStore[0]?.middleware).toEqual([NoStoreMiddleware]);
+    expect(noStore[0]?.routes).toEqual([...RECORDS_CONTROLLERS]);
   });
 });
