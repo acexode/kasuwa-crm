@@ -577,7 +577,11 @@ export const fieldDef = pgTable(
     isRequired: boolean('is_required').notNull().default(false),
     isCustom: boolean('is_custom').notNull().default(true),
     config: jsonb('config').notNull().default({}),
-    /** `none` | `pii` | `sensitive` (0009, D-L45). Drives the matrix's filter and row tag. */
+    /**
+     * `none` < `pii` < `sensitive` (0009, D-L45). Drives the matrix's filter and row tag.
+     * On a standard field (`isCustom` false) any role may raise it, never lower it (0029,
+     * D-P25): SQLSTATE 23514, constraint `field_def_classification_raise_only`.
+     */
     classification: text('classification').notNull().default('none'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

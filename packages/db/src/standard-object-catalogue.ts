@@ -241,7 +241,7 @@ export async function ensureStandardObjectDefs(
   // catalogue name, a mis-typed adopted row). So check the result, per name,
   // as 0025's backfill proof does, and refuse to report success on a tenant
   // whose catalogue is still incomplete. Classification is not compared: a
-  // tenant may have edited it (open as D-P25).
+  // tenant may have raised it (D-P25; migration 0029 refuses a lowering).
   const missing = await query(
     `SELECT c.object_api_name AS entry
        FROM unnest($2::text[]) AS c (object_api_name)
