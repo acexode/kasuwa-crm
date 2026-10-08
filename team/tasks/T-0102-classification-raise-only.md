@@ -1,6 +1,6 @@
 # T-0102 — A standard field's classification may be raised, never lowered (D-P25)
 
-**status** `assigned` (suite `lead/T-0102-acceptance`, 216618e; migration **0029** reserved) · **owner** Agent 2 · **priority** P1 · **decisions** D-P25, D-L65
+**status** `done` (#106) · **owner** Agent 2 · **priority** P1 · **decisions** D-P25, D-L65
 
 ## Goal
 A tenant cannot declassify a standard field: `contact.phones` can go from `pii` to `sensitive`, never to `none`. Custom

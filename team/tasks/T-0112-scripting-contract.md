@@ -1,6 +1,6 @@
 # T-0112 — In-call script contract, manual mode (P10)
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 6 · **priority** P2 · **decisions** D-L88, D-P31, D-P32,
+**status** `done` (#107) · **owner** Agent 6 · **priority** P2 · **decisions** D-L88, D-P31, D-P32,
 D-P14, D-L40, ADR-0003
 
 ## Goal
