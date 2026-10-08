@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Lead, convertLead, getLead, leadListSearch, listLeads, moveLead } from './leads-api';
+import { ContactOwner, Lead, LeadPage, convertLead, getLead, leadListSearch, listLeads, moveLead } from './leads-api';
 import { hasDetail, isWithheld } from './records-api';
 
 const ROW = {
@@ -103,6 +103,21 @@ describe('the lead schema', () => {
     expect(Lead.parse({ ...ROW, accountId: ACCOUNT.id, account: { id: ACCOUNT.id, name: ACCOUNT.name } }).account?.name).toBe(
       ACCOUNT.name,
     );
+  });
+});
+
+describe('a former owner on a lead row (T-0103, D-P23)', () => {
+  it('parses { id, displayName: null } and keeps the row', () => {
+    const former = { id: ROW.ownerUserId, displayName: null };
+    const parsed = Lead.parse({ ...ROW, owner: former });
+    expect(parsed.owner).toEqual(former);
+    expect(LeadPage.parse({ data: [{ ...ROW, owner: former }, ROW], nextCursor: null }).data).toHaveLength(2);
+  });
+
+  it('still refuses an owner with no name key, or a name that is not a string or null', () => {
+    expect(ContactOwner.safeParse({ id: ROW.ownerUserId }).success).toBe(false);
+    expect(ContactOwner.safeParse({ id: ROW.ownerUserId, displayName: 42 }).success).toBe(false);
+    expect(Lead.safeParse({ ...ROW, owner: 'former' }).success).toBe(false);
   });
 });
 

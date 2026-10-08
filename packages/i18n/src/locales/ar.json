@@ -851,6 +851,7 @@
   "records.more": "+{count} أخرى",
   "records.owner.assigned": "معيّن",
   "records.owner.unassigned": "غير معيّن",
+  "records.owner.former": "المسؤول السابق",
   "records.account.linked": "مرتبط",
   "records.account.none": "لا يوجد حساب",
   "records.wa.in": "وافق على واتساب",

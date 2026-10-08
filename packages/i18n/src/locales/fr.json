@@ -851,6 +851,7 @@
   "records.more": "+{count} de plus",
   "records.owner.assigned": "Attribué",
   "records.owner.unassigned": "Non attribué",
+  "records.owner.former": "Ancien responsable",
   "records.account.linked": "Lié",
   "records.account.none": "Aucun compte",
   "records.wa.in": "A accepté WhatsApp",

@@ -851,6 +851,7 @@
   "records.more": "+{count} zaidi",
   "records.owner.assigned": "Amepangiwa",
   "records.owner.unassigned": "Hajapangiwa mtu",
+  "records.owner.former": "Msimamizi wa zamani",
   "records.account.linked": "Imeunganishwa",
   "records.account.none": "Hakuna akaunti",
   "records.wa.in": "Amekubali WhatsApp",

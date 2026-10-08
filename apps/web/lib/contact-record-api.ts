@@ -36,8 +36,21 @@ import {
 // The record
 // ---------------------------------------------------------------------------
 
+/**
+ * A named person: the timeline's `actor` (TimelineActor). Strict on purpose:
+ * an actor is always named, a former member included (D-L81). Never reuse it
+ * for `owner`, which may be a former owner.
+ */
 const Person = z.object({ id: z.string(), displayName: z.string() });
 export type Person = z.infer<typeof Person>;
+
+/**
+ * `Contact.owner`. `displayName: null` is a FORMER owner (T-0103, D-P23): no
+ * longer a member of the contact's programme. The record prints the
+ * translated `records.owner.former`, never the id.
+ */
+export const ContactOwner = z.object({ id: z.string(), displayName: z.string().nullable() });
+export type ContactOwner = z.infer<typeof ContactOwner>;
 
 const AccountSummary = z.object({ id: z.string(), name: z.string() });
 export type AccountSummary = z.infer<typeof AccountSummary>;
@@ -50,7 +63,7 @@ export type AccountSummary = z.infer<typeof AccountSummary>;
 export const ContactRecord = Contact.extend({
   // Free text; withheld like any field (T-0076). Shown, not yet offered in the edit sheet.
   companyName: z.string().nullable().optional(),
-  owner: Person.nullable().optional(),
+  owner: ContactOwner.nullable().optional(),
   account: AccountSummary.nullable().optional(),
 });
 export type ContactRecord = z.infer<typeof ContactRecord>;

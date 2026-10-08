@@ -41,7 +41,13 @@ export type LeadSort = z.infer<typeof LeadSort>;
 /** The server's default order: sent only when it is not this. */
 export const DEFAULT_LEAD_SORT: LeadSort = '-createdAt';
 
-const ContactOwner = z.object({ id: z.string(), displayName: z.string() });
+/**
+ * `Contact.owner`. `displayName: null` is a FORMER owner (T-0103, D-P23): no
+ * longer a member of the contact's programme. The row prints the translated
+ * `records.owner.former`, never the id. Always present, never omitted.
+ */
+export const ContactOwner = z.object({ id: z.string(), displayName: z.string().nullable() });
+export type ContactOwner = z.infer<typeof ContactOwner>;
 const ContactAccountSummary = z.object({ id: z.string(), name: z.string() });
 
 /**

@@ -851,6 +851,7 @@
   "records.more": "+{count} oda ones",
   "records.owner.assigned": "Person dey handle am",
   "records.owner.unassigned": "Nobody dey handle am",
+  "records.owner.former": "Person wey dey handle am before",
   "records.account.linked": "E get link",
   "records.account.none": "No account",
   "records.wa.in": "E don agree for WhatsApp",
