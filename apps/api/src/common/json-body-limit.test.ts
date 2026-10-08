@@ -24,6 +24,23 @@ describe('JsonBodyLimit (T-0113)', () => {
     expect(jsonParsers(adapter)).toBe(1);
   });
 
+  it('installs a urlencoded stand-in that parses nothing, so Nest adds no form parser', () => {
+    const adapter = new ExpressAdapter();
+    new JsonBodyLimit(hostFor(adapter));
+    expect(hasMiddleware(adapter.getInstance(), 'urlencodedParser')).toBe(true);
+    const app = adapter.getInstance() as {
+      router: { stack: { handle: { name: string } & ((...args: unknown[]) => void) }[] };
+    };
+    const layer = app.router.stack.find((entry) => entry.handle.name === 'urlencodedParser');
+    const request: { body?: unknown } = {};
+    let called = false;
+    layer?.handle(request, {}, () => {
+      called = true;
+    });
+    expect(called).toBe(true);
+    expect(request.body).toBeUndefined();
+  });
+
   it('leaves an adapter that is not Express alone', () => {
     expect(() => new JsonBodyLimit(hostFor(undefined))).not.toThrow();
     expect(() => new JsonBodyLimit(hostFor({ getType: () => 'fastify' }))).not.toThrow();

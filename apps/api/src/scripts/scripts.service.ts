@@ -19,6 +19,7 @@ import {
   ScriptLocaleSchema,
   SCRIPT_MAX_SERIALISED_BYTES,
   SCRIPT_REASON,
+  rawBoundsProblems,
   serialisedDraftBytes,
   stringProblems,
   TranslationTextsSchema,
@@ -109,11 +110,17 @@ function plainBody(body: unknown): Record<string, unknown> {
   return body as Record<string, unknown>;
 }
 
-/** Parse a body: NUL and lone surrogates first, anywhere, then the closed schema. */
+/**
+ * Parse a body, cheapest refusal first, each linear in the body (security
+ * review, T-0113): its nesting depth, NUL and lone surrogates anywhere, then
+ * the raw collection bounds, and only then the closed schema.
+ */
 function parseBody<S extends z.ZodTypeAny>(schema: S, body: unknown): z.output<S> {
   const raw = plainBody(body);
   const problems = stringProblems(raw);
   if (problems.length > 0) throw validationFailed(problems);
+  const bounds = rawBoundsProblems(raw);
+  if (bounds.length > 0) throw validationFailed(bounds);
   const parsed = schema.safeParse(raw);
   if (!parsed.success) throw validationFailedFrom(parsed.error);
   return parsed.data as z.output<S>;

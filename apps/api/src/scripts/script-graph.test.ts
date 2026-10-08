@@ -3,8 +3,12 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 import {
+  BODY_MAX_DEPTH,
   codePoints,
   EMPTY_DRAFT_GRAPH,
+  MAX_STRING_PROBLEMS,
+  rawBoundsProblems,
+  TOO_DEEP,
   hasLoneSurrogate,
   ScriptGraphSchema,
   serialisedDraftBytes,
@@ -227,13 +231,48 @@ describe('the empty draft (createScript without a graph, T-0113)', () => {
   });
 });
 
+/** The security review's body: `{"x":"\u0000","a":{"x":"\u0000","a":{...}}}`, 512 KiB, parsed. */
+function nestedAttack(bytes = 512 * 1024): unknown {
+  const level = '{"x":"\\u0000","a":';
+  const depth = Math.floor((bytes - 2) / (level.length + 1));
+  return JSON.parse(`${level.repeat(depth)}{}${'}'.repeat(depth)}`);
+}
+
 describe('stringProblems (T-0113)', () => {
-  it('finds a NUL anywhere, by path, and never echoes the value', () => {
+  it('finds a NUL anywhere, by path, in document order, and never echoes the value', () => {
     const problems = stringProblems({ name: 'a\u0000b', graph: { nodes: [{ text: 'x\u0000' }] } });
     expect(problems).toEqual([
-      { path: 'graph.nodes.0.text', code: 'nul_character' },
       { path: 'name', code: 'nul_character' },
+      { path: 'graph.nodes.0.text', code: 'nul_character' },
     ]);
+  });
+
+  it('the nested 512 KiB attack body is one too_deep, in well under 200 ms', () => {
+    const body = nestedAttack();
+    const started = performance.now();
+    const problems = stringProblems(body);
+    const elapsed = performance.now() - started;
+    expect(problems).toEqual([TOO_DEEP]);
+    expect(elapsed).toBeLessThan(200);
+  });
+
+  it('accepts nesting up to BODY_MAX_DEPTH and refuses one level more', () => {
+    const nest = (levels: number): unknown => {
+      let value: unknown = 'leaf';
+      for (let index = 0; index < levels; index += 1) value = { a: value };
+      return value;
+    };
+    expect(stringProblems(nest(BODY_MAX_DEPTH))).toEqual([]);
+    expect(stringProblems(nest(BODY_MAX_DEPTH + 1))).toEqual([TOO_DEEP]);
+  });
+
+  it('stops after MAX_STRING_PROBLEMS problems', () => {
+    const wide = Array.from({ length: 100_000 }, () => '\u0000');
+    const started = performance.now();
+    const problems = stringProblems({ items: wide });
+    expect(problems).toHaveLength(MAX_STRING_PROBLEMS);
+    expect(problems[0]).toEqual({ path: 'items.0', code: 'nul_character' });
+    expect(performance.now() - started).toBeLessThan(200);
   });
 
   it('reports a bad object key at its parent, not by the key', () => {
@@ -251,10 +290,51 @@ describe('stringProblems (T-0113)', () => {
     ]);
   });
 
-  it('walks a deeply nested body without recursion', () => {
+  it('walks a 50,000-deep body without recursion, and refuses it as too_deep', () => {
     let deep: unknown = 'x\u0000';
     for (let index = 0; index < 50_000; index += 1) deep = [deep];
-    expect(stringProblems(deep)).toHaveLength(1);
+    expect(stringProblems(deep)).toEqual([TOO_DEEP]);
+  });
+});
+
+describe('rawBoundsProblems (T-0113): collection bounds before Zod sees an element', () => {
+  it('a 512 KiB nodes: [{}, {}, ...] is one too_big at graph.nodes, in O(1)', () => {
+    const nodes = Array.from({ length: (512 * 1024) / 3 }, () => ({}));
+    const started = performance.now();
+    expect(rawBoundsProblems({ graph: { nodes } })).toEqual([
+      { path: 'graph.nodes', code: 'too_big' },
+    ]);
+    expect(performance.now() - started).toBeLessThan(50);
+  });
+
+  it('names choices, fields, options, branch lists, texts and changes over their bounds', () => {
+    const many = (count: number) => Array.from({ length: count }, () => ({}));
+    const keys = (count: number) =>
+      Object.fromEntries(Array.from({ length: count }, (_, index) => [`k${index}`, 'x']));
+    const body = {
+      graph: {
+        nodes: [
+          { choices: many(13) },
+          { fields: many(21) },
+          { fields: [{ options: many(31) }] },
+          { condition: { value: many(21) } },
+          { choices: many(12), fields: many(20) },
+        ],
+      },
+      texts: { greet: { choices: keys(13), fields: keys(21) } },
+      changes: many(11),
+    };
+    expect(rawBoundsProblems(body)).toEqual([
+      { path: 'graph.nodes.0.choices', code: 'too_big' },
+      { path: 'graph.nodes.1.fields', code: 'too_big' },
+      { path: 'graph.nodes.2.fields.0.options', code: 'too_big' },
+      { path: 'graph.nodes.3.condition.value', code: 'too_big' },
+      { path: 'texts.greet.choices', code: 'too_big' },
+      { path: 'texts.greet.fields', code: 'too_big' },
+      { path: 'changes', code: 'too_big' },
+    ]);
+    expect(rawBoundsProblems({ texts: keys(201) })).toEqual([{ path: 'texts', code: 'too_big' }]);
+    expect(rawBoundsProblems({ graph: graph() })).toEqual([]);
   });
 });
 

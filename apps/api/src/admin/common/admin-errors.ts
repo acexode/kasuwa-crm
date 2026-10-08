@@ -119,16 +119,36 @@ export const duplicateName = (message = 'That name is already in use.'): AdminEr
     details: [{ path: 'name', code: 'duplicate' }],
   });
 
-export const validationFailed = (details: AdminErrorDetail[] = []): AdminError =>
-  new AdminError(HttpStatus.BAD_REQUEST, 'validation_failed', 'Validation failed', { details });
+/**
+ * The most `details` one error carries (T-0113 security review). A body with
+ * 100,000 bad elements must not become a 100,000-entry response: the first
+ * 50, in the order they were found (Zod's issue order, which follows the
+ * body), and nothing more. The order is deterministic, so a client fixing
+ * them one by one sees the same list each time.
+ */
+export const MAX_ERROR_DETAILS = 50;
+
+export const validationFailed = (details: readonly AdminErrorDetail[] = []): AdminError =>
+  new AdminError(HttpStatus.BAD_REQUEST, 'validation_failed', 'Validation failed', {
+    details: details.slice(0, MAX_ERROR_DETAILS),
+  });
 
 /** The spec has no `invalid_cursor` code; a bad cursor is `validation_failed` at `cursor`. */
 export const invalidCursor = (): AdminError =>
   validationFailed([{ path: 'cursor', code: 'invalid_cursor' }]);
 
 /** Paths and reason codes only - never the submitted value, never Zod's message. */
-export const validationFailedFrom = (error: ZodError): AdminError =>
-  validationFailed(error.issues.flatMap(toDetails));
+export const validationFailedFrom = (error: ZodError): AdminError => {
+  // Stop building details at the cap, rather than mapping every issue first.
+  const details: AdminErrorDetail[] = [];
+  for (const issue of error.issues) {
+    for (const detail of toDetails(issue)) {
+      if (details.length >= MAX_ERROR_DETAILS) return validationFailed(details);
+      details.push(detail);
+    }
+  }
+  return validationFailed(details);
+};
 
 /**
  * An unexpected key is reported at its own path, so `{ programmeIds: [...] }`

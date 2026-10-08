@@ -95,43 +95,161 @@ export interface StringProblem {
 }
 
 /**
+ * The deepest nesting a scripting body may have. The deepest legal path in
+ * the contract is a form field option's label,
+ * `graph.nodes.<i>.fields.<j>.options.<k>.label`: 8 levels below the body.
+ * 32 is four times that; anything deeper is refused outright.
+ */
+export const BODY_MAX_DEPTH = 32;
+
+/** The most string problems one scan reports (the error filter caps details at 50 too). */
+export const MAX_STRING_PROBLEMS = 50;
+
+/** The one detail for a body nested deeper than BODY_MAX_DEPTH. */
+export const TOO_DEEP: StringProblem = { path: '', code: 'too_deep' };
+
+interface ScanFrame {
+  value: unknown;
+  parent: ScanFrame | null;
+  /** This value's key in its parent (an array index as a string); '' for the root. */
+  key: string;
+  depth: number;
+}
+
+/** The dotted path of a frame, built only when a problem is reported. */
+function pathOf(frame: ScanFrame | null, root: string): string {
+  const keys: string[] = [];
+  for (let at = frame; at !== null && at.parent !== null; at = at.parent) keys.push(at.key);
+  if (root !== '') keys.push(root);
+  return keys.reverse().join('.');
+}
+
+/**
  * Every string (and object key) in `value` that holds a NUL or a lone
- * surrogate, by path. Iterative, so a deeply nested body cannot exhaust the
- * stack. A bad KEY is reported at its parent's path, so the key is never
- * echoed. Paths are joined with `.`, as the API's details are.
+ * surrogate, by path, in document order. LINEAR, because it runs before Zod
+ * on a body of up to 512 KiB (security review, T-0113):
+ *   - iterative, with an explicit stack, never recursion;
+ *   - a body nested deeper than BODY_MAX_DEPTH is one `too_deep` problem, and
+ *     the scan stops there;
+ *   - it stops after MAX_STRING_PROBLEMS problems;
+ *   - a frame keeps a pointer to its parent and a path string is built only
+ *     for a problem it reports, never per level.
+ * A bad KEY is reported at its parent's path, so the key is never echoed.
  */
 export function stringProblems(value: unknown, root = ''): StringProblem[] {
   const problems: StringProblem[] = [];
-  const stack: { value: unknown; path: string }[] = [{ value, path: root }];
-  const join = (base: string, key: string) => (base === '' ? key : `${base}.${key}`);
   const judge = (text: string): string | null => {
     if (text.includes('\u0000')) return SCRIPT_REASON.nul;
     if (hasLoneSurrogate(text)) return SCRIPT_REASON.badCharacter;
     return null;
   };
-  while (stack.length > 0) {
-    const item = stack.pop();
-    if (item === undefined) break;
-    const current = item.value;
+  const stack: ScanFrame[] = [{ value, parent: null, key: root, depth: 0 }];
+  while (stack.length > 0 && problems.length < MAX_STRING_PROBLEMS) {
+    const frame = stack.pop();
+    if (frame === undefined) break;
+    const current = frame.value;
     if (typeof current === 'string') {
       const code = judge(current);
-      if (code !== null) problems.push({ path: item.path, code });
-    } else if (Array.isArray(current)) {
-      current.forEach((child, index) => {
-        stack.push({ value: child, path: join(item.path, String(index)) });
+      if (code !== null) problems.push({ path: pathOf(frame, root), code });
+      continue;
+    }
+    if (typeof current !== 'object' || current === null) continue;
+    if (frame.depth >= BODY_MAX_DEPTH) return [{ ...TOO_DEEP, path: root }];
+    const children: ScanFrame[] = [];
+    if (Array.isArray(current)) {
+      current.forEach((child: unknown, index) => {
+        children.push({ value: child, parent: frame, key: String(index), depth: frame.depth + 1 });
       });
-    } else if (typeof current === 'object' && current !== null) {
+    } else {
       for (const [key, child] of Object.entries(current)) {
         const keyCode = judge(key);
         if (keyCode !== null) {
-          problems.push({ path: item.path, code: keyCode });
+          problems.push({ path: pathOf(frame, root), code: keyCode });
+          if (problems.length >= MAX_STRING_PROBLEMS) break;
           continue;
         }
-        stack.push({ value: child, path: join(item.path, key) });
+        children.push({ value: child, parent: frame, key, depth: frame.depth + 1 });
       }
     }
+    // Reversed, so the stack pops them in document order.
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      const child = children[index];
+      if (child !== undefined) stack.push(child);
+    }
   }
-  return problems.sort((left, right) => (left.path < right.path ? -1 : 1));
+  return problems.slice(0, MAX_STRING_PROBLEMS);
+}
+
+/** The raw length of `value` when it is an array, else 0. */
+function arrayLength(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+/** The raw key count of `value` when it is a plain object, else 0. */
+function keyCount(value: unknown): number {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? Object.keys(value).length
+    : 0;
+}
+
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+
+/**
+ * The contract's collection bounds, checked on the RAW body before Zod looks
+ * at a single element (security review, T-0113): a 512 KiB
+ * `nodes: [{}, {}, ...]` is one `too_big` in O(1), not a Zod issue per
+ * element. Inner arrays are only looked at once their parent is within its
+ * bound, so the whole check touches at most 200 nodes x 20 fields. Paths and
+ * codes are what Zod would have said (`too_big` at the collection).
+ */
+export function rawBoundsProblems(body: Record<string, unknown>): StringProblem[] {
+  const problems: StringProblem[] = [];
+  const tooBig = (path: string) => problems.push({ path, code: SCRIPT_REASON.tooBig });
+
+  const graph = asRecord(body.graph);
+  if (graph !== null) {
+    const nodes = graph.nodes;
+    if (arrayLength(nodes) > 200) {
+      tooBig('graph.nodes');
+    } else if (Array.isArray(nodes)) {
+      nodes.forEach((raw: unknown, index) => {
+        const node = asRecord(raw);
+        if (node === null) return;
+        const at = `graph.nodes.${index}`;
+        if (arrayLength(node.choices) > 12) tooBig(`${at}.choices`);
+        if (arrayLength(node.fields) > 20) {
+          tooBig(`${at}.fields`);
+        } else if (Array.isArray(node.fields)) {
+          node.fields.forEach((rawField: unknown, fieldIndex) => {
+            const field = asRecord(rawField);
+            if (field !== null && arrayLength(field.options) > 30) {
+              tooBig(`${at}.fields.${fieldIndex}.options`);
+            }
+          });
+        }
+        const condition = asRecord(node.condition);
+        if (condition !== null && arrayLength(condition.value) > 20) tooBig(`${at}.condition.value`);
+      });
+    }
+  }
+
+  if (keyCount(body.texts) > 200) {
+    tooBig('texts');
+  } else {
+    const texts = asRecord(body.texts);
+    for (const [nodeId, raw] of Object.entries(texts ?? {})) {
+      const translation = asRecord(raw);
+      if (translation === null) continue;
+      if (keyCount(translation.choices) > 12) tooBig(`texts.${nodeId}.choices`);
+      if (keyCount(translation.fields) > 20) tooBig(`texts.${nodeId}.fields`);
+    }
+  }
+
+  if (arrayLength(body.changes) > 10) tooBig('changes');
+  return problems.slice(0, MAX_STRING_PROBLEMS);
 }
 
 /** True for a high surrogate not followed by a low one, or a low one on its own. */

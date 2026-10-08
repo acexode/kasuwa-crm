@@ -210,6 +210,7 @@ export async function findScript(
   const { tenantId, programmeIds } = tx.session;
   if (lock) {
     // FOR UPDATE cannot sit beside the lateral join's outer side; lock first.
+    // tenancy-reviewed: tenant and programmes from tx.session, plus RLS.
     const locked = await tx.query<{ id: string }>(
       `SELECT s.id FROM script s
         WHERE s.tenant_id = $1 AND s.programme_id = ANY ($2::uuid[]) AND s.id = $3
@@ -218,6 +219,8 @@ export async function findScript(
     );
     if (locked.length === 0) return null;
   }
+  // tenancy-reviewed: tenant and programmes from tx.session; the lateral version
+  // and the publisher join on the script's own (tenant, programme), plus RLS.
   const rows = await tx.query<ScriptRow>(
     `SELECT s.id, s.programme_id, s.name, s.source_locale, s.draft_graph,
             s.draft_translations, s.revision, s.published_revision, s.created_at,
@@ -239,6 +242,8 @@ export async function scriptPosition(
   programmeIds: readonly string[],
   id: string,
 ): Promise<{ id: string; name: string } | null> {
+  // tenancy-reviewed: tenant and programmes from tx.session, narrowed to the
+  // caller's subset (never widened by it), plus RLS.
   const rows = await tx.query<{ id: string; name: string }>(
     `SELECT s.id, s.name FROM script s
       WHERE s.tenant_id = $1 AND s.programme_id = ANY ($2::uuid[])
@@ -260,6 +265,8 @@ export async function listScripts(
   after: { id: string; name: string } | null,
 ): Promise<ScriptSummaryRecord[]> {
   if (programmeIds.length === 0) return [];
+  // tenancy-reviewed: tenant and programmes from tx.session, narrowed to the
+  // caller's subset (never widened by it), plus RLS.
   const rows = await tx.query<SummaryRow>(
     `SELECT s.id, s.programme_id, s.name, s.source_locale,
             ARRAY(SELECT k FROM jsonb_object_keys(s.draft_translations) AS k ORDER BY k)
@@ -290,7 +297,13 @@ export async function insertScript(
   tx: TenantTx,
   values: { programmeId: string; name: string; sourceLocale: string; graph: unknown },
 ): Promise<string> {
+  // The target must already be in the session's scope (the service resolved it
+  // there); refused here as well, before RLS's WITH CHECK would refuse it too.
+  if (!tx.session.programmeIds.includes(values.programmeId)) {
+    throw new Error('Refusing to create a script outside the session scope');
+  }
   const id = newId();
+  // tenancy-reviewed: tenant from tx.session, programme checked against it above.
   await tx.query(
     `INSERT INTO script (id, tenant_id, programme_id, name, source_locale, draft_graph)
      VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
@@ -323,6 +336,7 @@ export async function updateDraft(
   target: { id: string; programmeId: string; revision: number },
   changes: DraftChanges,
 ): Promise<boolean> {
+  // tenancy-reviewed: tenant and programmes from tx.session, plus RLS.
   const rows = await tx.query<{ id: string }>(
     `UPDATE script
         SET name = coalesce($5::text, name),
@@ -363,6 +377,7 @@ export async function findVersion(
   script: { id: string; programmeId: string },
   versionId: string,
 ): Promise<VersionRecord | null> {
+  // tenancy-reviewed: tenant and programmes from tx.session, plus RLS.
   const rows = await tx.query<VersionRow>(
     `SELECT ${VERSION_COLUMNS}
        FROM script_version sv ${VERSION_PUBLISHER}
@@ -379,6 +394,7 @@ export async function latestVersion(
   tx: TenantTx,
   script: { id: string; programmeId: string },
 ): Promise<VersionRecord | null> {
+  // tenancy-reviewed: tenant and programmes from tx.session, plus RLS.
   const rows = await tx.query<VersionRow>(
     `SELECT ${VERSION_COLUMNS}
        FROM script_version sv ${VERSION_PUBLISHER}
@@ -398,6 +414,7 @@ export async function versionPosition(
   script: { id: string; programmeId: string },
   versionId: string,
 ): Promise<number | null> {
+  // tenancy-reviewed: tenant and programmes from tx.session, plus RLS.
   const rows = await tx.query<{ number: number }>(
     `SELECT sv.number FROM script_version sv
       WHERE sv.tenant_id = $1 AND sv.programme_id = $2 AND sv.script_id = $3 AND sv.id = $4
@@ -414,6 +431,7 @@ export async function listVersions(
   limit: number,
   beforeNumber: number | null,
 ): Promise<VersionSummaryRecord[]> {
+  // tenancy-reviewed: tenant and programmes from tx.session, plus RLS.
   const rows = await tx.query<{
     id: string;
     number: number;
@@ -464,7 +482,10 @@ export async function insertVersion(
   },
 ): Promise<string> {
   const id = newId();
-  const { tenantId, userId } = tx.session;
+  const { tenantId, userId, programmeIds } = tx.session;
+  // tenancy-reviewed: tenant and publisher from tx.session; the programme is the
+  // locked script's, which was read inside the session's scope; plus RLS and
+  // the (tenant, programme, script) FK.
   await tx.query(
     `INSERT INTO script_version
        (id, tenant_id, programme_id, script_id, number, name, source_locale, graph,
@@ -484,10 +505,12 @@ export async function insertVersion(
       userId,
     ],
   );
+  // tenancy-reviewed: tenant and programmes from tx.session, plus RLS.
   await tx.query(
     `UPDATE script SET published_revision = $4
-      WHERE tenant_id = $1 AND programme_id = $2 AND id = $3`,
-    [tenantId, script.programmeId, script.id, script.revision],
+      WHERE tenant_id = $1 AND programme_id = $2 AND id = $3
+        AND programme_id = ANY ($5::uuid[])`,
+    [tenantId, script.programmeId, script.id, script.revision, [...programmeIds]],
   );
   return id;
 }
@@ -522,6 +545,8 @@ export const SCRIPT_CONTACT_FIELDS: readonly string[] = [
 export async function contactFieldFacts(
   tx: TenantTx,
 ): Promise<Map<string, ScriptContactField>> {
+  // tenancy-reviewed: tenant from tx.session on field_def, object_def, the grants
+  // and the sets (metadata is tenant-scoped, not programme-scoped), plus RLS.
   const rows = await tx.query<{ api_name: string; sensitive: boolean; withheld: boolean }>(
     `SELECT f.api_name, f.classification = 'sensitive' AS sensitive,
             EXISTS (
@@ -556,6 +581,7 @@ export async function liveDispositionIds(
   ids: readonly string[],
 ): Promise<Set<string>> {
   if (ids.length === 0) return new Set();
+  // tenancy-reviewed: tenant and programmes from tx.session, plus RLS.
   const rows = await tx.query<{ id: string }>(
     `SELECT d.id FROM disposition d
       WHERE d.tenant_id = $1 AND d.programme_id = $2 AND d.programme_id = ANY ($3::uuid[])

@@ -24,7 +24,7 @@ import { ExpressAdapter } from '@nestjs/platform-express';
  * provider installs body-parser's own parser, with the higher limit, first,
  * through the adapter's `useBodyParser`, and Nest then skips its default.
  * Every other parser option is Nest's default. Only Express is configured;
- * another adapter keeps its own default.
+ * another adapter keeps its own default. URL-encoded bodies: see below.
  */
 export const JSON_BODY_LIMIT_BYTES = 512 * 1024;
 
@@ -42,6 +42,20 @@ export function hasMiddleware(app: unknown, name: string): boolean {
   );
 }
 
+/**
+ * URL-ENCODED BODIES ARE NOT PARSED (T-0113 security review). Every route in
+ * the API takes JSON (auth included: the web app posts JSON from script, and
+ * no route is an HTML form or a provider's form_post callback), so Nest's
+ * default `urlencoded` parser is only attack surface: a second body format
+ * nothing validates against. Nest adds it unless a middleware named
+ * `urlencodedParser` is already on the router, so this installs one that
+ * parses nothing and passes the request on. A form body then reaches a
+ * handler as no body at all, which every write answers `400`.
+ */
+function urlencodedParser(_request: unknown, _response: unknown, next: () => void): void {
+  next();
+}
+
 @Injectable()
 export class JsonBodyLimit {
   constructor(@Inject(HttpAdapterHost) host: HttpAdapterHost) {
@@ -49,8 +63,12 @@ export class JsonBodyLimit {
       const adapter: unknown = host.httpAdapter;
       if (!(adapter instanceof ExpressAdapter)) return;
       // Once per app: a second AppModule on the same adapter adds nothing.
-      if (hasMiddleware(adapter.getInstance(), 'jsonParser')) return;
-      adapter.useBodyParser('json', false, { limit: JSON_BODY_LIMIT_BYTES });
+      if (!hasMiddleware(adapter.getInstance(), 'jsonParser')) {
+        adapter.useBodyParser('json', false, { limit: JSON_BODY_LIMIT_BYTES });
+      }
+      if (!hasMiddleware(adapter.getInstance(), 'urlencodedParser')) {
+        adapter.use(urlencodedParser);
+      }
     });
   }
 }
