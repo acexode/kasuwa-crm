@@ -7,7 +7,7 @@ import {
 import { APP_FILTER } from '@nestjs/core';
 import type { KeyProvider } from '@kasuwa/auth-crypto';
 import { defaultChannelProvider, type ChannelProvider } from '@kasuwa/channel-adapter';
-import { nodeEnv } from '@kasuwa/config';
+import { nodeEnv, type NodeEnvName } from '@kasuwa/config';
 import { AccountsController } from './accounts/accounts.controller';
 import { ActivitiesController } from './activities/activities.controller';
 import { ADMIN_CONTROLLERS, AdminModule } from './admin/admin.module';
@@ -135,6 +135,13 @@ export interface AppModuleOptions {
    * `main.ts` passes KASUWA_CELL.
    */
   cell?: string;
+  /**
+   * NODE_ENV as `apiEnv` parsed it. Outside development and test the app
+   * refuses to start when `kasuwa_test_admin` is usable (T-0117, D-L94).
+   * `main.ts` passes it; omitted, `nodeEnv()` reads the process's, the same
+   * default the channel provider uses.
+   */
+  nodeEnv?: NodeEnvName;
 }
 
 /**
@@ -178,6 +185,7 @@ export class AppModule implements NestModule {
       imports: [
         DatabaseModule.forRoot({
           databaseUrl: options.databaseUrl,
+          nodeEnv: options.nodeEnv ?? nodeEnv(),
           ...(options.poolMax === undefined ? {} : { poolMax: options.poolMax }),
           ...(options.poolConnectionTimeoutMillis === undefined
             ? {}

@@ -1,5 +1,5 @@
 import { loadWorkspaceEnv, workerEnv } from '@kasuwa/config';
-import { createPool, pruneAuthTables } from '@kasuwa/db';
+import { createPool, pruneAuthTables, refuseUsableTestAdminAtBoot } from '@kasuwa/db';
 import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import {
@@ -44,6 +44,9 @@ async function main(): Promise<void> {
     max: configuration.DATABASE_POOL_MAX,
     applicationName: 'kasuwa-worker',
   });
+  // Before any queue or schedule: outside development and test, refuse to
+  // start when kasuwa_test_admin is usable (T-0117, D-L94). On the app pool.
+  await refuseUsableTestAdminAtBoot(pool, configuration.NODE_ENV);
 
   const heartbeat = new Queue(HEARTBEAT_QUEUE, { connection });
 

@@ -18,8 +18,10 @@ installProcessErrorHandlers(process, (line) => {
  *
  * `apiEnv()` validates the environment and, critically, refuses to return at
  * all if KASUWA_AUTH_MODE=stub with NODE_ENV=production, or if the local key
- * provider is configured there (D-L13). Both checks run before anything binds
- * a port.
+ * provider is configured there (D-L13), or, outside development and test, if
+ * a database URL carries a repository dev password or a PG* fallback is set
+ * (T-0117). These run before anything binds a port, and so does the check,
+ * at application bootstrap, that kasuwa_test_admin is not usable.
  *
  * `loadWorkspaceEnv()` first: importing `@kasuwa/config` no longer loads the
  * workspace `.env` as a side effect (T-0014), so each server process asks for
@@ -41,6 +43,9 @@ async function bootstrap(): Promise<void> {
       authDatabaseUrl: configuration.DATABASE_AUTH_URL,
       poolMax: configuration.DATABASE_POOL_MAX,
       cell: configuration.KASUWA_CELL,
+      // Outside development and test, refuse to start when kasuwa_test_admin
+      // is usable (T-0117, D-L94); checked on the app pool before listen.
+      nodeEnv: configuration.NODE_ENV,
       authMode: configuration.KASUWA_AUTH_MODE,
       // No KMS client is passed: nothing is provisioned (D-A4), so asking for
       // aws-kms here fails at boot with a configuration error rather than at

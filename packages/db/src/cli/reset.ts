@@ -1,4 +1,10 @@
-import { loadWorkspaceEnv, migratorEnv } from '@kasuwa/config';
+import {
+  assertMigrationTargetIsSafe,
+  effectiveDatabaseTarget,
+  isLocalDatabaseHost,
+  loadWorkspaceEnv,
+  migratorEnv,
+} from '@kasuwa/config';
 import { Client } from 'pg';
 import { runMigrations } from '../migrate';
 import { runSeed } from '../seed';
@@ -16,10 +22,14 @@ async function main(): Promise<void> {
   if (!url) {
     throw new Error('DATABASE_MIGRATION_URL is not set.');
   }
-  const host = new URL(url).hostname;
-  if (host !== 'localhost' && host !== '127.0.0.1') {
-    throw new Error('db:reset refuses to run against a non-local host: ' + host);
+  // The host pg will actually use (a `?host=` overrides the URL's, T-0117),
+  // and never echoed. Then the runner's own target checks, BEFORE the drop:
+  // runMigrations would refuse too, but only after this had dropped
+  // everything.
+  if (!isLocalDatabaseHost(effectiveDatabaseTarget(url, 'DATABASE_MIGRATION_URL').host)) {
+    throw new Error('db:reset refuses to run against a non-local database host.');
   }
+  assertMigrationTargetIsSafe(url);
 
   const client = new Client({ connectionString: url });
   await client.connect();
