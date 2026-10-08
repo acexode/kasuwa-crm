@@ -22,6 +22,16 @@ const SERVICES = ['postgres', 'redis', 'opensearch', 'seaweedfs'];
 const HEALTH_TIMEOUT_MS = 180_000;
 const HEALTH_POLL_MS = 2_000;
 
+/**
+ * NODE_ENV per process, never in `.env` (D-L95). The API and the worker refuse
+ * to boot with NODE_ENV unset, and `.env` must not set it: Nx injects that
+ * file into every task, and NODE_ENV=development there breaks `next build`.
+ * So each server process and operator command this script starts is given
+ * `development` explicitly. The web process is left alone: `next dev` sets its
+ * own.
+ */
+const DEV_PROCESS_ENV = { ...process.env, NODE_ENV: 'development' };
+
 const APPS = [
   { name: 'api', filter: '@kasuwa/api', colour: '[36m' },
   { name: 'web', filter: '@kasuwa/web', colour: '[35m' },
@@ -170,6 +180,7 @@ function startApps() {
   const children = APPS.map((app) => {
     const child = spawn('pnpm', ['--filter', app.filter, 'dev'], {
       cwd: root,
+      ...(app.name === 'web' ? {} : { env: DEV_PROCESS_ENV }),
       shell: process.platform === 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -216,9 +227,9 @@ async function main() {
   console.log('applying the role bootstrap...');
   applyBootstrap();
   console.log('migrating...');
-  run('pnpm', ['--filter', '@kasuwa/db', 'migrate']);
+  run('pnpm', ['--filter', '@kasuwa/db', 'migrate'], { env: DEV_PROCESS_ENV });
   console.log('seeding...');
-  run('pnpm', ['--filter', '@kasuwa/db', 'seed']);
+  run('pnpm', ['--filter', '@kasuwa/db', 'seed'], { env: DEV_PROCESS_ENV });
 
   console.log('\nstack is up:');
   console.log('  web       http://localhost:3000');

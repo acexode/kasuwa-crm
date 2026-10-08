@@ -20,13 +20,30 @@ const DATABASE_URL = `postgres://kasuwa_app:${MARKER}@localhost:5432/kasuwa`;
 const MIGRATION_URL = `postgres://kasuwa_migrator:${MARKER}@localhost:5432/kasuwa`;
 const AUTH_URL = `postgres://kasuwa_auth:${MARKER}@localhost:5432/kasuwa`;
 
-const API_BASE: EnvSource = { DATABASE_URL, DATABASE_AUTH_URL: AUTH_URL };
+/** apiEnv and workerEnv refuse an unset NODE_ENV (D-L95), so fixtures name one. */
+const DEV: EnvSource = { NODE_ENV: 'development' };
+const API_BASE: EnvSource = { ...DEV, DATABASE_URL, DATABASE_AUTH_URL: AUTH_URL };
 
 describe('api environment', () => {
   it('parses a minimal valid environment', () => {
     const env = apiEnv({ ...API_BASE });
     expect(env.NODE_ENV).toBe('development');
     expect(env.KASUWA_AUTH_MODE).toBe('stub');
+  });
+
+  it('refuses an unset NODE_ENV, naming it, rather than defaulting to development (D-L95)', () => {
+    let message = '';
+    try {
+      apiEnv({ DATABASE_URL, DATABASE_AUTH_URL: AUTH_URL });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toMatch(/^Invalid api environment:\n {2}NODE_ENV: must be set explicitly/u);
+    expect(message).not.toContain(MARKER);
+  });
+
+  it('reports the other problems alongside an unset NODE_ENV', () => {
+    expect(() => apiEnv({})).toThrow(/NODE_ENV: must be set[\s\S]*DATABASE_URL/u);
   });
 
   it('refuses to start without a database url', () => {
@@ -83,7 +100,7 @@ describe('api environment', () => {
 
     it('is carried by no other process schema', () => {
       const worker: Record<string, unknown> = {
-        ...workerEnv({ DATABASE_URL, DATABASE_AUTH_URL: AUTH_URL }),
+        ...workerEnv({ ...DEV, DATABASE_URL, DATABASE_AUTH_URL: AUTH_URL }),
       };
       const realtime: Record<string, unknown> = {
         ...realtimeEnv({ DATABASE_AUTH_URL: AUTH_URL }),
@@ -105,12 +122,16 @@ describe('per-process schemas parse only what their process needs', () => {
   });
 
   it('the worker needs DATABASE_URL (T-0045) and never keeps the migrator URL', () => {
-    expect(() => workerEnv({})).toThrow(/DATABASE_URL/);
+    expect(() => workerEnv({ ...DEV })).toThrow(/DATABASE_URL/);
     const env: Record<string, unknown> = {
-      ...workerEnv({ DATABASE_URL, DATABASE_MIGRATION_URL: MIGRATION_URL }),
+      ...workerEnv({ ...DEV, DATABASE_URL, DATABASE_MIGRATION_URL: MIGRATION_URL }),
     };
     expect(env.DATABASE_URL).toBe(DATABASE_URL);
     expect(env).not.toHaveProperty('DATABASE_MIGRATION_URL');
+  });
+
+  it('the worker refuses an unset NODE_ENV, naming it (D-L95)', () => {
+    expect(() => workerEnv({ DATABASE_URL })).toThrow(/NODE_ENV: must be set explicitly/u);
   });
 
   it('refuses a production worker on the local key provider', () => {
@@ -125,7 +146,7 @@ describe('per-process schemas parse only what their process needs', () => {
 
   it('reads each process its own settings', () => {
     expect(
-      workerEnv({ DATABASE_URL, REDIS_URL: 'redis://cache.example:6379' }).REDIS_URL,
+      workerEnv({ ...DEV, DATABASE_URL, REDIS_URL: 'redis://cache.example:6379' }).REDIS_URL,
     ).toBe('redis://cache.example:6379');
     expect(realtimeEnv({ REALTIME_PORT: '4002' }).REALTIME_PORT).toBe(4002);
     expect(migratorEnv({ DATABASE_MIGRATION_URL: MIGRATION_URL }).DATABASE_MIGRATION_URL).toBe(
