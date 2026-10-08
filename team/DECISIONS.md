@@ -2153,3 +2153,26 @@ Every recommendation below was taken as written in its entry. What each one now 
   is a documented limit there, and the boot check catches it at the next deploy. `.env.example` keeps not setting `NODE_ENV`
   (Nx injects it into every task and `next build` breaks); dev and test entry points set it per process. Lead suite edits:
   `baf38d8` (two `workerEnv` calls pass `NODE_ENV: 'test'`; the T-0117 suite pins the API and worker refusal).
+
+### D-L96 — T-0113 script authoring suite rulings (lead, reversible)
+**Status:** PROCEEDING (lead). From the T-0113 suite writer; its rulings 1 to 16 are accepted. The main ones:
+- **`createScript` answers 403** to a non-writer in a programme they reach, as the contract says. Every write or read of an
+  existing script is 404, and `listScripts` is an empty page.
+- **`branch_on_withheld_field`** is judged against every set holding `script.run` (agent, team lead, programme manager),
+  whether or not anyone holds it today. Translations and choice labels are checked like the source wording.
+- **The size cap counts UTF-8 bytes**, so the API's JSON body limit must be raised to admit a draft up to the cap (400
+  `too_big` above it, never 413).
+- **Two concurrent publishes** of one revision mint one version; the other is 409.
+- **`unchanged` compares content.** Duplicate node ids are refused.
+- **Audit:** `object_type 'script'`; publish is a new action, `published`. Migration 0030 extends audit_event's action CHECK
+  and `AuditAction` with it, and nothing else. The publish event names compliance node ids only.
+- **A non-uuid `versionId`** is 404.
+- **Tables:** `programme_id` on `script_version`; ON UPDATE RESTRICT on every FK; both tables in 0030; the migrator may move a
+  script that has no versions. A published version refuses even a no-op UPDATE, for every role including the migrator.
+- **The seed** carries one published script version in tenant A (as D-L77 for activity). The `script` plant fixes `name` and
+  `source_locale`; every other column has a default.
+- **Lead-authorised edits to existing suites, in the same PR:** T-0112's contract suite (authoring flags true, run flags
+  false); T-0027's dispositions-scripts (an agent gets 404 on `listProgrammeScripts`, a `script.write` holder 200); T-0011's
+  schema-hygiene (`script` plant, an immutable `script_version`). None loosens anything.
+- **Builder follow-ups not pinned:** the web `AuditAction` enum and an `admin.audit.action.published` key;
+  `AUDIT_OBJECT_TYPES` gains `script`.
