@@ -63,6 +63,8 @@ T-0049 (#93), a separate database role for the sign-in code (D-P16, ADR-0013), m
 | T-0080 | Timeline activity versions; account timeline | ✅ Merged (#109) |
 | T-0063 | Account record screen (P05) | ✅ Merged (#112) |
 | T-0079 / T-0075 | Capability read; sign-in reads on the auth pool | ⬜ Suites to write |
+| T-0117 | `kasuwa_test_admin` inert in real cells (P0, D-L92/94/95) | 🟠 Builder fixing review findings |
+| T-0118 / T-0119 / T-0120 / T-0121 | Account children; served-task completion; account/activity former owner; error envelope | ⬜ Follow-ups |
 
 ### Remaining slices (plan of 2026-10-07; designs P07, P18, P26, P27, P28 exported)
 
@@ -77,7 +79,7 @@ T-0049 (#93), a separate database role for the sign-in code (D-P16, ADR-0013), m
 | Notifications (P26) | T-0098 outbox (ADR, `kasuwa_relay` role), T-0099 contract, T-0100 API, T-0101 screen | ADR on the outbox; **D-P29** |
 | Pipeline (P06) | T-0105 contract, T-0106 tables (migration), T-0107 board API, T-0108 deals and gated move, T-0109 Kanban, T-0110 deal detail, T-0111 deal timeline (migration) | none (D-L88) |
 | In-call agent script (P10), manual mode | T-0112 contract, T-0113 authoring (migration), T-0114 runs (migration), T-0115 builder, T-0116 agent screen | **D-P31, D-P32**; call-bound runs wait for M09 |
-| Former owner, classification, audit follow-ups | T-0102, T-0103, T-0104 | none |
+| Former owner, classification, audit follow-ups | T-0102 ✅ (#106), T-0103 ✅ (#113), T-0104 | none |
 | Home dashboards (P03) | grow as modules arrive | none |
 
 Hidden in Phase 2 (their modules come later): calendar sync, booking pages, holidays, field check-in, AI briefs, offline

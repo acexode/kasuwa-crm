@@ -1,6 +1,6 @@
 # T-0103 — A contact's owner who left its programme (D-P23)
 
-**status** `assigned` (suite `lead/T-0103-acceptance`: a3a3bc1; hook 9379fda; migration 0031; D-L99) · **owner** Agent 3 · **priority** P1 · **decisions** D-P23, D-L61, D-L67
+**status** `done` (#113) · **owner** Agent 3 · **priority** P1 · **decisions** D-P23, D-L61, D-L67
 
 ## Goal
 Nobody sees the name of a person who no longer shares the contact's programme.
