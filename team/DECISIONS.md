@@ -2073,3 +2073,29 @@ Every recommendation below was taken as written in its entry. What each one now 
   disable by name first); the header says "no role may lower it by UPDATE"; the self-check pins the trigger's WHEN clause.
   Also noted: the trigger does not fire under `session_replication_role = replica`, so a future logical-replication cell move
   (ADR-0002 tooling) must re-check on the subscriber.
+
+### D-L93 — T-0112 security review rulings (lead, 2026-10-08; three review rounds)
+**Status:** PROCEEDING (lead). Amends D-L88 and D-L91 for the in-call script contract.
+- **Completion:** `completed` only at an `end` node or on a `stopped` run; otherwise `interrupted` or `409
+  compliance_unacknowledged`. The run records `endedAtNodeId` and, when interrupted, every unread compliance node on the path,
+  current node included.
+- **Run visibility:** every run operation is the run's own agent's only; everyone else, and the own agent without
+  `script.run`, gets 404. The one run 403 is completion without `activity.write`. A field-secured supervisor and QA read waits
+  for M11 (tracked).
+- **Audit (supersedes D-L88's "answers audited by name only"):** only start, supersede and completion are audited, naming
+  `outcome`, `stopReason`, `dispositionId`, `activityId`, `followUpTaskId` and `versionId`. No node ids and no field keys.
+  Acknowledgements and answer saves write no event of their own, since the count of events would reveal the branch side.
+- **Publish refuses** a branch or variable on a field that any `script.run` set in the programme cannot read
+  (`branch_on_withheld_field`), and one on a `sensitive` field (until D-L13).
+- **At run time:** a branch on a field classified `sensitive` since publish stops the run (`sensitive_field`); a variable
+  renders as a placeholder.
+- **Start:** idempotent for the caller's own in-progress run, or a run stopped by `field_withheld` or `sensitive_field` on the
+  same version. A `field_withheld` stop whose field is now readable is closed as `superseded` (no disposition, no activity,
+  audited).
+- **Bounds:** `revision` 1..2^31-1; bounded integers; NUL refused; 256 KiB per version and per run's answers; `followUp.dueAt`
+  at most 366 days ahead.
+- **Privacy:** answers are classified `sensitive`. Runs follow programme retention and are erased with their contact (the
+  D-P27 sweeper). Run error `details` are never logged or traced. Wording is plain text.
+- **Acknowledgements** record the locale the client reports it showed, and a server-set `profileLocale`.
+- **Tracked:** the outcome shown on the call activity; allowed dispositions per end node (a product question); the
+  `script.write` gate on `listProgrammeScripts` when T-0113 backs it; a stopped run on an older version stays until retention.
