@@ -9,7 +9,8 @@
 --     anyone else reads as `owner: { id, displayName: null }`, a former owner.
 --   - REMOVAL (this file): when a user stops being a member of a programme,
 --     their contacts in that programme are unassigned in the same
---     transaction, with one audit event carrying the count.
+--     transaction, and the removal is audited: one event per ended
+--     membership, carrying the count of contacts unassigned ("0" included).
 --
 -- WHERE REMOVAL HAPPENS (D-L99). No application code deletes or rewrites a
 -- user_programme row, and no admin operation does. The paths are the
@@ -59,7 +60,8 @@
 --      every contact in that tenant and programme owned by that user. Only
 --      those three columns move (updated_at by 0018's trigger); 0019's
 --      bump_version sees version changed and stays out, so it moves once.
---   g. If (f) unassigned at least one contact, ONE audit event (below).
+--   g. ONE audit event (below), always: whether (f) unassigned many contacts
+--      or none. Membership is a permission change (CLAUDE.md 6.7).
 --
 -- NOT A REMOVAL, and untouched: a permission-set change (the WHEN clause
 -- skips it), an archived programme (archiveProgramme deletes nothing, D-L46)
@@ -69,8 +71,13 @@
 -- ---------------------------------------------------------------------------
 -- THE AUDIT EVENT (D-L99)
 -- ---------------------------------------------------------------------------
--- One row per ended membership that unassigned anything, shaped as the
--- programme events of programmes.controller (action 'updated', object_type
+-- One row per ENDED membership (lead ruling on the T-0103 build: every real
+-- removal is audited, because a membership is a permission, CLAUDE.md 6.7;
+-- this goes past D-L99's "one per removal that unassigns anything"). A
+-- removal that unassigned nothing still writes its event, with
+-- `unassignedContacts` "0". No event for what is not an ended membership:
+-- step (b)'s offboarding cascades and step (e)'s same-key rewrite. Shaped as
+-- the programme events of programmes.controller (action 'updated', object_type
 -- 'programme', object_id and programme_id the programme, label its name):
 --   - programme_id is the membership's programme, so only its members read it
 --     (an event with no programme is tenant-wide, D-L48);
@@ -83,11 +90,9 @@
 --     null; after: the count as a decimal string, AuditChange's type);
 --   - NO contact id, contact name, phone, user display name or email,
 --     anywhere in the row.
--- A removal that unassigned nothing writes no event: there is nothing about
--- contacts to record, and the membership change is not otherwise audited yet.
--- kasuwa_test_admin cannot INSERT into audit_event (0008), so a removal it
--- makes that unassigns anything is refused, fail closed. It never exists in a
--- real cell (D-L92).
+-- kasuwa_test_admin cannot INSERT into audit_event (0008), so every removal
+-- it makes is refused, fail closed (accepted by the lead). It never exists in
+-- a real cell (D-L92).
 --
 -- ---------------------------------------------------------------------------
 -- CONCURRENCY (D-L99's race, and its trap)
@@ -165,11 +170,11 @@
 --   - lock_timeout = 5s: fail fast instead of queueing behind a long
 --     transaction.
 -- Steady-state cost: one WHEN evaluation per user_programme row updated, and
--- per removal one advisory lock plus one indexed UPDATE on contact
--- (contact_owner_idx). Each owner check gains one advisory-lock statement.
+-- per removal one advisory lock, one indexed UPDATE on contact
+-- (contact_owner_idx) and one audit_event row. Each owner check gains one
+-- advisory-lock statement.
 -- EXISTING ROWS: non-member owners written before this file are not
--- backfilled. The read path shows them as former owners; unassigning them is
--- a data migration on a hot table and a decision for the lead.
+-- backfilled (lead ruling, D-L65): the read path shows them as former owners.
 --
 -- ---------------------------------------------------------------------------
 -- REVERSIBILITY AND ROLLBACK PLAN
@@ -258,11 +263,8 @@ BEGIN
      AND c.owner_user_id = OLD.user_id;
   GET DIAGNOSTICS unassigned = ROW_COUNT;
 
-  IF unassigned = 0 THEN
-    RETURN NULL;
-  END IF;
-
-  -- g. One event: the programme, the remover, the removed staff id, the count.
+  -- g. One event, always (a membership is a permission, CLAUDE.md 6.7): the
+  --    programme, the remover, the removed staff id, the count ("0" included).
   INSERT INTO public.audit_event
     (id, tenant_id, actor_kind, actor_user_id, actor_role_name,
      action, object_type, object_id, object_label, programme_id, changes)

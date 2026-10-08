@@ -126,6 +126,42 @@ describe('a former owner (T-0103)', () => {
     });
   });
 
+  it('a removal that unassigns nothing is still audited, once, with "0" (CLAUDE.md 6.7)', async () => {
+    await inRollback(USER_A_SUPERVISOR, async (tx) => {
+      // The seed's A1 contacts have no owner, so agent 1 owns nothing in A1.
+      const owned = await tx.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM contact
+          WHERE tenant_id = $1 AND programme_id = $2 AND owner_user_id = $3`,
+        [TENANT_A, PROGRAMME_A1, USER_A_AGENT_1],
+      );
+      expect(owned[0]?.n, 'fixture: agent 1 owns no A1 contact').toBe(0);
+      expect(await removeAgent1FromA1(tx)).toHaveLength(1);
+
+      const events = await tx.query<{
+        actor_user_id: string | null;
+        programme_id: string | null;
+        changes: unknown;
+      }>(
+        `SELECT actor_user_id, programme_id, changes
+           FROM audit_event
+          WHERE tenant_id = $1
+            AND changes @> '[{"field": "unassignedContacts"}]'::jsonb
+            AND occurred_at >= transaction_timestamp()`,
+        [TENANT_A],
+      );
+      expect(events).toEqual([
+        {
+          actor_user_id: USER_A_SUPERVISOR,
+          programme_id: PROGRAMME_A1,
+          changes: [
+            { field: 'removedMember', before: USER_A_AGENT_1, after: null, redacted: false },
+            { field: 'unassignedContacts', before: null, after: '0', redacted: false },
+          ],
+        },
+      ]);
+    });
+  });
+
   it('a permission-set change is not a removal: no owner moves', async () => {
     await inRollback(USER_A_SUPERVISOR, async (tx) => {
       const owned = await insertContact(tx, PROGRAMME_A1, {
@@ -140,6 +176,14 @@ describe('a former owner (T-0103)', () => {
       const now = await findContactById(tx, owned.id);
       expect(now?.ownerUserId).toBe(USER_A_AGENT_1);
       expect(now?.version).toBe(owned.version);
+      const events = await tx.query(
+        `SELECT 1 FROM audit_event
+          WHERE tenant_id = $1
+            AND changes @> '[{"field": "removedMember"}]'::jsonb
+            AND occurred_at >= transaction_timestamp()`,
+        [TENANT_A],
+      );
+      expect(events, 'no membership ended, so no removal event').toEqual([]);
     });
   });
 
