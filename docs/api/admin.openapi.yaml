@@ -1032,6 +1032,20 @@ paths:
         Read-only here. The script *builder* is M10 and a screen of its own;
         this is the index the programme tab shows.
 
+        **The script contract is `docs/api/scripting.openapi.yaml`** (T-0112,
+        D-L88): authoring (`listScripts`, `createScript`, `getScript`,
+        `updateScript`, `publishScript`, versions and translations) and agent
+        runs. Build the builder (P10) against that file, not this one. Until
+        T-0113 adds the script table this route stays empty-backed; then it
+        lists the programme's scripts. **Once backed by M10 it requires
+        `script.write` in the programme** (anyone else gets `404`, the same
+        body as an unreachable programme), and every response carries
+        `Cache-Control: no-store`, as scripting.openapi.yaml does (D-L91
+        security review). M10 scripts are only ever `draft` or
+        `published`;
+        `in_review` and `rejected_by_provider` describe channel templates
+        (M08) and M10 never produces them.
+
         `status` includes `rejected_by_provider`, which is the design's
         "Rejected by Meta". **The provider is not named in the enum.** No
         module outside `packages/telephony-adapter` and the channel adapters
@@ -3354,6 +3368,16 @@ components:
             - role_hierarchy_cycle
             - role_in_use
             - legal_hold_active
+            # scripting.openapi.yaml (T-0112): script publishing and runs.
+            - script_invalid
+            - script_not_published
+            - run_completed
+            - run_stopped
+            - run_at_end
+            - compliance_unacknowledged
+            - answers_incomplete
+            - disposition_not_live
+            - disposition_requirements_unmet
             - too_many_requests
             - not_implemented
             - service_unavailable
