@@ -26,6 +26,7 @@ Next.js App Router shell. Routes today:
 | `/contacts` | `P04/02`, `P04/05`, `P04/06` | **Behind `crm_records`** (T-0042, D-L64): a real 404 while it is off. The CRM shell (`components/crm/`), not the admin one. Read from the browser through `lib/records-api.ts` against the contract mock until T-0041 is live |
 | `/contacts/[id]` | `P05/01`, `P05/02`, `P05/05`, `P05/06` | The contact record (T-0062), **behind `crm_record_view` and `crm_records`** (D-L85): a real 404 unless both are on. Read and written from the browser through `lib/contact-record-api.ts`. The `@harness` tenancy spec drives it against the real API |
 | `/accounts` | `P04/03`, `P04/05`, `P04/06` | **Behind `crm_accounts`** (T-0057, D-L84), its own flag: a real 404 while it is off. The CRM shell, the list pieces in `components/records/`, and a create/edit sheet. Reads and writes through `lib/accounts-api.ts`. No row links anywhere until T-0063 builds the record page |
+| `/leads` | `P04/01`, `P04/04`, `P04/05`, `P04/06` | **Behind `crm_leads`** (T-0058, D-L86), its own flag: a real 404 while it is off. The table and the Kanban by status, in the CRM shell on `components/records/`, with convert. Reads `listLeads` and writes `{ version, status }` and convertContact through `lib/leads-api.ts`. No row links anywhere yet |
 | `/design/tokens` | — | The token gallery. It used to be at `/`. |
 
 All sixteen P01 screens are built (`team/reports/T-0007.md`, `T-0007b.md`), and
@@ -81,7 +82,29 @@ flag's process ever links the other's 404. On `/accounts`:
   row; no id is printed. No Map, Health, bulk actions, rollups or DND marker
   (D-L69).
 
-Both P04 lists share `components/records/`: `use-keyset-list.ts` (in memory
+**`crm_leads` (T-0058)** is the sixth flag, not production-ready. It rides on
+the same e2e process (`webLeadsUrl` names the same URL as `webRecordsUrl`),
+where the `/leads` budget is measured. On `/leads` (D-L86):
+- **A lead is a contact at a lead stage** (D-P17), read from `listLeads` only,
+  never `listContacts`. Status offers the four lead stages; `customer` is
+  never a chip, a column or a move target.
+- **Each Kanban column is its own `listLeads` read** for its own stage, paged
+  inside the column, with no count anywhere (D-P13). The board loads when it
+  is first opened (`next/dynamic`), so the table's first paint does not carry it.
+- **The one contact write is a move, exactly `{ version, status }`**, by
+  drag (platform pointer events, mouse and pen; no library) or by the card's
+  "Move" control (WCAG 2.2 SC 2.5.7). A card moves when the server confirms
+  it; dropping it on its own column sends nothing; a 409 re-reads the card.
+- **Convert is one `convertContact`**, to an account in the lead's own
+  programme (the picker filters `listAccounts` on `programmeId`) or a new one
+  by name. Not offered where the row withholds `status` or `accountId`. A lost
+  answer is said as such and a retry re-sends the same body (the exact repeat);
+  `already_linked` has its own sentence. Like accounts, write controls show to
+  every caller and the 403 is the gate (D-L84).
+- No Merge, Lead score, Map, bulk selection or bulk WhatsApp, Health or live
+  counts (D-L69). Offline, nothing moves or converts and nothing queues (D-P21).
+
+All three P04 lists share `components/records/`: `use-keyset-list.ts` (in memory
 only, search and cursor never in the URL, stale answers dropped),
 `list-parts.tsx` (offline banner, skeleton, error, column chooser, filter
 options, lock) and `list-model.ts`. Fix a list behaviour there, once.

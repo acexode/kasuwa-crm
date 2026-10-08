@@ -191,6 +191,10 @@ export async function requestRecords<T>(
   try {
     response = await fetch(path, {
       method: init.method,
+      // Every records answer carries personal data at a URL that is the same
+      // for every user of every tenant: never from, or into, the HTTP cache
+      // (the API also sends `Cache-Control: no-store`; this is the second layer).
+      cache: 'no-store',
       headers:
         init.body === undefined
           ? { accept: 'application/json' }

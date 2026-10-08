@@ -115,11 +115,34 @@ export async function crmRecordViewEnabled(): Promise<boolean> {
 }
 
 /**
+ * `crm_leads` (T-0058, D-L86) gates the ROUTE of the P04 Leads list and its
+ * Kanban: `/leads` calls `notFound()` while it is off, so typing the path gets
+ * a real 404 and nothing of the screen ships. Its own flag, separate from
+ * `crm_records` and `crm_accounts`.
+ *
+ * A presentation switch, like the others: listLeads scopes every row from the
+ * session, and updateContact and convertContact refuse what the caller's
+ * rights and field security do not allow, whether this is on or off.
+ */
+export async function crmLeadsEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_leads',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/**
  * The CRM shell's nav entries whose ROUTE is on in this process, by nav id.
  * An entry links only to a screen that answers; one whose flag is off is drawn
  * as "not available yet", exactly like an unbuilt one (`components/crm/crm-nav.ts`).
  */
 export async function crmLiveNav(): Promise<string[]> {
-  const [contacts, accounts] = await Promise.all([crmRecordsEnabled(), crmAccountsEnabled()]);
-  return [...(contacts ? ['contacts'] : []), ...(accounts ? ['accounts'] : [])];
+  const [contacts, accounts, leads] = await Promise.all([
+    crmRecordsEnabled(),
+    crmAccountsEnabled(),
+    crmLeadsEnabled(),
+  ]);
+  return [...(leads ? ['leads'] : []), ...(contacts ? ['contacts'] : []), ...(accounts ? ['accounts'] : [])];
 }

@@ -453,13 +453,13 @@ function startSelfServeWeb(apiUrl, port) {
 }
 
 /**
- * THE THIRD WEB SERVER — `crm_records` AND `crm_accounts` ON, SERVER-SIDE
- * (T-0042, T-0057, D-L64).
+ * THE THIRD WEB SERVER — `crm_records`, `crm_accounts`, `crm_record_view` AND
+ * `crm_leads` ON, SERVER-SIDE (T-0042, T-0057, T-0062, T-0058, D-L64).
  *
  * The SAME production build as the default server (`next start` over `.next`),
- * because the `/contacts` and `/accounts` byte budgets are measured here and a
- * dev bundle is not a budget (D-L28). Neither flag is production-ready, and a
- * NODE_ENV=production process that names one refuses to boot — so this one
+ * because the `/contacts`, `/accounts`, `/contacts/[id]` and `/leads` byte
+ * budgets are measured here and a dev bundle is not a budget (D-L28). No flag
+ * here is production-ready, and a NODE_ENV=production process that names one refuses to boot — so this one
  * process runs with NODE_ENV=test, exactly as D-L64 rules. The guard itself is
  * untouched; the default server above stays flagless.
  *
@@ -476,6 +476,11 @@ function startSelfServeWeb(apiUrl, port) {
  * measured on this same production build. `webRecordViewUrl` names this
  * process as well. The `@harness` tenancy spec drives `/contacts/[id]` here
  * against the real API, so it exercises the real record screen.
+ *
+ * `crm_leads` RIDES HERE TOO (T-0058), for the same reason, and is published
+ * as `webLeadsUrl`. Its route, `/leads`, is disjoint from the others, and the
+ * shell's nav links each screen only where its flag is on (`crmLiveNav()`), so
+ * every link on every screen this process serves resolves here.
  */
 function startRecordsWeb(apiUrl, port) {
   const child = spawn('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
@@ -490,7 +495,7 @@ function startRecordsWeb(apiUrl, port) {
       KASUWA_AUTH_MODE: 'jwt',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
-      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view',
+      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads',
       ...NO_DATABASE_URLS,
     },
   });
@@ -591,12 +596,14 @@ async function main() {
     await Promise.all([
       waitForHttp(webUrl, 'the web app'),
       waitForHttp(webSelfServeUrl, 'the self-serve web app'),
-      waitForHttp(webRecordsUrl, 'the crm_records and crm_accounts web app'),
+      waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view and crm_leads web app'),
     ]);
     restoreNextEnv(nextEnv);
     log(`web (next start, production build) on ${webUrl}`);
     log(`web (next dev, self_serve_signup + admin_live_api on) on ${webSelfServeUrl}`);
-    log(`web (next start, production build, crm_records + crm_accounts + crm_record_view on) on ${webRecordsUrl}`);
+    log(
+      `web (next start, production build, crm_records + crm_accounts + crm_record_view + crm_leads on) on ${webRecordsUrl}`,
+    );
   }
 
   // One file per Playwright project, not a shared `stack.json`. Two
@@ -612,8 +619,9 @@ async function main() {
     join(artifactsDir, `stack.${projectName}.json`),
     `${JSON.stringify(
       // `webLiveUrl` is the same process as `webSelfServeUrl`, and
-      // `webAccountsUrl` and `webRecordViewUrl` as `webRecordsUrl`; the second
-      // name says which flag a spec is relying on (T-0035, T-0057, T-0062).
+      // `webAccountsUrl`, `webRecordViewUrl` and `webLeadsUrl` as `webRecordsUrl`;
+      // the second name says which flag a spec is relying on (T-0035, T-0057,
+      // T-0062, T-0058).
       {
         webUrl,
         webSelfServeUrl,
@@ -621,6 +629,7 @@ async function main() {
         webRecordsUrl,
         webAccountsUrl: webRecordsUrl,
         webRecordViewUrl: webRecordsUrl,
+        webLeadsUrl: webRecordsUrl,
         apiUrl,
         fixturesUrl,
       },

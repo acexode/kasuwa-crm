@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { HEADERS_METADATA } from '@nestjs/common/constants';
 import { describe, expect, it } from 'vitest';
 import { ActivitiesController } from '../activities/activities.controller';
+import { LeadsController } from '../leads/leads.controller';
 import { MeController } from '../me/me.controller';
 import { ContactsController } from './contacts.controller';
 
@@ -23,7 +24,7 @@ function headersOf(handler: unknown): { name: string; value: string }[] {
 const NO_STORE = { name: 'Cache-Control', value: 'no-store' };
 
 describe('records responses are never cached (T-0043 review)', () => {
-  it.each(['list', 'findOne', 'timeline', 'create', 'update'] as const)(
+  it.each(['list', 'findOne', 'timeline', 'create', 'update', 'convert'] as const)(
     'ContactsController.%s sends Cache-Control: no-store',
     (route) => {
       expect(headersOf(ContactsController.prototype[route])).toContainEqual(NO_STORE);
@@ -36,6 +37,10 @@ describe('records responses are never cached (T-0043 review)', () => {
       expect(headersOf(ActivitiesController.prototype[route])).toContainEqual(NO_STORE);
     },
   );
+
+  it('LeadsController.list sends Cache-Control: no-store (T-0058: lead names, numbers, companies)', () => {
+    expect(headersOf(LeadsController.prototype.list)).toContainEqual(NO_STORE);
+  });
 
   it('MeController.listMyProgrammes sends Cache-Control: no-store', () => {
     expect(headersOf(MeController.prototype.listMyProgrammes)).toContainEqual(NO_STORE);

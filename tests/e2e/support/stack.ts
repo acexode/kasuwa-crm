@@ -55,6 +55,12 @@ export interface StackUrls {
    * production build, where its byte budget is measured.
    */
   webRecordViewUrl: string;
+  /**
+   * The same process as `webRecordsUrl`, which also has `crm_leads` ON
+   * (T-0058): the P04 Leads list and its Kanban. The `/leads` byte budget is
+   * measured here. The third name says which flag a spec relies on.
+   */
+  webLeadsUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;
   /** Static fixture pages used by the harness self-tests. */
