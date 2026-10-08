@@ -1,6 +1,9 @@
 import {
   createPool,
   PROGRAMME_A1,
+  runSeed,
+  SEED_CONTACTS,
+  SEED_PERMISSION_SETS,
   TENANT_A,
   USER_A_AGENT_1,
   USER_A_AGENT_2,
@@ -8,7 +11,7 @@ import {
   withTenantTransaction,
   type TenantTx,
 } from '@kasuwa/db';
-import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, inject, it } from 'vitest';
 import {
   findContactById,
   insertContact,
@@ -254,5 +257,204 @@ describe('a former owner (T-0103)', () => {
       },
     );
     expect(outcome).toBe('completed');
+  });
+});
+
+interface Latch<T = void> {
+  open: (value: T) => void;
+  wait: Promise<T>;
+}
+
+function latch<T = void>(): Latch<T> {
+  let open: (value: T) => void = () => undefined;
+  const wait = new Promise<T>((resolvePromise) => {
+    open = resolvePromise;
+  });
+  return { open, wait };
+}
+
+type Outcome<T> = { ok: true; value: T } | { ok: false; code: string };
+
+const settle = <T>(work: Promise<T>): Promise<Outcome<T>> =>
+  work.then(
+    (value) => ({ ok: true as const, value }),
+    (error: unknown) => ({ ok: false as const, code: String((error as { code?: unknown }).code ?? error) }),
+  );
+
+/**
+ * Migration review, major 1 (reproduced on the row-level first version): one
+ * statement ending memberships A and B, racing an assignment that moves a
+ * contact from A to B, deadlocked (40P01, a 500 for the assigner). The
+ * statement-level trigger takes every lock first, in key order, and only then
+ * touches contacts. These rows are COMMITTED (two transactions must see them),
+ * so the seed is restored after each test.
+ */
+describe('a removal of two memberships racing a re-assignment between them (T-0103 review)', () => {
+  let appPool: ReturnType<typeof createPool>;
+  let migrator: ReturnType<typeof createPool>;
+
+  beforeAll(() => {
+    appPool = createPool({ connectionString: inject('databaseUrl'), max: 4 });
+    migrator = createPool({ connectionString: inject('migrationUrl'), max: 2 });
+  });
+
+  afterEach(async () => {
+    await runSeed({ connectionString: inject('migrationUrl') });
+  });
+
+  afterAll(async () => {
+    await appPool.end();
+    await migrator.end();
+  });
+
+  const supervisor = { tenantId: TENANT_A, userId: USER_A_SUPERVISOR };
+
+  async function isBlocked(pid: number): Promise<boolean> {
+    const result = await migrator.query<{ blocked: boolean }>(
+      'SELECT cardinality(pg_blocking_pids($1)) > 0 AS blocked',
+      [pid],
+    );
+    return result.rows[0]?.blocked === true;
+  }
+
+  async function waitUntil(what: string, done: () => Promise<boolean>): Promise<void> {
+    const deadline = Date.now() + 15_000;
+    while (!(await done())) {
+      if (Date.now() > deadline) throw new Error(`${what}: not reached within 15 s`);
+      await new Promise<void>((resolveTurn) => setImmediate(resolveTurn));
+    }
+  }
+
+  it('no deadlock and no non-member owner: the assignment lands, then the removal unassigns it', async () => {
+    const contact = SEED_CONTACTS.find((candidate) => candidate.programmeId === PROGRAMME_A1);
+    const agentSet = SEED_PERMISSION_SETS.find(
+      (set) => set.tenantId === TENANT_A && set.key === 'agent',
+    );
+    if (contact === undefined || agentSet === undefined) throw new Error('Fixture drift');
+    // Agent 2 joins A1 (membership B); agent 1 (membership A) owns the contact.
+    await migrator.query(
+      `INSERT INTO user_programme (user_id, programme_id, tenant_id, permission_set_id)
+       VALUES ($1, $2, $3, $4)`,
+      [USER_A_AGENT_2, PROGRAMME_A1, TENANT_A, agentSet.id],
+    );
+    await migrator.query('UPDATE contact SET owner_user_id = $2 WHERE id = $1', [
+      contact.id,
+      USER_A_AGENT_1,
+    ]);
+
+    // The assigner checks B (taking B's shared lock), then pauses.
+    const checked = latch();
+    const proceed = latch();
+    const assignment = settle(
+      withTenantTransaction(appPool, supervisor, async (tx) => {
+        const current = await findContactById(tx, contact.id);
+        if (current === null) throw new Error('fixture contact not visible');
+        expect(await programmeMemberExists(tx, PROGRAMME_A1, USER_A_AGENT_2)).toBe(true);
+        checked.open();
+        await proceed.wait;
+        const moved = await updateContactIfVersion(tx, current, { ownerUserId: USER_A_AGENT_2 });
+        return moved?.ownerUserId ?? null;
+      }),
+    );
+    await checked.wait;
+
+    // One statement ends A and B. It must stop on B's lock before it touches
+    // the contact; the row-level version had already row-locked it under A.
+    const removerPid = latch<number>();
+    const removal = settle(
+      withTenantTransaction(appPool, supervisor, async (tx) => {
+        const [row] = await tx.query<{ pid: number }>('SELECT pg_backend_pid() AS pid');
+        removerPid.open(row?.pid ?? -1);
+        const removed = await tx.query(
+          `DELETE FROM user_programme
+            WHERE tenant_id = $1 AND programme_id = $2 AND user_id = ANY ($3::uuid[])
+           RETURNING user_id`,
+          [TENANT_A, PROGRAMME_A1, [USER_A_AGENT_1, USER_A_AGENT_2]],
+        );
+        return removed.length;
+      }),
+    );
+
+    try {
+      const pid = await removerPid.wait;
+      await waitUntil('the removal waits on the assigner', () => isBlocked(pid));
+    } finally {
+      proceed.open();
+    }
+
+    expect(await assignment, 'the assignment answered without a deadlock').toEqual({
+      ok: true,
+      value: USER_A_AGENT_2,
+    });
+    expect(await removal, 'the removal committed both memberships').toEqual({ ok: true, value: 2 });
+
+    const after = await migrator.query<{ owner_user_id: string | null }>(
+      'SELECT owner_user_id FROM contact WHERE id = $1',
+      [contact.id],
+    );
+    expect(after.rows[0]?.owner_user_id, 'unassigned by the removal after the move').toBeNull();
+    const strays = await migrator.query(
+      `SELECT c.id FROM contact c
+        WHERE c.programme_id = $1 AND c.owner_user_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM user_programme up
+                           WHERE up.tenant_id = c.tenant_id AND up.programme_id = c.programme_id
+                             AND up.user_id = c.owner_user_id)`,
+      [PROGRAMME_A1],
+    );
+    expect(strays.rows, 'A1 contacts owned by a non-member').toEqual([]);
+  });
+
+  it('the removal first: the assigner waits on the lock, then is refused as a non-member', async () => {
+    const contact = SEED_CONTACTS.find((candidate) => candidate.programmeId === PROGRAMME_A1);
+    const agentSet = SEED_PERMISSION_SETS.find(
+      (set) => set.tenantId === TENANT_A && set.key === 'agent',
+    );
+    if (contact === undefined || agentSet === undefined) throw new Error('Fixture drift');
+    await migrator.query(
+      `INSERT INTO user_programme (user_id, programme_id, tenant_id, permission_set_id)
+       VALUES ($1, $2, $3, $4)`,
+      [USER_A_AGENT_2, PROGRAMME_A1, TENANT_A, agentSet.id],
+    );
+    await migrator.query('UPDATE contact SET owner_user_id = $2 WHERE id = $1', [
+      contact.id,
+      USER_A_AGENT_1,
+    ]);
+
+    const removed = latch();
+    const release = latch();
+    const removal = settle(
+      withTenantTransaction(appPool, supervisor, async (tx) => {
+        const rows = await tx.query(
+          `DELETE FROM user_programme
+            WHERE tenant_id = $1 AND programme_id = $2 AND user_id = ANY ($3::uuid[])
+           RETURNING user_id`,
+          [TENANT_A, PROGRAMME_A1, [USER_A_AGENT_1, USER_A_AGENT_2]],
+        );
+        removed.open();
+        await release.wait;
+        return rows.length;
+      }),
+    );
+    await removed.wait;
+
+    const assignerPid = latch<number>();
+    const assignment = settle(
+      withTenantTransaction(appPool, supervisor, async (tx) => {
+        const [row] = await tx.query<{ pid: number }>('SELECT pg_backend_pid() AS pid');
+        assignerPid.open(row?.pid ?? -1);
+        return programmeMemberExists(tx, PROGRAMME_A1, USER_A_AGENT_2);
+      }),
+    );
+    try {
+      const pid = await assignerPid.wait;
+      await waitUntil('the owner check waits on the removal', () => isBlocked(pid));
+    } finally {
+      release.open();
+    }
+    expect(await removal).toEqual({ ok: true, value: 2 });
+    expect(await assignment, 'after the removal commits, B is no member').toEqual({
+      ok: true,
+      value: false,
+    });
   });
 });

@@ -222,6 +222,10 @@ export const contact = pgTable(
     index('contact_owner_idx')
       .on(table.tenantId, table.ownerUserId)
       .where(sql`owner_user_id IS NOT NULL`),
+    /** Migration 0031 (T-0103): a programme removal reads only that programme's owned rows. */
+    index('contact_owner_programme_idx')
+      .on(table.tenantId, table.ownerUserId, table.programmeId)
+      .where(sql`owner_user_id IS NOT NULL`),
   ],
 );
 
