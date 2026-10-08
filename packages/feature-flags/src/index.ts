@@ -117,6 +117,28 @@ export const FLAGS = {
     // (D-L84, T-0079). Lifting it is a deliberate one-line change.
     productionReady: false,
   },
+  /**
+   * T-0062 (D-L69, D-L85): the P05 contact record, the 360° view, at
+   * `/contacts/[id]`. It gates the ROUTE: with it off the page is a real 404,
+   * whatever `crm_records` says. The record sits in the CRM shell, so a
+   * process that serves it needs `crm_records` on too, or the shell's own
+   * Contacts link would be a 404 there.
+   *
+   * A presentation switch, not an access control: the record, its timeline
+   * and its writes go to `/api/v1/contacts/{id}`, `…/timeline` and
+   * `/api/v1/activities`, where the session, `user_programme` and the
+   * permissions engine decide everything whether this is on or off.
+   */
+  crm_record_view: {
+    description: 'The P05 contact record (the 360° view) at /contacts/[id] (T-0062).',
+    defaultValue: false,
+    owner: 'T-0062 (screen), T-0061 (timeline and activity API), D-L85',
+    // NOT production-ready: an open task seen only on the timeline cannot be
+    // completed until the timeline serves an activity version (T-0080), and
+    // write controls show to every caller until a capability read exists
+    // (D-L84, T-0079).
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

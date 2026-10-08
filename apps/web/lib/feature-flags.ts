@@ -95,6 +95,26 @@ export async function crmAccountsEnabled(): Promise<boolean> {
 }
 
 /**
+ * `crm_record_view` (T-0062, D-L85) gates the ROUTE of the P05 contact record,
+ * `/contacts/[id]`: with it off the page calls `notFound()` before any id is
+ * read, so typing the path gets a real 404 and nothing of the screen ships.
+ * The page also needs `crm_records`, because the record sits in the CRM shell
+ * and the shell's Contacts link must resolve wherever the record is served.
+ *
+ * Per process and decided by nothing the browser sends, like the ones above.
+ * It grants nothing: the record's reads and writes are scoped by the session,
+ * `user_programme` and the permissions engine at the API, on or off.
+ */
+export async function crmRecordViewEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_record_view',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/**
  * The CRM shell's nav entries whose ROUTE is on in this process, by nav id.
  * An entry links only to a screen that answers; one whose flag is off is drawn
  * as "not available yet", exactly like an unbuilt one (`components/crm/crm-nav.ts`).

@@ -24,7 +24,7 @@ Next.js App Router shell. Routes today:
 | `/admin/audit` | `P02/E`–`E2` | The audit log and its export |
 | `/translations` | — | Where the language menu's "help improve this translation" link lands (D-P1). Server-only, no client JS |
 | `/contacts` | `P04/02`, `P04/05`, `P04/06` | **Behind `crm_records`** (T-0042, D-L64): a real 404 while it is off. The CRM shell (`components/crm/`), not the admin one. Read from the browser through `lib/records-api.ts` against the contract mock until T-0041 is live |
-| `/contacts/[id]` | — | Scaffolding, **behind `crm_records`** (D-L64). Exists so the tenancy e2e test can tamper with a **web** URL; replace it when M4 builds the real screen. |
+| `/contacts/[id]` | `P05/01`, `P05/02`, `P05/05`, `P05/06` | The contact record (T-0062), **behind `crm_record_view` and `crm_records`** (D-L85): a real 404 unless both are on. Read and written from the browser through `lib/contact-record-api.ts`. The `@harness` tenancy spec drives it against the real API |
 | `/accounts` | `P04/03`, `P04/05`, `P04/06` | **Behind `crm_accounts`** (T-0057, D-L84), its own flag: a real 404 while it is off. The CRM shell, the list pieces in `components/records/`, and a create/edit sheet. Reads and writes through `lib/accounts-api.ts`. No row links anywhere until T-0063 builds the record page |
 | `/design/tokens` | — | The token gallery. It used to be at `/`. |
 
@@ -85,6 +85,17 @@ Both P04 lists share `components/records/`: `use-keyset-list.ts` (in memory
 only, search and cursor never in the URL, stale answers dropped),
 `list-parts.tsx` (offline banner, skeleton, error, column chooser, filter
 options, lock) and `list-model.ts`. Fix a list behaviour there, once.
+
+**`crm_record_view` (T-0062)** is the fifth flag, not production-ready. It
+rides on the `crm_records` process (`webRecordViewUrl` names the same URL), and
+the `/contacts/[id]` budget is measured there. On the record: an out-of-scope
+id is the generic not-found, never P05/06's "access denied" (D-L69); the title
+never carries the contact's name; every write sends `version` plus only the
+changed fields, and nothing is optimistic, so a refusal leaves the served value
+on screen; a task is completed only with a version a 201 or 200 served for it,
+so one seen only on the timeline cannot be completed until T-0080; write
+controls show to everyone and the API's 403 is the gate (D-L84); offline, every
+write is off and the record stays in memory (D-P21).
 
 **`?locale=en-XA`** renders the pseudo-locale, derived from `en` at runtime by
 `@kasuwa/i18n` (`src/pseudo.ts`). Like `ar` it is a preview: on no menu,

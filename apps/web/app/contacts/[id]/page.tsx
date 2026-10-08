@@ -1,40 +1,47 @@
 import { notFound } from 'next/navigation';
 import { bundleMessages } from '@kasuwa/i18n';
-import { RecordView } from './record-view';
-import { activeLocale } from '../../../lib/locale';
-import { crmRecordsEnabled } from '../../../lib/feature-flags';
+import { ContactRecordScreen } from '../../../components/contact-record/contact-record-screen';
+import { CONTACT_RECORD_MESSAGE_IDS } from '../../../components/contact-record/message-ids';
+import { crmLiveNav, crmRecordViewEnabled, crmRecordsEnabled } from '../../../lib/feature-flags';
+import { activeLocale, languageOptions } from '../../../lib/locale';
 
 /**
- * Scaffolding, not a screen — see the note in `record-view.tsx`. It exists so
- * the tenancy e2e test can tamper with a WEB url, which is the half T-0008
- * could not write.
+ * `P05/01` — the contact record, the 360° view (T-0062), with `P05/02`,
+ * `P05/05` and `P05/06`.
  *
- * Behind `crm_records` (D-L64), like `/contacts`: a real 404 while it is off,
- * decided before anything renders or any id is read.
+ * Behind `crm_record_view`, DEFAULT OFF and read on the server: a gated ROUTE,
+ * so with the flag off this is a real 404 and nothing of the screen ships. It
+ * needs `crm_records` too, because the record sits in the CRM shell and the
+ * shell's Contacts link must resolve wherever the record does. No header,
+ * cookie or query string can switch either on (`lib/feature-flags.ts`).
+ *
+ * The record is read from the BROWSER, not here: a server-component read
+ * cannot show the loading, still-connecting or offline states P05/06 draws.
+ * That is also what the `@harness` tenancy test relies on — the browser asks
+ * for the record by id and the API alone decides whether it is in scope.
+ *
+ * An id that is not a uuid cannot name a record, so it is the app's own 404
+ * without a round trip. It is the same generic page an out-of-scope id gets.
  */
-export default async function ContactPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  if (!(await crmRecordsEnabled())) {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export default async function ContactRecordPage({ params }: { params: Promise<{ id: string }> }) {
+  if (!(await crmRecordViewEnabled()) || !(await crmRecordsEnabled())) {
     notFound();
   }
   const { id } = await params;
+  if (!UUID.test(id)) {
+    notFound();
+  }
   const { locale } = await activeLocale();
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
-      <RecordView
-        id={id}
-        locale={locale}
-        messages={bundleMessages(locale, [
-          'auth.slow.loading',
-          'auth.error.network',
-          'notFound.title',
-          'notFound.body',
-        ])}
-      />
-    </div>
+    <ContactRecordScreen
+      id={id}
+      locale={locale}
+      messages={bundleMessages(locale, CONTACT_RECORD_MESSAGE_IDS)}
+      locales={languageOptions(locale)}
+      live={await crmLiveNav()}
+    />
   );
 }

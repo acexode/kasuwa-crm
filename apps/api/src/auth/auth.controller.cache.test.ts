@@ -34,4 +34,8 @@ describe('auth responses carrying credentials are never cached', () => {
   it.each(CREDENTIAL_ROUTES)('%s sends Cache-Control: no-store', (route) => {
     expect(headersOf(route)).toContainEqual({ name: 'Cache-Control', value: 'no-store' });
   });
+
+  it('me sends Cache-Control: no-store: it carries the staff email and tenant id (T-0062 review)', () => {
+    expect(headersOf('me')).toContainEqual({ name: 'Cache-Control', value: 'no-store' });
+  });
 });
