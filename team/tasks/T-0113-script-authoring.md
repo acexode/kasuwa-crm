@@ -1,6 +1,6 @@
 # T-0113 — Script authoring: tables and API (P10, manual mode)
 
-**status** `assigned` (suite `lead/T-0113-acceptance`: e782442, 2635681; hook 8681051) · **owner** Agent 6 · **priority** P2 · **decisions** D-L88, D-L91, D-L93,
+**status** `done` (#111) · **owner** Agent 6 · **priority** P2 · **decisions** D-L88, D-L91, D-L93,
 D-P31, D-P32, D-L13, D-L89 · **migration** 0030 reserved
 
 ## Goal

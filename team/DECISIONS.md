@@ -2235,3 +2235,14 @@ Every recommendation below was taken as written in its entry. What each one now 
     be hard-deleted only by the migrator, and only once nothing references them. `removedMember` (a staff id, D-L71) stays.
   - **No backfill:** owners already outside their programme before 0031 read as former owners (D-L65).
   - **The web shows a former owner as a translated "Former owner"** label, never the id, in the same PR (D-L97).
+
+### D-L100 — T-0113 merged; the `auth-availability` timing suite is unreliable on this host (lead, 2026-10-08)
+**Status:** PROCEEDING (lead).
+- **T-0113 (#111) follow-ups:** T-0121 (error envelope and `no-store` on body-parser and path-decode failures; the urlencoded
+  no-op's name; optionally a route-scoped body limit). The empty draft is a single `end` node, and publish refuses it as
+  `empty_script`.
+- **`auth-availability` ("a database-backed request while 16 sign-ins are in flight on a two-connection pool")** now fails on
+  main itself, with both RAM slots held: 178.7 ms against a 131.7 ms bound, and 152.4 ms against 100.0 ms. The host also runs
+  another project's stack (Kafka, Postgres, Redis) and idle Nx daemons. Until the host is quiet or the suite gets an
+  environment-relative bound, a failure of that one test is judged against main, run alone, at the same time. A PR that fails
+  it while main also fails it is not blocked. The other `auth-availability` tests still gate.
