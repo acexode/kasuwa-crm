@@ -5,6 +5,7 @@ import {
   sealSecret,
   type KeyProvider,
 } from '@kasuwa/auth-crypto';
+import { effectiveDatabaseTarget, namesLocalDatabaseHost } from '@kasuwa/config';
 import { Client } from 'pg';
 import {
   SEED_ACCOUNTS,
@@ -63,20 +64,19 @@ export interface SeedOptions {
  *
  * Testcontainers publishes on 127.0.0.1, so the harness is unaffected.
  *
- * `[::1]` is in the list with its brackets because that is what
- * `new URL().hostname` actually returns for IPv6 loopback — `'::1'` alone never
- * matches. A guard that rejects a genuinely local database is not a safe
- * failure: it teaches the next person to reach around it.
+ * The host is judged as pg will use it (T-0117 review M3): parsed by
+ * `pg-connection-string`, so a `?host=` overrides the URL's own, and a string
+ * that names no host is not local, whatever PGHOST or pg's default would say.
+ * `new URL().hostname` was fooled by `postgres://localhost/kasuwa?host=prod`.
+ * Local is the D-L94 R5 list (`isLocalDatabaseHost` in @kasuwa/config). The
+ * host is never echoed: a connection string's host can be internal.
  */
-const LOCAL_DATABASE_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
-
 function assertLocalDatabase(connectionString: string): void {
-  const host = new URL(connectionString).hostname;
-  if (!LOCAL_DATABASE_HOSTS.has(host)) {
+  if (!namesLocalDatabaseHost(effectiveDatabaseTarget(connectionString, 'the seed connection string'))) {
     throw new Error(
-      `runSeed refuses to run against a non-local host: ${host}. The seed installs ` +
-        `users whose password and second-factor secrets are committed to the ` +
-        `repository; running it anywhere shared publishes a way in.`,
+      'runSeed refuses to run against a non-local host. The seed installs ' +
+        'users whose password and second-factor secrets are committed to the ' +
+        'repository; running it anywhere shared publishes a way in.',
     );
   }
 }

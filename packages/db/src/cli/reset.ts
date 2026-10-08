@@ -29,7 +29,14 @@ async function main(): Promise<void> {
   if (!namesLocalDatabaseHost(effectiveDatabaseTarget(url, 'DATABASE_MIGRATION_URL'))) {
     throw new Error('db:reset refuses to run against a non-local database host.');
   }
-  assertMigrationTargetIsSafe(url);
+  // Development and test only (T-0117 review m4): a target the runner would
+  // treat as real is refused here, before any DROP, not after it.
+  if (assertMigrationTargetIsSafe(url).enforce) {
+    throw new Error(
+      'db:reset refuses to run outside development and test. Set NODE_ENV=development ' +
+        '(or test) for a local database; nothing was dropped.',
+    );
+  }
 
   const client = new Client({ connectionString: url });
   await client.connect();

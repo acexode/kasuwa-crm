@@ -38,6 +38,26 @@ describe('runSeed host guard', () => {
     ).rejects.toThrow(/refuses to run against a non-local host/u);
   });
 
+  it('judges the host pg will use: a ?host= override is refused (T-0117 M3)', async () => {
+    await expect(
+      runSeed({
+        connectionString: 'postgres://kasuwa_migrator@localhost:5432/kasuwa?host=db.t0117.invalid',
+      }),
+    ).rejects.toThrow(/refuses to run against a non-local host/u);
+  });
+
+  it('refuses a connection string that names no host', async () => {
+    await expect(runSeed({ connectionString: 'postgres:///kasuwa' })).rejects.toThrow(
+      /refuses to run against a non-local host/u,
+    );
+  });
+
+  it('never echoes the host', async () => {
+    await expect(
+      runSeed({ connectionString: 'postgres://kasuwa_migrator@db.t0117-echo.invalid:5432/kasuwa' }),
+    ).rejects.not.toThrow(/t0117-echo/u);
+  });
+
   it('allows the local forms the harness and developers actually use', async () => {
     // These must get past the guard. They will then fail to connect, which is
     // the proof that the guard let them through rather than short-circuiting.
