@@ -5,19 +5,30 @@ import type { IconName } from '@kasuwa/ui';
 import { Icon } from '../icon';
 import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import type { TimelineItem } from '../../lib/contact-record-api';
-import { describeValue, fieldLabel, formatDateTime, type ValueView } from './record-model';
-import type { TimelineState } from './use-contact-record';
+import { formatDateTime, type TimelineState, type ValueView } from './record-core';
 
 /**
- * P05/01's centre column: what happened to the contact, newest first, as the
- * API serves it (T-0061).
+ * A P05 record's centre column: what happened to the record, newest first, as
+ * the API serves it — the contact's (P05/01, T-0061) and the account's
+ * (P05/04, T-0080). One component, so both records draw history the same way.
  *
  * Every item once, in served order. `before` and `after` are drawn only where
  * the item carries them: the `[data-change]` elements exist exactly then, so
  * nothing on this screen can invent a value the audit trail withheld. Actors
  * by name, the system as one label. Every time is a `<time datetime>`, shown
  * in the browser's zone. No total, no "of", no page number (D-P13).
+ *
+ * What differs between records comes in as props: how a field is named
+ * (`fieldLabel`), and how a served `before`/`after` value is drawn
+ * (`describe`). An account's changes are by name only (D-L78), so the account
+ * passes no `describe` and nothing here could draw a value for one.
  */
+
+/** How a record names a field on its timeline, and draws a served value. */
+export interface TimelineVocabulary {
+  readonly fieldLabel: (field: string) => MessageId | null;
+  readonly describe?: (field: string, value: unknown) => ValueView;
+}
 
 const ICONS: Readonly<Record<string, IconName>> = {
   field_changed: 'edit',
@@ -49,9 +60,19 @@ function Actor({ t, item }: { t: Translator; item: TimelineItem }) {
   );
 }
 
-function Change({ t, field, item }: { t: Translator; field: string; item: { before?: unknown; after?: unknown } }) {
-  if (!('before' in item) && !('after' in item)) return null;
-  const side = (value: unknown) => describeValue(field, value as Parameters<typeof describeValue>[1]);
+function Change({
+  t,
+  field,
+  item,
+  describe,
+}: {
+  t: Translator;
+  field: string;
+  item: { before?: unknown; after?: unknown };
+  describe: ((field: string, value: unknown) => ValueView) | undefined;
+}) {
+  if (describe === undefined || (!('before' in item) && !('after' in item))) return null;
+  const side = (value: unknown) => describe(field, value);
   return (
     <p className="flex flex-wrap items-center gap-2 text-body-sm">
       <span data-change="before" className="rounded-sm bg-surface-sunken px-2 text-text-2 line-through decoration-text-muted">
@@ -70,6 +91,7 @@ function Item({
   t,
   locale,
   item,
+  vocabulary,
   canComplete,
   completing,
   offline,
@@ -78,6 +100,7 @@ function Item({
   t: Translator;
   locale: string;
   item: TimelineItem;
+  vocabulary: TimelineVocabulary;
   canComplete: boolean;
   completing: boolean;
   offline: boolean;
@@ -142,13 +165,13 @@ function Item({
   } else {
     const field = item.type === 'consent_changed' ? 'consentState' : item.field;
     icon = ICONS[item.type] ?? 'edit';
-    const label = fieldLabel(field);
+    const label = vocabulary.fieldLabel(field);
     title = t.t('record.timeline.changed', { field: label === null ? field : t.t(label) });
     body =
       item.type === 'field_changed' && item.redacted === true ? (
         <p className="text-body-sm text-text-muted">{t.t('record.timeline.redacted')}</p>
       ) : (
-        <Change t={t} field={field} item={item} />
+        <Change t={t} field={field} item={item} describe={vocabulary.describe} />
       );
   }
 
@@ -185,6 +208,8 @@ export function RecordTimeline({
   t,
   locale,
   timeline,
+  vocabulary,
+  loadingLabel,
   versions,
   completing,
   offline,
@@ -194,7 +219,10 @@ export function RecordTimeline({
 }: {
   t: Translator;
   locale: string;
-  timeline: TimelineState;
+  timeline: TimelineState<TimelineItem>;
+  vocabulary: TimelineVocabulary;
+  /** The screen-reader announcement while the first page loads. */
+  loadingLabel: MessageId;
   versions: Readonly<Record<string, number>>;
   completing: string | null;
   offline: boolean;
@@ -206,7 +234,7 @@ export function RecordTimeline({
     return (
       <div data-testid="timeline" aria-busy="true" className="flex flex-col gap-3">
         <span role="status" className="sr-only">
-          {t.t('record.loading')}
+          {t.t(loadingLabel)}
         </span>
         {Array.from({ length: 3 }, (_, index) => (
           <div key={index} aria-hidden="true" className="flex gap-3">
@@ -252,6 +280,7 @@ export function RecordTimeline({
               t={t}
               locale={locale}
               item={item}
+              vocabulary={vocabulary}
               canComplete={item.type === 'activity' && versions[item.activityId] !== undefined}
               completing={item.type === 'activity' && completing === item.activityId}
               offline={offline}

@@ -5,23 +5,22 @@ import { useId, useRef, useState, type ReactNode } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
-import { StillConnecting } from '../admin/panel';
 import type { LanguageOption } from '../auth/language-menu';
 import { FIELD, LINK, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { ActivityType, type ContactRecord } from '../../lib/contact-record-api';
-import { ActivityForm } from './activity-form';
+import { ActivityForm } from '../record/activity-form';
+import { writeErrorId, zoneName } from '../record/record-core';
+import { RecordLoading, RecordNotFound, RecordOfflineBanner, RecordUnavailable } from '../record/record-states';
+import { RecordTimeline, Value, type TimelineVocabulary } from '../record/record-timeline';
 import { ContactSheet } from './contact-sheet';
-import { RecordTimeline, Value } from './record-timeline';
 import {
   DETAILS,
   STATUS_CODES,
   describeValue,
-  formatClock,
+  fieldLabel,
   formatPhone,
   initials,
   isLocked,
-  writeErrorId,
-  zoneName,
   type DetailKey,
 } from './record-model';
 import { useContactRecord, type ContactRecordState } from './use-contact-record';
@@ -57,6 +56,12 @@ import { useContactRecord, type ContactRecordState } from './use-contact-record'
 
 const PANEL = 'flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-surface p-4';
 
+/** A contact's timeline names Contact fields, and draws the values the API served (D-L72). */
+const CONTACT_TIMELINE: TimelineVocabulary = {
+  fieldLabel,
+  describe: (field, value) => describeValue(field, value as Parameters<typeof describeValue>[1]),
+};
+
 type Notice = { readonly kind: 'error'; readonly id: MessageId } | { readonly kind: 'saved' } | null;
 
 export function ContactRecordScreen({
@@ -85,48 +90,14 @@ export function ContactRecordScreen({
           {t.t('records.title')}
         </Link>
 
-        {offline ? (
-          <div
-            role="status"
-            data-testid="offline-banner"
-            className="flex items-start gap-3 rounded-lg bg-inverse p-3 text-body-sm text-on-inverse"
-          >
-            <Icon name="cloud_off" size="sm" />
-            <p>
-              <b>{t.t('records.offline.title')}</b>{' '}
-              {state.syncedAt === null
-                ? t.t('records.offline.never')
-                : t.t('record.offline', { time: formatClock(locale, state.syncedAt) })}
-            </p>
-          </div>
-        ) : null}
+        {offline ? <RecordOfflineBanner t={t} locale={locale} syncedAt={state.syncedAt} /> : null}
 
-        {state.phase === 'loading' ? <Loading t={t} slow={state.slow} /> : null}
+        {state.phase === 'loading' ? <RecordLoading t={t} slow={state.slow} label="record.loading" /> : null}
 
-        {state.phase === 'not-found' ? (
-          // Identical for another tenant, another programme and an id that names
-          // nothing: no id, no programme, no lock, no "request access".
-          <section data-testid="record-not-found" className="flex flex-col items-start gap-3 py-8">
-            <h1 className="text-h2">{t.t('notFound.title')}</h1>
-            <p className="text-body-lg text-text-2">{t.t('notFound.body')}</p>
-          </section>
-        ) : null}
+        {state.phase === 'not-found' ? <RecordNotFound t={t} /> : null}
 
         {state.phase === 'unavailable' ? (
-          <div
-            role="alert"
-            data-testid="record-unavailable"
-            className="flex flex-col items-start gap-2 rounded-lg border border-danger bg-danger-soft p-4 text-body-sm text-danger-text"
-          >
-            <p className="flex items-center gap-2 font-bold">
-              <Icon name="error" size="sm" />
-              {t.t('record.unavailable')}
-            </p>
-            <p>{t.t(`records.error.${state.error?.code ?? 'network'}` as MessageId)}</p>
-            <button type="button" data-requires-connection="" disabled={offline} onClick={state.reload} className={QUIET_BUTTON}>
-              {t.t('records.retry')}
-            </button>
-          </div>
+          <RecordUnavailable t={t} heading="record.unavailable" error={state.error} offline={offline} onRetry={state.reload} />
         ) : null}
 
         {state.phase === 'ready' && state.record !== null ? (
@@ -134,39 +105,6 @@ export function ContactRecordScreen({
         ) : null}
       </div>
     </CrmShell>
-  );
-}
-
-/** P05/06: skeletons in the final layout, then a sentence and an offer of lite mode. */
-function Loading({ t, slow }: { t: Translator; slow: boolean }) {
-  return (
-    <div aria-busy="true" className="flex flex-col gap-4">
-      {slow ? <StillConnecting t={t} /> : null}
-      <span role="status" className="sr-only">
-        {t.t('record.loading')}
-      </span>
-      <div data-testid="record-skeleton" aria-hidden="true" className="flex items-center gap-4 rounded-lg border border-border bg-surface p-4">
-        <span className="h-16 w-16 shrink-0 rounded-full bg-surface-sunken" />
-        <span className="flex flex-1 flex-col gap-2">
-          <span className="h-6 w-1/2 rounded-sm bg-surface-sunken" />
-          <span className="h-4 w-1/3 rounded-sm bg-surface-sunken" />
-        </span>
-      </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        {[5, 4].map((rows, column) => (
-          <div
-            key={column}
-            data-testid="record-skeleton"
-            aria-hidden="true"
-            className={`flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 ${column === 1 ? 'md:col-span-2' : ''}`}
-          >
-            {Array.from({ length: rows }, (_, index) => (
-              <span key={index} className="h-10 rounded-md bg-surface-sunken" />
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -373,6 +311,8 @@ function Ready({
             t={t}
             locale={locale}
             timeline={state.timeline}
+            vocabulary={CONTACT_TIMELINE}
+            loadingLabel="record.loading"
             versions={state.versions}
             completing={busy?.startsWith('task:') === true ? busy.slice('task:'.length) : null}
             offline={offline}

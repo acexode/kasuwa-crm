@@ -5,13 +5,16 @@ import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from '../auth/button-classes';
 import type { RecordsResult } from '../../lib/records-api';
-import type { Activity, ActivityType, NewActivity } from '../../lib/contact-record-api';
-import { localToUtc, writeErrorId } from './record-model';
+import type { Activity, ActivityDraft, ActivityType } from '../../lib/contact-record-api';
+import { localToUtc, writeErrorId } from './record-core';
 
 /**
- * Log a note, a task or a call against the contact on screen (D-P18, T-0061).
+ * Log a note, a task or a call against the record on screen (D-P18): the
+ * contact (T-0061) or the account (T-0063). The form knows nothing of which;
+ * the screen's `onSave` adds the one target, so an account's note never names
+ * a contact.
  *
- * The body is the contract's and no more: the type, the contact, and the text
+ * The body is the contract's and no more: the type, the target, and the text
  * the user typed. An empty box is left out, never sent as `""`; a due time is
  * offered on a task only (anything else is `400 task_only`) and goes on the
  * wire in UTC, converted from the browser's zone, which is the zone the agent
@@ -32,7 +35,7 @@ export function ActivityForm({
   t: Translator;
   type: ActivityType;
   offline: boolean;
-  onSave: (activity: Omit<NewActivity, 'contactId'>) => Promise<RecordsResult<Activity>>;
+  onSave: (activity: ActivityDraft) => Promise<RecordsResult<Activity>>;
   onClose: (saved: boolean) => void;
 }) {
   const [subject, setSubject] = useState('');

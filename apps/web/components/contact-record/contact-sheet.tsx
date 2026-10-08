@@ -14,10 +14,10 @@ import {
   editableKeys,
   fieldLabel,
   languageLabel,
-  writeErrorId,
   type Draft,
   type EditKey,
 } from './record-model';
+import { writeErrorId } from '../record/record-core';
 
 /**
  * The full edit (P05/01's pencil, for writers). A dialog, so focus moves in,

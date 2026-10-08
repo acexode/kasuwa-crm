@@ -145,6 +145,13 @@ describe('the contact record client', () => {
     expect(created.ok && created.value.version).toBe(1);
   });
 
+  it('logs an account’s activity against the account alone, naming no contact (T-0063)', () => {
+    const body = createActivityBody({ type: 'note', accountId: 'a', body: 'Depot gate B.' });
+    expect(body).toEqual({ type: 'note', accountId: 'a', body: 'Depot gate B.' });
+    expect('contactId' in body).toBe(false);
+    expect('accountId' in createActivityBody({ type: 'note', contactId: 'c', body: 'x' })).toBe(false);
+  });
+
   it('completes a task with the version it is given and nothing else', async () => {
     const sent = serve(400, { statusCode: 400, code: 'validation_failed', message: 'Validation failed' });
     const result = await completeActivity('5e2a7b1c-3d4f-4a6b-8c9d-0e1f2a3b4c21', 1);

@@ -87,7 +87,8 @@ const ConsentChangedItem = z.object({
   after: ConsentState.optional(),
 });
 
-const ActivityItem = z.object({
+/** One schema on both timelines (T-0061, T-0080); `version` is what updateActivity takes back. */
+export const ActivityItem = z.object({
   ...ItemBase,
   type: z.literal('activity'),
   activityId: z.string(),
@@ -96,6 +97,9 @@ const ActivityItem = z.object({
   body: z.string().nullable().optional(),
   dueAt: z.string().nullable().optional(),
   completedAt: z.string().nullable().optional(),
+  // Required by the contract since T-0080. Optional here until the contact
+  // record completes a task by it (T-0119); the account record requires it.
+  version: z.number().int().optional(),
 });
 
 export const TimelineItem = z.discriminatedUnion('type', [FieldChangedItem, ConsentChangedItem, ActivityItem]);
@@ -126,15 +130,23 @@ export const Activity = z.object({
 });
 export type Activity = z.infer<typeof Activity>;
 
-/** `createActivity`'s closed body, as the record sends it: always against the contact on screen. */
-export interface NewActivity {
+/** What the activity form collects: the same for every record it is logged from. */
+export interface ActivityDraft {
   readonly type: ActivityType;
-  readonly contactId: string;
   readonly subject?: string;
   readonly body?: string;
   /** UTC, with a `Z`. Tasks only. */
   readonly dueAt?: string;
 }
+
+/**
+ * The ONE record an activity is logged against: the contact on screen, or the
+ * account on screen with no contact (T-0063). Never both, never neither.
+ */
+export type ActivityTarget = { readonly contactId: string; readonly accountId?: never } | { readonly accountId: string; readonly contactId?: never };
+
+/** `createActivity`'s closed body, as a record sends it. */
+export type NewActivity = ActivityDraft & ActivityTarget;
 
 // ---------------------------------------------------------------------------
 // Who is asking
@@ -224,7 +236,10 @@ export function listContactTimeline(
 
 /** `createActivity`'s body: empty text is left out, never sent as `""` (minLength 1). */
 export function createActivityBody(activity: NewActivity): Record<string, string> {
-  const body: Record<string, string> = { type: activity.type, contactId: activity.contactId };
+  const body: Record<string, string> =
+    activity.contactId === undefined
+      ? { type: activity.type, accountId: activity.accountId }
+      : { type: activity.type, contactId: activity.contactId };
   const subject = activity.subject?.trim() ?? '';
   const text = activity.body?.trim() ?? '';
   if (subject !== '') body.subject = subject;
