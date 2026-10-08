@@ -2099,3 +2099,26 @@ Every recommendation below was taken as written in its entry. What each one now 
 - **Acknowledgements** record the locale the client reports it showed, and a server-set `profileLocale`.
 - **Tracked:** the outcome shown on the call activity; allowed dispositions per end node (a product question); the
   `script.write` gate on `listProgrammeScripts` when T-0113 backs it; a stopped run on an older version stays until retention.
+
+### D-L94 — T-0117: `kasuwa_test_admin` becomes an inert placeholder, not absent (lead, 2026-10-08; amends D-L92)
+**Status:** PROCEEDING (lead). Raised by the T-0117 suite writer under the task's "Escalate if".
+- **Why not "absent".** Fourteen applied migrations (0000 to 0027) grant to or revoke from `kasuwa_test_admin` without a
+  role-exists guard, so a database without the role fails at 0000. Re-baselining them would break append-only (CLAUDE.md 4),
+  and a security fix should not start by waiving a hard rule.
+- **The model.**
+  - `bootstrap.sql` creates the role as an inert placeholder: NOLOGIN, NOBYPASSRLS, NOINHERIT, no password, no memberships
+    either way. It holds the migrations' grants, but nobody can use them. No login role is its member, so `SET ROLE` cannot
+    reach it, and making it a login needs CREATEROLE, which no cell role holds.
+  - `bootstrap-test.sql` (dev compose and Testcontainers only) turns it into the test login.
+  - The migration runner refuses, outside development and test, when the role can log in, bypasses RLS, has a password, or
+    has any membership.
+- **Two related guards, in the same task:**
+  - an unset `NODE_ENV` is refused against a non-local database host;
+  - outside development and test, the runner and the API (through `@kasuwa/config`) refuse a connection URL carrying one of
+    the repository's dev passwords. This closes the same hole for `kasuwa_migrator`, `kasuwa_app` and `kasuwa_auth` if
+    provisioning forgets to pre-create them.
+- **Suite rulings accepted:** there is no `staging` environment in `@kasuwa/config` (staging runs as production); the
+  production config is `NODE_ENV=production` plus `KASUWA_AUTH_MODE=jwt`; exactly three password literals remain in
+  `bootstrap.sql` (migrator, app, auth); `kasuwa_sweeper` stays NOLOGIN with no password.
+- **Tracked:** isolation's `auth-availability` timing suite fails whenever two heavy jobs share the host. Give it its own
+  serial stage in `test:isolation` (a lead edit to the test setup).

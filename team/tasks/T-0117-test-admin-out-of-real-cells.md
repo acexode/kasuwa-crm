@@ -1,10 +1,11 @@
-# T-0117 — `kasuwa_test_admin` never exists in a real cell (D-L92)
+# T-0117 — `kasuwa_test_admin` is unusable in a real cell (D-L92, D-L94)
 
 **status** `not-assigned` (suite to be written) · **owner** Agent 1 · **priority** P0 (before any populated cell) · **decisions**
 D-L92, D-L07, D-L65, ADR-0013
 
 ## Goal
-A real environment's database has no BYPASSRLS login meant for tests, and no role with a password that is in the repository.
+A real environment's database has no usable test login, and no role whose password is in the repository. **D-L94 replaces the
+original "absent" plan below**: the role stays as an inert placeholder, because 14 applied migrations grant to it.
 - **Split the bootstrap.** `packages/db/sql/bootstrap.sql` (applied by real provisioning, docker-compose and Testcontainers)
   stops creating `kasuwa_test_admin` and stops naming it in grants and default privileges. A new
   `packages/db/sql/bootstrap-test.sql` creates it and grants what the harness needs. Only docker-compose's init directory and
