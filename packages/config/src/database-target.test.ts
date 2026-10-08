@@ -3,8 +3,11 @@ import {
   assertMigrationTargetIsSafe,
   DEV_DATABASE_PASSWORDS,
   effectiveDatabaseTarget,
+  isDevDatabasePassword,
   isLocalDatabaseHost,
+  isPgEnvironmentVariable,
   namesLocalDatabaseHost,
+  saslprep,
 } from './database-target';
 import { apiEnv, workerEnv, type EnvSource } from './index';
 
@@ -35,6 +38,34 @@ const WORKER_PRODUCTION: EnvSource = {
   KASUWA_KMS_PROVIDER: 'aws-kms',
   DATABASE_URL: url('kasuwa_app', SECRET),
 };
+
+/**
+ * T-0117 review m2: every PG* name refuses (case ignored), and so does
+ * NODE_PG_FORCE_NATIVE. Values are SECRET, so a message that echoed one fails.
+ */
+const PG_STEERING = [
+  'PGHOST',
+  'PGPASSWORD',
+  'PGUSER',
+  'PGPASSFILE',
+  'PGOPTIONS',
+  'PGPORT',
+  'PGSSLMODE',
+  'PGAPPNAME',
+  'pgsslrootcert',
+  'NODE_PG_FORCE_NATIVE',
+];
+
+/**
+ * T-0117 review m1: passwords pg's SASLprep turns into a dev one, so the
+ * server would accept them for it. Each inserts or swaps one character.
+ */
+const SASLPREP_DISGUISES: readonly (readonly [string, string])[] = [
+  ['a soft hyphen (U+00AD)', 'kasuwa_app\u00AD_dev'],
+  ['a zero-width joiner (U+200D)', 'kasuwa\u200D_app_dev'],
+  ['a byte-order mark (U+FEFF)', '\uFEFFkasuwa_app_dev'],
+  ['a fullwidth letter (U+FF4B)', '\uFF4Basuwa_app_dev'],
+];
 
 function messageOf(call: () => unknown): string {
   try {
@@ -129,6 +160,45 @@ describe('namesLocalDatabaseHost: only a host the URL itself names can be local'
     ['no host, PGHOST=localhost', 'postgres:///kasuwa', { PGHOST: 'localhost' }, false],
   ] as const)('%s -> %s', (_what, connectionString, env, local) => {
     expect(namesLocalDatabaseHost(effectiveDatabaseTarget(connectionString, 'X', env))).toBe(local);
+  });
+});
+
+describe('isPgEnvironmentVariable (T-0117 review m2)', () => {
+  it.each(PG_STEERING)('%s steers pg', (name) => {
+    expect(isPgEnvironmentVariable(name)).toBe(true);
+  });
+
+  it.each(['PATH', 'HOME', 'NODE_ENV', 'APGAR', 'DATABASE_URL', 'NODE_PG'])(
+    '%s does not',
+    (name) => {
+      expect(isPgEnvironmentVariable(name)).toBe(false);
+    },
+  );
+});
+
+describe('dev passwords are compared after SASLprep, as pg does (T-0117 review m1)', () => {
+  it('saslprep maps non-ASCII spaces, removes B.1 characters and applies NFKC', () => {
+    expect(saslprep('a\u00A0b')).toBe('a b');
+    expect(saslprep('a\u00ADb\u200Dc\uFEFFd')).toBe('abcd');
+    expect(saslprep('\uFF4B')).toBe('k');
+    expect(saslprep('kasuwa_app_dev')).toBe('kasuwa_app_dev');
+  });
+
+  it.each(SASLPREP_DISGUISES)('a dev password with %s is still a dev password', (_how, pw) => {
+    expect(pw).not.toBe('kasuwa_app_dev');
+    expect(isDevDatabasePassword(pw)).toBe(true);
+  });
+
+  it('the superuser password `postgres` is a dev password (review m5)', () => {
+    expect(DEV_DATABASE_PASSWORDS).toContain('postgres');
+    expect(isDevDatabasePassword('postgres')).toBe(true);
+    expect(isDevDatabasePassword('\uFF50ostgres')).toBe(true);
+  });
+
+  it('a password that merely resembles one is not', () => {
+    expect(isDevDatabasePassword('kasuwa_app_dev2')).toBe(false);
+    expect(isDevDatabasePassword(SECRET)).toBe(false);
+    expect(isDevDatabasePassword(undefined)).toBe(false);
   });
 });
 
@@ -229,16 +299,28 @@ describe('assertMigrationTargetIsSafe', () => {
     expectNoSecret(message);
   });
 
-  it.each(['PGHOST', 'PGPASSWORD', 'PGUSER', 'PGPASSFILE'])(
-    'refuses %s in production by name',
-    (name) => {
-      const message = messageOf(() =>
-        assertMigrationTargetIsSafe(url('kasuwa_migrator', SECRET), { ...PRODUCTION, [name]: 'x' }),
-      );
-      expect(message).toContain(name);
-      expectNoSecret(message);
-    },
-  );
+  it.each(PG_STEERING)('refuses %s in production by name', (name) => {
+    const message = messageOf(() =>
+      assertMigrationTargetIsSafe(url('kasuwa_migrator', SECRET), { ...PRODUCTION, [name]: 'x' }),
+    );
+    expect(message).toContain(name);
+    expectNoSecret(message);
+  });
+
+  it.each(SASLPREP_DISGUISES)('refuses a dev password disguised by %s', (_how, pw) => {
+    const message = messageOf(() =>
+      assertMigrationTargetIsSafe(url('kasuwa_migrator', encodeURIComponent(pw)), PRODUCTION),
+    );
+    expect(message).toMatch(/development passwords/u);
+    expectNoSecret(message, [pw]);
+  });
+
+  it('refuses the superuser password in production', () => {
+    const message = messageOf(() =>
+      assertMigrationTargetIsSafe(url('postgres', 'postgres'), PRODUCTION),
+    );
+    expect(message).toMatch(/development passwords/u);
+  });
 
   it('refuses a stub auth mode in production before anything else (migratorEnv)', () => {
     expect(() =>
@@ -283,19 +365,24 @@ describe('apiEnv and workerEnv refuse dev passwords and PG* outside development 
     }
   });
 
-  it.each(['PGHOST', 'PGPASSWORD', 'PGUSER', 'PGPASSFILE'])(
-    'both refuse %s in production by name',
-    (name) => {
-      for (const call of [
-        () => apiEnv({ ...API_PRODUCTION, [name]: SECRET }),
-        () => workerEnv({ ...WORKER_PRODUCTION, [name]: SECRET }),
-      ]) {
-        const message = messageOf(call);
-        expect(message).toContain(name);
-        expectNoSecret(message);
-      }
-    },
-  );
+  it.each(PG_STEERING)('both refuse %s in production by name', (name) => {
+    for (const call of [
+      () => apiEnv({ ...API_PRODUCTION, [name]: SECRET }),
+      () => workerEnv({ ...WORKER_PRODUCTION, [name]: SECRET }),
+    ]) {
+      const message = messageOf(call);
+      expect(message).toContain(name);
+      expectNoSecret(message);
+    }
+  });
+
+  it.each(SASLPREP_DISGUISES)('apiEnv refuses a dev password disguised by %s', (_how, pw) => {
+    const message = messageOf(() =>
+      apiEnv({ ...API_PRODUCTION, DATABASE_URL: url('kasuwa_app', encodeURIComponent(pw)) }),
+    );
+    expect(message).toContain('DATABASE_URL');
+    expectNoSecret(message, [pw, encodeURIComponent(pw)]);
+  });
 
   it('both accept dev passwords and PG* in development and test (control)', () => {
     for (const nodeEnv of ['development', 'test']) {

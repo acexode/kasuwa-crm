@@ -34,7 +34,8 @@ export {
   effectiveDatabaseTarget,
   isLocalDatabaseHost,
   namesLocalDatabaseHost,
-  PG_FALLBACK_VARIABLES,
+  isPgEnvironmentVariable,
+  saslprep,
 } from './database-target';
 export type { EffectiveDatabaseTarget, MigrationTargetDecision } from './database-target';
 export type { ApiEnv, EnvSource, MigratorEnv, RealtimeEnv, WebEnv, WorkerEnv } from './schemas.mjs';

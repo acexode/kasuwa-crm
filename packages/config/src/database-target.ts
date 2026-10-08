@@ -13,21 +13,33 @@ import { migratorEnv, type EnvSource } from './schemas.mjs';
  *     it alone. If provisioning forgets, the cell's roles have passwords that
  *     are in a public repository. Outside development and test, a connection
  *     that would authenticate with one of them is refused.
- *   - pg's environment fallbacks. `pg` reads PGHOST, PGPASSWORD and PGUSER
- *     when the connection string does not say, and PGPASSFILE names the
- *     pgpass file it reads when no password is given at all, so a URL that
- *     looks fine can connect somewhere else, as someone else. Outside
- *     development and test all four are refused outright: every connection is
- *     a URL from `@kasuwa/config`, and nothing else may steer it. A default
- *     `~/.pgpass` (no PGPASSFILE) is not detected; that is a documented limit.
+ *   - pg's environment. `pg` reads PGHOST, PGPASSWORD and PGUSER when the
+ *     connection string does not say, PGPASSFILE names the pgpass file it
+ *     reads when no password is given, and PGOPTIONS, PGPORT, PGSSLMODE and
+ *     the rest change the connection too; NODE_PG_FORCE_NATIVE swaps the
+ *     driver for libpq, which reads every libpq variable. So a URL that looks
+ *     fine can connect somewhere else, as someone else, differently. Outside
+ *     development and test, ANY variable whose name starts with `PG` (case
+ *     ignored, as Windows does), and NODE_PG_FORCE_NATIVE, is refused outright
+ *     (T-0117 review m2): every connection is a URL from `@kasuwa/config`, and
+ *     nothing else may steer it. Messages name the variable, never the value.
+ *     A default `~/.pgpass` (no PGPASSFILE) is not detected; that is a
+ *     documented limit.
  *   - An unset NODE_ENV. The dev `.env` deliberately sets none (Nx would leak
  *     it into `next build`), and `@kasuwa/config` then defaults to
  *     development, which relaxes every guard. That is right on a laptop and
- *     wrong against a real database, so the migration runner refuses an unset
- *     NODE_ENV unless the connection string itself names a local host. A URL
- *     that names no host is NOT local, whatever PGHOST or pg's default would
- *     make of it (lead ruling on T-0117; domain-core's provisioning guard
- *     already treats it so).
+ *     wrong against a real database. The API and the worker therefore refuse
+ *     an unset NODE_ENV outright (D-L95, `./server-env.ts`); dev and test
+ *     entry points set it per process (tools/dev.mjs, the e2e harness,
+ *     vitest). The migration runner keeps the D-L94 rule: an unset NODE_ENV
+ *     is refused unless the connection string itself names a local host. A
+ *     URL that names no host is NOT local, whatever PGHOST or pg's default
+ *     would make of it (lead ruling on T-0117; domain-core's provisioning
+ *     guard already treats it so). DOCUMENTED LIMIT: loopback is not proof of
+ *     a laptop. cloud-sql-proxy, `kubectl port-forward` and SSH tunnels all
+ *     listen on 127.0.0.1, so an unset NODE_ENV through one of them migrates
+ *     as development. A real cell reached that way is still caught by the
+ *     API and worker boot checks at its next deploy.
  *
  * JUDGED AS PG WILL USE IT. `pg` parses a connection string with
  * `pg-connection-string`, where a `?host=` or `?password=` query parameter
@@ -50,25 +62,27 @@ import { migratorEnv, type EnvSource } from './schemas.mjs';
 
 /**
  * The repository's development passwords (D-L94). Each is in
- * `packages/db/sql/bootstrap.sql`, `bootstrap-test.sql` or `.env.example`, so
- * each is public. Not secrets: a list of things that must never BE one.
+ * `packages/db/sql/bootstrap.sql`, `bootstrap-test.sql`, `.env.example` or
+ * docker-compose (the superuser's `postgres`, T-0117 review m5), so each is
+ * public. Not secrets: a list of things that must never BE one.
  */
 export const DEV_DATABASE_PASSWORDS: readonly string[] = Object.freeze([
   'kasuwa_migrator_dev',
   'kasuwa_app_dev',
   'kasuwa_auth_dev',
   'kasuwa_test_admin_dev',
+  'postgres',
 ]);
 
-/** The variables `pg` falls back to when a connection string does not say. */
-export const PG_FALLBACK_VARIABLES: readonly string[] = Object.freeze([
-  'PGHOST',
-  'PGPASSWORD',
-  'PGUSER',
-  // Not a value pg falls back to, but where it reads one: the pgpass file it
-  // consults when no password is given (lead ruling on T-0117).
-  'PGPASSFILE',
-]);
+/**
+ * True for an environment variable that can steer a pg connection: any name
+ * starting with `PG` (compared without case: Windows environment names are
+ * case-insensitive), and NODE_PG_FORCE_NATIVE, which swaps in libpq.
+ */
+export function isPgEnvironmentVariable(name: string): boolean {
+  const upper = name.toUpperCase();
+  return upper.startsWith('PG') || upper === 'NODE_PG_FORCE_NATIVE';
+}
 
 /** pg's own default host, used when neither the URL nor PGHOST names one. */
 const PG_DEFAULT_HOST = 'localhost';
@@ -155,14 +169,38 @@ function nonEmpty(value: unknown): string | undefined {
   return typeof value === 'string' && value !== '' ? value : undefined;
 }
 
-/** True when `password` is one of the repository's development passwords. */
-export function isDevDatabasePassword(password: string | undefined): boolean {
-  return password !== undefined && DEV_DATABASE_PASSWORDS.includes(password);
+/**
+ * SASLprep (RFC 4013) exactly as pg applies it before SCRAM
+ * (`pg/lib/crypto/sasl.js`, pg 8.23): RFC 3454 C.1.2 non-ASCII spaces become
+ * U+0020, the B.1 "mapped to nothing" characters are removed, then NFKC. The
+ * server prepares the stored verifier the same way, so a password that
+ * differs from a dev one only by, say, a soft hyphen or a fullwidth letter
+ * AUTHENTICATES as it (T-0117 review m1). The two character classes are
+ * copied from pg; keep them in step if pg changes.
+ */
+export function saslprep(password: string): string {
+  const nonAsciiSpace = /[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000]/gu;
+  const mappedToNothing =
+    // eslint-disable-next-line no-misleading-character-class -- RFC 3454 B.1, as pg has it
+    /[\u00AD\u034F\u1806\u180B\u180C\u180D\u200C\u200D\u2060\uFE00-\uFE0F\uFEFF]/gu;
+  return password.replace(nonAsciiSpace, ' ').replace(mappedToNothing, '').normalize('NFKC');
 }
 
-/** The PG* fallbacks set in `source`, by name. Presence is the test, as for webEnv. */
+const PREPARED_DEV_PASSWORDS: ReadonlySet<string> = new Set(DEV_DATABASE_PASSWORDS.map(saslprep));
+
+/**
+ * True when `password`, prepared as pg prepares it for SCRAM, is one of the
+ * repository's development passwords.
+ */
+export function isDevDatabasePassword(password: string | undefined): boolean {
+  return password !== undefined && PREPARED_DEV_PASSWORDS.has(saslprep(password));
+}
+
+/** The pg-steering variables set in `source`, by name, sorted. Presence is the test. */
 export function pgFallbacksSet(source: EnvSource): string[] {
-  return PG_FALLBACK_VARIABLES.filter((name) => source[name] !== undefined);
+  return Object.keys(source)
+    .filter((name) => source[name] !== undefined && isPgEnvironmentVariable(name))
+    .sort();
 }
 
 /**
@@ -177,9 +215,9 @@ export function databaseCredentialProblems(
   const problems: string[] = [];
   for (const name of pgFallbacksSet(source)) {
     problems.push(
-      `  ${name}: must not be set outside development and test. pg reads it ` +
-        'when a connection string does not say, so it can redirect or re-authenticate a ' +
-        'connection that looks correct. Put everything in the connection URL (D-L94).',
+      `  ${name}: must not be set outside development and test. pg (or libpq) reads ` +
+        'it, so it can redirect, re-authenticate or reconfigure a connection that looks ' +
+        'correct. Put everything in the connection URL (D-L94).',
     );
   }
   for (const variable of variables) {
@@ -226,9 +264,9 @@ export interface MigrationTargetDecision {
  *      allowed only when the connection string names a local host (a string
  *      naming no host is not local); it is then treated as development, which
  *      is what a local `pnpm db:migrate` is.
- *   3. Outside development and test: none of PGHOST, PGPASSWORD, PGUSER and
- *      PGPASSFILE is set, and the password pg will send is not one of the
- *      repository's.
+ *   3. Outside development and test: no variable starting with `PG`, and no
+ *      NODE_PG_FORCE_NATIVE, is set, and the password pg will send is not one
+ *      of the repository's (compared after SASLprep).
  *
  * Throws with a message that names the variable and the reason, never the
  * URL, the host or the password. Returns whether the runner must enforce the
@@ -260,8 +298,8 @@ export function assertMigrationTargetIsSafe(
 
   const problems = [...pgFallbacksSet(source)].map(
     (name) =>
-      `  ${name} is set. pg reads it when a connection string does not say, so it ` +
-      'can redirect or re-authenticate the migration. Put everything in the URL.',
+      `  ${name} is set. pg (or libpq) reads it, so it can redirect, re-authenticate ` +
+      'or reconfigure the migration. Put everything in the URL.',
   );
   const { password } = effectiveDatabaseTarget(connectionString, variable, source);
   if (isDevDatabasePassword(password)) {
