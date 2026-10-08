@@ -70,15 +70,18 @@ describe('readTestAdminUsability', () => {
     expect(String(fake.calls[0]?.[0])).toMatch(/pg_catalog\.pg_roles/u);
   });
 
-  it('counts a membership only when it carries SET or INHERIT, in both directions', async () => {
-    // Lead ruling on T-0117: an ADMIN-only membership (managed Postgres
-    // records one for the CREATEROLE admin) cannot be used to become the
-    // role. The integration test proves the catalogue agrees.
+  it('exempts only an ADMIN-only membership held by a SUPERUSER or CREATEROLE role', async () => {
+    // T-0117 review M1: ADMIN OPTION lets any other holder grant the role to
+    // itself with SET. The integration test proves the catalogue agrees.
     const fake = reader(INERT);
     await readTestAdminUsability(fake);
     const sql = String(fake.calls[0]?.[0]).replace(/\s+/gu, ' ');
-    expect(sql).toContain('m.roleid = r.oid AND (m.inherit_option OR m.set_option)');
-    expect(sql).toContain('m.member = r.oid AND (m.inherit_option OR m.set_option)');
+    expect(sql).toContain(
+      'WHERE m.roleid = r.oid AND (m.inherit_option OR m.set_option ' +
+        'OR NOT (holder.rolsuper OR holder.rolcreaterole))',
+    );
+    // A membership of another role: no exemption at all.
+    expect(sql).toContain('WHERE m.member = r.oid) AS is_member');
   });
 });
 
