@@ -285,7 +285,7 @@ export async function listScripts(
   return rows.map(toSummary);
 }
 
-/** A new draft in `programmeId`. `graph` null is the empty draft (0030's default). */
+/** A new draft in `programmeId`. The service sends EMPTY_DRAFT_GRAPH when no graph was given. */
 export async function insertScript(
   tx: TenantTx,
   values: { programmeId: string; name: string; sourceLocale: string; graph: unknown },
@@ -293,14 +293,14 @@ export async function insertScript(
   const id = newId();
   await tx.query(
     `INSERT INTO script (id, tenant_id, programme_id, name, source_locale, draft_graph)
-     VALUES ($1, $2, $3, $4, $5, coalesce($6::jsonb, '{"startNodeId": "start", "nodes": []}'::jsonb))`,
+     VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
     [
       id,
       tx.session.tenantId,
       values.programmeId,
       values.name,
       values.sourceLocale,
-      values.graph === null ? null : JSON.stringify(values.graph),
+      JSON.stringify(values.graph),
     ],
   );
   return id;

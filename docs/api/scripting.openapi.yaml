@@ -230,7 +230,11 @@ paths:
         `403 not_permitted`.
 
         The draft graph is checked for shape here (`400`). Whether it is
-        complete enough to publish is checked by publishScript.
+        complete enough to publish is checked by publishScript. Without a
+        `graph`, the draft is the smallest valid graph, one `end` node that is
+        also the start (`{ startNodeId: start, nodes: [{ id: start, type:
+        end, title: End }] }`), which publishScript never publishes
+        (`empty_script`).
 
         Audited as `created`, naming the script, never its wording.
       requestBody:
@@ -389,7 +393,8 @@ paths:
 
         The draft must be complete, otherwise `409 script_invalid` with
         `details[]` naming node paths and reason codes, never wording:
-        `missing_start`, `unknown_target` (a `next`, choice or branch target
+        `missing_start`, `empty_script` (only `end` nodes: nothing for an
+        agent to read), `unknown_target` (a `next`, choice or branch target
         that names no node), `unreachable_end` (a path that never reaches an
         `end`), `cycle`, `unknown_field` (a branch on a field that is not a
         contact field), `unknown_variable`, `disposition_not_live` (a

@@ -127,14 +127,13 @@ function parseOr400<S extends z.ZodTypeAny>(schema: S, input: unknown): z.output
 
 const tooBig = (path: string) => validationFailed([{ path, code: SCRIPT_REASON.tooBig }]);
 
-/** The draft graph as stored: a ScriptGraph, or the empty draft (`nodes: []`). */
+/** The draft graph as stored: always a ScriptGraph (the empty draft is one). */
 export function storedGraph(value: unknown): StoredGraph {
   const parsed = ScriptGraphSchema.safeParse(value);
   if (parsed.success) return parsed.data;
-  // The one other shape the column holds: the empty draft. Anything else is
-  // a row no write path produces; publish treats it as an empty draft too,
-  // which can never pass (`missing_start`).
-  return { startNodeId: EMPTY_DRAFT_GRAPH.startNodeId, nodes: [] };
+  // A row no write path produces. Publish treats it as the empty draft, which
+  // can never pass (`empty_script`).
+  return EMPTY_DRAFT_GRAPH;
 }
 
 const StoredTranslations = z.record(ScriptLocaleSchema, TranslationTextsSchema);
@@ -231,7 +230,7 @@ export async function createScriptFor(tx: TenantTx, body: unknown): Promise<Scri
     programmeId,
     name: parsed.name,
     sourceLocale: parsed.sourceLocale,
-    graph: parsed.graph ?? null,
+    graph: parsed.graph ?? EMPTY_DRAFT_GRAPH,
   });
   const created = await reread(tx, id);
   await recordAuditEvent(tx, scriptCreatedEvent({ id, programmeId, name: created.name }));

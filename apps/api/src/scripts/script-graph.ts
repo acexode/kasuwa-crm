@@ -421,14 +421,19 @@ export type ScriptNode = ScriptGraph['nodes'][number];
 export type BranchConditionValue = z.infer<typeof BranchCondition>;
 
 /**
- * The empty draft createScript stores when no graph is sent (0030's column
- * default). It is not a valid ScriptGraph (no nodes) and is never
- * publishable: its start names no node (`missing_start`). It cannot be SAVED
- * either: a save is held to `ScriptGraphSchema`.
+ * The empty draft createScript stores when no graph is sent (the same value
+ * as 0030's column default): the smallest VALID ScriptGraph, one `end` node
+ * that is also the start, so the wire never carries a graph the contract's
+ * ScriptGraph refuses. It is never publishable: a graph with nothing but end
+ * nodes has nothing for an agent to read (`empty_script`, script-publish.ts).
+ * Its title is draft content, replaced as soon as the author saves a graph.
  */
-export const EMPTY_DRAFT_GRAPH = { startNodeId: 'start', nodes: [] } as const;
+export const EMPTY_DRAFT_GRAPH: ScriptGraph = {
+  startNodeId: 'start',
+  nodes: [{ id: 'start', type: 'end', title: 'End' }],
+};
 
-/** A graph as stored: either a ScriptGraph or the empty draft. */
+/** A graph as stored: a ScriptGraph (the empty draft is one too). */
 export interface StoredGraph {
   startNodeId: string;
   nodes: ScriptNode[];

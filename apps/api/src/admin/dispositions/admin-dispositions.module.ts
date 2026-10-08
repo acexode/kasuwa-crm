@@ -1,5 +1,5 @@
 import { Module, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
-import { NoStoreMiddleware } from '../audit/no-store.middleware';
+import { NoStoreMiddleware } from '../../common/no-store.middleware';
 import { DispositionsController } from './dispositions.controller';
 import { ProgrammeScriptsController } from './programme-scripts.controller';
 

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ScriptGraphSchema, type StoredGraph, type Translations } from './script-graph';
+import {
+  EMPTY_DRAFT_GRAPH,
+  ScriptGraphSchema,
+  type StoredGraph,
+  type Translations,
+} from './script-graph';
 import {
   complianceDiff,
   publishProblems,
@@ -107,14 +112,25 @@ describe('publishProblems (T-0113, D-L93)', () => {
     expect(publishProblems(good(), {}, context())).toEqual([]);
   });
 
-  it('missing_start, including the empty draft', () => {
+  it('missing_start', () => {
     expect(publishProblems({ ...good(), startNodeId: 'nowhere' }, {}, context())).toContainEqual({
       path: 'startNodeId',
       code: 'missing_start',
     });
-    expect(publishProblems({ startNodeId: 'start', nodes: [] }, {}, context())).toEqual([
-      { path: 'startNodeId', code: 'missing_start' },
+  });
+
+  it('empty_script: the empty draft, and any graph of end nodes only, is never published', () => {
+    expect(publishProblems(EMPTY_DRAFT_GRAPH, {}, context())).toEqual([
+      { path: 'nodes', code: 'empty_script' },
     ]);
+    const twoEnds = parse({
+      startNodeId: 'a',
+      nodes: [
+        { id: 'a', type: 'end', title: 'A' },
+        { id: 'b', type: 'end', title: 'B' },
+      ],
+    });
+    expect(codesAt(publishProblems(twoEnds, {}, context()), 'nodes')).toEqual(['empty_script']);
   });
 
   it('unknown_target at the contract’s id-based paths', () => {

@@ -48,6 +48,13 @@ export const RECORDS_CONTROLLERS = [
   MeController,
 ];
 
+/**
+ * The scripting controllers (scripting.openapi.yaml, T-0113), hosted by
+ * ScriptsModule. Every answer is `no-store` too: a script carries a
+ * programme's compliance wording.
+ */
+export const SCRIPTING_CONTROLLERS = [ScriptsController];
+
 /** Controllers hosted by this module. AuthController is hosted by AuthModule. */
 const CONTROLLERS = [HealthController, ...RECORDS_CONTROLLERS];
 
@@ -61,7 +68,7 @@ const CONTROLLERS = [HealthController, ...RECORDS_CONTROLLERS];
 const TELEMETRY_CONTROLLERS = [
   ...CONTROLLERS,
   AuthController,
-  ScriptsController,
+  ...SCRIPTING_CONTROLLERS,
   ...ADMIN_CONTROLLERS,
 ];
 
@@ -154,7 +161,8 @@ export class AppModule implements NestModule {
     consumer.apply(RequestTelemetryMiddleware).forRoutes('{*splat}');
     // Every records answer is `no-store`, the guard's 401 and 400 included, which the
     // handlers' `@Header` (set after the guards) never reaches (T-0080, D-L90's follow-up).
-    consumer.apply(NoStoreMiddleware).forRoutes(...RECORDS_CONTROLLERS);
+    // And every scripting answer (T-0113, scripting.openapi.yaml's NoStore header).
+    consumer.apply(NoStoreMiddleware).forRoutes(...RECORDS_CONTROLLERS, ...SCRIPTING_CONTROLLERS);
   }
 
   static forRoot(options: AppModuleOptions): DynamicModule {

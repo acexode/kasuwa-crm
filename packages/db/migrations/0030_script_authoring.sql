@@ -30,8 +30,10 @@
 --   source_locale      text NOT NULL, one of the seven design locales
 --   draft_graph        jsonb NOT NULL, the draft ScriptGraph. The default is
 --                      the empty draft createScript writes when no graph is
---                      sent: a start id that names no node, so it is never
---                      publishable (`missing_start`).
+--                      sent: the smallest VALID ScriptGraph, one `end` node
+--                      that is also the start. Publish refuses a graph with
+--                      nothing but end nodes (`empty_script`), so it is never
+--                      publishable.
 --   draft_translations jsonb NOT NULL DEFAULT '{}', keyed by locale
 --   revision           integer NOT NULL DEFAULT 1, the draft's concurrency
 --                      token (D-L91: `revision`, since "version" here means a
@@ -231,7 +233,8 @@ CREATE TABLE script (
   programme_id        uuid        NOT NULL,
   name                text        NOT NULL,
   source_locale       text        NOT NULL,
-  draft_graph         jsonb       NOT NULL DEFAULT '{"startNodeId": "start", "nodes": []}'::jsonb,
+  draft_graph         jsonb       NOT NULL
+    DEFAULT '{"startNodeId": "start", "nodes": [{"id": "start", "type": "end", "title": "End"}]}'::jsonb,
   draft_translations  jsonb       NOT NULL DEFAULT '{}'::jsonb,
   revision            integer     NOT NULL DEFAULT 1,
   published_revision  integer,

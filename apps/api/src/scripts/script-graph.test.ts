@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
 import {
   codePoints,
+  EMPTY_DRAFT_GRAPH,
   hasLoneSurrogate,
   ScriptGraphSchema,
   serialisedDraftBytes,
@@ -147,6 +151,79 @@ describe('script graph shape (T-0113)', () => {
     });
     expect(paths(titled('😀'.repeat(120)))).toEqual([]);
     expect(paths(titled('😀'.repeat(121)))).toContain('nodes.0.title');
+  });
+});
+
+// --- the empty draft against the published contract ---------------------------
+
+type Json = Record<string, unknown>;
+const SPEC = parse(
+  readFileSync(resolve(__dirname, '../../../../docs/api/scripting.openapi.yaml'), 'utf8'),
+) as { components: { schemas: Record<string, Json> } };
+
+/** A small JSON-schema check over the contract's own components (local refs only). */
+function contractErrors(value: unknown, schema: Json, path = '$'): string[] {
+  const ref = schema.$ref;
+  if (typeof ref === 'string') {
+    const name = ref.replace('#/components/schemas/', '');
+    const target = SPEC.components.schemas[name];
+    return target === undefined ? [`${path}: unresolved ${ref}`] : contractErrors(value, target, path);
+  }
+  const errors: string[] = [];
+  if (Array.isArray(schema.oneOf)) {
+    const passing = (schema.oneOf as Json[]).filter((b) => contractErrors(value, b, path).length === 0);
+    if (passing.length !== 1) errors.push(`${path}: matches ${passing.length} oneOf branches`);
+  }
+  const types = schema.type === undefined ? [] : ([] as string[]).concat(schema.type as string);
+  const actual = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
+  if (types.length > 0 && !types.includes(actual)) return [...errors, `${path}: is ${actual}`];
+  if (Array.isArray(schema.enum) && !(schema.enum as unknown[]).includes(value)) {
+    errors.push(`${path}: not in enum`);
+  }
+  if (typeof value === 'string') {
+    if (typeof schema.minLength === 'number' && value.length < schema.minLength) {
+      errors.push(`${path}: too short`);
+    }
+    if (typeof schema.pattern === 'string' && !new RegExp(schema.pattern, 'u').test(value)) {
+      errors.push(`${path}: does not match ${schema.pattern}`);
+    }
+  }
+  if (Array.isArray(value)) {
+    if (typeof schema.minItems === 'number' && value.length < schema.minItems) {
+      errors.push(`${path}: fewer than ${schema.minItems} items`);
+    }
+    if (typeof schema.items === 'object' && schema.items !== null) {
+      value.forEach((item, i) => errors.push(...contractErrors(item, schema.items as Json, `${path}[${i}]`)));
+    }
+  }
+  if (actual === 'object') {
+    const object = value as Json;
+    const properties = (schema.properties ?? {}) as Record<string, Json>;
+    for (const key of (schema.required ?? []) as string[]) {
+      if (!(key in object)) errors.push(`${path}: missing ${key}`);
+    }
+    for (const [key, child] of Object.entries(object)) {
+      const childSchema = properties[key];
+      if (childSchema !== undefined) errors.push(...contractErrors(child, childSchema, `${path}.${key}`));
+      else if (schema.additionalProperties === false) errors.push(`${path}: extra ${key}`);
+    }
+  }
+  return errors;
+}
+
+describe('the empty draft (createScript without a graph, T-0113)', () => {
+  const graphSchema = { $ref: '#/components/schemas/ScriptGraph' };
+
+  it('is a valid ScriptGraph by the published contract, and by the save schema', () => {
+    expect(contractErrors(EMPTY_DRAFT_GRAPH, graphSchema)).toEqual([]);
+    expect(ScriptGraphSchema.safeParse(EMPTY_DRAFT_GRAPH).success).toBe(true);
+  });
+
+  it('(self-check) the contract check refuses a graph with no nodes or a node of no kind', () => {
+    expect(contractErrors({ startNodeId: 'start', nodes: [] }, graphSchema)).not.toEqual([]);
+    expect(
+      contractErrors({ startNodeId: 'start', nodes: [{ id: 'start', kind: 'end' }] }, graphSchema),
+    ).not.toEqual([]);
   });
 });
 

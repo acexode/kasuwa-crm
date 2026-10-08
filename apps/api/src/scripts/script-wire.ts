@@ -103,7 +103,7 @@ export function toScriptSummaryWire(script: ScriptSummaryRecord): ScriptSummaryW
 /**
  * The builder's read. `hasUnpublishedChanges` is whether the draft has been
  * written since the latest publish (or was never published). An empty draft
- * (createScript without a graph) is `{ startNodeId: 'start', nodes: [] }`.
+ * (createScript without a graph) is EMPTY_DRAFT_GRAPH, a valid ScriptGraph.
  */
 export function toScriptWire(script: ScriptRecord): ScriptWire {
   return {

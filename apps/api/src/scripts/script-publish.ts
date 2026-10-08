@@ -288,6 +288,10 @@ export function publishProblems(
 
   const hasStart = byId.has(graph.startNodeId);
   if (!hasStart) add('startNodeId', 'missing_start');
+  // Nothing for an agent to read or ask: only end nodes. This is the empty
+  // draft createScript makes without a graph (EMPTY_DRAFT_GRAPH), which is a
+  // valid graph and must never be published (the T-0113 suite).
+  if (graph.nodes.every((node) => node.type === 'end')) add('nodes', 'empty_script');
 
   for (const node of graph.nodes) {
     for (const { target, path } of edgesOf(node)) {
