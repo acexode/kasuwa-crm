@@ -195,6 +195,11 @@ const PER_AGENT_ALLOWANCES = [
     pathPrefix: 'packages/db/migrations/',
     why: 'Agent 2 owns M15 metadata tables and its tasks assign migrations.',
   },
+  {
+    branchPrefix: 'agent1/T-0117',
+    pathPrefix: 'packages/db/sql/',
+    why: 'T-0117 (D-L92, D-L94) assigns Agent 1 the bootstrap split: bootstrap.sql makes kasuwa_test_admin inert, and a new bootstrap-test.sql makes it the test login.',
+  },
 ];
 
 function allows(entry, path) {
