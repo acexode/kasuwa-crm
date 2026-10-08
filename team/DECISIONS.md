@@ -2176,3 +2176,18 @@ Every recommendation below was taken as written in its entry. What each one now 
   schema-hygiene (`script` plant, an immutable `script_version`). None loosens anything.
 - **Builder follow-ups not pinned:** the web `AuditAction` enum and an `admin.audit.action.published` key;
   `AUDIT_OBJECT_TYPES` gains `script`.
+
+### D-L97 — verification rules from the 2026-10-08 cross-PR breaks (lead)
+**Status:** PROCEEDING (lead).
+- **A contract change updates every e2e mock that validates against that spec, in the same PR.** #109 (T-0080) made `version`
+  required and broke T-0062's mock, merged an hour earlier. Before opening a contract PR, grep `tests/e2e/support` for the
+  changed schema.
+- **Every merge gets a full isolation run, docs-only PRs included.** #107 (T-0112, contract YAML plus its suite) was verified
+  on the platform folder only; its vendor-name list failed `channels/provider.acceptance` on main. The fix (store the list
+  reversed) is waiting on @acexode's approval of the acceptance edit.
+- **The RAM lock:**
+  - lead verifications take a `lead-verify` lock and hold both slots for the isolation stage;
+  - while `lead-exclusive-wait` exists, no agent takes a new slot;
+  - no agent ever holds one slot while waiting for another;
+  - a slot is never stale by age.
+- **Disk:** an idle worktree's `.next`, `.nx` and `dist` are cleared (regenerable). C: filled to 0 bytes on 2026-10-08.

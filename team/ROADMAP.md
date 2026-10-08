@@ -59,8 +59,8 @@ T-0049 (#93), a separate database role for the sign-in code (D-P16, ADR-0013), m
 | T-0078 | Audit values follow field security (release gate, D-L83) | ✅ Merged (#105) |
 | T-0057 | Accounts screen (P04) | ✅ Merged (#104) |
 | T-0062 | Contact record screen (P05) | ✅ Merged (#108) |
-| T-0058 | Leads screen and Kanban (P04) | 🟠 PR after T-0062 |
-| T-0080 | Timeline activity versions; account timeline | 🟠 #109, verifying |
+| T-0058 | Leads screen and Kanban (P04) | 🟠 #110, verifying |
+| T-0080 | Timeline activity versions; account timeline | ✅ Merged (#109) |
 | T-0063 | Account record screen (P05) | ⬜ After T-0080 |
 | T-0079 / T-0075 | Capability read; sign-in reads on the auth pool | ⬜ Suites to write |
 

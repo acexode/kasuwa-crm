@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0080 |
-| **status** | `assigned` (suite `lead/T-0080-acceptance`: 07bf06f, a93073a) |
+| **status** | `done` (#109) |
 | **module** | M03 — Core CRM records; M06 — Activities |
 | **owner** | Agent 3 — Core CRM |
 | **priority** | P1 (unblocks T-0062's served-task completion and T-0063) |
