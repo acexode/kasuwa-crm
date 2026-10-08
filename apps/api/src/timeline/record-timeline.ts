@@ -1,7 +1,6 @@
 import {
   activityFieldLevel,
   DEFAULT_PAGE_SIZE,
-  findActivityTargetProgramme,
   isActivityType,
   listRecordTimeline,
   loadActivityFieldAccess,
@@ -26,8 +25,12 @@ import { notFound } from '../admin/common/admin-errors';
  * which change fields exist, how a change row becomes an item, and which
  * activity link puts an activity on it.
  *
- * 1. SCOPE FIRST. The record must be one the session reaches; anything else
- *    is the one 404 body, and nothing about its history is read before that.
+ * 1. SCOPE FIRST. The record must be one the session reaches, found by THE
+ *    SAME lookup as the record's get operation (getContact's
+ *    `findContactById`, getAccount's `findAccountById`), so a record can
+ *    never be 404 on one and served on the other (a later soft-delete, D-P27,
+ *    changes both at once). Anything else is the one 404 body, and nothing
+ *    about its history is read before that.
  *    A cursor is decoded only after, so a cursor never opens a record.
  * 2. FIELD SECURITY, BEFORE PAGING. Judged today, in the record's programme,
  *    by the set the caller holds there. Both matrices are loaded ONCE per
@@ -135,6 +138,11 @@ export function timelineItems<Change>(
 /** What one timeline decides for itself. */
 export interface RecordTimelineSpec<RecordAccess, Change> {
   subject: TimelineSubject;
+  /**
+   * The record's programme, or null when the session cannot reach it. MUST be
+   * the record's get operation's own lookup, never a second query of its own.
+   */
+  findRecordProgramme: (tx: TenantTx, recordId: string) => Promise<string | null>;
   /** The record object's matrix: one round trip. */
   loadRecordAccess(tx: TenantTx): Promise<RecordAccess>;
   /** The change fields the caller may see on a record in `programmeId`. */
@@ -156,7 +164,7 @@ export async function readRecordTimeline<RecordAccess, Change>(
   query: unknown,
 ): Promise<TimelinePage<Change | ActivityItemWire>> {
   // 1. Scope first: one 404 for absent, another tenant's and a sibling's.
-  const programmeId = await findActivityTargetProgramme(tx, { kind: spec.subject, id: recordId });
+  const programmeId = await spec.findRecordProgramme(tx, recordId);
   if (programmeId === null) throw notFound();
   // 2. Then the query (400), then the cursor (400 invalid_cursor, in the repository).
   const { cursor, limit } = TimelineQuery.parse(query);
@@ -170,7 +178,8 @@ export async function readRecordTimeline<RecordAccess, Change>(
     limit,
     cursor,
     visibleChangeFields: spec.visibleChangeFields(recordAccess, programmeId),
-    includeActivities: activityFieldLevel(activityAccess, programmeId, spec.activityLink) !== 'none',
+    includeActivities:
+      activityFieldLevel(activityAccess, programmeId, spec.activityLink) !== 'none',
   });
   return {
     data: timelineItems(page.rows, activityAccess, programmeId, spec.changeItem),

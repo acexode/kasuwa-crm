@@ -1,5 +1,8 @@
+import type { TenantTx } from '@kasuwa/db';
 import {
   accountFieldApiName,
+  findAccountById,
+  findContactById,
   activityFieldAccessFromObjectAccess,
   activityFieldApiName,
   SECURED_ACTIVITY_FIELDS,
@@ -150,4 +153,35 @@ describe('the two timelines share one operation and differ only in their spec', 
     expect(ACCOUNT_TIMELINE).toMatchObject({ subject: 'account', activityLink: 'accountId' });
     expect(CONTACT_TIMELINE).toMatchObject({ subject: 'contact', activityLink: 'contactId' });
   });
+});
+
+describe('scope is the get operation’s own lookup (T-0080 security review)', () => {
+  /** Records the statements and values a lookup runs; finds nothing. */
+  function recordingTx(): { tx: TenantTx; calls: [string, unknown][] } {
+    const calls: [string, unknown][] = [];
+    const tx: TenantTx = {
+      session: { tenantId: A1, userId: ACTOR.id, programmeIds: [A1] },
+      query: (text: string, values?: readonly unknown[]) => {
+        calls.push([text, values]);
+        return Promise.resolve([]);
+      },
+    };
+    return { tx, calls };
+  }
+  const ID = '11111111-0000-4000-8000-0000008000f1';
+
+  it.each([
+    ['account', ACCOUNT_TIMELINE.findRecordProgramme, findAccountById],
+    ['contact', CONTACT_TIMELINE.findRecordProgramme, findContactById],
+  ] as const)(
+    'the %s timeline runs exactly getX’s statement, and null is 404',
+    async (_l, own, get) => {
+      const timeline = recordingTx();
+      const getter = recordingTx();
+      expect(await own(timeline.tx, ID)).toBeNull();
+      await get(getter.tx, ID);
+      expect(timeline.calls).toHaveLength(1);
+      expect(timeline.calls).toEqual(getter.calls);
+    },
+  );
 });

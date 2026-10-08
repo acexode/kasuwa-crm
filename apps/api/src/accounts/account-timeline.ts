@@ -1,5 +1,6 @@
 import {
   accountFieldLevel,
+  findAccountById,
   isWithholdableAccountField,
   loadAccountFieldAccess,
   type AccountFieldAccess,
@@ -114,6 +115,8 @@ export function toAccountTimelineItems(
 
 export const ACCOUNT_TIMELINE: RecordTimelineSpec<AccountFieldAccess, AccountChangeItemWire> = {
   subject: 'account',
+  // getAccount's lookup (accounts.service.ts), so the two never disagree on reach.
+  findRecordProgramme: async (tx, id) => (await findAccountById(tx, id))?.programmeId ?? null,
   loadRecordAccess: loadAccountFieldAccess,
   visibleChangeFields: visibleAccountChangeFields,
   changeItem: accountChangeItem,

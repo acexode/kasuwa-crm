@@ -57,7 +57,7 @@ import { InvalidCursorError } from '../cursor';
 /** Whose timeline. A closed union: every SQL constant below is chosen by it. */
 export type TimelineSubject = 'contact' | 'account';
 
-interface SubjectConstants {
+export interface TimelineSubjectConstants {
   /** `audit_event.object_type` of the record's own events. */
   readonly objectType: string;
   /** The activity column that links an activity to the record. */
@@ -69,11 +69,32 @@ interface SubjectConstants {
   readonly cursorKey: 'k' | 'a';
 }
 
-const SUBJECTS: Readonly<Record<TimelineSubject, SubjectConstants>> = {
+const SUBJECTS: Readonly<Record<TimelineSubject, TimelineSubjectConstants>> = {
   // T-0061's format, unchanged: `k` is the contact.
   contact: { objectType: 'contact', activityLink: 'contact_id', cursorKey: 'k' },
   account: { objectType: 'account', activityLink: 'account_id', cursorKey: 'a' },
 };
+
+/**
+ * A subject outside SUBJECTS. The type forbids it, but a value that reached
+ * here through a cast or untyped JavaScript must never pick an `undefined`
+ * object type or link column for the statement, so this is checked at run
+ * time, before any SQL is built. Carries no value.
+ */
+export class TimelineSubjectUnknownError extends Error {
+  constructor() {
+    super('A record timeline was asked for a subject it does not know');
+    this.name = 'TimelineSubjectUnknownError';
+  }
+}
+
+/** The constants of a known subject; throws for anything else (own keys only). */
+export function timelineSubjectConstants(subject: TimelineSubject): TimelineSubjectConstants {
+  if (typeof subject !== 'string' || !Object.hasOwn(SUBJECTS, subject)) {
+    throw new TimelineSubjectUnknownError();
+  }
+  return SUBJECTS[subject];
+}
 
 export interface TimelineActorRow {
   id: string;
@@ -178,7 +199,7 @@ export function encodeRecordTimelineCursor(
   subject: TimelineSubject,
   at: RecordTimelineCursor,
 ): string {
-  const key = SUBJECTS[subject].cursorKey;
+  const key = timelineSubjectConstants(subject).cursorKey;
   const parsed = CURSOR_PAYLOADS[key].safeParse({
     [key]: at.recordId,
     t: at.occurredAt,
@@ -197,13 +218,13 @@ export function decodeRecordTimelineCursor(
   cursor: string,
   recordId: string,
 ): RecordTimelineCursor {
+  const key = timelineSubjectConstants(subject).cursorKey;
   let parsedJson: unknown;
   try {
     parsedJson = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
   } catch {
     throw new InvalidCursorError();
   }
-  const key = SUBJECTS[subject].cursorKey;
   const parsed = CURSOR_PAYLOADS[key].safeParse(parsedJson);
   if (!parsed.success) throw new InvalidCursorError();
   const issuedFor = 'k' in parsed.data ? parsed.data.k : parsed.data.a;
@@ -259,7 +280,7 @@ const MS_TEXT = (column: string) =>
   `to_char(date_trunc('milliseconds', ${column}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 
 /** The statement for one subject. Every interpolation is a SUBJECTS constant. */
-const TIMELINE_SQL = (constants: SubjectConstants, withCursor: boolean) => `
+const TIMELINE_SQL = (constants: TimelineSubjectConstants, withCursor: boolean) => `
   WITH items AS (
     SELECT 'ti_' || md5('change:' || e.id::text || ':' || (c.entry ->> 'field')) AS item_id,
            date_trunc('milliseconds', e.occurred_at) AS sort_at,
@@ -369,10 +390,11 @@ export async function listRecordTimeline(
   subject: TimelineSubject,
   options: ListRecordTimelineOptions,
 ): Promise<TimelinePageRows> {
+  // Before anything else, and before any SQL is built.
+  const constants = timelineSubjectConstants(subject);
   if (!tx.session.programmeIds.includes(options.programmeId)) {
     throw new TimelineProgrammeOutOfScopeError();
   }
-  const constants = SUBJECTS[subject];
   const at =
     options.cursor === undefined
       ? undefined

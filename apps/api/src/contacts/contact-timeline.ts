@@ -1,5 +1,6 @@
 import {
   contactFieldLevel,
+  findContactById,
   isWithholdableContactField,
   loadContactFieldAccess,
   type ActivityFieldAccess,
@@ -180,6 +181,8 @@ export function toTimelineItems(
 
 export const CONTACT_TIMELINE: RecordTimelineSpec<ContactFieldAccess, ContactChangeItemWire> = {
   subject: 'contact',
+  // getContact's lookup (contacts.service.ts), so the two never disagree on reach.
+  findRecordProgramme: async (tx, id) => (await findContactById(tx, id))?.programmeId ?? null,
   loadRecordAccess: loadContactFieldAccess,
   visibleChangeFields,
   changeItem,
