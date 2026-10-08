@@ -1,6 +1,6 @@
 # T-0063 — Account record screen (P05)
 
-**status** `assigned` (suite `lead/T-0063-acceptance`, a81216c; D-L98) · **owner** Agent 11 · **priority** P2 · **decisions** D-L69, D-L74, D-L78
+**status** `done` (#112) · **owner** Agent 11 · **priority** P2 · **decisions** D-L69, D-L74, D-L78
 
 ## Goal
 P05 frame 04 for an account, behind `crm_record_view`.

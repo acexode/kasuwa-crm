@@ -2264,3 +2264,15 @@ Every recommendation below was taken as written in its entry. What each one now 
   takeover). That task already records before/after owner ids (D-L71) and owns the suite edits. T-0103's suite pins exactly
   one programme event with no contact id, and T-0103 ships as pinned. Until T-0104, a mistaken removal is recoverable only by
   point-in-time restore; no populated cell exists (D-L65).
+
+### D-L102 — the lost-update rule for every edit sheet (lead, 2026-10-08; from the T-0063 security review)
+**Status:** PROCEEDING (lead).
+- **Rule.** An edit sheet sends `version` plus ONLY the fields the person changed, judged against the row the form was opened
+  on. After a 409 and a re-read, the form is the fresh row with the person's edits re-applied. A field both people changed
+  keeps the typed value and shows a translated "changed by someone else" note. A field the person never touched is never
+  sent, after any number of 409s.
+- **Why.** T-0062's contact sheet (on main) and T-0063's first account sheet resent untouched fields' old values with the
+  fresh version after a 409, silently overwriting the other person's save. In the reproduction, a deleted phone came back.
+  Both are fixed in #112, with unit tests of the reviewer's scenarios.
+- **Applies to** every future edit sheet: deals, scripts, custom fields. Suites for them include a second-save-after-409
+  journey.

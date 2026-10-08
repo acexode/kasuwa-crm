@@ -61,7 +61,7 @@ T-0049 (#93), a separate database role for the sign-in code (D-P16, ADR-0013), m
 | T-0062 | Contact record screen (P05) | ✅ Merged (#108) |
 | T-0058 | Leads screen and Kanban (P04) | ✅ Merged (#110) |
 | T-0080 | Timeline activity versions; account timeline | ✅ Merged (#109) |
-| T-0063 | Account record screen (P05) | 🟠 Suite being written |
+| T-0063 | Account record screen (P05) | ✅ Merged (#112) |
 | T-0079 / T-0075 | Capability read; sign-in reads on the auth pool | ⬜ Suites to write |
 
 ### Remaining slices (plan of 2026-10-07; designs P07, P18, P26, P27, P28 exported)
