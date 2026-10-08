@@ -1,41 +1,38 @@
-# Resume here (2026-10-07, lead session stopped at a usage limit)
+# Resume here (2026-10-08, lead session, live)
 
-**Merged this session:** #81–#103. That is 23 PRs: Phase 1 is complete; Phase 2 has the contacts, accounts, leads, activity
-and timeline APIs plus the Contacts screen. Decisions D-L69 to D-L86 and D-P17 to D-P26 are recorded; D-P17 and D-P18 are
-answered.
+**Merged:** #81–#105. Since the last stop: #104 (T-0057 Accounts screen) and #105 (T-0078 audit field security).
+**Answered by @acexode:** D-P19–D-P30, D-L82 and D-L71. Designs P07, P08, P09, P10, P18, P26, P27 and P28 are on main.
+**Phase 2 plan:** T-0080–T-0117 (ROADMAP "Remaining slices"; D-L87, D-L88). Open product questions: D-P31, D-P32.
 
-**Open PRs and paused work (resume in this order):**
-1. **#105, T-0078 (HARD release gate, D-L83).** The security review passed; four hardening fixes were sent to the builder and
-   may be partly done in `.claude/worktrees/agent-a7235637931228281` (branch `agent1/T-0078-audit-field-security`).
-   - Finish:
-     - an unconditional access load;
-     - a per-object value allow-list (contact = `CONTACT_AUDIT_VALUE_FIELDS`, account and activity = none);
-     - `no-store` on guard errors;
-     - the export-worker comment, and the test-only loader seam.
-   - Then verify and merge. It is on @acexode's D-A3 review list.
-2. **#104, T-0057 Accounts screen.** It is pushed with the lead re-pin (budget 235,000; the search count polled). Its full
-   verification was stopped: re-run `verify.ps1` on `.claude/worktrees/agent-a814f29ef8b027a46`, then merge.
-3. **T-0062, contact record screen.** The builder was stopped mid-work in its `agent11/T-0062-contact-record` worktree. The
-   suite is on `lead/T-0062-acceptance`. Resume the builder.
-4. **T-0058, Leads screen.** The builder was stopped just after starting. The suite is on `lead/T-0058-acceptance` (D-L86).
-   Restart the builder.
+**Open PRs (merge each after local verification; CI minutes are exhausted):**
+| PR | Task | State |
+|---|---|---|
+| #106 | T-0102 classification raise-only (migration 0029) | Migration review passed; gates green; timing suites re-running exclusive |
+| #107 | T-0112 in-call script contract | Three independent security reviews, all closed (D-L91, D-L93); timing re-run exclusive |
+| #108 | T-0062 contact record screen | Security review fixed; rebased on #104; full verify running |
 
-**Follow-ups filed, not started:**
-- T-0075: sign-in reads on the auth pool.
-- T-0079: a capability read, so screens can hide write controls.
-- T-0080: `version` on timeline activity items.
-- D-L76: ids immutable for contact and account, with an allow-list guard.
-- D-L80: id-only cursors.
-- D-L84: the colour lint.
-- The field-security admin should refuse `none` on always-sent fields (D-L83).
+**Built, waiting for a PR:**
+- T-0058 Leads screen: `lead/T-0058-repin` (review fixes plus the 234,900 re-pin). It is based on T-0057's old head, so it
+  must be rebased onto main after #108 (the same keep-both conflicts as T-0062).
+- T-0080 timeline versions and the account timeline: `agent3/T-0080-timeline-v2` at 3ad5ced. Security and tenancy reviews
+  are running.
 
-**Waiting on @acexode:**
-- D-P19 to D-P26;
-- the D-L82 note (should a convert-created account get its own audit event?);
-- confirmation of the P07 design export;
-- the designs P18, P28, P10, P27, P26.
+**Building:** T-0117 (P0, D-L92 and D-L94: `kasuwa_test_admin` inert in real cells). Suite on `lead/T-0117-acceptance`.
 
-**Next after the screens:** the T-0063 account record screen, then the pipeline slice (needs D-P19 and D-P20).
+**Next to start:** T-0063 account record (after T-0080), T-0081/T-0082 activities, T-0084 search indexes, T-0103, T-0104,
+T-0105 pipeline contract, T-0113 script authoring. Contract queue for `records.openapi.yaml`: T-0103, T-0081, T-0105.
+
+**Lead tooling:** `verify.ps1` in the session scratchpad.
+- It takes a `lead-verify` lock and holds both RAM slots for the isolation stage, because `auth-availability` and the
+  adversarial timing harness flake under load.
+- `-Exclusive` runs a few files on a quiet machine.
+- A slot is never stale by age.
+
+**Follow-ups:**
+- the post-edit hook should skip when `node_modules` is missing;
+- `admin-mock.generated.ts` is stale on main;
+- D-L90's wording on `@Header` (it does reach handler errors; only guard errors lacked no-store);
+- GitGuardian false positive on #104's mock cursor (for @acexode to dismiss).
 
 ---
 # Lead handoff — finish Phase 2
