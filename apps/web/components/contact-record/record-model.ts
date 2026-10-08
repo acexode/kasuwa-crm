@@ -1,7 +1,7 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
 import { ConsentState, ContactSource, ContactStatus, PreferredChannel, type Phone } from '../../lib/records-api';
 import type { ChangeValue, ContactRecord } from '../../lib/contact-record-api';
-import type { ValueView } from '../record/record-core';
+import { editedKeys, onlyEdited, rebaseEdits, type RebasedEdits, type ValueView } from '../record/record-core';
 
 /**
  * The pure half of the P05 contact record (T-0062): which fields are drawn and
@@ -319,6 +319,34 @@ export function changedFields(record: ContactRecord, draft: Draft): { body: Reco
     }
   }
   return { body, invalid };
+}
+
+/** What the person changed in a draft seeded from `base`. */
+export function editedDraftKeys(base: ContactRecord, draft: Draft): EditKey[] {
+  return editedKeys(draftOf(base), draft, editableKeys(base));
+}
+
+/**
+ * The draft after a 409 re-read: `fresh` as served, with the person's edits
+ * (against `opened`, the record the draft was seeded from) laid back on top.
+ * See `rebaseEdits`: untouched fields take the fresh value and are not sent.
+ */
+export function rebaseDraft(opened: ContactRecord, fresh: ContactRecord, draft: Draft): RebasedEdits<EditKey, Draft> {
+  return rebaseEdits(draftOf(opened), draftOf(fresh), draft, editableKeys(fresh));
+}
+
+/**
+ * The full edit's body against `base`, the record the draft is now seeded
+ * from: its `version` plus what changed, cut down to the fields the person
+ * edited. `body` is `null` when that is nothing.
+ */
+export function saveBody(base: ContactRecord, draft: Draft): { body: Record<string, unknown> | null; invalid: EditKey[] } {
+  const edited = editedDraftKeys(base, draft);
+  const { body, invalid } = changedFields(base, draft);
+  return {
+    body: onlyEdited({ ...body, version: base.version }, edited),
+    invalid: invalid.filter((key) => edited.includes(key)),
+  };
 }
 
 /** The status codes the inline edit offers: exactly the contract's set. */

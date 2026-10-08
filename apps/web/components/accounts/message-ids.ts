@@ -45,6 +45,8 @@ export const ACCOUNT_EDIT_SHEET_MESSAGE_IDS: readonly MessageId[] = [
   'accounts.invalid.phones',
   'accounts.error.fieldNotEditable',
   'accounts.error.notAccepted',
+  // A field somebody else also changed, after a 409 re-read (the P05 record).
+  'record.conflict.otherChange',
   ...RecordsErrorCode.options.map((code) => `records.error.${code}` as MessageId),
   'records.error.network',
 ];

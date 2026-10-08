@@ -10,6 +10,7 @@ import {
   type UpdateAccountBody,
 } from '../../lib/accounts-api';
 import { hasDetail, type Phone, type PhoneType, type RecordsError } from '../../lib/records-api';
+import { editedKeys, onlyEdited, rebaseEdits, type RebasedEdits } from '../record/record-core';
 
 /**
  * The pure half of P04/03 (T-0057): columns, filters, sort, the list query and
@@ -434,6 +435,37 @@ export function updateBody(row: Account, values: AccountValues): UpdateAccountBo
     ...(open('lga') && values.lga !== (row.lga ?? null) ? { lga: values.lga } : {}),
   };
   return Object.keys(changes).length === 0 ? null : { version: row.version, ...changes };
+}
+
+/** The fields the caller may edit on this row: never one it cannot read. */
+function openFields(row: Account): EditableField[] {
+  return EDITABLE_FIELDS.filter((field) => !isAccountWithheld(row, field));
+}
+
+/** What the person changed in a form seeded from `base`. */
+export function editedAccountFields(base: Account, form: AccountForm): EditableField[] {
+  return editedKeys(accountToForm(base), form, openFields(base));
+}
+
+/**
+ * The form after a 409 re-read: `fresh` as served, with the person's edits
+ * (against `opened`, the row the form was seeded from) laid back on top. A
+ * field somebody else changed that the person did not touch shows the new
+ * value and is not sent; one both changed keeps the person's value and is
+ * flagged in `conflicts`.
+ */
+export function rebaseAccountForm(opened: Account, fresh: Account, form: AccountForm): RebasedEdits<EditableField, AccountForm> {
+  return rebaseEdits(accountToForm(opened), accountToForm(fresh), form, openFields(fresh));
+}
+
+/**
+ * An edit's body against `base`, the row the form is now seeded from: the
+ * served `version` plus what changed, cut down to the fields the person
+ * edited. `null` when that is nothing.
+ */
+export function editBody(base: Account, form: AccountForm, values: AccountValues): UpdateAccountBody | null {
+  const body = updateBody(base, values);
+  return body === null ? null : onlyEdited(body, editedAccountFields(base, form));
 }
 
 // ---------------------------------------------------------------------------

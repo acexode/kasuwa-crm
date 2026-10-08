@@ -151,6 +151,76 @@ export function itemVersions(items: readonly unknown[]): { activityId: string; v
 }
 
 // ---------------------------------------------------------------------------
+// Ids from the server, before they become a link or a read
+// ---------------------------------------------------------------------------
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * `true` for a well-formed uuid. A served id is checked before it is put in
+ * an `href` or sent back to the API: a malformed one is never turned into a
+ * path (`map` is a real API path, and `../` is a different one).
+ */
+export function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID.test(value);
+}
+
+/** `/<base>/<id>` for a well-formed id, encoded; `null` for anything else, which is then drawn unlinked. */
+export function recordHref(base: '/accounts' | '/contacts', id: unknown): string | null {
+  return isUuid(id) ? `${base}/${encodeURIComponent(id)}` : null;
+}
+
+// ---------------------------------------------------------------------------
+// Edits after a 409: rebase what the person typed, never resend the rest
+// ---------------------------------------------------------------------------
+
+/** The keys whose typed value differs from what the form was seeded with: the person's edits. */
+export function editedKeys<K extends string>(
+  seed: Partial<Record<K, unknown>>,
+  typed: Partial<Record<K, unknown>>,
+  keys: readonly K[],
+): K[] {
+  return keys.filter((key) => seed[key] !== typed[key]);
+}
+
+export interface RebasedEdits<K extends string, F> {
+  /** The fresh record's form with the person's edits laid back on top. */
+  readonly form: F;
+  /** What the person edited, among the keys still editable on the fresh record. */
+  readonly edited: readonly K[];
+  /** Edited keys that somebody else ALSO changed meanwhile: the person's value is kept, and flagged. */
+  readonly conflicts: readonly K[];
+}
+
+/**
+ * After a 409 the record is read again. The form must become the FRESH record
+ * with only the person's edits re-applied — never the old form against the
+ * new version, which would send every untouched field's old value and undo
+ * somebody else's save (a deleted phone number coming back). `keys` are the
+ * fields still editable on the fresh record; an edit to one that has since
+ * been withheld is dropped, because nothing may be sent for a withheld field.
+ */
+export function rebaseEdits<K extends string, F extends Partial<Record<K, unknown>>>(
+  seed: F,
+  fresh: F,
+  typed: F,
+  keys: readonly K[],
+): RebasedEdits<K, F> {
+  const edited = editedKeys(seed, typed, keys);
+  const form: F = { ...fresh };
+  for (const key of edited) {
+    form[key] = typed[key] as F[K];
+  }
+  return { form, edited, conflicts: edited.filter((key) => seed[key] !== fresh[key]) };
+}
+
+/** A write body cut down to `version` and the keys the person edited. Nothing they did not touch goes. */
+export function onlyEdited<B extends { readonly version: number }>(body: B, edited: readonly string[]): B | null {
+  const kept = Object.fromEntries(Object.entries(body).filter(([key]) => key === 'version' || edited.includes(key)));
+  return Object.keys(kept).length > 1 ? (kept as B) : null;
+}
+
+// ---------------------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------------------
 

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   appendPage,
+  isUuid,
   itemVersions,
+  onlyEdited,
+  rebaseEdits,
+  recordHref,
   localToUtc,
   mergeHead,
   readOutcome,
@@ -71,6 +75,42 @@ describe('activity versions: only what the server served, never wound back', () 
   it('keeps the same object when nothing was served, so a re-render is not forced', () => {
     const known = { 'act-1': 2 };
     expect(withServedVersions(known, [])).toBe(known);
+  });
+});
+
+describe('rebasing edits after a 409', () => {
+  const keys = ['a', 'b', 'c'] as const;
+  type Form = Record<(typeof keys)[number], string>;
+  const seed: Form = { a: '1', b: '1', c: '1' };
+
+  it('keeps the fresh value of every field the person did not touch', () => {
+    const fresh: Form = { a: '1', b: '2', c: '2' };
+    const typed: Form = { ...seed, a: 'typed' };
+    expect(rebaseEdits(seed, fresh, typed, keys)).toEqual({ form: { a: 'typed', b: '2', c: '2' }, edited: ['a'], conflicts: [] });
+  });
+
+  it('keeps the typed value where both changed a field, and flags it', () => {
+    const fresh: Form = { a: 'theirs', b: '1', c: '1' };
+    expect(rebaseEdits(seed, fresh, { ...seed, a: 'mine' }, keys)).toMatchObject({ form: { a: 'mine' }, conflicts: ['a'] });
+  });
+
+  it('drops an edit to a field no longer editable on the fresh record', () => {
+    expect(rebaseEdits(seed, seed, { ...seed, c: 'typed' }, ['a', 'b']).edited).toEqual([]);
+  });
+
+  it('cuts a body down to the version and the edited keys, or nothing', () => {
+    expect(onlyEdited({ version: 2, a: 'x', b: 'y' }, ['a'])).toEqual({ version: 2, a: 'x' });
+    expect(onlyEdited({ version: 2, b: 'y' }, ['a'])).toBeNull();
+  });
+});
+
+describe('server ids before they become a path', () => {
+  it('links only a well-formed uuid, encoded', () => {
+    expect(recordHref('/accounts', '5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01')).toBe('/accounts/5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01');
+    for (const bad of ['map', '../admin', '5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01/timeline', '', null, undefined, 7]) {
+      expect(recordHref('/contacts', bad), String(bad)).toBeNull();
+      expect(isUuid(bad)).toBe(false);
+    }
   });
 });
 

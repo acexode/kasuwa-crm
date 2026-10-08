@@ -192,7 +192,8 @@ export function useContactRecord(id: string): ContactRecordState {
     async (fields: Readonly<Record<string, unknown>>): Promise<RecordsResult<ContactRecord>> => {
       const served = current.current;
       if (served === null) return { ok: false, error: { code: 'not_found' } };
-      const result = await updateContact(served.id, { ...fields, version: served.version });
+      // The full edit passes the version its draft is seeded from; inline edits take the record's.
+      const result = await updateContact(served.id, { version: served.version, ...fields });
       if (result.ok) {
         accept(result.value);
         refreshHead();

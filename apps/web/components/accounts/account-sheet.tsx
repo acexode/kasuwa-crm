@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { Dialog } from '../admin/dialog';
@@ -13,11 +13,12 @@ import {
   TEXT_MAX,
   accountToForm,
   createBody,
+  editBody,
   emptyAccountForm,
   lockedFormFields,
+  rebaseAccountForm,
   refusalMessage,
   tierLabel,
-  updateBody,
   validateAccountForm,
   type AccountForm,
   type AccountFormField,
@@ -38,9 +39,12 @@ import {
  *   - A REFUSAL (403, 409, 400) is a translated `role=alert` in the sheet. The
  *     sheet stays open with everything typed, so nothing is lost (D-L84).
  *   - OFFLINE, Save is off (D-P21: no offline queue). What is typed stays.
- *   - EDIT reads `mode.row` on every save, so a screen that re-reads the
- *     account after a 409 (`onRefused`, the P05 record) hands the next save
- *     the fresh `version` without losing what was typed.
+ *   - AFTER A 409 a screen may re-read the account (`onRefused`, the P05
+ *     record) and pass the fresh row as `mode.row`. The form then becomes the
+ *     fresh row with the person's edits laid back on top, and the next save
+ *     sends the fresh `version` plus ONLY those edits: a field they did not
+ *     touch is never resent, so somebody else's save is never undone. A field
+ *     both changed keeps what was typed and says so (`record.conflict.otherChange`).
  *   - SAVE IS ONCE. While a save is in flight the button is `aria-disabled` —
  *     not `disabled`, which would drop keyboard focus to the page — and a
  *     second press does nothing.
@@ -80,14 +84,27 @@ export function AccountSheet({
   /** A save was refused; the sheet has already said why and kept the form. */
   onRefused?: (error: RecordsError) => void;
 }) {
-  const row = mode.kind === 'edit' ? mode.row : null;
-  const [form, setForm] = useState<AccountForm>(() => (row === null ? emptyAccountForm(programmes.list) : accountToForm(row)));
+  const served = mode.kind === 'edit' ? mode.row : null;
+  // The row the form is seeded from: the person's edits are the form's difference from it.
+  const [row, setRow] = useState<Account | null>(served);
+  const [form, setForm] = useState<AccountForm>(() => (served === null ? emptyAccountForm(programmes.list) : accountToForm(served)));
+  const [conflicts, setConflicts] = useState<readonly EditableField[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
   const [refusal, setRefusal] = useState<MessageId | null>(null);
   const [busy, setBusy] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const formId = useId();
   const locked = lockedFormFields(row);
+
+  // A fresher row arrived (a re-read after a 409): rebase the edits onto it.
+  useEffect(() => {
+    if (served === null || row === null || served.version === row.version) return;
+    const rebased = rebaseAccountForm(row, served, form);
+    setRow(served);
+    setForm(rebased.form);
+    setConflicts((held) => [...new Set([...held.filter((field) => rebased.edited.includes(field)), ...rebased.conflicts])]);
+    // Only a new served row starts a rebase; `row` and `form` are read as they stand then.
+  }, [served]);
 
   // With several programmes the target must be chosen; with one it is implied.
   const choices = mode.kind === 'create' ? (programmes.list ?? []) : [];
@@ -114,7 +131,7 @@ export function AccountSheet({
 
     let body = null;
     if (row !== null) {
-      body = updateBody(row, checked.values);
+      body = editBody(row, form, checked.values);
       if (body === null) {
         onClose();
         return;
@@ -149,7 +166,7 @@ export function AccountSheet({
     locked.includes(field) ? (
       <LockedField t={t} label={label} />
     ) : (
-      <Field t={t} id={`${formId}-${field}`} label={label} hint={options.hint} error={errors[field]}>
+      <Field t={t} id={`${formId}-${field}`} label={label} hint={options.hint} error={errors[field]} conflict={conflicts.includes(field)}>
         <input
           {...fieldProps(field)}
           type="text"
@@ -214,7 +231,7 @@ export function AccountSheet({
           {locked.includes('tier') ? (
             <LockedField t={t} label="accounts.col.tier" />
           ) : (
-            <Field t={t} id={`${formId}-tier`} label="accounts.col.tier" error={errors.tier}>
+            <Field t={t} id={`${formId}-tier`} label="accounts.col.tier" error={errors.tier} conflict={conflicts.includes('tier')}>
               <select {...fieldProps('tier')} value={form.tier} onChange={(event) => set('tier', event.target.value)}>
                 <option value="">{t.t('records.cell.empty')}</option>
                 {AccountTier.options.map((tier) => (
@@ -258,6 +275,7 @@ function Field({
   label,
   hint,
   error,
+  conflict = false,
   children,
 }: {
   t: Translator;
@@ -265,6 +283,8 @@ function Field({
   label: MessageId;
   hint?: MessageId | undefined;
   error?: MessageId | undefined;
+  /** Somebody else changed this field too, since the sheet opened: the typed value is kept. */
+  conflict?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -278,6 +298,12 @@ function Field({
           {t.t(hint)}
         </p>
       )}
+      {conflict ? (
+        <p data-conflict="" className="flex items-start gap-1 text-caption font-semibold text-warning-text">
+          <Icon name="info" size="sm" />
+          {t.t('record.conflict.otherChange')}
+        </p>
+      ) : null}
       {error === undefined ? null : (
         <p id={`${id}-error`} className="text-caption font-semibold text-danger-text">
           {t.t(error)}
