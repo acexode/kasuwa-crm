@@ -514,6 +514,7 @@
   "admin.audit.action.rejected": "Reject",
   "admin.audit.action.rotated": "Rotate",
   "admin.audit.action.played_recording": "Play recording",
+  "admin.audit.action.published": "Don publish am",
   "admin.audit.object.withheld": "We hold am back",
   "admin.audit.ip.notShown": "We no show am",
   "admin.audit.ip.notShown.why": "IP address na personal data. “We no show am” mean say dis column no dey available to you; e no dey tell you whether dem record address or dem no record am.",

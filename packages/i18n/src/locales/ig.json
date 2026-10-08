@@ -514,6 +514,7 @@
   "admin.audit.action.rejected": "Ajụrụ",
   "admin.audit.action.rotated": "Agbanwere",
   "admin.audit.action.played_recording": "Gere ndekọ olu",
+  "admin.audit.action.published": "E bipụtala",
   "admin.audit.object.withheld": "Egbochiri ya",
   "admin.audit.ip.notShown": "Egosighị ya",
   "admin.audit.ip.notShown.why": "Adreesị IP bụ data nkeonwe. “Egosighị ya” pụtara na ogidi a adịghị gị; ọ naghị agwa gị ma edekọrọ adreesị.",

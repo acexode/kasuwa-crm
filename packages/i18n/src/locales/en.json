@@ -514,6 +514,7 @@
   "admin.audit.action.rejected": "Rejected",
   "admin.audit.action.rotated": "Rotated",
   "admin.audit.action.played_recording": "Played a recording",
+  "admin.audit.action.published": "Published",
   "admin.audit.object.withheld": "Withheld",
   "admin.audit.ip.notShown": "Not shown",
   "admin.audit.ip.notShown.why": "IP addresses are personal data. “Not shown” means this column is not available to you; it does not tell you whether an address was recorded.",
