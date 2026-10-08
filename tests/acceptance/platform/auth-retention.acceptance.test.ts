@@ -763,6 +763,8 @@ describe('acceptance: auth-table retention (T-0045 part 1)', () => {
       // in @kasuwa/config says that is how the first database job lands.
       const env: Record<string, unknown> = {
         ...workerEnv({
+          // NODE_ENV explicit: since D-L95 the worker refuses an unset one (T-0117).
+          NODE_ENV: 'test',
           DATABASE_URL: 'postgres://kasuwa_app:not-a-secret@localhost:5432/kasuwa',
           DATABASE_MIGRATION_URL: 'postgres://kasuwa_migrator:not-a-secret@localhost:5432/kasuwa',
           REDIS_URL: 'redis://localhost:6379',

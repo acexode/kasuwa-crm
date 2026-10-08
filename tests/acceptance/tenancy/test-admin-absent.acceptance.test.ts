@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { apiEnv, type EnvSource } from '@kasuwa/config';
+import { apiEnv, workerEnv, type EnvSource } from '@kasuwa/config';
 import { loadMigrations, runMigrations, TENANT_A, TENANT_B } from '@kasuwa/db';
 import { startBarePostgres, type BarePostgres } from '@kasuwa/testing';
 import { Client } from 'pg';
@@ -1194,5 +1194,31 @@ describe('7. the API refuses the repository’s dev passwords at startup in prod
     expect(message, 'apiEnv booted in production with a disguised dev password').not.toBe('');
     expect(message).toContain('DATABASE_URL');
     expectNoSecret(message, ['kasuwa%5Fapp%5Fdev']);
+  });
+
+  // D-L95: an unset NODE_ENV is refused by the API and the worker, so a real cell that forgot it
+  // cannot boot as "development" (stub auth, no dev-password or test-role check).
+  const withoutNodeEnv = (source: EnvSource): EnvSource =>
+    Object.fromEntries(Object.entries(source).filter(([key]) => key !== 'NODE_ENV'));
+
+  it('the API refuses to boot with NODE_ENV unset (D-L95)', () => {
+    const message = refusal(
+      withoutNodeEnv({ ...API_PRODUCTION, DATABASE_URL: secretApp, DATABASE_AUTH_URL: secretAuth }),
+    );
+    expect(message, 'apiEnv booted with NODE_ENV unset').not.toBe('');
+    expect(message).toContain('NODE_ENV');
+    expectNoSecret(message);
+  });
+
+  it('the worker refuses to boot with NODE_ENV unset (D-L95)', () => {
+    let message = '';
+    try {
+      workerEnv({ DATABASE_URL: secretApp, REDIS_URL: 'redis://r:6379' });
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message, 'workerEnv booted with NODE_ENV unset').not.toBe('');
+    expect(message).toContain('NODE_ENV');
+    expectNoSecret(message);
   });
 });
