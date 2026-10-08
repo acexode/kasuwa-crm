@@ -42,10 +42,14 @@ export interface ContactPhone {
 /**
  * A contact's owner, with the name a screen prints (T-0043, D-L64). Closed:
  * an id and a display name, never an email, phone or status.
+ *
+ * `displayName` is `null` for a FORMER owner (T-0103, D-P23): a user who is
+ * not a member of the contact's programme (removed from it, or never in it).
+ * The screens print a translated neutral label, never the id.
  */
 export interface ContactOwner {
   id: string;
-  displayName: string;
+  displayName: string | null;
 }
 
 /**
@@ -206,8 +210,13 @@ interface ContactRow {
   /** The account's `name`, read in the same statement (ACCOUNT_NAME). */
   account_name: string | null;
   owner_user_id: string | null;
-  /** The owner's `"user".display_name`, read in the same statement (OWNER_DISPLAY_NAME). */
+  /**
+   * The owner's `"user".display_name`, read in the same statement
+   * (OWNER_DISPLAY_NAME), and only for a member of the contact's programme.
+   */
   owner_display_name: string | null;
+  /** Is the owner a member of the contact's programme (OWNER_IS_MEMBER)? `null` with no owner. */
+  owner_is_member: boolean | null;
   status: string | null;
   source: string | null;
   tags: string[] | null;
@@ -235,6 +244,25 @@ interface ContactPageRow extends ContactRow {
 }
 
 /**
+ * The owner's membership of THE CONTACT'S programme (T-0103, D-P23): a
+ * `user_programme` row in the contact's own tenant and programme. Membership
+ * of any other programme, the reader's included, does not count. A disabled
+ * user is still a member (D-L81). Read live, so a former owner who rejoins is
+ * named again.
+ *
+ * tenancy-reviewed: keyed on the contact's own tenant, programme and owner,
+ * never on an id the caller supplied; RLS on user_programme (tenant-scoped
+ * for SELECT, 0001) besides. Reads no name.
+ */
+const OWNER_MEMBERSHIP = `EXISTS (
+    SELECT 1
+      FROM user_programme owner_membership
+     WHERE owner_membership.tenant_id = contact.tenant_id
+       AND owner_membership.programme_id = contact.programme_id
+       AND owner_membership.user_id = contact.owner_user_id
+  )`;
+
+/**
  * The owner's display name, embedded in the same statement as the contact row
  * (T-0043). It is a correlated subquery on THIS row, so a name is only ever
  * read for the owner of a contact the statement already returns: the
@@ -242,6 +270,10 @@ interface ContactPageRow extends ContactRow {
  * those are, and nothing here is keyed on an id the caller supplied. That is
  * what keeps it from being a user directory, which matters because RLS on
  * "user" is tenant-only.
+ *
+ * D-P23 (T-0103): the name is read only for an owner who is a member of the
+ * contact's programme (OWNER_MEMBERSHIP), so a former owner's name never
+ * leaves the database, not even into this process.
  *
  * tenancy-reviewed: the user is matched on (tenant_id, id) to the contact's
  * own tenant and owner, the same pair as the composite FK (0019); RLS on
@@ -254,7 +286,12 @@ const OWNER_DISPLAY_NAME = `(
     FROM "user" owner_user
    WHERE owner_user.tenant_id = contact.tenant_id
      AND owner_user.id = contact.owner_user_id
+     AND ${OWNER_MEMBERSHIP}
 ) AS owner_display_name`;
+
+/** Whether the owner is a member (OWNER_MEMBERSHIP); `null` for an unassigned contact. */
+const OWNER_IS_MEMBER = `CASE WHEN contact.owner_user_id IS NULL THEN NULL
+  ELSE ${OWNER_MEMBERSHIP} END AS owner_is_member`;
 
 /**
  * The account's name, embedded in the same statement as the contact row
@@ -281,6 +318,7 @@ const SELECT_COLUMNS = `
   preferred_language, preferred_channel, state, lga, dnd, whatsapp_opt_in,
   consent_state, phone_network, created_at, updated_at,
   ${OWNER_DISPLAY_NAME},
+  ${OWNER_IS_MEMBER},
   ${ACCOUNT_NAME}
 `;
 
@@ -299,10 +337,14 @@ const fold = (expression: string) =>
   `lower(regexp_replace(normalize(coalesce(${expression}, ''), NFD), '[\\u0300-\\u036f]', '', 'g'))`;
 
 /**
- * A contact names an owner whose name could not be read. The composite FK
- * (0019) makes this impossible; if the schema ever drifts, failing is better
- * than sending `owner: null` beside a set `ownerUserId`, which the contract
- * says means "unassigned". Carries no identifier.
+ * A contact names an owner who is a member of its programme but whose name
+ * could not be read. user_programme's composite FK to "user" (0001) makes
+ * this impossible; if the schema ever drifts, failing is better than sending
+ * a member as a former owner, or `owner: null` beside a set `ownerUserId`,
+ * which the contract says means "unassigned". Carries no identifier.
+ *
+ * Since T-0103 (D-P23) a NON-member owner is not this error: it is a former
+ * owner, `{ id, displayName: null }`.
  */
 export class ContactOwnerUnresolvedError extends Error {
   constructor() {
@@ -311,12 +353,18 @@ export class ContactOwnerUnresolvedError extends Error {
   }
 }
 
-/** The embedded owner, from a row's owner id and the name read beside it. */
+/**
+ * The embedded owner, from a row's owner id, whether that owner is a member
+ * of the contact's programme, and the name read beside it (read only for a
+ * member). A non-member is a former owner (D-P23): the id, and no name.
+ */
 export function contactOwnerOf(
   ownerUserId: string | null,
+  ownerIsMember: boolean | null,
   ownerDisplayName: string | null,
 ): ContactOwner | null {
   if (ownerUserId === null) return null;
+  if (ownerIsMember !== true) return { id: ownerUserId, displayName: null };
   if (ownerDisplayName === null) throw new ContactOwnerUnresolvedError();
   return { id: ownerUserId, displayName: ownerDisplayName };
 }
@@ -358,7 +406,7 @@ function toContact(row: ContactRow): Contact {
     accountId: row.account_id,
     account: contactAccountOf(row.account_id, row.account_name),
     ownerUserId: row.owner_user_id,
-    owner: contactOwnerOf(row.owner_user_id, row.owner_display_name),
+    owner: contactOwnerOf(row.owner_user_id, row.owner_is_member, row.owner_display_name),
     status: row.status,
     source: row.source,
     tags: row.tags ?? [],
@@ -684,6 +732,15 @@ export async function updateContactIfVersion(
 }
 
 /**
+ * The advisory-lock namespace of a programme membership: ASCII 'KMEM'. The
+ * second key is `hashtext(programme_id::text || '/' || user_id::text)`.
+ * MUST equal `lock_namespace` in migration 0031's
+ * `app.unassign_removed_member_contacts()`; the T-0103 races go red if the
+ * two drift apart.
+ */
+export const MEMBERSHIP_LOCK_NAMESPACE = 0x4b4d454d;
+
+/**
  * May `userId` own a contact in `programmeId`? D-L67: only a member of that
  * programme (a `user_programme` row there). Another tenant's user, a user who
  * belongs only to a sibling programme, and no user at all are the same
@@ -693,12 +750,36 @@ export async function updateContactIfVersion(
  * tenancy-reviewed: tenant from the session, the programme required in SQL to
  * be in the session's scope, the user joined on (tenant_id, id); RLS on both
  * tables besides. Reads ids only, never a user's name or address.
+ *
+ * RACES (T-0103, D-L99). A "yes" holds until this transaction commits: the
+ * check first takes the membership's advisory lock SHARED (see
+ * MEMBERSHIP_LOCK_NAMESPACE), and a removal takes it EXCLUSIVE in migration
+ * 0031's trigger before it unassigns. So a removal either waits for this
+ * transaction and then unassigns whatever it wrote, or this check waits for
+ * the removal and then answers "no" (the same `false` as an invented id).
+ * The lock is advisory, not `FOR KEY SHARE` on user_programme: 0021's
+ * restrictive UPDATE policy filters row locks for every non-admin session,
+ * so an agent's D-P14 self-claim would find no row.
+ *
+ * The lock and the read are TWO statements on purpose. Under READ COMMITTED
+ * each statement takes its snapshot when it starts; a read in the same
+ * statement as the lock wait would use a snapshot from before the removal
+ * committed and still see the membership.
  */
 export async function programmeMemberExists(
   tx: TenantTx,
   programmeId: string,
   userId: string,
 ): Promise<boolean> {
+  // The key text is built from uuid::text, canonical lower case, exactly as
+  // 0031 builds it from the row: a client's upper-case id must not miss the lock.
+  await tx.query(
+    `SELECT pg_advisory_xact_lock_shared(
+              $1::integer,
+              hashtext($2::uuid::text || '/' || $3::uuid::text)
+            ) AS locked`,
+    [MEMBERSHIP_LOCK_NAMESPACE, programmeId, userId],
+  );
   const rows = await tx.query<{ ok: number }>(
     `SELECT 1 AS ok
        FROM user_programme up
