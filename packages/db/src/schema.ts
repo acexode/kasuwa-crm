@@ -391,9 +391,16 @@ export const script = pgTable(
     programmeId: uuid('programme_id').notNull(),
     name: text('name').notNull(),
     sourceLocale: text('source_locale', { enum: SCRIPT_LOCALES }).notNull(),
-    /** The draft ScriptGraph; Zod-validated by the API, an object here. */
-    draftGraph: jsonb('draft_graph').notNull(),
-    draftTranslations: jsonb('draft_translations').notNull(),
+    /**
+     * The draft ScriptGraph; Zod-validated by the API, an object here. The
+     * default is the empty draft: one end node that is also the start.
+     */
+    draftGraph: jsonb('draft_graph')
+      .notNull()
+      .default(
+        sql`'{"startNodeId": "start", "nodes": [{"id": "start", "type": "end", "title": "End"}]}'::jsonb`,
+      ),
+    draftTranslations: jsonb('draft_translations').notNull().default(sql`'{}'::jsonb`),
     revision: integer('revision').notNull().default(1),
     publishedRevision: integer('published_revision'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -424,8 +431,8 @@ export const scriptVersion = pgTable(
     name: text('name').notNull(),
     sourceLocale: text('source_locale', { enum: SCRIPT_LOCALES }).notNull(),
     graph: jsonb('graph').notNull(),
-    translations: jsonb('translations').notNull(),
-    changes: text('changes').array().notNull(),
+    translations: jsonb('translations').notNull().default(sql`'{}'::jsonb`),
+    changes: text('changes').array().notNull().default(sql`'{}'::text[]`),
     publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),
     /** Composite FK (tenant_id, published_by_user_id) -> "user". */
     publishedByUserId: uuid('published_by_user_id'),

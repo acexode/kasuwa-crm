@@ -113,9 +113,20 @@
 -- a no-op `SET tenant_id = tenant_id` included, for kasuwa_app,
 -- kasuwa_test_admin and kasuwa_migrator alike (42501, as 0008's append-only
 -- audit_event). Correcting a published version is publishing a new one.
--- A superuser that must can SET session_replication_role; no process here
--- can. A future logical-replication cell move (ADR-0002 tooling) must keep
--- the trigger enabled on the subscriber (D-L92's note on 0029 applies).
+-- Both script_version guards are ENABLE ALWAYS triggers, so they fire under
+-- `session_replication_role = replica` too: a logical-replication apply (a
+-- future ADR-0002 cell move) or a session that sets the role still meets
+-- them (D-L92's note on 0029, closed here rather than tracked).
+--
+-- WHAT THE OWNER CAN STILL DO (the honest limits; kasuwa_migrator owns both
+-- tables and never serves traffic):
+--   - ALTER TABLE ... DISABLE TRIGGER, then change or delete a version. A
+--     migration that does so says so in its header and is reviewed as such;
+--     no serving role owns the table, so none can.
+--   - TRUNCATE, which fires no row trigger at all (the seed's reseed does,
+--     through tenant CASCADE). kasuwa_app, and every role it can enter, holds
+--     no TRUNCATE (self-check below).
+--   - A superuser can do anything; no process here runs as one.
 --
 -- DELETE of a version: a BEFORE DELETE row trigger,
 -- app.guard_script_version_delete(), refuses unless current_user is
@@ -176,7 +187,15 @@
 -- ---------------------------------------------------------------------------
 -- A publish is audited as a new action, `published`. audit_event_action_check
 -- (0008) is replaced by the same list plus `published`, and nothing else. The
--- new list is a superset, so every existing row satisfies it.
+-- new constraint is added NOT VALID: it is a strict superset of the old one,
+-- which every existing row already satisfied, so no existing row can fail it
+-- and it needs no VALIDATE (and no scan). New and updated rows are checked as
+-- for any constraint; pg_get_constraintdef shows it with "NOT VALID".
+--
+-- LOCALES. The seven design-menu locales appear in BOTH locale CHECKs
+-- (script_source_locale_check and script_version_source_locale_check) and in
+-- SCRIPT_LOCALES in the API. A new locale is a new migration that replaces
+-- both CHECKs, plus the API's list.
 --
 -- ---------------------------------------------------------------------------
 -- LOCK IMPACT (D-L65)
@@ -186,15 +205,16 @@
 --     is what creating an FK that references them takes anyway. It blocks
 --     writes to those tables (sign-in bookkeeping on "user"), not reads, for
 --     well under a second: everything else here works on new, empty tables.
---   - audit_event: ACCESS EXCLUSIVE, for the CHECK swap. ADD CONSTRAINT
---     scans every row to validate it: reads and writes of the audit log (and
---     so every audited write in the API) wait for that scan. At volume (the
---     first populated cell onward) split it: ADD CONSTRAINT ... NOT VALID in
---     this shape (a catalogue change, brief), then VALIDATE CONSTRAINT in its
---     own transaction (SHARE UPDATE EXCLUSIVE: reads and writes carry on).
+--   - audit_event: ACCESS EXCLUSIVE, for the CHECK swap. With NOT VALID it is
+--     a catalogue change that scans nothing, so the lock is held for
+--     milliseconds, at any volume.
 --   - Taken up front in one fixed order (parents, then audit_event), with
 --     lock_timeout = 5s, so the file fails fast instead of queueing behind a
 --     long transaction and making everything behind it queue too.
+--   - THE DEPLOY MUST RETRY ON lock_timeout. A refusal here (SQLSTATE 55P03)
+--     means a long transaction held one of these tables; nothing was applied,
+--     and the right answer is to run `pnpm db:migrate` again, not to raise
+--     the timeout.
 --
 -- ---------------------------------------------------------------------------
 -- ROLLBACK PLAN
@@ -256,7 +276,10 @@ CREATE TABLE script (
   CONSTRAINT script_draft_translations_check CHECK (jsonb_typeof(draft_translations) = 'object'),
   CONSTRAINT script_revision_check CHECK (revision >= 1),
   CONSTRAINT script_published_revision_check
-    CHECK (published_revision IS NULL OR published_revision >= 1)
+    CHECK (published_revision IS NULL OR published_revision >= 1),
+  -- A version is published from a revision the draft has had.
+  CONSTRAINT script_published_revision_not_ahead_check
+    CHECK (published_revision IS NULL OR published_revision <= revision)
 );
 
 CREATE INDEX script_name_keyset_idx ON script (tenant_id, name COLLATE "C", id);
@@ -296,7 +319,11 @@ CREATE TABLE script_version (
     CHECK (source_locale IN ('en', 'fr', 'pcm', 'ha', 'yo', 'ig', 'sw')),
   CONSTRAINT script_version_graph_check CHECK (jsonb_typeof(graph) = 'object'),
   CONSTRAINT script_version_translations_check CHECK (jsonb_typeof(translations) = 'object'),
-  CONSTRAINT script_version_changes_check CHECK (cardinality(changes) <= 10)
+  CONSTRAINT script_version_changes_check CHECK (cardinality(changes) <= 10),
+  -- A flat list of notes: one dimension (an empty array has none) and no NULL.
+  CONSTRAINT script_version_changes_shape_check
+    CHECK ((array_ndims(changes) IS NULL OR array_ndims(changes) = 1)
+           AND array_position(changes, NULL) IS NULL)
 );
 
 ALTER TABLE script ENABLE ROW LEVEL SECURITY;
@@ -398,14 +425,19 @@ CREATE TRIGGER script_version_delete_guard
   BEFORE DELETE ON script_version FOR EACH ROW
   EXECUTE FUNCTION app.guard_script_version_delete();
 
+-- ALWAYS: they fire under session_replication_role = replica too. See the header.
+ALTER TABLE script_version ENABLE ALWAYS TRIGGER script_version_immutable;
+ALTER TABLE script_version ENABLE ALWAYS TRIGGER script_version_delete_guard;
+
 -- --- 4. audit_event: `published` (D-L96) ---------------------------------------
--- 0008's ten, plus `published`, and nothing else.
+-- 0008's ten, plus `published`, and nothing else. NOT VALID, no VALIDATE: a
+-- strict superset of the constraint it replaces (see AUDIT in the header).
 ALTER TABLE audit_event
   DROP CONSTRAINT audit_event_action_check,
   ADD CONSTRAINT audit_event_action_check CHECK (action IN (
     'created', 'updated', 'deleted', 'exported', 'invited', 'viewed',
     'failed_sign_in', 'rejected', 'rotated', 'played_recording', 'published'
-  ));
+  )) NOT VALID;
 
 -- --- 5. prove the posture ------------------------------------------------------
 -- Runs once, here. The standing guards are the T-0113 acceptance suite and
@@ -470,6 +502,29 @@ BEGIN
               WHERE tg.tgrelid = 'public.script_version'::pg_catalog.regclass
                 AND tg.tgname = 'script_version_immutable' AND tg.tgqual IS NOT NULL) THEN
     RAISE EXCEPTION '0030: script_version_immutable must fire on every UPDATE';
+  END IF;
+  -- Both version guards fire ALWAYS, replica sessions included.
+  IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_trigger tg
+       WHERE tg.tgrelid = 'public.script_version'::pg_catalog.regclass
+         AND tg.tgname IN ('script_version_immutable', 'script_version_delete_guard')
+         AND tg.tgenabled = 'A') <> 2 THEN
+    RAISE EXCEPTION '0030: the script_version guards must be ENABLE ALWAYS';
+  END IF;
+
+  -- Nothing kasuwa_app can enter may DELETE a version's parents: a script, its
+  -- programme or its tenant (so no serving role can start a cascade that
+  -- removes published versions). Every route a privilege can take.
+  SELECT pg_catalog.string_agg(r.rolname || ':DELETE ' || x.tbl, ', ' ORDER BY r.rolname, x.tbl)
+    INTO held
+    FROM pg_catalog.pg_roles r
+   CROSS JOIN LATERAL (
+     SELECT tbl FROM pg_catalog.unnest(ARRAY['public.tenant', 'public.programme',
+                                             'public.script']) AS u(tbl)
+      WHERE pg_catalog.has_table_privilege(r.oid, u.tbl, 'DELETE')
+   ) AS x
+   WHERE pg_catalog.pg_has_role(app_role, r.oid, 'MEMBER');
+  IF held IS NOT NULL THEN
+    RAISE EXCEPTION '0030: kasuwa_app, or a role it can enter, may delete a script or its parents: %', held;
   END IF;
 
   -- Every FK on either table is ON UPDATE RESTRICT (D-L76).
