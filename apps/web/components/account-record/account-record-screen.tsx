@@ -9,7 +9,7 @@ import type { LanguageOption } from '../auth/language-menu';
 import { LINK, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { AccountSheet } from '../accounts/account-sheet';
 import { ActivityForm } from '../record/activity-form';
-import { writeErrorId, zoneName } from '../record/record-core';
+import { recordHref, writeErrorId, zoneName } from '../record/record-core';
 import { RecordLoading, RecordNotFound, RecordOfflineBanner, RecordUnavailable } from '../record/record-states';
 import { RecordTimeline, Value, type TimelineVocabulary } from '../record/record-timeline';
 import { LockedValue } from '../records/list-parts';
@@ -306,19 +306,24 @@ function Ready({
 /**
  * The hierarchy, root first, as the breadcrumb D-L98 rules: ancestors by
  * name, each a link to its own record, and the record last, not a link. A
- * top-level account draws none. A withheld parent link is a lock, and nothing
- * above it was read.
+ * top-level account draws none. Where the walk stopped is said at the root,
+ * in words and never an id: a lock where a parent link is withheld (the
+ * record's or an ancestor's; nothing above it was read), "not shown" past
+ * four ancestors, a loop, or a level that did not load.
  */
 function HierarchyTrail({ t, record, hierarchy }: { t: Translator; record: Account; hierarchy: Hierarchy | null }) {
   const locked = isLocked(record, 'parentAccountId');
   if (!locked && typeof record.parentAccountId !== 'string') return null;
   const separator = <Icon name="chevron_right" size="sm" className="text-text-muted rtl:-scale-x-100" />;
+  const end = locked ? 'locked' : hierarchy?.end;
+  const marker: MessageId | null =
+    end === 'failed' ? 'account.hierarchy.partial' : end === 'limit' ? 'account.hierarchy.limit' : end === 'cycle' ? 'account.hierarchy.cycle' : null;
 
   return (
     <nav aria-label={t.t('account.hierarchy')} data-testid="account-hierarchy" data-locked={locked ? 'true' : undefined}>
       <ol className="flex min-w-0 flex-wrap items-center gap-x-1 text-body-sm text-text-2">
-        {locked ? (
-          <li className="inline-flex min-h-touch items-center gap-1 text-text-muted">
+        {end === 'locked' ? (
+          <li data-hierarchy-end="locked" className="inline-flex min-h-touch items-center gap-1 text-text-muted">
             <span>{t.t('account.field.parentAccountId')}</span>
             <LockedValue t={t} />
             {separator}
@@ -330,20 +335,29 @@ function HierarchyTrail({ t, record, hierarchy }: { t: Translator; record: Accou
             {separator}
           </li>
         ) : null}
-        {hierarchy?.end === 'failed' ? (
-          <li className="inline-flex min-h-touch items-center gap-1 text-text-muted">
-            <span>{t.t('account.hierarchy.partial')}</span>
+        {marker === null ? null : (
+          <li data-hierarchy-end={end} className="inline-flex min-h-touch items-center gap-1 text-text-muted">
+            <span>{t.t(marker)}</span>
             {separator}
           </li>
-        ) : null}
-        {(hierarchy?.ancestors ?? []).map((ancestor) => (
-          <li key={ancestor.id} data-hierarchy-entry={ancestor.id} className="inline-flex min-w-0 items-center gap-1">
-            <Link href={`/accounts/${ancestor.id}`} className={`inline-flex min-h-touch min-w-0 items-center break-words ${LINK}`}>
-              <span data-record-text="">{ancestor.name}</span>
-            </Link>
-            {separator}
-          </li>
-        ))}
+        )}
+        {(hierarchy?.ancestors ?? []).map((ancestor) => {
+          const href = recordHref('/accounts', ancestor.id);
+          return (
+            <li key={ancestor.id} data-hierarchy-entry={ancestor.id} className="inline-flex min-w-0 items-center gap-1">
+              {href === null ? (
+                <span data-record-text="" className="break-words">
+                  {ancestor.name}
+                </span>
+              ) : (
+                <Link href={href} className={`inline-flex min-h-touch min-w-0 items-center break-words ${LINK}`}>
+                  <span data-record-text="">{ancestor.name}</span>
+                </Link>
+              )}
+              {separator}
+            </li>
+          );
+        })}
         <li data-hierarchy-entry={record.id} aria-current="page" className="inline-flex min-h-touch min-w-0 items-center font-semibold text-text">
           <span data-record-text="" className="break-words">
             {record.name}
@@ -518,12 +532,13 @@ function ContactsGrid({
 
 function ContactRow({ t, row, link }: { t: Translator; row: Contact; link: boolean }) {
   const phonesLocked = row.withheldFields.includes('phones');
+  const href = link ? recordHref('/contacts', row.id) : null;
   const phone = (row.phones ?? [])[0];
   return (
     <li data-contact-row={row.id} className="flex min-w-0 flex-col gap-1 py-2">
       <span data-field="displayName" className="min-w-0 break-words font-semibold">
-        {link ? (
-          <Link href={`/contacts/${row.id}`} className={`inline-flex min-h-touch items-center ${LINK}`}>
+        {href !== null ? (
+          <Link href={href} className={`inline-flex min-h-touch items-center ${LINK}`}>
             <span data-record-text="">{row.displayName}</span>
           </Link>
         ) : (

@@ -121,6 +121,30 @@ describe('the hierarchy walk (D-L74, D-L98)', () => {
     expect(reads).not.toContain(id(1));
   });
 
+  it('sends no malformed parent id back to the API', async () => {
+    const { reads, read } = reader([]);
+    const walked = await walkAncestors(account(2, null, { parentAccountId: '../map' }), read);
+    expect(walked.end).toBe('failed');
+    expect(reads).toEqual([]);
+  });
+
+  it('refuses an answer for a different account than the one asked for', async () => {
+    // Asked for 1, served 7: the walk must not follow 7's parent.
+    const impostor = account(7, 6);
+    const read = async (): Promise<RecordsResult<Account>> => ({ ok: true, value: impostor });
+    const walked = await walkAncestors(account(2, 1), read);
+    expect(walked).toEqual({ ancestors: [], end: 'failed' });
+  });
+
+  it('counts the id it ASKED for as seen, so a cycle through it stops', async () => {
+    // 2 -> 1 -> 2: reading 1 once is enough to know 2 is already in the chain.
+    const rows = [account(1, 2), account(2, 1)];
+    const { reads, read } = reader(rows);
+    const walked = await walkAncestors(rows[1] as Account, read);
+    expect(walked.end).toBe('cycle');
+    expect(reads).toEqual([id(1)]);
+  });
+
   it('keeps what it read when a read fails, and stops', async () => {
     const rows = [account(1, null), account(2, 1), account(3, 2)];
     const { reads, read } = reader(rows, new Set([id(1)]));

@@ -29,6 +29,8 @@ export const ACCOUNT_RECORD_MESSAGE_IDS: readonly MessageId[] = [
   'account.unavailable',
   'account.hierarchy',
   'account.hierarchy.partial',
+  'account.hierarchy.limit',
+  'account.hierarchy.cycle',
   'account.field.parentAccountId',
   'account.section.contacts',
   'account.contacts.empty',

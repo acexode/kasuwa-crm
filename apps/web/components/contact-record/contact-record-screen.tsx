@@ -9,7 +9,7 @@ import type { LanguageOption } from '../auth/language-menu';
 import { FIELD, LINK, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { ActivityType, type ContactRecord } from '../../lib/contact-record-api';
 import { ActivityForm } from '../record/activity-form';
-import { writeErrorId, zoneName } from '../record/record-core';
+import { recordHref, writeErrorId, zoneName } from '../record/record-core';
 import { RecordLoading, RecordNotFound, RecordOfflineBanner, RecordUnavailable } from '../record/record-states';
 import { RecordTimeline, Value, type TimelineVocabulary } from '../record/record-timeline';
 import { ContactSheet } from './contact-sheet';
@@ -514,8 +514,9 @@ function DetailValue({
 function AccountSummary({ t, record, link }: { t: Translator; record: ContactRecord; link: boolean }) {
   // A link only where the account record (T-0063) is served: it needs the
   // accounts flag as well as this page's own, and a link to a 404 is worse
-  // than none.
+  // than none. A served id that is not a uuid is never made into a path.
   const locked = isLocked(record, 'account');
+  const href = link && !locked ? recordHref('/accounts', record.account?.id) : null;
   return (
     <div data-testid="account-summary" data-locked={locked ? 'true' : undefined} className="flex min-w-0 items-center gap-3">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-text">
@@ -530,8 +531,8 @@ function AccountSummary({ t, record, link }: { t: Translator; record: ContactRec
           </span>
         ) : record.account === null || record.account === undefined ? (
           <span className="text-text-muted">{t.t('records.account.none')}</span>
-        ) : link ? (
-          <Link href={`/accounts/${record.account.id}`} className={`break-words font-bold ${LINK}`}>
+        ) : href !== null ? (
+          <Link href={href} className={`break-words font-bold ${LINK}`}>
             <span data-record-text="">{record.account.name}</span>
           </Link>
         ) : (

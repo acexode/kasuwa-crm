@@ -2,7 +2,7 @@ import type { MessageId } from '@kasuwa/i18n/bundle';
 import { isAccountWithheld, type Account } from '../../lib/accounts-api';
 import { hasDetail, type Contact, type RecordsError, type RecordsResult } from '../../lib/records-api';
 import { tierLabel } from '../accounts/accounts-model';
-import type { ValueView } from '../record/record-core';
+import { isUuid, type ValueView } from '../record/record-core';
 
 /**
  * The pure half of the P05 account record, frame 04 (T-0063): which fields
@@ -89,7 +89,9 @@ export const MAX_ANCESTORS = 4;
  * `parentAccountId` withheld from the caller, so nothing above it is read.
  * `limit`: four ancestors read, whatever the data claims. `cycle`: the data
  * named an account already in the chain (the database forbids it; the walk
- * must not loop on the day it is wrong). `failed`: a read did not answer.
+ * must not loop on the day it is wrong). `failed`: a read did not answer, a
+ * served parent id is not a uuid (it is never sent back as a path), or the
+ * answer was for a different account than the one asked for.
  */
 export type WalkEnd = 'root' | 'locked' | 'limit' | 'cycle' | 'failed';
 
@@ -115,16 +117,19 @@ export async function walkAncestors(
 ): Promise<Hierarchy> {
   const seen = new Set<string>([record.id]);
   const upward: Account[] = [];
+  const stop = (end: WalkEnd): Hierarchy => ({ ancestors: [...upward].reverse(), end });
   let current = record;
   for (;;) {
     const parent = parentOf(current);
-    if (parent.locked) return { ancestors: [...upward].reverse(), end: 'locked' };
-    if (parent.id === null) return { ancestors: [...upward].reverse(), end: 'root' };
-    if (seen.has(parent.id)) return { ancestors: [...upward].reverse(), end: 'cycle' };
-    if (upward.length >= MAX_ANCESTORS) return { ancestors: [...upward].reverse(), end: 'limit' };
+    if (parent.locked) return stop('locked');
+    if (parent.id === null) return stop('root');
+    if (!isUuid(parent.id)) return stop('failed');
+    if (seen.has(parent.id)) return stop('cycle');
+    if (upward.length >= MAX_ANCESTORS) return stop('limit');
+    // What was ASKED for is what has been seen: an answer cannot move the walk elsewhere.
+    seen.add(parent.id);
     const result = await read(parent.id);
-    if (!result.ok) return { ancestors: [...upward].reverse(), end: 'failed' };
-    seen.add(result.value.id);
+    if (!result.ok || result.value.id !== parent.id) return stop('failed');
     upward.push(result.value);
     current = result.value;
   }

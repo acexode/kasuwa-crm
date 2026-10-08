@@ -88,6 +88,8 @@ export function useAccountRecord(id: string): AccountRecordState {
   // The parent the hierarchy was walked for: a save that leaves it alone does not walk again.
   const walkedFrom = useRef<string | null | undefined>(undefined);
   const walkToken = useRef(0);
+  // Timeline pages on screen: how far a re-read after a 409 may have to go.
+  const loadedPages = useRef(1);
 
   const settle = useCallback((outcome: ReadOutcome<Account>) => {
     if (outcome.phase === 'ready') {
@@ -171,6 +173,7 @@ export function useAccountRecord(id: string): AccountRecordState {
   useEffect(() => {
     const controller = new AbortController();
     setTimeline(NO_TIMELINE);
+    loadedPages.current = 1;
     void listAccountTimeline(id, null, controller.signal).then((result) => {
       if (controller.signal.aborted) return;
       if (result.ok) served(result.value.data);
@@ -201,7 +204,10 @@ export function useAccountRecord(id: string): AccountRecordState {
     if (cursor === null || timeline.loadingOlder) return;
     setTimeline((state) => ({ ...state, loadingOlder: true, olderError: null }));
     void listAccountTimeline(id, cursor).then((result) => {
-      if (result.ok) served(result.value.data);
+      if (result.ok) {
+        served(result.value.data);
+        loadedPages.current += 1;
+      }
       setTimeline((state) =>
         result.ok
           ? { ...state, loadingOlder: false, items: appendPage(state.items, result.value), cursor: result.value.nextCursor }
@@ -217,6 +223,31 @@ export function useAccountRecord(id: string): AccountRecordState {
     served(result.value.data);
     setTimeline((state) => (state.phase === 'ready' ? { ...state, items: mergeHead(state.items, result.value) } : state));
   }, [id, served]);
+
+  /**
+   * After a 409 on a task: read the timeline again from the top until the
+   * page holding that task — it may be on an older page the person loaded —
+   * so the retry carries the version the server holds now. Bounded by the
+   * pages on screen, plus one for anything new above that pushed it down.
+   */
+  const refreshThrough = useCallback(
+    async (activityId: string): Promise<void> => {
+      const fresh: AccountTimelineItem[] = [];
+      let cursor: string | null = null;
+      for (let page = 0; page <= loadedPages.current; page += 1) {
+        const result = await listAccountTimeline(id, cursor);
+        if (!result.ok) break;
+        fresh.push(...result.value.data);
+        const found = result.value.data.some((item) => item.type === 'activity' && item.activityId === activityId);
+        if (found || result.value.nextCursor === null) break;
+        cursor = result.value.nextCursor;
+      }
+      if (fresh.length === 0) return;
+      served(fresh);
+      setTimeline((state) => (state.phase === 'ready' ? { ...state, items: mergeHead(state.items, { data: fresh }) } : state));
+    },
+    [id, served],
+  );
 
   const saved = useCallback(
     (row: Account) => {
@@ -258,11 +289,11 @@ export function useAccountRecord(id: string): AccountRecordState {
       } else if (result.error.code === 'stale_write') {
         // Somebody changed it first. Read what they left, with its version,
         // before the control is offered again; never retry blind.
-        await refreshHead();
+        await refreshThrough(activityId);
       }
       return result;
     },
-    [versions, refreshHead],
+    [versions, refreshThrough],
   );
 
   const programmeName = record === null ? null : (programmes.find((programme) => programme.id === record.programmeId)?.name ?? null);
