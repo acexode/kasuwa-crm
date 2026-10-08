@@ -2246,3 +2246,17 @@ Every recommendation below was taken as written in its entry. What each one now 
   another project's stack (Kafka, Postgres, Redis) and idle Nx daemons. Until the host is quiet or the suite gets an
   environment-relative bound, a failure of that one test is judged against main, run alone, at the same time. A PR that fails
   it while main also fails it is not blocked. The other `auth-availability` tests still gate.
+
+### D-L101 — T-0103 migration review rulings (lead, 2026-10-08; amends D-L99)
+**Status:** PROCEEDING (lead).
+- **Deadlock-free removal.** A statement ending two memberships can deadlock with an owner change between those members
+  (reproduced). The unassignment moves to a statement-level trigger: it takes every ended membership's lock in sorted order,
+  then unassigns.
+- **Index** `(tenant_id, owner_user_id, programme_id)` on contact in 0031, so a removal reads only its programme. The cost
+  (about 2.45 s per 100k owned contacts) is in the header; a future removal API needs a cap or an async job.
+- **Recoverable removals (amends D-L99's "names no contact id"):** besides the programme event, each unassigned contact gets
+  its own audit event, `updated`, change `ownerUserId` with before = the removed user's id and after = null. Staff ids are not
+  customer PII (D-L71). T-0078 redacts the values on read until T-0104 adds `ownerUserId` to the contact allow-list. A
+  mistaken removal can then be undone from the audit log, and each contact's timeline shows the owner change by name.
+- **Every writer of `contact.owner_user_id`** must take the membership lock through `programmeMemberExists`, which asserts
+  READ COMMITTED. Any future import or bulk reassign included.
