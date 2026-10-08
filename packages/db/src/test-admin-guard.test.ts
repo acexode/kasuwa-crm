@@ -69,6 +69,17 @@ describe('readTestAdminUsability', () => {
     expect(fake.calls[0]?.[1]).toEqual([TEST_ADMIN_ROLE]);
     expect(String(fake.calls[0]?.[0])).toMatch(/pg_catalog\.pg_roles/u);
   });
+
+  it('counts a membership only when it carries SET or INHERIT, in both directions', async () => {
+    // Lead ruling on T-0117: an ADMIN-only membership (managed Postgres
+    // records one for the CREATEROLE admin) cannot be used to become the
+    // role. The integration test proves the catalogue agrees.
+    const fake = reader(INERT);
+    await readTestAdminUsability(fake);
+    const sql = String(fake.calls[0]?.[0]).replace(/\s+/gu, ' ');
+    expect(sql).toContain('m.roleid = r.oid AND (m.inherit_option OR m.set_option)');
+    expect(sql).toContain('m.member = r.oid AND (m.inherit_option OR m.set_option)');
+  });
 });
 
 describe('refuseUsableTestAdminAtBoot', () => {

@@ -4,6 +4,7 @@ import {
   DEV_DATABASE_PASSWORDS,
   effectiveDatabaseTarget,
   isLocalDatabaseHost,
+  namesLocalDatabaseHost,
 } from './database-target';
 import { apiEnv, workerEnv, type EnvSource } from './index';
 
@@ -55,6 +56,7 @@ describe('effectiveDatabaseTarget judges what pg will use', () => {
   it('reads the host and password from the URL', () => {
     expect(effectiveDatabaseTarget(url('kasuwa_app', SECRET), 'X', {})).toEqual({
       host: REMOTE,
+      namedHost: REMOTE,
       password: SECRET,
     });
   });
@@ -65,7 +67,7 @@ describe('effectiveDatabaseTarget judges what pg will use', () => {
       'X',
       {},
     );
-    expect(target).toEqual({ host: REMOTE, password: 'kasuwa_app_dev' });
+    expect(target).toEqual({ host: REMOTE, namedHost: REMOTE, password: 'kasuwa_app_dev' });
   });
 
   it('percent-decodes the password', () => {
@@ -77,11 +79,12 @@ describe('effectiveDatabaseTarget judges what pg will use', () => {
   it("falls back to PGHOST and PGPASSWORD, then pg's default host, when the URL is silent", () => {
     expect(effectiveDatabaseTarget('postgres:///kasuwa', 'X', { PGHOST: REMOTE })).toEqual({
       host: REMOTE,
+      namedHost: undefined,
       password: undefined,
     });
     expect(
       effectiveDatabaseTarget('postgres://kasuwa_app@/kasuwa', 'X', { PGPASSWORD: SECRET }),
-    ).toEqual({ host: 'localhost', password: SECRET });
+    ).toEqual({ host: 'localhost', namedHost: undefined, password: SECRET });
   });
 
   it('reports a Unix socket path as the host', () => {
@@ -109,6 +112,23 @@ describe('isLocalDatabaseHost is exactly the D-L94 R5 list', () => {
     '',
   ])('%j is not local', (host) => {
     expect(isLocalDatabaseHost(host)).toBe(false);
+  });
+});
+
+describe('namesLocalDatabaseHost: only a host the URL itself names can be local', () => {
+  it.each([
+    ['localhost in the URL', url('kasuwa_app', SECRET, 'localhost'), {}, true],
+    ['127.0.0.1 in the URL', url('kasuwa_app', SECRET, '127.0.0.1'), {}, true],
+    [
+      'localhost overridden by ?host=',
+      url('kasuwa_app', SECRET, 'localhost', `?host=${REMOTE}`),
+      {},
+      false,
+    ],
+    ['no host, no PGHOST', 'postgres:///kasuwa', {}, false],
+    ['no host, PGHOST=localhost', 'postgres:///kasuwa', { PGHOST: 'localhost' }, false],
+  ] as const)('%s -> %s', (_what, connectionString, env, local) => {
+    expect(namesLocalDatabaseHost(effectiveDatabaseTarget(connectionString, 'X', env))).toBe(local);
   });
 });
 
@@ -151,11 +171,26 @@ describe('assertMigrationTargetIsSafe', () => {
     expectNoSecret(message);
   });
 
-  it('reads NODE_ENV raw: PGHOST decides the host when the URL names none', () => {
-    const message = messageOf(() =>
-      assertMigrationTargetIsSafe('postgres:///kasuwa', { PGHOST: REMOTE }),
-    );
-    expect(message).toContain('NODE_ENV');
+  it.each([
+    ['no PGHOST (pg would use localhost)', 'postgres:///kasuwa', {}],
+    ['PGHOST=localhost', 'postgres:///kasuwa', { PGHOST: 'localhost' }],
+    ['PGHOST remote', 'postgres:///kasuwa', { PGHOST: REMOTE }],
+    ['userinfo and no host', 'postgres://kasuwa_migrator@/kasuwa', {}],
+    ['an empty ?host=', 'postgres:///kasuwa?host=', {}],
+  ] as const)(
+    'refuses an unset NODE_ENV when the URL names no host (%s): not local',
+    (_what, connectionString, env) => {
+      const message = messageOf(() => assertMigrationTargetIsSafe(connectionString, env));
+      expect(message).toContain('NODE_ENV');
+      expectNoSecret(message);
+    },
+  );
+
+  it('a hostless URL is still accepted when NODE_ENV says development or test', () => {
+    expect(assertMigrationTargetIsSafe('postgres:///kasuwa', { NODE_ENV: 'development' })).toEqual({
+      enforce: false,
+      nodeEnv: 'development',
+    });
   });
 
   it.each(['', 'staging', 'Production'])('refuses NODE_ENV=%j as invalid', (nodeEnv) => {
@@ -194,13 +229,16 @@ describe('assertMigrationTargetIsSafe', () => {
     expectNoSecret(message);
   });
 
-  it.each(['PGHOST', 'PGPASSWORD', 'PGUSER'])('refuses %s in production by name', (name) => {
-    const message = messageOf(() =>
-      assertMigrationTargetIsSafe(url('kasuwa_migrator', SECRET), { ...PRODUCTION, [name]: 'x' }),
-    );
-    expect(message).toContain(name);
-    expectNoSecret(message);
-  });
+  it.each(['PGHOST', 'PGPASSWORD', 'PGUSER', 'PGPASSFILE'])(
+    'refuses %s in production by name',
+    (name) => {
+      const message = messageOf(() =>
+        assertMigrationTargetIsSafe(url('kasuwa_migrator', SECRET), { ...PRODUCTION, [name]: 'x' }),
+      );
+      expect(message).toContain(name);
+      expectNoSecret(message);
+    },
+  );
 
   it('refuses a stub auth mode in production before anything else (migratorEnv)', () => {
     expect(() =>
@@ -245,16 +283,19 @@ describe('apiEnv and workerEnv refuse dev passwords and PG* outside development 
     }
   });
 
-  it.each(['PGHOST', 'PGPASSWORD', 'PGUSER'])('both refuse %s in production by name', (name) => {
-    for (const call of [
-      () => apiEnv({ ...API_PRODUCTION, [name]: SECRET }),
-      () => workerEnv({ ...WORKER_PRODUCTION, [name]: SECRET }),
-    ]) {
-      const message = messageOf(call);
-      expect(message).toContain(name);
-      expectNoSecret(message);
-    }
-  });
+  it.each(['PGHOST', 'PGPASSWORD', 'PGUSER', 'PGPASSFILE'])(
+    'both refuse %s in production by name',
+    (name) => {
+      for (const call of [
+        () => apiEnv({ ...API_PRODUCTION, [name]: SECRET }),
+        () => workerEnv({ ...WORKER_PRODUCTION, [name]: SECRET }),
+      ]) {
+        const message = messageOf(call);
+        expect(message).toContain(name);
+        expectNoSecret(message);
+      }
+    },
+  );
 
   it('both accept dev passwords and PG* in development and test (control)', () => {
     for (const nodeEnv of ['development', 'test']) {

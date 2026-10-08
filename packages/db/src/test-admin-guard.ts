@@ -21,6 +21,14 @@
  * read, so a password alone is not refused here; a password is useless
  * without LOGIN, and LOGIN is refused.
  *
+ * MEMBERSHIPS COUNT ONLY IF THEY CAN BE USED (lead ruling on T-0117). On
+ * managed Postgres (RDS, Cloud SQL) the provisioning admin is CREATEROLE, not
+ * a superuser, and PostgreSQL 16 records it as an ADMIN-only member of every
+ * role it creates: `admin_option` true, `inherit_option` and `set_option`
+ * false. Such a membership lets its holder manage the role's memberships but
+ * never become the role or use its privileges, so it is ignored. A membership
+ * with SET or INHERIT, in either direction, is refused.
+ *
  * Beyond the four D-L94 names (LOGIN, BYPASSRLS, a member, a membership) the
  * other role powers are refused too (SUPERUSER, CREATEROLE, CREATEDB,
  * REPLICATION): the placeholder is meant to have none, and any of them on a
@@ -52,6 +60,8 @@ interface TestAdminRow extends Record<string, unknown> {
 }
 
 /**
+ * PostgreSQL 16 or later: `inherit_option` and `set_option` are new in 16.
+ *
  * Catalogue only. Reads no table, sets nothing, leaves nothing on the
  * connection, so it may run on a pooled app connection outside a tenant
  * transaction, as the T-0049 pool-identity check does.
@@ -59,8 +69,10 @@ interface TestAdminRow extends Record<string, unknown> {
 const TEST_ADMIN_SQL = `
   SELECT r.rolcanlogin, r.rolbypassrls, r.rolsuper, r.rolcreaterole, r.rolcreatedb,
          r.rolreplication,
-         EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.roleid = r.oid) AS has_members,
-         EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member = r.oid) AS is_member
+         EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m
+                  WHERE m.roleid = r.oid AND (m.inherit_option OR m.set_option)) AS has_members,
+         EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m
+                  WHERE m.member = r.oid AND (m.inherit_option OR m.set_option)) AS is_member
     FROM pg_catalog.pg_roles r
    WHERE r.rolname = $1`;
 
@@ -76,8 +88,8 @@ export function testAdminUsabilityReasons(row: TestAdminRow | undefined): string
   if (row.rolcreaterole) reasons.push('it has CREATEROLE');
   if (row.rolcreatedb) reasons.push('it has CREATEDB');
   if (row.rolreplication) reasons.push('it has REPLICATION');
-  if (row.has_members) reasons.push('another role is a member of it');
-  if (row.is_member) reasons.push('it is a member of another role');
+  if (row.has_members) reasons.push('another role is a member of it (with SET or INHERIT)');
+  if (row.is_member) reasons.push('it is a member of another role (with SET or INHERIT)');
   return reasons;
 }
 
@@ -97,10 +109,10 @@ export class UsableTestAdminError extends Error {
       `${context}: NODE_ENV=${nodeEnv} and the role ${TEST_ADMIN_ROLE} is usable: ` +
         `${reasons.join('; ')}. It is a test-only role (D-L92, D-L94). Outside ` +
         `development and test it must be the inert placeholder bootstrap.sql creates ` +
-        `(NOLOGIN NOBYPASSRLS, a member of nothing, with no members), and ` +
+        `(NOLOGIN NOBYPASSRLS, no membership with SET or INHERIT either way), and ` +
         `bootstrap-test.sql must never be applied to this database. As a superuser: ` +
         `ALTER ROLE ${TEST_ADMIN_ROLE} NOLOGIN NOBYPASSRLS PASSWORD NULL, and revoke ` +
-        `every membership it has in either direction.`,
+        `every membership with SET or INHERIT it has in either direction.`,
     );
     this.name = 'UsableTestAdminError';
   }

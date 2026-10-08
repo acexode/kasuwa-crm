@@ -14,15 +14,20 @@ import { migratorEnv, type EnvSource } from './schemas.mjs';
  *     are in a public repository. Outside development and test, a connection
  *     that would authenticate with one of them is refused.
  *   - pg's environment fallbacks. `pg` reads PGHOST, PGPASSWORD and PGUSER
- *     when the connection string does not say, so a URL that looks fine can
- *     connect somewhere else, as someone else. Outside development and test
- *     they are refused outright: every connection is a URL from
- *     `@kasuwa/config`, and nothing else may steer it.
+ *     when the connection string does not say, and PGPASSFILE names the
+ *     pgpass file it reads when no password is given at all, so a URL that
+ *     looks fine can connect somewhere else, as someone else. Outside
+ *     development and test all four are refused outright: every connection is
+ *     a URL from `@kasuwa/config`, and nothing else may steer it. A default
+ *     `~/.pgpass` (no PGPASSFILE) is not detected; that is a documented limit.
  *   - An unset NODE_ENV. The dev `.env` deliberately sets none (Nx would leak
  *     it into `next build`), and `@kasuwa/config` then defaults to
  *     development, which relaxes every guard. That is right on a laptop and
  *     wrong against a real database, so the migration runner refuses an unset
- *     NODE_ENV unless the host pg will connect to is local.
+ *     NODE_ENV unless the connection string itself names a local host. A URL
+ *     that names no host is NOT local, whatever PGHOST or pg's default would
+ *     make of it (lead ruling on T-0117; domain-core's provisioning guard
+ *     already treats it so).
  *
  * JUDGED AS PG WILL USE IT. `pg` parses a connection string with
  * `pg-connection-string`, where a `?host=` or `?password=` query parameter
@@ -60,6 +65,9 @@ export const PG_FALLBACK_VARIABLES: readonly string[] = Object.freeze([
   'PGHOST',
   'PGPASSWORD',
   'PGUSER',
+  // Not a value pg falls back to, but where it reads one: the pgpass file it
+  // consults when no password is given (lead ruling on T-0117).
+  'PGPASSFILE',
 ]);
 
 /** pg's own default host, used when neither the URL nor PGHOST names one. */
@@ -96,6 +104,11 @@ export class UnparseableConnectionStringError extends Error {
 export interface EffectiveDatabaseTarget {
   /** The host pg will connect to: the URL's, else PGHOST, else pg's default. */
   host: string;
+  /**
+   * The host the connection string itself names (a `?host=` included), or
+   * undefined when it names none and pg would fall back.
+   */
+  namedHost: string | undefined;
   /** The password pg will send: the URL's, else PGPASSWORD. Undefined when neither says. */
   password: string | undefined;
 }
@@ -122,9 +135,20 @@ export function effectiveDatabaseTarget(
     // Deliberately not chained: the parser's error can carry the input.
     throw new UnparseableConnectionStringError(variable);
   }
-  const host = nonEmpty(parsed.host) ?? nonEmpty(source.PGHOST) ?? PG_DEFAULT_HOST;
+  const namedHost = nonEmpty(parsed.host);
+  const host = namedHost ?? nonEmpty(source.PGHOST) ?? PG_DEFAULT_HOST;
   const password = nonEmpty(parsed.password) ?? nonEmpty(source.PGPASSWORD);
-  return { host, password };
+  return { host, namedHost, password };
+}
+
+/**
+ * True only when the connection string itself names a local host. A string
+ * that names none is NOT local: the host would come from PGHOST or pg's
+ * default, which are not part of the URL anyone reviewed (lead ruling on
+ * T-0117, the same rule as domain-core's provisioning guard).
+ */
+export function namesLocalDatabaseHost(target: EffectiveDatabaseTarget): boolean {
+  return target.namedHost !== undefined && isLocalDatabaseHost(target.namedHost);
 }
 
 function nonEmpty(value: unknown): string | undefined {
@@ -153,7 +177,7 @@ export function databaseCredentialProblems(
   const problems: string[] = [];
   for (const name of pgFallbacksSet(source)) {
     problems.push(
-      `  ${name}: must not be set outside development and test. pg falls back to it ` +
+      `  ${name}: must not be set outside development and test. pg reads it ` +
         'when a connection string does not say, so it can redirect or re-authenticate a ' +
         'connection that looks correct. Put everything in the connection URL (D-L94).',
     );
@@ -199,10 +223,12 @@ export interface MigrationTargetDecision {
  *   1. `migratorEnv(source)`: the environment must be valid (an empty or
  *      unknown NODE_ENV is invalid, not unset) and pass the stub-auth guard.
  *   2. NODE_ENV absent from `source` (read RAW, not through the default) is
- *      allowed only when the host pg will use is local; it is then treated as
- *      development, which is what a local `pnpm db:migrate` is.
- *   3. Outside development and test: no PG* fallback is set, and the password
- *      pg will send is not one of the repository's.
+ *      allowed only when the connection string names a local host (a string
+ *      naming no host is not local); it is then treated as development, which
+ *      is what a local `pnpm db:migrate` is.
+ *   3. Outside development and test: none of PGHOST, PGPASSWORD, PGUSER and
+ *      PGPASSFILE is set, and the password pg will send is not one of the
+ *      repository's.
  *
  * Throws with a message that names the variable and the reason, never the
  * URL, the host or the password. Returns whether the runner must enforce the
@@ -216,10 +242,10 @@ export function assertMigrationTargetIsSafe(
   const variable = 'the migration connection string';
 
   if (source.NODE_ENV === undefined) {
-    const { host } = effectiveDatabaseTarget(connectionString, variable, source);
-    if (!isLocalDatabaseHost(host)) {
+    if (!namesLocalDatabaseHost(effectiveDatabaseTarget(connectionString, variable, source))) {
       throw new Error(
-        'Refusing to migrate: NODE_ENV is not set and the database host is not local. ' +
+        'Refusing to migrate: NODE_ENV is not set and the connection string does not name ' +
+          'a local database host. ' +
           'An unset NODE_ENV defaults to development, which turns off the production ' +
           'guards. Set NODE_ENV=production (or development or test) explicitly. Nothing ' +
           'was applied (D-L94).',
@@ -234,7 +260,7 @@ export function assertMigrationTargetIsSafe(
 
   const problems = [...pgFallbacksSet(source)].map(
     (name) =>
-      `  ${name} is set. pg falls back to it when a connection string does not say, so it ` +
+      `  ${name} is set. pg reads it when a connection string does not say, so it ` +
       'can redirect or re-authenticate the migration. Put everything in the URL.',
   );
   const { password } = effectiveDatabaseTarget(connectionString, variable, source);

@@ -33,6 +33,7 @@ export {
   DEV_DATABASE_PASSWORDS,
   effectiveDatabaseTarget,
   isLocalDatabaseHost,
+  namesLocalDatabaseHost,
   PG_FALLBACK_VARIABLES,
 } from './database-target';
 export type { EffectiveDatabaseTarget, MigrationTargetDecision } from './database-target';

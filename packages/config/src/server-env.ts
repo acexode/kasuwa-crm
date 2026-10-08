@@ -22,7 +22,7 @@ import {
  *   - a database URL whose effective password is one of the repository's
  *     development passwords (`?password=` overrides and percent-encoding
  *     included);
- *   - PGHOST, PGPASSWORD or PGUSER, which pg would fall back to.
+ *   - PGHOST, PGPASSWORD, PGUSER or PGPASSFILE, which pg would read.
  *
  * Both read only `source`. Neither echoes a value.
  */
