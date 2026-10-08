@@ -83,31 +83,40 @@ function ensureEnvFile() {
 }
 
 /**
- * Re-applies packages/db/sql/bootstrap.sql as the superuser.
+ * Re-applies packages/db/sql/bootstrap.sql, then bootstrap-test.sql, as the
+ * superuser.
  *
  * Postgres runs its init directory only when the volume is first created, so
  * a role added to the bootstrap later (kasuwa_sweeper in T-0045, kasuwa_auth
  * in T-0049) does not exist in an older dev database, and the migration that
- * needs it stops. The file is idempotent and is already mounted in the
- * container, so applying it on every start costs a few milliseconds.
+ * needs it stops. Both files are idempotent and already mounted in the
+ * container, so applying them on every start costs a few milliseconds.
+ *
+ * bootstrap-test.sql makes kasuwa_test_admin the harness's login (T-0117,
+ * D-L94). It is development and test only; this is the dev stack. A volume
+ * created before the split has no 20-bootstrap-test.sql in its init history
+ * but already has the login, so applying it here keeps every dev database in
+ * the state a new one starts in.
  */
 function applyBootstrap() {
-  run('docker', [
-    'compose',
-    'exec',
-    '-T',
-    'postgres',
-    'psql',
-    '-q',
-    '-U',
-    'postgres',
-    '-d',
-    'kasuwa',
-    '-v',
-    'ON_ERROR_STOP=1',
-    '-f',
-    '/docker-entrypoint-initdb.d/10-bootstrap.sql',
-  ]);
+  for (const file of ['10-bootstrap.sql', '20-bootstrap-test.sql']) {
+    run('docker', [
+      'compose',
+      'exec',
+      '-T',
+      'postgres',
+      'psql',
+      '-q',
+      '-U',
+      'postgres',
+      '-d',
+      'kasuwa',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-f',
+      `/docker-entrypoint-initdb.d/${file}`,
+    ]);
+  }
 }
 
 function containerHealth(service) {

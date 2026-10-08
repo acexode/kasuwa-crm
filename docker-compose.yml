@@ -18,12 +18,20 @@ services:
       POSTGRES_PASSWORD: postgres
     ports: ['55432:5432']
     volumes:
-      # Creates kasuwa_app / kasuwa_migrator / kasuwa_test_admin / kasuwa_sweeper /
-      # kasuwa_auth and their grants. The Testcontainers harness applies this exact
-      # same file — single source of truth. It runs only when the volume is new;
-      # `pnpm dev` re-applies it (it is idempotent) so an older volume gains a role
-      # added since (packages/db/CLAUDE.md).
+      # The entrypoint runs these in name order, only when the volume is new;
+      # `pnpm dev` re-applies both (they are idempotent) so an older volume gains
+      # a role added since (packages/db/CLAUDE.md). The Testcontainers harness
+      # applies the same two files in the same order.
+      #
+      # 10: bootstrap.sql - kasuwa_app / kasuwa_migrator / kasuwa_sweeper /
+      #     kasuwa_auth and their grants, and kasuwa_test_admin as an inert
+      #     NOLOGIN placeholder. This is the file real provisioning applies.
+      # 20: bootstrap-test.sql - DEVELOPMENT AND TEST ONLY: makes
+      #     kasuwa_test_admin the BYPASSRLS login the harness uses (T-0117,
+      #     D-L94). Never mount or apply it anywhere real; the migration runner
+      #     and the API and worker refuse it outside development and test.
       - ./packages/db/sql/bootstrap.sql:/docker-entrypoint-initdb.d/10-bootstrap.sql:ro
+      - ./packages/db/sql/bootstrap-test.sql:/docker-entrypoint-initdb.d/20-bootstrap-test.sql:ro
       - kasuwa-pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres -d kasuwa']
