@@ -1,6 +1,6 @@
 # T-0063 — Account record screen (P05)
 
-**status** `not-assigned` (after T-0062; the account timeline needs an account-side timeline endpoint, which is a contract task first) · **owner** Agent 11 · **priority** P2 · **decisions** D-L69, D-L74, D-L78
+**status** `assigned` (suite `lead/T-0063-acceptance`, a81216c; D-L98) · **owner** Agent 11 · **priority** P2 · **decisions** D-L69, D-L74, D-L78
 
 ## Goal
 P05 frame 04 for an account, behind `crm_record_view`.
@@ -12,4 +12,5 @@ P05 frame 04 for an account, behind `crm_record_view`.
 - **Rules:** never print a UUID; i18n everywhere; byte budget pinned.
 
 ## Acceptance tests
-To be written once an account timeline contract exists (a small contract task, to be numbered when it starts).
+`tests/acceptance/records-ui/account-record.acceptance.test.ts`, `tests/e2e/p05-account.spec.ts` and
+`tests/e2e/support/account-record-mock.ts` (lead, D-L98).

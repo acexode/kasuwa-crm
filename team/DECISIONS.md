@@ -2191,3 +2191,23 @@ Every recommendation below was taken as written in its entry. What each one now 
   - no agent ever holds one slot while waiting for another;
   - a slot is never stale by age.
 - **Disk:** an idle worktree's `.next`, `.nx` and `dist` are cleared (regenerable). C: filled to 0 bytes on 2026-10-08.
+
+### D-L98 — T-0063 account record suite rulings (lead, reversible)
+**Status:** PROCEEDING (lead). From the T-0063 suite writer; its rulings are accepted. The main ones:
+- **Children are a contract gap.** Nothing serves an account's children (Account carries only `parentAccountId`; listAccounts
+  has no parent filter). The journey `@p05-account-children` stays a fixme. **Follow-up T-0118 (contract first):** a children
+  read or a `parentAccountId` filter, with the `field_withheld` rule when `parentAccountId` is withheld.
+- **The breadcrumb** walks `parentAccountId` up with getAccount: root first, at most four ancestors, each read once. A served
+  cycle stops it, and a withheld `parentAccountId` is a lock with no ancestor read.
+- **The account edit sheet** is on the record page (T-0057's sheet; `version` plus changed fields only; 403 is the gate, D-L84).
+- **The account timeline** completes a task with the version its item carries (now possible since #109). A 409 shows an
+  alert and re-reads.
+- **Logging from the account** sends `accountId`, with no `contactId`.
+- **The contacts grid** pages by keyset, shows no count, and keeps withheld, empty and failed as three states.
+- **A non-uuid id** is a real 404 that reaches no API (`map` is among the test ids).
+- **Hidden:** rollups and money, health, the map, deals, tickets, quotes, invoices, campaigns, billing, RC number and TIN,
+  inferred DND, related counts and access requests.
+- **The budget:** `/accounts/[id]` is provisionally 245,000 B; the lead re-pins it within 5% of the first measurement.
+- **Follow-up T-0119:** the contact record completes a task seen only on the timeline, using the item's `version`. T-0062's
+  mock must record versions served on timeline items. `@p05-contact-complete-served` becomes a real journey; the mock and spec
+  pins are re-pinned by the lead.
