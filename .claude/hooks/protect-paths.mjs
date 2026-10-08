@@ -7,7 +7,7 @@
  * builder that can edit them can make any task pass by deleting the assertion.
  *
  * ---------------------------------------------------------------------------
- * HONEST LIMITATION — read before relying on this.
+ * HONEST LIMITATION â€” read before relying on this.
  *
  * This hook is a guardrail against accident, NOT a security control. It checks
  * an environment variable that any session could set. It stops an agent from
@@ -17,7 +17,7 @@
  * The enforcement that an agent cannot set is in CI: the `guard-protected-paths`
  * job fails a pull request touching these paths without the `lead-approved`
  * label. Even that is a convention backed by repository settings rather than a
- * hard boundary — see .github/workflows/ci.yml, which says so in its own
+ * hard boundary â€” see .github/workflows/ci.yml, which says so in its own
  * comment, and team/DECISIONS.md D-L16.
  * ---------------------------------------------------------------------------
  */
@@ -75,13 +75,13 @@ if (process.env.KASUWA_LEAD_SESSION === '1') {
  * The env var above is the documented escape, and it turned out to be
  * unusable: an agent cannot set its own session's environment, so the lead was
  * blocked from the paths the lead owns and the only way through was to route
- * around the hook with a shell command — which is precisely the habit this hook
+ * around the hook with a shell command â€” which is precisely the habit this hook
  * exists to discourage.
  *
  * A branch name is something the lead can actually set, and unlike the env var
  * it is visible on the pull request. It is NOT a control: any session could
- * name its branch `lead/…`. That is fine, because this hook was never a
- * control — see README.md in this directory. The control is CI's label gate
+ * name its branch `lead/â€¦`. That is fine, because this hook was never a
+ * control â€” see README.md in this directory. The control is CI's label gate
  * plus branch protection, neither of which an agent can set.
  */
 function currentBranch() {
@@ -105,11 +105,11 @@ function onLeadBranch() {
  * to a builder.
  *
  * T-0004 makes `tests/acceptance/tenancy/adversarial.acceptance.test.ts` Agent
- * 12's deliverable — it WRITES that suite rather than consuming it (D-L25).
+ * 12's deliverable â€” it WRITES that suite rather than consuming it (D-L25).
  * The hook blocked it anyway, and D-L32 had just told builders not to use the
  * `lead/*` branch that would have exempted them. So the only way to do the
  * assigned work was to route around the hook with a shell command, which is
- * exactly what the builder did — and then said so plainly in its report.
+ * exactly what the builder did â€” and then said so plainly in its report.
  *
  * That is the right disclosure and the wrong situation. **A guardrail that
  * forbids the assigned work teaches people to go around it**, and the next
@@ -125,12 +125,12 @@ function onLeadBranch() {
  * EXTENDED 2026-09-30, after it happened a second time. T-0020 assigns Agent 1
  * a migration, and `packages/db/migrations/` was blocked, so that builder also
  * wrote through the shell and also said so. Two agents routing around the same
- * hook, both disclosing it, is not two lapses — it is the hook being wrong
+ * hook, both disclosing it, is not two lapses â€” it is the hook being wrong
  * about who owns what.
  *
  * The owning agent for a protected directory is not an exception to the rule;
  * it is the rule's whole point. `tests/acceptance/` is lead-owned so builders
- * cannot edit the tests they must satisfy — that reasoning does not extend to
+ * cannot edit the tests they must satisfy â€” that reasoning does not extend to
  * a migration the task explicitly assigns. Migrations are guarded by being
  * append-only, checksummed by the runner, and reviewed by `migration-reviewer`
  * before merge. Those are the real controls; this hook was only ever a
@@ -183,7 +183,7 @@ const PER_AGENT_ALLOWANCES = [
   {
     branchPrefix: 'agent12/',
     path: 'tests/acceptance/tenancy/adversarial.acceptance.test.ts',
-    why: 'T-0004 assigns this suite to Agent 12 — it writes these tests rather than consuming them (D-L25).',
+    why: 'T-0004 assigns this suite to Agent 12 â€” it writes these tests rather than consuming them (D-L25).',
   },
   {
     branchPrefix: 'agent1/',
@@ -204,6 +204,11 @@ const PER_AGENT_ALLOWANCES = [
     branchPrefix: 'agent3/T-0103',
     pathPattern: reservedMigration('0031'),
     why: 'T-0103 (D-P23, D-L99) assigns Agent 3 one migration, number 0031 reserved; 0030 is T-0113.',
+  },
+  {
+    branchPrefix: 'agent1/T-0117',
+    pathPrefix: 'packages/db/sql/',
+    why: 'T-0117 (D-L92, D-L94) assigns Agent 1 the bootstrap split: bootstrap.sql makes kasuwa_test_admin inert, and a new bootstrap-test.sql makes it the test login.',
   },
 ];
 
@@ -236,7 +241,7 @@ if (onLeadBranch()) {
   // silently disarmed the hook for both. One of them then edited an acceptance
   // test it had been told twice not to touch, and nothing fired.
   //
-  // The edit was harmless — a stale comment — and CI's label gate would still
+  // The edit was harmless â€” a stale comment â€” and CI's label gate would still
   // have caught the pull request. But the hook was quiet at exactly the moment
   // it was supposed to speak, and the lead found out from the builder's report
   // rather than from the hook.
@@ -246,7 +251,7 @@ if (onLeadBranch()) {
   process.stderr.write(
     `protect-paths: allowing an edit to ${relative} because the branch is ` +
       `'lead/*'.
-If you are NOT the lead, you are on the wrong branch — ` +
+If you are NOT the lead, you are on the wrong branch â€” ` +
       `builders work on 'agent<N>/<task>'.
 `,
   );
@@ -259,7 +264,7 @@ process.stderr.write(
     `tests are written by the lead from the PRD before a task is assigned, and\n` +
     `migrations are append-only and reviewed.\n\n` +
     `If the test looks wrong, say so in your completion report at\n` +
-    `team/reports/<task-id>.md. Do not change it to make your build pass — CI\n` +
+    `team/reports/<task-id>.md. Do not change it to make your build pass â€” CI\n` +
     `fails any pull request touching this path without the 'lead-approved'\n` +
     `label, so the change would be rejected anyway.\n\n` +
     `If you ARE the lead: work on a 'lead/*' branch, or set KASUWA_LEAD_SESSION=1\n` +
