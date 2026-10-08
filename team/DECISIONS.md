@@ -2229,3 +2229,9 @@ Every recommendation below was taken as written in its entry. What each one now 
   UPDATE policy for non-admin sessions, so the lock must work for an agent too.
 - **Follow-up T-0120:** `Account.owner` and activity owners have the same former-owner leak, and removal does not unassign
   them. Apply D-P23 to both.
+- **D-L99 addendum (2026-10-08, T-0103 build):**
+  - **Every ended membership is audited, even when it unassigns nothing** (`unassignedContacts: "0"`), because membership is
+    a permission change (CLAUDE.md 6.7). Removals cascading from a deleted programme, tenant or user write nothing: a user can
+    be hard-deleted only by the migrator, and only once nothing references them. `removedMember` (a staff id, D-L71) stays.
+  - **No backfill:** owners already outside their programme before 0031 read as former owners (D-L65).
+  - **The web shows a former owner as a translated "Former owner"** label, never the id, in the same PR (D-L97).
