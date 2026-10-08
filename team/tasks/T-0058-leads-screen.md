@@ -1,6 +1,6 @@
 # T-0058 — Leads screen (P04)
 
-**status** `assigned` (suite on `lead/T-0058-acceptance`) · **owner** Agent 11 · **priority** P1 · **decisions** D-P17, D-L64, D-L69, D-P13, D-P21
+**status** `done` (#110) · **owner** Agent 11 · **priority** P1 · **decisions** D-P17, D-L64, D-L69, D-P13, D-P21
 
 ## Goal
 P04's Leads frames on the real API, behind a new `crm_leads` flag.
