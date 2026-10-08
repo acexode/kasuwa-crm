@@ -7,6 +7,7 @@ import { Dialog } from '../admin/dialog';
 import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from '../auth/button-classes';
 import { LockedValue } from '../records/list-parts';
 import { AccountTier, createAccount, updateAccount, type Account, type MyProgramme } from '../../lib/accounts-api';
+import type { RecordsError } from '../../lib/records-api';
 import {
   NAME_MAX,
   TEXT_MAX,
@@ -37,6 +38,9 @@ import {
  *   - A REFUSAL (403, 409, 400) is a translated `role=alert` in the sheet. The
  *     sheet stays open with everything typed, so nothing is lost (D-L84).
  *   - OFFLINE, Save is off (D-P21: no offline queue). What is typed stays.
+ *   - EDIT reads `mode.row` on every save, so a screen that re-reads the
+ *     account after a 409 (`onRefused`, the P05 record) hands the next save
+ *     the fresh `version` without losing what was typed.
  *   - SAVE IS ONCE. While a save is in flight the button is `aria-disabled` —
  *     not `disabled`, which would drop keyboard focus to the page — and a
  *     second press does nothing.
@@ -65,6 +69,7 @@ export function AccountSheet({
   online,
   onClose,
   onSaved,
+  onRefused,
 }: {
   t: Translator;
   mode: SheetMode;
@@ -72,6 +77,8 @@ export function AccountSheet({
   online: boolean;
   onClose: () => void;
   onSaved: (row: Account) => void;
+  /** A save was refused; the sheet has already said why and kept the form. */
+  onRefused?: (error: RecordsError) => void;
 }) {
   const row = mode.kind === 'edit' ? mode.row : null;
   const [form, setForm] = useState<AccountForm>(() => (row === null ? emptyAccountForm(programmes.list) : accountToForm(row)));
@@ -124,6 +131,7 @@ export function AccountSheet({
     }
     setBusy(false);
     setRefusal(refusalMessage(result.error));
+    onRefused?.(result.error);
   };
 
   const fieldProps = (field: AccountFormField): FieldProps => {

@@ -14,6 +14,50 @@ import { ACCOUNT_COLUMNS, ACCOUNT_FILTERS, ACCOUNT_SORTS, sortLabel, tierLabel }
  *
  * `message-ids.test.ts` checks every id the accounts sources name is here.
  */
+/**
+ * What the sheet renders in EDIT mode (`account-sheet.tsx`), on its own so the
+ * P05 account record (T-0063), which opens the same sheet to edit and never to
+ * create, bundles exactly it and nothing of the create flow.
+ */
+export const ACCOUNT_EDIT_SHEET_MESSAGE_IDS: readonly MessageId[] = [
+  'accounts.sheet.edit',
+  'accounts.sheet.close',
+  'accounts.sheet.offline',
+  'accounts.sheet.cancel',
+  'accounts.sheet.save',
+  'accounts.sheet.saving',
+  'accounts.field.name',
+  'accounts.field.tags.hint',
+  'accounts.field.phones',
+  'accounts.field.phones.hint',
+  'accounts.field.locked',
+  'accounts.col.industry',
+  'accounts.col.tier',
+  'records.col.tags',
+  'accounts.filter.state',
+  'accounts.filter.lga',
+  'records.cell.empty',
+  'records.locked',
+  ...AccountTier.options.map(tierLabel),
+  'accounts.invalid.name',
+  'accounts.invalid.tooLong',
+  'accounts.invalid.tags',
+  'accounts.invalid.phones',
+  'accounts.error.fieldNotEditable',
+  'accounts.error.notAccepted',
+  ...RecordsErrorCode.options.map((code) => `records.error.${code}` as MessageId),
+  'records.error.network',
+];
+
+/** What only CREATE renders: the title and the target programme. */
+export const ACCOUNT_CREATE_ONLY_MESSAGE_IDS: readonly MessageId[] = [
+  'accounts.sheet.create',
+  'accounts.field.programme',
+  'accounts.field.programme.choose',
+  'accounts.field.programme.loading',
+  'accounts.invalid.programme',
+];
+
 export const ACCOUNTS_MESSAGE_IDS: readonly MessageId[] = [
   ...CRM_SHELL_MESSAGE_IDS,
   'accounts.title',
@@ -70,27 +114,9 @@ export const ACCOUNTS_MESSAGE_IDS: readonly MessageId[] = [
   ...RecordsErrorCode.options.map((code) => `records.error.${code}` as MessageId),
   'records.error.network',
   'records.retry',
-  'accounts.sheet.create',
-  'accounts.sheet.edit',
-  'accounts.sheet.close',
-  'accounts.sheet.offline',
-  'accounts.sheet.cancel',
-  'accounts.sheet.save',
-  'accounts.sheet.saving',
+  ...ACCOUNT_EDIT_SHEET_MESSAGE_IDS,
+  ...ACCOUNT_CREATE_ONLY_MESSAGE_IDS,
   'accounts.sheet.saved',
-  'accounts.field.programme',
-  'accounts.field.programme.choose',
-  'accounts.field.programme.loading',
-  'accounts.field.name',
-  'accounts.field.tags.hint',
-  'accounts.field.phones',
-  'accounts.field.phones.hint',
-  'accounts.field.locked',
-  'accounts.invalid.programme',
-  'accounts.invalid.name',
-  'accounts.invalid.tooLong',
-  'accounts.invalid.tags',
-  'accounts.invalid.phones',
   // The "still connecting" state is the admin console's, word for word: the
   // same NFR, the same sentence, already translated.
   'admin.slow.title',
