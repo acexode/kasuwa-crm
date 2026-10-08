@@ -1239,6 +1239,7 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
       body: body.body ?? null,
       dueAt: body.dueAt ?? null,
       completedAt: null,
+      version: 1,
     };
     for (const field of withheld) {
       delete item[field];
@@ -1298,6 +1299,9 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
     const item = (timelines.get(state.contactId) ?? []).find((candidate) => candidate.id === state.itemId);
     if (item !== undefined && 'completedAt' in item) {
       item.completedAt = state.activity.completedAt;
+    }
+    if (item !== undefined) {
+      item.version = state.activity.version;
     }
     return fulfil(route, 200, activityResponse(state));
   };
