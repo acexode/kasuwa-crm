@@ -25,7 +25,8 @@ Next.js App Router shell. Routes today:
 | `/translations` | — | Where the language menu's "help improve this translation" link lands (D-P1). Server-only, no client JS |
 | `/contacts` | `P04/02`, `P04/05`, `P04/06` | **Behind `crm_records`** (T-0042, D-L64): a real 404 while it is off. The CRM shell (`components/crm/`), not the admin one. Read from the browser through `lib/records-api.ts` against the contract mock until T-0041 is live |
 | `/contacts/[id]` | `P05/01`, `P05/02`, `P05/05`, `P05/06` | The contact record (T-0062), **behind `crm_record_view` and `crm_records`** (D-L85): a real 404 unless both are on. Read and written from the browser through `lib/contact-record-api.ts`. The `@harness` tenancy spec drives it against the real API |
-| `/accounts` | `P04/03`, `P04/05`, `P04/06` | **Behind `crm_accounts`** (T-0057, D-L84), its own flag: a real 404 while it is off. The CRM shell, the list pieces in `components/records/`, and a create/edit sheet. Reads and writes through `lib/accounts-api.ts`. No row links anywhere until T-0063 builds the record page |
+| `/accounts` | `P04/03`, `P04/05`, `P04/06` | **Behind `crm_accounts`** (T-0057, D-L84), its own flag: a real 404 while it is off. The CRM shell, the list pieces in `components/records/`, and a create/edit sheet. Reads and writes through `lib/accounts-api.ts`. Rows do not link to `/accounts/[id]` yet (the list does not know whether `crm_record_view` is on) |
+| `/accounts/[id]` | `P05/04`, `P05/05`, `P05/06` | The account record (T-0063), **behind `crm_record_view` and `crm_accounts`** (D-L98): a real 404 unless both are on, and for a non-uuid id. Reads through `lib/account-record-api.ts`; edits through T-0057's sheet (edit mode only); activities through `lib/contact-record-api.ts` with the account as the target |
 | `/leads` | `P04/01`, `P04/04`, `P04/05`, `P04/06` | **Behind `crm_leads`** (T-0058, D-L86), its own flag: a real 404 while it is off. The table and the Kanban by status, in the CRM shell on `components/records/`, with convert. Reads `listLeads` and writes `{ version, status }` and convertContact through `lib/leads-api.ts`. No row links anywhere yet |
 | `/design/tokens` | — | The token gallery. It used to be at `/`. |
 
@@ -119,6 +120,23 @@ on screen; a task is completed only with a version a 201 or 200 served for it,
 so one seen only on the timeline cannot be completed until T-0080; write
 controls show to everyone and the API's 403 is the gate (D-L84); offline, every
 write is off and the record stays in memory (D-P21).
+
+**The account record (T-0063)** rides on the same process (`webRecordViewUrl`
+carries `crm_accounts` too), and the `/accounts/[id]` budget is measured there.
+Both P05 records share `components/record/`: the timeline (`record-timeline.tsx`,
+told by each record how to name a field and whether a value can be drawn), the
+activity form, the loading, offline, not-found and did-not-load states, and the
+pure helpers (`record-core.ts`: times, paging, activity versions, refusals). Fix
+a record behaviour there, once. On the account record:
+- the breadcrumb walks `parentAccountId` UP with getAccount, root first, at most
+  four ancestors, each read once; a served cycle stops it, and a withheld link
+  is a lock with nothing read above it. Children are not drawn (T-0118);
+- the contacts grid pages on `nextCursor` (never on a short page), shows no
+  count, and keeps withheld (`400 field_withheld`), empty and failed apart;
+- a task is completed with the version its timeline item carries (T-0080); a
+  409 re-reads the newest page before the control comes back;
+- the bundle carries the sheet's EDIT strings only: the not-found journey reads
+  the inline payload, and the create copy says "belongs to".
 
 **`?locale=en-XA`** renders the pseudo-locale, derived from `en` at runtime by
 `@kasuwa/i18n` (`src/pseudo.ts`). Like `ar` it is a preview: on no menu,
