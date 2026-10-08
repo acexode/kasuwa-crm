@@ -101,7 +101,14 @@ export function ContactRecordScreen({
         ) : null}
 
         {state.phase === 'ready' && state.record !== null ? (
-          <Ready t={t} locale={locale} state={state} record={state.record} offline={offline} />
+          <Ready
+            t={t}
+            locale={locale}
+            state={state}
+            record={state.record}
+            offline={offline}
+            linkAccount={live.includes('accounts')}
+          />
         ) : null}
       </div>
     </CrmShell>
@@ -114,12 +121,15 @@ function Ready({
   state,
   record,
   offline,
+  linkAccount,
 }: {
   t: Translator;
   locale: string;
   state: ContactRecordState;
   record: ContactRecord;
   offline: boolean;
+  /** The account record (T-0063) is served in this process, so the summary may link to it. */
+  linkAccount: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [logging, setLogging] = useState<ActivityType | null>(null);
@@ -269,7 +279,7 @@ function Ready({
             <h2 id={headings.related} className="text-h5">
               {t.t('record.section.related')}
             </h2>
-            <AccountSummary t={t} record={record} />
+            <AccountSummary t={t} record={record} link={linkAccount} />
           </section>
         </div>
 
@@ -501,9 +511,10 @@ function DetailValue({
   }
 }
 
-function AccountSummary({ t, record }: { t: Translator; record: ContactRecord }) {
-  // No link: the account record (T-0063) is not served yet, and a link to a
-  // 404 is worse than none.
+function AccountSummary({ t, record, link }: { t: Translator; record: ContactRecord; link: boolean }) {
+  // A link only where the account record (T-0063) is served: it needs the
+  // accounts flag as well as this page's own, and a link to a 404 is worse
+  // than none.
   const locked = isLocked(record, 'account');
   return (
     <div data-testid="account-summary" data-locked={locked ? 'true' : undefined} className="flex min-w-0 items-center gap-3">
@@ -519,6 +530,10 @@ function AccountSummary({ t, record }: { t: Translator; record: ContactRecord })
           </span>
         ) : record.account === null || record.account === undefined ? (
           <span className="text-text-muted">{t.t('records.account.none')}</span>
+        ) : link ? (
+          <Link href={`/accounts/${record.account.id}`} className={`break-words font-bold ${LINK}`}>
+            <span data-record-text="">{record.account.name}</span>
+          </Link>
         ) : (
           <b data-record-text="" className="break-words">
             {record.account.name}
