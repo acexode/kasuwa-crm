@@ -118,25 +118,27 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
-   * T-0062 (D-L69, D-L85): the P05 contact record, the 360° view, at
-   * `/contacts/[id]`. It gates the ROUTE: with it off the page is a real 404,
-   * whatever `crm_records` says. The record sits in the CRM shell, so a
-   * process that serves it needs `crm_records` on too, or the shell's own
-   * Contacts link would be a 404 there.
+   * T-0062 and T-0063 (D-L69, D-L85, D-L98): the P05 records — the contact
+   * (the 360° view) at `/contacts/[id]` and the account at `/accounts/[id]`.
+   * It gates both ROUTES: with it off each page is a real 404. Each record
+   * sits in the CRM shell and also needs its list's flag on (`crm_records`
+   * for the contact, `crm_accounts` for the account), or the shell's own link
+   * would be a 404 there.
    *
-   * A presentation switch, not an access control: the record, its timeline
-   * and its writes go to `/api/v1/contacts/{id}`, `…/timeline` and
-   * `/api/v1/activities`, where the session, `user_programme` and the
-   * permissions engine decide everything whether this is on or off.
+   * A presentation switch, not an access control: the records, their
+   * timelines and their writes go to `/api/v1/contacts/…`,
+   * `/api/v1/accounts/…` and `/api/v1/activities`, where the session,
+   * `user_programme` and the permissions engine decide everything whether
+   * this is on or off.
    */
   crm_record_view: {
-    description: 'The P05 contact record (the 360° view) at /contacts/[id] (T-0062).',
+    description: 'The P05 records: the contact (the 360° view) at /contacts/[id] (T-0062) and the account at /accounts/[id] (T-0063).',
     defaultValue: false,
-    owner: 'T-0062 (screen), T-0061 (timeline and activity API), D-L85',
-    // NOT production-ready: an open task seen only on the timeline cannot be
-    // completed until the timeline serves an activity version (T-0080), and
-    // write controls show to every caller until a capability read exists
-    // (D-L84, T-0079).
+    owner: 'T-0062 and T-0063 (screens), T-0061 and T-0080 (timeline and activity API), D-L85, D-L98',
+    // NOT production-ready: the contact record cannot yet complete a task seen
+    // only on its timeline (T-0119), an account's children are not served
+    // (T-0118), and write controls show to every caller until a capability
+    // read exists (D-L84, T-0079).
     productionReady: false,
   },
   /**

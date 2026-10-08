@@ -102,6 +102,7 @@ export const CONTACT_RECORD_MESSAGE_IDS: readonly MessageId[] = [
   'record.sheet.tagsHint',
   'record.error.invalid',
   'record.error.stale',
+  'record.conflict.otherChange',
   ...RecordsErrorCode.options.map((code) => `records.error.${code}` as MessageId),
   'records.error.network',
   // The "still connecting" state is the admin console's, word for word: the

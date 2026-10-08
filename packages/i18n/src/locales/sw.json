@@ -1070,5 +1070,17 @@
   "leads.convert.error.notPermitted": "Jukumu lako haliwezi kubadilisha wateja watarajiwa katika programu hii. Hakuna kilichobadilishwa.",
   "leads.convert.error.stale": "Mtu mwingine amembadilisha mteja huyu kwanza. Hakuna kilichobadilishwa. Kagua chaguo lako kisha ujaribu tena.",
   "leads.convert.error.accountNotFound": "Akaunti hiyo haipatikani kwa mteja huyu. Chagua nyingine.",
-  "leads.convert.error.already_linked": "Mteja huyu tayari ameunganishwa na akaunti nyingine. Kubadilisha hakumhamishi mtu kati ya akaunti."
+  "leads.convert.error.already_linked": "Mteja huyu tayari ameunganishwa na akaunti nyingine. Kubadilisha hakumhamishi mtu kati ya akaunti.",
+  "account.loading": "Inapakia akaunti…",
+  "account.unavailable": "Akaunti haikupakia",
+  "account.hierarchy": "Muundo wa ngazi za akaunti",
+  "account.hierarchy.partial": "Ngazi za juu hazikupakia",
+  "account.field.parentAccountId": "Akaunti mama",
+  "account.section.contacts": "Anwani zilizounganishwa",
+  "account.contacts.empty": "Bado hakuna anwani iliyounganishwa na akaunti hii.",
+  "account.contacts.withheld": "Jukumu lako haliwezi kuona ni anwani zipi zimeunganishwa na akaunti hii.",
+  "account.contacts.error": "Anwani hazikupakia.",
+  "record.conflict.otherChange": "Mtu mwingine amebadilisha hiki tangu ulipokifungua. Ukihifadhi, ulichoandika kitabaki.",
+  "account.hierarchy.limit": "Ngazi za juu hazionyeshwi",
+  "account.hierarchy.cycle": "Muundo wa ngazi unarudi hapa"
 }

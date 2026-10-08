@@ -1070,5 +1070,17 @@
   "leads.convert.error.notPermitted": "Your role cannot convert leads in this programme. Nothing was changed.",
   "leads.convert.error.stale": "Someone else changed this lead first. Nothing was converted. Check your choice and try again.",
   "leads.convert.error.accountNotFound": "That account is not available for this lead. Choose another.",
-  "leads.convert.error.already_linked": "This lead is already linked to a different account. Convert never moves a lead between accounts."
+  "leads.convert.error.already_linked": "This lead is already linked to a different account. Convert never moves a lead between accounts.",
+  "account.loading": "Loading the account…",
+  "account.unavailable": "The account did not load",
+  "account.hierarchy": "Account hierarchy",
+  "account.hierarchy.partial": "Higher levels did not load",
+  "account.field.parentAccountId": "Parent account",
+  "account.section.contacts": "Contacts",
+  "account.contacts.empty": "No contacts are linked to this account yet.",
+  "account.contacts.withheld": "Your role cannot see which contacts are linked to this account.",
+  "account.contacts.error": "The contacts did not load.",
+  "record.conflict.otherChange": "Someone else changed this since you opened it. Saving keeps what you typed.",
+  "account.hierarchy.limit": "Higher levels are not shown",
+  "account.hierarchy.cycle": "The hierarchy loops back here"
 }

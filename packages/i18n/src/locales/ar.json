@@ -1070,5 +1070,17 @@
   "leads.convert.error.notPermitted": "لا يستطيع دورك تحويل العملاء المحتملين في هذا البرنامج. لم يتغيّر شيء.",
   "leads.convert.error.stale": "غيّر شخص آخر هذا العميل المحتمل قبلك. لم يُحوَّل شيء. راجع اختيارك وحاول مرة أخرى.",
   "leads.convert.error.accountNotFound": "هذا الحساب غير متاح لهذا العميل المحتمل. اختر حسابًا آخر.",
-  "leads.convert.error.already_linked": "هذا العميل المحتمل مرتبط بالفعل بحساب آخر. لا ينقل التحويل عميلًا بين الحسابات أبدًا."
+  "leads.convert.error.already_linked": "هذا العميل المحتمل مرتبط بالفعل بحساب آخر. لا ينقل التحويل عميلًا بين الحسابات أبدًا.",
+  "account.loading": "جارٍ تحميل الحساب…",
+  "account.unavailable": "لم يتم تحميل الحساب",
+  "account.hierarchy": "التسلسل الهرمي للحساب",
+  "account.hierarchy.partial": "لم يتم تحميل المستويات الأعلى",
+  "account.field.parentAccountId": "الحساب الأم",
+  "account.section.contacts": "جهات الاتصال المرتبطة",
+  "account.contacts.empty": "لا توجد جهات اتصال مرتبطة بهذا الحساب بعد.",
+  "account.contacts.withheld": "لا يستطيع دورك رؤية جهات الاتصال المرتبطة بهذا الحساب.",
+  "account.contacts.error": "لم يتم تحميل جهات الاتصال.",
+  "record.conflict.otherChange": "غيّر شخص آخر هذا منذ أن فتحته. عند الحفظ يُحتفظ بما كتبته.",
+  "account.hierarchy.limit": "المستويات الأعلى غير معروضة",
+  "account.hierarchy.cycle": "يعود التسلسل الهرمي إلى هنا"
 }

@@ -11,13 +11,22 @@ import {
   listMyProgrammes,
   updateContact,
   type Activity,
+  type ActivityDraft,
   type ContactRecord,
   type CurrentUser,
-  type NewActivity,
   type TimelineItem,
 } from '../../lib/contact-record-api';
 import { STILL_CONNECTING_MS } from '../admin/use-resource';
-import { appendPage, mergeHead, readOutcome, withCompleted, type ReadOutcome } from './record-model';
+import {
+  appendPage,
+  mergeHead,
+  noTimeline,
+  readOutcome,
+  withCompleted,
+  type ReadOutcome,
+  type RecordPhase,
+  type TimelineState,
+} from '../record/record-core';
 
 /**
  * The contact record as a screen on a 256 kbps link has it (P05/01, /05, /06).
@@ -43,24 +52,14 @@ import { appendPage, mergeHead, readOutcome, withCompleted, type ReadOutcome } f
  * completed here until T-0080.
  */
 
-export type RecordPhase = 'loading' | 'ready' | 'not-found' | 'unavailable';
-
-export interface TimelineState {
-  readonly phase: 'loading' | 'ready' | 'error';
-  readonly items: readonly TimelineItem[];
-  readonly cursor: string | null;
-  readonly loadingOlder: boolean;
-  readonly olderError: RecordsError | null;
-}
-
-const NO_TIMELINE: TimelineState = { phase: 'loading', items: [], cursor: null, loadingOlder: false, olderError: null };
+const NO_TIMELINE: TimelineState<TimelineItem> = noTimeline<TimelineItem>();
 
 export interface ContactRecordState {
   readonly phase: RecordPhase;
   readonly error: RecordsError | null;
   readonly slow: boolean;
   readonly record: ContactRecord | null;
-  readonly timeline: TimelineState;
+  readonly timeline: TimelineState<TimelineItem>;
   readonly me: CurrentUser | null;
   readonly programmeName: string | null;
   readonly online: boolean;
@@ -71,7 +70,7 @@ export interface ContactRecordState {
   readonly retryTimeline: () => void;
   readonly loadOlder: () => void;
   readonly save: (body: Readonly<Record<string, unknown>>) => Promise<RecordsResult<ContactRecord>>;
-  readonly log: (activity: Omit<NewActivity, 'contactId'>) => Promise<RecordsResult<Activity>>;
+  readonly log: (activity: ActivityDraft) => Promise<RecordsResult<Activity>>;
   readonly complete: (activityId: string) => Promise<RecordsResult<Activity>>;
 }
 
@@ -80,7 +79,7 @@ export function useContactRecord(id: string): ContactRecordState {
   const [error, setError] = useState<RecordsError | null>(null);
   const [slow, setSlow] = useState(false);
   const [record, setRecord] = useState<ContactRecord | null>(null);
-  const [timeline, setTimeline] = useState<TimelineState>(NO_TIMELINE);
+  const [timeline, setTimeline] = useState<TimelineState<TimelineItem>>(NO_TIMELINE);
   const [me, setMe] = useState<CurrentUser | null>(null);
   const [programmes, setProgrammes] = useState<readonly { id: string; name: string }[]>([]);
   const [online, setOnline] = useState(true);
@@ -99,7 +98,7 @@ export function useContactRecord(id: string): ContactRecordState {
 
   /** Applies a getContact answer: the record, or a state in which none is shown. */
   const settle = useCallback(
-    (outcome: ReadOutcome) => {
+    (outcome: ReadOutcome<ContactRecord>) => {
       if (outcome.phase === 'ready') {
         accept(outcome.record);
         setError(null);
@@ -193,7 +192,8 @@ export function useContactRecord(id: string): ContactRecordState {
     async (fields: Readonly<Record<string, unknown>>): Promise<RecordsResult<ContactRecord>> => {
       const served = current.current;
       if (served === null) return { ok: false, error: { code: 'not_found' } };
-      const result = await updateContact(served.id, { ...fields, version: served.version });
+      // The full edit passes the version its draft is seeded from; inline edits take the record's.
+      const result = await updateContact(served.id, { version: served.version, ...fields });
       if (result.ok) {
         accept(result.value);
         refreshHead();
@@ -208,7 +208,7 @@ export function useContactRecord(id: string): ContactRecordState {
   );
 
   const log = useCallback(
-    async (activity: Omit<NewActivity, 'contactId'>): Promise<RecordsResult<Activity>> => {
+    async (activity: ActivityDraft): Promise<RecordsResult<Activity>> => {
       const result = await createActivity({ ...activity, contactId: id });
       if (result.ok) {
         const created = result.value;

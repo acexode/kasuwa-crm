@@ -196,7 +196,7 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `admin_live_api` | P02 KPIs and skill cover show labelled sample data in place of their unbuilt endpoints (T-0035). Not an access control. | flagged-off | `admin_live_api` | — | packages/feature-flags/src/index.ts |
 | flag | `crm_records` | The CRM shell and the P04 Contacts list at /contacts (T-0042). | flagged-off | `crm_records` | D-L64 | packages/feature-flags/src/index.ts |
 | flag | `crm_accounts` | The P04 Accounts list, create and edit at /accounts (T-0057). | flagged-off | `crm_accounts` | D-L64, D-L84 | packages/feature-flags/src/index.ts |
-| flag | `crm_record_view` | The P05 contact record (the 360° view) at /contacts/[id] (T-0062). | flagged-off | `crm_record_view` | D-L85 | packages/feature-flags/src/index.ts |
+| flag | `crm_record_view` | The P05 records: the contact (the 360° view) at /contacts/[id] (T-0062) and the account at /accounts/[id] (T-0063). | flagged-off | `crm_record_view` | D-L85, D-L98 | packages/feature-flags/src/index.ts |
 | flag | `crm_leads` | The P04 Leads list, Kanban by status and convert at /leads (T-0058). | flagged-off | `crm_leads` | D-L64, D-L86 | packages/feature-flags/src/index.ts |
 
 ## Deferred decisions

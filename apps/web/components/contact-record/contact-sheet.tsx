@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { Dialog } from '../admin/dialog';
@@ -9,15 +9,16 @@ import { ConsentState, PreferredChannel, type RecordsResult } from '../../lib/re
 import type { ContactRecord } from '../../lib/contact-record-api';
 import {
   LANGUAGE_CODES,
-  changedFields,
   draftOf,
   editableKeys,
   fieldLabel,
   languageLabel,
-  writeErrorId,
+  rebaseDraft,
+  saveBody,
   type Draft,
   type EditKey,
 } from './record-model';
+import { writeErrorId } from '../record/record-core';
 
 /**
  * The full edit (P05/01's pencil, for writers). A dialog, so focus moves in,
@@ -28,6 +29,12 @@ import {
  * cannot see), and the body is `version` plus the fields whose value differs
  * from the record as served (`changedFields`). Programme, source, DND and the
  * network are never offered: none of them is a hand edit.
+ *
+ * AFTER A 409 the screen re-reads the contact and passes it as `record`. The
+ * draft then becomes the fresh record with the person's edits laid back on
+ * top, and the next save sends ITS `version` plus only those edits: a field
+ * they did not touch is never resent, so somebody else's save is never
+ * undone. A field both changed keeps what was typed and says so.
  *
  * D-L84: no read tells the screen whether the caller may write, so the sheet
  * opens for everyone and the API's 403 is the gate. A refusal is an alert in
@@ -57,13 +64,25 @@ export function ContactSheet({
   onSave: (body: Readonly<Record<string, unknown>>) => Promise<RecordsResult<ContactRecord>>;
   onClose: () => void;
 }) {
+  // The record the draft is seeded from: the person's edits are the draft's difference from it.
+  const [base, setBase] = useState<ContactRecord>(record);
   const [draft, setDraft] = useState<Draft>(() => draftOf(record));
+  const [conflicts, setConflicts] = useState<readonly EditKey[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<MessageId | null>(null);
   const prefix = useId();
-  const keys = editableKeys(record);
-  const { body, invalid } = changedFields(record, draft);
-  const changed = Object.keys(body).length > 0;
+  const keys = editableKeys(base);
+  const { body, invalid } = saveBody(base, draft);
+
+  // A fresher record arrived (the re-read after a 409): rebase the edits onto it.
+  useEffect(() => {
+    if (record.version === base.version) return;
+    const rebased = rebaseDraft(base, record, draft);
+    setBase(record);
+    setDraft(rebased.form);
+    setConflicts((held) => [...new Set([...held.filter((key) => rebased.edited.includes(key)), ...rebased.conflicts])]);
+    // Only a new record starts a rebase; `base` and `draft` are read as they stand then.
+  }, [record]);
 
   const set = (key: EditKey, value: string | boolean) => setDraft((current) => ({ ...current, [key]: value }));
 
@@ -74,12 +93,13 @@ export function ContactSheet({
       setError('record.error.invalid');
       return;
     }
-    if (!changed) {
+    if (body === null) {
       onClose();
       return;
     }
     setSaving(true);
     setError(null);
+    // `body` carries the version of the record the draft is seeded from.
     const result = await onSave(body);
     setSaving(false);
     if (result.ok) onClose();
@@ -203,7 +223,15 @@ export function ContactSheet({
           </p>
         )}
         {keys.map((key) => (
-          <div key={key}>{control(key)}</div>
+          <div key={key} className="flex flex-col gap-1">
+            {control(key)}
+            {conflicts.includes(key) ? (
+              <p data-conflict="" className="flex items-start gap-1 text-caption font-semibold text-warning-text">
+                <Icon name="info" size="sm" />
+                {t.t('record.conflict.otherChange')}
+              </p>
+            ) : null}
+          </div>
         ))}
       </form>
     </Dialog>
