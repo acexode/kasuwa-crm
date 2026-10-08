@@ -52,6 +52,12 @@ openapi: 3.1.0
 #    (tracked). Authoring audit may name compliance node ids: that reveals
 #    the graph, not a run's path.
 #
+#    Acknowledgements and answer saves write NO audit event of their own
+#    (T-0112 final review, superseding D-L88's "answers audited by name
+#    only"): how many events a run has would itself reveal which side of a
+#    branch it took. The run keeps both, with server timestamps. The audited
+#    run events are start, supersede and completion, and nothing else.
+#
 # 5a. A RUN IS ITS OWN AGENT'S. In Phase 2 every run operation answers only
 #    the agent who started the run; anyone else gets 404, never 403. A
 #    supervisor or QA read, with field security applied to the path and the
@@ -107,6 +113,11 @@ info:
     **Errors.** Every failure uses the shared `Error` envelope from
     `admin.openapi.yaml`. Switch on `code`, never on `message`. The web app
     localises as `scripting.error.<code>`.
+
+    **Run error details are never logged or traced.** The `details` of a
+    run operation's `400` or `409` (node ids, field keys, reason codes)
+    go to the run's own agent and nowhere else: not to logs, spans,
+    metrics or the audit log. Only that agent ever sees them.
 
     **Times** are UTC, ISO 8601, with a `Z`. Display conversion to the
     tenant's zone (WAT/EAT/SAST) is the browser's.
@@ -603,12 +614,15 @@ paths:
         `stopReason: field_withheld` on the version a new run would pin:
         `200` with that run, while the field is still withheld from the
         caller, so repeated starts do not mint runs that stop at the same
-        branch. A different script or a different agent starts a new run
-        (`201`), and so does a `completed` run, or a `stopped` one on an
-        older version.
+        branch. A run stopped by `stopReason: sensitive_field` on that
+        same version is replayed the same way (`200`, no new run): a new run
+        would stop at the same branch. A different script or a different
+        agent starts a new run (`201`), and so does a `completed` run, or a
+        `stopped` one on an older version.
 
-        **Supersede (T-0112 re-review N6).** When that stopped run's field is
-        now readable by the caller, the start supersedes it: in the same
+        **Supersede (T-0112 re-review N6).** When a run stopped by
+        `field_withheld` has its field now readable by the caller, the start
+        supersedes it (a `sensitive_field` stop is never superseded): in the same
         transaction the server closes the old run with `status: completed`
         and `outcome: superseded`, with no disposition, no call activity and
         no follow-up task, and starts a new run (`201`). `superseded` is
@@ -726,8 +740,9 @@ paths:
         **Variables** (`{contact.<field>}`, `{agent.displayName}`,
         `{answer.<nodeId>.<fieldKey>}`) are substituted by the client from
         data it already holds: the contact as getContact returned it, field
-        security applied. A variable on a withheld field renders as a
-        placeholder; this operation never returns contact values.
+        security applied. A variable on a withheld field, or on a field
+        classified `sensitive` since publish, renders as a placeholder and
+        never stops the run; this operation never returns contact values.
       responses:
         '200':
           description: The pinned version.
@@ -776,11 +791,12 @@ paths:
         caller something about a value they may not read. A stopped run can
         only be completed.
 
-        **A field that is now `sensitive`** (T-0112 re-review N7): a branch
-        on it, or a variable on it in the wording of the node the run enters,
-        stops the run with `stopReason: sensitive_field`, and the screen
-        renders the variable as a placeholder. The field was publishable
-        when the version was published; its classification changed since.
+        **A field that is now `sensitive`** (T-0112 re-review N7, refined
+        in the final review): only a BRANCH on it stops the run, with
+        `stopReason: sensitive_field`. A VARIABLE on it does not stop the
+        run: the screen renders the variable as a placeholder and the run
+        carries on. The field was publishable when the version was
+        published; its classification changed since.
 
         Only the agent who started the run moves it; anyone else gets `404`
         (the run is not theirs to see), and so does its own agent who no
@@ -819,8 +835,7 @@ paths:
       summary: Acknowledge a compliance statement as read in full
       operationId: acknowledgeScriptRunNode
       x-kasuwa-implemented: false
-      x-kasuwa-audited: true
-      x-kasuwa-audit-names: [versionId]
+      x-kasuwa-audited: false
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/01']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed', '409 run_completed', '409 run_stopped', '409 stale_write']
@@ -839,9 +854,12 @@ paths:
         keeps the first time and changes nothing.
 
         Only the run's agent acknowledges; anyone else gets `404`, and so
-        does its own agent without `script.run` there (N4). Audited as
-        `updated` on the run, naming only the script-version id: no node id
-        (R1).
+        does its own agent without `script.run` there (N4).
+
+        **Not audited** (T-0112 final review): an acknowledgement writes no
+        audit event of its own, because the number of events per run would
+        reveal which side of a branch it took. The run keeps it, with the
+        server's timestamp; the completion event says how the run ended.
       requestBody:
         required: true
         content:
@@ -872,8 +890,7 @@ paths:
       summary: Record a form node's answers on the run
       operationId: recordScriptRunAnswers
       x-kasuwa-implemented: false
-      x-kasuwa-audited: true
-      x-kasuwa-audit-names: [versionId]
+      x-kasuwa-audited: false
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/02']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed', '409 run_completed', '409 run_stopped', '409 stale_write']
@@ -889,9 +906,12 @@ paths:
         at completion, writes a contact field or any other record from a
         form. The design's "Writes to record" panel is not drawn.
 
-        **Answers are `sensitive`**: never logged, never echoed in an error, and
-        audited as `updated` on the run naming only the script-version id:
-        no node id and no field key (R1).
+        **Answers are `sensitive`**: never logged and never echoed in an
+        error. **Not audited** (T-0112 final review, superseding D-L88's
+        "audited by name only"): an answer save writes no audit event of its
+        own, because the number of events per run would reveal which side of
+        a branch it took. The run keeps the answers, with server timestamps
+        (`updatedAt`, `answeredAt`).
 
         **Size.** A run's answers together are capped at 262144 bytes
         (256 KiB) serialised; a write that would exceed it is `400`
@@ -1913,8 +1933,9 @@ components:
           description: |
             Why a `stopped` run stopped; `null` otherwise. `field_withheld`:
             a branch read a contact field withheld from the agent.
-            `sensitive_field`: a branch or a variable used a field
-            classified `sensitive` since publish (N7).
+            `sensitive_field`: a branch read a field classified
+            `sensitive` since publish (N7). A variable on such a field never
+            stops a run; it renders as a placeholder.
         currentNodeId:
           oneOf:
             - $ref: '#/components/schemas/NodeId'
@@ -2438,7 +2459,8 @@ components:
         a graph of the wrong shape, a node that is not on the run's path, a
         choice that is not the node's, or an answer that breaks its field's
         rules. `details` names paths and reason codes, never the submitted
-        value (an answer is `sensitive`).
+        value (an answer is `sensitive`). On a run operation the `details`
+        are never logged or traced: only the run's own agent sees them.
       headers:
         Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:

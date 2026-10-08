@@ -795,12 +795,13 @@ const EXPECTED: Expected[] = [
     ],
   },
   {
+    // T-0112 final review: no audit event of its own (event counts leak the branch).
     id: 'acknowledgeScriptRunNode',
     method: 'post',
     path: `${RUN}/acknowledgements`,
     permission: 'script.run',
     screens: ['P10/01'],
-    audited: true,
+    audited: false,
     errors: [
       '404 not_found',
       '400 validation_failed',
@@ -810,12 +811,13 @@ const EXPECTED: Expected[] = [
     ],
   },
   {
+    // T-0112 final review: no audit event of its own (event counts leak the branch).
     id: 'recordScriptRunAnswers',
     method: 'patch',
     path: `${RUN}/answers`,
     permission: 'script.run',
     screens: ['P10/02'],
-    audited: true,
+    audited: false,
     errors: [
       '404 not_found',
       '400 validation_failed',
@@ -2456,8 +2458,6 @@ describe('acceptance: scripting contract (T-0112)', () => {
     ];
     const RUN_AUDIT: Record<string, string[]> = {
       startScriptRun: ['versionId', 'stopReason', 'outcome'],
-      acknowledgeScriptRunNode: ['versionId'],
-      recordScriptRunAnswers: ['versionId'],
       completeScriptRun: [
         'outcome',
         'stopReason',
@@ -2501,10 +2501,7 @@ describe('acceptance: scripting contract (T-0112)', () => {
       expect(complete).toMatch(
         /An interrupted completion is still visible in the audit through `outcome`/,
       );
-      expect(prose(operation('acknowledgeScriptRunNode').op)).toMatch(/no node id \(R1\)/);
-      expect(prose(operation('recordScriptRunAnswers').op)).toMatch(
-        /no node id and no field key \(R1\)/,
-      );
+
       expect(prose(operation('startScriptRun').op)).toMatch(/No node id, ever \(R1\)/);
       const stale = RUN_OPERATIONS.concat(['startScriptRun']).filter((id) =>
         // Audit wording only: a 409's details[] naming a node goes to the
@@ -2598,7 +2595,7 @@ describe('acceptance: scripting contract (T-0112)', () => {
       ).toBe(true);
     });
 
-    it('N7: a branch or variable on a now-sensitive field stops the run as sensitive_field', () => {
+    it('N7 (final review): only a branch on a now-sensitive field stops the run; a variable renders a placeholder', () => {
       const run = schemaOf('getScriptRun', '200');
       expect(enumOf(properties(run).get('stopReason') ?? at({}))).toEqual([
         'field_withheld',
@@ -2606,8 +2603,20 @@ describe('acceptance: scripting contract (T-0112)', () => {
         null,
       ]);
       const advance = prose(operation('advanceScriptRun').op);
-      expect(advance).toMatch(/stops the run with `stopReason: sensitive_field`/);
-      expect(advance).toMatch(/renders the variable as a placeholder/);
+      expect(advance).toMatch(
+        /only a BRANCH on it stops the run, with `stopReason: sensitive_field`/,
+      );
+      expect(advance).toMatch(/A VARIABLE on it does not stop the run/);
+      expect(advance).toMatch(/renders the variable as a placeholder and the run carries on/);
+      const stopReason = prose(rawProperty(run, 'stopReason'));
+      expect(stopReason).toMatch(/`sensitive_field`: a branch read a field/);
+      expect(stopReason).toMatch(/A variable on such a field never stops a run/);
+      expect(stopReason, 'stopReason still says a variable stops a run').not.toMatch(
+        /a branch or a variable used/,
+      );
+      expect(prose(operation('getScriptRunScript').op)).toMatch(
+        /classified `sensitive` since publish, renders as a placeholder and never stops the run/,
+      );
     });
 
     it("N9: a run's answers are capped at 256 KiB serialised", () => {
@@ -2617,6 +2626,63 @@ describe('acceptance: scripting contract (T-0112)', () => {
       const text = prose(operation('recordScriptRunAnswers').op);
       expect(text).toMatch(/capped at 262144 bytes \(256 KiB\) serialised/);
       expect(text).toMatch(/too_big/);
+    });
+  });
+
+  describe('the T-0112 final review', () => {
+    function prose(...located: (Located | Mapping | undefined)[]): string {
+      return describedAs(...located).replace(/\s+/g, ' ');
+    }
+
+    it('acknowledgements and answer saves write no audit event; start, supersede and completion only', () => {
+      for (const id of ['acknowledgeScriptRunNode', 'recordScriptRunAnswers']) {
+        const op = operation(id).op;
+        expect(op['x-kasuwa-audited'], `${id} x-kasuwa-audited`).toBe(false);
+        expect(op['x-kasuwa-audit-names'], `${id} declares audit names`).toBeUndefined();
+        const text = prose(op);
+        expect(text, `${id} says it is not audited`).toMatch(/\*\*Not audited\*\*/);
+        expect(text, `${id} says why`).toMatch(
+          /the number of events per run would reveal which side of a branch it took/,
+        );
+        expect(text, `${id} says the run keeps it`).toMatch(/server('s)? timestamps?/);
+      }
+      const audited = operations()
+        .filter(
+          (op) => op.path.startsWith('/api/v1/script-runs') && op.op['x-kasuwa-audited'] === true,
+        )
+        .map((op) => op.id)
+        .sort();
+      expect(audited, 'the audited run operations').toEqual([
+        'completeScriptRun',
+        'startScriptRun',
+      ]);
+      const start = prose(operation('startScriptRun').op);
+      expect(start, 'supersede is audited').toMatch(
+        /a superseded run gets its own `updated` event/,
+      );
+      expect(prose(operation('recordScriptRunAnswers').op)).toMatch(
+        /superseding D-L88's "audited by name only"/,
+      );
+    });
+
+    it("a run operation's 400 and 409 details are never logged or traced", () => {
+      const info = spec().info;
+      const text = isMapping(info) ? str(info.description).replace(/\s+/g, ' ') : '';
+      expect(text).toMatch(/Run error details are never logged or traced/);
+      expect(text).toMatch(/run operation's `400` or `409`/);
+      expect(text).toMatch(/Only that agent ever sees them/);
+      const invalid = responses(operation('advanceScriptRun')).get('400');
+      expect(prose(invalid)).toMatch(
+        /On a run operation the `details` are never logged or traced: only the run's own agent sees them/,
+      );
+    });
+
+    it('the start replay also covers a sensitive_field stop on the same version, which is never superseded', () => {
+      const text = prose(operation('startScriptRun').op);
+      expect(text).toMatch(
+        /A run stopped by `stopReason: sensitive_field` on that same version is replayed the same way \(`200`, no new run\)/,
+      );
+      expect(text).toMatch(/a `sensitive_field` stop is never superseded/);
     });
   });
 
