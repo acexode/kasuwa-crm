@@ -78,6 +78,20 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
     expect(permitted).toEqual(expected);
   });
 
+  it('script.write (T-0113, D-L88) is the admin set or the tenant-admin flag, per programme, never wider', () => {
+    for (const key of ['agent', 'team_lead', 'programme_manager', 'qa_analyst', 'client_portal']) {
+      const subject = grants({ programmeSets: new Map([[P1, key]]) });
+      expect(canProgramme(subject, 'script.write', P1), key).toBe(false);
+    }
+    expect(
+      canProgramme(grants({ programmeSets: new Map([[P1, 'admin']]) }), 'script.write', P1),
+    ).toBe(true);
+    const flag = grants({ isTenantAdmin: true, programmeSets: new Map([[P1, 'agent']]) });
+    expect(canProgramme(flag, 'script.write', P1)).toBe(true);
+    // The flag never widens scope: a programme outside the session is no.
+    expect(canProgramme(flag, 'script.write', '00000000-0000-4000-8000-0000000000ff')).toBe(false);
+  });
+
   it('treats qa_analyst, client_portal, an unknown key and a NULL set as read-only', () => {
     for (const key of [
       'qa_analyst',
