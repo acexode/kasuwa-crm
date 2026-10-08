@@ -95,6 +95,10 @@ export const AUDIT_VALUE_POLICY: Readonly<Record<AuditObjectType, ValuePolicy>> 
   // Names only (D-L78, D-L77) until a decision allows a value field.
   account: { kind: 'field_secured', object: 'account', valueFields: NO_VALUE_FIELDS },
   activity: { kind: 'field_secured', object: 'activity', valueFields: NO_VALUE_FIELDS },
+  // T-0113: a script is programme configuration. Its events carry draft part
+  // and locale names (redacted) and, on publish, a version number and
+  // compliance node ids, never wording; no field security applies.
+  script: CONFIGURATION,
 };
 
 /** An object type outside the closed list: nothing in it is readable. */

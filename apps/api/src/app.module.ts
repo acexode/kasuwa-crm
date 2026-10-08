@@ -20,6 +20,9 @@ import { HealthController } from './health/health.controller';
 import { LeadsController } from './leads/leads.controller';
 import { MeController } from './me/me.controller';
 import { CHANNEL, createApiChannel } from './messaging/channel';
+import { ScriptsController } from './scripts/scripts.controller';
+import { ScriptsModule } from './scripts/scripts.module';
+import { JsonBodyLimit } from './common/json-body-limit';
 import { AUTH_MODE, KasuwaAuthGuard, type ResolvedAuthMode } from './tenancy/kasuwa-auth.guard';
 import { StubAuthGuard } from './tenancy/stub-auth.guard';
 import { TenantTransactionInterceptor } from './tenancy/tenant-transaction.interceptor';
@@ -55,7 +58,12 @@ const CONTROLLERS = [HealthController, ...RECORDS_CONTROLLERS];
  * areas' controllers are derived from AdminModule, so a new area is covered
  * without an edit here.
  */
-const TELEMETRY_CONTROLLERS = [...CONTROLLERS, AuthController, ...ADMIN_CONTROLLERS];
+const TELEMETRY_CONTROLLERS = [
+  ...CONTROLLERS,
+  AuthController,
+  ScriptsController,
+  ...ADMIN_CONTROLLERS,
+];
 
 export interface AppModuleOptions {
   /** kasuwa_app (NOBYPASSRLS). Every route's tenant transaction runs on it. */
@@ -182,9 +190,15 @@ export class AppModule implements NestModule {
         }),
         // Every admin area. A new area is added inside AdminModule, not here.
         AdminModule,
+        // In-call script authoring (T-0113): its own module for its no-store
+        // middleware, like the audit area.
+        ScriptsModule,
       ],
       controllers: CONTROLLERS,
       providers: [
+        // The 512 KiB JSON body limit, wherever the module boots (T-0113):
+        // installed before Nest's own 100 KB parser would be.
+        JsonBodyLimit,
         KasuwaAuthGuard,
         StubAuthGuard,
         TenantTransactionInterceptor,

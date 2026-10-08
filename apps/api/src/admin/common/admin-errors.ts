@@ -44,6 +44,8 @@ export type AdminErrorCode =
   | 'role_hierarchy_cycle'
   | 'role_in_use'
   | 'legal_hold_active'
+  /** scripting.openapi.yaml (T-0112): a draft that is not complete enough to publish (T-0113). */
+  | 'script_invalid'
   | 'too_many_requests'
   | 'not_implemented'
   | 'service_unavailable'

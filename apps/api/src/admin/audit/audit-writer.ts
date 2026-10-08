@@ -36,6 +36,8 @@ export const AUDIT_ACTIONS = [
   'rejected',
   'rotated',
   'played_recording',
+  /** publishScript (T-0113, D-L96): migration 0030 adds it to audit_event_action_check. */
+  'published',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
@@ -68,6 +70,13 @@ export const AUDIT_OBJECT_TYPES = [
    * Changes are field names only, never values.
    */
   'activity',
+  /**
+   * createScript, updateScript, putScriptTranslation and publishScript
+   * (T-0113). The label is the script's name (programme configuration).
+   * Changes name draft parts and locales only; a publish names the version
+   * number and compliance node ids, never wording (D-L96).
+   */
+  'script',
 ] as const;
 export type AuditObjectType = (typeof AUDIT_OBJECT_TYPES)[number];
 
@@ -83,6 +92,7 @@ export const AUDIT_OBJECT_TYPE_LABELS: Record<AuditObjectType, string> = {
   contact: 'Contact',
   account: 'Account',
   activity: 'Activity',
+  script: 'Script',
 };
 
 export interface AuditChange {
@@ -129,6 +139,9 @@ export function changedFields(
  */
 export const AUDIT_CHANGE_VALUE_MAX_LENGTH = 300;
 
+/** The most `changes` one event may carry. */
+export const AUDIT_EVENT_MAX_CHANGES = 64;
+
 const Change = z
   .object({
     field: z.string().min(1).max(64),
@@ -148,7 +161,9 @@ const EventInput = z
     objectId: z.string().uuid().nullable(),
     objectLabel: z.string().min(1).max(300),
     programmeId: z.string().uuid().nullable(),
-    changes: z.array(Change).max(50),
+    // 64: a publish names up to 400 compliance node ids, seven to a 300-character
+    // value, in its three buckets, plus the version number (T-0113): 59 entries.
+    changes: z.array(Change).max(AUDIT_EVENT_MAX_CHANGES),
   })
   .strict();
 
