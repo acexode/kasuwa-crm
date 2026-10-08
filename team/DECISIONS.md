@@ -2148,3 +2148,8 @@ Every recommendation below was taken as written in its entry. What each one now 
 - **Every `PG*` environment variable,** and `NODE_PG_FORCE_NATIVE`, is refused outside development and test.
 - **`db:reset`** refuses whenever enforcement is on, before any DROP.
 - **A test pins** that `@kasuwa/config`'s `pg-connection-string` is the version `pg` uses.
+- **D-L95 narrowed (2026-10-08):** the "unset `NODE_ENV` refused" rule applies to the API and the worker, the guard that runs
+  at every deploy. The migration runner keeps D-L94's rule: unset is refused only against a non-local host. A loopback tunnel
+  is a documented limit there, and the boot check catches it at the next deploy. `.env.example` keeps not setting `NODE_ENV`
+  (Nx injects it into every task and `next build` breaks); dev and test entry points set it per process. Lead suite edits:
+  `baf38d8` (two `workerEnv` calls pass `NODE_ENV: 'test'`; the T-0117 suite pins the API and worker refusal).
