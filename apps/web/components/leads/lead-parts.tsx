@@ -64,11 +64,16 @@ export function LeadValue({ t, row, field }: { t: Translator; row: Lead; field: 
     case 'source':
       return typeof row.source === 'string' ? <span>{t.t(sourceLabel(row.source))}</span> : notSet;
     case 'owner':
-      return row.owner === null || row.owner === undefined ? (
-        <Muted>{t.t('records.owner.unassigned')}</Muted>
-      ) : (
-        <span data-record-text="">{row.owner.displayName}</span>
-      );
+      if (row.owner === null || row.owner === undefined) return <Muted>{t.t('records.owner.unassigned')}</Muted>;
+      // A former owner (T-0103, D-P23): the server sends no name. Never the id.
+      if (row.owner.displayName === null) {
+        return (
+          <span data-owner="former">
+            <Muted>{t.t('records.owner.former')}</Muted>
+          </span>
+        );
+      }
+      return <span data-record-text="">{row.owner.displayName}</span>;
   }
 }
 

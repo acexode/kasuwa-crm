@@ -53,6 +53,8 @@ export const LEADS_MESSAGE_IDS: readonly MessageId[] = [
   'records.cell.empty',
   'records.more',
   'records.owner.unassigned',
+  // A former owner (T-0103, D-P23): the server sends no name, the row shows this.
+  'records.owner.former',
   'leads.loading',
   'records.loadMore',
   'records.loadingMore',

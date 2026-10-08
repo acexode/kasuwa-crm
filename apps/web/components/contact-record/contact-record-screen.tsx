@@ -480,6 +480,11 @@ function DetailValue({
         <span className="flex flex-wrap items-center gap-2">
           {owner === null || owner === undefined ? (
             <span className="text-text-muted">{t.t('records.owner.unassigned')}</span>
+          ) : owner.displayName === null ? (
+            // A former owner (T-0103, D-P23): the server sends no name. Never the id.
+            <span data-owner="former" className="text-text-muted">
+              {t.t('records.owner.former')}
+            </span>
           ) : (
             <span data-record-text="">{owner.displayName}</span>
           )}

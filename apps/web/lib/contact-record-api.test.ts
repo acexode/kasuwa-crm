@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  ContactOwner,
+  ContactRecord,
+  TimelineItem,
   completeActivity,
   createActivity,
   createActivityBody,
@@ -99,6 +102,34 @@ describe('the contact record client', () => {
     expect(page.ok && page.value.data.map((entry) => entry.id)).toEqual(['ti_1', 'ti_2']);
     // An item with no values carries no `before`, and the screen relies on its absence.
     expect(page.ok && 'before' in (page.value.data[1] ?? {})).toBe(false);
+  });
+
+  it('reads a former owner as { id, displayName: null } (T-0103, D-P23), never failing the record', async () => {
+    const former = { ...CONTACT, owner: { id: CONTACT.ownerUserId, displayName: null } };
+    serve(200, former);
+    const result = await getContact(CONTACT.id);
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.value.owner).toEqual({ id: CONTACT.ownerUserId, displayName: null });
+    // Still exactly an owner: the name key must be sent, as `null`, not omitted.
+    expect(ContactRecord.safeParse({ ...CONTACT, owner: { id: CONTACT.ownerUserId } }).success).toBe(false);
+    expect(ContactOwner.safeParse({ id: CONTACT.ownerUserId, displayName: 42 }).success).toBe(false);
+  });
+
+  it('keeps the timeline actor strict: an actor is always named (D-L81), even after T-0103', async () => {
+    const actor = { id: CONTACT.ownerUserId, displayName: null };
+    serve(200, {
+      data: [{ id: 'ti_1', type: 'consent_changed', occurredAt: '2026-10-01T09:12:00.000Z', actor }],
+      nextCursor: null,
+    });
+    expect((await listContactTimeline(CONTACT.id, null)).ok).toBe(false);
+    expect(
+      TimelineItem.safeParse({
+        id: 'ti_1',
+        type: 'consent_changed',
+        occurredAt: '2026-10-01T09:12:00.000Z',
+        actor: { id: CONTACT.ownerUserId, displayName: 'Kemi Balogun' },
+      }).success,
+    ).toBe(true);
   });
 
   it('refuses a timeline item type the contract does not list', async () => {

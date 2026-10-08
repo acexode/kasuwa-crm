@@ -62,6 +62,8 @@ export const CONTACT_RECORD_MESSAGE_IDS: readonly MessageId[] = [
   'records.cell.empty',
   'records.locked',
   'records.owner.unassigned',
+  // A former owner (T-0103, D-P23): the server sends no name, the record shows this.
+  'records.owner.former',
   'records.account.none',
   'records.loadingMore',
   'records.retry',
