@@ -1069,5 +1069,14 @@
   "leads.convert.error.notPermitted": "Votre rôle ne peut pas convertir les prospects de ce programme. Rien n’a été modifié.",
   "leads.convert.error.stale": "Quelqu’un d’autre a modifié ce prospect avant vous. Rien n’a été converti. Vérifiez votre choix et réessayez.",
   "leads.convert.error.accountNotFound": "Ce compte n’est pas disponible pour ce prospect. Choisissez-en un autre.",
-  "leads.convert.error.already_linked": "Ce prospect est déjà relié à un autre compte. La conversion ne déplace jamais un prospect d’un compte à un autre."
+  "leads.convert.error.already_linked": "Ce prospect est déjà relié à un autre compte. La conversion ne déplace jamais un prospect d’un compte à un autre.",
+  "account.loading": "Chargement du compte…",
+  "account.unavailable": "Le compte n’a pas pu être chargé",
+  "account.hierarchy": "Hiérarchie du compte",
+  "account.hierarchy.partial": "Les niveaux supérieurs n’ont pas pu être chargés",
+  "account.field.parentAccountId": "Compte parent",
+  "account.section.contacts": "Contacts liés",
+  "account.contacts.empty": "Aucun contact n’est encore lié à ce compte.",
+  "account.contacts.withheld": "Votre rôle ne permet pas de voir quels contacts sont liés à ce compte.",
+  "account.contacts.error": "Les contacts n’ont pas pu être chargés."
 }

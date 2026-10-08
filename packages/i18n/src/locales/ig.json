@@ -1069,5 +1069,14 @@
   "leads.convert.error.notPermitted": "Ọrụ gị enweghị ike ịgbanwe ndị nwere ike ịzụ na mmemme a. Ọ dịghị ihe gbanwere.",
   "leads.convert.error.stale": "Onye ọzọ gbanwere onye a mbụ. Ọ dịghị ihe agbanwere. Lelee ihe ị họrọ ma nwaa ọzọ.",
   "leads.convert.error.accountNotFound": "Akaụntụ ahụ adịghị maka onye a. Họrọ nke ọzọ.",
-  "leads.convert.error.already_linked": "E jikọlarịrị onye a na akaụntụ ọzọ. Ịgbanwe anaghị ebugharị onye site n’otu akaụntụ gaa n’ọzọ."
+  "leads.convert.error.already_linked": "E jikọlarịrị onye a na akaụntụ ọzọ. Ịgbanwe anaghị ebugharị onye site n’otu akaụntụ gaa n’ọzọ.",
+  "account.loading": "A na-ebudata akaụntụ ahụ…",
+  "account.unavailable": "Akaụntụ ahụ ebudataghị",
+  "account.hierarchy": "Usoro ọkwa akaụntụ",
+  "account.hierarchy.partial": "Ọkwa ndị dị elu ebudataghị",
+  "account.field.parentAccountId": "Akaụntụ nne",
+  "account.section.contacts": "Ndị kọntaktị jikọrọ ya",
+  "account.contacts.empty": "Enweghị onye kọntaktị ejikọrọ na akaụntụ a ugbu a.",
+  "account.contacts.withheld": "Ọrụ gị enweghị ike ịhụ ndị kọntaktị ejikọrọ na akaụntụ a.",
+  "account.contacts.error": "Ndị kọntaktị ahụ ebudataghị."
 }

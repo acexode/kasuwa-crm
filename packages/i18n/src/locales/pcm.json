@@ -1069,5 +1069,14 @@
   "leads.convert.error.notPermitted": "Your role no fit convert people for dis programme. We no change anything.",
   "leads.convert.error.stale": "Somebody else don change dis person first. We no convert anything. Check wetin you choose and try again.",
   "leads.convert.error.accountNotFound": "Dat account no dey available for dis person. Choose another one.",
-  "leads.convert.error.already_linked": "Dis person don already join another account. Convert no dey move person from one account go another."
+  "leads.convert.error.already_linked": "Dis person don already join another account. Convert no dey move person from one account go another.",
+  "account.loading": "We dey load di account…",
+  "account.unavailable": "Di account no load",
+  "account.hierarchy": "How di accounts take join",
+  "account.hierarchy.partial": "Di higher levels no load",
+  "account.field.parentAccountId": "Di parent account",
+  "account.section.contacts": "Di contacts",
+  "account.contacts.empty": "No contact dey link to dis account yet.",
+  "account.contacts.withheld": "Your role no fit see which contacts dey link to dis account.",
+  "account.contacts.error": "Di contacts no load."
 }

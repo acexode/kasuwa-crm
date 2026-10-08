@@ -1069,5 +1069,14 @@
   "leads.convert.error.notPermitted": "Ipa rẹ kò lè yí àwọn tó lè rà padà nínú ètò yìí. A kò yí nǹkan kan padà.",
   "leads.convert.error.stale": "Ẹlòmíràn ti yí ẹni yìí padà ṣáájú. A kò yí nǹkan kan padà. Ṣàyẹ̀wò ohun tí o yàn kí o sì gbìyànjú lẹ́ẹ̀kan síi.",
   "leads.convert.error.accountNotFound": "Àkáǹtì yẹn kò sí fún ẹni yìí. Yan òmíràn.",
-  "leads.convert.error.already_linked": "A ti so ẹni yìí mọ́ àkáǹtì mìíràn tẹ́lẹ̀. Yíyí padà kì í gbé ẹnìkan láti àkáǹtì kan lọ sí òmíràn."
+  "leads.convert.error.already_linked": "A ti so ẹni yìí mọ́ àkáǹtì mìíràn tẹ́lẹ̀. Yíyí padà kì í gbé ẹnìkan láti àkáǹtì kan lọ sí òmíràn.",
+  "account.loading": "À ń gbé àkáǹtì náà wọlé…",
+  "account.unavailable": "Àkáǹtì náà kò wọlé",
+  "account.hierarchy": "Ìlànà ipele àkáǹtì",
+  "account.hierarchy.partial": "Àwọn ipele òkè kò wọlé",
+  "account.field.parentAccountId": "Àkáǹtì òbí",
+  "account.section.contacts": "Àwọn olùbásọ̀rọ̀ tó so mọ́ ọn",
+  "account.contacts.empty": "Kò tíì sí olùbásọ̀rọ̀ kankan tí a so mọ́ àkáǹtì yìí.",
+  "account.contacts.withheld": "Ipa rẹ kò lè rí àwọn olùbásọ̀rọ̀ tí a so mọ́ àkáǹtì yìí.",
+  "account.contacts.error": "Àwọn olùbásọ̀rọ̀ náà kò wọlé."
 }
