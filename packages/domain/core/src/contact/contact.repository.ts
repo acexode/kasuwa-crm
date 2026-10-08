@@ -737,8 +737,28 @@ export async function updateContactIfVersion(
  * MUST equal `lock_namespace` in migration 0031's
  * `app.unassign_removed_member_contacts()`; the T-0103 races go red if the
  * two drift apart.
+ *
+ * EVERY WRITER OF `contact.owner_user_id` MUST CALL `programmeMemberExists`
+ * for the new owner, in the same transaction, before it writes. That call is
+ * what takes this lock; a write that skips it can race a removal and leave a
+ * contact owned by a non-member (D-P23, D-L99). Today the writers are
+ * createContact and updateContact (`checkReferences` in the API).
  */
 export const MEMBERSHIP_LOCK_NAMESPACE = 0x4b4d454d;
+
+/**
+ * The owner check ran outside READ COMMITTED. Under REPEATABLE READ or
+ * SERIALIZABLE its membership read uses the transaction's first snapshot, so
+ * after waiting for a removal it would still see the removed membership: the
+ * lock would protect nothing. Refused rather than trusted (T-0103 security
+ * review). Carries no identifier.
+ */
+export class MembershipCheckIsolationError extends Error {
+  constructor() {
+    super('A programme membership check must run in READ COMMITTED');
+    this.name = 'MembershipCheckIsolationError';
+  }
+}
 
 /**
  * May `userId` own a contact in `programmeId`? D-L67: only a member of that
@@ -773,13 +793,16 @@ export async function programmeMemberExists(
 ): Promise<boolean> {
   // The key text is built from uuid::text, canonical lower case, exactly as
   // 0031 builds it from the row: a client's upper-case id must not miss the lock.
-  await tx.query(
-    `SELECT pg_advisory_xact_lock_shared(
-              $1::integer,
-              hashtext($2::uuid::text || '/' || $3::uuid::text)
-            ) AS locked`,
+  // The same statement reports the isolation level, checked before the read.
+  const [held] = await tx.query<{ isolation: string }>(
+    `SELECT current_setting('transaction_isolation') AS isolation
+       FROM (SELECT pg_advisory_xact_lock_shared(
+                      $1::integer,
+                      hashtext($2::uuid::text || '/' || $3::uuid::text)
+                    )) AS membership_lock`,
     [MEMBERSHIP_LOCK_NAMESPACE, programmeId, userId],
   );
+  if (held?.isolation !== 'read committed') throw new MembershipCheckIsolationError();
   const rows = await tx.query<{ ok: number }>(
     `SELECT 1 AS ok
        FROM user_programme up
