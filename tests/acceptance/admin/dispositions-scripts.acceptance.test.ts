@@ -6,6 +6,7 @@ import {
   PROGRAMME_A1,
   PROGRAMME_A2,
   PROGRAMME_B1,
+  SEED_PERMISSION_SETS,
   TENANT_A,
   TENANT_B,
   TENANT_SCOPED_TABLES,
@@ -732,9 +733,13 @@ describe('acceptance: admin dispositions and programme scripts (T-0027)', () => 
       expect(response.status, JSON.stringify(response.body)).toBe(200);
       expectScriptList(response.body);
     }
+    // T-0113 (D-L93, lead edit): once backed by the script tables, the list
+    // needs script.write in the programme. Agent 1 reaches A1 without it, so
+    // it gets the unreachable programme's 404, body for body.
     const agent = await scriptsRaw(agentOne(), PROGRAMME_A1);
-    expect(agent.status).toBe(200);
-    expectScriptList(agent.body);
+    expectError(agent, 404, 'not_found');
+    const unreachable = await scriptsRaw(agentOne(), PROGRAMME_A2);
+    expect(agent.body).toEqual(unreachable.body);
     const b = await scriptsRaw(tenantB(), PROGRAMME_B1);
     expect(b.status).toBe(200);
     expectScriptList(b.body);
@@ -743,6 +748,35 @@ describe('acceptance: admin dispositions and programme scripts (T-0027)', () => 
       const response = await scriptsRaw(supervisor(), PROGRAMME_A1, `?pageSize=${pageSize}`);
       const error = expectError(response, 400, 'validation_failed');
       expect(detailPaths(error)).toContain('pageSize');
+    }
+  });
+
+  it('listProgrammeScripts answers 200 to a script.write holder: the admin set in the programme, no tenant-admin flag (T-0113)', async () => {
+    // Lead edit with T-0113. Agent 1 is given the `admin` set in A1 and keeps
+    // is_tenant_admin false, so the set alone is what grants script.write.
+    const migrator = createPool({ connectionString: inject('migrationUrl'), max: 1 });
+    try {
+      const adminSet = SEED_PERMISSION_SETS.find(
+        (set) => set.tenantId === TENANT_A && set.key === 'admin',
+      );
+      if (adminSet === undefined) throw new Error('Fixture drift: no seeded admin set in tenant A');
+      await migrator.query(
+        `UPDATE user_programme SET permission_set_id = $3 WHERE user_id = $1 AND programme_id = $2`,
+        [USER_A_AGENT_1, PROGRAMME_A1, adminSet.id],
+      );
+      const flag = await migrator.query<{ is_tenant_admin: boolean }>(
+        'SELECT is_tenant_admin FROM "user" WHERE id = $1',
+        [USER_A_AGENT_1],
+      );
+      expect(flag.rows[0]?.is_tenant_admin, 'agent 1 must not hold the flag').toBe(false);
+      const response = await scriptsRaw(agentOne(), PROGRAMME_A1);
+      expect(response.status, JSON.stringify(response.body)).toBe(200);
+      expectScriptList(response.body);
+      // Still scoped: the set in A1 grants nothing in A2.
+      expectError(await scriptsRaw(agentOne(), PROGRAMME_A2), 404, 'not_found');
+    } finally {
+      await migrator.end();
+      await reseed(inject('migrationUrl'));
     }
   });
 

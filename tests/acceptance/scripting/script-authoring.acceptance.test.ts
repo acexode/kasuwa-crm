@@ -137,6 +137,11 @@ import { asUser, createApi } from '../support/api';
  *      `complianceNodesChanged` (the `x-kasuwa-audit-names` spelling), each
  *      entry naming only its own bucket's ids; an unchanged compliance node
  *      is named nowhere. Refused writes write no event.
+ *      A publish is exactly one event with action `published` (lead ruling on
+ *      the T-0113 suite: migration 0030 extends audit_event's action CHECK,
+ *      0008, with `published` and nothing else, and the API's AuditAction
+ *      with it, so the admin audit API filters on it and returns the event
+ *      as an AuditEntry; admin.openapi.yaml's AuditAction enum lists it).
  *  A7. Paging: `{ data, nextCursor }` only, no total in a body or a header;
  *      cursors never carry a name; a cursor is resolved inside its own list,
  *      so another list's, another script's, another tenant's and an
@@ -148,6 +153,14 @@ import { asUser, createApi } from '../support/api';
  *      the unreachable programme's 404; `no-store`.
  *  A9. The eight authoring operations are `x-kasuwa-implemented: true`.
  *  A10. Error order as published in `x-kasuwa-error-order`.
+ *  A11. A versionId that is not a uuid is 404, the same body as a version
+ *      that does not exist (lead ruling; VersionId says "any other id is
+ *      404").
+ *
+ *  The lead accepted R1-R9 below and the readings in the T-0113 suite report
+ *  (createScript's 403 stands: the contract wins). The empty draft (201,
+ *  never publishable) and unreachable_end (tested as a loop with no way out)
+ *  stand as written.
  *
  * ---------------------------------------------------------------------------
  * READINGS BEYOND THE TASK FILE (suite-writer rulings; the lead may rule out)
@@ -183,25 +196,21 @@ import { asUser, createApi } from '../support/api';
  * timestamps, the publisher); constraint, trigger and index names; how the
  * immutability is enforced (a trigger is the task's instruction; this file
  * reads the end state); ON DELETE of script_version -> script; whether
- * kasuwa_migrator may delete a single version; the audit `action` of a
- * publish (the contract says `published`, which neither the AuditAction enum
- * nor audit_event's CHECK admit today: see the report); how `versionNumber`
- * is recorded; detail paths other than the A4 ones; the order of details;
+ * kasuwa_migrator may delete a single version; how `versionNumber` is
+ * recorded; detail paths other than the A4 ones; the order of details;
  * whether `hasUnpublishedChanges` is part of listProgrammeScripts; what an
  * empty draft (createScript without `graph`) looks like on the wire.
  *
  * ---------------------------------------------------------------------------
- * CROSS-SUITE CONSEQUENCES (not edits to other suites; the lead's to make)
+ * CROSS-SUITE EDITS IN THIS PR (lead-authorised; none loosens anything)
  * ---------------------------------------------------------------------------
- *  - scripting-contract (T-0112) asserts every operation is
- *    `x-kasuwa-implemented: false`. A9 flips eight of them, so that test must
- *    be narrowed to the nine run operations in the same PR.
- *  - admin/dispositions-scripts (T-0027) expects agent 1 to get 200 from
- *    listProgrammeScripts on A1. A8 makes that a 404.
- *  - tenancy/schema-hygiene probes every table carrying `updated_at` with an
- *    UPDATE and fails one with no seeded row. `script` needs a seeded row or
- *    a plant there; `script_version` is immutable, so it should not carry
- *    `updated_at` at all (the probe's UPDATE would be refused).
+ *  - scripting-contract (T-0112): the eight authoring operations are
+ *    `x-kasuwa-implemented: true`, the nine run operations still false.
+ *  - admin/dispositions-scripts (T-0027): agent 1 on listProgrammeScripts for
+ *    A1 is the unreachable programme's 404; a script.write holder gets 200.
+ *  - tenancy/schema-hygiene: a `script` plant for its updated_at probe;
+ *    `script_version` carries no `updated_at`, and that probe's UPDATE is
+ *    refused on a published version (the seed must carry one).
  *
  * VACUOUS-PASS GUARDS. Before the build every route is an unknown route (a
  * Nest 404 whose body is not the shared Error), so no "one 404" assertion
@@ -1051,6 +1060,24 @@ const DEFINERS_SQL = `
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE p.prosecdef AND n.nspname NOT IN ('pg_catalog', 'information_schema')
    ORDER BY 1`;
+
+/** audit_event_action_check as 0008 wrote it. 0030 adds `published` and nothing else. */
+const AUDIT_ACTIONS_0008 = [
+  'created',
+  'updated',
+  'deleted',
+  'exported',
+  'invited',
+  'viewed',
+  'failed_sign_in',
+  'rejected',
+  'rotated',
+  'played_recording',
+] as const;
+
+/** The quoted literals of a CHECK definition, sorted. */
+const checkValues = (definition: string): string[] =>
+  [...definition.matchAll(/'([^']*)'/g)].map((match) => match[1] ?? '').sort();
 
 /** One-statement id rotation (D-L76): X takes a fresh id, Y takes X's old one. */
 const rotationSql = (table: string) => `
@@ -3348,6 +3375,20 @@ describe('acceptance: script authoring (T-0113)', () => {
       expect(crossed.text).toBe(nothing.text);
     });
 
+    it.each(['not-a-uuid', '1', `${NOWHERE_VERSION}x`, 'v1'])(
+      'a versionId that is not a uuid (%s) is 404, the same body as a version that does not exist (A11)',
+      async (versionId) => {
+        const one = await publishedScript();
+        // The control: the real version reads.
+        expectStatus(await versionRaw(SUPERVISOR, one.script.id, one.version.id), 200, 'v1');
+        const nothing = await versionRaw(SUPERVISOR, one.script.id, NOWHERE_VERSION);
+        expectError(nothing, 404, 'not_found');
+        const malformed = await versionRaw(SUPERVISOR, one.script.id, versionId);
+        expectError(malformed, 404, 'not_found');
+        expect(malformed.text).toBe(nothing.text);
+      },
+    );
+
     it('publish is closed: a number, a version id or a graph in the body is 400 and publishes nothing', async () => {
       const script = await createScript();
       for (const extra of [
@@ -3453,7 +3494,10 @@ describe('acceptance: script authoring (T-0113)', () => {
       let before = await auditIds();
       await publish(script.id, SUPERVISOR, { changes: [`Launch note ${MARK}`] });
       const first = await auditSince(before, script.id);
-      expect(first, 'publish events').toHaveLength(1);
+      expect(
+        first.map((row) => [row.action, row.object_type]),
+        'a publish is exactly one `published` event on the script',
+      ).toEqual([['published', 'script']]);
       for (const id of ['c_keep', 'c_edit', 'c_drop']) {
         expect(namesId(bucket(first[0], 'complianceNodesAdded'), id), `v1 adds ${id}`).toBe(true);
       }
@@ -3481,6 +3525,8 @@ describe('acceptance: script authoring (T-0113)', () => {
       expect(second, 'publish events').toHaveLength(1);
       const event = second[0];
       expect(event).toMatchObject({
+        action: 'published',
+        actor_kind: 'user',
         object_type: 'script',
         object_id: script.id,
         programme_id: PROGRAMME_A1,
@@ -3509,11 +3555,75 @@ describe('acceptance: script authoring (T-0113)', () => {
       before = await auditIds();
       await publish(script.id);
       const third = await auditSince(before, script.id);
+      expect(third.map((row) => row.action)).toEqual(['published']);
       expect(
         namesId(bucket(third[0], 'complianceNodesChanged'), 'c_keep'),
         'a translated compliance change',
       ).toBe(true);
       expect(JSON.stringify(third[0])).not.toContain(MARK);
+    });
+
+    it('audit_event’s action CHECK admits 0008’s ten actions plus `published`, and nothing else', async () => {
+      const definition = await observer.query<{ definition: string | null }>(
+        `SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint
+          WHERE conrelid = 'public.audit_event'::regclass AND conname = 'audit_event_action_check'`,
+      );
+      const def = definition.rows[0]?.definition ?? '';
+      expect(def, 'audit_event_action_check is missing').not.toBe('');
+      expect(checkValues(def)).toEqual([...AUDIT_ACTIONS_0008, 'published'].sort());
+      // Behaviour, not only the text: a `published` row is accepted, and a
+      // near miss is still refused (rolled back).
+      const outcomes = await rolledBackTx(observer, async (query) => {
+        const insert = (action: string) =>
+          probe(
+            query,
+            `INSERT INTO audit_event (id, tenant_id, actor_kind, action, object_type, object_label)
+             VALUES (gen_random_uuid(), $1, 'system', $2, 'script', 'T-0113 probe')`,
+            [TENANT_A, action],
+          );
+        return {
+          published: verdict(await insert('published')),
+          publish: verdict(await insert('publish')),
+          unpublished: verdict(await insert('unpublished')),
+        };
+      });
+      expect(outcomes).toEqual({
+        published: 'accepted',
+        publish: 'refused',
+        unpublished: 'refused',
+      });
+    });
+
+    it('(self-check) the CHECK reader returns the ten actions 0008 wrote', () => {
+      // Passes on main by design: pg_get_constraintdef's own rendering of 0008.
+      const rendered =
+        "CHECK ((action = ANY (ARRAY['created'::text, 'updated'::text, 'deleted'::text, " +
+        "'exported'::text, 'invited'::text, 'viewed'::text, 'failed_sign_in'::text, " +
+        "'rejected'::text, 'rotated'::text, 'played_recording'::text])))";
+      expect(checkValues(rendered)).toEqual([...AUDIT_ACTIONS_0008].sort());
+    });
+
+    it('the admin audit API filters on `published` and returns the event as an AuditEntry', async () => {
+      const script = await createScript();
+      await publish(script.id);
+      const response = await request(server())
+        .get(
+          withQuery('/api/v1/admin/audit/events', [
+            ['action', 'published'],
+            ['pageSize', '200'],
+          ]),
+        )
+        .set(SUPERVISOR);
+      expectStatus(response, 200, 'listAuditEvents?action=published');
+      expectSchema(response.body, 'AuditEventList', 'listAuditEvents', ADMIN_SPEC_PATH);
+      const items = (response.body as { items: Json[] }).items;
+      expect(items.length).toBeGreaterThan(0);
+      expect(new Set(items.map((item) => item.action))).toEqual(new Set(['published']));
+      expect(items.find((item) => item.objectId === script.id)).toMatchObject({
+        action: 'published',
+        objectType: 'script',
+        programmeId: PROGRAMME_A1,
+      });
     });
 
     it('refused writes write no event: 404, 400, stale 409 and script_invalid 409', async () => {
