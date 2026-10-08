@@ -2260,3 +2260,7 @@ Every recommendation below was taken as written in its entry. What each one now 
   mistaken removal can then be undone from the audit log, and each contact's timeline shows the owner change by name.
 - **Every writer of `contact.owner_user_id`** must take the membership lock through `programmeMemberExists`, which asserts
   READ COMMITTED. Any future import or bulk reassign included.
+- **D-L101 amended (2026-10-08):** the per-contact unassignment audit events move to **T-0104** (audit: convert and
+  takeover). That task already records before/after owner ids (D-L71) and owns the suite edits. T-0103's suite pins exactly
+  one programme event with no contact id, and T-0103 ships as pinned. Until T-0104, a mistaken removal is recoverable only by
+  point-in-time restore; no populated cell exists (D-L65).

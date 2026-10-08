@@ -8,6 +8,11 @@
 - **Takeover:** an `ownerUserId` change on a contact records the before and after owner ids as values. Staff ids are not
   customer PII. T-0078's contact value allow-list gains `ownerUserId` in the same change.
 
+- **Programme removal (D-L101):** each contact unassigned by migration 0031's trigger gets its own `updated` audit event:
+  change `ownerUserId`, before = the removed user's id, after = null, in the contact's programme. Set-based
+  `INSERT ... SELECT`. This edits T-0103's former-owner suite ("exactly one programme event, no contact id"), a lead edit made
+  first.
+
 ## Acceptance tests
 Lead edits, made first on a `lead/*` branch: `leads-api.acceptance.test.ts` (convert audit), `contacts-api.acceptance.test.ts`
 (takeover values) and `audit-field-security.acceptance.test.ts` (the allow-list).
