@@ -23,6 +23,7 @@ import { CHANNEL, createApiChannel } from './messaging/channel';
 import { AUTH_MODE, KasuwaAuthGuard, type ResolvedAuthMode } from './tenancy/kasuwa-auth.guard';
 import { StubAuthGuard } from './tenancy/stub-auth.guard';
 import { TenantTransactionInterceptor } from './tenancy/tenant-transaction.interceptor';
+import { NoStoreMiddleware } from './common/no-store.middleware';
 import { UnexpectedErrorFilter } from './common/unexpected-error.filter';
 import { ValidationExceptionFilter } from './common/zod-exception.filter';
 import {
@@ -31,15 +32,21 @@ import {
   telemetryOptions,
 } from './telemetry/request-telemetry';
 
-/** Controllers hosted by this module. AuthController is hosted by AuthModule. */
-const CONTROLLERS = [
-  HealthController,
+/**
+ * The records controllers (records.openapi.yaml): contacts and both timelines,
+ * leads, accounts, activities and `/me/programmes`. Every answer on every one
+ * of their routes is `Cache-Control: no-store` (`NoStoreMiddleware`, T-0080).
+ */
+export const RECORDS_CONTROLLERS = [
   ContactsController,
   LeadsController,
   AccountsController,
   ActivitiesController,
   MeController,
 ];
+
+/** Controllers hosted by this module. AuthController is hosted by AuthModule. */
+const CONTROLLERS = [HealthController, ...RECORDS_CONTROLLERS];
 
 /**
  * Every controller in the app, including those hosted by feature modules. Used
@@ -137,6 +144,9 @@ export class AppModule implements NestModule {
    */
   configure(consumer: MiddlewareConsumer): void {
     consumer.apply(RequestTelemetryMiddleware).forRoutes('{*splat}');
+    // Every records answer is `no-store`, the guard's 401 and 400 included, which the
+    // handlers' `@Header` (set after the guards) never reaches (T-0080, D-L90's follow-up).
+    consumer.apply(NoStoreMiddleware).forRoutes(...RECORDS_CONTROLLERS);
   }
 
   static forRoot(options: AppModuleOptions): DynamicModule {

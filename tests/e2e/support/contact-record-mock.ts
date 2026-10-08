@@ -591,9 +591,10 @@ function activityItem(
   id: string,
   occurredAt: string,
   actor: Person | null,
-  activity: { activityId: string; activityType: string; subject?: string | null; body?: string | null; dueAt?: string | null; completedAt?: string | null },
+  activity: { activityId: string; activityType: string; subject?: string | null; body?: string | null; dueAt?: string | null; completedAt?: string | null; version?: number },
 ): TimelineItem {
-  return checkItem({ id, type: 'activity', occurredAt, actor: actorOf(actor), ...clone(activity) });
+  // T-0080 (D-L85): every activity item carries the row's version; a planted activity is at 1 unless it says otherwise.
+  return checkItem({ id, type: 'activity', occurredAt, actor: actorOf(actor), version: 1, ...clone(activity) });
 }
 
 /** The contract's example page, verbatim: the newest four items of CONTACT_FULL. */
@@ -1238,6 +1239,7 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
       body: body.body ?? null,
       dueAt: body.dueAt ?? null,
       completedAt: null,
+      version: 1,
     };
     for (const field of withheld) {
       delete item[field];
@@ -1297,6 +1299,9 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
     const item = (timelines.get(state.contactId) ?? []).find((candidate) => candidate.id === state.itemId);
     if (item !== undefined && 'completedAt' in item) {
       item.completedAt = state.activity.completedAt;
+    }
+    if (item !== undefined) {
+      item.version = state.activity.version;
     }
     return fulfil(route, 200, activityResponse(state));
   };

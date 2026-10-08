@@ -122,7 +122,8 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   [SPEC]: '764fe62ac2db767c8b59f1a614d7f870dec872df9c712b2d6f4fba106a510ba4',
-  [MOCK]: '92283587d19e8e3c895614366ce0078bf01472096a62a84065f497b164ecd5fc',
+  // T-0080: the mock's activity items carry `version`, as the contract now requires.
+  [MOCK]: '4f240ad9cb410942ba7234e3c7247876ed0573ca7fe2be7a8678764e130f8d31',
 };
 
 /** See the budget test in the spec for the derivation. Never above this. */

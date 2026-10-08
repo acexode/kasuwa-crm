@@ -181,6 +181,7 @@ describe('toTimelineItems: activity items (T-0061)', () => {
     body: 'Probe body',
     dueAt: new Date('2026-12-01T09:00:00.000Z'),
     completedAt: null,
+    version: 3,
   };
 
   it('sends the current state, exactly the item keys', () => {
@@ -196,20 +197,29 @@ describe('toTimelineItems: activity items (T-0061)', () => {
         body: 'Probe body',
         dueAt: '2026-12-01T09:00:00.000Z',
         completedAt: null,
+        version: 3,
       },
     ]);
   });
 
-  it('omits a withheld subject, body, due or completed time, never nulls it', () => {
+  it('omits a withheld subject, body, due or completed time, never nulls it; keeps the version', () => {
     const [item] = toTimelineItems(
       [row],
       activityAccess({ body: 'none', subject: 'none', dueAt: 'none', completedAt: 'none' }),
       A1,
     );
     expect(Object.keys(item ?? {}).sort()).toEqual(
-      ['activityId', 'activityType', 'actor', 'id', 'occurredAt', 'type'].sort(),
+      ['activityId', 'activityType', 'actor', 'id', 'occurredAt', 'type', 'version'].sort(),
     );
     expect(JSON.stringify(item)).not.toContain('Probe');
+  });
+
+  it('carries the row version, whatever the matrix withholds (T-0080, D-L85)', () => {
+    const everything = Object.fromEntries(
+      SECURED_ACTIVITY_FIELDS.map((field) => [field, 'none' as const]),
+    );
+    const [item] = toTimelineItems([{ ...row, version: 41 }], activityAccess(everything), A1);
+    expect(item).toMatchObject({ type: 'activity', version: 41 });
   });
 
   it('refuses a type outside the contract rather than sending it', () => {

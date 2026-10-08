@@ -18,7 +18,7 @@ function headersOf(handler: unknown): { name: string; value: string }[] {
   }[];
 }
 
-const HANDLERS = ['list', 'create', 'map', 'findOne', 'update', 'contacts'] as const;
+const HANDLERS = ['list', 'create', 'map', 'findOne', 'update', 'contacts', 'timeline'] as const;
 
 describe('AccountsController', () => {
   it.each(HANDLERS)('%s sends Cache-Control: no-store', (handler) => {

@@ -698,6 +698,8 @@ const ACTIVITY_ITEM_KEYS = [
   'body',
   'dueAt',
   'completedAt',
+  // T-0080 (D-L85): the row's version, so a served task can be completed. Never withheld.
+  'version',
 ];
 /** T5: activity-object fields an item omits when withheld. */
 const ACTIVITY_ITEM_WITHHOLDABLE = ['subject', 'body', 'dueAt', 'completedAt'];
@@ -2067,6 +2069,7 @@ describe('acceptance: contact timeline, account summary and activity writes (T-0
         body: 'Invented text that names no one.',
         dueAt: DUE,
         completedAt: null,
+        version: (created.body as Json).version,
       });
 
       const completed = await updateActivity(SUPERVISOR, activityId, {

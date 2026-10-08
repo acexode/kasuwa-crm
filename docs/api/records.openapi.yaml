@@ -45,7 +45,7 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.6.0-T-0061
+  version: 0.7.0-T-0080
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
     update. Accounts (T-0052, served since T-0055): list, get, create,
@@ -53,7 +53,9 @@ info:
     record view (P05, T-0059, served by T-0061): the contact's timeline and
     its account summary. Activities (T-0061, D-P18): log a note, task or call
     against a contact or an account, and complete or reassign it; activities
-    are read on the contact's timeline. Leads (T-0056, D-P17, served since
+    are read on the contact's timeline and, from T-0080, on the account's
+    (`listAccountTimeline`), each carrying the `version` updateActivity
+    needs (D-L85). Leads (T-0056, D-P17, served since
     T-0076): a lead is a
     contact at a lead stage, not its own record, so leads add a list view
     (`listLeads`), one action (`convertContact`) and one contact field
@@ -588,6 +590,7 @@ paths:
                     body: Asked for a call after 4pm.
                     dueAt: '2026-10-02T15:00:00.000Z'
                     completedAt: null
+                    version: 1
                 nextCursor: dGltZWxpbmUtY3Vyc29yLWV4YW1wbGU
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
@@ -596,9 +599,10 @@ paths:
   # -------------------------------------------------------------------------
   # Activities (T-0061; D-P18, D-L77, D-L79, D-L81). A note, a task or a
   # logged call against a contact, an account or both, in the target's
-  # programme. Read on the contact's timeline (listContactTimeline); there is
-  # no activity list or get yet. The five rules at the top of this file apply
-  # unchanged.
+  # programme. Read on the contact's timeline (listContactTimeline) and the
+  # account's (listAccountTimeline, T-0080); each activity item carries the
+  # `version` updateActivity needs (D-L85). There is no activity list or get
+  # yet. The five rules at the top of this file apply unchanged.
   # -------------------------------------------------------------------------
 
   /api/v1/activities:
@@ -686,7 +690,10 @@ paths:
         (D-L81). Completing sets `completedAt` to the server's time and keeps
         it if the task was already complete; only a task can be completed
         (`400 task_only` for a note or a call). Reopening is not in this
-        slice. The activity cannot be retargeted or moved between programmes:
+        slice. The `version` to send is the one on the activity's timeline
+        item (listContactTimeline or listAccountTimeline, T-0080), or on the
+        Activity this caller last wrote. The activity cannot be retargeted or
+        moved between programmes:
         `contactId`, `accountId`, `programmeId` and every server-owned field
         are `400` (the body is closed). A stale `version` is
         `409 stale_write`.
@@ -1431,6 +1438,140 @@ paths:
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '404': { $ref: '#/components/responses/AccountNotFound' }
 
+  /api/v1/accounts/{accountId}/timeline:
+    parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: |
+          An account identifier. An id the caller cannot reach, whether in
+          another tenant, another programme or nowhere, is `404 not_found`.
+          **Unlike the other account operations, a value that is not a uuid
+          is the same `404`, byte for byte** (T-0080), never a `400`.
+    get:
+      tags: [accounts]
+      summary: The account's timeline — field changes and activities, newest first
+      operationId: listAccountTimeline
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P05/04']
+      description: |
+        The centre column of the P05 account record (T-0063): what changed on
+        this account, who changed it, and the notes, tasks and calls logged
+        against it. The same page shape, paging, ordering and item rules as
+        listContactTimeline, which this operation shares rather than forks
+        (T-0080); where this description is silent, that one applies.
+
+        **Scope.** The account must be readable by the caller, exactly as for
+        getAccount. Anything else (no such account, another tenant's, one in
+        a programme the caller does not reach, and an id that is not a uuid)
+        is one `404 not_found` body, the same bytes in every case. That check
+        comes first, and nothing about the account's history is read before
+        it passes. **Order: `404`, then `400`.** A bad `cursor` or `limit` on
+        an account the caller cannot reach is `404`. This is a read, so there
+        is no `403`: every permission set that can read the account can read
+        its timeline, and out of scope is still `404`. A scope header is
+        refused `400` before any of this, by authentication, whatever the id.
+
+        **Field changes: by name only.** One `field_changed` item per field
+        named by an audit event of this account (`objectType: account`, this
+        account's id, in this account's programme), created and updated
+        alike; a creation renders like an update (D-L81), one item per field
+        the create set. The field is named by its Account wire name. Account
+        audit records field names, never values (D-L78), so **every account
+        item is `redacted: true` and never carries `before` or `after`**,
+        whatever an audit row holds: the account has no value fields
+        (T-0078). An audited name that is not an Account field yields no item
+        (field security cannot judge it, so it fails closed). Accounts have
+        no consent, so there are no `consent_changed` items. A contact's
+        event that names its `accountId`, an activity's own events, and a
+        child account's events are theirs, not this account's.
+
+        **Activities.** One `activity` item per note, task or logged call
+        whose `account_id` is this account, with or without a contact, read
+        on `activity_account_keyset_idx`. The item is the same schema as on
+        the contact's timeline: its current state, `occurredAt` when it was
+        logged (D-L77), and its `version` for updateActivity (D-L85).
+        **Not on it:** the activities of the account's contacts that carry no
+        `account_id`, and those of child accounts. Rollups across contacts or
+        a hierarchy are the pipeline slice's.
+
+        **Field security omits, before paging.** Judged in the account's
+        programme, against the set the caller holds there today, not at the
+        time of the change; the tenant-admin flag does not lift it (D-L63).
+        The ACCOUNT's matrix judges field-change items: an item for a field
+        withheld from the caller is omitted, value and name, and nothing
+        marks the gap. The ACTIVITY's matrix judges each activity item,
+        exactly as on the contact timeline: a withheld `subject`, `body`,
+        `dueAt` or `completedAt` is omitted from the item, and when the
+        activity's account link (`account_id`) is withheld no activity item
+        is shown at all (the counterpart of `contact_id` on the contact
+        timeline). `version` is never withheld. Omission happens before the
+        page is cut: a page with a non-null `nextCursor` holds `limit` items,
+        and a cursor never leads to an empty page.
+
+        **Order and paging.** `occurredAt` descending across both sources,
+        ties broken by item `id` descending in code-unit order. Keyset only:
+        `{ data, nextCursor }`, no total, count or offset (D-P13). The cursor
+        carries a position only: never a name (D-L80), and never an id of
+        anything the pages did not show. A malformed cursor, or one issued
+        for another account, another timeline (a contact's included) or
+        another list, is `400 validation_failed` with
+        `details[].code: invalid_cursor`. `limit` out of 1..100 is `400`,
+        never clamped. `Cache-Control: no-store` on every answer, `200`,
+        `404` and `400` alike.
+
+        **Actors and item ids** follow listContactTimeline (D-L81): the person
+        who acted, named as they are named now; `null` is the system. Ids are
+        opaque, never an audit event or activity id, and depend only on the
+        item's own change or activity.
+
+        **The client portal (D-P26, open).** No new rule here: the
+        `client_portal` set reads this timeline exactly as it reads a
+        contact's, and an activity is shown to it the same way on both.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of the account's timeline, field security applied.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountTimelinePage' }
+              example:
+                data:
+                  - id: ti_4f7a0c2e9b1d4e6f8a3c5b7d9e1f2a40
+                    type: field_changed
+                    occurredAt: '2026-10-03T14:40:00.000Z'
+                    actor:
+                      id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                      displayName: Kemi Balogun
+                    field: tier
+                    redacted: true
+                  - id: ti_1b2c3d4e5f60718293a4b5c6d7e8f901
+                    type: field_changed
+                    occurredAt: '2026-10-03T14:40:00.000Z'
+                    actor:
+                      id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                      displayName: Kemi Balogun
+                    field: phones
+                    redacted: true
+                  - id: ti_0a9b8c7d6e5f40312a1b2c3d4e5f6071
+                    type: activity
+                    occurredAt: '2026-09-30T16:05:00.000Z'
+                    actor: null
+                    activityId: 5e2a7b1c-3d4f-4a6b-8c9d-0e1f2a3b4c02
+                    activityType: task
+                    subject: Confirm the delivery schedule
+                    body: Wants deliveries before 10am.
+                    dueAt: '2026-10-02T15:00:00.000Z'
+                    completedAt: null
+                    version: 3
+                nextCursor: dGltZWxpbmUtY3Vyc29yLWV4YW1wbGU
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+
 components:
   securitySchemes:
     sessionToken:
@@ -1874,17 +2015,18 @@ components:
     ActivityItem:
       type: object
       additionalProperties: false
-      required: [id, type, occurredAt, actor, activityId, activityType]
+      required: [id, type, occurredAt, actor, activityId, activityType, version]
       description: |
-        A note, a task or a logged call on this contact (T-0061), in its
-        current state: completing a task changes this item and never adds
-        one. `occurredAt` is when the activity was logged (D-L77), and
-        `actor` who logged it (`null`: the system, such as an import).
+        A note, a task or a logged call on this contact (T-0061) or this
+        account (T-0080), in its current state: completing a task changes
+        this item and never adds one. `occurredAt` is when the activity was
+        logged (D-L77), and `actor` who logged it (`null`: the system, such
+        as an import). One schema for both timelines.
 
-        Follows the activity object's field security in the contact's
+        Follows the activity object's field security in the record's
         programme: a `subject`, `body`, `dueAt` or `completedAt` the caller
         may not read is omitted from the item (never sent as `null`). A
-        present `null` means no value.
+        present `null` means no value. `version` is never withheld.
       properties:
         id:
           type: string
@@ -1911,6 +2053,76 @@ components:
           type: [string, 'null']
           format: date-time
           description: Set by the server when a task is completed; `null` until then.
+        version:
+          type: integer
+          minimum: 1
+          description: |
+            The activity row's current `version` (D-L85), unchanged by field
+            security: send it back on updateActivity to complete or reassign
+            the activity. Stale is `409 stale_write`; re-read the timeline.
+
+    AccountTimelinePage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      description: |
+        listAccountTimeline's page (T-0080): the same shape as TimelinePage,
+        `{ data, nextCursor }`, with no total, count or offset (D-P13) and
+        nothing that says items were left out. Its own schema, not
+        TimelinePage, because its field changes are named by Account fields
+        and never carry values: an account `tags` or `state` change is
+        name-only, where the contact's carries values (D-L72, D-L78).
+        `nextCursor` is `null` on the last page.
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/AccountTimelineItem' }
+        nextCursor: { type: [string, 'null'] }
+
+    AccountTimelineItem:
+      description: |
+        One thing that happened to the account. A closed union on `type`:
+        `field_changed` (by name only) and `activity` (the very ActivityItem
+        of the contact timeline). An account has no consent, so there is no
+        `consent_changed`. No other type is added without a lead decision
+        (D-L72).
+      oneOf:
+        - $ref: '#/components/schemas/AccountFieldChangedItem'
+        - $ref: '#/components/schemas/ActivityItem'
+      discriminator:
+        propertyName: type
+        mapping:
+          field_changed: '#/components/schemas/AccountFieldChangedItem'
+          activity: '#/components/schemas/ActivityItem'
+
+    AccountFieldChangedItem:
+      type: object
+      additionalProperties: false
+      required: [id, type, occurredAt, actor, field, redacted]
+      description: |
+        A change to one Account field, shown by name only (D-L78: account
+        audit records field names, never values; T-0078: an account has no
+        value fields). Never `before` or `after`. One audit event that
+        changed several fields is several items sharing an `occurredAt`.
+      properties:
+        id:
+          type: string
+          description: Opaque and unique per item; never the audit event id.
+        type: { type: string, const: field_changed }
+        occurredAt: { type: string, format: date-time }
+        actor:
+          description: '`null` is the system (an import, a migration).'
+          oneOf:
+            - { $ref: '#/components/schemas/TimelineActor' }
+            - { type: 'null' }
+        field:
+          type: string
+          enum: [name, ownerUserId, industry, tier, tags, phones, state, lga, parentAccountId]
+          description: The Account property that changed.
+        redacted:
+          type: boolean
+          const: true
+          description: Always `true`. The change happened; its values are not shown.
 
     ActivityType:
       type: string

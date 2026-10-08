@@ -18,6 +18,7 @@ import type { ContactWire } from '../contacts/contact-wire';
 import { KasuwaAuthGuard } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { currentTx } from '../tenancy/tenant-context';
+import { listAccountTimelineFor, type AccountTimelinePageWire } from './account-timeline';
 import type { AccountWire } from './account-wire';
 import { AccountIdParam, ListAccountContactsQuery, ListAccountsQuery } from './accounts.schemas';
 import {
@@ -31,7 +32,8 @@ import {
 /**
  * The accounts API: the account operations of `docs/api/records.openapi.yaml`
  * (T-0052), implemented by T-0055: listAccounts, createAccount, getAccount,
- * updateAccount, listAccountContacts, and getAccountMap (501 by design).
+ * updateAccount, listAccountContacts, and getAccountMap (501 by design); and
+ * the account's timeline, listAccountTimeline (T-0080).
  *
  * The controller never reads a tenant or programme id from the request. Scope
  * arrives through `currentTx()`, which came from the interceptor, which got it
@@ -134,5 +136,22 @@ export class AccountsController {
   ): Promise<{ data: ContactWire[]; nextCursor: string | null }> {
     const { accountId } = AccountIdParam.parse(params);
     return listAccountContactsFor(currentTx(), accountId, ListAccountContactsQuery.parse(query));
+  }
+
+  /**
+   * `GET /api/v1/accounts/{accountId}/timeline` — operationId
+   * `listAccountTimeline` (T-0080). 200 · 400 · 401 · 404. Reachability
+   * first, and a path id that is not a uuid is that same 404 (never a 400),
+   * then the query, then the cursor. `no-store` on every answer: the header
+   * here, which Nest sets after the guards, and `NoStoreMiddleware`
+   * (app.module.ts), which also covers the guard's 401 and 400.
+   */
+  @Get(':accountId/timeline')
+  @Header(CACHE_CONTROL, NO_STORE)
+  async timeline(
+    @Param() params: unknown,
+    @Query() query: unknown,
+  ): Promise<AccountTimelinePageWire> {
+    return listAccountTimelineFor(currentTx(), params, query);
   }
 }

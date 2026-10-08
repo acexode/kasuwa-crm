@@ -5,7 +5,7 @@ import type { Request, Response } from 'express';
 import { describe, expect, it } from 'vitest';
 import { AuditController } from './audit.controller';
 import { AdminAuditModule } from './audit.module';
-import { NoStoreMiddleware } from './no-store.middleware';
+import { NoStoreMiddleware } from '../../common/no-store.middleware';
 
 /**
  * Route metadata Nest applies, read without a database: every audit response
