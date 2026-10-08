@@ -92,6 +92,14 @@ export const PROGRAMME_ACTIONS = [
    * set may only take an activity itself.
    */
   'activity.reassign',
+  /**
+   * D-L88, D-L91 (T-0113): author the programme's in-call scripts - read a
+   * script and its versions, edit the draft, translate it, publish it
+   * (docs/api/scripting.openapi.yaml). Held by `admin` only, and by the
+   * tenant-admin flag. Reading authoring needs it too: anyone else gets 404.
+   * Running a published script is `script.run`, which T-0114 adds.
+   */
+  'script.write',
 ] as const;
 
 export type TenantAction = (typeof TENANT_ACTIONS)[number];

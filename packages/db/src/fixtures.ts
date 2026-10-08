@@ -16,6 +16,8 @@
  *                  00000010   permission set
  *                  00000013   account
  *                  00000014   activity
+ *                  00000015   script
+ *                  00000016   script version
  *
  * Tenant A deliberately models the BPO shape: two client programmes, an agent
  * on each, a supervisor across both, and a user with no programme membership at
@@ -350,6 +352,64 @@ export const SEED_ACTIVITIES: readonly SeedActivity[] = [
     body: 'Seed fixture: invented text that names no one.',
     ownerUserId: USER_B_AGENT_1,
     accountId: `${B}000000130003`,
+  },
+];
+
+export interface SeedScript {
+  id: string;
+  tenantId: string;
+  programmeId: string;
+  name: string;
+  sourceLocale: 'en';
+  /** A complete ScriptGraph (docs/api/scripting.openapi.yaml); the draft and v1 alike. */
+  graph: Readonly<Record<string, unknown>>;
+  /** The id of its one published version, number 1. */
+  versionId: string;
+  /** Who published it: a holder of `script.write` in the programme. */
+  publishedByUserId: string;
+}
+
+/**
+ * One published script in tenant A (T-0113, D-L96), kind `00000015`, with its
+ * version 1 (kind `00000016`) and a draft identical to it. It exists so the
+ * T-0011 schema-hygiene probe has a script row whose updated_at it can move,
+ * and a published version it must be refused on. The wording is invented and
+ * names no one; its one variable is the contact's display name.
+ *
+ * In PROGRAMME_A2 ("Telco Y Care"), not A1: P02's live journey opens A1's
+ * scripts tab as the designed empty state (tests/e2e/p02-live.spec.ts,
+ * P02/B6), so A1 must seed no script. The publisher, the supervisor, holds
+ * the admin set in A2 as in A1.
+ */
+export const SEED_SCRIPTS: readonly SeedScript[] = [
+  {
+    id: `${A}000000150001`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A2,
+    name: 'Seeded care call',
+    sourceLocale: 'en',
+    graph: {
+      startNodeId: 'greet',
+      nodes: [
+        {
+          id: 'greet',
+          type: 'say',
+          title: 'Greeting',
+          text: 'Good afternoon, {contact.displayName}. This is a seeded script.',
+          next: 'rec',
+        },
+        {
+          id: 'rec',
+          type: 'compliance',
+          title: 'Recording notice',
+          text: 'This call is recorded for quality and training.',
+          next: 'close',
+        },
+        { id: 'close', type: 'end', title: 'Close', text: 'Thank you for your time.' },
+      ],
+    },
+    versionId: `${A}000000160001`,
+    publishedByUserId: USER_A_SUPERVISOR,
   },
 ];
 

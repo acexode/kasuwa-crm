@@ -17,8 +17,10 @@ import type { NextFunction, Request, Response } from 'express';
  * that is identical for every user of every tenant is never one a shared
  * cache should keep.
  *
- * Applied by `AdminAuditModule` (the audit controller) and by `AppModule`
- * (`RECORDS_CONTROLLERS`). The handlers keep their own `@Header` as well.
+ * Applied by `AdminAuditModule` (the audit controller), by
+ * `AdminDispositionsModule` (listProgrammeScripts, T-0113) and by `AppModule`
+ * (`RECORDS_CONTROLLERS` and `SCRIPTING_CONTROLLERS`). The handlers keep their
+ * own `@Header` as well, where they have one.
  */
 @Injectable()
 export class NoStoreMiddleware implements NestMiddleware {

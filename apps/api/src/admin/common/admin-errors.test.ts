@@ -8,8 +8,10 @@ import { hierarchyCycle } from '../roles/roles.errors';
 import {
   AdminErrorFilter,
   duplicateName,
+  MAX_ERROR_DETAILS,
   notFound,
   toAdminError,
+  validationFailed,
   validationFailedFrom,
 } from './admin-errors';
 import { foundOr404, parseIdOr404, parseOr400 } from './admin-input';
@@ -141,5 +143,37 @@ describe('admin input helpers', () => {
     expect(parseOr400(Id, { id: '11111111-0000-4000-8000-000000000001' })).toEqual({
       id: '11111111-0000-4000-8000-000000000001',
     });
+  });
+});
+
+describe('the details cap (T-0113 security review)', () => {
+  it('validationFailed keeps the first MAX_ERROR_DETAILS details, in order', () => {
+    const details = Array.from({ length: 120 }, (_, index) => ({
+      path: `items.${index}`,
+      code: 'invalid_type',
+    }));
+    const body = validationFailed(details).getResponse() as { details: unknown[] };
+    expect(body.details).toEqual(details.slice(0, MAX_ERROR_DETAILS));
+  });
+
+  it('validationFailedFrom stops at the cap, whatever the number of issues', () => {
+    const result = z.array(z.string()).safeParse(Array.from({ length: 100_000 }, () => 1));
+    if (result.success) throw new Error('expected a failure');
+    const started = performance.now();
+    const body = validationFailedFrom(result.error).getResponse() as {
+      details: { path: string }[];
+    };
+    expect(body.details).toHaveLength(MAX_ERROR_DETAILS);
+    expect(body.details[0]?.path).toBe('0');
+    expect(body.details[MAX_ERROR_DETAILS - 1]?.path).toBe(String(MAX_ERROR_DETAILS - 1));
+    expect(performance.now() - started).toBeLessThan(200);
+  });
+
+  it('an unrecognized-keys issue over the cap is capped too', () => {
+    const keys = Object.fromEntries(Array.from({ length: 80 }, (_, index) => [`k${index}`, 1]));
+    const result = z.object({}).strict().safeParse(keys);
+    if (result.success) throw new Error('expected a failure');
+    const body = validationFailedFrom(result.error).getResponse() as { details: unknown[] };
+    expect(body.details).toHaveLength(MAX_ERROR_DETAILS);
   });
 });

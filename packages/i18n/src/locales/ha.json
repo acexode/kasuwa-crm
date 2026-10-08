@@ -514,6 +514,7 @@
   "admin.audit.action.rejected": "An ƙi",
   "admin.audit.action.rotated": "An musanya",
   "admin.audit.action.played_recording": "An saurari rikodi",
+  "admin.audit.action.published": "An wallafa",
   "admin.audit.object.withheld": "An hana nunawa",
   "admin.audit.ip.notShown": "Ba a nuna ba",
   "admin.audit.ip.notShown.why": "Adireshin IP bayanan sirri ne. “Ba a nuna ba” yana nufin wannan rukunin ba ya nan gare ka; ba ya gaya maka ko an rubuta adireshi ko a’a.",

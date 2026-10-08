@@ -514,6 +514,7 @@
   "admin.audit.action.rejected": "رُفض",
   "admin.audit.action.rotated": "جرى تدويره",
   "admin.audit.action.played_recording": "شُغِّل تسجيل",
+  "admin.audit.action.published": "نُشر",
   "admin.audit.object.withheld": "محجوب",
   "admin.audit.ip.notShown": "غير معروض",
   "admin.audit.ip.notShown.why": "عناوين IP بيانات شخصية. «غير معروض» يعني أن هذا العمود غير متاح لك؛ ولا يخبرك بما إذا كان العنوان قد سُجِّل.",

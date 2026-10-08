@@ -4,10 +4,11 @@ import type { NextFunction, Request, Response } from 'express';
 import { describe, expect, it, vi } from 'vitest';
 import { AccountsController } from '../accounts/accounts.controller';
 import { ActivitiesController } from '../activities/activities.controller';
-import { AppModule, RECORDS_CONTROLLERS } from '../app.module';
+import { AppModule, RECORDS_CONTROLLERS, SCRIPTING_CONTROLLERS } from '../app.module';
 import { ContactsController } from '../contacts/contacts.controller';
 import { LeadsController } from '../leads/leads.controller';
 import { MeController } from '../me/me.controller';
+import { ScriptsController } from '../scripts/scripts.controller';
 import { NoStoreMiddleware } from './no-store.middleware';
 
 /**
@@ -57,6 +58,11 @@ describe('AppModule applies it to every records controller (T-0080, D-L90)', () 
     const noStore = applied.filter((entry) => entry.middleware.includes(NoStoreMiddleware));
     expect(noStore).toHaveLength(1);
     expect(noStore[0]?.middleware).toEqual([NoStoreMiddleware]);
-    expect(noStore[0]?.routes).toEqual([...RECORDS_CONTROLLERS]);
+    // T-0113: and every scripting controller, in the same one application.
+    expect(noStore[0]?.routes).toEqual([...RECORDS_CONTROLLERS, ...SCRIPTING_CONTROLLERS]);
+  });
+
+  it('names the scripting controller (T-0113)', () => {
+    expect([...SCRIPTING_CONTROLLERS]).toEqual([ScriptsController]);
   });
 });

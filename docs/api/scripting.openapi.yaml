@@ -72,8 +72,9 @@ openapi: 3.1.0
 #    the `versionId` it started on until it completes; republishing never
 #    changes a run in progress (M10 Q2, D-L88).
 #
-# `x-kasuwa-implemented` is strictly true or false (records' rule). Every
-# operation here is `false` until T-0113 and T-0114 serve it.
+# `x-kasuwa-implemented` is strictly true or false (records' rule). The eight
+# authoring operations are served (T-0113); the nine run operations stay
+# `false` until T-0114 serves them.
 #
 # `x-kasuwa-error-order` lists the failures an operation can answer, as
 # `<status> <code>`, in the order they are decided: the first that applies is
@@ -165,7 +166,7 @@ paths:
       tags: [scripts]
       summary: List the scripts the caller may author
       operationId: listScripts
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-permission: script.write
       x-kasuwa-screens: ['P10/05']
       x-kasuwa-error-order: ['400 validation_failed']
@@ -216,7 +217,7 @@ paths:
       tags: [scripts]
       summary: Create a draft script in a programme
       operationId: createScript
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-permission: script.write
       x-kasuwa-screens: ['P10/05']
@@ -229,7 +230,11 @@ paths:
         `403 not_permitted`.
 
         The draft graph is checked for shape here (`400`). Whether it is
-        complete enough to publish is checked by publishScript.
+        complete enough to publish is checked by publishScript. Without a
+        `graph`, the draft is the smallest valid graph, one `end` node that is
+        also the start (`{ startNodeId: start, nodes: [{ id: start, type:
+        end, title: End }] }`), which publishScript never publishes
+        (`empty_script`).
 
         Audited as `created`, naming the script, never its wording.
       requestBody:
@@ -261,7 +266,7 @@ paths:
       tags: [scripts]
       summary: Get a script, with its draft and translations
       operationId: getScript
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-permission: script.write
       x-kasuwa-screens: ['P10/05']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
@@ -286,7 +291,7 @@ paths:
       tags: [scripts]
       summary: Edit the draft (name, source locale, graph)
       operationId: updateScript
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-permission: script.write
       x-kasuwa-screens: ['P10/05']
@@ -337,7 +342,7 @@ paths:
       tags: [scripts]
       summary: List a script's published versions, newest first
       operationId: listScriptVersions
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-permission: script.write
       x-kasuwa-screens: ['P10/05']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
@@ -373,7 +378,7 @@ paths:
       tags: [scripts]
       summary: Publish the draft as a new, immutable version
       operationId: publishScript
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-audit-names: [scriptId, versionNumber, complianceNodesAdded, complianceNodesRemoved, complianceNodesChanged]
       x-kasuwa-permission: script.write
@@ -388,7 +393,8 @@ paths:
 
         The draft must be complete, otherwise `409 script_invalid` with
         `details[]` naming node paths and reason codes, never wording:
-        `missing_start`, `unknown_target` (a `next`, choice or branch target
+        `missing_start`, `empty_script` (only `end` nodes: nothing for an
+        agent to read), `unknown_target` (a `next`, choice or branch target
         that names no node), `unreachable_end` (a path that never reaches an
         `end`), `cycle`, `unknown_field` (a branch on a field that is not a
         contact field), `unknown_variable`, `disposition_not_live` (a
@@ -445,7 +451,7 @@ paths:
       tags: [scripts]
       summary: Read one published version (read-only)
       operationId: getScriptVersion
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-permission: script.write
       x-kasuwa-screens: ['P10/05']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
@@ -474,7 +480,7 @@ paths:
       tags: [scripts]
       summary: Set the draft's translation for one locale
       operationId: putScriptTranslation
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-permission: script.write
       x-kasuwa-screens: ['P10/05']

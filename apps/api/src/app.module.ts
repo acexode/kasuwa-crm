@@ -20,6 +20,9 @@ import { HealthController } from './health/health.controller';
 import { LeadsController } from './leads/leads.controller';
 import { MeController } from './me/me.controller';
 import { CHANNEL, createApiChannel } from './messaging/channel';
+import { ScriptsController } from './scripts/scripts.controller';
+import { ScriptsModule } from './scripts/scripts.module';
+import { JsonBodyLimit } from './common/json-body-limit';
 import { AUTH_MODE, KasuwaAuthGuard, type ResolvedAuthMode } from './tenancy/kasuwa-auth.guard';
 import { StubAuthGuard } from './tenancy/stub-auth.guard';
 import { TenantTransactionInterceptor } from './tenancy/tenant-transaction.interceptor';
@@ -45,6 +48,13 @@ export const RECORDS_CONTROLLERS = [
   MeController,
 ];
 
+/**
+ * The scripting controllers (scripting.openapi.yaml, T-0113), hosted by
+ * ScriptsModule. Every answer is `no-store` too: a script carries a
+ * programme's compliance wording.
+ */
+export const SCRIPTING_CONTROLLERS = [ScriptsController];
+
 /** Controllers hosted by this module. AuthController is hosted by AuthModule. */
 const CONTROLLERS = [HealthController, ...RECORDS_CONTROLLERS];
 
@@ -55,7 +65,12 @@ const CONTROLLERS = [HealthController, ...RECORDS_CONTROLLERS];
  * areas' controllers are derived from AdminModule, so a new area is covered
  * without an edit here.
  */
-const TELEMETRY_CONTROLLERS = [...CONTROLLERS, AuthController, ...ADMIN_CONTROLLERS];
+const TELEMETRY_CONTROLLERS = [
+  ...CONTROLLERS,
+  AuthController,
+  ...SCRIPTING_CONTROLLERS,
+  ...ADMIN_CONTROLLERS,
+];
 
 export interface AppModuleOptions {
   /** kasuwa_app (NOBYPASSRLS). Every route's tenant transaction runs on it. */
@@ -146,7 +161,8 @@ export class AppModule implements NestModule {
     consumer.apply(RequestTelemetryMiddleware).forRoutes('{*splat}');
     // Every records answer is `no-store`, the guard's 401 and 400 included, which the
     // handlers' `@Header` (set after the guards) never reaches (T-0080, D-L90's follow-up).
-    consumer.apply(NoStoreMiddleware).forRoutes(...RECORDS_CONTROLLERS);
+    // And every scripting answer (T-0113, scripting.openapi.yaml's NoStore header).
+    consumer.apply(NoStoreMiddleware).forRoutes(...RECORDS_CONTROLLERS, ...SCRIPTING_CONTROLLERS);
   }
 
   static forRoot(options: AppModuleOptions): DynamicModule {
@@ -182,9 +198,15 @@ export class AppModule implements NestModule {
         }),
         // Every admin area. A new area is added inside AdminModule, not here.
         AdminModule,
+        // In-call script authoring (T-0113): its own module for its no-store
+        // middleware, like the audit area.
+        ScriptsModule,
       ],
       controllers: CONTROLLERS,
       providers: [
+        // The 512 KiB JSON body limit, wherever the module boots (T-0113):
+        // installed before Nest's own 100 KB parser would be.
+        JsonBodyLimit,
         KasuwaAuthGuard,
         StubAuthGuard,
         TenantTransactionInterceptor,

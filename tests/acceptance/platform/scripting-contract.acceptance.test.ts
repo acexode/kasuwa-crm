@@ -40,9 +40,10 @@ import { parse } from 'yaml';
  *     listScriptRunDispositions  GET   /api/v1/script-runs/{runId}/dispositions
  *     completeScriptRun          POST  /api/v1/script-runs/{runId}/complete
  *
- *   Exactly these seventeen, every one `x-kasuwa-implemented: false` until
- *   T-0113 and T-0114 serve it. A new operation is a contract change and an
- *   edit to this table, not a silent addition.
+ *   Exactly these seventeen. T-0113 serves the eight authoring operations, so
+ *   they are `x-kasuwa-implemented: true`; the nine run operations stay
+ *   `false` until T-0114 serves them (lead edit with T-0113). A new operation
+ *   is a contract change and an edit to this table, not a silent addition.
  *
  *   P10 frames, numbered from the design's own view and scenario controls
  *   (docs/design/P10, "Kasuwa Scripting.html"): P10/01 agent mid-call (with
@@ -1200,11 +1201,39 @@ describe('acceptance: scripting contract (T-0112)', () => {
       }
     });
 
-    it('every path is x-kasuwa-implemented: false until T-0113 and T-0114 serve it', () => {
-      const offending = operations()
-        .filter((op) => op.op['x-kasuwa-implemented'] !== false)
-        .map((op) => `${op.id}: ${String(op.op['x-kasuwa-implemented'])}`);
-      expect(offending).toEqual([]);
+    it('the eight authoring operations are x-kasuwa-implemented: true (T-0113); the nine run operations stay false until T-0114', () => {
+      // Named one by one: a set flipped by accident, or a new operation that
+      // arrives already "implemented", fails here by name. Strictly true or
+      // false (records' rule), never truthy.
+      const authoring = [
+        'listScripts',
+        'createScript',
+        'getScript',
+        'updateScript',
+        'listScriptVersions',
+        'publishScript',
+        'getScriptVersion',
+        'putScriptTranslation',
+      ];
+      const runs = [
+        'listContactScripts',
+        'startScriptRun',
+        'getScriptRun',
+        'getScriptRunScript',
+        'advanceScriptRun',
+        'acknowledgeScriptRunNode',
+        'recordScriptRunAnswers',
+        'listScriptRunDispositions',
+        'completeScriptRun',
+      ];
+      const flags = Object.fromEntries(
+        operations().map((op) => [op.id, op.op['x-kasuwa-implemented']]),
+      );
+      expect(flags).toEqual({
+        ...Object.fromEntries(authoring.map((id) => [id, true])),
+        ...Object.fromEntries(runs.map((id) => [id, false])),
+      });
+      expect(authoring.length + runs.length).toBe(EXPECTED.length);
       expect(operations().length).toBe(EXPECTED.length);
     });
 

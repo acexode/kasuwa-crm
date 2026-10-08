@@ -614,7 +614,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "dismissAdminAlert",
     "method": "PUT",
     "path": "/api/v1/admin/home/alerts/{alertId}/dismissal",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/A"
@@ -653,7 +653,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getAdminHomeSummary",
     "method": "GET",
     "path": "/api/v1/admin/home/summary",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/A"
@@ -725,7 +725,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getAdminUsage",
     "method": "GET",
     "path": "/api/v1/admin/home/usage",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/A"
@@ -1316,7 +1316,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "getSettingsMenuBadges",
     "method": "GET",
     "path": "/api/v1/admin/settings-menu/badges",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/A1"
@@ -1454,7 +1454,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listAdminAlerts",
     "method": "GET",
     "path": "/api/v1/admin/home/alerts",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/A"
@@ -1486,6 +1486,20 @@ export const ADMIN_OPERATIONS = [
               "actionLabel": "Remind them",
               "settingId": "u-mfa",
               "dismissed": false
+            }
+          ]
+        }
+      },
+      "400": {
+        "default": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "warnAtPercentOfTarget",
+              "code": "too_big"
             }
           ]
         }
@@ -2188,6 +2202,14 @@ export const ADMIN_OPERATIONS = [
           "message": "Not authenticated"
         }
       },
+      "403": {
+        "default": {
+          "statusCode": 403,
+          "error": "Forbidden",
+          "code": "not_permitted",
+          "message": "You do not have permission to do that."
+        }
+      },
       "404": {
         "default": {
           "statusCode": 404,
@@ -2210,7 +2232,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "restoreAdminAlert",
     "method": "DELETE",
     "path": "/api/v1/admin/home/alerts/{alertId}/dismissal",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P02/A"

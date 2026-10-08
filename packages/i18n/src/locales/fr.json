@@ -514,6 +514,7 @@
   "admin.audit.action.rejected": "Rejeté",
   "admin.audit.action.rotated": "Renouvelé",
   "admin.audit.action.played_recording": "Enregistrement écouté",
+  "admin.audit.action.published": "Publié",
   "admin.audit.object.withheld": "Masqué",
   "admin.audit.ip.notShown": "Non affichée",
   "admin.audit.ip.notShown.why": "Les adresses IP sont des données personnelles. « Non affichée » signifie que cette colonne ne vous est pas accessible ; cela ne vous dit pas si une adresse a été enregistrée.",

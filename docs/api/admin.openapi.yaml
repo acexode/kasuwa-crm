@@ -1035,16 +1035,19 @@ paths:
         **The script contract is `docs/api/scripting.openapi.yaml`** (T-0112,
         D-L88): authoring (`listScripts`, `createScript`, `getScript`,
         `updateScript`, `publishScript`, versions and translations) and agent
-        runs. Build the builder (P10) against that file, not this one. Until
-        T-0113 adds the script table this route stays empty-backed; then it
-        lists the programme's scripts. **Once backed by M10 it requires
+        runs. Build the builder (P10) against that file, not this one. Since
+        T-0113 this route is backed by M10's script tables and lists the
+        programme's scripts, by name then id. **Once backed by M10 it requires
         `script.write` in the programme** (anyone else gets `404`, the same
         body as an unreachable programme), and every response carries
         `Cache-Control: no-store`, as scripting.openapi.yaml does (D-L91
-        security review). M10 scripts are only ever `draft` or
-        `published`;
+        security review). M10 scripts are
+        only ever `draft` (never published; `version` is 1, the version a
+        first publish mints) or `published` (`version` is the latest
+        published number, whether or not the draft has changed since);
         `in_review` and `rejected_by_provider` describe channel templates
-        (M08) and M10 never produces them.
+        (M08) and M10 never produces them. `languages` is the source locale
+        and the translated ones; M10 sends no `channels`.
 
         `status` includes `rejected_by_provider`, which is the design's
         "Rejected by Meta". **The provider is not named in the enum.** No
@@ -3128,10 +3131,16 @@ components:
         - rejected
         - rotated
         - played_recording
+        - published
       description: |
         `viewed` and `played_recording` are here because M2 requires record
         views of sensitive fields and recording playback to be audited, even
         though the design's filter does not list them yet.
+
+        `published` is a script version published (`publishScript` in
+        `scripting.openapi.yaml`, object type `script`; T-0113, D-L96). Its
+        changes name the version number and the ids of the compliance nodes
+        added, removed and changed, never wording.
 
     AuditActor:
       type: object

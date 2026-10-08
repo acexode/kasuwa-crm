@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 164 rows; built 71, partial 11, mock-only 27, flagged-off 9, deferred 10, not-started 36.
+Totals: 164 rows; built 79, partial 11, mock-only 27, flagged-off 9, deferred 10, not-started 28.
 
 ## Modules
 
@@ -168,14 +168,14 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `updateAccount` | PATCH /api/v1/accounts/{accountId} — Update an account (inline edit of owner, tier and the rest) | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listAccountContacts` | GET /api/v1/accounts/{accountId}/contacts — The account's contacts the caller can reach | built | — | — | docs/api/records.openapi.yaml · T-0055 · T-0063 |
 | operation | `listAccountTimeline` | GET /api/v1/accounts/{accountId}/timeline — The account's timeline — field changes and activities, newest first | built | — | — | docs/api/records.openapi.yaml |
-| operation | `listScripts` | GET /api/v1/scripts — List the scripts the caller may author (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
-| operation | `createScript` | POST /api/v1/scripts — Create a draft script in a programme (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
-| operation | `getScript` | GET /api/v1/scripts/{scriptId} — Get a script, with its draft and translations (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
-| operation | `updateScript` | PATCH /api/v1/scripts/{scriptId} — Edit the draft (name, source locale, graph) (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
-| operation | `listScriptVersions` | GET /api/v1/scripts/{scriptId}/versions — List a script's published versions, newest first (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
-| operation | `publishScript` | POST /api/v1/scripts/{scriptId}/versions — Publish the draft as a new, immutable version (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
-| operation | `getScriptVersion` | GET /api/v1/scripts/{scriptId}/versions/{versionId} — Read one published version (read-only) (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
-| operation | `putScriptTranslation` | PUT /api/v1/scripts/{scriptId}/translations/{locale} — Set the draft's translation for one locale (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
+| operation | `listScripts` | GET /api/v1/scripts — List the scripts the caller may author | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `createScript` | POST /api/v1/scripts — Create a draft script in a programme | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `getScript` | GET /api/v1/scripts/{scriptId} — Get a script, with its draft and translations | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `updateScript` | PATCH /api/v1/scripts/{scriptId} — Edit the draft (name, source locale, graph) | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `listScriptVersions` | GET /api/v1/scripts/{scriptId}/versions — List a script's published versions, newest first | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `publishScript` | POST /api/v1/scripts/{scriptId}/versions — Publish the draft as a new, immutable version | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `getScriptVersion` | GET /api/v1/scripts/{scriptId}/versions/{versionId} — Read one published version (read-only) | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `putScriptTranslation` | PUT /api/v1/scripts/{scriptId}/translations/{locale} — Set the draft's translation for one locale | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `listContactScripts` | GET /api/v1/contacts/{contactId}/scripts — The published scripts the caller may run for this contact (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
 | operation | `startScriptRun` | POST /api/v1/script-runs — Start a run for a contact, on the latest published version (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
 | operation | `getScriptRun` | GET /api/v1/script-runs/{runId} — Read a run, with the latest published version for the update banner (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |

@@ -514,6 +514,7 @@
   "admin.audit.action.rejected": "Imekataliwa",
   "admin.audit.action.rotated": "Imebadilishwa",
   "admin.audit.action.played_recording": "Amesikiliza rekodi",
+  "admin.audit.action.published": "Imechapishwa",
   "admin.audit.object.withheld": "Imezuiliwa",
   "admin.audit.ip.notShown": "Haionyeshwi",
   "admin.audit.ip.notShown.why": "Anwani za IP ni data binafsi. “Haionyeshwi” maana yake safu hii haipatikani kwako; haikuambii kama anwani ilirekodiwa au la.",

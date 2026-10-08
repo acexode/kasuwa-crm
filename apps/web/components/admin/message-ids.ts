@@ -486,6 +486,7 @@ export const ADMIN_AUDIT_MESSAGE_IDS: readonly MessageId[] = [
   'admin.audit.action.rejected',
   'admin.audit.action.rotated',
   'admin.audit.action.played_recording',
+  'admin.audit.action.published',
   'admin.audit.object.withheld',
   'admin.audit.ip.notShown',
   'admin.audit.ip.notShown.why',

@@ -372,6 +372,81 @@ export const activity = pgTable(
   ],
 );
 
+// --- in-call scripts (migration 0030, T-0113) ------------------------------
+
+/** The seven design-menu locales a script is written or translated in (D-L91). */
+export const SCRIPT_LOCALES = ['en', 'fr', 'pcm', 'ha', 'yo', 'ig', 'sw'] as const;
+
+/**
+ * A programme's script and its DRAFT (0030). Keys fixed at creation for every
+ * role but the migrator (app.guard_script_keys_fixed). `revision` is the
+ * draft's concurrency token; `publishedRevision` the revision the latest
+ * version was published from.
+ */
+export const script = pgTable(
+  'script',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    name: text('name').notNull(),
+    sourceLocale: text('source_locale', { enum: SCRIPT_LOCALES }).notNull(),
+    /**
+     * The draft ScriptGraph; Zod-validated by the API, an object here. The
+     * default is the empty draft: one end node that is also the start.
+     */
+    draftGraph: jsonb('draft_graph')
+      .notNull()
+      .default(
+        sql`'{"startNodeId": "start", "nodes": [{"id": "start", "type": "end", "title": "End"}]}'::jsonb`,
+      ),
+    draftTranslations: jsonb('draft_translations').notNull().default(sql`'{}'::jsonb`),
+    revision: integer('revision').notNull().default(1),
+    publishedRevision: integer('published_revision'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Maintained by the app.touch_updated_at() trigger when a statement leaves it unchanged. */
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('script_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
+    /** Name in COLLATE "C" in the migration; Drizzle has no collation on an index column. */
+    index('script_name_keyset_idx').on(table.tenantId, table.name, table.id),
+  ],
+);
+
+/**
+ * A PUBLISHED script version (0030): immutable for every role
+ * (app.refuse_script_version_update), and deleted only by the migrator or an
+ * offboarding cascade. No updated_at, on purpose.
+ */
+export const scriptVersion = pgTable(
+  'script_version',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    /** Composite FK (tenant_id, programme_id, script_id) -> script, RESTRICT both ways. */
+    scriptId: uuid('script_id').notNull(),
+    number: integer('number').notNull(),
+    name: text('name').notNull(),
+    sourceLocale: text('source_locale', { enum: SCRIPT_LOCALES }).notNull(),
+    graph: jsonb('graph').notNull(),
+    translations: jsonb('translations').notNull().default(sql`'{}'::jsonb`),
+    changes: text('changes').array().notNull().default(sql`'{}'::text[]`),
+    publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Composite FK (tenant_id, published_by_user_id) -> "user". */
+    publishedByUserId: uuid('published_by_user_id'),
+  },
+  (table) => [
+    uniqueIndex('script_version_number_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.scriptId,
+      table.number,
+    ),
+  ],
+);
+
 // --- authentication (migration 0002) ---------------------------------------
 // Identity only. Nothing below records what a user may reach; scope is still
 // resolved from user_programme on every request.
@@ -901,6 +976,8 @@ export const TENANT_SCOPED_TABLES = [
   'contact',
   'account',
   'activity',
+  'script',
+  'script_version',
   'object_def',
   'field_def',
   'user_credential',

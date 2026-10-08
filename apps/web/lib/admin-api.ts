@@ -922,6 +922,8 @@ export const AuditAction = z.enum([
   'rejected',
   'rotated',
   'played_recording',
+  // A script version published (T-0113, D-L96).
+  'published',
 ]);
 export type AuditAction = z.infer<typeof AuditAction>;
 

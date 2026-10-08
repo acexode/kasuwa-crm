@@ -12,6 +12,7 @@ import {
   SEED_CONTACTS,
   SEED_PASSWORD,
   SEED_PERMISSION_SETS,
+  SEED_SCRIPTS,
   SEED_TENANTS,
   seedTotpSecret,
 } from './fixtures';
@@ -276,13 +277,49 @@ export async function runSeed(options: SeedOptions): Promise<void> {
       );
     }
 
+    // One published script (T-0113): the draft, then its version 1, the draft
+    // as published (so it has no unpublished changes). After the users: a
+    // version names its publisher through a composite FK.
+    for (const script of SEED_SCRIPTS) {
+      await client.query(
+        `INSERT INTO script
+           (id, tenant_id, programme_id, name, source_locale, draft_graph,
+            revision, published_revision)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, 1, 1)`,
+        [
+          script.id,
+          script.tenantId,
+          script.programmeId,
+          script.name,
+          script.sourceLocale,
+          JSON.stringify(script.graph),
+        ],
+      );
+      await client.query(
+        `INSERT INTO script_version
+           (id, tenant_id, programme_id, script_id, number, name, source_locale, graph,
+            published_by_user_id)
+         VALUES ($1, $2, $3, $4, 1, $5, $6, $7::jsonb, $8)`,
+        [
+          script.versionId,
+          script.tenantId,
+          script.programmeId,
+          script.id,
+          script.name,
+          script.sourceLocale,
+          JSON.stringify(script.graph),
+          script.publishedByUserId,
+        ],
+      );
+    }
+
     await client.query('COMMIT');
     log(
       `seeded ${SEED_TENANTS.length} tenants, ` +
         `${SEED_TENANTS.reduce((n, t) => n + t.programmes.length, 0)} programmes, ` +
         `${SEED_TENANTS.reduce((n, t) => n + t.users.length, 0)} users, ` +
         `${SEED_CONTACTS.length} contacts, ${SEED_ACCOUNTS.length} accounts, ` +
-        `${SEED_ACTIVITIES.length} activities`,
+        `${SEED_ACTIVITIES.length} activities, ${SEED_SCRIPTS.length} scripts`,
     );
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);

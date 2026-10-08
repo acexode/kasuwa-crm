@@ -29,6 +29,11 @@ import { afterAll, afterEach, beforeAll, describe, expect, inject, it } from 'vi
  * which redundant indexes are dropped. It only states what must be true after.
  *
  * Every write here either rolls back or is followed by `reseed`.
+ *
+ * T-0113 (lead edit): `script` has a plant and its own probe; `script_version`
+ * is the one table that must NOT carry updated_at, because a published
+ * version is immutable, and the UPDATE probe is pointed at a seeded published
+ * version and must be refused there, rather than skipping the table.
  */
 
 /** Never a real row: same shape as the seed ids, nothing seeds it. */
@@ -160,6 +165,7 @@ const PLANT_OBJECT = '11111111-0000-4000-8000-0000001100b2';
 const PLANT_FIELD = '11111111-0000-4000-8000-0000001100b3';
 const PLANT_DISPOSITION = '11111111-0000-4000-8000-0000001100b4';
 const PLANT_PORTAL_USER = '11111111-0000-4000-8000-0000001100b5';
+const PLANT_SCRIPT = '11111111-0000-4000-8000-0000001100b6';
 
 type Plant = (client: PoolClient) => Promise<void>;
 
@@ -248,6 +254,19 @@ const PLANTS: Record<string, Plant> = {
        VALUES ($1, $2, $3, 'plant.t0011@client.example', 'p***@client.example',
                'T-0011 plant', 'viewer', ${PAST})`,
       [PLANT_PORTAL_USER, TENANT_A, PROGRAMME_A1],
+    );
+  },
+  /**
+   * T-0113 (lead edit). A draft script with nothing but its keys, name and
+   * source locale: every other column has a default (the empty draft that
+   * createScript without a graph makes). `script_version` has no plant and no
+   * updated_at: a published version is immutable (see below).
+   */
+  script: async (client) => {
+    await client.query(
+      `INSERT INTO script (id, tenant_id, programme_id, name, source_locale, updated_at)
+       VALUES ($1, $2, $3, 'T-0011 plant', 'en', ${PAST})`,
+      [PLANT_SCRIPT, TENANT_A, PROGRAMME_A1],
     );
   },
 };
@@ -447,6 +466,80 @@ describe('acceptance: schema hygiene (T-0011)', () => {
         { stale, unexercised },
         `${tables.rows.length} tables carry updated_at; stale = did not advance on UPDATE, unexercised = no seeded row and no plant`,
       ).toEqual({ stale: [], unexercised: [] });
+    });
+
+    it('script (T-0113): a planted draft script advances updated_at, whatever the seed holds', async () => {
+      // The generic case uses a plant only when the table is empty; this one
+      // always plants, so the `script` plant is exercised and never dead code.
+      // On a database without the table it fails by name (42P01).
+      const outcome = await rolledBack(async (client) => {
+        const plant = PLANTS.script;
+        if (plant === undefined) return 'no script plant';
+        await plant(client);
+        const name = quoteIdent('script');
+        const before = await client.query<{ ctid: string; updated_at: string }>(
+          `SELECT ctid::text AS ctid, updated_at::text AS updated_at FROM ${name} WHERE id = $1`,
+          [PLANT_SCRIPT],
+        );
+        const row = before.rows[0];
+        if (row === undefined) return 'the planted script is not visible';
+        const after = await client.query<{ advanced: boolean }>(
+          `UPDATE ${name} SET tenant_id = tenant_id WHERE ctid = $1::tid
+           RETURNING updated_at > $2::timestamptz AS advanced`,
+          [row.ctid, row.updated_at],
+        );
+        return after.rows[0]?.advanced === true ? 'ok' : 'script: updated_at did not advance';
+      });
+      expect(outcome).toBe('ok');
+    });
+
+    it('script_version (T-0113) carries no updated_at: a published version is immutable', async () => {
+      const found = await migrator.query<{ exists: boolean; has_updated_at: boolean }>(
+        `SELECT to_regclass('public.script_version') IS NOT NULL AS exists,
+                EXISTS (SELECT 1 FROM pg_attribute
+                         WHERE attrelid = to_regclass('public.script_version')
+                           AND attname = 'updated_at' AND NOT attisdropped) AS has_updated_at`,
+      );
+      expect(found.rows[0], 'script_version must exist and carry no updated_at').toEqual({
+        exists: true,
+        has_updated_at: false,
+      });
+    });
+
+    it('script_version (T-0113): the UPDATE probe is refused on a published version, never skipped', async () => {
+      // The probe's own shape (SET tenant_id = tenant_id, updated_at never
+      // named) aimed at a published version: no role, the migrator included,
+      // may UPDATE one, even to the same value. The seed must carry a
+      // published version in tenant A (as D-L77 seeds an activity): with
+      // none, this fails rather than skips.
+      const outcome = await rolledBack(async (client) => {
+        const rows = await client.query<{ ctid: string; row: string }>(
+          `SELECT ctid::text AS ctid, to_jsonb(v)::text AS row
+             FROM script_version v WHERE v.tenant_id = $1 LIMIT 1`,
+          [TENANT_A],
+        );
+        const row = rows.rows[0];
+        if (row === undefined) {
+          return 'no published version in tenant A to probe: the seed must carry one';
+        }
+        await client.query('SAVEPOINT t0011_version');
+        try {
+          await client.query(
+            'UPDATE script_version SET tenant_id = tenant_id WHERE ctid = $1::tid',
+            [row.ctid],
+          );
+          await client.query('ROLLBACK TO SAVEPOINT t0011_version');
+          return 'accepted: a published version took an UPDATE';
+        } catch {
+          await client.query('ROLLBACK TO SAVEPOINT t0011_version');
+          const still = await client.query<{ row: string }>(
+            'SELECT to_jsonb(v)::text AS row FROM script_version v WHERE ctid = $1::tid',
+            [row.ctid],
+          );
+          return still.rows[0]?.row === row.row ? 'refused' : 'refused, but the row changed';
+        }
+      });
+      expect(outcome).toBe('refused');
     });
 
     it('as kasuwa_app inside a tenant transaction: a contact UPDATE advances it', async () => {
