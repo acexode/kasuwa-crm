@@ -1021,5 +1021,6 @@
   "record.sheet.emailsHint": "Anwani moja ya barua pepe kwa kila mstari.",
   "record.sheet.tagsHint": "Tenganisha lebo kwa koma.",
   "record.error.invalid": "Kitu ulichoingiza hakikukubaliwa. Kiangalie na ujaribu tena.",
-  "record.error.stale": "Mtu mwingine alihifadhi mabadiliko kwanza. Toleo la karibuni sasa linaonyeshwa. Fanya badiliko lako tena."
+  "record.error.stale": "Mtu mwingine alihifadhi mabadiliko kwanza. Toleo la karibuni sasa linaonyeshwa. Fanya badiliko lako tena.",
+  "record.field.companyName": "Kampuni"
 }

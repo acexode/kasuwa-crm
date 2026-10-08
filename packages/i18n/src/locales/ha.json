@@ -1021,5 +1021,6 @@
   "record.sheet.emailsHint": "Adireshi ɗaya a kowane layi.",
   "record.sheet.tagsHint": "Raba alamomi da waƙafi.",
   "record.error.invalid": "Ba a karɓi wani abu da kuka shigar ba. Ku duba shi ku sake gwadawa.",
-  "record.error.stale": "Wani ya riga ya ajiye canje-canje. Ana nuna sabon sigar yanzu. Ku sake yin canjinku."
+  "record.error.stale": "Wani ya riga ya ajiye canje-canje. Ana nuna sabon sigar yanzu. Ku sake yin canjinku.",
+  "record.field.companyName": "Kamfani"
 }

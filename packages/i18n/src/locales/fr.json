@@ -1021,5 +1021,6 @@
   "record.sheet.emailsHint": "Une adresse par ligne.",
   "record.sheet.tagsHint": "Séparez les étiquettes par des virgules.",
   "record.error.invalid": "Une saisie n’a pas été acceptée. Vérifiez-la et réessayez.",
-  "record.error.stale": "Quelqu’un d’autre a enregistré des modifications avant vous. La dernière version est maintenant affichée. Refaites votre modification."
+  "record.error.stale": "Quelqu’un d’autre a enregistré des modifications avant vous. La dernière version est maintenant affichée. Refaites votre modification.",
+  "record.field.companyName": "Entreprise"
 }

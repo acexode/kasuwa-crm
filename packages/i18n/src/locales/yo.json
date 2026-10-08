@@ -1021,5 +1021,6 @@
   "record.sheet.emailsHint": "Àdírẹ́sì kan ní ìlà kọ̀ọ̀kan.",
   "record.sheet.tagsHint": "Fi kọ́mà ya àwọn àmì sọ́tọ̀.",
   "record.error.invalid": "A kò gba ohun kan tí o kọ. Ṣàyẹ̀wò rẹ̀ kí o sì tún gbìyànjú.",
-  "record.error.stale": "Ẹlòmíràn ti fi àyípadà pamọ́ ṣáájú. Ẹ̀dà tuntun ló wà níbí báyìí. Tún àyípadà rẹ ṣe."
+  "record.error.stale": "Ẹlòmíràn ti fi àyípadà pamọ́ ṣáájú. Ẹ̀dà tuntun ló wà níbí báyìí. Tún àyípadà rẹ ṣe.",
+  "record.field.companyName": "Ilé-iṣẹ́"
 }

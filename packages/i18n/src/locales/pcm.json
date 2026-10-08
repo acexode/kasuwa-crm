@@ -1021,5 +1021,6 @@
   "record.sheet.emailsHint": "One address for each line.",
   "record.sheet.tagsHint": "Use comma separate di tags.",
   "record.error.invalid": "Something wey you type no work. Check am try again.",
-  "record.error.stale": "Another person don save changes before you. Na di latest one dey show now. Do your change again."
+  "record.error.stale": "Another person don save changes before you. Na di latest one dey show now. Do your change again.",
+  "record.field.companyName": "Di company"
 }

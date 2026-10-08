@@ -1021,5 +1021,6 @@
   "record.sheet.emailsHint": "Otu adreesị n’ahịrị ọ bụla.",
   "record.sheet.tagsHint": "Jiri kọma kewaa mkpado.",
   "record.error.invalid": "Anabataghị ihe ị tinyere. Lelee ya ma nwaa ọzọ.",
-  "record.error.stale": "Onye ọzọ chekwara mgbanwe tupu gị. A na-egosi ụdị kacha ọhụrụ ugbu a. Mee mgbanwe gị ọzọ."
+  "record.error.stale": "Onye ọzọ chekwara mgbanwe tupu gị. A na-egosi ụdị kacha ọhụrụ ugbu a. Mee mgbanwe gị ọzọ.",
+  "record.field.companyName": "Ụlọ ọrụ"
 }

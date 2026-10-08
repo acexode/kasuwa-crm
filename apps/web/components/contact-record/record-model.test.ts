@@ -97,7 +97,7 @@ describe('the details panel', () => {
   it('labels every field the timeline can name', () => {
     for (const field of [
       'status', 'source', 'preferredChannel', 'preferredLanguage', 'whatsappOptIn', 'state', 'lga', 'tags',
-      'displayName', 'givenNames', 'familyName', 'phones', 'emails', 'ownerUserId', 'accountId', 'consentState',
+      'displayName', 'givenNames', 'familyName', 'companyName', 'phones', 'emails', 'ownerUserId', 'accountId', 'consentState',
     ]) {
       expect(fieldLabel(field), field).not.toBeNull();
     }

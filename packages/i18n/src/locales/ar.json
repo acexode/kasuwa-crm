@@ -1021,5 +1021,6 @@
   "record.sheet.emailsHint": "عنوان واحد في كل سطر.",
   "record.sheet.tagsHint": "افصل الوسوم بفواصل.",
   "record.error.invalid": "لم يُقبل شيء مما أدخلته. تحقّق منه وحاول مرة أخرى.",
-  "record.error.stale": "حفظ شخص آخر تغييرات قبلك. يتم الآن عرض أحدث نسخة. أعد إجراء تغييرك."
+  "record.error.stale": "حفظ شخص آخر تغييرات قبلك. يتم الآن عرض أحدث نسخة. أعد إجراء تغييرك.",
+  "record.field.companyName": "الشركة"
 }

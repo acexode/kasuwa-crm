@@ -1021,5 +1021,6 @@
   "record.sheet.emailsHint": "One address per line.",
   "record.sheet.tagsHint": "Separate tags with commas.",
   "record.error.invalid": "Something you entered was not accepted. Check it and try again.",
-  "record.error.stale": "Someone else saved changes first. The latest version is shown now. Make your change again."
+  "record.error.stale": "Someone else saved changes first. The latest version is shown now. Make your change again.",
+  "record.field.companyName": "Company"
 }

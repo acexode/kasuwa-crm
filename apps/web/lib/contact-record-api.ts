@@ -48,6 +48,8 @@ export type AccountSummary = z.infer<typeof AccountSummary>;
  * with their id when field security withholds it, and `null` when the id is.
  */
 export const ContactRecord = Contact.extend({
+  // Free text; withheld like any field (T-0076). Shown, not yet offered in the edit sheet.
+  companyName: z.string().nullable().optional(),
   owner: Person.nullable().optional(),
   account: AccountSummary.nullable().optional(),
 });

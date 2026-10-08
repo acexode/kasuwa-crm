@@ -40,6 +40,7 @@ import type { ChangeValue, ContactRecord, TimelineItem, TimelinePage } from '../
 export type DetailKey =
   | 'givenNames'
   | 'familyName'
+  | 'companyName'
   | 'phones'
   | 'emails'
   | 'status'
@@ -62,6 +63,7 @@ export interface DetailSpec {
 export const DETAILS: readonly DetailSpec[] = [
   { key: 'givenNames', label: 'record.field.givenNames' },
   { key: 'familyName', label: 'record.field.familyName' },
+  { key: 'companyName', label: 'record.field.companyName' },
   { key: 'phones', label: 'records.col.phones' },
   { key: 'emails', label: 'records.col.emails' },
   { key: 'status', label: 'records.col.status' },
@@ -99,6 +101,7 @@ export function fieldLabel(field: string): MessageId | null {
     displayName: 'records.col.displayName',
     givenNames: 'record.field.givenNames',
     familyName: 'record.field.familyName',
+    companyName: 'record.field.companyName',
     phones: 'records.col.phones',
     emails: 'records.col.emails',
     ownerUserId: 'records.col.ownerUserId',

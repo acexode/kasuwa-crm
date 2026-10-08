@@ -26,6 +26,7 @@ const TIMELINE_FIELDS = [
   'displayName',
   'givenNames',
   'familyName',
+  'companyName',
   'phones',
   'emails',
   'ownerUserId',
