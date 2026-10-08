@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import type { EnvSource } from '@kasuwa/config';
+import { apiEnv, type EnvSource } from '@kasuwa/config';
 import { loadMigrations, runMigrations, TENANT_A, TENANT_B } from '@kasuwa/db';
 import { startBarePostgres, type BarePostgres } from '@kasuwa/testing';
 import { Client } from 'pg';
@@ -10,96 +10,111 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
 /**
- * ACCEPTANCE — T-0117, `kasuwa_test_admin` never exists in a real cell
- * (Agent 1, Platform & Security). Decision: D-L92.
+ * ACCEPTANCE — T-0117, no usable `kasuwa_test_admin` in a real cell
+ * (Agent 1, Platform & Security). Decisions: D-L92 as amended by D-L94.
+ *
+ * (The file name predates D-L94. Under D-L94 the role is not absent from a
+ * real cell; it is an inert placeholder. The name is kept because the task
+ * file names it.)
  *
  * THE ATTACK THIS CLOSES. `packages/db/sql/bootstrap.sql` is the file real
  * provisioning applies (packages/db/CLAUDE.md, ADR-0013). On main it creates
  * `kasuwa_test_admin`: LOGIN, BYPASSRLS, password `kasuwa_test_admin_dev`, and
- * DML on every future table through default privileges. A real cell built
- * from it has a cross-tenant login whose password is in the repository.
+ * DML on every table. A real cell built from it has a cross-tenant login whose
+ * password is in the repository.
+ *
+ * THE MODEL (D-L94). Fourteen applied migrations GRANT or REVOKE to the role
+ * by name, so it has to exist wherever they run, and applied migrations are
+ * never edited. Therefore:
+ *
+ *   - bootstrap.sql creates it as an INERT PLACEHOLDER: NOLOGIN, NOBYPASSRLS,
+ *     NOINHERIT, no password, a member of nothing, with no members. It holds
+ *     what the migrations grant it, and nobody can use that. If the role
+ *     already exists (an old dev volume, or a harness), bootstrap.sql leaves
+ *     it alone.
+ *   - bootstrap-test.sql (docker-compose and packages/testing only) makes it
+ *     the test login: LOGIN, BYPASSRLS, PASSWORD 'kasuwa_test_admin_dev'.
+ *   - The runner refuses, outside development and test, a database where the
+ *     role is usable; refuses an unset NODE_ENV against a non-local host; and
+ *     refuses the repository's dev passwords outside development and test.
+ *     The API refuses the dev passwords at startup through @kasuwa/config.
  *
  * TWO DEDICATED CLUSTERS, NOT THE SHARED ONE. Roles are cluster-wide, and the
- * shared harness container has `kasuwa_test_admin` by design, so a fresh
- * database inside it can never show the role's absence. This suite starts its
- * own Postgres 16 clusters with `startBarePostgres` (nothing applied) and
- * chooses the bootstrap files itself:
+ * shared harness container has the live test role by design. This suite starts
+ * its own Postgres 16 clusters with `startBarePostgres` (nothing applied):
  *
- *   REAL  = bootstrap.sql alone, then every migration, under a PRODUCTION
- *           configuration. That is exactly what provisioning does to a cell.
- *   HARNESS = bootstrap.sql, then bootstrap-test.sql, then every migration,
- *           under NODE_ENV=test. That is what docker-compose and
- *           packages/testing must do. On main bootstrap-test.sql does not
- *           exist; the setup tolerates that (HARNESS is then bootstrap.sql
- *           alone) so that the failure lands in a test that names it, not in
- *           a beforeAll crash.
+ *   REAL    = bootstrap.sql alone; kasuwa_migrator's password then replaced by
+ *             a random one (what provisioning does with the secrets manager);
+ *             every migration under a PRODUCTION configuration.
+ *   HARNESS = bootstrap.sql, then bootstrap-test.sql, then every migration
+ *             under NODE_ENV=test with the dev password, exactly as the
+ *             harness does; the migrator's password is then replaced by a
+ *             random one so that section 5's production refusals can only be
+ *             about the role, never about a dev password. On main
+ *             bootstrap-test.sql does not exist; the setup tolerates that so
+ *             the failure lands in a test that names it.
  *
  * THE INTERFACE THIS FILE REQUIRES, and nothing else:
  *
  *   I1. `packages/db/sql/bootstrap.sql` keeps its path and stays idempotent.
  *       `packages/db/sql/bootstrap-test.sql` is new, runs as the superuser
- *       AFTER bootstrap.sql and BEFORE migrations, and is idempotent too.
+ *       AFTER bootstrap.sql and BEFORE migrations, and is idempotent.
  *   I2. `runMigrations` (from `@kasuwa/db`) accepts one new optional field,
- *       `env?: EnvSource` (the `@kasuwa/config` type): the raw environment the
- *       guard reads, through `@kasuwa/config`, defaulting to `process.env`.
- *       The shape of every existing field and of the result is unchanged. The
- *       guard lives in `runMigrations`, not only in the CLI: every caller of
- *       the runner (db:migrate, db:reset, tenant:provision, the harness) gets
- *       it. Until I2 exists the extra field is ignored at runtime, which is
- *       why section 5's refusals fail on main for the real reason.
+ *       `env?: EnvSource`: the raw environment the guards read, through
+ *       `@kasuwa/config`, defaulting to `process.env`. Existing fields and the
+ *       result are unchanged. The guards live in `runMigrations`, so every
+ *       caller (db:migrate, db:reset, tenant:provision, the harness) gets them.
  *   I3. A refusal throws (rejects) BEFORE the runner writes anything: no
- *       `_kasuwa_migration` table is created and no file is applied. Its
- *       message names `kasuwa_test_admin` and the configured environment, and
- *       contains no password and no connection string.
+ *       `_kasuwa_migration` table, no file applied. The message contains no
+ *       password and no connection string. A role refusal names
+ *       `kasuwa_test_admin`; an unset-NODE_ENV refusal names `NODE_ENV`; a
+ *       dev-password refusal says `password`.
+ *   I4. The host and password the guards judge are the ones `pg` will use.
+ *       `pg` parses a connection string with `pg-connection-string`, where a
+ *       `?host=` or `?password=` query parameter OVERRIDES the URL's own, and
+ *       the password is percent-decoded. A guard reading `new URL(u).hostname`
+ *       or `.password` is fooled by all three; section 5 tries each.
+ *   I5. `apiEnv` (from `@kasuwa/config`) throws, outside development and test,
+ *       when DATABASE_URL or DATABASE_AUTH_URL carries one of the four dev
+ *       passwords, by the same parsing as I4. The message names the variable
+ *       and echoes neither the URL nor the password.
  *
- * Everything else is the builder's: how the guard queries the catalogue, the
- * wording beyond I3, how the migrations stop naming the role (guards, a new
- * migration, or something the lead rules on; see the report), and what
- * bootstrap-test.sql looks like inside, as long as the role it creates holds
- * section 4's attributes and grants.
+ * Everything else is the builder's: how the guards query the catalogue, the
+ * wording beyond I3, and what bootstrap-test.sql looks like inside, as long
+ * as the role it produces has section 4's attributes and grants.
  *
- * RULINGS PINNED HERE (Agent 12, for the lead to confirm):
+ * RULINGS (R1-R3 accepted by the lead; R4-R5 are Agent 12's, for review):
  *
- *   R1. "Staging" is not an environment name in this codebase: `@kasuwa/config`
- *       knows development, test and production, and a staging cell runs as
- *       production. So the guard's refusal is pinned for NODE_ENV=production,
- *       and for every value that is not development or test (staging, prod,
- *       Production, the empty string) the runner must refuse when the role
- *       exists, for whatever reason. An UNSET NODE_ENV is development to
- *       `@kasuwa/config` (the dev `.env` relies on that) and is deliberately
- *       not pinned either way.
- *   R2. The production configuration used throughout is the smallest one
- *       `@kasuwa/config` accepts in production: NODE_ENV=production and
- *       KASUWA_AUTH_MODE=jwt. Without the second, `migratorEnv` refuses on the
- *       stub-auth guard, and a refusal for THAT reason must not be mistaken
- *       for this guard's (I3 requires the message to name the role).
- *   R3. bootstrap.sql may keep exactly three password literals, each on its
- *       own role: kasuwa_migrator/'kasuwa_migrator_dev',
- *       kasuwa_app/'kasuwa_app_dev', kasuwa_auth/'kasuwa_auth_dev'. Real
- *       provisioning creates those three first with secrets-manager passwords
- *       and `IF NOT EXISTS` leaves them alone (packages/db/CLAUDE.md,
- *       ADR-0013). kasuwa_sweeper is NOLOGIN and has no password, and must not
- *       gain one. Any other PASSWORD clause, including a hashed one or a
- *       second literal for an allowed role, fails section 6.
+ *   R1. "Staging" is not an environment name here: @kasuwa/config knows
+ *       development, test and production. Every NODE_ENV value that is SET and
+ *       is not development or test (staging, prod, Production, and the empty
+ *       string, which config's enum rejects rather than defaulting) must
+ *       refuse when the role is usable.
+ *   R2. The runner's production configuration is NODE_ENV=production plus
+ *       KASUWA_AUTH_MODE=jwt: without the second, migratorEnv refuses on the
+ *       stub-auth guard first, which would look like a pass. The API's adds
+ *       the KMS provider and proxy hops its own boot guards require.
+ *   R3. bootstrap.sql keeps exactly three password literals:
+ *       kasuwa_migrator/'kasuwa_migrator_dev', kasuwa_app/'kasuwa_app_dev',
+ *       kasuwa_auth/'kasuwa_auth_dev'. The sweeper and the placeholder have
+ *       none.
+ *   R4. "Usable" is what the migrator can SEE: rolcanlogin, rolbypassrls, and
+ *       membership in either direction. A password on a NOLOGIN role is not
+ *       visible to it (pg_roles.rolpassword always reads '********';
+ *       pg_authid is superuser-only), so the runner is not required to refuse
+ *       on a password alone. This suite checks the placeholder's password as
+ *       the superuser instead (sections 1 and 3).
+ *   R5. "Local" is exactly the lead's list: localhost, 127.0.0.1, ::1 and
+ *       names ending in `.localhost`. Other 127/8 addresses count as
+ *       non-local. Only localhost and 127.0.0.1 are exercised as controls:
+ *       ::1 and *.localhost do not reliably reach Docker Desktop on Windows.
  *
- * D-L23, observed on main (31 tests: 20 fail, 11 pass). Failing for the real
- * reason (bootstrap.sql creates the role; there is no guard; there is no
- * bootstrap-test.sql): sections 1 and 3 except the idempotence test, all of
- * section 6, section 4's bootstrap-test.sql, re-apply and docker-compose tests,
- * and section 5's six refusals. Passing, legitimately: section 1's idempotence,
- * section 2, section 4's attribute, login, grant, default-privilege and
- * live-harness pins, and section 5's three "runs normally" controls. Those pin
- * behaviour the change must not break, and each refusal in section 5 is paired
- * with a control that must apply, so no refusal can pass because the runner
- * simply fails everywhere.
- *
- * WHAT SECTION 2 WILL DO TO THE BUILDER. On main it passes only because the
- * role exists. With the role gone, 0000_app_session_context is the first of
- * fourteen applied migrations that GRANT or REVOKE to kasuwa_test_admin
- * unguarded, and it fails with `role "kasuwa_test_admin" does not exist`. A
- * new migration cannot fix that, since it would run after them. That is the
- * task's own escalation condition, and the lead's ruling decides how section
- * 2 goes green; this file does not presume the answer.
+ * D-L23, observed on main: see the commit message for the exact split. Every
+ * failure is an assertion about the real reason (bootstrap.sql makes the role
+ * a live login; there is no guard; there is no bootstrap-test.sql). Every
+ * passing test is a pin of behaviour the change must not break or a control
+ * paired with a refusal, so no refusal can pass because the runner or the
+ * config simply fails everywhere.
  */
 
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
@@ -111,33 +126,58 @@ const DB_CLAUDE_MD = resolve(REPO_ROOT, 'packages/db/CLAUDE.md');
 const TEST_ADMIN = 'kasuwa_test_admin';
 const TEST_ADMIN_PASSWORD = 'kasuwa_test_admin_dev';
 const MIGRATOR_PASSWORD = 'kasuwa_migrator_dev';
+const APP_PASSWORD = 'kasuwa_app_dev';
+const AUTH_PASSWORD = 'kasuwa_auth_dev';
+/** The repository's dev password literals (D-L94). */
+const DEV_PASSWORDS = [MIGRATOR_PASSWORD, APP_PASSWORD, AUTH_PASSWORD, TEST_ADMIN_PASSWORD];
 
-/** The roles a real cell has. PUBLIC is not a role but is an allowed grantee. */
-const REAL_ROLES = ['kasuwa_app', 'kasuwa_auth', 'kasuwa_migrator', 'kasuwa_sweeper'] as const;
+/** Stand-ins for secrets-manager passwords. Hex, so no URL encoding is needed. */
+const REAL_SECRET = `t0117-${randomBytes(12).toString('hex')}`;
+const HARNESS_SECRET = `t0117-${randomBytes(12).toString('hex')}`;
+
+/** Every role a real cell has, the placeholder included. */
+const REAL_ROLES = [
+  'kasuwa_app',
+  'kasuwa_auth',
+  'kasuwa_migrator',
+  'kasuwa_sweeper',
+  'kasuwa_test_admin',
+] as const;
 /** Of those, the ones that may log in. */
 const REAL_LOGIN_ROLES = ['kasuwa_app', 'kasuwa_auth', 'kasuwa_migrator'] as const;
 
-/** R2: the smallest environment @kasuwa/config accepts as production. */
+/** R2. */
 const PRODUCTION: EnvSource = { NODE_ENV: 'production', KASUWA_AUTH_MODE: 'jwt' };
 const TEST_ENV: EnvSource = { NODE_ENV: 'test' };
+const DEVELOPMENT: EnvSource = { NODE_ENV: 'development' };
+/** No NODE_ENV at all: what the dev `.env` gives a local `pnpm db:migrate`. */
+const UNSET: EnvSource = {};
+
+/** R2: the API's own boot guards also need a KMS provider and proxy hops. */
+const API_PRODUCTION: EnvSource = {
+  ...PRODUCTION,
+  KASUWA_KMS_PROVIDER: 'aws-kms',
+  KASUWA_KMS_KEY_ID: 'alias/kasuwa-t0117',
+  KASUWA_TRUST_PROXY_HOPS: '1',
+};
+
+/** RFC 2606: `.invalid` never resolves, so nothing can be reached by accident. */
+const REMOTE_HOST = 'db.t0117.invalid';
 
 /**
- * I2. `runMigrations` with the one new option. Typed this way so the file
- * typechecks on main, where MigrateOptions lacks `env` (a function taking the
- * narrower options is assignable to one taking the wider). Once the builder
- * adds the field, this is the same type. No cast.
+ * I2. `runMigrations` with the one new option. A function that accepts
+ * MigrateOptions also accepts MigrateOptions plus a field, so this typechecks
+ * on main without a cast; once the builder adds `env` it is the same type.
  */
 type GuardedOptions = Parameters<typeof runMigrations>[0] & { env?: EnvSource };
 const runGuarded: (options: GuardedOptions) => ReturnType<typeof runMigrations> = runMigrations;
 
 /**
  * What kasuwa_test_admin holds on main, at head (0028), captured from a
- * database built exactly as the harness builds one. Section 4 requires the
- * HARNESS database to hold AT LEAST this: it is what the integration and
- * acceptance suites that connect as kasuwa_test_admin rely on (catalogue
- * reads, observers, cross-tenant setup). A superset is allowed; losing any of
- * it is not. Objects created after 0028 are not listed, so a future migration
- * does not have to edit this file.
+ * database built as the harness builds one. HARNESS must hold at least this
+ * (section 4: the suites that connect as kasuwa_test_admin rely on it). The
+ * placeholder in REAL must hold no more than this (section 3). Objects created
+ * after 0028 are not listed, so a future migration need not edit this file.
  */
 const TEST_ADMIN_GRANTS_ON_MAIN: Readonly<Record<string, string>> = {
   'database|kasuwa': 'CONNECT',
@@ -181,22 +221,26 @@ const TEST_ADMIN_GRANTS_ON_MAIN: Readonly<Record<string, string>> = {
 };
 
 /**
- * Default privileges as `objtype|owner|schema|grantee|privileges`. A real cell
- * gets exactly the kasuwa_app rows (packages/db/CLAUDE.md invariant 9: no
- * default privilege names kasuwa_auth). The harness gets those plus the
- * kasuwa_test_admin rows, exactly as on main.
+ * What a default privilege may give a table, sequence or function created
+ * after 0028: the shapes main's default privileges give, and nothing more
+ * (never TRUNCATE, REFERENCES, TRIGGER or MAINTAIN).
  */
-const REAL_DEFAULT_ACL = [
+const FUTURE_OBJECT_PRIVILEGES: Readonly<Record<string, readonly string[]>> = {
+  table: ['DELETE', 'INSERT', 'SELECT', 'UPDATE', 'USAGE'],
+  function: ['EXECUTE'],
+};
+
+/** Default privileges as `objtype|owner|schema|grantee|privileges`. */
+const APP_DEFAULT_ACL = [
   'S|kasuwa_migrator|public|kasuwa_app|SELECT,USAGE',
   'f|kasuwa_migrator|public|kasuwa_app|EXECUTE',
   'r|kasuwa_migrator|public|kasuwa_app|DELETE,INSERT,SELECT,UPDATE',
 ];
-const HARNESS_DEFAULT_ACL = [
-  ...REAL_DEFAULT_ACL,
+const TEST_ADMIN_DEFAULT_ACL_ON_MAIN = [
   'S|kasuwa_migrator|public|kasuwa_test_admin|SELECT,USAGE',
   'f|kasuwa_migrator|public|kasuwa_test_admin|EXECUTE',
   'r|kasuwa_migrator|public|kasuwa_test_admin|DELETE,INSERT,SELECT,UPDATE',
-].sort();
+];
 
 // --- catalogue queries -------------------------------------------------------
 
@@ -219,14 +263,59 @@ interface RoleRow {
   rolinherit: boolean;
 }
 
+/** The placeholder exactly as D-L94 states it. */
+const INERT: RoleRow = {
+  rolname: TEST_ADMIN,
+  rolcanlogin: false,
+  rolbypassrls: false,
+  rolsuper: false,
+  rolcreaterole: false,
+  rolcreatedb: false,
+  rolreplication: false,
+  rolinherit: false,
+};
+
+/** Superuser only: whether a role has a password at all. */
+const HAS_PASSWORD_SQL = `
+  SELECT (rolpassword IS NOT NULL) AS has_password
+    FROM pg_catalog.pg_authid WHERE rolname = $1`;
+
+/** Memberships in either direction, by name. */
+const MEMBERSHIPS_SQL = `
+  SELECT r.rolname AS role, m.rolname AS member
+    FROM pg_catalog.pg_auth_members am
+    JOIN pg_catalog.pg_roles r ON r.oid = am.roleid
+    JOIN pg_catalog.pg_roles m ON m.oid = am.member
+   WHERE r.rolname = $1 OR m.rolname = $1
+   ORDER BY 1, 2`;
+
+/** Every non-superuser role that can reach the role by membership, however indirect. */
+const REACHES_SQL = `
+  SELECT r.rolname
+    FROM pg_catalog.pg_roles r
+   WHERE r.rolname <> $1 AND NOT r.rolsuper AND r.rolname NOT LIKE 'pg\\_%'
+     AND pg_catalog.pg_has_role(r.oid, $1::text, 'MEMBER')
+   ORDER BY 1`;
+
+/** Everything the role owns. It should own nothing. */
+const OWNED_SQL = `
+  SELECT 'relation ' || c.relname AS what FROM pg_catalog.pg_class c
+   WHERE c.relowner = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = $1)
+  UNION ALL
+  SELECT 'function ' || p.proname FROM pg_catalog.pg_proc p
+   WHERE p.proowner = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = $1)
+  UNION ALL
+  SELECT 'schema ' || n.nspname FROM pg_catalog.pg_namespace n
+   WHERE n.nspowner = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = $1)
+  UNION ALL
+  SELECT 'database ' || d.datname FROM pg_catalog.pg_database d
+   WHERE d.datdba = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = $1)`;
+
 /**
  * Every privilege recorded anywhere in the database, one row per (object,
- * grantee, privilege): relations, columns, functions, types, schemas, the
- * database itself, default privileges, and role memberships. PUBLIC is
- * grantee 0. An ACL can only name a role that exists, so on a database where
- * the role is absent "nothing names it" is true by construction; the census
- * is therefore always run against HARNESS as well, where it must find the
- * role, so it is shown to be capable of seeing it.
+ * grantee, privilege): relations (sequences included, as `table`), columns,
+ * functions, types, schemas, the database itself, default privileges and role
+ * memberships. PUBLIC is grantee 0.
  */
 const CENSUS_SQL = `
   WITH acl AS (
@@ -334,26 +423,56 @@ async function roleNamed(url: string, name: string): Promise<RoleRow | undefined
   return rows.find((row) => row.rolname === name);
 }
 
+async function roles(url: string): Promise<RoleRow[]> {
+  return query<RoleRow & Record<string, unknown>>(url, ROLES_SQL);
+}
+
+async function hasPassword(superuserUrl: string, role: string): Promise<boolean | undefined> {
+  const rows = await query<{ has_password: boolean }>(superuserUrl, HAS_PASSWORD_SQL, [role]);
+  return rows[0]?.has_password;
+}
+
 async function census(url: string): Promise<CensusRow[]> {
   return query<CensusRow & Record<string, unknown>>(url, CENSUS_SQL);
 }
 
-/** `kind|object` -> sorted, comma-joined privileges, for one grantee. */
-function grantsOf(rows: readonly CensusRow[], grantee: string): Map<string, string> {
+async function defaultAcl(url: string): Promise<string[]> {
+  return (await query<{ line: string }>(url, DEFAULT_ACL_SQL)).map((row) => row.line);
+}
+
+/** `kind|object` -> sorted privileges, for one grantee, default privileges excluded. */
+function grantsOf(rows: readonly CensusRow[], grantee: string): Map<string, string[]> {
   const byObject = new Map<string, string[]>();
   for (const row of rows) {
-    if (row.grantee !== grantee) {
+    if (row.grantee !== grantee || row.kind === 'default') {
       continue;
     }
     const key = `${row.kind}|${row.object}`;
-    byObject.set(key, [...(byObject.get(key) ?? []), row.privilege]);
+    byObject.set(key, [...(byObject.get(key) ?? []), row.privilege].sort());
   }
-  return new Map([...byObject].map(([key, privileges]) => [key, [...privileges].sort().join(',')]));
+  return byObject;
 }
 
 function withSearchPath(url: string, schema: string): string {
   const separator = url.includes('?') ? '&' : '?';
   return `${url}${separator}options=${encodeURIComponent(`-c search_path=${schema}`)}`;
+}
+
+function withHost(url: string, host: string): string {
+  const parsed = new URL(url);
+  parsed.hostname = host;
+  return parsed.href;
+}
+
+function withPassword(url: string, password: string): string {
+  const parsed = new URL(url);
+  parsed.password = password;
+  return parsed.href;
+}
+
+function withQuery(url: string, key: string, value: string): string {
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}${key}=${encodeURIComponent(value)}`;
 }
 
 type Outcome = { ok: true; applied: string[] } | { ok: false; message: string };
@@ -366,12 +485,19 @@ interface ScratchRun {
 
 /**
  * Runs the guarded runner against a throwaway migrations directory holding
- * one file, with `search_path` pinned to a throwaway schema, exactly as the
- * T-0044 runner suite does. The runner creates `_kasuwa_migration`
- * unqualified, so anything it writes lands in the scratch schema, where
- * `relations` can see it, and the real schema is never touched.
+ * one file, with `search_path` pinned to a throwaway schema, as the T-0044
+ * runner suite does. The runner creates `_kasuwa_migration` unqualified, so
+ * anything it writes lands where `relations` can see it.
+ *
+ * `adminUrl` makes and inspects the schema. `runnerUrl` is what the runner is
+ * handed, after the search path is added; by default the same URL. Tests that
+ * attack the URL (another host, an overriding query parameter) change only it.
  */
-async function scratchRun(migratorUrl: string, env: EnvSource): Promise<ScratchRun> {
+async function scratchRun(
+  adminUrl: string,
+  env: EnvSource,
+  runnerUrl: (url: string) => string = (url) => url,
+): Promise<ScratchRun> {
   const schema = `t0117_${randomBytes(6).toString('hex')}`;
   const dir = mkdtempSync(join(tmpdir(), 'kasuwa-t0117-'));
   writeFileSync(
@@ -379,12 +505,12 @@ async function scratchRun(migratorUrl: string, env: EnvSource): Promise<ScratchR
     'CREATE TABLE t0117_probe (id integer PRIMARY KEY);\n',
     'utf8',
   );
-  await query(migratorUrl, `CREATE SCHEMA ${schema}`);
+  await query(adminUrl, `CREATE SCHEMA ${schema}`);
   try {
     let outcome: Outcome;
     try {
       const result = await runGuarded({
-        connectionString: withSearchPath(migratorUrl, schema),
+        connectionString: runnerUrl(withSearchPath(adminUrl, schema)),
         migrationsDir: dir,
         env,
       });
@@ -393,7 +519,7 @@ async function scratchRun(migratorUrl: string, env: EnvSource): Promise<ScratchR
       outcome = { ok: false, message: error instanceof Error ? error.message : String(error) };
     }
     const relations = await query<{ relname: string }>(
-      migratorUrl,
+      adminUrl,
       `SELECT c.relname FROM pg_catalog.pg_class c
          JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = $1 ORDER BY 1`,
@@ -401,24 +527,37 @@ async function scratchRun(migratorUrl: string, env: EnvSource): Promise<ScratchR
     );
     return { outcome, relations: relations.map((row) => row.relname) };
   } finally {
-    await query(migratorUrl, `DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+    await query(adminUrl, `DROP SCHEMA IF EXISTS ${schema} CASCADE`);
     rmSync(dir, { recursive: true, force: true });
   }
 }
 
-/** I3: no password and no connection string in a refusal. */
-function expectNoSecret(message: string, migratorUrl: string): void {
-  expect(message).not.toContain(MIGRATOR_PASSWORD);
-  expect(message).not.toContain(TEST_ADMIN_PASSWORD);
-  expect(message).not.toContain(migratorUrl);
+/** I3, I5: no password and no connection string in a message. */
+function expectNoSecret(message: string, extra: readonly string[] = []): void {
+  for (const secret of [...DEV_PASSWORDS, REAL_SECRET, HARNESS_SECRET, ...extra]) {
+    expect(message).not.toContain(secret);
+  }
   expect(message).not.toMatch(/postgres(?:ql)?:\/\//u);
 }
 
+/** A refusal, before anything was written, carrying no secret. */
+function expectRefused(run: ScratchRun, why: string): string {
+  expect(run.outcome.ok, why).toBe(false);
+  expect(run.relations, 'the runner wrote before refusing').toEqual([]);
+  const message = run.outcome.ok ? '' : run.outcome.message;
+  expectNoSecret(message);
+  return message;
+}
+
+function expectRan(run: ScratchRun): void {
+  expect(run.outcome).toEqual({ ok: true, applied: ['0001_t0117_probe'] });
+  expect(run.relations).toContain('t0117_probe');
+}
+
 /**
- * SQL with comments removed and string literals kept, so that a role named in
- * a comment ("kasuwa_test_admin now lives in bootstrap-test.sql") is not
- * mistaken for one created by code. Dollar-quoted bodies (DO $$ ... $$) are
- * kept as code, which is right: the CREATE ROLE statements live inside one.
+ * SQL with comments removed and string literals kept. Dollar-quoted bodies
+ * (DO $$ ... $$) are kept as code, which is right: the CREATE ROLE statements
+ * live inside one.
  */
 function stripSqlComments(sql: string): string {
   let out = '';
@@ -458,25 +597,31 @@ let realMigrated = false;
 
 beforeAll(async () => {
   [real, harness] = await Promise.all([startBarePostgres(), startBarePostgres()]);
-  realMigrator = real.urlFor('kasuwa_migrator', MIGRATOR_PASSWORD);
-  harnessMigrator = harness.urlFor('kasuwa_migrator', MIGRATOR_PASSWORD);
 
-  // REAL: bootstrap.sql alone. Migrated in section 2, as a test, so that a
-  // migration that cannot run without the role fails THERE, by name.
+  // REAL: bootstrap.sql alone, then the migrator's password replaced, as
+  // provisioning does. Migrated in section 2, as a test.
   await applyFile(real.superuserUrl, BOOTSTRAP_SQL);
+  await query(real.superuserUrl, `ALTER ROLE kasuwa_migrator PASSWORD '${REAL_SECRET}'`);
+  realMigrator = real.urlFor('kasuwa_migrator', REAL_SECRET);
 
-  // HARNESS: both files, in the order docker-compose and packages/testing
-  // must apply them, then every migration.
+  // HARNESS: both files in the order docker-compose and packages/testing must
+  // apply them, every migration with the dev password under NODE_ENV=test,
+  // then the migrator's password replaced (see the header).
   await applyFile(harness.superuserUrl, BOOTSTRAP_SQL);
   harnessHasTestBootstrap = existsSync(BOOTSTRAP_TEST_SQL);
   if (harnessHasTestBootstrap) {
     await applyFile(harness.superuserUrl, BOOTSTRAP_TEST_SQL);
   }
   try {
-    await runGuarded({ connectionString: harnessMigrator, env: TEST_ENV });
+    await runGuarded({
+      connectionString: harness.urlFor('kasuwa_migrator', MIGRATOR_PASSWORD),
+      env: TEST_ENV,
+    });
   } catch (error) {
     harnessMigrateError = error instanceof Error ? error : new Error(String(error));
   }
+  await query(harness.superuserUrl, `ALTER ROLE kasuwa_migrator PASSWORD '${HARNESS_SECRET}'`);
+  harnessMigrator = harness.urlFor('kasuwa_migrator', HARNESS_SECRET);
 }, 240_000);
 
 afterAll(async () => {
@@ -491,45 +636,98 @@ function requireHarnessMigrated(): void {
   expect(harnessMigrateError?.message, 'HARNESS did not migrate to head').toBeUndefined();
 }
 
+/**
+ * Runs `body` with REAL's placeholder changed by `statements` (as the
+ * superuser), starting from the inert state, and puts back what was there
+ * before, whatever happens. On main the role starts live, which is restored.
+ */
+async function withPlaceholderChanged(
+  statements: readonly string[],
+  undo: readonly string[],
+  body: () => Promise<void>,
+): Promise<void> {
+  const before = await roleNamed(real.superuserUrl, TEST_ADMIN);
+  expect(before, 'REAL has no kasuwa_test_admin at all').toBeDefined();
+  await query(real.superuserUrl, `ALTER ROLE ${TEST_ADMIN} NOLOGIN NOBYPASSRLS NOINHERIT`);
+  for (const statement of statements) {
+    await query(real.superuserUrl, statement);
+  }
+  try {
+    await body();
+  } finally {
+    for (const statement of undo) {
+      await query(real.superuserUrl, statement);
+    }
+    if (before !== undefined) {
+      await query(
+        real.superuserUrl,
+        `ALTER ROLE ${TEST_ADMIN} ${before.rolcanlogin ? 'LOGIN' : 'NOLOGIN'} ` +
+          `${before.rolbypassrls ? 'BYPASSRLS' : 'NOBYPASSRLS'} ` +
+          `${before.rolinherit ? 'INHERIT' : 'NOINHERIT'}`,
+      );
+    }
+  }
+}
+
+/**
+ * Runs `body` with REAL's migrator on its dev password, then puts the secret
+ * back. `body` gets the migrator URL that works meanwhile.
+ */
+async function withMigratorOnDevPassword(body: (devUrl: string) => Promise<void>): Promise<void> {
+  await query(real.superuserUrl, `ALTER ROLE kasuwa_migrator PASSWORD '${MIGRATOR_PASSWORD}'`);
+  try {
+    await body(real.urlFor('kasuwa_migrator', MIGRATOR_PASSWORD));
+  } finally {
+    await query(real.superuserUrl, `ALTER ROLE kasuwa_migrator PASSWORD '${REAL_SECRET}'`);
+  }
+}
+
 // =============================================================================
 
-describe('1. a database bootstrapped with bootstrap.sql alone', () => {
-  it('has no kasuwa_test_admin role', async () => {
-    const role = await roleNamed(real.superuserUrl, TEST_ADMIN);
-    expect(role, 'bootstrap.sql created kasuwa_test_admin, a BYPASSRLS test login').toBeUndefined();
+describe('1. bootstrap.sql alone makes kasuwa_test_admin an inert placeholder', () => {
+  it('the role exists with no LOGIN, no BYPASSRLS, no INHERIT and no other attribute', async () => {
+    expect(await roleNamed(real.superuserUrl, TEST_ADMIN)).toEqual(INERT);
   });
 
-  it('gives BYPASSRLS to no role but kasuwa_migrator', async () => {
-    const roles = await query<RoleRow & Record<string, unknown>>(real.superuserUrl, ROLES_SQL);
-    expect(roles.filter((row) => row.rolbypassrls).map((row) => row.rolname)).toEqual([
+  it('the role has no password at all (read as the superuser, pg_authid)', async () => {
+    expect(await hasPassword(real.superuserUrl, TEST_ADMIN)).toBe(false);
+  });
+
+  it('the role is a member of nothing and has no members', async () => {
+    expect(await query(real.superuserUrl, MEMBERSHIPS_SQL, [TEST_ADMIN])).toEqual([]);
+  });
+
+  it('BYPASSRLS is held by kasuwa_migrator alone', async () => {
+    const rows = await roles(real.superuserUrl);
+    expect(rows.filter((row) => row.rolbypassrls).map((row) => row.rolname)).toEqual([
       'kasuwa_migrator',
     ]);
   });
 
-  it('creates exactly the four real roles, and only app, auth and migrator can log in', async () => {
-    const roles = await query<RoleRow & Record<string, unknown>>(real.superuserUrl, ROLES_SQL);
-    expect(roles.map((row) => row.rolname)).toEqual([...REAL_ROLES]);
-    expect(roles.filter((row) => row.rolcanlogin).map((row) => row.rolname)).toEqual([
+  it('the roles are the five known ones, and only app, auth and migrator can log in', async () => {
+    const rows = await roles(real.superuserUrl);
+    expect(rows.map((row) => row.rolname)).toEqual([...REAL_ROLES]);
+    expect(rows.filter((row) => row.rolcanlogin).map((row) => row.rolname)).toEqual([
       ...REAL_LOGIN_ROLES,
     ]);
-    // No real role is a superuser or can make roles. In PostgreSQL 16 a
-    // CREATEROLE role may create a BYPASSRLS login if it holds BYPASSRLS
-    // itself, which the migrator does: CREATEROLE on it would be a way back.
-    expect(roles.filter((row) => row.rolsuper || row.rolcreaterole)).toEqual([]);
+    // In PostgreSQL 16 a CREATEROLE role holding BYPASSRLS (the migrator
+    // does) may create a BYPASSRLS login: CREATEROLE would be a way back.
+    expect(rows.filter((row) => row.rolsuper || row.rolcreaterole)).toEqual([]);
   });
 
-  it('is idempotent: applying it again changes nothing', async () => {
+  it('is idempotent, and re-applying keeps the placeholder inert', async () => {
     const before = await census(real.superuserUrl);
     await applyFile(real.superuserUrl, BOOTSTRAP_SQL);
     expect(await census(real.superuserUrl)).toEqual(before);
+    expect(await roleNamed(real.superuserUrl, TEST_ADMIN)).toEqual(INERT);
   });
 });
 
 describe('2. that database migrates to head under a production configuration', () => {
   it('applies every migration in packages/db/migrations, in order', async () => {
-    // What provisioning does to a real cell: bootstrap.sql, then the runner,
-    // in production. The guard must not stop this, and no migration may need
-    // the test role. (On main this passes: bootstrap.sql still creates it.)
+    // What provisioning does to a real cell. No guard may stop it: the
+    // placeholder is inert, the migrator's password is not a dev one, and
+    // NODE_ENV is set. Every migration that names the role must find it.
     const expected = loadMigrations().map((migration) => migration.id);
     expect(expected.length, 'no migrations found; this test would prove nothing').toBeGreaterThan(
       0,
@@ -549,61 +747,97 @@ describe('2. that database migrates to head under a production configuration', (
   }, 60_000);
 });
 
-describe('3. after migrating, nothing in the real database names kasuwa_test_admin', () => {
-  it('still has no kasuwa_test_admin, and still no BYPASSRLS role but the migrator', async () => {
+describe('3. after migrating, the placeholder holds no more than on main and nobody can use it', () => {
+  it('is still inert, password-less and membership-free; BYPASSRLS is still the migrator alone', async () => {
     requireRealMigrated();
-    expect(await roleNamed(real.superuserUrl, TEST_ADMIN)).toBeUndefined();
-    const roles = await query<RoleRow & Record<string, unknown>>(real.superuserUrl, ROLES_SQL);
-    expect(roles.map((row) => row.rolname)).toEqual([...REAL_ROLES]);
-    expect(roles.filter((row) => row.rolbypassrls).map((row) => row.rolname)).toEqual([
+    expect(await roleNamed(real.superuserUrl, TEST_ADMIN)).toEqual(INERT);
+    expect(await hasPassword(real.superuserUrl, TEST_ADMIN)).toBe(false);
+    expect(await query(real.superuserUrl, MEMBERSHIPS_SQL, [TEST_ADMIN])).toEqual([]);
+    const rows = await roles(real.superuserUrl);
+    expect(rows.map((row) => row.rolname)).toEqual([...REAL_ROLES]);
+    expect(rows.filter((row) => row.rolbypassrls).map((row) => row.rolname)).toEqual([
       'kasuwa_migrator',
     ]);
   });
 
-  it('no grant, default privilege or membership names kasuwa_test_admin', async () => {
+  it('no non-superuser role can reach it by membership, and it owns nothing', async () => {
     requireRealMigrated();
-    // Control first: the census sees the role where it exists. Without this,
-    // the REAL assertion below is true by construction (an ACL can only name
-    // a role that exists) and would prove nothing.
-    requireHarnessMigrated();
-    const harnessRows = await census(harness.superuserUrl);
-    expect(
-      harnessRows.filter((row) => row.grantee === TEST_ADMIN).length,
-      'the census cannot see kasuwa_test_admin grants even in HARNESS',
-    ).toBeGreaterThan(0);
-
-    const realRows = await census(real.superuserUrl);
-    expect(realRows.filter((row) => row.grantee === TEST_ADMIN)).toEqual([]);
+    expect(await query(real.superuserUrl, REACHES_SQL, [TEST_ADMIN])).toEqual([]);
+    expect(await query(real.superuserUrl, OWNED_SQL, [TEST_ADMIN])).toEqual([]);
   });
 
-  it('every grantee of every privilege is a real role or PUBLIC', async () => {
-    // The non-vacuous form of the test above: an allow-list of grantees
-    // catches the test role, a renamed copy of it, or any role nobody chose.
+  it.each([
+    ['kasuwa_app', APP_PASSWORD],
+    ['kasuwa_auth', AUTH_PASSWORD],
+    ['kasuwa_migrator', REAL_SECRET],
+  ] as const)('%s cannot SET ROLE to it', async (role, password) => {
+    requireRealMigrated();
+    // The behavioural form of the membership check above. On main this holds
+    // too: the role is a login, but nobody is a member of it.
+    await expect(
+      query(real.urlFor(role, password), `SET ROLE ${TEST_ADMIN}`),
+    ).rejects.toMatchObject({ code: '42501' });
+  });
+
+  it('cannot log in, with the dev password or any other', async () => {
+    requireRealMigrated();
+    // 28P01: no password to match. 28000: not permitted to log in.
+    for (const password of [TEST_ADMIN_PASSWORD, REAL_SECRET]) {
+      const code = await query(real.urlFor(TEST_ADMIN, password), 'SELECT 1').then(
+        () => 'connected',
+        (error: unknown) => (error as { code?: string }).code,
+      );
+      expect(
+        ['28P01', '28000'],
+        `kasuwa_test_admin with password ${password === TEST_ADMIN_PASSWORD ? 'dev' : 'random'}`,
+      ).toContain(code);
+    }
+  });
+
+  it('holds no grant beyond what kasuwa_test_admin held on main', async () => {
+    requireRealMigrated();
+    const held = grantsOf(await census(real.superuserUrl), TEST_ADMIN);
+    const beyond = [...held].flatMap(([object, privileges]) => {
+      const known = TEST_ADMIN_GRANTS_ON_MAIN[object];
+      const allowed =
+        known !== undefined
+          ? known.split(',')
+          : (FUTURE_OBJECT_PRIVILEGES[object.split('|')[0] ?? ''] ?? []);
+      const extra = privileges.filter((privilege) => !allowed.includes(privilege));
+      return extra.length === 0 ? [] : [`${object}: ${extra.join(',')}`];
+    });
+    expect(beyond).toEqual([]);
+  });
+
+  it('every grantee of every privilege is a known role or PUBLIC', async () => {
     requireRealMigrated();
     const allowed = new Set<string>(['PUBLIC', ...REAL_ROLES]);
     const strangers = (await census(real.superuserUrl)).filter((row) => !allowed.has(row.grantee));
     expect(strangers).toEqual([]);
   });
 
-  it('default privileges name kasuwa_app alone', async () => {
+  it("default privileges: kasuwa_app's exactly, and the placeholder at most main's", async () => {
     requireRealMigrated();
-    const lines = (await query<{ line: string }>(real.superuserUrl, DEFAULT_ACL_SQL)).map(
-      (row) => row.line,
-    );
-    expect(lines).toEqual(REAL_DEFAULT_ACL);
+    const lines = await defaultAcl(real.superuserUrl);
+    expect(lines.filter((line) => !line.includes(`|${TEST_ADMIN}|`))).toEqual(APP_DEFAULT_ACL);
+    const extra = lines
+      .filter((line) => line.includes(`|${TEST_ADMIN}|`))
+      .filter((line) => !TEST_ADMIN_DEFAULT_ACL_ON_MAIN.includes(line));
+    expect(extra).toEqual([]);
   });
 });
 
 describe('4. with bootstrap.sql then bootstrap-test.sql, the harness behaves as today', () => {
-  it('bootstrap-test.sql exists and is what creates kasuwa_test_admin', () => {
+  it('bootstrap-test.sql exists and is what makes kasuwa_test_admin a login', () => {
     expect(harnessHasTestBootstrap, 'packages/db/sql/bootstrap-test.sql does not exist').toBe(true);
     const code = stripSqlComments(readFileSync(BOOTSTRAP_TEST_SQL, 'utf8'));
-    expect(code).toMatch(/\bCREATE\s+ROLE\s+"?kasuwa_test_admin"?/iu);
+    expect(code).toMatch(/\b(?:CREATE|ALTER)\s+ROLE\s+"?kasuwa_test_admin"?[^;]*\bLOGIN\b/iu);
   });
 
-  it('kasuwa_test_admin has exactly its attributes on main, and no memberships', async () => {
+  it('kasuwa_test_admin is a BYPASSRLS login with no other power, and no memberships', async () => {
+    // INHERIT is not pinned: the role is a member of nothing, so it is moot.
     const role = await roleNamed(harness.superuserUrl, TEST_ADMIN);
-    expect(role).toEqual({
+    expect(role).toMatchObject({
       rolname: TEST_ADMIN,
       rolcanlogin: true,
       rolbypassrls: true,
@@ -611,13 +845,8 @@ describe('4. with bootstrap.sql then bootstrap-test.sql, the harness behaves as 
       rolcreaterole: false,
       rolcreatedb: false,
       rolreplication: false,
-      rolinherit: true,
     });
-    const memberships = (await census(harness.superuserUrl)).filter(
-      (row) =>
-        row.kind.startsWith('member') && (row.grantee === TEST_ADMIN || row.object === TEST_ADMIN),
-    );
-    expect(memberships).toEqual([]);
+    expect(await query(harness.superuserUrl, MEMBERSHIPS_SQL, [TEST_ADMIN])).toEqual([]);
   });
 
   it('logs in with its development password, as the harness does', async () => {
@@ -632,22 +861,37 @@ describe('4. with bootstrap.sql then bootstrap-test.sql, the harness behaves as 
     requireHarnessMigrated();
     const held = grantsOf(await census(harness.superuserUrl), TEST_ADMIN);
     const missing = Object.entries(TEST_ADMIN_GRANTS_ON_MAIN).flatMap(([object, privileges]) => {
-      const have = new Set((held.get(object) ?? '').split(',').filter(Boolean));
-      const lacking = privileges.split(',').filter((privilege) => !have.has(privilege));
+      const have = held.get(object) ?? [];
+      const lacking = privileges.split(',').filter((privilege) => !have.includes(privilege));
       return lacking.length === 0 ? [] : [`${object}: ${lacking.join(',')}`];
     });
     expect(missing).toEqual([]);
   });
 
-  it('default privileges are exactly those on main: kasuwa_app and kasuwa_test_admin', async () => {
+  it('default privileges include all of main’s, for kasuwa_app and kasuwa_test_admin', async () => {
     requireHarnessMigrated();
-    const lines = (await query<{ line: string }>(harness.superuserUrl, DEFAULT_ACL_SQL)).map(
-      (row) => row.line,
+    const lines = await defaultAcl(harness.superuserUrl);
+    const missing = [...APP_DEFAULT_ACL, ...TEST_ADMIN_DEFAULT_ACL_ON_MAIN].filter(
+      (line) => !lines.includes(line),
     );
-    expect(lines).toEqual(HARNESS_DEFAULT_ACL);
+    expect(missing).toEqual([]);
   });
 
-  it('re-applying both files after migrating (pnpm dev) fails nothing and changes nothing', async () => {
+  it('re-applying bootstrap.sql alone (tools/dev.mjs does) leaves the test login live', async () => {
+    // D-L94: bootstrap.sql leaves an existing role alone. If it re-asserted
+    // the placeholder, every `pnpm dev` would break the harness login.
+    requireHarnessMigrated();
+    const before = await roleNamed(harness.superuserUrl, TEST_ADMIN);
+    await applyFile(harness.superuserUrl, BOOTSTRAP_SQL);
+    expect(await roleNamed(harness.superuserUrl, TEST_ADMIN)).toEqual(before);
+    const rows = await query<{ who: string }>(
+      harness.urlFor(TEST_ADMIN, TEST_ADMIN_PASSWORD),
+      'SELECT current_user::text AS who',
+    );
+    expect(rows).toEqual([{ who: TEST_ADMIN }]);
+  });
+
+  it('re-applying both files after migrating fails nothing and changes nothing', async () => {
     requireHarnessMigrated();
     expect(harnessHasTestBootstrap, 'packages/db/sql/bootstrap-test.sql does not exist').toBe(true);
     const before = await census(harness.superuserUrl);
@@ -658,8 +902,7 @@ describe('4. with bootstrap.sql then bootstrap-test.sql, the harness behaves as 
 
   it('the shared harness still hands every suite a working BYPASSRLS kasuwa_test_admin', async () => {
     // The live global setup, not a copy of it: if packages/testing stops
-    // applying bootstrap-test.sql this login fails, and every suite that
-    // injects testAdminUrl fails with it.
+    // applying bootstrap-test.sql this login fails.
     const rows = await query<{ who: string; bypass: boolean; tenants: string }>(
       inject('testAdminUrl'),
       `SELECT current_user::text AS who,
@@ -690,88 +933,148 @@ describe('4. with bootstrap.sql then bootstrap-test.sql, the harness behaves as 
     const test = mounts.get('bootstrap-test.sql');
     expect(main, 'bootstrap.sql is not mounted in the init directory').toBeDefined();
     expect(test, 'bootstrap-test.sql is not mounted in the init directory').toBeDefined();
-    // The entrypoint runs the directory in name order; the test file needs
-    // the roles and the database grants bootstrap.sql makes.
+    // The entrypoint runs the directory in name order.
     expect([main, test].sort()).toEqual([main, test]);
   });
 });
 
-describe('5. the runner refuses a non-dev, non-test database that has kasuwa_test_admin', () => {
-  it('refuses in production, before writing anything, saying why and leaking nothing', async () => {
-    requireHarnessMigrated();
-    const { outcome, relations } = await scratchRun(harnessMigrator, PRODUCTION);
-    expect(outcome.ok, 'the runner migrated a production database that has the test role').toBe(
-      false,
-    );
-    if (!outcome.ok) {
-      expect(outcome.message).toContain(TEST_ADMIN);
-      expect(outcome.message).toContain('production');
-      expectNoSecret(outcome.message, harnessMigrator);
-    }
-    // I3: refused BEFORE anything, the bookkeeping table included.
-    expect(relations).toEqual([]);
-  });
-
-  it.each(['staging', 'prod', 'Production', ''])(
-    'refuses with NODE_ENV=%j too, and writes nothing (R1)',
-    async (nodeEnv) => {
+describe('5. the runner refuses a usable kasuwa_test_admin, a blind NODE_ENV and dev passwords', () => {
+  describe('5a. keyed on the role’s attributes (R4)', () => {
+    it('refuses in production when the role is the live test login', async () => {
       requireHarnessMigrated();
-      const { outcome, relations } = await scratchRun(harnessMigrator, {
-        ...PRODUCTION,
-        NODE_ENV: nodeEnv,
+      const message = expectRefused(
+        await scratchRun(harnessMigrator, PRODUCTION),
+        'the runner migrated a production database whose kasuwa_test_admin can log in',
+      );
+      expect(message).toContain(TEST_ADMIN);
+      expect(message).toContain('production');
+    });
+
+    it.each(['staging', 'prod', 'Production', ''])(
+      'refuses with NODE_ENV=%j when the role is live (R1)',
+      async (nodeEnv) => {
+        requireHarnessMigrated();
+        expectRefused(
+          await scratchRun(harnessMigrator, { ...PRODUCTION, NODE_ENV: nodeEnv }),
+          `the runner migrated with NODE_ENV=${JSON.stringify(nodeEnv)}`,
+        );
+      },
+    );
+
+    it.each([
+      ['LOGIN alone', [`ALTER ROLE ${TEST_ADMIN} LOGIN`], []],
+      ['BYPASSRLS alone', [`ALTER ROLE ${TEST_ADMIN} BYPASSRLS`], []],
+      [
+        'a member (kasuwa_sweeper)',
+        [`GRANT ${TEST_ADMIN} TO kasuwa_sweeper`],
+        [`REVOKE ${TEST_ADMIN} FROM kasuwa_sweeper`],
+      ],
+      [
+        'membership of a role (kasuwa_sweeper)',
+        [`GRANT kasuwa_sweeper TO ${TEST_ADMIN}`],
+        [`REVOKE kasuwa_sweeper FROM ${TEST_ADMIN}`],
+      ],
+    ] as const)(
+      'refuses in production when the placeholder gains %s',
+      async (_what, change, undo) => {
+        requireRealMigrated();
+        await withPlaceholderChanged(change, undo, async () => {
+          const message = expectRefused(
+            await scratchRun(realMigrator, PRODUCTION),
+            'the runner migrated a production database with a usable kasuwa_test_admin',
+          );
+          expect(message).toContain(TEST_ADMIN);
+        });
+      },
+    );
+
+    it('RUNS in production when the role is the inert placeholder (control)', async () => {
+      // Without this, a runner that refused production outright, or refused
+      // on the role's mere existence, would pass every refusal above.
+      requireRealMigrated();
+      expectRan(await scratchRun(realMigrator, PRODUCTION));
+    });
+
+    it.each([
+      ['development', DEVELOPMENT],
+      ['test', TEST_ENV],
+    ] as const)('runs in %s when the role is live (control)', async (_name, env) => {
+      requireHarnessMigrated();
+      expectRan(await scratchRun(harnessMigrator, env));
+    });
+  });
+
+  describe('5b. an unset NODE_ENV is allowed only against a local host (R5)', () => {
+    it.each([
+      ['a remote name', (url: string) => withHost(url, REMOTE_HOST)],
+      [
+        'a name that only starts with localhost',
+        (url: string) => withHost(url, 'localhost.t0117.invalid'),
+      ],
+      [
+        'localhost in the URL, overridden by ?host= (I4)',
+        (url: string) => withQuery(withHost(url, 'localhost'), 'host', REMOTE_HOST),
+      ],
+    ] as const)(
+      'refuses an unset NODE_ENV against %s, before connecting',
+      async (_what, attack) => {
+        // The hosts never resolve: if the runner tried to connect first, the
+        // error would be a DNS failure, which names neither reason.
+        requireHarnessMigrated();
+        const message = expectRefused(
+          await scratchRun(harnessMigrator, UNSET, attack),
+          'the runner ran with no NODE_ENV against a non-local host',
+        );
+        expect(message).toContain('NODE_ENV');
+        expect(message).not.toMatch(/ENOTFOUND|getaddrinfo/u);
+      },
+    );
+
+    it.each(['localhost', '127.0.0.1'])(
+      'runs with an unset NODE_ENV against %s, even with the live role (control)',
+      async (host) => {
+        requireHarnessMigrated();
+        expectRan(await scratchRun(harnessMigrator, UNSET, (url) => withHost(url, host)));
+      },
+    );
+  });
+
+  describe('5c. the repository’s dev passwords are refused outside development and test', () => {
+    // REAL, so the placeholder is inert and the role guard cannot be the
+    // reason; the migrator's password really is the dev one meanwhile, so an
+    // authentication failure cannot be the reason either.
+    it.each([
+      ['in the URL', (url: string) => url],
+      [
+        'percent-encoded in the URL (I4)',
+        (url: string) => withPassword(url, 'kasuwa%5Fmigrator%5Fdev'),
+      ],
+      [
+        'as a ?password= override of a secret-looking one (I4)',
+        (url: string) => withQuery(withPassword(url, REAL_SECRET), 'password', MIGRATOR_PASSWORD),
+      ],
+    ] as const)('refuses the dev migrator password %s in production', async (_how, attack) => {
+      requireRealMigrated();
+      await withMigratorOnDevPassword(async (devUrl) => {
+        const message = expectRefused(
+          await scratchRun(devUrl, PRODUCTION, attack),
+          'the runner migrated production with the repository dev password',
+        );
+        expect(message).toMatch(/password/iu);
+        expectNoSecret(message, ['kasuwa%5Fmigrator%5Fdev']);
       });
-      expect(outcome.ok, `the runner migrated with NODE_ENV=${JSON.stringify(nodeEnv)}`).toBe(
-        false,
-      );
-      if (!outcome.ok) {
-        expectNoSecret(outcome.message, harnessMigrator);
-      }
-      expect(relations).toEqual([]);
-    },
-  );
+    });
 
-  it.each([
-    ['development', { NODE_ENV: 'development' }],
-    ['test', TEST_ENV],
-  ] as const)('runs normally in %s when the role exists (control)', async (_name, env) => {
-    requireHarnessMigrated();
-    const { outcome, relations } = await scratchRun(harnessMigrator, env);
-    expect(outcome).toEqual({ ok: true, applied: ['0001_t0117_probe'] });
-    expect(relations).toContain('t0117_probe');
-  });
-
-  it('runs normally in production when the role is absent (control)', async () => {
-    // Without this, a runner that refused production outright would pass the
-    // refusal above. Also covered at full scale by section 2.
-    requireRealMigrated();
-    const { outcome, relations } = await scratchRun(realMigrator, PRODUCTION);
-    expect(outcome).toEqual({ ok: true, applied: ['0001_t0117_probe'] });
-    expect(relations).toContain('t0117_probe');
-  });
-
-  it('keys on existence: a NOLOGIN, NOBYPASSRLS kasuwa_test_admin is refused as well', async () => {
-    // A guard that checked "can it log in" would wave through a role that is
-    // one ALTER ROLE away from being the test login again, still holding its
-    // grants. The contract is existence (T-0117).
-    requireRealMigrated();
-    const existed = (await roleNamed(real.superuserUrl, TEST_ADMIN)) !== undefined;
-    if (!existed) {
-      await query(real.superuserUrl, `CREATE ROLE ${TEST_ADMIN} NOLOGIN NOBYPASSRLS`);
-    }
-    try {
-      const { outcome, relations } = await scratchRun(realMigrator, PRODUCTION);
-      expect(outcome.ok, 'the runner migrated a production database that has the test role').toBe(
-        false,
-      );
-      if (!outcome.ok) {
-        expect(outcome.message).toContain(TEST_ADMIN);
-      }
-      expect(relations).toEqual([]);
-    } finally {
-      if (!existed) {
-        await query(real.superuserUrl, `DROP ROLE ${TEST_ADMIN}`);
-      }
-    }
+    it.each([
+      ['test', TEST_ENV],
+      ['development', DEVELOPMENT],
+      ['an unset NODE_ENV on localhost', UNSET],
+    ] as const)('accepts the dev migrator password in %s (control)', async (_name, env) => {
+      requireRealMigrated();
+      await withMigratorOnDevPassword(async (devUrl) => {
+        expectRan(await scratchRun(devUrl, env, (url) => withHost(url, 'localhost')));
+      });
+    });
   });
 });
 
@@ -783,16 +1086,6 @@ describe('6. bootstrap.sql carries no password but the three documented dev ones
     expect(raw).not.toContain(TEST_ADMIN_PASSWORD);
   });
 
-  it('names kasuwa_test_admin nowhere but in comments', () => {
-    // Catches a conditional CREATE ROLE (IF some_setting = 'test' THEN ...)
-    // that section 1 would miss, since it would not fire in the container.
-    expect(code).not.toMatch(/kasuwa_test_admin/iu);
-    expect(code).not.toMatch(/bootstrap-test/iu);
-    // psql meta-commands (\i, \ir, \include) would pull another file in when
-    // docker-compose or tools/dev.mjs runs this through psql.
-    expect(raw.split(/\r?\n/u).filter((line) => /^\s*\\/u.test(line))).toEqual([]);
-  });
-
   it('every PASSWORD clause is one of the three pinned role/literal pairs, once each', () => {
     const keywords = code.match(/\bPASSWORD\b/giu) ?? [];
     const pairs = [
@@ -800,9 +1093,8 @@ describe('6. bootstrap.sql carries no password but the three documented dev ones
         /\b(?:CREATE|ALTER)\s+(?:ROLE|USER)\s+"?([a-z_][a-z0-9_]*)"?[^;]*?\bPASSWORD\s+('(?:[^']|'')*'|[^\s;]+)/giu,
       ),
     ].map((match) => `${match[1] ?? '?'}=${match[2] ?? '?'}`);
-    // Every PASSWORD keyword has to be one the pattern understood; one it did
-    // not (a hashed literal, \password, a role set some other way) fails here
-    // rather than slipping past the allow-list.
+    // A PASSWORD keyword the pattern did not understand (a hashed literal,
+    // \password, a role set some other way) fails here.
     expect(pairs.length, `PASSWORD clauses not understood: ${keywords.length}`).toBe(
       keywords.length,
     );
@@ -813,9 +1105,94 @@ describe('6. bootstrap.sql carries no password but the three documented dev ones
     ]);
   });
 
+  it('creates the placeholder NOLOGIN NOBYPASSRLS NOINHERIT, and never gives it more', () => {
+    const statements = [
+      ...code.matchAll(/\b(?:CREATE|ALTER)\s+ROLE\s+"?kasuwa_test_admin"?\b[^;]*;/giu),
+    ].map((match) => match[0]);
+    const create = statements.filter((statement) => /^CREATE/iu.test(statement));
+    expect(create.length, 'bootstrap.sql does not CREATE ROLE kasuwa_test_admin').toBe(1);
+    // Explicit, not defaulted: CREATE ROLE defaults to INHERIT.
+    for (const attribute of ['NOLOGIN', 'NOBYPASSRLS', 'NOINHERIT']) {
+      expect(create[0] ?? '').toMatch(new RegExp(`\\b${attribute}\\b`, 'iu'));
+    }
+    for (const statement of statements) {
+      expect(statement).not.toMatch(/\bPASSWORD\b/iu);
+      expect(statement).not.toMatch(/(?<!NO)(?:LOGIN|BYPASSRLS|SUPERUSER|CREATEROLE|CREATEDB)\b/iu);
+    }
+  });
+
+  it('pulls in no other file', () => {
+    expect(code).not.toMatch(/bootstrap-test/iu);
+    // psql meta-commands (\i, \ir, \include) would pull bootstrap-test.sql in
+    // when docker-compose or tools/dev.mjs runs this through psql.
+    expect(raw.split(/\r?\n/u).filter((line) => /^\s*\\/u.test(line))).toEqual([]);
+  });
+
   it('the header and packages/db/CLAUDE.md say which file real provisioning applies', () => {
     const header = raw.slice(0, raw.search(/^\s*(?:DO|CREATE|ALTER|GRANT|REVOKE)\b/mu));
     expect(header).toMatch(/bootstrap-test\.sql/u);
     expect(readFileSync(DB_CLAUDE_MD, 'utf8')).toMatch(/bootstrap-test\.sql/u);
+  });
+});
+
+describe('7. the API refuses the repository’s dev passwords at startup in production (I5)', () => {
+  const url = (role: string, password: string, suffix = ''): string =>
+    `postgres://${role}:${password}@${REMOTE_HOST}:5432/kasuwa${suffix}`;
+  const secretApp = url('kasuwa_app', REAL_SECRET);
+  const secretAuth = url('kasuwa_auth', HARNESS_SECRET);
+
+  function refusal(source: EnvSource): string {
+    try {
+      apiEnv(source);
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+    return '';
+  }
+
+  it('boots in production with passwords that are not the repository’s (control)', () => {
+    expect(() =>
+      apiEnv({ ...API_PRODUCTION, DATABASE_URL: secretApp, DATABASE_AUTH_URL: secretAuth }),
+    ).not.toThrow();
+  });
+
+  it('boots in development with the dev passwords (control)', () => {
+    expect(() =>
+      apiEnv({
+        ...DEVELOPMENT,
+        DATABASE_URL: url('kasuwa_app', APP_PASSWORD),
+        DATABASE_AUTH_URL: url('kasuwa_auth', AUTH_PASSWORD),
+      }),
+    ).not.toThrow();
+  });
+
+  it.each(
+    (['DATABASE_URL', 'DATABASE_AUTH_URL'] as const).flatMap((variable) =>
+      DEV_PASSWORDS.map((password) => [variable, password] as const),
+    ),
+  )('refuses %s carrying %s', (variable, password) => {
+    const message = refusal({
+      ...API_PRODUCTION,
+      DATABASE_URL: secretApp,
+      DATABASE_AUTH_URL: secretAuth,
+      [variable]: url(variable === 'DATABASE_URL' ? 'kasuwa_app' : 'kasuwa_auth', password),
+    });
+    expect(message, `apiEnv booted in production with ${variable} on a dev password`).not.toBe('');
+    expect(message).toContain(variable);
+    expectNoSecret(message);
+  });
+
+  it.each([
+    ['percent-encoded', url('kasuwa_app', 'kasuwa%5Fapp%5Fdev')],
+    ['as a ?password= override', url('kasuwa_app', REAL_SECRET, `?password=${APP_PASSWORD}`)],
+  ])('refuses DATABASE_URL with the dev password %s (I4)', (_how, databaseUrl) => {
+    const message = refusal({
+      ...API_PRODUCTION,
+      DATABASE_URL: databaseUrl,
+      DATABASE_AUTH_URL: secretAuth,
+    });
+    expect(message, 'apiEnv booted in production with a disguised dev password').not.toBe('');
+    expect(message).toContain('DATABASE_URL');
+    expectNoSecret(message, ['kasuwa%5Fapp%5Fdev']);
   });
 });
