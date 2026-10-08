@@ -1078,5 +1078,8 @@
   "account.section.contacts": "جهات الاتصال المرتبطة",
   "account.contacts.empty": "لا توجد جهات اتصال مرتبطة بهذا الحساب بعد.",
   "account.contacts.withheld": "لا يستطيع دورك رؤية جهات الاتصال المرتبطة بهذا الحساب.",
-  "account.contacts.error": "لم يتم تحميل جهات الاتصال."
+  "account.contacts.error": "لم يتم تحميل جهات الاتصال.",
+  "record.conflict.otherChange": "غيّر شخص آخر هذا منذ أن فتحته. عند الحفظ يُحتفظ بما كتبته.",
+  "account.hierarchy.limit": "المستويات الأعلى غير معروضة",
+  "account.hierarchy.cycle": "يعود التسلسل الهرمي إلى هنا"
 }

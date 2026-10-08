@@ -1078,5 +1078,8 @@
   "account.section.contacts": "Abokan hulɗa masu alaƙa",
   "account.contacts.empty": "Babu abokin hulɗa da aka haɗa da wannan asusu tukuna.",
   "account.contacts.withheld": "Matsayinka ba zai iya ganin waɗanne abokan hulɗa ne aka haɗa da wannan asusu ba.",
-  "account.contacts.error": "Abokan hulɗa ba su loda ba."
+  "account.contacts.error": "Abokan hulɗa ba su loda ba.",
+  "record.conflict.otherChange": "Wani ya canza wannan tun da ka buɗe shi. Idan ka ajiye, abin da ka rubuta zai tsaya.",
+  "account.hierarchy.limit": "Ba a nuna matakan sama ba",
+  "account.hierarchy.cycle": "Tsarin matakan ya dawo nan"
 }

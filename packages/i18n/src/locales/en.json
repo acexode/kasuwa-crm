@@ -1078,5 +1078,8 @@
   "account.section.contacts": "Contacts",
   "account.contacts.empty": "No contacts are linked to this account yet.",
   "account.contacts.withheld": "Your role cannot see which contacts are linked to this account.",
-  "account.contacts.error": "The contacts did not load."
+  "account.contacts.error": "The contacts did not load.",
+  "record.conflict.otherChange": "Someone else changed this since you opened it. Saving keeps what you typed.",
+  "account.hierarchy.limit": "Higher levels are not shown",
+  "account.hierarchy.cycle": "The hierarchy loops back here"
 }

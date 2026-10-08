@@ -1078,5 +1078,8 @@
   "account.section.contacts": "Di contacts",
   "account.contacts.empty": "No contact dey link to dis account yet.",
   "account.contacts.withheld": "Your role no fit see which contacts dey link to dis account.",
-  "account.contacts.error": "Di contacts no load."
+  "account.contacts.error": "Di contacts no load.",
+  "record.conflict.otherChange": "Another person don change dis one since you open am. If you save, wetin you type go stay.",
+  "account.hierarchy.limit": "We no show di higher levels",
+  "account.hierarchy.cycle": "Di hierarchy don turn come back here"
 }

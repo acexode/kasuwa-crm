@@ -1078,5 +1078,8 @@
   "account.section.contacts": "Ndị kọntaktị jikọrọ ya",
   "account.contacts.empty": "Enweghị onye kọntaktị ejikọrọ na akaụntụ a ugbu a.",
   "account.contacts.withheld": "Ọrụ gị enweghị ike ịhụ ndị kọntaktị ejikọrọ na akaụntụ a.",
-  "account.contacts.error": "Ndị kọntaktị ahụ ebudataghị."
+  "account.contacts.error": "Ndị kọntaktị ahụ ebudataghị.",
+  "record.conflict.otherChange": "Onye ọzọ agbanweela nke a kemgbe i meghere ya. Ọ bụrụ na i chekwaa, ihe i dere ga-anọgide.",
+  "account.hierarchy.limit": "Egosighị ọkwa ndị dị elu",
+  "account.hierarchy.cycle": "Usoro ọkwa ahụ laghachiri ebe a"
 }

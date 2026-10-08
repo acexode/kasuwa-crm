@@ -1078,5 +1078,8 @@
   "account.section.contacts": "Contacts liés",
   "account.contacts.empty": "Aucun contact n’est encore lié à ce compte.",
   "account.contacts.withheld": "Votre rôle ne permet pas de voir quels contacts sont liés à ce compte.",
-  "account.contacts.error": "Les contacts n’ont pas pu être chargés."
+  "account.contacts.error": "Les contacts n’ont pas pu être chargés.",
+  "record.conflict.otherChange": "Quelqu’un d’autre a modifié ce champ depuis son ouverture. L’enregistrement conserve ce que vous avez saisi.",
+  "account.hierarchy.limit": "Les niveaux supérieurs ne sont pas affichés",
+  "account.hierarchy.cycle": "La hiérarchie revient sur elle-même ici"
 }

@@ -1078,5 +1078,8 @@
   "account.section.contacts": "Anwani zilizounganishwa",
   "account.contacts.empty": "Bado hakuna anwani iliyounganishwa na akaunti hii.",
   "account.contacts.withheld": "Jukumu lako haliwezi kuona ni anwani zipi zimeunganishwa na akaunti hii.",
-  "account.contacts.error": "Anwani hazikupakia."
+  "account.contacts.error": "Anwani hazikupakia.",
+  "record.conflict.otherChange": "Mtu mwingine amebadilisha hiki tangu ulipokifungua. Ukihifadhi, ulichoandika kitabaki.",
+  "account.hierarchy.limit": "Ngazi za juu hazionyeshwi",
+  "account.hierarchy.cycle": "Muundo wa ngazi unarudi hapa"
 }
