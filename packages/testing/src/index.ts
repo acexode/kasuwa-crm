@@ -1,5 +1,6 @@
 export * from './auth';
 export * from './authz-matrix';
+export * from './bare-postgres';
 export * from './containers';
 export * from './factories';
 export * from './isolation';
