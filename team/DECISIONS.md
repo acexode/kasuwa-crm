@@ -2134,3 +2134,17 @@ Every recommendation below was taken as written in its entry. What each one now 
     refusal is not possible, and a role made a login is caught at the next boot or migration. An explicit
     `NODE_ENV=development` against a remote host is not refused. `NODE_ENV=''` is invalid, not unset. "Unset" is read raw,
     not through `nodeEnv()`.
+
+### D-L95 — T-0117 security review rulings (lead, 2026-10-08; corrects the D-L94 addendum)
+**Status:** PROCEEDING (lead).
+- **Correction: the ADMIN-only exception was wrong.** A login role holding ADMIN on `kasuwa_test_admin` can grant the role to
+  itself with SET and become it (proven live by the review). An ADMIN-only membership is ignored only when the member is a
+  superuser or CREATEROLE role, which could do the same anyway; anyone else holding ADMIN is refused.
+- **An unset `NODE_ENV` is refused outright** by the migration runner, the API and the worker, whatever the host. Loopback is
+  not "development": database tunnels (cloud-sql-proxy, `kubectl port-forward`, SSH and SSM) listen on 127.0.0.1. Every dev
+  entry point sets `NODE_ENV` explicitly. This also closes the pre-existing case where an unset `NODE_ENV` let stub auth boot.
+- **`db:seed`** judges its host the way `pg` does (it trusted `new URL()`, which `?host=` defeats).
+- **Dev passwords** are matched after SASLprep. The list gains the superuser's `postgres`.
+- **Every `PG*` environment variable,** and `NODE_PG_FORCE_NATIVE`, is refused outside development and test.
+- **`db:reset`** refuses whenever enforcement is on, before any DROP.
+- **A test pins** that `@kasuwa/config`'s `pg-connection-string` is the version `pg` uses.
