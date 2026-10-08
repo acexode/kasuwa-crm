@@ -1,6 +1,7 @@
 import {
   createPool,
   PROGRAMME_A1,
+  PROGRAMME_A2,
   runSeed,
   SEED_CONTACTS,
   SEED_PERMISSION_SETS,
@@ -162,6 +163,68 @@ describe('a former owner (T-0103)', () => {
           ],
         },
       ]);
+    });
+  });
+
+  it('one statement ending several memberships writes one event each, with its own count (0 included)', async () => {
+    const agentSet = SEED_PERMISSION_SETS.find(
+      (set) => set.tenantId === TENANT_A && set.key === 'agent',
+    );
+    if (agentSet === undefined) throw new Error('Fixture drift: no agent set');
+    await inRollback(USER_A_SUPERVISOR, async (tx) => {
+      // Agent 2 joins A1 too, owning nothing there: that event must say "0".
+      await tx.query(
+        `INSERT INTO user_programme (user_id, programme_id, tenant_id, permission_set_id)
+         VALUES ($1, $2, $3, $4)`,
+        [USER_A_AGENT_2, PROGRAMME_A1, TENANT_A, agentSet.id],
+      );
+      for (let i = 0; i < 2; i += 1) {
+        await insertContact(tx, PROGRAMME_A1, {
+          displayName: `T0103 A1 ${i}`,
+          ownerUserId: USER_A_AGENT_1,
+        });
+      }
+      for (let i = 0; i < 3; i += 1) {
+        await insertContact(tx, PROGRAMME_A2, {
+          displayName: `T0103 A2 ${i}`,
+          ownerUserId: USER_A_AGENT_2,
+        });
+      }
+      const removed = await tx.query(
+        `DELETE FROM user_programme
+          WHERE tenant_id = $1
+            AND ((user_id = $2 AND programme_id = $4)
+              OR (user_id = $3 AND programme_id = ANY (ARRAY[$4, $5]::uuid[])))
+         RETURNING user_id`,
+        [TENANT_A, USER_A_AGENT_1, USER_A_AGENT_2, PROGRAMME_A1, PROGRAMME_A2],
+      );
+      expect(removed).toHaveLength(3);
+
+      const events = await tx.query<{
+        programme_id: string;
+        changes: { field: string; before: string | null; after: string | null }[];
+      }>(
+        `SELECT programme_id, changes
+           FROM audit_event
+          WHERE tenant_id = $1
+            AND changes @> '[{"field": "removedMember"}]'::jsonb
+            AND occurred_at >= transaction_timestamp()`,
+        [TENANT_A],
+      );
+      const counts = events
+        .map((event) => {
+          const member = event.changes.find((entry) => entry.field === 'removedMember');
+          const count = event.changes.find((entry) => entry.field === 'unassignedContacts');
+          return `${member?.before ?? '?'}@${event.programme_id}=${count?.after ?? '?'}`;
+        })
+        .sort();
+      expect(counts).toEqual(
+        [
+          `${USER_A_AGENT_1}@${PROGRAMME_A1}=2`,
+          `${USER_A_AGENT_2}@${PROGRAMME_A1}=0`,
+          `${USER_A_AGENT_2}@${PROGRAMME_A2}=3`,
+        ].sort(),
+      );
     });
   });
 

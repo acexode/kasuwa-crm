@@ -148,12 +148,32 @@
 -- ascending key order, and only then touches contact rows. While it waits it
 -- holds no contact row lock (only its own user_programme rows, which no
 -- assigner waits for), and an assigner holds at most one membership lock, so
--- that cycle cannot form. What remains, stated rather than hidden: a single
--- TRANSACTION that ends memberships in two separate statements takes the
--- second statement's locks after the first's, so two such transactions
--- removing overlapping sets in opposite orders can still deadlock with EACH
--- OTHER. The server's 40P01 then rolls one back whole: never a wrong owner,
--- and no membership-removal API exists yet to issue that pattern.
+-- that cycle cannot form WITHIN ONE STATEMENT.
+--
+-- What remains, stated rather than hidden (migration re-check): the ordering
+-- is per statement, so ONE TRANSACTION that ends memberships in TWO
+-- statements is not covered.
+--   - Against a concurrent assigner: statement 1 ends A and row-locks A's
+--     contacts; an assigner holding B's shared lock then waits for one of
+--     those contact rows; statement 2 waits for B's lock. That is the original
+--     cycle. The server breaks it with 40P01. In the review's reproduction the
+--     assigner got the 40P01 (a 500) and the removal committed. Either way the
+--     loser rolls back whole: never a wrong owner.
+--   - Against another such transaction removing an overlapping set in the
+--     opposite order: the same, between the two removals.
+-- THE RULE FOR A FUTURE MEMBERSHIP-REMOVAL API (none exists yet): end all of
+-- one request's memberships in ONE statement, or, before its first DELETE or
+-- UPDATE of user_programme, take every membership lock it will need,
+-- exclusive, in ascending key order (the key and namespace above), in its
+-- own transaction.
+--
+-- CAPACITY: advisory locks live in the server's shared lock table (about
+-- max_locks_per_transaction (64) x max_connections slots, shared with every
+-- other lock). A single statement ending more memberships than that cannot
+-- take its locks and fails closed with "out of shared memory" (53200): the
+-- whole statement rolls back and nothing is unassigned. An operator removing
+-- a very large set does it in batches of statements, each in its own
+-- transaction.
 --
 -- ---------------------------------------------------------------------------
 -- WHY A TRIGGER, AND WHY THESE CHOICES (the builder's, D-L99)
@@ -187,17 +207,23 @@
 --   - contact: CREATE INDEX contact_owner_programme_idx takes SHARE on contact
 --     until COMMIT, which blocks contact writes (not reads) while the index
 --     builds, a scan of every row. Accepted inside the transaction because no
---     populated cell exists (D-L65). On a populated cell, build it first,
---     outside a transaction, and make this step a no-op:
---         SET lock_timeout = '5s';
+--     populated cell exists (D-L65), and kept here so this file stays one
+--     transaction. On a populated cell the index is built instead by a
+--     SEPARATE migration file, ordered before this one, whose first line is
+--     exactly `-- kasuwa:no-transaction` (the runner's non-transactional
+--     mode, T-0044; it admits only CONCURRENTLY index statements and VALIDATE
+--     CONSTRAINT, so no SET), holding only:
 --         CREATE INDEX CONCURRENTLY IF NOT EXISTS contact_owner_programme_idx
 --           ON contact (tenant_id, owner_user_id, programme_id)
 --           WHERE owner_user_id IS NOT NULL;
---     (CONCURRENTLY cannot run inside the runner's transaction until the
---     D-L65 runner task adds a non-transactional mode; a failed concurrent
---     build leaves an INVALID index to DROP INDEX CONCURRENTLY and retry.)
---     It supersedes contact_owner_idx's prefix for "my contacts" as well;
---     dropping the older index is a later contract step, not this file's.
+--     and this file's CREATE INDEX becomes CREATE INDEX IF NOT EXISTS. A
+--     failed concurrent build leaves an INVALID index: DROP INDEX
+--     CONCURRENTLY and run it again (step 4's self-check refuses an invalid
+--     one).
+--   - contact_owner_idx (tenant_id, owner_user_id) is now a redundant prefix
+--     of the new index, which serves "my contacts" as well. Dropping it is a
+--     tracked contract step (DROP INDEX CONCURRENTLY, its own no-transaction
+--     file), not this file's: this file only expands.
 --   - user_programme: CREATE TRIGGER takes SHARE ROW EXCLUSIVE until COMMIT.
 --     It blocks membership writes, not reads, so session resolution (which
 --     reads user_programme on every request) keeps answering. No row is read
@@ -211,8 +237,10 @@
 --   - per removal statement: one advisory lock per ended membership, one
 --     UPDATE on contact reading only the ended memberships' owned rows
 --     through contact_owner_programme_idx, and one audit row per membership;
---   - the migration review measured the unassignment at about 2.45 s per
---     100,000 contacts owned by the removed user in that programme, all of it
+--   - the migration re-check measured the unassignment at about 5 s per
+--     100,000 contacts owned by the removed user in that programme, on a
+--     700,000-row contact table (the first review measured 2.45 s on a
+--     smaller one; it grows with the table and its indexes). All of it runs
 --     inside the removing transaction, holding those contact row locks and
 --     the membership lock until COMMIT. That is acceptable for an operator's
 --     DELETE. A future membership-removal API must cap the number of contacts
@@ -372,6 +400,12 @@ BEGIN
        AND c.owner_user_id = e.user_id
        AND c.programme_id = e.programme_id
     RETURNING e.tenant_id, e.programme_id, e.user_id
+  ),
+  -- One pass over the unassigned rows, not one per ended membership.
+  counts AS (
+    SELECT x.tenant_id, x.programme_id, x.user_id, pg_catalog.count(*) AS n
+      FROM unassigned x
+     GROUP BY x.tenant_id, x.programme_id, x.user_id
   )
   INSERT INTO public.audit_event
     (id, tenant_id, actor_kind, actor_user_id, actor_role_name,
@@ -395,14 +429,14 @@ BEGIN
              'after', NULL, 'redacted', false),
            pg_catalog.jsonb_build_object(
              'field', 'unassignedContacts', 'before', NULL,
-             'after', (SELECT pg_catalog.count(*)
-                         FROM unassigned x
-                        WHERE x.tenant_id = e.tenant_id
-                          AND x.programme_id = e.programme_id
-                          AND x.user_id = e.user_id)::text,
+             'after', coalesce(k.n, 0)::text,
              'redacted', false))
     FROM ended e
-    JOIN public.programme p ON p.tenant_id = e.tenant_id AND p.id = e.programme_id;
+    JOIN public.programme p ON p.tenant_id = e.tenant_id AND p.id = e.programme_id
+    LEFT JOIN counts k
+      ON k.tenant_id = e.tenant_id
+     AND k.programme_id = e.programme_id
+     AND k.user_id = e.user_id;
 
   RETURN NULL;  -- AFTER trigger: the return value is ignored.
 END;
