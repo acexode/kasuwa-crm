@@ -195,6 +195,11 @@ const PER_AGENT_ALLOWANCES = [
     pathPrefix: 'packages/db/migrations/',
     why: 'Agent 2 owns M15 metadata tables and its tasks assign migrations.',
   },
+  {
+    branchPrefix: 'agent3/T-0103',
+    pathPattern: reservedMigration('0031'),
+    why: 'T-0103 (D-P23, D-L99) assigns Agent 3 one migration, number 0031 reserved; 0030 is T-0113.',
+  },
 ];
 
 function allows(entry, path) {
