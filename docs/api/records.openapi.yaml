@@ -45,7 +45,7 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.7.0-T-0080
+  version: 0.8.0-T-0103
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
     update. Accounts (T-0052, served since T-0055): list, get, create,
@@ -66,6 +66,14 @@ info:
     Programme names come from `listMyProgrammes`; an owner's name is embedded
     on the contact as `owner`. There is deliberately no operation that turns
     caller-supplied user ids into names: that would be a user directory.
+
+    **A former owner (T-0103, D-P23).** An owner who is no longer a member of
+    the contact's programme is sent as `owner: { id, displayName: null }`,
+    and a screen prints a translated neutral label ("Former owner"), never
+    the id. Every Contact-shaped response carries this form: getContact,
+    listContacts, listLeads, listAccountContacts, and the contact in
+    createContact, updateContact and convertContact answers. The timeline's
+    `actor` is unchanged: a former member is still named there (D-L81).
 
     **Errors.** Every failure uses the shared `Error` envelope from
     `admin.openapi.yaml`. Switch on `code`, never on `message`. The web app
@@ -830,7 +838,9 @@ paths:
 
         **Response.** `{ contact, account }`: the contact as getContact
         returns it and the account as getAccount returns it, each through its
-        own field security.
+        own field security. The contact's `owner` follows `Contact.owner`:
+        an owner who has left the contact's programme is
+        `{ id, displayName: null }` (D-P23).
       requestBody:
         required: true
         content:
@@ -876,7 +886,9 @@ paths:
         Contact rows under the same field security, the same keyset paging,
         and no total (D-P13). There is no lead id: a row's `id` is a contact
         id, read with getContact and changed with updateContact or
-        convertContact.
+        convertContact. A row's `owner` follows `Contact.owner`, so an
+        owner who has left the contact's programme is
+        `{ id, displayName: null }` here too (D-P23).
 
         **What a lead is.** A contact whose `status` is `new`, `contacted`,
         `qualified` or `unqualified`. A `customer` is not a lead, and neither
@@ -1765,6 +1777,18 @@ components:
             Withheld with `ownerUserId`: when field security withholds
             `ownerUserId`, `owner` is omitted too and both are listed in
             `withheldFields`. Read-only; a write sets `ownerUserId`.
+
+            **A former owner (T-0103, D-P23).** When the owner is no longer a
+            member of THIS contact's programme (removed from it, or never in
+            it), `owner` is `{ id, displayName: null }`: the id, so the
+            client can tell an owner from none, and no name. Membership of any
+            other programme, the reader's included, does not restore the
+            name. A member whose account is disabled is still a member and
+            keeps their name. The screens print a translated neutral label
+            ("Former owner"), never the id. Removing a user from a programme
+            also unassigns their contacts there (`ownerUserId` becomes
+            `null`), so this form is for owners that removal has not reached.
+            Never `500`, and never the name, current or past.
           oneOf:
             - { $ref: '#/components/schemas/ContactOwner' }
             - { type: 'null' }
@@ -1821,10 +1845,16 @@ components:
       required: [id, displayName]
       description: |
         Closed: an id and a name to print, nothing else. No email, phone,
-        locale or status.
+        locale or status. `displayName` is `null` exactly when the owner
+        is a former owner: no longer a member of the contact's programme
+        (T-0103, D-P23). It is always present.
       properties:
         id: { type: string, format: uuid }
-        displayName: { type: string }
+        displayName:
+          type: [string, 'null']
+          description: |
+            The owner's current display name. `null` means a former owner;
+            print the translated neutral label, never the id.
 
     ContactPendingProperties:
       type: object
@@ -1893,6 +1923,10 @@ components:
         T-0043 owner shape). No email, phone, role or programme. Read in the
         same scoped query as the item, so a name is only ever sent for the
         author of a change to a record the caller can already see.
+        `displayName` is never `null`: unlike `Contact.owner` (D-P23), a
+        former member, a tenant admin outside the programme and a disabled
+        user are still named, because an actor acted inside the programme
+        (D-L81).
       properties:
         id: { type: string, format: uuid }
         displayName: { type: string }
