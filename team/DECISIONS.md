@@ -2211,3 +2211,21 @@ Every recommendation below was taken as written in its entry. What each one now 
 - **Follow-up T-0119:** the contact record completes a task seen only on the timeline, using the item's `version`. T-0062's
   mock must record versions served on timeline items. `@p05-contact-complete-served` becomes a real journey; the mock and spec
   pins are re-pinned by the lead.
+
+### D-L99 — T-0103 former-owner suite rulings (lead, reversible)
+**Status:** PROCEEDING (lead). From the T-0103 suite writer.
+- **No application code removes a programme member**, and no admin operation does. Removal happens only in the database: a
+  tenant-admin `kasuwa_app` DELETE or rewrite of `user_programme` (0021), or the migrator. So the unassignment lives in the
+  database, as a trigger on `user_programme` in **migration 0031** (T-0103). T-0084's reserved 0031 is released; T-0084 is
+  renumbered when it starts (it waits on D-P33). A membership-removal admin API is a later contract decision, and the
+  database rule stays as its backstop.
+- **Contract:** `ContactOwner.displayName` is nullable and still required; `null` means a former owner. `TimelineActor` is
+  unchanged: former actors stay named (D-L81). The change only widens the schema, so no e2e mock pin moved (D-L97 checked).
+- **Audit:** one event per removal that unassigns anything, in the removed membership's programme, with the remover as actor
+  and the count as a change's `after`. It names no contact id or name. Whether the trigger is immediate or deferred is the
+  builder's choice, as long as the unassignment commits and rolls back with the removal.
+- **Races:** removal against a concurrent assignment or self-claim never leaves a contact owned by a non-member. A losing
+  assignment is 400 `unknown_reference` or 404. Trap: `FOR KEY SHARE` on `user_programme` is filtered by 0021's restrictive
+  UPDATE policy for non-admin sessions, so the lock must work for an agent too.
+- **Follow-up T-0120:** `Account.owner` and activity owners have the same former-owner leak, and removal does not unassign
+  them. Apply D-P23 to both.

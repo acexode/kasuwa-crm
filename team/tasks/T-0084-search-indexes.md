@@ -1,7 +1,7 @@
 # T-0084 — Search indexes in Postgres (D-L68, ADR-0014)
 
 **status** `not-assigned` (suite to be written) · **owner** Agent 3 · **priority** P1 · **decisions** ADR-0014, D-L68, D-L78,
-D-L80, D-L65, D-P30 · **migration** 0031 reserved
+D-L80, D-L65, D-P30 · **migration** next free when it starts (0031 went to T-0103, D-L99); waits on D-P33
 
 ## Goal
 Searching contacts, leads and accounts by name, company, phone or email stays fast for a BPO tenant with hundreds of
