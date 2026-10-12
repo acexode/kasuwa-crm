@@ -210,6 +210,11 @@ const PER_AGENT_ALLOWANCES = [
     pathPrefix: 'packages/db/sql/',
     why: 'T-0117 (D-L92, D-L94) assigns Agent 1 the bootstrap split: bootstrap.sql makes kasuwa_test_admin inert, and a new bootstrap-test.sql makes it the test login.',
   },
+  {
+    branchPrefix: 'agent3/T-0082',
+    pathPattern: reservedMigration('0034'),
+    why: 'T-0082 (D-L105, D-L107) assigns Agent 3 one migration, number 0034 reserved; 0032 is T-0114, 0033 is T-0104.',
+  },
 ];
 
 function allows(entry, path) {
