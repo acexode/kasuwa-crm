@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| **id** | T-0080 |
-| **status** | `done` (#109) |
+| **id** | T-0080 (done in #109) |
+| **status** | `done` |
 | **module** | M03 — Core CRM records; M06 — Activities |
 | **owner** | Agent 3 — Core CRM |
 | **priority** | P1 (unblocks T-0062's served-task completion and T-0063) |
