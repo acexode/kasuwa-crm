@@ -179,12 +179,14 @@ import { collectTelemetry, type Telemetry } from '../support/telemetry';
  *     ORDER: contact 404, 403, body 400, account 404, the repeat rule, 409,
  *     400 already_linked.
  *     CONCURRENCY: N identical `newAccount` converts racing on one version
- *     create ONE account and ONE audit event; each answer is 200 (naming that
- *     account) or 409. Racing converts to two different accounts, or two
- *     different new names, link one and leave no orphan account.
+ *     create ONE account, ONE contact event and ONE account event (L6, as
+ *     amended by T-0104); each answer is 200 (naming that account) or 409.
+ *     Racing converts to two different accounts, or two different new names,
+ *     link one and leave no orphan account and no orphan account event.
  *
- * L6. THE CONVERT AUDIT EVENT (the D-L75 open point, chosen here). Exactly ONE
- *     `audit_event` per successful convert, none per repeat or refusal:
+ * L6. THE CONVERT AUDIT EVENT (the D-L75 open point, chosen here; AMENDED by
+ *     T-0104, see the end of this item). Exactly ONE contact `audit_event`
+ *     per successful convert, none per repeat or refusal:
  *     `object_type 'contact'`, `object_id` and `object_label` the contact id,
  *     `action 'updated'`, `programme_id` the contact's programme,
  *     `actor_kind 'user'`, `actor_user_id` the session user. `changes` names
@@ -206,6 +208,25 @@ import { collectTelemetry, type Telemetry } from '../support/telemetry';
  *     and an account name can be a person's name (D-L63, D-L80). The cost is
  *     that a convert-created account has no audit event of its own; that is
  *     raised for the lead in the report, not decided here.
+ *
+ *     AMENDED BY T-0104 (D-L82's tracked item, taken): "a convert that
+ *     creates an account writes two audit events in its one transaction: the
+ *     contact `updated` (as now) and the account `created`, names only
+ *     (D-L78). A repeat or a refusal writes neither." So, for a `newAccount`
+ *     convert that creates an account, besides the contact event above
+ *     (unchanged: still no account id or name in it):
+ *       - EXACTLY ONE more row, `action 'created'`, `object_type 'account'`,
+ *         `object_id` and `object_label` the new account's id (the accounts
+ *         API's shape, D-L63), `programme_id` the contact's programme (where
+ *         the account is created), the same `actor_kind 'user'` and
+ *         `actor_user_id`;
+ *       - `changes` names `name` and only field names: every change
+ *         `redacted: true` with null values (D-L78). The account's name is
+ *         nowhere in either row;
+ *       - written in the convert's own transaction: a convert that loses a
+ *         race and rolls back its account leaves no account event behind;
+ *       - a convert that links an existing account, a repeat and every
+ *         refusal write NO account event.
  *
  * L7. EVERYWHERE. No phone, contact name, company name, account name, `q` or
  *     Postgres `detail` in logs, spans or error bodies; error bodies carry no
@@ -3119,6 +3140,40 @@ describe('acceptance: leads API (T-0076)', () => {
       }
     }
 
+    /** L6 as amended by T-0104: the ONE account `created` event a creating convert writes. */
+    function expectAccountCreatedEvent(
+      accountEvents: AuditRow[],
+      accountId: string,
+      programmeId: string,
+      actor: string,
+    ) {
+      expect(
+        accountEvents,
+        'a convert that creates an account writes exactly one account event (T-0104)',
+      ).toHaveLength(1);
+      const [event] = accountEvents;
+      if (event === undefined) return;
+      expect(event).toMatchObject({
+        tenant_id: TENANT_A,
+        actor_kind: 'user',
+        actor_user_id: actor,
+        action: 'created',
+        object_type: 'account',
+        object_id: accountId,
+        object_label: accountId,
+        programme_id: programmeId,
+      });
+      expect(
+        event.changes.map((change) => change.field),
+        'the create names the account’s name',
+      ).toContain('name');
+      for (const change of event.changes) {
+        expect(change.redacted, `${change.field}: names only (D-L78)`).toBe(true);
+        expect(change.before ?? null, `${change.field}: no before value (D-L78)`).toBeNull();
+        expect(change.after ?? null, `${change.field}: no after value (D-L78)`).toBeNull();
+      }
+    }
+
     it('linking: exactly one contact event, the session user, the contact’s programme, status and accountId only', async () => {
       await assign(TENANT_A, USER_A_AGENT_1, PROGRAMME_A1, 'admin');
       const audit = await auditIds();
@@ -3138,7 +3193,11 @@ describe('acceptance: leads API (T-0076)', () => {
       }
     });
 
-    it('creating: the same single contact event, no account event, and neither the new account’s id nor its name', async () => {
+    // T-0104 (D-L82's tracked item): "a convert that creates an account writes
+    // two audit events in its one transaction: the contact `updated` (as now)
+    // and the account `created`, names only (D-L78)." Before T-0104 this test
+    // pinned one event and no account event.
+    it('creating: the same contact event plus ONE account `created` event, names only; the name is in neither (T-0104)', async () => {
       const name = 'Hauwa Kankarofi Ventures';
       const audit = await auditIds();
       const response = await convert(SUPERVISOR, DAMILOLA.id, {
@@ -3147,12 +3206,25 @@ describe('acceptance: leads API (T-0076)', () => {
       });
       const { account } = expectConverted(response, 'create');
       const events = await auditSince(audit);
-      expect(events, 'one event, not one per object').toHaveLength(1);
-      expectConvertEvent(events[0], DAMILOLA.id, PROGRAMME_A2, USER_A_SUPERVISOR, 'new');
-      expect(events.filter((event) => event.object_type === 'account')).toEqual([]);
-      const text = JSON.stringify(events);
-      expect(text).not.toContain(String(account.id));
-      expect(text).not.toContain('Kankarofi');
+      expect(events, 'one contact event and one account event').toHaveLength(2);
+      const contactEvents = events.filter((event) => event.object_type === 'contact');
+      expect(contactEvents, 'one contact event').toHaveLength(1);
+      expectConvertEvent(contactEvents[0], DAMILOLA.id, PROGRAMME_A2, USER_A_SUPERVISOR, 'new');
+      // The contact event is unchanged by T-0104: no account id, no account name.
+      const contactText = JSON.stringify(contactEvents);
+      expect(contactText).not.toContain(String(account.id));
+      expect(contactText).not.toContain('Kankarofi');
+      expectAccountCreatedEvent(
+        events.filter((event) => event.object_type === 'account'),
+        String(account.id),
+        PROGRAMME_A2,
+        USER_A_SUPERVISOR,
+      );
+      // The name appears in no row, in any spelling the writer might use.
+      const text = JSON.stringify(events).toLowerCase();
+      for (const part of ['kankarofi', 'hauwa', name.toLowerCase()]) {
+        expect(text, `an audit row carries "${part}"`).not.toContain(part);
+      }
     });
 
     it('a customer: only accountId changed, so only accountId is named', async () => {
@@ -3210,7 +3282,7 @@ describe('acceptance: leads API (T-0076)', () => {
       );
     });
 
-    it('racing identical new-account converts create ONE account and ONE event; every 200 names it', async () => {
+    it('racing identical new-account converts create ONE account, ONE contact event and ONE account event; every 200 names it', async () => {
       const name = unique('Race Co');
       const version = await versionOf(AMAKA.id);
       const audit = await auditIds();
@@ -3229,9 +3301,17 @@ describe('acceptance: leads API (T-0076)', () => {
         expect(((response.body as Json).account as Json).id).toBe(accountId);
       }
       expect((await contactRow(AMAKA.id))?.account_id).toBe(accountId);
-      expect(
-        (await auditSince(audit)).filter((event) => event.object_id === AMAKA.id),
-      ).toHaveLength(1);
+      const events = await auditSince(audit);
+      expect(events.filter((event) => event.object_id === AMAKA.id)).toHaveLength(1);
+      // T-0104: and ONE account event, for the one account that exists. A
+      // racer that created an account and rolled back left no event behind.
+      expectAccountCreatedEvent(
+        events.filter((event) => event.object_type === 'account'),
+        String(accountId),
+        PROGRAMME_A1,
+        USER_A_SUPERVISOR,
+      );
+      expect(events, 'one contact event and one account event, nothing else').toHaveLength(2);
     });
 
     it('racing converts to two existing accounts link one; the loser is 409 or already_linked; one event', async () => {
@@ -3254,12 +3334,25 @@ describe('acceptance: leads API (T-0076)', () => {
     it('racing converts with two different new names leave exactly one new account, no orphan', async () => {
       const version = await versionOf(AMAKA.id);
       const count = await accountCount();
+      const audit = await auditIds();
       const names = [unique('Left Co'), unique('Right Co')];
       const responses = await Promise.all(
         names.map((name) => convert(SUPERVISOR, AMAKA.id, { version, newAccount: { name } })),
       );
-      expect(responses.filter((response) => response.status === 200)).toHaveLength(1);
+      const winners = responses.filter((response) => response.status === 200);
+      expect(winners).toHaveLength(1);
       expect(await accountCount(), 'a losing convert left its account behind').toBe(count + 1);
+      // T-0104: the account event shares the convert's transaction, so the
+      // loser leaves no orphan EVENT either: exactly one, for the winner's account.
+      const winner = (winners[0]?.body as Json | undefined)?.account as Json | undefined;
+      const events = await auditSince(audit);
+      expectAccountCreatedEvent(
+        events.filter((event) => event.object_type === 'account'),
+        String(winner?.id),
+        PROGRAMME_A1,
+        USER_A_SUPERVISOR,
+      );
+      expect(events, 'one contact event and one account event, nothing else').toHaveLength(2);
     });
   });
 
