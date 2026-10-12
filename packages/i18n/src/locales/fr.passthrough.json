@@ -70,5 +70,7 @@
   "record.activity.type.note",
   "record.language.ig",
   "record.language.sw",
-  "record.language.yo"
+  "record.language.yo",
+  "activities.related.contact",
+  "activities.compose.type"
 ]
