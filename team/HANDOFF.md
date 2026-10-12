@@ -1,48 +1,47 @@
-# Resume here (2026-10-08, lead session, live)
+# Resume here (2026-10-12, lead session, live)
 
-**Merged:** #81–#105. Since the last stop: #104 (T-0057 Accounts screen) and #105 (T-0078 audit field security).
+**Merged:** #81–#113. Since the last refresh: #106 (T-0102), #107 (T-0112), #108 (T-0062), #109 (T-0080), #110 (T-0058),
+#111 (T-0113), #112 (T-0063) and #113 (T-0103). Their reports are filed.
 **Answered by @acexode:** D-P19–D-P30, D-L82 and D-L71. Designs P07, P08, P09, P10, P18, P26, P27 and P28 are on main.
-**Phase 2 plan:** T-0080–T-0117 (ROADMAP "Remaining slices"; D-L87, D-L88). Open product questions: D-P31, D-P32.
+**Open product questions:** D-P31, D-P32, and the search-index route under RLS (LEAKPROOF): the lead recommends deferring
+the indexes, shipping id-only cursors now, and later marking reviewed builtins LEAKPROOF. It gates T-0084.
 
-**Open PRs (merge each after local verification; CI minutes are exhausted):**
-| PR | Task | State |
+**In flight:**
+| Task | Where | State |
 |---|---|---|
-| #106 | T-0102 classification raise-only (migration 0029) | Migration review passed; gates green; timing suites re-running exclusive |
-| #107 | T-0112 in-call script contract | Three independent security reviews, all closed (D-L91, D-L93); timing re-run exclusive |
-| #108 | T-0062 contact record screen | Security review fixed; rebased on #104; full verify running |
+| T-0117 (P0) | `agent1/T-0117-test-admin-inert` (local, rebased on `lead/T-0117-acceptance` baf38d8) | D-L95 fixes done; security re-review running; then verify, PR (D-A3 personal review) and merge |
+| T-0081 activities contract and suite | `lead/T-0081-acceptance` (worktree agent-a73c23fd64a3b8e0d) | suite writer resumed after the weekly limit |
+| T-0114 script runs suite | `lead/T-0114-acceptance` | suite writer resumed after the weekly limit |
 
-**Built, waiting for a PR:**
-- T-0058 Leads screen: `lead/T-0058-repin` (review fixes plus the 234,900 re-pin). It is based on T-0057's old head, so it
-  must be rebased onto main after #108 (the same keep-both conflicts as T-0062).
-- T-0080 timeline versions and the account timeline: `agent3/T-0080-timeline-v2` at 3ad5ced. Security and tenancy reviews
-  are running.
+**Main is red on one suite:** `channels/provider.acceptance` since #107 (the T-0112 suite's vendor list). The fix (store
+PLATFORM_NAMES reversed) is on `lead/T-0112-vendor-names` (worktree lead-vendor-fix, not yet edited). Auto mode refuses it,
+so it waits on @acexode's approval or an ask-mode session.
+**Timing suite:** `auth-availability` is unreliable on this host (D-L100); judge it against main.
 
-**Building:** T-0117 (P0, D-L92 and D-L94: `kasuwa_test_admin` inert in real cells). Suite on `lead/T-0117-acceptance`.
-
-**Next to start:** T-0063 account record (after T-0080), T-0081/T-0082 activities, T-0084 search indexes, T-0103, T-0104,
-T-0105 pipeline contract, T-0113 script authoring. Contract queue for `records.openapi.yaml`: T-0103, T-0081, T-0105.
+**Next to start:** T-0104 (per-contact removal audit, D-L101 amended), T-0118 account children, T-0119/T-0120/T-0121,
+T-0079 writers, T-0082/T-0083 activities, T-0105+ pipeline, T-0115/T-0116, T-0085+ search (after the LEAKPROOF answer).
 
 **Lead tooling:** `verify.ps1` in the session scratchpad.
-- It takes a `lead-verify` lock and holds both RAM slots for the isolation stage, because `auth-availability` and the
-  adversarial timing harness flake under load.
-- `-Exclusive` runs a few files on a quiet machine.
-- A slot is never stale by age.
+- It takes a `lead-verify` lock and holds both RAM slots for the isolation stage, with a `lead-exclusive-wait` priority
+  marker.
+- A slot is stale only when its `owner.pid` is dead, never by age.
+- D-L97: a contract change updates its e2e mocks in the same PR, and every merge gets a full isolation run.
 
 **Follow-ups:**
 - the post-edit hook should skip when `node_modules` is missing;
 - `admin-mock.generated.ts` is stale on main;
-- D-L90's wording on `@Header` (it does reach handler errors; only guard errors lacked no-store);
-- GitGuardian false positive on #104's mock cursor (for @acexode to dismiss).
+- the GitGuardian false positive on #104's mock cursor (for @acexode to dismiss);
+- the host disk: idle worktrees' `.next`, `.nx` and `dist` were cleared; `docker volume prune -f` is for @acexode.
 
 ---
-# Lead handoff — finish Phase 2
+# Lead handoff â€” finish Phase 2
 
 *Written 2026-10-06 by the outgoing Lead Agent session. `main` is at `b680668`. Read this first, then
 `CLAUDE.md`, `team/ROADMAP.md`, `team/STATUS.md` and the open entries in `team/DECISIONS.md`.*
 *This replaces the 2026-10-02 handoff, which is still in git history at `3ec49f0`.*
 
 ## 1. Where things stand
-- **Phase 0 and Phase 1 are complete** and on `main`. That includes the security hardening T-0045 to T-0048 (#84–#87).
+- **Phase 0 and Phase 1 are complete** and on `main`. That includes the security hardening T-0045 to T-0048 (#84â€“#87).
 - **Phase 2, first slice (Contacts), is 2 of 5 merged.** T-0039 (contract, #76) and T-0040 (fields and accounts, #80) are on `main`.
 - **Migrations end at `0023`.** The next free number is `0024`.
 - `team/ROADMAP.md` maps every phase and all 32 design prompts.
@@ -50,8 +49,8 @@ T-0105 pipeline contract, T-0113 script authoring. Contract queue for `records.o
 ## 2. Open PRs: both verified, both waiting on lead-only test edits
 | PR | Task | Verified | Blocker |
 |---|---|---|---|
-| #83 `agent3/T-0041-contacts-api` | Contacts API: write, search, filter | Own suite 82/82. Security and tenancy reviews passed; all fixes are in. Unit 879, integration 108 | Two lead suite edits (§3). Without them `adversarial` and `observability-pii` go red on `main` |
-| #81 `agent11/T-0042-contacts-list` | CRM shell and the Contacts screen behind `crm_records` | 27/28. Browser: `@p04` 23 + 1 fixme, `@p02` 86, `@locale-beta` 7, `@byte-budget` 1, `@harness` 6 | One budget edit (§3) |
+| #83 `agent3/T-0041-contacts-api` | Contacts API: write, search, filter | Own suite 82/82. Security and tenancy reviews passed; all fixes are in. Unit 879, integration 108 | Two lead suite edits (Â§3). Without them `adversarial` and `observability-pii` go red on `main` |
+| #81 `agent11/T-0042-contacts-list` | CRM shell and the Contacts screen behind `crm_records` | 27/28. Browser: `@p04` 23 + 1 fixme, `@p02` 86, `@locale-beta` 7, `@byte-budget` 1, `@harness` 6 | One budget edit (Â§3) |
 
 Rebase each onto `main` before merging. Both were mergeable at the time of writing.
 
@@ -61,13 +60,13 @@ says yes in chat. Ask @acexode to switch the session to "ask" mode, make the edi
 they switch back. Make them on `lead/*` branches; the protect-paths hook allows `lead/*`.
 
 1. **T-0042 budget.** In `tests/e2e/p04-contacts.spec.ts`, change `CONTACTS_BUDGET_BYTES = 240_000` to `226_000`. The screen
-   measured 216,100, and the rule is ≤ 1.05 × measured. The edit goes on the #81 branch (or a lead branch merged into it).
+   measured 216,100, and the rule is â‰¤ 1.05 Ã— measured. The edit goes on the #81 branch (or a lead branch merged into it).
    The suite's sha256 pin ignores this line.
-2. **T-0041, `tests/acceptance/tenancy/adversarial.acceptance.test.ts` (around l.268–280).** The FINDING-4 tripwire fails on
+2. **T-0041, `tests/acceptance/tenancy/adversarial.acceptance.test.ts` (around l.268â€“280).** The FINDING-4 tripwire fails on
    any `INSERT INTO contact`. Replace it with an assertion that `insertContact` binds the id only from `newId()` and that
    `CreateContactBody` has no `id`. The tenancy review confirmed both are true.
 3. **T-0041, `tests/acceptance/platform/observability-pii.acceptance.test.ts`.** The probe NIN `00000000001` is a substring
-   of tenant A's id (`…-000000000001`). Change the probe to a value that collides with no fixture id.
+   of tenant A's id (`â€¦-000000000001`). Change the probe to a value that collides with no fixture id.
 4. **D-P14** (answered: agents may change `status` and assign `owner` to themselves). In the T-0041 suite, flip the
    "the agent set may not write" test to the narrow rule, then have a builder implement it. Do this after #83 merges.
 5. **T-0049 (auth role, D-P16 answered).** Its suite is on `lead/T-0049-acceptance` (206c815). It needs:
@@ -84,16 +83,16 @@ they switch back. Make them on `lead/*` branches; the protect-paths hook allows 
 ## 4. Queue after the edits (each suite is already written on `lead/T-00xx-acceptance`)
 | Order | Task | Owner | Starts when |
 |---|---|---|---|
-| 1 | Merge #83, then #81 | lead | §3 items 1–3 are done |
+| 1 | Merge #83, then #81 | lead | Â§3 items 1â€“3 are done |
 | 2 | T-0043 display names (`lead/T-0043-acceptance` 48df859; the owner name is embedded, not a batch lookup) | Agent 3 | #83 merged |
-| 3 | D-P14 agent edits | Agent 3 | #83 merged, and §3 item 4 done |
+| 3 | D-P14 agent edits | Agent 3 | #83 merged, and Â§3 item 4 done |
 | 4 | T-0050 pseudo-locale for dev and test only (`lead/T-0050-acceptance` e05afef) | Agent 11 | #81 merged. Re-check that test 1 fails for the real reason first |
-| 5 | T-0049 auth role | Agent 1 + lead | §3 item 5 done |
+| 5 | T-0049 auth role | Agent 1 + lead | Â§3 item 5 done |
 
 ## 5. The rest of Phase 2 (no task files yet; each needs a task, then a suite (D-L23), then a builder)
 In this order, with the design prompt in brackets. Only P03 and P04 are exported, so **ask @acexode for P05 first**.
 1. Accounts and Leads screens (P04, exported). Accounts already exist in the DB; leads need an M03 model decision.
-2. 360° record view (P05, design needed).
+2. 360Â° record view (P05, design needed).
 3. Pipeline Kanban and deal detail (P06, design needed). It needs M04 deals, which are new tables.
 4. Custom-field value storage (P18, design needed). This is the T-0002 follow-up and Agent 2's.
 5. Home dashboards (P03, exported). Build the agent and SME variants first.
@@ -106,7 +105,7 @@ In this order, with the design prompt in brackets. Only P03 and P04 are exported
 - **One task: a lead-written suite first, and it must fail for the real reason (D-L23).** Then one builder in its own
   worktree, then reviewers, then a merge.
   - The suite writer is Agent 12 (`agent-12-qa`), on branch `lead/T-00xx-acceptance`, under the active name.
-  - The builder branches from that lead branch: `agentN/T-00xx-…`.
+  - The builder branches from that lead branch: `agentN/T-00xx-â€¦`.
   - Builders commit locally; **the lead pushes and opens the PR**. The `builder` agent type refuses to push.
   - **Reviewers:** `security-reviewer` for anything touching auth, scope, PII or a new API. `tenancy-reviewer` for queries or
     scope. `migration-reviewer` for every migration.
@@ -117,7 +116,7 @@ In this order, with the design prompt in brackets. Only P03 and P04 are exported
   either in the PR whose contract changed it or straight to `main`.
 - **CI minutes are exhausted.** Every merge is verified locally with Docker, which works. Say so in each PR comment.
 - **Every builder brief includes these rules:**
-  - Take the RAM lock (`mkdir …/scratchpad/node-slot-1|2`; a lock older than 20 min is stale).
+  - Take the RAM lock (`mkdir â€¦/scratchpad/node-slot-1|2`; a lock older than 20 min is stale).
   - Never use `--no-verify`, not even for WIP or a throwaway merge. Two agents tried this on 2026-10-04.
   - Use a unique commit-message file name, and conventional lower-case commits.
   - Never edit `tests/acceptance/**` or `team/**`.
@@ -126,11 +125,11 @@ In this order, with the design prompt in brackets. Only P03 and P04 are exported
   worktrees exist now; clean them up only once no agents are running.
 - **Known host flakes, not regressions:**
   - The `auth-availability` timing bound fails under load, and on `main` too.
-  - The 6 `p02-live-api` wrapper tests fail on Windows (§3 item 6). Run the e2e tags directly instead; they pass.
+  - The 6 `p02-live-api` wrapper tests fail on Windows (Â§3 item 6). Run the e2e tags directly instead; they pass.
 - **Browser tests work locally** through the SWC wasm fallback (D-L62). Run one tag per call.
 
 ## 7. Waiting on @acexode
-- **The auto-mode-off session** for §3.
+- **The auto-mode-off session** for Â§3.
 - **Design exports, P05 first.** P06, P18, P28, P07, P27 and P26 follow (ROADMAP order).
 - **Dotgo's answers:** SMS fallback, naira rates, data location and the DPA. These gate the Phase 3 inbox.
 - **A cloud provider** (Phase 4), and **Actions minutes or the org move** (CI).
