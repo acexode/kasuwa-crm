@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 166 rows; built 90, partial 11, mock-only 27, flagged-off 9, deferred 10, not-started 19.
+Totals: 174 rows; built 90, partial 11, mock-only 27, flagged-off 9, deferred 10, not-started 27.
 
 ## Modules
 
@@ -170,6 +170,14 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `updateAccount` | PATCH /api/v1/accounts/{accountId} — Update an account (inline edit of owner, tier and the rest) | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listAccountContacts` | GET /api/v1/accounts/{accountId}/contacts — The account's contacts the caller can reach | built | — | — | docs/api/records.openapi.yaml · T-0055 · T-0063 |
 | operation | `listAccountTimeline` | GET /api/v1/accounts/{accountId}/timeline — The account's timeline — field changes and activities, newest first | built | — | — | docs/api/records.openapi.yaml |
+| operation | `listPipelines` | GET /api/v1/pipelines — The pipelines of the programmes the session reaches (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 |
+| operation | `getPipeline` | GET /api/v1/pipelines/{pipelineId} — One pipeline with its stages, requirements and transitions (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 |
+| operation | `getPipelineBoard` | GET /api/v1/pipelines/{pipelineId}/board — The Kanban board — exact counts and per-currency totals per stage (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 |
+| operation | `listDeals` | GET /api/v1/pipelines/{pipelineId}/deals — List a pipeline's deals — the P06/01b list view (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 |
+| operation | `createDeal` | POST /api/v1/pipelines/{pipelineId}/deals — Create a deal in the pipeline's first open stage (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 |
+| operation | `getDeal` | GET /api/v1/deals/{dealId} — Get one deal (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 |
+| operation | `updateDeal` | PATCH /api/v1/deals/{dealId} — Update a deal's fields (never its stage) (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 |
+| operation | `moveDeal` | POST /api/v1/deals/{dealId}/move — Move a deal to another stage, filling its requirements in the same write (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 |
 | operation | `listScripts` | GET /api/v1/scripts — List the scripts the caller may author | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `createScript` | POST /api/v1/scripts — Create a draft script in a programme | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `getScript` | GET /api/v1/scripts/{scriptId} — Get a script, with its draft and translations | built | — | — | docs/api/scripting.openapi.yaml |
