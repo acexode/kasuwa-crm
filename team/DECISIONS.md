@@ -2569,3 +2569,16 @@ main, 103 fail because the tables do not exist, and 6 self-checks pass.
 - **R10:** `ensureStandardObjectDefs` repairs a programme with no pipeline, idempotently (ids unchanged).
 - **Migration 0036** is reserved for `agent3/T-0106`. The seed needs at least one deal, or schema-hygiene fails on
   `deal.updated_at`.
+
+### D-L118 — T-0083's budget journeys; at most two heavy agents at once (lead, 2026-10-12)
+**Status:** PROCEEDING (lead).
+- **T-0083's budget journeys** no longer call `page.clock.setFixedTime`. Playwright's fake clock replaces
+  `window.performance`, so the first-contentful-paint they measure never arrived and both journeys timed out on every run.
+  This was a defect in the lead's spec, not the screen. `ACTIVITIES_BUDGET_BYTES` is pinned at 236,000 (measured
+  225,171–225,683 B; first paint 1.9 s at 256 kbps/300 ms). The spec pin moves with it (`lead/T-0083-budget`).
+- **Concurrency cap:** at most TWO heavy agents (builders, suite writers running containers, or a lead verification) run at
+  once on this host.
+  - Twice on 2026-10-12, four at once took RAM below 2 GB and hung Docker Desktop, voiding verification runs and
+    failing argon2 for want of memory.
+  - Reviews that only read run alongside.
+  - Before a verification: at least 10 GB of disk free, and no leftover processes from finished agents.
