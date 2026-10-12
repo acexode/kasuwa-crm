@@ -5,7 +5,12 @@ import {
   sealSecret,
   type KeyProvider,
 } from '@kasuwa/auth-crypto';
-import { effectiveDatabaseTarget, namesLocalDatabaseHost } from '@kasuwa/config';
+import {
+  effectiveDatabaseTarget,
+  namesLocalDatabaseHost,
+  nodeEnv,
+  type EnvSource,
+} from '@kasuwa/config';
 import { Client } from 'pg';
 import {
   SEED_ACCOUNTS,
@@ -45,6 +50,11 @@ export interface SeedOptions {
    * key id and prove the key id is honoured per row.
    */
   keyProvider?: KeyProvider;
+  /**
+   * The environment whose NODE_ENV is judged (T-0117 re-review round 2).
+   * Defaults to `process.env`, read through @kasuwa/config.
+   */
+  env?: EnvSource;
 }
 
 /**
@@ -71,7 +81,16 @@ export interface SeedOptions {
  * Local is the D-L94 R5 list (`isLocalDatabaseHost` in @kasuwa/config). The
  * host is never echoed: a connection string's host can be internal.
  */
-function assertLocalDatabase(connectionString: string): void {
+function assertLocalDatabase(connectionString: string, env: EnvSource | undefined): void {
+  // An explicit production NODE_ENV is refused whatever the host: a loopback
+  // tunnel can front a real cell (T-0117 re-review round 2). Before any
+  // connection, and the host is not echoed.
+  if (nodeEnv(env) === 'production') {
+    throw new Error(
+      'runSeed refuses to run with NODE_ENV=production. The seed installs users whose ' +
+        'password and second-factor secrets are committed to the repository.',
+    );
+  }
   if (!namesLocalDatabaseHost(effectiveDatabaseTarget(connectionString, 'the seed connection string'))) {
     throw new Error(
       'runSeed refuses to run against a non-local host. The seed installs ' +
@@ -82,7 +101,7 @@ function assertLocalDatabase(connectionString: string): void {
 }
 
 export async function runSeed(options: SeedOptions): Promise<void> {
-  assertLocalDatabase(options.connectionString);
+  assertLocalDatabase(options.connectionString, options.env);
 
   const log = options.log ?? (() => undefined);
   // Hashed once, outside the transaction: argon2id is memory-hard by design and

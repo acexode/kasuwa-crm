@@ -58,6 +58,16 @@ describe('runSeed host guard', () => {
     ).rejects.not.toThrow(/t0117-echo/u);
   });
 
+  it('refuses NODE_ENV=production even on localhost, before connecting, naming no host', async () => {
+    // Port 1 would fail to connect: the refusal proves it never tried.
+    const attempt = runSeed({
+      connectionString: 'postgres://kasuwa_migrator@localhost:1/kasuwa',
+      env: { NODE_ENV: 'production' },
+    });
+    await expect(attempt).rejects.toThrow(/refuses to run with NODE_ENV=production/u);
+    await expect(attempt).rejects.not.toThrow(/localhost|ECONNREFUSED/u);
+  });
+
   it('allows the local forms the harness and developers actually use', async () => {
     // These must get past the guard. They will then fail to connect, which is
     // the proof that the guard let them through rather than short-circuiting.
