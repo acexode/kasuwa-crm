@@ -2511,3 +2511,20 @@ shared `scripting-mock.ts`. On main, 74 fail for the real reason (no flag, route
   - The builder's and the agent screen's budgets are provisional (260,000 / 245,000 B) and are re-pinned at merge.
 - **If a builder disputes an assertion** (untouched nodes sent exactly as served, branch labels word for word, the hidden
   words "ready" and "hold", the checkbox for acknowledgement), it stops and reports. It never works around one.
+
+### D-L115 — T-0105 contract review rulings (lead, 2026-10-12)
+**Status:** PROCEEDING (lead). The combined review of #119 passed with two majors and eight minors, all folded in before
+merge:
+- **client_portal has no pipeline or deal reads** until D-P26 is enforced for deals. The shapes carry staff names
+  (`checkedBy`, `owner`) and free text (`nextStep`), which D-P26 keeps from portal users. Restoring the reads later is
+  additive.
+- **`closedSince`:** at most 366 days back (`window_too_long`, never clamped); a future value is `invalid_window`.
+- **Withheld `ownerUserId`:** `own` rights act as `none`, so there is no ownership oracle.
+- **Currencies:** NGN, GHS, KES and ZAR only; an unknown code is `400 unknown_currency` in a body and in a filter alike.
+- **Totals** are summed in `numeric`.
+- **Bounds:** `maxItems` on every list.
+- **Personal data:** deal `name` and `nextStep` are `pii`.
+- **Reassignment audit:** records the before and after owner ids (D-L71).
+- **Search:** `q` wildcards match literally.
+- **Path ids:** a non-uuid id is the same 404 (no schema `format: uuid` may turn it into a 400). T-0107 and T-0108 must not
+  validate ids before the scoped lookup.
