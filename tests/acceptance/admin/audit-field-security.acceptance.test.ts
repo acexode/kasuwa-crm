@@ -84,13 +84,16 @@ import { asUser, createApi } from '../support/api';
  *     tenant-wide (D-L48) and has no programme in which to judge the matrix.
  *     Fail closed: every value change in it is redacted for every reader,
  *     the tenant admin holding the locked `admin` set included.
- * F5. EVERY VALUE FIELD, every encoding. Each of D-L72's nine fields,
+ * F5. EVERY VALUE FIELD, every encoding. Each of D-L72's nine fields, and
+ *     `ownerUserId` (T-0104, D-L71: "T-0078's contact value allow-list gains
+ *     `ownerUserId`"; its values are staff ids, judged by `owner_user_id`),
  *     including `whatsappOptIn` (a boolean recorded as a string) and `tags`
  *     (an array recorded as a string), and `source`, which only a CREATE
  *     records (UpdateContactRequest has no `source`). A `created` event
  *     follows the same rule as an `updated` one.
  * F6. ALREADY REDACTED STAYS REDACTED for everyone: the name parts, phones,
- *     emails, owner and account (contact-audit.ts), a value field recorded
+ *     emails and account (contact-audit.ts; the owner left this list in
+ *     T-0104 and is an F5 value field now), a value field recorded
  *     by name only, and any stored change marked `redacted: true` whatever
  *     its stored before/after hold.
  * F7. ACCOUNT AND ACTIVITY. Today their events record field names only
@@ -276,6 +279,18 @@ const VALUE_CASES: readonly ValueCase[] = [
     create: { tags: ['t0078-tag-alpha'] },
     update: { tags: ['t0078-tag-beta', 't0078-tag-gamma'] },
     sentinels: ['t0078-tag-alpha', 't0078-tag-beta', 't0078-tag-gamma'],
+  },
+  // T-0104 (D-L71): "T-0078's contact value allow-list gains `ownerUserId`".
+  // The values are staff ids. Agent 1's id is the sentinel: every write here
+  // is the supervisor's, so agent 1 is never an actor and their id can reach
+  // the agent's page only as this field's value. (The supervisor's id cannot
+  // be a sentinel: it is every event's actor.)
+  {
+    field: 'ownerUserId',
+    apiName: 'owner_user_id',
+    create: { ownerUserId: USER_A_AGENT_1 },
+    update: { ownerUserId: USER_A_SUPERVISOR },
+    sentinels: [USER_A_AGENT_1],
   },
 ];
 
@@ -842,7 +857,11 @@ describe('acceptance: the admin audit API applies field security to change value
   // =========================================================================
 
   describe('what is redacted by design stays redacted for everyone (F6)', () => {
-    it('name parts, phones, emails, owner and account: never a value, for the admin set and tenant admin', async () => {
+    // T-0104 (D-L71) moved `ownerUserId` out of this test and into F5's
+    // VALUE_CASES: an owner change now carries the two staff ids as values,
+    // under the matrix. Before T-0104 this test sent `ownerUserId:
+    // USER_A_AGENT_1` too and expected `ownerUserId` among the redacted fields.
+    it('name parts, phones, emails and account: never a value, for the admin set and tenant admin', async () => {
       const contact = await createContact(PROGRAMME_A1);
       await updateContact(contact, {
         displayName: 'T0078 Renamed Person',
@@ -850,7 +869,6 @@ describe('acceptance: the admin audit API applies field security to change value
         familyName: 'T0078Family',
         phones: [{ type: 'mobile', e164: '+2348030000782' }],
         emails: ['t0078.person@example.test'],
-        ownerUserId: USER_A_AGENT_1,
         accountId: IKOYI.id,
       });
 
@@ -864,15 +882,7 @@ describe('acceptance: the admin audit API applies field security to change value
         );
         const fields = (update?.changes ?? []).map((change) => change.field).sort();
         expect(fields, `${who}: the update names each field`).toEqual(
-          [
-            'accountId',
-            'displayName',
-            'emails',
-            'familyName',
-            'givenNames',
-            'ownerUserId',
-            'phones',
-          ].sort(),
+          ['accountId', 'displayName', 'emails', 'familyName', 'givenNames', 'phones'].sort(),
         );
         (update?.changes ?? []).forEach((change) =>
           expectRedacted(change, `${who}, ${change.field}`),
