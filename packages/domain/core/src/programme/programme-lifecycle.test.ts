@@ -107,6 +107,29 @@ describe('createProgramme (T-0029, D-L46)', () => {
     expect(calls.filter((call) => call.text.includes('INSERT')).length).toBe(2);
   });
 
+  it('gives the new programme its default pipeline, in the same transaction, for the session tenant (T-0106 R9)', async () => {
+    const { tx, calls } = fakeTx((text, values) => {
+      // The repair finds the programme just created, and only that one.
+      if (text.includes('FROM programme p')) return [{ id: values[1] }];
+      return creating(text, values);
+    });
+    const created = await createProgramme(tx, { name: 'Pesa Field Sales', businessUnitId: BU });
+
+    const lookup = calls.find((call) => call.text.includes('FROM programme p'));
+    expect(lookup?.values).toEqual([TENANT, created.id]);
+    const pipeline = calls.find((call) => call.text.includes('INSERT INTO pipeline '));
+    expect(pipeline?.values.slice(1)).toEqual([TENANT, created.id, 'B2B sales']);
+    for (const table of ['pipeline_stage', 'pipeline_stage_requirement', 'pipeline_stage_transition']) {
+      const insert = calls.find((call) => call.text.includes(`INSERT INTO ${table}\n`));
+      expect(insert?.values.slice(0, 3), table).toEqual([TENANT, created.id, pipeline?.values[0]]);
+    }
+    // After the membership: the pipeline is written once the programme exists.
+    const order = calls.map((call) => call.text);
+    expect(order.findIndex((text) => text.includes('INSERT INTO pipeline '))).toBeGreaterThan(
+      order.findIndex((text) => text.includes('INSERT INTO user_programme')),
+    );
+  });
+
   it('checks the business unit within the session tenant and inserts nothing when it is not there', async () => {
     const { tx, calls } = fakeTx((text) => (text.includes('FROM business_unit') ? [] : []));
     await expect(createProgramme(tx, { name: 'x', businessUnitId: BU })).rejects.toBeInstanceOf(
