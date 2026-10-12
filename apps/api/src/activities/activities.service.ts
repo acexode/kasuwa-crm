@@ -2,6 +2,8 @@ import { HttpStatus } from '@nestjs/common';
 import type { TenantTx } from '@kasuwa/db';
 import {
   type Activity,
+  type ActivityFieldAccess,
+  activityFieldLevel,
   findActivityById,
   findActivityTargetProgramme,
   insertActivity,
@@ -170,6 +172,25 @@ export async function createActivityFor(tx: TenantTx, body: unknown): Promise<Ac
 }
 
 /**
+ * D-L110 (T-0082 security review M1): moving one of a meeting's times is
+ * judged against the OTHER, stored time (`invalid_range`, `too_long`), so a
+ * caller who may not read that other time could recover it by probing,
+ * about 42 refused requests that write and audit nothing. A write to
+ * `startsAt` therefore needs at least READ on `endsAt` in the activity's
+ * programme, and the other way round; without it the write is 403
+ * `field_not_editable` at the field sent, decided with the other 403s,
+ * before any 400 or 409.
+ */
+export function meetingTimeInferable(
+  access: ActivityFieldAccess,
+  programmeId: string,
+  key: string,
+): boolean {
+  const other = key === 'startsAt' ? 'endsAt' : key === 'endsAt' ? 'startsAt' : null;
+  return other !== null && activityFieldLevel(access, programmeId, other) === 'none';
+}
+
+/**
  * The rules that depend on the stored row's type (T-0082): completing and a
  * due time are a task's (`task_only`), a start and an end a meeting's
  * (`meeting_only`), and a meeting's span is judged on the result at the field
@@ -226,7 +247,7 @@ export async function updateActivityFor(
   const locked = touchedKeys.filter(
     (key) =>
       notEditableActivityFields(access, current.programmeId, [UPDATE_ACTIVITY_SECURED[key]])
-        .length > 0,
+        .length > 0 || meetingTimeInferable(access, current.programmeId, key),
   );
   if (locked.length > 0) throw fieldNotEditable(locked); // 403, naming the body keys
 

@@ -10,7 +10,7 @@ import {
   type MyActivityRow,
 } from '@kasuwa/domain-core';
 import { describe, expect, it } from 'vitest';
-import { typeDetails } from './activities.service';
+import { meetingTimeInferable, typeDetails } from './activities.service';
 import { activityCreateChanges, activityUpdateChanges } from './activity-audit';
 import { bucketRange, isIanaTimeZone, nextLocalMidnight } from './activity-buckets';
 import { toActivityWire } from './activity-wire';
@@ -82,6 +82,11 @@ describe('isIanaTimeZone (T-0082)', () => {
       'Africa/Lagos\u0000',
       'Africa/Lagos/Ikeja/Extra/Deep',
       'africa/lagos',
+      'Africa/LAGOS',
+      'AFRICA/LAGOS',
+      'America/LOS_ANGELES',
+      'SystemV/AST4',
+      'SystemV/EST5EDT',
       `Africa/${'L'.repeat(70)}`,
       '',
     ]) {
@@ -440,5 +445,21 @@ describe('the audit and the Activity for meetings (T-0082, W3)', () => {
     const wire = toActivityWire(base, access({ startsAt: 'none' }));
     expect('startsAt' in wire).toBe(false);
     expect(wire.withheldFields).toEqual(['startsAt']);
+  });
+});
+
+describe('meetingTimeInferable: D-L110 (T-0082 security review M1)', () => {
+  it('a time write needs at least read on the other time, in the activity’s programme', () => {
+    expect(meetingTimeInferable(access(), A1, 'endsAt')).toBe(false);
+    expect(meetingTimeInferable(access({ startsAt: 'read' }), A1, 'endsAt')).toBe(false);
+    expect(meetingTimeInferable(access({ startsAt: 'none' }), A1, 'endsAt')).toBe(true);
+    expect(meetingTimeInferable(access({ endsAt: 'none' }), A1, 'startsAt')).toBe(true);
+    // Only the OTHER time counts, and only for the two meeting times.
+    expect(meetingTimeInferable(access({ startsAt: 'none' }), A1, 'startsAt')).toBe(false);
+    expect(meetingTimeInferable(access({ startsAt: 'none' }), A1, 'dueAt')).toBe(false);
+    // Judged in the activity's own programme; an unknown one fails closed.
+    expect(meetingTimeInferable(access({}, { startsAt: 'none' }), A2, 'endsAt')).toBe(true);
+    expect(meetingTimeInferable(access({}, { startsAt: 'none' }), A1, 'endsAt')).toBe(false);
+    expect(meetingTimeInferable(access(), A2, 'endsAt')).toBe(true);
   });
 });

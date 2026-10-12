@@ -6,12 +6,14 @@ import {
   listMyCalendar,
   listMyOpenTasks,
   loadActivityFieldAccess,
+  timeZoneNameExists,
   type ActivityFieldAccess,
   type MyActivityCursorKind,
   type MyActivityPageRows,
   type MyActivityRow,
   type SecuredActivityField,
 } from '@kasuwa/domain-core';
+import { validationFailed } from '../admin/common/admin-errors';
 import { bucketRange } from './activity-buckets';
 import { ListCalendarQuery, ListMyActivitiesQuery } from './my-activities.schemas';
 
@@ -146,6 +148,10 @@ export async function listMyActivitiesFor(
   nowMs: number,
 ): Promise<MyActivityPageWire> {
   const query = ListMyActivitiesQuery.parse(rawQuery); // 400
+  // Exact name in the server's database: the same one body as the schema's.
+  if (!(await timeZoneNameExists(tx, query.timeZone))) {
+    throw validationFailed([{ path: 'timeZone', code: 'invalid_time_zone' }]); // 400
+  }
   const cursorId =
     query.cursor === undefined ? null : decodeActivityCursor('tasks', query.cursor); // 400
   const access = await loadActivityFieldAccess(tx);

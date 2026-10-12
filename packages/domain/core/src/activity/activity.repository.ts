@@ -28,6 +28,14 @@ import { newId, type TenantTx } from '@kasuwa/db';
 export const ACTIVITY_TYPES = ['note', 'task', 'call', 'meeting'] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
+/**
+ * A meeting's longest span: 24 hours. ONE constant for the API's `too_long`
+ * (apps/api activities.schemas.ts) and listCalendar's scan bound; 0034's
+ * activity_meeting_span_check holds the database to the same `interval '24
+ * hours'`. Move all three together, in a new migration.
+ */
+export const MEETING_MAX_MS = 24 * 60 * 60 * 1000;
+
 export interface Activity {
   id: string;
   programmeId: string;

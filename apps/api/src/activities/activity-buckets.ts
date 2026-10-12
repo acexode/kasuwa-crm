@@ -54,28 +54,41 @@ function formatterFor(zone: string): Intl.DateTimeFormat | null {
   } catch {
     return null;
   }
-  // Bounded: only names that passed the checks below are ever cached.
+  // Bounded, so a stream of distinct well-formed names cannot grow it without limit.
   if (formatters.size < 1024) formatters.set(zone, format);
   return format;
 }
 
 /**
- * True for an IANA zone NAME the runtime's database knows: a canonical name
+ * The SYNCHRONOUS half of the `timeZone` check (T-0082; exact-case since the
+ * T-0082 security review): true for a name the runtime's zone database
+ * resolves, written exactly as the database writes it. A canonical name
  * (`Africa/Lagos`), a backward link with a region (`Asia/Kolkata`,
- * `US/Pacific`), or `UTC`. Refused, whatever Intl would accept: an
- * abbreviation or a legacy three-letter id (`WAT`, `EAT`, `EST`: ICU maps
- * some of these to a city, the IANA database does not name them), an offset
- * (`+01:00`, `UTC+1`), a path (`../`), whitespace, a NUL, an empty value,
- * and a name not written as the database writes it (each part starts with a
- * capital letter).
+ * `US/Pacific`), or `UTC`. Refused, whatever Intl would accept:
+ *   - an abbreviation or a legacy three-letter id (`WAT`, `EAT`, `EST`: ICU
+ *     maps some of these to a city; the IANA database does not name them);
+ *   - an offset (`+01:00`, `UTC+1`), a path (`../`), whitespace, a NUL, an
+ *     empty value;
+ *   - a name in another case (`Africa/LAGOS`, `AFRICA/LAGOS`, `africa/lagos`):
+ *     Intl matches names case-insensitively, the database does not;
+ *   - every `SystemV/*` name (pre-POSIX fixed-rule zones, not places).
+ * The other half is exact: the service also requires the name in the
+ * server's own list (`timeZoneNameExists`, pg_timezone_names), which catches
+ * a link written in another case (`Asia/KOLKATA`) that Intl cannot tell
+ * from the real one.
  */
 export function isIanaTimeZone(value: string): boolean {
   if (value.length === 0 || value.length > TIME_ZONE_MAX_LENGTH) return false;
   if (!TIME_ZONE_PATTERN.test(value)) return false;
-  if (value === 'UTC' || canonical().has(value)) return formatterFor(value) !== null;
+  if (value.startsWith('SystemV/')) return false;
+  const format = formatterFor(value);
+  if (format === null) return false;
+  if (value === 'UTC' || canonical().has(value)) return true;
   if (!value.includes('/')) return false;
   if (!value.split('/').every((part) => /^[A-Z]/.test(part))) return false;
-  return formatterFor(value) !== null;
+  // A case variant of the name Intl resolves it to is not that name.
+  const resolved = format.resolvedOptions().timeZone;
+  return !(resolved !== value && resolved.toLowerCase() === value.toLowerCase());
 }
 
 /** The zone did not resolve. `isIanaTimeZone` makes this unreachable from the API. */

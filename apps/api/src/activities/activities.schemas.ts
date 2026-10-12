@@ -1,4 +1,4 @@
-import { ACTIVITY_TYPES } from '@kasuwa/domain-core';
+import { ACTIVITY_TYPES, MEETING_MAX_MS } from '@kasuwa/domain-core';
 import { z } from 'zod';
 import { text } from '../common/text';
 
@@ -61,8 +61,12 @@ export const CREATE_ACTIVITY_KEYS = [
   'accountId',
 ] as const;
 
-/** A meeting's longest span (D-L107: the API's limit, not the database's). */
-export const MEETING_MAX_MS = 24 * 60 * 60 * 1000;
+/**
+ * A meeting's longest span, 24 hours: the shared constant (domain-core),
+ * which 0034's activity_meeting_span_check and listCalendar's scan bound
+ * also follow. The API refuses first, as `too_long` at the field sent.
+ */
+export { MEETING_MAX_MS };
 
 type Issue = { path: string; reason: string };
 

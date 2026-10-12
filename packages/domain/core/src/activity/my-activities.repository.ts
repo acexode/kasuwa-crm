@@ -1,6 +1,7 @@
 import type { TenantTx } from '@kasuwa/db';
 import { z } from 'zod';
 import { InvalidCursorError } from '../cursor';
+import { MEETING_MAX_MS } from './activity.repository';
 
 /**
  * The caller's own tasks and calendar (T-0082, P07; records.openapi.yaml
@@ -100,6 +101,28 @@ export function decodeActivityCursor(kind: MyActivityCursorKind, cursor: string)
   const parsed = ActivityCursorPayload.safeParse(json);
   if (!parsed.success || parsed.data.k !== KIND_CODE[kind]) throw new InvalidCursorError();
   return parsed.data.i.toLowerCase();
+}
+
+// --- time zones ---------------------------------------------------------------
+
+let zoneNames: ReadonlySet<string> | null = null;
+
+/**
+ * Is `name` EXACTLY a zone name in the server's IANA database (T-0082
+ * security review: exact case)? The contract's "a zone name in the server's
+ * IANA time-zone database", read from `pg_catalog.pg_timezone_names`, a
+ * system view that holds no tenant data, once per process and kept in memory.
+ * Text equality is case-sensitive, so `Asia/KOLKATA` is not `Asia/Kolkata`,
+ * which Intl alone cannot tell apart.
+ */
+export async function timeZoneNameExists(tx: TenantTx, name: string): Promise<boolean> {
+  if (zoneNames === null) {
+    const rows = await tx.query<{ name: string }>(
+      'SELECT name FROM pg_catalog.pg_timezone_names',
+    );
+    zoneNames = new Set(rows.map((row) => row.name));
+  }
+  return zoneNames.has(name);
 }
 
 // --- rows ---------------------------------------------------------------------
@@ -226,44 +249,50 @@ export async function listMyOpenTasks(
     if (found.length === 0) throw new InvalidCursorError();
   }
 
-  const range: string[] = [];
-  if (options.range.from !== null) range.push(`a.due_at >= ${bind(options.range.from)}::timestamptz`);
-  if (options.range.to !== null) range.push(`a.due_at < ${bind(options.range.to)}::timestamptz`);
-  const dated = range.length > 0 ? range.join(' AND ') : 'a.due_at IS NOT NULL';
-  const inRange = options.range.undated ? `((${dated}) OR a.due_at IS NULL)` : `(${dated})`;
+  const dated: string[] = ['a.due_at IS NOT NULL'];
+  if (options.range.from !== null) {
+    dated.push(`a.due_at >= ${bind(options.range.from)}::timestamptz`);
+  }
+  if (options.range.to !== null) dated.push(`a.due_at < ${bind(options.range.to)}::timestamptz`);
 
-  let pos = '';
-  let after = '';
+  // The cursor SEEKS (review finding): the dated branch resumes strictly after
+  // the cursor row's (due_at, id), a row comparison the open-task index
+  // (tenant_id, owner_user_id, due_at, id) answers directly; a NULL due_at in
+  // the position makes it match nothing, so a cursor on an undated row skips
+  // every dated one. The undated branch takes every undated row after a dated
+  // cursor, or the undated rows after the cursor's id.
+  let datedAfter = '';
+  let undatedAfter = '';
   if (options.cursorId !== null) {
     const cursor = bind(options.cursorId);
-    pos = `pos AS (
-      SELECT p.due_at, p.id FROM activity p WHERE p.id = ${cursor}::uuid AND ${shown('p')}
-    ),`;
-    after = `AND EXISTS (
-      SELECT 1 FROM pos
-       WHERE (pos.due_at IS NULL AND a.due_at IS NULL AND a.id > pos.id)
-          OR (pos.due_at IS NOT NULL
-              AND (a.due_at IS NULL
-                   OR a.due_at > pos.due_at
-                   OR (a.due_at = pos.due_at AND a.id > pos.id))))`;
+    // A scalar subquery, so the position is an init-plan PARAMETER the index
+    // condition can use (a joined CTE would only filter after the scan).
+    const cursorDue = `(SELECT p.due_at FROM activity p WHERE p.id = ${cursor}::uuid AND ${shown('p')})`;
+    datedAfter = `AND (a.due_at, a.id) > (${cursorDue}, ${cursor}::uuid)`;
+    undatedAfter = `AND (${cursorDue} IS NOT NULL OR a.id > ${cursor}::uuid)`;
   }
   const limit = bind(options.limit + 1);
 
+  const branch = (where: string, after: string) => `
+       (SELECT ${ACTIVITY_COLUMNS}
+          FROM activity a
+         WHERE ${shown('a')}
+           AND a.completed_at IS NULL
+           AND ${where}
+           ${after}
+         ORDER BY a.due_at ASC NULLS LAST, a.id ASC
+         LIMIT ${limit}::integer)`;
+  const branches = [branch(dated.join(' AND '), datedAfter)];
+  if (options.range.undated) branches.push(branch('a.due_at IS NULL', undatedAfter));
+
   const raws = await tx.query<Record<string, unknown>>(
-    `WITH ${pos} e AS (
-       SELECT ${ACTIVITY_COLUMNS}
-         FROM activity a
-        WHERE ${shown('a')}
-          AND a.completed_at IS NULL
-          AND ${inRange}
-          ${after}
-        ORDER BY a.due_at ASC NULLS LAST, a.id ASC
-        LIMIT ${limit}::integer
+    `WITH e AS (${branches.join(' UNION ALL ')}
      )
      SELECT ${SUMMARY_COLUMNS}
        FROM e
        ${SUMMARY_JOINS}
-      ORDER BY e.due_at ASC NULLS LAST, e.id ASC`,
+      ORDER BY e.due_at ASC NULLS LAST, e.id ASC
+      LIMIT ${limit}::integer`,
     values,
   );
   return pageOf(raws, options.limit);
@@ -334,6 +363,9 @@ export async function listMyCalendar(
 
   const from = bind(options.from);
   const to = bind(options.to);
+  // 0034's span CHECK caps a meeting at MEETING_MAX_MS, so a meeting that
+  // overlaps the window started after `from - 24 h`: the seek's lower bound.
+  const earliestStart = bind(new Date(options.from.getTime() - MEETING_MAX_MS));
   let pos = '';
   let taskAfter = '';
   let meetingAfter = '';
@@ -367,6 +399,7 @@ export async function listMyCalendar(
           FROM activity a ${posJoin}
          WHERE ${owned('a')}
            AND ${meeting('a')}
+           AND a.starts_at > ${earliestStart}::timestamptz
            AND a.starts_at < ${to}::timestamptz
            AND a.ends_at > ${from}::timestamptz
            ${meetingAfter}
