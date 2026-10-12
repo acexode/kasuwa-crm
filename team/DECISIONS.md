@@ -2549,3 +2549,23 @@ merge:
     exploitable over HTTP.
 - **Later, only if measured:** a per-programme MergeAppend for supervisors who reach a few of many programmes, with a
   skewed-seed case added to the list-indexes suite.
+
+### D-L117 — T-0106 suite rulings (lead, 2026-10-12)
+**Status:** PROCEEDING (lead). The suite `pipeline-tables.acceptance.test.ts` (109 tests) is on `lead/T-0106-acceptance`. On
+main, 103 fail because the tables do not exist, and 6 self-checks pass.
+- **R1–R15 in the suite header are accepted.** Notable:
+  - every row keeps its pipeline through composite FKs;
+  - a `field` requirement stores the api_name;
+  - the template is the contract's getPipeline example (7 stages, "B2B sales"), with the contract's seed transition rule;
+  - a deal's `stage_id` moves only along a transition of its pipeline (R5);
+  - `amount_minor` and `currency` are both set or neither;
+  - requirement checks are insert-only for kasuwa_app;
+  - deal contact and account FKs never cascade;
+  - archived, paused and draft programmes are backfilled;
+  - the board's orders use an index with no Sort as kasuwa_app under FORCE RLS.
+- **R9, provisioning:** `createProgramme` creates the default pipeline in its own `withTenantTransaction`. It must NOT use
+  a new SECURITY DEFINER function or a wider policy; 0015's created-in-this-transaction marker is the precedent. If that
+  cannot work, the builder stops and escalates.
+- **R10:** `ensureStandardObjectDefs` repairs a programme with no pipeline, idempotently (ids unchanged).
+- **Migration 0036** is reserved for `agent3/T-0106`. The seed needs at least one deal, or schema-hygiene fails on
+  `deal.updated_at`.
