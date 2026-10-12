@@ -32,6 +32,7 @@ import {
   SCRIPT_LOCALES,
   SCRIPT_PAGE_CAP,
   S_HARDSHIP,
+  S_SURVEY,
   S_HOSTILE,
   S_KYC,
   S_MAIN,
@@ -182,7 +183,7 @@ const SCREEN = '[data-screen="P10/05"]';
  * re-pin it to the measurement once the screen exists. Why 260,000: see the
  * budget test.
  */
-const SCRIPT_BUILDER_BUDGET_BYTES = 260_000;
+const SCRIPT_BUILDER_BUDGET_BYTES = 250_000;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
@@ -709,8 +710,8 @@ test('the list draws the caller’s scripts in served order with their state, ke
   await expect(row(S_MAIN.id).locator('[data-script-state]').first()).toHaveAttribute('data-unpublished', 'true');
   await expect(row(S_MAIN.id)).toContainText(`${VERSION_12.number}`);
   await expect(row(S_MAIN.id).locator(`a[href="/scripts/${S_MAIN.id}"]`)).toHaveCount(1);
-  // Never published.
-  await expect(row(S_HARDSHIP.id).locator('[data-script-state]').first()).toHaveAttribute('data-script-state', 'draft');
+  // Never published (a page-1 draft; Hardship sorts onto page 2 and is checked after "more", D-L119).
+  await expect(row(S_SURVEY.id).locator('[data-script-state]').first()).toHaveAttribute('data-script-state', 'draft');
   // Markup in a name is text.
   await expect(row(S_HOSTILE.id)).toContainText('<b>Arrears</b>');
   await expect(screen(page).locator('[onerror], b:text-is("Arrears")')).toHaveCount(0);
@@ -722,6 +723,7 @@ test('the list draws the caller’s scripts in served order with their state, ke
   await more.click();
   expect(new URL((await answered).url()).searchParams.get('cursor'), 'the cursor was not echoed verbatim').toBe(next);
   await expect.poll(() => renderedRowIds(page), { message: '"more" dropped, repeated or reordered scripts' }).toEqual(ALL_SCRIPTS.map((entry) => entry.id));
+  await expect(row(S_HARDSHIP.id).locator('[data-script-state]').first()).toHaveAttribute('data-script-state', 'draft');
   await expect(row(S_WELCOME.id).locator('[data-script-state]').first()).toHaveAttribute('data-unpublished', 'false');
   await expect(row(S_KYC.id)).toContainText(S_KYC.name);
   await expectNoUsable(shown(screen(page).getByTestId('script-list-more')), '"more" on the last page');

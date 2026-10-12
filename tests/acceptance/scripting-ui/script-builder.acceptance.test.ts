@@ -152,7 +152,7 @@ const CONTRACT = 'docs/api/scripting.openapi.yaml';
 
 /** The pinned browser half (CRLF folded to LF; the budget literal normalised). */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  [SPEC]: '0b17c540a6f774a31cadafc959464be1894333a55a682abbf3b9c344edaaf7c9',
+  [SPEC]: 'a001183d23ce766d00d81301dd1258972171329bfcb7162f16848567a18e6048',
   [MOCK]: 'e4339089f35fab5bc47aad42ddaedc2663e36ba991fdbf56b18fb7132fc93574',
 };
 

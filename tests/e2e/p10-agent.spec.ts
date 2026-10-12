@@ -180,7 +180,7 @@ const RECORD = '[data-screen="P05/01"]';
  * re-pin it to the measurement once the screen exists. Why 245,000: see the
  * budget test.
  */
-const SCRIPT_RUN_BUDGET_BYTES = 245_000;
+const SCRIPT_RUN_BUDGET_BYTES = 240_000;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
