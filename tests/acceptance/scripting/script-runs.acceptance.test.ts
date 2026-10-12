@@ -4414,8 +4414,11 @@ describe('acceptance: script runs (T-0114)', () => {
     }
 
     it('a full run writes exactly two events (R1): created naming the version, updated naming the outcome and ids; advance, acknowledge and answers write none', async () => {
+      // The fixture script is made first: its own created/published events
+      // (object_type script) are not the run's and must not be counted.
+      const script = await makeScript();
       const before = await auditIds();
-      const run = await start(AGENT_1, await makeScript(), C1);
+      const run = await start(AGENT_1, script, C1);
       const afterStart = await auditIds();
       await toClose(AGENT_1, run);
       expect(
