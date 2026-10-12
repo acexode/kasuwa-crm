@@ -2491,3 +2491,23 @@ main, 25 fail for the real reason:
 - **`client_portal` reads deals** as it reads contacts and accounts. Revisit under D-P26 before M18.
 - **"Cloud" agents:** remote isolation is not available in this environment, and the agent tool falls back to a local
   worktree. So D-L109's cloud builders are local worktrees for now. The RAM rule still applies to every agent.
+
+### D-L114 — T-0115 and T-0116 suite rulings; one builder for both screens (lead, 2026-10-12)
+**Status:** PROCEEDING (lead). The suites are on `lead/T-0115-T-0116-acceptance`: builder 41 tests, agent 45, with the
+shared `scripting-mock.ts`. On main, 74 fail for the real reason (no flag, route or web process) and 12 self-checks pass.
+- **Accepted:** builder rulings 1–11 and agent rulings 1–11 in the suite headers. Notable:
+  - the builder's non-admin "real 404" waits for the capability read (T-0079; `@p10-builder-access-404` is a fixme), and
+    until then a non-writer meets one generic not-found;
+  - the builder has no nav entry until a capability read exists;
+  - saves are explicit;
+  - "changed fields only" is top-level for the whole-graph replace, with the 409 rebase done per node;
+  - the agent screen never evaluates a branch; "completed" is offered only at an end node or a stopped run; the run has
+    its own route `/script-runs/[runId]`;
+  - the contact record calls scripting only once the start control opens.
+- **One builder, one PR for both** (they share the mock and the `crm_scripts` flag), with one combined review (UI only,
+  D-L109). The suites land with that PR, never before (the T-0114 precedent).
+- **Budgets:**
+  - `/contacts/[id]` may grow with the start control. The lead re-pins it within 5% of measurement, at most 245,000 B.
+  - The builder's and the agent screen's budgets are provisional (260,000 / 245,000 B) and are re-pinned at merge.
+- **If a builder disputes an assertion** (untouched nodes sent exactly as served, branch labels word for word, the hidden
+  words "ready" and "hold", the checkbox for acknowledgement), it stops and reports. It never works around one.
