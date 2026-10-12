@@ -197,6 +197,9 @@ export function encodeListCursor(position: ListCursor): string {
   return Buffer.from(JSON.stringify(parsed.data), 'utf8').toString('base64url');
 }
 
+/** The alphabet an issued cursor uses: base64url, unpadded. */
+const BASE64URL = /^[A-Za-z0-9_-]+$/;
+
 export interface DecodeListCursorOptions {
   /**
    * The sort under which a legacy `{ c, i }` cursor is accepted (the contacts
@@ -216,6 +219,9 @@ export function decodeListCursor(
   sort: string,
   options: DecodeListCursorOptions = {},
 ): string {
+  // base64url only, as issued. Node's decoder would otherwise accept `+`, `/`,
+  // `=` padding and whitespace, so many spellings would name one cursor.
+  if (!BASE64URL.test(cursor)) throw new InvalidCursorError();
   let parsedJson: unknown;
   try {
     parsedJson = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
@@ -227,10 +233,25 @@ export function decodeListCursor(
     if (parsed.data.s !== sort) throw new InvalidCursorError();
     return parsed.data.i;
   }
-  if (options.legacyKeysetSort !== undefined && options.legacyKeysetSort === sort) {
+  if (
+    options.legacyKeysetSort !== undefined &&
+    options.legacyKeysetSort === sort &&
+    !namesListCursorKey(parsedJson)
+  ) {
     // By its id alone: `c` is validated (garbage stays 400), then dropped.
+    // A payload carrying `v` or `s` is a list cursor (of another sort, or an
+    // unknown version) and never falls through to the legacy shape, which
+    // would otherwise strip those keys and accept it.
     const legacy = CursorPayload.safeParse(parsedJson);
     if (legacy.success) return legacy.data.i;
   }
   throw new InvalidCursorError();
+}
+
+function namesListCursorKey(payload: unknown): boolean {
+  return (
+    typeof payload === 'object' &&
+    payload !== null &&
+    (Object.hasOwn(payload, 'v') || Object.hasOwn(payload, 's'))
+  );
 }

@@ -67,6 +67,39 @@ describe('list cursors (T-0084, D-L80)', () => {
     ).toThrow(InvalidCursorError);
   });
 
+  it('never lets a payload with v or s through the legacy path (another sort, or an unknown version)', () => {
+    const legacyOnly = { legacyKeysetSort: '-createdAt' };
+    for (const payload of [
+      // A cursor of another sort, carrying a valid c and i besides.
+      { c: '2026-04-01T12:00:00.000Z', i: id, s: 'displayName', v: 1 },
+      { c: '2026-04-01T12:00:00.000Z', i: id, s: 'createdAt' },
+      // An unknown version.
+      { c: '2026-04-01T12:00:00.000Z', i: id, v: 2 },
+      { c: '2026-04-01T12:00:00.000Z', i: id, v: 1 },
+    ]) {
+      expect(() => decodeListCursor(raw(payload), '-createdAt', legacyOnly), JSON.stringify(payload))
+        .toThrow(InvalidCursorError);
+    }
+    // Other extra keys are still dropped, as before T-0084 (cursor-tampering).
+    const smuggled = raw({ c: '2026-04-01T12:00:00.000Z', i: id, tenantId: id });
+    expect(decodeListCursor(smuggled, '-createdAt', legacyOnly)).toBe(id);
+  });
+
+  it('refuses anything but unpadded base64url before decoding', () => {
+    const good = encodeListCursor({ sort: 'name', id });
+    // Node's base64url decoder would accept every one of these as `good`.
+    const plusSlash = good.replace(/-/g, '+').replace(/_/g, '/');
+    expect(Buffer.from(plusSlash, 'base64url').toString('utf8')).toBe(
+      Buffer.from(good, 'base64url').toString('utf8'),
+    );
+    const variants = [`${good}=`, `${good}==`, ` ${good}`, `${good}\n`, `${good}.`];
+    if (plusSlash !== good) variants.push(plusSlash);
+    for (const bad of variants) {
+      expect(() => decodeListCursor(bad, 'name'), JSON.stringify(bad)).toThrow(InvalidCursorError);
+    }
+    expect(decodeListCursor(good, 'name')).toBe(id);
+  });
+
   it('refuses to issue a cursor for a non-uuid id or an empty sort', () => {
     expect(() => encodeListCursor({ sort: 'name', id: 'not-a-uuid' })).toThrow(InvalidCursorError);
     expect(() => encodeListCursor({ sort: '', id })).toThrow(InvalidCursorError);
