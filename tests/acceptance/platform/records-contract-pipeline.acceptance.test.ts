@@ -73,8 +73,9 @@ import { parse } from 'yaml';
  *       admin; own deals only for the agent), `deal.write_any` (team_lead,
  *       programme_manager, admin), `deal.reassign` (the same three),
  *       `pipeline.write` (admin; not in this contract). `x-kasuwa-rights`
- *       states read/own/any/none per seeded set. `qa_analyst` and
- *       `client_portal` read and never write, as for contacts.
+ *       states read/own/any/none per seeded set. `qa_analyst` reads and
+ *       never writes, as for contacts; `client_portal` neither reads nor
+ *       writes here (L1, D-L115).
  *   R3  Every deal is created in the first open stage; createDeal takes no
  *       `stageId`, and the first open stage never has requirements. An
  *       agent giving a deal to anyone else is `403` with
@@ -116,6 +117,41 @@ import { parse } from 'yaml';
  *   R13 No pipeline configuration write and no deal deletion in this
  *       contract. The P06/07 template picker waits for the configuration
  *       contract.
+ *
+ * ---------------------------------------------------------------------------
+ * LEAD REVIEW (D-L115). Each of these tightens the contract; none loosens a
+ * check above. L1, L2 and L4 each carry a planted-defect self-check.
+ * ---------------------------------------------------------------------------
+ *
+ *   L1  `client_portal: none` on all five reads (and on the three writes, as
+ *       before). D-P26 shows portal users actors as role labels and never
+ *       free text such as `nextStep`; a deal would send staff names
+ *       (`owner.displayName`, `checks[].checkedBy.displayName`). For the
+ *       portal, listPipelines is an empty page and every other read the one
+ *       404. Restoring portal reads later is additive. This reverses R2's
+ *       "client_portal reads" for pipelines and deals.
+ *   L2  `closedSince` reaches back at most 366 days: earlier is `400
+ *       validation_failed`, `window_too_long` at `closedSince`, never
+ *       clamped; a future value is `400 invalid_window`.
+ *   L3  When field security withholds `ownerUserId`, `own` acts as `none`:
+ *       updateDeal and moveDeal answer the same 403 for every deal, so
+ *       ownership cannot be probed.
+ *   L4  The currencies are NGN, GHS, KES and ZAR (CLAUDE.md section 1; no
+ *       USD, D-L88), named in DealMoney. Any other code is `400
+ *       unknown_currency`, in a body and in the `currency` filter alike. If
+ *       the code is ever enumerated, the enum is exactly those four.
+ *   L5  Totals are summed in Postgres `numeric`, never bigint or a JS number,
+ *       and a total is at most 24 digits.
+ *   L6  `maxItems` on Deal.checks (600), BoardStage.cards (50) and totals
+ *       (4), PipelineBoard.stages (29), DealPage.data and PipelinePage.data
+ *       (100), each matching its prose bound.
+ *   L7  `x-kasuwa-classification: pii` (the D-L91 marker) on Deal `name` and
+ *       `nextStep`.
+ *   L8  updateDeal's audit records the before and after owner ids on a
+ *       reassignment (D-L71, as for contacts); every other field by name.
+ *   L9  `q` matches `%` and `_` literally.
+ *   L10 Path ids keep `format: uuid`: R11 pins it, so it stays; the prose
+ *       still says a non-uuid is the same 404, byte for byte.
  *
  * ---------------------------------------------------------------------------
  *
@@ -935,8 +971,12 @@ function stringsIn(value: unknown): string[] {
 }
 
 const SETS = ['admin', 'programme_manager', 'team_lead', 'agent', 'qa_analyst', 'client_portal'];
-const READ_RIGHTS = Object.fromEntries(SETS.map((set) => [set, 'read']));
-const WRITE_RIGHTS = {
+/** L1 (D-L115): every staff set reads; the portal reads no pipeline and no deal. */
+const READ_RIGHTS: Record<string, string> = {
+  ...Object.fromEntries(SETS.map((set) => [set, 'read'])),
+  client_portal: 'none',
+};
+const WRITE_RIGHTS: Record<string, string> = {
   admin: 'any',
   programme_manager: 'any',
   team_lead: 'any',
@@ -944,6 +984,69 @@ const WRITE_RIGHTS = {
   qa_analyst: 'none',
   client_portal: 'none',
 };
+
+/** What is wrong with one operation's `x-kasuwa-rights`; empty when it is right. */
+function rightsProblems(id: string, rights: unknown): string[] {
+  if (!isMapping(rights)) return [`${id}: x-kasuwa-rights missing`];
+  const want = READS.includes(id) ? READ_RIGHTS : WRITE_RIGHTS;
+  const problems: string[] = [];
+  for (const set of SETS) {
+    if (rights[set] !== want[set])
+      problems.push(`${id}: ${set} is ${String(rights[set])}, not ${String(want[set])}`);
+  }
+  for (const key of Object.keys(rights)) {
+    if (!SETS.includes(key)) problems.push(`${id}: unknown set ${key}`);
+  }
+  if (rights.client_portal !== 'none') problems.push(`${id}: the portal is let in (D-L115)`);
+  return problems;
+}
+
+/** L2: what the closedSince parameter's prose fails to say; empty when it says it all. */
+function closedSinceProblems(text: string): string[] {
+  const problems: string[] = [];
+  const t = prose(text);
+  if (!/at most 366 days before the request/.test(t)) problems.push('no 366-day bound');
+  if (!/`details\[\]\.code: window_too_long` at `closedSince`, never clamped/.test(t))
+    problems.push('earlier is not window_too_long at closedSince, never clamped');
+  if (
+    !/A value after the request is `400 validation_failed` with `details\[\]\.code: invalid_window` at `closedSince`/.test(
+      t,
+    )
+  )
+    problems.push('a future value is not invalid_window');
+  if (/clamped to|is clamped|clamps/i.test(t)) problems.push('the bound clamps');
+  return problems;
+}
+
+const CURRENCIES = ['GHS', 'KES', 'NGN', 'ZAR'];
+
+/** L4: what DealMoney and the currency filter fail to say; empty when both say it. */
+function currencyProblems(moneyText: string, filterText: string): string[] {
+  const problems: string[] = [];
+  const money = prose(moneyText);
+  const filter = prose(filterText);
+  if (
+    !/\*\*The currencies are NGN, GHS, KES and ZAR\*\* \(D-L88, D-L115\); there is no USD\./.test(
+      money,
+    )
+  )
+    problems.push('DealMoney does not name exactly NGN, GHS, KES and ZAR');
+  if (
+    !/Any other code, well-formed or not, is `400 validation_failed` with `details\[\]\.code: unknown_currency` at the code's path, in a body \(`amount.currency`, `fields.amount.currency`\) and in the `currency` filter alike/.test(
+      money,
+    )
+  )
+    problems.push('DealMoney does not make any other code unknown_currency, body and filter');
+  if (!/NGN, GHS, KES or ZAR \(see DealMoney\)/.test(filter))
+    problems.push('the filter does not name the four');
+  if (
+    !/Any other code, USD included, is `400 validation_failed` with `details\[\]\.code: unknown_currency` at `currency`, exactly as in a body/.test(
+      filter,
+    )
+  )
+    problems.push('the filter does not make any other code unknown_currency');
+  return problems;
+}
 
 const NOT_FOUND_BODY = {
   statusCode: 404,
@@ -1134,6 +1237,31 @@ describe('acceptance: records contract, pipelines and deals (T-0105)', () => {
       expect(text).toMatch(/invalid_window/);
     });
 
+    it('closedSince reaches back at most 366 days, never clamped, and never into the future (L2)', () => {
+      for (const id of ['getPipelineBoard', 'listDeals']) {
+        const text = str(param(operation(id), 'closedSince')?.description);
+        expect(closedSinceProblems(text), id).toEqual([]);
+      }
+      expect(prose(description(operation('getPipelineBoard')))).toMatch(
+        /It reaches back at most 366 days \(`400 window_too_long`, never clamped\) and never into the future \(`400 invalid_window`\)/,
+      );
+    });
+
+    it('(self-check, L2) a looser closedSince bound is caught', () => {
+      const real = str(param(operation('getPipelineBoard'), 'closedSince')?.description);
+      expect(closedSinceProblems(real), 'the real prose').toEqual([]);
+      const planted: [string, string][] = [
+        ['a longer window', real.replace('366 days', '3660 days')],
+        ['a clamp', real.replace(/never\s+clamped/, 'clamped to 366 days')],
+        ['no future bound', real.replace(/A\s+value\s+after\s+the\s+request[\s\S]*$/, '')],
+        ['no reason code', real.replace('window_too_long', 'validation_failed')],
+      ];
+      for (const [label, text] of planted) {
+        expect(text, `${label}: the plant did not change the prose`).not.toBe(real);
+        expect(closedSinceProblems(text).length, `${label} passed`).toBeGreaterThan(0);
+      }
+    });
+
     it('q searches the never-withheld name, bounded, and refuses NUL', () => {
       const q = param(operation('listDeals'), 'q');
       const node = paramSchema(q).node;
@@ -1141,6 +1269,9 @@ describe('acceptance: records contract, pipelines and deals (T-0105)', () => {
       const text = prose(str(q?.description));
       expect(text).toMatch(/`name` is never withheld/);
       expect(text).toMatch(/NUL/);
+      expect(text, 'L9').toMatch(
+        /\*\*`%` and `_` match themselves literally\*\* \(D-L115\), never as wildcards/,
+      );
     });
 
     it('listDeals sorts on a fixed set of never-withheld keys, ties on id (R10)', () => {
@@ -1244,6 +1375,43 @@ describe('acceptance: records contract, pipelines and deals (T-0105)', () => {
         expect(prose(description(operation(id)))).toMatch(/D-P13/);
       });
     }
+
+    it('every array the board and lists answer is bounded as its prose says (L6)', () => {
+      const bounds: [string, string, number][] = [
+        ['Deal', 'checks', 600],
+        ['BoardStage', 'cards', 50],
+        ['BoardStage', 'totals', 4],
+        ['PipelineBoard', 'stages', 29],
+        ['DealPage', 'data', 100],
+        ['PipelinePage', 'data', 100],
+      ];
+      const problems: string[] = [];
+      for (const [schema, key, max] of bounds) {
+        const node = properties(schemaNamed(schema)).get(key)?.node;
+        const actual = isMapping(node) ? node.maxItems : undefined;
+        if (actual !== max)
+          problems.push(`${schema}.${key}: maxItems ${String(actual)}, not ${max}`);
+      }
+      expect(problems).toEqual([]);
+      // Each bound is the prose's: the limits, the four currencies, 30 stages less lost,
+      // and one check per check requirement of at most 30 stages of 20.
+      for (const id of ['listPipelines', 'listDeals']) {
+        const limit = paramSchema(param(operation(id), 'limit')).node;
+        expect(isMapping(limit) ? limit.maximum : undefined, id).toBe(100);
+      }
+      const board = paramSchema(param(operation('getPipelineBoard'), 'limit')).node;
+      expect(isMapping(board) ? board.maximum : undefined).toBe(50);
+      const stages = properties(schemaNamed('Pipeline')).get('stages')?.node;
+      const requirements = properties(schemaNamed('PipelineStage')).get('requirements')?.node;
+      if (!isMapping(stages) || !isMapping(requirements)) throw new Error('no stage bounds');
+      expect(Number(stages.maxItems) - 1, 'board columns: every stage but lost').toBe(29);
+      expect(Number(stages.maxItems) * Number(requirements.maxItems), 'Deal.checks').toBe(600);
+      expect(CURRENCIES.length, 'one total per currency').toBe(4);
+      const cards = properties(schemaNamed('BoardStage')).get('cards') ?? at({});
+      const card = okExample('getDeal');
+      expect(validate(cards, Array(50).fill(card), 'cards'), '50 cards').toEqual([]);
+      expect(validate(cards, Array(51).fill(card), 'cards').length, '51 cards').toBeGreaterThan(0);
+    });
 
     it('listDeals has no totals: its footer totals come from the board (R10)', () => {
       const text = prose(description(operation('listDeals')));
@@ -1368,6 +1536,72 @@ describe('acceptance: records contract, pipelines and deals (T-0105)', () => {
       expect(keysOf(total)).toEqual(['amountMinor', 'currency', 'weightedAmountMinor']);
       expect(required(total).sort()).toEqual(['amountMinor', 'currency', 'weightedAmountMinor']);
       for (const value of properties(total).values()) expect(types(value)).toEqual(['string']);
+    });
+
+    it('totals are summed in Postgres numeric, never bigint or a JS number, and are at most 24 digits (L5)', () => {
+      const text = prose(schemaDescription('StageTotal'));
+      expect(text).toMatch(
+        /\*\*Sums are computed in Postgres `numeric`, never `bigint` or a JS number\*\* \(D-L115\)/,
+      );
+      expect(text).toMatch(/fits the 24 digits allowed here/);
+      expect(prose(description(operation('getPipelineBoard')))).toMatch(
+        /Sums are computed in Postgres `numeric`, never `bigint` or a JS number/,
+      );
+      const total = schemaNamed('StageTotal');
+      for (const key of ['amountMinor', 'weightedAmountMinor']) {
+        const value = properties(total).get(key) ?? at({});
+        expect(validate(value, '9'.repeat(24), key), `${key}: 24 digits`).toEqual([]);
+        expect(validate(value, `1${'0'.repeat(24)}`, key).length, `${key}: 25`).toBeGreaterThan(0);
+      }
+    });
+
+    it('the currencies are NGN, GHS, KES and ZAR; any other is unknown_currency, body and filter alike (L4)', () => {
+      const filter = param(operation('getPipelineBoard'), 'currency');
+      expect(currencyProblems(schemaDescription('DealMoney'), str(filter?.description))).toEqual(
+        [],
+      );
+      expect(param(operation('listDeals'), 'currency')).toBe(filter);
+      // If the code is ever enumerated, the enum is exactly the four.
+      const codeSchemas: [string, Located, boolean][] = [
+        [
+          'DealMoney.currency',
+          properties(schemaNamed('DealMoney')).get('currency') ?? at({}),
+          false,
+        ],
+        [
+          'StageTotal.currency',
+          properties(schemaNamed('StageTotal')).get('currency') ?? at({}),
+          false,
+        ],
+        ['currency filter', paramSchema(filter), true],
+      ];
+      for (const [where, schema, isList] of codeSchemas) {
+        const values = enumOf(schema).map(str);
+        if (values.length > 0) expect([...values].sort(), where).toEqual(CURRENCIES);
+        for (const code of CURRENCIES) {
+          expect(validate(schema, isList ? [code] : code, where), `${where} ${code}`).toEqual([]);
+        }
+      }
+    });
+
+    it('(self-check, L4) a currency list with USD, or a filter that drops unknown_currency, is caught', () => {
+      const money = schemaDescription('DealMoney');
+      const filter = str(param(operation('getPipelineBoard'), 'currency')?.description);
+      expect(currencyProblems(money, filter), 'the real prose').toEqual([]);
+      const planted: [string, string, string][] = [
+        ['USD listed', money.replace(/KES\s+and\s+ZAR/, 'KES, ZAR and USD'), filter],
+        ['a currency dropped', money.replace(/GHS,\s+KES/, 'KES'), filter],
+        ['the filter ignores a code', money, filter.replace(/unknown_currency/g, 'ignored')],
+        [
+          'the body converts to NGN',
+          money.replace(/Any other code/, 'Any other code is NGN; one'),
+          filter,
+        ],
+      ];
+      for (const [label, m, f] of planted) {
+        expect(m + f, `${label}: the plant did not change the prose`).not.toBe(money + filter);
+        expect(currencyProblems(m, f).length, `${label} passed`).toBeGreaterThan(0);
+      }
     });
 
     it("every example deal's weightedAmount is its amount at the stage's probability, rounded half-even, same currency", () => {
@@ -1696,6 +1930,15 @@ describe('acceptance: records contract, pipelines and deals (T-0105)', () => {
       expect(keysOf(schemaNamed('DealActor'))).toEqual(['displayName', 'id']);
     });
 
+    it('name and nextStep are x-kasuwa-classification: pii (L7, D-L91)', () => {
+      const deal = schemaNamed('Deal');
+      for (const key of ['name', 'nextStep']) {
+        const node = properties(deal).get(key)?.node;
+        expect(isMapping(node) ? node['x-kasuwa-classification'] : undefined, key).toBe('pii');
+        expect(prose(str(isMapping(node) ? node.description : '')), key).toMatch(/never logged/);
+      }
+    });
+
     it('dates: expectedCloseDate is a calendar date; the times are UTC date-times', () => {
       const deal = schemaNamed('Deal');
       const close = properties(deal).get('expectedCloseDate');
@@ -1911,8 +2154,38 @@ describe('acceptance: records contract, pipelines and deals (T-0105)', () => {
         const rights = operation(id).op['x-kasuwa-rights'];
         expect(isMapping(rights), 'x-kasuwa-rights missing').toBe(true);
         expect(rights).toEqual(READS.includes(id) ? READ_RIGHTS : WRITE_RIGHTS);
+        expect(rightsProblems(id, rights)).toEqual([]);
       });
     }
+
+    it('(self-check, L1) a read that lets the portal in is caught', () => {
+      for (const id of READS) {
+        const real = operation(id).op['x-kasuwa-rights'];
+        const stated = isMapping(real) ? real : {};
+        expect(rightsProblems(id, real), `${id}: the real rights`).toEqual([]);
+        const planted = { ...stated, client_portal: 'read' };
+        expect(rightsProblems(id, planted).length, `${id}: a portal read`).toBeGreaterThan(0);
+        const unstated = Object.fromEntries(
+          Object.entries(stated).filter(([set]) => set !== 'client_portal'),
+        );
+        expect(rightsProblems(id, unstated).length, `${id}: an unstated portal`).toBeGreaterThan(0);
+      }
+    });
+
+    it('the portal reads no pipeline and no deal: an empty list and the one 404 (L1, D-P26)', () => {
+      const listing = prose(description(operation('listPipelines')));
+      expect(listing).toMatch(
+        /\*\*The `client_portal` set reads no pipeline and no deal in this contract \(D-L115\):\*\* D-P26 shows a portal user actors as role labels and never free text such as `nextStep`/,
+      );
+      expect(listing).toMatch(
+        /For it this list is an empty page and every other pipeline or deal read is the one `404 not_found` body; restoring portal reads later is additive/,
+      );
+      for (const id of ['getPipeline', 'getPipelineBoard', 'listDeals', 'getDeal']) {
+        expect(prose(description(operation(id))), id).toMatch(
+          /a `client_portal` caller gets the same `404` \(D-L115\)/,
+        );
+      }
+    });
 
     it('writes need deal.write and are audited; reads need no permission and are not', () => {
       for (const op of gate()) {
@@ -1959,7 +2232,27 @@ describe('acceptance: records contract, pipelines and deals (T-0105)', () => {
       expect(prose(description(operation('updateDeal')))).toMatch(/needs `deal.reassign`/);
     });
 
-    it('pipelines are read by every set and written by none here (R13)', () => {
+    it('own acts as none when ownerUserId is withheld: one 403 for every deal (L3)', () => {
+      for (const id of ['updateDeal', 'moveDeal']) {
+        const text = prose(description(operation(id)));
+        expect(text, id).toMatch(
+          /\*\*When field security withholds `ownerUserId` from the caller, `own` acts as `none`\*\* \(D-L115\)/,
+        );
+        expect(text, id).toMatch(
+          /the same `403 not_permitted` for every deal, theirs or not, so the answer never tells who owns a deal/,
+        );
+      }
+    });
+
+    it("updateDeal's audit records the before and after owner ids on a reassignment, names otherwise (L8)", () => {
+      const text = prose(description(operation('updateDeal')));
+      expect(text).toMatch(/\*\*a reassignment records the before and after owners' user ids\*\*/);
+      expect(text).toMatch(
+        /`null` for no owner; never a name, D-L71, as for contacts\)\. Every other field is recorded by name only/,
+      );
+    });
+
+    it('pipelines are read by every staff set and written by none here (R13, L1)', () => {
       const text = prose(description(operation('listPipelines')));
       expect(text).toMatch(/\*\*Pipelines are programme-scoped\*\*/);
       expect(text).toMatch(
@@ -2090,6 +2383,9 @@ describe('acceptance: records contract, pipelines and deals (T-0105)', () => {
           'toStageId unknown_reference',
           'fields.nextStep not_a_requirement',
           'amount.currency unknown_currency',
+          'currency unknown_currency',
+          'closedSince window_too_long',
+          'closedSince invalid_window',
         ]),
       );
     });

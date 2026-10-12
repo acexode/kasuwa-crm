@@ -1977,7 +1977,7 @@ paths:
         team_lead: read
         agent: read
         qa_analyst: read
-        client_portal: read
+        client_portal: none
       description: |
         The P06 pipeline selector. **Pipelines are programme-scoped**
         (D-L69, D-L88): rows come only from the programmes the session
@@ -1985,10 +1985,17 @@ paths:
         wants one programme's pipelines filters on `programmeId`. Unknown
         query parameters are ignored, never honoured.
 
-        **Who reads.** Every permission set in the programme reads its
-        pipelines, as it reads contacts and accounts. No set writes them
-        here: pipeline configuration is `pipeline.write`, admin-only, and
-        not part of this contract. A programme with no pipeline lists none;
+        **Who reads.** Every staff permission set in the programme reads its
+        pipelines, as it reads contacts and accounts. **The `client_portal`
+        set reads no pipeline and no deal in this contract (D-L115):**
+        D-P26 shows a portal user actors as role labels and never free text
+        such as `nextStep`, and a deal carries staff names
+        (`owner.displayName`, `checks[].checkedBy.displayName`). For it this
+        list is an empty page and every other pipeline or deal read is the
+        one `404 not_found` body; restoring portal reads later is additive.
+        No set writes pipelines here: pipeline configuration is
+        `pipeline.write`, admin-only, and not part of this contract. A
+        programme with no pipeline lists none;
         the P06/07 template picker waits for that configuration contract.
 
         Order is by `name`, ties broken by `id` ascending. Names are not
@@ -2033,7 +2040,7 @@ paths:
         team_lead: read
         agent: read
         qa_analyst: read
-        client_portal: read
+        client_portal: none
       description: |
         Everything a screen needs to draw columns, the stage path and the
         move sheet: the stages in position order, each stage's requirements,
@@ -2042,7 +2049,7 @@ paths:
         **Scope.** One `404 not_found` body for a pipeline that does not
         exist, one in another tenant, one in a programme the caller does
         not reach, and an id that is not a uuid. This is a read, so there is
-        no `403`.
+        no `403`; a `client_portal` caller gets the same `404` (D-L115).
 
         **Stages** are `open`, `won` or `lost` (D-L88). A pipeline has at
         least one open stage and exactly one won and one lost stage.
@@ -2207,7 +2214,7 @@ paths:
         team_lead: read
         agent: read
         qa_analyst: read
-        client_portal: read
+        client_portal: none
       description: |
         The P06/01 board and the P06/04 swipe list. One entry in `stages` per
         board column, in position order: every open stage, then the won
@@ -2217,7 +2224,8 @@ paths:
         **Scope.** The pipeline must be readable by the caller, exactly as
         for getPipeline; anything else is the one `404 not_found` body. That
         check comes first: a bad parameter on a pipeline the caller cannot
-        reach is `404`. A read, so no `403`.
+        reach is `404`. A read, so no `403`; a `client_portal` caller gets
+        the same `404` (D-L115).
 
         **Counts and totals (D-P19).** Each column carries an exact `count`
         of the deals in that stage, computed within the caller's scope,
@@ -2230,7 +2238,8 @@ paths:
         column has `count: 0` and `totals: []`. `weightedAmountMinor` is the
         sum of each deal's weighted amount: `amountMinor` times the stage's
         `probabilityBp` divided by 10000, rounded half-even PER DEAL, then
-        summed (D-L88), never rounded once at the end.
+        summed (D-L88), never rounded once at the end. Sums are computed in
+        Postgres `numeric`, never `bigint` or a JS number (see StageTotal).
 
         **When `amount` is withheld.** Field security is judged in the
         pipeline's programme, so it is the same for every card on a board.
@@ -2251,6 +2260,8 @@ paths:
         **Won** covers the deals that entered the won stage at or after
         `closedSince`, default 90 days before the request (D-L88): its
         count, totals and cards alike. Open columns ignore `closedSince`.
+        It reaches back at most 366 days (`400 window_too_long`, never
+        clamped) and never into the future (`400 invalid_window`).
 
         **Cards** are Deal rows under Deal field security. Open columns are
         ordered by `stageEnteredAt` ascending, ties broken by `id`
@@ -2616,7 +2627,7 @@ paths:
         team_lead: read
         agent: read
         qa_analyst: read
-        client_portal: read
+        client_portal: none
       description: |
         The P06/01b list view: the pipeline's deals as Deal rows under Deal
         field security, with the board's filters. Every stage, lost
@@ -2626,7 +2637,7 @@ paths:
 
         **Scope.** The pipeline must be readable by the caller; anything
         else is the one `404 not_found` body, decided first. A read, so no
-        `403`.
+        `403`; a `client_portal` caller gets the same `404` (D-L115).
 
         **Filters** follow getPipelineBoard: `q` on `name`, and a filter on a
         withheld field is `400 validation_failed` with
@@ -2828,14 +2839,14 @@ paths:
         team_lead: read
         agent: read
         qa_analyst: read
-        client_portal: read
+        client_portal: none
       description: |
         The P06/05 deal detail's header, key fields and stage path (the path
         is drawn from getPipeline; the ticked checks are on the deal).
         One `404 not_found` body for no such deal, a deal in another tenant,
         one in a programme the caller does not reach, and an id that is not
-        a uuid. A read, so no `403`. `Cache-Control: no-store` on every
-        answer.
+        a uuid. A read, so no `403`; a `client_portal` caller gets the same
+        `404` (D-L115). `Cache-Control: no-store` on every answer.
       responses:
         '200':
           description: The deal, field security applied.
@@ -2911,7 +2922,11 @@ paths:
         `programme_manager` and `admin` edit any deal in the programme
         (`deal.write_any`). A won or lost deal is edited only with
         `deal.write_any`. Anything else is `403 not_permitted`, decided
-        before the body is read. Changing the owner to anyone but the
+        before the body is read. **When field security withholds
+        `ownerUserId` from the caller, `own` acts as `none`** (D-L115): a
+        caller without `deal.write_any` gets the same `403 not_permitted`
+        for every deal, theirs or not, so the answer never tells who owns
+        a deal. Changing the owner to anyone but the
         caller, or clearing it, needs `deal.reassign` (`team_lead`,
         `programme_manager`, `admin`), otherwise `403` with
         `details[].code: owner_not_self`. Each field sent needs edit under
@@ -2925,7 +2940,10 @@ paths:
         **Order:** `404`, `403` (the action, `owner_not_self`,
         `field_not_editable`), `400`, then `409 stale_write`. Every update
         writes one audit event naming the fields that changed, never their
-        values.
+        values, with one exception: **a reassignment records the before and
+        after owners' user ids** (`ownerUserId`, in canonical lower case,
+        `null` for no owner; never a name, D-L71, as for contacts). Every
+        other field is recorded by name only.
       requestBody:
         required: true
         content:
@@ -3021,7 +3039,11 @@ paths:
         move their own deals**; `team_lead`, `programme_manager` and `admin`
         move any deal in it (`deal.write_any`). **Leaving won or lost needs
         `deal.write_any`.** Anything else is `403 not_permitted`, decided
-        before the body is read. Sending in `fields` a field the mover may
+        before the body is read. **When field security withholds
+        `ownerUserId` from the caller, `own` acts as `none`** (D-L115): a
+        caller without `deal.write_any` gets the same `403 not_permitted`
+        for every deal, theirs or not, so the answer never tells who owns
+        a deal. Sending in `fields` a field the mover may
         not edit is `403` with `details[].code: field_not_editable`, judged
         on the keys.
 
@@ -3351,8 +3373,10 @@ components:
       schema: { type: string, minLength: 1, maxLength: 100 }
       description: |
         Part of the deal `name`, case- and diacritic-insensitive. `name` is
-        never withheld, so the search discloses nothing. A NUL character is
-        `400 validation_failed`.
+        never withheld, so the search discloses nothing. **`%` and `_` match
+        themselves literally** (D-L115), never as wildcards: `q=50%` finds
+        names containing `50%`, and `q=_` does not match every deal. A NUL
+        character is `400 validation_failed`.
     DealOwnerFilter:
       name: owner
       in: query
@@ -3394,9 +3418,11 @@ components:
       in: query
       required: false
       description: |
-        Deals whose amount is in any of these ISO 4217 codes. Repeat the
-        parameter for several. Withheld `amount` is `400 field_withheld` at
-        `currency`.
+        Deals whose amount is in any of these ISO 4217 codes: NGN, GHS, KES
+        or ZAR (see DealMoney). Repeat the parameter for several. Any other
+        code, USD included, is `400 validation_failed` with
+        `details[].code: unknown_currency` at `currency`, exactly as in a
+        body. Withheld `amount` is `400 field_withheld` at `currency`.
       style: form
       explode: true
       schema:
@@ -3412,7 +3438,11 @@ components:
         Won (and, on listDeals, lost) deals closed at or after this UTC
         date-time with a `Z`. Absent, it is 90 days before the request
         (D-L88), and the board echoes the value it used. Open deals ignore
-        it.
+        it. **Bounded (D-L115):** at most 366 days before the request; an
+        earlier value is `400 validation_failed` with
+        `details[].code: window_too_long` at `closedSince`, never clamped. A
+        value after the request is `400 validation_failed` with
+        `details[].code: invalid_window` at `closedSince`.
 
   headers:
     NoStore:
@@ -4642,8 +4672,14 @@ components:
         does not survive JSON) plus an ISO 4217 code. Never a float, never a
         currency symbol, never converted. Non-negative, at most 18 digits,
         no leading zero. The minor unit is the currency's own (kobo for NGN,
-        pesewa for GHS). A code the server does not know is
-        `400 unknown_currency`.
+        pesewa for GHS). **The currencies are NGN, GHS, KES and ZAR**
+        (D-L88, D-L115); there is no USD. Any other code, well-formed or
+        not, is `400 validation_failed` with
+        `details[].code: unknown_currency` at the code's path, in a body
+        (`amount.currency`, `fields.amount.currency`) and in the `currency`
+        filter alike. The pattern is kept to three capitals, and the list is
+        not an `enum`, so that a schema-driven pipe cannot answer an unknown
+        code with a generic error instead of `unknown_currency`.
       properties:
         amountMinor: { type: string, pattern: '^(0|[1-9][0-9]{0,17})$' }
         currency: { type: string, pattern: '^[A-Z]{3}$' }
@@ -4655,7 +4691,13 @@ components:
       description: |
         One currency's total in one board column (D-P19). `weightedAmountMinor`
         is the sum of each deal's weighted amount, rounded half-even per deal
-        before summing (D-L88).
+        before summing (D-L88). **Sums are computed in Postgres `numeric`,
+        never `bigint` or a JS number** (D-L115): a `bigint` overflows past
+        19 digits and a JS number is exact only up to 2^53, so either would
+        corrupt a large column silently. Each `amountMinor` is at most 18
+        digits (below 10^18) and a weighted amount never exceeds its amount
+        (`probabilityBp` is at most 10000), so a total of fewer than 10^6
+        deals is below 10^24 and fits the 24 digits allowed here.
       properties:
         currency: { type: string, pattern: '^[A-Z]{3}$' }
         amountMinor: { type: string, pattern: '^(0|[1-9][0-9]{0,23})$' }
@@ -4750,6 +4792,8 @@ components:
       properties:
         data:
           type: array
+          maxItems: 100
+          description: At most `limit` rows (1 to 100).
           items: { $ref: '#/components/schemas/PipelineSummary' }
         nextCursor: { type: [string, 'null'] }
 
@@ -4887,7 +4931,12 @@ components:
           minimum: 1
           maximum: 2147483647
           description: Optimistic-concurrency token for updateDeal and moveDeal.
-        name: { type: string, minLength: 1, maxLength: 200 }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          x-kasuwa-classification: pii
+          description: Free text that may name a person or a business (D-L91); never logged.
         amount:
           oneOf:
             - { $ref: '#/components/schemas/DealMoney' }
@@ -4925,7 +4974,11 @@ components:
           oneOf:
             - { $ref: '#/components/schemas/DealAccountSummary' }
             - { type: 'null' }
-        nextStep: { type: [string, 'null'], maxLength: 200 }
+        nextStep:
+          type: [string, 'null']
+          maxLength: 200
+          x-kasuwa-classification: pii
+          description: Free text that may name a person (D-L91); never logged.
         stageEnteredAt:
           type: string
           format: date-time
@@ -4941,7 +4994,11 @@ components:
             - { type: 'null' }
         checks:
           type: array
-          description: The check requirements ticked on this deal, each once.
+          maxItems: 600
+          description: |
+            The check requirements ticked on this deal, each once. At most one
+            per check requirement of the pipeline: 30 stages of at most 20
+            requirements each bound it at 600.
           items: { $ref: '#/components/schemas/DealCheck' }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -4959,6 +5016,8 @@ components:
       properties:
         data:
           type: array
+          maxItems: 100
+          description: At most `limit` rows (1 to 100).
           items: { $ref: '#/components/schemas/Deal' }
         nextCursor: { type: [string, 'null'] }
 
@@ -4975,10 +5034,15 @@ components:
         count: { type: integer, minimum: 0 }
         totals:
           type: array
-          description: One entry per currency, sorted by code; empty for a column with no amounts.
+          maxItems: 4
+          description: |
+            One entry per currency, sorted by code; empty for a column with no
+            amounts. At most four: NGN, GHS, KES and ZAR (DealMoney).
           items: { $ref: '#/components/schemas/StageTotal' }
         cards:
           type: array
+          maxItems: 50
+          description: At most `limit` cards (1 to 50, default 20).
           items: { $ref: '#/components/schemas/Deal' }
         nextCursor: { type: [string, 'null'] }
 
@@ -4999,7 +5063,11 @@ components:
           items: { $ref: '#/components/schemas/DealWithheldField' }
         stages:
           type: array
-          description: Open stages then won, in position order; one entry when `stageId` was sent.
+          maxItems: 29
+          description: |
+            Open stages then won, in position order; one entry when `stageId`
+            was sent. At most 29: a pipeline has at most 30 stages, and lost is
+            not a column.
           items: { $ref: '#/components/schemas/BoardStage' }
 
     CreateDealRequest:
@@ -5370,6 +5438,36 @@ components:
                 details:
                   - path: amount.currency
                     code: unknown_currency
+            unknownCurrencyFilter:
+              summary: A currency filter naming a code that is not NGN, GHS, KES or ZAR
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: currency
+                    code: unknown_currency
+            closedSinceTooEarly:
+              summary: A closedSince more than 366 days before the request, never clamped
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: closedSince
+                    code: window_too_long
+            closedSinceInFuture:
+              summary: A closedSince after the request
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: closedSince
+                    code: invalid_window
 
     DealNotPermitted:
       description: |
