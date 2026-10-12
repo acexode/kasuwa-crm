@@ -146,6 +146,29 @@ describe('kasuwa_test_admin memberships (T-0117 review M1)', () => {
     }
   });
 
+  it('refuses ADMIN-only held by a CREATEROLE role that kasuwa_app can enter', async () => {
+    // Re-review round 2: kasuwa_app could SET ROLE to the admin and use its
+    // ADMIN OPTION. The exemption needs the holder unreachable by the checker.
+    await asSuperuser('CREATE ROLE t_admin NOLOGIN CREATEROLE');
+    await asSuperuser('GRANT t_admin TO kasuwa_app WITH INHERIT FALSE, SET TRUE');
+    try {
+      await withMembership(
+        'GRANT kasuwa_test_admin TO t_admin WITH ADMIN TRUE, INHERIT FALSE, SET FALSE',
+        'REVOKE kasuwa_test_admin FROM t_admin',
+        async () => {
+          // The boot check runs as kasuwa_app, which reaches t_admin: refused.
+          const { reasons, boot } = await bootReasons();
+          expect(reasons).toHaveLength(1);
+          expect(reasons[0]).toMatch(/another role is a member of it/u);
+          expect(boot).toBeInstanceOf(UsableTestAdminError);
+        },
+      );
+    } finally {
+      await asSuperuser('REVOKE t_admin FROM kasuwa_app');
+      await asSuperuser('DROP ROLE t_admin');
+    }
+  });
+
   it('refuses ADMIN-only held by kasuwa_app, which could otherwise SET ROLE to it', async () => {
     await withMembership(
       'GRANT kasuwa_test_admin TO kasuwa_app WITH ADMIN TRUE, INHERIT FALSE, SET FALSE',

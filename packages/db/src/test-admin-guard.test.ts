@@ -78,7 +78,8 @@ describe('readTestAdminUsability', () => {
     const sql = String(fake.calls[0]?.[0]).replace(/\s+/gu, ' ');
     expect(sql).toContain(
       'WHERE m.roleid = r.oid AND (m.inherit_option OR m.set_option ' +
-        'OR NOT (holder.rolsuper OR holder.rolcreaterole))',
+        'OR NOT (holder.rolsuper OR holder.rolcreaterole) ' +
+        "OR pg_catalog.pg_has_role(current_user, holder.oid, 'MEMBER'))",
     );
     // A membership of another role: no exemption at all.
     expect(sql).toContain('WHERE m.member = r.oid) AS is_member');

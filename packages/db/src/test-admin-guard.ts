@@ -38,9 +38,14 @@
  * kasuwa_test_admin is always refused: the exception would need the
  * placeholder itself to be SUPERUSER or CREATEROLE, which is refused anyway.
  *
- * Not checked: who can reach the exempted SUPERUSER or CREATEROLE member. A
- * role that can SET ROLE to such an admin already holds its role powers, which
- * is a provisioning problem far wider than this placeholder.
+ * The exemption also requires that the CHECKING role (the migrator in the
+ * runner, kasuwa_app at boot) cannot reach the holder by membership
+ * (`NOT pg_has_role(current_user, holder, 'MEMBER')`, T-0117 re-review round
+ * 2): a CREATEROLE role granted to kasuwa_app WITH SET would otherwise hand
+ * kasuwa_app the ADMIN OPTION on the placeholder through SET ROLE. Reachability
+ * by roles other than the checking one is not checked; a role that can enter
+ * such an admin already holds its role powers, a provisioning problem far
+ * wider than this placeholder.
  *
  * Beyond the four D-L94 names (LOGIN, BYPASSRLS, a member, a membership) the
  * other role powers are refused too (SUPERUSER, CREATEROLE, CREATEDB,
@@ -89,7 +94,8 @@ const TEST_ADMIN_SQL = `
                    JOIN pg_catalog.pg_roles holder ON holder.oid = m.member
                   WHERE m.roleid = r.oid
                     AND (m.inherit_option OR m.set_option
-                         OR NOT (holder.rolsuper OR holder.rolcreaterole))) AS has_members,
+                         OR NOT (holder.rolsuper OR holder.rolcreaterole)
+                         OR pg_catalog.pg_has_role(current_user, holder.oid, 'MEMBER'))) AS has_members,
          EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m
                   WHERE m.member = r.oid) AS is_member
     FROM pg_catalog.pg_roles r
