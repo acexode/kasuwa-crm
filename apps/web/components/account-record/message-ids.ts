@@ -1,7 +1,7 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
 import { AccountTier } from '../../lib/accounts-api';
 import { AccountTimelineField } from '../../lib/account-record-api';
-import { ActivityType } from '../../lib/contact-record-api';
+import { ActivityKind } from '../../lib/contact-record-api';
 import { RecordsErrorCode } from '../../lib/records-api';
 import { tierLabel } from '../accounts/accounts-model';
 import { ACCOUNT_EDIT_SHEET_MESSAGE_IDS } from '../accounts/message-ids';
@@ -44,7 +44,8 @@ export const ACCOUNT_RECORD_MESSAGE_IDS: readonly MessageId[] = [
     return id === null ? [] : [id];
   }),
   ...AccountTier.options.map(tierLabel),
-  ...ActivityType.options.map((value) => `record.activity.type.${value}` as MessageId),
+  // Every type a timeline may show, meetings included (T-0082).
+  ...ActivityKind.options.map((value) => `record.activity.type.${value}` as MessageId),
   'records.cell.empty',
   'records.locked',
   'records.owner.unassigned',
