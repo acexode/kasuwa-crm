@@ -177,8 +177,8 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `listScriptVersions` | GET /api/v1/scripts/{scriptId}/versions — List a script's published versions, newest first | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `publishScript` | POST /api/v1/scripts/{scriptId}/versions — Publish the draft as a new, immutable version | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `getScriptVersion` | GET /api/v1/scripts/{scriptId}/versions/{versionId} — Read one published version (read-only) | built | — | — | docs/api/scripting.openapi.yaml |
-| operation | `putScriptTranslation` | PUT /api/v1/scripts/{scriptId}/translations/{locale} — Set the draft's translation for one locale | built | — | — | docs/api/scripting.openapi.yaml |
-| operation | `listContactScripts` | GET /api/v1/contacts/{contactId}/scripts — The published scripts the caller may run for this contact | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `putScriptTranslation` | PUT /api/v1/scripts/{scriptId}/translations/{locale} — Set the draft's translation for one locale | built | — | — | docs/api/scripting.openapi.yaml · T-0115 |
+| operation | `listContactScripts` | GET /api/v1/contacts/{contactId}/scripts — The published scripts the caller may run for this contact | built | — | — | docs/api/scripting.openapi.yaml · T-0116 |
 | operation | `startScriptRun` | POST /api/v1/script-runs — Start a run for a contact, on the latest published version | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `getScriptRun` | GET /api/v1/script-runs/{runId} — Read a run, with the latest published version for the update banner | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `getScriptRunScript` | GET /api/v1/script-runs/{runId}/script — The version the run is pinned to, graph and translations | built | — | — | docs/api/scripting.openapi.yaml |
