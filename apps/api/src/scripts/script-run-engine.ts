@@ -37,8 +37,14 @@ import {
 /** 256 KiB: a run's answers together, serialised, in UTF-8 bytes (D-L93, N9). */
 export const RUN_ANSWERS_MAX_BYTES = 262_144;
 
-/** The most entries a run's path, acknowledgements or unread list may hold (ScriptRun). */
-export const RUN_LIST_MAX = 200;
+/*
+ * No list cap is enforced here, by construction: ScriptRun's `maxItems: 200`
+ * on `path`, `acknowledgements` and `unacknowledgedComplianceNodeIds` holds
+ * because a published graph has at most 200 nodes and no cycle (publish
+ * refuses both), so a run enters each node at most once; an acknowledgement
+ * is recorded once per compliance node on the path; and the unread list is a
+ * subset of those nodes. (0032 also caps the unread list at 200.)
+ */
 
 /** Most days ahead a callback may be booked (D-L93). */
 export const FOLLOW_UP_MAX_DAYS = 366;
