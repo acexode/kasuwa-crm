@@ -24,8 +24,17 @@ import { newId, type TenantTx } from '@kasuwa/db';
  * own the activity (D-L67): the API does, before it calls a write.
  */
 
-export const ACTIVITY_TYPES = ['note', 'task', 'call'] as const;
+/** 0027's codes, and `meeting` since 0034 (T-0082). */
+export const ACTIVITY_TYPES = ['note', 'task', 'call', 'meeting'] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+
+/**
+ * A meeting's longest span: 24 hours. ONE constant for the API's `too_long`
+ * (apps/api activities.schemas.ts) and listCalendar's scan bound; 0034's
+ * activity_meeting_span_check holds the database to the same `interval '24
+ * hours'`. Move all three together, in a new migration.
+ */
+export const MEETING_MAX_MS = 24 * 60 * 60 * 1000;
 
 export interface Activity {
   id: string;
@@ -35,6 +44,10 @@ export interface Activity {
   body: string | null;
   dueAt: Date | null;
   completedAt: Date | null;
+  /** A meeting's start (0034); `null` on any other type. */
+  startsAt: Date | null;
+  /** A meeting's end, after `startsAt` (0034); `null` on any other type. */
+  endsAt: Date | null;
   ownerUserId: string | null;
   contactId: string | null;
   accountId: string | null;
@@ -53,6 +66,8 @@ interface ActivityRow {
   body: string | null;
   due_at: Date | null;
   completed_at: Date | null;
+  starts_at: Date | null;
+  ends_at: Date | null;
   owner_user_id: string | null;
   contact_id: string | null;
   account_id: string | null;
@@ -63,8 +78,8 @@ interface ActivityRow {
 }
 
 const SELECT_COLUMNS = `
-  id, programme_id, type, subject, body, due_at, completed_at, owner_user_id,
-  contact_id, account_id, created_by_user_id, version, created_at, updated_at
+  id, programme_id, type, subject, body, due_at, completed_at, starts_at, ends_at,
+  owner_user_id, contact_id, account_id, created_by_user_id, version, created_at, updated_at
 `;
 
 /** A stored type outside the CHECK. 0027 makes this impossible; carries no value. */
@@ -89,6 +104,8 @@ function toActivity(row: ActivityRow): Activity {
     body: row.body,
     dueAt: row.due_at,
     completedAt: row.completed_at,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
     ownerUserId: row.owner_user_id,
     contactId: row.contact_id,
     accountId: row.account_id,
@@ -191,6 +208,9 @@ export interface NewActivityValues {
   subject: string | null;
   body: string | null;
   dueAt: string | null;
+  /** A meeting's times (0034); both or neither, as the CHECK requires. */
+  startsAt: string | null;
+  endsAt: string | null;
   ownerUserId: string | null;
   contactId: string | null;
   accountId: string | null;
@@ -213,9 +233,10 @@ export async function insertActivity(
   const rows = await tx.query<ActivityRow>(
     `INSERT INTO activity
        (id, tenant_id, programme_id, type, subject, body, due_at, owner_user_id,
-        contact_id, account_id, created_by_user_id)
+        contact_id, account_id, created_by_user_id, starts_at, ends_at)
      VALUES ($1::uuid, $2::uuid, $3::uuid, $4::text, $5::text, $6::text,
-             $7::timestamptz, $8::uuid, $9::uuid, $10::uuid, $11::uuid)
+             $7::timestamptz, $8::uuid, $9::uuid, $10::uuid, $11::uuid,
+             $12::timestamptz, $13::timestamptz)
      RETURNING ${SELECT_COLUMNS}`,
     [
       newId(),
@@ -229,6 +250,8 @@ export async function insertActivity(
       values.contactId,
       values.accountId,
       tx.session.userId,
+      values.startsAt,
+      values.endsAt,
     ],
   );
   const row = rows[0];
@@ -236,11 +259,19 @@ export async function insertActivity(
   return toActivity(row);
 }
 
-/** What an update may change: completion (server time) and the owner. */
+/**
+ * What an update may change: completion (server time), the owner, a task's
+ * due time (snooze, T-0082) and a meeting's times (reschedule, T-0082).
+ * `undefined` leaves a column untouched (D-L102); `dueAt: null` clears it.
+ * Times are UTC ISO strings, bound as `timestamptz`, never through a `Date`.
+ */
 export interface ActivityChanges {
   /** Set `completed_at` to now, unless it is already set. */
   complete?: boolean | undefined;
   ownerUserId?: string | null | undefined;
+  dueAt?: string | null | undefined;
+  startsAt?: string | undefined;
+  endsAt?: string | undefined;
 }
 
 /**
@@ -253,7 +284,8 @@ export interface ActivityChanges {
  *
  * tenancy-reviewed: id AND tenant (session) AND programme (checked against the
  * session above) AND version; RLS besides. SET names neither key column, nor
- * created_by_user_id, nor created_at.
+ * created_by_user_id, nor created_at. The time columns come from a constant
+ * list (T-0082), never from input.
  */
 export async function updateActivityIfVersion(
   tx: TenantTx,
@@ -267,6 +299,16 @@ export async function updateActivityIfVersion(
   if (changes.ownerUserId !== undefined) {
     values.push(changes.ownerUserId);
     sets.push(`owner_user_id = $${values.length}::uuid`);
+  }
+  // Column names are constants; only the values are bound.
+  for (const [column, value] of [
+    ['due_at', changes.dueAt],
+    ['starts_at', changes.startsAt],
+    ['ends_at', changes.endsAt],
+  ] as const) {
+    if (value === undefined) continue;
+    values.push(value);
+    sets.push(`${column} = $${values.length}::timestamptz`);
   }
   const rows = await tx.query<ActivityRow>(
     `UPDATE activity

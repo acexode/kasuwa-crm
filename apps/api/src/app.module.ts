@@ -10,6 +10,7 @@ import { defaultChannelProvider, type ChannelProvider } from '@kasuwa/channel-ad
 import { nodeEnv, type NodeEnvName } from '@kasuwa/config';
 import { AccountsController } from './accounts/accounts.controller';
 import { ActivitiesController } from './activities/activities.controller';
+import { MyActivitiesController } from './activities/my-activities.controller';
 import { ADMIN_CONTROLLERS, AdminModule } from './admin/admin.module';
 import { AuthController } from './auth/auth.controller';
 import { AuthModule } from './auth/auth.module';
@@ -47,6 +48,7 @@ export const RECORDS_CONTROLLERS = [
   AccountsController,
   ActivitiesController,
   MeController,
+  MyActivitiesController,
 ];
 
 /**

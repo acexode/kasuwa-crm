@@ -1,4 +1,4 @@
-import { ACTIVITY_TYPES } from '@kasuwa/domain-core';
+import { ACTIVITY_TYPES, MEETING_MAX_MS } from '@kasuwa/domain-core';
 import { z } from 'zod';
 import { text } from '../common/text';
 
@@ -31,7 +31,7 @@ const VERSION = z.number().int().min(1).max(2_147_483_647);
  * that changes the date catches it. The year is held to 1970..9999: `Date`
  * accepts year 0000, which Postgres rejects (22008), also a 500.
  */
-const UtcDateTime = z
+export const UtcDateTime = z
   .string()
   .datetime()
   .refine(
@@ -54,10 +54,46 @@ export const CREATE_ACTIVITY_KEYS = [
   'subject',
   'body',
   'dueAt',
+  'startsAt',
+  'endsAt',
   'ownerUserId',
   'contactId',
   'accountId',
 ] as const;
+
+/**
+ * A meeting's longest span, 24 hours: the shared constant (domain-core),
+ * which 0034's activity_meeting_span_check and listCalendar's scan bound
+ * also follow. The API refuses first, as `too_long` at the field sent.
+ */
+export { MEETING_MAX_MS };
+
+type Issue = { path: string; reason: string };
+
+/**
+ * A meeting's times, judged on the RESULT (T-0082, W1/W2): `endsAt` after
+ * `startsAt` (`invalid_range`; equal is not after) and at most 24 hours after
+ * it (`too_long`), reported at `at`, the field the caller sent (`endsAt` when
+ * both were sent). Null when the span is valid.
+ */
+export function meetingSpanIssue(
+  startsAt: string,
+  endsAt: string,
+  at: 'startsAt' | 'endsAt',
+): Issue | null {
+  const span = Date.parse(endsAt) - Date.parse(startsAt);
+  if (!(span > 0)) return { path: at, reason: 'invalid_range' };
+  if (span > MEETING_MAX_MS) return { path: at, reason: 'too_long' };
+  return null;
+}
+
+const addIssue = (context: z.RefinementCtx, issue: Issue, message: string) =>
+  context.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: [issue.path],
+    message,
+    params: { reason: issue.reason },
+  });
 
 export const CreateActivityBody = z
   .object({
@@ -65,6 +101,9 @@ export const CreateActivityBody = z
     subject: text(1, SUBJECT_MAX_LENGTH).nullable().optional(),
     body: text(1, BODY_MAX_LENGTH).nullable().optional(),
     dueAt: UtcDateTime.nullable().optional(),
+    // A meeting's times (T-0082): never nullable, a meeting always has both.
+    startsAt: UtcDateTime.optional(),
+    endsAt: UtcDateTime.optional(),
     ownerUserId: z.string().uuid().nullable().optional(),
     contactId: z.string().uuid().nullable().optional(),
     accountId: z.string().uuid().nullable().optional(),
@@ -84,37 +123,68 @@ export const CreateActivityBody = z
     }
     // 0027: due and completed times belong to tasks only.
     if (body.type !== 'task' && body.dueAt !== undefined && body.dueAt !== null) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['dueAt'],
-        message: 'only a task has a due time',
-        params: { reason: 'task_only' },
-      });
+      addIssue(context, { path: 'dueAt', reason: 'task_only' }, 'only a task has a due time');
+    }
+    // 0034 (D-L107): a meeting has both times, end after start, at most 24 h;
+    // nothing else has either.
+    if (body.type === 'meeting') {
+      for (const field of ['startsAt', 'endsAt'] as const) {
+        if (body[field] === undefined) {
+          addIssue(context, { path: field, reason: 'required' }, 'a meeting needs both times');
+        }
+      }
+      if (body.startsAt !== undefined && body.endsAt !== undefined) {
+        const issue = meetingSpanIssue(body.startsAt, body.endsAt, 'endsAt');
+        if (issue !== null) addIssue(context, issue, 'a meeting ends after it starts, within a day');
+      }
+    } else {
+      for (const field of ['startsAt', 'endsAt'] as const) {
+        if (body[field] !== undefined) {
+          addIssue(context, { path: field, reason: 'meeting_only' }, 'only a meeting has times');
+        }
+      }
     }
   });
 export type CreateActivityBody = z.infer<typeof CreateActivityBody>;
 
 /**
  * `UpdateActivityRequest`: `version` plus `completed: true` and/or
- * `ownerUserId` (D-L81). Reopening a task (`completed: false`) is not in the
- * MVP and is 400. Retargeting is not an edit.
+ * `ownerUserId` (D-L81), and from T-0082 `dueAt` (snooze a task; `null`
+ * clears it) and `startsAt` / `endsAt` (reschedule a meeting; never null).
+ * Reopening a task (`completed: false`) is not in the MVP and is 400.
+ * Retargeting is not an edit. Which type each field belongs to, and a
+ * meeting's span, are judged against the stored row by the service.
  */
 export const UpdateActivityBody = z
   .object({
     version: VERSION,
     completed: z.literal(true).optional(),
     ownerUserId: z.string().uuid().nullable().optional(),
+    dueAt: UtcDateTime.nullable().optional(),
+    startsAt: UtcDateTime.optional(),
+    endsAt: UtcDateTime.optional(),
   })
   .strict()
-  .refine((body) => body.completed !== undefined || body.ownerUserId !== undefined, {
-    message: 'an update must change something',
-    path: [],
-    params: { reason: 'nothing_to_update' },
-  });
+  .refine(
+    (body) =>
+      body.completed !== undefined ||
+      body.ownerUserId !== undefined ||
+      body.dueAt !== undefined ||
+      body.startsAt !== undefined ||
+      body.endsAt !== undefined,
+    {
+      message: 'an update must change something',
+      path: [],
+      params: { reason: 'nothing_to_update' },
+    },
+  );
 export type UpdateActivityBody = z.infer<typeof UpdateActivityBody>;
 
 /** Update body key -> the Activity property field security judges for it. */
 export const UPDATE_ACTIVITY_SECURED = {
   completed: 'completedAt',
   ownerUserId: 'ownerUserId',
+  dueAt: 'dueAt',
+  startsAt: 'startsAt',
+  endsAt: 'endsAt',
 } as const;

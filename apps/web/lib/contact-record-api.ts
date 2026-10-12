@@ -68,8 +68,18 @@ export const ContactRecord = Contact.extend({
 });
 export type ContactRecord = z.infer<typeof ContactRecord>;
 
+/** What the record screens' composer can log: a note, a task or a call. */
 export const ActivityType = z.enum(['note', 'task', 'call']);
 export type ActivityType = z.infer<typeof ActivityType>;
+
+/**
+ * Every type an activity-shaped read may carry (records.openapi.yaml
+ * `ActivityType`): the composer's three and, since T-0082, `meeting`, which
+ * P07 logs. A parser that refused it would drop a whole timeline page the
+ * moment a meeting is on it (D-L97, D-L105).
+ */
+export const ActivityKind = z.enum([...ActivityType.options, 'meeting']);
+export type ActivityKind = z.infer<typeof ActivityKind>;
 
 // ---------------------------------------------------------------------------
 // The timeline (a closed union on `type`, D-L72)
@@ -105,11 +115,14 @@ export const ActivityItem = z.object({
   ...ItemBase,
   type: z.literal('activity'),
   activityId: z.string(),
-  activityType: ActivityType,
+  activityType: ActivityKind,
   subject: z.string().nullable().optional(),
   body: z.string().nullable().optional(),
   dueAt: z.string().nullable().optional(),
   completedAt: z.string().nullable().optional(),
+  // A meeting's times (T-0082); null on any other type, omitted when withheld.
+  startsAt: z.string().nullable().optional(),
+  endsAt: z.string().nullable().optional(),
   // Required by the contract since T-0080. Optional here until the contact
   // record completes a task by it (T-0119); the account record requires it.
   version: z.number().int().optional(),
@@ -133,12 +146,14 @@ export type TimelinePage = z.infer<typeof TimelinePage>;
 
 export const Activity = z.object({
   id: z.string(),
-  type: ActivityType,
+  type: ActivityKind,
   version: z.number().int(),
   subject: z.string().nullable().optional(),
   body: z.string().nullable().optional(),
   dueAt: z.string().nullable().optional(),
   completedAt: z.string().nullable().optional(),
+  startsAt: z.string().nullable().optional(),
+  endsAt: z.string().nullable().optional(),
   withheldFields: z.array(z.string()),
 });
 export type Activity = z.infer<typeof Activity>;

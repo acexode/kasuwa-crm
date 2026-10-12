@@ -132,6 +132,27 @@ describe('the contact record client', () => {
     ).toBe(true);
   });
 
+  it('parses a meeting on the timeline with its times, and refuses an unknown activity type (T-0082, D-L97)', async () => {
+    const meeting = {
+      id: 'ti_m',
+      type: 'activity',
+      occurredAt: '2026-10-03T14:40:00.000Z',
+      actor: null,
+      activityId: '5e2a7b1c-3d4f-4a6b-8c9d-0e1f2a3b4c08',
+      activityType: 'meeting',
+      subject: 'Invented',
+      dueAt: null,
+      completedAt: null,
+      startsAt: '2026-10-04T09:00:00.000Z',
+      endsAt: '2026-10-04T10:00:00.000Z',
+      version: 1,
+    };
+    serve(200, { data: [meeting], nextCursor: null });
+    const result = await listContactTimeline(CONTACT.id, null);
+    expect(result.ok && result.value.data[0]).toMatchObject({ activityType: 'meeting', startsAt: meeting.startsAt });
+    expect(TimelineItem.safeParse({ ...meeting, activityType: 'email' }).success).toBe(false);
+  });
+
   it('refuses a timeline item type the contract does not list', async () => {
     serve(200, { data: [{ id: 'ti_1', type: 'payment', occurredAt: '2026-10-03T14:40:00.000Z', actor: null }], nextCursor: null });
     expect((await listContactTimeline(CONTACT.id, null)).ok).toBe(false);

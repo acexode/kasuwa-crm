@@ -301,8 +301,8 @@ export const account = pgTable(
 
 // --- activity (migration 0027, T-0060) --------------------------------------
 
-/** The activity kinds: codes, never labels (a CHECK in 0027). */
-export const ACTIVITY_TYPES = ['note', 'task', 'call'] as const;
+/** The activity kinds: codes, never labels (a CHECK in 0027; `meeting` since 0034). */
+export const ACTIVITY_TYPES = ['note', 'task', 'call', 'meeting'] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
 /**
@@ -312,7 +312,8 @@ export type ActivityType = (typeof ACTIVITY_TYPES)[number];
  * programme_id too, so a target is always in the activity's own programme.
  *
  * Not expressed here (SQL only): at least one target is set; due_at and
- * completed_at are for tasks only; id, tenant_id and programme_id are fixed
+ * completed_at are for tasks only; a meeting has both starts_at and ends_at,
+ * end after start, and nothing else has either (0034); id, tenant_id and programme_id are fixed
  * for every role but kasuwa_migrator (app.guard_activity_keys_fixed); and
  * kasuwa_app may not DELETE (a restrictive policy). subject and body are free
  * text that may hold PII: never log them.
@@ -330,6 +331,10 @@ export const activity = pgTable(
     dueAt: timestamp('due_at', { withTimezone: true }),
     /** Tasks only. */
     completedAt: timestamp('completed_at', { withTimezone: true }),
+    /** Meetings only (0034, T-0082). */
+    startsAt: timestamp('starts_at', { withTimezone: true }),
+    /** Meetings only, after starts_at (0034, T-0082). */
+    endsAt: timestamp('ends_at', { withTimezone: true }),
     /** Composite FK (tenant_id, owner_user_id) -> "user" (tenant_id, id). */
     ownerUserId: uuid('owner_user_id'),
     /** Composite FK (tenant_id, programme_id, contact_id) -> contact. */
@@ -366,6 +371,14 @@ export const activity = pgTable(
     index('activity_owner_due_idx')
       .on(table.tenantId, table.ownerUserId, table.dueAt)
       .where(sql`owner_user_id IS NOT NULL`),
+    /** listMyActivities (0034): the owner's open tasks by due time, undated last. */
+    index('activity_owner_open_task_due_idx')
+      .on(table.tenantId, table.ownerUserId, table.dueAt, table.id)
+      .where(sql`type = 'task' AND completed_at IS NULL`),
+    /** listCalendar (0034): the owner's meetings by start. */
+    index('activity_owner_meeting_starts_idx')
+      .on(table.tenantId, table.ownerUserId, table.startsAt, table.id)
+      .where(sql`type = 'meeting'`),
     /** Not partial: the tenant and programme FK lookup, and a programme-wide feed. */
     index('activity_programme_recent_idx').on(
       table.tenantId,

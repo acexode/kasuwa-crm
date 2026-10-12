@@ -591,7 +591,7 @@ function activityItem(
   id: string,
   occurredAt: string,
   actor: Person | null,
-  activity: { activityId: string; activityType: string; subject?: string | null; body?: string | null; dueAt?: string | null; completedAt?: string | null; version?: number },
+  activity: { activityId: string; activityType: string; subject?: string | null; body?: string | null; dueAt?: string | null; startsAt?: string | null; endsAt?: string | null; completedAt?: string | null; version?: number },
 ): TimelineItem {
   // T-0080 (D-L85): every activity item carries the row's version; a planted activity is at 1 unless it says otherwise.
   return checkItem({ id, type: 'activity', occurredAt, actor: actorOf(actor), version: 1, ...clone(activity) });
@@ -630,6 +630,8 @@ export const ITEM_NOTE = activityItem('ti_n8Gb3hWyE5', '2026-09-29T10:30:00.000Z
   subject: null,
   body: 'Prefers calls after 4pm, in Yoruba.',
   dueAt: null,
+  startsAt: null,
+  endsAt: null,
   completedAt: null,
 });
 /** A task already completed: no complete control. */
@@ -639,6 +641,8 @@ export const ITEM_DONE_TASK = activityItem('ti_d4Jm9pXsA3', '2026-09-25T10:00:00
   subject: 'Send the account statement',
   body: null,
   dueAt: '2026-09-26T09:00:00.000Z',
+  startsAt: null,
+  endsAt: null,
   completedAt: '2026-09-26T08:15:00.000Z',
 });
 /** A logged call. */
@@ -648,6 +652,8 @@ export const ITEM_CALL = activityItem('ti_f6Kq1rZtB9', '2026-09-28T08:00:00.000Z
   subject: 'Payment reminder call',
   body: null,
   dueAt: null,
+  startsAt: null,
+  endsAt: null,
   completedAt: null,
 });
 /** preferredLanguage yo → en, by ME. */
@@ -699,6 +705,8 @@ function longTimeline(): TimelineItem[] {
       subject: LONG_OLDEST_SUBJECT,
       body: null,
       dueAt: null,
+      startsAt: null,
+      endsAt: null,
       completedAt: null,
     }),
   );
@@ -728,6 +736,8 @@ const TIMELINES: Readonly<Record<string, readonly TimelineItem[]>> = {
       activityId: '5e2a7b1c-3d4f-4a6b-8c9d-0e1f2a3b4c05',
       activityType: 'call',
       dueAt: null,
+      startsAt: null,
+      endsAt: null,
       completedAt: null,
     }),
     change('ti_p2Wc8dLeG7', '2026-10-01T08:00:00.000Z', null, 'displayName'),
@@ -746,6 +756,8 @@ const TIMELINES: Readonly<Record<string, readonly TimelineItem[]>> = {
       subject: HOSTILE_SUBJECT,
       body: HOSTILE_BODY,
       dueAt: null,
+      startsAt: null,
+      endsAt: null,
       completedAt: null,
     }),
   ]),
@@ -932,6 +944,8 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
           subject: item.subject ?? null,
           body: item.body ?? null,
           dueAt: item.dueAt ?? null,
+          startsAt: item.startsAt ?? null,
+          endsAt: item.endsAt ?? null,
           completedAt: item.completedAt ?? null,
           ownerUserId: null,
           contactId,
@@ -1216,6 +1230,8 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
         subject: body.subject ?? null,
         body: body.body ?? null,
         dueAt: body.dueAt ?? null,
+        startsAt: body.type === 'meeting' ? (body.startsAt ?? null) : null,
+        endsAt: body.type === 'meeting' ? (body.endsAt ?? null) : null,
         completedAt: null,
         ownerUserId: owner ?? null,
         contactId: row.id,
@@ -1238,6 +1254,8 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
       subject: body.subject ?? null,
       body: body.body ?? null,
       dueAt: body.dueAt ?? null,
+      startsAt: body.type === 'meeting' ? (body.startsAt ?? null) : null,
+      endsAt: body.type === 'meeting' ? (body.endsAt ?? null) : null,
       completedAt: null,
       version: 1,
     };

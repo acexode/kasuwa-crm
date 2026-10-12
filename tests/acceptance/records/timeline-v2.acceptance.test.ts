@@ -506,9 +506,20 @@ const ACTIVITY_ITEM_KEYS = [
   'body',
   'dueAt',
   'completedAt',
+  // T-0082: a meeting's times, on every activity item (null off a meeting).
+  'startsAt',
+  'endsAt',
   'version',
 ];
-const ACTIVITY_ITEM_WITHHOLDABLE = ['subject', 'body', 'dueAt', 'completedAt'];
+// T-0082 (D-L107): a withheld meeting time is omitted, the item stays.
+const ACTIVITY_ITEM_WITHHOLDABLE = [
+  'subject',
+  'body',
+  'dueAt',
+  'completedAt',
+  'startsAt',
+  'endsAt',
+];
 const ACCOUNT_FIELD_ITEM_KEYS = ['actor', 'field', 'id', 'occurredAt', 'redacted', 'type'];
 
 function activityItemProblems(item: Json, where: string): string[] {
@@ -529,10 +540,10 @@ function activityItemProblems(item: Json, where: string): string[] {
   } else if (String(item.id).toLowerCase() === item.activityId.toLowerCase()) {
     problems.push(`${where}: the item id is the activity id`);
   }
-  if (!['note', 'task', 'call'].includes(item.activityType as string)) {
+  if (!['note', 'task', 'call', 'meeting'].includes(item.activityType as string)) {
     problems.push(`${where}: activityType ${JSON.stringify(item.activityType)}`);
   }
-  for (const key of ['dueAt', 'completedAt']) {
+  for (const key of ['dueAt', 'completedAt', 'startsAt', 'endsAt']) {
     if (key in item && item[key] !== null && !DATE_TIME.test(String(item[key]))) {
       problems.push(`${where}: ${key} is not a date-time or null`);
     }
@@ -1235,7 +1246,7 @@ describe('acceptance: activity versions on the timeline, and the account timelin
       expect(pick(await readAccount(AGENT_1, IKOYI.id, 'account, moved'))?.version).toBe(9);
 
       // Every withholdable key withheld: the version stays.
-      for (const field of ['subject', 'body', 'due_at', 'completed_at']) {
+      for (const field of ['subject', 'body', 'due_at', 'completed_at', 'starts_at', 'ends_at']) {
         await lockField('activity', field, 'agent', 'none');
       }
       for (const [where, items] of [
@@ -1352,6 +1363,8 @@ describe('acceptance: activity versions on the timeline, and the account timelin
           body: SEEDED_NOTE.body,
           dueAt: null,
           completedAt: null,
+          startsAt: null,
+          endsAt: null,
           version: 1,
         },
       ]);

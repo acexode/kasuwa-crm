@@ -25,6 +25,9 @@ export interface ActivityWire {
   body?: string | null;
   dueAt?: string | null;
   completedAt?: string | null;
+  /** A meeting's times (T-0082); `null` on any other type. */
+  startsAt?: string | null;
+  endsAt?: string | null;
   ownerUserId?: string | null;
   contactId?: string | null;
   accountId?: string | null;
@@ -43,6 +46,8 @@ export function toActivityWire(activity: Activity, access: ActivityFieldAccess):
     body: activity.body,
     dueAt: activity.dueAt?.toISOString() ?? null,
     completedAt: activity.completedAt?.toISOString() ?? null,
+    startsAt: activity.startsAt?.toISOString() ?? null,
+    endsAt: activity.endsAt?.toISOString() ?? null,
     ownerUserId: activity.ownerUserId,
     contactId: activity.contactId,
     accountId: activity.accountId,

@@ -22,6 +22,8 @@ const activity: Activity = {
   body: BODY,
   dueAt: new Date('2026-12-01T09:00:00.000Z'),
   completedAt: null,
+  startsAt: null,
+  endsAt: null,
   ownerUserId: '11111111-0000-4000-8000-000000610103',
   contactId: '11111111-0000-4000-8000-000000610104',
   accountId: null,

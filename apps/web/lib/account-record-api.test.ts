@@ -112,3 +112,33 @@ describe('the account record client', () => {
     expect(result).toEqual({ ok: false, error: { code: 'validation_failed', details: [{ path: 'accountId', code: 'field_withheld' }] } });
   });
 });
+
+describe('meetings on the account timeline (T-0082, D-L97)', () => {
+  const MEETING = {
+    ...TASK,
+    id: 'ti_0a9c',
+    activityId: '5e2a7b1c-3d4f-4a6b-8c9d-0e1f2a3b4c08',
+    activityType: 'meeting',
+    dueAt: null,
+    startsAt: '2026-10-02T09:00:00.000Z',
+    endsAt: '2026-10-02T10:00:00.000Z',
+    version: 1,
+  };
+
+  it('parses a page that carries a meeting, with its times, and null times on a task', async () => {
+    serve(200, { data: [MEETING, { ...TASK, startsAt: null, endsAt: null }], nextCursor: null });
+    const result = await listAccountTimeline(ACCOUNT_ID, null);
+    expect(result.ok).toBe(true);
+    const [meeting, task] = result.ok ? result.value.data : [];
+    expect(meeting).toMatchObject({ activityType: 'meeting', startsAt: MEETING.startsAt, endsAt: MEETING.endsAt });
+    expect(task).toMatchObject({ activityType: 'task', startsAt: null, endsAt: null });
+  });
+
+  it('keeps a withheld start absent', async () => {
+    const withheld = Object.fromEntries(Object.entries(MEETING).filter(([key]) => key !== 'startsAt'));
+    serve(200, { data: [withheld], nextCursor: null });
+    const result = await listAccountTimeline(ACCOUNT_ID, null);
+    expect(result.ok).toBe(true);
+    expect(result.ok && 'startsAt' in (result.value.data[0] ?? {})).toBe(false);
+  });
+});

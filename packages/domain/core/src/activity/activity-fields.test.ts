@@ -30,6 +30,8 @@ describe('activity field security (T-0061)', () => {
       'body',
       'due_at',
       'completed_at',
+      'starts_at',
+      'ends_at',
       'owner_user_id',
       'contact_id',
       'account_id',
