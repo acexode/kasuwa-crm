@@ -516,6 +516,8 @@ export const scriptRun = pgTable(
       table.scriptId,
     ),
     index('script_run_contact_idx').on(table.tenantId, table.programmeId, table.contactId),
+    /** The agent FK's RESTRICT lookup: offboarding deletes every user of a tenant. */
+    index('script_run_started_by_idx').on(table.tenantId, table.startedByUserId),
     index('script_run_version_idx').on(
       table.tenantId,
       table.programmeId,

@@ -139,10 +139,12 @@
 --     lookup of the caller's own open runs on that contact.
 --   - script_run_version_idx (tenant_id, programme_id, script_id, version_id):
 --     the version FK's RESTRICT lookup (offboarding).
+--   - script_run_started_by_idx (tenant_id, started_by_user_id): the agent
+--     FK's RESTRICT lookup. Offboarding deletes every "user" of a tenant, and
+--     each delete queues a RESTRICT check on script_run; without this index
+--     each check scans the tenant's runs, so offboarding costs users x runs.
 --   - Their (tenant_id, programme_id) prefix serves the programme and tenant
---     FK lookups. started_by_user_id has no index of its own: its FK is only
---     checked when a "user" row is deleted or re-keyed, which nothing does
---     today (as 0027's created_by_user_id).
+--     FK lookups.
 --   - script_version_script_id_key UNIQUE (tenant_id, programme_id,
 --     script_id, id): the version FK's target.
 --
@@ -258,10 +260,22 @@ CREATE TABLE script_run (
   CONSTRAINT script_run_stopped_check
     CHECK ((status <> 'stopped' OR stop_reason IS NOT NULL)
            AND (status <> 'in_progress' OR stop_reason IS NULL)),
-  -- Only a superseded run closes without a disposition and a call activity.
+  -- Only a superseded run closes without a disposition and a call activity,
+  -- and it never books a callback; every other completion has both.
   CONSTRAINT script_run_disposition_check
     CHECK (outcome IS NULL
-           OR (outcome = 'superseded') = (disposition_id IS NULL AND activity_id IS NULL)),
+           OR (outcome = 'superseded' AND disposition_id IS NULL AND activity_id IS NULL
+               AND follow_up_task_id IS NULL)
+           OR (outcome <> 'superseded' AND disposition_id IS NOT NULL
+               AND activity_id IS NOT NULL)),
+  -- The completion digest is a SHA-256 in lower-case hex, or nothing.
+  CONSTRAINT script_run_completion_digest_check
+    CHECK (completion_digest IS NULL OR completion_digest ~ '^[0-9a-f]{64}$'),
+  -- A database backstop at TWICE the API's 256 KiB answers cap (D-L93, N9):
+  -- the API refuses at 262144 bytes of its own serialisation; this only stops
+  -- a write path that skipped the API's check. jsonb's text form differs from
+  -- JSON.stringify's, hence the margin.
+  CONSTRAINT script_run_answers_size_check CHECK (octet_length(answers::text) <= 524288),
   CONSTRAINT script_run_node_id_check
     CHECK ((current_node_id IS NULL OR current_node_id ~ '^[a-z][a-z0-9_]{0,39}$')
            AND (ended_at_node_id IS NULL OR ended_at_node_id ~ '^[a-z][a-z0-9_]{0,39}$')),
@@ -284,6 +298,7 @@ CREATE UNIQUE INDEX script_run_in_progress_key
 CREATE INDEX script_run_contact_idx ON script_run (tenant_id, programme_id, contact_id);
 CREATE INDEX script_run_version_idx
   ON script_run (tenant_id, programme_id, script_id, version_id);
+CREATE INDEX script_run_started_by_idx ON script_run (tenant_id, started_by_user_id);
 
 ALTER TABLE script_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE script_run FORCE ROW LEVEL SECURITY;
