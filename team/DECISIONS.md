@@ -2448,3 +2448,26 @@ runs).
   main until the final run, and costs more to trace then. The tenancy folder on every PR keeps cross-tenant and
   cross-programme leaks caught at merge.
 - **Unchanged:** reviews (D-L109's risk-based rule), the never-edit-a-test rule, and fixing every finding before merge.
+
+### D-L112 — T-0084 suite rulings (lead, 2026-10-12)
+**Status:** PROCEEDING (lead). Suite `list-indexes.acceptance.test.ts` (43 tests) on `lead/T-0084-indexes-acceptance`. On
+main, 25 fail for the real reason:
+- every sort has a Sort node and reads the whole scope;
+- the cursors carry a timestamp or a name;
+- there is no 0035.
+- **Accepted as written (rulings 1–11 in the suite header):**
+  - index use is checked for both a one-programme agent and an all-programme supervisor;
+  - the seed is 120k contacts and 60k accounts;
+  - seeking is judged by rows examined, not time;
+  - `q` is outside the index checks (D-P33);
+  - Incremental Sort is allowed and Sort is not;
+  - a cursor stays valid without its filter;
+  - a cursor may carry the id, the sort's name and a small version, never a value;
+  - a cursor naming another programme's or tenant's row answers exactly as an invented id does;
+  - the latency budget is a regression alarm, not the gate.
+- **Ruling 8:** the sort key drops `left(display_name, 200)`. `left` is not LEAKPROOF, so under FORCE RLS no keyset
+  predicate on it is an index condition. The cut only bounded a cursor that carried the name.
+- **Existing tenancy suites:** `cursor-tampering` and `adversarial` build or decode today's `{c, i}` cursors. The builder
+  keeps them green unmodified if it can, for example by decoding the old shape by its id alone. If it cannot, it stops and
+  names the exact assertions, for a lead edit made in ask mode.
+- **Migration 0035** is reserved for `agent3/T-0084`.
