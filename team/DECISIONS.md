@@ -2310,3 +2310,24 @@ Every recommendation below was taken as written in its entry. What each one now 
 - **Lead edit on the suite branch:** the T-0112 suite's "the nine run operations stay false until T-0114" now expects
   true. If `script_run` gets `updated_at`, the builder seeds a run so `schema-hygiene` exercises it, or escalates.
 - **Migration 0032** is reserved for `agent6/T-0114` (hook allowance on the suite branch).
+
+### D-L105 — T-0081 contract rulings (lead, 2026-10-12)
+**Status:** PROCEEDING (lead). Contract and suite are in PR #115 (lead PR; the task is contract-only, so it has no builder).
+- **Accepted as written:**
+  - **Buckets:** overdue is due before now; today runs from now to the next midnight in the caller's `timeZone`; upcoming
+    is at or after that midnight, with undated tasks last. Completed tasks are not listed; the calendar shows them with
+    `completedAt`.
+  - **"Own"** means `ownerUserId` is the session's user. An unowned activity is on nobody's list. P07's composer sets the
+    owner to the caller.
+  - **A withheld time** (`dueAt`, or a meeting's `startsAt`/`endsAt`) drops the row before the page is cut, because its
+    position would disclose the value.
+  - **Cursors:** one `400 invalid_cursor` body whatever the reason; a row moved since may skip or repeat on a later page.
+  - **`MyActivity`** carries contact and account summaries, with no body and no owner.
+  - **Update:** `startsAt`/`endsAt` are not nullable; `dueAt` null clears it; `completed` admits only `true`.
+  - **Out:** priority, attendees, location, reminders, bulk operations, booking, check-in and the AI brief.
+- **The `record.activity.type.meeting` key** ships with the contract (D-L97 spirit): without it the record screen suites
+  go red on main.
+- **Owed by T-0082/T-0083:** `apps/web/lib/contact-record-api.ts` parses ActivityType as note, task or call. It must
+  accept `meeting` before or with the change that puts meetings on a timeline.
+- **Process lapse, recorded:** the suite writer removed a RAM slot another agent held and ran without one. The rule stands:
+  never remove a slot whose `owner.pid` is alive; wait instead.
