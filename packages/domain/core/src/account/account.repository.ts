@@ -1,5 +1,6 @@
 import { newId, type TenantTx } from '@kasuwa/db';
 import { decodeListCursor, encodeListCursor } from '../cursor';
+import { listScopeSql, type ListScopeSql } from '../list-scope';
 import type { ContactPhone } from '../contact/contact.repository';
 import { foldForSearch } from '../contact/phone';
 import {
@@ -240,12 +241,6 @@ function filterClauses(filters: AccountFilters, params: Params): string[] {
   return clauses;
 }
 
-/** The bound placeholders of the session's own tenant and programmes. */
-interface ScopePlaceholders {
-  tenantId: string;
-  programmeIds: string;
-}
-
 /**
  * The keyset seek for an id-only cursor (T-0084, D-L80), the twin of the
  * contact repository's. Throws InvalidCursorError for a cursor this server
@@ -264,7 +259,7 @@ function keysetClause(
   sort: AccountSort,
   cursor: string,
   params: Params,
-  scope: ScopePlaceholders,
+  scope: ListScopeSql,
 ): string {
   const spec = SORT_SPECS[sort];
   const id = decodeListCursor(cursor, sort);
@@ -274,7 +269,7 @@ function keysetClause(
             FROM account cursor_row
            WHERE cursor_row.id = ${params.add(id)}::uuid
              AND cursor_row.tenant_id = ${scope.tenantId}
-             AND cursor_row.programme_id = ANY(${scope.programmeIds}::uuid[]))`;
+             AND ${scope.programmeIn('cursor_row.programme_id')})`;
 }
 
 export async function listAccounts(
@@ -286,15 +281,10 @@ export async function listAccounts(
   const params = new Params();
 
   // tenancy-reviewed: tenant AND session programmes first, always; every other
-  // clause is ANDed on and can only narrow.
-  const scope: ScopePlaceholders = {
-    tenantId: params.add(tx.session.tenantId),
-    programmeIds: params.add([...tx.session.programmeIds]),
-  };
-  const where = [
-    `tenant_id = ${scope.tenantId}`,
-    `programme_id = ANY(${scope.programmeIds}::uuid[])`,
-  ];
+  // clause is ANDed on and can only narrow. One programme is scalar equality,
+  // so a programme-led index gives the order (M1).
+  const scope = listScopeSql(tx.session, (value) => params.add(value));
+  const where = [`tenant_id = ${scope.tenantId}`, scope.programmeIn('programme_id')];
   if (options.cursor !== undefined) where.push(keysetClause(sort, options.cursor, params, scope));
   if (options.search !== undefined) {
     // strpos, not LIKE or a regex: `%`, `_` and `.*` are literal characters.

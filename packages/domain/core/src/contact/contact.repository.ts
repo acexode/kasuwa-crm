@@ -1,5 +1,6 @@
 import { newId, type TenantTx } from '@kasuwa/db';
 import { decodeListCursor, encodeListCursor } from '../cursor';
+import { listScopeSql, type ListScopeSql } from '../list-scope';
 import { foldForSearch, tenantDefaultCountry, type DefaultCountry } from './phone';
 
 /**
@@ -504,7 +505,7 @@ function keysetClause(
   sort: ContactSort,
   cursor: string,
   params: Params,
-  scope: ScopePlaceholders,
+  scope: ListScopeSql,
 ): string {
   const spec = SORT_SPECS[sort];
   const id = decodeListCursor(cursor, sort, { legacyKeysetSort: DEFAULT_CONTACT_SORT });
@@ -514,13 +515,7 @@ function keysetClause(
             FROM contact cursor_row
            WHERE cursor_row.id = ${params.add(id)}::uuid
              AND cursor_row.tenant_id = ${scope.tenantId}
-             AND cursor_row.programme_id = ANY(${scope.programmeIds}::uuid[]))`;
-}
-
-/** The bound placeholders of the session's own tenant and programmes. */
-interface ScopePlaceholders {
-  tenantId: string;
-  programmeIds: string;
+             AND ${scope.programmeIn('cursor_row.programme_id')})`;
 }
 
 export async function listContacts(
@@ -532,15 +527,10 @@ export async function listContacts(
   const params = new Params();
 
   // tenancy-reviewed: tenant AND session programmes first, always; every other
-  // clause is ANDed on and can only narrow (see searchClause).
-  const scope: ScopePlaceholders = {
-    tenantId: params.add(tx.session.tenantId),
-    programmeIds: params.add([...tx.session.programmeIds]),
-  };
-  const where = [
-    `tenant_id = ${scope.tenantId}`,
-    `programme_id = ANY(${scope.programmeIds}::uuid[])`,
-  ];
+  // clause is ANDed on and can only narrow (see searchClause). One programme
+  // is scalar equality, so a programme-led index gives the order (M1).
+  const scope = listScopeSql(tx.session, (value) => params.add(value));
+  const where = [`tenant_id = ${scope.tenantId}`, scope.programmeIn('programme_id')];
   if (options.cursor !== undefined) where.push(keysetClause(sort, options.cursor, params, scope));
   if (options.search !== undefined) where.push(searchClause(options.search, params));
   if (options.filters !== undefined) where.push(...filterClauses(options.filters, params));
