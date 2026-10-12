@@ -989,6 +989,7 @@
   "record.activity.type.note": "Àkọsílẹ̀",
   "record.activity.type.task": "Iṣẹ́",
   "record.activity.type.call": "Ìpè",
+  "record.activity.type.meeting": "Ìpàdé",
   "record.offline": "À ń fi àkọsílẹ̀ yìí hàn bí ó ṣe wà ní {time}. Ohun gbogbo tó nílò ìsopọ̀ ti wà ní pípa títí tí o fi tún sopọ̀.",
   "record.loading": "À ń gbé olùbásọ̀rọ̀ wọlé…",
   "record.unavailable": "Olùbásọ̀rọ̀ náà kò wọlé",

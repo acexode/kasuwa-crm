@@ -309,6 +309,7 @@
     "accounts.col.programme": "The same word in this locale, as in admin.prog.col.programme.",
     "accounts.sheet.close": "A loanword used unchanged in this locale, as in admin.dialog.close.",
     "accounts.sheet.cancel": "A loanword used unchanged in this locale, as in admin.archive.cancel.",
-    "accounts.field.programme": "The same word in this locale, as in admin.prog.col.programme."
+    "accounts.field.programme": "The same word in this locale, as in admin.prog.col.programme.",
+    "record.activity.type.meeting": "A loanword: Nigerian Pidgin uses the English word for a scheduled meeting."
   }
 }

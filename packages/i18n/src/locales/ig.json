@@ -989,6 +989,7 @@
   "record.activity.type.note": "Ndetu",
   "record.activity.type.task": "Ọrụ",
   "record.activity.type.call": "Oku",
+  "record.activity.type.meeting": "Nzukọ",
   "record.offline": "A na-egosi ndekọ a dịka ọ dị n’oge {time}. Ihe ọ bụla chọrọ njikọ agbanyụọla ruo mgbe ị jikọrọ ọzọ.",
   "record.loading": "A na-ebudata onye kọntaktị…",
   "record.unavailable": "Onye kọntaktị ahụ ebudataghị",

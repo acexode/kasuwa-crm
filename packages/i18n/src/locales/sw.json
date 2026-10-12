@@ -989,6 +989,7 @@
   "record.activity.type.note": "Dokezo",
   "record.activity.type.task": "Kazi",
   "record.activity.type.call": "Simu",
+  "record.activity.type.meeting": "Mkutano",
   "record.offline": "Inaonyesha rekodi hii ilivyokuwa saa {time}. Chochote kinachohitaji muunganisho kimezimwa hadi utakapounganishwa tena.",
   "record.loading": "Inapakia anwani…",
   "record.unavailable": "Anwani haikupakia",
