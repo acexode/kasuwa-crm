@@ -1,6 +1,6 @@
 # T-0082 — Activities API: my activities, the calendar, meetings, snooze and reschedule (P07)
 
-**status** `not-assigned` (builder at work; the suite lands with its PR, from `lead/T-0082-acceptance`, D-L107) · **owner** Agent 3 · **priority** P1 · **decisions** D-L105, D-P18, D-P22,
+**status** `done` (#118, 2026-10-12) · **owner** Agent 3 · **priority** P1 · **decisions** D-L105, D-P18, D-P22,
 D-L80, D-L81, D-L85, D-L97, D-L102 · **migration** 0034 (D-L107)
 
 ## Goal
