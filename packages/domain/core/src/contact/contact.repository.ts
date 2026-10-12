@@ -1,12 +1,5 @@
 import { newId, type TenantTx } from '@kasuwa/db';
-import {
-  decodeKeysetCursor,
-  decodeSortedCursor,
-  encodeKeysetCursor,
-  encodeSortedCursor,
-  MAX_TEXT_SORT_POSITION,
-  type SortedCursorKind,
-} from '../cursor';
+import { decodeListCursor, encodeListCursor } from '../cursor';
 import { foldForSearch, tenantDefaultCountry, type DefaultCountry } from './phone';
 
 /**
@@ -112,29 +105,27 @@ export const CONTACT_SORTS = [
 export type ContactSort = (typeof CONTACT_SORTS)[number];
 export const DEFAULT_CONTACT_SORT: ContactSort = '-createdAt';
 
-/**
- * The name sort key: the first MAX_TEXT_SORT_POSITION code points of the display
- * name. The cursor carries this value, so it is bounded whatever the column
- * holds (no CHECK limits contact.display_name), and the cursor schema can be
- * sized for the worst case. Names sharing their first 200 characters tie and
- * break on id, which keeps the keyset total.
- */
-const DISPLAY_NAME_KEY = `left(display_name, ${MAX_TEXT_SORT_POSITION})`;
-
 interface SortSpec {
-  /** A fixed SQL expression, never user input. */
-  column: string;
+  /**
+   * A plain column, never an expression and never user input. Each order,
+   * `(tenant_id, column, id)`, is a B-tree index of 0035, which kasuwa_app can
+   * use under FORCE RLS because every operator it serves is LEAKPROOF (D-P33).
+   * An expression key such as `left(display_name, 200)` (T-0041) cannot be: a
+   * keyset predicate on a non-LEAKPROOF function is never an index condition
+   * under RLS, so a deep page filtered its way to the cursor (D-L112 ruling 8).
+   * The cut only bounded a cursor that carried the name; cursors are id-only.
+   */
+  column: 'created_at' | 'updated_at' | 'display_name';
   direction: 'ASC' | 'DESC';
-  kind: SortedCursorKind;
 }
 
 const SORT_SPECS: Record<ContactSort, SortSpec> = {
-  '-createdAt': { column: 'created_at', direction: 'DESC', kind: 'timestamp' },
-  createdAt: { column: 'created_at', direction: 'ASC', kind: 'timestamp' },
-  '-updatedAt': { column: 'updated_at', direction: 'DESC', kind: 'timestamp' },
-  updatedAt: { column: 'updated_at', direction: 'ASC', kind: 'timestamp' },
-  displayName: { column: DISPLAY_NAME_KEY, direction: 'ASC', kind: 'text' },
-  '-displayName': { column: DISPLAY_NAME_KEY, direction: 'DESC', kind: 'text' },
+  '-createdAt': { column: 'created_at', direction: 'DESC' },
+  createdAt: { column: 'created_at', direction: 'ASC' },
+  '-updatedAt': { column: 'updated_at', direction: 'DESC' },
+  updatedAt: { column: 'updated_at', direction: 'ASC' },
+  displayName: { column: 'display_name', direction: 'ASC' },
+  '-displayName': { column: 'display_name', direction: 'DESC' },
 };
 
 /** Filters, already parsed. Each one is "any of"; different filters AND. */
@@ -232,17 +223,6 @@ interface ContactRow {
   updated_at: Date;
 }
 
-interface ContactPageRow extends ContactRow {
-  /**
-   * The sort key of the row, rendered for the cursor. For a timestamp,
-   * Postgres renders it to the microsecond (T-0019): `pg` parses `timestamptz`
-   * into a JS `Date`, which holds only milliseconds, so the keyset cursor must
-   * be built from this column and never from the Date. `to_char` rather than
-   * `::text` so the format does not depend on the session's `DateStyle`.
-   */
-  sort_cursor: string;
-}
-
 /**
  * The owner's membership of THE CONTACT'S programme (T-0103, D-P23): a
  * `user_programme` row in the contact's own tenant and programme. Membership
@@ -321,12 +301,6 @@ const SELECT_COLUMNS = `
   ${OWNER_IS_MEMBER},
   ${ACCOUNT_NAME}
 `;
-
-function cursorColumn(spec: SortSpec): string {
-  return spec.kind === 'timestamp'
-    ? `to_char(${spec.column} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS sort_cursor`
-    : `${spec.column} AS sort_cursor`;
-}
 
 /**
  * Case- and diacritic-folding in SQL, the twin of `foldForSearch`: NFD, drop
@@ -509,31 +483,44 @@ function filterClauses(filters: ContactFilters, params: Params): string[] {
   return clauses;
 }
 
-/** Throws InvalidCursorError for a cursor this server did not issue for this sort. */
-function keysetClause(sort: ContactSort, cursor: string, params: Params): string {
+/**
+ * The keyset seek for an id-only cursor (T-0084, D-L80). Throws
+ * InvalidCursorError for a cursor this server did not issue for this sort.
+ *
+ * The position is the cursor row's own `(key, id)`, read by an uncorrelated
+ * row subquery that Postgres runs once (an InitPlan), so the outer comparison
+ * is an index condition on 0035's `(tenant_id, key, id)` and the page SEEKS
+ * to the position: no OFFSET, no rescan from the start.
+ *
+ * tenancy-reviewed: the cursor row is resolved INSIDE the session's scope,
+ * the same tenant and programme predicates as the page (RLS besides). A
+ * cursor naming another programme's or another tenant's row resolves to no
+ * row, the comparison is NULL, and the page is empty: exactly the answer to
+ * an invented id, so the cursor is no existence oracle. The resolution is
+ * deliberately NOT narrowed by the page's filters or `q`: a cursor is a
+ * position, valid under any filter of the same sort (D-L112).
+ */
+function keysetClause(
+  sort: ContactSort,
+  cursor: string,
+  params: Params,
+  scope: ScopePlaceholders,
+): string {
   const spec = SORT_SPECS[sort];
-  let value: string;
-  let id: string;
-  if (sort === DEFAULT_CONTACT_SORT) {
-    // The pre-T-0041 shape, so outstanding cursors keep working.
-    const position = decodeKeysetCursor(cursor);
-    value = position.createdAt;
-    id = position.id;
-  } else {
-    const position = decodeSortedCursor(cursor, sort, spec.kind);
-    value = position.value;
-    id = position.id;
-  }
-  const cast = spec.kind === 'timestamp' ? 'timestamptz' : 'text';
+  const id = decodeListCursor(cursor, sort, { legacyKeysetSort: DEFAULT_CONTACT_SORT });
   const operator = spec.direction === 'DESC' ? '<' : '>';
-  return `(${spec.column}, id) ${operator} (${params.add(value)}::${cast}, ${params.add(id)}::uuid)`;
+  return `(${spec.column}, id) ${operator} (
+          SELECT cursor_row.${spec.column}, cursor_row.id
+            FROM contact cursor_row
+           WHERE cursor_row.id = ${params.add(id)}::uuid
+             AND cursor_row.tenant_id = ${scope.tenantId}
+             AND cursor_row.programme_id = ANY(${scope.programmeIds}::uuid[]))`;
 }
 
-function encodeCursor(sort: ContactSort, row: ContactPageRow): string {
-  if (sort === DEFAULT_CONTACT_SORT) {
-    return encodeKeysetCursor({ createdAt: row.sort_cursor, id: row.id });
-  }
-  return encodeSortedCursor({ sort, value: row.sort_cursor, id: row.id }, SORT_SPECS[sort].kind);
+/** The bound placeholders of the session's own tenant and programmes. */
+interface ScopePlaceholders {
+  tenantId: string;
+  programmeIds: string;
 }
 
 export async function listContacts(
@@ -546,18 +533,22 @@ export async function listContacts(
 
   // tenancy-reviewed: tenant AND session programmes first, always; every other
   // clause is ANDed on and can only narrow (see searchClause).
+  const scope: ScopePlaceholders = {
+    tenantId: params.add(tx.session.tenantId),
+    programmeIds: params.add([...tx.session.programmeIds]),
+  };
   const where = [
-    `tenant_id = ${params.add(tx.session.tenantId)}`,
-    `programme_id = ANY(${params.add([...tx.session.programmeIds])}::uuid[])`,
+    `tenant_id = ${scope.tenantId}`,
+    `programme_id = ANY(${scope.programmeIds}::uuid[])`,
   ];
-  if (options.cursor !== undefined) where.push(keysetClause(sort, options.cursor, params));
+  if (options.cursor !== undefined) where.push(keysetClause(sort, options.cursor, params, scope));
   if (options.search !== undefined) where.push(searchClause(options.search, params));
   if (options.filters !== undefined) where.push(...filterClauses(options.filters, params));
 
   // Fetch one extra row to decide whether a next page exists, without a count.
   const limit = params.add(options.limit + 1);
-  const rows = await tx.query<ContactPageRow>(
-    `SELECT ${SELECT_COLUMNS}, ${cursorColumn(spec)}
+  const rows = await tx.query<ContactRow>(
+    `SELECT ${SELECT_COLUMNS}
        FROM contact
       WHERE ${where.join('\n        AND ')}
       ORDER BY ${spec.column} ${spec.direction}, id ${spec.direction}
@@ -571,7 +562,7 @@ export async function listContacts(
 
   return {
     data: page.map(toContact),
-    nextCursor: hasMore && last !== undefined ? encodeCursor(sort, last) : null,
+    nextCursor: hasMore && last !== undefined ? encodeListCursor({ sort, id: last.id }) : null,
   };
 }
 
