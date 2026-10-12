@@ -55,8 +55,8 @@ info:
     against a contact or an account, and complete or reassign it; activities
     are read on the contact's timeline and, from T-0080, on the account's
     (`listAccountTimeline`), each carrying the `version` updateActivity
-    needs (D-L85). Tasks and calendar (P07, T-0081, contract only until
-    T-0082): a `meeting` activity type with `startsAt` and `endsAt`; the
+    needs (D-L85). Tasks and calendar (P07, specified by T-0081, served
+    since T-0082): a `meeting` activity type with `startsAt` and `endsAt`; the
     caller's own open tasks by bucket (`listMyActivities`) and their own
     Kasuwa events in a window of at most 42 days (`listCalendar`); and
     updateActivity's snooze (`dueAt`) and reschedule (`startsAt`, `endsAt`).
@@ -676,7 +676,7 @@ paths:
         (`task_only`). A NUL character in `subject` or `body` is `400`
         (`invalid_character`).
 
-        **Meetings (T-0081, D-L87; specified, served from T-0082).** A
+        **Meetings (T-0081, D-L87; served since T-0082).** A
         `meeting` requires `startsAt` and `endsAt`, both UTC with a `Z`
         (`400 required` at the missing one). `endsAt` must be after
         `startsAt` (`400 invalid_range` at `endsAt`; equal is not after) and
@@ -684,9 +684,7 @@ paths:
         or `endsAt` on a note, a task or a call is `400 meeting_only`. A
         meeting has no `dueAt` and is never completed. Meetings follow
         D-P18's activity rights unchanged: whoever may log a task may log a
-        meeting (D-L87); there is no new permission. Until T-0082 the live
-        route answers `400` for `type: meeting` and for `startsAt` or
-        `endsAt`, as it does for any property it does not know. The P07
+        meeting (D-L87); there is no new permission. The P07
         composer sets `ownerUserId` to the caller, so the meeting is on the
         caller's calendar (listCalendar lists what the caller OWNS).
 
@@ -773,16 +771,14 @@ paths:
         task's `dueAt` changes its time and nothing else. P07/01's "Undo"
         after completing is not offered.
 
-        **Snooze and reschedule (T-0081; specified, served from T-0082).**
+        **Snooze and reschedule (T-0081; served since T-0082).**
         `dueAt` on a note, a call or a meeting is `400 task_only`. `startsAt`
         or `endsAt` on anything but a meeting is `400 meeting_only`; neither
         is nullable, because a meeting always has both. The meeting rules of
         createActivity are judged on the RESULT, the stored times with the
         sent ones applied: `endsAt` after `startsAt` (`400 invalid_range`)
         and at most 24 hours after it (`400 too_long`), both at the field
-        sent. All times are UTC with a `Z`. Until T-0082 the live route
-        answers `400` for `dueAt`, `startsAt` and `endsAt`, as for any
-        property it does not know. Rescheduling sends nothing to anyone: no
+        sent. All times are UTC with a `Z`. Rescheduling sends nothing to anyone: no
         reminder, no invitation and no external calendar (D-P22, D-P29).
 
         **Permission.** `activity.write` in the activity's programme, as for
@@ -795,7 +791,10 @@ paths:
         of the activity's programme, as on create. Field security applies to
         `completedAt`, `ownerUserId`, `dueAt`, `startsAt` and `endsAt`:
         sending one that is withheld from, or read-only for, the caller is
-        `403 not_permitted` with `details[].code: field_not_editable`.
+        `403 not_permitted` with `details[].code: field_not_editable`. So is
+        sending `startsAt` or `endsAt` when the caller cannot read the
+        meeting's OTHER time in its programme (D-L110): the result rules
+        would otherwise disclose it.
 
         Out of scope (another programme, another tenant, no such activity) is
         `404 not_found`, one body. Order: `404`, `403`, `400`, `409`. Every
@@ -838,8 +837,8 @@ paths:
         '409': { $ref: '#/components/responses/StaleWrite' }
 
   # -------------------------------------------------------------------------
-  # The caller's own tasks and calendar (P07; T-0081, contract only until
-  # T-0082; D-L87, D-P18, D-P22). Both lists read the caller's OWN activities
+  # The caller's own tasks and calendar (P07; specified by T-0081, served
+  # since T-0082; D-L87, D-P18, D-P22). Both lists read the caller's OWN activities
   # (`ownerUserId` is the session's user) in the programmes the session
   # resolves; neither takes an owner, a user or a programme. The five rules at
   # the top of this file apply unchanged, and both cursors carry an id only
@@ -2475,10 +2474,9 @@ components:
         as `null`). A present `null` means no value. `version` is never
         withheld.
 
-        **Specified, not yet served.** `startsAt` and `endsAt` (a meeting's
-        times, T-0081) are marked `x-kasuwa-implemented: false`: the live
-        wire does not send them until T-0082, and once it does they are on
-        every activity item, `null` on a note, a task or a call.
+        `startsAt` and `endsAt` (a meeting's times, T-0081, served since
+        T-0082) are on every activity item, `null` on a note, a task or a
+        call.
       properties:
         id:
           type: string
@@ -2595,11 +2593,9 @@ components:
         has a start and an end (`startsAt`, `endsAt`). Closed: P07's demo,
         field visit and internal event are not types.
 
-        **`meeting` (T-0081, D-L87) is specified, not yet served.** Until
-        T-0082 the live createActivity answers `400` for it, and no meeting
-        exists to read. A client that renders activities must still expect
-        it on every activity-shaped read (the timelines included) from
-        T-0082 on.
+        **`meeting`** (T-0081, D-L87; served since T-0082). A client that
+        renders activities must expect it on every activity-shaped read, the
+        timelines included.
 
     ActivityBucket:
       type: string
@@ -2622,10 +2618,9 @@ components:
         `version`, `createdAt`, `updatedAt` and `withheldFields` are never
         withheld. No tenant id.
 
-        **Specified, not yet served.** `startsAt` and `endsAt` (T-0081) are
-        marked `x-kasuwa-implemented: false`: the live wire does not send
-        them until T-0082. From then they are present (or withheld) on every
-        activity, `null` on a note, a task or a call.
+        `startsAt` and `endsAt` (T-0081, served since T-0082) are present
+        (or withheld) on every activity, `null` on a note, a task or a
+        call.
       properties:
         id:
           type: string
