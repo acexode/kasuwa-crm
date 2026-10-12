@@ -1095,19 +1095,18 @@ paths:
         (`newAccount`). The P04/01 Leads table's row action and, once drawn,
         the P05/01 record header's.
 
-        **One transaction; one contact event, and one account event when it
-        creates the account.** The status change, the account it creates (if
+        **One transaction.** The status change, the account it creates (if
         any), the link and the audit events are written in one database
-        transaction: all of it or none of it. It writes exactly one audit
-        event on the contact (`objectType: contact`), naming the changed
-        fields (`status`, `accountId`) and never their values: `updated`,
-        only the fields whose values changed (a `customer` keeps its status,
-        so only `accountId`), carrying neither the account's id nor its name
-        (D-L82). A convert that CREATES the account (`newAccount`) also
-        writes that account's `created` event (T-0104), as createAccount
-        does: `objectType: account`, labelled with the account's id, in the
-        contact's programme, field names only and never a value (D-L78), so
-        the account's name appears in neither event. Linking an existing
+        transaction: all of it or none of it. It writes one audit event on
+        the contact and, when it creates an account, one more on the account
+        (names only). The contact event (`objectType: contact`, `updated`)
+        names only the fields whose values changed (`status`, `accountId`; a
+        `customer` keeps its status, so only `accountId`), never their
+        values, and carries neither the account's id nor its name (D-L82).
+        The account event (T-0104) is the one createAccount writes:
+        `created`, `objectType: account`, labelled with the account's id, in
+        the contact's programme, field names only and never a value (D-L78),
+        so the account's name appears in neither event. Linking an existing
         account writes no account event. A repeat or a refusal writes no
         event of either kind.
 
