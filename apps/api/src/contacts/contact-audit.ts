@@ -26,8 +26,11 @@ import {
  *     whether such a value moved would mean comparing personal data only to
  *     then not record it; the field name is the event (`redacted: true`,
  *     `before` and `after` null).
- *   - REDACTED, when it moved: the owner and the account. Never their ids
- *     (D-L64, D-L72).
+ *   - VALUE, when it moved: the owner (T-0104, D-L71). Its before and after
+ *     are staff ids, not customer PII, recorded as the canonical lower-case
+ *     uuid whatever case the client sent; never a name (D-L64). The timeline
+ *     still shows an owner change by name only (contact-timeline.ts).
+ *   - REDACTED, when it moved: the account. Never its id (D-L64, D-L72).
  *   - On a CREATE, every field the create set (D-L81): a value field shows
  *     `before: null`, except consent, which starts at `unknown`. A field the
  *     create did not send, or sent as null, records nothing.
@@ -61,13 +64,12 @@ export const CONTACT_AUDIT_VALUE_FIELDS = [
   'state',
   'lga',
   'tags',
+  // T-0104 (D-L71): staff ids, canonical lower case. Judged by `owner_user_id`.
+  'ownerUserId',
 ] as const satisfies readonly (keyof ContactValues & keyof Contact)[];
 
 /** Recorded by name only, when the value moved. */
-const REDACTED_WHEN_CHANGED: readonly (keyof ContactValues & keyof Contact)[] = [
-  'ownerUserId',
-  'accountId',
-];
+const REDACTED_WHEN_CHANGED: readonly (keyof ContactValues & keyof Contact)[] = ['accountId'];
 
 /** Uuid-valued fields: the same id in either case is the same value. */
 const ID_FIELDS: ReadonlySet<keyof ContactValues> = new Set(['ownerUserId', 'accountId']);
@@ -110,14 +112,15 @@ export function contactChanges(values: ContactValues, before: Contact | null): A
   for (const field of CONTACT_AUDIT_VALUE_FIELDS) {
     const next = values[field];
     if (next === undefined) continue;
-    const after = encodeContactAuditValue(next);
+    // Ids are recorded canonically (lower case), as the row stores them.
+    const after = comparable(field, next);
     let previous: string | null;
     if (before === null) {
       if (after === null) continue;
       previous = CREATE_BEFORE[field] ?? null;
     } else {
-      previous = encodeContactAuditValue(before[field]);
-      if (comparable(field, before[field]) === comparable(field, next)) continue;
+      previous = comparable(field, before[field]);
+      if (previous === after) continue;
     }
     changes.push(
       fits(previous) && fits(after) ? change(field, previous, after) : redactedChange(field),

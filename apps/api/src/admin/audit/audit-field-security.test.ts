@@ -85,6 +85,7 @@ describe('redactForReader (T-0078)', () => {
       'state',
       'lga',
       'tags',
+      'owner_user_id',
     ]);
     const changes = CONTACT_AUDIT_VALUE_FIELDS.map((field) => change(field, null, 'invented'));
     expect(redactForReader(event('contact', P1, changes), access).changes).toEqual(changes);
@@ -115,6 +116,20 @@ describe('redactForReader (T-0078)', () => {
     expect(judged.changes).toEqual([redactedChange('status'), redactedChange('lga')]);
   });
 
+  it('ownerUserId is a value field judged by owner_user_id (T-0104, D-L71)', () => {
+    const owner = change('ownerUserId', null, '11111111-0000-4000-8000-0000000d0001');
+    const readable: ReaderFieldAccess = new Map([
+      ['contact', accessOf({ [P1]: { owner_user_id: 'read' } })],
+    ]);
+    expect(redactForReader(event('contact', P1, [owner]), readable).changes).toEqual([owner]);
+    const withheld: ReaderFieldAccess = new Map([
+      ['contact', accessOf({ [P1]: { owner_user_id: 'none' } })],
+    ]);
+    expect(redactForReader(event('contact', P1, [owner]), withheld).changes).toEqual([
+      redactedChange('ownerUserId'),
+    ]);
+  });
+
   it('maps the wire name to the field_def api_name: preferredChannel is judged by preferred_channel', () => {
     const preferred = change('preferredChannel', 'voice', 'sms');
     const readable: ReaderFieldAccess = new Map([
@@ -131,7 +146,7 @@ describe('redactForReader (T-0078)', () => {
     ]);
   });
 
-  it('the contact VALUE allow-list: a stored value on a name part, phone, email, owner, account or unknown field is redacted for a reader with edit', () => {
+  it('the contact VALUE allow-list: a stored value on a name part, phone, email, account or unknown field is redacted for a reader with edit', () => {
     const fields = [
       'givenNames',
       'familyName',
@@ -139,7 +154,6 @@ describe('redactForReader (T-0078)', () => {
       'companyName',
       'phones',
       'emails',
-      'ownerUserId',
       'accountId',
       'dnd',
       'phoneNetwork',
