@@ -80,12 +80,16 @@
 --     in each of audit_event's six indexes (primary key, (tenant_id, id),
 --     time, actor, object, programme) and three foreign-key checks (tenant,
 --     actor, programme), so WAL and time grow linearly with the number of
---     contacts unassigned. Measured by the builder on a local Testcontainers
---     Postgres 16 (see team/reports/T-0104.md for the figures): the per-
---     contact rows roughly double 0031's unassignment time, from about
---     2.6 s to about 5.4 s per 100,000 contacts owned by the removed user in
---     that programme, and add about 60 MB of heap, index and WAL per 100,000.
---     All of it inside the removing transaction, which holds those contact
+--     contacts unassigned. Measured by the builder (T-0104), one DELETE of
+--     one membership owning 100,000 contacts, on a local Testcontainers
+--     Postgres 16 under Docker Desktop, three runs of each body in
+--     alternation, each rolled back: 0031's body took 6.9 to 8.8 s and wrote
+--     63 to 65 MB of WAL; this body took 11.7 to 14.0 s and wrote 161 to
+--     308 MB of WAL (the high figure includes full-page images after a
+--     checkpoint). So about 1.6 times 0031's time, and about 100 MB or more
+--     of extra WAL, per 100,000 contacts unassigned. The absolute times are
+--     this host's, slower than 0031's review host; the ratio is the figure
+--     to carry. All of it inside the removing transaction, which holds those contact
 --     row locks and the membership locks until COMMIT. That is acceptable
 --     for an operator's DELETE. 0031's rule for a future membership-removal
 --     API applies with this extra weight: it must cap the contacts one
