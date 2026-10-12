@@ -9,3 +9,4 @@ export * from './schema';
 export * from './seed';
 export * from './session';
 export * from './standard-object-catalogue';
+export * from './test-admin-guard';

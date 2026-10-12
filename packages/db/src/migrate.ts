@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { assertMigrationTargetIsSafe, type EnvSource } from '@kasuwa/config';
 import { Client, type QueryConfig } from 'pg';
 import { checkNoTransactionFile, hasNoTransactionMarker, NO_TRANSACTION_MARKER } from './migration-sql';
+import { readTestAdminUsability, UsableTestAdminError } from './test-admin-guard';
 
 /**
  * Migration runner.
@@ -28,6 +30,15 @@ import { checkNoTransactionFile, hasNoTransactionMarker, NO_TRANSACTION_MARKER }
  *     rather than a silent no-op (expand/migrate/contract means new files, never
  *     edits — see docs/adr/0004 and the migration-reviewer checklist)
  *   - guarded by a session advisory lock so two processes cannot race
+ *   - refused, before anything is written (the ledger included), when the
+ *     target is not safe to migrate (T-0117, D-L92, D-L94). The environment
+ *     checks run before connecting (`assertMigrationTargetIsSafe` in
+ *     @kasuwa/config): an invalid environment; an unset NODE_ENV against a
+ *     non-local host; and, outside development and test, a PG* fallback or a
+ *     repository dev password. Then, outside development and test, the first
+ *     query refuses a usable `kasuwa_test_admin` (test-admin-guard.ts). Every
+ *     caller (db:migrate, db:reset, tenant:provision, the harness) gets them
+ *     because they live here, not in a CLI.
  */
 
 const MIGRATION_TABLE = '_kasuwa_migration';
@@ -64,6 +75,12 @@ export interface MigrateOptions {
   connectionString: string;
   migrationsDir?: string;
   log?: (message: string) => void;
+  /**
+   * The raw environment the target guards read, through @kasuwa/config
+   * (T-0117). Defaults to `process.env`. NODE_ENV is read from it raw: absent
+   * is "unset", which is allowed only against a local host.
+   */
+  env?: EnvSource;
 }
 
 export interface MigrateResult {
@@ -73,6 +90,9 @@ export interface MigrateResult {
 
 export async function runMigrations(options: MigrateOptions): Promise<MigrateResult> {
   const log = options.log ?? (() => undefined);
+  // Before connecting: a refusal must never depend on reaching the host, and
+  // must never be a DNS error that names neither reason.
+  const target = assertMigrationTargetIsSafe(options.connectionString, options.env);
   const migrations = loadMigrations(options.migrationsDir ?? defaultMigrationsDir());
   const client = new Client({ connectionString: options.connectionString });
   await client.connect();
@@ -81,6 +101,18 @@ export async function runMigrations(options: MigrateOptions): Promise<MigrateRes
   const alreadyApplied: string[] = [];
 
   try {
+    // The first query, before the lock and the ledger: the run writes nothing
+    // until the database itself has been judged.
+    if (target.enforce) {
+      const reasons = await readTestAdminUsability(client);
+      if (reasons.length > 0) {
+        throw new UsableTestAdminError(
+          'Refusing to migrate; nothing was applied',
+          target.nodeEnv,
+          reasons,
+        );
+      }
+    }
     await client.query(`SELECT pg_advisory_lock($1)`, [ADVISORY_LOCK_KEY]);
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${MIGRATION_TABLE} (

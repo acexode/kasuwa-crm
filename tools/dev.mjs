@@ -22,6 +22,16 @@ const SERVICES = ['postgres', 'redis', 'opensearch', 'seaweedfs'];
 const HEALTH_TIMEOUT_MS = 180_000;
 const HEALTH_POLL_MS = 2_000;
 
+/**
+ * NODE_ENV per process, never in `.env` (D-L95). The API and the worker refuse
+ * to boot with NODE_ENV unset, and `.env` must not set it: Nx injects that
+ * file into every task, and NODE_ENV=development there breaks `next build`.
+ * So each server process and operator command this script starts is given
+ * `development` explicitly. The web process is left alone: `next dev` sets its
+ * own.
+ */
+const DEV_PROCESS_ENV = { ...process.env, NODE_ENV: 'development' };
+
 const APPS = [
   { name: 'api', filter: '@kasuwa/api', colour: '[36m' },
   { name: 'web', filter: '@kasuwa/web', colour: '[35m' },
@@ -83,31 +93,40 @@ function ensureEnvFile() {
 }
 
 /**
- * Re-applies packages/db/sql/bootstrap.sql as the superuser.
+ * Re-applies packages/db/sql/bootstrap.sql, then bootstrap-test.sql, as the
+ * superuser.
  *
  * Postgres runs its init directory only when the volume is first created, so
  * a role added to the bootstrap later (kasuwa_sweeper in T-0045, kasuwa_auth
  * in T-0049) does not exist in an older dev database, and the migration that
- * needs it stops. The file is idempotent and is already mounted in the
- * container, so applying it on every start costs a few milliseconds.
+ * needs it stops. Both files are idempotent and already mounted in the
+ * container, so applying them on every start costs a few milliseconds.
+ *
+ * bootstrap-test.sql makes kasuwa_test_admin the harness's login (T-0117,
+ * D-L94). It is development and test only; this is the dev stack. A volume
+ * created before the split has no 20-bootstrap-test.sql in its init history
+ * but already has the login, so applying it here keeps every dev database in
+ * the state a new one starts in.
  */
 function applyBootstrap() {
-  run('docker', [
-    'compose',
-    'exec',
-    '-T',
-    'postgres',
-    'psql',
-    '-q',
-    '-U',
-    'postgres',
-    '-d',
-    'kasuwa',
-    '-v',
-    'ON_ERROR_STOP=1',
-    '-f',
-    '/docker-entrypoint-initdb.d/10-bootstrap.sql',
-  ]);
+  for (const file of ['10-bootstrap.sql', '20-bootstrap-test.sql']) {
+    run('docker', [
+      'compose',
+      'exec',
+      '-T',
+      'postgres',
+      'psql',
+      '-q',
+      '-U',
+      'postgres',
+      '-d',
+      'kasuwa',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-f',
+      `/docker-entrypoint-initdb.d/${file}`,
+    ]);
+  }
 }
 
 function containerHealth(service) {
@@ -161,6 +180,7 @@ function startApps() {
   const children = APPS.map((app) => {
     const child = spawn('pnpm', ['--filter', app.filter, 'dev'], {
       cwd: root,
+      ...(app.name === 'web' ? {} : { env: DEV_PROCESS_ENV }),
       shell: process.platform === 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -207,9 +227,9 @@ async function main() {
   console.log('applying the role bootstrap...');
   applyBootstrap();
   console.log('migrating...');
-  run('pnpm', ['--filter', '@kasuwa/db', 'migrate']);
+  run('pnpm', ['--filter', '@kasuwa/db', 'migrate'], { env: DEV_PROCESS_ENV });
   console.log('seeding...');
-  run('pnpm', ['--filter', '@kasuwa/db', 'seed']);
+  run('pnpm', ['--filter', '@kasuwa/db', 'seed'], { env: DEV_PROCESS_ENV });
 
   console.log('\nstack is up:');
   console.log('  web       http://localhost:3000');

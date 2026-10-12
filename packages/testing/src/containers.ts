@@ -14,8 +14,12 @@ import { runMigrations, runSeed } from '@kasuwa/db';
  * failure mode Addendum 3.1 warns about. If the database is not real, the
  * isolation suite tests nothing.
  *
- * The container runs the same packages/db/sql/bootstrap.sql that
- * docker-compose runs, so roles and grants are identical in dev and CI.
+ * The container runs the same two bootstrap files docker-compose runs, in the
+ * same order, so roles and grants are identical in dev and CI:
+ * packages/db/sql/bootstrap.sql (what real provisioning applies, with
+ * kasuwa_test_admin an inert NOLOGIN placeholder), then bootstrap-test.sql,
+ * which makes kasuwa_test_admin the BYPASSRLS login `testAdminUrl` names
+ * (T-0117, D-L94). Only this harness and docker-compose apply the second file.
  */
 
 const POSTGRES_IMAGE = 'postgres:16-alpine';
@@ -40,9 +44,12 @@ export interface TestStack {
   stop: () => Promise<void>;
 }
 
-function bootstrapSql(): string {
-  // packages/testing/src -> packages/db/sql/bootstrap.sql
-  const path = resolve(__dirname, '..', '..', 'db', 'sql', 'bootstrap.sql');
+/** In the order they must run: the file a real cell gets, then the test login. */
+const BOOTSTRAP_FILES = ['bootstrap.sql', 'bootstrap-test.sql'] as const;
+
+function bootstrapSql(file: (typeof BOOTSTRAP_FILES)[number]): string {
+  // packages/testing/src -> packages/db/sql/<file>
+  const path = resolve(__dirname, '..', '..', 'db', 'sql', file);
   return readFileSync(path, 'utf8');
 }
 
@@ -72,13 +79,15 @@ export async function startTestStack(options: StartStackOptions = {}): Promise<T
     redis = await new RedisContainer(REDIS_IMAGE).start();
   }
 
-  // Roles and grants, as superuser.
+  // Roles and grants, as superuser: bootstrap.sql, then bootstrap-test.sql.
   const superuserClient = new Client({
     connectionString: urlFor(postgres, SUPERUSER, SUPERUSER_PASSWORD),
   });
   await superuserClient.connect();
   try {
-    await superuserClient.query(bootstrapSql());
+    for (const file of BOOTSTRAP_FILES) {
+      await superuserClient.query(bootstrapSql(file));
+    }
   } finally {
     await superuserClient.end();
   }
