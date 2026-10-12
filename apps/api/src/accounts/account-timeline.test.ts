@@ -80,6 +80,8 @@ const activity: TimelineActivityRow = {
   body: 'Probe body',
   dueAt: null,
   completedAt: null,
+  startsAt: null,
+  endsAt: null,
   version: 7,
 };
 

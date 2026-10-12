@@ -37,7 +37,8 @@ import { notFound } from '../admin/common/admin-errors';
  *    request. The repository is handed the allow-list of change fields the
  *    caller may see, so withheld items never reach the LIMIT. Activity items
  *    follow the ACTIVITY object's matrix: a withheld subject, body, due or
- *    completed time is omitted from the item, and when the activity's link
+ *    completed time, or a meeting's start or end (T-0082, D-L107), is
+ *    omitted from the item, and when the activity's link
  *    to THIS record (its `contact_id` on a contact's timeline, its
  *    `account_id` on an account's) is withheld no activity item is shown at
  *    all, since the item itself would disclose the link. Every lookup fails
@@ -71,6 +72,9 @@ export type ActivityItemWire = TimelineItemBase & {
   body?: string | null;
   dueAt?: string | null;
   completedAt?: string | null;
+  /** A meeting's times (T-0082); `null` on any other type; omitted when withheld (D-L107). */
+  startsAt?: string | null;
+  endsAt?: string | null;
   version: number;
 };
 
@@ -98,7 +102,9 @@ export function activityItem(
   programmeId: string,
 ): ActivityItemWire {
   if (!isActivityType(row.activityType)) throw new TimelineActivityTypeError();
-  const readable = (field: 'subject' | 'body' | 'dueAt' | 'completedAt') =>
+  const readable = (
+    field: 'subject' | 'body' | 'dueAt' | 'completedAt' | 'startsAt' | 'endsAt',
+  ) =>
     activityFieldLevel(access, programmeId, field) !== 'none';
   return {
     ...itemBase(row),
@@ -109,6 +115,8 @@ export function activityItem(
     ...(readable('body') ? { body: row.body } : {}),
     ...(readable('dueAt') ? { dueAt: row.dueAt?.toISOString() ?? null } : {}),
     ...(readable('completedAt') ? { completedAt: row.completedAt?.toISOString() ?? null } : {}),
+    ...(readable('startsAt') ? { startsAt: row.startsAt?.toISOString() ?? null } : {}),
+    ...(readable('endsAt') ? { endsAt: row.endsAt?.toISOString() ?? null } : {}),
     version: row.version,
   };
 }

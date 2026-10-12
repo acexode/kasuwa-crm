@@ -4,6 +4,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { describe, expect, it, vi } from 'vitest';
 import { AccountsController } from '../accounts/accounts.controller';
 import { ActivitiesController } from '../activities/activities.controller';
+import { MyActivitiesController } from '../activities/my-activities.controller';
 import { AppModule, RECORDS_CONTROLLERS, SCRIPTING_CONTROLLERS } from '../app.module';
 import { ContactsController } from '../contacts/contacts.controller';
 import { LeadsController } from '../leads/leads.controller';
@@ -31,13 +32,14 @@ describe('NoStoreMiddleware', () => {
 });
 
 describe('AppModule applies it to every records controller (T-0080, D-L90)', () => {
-  it('names contacts, leads, accounts, activities and me', () => {
+  it('names contacts, leads, accounts, activities, me and my activities (T-0082)', () => {
     expect([...RECORDS_CONTROLLERS]).toEqual([
       ContactsController,
       LeadsController,
       AccountsController,
       ActivitiesController,
       MeController,
+      MyActivitiesController,
     ]);
   });
 

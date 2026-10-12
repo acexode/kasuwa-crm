@@ -21,8 +21,10 @@ import type { ActivityWire } from './activity-wire';
 
 /**
  * The activity writes: `docs/api/records.openapi.yaml` (createActivity,
- * updateActivity), T-0061. Activities are read on the contact's timeline
- * (listContactTimeline); there is no activity read or list route yet.
+ * updateActivity), T-0061; meetings, snooze and reschedule from T-0082.
+ * Activities are read on the contact's and account's timelines, and the
+ * caller's own on listMyActivities and listCalendar
+ * (my-activities.controller.ts); there is no single-activity read.
  *
  * As for contacts, the controller never reads a tenant or programme id from
  * the request: scope arrives through `currentTx()`, and an activity's
@@ -45,7 +47,7 @@ export class ActivitiesController {
     return createActivityFor(currentTx(), body);
   }
 
-  /** updateActivity (`x-kasuwa-audited`): complete, reassign. 404, 403, 400, then 409. */
+  /** updateActivity (`x-kasuwa-audited`): complete, reassign, snooze, reschedule. 404, 403, 400, then 409. */
   @Patch(':id')
   @Header(CACHE_CONTROL, NO_STORE)
   async update(@Param() params: unknown, @Body() body: unknown): Promise<ActivityWire> {

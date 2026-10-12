@@ -126,6 +126,9 @@ export interface TimelineActivityRow extends TimelineBase {
   body: string | null;
   dueAt: Date | null;
   completedAt: Date | null;
+  /** A meeting's times (T-0082); `null` on any other type. */
+  startsAt: Date | null;
+  endsAt: Date | null;
   /** The row's `version` now (D-L85): what updateActivity needs. */
   version: number;
 }
@@ -250,6 +253,8 @@ const RawRow = z.object({
   body: z.string().nullable(),
   due_at: z.date().nullable(),
   completed_at: z.date().nullable(),
+  starts_at: z.date().nullable(),
+  ends_at: z.date().nullable(),
   version: z.number().int().min(1).nullable(),
 });
 type RawRow = z.infer<typeof RawRow>;
@@ -299,6 +304,8 @@ const TIMELINE_SQL = (constants: TimelineSubjectConstants, withCursor: boolean) 
            NULL::text AS body,
            NULL::timestamptz AS due_at,
            NULL::timestamptz AS completed_at,
+           NULL::timestamptz AS starts_at,
+           NULL::timestamptz AS ends_at,
            NULL::integer AS version
       FROM audit_event e
      CROSS JOIN LATERAL jsonb_array_elements(e.changes) AS c(entry)
@@ -317,7 +324,8 @@ const TIMELINE_SQL = (constants: TimelineSubjectConstants, withCursor: boolean) 
            'activity'::text,
            NULL, NULL, NULL, NULL,
            a.created_by_user_id,
-           a.id, a.type, a.subject, a.body, a.due_at, a.completed_at, a.version
+           a.id, a.type, a.subject, a.body, a.due_at, a.completed_at, a.starts_at, a.ends_at,
+           a.version
       FROM activity a
      WHERE $6::boolean
        AND a.tenant_id = $1
@@ -331,7 +339,8 @@ const TIMELINE_SQL = (constants: TimelineSubjectConstants, withCursor: boolean) 
             FROM "user" u
            WHERE u.tenant_id = $1
              AND u.id = items.actor_id) AS actor_name,
-         activity_id, activity_type, subject, body, due_at, completed_at, version
+         activity_id, activity_type, subject, body, due_at, completed_at, starts_at, ends_at,
+         version
     FROM items
    ${
      withCursor
@@ -363,6 +372,8 @@ function toRow(raw: RawRow): TimelineRow {
       body: raw.body,
       dueAt: raw.due_at,
       completedAt: raw.completed_at,
+      startsAt: raw.starts_at,
+      endsAt: raw.ends_at,
       version: raw.version,
     };
   }

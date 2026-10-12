@@ -181,6 +181,8 @@ describe('toTimelineItems: activity items (T-0061)', () => {
     body: 'Probe body',
     dueAt: new Date('2026-12-01T09:00:00.000Z'),
     completedAt: null,
+    startsAt: null,
+    endsAt: null,
     version: 3,
   };
 
@@ -197,15 +199,43 @@ describe('toTimelineItems: activity items (T-0061)', () => {
         body: 'Probe body',
         dueAt: '2026-12-01T09:00:00.000Z',
         completedAt: null,
+        startsAt: null,
+        endsAt: null,
         version: 3,
       },
     ]);
   });
 
-  it('omits a withheld subject, body, due or completed time, never nulls it; keeps the version', () => {
+  it('carries a meeting with its times (T-0082), and omits a withheld start, not the item', () => {
+    const meeting: TimelineActivityRow = {
+      ...row,
+      activityType: 'meeting',
+      dueAt: null,
+      startsAt: new Date('2026-12-02T09:00:00.000Z'),
+      endsAt: new Date('2026-12-02T10:00:00.000Z'),
+    };
+    expect(toTimelineItems([meeting], activityAccess(), A1)[0]).toMatchObject({
+      activityType: 'meeting',
+      dueAt: null,
+      startsAt: '2026-12-02T09:00:00.000Z',
+      endsAt: '2026-12-02T10:00:00.000Z',
+    });
+    const [item] = toTimelineItems([meeting], activityAccess({ startsAt: 'none' }), A1);
+    expect(item && 'startsAt' in item).toBe(false);
+    expect(item).toMatchObject({ endsAt: '2026-12-02T10:00:00.000Z', version: 3 });
+  });
+
+  it('omits a withheld subject, body, due, completed, start or end time, never nulls it; keeps the version', () => {
     const [item] = toTimelineItems(
       [row],
-      activityAccess({ body: 'none', subject: 'none', dueAt: 'none', completedAt: 'none' }),
+      activityAccess({
+        body: 'none',
+        subject: 'none',
+        dueAt: 'none',
+        completedAt: 'none',
+        startsAt: 'none',
+        endsAt: 'none',
+      }),
       A1,
     );
     expect(Object.keys(item ?? {}).sort()).toEqual(
@@ -224,7 +254,7 @@ describe('toTimelineItems: activity items (T-0061)', () => {
 
   it('refuses a type outside the contract rather than sending it', () => {
     expect(() =>
-      toTimelineItems([{ ...row, activityType: 'meeting' }], activityAccess(), A1),
+      toTimelineItems([{ ...row, activityType: 'email' }], activityAccess(), A1),
     ).toThrow();
   });
 });

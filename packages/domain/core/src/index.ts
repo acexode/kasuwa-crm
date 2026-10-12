@@ -12,6 +12,7 @@ export * from './account/account-hierarchy';
 export * from './account/account-timeline.repository';
 export * from './activity/activity.repository';
 export * from './activity/activity-fields';
+export * from './activity/my-activities.repository';
 export * from './programme/programme.repository';
 export * from './programme/my-programmes.repository';
 export * from './programme/programme-lifecycle';

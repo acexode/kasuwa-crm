@@ -26,6 +26,8 @@ export function activityCreateChanges(body: CreateActivityBody): AuditChange[] {
     'subject',
     'body',
     'dueAt',
+    'startsAt',
+    'endsAt',
     'ownerUserId',
     'contactId',
     'accountId',
@@ -36,13 +38,24 @@ export function activityCreateChanges(body: CreateActivityBody): AuditChange[] {
   return changes;
 }
 
-/** An update: completion when it newly happened, and the owner when it moved. */
+const sameInstant = (a: Date | null, b: Date | null) =>
+  a === null || b === null ? a === b : a.getTime() === b.getTime();
+
+/**
+ * An update: completion when it newly happened, the owner when it moved, and
+ * (T-0082) each time whose value changed: `dueAt` on a snooze or a clear,
+ * `startsAt` and `endsAt` on a reschedule. Times are not value fields (D-L72):
+ * by name only, like everything here.
+ */
 export function activityUpdateChanges(before: Activity, after: Activity): AuditChange[] {
   const changes: AuditChange[] = [];
   if (before.completedAt === null && after.completedAt !== null) {
     changes.push(redactedChange('completedAt'));
   }
   if (before.ownerUserId !== after.ownerUserId) changes.push(redactedChange('ownerUserId'));
+  for (const field of ['dueAt', 'startsAt', 'endsAt'] as const) {
+    if (!sameInstant(before[field], after[field])) changes.push(redactedChange(field));
+  }
   return changes;
 }
 
