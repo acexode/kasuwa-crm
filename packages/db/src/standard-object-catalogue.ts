@@ -1,3 +1,4 @@
+import { ensureDefaultPipelines } from './default-pipeline';
 import { newId } from './ids';
 
 /**
@@ -11,8 +12,8 @@ import { newId } from './ids';
  * did were backfilled by migration 0025 (contact, account `name`), 0026
  * (T-0054, the account fields after `name`), 0027 (T-0060, activity),
  * 0028 (T-0076, contact `company_name`) and 0034 (T-0082, activity
- * `starts_at` and `ends_at`), each carrying a frozen copy of its part of
- * this list; the T-0053, T-0054, T-0060 and T-0076 acceptance suites
+ * `starts_at` and `ends_at`) and 0036 (T-0106, deal), each carrying a frozen
+ * copy of its part of this list; the T-0053, T-0054, T-0060, T-0076 and T-0106 acceptance suites
  * assert that all three sources produce the same catalogue. Never edit any of
  * those migrations.
  *
@@ -54,7 +55,7 @@ import { newId } from './ids';
 
 /** The subset of metadata-engine's FIELD_TYPES the standard catalogue uses. */
 export type StandardFieldType =
-  'text' | 'textarea' | 'datetime' | 'phone' | 'email' | 'boolean' | 'lookup';
+  'text' | 'textarea' | 'number' | 'date' | 'datetime' | 'phone' | 'email' | 'boolean' | 'lookup';
 export type StandardFieldClassification = 'none' | 'pii' | 'sensitive';
 
 export interface StandardFieldDef {
@@ -162,6 +163,29 @@ export const STANDARD_OBJECT_CATALOGUE: readonly StandardObjectDef[] = [
       field('account_id', 'Account', 'lookup', { config: { targetObjectApiName: 'account' } }),
     ],
   },
+  {
+    // Migration 0036 (T-0106, R13). One field per business column the deal
+    // contract may withhold. `amount` is the withholdable wire field (minor
+    // units plus currency), `number` because a per-deal currency rules out the
+    // `currency` type's fixed code; amount_minor and currency get none. name
+    // and next_step are free text that holds names in practice: pii (D-L115).
+    // The contact and account are real lookups, the owner `text`, as on
+    // activity. Keys, version and timestamps get none.
+    apiName: 'deal',
+    label: 'Deal',
+    pluralLabel: 'Deals',
+    fields: [
+      field('name', 'Name', 'text', { classification: 'pii', isRequired: true }),
+      field('amount', 'Amount', 'number'),
+      field('expected_close_date', 'Expected close date', 'date'),
+      field('owner_user_id', 'Owner', 'text'),
+      field('primary_contact_id', 'Primary contact', 'lookup', {
+        config: { targetObjectApiName: 'contact' },
+      }),
+      field('account_id', 'Account', 'lookup', { config: { targetObjectApiName: 'account' } }),
+      field('next_step', 'Next step', 'text', { classification: 'pii' }),
+    ],
+  },
 ];
 
 /**
@@ -188,6 +212,11 @@ export type StandardCatalogueQuery = (
  * VERIFIED: a third statement checks every catalogue entry per name, and it
  * throws `StandardCatalogueIncompleteError` (rolling the caller back) when
  * something in the tenant prevented a row from being written.
+ *
+ * PIPELINES (T-0106, R10): it also gives every programme of the tenant that
+ * has none the default pipeline (`ensureDefaultPipelines`), so the same one
+ * call repairs a programme created in the deploy window. As kasuwa_app it
+ * reaches only the programmes the session's policies admit.
  *
  * tenancy-reviewed: `tenantId` is the only tenant named, in every statement
  * and in the join; provisioning passes `tx.session.tenantId` and the seed its
@@ -281,6 +310,12 @@ export async function ensureStandardObjectDefs(
   if (missing.length > 0) {
     throw new StandardCatalogueIncompleteError(missing.map((row) => String(row.entry)));
   }
+
+  // Every programme of the tenant has its default pipeline (T-0106, R10): the
+  // seed's programmes, and the deploy-window repair for a programme created
+  // by the previous release after the migrate. Idempotent: a programme that
+  // has a pipeline is left alone.
+  await ensureDefaultPipelines(query, tenantId);
 }
 
 /**

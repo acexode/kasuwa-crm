@@ -3,9 +3,11 @@ import {
   boolean,
   char,
   customType,
+  date,
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -572,6 +574,243 @@ export const scriptRun = pgTable(
   ],
 );
 
+// --- pipelines and deals (migration 0036, T-0106) ---------------------------
+
+/** Stage kinds (a CHECK in 0036): exactly one won and one lost per pipeline. */
+export const PIPELINE_STAGE_KINDS = ['open', 'won', 'lost'] as const;
+/** Requirement kinds (a CHECK in 0036). */
+export const PIPELINE_REQUIREMENT_KINDS = ['field', 'check'] as const;
+/** The currencies a deal may carry (D-L115; a CHECK in 0036). Never converted. */
+export const DEAL_CURRENCIES = ['NGN', 'GHS', 'KES', 'ZAR'] as const;
+
+/**
+ * A programme's pipeline (0036). Every programme has a default one, from
+ * DEFAULT_PIPELINE_TEMPLATE. Keys fixed for every role but the migrator
+ * (app.guard_pipeline_keys_fixed, as on the five tables below); kasuwa_app may
+ * read and insert, never update or delete.
+ */
+export const pipeline = pgTable(
+  'pipeline',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    name: text('name').notNull(),
+    version: integer('version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Maintained by the app.touch_updated_at() trigger when a statement leaves it unchanged. */
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('pipeline_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
+  ],
+);
+
+/**
+ * A stage (0036). Not expressed here (SQL only): one won and one lost stage,
+ * at least one open, at most 30 per pipeline (a deferred constraint trigger);
+ * probability 0..10000 (won 10000, lost 0); rotting_after_days 2..365 on open
+ * stages and NULL on won and lost.
+ */
+export const pipelineStage = pgTable(
+  'pipeline_stage',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    /** Composite FK (tenant_id, programme_id, pipeline_id) -> pipeline. */
+    pipelineId: uuid('pipeline_id').notNull(),
+    name: text('name').notNull(),
+    kind: text('kind', { enum: PIPELINE_STAGE_KINDS }).notNull(),
+    position: integer('position').notNull(),
+    probabilityBp: integer('probability_bp').notNull(),
+    rottingAfterDays: integer('rotting_after_days').default(14),
+  },
+  (table) => [
+    uniqueIndex('pipeline_stage_pipeline_id_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.pipelineId,
+      table.id,
+    ),
+    uniqueIndex('pipeline_stage_position_key').on(table.pipelineId, table.position),
+  ],
+);
+
+/** The move allow-list (0036): a (from, to) pair once per pipeline, never a self-pair. */
+export const pipelineStageTransition = pgTable(
+  'pipeline_stage_transition',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    pipelineId: uuid('pipeline_id').notNull(),
+    /** Composite FK (tenant_id, programme_id, pipeline_id, from_stage_id) -> pipeline_stage. */
+    fromStageId: uuid('from_stage_id').notNull(),
+    /** Composite FK (tenant_id, programme_id, pipeline_id, to_stage_id) -> pipeline_stage. */
+    toStageId: uuid('to_stage_id').notNull(),
+  },
+  (table) => [
+    uniqueIndex('pipeline_stage_transition_pair_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.pipelineId,
+      table.fromStageId,
+      table.toStageId,
+    ),
+    index('pipeline_stage_transition_to_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.pipelineId,
+      table.toStageId,
+    ),
+  ],
+);
+
+/**
+ * An entry requirement of a stage (0036). `field` holds a deal field_def
+ * api_name (snake_case, R2) and no label; `check` a label of 1..200 and no
+ * field. position 0..19, unique per stage.
+ */
+export const pipelineStageRequirement = pgTable(
+  'pipeline_stage_requirement',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    pipelineId: uuid('pipeline_id').notNull(),
+    /** Composite FK (tenant_id, programme_id, pipeline_id, stage_id) -> pipeline_stage. */
+    stageId: uuid('stage_id').notNull(),
+    kind: text('kind', { enum: PIPELINE_REQUIREMENT_KINDS }).notNull(),
+    position: integer('position').notNull(),
+    field: text('field'),
+    label: text('label'),
+  },
+  (table) => [
+    uniqueIndex('pipeline_stage_requirement_pipeline_id_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.pipelineId,
+      table.id,
+    ),
+    uniqueIndex('pipeline_stage_requirement_position_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.pipelineId,
+      table.stageId,
+      table.position,
+    ),
+  ],
+);
+
+/**
+ * A deal (0036). Money is `amount_minor` numeric(18,0) plus `currency`, both
+ * or neither; never a float. name and next_step are free text classified pii
+ * (D-L115): never log them. Not expressed here (SQL only): stage_id changes
+ * only along a transition of the deal's pipeline for every role but the
+ * migrator (app.guard_deal_stage_move, R5); kasuwa_app may not DELETE.
+ */
+export const deal = pgTable(
+  'deal',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    pipelineId: uuid('pipeline_id').notNull(),
+    /** Composite FK (tenant_id, programme_id, pipeline_id, stage_id) -> pipeline_stage. */
+    stageId: uuid('stage_id').notNull(),
+    name: text('name').notNull(),
+    /** numeric(18,0) minor units; a string, never a JS number. */
+    amountMinor: numeric('amount_minor', { precision: 18, scale: 0 }),
+    currency: text('currency', { enum: DEAL_CURRENCIES }),
+    expectedCloseDate: date('expected_close_date'),
+    /** Composite FK (tenant_id, owner_user_id) -> "user". */
+    ownerUserId: uuid('owner_user_id'),
+    /** Composite FK (tenant_id, programme_id, primary_contact_id) -> contact, RESTRICT. */
+    primaryContactId: uuid('primary_contact_id'),
+    /** Composite FK (tenant_id, programme_id, account_id) -> account, RESTRICT. */
+    accountId: uuid('account_id'),
+    nextStep: text('next_step'),
+    stageEnteredAt: timestamp('stage_entered_at', { withTimezone: true }).notNull().defaultNow(),
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+    version: integer('version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Maintained by the app.touch_updated_at() trigger when a statement leaves it unchanged. */
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('deal_pipeline_id_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.pipelineId,
+      table.id,
+    ),
+    /** R14: an open board column. */
+    index('deal_board_open_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.pipelineId,
+      table.stageId,
+      table.stageEnteredAt,
+      table.id,
+    ),
+    /** R14: a won or lost column, newest first. */
+    index('deal_board_closed_idx')
+      .on(
+        table.tenantId,
+        table.programmeId,
+        table.pipelineId,
+        table.stageId,
+        table.closedAt.desc(),
+        table.id.desc(),
+      )
+      .where(sql`closed_at IS NOT NULL`),
+    index('deal_contact_idx')
+      .on(table.tenantId, table.programmeId, table.primaryContactId)
+      .where(sql`primary_contact_id IS NOT NULL`),
+    index('deal_account_idx')
+      .on(table.tenantId, table.programmeId, table.accountId)
+      .where(sql`account_id IS NOT NULL`),
+    index('deal_owner_idx')
+      .on(table.tenantId, table.ownerUserId)
+      .where(sql`owner_user_id IS NOT NULL`),
+  ],
+);
+
+/** A ticked check requirement (0036): once per deal and requirement; insert-only for kasuwa_app. */
+export const dealRequirementCheck = pgTable(
+  'deal_requirement_check',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    pipelineId: uuid('pipeline_id').notNull(),
+    /** Composite FK (tenant_id, programme_id, pipeline_id, deal_id) -> deal. */
+    dealId: uuid('deal_id').notNull(),
+    /** Composite FK (tenant_id, programme_id, pipeline_id, requirement_id) -> requirement. */
+    requirementId: uuid('requirement_id').notNull(),
+    /** Composite FK (tenant_id, checked_by_user_id) -> "user". */
+    checkedByUserId: uuid('checked_by_user_id').notNull(),
+    checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('deal_requirement_check_once_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.pipelineId,
+      table.dealId,
+      table.requirementId,
+    ),
+    index('deal_requirement_check_requirement_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.pipelineId,
+      table.requirementId,
+    ),
+    index('deal_requirement_check_checked_by_idx').on(table.tenantId, table.checkedByUserId),
+  ],
+);
+
 // --- authentication (migration 0002) ---------------------------------------
 // Identity only. Nothing below records what a user may reach; scope is still
 // resolved from user_programme on every request.
@@ -1104,6 +1343,12 @@ export const TENANT_SCOPED_TABLES = [
   'script',
   'script_version',
   'script_run',
+  'pipeline',
+  'pipeline_stage',
+  'pipeline_stage_transition',
+  'pipeline_stage_requirement',
+  'deal',
+  'deal_requirement_check',
   'object_def',
   'field_def',
   'user_credential',
