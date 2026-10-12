@@ -334,6 +334,39 @@ BEGIN
     RAISE EXCEPTION '0033: app.unassign_removed_member_contacts() must be called by exactly 0031''s two enabled triggers on user_programme';
   END IF;
 
+  -- And their shape, as 0031 asserted it: the lock ordering depends on a
+  -- STATEMENT-level AFTER trigger that sees every ended membership at once.
+  -- DELETE: STATEMENT (no ROW bit 1), AFTER (no BEFORE bit 2), DELETE (8);
+  -- OLD TABLE ended_rows, no NEW TABLE, no WHEN.
+  IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_trigger t
+       WHERE t.tgrelid = 'public.user_programme'::pg_catalog.regclass
+         AND t.tgname = 'user_programme_removal_unassigns_contacts'
+         AND NOT t.tgisinternal
+         AND t.tgtype = 8
+         AND t.tgqual IS NULL
+         AND t.tgoldtable = 'ended_rows'
+         AND t.tgnewtable IS NULL
+         AND t.tgfoid = fn) <> 1 THEN
+    RAISE EXCEPTION '0033: the trigger user_programme_removal_unassigns_contacts is conditional, or not AFTER DELETE FOR EACH STATEMENT REFERENCING OLD TABLE AS ended_rows';
+  END IF;
+  -- UPDATE: STATEMENT, AFTER, UPDATE (16), both transition tables, no WHEN,
+  -- and NO column list. A trigger with transition tables may not name
+  -- columns, so "the key columns" are judged inside the function (a key
+  -- missing from kept_rows ended), and a permission-set change ends nothing.
+  -- A column-limited trigger deparses as "AFTER UPDATE OF <columns> ON".
+  IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_trigger t
+       WHERE t.tgrelid = 'public.user_programme'::pg_catalog.regclass
+         AND t.tgname = 'user_programme_rewrite_unassigns_contacts'
+         AND NOT t.tgisinternal
+         AND t.tgtype = 16
+         AND t.tgqual IS NULL
+         AND t.tgoldtable = 'ended_rows'
+         AND t.tgnewtable = 'kept_rows'
+         AND pg_catalog.pg_get_triggerdef(t.oid) LIKE '% AFTER UPDATE ON %'
+         AND t.tgfoid = fn) <> 1 THEN
+    RAISE EXCEPTION '0033: the trigger user_programme_rewrite_unassigns_contacts is conditional, column-limited, or not AFTER UPDATE FOR EACH STATEMENT REFERENCING OLD TABLE AS ended_rows NEW TABLE AS kept_rows';
+  END IF;
+
   -- Invoker's rights, search_path pinned (CLAUDE.md 2.7).
   IF EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
               WHERE p.oid = fn
