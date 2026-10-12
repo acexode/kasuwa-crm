@@ -482,7 +482,16 @@ interface ActivityInput {
   createdByUserId?: string;
   contactId?: string | null;
   accountId?: string | null;
+  // T-0082 (D-L107): set only when a probe needs the meeting columns, so that
+  // every other probe still runs on a schema without them.
+  times?: { startsAt: string | null; endsAt: string | null };
 }
+
+const INSERT_ACTIVITY_TIMED = `
+  INSERT INTO activity (id, tenant_id, programme_id, type, subject, body,
+                        owner_user_id, created_by_user_id, contact_id, account_id,
+                        starts_at, ends_at)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`;
 
 const INSERT_ACTIVITY = `
   INSERT INTO activity (id, tenant_id, programme_id, type, subject, body,
@@ -501,11 +510,21 @@ function activityValues(input: ActivityInput): unknown[] {
     input.createdByUserId ?? input.ownerUserId,
     input.contactId ?? null,
     input.accountId ?? null,
+    ...(input.times === undefined ? [] : [input.times.startsAt, input.times.endsAt]),
   ];
 }
 
 const tryInsertActivity = (query: Query, input: ActivityInput) =>
-  probe(query, INSERT_ACTIVITY, activityValues(input));
+  probe(
+    query,
+    input.times === undefined ? INSERT_ACTIVITY : INSERT_ACTIVITY_TIMED,
+    activityValues(input),
+  );
+
+const MEETING_TIMES = {
+  startsAt: '2026-11-02T09:00:00Z',
+  endsAt: '2026-11-02T10:00:00Z',
+};
 
 async function insertActivity(query: Query, input: ActivityInput): Promise<string> {
   const values = activityValues(input);
@@ -835,6 +854,8 @@ describe('acceptance: the activity table (T-0060)', () => {
               type,
               ownerUserId: USER_A_AGENT_1,
               contactId: A1_CONTACT(),
+              // A meeting has its times (D-L107); every other type is probed without.
+              ...(type === 'meeting' ? { times: MEETING_TIMES } : {}),
             }),
           );
         }
@@ -856,6 +877,42 @@ describe('acceptance: the activity table (T-0060)', () => {
         ...Object.fromEntries(TYPES.map((type) => [JSON.stringify(type), 'accepted'])),
         ...Object.fromEntries(rejected.map((type) => [JSON.stringify(type), 'refused'])),
         null: 'refused',
+      });
+    });
+
+    it('a meeting has both times and only a meeting has them, end after start (D-L107)', async () => {
+      const outcomes = await asA1Agent(async (query) => {
+        const at = (type: string, startsAt: string | null, endsAt: string | null) =>
+          tryInsertActivity(query, {
+            tenantId: TENANT_A,
+            programmeId: PROGRAMME_A1,
+            type,
+            ownerUserId: USER_A_AGENT_1,
+            contactId: A1_CONTACT(),
+            times: { startsAt, endsAt },
+          }).then(verdict);
+        return {
+          meetingWithTimes: await at('meeting', MEETING_TIMES.startsAt, MEETING_TIMES.endsAt),
+          meetingWithoutTimes: await at('meeting', null, null),
+          meetingWithoutEnd: await at('meeting', MEETING_TIMES.startsAt, null),
+          meetingWithoutStart: await at('meeting', null, MEETING_TIMES.endsAt),
+          meetingEndBeforeStart: await at('meeting', MEETING_TIMES.endsAt, MEETING_TIMES.startsAt),
+          meetingEndAtStart: await at('meeting', MEETING_TIMES.startsAt, MEETING_TIMES.startsAt),
+          taskWithTimes: await at('task', MEETING_TIMES.startsAt, MEETING_TIMES.endsAt),
+          noteWithStart: await at('note', MEETING_TIMES.startsAt, null),
+          callWithoutTimes: await at('call', null, null),
+        };
+      });
+      expect(outcomes).toEqual({
+        meetingWithTimes: 'accepted',
+        meetingWithoutTimes: 'refused',
+        meetingWithoutEnd: 'refused',
+        meetingWithoutStart: 'refused',
+        meetingEndBeforeStart: 'refused',
+        meetingEndAtStart: 'refused',
+        taskWithTimes: 'refused',
+        noteWithStart: 'refused',
+        callWithoutTimes: 'accepted',
       });
     });
 

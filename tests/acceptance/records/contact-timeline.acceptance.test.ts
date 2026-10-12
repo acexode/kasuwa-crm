@@ -705,7 +705,15 @@ const ACTIVITY_ITEM_KEYS = [
   'version',
 ];
 /** T5: activity-object fields an item omits when withheld. */
-const ACTIVITY_ITEM_WITHHOLDABLE = ['subject', 'body', 'dueAt', 'completedAt'];
+// T-0082 (D-L107): a withheld meeting time is omitted, the item stays.
+const ACTIVITY_ITEM_WITHHOLDABLE = [
+  'subject',
+  'body',
+  'dueAt',
+  'completedAt',
+  'startsAt',
+  'endsAt',
+];
 const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 
 function activityItemProblems(item: Json, where: string): string[] {
