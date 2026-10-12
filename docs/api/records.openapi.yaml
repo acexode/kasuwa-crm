@@ -45,7 +45,7 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.9.0-T-0081
+  version: 0.10.0-T-0105
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
     update. Accounts (T-0052, served since T-0055): list, get, create,
@@ -64,8 +64,14 @@ info:
     T-0076): a lead is a
     contact at a lead stage, not its own record, so leads add a list view
     (`listLeads`), one action (`convertContact`) and one contact field
-    (`companyName`). Custom-field values follow in a later slice (D-L60) and
-    will be added to this file.
+    (`companyName`). Pipelines and deals (P06, T-0105, contract only until
+    T-0107 and T-0108): programme-scoped pipelines with their stages,
+    requirements and transitions (`listPipelines`, `getPipeline`); the board
+    with an exact count and per-currency totals per stage
+    (`getPipelineBoard`, D-P19); deals (`listDeals`, `createDeal`,
+    `getDeal`, `updateDeal`); and the gated stage change (`moveDeal`,
+    D-P20), the only way a deal changes stage. Custom-field values follow
+    in a later slice (D-L60) and will be added to this file.
 
     **Display names (T-0043, D-L64).** A records screen never prints a UUID.
     Programme names come from `listMyProgrammes`; an owner's name is embedded
@@ -93,7 +99,8 @@ info:
 
     **Money.** No contact field carries money. When an Account grows one it is
     minor units as a string plus an ISO 4217 code, never a float (admin's
-    `Money`).
+    `Money`). A deal's `amount` is exactly that, as `DealMoney`: one currency
+    per deal, never converted. Probability is in basis points.
 
     **Transport.** `Authorization: Bearer ksw_s1_…` and nothing else.
 
@@ -113,10 +120,14 @@ tags:
     description: Notes, tasks and logged calls against a contact or an account.
   - name: contacts
     description: People a programme sells to, serves or collects from.
+  - name: deals
+    description: Opportunities in a pipeline, moved stage to stage through moveDeal.
   - name: leads
     description: Contacts at a lead stage (D-P17). A view and an action, not a record type.
   - name: me
     description: The caller's own scope, as the session resolves it.
+  - name: pipelines
+    description: A programme's sales stages, their entry requirements and the board.
 
 paths:
   /api/v1/contacts:
@@ -1920,6 +1931,1208 @@ paths:
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '404': { $ref: '#/components/responses/AccountNotFound' }
 
+  # -------------------------------------------------------------------------
+  # Pipelines and deals (P06, T-0105; D-L88, D-P18, D-P19, D-P20, D-P13,
+  # D-L80, D-L102). CONTRACT ONLY: every operation below is
+  # `x-kasuwa-implemented: false` until its API task (T-0107 the board,
+  # T-0108 deals and the gated move). The five rules at the top of this file
+  # apply unchanged, and four more apply to every operation in this block:
+  #
+  # - **One 404 body.** No such pipeline or deal, one in another tenant, one
+  #   in a programme the caller does not reach, and an id that is not a uuid
+  #   all get the same `404 not_found` bytes (T-0080's rule, not T-0039's
+  #   `400` for a malformed id).
+  # - **`x-kasuwa-error-order`** lists the failures decided after
+  #   authentication, as `<status> <code>` and, where one status is decided at
+  #   two points, `<status> <code> <details code>`, in the order they are
+  #   decided: the first that applies is returned. `401` and the scope-header
+  #   `400` precede all of them and are not listed.
+  # - **`x-kasuwa-rights`** says, per seeded permission set, what the
+  #   operation lets it do: `read`, `own` (deals whose owner is the caller;
+  #   on create, a deal the caller owns), `any` (any deal in the programme)
+  #   or `none` (`403 not_permitted`). The tenant-admin flag acts as `admin`.
+  #   `x-kasuwa-permission` names the permission a write needs (D-L88).
+  # - **`Cache-Control: no-store`** on every answer, errors included.
+  #
+  # Deliberately absent (D-L88's hidden list): US$ and any FX conversion,
+  # territories, AI risk, products, price books and quotes, approvals,
+  # attachments, last WhatsApp contact, contact roles, competitors, locked
+  # KYC checks and the Loans template (NIN/BVN gates, D-L13). Also absent:
+  # any pipeline configuration write (`pipeline.write`, admin-only and API
+  # only, gets its own contract; there is no stage-editor design) and any
+  # deal deletion (D-P27's recycle bin comes later).
+  # -------------------------------------------------------------------------
+
+  /api/v1/pipelines:
+    get:
+      tags: [pipelines]
+      summary: The pipelines of the programmes the session reaches
+      operationId: listPipelines
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P06/01', 'P06/01b', 'P06/04', 'P06/07']
+      x-kasuwa-error-order: ['400 validation_failed']
+      x-kasuwa-rights:
+        admin: read
+        programme_manager: read
+        team_lead: read
+        agent: read
+        qa_analyst: read
+        client_portal: read
+      description: |
+        The P06 pipeline selector. **Pipelines are programme-scoped**
+        (D-L69, D-L88): rows come only from the programmes the session
+        resolves, and no parameter narrows or widens that set. A screen that
+        wants one programme's pipelines filters on `programmeId`. Unknown
+        query parameters are ignored, never honoured.
+
+        **Who reads.** Every permission set in the programme reads its
+        pipelines, as it reads contacts and accounts. No set writes them
+        here: pipeline configuration is `pipeline.write`, admin-only, and
+        not part of this contract. A programme with no pipeline lists none;
+        the P06/07 template picker waits for that configuration contract.
+
+        Order is by `name`, ties broken by `id` ascending. Names are not
+        unique. Keyset only: `{ data, nextCursor }`, no total, count or
+        offset (D-P13). Every answer carries `Cache-Control: no-store`.
+      parameters:
+        - $ref: '#/components/parameters/PipelineCursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of pipelines.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PipelinePage' }
+              example:
+                data:
+                  - id: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    name: B2B sales
+                    version: 1
+                    createdAt: '2026-10-01T08:00:00.000Z'
+                    updatedAt: '2026-10-01T08:00:00.000Z'
+                nextCursor: null
+        '400': { $ref: '#/components/responses/DealValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+
+  /api/v1/pipelines/{pipelineId}:
+    parameters:
+      - $ref: '#/components/parameters/PipelineId'
+    get:
+      tags: [pipelines]
+      summary: One pipeline with its stages, requirements and transitions
+      operationId: getPipeline
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P06/01', 'P06/02', 'P06/03', 'P06/04', 'P06/05']
+      x-kasuwa-error-order: ['404 not_found']
+      x-kasuwa-rights:
+        admin: read
+        programme_manager: read
+        team_lead: read
+        agent: read
+        qa_analyst: read
+        client_portal: read
+      description: |
+        Everything a screen needs to draw columns, the stage path and the
+        move sheet: the stages in position order, each stage's requirements,
+        and the transition allow-list. Configuration ids only; no deal data.
+
+        **Scope.** One `404 not_found` body for a pipeline that does not
+        exist, one in another tenant, one in a programme the caller does
+        not reach, and an id that is not a uuid. This is a read, so there is
+        no `403`.
+
+        **Stages** are `open`, `won` or `lost` (D-L88). A pipeline has at
+        least one open stage and exactly one won and one lost stage.
+        Positions run from 0 without gaps: the open stages first, then won,
+        then lost. The last open stage is the open stage with the highest
+        position. The first open stage never has requirements, because
+        every deal is created in it.
+
+        **Probability** is the stage's, in basis points (`probabilityBp`,
+        0 to 10000; 2500 is 25%). A won stage is always 10000 and a lost
+        stage always 0. A deal has no probability of its own.
+
+        **Rotting.** An open stage's `rottingAfterDays` (default 14, 2 to
+        365) is when a deal left in it rots; it is stale from half that,
+        rounded down. Won and lost stages have `null`. Notifications and
+        alerts wait for the notifications module.
+
+        **Requirements** (D-P20) are entry requirements of a stage: a
+        `field` requirement names a standard deal field that must hold a
+        value, and a `check` requirement is a labelled checklist item whose
+        tick records who and when. Approvals and attachments are later.
+
+        **Transitions** are an allow-list of `{ fromStageId, toStageId }`
+        pairs, seeded from the template (D-L88): forward one stage, back to
+        any open stage, won only from the last open stage, lost from any
+        open stage, and from won or lost back to any open stage. A move not
+        on the list is `409 transition_not_allowed` (moveDeal). No pair
+        moves a stage to itself.
+
+        `Cache-Control: no-store` on every answer.
+      responses:
+        '200':
+          description: The pipeline.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pipeline' }
+              example:
+                id: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                name: B2B sales
+                version: 1
+                stages:
+                  - id: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f01
+                    name: Qualified
+                    kind: open
+                    position: 0
+                    probabilityBp: 1000
+                    rottingAfterDays: 14
+                    requirements: []
+                  - id: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02
+                    name: Discovery
+                    kind: open
+                    position: 1
+                    probabilityBp: 2500
+                    rottingAfterDays: 14
+                    requirements: []
+                  - id: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f03
+                    name: Proposal
+                    kind: open
+                    position: 2
+                    probabilityBp: 5000
+                    rottingAfterDays: 14
+                    requirements:
+                      - id: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e01
+                        kind: check
+                        label: Budget range confirmed with the customer
+                  - id: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04
+                    name: Negotiation
+                    kind: open
+                    position: 3
+                    probabilityBp: 7000
+                    rottingAfterDays: 14
+                    requirements:
+                      - id: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e02
+                        kind: field
+                        field: amount
+                      - id: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e03
+                        kind: field
+                        field: expectedCloseDate
+                      - id: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e04
+                        kind: check
+                        label: Quote sent to the customer
+                  - id: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f05
+                    name: Contract
+                    kind: open
+                    position: 4
+                    probabilityBp: 9000
+                    rottingAfterDays: 21
+                    requirements:
+                      - id: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e05
+                        kind: field
+                        field: primaryContactId
+                      - id: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e06
+                        kind: check
+                        label: Purchase order received
+                  - id: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f06
+                    name: Won
+                    kind: won
+                    position: 5
+                    probabilityBp: 10000
+                    rottingAfterDays: null
+                    requirements: []
+                  - id: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f07
+                    name: Lost
+                    kind: lost
+                    position: 6
+                    probabilityBp: 0
+                    rottingAfterDays: null
+                    requirements: []
+                transitions:
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f01, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f01, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f07 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f01 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f03 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f07 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f03, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f01 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f03, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f03, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f03, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f07 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f01 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f03 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f05 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f07 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f05, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f01 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f05, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f05, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f03 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f05, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f05, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f06 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f05, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f07 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f06, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f01 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f06, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f06, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f03 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f06, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f06, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f05 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f07, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f01 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f07, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f07, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f03 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f07, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04 }
+                  - { fromStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f07, toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f05 }
+                createdAt: '2026-10-01T08:00:00.000Z'
+                updatedAt: '2026-10-01T08:00:00.000Z'
+        '400': { $ref: '#/components/responses/DealValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/PipelineRecordNotFound' }
+
+  /api/v1/pipelines/{pipelineId}/board:
+    parameters:
+      - $ref: '#/components/parameters/PipelineId'
+    get:
+      tags: [pipelines]
+      summary: The Kanban board — exact counts and per-currency totals per stage
+      operationId: getPipelineBoard
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P06/01', 'P06/03', 'P06/04']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
+      x-kasuwa-rights:
+        admin: read
+        programme_manager: read
+        team_lead: read
+        agent: read
+        qa_analyst: read
+        client_portal: read
+      description: |
+        The P06/01 board and the P06/04 swipe list. One entry in `stages` per
+        board column, in position order: every open stage, then the won
+        stage. **Lost is not a column**: it is reached from the move sheet
+        (D-L88), and lost deals are listed by listDeals.
+
+        **Scope.** The pipeline must be readable by the caller, exactly as
+        for getPipeline; anything else is the one `404 not_found` body. That
+        check comes first: a bad parameter on a pipeline the caller cannot
+        reach is `404`. A read, so no `403`.
+
+        **Counts and totals (D-P19).** Each column carries an exact `count`
+        of the deals in that stage, computed within the caller's scope,
+        after the filters, over the whole stage and not the page: never
+        capped and never approximate. D-P13 stands for record lists; this
+        is the one count the contract serves. `totals` holds one entry per
+        currency among the counted deals that have an amount, sorted by
+        currency code, never converted and never summed across currencies.
+        A deal with no amount is counted and adds to no total. An empty
+        column has `count: 0` and `totals: []`. `weightedAmountMinor` is the
+        sum of each deal's weighted amount: `amountMinor` times the stage's
+        `probabilityBp` divided by 10000, rounded half-even PER DEAL, then
+        summed (D-L88), never rounded once at the end.
+
+        **When `amount` is withheld.** Field security is judged in the
+        pipeline's programme, so it is the same for every card on a board.
+        When it withholds `amount` from the caller, every column's `totals`
+        is omitted, not empty, and `withheldFields` lists `amount`; cards
+        omit `amount` and `weightedAmount` as Deal does. Counts stay.
+
+        **Filters.** `q` matches the deal `name`, which is never withheld.
+        A filter on a field withheld from the caller is `400
+        validation_failed` with `details[].code: field_withheld` at the
+        parameter: `owner` on `ownerUserId`, `closeFrom` and `closeTo` on
+        `expectedCloseDate`, `currency` on `amount`. Field names are schema,
+        not data, so this discloses nothing; ignoring the filter would serve
+        counts that look filtered and are not. There is no amount-band,
+        account, contact or territory filter. Unknown query parameters are
+        ignored, never honoured.
+
+        **Won** covers the deals that entered the won stage at or after
+        `closedSince`, default 90 days before the request (D-L88): its
+        count, totals and cards alike. Open columns ignore `closedSince`.
+
+        **Cards** are Deal rows under Deal field security. Open columns are
+        ordered by `stageEnteredAt` ascending, ties broken by `id`
+        ascending (the longest-waiting first); the won column by `closedAt`
+        descending, ties broken by `id` descending. Each column holds at most
+        `limit` cards and its own `nextCursor`. **Paging a column:** send
+        that column's `stageId` and its `nextCursor` as `cursor`, with the
+        same filters; the answer has the same shape with only that column in
+        `stages`, its `count` and `totals` still for the whole stage. A
+        `stageId` that is not an open or won stage of this pipeline is
+        `400 validation_failed` with `details[].code: unknown_reference`.
+
+        `Cache-Control: no-store` on every answer, `200`, `400` and `404`
+        alike.
+      parameters:
+        - $ref: '#/components/parameters/DealSearch'
+        - $ref: '#/components/parameters/DealOwnerFilter'
+        - $ref: '#/components/parameters/CloseFrom'
+        - $ref: '#/components/parameters/CloseTo'
+        - $ref: '#/components/parameters/CurrencyFilter'
+        - $ref: '#/components/parameters/ClosedSince'
+        - $ref: '#/components/parameters/BoardStageId'
+        - $ref: '#/components/parameters/BoardCursor'
+        - $ref: '#/components/parameters/BoardLimit'
+      responses:
+        '200':
+          description: The board, or one column of it, field security applied.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PipelineBoard' }
+              examples:
+                board:
+                  summary: The whole board, limit 2
+                  value:
+                    pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                    closedSince: '2026-07-14T09:00:00.000Z'
+                    withheldFields: []
+                    stages:
+                      - stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f01
+                        count: 2
+                        totals:
+                          - { currency: NGN, amountMinor: '3660000030', weightedAmountMinor: '366000002' }
+                        cards:
+                          - id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d01
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                            stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f01
+                            version: 2
+                            name: Port Harcourt haulage
+                            amount: { amountMinor: '3100000005', currency: NGN }
+                            weightedAmount: { amountMinor: '310000000', currency: NGN }
+                            expectedCloseDate: '2026-12-15'
+                            ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                            owner: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                            primaryContactId: null
+                            contact: null
+                            accountId: null
+                            account: null
+                            nextStep: Discovery call on Wednesday
+                            stageEnteredAt: '2026-10-08T10:00:00.000Z'
+                            closedAt: null
+                            rotting: fresh
+                            checks: []
+                            createdAt: '2026-10-08T10:00:00.000Z'
+                            updatedAt: '2026-10-09T11:30:00.000Z'
+                            withheldFields: []
+                          - id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d02
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                            stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f01
+                            version: 1
+                            name: Bodija retail POS
+                            amount: { amountMinor: '560000025', currency: NGN }
+                            weightedAmount: { amountMinor: '56000002', currency: NGN }
+                            expectedCloseDate: null
+                            ownerUserId: null
+                            owner: null
+                            primaryContactId: null
+                            contact: null
+                            accountId: null
+                            account: null
+                            nextStep: null
+                            stageEnteredAt: '2026-10-11T08:15:00.000Z'
+                            closedAt: null
+                            rotting: fresh
+                            checks: []
+                            createdAt: '2026-10-11T08:15:00.000Z'
+                            updatedAt: '2026-10-11T08:15:00.000Z'
+                            withheldFields: []
+                        nextCursor: null
+                      - stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02
+                        count: 3
+                        totals:
+                          - { currency: NGN, amountMinor: '2225000000', weightedAmountMinor: '556250000' }
+                        cards:
+                          - id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d03
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                            stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02
+                            version: 4
+                            name: Lekki Pharmacy chain
+                            amount: { amountMinor: '975000000', currency: NGN }
+                            weightedAmount: { amountMinor: '243750000', currency: NGN }
+                            expectedCloseDate: '2026-10-31'
+                            ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                            owner: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                            primaryContactId: null
+                            contact: null
+                            accountId: null
+                            account: null
+                            nextStep: Site visit on Monday
+                            stageEnteredAt: '2026-09-24T09:00:00.000Z'
+                            closedAt: null
+                            rotting: rotting
+                            checks: []
+                            createdAt: '2026-09-20T09:00:00.000Z'
+                            updatedAt: '2026-10-02T16:20:00.000Z'
+                            withheldFields: []
+                          - id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d04
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                            stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02
+                            version: 1
+                            name: Abuja Estates CRM
+                            amount: null
+                            weightedAmount: null
+                            expectedCloseDate: null
+                            ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                            owner: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: null }
+                            primaryContactId: null
+                            contact: null
+                            accountId: null
+                            account: null
+                            nextStep: null
+                            stageEnteredAt: '2026-10-03T13:00:00.000Z'
+                            closedAt: null
+                            rotting: stale
+                            checks: []
+                            createdAt: '2026-10-03T13:00:00.000Z'
+                            updatedAt: '2026-10-03T13:00:00.000Z'
+                            withheldFields: []
+                        nextCursor: ZGVhbC1jdXJzb3ItZXhhbXBsZQ
+                      - stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f03
+                        count: 2
+                        totals:
+                          - { currency: GHS, amountMinor: '4500003', weightedAmountMinor: '2250002' }
+                          - { currency: NGN, amountMinor: '2200000000', weightedAmountMinor: '1100000000' }
+                        cards:
+                          - id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d05
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                            stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f03
+                            version: 6
+                            name: Kano Agro Inputs
+                            amount: { amountMinor: '2200000000', currency: NGN }
+                            weightedAmount: { amountMinor: '1100000000', currency: NGN }
+                            expectedCloseDate: '2026-10-14'
+                            ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                            owner: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                            primaryContactId: null
+                            contact: null
+                            accountId: null
+                            account: null
+                            nextStep: null
+                            stageEnteredAt: '2026-09-26T12:00:00.000Z'
+                            closedAt: null
+                            rotting: rotting
+                            checks:
+                              - requirementId: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e01
+                                checkedAt: '2026-09-26T12:00:00.000Z'
+                                checkedBy: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                            createdAt: '2026-09-01T10:00:00.000Z'
+                            updatedAt: '2026-09-26T12:00:00.000Z'
+                            withheldFields: []
+                          - id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d06
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                            stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f03
+                            version: 3
+                            name: Accra distributor pilot
+                            amount: { amountMinor: '4500003', currency: GHS }
+                            weightedAmount: { amountMinor: '2250002', currency: GHS }
+                            expectedCloseDate: '2026-11-06'
+                            ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                            owner: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                            primaryContactId: null
+                            contact: null
+                            accountId: null
+                            account: null
+                            nextStep: Demo follow-up on Thursday
+                            stageEnteredAt: '2026-10-09T15:00:00.000Z'
+                            closedAt: null
+                            rotting: fresh
+                            checks:
+                              - requirementId: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e01
+                                checkedAt: '2026-10-09T15:00:00.000Z'
+                                checkedBy: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                            createdAt: '2026-09-15T10:00:00.000Z'
+                            updatedAt: '2026-10-09T15:00:00.000Z'
+                            withheldFields: []
+                        nextCursor: null
+                      - stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04
+                        count: 1
+                        totals:
+                          - { currency: NGN, amountMinor: '1500000015', weightedAmountMinor: '1050000010' }
+                        cards:
+                          - id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d07
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                            stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04
+                            version: 5
+                            name: Ọjà Foods — Q4 supply
+                            amount: { amountMinor: '1500000015', currency: NGN }
+                            weightedAmount: { amountMinor: '1050000010', currency: NGN }
+                            expectedCloseDate: '2026-10-31'
+                            ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                            owner: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                            primaryContactId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                            contact: { id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01, displayName: Adaeze Okonkwo }
+                            accountId: 5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01
+                            account: { id: 5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01, name: Ọjà Foods Ltd }
+                            nextStep: Send the revised quote
+                            stageEnteredAt: '2026-10-03T09:30:00.000Z'
+                            closedAt: null
+                            rotting: stale
+                            checks:
+                              - requirementId: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e01
+                                checkedAt: '2026-09-22T14:00:00.000Z'
+                                checkedBy: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                              - requirementId: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e04
+                                checkedAt: '2026-10-03T09:30:00.000Z'
+                                checkedBy: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                            createdAt: '2026-09-10T10:00:00.000Z'
+                            updatedAt: '2026-10-03T09:30:00.000Z'
+                            withheldFields: []
+                        nextCursor: null
+                      - stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f05
+                        count: 0
+                        totals: []
+                        cards: []
+                        nextCursor: null
+                      - stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f06
+                        count: 1
+                        totals:
+                          - { currency: NGN, amountMinor: '4500000000', weightedAmountMinor: '4500000000' }
+                        cards:
+                          - id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d08
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                            stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f06
+                            version: 9
+                            name: Obajana haulage pilot
+                            amount: { amountMinor: '4500000000', currency: NGN }
+                            weightedAmount: { amountMinor: '4500000000', currency: NGN }
+                            expectedCloseDate: '2026-09-30'
+                            ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                            owner: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                            primaryContactId: null
+                            contact: null
+                            accountId: null
+                            account: null
+                            nextStep: null
+                            stageEnteredAt: '2026-09-29T17:00:00.000Z'
+                            closedAt: '2026-09-29T17:00:00.000Z'
+                            rotting: null
+                            checks: []
+                            createdAt: '2026-08-01T10:00:00.000Z'
+                            updatedAt: '2026-09-29T17:00:00.000Z'
+                            withheldFields: []
+                        nextCursor: null
+                oneColumn:
+                  summary: The next page of one column (stageId and cursor sent)
+                  value:
+                    pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                    closedSince: '2026-07-14T09:00:00.000Z'
+                    withheldFields: []
+                    stages:
+                      - stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02
+                        count: 3
+                        totals:
+                          - { currency: NGN, amountMinor: '2225000000', weightedAmountMinor: '556250000' }
+                        cards:
+                          - id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d09
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                            stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02
+                            version: 2
+                            name: Enugu schools messaging
+                            amount: { amountMinor: '1250000000', currency: NGN }
+                            weightedAmount: { amountMinor: '312500000', currency: NGN }
+                            expectedCloseDate: '2026-11-20'
+                            ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                            owner: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                            primaryContactId: null
+                            contact: null
+                            accountId: null
+                            account: null
+                            nextStep: Send the brochure
+                            stageEnteredAt: '2026-10-10T10:00:00.000Z'
+                            closedAt: null
+                            rotting: fresh
+                            checks: []
+                            createdAt: '2026-10-05T10:00:00.000Z'
+                            updatedAt: '2026-10-10T10:00:00.000Z'
+                            withheldFields: []
+                        nextCursor: null
+                amountWithheld:
+                  summary: A caller from whom field security withholds amount
+                  value:
+                    pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                    closedSince: '2026-07-14T09:00:00.000Z'
+                    withheldFields: [amount]
+                    stages:
+                      - stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f01
+                        count: 1
+                        cards:
+                          - id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d02
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                            stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f01
+                            version: 1
+                            name: Bodija retail POS
+                            expectedCloseDate: null
+                            ownerUserId: null
+                            owner: null
+                            primaryContactId: null
+                            contact: null
+                            accountId: null
+                            account: null
+                            nextStep: null
+                            stageEnteredAt: '2026-10-11T08:15:00.000Z'
+                            closedAt: null
+                            rotting: fresh
+                            checks: []
+                            createdAt: '2026-10-11T08:15:00.000Z'
+                            updatedAt: '2026-10-11T08:15:00.000Z'
+                            withheldFields: [amount]
+                        nextCursor: null
+                      - { stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f02, count: 0, cards: [], nextCursor: null }
+                      - { stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f03, count: 0, cards: [], nextCursor: null }
+                      - { stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04, count: 0, cards: [], nextCursor: null }
+                      - { stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f05, count: 0, cards: [], nextCursor: null }
+                      - { stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f06, count: 0, cards: [], nextCursor: null }
+        '400': { $ref: '#/components/responses/DealValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/PipelineRecordNotFound' }
+
+  /api/v1/pipelines/{pipelineId}/deals:
+    parameters:
+      - $ref: '#/components/parameters/PipelineId'
+    get:
+      tags: [deals]
+      summary: List a pipeline's deals — the P06/01b list view
+      operationId: listDeals
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P06/01b']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
+      x-kasuwa-rights:
+        admin: read
+        programme_manager: read
+        team_lead: read
+        agent: read
+        qa_analyst: read
+        client_portal: read
+      description: |
+        The P06/01b list view: the pipeline's deals as Deal rows under Deal
+        field security, with the board's filters. Every stage, lost
+        included; `stageId` narrows to some stages. Won and lost deals that
+        closed before `closedSince` (default 90 days before the request) are
+        left out; open deals ignore it.
+
+        **Scope.** The pipeline must be readable by the caller; anything
+        else is the one `404 not_found` body, decided first. A read, so no
+        `403`.
+
+        **Filters** follow getPipelineBoard: `q` on `name`, and a filter on a
+        withheld field is `400 validation_failed` with
+        `details[].code: field_withheld` at the parameter. A `stageId` that
+        is not a stage of this pipeline is `400 validation_failed` with
+        `details[].code: unknown_reference`. Unknown query parameters are
+        ignored, never honoured.
+
+        **No totals** (D-P13 stands for record lists). The list view's footer
+        totals are the board's per-currency totals, read from
+        getPipelineBoard with the same filters; this list never counts.
+
+        **Sort** is one of a fixed set of keys field security never
+        withholds, a leading `-` descending, ties broken by `id` in the same
+        direction. Never `amount`, `expectedCloseDate` or the owner: ordering
+        by a withheld value leaks it one comparison at a time. Keyset only:
+        `{ data, nextCursor }`, no total, count or offset.
+
+        `Cache-Control: no-store` on every answer.
+      parameters:
+        - $ref: '#/components/parameters/DealSearch'
+        - $ref: '#/components/parameters/DealOwnerFilter'
+        - $ref: '#/components/parameters/CloseFrom'
+        - $ref: '#/components/parameters/CloseTo'
+        - $ref: '#/components/parameters/CurrencyFilter'
+        - $ref: '#/components/parameters/ClosedSince'
+        - name: stageId
+          in: query
+          required: false
+          description: Any of these stages of this pipeline. Repeat the parameter for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 20
+            items: { type: string, format: uuid }
+        - name: sort
+          in: query
+          required: false
+          description: |
+            One of a fixed set of never-withheld keys; a leading `-` is
+            descending. Ties break on `id`, so the keyset is total.
+          schema:
+            type: string
+            enum: ['-updatedAt', 'updatedAt', '-createdAt', 'createdAt', 'name', '-name', 'stageEnteredAt', '-stageEnteredAt']
+            default: '-updatedAt'
+        - $ref: '#/components/parameters/DealCursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of deals, field security applied.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DealPage' }
+              example:
+                data:
+                  - id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d10
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                    stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f07
+                    version: 7
+                    name: Kwara MFB teller desk
+                    amount: { amountMinor: '1420000000', currency: NGN }
+                    weightedAmount: { amountMinor: '0', currency: NGN }
+                    expectedCloseDate: '2026-11-08'
+                    ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    owner: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                    primaryContactId: null
+                    contact: null
+                    accountId: null
+                    account: null
+                    nextStep: null
+                    stageEnteredAt: '2026-10-10T12:00:00.000Z'
+                    closedAt: '2026-10-10T12:00:00.000Z'
+                    rotting: null
+                    checks: []
+                    createdAt: '2026-08-20T10:00:00.000Z'
+                    updatedAt: '2026-10-10T12:00:00.000Z'
+                    withheldFields: []
+                nextCursor: ZGVhbC1saXN0LWN1cnNvcg
+        '400': { $ref: '#/components/responses/DealValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/PipelineRecordNotFound' }
+
+    post:
+      tags: [deals]
+      summary: Create a deal in the pipeline's first open stage
+      operationId: createDeal
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-permission: deal.write
+      x-kasuwa-screens: ['P06/01', 'P06/07']
+      x-kasuwa-error-order: ['404 not_found', '403 not_permitted', '400 validation_failed']
+      x-kasuwa-rights:
+        admin: any
+        programme_manager: any
+        team_lead: any
+        agent: own
+        qa_analyst: none
+        client_portal: none
+      description: |
+        **Where.** The deal lives in the pipeline's programme (D-L88); the
+        pipeline comes from the path, so the body takes no `programmeId`,
+        `pipelineId` or `stageId`. **Every deal starts in the pipeline's
+        first open stage**, which never has requirements, so no create can
+        skip a gate. A pipeline the caller cannot reach is the one
+        `404 not_found` body.
+
+        **Rights (D-L88).** Creating needs `deal.write` in the pipeline's
+        programme, held by the `agent`, `team_lead`, `programme_manager` and
+        `admin` sets and the tenant-admin flag; `qa_analyst` and
+        `client_portal` get `403 not_permitted`, decided before the body is
+        read. **An agent's deal is theirs:** without `ownerUserId` the owner
+        is the caller. Any other owner, `null` included, needs
+        `deal.reassign` (`team_lead`, `programme_manager`, `admin`); without
+        it the answer is `403 not_permitted` with
+        `details[].code: owner_not_self` at `ownerUserId`. Setting a field
+        the caller may not edit is `403 not_permitted` with
+        `details[].code: field_not_editable`. The tenant-admin flag never
+        lifts field security.
+
+        **References.** `primaryContactId` must name a contact and
+        `accountId` an account in the pipeline's programme, and
+        `ownerUserId` a member of it. Anything else, another programme's or
+        tenant's row or nothing at all, is `400 validation_failed` with
+        `details[].code: unknown_reference`. **Money:** `amount` is
+        `{ amountMinor, currency }`, one currency per deal, never
+        converted; a currency the server does not know is `400` with
+        `details[].code: unknown_currency` at `amount.currency`.
+
+        **Order:** `404`, `403` (the action, `owner_not_self` and
+        `field_not_editable`, judged on the raw body), then `400`. The
+        answer is the created deal through Deal field security. Every create
+        writes one audit event (`objectType: deal`), field names only, never
+        values.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDealRequest' }
+            example:
+              name: Kaduna textiles supply
+              amount: { amountMinor: '1200000000', currency: NGN }
+              expectedCloseDate: '2026-12-15'
+              primaryContactId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+              accountId: 5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01
+      responses:
+        '201':
+          description: Created, in the first open stage.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deal' }
+              example:
+                id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d11
+                programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f01
+                version: 1
+                name: Kaduna textiles supply
+                amount: { amountMinor: '1200000000', currency: NGN }
+                weightedAmount: { amountMinor: '120000000', currency: NGN }
+                expectedCloseDate: '2026-12-15'
+                ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                owner: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                primaryContactId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                contact: { id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01, displayName: Adaeze Okonkwo }
+                accountId: 5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01
+                account: { id: 5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01, name: Ọjà Foods Ltd }
+                nextStep: null
+                stageEnteredAt: '2026-10-12T09:00:00.000Z'
+                closedAt: null
+                rotting: fresh
+                checks: []
+                createdAt: '2026-10-12T09:00:00.000Z'
+                updatedAt: '2026-10-12T09:00:00.000Z'
+                withheldFields: []
+        '400': { $ref: '#/components/responses/DealValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/DealNotPermitted' }
+        '404': { $ref: '#/components/responses/PipelineRecordNotFound' }
+
+  /api/v1/deals/{dealId}:
+    parameters:
+      - $ref: '#/components/parameters/DealId'
+    get:
+      tags: [deals]
+      summary: Get one deal
+      operationId: getDeal
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P06/05', 'P06/06']
+      x-kasuwa-error-order: ['404 not_found']
+      x-kasuwa-rights:
+        admin: read
+        programme_manager: read
+        team_lead: read
+        agent: read
+        qa_analyst: read
+        client_portal: read
+      description: |
+        The P06/05 deal detail's header, key fields and stage path (the path
+        is drawn from getPipeline; the ticked checks are on the deal).
+        One `404 not_found` body for no such deal, a deal in another tenant,
+        one in a programme the caller does not reach, and an id that is not
+        a uuid. A read, so no `403`. `Cache-Control: no-store` on every
+        answer.
+      responses:
+        '200':
+          description: The deal, field security applied.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deal' }
+              example:
+                id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d07
+                programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04
+                version: 5
+                name: Ọjà Foods — Q4 supply
+                amount: { amountMinor: '1500000015', currency: NGN }
+                weightedAmount: { amountMinor: '1050000010', currency: NGN }
+                expectedCloseDate: '2026-10-31'
+                ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                owner: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                primaryContactId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                contact: { id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01, displayName: Adaeze Okonkwo }
+                accountId: 5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01
+                account: { id: 5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01, name: Ọjà Foods Ltd }
+                nextStep: Send the revised quote
+                stageEnteredAt: '2026-10-03T09:30:00.000Z'
+                closedAt: null
+                rotting: stale
+                checks:
+                  - requirementId: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e01
+                    checkedAt: '2026-09-22T14:00:00.000Z'
+                    checkedBy: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                  - requirementId: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e04
+                    checkedAt: '2026-10-03T09:30:00.000Z'
+                    checkedBy: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                createdAt: '2026-09-10T10:00:00.000Z'
+                updatedAt: '2026-10-03T09:30:00.000Z'
+                withheldFields: []
+        '400': { $ref: '#/components/responses/DealValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/PipelineRecordNotFound' }
+
+    patch:
+      tags: [deals]
+      summary: Update a deal's fields (never its stage)
+      operationId: updateDeal
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-permission: deal.write
+      x-kasuwa-screens: ['P06/05', 'P06/06']
+      x-kasuwa-error-order: ['404 not_found', '403 not_permitted', '400 validation_failed', '409 stale_write']
+      x-kasuwa-rights:
+        admin: any
+        programme_manager: any
+        team_lead: any
+        agent: own
+        qa_analyst: none
+        client_portal: none
+      description: |
+        Partial update. **The body is `version` plus ONLY the fields the
+        person changed (D-L102)**, judged against the deal the form was
+        opened on; absent properties are unchanged and `null` clears a
+        nullable field. `version` must equal the deal's current `version`,
+        otherwise `409 stale_write`: re-read, re-apply the person's own
+        edits, and never resend a field they did not touch.
+
+        **Never the stage.** `stageId` changes only through moveDeal
+        (D-L88); sending `stageId`, `pipelineId` or `programmeId` here is
+        `400` (the body is closed). A deal never changes programme.
+
+        **Rights (D-L88).** `deal.write` in the deal's programme. **Agents
+        edit their own deals** (owner is the caller); `team_lead`,
+        `programme_manager` and `admin` edit any deal in the programme
+        (`deal.write_any`). A won or lost deal is edited only with
+        `deal.write_any`. Anything else is `403 not_permitted`, decided
+        before the body is read. Changing the owner to anyone but the
+        caller, or clearing it, needs `deal.reassign` (`team_lead`,
+        `programme_manager`, `admin`), otherwise `403` with
+        `details[].code: owner_not_self`. Each field sent needs edit under
+        field security, otherwise `403` with
+        `details[].code: field_not_editable`. A caller cannot clear a field
+        they cannot read.
+
+        **References and money** as createDeal, judged in the deal's
+        programme (`400 unknown_reference`, `400 unknown_currency`).
+
+        **Order:** `404`, `403` (the action, `owner_not_self`,
+        `field_not_editable`), `400`, then `409 stale_write`. Every update
+        writes one audit event naming the fields that changed, never their
+        values.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateDealRequest' }
+            examples:
+              nextStep:
+                summary: The person changed the next step only
+                value:
+                  version: 5
+                  nextStep: Call the buyer on Friday
+              closeAndAmount:
+                summary: The person changed the close date and the amount
+                value:
+                  version: 5
+                  expectedCloseDate: '2026-11-14'
+                  amount: { amountMinor: '1650000000', currency: NGN }
+              reassign:
+                summary: A team lead gives the deal to someone else
+                value:
+                  version: 5
+                  ownerUserId: 8d2e3f4a-5b6c-4d7e-8f9a-0b1c2d3e4f02
+      responses:
+        '200':
+          description: The updated deal, field security applied. `version` has advanced.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deal' }
+              example:
+                id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d07
+                programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04
+                version: 6
+                name: Ọjà Foods — Q4 supply
+                amount: { amountMinor: '1500000015', currency: NGN }
+                weightedAmount: { amountMinor: '1050000010', currency: NGN }
+                expectedCloseDate: '2026-10-31'
+                ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                owner: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                primaryContactId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                contact: { id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01, displayName: Adaeze Okonkwo }
+                accountId: 5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01
+                account: { id: 5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01, name: Ọjà Foods Ltd }
+                nextStep: Call the buyer on Friday
+                stageEnteredAt: '2026-10-03T09:30:00.000Z'
+                closedAt: null
+                rotting: stale
+                checks:
+                  - requirementId: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e01
+                    checkedAt: '2026-09-22T14:00:00.000Z'
+                    checkedBy: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                  - requirementId: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e04
+                    checkedAt: '2026-10-03T09:30:00.000Z'
+                    checkedBy: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                createdAt: '2026-09-10T10:00:00.000Z'
+                updatedAt: '2026-10-12T10:00:00.000Z'
+                withheldFields: []
+        '400': { $ref: '#/components/responses/DealValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/DealNotPermitted' }
+        '404': { $ref: '#/components/responses/PipelineRecordNotFound' }
+        '409': { $ref: '#/components/responses/StaleWrite' }
+
+  /api/v1/deals/{dealId}/move:
+    parameters:
+      - $ref: '#/components/parameters/DealId'
+    post:
+      tags: [deals]
+      summary: Move a deal to another stage, filling its requirements in the same write
+      operationId: moveDeal
+      x-kasuwa-implemented: false
+      x-kasuwa-audited: true
+      x-kasuwa-permission: deal.write
+      x-kasuwa-screens: ['P06/01', 'P06/01b', 'P06/02', 'P06/03', 'P06/04', 'P06/05', 'P06/06']
+      x-kasuwa-error-order: ['404 not_found', '403 not_permitted', '400 validation_failed', '403 not_permitted field_not_editable', '409 stale_write', '409 transition_not_allowed', '422 requirements_unmet']
+      x-kasuwa-rights:
+        admin: any
+        programme_manager: any
+        team_lead: any
+        agent: own
+        qa_analyst: none
+        client_portal: none
+      description: |
+        **The only way `stageId` changes** (D-L88): a drag on the board, the
+        list view's stage pill, the move sheet, Mark as lost and the deal
+        detail's stage path all send this. Lost is reached from any open
+        stage through it.
+
+        **Rights (D-L88).** `deal.write` in the deal's programme. **Agents
+        move their own deals**; `team_lead`, `programme_manager` and `admin`
+        move any deal in it (`deal.write_any`). **Leaving won or lost needs
+        `deal.write_any`.** Anything else is `403 not_permitted`, decided
+        before the body is read. Sending in `fields` a field the mover may
+        not edit is `403` with `details[].code: field_not_editable`, judged
+        on the keys.
+
+        **The transition.** `toStageId` must be a stage of the deal's
+        pipeline, otherwise `400 validation_failed` with
+        `details[].code: unknown_reference` at `toStageId`, one body
+        whatever the reason. A pair not on the pipeline's allow-list,
+        including a move to the deal's current stage, is
+        `409 transition_not_allowed`.
+
+        **Requirements (D-P20)** are the target stage's. `fields` and
+        `checks` may name only the target stage's own `field` and `check`
+        requirements; anything else is `400` with
+        `details[].code: not_a_requirement`. They are written in the
+        move's own transaction: the fields' values, each check (who: the
+        caller; when: the server's time) and the stage change commit
+        together or not at all, so a refused move writes nothing. A check
+        recorded on the deal stays recorded and satisfies its requirement
+        on a later move. A `field` requirement is met when, after `fields`
+        is applied, the deal field holds a value.
+
+        **A required field the mover may not edit is `403
+        field_not_editable`** (D-L88), decided after the body: a required
+        field the mover may not READ refuses the move whatever its value,
+        so the answer never tells whether a withheld field is empty; one
+        the mover reads but may not edit refuses the move only when it is
+        unmet. Every other unmet requirement is
+        `422 requirements_unmet`, whose `details` name requirement ids only
+        (`path: requirements.<requirementId>`, `code: requirement_unmet`):
+        never a field value, a label or a field the caller may not read.
+
+        **Order:** `404`, `403` (the action, and `field_not_editable` on the
+        keys sent), `400` (the body, including an unknown stage), `403
+        field_not_editable` (a required field), `409 stale_write`, `409
+        transition_not_allowed`, then `422 requirements_unmet`.
+
+        **Effects.** `stageEnteredAt` becomes the server's time. Entering
+        won or lost sets `closedAt` to it; leaving them clears it.
+        `version` advances. One audit event (`objectType: deal`) names the
+        fields filled and `checks`, never their values, and records the from
+        and to stage ids, which are configuration ids (D-L88). The answer is
+        the deal through Deal field security.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MoveDealRequest' }
+            examples:
+              toNegotiation:
+                summary: Proposal to Negotiation, filling the close date and ticking the quote
+                value:
+                  version: 4
+                  toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04
+                  fields:
+                    expectedCloseDate: '2026-10-31'
+                  checks: [4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e04]
+              markLost:
+                summary: Mark as lost, from any open stage
+                value:
+                  version: 4
+                  toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f07
+              toWon:
+                summary: Contract to Won, the only way into won
+                value:
+                  version: 8
+                  toStageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f06
+      responses:
+        '200':
+          description: Moved. The deal in its new stage, field security applied.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deal' }
+              example:
+                id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d07
+                programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                stageId: 5d0e1f2a-3b4c-4d5e-8f6a-7b8c9d0e1f04
+                version: 5
+                name: Ọjà Foods — Q4 supply
+                amount: { amountMinor: '1500000015', currency: NGN }
+                weightedAmount: { amountMinor: '1050000010', currency: NGN }
+                expectedCloseDate: '2026-10-31'
+                ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                owner: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                primaryContactId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                contact: { id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01, displayName: Adaeze Okonkwo }
+                accountId: 5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01
+                account: { id: 5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c01, name: Ọjà Foods Ltd }
+                nextStep: Send the revised quote
+                stageEnteredAt: '2026-10-12T10:05:00.000Z'
+                closedAt: null
+                rotting: fresh
+                checks:
+                  - requirementId: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e01
+                    checkedAt: '2026-09-22T14:00:00.000Z'
+                    checkedBy: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                  - requirementId: 4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e04
+                    checkedAt: '2026-10-12T10:05:00.000Z'
+                    checkedBy: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Kemi Balogun }
+                createdAt: '2026-09-10T10:00:00.000Z'
+                updatedAt: '2026-10-12T10:05:00.000Z'
+                withheldFields: []
+        '400': { $ref: '#/components/responses/DealValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/DealNotPermitted' }
+        '404': { $ref: '#/components/responses/PipelineRecordNotFound' }
+        '409': { $ref: '#/components/responses/DealMoveConflict' }
+        '422': { $ref: '#/components/responses/RequirementsUnmet' }
+
 components:
   securitySchemes:
     sessionToken:
@@ -2043,6 +3256,163 @@ components:
         The window's end, exclusive (listCalendar). A UTC date-time with a
         `Z`, after `from` (`400 invalid_window`) and at most 42 days after it
         (`400 window_too_long`, never clamped).
+
+    PipelineId:
+      name: pipelineId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        A pipeline identifier (T-0105). An id the caller cannot reach, whether
+        in another tenant, another programme or nowhere, is `404 not_found`,
+        and **a value that is not a uuid is the same `404`, byte for byte**,
+        never a `400`.
+    DealId:
+      name: dealId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        A deal identifier (T-0105). An id the caller cannot reach, whether in
+        another tenant, another programme or nowhere, is `404 not_found`, and
+        **a value that is not a uuid is the same `404`, byte for byte**, never
+        a `400`.
+    PipelineCursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 512 }
+      description: |
+        **Opaque.** Echo `nextCursor` back unchanged; do not parse it or build
+        one. It carries the id of the last row and nothing else (D-L80): never
+        a name. The server resolves the position from that pipeline's CURRENT
+        sort key, inside the caller's scope. An id that does not name a
+        pipeline the caller reaches is `400 validation_failed` with
+        `details[].code: invalid_cursor`, one body whatever the reason,
+        exactly as for a malformed cursor, so a cursor cannot test whether an
+        id exists.
+    DealCursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 512 }
+      description: |
+        **Opaque.** Echo `nextCursor` back unchanged, with the same filters
+        and `sort`; do not parse it or build one. It carries the id of the
+        last row and nothing else (D-L80): never a deal name, an amount or a
+        date. The server resolves the position from that deal's CURRENT sort
+        key, inside the caller's scope. The id must name a deal of this
+        pipeline that the caller reaches and that the same filters still
+        select. Anything else is `400 validation_failed` with
+        `details[].code: invalid_cursor`, one body whatever the reason,
+        exactly as for a malformed cursor: no such deal, another tenant's or
+        programme's, another pipeline's, or one the filters no longer
+        select. So a cursor cannot test whether an id exists. Re-read from
+        the top after a write.
+    BoardCursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 512 }
+      description: |
+        **Opaque.** A column's `nextCursor`, echoed back unchanged with that
+        column's `stageId` and the same filters; do not parse it or build
+        one. It carries the id of the last row and nothing else (D-L80):
+        never a deal name, an amount or a date. The server resolves the
+        position from that deal's CURRENT sort key, inside the caller's
+        scope. The id must name a deal the caller reaches, in that stage of
+        this pipeline, that the same filters still select. Anything else,
+        and a `cursor` sent without `stageId`, is `400 validation_failed`
+        with `details[].code: invalid_cursor`, one body whatever the reason,
+        exactly as for a malformed cursor: no such deal, another tenant's or
+        programme's, another stage's, or one moved since the page was cut.
+        So a cursor cannot test whether an id exists. Re-read the column from
+        the top after a move.
+    BoardStageId:
+      name: stageId
+      in: query
+      required: false
+      schema: { type: string, format: uuid }
+      description: |
+        One column only: an open or won stage of this pipeline, sent with that
+        column's `cursor` to read its next page. Anything else, a lost stage
+        included, is `400 validation_failed` with
+        `details[].code: unknown_reference`.
+    BoardLimit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      description: Cards per column. Out of range is `400`, never clamped.
+    DealSearch:
+      name: q
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 100 }
+      description: |
+        Part of the deal `name`, case- and diacritic-insensitive. `name` is
+        never withheld, so the search discloses nothing. A NUL character is
+        `400 validation_failed`.
+    DealOwnerFilter:
+      name: owner
+      in: query
+      required: false
+      description: |
+        Owner filter, any of: a user id, `me` (the caller) or `unassigned`.
+        Repeat the parameter for several. When field security withholds
+        `ownerUserId` from the caller it is `400` with
+        `details[].code: field_withheld` at `owner`.
+      style: form
+      explode: true
+      schema:
+        type: array
+        maxItems: 20
+        items:
+          type: string
+          pattern: '^(me|unassigned|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$'
+    CloseFrom:
+      name: closeFrom
+      in: query
+      required: false
+      schema: { type: string, format: date }
+      description: |
+        Deals whose `expectedCloseDate` is on or after this calendar date
+        (`YYYY-MM-DD`, no zone; a deal with none is left out). Withheld
+        `expectedCloseDate` is `400 field_withheld` at `closeFrom`.
+    CloseTo:
+      name: closeTo
+      in: query
+      required: false
+      schema: { type: string, format: date }
+      description: |
+        Deals whose `expectedCloseDate` is on or before this calendar date.
+        Before `closeFrom` is `400 validation_failed` with
+        `details[].code: invalid_window`. Withheld `expectedCloseDate` is
+        `400 field_withheld` at `closeTo`.
+    CurrencyFilter:
+      name: currency
+      in: query
+      required: false
+      description: |
+        Deals whose amount is in any of these ISO 4217 codes. Repeat the
+        parameter for several. Withheld `amount` is `400 field_withheld` at
+        `currency`.
+      style: form
+      explode: true
+      schema:
+        type: array
+        maxItems: 10
+        items: { type: string, pattern: '^[A-Z]{3}$' }
+    ClosedSince:
+      name: closedSince
+      in: query
+      required: false
+      schema: { type: string, format: date-time }
+      description: |
+        Won (and, on listDeals, lost) deals closed at or after this UTC
+        date-time with a `Z`. Absent, it is 90 days before the request
+        (D-L88), and the board echoes the value it used. Open deals ignore
+        it.
 
   headers:
     NoStore:
@@ -3261,6 +4631,457 @@ components:
         lga: { type: [string, 'null'], maxLength: 64 }
         parentAccountId: { type: [string, 'null'], format: uuid }
 
+    # --- pipelines and deals (P06, T-0105) ---------------------------------
+
+    DealMoney:
+      type: object
+      additionalProperties: false
+      required: [amountMinor, currency]
+      description: |
+        Money on a deal (D-L88): minor units as a decimal string (a `bigint`
+        does not survive JSON) plus an ISO 4217 code. Never a float, never a
+        currency symbol, never converted. Non-negative, at most 18 digits,
+        no leading zero. The minor unit is the currency's own (kobo for NGN,
+        pesewa for GHS). A code the server does not know is
+        `400 unknown_currency`.
+      properties:
+        amountMinor: { type: string, pattern: '^(0|[1-9][0-9]{0,17})$' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+
+    StageTotal:
+      type: object
+      additionalProperties: false
+      required: [currency, amountMinor, weightedAmountMinor]
+      description: |
+        One currency's total in one board column (D-P19). `weightedAmountMinor`
+        is the sum of each deal's weighted amount, rounded half-even per deal
+        before summing (D-L88).
+      properties:
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        amountMinor: { type: string, pattern: '^(0|[1-9][0-9]{0,23})$' }
+        weightedAmountMinor: { type: string, pattern: '^(0|[1-9][0-9]{0,23})$' }
+
+    StageKind:
+      type: string
+      enum: [open, won, lost]
+      description: Exactly one `won` and one `lost` stage per pipeline (D-L88).
+
+    DealRequirementField:
+      type: string
+      enum: [amount, expectedCloseDate, nextStep, primaryContactId, accountId]
+      description: |
+        The standard deal fields a `field` requirement may name. Custom deal
+        fields wait for the custom-field values slice (D-L60).
+
+    FieldRequirement:
+      type: object
+      additionalProperties: false
+      required: [id, kind, field]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, const: field }
+        field: { $ref: '#/components/schemas/DealRequirementField' }
+
+    CheckRequirement:
+      type: object
+      additionalProperties: false
+      required: [id, kind, label]
+      description: A checklist item. Its tick records who and when.
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, const: check }
+        label: { type: string, minLength: 1, maxLength: 200 }
+
+    StageRequirement:
+      description: An entry requirement of a stage (D-P20).
+      oneOf:
+        - { $ref: '#/components/schemas/FieldRequirement' }
+        - { $ref: '#/components/schemas/CheckRequirement' }
+
+    PipelineStage:
+      type: object
+      additionalProperties: false
+      required: [id, name, kind, position, probabilityBp, rottingAfterDays, requirements]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        kind: { $ref: '#/components/schemas/StageKind' }
+        position: { type: integer, minimum: 0, maximum: 99 }
+        probabilityBp:
+          type: integer
+          minimum: 0
+          maximum: 10000
+          description: Basis points. Won is 10000; lost is 0.
+        rottingAfterDays:
+          type: [integer, 'null']
+          minimum: 2
+          maximum: 365
+          description: Open stages only (default 14); `null` on won and lost. Stale from half, rounded down.
+        requirements:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/StageRequirement' }
+
+    StageTransition:
+      type: object
+      additionalProperties: false
+      required: [fromStageId, toStageId]
+      properties:
+        fromStageId: { type: string, format: uuid }
+        toStageId: { type: string, format: uuid }
+
+    PipelineSummary:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, name, version, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        version: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    PipelinePage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      description: Keyset page. No total, offset or page number (D-P13).
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/PipelineSummary' }
+        nextCursor: { type: [string, 'null'] }
+
+    Pipeline:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, name, version, stages, transitions, createdAt, updatedAt]
+      description: |
+        A pipeline's configuration (getPipeline). Read-only in this contract.
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        version: { type: integer, minimum: 1 }
+        stages:
+          type: array
+          minItems: 3
+          maxItems: 30
+          description: In position order.
+          items: { $ref: '#/components/schemas/PipelineStage' }
+        transitions:
+          type: array
+          maxItems: 900
+          items: { $ref: '#/components/schemas/StageTransition' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    DealOwner:
+      type: object
+      additionalProperties: false
+      required: [id, displayName]
+      description: |
+        An id and a name to print. `displayName` is `null` for a former owner,
+        no longer a member of the deal's programme (D-P23); print a neutral
+        label, never the id.
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: [string, 'null'] }
+
+    DealActor:
+      type: object
+      additionalProperties: false
+      required: [id, displayName]
+      description: The person who ticked a check, named as they are named now (D-L81).
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+
+    DealContactSummary:
+      type: object
+      additionalProperties: false
+      required: [id, displayName]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+
+    DealAccountSummary:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    DealCheck:
+      type: object
+      additionalProperties: false
+      required: [requirementId, checkedAt, checkedBy]
+      properties:
+        requirementId: { type: string, format: uuid }
+        checkedAt: { type: string, format: date-time }
+        checkedBy: { $ref: '#/components/schemas/DealActor' }
+
+    DealRotting:
+      type: string
+      enum: [fresh, stale, rotting]
+      description: |
+        Computed by the server at read time from whole 24-hour periods since
+        `stageEnteredAt` (no zone): `stale` from half the stage's
+        `rottingAfterDays`, rounded down, and `rotting` from
+        `rottingAfterDays`.
+
+    DealWithheldField:
+      type: string
+      enum: [amount, expectedCloseDate, ownerUserId, primaryContactId, accountId, nextStep]
+
+    Deal:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - programmeId
+        - pipelineId
+        - stageId
+        - version
+        - name
+        - stageEnteredAt
+        - closedAt
+        - rotting
+        - checks
+        - createdAt
+        - updatedAt
+        - withheldFields
+      description: |
+        One deal as the caller may see it: a board card, a list row and the
+        detail alike.
+
+        **Withheld fields are omitted, never nulled.** A withheld field's
+        name is in `withheldFields` and the property is absent; withholding
+        `amount` also omits `weightedAmount`, `ownerUserId` also `owner`,
+        `primaryContactId` also `contact`, and `accountId` also `account`.
+        A present `null` means no value.
+
+        `id`, `programmeId`, `pipelineId`, `stageId`, `version`, `name`,
+        `stageEnteredAt`, `closedAt`, `rotting`, `checks`, `createdAt`,
+        `updatedAt` and `withheldFields` are never withheld.
+
+        **One currency per deal, never converted** (D-L88). The probability
+        is the stage's; `weightedAmount` is `amount` times the stage's
+        `probabilityBp` divided by 10000, rounded half-even, in the same
+        currency.
+      properties:
+        id: { type: string, format: uuid }
+        programmeId:
+          type: string
+          format: uuid
+          description: The pipeline's programme. Read-only; a deal never changes programme.
+        pipelineId: { type: string, format: uuid }
+        stageId:
+          type: string
+          format: uuid
+          description: Read-only here; it changes only through moveDeal.
+        version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+          description: Optimistic-concurrency token for updateDeal and moveDeal.
+        name: { type: string, minLength: 1, maxLength: 200 }
+        amount:
+          oneOf:
+            - { $ref: '#/components/schemas/DealMoney' }
+            - { type: 'null' }
+        weightedAmount:
+          description: Read-only, derived; withheld with `amount`.
+          oneOf:
+            - { $ref: '#/components/schemas/DealMoney' }
+            - { type: 'null' }
+        expectedCloseDate:
+          type: [string, 'null']
+          format: date
+          description: A calendar date (`YYYY-MM-DD`), no zone.
+        ownerUserId: { type: [string, 'null'], format: uuid }
+        owner:
+          description: '`null` exactly when `ownerUserId` is `null`. Read-only.'
+          oneOf:
+            - { $ref: '#/components/schemas/DealOwner' }
+            - { type: 'null' }
+        primaryContactId:
+          type: [string, 'null']
+          format: uuid
+          description: One primary contact, in the deal's programme.
+        contact:
+          description: Read-only; withheld with `primaryContactId`.
+          oneOf:
+            - { $ref: '#/components/schemas/DealContactSummary' }
+            - { type: 'null' }
+        accountId:
+          type: [string, 'null']
+          format: uuid
+          description: One account, in the deal's programme.
+        account:
+          description: Read-only; withheld with `accountId`.
+          oneOf:
+            - { $ref: '#/components/schemas/DealAccountSummary' }
+            - { type: 'null' }
+        nextStep: { type: [string, 'null'], maxLength: 200 }
+        stageEnteredAt:
+          type: string
+          format: date-time
+          description: When the deal entered its current stage.
+        closedAt:
+          type: [string, 'null']
+          format: date-time
+          description: When it entered won or lost; `null` while open.
+        rotting:
+          description: '`null` on a won or lost deal.'
+          oneOf:
+            - { $ref: '#/components/schemas/DealRotting' }
+            - { type: 'null' }
+        checks:
+          type: array
+          description: The check requirements ticked on this deal, each once.
+          items: { $ref: '#/components/schemas/DealCheck' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        withheldFields:
+          type: array
+          uniqueItems: true
+          description: Always present; empty when nothing was withheld.
+          items: { $ref: '#/components/schemas/DealWithheldField' }
+
+    DealPage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      description: Keyset page. No total, offset or page number (D-P13).
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Deal' }
+        nextCursor: { type: [string, 'null'] }
+
+    BoardStage:
+      type: object
+      additionalProperties: false
+      required: [stageId, count, cards, nextCursor]
+      description: |
+        One board column. `count` and `totals` cover the whole stage within
+        the caller's scope and filters, not the page (D-P19). `totals` is
+        omitted when `amount` is withheld from the caller.
+      properties:
+        stageId: { type: string, format: uuid }
+        count: { type: integer, minimum: 0 }
+        totals:
+          type: array
+          description: One entry per currency, sorted by code; empty for a column with no amounts.
+          items: { $ref: '#/components/schemas/StageTotal' }
+        cards:
+          type: array
+          items: { $ref: '#/components/schemas/Deal' }
+        nextCursor: { type: [string, 'null'] }
+
+    PipelineBoard:
+      type: object
+      additionalProperties: false
+      required: [pipelineId, closedSince, withheldFields, stages]
+      properties:
+        pipelineId: { type: string, format: uuid }
+        closedSince:
+          type: string
+          format: date-time
+          description: The `closedSince` the won column used.
+        withheldFields:
+          type: array
+          uniqueItems: true
+          description: Deal fields withheld from the caller in the pipeline's programme.
+          items: { $ref: '#/components/schemas/DealWithheldField' }
+        stages:
+          type: array
+          description: Open stages then won, in position order; one entry when `stageId` was sent.
+          items: { $ref: '#/components/schemas/BoardStage' }
+
+    CreateDealRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      description: |
+        Closed: an unknown or server-owned property (`id`, `programmeId`,
+        `pipelineId`, `stageId`, `version`, `weightedAmount`, `owner`,
+        `contact`, `account`, `checks`, timestamps, `withheldFields`) is
+        `400`.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        amount:
+          oneOf:
+            - { $ref: '#/components/schemas/DealMoney' }
+            - { type: 'null' }
+        expectedCloseDate: { type: [string, 'null'], format: date }
+        ownerUserId: { type: [string, 'null'], format: uuid }
+        primaryContactId: { type: [string, 'null'], format: uuid }
+        accountId: { type: [string, 'null'], format: uuid }
+        nextStep: { type: [string, 'null'], minLength: 1, maxLength: 200 }
+
+    UpdateDealRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      minProperties: 2
+      description: |
+        Closed. `version` plus the changed fields only (D-L102). No `stageId`
+        (moveDeal), no `pipelineId` or `programmeId`.
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+          description: The `version` from your last read. Not current is `409 stale_write`.
+        name: { type: string, minLength: 1, maxLength: 200 }
+        amount:
+          oneOf:
+            - { $ref: '#/components/schemas/DealMoney' }
+            - { type: 'null' }
+        expectedCloseDate: { type: [string, 'null'], format: date }
+        ownerUserId: { type: [string, 'null'], format: uuid }
+        primaryContactId: { type: [string, 'null'], format: uuid }
+        accountId: { type: [string, 'null'], format: uuid }
+        nextStep: { type: [string, 'null'], minLength: 1, maxLength: 200 }
+
+    MoveDealFields:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: |
+        Values for the target stage's `field` requirements, written in the
+        move's transaction. Only fields the target stage requires; a value,
+        never `null`.
+      properties:
+        amount: { $ref: '#/components/schemas/DealMoney' }
+        expectedCloseDate: { type: string, format: date }
+        nextStep: { type: string, minLength: 1, maxLength: 200 }
+        primaryContactId: { type: string, format: uuid }
+        accountId: { type: string, format: uuid }
+
+    MoveDealRequest:
+      type: object
+      additionalProperties: false
+      required: [version, toStageId]
+      description: Closed. The target stage, and the requirements filled with it.
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        toStageId: { type: string, format: uuid }
+        fields: { $ref: '#/components/schemas/MoveDealFields' }
+        checks:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: Ids of the target stage's `check` requirements ticked now.
+          items: { type: string, format: uuid }
+
   responses:
     ValidationFailed:
       description: |
@@ -3472,6 +5293,168 @@ components:
             error: Not Implemented
             code: not_implemented
             message: Not implemented
+
+    PipelineRecordNotFound:
+      description: |
+        **One body for every pipeline and deal operation, whatever the
+        reason:** no such pipeline or deal, one in another tenant, one in a
+        programme of this tenant the caller does not reach, and an id that
+        is not a uuid. A `403` or a `400` here would confirm the id names
+        something real.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          example:
+            statusCode: 404
+            error: Not Found
+            code: not_found
+            message: Not found
+
+    DealValidationFailed:
+      description: |
+        The request did not parse or names something it may not. `details`
+        names paths and reason codes, never the submitted value.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            withheldFilter:
+              summary: A currency filter while amount is withheld
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: currency
+                    code: field_withheld
+            badCursor:
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: cursor
+                    code: invalid_cursor
+            unknownStage:
+              summary: moveDeal, a toStageId that is not a stage of the deal's pipeline
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: toStageId
+                    code: unknown_reference
+            notARequirement:
+              summary: moveDeal, a field the target stage does not require
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: fields.nextStep
+                    code: not_a_requirement
+            unknownCurrency:
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: amount.currency
+                    code: unknown_currency
+
+    DealNotPermitted:
+      description: |
+        **Writes only, and never a substitute for `404`.** The caller can read
+        the deal (or reaches the pipeline) and may not do this to it, may not
+        give it to someone else, or may not edit a field it names.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            action:
+              summary: Not the caller's deal, a closed deal without deal.write_any, or no deal.write
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+            field:
+              summary: A field the caller may not edit, sent or required by the target stage
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: amount
+                    code: field_not_editable
+            ownerNotSelf:
+              summary: Another owner without deal.reassign
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: ownerUserId
+                    code: owner_not_self
+
+    DealMoveConflict:
+      description: |
+        `stale_write`: `version` is not current; nothing was applied. Re-read.
+        `transition_not_allowed`: the pipeline's allow-list has no move from
+        the deal's stage to `toStageId`; nothing was applied.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            stale:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: stale_write
+                message: Someone else saved changes while you were editing. Reload and try again.
+            transition:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: transition_not_allowed
+                message: The deal cannot move to that stage from where it is.
+
+    RequirementsUnmet:
+      description: |
+        The target stage has entry requirements the deal still does not meet
+        after this request's `fields` and `checks`. Nothing was applied.
+        `details` name requirement ids only (`requirements.<requirementId>`),
+        never a value or a label.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          example:
+            statusCode: 422
+            error: Unprocessable Entity
+            code: requirements_unmet
+            message: Complete the stage requirements to move this deal.
+            details:
+              - path: requirements.4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e03
+                code: requirement_unmet
+              - path: requirements.4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e04
+                code: requirement_unmet
 
 security:
   - sessionToken: []

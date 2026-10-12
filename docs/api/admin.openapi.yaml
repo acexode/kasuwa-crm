@@ -3389,6 +3389,9 @@ components:
             - answers_incomplete
             - disposition_not_live
             - disposition_requirements_unmet
+            # records.openapi.yaml (T-0105): moveDeal.
+            - transition_not_allowed
+            - requirements_unmet
             - too_many_requests
             - not_implemented
             - service_unavailable
