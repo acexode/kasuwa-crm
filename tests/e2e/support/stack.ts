@@ -61,6 +61,12 @@ export interface StackUrls {
    * measured here. The third name says which flag a spec relies on.
    */
   webLeadsUrl: string;
+  /**
+   * The same process as `webRecordsUrl`, which also has `crm_activities` ON
+   * (T-0083): the P07 activities screen. The `/activities` byte budget is
+   * measured here, and its summaries link to records this process serves.
+   */
+  webActivitiesUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;
   /** Static fixture pages used by the harness self-tests. */
