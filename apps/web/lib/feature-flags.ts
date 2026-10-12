@@ -173,3 +173,25 @@ export async function crmLiveNav(): Promise<string[]> {
     ...(activities ? ['activities'] : []),
   ];
 }
+
+/**
+ * `crm_scripts` (T-0115, T-0116, D-L114) gates the P10 ROUTES — `/scripts`,
+ * `/scripts/[scriptId]` and `/script-runs/[runId]` call `notFound()` while it
+ * is off — and the contact record's "Start script" control, which the
+ * record's server page reads here and passes down as a boolean. No client
+ * module names it.
+ *
+ * Per process, like the others. It grants nothing: authoring needs
+ * `script.write` and a run needs `script.run`, decided by the scripting API
+ * from the session and `user_programme` whether this is on or off. It is
+ * deliberately NOT in `crmLiveNav()`: the builder has no nav entry for anyone
+ * until a capability read exists (R3, T-0079).
+ */
+export async function crmScriptsEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_scripts',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}

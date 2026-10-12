@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 175 rows; built 90, partial 11, mock-only 27, flagged-off 10, deferred 10, not-started 27.
+Totals: 176 rows; built 90, partial 11, mock-only 27, flagged-off 11, deferred 10, not-started 27.
 
 ## Modules
 
@@ -209,6 +209,7 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `crm_record_view` | The P05 records: the contact (the 360° view) at /contacts/[id] (T-0062) and the account at /accounts/[id] (T-0063). | flagged-off | `crm_record_view` | D-L85, D-L98 | packages/feature-flags/src/index.ts |
 | flag | `crm_leads` | The P04 Leads list, Kanban by status and convert at /leads (T-0058). | flagged-off | `crm_leads` | D-L64, D-L86 | packages/feature-flags/src/index.ts |
 | flag | `crm_activities` | The P07 activities screen at /activities: my tasks by bucket, the calendar, compose, snooze and reschedule (T-0083). | flagged-off | `crm_activities` | D-L105, D-L107 | packages/feature-flags/src/index.ts |
+| flag | `crm_scripts` | The P10 in-call scripts in manual mode: the builder at /scripts (T-0115) and the agent run at /script-runs/[runId], started from the contact record (T-0116). | flagged-off | `crm_scripts` | D-L88, D-L114 | packages/feature-flags/src/index.ts |
 
 ## Deferred decisions
 
