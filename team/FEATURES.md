@@ -157,9 +157,9 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `updateContact` | PATCH /api/v1/contacts/{contactId} — Update a contact (inline edit of owner, status and the rest) | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listContactTimeline` | GET /api/v1/contacts/{contactId}/timeline — The contact's timeline — field and consent changes and activities, newest first | built | — | — | docs/api/records.openapi.yaml |
 | operation | `createActivity` | POST /api/v1/activities — Log an activity — a note, a task, a call or a meeting | built | — | — | docs/api/records.openapi.yaml |
-| operation | `updateActivity` | PATCH /api/v1/activities/{activityId} — Complete, reassign, snooze or reschedule an activity | built | — | — | docs/api/records.openapi.yaml · T-0081 · T-0082 |
-| operation | `listMyActivities` | GET /api/v1/me/activities — The caller's own open tasks in one bucket — overdue, today or upcoming (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0081 · T-0082 |
-| operation | `listCalendar` | GET /api/v1/me/calendar — The caller's own Kasuwa events in a window of at most 42 days (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0082 |
+| operation | `updateActivity` | PATCH /api/v1/activities/{activityId} — Complete, reassign, snooze or reschedule an activity | built | — | — | docs/api/records.openapi.yaml · T-0081 · T-0082 · T-0083 |
+| operation | `listMyActivities` | GET /api/v1/me/activities — The caller's own open tasks in one bucket — overdue, today or upcoming (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0081 · T-0082 · T-0083 |
+| operation | `listCalendar` | GET /api/v1/me/calendar — The caller's own Kasuwa events in a window of at most 42 days (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0082 · T-0083 |
 | operation | `convertContact` | POST /api/v1/contacts/{contactId}/convert — Convert a lead — qualify it and link an account, once | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listLeads` | GET /api/v1/leads — List leads — contacts at a lead stage | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listMyProgrammes` | GET /api/v1/me/programmes — The caller's programmes, with their display names | built | — | — | docs/api/records.openapi.yaml |
