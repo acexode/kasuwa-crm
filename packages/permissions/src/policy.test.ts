@@ -10,6 +10,7 @@ import {
   canUpdateContact,
   canWriteActivity,
   contactUpdateWithinClaim,
+  permissionSetKeysGranting,
   type Grants,
 } from './policy';
 
@@ -62,16 +63,24 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
     for (const action of PROGRAMME_ACTIONS) {
       expect(canProgramme(subject, action, P1), `${action} in P1`).toBe(true);
       expect(canProgramme(subject, action, P2), `${action} in P2 (agent)`).toBe(
-        action === 'contact.claim_and_set_status' || action === 'activity.write',
+        action === 'contact.claim_and_set_status' ||
+          action === 'activity.write' ||
+          action === 'script.run',
       );
     }
   });
 
   // The merged allow-lists, pinned exactly (D-P14, D-P18, T-0077, D-L81).
   it.each([
-    [AGENT_PERMISSION_SET_KEY, ['contact.claim_and_set_status', 'activity.write']],
-    ['team_lead', ['contact.claim_and_set_status', 'activity.write', 'activity.reassign']],
-    ['programme_manager', ['contact.claim_and_set_status', 'activity.write', 'activity.reassign']],
+    [AGENT_PERMISSION_SET_KEY, ['contact.claim_and_set_status', 'activity.write', 'script.run']],
+    [
+      'team_lead',
+      ['contact.claim_and_set_status', 'activity.write', 'activity.reassign', 'script.run'],
+    ],
+    [
+      'programme_manager',
+      ['contact.claim_and_set_status', 'activity.write', 'activity.reassign', 'script.run'],
+    ],
   ])('gives the %s set exactly %j', (key, expected) => {
     const subject = grants({ programmeSets: new Map([[P1, key]]) });
     const permitted = PROGRAMME_ACTIONS.filter((action) => canProgramme(subject, action, P1));
@@ -90,6 +99,34 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
     expect(canProgramme(flag, 'script.write', P1)).toBe(true);
     // The flag never widens scope: a programme outside the session is no.
     expect(canProgramme(flag, 'script.write', '00000000-0000-4000-8000-0000000000ff')).toBe(false);
+  });
+
+  it('script.run (T-0114, D-L88) is agent, team lead, programme manager and admin, or the flag; never qa or the portal', () => {
+    for (const key of ['agent', 'team_lead', 'programme_manager', 'admin']) {
+      const subject = grants({ programmeSets: new Map([[P1, key]]) });
+      expect(canProgramme(subject, 'script.run', P1), key).toBe(true);
+    }
+    for (const key of ['qa_analyst', 'client_portal', null]) {
+      const subject = grants({ programmeSets: new Map([[P1, key]]) });
+      expect(canProgramme(subject, 'script.run', P1), String(key)).toBe(false);
+    }
+    const flag = grants({ isTenantAdmin: true, programmeSets: new Map([[P1, 'qa_analyst']]) });
+    expect(canProgramme(flag, 'script.run', P1)).toBe(true);
+    // Never wider than the session's scope, the flag included.
+    expect(canProgramme(flag, 'script.run', '00000000-0000-4000-8000-0000000000ff')).toBe(false);
+  });
+
+  it('permissionSetKeysGranting names exactly the sets that grant an action', () => {
+    expect(permissionSetKeysGranting('script.run').sort()).toEqual(
+      ['admin', 'agent', 'programme_manager', 'team_lead'].sort(),
+    );
+    expect(permissionSetKeysGranting('script.write')).toEqual(['admin']);
+    for (const action of PROGRAMME_ACTIONS) {
+      for (const key of permissionSetKeysGranting(action)) {
+        const subject = grants({ programmeSets: new Map([[P1, key]]) });
+        expect(canProgramme(subject, action, P1), `${key} ${action}`).toBe(true);
+      }
+    }
   });
 
   it('treats qa_analyst, client_portal, an unknown key and a NULL set as read-only', () => {
