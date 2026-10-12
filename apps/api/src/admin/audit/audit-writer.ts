@@ -77,6 +77,14 @@ export const AUDIT_OBJECT_TYPES = [
    * number and compliance node ids, never wording (D-L96).
    */
   'script',
+  /**
+   * startScriptRun (`created`), a supersede and completeScriptRun (`updated`)
+   * (T-0114, D-L93, R1). The label is the script version's name (programme
+   * configuration), never the contact. Changes name only outcome, stopReason
+   * and configuration ids (disposition, activity, task, version): never a
+   * node id, an answer, a note or wording.
+   */
+  'script_run',
 ] as const;
 export type AuditObjectType = (typeof AUDIT_OBJECT_TYPES)[number];
 
@@ -93,6 +101,7 @@ export const AUDIT_OBJECT_TYPE_LABELS: Record<AuditObjectType, string> = {
   account: 'Account',
   activity: 'Activity',
   script: 'Script',
+  script_run: 'Script run',
 };
 
 export interface AuditChange {

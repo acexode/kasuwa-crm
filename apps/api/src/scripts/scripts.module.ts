@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
+import { ContactScriptsController, ScriptRunsController } from './script-runs.controller';
 import { ScriptsController } from './scripts.controller';
 
 /**
- * In-call script authoring (T-0113, M10; docs/api/scripting.openapi.yaml).
+ * In-call scripts (M10; docs/api/scripting.openapi.yaml): authoring (T-0113)
+ * and runs (T-0114).
  *
  * No providers of its own: the guard and interceptor resolve PG_POOL from the
  * global DatabaseModule and AUTH_MODE from the global AppModule, as the admin
@@ -11,5 +13,5 @@ import { ScriptsController } from './scripts.controller';
  * `common/no-store.middleware.ts`, applied to `SCRIPTING_CONTROLLERS` in
  * `AppModule.configure`.
  */
-@Module({ controllers: [ScriptsController] })
+@Module({ controllers: [ScriptsController, ScriptRunsController, ContactScriptsController] })
 export class ScriptsModule {}

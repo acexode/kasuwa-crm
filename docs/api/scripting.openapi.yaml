@@ -73,8 +73,8 @@ openapi: 3.1.0
 #    changes a run in progress (M10 Q2, D-L88).
 #
 # `x-kasuwa-implemented` is strictly true or false (records' rule). The eight
-# authoring operations are served (T-0113); the nine run operations stay
-# `false` until T-0114 serves them.
+# authoring operations are served (T-0113), and so are the nine run
+# operations (T-0114).
 #
 # `x-kasuwa-error-order` lists the failures an operation can answer, as
 # `<status> <code>`, in the order they are decided: the first that applies is
@@ -535,7 +535,7 @@ paths:
       tags: [script-runs]
       summary: The published scripts the caller may run for this contact
       operationId: listContactScripts
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/04']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
@@ -578,7 +578,7 @@ paths:
       tags: [script-runs]
       summary: Start a run for a contact, on the latest published version
       operationId: startScriptRun
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-audit-names: [versionId, stopReason, outcome]
       x-kasuwa-permission: script.run
@@ -690,7 +690,7 @@ paths:
       tags: [script-runs]
       summary: Read a run, with the latest published version for the update banner
       operationId: getScriptRun
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/01', 'P10/02', 'P10/03']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
@@ -732,7 +732,7 @@ paths:
       tags: [script-runs]
       summary: The version the run is pinned to, graph and translations
       operationId: getScriptRunScript
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/01', 'P10/04']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
@@ -770,7 +770,7 @@ paths:
       tags: [script-runs]
       summary: Finish the current node and move to the next
       operationId: advanceScriptRun
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/01', 'P10/02']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed', '409 run_completed', '409 run_stopped', '409 stale_write', '409 run_at_end', '409 compliance_unacknowledged', '409 answers_incomplete']
@@ -840,7 +840,7 @@ paths:
       tags: [script-runs]
       summary: Acknowledge a compliance statement as read in full
       operationId: acknowledgeScriptRunNode
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: false
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/01']
@@ -895,7 +895,7 @@ paths:
       tags: [script-runs]
       summary: Record a form node's answers on the run
       operationId: recordScriptRunAnswers
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: false
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/02']
@@ -957,7 +957,7 @@ paths:
       tags: [script-runs]
       summary: The live dispositions of the run's programme, in agent order
       operationId: listScriptRunDispositions
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/03']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
@@ -1007,7 +1007,7 @@ paths:
       tags: [script-runs]
       summary: Complete the run with a disposition
       operationId: completeScriptRun
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/03']
