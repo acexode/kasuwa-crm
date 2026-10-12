@@ -2739,8 +2739,36 @@ describe('acceptance: the activities API — my tasks, the calendar, meetings, s
           await lockField(field, 'agent', 'edit');
         }
       }
-      // Withheld startsAt: the Activity answer omits it and names it.
+      // D-L110: a meeting time is written only by a caller who can at least read the
+      // other one. Otherwise invalid_range / too_long (judged before the version)
+      // would let ~42 refused probes recover the withheld time, writing and auditing
+      // nothing. With startsAt withheld, moving endsAt is 403 and changes nothing.
       await lockField('starts_at', 'agent', 'none');
+      const unchanged = await activityRow(meeting);
+      const refused = expectError(
+        await updateActivity(AGENT_1, meeting, {
+          version: await versionOf(meeting),
+          endsAt: iso(W + 3 * HOUR),
+        }),
+        403,
+        'not_permitted',
+      );
+      expect(
+        detailsOf(refused).map((detail) => `${detail.path}:${detail.code}`),
+        'endsAt with startsAt withheld (D-L110)',
+      ).toContain('endsAt:field_not_editable');
+      expect(await activityRow(meeting), 'a refused move changes nothing').toEqual(unchanged);
+      // The same refusal whatever the probe, so the error carries no span information.
+      for (const endsAt of [iso(W - HOUR), iso(W + 30 * HOUR)]) {
+        const probe = expectError(
+          await updateActivity(AGENT_1, meeting, { version: 2147483647, endsAt }),
+          403,
+          'not_permitted',
+        );
+        expect(probe, `probe ${endsAt} answers exactly the first refusal`).toEqual(refused);
+      }
+      // Readable startsAt: the move is allowed, and the answer carries both times.
+      await lockField('starts_at', 'agent', 'read');
       const answer = expectActivity(
         await updateActivity(AGENT_1, meeting, {
           version: await versionOf(meeting),
@@ -2748,10 +2776,11 @@ describe('acceptance: the activities API — my tasks, the calendar, meetings, s
         }),
         'updateActivity',
         200,
-        'endsAt with startsAt withheld',
+        'endsAt with startsAt readable',
       );
-      expect('startsAt' in answer).toBe(false);
-      expect(answer.withheldFields).toContain('startsAt');
+      expect(answer.endsAt).toBe(iso(W + 3 * HOUR));
+      expect('startsAt' in answer).toBe(true);
+      await lockField('starts_at', 'agent', 'edit');
     });
 
     it('a stale version is 409 and changes nothing; the error order is 404, 403, 400, 409', async () => {
