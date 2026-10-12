@@ -36,6 +36,8 @@ const ICONS: Readonly<Record<string, IconName>> = {
   note: 'edit_note',
   task: 'task_alt',
   call: 'call',
+  // T-0082: a meeting on the timeline (logged from P07, never from here).
+  meeting: 'event',
 };
 
 export function Value({ t, view }: { t: Translator; view: ValueView }) {

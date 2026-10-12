@@ -1,6 +1,6 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
 import { ConsentState, ContactSource, ContactStatus, PreferredChannel, RecordsErrorCode } from '../../lib/records-api';
-import { ActivityType } from '../../lib/contact-record-api';
+import { ActivityKind } from '../../lib/contact-record-api';
 import { CRM_SHELL_MESSAGE_IDS } from '../crm/crm-nav';
 import { DETAILS, LANGUAGE_CODES, fieldLabel } from './record-model';
 
@@ -53,7 +53,8 @@ export const CONTACT_RECORD_MESSAGE_IDS: readonly MessageId[] = [
   ...ContactSource.options.map((value) => `records.source.${value}` as MessageId),
   ...ConsentState.options.map((value) => `records.consent.${value}` as MessageId),
   ...PreferredChannel.options.map((value) => `records.channel.${value}` as MessageId),
-  ...ActivityType.options.map((value) => `record.activity.type.${value}` as MessageId),
+  // Every type a timeline may show, meetings included (T-0082).
+  ...ActivityKind.options.map((value) => `record.activity.type.${value}` as MessageId),
   'records.filter.dnd.on',
   'records.filter.dnd.off',
   'records.filter.wa.on',
