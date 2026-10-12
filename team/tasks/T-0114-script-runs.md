@@ -1,7 +1,7 @@
 # T-0114 — Script runs: table and API (P10, manual mode)
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 6 · **priority** P2 · **decisions** D-L88, D-L91, D-L93,
-D-L96, D-L102, D-P31, D-P32 · **migration** next free when it starts
+**status** `assigned` (suite on `lead/T-0114-acceptance`, D-L104) · **owner** Agent 6 · **priority** P2 · **decisions** D-L88, D-L91, D-L93,
+D-L96, D-L102, D-P31, D-P32 · **migration** 0032 (D-L104)
 
 ## Goal
 An agent can run a published script for a contact by hand, from start to a completion with a disposition, exactly as the

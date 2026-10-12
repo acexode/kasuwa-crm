@@ -2290,3 +2290,23 @@ Every recommendation below was taken as written in its entry. What each one now 
 - **Rule.** `db:reset` (and any future destructive dev tool) requires `NODE_ENV` set explicitly to `development` or
   `test`. An unset value is refused. The root script sets it through a small node wrapper, with no new dependency. This
   becomes a P1 follow-up (T-0122) after T-0117, and is unchanged from main until then.
+
+### D-L104 — T-0114 suite rulings; T-0114 assigned (lead, 2026-10-12)
+**Status:** PROCEEDING (lead).
+- **Suite:** `tests/acceptance/scripting/script-runs.acceptance.test.ts` (95 tests) on `lead/T-0114-acceptance`. On main, 91
+  fail for the real reason (no `/script-runs` routes, no `script_run` table, the flags are false) and 4 self-checks pass.
+- **R1–R12, written in the suite header, are accepted:**
+  - run audit events use `object_type 'script_run'`;
+  - acknowledging again returns the run unchanged;
+  - composite FKs keep a run's script, version, agent and contact consistent, and `kasuwa_app` cannot re-point them;
+  - an exact completion repeat is 200 after its disposition is deactivated, but a cursor naming one is invalid;
+  - a withheld-field stop is the same whatever the value;
+  - `profileLocale` is null for an unsupported locale;
+  - a script can start already stopped (201);
+  - a stopped run on an older version stays as it was;
+  - completion is atomic (shown with a planted fault).
+- **The builder owes unit tests for:** the completion 403 without `activity.write` (every set holding `script.run`
+  holds it today) and the `SCRIPT_RUN_SET_KEYS` pin.
+- **Lead edit on the suite branch:** the T-0112 suite's "the nine run operations stay false until T-0114" now expects
+  true. If `script_run` gets `updated_at`, the builder seeds a run so `schema-hygiene` exercises it, or escalates.
+- **Migration 0032** is reserved for `agent6/T-0114` (hook allowance on the suite branch).
