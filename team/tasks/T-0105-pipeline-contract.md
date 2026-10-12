@@ -1,6 +1,6 @@
 # T-0105 — Pipeline and deals contract (P06)
 
-**status** `not-assigned` (suite to be written; contract-only, a lead PR like T-0081) · **owner** Agent 3 · **priority** P1 ·
+**status** `done` (#119, 2026-10-12; contract-only, lead PR) · **owner** Agent 3 · **priority** P1 ·
 **decisions** D-L88, D-P18, D-P19, D-P20, D-P13, D-L72, D-L80, D-L97, D-L102
 
 ## Goal
