@@ -46,6 +46,15 @@ export type AdminErrorCode =
   | 'legal_hold_active'
   /** scripting.openapi.yaml (T-0112): a draft that is not complete enough to publish (T-0113). */
   | 'script_invalid'
+  /** scripting.openapi.yaml (T-0112): the run operations' conflicts (T-0114). */
+  | 'script_not_published'
+  | 'run_completed'
+  | 'run_stopped'
+  | 'run_at_end'
+  | 'compliance_unacknowledged'
+  | 'answers_incomplete'
+  | 'disposition_not_live'
+  | 'disposition_requirements_unmet'
   | 'too_many_requests'
   | 'not_implemented'
   | 'service_unavailable'

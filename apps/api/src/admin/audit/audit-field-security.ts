@@ -99,6 +99,9 @@ export const AUDIT_VALUE_POLICY: Readonly<Record<AuditObjectType, ValuePolicy>> 
   // and locale names (redacted) and, on publish, a version number and
   // compliance node ids, never wording; no field security applies.
   script: CONFIGURATION,
+  // T-0114: a run's events carry an outcome, a stop reason and configuration
+  // ids only (x-kasuwa-audit-names); never an answer, a note or a node id.
+  script_run: CONFIGURATION,
 };
 
 /** An object type outside the closed list: nothing in it is readable. */

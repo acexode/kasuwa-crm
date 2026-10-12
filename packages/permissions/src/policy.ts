@@ -97,9 +97,20 @@ export const PROGRAMME_ACTIONS = [
    * script and its versions, edit the draft, translate it, publish it
    * (docs/api/scripting.openapi.yaml). Held by `admin` only, and by the
    * tenant-admin flag. Reading authoring needs it too: anyone else gets 404.
-   * Running a published script is `script.run`, which T-0114 adds.
+   * Running a published script is `script.run`.
    */
   'script.write',
+  /**
+   * D-L88, D-L93 (T-0114): run a published script for a contact in the
+   * contact's programme - list the runnable scripts, start a run, and walk,
+   * acknowledge, answer and complete one's OWN run
+   * (docs/api/scripting.openapi.yaml). Held by `agent`, `team_lead`,
+   * `programme_manager` and `admin`, and by the tenant-admin flag. A run is
+   * only ever its own agent's (D-L93): holding this never reaches another
+   * person's run. Completing one also needs `activity.write` (the call it
+   * logs), which every set holding this holds today (D-P18).
+   */
+  'script.run',
 ] as const;
 
 export type TenantAction = (typeof TENANT_ACTIONS)[number];
@@ -131,18 +142,34 @@ const SET_PERMITS: Readonly<Record<string, readonly ProgrammeAction[]>> = {
   // may take one itself, never hand one to somebody else (D-L81). A
   // supervisor has at least the agent's rights (D-P18, T-0077), and also
   // reassigns activities (D-L81). Every other set stays read-only (D-L53).
-  [AGENT_PERMISSION_SET_KEY]: ['contact.claim_and_set_status', 'activity.write'],
+  // D-L88 (T-0114): every set that logs activities also runs scripts.
+  [AGENT_PERMISSION_SET_KEY]: ['contact.claim_and_set_status', 'activity.write', 'script.run'],
   [TEAM_LEAD_PERMISSION_SET_KEY]: [
     'contact.claim_and_set_status',
     'activity.write',
     'activity.reassign',
+    'script.run',
   ],
   [PROGRAMME_MANAGER_PERMISSION_SET_KEY]: [
     'contact.claim_and_set_status',
     'activity.write',
     'activity.reassign',
+    'script.run',
   ],
 };
+
+/**
+ * The keys of the permission sets that grant `action`, in the policy's own
+ * order. For a decision that has to be judged against every set that holds an
+ * action, whether or not anyone holds the set today: script publishing judges
+ * `branch_on_withheld_field` against every `script.run` set (D-L93, D-L96).
+ * Derived from the allow-list itself, so the two can never drift.
+ */
+export function permissionSetKeysGranting(action: ProgrammeAction): string[] {
+  return Object.entries(SET_PERMITS)
+    .filter(([, actions]) => actions.includes(action))
+    .map(([key]) => key);
+}
 
 /** Everything a decision needs, resolved from the database for one request. */
 export interface Grants {

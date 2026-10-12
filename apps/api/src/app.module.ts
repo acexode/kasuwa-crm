@@ -20,6 +20,7 @@ import { HealthController } from './health/health.controller';
 import { LeadsController } from './leads/leads.controller';
 import { MeController } from './me/me.controller';
 import { CHANNEL, createApiChannel } from './messaging/channel';
+import { ContactScriptsController, ScriptRunsController } from './scripts/script-runs.controller';
 import { ScriptsController } from './scripts/scripts.controller';
 import { ScriptsModule } from './scripts/scripts.module';
 import { JsonBodyLimit } from './common/json-body-limit';
@@ -49,11 +50,15 @@ export const RECORDS_CONTROLLERS = [
 ];
 
 /**
- * The scripting controllers (scripting.openapi.yaml, T-0113), hosted by
- * ScriptsModule. Every answer is `no-store` too: a script carries a
- * programme's compliance wording.
+ * The scripting controllers (scripting.openapi.yaml: authoring T-0113, runs
+ * T-0114), hosted by ScriptsModule. Every answer is `no-store` too: a script
+ * carries a programme's compliance wording, and a run a customer's answers.
  */
-export const SCRIPTING_CONTROLLERS = [ScriptsController];
+export const SCRIPTING_CONTROLLERS = [
+  ScriptsController,
+  ScriptRunsController,
+  ContactScriptsController,
+];
 
 /** Controllers hosted by this module. AuthController is hosted by AuthModule. */
 const CONTROLLERS = [HealthController, ...RECORDS_CONTROLLERS];

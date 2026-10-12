@@ -8,6 +8,7 @@ import { AppModule, RECORDS_CONTROLLERS, SCRIPTING_CONTROLLERS } from '../app.mo
 import { ContactsController } from '../contacts/contacts.controller';
 import { LeadsController } from '../leads/leads.controller';
 import { MeController } from '../me/me.controller';
+import { ContactScriptsController, ScriptRunsController } from '../scripts/script-runs.controller';
 import { ScriptsController } from '../scripts/scripts.controller';
 import { NoStoreMiddleware } from './no-store.middleware';
 
@@ -62,7 +63,11 @@ describe('AppModule applies it to every records controller (T-0080, D-L90)', () 
     expect(noStore[0]?.routes).toEqual([...RECORDS_CONTROLLERS, ...SCRIPTING_CONTROLLERS]);
   });
 
-  it('names the scripting controller (T-0113)', () => {
-    expect([...SCRIPTING_CONTROLLERS]).toEqual([ScriptsController]);
+  it('names the scripting controllers: authoring (T-0113) and runs (T-0114)', () => {
+    expect([...SCRIPTING_CONTROLLERS]).toEqual([
+      ScriptsController,
+      ScriptRunsController,
+      ContactScriptsController,
+    ]);
   });
 });

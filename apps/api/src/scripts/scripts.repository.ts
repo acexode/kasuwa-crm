@@ -1,5 +1,6 @@
 import { newId, type TenantTx } from '@kasuwa/db';
 import { contactFieldApiName, WITHHOLDABLE_CONTACT_FIELDS } from '@kasuwa/domain-core';
+import { permissionSetKeysGranting } from '@kasuwa/permissions';
 import type { ScriptContactField } from './script-publish';
 
 /**
@@ -519,12 +520,13 @@ export async function insertVersion(
 
 /**
  * The permission sets that hold `script.run` (D-L88: agent, team lead,
- * programme manager and admin). Matched by key, as @kasuwa/permissions
- * matches every set. `script.run` itself is T-0114's to add; until then this
- * list is the one place publish names them. The locked `admin` set is always
- * `edit` on every field, so only the other three can withhold one.
+ * programme manager and admin), read from the policy itself since T-0114 added
+ * the action, so publish judges against exactly the sets the policy grants it
+ * to and the two can never drift. Matched by key, as @kasuwa/permissions
+ * matches every set. The locked `admin` set is always `edit` on every field,
+ * so only the other three can withhold one.
  */
-export const SCRIPT_RUN_SET_KEYS = ['agent', 'team_lead', 'programme_manager', 'admin'] as const;
+export const SCRIPT_RUN_SET_KEYS: readonly string[] = permissionSetKeysGranting('script.run');
 
 /** Contact wire names a script may read: the withholdable fields and `displayName`. */
 export const SCRIPT_CONTACT_FIELDS: readonly string[] = [
