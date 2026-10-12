@@ -1976,13 +1976,13 @@ Every recommendation below was taken as written in its entry. What each one now 
 - **Contract queue for `records.openapi.yaml`:** T-0080, T-0103, T-0081, T-0105, then the rest.
 
 ### D-P31 — may a script's form write CRM fields? (P10; raised by the Phase 2 plan)
-**Status:** OPEN, needs @acexode.
+**Status:** ANSWERED 2026-10-12 by @acexode: the lead recommendation (answers stay on the run in Phase 2).
 - **The conflict.** Form nodes that write contact fields would let an agent edit more than D-P14 allows (status and owner).
 - **Lead recommendation:** in Phase 2, answers stay on the script run only. Later, a grant scoped to the script's bound
   fields, audited.
 
 ### D-P32 — who edits and approves compliance wording in scripts (M10 Q1)
-**Status:** OPEN, needs @acexode.
+**Status:** ANSWERED 2026-10-12 by @acexode: the lead recommendation (the admin set).
 - **Lead recommendation:** the admin set, until the BPO floor rules otherwise. A "compliance approver" role waits for the
   role hierarchy.
 
@@ -2403,3 +2403,32 @@ Every recommendation below was taken as written in its entry. What each one now 
   - keep at least 10 GB free on C: before a full verification;
   - remove a merged task's worktree once its report is filed;
   - stop stale `node` processes from a dead session before re-running.
+
+### D-P33 — the search-index route under RLS (raised by T-0084)
+**Status:** ANSWERED 2026-10-12 by @acexode: the lead recommendation.
+- **The problem.** Under FORCE RLS, Postgres uses an index for a predicate only when its functions are LEAKPROOF. The
+  trigram and jsonb operators T-0084 planned are not, so kasuwa_app could not use those indexes.
+- **Answer:**
+  - T-0084 ships id-only cursors and the plain-column indexes the lists need now, and defers the trigram and jsonb GIN
+    indexes.
+  - Marking specific builtins LEAKPROOF comes later. It needs a review of each function (a superuser act, so an ADR) before
+    it is done.
+  - Search (T-0085–T-0087) builds on that.
+
+### D-L109 — how the team speeds up (from @acexode, 2026-10-12)
+**Status:** PROCEEDING. @acexode chose these after a day lost to a single overloaded verification host.
+- **Batch merges.**
+  - Up to three PRs that are reviewed and ready are verified together: one full run (gates, isolation, the e2e tags they
+    touch) on a branch that merges them in order.
+  - Green means each merges in that order, with `--match-head-commit`, and the PR comments name the batch run.
+  - A red result is bisected by re-running only the suspect PR's suites.
+  - This supersedes "a full isolation run per merge" (D-L97) for batched PRs. A lone PR still gets its own run.
+- **Risk-based reviews.**
+  - **All three reviewers** (migration, security, tenancy): a PR with a migration, auth, permissions or data-access
+    (repository/SQL) code.
+  - **One combined review** (security and tenancy together): a PR that is only UI, contract text, mocks or docs.
+  - Findings are still fixed before merge.
+- **Cloud builders.** Builders run as remote sessions where possible, so they do not hold the laptop's RAM slots. Lead
+  verification stays local (CI minutes are exhausted).
+- **D-P31, D-P32, D-P33 and the `channels/provider` fix** (store the T-0112 suite's vendor names reversed, so that the
+  adapter-boundary scan does not see them) are approved by @acexode.
