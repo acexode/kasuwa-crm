@@ -2387,3 +2387,19 @@ Every recommendation below was taken as written in its entry. What each one now 
   - The builder adds `startsAt: null, endsAt: null` to the `listContactTimeline` and `listAccountTimeline` examples in
     `records.openapi.yaml`, in the same PR as the flag flip; two self-checks depend on it.
   - Migration 0034 is reserved for `agent3/T-0082`.
+
+### D-L108 — T-0104 review rulings; T-0114 merged (lead, 2026-10-12)
+**Status:** PROCEEDING (lead).
+- **T-0114 merged (#116)**, verified on a clean host: isolation 2,313 / 2,314. The one failure is `channels/provider`, red
+  on main since #107. An earlier run on the same head was void because the host collapsed (disk full, the Docker engine
+  failing).
+- **T-0104 (#117): the migration and security reviews passed. Fixed before merge:**
+  - 0033's self-check also asserts the triggers' shape;
+  - the convertContact wording names both audit events.
+- **Accepted:** an admin-audit reader at `owner_user_id: none` can infer a former owner by lining up a contact `updated`
+  event with the programme event's `removedMember` id. Staff ids are not customer PII (D-L71), the reader already reaches
+  the programme, and `removedMember` was already visible under 0031.
+- **Host rule (from the collapse):**
+  - keep at least 10 GB free on C: before a full verification;
+  - remove a merged task's worktree once its report is filed;
+  - stop stale `node` processes from a dead session before re-running.
