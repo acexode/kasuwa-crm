@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { bundleMessages } from '@kasuwa/i18n';
 import { ContactRecordScreen } from '../../../components/contact-record/contact-record-screen';
 import { CONTACT_RECORD_MESSAGE_IDS } from '../../../components/contact-record/message-ids';
-import { crmLiveNav, crmRecordViewEnabled, crmRecordsEnabled } from '../../../lib/feature-flags';
+import { START_SCRIPT_MESSAGE_IDS } from '../../../components/script-run/message-ids';
+import { crmLiveNav, crmRecordViewEnabled, crmRecordsEnabled, crmScriptsEnabled } from '../../../lib/feature-flags';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
 /**
@@ -20,6 +21,10 @@ import { activeLocale, languageOptions } from '../../../lib/locale';
  * That is also what the `@harness` tenancy test relies on — the browser asks
  * for the record by id and the API alone decides whether it is in scope.
  *
+ * The P10 "Start script" control (T-0116) is drawn only where `crm_scripts`
+ * is on, read HERE and passed down as a boolean: no client module names the
+ * flag, and with it off the record ships neither the control nor its strings.
+ *
  * An id that is not a uuid cannot name a record, so it is the app's own 404
  * without a round trip. It is the same generic page an out-of-scope id gets.
  */
@@ -34,14 +39,16 @@ export default async function ContactRecordPage({ params }: { params: Promise<{ 
     notFound();
   }
   const { locale } = await activeLocale();
+  const scripts = await crmScriptsEnabled();
 
   return (
     <ContactRecordScreen
       id={id}
       locale={locale}
-      messages={bundleMessages(locale, CONTACT_RECORD_MESSAGE_IDS)}
+      messages={bundleMessages(locale, scripts ? [...CONTACT_RECORD_MESSAGE_IDS, ...START_SCRIPT_MESSAGE_IDS] : CONTACT_RECORD_MESSAGE_IDS)}
       locales={languageOptions(locale)}
       live={await crmLiveNav()}
+      scripts={scripts}
     />
   );
 }
