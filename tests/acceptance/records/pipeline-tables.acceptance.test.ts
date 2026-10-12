@@ -2494,6 +2494,9 @@ describe('acceptance: the pipeline and deal tables (T-0106)', () => {
             true,
           ),
         );
+        // probe() switched to SET CONSTRAINTS ALL IMMEDIATE and RELEASE keeps that mode, so put
+        // deferral back before building a pipeline in two statements (D-L119).
+        await query('SET CONSTRAINTS ALL DEFERRED');
         const childPointsAt = await query<{ label: string }>(
           `SELECT p.label FROM t0106_child c JOIN t0106_parent p ON p.tenant_id = c.tenant_id AND p.id = c.parent_id`,
         );
