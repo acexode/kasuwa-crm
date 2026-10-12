@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 166 rows; built 79, partial 11, mock-only 27, flagged-off 9, deferred 10, not-started 30.
+Totals: 166 rows; built 88, partial 11, mock-only 27, flagged-off 9, deferred 10, not-started 21.
 
 ## Modules
 
@@ -178,15 +178,15 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `publishScript` | POST /api/v1/scripts/{scriptId}/versions — Publish the draft as a new, immutable version | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `getScriptVersion` | GET /api/v1/scripts/{scriptId}/versions/{versionId} — Read one published version (read-only) | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `putScriptTranslation` | PUT /api/v1/scripts/{scriptId}/translations/{locale} — Set the draft's translation for one locale | built | — | — | docs/api/scripting.openapi.yaml |
-| operation | `listContactScripts` | GET /api/v1/contacts/{contactId}/scripts — The published scripts the caller may run for this contact (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
-| operation | `startScriptRun` | POST /api/v1/script-runs — Start a run for a contact, on the latest published version (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
-| operation | `getScriptRun` | GET /api/v1/script-runs/{runId} — Read a run, with the latest published version for the update banner (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
-| operation | `getScriptRunScript` | GET /api/v1/script-runs/{runId}/script — The version the run is pinned to, graph and translations (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
-| operation | `advanceScriptRun` | POST /api/v1/script-runs/{runId}/advance — Finish the current node and move to the next (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
-| operation | `acknowledgeScriptRunNode` | POST /api/v1/script-runs/{runId}/acknowledgements — Acknowledge a compliance statement as read in full (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
-| operation | `recordScriptRunAnswers` | PATCH /api/v1/script-runs/{runId}/answers — Record a form node's answers on the run (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
-| operation | `listScriptRunDispositions` | GET /api/v1/script-runs/{runId}/dispositions — The live dispositions of the run's programme, in agent order (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
-| operation | `completeScriptRun` | POST /api/v1/script-runs/{runId}/complete — Complete the run with a disposition (contract only) | not-started | — | — | docs/api/scripting.openapi.yaml |
+| operation | `listContactScripts` | GET /api/v1/contacts/{contactId}/scripts — The published scripts the caller may run for this contact | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `startScriptRun` | POST /api/v1/script-runs — Start a run for a contact, on the latest published version | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `getScriptRun` | GET /api/v1/script-runs/{runId} — Read a run, with the latest published version for the update banner | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `getScriptRunScript` | GET /api/v1/script-runs/{runId}/script — The version the run is pinned to, graph and translations | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `advanceScriptRun` | POST /api/v1/script-runs/{runId}/advance — Finish the current node and move to the next | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `acknowledgeScriptRunNode` | POST /api/v1/script-runs/{runId}/acknowledgements — Acknowledge a compliance statement as read in full | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `recordScriptRunAnswers` | PATCH /api/v1/script-runs/{runId}/answers — Record a form node's answers on the run | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `listScriptRunDispositions` | GET /api/v1/script-runs/{runId}/dispositions — The live dispositions of the run's programme, in agent order | built | — | — | docs/api/scripting.openapi.yaml |
+| operation | `completeScriptRun` | POST /api/v1/script-runs/{runId}/complete — Complete the run with a disposition | built | — | — | docs/api/scripting.openapi.yaml |
 
 ## Flags
 
