@@ -307,6 +307,9 @@ const COLUMN_SPEC: Readonly<
   body: { type: 'text', notNull: null },
   due_at: { type: TIMESTAMPTZ, notNull: false },
   completed_at: { type: TIMESTAMPTZ, notNull: false },
+  // T-0082: a meeting's times (lead edit).
+  starts_at: { type: TIMESTAMPTZ, notNull: false },
+  ends_at: { type: TIMESTAMPTZ, notNull: false },
   owner_user_id: { type: 'uuid', notNull: null },
   contact_id: { type: 'uuid', notNull: false },
   account_id: { type: 'uuid', notNull: false },
@@ -324,14 +327,16 @@ const REQUIRED_FIELDS = [
   'completed_at',
   'contact_id',
   'due_at',
+  'ends_at',
   'owner_user_id',
+  'starts_at',
   'subject',
   'type',
 ];
 /** May also be a standard field_def; nothing else may. */
 const OPTIONAL_FIELDS = ['created_at', 'created_by_user_id', 'updated_at', 'version'];
 
-const TYPES = ['note', 'task', 'call'];
+const TYPES = ['note', 'task', 'call', 'meeting'];
 
 /** STANDARD activity fields of one tenant, with everything every source must agree on. */
 const ACTIVITY_FIELDS_SQL = `
@@ -818,8 +823,8 @@ describe('acceptance: the activity table (T-0060)', () => {
       });
     });
 
-    it('type accepts exactly note, task and call; never a label, a near-miss or NULL', async () => {
-      const rejected = ['Note', 'TASK', 'meeting', 'email', 'whatsapp', ' note', 'note ', ''];
+    it('type accepts exactly note, task, call and meeting; never a label, a near-miss or NULL', async () => {
+      const rejected = ['Note', 'TASK', 'email', 'whatsapp', ' note', 'note ', ''];
       const outcomes = await asA1Agent(async (query) => {
         const result: Record<string, string> = {};
         for (const type of [...TYPES, ...rejected]) {
