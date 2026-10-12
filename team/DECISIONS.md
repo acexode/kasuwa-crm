@@ -2471,3 +2471,23 @@ main, 25 fail for the real reason:
   keeps them green unmodified if it can, for example by decoding the old shape by its id alone. If it cannot, it stops and
   names the exact assertions, for a lead edit made in ask mode.
 - **Migration 0035** is reserved for `agent3/T-0084`.
+
+### D-L113 — T-0105 contract rulings; where "cloud" agents actually run (lead, 2026-10-12)
+**Status:** PROCEEDING (lead). The contract and suite are in PR #119 (a lead PR; the task is contract-only).
+- **R1–R13 in the suite header are accepted.** The notable ones:
+  - **R1:** board, list and create sit under the pipeline path; the move is a POST action on the deal.
+  - **R2 rights:**
+    - `deal.write`: agents, on their own deals only;
+    - `deal.write_any` and `deal.reassign`: team lead, programme manager and admin;
+    - `pipeline.write`: admin only.
+  - **R3:** a deal starts in the first open stage, which has no requirements.
+  - **R4:** a closed deal is edited only with `deal.write_any`.
+  - **R7:** a required field the mover cannot read refuses the move with 403 whatever its value, the one exception to
+    403-before-400.
+  - **R12:** rotting is computed by the server.
+  - **R13:** configuration writes and deal deletion are not in this contract.
+- **Where a pipeline comes from:** T-0106 seeds a default pipeline per programme at provisioning (and backfills existing
+  programmes), from the template. A pipeline-create operation waits for the `pipeline.write` contract.
+- **`client_portal` reads deals** as it reads contacts and accounts. Revisit under D-P26 before M18.
+- **"Cloud" agents:** remote isolation is not available in this environment, and the agent tool falls back to a local
+  worktree. So D-L109's cloud builders are local worktrees for now. The RAM rule still applies to every agent.
