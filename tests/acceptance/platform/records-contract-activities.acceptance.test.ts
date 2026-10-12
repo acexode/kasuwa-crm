@@ -20,7 +20,8 @@ import { parse } from 'yaml';
  * THE CONTRACT THIS SUITE PINS
  * ---------------------------------------------------------------------------
  *
- *   listMyActivities  GET /api/v1/me/activities   x-kasuwa-implemented: false
+ *   listMyActivities  GET /api/v1/me/activities   x-kasuwa-implemented: true
+ *     (since T-0082)
  *     ?timeZone (required IANA name, pattern, no default; invalid is 400
  *     invalid_time_zone, never a fallback) &bucket (required: overdue, today,
  *     upcoming) &cursor (id only, D-L80) &limit (1..100). The caller's OWN open
@@ -28,7 +29,8 @@ import { parse } from 'yaml';
  *     resolves. Buckets are computed by the server: overdue before now, today
  *     until the next midnight in timeZone, upcoming after it, undated last.
  *
- *   listCalendar      GET /api/v1/me/calendar     x-kasuwa-implemented: false
+ *   listCalendar      GET /api/v1/me/calendar     x-kasuwa-implemented: true
+ *     (since T-0082)
  *     ?from&to (required UTC date-times; to after from, invalid_window; at most
  *     42 days, window_too_long, never clamped) &cursor &limit. The caller's own
  *     Kasuwa events: tasks with a dueAt in [from, to), meetings overlapping the
@@ -44,8 +46,8 @@ import { parse } from 'yaml';
  *   the timeline's ActivityItem and CreateActivityRequest gain `startsAt` and
  *   `endsAt`; UpdateActivityRequest gains `dueAt`, `startsAt` and `endsAt`
  *   (D-L102: version plus changed fields). Every new property is marked
- *   `x-kasuwa-implemented: false` until T-0082; the two write operations stay
- *   implemented. Meeting invariants: both times required, end after start
+ *   `x-kasuwa-implemented: true` since T-0082 (false until it served them);
+ *   the two write operations stay implemented. Meeting invariants: both times required, end after start
  *   (invalid_range), at most 24 hours (too_long), times only on a meeting
  *   (meeting_only), no dueAt on one (task_only); judged on the result on
  *   update. Errors on updateActivity in the order 404, 403, 400, 409.
