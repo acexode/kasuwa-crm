@@ -199,6 +199,13 @@ export async function findRun(tx: TenantTx, runId: string, lock = false): Promis
 }
 
 /**
+ * tenancy-reviewed: takes no row and reads no table. The key is built from the
+ * session's tenant and user and from ids the caller already resolved inside
+ * the session's scope (the contact's programme, the contact, the script), so
+ * a request can only ever wait on its own (agent, contact, script) key; a hash
+ * collision with another tenant's key only serialises two unrelated starts and
+ * reveals nothing.
+ *
  * Serialises starts for one agent, contact and script until COMMIT, so the
  * replay, supersede and insert of two concurrent starts never interleave
  * (R6): the second waits, then sees the first's run. A transaction-scoped
@@ -410,18 +417,25 @@ const LIVE = `d.active AND d.deleted_at IS NULL AND d.position IS NOT NULL`;
  * another programme's, another tenant's, inactive and deleted are one null
  * (one `409 disposition_not_live`).
  *
+ * `share` (completion) takes FOR SHARE on the row until COMMIT, so a
+ * deactivation or delete cannot commit between this read and the completed
+ * run's commit: the run never names a disposition that was dead when it
+ * committed. Row locks need UPDATE on the table, which 0010 grants kasuwa_app.
+ *
  * tenancy-reviewed: tenant and programmes from tx.session, plus RLS.
  */
 export async function findLiveDisposition(
   tx: TenantTx,
   programmeId: string,
   dispositionId: string,
+  share = false,
 ): Promise<LiveDisposition | null> {
   const rows = await tx.query<DispositionRow>(
     `SELECT d.id, d.code, d.label, d.category, d.note_required, d.follow_up_required, d.position
        FROM disposition d
       WHERE d.tenant_id = $1 AND d.programme_id = $2 AND d.programme_id = ANY ($3::uuid[])
-        AND d.id = $4 AND ${LIVE}`,
+        AND d.id = $4 AND ${LIVE}
+        ${share ? 'FOR SHARE OF d' : ''}`,
     [tx.session.tenantId, programmeId, [...tx.session.programmeIds], dispositionId],
   );
   const row = rows[0];
