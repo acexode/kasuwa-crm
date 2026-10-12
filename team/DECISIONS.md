@@ -2598,3 +2598,33 @@ main, 103 fail because the tables do not exist, and 6 self-checks pass.
   `tenant AND (programme in scope OR 0015's created-in-this-transaction marker)`, copied word for word from 0015, with
   WITH CHECK identical to USING. It admits nothing new, adds no SECURITY DEFINER and no permissive FOR INSERT policy.
   `deal` and `deal_requirement_check` do not carry the marker. The migration and security reviews confirm it.
+### D-L120 — review rulings for T-0083, T-0115/T-0116 and T-0106; the Mac host (lead, 2026-10-12)
+**Status:** PROCEEDING (lead). First session on the MacBook.
+- **Host.** Worktrees live in `/Users/Shared/kasuwa-wt/` because the repo path and `$HOME` contain a space. On this Mac's
+  pnpm, `pnpm -s test:unit` fails ("unexpected argument '-s'"); `tools/lead-verify.sh` now uses `pnpm run -s`.
+- **T-0106 first Postgres run:** pipeline-tables 109/109, the tenancy folder 151/151. **R9 is confirmed** by the
+  migration, security and tenancy reviews.
+- **T-0106, fixed before merge (builder, inside 0036, which is not yet applied anywhere):**
+  - `pipeline_stage_position_key`, `pipeline_stage_one_won_key` and `pipeline_stage_one_lost_key` lead with
+    `pipeline_id`. A kasuwa_app INSERT naming another tenant's pipeline gets 23505 (unique) when it exists and 23503 (FK)
+    when it does not: a cross-tenant existence oracle. They lead with `(tenant_id, programme_id, pipeline_id, ...)` like
+    every other key in the file, with a builder-written integration test.
+  - `ensureDefaultPipelines` without a `programmeId` filters on tenant only and leans on RLS for programme scope (CLAUDE.md
+    2.3). It is documented as migrator/provisioning-only and asserts it.
+- **T-0106, money (needs @acexode, lead suite edit with auto mode OFF):** the task file and suite pin `amount_minor
+  numeric(18,0)`. That contradicts CLAUDE.md section 4, the founding pack (`amount_minor bigint`) and D-P line 1381 ("bigint
+  minor units"), and numeric(18,0) silently ROUNDS '1.5' to 2 where bigint refuses it. The lead's recommendation: change
+  the suite and the task file to `bigint` before merge, while the table is new and empty. The same edit replaces the
+  realistic name `adminDisplayName: 'Kemi Adebayo'` (suite l.3038) with synthetic text (CLAUDE.md 6.1).
+- **T-0106, carried to T-0107/T-0108 (not blocking):** a RESTRICTIVE FOR INSERT policy needing the marker on the
+  configuration tables when pipeline.write is designed; `checked_by_user_id` and `owner_user_id` bound by the API (owner
+  membership, D-L67); the API never takes `version`, `updated_at`, `stage_entered_at` or `closed_at` from a body; fractional
+  amount strings refused before insert; T-0107 copes with a programme that has no pipeline yet (deploy-window repair); no
+  unique key on `pipeline (tenant_id, programme_id)`, so several pipelines per programme stay possible by design.
+- **Lead suite edits (D-L119) are disclosed to @acexode** for confirmation, as the tenancy review asks.
+- **T-0083 review: pass.** Server enforcement of `activity.reassign` confirmed in `packages/permissions/src/policy.ts`.
+  Follow-ups, not blocking: drop the `as unknown as ActivityChange` cast in the reschedule form; show a lock, not an empty
+  input, for a withheld time.
+- **T-0115/T-0116 review: pass.** Fixed before merge (builder): the run screen's `Money.amountMinor` gets
+  `.regex(/^-?\d+$/)` so a malformed amount is "unavailable", not a render crash; the long-text answer gets
+  `autoComplete="off"` like the input. Lead follow-up: the e2e mock's `example.ng` emails become `example.com` (RFC 2606).

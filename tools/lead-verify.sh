@@ -54,10 +54,10 @@ run() { local name="$1"; shift; "$@" >> "$log" 2>&1; echo "== $name exit $?" >> 
 run install pnpm -s install --frozen-lockfile
 run lint npx nx run-many -t lint --parallel=1
 run typecheck npx nx run-many -t typecheck --parallel=1
-run unit pnpm -s test:unit
-run integration pnpm -s test:integration
+run unit pnpm run -s test:unit
+run integration pnpm run -s test:integration
 if [ "$full" = 1 ]; then
-  run isolation pnpm -s test:isolation
+  run isolation pnpm run -s test:isolation
 else
   run "isolation tenancy" npx vitest run --project isolation tests/acceptance/tenancy
 fi
