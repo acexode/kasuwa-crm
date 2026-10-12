@@ -50,7 +50,8 @@ import { collectTelemetry, isInboundApiSpan, type Telemetry } from '../support/t
  *   U. REMOVAL UNASSIGNS. Removing a user from a programme sets
  *      `owner_user_id = NULL` on their contacts IN THAT PROGRAMME ONLY, in the
  *      same transaction as the removal, `version` + 1 on each, with ONE audit
- *      event carrying the count and no names.
+ *      event carrying the count and no names, AND (T-0104, D-L101 amended)
+ *      one contact `updated` event per contact unassigned.
  *
  * ------------------------------------------------------------------------
  * THE WRITE PATHS THAT REMOVE A MEMBERSHIP (the lead asked QA to find them all)
@@ -109,6 +110,24 @@ import { collectTelemetry, isInboundApiSpan, type Telemetry } from '../support/t
  *     in the row; `object_id` is never a contact. The removed user's id is
  *     allowed (a staff id, D-L71). A removal that unassigned nothing: not
  *     asserted either way.
+ *   - T-0104 (D-L101, amended 2026-10-08: the per-contact events moved to
+ *     T-0104): "besides the programme event, each unassigned contact gets its
+ *     own audit event, `updated`, change `ownerUserId` with before = the
+ *     removed user's id and after = null. Staff ids are not customer PII
+ *     (D-L71)." Pinned as: the programme event above is UNCHANGED (everything
+ *     the bullet above says still holds of it; it is told apart as the one
+ *     new row whose object_type is not 'contact'), and in addition, for each
+ *     contact the removal unassigned and for no other, exactly one row with
+ *     object_type 'contact', object_id and object_label the contact's id
+ *     (the contact writer's label, never a name), action 'updated',
+ *     programme_id the contact's programme, the remover as actor (as on the
+ *     programme event), and changes EXACTLY
+ *     [{ field: 'ownerUserId', before: <removed user id>, after: null,
+ *        redacted: false }]. It carries no other contact's id, and no name,
+ *     phone or email. A rollback or a refusal writes neither kind. The
+ *     contact's timeline then shows that owner change, redacted, naming
+ *     neither the removed owner nor their id (D-L72, D-L85, unchanged).
+ *     The migrator path (P3) stays unasserted, as before.
  *   - "Same transaction" is pinned as: committed with the removal, invisible
  *     to every other connection before that COMMIT, gone with a ROLLBACK.
  *     Whether the removing transaction sees it before COMMIT (a row trigger)
@@ -853,6 +872,46 @@ describe('acceptance: a former owner (T-0103, D-P23)', () => {
     ...ALL_USERS.flatMap((user) => [user.displayName, user.email]),
   ];
 
+  /** The one removal event (D-L99), unchanged by T-0104: every new row that is not a contact event. */
+  const programmeEvents = (events: readonly AuditRow[]) =>
+    events.filter((event) => event.object_type !== 'contact');
+
+  /**
+   * T-0104 (D-L101 amended): exactly one contact `updated` event per
+   * unassigned contact, and none for any other contact.
+   */
+  function expectUnassignmentEvents(
+    events: readonly AuditRow[],
+    removed: string,
+    remover: string,
+    unassigned: readonly { id: string; programmeId: string; givenNames: string }[],
+  ): void {
+    const contactEvents = events.filter((event) => event.object_type === 'contact');
+    expect(
+      contactEvents.map((event) => event.object_id).sort(),
+      'T-0104 (D-L101): one contact event per unassigned contact, and none for any other',
+    ).toEqual(unassigned.map((contact) => contact.id).sort());
+    for (const contact of unassigned) {
+      const event = contactEvents.find((candidate) => candidate.object_id === contact.id);
+      if (event === undefined) continue; // reported by the comparison above
+      expect(event, `${contact.givenNames}: the unassignment event`).toMatchObject({
+        tenant_id: TENANT_A,
+        action: 'updated',
+        object_type: 'contact',
+        object_id: contact.id,
+        object_label: contact.id,
+        programme_id: contact.programmeId,
+        actor_kind: 'user',
+        actor_user_id: remover,
+      });
+      expect(event.changes, `${contact.givenNames}: the owner change, with its values`).toEqual([
+        { field: 'ownerUserId', before: removed, after: null, redacted: false },
+      ]);
+      const others = forbiddenInAudit().filter((needle) => needle !== contact.id);
+      expectAbsent(JSON.stringify(event), others, `${contact.givenNames}'s unassignment event`);
+    }
+  }
+
   // =========================================================================
   // 1. The contract.
   // =========================================================================
@@ -1132,7 +1191,12 @@ describe('acceptance: a former owner (T-0103, D-P23)', () => {
       const audit = await auditIds();
       expect(await removeAsAdmin(TUNDE.id, PROGRAMME_A1)).toBe(1);
 
-      const events = await auditSince(audit);
+      const all = await auditSince(audit);
+      // D-L101 (amended, T-0104): "besides the programme event, each
+      // unassigned contact gets its own audit event". So "exactly one event"
+      // now reads "exactly one programme event"; every assertion on that
+      // event below is unchanged. Before T-0104, `events` was every new row.
+      const events = programmeEvents(all);
       expect(events, `one audit event for one removal; got ${JSON.stringify(events)}`).toHaveLength(
         1,
       );
@@ -1154,6 +1218,33 @@ describe('acceptance: a former owner (T-0103, D-P23)', () => {
         'the event is not about one contact',
       ).toBe(true);
       expectAbsent(JSON.stringify(event), forbiddenInAudit(), 'the audit row');
+      // T-0104: and one event per unassigned contact, Amaka and Bashir only.
+      expectUnassignmentEvents(all, TUNDE.id, MUSA.id, [AMAKA, BASHIR]);
+      expect(all, 'nothing else was written').toHaveLength(3);
+    });
+
+    it('T-0104: each unassigned contact’s timeline shows the owner change, naming neither the removed owner nor their id', async () => {
+      await plantRemovalFixture();
+      expect(await removeAsAdmin(TUNDE.id, PROGRAMME_A1)).toBe(1);
+      for (const contact of [AMAKA, BASHIR]) {
+        const response = await timeline(SUPERVISOR, contact.id);
+        expectStatus(response, 200, `timeline(${contact.givenNames})`);
+        const items = (response.body as { data: Json[] }).data;
+        const owner = items.filter((item) => item.field === 'ownerUserId');
+        expect(owner.length, `${contact.givenNames}: the unassignment is on the timeline`).toBe(1);
+        expect(owner[0]?.redacted, 'owner changes stay redacted on the timeline (D-L72)').toBe(
+          true,
+        );
+        expect(owner[0]?.actor, 'by the remover, named').toEqual({
+          id: MUSA.id,
+          displayName: MUSA.displayName,
+        });
+        expectAbsent(
+          response.text,
+          [TUNDE.displayName, TUNDE.email, TUNDE.id],
+          `${contact.givenNames}: timeline body`,
+        );
+      }
     });
 
     it('removing him from A2 instead unassigns only Damilola; A1 is untouched; the event is A2’s, with 1', async () => {
@@ -1170,10 +1261,16 @@ describe('acceptance: a former owner (T-0103, D-P23)', () => {
           before.get(contact.id),
         );
       }
-      const events = await auditSince(audit);
+      const all = await auditSince(audit);
+      // D-L101 (amended, T-0104): "besides the programme event, each
+      // unassigned contact gets its own audit event". The one-event pin now
+      // applies to the programme event. Before T-0104, `events` was every new row.
+      const events = programmeEvents(all);
       expect(events).toHaveLength(1);
       expect(events[0]?.programme_id).toBe(PROGRAMME_A2);
       expect(events[0]?.changes.filter((change) => change.after === '1')).toHaveLength(1);
+      expectUnassignmentEvents(all, TUNDE.id, MUSA.id, [DAMILOLA]);
+      expect(all, 'nothing else was written').toHaveLength(2);
     });
 
     it('one statement removing both his memberships clears both programmes, each event in its own programme', async () => {
@@ -1189,15 +1286,26 @@ describe('acceptance: a former owner (T-0103, D-P23)', () => {
       }
       expect(after.get(CHIOMA.id)?.owner_user_id).toBe(MUSA.id);
       expect(after.get(GRACE.id)?.owner_user_id).toBe(WANJIRU.id);
-      const events = await auditSince(audit);
-      expect(events.length, 'at least one event').toBeGreaterThan(0);
-      for (const event of events) {
+      const all = await auditSince(audit);
+      for (const event of all) {
         expect(
           [PROGRAMME_A1, PROGRAMME_A2],
           'never a programme-less (tenant-wide) event',
         ).toContain(event.programme_id);
+      }
+      // D-L101 (amended, T-0104): "besides the programme event, each
+      // unassigned contact gets its own audit event". A contact event names
+      // its own contact by id, so the no-contact-id scan applies to the
+      // programme events; the contact events get their own scan (every other
+      // contact's id, and every name, phone and email) in
+      // expectUnassignmentEvents. Before T-0104 both checks ran on every new row.
+      const events = programmeEvents(all);
+      expect(events.length, 'at least one event').toBeGreaterThan(0);
+      for (const event of events) {
         expectAbsent(JSON.stringify(event), forbiddenInAudit(), 'the audit row');
       }
+      // Each in its own programme: Amaka and Bashir in A1, Damilola in A2.
+      expectUnassignmentEvents(all, TUNDE.id, MUSA.id, [AMAKA, BASHIR, DAMILOLA]);
     });
 
     it('a removal that rolls back changes nothing: owners, versions and the audit log are as they were', async () => {

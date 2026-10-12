@@ -24,6 +24,7 @@ import {
   staleWrite,
   validationFailed,
 } from '../admin/common/admin-errors';
+import { accountAuditEvent, accountChanges } from '../accounts/account-audit';
 import { toAccountWire, type AccountWire } from '../accounts/account-wire';
 import { text } from '../common/text';
 import { contactAuditEvent, contactChanges } from './contact-audit';
@@ -35,7 +36,8 @@ import { toContactWire, type ContactWire } from './contact-wire';
  * account, an existing one or one it creates, in the request's ONE tenant
  * transaction: the account insert, the contact UPDATE and the audit event
  * commit together or not at all (a refusal after the insert throws, and the
- * interceptor rolls the insert back with it).
+ * interceptor rolls the insert back with it). The audit events commit with
+ * them too.
  *
  * THE ORDER (the contract's): contact 404; 403 (`contact.write`, plus
  * `account.write` for `newAccount`, then field security on `status` and
@@ -56,9 +58,15 @@ import { toContactWire, type ContactWire } from './contact-wire';
  * insert, if any, rolls back with it, so a race leaves no orphan account and
  * one audit event.
  *
- * ONE AUDIT EVENT, on the contact (L6, D-L82): `updated`, the fields that
- * changed from {status, accountId}, by name only. A created account is not
- * named and gets no event of its own; an account name can be a person's.
+ * THE AUDIT EVENTS (L6, D-L82; T-0104):
+ *   - always, on the contact: `updated`, the fields that changed from
+ *     {status, accountId}, by name only. It never names the account;
+ *   - when the convert CREATED the account, also its `created` event, in the
+ *     same transaction and in the accounts API's shape (`accountAuditEvent`):
+ *     field names only, never the name's value (D-L78; an account name can be
+ *     a person's). Written only after the contact UPDATE matched, so a
+ *     losing racer (409, rolled back) writes neither;
+ *   - an in-place repeat and every refusal write none.
  *
  * NOTHING HERE LOGS.
  */
@@ -229,6 +237,13 @@ export async function convertContactFor(
         tx,
         contactAuditEvent('updated', updated, contactChanges(values, current)),
       );
+      if (plan.link === 'create' && target.kind === 'new') {
+        // The account's own history starts here (T-0104), names only.
+        await recordAuditEvent(
+          tx,
+          accountAuditEvent('created', account, accountChanges({ name: target.name }, null)),
+        );
+      }
       return answer(updated, account);
     }
   }

@@ -72,13 +72,29 @@ describe('contactChanges', () => {
     expect(contactChanges({ tags: ['VIP'], state: 'Lagos', status: 'new' }, same)).toEqual([]);
   });
 
-  it('records the owner and the account by name only, never their ids', () => {
+  it('records the owner ids as values (T-0104, D-L71) and the account by name only', () => {
     const OWNER = '11111111-0000-4000-8000-0000000d0001';
     const ACCOUNT = '11111111-0000-4000-8000-000000130001';
     const changes = contactChanges({ ownerUserId: OWNER, accountId: ACCOUNT }, before);
     expect(changes).toEqual([
-      { field: 'ownerUserId', before: null, after: null, redacted: true },
+      { field: 'ownerUserId', before: null, after: OWNER, redacted: false },
       { field: 'accountId', before: null, after: null, redacted: true },
+    ]);
+    expect(JSON.stringify(changes)).not.toContain(ACCOUNT);
+  });
+
+  it('records owner ids in canonical lower case, whatever case was sent (T-0104)', () => {
+    const OWNER = '11111111-0000-4000-8000-0000000d00aa';
+    const OTHER = '11111111-0000-4000-8000-0000000d00bb';
+    const owned: Contact = { ...before, ownerUserId: OWNER };
+    expect(contactChanges({ ownerUserId: OTHER.toUpperCase() }, owned)).toEqual([
+      { field: 'ownerUserId', before: OWNER, after: OTHER, redacted: false },
+    ]);
+    expect(contactChanges({ ownerUserId: null }, owned)).toEqual([
+      { field: 'ownerUserId', before: OWNER, after: null, redacted: false },
+    ]);
+    expect(contactChanges({ ownerUserId: OTHER.toUpperCase() }, null)).toEqual([
+      { field: 'ownerUserId', before: null, after: OTHER, redacted: false },
     ]);
   });
 

@@ -80,6 +80,9 @@ import { collectTelemetry, type Telemetry } from '../support/telemetry';
  *       whenever sent, appear as REDACTED changes (D-L54's `email` rule:
  *       `redacted: true`, `before` and `after` null), and no phone number or
  *       email address appears anywhere in the row. Refused writes write none.
+ *       T-0104 (D-L71): an `ownerUserId` change, on an update or a create,
+ *       carries the before and after owner ids as values (`redacted: false`,
+ *       the canonical lower-case uuid, null for "none"), never a name.
  *
  *   S3. FIELD SECURITY is the T-0026 matrix (D-P9, D-L45): object_def
  *       `api_name = 'contact'`, field_def `api_name` = the snake_case of the
@@ -1387,7 +1390,11 @@ describe('acceptance: contacts API (T-0041)', () => {
           await assign(TENANT_A, USER_A_AGENT_1, PROGRAMME_A1, key);
 
           const name = unique(`T0077 ${key} Create`);
-          expectError(await create(AGENT_1, createBody({ displayName: name })), 403, 'not_permitted');
+          expectError(
+            await create(AGENT_1, createBody({ displayName: name })),
+            403,
+            'not_permitted',
+          );
           expect(await contactsNamed(name)).toBe(0);
 
           await plant(AMAKA.id, { status: 'new', owner_user_id: USER_A_SUPERVISOR });
@@ -1494,10 +1501,13 @@ describe('acceptance: contacts API (T-0041)', () => {
         ['consentState', { consentState: 'opted_in' }],
         ['accountId', { accountId: null }],
         ['status alongside a field it may not write', { status: 'customer', lga: 'Ikeja' }],
-        ['owner to self alongside a field it may not write', {
-          ownerUserId: USER_A_AGENT_1,
-          tags: ['agent-tag'],
-        }],
+        [
+          'owner to self alongside a field it may not write',
+          {
+            ownerUserId: USER_A_AGENT_1,
+            tags: ['agent-tag'],
+          },
+        ],
       ])('may not write %s: 403 not_permitted, nothing written', async (_label, fields) => {
         requireT0040();
         await plant(AMAKA.id, { status: 'new', owner_user_id: USER_A_AGENT_1 });
@@ -2042,6 +2052,114 @@ describe('acceptance: contacts API (T-0041)', () => {
       expectRedacted(event, 'phones');
       expectRedacted(event, 'emails');
       expectNoContactPii(event, { phones: [PHONE, NEW_PHONE], emails: [EMAIL, NEW_EMAIL] });
+    });
+
+    // -----------------------------------------------------------------------
+    // T-0104 (D-L71): "an `ownerUserId` change on a contact records the before
+    // and after owner ids as values. Staff ids are not customer PII." Before
+    // T-0104 the owner change was a redacted change, by name only (D-L72).
+    // The ids are the canonical (lower-case) uuids the contact row holds; the
+    // owners' names never appear in the row (D-L64). The TIMELINE still shows
+    // owner changes by name only: contact-timeline (T6) pins that, unchanged.
+    // -----------------------------------------------------------------------
+
+    /** The users' display names, read from the database: an audit row must never carry one. */
+    async function userNames(ids: readonly string[]): Promise<string[]> {
+      const result = await observer.query<{ display_name: string }>(
+        'SELECT display_name FROM "user" WHERE id = ANY ($1::uuid[])',
+        [ids],
+      );
+      expect(result.rows.length, 'fixture: every user has a row').toBe(ids.length);
+      return result.rows.map((row) => row.display_name);
+    }
+
+    async function ownerChangeOf(write: () => Promise<request.Response>, actor: string) {
+      const before = await auditIds();
+      const response = await write();
+      expect(response.status, JSON.stringify(response.body)).toBe(200);
+      const events = await auditSince(before);
+      expect(events, 'exactly one event per successful write').toHaveLength(1);
+      const [event] = events;
+      expect(event).toMatchObject({
+        actor_kind: 'user',
+        actor_user_id: actor,
+        action: 'updated',
+        object_type: 'contact',
+        object_id: AMAKA.id,
+        programme_id: PROGRAMME_A1,
+      });
+      return event;
+    }
+
+    it('T-0104: an owner change records the before and after owner ids as values: assign, reassign, clear', async () => {
+      await plant(AMAKA.id, { owner_user_id: null });
+      const names = await userNames([USER_A_AGENT_1, USER_A_SUPERVISOR]);
+      const steps: [string | null, string | null][] = [
+        [null, USER_A_AGENT_1],
+        [USER_A_AGENT_1, USER_A_SUPERVISOR],
+        [USER_A_SUPERVISOR, null],
+      ];
+      for (const [from, to] of steps) {
+        const event = await ownerChangeOf(
+          async () =>
+            update(SUPERVISOR, AMAKA.id, {
+              version: await versionOf(AMAKA.id),
+              // Upper case on the wire: the value recorded is the id as stored.
+              ownerUserId: to === null ? null : to.toUpperCase(),
+            }),
+          USER_A_SUPERVISOR,
+        );
+        expect(event?.changes, `${String(from)} -> ${String(to)}`).toEqual([
+          { field: 'ownerUserId', before: from, after: to, redacted: false },
+        ]);
+        expect((await contactRow(AMAKA.id))?.owner_user_id).toBe(to);
+        const text = JSON.stringify(event);
+        for (const name of names) expect(text, `the row carries "${name}"`).not.toContain(name);
+      }
+    });
+
+    it('T-0104: an agent’s takeover from a colleague (D-P14) records both ids, as the agent', async () => {
+      await plant(AMAKA.id, { owner_user_id: USER_A_SUPERVISOR });
+      const event = await ownerChangeOf(
+        async () =>
+          update(AGENT_1, AMAKA.id, {
+            version: await versionOf(AMAKA.id),
+            ownerUserId: USER_A_AGENT_1,
+          }),
+        USER_A_AGENT_1,
+      );
+      expect(event?.changes).toEqual([
+        { field: 'ownerUserId', before: USER_A_SUPERVISOR, after: USER_A_AGENT_1, redacted: false },
+      ]);
+    });
+
+    it('T-0104: re-sending the current owner (in another case) is not an owner change and records none', async () => {
+      // Guard: passes on main, where owner changes are already compared
+      // case-insensitively. It stops a value-recording writer from logging a
+      // no-op owner "change" with before === after.
+      await plant(AMAKA.id, { owner_user_id: USER_A_AGENT_1, status: 'new' });
+      const event = await ownerChangeOf(
+        async () =>
+          update(SUPERVISOR, AMAKA.id, {
+            version: await versionOf(AMAKA.id),
+            ownerUserId: USER_A_AGENT_1.toUpperCase(),
+            status: 'contacted',
+          }),
+        USER_A_SUPERVISOR,
+      );
+      expect(event?.changes.map((change) => change.field)).toEqual(['status']);
+    });
+
+    it('T-0104: a create that sets an owner records it as a value, before null (D-L81’s create rule)', async () => {
+      const before = await auditIds();
+      const response = await create(SUPERVISOR, createBody({ ownerUserId: USER_A_AGENT_1 }));
+      expect(response.status, JSON.stringify(response.body)).toBe(201);
+      const events = await auditSince(before);
+      expect(events).toHaveLength(1);
+      expect(events[0]?.action).toBe('created');
+      expect(events[0]?.changes.filter((change) => change.field === 'ownerUserId')).toEqual([
+        { field: 'ownerUserId', before: null, after: USER_A_AGENT_1, redacted: false },
+      ]);
     });
 
     it('a refused write records nothing: 400, 403, 404 and 409', async () => {

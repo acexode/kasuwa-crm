@@ -3180,7 +3180,9 @@ components:
         the field is on that object's value allow-list (for a contact, D-L72's
         nine value fields: `status`, `source`, `preferredLanguage`,
         `preferredChannel`, `consentState`, `whatsappOptIn`, `state`, `lga`,
-        `tags`; for an account or an activity, none), and the READER's
+        `tags`, and since T-0104 `ownerUserId`, whose values are staff user
+        ids in canonical lower case, never a name (D-L71), judged by
+        `owner_user_id`; for an account or an activity, none), and the READER's
         field-security matrix lets them read that field (`read` or `edit`) in
         the EVENT's `programmeId`, judged when the log is read, not when the
         event was written. A name part, a phone, an email, a subject or a body
