@@ -1,7 +1,9 @@
 import { canProgramme, type Grants, type ProgrammeAction } from '@kasuwa/permissions';
 import { describe, expect, it } from 'vitest';
 import { RUN_AUDIT_NAMES, runCompletedEvent, runStartedEvent, runSupersededEvent } from './script-run-audit';
-import { completionRefusal } from './script-run.service';
+import { validationFailedFrom } from '../admin/common/admin-errors';
+import { AnswersBody } from './script-run.schemas';
+import { completionRefusal, withoutRawValueKeys } from './script-run.service';
 
 /**
  * completeScriptRun's permission branch (T-0114; D-L93, D-L104). The one run
@@ -89,5 +91,38 @@ describe('run audit events (R1)', () => {
         versionId: 'v1',
       }).changes.map((change) => change.field);
     expect(fields(null, null)).toEqual(fields('t1', 'field_withheld'));
+  });
+});
+
+describe('withoutRawValueKeys (T-0114 security review)', () => {
+  it('reports a values key that is not a ChoiceKey at `values`, never echoing it', () => {
+    const parsed = AnswersBody.safeParse({
+      revision: 1,
+      nodeId: 'ptp',
+      values: { 'Ada Obi has diabetes': 'x', memo: 'ok' },
+    });
+    expect(parsed.success).toBe(false);
+    if (parsed.success) return;
+    const raw = validationFailedFrom(parsed.error).getResponse() as {
+      details: { path: string; code: string }[];
+    };
+    const details = withoutRawValueKeys(raw.details);
+    expect(JSON.stringify(details)).not.toContain('diabetes');
+    expect(details.map((detail) => detail.path)).toEqual(['values']);
+  });
+
+  it('keeps a well-formed field key, and the paths outside values, as they are', () => {
+    expect(
+      withoutRawValueKeys([
+        { path: 'values.kmemo', code: 'too_big' },
+        { path: 'values.Bad Key', code: 'nul_character' },
+        { path: 'values.Other Bad', code: 'nul_character' },
+        { path: 'revision', code: 'too_small' },
+      ]),
+    ).toEqual([
+      { path: 'values.kmemo', code: 'too_big' },
+      { path: 'values', code: 'nul_character' },
+      { path: 'revision', code: 'too_small' },
+    ]);
   });
 });

@@ -27,7 +27,7 @@ import {
   validationFailedFrom,
   type AdminErrorDetail,
 } from '../admin/common/admin-errors';
-import { stringProblems, type ScriptLocale } from './script-graph';
+import { isNodeId, stringProblems, type ScriptLocale } from './script-graph';
 import { runCompletedEvent, runStartedEvent, runSupersededEvent } from './script-run-audit';
 import {
   acknowledgedLocale,
@@ -147,13 +147,40 @@ function plainBody(body: unknown): Record<string, unknown> {
   return body as Record<string, unknown>;
 }
 
+/**
+ * A refusal's path, never echoing a `values` key the client invented: a key
+ * that is not a ChoiceKey (it could be anything, a customer's words
+ * included) is reported at `values`, its parent. A well-formed key is the
+ * field's own key and stays (`values.<key>`, as the contract's examples name
+ * it). Duplicates that collapse onto one path are reported once.
+ */
+export function withoutRawValueKeys(details: readonly AdminErrorDetail[]): AdminErrorDetail[] {
+  const seen = new Set<string>();
+  const out: AdminErrorDetail[] = [];
+  for (const detail of details) {
+    const [head, key] = detail.path.split('.');
+    const path =
+      head === 'values' && key !== undefined && !isNodeId(key) ? 'values' : detail.path;
+    const id = `${path} ${detail.code}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ path, code: detail.code });
+  }
+  return out;
+}
+
 /** NUL and lone surrogates anywhere first (linear, depth-bounded), then the closed schema. */
 function parseBody<S extends z.ZodTypeAny>(schema: S, body: unknown): z.output<S> {
   const raw = plainBody(body);
   const problems = stringProblems(raw);
-  if (problems.length > 0) throw validationFailed(problems);
+  if (problems.length > 0) throw validationFailed(withoutRawValueKeys(problems));
   const parsed = schema.safeParse(raw);
-  if (!parsed.success) throw validationFailedFrom(parsed.error);
+  if (!parsed.success) {
+    const refusal = validationFailedFrom(parsed.error).getResponse() as {
+      details?: AdminErrorDetail[];
+    };
+    throw validationFailed(withoutRawValueKeys(refusal.details ?? []));
+  }
   return parsed.data as z.output<S>;
 }
 
@@ -610,6 +637,7 @@ export async function completeScriptRunFor(
     tx,
     run.programmeId,
     parsed.dispositionId.toLowerCase(),
+    true, // FOR SHARE until COMMIT: a deactivation cannot slip in before the run commits.
   );
   if (disposition === null) {
     throw conflict(
