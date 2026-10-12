@@ -678,7 +678,7 @@ function FieldInput({
           ))}
         </select>
       ) : field.type === 'text' && (field.maxLength ?? 0) > 120 ? (
-        <textarea {...common} value={value} maxLength={field.maxLength} rows={3} onChange={(event) => onChange(event.target.value)} className={`${wide} py-2`} />
+        <textarea {...common} autoComplete="off" value={value} maxLength={field.maxLength} rows={3} onChange={(event) => onChange(event.target.value)} className={`${wide} py-2`} />
       ) : (
         <input
           {...common}

@@ -202,6 +202,28 @@ describe('money: typed in major units, sent in minor units as a string (R6)', ()
     expect(formatAnswer({ key: 'r', label: 'R', type: 'choice', required: true, options: [{ key: 'a', label: 'Apple' }] }, 'a', 'en')).toBe('Apple');
     expect(formatAnswer(undefined, null, 'en')).toBeNull();
   });
+
+  it('reads a malformed amount as unavailable instead of throwing in the render', () => {
+    for (const amountMinor of ['12.50', '', 'abc', '1e3', ' 5']) {
+      expect(() => formatAnswer(undefined, { amountMinor, currency: 'NGN' }, 'en')).not.toThrow();
+      expect(formatAnswer(undefined, { amountMinor, currency: 'NGN' }, 'en')).toBeNull();
+      expect(() => toMajor(amountMinor, 'NGN')).not.toThrow();
+      expect(toMajor(amountMinor, 'NGN')).toBe('');
+    }
+    const form = GRAPH.nodes[4];
+    if (form === undefined || form.type !== 'form') throw new Error('fixture');
+    const saved = { type: 'form' as const, values: { amount: { amountMinor: '12.50', currency: 'NGN' } }, updatedAt: T0 };
+    expect(() => inputsFromAnswers(form.fields, saved)).not.toThrow();
+    expect(inputsFromAnswers(form.fields, saved).amount).toBe('');
+  });
+
+  it('keeps the sign of a negative amount, under one major unit too', () => {
+    expect(toMajor('-2500050', 'NGN')).toBe('-25000.5');
+    expect(toMajor('-5', 'NGN')).toBe('-0.05');
+    expect(toMajor('-0', 'NGN')).toBe('0');
+    expect(formatAnswer(undefined, { amountMinor: '-5', currency: 'NGN' }, 'en')).toMatch(/^-.*0\.05$/);
+    expect(formatAnswer(undefined, { amountMinor: '-2500000', currency: 'NGN' }, 'en')).toMatch(/^-.*25,000\.00$/);
+  });
 });
 
 describe('forms record answers on the run only (D-P31)', () => {

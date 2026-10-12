@@ -198,27 +198,44 @@ export function toMinor(input: string, currency: string): string | null {
   return minor;
 }
 
-/** Minor units back to what the agent typed: "2500000" NGN is "25000". */
+const MINOR = /^(-?)(\d+)$/;
+
+/**
+ * Minor units back to what the agent typed: "2500000" NGN is "25000". An
+ * amount that is not an integer string is not money, and reads as `''` so
+ * the agent types it again; this never throws in a render.
+ */
 export function toMajor(minor: string, currency: string): string {
+  const match = MINOR.exec(minor);
+  if (match === null) return '';
+  const sign = match[1] ?? '';
   const digits = minorDigitsOf(currency);
-  const padded = minor.padStart(digits + 1, '0');
+  const padded = (match[2] ?? '').padStart(digits + 1, '0');
   const whole = padded.slice(0, padded.length - digits).replace(/^0+(?=\d)/, '');
   const fraction = padded.slice(padded.length - digits).replace(/0+$/, '');
-  return fraction === '' ? whole : `${whole}.${fraction}`;
+  const major = fraction === '' ? whole : `${whole}.${fraction}`;
+  return sign === '' || /^[0.]+$/.test(major) ? major : `-${major}`;
 }
 
-export function formatMoney(minor: string, currency: string, locale: string): string {
+/**
+ * Minor units formatted for the locale, by integer arithmetic. `null` when
+ * the amount is not an integer string: unavailable, never a thrown render.
+ */
+export function formatMoney(minor: string, currency: string, locale: string): string | null {
+  if (!MINOR.test(minor)) return null;
   const digits = minorDigitsOf(currency);
   const scale = 10n ** BigInt(digits);
   const value = BigInt(minor);
-  const whole = value / scale;
-  const fraction = value % scale;
+  const magnitude = value < 0n ? -value : value;
+  const whole = magnitude / scale;
+  const fraction = magnitude % scale;
   try {
     const format = new Intl.NumberFormat(locale, { style: 'currency', currency, minimumFractionDigits: digits, maximumFractionDigits: digits });
     // The whole part formatted by Intl, the fraction spliced in from the
     // integer remainder: never by dividing to a float.
     return format
-      .formatToParts(whole)
+      // A negative amount under one major unit keeps its sign through -0.
+      .formatToParts(value >= 0n ? whole : whole === 0n ? -0 : -whole)
       .map((part) => (part.type === 'fraction' ? fraction.toString().padStart(digits, '0') : part.value))
       .join('');
   } catch {

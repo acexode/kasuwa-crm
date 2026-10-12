@@ -32,7 +32,12 @@ export type RunnableScript = z.infer<typeof RunnableScript>;
 const RunnablePage = z.object({ data: z.array(RunnableScript), nextCursor: z.string().nullable() });
 export type RunnablePage = z.infer<typeof RunnablePage>;
 
-const Money = z.object({ amountMinor: z.string(), currency: z.string() });
+/**
+ * Minor units as an integer string. Anything else ("12.50", "") is not money:
+ * the answer fails to parse and the run reads as unavailable, rather than
+ * reaching `BigInt` in a render.
+ */
+const Money = z.object({ amountMinor: z.string().regex(/^-?\d+$/), currency: z.string() });
 export type Money = z.infer<typeof Money>;
 
 export const AnswerValue = z.union([z.string(), z.number().int(), Money, z.null()]);

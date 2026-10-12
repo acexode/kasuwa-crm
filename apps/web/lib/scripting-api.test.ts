@@ -84,6 +84,15 @@ describe('the scripting clients', () => {
     expect(result).toEqual({ ok: false, error: { code: 'network', status: 200, details: [] } });
   });
 
+  it('read an answer whose amount is not integer minor units as a network failure, never as data', async () => {
+    for (const amountMinor of ['12.50', '', '1e3']) {
+      stub(200, { ...RUN, answers: { ptp: { type: 'form', values: { amount: { amountMinor, currency: 'NGN' } }, updatedAt: '2026-10-12T09:01:00Z' } } });
+      expect(await getScriptRun(RUN.id)).toEqual({ ok: false, error: { code: 'network', status: 200, details: [] } });
+    }
+    stub(200, { ...RUN, answers: { ptp: { type: 'form', values: { amount: { amountMinor: '-2500000', currency: 'NGN' } }, updatedAt: '2026-10-12T09:01:00Z' } } });
+    expect((await getScriptRun(RUN.id)).ok).toBe(true);
+  });
+
   it('read a refusal by its code and details, and an unknown code as a network failure', async () => {
     stub(409, { statusCode: 409, error: 'Conflict', code: 'stale_write', message: 'm' });
     expect(await completeScriptRun(RUN.id, { revision: 1, outcome: 'completed', dispositionId: 'd' })).toEqual({
