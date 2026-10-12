@@ -1201,7 +1201,7 @@ describe('acceptance: scripting contract (T-0112)', () => {
       }
     });
 
-    it('the eight authoring operations are x-kasuwa-implemented: true (T-0113); the nine run operations stay false until T-0114', () => {
+    it('the eight authoring operations are x-kasuwa-implemented: true (T-0113); the nine run operations are true (T-0114)', () => {
       // Named one by one: a set flipped by accident, or a new operation that
       // arrives already "implemented", fails here by name. Strictly true or
       // false (records' rule), never truthy.
@@ -1231,7 +1231,7 @@ describe('acceptance: scripting contract (T-0112)', () => {
       );
       expect(flags).toEqual({
         ...Object.fromEntries(authoring.map((id) => [id, true])),
-        ...Object.fromEntries(runs.map((id) => [id, false])),
+        ...Object.fromEntries(runs.map((id) => [id, true])),
       });
       expect(authoring.length + runs.length).toBe(EXPECTED.length);
       expect(operations().length).toBe(EXPECTED.length);
