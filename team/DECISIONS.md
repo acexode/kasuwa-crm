@@ -2331,3 +2331,21 @@ Every recommendation below was taken as written in its entry. What each one now 
   accept `meeting` before or with the change that puts meetings on a timeline.
 - **Process lapse, recorded:** the suite writer removed a RAM slot another agent held and ran without one. The rule stands:
   never remove a slot whose `owner.pid` is alive; wait instead.
+
+### D-L106 — T-0104 suite rulings; T-0104 assigned (lead, 2026-10-12)
+**Status:** PROCEEDING (lead). Suite edits are on `lead/T-0104-acceptance`: on main, 12 fail for the real reason and 373 pass.
+- **Accepted:**
+  - **contact-timeline T10 is edited too.** It pinned the owner change as redacted with no ids, which T-0104 (D-L71)
+    contradicts. The timeline-side pins are unchanged.
+  - **Unassignment events:** each per-contact event has the remover as actor (as the programme event does), and
+    `object_label` is the contact id, never a name.
+  - **Owner values are canonical lower-case uuids**, whatever case the client sent.
+  - **A create that sets an owner records `before: null`** as a value (D-L81's create rule).
+  - **A convert-created account's event** names `name` and records names only; the rest of the field list is the
+    builder's.
+  - **The programme event** is identified as "the new row that is not a contact event"; it is otherwise unchanged.
+- **The migrator path (P3) follows the programme event:** per-contact events are written exactly where the programme
+  event is, and nowhere else. P3 keeps its assertion.
+- **Owed by the builder:** `ownerUserId` added to the value-field lists in `admin.openapi.yaml` (`AuditChange`) and
+  `records.openapi.yaml`.
+- **Migration 0033** is reserved for `agent3/T-0104`; 0032 is T-0114's.
