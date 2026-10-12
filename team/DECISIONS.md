@@ -2432,3 +2432,19 @@ Every recommendation below was taken as written in its entry. What each one now 
   verification stays local (CI minutes are exhausted).
 - **D-P31, D-P32, D-P33 and the `channels/provider` fix** (store the T-0112 suite's vendor names reversed, so that the
   adapter-boundary scan does not see them) are approved by @acexode.
+
+### D-L111 — the full isolation suite runs once, at the end of Phase 2 (from @acexode, 2026-10-12)
+**Status:** PROCEEDING. @acexode chose this for speed. It supersedes the per-merge full isolation run (D-L97, D-L109's batch
+runs).
+- **Every PR still gets** (`verify.ps1 -Targeted`):
+  - lint, typecheck, unit and integration;
+  - the PR's own named acceptance suites (the task file's list, and every suite whose pins or mocks the PR changes);
+  - the whole `tests/acceptance/tenancy` folder: RLS enforcement, schema hygiene, the adversarial suite, API, repository and
+    cursor isolation, and the test-admin lockdown;
+  - the e2e tags the PR touches.
+- **At the end of Phase 2:** one full `pnpm test:isolation` on main. Every failure is fixed before Phase 2 is called done.
+  Each finding names the PR that introduced it, from bisecting the merge history.
+- **The risk @acexode accepted:** a regression in an older suite (cross-task: screens, field security, audit) can sit on
+  main until the final run, and costs more to trace then. The tenancy folder on every PR keeps cross-tenant and
+  cross-programme leaks caught at merge.
+- **Unchanged:** reviews (D-L109's risk-based rule), the never-edit-a-test rule, and fixing every finding before merge.
