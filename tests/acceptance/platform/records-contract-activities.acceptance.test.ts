@@ -611,20 +611,20 @@ const ACTIVITY_SCHEMAS = [
 
 describe('acceptance: records contract, activities, tasks and the calendar (T-0081)', () => {
   describe('the operations', () => {
-    it('listMyActivities is GET /api/v1/me/activities, not yet implemented, and names P07/01', () => {
+    it('listMyActivities is GET /api/v1/me/activities, implemented since T-0082, and names P07/01', () => {
       const op = operation(MY_ACTIVITIES);
       expect(op.method).toBe('get');
       expect(op.path).toBe('/api/v1/me/activities');
-      expect(op.op['x-kasuwa-implemented'], 'contract only until T-0082').toBe(false);
+      expect(op.op['x-kasuwa-implemented'], 'T-0082 serves it').toBe(true);
       expect(screensOf(op), 'My tasks is P07/01').toContain('P07/01');
       expect(screensOf(op).filter((screen) => !P07_FRAME.test(screen))).toEqual([]);
     });
 
-    it('listCalendar is GET /api/v1/me/calendar, not yet implemented, and names the calendar frames', () => {
+    it('listCalendar is GET /api/v1/me/calendar, implemented since T-0082, and names the calendar frames', () => {
       const op = operation(CALENDAR);
       expect(op.method).toBe('get');
       expect(op.path).toBe('/api/v1/me/calendar');
-      expect(op.op['x-kasuwa-implemented'], 'contract only until T-0082').toBe(false);
+      expect(op.op['x-kasuwa-implemented'], 'T-0082 serves it').toBe(true);
       expect(screensOf(op)).toEqual(expect.arrayContaining(['P07/03', 'P07/04', 'P07/05']));
       expect(screensOf(op).filter((screen) => !P07_FRAME.test(screen))).toEqual([]);
     });
@@ -644,7 +644,7 @@ describe('acceptance: records contract, activities, tasks and the calendar (T-00
       );
     });
 
-    it('every property this slice adds to a served schema is marked x-kasuwa-implemented: false', () => {
+    it('every property this slice adds to a served schema is marked x-kasuwa-implemented: true (T-0082 serves it)', () => {
       const added: [string, string][] = [
         ['Activity', 'startsAt'],
         ['Activity', 'endsAt'],
@@ -660,8 +660,8 @@ describe('acceptance: records contract, activities, tasks and the calendar (T-00
       for (const [schema, key] of added) {
         const raw = rawProperty(schemaNamed(schema), key);
         if (!raw) problems.push(`${schema}.${key} is missing`);
-        else if (raw['x-kasuwa-implemented'] !== false) {
-          problems.push(`${schema}.${key} is not marked x-kasuwa-implemented: false`);
+        else if (raw['x-kasuwa-implemented'] !== true) {
+          problems.push(`${schema}.${key} is not marked x-kasuwa-implemented: true`);
         }
       }
       expect(problems).toEqual([]);
