@@ -1,6 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import type { TenantTx } from '@kasuwa/db';
 import {
+  type Activity,
   findActivityById,
   findActivityTargetProgramme,
   insertActivity,
@@ -25,6 +26,7 @@ import {
 import {
   CREATE_ACTIVITY_KEYS,
   CreateActivityBody,
+  meetingSpanIssue,
   UPDATE_ACTIVITY_SECURED,
   UpdateActivityBody,
 } from './activities.schemas';
@@ -48,8 +50,12 @@ import { toActivityWire, type ActivityWire } from './activity-wire';
  *   400  the closed body; then the references: a second target outside the
  *        activity's programme, and an owner who is not a member of it
  *        (D-L67, D-L79), each `unknown_reference` with one body whether the
- *        id is real elsewhere or invented. Completing a note or a call, or a
- *        due time on one, is 400 here, never 0027's CHECK as a 500.
+ *        id is real elsewhere or invented. Completing a note, a call or a
+ *        meeting, or a due time on one, is 400 `task_only` here, never 0027's
+ *        CHECK as a 500; a meeting's time on anything else is 400
+ *        `meeting_only`, and a meeting's span is judged on the RESULT, the
+ *        stored times with the sent ones applied (T-0082, D-L107), never
+ *        0034's CHECK as a 500.
  *   409  `stale_write` on update.
  *
  * A refused write throws before anything is written, so it is never audited.
@@ -150,6 +156,8 @@ export async function createActivityFor(tx: TenantTx, body: unknown): Promise<Ac
     subject: parsed.subject ?? null,
     body: parsed.body ?? null,
     dueAt: parsed.dueAt ?? null,
+    startsAt: parsed.startsAt ?? null,
+    endsAt: parsed.endsAt ?? null,
     ownerUserId: parsed.ownerUserId ?? null,
     contactId: target.kind === 'contact' ? target.id : (parsed.contactId ?? null),
     accountId: parsed.accountId ?? null,
@@ -159,6 +167,43 @@ export async function createActivityFor(tx: TenantTx, body: unknown): Promise<Ac
     activityAuditEvent('created', activity, activityCreateChanges(parsed)),
   );
   return toActivityWire(activity, access);
+}
+
+/**
+ * The rules that depend on the stored row's type (T-0082): completing and a
+ * due time are a task's (`task_only`), a start and an end a meeting's
+ * (`meeting_only`), and a meeting's span is judged on the result at the field
+ * sent (`endsAt` when both were). Exported for its unit test.
+ */
+export function typeDetails(
+  current: Pick<Activity, 'type' | 'startsAt' | 'endsAt'>,
+  body: Pick<UpdateActivityBody, 'completed' | 'dueAt' | 'startsAt' | 'endsAt'>,
+): AdminErrorDetail[] {
+  const details: AdminErrorDetail[] = [];
+  if (body.completed === true && current.type !== 'task') {
+    details.push({ path: 'completed', code: 'task_only' });
+  }
+  if (body.dueAt !== undefined && current.type !== 'task') {
+    details.push({ path: 'dueAt', code: 'task_only' });
+  }
+  if (current.type !== 'meeting') {
+    for (const field of ['startsAt', 'endsAt'] as const) {
+      if (body[field] !== undefined) details.push({ path: field, code: 'meeting_only' });
+    }
+    return details;
+  }
+  if (body.startsAt === undefined && body.endsAt === undefined) return details;
+  const startsAt = body.startsAt ?? current.startsAt?.toISOString();
+  const endsAt = body.endsAt ?? current.endsAt?.toISOString();
+  const at = body.endsAt !== undefined ? 'endsAt' : 'startsAt';
+  // 0034's CHECK makes a stored meeting without both times impossible.
+  if (startsAt === undefined || endsAt === undefined) {
+    details.push({ path: at, code: 'invalid_range' });
+    return details;
+  }
+  const issue = meetingSpanIssue(startsAt, endsAt, at);
+  if (issue !== null) details.push({ path: issue.path, code: issue.reason });
+  return details;
 }
 
 export async function updateActivityFor(
@@ -185,18 +230,16 @@ export async function updateActivityFor(
   );
   if (locked.length > 0) throw fieldNotEditable(locked); // 403, naming the body keys
 
-  const { version, completed, ownerUserId } = UpdateActivityBody.parse(body); // 400
-  const details: AdminErrorDetail[] = [];
-  if (completed === true && current.type !== 'task') {
-    details.push({ path: 'completed', code: 'task_only' });
-  }
+  const parsed = UpdateActivityBody.parse(body); // 400
+  const { version, completed, ownerUserId, dueAt, startsAt, endsAt } = parsed;
+  const details: AdminErrorDetail[] = [...typeDetails(current, parsed)];
   details.push(...(await ownerDetail(tx, current.programmeId, ownerUserId)));
   if (details.length > 0) throw validationFailed(details); // 400
 
   const updated = await updateActivityIfVersion(
     tx,
     { id: current.id, programmeId: current.programmeId, version },
-    { complete: completed, ownerUserId },
+    { complete: completed, ownerUserId, dueAt, startsAt, endsAt },
   );
   if (updated === null) throw staleWrite(); // 409
   await recordAuditEvent(

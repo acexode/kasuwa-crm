@@ -617,6 +617,8 @@ paths:
                     body: Asked for a call after 4pm.
                     dueAt: '2026-10-02T15:00:00.000Z'
                     completedAt: null
+                    startsAt: null
+                    endsAt: null
                     version: 1
                 nextCursor: dGltZWxpbmUtY3Vyc29yLWV4YW1wbGU
         '400': { $ref: '#/components/responses/ValidationFailed' }
@@ -859,7 +861,7 @@ paths:
       tags: [activities, me]
       summary: The caller's own open tasks in one bucket — overdue, today or upcoming
       operationId: listMyActivities
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P07/01', 'P07/02']
       description: |
         P07/01's My tasks: the caller's own open tasks, one bucket per call.
@@ -968,7 +970,7 @@ paths:
       tags: [activities, me]
       summary: The caller's own Kasuwa events in a window of at most 42 days
       operationId: listCalendar
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P07/03', 'P07/04', 'P07/05', 'P07/06']
       description: |
         The P07 calendar (week, day, month and the mobile agenda): the
@@ -1911,6 +1913,8 @@ paths:
                     body: Wants deliveries before 10am.
                     dueAt: '2026-10-02T15:00:00.000Z'
                     completedAt: null
+                    startsAt: null
+                    endsAt: null
                     version: 3
                 nextCursor: dGltZWxpbmUtY3Vyc29yLWV4YW1wbGU
         '400': { $ref: '#/components/responses/ValidationFailed' }
@@ -2504,12 +2508,12 @@ components:
         startsAt:
           type: [string, 'null']
           format: date-time
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: A meeting's start (T-0081); `null` on any other type.
         endsAt:
           type: [string, 'null']
           format: date-time
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: A meeting's end, after `startsAt` and at most 24 hours after it; `null` on any other type.
         version:
           type: integer
@@ -2645,12 +2649,12 @@ components:
         startsAt:
           type: [string, 'null']
           format: date-time
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: Meetings only (T-0081); `null` on any other type.
         endsAt:
           type: [string, 'null']
           format: date-time
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Meetings only (T-0081): after `startsAt` and at most 24 hours after
             it. `null` on any other type.
@@ -2707,14 +2711,14 @@ components:
         startsAt:
           type: string
           format: date-time
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Meetings only, and required on one (`400 meeting_only` on any other
             type). UTC, with a `Z`. Not nullable.
         endsAt:
           type: string
           format: date-time
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Meetings only, and required on one. After `startsAt`
             (`400 invalid_range`) and at most 24 hours after it
@@ -2763,7 +2767,7 @@ components:
         dueAt:
           type: [string, 'null']
           format: date-time
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Snooze or move a task (T-0081); `null` clears its due time. A
             note, a call or a meeting is `400 task_only`. UTC, with a `Z`.
@@ -2771,7 +2775,7 @@ components:
         startsAt:
           type: string
           format: date-time
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Move a meeting's start (T-0081). Anything but a meeting is
             `400 meeting_only`. Not nullable. The result must keep `endsAt`
@@ -2779,7 +2783,7 @@ components:
         endsAt:
           type: string
           format: date-time
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Move a meeting's end (T-0081). Anything but a meeting is
             `400 meeting_only`. Not nullable. Judged on the result, as

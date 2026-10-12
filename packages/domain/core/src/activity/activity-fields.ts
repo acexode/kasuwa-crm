@@ -28,6 +28,9 @@ export const WITHHOLDABLE_ACTIVITY_FIELDS = [
   'body',
   'dueAt',
   'completedAt',
+  // A meeting's times (0034, T-0082): `starts_at` and `ends_at` in the matrix.
+  'startsAt',
+  'endsAt',
   'ownerUserId',
   'contactId',
   'accountId',
