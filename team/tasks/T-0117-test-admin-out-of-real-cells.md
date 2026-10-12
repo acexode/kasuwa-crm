@@ -1,6 +1,6 @@
 # T-0117 — `kasuwa_test_admin` is unusable in a real cell (D-L92, D-L94)
 
-**status** `assigned` (suite `lead/T-0117-acceptance`: 452e282, d95736a; bootstrap edits allowed on `agent1/T-0117`) · **owner** Agent 1 · **priority** P0 (before any populated cell) · **decisions**
+**status** `done` (#114, 2026-10-12) · **owner** Agent 1 · **priority** P0 (before any populated cell) · **decisions**
 D-L92, D-L07, D-L65, ADR-0013
 
 ## Goal
