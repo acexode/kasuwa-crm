@@ -9,9 +9,10 @@ import { newId } from './ids';
  * the seed (`runSeed`) and tenant provisioning (`provisionTenant` in
  * `@kasuwa/domain-core/provisioning`). Tenants that existed before the rows
  * did were backfilled by migration 0025 (contact, account `name`), 0026
- * (T-0054, the account fields after `name`), 0027 (T-0060, activity) and
- * 0028 (T-0076, contact `company_name`), each carrying a frozen copy of its
- * part of this list; the T-0053, T-0054, T-0060 and T-0076 acceptance suites
+ * (T-0054, the account fields after `name`), 0027 (T-0060, activity),
+ * 0028 (T-0076, contact `company_name`) and 0034 (T-0082, activity
+ * `starts_at` and `ends_at`), each carrying a frozen copy of its part of
+ * this list; the T-0053, T-0054, T-0060 and T-0076 acceptance suites
  * assert that all three sources produce the same catalogue. Never edit any of
  * those migrations.
  *
@@ -153,6 +154,9 @@ export const STANDARD_OBJECT_CATALOGUE: readonly StandardObjectDef[] = [
       field('body', 'Body', 'textarea', { classification: 'pii' }),
       field('due_at', 'Due', 'datetime'),
       field('completed_at', 'Completed', 'datetime'),
+      // Migration 0034 (T-0082): a meeting's times.
+      field('starts_at', 'Starts', 'datetime'),
+      field('ends_at', 'Ends', 'datetime'),
       field('owner_user_id', 'Owner', 'text'),
       field('contact_id', 'Contact', 'lookup', { config: { targetObjectApiName: 'contact' } }),
       field('account_id', 'Account', 'lookup', { config: { targetObjectApiName: 'account' } }),
