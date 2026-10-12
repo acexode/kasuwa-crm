@@ -989,6 +989,7 @@
   "record.activity.type.note": "Small note",
   "record.activity.type.task": "Work to do",
   "record.activity.type.call": "Phone call",
+  "record.activity.type.meeting": "Meeting",
   "record.offline": "Na how dis record be for {time} we dey show. Anything wey need network go off until you connect back.",
   "record.loading": "We dey load di contact…",
   "record.unavailable": "Di contact no load",

@@ -989,6 +989,7 @@
   "record.activity.type.note": "Note",
   "record.activity.type.task": "Tâche",
   "record.activity.type.call": "Appel",
+  "record.activity.type.meeting": "Réunion",
   "record.offline": "Affichage de la fiche telle qu’elle était à {time}. Tout ce qui nécessite une connexion est désactivé jusqu’à votre reconnexion.",
   "record.loading": "Chargement du contact…",
   "record.unavailable": "Le contact n’a pas pu être chargé",

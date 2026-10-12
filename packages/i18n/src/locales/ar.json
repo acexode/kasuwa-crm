@@ -989,6 +989,7 @@
   "record.activity.type.note": "ملاحظة",
   "record.activity.type.task": "مهمة",
   "record.activity.type.call": "مكالمة",
+  "record.activity.type.meeting": "اجتماع",
   "record.offline": "يُعرض هذا السجل كما كان في {time}. كل ما يحتاج إلى اتصال معطّل حتى تعيد الاتصال.",
   "record.loading": "جارٍ تحميل جهة الاتصال…",
   "record.unavailable": "لم يتم تحميل جهة الاتصال",

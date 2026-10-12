@@ -45,7 +45,7 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.8.0-T-0103
+  version: 0.9.0-T-0081
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
     update. Accounts (T-0052, served since T-0055): list, get, create,
@@ -55,7 +55,12 @@ info:
     against a contact or an account, and complete or reassign it; activities
     are read on the contact's timeline and, from T-0080, on the account's
     (`listAccountTimeline`), each carrying the `version` updateActivity
-    needs (D-L85). Leads (T-0056, D-P17, served since
+    needs (D-L85). Tasks and calendar (P07, T-0081, contract only until
+    T-0082): a `meeting` activity type with `startsAt` and `endsAt`; the
+    caller's own open tasks by bucket (`listMyActivities`) and their own
+    Kasuwa events in a window of at most 42 days (`listCalendar`); and
+    updateActivity's snooze (`dueAt`) and reschedule (`startsAt`, `endsAt`).
+    Leads (T-0056, D-P17, served since
     T-0076): a lead is a
     contact at a lead stage, not its own record, so leads add a list view
     (`listLeads`), one action (`convertContact`) and one contact field
@@ -80,7 +85,9 @@ info:
     localises as `records.error.<code>`.
 
     **Times** are UTC, ISO 8601, with a `Z`. Display conversion to the tenant's
-    zone (WAT/EAT/SAST) is the browser's.
+    zone (WAT/EAT/SAST) is the browser's. One operation takes a zone:
+    listMyActivities needs the caller's IANA `timeZone` to know where "today"
+    ends, and still answers in UTC.
 
     **Phones** are E.164 (`+2348031234567`) on the wire, in and out.
 
@@ -616,11 +623,11 @@ paths:
   /api/v1/activities:
     post:
       tags: [activities]
-      summary: Log an activity — a note, a task or a call
+      summary: Log an activity — a note, a task, a call or a meeting
       operationId: createActivity
       x-kasuwa-implemented: true
       x-kasuwa-audited: true
-      x-kasuwa-screens: ['P05/01']
+      x-kasuwa-screens: ['P05/01', 'P07/07']
       description: |
         **Target and programme.** At least one of `contactId` and `accountId`.
         There is no `programmeId`: the activity's programme is its target's
@@ -651,8 +658,27 @@ paths:
         `403 not_permitted` with `details[].code: field_not_editable`. Order:
         `404`, `403`, `400` (D-L53).
 
-        **Validation.** `dueAt` on a note or a call is `400` (`task_only`). A NUL
-        character in `subject` or `body` is `400` (`invalid_character`).
+        **Validation.** `dueAt` on a note, a call or a meeting is `400`
+        (`task_only`). A NUL character in `subject` or `body` is `400`
+        (`invalid_character`).
+
+        **Meetings (T-0081, D-L87; specified, served from T-0082).** A
+        `meeting` requires `startsAt` and `endsAt`, both UTC with a `Z`
+        (`400 required` at the missing one). `endsAt` must be after
+        `startsAt` (`400 invalid_range` at `endsAt`; equal is not after) and
+        at most 24 hours after it (`400 too_long` at `endsAt`). `startsAt`
+        or `endsAt` on a note, a task or a call is `400 meeting_only`. A
+        meeting has no `dueAt` and is never completed. Meetings follow
+        D-P18's activity rights unchanged: whoever may log a task may log a
+        meeting (D-L87); there is no new permission. Until T-0082 the live
+        route answers `400` for `type: meeting` and for `startsAt` or
+        `endsAt`, as it does for any property it does not know. The P07
+        composer sets `ownerUserId` to the caller, so the meeting is on the
+        caller's calendar (listCalendar lists what the caller OWNS).
+
+        **Not in this contract (D-P22, D-P29):** attendees or invitations,
+        a location, reminders by SMS, WhatsApp, email or push, and anything
+        pushed to an external calendar. A create never sends a message.
 
         **Response.** The created activity through field security, as a
         read: a field the caller may write but not read is omitted and listed
@@ -667,14 +693,28 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/CreateActivityRequest' }
-            example:
-              type: task
-              subject: Call back about the payment plan
-              dueAt: '2026-10-02T15:00:00.000Z'
-              contactId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+            examples:
+              task:
+                summary: A task on a contact
+                value:
+                  type: task
+                  subject: Call back about the payment plan
+                  dueAt: '2026-10-02T15:00:00.000Z'
+                  contactId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+              meeting:
+                summary: A meeting on an account, owned by the caller (P07/07)
+                value:
+                  type: meeting
+                  subject: QBR with Ọja Foods
+                  startsAt: '2026-09-30T14:30:00.000Z'
+                  endsAt: '2026-09-30T15:30:00.000Z'
+                  ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                  accountId: 9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c01
       responses:
         '201':
           description: Created.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Activity' }
@@ -688,31 +728,60 @@ paths:
       - $ref: '#/components/parameters/ActivityId'
     patch:
       tags: [activities]
-      summary: Complete or reassign an activity
+      summary: Complete, reassign, snooze or reschedule an activity
       operationId: updateActivity
       x-kasuwa-implemented: true
       x-kasuwa-audited: true
-      x-kasuwa-screens: ['P05/01']
+      x-kasuwa-screens: ['P05/01', 'P07/01', 'P07/03', 'P07/04', 'P07/05']
       description: |
-        `version` (required) plus `completed: true` and/or `ownerUserId`
-        (D-L81). Completing sets `completedAt` to the server's time and keeps
+        `version` (required) plus ONLY the fields the person changed (D-L102):
+        `completed: true` and/or `ownerUserId` (D-L81), and from T-0081
+        `dueAt` (a task: snooze or move it; `null` clears it) and `startsAt`
+        and/or `endsAt` (a meeting: drag to reschedule, or resize). A field
+        the person did not change is never sent, after any number of `409`s:
+        resending an untouched field's old value with a fresh `version`
+        silently undoes someone else's save.
+
+        Completing sets `completedAt` to the server's time and keeps
         it if the task was already complete; only a task can be completed
-        (`400 task_only` for a note or a call). Reopening is not in this
-        slice. The `version` to send is the one on the activity's timeline
-        item (listContactTimeline or listAccountTimeline, T-0080), or on the
-        Activity this caller last wrote. The activity cannot be retargeted or
-        moved between programmes:
+        (`400 task_only` for a note, a call or a meeting). The `version` to
+        send is the one on the activity's timeline item (listContactTimeline
+        or listAccountTimeline, T-0080), on its listMyActivities or
+        listCalendar item, or on the Activity this caller last wrote. The
+        activity cannot be retargeted or moved between programmes:
         `contactId`, `accountId`, `programmeId` and every server-owned field
         are `400` (the body is closed). A stale `version` is
         `409 stale_write`.
 
+        **No reopening (D-L81, D-L87).** `completed` admits only `true`, the
+        body has no `completedAt`, and no operation in this contract clears
+        `completedAt`: a completed task stays completed. Moving a completed
+        task's `dueAt` changes its time and nothing else. P07/01's "Undo"
+        after completing is not offered.
+
+        **Snooze and reschedule (T-0081; specified, served from T-0082).**
+        `dueAt` on a note, a call or a meeting is `400 task_only`. `startsAt`
+        or `endsAt` on anything but a meeting is `400 meeting_only`; neither
+        is nullable, because a meeting always has both. The meeting rules of
+        createActivity are judged on the RESULT, the stored times with the
+        sent ones applied: `endsAt` after `startsAt` (`400 invalid_range`)
+        and at most 24 hours after it (`400 too_long`), both at the field
+        sent. All times are UTC with a `Z`. Until T-0082 the live route
+        answers `400` for `dueAt`, `startsAt` and `endsAt`, as for any
+        property it does not know. Rescheduling sends nothing to anyone: no
+        reminder, no invitation and no external calendar (D-P22, D-P29).
+
         **Permission.** `activity.write` in the activity's programme, as for
-        createActivity. Reassigning follows D-P14 (D-L81): the `agent` set may
+        createActivity. Snoozing and rescheduling need no other right:
+        whoever may update the activity may move it (D-L87, D-P18).
+        Reassigning follows D-P14 (D-L81): the `agent` set may
         set the owner to itself only; `team_lead`, `programme_manager`,
         `admin` and the tenant-admin flag may assign any member of the
         activity's programme, or clear the owner. The owner must be a member
         of the activity's programme, as on create. Field security applies to
-        `completedAt` and `ownerUserId`.
+        `completedAt`, `ownerUserId`, `dueAt`, `startsAt` and `endsAt`:
+        sending one that is withheld from, or read-only for, the caller is
+        `403 not_permitted` with `details[].code: field_not_editable`.
 
         Out of scope (another programme, another tenant, no such activity) is
         `404 not_found`, one body. Order: `404`, `403`, `400`, `409`. Every
@@ -723,12 +792,28 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/UpdateActivityRequest' }
-            example:
-              version: 1
-              completed: true
+            examples:
+              complete:
+                summary: Complete a task
+                value:
+                  version: 1
+                  completed: true
+              snooze:
+                summary: Snooze a task to tomorrow morning, 09:00 WAT (P07/01)
+                value:
+                  version: 2
+                  dueAt: '2026-10-01T08:00:00.000Z'
+              reschedule:
+                summary: Drag a meeting to a new slot (P07/03)
+                value:
+                  version: 3
+                  startsAt: '2026-10-02T09:00:00.000Z'
+                  endsAt: '2026-10-02T10:00:00.000Z'
       responses:
         '200':
           description: The updated activity, field security applied. `version` has advanced.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Activity' }
@@ -737,6 +822,238 @@ paths:
         '403': { $ref: '#/components/responses/NotPermitted' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/StaleWrite' }
+
+  # -------------------------------------------------------------------------
+  # The caller's own tasks and calendar (P07; T-0081, contract only until
+  # T-0082; D-L87, D-P18, D-P22). Both lists read the caller's OWN activities
+  # (`ownerUserId` is the session's user) in the programmes the session
+  # resolves; neither takes an owner, a user or a programme. The five rules at
+  # the top of this file apply unchanged, and both cursors carry an id only
+  # (D-L80). Writes are updateActivity's (complete, snooze, reschedule,
+  # reassign), one activity and one `version` at a time.
+  #
+  # Deliberately absent: reopening a task (D-L81; P07/01's "Undo" is hidden,
+  # D-L87); Google, Microsoft or any other external calendar, sync and booking
+  # pages (D-P22: a new adapter, OAuth token storage, and a public write that
+  # needs a third SECURITY DEFINER function and an ADR); public holidays
+  # (D-P22: nobody owns the calendar yet); reminders by SMS, WhatsApp, email
+  # or push (D-P29: in-app only, later); offline queues (D-P21); field
+  # check-in (P07/09); the AI meeting brief (M17); task priority; attendees;
+  # bulk operations; and every count (D-P13). The screen hides each.
+  # -------------------------------------------------------------------------
+
+  /api/v1/me/activities:
+    get:
+      tags: [activities, me]
+      summary: The caller's own open tasks in one bucket — overdue, today or upcoming
+      operationId: listMyActivities
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P07/01', 'P07/02']
+      description: |
+        P07/01's My tasks: the caller's own open tasks, one bucket per call.
+        The screen asks for `overdue`, `today` and `upcoming` and draws one
+        group for each.
+
+        **Whose.** Tasks whose `ownerUserId` is the session's user, in the
+        programmes the session resolves, and nothing else. Nothing in the
+        request chooses whose tasks are listed: there is no owner, user or
+        programme parameter (rule 1). A task the caller still owns in a
+        programme they no longer reach is not listed. An activity with no
+        owner is on nobody's list. Notes, calls and meetings are never listed
+        here (meetings are on listCalendar). A completed task is not listed:
+        completing one removes it from every bucket, and no operation reopens
+        it (D-L81).
+
+        **Buckets, computed by the server in the caller's zone.** `timeZone`
+        (required) is the caller's IANA time zone, for example `Africa/Lagos`.
+        At the moment of the request the server computes:
+        - `overdue`: `dueAt` before now;
+        - `today`: `dueAt` from now until the next midnight in `timeZone`;
+        - `upcoming`: `dueAt` at or after that midnight, and then every open
+          task with no `dueAt`, last.
+
+        The three buckets are disjoint: every listed task is in exactly one.
+        Midnight follows the zone's own rules, so "today" is not always 24
+        hours long. `timeZone` decides only where today ends; every time on
+        the wire is still UTC with a `Z`.
+
+        **Validation: 400, never a fallback.** A `timeZone` that is not a zone
+        name in the server's IANA time-zone database is `400
+        validation_failed` with `details[].code: invalid_time_zone` at
+        `timeZone`. That covers an abbreviation (`WAT`), an offset (`+01:00`,
+        `UTC+1`), a path (`../`), an unknown name and an empty value alike. The
+        server never substitutes UTC, the tenant's zone or any default. A
+        missing `timeZone` or `bucket` is `400`.
+
+        **Order and paging.** `dueAt` ascending, ties broken by `id`
+        ascending. In `upcoming` the undated tasks come after every dated one,
+        by `id`. Keyset only: `{ data, nextCursor }`, with no total, count or
+        offset (D-P13) and no count per bucket, so the group headers carry no
+        number. The cursor carries an id only (D-L80; see ActivityCursor).
+        `limit` out of 1..100 is `400`, never clamped.
+
+        **Field security, before paging.** Each item follows the activity
+        object's field security in the activity's own programme, as on the
+        timeline. A withheld `subject`, `completedAt`, `startsAt` or `endsAt`
+        is omitted and named in `withheldFields`, and the `contact` or
+        `account` summary is withheld with the activity's contact or account
+        link. A task whose `dueAt` is withheld from the caller is not listed at
+        all, because its bucket and its position would disclose the value.
+        Omission happens before the page is cut, so a page with a non-null
+        `nextCursor` holds `limit` items.
+
+        **Every reader may call it.** No permission set is refused: the list
+        is the caller's own, and reads never answer `403`. It takes no record
+        id, so there is no `404`. `Cache-Control: no-store` on every answer.
+      parameters:
+        - $ref: '#/components/parameters/TimeZone'
+        - $ref: '#/components/parameters/ActivityBucket'
+        - $ref: '#/components/parameters/ActivityCursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of the bucket, oldest due first, field security applied.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyActivityPage' }
+              example:
+                data:
+                  - id: 5e2a7b1c-3d4f-4a6b-8c9d-0e1f2a3b4c04
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    type: task
+                    subject: WhatsApp Emeka about holding the price
+                    dueAt: '2026-09-30T11:00:00.000Z'
+                    completedAt: null
+                    startsAt: null
+                    endsAt: null
+                    contact:
+                      id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                      displayName: Emeka Obi
+                    account: null
+                    version: 1
+                    withheldFields: []
+                  - id: 5e2a7b1c-3d4f-4a6b-8c9d-0e1f2a3b4c06
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a02
+                    type: task
+                    dueAt: '2026-09-30T15:00:00.000Z'
+                    completedAt: null
+                    startsAt: null
+                    endsAt: null
+                    contact: null
+                    account:
+                      id: 9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c02
+                      name: Kwara Microfinance Bank
+                    version: 3
+                    withheldFields: [subject]
+                nextCursor: null
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+
+  /api/v1/me/calendar:
+    get:
+      tags: [activities, me]
+      summary: The caller's own Kasuwa events in a window of at most 42 days
+      operationId: listCalendar
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P07/03', 'P07/04', 'P07/05', 'P07/06']
+      description: |
+        The P07 calendar (week, day, month and the mobile agenda): the
+        caller's own Kasuwa events between `from` and `to`.
+
+        **Kasuwa events only (D-P22).** No Google, Microsoft or other external
+        calendar is read, synced or written, and there is no booking page and
+        no public-holiday calendar. Every caller sees what P07/06 draws for an
+        unconnected calendar: Kasuwa's own events. Connecting a calendar needs
+        a new integration adapter and storage for OAuth tokens, and is a later
+        decision.
+
+        **Whose.** As listMyActivities: activities whose `ownerUserId` is the
+        session's user, in the programmes the session resolves. There is no
+        owner, user or programme parameter. An activity with no owner is on
+        nobody's calendar.
+
+        **What is listed.**
+        - A task with a `dueAt` in the window (`from` <= `dueAt` < `to`),
+          open or completed (`completedAt` says which: completion neither
+          removes nor moves it).
+        - A meeting that overlaps the window: `startsAt` before `to` and
+          `endsAt` after `from`. A meeting that began before `from` is listed.
+        - Nothing else. Notes, calls and tasks with no `dueAt` have no time
+          and are never listed.
+
+        **The window, in UTC.** `from` and `to` are required UTC date-times
+        with a `Z`; the screen converts the days it shows into UTC in the
+        browser's zone, and the server assumes no zone. `to` must be after
+        `from` (`400 validation_failed`, `details[].code: invalid_window` at
+        `to`; equal is not after). The window is at most 42 days (six weeks, a
+        month grid): `to` more than 42 days after `from` is `400` with
+        `details[].code: window_too_long` at `to`, never clamped. A value with
+        an offset instead of a `Z`, a date without a time, year 0 or an
+        impossible date is `400` at its path, never `500`.
+
+        **Order and paging.** By the event's start, ascending (`dueAt` for a
+        task, `startsAt` for a meeting), ties broken by `id` ascending. Keyset
+        only: `{ data, nextCursor }`, with no total, count or offset (D-P13),
+        and no per-day count. The cursor carries an id only (D-L80; see
+        ActivityCursor). `limit` out of 1..100 is `400`, never clamped.
+
+        **Field security, before paging.** As listMyActivities: each item
+        follows the activity's field security in its own programme. A task
+        whose `dueAt` is withheld, and a meeting whose `startsAt` or `endsAt`
+        is withheld, is not listed at all, because its place on the calendar
+        would disclose the value. Omission happens before the page is cut.
+
+        Every reader may call it; reads never answer `403`, and it takes no
+        record id, so there is no `404`. `Cache-Control: no-store` on every
+        answer.
+      parameters:
+        - $ref: '#/components/parameters/WindowFrom'
+        - $ref: '#/components/parameters/WindowTo'
+        - $ref: '#/components/parameters/ActivityCursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of the caller's events in the window, earliest start first.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyActivityPage' }
+              example:
+                data:
+                  - id: 5e2a7b1c-3d4f-4a6b-8c9d-0e1f2a3b4c05
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    type: task
+                    subject: Prep the QBR deck
+                    dueAt: '2026-09-30T14:00:00.000Z'
+                    completedAt: null
+                    startsAt: null
+                    endsAt: null
+                    contact: null
+                    account:
+                      id: 9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c01
+                      name: Ọja Foods Ltd
+                    version: 3
+                    withheldFields: []
+                  - id: 5e2a7b1c-3d4f-4a6b-8c9d-0e1f2a3b4c08
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    type: meeting
+                    subject: QBR with Ọja Foods
+                    dueAt: null
+                    completedAt: null
+                    startsAt: '2026-09-30T14:30:00.000Z'
+                    endsAt: '2026-09-30T15:30:00.000Z'
+                    contact: null
+                    account:
+                      id: 9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c01
+                      name: Ọja Foods Ltd
+                    version: 1
+                    withheldFields: []
+                nextCursor: null
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
 
   # -------------------------------------------------------------------------
   # Leads (T-0056, D-P17, D-L75). Served since T-0076 (D-L82). A lead is a
@@ -1640,6 +1957,81 @@ components:
       required: false
       schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
       description: Rows per page. P04 offers 25, 50 and 100. Out of range is `400`, never clamped.
+    TimeZone:
+      name: timeZone
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+        pattern: '^[A-Za-z_][A-Za-z0-9_]*(/[A-Za-z0-9_+-]+){0,2}$'
+      description: |
+        The caller's IANA time zone (listMyActivities, T-0081), for example
+        `Africa/Lagos`, `Africa/Nairobi` or `Africa/Johannesburg`. Required,
+        with no default: the server never substitutes UTC, the tenant's zone
+        or any other. It must match the pattern AND name a zone in the
+        server's IANA time-zone database; anything else is `400
+        validation_failed` with `details[].code: invalid_time_zone` at
+        `timeZone`. An abbreviation (`WAT`), an offset (`+01:00`, `UTC+1`), a
+        path (`../`), a value with spaces or a NUL, and a parameter sent twice
+        are all `400`. The value is looked up as a name, never used as a file
+        path. It decides where "today" ends and nothing else; every time on the
+        wire stays UTC.
+    ActivityBucket:
+      name: bucket
+      in: query
+      required: true
+      schema: { $ref: '#/components/schemas/ActivityBucket' }
+      description: Which group of P07/01 to list. Required; anything else is `400`.
+    ActivityCursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 512 }
+      description: |
+        **Opaque.** Echo `nextCursor` back unchanged, with the same other
+        parameters; do not parse it or build one. It carries the id of the
+        last row and nothing else (D-L80): never a subject, a name or a time.
+        The server resolves the position from that activity's CURRENT sort
+        key, inside the caller's scope. The id must name an activity the
+        caller owns, in a programme the session resolves, of a kind the list
+        shows (a task on listMyActivities; a task or a meeting on
+        listCalendar), whose sort field (`dueAt`, or a meeting's `startsAt`)
+        is not withheld from the caller. Anything else is `400
+        validation_failed` with `details[].code: invalid_cursor`, one body
+        whatever the reason, exactly as for a malformed cursor: no such
+        activity, another tenant's or programme's, someone else's, a note or a
+        call, or a withheld sort field. So a cursor cannot test whether an id
+        exists. A task completed, snoozed or rescheduled since the page was
+        cut still resolves, at its current position: the next page starts
+        after it, and a moved row can make a later page skip or repeat a row.
+        Re-read from the top after a write.
+    WindowFrom:
+      name: from
+      in: query
+      required: true
+      schema: { type: string, format: date-time }
+      description: |
+        The window's start, inclusive (listCalendar). A UTC date-time with a
+        `Z`; an offset, a date alone, year 0 or an impossible date is `400`.
+    WindowTo:
+      name: to
+      in: query
+      required: true
+      schema: { type: string, format: date-time }
+      description: |
+        The window's end, exclusive (listCalendar). A UTC date-time with a
+        `Z`, after `from` (`400 invalid_window`) and at most 42 days after it
+        (`400 window_too_long`, never clamped).
+
+  headers:
+    NoStore:
+      description: |
+        Always `no-store`. Every answer of every records route carries it,
+        errors included (T-0080's middleware runs before the guards, so a
+        `401` or a `400` from the guard has it too).
+      schema: { type: string, enum: ['no-store'] }
 
   schemas:
     ContactStatus:
@@ -2058,9 +2450,15 @@ components:
         as an import). One schema for both timelines.
 
         Follows the activity object's field security in the record's
-        programme: a `subject`, `body`, `dueAt` or `completedAt` the caller
-        may not read is omitted from the item (never sent as `null`). A
-        present `null` means no value. `version` is never withheld.
+        programme: a `subject`, `body`, `dueAt`, `completedAt`, `startsAt` or
+        `endsAt` the caller may not read is omitted from the item (never sent
+        as `null`). A present `null` means no value. `version` is never
+        withheld.
+
+        **Specified, not yet served.** `startsAt` and `endsAt` (a meeting's
+        times, T-0081) are marked `x-kasuwa-implemented: false`: the live
+        wire does not send them until T-0082, and once it does they are on
+        every activity item, `null` on a note, a task or a call.
       properties:
         id:
           type: string
@@ -2087,6 +2485,16 @@ components:
           type: [string, 'null']
           format: date-time
           description: Set by the server when a task is completed; `null` until then.
+        startsAt:
+          type: [string, 'null']
+          format: date-time
+          x-kasuwa-implemented: false
+          description: A meeting's start (T-0081); `null` on any other type.
+        endsAt:
+          type: [string, 'null']
+          format: date-time
+          x-kasuwa-implemented: false
+          description: A meeting's end, after `startsAt` and at most 24 hours after it; `null` on any other type.
         version:
           type: integer
           minimum: 1
@@ -2160,10 +2568,27 @@ components:
 
     ActivityType:
       type: string
-      enum: [note, task, call]
+      enum: [note, task, call, meeting]
       description: |
         Snake_case codes, as stored (0027); labels are i18n strings. Only a
-        task has a due time and can be completed.
+        task has a due time (`dueAt`) and can be completed. Only a meeting
+        has a start and an end (`startsAt`, `endsAt`). Closed: P07's demo,
+        field visit and internal event are not types.
+
+        **`meeting` (T-0081, D-L87) is specified, not yet served.** Until
+        T-0082 the live createActivity answers `400` for it, and no meeting
+        exists to read. A client that renders activities must still expect
+        it on every activity-shaped read (the timelines included) from
+        T-0082 on.
+
+    ActivityBucket:
+      type: string
+      enum: [overdue, today, upcoming]
+      description: |
+        listMyActivities' groups (P07/01), computed by the server in the
+        caller's `timeZone`: `overdue` is due before now; `today` is due from
+        now until the next midnight in that zone; `upcoming` is due at or
+        after it, then every task with no due time. Disjoint.
 
     Activity:
       type: object
@@ -2176,6 +2601,11 @@ components:
         sent as `null`. `id`, `programmeId`, `type`, `createdByUserId`,
         `version`, `createdAt`, `updatedAt` and `withheldFields` are never
         withheld. No tenant id.
+
+        **Specified, not yet served.** `startsAt` and `endsAt` (T-0081) are
+        marked `x-kasuwa-implemented: false`: the live wire does not send
+        them until T-0082. From then they are present (or withheld) on every
+        activity, `null` on a note, a task or a call.
       properties:
         id:
           type: string
@@ -2195,7 +2625,19 @@ components:
         completedAt:
           type: [string, 'null']
           format: date-time
-          description: Set by the server when a task is completed.
+          description: Set by the server when a task is completed. Never cleared (D-L81).
+        startsAt:
+          type: [string, 'null']
+          format: date-time
+          x-kasuwa-implemented: false
+          description: Meetings only (T-0081); `null` on any other type.
+        endsAt:
+          type: [string, 'null']
+          format: date-time
+          x-kasuwa-implemented: false
+          description: |
+            Meetings only (T-0081): after `startsAt` and at most 24 hours after
+            it. `null` on any other type.
         ownerUserId:
           type: [string, 'null']
           format: uuid
@@ -2219,7 +2661,7 @@ components:
             this caller. Always present; empty when nothing was withheld.
           items:
             type: string
-            enum: [subject, body, dueAt, completedAt, ownerUserId, contactId, accountId]
+            enum: [subject, body, dueAt, completedAt, startsAt, endsAt, ownerUserId, contactId, accountId]
 
     CreateActivityRequest:
       type: object
@@ -2228,7 +2670,8 @@ components:
       description: |
         Closed. At least one of `contactId` and `accountId`. No `id` (D-L79),
         no `programmeId` (the target's), no creator (the session's), no
-        `completedAt` (the server's), no `version`: each is `400`.
+        `completedAt` (the server's), no `version`: each is `400`. A meeting
+        requires `startsAt` and `endsAt`; see createActivity.
       properties:
         type: { $ref: '#/components/schemas/ActivityType' }
         subject:
@@ -2244,7 +2687,22 @@ components:
         dueAt:
           type: [string, 'null']
           format: date-time
-          description: Tasks only (`400 task_only` on a note or a call). UTC, with a `Z`.
+          description: Tasks only (`400 task_only` on a note, a call or a meeting). UTC, with a `Z`.
+        startsAt:
+          type: string
+          format: date-time
+          x-kasuwa-implemented: false
+          description: |
+            Meetings only, and required on one (`400 meeting_only` on any other
+            type). UTC, with a `Z`. Not nullable.
+        endsAt:
+          type: string
+          format: date-time
+          x-kasuwa-implemented: false
+          description: |
+            Meetings only, and required on one. After `startsAt`
+            (`400 invalid_range`) and at most 24 hours after it
+            (`400 too_long`). UTC, with a `Z`. Not nullable.
         ownerUserId:
           type: [string, 'null']
           format: uuid
@@ -2265,9 +2723,12 @@ components:
       additionalProperties: false
       required: [version]
       description: |
-        Closed: `version` plus `completed: true` and/or `ownerUserId`
-        (D-L81). Retargeting, moving programme and every server-owned field
-        are `400`. Reopening a task is not in this slice.
+        Closed: `version` plus only the fields the person changed (D-L102):
+        `completed: true` and/or `ownerUserId` (D-L81), and from T-0081
+        `dueAt` (a task), `startsAt` and `endsAt` (a meeting). Retargeting,
+        moving programme and every server-owned field are `400`. There is no
+        way to reopen a task: `completed` admits only `true` and there is no
+        `completedAt` (D-L81, D-L87).
       properties:
         version:
           type: integer
@@ -2276,13 +2737,139 @@ components:
         completed:
           type: boolean
           enum: [true]
-          description: Complete a task; the server sets `completedAt`. A note or a call is `400 task_only`.
+          description: Complete a task; the server sets `completedAt`. A note, a call or a meeting is `400 task_only`.
         ownerUserId:
           type: [string, 'null']
           format: uuid
           description: |
             Reassign to a member of the activity's programme, or `null` to
             clear. The `agent` set may set only itself (D-L81).
+        dueAt:
+          type: [string, 'null']
+          format: date-time
+          x-kasuwa-implemented: false
+          description: |
+            Snooze or move a task (T-0081); `null` clears its due time. A
+            note, a call or a meeting is `400 task_only`. UTC, with a `Z`.
+            Never changes `completedAt`.
+        startsAt:
+          type: string
+          format: date-time
+          x-kasuwa-implemented: false
+          description: |
+            Move a meeting's start (T-0081). Anything but a meeting is
+            `400 meeting_only`. Not nullable. The result must keep `endsAt`
+            after `startsAt` and at most 24 hours after it.
+        endsAt:
+          type: string
+          format: date-time
+          x-kasuwa-implemented: false
+          description: |
+            Move a meeting's end (T-0081). Anything but a meeting is
+            `400 meeting_only`. Not nullable. Judged on the result, as
+            `startsAt`.
+
+    ActivityContactSummary:
+      type: object
+      additionalProperties: false
+      required: [id, displayName]
+      description: |
+        Closed: the activity's contact, an id and a name to print, nothing
+        else (no phone, email, owner or status). The contact is always in the
+        activity's programme, so this names nobody the caller's programme
+        cannot see.
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string, maxLength: 200 }
+
+    MyActivity:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, type, version, withheldFields]
+      description: |
+        One of the caller's own activities on listMyActivities or
+        listCalendar (T-0081): a task or a meeting, with what P07 draws on a
+        row or an event and nothing more. No `body` (a list carries no free
+        text beyond the subject; the timeline has it) and no owner (it is
+        always the caller). No tenant id.
+
+        **Field security** in the activity's own programme, as on Activity:
+        a property the caller may not read is omitted and named in
+        `withheldFields`, never sent as `null`. `contact` is withheld with the
+        activity's contact link (`contactId`) and `account` with its account
+        link (`accountId`). `id`, `programmeId`, `type`, `version` and
+        `withheldFields` are never withheld. A task whose `dueAt`, or a
+        meeting whose `startsAt` or `endsAt`, is withheld is not listed at
+        all (see the operations).
+
+        `version` is the activity's current one: send it back on
+        updateActivity to complete, snooze or reschedule this item.
+      properties:
+        id: { type: string, format: uuid }
+        programmeId:
+          type: string
+          format: uuid
+          description: The activity's programme.
+        type:
+          type: string
+          enum: [task, meeting]
+          description: Only tasks and meetings have a time. Notes and calls are never listed.
+        subject: { type: [string, 'null'], maxLength: 200 }
+        dueAt:
+          type: [string, 'null']
+          format: date-time
+          description: A task's due time; `null` on a meeting and on an undated task.
+        completedAt:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            Always `null` on listMyActivities (it lists open tasks); a
+            completed task on listCalendar carries its completion time.
+        startsAt:
+          type: [string, 'null']
+          format: date-time
+          description: A meeting's start; `null` on a task.
+        endsAt:
+          type: [string, 'null']
+          format: date-time
+          description: A meeting's end; `null` on a task.
+        contact:
+          description: The activity's contact, or `null` when it has none. Withheld with `contactId`.
+          oneOf:
+            - { $ref: '#/components/schemas/ActivityContactSummary' }
+            - { type: 'null' }
+        account:
+          description: The activity's account, or `null` when it has none. Withheld with `accountId`.
+          oneOf:
+            - { $ref: '#/components/schemas/ContactAccountSummary' }
+            - { type: 'null' }
+        version:
+          type: integer
+          minimum: 1
+          description: The activity's current `version`, for updateActivity. Never withheld.
+        withheldFields:
+          type: array
+          description: |
+            Names of the properties above that field security withheld from
+            this caller. Always present; empty when nothing was withheld.
+          items:
+            type: string
+            enum: [subject, dueAt, completedAt, startsAt, endsAt, contact, account]
+
+    MyActivityPage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      description: |
+        Keyset page of the caller's own activities (listMyActivities,
+        listCalendar). No total, count, offset or count per bucket or day
+        (D-P13), and nothing that says items were left out for field
+        security. `nextCursor` is `null` on the last page.
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/MyActivity' }
+        nextCursor: { type: [string, 'null'] }
 
     MyProgramme:
       type: object
@@ -2667,6 +3254,8 @@ components:
         withheld field, or a scope header (the auth guard rejects those
         outright). `details` names paths and reason codes, never the submitted
         value.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:
         application/json:
           schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
@@ -2698,11 +3287,43 @@ components:
                 details:
                   - path: lga
                     code: field_withheld
+            badTimeZone:
+              summary: listMyActivities, a timeZone that is not an IANA zone
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: timeZone
+                    code: invalid_time_zone
+            windowTooLong:
+              summary: listCalendar, a window longer than 42 days
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: to
+                    code: window_too_long
+            meetingTooLong:
+              summary: createActivity or updateActivity, a meeting longer than 24 hours
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: endsAt
+                    code: too_long
 
     NotAuthenticated:
       description: |
         No usable session. It does not say whether the token was missing,
         expired, revoked or from another tenant.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:
         application/json:
           schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
@@ -2719,6 +3340,8 @@ components:
         (on create) a target programme they do not reach. A `403` here would
         confirm the id names something real: an enumeration oracle against a
         BPO running two competitors' programmes on one workspace.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:
         application/json:
           schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
@@ -2734,6 +3357,8 @@ components:
         the record (or reaches the target programme) and may not perform this
         write, or may not edit a field they sent. If they cannot read it, the
         answer is `404`.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:
         application/json:
           schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
@@ -2760,6 +3385,8 @@ components:
       description: |
         `version` is not current: somebody saved since your last read. Nothing
         was applied. Re-read and re-apply; do not retry blind.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:
         application/json:
           schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
@@ -2775,6 +3402,8 @@ components:
         tenant, an account in a programme of this tenant the caller does not
         reach, and (on create) a target programme they do not reach. A `403`
         here would confirm the id names something real.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:
         application/json:
           schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
@@ -2790,6 +3419,8 @@ components:
         the account (or reaches the target programme) and may not perform this
         write, or may not edit a field they sent. If they cannot read it, the
         answer is `404`.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:
         application/json:
           schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
@@ -2816,6 +3447,8 @@ components:
       description: |
         Specified, not built. One fixed body; the screen hides the feature
         rather than drawing an error.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:
         application/json:
           schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }

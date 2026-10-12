@@ -989,6 +989,7 @@
   "record.activity.type.note": "Note",
   "record.activity.type.task": "Task",
   "record.activity.type.call": "Call",
+  "record.activity.type.meeting": "Meeting",
   "record.offline": "Showing this record as it was at {time}. Anything that needs a connection is off until you reconnect.",
   "record.loading": "Loading the contact…",
   "record.unavailable": "The contact did not load",

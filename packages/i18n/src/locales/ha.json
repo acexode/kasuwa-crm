@@ -989,6 +989,7 @@
   "record.activity.type.note": "Rubutu",
   "record.activity.type.task": "Aiki",
   "record.activity.type.call": "Kira",
+  "record.activity.type.meeting": "Taro",
   "record.offline": "Ana nuna wannan bayani kamar yadda yake a {time}. Duk abin da ke buƙatar haɗi a kashe yake har sai kun sake haɗawa.",
   "record.loading": "Ana loda abokin hulɗa…",
   "record.unavailable": "Ba a loda abokin hulɗa ba",
