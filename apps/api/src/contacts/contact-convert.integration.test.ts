@@ -187,6 +187,19 @@ describe('convertContact mechanics (T-0076)', () => {
         [TENANT_A, PLANTED],
       );
       expect(events[0]?.n, 'one event for one convert, none per repeat').toBe(1);
+      // T-0104: the created account's own event, in this transaction, names only.
+      const accountEvents = await tx.query<{ action: string; changes: unknown; label: string }>(
+        `SELECT action, changes, object_label AS label FROM audit_event
+          WHERE tenant_id = $1 AND object_type = 'account' AND object_id = $2`,
+        [TENANT_A, first.account.id],
+      );
+      expect(accountEvents, 'one account event for the created account, none per repeat').toEqual([
+        {
+          action: 'created',
+          label: first.account.id,
+          changes: [{ field: 'name', before: null, after: null, redacted: true }],
+        },
+      ]);
     });
   });
 
