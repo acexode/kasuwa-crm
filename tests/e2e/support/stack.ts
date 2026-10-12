@@ -67,6 +67,13 @@ export interface StackUrls {
    * measured here, and its summaries link to records this process serves.
    */
   webActivitiesUrl: string;
+  /**
+   * The same process as `webRecordsUrl`, which also has `crm_scripts` ON
+   * (T-0115, T-0116): the P10 builder at `/scripts`, the agent's run at
+   * `/script-runs/[runId]` and the start control on the contact record. The
+   * builder's and the run screen's byte budgets are measured here.
+   */
+  webScriptsUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;
   /** Static fixture pages used by the harness self-tests. */
