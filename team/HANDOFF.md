@@ -76,14 +76,14 @@ Migration numbers: 0035 is T-0084 and 0036 is T-0106. Merge 0035 first if you ca
     (a separate PR).
 
 ---
-# Lead handoff â€” finish Phase 2
+# Lead handoff — finish Phase 2
 
 *Written 2026-10-06 by the outgoing Lead Agent session. `main` is at `b680668`. Read this first, then
 `CLAUDE.md`, `team/ROADMAP.md`, `team/STATUS.md` and the open entries in `team/DECISIONS.md`.*
 *This replaces the 2026-10-02 handoff, which is still in git history at `3ec49f0`.*
 
 ## 1. Where things stand
-- **Phase 0 and Phase 1 are complete** and on `main`. That includes the security hardening T-0045 to T-0048 (#84â€“#87).
+- **Phase 0 and Phase 1 are complete** and on `main`. That includes the security hardening T-0045 to T-0048 (#84–#87).
 - **Phase 2, first slice (Contacts), is 2 of 5 merged.** T-0039 (contract, #76) and T-0040 (fields and accounts, #80) are on `main`.
 - **Migrations end at `0023`.** The next free number is `0024`.
 - `team/ROADMAP.md` maps every phase and all 32 design prompts.
@@ -102,13 +102,13 @@ says yes in chat. Ask @acexode to switch the session to "ask" mode, make the edi
 they switch back. Make them on `lead/*` branches; the protect-paths hook allows `lead/*`.
 
 1. **T-0042 budget.** In `tests/e2e/p04-contacts.spec.ts`, change `CONTACTS_BUDGET_BYTES = 240_000` to `226_000`. The screen
-   measured 216,100, and the rule is â‰¤ 1.05 Ã— measured. The edit goes on the #81 branch (or a lead branch merged into it).
+   measured 216,100, and the rule is ≤ 1.05 × measured. The edit goes on the #81 branch (or a lead branch merged into it).
    The suite's sha256 pin ignores this line.
-2. **T-0041, `tests/acceptance/tenancy/adversarial.acceptance.test.ts` (around l.268â€“280).** The FINDING-4 tripwire fails on
+2. **T-0041, `tests/acceptance/tenancy/adversarial.acceptance.test.ts` (around l.268–280).** The FINDING-4 tripwire fails on
    any `INSERT INTO contact`. Replace it with an assertion that `insertContact` binds the id only from `newId()` and that
    `CreateContactBody` has no `id`. The tenancy review confirmed both are true.
 3. **T-0041, `tests/acceptance/platform/observability-pii.acceptance.test.ts`.** The probe NIN `00000000001` is a substring
-   of tenant A's id (`â€¦-000000000001`). Change the probe to a value that collides with no fixture id.
+   of tenant A's id (`…-000000000001`). Change the probe to a value that collides with no fixture id.
 4. **D-P14** (answered: agents may change `status` and assign `owner` to themselves). In the T-0041 suite, flip the
    "the agent set may not write" test to the narrow rule, then have a builder implement it. Do this after #83 merges.
 5. **T-0049 (auth role, D-P16 answered).** Its suite is on `lead/T-0049-acceptance` (206c815). It needs:
@@ -125,7 +125,7 @@ they switch back. Make them on `lead/*` branches; the protect-paths hook allows 
 ## 4. Queue after the edits (each suite is already written on `lead/T-00xx-acceptance`)
 | Order | Task | Owner | Starts when |
 |---|---|---|---|
-| 1 | Merge #83, then #81 | lead | Â§3 items 1â€“3 are done |
+| 1 | Merge #83, then #81 | lead | Â§3 items 1–3 are done |
 | 2 | T-0043 display names (`lead/T-0043-acceptance` 48df859; the owner name is embedded, not a batch lookup) | Agent 3 | #83 merged |
 | 3 | D-P14 agent edits | Agent 3 | #83 merged, and Â§3 item 4 done |
 | 4 | T-0050 pseudo-locale for dev and test only (`lead/T-0050-acceptance` e05afef) | Agent 11 | #81 merged. Re-check that test 1 fails for the real reason first |
@@ -147,7 +147,7 @@ In this order, with the design prompt in brackets. Only P03 and P04 are exported
 - **One task: a lead-written suite first, and it must fail for the real reason (D-L23).** Then one builder in its own
   worktree, then reviewers, then a merge.
   - The suite writer is Agent 12 (`agent-12-qa`), on branch `lead/T-00xx-acceptance`, under the active name.
-  - The builder branches from that lead branch: `agentN/T-00xx-â€¦`.
+  - The builder branches from that lead branch: `agentN/T-00xx-…`.
   - Builders commit locally; **the lead pushes and opens the PR**. The `builder` agent type refuses to push.
   - **Reviewers:** `security-reviewer` for anything touching auth, scope, PII or a new API. `tenancy-reviewer` for queries or
     scope. `migration-reviewer` for every migration.
@@ -158,7 +158,7 @@ In this order, with the design prompt in brackets. Only P03 and P04 are exported
   either in the PR whose contract changed it or straight to `main`.
 - **CI minutes are exhausted.** Every merge is verified locally with Docker, which works. Say so in each PR comment.
 - **Every builder brief includes these rules:**
-  - Take the RAM lock (`mkdir â€¦/scratchpad/node-slot-1|2`; a lock older than 20 min is stale).
+  - Take the RAM lock (`mkdir …/scratchpad/node-slot-1|2`; a lock older than 20 min is stale).
   - Never use `--no-verify`, not even for WIP or a throwaway merge. Two agents tried this on 2026-10-04.
   - Use a unique commit-message file name, and conventional lower-case commits.
   - Never edit `tests/acceptance/**` or `team/**`.
