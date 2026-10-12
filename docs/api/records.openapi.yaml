@@ -334,8 +334,12 @@ paths:
         `400 validation_failed` with `details[].code: unknown_reference`, the
         same body whether it names another programme's or another tenant's
         row, or nothing at all. The audit event is `objectType: contact`,
-        labelled with the record id; every change is a redacted one (the field
-        name, never a value).
+        labelled with the record id. It records every field the create set:
+        the contact value fields (`status`, `source`, `preferredLanguage`,
+        `preferredChannel`, `consentState`, `whatsappOptIn`, `state`, `lga`,
+        `tags` and, since T-0104, `ownerUserId`) with `before: null` (consent
+        `before: unknown`) and their value; every other field as a redacted
+        change (the field name, never a value).
       requestBody:
         required: true
         content:
@@ -416,8 +420,16 @@ paths:
         needs edit under field security (else `403 not_permitted` naming it in
         `details[].path`). A caller cannot clear a field they cannot read.
 
-        Every update writes an audit event recording which fields changed,
-        never their values.
+        Every update writes an audit event recording which fields changed.
+        Only the contact value fields carry their before and after values
+        (`status`, `source`, `preferredLanguage`, `preferredChannel`,
+        `consentState`, `whatsappOptIn`, `state`, `lga`, `tags` and, since
+        T-0104, `ownerUserId`: the before and after owners' user ids, in
+        canonical lower case whatever case was sent, `null` for no owner;
+        never a name, D-L71). Every other field is recorded by name only. A
+        re-sent value that is already in place is no change and is not
+        recorded. The contact timeline still shows an owner change by name
+        only (getContactTimeline).
 
         **Live (T-0041).** Same permission, reference and audit rules as
         createContact, judged in the record's programme. Order: `404`, `403`
@@ -1083,16 +1095,21 @@ paths:
         (`newAccount`). The P04/01 Leads table's row action and, once drawn,
         the P05/01 record header's.
 
-        **One transaction, one audit event.** The status change, the account
-        it creates (if any) and the link are written in one database
+        **One transaction; one contact event, and one account event when it
+        creates the account.** The status change, the account it creates (if
+        any), the link and the audit events are written in one database
         transaction: all of it or none of it. It writes exactly one audit
-        event, on the contact (`objectType: contact`), naming the changed
-        fields (`status`, `accountId`) and never their values. An account
-        created here is recorded in that same event, not in a second one: the
-        event is `updated` on the contact, names only the fields whose values
-        changed (a `customer` keeps its status, so only `accountId`), and
-        carries neither the new account's id nor its name (D-L82). A repeat or
-        a refusal writes no event.
+        event on the contact (`objectType: contact`), naming the changed
+        fields (`status`, `accountId`) and never their values: `updated`,
+        only the fields whose values changed (a `customer` keeps its status,
+        so only `accountId`), carrying neither the account's id nor its name
+        (D-L82). A convert that CREATES the account (`newAccount`) also
+        writes that account's `created` event (T-0104), as createAccount
+        does: `objectType: account`, labelled with the account's id, in the
+        contact's programme, field names only and never a value (D-L78), so
+        the account's name appears in neither event. Linking an existing
+        account writes no account event. A repeat or a refusal writes no
+        event of either kind.
 
         **What it does to the contact.** A contact whose `status` is `new`,
         `contacted`, `unqualified` or `null` becomes `qualified`. A
@@ -1105,7 +1122,7 @@ paths:
         **Idempotent.** A repeat or retry of a convert whose result is
         already in place answers the same `200` with the current contact and
         account, whatever `version` it carries, and writes nothing: no second
-        account, no second audit event, and `version` does not advance. The
+        account, no further audit event, and `version` does not advance. The
         result is in place when the contact is `qualified` or `customer` and
         its `accountId` is the requested `accountId`, or, for `newAccount`,
         when its account's `name` equals the requested `name` exactly. This
