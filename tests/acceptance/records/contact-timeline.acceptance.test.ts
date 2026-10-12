@@ -163,8 +163,10 @@ import { collectTelemetry, type Telemetry } from '../support/telemetry';
  *     `{ field, before, after, redacted: false }` for the T6 value fields
  *     (string codes as the strings themselves: status 'new' -> 'contacted'),
  *     and `{ field, before: null, after: null, redacted: true }` for the
- *     redacted fields. No phone, email, name, owner id or account id appears
- *     anywhere in `changes`. (How tags and whatsappOptIn are encoded in the
+ *     redacted fields. No phone, email, name or account id appears anywhere
+ *     in `changes`. T-0104 (D-L71): `ownerUserId` is recorded with its before
+ *     and after owner ids as values; the timeline still never shows them
+ *     (T6). (How tags and whatsappOptIn are encoded in the
  *     audit row is the builder's; only `redacted: false` and a non-null
  *     `after` are asserted for them.)
  *
@@ -1584,7 +1586,7 @@ describe('acceptance: contact timeline, account summary and activity writes (T-0
     });
 
     it('the update’s audit event records before/after for value fields and nothing for the redacted ones (T10)', async () => {
-      await plantContact(AMAKA.id, { status: 'new' });
+      await plantContact(AMAKA.id, { status: 'new', owner_user_id: null });
       const before = await auditIds();
       const response = await updateContact(SUPERVISOR, AMAKA.id, {
         version: await versionOf(AMAKA.id),
@@ -1625,7 +1627,18 @@ describe('acceptance: contact timeline, account summary and activity writes (T-0
         expect(change(field)?.redacted, `${field} is a value field`).toBe(false);
         expect(change(field)?.after ?? null, `${field} records its new value`).not.toBeNull();
       }
-      for (const field of ['phones', 'givenNames', 'ownerUserId', 'accountId']) {
+      // T-0104 (D-L71): "an `ownerUserId` change on a contact records the
+      // before and after owner ids as values." Before T-0104 `ownerUserId` was
+      // in the redacted list below and USER_A_AGENT_1 in the secrets. The
+      // TIMELINE still shows owner changes by name only, never the id: T6 and
+      // the redacted-fields test above are unchanged.
+      expect(change('ownerUserId')).toEqual({
+        field: 'ownerUserId',
+        before: null,
+        after: USER_A_AGENT_1,
+        redacted: false,
+      });
+      for (const field of ['phones', 'givenNames', 'accountId']) {
         expect(change(field), `${field}: redacted, no values`).toEqual({
           field,
           before: null,
@@ -1634,13 +1647,7 @@ describe('acceptance: contact timeline, account summary and activity writes (T-0
         });
       }
       const raw = JSON.stringify(changes);
-      for (const secret of [
-        ...phoneForms('+2348069061003'),
-        `Probe${RUN}`,
-        USER_A_AGENT_1,
-        IKOYI.id,
-        IKOYI.name,
-      ]) {
+      for (const secret of [...phoneForms('+2348069061003'), `Probe${RUN}`, IKOYI.id, IKOYI.name]) {
         expect(raw, `audit changes carry "${secret}"`).not.toContain(secret);
       }
     });
