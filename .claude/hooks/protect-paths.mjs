@@ -225,6 +225,11 @@ const PER_AGENT_ALLOWANCES = [
     pathPattern: reservedMigration('0034'),
     why: 'T-0082 (D-L105, D-L107) assigns Agent 3 one migration, number 0034 reserved; 0032 is T-0114, 0033 is T-0104.',
   },
+  {
+    branchPrefix: 'agent3/T-0106',
+    pathPattern: reservedMigration('0036'),
+    why: 'T-0106 (D-L88, D-L113, D-L115) assigns Agent 3 one migration, number 0036 reserved; 0035 is T-0084.',
+  },
 ];
 
 function allows(entry, path) {
