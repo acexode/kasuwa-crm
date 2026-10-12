@@ -1,37 +1,79 @@
-# Resume here (2026-10-12, lead session, live)
+# Resume here (2026-10-12 evening, moving to a new machine)
 
-**Merged:** #81–#113. Since the last refresh: #106 (T-0102), #107 (T-0112), #108 (T-0062), #109 (T-0080), #110 (T-0058),
-#111 (T-0113), #112 (T-0063) and #113 (T-0103). Their reports are filed.
-**Answered by @acexode:** D-P19–D-P30, D-L82 and D-L71. Designs P07, P08, P09, P10, P18, P26, P27 and P28 are on main.
-**Open product questions:** D-P31, D-P32, and the search-index route under RLS (LEAKPROOF): the lead recommends deferring
-the indexes, shipping id-only cursors now, and later marking reviewed builtins LEAKPROOF. It gates T-0084.
+The lead session is moving from the Windows laptop to a MacBook (1 TB disk, 16 GB RAM). A fresh session starts from this
+file. Everything is on GitHub; nothing exists only on the old laptop.
 
-**In flight:**
-| Task | Where | State |
+## 1. Merged today
+- #114 T-0117 (test admin inert)
+- #115 T-0081 (activities contract)
+- #116 T-0114 (script runs)
+- #117 T-0104 (audit events)
+- #118 T-0082 (activities API)
+- #119 T-0105 (pipeline contract)
+
+Their reports are filed.
+
+## 2. Built, waiting for verification (do these first, one at a time)
+
+| Task | Branch to verify | Next |
 |---|---|---|
-| T-0117 (P0) | `agent1/T-0117-test-admin-inert` (local, rebased on `lead/T-0117-acceptance` baf38d8) | D-L95 fixes done; security re-review running; then verify, PR (D-A3 personal review) and merge |
-| T-0081 activities contract and suite | `lead/T-0081-acceptance` (worktree agent-a73c23fd64a3b8e0d) | suite writer resumed after the weekly limit |
-| T-0114 script runs suite | `lead/T-0114-acceptance` | suite writer resumed after the weekly limit |
+| T-0084 list indexes | PR #120, `agent3/T-0084-list-indexes` | Reviews passed and fixes are in (D-L116); the builder's runs are green. Targeted verify, then merge. Its migration is 0035. |
+| T-0083 activities screen | `lead/T-0083-budget` (the builder's commits, the lead's spec fix and the 236,000 B budget re-pin, D-L118, and the report) | Open the PR from this branch. One combined review (UI only). Verify with `--files tests/acceptance/records-ui/activities-screen.acceptance.test.ts` plus the other records-ui suites (the nav changed). |
+| T-0115/T-0116 script screens | `lead/T-0115-T-0116-pins` (the builder's commits, the lead's list-test fix and the budgets 250,000/240,000, D-L119, and the report) | Not yet run: records-ui `contact-record` (it gained "Start script"; re-pin `/contacts/[id]` within 5% of measured, at most 245,000), integration and tenancy. Open the PR, one combined review, verify. |
+| T-0106 pipeline tables | `lead/T-0106-fixes` (the builder's commits, two lead suite fixes, D-L119, and the report) | **Never run against Postgres** (Docker hung). Run pipeline-tables and the tenancy folder first; expect builder fixes. Then the migration and security reviews (0036 is a migration, and the R9 creation marker must be confirmed), PR, verify. |
 
-**Main is red on one suite:** `channels/provider.acceptance` since #107 (the T-0112 suite's vendor list). The fix (store
-PLATFORM_NAMES reversed) is on `lead/T-0112-vendor-names` (worktree lead-vendor-fix, not yet edited). Auto mode refuses it,
-so it waits on @acexode's approval or an ask-mode session.
-**Timing suite:** `auth-availability` is unreliable on this host (D-L100); judge it against main.
+Migration numbers: 0035 is T-0084 and 0036 is T-0106. Merge 0035 first if you can.
 
-**Next to start:** T-0104 (per-contact removal audit, D-L101 amended), T-0118 account children, T-0119/T-0120/T-0121,
-T-0079 writers, T-0082/T-0083 activities, T-0105+ pipeline, T-0115/T-0116, T-0085+ search (after the LEAKPROOF answer).
+## 3. Next tasks (no task file yet unless named)
+- **Pipeline chain:** T-0107 board API, T-0108 deals and moves, then T-0109 Kanban, T-0110 deal detail and T-0111 deal
+  timeline (D-L88, D-L113, D-L115).
+- **Search:** T-0085 contract, T-0086 API, T-0087 palette. They build on T-0084, plus the D-P33 LEAKPROOF step (an ADR).
+- **Custom fields:** T-0088–T-0091. An ADR on storage first.
+- **Import:** T-0092–T-0096. An ADR on object storage and new dependencies first.
+- **Dedupe:** T-0095 and T-0097.
+- **Notifications:** T-0098–T-0101. An outbox ADR first (a new `kasuwa_relay` role).
+- **Follow-ups:** T-0079 (capability read; it unblocks T-0115's `@p10-builder-access-404` fixme), T-0075, T-0118–T-0122.
+- **End of Phase 2:** ONE full `pnpm test:isolation` on main (D-L111), and fix everything it finds.
 
-**Lead tooling:** `verify.ps1` in the session scratchpad.
-- It takes a `lead-verify` lock and holds both RAM slots for the isolation stage, with a `lead-exclusive-wait` priority
-  marker.
-- A slot is stale only when its `owner.pid` is dead, never by age.
-- D-L97: a contract change updates its e2e mocks in the same PR, and every merge gets a full isolation run.
+## 4. Waiting on @acexode
+- The `channels/provider` fix: split the eight messaging vendor names in
+  `tests/acceptance/platform/scripting-contract.acceptance.test.ts` (about lines 574–598) as `'Twil' + 'io'`, as the
+  channels suite itself does. @acexode approved it, but the auto-mode classifier refuses acceptance edits of this kind
+  ("Security Test Removal"). Do it with auto mode OFF. Until then, every verification shows that one known failure.
 
-**Follow-ups:**
-- the post-edit hook should skip when `node_modules` is missing;
-- `admin-mock.generated.ts` is stale on main;
-- the GitGuardian false positive on #104's mock cursor (for @acexode to dismiss);
-- the host disk: idle worktrees' `.next`, `.nx` and `dist` were cleared; `docker volume prune -f` is for @acexode.
+## 5. How the lead works (keep doing it)
+- **Verification (D-L111):** each PR gets `tools/lead-verify.sh <worktree> <log> --files <its suites> --tags <its e2e
+  tags>`: lint, typecheck, unit, integration, the `tests/acceptance/tenancy` folder, its own suites. The full isolation
+  suite runs once at the end of Phase 2.
+- **Known noise, judged against main, never blocking:**
+  - the adversarial timing check;
+  - the auth-crypto hashing timing tests;
+  - `auth-availability` (D-L100);
+  - `channels/provider`.
+- **Reviews (D-L109):**
+  - migration, auth or data access: all three reviewers (migration, security, tenancy);
+  - UI, contract or docs only: one combined security and tenancy review.
+  - Fix findings before merge; record rulings as D-L entries.
+- **Host (D-L118):**
+  - at most TWO heavy jobs at once (builders, suite writers with containers, a verification);
+  - keep 10+ GB of disk free;
+  - after an agent finishes, stop its leftover node processes and remove the worktrees of merged work.
+- **Acceptance suites:** the lead writes each one first, on a `lead/T-xxxx-acceptance` branch; it must fail on main for
+  the real reason (D-L23). Builders never edit tests; a disputed test is a lead edit. Lead edits to tests must be made
+  from a `lead/*` worktree, because the protect-paths hook reads the session's current branch.
+- **Merge:**
+  - `gh pr merge N --squash --match-head-commit <sha>`, plus the `lead-approved` label and a verification comment;
+  - rebase first, and push by branch name only after the rebase has finished;
+  - resolve `protect-paths.mjs` conflicts by keeping both entries;
+  - resolve `team/FEATURES.md` by taking main's and running `node tools/generate-features.mjs`.
+- **Bookkeeping** (`team/**`, `docs/adr|prd|design/**`) goes straight to main. After every task-file or DECISIONS edit,
+  run `node tools/generate-features.mjs --check` and `pnpm verify:tasks`.
+- **New machine setup:**
+  - install Docker (OrbStack recommended), with about 8 GB for the Docker VM;
+  - `pnpm install`;
+  - `npx playwright install chromium`.
+  - The rollup WASM pin (D-L20) exists only for Windows Smart App Control; it can be removed once the Mac runs the suite
+    (a separate PR).
 
 ---
 # Lead handoff â€” finish Phase 2
