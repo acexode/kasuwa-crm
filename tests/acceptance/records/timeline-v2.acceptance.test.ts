@@ -511,7 +511,15 @@ const ACTIVITY_ITEM_KEYS = [
   'endsAt',
   'version',
 ];
-const ACTIVITY_ITEM_WITHHOLDABLE = ['subject', 'body', 'dueAt', 'completedAt'];
+// T-0082 (D-L107): a withheld meeting time is omitted, the item stays.
+const ACTIVITY_ITEM_WITHHOLDABLE = [
+  'subject',
+  'body',
+  'dueAt',
+  'completedAt',
+  'startsAt',
+  'endsAt',
+];
 const ACCOUNT_FIELD_ITEM_KEYS = ['actor', 'field', 'id', 'occurredAt', 'redacted', 'type'];
 
 function activityItemProblems(item: Json, where: string): string[] {
@@ -1238,7 +1246,7 @@ describe('acceptance: activity versions on the timeline, and the account timelin
       expect(pick(await readAccount(AGENT_1, IKOYI.id, 'account, moved'))?.version).toBe(9);
 
       // Every withholdable key withheld: the version stays.
-      for (const field of ['subject', 'body', 'due_at', 'completed_at']) {
+      for (const field of ['subject', 'body', 'due_at', 'completed_at', 'starts_at', 'ends_at']) {
         await lockField('activity', field, 'agent', 'none');
       }
       for (const [where, items] of [
@@ -1248,17 +1256,7 @@ describe('acceptance: activity versions on the timeline, and the account timelin
         const item = pick(items);
         expect(item, `${where}: the activity is still shown`).toBeDefined();
         expect(Object.keys(item ?? {}).sort(), where).toEqual(
-          [
-            'activityId',
-            'activityType',
-            'actor',
-            'endsAt',
-            'id',
-            'occurredAt',
-            'startsAt',
-            'type',
-            'version',
-          ].sort(),
+          ['activityId', 'activityType', 'actor', 'id', 'occurredAt', 'type', 'version'].sort(),
         );
         expect(item?.version, `${where}: a version is never withheld`).toBe(9);
       }
