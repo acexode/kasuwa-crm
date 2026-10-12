@@ -448,6 +448,80 @@ export const scriptVersion = pgTable(
       table.scriptId,
       table.number,
     ),
+    /** 0032: the target of script_run's version FK (a run names a version of its own script). */
+    uniqueIndex('script_version_script_id_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.scriptId,
+      table.id,
+    ),
+  ],
+);
+
+/** A run's lifecycle (0032, T-0114). */
+export const SCRIPT_RUN_STATUSES = ['in_progress', 'stopped', 'completed'] as const;
+export const SCRIPT_RUN_OUTCOMES = ['completed', 'interrupted', 'superseded'] as const;
+export const SCRIPT_RUN_STOP_REASONS = ['field_withheld', 'sensitive_field'] as const;
+
+/**
+ * One agent walking one published version for one contact (0032, T-0114).
+ * The keys, the pinned version, the contact and the agent are fixed for every
+ * role but the migrator (app.guard_script_run_keys_fixed). `answers` is
+ * classified `sensitive` (D-L93): never logged, audited or echoed. No
+ * updated_at, on purpose: `revision` is the concurrency token.
+ */
+export const scriptRun = pgTable(
+  'script_run',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    /** The contact's programme, fixed at start. */
+    programmeId: uuid('programme_id').notNull(),
+    scriptId: uuid('script_id').notNull(),
+    /** Composite FK (tenant_id, programme_id, script_id, version_id) -> script_version, RESTRICT. */
+    versionId: uuid('version_id').notNull(),
+    /** Composite FK (tenant_id, programme_id, contact_id) -> contact, RESTRICT both ways. */
+    contactId: uuid('contact_id').notNull(),
+    /** Composite FK (tenant_id, started_by_user_id) -> "user". The run's own agent. */
+    startedByUserId: uuid('started_by_user_id').notNull(),
+    status: text('status', { enum: SCRIPT_RUN_STATUSES }).notNull().default('in_progress'),
+    outcome: text('outcome', { enum: SCRIPT_RUN_OUTCOMES }),
+    stopReason: text('stop_reason', { enum: SCRIPT_RUN_STOP_REASONS }),
+    currentNodeId: text('current_node_id'),
+    endedAtNodeId: text('ended_at_node_id'),
+    path: jsonb('path').notNull().default(sql`'[]'::jsonb`),
+    acknowledgements: jsonb('acknowledgements').notNull().default(sql`'[]'::jsonb`),
+    /** Classified `sensitive` (D-L93). */
+    answers: jsonb('answers').notNull().default(sql`'{}'::jsonb`),
+    unacknowledgedComplianceNodeIds: text('unacknowledged_compliance_node_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    dispositionId: uuid('disposition_id'),
+    activityId: uuid('activity_id'),
+    followUpTaskId: uuid('follow_up_task_id'),
+    /** SHA-256 of the completing request, for the exact-repeat rule (D-L91). */
+    completionDigest: text('completion_digest'),
+    revision: integer('revision').notNull().default(1),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (table) => [
+    /** Partial in the migration: WHERE status = 'in_progress'. */
+    uniqueIndex('script_run_in_progress_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.startedByUserId,
+      table.contactId,
+      table.scriptId,
+    ),
+    index('script_run_contact_idx').on(table.tenantId, table.programmeId, table.contactId),
+    index('script_run_version_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.scriptId,
+      table.versionId,
+    ),
   ],
 );
 
@@ -982,6 +1056,7 @@ export const TENANT_SCOPED_TABLES = [
   'activity',
   'script',
   'script_version',
+  'script_run',
   'object_def',
   'field_def',
   'user_credential',
