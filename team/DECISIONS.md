@@ -2582,3 +2582,19 @@ main, 103 fail because the tables do not exist, and 6 self-checks pass.
     failing argon2 for want of memory.
   - Reviews that only read run alongside.
   - Before a verification: at least 10 GB of disk free, and no leftover processes from finished agents.
+
+### D-L119 — lead suite fixes for T-0115 and T-0106; T-0106's creation marker (lead, 2026-10-12)
+**Status:** PROCEEDING (lead).
+- **T-0115** (`lead/T-0115-T-0116-pins`):
+  - `@p10-builder-list` checked a draft that sorts onto page 2 before "more" was clicked. It now checks a page-1 draft
+    (Customer survey) before "more" and Hardship after it, so nothing is weakened.
+  - Budgets are pinned from measurement: `/scripts/[scriptId]` at 250,000 B (measured 238,632) and `/script-runs/[runId]`
+    at 240,000 B (measured 229,366).
+- **T-0106** (`lead/T-0106-fixes`):
+  - the rotation test restores `SET CONSTRAINTS ALL DEFERRED` after its control probe. `probe()`'s RELEASE kept IMMEDIATE,
+    which contradicted the empty-pipeline rule;
+  - `field-security-objects` lists the standard `deal` object, as T-0060 did for `activity`.
+- **T-0106 R9 is accepted as built.** The four configuration tables' FOR ALL policies admit
+  `tenant AND (programme in scope OR 0015's created-in-this-transaction marker)`, copied word for word from 0015, with
+  WITH CHECK identical to USING. It admits nothing new, adds no SECURITY DEFINER and no permissive FOR INSERT policy.
+  `deal` and `deal_requirement_check` do not carry the marker. The migration and security reviews confirm it.
