@@ -163,6 +163,15 @@ export const FLAGS = {
     // capability read (D-L84, T-0079). Lifting it is a deliberate one-line change.
     productionReady: false,
   },
+  crm_activities: {
+    description: 'The P07 activities screen at /activities: my tasks by bucket, the calendar, compose, snooze and reschedule (T-0083).',
+    defaultValue: false,
+    owner: 'T-0083 (screen), T-0082 (API), D-L105, D-L107',
+    // NOT production-ready: the screen is proven against the contract mock,
+    // and hiding write controls from callers without activity.write waits on a
+    // capability read (D-L84, T-0079). Lifting it is a deliberate one-line change.
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;
