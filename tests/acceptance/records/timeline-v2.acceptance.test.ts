@@ -506,6 +506,9 @@ const ACTIVITY_ITEM_KEYS = [
   'body',
   'dueAt',
   'completedAt',
+  // T-0082: a meeting's times, on every activity item (null off a meeting).
+  'startsAt',
+  'endsAt',
   'version',
 ];
 const ACTIVITY_ITEM_WITHHOLDABLE = ['subject', 'body', 'dueAt', 'completedAt'];
@@ -529,10 +532,10 @@ function activityItemProblems(item: Json, where: string): string[] {
   } else if (String(item.id).toLowerCase() === item.activityId.toLowerCase()) {
     problems.push(`${where}: the item id is the activity id`);
   }
-  if (!['note', 'task', 'call'].includes(item.activityType as string)) {
+  if (!['note', 'task', 'call', 'meeting'].includes(item.activityType as string)) {
     problems.push(`${where}: activityType ${JSON.stringify(item.activityType)}`);
   }
-  for (const key of ['dueAt', 'completedAt']) {
+  for (const key of ['dueAt', 'completedAt', 'startsAt', 'endsAt']) {
     if (key in item && item[key] !== null && !DATE_TIME.test(String(item[key]))) {
       problems.push(`${where}: ${key} is not a date-time or null`);
     }
@@ -1245,7 +1248,17 @@ describe('acceptance: activity versions on the timeline, and the account timelin
         const item = pick(items);
         expect(item, `${where}: the activity is still shown`).toBeDefined();
         expect(Object.keys(item ?? {}).sort(), where).toEqual(
-          ['activityId', 'activityType', 'actor', 'id', 'occurredAt', 'type', 'version'].sort(),
+          [
+            'activityId',
+            'activityType',
+            'actor',
+            'endsAt',
+            'id',
+            'occurredAt',
+            'startsAt',
+            'type',
+            'version',
+          ].sort(),
         );
         expect(item?.version, `${where}: a version is never withheld`).toBe(9);
       }
@@ -1352,6 +1365,8 @@ describe('acceptance: activity versions on the timeline, and the account timelin
           body: SEEDED_NOTE.body,
           dueAt: null,
           completedAt: null,
+          startsAt: null,
+          endsAt: null,
           version: 1,
         },
       ]);

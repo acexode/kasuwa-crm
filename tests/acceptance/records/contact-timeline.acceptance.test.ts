@@ -700,6 +700,9 @@ const ACTIVITY_ITEM_KEYS = [
   'body',
   'dueAt',
   'completedAt',
+  // T-0082: a meeting's times, on every activity item (null off a meeting).
+  'startsAt',
+  'endsAt',
   // T-0080 (D-L85): the row's version, so a served task can be completed. Never withheld.
   'version',
 ];
@@ -720,7 +723,7 @@ function activityItemProblems(item: Json, where: string): string[] {
   if (typeof item.activityId !== 'string' || !UUID.test(item.activityId)) {
     problems.push(`${where}: activityId is not a uuid`);
   }
-  if (!['note', 'task', 'call'].includes(item.activityType as string)) {
+  if (!['note', 'task', 'call', 'meeting'].includes(item.activityType as string)) {
     problems.push(`${where}: activityType ${JSON.stringify(item.activityType)}`);
   }
   for (const key of ['subject', 'body']) {
@@ -728,7 +731,7 @@ function activityItemProblems(item: Json, where: string): string[] {
       problems.push(`${where}: ${key} is not a string or null`);
     }
   }
-  for (const key of ['dueAt', 'completedAt']) {
+  for (const key of ['dueAt', 'completedAt', 'startsAt', 'endsAt']) {
     if (key in item && item[key] !== null && !DATE_TIME.test(String(item[key]))) {
       problems.push(`${where}: ${key} is not a date-time or null`);
     }
@@ -2076,6 +2079,8 @@ describe('acceptance: contact timeline, account summary and activity writes (T-0
         body: 'Invented text that names no one.',
         dueAt: DUE,
         completedAt: null,
+        startsAt: null,
+        endsAt: null,
         version: (created.body as Json).version,
       });
 
@@ -2302,6 +2307,8 @@ describe('acceptance: contact timeline, account summary and activity writes (T-0
       'body',
       'dueAt',
       'completedAt',
+      'startsAt',
+      'endsAt',
       'ownerUserId',
       'contactId',
       'accountId',
@@ -2312,7 +2319,7 @@ describe('acceptance: contact timeline, account summary and activity writes (T-0
     }
     if ('tenantId' in activity) problems.push('tenantId is never on the wire');
     if (!UUID.test(String(activity.id))) problems.push('id is not a uuid');
-    if (!['note', 'task', 'call'].includes(String(activity.type))) problems.push('type');
+    if (!['note', 'task', 'call', 'meeting'].includes(String(activity.type))) problems.push('type');
     if (!Number.isInteger(activity.version) || Number(activity.version) < 1)
       problems.push('version');
     expect(problems, `${where}: Activity (T12)`).toEqual([]);
