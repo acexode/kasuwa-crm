@@ -1,6 +1,6 @@
 # T-0104 — Audit: a convert-created account, and an owner takeover (D-L82, D-L71)
 
-**status** `assigned` (suite on `lead/T-0104-acceptance`, D-L106; migration 0033) · **owner** Agent 3 · **priority** P2 · **decisions** D-L82, D-L71, D-L72
+**status** `done` (#117, 2026-10-12) · **owner** Agent 3 · **priority** P2 · **decisions** D-L82, D-L71, D-L72
 
 ## Goal
 - **Convert:** a convert that creates an account writes two audit events in its one transaction: the contact `updated` (as now)
