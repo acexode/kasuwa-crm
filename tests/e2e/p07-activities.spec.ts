@@ -223,7 +223,7 @@ const SCREEN = '[data-screen="P07"]';
  * measures, so the builder measures it and the lead re-pins it to the
  * measurement. Why 255,000: see the budget test.
  */
-const ACTIVITIES_BUDGET_BYTES = 255_000;
+const ACTIVITIES_BUDGET_BYTES = 236_000;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const UUID_ONLY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1996,7 +1996,8 @@ test.describe('/activities on the wire', () => {
    * (`next/dynamic`), so My tasks' first paint does not carry it.
    */
   test('/activities stays inside its transferred-byte budget on the production build @p07 @p07-budget', async ({ page }) => {
-    await page.clock.setFixedTime(new Date(NOW));
+    // No fixed clock here: Playwright's fake clock replaces window.performance, so the first
+    // contentful paint this measures would never be reported (D-L118).
     active = await installActivitiesMock(page);
     const metrics = await measurePageLoad(page, `${activitiesUrl()}/activities`, 'default');
 
@@ -2020,7 +2021,6 @@ test.describe('/activities on the wire', () => {
   });
 
   test('/activities paints within 5 s at 256 kbps and 300 ms @p07 @p07-budget', async ({ page }) => {
-    await page.clock.setFixedTime(new Date(NOW));
     active = await installActivitiesMock(page);
     const metrics = await measurePageLoad(page, `${activitiesUrl()}/activities`, 'low-bandwidth');
     await expect(screen(page)).toBeVisible();

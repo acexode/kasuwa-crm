@@ -145,7 +145,8 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  * re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  [SPEC]: '847bf0341f17a8bdf3e59886ffe2cd47232625f642cb411c93417bbac9e6d549',
+  // D-L118: the two budget journeys no longer fix the clock (it hid first-contentful-paint).
+  [SPEC]: '690f0f111a2d452c7a023f0f44fa8489377d9d38d17b561fe711ee47bb440282',
   [MOCK]: '19594703182b6950c79dae00b25ecd40e9d4c0c763b96f251e7b000da6108457',
 };
 
