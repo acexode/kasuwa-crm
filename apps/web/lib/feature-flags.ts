@@ -134,15 +134,42 @@ export async function crmLeadsEnabled(): Promise<boolean> {
 }
 
 /**
+ * `crm_activities` (T-0083) gates the ROUTE of the P07 activities screen:
+ * `/activities` calls `notFound()` while it is off, so typing the path gets a
+ * real 404 and nothing of the screen ships. Its own flag, separate from the
+ * record screens', though the e2e harness serves it on their process so the
+ * screen's contact and account links resolve.
+ *
+ * A presentation switch, like the others: listMyActivities and listCalendar
+ * list the session user's own activities, and updateActivity and
+ * createActivity refuse what the caller's rights and field security do not
+ * allow, whether this is on or off.
+ */
+export async function crmActivitiesEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_activities',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/**
  * The CRM shell's nav entries whose ROUTE is on in this process, by nav id.
  * An entry links only to a screen that answers; one whose flag is off is drawn
  * as "not available yet", exactly like an unbuilt one (`components/crm/crm-nav.ts`).
  */
 export async function crmLiveNav(): Promise<string[]> {
-  const [contacts, accounts, leads] = await Promise.all([
+  const [contacts, accounts, leads, activities] = await Promise.all([
     crmRecordsEnabled(),
     crmAccountsEnabled(),
     crmLeadsEnabled(),
+    crmActivitiesEnabled(),
   ]);
-  return [...(leads ? ['leads'] : []), ...(contacts ? ['contacts'] : []), ...(accounts ? ['accounts'] : [])];
+  return [
+    ...(leads ? ['leads'] : []),
+    ...(contacts ? ['contacts'] : []),
+    ...(accounts ? ['accounts'] : []),
+    ...(activities ? ['activities'] : []),
+  ];
 }
