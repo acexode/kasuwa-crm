@@ -1,6 +1,6 @@
 # T-0081 — Activities, tasks and calendar contract (P07)
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 3 · **priority** P1 · **decisions** D-L87, D-P18, D-P22,
+**status** `done` (#115, 2026-10-12; contract-only, lead PR) · **owner** Agent 3 · **priority** P1 · **decisions** D-L87, D-P18, D-P22,
 D-L81, D-L85, D-L80, D-L97, D-L102
 
 ## Goal
