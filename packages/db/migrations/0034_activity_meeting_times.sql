@@ -7,8 +7,8 @@
 --
 --   1. locks, taken up front in a fixed order (catalogue, then activity);
 --   2. the clash pre-check (catalogue recipe step 2), BEFORE anything changes;
---   3. the columns `starts_at` and `ends_at`, `meeting` in the type CHECK, and
---      the meeting-times CHECK;
+--   3. the columns `starts_at` and `ends_at`, `meeting` in the type CHECK, the
+--      meeting-times CHECK and the 24-hour span CHECK;
 --   4. kasuwa_app's column-level UPDATE on the two new columns;
 --   5. two partial indexes for "my open tasks" and "my meetings";
 --   6. the standard field_defs `starts_at` and `ends_at` for every tenant,
@@ -30,8 +30,14 @@
 --     is after its start (equal is not after); a note, a task or a call has
 --     NEITHER. CHECKs run on INSERT and on every UPDATE, so an UPDATE that
 --     changes a meeting's type, or clears one time, is refused as well.
---   - The 24-hour limit is the API's (`400 too_long`), NOT the database's
---     (D-L107): a CHECK is the wrong place for a product limit that may move.
+--   - THE SPAN CHECK (T-0082 migration review): a meeting lasts at most 24
+--     hours, `ends_at - starts_at <= interval '24 hours'`. The API refuses a
+--     longer one first (`400 too_long`, MEETING_MAX_MS in
+--     apps/api/src/activities/activities.schemas.ts, the same 24 hours); the
+--     CHECK is the backstop for every other writer, and it is what lets
+--     listCalendar bound its meeting scan to `starts_at > from - 24 hours`.
+--     If the limit ever moves, it moves here, in that constant and in the
+--     calendar bound together, in a new migration.
 --   - 0027's task-fields CHECK is unchanged: due_at and completed_at stay
 --     task-only, so a meeting has no due time and is never completed.
 --   - Nullable, no default: ADD COLUMN is a catalogue-only change, and no
@@ -101,9 +107,15 @@
 --     is named), every tenant has both fields with the catalogue's meaning,
 --     and nothing standard on `activity` falls outside the ten.
 --   - Messages carry catalogue names and counts only, never tenant data.
---   - DEPLOY WINDOW: as 0025. A tenant provisioned by the previous release
---     between migrate and rollout gets no new rows; after rollout, call
---     ensureStandardObjectDefs for every tenant (idempotent).
+--   - DEPLOY WINDOW (a required deploy step, as 0025): a tenant provisioned
+--     by the PREVIOUS release between `pnpm db:migrate` and the new release's
+--     rollout is created from the old catalogue, so it gets no starts_at or
+--     ends_at field_def (and its field matrix then fails closed: both times
+--     withheld, every meeting dropped from that tenant's calendar). After
+--     rollout, as kasuwa_migrator, run ensureStandardObjectDefs
+--     (packages/db/src/standard-object-catalogue.ts) for every tenant created
+--     since the migrate began; it is idempotent, so running it for every
+--     tenant is also safe. Or do not provision in that window.
 --
 -- ---------------------------------------------------------------------------
 -- LOCK IMPACT (D-L65)
@@ -128,16 +140,25 @@
 -- runner records it only on COMMIT. Fix the cause (a clash: rename or delete
 -- the tenant's custom field, a human decision) and run `pnpm db:migrate`.
 -- To undo it after it has applied: never edit or delete this file or its
--- ledger row (append-only). Instead:
---   1. roll back the application first (T-0082 reads and writes the columns),
---      and the two catalogue entries, the schema.ts mirror and ACTIVITY_TYPES;
+-- ledger row (append-only). THERE IS NO CODE-ONLY ROLLBACK ONCE A MEETING
+-- EXISTS: the previous release does not know the type, so its timeline reads
+-- (which refuse an unknown type rather than send it) fail on any record with
+-- a meeting. In this order:
+--   1. stop new meetings: switch off whatever creates them (P07's composer),
+--      or ship a build of this release that refuses `type: meeting` on
+--      createActivity;
 --   2. export the meetings if they hold data: they are records a tenant may
 --      need to keep;
---   3. in a NEW migration, as kasuwa_migrator: DELETE the meetings (or turn
---      them into notes, clearing both times); DROP the two indexes; DROP
---      CONSTRAINT activity_meeting_times_check; re-create activity_type_check
---      as note | task | call; DROP COLUMN starts_at, ends_at; DELETE the two
---      standard field_defs (their field_security_grant rows cascade).
+--   3. in a NEW migration, as kasuwa_migrator: convert the meetings (to notes,
+--      clearing both times) or DELETE them, so that no row needs the type;
+--   4. only then roll the application back, with the two catalogue entries,
+--      the schema.ts mirror and ACTIVITY_TYPES;
+--   5. optionally, in a later NEW migration: DROP the two indexes; DROP
+--      CONSTRAINT activity_meeting_times_check and activity_meeting_span_check;
+--      re-create activity_type_check as note | task | call; DROP COLUMN
+--      starts_at, ends_at; DELETE the two standard field_defs (their
+--      field_security_grant rows cascade). The old release ignores the
+--      columns, so this step can wait.
 -- ---------------------------------------------------------------------------
 
 SET LOCAL lock_timeout = '5s';
@@ -186,10 +207,17 @@ ALTER TABLE activity
     END
   );
 
+-- The span backstop (header, COLUMNS): at most 24 hours, as the API's
+-- MEETING_MAX_MS. NULL times pass here and are the check above's business.
+ALTER TABLE activity
+  ADD CONSTRAINT activity_meeting_span_check CHECK (
+    type <> 'meeting' OR ends_at - starts_at <= interval '24 hours'
+  );
+
 COMMENT ON COLUMN activity.starts_at IS
   'A meeting''s start (T-0082, D-L107). NULL on a note, a task or a call; set on every meeting.';
 COMMENT ON COLUMN activity.ends_at IS
-  'A meeting''s end, after starts_at (T-0082, D-L107). The 24 h limit is the API''s, not a CHECK.';
+  'A meeting''s end, after starts_at (T-0082, D-L107). At most 24 hours after it (activity_meeting_span_check).';
 
 -- --- 4. grants -------------------------------------------------------------------
 -- 0027's UPDATE is column-level; a new column needs its own grant (snooze and
