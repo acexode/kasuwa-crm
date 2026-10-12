@@ -2349,3 +2349,41 @@ Every recommendation below was taken as written in its entry. What each one now 
 - **Owed by the builder:** `ownerUserId` added to the value-field lists in `admin.openapi.yaml` (`AuditChange`) and
   `records.openapi.yaml`.
 - **Migration 0033** is reserved for `agent3/T-0104`; 0032 is T-0114's.
+
+### D-L107 — T-0114 review rulings; T-0082 meeting-time rulings (lead, 2026-10-12)
+**Status:** PROCEEDING (lead).
+- **T-0114: the migration, security and tenancy reviews all passed with findings. Fixed before merge:**
+  - **Migration 0032:**
+    - an index on `(tenant_id, started_by_user_id)`, so that offboarding does not scan users × runs;
+    - a tighter disposition check;
+    - a format check on `completion_digest`;
+    - an `octet_length(answers)` database backstop at twice the API's 256 KiB cap.
+  - **Code:**
+    - `FOR SHARE` on the disposition read at completion;
+    - `SendAfterCommitInterceptor` refuses to send while a tenant transaction is active, never sends twice, and has unit
+      tests for its order;
+    - error paths never echo a non-conforming key;
+    - `RUN_LIST_MAX` is enforced or removed;
+    - a `tenancy-reviewed` comment, and the docs drift.
+- **Accepted, recorded:**
+  - **No FKs on `disposition_id`, `activity_id` or `follow_up_task_id`.** Neither target has a `(tenant, programme, id)`
+    key. The code writes those ids only from scoped reads in the same transaction. The raw-SQL residuals (updating
+    `disposition`'s id or programme, or `activity.contact_id`) join the D-L76 key-guard follow-up.
+  - **Completion's call activity and follow-up task get no audit events of their own.** R1 pins two events per run; the
+    ids are on the run's `updated` event.
+  - **Retention of run answers is deferred to the D-P27 sweeper.** Answers are sensitive and nothing erases them yet. The
+    sweeper task (with T-0095's deletion work) must delete a contact's runs before the contact (the FK is RESTRICT) and
+    honour programme retention. The completion digest is unsalted. Erasure must clear it, or it becomes an HMAC under a
+    per-tenant key.
+  - **Dates in form fields count days in Africa/Lagos** until tenants have a time zone, and `en-NG` is recorded as a null
+    `profileLocale`. Both are revisited when tenant settings land.
+  - **Own-agent-only is enforced in the API**, while RLS stops at the programme. Any future reader of runs (the M11
+    supervisor view) must re-implement it, and its suite must pin that.
+- **T-0082 meeting times (lead suite edits on `lead/T-0082-acceptance`):**
+  - The database refuses a meeting without both times, an end at or before its start, and times on a non-meeting.
+    The 24 h limit is the API's (`too_long`).
+  - `startsAt` and `endsAt` are withholdable on timeline items (omitted and named, the row stays). The timeline-v2
+    all-withheld test locks them too.
+  - The builder adds `startsAt: null, endsAt: null` to the `listContactTimeline` and `listAccountTimeline` examples in
+    `records.openapi.yaml`, in the same PR as the flag flip; two self-checks depend on it.
+  - Migration 0034 is reserved for `agent3/T-0082`.

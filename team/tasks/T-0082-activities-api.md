@@ -1,7 +1,7 @@
 # T-0082 — Activities API: my activities, the calendar, meetings, snooze and reschedule (P07)
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 3 · **priority** P1 · **decisions** D-L105, D-P18, D-P22,
-D-L80, D-L81, D-L85, D-L97, D-L102 · **migration** next free when it starts
+**status** `suite ready` (`lead/T-0082-acceptance`, D-L107) · **owner** Agent 3 · **priority** P1 · **decisions** D-L105, D-P18, D-P22,
+D-L80, D-L81, D-L85, D-L97, D-L102 · **migration** 0034 (D-L107)
 
 ## Goal
 Serve what T-0081 (#115) put in `records.openapi.yaml`, exactly as specified, and flip each new operation and property's
