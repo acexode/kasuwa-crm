@@ -2528,3 +2528,24 @@ merge:
 - **Search:** `q` wildcards match literally.
 - **Path ids:** a non-uuid id is the same 404 (no schema `format: uuid` may turn it into a 400). T-0107 and T-0108 must not
   validate ids before the scoped lookup.
+
+### D-L116 — T-0084 review rulings (lead, 2026-10-12)
+**Status:** PROCEEDING (lead). The migration and security/tenancy reviews of T-0084 passed with findings.
+- **Fixed in this PR:**
+  - **Single-programme sessions** query with scalar `programme_id = $p`, and 0035 adds the three missing programme-led
+    orders. Otherwise a one-programme agent in a skewed tenant (a new or small programme) pages through other programmes'
+    rows, bounded only by tenant size.
+  - **The old programme-led indexes stay:** they are the single-programme path ("keep and use", not "measure and drop").
+  - **The 0035 header** states the skew case, names the CONCURRENTLY recipe file (`0034a_…`, no-transaction), and notes
+    the LEAKPROOF check covers same-type operators.
+  - **The self-check** also compares collation and `indoption`.
+  - **Legacy `{c, i}` cursors** with a `v` or `s` key are refused, and cursors are checked against the base64url alphabet
+    before decoding.
+- **Accepted:**
+  - **Id-only cursor semantics:** a deleted or out-of-scope cursor row ends the walk with an empty page, and an edited
+    sort key re-seeks from the row's current key (D-L80, I5, cursor-tampering). A single "cursor no longer resolvable"
+    answer would be a contract change; revisit before cells hold real data.
+  - **Timing:** a sub-millisecond difference between an other-programme id and an invented id in the seek. Judged not
+    exploitable over HTTP.
+- **Later, only if measured:** a per-programme MergeAppend for supervisors who reach a few of many programmes, with a
+  skewed-seed case added to the list-indexes suite.
