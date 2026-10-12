@@ -2276,3 +2276,17 @@ Every recommendation below was taken as written in its entry. What each one now 
   Both are fixed in #112, with unit tests of the reviewer's scenarios.
 - **Applies to** every future edit sheet: deals, scripts, custom fields. Suites for them include a second-save-after-409
   journey.
+
+### D-L103 — T-0117 round-2 security rulings; `db:reset` and `db:seed` need an explicit environment (lead, 2026-10-12)
+**Status:** PROCEEDING (lead).
+- **Folded into T-0117** (the round-2 security review passed, with minors only):
+  - the ADMIN-only exemption also requires that the serving role cannot reach the holder (`pg_has_role ... 'MEMBER'`);
+  - `db:seed` refuses an explicit `NODE_ENV=production`;
+  - `.env.example`'s NODE_ENV note is corrected.
+- **Not in T-0117: `db:reset` through a loopback tunnel.** With `NODE_ENV` unset and a loopback URL (`kubectl
+  port-forward`, cloud-sql-proxy), `db:reset` still drops every table. D-L95's loopback allowance was accepted for the
+  runner because the boot check catches a real cell at its next deploy. A DROP cannot be caught later, so the allowance does
+  not extend to destructive tools.
+- **Rule.** `db:reset` (and any future destructive dev tool) requires `NODE_ENV` set explicitly to `development` or
+  `test`. An unset value is refused. The root script sets it through a small node wrapper, with no new dependency. This
+  becomes a P1 follow-up (T-0122) after T-0117, and is unchanged from main until then.
