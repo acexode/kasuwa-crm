@@ -160,7 +160,9 @@ import {
  *       [data-testid="won-since"] <time datetime="<closedSince>">   (won only)
  *       [data-deal-card="<deal id>"]         one card, in served order,
  *         data-rotting="fresh|stale|rotting" the served `rotting` (absent on won)
- *         [data-field="name"]                (record text)
+ *         [data-field="name"]                (record text), holding the one
+ *                                            a[href="/deals/<deal id>"] (T-0110,
+ *                                            which asserts it: R15)
  *         [data-field="amount"]              the exact amount, or a lock
  *         [data-field="owner"]               the owner's name, a lock, or the
  *                                            translated "former owner"
@@ -1909,7 +1911,8 @@ test.describe('withheld fields, rotting and links', () => {
     const hostile = card(page, S_QUALIFIED.id, D_Q_MARKUP.id).first();
     await expect(hostile.locator('[data-field="name"]').first()).toContainText(HOSTILE_NAME);
     expect(await page.evaluate(() => (window as unknown as { __kasuwaXss?: number }).__kasuwaXss), 'markup in a deal name ran').toBeUndefined();
-    await expect(hostile.locator('a'), 'a summary with a malformed id is a link').toHaveCount(0);
+    // The card's name links its deal (a uuid, R15); only the summaries are judged here.
+    await expect(hostile.locator('[data-related] a'), 'a summary with a malformed id is a link').toHaveCount(0);
     await expect(hostile.locator('[data-related]').first(), 'the summary is not drawn as text').toBeVisible();
     await expect(card(page, S_DISCOVERY.id, D_D1.id).first().locator(`[data-related="account"] a[href="/accounts/${A_PHARMACY.id}"]`)).toHaveCount(1);
     await expect(card(page, S_NEGOTIATION.id, D_N2.id).first().locator(`[data-related="contact"] a[href="/contacts/${C_ALPHA.id}"]`)).toHaveCount(1);
