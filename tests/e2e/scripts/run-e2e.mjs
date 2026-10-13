@@ -481,6 +481,10 @@ function startSelfServeWeb(apiUrl, port) {
  * as `webLeadsUrl`. Its route, `/leads`, is disjoint from the others, and the
  * shell's nav links each screen only where its flag is on (`crmLiveNav()`), so
  * every link on every screen this process serves resolves here.
+ *
+ * `crm_activities` RIDES HERE TOO (T-0083), published as `webActivitiesUrl`.
+ * The P07 screen's contact and account summaries link to `/contacts/[id]` and
+ * `/accounts/[id]`, which this process serves, so every summary link resolves.
  */
 function startRecordsWeb(apiUrl, port) {
   const child = spawn('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
@@ -495,7 +499,7 @@ function startRecordsWeb(apiUrl, port) {
       KASUWA_AUTH_MODE: 'jwt',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
-      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads',
+      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities',
       ...NO_DATABASE_URLS,
     },
   });
@@ -596,13 +600,13 @@ async function main() {
     await Promise.all([
       waitForHttp(webUrl, 'the web app'),
       waitForHttp(webSelfServeUrl, 'the self-serve web app'),
-      waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view and crm_leads web app'),
+      waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view, crm_leads and crm_activities web app'),
     ]);
     restoreNextEnv(nextEnv);
     log(`web (next start, production build) on ${webUrl}`);
     log(`web (next dev, self_serve_signup + admin_live_api on) on ${webSelfServeUrl}`);
     log(
-      `web (next start, production build, crm_records + crm_accounts + crm_record_view + crm_leads on) on ${webRecordsUrl}`,
+      `web (next start, production build, crm_records + crm_accounts + crm_record_view + crm_leads + crm_activities on) on ${webRecordsUrl}`,
     );
   }
 
@@ -619,9 +623,9 @@ async function main() {
     join(artifactsDir, `stack.${projectName}.json`),
     `${JSON.stringify(
       // `webLiveUrl` is the same process as `webSelfServeUrl`, and
-      // `webAccountsUrl`, `webRecordViewUrl` and `webLeadsUrl` as `webRecordsUrl`;
-      // the second name says which flag a spec is relying on (T-0035, T-0057,
-      // T-0062, T-0058).
+      // `webAccountsUrl`, `webRecordViewUrl`, `webLeadsUrl` and `webActivitiesUrl`
+      // as `webRecordsUrl`; the second name says which flag a spec is relying on
+      // (T-0035, T-0057, T-0062, T-0058, T-0083).
       {
         webUrl,
         webSelfServeUrl,
@@ -630,6 +634,7 @@ async function main() {
         webAccountsUrl: webRecordsUrl,
         webRecordViewUrl: webRecordsUrl,
         webLeadsUrl: webRecordsUrl,
+        webActivitiesUrl: webRecordsUrl,
         apiUrl,
         fixturesUrl,
       },

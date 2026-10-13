@@ -77,6 +77,8 @@
     "record.language.ig": "A language name used unchanged in French.",
     "record.language.yo": "A language name used unchanged in French (without the Yoruba tone marks, as French writes it).",
     "record.language.sw": "A language name used unchanged in French.",
-    "record.activity.type.note": "\"Note\" is the ordinary French word for a note on a record."
+    "record.activity.type.note": "\"Note\" is the ordinary French word for a note on a record.",
+    "activities.related.contact": "The French word is spelled identically to the English one, as in records.nav.contacts.",
+    "activities.compose.type": "The French word is spelled identically to the English one."
   }
 }
