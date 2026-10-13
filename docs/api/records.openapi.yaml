@@ -5108,10 +5108,16 @@ components:
       type: object
       additionalProperties: false
       required: [id, displayName]
-      description: The person who ticked a check, named as they are named now (D-L81).
+      description: |
+        The person who ticked a check, named as they are named now (D-L81).
+        `displayName` is `null` for a former checker, no longer a member of
+        the deal's programme (D-L127), exactly as `DealOwner` is for a former
+        owner (D-P23): print a neutral label, never the id. Pinned for the
+        screen by T-0110's suite; until the API change that serves it lands,
+        a former checker is still named, so a client accepts both.
       properties:
         id: { type: string, format: uuid }
-        displayName: { type: string }
+        displayName: { type: [string, 'null'] }
 
     DealContactSummary:
       type: object
