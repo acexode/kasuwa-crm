@@ -2659,3 +2659,21 @@ suite now expects the three pipeline reads to be `x-kasuwa-implemented: true` (a
   - the examples use realistic personal names ("Kemi Balogun", "Adaeze Okonkwo"), against CLAUDE.md 6.1;
   - the contract suite's test titles still say "not yet implemented" for the flipped operations.
 - **Builder:** Agent 3 on `agent3/T-0107-board-api`.
+### D-L124 — T-0108 suite rulings (lead, 2026-10-13)
+**Status:** PROCEEDING (lead). The suite `deals-api.acceptance.test.ts` (49 tests) is on `lead/T-0108-acceptance`
+(352e65d). On main, 45 fail because the routes do not exist and the flags are false; the 4 self-checks pass. The contract
+suite expects the five deal operations to be `x-kasuwa-implemented: true` (a lead edit, same commit).
+- **R1–R22 in the suite header are accepted.** Notable:
+  - client_portal gets the one 404 on all five operations; D-L115 outranks the older "403" sentence in createDeal (R1);
+  - `name` is never withheld, even under a `none` grant (R13);
+  - closed bodies, with `__proto__` and `constructor` refused as 400 (R15);
+  - leaving won or lost without write-any rights is a 403 decided before the body is read (R17);
+  - on a move, the required-field 403 comes before both 409s (R20);
+  - lead rulings:
+    - an agent with `ownerUserId` withheld becomes the owner by omitting it, and sending it is `403 field_not_editable` (R21);
+    - an out-of-scope deal cursor is one `400 invalid_cursor` body (R22).
+- **Contract follow-ups (added to D-L123's lead contract PR):** createDeal's portal 403 sentence; the block header's
+  "`none` is 403".
+- **Merge note:** T-0107 and T-0108 each edit the contract suite's flag assertion (l.1110). Whichever lands second resolves
+  it to all eight operations `true`.
+- **Builder:** Agent 3 on `agent3/T-0108-deals-api`, in its own `deals` module, alongside T-0107.
