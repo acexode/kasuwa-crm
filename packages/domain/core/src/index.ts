@@ -23,3 +23,7 @@ export * from './portal-user/portal-user.repository';
 export * from './portal-user/portal-user-invite';
 export * from './disposition/disposition.repository';
 export * from './tenant/tenant-slug';
+export * from './pipeline/deal-fields';
+export * from './pipeline/deal-board';
+export * from './pipeline/deal-board.repository';
+export * from './pipeline/pipeline.repository';
