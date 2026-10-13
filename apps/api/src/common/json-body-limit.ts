@@ -56,6 +56,48 @@ function urlencodedParser(_request: unknown, _response: unknown, next: () => voi
   next();
 }
 
+/**
+ * A BODY THAT IS NOT JSON IS THE ENVELOPE'S 400 (T-0108, R15). Body-parser
+ * refuses malformed JSON, and in strict mode a top-level value that is not an
+ * object or an array (`"x"`, `null`, `42`), with a `SyntaxError` whose
+ * message quotes the start of the body. Left to Nest, that became a
+ * `BadRequestException(err.message)`: a body with no `code` (outside the
+ * shared `Error` schema) that echoes what the client sent. This error
+ * middleware, installed right after the JSON parser and so before any route
+ * or Nest's own handler, answers every body-parser parse failure with the
+ * one fixed `validation_failed` body (`details[].code: invalid_json` at the
+ * root), `no-store`, and nothing from the request. Any other error (a 413,
+ * a route's own) is passed on untouched.
+ */
+export const INVALID_JSON_BODY = Object.freeze({
+  statusCode: 400,
+  error: 'Bad Request',
+  code: 'validation_failed',
+  message: 'Validation failed',
+  details: [{ path: '', code: 'invalid_json' }],
+});
+
+interface MinimalResponse {
+  status(code: number): MinimalResponse;
+  setHeader(name: string, value: string): unknown;
+  json(body: unknown): unknown;
+}
+
+export function jsonParseErrorHandler(
+  error: unknown,
+  _request: unknown,
+  response: MinimalResponse,
+  next: (error?: unknown) => void,
+): void {
+  const type: unknown = (error as { type?: unknown } | null)?.type;
+  if (type !== 'entity.parse.failed') {
+    next(error);
+    return;
+  }
+  response.setHeader('Cache-Control', 'no-store');
+  response.status(400).json(INVALID_JSON_BODY);
+}
+
 @Injectable()
 export class JsonBodyLimit {
   constructor(@Inject(HttpAdapterHost) host: HttpAdapterHost) {
@@ -65,6 +107,9 @@ export class JsonBodyLimit {
       // Once per app: a second AppModule on the same adapter adds nothing.
       if (!hasMiddleware(adapter.getInstance(), 'jsonParser')) {
         adapter.useBodyParser('json', false, { limit: JSON_BODY_LIMIT_BYTES });
+      }
+      if (!hasMiddleware(adapter.getInstance(), 'jsonParseErrorHandler')) {
+        adapter.use(jsonParseErrorHandler);
       }
       if (!hasMiddleware(adapter.getInstance(), 'urlencodedParser')) {
         adapter.use(urlencodedParser);

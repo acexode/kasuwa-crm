@@ -55,6 +55,9 @@ export type AdminErrorCode =
   | 'answers_incomplete'
   | 'disposition_not_live'
   | 'disposition_requirements_unmet'
+  /** records.openapi.yaml (T-0105): moveDeal's conflicts (T-0108). */
+  | 'transition_not_allowed'
+  | 'requirements_unmet'
   | 'too_many_requests'
   | 'not_implemented'
   | 'service_unavailable'
@@ -77,6 +80,7 @@ const REASON: Partial<Record<number, string>> = {
   [HttpStatus.FORBIDDEN]: 'Forbidden',
   [HttpStatus.NOT_FOUND]: 'Not Found',
   [HttpStatus.CONFLICT]: 'Conflict',
+  [HttpStatus.UNPROCESSABLE_ENTITY]: 'Unprocessable Entity',
   [HttpStatus.TOO_MANY_REQUESTS]: 'Too Many Requests',
   [HttpStatus.NOT_IMPLEMENTED]: 'Not Implemented',
   [HttpStatus.SERVICE_UNAVAILABLE]: 'Service Unavailable',
