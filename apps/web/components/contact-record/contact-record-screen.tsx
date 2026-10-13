@@ -13,6 +13,7 @@ import { recordHref, writeErrorId, zoneName } from '../record/record-core';
 import { RecordLoading, RecordNotFound, RecordOfflineBanner, RecordUnavailable } from '../record/record-states';
 import { RecordTimeline, Value, type TimelineVocabulary } from '../record/record-timeline';
 import { ContactSheet } from './contact-sheet';
+import { StartScript } from '../script-run/start-script';
 import {
   DETAILS,
   STATUS_CODES,
@@ -70,6 +71,7 @@ export function ContactRecordScreen({
   messages,
   locales,
   live,
+  scripts = false,
 }: {
   id: string;
   locale: string;
@@ -77,6 +79,8 @@ export function ContactRecordScreen({
   locales: readonly LanguageOption[];
   /** Nav ids whose route is on here (`crmLiveNav()`), for the shell's links. */
   live: readonly string[];
+  /** The scripts flag is on in this process (read by the server page): draw the start control (T-0116). */
+  scripts?: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const state = useContactRecord(id);
@@ -108,6 +112,7 @@ export function ContactRecordScreen({
             record={state.record}
             offline={offline}
             linkAccount={live.includes('accounts')}
+            scripts={scripts}
           />
         ) : null}
       </div>
@@ -122,6 +127,7 @@ function Ready({
   record,
   offline,
   linkAccount,
+  scripts,
 }: {
   t: Translator;
   locale: string;
@@ -130,6 +136,8 @@ function Ready({
   offline: boolean;
   /** The account record (T-0063) is served in this process, so the summary may link to it. */
   linkAccount: boolean;
+  /** The P10 start control (T-0116), behind the scripts flag on the server. Reads nothing until opened. */
+  scripts: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [logging, setLogging] = useState<ActivityType | null>(null);
@@ -214,6 +222,7 @@ function Ready({
             <Icon name="edit" size="sm" />
             {t.t('record.edit')}
           </button>
+          {scripts ? <StartScript t={t} contactId={record.id} offline={offline} /> : null}
         </div>
       </section>
 

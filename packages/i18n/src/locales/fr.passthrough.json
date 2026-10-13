@@ -72,5 +72,6 @@
   "record.language.sw",
   "record.language.yo",
   "activities.related.contact",
-  "activities.compose.type"
+  "activities.compose.type",
+  "scripting.builder.fieldType.date"
 ]

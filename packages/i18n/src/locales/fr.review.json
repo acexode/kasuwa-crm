@@ -79,6 +79,7 @@
     "record.language.sw": "A language name used unchanged in French.",
     "record.activity.type.note": "\"Note\" is the ordinary French word for a note on a record.",
     "activities.related.contact": "The French word is spelled identically to the English one, as in records.nav.contacts.",
-    "activities.compose.type": "The French word is spelled identically to the English one."
+    "activities.compose.type": "The French word is spelled identically to the English one.",
+    "scripting.builder.fieldType.date": "The French word is spelled the same as the English one."
   }
 }

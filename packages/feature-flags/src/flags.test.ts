@@ -21,6 +21,7 @@ describe('feature flags', () => {
       'crm_record_view',
       'crm_leads',
       'crm_activities',
+      'crm_scripts',
     ]);
   });
 
@@ -137,6 +138,23 @@ describe('feature flags', () => {
         nodeEnv: 'test',
         enabled: ['crm_records', 'crm_accounts', 'crm_record_view', 'crm_leads', 'crm_activities'],
       }),
+    ).not.toThrow();
+  });
+
+  it('ships crm_scripts OFF, separate from the other CRM flags, and not production-ready (T-0115, T-0116, D-L114)', () => {
+    expect(FLAGS.crm_scripts.defaultValue).toBe(false);
+    expect(FLAGS.crm_scripts.productionReady).toBe(false);
+    expect(flagConfiguration([]).crm_scripts.defaultVariant).toBe('off');
+    expect(flagConfiguration(['crm_scripts']).crm_scripts.defaultVariant).toBe('on');
+    // Its own switch: it turns no record flag on, and no record flag turns it on.
+    expect(flagConfiguration(['crm_scripts']).crm_records.defaultVariant).toBe('off');
+    expect(flagConfiguration(['crm_scripts']).crm_record_view.defaultVariant).toBe('off');
+    expect(flagConfiguration(['crm_records', 'crm_record_view', 'crm_leads']).crm_scripts.defaultVariant).toBe('off');
+    expect(() =>
+      assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: ['crm_scripts'] }),
+    ).toThrow(/Refusing to start.*crm_scripts/);
+    expect(() =>
+      assertFlagsAreProductionSafe({ nodeEnv: 'test', enabled: ['crm_records', 'crm_record_view', 'crm_scripts'] }),
     ).not.toThrow();
   });
 

@@ -172,6 +172,27 @@ export const FLAGS = {
     // capability read (D-L84, T-0079). Lifting it is a deliberate one-line change.
     productionReady: false,
   },
+  /**
+   * T-0115 and T-0116 (D-L88, D-L93, D-L114): the P10 in-call scripts in
+   * manual mode — the builder at `/scripts` and `/scripts/[scriptId]`, the
+   * agent's run at `/script-runs/[runId]`, and the "Start script" control on
+   * the contact record. It gates the three ROUTES (a real 404 while it is off)
+   * and the start control, which the record's server page reads and passes
+   * down as a boolean.
+   *
+   * A presentation switch, not an access control: authoring needs
+   * `script.write` and a run needs `script.run`, decided by the scripting API
+   * from the session and `user_programme` whether this is on or off.
+   */
+  crm_scripts: {
+    description: 'The P10 in-call scripts in manual mode: the builder at /scripts (T-0115) and the agent run at /script-runs/[runId], started from the contact record (T-0116).',
+    defaultValue: false,
+    owner: 'T-0115 and T-0116 (screens), T-0113 and T-0114 (API), D-L88, D-L114',
+    // NOT production-ready: the builder's "real 404 for a non-writer" and its
+    // nav entry wait for a capability read (T-0079, D-L84), and the run screen
+    // is proven against the contract mock only. Lifting it is a one-line change.
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;
