@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 176 rows; built 90, partial 11, mock-only 27, flagged-off 11, deferred 10, not-started 27.
+Totals: 176 rows; built 93, partial 11, mock-only 27, flagged-off 11, deferred 10, not-started 24.
 
 ## Modules
 
@@ -170,9 +170,9 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `updateAccount` | PATCH /api/v1/accounts/{accountId} — Update an account (inline edit of owner, tier and the rest) | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listAccountContacts` | GET /api/v1/accounts/{accountId}/contacts — The account's contacts the caller can reach | built | — | — | docs/api/records.openapi.yaml · T-0055 · T-0063 |
 | operation | `listAccountTimeline` | GET /api/v1/accounts/{accountId}/timeline — The account's timeline — field changes and activities, newest first | built | — | — | docs/api/records.openapi.yaml |
-| operation | `listPipelines` | GET /api/v1/pipelines — The pipelines of the programmes the session reaches (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 |
-| operation | `getPipeline` | GET /api/v1/pipelines/{pipelineId} — One pipeline with its stages, requirements and transitions (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 |
-| operation | `getPipelineBoard` | GET /api/v1/pipelines/{pipelineId}/board — The Kanban board — exact counts and per-currency totals per stage (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 |
+| operation | `listPipelines` | GET /api/v1/pipelines — The pipelines of the programmes the session reaches | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 |
+| operation | `getPipeline` | GET /api/v1/pipelines/{pipelineId} — One pipeline with its stages, requirements and transitions | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 |
+| operation | `getPipelineBoard` | GET /api/v1/pipelines/{pipelineId}/board — The Kanban board — exact counts and per-currency totals per stage | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 |
 | operation | `listDeals` | GET /api/v1/pipelines/{pipelineId}/deals — List a pipeline's deals — the P06/01b list view (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 |
 | operation | `createDeal` | POST /api/v1/pipelines/{pipelineId}/deals — Create a deal in the pipeline's first open stage (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 |
 | operation | `getDeal` | GET /api/v1/deals/{dealId} — Get one deal (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 |
