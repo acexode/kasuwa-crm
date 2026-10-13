@@ -255,3 +255,47 @@ function namesListCursorKey(payload: unknown): boolean {
     (Object.hasOwn(payload, 'v') || Object.hasOwn(payload, 's'))
   );
 }
+
+/*
+ * ID CURSORS (T-0107; D-L80, the board's and the pipeline list's R7).
+ *
+ * The pipeline list and each board column have ONE order, so there is no sort
+ * to carry: an id cursor is `{ v, i }`, the format version and the last row's
+ * id, base64url. Nothing else, never a name, a time, an amount or a stage id.
+ * The repository resolves the position from the id inside the caller's scope;
+ * unlike the record lists (D-L116), these contracts refuse a cursor that
+ * names no reachable row with `400 invalid_cursor`, and that decision belongs
+ * to the caller, not to this decoder.
+ */
+
+/** The longest pipeline or board cursor the boundary accepts (the contract's maxLength). */
+export const MAX_ID_CURSOR_LENGTH = 512;
+
+const IdCursorPayload = z
+  .object({
+    v: z.literal(LIST_CURSOR_VERSION),
+    i: z.string().uuid(),
+  })
+  .strict();
+
+export function encodeIdCursor(id: string): string {
+  const parsed = IdCursorPayload.safeParse({ v: LIST_CURSOR_VERSION, i: id });
+  if (!parsed.success) throw new InvalidCursorError();
+  return Buffer.from(JSON.stringify(parsed.data), 'utf8').toString('base64url');
+}
+
+/** The id an id cursor names, lower-cased. Throws InvalidCursorError for anything else. */
+export function decodeIdCursor(cursor: string): string {
+  if (cursor.length > MAX_ID_CURSOR_LENGTH || !BASE64URL.test(cursor)) {
+    throw new InvalidCursorError();
+  }
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+  } catch {
+    throw new InvalidCursorError();
+  }
+  const parsed = IdCursorPayload.safeParse(parsedJson);
+  if (!parsed.success) throw new InvalidCursorError();
+  return parsed.data.i.toLowerCase();
+}

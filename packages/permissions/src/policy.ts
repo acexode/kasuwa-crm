@@ -318,3 +318,41 @@ export function canWriteActivity(
     canProgramme(grants, 'activity.reassign', programmeId)
   );
 }
+
+/**
+ * The seeded sets that READ a programme's pipelines and deals (D-L88's
+ * `x-kasuwa-rights`, D-L115). Deliberately an allow-list, as SET_PERMITS is:
+ * `client_portal` is not on it (D-L115: a deal carries staff names and free
+ * text that D-P26 keeps from portal users), and neither is a membership with
+ * no set (having no set never reaches more than the weakest set, which is
+ * `client_portal`) nor any set somebody creates later. The tenant-admin flag
+ * acts as `admin`.
+ */
+export const PIPELINE_READER_SET_KEYS = [
+  ADMIN_PERMISSION_SET_KEY,
+  PROGRAMME_MANAGER_PERMISSION_SET_KEY,
+  TEAM_LEAD_PERMISSION_SET_KEY,
+  AGENT_PERMISSION_SET_KEY,
+  'qa_analyst',
+] as const;
+
+const PIPELINE_READERS: ReadonlySet<string> = new Set(PIPELINE_READER_SET_KEYS);
+
+/**
+ * May this session read pipelines and deals in `programmeId` (T-0107)? A read,
+ * so the caller answers "no" as the one `404` (or an empty list), never a
+ * `403`. Never true for a programme outside the session's resolved scope.
+ */
+export function canReadPipelines(grants: Grants, programmeId: string): boolean {
+  if (!grants.reachableProgrammeIds.includes(programmeId)) return false;
+  if (grants.isTenantAdmin) return true;
+  const key = grants.programmeSets.get(programmeId) ?? null;
+  return key !== null && PIPELINE_READERS.has(key);
+}
+
+/** The programmes of the session's scope whose pipelines it reads, in scope order. */
+export function programmesReadingPipelines(grants: Grants): string[] {
+  return grants.reachableProgrammeIds.filter((programmeId) =>
+    canReadPipelines(grants, programmeId),
+  );
+}
