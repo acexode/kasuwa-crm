@@ -35,7 +35,17 @@ describe('activity field security (T-0061)', () => {
       'owner_user_id',
       'contact_id',
       'account_id',
+      'deal_id',
     ]);
+  });
+
+  it('withholds the deal link (T-0111, R5) last, in contract order', () => {
+    const access = activityFieldAccessFromObjectAccess(
+      objectAccess({ deal_id: 'none', subject: 'none' }),
+      [P1],
+    );
+    expect(withheldActivityFields(access, P1)).toEqual(['subject', 'dealId']);
+    expect(notEditableActivityFields(access, P1, ['dealId'])).toEqual(['dealId']);
   });
 
   it('withholds exactly the fields at none, in contract order; type is never withholdable', () => {

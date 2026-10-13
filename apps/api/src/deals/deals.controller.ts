@@ -17,6 +17,7 @@ import { AdminErrorFilter } from '../admin/common/admin-errors';
 import { KasuwaAuthGuard } from '../tenancy/kasuwa-auth.guard';
 import { currentTx } from '../tenancy/tenant-context';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
+import { listDealTimelineFor, type DealTimelinePageWire } from './deal-timeline';
 import type { DealWire } from './deal-wire';
 import {
   createDealFor,
@@ -28,7 +29,8 @@ import {
 
 /**
  * The deals API: the deal operations of `docs/api/records.openapi.yaml`
- * (T-0105), implemented by T-0108. The pipeline reads (listPipelines,
+ * (T-0105), implemented by T-0108, and the deal timeline (listDealTimeline,
+ * T-0111). The pipeline reads (listPipelines,
  * getPipeline, getPipelineBoard) are T-0107's, not here.
  *
  * The controllers never read a tenant or programme id from the request.
@@ -102,6 +104,22 @@ export class DealsController {
   @Header(CACHE_CONTROL, NO_STORE)
   async findOne(@Param('dealId') dealId: unknown): Promise<DealWire> {
     return getDealFor(currentTx(), dealId);
+  }
+
+  /**
+   * `GET /api/v1/deals/{dealId}/timeline` — operationId `listDealTimeline`
+   * (T-0111). 200 `DealTimelinePage` · 400 · 401 · 404. Order: 404 (getDeal's
+   * one body: the same lookup, readers per D-L127, a non-uuid id included),
+   * then 400 (the query, then the cursor: `invalid_cursor`). A read, so no
+   * 403. Field changes by name only; activities linked through `dealId`.
+   */
+  @Get(':dealId/timeline')
+  @Header(CACHE_CONTROL, NO_STORE)
+  async timeline(
+    @Param('dealId') dealId: unknown,
+    @Query() query: unknown,
+  ): Promise<DealTimelinePageWire> {
+    return listDealTimelineFor(currentTx(), dealId, query);
   }
 
   /**

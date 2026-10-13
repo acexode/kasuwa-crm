@@ -1101,11 +1101,12 @@ describe('acceptance: records contract, activities, tasks and the calendar (T-00
   });
 
   describe('updateActivity: snooze and reschedule (D-L102, D-P18)', () => {
-    it('the body is closed: version plus completed, ownerUserId, dueAt, startsAt, endsAt', () => {
+    it('the body is closed: version plus completed, ownerUserId, dueAt, startsAt, endsAt, dealId (T-0111)', () => {
       const body = requestSchema(UPDATE);
       expect(isClosed(body)).toBe(true);
+      // T-0111 (lead edit): dealId, the deal link, is the one link an update may change.
       expect([...properties(body).keys()].sort()).toEqual(
-        ['completed', 'dueAt', 'endsAt', 'ownerUserId', 'startsAt', 'version'].sort(),
+        ['completed', 'dealId', 'dueAt', 'endsAt', 'ownerUserId', 'startsAt', 'version'].sort(),
       );
       expect(required(body)).toEqual(['version']);
       const due = properties(body).get('dueAt');

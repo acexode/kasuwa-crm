@@ -27,6 +27,7 @@ const activity: Activity = {
   ownerUserId: '11111111-0000-4000-8000-000000610103',
   contactId: '11111111-0000-4000-8000-000000610104',
   accountId: null,
+  dealId: null,
   createdByUserId: '11111111-0000-4000-8000-000000610105',
   version: 1,
   createdAt: new Date('2026-10-01T09:00:00.123Z'),
@@ -110,5 +111,37 @@ describe('activity audit (T-0061)', () => {
         (entry) => entry.field,
       ),
     ).toEqual(['ownerUserId']);
+  });
+});
+
+describe('the deal link (T-0111)', () => {
+  const DEAL = '11111111-0000-4000-8000-000000610106';
+  const OTHER_DEAL = '11111111-0000-4000-8000-000000610107';
+
+  it('serves dealId, null when unlinked, and withholds it under none (R7)', () => {
+    expect(toActivityWire(activity, access()).dealId).toBeNull();
+    expect(toActivityWire({ ...activity, dealId: DEAL }, access()).dealId).toBe(DEAL);
+    const withheld = toActivityWire({ ...activity, dealId: DEAL }, access({ dealId: 'none' }));
+    expect('dealId' in withheld).toBe(false);
+    expect(withheld.withheldFields).toEqual(['dealId']);
+    expect(JSON.stringify(withheld)).not.toContain(DEAL);
+  });
+
+  it('audits a link on create, and a set, move or clear on update, by name only (R6)', () => {
+    const created = activityCreateChanges({ type: 'note', contactId: activity.contactId, dealId: DEAL });
+    expect(created.map((entry) => entry.field)).toEqual(['type', 'contactId', 'dealId']);
+    const linked = { ...activity, dealId: DEAL };
+    for (const [before, after] of [
+      [activity, linked],
+      [linked, { ...activity, dealId: OTHER_DEAL }],
+      [linked, activity],
+    ] as const) {
+      expect(activityUpdateChanges(before, after)).toEqual([
+        { field: 'dealId', before: null, after: null, redacted: true },
+      ]);
+    }
+    expect(activityUpdateChanges(linked, { ...linked, version: 2 })).toEqual([]);
+    const text = JSON.stringify([created, activityAuditEvent('updated', linked, [])]);
+    expect(text).not.toContain(DEAL);
   });
 });

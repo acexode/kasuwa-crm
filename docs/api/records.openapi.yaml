@@ -45,7 +45,7 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.10.0-T-0105
+  version: 0.11.0-T-0111
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
     update. Accounts (T-0052, served since T-0055): list, get, create,
@@ -64,7 +64,8 @@ info:
     T-0076): a lead is a
     contact at a lead stage, not its own record, so leads add a list view
     (`listLeads`), one action (`convertContact`) and one contact field
-    (`companyName`). Pipelines and deals (P06, T-0105, contract only until
+    (`companyName`). Activities linked to a deal (`dealId`) and the deal's
+    timeline (`listDealTimeline`, T-0111, contract only until it is served). Pipelines and deals (P06, T-0105, contract only until
     T-0107 and T-0108): programme-scoped pipelines with their stages,
     requirements and transitions (`listPipelines`, `getPipeline`); the board
     with an exact count and per-currency totals per stage
@@ -699,6 +700,20 @@ paths:
         composer sets `ownerUserId` to the caller, so the meeting is on the
         caller's calendar (listCalendar lists what the caller OWNS).
 
+        **Deal (T-0111, D-L88; contract only until T-0111 serves it).**
+        `dealId` links the activity to a deal. It is a link, never a target:
+        `contactId` or `accountId` is still required and still decides the
+        programme. The deal must be in the activity's programme; anything
+        else (a deal in another programme, even one the caller reads, a deal
+        in another tenant, an id that names nothing) is
+        `400 validation_failed` with `details[].code: unknown_reference` at
+        `dealId`, one body. Linking needs no right beyond `activity.write`:
+        it changes the activity, never the deal (the deal's `version` does
+        not move and no deal audit event is written), so an agent may link
+        to a colleague's deal or a closed one. `dealId` follows the
+        activity's `deal_id` field security like any other field. The
+        linked activity appears on the deal's timeline (listDealTimeline).
+
         **Not in this contract (D-P22, D-P29):** attendees or invitations,
         a location, reminders by SMS, WhatsApp, email or push, and anything
         pushed to an external calendar. A create never sends a message.
@@ -806,6 +821,16 @@ paths:
         sending `startsAt` or `endsAt` when the caller cannot read the
         meeting's OTHER time in its programme (D-L110): the result rules
         would otherwise disclose it.
+
+        **Deal link (T-0111; contract only until T-0111 serves it).**
+        `dealId` is the one link an update may change: a deal sets or moves
+        the link and `null` removes it. The rules are createActivity's: a
+        deal in the activity's programme, else `400 unknown_reference` at
+        `dealId`, one body; `activity.write` and nothing more (the deal
+        itself is not written); and the `deal_id` field security, so sending
+        `dealId` when it is withheld from, or read-only for, the caller is
+        `403 not_permitted` with `details[].code: field_not_editable`. A
+        change of link is audited by name (`dealId`), never by value.
 
         Out of scope (another programme, another tenant, no such activity) is
         `404 not_found`, one body. Order: `404`, `403`, `400`, `409`. Every
@@ -3155,6 +3180,155 @@ paths:
         '409': { $ref: '#/components/responses/DealMoveConflict' }
         '422': { $ref: '#/components/responses/RequirementsUnmet' }
 
+  # -------------------------------------------------------------------------
+  # The deal timeline (P06, T-0111; D-L88, D-L72, D-L77, D-L80, D-L81, D-L85,
+  # D-L127). Contract only until T-0111 serves it. The block rules above
+  # (one 404 body, error order, rights, no-store) apply unchanged.
+  # -------------------------------------------------------------------------
+
+  /api/v1/deals/{dealId}/timeline:
+    parameters:
+      - $ref: '#/components/parameters/DealId'
+    get:
+      tags: [deals]
+      summary: The deal's timeline — field changes and linked activities, newest first
+      operationId: listDealTimeline
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P06/05', 'P06/06']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
+      x-kasuwa-rights:
+        admin: read
+        programme_manager: read
+        team_lead: read
+        agent: read
+        qa_analyst: read
+        client_portal: none
+      description: |
+        The activity column of the P06/05 deal detail (T-0111): what changed
+        on this deal, who changed it, and the notes, tasks, calls and
+        meetings linked to it through `dealId` (createActivity,
+        updateActivity). The same page shape, paging, ordering and item rules
+        as listAccountTimeline, which this operation shares rather than
+        forks; where this description is silent, that one applies.
+
+        **Scope.** The deal must be readable by the caller, exactly as for
+        getDeal: the `admin`, `programme_manager`, `team_lead`, `agent` and
+        `qa_analyst` sets and the tenant-admin flag, in the deal's
+        programme (D-L127). Anything else (no such deal, another tenant's,
+        one in a programme the caller does not reach, a `client_portal`
+        caller, a set that reads no deals, and an id that is not a uuid) is
+        getDeal's one `404 not_found` body, the same bytes in every case.
+        That check comes first, and nothing about the deal's history is read
+        before it passes. **Order: `404`, then `400`.** A read, so there is
+        no `403`. A scope header is refused `400` before any of this, by
+        authentication, whatever the id.
+
+        **Field changes: by name only.** One `field_changed` item per field
+        named by an audit event of this deal (`objectType: deal`, this deal's
+        id, in this deal's programme), created and updated alike; a creation
+        renders like an update (D-L81), one item per field the create named.
+        The field is named by its Deal wire name, from a closed list:
+        `name`, `amount`, `expectedCloseDate`, `ownerUserId`,
+        `primaryContactId`, `accountId`, `nextStep`, `stageId` and `checks`.
+        **Every item is `redacted: true` and never carries `before` or
+        `after`**, whatever the audit row holds: a reassignment's owner ids
+        (D-L64) and a move's stage ids are not printed either, and a move
+        appears as a `stageId` item (plus an item per field it filled and a
+        `checks` item when it ticked one). Any other audited name, such as
+        `stageEnteredAt` or `closedAt`, yields no item.
+
+        **Activities.** One `activity` item per activity whose `dealId` is
+        this deal, with whatever contact or account it targets, in its
+        current state: `occurredAt` when it was logged (D-L77), so linking
+        an older activity later puts it at its logged time, and its
+        `version` for updateActivity (D-L85). The very ActivityItem of the
+        contact and account timelines. **Not on it:** activities of the
+        deal's contact or account that carry no `dealId`, and those of other
+        deals.
+
+        **Field security omits, before paging.** Judged in the deal's
+        programme, against the set the caller holds there today; the
+        tenant-admin flag does not lift it (D-L63). The DEAL's matrix judges
+        field-change items, exactly as getDeal judges the Deal: an item is
+        omitted, value and name, precisely when getDeal would list its field
+        in `withheldFields` for this caller (`name`, `stageId` and `checks`
+        are never withheld). The ACTIVITY's matrix judges each activity item,
+        exactly as on the other timelines: a withheld `subject`, `body`,
+        `dueAt`, `completedAt`, `startsAt` or `endsAt` is omitted from the
+        item, and when the activity's deal link (`deal_id`) is withheld no
+        activity item is shown at all (the counterpart of `account_id` on
+        the account timeline). A withheld contact or account link does not
+        remove an item from this timeline: the item names neither. `version`
+        is never withheld. Omission happens before the page is cut: a page
+        with a non-null `nextCursor` holds `limit` items, and a cursor never
+        leads to an empty page.
+
+        **Order and paging.** `occurredAt` descending across both sources,
+        ties broken by item `id` descending in code-unit order. Keyset only:
+        `{ data, nextCursor }`, no total, count or offset (D-P13). The cursor
+        carries a position only: never a name (D-L80), and never an id of
+        anything the pages did not show. A malformed cursor, or one issued
+        for another deal, another timeline (a contact's or an account's) or
+        another list, is `400 validation_failed` with
+        `details[].code: invalid_cursor`, and a cursor issued for a deal the
+        caller cannot reach answers exactly as one issued for a deal they
+        can. `limit` out of 1..100 is `400`, never clamped.
+        `Cache-Control: no-store` on every answer, `200`, `404` and `400`
+        alike.
+
+        **Actors and item ids** follow listContactTimeline (D-L81): the person
+        who acted, named as they are named now; `null` is the system. Ids are
+        opaque, never an audit event or activity id, and depend only on the
+        item's own change or activity.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of the deal's timeline, field security applied.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DealTimelinePage' }
+              example:
+                data:
+                  - id: ti_7e1d0c2b3a4f45e6a7b8c9d0e1f2a3b4
+                    type: field_changed
+                    occurredAt: '2026-10-03T09:30:00.000Z'
+                    actor:
+                      id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                      displayName: Kemi Balogun
+                    field: stageId
+                    redacted: true
+                  - id: ti_2c3d4e5f6a7b48c9d0e1f2a3b4c5d6e7
+                    type: field_changed
+                    occurredAt: '2026-10-03T09:30:00.000Z'
+                    actor:
+                      id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                      displayName: Kemi Balogun
+                    field: expectedCloseDate
+                    redacted: true
+                  - id: ti_9f8e7d6c5b4a43210fedcba987654321
+                    type: activity
+                    occurredAt: '2026-10-01T11:40:00.000Z'
+                    actor:
+                      id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                      displayName: Kemi Balogun
+                    activityId: 5e2a7b1c-3d4f-4a6b-8c9d-0e1f2a3b4c03
+                    activityType: call
+                    subject: Pricing call
+                    body: Wants the Q4 prices held until Friday.
+                    dueAt: null
+                    completedAt: null
+                    startsAt: null
+                    endsAt: null
+                    version: 1
+                nextCursor: dGltZWxpbmUtY3Vyc29yLWV4YW1wbGU
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/PipelineRecordNotFound' }
+
 components:
   securitySchemes:
     sessionToken:
@@ -3989,6 +4163,69 @@ components:
           const: true
           description: Always `true`. The change happened; its values are not shown.
 
+    DealTimelinePage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      description: |
+        listDealTimeline's page (T-0111): the same shape as TimelinePage and
+        AccountTimelinePage, `{ data, nextCursor }`, with no total, count or
+        offset (D-P13) and nothing that says items were left out. Its own
+        schema because its field changes are named by Deal fields and never
+        carry values. `nextCursor` is `null` on the last page.
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/DealTimelineItem' }
+        nextCursor: { type: [string, 'null'] }
+
+    DealTimelineItem:
+      description: |
+        One thing that happened to the deal. A closed union on `type`:
+        `field_changed` (by name only) and `activity` (the very ActivityItem
+        of the contact and account timelines). No other type is added
+        without a lead decision (D-L72).
+      oneOf:
+        - $ref: '#/components/schemas/DealFieldChangedItem'
+        - $ref: '#/components/schemas/ActivityItem'
+      discriminator:
+        propertyName: type
+        mapping:
+          field_changed: '#/components/schemas/DealFieldChangedItem'
+          activity: '#/components/schemas/ActivityItem'
+
+    DealFieldChangedItem:
+      type: object
+      additionalProperties: false
+      required: [id, type, occurredAt, actor, field, redacted]
+      description: |
+        A change to one Deal field, shown by name only (D-L88: deal audit
+        records names, and the ids it keeps for a move or a reassignment are
+        never printed, D-L64). Never `before` or `after`. One audit event
+        that changed several fields is several items sharing an
+        `occurredAt`.
+      properties:
+        id:
+          type: string
+          description: Opaque and unique per item; never the audit event id.
+        type: { type: string, const: field_changed }
+        occurredAt: { type: string, format: date-time }
+        actor:
+          description: '`null` is the system (an import, a migration).'
+          oneOf:
+            - { $ref: '#/components/schemas/TimelineActor' }
+            - { type: 'null' }
+        field:
+          type: string
+          enum: [name, amount, expectedCloseDate, ownerUserId, primaryContactId, accountId, nextStep, stageId, checks]
+          description: |
+            The Deal property that changed. `stageId` is a move (moveDeal);
+            `checks` is a requirement check ticked by a move.
+        redacted:
+          type: boolean
+          const: true
+          description: Always `true`. The change happened; its values are not shown.
+
     ActivityType:
       type: string
       enum: [note, task, call, meeting]
@@ -4064,6 +4301,15 @@ components:
           description: '`null` is unassigned. Always a member of the activity''s programme.'
         contactId: { type: [string, 'null'], format: uuid }
         accountId: { type: [string, 'null'], format: uuid }
+        dealId:
+          type: [string, 'null']
+          format: uuid
+          x-kasuwa-implemented: true
+          description: |
+            The deal this activity is linked to (T-0111), always in the
+            activity's programme; `null` when none. Withheld, and named in
+            `withheldFields`, when the activity's `deal_id` field is withheld
+            from the caller.
         createdByUserId:
           type: [string, 'null']
           format: uuid
@@ -4081,7 +4327,7 @@ components:
             this caller. Always present; empty when nothing was withheld.
           items:
             type: string
-            enum: [subject, body, dueAt, completedAt, startsAt, endsAt, ownerUserId, contactId, accountId]
+            enum: [subject, body, dueAt, completedAt, startsAt, endsAt, ownerUserId, contactId, accountId, dealId]
 
     CreateActivityRequest:
       type: object
@@ -4137,6 +4383,16 @@ components:
           type: [string, 'null']
           format: uuid
           description: Decides the programme when it is the only target; else must be in the contact's.
+        dealId:
+          type: [string, 'null']
+          format: uuid
+          x-kasuwa-implemented: true
+          description: |
+            Links the activity to a deal (T-0111). A link, never a target: it
+            does not decide the programme and does not replace `contactId`
+            or `accountId`. Must be a deal in the activity's programme, else
+            `400 unknown_reference` at `dealId`, one body whether it names a
+            deal elsewhere or nothing.
 
     UpdateActivityRequest:
       type: object
@@ -4188,6 +4444,16 @@ components:
             Move a meeting's end (T-0081). Anything but a meeting is
             `400 meeting_only`. Not nullable. Judged on the result, as
             `startsAt`.
+        dealId:
+          type: [string, 'null']
+          format: uuid
+          x-kasuwa-implemented: true
+          description: |
+            Link the activity to a deal, or move the link to another deal
+            (T-0111); `null` unlinks it. A deal in the activity's programme,
+            else `400 unknown_reference` at `dealId`, one body whether it
+            names a deal elsewhere or nothing. The only link an update may
+            change: `contactId` and `accountId` stay `400`.
 
     ActivityContactSummary:
       type: object

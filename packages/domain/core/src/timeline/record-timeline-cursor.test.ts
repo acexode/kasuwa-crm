@@ -83,4 +83,22 @@ describe('record timeline cursors (T-0080)', () => {
       encodeAccountTimelineCursor({ accountId: 'not-a-uuid', occurredAt: AT, itemId: ITEM }),
     ).toThrow(InvalidCursorError);
   });
+
+  it('deal cursors (T-0111): { d, t, i }, refused on the contact and account timelines and back', () => {
+    const at = { recordId: RECORD, occurredAt: AT, itemId: ITEM };
+    const deal = encodeRecordTimelineCursor('deal', at);
+    expect(payloadOf(deal)).toEqual({ d: RECORD, t: AT, i: ITEM });
+    expect(decodeRecordTimelineCursor('deal', deal, RECORD.toUpperCase())).toEqual(at);
+    const account = encodeRecordTimelineCursor('account', at);
+    const contact = encodeRecordTimelineCursor('contact', at);
+    for (const cursor of [account, contact]) {
+      expect(() => decodeRecordTimelineCursor('deal', cursor, RECORD)).toThrow(InvalidCursorError);
+    }
+    expect(() => decodeRecordTimelineCursor('account', deal, RECORD)).toThrow(InvalidCursorError);
+    expect(() => decodeRecordTimelineCursor('contact', deal, RECORD)).toThrow(InvalidCursorError);
+    expect(() => decodeRecordTimelineCursor('deal', deal, OTHER)).toThrow(InvalidCursorError);
+    expect(() =>
+      decodeRecordTimelineCursor('deal', raw({ d: RECORD, a: RECORD, t: AT, i: ITEM }), RECORD),
+    ).toThrow(InvalidCursorError);
+  });
 });

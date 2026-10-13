@@ -18,8 +18,8 @@ import { z } from 'zod';
 import { notFound } from '../admin/common/admin-errors';
 
 /**
- * What the contact timeline (T-0061) and the account timeline (T-0080) share,
- * so neither forks the other: the query, the activity item, the fail-closed
+ * What the contact timeline (T-0061), the account timeline (T-0080) and the
+ * deal timeline (T-0111) share, so none forks another: the query, the activity item, the fail-closed
  * field-security path and the order of checks. Each timeline supplies only
  * what differs (`RecordTimelineSpec`): whose matrix judges its field changes,
  * which change fields exist, how a change row becomes an item, and which
@@ -158,7 +158,7 @@ export interface RecordTimelineSpec<RecordAccess, Change> {
   /** A change row as an item, or `null` to drop it. */
   changeItem(row: TimelineChangeRow): Change | null;
   /** The Activity property that puts an activity on this timeline. */
-  activityLink: 'contactId' | 'accountId';
+  activityLink: 'contactId' | 'accountId' | 'dealId';
 }
 
 /**

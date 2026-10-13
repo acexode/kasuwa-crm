@@ -391,6 +391,7 @@ describe('the audit and the Activity for meetings (T-0082, W3)', () => {
     ownerUserId: null,
     contactId: CONTACT,
     accountId: null,
+    dealId: null,
     createdByUserId: null,
     version: 1,
     createdAt: new Date('2026-10-01T09:00:00.000Z'),

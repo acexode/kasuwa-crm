@@ -374,6 +374,12 @@ export const activity = pgTable(
     contactId: uuid('contact_id'),
     /** Composite FK (tenant_id, programme_id, account_id) -> account. */
     accountId: uuid('account_id'),
+    /**
+     * The deal link (0037, T-0111): a link, never a target. Composite FK
+     * (tenant_id, programme_id, deal_id) -> deal (tenant_id, programme_id, id),
+     * RESTRICT on update and delete.
+     */
+    dealId: uuid('deal_id'),
     /** Composite FK (tenant_id, created_by_user_id) -> "user". NULL is the system. */
     createdByUserId: uuid('created_by_user_id'),
     /** Optimistic-concurrency counter; kept moving by app.bump_version(). */
@@ -412,6 +418,10 @@ export const activity = pgTable(
     index('activity_owner_meeting_starts_idx')
       .on(table.tenantId, table.ownerUserId, table.startsAt, table.id)
       .where(sql`type = 'meeting'`),
+    /** The deal timeline (0037, T-0111): one deal's activities, newest first, and the FK lookup. */
+    index('activity_deal_keyset_idx')
+      .on(table.tenantId, table.programmeId, table.dealId, table.createdAt.desc(), table.id.desc())
+      .where(sql`deal_id IS NOT NULL`),
     /** Not partial: the tenant and programme FK lookup, and a programme-wide feed. */
     index('activity_programme_recent_idx').on(
       table.tenantId,
@@ -749,6 +759,8 @@ export const deal = pgTable(
       table.pipelineId,
       table.id,
     ),
+    /** 0037 (T-0111): the target of activity's composite deal FK. */
+    uniqueIndex('deal_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
     /** R14: an open board column. */
     index('deal_board_open_idx').on(
       table.tenantId,

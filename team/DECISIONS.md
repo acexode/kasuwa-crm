@@ -2736,3 +2736,71 @@ by the lead (98393b7).
   - published rows kept 7 days and dead rows 30; dead after 10 publish or 5 consumer attempts (Q3);
   - a dashboard, not paging (Q4);
   - BullMQ's failed set trimmed by hand for now (Q5).
+### D-L129 — T-0111 suite rulings and lead edits (lead, 2026-10-13)
+**Status:** PROCEEDING (lead). The suite `deal-timeline.acceptance.test.ts` (49 tests) and the contract edit
+(`listDealTimeline`, `GET /api/v1/deals/{dealId}/timeline`; `dealId` on Activity, CreateActivityRequest and
+UpdateActivityRequest) are on `lead/T-0111-acceptance` (8077fef). On main, 42 fail because there is no column, route or
+flag; 7 self-checks and contract pins pass. Migration 0037 is reserved for `agent3/T-0111` in protect-paths (202c2ea).
+- **R1–R19 in the suite header are accepted.** Notable:
+  - `dealId` is a link, never a target: a contact or account still decides the programme (R1);
+  - one `unknown_reference` body for another programme's deal, another tenant's deal and an invented id (R2);
+  - linking needs `activity.write` only and never writes the deal row (R4);
+  - `dealId` follows the `activity.deal_id` field security (R5);
+  - deal-timeline field items come from a closed list, by name only. Stage-name display ("Proposal → Negotiation") is a
+    later additive contract edit (R8);
+  - readers follow D-L127 (R12);
+  - the timeline index has no Sort as kasuwa_app at 20,000 activities (R15);
+  - no rollup of the contact's or account's other activities (R19).
+- **Lead edits, same branch (ac18252), so the task file's "unmodified" line does not hold for these three:**
+  - `records-contract-activities` lists `dealId` in the update body;
+  - `records-contract-pipeline` R13 admits `listDealTimeline` as the one later GET under `/deals`;
+  - `activity-table` gains the `deal_id` column, its required field_def and its `deal` lookup target.
+- **Open for T-0110 (screen and product):** a deal with neither a primary contact nor an account has nothing to log an
+  activity against (R1). The screen must say so rather than offer a broken composer.
+- **Builder:** Agent 3 on `agent3/T-0111-deal-timeline`.
+### D-L130 — T-0109 suite rulings (lead, 2026-10-13)
+**Status:** PROCEEDING (lead). The suite is on `lead/T-0109-acceptance` (4a32038):
+`pipeline-board.acceptance.test.ts` (51 tests), `p06-pipeline.spec.ts` (42 journeys) and the contract-validated
+`pipeline-mock.ts`, which T-0110 reuses. On main, 45 wrapper tests fail because there is no flag, route or
+`webPipelineUrl`, and every self-check passes.
+- **R1–R20 in the suite header are accepted.** Notable:
+  - `/pipelines` lists pipelines and `/pipelines/[pipelineId]` holds board and list behind a view switch (R1);
+  - money is exact Intl currency format, never compact and never through a JS number. The design's compact totals are
+    overruled by D-P19 (R5);
+  - rotting comes from served values, not the design's fixed thresholds (R8);
+  - the list view has no count and no footer totals (D-P13) (R13);
+  - the card links to the deal in T-0110, which re-pins the spec (R15);
+  - write controls are shown to every caller, with the 403 as the gate (D-L84) (R20).
+- **Wiring:** the builder adds `crm_pipeline` to the e2e runner and publishes `webPipelineUrl`, as T-0083 and T-0115
+  did. Naming an unregistered flag stops the records process booting, so the lead's suite only asserts it (R3).
+- **Byte budget:** `PIPELINE_BUDGET_BYTES` is a placeholder, pinned by the lead from the builder's measurement within 5%,
+  under 260,000 (R19).
+- **Follow-ups:**
+  - listContacts and listAccounts have no programme filter, so the requirement picker filters on the client. A
+    contract decision is worth taking later;
+  - there is no user directory read, so the owner filter offers me, unassigned and the owners seen on cards;
+  - `run-e2e.mjs` leaves `tsx src/main.ts` API processes behind after it exits (a harness task);
+  - `apps/web/lib/admin-format.ts` `formatMoney` loses precision past 2^53 and must not be reused for deals.
+- **Builders:** Agent 11 on `agent11/T-0109-pipeline-kanban` and Agent 3 on `agent3/T-0111-deal-timeline`, in parallel.
+### D-L131 — T-0111 lead fix, review rulings and follow-ups (lead, 2026-10-13)
+**Status:** PROCEEDING (lead).
+- **Lead suite fix (413a648):** activity-table's catalogue self-check built `deal_id` as text after ac18252 added it as
+  a required lookup. It now builds the `deal` lookup. No implementation could have passed the old fixture.
+- **The deal unique key `deal_tenant_programme_id_key (tenant_id, programme_id, id)` is an accepted exception to
+  D-L120.** The FK needs it, and since `id` is already unique through the primary key and RLS WITH CHECK runs before the
+  unique checks, it answers nothing new. Confirmed by the migration, security and tenancy reviews. 0037's section 8
+  checks only that it leads with tenant and programme.
+- **Fixed before merge:**
+  - 0037's scale split plan, in the right order;
+  - two self-check comments that claimed more than they checked;
+  - a unit test pinning that every `activity.write` set is also a pipeline reader, without which `dealId`'s
+    `unknown_reference` would become a deal-existence check.
+- **Follow-ups:**
+  - **Timeline performance (all three timelines):** the served query is a UNION of audit changes and activities ordered by
+    a computed key, so its index narrows to the record but every page sorts all of the record's items. The T-0111 plan
+    check (R15) covers a simplified activity-only query. A timeline-performance task should give each branch an ordered,
+    index-served seek before merging, and pin the served query's plan.
+  - **Deal deletion and erasure:** `activity.deal_id` is ON DELETE RESTRICT. When deal deletion or NDPA erasure arrives,
+    it must clear or reassign links first, never surface a 23503.
+  - **Contract tidy-up (the D-L123 lead contract PR):** "contract only until T-0111" wording, and a realistic name in the
+    `listDealTimeline` example.

@@ -31,6 +31,8 @@ export interface ActivityWire {
   ownerUserId?: string | null;
   contactId?: string | null;
   accountId?: string | null;
+  /** The linked deal (T-0111), a lower-case uuid; `null` when none; omitted when withheld (R7). */
+  dealId?: string | null;
   /** The user who logged it, from the session at create (D-L79); `null` is the system. */
   createdByUserId: string | null;
   version: number;
@@ -51,6 +53,7 @@ export function toActivityWire(activity: Activity, access: ActivityFieldAccess):
     ownerUserId: activity.ownerUserId,
     contactId: activity.contactId,
     accountId: activity.accountId,
+    dealId: activity.dealId,
   };
   for (const field of withheld) delete readable[field];
   return {
