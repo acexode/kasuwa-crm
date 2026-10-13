@@ -72,11 +72,11 @@ T-0049 (#93), a separate database role for the sign-in code (D-P16, ADR-0013), m
 |---|---|---|
 | Activities, tasks, calendar (P07) | T-0081 contract, T-0082 API (`meeting`, start/end; migration), T-0083 screen | none (calendar sync deferred, D-P22) |
 | Search indexes (D-L68) | T-0084 trigram and jsonb GIN indexes, id-only cursors | ADR: Postgres search in Phase 2, OpenSearch deferred |
-| Search and command palette (P27) | T-0085 contract, T-0086 API (fan-out over scoped repositories), T-0087 screen | T-0084 |
-| Custom fields (P18) | T-0088 contract, T-0089 API (jsonb + GIN; migration), T-0090 studio, T-0091 on records | **D-P24, D-P25**; ADR on storage |
-| Import (P28) | T-0092 storage adapter (ADR, new deps), T-0093 contract, T-0094 import API (migration), T-0096 screen | ADR on object storage |
+| Search and command palette (P27) | T-0085 contract, T-0086 API (fan-out over scoped repositories), T-0087 screen | ADR-0015 (Proposed; needs the deploy target, T-0005) |
+| Custom fields (P18) | T-0088 contract, T-0089 API (a `custom jsonb` column, no GIN under FORCE RLS; migration), T-0090 studio, T-0091 on records | ADR-0016 (Proposed) |
+| Import (P28) | T-0092 storage adapter (ADR, new deps), T-0093 contract, T-0094 import API (migration), T-0096 screen | ADR-0017 (Proposed) |
 | Dedupe and merge (P28) | T-0095 merge API (migration), T-0097 screen | **D-P27, D-P28** |
-| Notifications (P26) | T-0098 outbox (ADR, `kasuwa_relay` role), T-0099 contract, T-0100 API, T-0101 screen | ADR on the outbox; **D-P29** |
+| Notifications (P26) | T-0098 outbox (ADR, `kasuwa_relay` role), T-0099 contract, T-0100 API, T-0101 screen | ADR-0018 (Proposed) |
 | Pipeline (P06) | T-0105 contract, T-0106 tables (migration), T-0107 board API, T-0108 deals and gated move, T-0109 Kanban, T-0110 deal detail, T-0111 deal timeline (migration) | none (D-L88) |
 | In-call agent script (P10), manual mode | T-0112 contract, T-0113 authoring (migration), T-0114 runs (migration), T-0115 builder, T-0116 agent screen | **D-P31, D-P32**; call-bound runs wait for M09 |
 | Former owner, classification, audit follow-ups | T-0102 ✅ (#106), T-0103 ✅ (#113), T-0104 | none |
