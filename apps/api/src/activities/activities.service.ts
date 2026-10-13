@@ -11,6 +11,7 @@ import {
   notEditableActivityFields,
   programmeAccountExists,
   programmeContactExists,
+  programmeDealExists,
   programmeMemberExists,
   updateActivityIfVersion,
 } from '@kasuwa/domain-core';
@@ -59,6 +60,17 @@ import { toActivityWire, type ActivityWire } from './activity-wire';
  *        stored times with the sent ones applied (T-0082, D-L107), never
  *        0034's CHECK as a 500.
  *   409  `stale_write` on update.
+ *
+ * THE DEAL LINK (T-0111; D-L88, D-L129 R1-R7). `dealId` is a link, never a
+ * target: the contact or account still decides the programme (R1). The deal
+ * must be in the activity's programme; a deal in another programme (even one
+ * the caller reads), another tenant's, and an id that names nothing are ONE
+ * 400 `unknown_reference` at `dealId` (R2), judged with the other references
+ * and so before 409. It needs `activity.write` and nothing more (R4): the
+ * deal row is never read beyond its existence, never written, never audited.
+ * `dealId` follows the activity's `deal_id` field security like any other
+ * field (R5): sending it, `null` included, when withheld or read-only is 403
+ * `field_not_editable`. The audit names it, never its value (R6).
  *
  * A refused write throws before anything is written, so it is never audited.
  * The id is minted by the repository and the creator is the session user
@@ -118,6 +130,26 @@ async function ownerDetail(
     : [{ path: 'ownerUserId', code: 'unknown_reference' }];
 }
 
+/**
+ * T-0111 (R2): the deal must be in the activity's programme. One detail, the
+ * same whether the deal is real elsewhere or invented; never the id.
+ */
+async function dealDetail(
+  tx: TenantTx,
+  programmeId: string,
+  dealId: string | null | undefined,
+): Promise<AdminErrorDetail[]> {
+  if (typeof dealId !== 'string') return [];
+  return (await programmeDealExists(tx, programmeId, dealId))
+    ? []
+    : [{ path: 'dealId', code: 'unknown_reference' }];
+}
+
+/** Ids in canonical lower case (R7), as the database returns them. */
+function lowerOrNull(value: string | null | undefined): string | null | undefined {
+  return typeof value === 'string' ? value.toLowerCase() : value;
+}
+
 export async function createActivityFor(tx: TenantTx, body: unknown): Promise<ActivityWire> {
   const raw = plainObject(body);
   if (raw === null) throw validationFailed([{ path: '', code: 'invalid_type' }]);
@@ -151,6 +183,7 @@ export async function createActivityFor(tx: TenantTx, body: unknown): Promise<Ac
     }
   }
   details.push(...(await ownerDetail(tx, programmeId, parsed.ownerUserId)));
+  details.push(...(await dealDetail(tx, programmeId, parsed.dealId)));
   if (details.length > 0) throw validationFailed(details); // 400
 
   const activity = await insertActivity(tx, programmeId, {
@@ -163,6 +196,7 @@ export async function createActivityFor(tx: TenantTx, body: unknown): Promise<Ac
     ownerUserId: parsed.ownerUserId ?? null,
     contactId: target.kind === 'contact' ? target.id : (parsed.contactId ?? null),
     accountId: parsed.accountId ?? null,
+    dealId: lowerOrNull(parsed.dealId) ?? null,
   });
   await recordAuditEvent(
     tx,
@@ -252,15 +286,16 @@ export async function updateActivityFor(
   if (locked.length > 0) throw fieldNotEditable(locked); // 403, naming the body keys
 
   const parsed = UpdateActivityBody.parse(body); // 400
-  const { version, completed, ownerUserId, dueAt, startsAt, endsAt } = parsed;
+  const { version, completed, ownerUserId, dueAt, startsAt, endsAt, dealId } = parsed;
   const details: AdminErrorDetail[] = [...typeDetails(current, parsed)];
   details.push(...(await ownerDetail(tx, current.programmeId, ownerUserId)));
+  details.push(...(await dealDetail(tx, current.programmeId, dealId)));
   if (details.length > 0) throw validationFailed(details); // 400
 
   const updated = await updateActivityIfVersion(
     tx,
     { id: current.id, programmeId: current.programmeId, version },
-    { complete: completed, ownerUserId, dueAt, startsAt, endsAt },
+    { complete: completed, ownerUserId, dueAt, startsAt, endsAt, dealId: lowerOrNull(dealId) },
   );
   if (updated === null) throw staleWrite(); // 409
   await recordAuditEvent(

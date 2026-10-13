@@ -313,6 +313,8 @@ const COLUMN_SPEC: Readonly<
   owner_user_id: { type: 'uuid', notNull: null },
   contact_id: { type: 'uuid', notNull: false },
   account_id: { type: 'uuid', notNull: false },
+  // T-0111: the deal link (lead edit, D-L88).
+  deal_id: { type: 'uuid', notNull: false },
   created_by_user_id: { type: 'uuid', notNull: null },
   version: { type: 'integer', notNull: true, default: /^1$/ },
   created_at: { type: TIMESTAMPTZ, notNull: true, default: /^now\(\)$/ },
@@ -326,6 +328,7 @@ const REQUIRED_FIELDS = [
   'body',
   'completed_at',
   'contact_id',
+  'deal_id',
   'due_at',
   'ends_at',
   'owner_user_id',
@@ -690,7 +693,7 @@ describe('acceptance: the activity table (T-0060)', () => {
   // 2. Columns and keys
   // ---------------------------------------------------------------------------
   describe('columns and keys', () => {
-    it('has exactly the pinned columns: no deal_id, no calendar fields', async () => {
+    it('has exactly the pinned columns: deal_id since T-0111, no calendar fields', async () => {
       const found = [...(await columns()).keys()].sort();
       expect(found.length, 'table activity not found').toBeGreaterThan(0);
       expect(found).toEqual(ALL_COLUMNS);
@@ -1663,6 +1666,7 @@ describe('acceptance: the activity table (T-0060)', () => {
       for (const [name, target] of [
         ['contact_id', 'contact'],
         ['account_id', 'account'],
+        ['deal_id', 'deal'],
       ] as const) {
         const row = byName.get(name);
         if (row === undefined) continue;
@@ -1725,7 +1729,9 @@ describe('acceptance: the activity table (T-0060)', () => {
           ? field(name, { type: 'lookup', config: '{"targetObjectApiName":"contact"}' })
           : name === 'account_id'
             ? field(name, { type: 'lookup', config: '{"targetObjectApiName":"account"}' })
-            : field(name),
+            : name === 'deal_id' // T-0111 (lead edit, D-L131): the deal lookup
+              ? field(name, { type: 'lookup', config: '{"targetObjectApiName":"deal"}' })
+              : field(name),
       );
       expect(catalogueProblems([object], good)).toEqual([]);
       expect(

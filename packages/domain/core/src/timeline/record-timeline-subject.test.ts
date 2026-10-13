@@ -66,9 +66,14 @@ describe('the record timeline refuses an unknown subject at run time (T-0080 rev
     );
   });
 
-  it('knows exactly the two subjects, and a known one still runs its one statement', async () => {
+  it('knows exactly the three subjects, and a known one still runs its one statement', async () => {
     expect(timelineSubjectConstants('contact')).toMatchObject({ activityLink: 'contact_id' });
     expect(timelineSubjectConstants('account')).toMatchObject({ activityLink: 'account_id' });
+    expect(timelineSubjectConstants('deal')).toMatchObject({
+      objectType: 'deal',
+      activityLink: 'deal_id',
+      cursorKey: 'd',
+    });
     const { tx, statements } = recordingTx();
     await listRecordTimeline(tx, 'account', {
       recordId: RECORD,
@@ -80,5 +85,19 @@ describe('the record timeline refuses an unknown subject at run time (T-0080 rev
     expect(statements).toHaveLength(1);
     expect(statements[0]).toContain("e.object_type = 'account'");
     expect(statements[0]).toContain('a.account_id = $4');
+  });
+
+  it('the deal timeline (T-0111) reads deal events and the activities linked through deal_id', async () => {
+    const { tx, statements } = recordingTx();
+    await listRecordTimeline(tx, 'deal', {
+      recordId: RECORD,
+      programmeId: PROGRAMME,
+      limit: 5,
+      visibleChangeFields: ['stageId'],
+      includeActivities: true,
+    });
+    expect(statements).toHaveLength(1);
+    expect(statements[0]).toContain("e.object_type = 'deal'");
+    expect(statements[0]).toContain('a.deal_id = $4');
   });
 });

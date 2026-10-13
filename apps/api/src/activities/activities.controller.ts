@@ -30,6 +30,11 @@ import type { ActivityWire } from './activity-wire';
  * the request: scope arrives through `currentTx()`, and an activity's
  * programme is its target's. Errors use the shared `Error` envelope through
  * the admin filter. `no-store` on both: a subject or body names people.
+ *
+ * T-0111: both bodies take `dealId`, a link to a deal in the activity's
+ * programme (never a target; one `400 unknown_reference` for a deal elsewhere
+ * or nowhere), under the `deal_id` field security, audited by name. Every
+ * Activity answer carries `dealId` unless withheld.
  */
 const CACHE_CONTROL = 'Cache-Control';
 const NO_STORE = 'no-store';
