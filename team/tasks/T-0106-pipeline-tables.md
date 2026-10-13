@@ -15,7 +15,7 @@ The tables T-0105's contract needs, in the 0027 pattern, with no API (T-0107 and
 - **Rules in the database:**
   - stages are `open`, `won` or `lost`, with exactly one won and one lost per pipeline, and at most 30 stages;
   - `rotting_after_days` is 2 to 365 (default 14);
-  - a deal's `amount_minor` is `numeric(18,0)` and at least 0, and its currency is NGN, GHS, KES or ZAR;
+  - a deal's `amount_minor` is `bigint`, 0 to 18 nines, and a fraction is refused (D-L121), and its currency is NGN, GHS, KES or ZAR;
   - a deal lives in its pipeline's programme; its primary contact and account are in that programme;
   - `stage_id` changes only through the move path. Enforce what the schema can; the rest is the API's.
 - **Default pipeline:**

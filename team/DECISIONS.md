@@ -2628,3 +2628,15 @@ main, 103 fail because the tables do not exist, and 6 self-checks pass.
 - **T-0115/T-0116 review: pass.** Fixed before merge (builder): the run screen's `Money.amountMinor` gets
   `.regex(/^-?\d+$/)` so a malformed amount is "unavailable", not a render crash; the long-text answer gets
   `autoComplete="off"` like the input. Lead follow-up: the e2e mock's `example.ng` emails become `example.com` (RFC 2606).
+### D-L121 — T-0106 money is bigint; lead suite edits confirmed (lead, 2026-10-13)
+**Status:** PROCEEDING. Answers from @acexode on D-L120.
+- **Money:** `deal.amount_minor` is `bigint` (CLAUDE.md section 4), not `numeric(18,0)`. The range stays 0 to 18 nines
+  under an explicit CHECK; a fraction such as '1.5' is refused, never rounded. The suite (lead commit f2a88f5) pins the type,
+  inserts with `$7::bigint` and adds the fraction case; the task file says the same. Migration 0036 is edited in place
+  because it is not applied anywhere yet.
+- **The fixture name** `'Kemi Adebayo'` became `'T-0106 Provisioned Admin'` (CLAUDE.md 6.1).
+- **D-L119's two T-0106 suite edits** (the rotation test's restored deferral; `deal` in field-security-objects) are
+  **confirmed by @acexode**, which closes the tenancy review's CRITICAL item.
+- **Host note:** protect-paths reads the branch of the SESSION's checkout (main), not the edited file's worktree, so lead
+  test edits in a `/Users/Shared/kasuwa-wt/lead-*` worktree are made with shell edits under auto mode OFF, which @acexode
+  approves one by one.
