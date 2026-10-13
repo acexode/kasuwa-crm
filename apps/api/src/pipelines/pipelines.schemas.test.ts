@@ -4,6 +4,7 @@ import {
   isUtcDateTime,
   ListPipelinesQuery,
   PipelineBoardQuery,
+  PipelineIdParam,
 } from './pipelines.schemas';
 import { boardStageNamed, resolveClosedSince } from './pipelines.service';
 
@@ -76,5 +77,24 @@ describe('the board’s query (T-0107)', () => {
     expect(boardStageNamed([open], '11111111-0000-4000-8000-0107000000a2')).toBeNull();
     expect(boardStageNamed([open], 'not-a-uuid')).toBeNull();
     expect(boardStageNamed([open], [open.id])).toBeNull();
+  });
+});
+
+describe('the pipeline path (parsed, never cast; a failure is the one 404 in the service)', () => {
+  it('accepts a uuid in either case and nothing else', () => {
+    const id = '11111111-0000-4000-8000-0107000000b1';
+    expect(PipelineIdParam.parse({ pipelineId: id })).toEqual({ pipelineId: id });
+    expect(PipelineIdParam.safeParse({ pipelineId: id.toUpperCase() }).success).toBe(true);
+    for (const bad of [
+      { pipelineId: 'not-a-uuid' },
+      { pipelineId: "1' OR '1'='1" },
+      { pipelineId: 'x'.repeat(300) },
+      { pipelineId: [id] },
+      {},
+      null,
+      id,
+    ]) {
+      expect(PipelineIdParam.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
+    }
   });
 });

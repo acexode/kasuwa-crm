@@ -59,6 +59,15 @@ export function isUtcDateTime(value: string): boolean {
 
 const calendarDate = z.string().refine(isCalendarDate);
 
+/**
+ * The path of getPipeline and getPipelineBoard. Parsed only by
+ * `reachablePipeline` (pipelines.service.ts) with `safeParse`, and a failure
+ * there is THE one 404, never a 400 (D-L115, R4): a non-uuid, a missing id
+ * and a value of the wrong type answer exactly as an unreachable pipeline.
+ */
+export const PipelineIdParam = z.object({ pipelineId: z.string().regex(UUID_PATTERN) });
+export type PipelineIdParam = z.infer<typeof PipelineIdParam>;
+
 export const ListPipelinesQuery = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),

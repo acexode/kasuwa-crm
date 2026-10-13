@@ -40,6 +40,7 @@ import {
   DEAL_CURRENCIES,
   ListPipelinesQuery,
   PipelineBoardQuery,
+  PipelineIdParam,
 } from './pipelines.schemas';
 
 /**
@@ -72,12 +73,11 @@ async function readableProgrammes(tx: TenantTx): Promise<string[]> {
 
 /** The pipeline named by the raw path, in reach, or THE one 404. */
 async function reachablePipeline(tx: TenantTx, params: unknown): Promise<PipelineSummary> {
-  const id =
-    typeof params === 'object' && params !== null
-      ? (params as Record<string, unknown>).pipelineId
-      : undefined;
-  if (!isUuid(id)) throw notFound();
-  const pipeline = await findPipeline(tx, id, await readableProgrammes(tx));
+  // Parsed, not cast. A path that does not parse is the same 404 as an
+  // unreachable pipeline, decided before anything is read.
+  const path = PipelineIdParam.safeParse(params);
+  if (!path.success) throw notFound();
+  const pipeline = await findPipeline(tx, path.data.pipelineId, await readableProgrammes(tx));
   if (pipeline === null) throw notFound();
   return pipeline;
 }
