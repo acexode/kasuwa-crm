@@ -2782,3 +2782,25 @@ flag; 7 self-checks and contract pins pass. Migration 0037 is reserved for `agen
   - `run-e2e.mjs` leaves `tsx src/main.ts` API processes behind after it exits (a harness task);
   - `apps/web/lib/admin-format.ts` `formatMoney` loses precision past 2^53 and must not be reused for deals.
 - **Builders:** Agent 11 on `agent11/T-0109-pipeline-kanban` and Agent 3 on `agent3/T-0111-deal-timeline`, in parallel.
+### D-L131 — T-0111 lead fix, review rulings and follow-ups (lead, 2026-10-13)
+**Status:** PROCEEDING (lead).
+- **Lead suite fix (413a648):** activity-table's catalogue self-check built `deal_id` as text after ac18252 added it as
+  a required lookup. It now builds the `deal` lookup. No implementation could have passed the old fixture.
+- **The deal unique key `deal_tenant_programme_id_key (tenant_id, programme_id, id)` is an accepted exception to
+  D-L120.** The FK needs it, and since `id` is already unique through the primary key and RLS WITH CHECK runs before the
+  unique checks, it answers nothing new. Confirmed by the migration, security and tenancy reviews. 0037's section 8
+  checks only that it leads with tenant and programme.
+- **Fixed before merge:**
+  - 0037's scale split plan, in the right order;
+  - two self-check comments that claimed more than they checked;
+  - a unit test pinning that every `activity.write` set is also a pipeline reader, without which `dealId`'s
+    `unknown_reference` would become a deal-existence check.
+- **Follow-ups:**
+  - **Timeline performance (all three timelines):** the served query is a UNION of audit changes and activities ordered by
+    a computed key, so its index narrows to the record but every page sorts all of the record's items. The T-0111 plan
+    check (R15) covers a simplified activity-only query. A timeline-performance task should give each branch an ordered,
+    index-served seek before merging, and pin the served query's plan.
+  - **Deal deletion and erasure:** `activity.deal_id` is ON DELETE RESTRICT. When deal deletion or NDPA erasure arrives,
+    it must clear or reassign links first, never surface a 23503.
+  - **Contract tidy-up (the D-L123 lead contract PR):** "contract only until T-0111" wording, and a realistic name in the
+    `listDealTimeline` example.
