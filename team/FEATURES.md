@@ -172,12 +172,12 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `listAccountTimeline` | GET /api/v1/accounts/{accountId}/timeline — The account's timeline — field changes and activities, newest first | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listPipelines` | GET /api/v1/pipelines — The pipelines of the programmes the session reaches | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 |
 | operation | `getPipeline` | GET /api/v1/pipelines/{pipelineId} — One pipeline with its stages, requirements and transitions | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 |
-| operation | `getPipelineBoard` | GET /api/v1/pipelines/{pipelineId}/board — The Kanban board — exact counts and per-currency totals per stage | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 |
-| operation | `listDeals` | GET /api/v1/pipelines/{pipelineId}/deals — List a pipeline's deals — the P06/01b list view | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 |
-| operation | `createDeal` | POST /api/v1/pipelines/{pipelineId}/deals — Create a deal in the pipeline's first open stage | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 |
-| operation | `getDeal` | GET /api/v1/deals/{dealId} — Get one deal | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 |
-| operation | `updateDeal` | PATCH /api/v1/deals/{dealId} — Update a deal's fields (never its stage) | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 |
-| operation | `moveDeal` | POST /api/v1/deals/{dealId}/move — Move a deal to another stage, filling its requirements in the same write | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 |
+| operation | `getPipelineBoard` | GET /api/v1/pipelines/{pipelineId}/board — The Kanban board — exact counts and per-currency totals per stage | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 · T-0109 |
+| operation | `listDeals` | GET /api/v1/pipelines/{pipelineId}/deals — List a pipeline's deals — the P06/01b list view | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 · T-0109 |
+| operation | `createDeal` | POST /api/v1/pipelines/{pipelineId}/deals — Create a deal in the pipeline's first open stage | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 · T-0109 |
+| operation | `getDeal` | GET /api/v1/deals/{dealId} — Get one deal | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 · T-0110 |
+| operation | `updateDeal` | PATCH /api/v1/deals/{dealId} — Update a deal's fields (never its stage) | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 · T-0110 |
+| operation | `moveDeal` | POST /api/v1/deals/{dealId}/move — Move a deal to another stage, filling its requirements in the same write | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 · T-0109 · T-0110 |
 | operation | `listScripts` | GET /api/v1/scripts — List the scripts the caller may author | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `createScript` | POST /api/v1/scripts — Create a draft script in a programme | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `getScript` | GET /api/v1/scripts/{scriptId} — Get a script, with its draft and translations | built | — | — | docs/api/scripting.openapi.yaml |
