@@ -45,9 +45,10 @@ const sameInstant = (a: Date | null, b: Date | null) =>
 
 /**
  * An update: completion when it newly happened, the owner when it moved, the
- * deal link when it was set, moved or cleared (T-0111), and (T-0082) each time whose value changed: `dueAt` on a snooze or a clear,
- * `startsAt` and `endsAt` on a reschedule. Times are not value fields (D-L72):
- * by name only, like everything here.
+ * deal link when it was set, moved or cleared (T-0111), and (T-0082) each
+ * time whose value changed: `dueAt` on a snooze or a clear, `startsAt` and
+ * `endsAt` on a reschedule. Times are not value fields (D-L72): by name only,
+ * like everything here.
  */
 export function activityUpdateChanges(before: Activity, after: Activity): AuditChange[] {
   const changes: AuditChange[] = [];

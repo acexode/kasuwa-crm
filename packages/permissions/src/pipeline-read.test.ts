@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   canReadPipelines,
+  canProgramme,
   PIPELINE_READER_SET_KEYS,
+  permissionSetKeysGranting,
   programmesReadingPipelines,
   QA_ANALYST_PERMISSION_SET_KEY,
   type Grants,
@@ -53,5 +55,27 @@ describe('pipeline reads (T-0107; D-L88 x-kasuwa-rights, D-L115)', () => {
       programmesReadingPipelines(grants({ [P1]: 'agent', [P2]: 'client_portal', [P3]: 'admin' })),
     ).toEqual([P1, P3]);
     expect(programmesReadingPipelines(grants({}))).toEqual([]);
+  });
+});
+
+describe('every activity writer reads deals (T-0111 invariant)', () => {
+  // dealDetail (apps/api activities.service.ts) answers `unknown_reference`
+  // when an activity's dealId is not a deal in its programme. For a set that
+  // writes activities but cannot read deals, that answer would be a
+  // deal-existence oracle. So every set holding `activity.write` must also be
+  // a pipeline reader. The tenant-admin flag reads everything anyway.
+  it('each set granting activity.write is in PIPELINE_READER_SET_KEYS', () => {
+    const writers = permissionSetKeysGranting('activity.write');
+    expect(writers.length, 'control: some set writes activities').toBeGreaterThan(0);
+    const readers: readonly string[] = PIPELINE_READER_SET_KEYS;
+    expect(writers.filter((key) => !readers.includes(key))).toEqual([]);
+  });
+
+  it('and, judged through the policy, every one of them reads the programme it writes in', () => {
+    for (const key of permissionSetKeysGranting('activity.write')) {
+      const held = grants({ [P1]: key });
+      expect(canProgramme(held, 'activity.write', P1), key).toBe(true);
+      expect(canReadPipelines(held, P1), key).toBe(true);
+    }
   });
 });
