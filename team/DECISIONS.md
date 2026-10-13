@@ -2640,3 +2640,22 @@ main, 103 fail because the tables do not exist, and 6 self-checks pass.
 - **Host note:** protect-paths reads the branch of the SESSION's checkout (main), not the edited file's worktree, so lead
   test edits in a `/Users/Shared/kasuwa-wt/lead-*` worktree are made with shell edits under auto mode OFF, which @acexode
   approves one by one.
+### D-L123 — T-0107 suite rulings and contract follow-ups (lead, 2026-10-13)
+**Status:** PROCEEDING (lead). The suite `pipeline-board-api.acceptance.test.ts` (38 tests) is on `lead/T-0107-acceptance`
+(9c50b45). On main, 34 fail because the routes do not exist and the flags are false; the 4 self-checks pass. The contract
+suite now expects the three pipeline reads to be `x-kasuwa-implemented: true` (a lead edit, same commit).
+- **R1–R24 in the suite header are accepted.** Notable:
+  - lost is not a board column; the contract outranks the task line (R2);
+  - the reads have no 403, so the order is 404 before 400 (R3);
+  - one 404 body for every cause (R4);
+  - the won window is judged on `closed_at`, a lead ruling where the contract names `stage_entered_at` (R5);
+  - one `400 invalid_cursor` body for board cursors (R8);
+  - a non-uuid `stageId` is `400 unknown_reference` (R18);
+  - plan checks on the board indexes with no Sort, as kasuwa_app, at 30,000 deals per programme (R20).
+- **Contract follow-ups (a lead contract PR, not blocking T-0107):**
+  - the board text says won is "entered the won stage" but orders by `closedAt`; align it with R5;
+  - getPipeline documents a 400 that nothing can trigger;
+  - `stageId` is `format: uuid` while the text promises `unknown_reference`;
+  - the examples use realistic personal names ("Kemi Balogun", "Adaeze Okonkwo"), against CLAUDE.md 6.1;
+  - the contract suite's test titles still say "not yet implemented" for the flipped operations.
+- **Builder:** Agent 3 on `agent3/T-0107-board-api`.
