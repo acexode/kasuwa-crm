@@ -17,6 +17,7 @@ import { AuthModule } from './auth/auth.module';
 import type { AuthPolicy } from './auth/auth.policy';
 import { ContactsController } from './contacts/contacts.controller';
 import { DatabaseModule } from './database/database.module';
+import { DealsController, PipelineDealsController } from './deals/deals.controller';
 import { HealthController } from './health/health.controller';
 import { LeadsController } from './leads/leads.controller';
 import { MeController } from './me/me.controller';
@@ -40,7 +41,7 @@ import {
 
 /**
  * The records controllers (records.openapi.yaml): contacts and both timelines,
- * leads, accounts, activities, `/me/programmes` and the pipeline reads (T-0107). Every answer on every one
+ * leads, accounts, activities, `/me/programmes`, the pipeline reads (T-0107) and deals (T-0108). Every answer on every one
  * of their routes is `Cache-Control: no-store` (`NoStoreMiddleware`, T-0080).
  */
 export const RECORDS_CONTROLLERS = [
@@ -51,6 +52,10 @@ export const RECORDS_CONTROLLERS = [
   MeController,
   MyActivitiesController,
   PipelinesController,
+  // The deals API (T-0108): listDeals and createDeal under a pipeline, and
+  // getDeal, updateDeal and moveDeal.
+  PipelineDealsController,
+  DealsController,
 ];
 
 /**

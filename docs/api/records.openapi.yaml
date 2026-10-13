@@ -2618,7 +2618,7 @@ paths:
       tags: [deals]
       summary: List a pipeline's deals — the P06/01b list view
       operationId: listDeals
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P06/01b']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
       x-kasuwa-rights:
@@ -2728,7 +2728,7 @@ paths:
       tags: [deals]
       summary: Create a deal in the pipeline's first open stage
       operationId: createDeal
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-permission: deal.write
       x-kasuwa-screens: ['P06/01', 'P06/07']
@@ -2830,7 +2830,7 @@ paths:
       tags: [deals]
       summary: Get one deal
       operationId: getDeal
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P06/05', 'P06/06']
       x-kasuwa-error-order: ['404 not_found']
       x-kasuwa-rights:
@@ -2893,7 +2893,7 @@ paths:
       tags: [deals]
       summary: Update a deal's fields (never its stage)
       operationId: updateDeal
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-permission: deal.write
       x-kasuwa-screens: ['P06/05', 'P06/06']
@@ -3017,7 +3017,7 @@ paths:
       tags: [deals]
       summary: Move a deal to another stage, filling its requirements in the same write
       operationId: moveDeal
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-permission: deal.write
       x-kasuwa-screens: ['P06/01', 'P06/01b', 'P06/02', 'P06/03', 'P06/04', 'P06/05', 'P06/06']

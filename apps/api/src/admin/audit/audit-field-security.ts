@@ -55,7 +55,7 @@ import { redactedChange, type AuditChange, type AuditObjectType } from './audit-
  */
 
 /** The objects whose fields the T-0026 matrix governs. */
-export type FieldSecuredObject = 'contact' | 'account' | 'activity';
+export type FieldSecuredObject = 'contact' | 'account' | 'activity' | 'deal';
 
 type ValuePolicy =
   | { kind: 'configuration' }
@@ -82,6 +82,15 @@ const CONTACT_VALUE_FIELDS: ReadonlyMap<string, string> = new Map(
 
 const NO_VALUE_FIELDS: ReadonlyMap<string, string> = new Map();
 
+/**
+ * T-0108: a deal event's only stored value besides the stage ids is a
+ * reassignment's owner ids (D-L71, D-L115), judged by the deal matrix's
+ * `owner_user_id`. A move's `stageId` values are not on this list, so a
+ * reader sees them redacted (fail closed) until a decision says a stage id
+ * may be shown here.
+ */
+const DEAL_VALUE_FIELDS: ReadonlyMap<string, string> = new Map([['ownerUserId', 'owner_user_id']]);
+
 export const AUDIT_VALUE_POLICY: Readonly<Record<AuditObjectType, ValuePolicy>> = {
   role: CONFIGURATION,
   programme: CONFIGURATION,
@@ -102,6 +111,7 @@ export const AUDIT_VALUE_POLICY: Readonly<Record<AuditObjectType, ValuePolicy>> 
   // T-0114: a run's events carry an outcome, a stop reason and configuration
   // ids only (x-kasuwa-audit-names); never an answer, a note or a node id.
   script_run: CONFIGURATION,
+  deal: { kind: 'field_secured', object: 'deal', valueFields: DEAL_VALUE_FIELDS },
 };
 
 /** An object type outside the closed list: nothing in it is readable. */
