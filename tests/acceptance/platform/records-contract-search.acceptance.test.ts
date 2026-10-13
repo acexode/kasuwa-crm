@@ -55,8 +55,8 @@ import { parse } from 'yaml';
  *                                invalid_email, unknown_type
  *   TRANSPORT   `Cache-Control: no-store` on every answer of both.
  *   FLAGS       `x-kasuwa-implemented: false` on both until T-0086; the two
- *               flag tests below require `true` and so FAIL ON THIS BRANCH BY
- *               DESIGN.
+ *               flag tests pin `false` (lead edit, D-L133, as T-0105) and
+ *               T-0086's suite flips them to `true` with the routes.
  *
  * ---------------------------------------------------------------------------
  * RULINGS (R1–R20 accepted by the lead on 2026-10-14 with the amendment to
@@ -160,9 +160,8 @@ import { parse } from 'yaml';
  *       show more.
  *   R19 Examples use synthetic names only: every name-like value in the
  *       search examples contains Sample, Fixture, Example or Test.
- *   R20 Contract first: `x-kasuwa-implemented: false` on both operations on
- *       this branch; the two flag tests require `true` and are the only tests
- *       meant to fail here.
+ *   R20 Contract first: `x-kasuwa-implemented: false` on both operations
+ *       until T-0086, which flips the two flag tests to `true` (D-L133).
  *   R21 THE URL NEVER CARRIES A PHONE NUMBER OR AN EMAIL ADDRESS (lead
  *       amendment; CLAUDE.md 6.1, D-L80). Neither search operation has a
  *       path, query, header or cookie parameter for one; lookupRecords has
@@ -1062,15 +1061,16 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       expect(operations().filter((op) => op.path === LOOKUP_PATH).length, 'one method').toBe(1);
     });
 
-    it('the flag: searchRecords is x-kasuwa-implemented: true once T-0086 serves it (FAILS ON THIS BRANCH BY DESIGN)', () => {
-      expect(search().op['x-kasuwa-implemented'], 'set to true by T-0086 with the route').toBe(
-        true,
+    // Contract only until T-0086 (D-L133, as T-0105): T-0086's suite flips both expectations to true with the routes.
+    it('the flag: searchRecords is x-kasuwa-implemented: false, contract only until T-0086', () => {
+      expect(search().op['x-kasuwa-implemented'], 'T-0086 sets it to true with the route').toBe(
+        false,
       );
     });
 
-    it('the flag: lookupRecords is x-kasuwa-implemented: true once T-0086 serves it (FAILS ON THIS BRANCH BY DESIGN)', () => {
-      expect(lookup().op['x-kasuwa-implemented'], 'set to true by T-0086 with the route').toBe(
-        true,
+    it('the flag: lookupRecords is x-kasuwa-implemented: false, contract only until T-0086', () => {
+      expect(lookup().op['x-kasuwa-implemented'], 'T-0086 sets it to true with the route').toBe(
+        false,
       );
     });
   });
