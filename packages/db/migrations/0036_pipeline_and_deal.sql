@@ -40,7 +40,9 @@
 --                              no field. position 0..19, unique per stage: at
 --                              most 20 requirements per stage (R4), held by
 --                              the key and a CHECK rather than a count.
---   deal                       amount_minor numeric(18,0) >= 0 and currency
+--   deal                       amount_minor bigint 0..999999999999999999
+--                              (D-L121; a fraction is refused, never rounded)
+--                              and currency
 --                              NGN | GHS | KES | ZAR (D-L115), both set or both
 --                              NULL (R6); name 1..200; next_step 1..200 when
 --                              set. name and next_step are free text that holds
@@ -495,8 +497,9 @@ CREATE TABLE deal (
   pipeline_id          uuid          NOT NULL,
   stage_id             uuid          NOT NULL,
   name                 text          NOT NULL,
-  -- Minor units (kobo, pesewa, ...): never a float (CLAUDE.md 4).
-  amount_minor         numeric(18,0),
+  -- Minor units (kobo, pesewa, ...) as bigint: never a float, never numeric
+  -- (CLAUDE.md 4, D-L121). bigint input refuses a fraction rather than rounding.
+  amount_minor         bigint,
   currency             text,
   expected_close_date  date,
   owner_user_id        uuid,
@@ -537,7 +540,8 @@ CREATE TABLE deal (
   CONSTRAINT deal_name_check CHECK (pg_catalog.char_length(name) BETWEEN 1 AND 200),
   CONSTRAINT deal_next_step_check
     CHECK (next_step IS NULL OR pg_catalog.char_length(next_step) BETWEEN 1 AND 200),
-  CONSTRAINT deal_amount_check CHECK (amount_minor >= 0),
+  -- 0 to 18 nines (D-L121): the bound numeric(18,0) once implied, stated.
+  CONSTRAINT deal_amount_check CHECK (amount_minor BETWEEN 0 AND 999999999999999999),
   -- D-L115: these four, exactly. Never converted.
   CONSTRAINT deal_currency_check CHECK (currency IN ('NGN', 'GHS', 'KES', 'ZAR')),
   -- DealMoney is the pair (R6).

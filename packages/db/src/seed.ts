@@ -317,7 +317,7 @@ export async function runSeed(options: SeedOptions): Promise<void> {
         `INSERT INTO deal
            (id, tenant_id, programme_id, pipeline_id, stage_id, name, amount_minor, currency,
             owner_user_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::numeric, $8, $9)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7::bigint, $8, $9)`,
         [
           deal.id,
           deal.tenantId,

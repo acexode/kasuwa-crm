@@ -7,7 +7,6 @@ import {
   index,
   integer,
   jsonb,
-  numeric,
   pgTable,
   primaryKey,
   text,
@@ -709,9 +708,9 @@ export const pipelineStageRequirement = pgTable(
 );
 
 /**
- * A deal (0036). Money is `amount_minor` numeric(18,0) plus `currency`, both
- * or neither; never a float. name and next_step are free text classified pii
- * (D-L115): never log them. Not expressed here (SQL only): stage_id changes
+ * A deal (0036). Money is `amount_minor` bigint (0 to 18 nines, D-L121) plus
+ * `currency`, both or neither; never a float. name and next_step are free
+ * text classified pii (D-L115): never log them. Not expressed here (SQL only): stage_id changes
  * only along a transition of the deal's pipeline for every role but the
  * migrator (app.guard_deal_stage_move, R5); kasuwa_app may not DELETE.
  */
@@ -725,8 +724,8 @@ export const deal = pgTable(
     /** Composite FK (tenant_id, programme_id, pipeline_id, stage_id) -> pipeline_stage. */
     stageId: uuid('stage_id').notNull(),
     name: text('name').notNull(),
-    /** numeric(18,0) minor units; a string, never a JS number. */
-    amountMinor: numeric('amount_minor', { precision: 18, scale: 0 }),
+    /** bigint minor units (D-L121); a JS bigint, never a JS number (18 nines exceeds 2^53). */
+    amountMinor: bigint('amount_minor', { mode: 'bigint' }),
     currency: text('currency', { enum: DEAL_CURRENCIES }),
     expectedCloseDate: date('expected_close_date'),
     /** Composite FK (tenant_id, owner_user_id) -> "user". */
