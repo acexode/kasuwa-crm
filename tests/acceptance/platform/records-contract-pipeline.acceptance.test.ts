@@ -1107,9 +1107,8 @@ describe('acceptance: records contract, pipelines and deals (T-0105)', () => {
         const op = operation(expected.id);
         expect(op.method).toBe(expected.method);
         expect(op.path).toBe(expected.path);
-        // T-0107 serves the three pipeline reads; the five deal operations wait for T-0108.
-        const served = ['listPipelines', 'getPipeline', 'getPipelineBoard'].includes(expected.id);
-        expect(op.op['x-kasuwa-implemented'], 'served from T-0107; deals contract only until T-0108').toBe(served);
+        // T-0107 serves the three pipeline reads and T-0108 the five deal operations: all eight are served (D-L124).
+        expect(op.op['x-kasuwa-implemented'], 'served from T-0107 and T-0108').toBe(true);
         const screens = Array.isArray(op.op['x-kasuwa-screens'])
           ? op.op['x-kasuwa-screens'].map(str)
           : [];
