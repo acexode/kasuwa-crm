@@ -1122,14 +1122,22 @@ describe('acceptance: records contract, pipelines and deals (T-0105)', () => {
 
     it('no other operation touches a pipeline or a deal: no configuration write and no deletion (R13)', () => {
       gate();
+      // T-0111 (lead edit): the deal timeline is the one later read under /deals, a GET that writes nothing.
+      const LATER_READS = ['listDealTimeline'];
       const others = operations()
         .filter((op) => /^\/api\/v1\/(pipelines|deals)(\/|$)/.test(op.path))
         .filter((op) => !ALL_IDS.includes(op.id))
+        .filter((op) => !(LATER_READS.includes(op.id) && op.method === 'get'))
         .map((op) => `${op.method.toUpperCase()} ${op.path} (${op.id})`);
       expect(others).toEqual([]);
       expect(
         operations()
-          .filter((op) => /pipeline|deal|stage/i.test(op.id) && !ALL_IDS.includes(op.id))
+          .filter(
+            (op) =>
+              /pipeline|deal|stage/i.test(op.id) &&
+              !ALL_IDS.includes(op.id) &&
+              !(LATER_READS.includes(op.id) && op.method === 'get' && /^\/api\/v1\/deals\//.test(op.path)),
+          )
           .map((op) => op.id),
         'a pipeline or deal operation under another path',
       ).toEqual([]);
