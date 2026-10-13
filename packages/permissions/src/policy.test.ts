@@ -5,7 +5,7 @@ import {
   PROGRAMME_ACTIONS,
   TENANT_ACTIONS,
   canProgramme,
-  canReadDeals,
+  canReadPipelines,
   canWriteDeal,
   dealBodyAssignsOther,
   activityBodyAssignsOther,
@@ -437,15 +437,15 @@ describe('deals (T-0108; D-L88, D-L115, D-P18)', () => {
   const inP1 = (key: string | null, isTenantAdmin = false) =>
     grants({ isTenantAdmin, programmeSets: new Map([[P1, key]]) });
 
-  it('canReadDeals: every staff set and the flag; never client_portal, no set, an unknown key or outside scope', () => {
+  it('deal reads use canReadPipelines: every staff set and the flag; never client_portal, no set, an unknown key or outside scope', () => {
     for (const key of ['admin', 'programme_manager', 'team_lead', 'agent', 'qa_analyst']) {
-      expect(canReadDeals(inP1(key), P1), key).toBe(true);
+      expect(canReadPipelines(inP1(key), P1), key).toBe(true);
     }
     for (const key of ['client_portal', null, 'not_a_set', 'constructor', '__proto__']) {
-      expect(canReadDeals(inP1(key), P1), String(key)).toBe(false);
+      expect(canReadPipelines(inP1(key), P1), String(key)).toBe(false);
     }
-    expect(canReadDeals(inP1('client_portal', true), P1), 'the flag').toBe(true);
-    expect(canReadDeals(inP1('admin', true), OUTSIDE), 'never outside scope').toBe(false);
+    expect(canReadPipelines(inP1('client_portal', true), P1), 'the flag').toBe(true);
+    expect(canReadPipelines(inP1('admin', true), OUTSIDE), 'never outside scope').toBe(false);
   });
 
   it('the deal write actions: agent writes; team lead, programme manager and admin also write any and reassign', () => {

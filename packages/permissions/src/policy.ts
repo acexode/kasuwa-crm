@@ -194,21 +194,6 @@ const SET_PERMITS: Readonly<Record<string, readonly ProgrammeAction[]>> = {
 };
 
 /**
- * The sets that READ pipelines and deals (D-L88, D-L115): every staff set.
- * `client_portal` is not here: it reads no pipeline and no deal until D-P26 is
- * enforced for deals (D-L115), and the API answers it with the one 404, never
- * a 403. A membership with no set, or an unknown key, reads nothing either.
- * An allow-list, like `SET_PERMITS`.
- */
-export const DEAL_READ_PERMISSION_SET_KEYS: readonly string[] = [
-  ADMIN_PERMISSION_SET_KEY,
-  PROGRAMME_MANAGER_PERMISSION_SET_KEY,
-  TEAM_LEAD_PERMISSION_SET_KEY,
-  AGENT_PERMISSION_SET_KEY,
-  'qa_analyst',
-];
-
-/**
  * The keys of the permission sets that grant `action`, in the policy's own
  * order. For a decision that has to be judged against every set that holds an
  * action, whether or not anyone holds the set today: script publishing judges
@@ -389,7 +374,8 @@ export const PIPELINE_READER_SET_KEYS = [
 const PIPELINE_READERS: ReadonlySet<string> = new Set(PIPELINE_READER_SET_KEYS);
 
 /**
- * May this session read pipelines and deals in `programmeId` (T-0107)? A read,
+ * May this session read pipelines and deals in `programmeId` (T-0107; the deals
+ * API uses it too, T-0108)? A read,
  * so the caller answers "no" as the one `404` (or an empty list), never a
  * `403`. Never true for a programme outside the session's resolved scope.
  */
@@ -405,19 +391,6 @@ export function programmesReadingPipelines(grants: Grants): string[] {
   return grants.reachableProgrammeIds.filter((programmeId) =>
     canReadPipelines(grants, programmeId),
   );
-}
-
-/**
- * May this session read the pipelines and deals of `programmeId` (T-0108;
- * D-L88, D-L115)? Only inside the session's scope, and only with a staff set
- * there (`DEAL_READ_PERMISSION_SET_KEYS`) or the tenant-admin flag. A "no" is
- * answered 404 by the API, exactly as an unreachable record.
- */
-export function canReadDeals(grants: Grants, programmeId: string): boolean {
-  if (!grants.reachableProgrammeIds.includes(programmeId)) return false;
-  if (grants.isTenantAdmin) return true;
-  const key = grants.programmeSets.get(programmeId) ?? null;
-  return key !== null && DEAL_READ_PERMISSION_SET_KEYS.includes(key);
 }
 
 const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

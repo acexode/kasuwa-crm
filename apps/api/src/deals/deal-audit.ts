@@ -25,16 +25,21 @@ import type { DealWritableField } from './deals.schemas';
  * Nothing here is logged; the event is the record.
  */
 
-/** A create: every body key sent with a non-null value, by name (R10). */
+/**
+ * A create (R10): every other body key sent with a non-null value, by name;
+ * and, whenever the deal ends up owned, `ownerUserId` with its after-id
+ * (before `null`), whether the owner was sent or defaulted to the caller
+ * (lead ruling on R10, as an update records owner ids).
+ */
 export function dealCreateChanges(
   sent: Partial<Record<DealWritableField, unknown>>,
+  ownerUserId: string | null,
 ): AuditChange[] {
   const changes: AuditChange[] = [];
   for (const field of [
     'name',
     'amount',
     'expectedCloseDate',
-    'ownerUserId',
     'primaryContactId',
     'accountId',
     'nextStep',
@@ -42,6 +47,7 @@ export function dealCreateChanges(
     const value = sent[field];
     if (value !== undefined && value !== null) changes.push(redactedChange(field));
   }
+  if (ownerUserId !== null) changes.push(change('ownerUserId', null, ownerUserId.toLowerCase()));
   return changes;
 }
 

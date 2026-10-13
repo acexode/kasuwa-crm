@@ -8,7 +8,7 @@ import {
 import type { FieldAccess } from '@kasuwa/metadata-engine';
 import {
   canProgramme,
-  canReadDeals,
+  canReadPipelines,
   canWriteDeal,
   dealBodyAssignsOther,
   loadGrants,
@@ -147,7 +147,7 @@ async function readableDeal(tx: TenantTx, id: unknown): Promise<{ deal: Deal; gr
   const deal = await findDealById(tx, id);
   if (deal === null) throw notFound();
   const grants = await loadGrants(tx);
-  if (!canReadDeals(grants, deal.programmeId)) throw notFound();
+  if (!canReadPipelines(grants, deal.programmeId)) throw notFound();
   return { deal, grants };
 }
 
@@ -159,7 +159,7 @@ async function readablePipeline(
   const pipeline = await findPipelineRef(tx, id);
   if (pipeline === null) throw notFound();
   const grants = await loadGrants(tx);
-  if (!canReadDeals(grants, pipeline.programmeId)) throw notFound();
+  if (!canReadPipelines(grants, pipeline.programmeId)) throw notFound();
   return { pipeline, grants };
 }
 
@@ -320,6 +320,32 @@ export async function listDealsFor(
 
 // --- create ------------------------------------------------------------------
 
+/**
+ * A create's values, with its owner resolved and every reference judged in
+ * the pipeline's programme (D-L67). An agent's deal is theirs (D-L88), and so
+ * is anyone's who names no owner (R16, R21): `ownerUserId` absent means the
+ * caller; `null` (reassign only) means nobody.
+ *
+ * The DEFAULT owner goes through the same `programmeMemberExists` as a named
+ * one, so it takes the same shared membership lock (contact.repository.ts,
+ * D-L99): a removal of the caller either waits for this transaction or
+ * commits first and is seen here. A caller who is no longer a member is
+ * answered exactly as a named non-member owner: `400 unknown_reference` at
+ * `ownerUserId`. Exported for its unit test.
+ */
+export async function createValues(
+  tx: TenantTx,
+  programmeId: string,
+  raw: Record<string, unknown>,
+  parsed: CreateDealBody,
+): Promise<DealValues> {
+  const values = valuesFrom(parsed);
+  if (!own(raw, 'ownerUserId')) values.ownerUserId = tx.session.userId.toLowerCase();
+  const references = await referenceDetails(tx, programmeId, values);
+  if (references.length > 0) throw validationFailed(references); // 400
+  return values;
+}
+
 export async function createDealFor(
   tx: TenantTx,
   pipelineId: unknown,
@@ -334,20 +360,16 @@ export async function createDealFor(
   bodyForbidden(tx, grants, access, programmeId, raw); // 403
 
   const parsed = CreateDealBody.parse(raw); // 400
-  const values = valuesFrom(parsed);
-  const references = await referenceDetails(tx, programmeId, values);
-  if (references.length > 0) throw validationFailed(references); // 400
-
-  // An agent's deal is theirs (D-L88), and so is anyone's who names no owner
-  // (R16, R21): `ownerUserId` absent means the caller; `null` (reassign only)
-  // means nobody.
-  if (!own(raw, 'ownerUserId')) values.ownerUserId = tx.session.userId.toLowerCase();
+  const values = await createValues(tx, programmeId, raw, parsed); // 400
 
   // Every deal starts in the first open stage, which has no requirements.
   const first = (await listStages(tx, pipeline)).find((stage) => stage.kind === 'open');
   if (first === undefined) throw notFound(); // 0036's rule makes this impossible
   const deal = await insertDeal(tx, pipeline, first.id, { ...values, name: parsed.name });
-  await recordAuditEvent(tx, dealAuditEvent('created', deal, dealCreateChanges(parsed)));
+  await recordAuditEvent(
+    tx,
+    dealAuditEvent('created', deal, dealCreateChanges(parsed, deal.ownerUserId)),
+  );
   return toDealWire(deal, access);
 }
 

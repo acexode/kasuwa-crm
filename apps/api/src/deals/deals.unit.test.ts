@@ -243,16 +243,24 @@ describe('rotting (DealRotting)', () => {
 });
 
 describe('audit (R8-R11)', () => {
-  it('a create names the keys sent with a value; an update names exactly what changed, owner ids excepted', () => {
+  it('a create names the keys sent with a value and records the owner id, sent or defaulted; an update names exactly what changed, owner ids excepted', () => {
     expect(
-      dealCreateChanges({
-        name: 'x',
-        nextStep: null,
-        amount: { amountMinor: '1', currency: 'NGN' },
-      }),
+      dealCreateChanges(
+        {
+          name: 'x',
+          nextStep: null,
+          amount: { amountMinor: '1', currency: 'NGN' },
+        },
+        OWNER.toUpperCase(),
+      ),
     ).toEqual([
       { field: 'name', before: null, after: null, redacted: true },
       { field: 'amount', before: null, after: null, redacted: true },
+      { field: 'ownerUserId', before: null, after: OWNER, redacted: false },
+    ]);
+    // Sent as null (an unowned deal): no owner change, never a redacted name for it.
+    expect(dealCreateChanges({ name: 'x', ownerUserId: null }, null)).toEqual([
+      { field: 'name', before: null, after: null, redacted: true },
     ]);
     const before = deal();
     const after = deal({
