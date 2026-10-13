@@ -1509,7 +1509,11 @@ describe('acceptance: the deals API and the gated move (T-0108)', () => {
       });
       expect(new Set(bodies).size, 'one 404 body').toBe(1);
       expect(await dealCount(), 'nothing created').toBe(count);
-      expect(await auditSince(quiet), 'nothing audited').toEqual([]);
+      // Deal events only: the unassign above writes its own programme membership event (0031/0033), D-L126.
+      expect(
+        (await auditSince(quiet)).filter((row) => row.object_type === 'deal'),
+        'nothing audited',
+      ).toEqual([]);
     });
 
     it('owners: an agent may own it only themselves (any letter case, R2); null or anyone else is owner_not_self; reassign holders may name a member or nobody (R16)', async () => {
@@ -1798,8 +1802,9 @@ describe('acceptance: the deals API and the gated move (T-0108)', () => {
       expect((await dealRow(id))?.amount_text).toBe('999999999999999998');
       expect((await dealRow(id))?.currency).toBe('ZAR');
       await moveDeal(AGENT_1, id, { version: await v(id), toStageId: FA1.S1 });
-      await moveDeal(AGENT_1, id, { version: await v(id), toStageId: FA1.S2 });
+      // Proposal's own entry check first: requirements are the target stage's (D-P20), D-L126.
       await plantCheck(id, FA1.RC_PROP, USER_A_AGENT_1, Date.now() - HOUR);
+      await moveDeal(AGENT_1, id, { version: await v(id), toStageId: FA1.S2 });
       const moved = await moveDeal(AGENT_1, id, {
         version: await v(id),
         toStageId: FA1.S3,
@@ -2495,7 +2500,9 @@ describe('acceptance: the deals API and the gated move (T-0108)', () => {
       const first = await checksOf(id);
       expect(first.map((c) => c.checked_by_user_id)).toEqual([USER_A_NO_PROGRAMME]);
       expect((moved.checks as Json[]).map((c) => (c.checkedBy as Json).id)).toEqual([USER_A_NO_PROGRAMME]);
-      // Back to Proposal and forward again: the recorded check satisfies the gate.
+      // Back to Proposal and forward again: the recorded check satisfies the gate. A backward move
+      // is gated too (D-P20: the target stage's requirements), so Proposal's own check is planted first (D-L126).
+      await plantCheck(id, FA1.RC_PROP, USER_A_SUPERVISOR, Date.now() - HOUR);
       expectDeal(await moveDeal(SUPERVISOR, id, { version: await v(id), toStageId: FA1.S2 }), 'moveDeal', 200, 'back');
       expectDeal(await moveDeal(SUPERVISOR, id, { version: await v(id), toStageId: FA1.S3 }), 'moveDeal', 200, 'forward on the old tick');
       // Ticked again by someone else: accepted, never re-attributed.
@@ -2506,8 +2513,11 @@ describe('acceptance: the deals API and the gated move (T-0108)', () => {
         200,
         'resend a recorded check',
       );
-      expect(await checksOf(id), 'the first tick stands').toEqual(first);
-      expect(checksSummary(again.checks)).toEqual([
+      expect(
+        (await checksOf(id)).filter((c) => c.requirement_id === FA1.RC_QUOTE),
+        'the first tick stands',
+      ).toEqual(first);
+      expect(checksSummary(again.checks).filter(([requirementId]) => requirementId === FA1.RC_QUOTE)).toEqual([
         [FA1.RC_QUOTE, USER_A_NO_PROGRAMME, displayNameOf(USER_A_NO_PROGRAMME), msOf(first[0]?.checked_at)],
       ]);
     });
