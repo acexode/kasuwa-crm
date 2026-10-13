@@ -151,9 +151,9 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `signUp` | POST /api/v1/auth/sign-up — Start a self-serve sign-up (contract only) | not-started | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |
 | operation | `verifyOtp` | POST /api/v1/auth/verify-otp — Verify an email or phone one-time code (contract only) | not-started | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |
 | operation | `resendOtp` | POST /api/v1/auth/verify-otp/resend — Re-send a verification code (contract only) | not-started | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |
-| operation | `listContacts` | GET /api/v1/contacts — List contacts — search, filter, sort, keyset page | built | — | — | docs/api/records.openapi.yaml · T-0056 · T-0061 |
+| operation | `listContacts` | GET /api/v1/contacts — List contacts — search, filter, sort, keyset page | built | — | — | docs/api/records.openapi.yaml · T-0056 · T-0061 · T-0124 |
 | operation | `createContact` | POST /api/v1/contacts — Create a contact | built | — | — | docs/api/records.openapi.yaml |
-| operation | `getContact` | GET /api/v1/contacts/{contactId} — Get one contact | built | — | — | docs/api/records.openapi.yaml |
+| operation | `getContact` | GET /api/v1/contacts/{contactId} — Get one contact | built | — | — | docs/api/records.openapi.yaml · T-0124 |
 | operation | `updateContact` | PATCH /api/v1/contacts/{contactId} — Update a contact (inline edit of owner, status and the rest) | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listContactTimeline` | GET /api/v1/contacts/{contactId}/timeline — The contact's timeline — field and consent changes and activities, newest first | built | — | — | docs/api/records.openapi.yaml |
 | operation | `createActivity` | POST /api/v1/activities — Log an activity — a note, a task, a call or a meeting | built | — | — | docs/api/records.openapi.yaml |
