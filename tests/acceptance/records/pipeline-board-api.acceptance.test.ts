@@ -2395,9 +2395,10 @@ describe('acceptance: pipelines and the board API (T-0107)', () => {
       it('the whole board: open stages then won, no lost; exact count and per-currency totals; an empty column; closedSince echoed', async () => {
         await plantBoard();
         const before = Date.now();
-        const response = await servedBoard();
+        // limit 50: the unpriced S0 cards below sort after position 20; the default limit has its own test (D-L125).
+        const response = await servedBoard(AGENT_1, [['limit', '50']]);
         const after = Date.now();
-        const body = expectBoard(response, {}, 'whole board');
+        const body = expectBoard(response, {}, 'whole board', { limit: 50 });
         const closedSince = Date.parse(String(body.closedSince));
         expect(
           closedSince,
@@ -2483,7 +2484,10 @@ describe('acceptance: pipelines and the board API (T-0107)', () => {
 
       it('weighted totals are rounded half-even per deal, then summed, one total per currency, never across currencies', async () => {
         await plantBoard();
-        const body = expectBoard(await servedBoard(), {}, 'weighted');
+        // limit 50: d(20) is the newest S0 card, past the default page of 20 (D-L125).
+        const body = expectBoard(await servedBoard(AGENT_1, [['limit', '50']]), {}, 'weighted', {
+          limit: 50,
+        });
         expect(column(body, 'S0').totals).toEqual([
           {
             currency: 'GHS',
