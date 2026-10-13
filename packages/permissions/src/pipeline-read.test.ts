@@ -3,6 +3,7 @@ import {
   canReadPipelines,
   PIPELINE_READER_SET_KEYS,
   programmesReadingPipelines,
+  QA_ANALYST_PERMISSION_SET_KEY,
   type Grants,
 } from './policy';
 
@@ -32,6 +33,13 @@ describe('pipeline reads (T-0107; D-L88 x-kasuwa-rights, D-L115)', () => {
     expect(canReadPipelines(grants({ [P1]: null }), P1)).toBe(false);
     expect(canReadPipelines(grants({ [P1]: 'custom_reader' }), P1)).toBe(false);
     expect(PIPELINE_READER_SET_KEYS).not.toContain('client_portal');
+  });
+
+  it('names every reader by its constant, the seeded catalogue keys', () => {
+    expect(QA_ANALYST_PERMISSION_SET_KEY).toBe('qa_analyst');
+    expect([...PIPELINE_READER_SET_KEYS].sort()).toEqual(
+      ['admin', 'agent', 'programme_manager', 'qa_analyst', 'team_lead'].sort(),
+    );
   });
 
   it('the tenant-admin flag acts as admin, but never outside the session’s scope', () => {

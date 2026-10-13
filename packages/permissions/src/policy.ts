@@ -130,6 +130,9 @@ export const AGENT_PERMISSION_SET_KEY = 'agent';
 export const TEAM_LEAD_PERMISSION_SET_KEY = 'team_lead';
 export const PROGRAMME_MANAGER_PERMISSION_SET_KEY = 'programme_manager';
 
+/** The seeded `qa_analyst` set, matched by key like `admin`. Read-only (D-L53); reads pipelines (D-L88). */
+export const QA_ANALYST_PERMISSION_SET_KEY = 'qa_analyst';
+
 /**
  * What each permission set permits, by key. A key that is not listed - or a
  * NULL set - permits nothing. Deliberately an allow-list: a new set grants
@@ -333,7 +336,7 @@ export const PIPELINE_READER_SET_KEYS = [
   PROGRAMME_MANAGER_PERMISSION_SET_KEY,
   TEAM_LEAD_PERMISSION_SET_KEY,
   AGENT_PERMISSION_SET_KEY,
-  'qa_analyst',
+  QA_ANALYST_PERMISSION_SET_KEY,
 ] as const;
 
 const PIPELINE_READERS: ReadonlySet<string> = new Set(PIPELINE_READER_SET_KEYS);

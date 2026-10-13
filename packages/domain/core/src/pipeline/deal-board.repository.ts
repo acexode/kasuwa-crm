@@ -123,11 +123,27 @@ const FOLDED_NAME = `lower(regexp_replace(normalize(d.name, NFD), '[\\u0300-\\u0
  * pipeline the API already found inside the caller's scope. Every filter can
  * only narrow.
  */
-function baseWhere(tx: TenantTx, query: BoardQuery, params: Params): string[] {
+/** The placeholders `baseWhere` bound the pipeline's own tenant, programme and id to. */
+interface BoardScope {
+  tenantId: string;
+  programmeId: string;
+  pipelineId: string;
+}
+
+function baseWhere(
+  tx: TenantTx,
+  query: BoardQuery,
+  params: Params,
+): { where: string[]; scope: BoardScope } {
+  const scope: BoardScope = {
+    tenantId: params.add(tx.session.tenantId),
+    programmeId: params.add(query.pipeline.programmeId),
+    pipelineId: params.add(query.pipeline.id),
+  };
   const where = [
-    `d.tenant_id = ${params.add(tx.session.tenantId)}::uuid`,
-    `d.programme_id = ${params.add(query.pipeline.programmeId)}::uuid`,
-    `d.pipeline_id = ${params.add(query.pipeline.id)}::uuid`,
+    `d.tenant_id = ${scope.tenantId}::uuid`,
+    `d.programme_id = ${scope.programmeId}::uuid`,
+    `d.pipeline_id = ${scope.pipelineId}::uuid`,
   ];
   const { filters } = query;
   const owners = filters.ownerUserIds ?? [];
@@ -150,7 +166,7 @@ function baseWhere(tx: TenantTx, query: BoardQuery, params: Params): string[] {
     // strpos, not LIKE or a regex: `%` and `_` are literal characters (D-L115).
     where.push(`strpos(${FOLDED_NAME}, ${params.add(foldForSearch(filters.search))}) > 0`);
   }
-  return where;
+  return { where, scope };
 }
 
 /** The won window, on `closed_at` (R5), as plain comparisons the closed index serves. */
@@ -181,7 +197,7 @@ export async function tallyBoardColumns(
   );
   if (columns.length === 0) return tallies;
   const params = new Params();
-  const where = baseWhere(tx, query, params);
+  const { where } = baseWhere(tx, query, params);
   const openIds = columns.filter((c) => c.kind === 'open').map((c) => c.stageId);
   const wonIds = columns.filter((c) => c.kind === 'won').map((c) => c.stageId);
   const parts: string[] = [];
@@ -235,7 +251,7 @@ export async function boardColumnSelects(
   dealId: string,
 ): Promise<boolean> {
   const params = new Params();
-  const where = baseWhere(tx, query, params);
+  const { where } = baseWhere(tx, query, params);
   where.push(`d.stage_id = ${params.add(column.stageId)}::uuid`);
   if (column.kind === 'won') where.push(wonWindow(query, params));
   where.push(`d.id = ${params.add(dealId)}::uuid`);
@@ -411,7 +427,7 @@ export async function boardColumnCards(
   options: { limit: number; afterDealId?: string | undefined },
 ): Promise<{ cards: DealCard[]; hasMore: boolean }> {
   const params = new Params();
-  const where = baseWhere(tx, query, params);
+  const { where, scope } = baseWhere(tx, query, params);
   const stage = params.add(column.stageId);
   where.push(`d.stage_id = ${stage}::uuid`);
   const won = column.kind === 'won';
@@ -420,36 +436,27 @@ export async function boardColumnCards(
     // The cursor row by primary key, inside the same tenant, programme,
     // pipeline and stage, read by an uncorrelated subquery (an InitPlan), so
     // the comparison against it is an index condition and the page seeks.
-    // tenancy-reviewed: the first three placeholders are baseWhere's tenant,
-    // programme and pipeline.
+    // tenancy-reviewed: the scope placeholders are the ones baseWhere bound,
+    // never assumed positions, so reordering baseWhere cannot re-point them.
     const cursorId = params.add(options.afterDealId);
-    const cursorKey = (key: 'closed_at' | 'id') => `(
-          SELECT cursor_row.${key}
-            FROM deal cursor_row
+    const cursorRow = `FROM deal cursor_row
            WHERE cursor_row.id = ${cursorId}::uuid
-             AND cursor_row.tenant_id = $1::uuid
-             AND cursor_row.programme_id = $2::uuid
-             AND cursor_row.pipeline_id = $3::uuid
-             AND cursor_row.stage_id = ${stage}::uuid)`;
+             AND cursor_row.tenant_id = ${scope.tenantId}::uuid
+             AND cursor_row.programme_id = ${scope.programmeId}::uuid
+             AND cursor_row.pipeline_id = ${scope.pipelineId}::uuid
+             AND cursor_row.stage_id = ${stage}::uuid`;
     if (won) {
       // Spelled out rather than as a row comparison: the closed index's key
       // columns are DESC. `closed_at <= key` is the index condition; the OR
       // only drops the cursor's own ties already served.
-      const closedAt = cursorKey('closed_at');
+      const closedAt = `(SELECT cursor_row.closed_at ${cursorRow})`;
       where.push(
         `d.closed_at <= ${closedAt}`,
-        `(d.closed_at < ${closedAt} OR d.id < ${cursorKey('id')})`,
+        `(d.closed_at < ${closedAt} OR d.id < (SELECT cursor_row.id ${cursorRow}))`,
       );
     } else {
       where.push(
-        `(d.stage_entered_at, d.id) > (
-          SELECT cursor_row.stage_entered_at, cursor_row.id
-            FROM deal cursor_row
-           WHERE cursor_row.id = ${cursorId}::uuid
-             AND cursor_row.tenant_id = $1::uuid
-             AND cursor_row.programme_id = $2::uuid
-             AND cursor_row.pipeline_id = $3::uuid
-             AND cursor_row.stage_id = ${stage}::uuid)`,
+        `(d.stage_entered_at, d.id) > (SELECT cursor_row.stage_entered_at, cursor_row.id ${cursorRow})`,
       );
     }
   }

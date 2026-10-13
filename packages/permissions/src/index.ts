@@ -31,6 +31,7 @@ export {
   PIPELINE_READER_SET_KEYS,
   programmesReadingPipelines,
   PROGRAMME_MANAGER_PERMISSION_SET_KEY,
+  QA_ANALYST_PERMISSION_SET_KEY,
   TEAM_LEAD_PERMISSION_SET_KEY,
   activityBodyAssignsOther,
   canTenant,
