@@ -2804,3 +2804,27 @@ flag; 7 self-checks and contract pins pass. Migration 0037 is reserved for `agen
     it must clear or reassign links first, never surface a 23503.
   - **Contract tidy-up (the D-L123 lead contract PR):** "contract only until T-0111" wording, and a realistic name in the
     `listDealTimeline` example.
+### D-L132 — T-0110 suite rulings; the former-checker follow-up (lead, 2026-10-14)
+**Status:** PROCEEDING (lead). The suite is on `lead/T-0110-acceptance` (094fb27), built on `lead/T-0109-acceptance`:
+`deal-detail.acceptance.test.ts` (53 tests), `p06-deal.spec.ts` (38 journeys) and `deal-mock.ts`, which imports
+T-0109's mock unchanged. On main, 45 wrapper tests fail because there is no route, flag or harness wiring, and the
+8 self-checks pass.
+- **R1–R22 in the suite header are accepted.** Notable:
+  - `/deals/[dealId]` is a real 404 when the flag is off or the id is malformed; an out-of-scope deal is the generic
+    not-found page (R1);
+  - the close date is a calendar date that must not shift with the browser's zone, checked from UTC-1 (R6);
+  - a former checker gets its own translated label (R8);
+  - reassign is "assign to me" only, until T-0079 and a member directory (R11);
+  - the timeline is re-read after each write, never spliced (R15);
+  - **D-L129's open item:** an activity targets the deal's own contact and/or account. With neither visible, there is
+    no composer, and the screen says why (R17).
+- **Lead edits on the branch:**
+  - the contract's `DealActor.displayName` becomes `[string, null]` for D-L127;
+  - T-0109's spec is re-pinned to `f227bfa7…`, because board cards now link their deal (T-0109 R15 reworded).
+- **Follow-ups:**
+  - **T-0123** (filed): the deal APIs serve `null` for a former checker. Its lead edit replaces
+    `pipeline-board-api` R17, which named checkers by their current name;
+  - createActivity and the pickers' `x-kasuwa-screens` do not list P06/05 (the D-L123 contract PR);
+  - there is no field-editability read before a write, so `403 field_not_editable` is the only signal;
+  - an orphaned check, whose requirement was later removed, has no label in the contract.
+- **Order:** the T-0110 builder starts after T-0109 merges, because it needs T-0109's flag, harness wiring and move sheet.
