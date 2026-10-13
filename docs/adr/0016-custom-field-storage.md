@@ -1,6 +1,7 @@
 # ADR-0016 — Custom-field values: storage on standard objects
 
-- **Status:** Proposed. Implemented by T-0089 (migration and API); shapes T-0088, T-0090 and T-0091.
+- **Status:** Accepted (D-L128, @acexode, 2026-10-13). Answers to its open questions are in D-L128.
+  Implemented by T-0089 (migration and API); shapes T-0088, T-0090 and T-0091.
 - **Date:** 2026-10-13
 - **Deciders:** Lead; @acexode
 

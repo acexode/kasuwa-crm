@@ -2677,3 +2677,62 @@ suite expects the five deal operations to be `x-kasuwa-implemented: true` (a lea
 - **Merge note:** T-0107 and T-0108 each edit the contract suite's flag assertion (l.1110). Whichever lands second resolves
   it to all eight operations `true`.
 - **Builder:** Agent 3 on `agent3/T-0108-deals-api`, in its own `deals` module, alongside T-0107.
+### D-L122 — verification per slice, not per PR (@acexode, approved 2026-10-13)
+**Status:** PROCEEDING. Supersedes D-L111's per-PR lead run; the end-of-Phase-2 full isolation run stands.
+- **Per PR:** the reviews (D-L109) stay. The builder's own evidence is accepted: its suite, the tenancy folder, unit, lint
+  and typecheck. After rebasing, the lead runs lint, typecheck and the PR's own suites.
+- **At the end of each slice** (for example after T-0107–T-0111): one `tools/lead-verify.sh` on main, covering unit,
+  integration, the tenancy folder and every suite of the slice. A failure is fixed before the next slice merges.
+- **Merges:** @acexode allowed `gh pr merge`, `gh pr view` and `gh pr list` for the lead session, so the lead merges once
+  reviews pass and the checks above are green.
+
+### D-L125 — T-0107 lead suite fix (lead, 2026-10-13)
+**Status:** PROCEEDING. Two board tests read cards that the suite's own model puts on page 2 at the default limit of 20
+(`d(24)`, `d(25)`, `d(20)`). They now pass `limit 50`; the default limit keeps its own test. Found by the builder, confirmed
+by the lead (98393b7).
+
+### D-L126 — T-0108 lead suite fixes (lead, 2026-10-13)
+**Status:** PROCEEDING. Found by the builder, confirmed by the lead against the contract (e3baa50):
+- the R1 "nothing audited" check counts deal events only, because `unassign` writes its own membership event (0031/0033);
+- the 18-nines test plants Proposal's entry check before moving into Proposal;
+- a backward move is gated by the target stage's requirements too (D-P20), so the R6 test plants Proposal's check before
+  moving back.
+
+### D-L127 — two pipeline product rulings (@acexode, 2026-10-13)
+**Status:** PROCEEDING.
+- **Custom permission sets do not read pipelines or deals yet.** Readers stay the five standard sets plus the tenant-admin
+  flag (`PIPELINE_READER_SET_KEYS`). When a customer needs it, an explicit per-set "read deals" grant arrives, turned on by
+  an admin.
+- **A check-ticker who has left the programme is unnamed,** like a former owner (D-P23). This goes into T-0110 (deal detail)
+  for the screen and into the API's `checkedBy` when T-0110's suite pins it.
+
+### D-L128 — answers to ADR-0015 to ADR-0018 (@acexode, 2026-10-13: "the lead's recommendations")
+**Status:** ANSWERED. All four ADRs are Accepted.
+- **ADR-0015 (search):**
+  - production Postgres is planned as self-hosted, because no AWS region serves the Lagos Silo cells and the role bootstrap
+    needs a superuser too. T-0005 confirms it;
+  - search ships first on plain prefix indexes, which work on any Postgres, and the LEAKPROOF marks follow once a true
+    superuser is confirmed;
+  - stored folded search columns are approved (Q1);
+  - `textlike` is NOT marked; search moves to trigram similarity, with a lead edit to T-0084's search pins (Q2);
+  - a nesting limit on `phones`/`emails` before `jsonb_contains` is relied on (Q3).
+- **ADR-0016 (custom fields):**
+  - 100 fields per object and 32 KiB per record (Q1);
+  - pii and sensitive fields start at `none` for unlocked sets until an admin grants access (Q2);
+  - retire instead of delete, with the purge job a later task (Q3);
+  - equality on picklist and boolean only, with no sorting, in Phase 2 (Q4);
+  - one currency per currency field (Q6).
+- **ADR-0017 (object storage):**
+  - AWS S3 af-south-1 for za-1 and MinIO for Lagos Silo cells (Q1);
+  - Bridge shares the cell bucket under its own prefix (Q2);
+  - SSE-S3 now, per-cell KMS later (Q3);
+  - 25 MB and 100,000 rows (Q4);
+  - raw files deleted after 7 days, subject to counsel (Q5);
+  - no failed-rows CSV with values (Q6);
+  - the import job runs as the initiating user (Q7).
+- **ADR-0018 (outbox):**
+  - `programme_id` NOT NULL until a tenant-level case appears (Q1);
+  - system jobs act as the user who started them (Q2);
+  - published rows kept 7 days and dead rows 30; dead after 10 publish or 5 consumer attempts (Q3);
+  - a dashboard, not paging (Q4);
+  - BullMQ's failed set trimmed by hand for now (Q5).
