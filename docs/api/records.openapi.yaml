@@ -1968,7 +1968,7 @@ paths:
       tags: [pipelines]
       summary: The pipelines of the programmes the session reaches
       operationId: listPipelines
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P06/01', 'P06/01b', 'P06/04', 'P06/07']
       x-kasuwa-error-order: ['400 validation_failed']
       x-kasuwa-rights:
@@ -2031,7 +2031,7 @@ paths:
       tags: [pipelines]
       summary: One pipeline with its stages, requirements and transitions
       operationId: getPipeline
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P06/01', 'P06/02', 'P06/03', 'P06/04', 'P06/05']
       x-kasuwa-error-order: ['404 not_found']
       x-kasuwa-rights:
@@ -2205,7 +2205,7 @@ paths:
       tags: [pipelines]
       summary: The Kanban board — exact counts and per-currency totals per stage
       operationId: getPipelineBoard
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P06/01', 'P06/03', 'P06/04']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
       x-kasuwa-rights:

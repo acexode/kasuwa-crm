@@ -20,6 +20,7 @@ import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
 import { LeadsController } from './leads/leads.controller';
 import { MeController } from './me/me.controller';
+import { PipelinesController } from './pipelines/pipelines.controller';
 import { CHANNEL, createApiChannel } from './messaging/channel';
 import { ContactScriptsController, ScriptRunsController } from './scripts/script-runs.controller';
 import { ScriptsController } from './scripts/scripts.controller';
@@ -39,7 +40,7 @@ import {
 
 /**
  * The records controllers (records.openapi.yaml): contacts and both timelines,
- * leads, accounts, activities and `/me/programmes`. Every answer on every one
+ * leads, accounts, activities, `/me/programmes` and the pipeline reads (T-0107). Every answer on every one
  * of their routes is `Cache-Control: no-store` (`NoStoreMiddleware`, T-0080).
  */
 export const RECORDS_CONTROLLERS = [
@@ -49,6 +50,7 @@ export const RECORDS_CONTROLLERS = [
   ActivitiesController,
   MeController,
   MyActivitiesController,
+  PipelinesController,
 ];
 
 /**
