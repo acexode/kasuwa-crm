@@ -78,7 +78,7 @@ import { parse as parseYaml } from 'yaml';
  *                               field text NULL, label text NULL
  *      deal                     id, tenant_id, programme_id, pipeline_id,
  *                               stage_id, name text, amount_minor
- *                               numeric(18,0) NULL, currency text NULL,
+ *                               bigint NULL, currency text NULL,
  *                               expected_close_date date NULL,
  *                               owner_user_id, primary_contact_id,
  *                               account_id (uuid NULL), next_step text NULL,
@@ -135,8 +135,8 @@ import { parse as parseYaml } from 'yaml';
  *    365 (1 and 366 refused), DEFAULT 14. These hold for kasuwa_migrator too:
  *    BYPASSRLS bypasses no CHECK.
  *
- * D. DEALS, as kasuwa_app: amount_minor is numeric(18,0) and at least 0 (0
- *    and 18 nines accepted, -1 and 10^18 refused); currency is exactly NGN,
+ * D. DEALS, as kasuwa_app: amount_minor is bigint (D-L121), 0 to 18 nines (0
+ *    and 18 nines accepted; -1, 10^18 and a fraction such as '1.5' refused); currency is exactly NGN,
  *    GHS, KES or ZAR (USD, a lower-case code and the empty string refused);
  *    a deal's stage is a stage of its own pipeline; its pipeline, primary
  *    contact and account are in its programme, even for a supervisor who
@@ -263,9 +263,6 @@ import { parse as parseYaml } from 'yaml';
  *    statement can tell a guard from the FK. The probe still runs (it must
  *    leave the row unchanged), but it is not evidence of the guard; the
  *    migration review is.
- *  - numeric(18,0) ROUNDS a fractional literal ('1.5' becomes 2) before any
- *    CHECK sees it. Only the API's string pattern stops a fraction; the
- *    database cannot.
  *
  * ---------------------------------------------------------------------------
  * CROSS-SUITE CONSEQUENCES (for the builder; not edits to other suites)
@@ -437,7 +434,7 @@ const COLUMN_SPEC: Readonly<Record<Table, Readonly<Record<string, ColumnSpec>>>>
     pipeline_id: { type: 'uuid', notNull: true },
     stage_id: { type: 'uuid', notNull: true },
     name: { type: 'text', notNull: true },
-    amount_minor: { type: 'numeric(18,0)', notNull: false, noDefault: true },
+    amount_minor: { type: 'bigint', notNull: false, noDefault: true },
     currency: { type: 'text', notNull: false, noDefault: true },
     expected_close_date: { type: 'date', notNull: false },
     owner_user_id: { type: 'uuid', notNull: false },
@@ -844,7 +841,7 @@ const INSERT_REQUIREMENT = `INSERT INTO pipeline_stage_requirement
 const INSERT_DEAL = `INSERT INTO deal (id, tenant_id, programme_id, pipeline_id, stage_id, name,
                                        amount_minor, currency, expected_close_date, owner_user_id,
                                        primary_contact_id, account_id, next_step, stage_entered_at)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7::numeric, $8, $9::date, $10, $11, $12, $13,
+                     VALUES ($1, $2, $3, $4, $5, $6, $7::bigint, $8, $9::date, $10, $11, $12, $13,
                              $14::timestamptz)`;
 const INSERT_CHECK = `INSERT INTO deal_requirement_check
                         (id, tenant_id, programme_id, pipeline_id, deal_id, requirement_id,
@@ -2061,7 +2058,7 @@ describe('acceptance: the pipeline and deal tables (T-0106)', () => {
         verdict,
       );
 
-    it('amount_minor is numeric(18,0) and at least 0; amount and currency come together (R6)', async () => {
+    it('amount_minor is bigint, 0 to 18 nines, never a fraction; amount and currency come together (R6, D-L121)', async () => {
       requirePlanted();
       const result = await asA1Agent(async (query) => ({
         control: await tryDeal(query, {}),
@@ -2070,6 +2067,8 @@ describe('acceptance: the pipeline and deal tables (T-0106)', () => {
         none: await tryDeal(query, { amountMinor: null, currency: null }),
         negative: await tryDeal(query, { amountMinor: '-1' }),
         tooBig: await tryDeal(query, { amountMinor: '1000000000000000000' }),
+        // bigint refuses a fraction outright; numeric(18,0) would round it to 2.
+        fraction: await tryDeal(query, { amountMinor: '1.5' }),
         amountOnly: await tryDeal(query, { amountMinor: '100', currency: null }),
         currencyOnly: await tryDeal(query, { amountMinor: null, currency: 'NGN' }),
       }));
@@ -2079,7 +2078,7 @@ describe('acceptance: the pipeline and deal tables (T-0106)', () => {
         max: 'accepted',
         none: 'accepted',
       });
-      for (const name of ['negative', 'tooBig', 'amountOnly', 'currencyOnly'] as const) {
+      for (const name of ['negative', 'tooBig', 'fraction', 'amountOnly', 'currencyOnly'] as const) {
         expect(RULE_REFUSALS, `${name} was ${result[name]}`).toContain(result[name]);
       }
     });
@@ -3035,7 +3034,7 @@ describe('acceptance: every programme has its default pipeline (T-0106, D-L113)'
       slug: `t0106-new-${RUN}`,
       name: 'Pipeline Provisioned Ltd',
       adminEmail: `admin.${RUN}@t0106.test`,
-      adminDisplayName: 'Kemi Adebayo',
+      adminDisplayName: 'T-0106 Provisioned Admin',
     });
     const snapshot = await programmePipelines(asMigrator(), provisioned.programmeId);
     expect(snapshot.count, 'pipelines in the provisioned default programme').toBe(1);
