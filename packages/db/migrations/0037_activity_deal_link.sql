@@ -154,15 +154,20 @@
 --   - Taken up front, in one fixed order (catalogue, deal, activity), so this
 --     file cannot deadlock against itself; lock_timeout = 5s refuses to queue
 --     behind a long transaction (and make everything behind it queue too).
---   - At volume (the first populated cell onward) split it:
+--   - At volume (the first populated cell onward) split it into four files,
+--     in this order:
 --       1. a `-- kasuwa:no-transaction` file: CREATE UNIQUE INDEX CONCURRENTLY
---          on deal (tenant_id, programme_id, id), and CREATE INDEX
---          CONCURRENTLY activity_deal_keyset_idx once the column exists;
---       2. an ordinary file: ADD COLUMN (catalogue-only), ALTER TABLE deal ADD
---          CONSTRAINT ... UNIQUE USING INDEX (catalogue-only), the FK as NOT
---          VALID (no scan), the grant and the catalogue rows;
---       3. ALTER TABLE activity VALIDATE CONSTRAINT in a third file (SHARE
---          UPDATE EXCLUSIVE: reads and writes carry on).
+--          on deal (tenant_id, programme_id, id) (SHARE UPDATE EXCLUSIVE:
+--          deal reads and writes carry on);
+--       2. an ordinary file: ADD COLUMN deal_id (catalogue-only), ALTER TABLE
+--          deal ADD CONSTRAINT ... UNIQUE USING INDEX (catalogue-only), the FK
+--          as NOT VALID (no scan), the grant and the catalogue rows;
+--       3. a `-- kasuwa:no-transaction` file: CREATE INDEX CONCURRENTLY
+--          activity_deal_keyset_idx, now that the column exists;
+--       4. ALTER TABLE activity VALIDATE CONSTRAINT
+--          activity_deal_same_programme_fk (SHARE UPDATE EXCLUSIVE: reads and
+--          writes carry on; it may run in a no-transaction file, the runner
+--          allows a lone VALIDATE CONSTRAINT there).
 --   - Steady state: one more b-tree insert on every deal INSERT; a partial
 --     index insert and one FK probe on deal only for an activity write that
 --     carries a deal_id. Unlinked activities pay nothing.
@@ -349,14 +354,20 @@ BEGIN
   IF held IS NOT NULL THEN
     RAISE EXCEPTION '0037: RLS not enabled and forced, or not owned by kasuwa_migrator: %', held;
   END IF;
-  -- activity_isolation still names tenant and programme, WITH CHECK = USING.
+  -- activity_isolation is still a permissive FOR ALL policy whose USING
+  -- calls app.current_tenant_id() and app.current_programme_ids(), and whose
+  -- WITH CHECK is textually identical to its USING.
   IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_policy p
                   WHERE p.polrelid = activity_rel
                     AND p.polname = 'activity_isolation'
                     AND p.polpermissive AND p.polcmd = '*'
+                    AND pg_catalog.strpos(pg_catalog.pg_get_expr(p.polqual, p.polrelid),
+                                          'app.current_tenant_id()') > 0
+                    AND pg_catalog.strpos(pg_catalog.pg_get_expr(p.polqual, p.polrelid),
+                                          'app.current_programme_ids()') > 0
                     AND pg_catalog.pg_get_expr(p.polqual, p.polrelid)
                       = pg_catalog.pg_get_expr(p.polwithcheck, p.polrelid)) THEN
-    RAISE EXCEPTION '0037: activity_isolation is missing or its WITH CHECK is not its USING';
+    RAISE EXCEPTION '0037: activity_isolation is missing, no longer names tenant and programme, or its WITH CHECK is not its USING';
   END IF;
 
   -- The column: a nullable uuid, no default.
@@ -406,11 +417,28 @@ BEGIN
     RAISE EXCEPTION '0037: the activity -> deal key is not (tenant_id, programme_id, deal_id) -> (tenant_id, programme_id, id), RESTRICT both ways';
   END IF;
 
-  -- The key guard is still attached, still unconditional on deal_id.
-  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_trigger t
-                  WHERE t.tgrelid = activity_rel
-                    AND t.tgname = 'activity_keys_fixed' AND NOT t.tgisinternal) THEN
-    RAISE EXCEPTION '0037: the activity key guard is missing';
+  -- The key guard is 0027's, unchanged: a BEFORE UPDATE row trigger calling
+  -- app.guard_activity_keys_fixed(), whose WHEN clause names id, tenant_id
+  -- and programme_id and never deal_id, so setting the link never fires it
+  -- (R17). The function itself never mentions deal_id either.
+  IF NOT EXISTS (
+       SELECT 1
+         FROM pg_catalog.pg_trigger t
+        WHERE t.tgrelid = activity_rel
+          AND t.tgname = 'activity_keys_fixed' AND NOT t.tgisinternal
+          AND t.tgfoid = 'app.guard_activity_keys_fixed()'::pg_catalog.regprocedure
+          AND pg_catalog.strpos(pg_catalog.pg_get_triggerdef(t.oid),
+                                'BEFORE UPDATE ON public.activity FOR EACH ROW WHEN') > 0
+          AND pg_catalog.strpos(pg_catalog.pg_get_triggerdef(t.oid),
+                                'new.id IS DISTINCT FROM old.id') > 0
+          AND pg_catalog.strpos(pg_catalog.pg_get_triggerdef(t.oid),
+                                'new.tenant_id IS DISTINCT FROM old.tenant_id') > 0
+          AND pg_catalog.strpos(pg_catalog.pg_get_triggerdef(t.oid),
+                                'new.programme_id IS DISTINCT FROM old.programme_id') > 0
+          AND pg_catalog.strpos(pg_catalog.pg_get_triggerdef(t.oid), 'deal_id') = 0
+          AND pg_catalog.strpos((SELECT p.prosrc FROM pg_catalog.pg_proc p
+                                  WHERE p.oid = t.tgfoid), 'deal_id') = 0) THEN
+    RAISE EXCEPTION '0037: the activity key guard is missing or no longer 0027''s (BEFORE UPDATE, WHEN on id, tenant_id and programme_id only)';
   END IF;
 
   -- The timeline index: valid, its keys in the timeline's order (R15).
