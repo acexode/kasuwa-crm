@@ -20,13 +20,18 @@ import { parse } from 'yaml';
  * PINNED INTERFACES
  * ---------------------------------------------------------------------------
  *
- *   searchRecords   GET /api/v1/search?q=…|phone=…|email=…[&types=…]
+ *   searchRecords   GET  /api/v1/search?q=…[&types=…]
+ *   lookupRecords   POST /api/v1/search/lookup   { phone | email, types? }
  *
- *   PARAMETERS  exactly `q` (2..100), `phone` (6..32, digits and + ( ) . -
- *               and space), `email` (format email, 3..254) and `types`
- *               (array of SearchType, 1..4, unique). Nothing else: no limit,
- *               cursor, sort, offset, programme, tenant, scope, owner or date.
- *   200         `SearchResults { groups }`, closed. A group is
+ *   PARAMETERS  searchRecords: exactly `q` (required, 2..100) and `types`
+ *               (array of SearchType, 1..4, unique). Nothing else: no phone,
+ *               email, limit, cursor, sort, offset, programme, tenant,
+ *               scope, owner or date. lookupRecords: no parameter at all.
+ *   BODY        lookupRecords: `LookupRequest`, closed, exactly one of
+ *               `phone` (6..32, digits and + ( ) . - and space) or `email`
+ *               (format email, 3..254), plus optional `types`. A read sent
+ *               as a POST: it writes nothing, answers 200, is not audited.
+ *   200         both: `SearchResults { groups }`, closed. A group is
  *               `{ type, hits }`, closed, one per requested type, in the order
  *               contact, lead, account, deal, `hits` at most 3. No count of
  *               any kind.
@@ -36,30 +41,41 @@ import { parse } from 'yaml';
  *                 LeadSearchHit     the same plus status (a lead status)
  *                 AccountSearchHit  name
  *                 DealSearchHit     pipelineId, name (pii)
- *   EXTENSIONS  `x-kasuwa-search-fields` (per type, the prefix-matched
- *               fields), `x-kasuwa-exact-fields` (per exact parameter, per
- *               type, the field compared), `x-kasuwa-rights` (per seeded set,
- *               per type, read or none), `x-kasuwa-error-order`.
- *   ERRORS      `400` (SearchValidationFailed: one_term_required,
- *               query_too_short, invalid_string, invalid_phone,
- *               invalid_email, unknown_type) and `401`. No 403, no 404.
- *   TRANSPORT   `Cache-Control: no-store` on 200, 400 and 401.
- *   FLAG        `x-kasuwa-implemented: false` until T-0086; the flag test
- *               below requires `true` and so FAILS ON THIS BRANCH BY DESIGN.
+ *   EXTENSIONS  `x-kasuwa-search-fields` on searchRecords (per type, the
+ *               prefix-matched fields), `x-kasuwa-exact-fields` on
+ *               lookupRecords (per body property, per type, the field
+ *               compared), `x-kasuwa-rights` on both, identical (per seeded
+ *               set, per type, read or none), `x-kasuwa-error-order`.
+ *   ERRORS      `400` and `401` only, no 403, no 404.
+ *                 searchRecords  SearchValidationFailed: query_required,
+ *                                identifier_in_url, invalid_string,
+ *                                query_too_short, unknown_type
+ *                 lookupRecords  LookupValidationFailed: unknown_property,
+ *                                one_term_required, invalid_phone,
+ *                                invalid_email, unknown_type
+ *   TRANSPORT   `Cache-Control: no-store` on every answer of both.
+ *   FLAGS       `x-kasuwa-implemented: false` on both until T-0086; the two
+ *               flag tests below require `true` and so FAIL ON THIS BRANCH BY
+ *               DESIGN.
  *
  * ---------------------------------------------------------------------------
- * RULINGS (the lead accepts or reverses each; R-numbers are this suite's, not
- * decision ids)
+ * RULINGS (R1–R20 accepted by the lead on 2026-10-14 with the amendment to
+ * R1, R2, R5, R15, R16 and R20 and the new R21; R-numbers are this suite's,
+ * not decision ids)
  * ---------------------------------------------------------------------------
  *
- *   R1  One read, `GET /api/v1/search`, `searchRecords`, tag `search`. Its
- *       screens are exactly the P27 frames it serves: A1 (grouped results),
- *       A2 (phone), A4 (searching), A5 (no results) and D1 (records in the
- *       palette). Not A (recent searches: nothing is stored), A3 (filters
- *       with live counts), B and B1 (programme scope and the hidden count),
- *       C and C1 (facets with counts), D, D2, D3 (commands, switching, AI).
- *   R2  Exactly one term per request: `q`, `phone` or `email`. None or more
- *       than one is `400 one_term_required` at `q`.
+ *   R1  Two reads, tag `search`: `GET /api/v1/search` (`searchRecords`) for
+ *       the prefix and `POST /api/v1/search/lookup` (`lookupRecords`) for
+ *       exact lookups. Screens are exactly the P27 frames each serves:
+ *       searchRecords A1 (grouped results), A4 (searching), A5 (no results)
+ *       and D1 (records in the palette); lookupRecords A2 (phone) and D1.
+ *       Not A (recent searches: nothing is stored), A3 (filters with live
+ *       counts), B and B1 (programme scope and the hidden count), C and C1
+ *       (facets with counts), D, D2, D3 (commands, switching, AI).
+ *   R2  searchRecords: `q` is required (`400 query_required`). lookupRecords:
+ *       exactly one of `phone` or `email` in the body; none or both is `400
+ *       one_term_required` at `phone`, any other property `400
+ *       unknown_property`.
  *   R3  Prefix, not substring (D-L128). Folding: Unicode NFD, combining marks
  *       removed, locale-independent default lower-casing, trimmed, inner
  *       whitespace runs made one space; comparison by code point. The prefix
@@ -71,12 +87,14 @@ import { parse } from 'yaml';
  *       2, not 3: a prefix index serves two characters, and when trigram
  *       arrives a short query keeps prefix matching (additive), whereas
  *       raising the minimum later would break clients.
- *   R5  Exact lookups are two parameters, `phone` and `email`, each a WHOLE
- *       value compared for equality (phone normalised to E.164 with the
- *       tenant's default country; email trimmed, case-insensitive). A
- *       partial number is `400 invalid_phone`, never a prefix match: P27/A2's
- *       "0803 456 finds +234 803 456…" is overruled. They search contacts and
- *       leads only; the account and deal groups are answered empty.
+ *   R5  Exact lookups are lookupRecords' body properties `phone` and
+ *       `email`, each a WHOLE value compared for equality (phone normalised
+ *       to E.164 with the tenant's default country; email trimmed,
+ *       case-insensitive). A partial number is `400 invalid_phone`, never a
+ *       prefix match: P27/A2's "0803 456 finds +234 803 456…" is overruled.
+ *       They search contacts and leads only; the account and deal groups,
+ *       when requested, are answered empty. lookupRecords writes nothing: a
+ *       POST for privacy, not a mutation (200, never 201; not audited).
  *   R6  The matched fields are data, in `x-kasuwa-search-fields`: contact and
  *       lead `displayName`, `givenNames`, `familyName`, `companyName`;
  *       account `name`; deal `name`. Each is a property of that type's record
@@ -84,8 +102,8 @@ import { parse } from 'yaml';
  *   R7  Field security, per hit's own programme, row by row, tenant-admin
  *       flag never lifting it: a withheld field is never compared, never
  *       decides the choice or order of hits, is omitted and is named in
- *       `withheldFields`. An exact lookup on a withheld number or address
- *       answers as for a number nobody has. Search NEVER answers `400
+ *       `withheldFields`. A lookup on a withheld number or address answers
+ *       as for a number nobody has. Neither operation ever answers `400
  *       field_withheld`: a withheld field just does not match.
  *   R8  D-L68, SETTLED FOR SEARCH: in a hit, `displayName` is readable
  *       exactly when BOTH `givenNames` and `familyName` are readable in the
@@ -94,14 +112,13 @@ import { parse } from 'yaml';
  *       composed from, or replaced by, the readable part, and the rule holds
  *       when the withheld part is `null` on that record (withholding is not a
  *       statement about a value). getContact, listContacts and listLeads are
- *       NOT changed here; their alignment is the D-L68 follow-up, and until
- *       then listContacts' `q` still matches `displayName` (reported).
- *   R9  Readers per type are that type's own readers (`x-kasuwa-rights`):
- *       contacts, leads and accounts every seeded set, the portal included;
- *       deals the five staff sets and the tenant-admin flag (D-L127), never
- *       `client_portal` (D-L115), never a custom set until a "read deals"
- *       grant exists. A type the caller does not read is an empty group,
- *       never an error.
+ *       NOT changed here; their alignment is the D-L68 follow-up (filed).
+ *   R9  Readers per type are that type's own readers (`x-kasuwa-rights`,
+ *       identical on both operations): contacts, leads and accounts every
+ *       seeded set, the portal included; deals the five staff sets and the
+ *       tenant-admin flag (D-L127), never `client_portal` (D-L115), never a
+ *       custom set until a "read deals" grant exists. A type the caller does
+ *       not read is an empty group, never an error.
  *   R10 The lead group follows listLeads: when `status` is withheld from the
  *       caller in ANY programme they reach, the lead group is empty. A lead
  *       hit carries its `status`, a lead status only. A lead may appear in
@@ -117,38 +134,51 @@ import { parse } from 'yaml';
  *       data and query give the same answer, neither depends on a withheld
  *       field, and a record appears at most once per group.
  *   R14 Hits are closed and minimal. Contact and lead hits never carry a
- *       phone or an email, an exact lookup included; no owner, tag or amount
+ *       phone or an email, a lookup included; no owner, tag or amount
  *       anywhere. Each returned field has the record schema's own type and
  *       bound. Deal hit `name` is `pii` (D-L91).
- *   R15 Errors: `400` and `401` only. Every `400` is decided from the request
- *       alone, before any record is read. Order: 401 and the scope header,
- *       then `one_term_required`, then each parameter's shape, then
- *       `query_too_short`. `x-kasuwa-error-order: ['400 validation_failed']`.
- *       The shared Error schema; details carry a path and a code only.
- *   R16 `Cache-Control: no-store` on every answer. The query string is
- *       personal data: telemetry keeps the route template only and ingress
- *       strips query strings from access logs (D-L80). GET is kept as the
- *       task file names it; whether exact lookups should move to a body is
- *       an open question in the report.
+ *   R15 Errors: `400` and `401` only, on both. Every `400` is decided from
+ *       the request alone, before any record is read. searchRecords order:
+ *       401 and the scope header, then `query_required` and
+ *       `identifier_in_url`, then each parameter's shape, then
+ *       `query_too_short`. lookupRecords order: 401 and the scope header,
+ *       then the closed body (`unknown_property`), then
+ *       `one_term_required`, then each property's shape and normalisation.
+ *       `x-kasuwa-error-order: ['400 validation_failed']` on both. The shared
+ *       Error schema; details carry a path and a code only.
+ *   R16 `Cache-Control: no-store` on every answer of both. searchRecords'
+ *       query string is personal data (a name): telemetry keeps the route
+ *       template only and ingress strips query strings from access logs
+ *       (D-L80). lookupRecords' body is never logged or traced.
  *   R17 `types` is closed today (contact, lead, account, deal; unknown is
  *       `400 unknown_type`, a repeat is `400`) and additive tomorrow (D-L87):
- *       a client ignores a group type it does not know.
+ *       a client ignores a group type it does not know. The body's `types`
+ *       has the same shape as the query parameter's.
  *   R18 "See all" is the type's own list with `q` (listContacts, listLeads,
  *       listAccounts). Deals have no cross-pipeline list, so no "see all"
  *       for deals. A list's `q` is substring and matches numbers, so it may
  *       show more.
  *   R19 Examples use synthetic names only: every name-like value in the
  *       search examples contains Sample, Fixture, Example or Test.
- *   R20 Contract first: `x-kasuwa-implemented: false` on this branch; the
- *       flag test requires `true` and is the one test meant to fail here.
+ *   R20 Contract first: `x-kasuwa-implemented: false` on both operations on
+ *       this branch; the two flag tests require `true` and are the only tests
+ *       meant to fail here.
+ *   R21 THE URL NEVER CARRIES A PHONE NUMBER OR AN EMAIL ADDRESS (lead
+ *       amendment; CLAUDE.md 6.1, D-L80). Neither search operation has a
+ *       path, query, header or cookie parameter for one; lookupRecords has
+ *       no parameter at all; searchRecords answers a `phone` or `email`
+ *       query parameter with `400 identifier_in_url` rather than ignoring
+ *       it, so the mistake is loud. No parameter anywhere in the file is
+ *       named for a phone or an email. (listContacts' and listLeads' `q`
+ *       still accept a number in the URL: reported, not changed here.)
  *
  * ---------------------------------------------------------------------------
  *
  * D-L23: on main the file has no search operation. Every test then fails
  * naming the missing operation or schema rather than crashing at collection:
  * the spec is loaded lazily. Each negative invariant, and each self-check of a
- * helper, first requires the operation (`gate()`), so none passes on a file
- * without it.
+ * helper, first requires both operations (`gate()`), so none passes on a file
+ * without them.
  */
 
 const repoRoot = resolve(__dirname, '..', '..', '..');
@@ -300,12 +330,23 @@ function operation(id: string): Operation {
   return found;
 }
 
-const OP_ID = 'searchRecords';
+const SEARCH = 'searchRecords';
+const LOOKUP = 'lookupRecords';
+const OP_IDS = [SEARCH, LOOKUP];
 const SEARCH_PATH = '/api/v1/search';
+const LOOKUP_PATH = '/api/v1/search/lookup';
 
-/** The search operation, or a failure naming it: a gate for negative invariants. */
-function gate(): Operation {
-  return operation(OP_ID);
+/** Both search operations, or a failure naming the first missing: a gate for negative invariants. */
+function gate(): Operation[] {
+  return OP_IDS.map((id) => operation(id));
+}
+
+function search(): Operation {
+  return operation(SEARCH);
+}
+
+function lookup(): Operation {
+  return operation(LOOKUP);
 }
 
 function responses(op: Operation): Map<string, Located> {
@@ -324,10 +365,14 @@ function jsonSchema(holder: Located | undefined): Located | undefined {
   return media ? child(media, 'schema') : undefined;
 }
 
-function responseSchema(status: string): Located {
-  const schema = jsonSchema(responses(gate()).get(status));
-  if (!schema) throw new Error(`${OP_ID} has no ${status} application/json schema`);
+function responseSchema(op: Operation, status: string): Located {
+  const schema = jsonSchema(responses(op).get(status));
+  if (!schema) throw new Error(`${op.id} has no ${status} application/json schema`);
   return schema;
+}
+
+function requestBody(op: Operation): Located | undefined {
+  return op.op.requestBody === undefined ? undefined : at(op.op.requestBody);
 }
 
 /** Every example value on a media object, `example` and `examples` alike, by label. */
@@ -356,8 +401,8 @@ function prose(text: string): string {
   return text.replace(/\s+/g, ' ');
 }
 
-function description(): string {
-  return prose(str(gate().op.description));
+function description(op: Operation): string {
+  return prose(str(op.op.description));
 }
 
 // ---------------------------------------------------------------------------
@@ -454,14 +499,24 @@ function deepKeys(schema: Located, prefix = '', seen = new Set<unknown>()): stri
   return out;
 }
 
-function param(name: string): Mapping | undefined {
-  return gate().params.find((candidate) => candidate.name === name);
+function param(op: Operation, name: string): Mapping | undefined {
+  return op.params.find((candidate) => candidate.name === name);
 }
 
-function paramSchema(name: string): Located {
-  const parameter = param(name);
-  if (!parameter) throw new Error(`${OP_ID} has no parameter ${name}`);
+function paramSchema(op: Operation, name: string): Located {
+  const parameter = param(op, name);
+  if (!parameter) throw new Error(`${op.id} has no parameter ${name}`);
   return at(parameter.schema ?? {});
+}
+
+function bodyProperty(name: string): Located {
+  const found = properties(schemaNamed('LookupRequest')).get(name);
+  if (!found) throw new Error(`LookupRequest has no ${name}`);
+  return found;
+}
+
+function propertyDescription(located: Located): string {
+  return isMapping(located.node) ? prose(str(located.node.description)) : '';
 }
 
 function cacheControlSchema(response: Located): Located | undefined {
@@ -653,22 +708,39 @@ const HIT_REQUIRED: Record<string, string[]> = {
   deal: ['type', 'id', 'programmeId', 'pipelineId', 'name'],
 };
 const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified'];
-const SCREENS = ['P27/A1', 'P27/A2', 'P27/A4', 'P27/A5', 'P27/D1'];
-const PARAMS = ['email', 'phone', 'q', 'types'];
-const BAD_REQUEST_DETAILS = [
-  'email invalid_email',
-  'phone invalid_phone',
-  'q invalid_string',
-  'q one_term_required',
-  'q query_too_short',
-  'types unknown_type',
-];
-const EXAMPLE_LABELS = ['portal', 'phoneLookup', 'prefix', 'withheldNamePart'];
+const SCREENS: Record<string, string[]> = {
+  [SEARCH]: ['P27/A1', 'P27/A4', 'P27/A5', 'P27/D1'],
+  [LOOKUP]: ['P27/A2', 'P27/D1'],
+};
+const SEARCH_PARAMS = ['q', 'types'];
+const BAD_REQUEST_DETAILS: Record<string, string[]> = {
+  [SEARCH]: [
+    'phone identifier_in_url',
+    'q invalid_string',
+    'q query_required',
+    'q query_too_short',
+    'types unknown_type',
+  ],
+  [LOOKUP]: [
+    'email invalid_email',
+    'phone invalid_phone',
+    'phone one_term_required',
+    'q unknown_property',
+    'types unknown_type',
+  ],
+};
+const EXAMPLE_LABELS: Record<string, string[]> = {
+  [SEARCH]: ['portal', 'prefix', 'withheldNamePart'],
+  [LOOKUP]: ['leadsOnly', 'phoneLookup'],
+};
+const REQUEST_LABELS = ['email', 'phone', 'phoneNarrowed'];
 /** Keys that would be a count, a page or a hint of more, at any depth of the answer (R12). */
 const COUNT_KEY = /count|total|more|estimate|hidden|cursor|page|offset|limit|next|facet/i;
 /** Keys a hit must never carry (R14). */
 const FORBIDDEN_HIT_KEY =
   /phone|email|owner|amount|stage|tag|dnd|consent|nin|bvn|score|rank|highlight|snippet/i;
+/** R21: a parameter named for a phone number or an email address. */
+const IDENTIFIER_PARAM = /phone|email|e164|msisdn|mobile|mail/i;
 /** R19: a synthetic name carries one of these tokens once folded. */
 const SYNTHETIC = /sample|fixture|example|test/;
 const NAME_LIKE = new Set([...NAME_FIELDS, 'name']);
@@ -677,15 +749,22 @@ const NAME_LIKE = new Set([...NAME_FIELDS, 'name']);
 // Example readers
 // ---------------------------------------------------------------------------
 
-function okExamples(): [string, Mapping][] {
-  return examplesOf(jsonMedia(responses(gate()).get('200'))).filter(
+function okExamples(op: Operation): [string, Mapping][] {
+  return examplesOf(jsonMedia(responses(op).get('200'))).filter(
     (entry): entry is [string, Mapping] => isMapping(entry[1]),
   );
 }
 
-function okExample(label: string): Mapping {
-  const found = okExamples().find(([name]) => name === label);
-  if (!found) throw new Error(`${OP_ID} 200 has no example ${label}`);
+/** Every 200 example of both operations, labelled with the operation. */
+function allOkExamples(): [string, Mapping][] {
+  return gate().flatMap((op) =>
+    okExamples(op).map(([label, value]): [string, Mapping] => [`${op.id} ${label}`, value]),
+  );
+}
+
+function okExample(op: Operation, label: string): Mapping {
+  const found = okExamples(op).find(([name]) => name === label);
+  if (!found) throw new Error(`${op.id} 200 has no example ${label}`);
   return found[1];
 }
 
@@ -769,7 +848,9 @@ function omissionProblems(label: string, type: string, hit: Mapping): string[] {
     const present = field in hit;
     const listed = withheld.includes(field);
     if (present === listed)
-      problems.push(`${label}: ${field} is ${present ? 'both sent and listed' : 'neither sent nor listed'}`);
+      problems.push(
+        `${label}: ${field} is ${present ? 'both sent and listed' : 'neither sent nor listed'}`,
+      );
   }
   return problems;
 }
@@ -780,18 +861,41 @@ function exactLookupProblems(opText: string, phoneText: string, emailText: strin
   const op = prose(opText);
   if (!/compared for equality with each stored E\.164 number/.test(op))
     problems.push('phone is not compared for equality');
-  if (!/a partial number included, is `400 validation_failed` with `details\[\]\.code: invalid_phone` at `phone`/.test(op))
+  if (
+    !/a partial number included, is `400 validation_failed` with `details\[\]\.code: invalid_phone` at `phone`/.test(
+      op,
+    )
+  )
     problems.push('a partial number is not invalid_phone');
   if (!/\*\*never a prefix or substring of a number\.\*\*/.test(op))
     problems.push('phone may be a prefix or substring');
   if (!/`email` is a whole address, trimmed and compared for equality case-insensitively/.test(op))
     problems.push('email is not a whole address compared for equality');
-  if (!/Both search contacts and leads only \(`x-kasuwa-exact-fields`\); with either, the account and deal groups are answered empty/.test(op))
-    problems.push('exact lookups are not limited to contacts and leads');
-  if (!/Never a prefix or a substring/.test(prose(phoneText))) problems.push('phone parameter');
-  if (!/Never a prefix or a substring/.test(prose(emailText))) problems.push('email parameter');
+  if (
+    !/Contacts and leads only: the account and deal groups, when requested, are answered empty/.test(
+      op,
+    )
+  )
+    problems.push('lookups are not limited to contacts and leads');
+  if (!/Never a prefix or a substring/.test(prose(phoneText))) problems.push('phone property');
+  if (!/Never a prefix or a substring/.test(prose(emailText))) problems.push('email property');
   if (/(?<!never a )(?<!Never a )prefix of (a|the) number(?! )/.test(op))
     problems.push('the prose offers a number prefix');
+  return problems;
+}
+
+/** R5/R21: what lookupRecords' prose fails to say about being a read; empty when right. */
+function readOnlyPostProblems(opText: string): string[] {
+  const op = prose(opText);
+  const problems: string[] = [];
+  if (!/\*\*A POST used for privacy, not a mutation: it writes nothing\.\*\*/.test(op))
+    problems.push('not "a POST used for privacy, not a mutation: it writes nothing"');
+  if (!/It creates, changes and audits nothing, it is safe to retry, and it answers `200`, never `201`/.test(op))
+    problems.push('may create, change or audit, or answer 201');
+  if (!/\*\*the URL never carries a phone number or an email address\*\*/.test(op))
+    problems.push('no URL rule');
+  if (/\b(creates|records|stores|saves) (a|the) (search|lookup|history)/i.test(op))
+    problems.push('the lookup stores something');
   return problems;
 }
 
@@ -842,18 +946,29 @@ function realisticNames(value: unknown, key = ''): string[] {
   return [];
 }
 
+const SEARCH_STEPS = [
+  'authentication (`401`) and the scope-header `400` first',
+  'then `q` present and no identifier in the URL (`query_required`, `identifier_in_url`)',
+  "then each parameter's own shape",
+  'then the folded length (`query_too_short`)',
+];
+const LOOKUP_STEPS = [
+  'authentication (`401`) and the scope-header `400` first',
+  'then the body as a closed JSON object (`unknown_property`)',
+  'then the one-identifier rule (`one_term_required`)',
+  "then each property's own shape",
+];
+
 /** The order rule (R15) as prose; empty when it is all there. */
-function errorOrderProblems(opText: string): string[] {
+function errorOrderProblems(opText: string, steps: string[]): string[] {
   const op = prose(opText);
   const problems: string[] = [];
-  if (!/Every `400` is decided from the request alone, before any record is read, so no `400` depends on what exists/.test(op))
+  if (
+    !/Every `400` is decided from the request alone, before any record is read, so no `400` depends on what exists/.test(
+      op,
+    )
+  )
     problems.push('a 400 may depend on what exists');
-  const steps = [
-    'authentication (`401`) and the scope-header `400` first',
-    'then the one-term rule (`one_term_required`)',
-    "then each parameter's own shape",
-    'then the folded length (`query_too_short`)',
-  ];
   let from = op.indexOf('**Order:**');
   if (from === -1) problems.push('no **Order:**');
   for (const step of steps) {
@@ -861,9 +976,18 @@ function errorOrderProblems(opText: string): string[] {
     if (found === -1) problems.push(`step missing or out of order: ${step}`);
     else from = found;
   }
-  if (!/A read, so there is never a `403`, and it names no record, so there is never a `404`/.test(op))
+  if (
+    !/A read, so there is never a `403`, and it names no record, so there is never a `404`/.test(op)
+  )
     problems.push('403 or 404 not excluded');
   return problems;
+}
+
+/** R21: parameters on an operation that could carry a phone or an email in the URL. */
+function identifierParams(op: Operation): string[] {
+  return op.params
+    .filter((parameter) => IDENTIFIER_PARAM.test(str(parameter.name)))
+    .map((parameter) => `${op.id}: ${str(parameter.in)} ${str(parameter.name)}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -871,17 +995,53 @@ function errorOrderProblems(opText: string): string[] {
 // ---------------------------------------------------------------------------
 
 describe('acceptance: records contract, global search (T-0085)', () => {
-  describe('the operation (R1, R20)', () => {
+  describe('the operations (R1, R20)', () => {
     it('searchRecords is GET /api/v1/search, tag search, naming exactly the P27 frames it serves', () => {
-      const op = gate();
+      const op = search();
       expect(op.method).toBe('get');
       expect(op.path).toBe(SEARCH_PATH);
       expect(op.op.tags).toEqual(['search']);
       const screens = Array.isArray(op.op['x-kasuwa-screens'])
         ? op.op['x-kasuwa-screens'].map(str)
         : [];
-      expect([...screens].sort()).toEqual([...SCREENS].sort());
+      expect([...screens].sort()).toEqual([...(SCREENS[SEARCH] ?? [])].sort());
       expect(typeof op.op['x-kasuwa-implemented']).toBe('boolean');
+      expect(op.op.requestBody, 'a GET takes no body').toBeUndefined();
+    });
+
+    it('lookupRecords is POST /api/v1/search/lookup, tag search, naming P27/A2 and D1', () => {
+      const op = lookup();
+      expect(op.method).toBe('post');
+      expect(op.path).toBe(LOOKUP_PATH);
+      expect(op.op.tags).toEqual(['search']);
+      const screens = Array.isArray(op.op['x-kasuwa-screens'])
+        ? op.op['x-kasuwa-screens'].map(str)
+        : [];
+      expect([...screens].sort()).toEqual([...(SCREENS[LOOKUP] ?? [])].sort());
+      expect(typeof op.op['x-kasuwa-implemented']).toBe('boolean');
+    });
+
+    it('lookupRecords writes nothing: a POST for privacy, 200 never 201, not audited, no permission (R5)', () => {
+      const op = lookup();
+      expect(readOnlyPostProblems(str(op.op.description))).toEqual([]);
+      expect(op.op['x-kasuwa-audited'], 'audited').not.toBe(true);
+      expect(op.op['x-kasuwa-permission'], 'a write permission').toBeUndefined();
+      expect([...responses(op).keys()].filter((status) => /^2/.test(status))).toEqual(['200']);
+    });
+
+    it('(self-check, R5) a lookup that writes, audits or answers 201 is caught', () => {
+      const real = description(lookup());
+      expect(readOnlyPostProblems(real)).toEqual([]);
+      const planted: [string, string][] = [
+        ['a mutation', real.replace('**A POST used for privacy, not a mutation: it writes nothing.**', '**A POST.**')],
+        ['audited', real.replace('It creates, changes and audits nothing', 'It audits each lookup')],
+        ['a 201', real.replace('answers `200`, never `201`', 'answers `201`')],
+        ['stores history', `${real} It records a search history entry.`.replace('records a search history', 'records the search history')],
+      ];
+      for (const [label, text] of planted) {
+        expect(text, `${label}: the plant changed nothing`).not.toBe(real);
+        expect(readOnlyPostProblems(text).length, `${label} passed`).toBeGreaterThan(0);
+      }
     });
 
     it('the search tag is declared, and nothing else searches under another path or id', () => {
@@ -889,52 +1049,108 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       const tags = (Array.isArray(spec().tags) ? spec().tags : []) as unknown[];
       expect(tags.filter(isMapping).map((tag) => str(tag.name))).toContain('search');
       const others = operations()
-        .filter((op) => op.id !== OP_ID)
-        .filter((op) => /search/i.test(op.id) || /\/search(\/|$)/.test(op.path))
+        .filter((op) => !OP_IDS.includes(op.id))
+        .filter(
+          (op) =>
+            /search|lookup/i.test(op.id) ||
+            /\/search(\/|$)/.test(op.path) ||
+            /\/lookup(\/|$)/.test(op.path),
+        )
         .map((op) => `${op.method.toUpperCase()} ${op.path} (${op.id})`);
       expect(others).toEqual([]);
-      expect(operations().filter((op) => op.path === SEARCH_PATH).length, 'one method only').toBe(
-        1,
+      expect(operations().filter((op) => op.path === SEARCH_PATH).length, 'one method').toBe(1);
+      expect(operations().filter((op) => op.path === LOOKUP_PATH).length, 'one method').toBe(1);
+    });
+
+    it('the flag: searchRecords is x-kasuwa-implemented: true once T-0086 serves it (FAILS ON THIS BRANCH BY DESIGN)', () => {
+      expect(search().op['x-kasuwa-implemented'], 'set to true by T-0086 with the route').toBe(
+        true,
       );
     });
 
-    it('the flag: x-kasuwa-implemented is true once T-0086 serves search (FAILS ON THIS BRANCH BY DESIGN)', () => {
-      expect(gate().op['x-kasuwa-implemented'], 'set to true by T-0086 with the route').toBe(true);
+    it('the flag: lookupRecords is x-kasuwa-implemented: true once T-0086 serves it (FAILS ON THIS BRANCH BY DESIGN)', () => {
+      expect(lookup().op['x-kasuwa-implemented'], 'set to true by T-0086 with the route').toBe(
+        true,
+      );
     });
   });
 
-  describe('parameters and scope (R2, R4, R5, R11, R17)', () => {
-    it('takes exactly q, phone, email and types, all optional query parameters', () => {
-      const op = gate();
-      expect(op.params.map((parameter) => str(parameter.name)).sort()).toEqual(PARAMS);
-      for (const parameter of op.params) {
-        expect(parameter.in, str(parameter.name)).toBe('query');
-        expect(parameter.required, `${str(parameter.name)} is optional`).not.toBe(true);
+  describe('the URL never carries a phone number or an email address (R21)', () => {
+    it('neither search operation has a parameter for one; lookupRecords has no parameter at all', () => {
+      const offending = gate().flatMap(identifierParams);
+      expect(offending).toEqual([]);
+      expect(lookup().params.map((parameter) => str(parameter.name))).toEqual([]);
+    });
+
+    it('no parameter anywhere in the file is named for a phone or an email', () => {
+      gate(); // Not vacuous: the file has dozens of parameters, counted below.
+      const all = operations();
+      expect(all.flatMap(identifierParams)).toEqual([]);
+      expect(all.reduce((sum, op) => sum + op.params.length, 0)).toBeGreaterThan(40);
+    });
+
+    it('(self-check, R21) a phone or email parameter planted on either operation is caught', () => {
+      for (const op of gate()) {
+        expect(identifierParams(op)).toEqual([]);
+        for (const name of ['phone', 'email', 'msisdn', 'phoneE164']) {
+          const planted: Operation = { ...op, params: [...op.params, { name, in: 'query' }] };
+          expect(identifierParams(planted).length, `${op.id} ${name}`).toBe(1);
+        }
       }
     });
 
-    it('no paging, sorting, limit, programme, tenant, scope, owner or date parameter; no header, cookie or auth opt-out (rule 1, R11)', () => {
-      const op = gate();
-      const offending = op.params
-        .map((parameter) => str(parameter.name))
-        .filter((name) =>
-          /cursor|limit|offset|page|sort|programme|tenant|scope|business|owner|date|from|to$/i.test(
-            name,
-          ),
-        );
-      expect(offending).toEqual([]);
-      expect(op.params.filter((p) => p.in === 'header' || p.in === 'cookie')).toEqual([]);
-      expect(op.op.security, 'overrides security').toBeUndefined();
+    it('searchRecords refuses a phone or email query parameter loudly, identifier_in_url, never ignoring it', () => {
+      const text = description(search());
+      expect(text).toMatch(
+        /\*\*The URL never carries a phone number or an email address\.\*\* Whole identifiers in a query string reach proxy and access logs \(CLAUDE\.md 6\.1, D-L80\), so exact lookups are lookupRecords, a POST with a JSON body/,
+      );
+      expect(text).toMatch(
+        /A `phone` or `email` query parameter here is not ignored: it is `400 validation_failed` with `details\[\]\.code: identifier_in_url` at that parameter/,
+      );
+      expect(description(lookup())).toMatch(/searchRecords refuses them in its query string/);
+    });
+  });
+
+  describe('parameters, body and scope (R2, R4, R5, R11, R17)', () => {
+    it('searchRecords takes exactly q (required) and types (optional), both query parameters', () => {
+      const op = search();
+      expect(op.params.map((parameter) => str(parameter.name)).sort()).toEqual(SEARCH_PARAMS);
+      for (const parameter of op.params) expect(parameter.in, str(parameter.name)).toBe('query');
+      expect(param(op, 'q')?.required, 'q is required').toBe(true);
+      expect(param(op, 'types')?.required, 'types is optional').not.toBe(true);
     });
 
-    it('exactly one term: none or more than one is 400 one_term_required at q (R2)', () => {
-      expect(description()).toMatch(
-        /\*\*Exactly one search term\.\*\* A request carries exactly one of `q`, `phone` or `email`\. None, or more than one, is `400 validation_failed` with `details\[\]\.code: one_term_required` at `q`/,
+    it('no paging, sorting, limit, programme, tenant, scope, owner or date parameter; no header, cookie or auth opt-out (rule 1, R11)', () => {
+      const offending: string[] = [];
+      for (const op of gate()) {
+        offending.push(
+          ...op.params
+            .map((parameter) => str(parameter.name))
+            .filter((name) =>
+              /cursor|limit|offset|page|sort|programme|tenant|scope|business|owner|date|from|to$/i.test(
+                name,
+              ),
+            )
+            .map((name) => `${op.id}: ${name}`),
+        );
+        offending.push(
+          ...op.params
+            .filter((p) => p.in === 'header' || p.in === 'cookie')
+            .map((p) => `${op.id}: ${str(p.in)}`),
+        );
+        if (op.op.security !== undefined) offending.push(`${op.id}: overrides security`);
+      }
+      expect(offending).toEqual([]);
+    });
+
+    it('searchRecords: q is required, 400 query_required without it (R2)', () => {
+      expect(description(search())).toMatch(
+        /\*\*`q` is required\.\*\* A request without `q` is `400 validation_failed` with `details\[\]\.code: query_required` at `q`/,
       );
     });
 
     it('q is 2..100 as sent, at least 2 once folded, and refuses a control character (R4)', () => {
-      const schema = paramSchema('q');
+      const schema = paramSchema(search(), 'q');
       const node = schema.node;
       expect(isMapping(node) ? [node.type, node.minLength, node.maxLength] : []).toEqual([
         'string',
@@ -944,56 +1160,135 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       expect(validate(schema, 'sa', 'q')).toEqual([]);
       expect(validate(schema, 's', 'q').length, 'one character accepted').toBeGreaterThan(0);
       expect(validate(schema, 'x'.repeat(101), 'q').length, '101 accepted').toBeGreaterThan(0);
-      expect(description()).toMatch(
+      expect(description(search())).toMatch(
         /\*\*The folded query must be at least 2 characters\*\*, else `400 validation_failed` with `details\[\]\.code: query_too_short` at `q`/,
       );
-      expect(prose(str(param('q')?.description))).toMatch(
+      expect(prose(str(param(search(), 'q')?.description))).toMatch(
         /A NUL or other control character is `400 validation_failed` with `details\[\]\.code: invalid_string`/,
       );
     });
 
+    it('lookupRecords takes a required, closed LookupRequest: phone, email and types, nothing else', () => {
+      const body = requestBody(lookup());
+      expect(isMapping(body?.node) ? body.node.required : undefined, 'body required').toBe(true);
+      const schema = jsonSchema(body);
+      expect(schema?.node).toBe(schemaNamed('LookupRequest').node);
+      const request = schemaNamed('LookupRequest');
+      expect(isClosed(request)).toBe(true);
+      expect(keysOf(request)).toEqual(['email', 'phone', 'types']);
+    });
+
+    it('LookupRequest holds exactly one of phone or email; none, both or anything else is refused (R2)', () => {
+      const request = schemaNamed('LookupRequest');
+      for (const good of [
+        { phone: '0803 123 4567' },
+        { email: 'sample@example.test' },
+        { phone: '+2348031234567', types: ['contact', 'lead'] },
+      ]) {
+        expect(validate(request, good, 'body'), JSON.stringify(good)).toEqual([]);
+      }
+      for (const [label, bad] of [
+        ['empty', {}],
+        ['both', { phone: '+2348031234567', email: 'sample@example.test' }],
+        ['types only', { types: ['contact'] }],
+        ['a q', { q: 'sam' }],
+        ['a q beside a phone', { phone: '+2348031234567', q: 'sam' }],
+        ['a ticket type', { phone: '+2348031234567', types: ['ticket'] }],
+        ['a null phone', { phone: null }],
+      ] as const) {
+        expect(validate(request, bad, 'body').length, `accepted ${label}`).toBeGreaterThan(0);
+      }
+      const text = description(lookup());
+      expect(text).toMatch(
+        /The closed JSON body carries exactly one of `phone` or `email`, plus optional `types`\. None, or both, is `400 validation_failed` with `details\[\]\.code: one_term_required` at `phone`\. Any other property is `400 validation_failed` with `details\[\]\.code: unknown_property` at that property/,
+      );
+    });
+
     it('phone is one whole number in common formats, bounded; email a bounded address (R5)', () => {
-      const phone = paramSchema('phone');
-      for (const good of ['0803 123 4567', '+234 803 123 4567', '2348031234567', '(0803) 123-4567']) {
+      const phone = bodyProperty('phone');
+      for (const good of [
+        '0803 123 4567',
+        '+234 803 123 4567',
+        '2348031234567',
+        '(0803) 123-4567',
+      ]) {
         expect(validate(phone, good, 'phone'), good).toEqual([]);
       }
-      for (const bad of ['sample', '0803%', '080*1234', '080', '+', '0'.repeat(33), '0803\u0000123']) {
+      for (const bad of [
+        'sample',
+        '0803%',
+        '080*1234',
+        '080',
+        '+',
+        '0'.repeat(33),
+        '0803\u0000123',
+      ]) {
         expect(validate(phone, bad, 'phone').length, `phone accepted ${bad}`).toBeGreaterThan(0);
       }
-      const email = paramSchema('email');
+      const email = bodyProperty('email');
       const node = email.node;
-      expect(isMapping(node) ? [node.type, node.format, node.minLength, node.maxLength] : []).toEqual(
-        ['string', 'email', 3, 254],
-      );
+      expect(
+        isMapping(node) ? [node.type, node.format, node.minLength, node.maxLength] : [],
+      ).toEqual(['string', 'email', 3, 254]);
       expect(validate(email, 'sample@example.test', 'email')).toEqual([]);
       expect(validate(email, 'sample', 'email').length).toBeGreaterThan(0);
     });
 
-    it('exact lookups compare whole values, never a prefix or substring, on contacts and leads only (R5)', () => {
+    it('lookups compare whole values, never a prefix or substring, on contacts and leads only (R5)', () => {
       const problems = exactLookupProblems(
-        description(),
-        str(param('phone')?.description),
-        str(param('email')?.description),
+        description(lookup()),
+        propertyDescription(bodyProperty('phone')),
+        propertyDescription(bodyProperty('email')),
       );
       expect(problems).toEqual([]);
-      expect(gate().op['x-kasuwa-exact-fields']).toEqual(EXACT_FIELDS);
+      expect(lookup().op['x-kasuwa-exact-fields']).toEqual(EXACT_FIELDS);
+      expect(search().op['x-kasuwa-exact-fields'], 'the GET matches no identifier').toBeUndefined();
       const contact = properties(schemaNamed('Contact'));
       for (const field of ['phones', 'emails']) expect(contact.has(field), field).toBe(true);
     });
 
-    it('(self-check, R5) an exact lookup that turns into a prefix or substring match is caught', () => {
-      const real = [
-        description(),
-        str(param('phone')?.description),
-        str(param('email')?.description),
-      ] as const;
+    it('(self-check, R5) a lookup that turns into a prefix or substring match is caught', () => {
+      const real: [string, string, string] = [
+        description(lookup()),
+        propertyDescription(bodyProperty('phone')),
+        propertyDescription(bodyProperty('email')),
+      ];
       expect(exactLookupProblems(...real), 'the real prose').toEqual([]);
       const planted: [string, [string, string, string]][] = [
-        ['a prefix', [real[0].replace('**never a prefix or substring of a number.**', 'a prefix of the number also matches.'), real[1], real[2]]],
-        ['equality dropped', [real[0].replace('compared for equality with each stored E.164 number', 'matched against each stored number'), real[1], real[2]]],
-        ['a partial number allowed', [real[0].replace('a partial number included, ', ''), real[1], real[2]]],
-        ['email substring', [real[0], real[1], real[2].replace('Never a prefix or a substring.', 'Or any part of one.')]],
-        ['accounts searched', [real[0].replace('Both search contacts and leads only', 'Both search every type'), real[1], real[2]]],
+        [
+          'a prefix',
+          [
+            real[0].replace(
+              '**never a prefix or substring of a number.**',
+              'a prefix of the number also matches.',
+            ),
+            real[1],
+            real[2],
+          ],
+        ],
+        [
+          'equality dropped',
+          [
+            real[0].replace(
+              'compared for equality with each stored E.164 number',
+              'matched against each stored number',
+            ),
+            real[1],
+            real[2],
+          ],
+        ],
+        [
+          'a partial number allowed',
+          [real[0].replace('a partial number included, ', ''), real[1], real[2]],
+        ],
+        [
+          'email substring',
+          [real[0], real[1], real[2].replace('Never a prefix or a substring.', 'Or any part of one.')],
+        ],
+        [
+          'accounts searched',
+          [real[0].replace('Contacts and leads only', 'Every type'), real[1], real[2]],
+        ],
       ];
       for (const [label, texts] of planted) {
         expect(texts.join('|'), `${label}: the plant changed nothing`).not.toBe(real.join('|'));
@@ -1001,20 +1296,34 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       }
     });
 
-    it('types is 1..4 unique SearchType values: contact, lead, account, deal; unknown is unknown_type; additive (R17)', () => {
-      const parameter = param('types');
+    it('types is 1..4 unique SearchType values: contact, lead, account, deal; unknown is unknown_type; additive; the same in the body (R17)', () => {
+      const parameter = param(search(), 'types');
       expect([parameter?.style, parameter?.explode]).toEqual(['form', true]);
-      const schema = paramSchema('types');
-      expect(enumOf(schema).map(str)).toEqual(TYPE_ORDER);
-      expect(validate(schema, TYPE_ORDER, 'types')).toEqual([]);
-      for (const [label, bad] of [
-        ['empty', []],
-        ['a ticket', ['ticket']],
-        ['a repeat', ['contact', 'contact']],
-        ['five', [...TYPE_ORDER, 'contact']],
-        ['a plural', ['contacts']],
+      const query = paramSchema(search(), 'types');
+      const body = bodyProperty('types');
+      for (const [where, schema] of [
+        ['query', query],
+        ['body', body],
       ] as const) {
-        expect(validate(schema, bad, 'types').length, `types accepted ${label}`).toBeGreaterThan(0);
+        expect(enumOf(schema).map(str), where).toEqual(TYPE_ORDER);
+        expect(validate(schema, TYPE_ORDER, 'types'), where).toEqual([]);
+        for (const [label, bad] of [
+          ['empty', []],
+          ['a ticket', ['ticket']],
+          ['a repeat', ['contact', 'contact']],
+          ['five', [...TYPE_ORDER, 'contact']],
+          ['a plural', ['contacts']],
+        ] as const) {
+          expect(
+            validate(schema, bad, 'types').length,
+            `${where} types accepted ${label}`,
+          ).toBeGreaterThan(0);
+        }
+        const node = schema.node;
+        expect(
+          isMapping(node) ? [node.minItems, node.maxItems, node.uniqueItems] : [],
+          where,
+        ).toEqual([1, 4, true]);
       }
       const text = prose(str(parameter?.description));
       expect(text).toMatch(/`unknown_type` for an unknown one/);
@@ -1024,19 +1333,26 @@ describe('acceptance: records contract, global search (T-0085)', () => {
     });
 
     it('scope is the session’s: no parameter widens or narrows it, and nothing outside it is counted, shown or hinted (R11)', () => {
-      const text = description();
+      const text = description(search());
       expect(text).toMatch(/\*\*Scope is the session's \(rule 1\)\.\*\*/);
       expect(text).toMatch(/There is no programme, tenant or scope parameter/);
-      expect(text).toMatch(/unknown query parameters are ignored, never honoured, and a scope header is `400 validation_failed`/);
-      expect(text).toMatch(/\*\*Nothing outside that scope is counted, shown or hinted\*\* \(D-L87, CLAUDE\.md 6\.4\)/);
+      expect(text).toMatch(
+        /unknown query parameters are ignored, never honoured, and a scope header is `400 validation_failed`/,
+      );
+      expect(text).toMatch(
+        /\*\*Nothing outside that scope is counted, shown or hinted\*\* \(D-L87, CLAUDE\.md 6\.4\)/,
+      );
       expect(text).toMatch(/P27\/B's "3 in programmes you are not on" is not served/);
       expect(text).toMatch(/a record in another programme or tenant changes nothing in any answer/);
+      expect(description(lookup())).toMatch(
+        /scope from the session only, nothing out of scope counted, shown or hinted/,
+      );
     });
   });
 
   describe('matching: prefix on folded text (R3, R6)', () => {
     it('the prose states the folding, whole-field prefix, literal wildcards and no phone or email in q', () => {
-      const text = description();
+      const text = description(search());
       for (const phrase of [
         /`q` matches a field when the field's folded value STARTS WITH the folded query/,
         /Unicode NFD, every combining mark removed, lower-cased by the locale-independent Unicode default mapping, leading and trailing whitespace trimmed, and each run of inner whitespace made one space/,
@@ -1051,7 +1367,7 @@ describe('acceptance: records contract, global search (T-0085)', () => {
     });
 
     it('trigram and word matching are named as a later, additive change: every prefix hit stays a hit (ADR-0015, D-L128)', () => {
-      expect(description()).toMatch(
+      expect(description(search())).toMatch(
         /Trigram similarity and word matching are a later, additive change \(ADR-0015, once the LEAKPROOF marks are applied\): they may add hits, and every prefix hit stays a hit/,
       );
     });
@@ -1071,8 +1387,8 @@ describe('acceptance: records contract, global search (T-0085)', () => {
     });
 
     it('x-kasuwa-search-fields names exactly each type’s fields, and each is a property of that type’s record (R6)', () => {
-      const fields = gate().op['x-kasuwa-search-fields'];
-      expect(fields).toEqual(SEARCH_FIELDS);
+      expect(search().op['x-kasuwa-search-fields']).toEqual(SEARCH_FIELDS);
+      expect(lookup().op['x-kasuwa-search-fields'], 'the lookup matches no name').toBeUndefined();
       const problems: string[] = [];
       for (const [type, names] of Object.entries(SEARCH_FIELDS)) {
         const record = properties(schemaNamed(RECORD_SCHEMA[type] ?? ''));
@@ -1085,15 +1401,19 @@ describe('acceptance: records contract, global search (T-0085)', () => {
 
     it('the account and deal search fields are fields field security never withholds (R6)', () => {
       gate();
-      expect(schemaDescription('Account')).toMatch(/`id`, `programmeId`, `name`, `version`, `createdAt`, `updatedAt` and `withheldFields` are never withheld/);
-      expect(schemaDescription('Deal')).toMatch(/`id`, `programmeId`, `pipelineId`, `stageId`, `version`, `name`,/);
+      expect(schemaDescription('Account')).toMatch(
+        /`id`, `programmeId`, `name`, `version`, `createdAt`, `updatedAt` and `withheldFields` are never withheld/,
+      );
+      expect(schemaDescription('Deal')).toMatch(
+        /`id`, `programmeId`, `pipelineId`, `stageId`, `version`, `name`,/,
+      );
       const withholdable = enumOf(schemaNamed('DealWithheldField')).map(str);
       expect(withholdable).not.toContain('name');
       expect(withholdable).not.toContain('pipelineId');
     });
 
     it('every hit of the prefix example matches q=sam on a field its type searches and the caller reads', () => {
-      const answer = okExample('prefix');
+      const answer = okExample(search(), 'prefix');
       const problems: string[] = [];
       let checked = 0;
       for (const [type, hit] of hitsOf(answer)) {
@@ -1109,9 +1429,13 @@ describe('acceptance: records contract, global search (T-0085)', () => {
     });
 
     it('the prefix example shows a match on an accented name and one on a company name', () => {
-      const hits = hitsOf(okExample('prefix'));
+      const hits = hitsOf(okExample(search(), 'prefix'));
       expect(
-        hits.some(([, hit]) => str(hit.displayName) !== fold(str(hit.displayName)) && prefixMatches(hit.displayName, 'sam')),
+        hits.some(
+          ([, hit]) =>
+            str(hit.displayName) !== fold(str(hit.displayName)) &&
+            prefixMatches(hit.displayName, 'sam'),
+        ),
         'no hit whose match needs folding',
       ).toBe(true);
       expect(
@@ -1127,26 +1451,39 @@ describe('acceptance: records contract, global search (T-0085)', () => {
 
   describe('field security (R7, R8, R10)', () => {
     it('a withheld field is never compared, never chooses or orders hits, is omitted and listed; never 400 field_withheld (R7)', () => {
-      const text = description();
+      const text = description(search());
       for (const phrase of [
         /\*\*Field security: a hit never matches on, or returns, a withheld field\.\*\*/,
         /Each field is judged in the hit's OWN programme, against the permission set the caller holds there, row by row/,
         /the tenant-admin flag never lifts it \(D-L63\)/,
-        /A field withheld there is never compared with the query \(prefix or exact\), never decides which hits are chosen or their order, and is omitted from the hit and named in its `withheldFields`/,
-        /An exact lookup on a number or address withheld in a record's programme does not find that record: the answer is the same as for a number nobody has/,
+        /A field withheld there is never compared with the query, never decides which hits are chosen or their order, and is omitted from the hit and named in its `withheldFields`/,
         /Field security never makes this read answer `400 field_withheld`: a withheld field simply does not match/,
       ]) {
         expect(text).toMatch(phrase);
       }
-      const details = exampleBodies(responses(gate()).get('400')).flatMap((body) =>
-        list(body.details).map((detail) => str(detail.code)),
+      const details = gate().flatMap((op) =>
+        exampleBodies(responses(op).get('400')).flatMap((body) =>
+          list(body.details).map((detail) => str(detail.code)),
+        ),
       );
       expect(details).not.toContain('field_withheld');
     });
 
+    it('lookupRecords shares field security: a withheld number or address is never compared, the D-L68 rule holds (R7)', () => {
+      const text = description(lookup());
+      expect(text).toMatch(
+        /field security per hit's own programme with the D-L68 `displayName` rule/,
+      );
+      expect(text).toMatch(
+        /\*\*A number or address withheld in a record's programme is never compared:\*\* the lookup does not find that record, and the answer is the same as for a number nobody has/,
+      );
+      expect(text).toMatch(/Field security never answers `400 field_withheld`/);
+      expect(text).toMatch(/a hit never carries the phone or address that found it/);
+    });
+
     it('displayName follows its name parts: withheld, never composed, when either part is withheld (R8, D-L68)', () => {
       expect(
-        displayNameRuleProblems(str(gate().op.description), schemaDescription('ContactSearchHit')),
+        displayNameRuleProblems(str(search().op.description), schemaDescription('ContactSearchHit')),
       ).toEqual([]);
       expect(schemaDescription('LeadSearchHit')).toMatch(
         /`displayName` follows its name parts exactly as on ContactSearchHit \(D-L68\)/,
@@ -1154,32 +1491,52 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       expect(schemaDescription('SearchNameWithheldField')).toMatch(
         /`displayName` is listed whenever `givenNames` or `familyName` is \(D-L68\)/,
       );
-      expect(description()).toMatch(
+      expect(description(search())).toMatch(
         /getContact, listContacts and listLeads are not changed by this operation \(their alignment is the D-L68 follow-up\)/,
       );
     });
 
     it('(self-check, R8) a looser displayName rule is caught', () => {
-      const op = str(gate().op.description);
+      const op = str(search().op.description);
       const hit = schemaDescription('ContactSearchHit');
       expect(displayNameRuleProblems(op, hit), 'the real prose').toEqual([]);
       const planted: [string, string, string][] = [
         ['either instead of both', op.replace(/exactly when\s+both/, 'exactly when either'), hit],
-        ['composition allowed', op.replace(/It is never composed\s+from the readable part, and never replaced by one/, 'It is composed from the readable part'), hit],
-        ['null exempt', op.replace(/The rule holds even when the withheld\s+part is `null` on that record/, 'A null part does not count'), hit],
+        [
+          'composition allowed',
+          op.replace(
+            /It is never composed\s+from the readable part, and never replaced by one/,
+            'It is composed from the readable part',
+          ),
+          hit,
+        ],
+        [
+          'null exempt',
+          op.replace(
+            /The rule holds even when the withheld\s+part is `null` on that record/,
+            'A null part does not count',
+          ),
+          hit,
+        ],
         ['still matched', op.replace(/it is not matched,\s+it is omitted/, 'it is omitted'), hit],
-        ['hit composes', op, hit.replace('withheld, never composed, when either is not', 'composed per caller')],
+        [
+          'hit composes',
+          op,
+          hit.replace('withheld, never composed, when either is not', 'composed per caller'),
+        ],
       ];
       for (const [label, opText, hitText] of planted) {
         expect(opText + hitText, `${label}: the plant changed nothing`).not.toBe(op + hit);
-        expect(displayNameRuleProblems(opText, hitText).length, `${label} passed`).toBeGreaterThan(0);
+        expect(displayNameRuleProblems(opText, hitText).length, `${label} passed`).toBeGreaterThan(
+          0,
+        );
       }
     });
 
-    it('every contact and lead hit in every example obeys the displayName rule and omits, never nulls (R7, R8)', () => {
+    it('every contact and lead hit in every example of both operations obeys the displayName rule and omits, never nulls (R7, R8)', () => {
       const problems: string[] = [];
       let checked = 0;
-      for (const [label, answer] of okExamples()) {
+      for (const [label, answer] of allOkExamples()) {
         for (const [type, hit] of hitsOf(answer)) {
           if (type !== 'contact' && type !== 'lead') continue;
           checked += 1;
@@ -1193,7 +1550,7 @@ describe('acceptance: records contract, global search (T-0085)', () => {
     });
 
     it('the withheldNamePart example shows the rule: familyName withheld, so displayName withheld, matched on givenNames', () => {
-      const [hit] = hitsOf(okExample('withheldNamePart'));
+      const [hit] = hitsOf(okExample(search(), 'withheldNamePart'));
       expect(hit, 'no hit').toBeDefined();
       if (!hit) return;
       const [type, row] = hit;
@@ -1205,7 +1562,7 @@ describe('acceptance: records contract, global search (T-0085)', () => {
     });
 
     it('(self-check, R7/R8) the example checkers catch a composed name, a nulled field and a lone withheld displayName', () => {
-      const [entry] = hitsOf(okExample('withheldNamePart'));
+      const [entry] = hitsOf(okExample(search(), 'withheldNamePart'));
       if (!entry) throw new Error('withheldNamePart has no hit');
       const [, row] = entry;
       expect(displayNameExampleProblems('real', row)).toEqual([]);
@@ -1230,11 +1587,13 @@ describe('acceptance: records contract, global search (T-0085)', () => {
     });
 
     it('the lead group follows listLeads: empty when status is withheld anywhere the caller reaches (R10)', () => {
-      const text = description();
+      const text = description(search());
       expect(text).toMatch(
         /The lead group follows listLeads: a hit says the contact's `status` is a lead status, so when field security withholds `status` from the caller in any programme they reach, the lead group is answered empty, whatever matched/,
       );
-      expect(text).toMatch(/A contact who is a lead may appear in both the contact group and the lead group; both carry the contact id/);
+      expect(text).toMatch(
+        /A contact who is a lead may appear in both the contact group and the lead group; both carry the contact id/,
+      );
       const status = properties(schemaNamed('LeadSearchHit')).get('status');
       expect(status ? enumOf(status).map(str) : []).toEqual(LEAD_STATUSES);
       const listLeads = operation('listLeads').params.find((p) => p.name === 'status');
@@ -1245,12 +1604,19 @@ describe('acceptance: records contract, global search (T-0085)', () => {
   });
 
   describe('readers per type (R9)', () => {
-    it('x-kasuwa-rights: every set reads contacts, leads and accounts; deals the staff sets only', () => {
-      expect(rightsProblems(gate().op['x-kasuwa-rights'])).toEqual([]);
+    for (const id of OP_IDS) {
+      it(`${id}: x-kasuwa-rights: every set reads contacts, leads and accounts; deals the staff sets only`, () => {
+        expect(rightsProblems(operation(id).op['x-kasuwa-rights'])).toEqual([]);
+      });
+    }
+
+    it('the two operations carry identical rights', () => {
+      expect(lookup().op['x-kasuwa-rights']).toEqual(search().op['x-kasuwa-rights']);
     });
 
     it('(self-check, R9) rights that let the portal read deals, or drop a type, are caught', () => {
-      const real = gate().op['x-kasuwa-rights'];
+      gate();
+      const real = search().op['x-kasuwa-rights'];
       expect(rightsProblems(real)).toEqual([]);
       const base = isMapping(real) ? real : {};
       const portal = isMapping(base.client_portal) ? base.client_portal : {};
@@ -1268,7 +1634,7 @@ describe('acceptance: records contract, global search (T-0085)', () => {
     });
 
     it('the prose: each group read as the type is read; deals per D-L127, never the portal or a custom set; no error for an unread type', () => {
-      const text = description();
+      const text = description(search());
       for (const phrase of [
         /Each group is read by exactly the callers who read that type through its own read, in each programme the session resolves/,
         /contacts, leads and accounts by every set, the `client_portal` set included/,
@@ -1277,19 +1643,24 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       ]) {
         expect(text).toMatch(phrase);
       }
+      expect(description(lookup())).toMatch(
+        /\*\*Shared with searchRecords, unchanged:\*\* who reads what \(`x-kasuwa-rights`, D-L127, D-L115\)/,
+      );
     });
 
     it('the portal example answers its deal group empty', () => {
-      const groups = groupsOf(okExample('portal'));
+      const groups = groupsOf(okExample(search(), 'portal'));
       expect(groups.map((group) => str(group.type))).toEqual(['account', 'deal']);
       expect(list(groups.find((group) => group.type === 'deal')?.hits)).toEqual([]);
     });
   });
 
   describe('the answer: groups, at most three hits, no counts (R12, R13, R14)', () => {
-    it('SearchResults is closed: groups only, 1..4, each one of the four closed group schemas', () => {
-      const results = responseSchema('200');
-      expect(results.node).toBe(schemaNamed('SearchResults').node);
+    it('both operations answer the one SearchResults: closed, groups only, 1..4, each one of the four closed group schemas', () => {
+      for (const op of gate()) {
+        expect(responseSchema(op, '200').node, op.id).toBe(schemaNamed('SearchResults').node);
+      }
+      const results = schemaNamed('SearchResults');
       expect(isClosed(results)).toBe(true);
       expect(keysOf(results)).toEqual(['groups']);
       expect(required(results)).toEqual(['groups']);
@@ -1301,7 +1672,8 @@ describe('acceptance: records contract, global search (T-0085)', () => {
         4,
       ]);
       const items = groups ? child(groups, 'items') : undefined;
-      const variants = isMapping(items?.node) && Array.isArray(items.node.oneOf) ? items.node.oneOf : [];
+      const variants =
+        isMapping(items?.node) && Array.isArray(items.node.oneOf) ? items.node.oneOf : [];
       expect(variants.map((variant) => at(variant).node)).toEqual(
         TYPE_ORDER.map((type) => schemaNamed(GROUP_SCHEMA[type] ?? '').node),
       );
@@ -1333,7 +1705,8 @@ describe('acceptance: records contract, global search (T-0085)', () => {
         expect(kind ? enumOf(kind) : []).toEqual([type]);
         for (const key of ['id', 'programmeId', 'pipelineId']) {
           const value = props.get(key);
-          if (value) expect(isMapping(value.node) ? value.node.format : undefined, key).toBe('uuid');
+          if (value)
+            expect(isMapping(value.node) ? value.node.format : undefined, key).toBe('uuid');
         }
         expect(keysOf(hit).filter((key) => FORBIDDEN_HIT_KEY.test(key))).toEqual([]);
       });
@@ -1353,7 +1726,9 @@ describe('acceptance: records contract, global search (T-0085)', () => {
             continue;
           }
           if (JSON.stringify(types(value)) !== JSON.stringify(types(source)))
-            problems.push(`${type}.${key}: ${types(value).join('|')} vs ${types(source).join('|')}`);
+            problems.push(
+              `${type}.${key}: ${types(value).join('|')} vs ${types(source).join('|')}`,
+            );
           const max = (located: Located) =>
             isMapping(located.node) ? located.node.maxLength : undefined;
           if (max(value) !== max(source)) problems.push(`${type}.${key}: maxLength differs`);
@@ -1379,19 +1754,24 @@ describe('acceptance: records contract, global search (T-0085)', () => {
     });
 
     it('the deal hit name is classified pii (D-L91)', () => {
+      gate();
       const name = properties(schemaNamed('DealSearchHit')).get('name');
       expect(isMapping(name?.node) ? name.node['x-kasuwa-classification'] : undefined).toBe('pii');
     });
 
     it('no count, total, more flag, cursor or facet at any depth of the answer (R12, D-P13)', () => {
-      expect(countKeys(responseSchema('200'))).toEqual([]);
-      const text = description();
-      expect(text).toMatch(/\*\*No counts\*\* \(D-P13\): no total, no per-type or per-programme count, no "more" flag and no estimate/);
+      gate();
+      expect(countKeys(schemaNamed('SearchResults'))).toEqual([]);
+      expect(description(search())).toMatch(
+        /\*\*No counts\*\* \(D-P13\): no total, no per-type or per-programme count, no "more" flag and no estimate/,
+      );
+      expect(description(lookup())).toMatch(/At most three hits per group, no counts \(D-P13\)/);
       expect(schemaDescription('SearchResults')).toMatch(/\*\*No counts of any kind\*\* \(D-P13\)/);
     });
 
     it('(self-check, R12) a count planted at the top or in a group is caught', () => {
-      const results = responseSchema('200');
+      gate();
+      const results = schemaNamed('SearchResults');
       expect(countKeys(results), 'the real schema').toEqual([]);
       const node = isMapping(results.node) ? results.node : {};
       const props = isMapping(node.properties) ? node.properties : {};
@@ -1419,50 +1799,79 @@ describe('acceptance: records contract, global search (T-0085)', () => {
     });
 
     it('groups: one per requested type, fixed order, at most three, [] when none; the choice and order of hits pinned only as deterministic and blind to withheld fields (R13)', () => {
-      const text = description();
+      const text = description(search());
       for (const phrase of [
         /`groups` holds one group per requested type, always in the order contact, lead, account, deal, each with at most three hits, `\[\]` when none/,
         /A record appears at most once in a group/,
         /Which three hits, and their order, are not part of the contract, except that the same data and query give the same answer and that neither ever depends on a withheld field/,
-        /Contact and lead hits never carry a phone or an email, an exact lookup included/,
+        /Contact and lead hits never carry a phone or an email/,
       ]) {
         expect(text).toMatch(phrase);
       }
     });
 
-    it('every example: groups in the fixed order, each type once, hits typed as their group, no record twice in a group', () => {
+    it('every example of both: groups in the fixed order, each type once, hits typed as their group, no record twice in a group', () => {
       const problems: string[] = [];
-      for (const [label, answer] of okExamples()) {
+      for (const [label, answer] of allOkExamples()) {
         const order = groupsOf(answer).map((group) => str(group.type));
         const ranks = order.map((type) => TYPE_ORDER.indexOf(type));
-        if (ranks.some((rank) => rank < 0) || ranks.some((rank, i) => i > 0 && rank <= (ranks[i - 1] ?? -1)))
+        if (
+          ranks.some((rank) => rank < 0) ||
+          ranks.some((rank, i) => i > 0 && rank <= (ranks[i - 1] ?? -1))
+        )
           problems.push(`${label}: groups ${order.join(', ')}`);
         for (const group of groupsOf(answer)) {
           const ids = list(group.hits).map((hit) => str(hit.id));
-          if (new Set(ids).size !== ids.length) problems.push(`${label} ${str(group.type)}: a record twice`);
+          if (new Set(ids).size !== ids.length)
+            problems.push(`${label} ${str(group.type)}: a record twice`);
           for (const hit of list(group.hits)) {
-            if (hit.type !== group.type) problems.push(`${label}: a ${str(hit.type)} hit in ${str(group.type)}`);
+            if (hit.type !== group.type)
+              problems.push(`${label}: a ${str(hit.type)} hit in ${str(group.type)}`);
           }
         }
       }
       expect(problems).toEqual([]);
-      expect(okExamples().map(([label]) => label).sort()).toEqual([...EXAMPLE_LABELS].sort());
+      for (const op of gate()) {
+        expect(
+          okExamples(op)
+            .map(([label]) => label)
+            .sort(),
+          op.id,
+        ).toEqual([...(EXAMPLE_LABELS[op.id] ?? [])].sort());
+      }
     });
 
-    it('the phone example answers only contacts and leads; the account and deal groups are empty (R5)', () => {
-      const groups = groupsOf(okExample('phoneLookup'));
-      expect(groups.map((group) => str(group.type))).toEqual(TYPE_ORDER);
-      for (const type of ['account', 'deal']) {
-        expect(list(groups.find((group) => group.type === type)?.hits), type).toEqual([]);
+    it('every lookup example answers only contacts and leads; any requested account or deal group is empty (R5)', () => {
+      const problems: string[] = [];
+      let groupsChecked = 0;
+      for (const [label, answer] of okExamples(lookup())) {
+        for (const group of groupsOf(answer)) {
+          if (group.type !== 'account' && group.type !== 'deal') continue;
+          groupsChecked += 1;
+          if (list(group.hits).length > 0) problems.push(`${label}: ${str(group.type)} has hits`);
+        }
       }
-      expect(list(groups.find((group) => group.type === 'contact')?.hits).length).toBeGreaterThan(0);
+      expect(problems).toEqual([]);
+      expect(groupsChecked, 'no example requests an account or deal group').toBeGreaterThan(0);
+      const phone = groupsOf(okExample(lookup(), 'phoneLookup'));
+      expect(phone.map((group) => str(group.type))).toEqual(TYPE_ORDER);
+      expect(list(phone.find((group) => group.type === 'contact')?.hits).length).toBeGreaterThan(0);
+      expect(description(lookup())).toMatch(
+        /\*\*The answer is searchRecords' `SearchResults`\.\*\* Contacts and leads only/,
+      );
     });
 
     it('"see all" is the type’s own list with q, none for deals, and a list may show more (R18)', () => {
-      const text = description();
-      expect(text).toMatch(/\*\*"See all" is the type's own list read with `q`\*\* \(listContacts, listLeads, listAccounts\)/);
-      expect(text).toMatch(/deals have no cross-pipeline list, so a deal hit opens the deal and there is no "see all" for deals/);
-      expect(text).toMatch(/A list's `q` is a substring match and also matches numbers, so "see all" may show rows this read did not/);
+      const text = description(search());
+      expect(text).toMatch(
+        /\*\*"See all" is the type's own list read with `q`\*\* \(listContacts, listLeads, listAccounts\)/,
+      );
+      expect(text).toMatch(
+        /deals have no cross-pipeline list, so a deal hit opens the deal and there is no "see all" for deals/,
+      );
+      expect(text).toMatch(
+        /A list's `q` is a substring match and also matches numbers, so "see all" may show rows this read did not/,
+      );
       for (const id of ['listContacts', 'listLeads', 'listAccounts']) {
         expect(operation(id).params.map((p) => str(p.name)), id).toContain('q');
       }
@@ -1470,148 +1879,281 @@ describe('acceptance: records contract, global search (T-0085)', () => {
   });
 
   describe('errors and their order (R15)', () => {
-    it('documents exactly 200, 400 and 401, and decides one failure: 400 validation_failed', () => {
-      const op = gate();
-      expect([...responses(op).keys()].sort()).toEqual(['200', '400', '401']);
-      expect(op.op['x-kasuwa-error-order']).toEqual(['400 validation_failed']);
-    });
+    for (const id of OP_IDS) {
+      it(`${id}: documents exactly 200, 400 and 401, and decides one failure: 400 validation_failed`, () => {
+        const op = operation(id);
+        expect([...responses(op).keys()].sort()).toEqual(['200', '400', '401']);
+        expect(op.op['x-kasuwa-error-order']).toEqual(['400 validation_failed']);
+      });
+    }
 
     it('every 400 is decided from the request alone, in the stated order; never 403 or 404', () => {
-      expect(errorOrderProblems(str(gate().op.description))).toEqual([]);
-      const bad = responses(gate()).get('400')?.node;
-      expect(prose(isMapping(bad) ? str(bad.description) : '')).toMatch(
-        /Decided from the request alone, before any record is read: no `400` here depends on what exists/,
-      );
+      expect(errorOrderProblems(str(search().op.description), SEARCH_STEPS), SEARCH).toEqual([]);
+      expect(errorOrderProblems(str(lookup().op.description), LOOKUP_STEPS), LOOKUP).toEqual([]);
+      for (const [op, name] of [
+        [search(), 'SearchValidationFailed'],
+        [lookup(), 'LookupValidationFailed'],
+      ] as const) {
+        const bad = responses(op).get('400');
+        expect(bad?.node, op.id).toBe(at({ $ref: `#/components/responses/${name}` }).node);
+        expect(prose(isMapping(bad?.node) ? str(bad.node.description) : ''), op.id).toMatch(
+          /Decided from the request alone, before any record is read: no `400` here depends on what exists/,
+        );
+      }
     });
 
     it('(self-check, R15) a reordered or data-dependent error rule is caught', () => {
       // Collapsed first, so a plant is not defeated by where the YAML wraps a line.
-      const real = description();
-      expect(errorOrderProblems(real)).toEqual([]);
+      const real = description(search());
+      expect(errorOrderProblems(real, SEARCH_STEPS)).toEqual([]);
       const planted: [string, string][] = [
-        ['data-dependent', real.replace(/before any record is read, so no `400` depends on what exists/, 'after the scoped read')],
-        ['reordered', real.replace(/then the one-term rule \(`one_term_required`\); then each parameter's own shape/, "then each parameter's own shape; then the one-term rule (`one_term_required`)")],
+        [
+          'data-dependent',
+          real.replace(
+            /before any record is read, so no `400` depends on what exists/,
+            'after the scoped read',
+          ),
+        ],
+        [
+          'reordered',
+          real.replace(
+            /then `q` present and no identifier in the URL \(`query_required`, `identifier_in_url`\); then each parameter's own shape/,
+            "then each parameter's own shape; then `q` present and no identifier in the URL (`query_required`, `identifier_in_url`)",
+          ),
+        ],
         ['a 404', real.replace(/so there is never a `404`/, 'so a missing record is `404`')],
       ];
       for (const [label, text] of planted) {
         expect(text, `${label}: the plant changed nothing`).not.toBe(real);
-        expect(errorOrderProblems(text).length, `${label} passed`).toBeGreaterThan(0);
+        expect(errorOrderProblems(text, SEARCH_STEPS).length, `${label} passed`).toBeGreaterThan(0);
       }
+      const lookupReal = description(lookup());
+      expect(errorOrderProblems(lookupReal, LOOKUP_STEPS)).toEqual([]);
+      const swapped = lookupReal.replace(
+        /then the body as a closed JSON object \(`unknown_property`\); then the one-identifier rule \(`one_term_required`\)/,
+        'then the one-identifier rule (`one_term_required`); then the body as a closed JSON object (`unknown_property`)',
+      );
+      expect(swapped, 'the lookup plant changed nothing').not.toBe(lookupReal);
+      expect(errorOrderProblems(swapped, LOOKUP_STEPS).length, 'lookup reorder passed').toBeGreaterThan(
+        0,
+      );
     });
 
-    it('the 400 and 401 use the shared Error schema; the 400 examples carry exactly the search reason codes, path and code only', () => {
-      const shared = jsonSchema(responses(operation('getContact')).get('404'));
-      if (!shared) throw new Error('getContact 404 has no schema');
-      for (const status of ['400', '401']) {
-        expect(jsonSchema(responses(gate()).get(status))?.node, status).toBe(shared.node);
-      }
-      const bad = responses(gate()).get('400');
-      expect(bad?.node).toBe(at({ $ref: '#/components/responses/SearchValidationFailed' }).node);
-      const bodies = exampleBodies(bad);
-      const details: string[] = [];
-      for (const body of bodies) {
-        expect(body.code).toBe('validation_failed');
-        expect(body.statusCode).toBe(400);
-        for (const detail of list(body.details)) {
-          expect(Object.keys(detail).sort(), 'a detail carries more than path and code').toEqual([
-            'code',
-            'path',
-          ]);
-          details.push(`${str(detail.path)} ${str(detail.code)}`);
+    for (const id of OP_IDS) {
+      it(`${id}: the 400 and 401 use the shared Error schema; the 400 examples carry exactly its reason codes, path and code only`, () => {
+        const op = operation(id);
+        const shared = jsonSchema(responses(operation('getContact')).get('404'));
+        if (!shared) throw new Error('getContact 404 has no schema');
+        for (const status of ['400', '401']) {
+          expect(jsonSchema(responses(op).get(status))?.node, status).toBe(shared.node);
+        }
+        const details: string[] = [];
+        for (const body of exampleBodies(responses(op).get('400'))) {
+          expect(body.code).toBe('validation_failed');
+          expect(body.statusCode).toBe(400);
+          for (const detail of list(body.details)) {
+            expect(Object.keys(detail).sort(), 'a detail carries more than path and code').toEqual(
+              ['code', 'path'],
+            );
+            details.push(`${str(detail.path)} ${str(detail.code)}`);
+          }
+        }
+        expect([...details].sort()).toEqual(BAD_REQUEST_DETAILS[id]);
+      });
+    }
+
+    it('every answer of both, errors included, is Cache-Control: no-store; the query string and the body are personal data (R16, D-L80)', () => {
+      const problems: string[] = [];
+      for (const op of gate()) {
+        for (const [status, response] of responses(op)) {
+          const schema = cacheControlSchema(response);
+          const values = schema ? enumOf(schema) : [];
+          if (JSON.stringify(values) !== JSON.stringify(['no-store']))
+            problems.push(`${op.id} ${status}: ${schema ? JSON.stringify(values) : 'missing'}`);
         }
       }
-      expect([...details].sort()).toEqual(BAD_REQUEST_DETAILS);
-    });
-
-    it('every answer, errors included, is Cache-Control: no-store; the query string is personal data (R16, D-L80)', () => {
-      const problems: string[] = [];
-      for (const [status, response] of responses(gate())) {
-        const schema = cacheControlSchema(response);
-        const values = schema ? enumOf(schema) : [];
-        if (JSON.stringify(values) !== JSON.stringify(['no-store']))
-          problems.push(`${status}: ${schema ? JSON.stringify(values) : 'missing'}`);
-      }
       expect(problems).toEqual([]);
-      const text = description();
-      expect(text).toMatch(/carries `Cache-Control: no-store`: the URL is the same for every user of every tenant/);
-      expect(text).toMatch(/\*\*The query string is personal data\*\* \(a name, a number or an address\): request telemetry keeps the route template only, and ingress must strip query strings from access logs before the first deployed cell \(D-L80\)/);
+      const text = description(search());
+      expect(text).toMatch(
+        /carries `Cache-Control: no-store`: the URL is the same for every user of every tenant/,
+      );
+      expect(text).toMatch(
+        /\*\*The query string is personal data\*\* \(a name\): request telemetry keeps the route template only, and ingress must strip query strings from access logs before the first deployed cell \(D-L80\)/,
+      );
+      expect(description(lookup())).toMatch(
+        /The body is personal data: it is never logged or traced, and neither is the normalised number/,
+      );
+      expect(schemaDescription('LookupRequest')).toMatch(/Personal data: never logged or traced/);
     });
   });
 
   describe('examples (R19, D-L97)', () => {
     it('(self-check) the validator rejects broken copies of the search examples', () => {
-      const schema = responseSchema('200');
-      const answer = okExample('prefix');
+      const schema = schemaNamed('SearchResults');
+      const answer = okExample(search(), 'prefix');
       expect(validate(schema, answer, 'answer'), 'the unbroken example').toEqual([]);
       const groups = groupsOf(answer);
       const [contacts] = groups;
       if (!contacts) throw new Error('prefix has no group');
       const [first] = list(contacts.hits);
       if (!first) throw new Error('prefix has no contact hit');
-      const withGroup = (group: Mapping): Mapping => ({ ...answer, groups: [group, ...groups.slice(1)] });
+      const withGroup = (group: Mapping): Mapping => ({
+        ...answer,
+        groups: [group, ...groups.slice(1)],
+      });
       const withHit = (hit: Mapping): Mapping => withGroup({ ...contacts, hits: [hit] });
       const mutants: [string, unknown][] = [
         ['a fourth hit', withGroup({ ...contacts, hits: [first, first, first, first] })],
         ['a total', { ...answer, total: 9 }],
         ['a group count', withGroup({ ...contacts, count: 2 })],
-        ['a hit with a phone', withHit({ ...first, phones: [{ type: 'mobile', e164: '+2348030000001' }] })],
+        [
+          'a hit with a phone',
+          withHit({ ...first, phones: [{ type: 'mobile', e164: '+2348030000001' }] }),
+        ],
         ['a hit with an email', withHit({ ...first, emails: ['sample@example.test'] })],
         ['a hit with an owner', withHit({ ...first, owner: null })],
         ['a lead hit in the contact group', withHit({ ...first, type: 'lead' })],
         ['an unknown withheld name', withHit({ ...first, withheldFields: ['phones'] })],
-        ['a repeated withheld name', withHit({ ...first, withheldFields: ['familyName', 'familyName'] })],
+        [
+          'a repeated withheld name',
+          withHit({ ...first, withheldFields: ['familyName', 'familyName'] }),
+        ],
         ['a non-uuid id', withHit({ ...first, id: 'contact-1' })],
-        ['no programmeId', withHit(JSON.parse(JSON.stringify({ ...first, programmeId: undefined })) as Mapping)],
+        [
+          'no programmeId',
+          withHit(JSON.parse(JSON.stringify({ ...first, programmeId: undefined })) as Mapping),
+        ],
         ['a ticket group', withGroup({ type: 'ticket', hits: [] })],
         ['no groups', { groups: [] }],
         ['five groups', { groups: [...groups, contacts] }],
-        ['an account with an owner', { groups: [{ type: 'account', hits: [{ type: 'account', id: first.id, programmeId: first.programmeId, name: 'Sample', ownerUserId: null }] }] }],
-        ['a deal with an amount', { groups: [{ type: 'deal', hits: [{ type: 'deal', id: first.id, programmeId: first.programmeId, pipelineId: first.id, name: 'Sample', amount: null }] }] }],
-        ['a customer lead', { groups: [{ type: 'lead', hits: [{ type: 'lead', id: first.id, programmeId: first.programmeId, status: 'customer', withheldFields: [] }] }] }],
+        [
+          'an account with an owner',
+          {
+            groups: [
+              {
+                type: 'account',
+                hits: [
+                  {
+                    type: 'account',
+                    id: first.id,
+                    programmeId: first.programmeId,
+                    name: 'Sample',
+                    ownerUserId: null,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        [
+          'a deal with an amount',
+          {
+            groups: [
+              {
+                type: 'deal',
+                hits: [
+                  {
+                    type: 'deal',
+                    id: first.id,
+                    programmeId: first.programmeId,
+                    pipelineId: first.id,
+                    name: 'Sample',
+                    amount: null,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        [
+          'a customer lead',
+          {
+            groups: [
+              {
+                type: 'lead',
+                hits: [
+                  {
+                    type: 'lead',
+                    id: first.id,
+                    programmeId: first.programmeId,
+                    status: 'customer',
+                    withheldFields: [],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
       ];
       for (const [label, mutant] of mutants) {
         expect(validate(schema, mutant, 'answer').length, `accepted ${label}`).toBeGreaterThan(0);
       }
     });
 
-    it('every example on searchRecords validates against its schema', () => {
+    it('every example on both operations, request bodies included, validates against its schema', () => {
       const problems: string[] = [];
       let checked = 0;
-      for (const [status, response] of responses(gate())) {
-        const schema = jsonSchema(response);
-        const examples = examplesOf(jsonMedia(response));
-        if (examples.length === 0) problems.push(`${status}: no example`);
-        for (const [label, value] of examples) {
+      for (const op of gate()) {
+        const body = requestBody(op);
+        const bodySchema = jsonSchema(body);
+        for (const [label, value] of examplesOf(jsonMedia(body))) {
           checked += 1;
-          if (schema) problems.push(...validate(schema, value, `${status} ${label}`));
+          if (bodySchema) problems.push(...validate(bodySchema, value, `${op.id} request ${label}`));
+        }
+        for (const [status, response] of responses(op)) {
+          const schema = jsonSchema(response);
+          const examples = examplesOf(jsonMedia(response));
+          if (examples.length === 0) problems.push(`${op.id} ${status}: no example`);
+          for (const [label, value] of examples) {
+            checked += 1;
+            if (schema) problems.push(...validate(schema, value, `${op.id} ${status} ${label}`));
+          }
         }
       }
       expect(problems).toEqual([]);
-      // Four success answers, six 400 bodies and the 401.
-      expect(checked).toBeGreaterThanOrEqual(11);
+      // Five success answers, three request bodies, ten 400 bodies and two 401s.
+      expect(checked).toBeGreaterThanOrEqual(20);
+      expect(
+        examplesOf(jsonMedia(requestBody(lookup())))
+          .map(([label]) => label)
+          .sort(),
+      ).toEqual(REQUEST_LABELS);
     });
 
     it('the examples use synthetic names only (R19)', () => {
       const offending: string[] = [];
       let checked = 0;
-      for (const [label, answer] of okExamples()) {
+      for (const [label, answer] of allOkExamples()) {
         for (const [, hit] of hitsOf(answer)) {
-          for (const key of Object.keys(hit)) if (NAME_LIKE.has(key) && typeof hit[key] === 'string') checked += 1;
+          for (const key of Object.keys(hit))
+            if (NAME_LIKE.has(key) && typeof hit[key] === 'string') checked += 1;
         }
         offending.push(...realisticNames(answer).map((name) => `${label}: ${name}`));
       }
       expect(offending).toEqual([]);
       expect(checked, 'no names checked').toBeGreaterThanOrEqual(15);
-      const summaries = stringsIn(
-        isMapping(jsonMedia(responses(gate()).get('200'))?.node)
-          ? (jsonMedia(responses(gate()).get('200'))?.node as Mapping).examples
-          : {},
+      const texts = gate().flatMap((op) => {
+        const media = jsonMedia(responses(op).get('200'));
+        const body = jsonMedia(requestBody(op));
+        return [
+          ...stringsIn(isMapping(media?.node) ? media.node.examples : {}),
+          ...stringsIn(isMapping(body?.node) ? body.node.examples : {}),
+        ];
+      });
+      expect(texts.filter((text) => /Okonkwo|Balogun|Bakare|Adaeze|Kemi/i.test(text))).toEqual(
+        [],
       );
-      expect(summaries.filter((text) => /Okonkwo|Balogun|Bakare|Adaeze|Kemi/i.test(text))).toEqual([]);
+      const emails = examplesOf(jsonMedia(requestBody(lookup())))
+        .map(([, value]) => (isMapping(value) ? str(value.email) : ''))
+        .filter((email) => email !== '');
+      expect(emails.length).toBeGreaterThan(0);
+      expect(emails.filter((email) => !/\.test$|\.example$|example\.(com|org|net)$/.test(email))).toEqual(
+        [],
+      );
     });
 
     it('(self-check, R19) a realistic name planted in an example is caught', () => {
-      const answer = okExample('prefix');
+      const answer = okExample(search(), 'prefix');
       expect(realisticNames(answer)).toEqual([]);
       const [contacts, ...rest] = groupsOf(answer);
       if (!contacts) throw new Error('prefix has no group');
@@ -1627,8 +2169,8 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       const problems: string[] = [];
       let checked = 0;
       for (const op of operations()) {
-        if (op.id === OP_ID) continue;
-        const body = op.op.requestBody === undefined ? undefined : at(op.op.requestBody);
+        if (OP_IDS.includes(op.id)) continue;
+        const body = requestBody(op);
         const bodySchema = jsonSchema(body);
         for (const [label, value] of examplesOf(jsonMedia(body))) {
           checked += 1;

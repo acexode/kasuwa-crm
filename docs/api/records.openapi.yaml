@@ -73,8 +73,9 @@ info:
     `getDeal`, `updateDeal`); and the gated stage change (`moveDeal`,
     D-P20), the only way a deal changes stage. Global search (P27, T-0085,
     contract only until T-0086): at most three hits per type across
-    contacts, leads, accounts and deals, by name prefix or by an exact
-    phone or email (`searchRecords`). Custom-field values follow
+    contacts, leads, accounts and deals, by name prefix (`searchRecords`),
+    and contacts and leads by an exact phone or email sent in a POST body
+    so the URL never carries one (`lookupRecords`). Custom-field values follow
     in a later slice (D-L60) and will be added to this file.
 
     **Display names (T-0043, D-L64).** A records screen never prints a UUID.
@@ -3337,7 +3338,9 @@ paths:
   # -------------------------------------------------------------------------
   # Global search (P27, T-0085; ADR-0014, ADR-0015, D-L128, D-P13, D-L87,
   # D-L80, D-L68, D-L115, D-L127). CONTRACT ONLY: `x-kasuwa-implemented:
-  # false` until T-0086 serves it. The five rules at the top of this file
+  # false` on both operations (searchRecords and lookupRecords) until T-0086
+  # serves them. The URL never carries a phone number or an email address:
+  # exact lookups are a body-carrying POST. The five rules at the top of this file
   # apply unchanged, and so do the block rules of the pipelines section:
   # `x-kasuwa-error-order`, `x-kasuwa-rights` (here per record type) and
   # `Cache-Control: no-store` on every answer.
@@ -3355,7 +3358,7 @@ paths:
       summary: Global search — at most three hits per record type, no counts
       operationId: searchRecords
       x-kasuwa-implemented: false
-      x-kasuwa-screens: ['P27/A1', 'P27/A2', 'P27/A4', 'P27/A5', 'P27/D1']
+      x-kasuwa-screens: ['P27/A1', 'P27/A4', 'P27/A5', 'P27/D1']
       x-kasuwa-error-order: ['400 validation_failed']
       x-kasuwa-rights:
         admin: { contact: read, lead: read, account: read, deal: read }
@@ -3369,9 +3372,6 @@ paths:
         lead: [displayName, givenNames, familyName, companyName]
         account: [name]
         deal: [name]
-      x-kasuwa-exact-fields:
-        phone: { contact: phones, lead: phones }
-        email: { contact: emails, lead: emails }
       description: |
         The P27 search box and the record rows of the command palette: one
         read that answers a few hits of each record type, so the screen can
@@ -3381,10 +3381,17 @@ paths:
         deals. A list's `q` is a substring match and also matches numbers, so
         "see all" may show rows this read did not.
 
-        **Exactly one search term.** A request carries exactly one of `q`,
-        `phone` or `email`. None, or more than one, is `400
-        validation_failed` with `details[].code: one_term_required` at `q`.
+        **`q` is required.** A request without `q` is `400
+        validation_failed` with `details[].code: query_required` at `q`.
         `types` narrows which groups are answered; absent, all four are.
+
+        **The URL never carries a phone number or an email address.** Whole
+        identifiers in a query string reach proxy and access logs (CLAUDE.md
+        6.1, D-L80), so exact lookups are lookupRecords, a POST with a JSON
+        body. A `phone` or `email` query parameter here is not ignored: it is
+        `400 validation_failed` with `details[].code: identifier_in_url` at
+        that parameter, so a client that puts one in the URL fails loudly
+        instead of appearing to work.
 
         **Prefix matching on folded text (ADR-0015's fallback, D-L128).**
         `q` matches a field when the field's folded value STARTS WITH the
@@ -3407,30 +3414,15 @@ paths:
         LEAKPROOF marks are applied): they may add hits, and every prefix
         hit stays a hit.
 
-        **Exact lookups.** `phone` is a whole number in any common format
-        (`0803 123 4567`, `+234 803 123 4567`, `2348031234567`), normalised
-        to E.164 with the tenant's default country, then compared for
-        equality with each stored E.164 number. A value that does not
-        normalise to a whole, valid number, a partial number included, is
-        `400 validation_failed` with `details[].code: invalid_phone` at
-        `phone`: **never a prefix or substring of a number.** `email` is a
-        whole address, trimmed and compared for equality case-insensitively;
-        a value that is not an address is `400 validation_failed` with
-        `details[].code: invalid_email` at `email`. Both search contacts and
-        leads only (`x-kasuwa-exact-fields`); with either, the account and
-        deal groups are answered empty.
-
         **Field security: a hit never matches on, or returns, a withheld
         field.** Each field is judged in the hit's OWN programme, against
         the permission set the caller holds there, row by row, exactly as a
         list's `q` is (D-L64); the tenant-admin flag never lifts it (D-L63).
-        A field withheld there is never compared with the query (prefix or
-        exact), never decides which hits are chosen or their order, and is
-        omitted from the hit and named in its `withheldFields`. An exact
-        lookup on a number or address withheld in a record's programme does
-        not find that record: the answer is the same as for a number nobody
-        has. Field security never makes this read answer `400
-        field_withheld`: a withheld field simply does not match.
+        A field withheld there is never compared with the query, never
+        decides which hits are chosen or their order, and is omitted from
+        the hit and named in its `withheldFields`. Field security never
+        makes this read answer `400 field_withheld`: a withheld field simply
+        does not match.
 
         **`displayName` follows its name parts (the D-L68 ruling).** In a
         hit, a contact's or lead's `displayName` is readable exactly when
@@ -3480,48 +3472,34 @@ paths:
         same answer and that neither ever depends on a withheld field. A
         hit is closed: its `type`, its `id`, its `programmeId` and only the
         fields its schema names. Contact and lead hits never carry a phone
-        or an email, an exact lookup included.
+        or an email.
 
         **Errors.** Every `400` is decided from the request alone, before
         any record is read, so no `400` depends on what exists. **Order:**
-        authentication (`401`) and the scope-header `400` first; then the
-        one-term rule (`one_term_required`); then each parameter's own
-        shape (`types` values, `phone` and `email` format, lengths, a NUL or
-        other control character in `q` as `invalid_string`); then the folded
-        length (`query_too_short`). A read, so there is never a `403`, and
-        it names no record, so there is never a `404`.
+        authentication (`401`) and the scope-header `400` first; then `q`
+        present and no identifier in the URL (`query_required`,
+        `identifier_in_url`); then each parameter's own shape (`types`
+        values, lengths, a NUL or other control character in `q` as
+        `invalid_string`); then the folded length (`query_too_short`). A
+        read, so there is never a `403`, and it names no record, so there is
+        never a `404`.
 
         **Transport.** Every answer, errors included, carries
         `Cache-Control: no-store`: the URL is the same for every user of
-        every tenant. **The query string is personal data** (a name, a
-        number or an address): request telemetry keeps the route template
-        only, and ingress must strip query strings from access logs before
-        the first deployed cell (D-L80).
+        every tenant. **The query string is personal data** (a name):
+        request telemetry keeps the route template only, and ingress must
+        strip query strings from access logs before the first deployed cell
+        (D-L80).
       parameters:
         - name: q
           in: query
-          required: false
+          required: true
           description: |
-            A name prefix, case- and accent-folded (see above). At least 2
-            characters once folded and trimmed; at most 100 as sent. A NUL
-            or other control character is `400 validation_failed` with
+            A name prefix, case- and accent-folded (see above). Required. At
+            least 2 characters once folded and trimmed; at most 100 as sent.
+            A NUL or other control character is `400 validation_failed` with
             `details[].code: invalid_string`.
           schema: { type: string, minLength: 2, maxLength: 100 }
-        - name: phone
-          in: query
-          required: false
-          description: |
-            One whole phone number, matched exactly after normalising to
-            E.164 with the tenant's default country. Never a prefix or a
-            substring: a partial number is `400 invalid_phone`.
-          schema: { type: string, minLength: 6, maxLength: 32, pattern: '^[0-9+() .-]+$' }
-        - name: email
-          in: query
-          required: false
-          description: |
-            One whole email address, matched exactly, case-insensitively.
-            Never a prefix or a substring.
-          schema: { type: string, format: email, minLength: 3, maxLength: 254 }
         - name: types
           in: query
           required: false
@@ -3606,8 +3584,126 @@ paths:
                             givenNames: Sampleton
                             companyName: null
                             withheldFields: [displayName, familyName]
+                portal:
+                  summary: q=sam by a client_portal caller, types=account&types=deal; no deal is read (D-L115)
+                  value:
+                    groups:
+                      - type: account
+                        hits:
+                          - type: account
+                            id: a1b2c3d4-0002-4a5b-8c6d-000000000001
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            name: Sample Holdings Ltd
+                      - type: deal
+                        hits: []
+        '400': { $ref: '#/components/responses/SearchValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+
+  /api/v1/search/lookup:
+    post:
+      tags: [search]
+      summary: Exact lookup by phone or email — a read sent as a POST so the identifier stays out of the URL
+      operationId: lookupRecords
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P27/A2', 'P27/D1']
+      x-kasuwa-error-order: ['400 validation_failed']
+      x-kasuwa-rights:
+        admin: { contact: read, lead: read, account: read, deal: read }
+        programme_manager: { contact: read, lead: read, account: read, deal: read }
+        team_lead: { contact: read, lead: read, account: read, deal: read }
+        agent: { contact: read, lead: read, account: read, deal: read }
+        qa_analyst: { contact: read, lead: read, account: read, deal: read }
+        client_portal: { contact: read, lead: read, account: read, deal: none }
+      x-kasuwa-exact-fields:
+        phone: { contact: phones, lead: phones }
+        email: { contact: emails, lead: emails }
+      description: |
+        The exact half of P27 search: find contacts and leads by one whole
+        phone number or one whole email address. **A POST used for privacy,
+        not a mutation: it writes nothing.** It creates, changes and audits
+        nothing, it is safe to retry, and it answers `200`, never `201`. It is
+        a POST only so that the identifier travels in the body and **the URL
+        never carries a phone number or an email address**: whole
+        identifiers in a query string reach proxy and access logs (CLAUDE.md
+        6.1, D-L80). searchRecords refuses them in its query string.
+
+        **Exactly one identifier.** The closed JSON body carries exactly one
+        of `phone` or `email`, plus optional `types`. None, or both, is `400
+        validation_failed` with `details[].code: one_term_required` at
+        `phone`. Any other property is `400 validation_failed` with
+        `details[].code: unknown_property` at that property.
+
+        **Exact whole-value matching.** `phone` is a whole number in any
+        common format (`0803 123 4567`, `+234 803 123 4567`,
+        `2348031234567`), normalised to E.164 with the tenant's default
+        country, then compared for equality with each stored E.164 number. A
+        value that does not normalise to a whole, valid number, a partial
+        number included, is `400 validation_failed` with
+        `details[].code: invalid_phone` at `phone`: **never a prefix or
+        substring of a number.** `email` is a whole address, trimmed and
+        compared for equality case-insensitively; a value that is not an
+        address is `400 validation_failed` with
+        `details[].code: invalid_email` at `email`. Never a prefix or a
+        substring. The fields compared are listed in `x-kasuwa-exact-fields`,
+        and only those.
+
+        **The answer is searchRecords' `SearchResults`.** Contacts and leads
+        only: the account and deal groups, when requested, are answered
+        empty. `types` narrows the groups exactly as on searchRecords (absent
+        means all four; an unknown value is `unknown_type`). At most three
+        hits per group, no counts (D-P13), the same closed hits; a hit never
+        carries the phone or address that found it.
+
+        **Shared with searchRecords, unchanged:** who reads what
+        (`x-kasuwa-rights`, D-L127, D-L115), scope from the session only,
+        nothing out of scope counted, shown or hinted, and field security
+        per hit's own programme with the D-L68 `displayName` rule. **A
+        number or address withheld in a record's programme is never
+        compared:** the lookup does not find that record, and the answer is
+        the same as for a number nobody has. Field security never answers
+        `400 field_withheld`.
+
+        **Errors.** Every `400` is decided from the request alone, before
+        any record is read, so no `400` depends on what exists. **Order:**
+        authentication (`401`) and the scope-header `400` first; then the
+        body as a closed JSON object (`unknown_property`); then the
+        one-identifier rule (`one_term_required`); then each property's own
+        shape (`types` values, `phone` and `email` format and
+        normalisation). A read, so there is never a `403`, and it names no
+        record, so there is never a `404`.
+
+        **Transport.** Every answer, errors included, carries
+        `Cache-Control: no-store`. The body is personal data: it is never
+        logged or traced, and neither is the normalised number.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LookupRequest' }
+            examples:
+              phone:
+                summary: A number as a person types it
+                value:
+                  phone: 0803 000 0001
+              email:
+                value:
+                  email: sample.fixture@example.test
+              phoneNarrowed:
+                summary: Leads only
+                value:
+                  phone: '+2348030000001'
+                  types: [lead]
+      responses:
+        '200':
+          description: One group per requested type; account and deal groups always empty.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SearchResults' }
+              examples:
                 phoneLookup:
-                  summary: phone=0803 000 0001, the account and deal groups empty
+                  summary: phone 0803 000 0001, all four types; the account and deal groups empty
                   value:
                     groups:
                       - type: contact
@@ -3626,19 +3722,22 @@ paths:
                         hits: []
                       - type: deal
                         hits: []
-                portal:
-                  summary: q=sam by a client_portal caller, types=account&types=deal; no deal is read (D-L115)
+                leadsOnly:
+                  summary: phone +2348030000001, types lead
                   value:
                     groups:
-                      - type: account
+                      - type: lead
                         hits:
-                          - type: account
-                            id: a1b2c3d4-0002-4a5b-8c6d-000000000001
+                          - type: lead
+                            id: a1b2c3d4-0001-4a5b-8c6d-000000000003
                             programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
-                            name: Sample Holdings Ltd
-                      - type: deal
-                        hits: []
-        '400': { $ref: '#/components/responses/SearchValidationFailed' }
+                            displayName: Fixture Example
+                            givenNames: Fixture
+                            familyName: Example
+                            companyName: Sample Wholesale Ltd
+                            status: contacted
+                            withheldFields: []
+        '400': { $ref: '#/components/responses/LookupValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
 
 components:
@@ -5740,6 +5839,41 @@ components:
         A record type searchRecords answers (T-0085). Additive (D-L87):
         tickets, conversations and KB join when their modules publish reads.
 
+    LookupRequest:
+      type: object
+      additionalProperties: false
+      description: |
+        lookupRecords' body (T-0085): exactly one of `phone` or `email`, plus
+        optional `types`. Closed. Personal data: never logged or traced.
+      oneOf:
+        - { required: [phone] }
+        - { required: [email] }
+      properties:
+        phone:
+          type: string
+          minLength: 6
+          maxLength: 32
+          pattern: '^[0-9+() .-]+$'
+          description: |
+            One whole phone number, matched exactly after normalising to
+            E.164 with the tenant's default country. Never a prefix or a
+            substring: a partial number is `400 invalid_phone`.
+        email:
+          type: string
+          format: email
+          minLength: 3
+          maxLength: 254
+          description: |
+            One whole email address, trimmed, matched exactly and
+            case-insensitively. Never a prefix or a substring.
+        types:
+          type: array
+          minItems: 1
+          maxItems: 4
+          uniqueItems: true
+          description: Which groups to answer, as searchRecords' `types`; absent means all four.
+          items: { $ref: '#/components/schemas/SearchType' }
+
     SearchResults:
       type: object
       additionalProperties: false
@@ -6307,15 +6441,15 @@ components:
         searchRecords could not parse the request. Decided from the request
         alone, before any record is read: no `400` here depends on what
         exists. `details` names paths and reason codes, never the submitted
-        value (which is a name, a number or an address).
+        value (which is a name).
       headers:
         Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:
         application/json:
           schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
           examples:
-            oneTermRequired:
-              summary: None of q, phone or email, or more than one
+            queryRequired:
+              summary: No q
               value:
                 statusCode: 400
                 error: Bad Request
@@ -6323,7 +6457,17 @@ components:
                 message: Validation failed
                 details:
                   - path: q
-                    code: one_term_required
+                    code: query_required
+            identifierInUrl:
+              summary: A phone or email query parameter; exact lookups are lookupRecords
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: phone
+                    code: identifier_in_url
             queryTooShort:
               summary: q under 2 characters once folded and trimmed
               value:
@@ -6344,6 +6488,49 @@ components:
                 details:
                   - path: q
                     code: invalid_string
+            unknownType:
+              summary: A types value that is not contact, lead, account or deal
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: types
+                    code: unknown_type
+
+    LookupValidationFailed:
+      description: |
+        lookupRecords could not parse the body. Decided from the request
+        alone, before any record is read: no `400` here depends on what
+        exists. `details` names paths and reason codes, never the submitted
+        value (which is a phone number or an email address).
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            unknownProperty:
+              summary: A property the closed body does not have
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: q
+                    code: unknown_property
+            oneTermRequired:
+              summary: Neither phone nor email, or both
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: phone
+                    code: one_term_required
             invalidPhone:
               summary: A phone that is not one whole number, a partial number included
               value:
