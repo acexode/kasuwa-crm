@@ -14,6 +14,12 @@ Serve T-0085's search over the scoped repositories, with indexes that work under
 - **Fan-out:** one `withTenantTransaction`, explicit tenant and programme filters, at most three hits per type, field
   security per row; no new store, role or SECURITY DEFINER.
 - **Budget:** an EXPLAIN check with no Seq Scan as kasuwa_app and a latency budget on T-0084's large seed.
+- **From the T-0085 review (D-L133):**
+  - one folded column **per searched field**, read under that field's per-row security (R7/R8); never one combined
+    "search text" column;
+  - the folded copies are personal data: they are erased and redacted with their source field (NDPA retention, D-P27);
+  - a per-user rate limit on `searchRecords` (typeahead) and a tighter one on `lookupRecords` (it checks one number at a
+    time), answered as the existing throttle answers.
 
 ## Acceptance tests
 `tests/acceptance/records/search-api.acceptance.test.ts` (lead, D-L23). list-indexes, the records API suites and the
