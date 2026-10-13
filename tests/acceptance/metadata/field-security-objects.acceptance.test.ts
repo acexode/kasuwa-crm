@@ -211,10 +211,17 @@ describe('acceptance: T-0023 field-security objects and metadata decisions', () 
 
       // Both non-empty, so that a broken endpoint returning [] cannot pass.
       // Since T-0053 (D-L69) every tenant also has the standard `contact` and
-      // `account` objects, and since T-0060 (D-L77) `activity`, so tenant B's
-      // list is its one custom object plus those three, and nothing of tenant A's.
+      // `account` objects, since T-0060 (D-L77) `activity`, and since T-0106
+      // (D-L117) `deal`, so tenant B's list is its one custom object plus those
+      // four, and nothing of tenant A's.
       expect(aNames).toContain('site_visit');
-      expect([...bNames].sort()).toEqual(['account', 'activity', 'competitor_intel', 'contact']);
+      expect([...bNames].sort()).toEqual([
+        'account',
+        'activity',
+        'competitor_intel',
+        'contact',
+        'deal',
+      ]);
       expect(aNames).not.toContain('competitor_intel');
       expect(bNames).not.toContain('site_visit');
       expect(bNames).not.toContain('branch_audit');

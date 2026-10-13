@@ -1,5 +1,6 @@
 export * from './auth';
 export * from './auth-retention';
+export * from './default-pipeline';
 export * from './fixtures';
 export * from './ids';
 export * from './migrate';

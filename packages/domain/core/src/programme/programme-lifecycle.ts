@@ -1,4 +1,4 @@
-import { newId, type TenantTx } from '@kasuwa/db';
+import { ensureDefaultPipelines, newId, type TenantTx } from '@kasuwa/db';
 import { ADMIN_PERMISSION_SET_KEY } from '@kasuwa/permissions';
 import { versionFromUpdatedAt, NEXT_UPDATED_AT_SQL } from './programme-version';
 import {
@@ -153,6 +153,15 @@ export async function createProgramme(
              (SELECT ps.id FROM permission_set ps WHERE ps.tenant_id = $3 AND ps.key = $4))`,
     [userId, id, tenantId, ADMIN_PERMISSION_SET_KEY],
   );
+
+  // The new programme's default pipeline (T-0106, D-L113, R9), from the
+  // template, in this same transaction: when it commits, the programme has
+  // one. As kasuwa_app the session's scope was resolved before the programme
+  // existed; the pipeline tables admit these rows only because the programme
+  // was written by THIS transaction (0036 uses 0015's creation marker), so
+  // nothing here widens what any session can reach.
+  // tenancy-reviewed: tenant id from the session; the programme just created.
+  await ensureDefaultPipelines((text, values) => tx.query(text, values), tenantId, id);
 
   return {
     id,

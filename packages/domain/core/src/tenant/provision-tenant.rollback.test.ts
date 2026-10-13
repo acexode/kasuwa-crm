@@ -77,6 +77,11 @@ vi.mock('pg', async (importOriginal) => {
           ? { rows: [], rowCount: 0 }
           : { rows: [{ key: state.grantKey }], rowCount: 1 };
       }
+      if (text.includes('SELECT current_user::text AS role')) {
+        // ensureDefaultPipelines' all-programmes path is the migrator's alone
+        // (D-L120); provisioning connects as kasuwa_migrator.
+        return { rows: [{ role: 'kasuwa_migrator' }], rowCount: 1 };
+      }
       if (text.includes('clock_timestamp()')) {
         return { rows: [{ at: '2026-10-03T10:00:00.000000Z' }], rowCount: 1 };
       }
@@ -210,6 +215,6 @@ describe('the standard object definitions (T-0053)', () => {
     const tenantId = state.params[indexOf('INSERT INTO tenant')]?.[0];
     expect(state.params[objectsAt]?.[0]).toBe(tenantId);
     expect(state.params[fieldsAt]?.[0]).toBe(tenantId);
-    expect(state.params[objectsAt]?.[2]).toEqual(['contact', 'account', 'activity']);
+    expect(state.params[objectsAt]?.[2]).toEqual(['contact', 'account', 'activity', 'deal']);
   });
 });
