@@ -2736,3 +2736,25 @@ by the lead (98393b7).
   - published rows kept 7 days and dead rows 30; dead after 10 publish or 5 consumer attempts (Q3);
   - a dashboard, not paging (Q4);
   - BullMQ's failed set trimmed by hand for now (Q5).
+### D-L129 — T-0111 suite rulings and lead edits (lead, 2026-10-13)
+**Status:** PROCEEDING (lead). The suite `deal-timeline.acceptance.test.ts` (49 tests) and the contract edit
+(`listDealTimeline`, `GET /api/v1/deals/{dealId}/timeline`; `dealId` on Activity, CreateActivityRequest and
+UpdateActivityRequest) are on `lead/T-0111-acceptance` (8077fef). On main, 42 fail because there is no column, route or
+flag; 7 self-checks and contract pins pass. Migration 0037 is reserved for `agent3/T-0111` in protect-paths (202c2ea).
+- **R1–R19 in the suite header are accepted.** Notable:
+  - `dealId` is a link, never a target: a contact or account still decides the programme (R1);
+  - one `unknown_reference` body for another programme's deal, another tenant's deal and an invented id (R2);
+  - linking needs `activity.write` only and never writes the deal row (R4);
+  - `dealId` follows the `activity.deal_id` field security (R5);
+  - deal-timeline field items come from a closed list, by name only. Stage-name display ("Proposal → Negotiation") is a
+    later additive contract edit (R8);
+  - readers follow D-L127 (R12);
+  - the timeline index has no Sort as kasuwa_app at 20,000 activities (R15);
+  - no rollup of the contact's or account's other activities (R19).
+- **Lead edits, same branch (ac18252), so the task file's "unmodified" line does not hold for these three:**
+  - `records-contract-activities` lists `dealId` in the update body;
+  - `records-contract-pipeline` R13 admits `listDealTimeline` as the one later GET under `/deals`;
+  - `activity-table` gains the `deal_id` column, its required field_def and its `deal` lookup target.
+- **Open for T-0110 (screen and product):** a deal with neither a primary contact nor an account has nothing to log an
+  activity against (R1). The screen must say so rather than offer a broken composer.
+- **Builder:** Agent 3 on `agent3/T-0111-deal-timeline`.
