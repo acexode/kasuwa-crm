@@ -130,93 +130,128 @@ export function decodeKeysetCursor(cursor: string): KeysetCursor {
  */
 
 /*
- * SORTED CURSORS (T-0041).
+ * LIST CURSORS (T-0084; D-L80, D-P33, D-L112). Read before extending this.
  *
- * A list that can be ordered by something other than `-createdAt` needs a
- * position in THAT order: the sort key's value for the last row, plus its id
- * to break ties. The same rules hold as above - a position, never a scope, and
- * a timestamp that never passes through a `Date`.
+ * The contacts, leads and accounts lists can be ordered by a name or a
+ * timestamp. Until T-0084 their cursors carried the last row's sort VALUE (a
+ * name, or a microsecond timestamp) beside its id. A name in a query string
+ * is a person's name in every ingress, CDN and browser-history log (D-L80),
+ * and a timestamp dates the row; neither belongs in a URL.
  *
- * The sort the cursor was issued for travels in it (`s`), and decoding refuses
- * a cursor issued for a different sort: a `displayName` position replayed
- * under `-updatedAt` would otherwise compare a name against a timestamp. The
- * default `-createdAt` order keeps the original `{ c, i }` shape above, so
- * every cursor issued before T-0041 still decodes.
+ * A list cursor now carries exactly three things:
+ *   - `i`, the last row's id;
+ *   - `s`, the sort it was issued for (a member of the list's sort enum), so a
+ *     cursor replayed under another sort is still refused (400
+ *     `invalid_cursor`), as the accounts and leads contracts require;
+ *   - `v`, the format version, a small integer.
+ * Never a value. The repository resolves the position from the id, INSIDE the
+ * caller's scope, in the same statement as the page:
+ *   `(key, id) > (SELECT key, id FROM t WHERE id = $cursor AND <scope>)`.
+ * A cursor naming a row the caller cannot reach (another programme, another
+ * tenant) therefore resolves to nothing, exactly as an invented id does: the
+ * page is empty. A different answer for "exists, but not yours" would be a
+ * programme-level existence oracle (list-indexes.acceptance.test.ts, I5).
+ *
+ * The rules above still hold: a position, never a scope. Do not add a tenant,
+ * a programme or a sort value here.
+ *
+ * LEGACY. The pre-T-0041 `{ c, i }` shape (the contacts list's default
+ * `-createdAt` order) still decodes under that sort, BY ITS ID ALONE: `c` is
+ * validated as a timestamp, as before, so garbage is still 400, and is then
+ * dropped. Its value is never trusted. The T-0041 `{ s, v: <text>, i }` shape
+ * is not accepted: no deployed cell ever issued one.
  */
 
-export type SortedCursorKind = 'timestamp' | 'text';
+/** The list cursor's format version. A small integer, never a value. */
+export const LIST_CURSOR_VERSION = 1;
 
 /**
- * The longest text sort position, in code points. A repository that sorts by
- * text must sort by a key no longer than this (the contacts list sorts by
- * `left(display_name, 200)`), so the cursor never outgrows MAX_CURSOR_LENGTH.
- */
-export const MAX_TEXT_SORT_POSITION = 200;
-
-/**
- * The longest cursor this module can issue, for the HTTP boundary's limit.
- * Worst case: a text position of 200 control characters, each JSON-escaped
- * to six bytes (`\u001f`), plus the envelope (`{"s":…,"v":"","i":uuid}`,
- * under 100 bytes), base64url at 4/3. That is 1,734 characters; 2,048 leaves
- * headroom. `sorted-cursor.test.ts` builds the worst case and checks it.
+ * The longest cursor the HTTP boundary accepts. An id-only cursor is under 100
+ * characters; the limit keeps its T-0041 value so that the boundary schemas,
+ * and the record timelines that share it, do not change.
  */
 export const MAX_CURSOR_LENGTH = 2048;
 
-const SortedCursorPayload = z
+const ListCursorPayload = z
   .object({
+    v: z.literal(LIST_CURSOR_VERSION),
     s: z.string().min(1).max(32),
-    v: z
-      .string()
-      .max(MAX_TEXT_SORT_POSITION * 2)
-      .refine((value) => [...value].length <= MAX_TEXT_SORT_POSITION)
-      // Postgres `text` cannot hold U+0000: bound as `::text` it is 22021, a
-      // scrubbed 500. No stored value holds one, so no issued cursor does; a
-      // forged one is `invalid_cursor` (T-0055 review).
-      .refine((value) => !value.includes('\u0000')),
     i: z.string().uuid(),
   })
   .strict();
 
-export interface SortedCursor {
-  /** The sort key the position belongs to, e.g. `displayName`. */
+export interface ListCursor {
+  /** The sort the position belongs to, e.g. `displayName`. */
   sort: string;
-  /** The last row's sort value: an ISO timestamp verbatim, or text. */
-  value: string;
+  /** The last row's id. The position is resolved from it, in scope. */
   id: string;
 }
 
-function validValue(kind: SortedCursorKind, value: string): boolean {
-  if (kind === 'text') return true;
-  return ISO_TIMESTAMP.test(value) && !Number.isNaN(Date.parse(value));
-}
-
-export function encodeSortedCursor(position: SortedCursor, kind: SortedCursorKind): string {
-  const parsed = SortedCursorPayload.safeParse({
+export function encodeListCursor(position: ListCursor): string {
+  const parsed = ListCursorPayload.safeParse({
+    v: LIST_CURSOR_VERSION,
     s: position.sort,
-    v: position.value,
     i: position.id,
   });
-  if (!parsed.success || !validValue(kind, parsed.data.v)) {
-    throw new InvalidCursorError();
-  }
+  if (!parsed.success) throw new InvalidCursorError();
   return Buffer.from(JSON.stringify(parsed.data), 'utf8').toString('base64url');
 }
 
-/** Throws InvalidCursorError for garbage, a bad value, or a cursor issued for another sort. */
-export function decodeSortedCursor(
+/** The alphabet an issued cursor uses: base64url, unpadded. */
+const BASE64URL = /^[A-Za-z0-9_-]+$/;
+
+export interface DecodeListCursorOptions {
+  /**
+   * The sort under which a legacy `{ c, i }` cursor is accepted (the contacts
+   * list's default, `-createdAt`). Absent: no legacy shape is accepted.
+   */
+  legacyKeysetSort?: string | undefined;
+}
+
+/**
+ * The row id a cursor names, for this sort. Throws InvalidCursorError for
+ * garbage, an unknown version, or a cursor issued for another sort. The id
+ * is not checked for existence or scope here: the repository resolves it
+ * inside the caller's scope.
+ */
+export function decodeListCursor(
   cursor: string,
   sort: string,
-  kind: SortedCursorKind,
-): SortedCursor {
+  options: DecodeListCursorOptions = {},
+): string {
+  // base64url only, as issued. Node's decoder would otherwise accept `+`, `/`,
+  // `=` padding and whitespace, so many spellings would name one cursor.
+  if (!BASE64URL.test(cursor)) throw new InvalidCursorError();
   let parsedJson: unknown;
   try {
     parsedJson = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
   } catch {
     throw new InvalidCursorError();
   }
-  const parsed = SortedCursorPayload.safeParse(parsedJson);
-  if (!parsed.success || parsed.data.s !== sort || !validValue(kind, parsed.data.v)) {
-    throw new InvalidCursorError();
+  const parsed = ListCursorPayload.safeParse(parsedJson);
+  if (parsed.success) {
+    if (parsed.data.s !== sort) throw new InvalidCursorError();
+    return parsed.data.i;
   }
-  return { sort: parsed.data.s, value: parsed.data.v, id: parsed.data.i };
+  if (
+    options.legacyKeysetSort !== undefined &&
+    options.legacyKeysetSort === sort &&
+    !namesListCursorKey(parsedJson)
+  ) {
+    // By its id alone: `c` is validated (garbage stays 400), then dropped.
+    // A payload carrying `v` or `s` is a list cursor (of another sort, or an
+    // unknown version) and never falls through to the legacy shape, which
+    // would otherwise strip those keys and accept it.
+    const legacy = CursorPayload.safeParse(parsedJson);
+    if (legacy.success) return legacy.data.i;
+  }
+  throw new InvalidCursorError();
+}
+
+function namesListCursorKey(payload: unknown): boolean {
+  return (
+    typeof payload === 'object' &&
+    payload !== null &&
+    (Object.hasOwn(payload, 'v') || Object.hasOwn(payload, 's'))
+  );
 }

@@ -3201,10 +3201,15 @@ components:
       schema: { type: string, minLength: 1, maxLength: 2048 }
       description: |
         **Opaque.** Echo `nextCursor` back unchanged; do not parse it or build
-        one. It is valid only with the same `q`, filters and `sort` that
-        produced it. A malformed cursor is `400`. A well-formed cursor pointing
-        outside the caller's scope yields rows from their scope only, never
-        anyone else's (cursor-tampering.acceptance.test.ts).
+        one. It is meant for the same `q`, filters and `sort` that produced
+        it; a cursor issued under another `sort` is `400 invalid_cursor`. A
+        malformed cursor is `400`. It carries the id of the last row and
+        nothing else (T-0084, D-L80): never a name, a company or a time. The
+        server resolves the position from that row's current sort key,
+        inside the caller's scope. A well-formed cursor naming a row outside
+        the caller's scope answers exactly as one naming no row: an empty
+        page, never anyone else's rows (cursor-tampering and list-indexes
+        acceptance suites).
     Limit:
       name: limit
       in: query

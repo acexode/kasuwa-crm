@@ -3,7 +3,9 @@ import {
   newId,
   withTenantTransaction,
   PROGRAMME_A2,
+  SEED_CONTACTS,
   TENANT_A,
+  TENANT_B,
   USER_A_AGENT_2,
 } from '@kasuwa/db';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
@@ -143,19 +145,44 @@ describe('listContacts keyset pagination', () => {
     ]);
   });
 
-  it('a cursor issued before this fix still pages, without erroring', async () => {
-    // Millisecond cursors are accepted rather than rejected so that a deploy
-    // does not 400 every in-flight paging session. Such a cursor points at the
-    // truncated instant it always did; it is no worse than it was, and the next
-    // cursor it yields is precise.
+  it('a legacy { c, i } cursor still pages, by its id alone (T-0084)', async () => {
+    // The pre-T-0041 shape is accepted so that a deploy does not 400 every
+    // in-flight paging session. Since T-0084 its `c` is validated and then
+    // ignored: the position is the named row's own, resolved in scope. The
+    // `c` here is years earlier than every row; were it trusted, the page
+    // (descending) would hold only rows older than 2020, that is none of these.
     const legacy = Buffer.from(
-      JSON.stringify({ c: '2026-04-01T12:00:01.000Z', i: ids[0] }),
+      JSON.stringify({ c: '2020-01-01T00:00:00.000Z', i: ids[0] }),
       'utf8',
     ).toString('base64url');
 
     const page = await withTenantTransaction(pool, session, async (tx) =>
-      listContacts(tx, { limit: 10, cursor: legacy }),
+      listContacts(tx, { limit: 100, cursor: legacy }),
     );
-    expect(page.data.map((row) => row.id)).toEqual(expect.arrayContaining(ids));
+    const seen = page.data.map((row) => row.id);
+    // Descending: ids[3] (.999999), ids[0] (.000900), ids[1], ids[2].
+    expect(seen).toEqual(expect.arrayContaining([ids[1], ids[2]]));
+    expect(seen).not.toContain(ids[0]);
+    expect(seen).not.toContain(ids[3]);
+  });
+
+  it('a cursor naming a row outside the session scope yields an empty page', async () => {
+    // Tenant B's seeded contact, and an id that names nothing: the same answer.
+    const tenantBContact = SEED_CONTACTS.find((row) => row.tenantId === TENANT_B);
+    expect(tenantBContact).toBeDefined();
+    const outside = Buffer.from(
+      JSON.stringify({ v: 1, s: '-createdAt', i: tenantBContact?.id }),
+      'utf8',
+    ).toString('base64url');
+    const invented = Buffer.from(
+      JSON.stringify({ v: 1, s: '-createdAt', i: newId() }),
+      'utf8',
+    ).toString('base64url');
+    for (const cursor of [outside, invented]) {
+      const page = await withTenantTransaction(pool, session, async (tx) =>
+        listContacts(tx, { limit: 10, cursor }),
+      );
+      expect(page).toEqual({ data: [], nextCursor: null });
+    }
   });
 });

@@ -216,6 +216,27 @@ export const contact = pgTable(
     /** Migration 0027: the target of activity's composite contact FK. */
     uniqueIndex('contact_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
     index('contact_keyset_idx').on(table.tenantId, table.programmeId, table.createdAt, table.id),
+    /** Migration 0035 (T-0084): tenant-led list orders, usable under FORCE RLS (D-P33). */
+    index('contact_tenant_created_keyset_idx').on(table.tenantId, table.createdAt, table.id),
+    index('contact_tenant_updated_keyset_idx').on(table.tenantId, table.updatedAt, table.id),
+    index('contact_tenant_display_name_keyset_idx').on(
+      table.tenantId,
+      table.displayName,
+      table.id,
+    ),
+    /** Migration 0035: programme-led, for a one-programme session's scalar predicate (M1). */
+    index('contact_programme_updated_keyset_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.updatedAt,
+      table.id,
+    ),
+    index('contact_programme_display_name_keyset_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.displayName,
+      table.id,
+    ),
     index('contact_account_idx')
       .on(table.tenantId, table.programmeId, table.accountId)
       .where(sql`account_id IS NOT NULL`),
@@ -290,6 +311,17 @@ export const account = pgTable(
     ),
     index('account_keyset_idx').on(table.tenantId, table.programmeId, table.createdAt, table.id),
     index('account_name_keyset_idx').on(table.tenantId, table.programmeId, table.name, table.id),
+    /** Migration 0035 (T-0084): tenant-led list orders, usable under FORCE RLS (D-P33). */
+    index('account_tenant_created_keyset_idx').on(table.tenantId, table.createdAt, table.id),
+    index('account_tenant_updated_keyset_idx').on(table.tenantId, table.updatedAt, table.id),
+    index('account_tenant_name_keyset_idx').on(table.tenantId, table.name, table.id),
+    /** Migration 0035: programme-led, for a one-programme session's scalar predicate (M1). */
+    index('account_programme_updated_keyset_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.updatedAt,
+      table.id,
+    ),
     index('account_owner_idx')
       .on(table.tenantId, table.ownerUserId)
       .where(sql`owner_user_id IS NOT NULL`),

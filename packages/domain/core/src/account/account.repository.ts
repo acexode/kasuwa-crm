@@ -1,5 +1,6 @@
 import { newId, type TenantTx } from '@kasuwa/db';
-import { decodeSortedCursor, encodeSortedCursor, type SortedCursorKind } from '../cursor';
+import { decodeListCursor, encodeListCursor } from '../cursor';
+import { listScopeSql, type ListScopeSql } from '../list-scope';
 import type { ContactPhone } from '../contact/contact.repository';
 import { foldForSearch } from '../contact/phone';
 import {
@@ -70,24 +71,23 @@ export type AccountSort = (typeof ACCOUNT_SORTS)[number];
 export const DEFAULT_ACCOUNT_SORT: AccountSort = 'name';
 
 interface SortSpec {
-  /** A fixed SQL expression, never user input. */
-  column: string;
+  /**
+   * A plain column, never an expression and never user input. Each order,
+   * `(tenant_id, column, id)`, is a B-tree index of 0035 that kasuwa_app can
+   * use under FORCE RLS (D-P33): tenant-led, so that it also gives the order
+   * for a session reaching several programmes.
+   */
+  column: 'name' | 'created_at' | 'updated_at';
   direction: 'ASC' | 'DESC';
-  kind: SortedCursorKind;
 }
 
-/**
- * `name` is sorted as stored: 0019's CHECK holds it to 1..200 characters, so
- * the cursor's text position (at most MAX_TEXT_SORT_POSITION code points) always
- * fits, and 0026's account_name_keyset_idx serves the default order.
- */
 const SORT_SPECS: Record<AccountSort, SortSpec> = {
-  name: { column: 'name', direction: 'ASC', kind: 'text' },
-  '-name': { column: 'name', direction: 'DESC', kind: 'text' },
-  '-createdAt': { column: 'created_at', direction: 'DESC', kind: 'timestamp' },
-  createdAt: { column: 'created_at', direction: 'ASC', kind: 'timestamp' },
-  '-updatedAt': { column: 'updated_at', direction: 'DESC', kind: 'timestamp' },
-  updatedAt: { column: 'updated_at', direction: 'ASC', kind: 'timestamp' },
+  name: { column: 'name', direction: 'ASC' },
+  '-name': { column: 'name', direction: 'DESC' },
+  '-createdAt': { column: 'created_at', direction: 'DESC' },
+  createdAt: { column: 'created_at', direction: 'ASC' },
+  '-updatedAt': { column: 'updated_at', direction: 'DESC' },
+  updatedAt: { column: 'updated_at', direction: 'ASC' },
 };
 
 /** Filters, already parsed. Each one is "any of"; different filters AND. */
@@ -132,11 +132,6 @@ interface AccountRow {
   parent_account_id: string | null;
   created_at: Date;
   updated_at: Date;
-}
-
-interface AccountPageRow extends AccountRow {
-  /** The sort key, rendered for the cursor (to the microsecond for a timestamp; see cursor.ts). */
-  sort_cursor: string;
 }
 
 /**
@@ -206,12 +201,6 @@ class Params {
   }
 }
 
-function cursorColumn(spec: SortSpec): string {
-  return spec.kind === 'timestamp'
-    ? `to_char(${spec.column} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS sort_cursor`
-    : `${spec.column} AS sort_cursor`;
-}
-
 /** The SQL twin of `foldForSearch`: NFD, drop U+0300-U+036F, lower. */
 const FOLDED_NAME = `lower(regexp_replace(normalize(name, NFD), '[\\u0300-\\u036f]', '', 'g'))`;
 
@@ -252,13 +241,35 @@ function filterClauses(filters: AccountFilters, params: Params): string[] {
   return clauses;
 }
 
-/** Throws InvalidCursorError for a cursor this server did not issue for this sort. */
-function keysetClause(sort: AccountSort, cursor: string, params: Params): string {
+/**
+ * The keyset seek for an id-only cursor (T-0084, D-L80), the twin of the
+ * contact repository's. Throws InvalidCursorError for a cursor this server
+ * did not issue for this sort.
+ *
+ * The position is the cursor row's own `(key, id)`, read once by an
+ * uncorrelated row subquery (an InitPlan), so the comparison is an index
+ * condition and the page seeks.
+ *
+ * tenancy-reviewed: the cursor row is resolved INSIDE the session's scope
+ * (RLS besides). Another programme's or tenant's row resolves to nothing and
+ * the page is empty, exactly as for an invented id. Not narrowed by `q` or the
+ * filters: a cursor is a position, valid under any filter of its sort.
+ */
+function keysetClause(
+  sort: AccountSort,
+  cursor: string,
+  params: Params,
+  scope: ListScopeSql,
+): string {
   const spec = SORT_SPECS[sort];
-  const position = decodeSortedCursor(cursor, sort, spec.kind);
-  const cast = spec.kind === 'timestamp' ? 'timestamptz' : 'text';
+  const id = decodeListCursor(cursor, sort);
   const operator = spec.direction === 'DESC' ? '<' : '>';
-  return `(${spec.column}, id) ${operator} (${params.add(position.value)}::${cast}, ${params.add(position.id)}::uuid)`;
+  return `(${spec.column}, id) ${operator} (
+          SELECT cursor_row.${spec.column}, cursor_row.id
+            FROM account cursor_row
+           WHERE cursor_row.id = ${params.add(id)}::uuid
+             AND cursor_row.tenant_id = ${scope.tenantId}
+             AND ${scope.programmeIn('cursor_row.programme_id')})`;
 }
 
 export async function listAccounts(
@@ -270,12 +281,11 @@ export async function listAccounts(
   const params = new Params();
 
   // tenancy-reviewed: tenant AND session programmes first, always; every other
-  // clause is ANDed on and can only narrow.
-  const where = [
-    `tenant_id = ${params.add(tx.session.tenantId)}`,
-    `programme_id = ANY(${params.add([...tx.session.programmeIds])}::uuid[])`,
-  ];
-  if (options.cursor !== undefined) where.push(keysetClause(sort, options.cursor, params));
+  // clause is ANDed on and can only narrow. One programme is scalar equality,
+  // so a programme-led index gives the order (M1).
+  const scope = listScopeSql(tx.session, (value) => params.add(value));
+  const where = [`tenant_id = ${scope.tenantId}`, scope.programmeIn('programme_id')];
+  if (options.cursor !== undefined) where.push(keysetClause(sort, options.cursor, params, scope));
   if (options.search !== undefined) {
     // strpos, not LIKE or a regex: `%`, `_` and `.*` are literal characters.
     where.push(`strpos(${FOLDED_NAME}, ${params.add(foldForSearch(options.search))}) > 0`);
@@ -284,8 +294,8 @@ export async function listAccounts(
 
   // One extra row decides whether a next page exists, without a count (D-P13).
   const limit = params.add(options.limit + 1);
-  const rows = await tx.query<AccountPageRow>(
-    `SELECT ${SELECT_COLUMNS}, ${cursorColumn(spec)}
+  const rows = await tx.query<AccountRow>(
+    `SELECT ${SELECT_COLUMNS}
        FROM account
       WHERE ${where.join('\n        AND ')}
       ORDER BY ${spec.column} ${spec.direction}, id ${spec.direction}
@@ -298,10 +308,7 @@ export async function listAccounts(
   const last = page.at(-1);
   return {
     data: page.map(toAccount),
-    nextCursor:
-      hasMore && last !== undefined
-        ? encodeSortedCursor({ sort, value: last.sort_cursor, id: last.id }, spec.kind)
-        : null,
+    nextCursor: hasMore && last !== undefined ? encodeListCursor({ sort, id: last.id }) : null,
   };
 }
 
