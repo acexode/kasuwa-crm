@@ -51,6 +51,8 @@ export interface Activity {
   ownerUserId: string | null;
   contactId: string | null;
   accountId: string | null;
+  /** The linked deal (0037, T-0111): a link, never a target; `null` when none. */
+  dealId: string | null;
   /** `null` is the system (an import, a migration). */
   createdByUserId: string | null;
   version: number;
@@ -71,6 +73,7 @@ interface ActivityRow {
   owner_user_id: string | null;
   contact_id: string | null;
   account_id: string | null;
+  deal_id: string | null;
   created_by_user_id: string | null;
   version: number;
   created_at: Date;
@@ -79,7 +82,8 @@ interface ActivityRow {
 
 const SELECT_COLUMNS = `
   id, programme_id, type, subject, body, due_at, completed_at, starts_at, ends_at,
-  owner_user_id, contact_id, account_id, created_by_user_id, version, created_at, updated_at
+  owner_user_id, contact_id, account_id, deal_id, created_by_user_id, version, created_at,
+  updated_at
 `;
 
 /** A stored type outside the CHECK. 0027 makes this impossible; carries no value. */
@@ -109,6 +113,7 @@ function toActivity(row: ActivityRow): Activity {
     ownerUserId: row.owner_user_id,
     contactId: row.contact_id,
     accountId: row.account_id,
+    dealId: row.deal_id,
     createdByUserId: row.created_by_user_id,
     version: row.version,
     createdAt: row.created_at,
@@ -202,6 +207,33 @@ export async function programmeContactExists(
   return rows.length > 0;
 }
 
+/**
+ * Is `dealId` a deal in `programmeId`? For an activity's deal link (T-0111,
+ * R2), which must be in the activity's own programme (0037's composite key):
+ * answering here turns a 23503 (a 500) into one `unknown_reference`, the same
+ * whether the deal is real in another programme or tenant, or names nothing.
+ * Reads existence only, never the deal.
+ *
+ * tenancy-reviewed: tenant from the session, the programme both named and
+ * required to be in the session's scope; RLS on deal besides.
+ */
+export async function programmeDealExists(
+  tx: TenantTx,
+  programmeId: string,
+  dealId: string,
+): Promise<boolean> {
+  const rows = await tx.query<{ ok: number }>(
+    `SELECT 1 AS ok
+       FROM deal
+      WHERE tenant_id = $1
+        AND programme_id = $2
+        AND programme_id = ANY($3::uuid[])
+        AND id = $4`,
+    [tx.session.tenantId, programmeId, [...tx.session.programmeIds], dealId],
+  );
+  return rows.length > 0;
+}
+
 /** What a create writes. Server-owned columns are not here. */
 export interface NewActivityValues {
   type: ActivityType;
@@ -214,6 +246,11 @@ export interface NewActivityValues {
   ownerUserId: string | null;
   contactId: string | null;
   accountId: string | null;
+  /**
+   * The deal link (0037, T-0111); must be a deal in the same programme (the
+   * API checks first). Omitted is no link.
+   */
+  dealId?: string | null | undefined;
 }
 
 /**
@@ -233,10 +270,10 @@ export async function insertActivity(
   const rows = await tx.query<ActivityRow>(
     `INSERT INTO activity
        (id, tenant_id, programme_id, type, subject, body, due_at, owner_user_id,
-        contact_id, account_id, created_by_user_id, starts_at, ends_at)
+        contact_id, account_id, created_by_user_id, starts_at, ends_at, deal_id)
      VALUES ($1::uuid, $2::uuid, $3::uuid, $4::text, $5::text, $6::text,
              $7::timestamptz, $8::uuid, $9::uuid, $10::uuid, $11::uuid,
-             $12::timestamptz, $13::timestamptz)
+             $12::timestamptz, $13::timestamptz, $14::uuid)
      RETURNING ${SELECT_COLUMNS}`,
     [
       newId(),
@@ -252,6 +289,7 @@ export async function insertActivity(
       tx.session.userId,
       values.startsAt,
       values.endsAt,
+      values.dealId ?? null,
     ],
   );
   const row = rows[0];
@@ -261,7 +299,8 @@ export async function insertActivity(
 
 /**
  * What an update may change: completion (server time), the owner, a task's
- * due time (snooze, T-0082) and a meeting's times (reschedule, T-0082).
+ * due time (snooze, T-0082), a meeting's times (reschedule, T-0082) and the
+ * deal link (T-0111).
  * `undefined` leaves a column untouched (D-L102); `dueAt: null` clears it.
  * Times are UTC ISO strings, bound as `timestamptz`, never through a `Date`.
  */
@@ -272,6 +311,8 @@ export interface ActivityChanges {
   dueAt?: string | null | undefined;
   startsAt?: string | undefined;
   endsAt?: string | undefined;
+  /** Set, move (a uuid) or clear (`null`) the deal link (0037, T-0111). */
+  dealId?: string | null | undefined;
 }
 
 /**
@@ -299,6 +340,10 @@ export async function updateActivityIfVersion(
   if (changes.ownerUserId !== undefined) {
     values.push(changes.ownerUserId);
     sets.push(`owner_user_id = $${values.length}::uuid`);
+  }
+  if (changes.dealId !== undefined) {
+    values.push(changes.dealId);
+    sets.push(`deal_id = $${values.length}::uuid`);
   }
   // Column names are constants; only the values are bound.
   for (const [column, value] of [

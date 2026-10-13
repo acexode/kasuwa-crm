@@ -34,6 +34,8 @@ export const WITHHOLDABLE_ACTIVITY_FIELDS = [
   'ownerUserId',
   'contactId',
   'accountId',
+  // The deal link (0037, T-0111): `deal_id` in the matrix (R5).
+  'dealId',
 ] as const;
 
 export type WithholdableActivityField = (typeof WITHHOLDABLE_ACTIVITY_FIELDS)[number];

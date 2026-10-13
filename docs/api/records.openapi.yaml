@@ -3193,7 +3193,7 @@ paths:
       tags: [deals]
       summary: The deal's timeline — field changes and linked activities, newest first
       operationId: listDealTimeline
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P06/05', 'P06/06']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
       x-kasuwa-rights:
@@ -4304,7 +4304,7 @@ components:
         dealId:
           type: [string, 'null']
           format: uuid
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             The deal this activity is linked to (T-0111), always in the
             activity's programme; `null` when none. Withheld, and named in
@@ -4386,7 +4386,7 @@ components:
         dealId:
           type: [string, 'null']
           format: uuid
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Links the activity to a deal (T-0111). A link, never a target: it
             does not decide the programme and does not replace `contactId`
@@ -4447,7 +4447,7 @@ components:
         dealId:
           type: [string, 'null']
           format: uuid
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Link the activity to a deal, or move the link to another deal
             (T-0111); `null` unlinks it. A deal in the activity's programme,

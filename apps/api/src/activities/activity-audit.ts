@@ -31,6 +31,8 @@ export function activityCreateChanges(body: CreateActivityBody): AuditChange[] {
     'ownerUserId',
     'contactId',
     'accountId',
+    // T-0111 (R6): the deal link, by name only; the deal id is never recorded.
+    'dealId',
   ] as const) {
     const value = body[field];
     if (value !== undefined && value !== null) changes.push(redactedChange(field));
@@ -42,8 +44,8 @@ const sameInstant = (a: Date | null, b: Date | null) =>
   a === null || b === null ? a === b : a.getTime() === b.getTime();
 
 /**
- * An update: completion when it newly happened, the owner when it moved, and
- * (T-0082) each time whose value changed: `dueAt` on a snooze or a clear,
+ * An update: completion when it newly happened, the owner when it moved, the
+ * deal link when it was set, moved or cleared (T-0111), and (T-0082) each time whose value changed: `dueAt` on a snooze or a clear,
  * `startsAt` and `endsAt` on a reschedule. Times are not value fields (D-L72):
  * by name only, like everything here.
  */
@@ -53,6 +55,9 @@ export function activityUpdateChanges(before: Activity, after: Activity): AuditC
     changes.push(redactedChange('completedAt'));
   }
   if (before.ownerUserId !== after.ownerUserId) changes.push(redactedChange('ownerUserId'));
+  // T-0111 (R6): set, moved or cleared, by name only. Re-sending the current
+  // deal changes nothing and names nothing.
+  if (before.dealId !== after.dealId) changes.push(redactedChange('dealId'));
   for (const field of ['dueAt', 'startsAt', 'endsAt'] as const) {
     if (!sameInstant(before[field], after[field])) changes.push(redactedChange(field));
   }

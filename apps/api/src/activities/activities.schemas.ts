@@ -59,6 +59,8 @@ export const CREATE_ACTIVITY_KEYS = [
   'ownerUserId',
   'contactId',
   'accountId',
+  // The deal link (T-0111): field security judges it as `deal_id` (R5).
+  'dealId',
 ] as const;
 
 /**
@@ -107,6 +109,9 @@ export const CreateActivityBody = z
     ownerUserId: z.string().uuid().nullable().optional(),
     contactId: z.string().uuid().nullable().optional(),
     accountId: z.string().uuid().nullable().optional(),
+    // T-0111: a LINK, never a target (R1); the service checks the deal is in
+    // the activity's programme (R2).
+    dealId: z.string().uuid().nullable().optional(),
   })
   .strict()
   .superRefine((body, context) => {
@@ -152,7 +157,8 @@ export type CreateActivityBody = z.infer<typeof CreateActivityBody>;
  * `ownerUserId` (D-L81), and from T-0082 `dueAt` (snooze a task; `null`
  * clears it) and `startsAt` / `endsAt` (reschedule a meeting; never null).
  * Reopening a task (`completed: false`) is not in the MVP and is 400.
- * Retargeting is not an edit. Which type each field belongs to, and a
+ * Retargeting is not an edit; from T-0111 `dealId` is the one link an update
+ * may set, move or clear (`null`), R4. Which type each field belongs to, and a
  * meeting's span, are judged against the stored row by the service.
  */
 export const UpdateActivityBody = z
@@ -163,6 +169,7 @@ export const UpdateActivityBody = z
     dueAt: UtcDateTime.nullable().optional(),
     startsAt: UtcDateTime.optional(),
     endsAt: UtcDateTime.optional(),
+    dealId: z.string().uuid().nullable().optional(),
   })
   .strict()
   .refine(
@@ -171,7 +178,8 @@ export const UpdateActivityBody = z
       body.ownerUserId !== undefined ||
       body.dueAt !== undefined ||
       body.startsAt !== undefined ||
-      body.endsAt !== undefined,
+      body.endsAt !== undefined ||
+      body.dealId !== undefined,
     {
       message: 'an update must change something',
       path: [],
@@ -187,4 +195,5 @@ export const UPDATE_ACTIVITY_SECURED = {
   dueAt: 'dueAt',
   startsAt: 'startsAt',
   endsAt: 'endsAt',
+  dealId: 'dealId',
 } as const;

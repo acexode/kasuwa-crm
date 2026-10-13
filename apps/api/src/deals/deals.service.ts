@@ -141,14 +141,37 @@ function own(raw: Record<string, unknown>, key: string): boolean {
 const lowerOrNull = (value: string | null | undefined) =>
   value === undefined ? undefined : value === null ? null : value.toLowerCase();
 
+/** A deal the caller reaches AND may read (a staff set there), or null for anything else. */
+async function findReadableDeal(
+  tx: TenantTx,
+  id: unknown,
+): Promise<{ deal: Deal; grants: Grants } | null> {
+  if (!isUuid(id)) return null;
+  const deal = await findDealById(tx, id);
+  if (deal === null) return null;
+  const grants = await loadGrants(tx);
+  if (!canReadPipelines(grants, deal.programmeId)) return null;
+  return { deal, grants };
+}
+
 /** A deal the caller reaches AND may read (a staff set there): anything else is the one 404. */
 async function readableDeal(tx: TenantTx, id: unknown): Promise<{ deal: Deal; grants: Grants }> {
-  if (!isUuid(id)) throw notFound();
-  const deal = await findDealById(tx, id);
-  if (deal === null) throw notFound();
-  const grants = await loadGrants(tx);
-  if (!canReadPipelines(grants, deal.programmeId)) throw notFound();
-  return { deal, grants };
+  const found = await findReadableDeal(tx, id);
+  if (found === null) throw notFound();
+  return found;
+}
+
+/**
+ * The programme of a deal the caller may READ, or null: getDeal's own check
+ * (`findReadableDeal`), for listDealTimeline (T-0111, R12), so the two can never
+ * disagree on reach. A non-uuid id, a deal out of scope, and a caller with no
+ * staff set in its programme (client_portal, a custom set) are all null.
+ */
+export async function findReadableDealProgramme(
+  tx: TenantTx,
+  id: unknown,
+): Promise<string | null> {
+  return (await findReadableDeal(tx, id))?.deal.programmeId ?? null;
 }
 
 async function readablePipeline(
