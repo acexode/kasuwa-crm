@@ -107,6 +107,24 @@ export function seedTransitions(
   });
 }
 
+/** The only role that may give every programme of a tenant its pipeline. */
+const ALL_PROGRAMMES_ROLE = 'kasuwa_migrator';
+
+/**
+ * `ensureDefaultPipelines` was asked for every programme of a tenant by a
+ * role other than kasuwa_migrator (D-L120). Names no tenant, programme or
+ * role: the caller is wrong, not the data.
+ */
+export class DefaultPipelineRoleError extends Error {
+  constructor() {
+    super(
+      'ensureDefaultPipelines without a programmeId is for kasuwa_migrator only ' +
+        '(the seed, provisioning, an operator repair); pass the programmeId',
+    );
+    this.name = 'DefaultPipelineRoleError';
+  }
+}
+
 /** Same shape as StandardCatalogueQuery; repeated so this file stands alone. */
 export type DefaultPipelineQuery = (
   text: string,
@@ -122,14 +140,23 @@ export type DefaultPipelineQuery = (
  * IDEMPOTENT: a programme that already has any pipeline is left alone (same
  * ids, nothing written), so a second call changes nothing.
  *
- * WHO MAY CALL IT:
- *   - kasuwa_migrator (the seed, provisioning, an operator's repair): every
- *     programme of the tenant.
- *   - kasuwa_app inside withTenantTransaction: the programmes its policies
- *     admit, i.e. those in scope and the one this transaction created (0036's
- *     use of 0015's creation marker). That is how createProgramme seeds the
- *     pipeline of the programme it has just made, before the scope that
- *     would include it exists.
+ * TWO PATHS, TWO CALLERS (D-L120):
+ *   - WITH `programmeId` (createProgramme, kasuwa_app inside
+ *     withTenantTransaction): the one programme named, filtered on tenant AND
+ *     programme in the statement, and admitted by the policies only if it is
+ *     in scope or this transaction created it (0036's use of 0015's creation
+ *     marker). That is how createProgramme seeds the pipeline of the
+ *     programme it has just made, before the scope that would include it
+ *     exists.
+ *   - WITHOUT `programmeId` (ensureStandardObjectDefs: the seed,
+ *     provisionTenant and an operator's deploy-window repair): MIGRATOR AND
+ *     PROVISIONING ONLY. It means "every programme of the tenant", which
+ *     only a role that reads past row security can see, and its statement
+ *     filters on tenant alone. Run as kasuwa_app it would quietly lean on RLS
+ *     for programme scope (CLAUDE.md 2.3 wants two layers), so it asks the
+ *     database who it is first and throws `DefaultPipelineRoleError`, writing
+ *     nothing, unless `current_user` is kasuwa_migrator. An allow-list, as
+ *     0036's key guard: kasuwa_test_admin and any later role are refused too.
  *
  * NOT CONCURRENCY-SAFE against itself for the same programme: two
  * simultaneous first calls could both write a pipeline (there is no unique
@@ -146,6 +173,10 @@ export async function ensureDefaultPipelines(
   tenantId: string,
   programmeId?: string,
 ): Promise<string[]> {
+  if (programmeId === undefined) {
+    const [who] = await query(`SELECT current_user::text AS role`, []);
+    if (who?.role !== ALL_PROGRAMMES_ROLE) throw new DefaultPipelineRoleError();
+  }
   const targets = await query(
     `SELECT p.id
        FROM programme p

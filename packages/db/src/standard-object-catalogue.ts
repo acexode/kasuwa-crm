@@ -215,8 +215,10 @@ export type StandardCatalogueQuery = (
  *
  * PIPELINES (T-0106, R10): it also gives every programme of the tenant that
  * has none the default pipeline (`ensureDefaultPipelines`), so the same one
- * call repairs a programme created in the deploy window. As kasuwa_app it
- * reaches only the programmes the session's policies admit.
+ * call repairs a programme created in the deploy window. That step is
+ * kasuwa_migrator's alone (D-L120): on any other role it throws
+ * `DefaultPipelineRoleError`, rolling the caller back. Every caller (the
+ * seed, provisionTenant, an operator's repair) runs as the migrator.
  *
  * tenancy-reviewed: `tenantId` is the only tenant named, in every statement
  * and in the join; provisioning passes `tx.session.tenantId` and the seed its

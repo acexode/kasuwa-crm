@@ -633,7 +633,12 @@ export const pipelineStage = pgTable(
       table.pipelineId,
       table.id,
     ),
-    uniqueIndex('pipeline_stage_position_key').on(table.pipelineId, table.position),
+    uniqueIndex('pipeline_stage_position_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.pipelineId,
+      table.position,
+    ),
   ],
 );
 

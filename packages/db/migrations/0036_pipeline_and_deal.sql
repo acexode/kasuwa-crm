@@ -88,6 +88,19 @@
 -- contact and an invented id fail the same FK with the same message (no
 -- existence oracle across the BPO boundary).
 --
+-- UNIQUE KEYS (D-L120): every unique key and unique index but the primary key
+-- leads with (tenant_id, programme_id), and on the five tables below pipeline
+-- with (tenant_id, programme_id, pipeline_id). A unique check, like an FK
+-- check, ignores row security, and a non-deferrable one fires at the row,
+-- before the FK's end-of-statement check.
+-- A key on (pipeline_id, ...) alone let a kasuwa_app INSERT that names
+-- another tenant's pipeline under its own tenant and programme collide with
+-- that tenant's stages (23505) when the pipeline exists, and reach the FK
+-- (23503) when it does not: an existence oracle. Led by the row's own tenant
+-- and programme, no key can collide with another tenant's or programme's row,
+-- so both reach the same FK with the same error. Section 7 checks the
+-- leading columns.
+--
 -- ON UPDATE RESTRICT on EVERY FK (D-L76): NO ACTION accepts a one-statement
 -- id rotation that re-points a deal at another row. RESTRICT also refuses
 -- moving a contact or account that has deals to another programme.
@@ -367,7 +380,9 @@ CREATE TABLE pipeline_stage (
   -- PIPELINE. Also the pipeline FK's lookup.
   CONSTRAINT pipeline_stage_pipeline_id_key UNIQUE (tenant_id, programme_id, pipeline_id, id),
   -- Deferrable, so a later reorder can swap positions in one transaction.
-  CONSTRAINT pipeline_stage_position_key UNIQUE (pipeline_id, position)
+  -- Leads with tenant_id, programme_id (D-L120): see UNIQUE KEYS in the header.
+  CONSTRAINT pipeline_stage_position_key
+    UNIQUE (tenant_id, programme_id, pipeline_id, position)
     DEFERRABLE INITIALLY IMMEDIATE,
 
   CONSTRAINT pipeline_stage_kind_check CHECK (kind IN ('open', 'won', 'lost')),
@@ -387,9 +402,12 @@ CREATE TABLE pipeline_stage (
 );
 
 -- At most one won and one lost stage per pipeline, refused at once; "exactly
--- one" is the deferred trigger's. Predicates are plain comparisons.
-CREATE UNIQUE INDEX pipeline_stage_one_won_key ON pipeline_stage (pipeline_id) WHERE kind = 'won';
-CREATE UNIQUE INDEX pipeline_stage_one_lost_key ON pipeline_stage (pipeline_id) WHERE kind = 'lost';
+-- one" is the deferred trigger's. Predicates are plain comparisons. Keyed on
+-- (tenant_id, programme_id, pipeline_id), never pipeline_id alone (D-L120).
+CREATE UNIQUE INDEX pipeline_stage_one_won_key
+  ON pipeline_stage (tenant_id, programme_id, pipeline_id) WHERE kind = 'won';
+CREATE UNIQUE INDEX pipeline_stage_one_lost_key
+  ON pipeline_stage (tenant_id, programme_id, pipeline_id) WHERE kind = 'lost';
 
 CREATE TABLE pipeline_stage_transition (
   id             uuid PRIMARY KEY,
@@ -1180,6 +1198,25 @@ BEGIN
                         AND tg.tgname = t || '_keys_fixed');
   IF held IS NOT NULL THEN
     RAISE EXCEPTION '0036: the key guard is missing on: %', held;
+  END IF;
+
+  -- UNIQUE KEYS (D-L120): every unique index but the primary key leads with
+  -- tenant_id, programme_id, and, below pipeline, pipeline_id. A key that
+  -- does not can collide with another tenant's row: an existence oracle.
+  SELECT pg_catalog.string_agg(ic.relname, ', ' ORDER BY ic.relname) INTO held
+    FROM pg_catalog.pg_index i
+    JOIN pg_catalog.pg_class ic ON ic.oid = i.indexrelid
+    JOIN pg_catalog.pg_class tc ON tc.oid = i.indrelid
+   WHERE i.indisunique AND NOT i.indisprimary
+     AND tc.oid = ANY (ARRAY(SELECT ('public.' || t)::pg_catalog.regclass::pg_catalog.oid
+                               FROM pg_catalog.unnest(six) AS t))
+     AND (i.indnkeyatts < 3
+          OR pg_catalog.pg_get_indexdef(i.indexrelid, 1, true) <> 'tenant_id'
+          OR pg_catalog.pg_get_indexdef(i.indexrelid, 2, true) <> 'programme_id'
+          OR (tc.relname <> 'pipeline'
+              AND pg_catalog.pg_get_indexdef(i.indexrelid, 3, true) <> 'pipeline_id'));
+  IF held IS NOT NULL THEN
+    RAISE EXCEPTION '0036: unique key(s) not led by tenant_id, programme_id (and pipeline_id below pipeline): %', held;
   END IF;
 
   -- TRUNCATE skips RLS entirely, and BYPASSRLS skips the policies. Checked for

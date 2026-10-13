@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_PIPELINE_TEMPLATE,
+  DefaultPipelineRoleError,
   ensureDefaultPipelines,
   seedTransitions,
   type DefaultPipelineQuery,
@@ -94,13 +95,17 @@ describe('seedTransitions (the contract seed rule, D-L88)', () => {
 });
 
 describe('ensureDefaultPipelines', () => {
-  function recorder(targets: string[]): {
+  function recorder(
+    targets: string[],
+    role = 'kasuwa_migrator',
+  ): {
     query: DefaultPipelineQuery;
     calls: { text: string; values: readonly unknown[] }[];
   } {
     const calls: { text: string; values: readonly unknown[] }[] = [];
     const query: DefaultPipelineQuery = async (text, values) => {
       calls.push({ text, values });
+      if (text.includes('current_user')) return [{ role }];
       return text.includes('FROM programme p') ? targets.map((id) => ({ id })) : [];
     };
     return { query, calls };
@@ -109,8 +114,32 @@ describe('ensureDefaultPipelines', () => {
   it('writes nothing for a tenant whose programmes all have a pipeline (idempotent)', async () => {
     const { query, calls } = recorder([]);
     expect(await ensureDefaultPipelines(query, TENANT)).toEqual([]);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]?.values).toEqual([TENANT, null]);
+  });
+
+  it.each(['kasuwa_app', 'kasuwa_test_admin', 'postgres'])(
+    'refuses the all-programmes path as %s, before reading or writing anything (D-L120)',
+    async (role) => {
+      const { query, calls } = recorder(['22222222-0000-4000-8000-0000000c0002'], role);
+      await expect(ensureDefaultPipelines(query, TENANT)).rejects.toBeInstanceOf(
+        DefaultPipelineRoleError,
+      );
+      expect(calls.map((call) => call.text)).toEqual(['SELECT current_user::text AS role']);
+    },
+  );
+
+  it('the refusal names no tenant, programme or role', () => {
+    const message = new DefaultPipelineRoleError().message;
+    expect(message).not.toContain(TENANT);
+    expect(message).not.toContain('kasuwa_app');
+  });
+
+  it('the programmeId path asks no role (createProgramme as kasuwa_app is unchanged)', async () => {
+    const { query, calls } = recorder([], 'kasuwa_app');
+    expect(await ensureDefaultPipelines(query, TENANT, PROGRAMME)).toEqual([]);
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.values).toEqual([TENANT, null]);
+    expect(calls[0]?.text).not.toContain('current_user');
   });
 
   it('names the tenant in every statement and keeps every row in one pipeline', async () => {

@@ -77,6 +77,11 @@ vi.mock('pg', async (importOriginal) => {
           ? { rows: [], rowCount: 0 }
           : { rows: [{ key: state.grantKey }], rowCount: 1 };
       }
+      if (text.includes('SELECT current_user::text AS role')) {
+        // ensureDefaultPipelines' all-programmes path is the migrator's alone
+        // (D-L120); provisioning connects as kasuwa_migrator.
+        return { rows: [{ role: 'kasuwa_migrator' }], rowCount: 1 };
+      }
       if (text.includes('clock_timestamp()')) {
         return { rows: [{ at: '2026-10-03T10:00:00.000000Z' }], rowCount: 1 };
       }

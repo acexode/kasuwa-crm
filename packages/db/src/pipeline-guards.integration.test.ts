@@ -1,13 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { ensureDefaultPipelines } from './default-pipeline';
+import { DefaultPipelineRoleError, ensureDefaultPipelines } from './default-pipeline';
 import {
   BU_A,
   PROGRAMME_A1,
   PROGRAMME_A2,
+  PROGRAMME_B1,
   SEED_DEALS,
   TENANT_A,
+  TENANT_B,
   USER_A_AGENT_1,
   USER_A_AGENT_2,
   USER_A_SUPERVISOR,
@@ -26,7 +28,12 @@ import { withTenantTransaction, type TenantTx } from './session';
  *   - the move rule (R5) binds kasuwa_test_admin, and only the migrator is
  *     free of it;
  *   - a requirement's kind is fixed (a ticked check stays a check);
- *   - the seeded deal sits in its programme's default pipeline.
+ *   - the seeded deal sits in its programme's default pipeline;
+ *   - no existence oracle across tenants through pipeline_stage's unique
+ *     keys: naming another tenant's real pipeline and naming an invented id
+ *     fail the same way (D-L120);
+ *   - ensureDefaultPipelines' all-programmes path refuses any role but
+ *     kasuwa_migrator (D-L120, CLAUDE.md 2.3).
  *
  * Every write rolls back. Names are invented and name no one.
  */
@@ -215,6 +222,129 @@ describe('pipeline guards (0036)', () => {
         ),
       );
       expect(visible).toEqual([{ n: 0 }]);
+    });
+  });
+
+  describe('no cross-tenant existence oracle through the stage keys (D-L120)', () => {
+    /**
+     * As a tenant-A kasuwa_app session in its own in-scope programme, insert
+     * a stage that names (a) tenant B's real default pipeline and (b) an
+     * invented id. With a unique key leading with pipeline_id, (a) collided
+     * with B's won/lost stage or position (23505) while (b) reached the FK
+     * (23503). Every key now leads with (tenant_id, programme_id,
+     * pipeline_id), so neither can collide with another tenant's row and both
+     * reach the same FK, with the same constraint name.
+     */
+    const INSERT_STAGE = `INSERT INTO pipeline_stage
+        (id, tenant_id, programme_id, pipeline_id, name, kind, position, probability_bp,
+         rotting_after_days)
+      VALUES ($1, $2, $3, $4, 'T-0106 oracle', $5, $6, $7, $8) RETURNING id`;
+    const SHAPES: [string, string, number, number, number | null][] = [
+      ['won', 'won', 40, 10000, null],
+      ['lost', 'lost', 41, 0, null],
+      // Position 0 is taken by the first stage of every default pipeline.
+      ['position', 'open', 0, 1000, 14],
+    ];
+
+    type Failure = { ok: true; rows: number } | { ok: false; code: string; constraint: string };
+
+    async function failure(
+      run: (sql: string, values?: unknown[]) => Promise<unknown[]>,
+      values: unknown[],
+    ): Promise<Failure> {
+      await run('SAVEPOINT t0106_oracle');
+      let outcome: Failure;
+      try {
+        const rows = await run(INSERT_STAGE, values);
+        await run('SET CONSTRAINTS ALL IMMEDIATE');
+        outcome = { ok: true, rows: rows.length };
+      } catch (error) {
+        const constraint = (error as { constraint?: unknown }).constraint;
+        outcome = {
+          ok: false,
+          code: codeOf(error),
+          constraint: typeof constraint === 'string' ? constraint : '',
+        };
+      }
+      await run('ROLLBACK TO SAVEPOINT t0106_oracle');
+      return outcome;
+    }
+
+    it.each(SHAPES)(
+      'a %s stage naming tenant B’s real pipeline fails exactly as one naming an invented id',
+      async (_label, kind, position, probabilityBp, rottingAfterDays) => {
+        const foreignPipeline = await rolledBack(migrator, async (client) => {
+          const rows = await client.query<{ id: string }>(
+            'SELECT id FROM pipeline WHERE tenant_id = $1 AND programme_id = $2',
+            [TENANT_B, PROGRAMME_B1],
+          );
+          return rows.rows[0]?.id;
+        });
+        expect(foreignPipeline, 'tenant B has no seeded pipeline').toBeDefined();
+
+        const outcomes = await asApp(appPool, USER_A_AGENT_1, async (tx) => {
+          const run = (sql: string, values?: unknown[]) => tx.query(sql, values);
+          const values = (pipelineId: string | undefined) => [
+            randomUUID(),
+            TENANT_A,
+            PROGRAMME_A1,
+            pipelineId,
+            kind,
+            position,
+            probabilityBp,
+            rottingAfterDays,
+          ];
+          return {
+            real: await failure(run, values(foreignPipeline)),
+            invented: await failure(run, values(randomUUID())),
+          };
+        });
+        expect(outcomes.real).toEqual(outcomes.invented);
+        expect(outcomes.real).toEqual({
+          ok: false,
+          code: '23503',
+          constraint: 'pipeline_stage_pipeline_fk',
+        });
+      },
+    );
+  });
+
+  describe('ensureDefaultPipelines: the all-programmes path is the migrator’s alone (D-L120)', () => {
+    it('refuses a kasuwa_app session, writing nothing; the programmeId path is unchanged', async () => {
+      const outcome = await asApp(appPool, USER_A_SUPERVISOR, async (tx) => {
+        const query = (text: string, values: readonly unknown[]) => tx.query(text, [...values]);
+        // A1 already has its pipeline, so the narrowed call writes nothing.
+        const narrowed = await ensureDefaultPipelines(query, TENANT_A, PROGRAMME_A1);
+        const refused = await ensureDefaultPipelines(query, TENANT_A).then(
+          () => 'ran',
+          (error: unknown) => (error instanceof DefaultPipelineRoleError ? 'refused' : String(error)),
+        );
+        return { narrowed, refused };
+      });
+      expect(outcome).toEqual({ narrowed: [], refused: 'refused' });
+    });
+
+    it('refuses kasuwa_test_admin too: the guard names who may, not who may not', async () => {
+      const refused = await rolledBack(testAdmin, (client) =>
+        ensureDefaultPipelines(
+          (text, values) => client.query(text, [...values]).then((result) => result.rows),
+          TENANT_A,
+        ).then(
+          () => 'ran',
+          (error: unknown) => (error instanceof DefaultPipelineRoleError ? 'refused' : String(error)),
+        ),
+      );
+      expect(refused).toBe('refused');
+    });
+
+    it('runs for kasuwa_migrator, and changes nothing on a seeded tenant', async () => {
+      const created = await rolledBack(migrator, (client) =>
+        ensureDefaultPipelines(
+          (text, values) => client.query(text, [...values]).then((result) => result.rows),
+          TENANT_A,
+        ),
+      );
+      expect(created).toEqual([]);
     });
   });
 
