@@ -1729,7 +1729,9 @@ describe('acceptance: the activity table (T-0060)', () => {
           ? field(name, { type: 'lookup', config: '{"targetObjectApiName":"contact"}' })
           : name === 'account_id'
             ? field(name, { type: 'lookup', config: '{"targetObjectApiName":"account"}' })
-            : field(name),
+            : name === 'deal_id' // T-0111 (lead edit, D-L131): the deal lookup
+              ? field(name, { type: 'lookup', config: '{"targetObjectApiName":"deal"}' })
+              : field(name),
       );
       expect(catalogueProblems([object], good)).toEqual([]);
       expect(
