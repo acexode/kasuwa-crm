@@ -2758,3 +2758,27 @@ flag; 7 self-checks and contract pins pass. Migration 0037 is reserved for `agen
 - **Open for T-0110 (screen and product):** a deal with neither a primary contact nor an account has nothing to log an
   activity against (R1). The screen must say so rather than offer a broken composer.
 - **Builder:** Agent 3 on `agent3/T-0111-deal-timeline`.
+### D-L130 — T-0109 suite rulings (lead, 2026-10-13)
+**Status:** PROCEEDING (lead). The suite is on `lead/T-0109-acceptance` (4a32038):
+`pipeline-board.acceptance.test.ts` (51 tests), `p06-pipeline.spec.ts` (42 journeys) and the contract-validated
+`pipeline-mock.ts`, which T-0110 reuses. On main, 45 wrapper tests fail because there is no flag, route or
+`webPipelineUrl`, and every self-check passes.
+- **R1–R20 in the suite header are accepted.** Notable:
+  - `/pipelines` lists pipelines and `/pipelines/[pipelineId]` holds board and list behind a view switch (R1);
+  - money is exact Intl currency format, never compact and never through a JS number. The design's compact totals are
+    overruled by D-P19 (R5);
+  - rotting comes from served values, not the design's fixed thresholds (R8);
+  - the list view has no count and no footer totals (D-P13) (R13);
+  - the card links to the deal in T-0110, which re-pins the spec (R15);
+  - write controls are shown to every caller, with the 403 as the gate (D-L84) (R20).
+- **Wiring:** the builder adds `crm_pipeline` to the e2e runner and publishes `webPipelineUrl`, as T-0083 and T-0115
+  did. Naming an unregistered flag stops the records process booting, so the lead's suite only asserts it (R3).
+- **Byte budget:** `PIPELINE_BUDGET_BYTES` is a placeholder, pinned by the lead from the builder's measurement within 5%,
+  under 260,000 (R19).
+- **Follow-ups:**
+  - listContacts and listAccounts have no programme filter, so the requirement picker filters on the client. A
+    contract decision is worth taking later;
+  - there is no user directory read, so the owner filter offers me, unassigned and the owners seen on cards;
+  - `run-e2e.mjs` leaves `tsx src/main.ts` API processes behind after it exits (a harness task);
+  - `apps/web/lib/admin-format.ts` `formatMoney` loses precision past 2^53 and must not be reused for deals.
+- **Builders:** Agent 11 on `agent11/T-0109-pipeline-kanban` and Agent 3 on `agent3/T-0111-deal-timeline`, in parallel.
