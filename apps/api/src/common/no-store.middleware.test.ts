@@ -13,6 +13,7 @@ import { MeController } from '../me/me.controller';
 import { PipelinesController } from '../pipelines/pipelines.controller';
 import { ContactScriptsController, ScriptRunsController } from '../scripts/script-runs.controller';
 import { ScriptsController } from '../scripts/scripts.controller';
+import { SearchController } from '../search/search.controller';
 import { NoStoreMiddleware } from './no-store.middleware';
 
 /**
@@ -35,7 +36,7 @@ describe('NoStoreMiddleware', () => {
 });
 
 describe('AppModule applies it to every records controller (T-0080, D-L90)', () => {
-  it('names contacts, leads, accounts, activities, me, my activities (T-0082), pipelines (T-0107) and deals (T-0108)', () => {
+  it('names contacts, leads, accounts, activities, me, my activities (T-0082), pipelines (T-0107), deals (T-0108) and search (T-0086)', () => {
     expect([...RECORDS_CONTROLLERS]).toEqual([
       ContactsController,
       LeadsController,
@@ -46,6 +47,7 @@ describe('AppModule applies it to every records controller (T-0080, D-L90)', () 
       PipelinesController,
       PipelineDealsController,
       DealsController,
+      SearchController,
     ]);
   });
 
