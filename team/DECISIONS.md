@@ -2894,3 +2894,16 @@ is no 0038, no route and the flags are false; 4 self-checks and 2 guards pass.
   - pin the Postgres image by digest or ICU version before the first cell, so the folded columns cannot drift silently
     on a re-pull;
   - D-L80's query-string stripping must cover the web ingress as well as the API.
+
+### D-L136 — T-0123 suite rulings; timeline actors stay named (lead, 2026-10-14)
+**Status:** PROCEEDING (lead). Suite on `lead/T-0123-acceptance` (6e38540).
+- **Rule pinned:** `checkedBy.displayName` is `null` when the checker has no `user_programme` row in the deal's
+  programme at read time (the D-P23 owner test). The tenant-admin flag and membership of another programme do not
+  count. Re-adding someone names them again. `checkedBy.id` is always served. Each check is judged on its own.
+  Covered reads: getDeal, listDeals, getPipelineBoard cards, and the updateDeal and moveDeal answers
+  (pipeline-board-api R17 replaced; deals-api R23 added).
+- **Deal timeline out of scope:** the task file's "the deal timeline's actors where they are checkers" is dropped.
+  Timeline actors are the people behind events and activities, and D-L81 names them even after they leave the
+  programme. The timeline has no `checkedBy`, and the suite stays as it is.
+- **Load note:** under a load average near 150, two untouched tests timed out (a field-security test in deals-api,
+  and the board plans seed). Both pass on a quiet host. This is the 2026-10-14 machine crash (PR #132), not a defect.
