@@ -1,11 +1,23 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ComponentType,
+  type LazyExoticComponent,
+  type ReactNode,
+} from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
 import { LiteModeToggle } from '../auth/lite-mode';
+import { SHELL_SEARCH_STRINGS } from '../search/message-ids';
 import { CRM_NAV, liveHref, type CrmNavItem } from './crm-nav';
 
 /**
@@ -17,11 +29,44 @@ import { CRM_NAV, liveHref, type CrmNavItem } from './crm-nav';
  * A sidebar from `md` up and a five-item bottom bar at 360 px, as P04 draws
  * both. Unbuilt destinations are non-links (see `crm-nav.ts`).
  *
- * Still to come, and deliberately absent rather than faked: the global search
- * and Ctrl K palette, notifications, agent availability and the account menu.
- * Each needs an API that does not exist yet; a control that does nothing is a
- * promise the product breaks the first time someone presses it.
+ * THE GLOBAL SEARCH (T-0087, P27). Where its flag is on in this process
+ * (`live.includes('search')`, from `crmLiveNav()`), the header links `/search`
+ * and Control+K or Meta+K opens the command palette from anywhere in the
+ * shell, a text field included. The palette's code is a dynamic `import()`
+ * made on the first open (R29): it is in no screen's first load, so a user who
+ * never opens it never pays for it. While it is open, everything behind it is
+ * inert; when it closes, focus goes back to where it was.
+ *
+ * Still to come, and deliberately absent rather than faked: notifications,
+ * agent availability and the account menu. Each needs an API that does not
+ * exist yet; a control that does nothing is a promise the product breaks the
+ * first time someone presses it.
  */
+
+interface PaletteProps {
+  t: Translator;
+  onClose: () => void;
+  onRetry: () => void;
+  dealsLive: boolean;
+}
+
+/**
+ * The palette, loaded on the first open only (R29): never part of the
+ * shell's first load. A chunk that does not arrive (a dropped 256 kbps link)
+ * resolves to `PaletteFailed` rather than crashing the screen, and a retry
+ * makes a fresh loader, because `lazy` remembers what it resolved to (D-L137 M4).
+ */
+function loadPalette(): LazyExoticComponent<ComponentType<PaletteProps>> {
+  return lazy(() =>
+    import('../search/command-palette').then(
+      (module): { default: ComponentType<PaletteProps> } => ({ default: module.CommandPalette }),
+      (): { default: ComponentType<PaletteProps> } => ({ default: PaletteFailed }),
+    ),
+  );
+}
+
+const QUIET_BUTTON_SHELL =
+  'flex min-h-touch items-center justify-center gap-2 rounded-md px-3 text-body-sm font-semibold text-primary-text hover:bg-surface-sunken';
 
 const LINK_FOCUS =
   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
@@ -98,9 +143,53 @@ export function CrmShell({
   // The wordmark goes to the first screen that answers here: the one inside
   // is always among them, so it is never a link to a 404.
   const home = CRM_NAV.map((item) => liveHref(item, live)).find((href) => href !== null) ?? null;
+  const searchLive = live.includes('search');
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [Palette, setPalette] = useState<LazyExoticComponent<ComponentType<PaletteProps>> | null>(null);
+  const openRef = useRef(false);
+  const openerRef = useRef<Element | null>(null);
+  const wasOpen = useRef(false);
+  openRef.current = paletteOpen;
+
+  // Control+K and Meta+K, from anywhere in the shell, a text field included
+  // (R4), on any keyboard layout (`code` is the physical key, D-L137 L2). Not
+  // over another modal dialog: that dialog owns the page until it closes (M1).
+  useEffect(() => {
+    if (!searchLive) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const isK = event.code === 'KeyK' || event.key.toLowerCase() === 'k';
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || !isK) return;
+      event.preventDefault();
+      if (openRef.current || document.querySelector('[aria-modal="true"]') !== null) return;
+      openerRef.current = document.activeElement;
+      // `lazy` returns an object, not a function, so React stores it rather than calling it.
+      setPalette((current: LazyExoticComponent<ComponentType<PaletteProps>> | null) => current ?? loadPalette());
+      setPaletteOpen(true);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [searchLive]);
+
+  // Focus goes back where it was once the palette has closed and the page is no longer inert.
+  useEffect(() => {
+    if (paletteOpen) {
+      wasOpen.current = true;
+      return;
+    }
+    if (!wasOpen.current) return;
+    wasOpen.current = false;
+    const opener = openerRef.current;
+    openerRef.current = null;
+    if (opener instanceof HTMLElement && document.contains(opener)) opener.focus();
+  }, [paletteOpen]);
+
+  const closePalette = useCallback(() => setPaletteOpen(false), []);
+  const retryPalette = useCallback(() => setPalette(loadPalette()), []);
+  const behind = paletteOpen ? { inert: true } : {};
+
   return (
     <div data-shell="crm" className="flex min-h-screen flex-col bg-bg text-text">
-      <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
+      <header {...behind} className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
         <Link href={home ?? `/${current}`} className={`flex shrink-0 items-center gap-2 rounded-md ${LINK_FOCUS}`}>
           <span
             aria-hidden="true"
@@ -111,6 +200,20 @@ export function CrmShell({
           <b className="text-body-md">{t.t('app.name')}</b>
         </Link>
         <span className="flex-1" />
+        {searchLive ? (
+          <Link
+            href="/search"
+            prefetch={false}
+            aria-current={current === 'search' ? 'page' : undefined}
+            aria-keyshortcuts="Control+K Meta+K"
+            className={`flex min-h-touch min-w-touch shrink-0 items-center justify-center gap-2 rounded-md border border-border px-2 text-body-sm font-semibold sm:px-3 ${
+              current === 'search' ? 'bg-primary-soft text-primary-text' : 'bg-surface text-text hover:bg-surface-sunken'
+            } ${LINK_FOCUS}`}
+          >
+            <Icon name="search" size="sm" />
+            <span className="sr-only sm:not-sr-only">{t.t(SHELL_SEARCH_STRINGS.entry)}</span>
+          </Link>
+        ) : null}
         <LanguageMenu
           options={locales}
           current={locale}
@@ -128,7 +231,7 @@ export function CrmShell({
         />
       </header>
 
-      <div className="flex min-w-0 flex-1 items-stretch">
+      <div {...behind} className="flex min-w-0 flex-1 items-stretch">
         <nav
           aria-label={t.t('records.nav.label')}
           className="hidden w-56 shrink-0 flex-col gap-1 border-e border-border bg-surface p-3 md:flex"
@@ -141,6 +244,7 @@ export function CrmShell({
       </div>
 
       <nav
+        {...behind}
         aria-label={t.t('records.nav.label')}
         className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-5 border-t border-border bg-surface md:hidden"
       >
@@ -148,6 +252,82 @@ export function CrmShell({
           <BottomItem key={item.id} item={item} href={liveHref(item, live)} current={current} t={t} />
         ))}
       </nav>
+
+      {searchLive && paletteOpen && Palette !== null ? (
+        <Suspense fallback={<PaletteLoading t={t} onClose={closePalette} />}>
+          <Palette t={t} onClose={closePalette} onRetry={retryPalette} dealsLive={live.includes('deals')} />
+        </Suspense>
+      ) : null}
     </div>
+  );
+}
+
+/** The dimmed page behind the palette's interim states: Escape (caught first, M1) and a press on it close. */
+function PaletteOverlay({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  useEffect(() => {
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.isComposing) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+    document.addEventListener('keydown', onEscape, true);
+    return () => document.removeEventListener('keydown', onEscape, true);
+  }, [onClose]);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center sm:p-4 sm:pt-16"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <span aria-hidden="true" className="absolute inset-0 -z-10 bg-inverse opacity-60" />
+      {children}
+    </div>
+  );
+}
+
+/** While the palette's code arrives on a slow link: a status, never nothing, and it can still be dismissed. */
+function PaletteLoading({ t, onClose }: { t: Translator; onClose: () => void }) {
+  return (
+    <PaletteOverlay onClose={onClose}>
+      <p role="status" className="w-full max-w-xl bg-surface-raised p-4 text-body-md text-text-2 shadow-3 sm:rounded-lg">
+        {t.t(SHELL_SEARCH_STRINGS.loading)}
+      </p>
+    </PaletteOverlay>
+  );
+}
+
+/** The palette's code did not arrive: say so, and offer to try again or to close (D-L137 M4). */
+function PaletteFailed({ t, onClose, onRetry }: PaletteProps) {
+  const titleId = useId();
+  const retryRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    retryRef.current?.focus();
+  }, []);
+  return (
+    <PaletteOverlay onClose={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        data-testid="command-palette-failed"
+        className="flex w-full max-w-xl flex-col items-start gap-2 bg-surface-raised p-4 shadow-3 sm:rounded-lg"
+      >
+        <h2 id={titleId} className="flex items-center gap-2 text-h4 font-bold">
+          <Icon name="error" size="sm" />
+          {t.t(SHELL_SEARCH_STRINGS.failedTitle)}
+        </h2>
+        <p className="text-body-sm text-text-2">{t.t(SHELL_SEARCH_STRINGS.failedBody)}</p>
+        <div className="flex flex-wrap gap-2">
+          <button ref={retryRef} type="button" onClick={onRetry} className={`${QUIET_BUTTON_SHELL} ${LINK_FOCUS}`}>
+            {t.t(SHELL_SEARCH_STRINGS.retry)}
+          </button>
+          <button type="button" onClick={onClose} className={`${QUIET_BUTTON_SHELL} ${LINK_FOCUS}`}>
+            {t.t(SHELL_SEARCH_STRINGS.close)}
+          </button>
+        </div>
+      </div>
+    </PaletteOverlay>
   );
 }
