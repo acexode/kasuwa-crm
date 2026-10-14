@@ -28,16 +28,36 @@ export function minorDigits(currency: string): number {
   return numberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2;
 }
 
+/** Thrown for an amount that is not a run of digits: it is never drawn as a zero (R5). */
+export class UnreadableAmountError extends Error {
+  constructor() {
+    super('The amount is not a decimal string of minor units');
+    this.name = 'UnreadableAmountError';
+  }
+}
+
+/**
+ * The language's own digits for 0 to 9 (Arabic-Indic for `ar`, Latin for
+ * most), each formatted alone: a single digit is exact as any number.
+ */
+function digitSet(locale: string): readonly string[] {
+  const format = numberFormat(locale, { useGrouping: false, maximumFractionDigits: 0 });
+  return Array.from({ length: 10 }, (_, digit) => format.format(digit));
+}
+
 /**
  * `amountMinor` (a decimal string of minor units) as the active language
- * writes it: `('en', '125050', 'GHS')` is "GH₵1,250.50" in Intl's own symbol.
+ * writes it: `('en', '125050', 'GHS')` is "GH₵1,250.50" in Intl's own symbol,
+ * and the fraction is written in the same digits as the whole part. Throws
+ * `UnreadableAmountError` for anything but a digit run.
  */
 export function formatDealMoney(locale: string, amountMinor: string, currency: string): string {
+  if (!/^\d+$/.test(amountMinor)) throw new UnreadableAmountError();
   const digits = minorDigits(currency);
-  const clean = /^\d+$/.test(amountMinor) ? amountMinor : '0';
-  const padded = clean.padStart(digits + 1, '0');
+  const padded = amountMinor.padStart(digits + 1, '0');
   const whole = BigInt(padded.slice(0, padded.length - digits));
-  const fraction = padded.slice(padded.length - digits);
+  const native = digitSet(locale);
+  const fraction = Array.from(padded.slice(padded.length - digits), (digit) => native[digit.charCodeAt(0) - 48] ?? digit).join('');
   const format = numberFormat(locale, { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0 });
   const parts = format.formatToParts(whole);
   if (digits === 0) {

@@ -152,7 +152,7 @@ export function DealList({
             <Icon name="error" size="sm" />
             {t.t('pipeline.list.error')}
           </p>
-          <p>{t.t(errorMessage(error ?? { code: 'network', details: [] }))}</p>
+          <p>{t.t(errorMessage(error ?? { status: 0, code: 'network', details: [] }, 'read'))}</p>
           <button type="button" data-requires-connection="" disabled={!online} onClick={() => setRetry((current) => current + 1)} className={QUIET_BUTTON}>
             {t.t('records.retry')}
           </button>
@@ -207,7 +207,7 @@ export function DealList({
 
       {moreError === null ? null : (
         <p role="alert" className="text-body-sm text-danger-text">
-          {t.t(errorMessage(moreError))}
+          {t.t(errorMessage(moreError, 'read'))}
         </p>
       )}
       {phase === 'loaded' && page.cursor !== null ? (

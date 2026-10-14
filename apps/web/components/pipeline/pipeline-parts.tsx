@@ -1,7 +1,7 @@
 import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { formatSyncedAt } from '../records/list-model';
-import { formatDealMoney } from '../../lib/deal-money';
+import { UnreadableAmountError, formatDealMoney } from '../../lib/deal-money';
 import { withheld, type Deal, type DealMoney } from '../../lib/pipelines-api';
 import { formatCalendarDate } from './pipeline-model';
 
@@ -11,11 +11,26 @@ import { formatCalendarDate } from './pipeline-model';
  * copy, so a lock or a former owner reads the same on a card and in a row.
  */
 
-/** An exact amount in its currency's own format (R5). The digits come from the string, never a number. */
-export function Money({ locale, money, kind }: { locale: string; money: DealMoney; kind?: 'amount' | 'weighted' }) {
+/**
+ * An exact amount in its currency's own format (R5). The digits come from the
+ * string, never a number; an amount that is not a digit run is said to be
+ * unreadable, never drawn as a zero.
+ */
+export function Money({ t, locale, money, kind }: { t: Translator; locale: string; money: DealMoney; kind?: 'amount' | 'weighted' }) {
+  let text: string;
+  try {
+    text = formatDealMoney(locale, money.amountMinor, money.currency);
+  } catch (error) {
+    if (!(error instanceof UnreadableAmountError)) throw error;
+    return (
+      <span data-money={kind} data-unreadable="true" className="text-danger-text">
+        {t.t('pipeline.money.unreadable')}
+      </span>
+    );
+  }
   return (
     <span data-money={kind} className="whitespace-nowrap tabular-nums">
-      {formatDealMoney(locale, money.amountMinor, money.currency)}
+      {text}
     </span>
   );
 }
@@ -37,7 +52,7 @@ export function Locked({ t }: { t: Translator }) {
 export function AmountValue({ t, locale, deal }: { t: Translator; locale: string; deal: Deal }) {
   if (withheld(deal, 'amount')) return <Locked t={t} />;
   if (deal.amount === null || deal.amount === undefined) return <span className="text-text-muted">{t.t('pipeline.card.noAmount')}</span>;
-  return <Money locale={locale} money={deal.amount} />;
+  return <Money t={t} locale={locale} money={deal.amount} />;
 }
 
 /** The owner by name, a lock, "Unassigned", or a former owner — never an id (D-P23). */

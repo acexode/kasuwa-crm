@@ -9,7 +9,9 @@ import { FOCUS } from '../records/list-classes';
  * bottom sheet at 360 px, a centred dialog from `sm` up. The obligations that
  * get forgotten: focus moves IN on open, is RETURNED to the opener on close
  * (the screen re-finds a moved card's control, whose old element is gone), and
- * Tab is TRAPPED inside. Escape closes; so does a press on the backdrop.
+ * Tab is TRAPPED inside, and the screen behind is inert while it is open.
+ * Escape closes; so does a press on the backdrop, except while a write is in
+ * flight.
  *
  * Rendered INSIDE the screen root, never portalled, so a refusal it carries
  * is still the screen's own alert. Nothing typed here outlives it (D-P21).
@@ -23,6 +25,7 @@ export function PipelineDialog({
   title,
   subtitle,
   closeLabel,
+  busy = false,
   onClose,
   children,
 }: {
@@ -30,6 +33,8 @@ export function PipelineDialog({
   title: ReactNode;
   subtitle?: ReactNode;
   closeLabel: string;
+  /** A write is in flight: Escape and the backdrop do not close it, so its answer has somewhere to land. */
+  busy?: boolean;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -48,16 +53,17 @@ export function PipelineDialog({
 
   // Escape closes from anywhere while the dialog is open: a control that was
   // focused and then disabled (a confirm button while it sends) hands focus
-  // to the page, and the dialog must still close from the keyboard.
+  // to the page, and the dialog must still close from the keyboard. Not while
+  // a write is in flight, not while an input method is composing, and not when
+  // a control inside already used the key (the picker clearing its search).
   useEffect(() => {
     const onEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.stopPropagation();
+      if (event.key !== 'Escape' || busy || event.isComposing || event.defaultPrevented) return;
       onClose();
     };
     document.addEventListener('keydown', onEscape);
     return () => document.removeEventListener('keydown', onEscape);
-  }, [onClose]);
+  }, [busy, onClose]);
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
@@ -83,7 +89,7 @@ export function PipelineDialog({
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget && !busy) onClose();
       }}
     >
       <span aria-hidden="true" className="absolute inset-0 -z-10 bg-inverse opacity-60" />

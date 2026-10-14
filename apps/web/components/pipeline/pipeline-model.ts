@@ -304,23 +304,46 @@ export function rebaseViews(
 // Refusals (R10)
 // ---------------------------------------------------------------------------
 
-const KNOWN_ERRORS = new Set([
-  'validation_failed',
+/** Server faults and a lost connection: the only refusals worded as "something went wrong on our side". */
+const SERVER_ERRORS = new Set(['service_unavailable', 'internal_error']);
+
+/** 4xx codes with their own copy, as long as no detail says the request itself was unusable. */
+const CLIENT_ERRORS = new Set([
   'not_authenticated',
   'not_permitted',
   'not_found',
   'stale_write',
   'too_many_requests',
-  'service_unavailable',
-  'internal_error',
   'transition_not_allowed',
   'requirements_unmet',
-  'network',
 ]);
 
-/** `records.error.<code>`, switching on `code` and never on `message`. */
-export function errorMessage(error: PipelineError): MessageId {
-  return (KNOWN_ERRORS.has(error.code) ? `records.error.${error.code}` : 'records.error.internal_error') as MessageId;
+/** Detail reasons that mean "this change could not be saved as sent", whatever the code. */
+const UNSAVED_DETAILS = new Set(['unknown_reference', 'field_withheld', 'field_not_editable']);
+
+/**
+ * The copy for a refusal, switching on `code` and `details` and never on
+ * `message`. A 5xx or a lost connection is the server's fault; every other
+ * 4xx a write meets — an unknown reference, a withheld or uneditable field
+ * the screen cannot label, a validation failure, a code this screen does not
+ * know — is "this change could not be saved", never the server-fault text.
+ * A READ keeps `validation_failed`'s own copy (clear the search and filters).
+ */
+export function errorMessage(error: PipelineError, mode: 'read' | 'write' = 'write'): MessageId {
+  if (error.code === 'network' || error.status === 0) return 'records.error.network';
+  if (error.status >= 500) return (SERVER_ERRORS.has(error.code) ? `records.error.${error.code}` : 'records.error.internal_error') as MessageId;
+  if (error.details.some((detail) => UNSAVED_DETAILS.has(detail.code))) return 'pipeline.error.unsaved';
+  if (CLIENT_ERRORS.has(error.code)) return `records.error.${error.code}` as MessageId;
+  if (mode === 'read' && error.code === 'validation_failed') return 'records.error.validation_failed';
+  return 'pipeline.error.unsaved';
+}
+
+/**
+ * A pipeline row's link on `/pipelines`, or `null` for an id that is not a
+ * well-formed uuid: such a row is drawn as text and links nowhere (R15).
+ */
+export function pipelineHref(id: string): string | null {
+  return isUuid(id) ? `/pipelines/${id}` : null;
 }
 
 /** The fields a `403 field_not_editable` names, as requirement fields the screen can label. */

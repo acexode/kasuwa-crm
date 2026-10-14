@@ -129,6 +129,10 @@ export function PipelineScreen({
   const [listNonce, setListNonce] = useState(0);
   const [refocus, setRefocus] = useState<string | null>(null);
   const searchId = useId();
+  // The prompt as it stands now, for an answer that arrives after an await: a
+  // refusal for a prompt that has been closed meanwhile goes to the screen.
+  const promptRef = useRef(prompt);
+  promptRef.current = prompt;
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQ(filterState.q), SEARCH_DEBOUNCE_MS);
@@ -230,6 +234,10 @@ export function PipelineScreen({
           const fresh = await getDeal(deal.id);
           setBusy(deal.id, false);
           reload();
+          if (promptRef.current === null) {
+            setNotice(t.t('records.error.stale_write'));
+            return;
+          }
           setPrompt((current) => {
             if (current === null) return current;
             const stage = stageById(pipeline, current.toStageId);
@@ -246,7 +254,7 @@ export function PipelineScreen({
       }
       const text = await refusalText(error, pipeline);
       setBusy(deal.id, false);
-      if (fromPrompt) {
+      if (fromPrompt && promptRef.current !== null) {
         setPrompt((current) => (current === null ? current : { ...current, sending: false, refusal: text }));
       } else {
         setNotice(text);
@@ -310,10 +318,13 @@ export function PipelineScreen({
   const empty = model.phase === 'ready' && !filtersActive({ ...filterState, q: debouncedQ }) && columns.every((column) => column.count === 0);
   const known = model.phase === 'ready' || withheldSeen.length > 0;
   const hiddenFields = [...new Set([...withheldSeen, ...withheldFields])];
+  const dialogOpen = sheet !== null || prompt !== null || creating;
 
   return (
     <CrmShell t={t} locale={locale} locales={locales} current="deals" live={live}>
       <div data-screen="P06/01" data-view={view} className="flex min-w-0 flex-col gap-4">
+        {/* Behind an open dialog the screen is inert: focus cannot reach another card and open a second one. */}
+        <div inert={dialogOpen} className="flex min-w-0 flex-col gap-4">
         <div className="flex flex-col gap-2">
           <Link href="/pipelines" className={`inline-flex min-h-touch items-center gap-1 self-start rounded-md text-body-sm font-semibold text-primary-text ${FOCUS}`}>
             <Icon name="arrow_back" size="sm" />
@@ -397,6 +408,19 @@ export function PipelineScreen({
             <span>{notice}</span>
           </p>
         )}
+        {model.refreshFailed ? (
+          <div
+            role="status"
+            data-testid="board-refresh-failed"
+            className="flex flex-wrap items-center gap-2 rounded-md border border-warning bg-warning-soft p-3 text-body-sm text-warning-text"
+          >
+            <Icon name="warning" size="sm" />
+            <span className="flex-1">{t.t('pipeline.board.refreshFailed')}</span>
+            <button type="button" data-requires-connection="" disabled={!online} onClick={model.reload} className={QUIET_BUTTON}>
+              {t.t('records.retry')}
+            </button>
+          </div>
+        ) : null}
         <p role="status" className="sr-only">
           {announcement}
         </p>
@@ -428,7 +452,7 @@ export function PipelineScreen({
               <Icon name="error" size="sm" />
               {t.t('pipeline.board.error')}
             </p>
-            <p>{t.t(errorMessage(model.error ?? { code: 'network', details: [] }))}</p>
+            <p>{t.t(errorMessage(model.error ?? { status: 0, code: 'network', details: [] }, 'read'))}</p>
             <button type="button" data-requires-connection="" disabled={!online} onClick={model.reload} className={QUIET_BUTTON}>
               {t.t('records.retry')}
             </button>
@@ -465,6 +489,8 @@ export function PipelineScreen({
           />
         )}
 
+        </div>
+
         {sheet !== null && pipeline !== null ? (
           <MoveSheet
             t={t}
@@ -498,6 +524,7 @@ export function PipelineScreen({
             online={online}
             onClose={() => setCreating(false)}
             onCreated={onCreated}
+            onOrphanRefusal={setNotice}
           />
         ) : null}
       </div>

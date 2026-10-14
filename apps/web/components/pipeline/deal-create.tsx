@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { FIELD, PRIMARY_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
@@ -34,6 +34,7 @@ export function DealCreate({
   online,
   onClose,
   onCreated,
+  onOrphanRefusal,
 }: {
   t: Translator;
   pipelineId: string;
@@ -41,6 +42,8 @@ export function DealCreate({
   online: boolean;
   onClose: () => void;
   onCreated: () => void;
+  /** A refusal that arrives after the form was closed: said by the screen, never dropped. */
+  onOrphanRefusal: (text: string) => void;
 }) {
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
@@ -50,6 +53,13 @@ export function DealCreate({
   const [errors, setErrors] = useState<ReadonlySet<FieldName>>(() => new Set());
   const [refusal, setRefusal] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const ids = { name: useId(), amount: useId(), currency: useId(), close: useId(), next: useId() };
 
   const offersAmount = !withheldFields.includes('amount');
@@ -75,12 +85,18 @@ export function DealCreate({
     setSending(true);
     setRefusal(null);
     const result = await createDeal(pipelineId, body);
-    setSending(false);
     if (result.ok) {
       onCreated();
+      if (mounted.current) setSending(false);
       return;
     }
-    setRefusal(t.t(errorMessage(result.error)));
+    const text = t.t(errorMessage(result.error));
+    if (!mounted.current) {
+      onOrphanRefusal(text);
+      return;
+    }
+    setSending(false);
+    setRefusal(text);
   };
 
   const fieldError = (field: FieldName, message: Parameters<Translator['t']>[0]) =>
@@ -92,7 +108,13 @@ export function DealCreate({
 
   const label = 'flex flex-col gap-1 text-body-sm font-semibold';
   return (
-    <PipelineDialog testId="deal-create" title={t.t('pipeline.create.title')} closeLabel={t.t('pipeline.dialog.close')} onClose={onClose}>
+    <PipelineDialog
+      testId="deal-create"
+      title={t.t('pipeline.create.title')}
+      closeLabel={t.t('pipeline.dialog.close')}
+      busy={sending}
+      onClose={onClose}
+    >
       <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
         <p className="text-body-sm text-text-2">{t.t('pipeline.create.intro')}</p>
         <div className={label}>

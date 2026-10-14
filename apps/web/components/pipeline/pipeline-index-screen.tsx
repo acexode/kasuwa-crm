@@ -11,7 +11,7 @@ import { FOCUS } from '../records/list-classes';
 import { appendPage } from '../records/list-model';
 import { useOnline } from '../script-builder/use-online';
 import { listPipelines, type PipelineError, type PipelineSummary } from '../../lib/pipelines-api';
-import { errorMessage } from './pipeline-model';
+import { errorMessage, pipelineHref } from './pipeline-model';
 
 /**
  * `/pipelines` (T-0109, R1): the caller's pipelines by name, in served order,
@@ -92,7 +92,7 @@ export function PipelineIndexScreen({
             className="flex flex-col items-start gap-2 rounded-lg border border-danger bg-danger-soft p-4 text-body-sm text-danger-text"
           >
             <p className="font-bold">{t.t('pipeline.index.error')}</p>
-            <p>{t.t(errorMessage(error ?? { code: 'network', details: [] }))}</p>
+            <p>{t.t(errorMessage(error ?? { status: 0, code: 'network', details: [] }, 'read'))}</p>
             <button type="button" data-requires-connection="" disabled={!online} onClick={() => setRetry((current) => current + 1)} className={QUIET_BUTTON}>
               {t.t('records.retry')}
             </button>
@@ -104,21 +104,31 @@ export function PipelineIndexScreen({
           </div>
         ) : (
           <ul data-testid="pipeline-index" aria-label={t.t('pipeline.index.label')} className="flex flex-col gap-2">
-            {rows.map((row) => (
-              <li key={row.id} data-pipeline={row.id}>
-                <Link
-                  href={`/pipelines/${row.id}`}
-                  prefetch={false}
-                  className={`flex min-h-touch items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3 font-semibold text-text hover:bg-surface-sunken ${FOCUS}`}
-                >
+            {rows.map((row) => {
+              const href = pipelineHref(row.id);
+              const inner = (
+                <>
                   <Icon name="handshake" size="sm" className="text-text-muted" />
                   <span data-record-text="" className="min-w-0 flex-1 break-words">
                     {row.name}
                   </span>
-                  <Icon name="chevron_right" size="sm" className="text-text-muted" />
-                </Link>
-              </li>
-            ))}
+                </>
+              );
+              const rowClass = 'flex min-h-touch items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3 font-semibold text-text';
+              return (
+                <li key={row.id} data-pipeline={row.id}>
+                  {href === null ? (
+                    // Not a well-formed uuid: it names nothing this app can open (R15).
+                    <span className={rowClass}>{inner}</span>
+                  ) : (
+                    <Link href={href} prefetch={false} className={`${rowClass} hover:bg-surface-sunken ${FOCUS}`}>
+                      {inner}
+                      <Icon name="chevron_right" size="sm" className="text-text-muted" />
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
         {phase === 'loaded' && cursor !== null ? (

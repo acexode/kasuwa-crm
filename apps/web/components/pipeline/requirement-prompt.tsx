@@ -66,6 +66,7 @@ export function RequirementPrompt({
         </span>
       }
       closeLabel={t.t('pipeline.dialog.close')}
+      busy={prompt.sending}
       onClose={onClose}
     >
       <p className="text-body-sm text-text-2">{t.t('pipeline.prompt.intro')}</p>
@@ -267,7 +268,7 @@ function Picker({
           setFailed(null);
         } else {
           setRows(null);
-          setFailed(t.t(errorMessage(result.error)));
+          setFailed(t.t(errorMessage(result.error, 'read')));
         }
       });
     }, SEARCH_DEBOUNCE_MS);
@@ -286,6 +287,12 @@ function Picker({
         placeholder={t.t('pipeline.prompt.search')}
         value={typed}
         onChange={(event) => onInput({ ...input, text: { ...input.text, [requirementId]: event.target.value }, picked: unpicked })}
+        onKeyDown={(event) => {
+          // Escape empties the search first; only an empty search lets it close the prompt.
+          if (event.key !== 'Escape' || typed === '') return;
+          event.preventDefault();
+          onInput({ ...input, text: { ...input.text, [requirementId]: '' }, picked: unpicked });
+        }}
         className={FIELD}
       />
       {failed === null ? null : <p className="text-body-sm text-danger-text">{failed}</p>}

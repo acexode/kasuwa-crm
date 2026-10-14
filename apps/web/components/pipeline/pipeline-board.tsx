@@ -284,11 +284,11 @@ function StageColumn({
             {column.totals.map((total) => (
               <li key={total.currency} data-stage-total={total.currency} className="flex flex-wrap items-baseline gap-x-2">
                 <b className="text-body-sm text-text">
-                  <Money locale={locale} money={{ amountMinor: total.amountMinor, currency: total.currency }} kind="amount" />
+                  <Money t={t} locale={locale} money={{ amountMinor: total.amountMinor, currency: total.currency }} kind="amount" />
                 </b>
                 <span>
                   {t.t('pipeline.column.weighted')}{' '}
-                  <Money locale={locale} money={{ amountMinor: total.weightedAmountMinor, currency: total.currency }} kind="weighted" />
+                  <Money t={t} locale={locale} money={{ amountMinor: total.weightedAmountMinor, currency: total.currency }} kind="weighted" />
                 </span>
               </li>
             ))}
@@ -321,7 +321,7 @@ function StageColumn({
 
       {column.moreError === null ? null : (
         <p role="alert" data-testid="column-error" className="px-2 text-body-sm text-danger-text">
-          {t.t(errorMessage(column.moreError))}
+          {t.t(errorMessage(column.moreError, 'read'))}
         </p>
       )}
       {column.nextCursor === null ? null : (
@@ -406,15 +406,19 @@ function DealCard({
           </p>
         ) : null}
       </div>
-      {deal.nextStep === null || deal.nextStep === undefined ? null : (
-        <p className="flex min-w-0 items-start gap-1 text-caption text-text-2">
+      {withheld(deal, 'nextStep') || (deal.nextStep ?? null) !== null ? (
+        <p data-field="nextStep" {...lockedProps(deal, 'nextStep')} className="flex min-w-0 items-start gap-1 text-caption text-text-2">
           <Icon name="arrow_forward" size="sm" />
           <span className="sr-only">{t.t('pipeline.field.nextStep')} </span>
-          <span data-record-text="" className="min-w-0 break-words">
-            {deal.nextStep}
-          </span>
+          {withheld(deal, 'nextStep') ? (
+            <Locked t={t} />
+          ) : (
+            <span data-record-text="" className="min-w-0 break-words">
+              {deal.nextStep}
+            </span>
+          )}
         </p>
-      )}
+      ) : null}
       {deal.rotting === 'stale' ? (
         <p className="flex items-center gap-1 text-caption font-semibold text-warning-text">
           <Icon name="schedule" size="sm" />

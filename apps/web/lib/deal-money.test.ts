@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDealMoney, minorDigits, parseMajorAmount } from './deal-money';
+import { UnreadableAmountError, formatDealMoney, minorDigits, parseMajorAmount } from './deal-money';
 
 /** The digits a formatted amount draws, whatever the grouping and the mark. */
 function digits(text: string): string {
@@ -43,6 +43,29 @@ describe('formatDealMoney', () => {
 
   it('survives a language Intl does not know', () => {
     expect(digits(formatDealMoney('en-XA', '125050', 'NGN'))).toBe('125050');
+  });
+
+  it('writes the fraction in the same digits as the whole part: Arabic-Indic in ar, Latin in en', () => {
+    const arabicIndic = /[\u0660-\u0669]/;
+    const latin = /[0-9]/;
+    for (const amount of ['123456789012345678', '5']) {
+      const ar = formatDealMoney('ar', amount, 'NGN');
+      expect(ar, `${amount} in ar`).toMatch(arabicIndic);
+      expect(ar, `${amount} in ar mixes Latin digits`).not.toMatch(latin);
+      // Exact: the native digits, read back as Latin ones, are the amount.
+      const asLatin = Array.from(ar.replace(/[^\u0660-\u0669]/g, ''), (digit) => String(digit.charCodeAt(0) - 0x0660)).join('');
+      expect(asLatin).toBe(amount.padStart(3, '0'));
+      const en = formatDealMoney('en', amount, 'NGN');
+      expect(en).not.toMatch(arabicIndic);
+      expect(digits(en)).toBe(amount.padStart(3, '0'));
+    }
+    expect(formatDealMoney('ar', '125050', 'GHS')).toContain('١٬٢٥٠٫٥٠');
+  });
+
+  it('refuses an amount that is not a digit run rather than drawing a zero (R5)', () => {
+    for (const bad of ['', '12.5', '-5', 'abc', ' 5']) {
+      expect(() => formatDealMoney('en', bad, 'NGN'), JSON.stringify(bad)).toThrow(UnreadableAmountError);
+    }
   });
 
   it('reads the minor digits from Intl', () => {

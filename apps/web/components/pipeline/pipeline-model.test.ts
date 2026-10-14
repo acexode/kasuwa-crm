@@ -11,6 +11,7 @@ import {
   isAllowed,
   isUuid,
   notEditableFields,
+  pipelineHref,
   promptBody,
   promptReady,
   rebaseViews,
@@ -172,20 +173,39 @@ describe('filters', () => {
 
 describe('refusals', () => {
   it('localises by code and never by message', () => {
-    expect(errorMessage({ code: 'transition_not_allowed', details: [] })).toBe('records.error.transition_not_allowed');
-    expect(errorMessage({ code: 'network', details: [] })).toBe('records.error.network');
-    expect(errorMessage({ code: 'something_new', details: [] })).toBe('records.error.internal_error');
+    expect(errorMessage({ status: 409, code: 'transition_not_allowed', details: [] })).toBe('records.error.transition_not_allowed');
+    expect(errorMessage({ status: 403, code: 'not_permitted', details: [] })).toBe('records.error.not_permitted');
+    expect(errorMessage({ status: 0, code: 'network', details: [] })).toBe('records.error.network');
+  });
+
+  it('keeps server-fault wording for 5xx alone, and says "could not be saved" for every other refusal', () => {
+    expect(errorMessage({ status: 503, code: 'service_unavailable', details: [] })).toBe('records.error.service_unavailable');
+    expect(errorMessage({ status: 500, code: 'something_new', details: [] })).toBe('records.error.internal_error');
+    for (const detail of ['unknown_reference', 'field_withheld', 'field_not_editable']) {
+      expect(errorMessage({ status: 400, code: 'validation_failed', details: [{ path: 'fields.x', code: detail }] }), detail).toBe('pipeline.error.unsaved');
+    }
+    expect(errorMessage({ status: 403, code: 'not_permitted', details: [{ path: 'ownerUserId', code: 'field_not_editable' }] })).toBe('pipeline.error.unsaved');
+    expect(errorMessage({ status: 400, code: 'validation_failed', details: [] })).toBe('pipeline.error.unsaved');
+    expect(errorMessage({ status: 418, code: 'something_new', details: [] })).toBe('pipeline.error.unsaved');
+    // A read keeps validation_failed's own advice (clear the search and filters).
+    expect(errorMessage({ status: 400, code: 'validation_failed', details: [] }, 'read')).toBe('records.error.validation_failed');
   });
 
   it('reads the fields a field_not_editable names and the requirements a 422 names', () => {
     expect(
-      notEditableFields({ code: 'not_permitted', details: [{ path: 'amount', code: 'field_not_editable' }, { path: 'ownerUserId', code: 'owner_not_self' }] }),
+      notEditableFields({ status: 403, code: 'not_permitted', details: [{ path: 'amount', code: 'field_not_editable' }, { path: 'ownerUserId', code: 'owner_not_self' }] }),
     ).toEqual(['amount']);
-    expect(unmetRequirementIds({ code: 'requirements_unmet', details: [{ path: `requirements.${id(23)}`, code: 'requirement_unmet' }] })).toEqual([id(23)]);
+    expect(unmetRequirementIds({ status: 422, code: 'requirements_unmet', details: [{ path: `requirements.${id(23)}`, code: 'requirement_unmet' }] })).toEqual([id(23)]);
   });
 });
 
 describe('links and dates', () => {
+  it('links an index row only from a well-formed uuid (R15)', () => {
+    expect(pipelineHref(id(9))).toBe(`/pipelines/${id(9)}`);
+    expect(pipelineHref('../../admin')).toBeNull();
+    expect(pipelineHref('not-a-uuid')).toBeNull();
+  });
+
   it('links only from a well-formed uuid', () => {
     expect(isUuid(id(1))).toBe(true);
     expect(isUuid('javascript:alert(1)//')).toBe(false);

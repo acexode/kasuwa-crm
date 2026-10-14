@@ -87,9 +87,9 @@ describe('the pipelines client', () => {
 
   it('reads a refusal by code and details, never by message', async () => {
     stubFetch(409, { statusCode: 409, code: 'transition_not_allowed', message: 'whatever' });
-    expect(await moveDeal('d1', { version: 2, toStageId: 's2' })).toEqual({ ok: false, error: { code: 'transition_not_allowed', details: [] } });
+    expect(await moveDeal('d1', { version: 2, toStageId: 's2' })).toEqual({ ok: false, error: { status: 409, code: 'transition_not_allowed', details: [] } });
     stubFetch(500, 'not json at all');
-    expect(await moveDeal('d1', { version: 2, toStageId: 's2' })).toEqual({ ok: false, error: { code: 'network', details: [] } });
+    expect(await moveDeal('d1', { version: 2, toStageId: 's2' })).toEqual({ ok: false, error: { status: 0, code: 'network', details: [] } });
   });
 
   it('offers picker rows of the deal’s programme only', async () => {

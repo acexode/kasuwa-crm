@@ -28,7 +28,7 @@ export const PIPELINE_ERROR_IDS: readonly MessageId[] = [
   'records.error.network',
 ];
 
-const SHARED: readonly MessageId[] = [...CRM_SHELL_MESSAGE_IDS, ...PIPELINE_ERROR_IDS, 'records.retry', 'records.loadMore', 'records.loadingMore'];
+const SHARED: readonly MessageId[] = [...CRM_SHELL_MESSAGE_IDS, ...PIPELINE_ERROR_IDS, 'pipeline.error.unsaved', 'records.retry', 'records.loadMore', 'records.loadingMore'];
 
 export const PIPELINE_INDEX_MESSAGE_IDS: readonly MessageId[] = [
   ...SHARED,
@@ -62,6 +62,8 @@ export const PIPELINE_MESSAGE_IDS: readonly MessageId[] = [
   'pipeline.board.label',
   'pipeline.board.hint',
   'pipeline.board.error',
+  'pipeline.board.refreshFailed',
+  'pipeline.money.unreadable',
   'pipeline.board.empty.title',
   'pipeline.board.empty.body',
   'pipeline.notFound.title',

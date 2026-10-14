@@ -164,6 +164,8 @@ export interface PipelineErrorDetail {
 }
 
 export interface PipelineError {
+  /** The HTTP status, or 0 when the request never arrived or the answer was not the contract's. */
+  readonly status: number;
   /** The contract's `code`, or `network`. */
   readonly code: string;
   readonly details: readonly PipelineErrorDetail[];
@@ -176,7 +178,7 @@ const ApiError = z.object({
   details: z.array(z.object({ path: z.string(), code: z.string() })).optional(),
 });
 
-const NETWORK_FAILURE: PipelineError = { code: NETWORK, details: [] };
+const NETWORK_FAILURE: PipelineError = { status: 0, code: NETWORK, details: [] };
 
 /**
  * One same-origin request, its answer parsed with `schema`. There is no header
@@ -205,7 +207,9 @@ async function request<T>(
     return parsed.success ? { ok: true, value: parsed.data } : { ok: false, error: NETWORK_FAILURE };
   }
   const parsed = ApiError.safeParse(payload);
-  return parsed.success ? { ok: false, error: { code: parsed.data.code, details: parsed.data.details ?? [] } } : { ok: false, error: NETWORK_FAILURE };
+  return parsed.success
+    ? { ok: false, error: { status: response.status, code: parsed.data.code, details: parsed.data.details ?? [] } }
+    : { ok: false, error: NETWORK_FAILURE };
 }
 
 function pipelinePath(id: string): string {

@@ -54,6 +54,8 @@ export interface BoardModel {
   /** The filters the columns on screen answer, for paging. */
   readonly answered: DealFilters | null;
   readonly syncedAt: Date | null;
+  /** A re-read failed while a board is on screen: the last served board stays, and the screen says so. */
+  readonly refreshFailed: boolean;
   readonly loadMore: (stageId: string) => void;
   readonly reload: () => void;
   /** Re-reads the pipeline's configuration (requirements, allow-list) and returns it. */
@@ -235,6 +237,7 @@ export function usePipelineBoard(pipelineId: string, filters: DealFilters, activ
     columns: board?.columns ?? [],
     answered: board?.filters ?? null,
     syncedAt,
+    refreshFailed: phase === 'ready' && (boardError ?? pipelineError) !== null,
     loadMore,
     reload: useCallback(() => {
       if (pipeline === null) void readPipeline();
