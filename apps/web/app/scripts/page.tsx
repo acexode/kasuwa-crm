@@ -4,6 +4,7 @@ import { bundleMessages, createTranslator } from '@kasuwa/i18n';
 import { ScriptListScreen } from '../../components/script-builder/script-list-screen';
 import { SCRIPT_LIST_MESSAGE_IDS } from '../../components/script-builder/message-ids';
 import { crmLiveNav, crmRecordsEnabled, crmScriptsEnabled } from '../../lib/feature-flags';
+import { withSearchMessages } from '../../components/search/message-ids';
 import { activeLocale, languageOptions } from '../../lib/locale';
 
 /**
@@ -38,13 +39,14 @@ export default async function ScriptListPage() {
     notFound();
   }
   const { locale } = await activeLocale();
+  const live = await crmLiveNav();
 
   return (
     <ScriptListScreen
       locale={locale}
-      messages={bundleMessages(locale, SCRIPT_LIST_MESSAGE_IDS)}
+      messages={bundleMessages(locale, withSearchMessages(SCRIPT_LIST_MESSAGE_IDS, live))}
       locales={languageOptions(locale)}
-      live={await crmLiveNav()}
+      live={live}
     />
   );
 }

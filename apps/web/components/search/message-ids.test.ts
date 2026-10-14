@@ -25,7 +25,7 @@ function catalogueIds(file: string): string[] {
 
 describe('the search panel and palette bundle every id they render', () => {
   const panel = new Set<string>(SEARCH_PANEL_MESSAGE_IDS);
-  for (const file of ['search-panel.tsx']) {
+  for (const file of ['search-panel.tsx', 'command-palette.tsx']) {
     it(`${file} names nothing outside SEARCH_PANEL_MESSAGE_IDS`, () => {
       const named = catalogueIds(file);
       expect(named.length).toBeGreaterThan(0);

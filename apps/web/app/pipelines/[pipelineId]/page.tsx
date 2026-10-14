@@ -10,6 +10,7 @@ import {
   crmRecordViewEnabled,
   crmRecordsEnabled,
 } from '../../../lib/feature-flags';
+import { withSearchMessages } from '../../../components/search/message-ids';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
 /**
@@ -58,7 +59,7 @@ export default async function PipelineBoardPage({ params }: { params: Promise<{ 
       key={pipelineId}
       pipelineId={pipelineId}
       locale={locale}
-      messages={bundleMessages(locale, PIPELINE_MESSAGE_IDS)}
+      messages={bundleMessages(locale, withSearchMessages(PIPELINE_MESSAGE_IDS, live))}
       locales={languageOptions(locale)}
       live={live}
       links={{ contacts: recordView && records, accounts: recordView && accounts }}
