@@ -1549,5 +1549,5 @@
   "search.invalidEmail": "Hiyo si anwani kamili ya barua pepe. Andika anwani yote ili kuitafuta.",
   "search.keepTyping": "Endelea kuandika nambari yote ya simu. Nambari hutafutwa zikiwa kamili, si sehemu.",
   "search.hit.nameWithheld": "Jina limezuiliwa kwa jukumu lako",
-  "search.results.ready": "Matokeo yako tayari. Tumia vitufe vya mishale kuyapitia."
+  "search.results.count": "{count, plural, one {Tokeo # linaonyeshwa} other {Matokeo # yanaonyeshwa}}"
 }

@@ -1549,5 +1549,5 @@
   "search.invalidEmail": "Dat one no be full email address. Type di whole address make we check am.",
   "search.keepTyping": "Continue to type di whole phone number. We dey check full number only, no be half.",
   "search.hit.nameWithheld": "Dem hide di name for your role",
-  "search.results.ready": "Wetin we find don ready. Use di arrow keys take waka inside dem."
+  "search.results.count": "{count, plural, one {# result dey show} other {# results dey show}}"
 }

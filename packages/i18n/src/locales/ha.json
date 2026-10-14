@@ -1549,5 +1549,5 @@
   "search.invalidEmail": "Wannan ba cikakken adireshin imel ba ne. Rubuta adireshin gaba ɗaya don a duba shi.",
   "search.keepTyping": "Ci gaba da rubuta cikakkiyar lambar waya. Ana duba lambobi gaba ɗaya, ba rabi ba.",
   "search.hit.nameWithheld": "An ɓoye suna saboda matsayinka",
-  "search.results.ready": "Sakamako sun shirya. Yi amfani da maɓallan kibiya don motsawa a cikinsu."
+  "search.results.count": "{count, plural, one {An nuna sakamako #} other {An nuna sakamako #}}"
 }

@@ -1549,5 +1549,5 @@
   "search.invalidEmail": "Ìyẹn kì í ṣe àdírẹ́sì ímeèlì pípé. Tẹ gbogbo àdírẹ́sì náà kí a lè wá a.",
   "search.keepTyping": "Máa tẹ gbogbo nọ́ńbà fóònù náà. A máa ń wá nọ́ńbà ní pípé, kì í ṣe ìdajì.",
   "search.hit.nameWithheld": "A fi orúkọ pamọ́ fún ipa rẹ",
-  "search.results.ready": "Àbájáde ti ṣetán. Lo àwọn bọ́tìnnì ọfà láti lọ nínú wọn."
+  "search.results.count": "{count, plural, other {Àbájáde # ló hàn}}"
 }

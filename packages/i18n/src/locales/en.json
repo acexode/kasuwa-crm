@@ -1549,5 +1549,5 @@
   "search.invalidEmail": "That is not a whole email address. Type the full address to look it up.",
   "search.keepTyping": "Keep typing the whole phone number. Numbers are looked up in full, never in part.",
   "search.hit.nameWithheld": "Name withheld for your role",
-  "search.results.ready": "Results are ready. Use the arrow keys to move through them."
+  "search.results.count": "{count, plural, one {# result shown} other {# results shown}}"
 }

@@ -1549,5 +1549,5 @@
   "search.invalidEmail": "Ce n’est pas une adresse e-mail complète. Saisissez l’adresse entière pour la rechercher.",
   "search.keepTyping": "Continuez à saisir le numéro de téléphone entier. Les numéros sont recherchés en entier, jamais en partie.",
   "search.hit.nameWithheld": "Nom masqué pour votre rôle",
-  "search.results.ready": "Les résultats sont prêts. Utilisez les flèches pour les parcourir."
+  "search.results.count": "{count, plural, one {# résultat affiché} many {# résultats affichés} other {# résultats affichés}}"
 }

@@ -1549,5 +1549,5 @@
   "search.invalidEmail": "Nke ahụ abụghị adreesị email zuru ezu. Pịnye adreesị ahụ niile ka e lelee ya.",
   "search.keepTyping": "Gaa n’ihu na-pịnye nọmba ekwentị niile. A na-elele nọmba niile, ọ bụghị ọkara.",
   "search.hit.nameWithheld": "E zoro aha n’ihi ọrụ gị",
-  "search.results.ready": "Nsonaazụ adịla njikere. Jiri igodo akụ gafee ha."
+  "search.results.count": "{count, plural, other {E gosiri nsonaazụ #}}"
 }
