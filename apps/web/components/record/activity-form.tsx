@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from '../auth/button-classes';
-import type { RecordsResult } from '../../lib/records-api';
+import type { RecordsError, RecordsResult } from '../../lib/records-api';
 import type { Activity, ActivityDraft, ActivityType } from '../../lib/contact-record-api';
 import { localToUtc, writeErrorId } from './record-core';
 
@@ -31,12 +31,15 @@ export function ActivityForm({
   offline,
   onSave,
   onClose,
+  refusal,
 }: {
   t: Translator;
   type: ActivityType;
   offline: boolean;
   onSave: (activity: ActivityDraft) => Promise<RecordsResult<Activity>>;
   onClose: (saved: boolean) => void;
+  /** A record's own copy for a refusal it can name more exactly (the deal's refused link); `null` keeps the form's. */
+  refusal?: (error: RecordsError) => MessageId | null;
 }) {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
@@ -71,7 +74,7 @@ export function ActivityForm({
     if (result.ok) {
       onClose(true);
     } else {
-      setError(writeErrorId(result.error.code));
+      setError(refusal?.(result.error) ?? writeErrorId(result.error.code));
     }
   };
 

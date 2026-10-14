@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { foldForSearch, phoneSearchE164, tenantDefaultCountry } from './phone';
+import { foldForSearch, phoneSearchE164, tenantDefaultCountry, wholePhoneE164 } from './phone';
 
 // Invented numbers in the seed's shape; none is a real subscriber.
 describe('tenantDefaultCountry', () => {
@@ -65,5 +65,55 @@ describe('foldForSearch', () => {
 
   it('leaves wildcard characters as themselves', () => {
     expect(foldForSearch('%a_')).toBe('%a_');
+  });
+});
+
+// Placeholders in the seed's shape (Nigeria has no fictional number range).
+describe('wholePhoneE164 (T-0086 R10, R20)', () => {
+  it.each([
+    ['0803 000 0086', '+2348030000086'],
+    ['+234 803 000 0086', '+2348030000086'],
+    ['2348030000086', '+2348030000086'],
+    ['(0803) 000-0086', '+2348030000086'],
+    ['0803.000.0086', '+2348030000086'],
+    ['+2348030000086', '+2348030000086'],
+    ['002348030000086', '+2348030000086'],
+    ['+234 (0) 803 000 0086', '+2348030000086'],
+    ['8030000086', '+2348030000086'],
+    ['0800 000 0042', '+2348000000042'],
+  ])('reads %s as %s for a Nigerian tenant', (input, e164) => {
+    expect(wholePhoneE164(input, 'NG')).toBe(e164);
+  });
+
+  it("uses the tenant's own country for the same typed digits (R20)", () => {
+    expect(wholePhoneE164('0712 000 086', 'KE')).toBe('+254712000086');
+    expect(wholePhoneE164('0712 000 086', 'NG')).toBe('+234712000086');
+  });
+
+  it.each(['0803 456', '+234 803 456', '803456', '0803456', '12345', '+254 712 345'])(
+    'refuses the partial number %s for every default country',
+    (input) => {
+      for (const country of ['NG', 'GH', 'KE', 'ZA', null] as const) {
+        expect(wholePhoneE164(input, country), `${input} in ${String(country)}`).toBeNull();
+      }
+    },
+  );
+
+  it('refuses letters, a + anywhere but first, other separators and an over-long number', () => {
+    for (const input of ['zq-0803', '0803+0000086', '0803/000/0086', '0803_000_0086', '', '+']) {
+      expect(wholePhoneE164(input, 'NG'), input).toBeNull();
+    }
+    expect(wholePhoneE164('0803 000 0086 1', 'NG')).toBeNull();
+    expect(wholePhoneE164('+1234567890123456', 'NG')).toBeNull();
+  });
+
+  it('accepts a whole number under another country code only with ten digits or more', () => {
+    expect(wholePhoneE164('+1 202 555 0100', 'NG')).toBe('+12025550100');
+    expect(wholePhoneE164('+1 202 555', 'NG')).toBeNull();
+  });
+
+  it('never reads a national form without a default country', () => {
+    expect(wholePhoneE164('0803 000 0086', null)).toBeNull();
+    expect(wholePhoneE164('+2348030000086', null)).toBe('+2348030000086');
   });
 });

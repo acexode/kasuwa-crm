@@ -102,3 +102,77 @@ export function phoneSearchE164(q: string, country: DefaultCountry | null): stri
 export function foldForSearch(text: string): string {
   return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
+
+/**
+ * The shortest national significant number a WHOLE number may have (T-0086
+ * suite R10): six digits or fewer, after the trunk 0 or the country code, is
+ * a partial number for every country Kasuwa dials, never a whole one.
+ */
+const MIN_NATIONAL_DIGITS = 7;
+/** The longest national significant number of the countries in CALLING_CODES. */
+const MAX_NATIONAL_DIGITS = 10;
+/** A country code is 1-3 digits: an unknown one needs at least 3 + MIN_NATIONAL_DIGITS. */
+const MIN_INTERNATIONAL_DIGITS = 3 + MIN_NATIONAL_DIGITS;
+
+/** The calling code `digits` (no `+`) starts with, among the countries Kasuwa dials. */
+function knownCallingCode(digits: string): string | null {
+  for (const code of Object.values(CALLING_CODES)) {
+    if (digits.startsWith(code)) return code;
+  }
+  return null;
+}
+
+/** `+<digits>` for an international number, when it is one whole number. */
+function wholeInternational(digits: string): string | null {
+  const code = knownCallingCode(digits);
+  if (code !== null) {
+    // `+234 (0) 803 ...`: the trunk 0 some people keep after the code.
+    const rest = digits.slice(code.length);
+    const national = rest.startsWith('0') ? rest.slice(1) : rest;
+    return wholeNational(code, national);
+  }
+  if (digits.length < MIN_INTERNATIONAL_DIGITS) return null;
+  const candidate = `+${digits}`;
+  return E164.test(candidate) ? candidate : null;
+}
+
+function wholeNational(code: string, national: string): string | null {
+  if (national.length < MIN_NATIONAL_DIGITS || national.length > MAX_NATIONAL_DIGITS) return null;
+  if (national.startsWith('0')) return null;
+  const candidate = `+${code}${national}`;
+  return E164.test(candidate) ? candidate : null;
+}
+
+/**
+ * The E.164 form of ONE WHOLE phone number, or null (lookupRecords, T-0086).
+ *
+ * Stricter than `phoneSearchE164`, which reads seven typed digits as a number
+ * because a list's `q` is a substring search anyway: an exact lookup must
+ * never turn a partial number into a different, shorter whole one
+ * (`0803 456` is not `+234803456`; R10). So:
+ *
+ *   - only digits, one leading `+`, spaces and `( ) - .` are accepted;
+ *   - `+<digits>` and `00<digits>` are international; any other form is
+ *     national in the tenant's default country: a trunk `0`, or the country
+ *     code typed without the `+`, or the national significant number alone;
+ *   - the national significant number is 7 to 10 digits and never starts
+ *     with 0, for the countries in CALLING_CODES; an international number
+ *     under any other code needs at least 10 digits in all;
+ *   - with no default country, a national form is never a whole number.
+ *
+ * Pure. Nothing here logs: every input is a phone number.
+ */
+export function wholePhoneE164(input: string, country: DefaultCountry | null): string | null {
+  const compact = input.trim().replace(/[ ().-]/g, '');
+  if (!/^\+?[0-9]+$/.test(compact)) return null;
+  if (compact.startsWith('+')) return wholeInternational(compact.slice(1));
+  if (compact.startsWith('00')) return wholeInternational(compact.slice(2));
+  if (country === null) return null;
+  const code = CALLING_CODES[country];
+  if (compact.startsWith('0')) return wholeNational(code, compact.slice(1));
+  if (compact.startsWith(code)) {
+    const withCode = wholeNational(code, compact.slice(code.length));
+    if (withCode !== null) return withCode;
+  }
+  return wholeNational(code, compact);
+}

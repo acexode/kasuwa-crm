@@ -46,7 +46,11 @@ import { parse } from 'yaml';
  *               lookupRecords (per body property, per type, the field
  *               compared), `x-kasuwa-rights` on both, identical (per seeded
  *               set, per type, read or none), `x-kasuwa-error-order`.
- *   ERRORS      `400` and `401` only, no 403, no 404.
+ *   ERRORS      `400`, `401` and `429` only, no 403, no 404 (429 added by
+ *               D-L134, T-0086).
+ *                 both           SearchTooManyRequests: 429
+ *                                too_many_requests, per user, decided after
+ *                                authentication and before validation
  *                 searchRecords  SearchValidationFailed: query_required,
  *                                identifier_in_url, invalid_string,
  *                                query_too_short, unknown_type
@@ -54,9 +58,10 @@ import { parse } from 'yaml';
  *                                one_term_required, invalid_phone,
  *                                invalid_email, unknown_type
  *   TRANSPORT   `Cache-Control: no-store` on every answer of both.
- *   FLAGS       `x-kasuwa-implemented: false` on both until T-0086; the two
- *               flag tests pin `false` (lead edit, D-L133, as T-0105) and
- *               T-0086's suite flips them to `true` with the routes.
+ *   FLAGS       `x-kasuwa-implemented: true` on both since T-0086: the two
+ *               flag tests pinned `false` (lead edit, D-L133, as T-0105) and
+ *               T-0086's suite flipped them to `true` with the routes (lead
+ *               edit on lead/T-0086-acceptance).
  *
  * ---------------------------------------------------------------------------
  * RULINGS (R1–R20 accepted by the lead on 2026-10-14 with the amendment to
@@ -138,12 +143,18 @@ import { parse } from 'yaml';
  *       phone or an email, a lookup included; no owner, tag or amount
  *       anywhere. Each returned field has the record schema's own type and
  *       bound. Deal hit `name` is `pii` (D-L91).
- *   R15 Errors: `400` and `401` only, on both, never from any record.
+ *   R15 Errors: `400`, `401` and `429` only, on both, never from any record
+ *       (`429` added by the lead, D-L134, with T-0086's throttle).
  *       searchRecords' 400s come from the request alone; lookupRecords' from
  *       the request and the caller's own tenant settings (the default country
- *       `invalid_phone` normalises with; review fix 3). `x-kasuwa-error-order`
- *       lists each detail code in the order decided (401 and the scope
- *       header precede all):
+ *       `invalid_phone` normalises with; review fix 3). The 429 is
+ *       `SearchTooManyRequests`, shared by both: the shared Error envelope,
+ *       `too_many_requests`, an optional `retryAt`, the sign-in throttle's
+ *       shape; per user, separate budgets, the lookup's tighter; it never
+ *       echoes the query. `x-kasuwa-error-order` lists it first and then
+ *       each detail code in the order decided (401 and the scope header
+ *       precede all):
+ *         both           429 too_many_requests, then:
  *         searchRecords  query_required, identifier_in_url (strictly after;
  *                        review fix 4), invalid_string, unknown_type,
  *                        query_too_short
@@ -172,12 +183,18 @@ import { parse } from 'yaml';
  *       no parameter at all; searchRecords answers a `phone` or `email`
  *       query parameter with `400 identifier_in_url` rather than ignoring
  *       it, so the mistake is loud. No parameter anywhere in the file is
- *       named for a phone or an email. **`q` itself (review fix 1):** after
- *       NFKC, a `q` holding `@`, or a run of 6 or more digits once every
- *       whitespace character and `+()-.` are removed, is `400
- *       identifier_in_url` at `q`, decided right after `query_required`. Its
- *       ASCII form is the `not` pattern on `q`'s schema,
- *       `@|[0-9](?:[\s+().-]*[0-9]){5}`. Clients send phone- or email-shaped
+ *       named for a phone or an email. **`q` itself (review fix 1,
+ *       strengthened by D-L135 from the T-0086 security review):** after
+ *       NFKC, a `q` holding `@`, or a run of 6 or more decimal digits of any
+ *       script (`\p{Nd}`) once every character that is neither a letter
+ *       (`\p{L}`) nor a decimal digit is removed, is `400 identifier_in_url`
+ *       at `q`, decided right after `query_required`. The old rule stripped
+ *       only whitespace and `+()-.`, so `0803/123/4567`, `0803_123_4567`,
+ *       `0803,123,4567`, an en dash and Arabic-Indic digits reached the URL.
+ *       The `not` pattern on `q`'s schema is the same rule as an ECMA-262
+ *       Unicode regex, `[@＠﹫]|\p{Nd}(?:[^\p{L}\p{Nd}]*\p{Nd}){5}`;
+ *       only digits NFKC maps to ASCII (superscript, circled) need the
+ *       server's NFKC step. Clients send phone- or email-shaped
  *       input to lookupRecords (T-0087 tests that). A name that itself holds
  *       such a run cannot be prefix-searched by it. (listContacts' and
  *       listLeads' `q` still accept a number in the URL: reported, not
@@ -749,6 +766,7 @@ const BAD_REQUEST_DETAILS: Record<string, string[]> = {
 /** R15: each detail code, in the order decided (review fix 4: query_required strictly first). */
 const ERROR_ORDER: Record<string, string[]> = {
   [SEARCH]: [
+    '429 too_many_requests',
     '400 validation_failed query_required',
     '400 validation_failed identifier_in_url',
     '400 validation_failed invalid_string',
@@ -756,6 +774,7 @@ const ERROR_ORDER: Record<string, string[]> = {
     '400 validation_failed query_too_short',
   ],
   [LOOKUP]: [
+    '429 too_many_requests',
     '400 validation_failed unknown_property',
     '400 validation_failed one_term_required',
     '400 validation_failed invalid_phone',
@@ -763,13 +782,35 @@ const ERROR_ORDER: Record<string, string[]> = {
     '400 validation_failed unknown_type',
   ],
 };
-/** R21 (review fix 1): the ASCII form of the identifier rule, as the schema's `not` pattern. */
-const IDENTIFIER_Q_PATTERN = '@|[0-9](?:[\\s+().-]*[0-9]){5}';
-/** The whole rule as the prose states it: NFKC, then `@` or 6+ digits once whitespace and +()-. go. */
+/** R21 (review fix 1, D-L135): the identifier rule as the schema's `not` pattern, an ECMA-262 `u` regex. */
+// The full-width and small commercial at are written literally in the YAML (U+FF20, U+FE6B).
+const IDENTIFIER_Q_PATTERN = '[@＠﹫]|\\p{Nd}(?:[^\\p{L}\\p{Nd}]*\\p{Nd}){5}';
+/**
+ * The whole rule as the prose states it (D-L135): NFKC, then `@`, or 6+
+ * decimal digits of any script once everything that is neither a letter nor
+ * a decimal digit is removed.
+ */
 function looksLikeIdentifier(q: string): boolean {
   const text = q.normalize('NFKC');
-  return text.includes('@') || /[0-9]{6,}/.test(text.replace(/[\s+().-]/gu, ''));
+  return text.includes('@') || /\p{Nd}{6,}/u.test(text.replace(/[^\p{L}\p{Nd}]/gu, ''));
 }
+/** Two weakened rules the self-check proves the cases catch (D-L135). */
+const WEAKER_RULES: [string, (q: string) => boolean][] = [
+  [
+    'ASCII digits only',
+    (q) => {
+      const text = q.normalize('NFKC');
+      return text.includes('@') || /[0-9]{6,}/.test(text.replace(/[^\p{L}\p{Nd}]/gu, ''));
+    },
+  ],
+  [
+    'punctuation-only stripping (the pre-D-L135 rule)',
+    (q) => {
+      const text = q.normalize('NFKC');
+      return text.includes('@') || /[0-9]{6,}/.test(text.replace(/[\s+().-]/gu, ''));
+    },
+  ],
+];
 /** Pasted identifiers the rule must refuse; each is synthetic or a placeholder. */
 const IDENTIFIER_QS = [
   '08031234567',
@@ -784,11 +825,27 @@ const IDENTIFIER_QS = [
   'sample@example.test',
   'a@b',
   '@sample',
+  // D-L135: separators the pre-D-L135 rule did not strip, and digits of another script.
+  '0803/123/4567',
+  '0803_123_4567',
+  '0803,123,4567',
+  '0803–123–4567',
+  '٠٨٠٣١٢٣٤٥٦٧',
   'Sample\t080 312 45',
+];
+/** Digits NFKC maps to ASCII but which are not `\p{Nd}`: refused by the server's NFKC step, missed by the pattern. */
+const NFKC_ONLY_QS = ['Sample ¹²³⁴⁵⁶', '①②③④⑤⑥'];
+/** The identifiers D-L135 added: each slipped past the pre-D-L135 rule. */
+const D_L135_QS = [
+  '0803/123/4567',
+  '0803_123_4567',
+  '0803,123,4567',
+  '0803–123–4567',
+  '٠٨٠٣١٢٣٤٥٦٧',
 ];
 /** Names the rule must let through. */
 const NAME_QS = ['Sample', 'Sámple Fixture', 'Sample 2026', 'Unit 12 Block 3456', 'Sample 12345', '50% Sample', 'Sample (Lagos) Ltd', 'Fixture-12.34'];
-/** Full-width forms: refused by the rule after NFKC though the ASCII pattern misses them. */
+/** Full-width forms: refused by the rule after NFKC, and by the pattern too (full-width digits are `\p{Nd}`). */
 const FULL_WIDTH_QS = ['０８０３１２３４５６７', 'sample＠example.test'];
 const EXAMPLE_LABELS: Record<string, string[]> = {
   [SEARCH]: ['portal', 'prefix', 'withheldNamePart'],
@@ -1009,6 +1066,7 @@ function realisticNames(value: unknown, key = ''): string[] {
 
 const SEARCH_STEPS = [
   'authentication (`401`) and the scope-header `400` first',
+  'then the per-user throttle (`429 too_many_requests`)',
   'then `q` present (`query_required`)',
   'then no identifier in the URL, in a `phone` or `email` parameter or in `q` itself (`identifier_in_url`)',
   "then each parameter's own shape",
@@ -1017,6 +1075,7 @@ const SEARCH_STEPS = [
 ];
 const LOOKUP_STEPS = [
   'authentication (`401`) and the scope-header `400` first',
+  'then the per-user throttle (`429 too_many_requests`)',
   'then the body as a closed JSON object (`unknown_property`)',
   'then the one-identifier rule (`one_term_required`)',
   "then each property's own shape",
@@ -1027,6 +1086,60 @@ const SEARCH_BASIS =
   /Every `400` is decided from the request alone, before any record is read, so no `400` depends on what exists/;
 const LOOKUP_BASIS =
   /Every `400` is decided from the request and the caller's own tenant settings \(the default country `invalid_phone` normalises with\), never from any record, so no `400` depends on what exists/;
+
+/** Values a throttle body must never carry: the search and lookup examples' query values (R15, D-L134). */
+const QUERY_VALUES = ['sam', 'Sam', '0803 000 0001', '+2348030000001', 'sample.fixture@example.test'];
+/** The keys a throttle body may carry: the sign-in throttle's envelope, less its cell time zone. */
+const THROTTLE_KEYS = ['code', 'error', 'message', 'retryAt', 'statusCode'];
+
+/**
+ * R15 (D-L134): what the shared 429 gets wrong; empty when right. `node` is
+ * the response object, `auth` the sign-in throttle's (`TooManyAttempts`).
+ */
+function throttleProblems(node: unknown, auth: Located | undefined): string[] {
+  if (!isMapping(node)) return ['no 429 response'];
+  const problems: string[] = [];
+  const text = prose(str(node.description));
+  for (const [label, rule] of [
+    ['per user', /\*\*per user\*\*, never per address/],
+    ['separate budgets', /Each operation has its \*\*own budget\*\*: exhausting one leaves the other open/],
+    ['the lookup tighter', /the lookup's budget is \*\*tighter\*\*/],
+    ['after authentication, before validation', /decided after authentication and the scope-header check and before any validation/],
+    ['never echoes the query', /\*\*The body never echoes the query\*\*: no `q`, no phone number, no address/],
+    ['the sign-in shape', /Same shape as the sign-in throttle \(`TooManyAttempts`/],
+  ] as const) {
+    if (!rule.test(text)) problems.push(`description: ${label}`);
+  }
+  const examples = examplesOf(jsonMedia(at(node)))
+    .map(([, value]) => value)
+    .filter(isMapping);
+  if (examples.length === 0) problems.push('no example');
+  const authExample = examplesOf(jsonMedia(auth))
+    .map(([, value]) => value)
+    .filter(isMapping)[0];
+  if (!authExample) problems.push('no sign-in throttle example to compare with');
+  for (const body of examples) {
+    if (body.statusCode !== 429) problems.push(`statusCode ${String(body.statusCode)}`);
+    if (body.code !== 'too_many_requests') problems.push(`code ${String(body.code)}`);
+    if (body.error !== 'Too Many Requests') problems.push(`error ${String(body.error)}`);
+    if (typeof body.message !== 'string' || body.message === '') problems.push('no message');
+    if (body.retryAt !== undefined && !UTC_DATE_TIME.test(str(body.retryAt)))
+      problems.push('retryAt is not a UTC date-time');
+    for (const key of Object.keys(body)) {
+      if (!THROTTLE_KEYS.includes(key)) problems.push(`key ${key} is not the throttle's`);
+      if (authExample && !(key in authExample)) problems.push(`key ${key} is not in the sign-in throttle's body`);
+    }
+    for (const value of stringsIn(body)) {
+      if (QUERY_VALUES.some((query) => value.includes(query)) || looksLikeIdentifier(value.replace(/^\d{4}-\d{2}-\d{2}T.*Z$/, '')))
+        problems.push(`the body echoes a query value: ${value}`);
+    }
+  }
+  const media = jsonMedia(at(node));
+  const schema = media ? child(media, 'schema') : undefined;
+  if (!schema || !isMapping(schema.node) || !isMapping(schema.node.properties) || !('retryAt' in schema.node.properties))
+    problems.push('the schema has no retryAt');
+  return problems;
+}
 
 /** The order rule (R15) as prose; empty when it is all there. */
 function errorOrderProblems(opText: string, steps: string[], basis: RegExp): string[] {
@@ -1052,7 +1165,7 @@ function identifierInQProblems(opText: string, qSchema: Located): string[] {
   const op = prose(opText);
   const problems: string[] = [];
   if (
-    !/\*\*`q` itself is refused when it looks like an identifier:\*\* after Unicode NFKC normalisation, a `q` that contains `@`, or that contains a run of 6 or more digits once every whitespace character and every `\+`, `\(`, `\)`, `-` and `\.` is removed, is `400 validation_failed` with `details\[\]\.code: identifier_in_url` at `q`/.test(
+    !/\*\*`q` itself is refused when it looks like an identifier:\*\* after Unicode NFKC normalisation, a `q` that contains `@`, or that contains a run of 6 or more decimal digits of any script \(`\\p\{Nd\}`\) once every character that is neither a letter \(`\\p\{L\}`\) nor a decimal digit is removed, is `400 validation_failed` with `details\[\]\.code: identifier_in_url` at `q` \(D-L135\)/.test(
       op,
     )
   )
@@ -1146,16 +1259,17 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       expect(operations().filter((op) => op.path === LOOKUP_PATH).length, 'one method').toBe(1);
     });
 
-    // Contract only until T-0086 (D-L133, as T-0105): T-0086's suite flips both expectations to true with the routes.
-    it('the flag: searchRecords is x-kasuwa-implemented: false, contract only until T-0086', () => {
+    // Lead edit for T-0086 (D-L133, as T-0105's): both routes are served from T-0086, so both
+    // flags are true. T-0086's own suite (records/search-api) pins the same with the routes.
+    it('the flag: searchRecords is x-kasuwa-implemented: true, served since T-0086', () => {
       expect(search().op['x-kasuwa-implemented'], 'T-0086 sets it to true with the route').toBe(
-        false,
+        true,
       );
     });
 
-    it('the flag: lookupRecords is x-kasuwa-implemented: false, contract only until T-0086', () => {
+    it('the flag: lookupRecords is x-kasuwa-implemented: true, served since T-0086', () => {
       expect(lookup().op['x-kasuwa-implemented'], 'T-0086 sets it to true with the route').toBe(
-        false,
+        true,
       );
     });
   });
@@ -1202,7 +1316,7 @@ describe('acceptance: records contract, global search (T-0085)', () => {
         identifierInQProblems(str(search().op.description), paramSchema(search(), 'q')),
       ).toEqual([]);
       expect(prose(str(param(search(), 'q')?.description))).toMatch(
-        /Never a phone number or an email address: an `@`, or a run of 6 or more digits once whitespace and `\+\(\)-\.` are removed \(after NFKC\), is `400 identifier_in_url`; send those to lookupRecords/,
+        /Never a phone number or an email address: an `@`, or a run of 6 or more decimal digits of any script once everything that is neither a letter nor a digit is removed \(after NFKC\), is `400 identifier_in_url`; send those to lookupRecords/,
       );
     });
 
@@ -1214,20 +1328,40 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       expect(refused, 'names the schema refuses').toEqual([]);
     });
 
-    it('the stated rule (NFKC first) agrees with the schema on every case, and also catches full-width forms', () => {
+    it('the stated rule (NFKC first) agrees with the schema on every case, full-width forms included; only NFKC-mapped digits need the server (D-L135)', () => {
       gate();
       for (const value of IDENTIFIER_QS) expect(looksLikeIdentifier(value), value).toBe(true);
       for (const value of NAME_QS) expect(looksLikeIdentifier(value), value).toBe(false);
       const pattern = new RegExp(IDENTIFIER_Q_PATTERN, 'u');
-      for (const value of [...IDENTIFIER_QS, ...NAME_QS]) {
+      for (const value of [...IDENTIFIER_QS, ...NAME_QS, ...FULL_WIDTH_QS]) {
         expect(pattern.test(value), `pattern and rule disagree on ${value}`).toBe(
           looksLikeIdentifier(value),
         );
       }
-      for (const value of FULL_WIDTH_QS) {
+      for (const value of NFKC_ONLY_QS) {
         expect(looksLikeIdentifier(value), `${value} after NFKC`).toBe(true);
         expect(pattern.test(value), `${value} is why the server applies NFKC first`).toBe(false);
       }
+      // The three names D-L135 names stay searchable.
+      for (const value of ['Sample 2026', 'Unit 12 Block 3456', 'Fixture-12.34']) {
+        expect(NAME_QS, value).toContain(value);
+      }
+    });
+
+    it('(self-check, D-L135) a weakened rule is caught by the cases: ASCII-only digits, or punctuation-only stripping', () => {
+      for (const value of D_L135_QS) expect(IDENTIFIER_QS, value).toContain(value);
+      for (const [label, weaker] of WEAKER_RULES) {
+        const leaked = D_L135_QS.filter((value) => !weaker(value));
+        expect(leaked.length, `${label} catches every D-L135 case`).toBeGreaterThan(0);
+        // ...while still agreeing on the names, so it is the identifiers that expose it.
+        for (const value of NAME_QS) expect(weaker(value), `${label} on ${value}`).toBe(false);
+      }
+      expect(
+        WEAKER_RULES.find(([label]) => label === 'ASCII digits only')?.[1](
+          '٠٨٠٣١٢٣٤٥٦٧',
+        ),
+        'ASCII-only digits let Arabic-Indic digits through',
+      ).toBe(false);
     });
 
     it('(self-check, R21) a looser q rule is caught: no not pattern, a weaker pattern, or the prose softened', () => {
@@ -1241,9 +1375,11 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       });
       const weaker: [string, Located][] = [
         ['no not', withPattern(undefined)],
-        ['seven digits', withPattern('@|[0-9](?:[\\s+().-]*[0-9]){6}')],
-        ['contiguous only', withPattern('@|[0-9]{6}')],
-        ['no @', withPattern('[0-9](?:[\\s+().-]*[0-9]){5}')],
+        ['seven digits', withPattern('[@\\uFF20\\uFE6B]|\\p{Nd}(?:[^\\p{L}\\p{Nd}]*\\p{Nd}){6}')],
+        ['contiguous only', withPattern('[@\\uFF20\\uFE6B]|\\p{Nd}{6}')],
+        ['no @', withPattern('\\p{Nd}(?:[^\\p{L}\\p{Nd}]*\\p{Nd}){5}')],
+        ['ASCII digits only (D-L135)', withPattern('[@\\uFF20\\uFE6B]|[0-9](?:[^\\p{L}\\p{Nd}]*[0-9]){5}')],
+        ['punctuation-only stripping (pre-D-L135)', withPattern('@|[0-9](?:[\\s+().-]*[0-9]){5}')],
       ];
       for (const [label, planted] of weaker) {
         expect(identifierInQProblems(text, planted).length, `${label} passed the rule`).toBeGreaterThan(0);
@@ -1255,7 +1391,11 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       }
       const softened: [string, string][] = [
         ['no NFKC', prose(text).replace('after Unicode NFKC normalisation, ', '')],
-        ['8 digits', prose(text).replace('a run of 6 or more digits', 'a run of 8 or more digits')],
+        ['8 digits', prose(text).replace('a run of 6 or more decimal digits', 'a run of 8 or more decimal digits')],
+        [
+          'ASCII digits only',
+          prose(text).replace('decimal digits of any script (`\\p{Nd}`)', 'ASCII digits'),
+        ],
         ['clients not told', prose(text).replace('**Clients send phone- or email-shaped input to lookupRecords,**', 'Clients may send anything,')],
       ];
       for (const [label, planted] of softened) {
@@ -2034,11 +2174,15 @@ describe('acceptance: records contract, global search (T-0085)', () => {
 
   describe('errors and their order (R15)', () => {
     for (const id of OP_IDS) {
-      it(`${id}: documents exactly 200, 400 and 401, and lists every 400 detail code in the order decided`, () => {
+      it(`${id}: documents exactly 200, 400, 401 and 429, and lists the throttle then every 400 detail code in the order decided`, () => {
         const op = operation(id);
-        expect([...responses(op).keys()].sort()).toEqual(['200', '400', '401']);
+        expect([...responses(op).keys()].sort()).toEqual(['200', '400', '401', '429']);
         expect(op.op['x-kasuwa-error-order']).toEqual(ERROR_ORDER[id]);
-        const codes = (ERROR_ORDER[id] ?? []).map((entry) => entry.split(' ')[2]);
+        // D-L134: the throttle is decided before any validation.
+        expect((ERROR_ORDER[id] ?? [])[0]).toBe('429 too_many_requests');
+        const codes = (ERROR_ORDER[id] ?? [])
+          .filter((entry) => entry.startsWith('400 '))
+          .map((entry) => entry.split(' ')[2]);
         const documented = BAD_REQUEST_DETAILS[id]?.map((entry) => entry.split(' ')[1]) ?? [];
         expect([...new Set(documented)].sort(), 'the order names exactly the documented codes').toEqual(
           [...codes].sort(),
@@ -2156,11 +2300,11 @@ describe('acceptance: records contract, global search (T-0085)', () => {
     });
 
     for (const id of OP_IDS) {
-      it(`${id}: the 400 and 401 use the shared Error schema; the 400 examples carry exactly its reason codes, path and code only`, () => {
+      it(`${id}: the 400, 401 and 429 use the shared Error schema; the 400 examples carry exactly its reason codes, path and code only`, () => {
         const op = operation(id);
         const shared = jsonSchema(responses(operation('getContact')).get('404'));
         if (!shared) throw new Error('getContact 404 has no schema');
-        for (const status of ['400', '401']) {
+        for (const status of ['400', '401', '429']) {
           expect(jsonSchema(responses(op).get(status))?.node, status).toBe(shared.node);
         }
         const details: string[] = [];
@@ -2200,6 +2344,56 @@ describe('acceptance: records contract, global search (T-0085)', () => {
         /The body is personal data: it is never logged or traced, and neither is the normalised number/,
       );
       expect(schemaDescription('LookupRequest')).toMatch(/Personal data: never logged or traced/);
+    });
+
+    const signInThrottle = (): Located =>
+      at({ $ref: './auth.openapi.yaml#/components/responses/TooManyAttempts' });
+
+    it('the 429 (D-L134): one shared response on both, the sign-in throttle’s shape, per user, separate budgets, and it never echoes q or the lookup body', () => {
+      const [searchOp, lookupOp] = gate();
+      const fromSearch = searchOp ? responses(searchOp).get('429') : undefined;
+      const fromLookup = lookupOp ? responses(lookupOp).get('429') : undefined;
+      expect(fromSearch?.node, 'searchRecords 429').toBe(
+        at({ $ref: '#/components/responses/SearchTooManyRequests' }).node,
+      );
+      expect(fromLookup?.node, 'one shared 429').toBe(fromSearch?.node);
+      expect(throttleProblems(fromSearch?.node, signInThrottle())).toEqual([]);
+      for (const op of [search(), lookup()]) {
+        expect(description(op), op.id).toMatch(
+          /\*\*Throttle \(T-0086, D-L134\)\.\*\* Each user has a budget of/,
+        );
+        expect(description(op), op.id).toMatch(
+          /decided after authentication and before any validation, and the body never echoes the/,
+        );
+      }
+      expect(description(lookup())).toMatch(/tighter than and separate from their searchRecords budget/);
+    });
+
+    it('(self-check, D-L134) the throttle checker refuses an echoing, misshapen or silent 429', () => {
+      const real = responses(search()).get('429')?.node;
+      expect(throttleProblems(real, signInThrottle()), 'the real one').toEqual([]);
+      const copy = (): Mapping => JSON.parse(JSON.stringify(real)) as Mapping;
+      const exampleOf = (node: Mapping): Mapping => {
+        const media = (node.content as Mapping)['application/json'] as Mapping;
+        const examples = media.examples as Mapping;
+        return (examples[Object.keys(examples)[0] ?? ''] as Mapping).value as Mapping;
+      };
+      const plants: [string, (node: Mapping) => void][] = [
+        ['echoes q', (node) => (exampleOf(node).message = 'No more searches for sam today.')],
+        ['echoes a phone', (node) => (exampleOf(node).message = 'Too many lookups of 0803 000 0001.')],
+        ['carries the query', (node) => (exampleOf(node).q = 'Sample')],
+        ['another code', (node) => (exampleOf(node).code = 'rate_limited')],
+        ['a non-UTC retryAt', (node) => (exampleOf(node).retryAt = '2026-10-14 10:01')],
+        ['per address', (node) => (node.description = str(node.description).replace('**per user**', '**per address**'))],
+        ['one budget', (node) => (node.description = str(node.description).replace('**own budget**', 'shared budget'))],
+        ['silent on echoes', (node) => (node.description = str(node.description).replace('**The body never echoes the query**', 'The body'))],
+      ];
+      for (const [label, plant] of plants) {
+        const node = copy();
+        plant(node);
+        expect(JSON.stringify(node), `${label}: the plant changed nothing`).not.toBe(JSON.stringify(real));
+        expect(throttleProblems(node, signInThrottle()), label).not.toEqual([]);
+      }
     });
   });
 

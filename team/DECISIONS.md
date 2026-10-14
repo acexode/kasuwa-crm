@@ -2848,3 +2848,49 @@ T-0109's mock unchanged. On main, 45 wrapper tests fail because there is no rout
   chip counts, persisted recent searches, and the scope menu (deferred under D-L87).
 - **Open:** `listContacts` and `listLeads` `q` still accept a number in the URL, as their contracts say ("name or
   number"). Bringing them under R21 is a contract change, folded into T-0124's scope.
+### D-L134 — T-0086 suite rulings; the search throttle joins the contract (lead, 2026-10-14)
+**Status:** PROCEEDING (lead). The suite `search-api.acceptance.test.ts` (67 tests) is on `lead/T-0086-acceptance`
+(f97a89c, 18d0e81), with migration 0038 reserved for `agent3/T-0086` (b83be3c). On main, 61 tests fail because there
+is no 0038, no route and the flags are false; 4 self-checks and 2 guards pass.
+- **R1–R24 in the suite header are accepted.** Notable:
+  - the folded copies are generated stored columns, `<source>_search`, because `normalize()` is IMMUTABLE. 0038 creates
+    no function (R1, R3);
+  - btree indexes `COLLATE "C"`, led by `(tenant_id, programme_id, <column>)` (pinned interfaces);
+  - plans are judged by replaying the statements the API sends, with no Seq Scan, the range in the Index Cond and at
+    most 500 rows examined per table (R5, R6). This applies T-0111's lesson;
+  - search answers within 250 ms and the lookup within 500 ms on the 120k/60k/60k seed (R8). The lookup plan is not
+    pinned until `jsonb_contains` is leakproof;
+  - a national number of 6 digits or fewer is `invalid_phone`, so the contacts list's looser phone parser must not be
+    reused (R10);
+  - the folded copies follow their source on every write path; no erasure route exists yet (R19);
+  - no log line or span carries `q`, the lookup body or a hit's name (R22).
+- **Lead contract edit (18d0e81): the throttle is in the contract.** Both search operations gain `429
+  too_many_requests`, with the shared Error shape, an optional `retryAt` and `no-store`, decided first after
+  authentication. The limit is per user, with separate budgets and a tighter one for the lookup. T-0085's contract suite
+  now pins `['200','400','401','429']`.
+- **Open:** what counts as a valid number of 7–9 digits per country, beyond R10's clear case. The 0038 header must say
+  that a STORED column rewrites `contact` under ACCESS EXCLUSIVE, acceptable only while no cell is populated (D-L65).
+- **Builder:** Agent 3 on `agent3/T-0086-search-api`.
+### D-L135 — T-0086 review rulings, the Unicode identifier rule, and follow-ups (lead, 2026-10-14)
+**Status:** PROCEEDING (lead). T-0086 merged as #130 (migration 0038).
+- **Identifier rule, strengthened (contract 0.12.2):** after NFKC, a `q` is `400 identifier_in_url` if it contains `@`,
+  or if, once every character that is neither `\p{L}` nor `\p{Nd}` is removed, it holds a run of 6 or more `\p{Nd}`
+  digits of any script. The contract's `not` pattern is the same rule as a `u` regex. T-0087's client rule (R27) follows
+  it: text with a digit and no letter is phone-like.
+- **Lead suite edits (3fb072b):**
+  - `deal.name_search` is pinned in pipeline-tables;
+  - the 120k-row seeds in search-api and list-indexes insert 10,000 rows per statement, so they no longer hit the 30 s
+    statement timeout on a loaded host. The data is identical.
+- **Leads index shape:** the leads view's status filter is not an index key. On a 1%-leads tenant the leads group
+  examined up to 24,240 rows, so 0038 adds four partial lead indexes and the leads query sends the predicate as
+  literals. Rows examined drop to 0.
+- **Accepted risk:** the search throttle's counters are per process. They must move to Redis (or another shared store)
+  before a second API instance serves traffic.
+- **Follow-ups:**
+  - a lead edit adding a low-lead-tenant plan test to search-api, because its seed is too lead-heavy to catch a
+    regression of the partial indexes;
+  - statement size grows with programmes × fields for users in hundreds of programmes. It goes into the
+    timeline-performance task (D-L131) as a search item;
+  - pin the Postgres image by digest or ICU version before the first cell, so the folded columns cannot drift silently
+    on a re-pull;
+  - D-L80's query-string stripping must cover the web ingress as well as the API.
