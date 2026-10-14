@@ -46,7 +46,11 @@ import { parse } from 'yaml';
  *               lookupRecords (per body property, per type, the field
  *               compared), `x-kasuwa-rights` on both, identical (per seeded
  *               set, per type, read or none), `x-kasuwa-error-order`.
- *   ERRORS      `400` and `401` only, no 403, no 404.
+ *   ERRORS      `400`, `401` and `429` only, no 403, no 404 (429 added by
+ *               D-L134, T-0086).
+ *                 both           SearchTooManyRequests: 429
+ *                                too_many_requests, per user, decided after
+ *                                authentication and before validation
  *                 searchRecords  SearchValidationFailed: query_required,
  *                                identifier_in_url, invalid_string,
  *                                query_too_short, unknown_type
@@ -139,12 +143,18 @@ import { parse } from 'yaml';
  *       phone or an email, a lookup included; no owner, tag or amount
  *       anywhere. Each returned field has the record schema's own type and
  *       bound. Deal hit `name` is `pii` (D-L91).
- *   R15 Errors: `400` and `401` only, on both, never from any record.
+ *   R15 Errors: `400`, `401` and `429` only, on both, never from any record
+ *       (`429` added by the lead, D-L134, with T-0086's throttle).
  *       searchRecords' 400s come from the request alone; lookupRecords' from
  *       the request and the caller's own tenant settings (the default country
- *       `invalid_phone` normalises with; review fix 3). `x-kasuwa-error-order`
- *       lists each detail code in the order decided (401 and the scope
- *       header precede all):
+ *       `invalid_phone` normalises with; review fix 3). The 429 is
+ *       `SearchTooManyRequests`, shared by both: the shared Error envelope,
+ *       `too_many_requests`, an optional `retryAt`, the sign-in throttle's
+ *       shape; per user, separate budgets, the lookup's tighter; it never
+ *       echoes the query. `x-kasuwa-error-order` lists it first and then
+ *       each detail code in the order decided (401 and the scope header
+ *       precede all):
+ *         both           429 too_many_requests, then:
  *         searchRecords  query_required, identifier_in_url (strictly after;
  *                        review fix 4), invalid_string, unknown_type,
  *                        query_too_short
@@ -750,6 +760,7 @@ const BAD_REQUEST_DETAILS: Record<string, string[]> = {
 /** R15: each detail code, in the order decided (review fix 4: query_required strictly first). */
 const ERROR_ORDER: Record<string, string[]> = {
   [SEARCH]: [
+    '429 too_many_requests',
     '400 validation_failed query_required',
     '400 validation_failed identifier_in_url',
     '400 validation_failed invalid_string',
@@ -757,6 +768,7 @@ const ERROR_ORDER: Record<string, string[]> = {
     '400 validation_failed query_too_short',
   ],
   [LOOKUP]: [
+    '429 too_many_requests',
     '400 validation_failed unknown_property',
     '400 validation_failed one_term_required',
     '400 validation_failed invalid_phone',
@@ -1010,6 +1022,7 @@ function realisticNames(value: unknown, key = ''): string[] {
 
 const SEARCH_STEPS = [
   'authentication (`401`) and the scope-header `400` first',
+  'then the per-user throttle (`429 too_many_requests`)',
   'then `q` present (`query_required`)',
   'then no identifier in the URL, in a `phone` or `email` parameter or in `q` itself (`identifier_in_url`)',
   "then each parameter's own shape",
@@ -1018,6 +1031,7 @@ const SEARCH_STEPS = [
 ];
 const LOOKUP_STEPS = [
   'authentication (`401`) and the scope-header `400` first',
+  'then the per-user throttle (`429 too_many_requests`)',
   'then the body as a closed JSON object (`unknown_property`)',
   'then the one-identifier rule (`one_term_required`)',
   "then each property's own shape",
@@ -1028,6 +1042,60 @@ const SEARCH_BASIS =
   /Every `400` is decided from the request alone, before any record is read, so no `400` depends on what exists/;
 const LOOKUP_BASIS =
   /Every `400` is decided from the request and the caller's own tenant settings \(the default country `invalid_phone` normalises with\), never from any record, so no `400` depends on what exists/;
+
+/** Values a throttle body must never carry: the search and lookup examples' query values (R15, D-L134). */
+const QUERY_VALUES = ['sam', 'Sam', '0803 000 0001', '+2348030000001', 'sample.fixture@example.test'];
+/** The keys a throttle body may carry: the sign-in throttle's envelope, less its cell time zone. */
+const THROTTLE_KEYS = ['code', 'error', 'message', 'retryAt', 'statusCode'];
+
+/**
+ * R15 (D-L134): what the shared 429 gets wrong; empty when right. `node` is
+ * the response object, `auth` the sign-in throttle's (`TooManyAttempts`).
+ */
+function throttleProblems(node: unknown, auth: Located | undefined): string[] {
+  if (!isMapping(node)) return ['no 429 response'];
+  const problems: string[] = [];
+  const text = prose(str(node.description));
+  for (const [label, rule] of [
+    ['per user', /\*\*per user\*\*, never per address/],
+    ['separate budgets', /Each operation has its \*\*own budget\*\*: exhausting one leaves the other open/],
+    ['the lookup tighter', /the lookup's budget is \*\*tighter\*\*/],
+    ['after authentication, before validation', /decided after authentication and the scope-header check and before any validation/],
+    ['never echoes the query', /\*\*The body never echoes the query\*\*: no `q`, no phone number, no address/],
+    ['the sign-in shape', /Same shape as the sign-in throttle \(`TooManyAttempts`/],
+  ] as const) {
+    if (!rule.test(text)) problems.push(`description: ${label}`);
+  }
+  const examples = examplesOf(jsonMedia(at(node)))
+    .map(([, value]) => value)
+    .filter(isMapping);
+  if (examples.length === 0) problems.push('no example');
+  const authExample = examplesOf(jsonMedia(auth))
+    .map(([, value]) => value)
+    .filter(isMapping)[0];
+  if (!authExample) problems.push('no sign-in throttle example to compare with');
+  for (const body of examples) {
+    if (body.statusCode !== 429) problems.push(`statusCode ${String(body.statusCode)}`);
+    if (body.code !== 'too_many_requests') problems.push(`code ${String(body.code)}`);
+    if (body.error !== 'Too Many Requests') problems.push(`error ${String(body.error)}`);
+    if (typeof body.message !== 'string' || body.message === '') problems.push('no message');
+    if (body.retryAt !== undefined && !UTC_DATE_TIME.test(str(body.retryAt)))
+      problems.push('retryAt is not a UTC date-time');
+    for (const key of Object.keys(body)) {
+      if (!THROTTLE_KEYS.includes(key)) problems.push(`key ${key} is not the throttle's`);
+      if (authExample && !(key in authExample)) problems.push(`key ${key} is not in the sign-in throttle's body`);
+    }
+    for (const value of stringsIn(body)) {
+      if (QUERY_VALUES.some((query) => value.includes(query)) || looksLikeIdentifier(value.replace(/^\d{4}-\d{2}-\d{2}T.*Z$/, '')))
+        problems.push(`the body echoes a query value: ${value}`);
+    }
+  }
+  const media = jsonMedia(at(node));
+  const schema = media ? child(media, 'schema') : undefined;
+  if (!schema || !isMapping(schema.node) || !isMapping(schema.node.properties) || !('retryAt' in schema.node.properties))
+    problems.push('the schema has no retryAt');
+  return problems;
+}
 
 /** The order rule (R15) as prose; empty when it is all there. */
 function errorOrderProblems(opText: string, steps: string[], basis: RegExp): string[] {
@@ -2036,11 +2104,15 @@ describe('acceptance: records contract, global search (T-0085)', () => {
 
   describe('errors and their order (R15)', () => {
     for (const id of OP_IDS) {
-      it(`${id}: documents exactly 200, 400 and 401, and lists every 400 detail code in the order decided`, () => {
+      it(`${id}: documents exactly 200, 400, 401 and 429, and lists the throttle then every 400 detail code in the order decided`, () => {
         const op = operation(id);
-        expect([...responses(op).keys()].sort()).toEqual(['200', '400', '401']);
+        expect([...responses(op).keys()].sort()).toEqual(['200', '400', '401', '429']);
         expect(op.op['x-kasuwa-error-order']).toEqual(ERROR_ORDER[id]);
-        const codes = (ERROR_ORDER[id] ?? []).map((entry) => entry.split(' ')[2]);
+        // D-L134: the throttle is decided before any validation.
+        expect((ERROR_ORDER[id] ?? [])[0]).toBe('429 too_many_requests');
+        const codes = (ERROR_ORDER[id] ?? [])
+          .filter((entry) => entry.startsWith('400 '))
+          .map((entry) => entry.split(' ')[2]);
         const documented = BAD_REQUEST_DETAILS[id]?.map((entry) => entry.split(' ')[1]) ?? [];
         expect([...new Set(documented)].sort(), 'the order names exactly the documented codes').toEqual(
           [...codes].sort(),
@@ -2158,11 +2230,11 @@ describe('acceptance: records contract, global search (T-0085)', () => {
     });
 
     for (const id of OP_IDS) {
-      it(`${id}: the 400 and 401 use the shared Error schema; the 400 examples carry exactly its reason codes, path and code only`, () => {
+      it(`${id}: the 400, 401 and 429 use the shared Error schema; the 400 examples carry exactly its reason codes, path and code only`, () => {
         const op = operation(id);
         const shared = jsonSchema(responses(operation('getContact')).get('404'));
         if (!shared) throw new Error('getContact 404 has no schema');
-        for (const status of ['400', '401']) {
+        for (const status of ['400', '401', '429']) {
           expect(jsonSchema(responses(op).get(status))?.node, status).toBe(shared.node);
         }
         const details: string[] = [];
@@ -2202,6 +2274,56 @@ describe('acceptance: records contract, global search (T-0085)', () => {
         /The body is personal data: it is never logged or traced, and neither is the normalised number/,
       );
       expect(schemaDescription('LookupRequest')).toMatch(/Personal data: never logged or traced/);
+    });
+
+    const signInThrottle = (): Located =>
+      at({ $ref: './auth.openapi.yaml#/components/responses/TooManyAttempts' });
+
+    it('the 429 (D-L134): one shared response on both, the sign-in throttle’s shape, per user, separate budgets, and it never echoes q or the lookup body', () => {
+      const [searchOp, lookupOp] = gate();
+      const fromSearch = searchOp ? responses(searchOp).get('429') : undefined;
+      const fromLookup = lookupOp ? responses(lookupOp).get('429') : undefined;
+      expect(fromSearch?.node, 'searchRecords 429').toBe(
+        at({ $ref: '#/components/responses/SearchTooManyRequests' }).node,
+      );
+      expect(fromLookup?.node, 'one shared 429').toBe(fromSearch?.node);
+      expect(throttleProblems(fromSearch?.node, signInThrottle())).toEqual([]);
+      for (const op of [search(), lookup()]) {
+        expect(description(op), op.id).toMatch(
+          /\*\*Throttle \(T-0086, D-L134\)\.\*\* Each user has a budget of/,
+        );
+        expect(description(op), op.id).toMatch(
+          /decided after authentication and before any validation, and the body never echoes the/,
+        );
+      }
+      expect(description(lookup())).toMatch(/tighter than and separate from their searchRecords budget/);
+    });
+
+    it('(self-check, D-L134) the throttle checker refuses an echoing, misshapen or silent 429', () => {
+      const real = responses(search()).get('429')?.node;
+      expect(throttleProblems(real, signInThrottle()), 'the real one').toEqual([]);
+      const copy = (): Mapping => JSON.parse(JSON.stringify(real)) as Mapping;
+      const exampleOf = (node: Mapping): Mapping => {
+        const media = (node.content as Mapping)['application/json'] as Mapping;
+        const examples = media.examples as Mapping;
+        return (examples[Object.keys(examples)[0] ?? ''] as Mapping).value as Mapping;
+      };
+      const plants: [string, (node: Mapping) => void][] = [
+        ['echoes q', (node) => (exampleOf(node).message = 'No more searches for sam today.')],
+        ['echoes a phone', (node) => (exampleOf(node).message = 'Too many lookups of 0803 000 0001.')],
+        ['carries the query', (node) => (exampleOf(node).q = 'Sample')],
+        ['another code', (node) => (exampleOf(node).code = 'rate_limited')],
+        ['a non-UTC retryAt', (node) => (exampleOf(node).retryAt = '2026-10-14 10:01')],
+        ['per address', (node) => (node.description = str(node.description).replace('**per user**', '**per address**'))],
+        ['one budget', (node) => (node.description = str(node.description).replace('**own budget**', 'shared budget'))],
+        ['silent on echoes', (node) => (node.description = str(node.description).replace('**The body never echoes the query**', 'The body'))],
+      ];
+      for (const [label, plant] of plants) {
+        const node = copy();
+        plant(node);
+        expect(JSON.stringify(node), `${label}: the plant changed nothing`).not.toBe(JSON.stringify(real));
+        expect(throttleProblems(node, signInThrottle()), label).not.toEqual([]);
+      }
     });
   });
 

@@ -45,7 +45,7 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.12.0-T-0085
+  version: 0.12.1-T-0086
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
     update. Accounts (T-0052, served since T-0055): list, get, create,
@@ -3360,6 +3360,7 @@ paths:
       x-kasuwa-implemented: false
       x-kasuwa-screens: ['P27/A1', 'P27/A4', 'P27/A5', 'P27/D1']
       x-kasuwa-error-order:
+        - 429 too_many_requests
         - 400 validation_failed query_required
         - 400 validation_failed identifier_in_url
         - 400 validation_failed invalid_string
@@ -3494,7 +3495,8 @@ paths:
         **Errors.** Every `400` is decided from the request alone, before
         any record is read, so no `400` depends on what exists. **Order**
         (`x-kasuwa-error-order`, the first that applies is returned):
-        authentication (`401`) and the scope-header `400` first; then `q`
+        authentication (`401`) and the scope-header `400` first; then the
+        per-user throttle (`429 too_many_requests`); then `q`
         present (`query_required`); then no identifier in the URL, in a
         `phone` or `email` parameter or in `q` itself (`identifier_in_url`);
         then each parameter's own shape (`q` over 100 characters or holding
@@ -3502,6 +3504,12 @@ paths:
         values as `unknown_type`); then the length, as sent or once folded
         (`query_too_short`). A read, so there is never a `403`, and it names
         no record, so there is never a `404`.
+
+        **Throttle (T-0086, D-L134).** Each user has a budget of
+        searchRecords calls per window, separate from their lookupRecords
+        budget; beyond it the answer is `429 too_many_requests`
+        (`SearchTooManyRequests`), decided after authentication and before
+        any validation, and the body never echoes the query.
 
         **Transport.** Every answer, errors included, carries
         `Cache-Control: no-store`: the URL is the same for every user of
@@ -3626,6 +3634,7 @@ paths:
                         hits: []
         '400': { $ref: '#/components/responses/SearchValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '429': { $ref: '#/components/responses/SearchTooManyRequests' }
 
   /api/v1/search/lookup:
     post:
@@ -3635,6 +3644,7 @@ paths:
       x-kasuwa-implemented: false
       x-kasuwa-screens: ['P27/A2', 'P27/D1']
       x-kasuwa-error-order:
+        - 429 too_many_requests
         - 400 validation_failed unknown_property
         - 400 validation_failed one_term_required
         - 400 validation_failed invalid_phone
@@ -3704,12 +3714,20 @@ paths:
         normalises with), never from any record, so no `400` depends on what
         exists. **Order** (`x-kasuwa-error-order`, the first that applies is
         returned): authentication (`401`) and the scope-header `400` first;
+        then the per-user throttle (`429 too_many_requests`);
         then the body as a closed JSON object (`unknown_property`); then the
         one-identifier rule (`one_term_required`); then each property's own
         shape (`phone` format and normalisation as `invalid_phone`, `email`
         format as `invalid_email`, then `types` values as `unknown_type`). A
         read, so there is never a `403`, and it names no record, so there is
         never a `404`.
+
+        **Throttle (T-0086, D-L134).** Each user has a budget of
+        lookupRecords calls per window, tighter than and separate from their
+        searchRecords budget, since a lookup tests one whole identifier at a
+        time; beyond it the answer is `429 too_many_requests`
+        (`SearchTooManyRequests`), decided after authentication and before
+        any validation, and the body never echoes the phone or address.
 
         **Transport.** Every answer, errors included, carries
         `Cache-Control: no-store`. The body is personal data: it is never
@@ -3778,6 +3796,7 @@ paths:
                             withheldFields: []
         '400': { $ref: '#/components/responses/LookupValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '429': { $ref: '#/components/responses/SearchTooManyRequests' }
 
 components:
   securitySchemes:
@@ -6610,6 +6629,36 @@ components:
                 details:
                   - path: types
                     code: unknown_type
+
+    SearchTooManyRequests:
+      description: |
+        searchRecords or lookupRecords was called too often by this user (T-0086,
+        D-L134). A resource and harvesting control, not a permission decision:
+        it says nothing about any record. The limit is **per user**, never per
+        address, so colleagues behind one office address do not share it. Each
+        operation has its **own budget**: exhausting one leaves the other open,
+        and the lookup's budget is **tighter**, because a lookup tests one whole
+        phone number or address at a time. It is decided after authentication
+        and the scope-header check and before any validation of the request.
+        Same shape as the sign-in throttle (`TooManyAttempts`,
+        auth.openapi.yaml): the shared Error envelope with
+        `code: too_many_requests` and, optionally, `retryAt`, the earliest time
+        a retry can succeed. **The body never echoes the query**: no `q`, no
+        phone number, no address. The numbers are the server's and may change.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            tooManyRequests:
+              summary: Too many searches or lookups by this user in the current window
+              value:
+                statusCode: 429
+                error: Too Many Requests
+                code: too_many_requests
+                message: Too many searches. Wait a moment and try again.
+                retryAt: '2026-10-14T10:01:00.000Z'
 
 security:
   - sessionToken: []
