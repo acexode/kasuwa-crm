@@ -118,6 +118,8 @@ const ApiError = z.object({
   code: RecordsErrorCode,
   message: z.string(),
   details: z.array(z.object({ path: z.string(), code: z.string() })).optional(),
+  /** On a 429: the earliest time a retry can succeed (the search throttle, T-0085). */
+  retryAt: z.string().optional(),
 });
 
 /** The request never arrived, or the answer was not the contract's. */
@@ -134,6 +136,8 @@ export interface RecordsError {
   readonly code: RecordsScreenErrorCode;
   /** The reasons the contract names (`field_withheld`, `field_not_editable`, ...). */
   readonly details?: readonly RecordsErrorDetail[];
+  /** On `too_many_requests`, when the contract sends it: the earliest a retry can succeed (ISO 8601, UTC). */
+  readonly retryAt?: string;
 }
 
 export type RecordsResult<T> =
@@ -219,8 +223,15 @@ export async function requestRecords<T>(
   if (!parsed.success) {
     return { ok: false, error: NETWORK_FAILURE };
   }
-  const { code, details } = parsed.data;
-  return { ok: false, error: details === undefined ? { code } : { code, details } };
+  const { code, details, retryAt } = parsed.data;
+  return {
+    ok: false,
+    error: {
+      code,
+      ...(details === undefined ? {} : { details }),
+      ...(retryAt === undefined ? {} : { retryAt }),
+    },
+  };
 }
 
 /** `true` when a refusal names `reason` in its `details`. */
