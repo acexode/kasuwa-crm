@@ -2894,3 +2894,46 @@ is no 0038, no route and the flags are false; 4 self-checks and 2 guards pass.
   - pin the Postgres image by digest or ICU version before the first cell, so the folded columns cannot drift silently
     on a re-pull;
   - D-L80's query-string stripping must cover the web ingress as well as the API.
+
+### D-L136 — T-0123 suite rulings; timeline actors stay named (lead, 2026-10-14)
+**Status:** PROCEEDING (lead). Suite on `lead/T-0123-acceptance` (6e38540).
+- **Rule pinned:** `checkedBy.displayName` is `null` when the checker has no `user_programme` row in the deal's
+  programme at read time (the D-P23 owner test). The tenant-admin flag and membership of another programme do not
+  count. Re-adding someone names them again. `checkedBy.id` is always served. Each check is judged on its own.
+  Covered reads: getDeal, listDeals, getPipelineBoard cards, and the updateDeal and moveDeal answers
+  (pipeline-board-api R17 replaced; deals-api R23 added).
+- **Deal timeline out of scope:** the task file's "the deal timeline's actors where they are checkers" is dropped.
+  Timeline actors are the people behind events and activities, and D-L81 names them even after they leave the
+  programme. The timeline has no `checkedBy`, and the suite stays as it is.
+- **Load note:** under a load average near 150, two untouched tests timed out (a field-security test in deals-api,
+  and the board plans seed). Both pass on a quiet host. This is the 2026-10-14 machine crash (PR #132), not a defect.
+
+### D-L137 — T-0087 review rulings: palette fixes, re-pin, budget and PR split (lead, 2026-10-14)
+**Status:** PROCEEDING (lead). The combined review (D-L109) of `agent11/T-0087-command-palette` (c1c18d6..36e1048)
+found no privacy or contract defect.
+- **Fix before merge:**
+  - **M1:** Escape in the palette must not also close an overlay behind it. Use a capture-phase handler with
+    `stopPropagation`, and don't open the palette over an `aria-modal` dialog;
+  - **M2:** the focus trap ignores `tabindex="-1"` links;
+  - **M3:** a same-route "see all" applies the new `q` and drops it from the address bar;
+  - **M4:** a failed palette chunk shows a retry-or-close state instead of crashing the screen, and the loading state
+    closes on Escape or a backdrop click;
+  - **M5:** a 429 draws `records.error.too_many_requests`, not "check your connection";
+  - **L1:** the minimum query length counts code points, as the server does;
+  - **L2:** the shortcut also accepts `event.code === 'KeyK'` and ignores Shift;
+  - **L3:** search strings ship only when `crm_search` is live;
+  - **L4:** the header link has `prefetch={false}`;
+  - **L5:** the dialog is labelled with `aria-labelledby`, and the result count is announced.
+- **Lead re-pin of the T-0087 suite:**
+  - deal hits link to `/deals/<id>` only while `crm_pipeline` is live, and are otherwise unlinked. T-0110 merged first,
+    so T-0087 does the re-pin;
+  - `SEARCH_BUDGET_BYTES = 223_000`: it passes both measured runs (213,798 and 214,306 bytes) with about 1.4 KB of
+    slack below and 4% of headroom. Re-measure after the fixes;
+  - new journeys for M1, M2 and M3.
+- **PR split (A1 section 3.3):** three stacked PRs.
+  - **A:** the flag, i18n, the harness and the lib client;
+  - **B1:** the search panel, the `/search` route and the message ids;
+  - **B2:** the palette, the shell wiring and the Gap 3 list changes.
+- **Merge gate:** the browser halves of all eleven records-ui and scripting-ui suites, each against its pinned budget
+  (the tightest is `/pipelines/[pipelineId]`, with about 5.5 KB of headroom). They run when no other project's Docker
+  stack is up.
