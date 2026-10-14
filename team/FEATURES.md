@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 179 rows; built 99, partial 11, mock-only 27, flagged-off 11, deferred 10, not-started 21.
+Totals: 180 rows; built 99, partial 11, mock-only 27, flagged-off 12, deferred 10, not-started 21.
 
 ## Modules
 
@@ -213,6 +213,7 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `crm_leads` | The P04 Leads list, Kanban by status and convert at /leads (T-0058). | flagged-off | `crm_leads` | D-L64, D-L86 | packages/feature-flags/src/index.ts |
 | flag | `crm_activities` | The P07 activities screen at /activities: my tasks by bucket, the calendar, compose, snooze and reschedule (T-0083). | flagged-off | `crm_activities` | D-L105, D-L107 | packages/feature-flags/src/index.ts |
 | flag | `crm_scripts` | The P10 in-call scripts in manual mode: the builder at /scripts (T-0115) and the agent run at /script-runs/[runId], started from the contact record (T-0116). | flagged-off | `crm_scripts` | D-L88, D-L114 | packages/feature-flags/src/index.ts |
+| flag | `crm_pipeline` | The P06 pipeline board and list view at /pipelines/[pipelineId], with the pipeline index at /pipelines (T-0109). | flagged-off | `crm_pipeline` | D-L88, D-L115 | packages/feature-flags/src/index.ts |
 
 ## Deferred decisions
 
