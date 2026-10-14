@@ -4,9 +4,11 @@
  *
  * `foldSearchText` is the twin of the generation expression of every
  * `*_search` column (migration 0038): Unicode NFD, every combining mark
- * (General Category M) removed, the locale-independent default lower-casing,
- * trimmed, each run of whitespace one space. The query is folded here and the
- * stored copy by the database, so the two agree byte for byte.
+ * removed, the locale-independent default lower-casing, trimmed, each run of
+ * whitespace one space. The query is folded here and the stored copy by the
+ * database, so the two agree byte for byte. The mark and whitespace sets are
+ * the FROZEN lists of search-charsets.ts, the same as 0038's, never the
+ * running Node's `\p{M}` or `\s`.
  *
  * `prefixUpperBound` is the least string greater than every string that
  * starts with the prefix, in code-point order (the copies are `COLLATE "C"`):
@@ -17,13 +19,34 @@
  * Pure. Nothing here logs: every input is a name.
  */
 
+import { COMBINING_MARK_RANGES, SEARCH_WHITESPACE } from './search-charsets';
+
+const codePoint = (point: number): string => `\\u{${point.toString(16)}}`;
+
+/** The frozen mark set as one character class. */
+const MARKS = new RegExp(
+  `[${COMBINING_MARK_RANGES.map(([first, last]) =>
+    first === last ? codePoint(first) : `${codePoint(first)}-${codePoint(last)}`,
+  ).join('')}]`,
+  'gu',
+);
+/** The frozen whitespace set. */
+const WHITESPACE_CLASS = `[${SEARCH_WHITESPACE.map(codePoint).join('')}]`;
+const WHITESPACE_RUNS = new RegExp(`${WHITESPACE_CLASS}+`, 'gu');
+const EDGE_WHITESPACE = new RegExp(`^${WHITESPACE_CLASS}+|${WHITESPACE_CLASS}+$`, 'gu');
+
 /** The largest Unicode code point. */
 const MAX_CODE_POINT = 0x10ffff;
 const SURROGATE_FIRST = 0xd800;
 const SURROGATE_LAST = 0xdfff;
 
 export function foldSearchText(text: string): string {
-  return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim().replace(/\s+/g, ' ');
+  return text
+    .normalize('NFD')
+    .replace(MARKS, '')
+    .toLowerCase()
+    .replace(EDGE_WHITESPACE, '')
+    .replace(WHITESPACE_RUNS, ' ');
 }
 
 /**

@@ -1,4 +1,5 @@
 import type { TenantTx } from '@kasuwa/db';
+import { LEAD_STATUSES } from '../contact/contact-lead';
 
 /**
  * Global search reads (T-0086; searchRecords and lookupRecords in
@@ -167,11 +168,70 @@ function toContactSearchRow(row: ContactSearchDbRow): ContactSearchRow {
   };
 }
 
+/**
+ * The leads view's status predicate, as SQL literals from LEAD_STATUSES (a
+ * constant, never input). Literal rather than a bound array so that it is the
+ * exact predicate of 0038's partial lead indexes and the planner can prove it
+ * implies them; texteq is leak-proof, so it holds under FORCE RLS.
+ */
+export const LEAD_STATUS_PREDICATE = `status IN (${LEAD_STATUSES.map((status) => {
+  if (!/^[a-z_]+$/.test(status)) throw new Error('A lead status is not a plain word');
+  return `'${status}'`;
+}).join(', ')})`;
+
 export interface ContactPrefixSearch {
   range: PrefixRange;
   branches: readonly SearchBranch<ContactFoldedColumn>[];
-  /** The leads view: only contacts whose status is one of these. */
-  statuses?: readonly string[] | undefined;
+  /** The leads view: only contacts at a lead status (LEAD_STATUS_PREDICATE). */
+  leadsOnly?: boolean | undefined;
+}
+
+/** A statement and its bound values. */
+export interface BuiltStatement {
+  text: string;
+  values: unknown[];
+}
+
+const HIT_COLUMNS: Record<'contact' | 'account' | 'deal', string> = {
+  contact: CONTACT_HIT_COLUMNS,
+  account: 'c.id, c.programme_id, c.name',
+  deal: 'c.id, c.programme_id, c.pipeline_id, c.name',
+};
+
+/**
+ * One type's prefix statement (pure; exported for its unit test).
+ *
+ * The join back to the table is scoped to the programmes the branches
+ * actually searched, never to the whole session: a deal search runs only in
+ * the programmes whose pipelines the caller reads, and the join must not be
+ * wider than that, even though the ids it receives could only come from
+ * those branches.
+ */
+// tenancy-reviewed: tenant from the session; every programme is one the
+// caller checked against the session scope (assertInScope) before this runs.
+export function prefixStatement<Column extends FoldedColumn>(
+  table: 'contact' | 'account' | 'deal',
+  tenantId: string,
+  branches: readonly SearchBranch<Column>[],
+  range: PrefixRange,
+  leadsOnly = false,
+): BuiltStatement {
+  const params = new Params();
+  const tenant = params.add(tenantId);
+  const extra = leadsOnly ? ` AND ${LEAD_STATUS_PREDICATE}` : '';
+  const hits = firstThree(table, tenant, branches, range, params, extra);
+  const searched = [...new Set(branches.map((branch) => branch.programmeId))];
+  const scope = params.add(searched);
+  return {
+    text: `SELECT ${HIT_COLUMNS[table]}
+             FROM (${hits}) AS hit
+             JOIN ${table} c
+               ON c.id = hit.id
+              AND c.tenant_id = ${tenant}::uuid
+              AND c.programme_id = ANY(${scope}::uuid[])
+            ORDER BY hit.k, c.id`,
+    values: params.values,
+  };
 }
 
 /**
@@ -187,24 +247,14 @@ export async function searchContactsByPrefix(
     tx,
     search.branches.map((branch) => branch.programmeId),
   );
-  const params = new Params();
-  const tenant = params.add(tx.session.tenantId);
-  const statuses =
-    search.statuses === undefined
-      ? ''
-      : ` AND status = ANY(${params.add([...search.statuses])}::text[])`;
-  const hits = firstThree('contact', tenant, search.branches, search.range, params, statuses);
-  const scope = params.add([...tx.session.programmeIds]);
-  const rows = await tx.query<ContactSearchDbRow>(
-    `SELECT ${CONTACT_HIT_COLUMNS}
-       FROM (${hits}) AS hit
-       JOIN contact c
-         ON c.id = hit.id
-        AND c.tenant_id = ${tenant}::uuid
-        AND c.programme_id = ANY(${scope}::uuid[])
-      ORDER BY hit.k, c.id`,
-    params.values,
+  const { text, values } = prefixStatement(
+    'contact',
+    tx.session.tenantId,
+    search.branches,
+    search.range,
+    search.leadsOnly === true,
   );
+  const rows = await tx.query<ContactSearchDbRow>(text, values);
   return rows.map(toContactSearchRow);
 }
 
@@ -304,24 +354,12 @@ export async function searchAccountsByPrefix(
 ): Promise<AccountSearchRow[]> {
   if (programmeIds.length === 0) return [];
   assertInScope(tx, programmeIds);
-  const params = new Params();
-  const tenant = params.add(tx.session.tenantId);
   const branches = programmeIds.map((programmeId) => ({
     programmeId,
     column: 'name_search' as const,
   }));
-  const hits = firstThree('account', tenant, branches, range, params);
-  const scope = params.add([...tx.session.programmeIds]);
-  const rows = await tx.query<{ id: string; programme_id: string; name: string }>(
-    `SELECT a.id, a.programme_id, a.name
-       FROM (${hits}) AS hit
-       JOIN account a
-         ON a.id = hit.id
-        AND a.tenant_id = ${tenant}::uuid
-        AND a.programme_id = ANY(${scope}::uuid[])
-      ORDER BY hit.k, a.id`,
-    params.values,
-  );
+  const { text, values } = prefixStatement('account', tx.session.tenantId, branches, range);
+  const rows = await tx.query<{ id: string; programme_id: string; name: string }>(text, values);
   return rows.map((row) => ({ id: row.id, programmeId: row.programme_id, name: row.name }));
 }
 
@@ -342,29 +380,17 @@ export async function searchDealsByPrefix(
 ): Promise<DealSearchRow[]> {
   if (programmeIds.length === 0) return [];
   assertInScope(tx, programmeIds);
-  const params = new Params();
-  const tenant = params.add(tx.session.tenantId);
   const branches = programmeIds.map((programmeId) => ({
     programmeId,
     column: 'name_search' as const,
   }));
-  const hits = firstThree('deal', tenant, branches, range, params);
-  const scope = params.add([...tx.session.programmeIds]);
+  const { text, values } = prefixStatement('deal', tx.session.tenantId, branches, range);
   const rows = await tx.query<{
     id: string;
     programme_id: string;
     pipeline_id: string;
     name: string;
-  }>(
-    `SELECT d.id, d.programme_id, d.pipeline_id, d.name
-       FROM (${hits}) AS hit
-       JOIN deal d
-         ON d.id = hit.id
-        AND d.tenant_id = ${tenant}::uuid
-        AND d.programme_id = ANY(${scope}::uuid[])
-      ORDER BY hit.k, d.id`,
-    params.values,
-  );
+  }>(text, values);
   return rows.map((row) => ({
     id: row.id,
     programmeId: row.programme_id,
