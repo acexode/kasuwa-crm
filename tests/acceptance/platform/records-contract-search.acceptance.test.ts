@@ -54,9 +54,10 @@ import { parse } from 'yaml';
  *                                one_term_required, invalid_phone,
  *                                invalid_email, unknown_type
  *   TRANSPORT   `Cache-Control: no-store` on every answer of both.
- *   FLAGS       `x-kasuwa-implemented: false` on both until T-0086; the two
- *               flag tests pin `false` (lead edit, D-L133, as T-0105) and
- *               T-0086's suite flips them to `true` with the routes.
+ *   FLAGS       `x-kasuwa-implemented: true` on both since T-0086: the two
+ *               flag tests pinned `false` (lead edit, D-L133, as T-0105) and
+ *               T-0086's suite flipped them to `true` with the routes (lead
+ *               edit on lead/T-0086-acceptance).
  *
  * ---------------------------------------------------------------------------
  * RULINGS (R1–R20 accepted by the lead on 2026-10-14 with the amendment to
@@ -1146,16 +1147,17 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       expect(operations().filter((op) => op.path === LOOKUP_PATH).length, 'one method').toBe(1);
     });
 
-    // Contract only until T-0086 (D-L133, as T-0105): T-0086's suite flips both expectations to true with the routes.
-    it('the flag: searchRecords is x-kasuwa-implemented: false, contract only until T-0086', () => {
+    // Lead edit for T-0086 (D-L133, as T-0105's): both routes are served from T-0086, so both
+    // flags are true. T-0086's own suite (records/search-api) pins the same with the routes.
+    it('the flag: searchRecords is x-kasuwa-implemented: true, served since T-0086', () => {
       expect(search().op['x-kasuwa-implemented'], 'T-0086 sets it to true with the route').toBe(
-        false,
+        true,
       );
     });
 
-    it('the flag: lookupRecords is x-kasuwa-implemented: false, contract only until T-0086', () => {
+    it('the flag: lookupRecords is x-kasuwa-implemented: true, served since T-0086', () => {
       expect(lookup().op['x-kasuwa-implemented'], 'T-0086 sets it to true with the route').toBe(
-        false,
+        true,
       );
     });
   });
