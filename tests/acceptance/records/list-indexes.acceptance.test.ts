@@ -184,6 +184,8 @@ const MAX_ROWS_EXAMINED = 2_000;
  */
 const PAGE_BUDGET_MS = 150;
 const TIE_COUNT = 30;
+/** Rows per seeding statement (D-L135): far under the pool's statement timeout. */
+const SEED_CHUNK = 10_000;
 
 const REPO_ROOT = resolve(__dirname, '../../..');
 const MIGRATIONS_DIR = resolve(REPO_ROOT, 'packages/db/migrations');
@@ -317,7 +319,7 @@ SELECT ('11111111-0084-4000-8000-' || lpad(i::text, 12, '0'))::uuid,
             ELSE timestamptz '2025-06-01 00:00:00+00'
                  + make_interval(secs => ((i::bigint * 7919) % $4)::double precision)
        END
-  FROM generate_series(1, $4::int) AS i`;
+  FROM generate_series($6::int, $7::int) AS i`;
 
 const SEED_CONTACT_TIES_SQL = `
 INSERT INTO contact (id, tenant_id, programme_id, display_name, status, created_at, updated_at)
@@ -343,7 +345,7 @@ SELECT ('11111111-0084-4000-8001-' || lpad(i::text, 12, '0'))::uuid,
             ELSE timestamptz '2025-06-01 00:00:00+00'
                  + make_interval(secs => ((i::bigint * 7919) % $4)::double precision)
        END
-  FROM generate_series(1, $4::int) AS i`;
+  FROM generate_series($6::int, $7::int) AS i`;
 
 const SEED_ACCOUNT_TIES_SQL = `
 INSERT INTO account (id, tenant_id, programme_id, name, created_at, updated_at)
@@ -547,26 +549,38 @@ describe('acceptance: list indexes and id-only cursors (T-0084)', () => {
     await reseed(inject('migrationUrl'));
     migrator = createPool({ connectionString: inject('migrationUrl'), max: 2 });
     const t0 = performance.now();
-    await migrator.query(SEED_CONTACTS_SQL, [
-      TENANT_A,
-      PROGRAMME_A1,
-      PROGRAMME_A2,
-      CONTACT_COUNT,
-      CONTACT_COUNT / 2,
-    ]);
+    // Seeded in chunks of SEED_CHUNK rows: one 120,000-row statement can pass
+    // the pool's 30 s statement timeout on a loaded host (D-L135). The rows are
+    // identical to a single statement's: the formulas still read the full
+    // count ($4) and only the series bounds ($6, $7) change.
+    for (let from = 1; from <= CONTACT_COUNT; from += SEED_CHUNK) {
+      await migrator.query(SEED_CONTACTS_SQL, [
+        TENANT_A,
+        PROGRAMME_A1,
+        PROGRAMME_A2,
+        CONTACT_COUNT,
+        CONTACT_COUNT / 2,
+        from,
+        Math.min(from + SEED_CHUNK - 1, CONTACT_COUNT),
+      ]);
+    }
     await migrator.query(SEED_CONTACT_TIES_SQL, [
       TENANT_A,
       PROGRAMME_A1,
       CONTACT_COUNT / 2,
       TIE_COUNT,
     ]);
-    await migrator.query(SEED_ACCOUNTS_SQL, [
-      TENANT_A,
-      PROGRAMME_A1,
-      PROGRAMME_A2,
-      ACCOUNT_COUNT,
-      ACCOUNT_COUNT / 2,
-    ]);
+    for (let from = 1; from <= ACCOUNT_COUNT; from += SEED_CHUNK) {
+      await migrator.query(SEED_ACCOUNTS_SQL, [
+        TENANT_A,
+        PROGRAMME_A1,
+        PROGRAMME_A2,
+        ACCOUNT_COUNT,
+        ACCOUNT_COUNT / 2,
+        from,
+        Math.min(from + SEED_CHUNK - 1, ACCOUNT_COUNT),
+      ]);
+    }
     await migrator.query(SEED_ACCOUNT_TIES_SQL, [
       TENANT_A,
       PROGRAMME_A1,

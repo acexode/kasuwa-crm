@@ -104,7 +104,9 @@ import { collectTelemetry, type Telemetry } from '../support/telemetry';
  *   nothing out of scope changes an answer; CR12 at most three, no counts;
  *   CR13 deterministic; CR14 closed hits; CR15 400 and 401 only, the error
  *   order; CR16 no-store, query string and body never logged; CR17 `types`;
- *   CR21 the URL never carries a phone number or an email address.
+ *   CR21 the URL never carries a phone number or an email address (the `q`
+ *   rule as strengthened by D-L135: any non-letter separator, digits of any
+ *   script).
  *
  * ==========================================================================
  * RULINGS (this suite's; the lead's to accept, reversible)
@@ -158,6 +160,8 @@ import { collectTelemetry, type Telemetry } from '../support/telemetry';
  * R7  The large tenant: 120,000 contacts, 60,000 accounts and 60,000 deals in
  *     tenant A, half in each programme, ANALYZEd. Each name field carries the
  *     `Zqcommon` marker on 5% of rows (both programmes) and `Zqrare` on 0.2%.
+ *     Seeded in statements of SEED_CHUNK rows so none nears the pool's 30 s
+ *     statement timeout on a loaded host (D-L135); the rows are the same.
  * R8  Latency, best of three after a warm-up, in process: searchRecords on
  *     `zq` within SEARCH_BUDGET_MS for both callers; lookupRecords on a phone
  *     within LOOKUP_BUDGET_MS. The lookup's plan is NOT pinned: an exact
@@ -326,10 +330,13 @@ function fold(text: string): string {
   return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
-/** CR21: after NFKC, an `@`, or 6+ digits once whitespace and `+()-.` are removed. */
+/**
+ * CR21 as strengthened by D-L135: after NFKC, an `@`, or 6+ decimal digits of
+ * any script once everything that is neither a letter nor a digit is removed.
+ */
 function looksLikeIdentifier(q: string): boolean {
   const text = q.normalize('NFKC');
-  return text.includes('@') || /[0-9]{6,}/.test(text.replace(/[\s+().-]/gu, ''));
+  return text.includes('@') || /\p{Nd}{6,}/u.test(text.replace(/[^\p{L}\p{Nd}]/gu, ''));
 }
 
 /** Pasted identifiers CR21 refuses in `q` (the contract suite's list); synthetic or placeholders. */
@@ -347,9 +354,20 @@ const IDENTIFIER_QS = [
   'a@b',
   '@sample',
   'Sample 080 312 45',
+  // D-L135 (T-0086 security review): separators the first rule did not strip, and other digits.
+  '0803/123/4567',
+  '0803_123_4567',
+  '0803,123,4567',
+  '0803–123–4567',
+  '٠٨٠٣١٢٣٤٥٦٧',
 ];
-/** Full-width forms: refused after NFKC though the ASCII pattern misses them. */
-const FULL_WIDTH_QS = ['０８０３１２３４５６７', 'sample＠example.test'];
+/** Full-width forms and NFKC-mapped digits (superscript, circled): refused after NFKC. */
+const FULL_WIDTH_QS = [
+  '０８０３１２３４５６７',
+  'sample＠example.test',
+  'Sample ¹²³⁴⁵⁶',
+  '①②③④⑤⑥',
+];
 /** Names CR21 lets through. */
 const NAME_QS = [
   'Sample',
@@ -363,8 +381,14 @@ const NAME_QS = [
 ];
 
 /**
- * R2: the fold corpus. Every entry is synthetic. Written with escapes so the
- * source shows exactly which code points are under test.
+ * R2: the fold corpus. Every entry is synthetic. The characters are stored
+ * literally; in order the code points under test are: U+00E1 (precomposed
+ * accent); leading, doubled, tab and newline whitespace; U+00D8 (no
+ * decomposition, lower-cased); U+1EB8 U+0300 and U+0301 (Yoruba marks);
+ * Arabic with harakat U+064E U+0652 U+0650 (marks outside U+0300-U+036F); a
+ * NO-BREAK SPACE U+00A0 between "Sample" and "Fixture" (invisible here);
+ * U+0130 (NFD then lower gives "i"); U+1E9E (lowers to U+00DF); Cyrillic
+ * capitals; `%`, `_` and `\`; an astral U+1F372; the ligature U+FB01 (kept).
  */
 const FOLD_CORPUS = [
   'Sámple Fixture',
@@ -1119,7 +1143,7 @@ SELECT ('11111111-0000-4000-8000-00861' || lpad(i::text, 7, '0'))::uuid,
        CASE WHEN i % 40 IN (9, 10) THEN 'Zqcommon Holdings' END,
        (ARRAY['new', 'contacted', 'qualified', 'unqualified', 'customer', NULL]::text[])[i % 6 + 1],
        jsonb_build_array(jsonb_build_object('type', 'mobile', 'e164', '+23480' || lpad(i::text, 8, '0')))
-  FROM generate_series(1, $4::int) AS i`;
+  FROM generate_series($4::int, $5::int) AS i`;
 
 const SEED_ACCOUNTS_SQL = `
 INSERT INTO account (id, tenant_id, programme_id, name)
@@ -1129,7 +1153,7 @@ SELECT ('11111111-0000-4000-8000-00862' || lpad(i::text, 7, '0'))::uuid,
        CASE WHEN i % 40 IN (3, 4) THEN 'Zqcommon ' || substr(md5('a' || i), 1, 12)
             WHEN i % 1000 IN (11, 12) THEN 'Zqrare ' || substr(md5('a' || i), 1, 12)
             ELSE substr(md5('a' || i), 1, 12) END
-  FROM generate_series(1, $4::int) AS i`;
+  FROM generate_series($4::int, $5::int) AS i`;
 
 const SEED_DEALS_SQL = `
 INSERT INTO deal (id, tenant_id, programme_id, pipeline_id, stage_id, name)
@@ -1141,7 +1165,16 @@ SELECT ('11111111-0000-4000-8000-00863' || lpad(i::text, 7, '0'))::uuid,
        CASE WHEN i % 40 IN (3, 4) THEN 'Zqcommon ' || substr(md5('d' || i), 1, 12)
             WHEN i % 1000 IN (11, 12) THEN 'Zqrare ' || substr(md5('d' || i), 1, 12)
             ELSE substr(md5('d' || i), 1, 12) END
-  FROM generate_series(1, $8::int) AS i`;
+  FROM generate_series($8::int, $9::int) AS i`;
+
+/** Rows per seeding statement (D-L135): one 120,000-row statement can pass the pool's 30 s statement timeout. */
+const SEED_CHUNK = 10_000;
+/** [from, to] bounds of each chunk of 1..count; the rows are identical to one statement's. */
+const chunks = (count: number): [number, number][] =>
+  Array.from({ length: Math.ceil(count / SEED_CHUNK) }, (_, k): [number, number] => [
+    k * SEED_CHUNK + 1,
+    Math.min((k + 1) * SEED_CHUNK, count),
+  ]);
 
 interface Caller {
   label: string;
@@ -2031,30 +2064,27 @@ describe('acceptance: global search API and prefix indexes (T-0086)', () => {
     beforeAll(async () => {
       await reseed(inject('migrationUrl'));
       const t0 = performance.now();
-      await observer.query(SEED_CONTACTS_SQL, [
-        TENANT_A,
-        PROGRAMME_A1,
-        PROGRAMME_A2,
-        CONTACT_COUNT,
-      ]);
-      await observer.query(SEED_ACCOUNTS_SQL, [
-        TENANT_A,
-        PROGRAMME_A1,
-        PROGRAMME_A2,
-        ACCOUNT_COUNT,
-      ]);
+      for (const [from, to] of chunks(CONTACT_COUNT)) {
+        await observer.query(SEED_CONTACTS_SQL, [TENANT_A, PROGRAMME_A1, PROGRAMME_A2, from, to]);
+      }
+      for (const [from, to] of chunks(ACCOUNT_COUNT)) {
+        await observer.query(SEED_ACCOUNTS_SQL, [TENANT_A, PROGRAMME_A1, PROGRAMME_A2, from, to]);
+      }
       const a1 = await pipelineOf(PROGRAMME_A1);
       const a2 = await pipelineOf(PROGRAMME_A2);
-      await observer.query(SEED_DEALS_SQL, [
-        TENANT_A,
-        PROGRAMME_A1,
-        PROGRAMME_A2,
-        a1.pipeline,
-        a1.stage,
-        a2.pipeline,
-        a2.stage,
-        DEAL_COUNT,
-      ]);
+      for (const [from, to] of chunks(DEAL_COUNT)) {
+        await observer.query(SEED_DEALS_SQL, [
+          TENANT_A,
+          PROGRAMME_A1,
+          PROGRAMME_A2,
+          a1.pipeline,
+          a1.stage,
+          a2.pipeline,
+          a2.stage,
+          from,
+          to,
+        ]);
+      }
       for (const table of TABLES) await observer.query(`ANALYZE ${table}`);
       const indexes = await observer.query<{ index: string; table: string }>(
         `SELECT indexname AS index, tablename AS table FROM pg_indexes

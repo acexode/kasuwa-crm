@@ -45,7 +45,7 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.12.1-T-0086
+  version: 0.12.2-T-0086
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
     update. Accounts (T-0052, served since T-0055): list, get, create,
@@ -3399,15 +3399,18 @@ paths:
         that parameter, so a client that puts one in the URL fails loudly
         instead of appearing to work. **`q` itself is refused when it looks
         like an identifier:** after Unicode NFKC normalisation, a `q` that
-        contains `@`, or that contains a run of 6 or more digits once every
-        whitespace character and every `+`, `(`, `)`, `-` and `.` is
-        removed, is `400 validation_failed` with
-        `details[].code: identifier_in_url` at `q`. The `not` pattern on
-        `q`'s schema is this rule's ASCII form; the server applies it after
-        NFKC, so full-width digits and `＠` are refused too. So
-        `08031234567`, `+234 803 123 4567`, `(0803) 123-4567` and
-        `sample@example.test` are all refused, and `Sample 2026` or
-        `Unit 12 Block 3456` are not. A name that itself holds such a run
+        contains `@`, or that contains a run of 6 or more decimal digits of
+        any script (`\p{Nd}`) once every character that is neither a letter
+        (`\p{L}`) nor a decimal digit is removed, is `400 validation_failed`
+        with `details[].code: identifier_in_url` at `q` (D-L135). The `not`
+        pattern on `q`'s schema is the same rule as an ECMA-262 Unicode
+        regular expression; the server applies it after NFKC, so digits that
+        NFKC maps to ASCII (superscript, circled) are refused too. So
+        `08031234567`, `+234 803 123 4567`, `(0803) 123-4567`,
+        `0803/123/4567`, `0803_123_4567`, `0803,123,4567`, `0803–123–4567`
+        (en dash), `٠٨٠٣١٢٣٤٥٦٧` (Arabic-Indic digits) and
+        `sample@example.test` are all refused, and `Sample 2026`,
+        `Unit 12 Block 3456` or `Fixture-12.34` are not. A name that itself holds such a run
         cannot be prefix-searched by it. **Clients send phone- or
         email-shaped input to lookupRecords,** never to this operation.
 
@@ -3526,16 +3529,17 @@ paths:
             least 2 characters once folded and trimmed; at most 100 as sent.
             A NUL or other control character is `400 validation_failed` with
             `details[].code: invalid_string`. Never a phone number or an
-            email address: an `@`, or a run of 6 or more digits once
-            whitespace and `+()-.` are removed (after NFKC), is
-            `400 identifier_in_url`; send those to lookupRecords.
+            email address: an `@`, or a run of 6 or more decimal digits of
+            any script once everything that is neither a letter nor a digit is
+            removed (after NFKC), is `400 identifier_in_url`; send those to
+            lookupRecords.
           schema:
             type: string
             minLength: 2
             maxLength: 100
             not:
-              description: The ASCII form of the identifier rule (R21); the server applies it after NFKC.
-              pattern: '@|[0-9](?:[\s+().-]*[0-9]){5}'
+              description: The identifier rule (R21, D-L135) as an ECMA-262 Unicode (`u`) regular expression; the server applies it after NFKC.
+              pattern: '[@＠﹫]|\p{Nd}(?:[^\p{L}\p{Nd}]*\p{Nd}){5}'
         - name: types
           in: query
           required: false
@@ -6499,7 +6503,10 @@ components:
         searchRecords could not parse the request. Decided from the request
         alone, before any record is read: no `400` here depends on what
         exists. `details` names paths and reason codes, never the submitted
-        value (which is a name).
+        value (which is a name). `identifier_in_url` at `q` is the R21 rule
+        (D-L135): after NFKC, an `@`, or 6 or more decimal digits of any
+        script once everything that is neither a letter nor a digit is
+        removed.
       headers:
         Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:
@@ -6527,7 +6534,7 @@ components:
                   - path: phone
                     code: identifier_in_url
             identifierInQ:
-              summary: A q that looks like a phone number or an email address; send it to lookupRecords
+              summary: A q that looks like a phone number or an email address (an @, or 6+ digits of any script once non-letters go); send it to lookupRecords
               value:
                 statusCode: 400
                 error: Bad Request

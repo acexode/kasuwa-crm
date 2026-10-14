@@ -388,6 +388,8 @@ interface ColumnSpec {
   default?: RegExp;
   /** The column must have no default. */
   noDefault?: true;
+  /** The column must be GENERATED ALWAYS AS (...) STORED; its expression is then the "default". */
+  generatedStored?: true;
 }
 
 const KEYS: Record<string, ColumnSpec> = {
@@ -446,6 +448,9 @@ const COLUMN_SPEC: Readonly<Record<Table, Readonly<Record<string, ColumnSpec>>>>
     version: { type: 'integer', notNull: true, default: /^1$/ },
     created_at: { type: TIMESTAMPTZ, notNull: true, default: NOW },
     updated_at: { type: TIMESTAMPTZ, notNull: true, default: NOW },
+    // T-0086's folded search copy of `name` (migration 0038; lead edit, D-L135). Its fold, and its
+    // index's collation "C", are pinned by records/search-api.
+    name_search: { type: 'text', notNull: false, generatedStored: true },
   },
   deal_requirement_check: {
     ...KEYS,
@@ -460,7 +465,8 @@ const COLUMN_SPEC: Readonly<Record<Table, Readonly<Record<string, ColumnSpec>>>>
 /** pg_attribute, not information_schema: the latter hides columns the reader lacks privileges on. */
 const COLUMNS_SQL = `
   SELECT a.attname AS column, format_type(a.atttypid, a.atttypmod) AS type,
-         a.attnotnull AS notnull, pg_get_expr(d.adbin, d.adrelid) AS default
+         a.attnotnull AS notnull, pg_get_expr(d.adbin, d.adrelid) AS default,
+         a.attgenerated AS generated
     FROM pg_attribute a
     LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
    WHERE a.attrelid = to_regclass('public.' || $1::text)
@@ -472,6 +478,8 @@ interface ColumnRow {
   type: string;
   notnull: boolean;
   default: string | null;
+  /** pg_attribute.attgenerated: '' for an ordinary column, 's' for GENERATED ... STORED. */
+  generated: string;
 }
 
 /** Every FK of a table, as `local->foreign` pairs, with its actions. */
@@ -1405,6 +1413,11 @@ describe('acceptance: the pipeline and deal tables (T-0106)', () => {
           }
           if (want.noDefault === true && row.default !== null) {
             problems.push(`${row.column}: has a default ${row.default}`);
+          }
+          if ((want.generatedStored === true) !== (row.generated === 's')) {
+            problems.push(
+              `${row.column}: attgenerated '${row.generated}', want ${want.generatedStored === true ? "'s' (STORED)" : 'an ordinary column'}`,
+            );
           }
         }
         expect(problems).toEqual([]);
