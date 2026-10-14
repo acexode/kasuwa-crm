@@ -10,8 +10,8 @@ import { FOCUS } from '../records/list-classes';
  * get forgotten: focus moves IN on open, is RETURNED to the opener on close
  * (the screen re-finds a moved card's control, whose old element is gone), and
  * Tab is TRAPPED inside, and the screen behind is inert while it is open.
- * Escape closes; so does a press on the backdrop, except while a write is in
- * flight.
+ * Escape, the close button and a press on the backdrop all close it, except
+ * while a write is in flight: a write's answer always lands.
  *
  * Rendered INSIDE the screen root, never portalled, so a refusal it carries
  * is still the screen's own alert. Nothing typed here outlives it (D-P21).
@@ -113,8 +113,10 @@ export function PipelineDialog({
           <button
             type="button"
             aria-label={closeLabel}
+            // Not while a write is in flight: its answer must land somewhere (as Escape and the backdrop).
+            disabled={busy}
             onClick={onClose}
-            className={`flex min-h-touch min-w-touch items-center justify-center rounded-md text-text-muted hover:bg-surface-sunken ${FOCUS}`}
+            className={`flex min-h-touch min-w-touch items-center justify-center rounded-md text-text-muted hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS}`}
           >
             <Icon name="close" />
           </button>

@@ -52,9 +52,11 @@ import {
   activityTargets,
   asRecordsError,
   checkRows,
+  composerRefusal,
   dealFieldLabel,
   offersAssignToMe,
   pathStages,
+  refusedFields,
   uuidHref,
 } from './deal-model';
 import { useDealDetail, type DealDetailModel } from './use-deal-detail';
@@ -198,7 +200,7 @@ function Ready({
   links: RecordLinks;
 }) {
   const [moving, setMoving] = useState(false);
-  const [prompt, setPrompt] = useState<PromptState | null>(null);
+  const [prompt, setPrompt] = useState<PromptState<DealDetail> | null>(null);
   const [editing, setEditing] = useState(false);
   const [logging, setLogging] = useState<LogType | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
@@ -332,7 +334,17 @@ function Ready({
       return;
     }
     setBusy(false);
-    setNotice({ tone: 'error', text: t.t(errorMessage(result.error)) });
+    // R13: a field the caller may not change is named by its label, as in the sheet.
+    const fields = refusedFields(result.error);
+    setNotice({
+      tone: 'error',
+      text:
+        fields.length > 0
+          ? t.t('deal.edit.field_not_editable', {
+              fields: fields.map((field) => t.t(dealFieldLabel(field))).join(', '),
+            })
+          : t.t(errorMessage(result.error)),
+    });
   };
 
   const log = async (draft: DealActivityDraft) => {
@@ -639,6 +651,7 @@ function Ready({
                 offline={!online}
                 onSave={log}
                 onClose={closeLog}
+                refusal={composerRefusal}
               />
             )}
             <RecordTimeline
@@ -653,6 +666,7 @@ function Ready({
               onRetry={model.retry}
               onLoadOlder={model.loadOlder}
               onComplete={ignore}
+              meetingTimes
             />
           </section>
         </div>
@@ -684,7 +698,7 @@ function Ready({
           onConfirm={(body) => {
             if (prompt.sending) return;
             setPrompt({ ...prompt, sending: true, refusal: null });
-            void send(prompt.deal as DealDetail, body, true);
+            void send(prompt.deal, body, true);
           }}
         />
       )}

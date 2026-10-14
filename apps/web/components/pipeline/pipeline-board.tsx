@@ -7,7 +7,7 @@ import { Icon } from '../icon';
 import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { FOCUS } from '../records/list-classes';
 import { withheld, type Deal, type Pipeline } from '../../lib/pipelines-api';
-import { errorMessage, formatCount, formatInstantDate, isUuid, stageById } from './pipeline-model';
+import { DRAG_CLICK_WINDOW_MS, errorMessage, formatCount, formatInstantDate, isUuid, stageById, swallowsClick } from './pipeline-model';
 import { AmountValue, CloseValue, Locked, Money, OwnerValue, lockedProps } from './pipeline-parts';
 import type { Column } from './use-pipeline-board';
 
@@ -157,7 +157,7 @@ export function PipelineBoard({
       setDragging(null);
       setOver(null);
       if (!drag.active) return;
-      swallowNextClick();
+      swallowNextClick(drag.element);
       if (!drop) return;
       const target = columnAt(ended.clientX, ended.clientY);
       // Dropped on its own column, or off the board: nothing to write.
@@ -467,21 +467,35 @@ function DealCard({
   );
 }
 
-/** The account and contact summaries: a link only from a well-formed uuid (R15), else text. */
 /**
- * A drag that began on the card's name link and ended over it would otherwise
- * be followed as a click. The click that ends a drag is swallowed; the
- * listener is gone by the next task, so no later click is ever eaten.
+ * A drag that began on a card (its name link included, R15) and ends over that
+ * card would otherwise be followed as a click. The drag arms a one-shot guard
+ * on the card: the next click inside it within `DRAG_CLICK_WINDOW_MS` is
+ * swallowed. The guard disarms on that click, on the next pointerdown, or when
+ * the window passes, so it never depends on how a browser orders the click
+ * against timers, and it never eats a later, deliberate click.
  */
-function swallowNextClick(): void {
-  const swallow = (event: MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
+function swallowNextClick(card: Element): void {
+  const armedAt = performance.now();
+  const disarm = () => {
+    window.removeEventListener('click', onClick, true);
+    window.removeEventListener('pointerdown', disarm, true);
+    window.clearTimeout(timer);
   };
-  window.addEventListener('click', swallow, { capture: true, once: true });
-  window.setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
+  const onClick = (event: MouseEvent) => {
+    const inside = event.target instanceof Node && card.contains(event.target);
+    if (swallowsClick(armedAt, performance.now(), inside)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    disarm();
+  };
+  const timer = window.setTimeout(disarm, DRAG_CLICK_WINDOW_MS);
+  window.addEventListener('click', onClick, true);
+  window.addEventListener('pointerdown', disarm, true);
 }
 
+/** The account and contact summaries: a link only from a well-formed uuid (R15), else text. */
 function Related({ deal, links }: { deal: Deal; links: RecordLinks }) {
   const account = deal.account ?? null;
   const contact = deal.contact ?? null;

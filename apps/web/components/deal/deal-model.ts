@@ -122,11 +122,26 @@ const RECORDS_CODES: ReadonlySet<string> = new Set<RecordsScreenErrorCode>([
   'network',
 ]);
 
-/** A refused create as the shared activity form reads it: the code alone, so its copy is translated. */
+/** A refused create as the shared activity form reads it: a code it translates, and the reasons the contract named. */
 export function asRecordsError(error: PipelineError): RecordsError {
-  if (RECORDS_CODES.has(error.code)) return { code: error.code as RecordsScreenErrorCode };
+  const details = error.details.length === 0 ? {} : { details: error.details };
+  if (RECORDS_CODES.has(error.code))
+    return { code: error.code as RecordsScreenErrorCode, ...details };
   if (error.status === 0) return { code: 'network' };
-  return { code: error.status >= 500 ? 'internal_error' : 'validation_failed' };
+  return { code: error.status >= 500 ? 'internal_error' : 'validation_failed', ...details };
+}
+
+/**
+ * The composer's own copy for a refusal the shared form has no words for: a
+ * `field_not_editable` at `dealId` (the activity's deal link, under field
+ * security, R17) is "you cannot link an activity to this deal", never "check
+ * it and try again". `null` keeps the form's own copy.
+ */
+export function composerRefusal(error: RecordsError): MessageId | null {
+  const linkRefused = (error.details ?? []).some(
+    (detail) => detail.code === 'field_not_editable' && detail.path === 'dealId',
+  );
+  return linkRefused ? 'deal.activity.linkRefused' : null;
 }
 
 // ---------------------------------------------------------------------------

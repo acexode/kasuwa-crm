@@ -129,6 +129,22 @@ export function isDealSort(value: string): value is DealSort {
 }
 
 // ---------------------------------------------------------------------------
+// Dragging a card (R15: its name is a link)
+// ---------------------------------------------------------------------------
+
+/** How long after a drag ends a click on the dragged card is taken as the drag's own, and swallowed. */
+export const DRAG_CLICK_WINDOW_MS = 500;
+
+/**
+ * Whether a click that follows a drag is the drag's own (and must not follow
+ * the card's link): on the dragged card, within the window. Any other click
+ * is the person's.
+ */
+export function swallowsClick(armedAtMs: number, clickedAtMs: number, insideCard: boolean): boolean {
+  return insideCard && clickedAtMs - armedAtMs >= 0 && clickedAtMs - armedAtMs <= DRAG_CLICK_WINDOW_MS;
+}
+
+// ---------------------------------------------------------------------------
 // Stages and the allow-list (R9)
 // ---------------------------------------------------------------------------
 
@@ -206,9 +222,9 @@ export interface PromptInput {
 
 export const EMPTY_INPUT: PromptInput = { text: {}, currency: {}, picked: {}, checks: {} };
 
-/** The requirement prompt, open on one move (the board's and the deal detail's). */
-export interface PromptState {
-  readonly deal: Deal;
+/** The requirement prompt, open on one move (the board's on a card, the deal detail's on the full deal). */
+export interface PromptState<D extends Deal = Deal> {
+  readonly deal: D;
   readonly toStageId: string;
   readonly views: readonly RequirementView[];
   readonly input: PromptInput;

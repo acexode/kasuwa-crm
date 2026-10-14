@@ -5,6 +5,7 @@ import {
   activityTargets,
   asRecordsError,
   checkRows,
+  composerRefusal,
   editOutcome,
   editedKeys,
   formOf,
@@ -189,7 +190,10 @@ describe('activity targets (R17)', () => {
         code: 'not_permitted',
         details: [{ path: 'dealId', code: 'field_not_editable' }],
       }),
-    ).toEqual({ code: 'not_permitted' });
+    ).toEqual({
+      code: 'not_permitted',
+      details: [{ path: 'dealId', code: 'field_not_editable' }],
+    });
     expect(asRecordsError({ status: 0, code: 'network', details: [] })).toEqual({
       code: 'network',
     });
@@ -199,6 +203,30 @@ describe('activity targets (R17)', () => {
     expect(asRecordsError({ status: 502, code: 'bad_gateway', details: [] })).toEqual({
       code: 'internal_error',
     });
+  });
+});
+
+describe('the composer’s refusals (R17)', () => {
+  it('says a refused deal link is a link it cannot make, and leaves every other refusal to the form', () => {
+    expect(
+      composerRefusal({
+        code: 'not_permitted',
+        details: [{ path: 'dealId', code: 'field_not_editable' }],
+      }),
+    ).toBe('deal.activity.linkRefused');
+    expect(composerRefusal({ code: 'not_permitted' })).toBeNull();
+    expect(
+      composerRefusal({
+        code: 'not_permitted',
+        details: [{ path: 'contactId', code: 'field_not_editable' }],
+      }),
+    ).toBeNull();
+    expect(
+      composerRefusal({
+        code: 'validation_failed',
+        details: [{ path: 'dealId', code: 'invalid_string' }],
+      }),
+    ).toBeNull();
   });
 });
 
@@ -373,5 +401,13 @@ describe('refusals', () => {
         ],
       }),
     ).toEqual(['amount']);
+    // Assign to me (R11, R13): a refused owner is named by the owner field's label.
+    expect(
+      refusedFields({
+        status: 403,
+        code: 'not_permitted',
+        details: [{ path: 'ownerUserId', code: 'field_not_editable' }],
+      }),
+    ).toEqual(['ownerUserId']);
   });
 });

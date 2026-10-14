@@ -50,6 +50,7 @@ export const DEAL_MESSAGE_IDS: readonly MessageId[] = [
   'deal.checks.removed',
   'deal.checker.former',
   'deal.activity.noTarget',
+  'deal.activity.linkRefused',
   'pipeline.card.move',
   'pipeline.card.noAmount',
   'pipeline.card.unassigned',

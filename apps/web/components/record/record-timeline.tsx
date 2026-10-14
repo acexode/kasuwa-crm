@@ -98,6 +98,7 @@ function Item({
   completing,
   offline,
   onComplete,
+  meetingTimes,
 }: {
   t: Translator;
   locale: string;
@@ -107,6 +108,7 @@ function Item({
   completing: boolean;
   offline: boolean;
   onComplete: (activityId: string) => void;
+  meetingTimes: boolean;
 }) {
   let title: string;
   let icon: IconName;
@@ -141,8 +143,8 @@ function Item({
             {t.t('record.activity.due')} <When locale={locale} iso={item.dueAt} />
           </span>
         ) : null}
-        {item.activityType === 'meeting' && typeof item.startsAt === 'string' ? (
-          // A meeting's times (T-0082), in the browser's zone: when it starts, and when it ends where served.
+        {meetingTimes && item.activityType === 'meeting' && typeof item.startsAt === 'string' ? (
+          // A meeting's times (T-0082), in the browser's zone, only where a record opts in (the deal, T-0110).
           <span className="flex flex-wrap items-center gap-1 text-text-2">
             <Icon name="event" size="sm" />
             <When locale={locale} iso={item.startsAt} />
@@ -231,6 +233,7 @@ export function RecordTimeline({
   onRetry,
   onLoadOlder,
   onComplete,
+  meetingTimes = false,
 }: {
   t: Translator;
   locale: string;
@@ -244,6 +247,8 @@ export function RecordTimeline({
   onRetry: () => void;
   onLoadOlder: () => void;
   onComplete: (activityId: string) => void;
+  /** Draw a meeting's start and end times. Off unless a record opts in, so the contact and account timelines are unchanged. */
+  meetingTimes?: boolean;
 }) {
   if (timeline.phase === 'loading') {
     return (
@@ -300,6 +305,7 @@ export function RecordTimeline({
               completing={item.type === 'activity' && completing === item.activityId}
               offline={offline}
               onComplete={onComplete}
+              meetingTimes={meetingTimes}
             />
           ))}
         </ol>

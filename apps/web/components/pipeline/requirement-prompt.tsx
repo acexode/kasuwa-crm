@@ -99,7 +99,7 @@ export function RequirementPrompt({
         </p>
       )}
       <div className="flex flex-wrap justify-end gap-2">
-        <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>
+        <button type="button" disabled={prompt.sending} onClick={onClose} className={`${SECONDARY_BUTTON} disabled:cursor-not-allowed disabled:opacity-60`}>
           {t.t('pipeline.cancel')}
         </button>
         <button
