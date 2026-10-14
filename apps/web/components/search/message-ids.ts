@@ -49,7 +49,7 @@ export const SEARCH_PANEL_MESSAGE_IDS: readonly MessageId[] = [
   'search.invalidEmail',
   'search.keepTyping',
   'search.hit.nameWithheld',
-  'search.results.ready',
+  'search.results.count',
   'records.retry',
   'records.error.not_authenticated',
   'records.error.too_many_requests',

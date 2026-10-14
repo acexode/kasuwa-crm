@@ -321,8 +321,12 @@ export function SearchPanel({
 
       <div role="status" aria-live="polite">
         <StateMessage state={state} t={t} />
-        {/* No number (D-P13, and the copy carries no digit): that results arrived, and how to reach them. */}
-        {expanded ? <span className="sr-only">{t.t('search.results.ready')}</span> : null}
+        {/* How many hits are DRAWN, for screen readers only (D-L137 L5): never a total, a "more" or anything hidden. */}
+        {expanded ? (
+          <span data-search-announcement="" className="sr-only">
+            {t.t('search.results.count', { count: options.length })}
+          </span>
+        ) : null}
       </div>
 
       {state.kind === 'error' ? <SearchError error={state.error} t={t} onRetry={retry} /> : null}
