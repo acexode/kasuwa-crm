@@ -491,6 +491,11 @@ function startSelfServeWeb(apiUrl, port) {
  * `crm_record_view`. Published as `webScriptsUrl`. The `/scripts/[scriptId]`,
  * `/script-runs/[runId]` and (now with the start control) `/contacts/[id]`
  * budgets are all measured on this one build.
+ * `crm_pipeline` RIDES HERE TOO (T-0109): the P06 board at
+ * `/pipelines/[pipelineId]` and its index at `/pipelines`. Its cards' contact
+ * and account summaries link to `/contacts/[id]` and `/accounts/[id]`, which
+ * this process serves. Published as `webPipelineUrl`; the board's byte budget
+ * is measured on this build.
  */
 function startRecordsWeb(apiUrl, port) {
   const child = spawn('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
@@ -505,7 +510,7 @@ function startRecordsWeb(apiUrl, port) {
       KASUWA_AUTH_MODE: 'jwt',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
-      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities,crm_scripts',
+      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities,crm_scripts,crm_pipeline',
       ...NO_DATABASE_URLS,
     },
   });
@@ -606,13 +611,13 @@ async function main() {
     await Promise.all([
       waitForHttp(webUrl, 'the web app'),
       waitForHttp(webSelfServeUrl, 'the self-serve web app'),
-      waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view, crm_leads, crm_activities and crm_scripts web app'),
+      waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view, crm_leads, crm_activities, crm_scripts and crm_pipeline web app'),
     ]);
     restoreNextEnv(nextEnv);
     log(`web (next start, production build) on ${webUrl}`);
     log(`web (next dev, self_serve_signup + admin_live_api on) on ${webSelfServeUrl}`);
     log(
-      `web (next start, production build, crm_records + crm_accounts + crm_record_view + crm_leads + crm_activities + crm_scripts on) on ${webRecordsUrl}`,
+      `web (next start, production build, crm_records + crm_accounts + crm_record_view + crm_leads + crm_activities + crm_scripts + crm_pipeline on) on ${webRecordsUrl}`,
     );
   }
 
@@ -630,8 +635,9 @@ async function main() {
     `${JSON.stringify(
       // `webLiveUrl` is the same process as `webSelfServeUrl`, and
       // `webAccountsUrl`, `webRecordViewUrl`, `webLeadsUrl`, `webActivitiesUrl` and
-      // `webScriptsUrl` as `webRecordsUrl`; the second name says which flag a spec is
-      // relying on (T-0035, T-0057, T-0062, T-0058, T-0083, T-0115 and T-0116).
+      // `webScriptsUrl` and `webPipelineUrl` as `webRecordsUrl`; the second name says
+      // which flag a spec is relying on (T-0035, T-0057, T-0062, T-0058, T-0083,
+      // T-0115, T-0116 and T-0109).
       {
         webUrl,
         webSelfServeUrl,
@@ -642,6 +648,7 @@ async function main() {
         webLeadsUrl: webRecordsUrl,
         webActivitiesUrl: webRecordsUrl,
         webScriptsUrl: webRecordsUrl,
+        webPipelineUrl: webRecordsUrl,
         apiUrl,
         fixturesUrl,
       },
