@@ -1523,5 +1523,6 @@
   "deal.edit.clear": "Comot am",
   "deal.edit.conflict": "Somebody else change dis one while you dey edit. We keep your own: check am before you save.",
   "deal.edit.stale": "Somebody else save dis deal before you. We keep wetin you change for di latest version: check dem and save again.",
-  "deal.edit.field_not_editable": "You no fit change: {fields}"
+  "deal.edit.field_not_editable": "You no fit change: {fields}",
+  "deal.activity.linkRefused": "You no fit join activity to dis deal, so we no save am."
 }

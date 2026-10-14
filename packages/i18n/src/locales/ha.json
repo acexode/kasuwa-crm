@@ -1523,5 +1523,6 @@
   "deal.edit.clear": "Cire",
   "deal.edit.conflict": "Wani ya canza wannan yayin da kake gyarawa. An ajiye ƙimarka: duba ta kafin ka adana.",
   "deal.edit.stale": "Wani ya adana wannan cinikin kafin kai. An ajiye canje-canjenka a sabon juyi: duba su kuma ka sake adanawa.",
-  "deal.edit.field_not_editable": "Ba za ka iya canza: {fields}"
+  "deal.edit.field_not_editable": "Ba za ka iya canza: {fields}",
+  "deal.activity.linkRefused": "Ba za ka iya haɗa aiki da wannan cinikin ba, don haka ba a adana shi ba."
 }

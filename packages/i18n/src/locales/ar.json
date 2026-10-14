@@ -1523,5 +1523,6 @@
   "deal.edit.clear": "إزالة",
   "deal.edit.conflict": "غيّر شخص آخر هذا الحقل أثناء تعديلك له. احتفظنا بقيمتك: راجعها قبل الحفظ.",
   "deal.edit.stale": "حفظ شخص آخر هذه الصفقة قبلك. احتفظنا بتغييراتك على أحدث نسخة: راجعها ثم احفظ مرة أخرى.",
-  "deal.edit.field_not_editable": "لا يمكنك تغيير: {fields}"
+  "deal.edit.field_not_editable": "لا يمكنك تغيير: {fields}",
+  "deal.activity.linkRefused": "لا يمكنك ربط نشاط بهذه الصفقة، لذا لم يتم حفظه."
 }

@@ -1523,5 +1523,6 @@
   "deal.edit.clear": "Wepụ",
   "deal.edit.conflict": "Onye ọzọ gbanwere nke a mgbe ị na-edezi. Edobere uru gị: lelee ya tupu ị chekwaa.",
   "deal.edit.stale": "Onye ọzọ chekwara azụmahịa a tupu gị. Edobere mgbanwe gị na nsụgharị ọhụrụ: lelee ha ma chekwaa ọzọ.",
-  "deal.edit.field_not_editable": "Ị nweghị ike ịgbanwe: {fields}"
+  "deal.edit.field_not_editable": "Ị nweghị ike ịgbanwe: {fields}",
+  "deal.activity.linkRefused": "Ị nweghị ike ijikọ omume na azụmahịa a, ya mere echekwaghị ya."
 }

@@ -1523,5 +1523,6 @@
   "deal.edit.clear": "Retirer",
   "deal.edit.conflict": "Quelqu’un d’autre a modifié ce champ pendant votre saisie. Votre valeur est conservée : vérifiez-la avant d’enregistrer.",
   "deal.edit.stale": "Quelqu’un d’autre a enregistré cette affaire avant vous. Vos modifications sont conservées sur la dernière version : vérifiez-les et enregistrez à nouveau.",
-  "deal.edit.field_not_editable": "Vous ne pouvez pas modifier : {fields}"
+  "deal.edit.field_not_editable": "Vous ne pouvez pas modifier : {fields}",
+  "deal.activity.linkRefused": "Vous ne pouvez pas lier une activité à cette affaire : elle n’a pas été enregistrée."
 }

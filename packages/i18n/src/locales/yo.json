@@ -1523,5 +1523,6 @@
   "deal.edit.clear": "Yọ ọ́ kúrò",
   "deal.edit.conflict": "Ẹlòmíràn yí èyí padà nígbà tí ò ń ṣàtúnṣe. A pa tìrẹ mọ́: ṣàyẹ̀wò rẹ̀ kí o tó fi pamọ́.",
   "deal.edit.stale": "Ẹlòmíràn ti fi ìdúnàádúrà yìí pamọ́ ṣáájú rẹ. A pa àwọn àyípadà rẹ mọ́ lórí ẹ̀dà tuntun: ṣàyẹ̀wò wọn kí o sì tún fi pamọ́.",
-  "deal.edit.field_not_editable": "O kò lè yí èyí padà: {fields}"
+  "deal.edit.field_not_editable": "O kò lè yí èyí padà: {fields}",
+  "deal.activity.linkRefused": "O kò lè so ìṣẹ̀lẹ̀ mọ́ ìdúnàádúrà yìí, nítorí náà a kò fi pamọ́."
 }

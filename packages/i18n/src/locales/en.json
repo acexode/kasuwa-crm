@@ -1523,5 +1523,6 @@
   "deal.edit.clear": "Remove",
   "deal.edit.conflict": "Someone else changed this while you were editing. Your value is kept: check it before you save.",
   "deal.edit.stale": "Someone else saved this deal first. Your changes are kept on the latest version: check them and save again.",
-  "deal.edit.field_not_editable": "You cannot change: {fields}"
+  "deal.edit.field_not_editable": "You cannot change: {fields}",
+  "deal.activity.linkRefused": "You cannot link an activity to this deal, so it was not saved."
 }

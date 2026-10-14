@@ -1523,5 +1523,6 @@
   "deal.edit.clear": "Ondoa",
   "deal.edit.conflict": "Mtu mwingine amebadilisha hii ulipokuwa ukihariri. Thamani yako imehifadhiwa: iangalie kabla ya kuhifadhi.",
   "deal.edit.stale": "Mtu mwingine amehifadhi mkataba huu kwanza. Mabadiliko yako yamehifadhiwa kwenye toleo jipya: yaangalie kisha uhifadhi tena.",
-  "deal.edit.field_not_editable": "Huwezi kubadilisha: {fields}"
+  "deal.edit.field_not_editable": "Huwezi kubadilisha: {fields}",
+  "deal.activity.linkRefused": "Huwezi kuunganisha shughuli na mkataba huu, kwa hivyo haikuhifadhiwa."
 }
