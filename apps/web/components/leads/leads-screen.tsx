@@ -5,6 +5,7 @@ import { useCallback, useEffect, useId, useRef, useState, type RefObject } from 
 import { createBundleTranslator, type MessageBundle, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
+import { dropQueryFromAddressBar } from '../../lib/search-query';
 import type { LanguageOption } from '../auth/language-menu';
 import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { CHIP, CHIP_OFF, CHIP_ON, FOCUS, MENU_ROW, POPOVER } from '../records/list-classes';
@@ -70,15 +71,25 @@ export function LeadsScreen({
   messages,
   locales,
   live,
+  initialQ,
 }: {
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
   /** Nav ids whose route is on here (`crmLiveNav()`), for the shell's links. */
   live: readonly string[];
+  /**
+   * The `q` the page was opened with (a P27 "see all", T-0087 R8), already
+   * checked to be a name on the server (`nameFromUrl`): the first search.
+   */
+  initialQ?: string;
 }) {
   const t = createBundleTranslator(locale, messages);
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(initialQ ?? '');
+  // The search never stays in the URL (`use-keyset-list.ts`): read once, then dropped.
+  useEffect(() => {
+    dropQueryFromAddressBar();
+  }, []);
   const [view, setView] = useState<LeadView>(DEFAULT_LEAD_VIEW);
   const [mode, setMode] = useState<Mode>('table');
   const [state, setState] = useState<ListState>('loading');
