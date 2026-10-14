@@ -18,9 +18,9 @@ import { TENANT_A } from '@kasuwa/db';
  *
  * The schemas, the enums, the parameter lists, the search fields
  * (`x-kasuwa-search-fields`) and every error body come out of the YAML when
- * this module loads. The identifier rule does NOT: D-L135's Unicode rule is
- * stronger than the YAML's ASCII `not` pattern (until T-0086 lands it), so
- * `identifierShaped` implements it in full here.
+ * this module loads. The identifier rule does NOT: `identifierShaped`
+ * implements D-L135 in full here, and the spec proves it agrees with the
+ * YAML's `u`-flag `not` pattern (T-0086 landed it there).
  *
  *   - At load, every stored record is served as a hit and validated, strictly,
  *     against its hit schema; the contract's own examples (`prefix`,
@@ -389,17 +389,17 @@ const Q_PARAMETER = ((SEARCH_OPERATION.parameters ?? []) as unknown[])
   .find((parameter) => parameter.name === 'q') as { schema: { minLength: number; maxLength: number; not: { pattern: string } } };
 
 /**
- * The YAML's ASCII form of R21 (`q`'s `not`), exported ONLY so the spec can
- * show it is weaker than D-L135. The mock never decides anything with it.
+ * The YAML's form of R21 (`q`'s `not`, a `u`-flag pattern since T-0086
+ * landed D-L135), exported ONLY so the spec can prove the mock's own rule and
+ * the contract's agree. The mock never decides anything with it.
  */
-export const CONTRACT_ASCII_IDENTIFIER_PATTERN = new RegExp(Q_PARAMETER.schema.not.pattern);
+export const CONTRACT_IDENTIFIER_PATTERN = new RegExp(Q_PARAMETER.schema.not.pattern, 'u');
 export const Q_MIN = Q_PARAMETER.schema.minLength;
 export const Q_MAX = Q_PARAMETER.schema.maxLength;
 
 /**
- * R21 as strengthened by D-L135 (it lands in the YAML with T-0086; until
- * then the YAML holds the older ASCII rule, so this is implemented here, in
- * full, and NOT derived from the YAML). After NFKC, text is identifier-shaped
+ * R21 as strengthened by D-L135, implemented here in full and NOT derived
+ * from the YAML (the spec checks the two agree). After NFKC, text is identifier-shaped
  * when it contains `@`, or when, with every character that is neither a
  * letter (`\p{L}`) nor a decimal digit (`\p{Nd}`) removed, it holds a run of
  * 6 or more `\p{Nd}` digits of ANY script. So `0803/123/4567`,
@@ -461,6 +461,14 @@ export function redactedQuery(url: URL): string {
   const parts = [...url.searchParams.entries()].map(([name, value]) => `${name}=${identifierShaped(value) || phoneLike(value) ? '<identifier>' : value}`);
   return parts.length === 0 ? '' : `?${parts.join('&')}`;
 }
+
+/** A string's length in code points, as JSON Schema and the server count it (an astral letter is one). */
+export function codePoints(text: string): number {
+  return [...text].length;
+}
+
+/** The contract's own 429 example (`SearchTooManyRequests`, T-0086, D-L134): per user, never echoing the query. */
+export const RATE_LIMITED: Json = errorExample('SearchTooManyRequests', 'tooManyRequests');
 
 /** True when `text` holds a NUL or other control character (C0, DEL or C1): `invalid_string`. */
 export function hasControlCharacter(text: string): boolean {
@@ -971,6 +979,15 @@ export interface SearchMockOptions extends StoreOptions {
   readonly networkFailure?: boolean;
   /** Add a group of a type this contract does not have to every searchRecords answer (R17). */
   readonly futureGroup?: boolean;
+  /** Answer every well-formed searchRecords read with the contract's 429 (D-L137 M5). */
+  readonly rateLimited?: boolean;
+  /**
+   * Own searchRecords and lookupRecords only, and hand every other request to
+   * the route registered before this one (`route.fallback()`): for a journey
+   * on another screen whose own contract mock was installed first (D-L137 M1,
+   * the pipeline board).
+   */
+  readonly searchOnly?: boolean;
 }
 
 export interface LookupCall {
@@ -1115,6 +1132,9 @@ export async function installSearchMock(page: Page, options: SearchMockOptions =
     }
   };
 
+  /** Under `rateLimited`: the contract's 429, checked like every other answer. */
+  const answerRateLimited = (route: Route, term: string): Promise<void> => answer(route, 'searchRecords', 429, clone(RATE_LIMITED), term);
+
   // ----- searchRecords --------------------------------------------------------
 
   const search = async (route: Route, url: URL): Promise<void> => {
@@ -1147,7 +1167,8 @@ export async function installSearchMock(page: Page, options: SearchMockOptions =
       // The contract lets a short run of digits through; the lead's R27 does not.
       violations.push('searchRecords was sent a phone-like q (digits and no letter, D-L135): R27 waits for a whole number and sends it to lookupRecords');
     }
-    if (q.length > Q_MAX) return refuse('q', 'invalid_string', `q is ${q.length} characters, over ${Q_MAX}`);
+    // Lengths in code points, as JSON Schema and the server count them (D-L137 L1): U+1E900 is one character, not two.
+    if (codePoints(q) > Q_MAX) return refuse('q', 'invalid_string', `q is ${codePoints(q)} characters, over ${Q_MAX}`);
     if (hasControlCharacter(q)) return refuse('q', 'invalid_string', 'q carries a control character');
     const types = url.searchParams.getAll('types');
     if (types.some((type) => !(SEARCH_TYPES as readonly string[]).includes(type))) {
@@ -1157,8 +1178,11 @@ export async function installSearchMock(page: Page, options: SearchMockOptions =
     if (types.length > 0 && types.length !== SEARCH_TYPES.length) {
       violations.push(`searchRecords${redactedQuery(url)}: types narrowed to ${types.join(',')} — the screen searches every type`);
     }
-    if (q.length < Q_MIN || folded(q).length < Q_MIN) {
-      return refuse('q', 'query_too_short', `q folds to "${folded(q)}", under ${Q_MIN} characters: the screen sends nothing that short`);
+    if (codePoints(q) < Q_MIN || codePoints(folded(q)) < Q_MIN) {
+      return refuse('q', 'query_too_short', `q folds to ${codePoints(folded(q))} code point(s), under ${Q_MIN}: the screen sends nothing that short`);
+    }
+    if (options.rateLimited === true) {
+      return answerRateLimited(route, term);
     }
     const body = searchAnswer(q, caller, options);
     if (types.length > 0) body.groups = body.groups.filter((group) => types.includes(String(group.type)));
@@ -1261,6 +1285,8 @@ export async function installSearchMock(page: Page, options: SearchMockOptions =
       const request = route.request();
       const url = new URL(request.url());
       const method = request.method();
+      const owned = url.pathname === SEARCH_PATH || url.pathname === LOOKUP_PATH;
+      if (options.searchOnly === true && !owned) return route.fallback();
       requests.push(url);
       checkHeaders(request, `${method} ${url.pathname}`);
 

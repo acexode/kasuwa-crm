@@ -41,7 +41,9 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *      email only to the lookup, never in a URL, history entry or link);
  *      partial identifiers refused; only served fields; links; states; an
  *      unreadable type; an unknown type; nothing on the device; the
- *      overruled design absent; 360 px; en-XA; the byte budget.
+ *      overruled design absent; 360 px; en-XA; the byte budget; and the
+ *      D-L137 journeys (the palette among other overlays, its focus trap,
+ *      a same-route "see all", a 429).
  *   5. i18n: the literal-string rule fires on the route; every message id the
  *      slice names is in every design-menu catalogue, with a label for each
  *      group type and for invalid_phone and invalid_email; every error the two
@@ -71,10 +73,16 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *     their first search (R8, lead-accepted): the builder changes them.
  *   - The palette module is reached from `components/crm` only through a
  *     dynamic `import()` (R29).
+ *   - Deal hits link to `/deals/<id>` only where the slice reads
+ *     `live.includes('deals')` (R15, D-L137).
+ *   - The drawn-hit count is announced in `[data-search-announcement]` (R7,
+ *     D-L137 L5).
  *
- * RULINGS (R1–R29; R1–R26 accepted by the lead on 2026-10-14, R27–R29 the
- * lead's rulings on the gaps reported with them; where the task file, the
- * contract or the design leave a choice open, the suite is written to these)
+ * RULINGS (R1–R33; R1–R26 accepted by the lead on 2026-10-14, R27–R29 the
+ * lead's rulings on the gaps reported with them, and the D-L137 re-pin after
+ * the review of the build: R15 REPLACED, R7, R9 and R26 AMENDED, R30–R33
+ * ADDED; every other ruling unchanged. Where the task file, the contract or
+ * the design leave a choice open, the suite is written to these)
  *
  *   R1. Surfaces. `/search` is the P27 screen: the search panel inline (A1
  *       grouped hits, A2 lookups, A4 searching, A5 no matches), not a dialog.
@@ -111,7 +119,11 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *       served order, never re-sorted, at most three drawn. No count, total,
  *       "more" or estimate anywhere (D-P13): a group's own copy holds no
  *       digit. An empty group is omitted or drawn empty, never with a count
- *       or a hint.
+ *       or a hint. AMENDED (D-L137 L5): the result count is announced to
+ *       screen readers in a polite live region marked
+ *       `data-search-announcement`, and only as the number of hits DRAWN
+ *       (never more than the hits on the screen, never a total, a "more" or
+ *       a hint at hidden results).
  *   R8. "See all" (R18 of the contract). For contacts, leads and accounts,
  *       `/contacts?q=…`, `/leads?q=…`, `/accounts?q=…` carrying exactly the
  *       `q` that was searched and nothing else; offered for every answered
@@ -127,14 +139,17 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *       folded the contract's way (NFD, marks removed, lower-cased, trimmed,
  *       inner whitespace collapsed), so `É`, `s` + a combining accent, ` s `
  *       and `Ø` send nothing and draw neither "no matches" nor an error.
- *       Debounced: a word typed fast is at most two requests.
+ *       Debounced: a word typed fast is at most two requests. AMENDED
+ *       (D-L137 L1): lengths count code points, as the server does, so a
+ *       single astral letter (U+1E900) is too short: no request, nothing
+ *       drawn.
  *   R10. Latest wins. A newer query is sent without waiting for an older one
  *       to answer, and only the answer to the current input is drawn: a stale
  *       answer or a stale failure changes nothing. Aborting a superseded
  *       request is allowed.
- *   R11. R21 routing on the client, with the rule D-L135 states (it lands in
- *       the YAML with T-0086; the YAML on main still has the older ASCII
- *       `not` pattern, so the mock implements D-L135 itself): after NFKC, an
+ *   R11. R21 routing on the client, with the rule D-L135 states (T-0086
+ *       landed it in the YAML as a `u`-flag `not` pattern; the mock still
+ *       implements D-L135 itself and its journey proves the two agree): after NFKC, an
  *       `@`, or, once every character that is neither a letter (`\p{L}`) nor
  *       a decimal digit (`\p{Nd}`) is removed, a run of 6 or more `\p{Nd}`
  *       digits of ANY script. So `0803/123/4567`, `0803_123_4567`,
@@ -164,11 +179,17 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *       label), never the id. A lookup hit never draws the number or address
  *       that found it. Markup in a name is text. Whether companies or lead
  *       status are drawn is the builder's choice, translated if so.
- *   R15. Links only from well-formed uuids, URL-encoded: contacts and leads
- *       to `/contacts/<id>` (a lead's id is a contact id), accounts to
- *       `/accounts/<id>`. A deal hit is not a link: there is no deal screen
- *       yet (T-0110 adds the link and re-pins the spec). A malformed id is
- *       never linked and never printed; no UUID is printed anywhere.
+ *   R15. REPLACED (D-L137; T-0110 merged first, so T-0087 re-pins). Links
+ *       only from well-formed uuids, URL-encoded: contacts and leads to
+ *       `/contacts/<id>` (a lead's id is a contact id), accounts to
+ *       `/accounts/<id>`, and deals to `/deals/<id>` ONLY while
+ *       `crm_pipeline` is live in the process (`deals` in `crmLiveNav()`,
+ *       read by the slice as `live.includes('deals')`). Otherwise a deal hit
+ *       is drawn unlinked, never as a link to a 404. The records process
+ *       serves `crm_pipeline`, so the browser holds the linked half; no
+ *       process serves search without pipeline, so the unlinked half is held
+ *       statically (section 1). A malformed id is never linked and never
+ *       printed; no UUID is printed anywhere.
  *   R16. States. Loading, no matches, failed and refused are four distinct
  *       states. Nothing typed is none of them and draws no hit (no recent
  *       searches); a too-short query is none of them.
@@ -202,10 +223,12 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *       axe-clean with results.
  *   R25. en-XA renders every string of the screen and the palette as pseudo
  *       text, record data excepted; keyboard hints in `<kbd>` are exempt.
- *   R26. Budget. SEARCH_BUDGET_BYTES is a 250,000-byte PLACEHOLDER under a
- *       255,000-byte ceiling; the lead pins it within 5% of the builder's
- *       first green measurement (D-L118). Until then the budget test fails by
- *       design. The palette rides in the shell of every CRM screen (see R29).
+ *   R26. Budget. AMENDED (D-L137): SEARCH_BUDGET_BYTES = 223,000, pinned by
+ *       the lead from the builder's two measurements (213,798 and 214,306
+ *       bytes), under the 255,000-byte ceiling; the suite still requires it
+ *       to be at least, and within 5% of, what each run measures (D-L118),
+ *       and it is re-measured after the D-L137 fixes. The palette rides in
+ *       the shell of every CRM screen (see R29).
  *   R27. Nothing phone-like reaches searchRecords, even partially (lead,
  *       aligned with D-L135). After NFKC, text holding at least one `\p{Nd}`
  *       digit of any script and NO `\p{L}` letter sends NO searchRecords
@@ -227,6 +250,32 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *       module is reached from `components/crm` only through a dynamic
  *       import); the real check is every other CRM screen's pinned byte
  *       budget, whose suites still run.
+ *   R30. ADDED (D-L137 M1). The palette's Escape is handled in the capture
+ *       phase and stops there: one Escape closes the palette and never also
+ *       an overlay behind it (the contacts column chooser stays open). And
+ *       Ctrl/Cmd+K does nothing while an `aria-modal` dialog is open: over
+ *       the pipeline board's new-deal form the palette never opens, focus
+ *       stays in the form and its draft survives. One behaviour, pinned both
+ *       ways.
+ *   R31. ADDED (D-L137 M2). The palette's focus trap stops only on real tab
+ *       stops, never on a `tabindex="-1"` element and never on an option:
+ *       after a lookup with hits and no "see all", Tab from the input stays
+ *       inside on real controls, and Shift+Tab from the close button never
+ *       lands on an option link.
+ *   R32. ADDED (D-L137 M3). On a list screen, the palette's "see all" for that
+ *       same list (`/contacts`, `/leads`, `/accounts`) closes the palette,
+ *       applies the new `q` to the list's search box and its list read, and
+ *       leaves no `q` in the address bar.
+ *   R33. ADDED (D-L137 M5). A 429 (`SearchTooManyRequests`, declared since
+ *       T-0086) draws `records.error.too_many_requests`, never the
+ *       connection message and never "no matches".
+ *
+ * NOT RE-PINNED HERE (D-L137 items the suite does not hold): M4 (a failed
+ * palette chunk, and Escape or the backdrop closing its loading state), L2
+ * (`event.code === 'KeyK'`, Shift ignored), L3 (search strings shipped only
+ * when the flag is live), L4 (`prefetch={false}` on the header link) and the
+ * `aria-labelledby` half of L5. The review holds them; the existing journeys
+ * would catch a regression of R4 and R5.
  *
  * BUILDER'S CHOICES: the layout; the debounce interval; whether `/search`
  * keeps a name `q` in its URL; whether superseded requests are aborted;
@@ -238,9 +287,6 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  * NOT HELD HERE, AND WHY
  *   - The `/` shortcut to the top-bar search (P27/A): harmless, not asked
  *     for. If built it must not fire inside a text field.
- *   - Opening a deal: no deal screen yet. T-0110 is built in parallel;
- *     whichever of T-0087 and T-0110 merges second re-pins the spec so that
- *     deal hits link to the deal.
  *   - The lead group's emptiness when `status` is withheld (contract R10):
  *     the server's rule, invisible to the client.
  *   - listContacts' and listLeads' own `q` still accept numbers in their URL
@@ -307,9 +353,9 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  * re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  // R27–R29 (lead rulings, 2026-10-14) and D-L135 (the Unicode identifier rule, implemented in the mock).
-  [SPEC]: '6454b4c643eaad9ad94a390214795741794feb9915a0cb9fda2987bce4feb656',
-  [MOCK]: 'f809ba77382ec272aab78d732b2447d26554adca123d9c501f21d4d2d237e742',
+  // D-L137 re-pin: deal links while crm_pipeline is live, the M1–M3 and M5 journeys, code-point lengths, budget 223,000.
+  [SPEC]: '5ce6c45bf5c90c3179e441a0fd599e2b695907a4963a2a286549cb5493a1e926',
+  [MOCK]: '3984b7ee8da022d8c9bf6d888a4770a7281cab6e0fec4c9a8fa9683e12d77d0c',
 };
 
 /** Never above this (R26). */
@@ -352,7 +398,11 @@ const REQUIRED: readonly (readonly [tag: string, what: string])[] = [
   ['@p27-search-url', 'no phone or email in any URL, history entry, link or title; a crafted one is ignored and removed'],
   ['@p27-search-partial', 'a partial number or address refused as such, never a prefix search, no "also matches" hint'],
   ['@p27-search-fields', 'displayName as served, never composed; withheld parts never shown; a lock when nameless; markup as text'],
-  ['@p27-search-links', 'links only from well-formed uuids, deals not linked, no id printed'],
+  ['@p27-search-links', 'links only from well-formed uuids, deals to /deals/<id> where crm_pipeline is live, no id printed (R15)'],
+  ['@p27-search-overlays', 'Escape closes only the palette; Ctrl/Cmd+K never opens it over an aria-modal dialog, whose draft stays (R30)'],
+  ['@p27-search-focus-trap', 'after a lookup, Tab and Shift+Tab stop only on real controls, never on an option (R31)'],
+  ['@p27-search-same-route', 'a same-route "see all" applies the new q to box and list and drops it from the URL (R32)'],
+  ['@p27-search-rate-limited', 'a 429 draws the too-many-requests message, never the connection one (R33)'],
   ['@p27-search-states', 'loading, no matches, failed and refused kept apart'],
   ['@p27-search-unreadable', 'an unreadable type is simply empty: no hint, lock, count or error'],
   ['@p27-search-additive', 'a group of an unknown type is ignored, the rest drawn'],
@@ -725,6 +775,21 @@ describe('acceptance: T-0087 — crm_search exists, is off, is not production-re
     expect(palettes.filter((file) => loadedWithShell.has(file)), 'the CRM shell imports the palette statically: it would load on every CRM screen').toEqual([]);
     const loadable = reachableFrom(shellFiles, true);
     expect(palettes.some((file) => loadable.has(file)), 'the CRM shell never loads the palette, not even by a dynamic import()').toBe(true);
+  });
+
+  it('links deal hits to /deals/<id> only where crm_pipeline is live, read as live.includes("deals") (R15, D-L137)', () => {
+    // The linked half runs in the browser (the records process serves
+    // crm_pipeline). No process serves search without pipeline, so the
+    // unlinked half is held here: the slice builds a deal link, and decides
+    // it by the live nav list, never unconditionally.
+    const slice = screenSlice();
+    const code = slice.map(({ source }) => withoutComments(source)).join('\n');
+    expect(code, 'nothing in the slice builds a /deals/<id> link').toMatch(/['"`]\/deals\//);
+    expect(code, 'the slice never asks whether deals are live: a deal hit would link to a 404 where crm_pipeline is off').toMatch(
+      /\.includes\(\s*['"]deals['"]\s*\)/,
+    );
+    const live = flagFunctionBody('crmLiveNav');
+    expect(live, 'crmLiveNav() no longer lists deals through crm_pipeline').toMatch(/['"]deals['"]/);
   });
 
   it('keeps no identifier in a query string anywhere in the slice either (R12)', () => {

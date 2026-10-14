@@ -28,7 +28,8 @@ import {
   Q_MAX,
   SEARCH_TYPES,
   WITHHELD_VALUES,
-  CONTRACT_ASCII_IDENTIFIER_PATTERN,
+  CONTRACT_IDENTIFIER_PATTERN,
+  RATE_LIMITED,
   answerProblems,
   digitValues,
   hasControlCharacter,
@@ -45,6 +46,8 @@ import {
   type SearchMockOptions,
   type SearchType,
 } from './support/search-mock';
+// The pipeline board's own contract mock (T-0109, pinned by its suite): the M1 journey needs its aria-modal dialog.
+import { NOW as PIPELINE_NOW, PIPELINE_ONE, installPipelineMock } from './support/pipeline-mock';
 
 /**
  * T-0087 — global search and the command palette (P27, `docs/design/P27/`):
@@ -112,6 +115,9 @@ import {
  *                                          readable
  *         [data-see-all="<type>"]          a[href]: contact, lead and account
  *                                          only, never deal, never on a lookup
+ *     [data-search-announcement]           the polite live announcement of how
+ *                                          many hits are DRAWN (D-L137 L5):
+ *                                          never a total, a "more" or a hint
  *     [data-testid="search-loading"]       while the answer is awaited
  *     [data-testid="search-empty"]         an answer with no hits
  *     [data-testid="search-error"]         a failed read (never "no matches")
@@ -123,7 +129,8 @@ import {
  *                                          never a refusal
  *   [data-record-text]                     record data, not UI copy (en-XA)
  *
- * PINNED INTERFACES BEYOND THE HOOKS (see the suite's rulings R1–R29)
+ * PINNED INTERFACES BEYOND THE HOOKS (see the suite's rulings R1–R33; the
+ * D-L137 re-pin replaced R15 and amended R7, R9 and R26)
  *
  *   - A name goes to searchRecords as `q` (all four types), debounced, never
  *     shorter than 2 characters once folded, never over 100, never with a
@@ -147,12 +154,20 @@ import {
  *   - The palette is loaded on first open (R29); the other CRM screens'
  *     pinned byte budgets are the check.
  *   - Hits link only from well-formed uuids: contacts and leads to
- *     `/contacts/<id>`, accounts to `/accounts/<id>`; deals are not links
- *     (no deal screen yet; whichever of T-0087 and T-0110 merges second
- *     re-pins this spec to link them). "See all" is `/contacts?q=…`,
+ *     `/contacts/<id>`, accounts to `/accounts/<id>`, and deals to
+ *     `/deals/<id>` only while `crm_pipeline` is live (`deals` in the shell's
+ *     live list; D-L137, T-0110 merged first): otherwise a deal hit is drawn
+ *     unlinked, never as a link to a 404. "See all" is `/contacts?q=…`,
  *     `/leads?q=…`, `/accounts?q=…`, and the list reads with that `q`: the
  *     builder changes the P04 Contacts, Leads and Accounts screens to read `q`
- *     from their URL.
+ *     from their URL. On that same list, the palette's "see all" applies the
+ *     new `q` to the box and the list and drops it from the address bar
+ *     (D-L137 M3).
+ *   - The palette's Escape is handled in the capture phase and stops there,
+ *     so it never also closes an overlay behind it; Ctrl/Cmd+K does nothing
+ *     while an `aria-modal` dialog is open (D-L137 M1). Its focus trap stops
+ *     only on real tab stops, never on an option (M2). A 429 draws
+ *     `records.error.too_many_requests` (M5). Lengths count code points (L1).
  *
  * DESIGN AGAINST CONTRACT — WHERE THEY DISAGREE THE CONTRACT WINS (D-L133)
  *
@@ -169,12 +184,13 @@ const SCREEN = '[data-screen="P27"]';
 const PALETTE = '[data-testid="command-palette"]';
 
 /**
- * The /search transferred-byte budget. A PLACEHOLDER: the acceptance suite
- * holds it at or under 255,000 bytes and within 5% of what this run measures,
- * so the builder measures it and the lead pins it (R26). Until then the
- * wrapper's budget test fails by design.
+ * The /search transferred-byte budget, pinned by the lead (D-L137, R26): the
+ * builder measured 213,798 and 214,306 bytes, and 223,000 passes both with
+ * about 1.4 KB of slack below the 5% headroom. The acceptance suite still
+ * holds it at or under 255,000 bytes and within 5% of what each run
+ * measures; it is re-measured after the D-L137 fixes.
  */
-const SEARCH_BUDGET_BYTES = 250_000;
+const SEARCH_BUDGET_BYTES = 223_000;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const UUID_ONLY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -455,13 +471,35 @@ async function visibleText(locator: Locator): Promise<string> {
   });
 }
 
-/** UI copy only: visible text with record data ([data-record-text]), hits and icon ligatures removed. */
+/**
+ * UI copy only: visible text with record data ([data-record-text]), hits,
+ * icon ligatures and the screen-reader announcement of how many hits are
+ * DRAWN ([data-search-announcement], D-L137 L5, held by
+ * `expectAnnouncementHonest`) removed.
+ */
 async function copyText(locator: Locator): Promise<string> {
   return locator.evaluate((element) => {
     const copy = element.cloneNode(true) as Element;
-    copy.querySelectorAll('[aria-hidden="true"], [data-record-text], [data-hit], time, script, style').forEach((hidden) => hidden.remove());
+    copy
+      .querySelectorAll('[aria-hidden="true"], [data-record-text], [data-hit], [data-search-announcement], time, script, style')
+      .forEach((hidden) => hidden.remove());
     return (copy.textContent ?? '').replace(/\s+/g, ' ').trim();
   });
+}
+
+/**
+ * D-L137 L5 against D-P13: the result count may be ANNOUNCED (a polite live
+ * region, `[data-search-announcement]`), but only as the number of hits drawn
+ * on the screen: never a server total, a "more", or anything hidden. Every
+ * number it says is at most the hits drawn, and it says nothing banned.
+ */
+async function expectAnnouncementHonest(root: Locator): Promise<void> {
+  const drawn = await shown(root.locator('[data-hit]')).count();
+  const said = await root.locator('[data-search-announcement]').evaluateAll((elements) => elements.map((element) => element.textContent ?? '').join(' '));
+  for (const number of said.match(/\d+/g) ?? []) {
+    expect(Number(number), `the announcement says ${number}, more than the ${drawn} hits drawn: a count the API never served`).toBeLessThanOrEqual(drawn);
+  }
+  expect(said, 'the announcement hints at hidden results or a total').not.toMatch(/hidden|not on\b|more\b|total|of \d+/i);
 }
 
 /** A group's own copy (its label, its "see all"), hits removed: where a count would be drawn. */
@@ -729,9 +767,9 @@ test('the contract mock refuses what the contract and the screen’s rules refus
   for (const value of ['Sample 2026', 'Unit 12 Block 3456', 'sam', 'Sámple Fixture', '0803 0']) {
     expect(identifierShaped(value), `"${value}" is a name the rule refuses`).toBe(false);
   }
-  // D-L135: separators of any kind and digits of any script. The YAML's ASCII
-  // rule misses these; a weakened rule (ASCII digits only, or stripping only
-  // whitespace and `+()-.`) misses them too, and is caught here.
+  // D-L135: separators of any kind and digits of any script. The contract's
+  // older ASCII rule missed these; a weakened rule (ASCII digits only, or
+  // stripping only whitespace and `+()-.`) misses them too, and is caught here.
   const unicodeIdentifiers = [
     '0803/123/4567',
     '0803_123_4567',
@@ -746,7 +784,30 @@ test('the contract mock refuses what the contract and the screen’s rules refus
   for (const value of unicodeIdentifiers) {
     expect(identifierShaped(value), `D-L135: "${value.replace(/\p{Nd}/gu, '#')}" is not an identifier`).toBe(true);
   }
-  expect(unicodeIdentifiers.filter((value) => !CONTRACT_ASCII_IDENTIFIER_PATTERN.test(value.normalize('NFKC'))).length, 'the YAML’s ASCII rule already catches these: the self-check proves nothing').toBeGreaterThan(0);
+  const olderAsciiRule = /@|[0-9](?:[\s+().-]*[0-9]){5}/;
+  expect(unicodeIdentifiers.filter((value) => !olderAsciiRule.test(value.normalize('NFKC'))).length, 'the older ASCII rule already catches these: the self-check proves nothing').toBeGreaterThan(0);
+  // The mock's own rule and the contract's `u`-flag pattern (T-0086) agree, both ways.
+  const corpus = [
+    ...unicodeIdentifiers,
+    ...PHONE_FORMS,
+    PHONE_FULL_WIDTH,
+    PHONE_PARTIAL,
+    EMAIL,
+    'Sample＠example',
+    'Sample﹫example',
+    'Sample 12',
+    'Sample12Block3456',
+    'Unit 12 Block 3456',
+    'Sample 2026',
+    'sam',
+    '0803 0',
+    '0803/0',
+    '٠٨٠٣٠',
+  ];
+  expect(
+    corpus.filter((value) => identifierShaped(value) !== CONTRACT_IDENTIFIER_PATTERN.test(value.normalize('NFKC'))).map((value) => value.replace(/\p{Nd}/gu, '#')),
+    'the mock’s D-L135 rule and the contract’s pattern disagree',
+  ).toEqual([]);
   expect(unicodeIdentifiers.filter((value) => !asciiDigitsOnly(value)), 'an ASCII-digits-only rule is not told apart').not.toEqual([]);
   expect(unicodeIdentifiers.filter((value) => !stripPunctuationOnly(value)), 'a rule stripping only +()-. is not told apart').not.toEqual([]);
   expect(digitValues('٠٨٠٣١٢٣٤٥٦٧'), 'Arabic-Indic digits are not read by value').toBe('08031234567');
@@ -879,8 +940,9 @@ test('the contract mock refuses what the contract and the screen’s rules refus
   await expectViolation(`${q('sam')}&types=contact`, 'GET', undefined, 200, /narrowed/);
   await expectViolation(`${q('sam')}&types=ticket`, 'GET', undefined, 400, /does not have/);
   await expectViolation(`${q('sam')}&types=contact&types=contact`, 'GET', undefined, 400, /repeated/);
-  for (const short of ['s', ' s ', 'É', 'ś', 'Ø ']) {
-    const refused = await expectViolation(q(short), 'GET', undefined, 400, /under 2 characters/);
+  for (const short of ['s', ' s ', 'É', 'ś', 'Ø ', '\u{1E900}']) {
+    // U+1E900 is one code point in two UTF-16 units: a length in units would let it through (D-L137 L1).
+    const refused = await expectViolation(q(short), 'GET', undefined, 400, /under 2/);
     expect(refused.body.details).toEqual([{ path: 'q', code: 'query_too_short' }]);
   }
   await expectViolation(q('Sample\tFixture'), 'GET', undefined, 400, /control character/);
@@ -1129,6 +1191,151 @@ test.describe('the command palette', () => {
 });
 
 // ===========================================================================
+// D-L137: the palette among other overlays, its trap, a same-route "see all"
+// ===========================================================================
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+test('Escape closes only the palette, never a popover behind it; the palette never opens over an aria-modal dialog, whose draft stays (D-L137 M1) @p27-search @p27-search-overlays', async ({
+  page,
+}) => {
+  // PINNED (D-L137 M1): the palette's Escape is handled in the capture phase
+  // and stops there, and Ctrl/Cmd+K does nothing while an aria-modal dialog
+  // is open. Both halves are held here.
+
+  // 1. A non-modal popover behind the palette: the contacts column chooser, which closes on any Escape.
+  const first = await openContacts(page);
+  await shown(page.getByTestId('column-chooser')).first().click();
+  const popover = shown(page.getByTestId('column-chooser-panel')).first();
+  await expect(popover, 'the column chooser did not open').toBeVisible();
+  await openPalette(page);
+  await page.keyboard.press('Escape');
+  await expect(page.locator(PALETTE).filter({ visible: true }), 'Escape did not close the palette').toHaveCount(0);
+  await expect(popover, 'one Escape closed the palette AND the popover behind it').toBeVisible();
+  expect(first.violations).toEqual([]);
+  expect(first.mockFaults).toEqual([]);
+
+  // 2. An aria-modal dialog with a draft: the pipeline board's new-deal form (T-0109), against its own contract mock.
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+  await page.clock.setFixedTime(new Date(PIPELINE_NOW));
+  const pipeline = await installPipelineMock(page);
+  const search = await installSearchMock(page, { searchOnly: true });
+  active = search;
+  const response = await page.goto(`${searchUrl()}/pipelines/${PIPELINE_ONE.id}`);
+  expect(response?.status(), '/pipelines/<id> on the records process').toBe(200);
+  await shown(page.locator('[data-screen="P06/01"] [data-action="new-deal"]')).first().click();
+  const dialog = shown(page.getByTestId('deal-create')).first();
+  await expect(dialog, 'the new-deal form did not open').toBeVisible();
+  await expect(dialog).toHaveAttribute('aria-modal', 'true');
+  const name = dialog.locator('[data-field-input="name"]').first();
+  await name.fill('Sample draft deal');
+  await name.focus();
+  for (const [chord, key] of [
+    ['Control+k', 'X'],
+    ['Meta+k', 'Y'],
+  ] as const) {
+    await page.keyboard.press(chord);
+    // A palette that opened would have taken focus: the next key would not reach the draft.
+    await page.keyboard.type(key);
+    await flushTasks(page);
+    await expect(page.locator(PALETTE), `${chord} opened the palette over an aria-modal dialog`).toHaveCount(0);
+  }
+  await expect(name, 'the draft was lost or focus left the dialog').toHaveValue('Sample draft dealXY');
+  await expect(dialog, 'the dialog closed').toBeVisible();
+  expect(search.requests, 'the search was used over an aria-modal dialog').toEqual([]);
+  expect(pipeline.violations, 'the pipeline board broke its own contract').toEqual([]);
+  expect(pipeline.mockFaults).toEqual([]);
+});
+
+test('after a lookup with hits and no "see all", Tab stays in the palette on real controls, and Shift+Tab from close never lands on an option (D-L137 M2) @p27-search @p27-search-focus-trap', async ({
+  page,
+}) => {
+  await openSearch(page);
+  const palette = await openPalette(page);
+  await lookUp(page, palette, PHONE);
+  await expect(hit(palette, 'contact', C_SAMPLEWISE.id)).toBeVisible();
+  await expect(shown(palette.locator('[data-see-all]')), 'a lookup offers "see all"').toHaveCount(0);
+  const focused = () =>
+    palette.evaluate((element) => {
+      const now = document.activeElement as HTMLElement | null;
+      return {
+        inside: now !== null && element.contains(now),
+        option: now !== null && now.closest('[role="option"]') !== null,
+        real: now !== null && now.tabIndex >= 0 && now.getAttribute('tabindex') !== '-1' && !now.hasAttribute('disabled'),
+        what: now === null ? 'nothing' : `${now.tagName.toLowerCase()}${now.getAttribute('role') === null ? '' : `[role=${now.getAttribute('role') ?? ''}]`}`,
+      };
+    });
+  await input(palette).focus();
+  for (let press = 0; press < 6; press += 1) {
+    await page.keyboard.press('Tab');
+    const now = await focused();
+    expect(now.inside, `Tab #${press + 1} left the palette`).toBe(true);
+    expect(now.option, `Tab #${press + 1} landed on an option (${now.what}): options are reached by the arrow keys`).toBe(false);
+    expect(now.real, `Tab #${press + 1} landed on ${now.what}, which is not a tab stop`).toBe(true);
+  }
+  const closeLabels = searchLabels('.close');
+  expect(closeLabels.length, 'en.json has no label for the palette’s close button (an id about search ending ".close")').toBeGreaterThan(0);
+  const close = palette.getByRole('button', { name: new RegExp(closeLabels.map(escapeRegExp).join('|')) }).first();
+  await close.focus();
+  for (let press = 0; press < 6; press += 1) {
+    await page.keyboard.press('Shift+Tab');
+    const now = await focused();
+    expect(now.inside, `Shift+Tab #${press + 1} from close left the palette`).toBe(true);
+    expect(now.option, `Shift+Tab #${press + 1} from close landed on an option link (${now.what})`).toBe(false);
+    expect(now.real, `Shift+Tab #${press + 1} from close landed on ${now.what}, which is not a tab stop`).toBe(true);
+  }
+});
+
+test('on a list screen, the palette’s "see all" for that list applies the new name to its box and list and drops q from the address bar (D-L137 M3) @p27-search @p27-search-same-route', async ({
+  page,
+}) => {
+  const mock = await installSearchMock(page);
+  active = mock;
+  const targets: readonly (readonly [SearchType, string, string])[] = [
+    ['contact', '/contacts', '/api/v1/contacts'],
+    ['lead', '/leads', '/api/v1/leads'],
+    ['account', '/accounts', '/api/v1/accounts'],
+  ];
+  const reads = (api: string, q: string) => (request: Request) => {
+    const url = new URL(request.url());
+    return url.pathname === api && url.searchParams.get('q') === q;
+  };
+  for (const [type, path, api] of targets) {
+    const response = await page.goto(`${searchUrl()}${path}`);
+    expect(response?.status(), `${path} on the records process`).toBe(200);
+    const box = shown(page.locator('[data-shell="crm"] input[type="search"]')).first();
+    const typed = page.waitForRequest(reads(api, 'Sampleold'));
+    await box.fill('Sampleold');
+    await typed;
+    const palette = await openPalette(page);
+    await searchFor(page, palette, 'sam');
+    const applied = page.waitForRequest(reads(api, 'sam'));
+    await shown(palette.locator(`a[data-see-all="${type}"]`)).first().click();
+    await applied;
+    await expect(page.locator(PALETTE).filter({ visible: true }), `the palette stayed open after "see all" on ${path}`).toHaveCount(0);
+    await expect(box, `${path}'s search box does not show the new name`).toHaveValue('sam');
+    await expect.poll(() => new URL(page.url()).searchParams.has('q'), { message: `${path} kept q in the address bar` }).toBe(false);
+    expect(new URL(page.url()).pathname, `"see all" left ${path}`).toBe(path);
+  }
+});
+
+test('a 429 draws the too-many-requests message, never "check your connection" (D-L137 M5) @p27-search @p27-search-rate-limited', async ({ page }) => {
+  await openSearch(page, { rateLimited: true });
+  const root = screenOf(page);
+  const answered = page.waitForResponse((response) => isSearchRead(response.request(), 'sam'));
+  await input(root).fill('sam');
+  expect((await answered).status(), 'the mock did not answer 429').toBe(429);
+  const error = shown(root.getByTestId('search-error')).first();
+  await expect(error, 'a 429 drew no error state').toBeVisible();
+  await expectSaysOneOf(error, [EN['records.error.too_many_requests'] ?? ''].filter((label) => label !== ''), 'the too-many-requests message');
+  expect(await visibleText(error), 'a 429 was drawn as a connection failure').not.toMatch(/connection/i);
+  await expect(shown(root.getByTestId('search-empty')), 'a 429 was drawn as "no matches"').toHaveCount(0);
+  expect(RATE_LIMITED.code).toBe('too_many_requests');
+});
+
+// ===========================================================================
 // Grouped hits and "see all"
 // ===========================================================================
 
@@ -1148,6 +1355,7 @@ test('hits are grouped in the served order, at most three each in served order, 
   await expect(hit(root, 'lead', L_FIXTURE.id)).toBeVisible();
   const chrome = await copyText(root);
   expect(chrome, 'a count, total or "more" is drawn (D-P13)').not.toMatch(/\d|\bmore\b|\btotal\b|\bresults?\b\s*\(/i);
+  await expectAnnouncementHonest(root);
   await expectNoSeriousAxe(page, 'P27/A1, grouped results');
 
   // A different answer replaces the groups: none of the old hits stays.
@@ -1212,11 +1420,13 @@ test('requests are debounced, never shorter than 2 characters once folded, never
   const root = screenOf(page);
   const box = input(root);
 
-  for (const short of ['s', ' s ', 'É', 'ś', 'Ø ', '   ']) {
+  for (const short of ['s', ' s ', 'É', 'ś', 'Ø ', '   ', '\u{1E900}', ' \u{1E900} ']) {
+    // U+1E900 (an Adlam capital letter) is ONE code point, two UTF-16 units: too short (D-L137 L1).
     await box.fill(short);
     await page.clock.runFor(3_000);
     await expect(shown(root.getByTestId('search-empty')), `"${short}" drew "no matches": it was never a search`).toHaveCount(0);
     await expect(shown(root.getByTestId('search-error')), `"${short}" drew an error`).toHaveCount(0);
+    await expect(shown(root.locator('[data-hit]')), `"${short}" drew hits`).toHaveCount(0);
   }
   await box.fill('Sample\tFixture');
   await page.clock.runFor(3_000);
@@ -1596,7 +1806,11 @@ test('only served fields are drawn: displayName as served, never composed; withh
   expect(HOSTILE_NAME).toContain('<img');
 });
 
-test('hits link only from well-formed uuids, URL-encoded; deals are not links; no id is printed @p27-search @p27-search-links', async ({ page }) => {
+test('hits link only from well-formed uuids, URL-encoded; deals to /deals/<id> where crm_pipeline is live; no id is printed @p27-search @p27-search-links', async ({ page }) => {
+  // The records process serves crm_pipeline (T-0109, T-0110), so `deals` is in
+  // the shell's live list here and deal hits link (D-L137). Where it is off,
+  // the deal hit is drawn unlinked: no process serves search without
+  // pipeline, so that half is held statically by the suite.
   const mock = await openSearch(page, { hostileIds: true });
   const palette = await openPalette(page);
   await searchFor(page, palette, 'sam');
@@ -1606,6 +1820,7 @@ test('hits link only from well-formed uuids, URL-encoded; deals are not links; n
     ['contact', EXPECTED.sam?.contact ?? [], '/contacts/'],
     ['lead', EXPECTED.sam?.lead ?? [], '/contacts/'],
     ['account', EXPECTED.sam?.account ?? [], '/accounts/'],
+    ['deal', EXPECTED.sam?.deal ?? [], '/deals/'],
   ] as const) {
     for (const id of ids) {
       const href = await hrefOf(hit(palette, type, id));
@@ -1613,11 +1828,12 @@ test('hits link only from well-formed uuids, URL-encoded; deals are not links; n
     }
   }
   for (const id of EXPECTED.sam?.deal ?? []) {
-    expect(await hrefOf(hit(palette, 'deal', id)), 'a deal hit links somewhere: there is no deal screen yet (T-0110)').toBeNull();
+    const response = await page.request.get(`${searchUrl()}/deals/${encodeURIComponent(id)}`);
+    expect(response.status(), 'a deal hit links to a 404: crm_pipeline is not live where search is').not.toBe(404);
   }
   for (const href of await palette.locator('a[href]').evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute('href') ?? ''))) {
     const target = new URL(href, searchUrl());
-    const id = /^\/(?:contacts|accounts)\/([^/]+)$/.exec(target.pathname)?.[1];
+    const id = /^\/(?:contacts|accounts|deals)\/([^/]+)$/.exec(target.pathname)?.[1];
     if (id !== undefined) {
       expect(UUID_ONLY.test(decodeURIComponent(id)), `${href} links a malformed id`).toBe(true);
     } else {
@@ -1705,6 +1921,7 @@ test('a type the caller cannot read is simply empty: no hint, lock, count or err
   await expect(shown(palette.locator('[data-group="deal"] [data-hit]'))).toHaveCount(0);
   await expect(lockIcon(palette)).toHaveCount(0);
   await expect(shown(palette.getByTestId('search-error'))).toHaveCount(0);
+  await expectAnnouncementHonest(palette);
   expect(await copyText(palette), 'the screen hints at what the caller cannot read').not.toMatch(
     /permission|not allowed|can['’]?t (see|open)|cannot (see|open)|restricted|hidden|no access|not on\b|\d/i,
   );
@@ -1786,6 +2003,7 @@ test('none of the overruled design: no partial-number hint, hidden count, facets
   await check(palette, 'the palette, nothing typed');
   await searchFor(page, palette, 'sam');
   await check(palette, 'the palette with results');
+  await expectAnnouncementHonest(palette);
   await input(palette).fill(NO_MATCH);
   await expect(shown(palette.getByTestId('search-empty'))).toBeVisible();
   await check(palette, 'the palette with no matches');
@@ -1869,14 +2087,13 @@ test('locale=en-XA renders every string as pseudo text, record data excepted @p2
 
 test.describe('/search on the wire', () => {
   /**
-   * WHY 255,000 BYTES, BEFORE THE SCREEN EXISTS
+   * WHY 223,000 BYTES (D-L137)
    *
-   * A placeholder ceiling, below the activities and pipeline screens' (the
-   * same shell, fonts and records clients, with less on the page: a search box
-   * and up to twelve hits). The builder measures it on the first green run;
-   * the lead pins SEARCH_BUDGET_BYTES within 5% of that measurement (R26).
-   * The palette rides in the shell of EVERY CRM screen, so its weight lands
-   * in every other screen's pinned budget too: those suites still hold.
+   * The ceiling stays 255,000, below the activities and pipeline screens'.
+   * The builder measured 213,798 and 214,306 bytes; the lead pinned
+   * SEARCH_BUDGET_BYTES at 223,000, within 5% of both (R26). The palette is
+   * loaded on first open (R29), so its weight lands in no other screen's
+   * first load; those screens' pinned budgets are the check.
    */
   test('/search stays inside its transferred-byte budget on the production build @p27-search @p27-search-budget', async ({ page }) => {
     // No fake clock here: it replaces window.performance, so the first
