@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 177 rows; built 99, partial 11, mock-only 27, flagged-off 11, deferred 10, not-started 19.
+Totals: 179 rows; built 99, partial 11, mock-only 27, flagged-off 11, deferred 10, not-started 21.
 
 ## Modules
 
@@ -179,6 +179,8 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `updateDeal` | PATCH /api/v1/deals/{dealId} — Update a deal's fields (never its stage) | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 · T-0110 |
 | operation | `moveDeal` | POST /api/v1/deals/{dealId}/move — Move a deal to another stage, filling its requirements in the same write | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 · T-0109 · T-0110 |
 | operation | `listDealTimeline` | GET /api/v1/deals/{dealId}/timeline — The deal's timeline — field changes and linked activities, newest first | built | — | — | docs/api/records.openapi.yaml |
+| operation | `searchRecords` | GET /api/v1/search — Global search — at most three hits per record type, no counts (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0086 |
+| operation | `lookupRecords` | POST /api/v1/search/lookup — Exact lookup by phone or email — a read sent as a POST so the identifier stays out of the URL (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0086 |
 | operation | `listScripts` | GET /api/v1/scripts — List the scripts the caller may author | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `createScript` | POST /api/v1/scripts — Create a draft script in a programme | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `getScript` | GET /api/v1/scripts/{scriptId} — Get a script, with its draft and translations | built | — | — | docs/api/scripting.openapi.yaml |
