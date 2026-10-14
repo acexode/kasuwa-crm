@@ -2,6 +2,7 @@ import type { TenantTx } from '@kasuwa/db';
 import { z } from 'zod';
 import { foldForSearch } from '../contact/phone';
 import { weightedAmountMinor, weightedAmountSql } from './deal-board';
+import { dealActorOf, dealProgrammeMember, type DealActor } from './deal-actor';
 import type { PipelineSummary } from './pipeline.repository';
 
 /**
@@ -98,7 +99,8 @@ export interface DealCard {
   checks: {
     requirementId: string;
     checkedAt: Date;
-    checkedBy: { id: string; displayName: string };
+    /** `displayName` null for a former checker (D-L127, as the owner, D-P23). */
+    checkedBy: DealActor;
   }[];
   createdAt: Date;
   updatedAt: Date;
@@ -266,15 +268,20 @@ export async function boardColumnSelects(
 /**
  * The membership test of the owner in THE DEAL'S programme (D-P23), and the
  * name read only for a member, as contacts do. Correlated on this row only.
- *
- * tenancy-reviewed: keyed on the deal's own tenant, programme and owner; RLS
- * on user_programme and "user" besides.
+ * The same test names each check's user (D-L127, T-0123): `deal-actor.ts`.
  */
-const OWNER_MEMBERSHIP = `EXISTS (
-    SELECT 1 FROM user_programme owner_membership
-     WHERE owner_membership.tenant_id = d.tenant_id
-       AND owner_membership.programme_id = d.programme_id
-       AND owner_membership.user_id = d.owner_user_id)`;
+const OWNER_MEMBERSHIP = dealProgrammeMember('owner_membership', {
+  tenantId: 'd.tenant_id',
+  programmeId: 'd.programme_id',
+  userId: 'd.owner_user_id',
+});
+
+/** The checker's membership in the deal's programme (D-L127): the owner's test. */
+const CHECKER_MEMBERSHIP = dealProgrammeMember('checker_membership', {
+  tenantId: 'd.tenant_id',
+  programmeId: 'd.programme_id',
+  userId: 'deal_check.checked_by_user_id',
+});
 
 const CARD_COLUMNS = `
   d.id, d.programme_id, d.pipeline_id, d.stage_id, d.version, d.name,
@@ -298,7 +305,9 @@ const CARD_COLUMNS = `
             'requirementId', deal_check.requirement_id,
             'checkedAt', deal_check.checked_at,
             'checkedBy', deal_check.checked_by_user_id,
-            'checkedByName', check_user.display_name)), '[]'::json)
+            'checkedByIsMember', ${CHECKER_MEMBERSHIP},
+            'checkedByName', CASE WHEN ${CHECKER_MEMBERSHIP} THEN check_user.display_name END)),
+          '[]'::json)
      FROM deal_requirement_check deal_check
      JOIN "user" check_user
        ON check_user.tenant_id = deal_check.tenant_id
@@ -310,7 +319,9 @@ const CheckJson = z.object({
   requirementId: z.string().uuid(),
   checkedAt: z.string().refine((value) => !Number.isNaN(Date.parse(value))),
   checkedBy: z.string().uuid(),
-  checkedByName: z.string(),
+  checkedByIsMember: z.boolean(),
+  /** Read only for a member of the deal's programme (D-L127). */
+  checkedByName: z.string().nullable(),
 });
 
 const CardRow = z.object({
@@ -362,16 +373,10 @@ export function byCheckedAtThenRequirement(a: CardCheck, b: CardCheck): number {
 
 function toCard(raw: unknown, probabilityBp: number): DealCard {
   const row = CardRow.parse(raw);
-  let owner: DealCard['owner'] = null;
-  if (row.owner_user_id !== null) {
-    if (row.owner_is_member === true && row.owner_display_name === null) {
-      throw new DealCardUnresolvedError();
-    }
-    owner = {
-      id: row.owner_user_id,
-      displayName: row.owner_is_member === true ? row.owner_display_name : null,
-    };
-  }
+  const owner: DealCard['owner'] =
+    row.owner_user_id === null
+      ? null
+      : dealActorOf(row.owner_user_id, row.owner_is_member, row.owner_display_name);
   let contact: DealCard['contact'] = null;
   if (row.primary_contact_id !== null) {
     if (row.contact_display_name === null) throw new DealCardUnresolvedError();
@@ -407,7 +412,7 @@ function toCard(raw: unknown, probabilityBp: number): DealCard {
       .map((check) => ({
         requirementId: check.requirementId,
         checkedAt: new Date(check.checkedAt),
-        checkedBy: { id: check.checkedBy, displayName: check.checkedByName },
+        checkedBy: dealActorOf(check.checkedBy, check.checkedByIsMember, check.checkedByName),
       }))
       .sort(byCheckedAtThenRequirement),
     createdAt: row.created_at,
