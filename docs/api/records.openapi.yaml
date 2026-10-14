@@ -3357,7 +3357,7 @@ paths:
       tags: [search]
       summary: Global search — at most three hits per record type, no counts
       operationId: searchRecords
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P27/A1', 'P27/A4', 'P27/A5', 'P27/D1']
       x-kasuwa-error-order:
         - 429 too_many_requests
@@ -3641,7 +3641,7 @@ paths:
       tags: [search]
       summary: Exact lookup by phone or email — a read sent as a POST so the identifier stays out of the URL
       operationId: lookupRecords
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P27/A2', 'P27/D1']
       x-kasuwa-error-order:
         - 429 too_many_requests
