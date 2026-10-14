@@ -204,9 +204,12 @@ import { collectTelemetry, type Telemetry } from '../support/telemetry';
  *     lookupRecords LOOKUP_LIMIT_MIN..LOOKUP_LIMIT_MAX and strictly fewer than
  *     searchRecords. The floors keep a typist and an agent working; the
  *     ceilings make the limit real. The numbers are otherwise the builder's.
- *     CONTRACT GAP, reported: the YAML documents exactly 200/400/401 for both
- *     operations and records-contract-search pins that, so a 429 needs a lead
- *     contract edit to both before this lands.
+ *     IN THE CONTRACT since D-L134 (lead edit on this branch):
+ *     `SearchTooManyRequests` on both operations, first in
+ *     `x-kasuwa-error-order`. So a throttled caller gets the 429 even for a
+ *     request that would otherwise be a 400: the throttle is decided after
+ *     authentication and the scope header and before any validation.
+ *     Whether a refused (400) request spends budget stays the builder's.
  * R19 The folded copies follow their source on every write path that exists
  *     today: updateContact clearing or renaming a name part, updateAccount and
  *     updateDeal renaming, and any direct write (the stand-in for a future
@@ -231,7 +234,7 @@ import { collectTelemetry, type Telemetry } from '../support/telemetry';
  * ==========================================================================
  * Which three hits and their order (CR13, beyond determinism); the exact
  * generation expression (R2 judges its output); trailing index keys; how the
- * fan-out is split into statements; whether 429 or 400 wins when both apply;
+ * fan-out is split into statements; whether a 400 spends throttle budget;
  * the throttle's window shape and numbers inside R18's bounds; `retryAt`.
  *
  * ==========================================================================
@@ -3475,6 +3478,14 @@ describe('acceptance: global search API and prefix indexes (T-0086)', () => {
         if (response === null) return;
         const body = expectError(response, 429, 'too_many_requests', where);
         expect(body.error).toBe('Too Many Requests');
+        // The documented response (D-L134), and nothing beyond its envelope.
+        expect(Object.keys(responseOf('searchRecords', '429')).length).toBeGreaterThan(0);
+        expect(
+          Object.keys(body).filter(
+            (key) => !['statusCode', 'error', 'code', 'message', 'retryAt'].includes(key),
+          ),
+          `${where}: the 429 carries more than the throttle envelope`,
+        ).toEqual([]);
         if (body.retryAt !== undefined) {
           expect(Date.parse(String(body.retryAt)), `${where}: retryAt`).toBeGreaterThan(
             Date.now() - 5_000,
@@ -3494,6 +3505,10 @@ describe('acceptance: global search API and prefix indexes (T-0086)', () => {
         expect(admitted).toBeGreaterThanOrEqual(SEARCH_LIMIT_MIN);
         expect(admitted).toBeLessThanOrEqual(SEARCH_LIMIT_MAX);
         searchAdmitted = admitted;
+        // D-L134: the throttle precedes validation, so a malformed request is 429 too.
+        for (const params of [[['q', 'z']], [], [['q', '0803 123 4567']]] as Params[]) {
+          expectThrottle(await searchRaw(first.headers, params), `throttled ${JSON.stringify(params)}`);
+        }
         const second = await agentIn(PROGRAMME_A1);
         await searchOk(second.headers, 'zqrate');
         await lookupOk(first.headers, { phone: '0803 000 0001' });
@@ -3512,6 +3527,11 @@ describe('acceptance: global search API and prefix indexes (T-0086)', () => {
         expect(admitted).toBeLessThanOrEqual(LOOKUP_LIMIT_MAX);
         expect(searchAdmitted, 'measured by the previous test').toBeDefined();
         expect(admitted, 'the lookup limit is tighter').toBeLessThan(searchAdmitted ?? 0);
+        for (const body of [{}, { phone: '0803 456' }, { zq: 1 }]) {
+          const throttled = await lookupRaw(first.headers, body);
+          expectThrottle(throttled, `throttled ${JSON.stringify(body)}`);
+          expect(throttled.text).not.toContain('0803');
+        }
         await searchOk(first.headers, 'zqrate');
         const second = await agentIn(PROGRAMME_A1);
         await lookupOk(second.headers, { phone: '0803 000 0001' });
