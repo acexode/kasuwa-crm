@@ -122,6 +122,25 @@ pnpm i18n:pseudo          # generate the en-XA pseudo-locale
 Docker Desktop with the WSL2 backend is required on Windows; Testcontainers and
 `pnpm dev` both need a running Docker daemon.
 
+### Machine resource limits
+
+The current development machine has **16 GB of RAM**, shared with a second
+project (the "dialler") and with Docker Desktop's VM (~8 GB). Unbounded test
+workers froze it on 2026-10-14. So:
+
+- **Never run with unbounded parallelism.** No full suite, `nx run-many` or
+  build without a cap: use `--maxWorkers=2` for vitest (the root
+  `vitest.config.ts` defaults to 2) and `--parallel=2` (or 1) for nx.
+- **One Docker stack at a time.** Check `docker ps` first. Don't start this
+  project's compose stack, or a Testcontainers suite, while the dialler stack is
+  running. Run `docker compose down` when you're done.
+- **Clean up.** Before a heavy task, check for leftovers
+  (`pgrep -fl vitest`, `pgrep -fl next-server`, `pgrep -fl "tsx src/main"`).
+  Afterwards, stop everything you started.
+- **The post-edit hook is bounded** (`.claude/hooks/post-edit-tests.mjs`): one
+  run at a time on the machine, two threads, a 1.5 GB heap cap, and a timeout
+  that kills the whole process tree. Don't loosen these to make it faster.
+
 ---
 
 ## 4. Conventions
