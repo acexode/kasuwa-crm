@@ -60,8 +60,8 @@ import { parse } from 'yaml';
  *
  * ---------------------------------------------------------------------------
  * RULINGS (R1–R20 accepted by the lead on 2026-10-14 with the amendment to
- * R1, R2, R5, R15, R16 and R20 and the new R21; R-numbers are this suite's,
- * not decision ids)
+ * R1, R2, R5, R15, R16 and R20 and the new R21; then the review fixes to R2,
+ * R15 and R21 and the new R22; R-numbers are this suite's, not decision ids)
  * ---------------------------------------------------------------------------
  *
  *   R1  Two reads, tag `search`: `GET /api/v1/search` (`searchRecords`) for
@@ -75,7 +75,8 @@ import { parse } from 'yaml';
  *   R2  searchRecords: `q` is required (`400 query_required`). lookupRecords:
  *       exactly one of `phone` or `email` in the body; none or both is `400
  *       one_term_required` at `phone`, any other property `400
- *       unknown_property`.
+ *       unknown_property` at the FIXED path `body`, never echoing the
+ *       client's key (review fix 2: a key can be an identifier).
  *   R3  Prefix, not substring (D-L128). Folding: Unicode NFD, combining marks
  *       removed, locale-independent default lower-casing, trimmed, inner
  *       whitespace runs made one space; comparison by code point. The prefix
@@ -137,15 +138,18 @@ import { parse } from 'yaml';
  *       phone or an email, a lookup included; no owner, tag or amount
  *       anywhere. Each returned field has the record schema's own type and
  *       bound. Deal hit `name` is `pii` (D-L91).
- *   R15 Errors: `400` and `401` only, on both. Every `400` is decided from
- *       the request alone, before any record is read. searchRecords order:
- *       401 and the scope header, then `query_required` and
- *       `identifier_in_url`, then each parameter's shape, then
- *       `query_too_short`. lookupRecords order: 401 and the scope header,
- *       then the closed body (`unknown_property`), then
- *       `one_term_required`, then each property's shape and normalisation.
- *       `x-kasuwa-error-order: ['400 validation_failed']` on both. The shared
- *       Error schema; details carry a path and a code only.
+ *   R15 Errors: `400` and `401` only, on both, never from any record.
+ *       searchRecords' 400s come from the request alone; lookupRecords' from
+ *       the request and the caller's own tenant settings (the default country
+ *       `invalid_phone` normalises with; review fix 3). `x-kasuwa-error-order`
+ *       lists each detail code in the order decided (401 and the scope
+ *       header precede all):
+ *         searchRecords  query_required, identifier_in_url (strictly after;
+ *                        review fix 4), invalid_string, unknown_type,
+ *                        query_too_short
+ *         lookupRecords  unknown_property, one_term_required, invalid_phone,
+ *                        invalid_email, unknown_type
+ *       The shared Error schema; details carry a fixed path and a code only.
  *   R16 `Cache-Control: no-store` on every answer of both. searchRecords'
  *       query string is personal data (a name): telemetry keeps the route
  *       template only and ingress strips query strings from access logs
@@ -168,8 +172,18 @@ import { parse } from 'yaml';
  *       no parameter at all; searchRecords answers a `phone` or `email`
  *       query parameter with `400 identifier_in_url` rather than ignoring
  *       it, so the mistake is loud. No parameter anywhere in the file is
- *       named for a phone or an email. (listContacts' and listLeads' `q`
- *       still accept a number in the URL: reported, not changed here.)
+ *       named for a phone or an email. **`q` itself (review fix 1):** after
+ *       NFKC, a `q` holding `@`, or a run of 6 or more digits once every
+ *       whitespace character and `+()-.` are removed, is `400
+ *       identifier_in_url` at `q`, decided right after `query_required`. Its
+ *       ASCII form is the `not` pattern on `q`'s schema,
+ *       `@|[0-9](?:[\s+().-]*[0-9]){5}`. Clients send phone- or email-shaped
+ *       input to lookupRecords (T-0087 tests that). A name that itself holds
+ *       such a run cannot be prefix-searched by it. (listContacts' and
+ *       listLeads' `q` still accept a number in the URL: reported, not
+ *       changed here.)
+ *   R22 The phone examples (`0803 000 0001`) are placeholders and say so:
+ *       Nigeria has no fictional number range (review fix 5).
  *
  * ---------------------------------------------------------------------------
  *
@@ -574,6 +588,9 @@ function validate(raw: Located, value: unknown, path: string): string[] {
       problems.push(`${path}: matches ${passing} ${combinator} branches`);
     }
   }
+  if (node.not !== undefined && validate(at(node.not, schema.file), value, path).length === 0) {
+    problems.push(`${path}: matches a not schema`);
+  }
   const actual = jsonType(value);
   if (node.type !== undefined) {
     const allowed = (Array.isArray(node.type) ? node.type : [node.type]).map(str);
@@ -715,19 +732,64 @@ const SEARCH_PARAMS = ['q', 'types'];
 const BAD_REQUEST_DETAILS: Record<string, string[]> = {
   [SEARCH]: [
     'phone identifier_in_url',
+    'q identifier_in_url',
     'q invalid_string',
     'q query_required',
     'q query_too_short',
     'types unknown_type',
   ],
   [LOOKUP]: [
+    'body unknown_property',
     'email invalid_email',
     'phone invalid_phone',
     'phone one_term_required',
-    'q unknown_property',
     'types unknown_type',
   ],
 };
+/** R15: each detail code, in the order decided (review fix 4: query_required strictly first). */
+const ERROR_ORDER: Record<string, string[]> = {
+  [SEARCH]: [
+    '400 validation_failed query_required',
+    '400 validation_failed identifier_in_url',
+    '400 validation_failed invalid_string',
+    '400 validation_failed unknown_type',
+    '400 validation_failed query_too_short',
+  ],
+  [LOOKUP]: [
+    '400 validation_failed unknown_property',
+    '400 validation_failed one_term_required',
+    '400 validation_failed invalid_phone',
+    '400 validation_failed invalid_email',
+    '400 validation_failed unknown_type',
+  ],
+};
+/** R21 (review fix 1): the ASCII form of the identifier rule, as the schema's `not` pattern. */
+const IDENTIFIER_Q_PATTERN = '@|[0-9](?:[\\s+().-]*[0-9]){5}';
+/** The whole rule as the prose states it: NFKC, then `@` or 6+ digits once whitespace and +()-. go. */
+function looksLikeIdentifier(q: string): boolean {
+  const text = q.normalize('NFKC');
+  return text.includes('@') || /[0-9]{6,}/.test(text.replace(/[\s+().-]/gu, ''));
+}
+/** Pasted identifiers the rule must refuse; each is synthetic or a placeholder. */
+const IDENTIFIER_QS = [
+  '08031234567',
+  '+2348031234567',
+  '+234 803 123 4567',
+  '0803 123 4567',
+  '(0803) 123-4567',
+  '0803.123.4567',
+  '234-803-123-4567',
+  '123456',
+  'Sample 080312',
+  'sample@example.test',
+  'a@b',
+  '@sample',
+  'Sample\t080 312 45',
+];
+/** Names the rule must let through. */
+const NAME_QS = ['Sample', 'Sámple Fixture', 'Sample 2026', 'Unit 12 Block 3456', 'Sample 12345', '50% Sample', 'Sample (Lagos) Ltd', 'Fixture-12.34'];
+/** Full-width forms: refused by the rule after NFKC though the ASCII pattern misses them. */
+const FULL_WIDTH_QS = ['０８０３１２３４５６７', 'sample＠example.test'];
 const EXAMPLE_LABELS: Record<string, string[]> = {
   [SEARCH]: ['portal', 'prefix', 'withheldNamePart'],
   [LOOKUP]: ['leadsOnly', 'phoneLookup'],
@@ -947,29 +1009,32 @@ function realisticNames(value: unknown, key = ''): string[] {
 
 const SEARCH_STEPS = [
   'authentication (`401`) and the scope-header `400` first',
-  'then `q` present and no identifier in the URL (`query_required`, `identifier_in_url`)',
+  'then `q` present (`query_required`)',
+  'then no identifier in the URL, in a `phone` or `email` parameter or in `q` itself (`identifier_in_url`)',
   "then each parameter's own shape",
-  'then the folded length (`query_too_short`)',
+  '`invalid_string`, then `types` values as `unknown_type`',
+  'then the length, as sent or once folded (`query_too_short`)',
 ];
 const LOOKUP_STEPS = [
   'authentication (`401`) and the scope-header `400` first',
   'then the body as a closed JSON object (`unknown_property`)',
   'then the one-identifier rule (`one_term_required`)',
   "then each property's own shape",
+  '`invalid_phone`, `email` format as `invalid_email`, then `types` values as `unknown_type`',
 ];
+/** What each operation's 400s may be decided from (review fix 3). */
+const SEARCH_BASIS =
+  /Every `400` is decided from the request alone, before any record is read, so no `400` depends on what exists/;
+const LOOKUP_BASIS =
+  /Every `400` is decided from the request and the caller's own tenant settings \(the default country `invalid_phone` normalises with\), never from any record, so no `400` depends on what exists/;
 
 /** The order rule (R15) as prose; empty when it is all there. */
-function errorOrderProblems(opText: string, steps: string[]): string[] {
+function errorOrderProblems(opText: string, steps: string[], basis: RegExp): string[] {
   const op = prose(opText);
   const problems: string[] = [];
-  if (
-    !/Every `400` is decided from the request alone, before any record is read, so no `400` depends on what exists/.test(
-      op,
-    )
-  )
-    problems.push('a 400 may depend on what exists');
-  let from = op.indexOf('**Order:**');
-  if (from === -1) problems.push('no **Order:**');
+  if (!basis.test(op)) problems.push('a 400 may depend on what exists');
+  let from = op.indexOf('**Order**');
+  if (from === -1) problems.push('no **Order**');
   for (const step of steps) {
     const found = op.indexOf(step, Math.max(from, 0));
     if (found === -1) problems.push(`step missing or out of order: ${step}`);
@@ -979,6 +1044,26 @@ function errorOrderProblems(opText: string, steps: string[]): string[] {
     !/A read, so there is never a `403`, and it names no record, so there is never a `404`/.test(op)
   )
     problems.push('403 or 404 not excluded');
+  return problems;
+}
+
+/** R21: what searchRecords' prose and q schema fail to say about identifiers in q; empty when right. */
+function identifierInQProblems(opText: string, qSchema: Located): string[] {
+  const op = prose(opText);
+  const problems: string[] = [];
+  if (
+    !/\*\*`q` itself is refused when it looks like an identifier:\*\* after Unicode NFKC normalisation, a `q` that contains `@`, or that contains a run of 6 or more digits once every whitespace character and every `\+`, `\(`, `\)`, `-` and `\.` is removed, is `400 validation_failed` with `details\[\]\.code: identifier_in_url` at `q`/.test(
+      op,
+    )
+  )
+    problems.push('the q identifier rule is not stated exactly');
+  if (!/\*\*Clients send phone- or email-shaped input to lookupRecords,\*\* never to this operation/.test(op))
+    problems.push('clients are not sent to lookupRecords');
+  if (!/the server applies it after NFKC/.test(op)) problems.push('NFKC is not applied');
+  const node = qSchema.node;
+  const not = isMapping(node) && isMapping(node.not) ? node.not : undefined;
+  if (!not || not.pattern !== IDENTIFIER_Q_PATTERN)
+    problems.push(`q schema has no not pattern ${IDENTIFIER_Q_PATTERN}`);
   return problems;
 }
 
@@ -1107,7 +1192,76 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       expect(text).toMatch(
         /A `phone` or `email` query parameter here is not ignored: it is `400 validation_failed` with `details\[\]\.code: identifier_in_url` at that parameter/,
       );
-      expect(description(lookup())).toMatch(/searchRecords refuses them in its query string/);
+      expect(description(lookup())).toMatch(
+        /searchRecords refuses them in its query string, `q` included, so a client sends any phone- or email-shaped input here/,
+      );
+    });
+
+    it('q that looks like a phone number or an email address is 400 identifier_in_url at q, stated exactly and as the schema’s not pattern (review fix 1)', () => {
+      expect(
+        identifierInQProblems(str(search().op.description), paramSchema(search(), 'q')),
+      ).toEqual([]);
+      expect(prose(str(param(search(), 'q')?.description))).toMatch(
+        /Never a phone number or an email address: an `@`, or a run of 6 or more digits once whitespace and `\+\(\)-\.` are removed \(after NFKC\), is `400 identifier_in_url`; send those to lookupRecords/,
+      );
+    });
+
+    it('the q schema refuses every pasted identifier and accepts every name in the cases (R21)', () => {
+      const schema = paramSchema(search(), 'q');
+      const leaked = IDENTIFIER_QS.filter((value) => validate(schema, value, 'q').length === 0);
+      expect(leaked, 'identifiers the schema lets into the URL').toEqual([]);
+      const refused = NAME_QS.filter((value) => validate(schema, value, 'q').length > 0);
+      expect(refused, 'names the schema refuses').toEqual([]);
+    });
+
+    it('the stated rule (NFKC first) agrees with the schema on every case, and also catches full-width forms', () => {
+      gate();
+      for (const value of IDENTIFIER_QS) expect(looksLikeIdentifier(value), value).toBe(true);
+      for (const value of NAME_QS) expect(looksLikeIdentifier(value), value).toBe(false);
+      const pattern = new RegExp(IDENTIFIER_Q_PATTERN, 'u');
+      for (const value of [...IDENTIFIER_QS, ...NAME_QS]) {
+        expect(pattern.test(value), `pattern and rule disagree on ${value}`).toBe(
+          looksLikeIdentifier(value),
+        );
+      }
+      for (const value of FULL_WIDTH_QS) {
+        expect(looksLikeIdentifier(value), `${value} after NFKC`).toBe(true);
+        expect(pattern.test(value), `${value} is why the server applies NFKC first`).toBe(false);
+      }
+    });
+
+    it('(self-check, R21) a looser q rule is caught: no not pattern, a weaker pattern, or the prose softened', () => {
+      const text = str(search().op.description);
+      const schema = paramSchema(search(), 'q');
+      expect(identifierInQProblems(text, schema)).toEqual([]);
+      const node = isMapping(schema.node) ? schema.node : {};
+      const withPattern = (pattern: string | undefined): Located => ({
+        node: pattern === undefined ? { ...node, not: undefined } : { ...node, not: { pattern } },
+        file: schema.file,
+      });
+      const weaker: [string, Located][] = [
+        ['no not', withPattern(undefined)],
+        ['seven digits', withPattern('@|[0-9](?:[\\s+().-]*[0-9]){6}')],
+        ['contiguous only', withPattern('@|[0-9]{6}')],
+        ['no @', withPattern('[0-9](?:[\\s+().-]*[0-9]){5}')],
+      ];
+      for (const [label, planted] of weaker) {
+        expect(identifierInQProblems(text, planted).length, `${label} passed the rule`).toBeGreaterThan(0);
+      }
+      // The schema-level effect: each weaker pattern lets a pasted identifier through.
+      for (const [label, planted] of weaker) {
+        const leaked = IDENTIFIER_QS.filter((value) => validate(planted, value, 'q').length === 0);
+        expect(leaked.length, `${label} leaks nothing`).toBeGreaterThan(0);
+      }
+      const softened: [string, string][] = [
+        ['no NFKC', prose(text).replace('after Unicode NFKC normalisation, ', '')],
+        ['8 digits', prose(text).replace('a run of 6 or more digits', 'a run of 8 or more digits')],
+        ['clients not told', prose(text).replace('**Clients send phone- or email-shaped input to lookupRecords,**', 'Clients may send anything,')],
+      ];
+      for (const [label, planted] of softened) {
+        expect(planted, `${label}: the plant changed nothing`).not.toBe(prose(text));
+        expect(identifierInQProblems(planted, schema).length, `${label} passed`).toBeGreaterThan(0);
+      }
     });
   });
 
@@ -1200,7 +1354,7 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       }
       const text = description(lookup());
       expect(text).toMatch(
-        /The closed JSON body carries exactly one of `phone` or `email`, plus optional `types`\. None, or both, is `400 validation_failed` with `details\[\]\.code: one_term_required` at `phone`\. Any other property is `400 validation_failed` with `details\[\]\.code: unknown_property` at that property/,
+        /The closed JSON body carries exactly one of `phone` or `email`, plus optional `types`\. None, or both, is `400 validation_failed` with `details\[\]\.code: one_term_required` at `phone`\. Any other property is `400 validation_failed` with `details\[\]\.code: unknown_property` at the fixed path `body`/,
       );
     });
 
@@ -1880,32 +2034,81 @@ describe('acceptance: records contract, global search (T-0085)', () => {
 
   describe('errors and their order (R15)', () => {
     for (const id of OP_IDS) {
-      it(`${id}: documents exactly 200, 400 and 401, and decides one failure: 400 validation_failed`, () => {
+      it(`${id}: documents exactly 200, 400 and 401, and lists every 400 detail code in the order decided`, () => {
         const op = operation(id);
         expect([...responses(op).keys()].sort()).toEqual(['200', '400', '401']);
-        expect(op.op['x-kasuwa-error-order']).toEqual(['400 validation_failed']);
+        expect(op.op['x-kasuwa-error-order']).toEqual(ERROR_ORDER[id]);
+        const codes = (ERROR_ORDER[id] ?? []).map((entry) => entry.split(' ')[2]);
+        const documented = BAD_REQUEST_DETAILS[id]?.map((entry) => entry.split(' ')[1]) ?? [];
+        expect([...new Set(documented)].sort(), 'the order names exactly the documented codes').toEqual(
+          [...codes].sort(),
+        );
       });
     }
 
-    it('every 400 is decided from the request alone, in the stated order; never 403 or 404', () => {
-      expect(errorOrderProblems(str(search().op.description), SEARCH_STEPS), SEARCH).toEqual([]);
-      expect(errorOrderProblems(str(lookup().op.description), LOOKUP_STEPS), LOOKUP).toEqual([]);
-      for (const [op, name] of [
-        [search(), 'SearchValidationFailed'],
-        [lookup(), 'LookupValidationFailed'],
-      ] as const) {
+    it('query_required is decided strictly before identifier_in_url (review fix 4)', () => {
+      const raw: unknown = search().op['x-kasuwa-error-order'];
+      const order = Array.isArray(raw) ? raw.map(str) : [];
+      const required = order.indexOf('400 validation_failed query_required');
+      const identifier = order.indexOf('400 validation_failed identifier_in_url');
+      expect(required, 'query_required listed').toBeGreaterThanOrEqual(0);
+      expect(identifier, 'identifier_in_url strictly after query_required').toBe(required + 1);
+    });
+
+    it('every 400 is decided without reading a record, in the stated order; never 403 or 404 (review fix 3)', () => {
+      expect(
+        errorOrderProblems(str(search().op.description), SEARCH_STEPS, SEARCH_BASIS),
+        SEARCH,
+      ).toEqual([]);
+      expect(
+        errorOrderProblems(str(lookup().op.description), LOOKUP_STEPS, LOOKUP_BASIS),
+        LOOKUP,
+      ).toEqual([]);
+      const basis: [Operation, string, RegExp][] = [
+        [
+          search(),
+          'SearchValidationFailed',
+          /Decided from the request alone, before any record is read: no `400` here depends on what exists/,
+        ],
+        [
+          lookup(),
+          'LookupValidationFailed',
+          /Decided from the request and the caller's own tenant settings, never from any record: no `400` here depends on what exists/,
+        ],
+      ];
+      for (const [op, name, rule] of basis) {
         const bad = responses(op).get('400');
         expect(bad?.node, op.id).toBe(at({ $ref: `#/components/responses/${name}` }).node);
-        expect(prose(isMapping(bad?.node) ? str(bad.node.description) : ''), op.id).toMatch(
-          /Decided from the request alone, before any record is read: no `400` here depends on what exists/,
-        );
+        expect(prose(isMapping(bad?.node) ? str(bad.node.description) : ''), op.id).toMatch(rule);
       }
+      expect(description(lookup()), 'the lookup no longer claims "the request alone"').not.toMatch(
+        /request alone/,
+      );
+    });
+
+    it('unknown_property sits at the fixed path body and never echoes the client’s key (review fix 2)', () => {
+      expect(description(lookup())).toMatch(
+        /`details\[\]\.code: unknown_property` at the fixed path `body`: the client's key is never echoed/,
+      );
+      const paths = exampleBodies(responses(lookup()).get('400'))
+        .flatMap((body) => list(body.details))
+        .filter((detail) => detail.code === 'unknown_property')
+        .map((detail) => str(detail.path));
+      expect(paths).toEqual(['body']);
+      const lookupKeys = keysOf(schemaNamed('LookupRequest'));
+      const allPaths = exampleBodies(responses(lookup()).get('400'))
+        .flatMap((body) => list(body.details))
+        .map((detail) => str(detail.path));
+      expect(
+        allPaths.filter((path) => path !== 'body' && !lookupKeys.includes(path)),
+        'a 400 path that is neither body nor a LookupRequest property',
+      ).toEqual([]);
     });
 
     it('(self-check, R15) a reordered or data-dependent error rule is caught', () => {
       // Collapsed first, so a plant is not defeated by where the YAML wraps a line.
       const real = description(search());
-      expect(errorOrderProblems(real, SEARCH_STEPS)).toEqual([]);
+      expect(errorOrderProblems(real, SEARCH_STEPS, SEARCH_BASIS)).toEqual([]);
       const planted: [string, string][] = [
         [
           'data-dependent',
@@ -1915,28 +2118,41 @@ describe('acceptance: records contract, global search (T-0085)', () => {
           ),
         ],
         [
-          'reordered',
+          'identifier before required',
           real.replace(
-            /then `q` present and no identifier in the URL \(`query_required`, `identifier_in_url`\); then each parameter's own shape/,
-            "then each parameter's own shape; then `q` present and no identifier in the URL (`query_required`, `identifier_in_url`)",
+            /then `q` present \(`query_required`\); then no identifier in the URL, in a `phone` or `email` parameter or in `q` itself \(`identifier_in_url`\)/,
+            'then no identifier in the URL, in a `phone` or `email` parameter or in `q` itself (`identifier_in_url`); then `q` present (`query_required`)',
           ),
         ],
         ['a 404', real.replace(/so there is never a `404`/, 'so a missing record is `404`')],
       ];
       for (const [label, text] of planted) {
         expect(text, `${label}: the plant changed nothing`).not.toBe(real);
-        expect(errorOrderProblems(text, SEARCH_STEPS).length, `${label} passed`).toBeGreaterThan(0);
+        expect(
+          errorOrderProblems(text, SEARCH_STEPS, SEARCH_BASIS).length,
+          `${label} passed`,
+        ).toBeGreaterThan(0);
       }
       const lookupReal = description(lookup());
-      expect(errorOrderProblems(lookupReal, LOOKUP_STEPS)).toEqual([]);
+      expect(errorOrderProblems(lookupReal, LOOKUP_STEPS, LOOKUP_BASIS)).toEqual([]);
+      const alone = lookupReal.replace(
+        "decided from the request and the caller's own tenant settings (the default country `invalid_phone` normalises with), never from any record",
+        'decided from the request alone, before any record is read',
+      );
+      expect(alone, 'the basis plant changed nothing').not.toBe(lookupReal);
+      expect(
+        errorOrderProblems(alone, LOOKUP_STEPS, LOOKUP_BASIS).length,
+        'the old "request alone" wording passed for the lookup',
+      ).toBeGreaterThan(0);
       const swapped = lookupReal.replace(
         /then the body as a closed JSON object \(`unknown_property`\); then the one-identifier rule \(`one_term_required`\)/,
         'then the one-identifier rule (`one_term_required`); then the body as a closed JSON object (`unknown_property`)',
       );
       expect(swapped, 'the lookup plant changed nothing').not.toBe(lookupReal);
-      expect(errorOrderProblems(swapped, LOOKUP_STEPS).length, 'lookup reorder passed').toBeGreaterThan(
-        0,
-      );
+      expect(
+        errorOrderProblems(swapped, LOOKUP_STEPS, LOOKUP_BASIS).length,
+        'lookup reorder passed',
+      ).toBeGreaterThan(0);
     });
 
     for (const id of OP_IDS) {
@@ -2118,6 +2334,27 @@ describe('acceptance: records contract, global search (T-0085)', () => {
           .map(([label]) => label)
           .sort(),
       ).toEqual(REQUEST_LABELS);
+    });
+
+    it('every example that shows a Nigerian-format number says it is a placeholder (R22)', () => {
+      const summaries: string[] = [];
+      for (const media of [
+        jsonMedia(requestBody(lookup())),
+        jsonMedia(responses(lookup()).get('200')),
+      ]) {
+        const examples = media ? child(media, 'examples') : undefined;
+        if (!examples || !isMapping(examples.node)) continue;
+        for (const key of Object.keys(examples.node)) {
+          const example = child(examples, key);
+          if (!example || !isMapping(example.node)) continue;
+          const shown = [str(example.node.summary), ...stringsIn(example.node.value)];
+          if (shown.some((text) => /0803 000 0001/.test(text))) summaries.push(str(example.node.summary));
+        }
+      }
+      expect(summaries.length, 'no example shows the placeholder number').toBeGreaterThanOrEqual(2);
+      expect(
+        summaries.filter((summary) => !/a placeholder; Nigeria has no fictional number range/.test(summary)),
+      ).toEqual([]);
     });
 
     it('the examples use synthetic names only (R19)', () => {

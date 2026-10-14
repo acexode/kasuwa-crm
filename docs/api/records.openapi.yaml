@@ -3359,7 +3359,12 @@ paths:
       operationId: searchRecords
       x-kasuwa-implemented: false
       x-kasuwa-screens: ['P27/A1', 'P27/A4', 'P27/A5', 'P27/D1']
-      x-kasuwa-error-order: ['400 validation_failed']
+      x-kasuwa-error-order:
+        - 400 validation_failed query_required
+        - 400 validation_failed identifier_in_url
+        - 400 validation_failed invalid_string
+        - 400 validation_failed unknown_type
+        - 400 validation_failed query_too_short
       x-kasuwa-rights:
         admin: { contact: read, lead: read, account: read, deal: read }
         programme_manager: { contact: read, lead: read, account: read, deal: read }
@@ -3391,7 +3396,19 @@ paths:
         body. A `phone` or `email` query parameter here is not ignored: it is
         `400 validation_failed` with `details[].code: identifier_in_url` at
         that parameter, so a client that puts one in the URL fails loudly
-        instead of appearing to work.
+        instead of appearing to work. **`q` itself is refused when it looks
+        like an identifier:** after Unicode NFKC normalisation, a `q` that
+        contains `@`, or that contains a run of 6 or more digits once every
+        whitespace character and every `+`, `(`, `)`, `-` and `.` is
+        removed, is `400 validation_failed` with
+        `details[].code: identifier_in_url` at `q`. The `not` pattern on
+        `q`'s schema is this rule's ASCII form; the server applies it after
+        NFKC, so full-width digits and `＠` are refused too. So
+        `08031234567`, `+234 803 123 4567`, `(0803) 123-4567` and
+        `sample@example.test` are all refused, and `Sample 2026` or
+        `Unit 12 Block 3456` are not. A name that itself holds such a run
+        cannot be prefix-searched by it. **Clients send phone- or
+        email-shaped input to lookupRecords,** never to this operation.
 
         **Prefix matching on folded text (ADR-0015's fallback, D-L128).**
         `q` matches a field when the field's folded value STARTS WITH the
@@ -3475,14 +3492,16 @@ paths:
         or an email.
 
         **Errors.** Every `400` is decided from the request alone, before
-        any record is read, so no `400` depends on what exists. **Order:**
+        any record is read, so no `400` depends on what exists. **Order**
+        (`x-kasuwa-error-order`, the first that applies is returned):
         authentication (`401`) and the scope-header `400` first; then `q`
-        present and no identifier in the URL (`query_required`,
-        `identifier_in_url`); then each parameter's own shape (`types`
-        values, lengths, a NUL or other control character in `q` as
-        `invalid_string`); then the folded length (`query_too_short`). A
-        read, so there is never a `403`, and it names no record, so there is
-        never a `404`.
+        present (`query_required`); then no identifier in the URL, in a
+        `phone` or `email` parameter or in `q` itself (`identifier_in_url`);
+        then each parameter's own shape (`q` over 100 characters or holding
+        a NUL or other control character as `invalid_string`, then `types`
+        values as `unknown_type`); then the length, as sent or once folded
+        (`query_too_short`). A read, so there is never a `403`, and it names
+        no record, so there is never a `404`.
 
         **Transport.** Every answer, errors included, carries
         `Cache-Control: no-store`: the URL is the same for every user of
@@ -3498,8 +3517,17 @@ paths:
             A name prefix, case- and accent-folded (see above). Required. At
             least 2 characters once folded and trimmed; at most 100 as sent.
             A NUL or other control character is `400 validation_failed` with
-            `details[].code: invalid_string`.
-          schema: { type: string, minLength: 2, maxLength: 100 }
+            `details[].code: invalid_string`. Never a phone number or an
+            email address: an `@`, or a run of 6 or more digits once
+            whitespace and `+()-.` are removed (after NFKC), is
+            `400 identifier_in_url`; send those to lookupRecords.
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+            not:
+              description: The ASCII form of the identifier rule (R21); the server applies it after NFKC.
+              pattern: '@|[0-9](?:[\s+().-]*[0-9]){5}'
         - name: types
           in: query
           required: false
@@ -3606,7 +3634,12 @@ paths:
       operationId: lookupRecords
       x-kasuwa-implemented: false
       x-kasuwa-screens: ['P27/A2', 'P27/D1']
-      x-kasuwa-error-order: ['400 validation_failed']
+      x-kasuwa-error-order:
+        - 400 validation_failed unknown_property
+        - 400 validation_failed one_term_required
+        - 400 validation_failed invalid_phone
+        - 400 validation_failed invalid_email
+        - 400 validation_failed unknown_type
       x-kasuwa-rights:
         admin: { contact: read, lead: read, account: read, deal: read }
         programme_manager: { contact: read, lead: read, account: read, deal: read }
@@ -3625,13 +3658,16 @@ paths:
         a POST only so that the identifier travels in the body and **the URL
         never carries a phone number or an email address**: whole
         identifiers in a query string reach proxy and access logs (CLAUDE.md
-        6.1, D-L80). searchRecords refuses them in its query string.
+        6.1, D-L80). searchRecords refuses them in its query string, `q`
+        included, so a client sends any phone- or email-shaped input here.
 
         **Exactly one identifier.** The closed JSON body carries exactly one
         of `phone` or `email`, plus optional `types`. None, or both, is `400
         validation_failed` with `details[].code: one_term_required` at
         `phone`. Any other property is `400 validation_failed` with
-        `details[].code: unknown_property` at that property.
+        `details[].code: unknown_property` at the fixed path `body`: the
+        client's key is never echoed, since a key can be an identifier too
+        (`{"08031234567": 1}`).
 
         **Exact whole-value matching.** `phone` is a whole number in any
         common format (`0803 123 4567`, `+234 803 123 4567`,
@@ -3663,14 +3699,17 @@ paths:
         the same as for a number nobody has. Field security never answers
         `400 field_withheld`.
 
-        **Errors.** Every `400` is decided from the request alone, before
-        any record is read, so no `400` depends on what exists. **Order:**
-        authentication (`401`) and the scope-header `400` first; then the
-        body as a closed JSON object (`unknown_property`); then the
+        **Errors.** Every `400` is decided from the request and the caller's
+        own tenant settings (the default country `invalid_phone`
+        normalises with), never from any record, so no `400` depends on what
+        exists. **Order** (`x-kasuwa-error-order`, the first that applies is
+        returned): authentication (`401`) and the scope-header `400` first;
+        then the body as a closed JSON object (`unknown_property`); then the
         one-identifier rule (`one_term_required`); then each property's own
-        shape (`types` values, `phone` and `email` format and
-        normalisation). A read, so there is never a `403`, and it names no
-        record, so there is never a `404`.
+        shape (`phone` format and normalisation as `invalid_phone`, `email`
+        format as `invalid_email`, then `types` values as `unknown_type`). A
+        read, so there is never a `403`, and it names no record, so there is
+        never a `404`.
 
         **Transport.** Every answer, errors included, carries
         `Cache-Control: no-store`. The body is personal data: it is never
@@ -3682,7 +3721,7 @@ paths:
             schema: { $ref: '#/components/schemas/LookupRequest' }
             examples:
               phone:
-                summary: A number as a person types it
+                summary: A number as a person types it (a placeholder; Nigeria has no fictional number range)
                 value:
                   phone: 0803 000 0001
               email:
@@ -3703,7 +3742,7 @@ paths:
               schema: { $ref: '#/components/schemas/SearchResults' }
               examples:
                 phoneLookup:
-                  summary: phone 0803 000 0001, all four types; the account and deal groups empty
+                  summary: phone 0803 000 0001 (a placeholder; Nigeria has no fictional number range), all four types; the account and deal groups empty
                   value:
                     groups:
                       - type: contact
@@ -6468,6 +6507,16 @@ components:
                 details:
                   - path: phone
                     code: identifier_in_url
+            identifierInQ:
+              summary: A q that looks like a phone number or an email address; send it to lookupRecords
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: q
+                    code: identifier_in_url
             queryTooShort:
               summary: q under 2 characters once folded and trimmed
               value:
@@ -6501,10 +6550,11 @@ components:
 
     LookupValidationFailed:
       description: |
-        lookupRecords could not parse the body. Decided from the request
-        alone, before any record is read: no `400` here depends on what
-        exists. `details` names paths and reason codes, never the submitted
-        value (which is a phone number or an email address).
+        lookupRecords could not parse the body. Decided from the request and
+        the caller's own tenant settings, never from any record: no `400`
+        here depends on what exists. `details` names fixed paths and reason
+        codes, never the submitted value (which is a phone number or an
+        email address) and never a key the client chose.
       headers:
         Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:
@@ -6512,14 +6562,14 @@ components:
           schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
           examples:
             unknownProperty:
-              summary: A property the closed body does not have
+              summary: A property the closed body does not have, at the fixed path body; the key is never echoed
               value:
                 statusCode: 400
                 error: Bad Request
                 code: validation_failed
                 message: Validation failed
                 details:
-                  - path: q
+                  - path: body
                     code: unknown_property
             oneTermRequired:
               summary: Neither phone nor email, or both
