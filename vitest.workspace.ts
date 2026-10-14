@@ -46,6 +46,8 @@ export default defineWorkspace([
   {
     resolve: { alias },
     test: {
+      // The worker cap and heap limit for this project live in vitest.config.ts:
+      // vitest 2.x ignores maxWorkers/maxForks set here, at project level.
       name: 'unit',
       environment: 'node',
       include: ['{apps,packages}/**/*.test.ts'],
