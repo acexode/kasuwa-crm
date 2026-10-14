@@ -23,6 +23,7 @@ describe('feature flags', () => {
       'crm_activities',
       'crm_scripts',
       'crm_pipeline',
+      'crm_search',
     ]);
   });
 
@@ -175,6 +176,25 @@ describe('feature flags', () => {
     ).toThrow(/Refusing to start.*crm_pipeline/);
     expect(() =>
       assertFlagsAreProductionSafe({ nodeEnv: 'test', enabled: ['crm_records', 'crm_accounts', 'crm_record_view', 'crm_pipeline'] }),
+    ).not.toThrow();
+  });
+
+  it('ships crm_search OFF, separate from the other CRM flags, and not production-ready (T-0087)', () => {
+    expect(FLAGS.crm_search.defaultValue).toBe(false);
+    expect(FLAGS.crm_search.productionReady).toBe(false);
+    expect(flagConfiguration([]).crm_search.defaultVariant).toBe('off');
+    expect(flagConfiguration(['crm_search']).crm_search.defaultVariant).toBe('on');
+    // Its own switch: it rides on the records process but turns no other flag on, and none turns it on.
+    expect(flagConfiguration(['crm_search']).crm_records.defaultVariant).toBe('off');
+    expect(
+      flagConfiguration(['crm_records', 'crm_accounts', 'crm_record_view', 'crm_leads', 'crm_activities', 'crm_scripts', 'crm_pipeline'])
+        .crm_search.defaultVariant,
+    ).toBe('off');
+    expect(() =>
+      assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: ['crm_search'] }),
+    ).toThrow(/Refusing to start.*crm_search/);
+    expect(() =>
+      assertFlagsAreProductionSafe({ nodeEnv: 'test', enabled: ['crm_records', 'crm_accounts', 'crm_record_view', 'crm_leads', 'crm_search'] }),
     ).not.toThrow();
   });
 

@@ -213,6 +213,24 @@ export const FLAGS = {
     // capability read (D-L84, T-0079). Lifting it is a one-line change.
     productionReady: false,
   },
+  /**
+   * T-0087 (D-L133, D-L135, ADR-0014): the P27 global search screen at
+   * `/search` and the Ctrl/Cmd+K command palette in the CRM shell. It gates
+   * the ROUTE (a real 404 while it is off), the shell's header entry and the
+   * palette, through `crmLiveNav()`.
+   *
+   * A presentation switch, not an access control: searchRecords and
+   * lookupRecords scope every hit from the session and `user_programme`, and
+   * apply field security, whether this is on or off.
+   */
+  crm_search: {
+    description: 'The P27 global search screen at /search and the Ctrl/Cmd+K command palette in the CRM shell (T-0087).',
+    defaultValue: false,
+    owner: 'T-0087 (screen and palette), T-0085 and T-0086 (API), D-L133, D-L135',
+    // NOT production-ready: proven against the contract mock only, and the
+    // deal hits link nowhere until the spec is re-pinned after T-0110.
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;
