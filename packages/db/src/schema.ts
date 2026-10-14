@@ -28,6 +28,18 @@ const customBytea = customType<{ data: Buffer; driverData: Buffer }>({
 });
 
 /**
+ * The generation expression of the six folded search columns (migration 0038,
+ * T-0086). Mirrored AS GENERATED so Drizzle's insert and update types leave
+ * them out (Postgres refuses a value for them, SQLSTATE 428C9) and no
+ * row-copy helper tries to write one. The expression itself lives only in the
+ * migration, the source of truth: this placeholder is a bare SQL comment, so
+ * DDL generated from it would be a syntax error, never a wrong fold.
+ */
+const FOLDED_IN_0038 = sql.raw(
+  '/* the fold in packages/db/migrations/0038_search_prefix_columns.sql */',
+);
+
+/**
  * Typed mirror of packages/db/migrations/*.sql.
  *
  * The SQL migrations are the source of truth, NOT this file: RLS policies,
@@ -212,6 +224,11 @@ export const contact = pgTable(
      * (CHECK, NOT VALID). Not a link: account_id is. Classified pii (D-L82).
      */
     companyName: text('company_name'),
+    // --- Migration 0038 (T-0086): folded search copies, generated and stored ---
+    displayNameSearch: text('display_name_search').generatedAlwaysAs(FOLDED_IN_0038),
+    givenNamesSearch: text('given_names_search').generatedAlwaysAs(FOLDED_IN_0038),
+    familyNameSearch: text('family_name_search').generatedAlwaysAs(FOLDED_IN_0038),
+    companyNameSearch: text('company_name_search').generatedAlwaysAs(FOLDED_IN_0038),
   },
   (table) => [
     /** Migration 0027: the target of activity's composite contact FK. */
@@ -244,6 +261,44 @@ export const contact = pgTable(
     index('contact_owner_idx')
       .on(table.tenantId, table.ownerUserId)
       .where(sql`owner_user_id IS NOT NULL`),
+    /** Migration 0038 (T-0086): the prefix indexes (the folded key is COLLATE "C" there). */
+    index('contact_display_name_search_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.displayNameSearch,
+      table.id,
+    ),
+    index('contact_given_names_search_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.givenNamesSearch,
+      table.id,
+    ),
+    index('contact_family_name_search_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.familyNameSearch,
+      table.id,
+    ),
+    index('contact_company_name_search_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.companyNameSearch,
+      table.id,
+    ),
+    /** Migration 0038: their partial twins for the leads view (T-0086 review fix 2). */
+    index('contact_display_name_search_lead_idx')
+      .on(table.tenantId, table.programmeId, table.displayNameSearch, table.id)
+      .where(sql`status IN ('new', 'contacted', 'qualified', 'unqualified')`),
+    index('contact_given_names_search_lead_idx')
+      .on(table.tenantId, table.programmeId, table.givenNamesSearch, table.id)
+      .where(sql`status IN ('new', 'contacted', 'qualified', 'unqualified')`),
+    index('contact_family_name_search_lead_idx')
+      .on(table.tenantId, table.programmeId, table.familyNameSearch, table.id)
+      .where(sql`status IN ('new', 'contacted', 'qualified', 'unqualified')`),
+    index('contact_company_name_search_lead_idx')
+      .on(table.tenantId, table.programmeId, table.companyNameSearch, table.id)
+      .where(sql`status IN ('new', 'contacted', 'qualified', 'unqualified')`),
     /** Migration 0031 (T-0103): a programme removal reads only that programme's owned rows. */
     index('contact_owner_programme_idx')
       .on(table.tenantId, table.ownerUserId, table.programmeId)
@@ -303,8 +358,17 @@ export const account = pgTable(
      * ACCOUNT_MAX_DEPTH (the 0026 hierarchy guard).
      */
     parentAccountId: uuid('parent_account_id'),
+    /** Migration 0038 (T-0086): the folded search copy of `name`, generated and stored. */
+    nameSearch: text('name_search').generatedAlwaysAs(FOLDED_IN_0038),
   },
   (table) => [
+    /** Migration 0038 (T-0086): the prefix index (the folded key is COLLATE "C" there). */
+    index('account_name_search_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.nameSearch,
+      table.id,
+    ),
     uniqueIndex('account_tenant_id_programme_id_id_key').on(
       table.tenantId,
       table.programmeId,
@@ -751,8 +815,17 @@ export const deal = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     /** Maintained by the app.touch_updated_at() trigger when a statement leaves it unchanged. */
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Migration 0038 (T-0086): the folded search copy of `name`, generated and stored. */
+    nameSearch: text('name_search').generatedAlwaysAs(FOLDED_IN_0038),
   },
   (table) => [
+    /** Migration 0038 (T-0086): the prefix index (the folded key is COLLATE "C" there). */
+    index('deal_name_search_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.nameSearch,
+      table.id,
+    ),
     uniqueIndex('deal_pipeline_id_key').on(
       table.tenantId,
       table.programmeId,

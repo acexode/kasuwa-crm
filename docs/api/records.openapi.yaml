@@ -45,7 +45,7 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.12.0-T-0085
+  version: 0.12.2-T-0086
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
     update. Accounts (T-0052, served since T-0055): list, get, create,
@@ -3357,9 +3357,10 @@ paths:
       tags: [search]
       summary: Global search — at most three hits per record type, no counts
       operationId: searchRecords
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P27/A1', 'P27/A4', 'P27/A5', 'P27/D1']
       x-kasuwa-error-order:
+        - 429 too_many_requests
         - 400 validation_failed query_required
         - 400 validation_failed identifier_in_url
         - 400 validation_failed invalid_string
@@ -3398,15 +3399,18 @@ paths:
         that parameter, so a client that puts one in the URL fails loudly
         instead of appearing to work. **`q` itself is refused when it looks
         like an identifier:** after Unicode NFKC normalisation, a `q` that
-        contains `@`, or that contains a run of 6 or more digits once every
-        whitespace character and every `+`, `(`, `)`, `-` and `.` is
-        removed, is `400 validation_failed` with
-        `details[].code: identifier_in_url` at `q`. The `not` pattern on
-        `q`'s schema is this rule's ASCII form; the server applies it after
-        NFKC, so full-width digits and `＠` are refused too. So
-        `08031234567`, `+234 803 123 4567`, `(0803) 123-4567` and
-        `sample@example.test` are all refused, and `Sample 2026` or
-        `Unit 12 Block 3456` are not. A name that itself holds such a run
+        contains `@`, or that contains a run of 6 or more decimal digits of
+        any script (`\p{Nd}`) once every character that is neither a letter
+        (`\p{L}`) nor a decimal digit is removed, is `400 validation_failed`
+        with `details[].code: identifier_in_url` at `q` (D-L135). The `not`
+        pattern on `q`'s schema is the same rule as an ECMA-262 Unicode
+        regular expression; the server applies it after NFKC, so digits that
+        NFKC maps to ASCII (superscript, circled) are refused too. So
+        `08031234567`, `+234 803 123 4567`, `(0803) 123-4567`,
+        `0803/123/4567`, `0803_123_4567`, `0803,123,4567`, `0803–123–4567`
+        (en dash), `٠٨٠٣١٢٣٤٥٦٧` (Arabic-Indic digits) and
+        `sample@example.test` are all refused, and `Sample 2026`,
+        `Unit 12 Block 3456` or `Fixture-12.34` are not. A name that itself holds such a run
         cannot be prefix-searched by it. **Clients send phone- or
         email-shaped input to lookupRecords,** never to this operation.
 
@@ -3494,7 +3498,8 @@ paths:
         **Errors.** Every `400` is decided from the request alone, before
         any record is read, so no `400` depends on what exists. **Order**
         (`x-kasuwa-error-order`, the first that applies is returned):
-        authentication (`401`) and the scope-header `400` first; then `q`
+        authentication (`401`) and the scope-header `400` first; then the
+        per-user throttle (`429 too_many_requests`); then `q`
         present (`query_required`); then no identifier in the URL, in a
         `phone` or `email` parameter or in `q` itself (`identifier_in_url`);
         then each parameter's own shape (`q` over 100 characters or holding
@@ -3502,6 +3507,12 @@ paths:
         values as `unknown_type`); then the length, as sent or once folded
         (`query_too_short`). A read, so there is never a `403`, and it names
         no record, so there is never a `404`.
+
+        **Throttle (T-0086, D-L134).** Each user has a budget of
+        searchRecords calls per window, separate from their lookupRecords
+        budget; beyond it the answer is `429 too_many_requests`
+        (`SearchTooManyRequests`), decided after authentication and before
+        any validation, and the body never echoes the query.
 
         **Transport.** Every answer, errors included, carries
         `Cache-Control: no-store`: the URL is the same for every user of
@@ -3518,16 +3529,17 @@ paths:
             least 2 characters once folded and trimmed; at most 100 as sent.
             A NUL or other control character is `400 validation_failed` with
             `details[].code: invalid_string`. Never a phone number or an
-            email address: an `@`, or a run of 6 or more digits once
-            whitespace and `+()-.` are removed (after NFKC), is
-            `400 identifier_in_url`; send those to lookupRecords.
+            email address: an `@`, or a run of 6 or more decimal digits of
+            any script once everything that is neither a letter nor a digit is
+            removed (after NFKC), is `400 identifier_in_url`; send those to
+            lookupRecords.
           schema:
             type: string
             minLength: 2
             maxLength: 100
             not:
-              description: The ASCII form of the identifier rule (R21); the server applies it after NFKC.
-              pattern: '@|[0-9](?:[\s+().-]*[0-9]){5}'
+              description: The identifier rule (R21, D-L135) as an ECMA-262 Unicode (`u`) regular expression; the server applies it after NFKC.
+              pattern: '[@＠﹫]|\p{Nd}(?:[^\p{L}\p{Nd}]*\p{Nd}){5}'
         - name: types
           in: query
           required: false
@@ -3626,15 +3638,17 @@ paths:
                         hits: []
         '400': { $ref: '#/components/responses/SearchValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '429': { $ref: '#/components/responses/SearchTooManyRequests' }
 
   /api/v1/search/lookup:
     post:
       tags: [search]
       summary: Exact lookup by phone or email — a read sent as a POST so the identifier stays out of the URL
       operationId: lookupRecords
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P27/A2', 'P27/D1']
       x-kasuwa-error-order:
+        - 429 too_many_requests
         - 400 validation_failed unknown_property
         - 400 validation_failed one_term_required
         - 400 validation_failed invalid_phone
@@ -3704,12 +3718,20 @@ paths:
         normalises with), never from any record, so no `400` depends on what
         exists. **Order** (`x-kasuwa-error-order`, the first that applies is
         returned): authentication (`401`) and the scope-header `400` first;
+        then the per-user throttle (`429 too_many_requests`);
         then the body as a closed JSON object (`unknown_property`); then the
         one-identifier rule (`one_term_required`); then each property's own
         shape (`phone` format and normalisation as `invalid_phone`, `email`
         format as `invalid_email`, then `types` values as `unknown_type`). A
         read, so there is never a `403`, and it names no record, so there is
         never a `404`.
+
+        **Throttle (T-0086, D-L134).** Each user has a budget of
+        lookupRecords calls per window, tighter than and separate from their
+        searchRecords budget, since a lookup tests one whole identifier at a
+        time; beyond it the answer is `429 too_many_requests`
+        (`SearchTooManyRequests`), decided after authentication and before
+        any validation, and the body never echoes the phone or address.
 
         **Transport.** Every answer, errors included, carries
         `Cache-Control: no-store`. The body is personal data: it is never
@@ -3778,6 +3800,7 @@ paths:
                             withheldFields: []
         '400': { $ref: '#/components/responses/LookupValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '429': { $ref: '#/components/responses/SearchTooManyRequests' }
 
 components:
   securitySchemes:
@@ -6480,7 +6503,10 @@ components:
         searchRecords could not parse the request. Decided from the request
         alone, before any record is read: no `400` here depends on what
         exists. `details` names paths and reason codes, never the submitted
-        value (which is a name).
+        value (which is a name). `identifier_in_url` at `q` is the R21 rule
+        (D-L135): after NFKC, an `@`, or 6 or more decimal digits of any
+        script once everything that is neither a letter nor a digit is
+        removed.
       headers:
         Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:
@@ -6508,7 +6534,7 @@ components:
                   - path: phone
                     code: identifier_in_url
             identifierInQ:
-              summary: A q that looks like a phone number or an email address; send it to lookupRecords
+              summary: A q that looks like a phone number or an email address (an @, or 6+ digits of any script once non-letters go); send it to lookupRecords
               value:
                 statusCode: 400
                 error: Bad Request
@@ -6610,6 +6636,36 @@ components:
                 details:
                   - path: types
                     code: unknown_type
+
+    SearchTooManyRequests:
+      description: |
+        searchRecords or lookupRecords was called too often by this user (T-0086,
+        D-L134). A resource and harvesting control, not a permission decision:
+        it says nothing about any record. The limit is **per user**, never per
+        address, so colleagues behind one office address do not share it. Each
+        operation has its **own budget**: exhausting one leaves the other open,
+        and the lookup's budget is **tighter**, because a lookup tests one whole
+        phone number or address at a time. It is decided after authentication
+        and the scope-header check and before any validation of the request.
+        Same shape as the sign-in throttle (`TooManyAttempts`,
+        auth.openapi.yaml): the shared Error envelope with
+        `code: too_many_requests` and, optionally, `retryAt`, the earliest time
+        a retry can succeed. **The body never echoes the query**: no `q`, no
+        phone number, no address. The numbers are the server's and may change.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            tooManyRequests:
+              summary: Too many searches or lookups by this user in the current window
+              value:
+                statusCode: 429
+                error: Too Many Requests
+                code: too_many_requests
+                message: Too many searches. Wait a moment and try again.
+                retryAt: '2026-10-14T10:01:00.000Z'
 
 security:
   - sessionToken: []
