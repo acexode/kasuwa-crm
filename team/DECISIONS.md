@@ -2871,3 +2871,26 @@ is no 0038, no route and the flags are false; 4 self-checks and 2 guards pass.
 - **Open:** what counts as a valid number of 7–9 digits per country, beyond R10's clear case. The 0038 header must say
   that a STORED column rewrites `contact` under ACCESS EXCLUSIVE, acceptable only while no cell is populated (D-L65).
 - **Builder:** Agent 3 on `agent3/T-0086-search-api`.
+### D-L135 — T-0086 review rulings, the Unicode identifier rule, and follow-ups (lead, 2026-10-14)
+**Status:** PROCEEDING (lead). T-0086 merged as #130 (migration 0038).
+- **Identifier rule, strengthened (contract 0.12.2):** after NFKC, a `q` is `400 identifier_in_url` if it contains `@`,
+  or if, once every character that is neither `\p{L}` nor `\p{Nd}` is removed, it holds a run of 6 or more `\p{Nd}`
+  digits of any script. The contract's `not` pattern is the same rule as a `u` regex. T-0087's client rule (R27) follows
+  it: text with a digit and no letter is phone-like.
+- **Lead suite edits (3fb072b):**
+  - `deal.name_search` is pinned in pipeline-tables;
+  - the 120k-row seeds in search-api and list-indexes insert 10,000 rows per statement, so they no longer hit the 30 s
+    statement timeout on a loaded host. The data is identical.
+- **Leads index shape:** the leads view's status filter is not an index key. On a 1%-leads tenant the leads group
+  examined up to 24,240 rows, so 0038 adds four partial lead indexes and the leads query sends the predicate as
+  literals. Rows examined drop to 0.
+- **Accepted risk:** the search throttle's counters are per process. They must move to Redis (or another shared store)
+  before a second API instance serves traffic.
+- **Follow-ups:**
+  - a lead edit adding a low-lead-tenant plan test to search-api, because its seed is too lead-heavy to catch a
+    regression of the partial indexes;
+  - statement size grows with programmes × fields for users in hundreds of programmes. It goes into the
+    timeline-performance task (D-L131) as a search item;
+  - pin the Postgres image by digest or ICU version before the first cell, so the folded columns cannot drift silently
+    on a re-pull;
+  - D-L80's query-string stripping must cover the web ingress as well as the API.
