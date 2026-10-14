@@ -2848,3 +2848,26 @@ T-0109's mock unchanged. On main, 45 wrapper tests fail because there is no rout
   chip counts, persisted recent searches, and the scope menu (deferred under D-L87).
 - **Open:** `listContacts` and `listLeads` `q` still accept a number in the URL, as their contracts say ("name or
   number"). Bringing them under R21 is a contract change, folded into T-0124's scope.
+### D-L134 — T-0086 suite rulings; the search throttle joins the contract (lead, 2026-10-14)
+**Status:** PROCEEDING (lead). The suite `search-api.acceptance.test.ts` (67 tests) is on `lead/T-0086-acceptance`
+(f97a89c, 18d0e81), with migration 0038 reserved for `agent3/T-0086` (b83be3c). On main, 61 tests fail because there
+is no 0038, no route and the flags are false; 4 self-checks and 2 guards pass.
+- **R1–R24 in the suite header are accepted.** Notable:
+  - the folded copies are generated stored columns, `<source>_search`, because `normalize()` is IMMUTABLE. 0038 creates
+    no function (R1, R3);
+  - btree indexes `COLLATE "C"`, led by `(tenant_id, programme_id, <column>)` (pinned interfaces);
+  - plans are judged by replaying the statements the API sends, with no Seq Scan, the range in the Index Cond and at
+    most 500 rows examined per table (R5, R6). This applies T-0111's lesson;
+  - search answers within 250 ms and the lookup within 500 ms on the 120k/60k/60k seed (R8). The lookup plan is not
+    pinned until `jsonb_contains` is leakproof;
+  - a national number of 6 digits or fewer is `invalid_phone`, so the contacts list's looser phone parser must not be
+    reused (R10);
+  - the folded copies follow their source on every write path; no erasure route exists yet (R19);
+  - no log line or span carries `q`, the lookup body or a hit's name (R22).
+- **Lead contract edit (18d0e81): the throttle is in the contract.** Both search operations gain `429
+  too_many_requests`, with the shared Error shape, an optional `retryAt` and `no-store`, decided first after
+  authentication. The limit is per user, with separate budgets and a tighter one for the lookup. T-0085's contract suite
+  now pins `['200','400','401','429']`.
+- **Open:** what counts as a valid number of 7–9 digits per country, beyond R10's clear case. The 0038 header must say
+  that a STORED column rewrites `contact` under ACCESS EXCLUSIVE, acceptable only while no cell is populated (D-L65).
+- **Builder:** Agent 3 on `agent3/T-0086-search-api`.
