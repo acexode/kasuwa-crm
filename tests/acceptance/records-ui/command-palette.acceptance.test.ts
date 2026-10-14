@@ -64,11 +64,17 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *     lookup path.
  *   - Labels under ids containing `search` or `palette`, ending
  *     `.group.<contact|lead|account|deal>`, `.invalid_phone` (or
- *     `.invalidPhone`) and `.invalid_email` (or `.invalidEmail`);
+ *     `.invalidPhone`), `.invalid_email` (or `.invalidEmail`) and
+ *     `.keep_typing` (or `.keepTyping`, the R27 hint);
  *     `records.error.<code>` for every error code of the two operations.
+ *   - The P04 Contacts, Leads and Accounts screens read `q` from their URL as
+ *     their first search (R8, lead-accepted): the builder changes them.
+ *   - The palette module is reached from `components/crm` only through a
+ *     dynamic `import()` (R29).
  *
- * RULINGS (R1–R26; where the task file, the contract or the design leave a
- * choice open, the suite is written to these)
+ * RULINGS (R1–R29; R1–R26 accepted by the lead on 2026-10-14, R27–R29 the
+ * lead's rulings on the gaps reported with them; where the task file, the
+ * contract or the design leave a choice open, the suite is written to these)
  *
  *   R1. Surfaces. `/search` is the P27 screen: the search panel inline (A1
  *       grouped hits, A2 lookups, A4 searching, A5 no matches), not a dialog.
@@ -193,21 +199,38 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *   R26. Budget. SEARCH_BUDGET_BYTES is a 250,000-byte PLACEHOLDER under a
  *       255,000-byte ceiling; the lead pins it within 5% of the builder's
  *       first green measurement (D-L118). Until then the budget test fails by
- *       design. The palette rides in the shell of every CRM screen, so its
- *       first-load weight lands in every other screen's pinned budget; those
- *       suites must still pass (loading it on first open is the obvious way).
+ *       design. The palette rides in the shell of every CRM screen (see R29).
+ *   R27. Nothing phone-like reaches searchRecords, even partially (lead).
+ *       After NFKC, text made only of phone characters (digits, whitespace,
+ *       `+()-.`) with at least one digit sends NO searchRecords request at
+ *       any keystroke. The screen shows a neutral "keep typing a full number"
+ *       hint (`data-testid="search-hint"`, never a refusal) until the input is
+ *       lookup-eligible (R21's rule), then sends lookupRecords only. Text with
+ *       letters and digits (`Sample 12`) stays a name query under the
+ *       contract's R21. This closes the gap where typing a number key by key
+ *       put up to five of its digits into the API URL.
+ *   R28. The client NFKC-normalises a phone and an email before building the
+ *       lookup body (lead), so full-width digits and `＠` work: the body
+ *       carries ASCII.
+ *   R29. The palette is loaded on first open (a dynamic `import()`), never in
+ *       the shell's first load (lead). Held statically here (the palette
+ *       module is reached from `components/crm` only through a dynamic
+ *       import); the real check is every other CRM screen's pinned byte
+ *       budget, whose suites still run.
  *
  * BUILDER'S CHOICES: the layout; the debounce interval; whether `/search`
  * keeps a name `q` in its URL; whether superseded requests are aborted;
  * whether a partial identifier is refused before sending; which readable name
  * parts a withheld-name hit draws, and whether companies and lead status are
- * drawn; how the palette loads (`next/dynamic` on first open is advised,
- * R26); where the search client lives (a `lib/` module); the copy.
+ * drawn; `next/dynamic` or a bare `import()` for the palette (R29); where the
+ * search client lives (a `lib/` module); the copy.
  *
  * NOT HELD HERE, AND WHY
  *   - The `/` shortcut to the top-bar search (P27/A): harmless, not asked
  *     for. If built it must not fire inside a text field.
- *   - Opening a deal: no deal screen yet (T-0110).
+ *   - Opening a deal: no deal screen yet. T-0110 is built in parallel;
+ *     whichever of T-0087 and T-0110 merges second re-pins the spec so that
+ *     deal hits link to the deal.
  *   - The lead group's emptiness when `status` is withheld (contract R10):
  *     the server's rule, invisible to the client.
  *   - listContacts' and listLeads' own `q` still accept numbers in their URL
@@ -274,8 +297,9 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  * re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  [SPEC]: '30d6031fea1a3f8cd58d3473302fbb3b4a37b84ea58094aab4900a0220278acc',
-  [MOCK]: 'cb0f1f8f22adc10cb8037082b49b2693737932492781563c42597cbcfa0a68e2',
+  // R27–R29 (lead rulings, 2026-10-14): the phone-prefix journey, NFKC lookup bodies.
+  [SPEC]: '3e4a51566c18ee5970d33072ad462f9b2d1722757b96d83a5214ee12736011b5',
+  [MOCK]: 'f906703c6fdd3fc09b2c81f8da9ff512c98530a9e9802e07819f195a144ef2d5',
 };
 
 /** Never above this (R26). */
@@ -311,8 +335,9 @@ const REQUIRED: readonly (readonly [tag: string, what: string])[] = [
   ['@p27-search-see-all', '"see all" to /contacts, /leads, /accounts with q, never deals, read by the list; offered when empty'],
   ['@p27-search-requests', 'debounced; never under 2 folded characters, over 100, or with a control character'],
   ['@p27-search-latest', 'a newer query is sent at once; a stale answer or failure never replaces it'],
-  ['@p27-search-lookup-phone', 'a phone in any format, full-width included, only to lookupRecords as a POST body'],
-  ['@p27-search-lookup-email', 'an email only to lookupRecords as a POST body, whole'],
+  ['@p27-search-lookup-phone', 'a phone in any format only to lookupRecords as a POST body; full-width digits sent as ASCII (R28)'],
+  ['@p27-search-lookup-email', 'an email only to lookupRecords as a POST body, whole, a full-width ＠ normalised (R28)'],
+  ['@p27-search-phone-prefix', 'phone-like input never reaches searchRecords, even as a prefix; a neutral hint until it is whole (R27)'],
   ['@p27-search-url', 'no phone or email in any URL, history entry, link or title; a crafted one is ignored and removed'],
   ['@p27-search-partial', 'a partial number or address refused as such, never a prefix search, no "also matches" hint'],
   ['@p27-search-fields', 'displayName as served, never composed; withheld parts never shown; a lock when nameless; markup as text'],
@@ -405,6 +430,43 @@ function sliceSources(): SourceFile[] {
     }
   }
   return [...seen].sort().map((file) => ({ file, source: sources.get(file) ?? '' }));
+}
+
+/**
+ * The files reachable from `roots` by relative import, minus the auth and
+ * admin shells. With `dynamic` false, only imports that load with the module
+ * (`import … from`, `export … from`, `import '…'`) are followed; type-only
+ * imports are erased at build and never followed.
+ */
+function reachableFrom(
+  roots: readonly string[],
+  dynamic: boolean,
+  sources: ReadonlyMap<string, string> = new Map(webSources().map((entry) => [entry.file, entry.source])),
+): Set<string> {
+  const resolveImport = (from: string, specifier: string): string | undefined => {
+    const base = posix.normalize(posix.join(posix.dirname(from), specifier));
+    return [base, `${base}.ts`, `${base}.tsx`, `${base}.mjs`, `${base}/index.ts`, `${base}/index.tsx`].find((candidate) => sources.has(candidate));
+  };
+  const seen = new Set<string>();
+  const queue = [...roots];
+  while (queue.length > 0) {
+    const file = queue.shift() ?? '';
+    if (seen.has(file) || OTHER_SHELLS.some((shell) => file.startsWith(shell))) continue;
+    seen.add(file);
+    const code = withoutComments(sources.get(file) ?? '');
+    const specifiers = [
+      ...[...code.matchAll(/\b(import|export)(\s+type\b)?[^'"`;]*?\bfrom\s*['"](\.{1,2}\/[^'"]+)['"]/g)]
+        .filter((match) => match[2] === undefined)
+        .map((match) => match[3] ?? ''),
+      ...[...code.matchAll(/\bimport\s+['"](\.{1,2}\/[^'"]+)['"]/g)].map((match) => match[1] ?? ''),
+      ...(dynamic ? [...code.matchAll(/\bimport\s*\(\s*['"](\.{1,2}\/[^'"]+)['"]\s*\)/g)].map((match) => match[1] ?? '') : []),
+    ];
+    for (const specifier of specifiers) {
+      const target = resolveImport(file, specifier);
+      if (target !== undefined && !seen.has(target)) queue.push(target);
+    }
+  }
+  return seen;
 }
 
 /** The slice, refused unless the route exists and it contains the P27 screen and the palette. */
@@ -641,6 +703,19 @@ describe('acceptance: T-0087 — crm_search exists, is off, is not production-re
     }
   });
 
+  it('reaches the palette from the CRM shell only through a dynamic import, never in the shell’s first load (R29)', () => {
+    // A static check of the lead's R29. The real check is every other CRM
+    // screen's pinned byte budget: their suites still run and still pass.
+    const palettes = screenSlice()
+      .filter(({ source }) => /['"`]command-palette['"`]/.test(withoutComments(source)))
+      .map(({ file }) => file);
+    const shellFiles = trackedFiles(SHELL_DIRECTORY).filter((file) => /\.(tsx?|mjs)$/.test(file) && !/\.test\.tsx?$/.test(file));
+    const loadedWithShell = reachableFrom(shellFiles, false);
+    expect(palettes.filter((file) => loadedWithShell.has(file)), 'the CRM shell imports the palette statically: it would load on every CRM screen').toEqual([]);
+    const loadable = reachableFrom(shellFiles, true);
+    expect(palettes.some((file) => loadable.has(file)), 'the CRM shell never loads the palette, not even by a dynamic import()').toBe(true);
+  });
+
   it('keeps no identifier in a query string anywhere in the slice either (R12)', () => {
     const found = screenSlice().flatMap(({ file, source }) => identifierInQuery(source).map((hit) => `${file}: ${hit}`));
     expect(found, 'the slice writes a phone or an email into a query string').toEqual([]);
@@ -679,7 +754,7 @@ describe('acceptance: T-0087 — every string through i18n, in every catalogue, 
     }
   });
 
-  it('puts every message the slice names, a label for each group type, invalid_phone and invalid_email, in every design-menu catalogue', async () => {
+  it('puts every message the slice names, a label for each group type, invalid_phone, invalid_email and the keep-typing hint, in every design-menu catalogue', async () => {
     const i18n: { DESIGN_MENU_LOCALES: readonly string[] } = await import(fromRoot('packages/i18n/src/index.ts'));
     const en = catalogue('en');
     const slice = screenSlice();
@@ -709,11 +784,12 @@ describe('acceptance: T-0087 — every string through i18n, in every catalogue, 
     );
     const phoneKey = find('invalid_phone (an id about search ending ".invalid_phone" or ".invalidPhone")', searchKey(en, ['.invalid_phone', '.invalidPhone']));
     const emailKey = find('invalid_email (an id about search ending ".invalid_email" or ".invalidEmail")', searchKey(en, ['.invalid_email', '.invalidEmail']));
+    const hintKey = find('the R27 hint (an id about search ending ".keep_typing" or ".keepTyping")', searchKey(en, ['.keep_typing', '.keepTyping']));
 
     const missing: string[] = [];
     for (const locale of i18n.DESIGN_MENU_LOCALES) {
       const messages = catalogue(locale);
-      for (const key of [...named, ...groupKeys, phoneKey, emailKey]) {
+      for (const key of [...named, ...groupKeys, phoneKey, emailKey, hintKey]) {
         if (typeof messages[key] !== 'string' || messages[key].trim() === '') {
           missing.push(`${locale}: ${key}`);
         }
@@ -748,7 +824,7 @@ describe('acceptance: T-0087 — every string through i18n, in every catalogue, 
 // ===========================================================================
 
 describe('acceptance: T-0087 — no colour literal and no device storage in the slice', () => {
-  it('the colour and identifier detectors catch what the lint rule misses', () => {
+  it('the colour, identifier and first-load import detectors catch what the lint rule misses', () => {
     // Planted first: a detector only ever seen finding nothing proves nothing.
     // Passes before the work starts, by design.
     for (const planted of [
@@ -770,6 +846,17 @@ describe('acceptance: T-0087 — no colour literal and no device storage in the 
       expect(identifierInQuery(planted), `the identifier detector missed ${planted}`).not.toEqual([]);
     }
     expect(identifierInQuery("params.set('q', name); fetch('/api/v1/search/lookup', { method: 'POST', body: JSON.stringify({ phone }) });")).toEqual([]);
+
+    // R29's import walk, on planted modules: a static import is seen, a dynamic one is not, a type-only one is erased.
+    const shell = 'apps/web/components/crm/crm-shell.tsx';
+    const palette = 'apps/web/components/search/command-palette.tsx';
+    const planted = (code: string) => new Map([[shell, code], [palette, "export const id = 'command-palette';"]]);
+    expect(reachableFrom([shell], false, planted("import { Palette } from '../search/command-palette';")).has(palette), 'a static import was missed').toBe(true);
+    expect(reachableFrom([shell], false, planted("export { Palette } from '../search/command-palette';")).has(palette), 'a re-export was missed').toBe(true);
+    const lazy = planted("const Palette = dynamic(() => import('../search/command-palette'));");
+    expect(reachableFrom([shell], false, lazy).has(palette), 'a dynamic import counted as first load').toBe(false);
+    expect(reachableFrom([shell], true, lazy).has(palette), 'a dynamic import was not followed').toBe(true);
+    expect(reachableFrom([shell], false, planted("import type { PaletteProps } from '../search/command-palette';")).has(palette), 'a type-only import counted as first load').toBe(false);
   });
 
   it('the slice reaches the screen and the palette through its imports, and stops at the auth and admin shells', () => {

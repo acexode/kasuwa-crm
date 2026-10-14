@@ -35,6 +35,7 @@ import {
   isLookup,
   isSearchRead,
   lookupAnswer,
+  phoneLike,
   searchAnswer,
   servedData,
   termOf,
@@ -114,9 +115,13 @@ import {
  *     [data-testid="search-error"]         a failed read (never "no matches")
  *     [data-testid="search-invalid"]       the lookup refused the value as not
  *                                          one whole number or address
+ *     [data-testid="search-hint"]          the neutral "keep typing a full
+ *                                          number" hint while phone-like input
+ *                                          is not yet lookup-eligible (R27);
+ *                                          never a refusal
  *   [data-record-text]                     record data, not UI copy (en-XA)
  *
- * PINNED INTERFACES BEYOND THE HOOKS (see the suite's rulings R1–R26)
+ * PINNED INTERFACES BEYOND THE HOOKS (see the suite's rulings R1–R29)
  *
  *   - A name goes to searchRecords as `q` (all four types), debounced, never
  *     shorter than 2 characters once folded, never over 100, never with a
@@ -126,10 +131,22 @@ import {
  *     digits once whitespace and `+()-.` are removed) goes ONLY to
  *     lookupRecords, as a POST body; it is never in any URL, history entry,
  *     link, request query or document title.
+ *   - Phone-like input (R27: after NFKC, only digits, whitespace and
+ *     `+()-.`, with a digit) never reaches searchRecords at any keystroke,
+ *     not even `0803`: the screen shows the neutral hint until the input is
+ *     lookup-eligible, then sends lookupRecords only. Text with letters
+ *     (`Sample 12`) stays a name query.
+ *   - The lookup body is NFKC-normalised (R28): full-width digits and `＠`
+ *     arrive as ASCII.
+ *   - The palette is loaded on first open (R29); the other CRM screens'
+ *     pinned byte budgets are the check.
  *   - Hits link only from well-formed uuids: contacts and leads to
  *     `/contacts/<id>`, accounts to `/accounts/<id>`; deals are not links
- *     (no deal screen yet; T-0110 adds it). "See all" is `/contacts?q=…`,
- *     `/leads?q=…`, `/accounts?q=…`, and the list reads with that `q`.
+ *     (no deal screen yet; whichever of T-0087 and T-0110 merges second
+ *     re-pins this spec to link them). "See all" is `/contacts?q=…`,
+ *     `/leads?q=…`, `/accounts?q=…`, and the list reads with that `q`: the
+ *     builder changes the P04 Contacts, Leads and Accounts screens to read `q`
+ *     from their URL.
  *
  * DESIGN AGAINST CONTRACT — WHERE THEY DISAGREE THE CONTRACT WINS (D-L133)
  *
@@ -179,8 +196,12 @@ const PHONE_FORMS: readonly string[] = PHONE_CASES.map(([form]) => form);
 const PHONE = '0803 000 0001';
 /** An international form: L_FIXTURE, a lead, so it is in the contact and the lead group. */
 const PHONE_INTL = '+234 803 000 0003';
-/** PHONE in full-width digits: NFKC makes it a phone (R21). */
-const PHONE_FULL_WIDTH = '０８０３ ０００ ０００１';
+/**
+ * L_SAMPLEFORD's placeholder in full-width digits: NFKC makes it a phone
+ * (R21), and the lookup body carries it as ASCII (R28). A number no other
+ * case uses, so a screen that remembers lookups still sends this one.
+ */
+const PHONE_FULL_WIDTH = '０８０３ ０００ ０００７';
 /** A placeholder nobody has. */
 const PHONE_NOBODY = '0803 000 0099';
 /** A placeholder for C_NAMELESS, whose every name field is withheld. */
@@ -535,7 +556,8 @@ function digitsOf(value: string): string {
 function isLookupFor(request: Request, value: string): boolean {
   if (!isLookup(request)) return false;
   const term = termOf(request) ?? '';
-  return value.includes('@') ? term.trim().toLowerCase() === value.trim().toLowerCase() : digitsOf(term) === digitsOf(value);
+  const normal = (text: string) => text.normalize('NFKC').trim().toLowerCase();
+  return normal(value).includes('@') ? normal(term) === normal(value) : digitsOf(term) === digitsOf(value);
 }
 
 /**
@@ -658,6 +680,13 @@ test('the contract mock refuses what the contract and the screen’s rules refus
   for (const value of ['Sample 2026', 'Unit 12 Block 3456', 'sam', 'Sámple Fixture', '0803 0']) {
     expect(identifierShaped(value), `"${value}" is a name the rule refuses`).toBe(false);
   }
+  // R27's rule: phone-like, even when too short to look up.
+  for (const value of ['0803', '+234 80', '(0803) 0', '０８０３', '1', ...PHONE_FORMS, PHONE_PARTIAL]) {
+    expect(phoneLike(value), `"${value.replace(/\d/g, '#')}" is not recognised as phone-like`).toBe(true);
+  }
+  for (const value of ['Sample 12', 'Unit 12 Block 3456', 'sam', '+-.() ', '', EMAIL]) {
+    expect(phoneLike(value), `"${value}" is wrongly phone-like`).toBe(false);
+  }
 
   const mock = await installSearchMock(page);
   await page.goto(`${webUrl}/`);
@@ -726,13 +755,14 @@ test('the contract mock refuses what the contract and the screen’s rules refus
   const partial = await call(lookupPath, 'POST', { phone: PHONE_PARTIAL });
   expect(partial.status).toBe(400);
   expect(partial.body.details).toEqual([{ path: 'phone', code: 'invalid_phone' }]);
-  const fullWidth = await call(lookupPath, 'POST', { phone: PHONE_FULL_WIDTH });
-  expect(fullWidth.status, 'full-width digits are not ASCII: the API refuses them unless the client normalises').toBe(400);
+  const asciiFromFullWidth = await call(lookupPath, 'POST', { phone: PHONE_FULL_WIDTH.normalize('NFKC') });
+  expect((asciiFromFullWidth.body.groups as { hits: { id: string }[] }[])[0]?.hits.map((entry) => entry.id), 'the NFKC form of a full-width number is not found').toEqual([L_SAMPLEFORD.id]);
   const badEmail = await call(lookupPath, 'POST', { email: EMAIL_PARTIAL });
   expect(badEmail.body.details).toEqual([{ path: 'email', code: 'invalid_email' }]);
   // Names with a few digits are names (R21's examples).
   expect((await call(q('Sample 2026'))).status).toBe(200);
   expect((await call(q('Unit 12 Block 3456'))).status).toBe(200);
+  expect((await call(q('Sample 12'))).status, 'letters and digits are a name (R27)').toBe(200);
   expect((await call(`${q('sam')}&types=contact&types=lead&types=account&types=deal`)).status).toBe(200);
   expect((await call('/api/v1/contacts?q=sam&limit=25')).status).toBe(200);
   expect((await call('/api/v1/leads?q=sam')).status).toBe(200);
@@ -745,6 +775,14 @@ test('the contract mock refuses what the contract and the screen’s rules refus
     const refused = await expectViolation(q(identifier), 'GET', undefined, 400, /phone- or email-shaped/);
     expect(refused.body.details).toEqual([{ path: 'q', code: 'identifier_in_url' }]);
   }
+  // R27: the contract answers a short run of digits; the lead's ruling still blames the screen.
+  for (const prefix of ['0803', '+234 80', '(0803) 0', '０８']) {
+    await expectViolation(q(prefix), 'GET', undefined, 200, /phone-like q/);
+  }
+  // R28: a full-width number sent as typed is a body the client failed to normalise.
+  const raw = await expectViolation(lookupPath, 'POST', { phone: PHONE_FULL_WIDTH }, 400, /not NFKC-normalised/);
+  expect(raw.body.details, 'full-width digits are not ASCII: the API refuses them').toEqual([{ path: 'phone', code: 'invalid_phone' }]);
+  await expectViolation(lookupPath, 'POST', { email: 'Sample.Fixture＠Example.test' }, 400, /not NFKC-normalised/);
   await expectViolation(`${q('sam')}&phone=08030000001`, 'GET', undefined, 400, /"phone" parameter/);
   await expectViolation(`${q('sam')}&email=${encodeURIComponent(EMAIL)}`, 'GET', undefined, 400, /"email" parameter/);
   await expectViolation(`${q('sam')}&programmeId=${PROGRAMME_ONE.id}`, 'GET', undefined, 200, /no "programmeId"/);
@@ -1198,9 +1236,13 @@ test('a phone number in any common format goes ONLY to lookupRecords, as a POST 
     const drawn = (await visibleText(hit(palette, 'contact', id))).replace(/[\s+().-]/g, '');
     expect(drawn.includes(digitsOf(form)), 'the hit draws the number, which the hit does not carry').toBe(false);
   }
-  // Full-width digits are a phone after NFKC: never searched; looked up or refused, never a name.
-  await input(palette).fill(PHONE_FULL_WIDTH);
-  await settled(palette);
+  // Full-width digits are a phone after NFKC (R21), and the body carries ASCII (R28).
+  const wide = await lookUp(page, palette, PHONE_FULL_WIDTH);
+  expect(wide, 'a full-width number was not sent to the lookup').toBeDefined();
+  const wideBody = (wide?.postDataJSON() ?? {}) as Record<string, unknown>;
+  expect(String(wideBody.phone), 'the lookup body is not NFKC-normalised (R28)').toMatch(/^[0-9+() .-]+$/);
+  expect(digitsOf(String(wideBody.phone))).toBe(digitsOf(PHONE_FULL_WIDTH));
+  await expect(hit(palette, 'lead', L_SAMPLEFORD.id), 'a full-width number found nothing').toBeVisible();
   for (const url of mock.searchReads) {
     expect(identifierShaped(url.searchParams.get('q') ?? ''), 'searchRecords was sent a phone-shaped q').toBe(false);
     expect(digitsOf(url.searchParams.get('q') ?? '').length, 'searchRecords was sent six or more digits').toBeLessThan(6);
@@ -1222,6 +1264,81 @@ test('an email address goes ONLY to lookupRecords, as a POST body, compared whol
   await expect(shown(root.locator('[data-see-all]'))).toHaveCount(0);
   expect(await visibleText(hit(root, 'contact', C_SAMPLE.id)), 'the hit draws the address').not.toContain('@');
   expect(mock.searchReads.filter((url) => (url.searchParams.get('q') ?? '').includes('@')), 'searchRecords was sent an @').toEqual([]);
+
+  // A full-width ＠ is an @ after NFKC, and the body carries the ASCII form (R28).
+  // A different address, so a screen that remembers an identical lookup still sends one.
+  const wide = await lookUp(page, root, 'Samplewise.Testcase＠Example.test');
+  expect(wide, 'an address with a full-width ＠ was not sent to the lookup').toBeDefined();
+  const wideBody = (wide?.postDataJSON() ?? {}) as Record<string, unknown>;
+  expect(String(wideBody.email).trim().toLowerCase(), 'the lookup body is not NFKC-normalised (R28)').toBe('samplewise.testcase@example.test');
+  await expect(hit(root, 'contact', C_SAMPLEWISE.id)).toBeVisible();
+});
+
+test('phone-like input never reaches searchRecords, not even as a prefix; a neutral hint until it is a whole number (R27) @p27-search @p27-search-phone-prefix', async ({
+  page,
+}) => {
+  // The clock is driven, not waited on: runFor fires any pending debounce at
+  // once, so "nothing was searched" is decided, not hoped.
+  await page.clock.install();
+  const wire = await tapWire(page);
+  const mock = await openSearch(page);
+  const palette = await openPalette(page);
+  const box = input(palette);
+
+  // Four digits, typed key by key: no request of any kind, a hint, never a refusal.
+  await box.pressSequentially('0803');
+  await page.clock.runFor(3_000);
+  const hint = shown(palette.getByTestId('search-hint')).first();
+  await expect(hint, 'no "keep typing a full number" hint for a phone-like prefix').toBeVisible();
+  await expectSaysOneOf(hint, searchLabels('.keep_typing', '.keepTyping'), 'the keep-typing hint');
+  for (const state of ['search-invalid', 'search-error', 'search-empty', 'search-loading']) {
+    await expect(shown(palette.getByTestId(state)), `a phone-like prefix drew ${state}`).toHaveCount(0);
+  }
+  await expect(shown(palette.locator('[data-hit]')), 'a phone-like prefix drew hits').toHaveCount(0);
+
+  // The whole number, typed key by key from an empty box: only its lookup.
+  const number = '+234 803 000 0001';
+  await box.fill('');
+  await page.clock.runFor(3_000);
+  const whole = page.waitForRequest((request) => isLookupFor(request, number));
+  await box.pressSequentially(number);
+  await page.clock.runFor(3_000);
+  await (await (await whole).response())?.finished();
+  await expect(hit(palette, 'contact', C_SAMPLEWISE.id), 'the whole number found nothing').toBeVisible();
+  await expect(shown(palette.getByTestId('search-hint')), 'the hint stayed once the number was whole').toHaveCount(0);
+  expect(mock.searchReads.length, 'searchRecords was sent a phone-like prefix (R27)').toBe(0);
+
+  // No digit run from the number in any API request's query, the address bar or a history URL.
+  const national = digitsOf(number);
+  const runsOf = (text: string): string[] => (text.normalize('NFKC').replace(/[\s+().-]/g, '').match(/\d{3,}/g) ?? []);
+  const fromNumber = (text: string, shortest = 3): string[] =>
+    runsOf(text).filter((run) => run.length >= shortest && (national.includes(run) || run.includes(national)));
+  for (const url of wire.urls) {
+    const { pathname, search } = new URL(url);
+    if (pathname.startsWith('/api/')) {
+      expect(/\d/.test(decodeURIComponent(search)), `an API request carried digits in its query while a number was typed: ${pathname}`).toBe(false);
+    } else if (!pathname.startsWith('/_next/static/')) {
+      // Page and RSC requests: runs of four or more, so a random cache-busting token is not mistaken for a leak.
+      expect(fromNumber(decodeURIComponent(search), 4), `a page request carried digits of the number: ${pathname}`).toEqual([]);
+    }
+  }
+  expect(fromNumber(decodeURIComponent(`${new URL(page.url()).search}${new URL(page.url()).hash}`)), 'the address bar carries digits of the number').toEqual([]);
+  for (const entry of await historyLog(page)) {
+    const written = entry.split('\n')[0] ?? '';
+    expect(fromNumber(decodeURIComponent(written.replace(/^[^?#]*/, ''))), 'a history URL carries digits of the number').toEqual([]);
+  }
+  for (const request of mock.lookups) {
+    expect(request.url.search, 'the lookup carried a query string').toBe('');
+  }
+
+  // Letters and digits together are a name (the contract's R21 still applies).
+  const named = page.waitForRequest((request) => isSearchRead(request, 'Sample 12'));
+  await box.fill('Sample 12');
+  await page.clock.runFor(3_000);
+  await named;
+  await settled(palette);
+  await expect(shown(palette.getByTestId('search-hint')), 'a name drew the phone hint').toHaveCount(0);
+  expect(mock.searchReads.map((url) => url.searchParams.get('q')), 'only the name was searched').toEqual(['Sample 12']);
 });
 
 test('the page URL, history, links, titles and every request URL never carry a phone number or an email address @p27-search @p27-search-url', async ({

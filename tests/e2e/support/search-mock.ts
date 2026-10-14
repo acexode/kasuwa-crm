@@ -81,11 +81,15 @@ import { TENANT_A } from '@kasuwa/db';
  *     never over 100 characters, never under 2 once folded (NFD, marks
  *     removed, lower-cased, trimmed, inner whitespace collapsed). Each is
  *     answered as the contract says (`400` with the right detail code).
+ *     **Nor phone-like at all** (the lead's R27): a `q` that, after NFKC, is
+ *     only digits, whitespace and `+()-.` with at least one digit (`0803`,
+ *     `+234 80`) is a violation even though the contract answers it `200`.
  *   - lookupRecords: a POST, `application/json`, NO query string at all, the
  *     closed `LookupRequest` with exactly one of `phone` or `email`; `types`
  *     absent, all four, or exactly contact and lead. The term must be
  *     phone- or email-shaped by the same R21 rule: a name sent to the lookup
- *     is a name the screen failed to search.
+ *     is a name the screen failed to search. The term must be NFKC-normalised
+ *     already (the lead's R28): full-width digits arrive as ASCII.
  *   - listContacts / listLeads / listAccounts: only parameters the operation
  *     declares, never a programme or scope.
  *
@@ -387,6 +391,17 @@ export function identifierShaped(text: string): boolean {
   return IDENTIFIER_PATTERN.test(text.normalize('NFKC'));
 }
 
+/**
+ * R27 (lead ruling): after NFKC, the text is only phone characters (digits,
+ * whitespace, `+()-.`) and holds a digit. Such input never reaches
+ * searchRecords at any keystroke, not even as a short prefix: the screen
+ * waits until it is lookup-eligible and sends lookupRecords only.
+ */
+export function phoneLike(text: string): boolean {
+  const normal = text.normalize('NFKC');
+  return /^[\d\s+().-]+$/.test(normal) && /\d/.test(normal);
+}
+
 /** The contract's folding (searchRecords' description), for the length rule and the prefix match. */
 export function folded(text: string): string {
   return text
@@ -403,7 +418,7 @@ export function folded(text: string): string {
  * identifier into a CI log (CLAUDE.md 6.1).
  */
 export function redactedQuery(url: URL): string {
-  const parts = [...url.searchParams.entries()].map(([name, value]) => `${name}=${identifierShaped(value) ? '<identifier>' : value}`);
+  const parts = [...url.searchParams.entries()].map(([name, value]) => `${name}=${identifierShaped(value) || phoneLike(value) ? '<identifier>' : value}`);
   return parts.length === 0 ? '' : `?${parts.join('&')}`;
 }
 
@@ -1088,6 +1103,10 @@ export async function installSearchMock(page: Page, options: SearchMockOptions =
     if (identifierShaped(q)) {
       return refuse('q', 'identifier_in_url', 'q is phone- or email-shaped: R21 sends it to lookupRecords, never into a URL');
     }
+    if (phoneLike(q)) {
+      // The contract lets a short run of digits through; the lead's R27 does not.
+      violations.push('searchRecords was sent a phone-like q (only digits and phone separators): R27 waits for a whole number and sends it to lookupRecords');
+    }
     if (q.length > Q_MAX) return refuse('q', 'invalid_string', `q is ${q.length} characters, over ${Q_MAX}`);
     if (hasControlCharacter(q)) return refuse('q', 'invalid_string', 'q carries a control character');
     const types = url.searchParams.getAll('types');
@@ -1141,6 +1160,9 @@ export async function installSearchMock(page: Page, options: SearchMockOptions =
     if (typeof (body.phone ?? body.email) !== 'string') return refuse('phone' in body ? 'phone' : 'email', 'phone' in body ? 'invalid_phone' : 'invalid_email', 'the term is not a string');
     if (!identifierShaped(value)) {
       violations.push('lookupRecords was sent a term that is not phone- or email-shaped: a name belongs to searchRecords');
+    }
+    if (value !== value.normalize('NFKC')) {
+      violations.push('lookupRecords was sent a term that is not NFKC-normalised: R28 normalises before building the body (full-width digits become ASCII)');
     }
     const types = body.types;
     if (types !== undefined) {
