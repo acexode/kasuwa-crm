@@ -109,16 +109,95 @@ async function waitForPortClosed(port) {
   }
 }
 
-function killTree(child) {
-  if (child.exitCode !== null || child.signalCode !== null) {
+/**
+ * EVERY CHILD LEADS ITS OWN PROCESS GROUP, AND IS STOPPED AS A GROUP.
+ *
+ * Each server is `pnpm exec <tool>`, so the process this script holds is the
+ * pnpm wrapper, and the server itself (tsx and its node child, next-server)
+ * sits one or two levels below it. `child.kill('SIGTERM')` signalled only the
+ * wrapper; the servers survived as orphans, holding their ports and about a
+ * gigabyte each. One lead verification of eleven records-ui and scripting-ui
+ * suites left 11 API servers and 33 next-server processes running, ~7 GB on a
+ * 16 GB machine.
+ *
+ * So on POSIX each child is spawned `detached`, which makes it the leader of a
+ * new process group whose id is its pid, and everything it starts inherits
+ * that group. Stopping signals the whole group (`process.kill(-pid)`), SIGTERM
+ * first and SIGKILL if any member outlives the grace period.
+ *
+ * The price of `detached` is that a child no longer shares the terminal's
+ * foreground group, so a Ctrl-C reaches this script and nothing else. That is
+ * why the signal handlers at the bottom of this file exist: they are the only
+ * thing that stops the servers when the runner is interrupted.
+ *
+ * Windows keeps `taskkill /T /F`, which walks the tree itself.
+ */
+const POSIX_GROUPS = process.platform !== 'win32';
+const KILL_GRACE_MS = 5_000;
+
+/** Every child this run started, so the final sweep can reach all of them. */
+const started = new Set();
+let shuttingDown = false;
+
+function spawnGroup(command, args, options) {
+  const child = spawn(command, args, { ...options, detached: POSIX_GROUPS });
+  started.add(child);
+  if (shuttingDown) {
+    // Started by a main() that has not yet noticed a signal arrived. It is
+    // stopped at once rather than left for a teardown that has already run.
+    void killTree(child);
+  }
+  return child;
+}
+
+function signalGroup(child, signal) {
+  try {
+    process.kill(-child.pid, signal);
+  } catch (error) {
+    if (error.code !== 'ESRCH') {
+      throw error;
+    }
+  }
+}
+
+/** Whether ANY member of the child's group is alive, not just its leader. */
+function groupAlive(child) {
+  try {
+    process.kill(-child.pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === 'EPERM';
+  }
+}
+
+async function killTree(child) {
+  if (child.pid === undefined) {
+    // spawn itself failed; there is nothing to stop.
     return;
   }
-  if (process.platform === 'win32') {
+  if (!POSIX_GROUPS) {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      return;
+    }
     // `child.kill()` on Windows kills the shim, not the node process it
     // launched, and an orphaned Next dev server holds its port for the next run.
     spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
-  } else {
-    child.kill('SIGTERM');
+    return;
+  }
+  // The GROUP is the test, not the child: the pnpm wrapper exiting does not
+  // take tsx or next-server with it, so a dead leader proves nothing.
+  if (!groupAlive(child)) {
+    return;
+  }
+  signalGroup(child, 'SIGTERM');
+  const deadline = Date.now() + KILL_GRACE_MS;
+  while (groupAlive(child)) {
+    if (Date.now() > deadline) {
+      process.stderr.write(`[e2e] process group ${child.pid} outlived SIGTERM; sending SIGKILL\n`);
+      signalGroup(child, 'SIGKILL');
+      return;
+    }
+    await sleep(POLL_MS);
   }
 }
 
@@ -191,7 +270,7 @@ function pipeTo(child, label) {
 
 /** Start the seeded Postgres container and return its connection strings. */
 function startDatabase() {
-  const child = spawn('pnpm', ['exec', 'tsx', join('scripts', 'start-stack.ts')], {
+  const child = spawnGroup('pnpm', ['exec', 'tsx', join('scripts', 'start-stack.ts')], {
     cwd: e2eRoot,
     shell: process.platform === 'win32',
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -205,15 +284,18 @@ function startDatabase() {
   const exited = new Promise((done) => child.once('exit', done));
 
   cleanups.push(async () => {
-    if (child.exitCode !== null || child.signalCode !== null) {
-      return;
+    if (child.exitCode === null && child.signalCode === null) {
+      // Closing stdin asks start-stack to stop its container itself, which is
+      // tidier than leaving it to Testcontainers' reaper.
+      child.stdin.end();
+      const timer = setTimeout(() => void killTree(child), SHUTDOWN_GRACE_MS);
+      // Bounded even after the kill: on Windows `taskkill` of the shim may not
+      // deliver an 'exit' for the process we hold, and teardown must finish.
+      await Promise.race([exited, sleep(SHUTDOWN_GRACE_MS * 2)]);
+      clearTimeout(timer);
     }
-    child.stdin.end();
-    const timer = setTimeout(() => killTree(child), SHUTDOWN_GRACE_MS);
-    // Bounded even after the kill: on Windows `taskkill` of the shim may not
-    // deliver an 'exit' for the process we hold, and teardown must finish.
-    await Promise.race([exited, sleep(SHUTDOWN_GRACE_MS * 2)]);
-    clearTimeout(timer);
+    // The wrapper's exit is not the tsx process's exit (see killTree).
+    await killTree(child);
   });
 
   child.stderr.setEncoding('utf8');
@@ -239,7 +321,7 @@ function startDatabase() {
 }
 
 function startApi(databaseUrl, authDatabaseUrl, port) {
-  const child = spawn('pnpm', ['exec', 'tsx', join('src', 'main.ts')], {
+  const child = spawnGroup('pnpm', ['exec', 'tsx', join('src', 'main.ts')], {
     cwd: join(repoRoot, 'apps', 'api'),
     shell: process.platform === 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -260,7 +342,7 @@ function startApi(databaseUrl, authDatabaseUrl, port) {
   });
   pipeTo(child, 'api');
   cleanups.push(async () => {
-    killTree(child);
+    await killTree(child);
     await waitForPortClosed(port);
   });
   return child;
@@ -320,7 +402,7 @@ function restoreNextEnv(original) {
  * the artefact the default server serves.
  */
 function buildWeb(apiUrl) {
-  const child = spawn('node', ['build.mjs'], {
+  const child = spawnGroup('node', ['build.mjs'], {
     cwd: WEB_DIR,
     shell: process.platform === 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -347,7 +429,7 @@ function buildWeb(apiUrl) {
  * cannot leak a flag into it. This is the only server the byte budget measures.
  */
 function startWeb(apiUrl, port) {
-  const child = spawn('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
+  const child = spawnGroup('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
     cwd: WEB_DIR,
     shell: process.platform === 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -368,7 +450,7 @@ function startWeb(apiUrl, port) {
   });
   pipeTo(child, 'web');
   cleanups.push(async () => {
-    killTree(child);
+    await killTree(child);
     await waitForPortClosed(port);
   });
   return child;
@@ -417,7 +499,7 @@ function startSelfServeWeb(apiUrl, port) {
     `${JSON.stringify({ extends: './tsconfig.json' }, null, 2)}\n`,
     'utf8',
   );
-  const child = spawn('pnpm', ['exec', 'next', 'dev', '-p', String(port), '-H', '127.0.0.1'], {
+  const child = spawnGroup('pnpm', ['exec', 'next', 'dev', '-p', String(port), '-H', '127.0.0.1'], {
     cwd: WEB_DIR,
     shell: process.platform === 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -434,7 +516,7 @@ function startSelfServeWeb(apiUrl, port) {
   });
   pipeTo(child, 'web:flags-on');
   cleanups.push(async () => {
-    killTree(child);
+    await killTree(child);
     await waitForPortClosed(port);
     // The dev build directory goes too. It is compiled output inside apps/web,
     // and the T-0014 acceptance scan walks apps/** for `process.env` reads,
@@ -498,7 +580,7 @@ function startSelfServeWeb(apiUrl, port) {
  * is measured on this build.
  */
 function startRecordsWeb(apiUrl, port) {
-  const child = spawn('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
+  const child = spawnGroup('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
     cwd: WEB_DIR,
     shell: process.platform === 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -516,7 +598,7 @@ function startRecordsWeb(apiUrl, port) {
   });
   pipeTo(child, 'web:records');
   cleanups.push(async () => {
-    killTree(child);
+    await killTree(child);
     await waitForPortClosed(port);
   });
   return child;
@@ -533,15 +615,30 @@ function runPlaywright() {
     projectName,
     ...forwardedArgs,
   ];
-  const child = spawn('pnpm', args, {
+  // A group of its own too: interrupted, Playwright's workers and browsers
+  // would otherwise outlive the runner. Pushed last, so stopped first.
+  const child = spawnGroup('pnpm', args, {
     cwd: e2eRoot,
     shell: process.platform === 'win32',
     stdio: 'inherit',
   });
+  cleanups.push(async () => killTree(child));
   return new Promise((done) => child.on('exit', (code) => done(code ?? 1)));
 }
 
-async function teardown() {
+let teardownPromise;
+
+/**
+ * Idempotent: a signal can arrive while main() is still running, and main()'s
+ * own `finally` then calls this a second time. Both get the same promise.
+ */
+function teardown() {
+  teardownPromise ??= runTeardown();
+  return teardownPromise;
+}
+
+async function runTeardown() {
+  shuttingDown = true;
   for (const cleanup of cleanups.reverse()) {
     try {
       await cleanup();
@@ -550,7 +647,62 @@ async function teardown() {
     }
   }
   cleanups.length = 0;
+  // The sweep: every group this run started, whether or not a cleanup above
+  // already stopped it (killTree is a no-op on a group that is gone). This is
+  // what reaches Playwright and its browsers on an interrupted run, and any
+  // server spawned after teardown began.
+  await Promise.all([...started].map((child) => killTree(child)));
 }
+
+/**
+ * THE RUNNER'S OWN EXIT PATHS. Without these an interrupted run orphans every
+ * server, because `detached` children do not receive the terminal's SIGINT
+ * and do not die with the parent's session.
+ *
+ * A first signal runs the ordinary teardown (the database stack is asked to
+ * remove its container). A second one, from someone who has stopped waiting,
+ * SIGKILLs every group at once.
+ */
+const SIGNAL_EXIT_CODES = { SIGINT: 130, SIGTERM: 143, SIGHUP: 129 };
+let signalExitCode;
+
+for (const [signal, code] of Object.entries(SIGNAL_EXIT_CODES)) {
+  process.on(signal, () => {
+    if (signalExitCode !== undefined) {
+      killEveryGroupNow();
+      process.exit(signalExitCode);
+    }
+    signalExitCode = code;
+    process.stderr.write(`[e2e] ${signal} received; stopping every process this run started\n`);
+    void teardown().finally(() => process.exit(code));
+  });
+}
+
+/** Synchronous, for the paths that cannot wait: a second signal, process exit. */
+function killEveryGroupNow() {
+  if (!POSIX_GROUPS) {
+    return;
+  }
+  for (const child of started) {
+    if (child.pid !== undefined) {
+      try {
+        signalGroup(child, 'SIGKILL');
+      } catch {
+        // EPERM: not ours to kill, so not ours to leak either.
+      }
+    }
+  }
+}
+
+// The last resort: whatever path ends this process — including an uncaught
+// exception that skips teardown — no group it started outlives it. After a
+// normal teardown every group is already gone and this does nothing.
+process.on('exit', killEveryGroupNow);
+
+// A SIGHUP usually means the terminal went away, and the next write to it
+// fails with EIO or EPIPE. That must not crash the runner mid-teardown.
+process.stdout.on('error', () => {});
+process.stderr.on('error', () => {});
 
 async function main() {
   mkdirSync(artifactsDir, { recursive: true });
@@ -672,4 +824,4 @@ try {
   await teardown();
 }
 
-process.exit(exitCode);
+process.exit(signalExitCode ?? exitCode);
