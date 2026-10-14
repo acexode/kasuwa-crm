@@ -46,7 +46,8 @@ import { collectTelemetry } from '../support/telemetry';
  * (the 0036 tables, bigint money, the deploy-window gap), D-P19 (exact
  * per-stage counts and per-currency totals in scope, omitted when amount is
  * withheld), D-P33 (indexes on plain columns, observed under FORCE RLS),
- * D-L80 / D-L116 (id-only cursors). Prior art, copied and never imported
+ * D-L80 / D-L116 (id-only cursors); T-0123 and D-L127 (a former checker is
+ * unnamed: the lead's edit of R17). Prior art, copied and never imported
  * (importing a test file registers its tests): records/activities-api
  * (harness, schema checker, log capture), records/pipeline-tables (planting
  * as kasuwa_migrator), records/list-indexes (statement recording and EXPLAIN
@@ -173,9 +174,16 @@ import { collectTelemetry } from '../support/telemetry';
  *      the same A1 board.
  *  R16 `rotting` from whole 24-hour periods since stageEnteredAt; fixtures sit
  *      12 hours from every boundary.
- *  R17 `owner.displayName` is null for a former owner (not a member of the
- *      deal's programme, D-P23); `checks[].checkedBy.displayName` is the
- *      user's current name.
+ *  R17 (LEAD EDIT, T-0123 and D-L127; replaces the T-0107 ruling that named
+ *      every checker by their current name.) `owner.displayName` is null for
+ *      a former owner (D-P23), and `checks[].checkedBy.displayName` is null
+ *      for a former checker, by the same test: the user has no
+ *      `user_programme` row in the DEAL's programme when the board is read.
+ *      Neither the tenant-admin flag nor membership of another programme
+ *      (even one the reader also reaches) makes a member. A member is served
+ *      their current name; `checkedBy.id` is always served; a user re-added
+ *      to the programme is named again (read time, never a snapshot); and a
+ *      former checker's name appears nowhere in the body.
  *  R18 A non-uuid `stageId` is `unknown_reference` at `stageId` ("anything
  *      else"), not a generic format error.
  *  R19 A lower-case currency (`ngn`) is `unknown_currency` ("well-formed or
@@ -227,6 +235,10 @@ import { collectTelemetry } from '../support/telemetry';
  * reads a false flag. Self-checks test this file's own helpers against the
  * contract's examples and pass at commit time; a checker only ever seen
  * passing proves nothing, so each also shows it rejecting broken input.
+ *
+ * T-0123 (lead edit, after T-0107 merged): the routes now exist on main, so
+ * the one R17 former-checker test fails on main for its own reason, the
+ * board still naming a checker who is not a member of the deal's programme.
  *
  * Writes: the suite reseeds before and after, after every functional test,
  * and after the plans block.
@@ -1599,6 +1611,28 @@ describe('acceptance: pipelines and the board API (T-0107)', () => {
     );
   }
 
+  /**
+   * Removes a membership (copied from the deals-api suite, T-0123). The
+   * delete writes its own programme membership audit event (0031/0033,
+   * D-L126); no test here counts audit events.
+   */
+  async function unassign(userId: string, programmeId: string) {
+    await observer.query('DELETE FROM user_programme WHERE user_id = $1 AND programme_id = $2', [
+      userId,
+      programmeId,
+    ]);
+  }
+
+  /** One more tick of the board's check requirement, on an A1 board deal (T-0123). */
+  async function plantBoardCheck(id: string, dealId: string, by: string, at: number) {
+    await observer.query(
+      `INSERT INTO deal_requirement_check (id, tenant_id, programme_id, pipeline_id, deal_id,
+                                           requirement_id, checked_by_user_id, checked_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [id, TENANT_A, PROGRAMME_A1, BOARD_ID, dealId, CHECK_REQ, by, iso(at)],
+    );
+  }
+
   /** One deal field-security decision in tenant A, against its standard field_def. */
   async function lockField(field: string, setKey: string, level: 'none' | 'read' | 'edit') {
     const found = await observer.query<{ id: string }>(
@@ -2544,6 +2578,55 @@ describe('acceptance: pipelines and the board API (T-0107)', () => {
           'rotting',
         ]);
         expect(rot(d(41)), 'won').toBeNull();
+      });
+
+      it('a former checker is unnamed, judged per check in the deal’s programme at read time: removed, a member elsewhere, the tenant-admin flag; a member keeps the name (R17, T-0123)', async () => {
+        await plantBoard();
+        // d(33) is ticked by the supervisor (plantBoard). Two more ticks of the S1
+        // requirement: agent 2, a member of A2 only (which the supervisor also
+        // reaches), on d(31); agent 1, an A1 member, on d(32).
+        await plantBoardCheck(id107('a0000402'), d(31), USER_A_AGENT_2, T0 - 2 * DAY);
+        await plantBoardCheck(id107('a0000403'), d(32), USER_A_AGENT_1, T0 - 3 * DAY);
+        const read = async (headers: Headers, where: string) => {
+          const response = await servedBoard(headers, [['limit', '50']]);
+          expect(boardProblems(response.body, where), `${where}: board shape`).toEqual([]);
+          const s1 = arr(column(response.body as Json, 'S1').cards);
+          // A missing card yields [], which fails every expectation below (never vacuous).
+          const by = (id: string) =>
+            arr(s1.find((card) => card.id === id)?.checks).map((entry) => entry.checkedBy);
+          return { text: response.text, d31: by(d(31)), d32: by(d(32)), d33: by(d(33)) };
+        };
+        const named = (userId: string) => ({ id: userId, displayName: userName(userId) });
+        const unnamed = (userId: string) => ({ id: userId, displayName: null });
+
+        // The supervisor reads, and shares A2 with agent 2: agent 2 is still no A1 member.
+        const shared = await read(SUPERVISOR, 'read by the supervisor');
+        expect(shared.d33, 'an A1 member is named').toEqual([named(USER_A_SUPERVISOR)]);
+        expect(shared.d32, 'an A1 member is named').toEqual([named(USER_A_AGENT_1)]);
+        expect(
+          shared.d31,
+          'a member of another programme, even one the reader reaches, is unnamed',
+        ).toEqual([unnamed(USER_A_AGENT_2)]);
+        expect(shared.text, 'agent 2’s name nowhere in the body').not.toContain(
+          userName(USER_A_AGENT_2),
+        );
+
+        // The supervisor leaves A1. Still a tenant admin and an A2 member: not an A1 member.
+        await unassign(USER_A_SUPERVISOR, PROGRAMME_A1);
+        const left = await read(AGENT_1, 'after the supervisor left A1');
+        expect(left.d33, 'a checker who left the programme is unnamed, the id kept').toEqual([
+          unnamed(USER_A_SUPERVISOR),
+        ]);
+        expect(left.d32, 'a member is still named').toEqual([named(USER_A_AGENT_1)]);
+        expect(left.d31).toEqual([unnamed(USER_A_AGENT_2)]);
+        expect(left.text, 'the former checker’s name nowhere in the body').not.toContain(
+          userName(USER_A_SUPERVISOR),
+        );
+
+        // Re-added: named again. Judged at read time, never a snapshot taken at removal.
+        await assign(USER_A_SUPERVISOR, PROGRAMME_A1, 'admin');
+        const back = await read(AGENT_1, 'after the supervisor rejoined A1');
+        expect(back.d33, 'a member again, named again').toEqual([named(USER_A_SUPERVISOR)]);
       });
 
       it('won honours closedSince (default 90 days, sent values echoed); open columns ignore it; lost deals are on no column', async () => {
