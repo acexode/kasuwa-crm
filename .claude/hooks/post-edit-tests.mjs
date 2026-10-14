@@ -27,7 +27,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 const TIMEOUT_MS = 120_000;
 const KILL_GRACE_MS = 3_000;
@@ -74,6 +74,21 @@ if (!match) {
 }
 
 const projectDir = match[1];
+
+// Run in the checkout that owns the edited file, not the session's cwd: a
+// session can edit files in another worktree, and running there would test the
+// wrong tree (and report its failures, or another tree's, as this edit's).
+function repoRootOf(file) {
+  let dir = dirname(file);
+  while (dir !== dirname(dir)) {
+    if (existsSync(join(dir, 'vitest.workspace.ts'))) return dir;
+    dir = dirname(dir);
+  }
+  return process.cwd();
+}
+
+const repoRoot =
+  filePath.startsWith('/') || /^[A-Za-z]:\//.test(filePath) ? repoRootOf(filePath) : process.cwd();
 
 // --- 1. One run at a time on this machine ------------------------------------
 
@@ -128,7 +143,7 @@ if (!takeLock()) {
 
 // --- 2-4. A bounded run in its own process group --------------------------------
 
-const localVitest = join(process.cwd(), 'node_modules', '.bin', 'vitest');
+const localVitest = join(repoRoot, 'node_modules', '.bin', 'vitest');
 const command = existsSync(localVitest) ? localVitest : 'npx';
 const args = [
   ...(command === 'npx' ? ['vitest'] : []),
@@ -148,6 +163,7 @@ const inheritedNodeOptions = (process.env.NODE_OPTIONS ?? '')
   .filter((option) => option && !option.startsWith('--max-old-space-size'));
 
 const child = spawn(command, args, {
+  cwd: repoRoot,
   // Its own process group on POSIX, so the whole tree can be signalled at once.
   detached: process.platform !== 'win32',
   shell: process.platform === 'win32',
@@ -236,7 +252,7 @@ if (timedOut) {
 // Exit 2 surfaces the output to the model so it can fix the break immediately,
 // rather than discovering it three edits later.
 process.stderr.write(
-  `Unit tests for ${projectDir} are failing after your edit:\n\n` +
+  `Unit tests for ${projectDir} (in ${repoRoot}) are failing after your edit (vitest exit ${status}):\n\n` +
     `${stdout.slice(-4000)}\n${stderr.slice(-2000)}\n`,
 );
 process.exit(2);
