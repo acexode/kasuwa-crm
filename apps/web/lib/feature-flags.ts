@@ -160,18 +160,41 @@ export async function crmActivitiesEnabled(): Promise<boolean> {
  * as "not available yet", exactly like an unbuilt one (`components/crm/crm-nav.ts`).
  */
 export async function crmLiveNav(): Promise<string[]> {
-  const [contacts, accounts, leads, activities] = await Promise.all([
+  const [contacts, accounts, leads, activities, pipeline] = await Promise.all([
     crmRecordsEnabled(),
     crmAccountsEnabled(),
     crmLeadsEnabled(),
     crmActivitiesEnabled(),
+    crmPipelineEnabled(),
   ]);
   return [
     ...(leads ? ['leads'] : []),
     ...(contacts ? ['contacts'] : []),
     ...(accounts ? ['accounts'] : []),
     ...(activities ? ['activities'] : []),
+    ...(pipeline ? ['deals'] : []),
   ];
+}
+
+/**
+ * `crm_pipeline` (T-0109) gates the P06 ROUTES — `/pipelines` and
+ * `/pipelines/[pipelineId]` call `notFound()` while it is off, so typing the
+ * path gets a real 404 and nothing of the screen ships — and the CRM nav's
+ * Deals entry, which links `/pipelines` only where this is on (`crmLiveNav()`).
+ * No client module names it.
+ *
+ * Per process, like the others. It grants nothing: the pipelines and deals
+ * API scopes every read from the session and `user_programme`, and refuses a
+ * move or a create the caller's rights and field security do not allow,
+ * whether this is on or off.
+ */
+export async function crmPipelineEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_pipeline',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
 }
 
 /**

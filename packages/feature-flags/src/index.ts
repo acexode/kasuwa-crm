@@ -193,6 +193,26 @@ export const FLAGS = {
     // is proven against the contract mock only. Lifting it is a one-line change.
     productionReady: false,
   },
+  /**
+   * T-0109 (D-L88, D-L113, D-L115, D-L123, D-L124, D-L127): the P06 pipeline
+   * board and list view at `/pipelines` and `/pipelines/[pipelineId]`. It
+   * gates both ROUTES (a real 404 while it is off) and the CRM nav's Deals
+   * entry (`crmLiveNav()`).
+   *
+   * A presentation switch, not an access control: the pipelines and deals API
+   * scopes every read from the session and `user_programme`, and refuses a
+   * move or a create the caller's rights and field security do not allow,
+   * whether this is on or off.
+   */
+  crm_pipeline: {
+    description: 'The P06 pipeline board and list view at /pipelines/[pipelineId], with the pipeline index at /pipelines (T-0109).',
+    defaultValue: false,
+    owner: 'T-0109 (screen), T-0107 and T-0108 (API), D-L88, D-L115',
+    // NOT production-ready: the screen is proven against the contract mock,
+    // and hiding write controls from callers without deal.write waits on a
+    // capability read (D-L84, T-0079). Lifting it is a one-line change.
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;
