@@ -16,7 +16,7 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
 /**
  * ACCEPTANCE — T-0087, global search and the command palette (P27; Agent 11,
  * Frontend & Design System), against T-0085's contract (`searchRecords`,
- * `lookupRecords`). Decisions: D-L133 (and the contract suite's R1–R22),
+ * `lookupRecords`). Decisions: D-L133 (and the contract suite's R1–R22), D-L135,
  * ADR-0014, D-L128, D-P13, D-L87, D-L68, D-L80, D-L115, D-L118.
  * Written by the lead's QA agent before the screen exists (D-L23).
  *
@@ -132,17 +132,23 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *       to answer, and only the answer to the current input is drawn: a stale
  *       answer or a stale failure changes nothing. Aborting a superseded
  *       request is allowed.
- *   R11. R21 routing on the client. The classifier is the contract's: after
- *       NFKC, an `@`, or 6 or more digits once whitespace and `+()-.` are
- *       removed. Such input goes ONLY to lookupRecords: a POST,
+ *   R11. R21 routing on the client, with the rule D-L135 states (it lands in
+ *       the YAML with T-0086; the YAML on main still has the older ASCII
+ *       `not` pattern, so the mock implements D-L135 itself): after NFKC, an
+ *       `@`, or, once every character that is neither a letter (`\p{L}`) nor
+ *       a decimal digit (`\p{Nd}`) is removed, a run of 6 or more `\p{Nd}`
+ *       digits of ANY script. So `0803/123/4567`, `0803_123_4567`,
+ *       `0803,123,4567`, `0803–123–4567` and Arabic-Indic digits are
+ *       identifiers. Such input goes ONLY to lookupRecords: a POST,
  *       `application/json`, no query string, the closed body with exactly
  *       one of `email` (it has an `@`) or `phone` (it does not), plus `types`
  *       absent, all four, or contact and lead. The value is the whole input
  *       (trimmed; the client may NFKC-normalise it), never a prefix of it.
  *       Input that is not identifier-shaped never goes to the lookup.
- *   R12. The URL never carries a phone number or an email address: not any
- *       request URL, the address bar, a history entry or its state, a link,
- *       or the title. The screen MAY keep a name `q` in its own URL; never an
+ *   R12. The URL never carries a phone number or an email address (an
+ *       identifier as D-L135 defines it, in any script and with any
+ *       separators): not any request URL, the address bar, a history entry or
+ *       its state, a link, or the title. The screen MAY keep a name `q` in its own URL; never an
  *       identifier. A crafted `/search?q=<identifier>` is never searched or
  *       looked up, never put in the box, and is removed from the address bar.
  *   R13. Partial identifiers. A partial number or address is refused, by the
@@ -200,10 +206,10 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *       255,000-byte ceiling; the lead pins it within 5% of the builder's
  *       first green measurement (D-L118). Until then the budget test fails by
  *       design. The palette rides in the shell of every CRM screen (see R29).
- *   R27. Nothing phone-like reaches searchRecords, even partially (lead).
- *       After NFKC, text made only of phone characters (digits, whitespace,
- *       `+()-.`) with at least one digit sends NO searchRecords request at
- *       any keystroke. The screen shows a neutral "keep typing a full number"
+ *   R27. Nothing phone-like reaches searchRecords, even partially (lead,
+ *       aligned with D-L135). After NFKC, text holding at least one `\p{Nd}`
+ *       digit of any script and NO `\p{L}` letter sends NO searchRecords
+ *       request at any keystroke (`0803`, `0803/1`, `٠٨٠٣`). The screen shows a neutral "keep typing a full number"
  *       hint (`data-testid="search-hint"`, never a refusal) until the input is
  *       lookup-eligible (R21's rule), then sends lookupRecords only. Text with
  *       letters and digits (`Sample 12`) stays a name query under the
@@ -211,7 +217,11 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *       put up to five of its digits into the API URL.
  *   R28. The client NFKC-normalises a phone and an email before building the
  *       lookup body (lead), so full-width digits and `＠` work: the body
- *       carries ASCII.
+ *       carries ASCII. PINNED: the body is the input NFKC-normalised and
+ *       trimmed, so separators and Arabic-Indic digits (which NFKC leaves
+ *       alone) are passed as typed; today's `LookupRequest.phone` pattern
+ *       refuses them and the screen draws the refusal. If T-0086 widens the
+ *       pattern, the `@p27-search-unicode-identifiers` journey is re-pinned.
  *   R29. The palette is loaded on first open (a dynamic `import()`), never in
  *       the shell's first load (lead). Held statically here (the palette
  *       module is reached from `components/crm` only through a dynamic
@@ -297,9 +307,9 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  * re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  // R27–R29 (lead rulings, 2026-10-14): the phone-prefix journey, NFKC lookup bodies.
-  [SPEC]: '3e4a51566c18ee5970d33072ad462f9b2d1722757b96d83a5214ee12736011b5',
-  [MOCK]: 'f906703c6fdd3fc09b2c81f8da9ff512c98530a9e9802e07819f195a144ef2d5',
+  // R27–R29 (lead rulings, 2026-10-14) and D-L135 (the Unicode identifier rule, implemented in the mock).
+  [SPEC]: '6454b4c643eaad9ad94a390214795741794feb9915a0cb9fda2987bce4feb656',
+  [MOCK]: 'f809ba77382ec272aab78d732b2447d26554adca123d9c501f21d4d2d237e742',
 };
 
 /** Never above this (R26). */
@@ -338,6 +348,7 @@ const REQUIRED: readonly (readonly [tag: string, what: string])[] = [
   ['@p27-search-lookup-phone', 'a phone in any format only to lookupRecords as a POST body; full-width digits sent as ASCII (R28)'],
   ['@p27-search-lookup-email', 'an email only to lookupRecords as a POST body, whole, a full-width ＠ normalised (R28)'],
   ['@p27-search-phone-prefix', 'phone-like input never reaches searchRecords, even as a prefix; a neutral hint until it is whole (R27)'],
+  ['@p27-search-unicode-identifiers', 'slash, underscore, comma, en-dash and Arabic-Indic numbers only to the lookup, NFKC as typed, no digit run anywhere (D-L135)'],
   ['@p27-search-url', 'no phone or email in any URL, history entry, link or title; a crafted one is ignored and removed'],
   ['@p27-search-partial', 'a partial number or address refused as such, never a prefix search, no "also matches" hint'],
   ['@p27-search-fields', 'displayName as served, never composed; withheld parts never shown; a lock when nameless; markup as text'],
@@ -897,7 +908,9 @@ describe('acceptance: T-0087 — the journeys and the mock are the ones this sui
     const mock = readFileSync(fromRoot(MOCK), 'utf8');
     expect(mock, 'the mock no longer reads the records contract').toContain(CONTRACT);
     expect(mock, 'the mock no longer checks its own answers against the contract').toMatch(/answerProblems\(operation, status, body\)/);
-    expect(mock, 'the mock no longer reads R21’s pattern from the contract').toContain('Q_PARAMETER.schema.not.pattern');
+    // D-L135: the mock implements the Unicode rule itself, never the YAML's ASCII pattern.
+    expect(mock, 'the mock no longer implements D-L135’s letter-or-digit strip').toContain("replace(/[^\\p{L}\\p{Nd}]/gu, '')");
+    expect(mock, 'the mock no longer implements D-L135’s run of six digits of any script').toContain('/\\p{Nd}{6,}/u');
     const spec = readFileSync(fromRoot(SPEC), 'utf8');
     expect(BUDGET_LITERAL.test(spec), 'SEARCH_BUDGET_BYTES is not where it was').toBe(true);
     expect(spec, 'the journeys no longer tap history for identifiers').toContain('__kasuwaHistory');

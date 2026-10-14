@@ -16,9 +16,11 @@ import { TENANT_A } from '@kasuwa/db';
  * ---------------------------------------------------------------------------
  * READ FROM THE CONTRACT AT RUN TIME, AND EVERY REQUEST AND ANSWER CHECKED
  *
- * The schemas, the enums, the parameter lists, the identifier pattern
- * (`q`'s `not`), the search fields (`x-kasuwa-search-fields`) and every error
- * body come out of the YAML when this module loads.
+ * The schemas, the enums, the parameter lists, the search fields
+ * (`x-kasuwa-search-fields`) and every error body come out of the YAML when
+ * this module loads. The identifier rule does NOT: D-L135's Unicode rule is
+ * stronger than the YAML's ASCII `not` pattern (until T-0086 lands it), so
+ * `identifierShaped` implements it in full here.
  *
  *   - At load, every stored record is served as a hit and validated, strictly,
  *     against its hit schema; the contract's own examples (`prefix`,
@@ -76,20 +78,25 @@ import { TENANT_A } from '@kasuwa/db';
  *   - No request header names a programme or a tenant (CLAUDE.md 2.2).
  *   - searchRecords: only `q` and `types`; `q` present; `types` absent or all
  *     four (the screen searches every type); **`q` never phone- or
- *     email-shaped** (R21: after NFKC, an `@` or a run of 6 or more digits
- *     once whitespace and `+()-.` are removed); never a control character,
+ *     email-shaped** (R21 as D-L135 states it: after NFKC, an `@`, or a run
+ *     of 6 or more `\p{Nd}` digits of any script once everything that is
+ *     neither a letter nor a digit is removed); never a control character,
  *     never over 100 characters, never under 2 once folded (NFD, marks
  *     removed, lower-cased, trimmed, inner whitespace collapsed). Each is
  *     answered as the contract says (`400` with the right detail code).
- *     **Nor phone-like at all** (the lead's R27): a `q` that, after NFKC, is
- *     only digits, whitespace and `+()-.` with at least one digit (`0803`,
- *     `+234 80`) is a violation even though the contract answers it `200`.
+ *     **Nor phone-like at all** (the lead's R27, D-L135): a `q` that, after
+ *     NFKC, holds a `\p{Nd}` digit and no `\p{L}` letter (`0803`, `+234 80`,
+ *     `0803/1`, `٠٨`) is a violation even though the contract answers it 200.
  *   - lookupRecords: a POST, `application/json`, NO query string at all, the
  *     closed `LookupRequest` with exactly one of `phone` or `email`; `types`
  *     absent, all four, or exactly contact and lead. The term must be
  *     phone- or email-shaped by the same R21 rule: a name sent to the lookup
  *     is a name the screen failed to search. The term must be NFKC-normalised
- *     already (the lead's R28): full-width digits arrive as ASCII.
+ *     already (the lead's R28): full-width digits arrive as ASCII. Digits
+ *     NFKC leaves alone (Arabic-Indic) arrive as typed; today's
+ *     `LookupRequest.phone` pattern refuses them, and so do `/`, `_`, `,`
+ *     and an en dash, as `400 invalid_phone`: the API's refusal, not a
+ *     violation.
  *   - listContacts / listLeads / listAccounts: only parameters the operation
  *     declares, never a programme or scope.
  *
@@ -381,25 +388,58 @@ const Q_PARAMETER = ((SEARCH_OPERATION.parameters ?? []) as unknown[])
   .map((raw) => deref(raw, CONTRACT).node as Json)
   .find((parameter) => parameter.name === 'q') as { schema: { minLength: number; maxLength: number; not: { pattern: string } } };
 
-/** R21's ASCII pattern, from the contract (`q`'s `not`). The server applies it after NFKC. */
-const IDENTIFIER_PATTERN = new RegExp(Q_PARAMETER.schema.not.pattern);
+/**
+ * The YAML's ASCII form of R21 (`q`'s `not`), exported ONLY so the spec can
+ * show it is weaker than D-L135. The mock never decides anything with it.
+ */
+export const CONTRACT_ASCII_IDENTIFIER_PATTERN = new RegExp(Q_PARAMETER.schema.not.pattern);
 export const Q_MIN = Q_PARAMETER.schema.minLength;
 export const Q_MAX = Q_PARAMETER.schema.maxLength;
 
-/** R21: phone- or email-shaped once NFKC-normalised. Such input belongs to lookupRecords, never to a URL. */
+/**
+ * R21 as strengthened by D-L135 (it lands in the YAML with T-0086; until
+ * then the YAML holds the older ASCII rule, so this is implemented here, in
+ * full, and NOT derived from the YAML). After NFKC, text is identifier-shaped
+ * when it contains `@`, or when, with every character that is neither a
+ * letter (`\p{L}`) nor a decimal digit (`\p{Nd}`) removed, it holds a run of
+ * 6 or more `\p{Nd}` digits of ANY script. So `0803/123/4567`,
+ * `0803_123_4567`, `0803,123,4567`, `0803–123–4567` and Arabic-Indic digits
+ * are identifiers; `Unit 12 Block 3456` is not (letters break the run).
+ * Such input belongs to lookupRecords, never to a URL.
+ */
 export function identifierShaped(text: string): boolean {
-  return IDENTIFIER_PATTERN.test(text.normalize('NFKC'));
+  const normal = text.normalize('NFKC');
+  if (normal.includes('@')) return true;
+  return /\p{Nd}{6,}/u.test(normal.replace(/[^\p{L}\p{Nd}]/gu, ''));
 }
 
 /**
- * R27 (lead ruling): after NFKC, the text is only phone characters (digits,
- * whitespace, `+()-.`) and holds a digit. Such input never reaches
- * searchRecords at any keystroke, not even as a short prefix: the screen
- * waits until it is lookup-eligible and sends lookupRecords only.
+ * R27 (lead ruling, aligned with D-L135): after NFKC, the text holds at least
+ * one `\p{Nd}` digit of any script and NO `\p{L}` letter. Such input never
+ * reaches searchRecords at any keystroke, not even as a short prefix: the
+ * screen waits until it is lookup-eligible and sends lookupRecords only.
+ * Text with letters stays a name query, subject to `identifierShaped`.
  */
 export function phoneLike(text: string): boolean {
   const normal = text.normalize('NFKC');
-  return /^[\d\s+().-]+$/.test(normal) && /\d/.test(normal);
+  return /\p{Nd}/u.test(normal) && !/\p{L}/u.test(normal);
+}
+
+/**
+ * The value of each decimal digit in `text`, in order, as ASCII (`٠٨` is
+ * `08`): a `\p{Nd}` digit's value is its distance from the first digit of its
+ * run of ten. Used to compare numbers written in different scripts.
+ */
+export function digitValues(text: string): string {
+  let out = '';
+  for (const character of text.normalize('NFKC')) {
+    if (!/\p{Nd}/u.test(character)) continue;
+    const code = character.codePointAt(0) ?? 0;
+    let back = 0;
+    while (back < 60 && /\p{Nd}/u.test(String.fromCodePoint(code - back - 1))) back += 1;
+    out += String(back % 10);
+  }
+  return out;
 }
 
 /** The contract's folding (searchRecords' description), for the length rule and the prefix match. */
@@ -1105,7 +1145,7 @@ export async function installSearchMock(page: Page, options: SearchMockOptions =
     }
     if (phoneLike(q)) {
       // The contract lets a short run of digits through; the lead's R27 does not.
-      violations.push('searchRecords was sent a phone-like q (only digits and phone separators): R27 waits for a whole number and sends it to lookupRecords');
+      violations.push('searchRecords was sent a phone-like q (digits and no letter, D-L135): R27 waits for a whole number and sends it to lookupRecords');
     }
     if (q.length > Q_MAX) return refuse('q', 'invalid_string', `q is ${q.length} characters, over ${Q_MAX}`);
     if (hasControlCharacter(q)) return refuse('q', 'invalid_string', 'q carries a control character');

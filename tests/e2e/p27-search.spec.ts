@@ -28,7 +28,9 @@ import {
   Q_MAX,
   SEARCH_TYPES,
   WITHHELD_VALUES,
+  CONTRACT_ASCII_IDENTIFIER_PATTERN,
   answerProblems,
+  digitValues,
   hasControlCharacter,
   identifierShaped,
   installSearchMock,
@@ -127,17 +129,21 @@ import {
  *     shorter than 2 characters once folded, never over 100, never with a
  *     control character; a newer query is sent without waiting for an older
  *     one, and only the latest answer is ever drawn.
- *   - Phone- or email-shaped input (R21: after NFKC, an `@`, or 6 or more
- *     digits once whitespace and `+()-.` are removed) goes ONLY to
- *     lookupRecords, as a POST body; it is never in any URL, history entry,
- *     link, request query or document title.
- *   - Phone-like input (R27: after NFKC, only digits, whitespace and
- *     `+()-.`, with a digit) never reaches searchRecords at any keystroke,
+ *   - Phone- or email-shaped input (R21 as D-L135 strengthens it: after NFKC,
+ *     an `@`, or a run of 6 or more `\p{Nd}` digits of any script once every
+ *     character that is neither a letter nor a digit is removed, so
+ *     `0803/123/4567`, `0803_123_4567`, an en dash and Arabic-Indic digits
+ *     count) goes ONLY to lookupRecords, as a POST body; it is never in any
+ *     URL, history entry, link, request query or document title.
+ *   - Phone-like input (R27, D-L135: after NFKC, at least one `\p{Nd}` digit
+ *     and no `\p{L}` letter) never reaches searchRecords at any keystroke,
  *     not even `0803`: the screen shows the neutral hint until the input is
  *     lookup-eligible, then sends lookupRecords only. Text with letters
  *     (`Sample 12`) stays a name query.
  *   - The lookup body is NFKC-normalised (R28): full-width digits and `＠`
- *     arrive as ASCII.
+ *     arrive as ASCII; separators and Arabic-Indic digits, which NFKC leaves
+ *     alone, are passed as typed (today's phone pattern refuses them, and the
+ *     screen draws that refusal).
  *   - The palette is loaded on first open (R29); the other CRM screens'
  *     pinned byte budgets are the check.
  *   - Hits link only from well-formed uuids: contacts and leads to
@@ -320,9 +326,17 @@ function carries(text: string, identifier: string): boolean {
     const local = id.split('@')[0] ?? id;
     return normal.includes(id) || (local.length >= 4 && normal.includes(`${local}@`)) || normal.includes(local.replace(/\./g, '%2e'));
   }
-  // The national number: every way of writing it contains these digits.
-  const digits = id.replace(/\D/g, '').replace(/^(?:234|0)/, '');
-  return normal.replace(/[\s+().-]/g, '').includes(digits);
+  // The national number, in any script and with any separators (D-L135): every way of writing it holds these digits.
+  return skeleton(normal).includes(digitsOf(id));
+}
+
+/**
+ * Text with every character that is neither a letter nor a decimal digit
+ * removed, and every digit of any script written as its ASCII value (D-L135),
+ * so a digit run reads the same however it was separated or scripted.
+ */
+function skeleton(text: string): string {
+  return [...text.normalize('NFKC').replace(/[^\p{L}\p{Nd}]/gu, '')].map((character) => (/\p{Nd}/u.test(character) ? digitValues(character) : character)).join('');
 }
 
 /**
@@ -348,6 +362,40 @@ async function expectIdentifierNowhere(page: Page, wire: Wire, identifier: strin
   const hrefs = await page.locator('a[href]').evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute('href') ?? ''));
   for (const href of hrefs) {
     expect(carries(href, identifier), `a link carries the identifier (${where})`).toBe(false);
+  }
+}
+
+/**
+ * R27 on the wire: while a number was typed, no API request carried a digit
+ * of any script in its query, and no page request, the address bar or a
+ * history URL carried a run of the number's digits (any script, any
+ * separators, D-L135). Page and RSC requests are judged on runs of four or
+ * more, so a random cache-busting token is not mistaken for a leak.
+ */
+async function expectNoDigitRuns(page: Page, wire: Wire, number: string, where: string): Promise<void> {
+  const national = digitsOf(number);
+  const fromNumber = (text: string, shortest = 3): string[] =>
+    (skeleton(text).match(/\d{3,}/g) ?? []).filter((run) => run.length >= shortest && (national.includes(run) || run.includes(national)));
+  const decoded = (text: string): string => {
+    try {
+      return decodeURIComponent(text);
+    } catch {
+      return text;
+    }
+  };
+  for (const url of wire.urls) {
+    const { pathname, search } = new URL(url);
+    if (pathname.startsWith('/api/')) {
+      expect(/\p{Nd}/u.test(decoded(search)), `an API request carried digits in its query (${where}): ${pathname}`).toBe(false);
+    } else if (!pathname.startsWith('/_next/static/')) {
+      expect(fromNumber(decoded(search), 4), `a page request carried digits of the number (${where}): ${pathname}`).toEqual([]);
+    }
+  }
+  const address = new URL(page.url());
+  expect(fromNumber(decoded(`${address.search}${address.hash}`)), `the address bar carries digits of the number (${where})`).toEqual([]);
+  for (const entry of await historyLog(page)) {
+    const written = entry.split('\n')[0] ?? '';
+    expect(fromNumber(decoded(written.replace(/^[^?#]*/, ''))), `a history URL carries digits of the number (${where})`).toEqual([]);
   }
 }
 
@@ -548,8 +596,9 @@ async function expectDrawn(root: Locator, expected: Expected | undefined): Promi
   expect(await groupsWithHits(root), 'the groups are not in the served order').toEqual(SEARCH_TYPES.filter((type) => expected[type].length > 0));
 }
 
+/** The national number's digits, as ASCII, whatever script they were typed in. */
 function digitsOf(value: string): string {
-  return value.normalize('NFKC').replace(/\D/g, '').replace(/^(?:234|0)/, '');
+  return digitValues(value).replace(/^(?:234|0)/, '');
 }
 
 /** A lookup request for this very value (the same whole number, or the same address). */
@@ -680,11 +729,38 @@ test('the contract mock refuses what the contract and the screen’s rules refus
   for (const value of ['Sample 2026', 'Unit 12 Block 3456', 'sam', 'Sámple Fixture', '0803 0']) {
     expect(identifierShaped(value), `"${value}" is a name the rule refuses`).toBe(false);
   }
-  // R27's rule: phone-like, even when too short to look up.
-  for (const value of ['0803', '+234 80', '(0803) 0', '０８０３', '1', ...PHONE_FORMS, PHONE_PARTIAL]) {
-    expect(phoneLike(value), `"${value.replace(/\d/g, '#')}" is not recognised as phone-like`).toBe(true);
+  // D-L135: separators of any kind and digits of any script. The YAML's ASCII
+  // rule misses these; a weakened rule (ASCII digits only, or stripping only
+  // whitespace and `+()-.`) misses them too, and is caught here.
+  const unicodeIdentifiers = [
+    '0803/123/4567',
+    '0803_123_4567',
+    '0803,123,4567',
+    '0803–123–4567',
+    '٠٨٠٣١٢٣٤٥٦٧',
+    ...KEYED_IDENTIFIERS.map(([typed]) => typed),
+    ...FILLED_IDENTIFIERS,
+  ];
+  const asciiDigitsOnly = (text: string) => /\d{6,}/.test(text.normalize('NFKC').replace(/[^\p{L}\p{Nd}]/gu, ''));
+  const stripPunctuationOnly = (text: string) => /\p{Nd}{6,}/u.test(text.normalize('NFKC').replace(/[\s+().-]/g, ''));
+  for (const value of unicodeIdentifiers) {
+    expect(identifierShaped(value), `D-L135: "${value.replace(/\p{Nd}/gu, '#')}" is not an identifier`).toBe(true);
   }
-  for (const value of ['Sample 12', 'Unit 12 Block 3456', 'sam', '+-.() ', '', EMAIL]) {
+  expect(unicodeIdentifiers.filter((value) => !CONTRACT_ASCII_IDENTIFIER_PATTERN.test(value.normalize('NFKC'))).length, 'the YAML’s ASCII rule already catches these: the self-check proves nothing').toBeGreaterThan(0);
+  expect(unicodeIdentifiers.filter((value) => !asciiDigitsOnly(value)), 'an ASCII-digits-only rule is not told apart').not.toEqual([]);
+  expect(unicodeIdentifiers.filter((value) => !stripPunctuationOnly(value)), 'a rule stripping only +()-. is not told apart').not.toEqual([]);
+  expect(digitValues('٠٨٠٣١٢٣٤٥٦٧'), 'Arabic-Indic digits are not read by value').toBe('08031234567');
+  expect(digitValues('０８۰۳'), 'full-width and extended Arabic-Indic digits are not read by value').toBe('0803');
+  // Letters break the run: still names.
+  for (const value of ['Sample 12', 'Sample12Block3456', 'Unit 12 Block 3456', 'Sample 2026']) {
+    expect(identifierShaped(value), `"${value}" is a name D-L135 refuses`).toBe(false);
+  }
+
+  // R27's rule (D-L135): a digit of any script and no letter.
+  for (const value of ['0803', '+234 80', '(0803) 0', '０８０３', '1', '0803/1', '0803_1', '٠٨', '0803–', ...PHONE_FORMS, PHONE_PARTIAL]) {
+    expect(phoneLike(value), `"${value.replace(/\p{Nd}/gu, '#')}" is not recognised as phone-like`).toBe(true);
+  }
+  for (const value of ['Sample 12', 'Unit 12 Block 3456', 'sam', '+-.() ', '/_,–', '', EMAIL]) {
     expect(phoneLike(value), `"${value}" is wrongly phone-like`).toBe(false);
   }
 
@@ -776,9 +852,22 @@ test('the contract mock refuses what the contract and the screen’s rules refus
     expect(refused.body.details).toEqual([{ path: 'q', code: 'identifier_in_url' }]);
   }
   // R27: the contract answers a short run of digits; the lead's ruling still blames the screen.
-  for (const prefix of ['0803', '+234 80', '(0803) 0', '０８']) {
+  for (const prefix of ['0803', '+234 80', '(0803) 0', '０８', '0803/0', '٠٨٠٣', '0803–0']) {
     await expectViolation(q(prefix), 'GET', undefined, 200, /phone-like q/);
   }
+  // D-L135: the mock refuses what the YAML's ASCII rule would let through.
+  for (const identifier of unicodeIdentifiers) {
+    const refused = await expectViolation(q(identifier), 'GET', undefined, 400, /phone- or email-shaped/);
+    expect(refused.body.details).toEqual([{ path: 'q', code: 'identifier_in_url' }]);
+  }
+  // Names that hold a D-L135 run are identifiers too, and say so (the contract's R21: they cannot be prefix-searched by it).
+  await expectViolation(q('Sample 0803/000/0001'), 'GET', undefined, 400, /phone- or email-shaped/);
+  // A lookup of a D-L135 identifier is the screen doing the right thing; the API refuses the format.
+  for (const typed of [...KEYED_IDENTIFIERS.map(([value]) => value), ...FILLED_IDENTIFIERS]) {
+    const refused = await call(lookupPath, 'POST', { phone: typed });
+    expect(refused.body.details, 'today’s phone pattern accepts a D-L135 form').toEqual([{ path: 'phone', code: 'invalid_phone' }]);
+  }
+  expect(mock.violations.length, 'a D-L135 lookup was blamed on the screen').toBe(planted);
   // R28: a full-width number sent as typed is a body the client failed to normalise.
   const raw = await expectViolation(lookupPath, 'POST', { phone: PHONE_FULL_WIDTH }, 400, /not NFKC-normalised/);
   expect(raw.body.details, 'full-width digits are not ASCII: the API refuses them').toEqual([{ path: 'phone', code: 'invalid_phone' }]);
@@ -1308,25 +1397,7 @@ test('phone-like input never reaches searchRecords, not even as a prefix; a neut
   await expect(shown(palette.getByTestId('search-hint')), 'the hint stayed once the number was whole').toHaveCount(0);
   expect(mock.searchReads.length, 'searchRecords was sent a phone-like prefix (R27)').toBe(0);
 
-  // No digit run from the number in any API request's query, the address bar or a history URL.
-  const national = digitsOf(number);
-  const runsOf = (text: string): string[] => (text.normalize('NFKC').replace(/[\s+().-]/g, '').match(/\d{3,}/g) ?? []);
-  const fromNumber = (text: string, shortest = 3): string[] =>
-    runsOf(text).filter((run) => run.length >= shortest && (national.includes(run) || run.includes(national)));
-  for (const url of wire.urls) {
-    const { pathname, search } = new URL(url);
-    if (pathname.startsWith('/api/')) {
-      expect(/\d/.test(decodeURIComponent(search)), `an API request carried digits in its query while a number was typed: ${pathname}`).toBe(false);
-    } else if (!pathname.startsWith('/_next/static/')) {
-      // Page and RSC requests: runs of four or more, so a random cache-busting token is not mistaken for a leak.
-      expect(fromNumber(decodeURIComponent(search), 4), `a page request carried digits of the number: ${pathname}`).toEqual([]);
-    }
-  }
-  expect(fromNumber(decodeURIComponent(`${new URL(page.url()).search}${new URL(page.url()).hash}`)), 'the address bar carries digits of the number').toEqual([]);
-  for (const entry of await historyLog(page)) {
-    const written = entry.split('\n')[0] ?? '';
-    expect(fromNumber(decodeURIComponent(written.replace(/^[^?#]*/, ''))), 'a history URL carries digits of the number').toEqual([]);
-  }
+  await expectNoDigitRuns(page, wire, number, 'a number typed key by key');
   for (const request of mock.lookups) {
     expect(request.url.search, 'the lookup carried a query string').toBe('');
   }
@@ -1339,6 +1410,63 @@ test('phone-like input never reaches searchRecords, not even as a prefix; a neut
   await settled(palette);
   await expect(shown(palette.getByTestId('search-hint')), 'a name drew the phone hint').toHaveCount(0);
   expect(mock.searchReads.map((url) => url.searchParams.get('q')), 'only the name was searched').toEqual(['Sample 12']);
+});
+
+/**
+ * D-L135's identifiers that the YAML's ASCII rule misses (PLACEHOLDER
+ * numbers, one per case so a screen that remembers lookups still sends
+ * each). Typed key by key: a slash-separated number and Arabic-Indic digits.
+ * Filled at once: underscores, commas and an en dash.
+ */
+const KEYED_IDENTIFIERS: readonly (readonly [typed: string, what: string])[] = [
+  ['0803/000/0001', 'a slash-separated number'],
+  ['٠٨٠٣٠٠٠٠٠٠٧', 'Arabic-Indic digits'],
+];
+const FILLED_IDENTIFIERS: readonly string[] = ['0803_000_0003', '0803,000,0011', '0803–000–0004'];
+
+test('separators of any kind and digits of any script make an identifier: only the lookup, no digit run anywhere (D-L135) @p27-search @p27-search-unicode-identifiers', async ({
+  page,
+}) => {
+  // PINNED (D-L135, R28): the lookup body is the input NFKC-normalised and
+  // trimmed, separators and Arabic-Indic digits passed as typed (NFKC leaves
+  // them alone and the contract says nothing else). Today's
+  // `LookupRequest.phone` pattern refuses them, so the screen draws the
+  // lookup's refusal; if T-0086 widens the pattern, this journey is re-pinned.
+  await page.clock.install();
+  const wire = await tapWire(page);
+  const mock = await openSearch(page);
+  const root = screenOf(page);
+  const box = input(root);
+
+  for (const [typed, what] of KEYED_IDENTIFIERS) {
+    await box.fill('');
+    await page.clock.runFor(3_000);
+    // Four digits in: phone-like, so the neutral hint and no request (R27).
+    await box.pressSequentially([...typed].slice(0, 4).join(''));
+    await page.clock.runFor(3_000);
+    await expect(shown(root.getByTestId('search-hint')), `no keep-typing hint after four digits of ${what}`).toBeVisible();
+    await expect(shown(root.getByTestId('search-invalid')), `a refusal after four digits of ${what}`).toHaveCount(0);
+    const whole = page.waitForRequest((request) => isLookupFor(request, typed));
+    await box.pressSequentially([...typed].slice(4).join(''));
+    await page.clock.runFor(3_000);
+    const request = await whole;
+    await (await request.response())?.finished();
+    const body = request.postDataJSON() as Record<string, unknown>;
+    expect(Object.keys(body).filter((key) => key !== 'types'), `${what}: the lookup body is not exactly one phone`).toEqual(['phone']);
+    expect(String(body.phone).trim(), `${what}: the lookup body is not the input NFKC-normalised`).toBe(typed.normalize('NFKC').trim());
+    expect(digitValues(String(body.phone)), `${what}: the lookup did not carry the whole number`).toBe(digitValues(typed));
+    await expect(shown(root.getByTestId('search-invalid')), `${what}: the lookup's refusal was not drawn`).toBeVisible();
+    await expectNoDigitRuns(page, wire, typed, what);
+  }
+  for (const typed of FILLED_IDENTIFIERS) {
+    const request = await lookUp(page, root, typed);
+    expect(request, `the number written with "${typed.replace(/\d/g, '')[0] ?? ''}" was not sent to the lookup`).toBeDefined();
+    const body = (request?.postDataJSON() ?? {}) as Record<string, unknown>;
+    expect(String(body.phone).trim()).toBe(typed.normalize('NFKC').trim());
+    await expect(shown(root.getByTestId('search-invalid'))).toBeVisible();
+    await expectNoDigitRuns(page, wire, typed, 'a number with unusual separators');
+  }
+  expect(mock.searchReads, 'searchRecords was sent part of a D-L135 identifier').toEqual([]);
 });
 
 test('the page URL, history, links, titles and every request URL never carry a phone number or an email address @p27-search @p27-search-url', async ({
