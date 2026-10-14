@@ -42,8 +42,9 @@ import { collectTelemetry, type Telemetry } from '../support/telemetry';
  * reassignment audit, literal wildcards, non-uuid ids are the 404), D-L117 and
  * D-L120 (T-0106: what the schema leaves to the API), D-L121 (money is bigint,
  * 0 to 18 nines, a fraction refused), D-L67 (owner membership), D-L72 (audit
- * names, not values), D-L102 (changed fields only), D-P18 (agent rights).
- * The T-0082 (activities-api) and T-0056 (leads-api) suites are the prior art
+ * names, not values), D-L102 (changed fields only), D-P18 (agent rights);
+ * T-0123 and D-L127 (a former checker is unnamed, as a former owner is,
+ * D-P23: R23, a lead edit). The T-0082 (activities-api) and T-0056 (leads-api) suites are the prior art
  * for the harness, and pipeline-tables (T-0106) for planting pipelines; their
  * helpers are copied here, never imported (importing a test file registers its
  * tests).
@@ -176,6 +177,18 @@ import { collectTelemetry, type Telemetry } from '../support/telemetry';
  *     pipeline, programme or tenant, or no longer selected by the filters) is
  *     `400 invalid_cursor`, one body (DealCursor), unlike the general
  *     `Cursor`'s empty page.
+ * R23 (LEAD EDIT, T-0123 and D-L127.) A check's `checkedBy.displayName` is
+ *     null for a former checker and the current name for a member, judged
+ *     exactly as the owner name is (D-P23): a `user_programme` row in the
+ *     DEAL's programme at the time of the read. Neither the tenant-admin
+ *     flag nor membership of another programme (even one the reader also
+ *     reaches) counts; a user re-added is named again. `checkedBy.id` is
+ *     always served, each check is judged on its own (not by the owner's or
+ *     another check's membership), and a former checker's name appears
+ *     nowhere in the body. This holds on every read that carries checks:
+ *     getDeal, listDeals, and the updateDeal and moveDeal answers (the board
+ *     is pipeline-board-api's R17). The checks this suite already asserts
+ *     are all by members and keep their names.
  *
  * ==========================================================================
  * THE BUILDER'S (not asserted)
@@ -197,6 +210,10 @@ import { collectTelemetry, type Telemetry } from '../support/telemetry';
  * except the ones titled "(self-check)" begins with a request that must
  * succeed (a control), or reads a flag, and so fails on main for that reason.
  * Self-checks test this file's own helpers and pass at commit time.
+ *
+ * T-0123 (lead edit, after T-0108 merged): the routes now exist on main, so
+ * the three R23 former-checker tests fail on main for their own reason, the
+ * API still naming a checker who is not a member of the deal's programme.
  *
  * Writes: the suite reseeds before and after, and after every test.
  */
@@ -2067,6 +2084,138 @@ describe('acceptance: the deals API and the gated move (T-0108)', () => {
         expectNoStore(response, '401');
       }
       expect(await versionOf(mine)).toBe(1);
+    });
+  });
+
+  // =========================================================================
+  // 4b. Former checkers (R23; T-0123, D-L127, D-P23). A lead edit.
+  //     `unassign` writes its own programme membership audit event
+  //     (0031/0033, D-L126); nothing here counts audit events.
+  // =========================================================================
+
+  describe('former checkers are unnamed, as former owners are (R23, T-0123, D-L127)', () => {
+    const named = (userId: string) => ({ id: userId, displayName: displayNameOf(userId) });
+    const unnamed = (userId: string) => ({ id: userId, displayName: null });
+    /** [requirementId, checkedBy] per check, by requirement id. */
+    const checkersOf = (deal: unknown): [string, unknown][] => {
+      const checks = (deal as Json | undefined)?.checks;
+      return (Array.isArray(checks) ? (checks as Json[]) : [])
+        .map((item): [string, unknown] => [String(item.requirementId), item.checkedBy])
+        .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+    };
+
+    it('getDeal: each check judged on its own, in the deal’s programme, at read time: left, a member elsewhere, re-added; never by the owner’s membership', async () => {
+      await control();
+      const now = Date.now();
+      // Emeka (no programme in the seed) joins A1 and ticks while a member.
+      await assign(USER_A_NO_PROGRAMME, PROGRAMME_A1, 'agent');
+      const id = await plantDeal({ id: D('a01'), at: 4 });
+      await plantCheck(id, FA1.RC_PROP, USER_A_NO_PROGRAMME, now - 3 * DAY);
+      // Agent 2 is a member of A2 only, which the supervisor also reaches.
+      await plantCheck(id, FA1.RC_QUOTE, USER_A_AGENT_2, now - 2 * DAY);
+      await plantCheck(id, FA1.RC_PO, USER_A_AGENT_1, now - DAY);
+
+      const shared = await getDeal(SUPERVISOR, id);
+      const asSupervisor = expectDeal(shared, 'getDeal', 200, 'read by the supervisor');
+      expect(checkersOf(asSupervisor), 'members named; a member of another programme unnamed').toEqual([
+        [FA1.RC_PROP, named(USER_A_NO_PROGRAMME)],
+        [FA1.RC_QUOTE, unnamed(USER_A_AGENT_2)],
+        [FA1.RC_PO, named(USER_A_AGENT_1)],
+      ]);
+      expect(textOf(shared), 'agent 2’s name nowhere in the body').not.toContain(displayNameOf(USER_A_AGENT_2));
+
+      await unassign(USER_A_NO_PROGRAMME, PROGRAMME_A1);
+      const left = await getDeal(AGENT_1, id);
+      const afterLeaving = expectDeal(left, 'getDeal', 200, 'after Emeka left A1');
+      expect(checksSummary(afterLeaving.checks), 'the id and time kept; only the name withheld').toEqual([
+        [FA1.RC_PROP, USER_A_NO_PROGRAMME, null, now - 3 * DAY],
+        [FA1.RC_QUOTE, USER_A_AGENT_2, null, now - 2 * DAY],
+        [FA1.RC_PO, USER_A_AGENT_1, displayNameOf(USER_A_AGENT_1), now - DAY],
+      ]);
+      expect(afterLeaving.owner, 'the owner is judged apart, and is a member').toEqual(named(USER_A_AGENT_1));
+      for (const former of [USER_A_NO_PROGRAMME, USER_A_AGENT_2]) {
+        expect(textOf(left), `${former}'s name nowhere in the body`).not.toContain(displayNameOf(former));
+      }
+
+      // Re-added: named again. Read time, never a snapshot taken at removal.
+      await assign(USER_A_NO_PROGRAMME, PROGRAMME_A1, 'agent');
+      const back = expectDeal(await getDeal(AGENT_1, id), 'getDeal', 200, 'after Emeka rejoined A1');
+      expect(checkersOf(back)[0]).toEqual([FA1.RC_PROP, named(USER_A_NO_PROGRAMME)]);
+
+      // The converse: a former owner (agent 2) and a member's check (agent 1). The name follows
+      // the checker's own membership, not the owner's.
+      const formerOwner = await plantDeal({ id: D('a02'), at: 2, owner: USER_A_AGENT_2 });
+      await plantCheck(formerOwner, FA1.RC_PROP, USER_A_AGENT_1, now - DAY);
+      const converse = expectDeal(await getDeal(AGENT_1, formerOwner), 'getDeal', 200, 'a former owner');
+      expect(converse.owner).toEqual(unnamed(USER_A_AGENT_2));
+      expect(checkersOf(converse)).toEqual([[FA1.RC_PROP, named(USER_A_AGENT_1)]]);
+    });
+
+    it('the updateDeal and moveDeal answers: a tenant admin who left the programme is an unnamed checker; the mover’s new tick is named', async () => {
+      await control();
+      const id = await plantDeal({ id: D('a03'), at: 2 });
+      await plantCheck(id, FA1.RC_PROP, USER_A_SUPERVISOR, Date.now() - DAY);
+      const before = expectDeal(await getDeal(AGENT_1, id), 'getDeal', 200, 'control: a member, named');
+      expect(checkersOf(before)).toEqual([[FA1.RC_PROP, named(USER_A_SUPERVISOR)]]);
+
+      // The supervisor leaves A1: still a tenant admin and an A2 member, neither of which is A1 membership.
+      await unassign(USER_A_SUPERVISOR, PROGRAMME_A1);
+
+      const updated = await updateDeal(AGENT_1, id, { version: await v(id), nextStep: `T-0108 synthetic step ${RUN}` });
+      const updatedDeal = expectDeal(updated, 'updateDeal', 200, 'update after the checker left');
+      expect(checkersOf(updatedDeal)).toEqual([[FA1.RC_PROP, unnamed(USER_A_SUPERVISOR)]]);
+      expect(textOf(updated), 'the former checker’s name nowhere in the update answer').not.toContain(
+        displayNameOf(USER_A_SUPERVISOR),
+      );
+
+      const moved = await moveDeal(AGENT_1, id, await toNegotiation(id));
+      const movedDeal = expectDeal(moved, 'moveDeal', 200, 'move after the checker left');
+      expect(movedDeal.stageId).toBe(FA1.S3);
+      expect(checkersOf(movedDeal), 'the old tick unnamed, the mover’s new tick named').toEqual([
+        [FA1.RC_PROP, unnamed(USER_A_SUPERVISOR)],
+        [FA1.RC_QUOTE, named(USER_A_AGENT_1)],
+      ]);
+      expect(textOf(moved), 'the former checker’s name nowhere in the move answer').not.toContain(
+        displayNameOf(USER_A_SUPERVISOR),
+      );
+    });
+
+    it('listDeals: every row’s checks judged in the deal’s programme, whoever reads', async () => {
+      await control();
+      const now = Date.now();
+      await assign(USER_A_NO_PROGRAMME, PROGRAMME_A1, 'agent');
+      const left = await plantDeal({ id: D('a04'), at: 2, updatedAt: now - HOUR });
+      const member = await plantDeal({ id: D('a05'), at: 2, updatedAt: now - 2 * HOUR });
+      const elsewhere = await plantDeal({ id: D('a06'), at: 2, updatedAt: now - 3 * HOUR });
+      await plantCheck(left, FA1.RC_PROP, USER_A_NO_PROGRAMME, now - DAY);
+      await plantCheck(member, FA1.RC_PROP, USER_A_AGENT_1, now - DAY);
+      await plantCheck(elsewhere, FA1.RC_PROP, USER_A_AGENT_2, now - DAY);
+      await unassign(USER_A_NO_PROGRAMME, PROGRAMME_A1);
+
+      for (const [headers, who] of [
+        [SUPERVISOR, 'the supervisor (also in A2)'],
+        [AGENT_1, 'agent 1'],
+      ] as const) {
+        const response = await listDeals(headers, FA1.P, [['limit', '100']]);
+        const where = `listDeals read by ${who}`;
+        expectStatus(response, 200, where);
+        expectNoStore(response, where);
+        expect(pageProblems(response.body, where)).toEqual([]);
+        const rows = pageOf(response.body).data;
+        const row = (id: string) => rows.find((deal) => deal.id === id);
+        expect(checkersOf(row(left)), `${where}: a checker who left`).toEqual([
+          [FA1.RC_PROP, unnamed(USER_A_NO_PROGRAMME)],
+        ]);
+        expect(checkersOf(row(member)), `${where}: a member`).toEqual([[FA1.RC_PROP, named(USER_A_AGENT_1)]]);
+        expect(checkersOf(row(elsewhere)), `${where}: a member of A2 only`).toEqual([
+          [FA1.RC_PROP, unnamed(USER_A_AGENT_2)],
+        ]);
+        for (const former of [USER_A_NO_PROGRAMME, USER_A_AGENT_2]) {
+          expect(textOf(response), `${where}: ${former}'s name nowhere in the page`).not.toContain(
+            displayNameOf(former),
+          );
+        }
+      }
     });
   });
 

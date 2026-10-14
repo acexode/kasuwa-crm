@@ -45,7 +45,7 @@ export interface DealWire {
   checks: {
     requirementId: string;
     checkedAt: string;
-    checkedBy: { id: string; displayName: string };
+    checkedBy: { id: string; displayName: string | null };
   }[];
   createdAt: string;
   updatedAt: string;

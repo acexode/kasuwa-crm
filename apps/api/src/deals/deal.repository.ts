@@ -1,5 +1,9 @@
 import { newId, type TenantTx } from '@kasuwa/db';
 import {
+  dealActorOf,
+  dealProgrammeMember,
+  dealProgrammeMemberFlag,
+  dealProgrammeMemberJoin,
   decodeListCursor,
   encodeListCursor,
   foldForSearch,
@@ -66,7 +70,8 @@ export interface DealCheckRow {
   requirementId: string;
   checkedAt: Date;
   checkedByUserId: string;
-  checkedByDisplayName: string;
+  /** Null for a former checker, no longer a member of the deal's programme (D-L127). */
+  checkedByDisplayName: string | null;
 }
 
 export interface Deal {
@@ -145,12 +150,19 @@ function stageKind(value: string): StageKind {
  * is never a directory of anything the statement does not already return.
  *
  * The owner's name is read only while the owner is a member of the deal's
- * programme (D-P23): a former owner is an id and no name.
+ * programme (D-P23): a former owner is an id and no name. The test is the
+ * board's and the checks' (`dealProgrammeMember`, D-L127).
  *
  * tenancy-reviewed: every subquery is keyed to the deal row's own tenant_id
  * (and programme_id), the pair 0036's composite FKs hold; RLS on each table
  * besides. The stage join is on the full composite key.
  */
+const OWNER_MEMBERSHIP = dealProgrammeMember('owner_membership', {
+  tenantId: 'd.tenant_id',
+  programmeId: 'd.programme_id',
+  userId: 'd.owner_user_id',
+});
+
 const DEAL_SELECT = `
   SELECT d.id, d.programme_id, d.pipeline_id, d.stage_id,
          s.kind AS stage_kind, s.probability_bp, s.rotting_after_days,
@@ -160,11 +172,9 @@ const DEAL_SELECT = `
          d.owner_user_id,
          (SELECT u.display_name
             FROM "user" u
-            JOIN user_programme up
-              ON up.tenant_id = u.tenant_id AND up.user_id = u.id
            WHERE u.tenant_id = d.tenant_id
              AND u.id = d.owner_user_id
-             AND up.programme_id = d.programme_id) AS owner_display_name,
+             AND ${OWNER_MEMBERSHIP}) AS owner_display_name,
          d.primary_contact_id,
          (SELECT c.display_name
             FROM contact c
@@ -236,11 +246,27 @@ function assertInScope(tx: TenantTx, programmeId: string): void {
 }
 
 /**
- * The checks ticked on these deals, with who ticked them, named as they are
- * named now (D-L81).
+ * The checker's membership in the deal's programme: the owner's test (D-P23,
+ * D-L127). A check row's programme IS its deal's (0036's composite FK).
+ */
+const CHECKER_MEMBERSHIP_JOIN = dealProgrammeMemberJoin('checker_membership', {
+  tenantId: 'k.tenant_id',
+  programmeId: 'k.programme_id',
+  userId: 'k.checked_by_user_id',
+});
+const CHECKER_IS_MEMBER = dealProgrammeMemberFlag('checker_membership');
+
+/**
+ * The checks ticked on these deals, with who ticked them. A checker is named
+ * as they are named now while they are a member of the deal's programme, and
+ * unnamed once they are not (D-L127, as a former owner, D-P23); the name is
+ * not even read for a non-member. Membership for every check of every deal
+ * is resolved in this one statement by one join (one probe per check),
+ * never one statement per check or per deal.
  *
  * tenancy-reviewed: tenant from the session, the programme checked against
- * the session; the user joined on (tenant_id, id); RLS on both besides.
+ * the session; the user joined on (tenant_id, id), the membership keyed on
+ * the check's own tenant, programme and user; RLS on all three besides.
  */
 async function checksFor(
   tx: TenantTx,
@@ -254,12 +280,16 @@ async function checksFor(
     requirement_id: string;
     checked_at: Date;
     checked_by_user_id: string;
-    display_name: string;
+    is_member: boolean;
+    display_name: string | null;
   }>(
-    `SELECT k.deal_id, k.requirement_id, k.checked_at, k.checked_by_user_id, u.display_name
+    `SELECT k.deal_id, k.requirement_id, k.checked_at, k.checked_by_user_id,
+            ${CHECKER_IS_MEMBER} AS is_member,
+            CASE WHEN ${CHECKER_IS_MEMBER} THEN u.display_name END AS display_name
        FROM deal_requirement_check k
        JOIN "user" u
          ON u.tenant_id = k.tenant_id AND u.id = k.checked_by_user_id
+       ${CHECKER_MEMBERSHIP_JOIN}
       WHERE k.tenant_id = $1
         AND k.programme_id = $2
         AND k.programme_id = ANY($3::uuid[])
@@ -269,15 +299,27 @@ async function checksFor(
   );
   for (const row of rows) {
     const list = byDeal.get(row.deal_id) ?? [];
-    list.push({
-      requirementId: row.requirement_id,
-      checkedAt: row.checked_at,
-      checkedByUserId: row.checked_by_user_id,
-      checkedByDisplayName: row.display_name,
-    });
+    list.push(checkRowOf(row));
     byDeal.set(row.deal_id, list);
   }
   return byDeal;
+}
+
+/** One check row, its checker judged by `dealActorOf` (the owner's rule). */
+export function checkRowOf(row: {
+  requirement_id: string;
+  checked_at: Date;
+  checked_by_user_id: string;
+  is_member: boolean | null;
+  display_name: string | null;
+}): DealCheckRow {
+  const checker = dealActorOf(row.checked_by_user_id, row.is_member, row.display_name);
+  return {
+    requirementId: row.requirement_id,
+    checkedAt: row.checked_at,
+    checkedByUserId: checker.id,
+    checkedByDisplayName: checker.displayName,
+  };
 }
 
 /**
