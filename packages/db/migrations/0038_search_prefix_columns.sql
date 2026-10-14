@@ -22,7 +22,9 @@
 --        contact.family_name_search    contact.company_name_search
 --        account.name_search           deal.name_search
 --   3. one B-tree per folded column, `<table>_<column>_idx`, keyed
---      (tenant_id, programme_id, <column> COLLATE "C", id);
+--      (tenant_id, programme_id, <column> COLLATE "C", id), and for the four
+--      contact columns a partial twin `contact_<column>_lead_idx` with the
+--      same keys WHERE status IN (the lead statuses), for the leads view;
 --   4. a self-check of what this file promises.
 -- One transaction: a failure anywhere leaves no trace.
 --
@@ -74,11 +76,50 @@
 -- copy is personal data, erased and redacted with its source). A NULL source
 -- gives a NULL copy. Nobody can write a copy (SQLSTATE 428C9).
 --
--- Unicode drift: Postgres's NFD and ICU's case tables move with the image.
--- A stored copy is computed once; after an upgrade that changes either, the
--- copies are refreshed by rewriting each source field onto itself (a data
--- migration, reviewed then), exactly as an index on an ICU collation is
--- rebuilt after an ICU upgrade.
+-- DRIFT. A stored copy is computed once, at write time, with the image that
+-- wrote it. Three inputs can move:
+--   - normalize(..., NFD) follows POSTGRES's own Unicode tables (compiled into
+--     the server), so a Postgres major upgrade can change it;
+--   - lower(... COLLATE "und-x-icu") follows the image's LIBICU, so an ICU
+--     upgrade (often with an OS or image rebuild, no Postgres change at all)
+--     can change it;
+--   - the mark bracket is FROZEN: the 310 ranges above, the same list as
+--     packages/domain/core/src/search/search-charsets.ts. It changes only by
+--     a new migration that changes both, never by an upgrade.
+-- The keys are COLLATE "C" (byte order), so no index ever needs a REINDEX
+-- for a collation change. What can go stale is the stored VALUES: a copy
+-- folded by the old tables that the query side (folded by Node's own NFD and
+-- lower-casing) no longer produces. Detect it, per column, by re-evaluating
+-- the column's own generation expression and comparing (run as a role that
+-- reads every row, e.g. kasuwa_migrator; read-only):
+--     DO $check$
+--     DECLARE c record; n bigint;
+--     BEGIN
+--       FOR c IN SELECT t.relname AS tbl, a.attname AS col,
+--                       pg_get_expr(d.adbin, d.adrelid) AS fold
+--                  FROM pg_attribute a
+--                  JOIN pg_class t ON t.oid = a.attrelid
+--                  JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+--                 WHERE a.attgenerated = 's' AND a.attname LIKE '%\_search'
+--                   AND t.relname IN ('contact', 'account', 'deal')
+--       LOOP
+--         EXECUTE format('SELECT count(*) FROM %I WHERE %I IS DISTINCT FROM (%s)',
+--                        c.tbl, c.col, c.fold) INTO n;
+--         RAISE NOTICE '%.%: % drifted row(s)', c.tbl, c.col, n;
+--       END LOOP;
+--     END $check$;
+-- Repair, if any count is not zero, is a reviewed data migration: a BATCHED
+-- job over the drifted rows only, e.g. per column
+--     UPDATE contact SET display_name = display_name
+--      WHERE id IN (SELECT id FROM contact
+--                    WHERE display_name_search IS DISTINCT FROM (<that column's fold>)
+--                    LIMIT 1000)
+-- repeated until it touches nothing (a no-op SET of the source recomputes
+-- the stored copy). Note what each touched row also gets: the BEFORE UPDATE
+-- triggers fire, so app.touch_updated_at moves `updated_at` and
+-- app.bump_version increments `version` (a client holding the old version
+-- gets 409 stale_write on its next save, and the row re-sorts in the
+-- updated-at lists). Never a whole-table rewrite of every row.
 --
 -- Each copy is `text COLLATE "C"`: the range compares code points, which is
 -- what "starts with" means for a prefix and the order the API computes
@@ -100,7 +141,23 @@
 -- Index Cond and the order comes from the index, and each scan stops after
 -- three rows whatever share of the tenant matches. The trailing `id` makes
 -- that order total, so the same data and query give the same answer.
--- The leads view (status = ANY(lead statuses)) uses the contact indexes.
+-- THE LEADS VIEW (T-0086 review fix 2). The leads group adds `status IN
+-- ('new', 'contacted', 'qualified', 'unqualified')`, which on the plain
+-- indexes is a Filter: a branch then walks the whole prefix range of its
+-- programme until it has seen three leads, and with few leads (a tenant
+-- whose contacts are mostly customers) that is every match. Measured on the
+-- suite's 120,000-contact tenant reseeded with 1% leads, q=zq: see the T-0086
+-- report (thousands of rows per request, against R6's budget of 500). So the
+-- four contact columns each get a partial twin,
+--   contact_display_name_search_lead_idx  (same keys) WHERE status IN (...)
+--   contact_given_names_search_lead_idx   (same keys) WHERE status IN (...)
+--   contact_family_name_search_lead_idx   (same keys) WHERE status IN (...)
+--   contact_company_name_search_lead_idx  (same keys) WHERE status IN (...)
+-- whose predicate is EXACTLY the leads query's (LEAD_STATUS_PREDICATE in
+-- packages/domain/core/src/search/search.repository.ts, literals from
+-- LEAD_STATUSES, not a bound array, so the planner can prove the predicate).
+-- texteq is leak-proof, so kasuwa_app can use them under FORCE RLS. They hold
+-- only lead rows, so a leads branch stops after three leads again.
 -- The exact lookups (lookupRecords) are not served here: `phones @>` cannot be
 -- an index condition under FORCE RLS until jsonb_contains is reviewed for
 -- LEAKPROOF (ADR-0015, D-L128 Q3); they read the session's scope.
@@ -112,36 +169,58 @@
 --     ACCESS EXCLUSIVE: no read or write of contact, account or deal until
 --     COMMIT, for a full rewrite of each (the four contact columns are one
 --     ALTER TABLE, so contact is rewritten once). Then each CREATE INDEX scans
---     its table. Acceptable ONLY while no cell is populated (D-L65): today
---     there is none. This file must not be applied as written to a populated
---     cell; there, the columns need their own reviewed plan (a maintenance
---     window, or a different expand), a human decision.
---   - On a populated cell the INDEXES are built without blocking writes, in a
---     separate migration file that runs after the columns exist, e.g.
---         packages/db/migrations/0038a_search_prefix_indexes_concurrently.sql
---     whose first line is exactly `-- kasuwa:no-transaction` (the runner's
---     non-transactional mode, T-0044), holding only:
---         CREATE INDEX CONCURRENTLY IF NOT EXISTS contact_display_name_search_idx
---           ON contact (tenant_id, programme_id, display_name_search COLLATE "C", id);
---         CREATE INDEX CONCURRENTLY IF NOT EXISTS contact_given_names_search_idx
---           ON contact (tenant_id, programme_id, given_names_search COLLATE "C", id);
---         CREATE INDEX CONCURRENTLY IF NOT EXISTS contact_family_name_search_idx
---           ON contact (tenant_id, programme_id, family_name_search COLLATE "C", id);
---         CREATE INDEX CONCURRENTLY IF NOT EXISTS contact_company_name_search_idx
---           ON contact (tenant_id, programme_id, company_name_search COLLATE "C", id);
---         CREATE INDEX CONCURRENTLY IF NOT EXISTS account_name_search_idx
---           ON account (tenant_id, programme_id, name_search COLLATE "C", id);
---         CREATE INDEX CONCURRENTLY IF NOT EXISTS deal_name_search_idx
---           ON deal (tenant_id, programme_id, name_search COLLATE "C", id);
---     with the plain CREATE INDEX statements below left out of the columns'
---     file. A failed concurrent build leaves an INVALID index: remove it
---     CONCURRENTLY and run the file again; the self-check below refuses an
---     invalid index.
---   - lock_timeout = 5s: fail fast instead of queueing behind a long
+--     its table. Acceptable as written ONLY while no cell is populated
+--     (D-L65): today there is none.
+--   - MAINTENANCE WINDOW on a populated cell, from this file's own fold
+--     timing (postgres:16-alpine on a loaded development laptop, so an order
+--     of magnitude, not a promise): the full fold path costs about 2 s per
+--     100,000 values, the ASCII path about 0.25 s. Contact folds four values
+--     per row, so 10,000,000 contacts cost about 800 s (13 min) of fold CPU
+--     in the worst case (every name non-ASCII) and about 100 s if all are
+--     ASCII, ON TOP of the rewrite itself (comparable to a VACUUM FULL of
+--     contact) and the account and deal rewrites. Budget an hour of
+--     ACCESS EXCLUSIVE for 10M contacts and rehearse on a restored snapshot
+--     first; this is a human decision, not something to apply blind.
+--   - THE SPLIT for a populated cell. Three files instead of this one, so
+--     only the columns take the exclusive lock and the indexes build while
+--     writes continue:
+--       0038_search_prefix_columns.sql (transactional, as now): sections 1 and
+--         2 below (SET LOCAL lock_timeout, the locks, the columns) and the
+--         self-checks 4.1, 4.2 and 4.5, which read only columns. NOT section
+--         3 and NOT checks 4.3 and 4.4: those check the indexes, which do not
+--         exist yet in this file, and would fail it.
+--       0038a_search_prefix_indexes_concurrently.sql, whose first line is
+--         exactly `-- kasuwa:no-transaction` (the runner's non-transactional
+--         mode, T-0044). It may hold ONLY CREATE INDEX CONCURRENTLY
+--         statements: no DO block (so no self-check) and no SET (so it cannot
+--         SET lock_timeout; a concurrent build waits for older transactions
+--         rather than blocking writes, so run it in a quiet period):
+--           CREATE INDEX CONCURRENTLY IF NOT EXISTS contact_display_name_search_idx
+--             ON contact (tenant_id, programme_id, display_name_search COLLATE "C", id);
+--           CREATE INDEX CONCURRENTLY IF NOT EXISTS contact_given_names_search_idx
+--             ON contact (tenant_id, programme_id, given_names_search COLLATE "C", id);
+--           CREATE INDEX CONCURRENTLY IF NOT EXISTS contact_family_name_search_idx
+--             ON contact (tenant_id, programme_id, family_name_search COLLATE "C", id);
+--           CREATE INDEX CONCURRENTLY IF NOT EXISTS contact_company_name_search_idx
+--             ON contact (tenant_id, programme_id, company_name_search COLLATE "C", id);
+--           CREATE INDEX CONCURRENTLY IF NOT EXISTS account_name_search_idx
+--             ON account (tenant_id, programme_id, name_search COLLATE "C", id);
+--           CREATE INDEX CONCURRENTLY IF NOT EXISTS deal_name_search_idx
+--             ON deal (tenant_id, programme_id, name_search COLLATE "C", id);
+--         and the four partial lead twins, each
+--           CREATE INDEX CONCURRENTLY IF NOT EXISTS contact_<column>_lead_idx
+--             ON contact (tenant_id, programme_id, <column> COLLATE "C", id)
+--             WHERE status IN ('new', 'contacted', 'qualified', 'unqualified');
+--       0038b_search_prefix_indexes_check.sql (transactional): the self-checks
+--         4.3 and 4.4 below, verbatim, which refuse a missing or INVALID index.
+--     A failed concurrent build leaves an INVALID index that IF NOT EXISTS
+--     then skips: remove it CONCURRENTLY and run 0038a again; 0038b is what
+--     catches one that was missed.
+--   - lock_timeout = 5s here: fail fast instead of queueing behind a long
 --     transaction.
 -- Steady-state cost: on every contact write the fold of four fields and four
--- more B-tree entries; one of each on an account or deal write. The copies
--- roughly double the stored size of the name fields.
+-- more B-tree entries (eight for a lead); one of each on an account or deal
+-- write. The copies roughly double the stored size of the name fields.
 -- ---------------------------------------------------------------------------
 
 SET LOCAL lock_timeout = '5s';
@@ -699,6 +778,18 @@ CREATE INDEX IF NOT EXISTS contact_family_name_search_idx
   ON contact (tenant_id, programme_id, family_name_search COLLATE "C", id);
 CREATE INDEX IF NOT EXISTS contact_company_name_search_idx
   ON contact (tenant_id, programme_id, company_name_search COLLATE "C", id);
+CREATE INDEX IF NOT EXISTS contact_display_name_search_lead_idx
+  ON contact (tenant_id, programme_id, display_name_search COLLATE "C", id)
+  WHERE status IN ('new', 'contacted', 'qualified', 'unqualified');
+CREATE INDEX IF NOT EXISTS contact_given_names_search_lead_idx
+  ON contact (tenant_id, programme_id, given_names_search COLLATE "C", id)
+  WHERE status IN ('new', 'contacted', 'qualified', 'unqualified');
+CREATE INDEX IF NOT EXISTS contact_family_name_search_lead_idx
+  ON contact (tenant_id, programme_id, family_name_search COLLATE "C", id)
+  WHERE status IN ('new', 'contacted', 'qualified', 'unqualified');
+CREATE INDEX IF NOT EXISTS contact_company_name_search_lead_idx
+  ON contact (tenant_id, programme_id, company_name_search COLLATE "C", id)
+  WHERE status IN ('new', 'contacted', 'qualified', 'unqualified');
 CREATE INDEX IF NOT EXISTS account_name_search_idx
   ON account (tenant_id, programme_id, name_search COLLATE "C", id);
 CREATE INDEX IF NOT EXISTS deal_name_search_idx
@@ -713,9 +804,12 @@ CREATE INDEX IF NOT EXISTS deal_name_search_idx
 --       source column is replaced by a placeholder, so no copy folds
 --       differently from another;
 --   4.3 each index exists with exactly its keys, collations and options, and
---       is a valid, ready, non-partial, expression-free B-tree;
---   4.4 every same-type operator those indexes serve is leak-proof (reads
---       pg_proc.proleakproof only), so kasuwa_app can use them under FORCE RLS;
+--       is a valid, ready, non-unique, expression-free B-tree; the six plain
+--       ones are not partial, and the four lead twins have exactly the leads
+--       predicate;
+--   4.4 every same-type operator those indexes serve, and texteq (the lead
+--       predicate's operator), is leak-proof (reads pg_proc.proleakproof
+--       only), so kasuwa_app can use them under FORCE RLS;
 --   4.5 contact, account and deal still have row security enabled and forced,
 --       and kasuwa_app can read the six copies.
 -- ---------------------------------------------------------------------------
@@ -801,18 +895,29 @@ DO $$
 DECLARE
   expected CONSTANT text[][] := ARRAY[
     ARRAY['contact_display_name_search_idx', 'contact',
-          'tenant_id:-:0,programme_id:-:0,display_name_search:C:0,id:-:0'],
+          'tenant_id:-:0,programme_id:-:0,display_name_search:C:0,id:-:0', ''],
     ARRAY['contact_given_names_search_idx', 'contact',
-          'tenant_id:-:0,programme_id:-:0,given_names_search:C:0,id:-:0'],
+          'tenant_id:-:0,programme_id:-:0,given_names_search:C:0,id:-:0', ''],
     ARRAY['contact_family_name_search_idx', 'contact',
-          'tenant_id:-:0,programme_id:-:0,family_name_search:C:0,id:-:0'],
+          'tenant_id:-:0,programme_id:-:0,family_name_search:C:0,id:-:0', ''],
     ARRAY['contact_company_name_search_idx', 'contact',
-          'tenant_id:-:0,programme_id:-:0,company_name_search:C:0,id:-:0'],
+          'tenant_id:-:0,programme_id:-:0,company_name_search:C:0,id:-:0', ''],
     ARRAY['account_name_search_idx', 'account',
-          'tenant_id:-:0,programme_id:-:0,name_search:C:0,id:-:0'],
+          'tenant_id:-:0,programme_id:-:0,name_search:C:0,id:-:0', ''],
     ARRAY['deal_name_search_idx', 'deal',
-          'tenant_id:-:0,programme_id:-:0,name_search:C:0,id:-:0']
+          'tenant_id:-:0,programme_id:-:0,name_search:C:0,id:-:0', ''],
+    ARRAY['contact_display_name_search_lead_idx', 'contact',
+          'tenant_id:-:0,programme_id:-:0,display_name_search:C:0,id:-:0', 'lead'],
+    ARRAY['contact_given_names_search_lead_idx', 'contact',
+          'tenant_id:-:0,programme_id:-:0,given_names_search:C:0,id:-:0', 'lead'],
+    ARRAY['contact_family_name_search_lead_idx', 'contact',
+          'tenant_id:-:0,programme_id:-:0,family_name_search:C:0,id:-:0', 'lead'],
+    ARRAY['contact_company_name_search_lead_idx', 'contact',
+          'tenant_id:-:0,programme_id:-:0,company_name_search:C:0,id:-:0', 'lead']
   ];
+  -- The leads predicate as Postgres prints it (LEAD_STATUS_PREDICATE).
+  lead_predicate CONSTANT text :=
+    '(status = ANY (ARRAY[''new''::text, ''contacted''::text, ''qualified''::text, ''unqualified''::text]))';
   entry int;
   found_columns text;
   leaky text;
@@ -843,10 +948,11 @@ BEGIN
        AND i.indisready
        AND NOT i.indisunique
        AND i.indexprs IS NULL
-       AND i.indpred IS NULL
+       AND coalesce(pg_get_expr(i.indpred, i.indrelid), '')
+           = CASE expected[entry][4] WHEN 'lead' THEN lead_predicate ELSE '' END
        AND i.indnkeyatts = i.indnatts;
     IF found_columns IS DISTINCT FROM expected[entry][3] THEN
-      RAISE EXCEPTION '0038: index % on % is missing, invalid, unique, partial, an expression index, not a B-tree, or not exactly (%) (column:collation:option); found (%)',
+      RAISE EXCEPTION '0038: index % on % is missing, invalid, unique, an expression index, not a B-tree, has the wrong predicate, or is not exactly (%) (column:collation:option); found (%)',
         expected[entry][1], expected[entry][2], expected[entry][3], coalesce(found_columns, 'nothing');
     END IF;
   END LOOP;
@@ -867,6 +973,10 @@ BEGIN
    WHERE n.nspname = 'public'
      AND ic.relname IN (SELECT expected[e][1] FROM generate_subscripts(expected, 1) AS e)
      AND NOT p.proleakproof;
+  IF NOT (SELECT proleakproof FROM pg_proc
+              WHERE oid = 'pg_catalog.texteq(text,text)'::regprocedure) THEN
+    leaky := concat_ws('; ', leaky, 'the lead predicate: texteq');
+  END IF;
   IF leaky IS NOT NULL THEN
     RAISE EXCEPTION '0038: kasuwa_app could not use these indexes under FORCE RLS; proleakproof is false for %; escalate, do not mark', leaky;
   END IF;
