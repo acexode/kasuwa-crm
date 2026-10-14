@@ -343,6 +343,8 @@
     "scripting.builder.newChoice": "Pidgin is English-lexified; this is the ordinary Pidgin wording.",
     "scripting.builder.newField": "Pidgin is English-lexified; this is the ordinary Pidgin wording.",
     "scripting.builder.publish.title": "Pidgin is English-lexified; this is the ordinary Pidgin wording.",
-    "scripting.builder.fieldType.money": "Pidgin is English-lexified; this is the ordinary Pidgin wording."
+    "scripting.builder.fieldType.money": "Pidgin is English-lexified; this is the ordinary Pidgin wording.",
+    "search.group.contact": "A loanword this locale uses unchanged for a CRM record type, as in the navigation.",
+    "search.group.deal": "A loanword this locale uses unchanged for a CRM record type, as in the navigation."
   }
 }
