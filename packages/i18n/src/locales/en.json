@@ -1491,5 +1491,8 @@
   "pipeline.create.error.currency": "Choose the amount’s currency.",
   "pipeline.create.submit": "Create deal",
   "pipeline.created": "Deal created.",
-  "pipeline.offline.synced": "Showing the board as it was at {time}. Anything that needs a connection is off until you reconnect."
+  "pipeline.offline.synced": "Showing the board as it was at {time}. Anything that needs a connection is off until you reconnect.",
+  "pipeline.error.unsaved": "This change could not be saved. Check it and try again.",
+  "pipeline.board.refreshFailed": "The board could not be refreshed. What you see is the last version that loaded.",
+  "pipeline.money.unreadable": "Amount could not be read"
 }

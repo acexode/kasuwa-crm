@@ -1491,5 +1491,8 @@
   "pipeline.create.error.currency": "Yan owó tí iye náà jẹ́.",
   "pipeline.create.submit": "Ṣẹ̀dá ìdúnàádúrà",
   "pipeline.created": "A ti ṣẹ̀dá ìdúnàádúrà.",
-  "pipeline.offline.synced": "À ń fi pátákó hàn bí ó ti rí ní {time}. Ohunkóhun tó nílò ìsopọ̀ ti di pípa títí o fi tún sopọ̀."
+  "pipeline.offline.synced": "À ń fi pátákó hàn bí ó ti rí ní {time}. Ohunkóhun tó nílò ìsopọ̀ ti di pípa títí o fi tún sopọ̀.",
+  "pipeline.error.unsaved": "A kò lè fi àyípadà yìí pamọ́. Ṣàyẹ̀wò rẹ̀ kí o sì tún gbìyànjú.",
+  "pipeline.board.refreshFailed": "A kò lè sọ pátákó náà dọ̀tun. Ohun tí o rí ni èyí tó gbé wá kẹ́yìn.",
+  "pipeline.money.unreadable": "A kò lè ka iye owó náà"
 }

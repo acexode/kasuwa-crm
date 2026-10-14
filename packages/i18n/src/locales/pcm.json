@@ -1491,5 +1491,8 @@
   "pipeline.create.error.currency": "Pick which money di amount be.",
   "pipeline.create.submit": "Create di deal",
   "pipeline.created": "Deal don create.",
-  "pipeline.offline.synced": "Na di board as e be for {time} we dey show. Anytin wey need network dey off until you connect back."
+  "pipeline.offline.synced": "Na di board as e be for {time} we dey show. Anytin wey need network dey off until you connect back.",
+  "pipeline.error.unsaved": "We no fit save dis change. Check am and try again.",
+  "pipeline.board.refreshFailed": "We no fit refresh di board. Wetin you dey see na di last one wey load.",
+  "pipeline.money.unreadable": "We no fit read di amount"
 }

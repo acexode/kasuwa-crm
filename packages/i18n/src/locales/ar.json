@@ -1491,5 +1491,8 @@
   "pipeline.create.error.currency": "اختر عملة المبلغ.",
   "pipeline.create.submit": "إنشاء الصفقة",
   "pipeline.created": "أُنشئت الصفقة.",
-  "pipeline.offline.synced": "تُعرض اللوحة كما كانت عند {time}. كل ما يحتاج إلى اتصال متوقف حتى تعيد الاتصال."
+  "pipeline.offline.synced": "تُعرض اللوحة كما كانت عند {time}. كل ما يحتاج إلى اتصال متوقف حتى تعيد الاتصال.",
+  "pipeline.error.unsaved": "تعذّر حفظ هذا التغيير. راجعه وحاول مرة أخرى.",
+  "pipeline.board.refreshFailed": "تعذّر تحديث اللوحة. ما تراه هو آخر نسخة تم تحميلها.",
+  "pipeline.money.unreadable": "تعذّرت قراءة المبلغ"
 }

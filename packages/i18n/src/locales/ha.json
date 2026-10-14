@@ -1491,5 +1491,8 @@
   "pipeline.create.error.currency": "Zaɓi kuɗin adadin.",
   "pipeline.create.submit": "Ƙirƙiri ciniki",
   "pipeline.created": "An ƙirƙiri ciniki.",
-  "pipeline.offline.synced": "Ana nuna allon kamar yadda yake a {time}. Duk abin da ke buƙatar haɗi a kashe yake har sai ka sake haɗawa."
+  "pipeline.offline.synced": "Ana nuna allon kamar yadda yake a {time}. Duk abin da ke buƙatar haɗi a kashe yake har sai ka sake haɗawa.",
+  "pipeline.error.unsaved": "Ba a iya adana wannan canjin ba. Duba shi ka sake gwadawa.",
+  "pipeline.board.refreshFailed": "Ba a iya sabunta allon ba. Abin da kake gani shi ne na ƙarshe da aka loda.",
+  "pipeline.money.unreadable": "Ba a iya karanta adadin ba"
 }

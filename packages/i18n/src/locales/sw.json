@@ -1491,5 +1491,8 @@
   "pipeline.create.error.currency": "Chagua sarafu ya kiasi.",
   "pipeline.create.submit": "Unda mkataba",
   "pipeline.created": "Mkataba umeundwa.",
-  "pipeline.offline.synced": "Inaonyesha ubao kama ulivyokuwa saa {time}. Chochote kinachohitaji muunganisho kimezimwa hadi utakapounganika tena."
+  "pipeline.offline.synced": "Inaonyesha ubao kama ulivyokuwa saa {time}. Chochote kinachohitaji muunganisho kimezimwa hadi utakapounganika tena.",
+  "pipeline.error.unsaved": "Badiliko hili halikuweza kuhifadhiwa. Liangalie kisha ujaribu tena.",
+  "pipeline.board.refreshFailed": "Ubao haukuweza kusasishwa. Unachoona ni toleo la mwisho lililopakiwa.",
+  "pipeline.money.unreadable": "Kiasi hakisomeki"
 }

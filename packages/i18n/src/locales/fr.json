@@ -1491,5 +1491,8 @@
   "pipeline.create.error.currency": "Choisissez la devise du montant.",
   "pipeline.create.submit": "Créer l’affaire",
   "pipeline.created": "Affaire créée.",
-  "pipeline.offline.synced": "Le tableau affiché est celui de {time}. Tout ce qui nécessite une connexion est désactivé jusqu’à votre reconnexion."
+  "pipeline.offline.synced": "Le tableau affiché est celui de {time}. Tout ce qui nécessite une connexion est désactivé jusqu’à votre reconnexion.",
+  "pipeline.error.unsaved": "Cette modification n’a pas pu être enregistrée. Vérifiez-la et réessayez.",
+  "pipeline.board.refreshFailed": "Le tableau n’a pas pu être actualisé. Vous voyez la dernière version chargée.",
+  "pipeline.money.unreadable": "Montant illisible"
 }

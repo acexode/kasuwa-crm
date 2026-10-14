@@ -1491,5 +1491,8 @@
   "pipeline.create.error.currency": "Họrọ ụdị ego nke ego ahụ.",
   "pipeline.create.submit": "Mepụta azụmahịa",
   "pipeline.created": "Emepụtala azụmahịa.",
-  "pipeline.offline.synced": "A na-egosi bọọdụ ahụ dị ka ọ dị na {time}. Ihe ọ bụla chọrọ njikọ agbanyụọla ruo mgbe ị jikọrọ ọzọ."
+  "pipeline.offline.synced": "A na-egosi bọọdụ ahụ dị ka ọ dị na {time}. Ihe ọ bụla chọrọ njikọ agbanyụọla ruo mgbe ị jikọrọ ọzọ.",
+  "pipeline.error.unsaved": "A pụghị ichekwa mgbanwe a. Lelee ya ma nwaa ọzọ.",
+  "pipeline.board.refreshFailed": "A pụghị imelite bọọdụ ahụ. Ihe ị na-ahụ bụ nke ikpeazụ ebugoro.",
+  "pipeline.money.unreadable": "A pụghị ịgụ ego ahụ"
 }
