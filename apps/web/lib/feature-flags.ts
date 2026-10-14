@@ -160,12 +160,13 @@ export async function crmActivitiesEnabled(): Promise<boolean> {
  * as "not available yet", exactly like an unbuilt one (`components/crm/crm-nav.ts`).
  */
 export async function crmLiveNav(): Promise<string[]> {
-  const [contacts, accounts, leads, activities, pipeline] = await Promise.all([
+  const [contacts, accounts, leads, activities, pipeline, search] = await Promise.all([
     crmRecordsEnabled(),
     crmAccountsEnabled(),
     crmLeadsEnabled(),
     crmActivitiesEnabled(),
     crmPipelineEnabled(),
+    crmSearchEnabled(),
   ]);
   return [
     ...(leads ? ['leads'] : []),
@@ -173,6 +174,8 @@ export async function crmLiveNav(): Promise<string[]> {
     ...(accounts ? ['accounts'] : []),
     ...(activities ? ['activities'] : []),
     ...(pipeline ? ['deals'] : []),
+    // Not a nav item: the shell's header entry and the Ctrl/Cmd+K palette (T-0087).
+    ...(search ? ['search'] : []),
   ];
 }
 
@@ -214,6 +217,25 @@ export async function crmScriptsEnabled(): Promise<boolean> {
   await initialiseFeatureFlags();
   return featureFlagClient().getBooleanValue(
     'crm_scripts',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/**
+ * `crm_search` (T-0087, D-L133, D-L135) gates the P27 ROUTE — `/search` calls
+ * `notFound()` while it is off, so typing the path gets a real 404 and nothing
+ * of the screen ships — and, through `crmLiveNav()`, the CRM shell's header
+ * entry and its Ctrl/Cmd+K command palette. No client module names it.
+ *
+ * Per process, like the others. It grants nothing: searchRecords and
+ * lookupRecords scope every hit from the session and `user_programme` and
+ * apply field security, whether this is on or off.
+ */
+export async function crmSearchEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_search',
     false,
     toEvaluationContext({ tenantId: CRM_SHELL }),
   );
