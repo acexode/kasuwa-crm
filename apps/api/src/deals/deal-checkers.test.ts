@@ -108,11 +108,15 @@ describe('the deals API reads judge each checker in the deal’s programme (T-01
     const [checks] = checksStatements(sent);
     const flat = (checks ?? '').replace(/\s+/g, ' ');
     expect(flat).toContain(
-      'checker_membership.tenant_id = k.tenant_id AND checker_membership.programme_id = k.programme_id AND checker_membership.user_id = k.checked_by_user_id',
+      'LEFT JOIN user_programme checker_membership ON checker_membership.tenant_id = k.tenant_id AND checker_membership.programme_id = k.programme_id AND checker_membership.user_id = k.checked_by_user_id',
     );
+    // One probe per check: the flag and the guarded name share the join (T-0123 review).
+    expect(flat.match(/user_programme/g)).toHaveLength(1);
+    expect(flat).toContain('(checker_membership.user_id IS NOT NULL) AS is_member');
     // The name is read only behind the membership test.
-    expect(flat).toContain('CASE WHEN EXISTS');
-    expect(flat).toMatch(/THEN u\.display_name END AS display_name/);
+    expect(flat).toContain(
+      'CASE WHEN (checker_membership.user_id IS NOT NULL) THEN u.display_name END AS display_name',
+    );
     // The owner name uses the same predicate.
     const owner = (sent[0] ?? '').replace(/\s+/g, ' ');
     expect(owner).toContain(

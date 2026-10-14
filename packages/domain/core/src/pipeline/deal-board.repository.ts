@@ -2,7 +2,13 @@ import type { TenantTx } from '@kasuwa/db';
 import { z } from 'zod';
 import { foldForSearch } from '../contact/phone';
 import { weightedAmountMinor, weightedAmountSql } from './deal-board';
-import { dealActorOf, dealProgrammeMember, type DealActor } from './deal-actor';
+import {
+  dealActorOf,
+  dealProgrammeMember,
+  dealProgrammeMemberFlag,
+  dealProgrammeMemberJoin,
+  type DealActor,
+} from './deal-actor';
 import type { PipelineSummary } from './pipeline.repository';
 
 /**
@@ -276,12 +282,17 @@ const OWNER_MEMBERSHIP = dealProgrammeMember('owner_membership', {
   userId: 'd.owner_user_id',
 });
 
-/** The checker's membership in the deal's programme (D-L127): the owner's test. */
-const CHECKER_MEMBERSHIP = dealProgrammeMember('checker_membership', {
-  tenantId: 'd.tenant_id',
-  programmeId: 'd.programme_id',
+/**
+ * The checker's membership in the deal's programme (D-L127): the owner's
+ * test, as one join per check (at most one row, by the PK) so the flag and
+ * the guarded name share one probe. A check's programme is its deal's.
+ */
+const CHECKER_MEMBERSHIP_JOIN = dealProgrammeMemberJoin('checker_membership', {
+  tenantId: 'deal_check.tenant_id',
+  programmeId: 'deal_check.programme_id',
   userId: 'deal_check.checked_by_user_id',
 });
+const CHECKER_IS_MEMBER = dealProgrammeMemberFlag('checker_membership');
 
 const CARD_COLUMNS = `
   d.id, d.programme_id, d.pipeline_id, d.stage_id, d.version, d.name,
@@ -305,13 +316,14 @@ const CARD_COLUMNS = `
             'requirementId', deal_check.requirement_id,
             'checkedAt', deal_check.checked_at,
             'checkedBy', deal_check.checked_by_user_id,
-            'checkedByIsMember', ${CHECKER_MEMBERSHIP},
-            'checkedByName', CASE WHEN ${CHECKER_MEMBERSHIP} THEN check_user.display_name END)),
+            'checkedByIsMember', ${CHECKER_IS_MEMBER},
+            'checkedByName', CASE WHEN ${CHECKER_IS_MEMBER} THEN check_user.display_name END)),
           '[]'::json)
      FROM deal_requirement_check deal_check
      JOIN "user" check_user
        ON check_user.tenant_id = deal_check.tenant_id
       AND check_user.id = deal_check.checked_by_user_id
+     ${CHECKER_MEMBERSHIP_JOIN}
     WHERE deal_check.tenant_id = d.tenant_id AND deal_check.programme_id = d.programme_id
       AND deal_check.pipeline_id = d.pipeline_id AND deal_check.deal_id = d.id) AS checks`;
 

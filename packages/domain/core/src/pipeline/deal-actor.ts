@@ -11,9 +11,10 @@
  *
  * Both halves of the rule live here so that every deal read (the deals API
  * and the board) judges owners and checkers by the same test:
- *   - `dealProgrammeMember`, the SQL predicate, correlated on the row the
- *     statement already reads, so it adds no statement and is never a
- *     directory of anything the statement does not return;
+ *   - `dealProgrammeMember` (an EXISTS) and `dealProgrammeMemberJoin` (a
+ *     LEFT JOIN, the same three keys), correlated on the row the statement
+ *     already reads, so they add no statement and are never a directory of
+ *     anything the statement does not return;
  *   - `dealActorOf`, which turns the predicate's answer and the name read
  *     beside it into the wire actor.
  */
@@ -24,23 +25,70 @@ export interface DealActor {
   displayName: string | null;
 }
 
+/** A column reference: `column` or `alias.column`, lower-case identifiers only. */
+const COLUMN_REF = /^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)?$/;
+
+/**
+ * Refused: an argument to the membership SQL builders that is not a plain
+ * column reference. They interpolate their arguments, so only constants
+ * chosen by the caller's own statement may reach them, never input. Carries
+ * no value.
+ */
+export class DealMembershipSqlError extends Error {
+  constructor() {
+    super('A deal membership predicate was given something other than a column reference');
+    this.name = 'DealMembershipSqlError';
+  }
+}
+
+export interface DealMembershipRefs {
+  tenantId: string;
+  programmeId: string;
+  userId: string;
+}
+
+/** The three keys of the membership test, every argument checked first. */
+function membershipKeys(alias: string, refs: DealMembershipRefs): string {
+  for (const ref of [alias, refs.tenantId, refs.programmeId, refs.userId]) {
+    if (!COLUMN_REF.test(ref)) throw new DealMembershipSqlError();
+  }
+  if (alias.includes('.')) throw new DealMembershipSqlError();
+  return `${alias}.tenant_id = ${refs.tenantId}
+       AND ${alias}.programme_id = ${refs.programmeId}
+       AND ${alias}.user_id = ${refs.userId}`;
+}
+
 /**
  * The membership test in the deal's programme, as an `EXISTS` on
- * user_programme. Every argument is a SQL column reference chosen by the
- * caller's own statement (a constant), never input.
+ * user_programme (the owner's form). Every argument must be a column
+ * reference (`DealMembershipSqlError` otherwise).
  *
  * tenancy-reviewed: keyed on the row's own tenant, the deal's programme and
  * the user; RLS on user_programme besides.
  */
-export function dealProgrammeMember(
-  alias: string,
-  refs: { tenantId: string; programmeId: string; userId: string },
-): string {
+export function dealProgrammeMember(alias: string, refs: DealMembershipRefs): string {
   return `EXISTS (
     SELECT 1 FROM user_programme ${alias}
-     WHERE ${alias}.tenant_id = ${refs.tenantId}
-       AND ${alias}.programme_id = ${refs.programmeId}
-       AND ${alias}.user_id = ${refs.userId})`;
+     WHERE ${membershipKeys(alias, refs)})`;
+}
+
+/**
+ * The same test as a `LEFT JOIN` (the checkers' form), so a statement that
+ * needs both the flag and the guarded name probes user_programme once per
+ * row: at most one row joins, by the PK (user_id, programme_id). The member
+ * flag is then `dealProgrammeMemberFlag(alias)`.
+ *
+ * tenancy-reviewed: the same three keys as `dealProgrammeMember`.
+ */
+export function dealProgrammeMemberJoin(alias: string, refs: DealMembershipRefs): string {
+  return `LEFT JOIN user_programme ${alias}
+      ON ${membershipKeys(alias, refs)}`;
+}
+
+/** Whether `dealProgrammeMemberJoin`'s row was found. */
+export function dealProgrammeMemberFlag(alias: string): string {
+  if (!COLUMN_REF.test(alias) || alias.includes('.')) throw new DealMembershipSqlError();
+  return `(${alias}.user_id IS NOT NULL)`;
 }
 
 /**

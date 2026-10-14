@@ -147,8 +147,14 @@ describe('board cards name a checker only while a member of the deal’s program
     expect(sent).toHaveLength(1);
     const flat = (sent[0] ?? '').replace(/\s+/g, ' ');
     expect(flat).toContain(
-      'checker_membership.tenant_id = d.tenant_id AND checker_membership.programme_id = d.programme_id AND checker_membership.user_id = deal_check.checked_by_user_id',
+      'LEFT JOIN user_programme checker_membership ON checker_membership.tenant_id = deal_check.tenant_id AND checker_membership.programme_id = deal_check.programme_id AND checker_membership.user_id = deal_check.checked_by_user_id',
     );
-    expect(flat).toContain('CASE WHEN EXISTS');
+    // One probe per check: the flag and the guarded name share the join (T-0123 review).
+    expect(flat.match(/user_programme checker_membership/g)).toHaveLength(1);
+    expect(flat).toContain(
+      "'checkedByName', CASE WHEN (checker_membership.user_id IS NOT NULL) THEN check_user.display_name END",
+    );
+    // R20: no ordered aggregate inside json_agg.
+    expect(flat).not.toMatch(/json_agg\([^)]*ORDER BY/);
   });
 });

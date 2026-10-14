@@ -2,6 +2,8 @@ import { newId, type TenantTx } from '@kasuwa/db';
 import {
   dealActorOf,
   dealProgrammeMember,
+  dealProgrammeMemberFlag,
+  dealProgrammeMemberJoin,
   decodeListCursor,
   encodeListCursor,
   foldForSearch,
@@ -247,18 +249,20 @@ function assertInScope(tx: TenantTx, programmeId: string): void {
  * The checker's membership in the deal's programme: the owner's test (D-P23,
  * D-L127). A check row's programme IS its deal's (0036's composite FK).
  */
-const CHECKER_MEMBERSHIP = dealProgrammeMember('checker_membership', {
+const CHECKER_MEMBERSHIP_JOIN = dealProgrammeMemberJoin('checker_membership', {
   tenantId: 'k.tenant_id',
   programmeId: 'k.programme_id',
   userId: 'k.checked_by_user_id',
 });
+const CHECKER_IS_MEMBER = dealProgrammeMemberFlag('checker_membership');
 
 /**
  * The checks ticked on these deals, with who ticked them. A checker is named
  * as they are named now while they are a member of the deal's programme, and
  * unnamed once they are not (D-L127, as a former owner, D-P23); the name is
  * not even read for a non-member. Membership for every check of every deal
- * is resolved in this one statement, never one per check or per deal.
+ * is resolved in this one statement by one join (one probe per check),
+ * never one statement per check or per deal.
  *
  * tenancy-reviewed: tenant from the session, the programme checked against
  * the session; the user joined on (tenant_id, id), the membership keyed on
@@ -280,11 +284,12 @@ async function checksFor(
     display_name: string | null;
   }>(
     `SELECT k.deal_id, k.requirement_id, k.checked_at, k.checked_by_user_id,
-            ${CHECKER_MEMBERSHIP} AS is_member,
-            CASE WHEN ${CHECKER_MEMBERSHIP} THEN u.display_name END AS display_name
+            ${CHECKER_IS_MEMBER} AS is_member,
+            CASE WHEN ${CHECKER_IS_MEMBER} THEN u.display_name END AS display_name
        FROM deal_requirement_check k
        JOIN "user" u
          ON u.tenant_id = k.tenant_id AND u.id = k.checked_by_user_id
+       ${CHECKER_MEMBERSHIP_JOIN}
       WHERE k.tenant_id = $1
         AND k.programme_id = $2
         AND k.programme_id = ANY($3::uuid[])
