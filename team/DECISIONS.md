@@ -2828,3 +2828,23 @@ T-0109's mock unchanged. On main, 45 wrapper tests fail because there is no rout
   - there is no field-editability read before a write, so `403 field_not_editable` is the only signal;
   - an orphaned check, whose requirement was later removed, has no label in the contract.
 - **Order:** the T-0110 builder starts after T-0109 merges, because it needs T-0109's flag, harness wiring and move sheet.
+### D-L133 — T-0085 search contract rulings (lead, 2026-10-14)
+**Status:** PROCEEDING (lead). Merged as #128. `searchRecords` (`GET /api/v1/search`) and `lookupRecords`
+(`POST /api/v1/search/lookup`) are contract only. T-0086's suite flips the two flag tests to `true`, as T-0105's did.
+- **R1–R22 in the suite header are accepted.** Notable:
+  - folded **prefix** matching on whole field values. Trigram comes later, as an additive change (R3, D-L128);
+  - `q` is 2 to 100 characters (R4);
+  - field security per row, in each hit's own programme. A withheld field never affects which hits are chosen (R7);
+  - **D-L68 for search:** `displayName` is readable only when both name parts are; it is never composed (R8).
+    **T-0124** carries the rule to the contact, lead and record-view reads;
+  - each type's own readers, and an empty group for a type the caller cannot read (R9);
+  - no counts or facets (R12); 400 and 401 only (R15).
+- **Lead rulings:**
+  - **the URL never carries a phone number or an email address (R21).** Exact lookups are a non-mutating POST with a
+    closed body. After NFKC normalisation, a `q` containing `@`, or 6 or more digits once separators are removed, is
+    `400 identifier_in_url`, and clients send such input to the lookup;
+  - `unknown_property` uses the fixed path `body` and never echoes a client's key.
+- **Design items overruled** (T-0087 expects them absent): partial-number search, the hidden-results count, facet and
+  chip counts, persisted recent searches, and the scope menu (deferred under D-L87).
+- **Open:** `listContacts` and `listLeads` `q` still accept a number in the URL, as their contracts say ("name or
+  number"). Bringing them under R21 is a contract change, folded into T-0124's scope.
