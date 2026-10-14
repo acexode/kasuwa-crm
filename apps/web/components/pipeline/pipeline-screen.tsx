@@ -27,21 +27,17 @@ import {
   WON_WINDOWS,
   closedSinceFor,
   errorMessage,
-  fieldLabel,
   filtersActive,
-  findRequirement,
   isAllowed,
-  notEditableFields,
   rebaseViews,
   requirementViews,
   stageById,
   toDealFilters,
-  unmetRequirementIds,
   type FilterState,
   type OwnerFilter,
-  type PromptInput,
-  type RequirementView,
+  type PromptState,
 } from './pipeline-model';
+import { moveRefusalText } from './move-refusal';
 import { PipelineBoard, type RecordLinks } from './pipeline-board';
 import { OfflineBanner } from './pipeline-parts';
 import { usePipelineBoard } from './use-pipeline-board';
@@ -85,18 +81,6 @@ function Loading() {
 const SEARCH_DEBOUNCE_MS = 300;
 
 type View = 'board' | 'list';
-
-/** The requirement prompt, open on one move. */
-export interface PromptState {
-  readonly deal: Deal;
-  readonly toStageId: string;
-  readonly views: readonly RequirementView[];
-  readonly input: PromptInput;
-  /** Requirement ids somebody else changed since the person started (D-L102). */
-  readonly conflicts: readonly string[];
-  readonly refusal: string | null;
-  readonly sending: boolean;
-}
 
 export function PipelineScreen({
   pipelineId,
@@ -185,31 +169,7 @@ export function PipelineScreen({
 
   /** A refusal as the person reads it: translated, naming fields and requirements by label, never an id. */
   const refusalText = useCallback(
-    async (error: PipelineError, config: Pipeline | null): Promise<string> => {
-      if (error.code === 'requirements_unmet') {
-        let known = config;
-        const ids = unmetRequirementIds(error);
-        if (ids.some((id) => findRequirement(known, id) === undefined)) {
-          // The pipeline was reconfigured since it was read: learn the new requirement's label.
-          known = (await refreshPipeline()) ?? known;
-        }
-        const labels = ids
-          .map((id) => findRequirement(known, id))
-          .flatMap((requirement) =>
-            requirement === undefined ? [] : [requirement.kind === 'check' ? requirement.label : t.t(fieldLabel(requirement.field))],
-          );
-        return labels.length === 0 ? t.t('records.error.requirements_unmet') : t.t('pipeline.move.unmet', { requirements: labels.join(', ') });
-      }
-      const fields = notEditableFields(error);
-      if (fields.length > 0) {
-        return t.t('pipeline.move.field_not_editable', { fields: fields.map((field) => t.t(fieldLabel(field))).join(', ') });
-      }
-      if (error.code === 'transition_not_allowed') {
-        // The allow-list changed since it was read: learn it, so the next try is said here.
-        void refreshPipeline();
-      }
-      return t.t(errorMessage(error));
-    },
+    (error: PipelineError, config: Pipeline | null): Promise<string> => moveRefusalText(t, error, config, refreshPipeline),
     [refreshPipeline, t],
   );
 

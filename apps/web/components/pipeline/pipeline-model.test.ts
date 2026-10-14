@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Deal, Pipeline, PipelineStage } from '../../lib/pipelines-api';
 import {
+  DRAG_CLICK_WINDOW_MS,
   EMPTY_INPUT,
   NO_FILTERS,
   allowedTargets,
@@ -16,6 +17,7 @@ import {
   promptReady,
   rebaseViews,
   requirementViews,
+  swallowsClick,
   toDealFilters,
   unmetRequirementIds,
   type PromptInput,
@@ -216,5 +218,15 @@ describe('links and dates', () => {
   it('draws a calendar date without shifting it through a zone', () => {
     expect(formatCalendarDate('en', '2026-12-01')).toContain('2026');
     expect(formatCalendarDate('en', '2026-12-01')).toMatch(/\b1\b/);
+  });
+});
+
+describe('the click that ends a drag (R15)', () => {
+  it('is swallowed on the dragged card within the window, and no other click is', () => {
+    expect(swallowsClick(1_000, 1_000, true)).toBe(true);
+    expect(swallowsClick(1_000, 1_000 + DRAG_CLICK_WINDOW_MS, true)).toBe(true);
+    expect(swallowsClick(1_000, 1_001 + DRAG_CLICK_WINDOW_MS, true)).toBe(false);
+    expect(swallowsClick(1_000, 1_010, false)).toBe(false);
+    expect(swallowsClick(1_000, 999, true)).toBe(false);
   });
 });

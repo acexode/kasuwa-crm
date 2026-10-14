@@ -29,6 +29,7 @@ const BOARD_SOURCES = [
   'deal-list.tsx',
   'move-sheet.tsx',
   'requirement-prompt.tsx',
+  'move-refusal.ts',
   'deal-create.tsx',
   'pipeline-model.ts',
   '../crm/crm-shell.tsx',

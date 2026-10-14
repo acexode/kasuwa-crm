@@ -6,9 +6,18 @@ import { Icon } from '../icon';
 import { FIELD, PRIMARY_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { MENU_ROW } from '../records/list-classes';
 import { DEAL_CURRENCIES, searchRecords, type MoveDealBody, type Pipeline, type PickerRow } from '../../lib/pipelines-api';
-import { amountInvalid, errorMessage, fieldLabel, promptBody, promptReady, stageById, type PromptInput, type RequirementView } from './pipeline-model';
+import {
+  amountInvalid,
+  errorMessage,
+  fieldLabel,
+  promptBody,
+  promptReady,
+  stageById,
+  type PromptInput,
+  type PromptState,
+  type RequirementView,
+} from './pipeline-model';
 import { PipelineDialog } from './pipeline-dialog';
-import type { PromptState } from './pipeline-screen';
 
 /**
  * The requirement prompt (P06/02, "Complete to move", T-0109, D-P20, R9).
@@ -90,7 +99,7 @@ export function RequirementPrompt({
         </p>
       )}
       <div className="flex flex-wrap justify-end gap-2">
-        <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>
+        <button type="button" disabled={prompt.sending} onClick={onClose} className={`${SECONDARY_BUTTON} disabled:cursor-not-allowed disabled:opacity-60`}>
           {t.t('pipeline.cancel')}
         </button>
         <button

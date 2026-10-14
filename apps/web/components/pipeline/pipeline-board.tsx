@@ -7,7 +7,7 @@ import { Icon } from '../icon';
 import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { FOCUS } from '../records/list-classes';
 import { withheld, type Deal, type Pipeline } from '../../lib/pipelines-api';
-import { errorMessage, formatCount, formatInstantDate, isUuid, stageById } from './pipeline-model';
+import { DRAG_CLICK_WINDOW_MS, errorMessage, formatCount, formatInstantDate, isUuid, stageById, swallowsClick } from './pipeline-model';
 import { AmountValue, CloseValue, Locked, Money, OwnerValue, lockedProps } from './pipeline-parts';
 import type { Column } from './use-pipeline-board';
 
@@ -124,7 +124,8 @@ export function PipelineBoard({
   const startDrag = (event: ReactPointerEvent<HTMLElement>, deal: Deal) => {
     // A mouse or a pen, the primary button, not on a control, and only online.
     if (!online || event.button !== 0 || event.pointerType === 'touch' || pending.has(deal.id)) return;
-    if ((event.target as Element).closest('button, a, input, select') !== null) return;
+    // A control is pressed, not dragged; the card's name link is the exception (R15).
+    if ((event.target as Element).closest('button, a:not([data-deal-link]), input, select') !== null) return;
     dragRef.current = { dealId: deal.id, from: deal.stageId, element: event.currentTarget, x: event.clientX, y: event.clientY, active: false, ghost: null };
 
     const onMove = (moved: PointerEvent) => {
@@ -155,7 +156,9 @@ export function PipelineBoard({
       drag.ghost?.remove();
       setDragging(null);
       setOver(null);
-      if (!drag.active || !drop) return;
+      if (!drag.active) return;
+      swallowNextClick(drag.element);
+      if (!drop) return;
       const target = columnAt(ended.clientX, ended.clientY);
       // Dropped on its own column, or off the board: nothing to write.
       if (target === null || target === drag.from) return;
@@ -384,7 +387,23 @@ function DealCard({
       <div className="flex min-w-0 items-start gap-2">
         <Icon name="drag_indicator" size="sm" className="text-text-muted" />
         <p data-field="name" className="min-w-0 flex-1 break-words font-semibold">
-          <span data-record-text="">{deal.name}</span>
+          {isUuid(deal.id) ? (
+            // The deal detail (T-0110, R15). A drag may start on the name: the
+            // board's pointer handler lets this link through, and a click that
+            // ends a drag is swallowed rather than followed.
+            <Link
+              href={`/deals/${deal.id}`}
+              prefetch={false}
+              draggable={false}
+              data-deal-link=""
+              data-record-text=""
+              className={`rounded-sm text-text hover:text-primary-text hover:underline ${FOCUS}`}
+            >
+              {deal.name}
+            </Link>
+          ) : (
+            <span data-record-text="">{deal.name}</span>
+          )}
         </p>
       </div>
       <Related deal={deal} links={links} />
@@ -446,6 +465,34 @@ function DealCard({
       </button>
     </li>
   );
+}
+
+/**
+ * A drag that began on a card (its name link included, R15) and ends over that
+ * card would otherwise be followed as a click. The drag arms a one-shot guard
+ * on the card: the next click inside it within `DRAG_CLICK_WINDOW_MS` is
+ * swallowed. The guard disarms on that click, on the next pointerdown, or when
+ * the window passes, so it never depends on how a browser orders the click
+ * against timers, and it never eats a later, deliberate click.
+ */
+function swallowNextClick(card: Element): void {
+  const armedAt = performance.now();
+  const disarm = () => {
+    window.removeEventListener('click', onClick, true);
+    window.removeEventListener('pointerdown', disarm, true);
+    window.clearTimeout(timer);
+  };
+  const onClick = (event: MouseEvent) => {
+    const inside = event.target instanceof Node && card.contains(event.target);
+    if (swallowsClick(armedAt, performance.now(), inside)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    disarm();
+  };
+  const timer = window.setTimeout(disarm, DRAG_CLICK_WINDOW_MS);
+  window.addEventListener('click', onClick, true);
+  window.addEventListener('pointerdown', disarm, true);
 }
 
 /** The account and contact summaries: a link only from a well-formed uuid (R15), else text. */

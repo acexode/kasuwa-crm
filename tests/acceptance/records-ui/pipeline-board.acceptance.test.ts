@@ -149,10 +149,11 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *       (the four) and the won window, the same on board and list reads; no
  *       filter on a field the board says is withheld; no amount band and no
  *       territory (not in the contract).
- *   R15. The card is not a link to the deal in T-0109: `/deals/[id]` is
- *       T-0110's, which adds the link and re-pins the spec. The card's
- *       contact or account summary links only from a well-formed uuid. No
- *       UUID is printed.
+ *   R15. The card's name links `/deals/<id>` (T-0110's route), asserted by
+ *       T-0110's `@p06-deal-board-link`, which re-pinned this spec so its
+ *       link check judges the summaries only. The link must not break the
+ *       drag. The card's contact or account summary links only from a
+ *       well-formed uuid. No UUID is printed.
  *   R16. A malformed route id is a real 404 that reads nothing; an unknown or
  *       unreachable well-formed id is the in-page not-found after
  *       getPipeline's 404, distinct from a failed read.
@@ -231,6 +232,7 @@ const OTHER_PARENT_TAGS = [
   '@p07',
   '@p10-builder',
   '@p10-agent',
+  '@p06-deal',
   '@harness',
 ];
 
@@ -248,7 +250,8 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  * re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  [SPEC]: 'b282be11896d7d3f74eaccbedbf03c9b2b1af5d8cee45b77d8b11596fc208546',
+  // Re-pinned by the lead in T-0110's suite branch (R15): the hostile card's link check judges its summaries only.
+  [SPEC]: 'f227bfa7ed9969ac6d228faa2e7e4c247901a84fd05f9c2d5b16cefd91f96eb1',
   [MOCK]: 'd746cfdab8298e3f74ab2768f8401e4cdf24fd8694c975fc55305f6827c1fffb',
 };
 
