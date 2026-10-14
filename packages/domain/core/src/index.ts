@@ -27,3 +27,5 @@ export * from './pipeline/deal-fields';
 export * from './pipeline/deal-board';
 export * from './pipeline/deal-board.repository';
 export * from './pipeline/pipeline.repository';
+export * from './search/search-fold';
+export * from './search/search.repository';
