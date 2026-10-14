@@ -183,12 +183,18 @@ import { parse } from 'yaml';
  *       no parameter at all; searchRecords answers a `phone` or `email`
  *       query parameter with `400 identifier_in_url` rather than ignoring
  *       it, so the mistake is loud. No parameter anywhere in the file is
- *       named for a phone or an email. **`q` itself (review fix 1):** after
- *       NFKC, a `q` holding `@`, or a run of 6 or more digits once every
- *       whitespace character and `+()-.` are removed, is `400
- *       identifier_in_url` at `q`, decided right after `query_required`. Its
- *       ASCII form is the `not` pattern on `q`'s schema,
- *       `@|[0-9](?:[\s+().-]*[0-9]){5}`. Clients send phone- or email-shaped
+ *       named for a phone or an email. **`q` itself (review fix 1,
+ *       strengthened by D-L135 from the T-0086 security review):** after
+ *       NFKC, a `q` holding `@`, or a run of 6 or more decimal digits of any
+ *       script (`\p{Nd}`) once every character that is neither a letter
+ *       (`\p{L}`) nor a decimal digit is removed, is `400 identifier_in_url`
+ *       at `q`, decided right after `query_required`. The old rule stripped
+ *       only whitespace and `+()-.`, so `0803/123/4567`, `0803_123_4567`,
+ *       `0803,123,4567`, an en dash and Arabic-Indic digits reached the URL.
+ *       The `not` pattern on `q`'s schema is the same rule as an ECMA-262
+ *       Unicode regex, `[@＠﹫]|\p{Nd}(?:[^\p{L}\p{Nd}]*\p{Nd}){5}`;
+ *       only digits NFKC maps to ASCII (superscript, circled) need the
+ *       server's NFKC step. Clients send phone- or email-shaped
  *       input to lookupRecords (T-0087 tests that). A name that itself holds
  *       such a run cannot be prefix-searched by it. (listContacts' and
  *       listLeads' `q` still accept a number in the URL: reported, not
@@ -776,13 +782,35 @@ const ERROR_ORDER: Record<string, string[]> = {
     '400 validation_failed unknown_type',
   ],
 };
-/** R21 (review fix 1): the ASCII form of the identifier rule, as the schema's `not` pattern. */
-const IDENTIFIER_Q_PATTERN = '@|[0-9](?:[\\s+().-]*[0-9]){5}';
-/** The whole rule as the prose states it: NFKC, then `@` or 6+ digits once whitespace and +()-. go. */
+/** R21 (review fix 1, D-L135): the identifier rule as the schema's `not` pattern, an ECMA-262 `u` regex. */
+// The full-width and small commercial at are written literally in the YAML (U+FF20, U+FE6B).
+const IDENTIFIER_Q_PATTERN = '[@＠﹫]|\\p{Nd}(?:[^\\p{L}\\p{Nd}]*\\p{Nd}){5}';
+/**
+ * The whole rule as the prose states it (D-L135): NFKC, then `@`, or 6+
+ * decimal digits of any script once everything that is neither a letter nor
+ * a decimal digit is removed.
+ */
 function looksLikeIdentifier(q: string): boolean {
   const text = q.normalize('NFKC');
-  return text.includes('@') || /[0-9]{6,}/.test(text.replace(/[\s+().-]/gu, ''));
+  return text.includes('@') || /\p{Nd}{6,}/u.test(text.replace(/[^\p{L}\p{Nd}]/gu, ''));
 }
+/** Two weakened rules the self-check proves the cases catch (D-L135). */
+const WEAKER_RULES: [string, (q: string) => boolean][] = [
+  [
+    'ASCII digits only',
+    (q) => {
+      const text = q.normalize('NFKC');
+      return text.includes('@') || /[0-9]{6,}/.test(text.replace(/[^\p{L}\p{Nd}]/gu, ''));
+    },
+  ],
+  [
+    'punctuation-only stripping (the pre-D-L135 rule)',
+    (q) => {
+      const text = q.normalize('NFKC');
+      return text.includes('@') || /[0-9]{6,}/.test(text.replace(/[\s+().-]/gu, ''));
+    },
+  ],
+];
 /** Pasted identifiers the rule must refuse; each is synthetic or a placeholder. */
 const IDENTIFIER_QS = [
   '08031234567',
@@ -797,11 +825,27 @@ const IDENTIFIER_QS = [
   'sample@example.test',
   'a@b',
   '@sample',
+  // D-L135: separators the pre-D-L135 rule did not strip, and digits of another script.
+  '0803/123/4567',
+  '0803_123_4567',
+  '0803,123,4567',
+  '0803–123–4567',
+  '٠٨٠٣١٢٣٤٥٦٧',
   'Sample\t080 312 45',
+];
+/** Digits NFKC maps to ASCII but which are not `\p{Nd}`: refused by the server's NFKC step, missed by the pattern. */
+const NFKC_ONLY_QS = ['Sample ¹²³⁴⁵⁶', '①②③④⑤⑥'];
+/** The identifiers D-L135 added: each slipped past the pre-D-L135 rule. */
+const D_L135_QS = [
+  '0803/123/4567',
+  '0803_123_4567',
+  '0803,123,4567',
+  '0803–123–4567',
+  '٠٨٠٣١٢٣٤٥٦٧',
 ];
 /** Names the rule must let through. */
 const NAME_QS = ['Sample', 'Sámple Fixture', 'Sample 2026', 'Unit 12 Block 3456', 'Sample 12345', '50% Sample', 'Sample (Lagos) Ltd', 'Fixture-12.34'];
-/** Full-width forms: refused by the rule after NFKC though the ASCII pattern misses them. */
+/** Full-width forms: refused by the rule after NFKC, and by the pattern too (full-width digits are `\p{Nd}`). */
 const FULL_WIDTH_QS = ['０８０３１２３４５６７', 'sample＠example.test'];
 const EXAMPLE_LABELS: Record<string, string[]> = {
   [SEARCH]: ['portal', 'prefix', 'withheldNamePart'],
@@ -1121,7 +1165,7 @@ function identifierInQProblems(opText: string, qSchema: Located): string[] {
   const op = prose(opText);
   const problems: string[] = [];
   if (
-    !/\*\*`q` itself is refused when it looks like an identifier:\*\* after Unicode NFKC normalisation, a `q` that contains `@`, or that contains a run of 6 or more digits once every whitespace character and every `\+`, `\(`, `\)`, `-` and `\.` is removed, is `400 validation_failed` with `details\[\]\.code: identifier_in_url` at `q`/.test(
+    !/\*\*`q` itself is refused when it looks like an identifier:\*\* after Unicode NFKC normalisation, a `q` that contains `@`, or that contains a run of 6 or more decimal digits of any script \(`\\p\{Nd\}`\) once every character that is neither a letter \(`\\p\{L\}`\) nor a decimal digit is removed, is `400 validation_failed` with `details\[\]\.code: identifier_in_url` at `q` \(D-L135\)/.test(
       op,
     )
   )
@@ -1272,7 +1316,7 @@ describe('acceptance: records contract, global search (T-0085)', () => {
         identifierInQProblems(str(search().op.description), paramSchema(search(), 'q')),
       ).toEqual([]);
       expect(prose(str(param(search(), 'q')?.description))).toMatch(
-        /Never a phone number or an email address: an `@`, or a run of 6 or more digits once whitespace and `\+\(\)-\.` are removed \(after NFKC\), is `400 identifier_in_url`; send those to lookupRecords/,
+        /Never a phone number or an email address: an `@`, or a run of 6 or more decimal digits of any script once everything that is neither a letter nor a digit is removed \(after NFKC\), is `400 identifier_in_url`; send those to lookupRecords/,
       );
     });
 
@@ -1284,20 +1328,40 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       expect(refused, 'names the schema refuses').toEqual([]);
     });
 
-    it('the stated rule (NFKC first) agrees with the schema on every case, and also catches full-width forms', () => {
+    it('the stated rule (NFKC first) agrees with the schema on every case, full-width forms included; only NFKC-mapped digits need the server (D-L135)', () => {
       gate();
       for (const value of IDENTIFIER_QS) expect(looksLikeIdentifier(value), value).toBe(true);
       for (const value of NAME_QS) expect(looksLikeIdentifier(value), value).toBe(false);
       const pattern = new RegExp(IDENTIFIER_Q_PATTERN, 'u');
-      for (const value of [...IDENTIFIER_QS, ...NAME_QS]) {
+      for (const value of [...IDENTIFIER_QS, ...NAME_QS, ...FULL_WIDTH_QS]) {
         expect(pattern.test(value), `pattern and rule disagree on ${value}`).toBe(
           looksLikeIdentifier(value),
         );
       }
-      for (const value of FULL_WIDTH_QS) {
+      for (const value of NFKC_ONLY_QS) {
         expect(looksLikeIdentifier(value), `${value} after NFKC`).toBe(true);
         expect(pattern.test(value), `${value} is why the server applies NFKC first`).toBe(false);
       }
+      // The three names D-L135 names stay searchable.
+      for (const value of ['Sample 2026', 'Unit 12 Block 3456', 'Fixture-12.34']) {
+        expect(NAME_QS, value).toContain(value);
+      }
+    });
+
+    it('(self-check, D-L135) a weakened rule is caught by the cases: ASCII-only digits, or punctuation-only stripping', () => {
+      for (const value of D_L135_QS) expect(IDENTIFIER_QS, value).toContain(value);
+      for (const [label, weaker] of WEAKER_RULES) {
+        const leaked = D_L135_QS.filter((value) => !weaker(value));
+        expect(leaked.length, `${label} catches every D-L135 case`).toBeGreaterThan(0);
+        // ...while still agreeing on the names, so it is the identifiers that expose it.
+        for (const value of NAME_QS) expect(weaker(value), `${label} on ${value}`).toBe(false);
+      }
+      expect(
+        WEAKER_RULES.find(([label]) => label === 'ASCII digits only')?.[1](
+          '٠٨٠٣١٢٣٤٥٦٧',
+        ),
+        'ASCII-only digits let Arabic-Indic digits through',
+      ).toBe(false);
     });
 
     it('(self-check, R21) a looser q rule is caught: no not pattern, a weaker pattern, or the prose softened', () => {
@@ -1311,9 +1375,11 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       });
       const weaker: [string, Located][] = [
         ['no not', withPattern(undefined)],
-        ['seven digits', withPattern('@|[0-9](?:[\\s+().-]*[0-9]){6}')],
-        ['contiguous only', withPattern('@|[0-9]{6}')],
-        ['no @', withPattern('[0-9](?:[\\s+().-]*[0-9]){5}')],
+        ['seven digits', withPattern('[@\\uFF20\\uFE6B]|\\p{Nd}(?:[^\\p{L}\\p{Nd}]*\\p{Nd}){6}')],
+        ['contiguous only', withPattern('[@\\uFF20\\uFE6B]|\\p{Nd}{6}')],
+        ['no @', withPattern('\\p{Nd}(?:[^\\p{L}\\p{Nd}]*\\p{Nd}){5}')],
+        ['ASCII digits only (D-L135)', withPattern('[@\\uFF20\\uFE6B]|[0-9](?:[^\\p{L}\\p{Nd}]*[0-9]){5}')],
+        ['punctuation-only stripping (pre-D-L135)', withPattern('@|[0-9](?:[\\s+().-]*[0-9]){5}')],
       ];
       for (const [label, planted] of weaker) {
         expect(identifierInQProblems(text, planted).length, `${label} passed the rule`).toBeGreaterThan(0);
@@ -1325,7 +1391,11 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       }
       const softened: [string, string][] = [
         ['no NFKC', prose(text).replace('after Unicode NFKC normalisation, ', '')],
-        ['8 digits', prose(text).replace('a run of 6 or more digits', 'a run of 8 or more digits')],
+        ['8 digits', prose(text).replace('a run of 6 or more decimal digits', 'a run of 8 or more decimal digits')],
+        [
+          'ASCII digits only',
+          prose(text).replace('decimal digits of any script (`\\p{Nd}`)', 'ASCII digits'),
+        ],
         ['clients not told', prose(text).replace('**Clients send phone- or email-shaped input to lookupRecords,**', 'Clients may send anything,')],
       ];
       for (const [label, planted] of softened) {
