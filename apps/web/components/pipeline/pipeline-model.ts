@@ -206,6 +206,18 @@ export interface PromptInput {
 
 export const EMPTY_INPUT: PromptInput = { text: {}, currency: {}, picked: {}, checks: {} };
 
+/** The requirement prompt, open on one move (the board's and the deal detail's). */
+export interface PromptState {
+  readonly deal: Deal;
+  readonly toStageId: string;
+  readonly views: readonly RequirementView[];
+  readonly input: PromptInput;
+  /** Requirement ids somebody else changed since the person started (D-L102). */
+  readonly conflicts: readonly string[];
+  readonly refusal: string | null;
+  readonly sending: boolean;
+}
+
 /** The value the person gave a field requirement, as MoveDealFields takes it; `undefined` if none or invalid. */
 function filledValue(requirement: StageRequirement & { kind: 'field' }, input: PromptInput): MoveFields[RequirementField] | undefined {
   const typed = (input.text[requirement.id] ?? '').trim();

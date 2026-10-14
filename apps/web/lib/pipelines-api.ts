@@ -183,17 +183,20 @@ const NETWORK_FAILURE: PipelineError = { status: 0, code: NETWORK, details: [] }
 /**
  * One same-origin request, its answer parsed with `schema`. There is no header
  * argument: nothing a screen sends may name a scope. Nothing is cached: every
- * answer carries personal data at a URL that is the same for every user.
+ * answer carries personal data at a URL that is the same for every user. A
+ * body goes as POST unless `method` says PATCH (the deal detail's updateDeal,
+ * T-0110, in `lib/deal-detail-api.ts`).
  */
-async function request<T>(
+export async function pipelineRequest<T>(
   path: string,
   schema: z.ZodType<T, z.ZodTypeDef, unknown>,
   body?: unknown,
+  method?: 'POST' | 'PATCH',
 ): Promise<PipelineResult<T>> {
   let response: Response;
   try {
     response = await fetch(path, {
-      method: body === undefined ? 'GET' : 'POST',
+      method: body === undefined ? 'GET' : (method ?? 'POST'),
       cache: 'no-store',
       headers: body === undefined ? { accept: 'application/json' } : { accept: 'application/json', 'content-type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -216,11 +219,11 @@ function pipelinePath(id: string): string {
   return `${PIPELINES_PATH}/${encodeURIComponent(id)}`;
 }
 
-function dealPath(id: string): string {
+export function dealPath(id: string): string {
   return `${DEALS_PATH}/${encodeURIComponent(id)}`;
 }
 
-function withSearch(path: string, params: URLSearchParams): string {
+export function withSearch(path: string, params: URLSearchParams): string {
   const search = params.toString();
   return search === '' ? path : `${path}?${search}`;
 }
@@ -232,11 +235,11 @@ function withSearch(path: string, params: URLSearchParams): string {
 export function listPipelines(cursor?: string): Promise<PipelineResult<PipelinePage>> {
   const params = new URLSearchParams();
   if (cursor !== undefined) params.set('cursor', cursor);
-  return request(withSearch(PIPELINES_PATH, params), PipelinePage);
+  return pipelineRequest(withSearch(PIPELINES_PATH, params), PipelinePage);
 }
 
 export function getPipeline(id: string): Promise<PipelineResult<Pipeline>> {
-  return request(pipelinePath(id), Pipeline);
+  return pipelineRequest(pipelinePath(id), Pipeline);
 }
 
 /**
@@ -280,7 +283,7 @@ export function getPipelineBoard(
     params.set('stageId', page.stageId);
     params.set('cursor', page.cursor);
   }
-  return request(withSearch(`${pipelinePath(id)}/board`, params), PipelineBoard);
+  return pipelineRequest(withSearch(`${pipelinePath(id)}/board`, params), PipelineBoard);
 }
 
 /** listDeals' fixed sort keys this screen offers: none of them a field security could withhold. */
@@ -292,11 +295,11 @@ export function listDeals(id: string, filters: DealFilters, sort: DealSort, curs
   const params = filterParams(filters);
   if (sort !== DEFAULT_DEAL_SORT) params.set('sort', sort);
   if (cursor !== undefined) params.set('cursor', cursor);
-  return request(withSearch(`${pipelinePath(id)}/deals`, params), DealPage);
+  return pipelineRequest(withSearch(`${pipelinePath(id)}/deals`, params), DealPage);
 }
 
 export function getDeal(id: string): Promise<PipelineResult<Deal>> {
-  return request(dealPath(id), Deal);
+  return pipelineRequest(dealPath(id), Deal);
 }
 
 // ---------------------------------------------------------------------------
@@ -323,7 +326,7 @@ export function createDeal(pipelineId: string, body: CreateDealBody): Promise<Pi
     ...(body.expectedCloseDate === undefined ? {} : { expectedCloseDate: body.expectedCloseDate }),
     ...(body.nextStep === undefined ? {} : { nextStep: body.nextStep }),
   };
-  return request(`${pipelinePath(pipelineId)}/deals`, Deal, sent);
+  return pipelineRequest(`${pipelinePath(pipelineId)}/deals`, Deal, sent);
 }
 
 /** Values for the target stage's field requirements: only what the person filled. */
@@ -343,14 +346,18 @@ export interface MoveDealBody {
   readonly checks?: readonly string[];
 }
 
-export function moveDeal(id: string, body: MoveDealBody): Promise<PipelineResult<Deal>> {
-  const sent: MoveDealBody = {
+/** The body as sent: `fields` and `checks` only when there are any. */
+export function moveDealBody(body: MoveDealBody): MoveDealBody {
+  return {
     version: body.version,
     toStageId: body.toStageId,
     ...(body.fields === undefined || Object.keys(body.fields).length === 0 ? {} : { fields: body.fields }),
     ...(body.checks === undefined || body.checks.length === 0 ? {} : { checks: body.checks }),
   };
-  return request(`${dealPath(id)}/move`, Deal, sent);
+}
+
+export function moveDeal(id: string, body: MoveDealBody): Promise<PipelineResult<Deal>> {
+  return pipelineRequest(`${dealPath(id)}/move`, Deal, moveDealBody(body));
 }
 
 // ---------------------------------------------------------------------------
@@ -383,7 +390,7 @@ export async function searchRecords(
 ): Promise<PipelineResult<readonly PickerRow[]>> {
   const params = new URLSearchParams({ q: q.trim().slice(0, DEAL_QUERY_MAX) });
   if (kind === 'primaryContactId') {
-    const result = await request(withSearch(CONTACTS_PATH, params), PickedContacts);
+    const result = await pipelineRequest(withSearch(CONTACTS_PATH, params), PickedContacts);
     if (!result.ok) return result;
     return {
       ok: true,
@@ -392,7 +399,7 @@ export async function searchRecords(
         .map((row) => ({ id: row.id, programmeId: row.programmeId, name: row.displayName })),
     };
   }
-  const result = await request(withSearch(ACCOUNTS_PATH, params), PickedAccounts);
+  const result = await pipelineRequest(withSearch(ACCOUNTS_PATH, params), PickedAccounts);
   if (!result.ok) return result;
   return { ok: true, value: result.value.data.filter((row) => row.programmeId === programmeId) };
 }

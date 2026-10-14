@@ -88,3 +88,18 @@ export function parseMajorAmount(input: string, digits: number): string | null {
   const minor = `${match[1] ?? ''}${fraction.padEnd(digits, '0')}`.replace(/^0+(?=\d)/, '');
   return minor.length > MAX_MINOR_DIGITS ? null : minor;
 }
+
+/**
+ * A minor-unit string as the text an amount input is seeded with, in MAJOR
+ * units with "." (`'1500000015', 2` is "15000000.15"; a whole amount drops its
+ * zero fraction: `'1650000000', 2` is "16500000"), by string arithmetic alone.
+ * `parseMajorAmount` reads it back to the same string.
+ */
+export function minorToMajorText(amountMinor: string, digits: number): string {
+  if (!/^\d+$/.test(amountMinor)) return '';
+  if (digits === 0) return amountMinor.replace(/^0+(?=\d)/, '');
+  const padded = amountMinor.padStart(digits + 1, '0');
+  const whole = padded.slice(0, padded.length - digits).replace(/^0+(?=\d)/, '');
+  const fraction = padded.slice(padded.length - digits);
+  return /^0+$/.test(fraction) ? whole : `${whole}.${fraction}`;
+}

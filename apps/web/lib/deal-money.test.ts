@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { UnreadableAmountError, formatDealMoney, minorDigits, parseMajorAmount } from './deal-money';
+import { UnreadableAmountError, formatDealMoney, minorDigits, minorToMajorText, parseMajorAmount } from './deal-money';
 
 /** The digits a formatted amount draws, whatever the grouping and the mark. */
 function digits(text: string): string {
@@ -88,5 +88,26 @@ describe('parseMajorAmount', () => {
     for (const bad of ['-5', 'abc', '1,250.50', '1.234', '12.', '.5', '', '1e3', '10000000000000000']) {
       expect(parseMajorAmount(bad, 2), bad).toBeNull();
     }
+  });
+});
+
+describe('minorToMajorText', () => {
+  it('seeds an amount input in major units, exactly, past 2^53', () => {
+    expect(minorToMajorText('1500000015', 2)).toBe('15000000.15');
+    expect(minorToMajorText('999999999999999999', 2)).toBe('9999999999999999.99');
+    expect(minorToMajorText('5', 2)).toBe('0.05');
+    expect(minorToMajorText('0', 2)).toBe('0');
+  });
+
+  it('drops a zero fraction, and reads back to the same minor units', () => {
+    expect(minorToMajorText('1650000000', 2)).toBe('16500000');
+    for (const minor of ['1500000015', '1650000000', '5', '999999999999999999', '100']) {
+      expect(parseMajorAmount(minorToMajorText(minor, 2), 2)).toBe(minor);
+    }
+  });
+
+  it('draws nothing for an amount that is not a digit run', () => {
+    expect(minorToMajorText('15.5', 2)).toBe('');
+    expect(minorToMajorText('-100', 2)).toBe('');
   });
 });

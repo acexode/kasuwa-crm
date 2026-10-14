@@ -124,7 +124,8 @@ export function PipelineBoard({
   const startDrag = (event: ReactPointerEvent<HTMLElement>, deal: Deal) => {
     // A mouse or a pen, the primary button, not on a control, and only online.
     if (!online || event.button !== 0 || event.pointerType === 'touch' || pending.has(deal.id)) return;
-    if ((event.target as Element).closest('button, a, input, select') !== null) return;
+    // A control is pressed, not dragged; the card's name link is the exception (R15).
+    if ((event.target as Element).closest('button, a:not([data-deal-link]), input, select') !== null) return;
     dragRef.current = { dealId: deal.id, from: deal.stageId, element: event.currentTarget, x: event.clientX, y: event.clientY, active: false, ghost: null };
 
     const onMove = (moved: PointerEvent) => {
@@ -155,7 +156,9 @@ export function PipelineBoard({
       drag.ghost?.remove();
       setDragging(null);
       setOver(null);
-      if (!drag.active || !drop) return;
+      if (!drag.active) return;
+      swallowNextClick();
+      if (!drop) return;
       const target = columnAt(ended.clientX, ended.clientY);
       // Dropped on its own column, or off the board: nothing to write.
       if (target === null || target === drag.from) return;
@@ -384,7 +387,23 @@ function DealCard({
       <div className="flex min-w-0 items-start gap-2">
         <Icon name="drag_indicator" size="sm" className="text-text-muted" />
         <p data-field="name" className="min-w-0 flex-1 break-words font-semibold">
-          <span data-record-text="">{deal.name}</span>
+          {isUuid(deal.id) ? (
+            // The deal detail (T-0110, R15). A drag may start on the name: the
+            // board's pointer handler lets this link through, and a click that
+            // ends a drag is swallowed rather than followed.
+            <Link
+              href={`/deals/${deal.id}`}
+              prefetch={false}
+              draggable={false}
+              data-deal-link=""
+              data-record-text=""
+              className={`rounded-sm text-text hover:text-primary-text hover:underline ${FOCUS}`}
+            >
+              {deal.name}
+            </Link>
+          ) : (
+            <span data-record-text="">{deal.name}</span>
+          )}
         </p>
       </div>
       <Related deal={deal} links={links} />
@@ -449,6 +468,20 @@ function DealCard({
 }
 
 /** The account and contact summaries: a link only from a well-formed uuid (R15), else text. */
+/**
+ * A drag that began on the card's name link and ended over it would otherwise
+ * be followed as a click. The click that ends a drag is swallowed; the
+ * listener is gone by the next task, so no later click is ever eaten.
+ */
+function swallowNextClick(): void {
+  const swallow = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  window.addEventListener('click', swallow, { capture: true, once: true });
+  window.setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
+}
+
 function Related({ deal, links }: { deal: Deal; links: RecordLinks }) {
   const account = deal.account ?? null;
   const contact = deal.contact ?? null;

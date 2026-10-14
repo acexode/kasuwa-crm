@@ -141,6 +141,19 @@ function Item({
             {t.t('record.activity.due')} <When locale={locale} iso={item.dueAt} />
           </span>
         ) : null}
+        {item.activityType === 'meeting' && typeof item.startsAt === 'string' ? (
+          // A meeting's times (T-0082), in the browser's zone: when it starts, and when it ends where served.
+          <span className="flex flex-wrap items-center gap-1 text-text-2">
+            <Icon name="event" size="sm" />
+            <When locale={locale} iso={item.startsAt} />
+            {typeof item.endsAt === 'string' ? (
+              <>
+                <span aria-hidden="true">{'–'}</span>
+                <When locale={locale} iso={item.endsAt} />
+              </>
+            ) : null}
+          </span>
+        ) : null}
         {item.activityType === 'task' && done && typeof item.completedAt === 'string' ? (
           <span className="flex flex-wrap items-center gap-1 font-semibold text-success-text">
             <Icon name="check_circle" size="sm" />
