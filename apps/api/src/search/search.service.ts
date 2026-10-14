@@ -216,12 +216,11 @@ async function searchType(
       return rows.map((row) => toContactHit('contact', row, access));
     }
     case 'lead': {
-      const statuses = leadStatusesFor(access);
-      if (statuses === null) return [];
+      if (leadStatusesFor(access) === null) return [];
       const rows = await searchContactsByPrefix(tx, {
         range,
         branches: contactBranches(access, programmeIds),
-        statuses,
+        leadsOnly: true,
       });
       return rows.map((row) => toContactHit('lead', row, access));
     }

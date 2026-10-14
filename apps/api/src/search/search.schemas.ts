@@ -51,13 +51,16 @@ const codePoints = (value: string): number => [...value].length;
 const CONTROL = /\p{Cc}/u;
 
 /**
- * CR21: a `q` that looks like a phone number or an email address. After NFKC,
- * an `@`, or a run of 6 or more ASCII digits once whitespace and `+()-.` are
- * removed (the schema's `not` pattern is this rule's ASCII form).
+ * CR21 as strengthened by D-L135: a `q` that looks like a phone number or an
+ * email address. After NFKC, an `@`; or, once every character that is neither
+ * a letter (`\p{L}`) nor a decimal digit (`\p{Nd}`) is removed, a run of 6 or
+ * more decimal digits of ANY script (so `٠٨٠٣١٢٣٤٥٦٧` and `0803/123/4567` are
+ * refused as well as `0803 123 4567`). Letters break a run: `Unit 12 Block
+ * 3456` is a name.
  */
 export function looksLikeIdentifier(q: string): boolean {
   const text = q.normalize('NFKC');
-  return text.includes('@') || /[0-9]{6,}/.test(text.replace(/[\s+().-]/gu, ''));
+  return text.includes('@') || /\p{Nd}{6,}/u.test(text.replace(/[^\p{L}\p{Nd}]/gu, ''));
 }
 
 /** Every string inside a query value (a repeated or bracketed parameter), at most 20 deep and wide. */

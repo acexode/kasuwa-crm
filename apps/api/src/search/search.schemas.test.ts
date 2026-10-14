@@ -64,7 +64,11 @@ describe('looksLikeIdentifier (CR21)', () => {
     'refuses %s',
     (q) => expect(looksLikeIdentifier(q)).toBe(true),
   );
-  it.each(['Sample 2026', 'Unit 12 Block 3456', 'Sample 12345', 'Fixture-12.34'])(
+  it.each(['0803/123/4567', '0803_123_4567', '٠٨٠٣١٢٣٤٥٦٧', '०८०३ १२३ ४५६७', '0803 #123*4567'])(
+    'refuses %s under D-L135 (any separator, any script of digits)',
+    (q) => expect(looksLikeIdentifier(q)).toBe(true),
+  );
+  it.each(['Sample 2026', 'Unit 12 Block 3456', 'Sample 12345', 'Fixture-12.34', 'A1B2C3D4E5F6'])(
     'lets %s through',
     (q) => expect(looksLikeIdentifier(q)).toBe(false),
   );
