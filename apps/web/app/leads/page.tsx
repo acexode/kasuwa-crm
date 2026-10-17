@@ -3,7 +3,9 @@ import { bundleMessages } from '@kasuwa/i18n';
 import { LeadsScreen } from '../../components/leads/leads-screen';
 import { LEADS_MESSAGE_IDS } from '../../components/leads/message-ids';
 import { crmLeadsEnabled, crmLiveNav } from '../../lib/feature-flags';
+import { withSearchMessages } from '../../components/search/message-ids';
 import { activeLocale, languageOptions } from '../../lib/locale';
+import { nameFromUrl } from '../../lib/search-query';
 
 /**
  * `P04/01` — the Leads table — and `P04/04` — the Kanban by status (T-0058),
@@ -17,19 +19,35 @@ import { activeLocale, languageOptions } from '../../lib/locale';
  * The leads are read from the BROWSER (`lib/leads-api.ts`), not here: a
  * server-component read cannot show the loading, still-connecting or offline
  * states P04/06 draws, and those are the states a 256 kbps user lives in.
+ *
+ * A `q` in the URL (P27's "see all", T-0087) is the list's first search, and
+ * only ever a name: a phone number or an email address in a URL is dropped.
  */
-export default async function LeadsPage() {
+export default async function LeadsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   if (!(await crmLeadsEnabled())) {
     notFound();
   }
   const { locale } = await activeLocale();
+  const live = await crmLiveNav();
+
+  const initialQ = nameFromUrl((await searchParams).q);
 
   return (
+    // A render that carries a q is a "see all" (the screen drops q from the
+    // address bar at once, so a refresh never carries it): a fresh key makes it
+    // a fresh screen searching that q, even from this same screen's palette and
+    // even for the same q twice. Without a q, the key is stable.
     <LeadsScreen
+      key={initialQ === '' ? 'list' : `q:${crypto.randomUUID()}`}
       locale={locale}
-      messages={bundleMessages(locale, LEADS_MESSAGE_IDS)}
+      messages={bundleMessages(locale, withSearchMessages(LEADS_MESSAGE_IDS, live))}
       locales={languageOptions(locale)}
-      live={await crmLiveNav()}
+      live={live}
+      initialQ={initialQ}
     />
   );
 }

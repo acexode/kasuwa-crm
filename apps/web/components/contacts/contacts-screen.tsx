@@ -7,6 +7,7 @@ import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { isWithheld, type Contact } from '../../lib/records-api';
+import { dropQueryFromAddressBar } from '../../lib/search-query';
 import {
   ColumnChooser,
   FilterOptions,
@@ -79,15 +80,25 @@ export function ContactsScreen({
   messages,
   locales,
   live,
+  initialQ,
 }: {
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
   /** Nav ids whose route is on here (`crmLiveNav()`), for the shell's links. */
   live: readonly string[];
+  /**
+   * The `q` the page was opened with (a P27 "see all", T-0087 R8), already
+   * checked to be a name on the server (`nameFromUrl`): the first search.
+   */
+  initialQ?: string;
 }) {
   const t = createBundleTranslator(locale, messages);
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(initialQ ?? '');
+  // The search never stays in the URL (`use-keyset-list.ts`): read once, then dropped.
+  useEffect(() => {
+    dropQueryFromAddressBar();
+  }, []);
   const [filters, setFilters] = useState<FilterState>(NO_FILTERS);
   const [hidden, setHidden] = useState<readonly ColumnKey[]>(defaultHiddenColumns);
   const [popover, setPopover] = useState<Popover>(null);

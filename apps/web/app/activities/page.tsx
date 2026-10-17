@@ -3,6 +3,7 @@ import { bundleMessages } from '@kasuwa/i18n';
 import { ActivitiesScreen } from '../../components/activities/activities-screen';
 import { ACTIVITIES_MESSAGE_IDS } from '../../components/activities/message-ids';
 import { crmActivitiesEnabled, crmLiveNav } from '../../lib/feature-flags';
+import { withSearchMessages } from '../../components/search/message-ids';
 import { activeLocale, languageOptions } from '../../lib/locale';
 
 /**
@@ -23,13 +24,14 @@ export default async function ActivitiesPage() {
     notFound();
   }
   const { locale } = await activeLocale();
+  const live = await crmLiveNav();
 
   return (
     <ActivitiesScreen
       locale={locale}
-      messages={bundleMessages(locale, ACTIVITIES_MESSAGE_IDS)}
+      messages={bundleMessages(locale, withSearchMessages(ACTIVITIES_MESSAGE_IDS, live))}
       locales={languageOptions(locale)}
-      live={await crmLiveNav()}
+      live={live}
     />
   );
 }
