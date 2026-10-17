@@ -6609,9 +6609,11 @@ components:
       type: string
       minLength: 1
       maxLength: 1000
-      pattern: '^[^\u0000]+$'
+      pattern: '^[^\u0000\n\r\u2028\u2029]+$'
       description: |
-        A `text` custom field: 1 to 1000 characters, no NUL. `""` is refused
+        A `text` custom field: one line of 1 to 1000 characters. No NUL and no
+        line break (`\n`, `\r`, U+2028 or U+2029): `textarea` is a refused
+        type, so `text` is single-line (D-L139). `""` is refused
         (`invalid_value`); clear a value with `null` in a CustomFieldsPatch
         (the `companyName` rule, D-L82).
 

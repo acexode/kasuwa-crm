@@ -2166,7 +2166,7 @@ paths:
         that is not a picklist is `400 not_a_picklist` at `addValues`; a
         relabel naming a value the field does not have is `400 unknown_value`
         at `relabelValues`; adding a value the field already has is
-        `400 duplicate_value`. A picklist pushed past 500 values is
+        `400 duplicate_value` at `addValues` (D-L139). A picklist pushed past 500 values is
         `409 limit_reached` with `details[].code: picklist_limit_reached` at
         `addValues`; nothing in the request is applied.
 
@@ -2178,10 +2178,13 @@ paths:
         fields applies at create only, so an admin who lowers or raises a
         field reviews its cells separately.
 
-        A retired field cannot be changed (`404`, as below). Out of scope is
+        **A retired field cannot be changed** (D-L139): any update to it is
+        `400 validation_failed` with `details[].code: field_retired` at
+        `fieldId`, and nothing is applied. It is not `404`: the list shows
+        retired fields, so the caller can already see it. Out of scope is
         `404 not_found`, one body: another tenant's field, a standard field's
-        id, a retired field and an id that names nothing. **Audited:** one
-        `updated` event naming what changed, by key.
+        id and an id that names nothing. **Audited:** one `updated` event
+        naming what changed, by key.
       requestBody:
         required: true
         content:
@@ -4276,6 +4279,26 @@ components:
                 details:
                   - path: relabelValues
                     code: unknown_value
+            duplicateAddedValue:
+              summary: addValues naming a value the field already has
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: addValues
+                    code: duplicate_value
+            fieldRetired:
+              summary: updateCustomField on a retired field (D-L139)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: fieldId
+                    code: field_retired
 
     CustomFieldConflict:
       description: |

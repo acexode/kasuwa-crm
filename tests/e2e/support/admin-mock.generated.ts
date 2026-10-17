@@ -312,6 +312,30 @@ export const ADMIN_OPERATIONS = [
               "code": "unknown_value"
             }
           ]
+        },
+        "duplicateAddedValue": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "addValues",
+              "code": "duplicate_value"
+            }
+          ]
+        },
+        "fieldRetired": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "fieldId",
+              "code": "field_retired"
+            }
+          ]
         }
       },
       "401": {
@@ -2814,6 +2838,30 @@ export const ADMIN_OPERATIONS = [
             {
               "path": "relabelValues",
               "code": "unknown_value"
+            }
+          ]
+        },
+        "duplicateAddedValue": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "addValues",
+              "code": "duplicate_value"
+            }
+          ]
+        },
+        "fieldRetired": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "fieldId",
+              "code": "field_retired"
             }
           ]
         }
