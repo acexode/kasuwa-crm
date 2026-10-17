@@ -169,13 +169,16 @@ import { parse } from 'yaml';
  *       repeat retire answers 200 unchanged. Retired fields stay in the list
  *       with `retiredAt` set, so the studio can show which names are taken.
  *   R13 The TYPE IS IMMUTABLE (ADR-0016 item 9): UpdateCustomFieldRequest is
- *       closed and holds exactly `label`, `description`, `addValues` and
- *       `relabelValues`. No `type`, `apiName`, `objectApiName`, `config`
- *       (so no currency change: one currency per field, D-L128 Q6), no
- *       `classification` (reclassifying is a later, additive decision: it
- *       would have to say what happens to matrix cells D-L128 Q2 set), no
- *       whole-list `values` and nothing named remove or delete: picklist
- *       values are added or relabelled, never removed.
+ *       closed and holds exactly `label`, `description`, `classification`,
+ *       `addValues` and `relabelValues`. No `type`, `apiName`,
+ *       `objectApiName`, `config` (so no currency change: one currency per
+ *       field, D-L128 Q6), no whole-list `values` and nothing named remove
+ *       or delete: picklist values are added or relabelled, never removed.
+ *       CLASSIFICATION (the lead overruled this suite's first draft, D-L138):
+ *       custom fields stay freely classifiable (D-P25), so `classification`
+ *       may be raised or lowered after create, audited by key. Reclassifying
+ *       never rewrites the field-security matrix: R17's `none` default for
+ *       `pii` and `sensitive` applies at create only.
  *   R14 CustomFieldType is exactly `text`, `number`, `currency`, `date`,
  *       `picklist`, `boolean`. The refused types (`textarea`, `datetime`,
  *       `multipicklist`, `lookup`, `formula`, `rollup`, `phone`, `email`,
@@ -213,6 +216,26 @@ import { parse } from 'yaml';
  *   R20 D-L97: every example in both files validates; every e2e mock that
  *       reads either file still loads (each validates its own rows at load);
  *       and the generated admin mock is regenerated in the same change.
+ *       records-mock, accounts-mock and account-record-mock take a record's
+ *       OWN `properties` as its key set and derive rows from the list and
+ *       get examples, so the `custom` examples for Contact and Account go on
+ *       createContact's and createAccount's 201 (neither mock derives from
+ *       those); those three mocks are left unchanged. leads-mock learned the
+ *       two filters (lead edit, D-L138).
+ *
+ * OUT OF SCOPE (a later task): a custom deal field as a stage requirement
+ * (`DealRequirementField`, `MoveDealFields`, moveDeal's `fields`). Nothing
+ * here admits or refuses it.
+ *
+ * LEAD EDITS TO MERGED SUITES (D-L138, same branch), each the minimum that
+ * admits this contract with every other assertion kept, and each passing both
+ * before and after the contract lands: records-contract-pipeline (listDeals
+ * parameters and the Deal, createDeal and updateDeal key sets admit `custom` /
+ * `customEmpty`), records-contract-activities (UpdateActivityRequest admits
+ * `custom`), records/deal-timeline (Activity.withheldFields items may add
+ * CustomFieldWithheldPath; the standard enum must survive whole), and
+ * leads-mock (the two filters) with its sha256 re-pinned in
+ * records-ui/leads-screen.
  *
  * ---------------------------------------------------------------------------
  *
@@ -869,7 +892,7 @@ const ADMIN_SCREENS: Record<string, string> = {
 
 const CREATE_KEYS = ['apiName', 'classification', 'config', 'description', 'label', 'objectApiName', 'type'];
 const CREATE_REQUIRED = ['apiName', 'label', 'objectApiName', 'type'];
-const UPDATE_KEYS = ['addValues', 'description', 'label', 'relabelValues'];
+const UPDATE_KEYS = ['addValues', 'classification', 'description', 'label', 'relabelValues'];
 const DEFINITION_KEYS = ['apiName', 'classification', 'config', 'createdAt', 'description', 'id', 'label', 'objectApiName', 'retiredAt', 'type', 'updatedAt'];
 
 /** R7/R9: `path code` details the record write and list 400 examples must show. */
@@ -1618,7 +1641,7 @@ describe('acceptance: custom-field contract (T-0088)', () => {
   });
 
   describe('admin: update, retire and the definition (R12, R13)', () => {
-    it('updateCustomField takes a required, closed UpdateCustomFieldRequest: exactly label, description, addValues, relabelValues; at least one', () => {
+    it('updateCustomField takes a required, closed UpdateCustomFieldRequest: exactly label, description, classification, addValues, relabelValues; at least one', () => {
       const op = admOp('updateCustomField');
       const schema = requestSchema(op);
       expect(schema.node).toBe(adm('UpdateCustomFieldRequest').node);
@@ -1628,13 +1651,33 @@ describe('acceptance: custom-field contract (T-0088)', () => {
       expect(responseSchema(op, '200').node).toBe(adm('CustomFieldDefinition').node);
     });
 
-    it('the update can never change the type, the api name, the object, the config, the classification, or remove a value (R13)', () => {
+    it('the update can never change the type, the api name, the object or the config, or remove a value (R13)', () => {
       const schema = adm('UpdateCustomFieldRequest');
-      for (const body of [{ type: 'text' }, { apiName: 'other__c' }, { objectApiName: 'deal' }, { config: { currencyCode: 'GHS' } }, { classification: 'none' }, { values: [] }, { removeValues: ['gold'] }, { isRequired: true }, { retiredAt: null }]) {
+      for (const body of [{ type: 'text' }, { apiName: 'other__c' }, { objectApiName: 'deal' }, { config: { currencyCode: 'GHS' } }, { values: [] }, { removeValues: ['gold'] }, { isRequired: true }, { retiredAt: null }]) {
         expect(accepts(schema, body), `accepted ${JSON.stringify(body)}`).toBe(false);
       }
-      expect(keysOf(schema).filter((key) => /type|remove|delete|config|currency|classification|^values$/i.test(key))).toEqual([]);
+      expect(keysOf(schema).filter((key) => /type|remove|delete|config|currency|^values$/i.test(key))).toEqual([]);
       expect(caseProblems(schema, [{ label: 'Tier' }, { addValues: [{ value: 'platinum', label: 'Platinum' }] }, { relabelValues: [{ value: 'gold', label: 'Gold plus' }] }], [{}])).toEqual([]);
+    });
+
+    it('classification may be raised or lowered after create (D-P25, D-L138): none, pii or sensitive, never null, no default on an update', () => {
+      const schema = adm('UpdateCustomFieldRequest');
+      const classification = properties(schema).get('classification');
+      if (!classification) throw new Error('UpdateCustomFieldRequest has no classification');
+      expect(enumOf(classification).map(str).sort()).toEqual(CLASSIFICATIONS);
+      expect(caseProblems(schema, CLASSIFICATIONS.map((value) => ({ classification: value })), [{ classification: null }, { classification: 'secret' }, { classification: 'PII' }])).toEqual([]);
+      // A default would let an update that never named it reclassify the field.
+      const raw = rawProperty(schema, 'classification');
+      const resolved = classification.node;
+      expect(raw?.default ?? (isMapping(resolved) ? resolved.default : undefined), 'no default on an update').toBeUndefined();
+    });
+
+    it('reclassifying is stated: raise or lower, audited by key, the matrix never rewritten, the none default at create only (D-L138)', () => {
+      const text = description(admOp('updateCustomField'));
+      expect(text).toMatch(/rais(e|ed|ing) or lower(ed|ing)?/i);
+      expect(text).toMatch(/audited by key/i);
+      expect(text).toMatch(/never rewrites the field-security matrix/i);
+      expect(text).toMatch(/at create only/i);
     });
 
     it('addValues and relabelValues are 1..500 CustomFieldPicklistValue; the prose says values are never removed', () => {

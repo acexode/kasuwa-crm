@@ -138,7 +138,8 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   [SPEC]: '436e93ce688fe1847fd539d4119cf01b26ca5d889c6f8a522f857b4d5a36a458',
-  [MOCK]: '51dd1cf0ca52a71a421479aa36e9c40cbec84a2475c171606f3382e88ea000b3',
+  // T-0088 (lead re-pin, D-L138): the mock learned the custom-field filters `custom` and `customEmpty`.
+  [MOCK]: 'e4e7c390203d0b38ec9c8014e3c5240792f5e867fa43f8fa518ddb30a20db799',
 };
 
 /** See the budget test in the spec for the derivation. Never above this. */
