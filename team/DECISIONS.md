@@ -2971,3 +2971,25 @@ found no privacy or contract defect.
   - the deal-timeline static `withheldFields` check;
   - leads-mock filters, with the leads-screen pin re-pinned.
 - **Later:** custom deal fields as stage requirements.
+
+### D-L139 — T-0088 build rulings, and main verified after #137 (lead, 2026-10-18)
+**Status:** PROCEEDING (lead).
+- **Lead edit (9228674):** p02-live-api's "exactly KPIs and skill cover unbuilt" check leaves out the `custom-fields` tag.
+  Those operations belong to the P18 studio (T-0090), not the P02 console.
+- **Contract rulings:**
+  - updating or retiring a retired custom field is `400 validation_failed` with the detail `field_retired` at `fieldId`,
+    not a 404, because the list shows retired fields;
+  - a duplicate picklist value is `400 duplicate_value` at `addValues`;
+  - custom `text` is single-line: it refuses `\n`, `\r`, U+2028, U+2029 and NUL (`textarea` stays a refused type);
+  - Contact and Account `withheldFields` items stay plain strings;
+  - Activity and Deal `withheldFields` items use `anyOf` (the enum, or `custom.<key>`).
+- **`custom_field.write`** joins `TENANT_ACTIONS` in T-0089, together with the guard that uses it.
+- **Main verified after #137** (2f8b622 plus #137, 2026-10-17):
+  - all gates, the tenancy suite (151, on re-run; the first try hit a Docker port-binding start-up error), and all 11
+    records-ui and scripting-ui suites with their budgets;
+  - features-register, deals-api, search-api, and pipeline-board-api (39/39 twice on re-run).
+- **The one-off pipeline-board failure** had no `Cache-Control` header at all, like the T-0123 "foreign 401": a response
+  from a process that is not the test API. Twice now; watch for a port collision in the test harness.
+- **#133 proven at scale:** after 11 records-ui wrappers, no `next-server` or `tsx` process was left in the worktree.
+- **Pre-existing on main:** `metadata/standard-object-metadata` fails 2 of 41, because 0038's `name_search` column has
+  no `field_def`. It is filed as a separate task.
