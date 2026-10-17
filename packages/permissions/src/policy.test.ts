@@ -5,6 +5,9 @@ import {
   PROGRAMME_ACTIONS,
   TENANT_ACTIONS,
   canProgramme,
+  canReadPipelines,
+  canWriteDeal,
+  dealBodyAssignsOther,
   activityBodyAssignsOther,
   canTenant,
   canUpdateContact,
@@ -65,21 +68,41 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
       expect(canProgramme(subject, action, P2), `${action} in P2 (agent)`).toBe(
         action === 'contact.claim_and_set_status' ||
           action === 'activity.write' ||
-          action === 'script.run',
+          action === 'script.run' ||
+          action === 'deal.write',
       );
     }
   });
 
   // The merged allow-lists, pinned exactly (D-P14, D-P18, T-0077, D-L81).
   it.each([
-    [AGENT_PERMISSION_SET_KEY, ['contact.claim_and_set_status', 'activity.write', 'script.run']],
+    [
+      AGENT_PERMISSION_SET_KEY,
+      ['contact.claim_and_set_status', 'activity.write', 'script.run', 'deal.write'],
+    ],
     [
       'team_lead',
-      ['contact.claim_and_set_status', 'activity.write', 'activity.reassign', 'script.run'],
+      [
+        'contact.claim_and_set_status',
+        'activity.write',
+        'activity.reassign',
+        'script.run',
+        'deal.write',
+        'deal.write_any',
+        'deal.reassign',
+      ],
     ],
     [
       'programme_manager',
-      ['contact.claim_and_set_status', 'activity.write', 'activity.reassign', 'script.run'],
+      [
+        'contact.claim_and_set_status',
+        'activity.write',
+        'activity.reassign',
+        'script.run',
+        'deal.write',
+        'deal.write_any',
+        'deal.reassign',
+      ],
     ],
   ])('gives the %s set exactly %j', (key, expected) => {
     const subject = grants({ programmeSets: new Map([[P1, key]]) });
@@ -405,5 +428,79 @@ describe('the action lists', () => {
     expect(TENANT_ACTIONS).toEqual(
       expect.arrayContaining(['programme.create', 'programme.update']),
     );
+  });
+});
+
+describe('deals (T-0108; D-L88, D-L115, D-P18)', () => {
+  const CALLER = '11111111-0000-4000-8000-00000108d001';
+  const OTHER = '11111111-0000-4000-8000-00000108d002';
+  const inP1 = (key: string | null, isTenantAdmin = false) =>
+    grants({ isTenantAdmin, programmeSets: new Map([[P1, key]]) });
+
+  it('deal reads use canReadPipelines: every staff set and the flag; never client_portal, no set, an unknown key or outside scope', () => {
+    for (const key of ['admin', 'programme_manager', 'team_lead', 'agent', 'qa_analyst']) {
+      expect(canReadPipelines(inP1(key), P1), key).toBe(true);
+    }
+    for (const key of ['client_portal', null, 'not_a_set', 'constructor', '__proto__']) {
+      expect(canReadPipelines(inP1(key), P1), String(key)).toBe(false);
+    }
+    expect(canReadPipelines(inP1('client_portal', true), P1), 'the flag').toBe(true);
+    expect(canReadPipelines(inP1('admin', true), OUTSIDE), 'never outside scope').toBe(false);
+  });
+
+  it('the deal write actions: agent writes; team lead, programme manager and admin also write any and reassign', () => {
+    const held = (key: string) =>
+      (['deal.write', 'deal.write_any', 'deal.reassign'] as const).filter((action) =>
+        canProgramme(inP1(key), action, P1),
+      );
+    expect(held('agent')).toEqual(['deal.write']);
+    for (const key of ['team_lead', 'programme_manager', 'admin']) {
+      expect(held(key), key).toEqual(['deal.write', 'deal.write_any', 'deal.reassign']);
+    }
+    for (const key of ['qa_analyst', 'client_portal']) expect(held(key), key).toEqual([]);
+  });
+
+  it('dealBodyAssignsOther: another id or null; never the caller’s own id in any case, and never a malformed value (a 400)', () => {
+    expect(dealBodyAssignsOther({ name: 'x' }, CALLER)).toBe(false);
+    expect(dealBodyAssignsOther({ ownerUserId: CALLER.toUpperCase() }, CALLER)).toBe(false);
+    expect(dealBodyAssignsOther({ ownerUserId: OTHER }, CALLER)).toBe(true);
+    expect(dealBodyAssignsOther({ ownerUserId: null }, CALLER)).toBe(true);
+    expect(dealBodyAssignsOther({ ownerUserId: 5 }, CALLER)).toBe(false);
+    expect(dealBodyAssignsOther({ ownerUserId: 'not-a-uuid' }, CALLER)).toBe(false);
+    expect(dealBodyAssignsOther([], CALLER)).toBe(false);
+    expect(dealBodyAssignsOther(Object.create({ ownerUserId: OTHER }) as object, CALLER)).toBe(
+      false,
+    );
+  });
+
+  it('canWriteDeal: an agent its own open deal only, and not when the owner is withheld; write-any reaches closed deals', () => {
+    const own = { ownerUserId: CALLER.toUpperCase(), closed: false };
+    expect(canWriteDeal(inP1('agent'), P1, CALLER, own, true)).toBe(true);
+    expect(canWriteDeal(inP1('agent'), P1, CALLER, own, false), 'own acts as none').toBe(false);
+    expect(canWriteDeal(inP1('agent'), P1, CALLER, { ...own, closed: true }, true)).toBe(false);
+    expect(
+      canWriteDeal(inP1('agent'), P1, CALLER, { ownerUserId: OTHER, closed: false }, true),
+    ).toBe(false);
+    expect(
+      canWriteDeal(inP1('agent'), P1, CALLER, { ownerUserId: null, closed: false }, true),
+    ).toBe(false);
+    for (const key of ['team_lead', 'programme_manager', 'admin']) {
+      expect(
+        canWriteDeal(inP1(key), P1, CALLER, { ownerUserId: OTHER, closed: true }, false),
+        key,
+      ).toBe(true);
+    }
+    expect(canWriteDeal(inP1('qa_analyst'), P1, CALLER, own, true)).toBe(false);
+    expect(
+      canWriteDeal(
+        inP1('qa_analyst', true),
+        P1,
+        CALLER,
+        { ownerUserId: OTHER, closed: true },
+        false,
+      ),
+      'the flag',
+    ).toBe(true);
+    expect(canWriteDeal(inP1('admin', true), OUTSIDE, CALLER, own, true)).toBe(false);
   });
 });

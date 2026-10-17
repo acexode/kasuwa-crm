@@ -3,27 +3,29 @@ import { z } from 'zod';
 import { InvalidCursorError } from '../cursor';
 
 /**
- * A record's timeline rows, shared by the contact's (T-0061) and the
- * account's (T-0080): one row per audit CHANGE of the record and one per
+ * A record's timeline rows, shared by the contact's (T-0061), the
+ * account's (T-0080) and the deal's (T-0111): one row per audit CHANGE of the record and one per
  * ACTIVITY on the record, newest first, keyset-paged, with field security
  * applied BEFORE the page is cut. One statement, one keyset and one cursor
  * format for both; the two timelines differ only in the constants of
  * `SUBJECTS` below, never in how they page.
  *
  * WHERE ITEMS COME FROM
- *   - Every `audit_event` with `object_type` the subject's (`contact` or
- *     `account`) and `object_id` the record, recorded IN THE RECORD'S
+ *   - Every `audit_event` with `object_type` the subject's (`contact`,
+ *     `account` or `deal`) and `object_id` the record, recorded IN THE RECORD'S
  *     PROGRAMME (`created` and `updated`), expanded to one row per entry in
  *     its `changes`. Only entries whose `field` the caller may see are kept:
  *     the caller passes that allow-list (`visibleChangeFields`), so a
  *     withheld field's rows never reach the LIMIT and a page is never short
  *     because of them (a short page with a cursor says "hidden items
  *     follow"). A name outside the allow-list, whatever it is, gives no row.
- *   - Every `activity` whose link column (`contact_id` or `account_id`) is
+ *   - Every `activity` whose link column (`contact_id`, `account_id` or
+ *     `deal_id`) is
  *     the record, when the caller may see that link at all
  *     (`includeActivities`). An activity's own audit events are never rows
  *     here. The account's activities are read on activity_account_keyset_idx
- *     and the contact's on activity_contact_keyset_idx (0027): the leading
+ *     and the contact's on activity_contact_keyset_idx (0027), the deal's on
+ *     activity_deal_keyset_idx (0037): the leading
  *     (tenant_id, programme_id, link) equalities are those indexes' keys.
  *
  * ITEM IDS are `ti_` + md5 of the event id and the field name (or of the
@@ -31,7 +33,7 @@ import { InvalidCursorError } from '../cursor';
  * else: adding, removing or withholding other changes never moves it, and a
  * positional id ("change #1 of event E") would have told a caller who sees #1
  * that a hidden #0 exists. md5 here is an identifier, not a secret. An
- * activity's item id is the same on both timelines (the suite leaves it open;
+ * activity's item id is the same on every timeline (the suite leaves it open;
  * one id per activity is the simpler promise).
  *
  * ORDER is `occurredAt` descending, then the item id descending in code-unit
@@ -55,24 +57,27 @@ import { InvalidCursorError } from '../cursor';
  */
 
 /** Whose timeline. A closed union: every SQL constant below is chosen by it. */
-export type TimelineSubject = 'contact' | 'account';
+export type TimelineSubject = 'contact' | 'account' | 'deal';
 
 export interface TimelineSubjectConstants {
   /** `audit_event.object_type` of the record's own events. */
   readonly objectType: string;
   /** The activity column that links an activity to the record. */
-  readonly activityLink: 'contact_id' | 'account_id';
+  readonly activityLink: 'contact_id' | 'account_id' | 'deal_id';
   /**
    * The cursor's key for the record id. Distinct per subject, and each
    * payload is strict, so one timeline's cursor never parses on the other.
    */
-  readonly cursorKey: 'k' | 'a';
+  readonly cursorKey: 'k' | 'a' | 'd';
 }
 
 const SUBJECTS: Readonly<Record<TimelineSubject, TimelineSubjectConstants>> = {
   // T-0061's format, unchanged: `k` is the contact.
   contact: { objectType: 'contact', activityLink: 'contact_id', cursorKey: 'k' },
   account: { objectType: 'account', activityLink: 'account_id', cursorKey: 'a' },
+  // T-0111: the deal's own `deal` audit events, and the activities linked to
+  // it through `deal_id` (0037), read on activity_deal_keyset_idx.
+  deal: { objectType: 'deal', activityLink: 'deal_id', cursorKey: 'd' },
 };
 
 /**
@@ -141,7 +146,7 @@ export interface TimelinePageRows {
 }
 
 export interface ListRecordTimelineOptions {
-  /** The contact or account. */
+  /** The contact, account or deal. */
   recordId: string;
   /** The record's programme; must be in the session's scope. */
   programmeId: string;
@@ -158,7 +163,7 @@ export interface ListRecordTimelineOptions {
 /**
  * A position, never a scope (see cursor.ts): the last item's millisecond and
  * id. It also names the record it was issued for, under a key per subject,
- * so a cursor replayed on another record, or on the other kind of timeline,
+ * so a cursor replayed on another record, or on another kind of timeline,
  * is refused (400 invalid_cursor) instead of quietly moving a window over a
  * different list. The record id is checked against the path, which the caller
  * already resolved within scope; it grants nothing, and it is the one id a
@@ -190,6 +195,7 @@ const position = {
 const CURSOR_PAYLOADS = {
   k: z.object({ k: z.string().uuid(), ...position }).strict(),
   a: z.object({ a: z.string().uuid(), ...position }).strict(),
+  d: z.object({ d: z.string().uuid(), ...position }).strict(),
 } as const;
 
 export interface RecordTimelineCursor {
@@ -214,7 +220,7 @@ export function encodeRecordTimelineCursor(
 
 /**
  * Throws InvalidCursorError for garbage, for a cursor issued for another
- * record, and for one issued by the other kind of timeline.
+ * record, and for one issued by another kind of timeline.
  */
 export function decodeRecordTimelineCursor(
   subject: TimelineSubject,
@@ -230,7 +236,9 @@ export function decodeRecordTimelineCursor(
   }
   const parsed = CURSOR_PAYLOADS[key].safeParse(parsedJson);
   if (!parsed.success) throw new InvalidCursorError();
-  const issuedFor = 'k' in parsed.data ? parsed.data.k : parsed.data.a;
+  const data: Record<string, unknown> = parsed.data;
+  const issuedFor = data[key];
+  if (typeof issuedFor !== 'string') throw new InvalidCursorError();
   if (issuedFor.toLowerCase() !== recordId.toLowerCase()) throw new InvalidCursorError();
   return { recordId: issuedFor, occurredAt: parsed.data.t, itemId: parsed.data.i };
 }

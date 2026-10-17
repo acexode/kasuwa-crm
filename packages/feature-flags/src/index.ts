@@ -193,6 +193,44 @@ export const FLAGS = {
     // is proven against the contract mock only. Lifting it is a one-line change.
     productionReady: false,
   },
+  /**
+   * T-0109 (D-L88, D-L113, D-L115, D-L123, D-L124, D-L127): the P06 pipeline
+   * board and list view at `/pipelines` and `/pipelines/[pipelineId]`. It
+   * gates both ROUTES (a real 404 while it is off) and the CRM nav's Deals
+   * entry (`crmLiveNav()`).
+   *
+   * A presentation switch, not an access control: the pipelines and deals API
+   * scopes every read from the session and `user_programme`, and refuses a
+   * move or a create the caller's rights and field security do not allow,
+   * whether this is on or off.
+   */
+  crm_pipeline: {
+    description: 'The P06 pipeline board and list view at /pipelines/[pipelineId], with the pipeline index at /pipelines (T-0109).',
+    defaultValue: false,
+    owner: 'T-0109 (screen), T-0107 and T-0108 (API), D-L88, D-L115',
+    // NOT production-ready: the screen is proven against the contract mock,
+    // and hiding write controls from callers without deal.write waits on a
+    // capability read (D-L84, T-0079). Lifting it is a one-line change.
+    productionReady: false,
+  },
+  /**
+   * T-0087 (D-L133, D-L135, ADR-0014): the P27 global search screen at
+   * `/search` and the Ctrl/Cmd+K command palette in the CRM shell. It gates
+   * the ROUTE (a real 404 while it is off), the shell's header entry and the
+   * palette, through `crmLiveNav()`.
+   *
+   * A presentation switch, not an access control: searchRecords and
+   * lookupRecords scope every hit from the session and `user_programme`, and
+   * apply field security, whether this is on or off.
+   */
+  crm_search: {
+    description: 'The P27 global search screen at /search and the Ctrl/Cmd+K command palette in the CRM shell (T-0087).',
+    defaultValue: false,
+    owner: 'T-0087 (screen and palette), T-0085 and T-0086 (API), D-L133, D-L135',
+    // NOT production-ready: proven against the contract mock only, and the
+    // deal hits link nowhere until the spec is re-pinned after T-0110.
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

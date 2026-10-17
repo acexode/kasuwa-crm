@@ -111,6 +111,25 @@ export const PROGRAMME_ACTIONS = [
    * logs), which every set holding this holds today (D-P18).
    */
   'script.run',
+  /**
+   * D-L88, D-P18 (T-0108): createDeal, updateDeal and moveDeal in the DEAL'S
+   * programme (the pipeline's, on create). Held by `agent`, `team_lead`,
+   * `programme_manager` and `admin`, and by the tenant-admin flag. Alone it
+   * reaches the caller's OWN open deals only (`canWriteDeal`).
+   */
+  'deal.write',
+  /**
+   * D-L88 (T-0108): edit and move ANY deal of the programme, a won or lost one
+   * included (leaving won or lost needs it). Held by `team_lead`,
+   * `programme_manager` and `admin`, and by the tenant-admin flag.
+   */
+  'deal.write_any',
+  /**
+   * D-L88, D-L67 (T-0108): give a deal to any member of its programme, or
+   * clear its owner. Held by `team_lead`, `programme_manager` and `admin`,
+   * and by the tenant-admin flag. An agent's deal is always its own.
+   */
+  'deal.reassign',
 ] as const;
 
 export type TenantAction = (typeof TENANT_ACTIONS)[number];
@@ -130,6 +149,9 @@ export const AGENT_PERMISSION_SET_KEY = 'agent';
 export const TEAM_LEAD_PERMISSION_SET_KEY = 'team_lead';
 export const PROGRAMME_MANAGER_PERMISSION_SET_KEY = 'programme_manager';
 
+/** The seeded `qa_analyst` set, matched by key like `admin`. Read-only (D-L53); reads pipelines (D-L88). */
+export const QA_ANALYST_PERMISSION_SET_KEY = 'qa_analyst';
+
 /**
  * What each permission set permits, by key. A key that is not listed - or a
  * NULL set - permits nothing. Deliberately an allow-list: a new set grants
@@ -143,18 +165,31 @@ const SET_PERMITS: Readonly<Record<string, readonly ProgrammeAction[]>> = {
   // supervisor has at least the agent's rights (D-P18, T-0077), and also
   // reassigns activities (D-L81). Every other set stays read-only (D-L53).
   // D-L88 (T-0114): every set that logs activities also runs scripts.
-  [AGENT_PERMISSION_SET_KEY]: ['contact.claim_and_set_status', 'activity.write', 'script.run'],
+  // D-L88 (T-0108): an agent creates, edits and moves its own deals; a
+  // supervisor any deal of the programme, and reassigns.
+  [AGENT_PERMISSION_SET_KEY]: [
+    'contact.claim_and_set_status',
+    'activity.write',
+    'script.run',
+    'deal.write',
+  ],
   [TEAM_LEAD_PERMISSION_SET_KEY]: [
     'contact.claim_and_set_status',
     'activity.write',
     'activity.reassign',
     'script.run',
+    'deal.write',
+    'deal.write_any',
+    'deal.reassign',
   ],
   [PROGRAMME_MANAGER_PERMISSION_SET_KEY]: [
     'contact.claim_and_set_status',
     'activity.write',
     'activity.reassign',
     'script.run',
+    'deal.write',
+    'deal.write_any',
+    'deal.reassign',
   ],
 };
 
@@ -317,4 +352,97 @@ export function canWriteActivity(
     !activityBodyAssignsOther(body, callerUserId, mode === 'create') ||
     canProgramme(grants, 'activity.reassign', programmeId)
   );
+}
+
+/**
+ * The seeded sets that READ a programme's pipelines and deals (D-L88's
+ * `x-kasuwa-rights`, D-L115). Deliberately an allow-list, as SET_PERMITS is:
+ * `client_portal` is not on it (D-L115: a deal carries staff names and free
+ * text that D-P26 keeps from portal users), and neither is a membership with
+ * no set (having no set never reaches more than the weakest set, which is
+ * `client_portal`) nor any set somebody creates later. The tenant-admin flag
+ * acts as `admin`.
+ */
+export const PIPELINE_READER_SET_KEYS = [
+  ADMIN_PERMISSION_SET_KEY,
+  PROGRAMME_MANAGER_PERMISSION_SET_KEY,
+  TEAM_LEAD_PERMISSION_SET_KEY,
+  AGENT_PERMISSION_SET_KEY,
+  QA_ANALYST_PERMISSION_SET_KEY,
+] as const;
+
+const PIPELINE_READERS: ReadonlySet<string> = new Set(PIPELINE_READER_SET_KEYS);
+
+/**
+ * May this session read pipelines and deals in `programmeId` (T-0107; the deals
+ * API uses it too, T-0108)? A read,
+ * so the caller answers "no" as the one `404` (or an empty list), never a
+ * `403`. Never true for a programme outside the session's resolved scope.
+ */
+export function canReadPipelines(grants: Grants, programmeId: string): boolean {
+  if (!grants.reachableProgrammeIds.includes(programmeId)) return false;
+  if (grants.isTenantAdmin) return true;
+  const key = grants.programmeSets.get(programmeId) ?? null;
+  return key !== null && PIPELINE_READERS.has(key);
+}
+
+/** The programmes of the session's scope whose pipelines it reads, in scope order. */
+export function programmesReadingPipelines(grants: Grants): string[] {
+  return grants.reachableProgrammeIds.filter((programmeId) =>
+    canReadPipelines(grants, programmeId),
+  );
+}
+
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Whether a deal write body gives the deal to anyone but the caller: it names
+ * `ownerUserId` (as an own property) as `null` or as another user's id, on
+ * create and update alike (D-L88: an agent's deal is theirs, and "nobody" is
+ * somebody else). Judged on the RAW body, before validation, so an agent's
+ * attempt is `403 owner_not_self` whatever else the body holds. A value that
+ * is not an id at all names nobody: the schema answers it `400`, as for any
+ * writer (T-0108 suite: a malformed owner is 400). UUIDs compare
+ * case-insensitively (R2).
+ */
+export function dealBodyAssignsOther(body: unknown, callerUserId: string): boolean {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return false;
+  if (!Object.prototype.hasOwnProperty.call(body, 'ownerUserId')) return false;
+  const value: unknown = (body as Record<string, unknown>).ownerUserId;
+  if (value === null) return true;
+  if (typeof value !== 'string' || !UUID_SHAPE.test(value)) return false;
+  return value.toLowerCase() !== callerUserId.toLowerCase();
+}
+
+/** What `canWriteDeal` needs to know about the stored deal. */
+export interface DealWriteSubject {
+  /** The stored owner, or null for an unowned deal. */
+  ownerUserId: string | null;
+  /** The deal is in a won or lost stage. */
+  closed: boolean;
+}
+
+/**
+ * May this session edit or move this deal (updateDeal, moveDeal; T-0108)?
+ * Decided BEFORE the body is read (D-L53, R17):
+ *   - `deal.write` in the deal's programme, always;
+ *   - `deal.write_any` there reaches any deal, a won or lost one included;
+ *   - otherwise only the caller's own OPEN deal, and only when the caller may
+ *     read `ownerUserId` there (`ownerReadable`): when field security withholds
+ *     it, own acts as none (D-L115), so the answer is the same for every deal
+ *     and never tells who owns one.
+ *
+ * `callerUserId` must be the session's user (`tx.session.userId`).
+ */
+export function canWriteDeal(
+  grants: Grants,
+  programmeId: string,
+  callerUserId: string,
+  deal: DealWriteSubject,
+  ownerReadable: boolean,
+): boolean {
+  if (!canProgramme(grants, 'deal.write', programmeId)) return false;
+  if (canProgramme(grants, 'deal.write_any', programmeId)) return true;
+  if (deal.closed || !ownerReadable || deal.ownerUserId === null) return false;
+  return deal.ownerUserId.toLowerCase() === callerUserId.toLowerCase();
 }

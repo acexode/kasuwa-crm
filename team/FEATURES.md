@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 176 rows; built 90, partial 11, mock-only 27, flagged-off 11, deferred 10, not-started 27.
+Totals: 181 rows; built 101, partial 11, mock-only 27, flagged-off 13, deferred 10, not-started 19.
 
 ## Modules
 
@@ -151,9 +151,9 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `signUp` | POST /api/v1/auth/sign-up — Start a self-serve sign-up (contract only) | not-started | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |
 | operation | `verifyOtp` | POST /api/v1/auth/verify-otp — Verify an email or phone one-time code (contract only) | not-started | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |
 | operation | `resendOtp` | POST /api/v1/auth/verify-otp/resend — Re-send a verification code (contract only) | not-started | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |
-| operation | `listContacts` | GET /api/v1/contacts — List contacts — search, filter, sort, keyset page | built | — | — | docs/api/records.openapi.yaml · T-0056 · T-0061 |
+| operation | `listContacts` | GET /api/v1/contacts — List contacts — search, filter, sort, keyset page | built | — | — | docs/api/records.openapi.yaml · T-0056 · T-0061 · T-0124 |
 | operation | `createContact` | POST /api/v1/contacts — Create a contact | built | — | — | docs/api/records.openapi.yaml |
-| operation | `getContact` | GET /api/v1/contacts/{contactId} — Get one contact | built | — | — | docs/api/records.openapi.yaml |
+| operation | `getContact` | GET /api/v1/contacts/{contactId} — Get one contact | built | — | — | docs/api/records.openapi.yaml · T-0124 |
 | operation | `updateContact` | PATCH /api/v1/contacts/{contactId} — Update a contact (inline edit of owner, status and the rest) | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listContactTimeline` | GET /api/v1/contacts/{contactId}/timeline — The contact's timeline — field and consent changes and activities, newest first | built | — | — | docs/api/records.openapi.yaml |
 | operation | `createActivity` | POST /api/v1/activities — Log an activity — a note, a task, a call or a meeting | built | — | — | docs/api/records.openapi.yaml |
@@ -170,14 +170,17 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `updateAccount` | PATCH /api/v1/accounts/{accountId} — Update an account (inline edit of owner, tier and the rest) | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listAccountContacts` | GET /api/v1/accounts/{accountId}/contacts — The account's contacts the caller can reach | built | — | — | docs/api/records.openapi.yaml · T-0055 · T-0063 |
 | operation | `listAccountTimeline` | GET /api/v1/accounts/{accountId}/timeline — The account's timeline — field changes and activities, newest first | built | — | — | docs/api/records.openapi.yaml |
-| operation | `listPipelines` | GET /api/v1/pipelines — The pipelines of the programmes the session reaches (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 |
-| operation | `getPipeline` | GET /api/v1/pipelines/{pipelineId} — One pipeline with its stages, requirements and transitions (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 |
-| operation | `getPipelineBoard` | GET /api/v1/pipelines/{pipelineId}/board — The Kanban board — exact counts and per-currency totals per stage (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 |
-| operation | `listDeals` | GET /api/v1/pipelines/{pipelineId}/deals — List a pipeline's deals — the P06/01b list view (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 |
-| operation | `createDeal` | POST /api/v1/pipelines/{pipelineId}/deals — Create a deal in the pipeline's first open stage (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 |
-| operation | `getDeal` | GET /api/v1/deals/{dealId} — Get one deal (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 |
-| operation | `updateDeal` | PATCH /api/v1/deals/{dealId} — Update a deal's fields (never its stage) (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 |
-| operation | `moveDeal` | POST /api/v1/deals/{dealId}/move — Move a deal to another stage, filling its requirements in the same write (contract only) | not-started | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 |
+| operation | `listPipelines` | GET /api/v1/pipelines — The pipelines of the programmes the session reaches | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 |
+| operation | `getPipeline` | GET /api/v1/pipelines/{pipelineId} — One pipeline with its stages, requirements and transitions | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 |
+| operation | `getPipelineBoard` | GET /api/v1/pipelines/{pipelineId}/board — The Kanban board — exact counts and per-currency totals per stage | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0107 · T-0109 |
+| operation | `listDeals` | GET /api/v1/pipelines/{pipelineId}/deals — List a pipeline's deals — the P06/01b list view | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 · T-0109 |
+| operation | `createDeal` | POST /api/v1/pipelines/{pipelineId}/deals — Create a deal in the pipeline's first open stage | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 · T-0109 |
+| operation | `getDeal` | GET /api/v1/deals/{dealId} — Get one deal | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 · T-0110 |
+| operation | `updateDeal` | PATCH /api/v1/deals/{dealId} — Update a deal's fields (never its stage) | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 · T-0110 |
+| operation | `moveDeal` | POST /api/v1/deals/{dealId}/move — Move a deal to another stage, filling its requirements in the same write | built | — | — | docs/api/records.openapi.yaml · T-0105 · T-0108 · T-0109 · T-0110 |
+| operation | `listDealTimeline` | GET /api/v1/deals/{dealId}/timeline — The deal's timeline — field changes and linked activities, newest first | built | — | — | docs/api/records.openapi.yaml |
+| operation | `searchRecords` | GET /api/v1/search — Global search — at most three hits per record type, no counts | built | — | — | docs/api/records.openapi.yaml · T-0086 |
+| operation | `lookupRecords` | POST /api/v1/search/lookup — Exact lookup by phone or email — a read sent as a POST so the identifier stays out of the URL | built | — | — | docs/api/records.openapi.yaml · T-0086 |
 | operation | `listScripts` | GET /api/v1/scripts — List the scripts the caller may author | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `createScript` | POST /api/v1/scripts — Create a draft script in a programme | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `getScript` | GET /api/v1/scripts/{scriptId} — Get a script, with its draft and translations | built | — | — | docs/api/scripting.openapi.yaml |
@@ -210,6 +213,8 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `crm_leads` | The P04 Leads list, Kanban by status and convert at /leads (T-0058). | flagged-off | `crm_leads` | D-L64, D-L86 | packages/feature-flags/src/index.ts |
 | flag | `crm_activities` | The P07 activities screen at /activities: my tasks by bucket, the calendar, compose, snooze and reschedule (T-0083). | flagged-off | `crm_activities` | D-L105, D-L107 | packages/feature-flags/src/index.ts |
 | flag | `crm_scripts` | The P10 in-call scripts in manual mode: the builder at /scripts (T-0115) and the agent run at /script-runs/[runId], started from the contact record (T-0116). | flagged-off | `crm_scripts` | D-L88, D-L114 | packages/feature-flags/src/index.ts |
+| flag | `crm_pipeline` | The P06 pipeline board and list view at /pipelines/[pipelineId], with the pipeline index at /pipelines (T-0109). | flagged-off | `crm_pipeline` | D-L88, D-L115 | packages/feature-flags/src/index.ts |
+| flag | `crm_search` | The P27 global search screen at /search and the Ctrl/Cmd+K command palette in the CRM shell (T-0087). | flagged-off | `crm_search` | D-L133, D-L135 | packages/feature-flags/src/index.ts |
 
 ## Deferred decisions
 

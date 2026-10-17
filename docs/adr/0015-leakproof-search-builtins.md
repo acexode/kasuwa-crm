@@ -1,6 +1,7 @@
 # ADR-0015 — Marking selected search builtins LEAKPROOF so trigram and jsonb indexes work under FORCE RLS
 
-- **Status:** Proposed. This is D-P33's second step. Open questions for @acexode are marked **Q1 to Q6**.
+- **Status:** Accepted (D-L128, @acexode, 2026-10-13).
+  Self-hosted Postgres is the plan; search ships first on plain prefix indexes (the fallback), and the LEAKPROOF marks follow once T-0005 confirms a true superuser. Answers to Q1–Q6 are in D-L128.
 - **Date:** 2026-10-13
 - **Deciders:** Lead; @acexode
 - **Amends:** ADR-0014 decision 2. Under this ADR, `pg_trgm` is created by the bootstrap superuser, not by the migrator.

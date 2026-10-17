@@ -2640,3 +2640,334 @@ main, 103 fail because the tables do not exist, and 6 self-checks pass.
 - **Host note:** protect-paths reads the branch of the SESSION's checkout (main), not the edited file's worktree, so lead
   test edits in a `/Users/Shared/kasuwa-wt/lead-*` worktree are made with shell edits under auto mode OFF, which @acexode
   approves one by one.
+### D-L123 — T-0107 suite rulings and contract follow-ups (lead, 2026-10-13)
+**Status:** PROCEEDING (lead). The suite `pipeline-board-api.acceptance.test.ts` (38 tests) is on `lead/T-0107-acceptance`
+(9c50b45). On main, 34 fail because the routes do not exist and the flags are false; the 4 self-checks pass. The contract
+suite now expects the three pipeline reads to be `x-kasuwa-implemented: true` (a lead edit, same commit).
+- **R1–R24 in the suite header are accepted.** Notable:
+  - lost is not a board column; the contract outranks the task line (R2);
+  - the reads have no 403, so the order is 404 before 400 (R3);
+  - one 404 body for every cause (R4);
+  - the won window is judged on `closed_at`, a lead ruling where the contract names `stage_entered_at` (R5);
+  - one `400 invalid_cursor` body for board cursors (R8);
+  - a non-uuid `stageId` is `400 unknown_reference` (R18);
+  - plan checks on the board indexes with no Sort, as kasuwa_app, at 30,000 deals per programme (R20).
+- **Contract follow-ups (a lead contract PR, not blocking T-0107):**
+  - the board text says won is "entered the won stage" but orders by `closedAt`; align it with R5;
+  - getPipeline documents a 400 that nothing can trigger;
+  - `stageId` is `format: uuid` while the text promises `unknown_reference`;
+  - the examples use realistic personal names ("Kemi Balogun", "Adaeze Okonkwo"), against CLAUDE.md 6.1;
+  - the contract suite's test titles still say "not yet implemented" for the flipped operations.
+- **Builder:** Agent 3 on `agent3/T-0107-board-api`.
+### D-L124 — T-0108 suite rulings (lead, 2026-10-13)
+**Status:** PROCEEDING (lead). The suite `deals-api.acceptance.test.ts` (49 tests) is on `lead/T-0108-acceptance`
+(352e65d). On main, 45 fail because the routes do not exist and the flags are false; the 4 self-checks pass. The contract
+suite expects the five deal operations to be `x-kasuwa-implemented: true` (a lead edit, same commit).
+- **R1–R22 in the suite header are accepted.** Notable:
+  - client_portal gets the one 404 on all five operations; D-L115 outranks the older "403" sentence in createDeal (R1);
+  - `name` is never withheld, even under a `none` grant (R13);
+  - closed bodies, with `__proto__` and `constructor` refused as 400 (R15);
+  - leaving won or lost without write-any rights is a 403 decided before the body is read (R17);
+  - on a move, the required-field 403 comes before both 409s (R20);
+  - lead rulings:
+    - an agent with `ownerUserId` withheld becomes the owner by omitting it, and sending it is `403 field_not_editable` (R21);
+    - an out-of-scope deal cursor is one `400 invalid_cursor` body (R22).
+- **Contract follow-ups (added to D-L123's lead contract PR):** createDeal's portal 403 sentence; the block header's
+  "`none` is 403".
+- **Merge note:** T-0107 and T-0108 each edit the contract suite's flag assertion (l.1110). Whichever lands second resolves
+  it to all eight operations `true`.
+- **Builder:** Agent 3 on `agent3/T-0108-deals-api`, in its own `deals` module, alongside T-0107.
+### D-L122 — verification per slice, not per PR (@acexode, approved 2026-10-13)
+**Status:** PROCEEDING. Supersedes D-L111's per-PR lead run; the end-of-Phase-2 full isolation run stands.
+- **Per PR:** the reviews (D-L109) stay. The builder's own evidence is accepted: its suite, the tenancy folder, unit, lint
+  and typecheck. After rebasing, the lead runs lint, typecheck and the PR's own suites.
+- **At the end of each slice** (for example after T-0107–T-0111): one `tools/lead-verify.sh` on main, covering unit,
+  integration, the tenancy folder and every suite of the slice. A failure is fixed before the next slice merges.
+- **Merges:** @acexode allowed `gh pr merge`, `gh pr view` and `gh pr list` for the lead session, so the lead merges once
+  reviews pass and the checks above are green.
+
+### D-L125 — T-0107 lead suite fix (lead, 2026-10-13)
+**Status:** PROCEEDING. Two board tests read cards that the suite's own model puts on page 2 at the default limit of 20
+(`d(24)`, `d(25)`, `d(20)`). They now pass `limit 50`; the default limit keeps its own test. Found by the builder, confirmed
+by the lead (98393b7).
+
+### D-L126 — T-0108 lead suite fixes (lead, 2026-10-13)
+**Status:** PROCEEDING. Found by the builder, confirmed by the lead against the contract (e3baa50):
+- the R1 "nothing audited" check counts deal events only, because `unassign` writes its own membership event (0031/0033);
+- the 18-nines test plants Proposal's entry check before moving into Proposal;
+- a backward move is gated by the target stage's requirements too (D-P20), so the R6 test plants Proposal's check before
+  moving back.
+
+### D-L127 — two pipeline product rulings (@acexode, 2026-10-13)
+**Status:** PROCEEDING.
+- **Custom permission sets do not read pipelines or deals yet.** Readers stay the five standard sets plus the tenant-admin
+  flag (`PIPELINE_READER_SET_KEYS`). When a customer needs it, an explicit per-set "read deals" grant arrives, turned on by
+  an admin.
+- **A check-ticker who has left the programme is unnamed,** like a former owner (D-P23). This goes into T-0110 (deal detail)
+  for the screen and into the API's `checkedBy` when T-0110's suite pins it.
+
+### D-L128 — answers to ADR-0015 to ADR-0018 (@acexode, 2026-10-13: "the lead's recommendations")
+**Status:** ANSWERED. All four ADRs are Accepted.
+- **ADR-0015 (search):**
+  - production Postgres is planned as self-hosted, because no AWS region serves the Lagos Silo cells and the role bootstrap
+    needs a superuser too. T-0005 confirms it;
+  - search ships first on plain prefix indexes, which work on any Postgres, and the LEAKPROOF marks follow once a true
+    superuser is confirmed;
+  - stored folded search columns are approved (Q1);
+  - `textlike` is NOT marked; search moves to trigram similarity, with a lead edit to T-0084's search pins (Q2);
+  - a nesting limit on `phones`/`emails` before `jsonb_contains` is relied on (Q3).
+- **ADR-0016 (custom fields):**
+  - 100 fields per object and 32 KiB per record (Q1);
+  - pii and sensitive fields start at `none` for unlocked sets until an admin grants access (Q2);
+  - retire instead of delete, with the purge job a later task (Q3);
+  - equality on picklist and boolean only, with no sorting, in Phase 2 (Q4);
+  - one currency per currency field (Q6).
+- **ADR-0017 (object storage):**
+  - AWS S3 af-south-1 for za-1 and MinIO for Lagos Silo cells (Q1);
+  - Bridge shares the cell bucket under its own prefix (Q2);
+  - SSE-S3 now, per-cell KMS later (Q3);
+  - 25 MB and 100,000 rows (Q4);
+  - raw files deleted after 7 days, subject to counsel (Q5);
+  - no failed-rows CSV with values (Q6);
+  - the import job runs as the initiating user (Q7).
+- **ADR-0018 (outbox):**
+  - `programme_id` NOT NULL until a tenant-level case appears (Q1);
+  - system jobs act as the user who started them (Q2);
+  - published rows kept 7 days and dead rows 30; dead after 10 publish or 5 consumer attempts (Q3);
+  - a dashboard, not paging (Q4);
+  - BullMQ's failed set trimmed by hand for now (Q5).
+### D-L129 — T-0111 suite rulings and lead edits (lead, 2026-10-13)
+**Status:** PROCEEDING (lead). The suite `deal-timeline.acceptance.test.ts` (49 tests) and the contract edit
+(`listDealTimeline`, `GET /api/v1/deals/{dealId}/timeline`; `dealId` on Activity, CreateActivityRequest and
+UpdateActivityRequest) are on `lead/T-0111-acceptance` (8077fef). On main, 42 fail because there is no column, route or
+flag; 7 self-checks and contract pins pass. Migration 0037 is reserved for `agent3/T-0111` in protect-paths (202c2ea).
+- **R1–R19 in the suite header are accepted.** Notable:
+  - `dealId` is a link, never a target: a contact or account still decides the programme (R1);
+  - one `unknown_reference` body for another programme's deal, another tenant's deal and an invented id (R2);
+  - linking needs `activity.write` only and never writes the deal row (R4);
+  - `dealId` follows the `activity.deal_id` field security (R5);
+  - deal-timeline field items come from a closed list, by name only. Stage-name display ("Proposal → Negotiation") is a
+    later additive contract edit (R8);
+  - readers follow D-L127 (R12);
+  - the timeline index has no Sort as kasuwa_app at 20,000 activities (R15);
+  - no rollup of the contact's or account's other activities (R19).
+- **Lead edits, same branch (ac18252), so the task file's "unmodified" line does not hold for these three:**
+  - `records-contract-activities` lists `dealId` in the update body;
+  - `records-contract-pipeline` R13 admits `listDealTimeline` as the one later GET under `/deals`;
+  - `activity-table` gains the `deal_id` column, its required field_def and its `deal` lookup target.
+- **Open for T-0110 (screen and product):** a deal with neither a primary contact nor an account has nothing to log an
+  activity against (R1). The screen must say so rather than offer a broken composer.
+- **Builder:** Agent 3 on `agent3/T-0111-deal-timeline`.
+### D-L130 — T-0109 suite rulings (lead, 2026-10-13)
+**Status:** PROCEEDING (lead). The suite is on `lead/T-0109-acceptance` (4a32038):
+`pipeline-board.acceptance.test.ts` (51 tests), `p06-pipeline.spec.ts` (42 journeys) and the contract-validated
+`pipeline-mock.ts`, which T-0110 reuses. On main, 45 wrapper tests fail because there is no flag, route or
+`webPipelineUrl`, and every self-check passes.
+- **R1–R20 in the suite header are accepted.** Notable:
+  - `/pipelines` lists pipelines and `/pipelines/[pipelineId]` holds board and list behind a view switch (R1);
+  - money is exact Intl currency format, never compact and never through a JS number. The design's compact totals are
+    overruled by D-P19 (R5);
+  - rotting comes from served values, not the design's fixed thresholds (R8);
+  - the list view has no count and no footer totals (D-P13) (R13);
+  - the card links to the deal in T-0110, which re-pins the spec (R15);
+  - write controls are shown to every caller, with the 403 as the gate (D-L84) (R20).
+- **Wiring:** the builder adds `crm_pipeline` to the e2e runner and publishes `webPipelineUrl`, as T-0083 and T-0115
+  did. Naming an unregistered flag stops the records process booting, so the lead's suite only asserts it (R3).
+- **Byte budget:** `PIPELINE_BUDGET_BYTES` is a placeholder, pinned by the lead from the builder's measurement within 5%,
+  under 260,000 (R19).
+- **Follow-ups:**
+  - listContacts and listAccounts have no programme filter, so the requirement picker filters on the client. A
+    contract decision is worth taking later;
+  - there is no user directory read, so the owner filter offers me, unassigned and the owners seen on cards;
+  - `run-e2e.mjs` leaves `tsx src/main.ts` API processes behind after it exits (a harness task);
+  - `apps/web/lib/admin-format.ts` `formatMoney` loses precision past 2^53 and must not be reused for deals.
+- **Builders:** Agent 11 on `agent11/T-0109-pipeline-kanban` and Agent 3 on `agent3/T-0111-deal-timeline`, in parallel.
+### D-L131 — T-0111 lead fix, review rulings and follow-ups (lead, 2026-10-13)
+**Status:** PROCEEDING (lead).
+- **Lead suite fix (413a648):** activity-table's catalogue self-check built `deal_id` as text after ac18252 added it as
+  a required lookup. It now builds the `deal` lookup. No implementation could have passed the old fixture.
+- **The deal unique key `deal_tenant_programme_id_key (tenant_id, programme_id, id)` is an accepted exception to
+  D-L120.** The FK needs it, and since `id` is already unique through the primary key and RLS WITH CHECK runs before the
+  unique checks, it answers nothing new. Confirmed by the migration, security and tenancy reviews. 0037's section 8
+  checks only that it leads with tenant and programme.
+- **Fixed before merge:**
+  - 0037's scale split plan, in the right order;
+  - two self-check comments that claimed more than they checked;
+  - a unit test pinning that every `activity.write` set is also a pipeline reader, without which `dealId`'s
+    `unknown_reference` would become a deal-existence check.
+- **Follow-ups:**
+  - **Timeline performance (all three timelines):** the served query is a UNION of audit changes and activities ordered by
+    a computed key, so its index narrows to the record but every page sorts all of the record's items. The T-0111 plan
+    check (R15) covers a simplified activity-only query. A timeline-performance task should give each branch an ordered,
+    index-served seek before merging, and pin the served query's plan.
+  - **Deal deletion and erasure:** `activity.deal_id` is ON DELETE RESTRICT. When deal deletion or NDPA erasure arrives,
+    it must clear or reassign links first, never surface a 23503.
+  - **Contract tidy-up (the D-L123 lead contract PR):** "contract only until T-0111" wording, and a realistic name in the
+    `listDealTimeline` example.
+### D-L132 — T-0110 suite rulings; the former-checker follow-up (lead, 2026-10-14)
+**Status:** PROCEEDING (lead). The suite is on `lead/T-0110-acceptance` (094fb27), built on `lead/T-0109-acceptance`:
+`deal-detail.acceptance.test.ts` (53 tests), `p06-deal.spec.ts` (38 journeys) and `deal-mock.ts`, which imports
+T-0109's mock unchanged. On main, 45 wrapper tests fail because there is no route, flag or harness wiring, and the
+8 self-checks pass.
+- **R1–R22 in the suite header are accepted.** Notable:
+  - `/deals/[dealId]` is a real 404 when the flag is off or the id is malformed; an out-of-scope deal is the generic
+    not-found page (R1);
+  - the close date is a calendar date that must not shift with the browser's zone, checked from UTC-1 (R6);
+  - a former checker gets its own translated label (R8);
+  - reassign is "assign to me" only, until T-0079 and a member directory (R11);
+  - the timeline is re-read after each write, never spliced (R15);
+  - **D-L129's open item:** an activity targets the deal's own contact and/or account. With neither visible, there is
+    no composer, and the screen says why (R17).
+- **Lead edits on the branch:**
+  - the contract's `DealActor.displayName` becomes `[string, null]` for D-L127;
+  - T-0109's spec is re-pinned to `f227bfa7…`, because board cards now link their deal (T-0109 R15 reworded).
+- **Follow-ups:**
+  - **T-0123** (filed): the deal APIs serve `null` for a former checker. Its lead edit replaces
+    `pipeline-board-api` R17, which named checkers by their current name;
+  - createActivity and the pickers' `x-kasuwa-screens` do not list P06/05 (the D-L123 contract PR);
+  - there is no field-editability read before a write, so `403 field_not_editable` is the only signal;
+  - an orphaned check, whose requirement was later removed, has no label in the contract.
+- **Order:** the T-0110 builder starts after T-0109 merges, because it needs T-0109's flag, harness wiring and move sheet.
+### D-L133 — T-0085 search contract rulings (lead, 2026-10-14)
+**Status:** PROCEEDING (lead). Merged as #128. `searchRecords` (`GET /api/v1/search`) and `lookupRecords`
+(`POST /api/v1/search/lookup`) are contract only. T-0086's suite flips the two flag tests to `true`, as T-0105's did.
+- **R1–R22 in the suite header are accepted.** Notable:
+  - folded **prefix** matching on whole field values. Trigram comes later, as an additive change (R3, D-L128);
+  - `q` is 2 to 100 characters (R4);
+  - field security per row, in each hit's own programme. A withheld field never affects which hits are chosen (R7);
+  - **D-L68 for search:** `displayName` is readable only when both name parts are; it is never composed (R8).
+    **T-0124** carries the rule to the contact, lead and record-view reads;
+  - each type's own readers, and an empty group for a type the caller cannot read (R9);
+  - no counts or facets (R12); 400 and 401 only (R15).
+- **Lead rulings:**
+  - **the URL never carries a phone number or an email address (R21).** Exact lookups are a non-mutating POST with a
+    closed body. After NFKC normalisation, a `q` containing `@`, or 6 or more digits once separators are removed, is
+    `400 identifier_in_url`, and clients send such input to the lookup;
+  - `unknown_property` uses the fixed path `body` and never echoes a client's key.
+- **Design items overruled** (T-0087 expects them absent): partial-number search, the hidden-results count, facet and
+  chip counts, persisted recent searches, and the scope menu (deferred under D-L87).
+- **Open:** `listContacts` and `listLeads` `q` still accept a number in the URL, as their contracts say ("name or
+  number"). Bringing them under R21 is a contract change, folded into T-0124's scope.
+### D-L134 — T-0086 suite rulings; the search throttle joins the contract (lead, 2026-10-14)
+**Status:** PROCEEDING (lead). The suite `search-api.acceptance.test.ts` (67 tests) is on `lead/T-0086-acceptance`
+(f97a89c, 18d0e81), with migration 0038 reserved for `agent3/T-0086` (b83be3c). On main, 61 tests fail because there
+is no 0038, no route and the flags are false; 4 self-checks and 2 guards pass.
+- **R1–R24 in the suite header are accepted.** Notable:
+  - the folded copies are generated stored columns, `<source>_search`, because `normalize()` is IMMUTABLE. 0038 creates
+    no function (R1, R3);
+  - btree indexes `COLLATE "C"`, led by `(tenant_id, programme_id, <column>)` (pinned interfaces);
+  - plans are judged by replaying the statements the API sends, with no Seq Scan, the range in the Index Cond and at
+    most 500 rows examined per table (R5, R6). This applies T-0111's lesson;
+  - search answers within 250 ms and the lookup within 500 ms on the 120k/60k/60k seed (R8). The lookup plan is not
+    pinned until `jsonb_contains` is leakproof;
+  - a national number of 6 digits or fewer is `invalid_phone`, so the contacts list's looser phone parser must not be
+    reused (R10);
+  - the folded copies follow their source on every write path; no erasure route exists yet (R19);
+  - no log line or span carries `q`, the lookup body or a hit's name (R22).
+- **Lead contract edit (18d0e81): the throttle is in the contract.** Both search operations gain `429
+  too_many_requests`, with the shared Error shape, an optional `retryAt` and `no-store`, decided first after
+  authentication. The limit is per user, with separate budgets and a tighter one for the lookup. T-0085's contract suite
+  now pins `['200','400','401','429']`.
+- **Open:** what counts as a valid number of 7–9 digits per country, beyond R10's clear case. The 0038 header must say
+  that a STORED column rewrites `contact` under ACCESS EXCLUSIVE, acceptable only while no cell is populated (D-L65).
+- **Builder:** Agent 3 on `agent3/T-0086-search-api`.
+### D-L135 — T-0086 review rulings, the Unicode identifier rule, and follow-ups (lead, 2026-10-14)
+**Status:** PROCEEDING (lead). T-0086 merged as #130 (migration 0038).
+- **Identifier rule, strengthened (contract 0.12.2):** after NFKC, a `q` is `400 identifier_in_url` if it contains `@`,
+  or if, once every character that is neither `\p{L}` nor `\p{Nd}` is removed, it holds a run of 6 or more `\p{Nd}`
+  digits of any script. The contract's `not` pattern is the same rule as a `u` regex. T-0087's client rule (R27) follows
+  it: text with a digit and no letter is phone-like.
+- **Lead suite edits (3fb072b):**
+  - `deal.name_search` is pinned in pipeline-tables;
+  - the 120k-row seeds in search-api and list-indexes insert 10,000 rows per statement, so they no longer hit the 30 s
+    statement timeout on a loaded host. The data is identical.
+- **Leads index shape:** the leads view's status filter is not an index key. On a 1%-leads tenant the leads group
+  examined up to 24,240 rows, so 0038 adds four partial lead indexes and the leads query sends the predicate as
+  literals. Rows examined drop to 0.
+- **Accepted risk:** the search throttle's counters are per process. They must move to Redis (or another shared store)
+  before a second API instance serves traffic.
+- **Follow-ups:**
+  - a lead edit adding a low-lead-tenant plan test to search-api, because its seed is too lead-heavy to catch a
+    regression of the partial indexes;
+  - statement size grows with programmes × fields for users in hundreds of programmes. It goes into the
+    timeline-performance task (D-L131) as a search item;
+  - pin the Postgres image by digest or ICU version before the first cell, so the folded columns cannot drift silently
+    on a re-pull;
+  - D-L80's query-string stripping must cover the web ingress as well as the API.
+
+### D-L136 — T-0123 suite rulings; timeline actors stay named (lead, 2026-10-14)
+**Status:** PROCEEDING (lead). Suite on `lead/T-0123-acceptance` (6e38540).
+- **Rule pinned:** `checkedBy.displayName` is `null` when the checker has no `user_programme` row in the deal's
+  programme at read time (the D-P23 owner test). The tenant-admin flag and membership of another programme do not
+  count. Re-adding someone names them again. `checkedBy.id` is always served. Each check is judged on its own.
+  Covered reads: getDeal, listDeals, getPipelineBoard cards, and the updateDeal and moveDeal answers
+  (pipeline-board-api R17 replaced; deals-api R23 added).
+- **Deal timeline out of scope:** the task file's "the deal timeline's actors where they are checkers" is dropped.
+  Timeline actors are the people behind events and activities, and D-L81 names them even after they leave the
+  programme. The timeline has no `checkedBy`, and the suite stays as it is.
+- **Load note:** under a load average near 150, two untouched tests timed out (a field-security test in deals-api,
+  and the board plans seed). Both pass on a quiet host. This is the 2026-10-14 machine crash (PR #132), not a defect.
+
+### D-L137 — T-0087 review rulings: palette fixes, re-pin, budget and PR split (lead, 2026-10-14)
+**Status:** PROCEEDING (lead). The combined review (D-L109) of `agent11/T-0087-command-palette` (c1c18d6..36e1048)
+found no privacy or contract defect.
+- **Fix before merge:**
+  - **M1:** Escape in the palette must not also close an overlay behind it. Use a capture-phase handler with
+    `stopPropagation`, and don't open the palette over an `aria-modal` dialog;
+  - **M2:** the focus trap ignores `tabindex="-1"` links;
+  - **M3:** a same-route "see all" applies the new `q` and drops it from the address bar;
+  - **M4:** a failed palette chunk shows a retry-or-close state instead of crashing the screen, and the loading state
+    closes on Escape or a backdrop click;
+  - **M5:** a 429 draws `records.error.too_many_requests`, not "check your connection";
+  - **L1:** the minimum query length counts code points, as the server does;
+  - **L2:** the shortcut also accepts `event.code === 'KeyK'` and ignores Shift;
+  - **L3:** search strings ship only when `crm_search` is live;
+  - **L4:** the header link has `prefetch={false}`;
+  - **L5:** the dialog is labelled with `aria-labelledby`, and the result count is announced.
+- **Lead re-pin of the T-0087 suite:**
+  - deal hits link to `/deals/<id>` only while `crm_pipeline` is live, and are otherwise unlinked. T-0110 merged first,
+    so T-0087 does the re-pin;
+  - `SEARCH_BUDGET_BYTES = 223_000`: it passes both measured runs (213,798 and 214,306 bytes) with about 1.4 KB of
+    slack below and 4% of headroom. Re-measure after the fixes;
+  - new journeys for M1, M2 and M3.
+- **PR split (A1 section 3.3):** three stacked PRs.
+  - **A:** the flag, i18n, the harness and the lib client;
+  - **B1:** the search panel, the `/search` route and the message ids;
+  - **B2:** the palette, the shell wiring and the Gap 3 list changes.
+- **Merge gate:** the browser halves of all eleven records-ui and scripting-ui suites, each against its pinned budget
+  (the tightest is `/pipelines/[pipelineId]`, with about 5.5 KB of headroom). They run when no other project's Docker
+  stack is up.
+
+### D-L138 — T-0088 suite rulings: custom-field contract names and codes (lead, 2026-10-17)
+**Status:** PROCEEDING (lead). Suite on `lead/T-0088-acceptance` (d812a46 and a follow-up commit).
+- **Records contract:**
+  - **Schemas:** `CustomFields`, `CustomFieldsPatch` (1–100 keys, a value or `null`), `CustomFieldValue` (anyOf the six
+    encodings) and `CustomFieldWithheldPath`.
+  - **Where `custom` goes:** on Contact in `ContactPendingProperties`; on Account in a new `AccountPendingProperties`
+    allOf part; on Activity and Deal in their own `properties`.
+  - **Filters:** `custom[key]=value` (deepObject) and a repeatable `customEmpty`, on listContacts, listLeads, listAccounts
+    and listDeals.
+  - **400 errors** are `validation_failed` with one of these detail codes: `unknown_field` (unknown and retired keys get
+    the same code, so no key's past existence leaks), `invalid_value`, `unknown_value`, `currency_mismatch`,
+    `custom_too_large`, `field_withheld`, `filter_not_supported`.
+  - **403** is `not_permitted` with the detail `field_not_editable`.
+- **Admin contract:**
+  - **Operations:** `GET|POST /api/v1/admin/custom-fields`, `PATCH /api/v1/admin/custom-fields/{fieldId}`, and
+    `POST …/{fieldId}/retire`. There is no delete and no type change.
+  - **Update body:** exactly `label`, `description`, `classification`, `addValues` and `relabelValues`.
+  - **Classification can change after create (D-P25),** raised or lowered, and is audited. Reclassifying never rewrites
+    the field-security matrix; the pii/sensitive default of `none` applies at create only (D-L128 Q2).
+  - **Limits:** 409 `limit_reached` (`field_limit_reached`, `picklist_limit_reached`). Retired fields do not count
+    toward the 100, because no purge exists.
+  - **Permissions:** the writes need `custom_field.write`, a tenant-admin action (D-L53), and are audited. The list needs
+    no permission.
+- **Encodings:**
+  - currency `amountMinor` is signed, with at most 18 digits;
+  - `is empty` applies to picklist and boolean only;
+  - currency codes are NGN, GHS, KES and ZAR;
+  - there is no `isRequired` on custom fields in Phase 2.
+- **Lead edits to merged suites,** the minimum needed to admit `custom`:
+  - records-contract-pipeline and records-contract-activities: the exact key sets;
+  - the deal-timeline static `withheldFields` check;
+  - leads-mock filters, with the leads-screen pin re-pinned.
+- **Later:** custom deal fields as stage requirements.

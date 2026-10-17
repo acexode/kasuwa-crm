@@ -4,6 +4,7 @@ import { ContactRecordScreen } from '../../../components/contact-record/contact-
 import { CONTACT_RECORD_MESSAGE_IDS } from '../../../components/contact-record/message-ids';
 import { START_SCRIPT_MESSAGE_IDS } from '../../../components/script-run/message-ids';
 import { crmLiveNav, crmRecordViewEnabled, crmRecordsEnabled, crmScriptsEnabled } from '../../../lib/feature-flags';
+import { withSearchMessages } from '../../../components/search/message-ids';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
 /**
@@ -39,15 +40,16 @@ export default async function ContactRecordPage({ params }: { params: Promise<{ 
     notFound();
   }
   const { locale } = await activeLocale();
+  const live = await crmLiveNav();
   const scripts = await crmScriptsEnabled();
 
   return (
     <ContactRecordScreen
       id={id}
       locale={locale}
-      messages={bundleMessages(locale, scripts ? [...CONTACT_RECORD_MESSAGE_IDS, ...START_SCRIPT_MESSAGE_IDS] : CONTACT_RECORD_MESSAGE_IDS)}
+      messages={bundleMessages(locale, withSearchMessages(scripts ? [...CONTACT_RECORD_MESSAGE_IDS, ...START_SCRIPT_MESSAGE_IDS] : CONTACT_RECORD_MESSAGE_IDS, live))}
       locales={languageOptions(locale)}
-      live={await crmLiveNav()}
+      live={live}
       scripts={scripts}
     />
   );

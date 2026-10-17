@@ -1,7 +1,7 @@
 # ADR-0017 — Object storage behind a storage adapter; the import upload flow
 
-- **Status:** Proposed. Approved in principle by D-P30 item 1 (@acexode, 2026-10-07), which asked for this ADR before T-0092
-  starts. Implemented by T-0092 (adapter), T-0093 (contract), T-0094 (import API and migration) and T-0096 (screen).
+- **Status:** Accepted (D-L128, @acexode, 2026-10-13). Answers to its open questions are in D-L128.
+  Approved in principle by D-P30 item 1 (@acexode, 2026-10-07); this ADR came before T-0092 as it asked.
 - **Date:** 2026-10-13
 - **Deciders:** Lead; @acexode
 

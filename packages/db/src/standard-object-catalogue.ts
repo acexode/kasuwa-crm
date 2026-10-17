@@ -12,7 +12,8 @@ import { newId } from './ids';
  * did were backfilled by migration 0025 (contact, account `name`), 0026
  * (T-0054, the account fields after `name`), 0027 (T-0060, activity),
  * 0028 (T-0076, contact `company_name`) and 0034 (T-0082, activity
- * `starts_at` and `ends_at`) and 0036 (T-0106, deal), each carrying a frozen
+ * `starts_at` and `ends_at`), 0036 (T-0106, deal) and 0037 (T-0111, activity
+ * `deal_id`), each carrying a frozen
  * copy of its part of this list; the T-0053, T-0054, T-0060, T-0076 and T-0106 acceptance suites
  * assert that all three sources produce the same catalogue. Never edit any of
  * those migrations.
@@ -161,6 +162,9 @@ export const STANDARD_OBJECT_CATALOGUE: readonly StandardObjectDef[] = [
       field('owner_user_id', 'Owner', 'text'),
       field('contact_id', 'Contact', 'lookup', { config: { targetObjectApiName: 'contact' } }),
       field('account_id', 'Account', 'lookup', { config: { targetObjectApiName: 'account' } }),
+      // Migration 0037 (T-0111): the deal link, a lookup to deal; an id, as
+      // contact_id and account_id, so classification none.
+      field('deal_id', 'Deal', 'lookup', { config: { targetObjectApiName: 'deal' } }),
     ],
   },
   {

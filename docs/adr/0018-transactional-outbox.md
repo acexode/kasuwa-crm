@@ -1,7 +1,7 @@
 # ADR-0018 — The transactional outbox and the kasuwa_relay role
 
-- **Status:** Proposed. Approved in principle by D-P30 item 2 (answered 2026-10-07); this ADR is the design that approval
-  required before T-0098 starts. @acexode reviews (D-A3).
+- **Status:** Accepted (D-L128, @acexode, 2026-10-13). Answers to Q1–Q5 are in D-L128.
+  Approved in principle by D-P30 item 2 (2026-10-07); this ADR is the design that approval asked for.
 - **Date:** 2026-10-13
 - **Deciders:** Lead; @acexode
 - **Amends:** ADR-0002 (runtime roles), the `apps/worker/src/main.ts` header ("there is no other connection in this process")

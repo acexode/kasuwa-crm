@@ -3,7 +3,9 @@ import { bundleMessages } from '@kasuwa/i18n';
 import { AccountsScreen } from '../../components/accounts/accounts-screen';
 import { ACCOUNTS_MESSAGE_IDS } from '../../components/accounts/message-ids';
 import { crmAccountsEnabled, crmLiveNav } from '../../lib/feature-flags';
+import { withSearchMessages } from '../../components/search/message-ids';
 import { activeLocale, languageOptions } from '../../lib/locale';
+import { nameFromUrl } from '../../lib/search-query';
 
 /**
  * `P04/03` — the Accounts list (T-0057), with `P04/05` and `P04/06`, and the
@@ -17,19 +19,35 @@ import { activeLocale, languageOptions } from '../../lib/locale';
  * The list is read from the BROWSER (`lib/accounts-api.ts`), not here: a
  * server-component read cannot show the loading, still-connecting or offline
  * states P04/06 draws, and those are the states a 256 kbps user lives in.
+ *
+ * A `q` in the URL (P27's "see all", T-0087) is the list's first search, and
+ * only ever a name: a phone number or an email address in a URL is dropped.
  */
-export default async function AccountsPage() {
+export default async function AccountsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   if (!(await crmAccountsEnabled())) {
     notFound();
   }
   const { locale } = await activeLocale();
+  const live = await crmLiveNav();
+
+  const initialQ = nameFromUrl((await searchParams).q);
 
   return (
+    // A render that carries a q is a "see all" (the screen drops q from the
+    // address bar at once, so a refresh never carries it): a fresh key makes it
+    // a fresh screen searching that q, even from this same screen's palette and
+    // even for the same q twice. Without a q, the key is stable.
     <AccountsScreen
+      key={initialQ === '' ? 'list' : `q:${crypto.randomUUID()}`}
       locale={locale}
-      messages={bundleMessages(locale, ACCOUNTS_MESSAGE_IDS)}
+      messages={bundleMessages(locale, withSearchMessages(ACCOUNTS_MESSAGE_IDS, live))}
       locales={languageOptions(locale)}
-      live={await crmLiveNav()}
+      live={live}
+      initialQ={initialQ}
     />
   );
 }

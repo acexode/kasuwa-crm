@@ -74,6 +74,20 @@ export interface StackUrls {
    * builder's and the run screen's byte budgets are measured here.
    */
   webScriptsUrl: string;
+  /**
+   * The same process as `webRecordsUrl`, which also has `crm_pipeline` ON
+   * (T-0109): the P06 pipeline board at `/pipelines/[pipelineId]` and its
+   * index at `/pipelines`. The board's byte budget is measured here, and its
+   * cards' summaries link to records this process serves.
+   */
+  webPipelineUrl: string;
+  /**
+   * The same process as `webRecordsUrl`, which also has `crm_search` ON
+   * (T-0087): the P27 search screen at `/search` and the Ctrl/Cmd+K palette
+   * in the CRM shell. The `/search` byte budget is measured here, and its hits
+   * and "see all" links land on screens this process serves.
+   */
+  webSearchUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;
   /** Static fixture pages used by the harness self-tests. */

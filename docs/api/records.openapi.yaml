@@ -45,7 +45,7 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.10.0-T-0105
+  version: 0.12.2-T-0086
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
     update. Accounts (T-0052, served since T-0055): list, get, create,
@@ -64,13 +64,18 @@ info:
     T-0076): a lead is a
     contact at a lead stage, not its own record, so leads add a list view
     (`listLeads`), one action (`convertContact`) and one contact field
-    (`companyName`). Pipelines and deals (P06, T-0105, contract only until
+    (`companyName`). Activities linked to a deal (`dealId`) and the deal's
+    timeline (`listDealTimeline`, T-0111, contract only until it is served). Pipelines and deals (P06, T-0105, contract only until
     T-0107 and T-0108): programme-scoped pipelines with their stages,
     requirements and transitions (`listPipelines`, `getPipeline`); the board
     with an exact count and per-currency totals per stage
     (`getPipelineBoard`, D-P19); deals (`listDeals`, `createDeal`,
     `getDeal`, `updateDeal`); and the gated stage change (`moveDeal`,
-    D-P20), the only way a deal changes stage. Custom-field values follow
+    D-P20), the only way a deal changes stage. Global search (P27, T-0085,
+    contract only until T-0086): at most three hits per type across
+    contacts, leads, accounts and deals, by name prefix (`searchRecords`),
+    and contacts and leads by an exact phone or email sent in a POST body
+    so the URL never carries one (`lookupRecords`). Custom-field values follow
     in a later slice (D-L60) and will be added to this file.
 
     **Display names (T-0043, D-L64).** A records screen never prints a UUID.
@@ -128,6 +133,8 @@ tags:
     description: The caller's own scope, as the session resolves it.
   - name: pipelines
     description: A programme's sales stages, their entry requirements and the board.
+  - name: search
+    description: Global search across the record types, a few hits each (P27).
 
 paths:
   /api/v1/contacts:
@@ -699,6 +706,20 @@ paths:
         composer sets `ownerUserId` to the caller, so the meeting is on the
         caller's calendar (listCalendar lists what the caller OWNS).
 
+        **Deal (T-0111, D-L88; contract only until T-0111 serves it).**
+        `dealId` links the activity to a deal. It is a link, never a target:
+        `contactId` or `accountId` is still required and still decides the
+        programme. The deal must be in the activity's programme; anything
+        else (a deal in another programme, even one the caller reads, a deal
+        in another tenant, an id that names nothing) is
+        `400 validation_failed` with `details[].code: unknown_reference` at
+        `dealId`, one body. Linking needs no right beyond `activity.write`:
+        it changes the activity, never the deal (the deal's `version` does
+        not move and no deal audit event is written), so an agent may link
+        to a colleague's deal or a closed one. `dealId` follows the
+        activity's `deal_id` field security like any other field. The
+        linked activity appears on the deal's timeline (listDealTimeline).
+
         **Not in this contract (D-P22, D-P29):** attendees or invitations,
         a location, reminders by SMS, WhatsApp, email or push, and anything
         pushed to an external calendar. A create never sends a message.
@@ -806,6 +827,16 @@ paths:
         sending `startsAt` or `endsAt` when the caller cannot read the
         meeting's OTHER time in its programme (D-L110): the result rules
         would otherwise disclose it.
+
+        **Deal link (T-0111; contract only until T-0111 serves it).**
+        `dealId` is the one link an update may change: a deal sets or moves
+        the link and `null` removes it. The rules are createActivity's: a
+        deal in the activity's programme, else `400 unknown_reference` at
+        `dealId`, one body; `activity.write` and nothing more (the deal
+        itself is not written); and the `deal_id` field security, so sending
+        `dealId` when it is withheld from, or read-only for, the caller is
+        `403 not_permitted` with `details[].code: field_not_editable`. A
+        change of link is audited by name (`dealId`), never by value.
 
         Out of scope (another programme, another tenant, no such activity) is
         `404 not_found`, one body. Order: `404`, `403`, `400`, `409`. Every
@@ -1968,7 +1999,7 @@ paths:
       tags: [pipelines]
       summary: The pipelines of the programmes the session reaches
       operationId: listPipelines
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P06/01', 'P06/01b', 'P06/04', 'P06/07']
       x-kasuwa-error-order: ['400 validation_failed']
       x-kasuwa-rights:
@@ -2031,7 +2062,7 @@ paths:
       tags: [pipelines]
       summary: One pipeline with its stages, requirements and transitions
       operationId: getPipeline
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P06/01', 'P06/02', 'P06/03', 'P06/04', 'P06/05']
       x-kasuwa-error-order: ['404 not_found']
       x-kasuwa-rights:
@@ -2205,7 +2236,7 @@ paths:
       tags: [pipelines]
       summary: The Kanban board — exact counts and per-currency totals per stage
       operationId: getPipelineBoard
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P06/01', 'P06/03', 'P06/04']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
       x-kasuwa-rights:
@@ -2618,7 +2649,7 @@ paths:
       tags: [deals]
       summary: List a pipeline's deals — the P06/01b list view
       operationId: listDeals
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P06/01b']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
       x-kasuwa-rights:
@@ -2728,7 +2759,7 @@ paths:
       tags: [deals]
       summary: Create a deal in the pipeline's first open stage
       operationId: createDeal
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-permission: deal.write
       x-kasuwa-screens: ['P06/01', 'P06/07']
@@ -2830,7 +2861,7 @@ paths:
       tags: [deals]
       summary: Get one deal
       operationId: getDeal
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P06/05', 'P06/06']
       x-kasuwa-error-order: ['404 not_found']
       x-kasuwa-rights:
@@ -2893,7 +2924,7 @@ paths:
       tags: [deals]
       summary: Update a deal's fields (never its stage)
       operationId: updateDeal
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-permission: deal.write
       x-kasuwa-screens: ['P06/05', 'P06/06']
@@ -3017,7 +3048,7 @@ paths:
       tags: [deals]
       summary: Move a deal to another stage, filling its requirements in the same write
       operationId: moveDeal
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-permission: deal.write
       x-kasuwa-screens: ['P06/01', 'P06/01b', 'P06/02', 'P06/03', 'P06/04', 'P06/05', 'P06/06']
@@ -3154,6 +3185,622 @@ paths:
         '404': { $ref: '#/components/responses/PipelineRecordNotFound' }
         '409': { $ref: '#/components/responses/DealMoveConflict' }
         '422': { $ref: '#/components/responses/RequirementsUnmet' }
+
+  # -------------------------------------------------------------------------
+  # The deal timeline (P06, T-0111; D-L88, D-L72, D-L77, D-L80, D-L81, D-L85,
+  # D-L127). Contract only until T-0111 serves it. The block rules above
+  # (one 404 body, error order, rights, no-store) apply unchanged.
+  # -------------------------------------------------------------------------
+
+  /api/v1/deals/{dealId}/timeline:
+    parameters:
+      - $ref: '#/components/parameters/DealId'
+    get:
+      tags: [deals]
+      summary: The deal's timeline — field changes and linked activities, newest first
+      operationId: listDealTimeline
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P06/05', 'P06/06']
+      x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
+      x-kasuwa-rights:
+        admin: read
+        programme_manager: read
+        team_lead: read
+        agent: read
+        qa_analyst: read
+        client_portal: none
+      description: |
+        The activity column of the P06/05 deal detail (T-0111): what changed
+        on this deal, who changed it, and the notes, tasks, calls and
+        meetings linked to it through `dealId` (createActivity,
+        updateActivity). The same page shape, paging, ordering and item rules
+        as listAccountTimeline, which this operation shares rather than
+        forks; where this description is silent, that one applies.
+
+        **Scope.** The deal must be readable by the caller, exactly as for
+        getDeal: the `admin`, `programme_manager`, `team_lead`, `agent` and
+        `qa_analyst` sets and the tenant-admin flag, in the deal's
+        programme (D-L127). Anything else (no such deal, another tenant's,
+        one in a programme the caller does not reach, a `client_portal`
+        caller, a set that reads no deals, and an id that is not a uuid) is
+        getDeal's one `404 not_found` body, the same bytes in every case.
+        That check comes first, and nothing about the deal's history is read
+        before it passes. **Order: `404`, then `400`.** A read, so there is
+        no `403`. A scope header is refused `400` before any of this, by
+        authentication, whatever the id.
+
+        **Field changes: by name only.** One `field_changed` item per field
+        named by an audit event of this deal (`objectType: deal`, this deal's
+        id, in this deal's programme), created and updated alike; a creation
+        renders like an update (D-L81), one item per field the create named.
+        The field is named by its Deal wire name, from a closed list:
+        `name`, `amount`, `expectedCloseDate`, `ownerUserId`,
+        `primaryContactId`, `accountId`, `nextStep`, `stageId` and `checks`.
+        **Every item is `redacted: true` and never carries `before` or
+        `after`**, whatever the audit row holds: a reassignment's owner ids
+        (D-L64) and a move's stage ids are not printed either, and a move
+        appears as a `stageId` item (plus an item per field it filled and a
+        `checks` item when it ticked one). Any other audited name, such as
+        `stageEnteredAt` or `closedAt`, yields no item.
+
+        **Activities.** One `activity` item per activity whose `dealId` is
+        this deal, with whatever contact or account it targets, in its
+        current state: `occurredAt` when it was logged (D-L77), so linking
+        an older activity later puts it at its logged time, and its
+        `version` for updateActivity (D-L85). The very ActivityItem of the
+        contact and account timelines. **Not on it:** activities of the
+        deal's contact or account that carry no `dealId`, and those of other
+        deals.
+
+        **Field security omits, before paging.** Judged in the deal's
+        programme, against the set the caller holds there today; the
+        tenant-admin flag does not lift it (D-L63). The DEAL's matrix judges
+        field-change items, exactly as getDeal judges the Deal: an item is
+        omitted, value and name, precisely when getDeal would list its field
+        in `withheldFields` for this caller (`name`, `stageId` and `checks`
+        are never withheld). The ACTIVITY's matrix judges each activity item,
+        exactly as on the other timelines: a withheld `subject`, `body`,
+        `dueAt`, `completedAt`, `startsAt` or `endsAt` is omitted from the
+        item, and when the activity's deal link (`deal_id`) is withheld no
+        activity item is shown at all (the counterpart of `account_id` on
+        the account timeline). A withheld contact or account link does not
+        remove an item from this timeline: the item names neither. `version`
+        is never withheld. Omission happens before the page is cut: a page
+        with a non-null `nextCursor` holds `limit` items, and a cursor never
+        leads to an empty page.
+
+        **Order and paging.** `occurredAt` descending across both sources,
+        ties broken by item `id` descending in code-unit order. Keyset only:
+        `{ data, nextCursor }`, no total, count or offset (D-P13). The cursor
+        carries a position only: never a name (D-L80), and never an id of
+        anything the pages did not show. A malformed cursor, or one issued
+        for another deal, another timeline (a contact's or an account's) or
+        another list, is `400 validation_failed` with
+        `details[].code: invalid_cursor`, and a cursor issued for a deal the
+        caller cannot reach answers exactly as one issued for a deal they
+        can. `limit` out of 1..100 is `400`, never clamped.
+        `Cache-Control: no-store` on every answer, `200`, `404` and `400`
+        alike.
+
+        **Actors and item ids** follow listContactTimeline (D-L81): the person
+        who acted, named as they are named now; `null` is the system. Ids are
+        opaque, never an audit event or activity id, and depend only on the
+        item's own change or activity.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of the deal's timeline, field security applied.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DealTimelinePage' }
+              example:
+                data:
+                  - id: ti_7e1d0c2b3a4f45e6a7b8c9d0e1f2a3b4
+                    type: field_changed
+                    occurredAt: '2026-10-03T09:30:00.000Z'
+                    actor:
+                      id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                      displayName: Kemi Balogun
+                    field: stageId
+                    redacted: true
+                  - id: ti_2c3d4e5f6a7b48c9d0e1f2a3b4c5d6e7
+                    type: field_changed
+                    occurredAt: '2026-10-03T09:30:00.000Z'
+                    actor:
+                      id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                      displayName: Kemi Balogun
+                    field: expectedCloseDate
+                    redacted: true
+                  - id: ti_9f8e7d6c5b4a43210fedcba987654321
+                    type: activity
+                    occurredAt: '2026-10-01T11:40:00.000Z'
+                    actor:
+                      id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                      displayName: Kemi Balogun
+                    activityId: 5e2a7b1c-3d4f-4a6b-8c9d-0e1f2a3b4c03
+                    activityType: call
+                    subject: Pricing call
+                    body: Wants the Q4 prices held until Friday.
+                    dueAt: null
+                    completedAt: null
+                    startsAt: null
+                    endsAt: null
+                    version: 1
+                nextCursor: dGltZWxpbmUtY3Vyc29yLWV4YW1wbGU
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/PipelineRecordNotFound' }
+
+  # -------------------------------------------------------------------------
+  # Global search (P27, T-0085; ADR-0014, ADR-0015, D-L128, D-P13, D-L87,
+  # D-L80, D-L68, D-L115, D-L127). CONTRACT ONLY: `x-kasuwa-implemented:
+  # false` on both operations (searchRecords and lookupRecords) until T-0086
+  # serves them. The URL never carries a phone number or an email address:
+  # exact lookups are a body-carrying POST. The five rules at the top of this file
+  # apply unchanged, and so do the block rules of the pipelines section:
+  # `x-kasuwa-error-order`, `x-kasuwa-rights` (here per record type) and
+  # `Cache-Control: no-store` on every answer.
+  #
+  # Deliberately absent: tickets, conversations and KB (P27 draws them; no
+  # module serves them yet, D-L87 keeps `types` additive), recent searches
+  # (nothing is stored), filters by owner or date and facet counts (D-P13),
+  # the count of hidden results (D-L87, CLAUDE.md 6.4), the programme scope
+  # menu (D-L87 allows narrowing later, additively), commands and Ask AI.
+  # -------------------------------------------------------------------------
+
+  /api/v1/search:
+    get:
+      tags: [search]
+      summary: Global search — at most three hits per record type, no counts
+      operationId: searchRecords
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P27/A1', 'P27/A4', 'P27/A5', 'P27/D1']
+      x-kasuwa-error-order:
+        - 429 too_many_requests
+        - 400 validation_failed query_required
+        - 400 validation_failed identifier_in_url
+        - 400 validation_failed invalid_string
+        - 400 validation_failed unknown_type
+        - 400 validation_failed query_too_short
+      x-kasuwa-rights:
+        admin: { contact: read, lead: read, account: read, deal: read }
+        programme_manager: { contact: read, lead: read, account: read, deal: read }
+        team_lead: { contact: read, lead: read, account: read, deal: read }
+        agent: { contact: read, lead: read, account: read, deal: read }
+        qa_analyst: { contact: read, lead: read, account: read, deal: read }
+        client_portal: { contact: read, lead: read, account: read, deal: none }
+      x-kasuwa-search-fields:
+        contact: [displayName, givenNames, familyName, companyName]
+        lead: [displayName, givenNames, familyName, companyName]
+        account: [name]
+        deal: [name]
+      description: |
+        The P27 search box and the record rows of the command palette: one
+        read that answers a few hits of each record type, so the screen can
+        group them. **"See all" is the type's own list read with `q`**
+        (listContacts, listLeads, listAccounts); deals have no cross-pipeline
+        list, so a deal hit opens the deal and there is no "see all" for
+        deals. A list's `q` is a substring match and also matches numbers, so
+        "see all" may show rows this read did not.
+
+        **`q` is required.** A request without `q` is `400
+        validation_failed` with `details[].code: query_required` at `q`.
+        `types` narrows which groups are answered; absent, all four are.
+
+        **The URL never carries a phone number or an email address.** Whole
+        identifiers in a query string reach proxy and access logs (CLAUDE.md
+        6.1, D-L80), so exact lookups are lookupRecords, a POST with a JSON
+        body. A `phone` or `email` query parameter here is not ignored: it is
+        `400 validation_failed` with `details[].code: identifier_in_url` at
+        that parameter, so a client that puts one in the URL fails loudly
+        instead of appearing to work. **`q` itself is refused when it looks
+        like an identifier:** after Unicode NFKC normalisation, a `q` that
+        contains `@`, or that contains a run of 6 or more decimal digits of
+        any script (`\p{Nd}`) once every character that is neither a letter
+        (`\p{L}`) nor a decimal digit is removed, is `400 validation_failed`
+        with `details[].code: identifier_in_url` at `q` (D-L135). The `not`
+        pattern on `q`'s schema is the same rule as an ECMA-262 Unicode
+        regular expression; the server applies it after NFKC, so digits that
+        NFKC maps to ASCII (superscript, circled) are refused too. So
+        `08031234567`, `+234 803 123 4567`, `(0803) 123-4567`,
+        `0803/123/4567`, `0803_123_4567`, `0803,123,4567`, `0803–123–4567`
+        (en dash), `٠٨٠٣١٢٣٤٥٦٧` (Arabic-Indic digits) and
+        `sample@example.test` are all refused, and `Sample 2026`,
+        `Unit 12 Block 3456` or `Fixture-12.34` are not. A name that itself holds such a run
+        cannot be prefix-searched by it. **Clients send phone- or
+        email-shaped input to lookupRecords,** never to this operation.
+
+        **Prefix matching on folded text (ADR-0015's fallback, D-L128).**
+        `q` matches a field when the field's folded value STARTS WITH the
+        folded query. Folding is the same on both sides: Unicode NFD, every
+        combining mark removed, lower-cased by the locale-independent
+        Unicode default mapping, leading and trailing whitespace trimmed, and
+        each run of inner whitespace made one space. So `sam` and `SAM` find
+        `Sámple Fixture`, and `sample f` finds it too. Letters with no
+        decomposition (`ø`, `đ`, `ł`) are not folded. Comparison is by code
+        point. **The prefix is of the whole field value, not of each word:**
+        `fix` does not find `Sámple Fixture` by its display name (it finds
+        it by `familyName` when that is `Fixture`). `%`, `_` and `\` match
+        themselves literally (D-L115); there are no wildcards. `q` never
+        matches a phone or an email: digits in `q` are matched against names
+        as text. The fields each type matches on are listed in
+        `x-kasuwa-search-fields`, and only those. **The folded query must be
+        at least 2 characters**, else `400 validation_failed` with
+        `details[].code: query_too_short` at `q`. Trigram similarity and
+        word matching are a later, additive change (ADR-0015, once the
+        LEAKPROOF marks are applied): they may add hits, and every prefix
+        hit stays a hit.
+
+        **Field security: a hit never matches on, or returns, a withheld
+        field.** Each field is judged in the hit's OWN programme, against
+        the permission set the caller holds there, row by row, exactly as a
+        list's `q` is (D-L64); the tenant-admin flag never lifts it (D-L63).
+        A field withheld there is never compared with the query, never
+        decides which hits are chosen or their order, and is omitted from
+        the hit and named in its `withheldFields`. Field security never
+        makes this read answer `400 field_withheld`: a withheld field simply
+        does not match.
+
+        **`displayName` follows its name parts (the D-L68 ruling).** In a
+        hit, a contact's or lead's `displayName` is readable exactly when
+        both `givenNames` and `familyName` are readable in that record's
+        programme. When either is withheld, `displayName` is withheld too:
+        it is not matched, it is omitted, and `displayName` is listed in
+        `withheldFields` alongside the withheld part. It is never composed
+        from the readable part, and never replaced by one; the hit carries
+        whichever name part is readable, and a screen prints that or a
+        neutral label, never the id. The rule holds even when the withheld
+        part is `null` on that record, so withholding is never a statement
+        about a value. getContact, listContacts and listLeads are not
+        changed by this operation (their alignment is the D-L68 follow-up).
+
+        **Who reads what (`x-kasuwa-rights`).** Each group is read by exactly
+        the callers who read that type through its own read, in each
+        programme the session resolves: contacts, leads and accounts by
+        every set, the `client_portal` set included; deals by the `admin`,
+        `programme_manager`, `team_lead`, `agent` and `qa_analyst` sets and
+        the tenant-admin flag (D-L127), never by `client_portal` (D-L115)
+        and never by a custom permission set until an explicit per-set
+        "read deals" grant exists (D-L127). A caller who does not read a
+        type in a programme gets no hit of that type from it; the group is
+        then answered as if nothing matched, never with an error. The lead
+        group follows listLeads: a hit says the contact's `status` is a
+        lead status, so when field security withholds `status` from the
+        caller in any programme they reach, the lead group is answered
+        empty, whatever matched. A contact who is a lead may appear in both
+        the contact group and the lead group; both carry the contact id.
+
+        **Scope is the session's (rule 1).** Hits come only from the
+        programmes the session resolves, read inside the tenant
+        transaction. There is no programme, tenant or scope parameter;
+        unknown query parameters are ignored, never honoured, and a scope
+        header is `400 validation_failed`. **Nothing outside that scope is
+        counted, shown or hinted** (D-L87, CLAUDE.md 6.4): P27/B's "3 in
+        programmes you are not on" is not served, and a record in another
+        programme or tenant changes nothing in any answer.
+
+        **The answer.** `groups` holds one group per requested type, always
+        in the order contact, lead, account, deal, each with at most three
+        hits, `[]` when none. **No counts** (D-P13): no total, no per-type
+        or per-programme count, no "more" flag and no estimate. A screen
+        always offers "see all" where a list exists. A record appears at
+        most once in a group. Which three hits, and their order, are not
+        part of the contract, except that the same data and query give the
+        same answer and that neither ever depends on a withheld field. A
+        hit is closed: its `type`, its `id`, its `programmeId` and only the
+        fields its schema names. Contact and lead hits never carry a phone
+        or an email.
+
+        **Errors.** Every `400` is decided from the request alone, before
+        any record is read, so no `400` depends on what exists. **Order**
+        (`x-kasuwa-error-order`, the first that applies is returned):
+        authentication (`401`) and the scope-header `400` first; then the
+        per-user throttle (`429 too_many_requests`); then `q`
+        present (`query_required`); then no identifier in the URL, in a
+        `phone` or `email` parameter or in `q` itself (`identifier_in_url`);
+        then each parameter's own shape (`q` over 100 characters or holding
+        a NUL or other control character as `invalid_string`, then `types`
+        values as `unknown_type`); then the length, as sent or once folded
+        (`query_too_short`). A read, so there is never a `403`, and it names
+        no record, so there is never a `404`.
+
+        **Throttle (T-0086, D-L134).** Each user has a budget of
+        searchRecords calls per window, separate from their lookupRecords
+        budget; beyond it the answer is `429 too_many_requests`
+        (`SearchTooManyRequests`), decided after authentication and before
+        any validation, and the body never echoes the query.
+
+        **Transport.** Every answer, errors included, carries
+        `Cache-Control: no-store`: the URL is the same for every user of
+        every tenant. **The query string is personal data** (a name):
+        request telemetry keeps the route template only, and ingress must
+        strip query strings from access logs before the first deployed cell
+        (D-L80).
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: |
+            A name prefix, case- and accent-folded (see above). Required. At
+            least 2 characters once folded and trimmed; at most 100 as sent.
+            A NUL or other control character is `400 validation_failed` with
+            `details[].code: invalid_string`. Never a phone number or an
+            email address: an `@`, or a run of 6 or more decimal digits of
+            any script once everything that is neither a letter nor a digit is
+            removed (after NFKC), is `400 identifier_in_url`; send those to
+            lookupRecords.
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+            not:
+              description: The identifier rule (R21, D-L135) as an ECMA-262 Unicode (`u`) regular expression; the server applies it after NFKC.
+              pattern: '[@＠﹫]|\p{Nd}(?:[^\p{L}\p{Nd}]*\p{Nd}){5}'
+        - name: types
+          in: query
+          required: false
+          description: |
+            Which groups to answer, any of; absent means all four. Repeat
+            the parameter for several. An unknown or repeated value is `400
+            validation_failed` (`unknown_type` for an unknown one). The set
+            is additive (D-L87): a later version may add a type, and a client
+            ignores a group whose `type` it does not know.
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 4
+            uniqueItems: true
+            items: { $ref: '#/components/schemas/SearchType' }
+      responses:
+        '200':
+          description: One group per requested type, at most three hits each, field security applied.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SearchResults' }
+              examples:
+                prefix:
+                  summary: q=sam, all four types, nothing withheld
+                  value:
+                    groups:
+                      - type: contact
+                        hits:
+                          - type: contact
+                            id: a1b2c3d4-0001-4a5b-8c6d-000000000001
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            displayName: Sámple Fixture
+                            givenNames: Sámple
+                            familyName: Fixture
+                            companyName: null
+                            withheldFields: []
+                          - type: contact
+                            id: a1b2c3d4-0001-4a5b-8c6d-000000000002
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            displayName: Samplewise Testcase
+                            givenNames: Samplewise
+                            familyName: Testcase
+                            companyName: Example Trading Co.
+                            withheldFields: []
+                      - type: lead
+                        hits:
+                          - type: lead
+                            id: a1b2c3d4-0001-4a5b-8c6d-000000000003
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            displayName: Fixture Example
+                            givenNames: Fixture
+                            familyName: Example
+                            companyName: Sample Wholesale Ltd
+                            status: contacted
+                            withheldFields: []
+                      - type: account
+                        hits:
+                          - type: account
+                            id: a1b2c3d4-0002-4a5b-8c6d-000000000001
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            name: Sample Holdings Ltd
+                      - type: deal
+                        hits:
+                          - type: deal
+                            id: a1b2c3d4-0003-4a5b-8c6d-000000000001
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            pipelineId: 3a4b5c6d-7e8f-4a0b-8c1d-2e3f4a5b6c01
+                            name: Sample Holdings 40 terminals
+                withheldNamePart:
+                  summary: q=sam, contacts only, familyName withheld in that programme (D-L68)
+                  value:
+                    groups:
+                      - type: contact
+                        hits:
+                          - type: contact
+                            id: a1b2c3d4-0001-4a5b-8c6d-000000000004
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a02
+                            givenNames: Sampleton
+                            companyName: null
+                            withheldFields: [displayName, familyName]
+                portal:
+                  summary: q=sam by a client_portal caller, types=account&types=deal; no deal is read (D-L115)
+                  value:
+                    groups:
+                      - type: account
+                        hits:
+                          - type: account
+                            id: a1b2c3d4-0002-4a5b-8c6d-000000000001
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            name: Sample Holdings Ltd
+                      - type: deal
+                        hits: []
+        '400': { $ref: '#/components/responses/SearchValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '429': { $ref: '#/components/responses/SearchTooManyRequests' }
+
+  /api/v1/search/lookup:
+    post:
+      tags: [search]
+      summary: Exact lookup by phone or email — a read sent as a POST so the identifier stays out of the URL
+      operationId: lookupRecords
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P27/A2', 'P27/D1']
+      x-kasuwa-error-order:
+        - 429 too_many_requests
+        - 400 validation_failed unknown_property
+        - 400 validation_failed one_term_required
+        - 400 validation_failed invalid_phone
+        - 400 validation_failed invalid_email
+        - 400 validation_failed unknown_type
+      x-kasuwa-rights:
+        admin: { contact: read, lead: read, account: read, deal: read }
+        programme_manager: { contact: read, lead: read, account: read, deal: read }
+        team_lead: { contact: read, lead: read, account: read, deal: read }
+        agent: { contact: read, lead: read, account: read, deal: read }
+        qa_analyst: { contact: read, lead: read, account: read, deal: read }
+        client_portal: { contact: read, lead: read, account: read, deal: none }
+      x-kasuwa-exact-fields:
+        phone: { contact: phones, lead: phones }
+        email: { contact: emails, lead: emails }
+      description: |
+        The exact half of P27 search: find contacts and leads by one whole
+        phone number or one whole email address. **A POST used for privacy,
+        not a mutation: it writes nothing.** It creates, changes and audits
+        nothing, it is safe to retry, and it answers `200`, never `201`. It is
+        a POST only so that the identifier travels in the body and **the URL
+        never carries a phone number or an email address**: whole
+        identifiers in a query string reach proxy and access logs (CLAUDE.md
+        6.1, D-L80). searchRecords refuses them in its query string, `q`
+        included, so a client sends any phone- or email-shaped input here.
+
+        **Exactly one identifier.** The closed JSON body carries exactly one
+        of `phone` or `email`, plus optional `types`. None, or both, is `400
+        validation_failed` with `details[].code: one_term_required` at
+        `phone`. Any other property is `400 validation_failed` with
+        `details[].code: unknown_property` at the fixed path `body`: the
+        client's key is never echoed, since a key can be an identifier too
+        (`{"08031234567": 1}`).
+
+        **Exact whole-value matching.** `phone` is a whole number in any
+        common format (`0803 123 4567`, `+234 803 123 4567`,
+        `2348031234567`), normalised to E.164 with the tenant's default
+        country, then compared for equality with each stored E.164 number. A
+        value that does not normalise to a whole, valid number, a partial
+        number included, is `400 validation_failed` with
+        `details[].code: invalid_phone` at `phone`: **never a prefix or
+        substring of a number.** `email` is a whole address, trimmed and
+        compared for equality case-insensitively; a value that is not an
+        address is `400 validation_failed` with
+        `details[].code: invalid_email` at `email`. Never a prefix or a
+        substring. The fields compared are listed in `x-kasuwa-exact-fields`,
+        and only those.
+
+        **The answer is searchRecords' `SearchResults`.** Contacts and leads
+        only: the account and deal groups, when requested, are answered
+        empty. `types` narrows the groups exactly as on searchRecords (absent
+        means all four; an unknown value is `unknown_type`). At most three
+        hits per group, no counts (D-P13), the same closed hits; a hit never
+        carries the phone or address that found it.
+
+        **Shared with searchRecords, unchanged:** who reads what
+        (`x-kasuwa-rights`, D-L127, D-L115), scope from the session only,
+        nothing out of scope counted, shown or hinted, and field security
+        per hit's own programme with the D-L68 `displayName` rule. **A
+        number or address withheld in a record's programme is never
+        compared:** the lookup does not find that record, and the answer is
+        the same as for a number nobody has. Field security never answers
+        `400 field_withheld`.
+
+        **Errors.** Every `400` is decided from the request and the caller's
+        own tenant settings (the default country `invalid_phone`
+        normalises with), never from any record, so no `400` depends on what
+        exists. **Order** (`x-kasuwa-error-order`, the first that applies is
+        returned): authentication (`401`) and the scope-header `400` first;
+        then the per-user throttle (`429 too_many_requests`);
+        then the body as a closed JSON object (`unknown_property`); then the
+        one-identifier rule (`one_term_required`); then each property's own
+        shape (`phone` format and normalisation as `invalid_phone`, `email`
+        format as `invalid_email`, then `types` values as `unknown_type`). A
+        read, so there is never a `403`, and it names no record, so there is
+        never a `404`.
+
+        **Throttle (T-0086, D-L134).** Each user has a budget of
+        lookupRecords calls per window, tighter than and separate from their
+        searchRecords budget, since a lookup tests one whole identifier at a
+        time; beyond it the answer is `429 too_many_requests`
+        (`SearchTooManyRequests`), decided after authentication and before
+        any validation, and the body never echoes the phone or address.
+
+        **Transport.** Every answer, errors included, carries
+        `Cache-Control: no-store`. The body is personal data: it is never
+        logged or traced, and neither is the normalised number.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LookupRequest' }
+            examples:
+              phone:
+                summary: A number as a person types it (a placeholder; Nigeria has no fictional number range)
+                value:
+                  phone: 0803 000 0001
+              email:
+                value:
+                  email: sample.fixture@example.test
+              phoneNarrowed:
+                summary: Leads only
+                value:
+                  phone: '+2348030000001'
+                  types: [lead]
+      responses:
+        '200':
+          description: One group per requested type; account and deal groups always empty.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SearchResults' }
+              examples:
+                phoneLookup:
+                  summary: phone 0803 000 0001 (a placeholder; Nigeria has no fictional number range), all four types; the account and deal groups empty
+                  value:
+                    groups:
+                      - type: contact
+                        hits:
+                          - type: contact
+                            id: a1b2c3d4-0001-4a5b-8c6d-000000000002
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            displayName: Samplewise Testcase
+                            givenNames: Samplewise
+                            familyName: Testcase
+                            companyName: Example Trading Co.
+                            withheldFields: []
+                      - type: lead
+                        hits: []
+                      - type: account
+                        hits: []
+                      - type: deal
+                        hits: []
+                leadsOnly:
+                  summary: phone +2348030000001, types lead
+                  value:
+                    groups:
+                      - type: lead
+                        hits:
+                          - type: lead
+                            id: a1b2c3d4-0001-4a5b-8c6d-000000000003
+                            programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                            displayName: Fixture Example
+                            givenNames: Fixture
+                            familyName: Example
+                            companyName: Sample Wholesale Ltd
+                            status: contacted
+                            withheldFields: []
+        '400': { $ref: '#/components/responses/LookupValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '429': { $ref: '#/components/responses/SearchTooManyRequests' }
 
 components:
   securitySchemes:
@@ -3989,6 +4636,69 @@ components:
           const: true
           description: Always `true`. The change happened; its values are not shown.
 
+    DealTimelinePage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      description: |
+        listDealTimeline's page (T-0111): the same shape as TimelinePage and
+        AccountTimelinePage, `{ data, nextCursor }`, with no total, count or
+        offset (D-P13) and nothing that says items were left out. Its own
+        schema because its field changes are named by Deal fields and never
+        carry values. `nextCursor` is `null` on the last page.
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/DealTimelineItem' }
+        nextCursor: { type: [string, 'null'] }
+
+    DealTimelineItem:
+      description: |
+        One thing that happened to the deal. A closed union on `type`:
+        `field_changed` (by name only) and `activity` (the very ActivityItem
+        of the contact and account timelines). No other type is added
+        without a lead decision (D-L72).
+      oneOf:
+        - $ref: '#/components/schemas/DealFieldChangedItem'
+        - $ref: '#/components/schemas/ActivityItem'
+      discriminator:
+        propertyName: type
+        mapping:
+          field_changed: '#/components/schemas/DealFieldChangedItem'
+          activity: '#/components/schemas/ActivityItem'
+
+    DealFieldChangedItem:
+      type: object
+      additionalProperties: false
+      required: [id, type, occurredAt, actor, field, redacted]
+      description: |
+        A change to one Deal field, shown by name only (D-L88: deal audit
+        records names, and the ids it keeps for a move or a reassignment are
+        never printed, D-L64). Never `before` or `after`. One audit event
+        that changed several fields is several items sharing an
+        `occurredAt`.
+      properties:
+        id:
+          type: string
+          description: Opaque and unique per item; never the audit event id.
+        type: { type: string, const: field_changed }
+        occurredAt: { type: string, format: date-time }
+        actor:
+          description: '`null` is the system (an import, a migration).'
+          oneOf:
+            - { $ref: '#/components/schemas/TimelineActor' }
+            - { type: 'null' }
+        field:
+          type: string
+          enum: [name, amount, expectedCloseDate, ownerUserId, primaryContactId, accountId, nextStep, stageId, checks]
+          description: |
+            The Deal property that changed. `stageId` is a move (moveDeal);
+            `checks` is a requirement check ticked by a move.
+        redacted:
+          type: boolean
+          const: true
+          description: Always `true`. The change happened; its values are not shown.
+
     ActivityType:
       type: string
       enum: [note, task, call, meeting]
@@ -4064,6 +4774,15 @@ components:
           description: '`null` is unassigned. Always a member of the activity''s programme.'
         contactId: { type: [string, 'null'], format: uuid }
         accountId: { type: [string, 'null'], format: uuid }
+        dealId:
+          type: [string, 'null']
+          format: uuid
+          x-kasuwa-implemented: true
+          description: |
+            The deal this activity is linked to (T-0111), always in the
+            activity's programme; `null` when none. Withheld, and named in
+            `withheldFields`, when the activity's `deal_id` field is withheld
+            from the caller.
         createdByUserId:
           type: [string, 'null']
           format: uuid
@@ -4081,7 +4800,7 @@ components:
             this caller. Always present; empty when nothing was withheld.
           items:
             type: string
-            enum: [subject, body, dueAt, completedAt, startsAt, endsAt, ownerUserId, contactId, accountId]
+            enum: [subject, body, dueAt, completedAt, startsAt, endsAt, ownerUserId, contactId, accountId, dealId]
 
     CreateActivityRequest:
       type: object
@@ -4137,6 +4856,16 @@ components:
           type: [string, 'null']
           format: uuid
           description: Decides the programme when it is the only target; else must be in the contact's.
+        dealId:
+          type: [string, 'null']
+          format: uuid
+          x-kasuwa-implemented: true
+          description: |
+            Links the activity to a deal (T-0111). A link, never a target: it
+            does not decide the programme and does not replace `contactId`
+            or `accountId`. Must be a deal in the activity's programme, else
+            `400 unknown_reference` at `dealId`, one body whether it names a
+            deal elsewhere or nothing.
 
     UpdateActivityRequest:
       type: object
@@ -4188,6 +4917,16 @@ components:
             Move a meeting's end (T-0081). Anything but a meeting is
             `400 meeting_only`. Not nullable. Judged on the result, as
             `startsAt`.
+        dealId:
+          type: [string, 'null']
+          format: uuid
+          x-kasuwa-implemented: true
+          description: |
+            Link the activity to a deal, or move the link to another deal
+            (T-0111); `null` unlinks it. A deal in the activity's programme,
+            else `400 unknown_reference` at `dealId`, one body whether it
+            names a deal elsewhere or nothing. The only link an update may
+            change: `contactId` and `accountId` stay `400`.
 
     ActivityContactSummary:
       type: object
@@ -4842,10 +5581,16 @@ components:
       type: object
       additionalProperties: false
       required: [id, displayName]
-      description: The person who ticked a check, named as they are named now (D-L81).
+      description: |
+        The person who ticked a check, named as they are named now (D-L81).
+        `displayName` is `null` for a former checker, no longer a member of
+        the deal's programme (D-L127), exactly as `DealOwner` is for a former
+        owner (D-P23): print a neutral label, never the id. Pinned for the
+        screen by T-0110's suite; until the API change that serves it lands,
+        a former checker is still named, so a client accepts both.
       properties:
         id: { type: string, format: uuid }
-        displayName: { type: string }
+        displayName: { type: [string, 'null'] }
 
     DealContactSummary:
       type: object
@@ -5154,6 +5899,206 @@ components:
           maxItems: 20
           description: Ids of the target stage's `check` requirements ticked now.
           items: { type: string, format: uuid }
+
+    SearchType:
+      type: string
+      enum: [contact, lead, account, deal]
+      description: |
+        A record type searchRecords answers (T-0085). Additive (D-L87):
+        tickets, conversations and KB join when their modules publish reads.
+
+    LookupRequest:
+      type: object
+      additionalProperties: false
+      description: |
+        lookupRecords' body (T-0085): exactly one of `phone` or `email`, plus
+        optional `types`. Closed. Personal data: never logged or traced.
+      oneOf:
+        - { required: [phone] }
+        - { required: [email] }
+      properties:
+        phone:
+          type: string
+          minLength: 6
+          maxLength: 32
+          pattern: '^[0-9+() .-]+$'
+          description: |
+            One whole phone number, matched exactly after normalising to
+            E.164 with the tenant's default country. Never a prefix or a
+            substring: a partial number is `400 invalid_phone`.
+        email:
+          type: string
+          format: email
+          minLength: 3
+          maxLength: 254
+          description: |
+            One whole email address, trimmed, matched exactly and
+            case-insensitively. Never a prefix or a substring.
+        types:
+          type: array
+          minItems: 1
+          maxItems: 4
+          uniqueItems: true
+          description: Which groups to answer, as searchRecords' `types`; absent means all four.
+          items: { $ref: '#/components/schemas/SearchType' }
+
+    SearchResults:
+      type: object
+      additionalProperties: false
+      required: [groups]
+      description: |
+        One group per requested type, in the order contact, lead, account,
+        deal, each type at most once. **No counts of any kind** (D-P13): no
+        total, no per-type or per-programme count, no "more" flag.
+      properties:
+        groups:
+          type: array
+          minItems: 1
+          maxItems: 4
+          items:
+            oneOf:
+              - { $ref: '#/components/schemas/ContactSearchGroup' }
+              - { $ref: '#/components/schemas/LeadSearchGroup' }
+              - { $ref: '#/components/schemas/AccountSearchGroup' }
+              - { $ref: '#/components/schemas/DealSearchGroup' }
+
+    ContactSearchGroup:
+      type: object
+      additionalProperties: false
+      required: [type, hits]
+      properties:
+        type: { type: string, const: contact }
+        hits:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/ContactSearchHit' }
+
+    LeadSearchGroup:
+      type: object
+      additionalProperties: false
+      required: [type, hits]
+      properties:
+        type: { type: string, const: lead }
+        hits:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/LeadSearchHit' }
+
+    AccountSearchGroup:
+      type: object
+      additionalProperties: false
+      required: [type, hits]
+      properties:
+        type: { type: string, const: account }
+        hits:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/AccountSearchHit' }
+
+    DealSearchGroup:
+      type: object
+      additionalProperties: false
+      required: [type, hits]
+      properties:
+        type: { type: string, const: deal }
+        hits:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/DealSearchHit' }
+
+    SearchNameWithheldField:
+      type: string
+      enum: [displayName, givenNames, familyName, companyName]
+      description: |
+        A contact or lead hit field that field security withheld in the
+        hit's programme. `displayName` is listed whenever `givenNames` or
+        `familyName` is (D-L68).
+
+    ContactSearchHit:
+      type: object
+      additionalProperties: false
+      required: [type, id, programmeId, withheldFields]
+      description: |
+        A contact as a search hit: an id and the name fields the caller may
+        read in the contact's programme, nothing else. **Withheld fields are
+        omitted, never nulled,** and named in `withheldFields`.
+        **`displayName` follows its name parts (D-L68):** it is present only
+        when both `givenNames` and `familyName` are readable, and is
+        withheld, never composed, when either is not. `id` is a contact id
+        (getContact). No phone, email, owner, status or tag.
+      properties:
+        type: { type: string, const: contact }
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        displayName: { type: string, maxLength: 200 }
+        givenNames: { type: [string, 'null'], maxLength: 200 }
+        familyName: { type: [string, 'null'], maxLength: 200 }
+        companyName: { type: [string, 'null'], maxLength: 200 }
+        withheldFields:
+          type: array
+          uniqueItems: true
+          maxItems: 4
+          description: Always present; empty when nothing was withheld.
+          items: { $ref: '#/components/schemas/SearchNameWithheldField' }
+
+    LeadSearchHit:
+      type: object
+      additionalProperties: false
+      required: [type, id, programmeId, status, withheldFields]
+      description: |
+        A lead (a contact at a lead status, D-P17) as a search hit: the
+        contact hit's fields plus its lead `status`, which is always
+        readable here (the lead group is empty when it is not). `id` is a
+        contact id. `displayName` follows its name parts exactly as on
+        ContactSearchHit (D-L68).
+      properties:
+        type: { type: string, const: lead }
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        displayName: { type: string, maxLength: 200 }
+        givenNames: { type: [string, 'null'], maxLength: 200 }
+        familyName: { type: [string, 'null'], maxLength: 200 }
+        companyName: { type: [string, 'null'], maxLength: 200 }
+        status: { type: string, enum: [new, contacted, qualified, unqualified] }
+        withheldFields:
+          type: array
+          uniqueItems: true
+          maxItems: 4
+          description: Always present; empty when nothing was withheld.
+          items: { $ref: '#/components/schemas/SearchNameWithheldField' }
+
+    AccountSearchHit:
+      type: object
+      additionalProperties: false
+      required: [type, id, programmeId, name]
+      description: |
+        An account as a search hit. `name` is never withheld (Account), so
+        nothing here is. No owner, phone, tier or industry.
+      properties:
+        type: { type: string, const: account }
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 200 }
+
+    DealSearchHit:
+      type: object
+      additionalProperties: false
+      required: [type, id, programmeId, pipelineId, name]
+      description: |
+        A deal as a search hit. `name` and `pipelineId` are never withheld
+        (Deal), so nothing here is. No amount, stage, owner, contact or
+        account: the deal detail reads those through its own field security.
+      properties:
+        type: { type: string, const: deal }
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        pipelineId: { type: string, format: uuid }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          x-kasuwa-classification: pii
+          description: Free text that may name a person or a business (D-L91); never logged.
 
   responses:
     ValidationFailed:
@@ -5558,6 +6503,175 @@ components:
                 code: requirement_unmet
               - path: requirements.4c5d6e7f-8a9b-4c0d-8e1f-2a3b4c5d6e04
                 code: requirement_unmet
+
+    SearchValidationFailed:
+      description: |
+        searchRecords could not parse the request. Decided from the request
+        alone, before any record is read: no `400` here depends on what
+        exists. `details` names paths and reason codes, never the submitted
+        value (which is a name). `identifier_in_url` at `q` is the R21 rule
+        (D-L135): after NFKC, an `@`, or 6 or more decimal digits of any
+        script once everything that is neither a letter nor a digit is
+        removed.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            queryRequired:
+              summary: No q
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: q
+                    code: query_required
+            identifierInUrl:
+              summary: A phone or email query parameter; exact lookups are lookupRecords
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: phone
+                    code: identifier_in_url
+            identifierInQ:
+              summary: A q that looks like a phone number or an email address (an @, or 6+ digits of any script once non-letters go); send it to lookupRecords
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: q
+                    code: identifier_in_url
+            queryTooShort:
+              summary: q under 2 characters once folded and trimmed
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: q
+                    code: query_too_short
+            controlCharacter:
+              summary: A NUL or other control character in q
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: q
+                    code: invalid_string
+            unknownType:
+              summary: A types value that is not contact, lead, account or deal
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: types
+                    code: unknown_type
+
+    LookupValidationFailed:
+      description: |
+        lookupRecords could not parse the body. Decided from the request and
+        the caller's own tenant settings, never from any record: no `400`
+        here depends on what exists. `details` names fixed paths and reason
+        codes, never the submitted value (which is a phone number or an
+        email address) and never a key the client chose.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            unknownProperty:
+              summary: A property the closed body does not have, at the fixed path body; the key is never echoed
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: body
+                    code: unknown_property
+            oneTermRequired:
+              summary: Neither phone nor email, or both
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: phone
+                    code: one_term_required
+            invalidPhone:
+              summary: A phone that is not one whole number, a partial number included
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: phone
+                    code: invalid_phone
+            invalidEmail:
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: email
+                    code: invalid_email
+            unknownType:
+              summary: A types value that is not contact, lead, account or deal
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: types
+                    code: unknown_type
+
+    SearchTooManyRequests:
+      description: |
+        searchRecords or lookupRecords was called too often by this user (T-0086,
+        D-L134). A resource and harvesting control, not a permission decision:
+        it says nothing about any record. The limit is **per user**, never per
+        address, so colleagues behind one office address do not share it. Each
+        operation has its **own budget**: exhausting one leaves the other open,
+        and the lookup's budget is **tighter**, because a lookup tests one whole
+        phone number or address at a time. It is decided after authentication
+        and the scope-header check and before any validation of the request.
+        Same shape as the sign-in throttle (`TooManyAttempts`,
+        auth.openapi.yaml): the shared Error envelope with
+        `code: too_many_requests` and, optionally, `retryAt`, the earliest time
+        a retry can succeed. **The body never echoes the query**: no `q`, no
+        phone number, no address. The numbers are the server's and may change.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            tooManyRequests:
+              summary: Too many searches or lookups by this user in the current window
+              value:
+                statusCode: 429
+                error: Too Many Requests
+                code: too_many_requests
+                message: Too many searches. Wait a moment and try again.
+                retryAt: '2026-10-14T10:01:00.000Z'
 
 security:
   - sessionToken: []

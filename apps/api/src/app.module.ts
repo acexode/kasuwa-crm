@@ -17,13 +17,17 @@ import { AuthModule } from './auth/auth.module';
 import type { AuthPolicy } from './auth/auth.policy';
 import { ContactsController } from './contacts/contacts.controller';
 import { DatabaseModule } from './database/database.module';
+import { DealsController, PipelineDealsController } from './deals/deals.controller';
 import { HealthController } from './health/health.controller';
 import { LeadsController } from './leads/leads.controller';
 import { MeController } from './me/me.controller';
+import { PipelinesController } from './pipelines/pipelines.controller';
 import { CHANNEL, createApiChannel } from './messaging/channel';
 import { ContactScriptsController, ScriptRunsController } from './scripts/script-runs.controller';
 import { ScriptsController } from './scripts/scripts.controller';
 import { ScriptsModule } from './scripts/scripts.module';
+import { SearchController } from './search/search.controller';
+import { SearchThrottleGuard } from './search/search-throttle.guard';
 import { JsonBodyLimit } from './common/json-body-limit';
 import { AUTH_MODE, KasuwaAuthGuard, type ResolvedAuthMode } from './tenancy/kasuwa-auth.guard';
 import { StubAuthGuard } from './tenancy/stub-auth.guard';
@@ -39,7 +43,8 @@ import {
 
 /**
  * The records controllers (records.openapi.yaml): contacts and both timelines,
- * leads, accounts, activities and `/me/programmes`. Every answer on every one
+ * leads, accounts, activities, `/me/programmes`, the pipeline reads (T-0107), deals (T-0108) and global
+ * search (T-0086). Every answer on every one
  * of their routes is `Cache-Control: no-store` (`NoStoreMiddleware`, T-0080).
  */
 export const RECORDS_CONTROLLERS = [
@@ -49,6 +54,13 @@ export const RECORDS_CONTROLLERS = [
   ActivitiesController,
   MeController,
   MyActivitiesController,
+  PipelinesController,
+  // The deals API (T-0108): listDeals and createDeal under a pipeline, and
+  // getDeal, updateDeal and moveDeal.
+  PipelineDealsController,
+  DealsController,
+  // Global search (T-0086): searchRecords and lookupRecords.
+  SearchController,
 ];
 
 /**
@@ -225,6 +237,9 @@ export class AppModule implements NestModule {
         KasuwaAuthGuard,
         StubAuthGuard,
         TenantTransactionInterceptor,
+        // The per-user search budgets (T-0086, D-L134): one instance, so one
+        // set of counters, for both search routes.
+        SearchThrottleGuard,
         { provide: AUTH_MODE, useValue: options.authMode ?? 'stub' },
         {
           provide: CHANNEL,

@@ -85,6 +85,13 @@ export const AUDIT_OBJECT_TYPES = [
    * node id, an answer, a note or wording.
    */
   'script_run',
+  /**
+   * createDeal (`created`), updateDeal and moveDeal (`updated`) (T-0108). The
+   * label is the deal id, never its name (R8). Changes are field names only,
+   * except a move's from and to stage ids (configuration ids, D-L88) and a
+   * reassignment's before and after owner ids (D-L71, D-L115).
+   */
+  'deal',
 ] as const;
 export type AuditObjectType = (typeof AUDIT_OBJECT_TYPES)[number];
 
@@ -102,6 +109,7 @@ export const AUDIT_OBJECT_TYPE_LABELS: Record<AuditObjectType, string> = {
   activity: 'Activity',
   script: 'Script',
   script_run: 'Script run',
+  deal: 'Deal',
 };
 
 export interface AuditChange {

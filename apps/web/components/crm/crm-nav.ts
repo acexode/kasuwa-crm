@@ -11,7 +11,7 @@ import type { IconName } from '@kasuwa/ui';
  * language menu. Each entry gains its `href` when its screen ships.
  *
  * A BUILT screen is still behind its flag (`crm_records`, `crm_accounts`,
- * `crm_leads`, `crm_activities`), so
+ * `crm_leads`, `crm_activities`, `crm_pipeline`), so
  * an `href` alone does not make a link: the shell links only the ids the
  * server says are on in this process (`crmLiveNav()` in
  * `lib/feature-flags.ts`), and draws the rest like an unbuilt entry.
@@ -35,7 +35,7 @@ export const CRM_NAV: readonly CrmNavItem[] = [
   { id: 'contacts', label: 'records.nav.contacts', icon: 'contacts', href: '/contacts', mobile: true },
   { id: 'accounts', label: 'records.nav.accounts', icon: 'domain', href: '/accounts', mobile: false },
   { id: 'activities', label: 'records.nav.activities', icon: 'task_alt', href: '/activities', mobile: false },
-  { id: 'deals', label: 'records.nav.deals', icon: 'handshake', href: null, mobile: true },
+  { id: 'deals', label: 'records.nav.deals', icon: 'handshake', href: '/pipelines', mobile: true },
   { id: 'tickets', label: 'records.nav.tickets', icon: 'confirmation_number', href: null, mobile: false },
   { id: 'reports', label: 'records.nav.reports', icon: 'bar_chart', href: null, mobile: true },
 ];

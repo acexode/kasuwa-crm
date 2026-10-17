@@ -80,6 +80,7 @@
     "record.activity.type.note": "\"Note\" is the ordinary French word for a note on a record.",
     "activities.related.contact": "The French word is spelled identically to the English one, as in records.nav.contacts.",
     "activities.compose.type": "The French word is spelled identically to the English one.",
-    "scripting.builder.fieldType.date": "The French word is spelled the same as the English one."
+    "scripting.builder.fieldType.date": "The French word is spelled the same as the English one.",
+    "search.group.contact": "A loanword this locale uses unchanged for a CRM record type, as in the navigation."
   }
 }

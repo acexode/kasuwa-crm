@@ -2,7 +2,7 @@
 name: builder
 description: Implements an assigned Kasuwa task against its committed acceptance tests. Use when a task file names a failing acceptance suite and the work is to make it pass. Writes code; never merges.
 tools: Read, Write, Edit, Grep, Glob, Bash
-model: opus
+model: sonnet
 ---
 
 You **implement an assigned task** until its acceptance tests pass. You are not
