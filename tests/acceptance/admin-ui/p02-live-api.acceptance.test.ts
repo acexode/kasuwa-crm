@@ -228,7 +228,18 @@ function isAttested(locale: string): boolean {
 
 interface ContractOperation {
   operationId?: string;
+  tags?: unknown;
   'x-kasuwa-implemented'?: unknown;
+}
+
+// T-0088 (D-L139): the custom-field definitions belong to the P18 studio
+// (T-0090), not to the P02 console, and stay unbuilt until T-0089. The check
+// below is about the console, so it leaves exactly this tag out.
+const NOT_THE_CONSOLE_TAGS = ['custom-fields'] as const;
+
+function isConsoleOperation(operation: ContractOperation): boolean {
+  const tags = Array.isArray(operation.tags) ? operation.tags : [];
+  return !tags.some((tag) => (NOT_THE_CONSOLE_TAGS as readonly unknown[]).includes(tag));
 }
 
 function contractOperations(): ContractOperation[] {
@@ -487,6 +498,7 @@ describe('acceptance: T-0035 — the console answers from the real API, in a bro
     // The contract still has nothing behind exactly these two. Everything
     // else the console reads is built, so nothing else may stay on a mock.
     const unimplemented = contractOperations()
+      .filter(isConsoleOperation)
       .filter((operation) => operation['x-kasuwa-implemented'] !== true)
       .map((operation) => operation.operationId ?? '(unnamed)')
       .sort();
