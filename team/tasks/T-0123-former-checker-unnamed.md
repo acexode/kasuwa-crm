@@ -1,6 +1,6 @@
 # T-0123 — A former checker is unnamed in the deal APIs (D-L127)
 
-**status** `assigned` (suite 6e38540, D-L136) · **owner** Agent 3 · **priority** P2 · **decisions** D-L127, D-P23,
+**status** `done` (#134; suite 6e38540, D-L136) · **owner** Agent 3 · **priority** P2 · **decisions** D-L127, D-P23,
 D-L123, D-L124, D-L132
 
 ## Goal
