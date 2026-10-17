@@ -1,45 +1,57 @@
-# Resume here (2026-10-12 evening, moving to a new machine)
+# Resume here (2026-10-17)
 
-The lead session is moving from the Windows laptop to a MacBook (1 TB disk, 16 GB RAM). A fresh session starts from this
-file. Everything is on GitHub; nothing exists only on the old laptop.
+The lead session runs on the MacBook (16 GB RAM, shared with the dialler project and Docker). The session's cwd is
+`/Users/Shared/kasuwa-wt/lead-session` (branch `lead/session`), because the protect-paths hook reads the session's
+branch. All worktrees live under `/Users/Shared/kasuwa-wt/`, because the repo path contains a space.
 
-## 1. Merged today
-- #114 T-0117 (test admin inert)
-- #115 T-0081 (activities contract)
-- #116 T-0114 (script runs)
-- #117 T-0104 (audit events)
-- #118 T-0082 (activities API)
-- #119 T-0105 (pipeline contract)
+## 1. Merged since the last handoff
+- **Pipeline slice:** #121–#131 (T-0084, T-0083, T-0115/T-0116, T-0106, T-0107, T-0108, T-0109, T-0111, T-0110).
+  Verified on main as one slice (D-L122): every gate passed and all 14 slice suites passed (2026-10-14).
+- **Search contract and API:** T-0085 (#128) and T-0086 (#130).
+- **The 2026-10-14 machine crash, fixed:**
+  - #132 bounds the post-edit hook (one run per machine, 2 threads, 1.5 GB heap, kills the whole process tree, runs in
+    the edited file's own checkout). The root `vitest.config.ts` caps workers at 2, and CLAUDE.md gained "Machine
+    resource limits".
+  - #133 makes the e2e runner stop each server's whole process group. Before, every records-ui wrapper leaked an API
+    server and next-servers, about 7 GB per 11-suite verification.
+- **T-0123** (#134): former checkers are unnamed (D-L127, D-L136).
+- **T-0087**, split in three per D-L137: #135 the search client, #136 the /search screen.
 
-Their reports are filed.
-
-## 2. Built, waiting for verification (do these first, one at a time)
-
-| Task | Branch to verify | Next |
+## 2. Open
+| What | State | Next |
 |---|---|---|
-| T-0084 list indexes | PR #120, `agent3/T-0084-list-indexes` | Reviews passed and fixes are in (D-L116); the builder's runs are green. Targeted verify, then merge. Its migration is 0035. |
-| T-0083 activities screen | `lead/T-0083-budget` (the builder's commits, the lead's spec fix and the 236,000 B budget re-pin, D-L118, and the report) | Open the PR from this branch. One combined review (UI only). Verify with `--files tests/acceptance/records-ui/activities-screen.acceptance.test.ts` plus the other records-ui suites (the nav changed). |
-| T-0115/T-0116 script screens | `lead/T-0115-T-0116-pins` (the builder's commits, the lead's list-test fix and the budgets 250,000/240,000, D-L119, and the report) | Not yet run: records-ui `contact-record` (it gained "Start script"; re-pin `/contacts/[id]` within 5% of measured, at most 245,000), integration and tenancy. Open the PR, one combined review, verify. |
-| T-0106 pipeline tables | `lead/T-0106-fixes` (the builder's commits, two lead suite fixes, D-L119, and the report) | **Never run against Postgres** (Docker hung). Run pipeline-tables and the tenancy folder first; expect builder fixes. Then the migration and security reviews (0036 is a migration, and the R9 creation marker must be confirmed), PR, verify. |
+| #137, T-0087 part 3 (palette, shell, re-pinned suite) | Verified on the combined branch: every gate and all 11 records-ui and scripting-ui suites passed, with their budgets. Mergeable. | @acexode merges. Then run a quick check on main (gates, tenancy, records-ui). |
+| #133 full-stack proof | Merged before its full-stack proof, because the dialler stack was up | With no `dialler-*` containers running, run one records-ui wrapper and confirm no `next-server` or `tsx src/main` is left in that worktree. Repeat with SIGINT to `run-e2e.mjs` mid-run. |
+| MFA replay flake | `auth-hardening` "does not count a replay as a failed guess" saw a 200 once (2026-10-14), then passed 3 of 3 | A spawned investigation task (possible TOTP replay at a step boundary). Treat any confirmed replay as stop-the-line. |
 
-Migration numbers: 0035 is T-0084 and 0036 is T-0106. Merge 0035 first if you can.
-
-## 3. Next tasks (no task file yet unless named)
-- **Pipeline chain:** T-0107 board API, T-0108 deals and moves, then T-0109 Kanban, T-0110 deal detail and T-0111 deal
-  timeline (D-L88, D-L113, D-L115).
-- **Search:** T-0085 contract, T-0086 API, T-0087 palette. They build on T-0084, plus the D-P33 LEAKPROOF step (an ADR).
-- **Custom fields:** T-0088–T-0091. An ADR on storage first.
-- **Import:** T-0092–T-0096. An ADR on object storage and new dependencies first.
+## 3. Next tasks
+- **T-0124** (displayName everywhere, list `q`, R21): the task file exists, `not-assigned`.
+- **Custom fields:** T-0088–T-0091. ADR-0016 is accepted (D-L128), so task files, then suites.
+- **Import:** T-0092–T-0096 (ADR-0017, object storage, is accepted).
+- **Outbox and notifications:** T-0098–T-0101 (ADR-0018 is accepted; a new `kasuwa_relay` role).
 - **Dedupe:** T-0095 and T-0097.
-- **Notifications:** T-0098–T-0101. An outbox ADR first (a new `kasuwa_relay` role).
-- **Follow-ups:** T-0079 (capability read; it unblocks T-0115's `@p10-builder-access-404` fixme), T-0075, T-0118–T-0122.
-- **End of Phase 2:** ONE full `pnpm test:isolation` on main (D-L111), and fix everything it finds.
+- **Follow-ups:**
+  - T-0079 (capability read; it unblocks T-0115's `@p10-builder-access-404` fixme);
+  - T-0075, T-0121 and T-0122 (task files exist, `not-assigned`);
+  - T-0118–T-0120;
+  - a low-lead-tenant plan test for search-api;
+  - the timeline and search statement-size task (D-L131, D-L135);
+  - the search throttle must move to Redis before a second API instance;
+  - pin the Postgres image digest;
+  - the D-L123 contract tidy-ups.
+- **End of Phase 2:** one full `pnpm test:isolation` on main (D-L111), and fix everything it finds.
 
-## 4. Waiting on @acexode
-- The `channels/provider` fix: split the eight messaging vendor names in
-  `tests/acceptance/platform/scripting-contract.acceptance.test.ts` (about lines 574–598) as `'Twil' + 'io'`, as the
-  channels suite itself does. @acexode approved it, but the auto-mode classifier refuses acceptance edits of this kind
-  ("Security Test Removal"). Do it with auto mode OFF. Until then, every verification shows that one known failure.
+## 4. Machine notes (2026-10-14 to 2026-10-17)
+- **Node:** new shells put nvm's Node 16 first, and vitest cannot start on 16. Begin commands, and every agent brief,
+  with `export PATH="/usr/local/bin:/Applications/Docker.app/Contents/Resources/bin:$PATH"` (Node v20.14). The repo asks
+  for 22.11+ (`.nvmrc` 22.16.0), and none is installed; the suites pass on 20.
+- **Docker:** the `docker` CLI is not on the default PATH (the line above adds it). Never start Testcontainers while
+  `dialler-*` containers are up; the dialler stack is often running.
+- **Git auth:** `gh auth setup-git` was run, so git uses gh's token (the keychain prompt used to hang fetches).
+- **Permissions:** the lead may run `gh pr create`, `gh pr merge`, `gh pr view` and `gh pr list`.
+- **CI:** Actions jobs do not start (billing). Every merge is verified locally; say so in the PR.
+- **Leftovers:** after any verification, check `pgrep -fl 'vitest|next-server|tsx src/main'` and stop what belongs to
+  `/Users/Shared/kasuwa-wt/*` (check each process's cwd with `lsof -a -p PID -d cwd`).
 
 ## 5. How the lead works (keep doing it)
 - **Verification (D-L111):** each PR gets `tools/lead-verify.sh <worktree> <log> --files <its suites> --tags <its e2e
@@ -49,7 +61,7 @@ Migration numbers: 0035 is T-0084 and 0036 is T-0106. Merge 0035 first if you ca
   - the adversarial timing check;
   - the auth-crypto hashing timing tests;
   - `auth-availability` (D-L100);
-  - `channels/provider`.
+  - `channels/provider` (fixed in #122; drop it from this list if it stays green).
 - **Reviews (D-L109):**
   - migration, auth or data access: all three reviewers (migration, security, tenancy);
   - UI, contract or docs only: one combined security and tenancy review.
