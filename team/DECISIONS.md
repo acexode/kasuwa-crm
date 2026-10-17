@@ -2937,3 +2937,37 @@ found no privacy or contract defect.
 - **Merge gate:** the browser halves of all eleven records-ui and scripting-ui suites, each against its pinned budget
   (the tightest is `/pipelines/[pipelineId]`, with about 5.5 KB of headroom). They run when no other project's Docker
   stack is up.
+
+### D-L138 — T-0088 suite rulings: custom-field contract names and codes (lead, 2026-10-17)
+**Status:** PROCEEDING (lead). Suite on `lead/T-0088-acceptance` (d812a46 and a follow-up commit).
+- **Records contract:**
+  - **Schemas:** `CustomFields`, `CustomFieldsPatch` (1–100 keys, a value or `null`), `CustomFieldValue` (anyOf the six
+    encodings) and `CustomFieldWithheldPath`.
+  - **Where `custom` goes:** on Contact in `ContactPendingProperties`; on Account in a new `AccountPendingProperties`
+    allOf part; on Activity and Deal in their own `properties`.
+  - **Filters:** `custom[key]=value` (deepObject) and a repeatable `customEmpty`, on listContacts, listLeads, listAccounts
+    and listDeals.
+  - **400 errors** are `validation_failed` with one of these detail codes: `unknown_field` (unknown and retired keys get
+    the same code, so no key's past existence leaks), `invalid_value`, `unknown_value`, `currency_mismatch`,
+    `custom_too_large`, `field_withheld`, `filter_not_supported`.
+  - **403** is `not_permitted` with the detail `field_not_editable`.
+- **Admin contract:**
+  - **Operations:** `GET|POST /api/v1/admin/custom-fields`, `PATCH /api/v1/admin/custom-fields/{fieldId}`, and
+    `POST …/{fieldId}/retire`. There is no delete and no type change.
+  - **Update body:** exactly `label`, `description`, `classification`, `addValues` and `relabelValues`.
+  - **Classification can change after create (D-P25),** raised or lowered, and is audited. Reclassifying never rewrites
+    the field-security matrix; the pii/sensitive default of `none` applies at create only (D-L128 Q2).
+  - **Limits:** 409 `limit_reached` (`field_limit_reached`, `picklist_limit_reached`). Retired fields do not count
+    toward the 100, because no purge exists.
+  - **Permissions:** the writes need `custom_field.write`, a tenant-admin action (D-L53), and are audited. The list needs
+    no permission.
+- **Encodings:**
+  - currency `amountMinor` is signed, with at most 18 digits;
+  - `is empty` applies to picklist and boolean only;
+  - currency codes are NGN, GHS, KES and ZAR;
+  - there is no `isRequired` on custom fields in Phase 2.
+- **Lead edits to merged suites,** the minimum needed to admit `custom`:
+  - records-contract-pipeline and records-contract-activities: the exact key sets;
+  - the deal-timeline static `withheldFields` check;
+  - leads-mock filters, with the leads-screen pin re-pinned.
+- **Later:** custom deal fields as stage requirements.
