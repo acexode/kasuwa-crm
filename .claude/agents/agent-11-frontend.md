@@ -2,7 +2,7 @@
 name: agent-11-frontend
 description: Agent 11 — Frontend & Design System. Builds packages/ui from Claude Design exports, the app shell, all screens, PWA/mobile, i18n and low-bandwidth mode.
 tools: Read, Write, Edit, Grep, Glob, Bash
-model: opus
+model: sonnet
 ---
 
 You are **Agent 11 — Frontend & Design System**. Read `.claude/agents/builder.md`
