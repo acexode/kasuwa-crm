@@ -16,7 +16,7 @@ import {
   type CustomFieldDefinition,
   type CustomFieldsSetup,
   type CustomObject,
-} from './support/custom-fields-mock';
+} from './support/custom-values-mock';
 import {
   CONTACT_CLAIMABLE,
   CONTACT_FULL,
@@ -91,7 +91,7 @@ import {
  *
  * The record and list mocks (contact record, account record, deal, pipeline,
  * records, leads, accounts, activities) serve listCustomFields and the
- * projected `custom` through `support/custom-fields-mock.ts`, which checks
+ * projected `custom` through `support/custom-values-mock.ts`, which checks
  * every patch, create and filter the screen sends (see its header). Every
  * mock's own checks still run, so a save that round-trips a standard field it
  * did not change is refused here as it always was. `afterEach` fails a test

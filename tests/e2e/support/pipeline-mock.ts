@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { TENANT_A } from '@kasuwa/db';
-import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-fields-mock';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
 
 /**
  * The P06 half of `docs/api/records.openapi.yaml`: `listPipelines`,
@@ -135,7 +135,7 @@ import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from '
  *     the old one on the first read and the new one on every read after.
  *
  * CUSTOM FIELDS (T-0091, lead edit). `listCustomFields` is one of the
- * operations above, answered by `custom-fields-mock.ts`. With no
+ * operations above, answered by `custom-values-mock.ts`. With no
  * `customFields` option it lists nothing and no deal carries `custom`, so the
  * T-0109 and T-0110 journeys are unchanged. With one, every Deal this mock
  * serves (board cards, list rows, getDeal, writes) carries its projected

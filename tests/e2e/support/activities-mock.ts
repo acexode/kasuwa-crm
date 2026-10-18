@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { TENANT_A } from '@kasuwa/db';
-import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-fields-mock';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
 
 /**
  * The P07 half of `docs/api/records.openapi.yaml` — `listMyActivities`,
@@ -111,7 +111,7 @@ import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from '
  *     the new state.
  *
  * CUSTOM FIELDS (T-0091, lead edit). `listCustomFields` is one of the
- * operations above, answered by `custom-fields-mock.ts`. With no
+ * operations above, answered by `custom-values-mock.ts`. With no
  * `customFields` option it lists nothing, so the T-0083 journeys are
  * unchanged. With one, createActivity's `custom` (values only) is checked for
  * the activity object there (its 403s before this file's 400s) and the 201

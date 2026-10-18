@@ -13,6 +13,10 @@ import { parse } from 'yaml';
  * records mock (records, leads, accounts, contact record, account record,
  * deal, pipeline, activities) through one `CustomFieldsServer` each.
  *
+ * Named `custom-values-mock.ts` so it never collides with T-0090's
+ * `custom-fields-mock.ts`, the admin studio's mock of the definition writes.
+ * This file reads definitions only; it never creates, edits or retires one.
+ *
  * ---------------------------------------------------------------------------
  * READ FROM THE CONTRACTS AT RUN TIME, AND EVERY ANSWER CHECKED AGAINST THEM
  *

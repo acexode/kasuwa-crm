@@ -140,7 +140,7 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
   [SPEC]: '436e93ce688fe1847fd539d4119cf01b26ca5d889c6f8a522f857b4d5a36a458',
   // T-0088 (lead re-pin, D-L138): the mock learned the custom-field filters `custom` and `customEmpty`.
   // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and projects `custom`.
-  [MOCK]: '8c33ca7eca3c60f7f0809123ddea520a59c32fc9e8db4469d259820e3ed93190',
+  [MOCK]: '65395185e35e6937debcac899777e742eba32dc0915ac17cf63a09eab32bb9df',
 };
 
 /** See the budget test in the spec for the derivation. Never above this. */

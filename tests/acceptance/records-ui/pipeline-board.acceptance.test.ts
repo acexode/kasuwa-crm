@@ -253,7 +253,7 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
   // Re-pinned by the lead in T-0110's suite branch (R15): the hostile card's link check judges its summaries only.
   [SPEC]: 'f227bfa7ed9969ac6d228faa2e7e4c247901a84fd05f9c2d5b16cefd91f96eb1',
   // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and listDeals' custom filters.
-  [MOCK]: '9822ab4f6f83dff056de35e3e79992ab26a7021d7e5f748f45fc2cd84b6d0a25',
+  [MOCK]: 'cb5f6a8452b1c44c1828ceaea7fdfc3a154896e96365680e2d955d59667dc6cd',
 };
 
 /** Never above this (R19). */

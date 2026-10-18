@@ -106,7 +106,7 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *     offered.
  *
  * THE BROWSER HALF. `tests/e2e/p18-custom-values.spec.ts` (journeys),
- * `tests/e2e/support/custom-fields-mock.ts` (the custom-field half of the
+ * `tests/e2e/support/custom-values-mock.ts` (the custom-field half of the
  * contracts) and the eight screen mocks it was wired into are PINNED by hash
  * below, because `tests/e2e` is not path-protected (D-L64). Each screen mock
  * is also pinned by its own screen's suite, re-pinned in the same change.
@@ -150,7 +150,8 @@ const E2E_TAG = '@p18-custom-values';
 const E2E_RUN_TIMEOUT_MS = 1_800_000;
 
 const SPEC = 'tests/e2e/p18-custom-values.spec.ts';
-const CUSTOM_MOCK = 'tests/e2e/support/custom-fields-mock.ts';
+// Not `custom-fields-mock.ts`: that is T-0090's studio mock, a different file.
+const CUSTOM_MOCK = 'tests/e2e/support/custom-values-mock.ts';
 const SCREEN_MOCKS = [
   'tests/e2e/support/records-mock.ts',
   'tests/e2e/support/leads-mock.ts',
@@ -168,16 +169,16 @@ const CUSTOM_FIELDS_PATH = '/api/v1/admin/custom-fields';
  * change to the acceptance contract: the lead re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  [SPEC]: '738bfd639f1cb3614011f886437278886fe70864bdde4c598c2026a666cb7596',
-  [CUSTOM_MOCK]: '84b81cd3a7615f21f3e0c855d76abbeeb52de8251a516fcfd6ba5bd6f011da42',
-  'tests/e2e/support/records-mock.ts': '85d179c798dd7c1a58a210db0dc2bdb7fbcd5e64e8c2edf91952f0a5b9efb5c2',
-  'tests/e2e/support/leads-mock.ts': '8c33ca7eca3c60f7f0809123ddea520a59c32fc9e8db4469d259820e3ed93190',
-  'tests/e2e/support/accounts-mock.ts': '4d4a59a4f2117ede16b27f4b6632b1550e79554e528b34f5675e644721f18760',
-  'tests/e2e/support/contact-record-mock.ts': 'f1d564c4c40f9a8f7c6da7ceeaac8b4b0c6841d30f837433a9d1f8267955e2ce',
-  'tests/e2e/support/account-record-mock.ts': '4ee7df3b0fa33e14ef90ca84c25a27cbb8eacdf3819572a8708e4ee4cd488dd2',
-  'tests/e2e/support/deal-mock.ts': '96282a7269ad8f5283c6f561266b357b61e003f8b6f1e78718a439fa4abb208a',
-  'tests/e2e/support/pipeline-mock.ts': '9822ab4f6f83dff056de35e3e79992ab26a7021d7e5f748f45fc2cd84b6d0a25',
-  'tests/e2e/support/activities-mock.ts': 'c530763dea23724842f083e1acd076079f6d69ef498045f0bdd8342be6a3d651',
+  [SPEC]: '067d9d3e347958a0336054b7d8ed306f5d603271f719707b31ec374322489d35',
+  [CUSTOM_MOCK]: '66d7731bf4f6643e18da743efb2c8409f930cee7cd5eaa98f65bdbd622a11d5e',
+  'tests/e2e/support/records-mock.ts': 'f2fc83b332de03710a704f983364ed3b36c20b3dd67b46b7499ee6fb94cc2dae',
+  'tests/e2e/support/leads-mock.ts': '65395185e35e6937debcac899777e742eba32dc0915ac17cf63a09eab32bb9df',
+  'tests/e2e/support/accounts-mock.ts': '6da2ee53f6620bfd025cae52037130eb6546b101d2b0b6bf6461c87c8826ca04',
+  'tests/e2e/support/contact-record-mock.ts': '894c18ec5d9337bca3d22aa2cb9119600243c21b7a984cfcbbb15b3ede712a12',
+  'tests/e2e/support/account-record-mock.ts': '10629d748960be2ce5d489be649950ab5cf5ad3faaddf8f9c5bb79f8af25a613',
+  'tests/e2e/support/deal-mock.ts': 'aad20148fd6a36e54ef490522225622d58ff0b1aa86e9083cd4b0f3d8c2f20e8',
+  'tests/e2e/support/pipeline-mock.ts': 'cb5f6a8452b1c44c1828ceaea7fdfc3a154896e96365680e2d955d59667dc6cd',
+  'tests/e2e/support/activities-mock.ts': '1e3221cc41550ce894d56e7cab267ac1621ef253929c4bce5f54e75fd63270da',
 };
 
 /** The five custom-field refusals a screen draws, by code, and the id endings that may label each. */
@@ -412,7 +413,7 @@ describe('acceptance: T-0091 — crm_custom_fields exists, is off, is not produc
       expect(code, `${file} asks for retired definitions: a record screen never shows one`).not.toMatch(/includeRetired['"`]?\s*[:=,]\s*['"`]?true/);
     }
     for (const { file, source } of webSources()) {
-      expect(withoutComments(source), `${file} imports test support`).not.toMatch(/from ['"][^'"]*(tests\/e2e|custom-fields-mock|@kasuwa\/testing)[^'"]*['"]/);
+      expect(withoutComments(source), `${file} imports test support`).not.toMatch(/from ['"][^'"]*(tests\/e2e|custom-values-mock|custom-fields-mock|@kasuwa\/testing)[^'"]*['"]/);
     }
   });
 
@@ -551,7 +552,7 @@ describe('acceptance: T-0091 — no colour literal, no currency symbol, no float
 // ===========================================================================
 
 describe('acceptance: T-0091 — the journeys and the mocks are the ones this suite was written with', () => {
-  it('pins p18-custom-values.spec.ts, custom-fields-mock.ts and the eight screen mocks', () => {
+  it('pins p18-custom-values.spec.ts, custom-values-mock.ts and the eight screen mocks', () => {
     for (const [file, pinned] of Object.entries(PINNED_SHA256)) {
       expect(existsSync(fromRoot(file)), `${file} is missing`).toBe(true);
       expect(normalisedHash(file), `${file} changed. It is part of the T-0091 acceptance contract: ask the lead to re-pin it.`).toBe(pinned);
@@ -562,7 +563,7 @@ describe('acceptance: T-0091 — the journeys and the mocks are the ones this su
     expect(mock, 'the custom-field mock no longer checks its listCustomFields answers').toMatch(/schemaProblems\(body, LIST_SCHEMA/);
     for (const file of SCREEN_MOCKS) {
       const source = readFileSync(fromRoot(file), 'utf8');
-      expect(source, `${file} no longer serves custom fields through custom-fields-mock.ts`).toMatch(/from '\.\/custom-fields-mock'/);
+      expect(source, `${file} no longer serves custom fields through custom-values-mock.ts`).toMatch(/from '\.\/custom-values-mock'/);
       expect(source, `${file} no longer answers listCustomFields`).toContain('custom.answerList(route)');
     }
   });
@@ -579,6 +580,14 @@ describe('acceptance: T-0091 — @p18-custom-values selects these journeys and n
     // with `@p04-accounts`.
     const specs = trackedFiles('tests/e2e').filter((file) => file.endsWith('.spec.ts') && existsSync(fromRoot(file)));
     expect(specs).toContain(SPEC);
+    // The parent-tag rule on planted tags: T-0090's studio (`@p18-studio`)
+    // and ours share a `@p18-` prefix and must not collide either way; a bare
+    // `@p18` parent would collide and must be caught.
+    const studio = ['@p18-studio', '@p18-studio-list', '@p18-studio-create', '@p18-studio-retire'];
+    expect(parentTag(studio)).toBe('@p18-studio');
+    expect(new RegExp('@p18-studio').test(E2E_TAG), '@p18-studio would run these journeys').toBe(false);
+    expect(studio.filter((tag) => new RegExp(E2E_TAG).test(tag))).toEqual([]);
+    expect(new RegExp(parentTag(['@p18', '@p18-list']) ?? '(none)').test(E2E_TAG), 'a bare @p18 parent was not caught').toBe(true);
     const ours = tagsIn(SPEC);
     expect(ours.length).toBeGreaterThan(REQUIRED.length);
     expect(ours.filter((tag) => tag !== E2E_TAG && !tag.startsWith(`${E2E_TAG}-`)), 'the spec carries another screen’s tag').toEqual([]);

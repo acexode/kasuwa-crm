@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { TENANT_A } from '@kasuwa/db';
-import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-fields-mock';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
 
 /**
  * The account record half of `docs/api/records.openapi.yaml` — `getAccount`,
@@ -112,7 +112,7 @@ import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from '
  *     write is `409 stale_write`. A re-read of the timeline serves 4.
  *
  * CUSTOM FIELDS (T-0091, lead edit). `listCustomFields` is one of the
- * operations above, answered by `custom-fields-mock.ts` (its answers are
+ * operations above, answered by `custom-values-mock.ts` (its answers are
  * checked against admin.openapi.yaml there, not by `answerProblems`). With no
  * `customFields` option it lists nothing and no row carries `custom`, so the
  * T-0063 journeys see the record unchanged. With one, getAccount and

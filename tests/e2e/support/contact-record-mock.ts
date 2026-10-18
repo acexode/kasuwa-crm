@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { TENANT_A } from '@kasuwa/db';
-import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-fields-mock';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
 
 /**
  * The contact record half of `docs/api/records.openapi.yaml` — `getContact`,
@@ -91,7 +91,7 @@ import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from '
  *     top; completing a task changes its item in place and adds none.
  *
  * CUSTOM FIELDS (T-0091, lead edit). `listCustomFields` is one of the
- * operations above, answered by `custom-fields-mock.ts`; with no
+ * operations above, answered by `custom-values-mock.ts`; with no
  * `customFields` option it lists nothing and no row carries `custom`, so the
  * T-0062 journeys see the record unchanged. With one, getContact and every
  * write answer carry the projected `custom` and its `custom.<key>` paths,

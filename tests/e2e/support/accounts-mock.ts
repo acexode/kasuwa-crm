@@ -2,7 +2,7 @@ import type { Page, Request, Route } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
-import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-fields-mock';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
 
 /**
  * The accounts half of `docs/api/records.openapi.yaml` — `listAccounts`,
@@ -62,7 +62,7 @@ import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from '
  * rows go back through the same withholding as a read.
  *
  * CUSTOM FIELDS (T-0091, lead edit): `listCustomFields` is answered here too,
- * by `custom-fields-mock.ts`. With no `customFields` option it lists nothing
+ * by `custom-values-mock.ts`. With no `customFields` option it lists nothing
  * and rows carry no `custom`, so the T-0057 journeys see the screen
  * unchanged. With one, rows carry their projected `custom` and `custom.<key>`
  * paths, the `custom[<key>]` and `customEmpty` filters are checked and

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { TENANT_A } from '@kasuwa/db';
-import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-fields-mock';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
 
 /**
  * The leads half of `docs/api/records.openapi.yaml` — `listLeads`,
@@ -1007,7 +1007,7 @@ export interface LeadsMockOptions {
   readonly loseConvertResponse?: boolean;
   /**
    * Custom-field definitions, values and field security (T-0091, lead edit),
-   * served by `custom-fields-mock.ts`: listCustomFields (the contact object),
+   * served by `custom-values-mock.ts`: listCustomFields (the contact object),
    * the projected `custom` and `custom.<key>` paths on every served lead, and
    * the `custom[<key>]` and `customEmpty` filters, checked and applied there
    * in place of this file's own pattern-only check. Absent: listCustomFields

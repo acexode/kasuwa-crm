@@ -2,7 +2,7 @@ import type { Page, Request, Route } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
-import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-fields-mock';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
 
 /**
  * The records API (`listContacts`), as `docs/api/records.openapi.yaml`
@@ -41,7 +41,7 @@ import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from '
  *     filters and `sort` that produced it (the contract's Cursor parameter).
  *
  * CUSTOM FIELDS (T-0091, lead edit): `listCustomFields` is answered here too,
- * by `custom-fields-mock.ts`, because the screen reads its definitions with the
+ * by `custom-values-mock.ts`, because the screen reads its definitions with the
  * custom-fields flag on. With no `customFields` option the list is EMPTY and
  * the rows carry no `custom`, so the T-0042 journeys see the screen unchanged.
  * With one, rows carry their projected `custom` and `custom.<key>` paths, and

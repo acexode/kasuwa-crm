@@ -148,7 +148,7 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
   // D-L118: the two budget journeys no longer fix the clock (it hid first-contentful-paint).
   [SPEC]: '690f0f111a2d452c7a023f0f44fa8489377d9d38d17b561fe711ee47bb440282',
   // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and checks a create's `custom`.
-  [MOCK]: 'c530763dea23724842f083e1acd076079f6d69ef498045f0bdd8342be6a3d651',
+  [MOCK]: '1e3221cc41550ce894d56e7cab267ac1621ef253929c4bce5f54e75fd63270da',
 };
 
 /** Provisional (see the budget test in the spec). Never above this. */

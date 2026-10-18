@@ -259,8 +259,8 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   [SPEC]: '53756e165179a1b3c45ca9ab1d750c34b7669544618c37f6b4d7ac51af032339',
   // T-0091 (lead re-pin): both mocks answer listCustomFields (empty unless a journey sets custom fields) and carry `custom`.
-  [MOCK]: '96282a7269ad8f5283c6f561266b357b61e003f8b6f1e78718a439fa4abb208a',
-  [PIPELINE_MOCK]: '9822ab4f6f83dff056de35e3e79992ab26a7021d7e5f748f45fc2cd84b6d0a25',
+  [MOCK]: 'aad20148fd6a36e54ef490522225622d58ff0b1aa86e9083cd4b0f3d8c2f20e8',
+  [PIPELINE_MOCK]: 'cb5f6a8452b1c44c1828ceaea7fdfc3a154896e96365680e2d955d59667dc6cd',
 };
 
 /** Never above this (R20). */

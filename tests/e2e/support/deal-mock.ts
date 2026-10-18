@@ -42,7 +42,7 @@ import {
   type StoredCheck,
   type StoredDeal,
 } from './pipeline-mock';
-import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-fields-mock';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
 
 /**
  * The deal detail's half of `docs/api/records.openapi.yaml`, served into the
@@ -597,7 +597,7 @@ export interface DealMockOptions {
   readonly behindBoard?: boolean;
   /**
    * Custom-field definitions, values and field security (T-0091, lead edit),
-   * served by `custom-fields-mock.ts`: listCustomFields, the projected
+   * served by `custom-values-mock.ts`: listCustomFields, the projected
    * `custom` on every Deal and Activity this mock answers with, and the
    * per-key merge of updateDeal's `custom` (checked after the 403s, before the
    * 400s and the 409) and createActivity's. Absent: listCustomFields lists
