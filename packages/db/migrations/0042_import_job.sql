@@ -5,13 +5,13 @@
 -- D-L160; D-L65, D-L74, D-L76).
 --
 -- In this one file:
---   1. locks;
+--   1. locks (ACCESS EXCLUSIVE on stored_object and contact);
 --   2. UNIQUE (tenant_id, programme_id, id) on stored_object, the target of
 --      import_job's composite FK (D-L160 builder note);
 --   3. the import_job table, its checks, keys and indexes;
 --   4. RLS and grants;
 --   5. contact.import_job_id, its composite FK and its index;
---   6. the removal trigger (D-L160 rulings 1 and 2);
+--   6. the removal trigger (D-L160 rulings 1 and 2, D-L167);
 --   7. a self-check of the posture.
 -- One transaction: a failure anywhere leaves no trace, not even a ledger row.
 --
@@ -93,61 +93,104 @@
 --   - kasuwa_auth: nothing. kasuwa_test_admin: full DML (test only).
 --
 -- ---------------------------------------------------------------------------
--- THE REMOVAL TRIGGER (D-L160 rulings 1 and 2)
+-- THE REMOVAL TRIGGER (D-L160 rulings 1 and 2, D-L167 erasure)
 -- ---------------------------------------------------------------------------
 -- A creator who loses the programme cannot see the job any more, so the run
 -- cannot record the failure as the creator, and the retention job (which
 -- also runs as the creator) could not erase it. So, in the statement that
 -- ends the membership (the 0031 pattern: AFTER STATEMENT with transition
--- tables, on DELETE and on a key-moving UPDATE of user_programme):
---   - every import of that creator IN THAT PROGRAMME whose status is
---     awaiting_upload, reading_header, awaiting_mapping, queued or running
---     becomes `failed` (finished_at set, counts kept), and its headers,
---     filename and mapping are cleared;
---   - finished, failed, rejected, cancelled and expired imports are left as
---     they are (their retention job, or the bucket lifecycle rule, removes
---     the bytes; D-L146);
---   - the bytes themselves are not touched here: the database cannot reach
---     the bucket. The lifecycle rule (expire at 8 days) removes them.
+-- tables, on DELETE and on a key-moving UPDATE of user_programme), EVERY job
+-- of that creator IN THAT PROGRAMME whose metadata is not yet erased is
+-- erased, whatever its status (D-L167):
+--   - a LIVE job (awaiting_upload, reading_header, awaiting_mapping, queued,
+--     running) becomes `failed`, finished_at set, counts kept;
+--   - a job that has already ENDED (finished, failed, rejected, cancelled,
+--     expired) keeps its status;
+--   - in both, filename, headers, mapping and suggested_mapping are cleared:
+--     exactly the field set the retention job erases (apps/worker
+--     import-jobs.ts, ERASED), so the two can never disagree.
+-- The trigger cannot reach the bucket, so it does not delete bytes and does
+-- not set raw_file_deleted_at; that stays the retention job's. No bucket
+-- lifecycle rule exists yet: the `kasuwa-purpose=import` tag is set on every
+-- object, but the 8-day rule that would act on it is pending T-0005 (D-L167).
+-- Until then a removed creator's raw file lives until an operator deletes it.
 -- As 0031 step (a): a session that cannot see an ended membership's
 -- programme is refused (42501), so the trigger never silently skips rows
 -- RLS hides. As 0031 step (e): a membership the same statement re-creates
 -- ended nothing. A cascade from a tenant or programme delete removes the
 -- jobs anyway.
+-- NOT COVERED (D-L167 follow-up): a creator who is DISABLED rather than
+-- removed. That needs a cross-scope maintenance path, an ADR under CLAUDE.md
+-- 2.7.
 -- NO SECURITY DEFINER (CLAUDE.md 2.7): SECURITY INVOKER, pinned search_path,
 -- EXECUTE revoked from PUBLIC. The definer census stays at two (self-check).
 --
 -- ---------------------------------------------------------------------------
 -- LOCK IMPACT (D-L65)
 -- ---------------------------------------------------------------------------
---   - tenant, programme, "user", stored_object, contact, user_programme:
---     SHARE ROW EXCLUSIVE for the whole file, in this order. It blocks writes
---     to them (not reads) while the file runs.
---   - stored_object: the UNIQUE constraint builds an index (a scan of the
---     table, small: imports only).
---   - contact (a hot table): ADD COLUMN with no default is a catalogue change;
---     the FK is validated by a scan that finds only NULLs; the partial index
---     contact_import_job_idx is built on no rows (every import_job_id is
---     NULL). All accepted inside the transaction because no populated cell
---     exists (D-L65). On a populated cell the FK would be added NOT VALID and
---     validated in a no-transaction file.
---   - user_programme: CREATE TRIGGER takes SHARE ROW EXCLUSIVE; session
---     resolution (reads) keeps answering.
---   - lock_timeout = 5s.
--- Steady state: every DELETE or UPDATE statement on user_programme runs the
--- function once; a permission-set change ends nothing and returns at once.
+--   - tenant, programme, "user", user_programme: SHARE ROW EXCLUSIVE for the
+--     whole file (what creating an FK or a trigger on them takes anyway). It
+--     blocks writes to them, not reads: session resolution, which reads
+--     user_programme on every request, keeps answering.
+--   - stored_object and contact: ACCESS EXCLUSIVE for the whole file, taken in
+--     the opening LOCK so no lock is upgraded mid-file (ALTER TABLE ... ADD
+--     COLUMN / ADD CONSTRAINT need it). This BLOCKS READS of both tables, and
+--     so every contact read in the cell, for as long as the file runs: the
+--     UNIQUE index on stored_object (small: imports only), the contact FK
+--     validation (a scan that finds only NULLs) and the partial index
+--     contact_import_job_idx (built on no rows). Accepted inside the
+--     transaction because no populated cell exists (D-L65).
+--   - lock_timeout = 5s: refuse to queue behind a long transaction.
+-- Steady state:
+--   - every DELETE or UPDATE statement on user_programme runs the function
+--     once; a permission-set change ends nothing and returns at once;
+--   - a membership DELETE that ends a creator's membership UPDATEs that
+--     creator's import_job rows, so it WAITS for an in-flight run batch of
+--     that creator (which holds the job row FOR UPDATE until its commit: at
+--     most one batch of 1,000 rows).
+--
+-- POPULATED-CELL PLAN (D-L65; required before this file runs on a cell with
+-- data). The contact work moves out of this transaction into files ordered
+-- around it, each in the runner's no-transaction mode (first line exactly
+-- `-- kasuwa:no-transaction`, T-0044):
+--   1. BEFORE this file, a no-transaction file holding only
+--        CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS stored_object_tenant_programme_id_idx
+--          ON stored_object (tenant_id, programme_id, id);
+--      and this file then adds the constraint USING INDEX (a catalogue change).
+--   2. In this file: contact.import_job_id is added (catalogue only) and its
+--      FK is added NOT VALID (no scan; checked for new rows from then on).
+--   3. AFTER this file, a no-transaction file holding only
+--        CREATE INDEX CONCURRENTLY IF NOT EXISTS contact_import_job_idx
+--          ON contact (tenant_id, programme_id, import_job_id)
+--          WHERE import_job_id IS NOT NULL;
+--      (this file's CREATE INDEX becomes IF NOT EXISTS and moves out), and a
+--      second no-transaction file holding only
+--        ALTER TABLE contact VALIDATE CONSTRAINT contact_import_job_same_programme_fk;
+--      which takes SHARE UPDATE EXCLUSIVE and blocks neither reads nor writes.
+--   The opening LOCK then needs ACCESS EXCLUSIVE on contact only for the
+--   catalogue changes, for milliseconds. A failed concurrent build leaves an
+--   INVALID index: DROP INDEX CONCURRENTLY and run it again.
 --
 -- ---------------------------------------------------------------------------
 -- ROLLBACK PLAN
 -- ---------------------------------------------------------------------------
--- If this file fails, nothing was applied. To undo it after it has applied
--- (append-only: never edit this file or its ledger row), in a NEW migration,
--- as kasuwa_migrator, after rolling back T-0094's application code:
+-- If this file fails, nothing was applied (one transaction; the runner records
+-- it only on COMMIT). To undo it after it has applied (append-only: never edit
+-- this file or its ledger row), in a NEW migration, as kasuwa_migrator, after
+-- rolling back T-0094's application code (the import routes and the worker's
+-- import queues):
+--   SET LOCAL lock_timeout = '2s';
 --   DROP TRIGGER user_programme_removal_fails_imports ON user_programme;
 --   DROP TRIGGER user_programme_rewrite_fails_imports ON user_programme;
+--     (DROP TRIGGER takes ACCESS EXCLUSIVE on user_programme, which blocks
+--     session resolution, so every request, while it waits: hence 2s, as
+--     0021 and 0031 use for the same table.)
 --   DROP FUNCTION app.fail_removed_creator_imports();
 --   ALTER TABLE contact DROP COLUMN import_job_id;  (drops its FK and index)
---   delete the raw files first (or let the lifecycle rule expire them), then
+--     THIS PERMANENTLY LOSES IMPORT PROVENANCE: which import created which
+--     contact cannot be recovered afterwards (the audit names no import).
+--   delete the raw files first (deletePrefix per tenant, or by key from
+--   stored_object), since dropping the rows leaves bytes nothing can find, then
 --   DROP TABLE import_job;
 --   ALTER TABLE stored_object DROP CONSTRAINT stored_object_tenant_programme_id_key;
 -- ---------------------------------------------------------------------------
@@ -155,8 +198,11 @@
 SET LOCAL lock_timeout = '5s';
 
 -- --- 1. locks, in a fixed order ----------------------------------------------
-LOCK TABLE tenant, programme, "user", stored_object, contact, user_programme
-  IN SHARE ROW EXCLUSIVE MODE;
+LOCK TABLE tenant, programme, "user" IN SHARE ROW EXCLUSIVE MODE;
+-- ACCESS EXCLUSIVE up front: the ALTER TABLEs below need it, and taking it
+-- now means no lock is upgraded mid-file (D-L167).
+LOCK TABLE stored_object, contact IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE user_programme IN SHARE ROW EXCLUSIVE MODE;
 
 -- --- 2. the composite target on stored_object ---------------------------------
 ALTER TABLE stored_object
@@ -252,7 +298,8 @@ CREATE POLICY import_job_isolation ON import_job FOR ALL
 CREATE POLICY import_job_insert_as_session ON import_job AS RESTRICTIVE FOR INSERT
   WITH CHECK (created_by_user_id = app.current_user_id());
 
-REVOKE ALL ON import_job FROM PUBLIC, kasuwa_app, kasuwa_auth, kasuwa_sweeper, kasuwa_test_admin;
+REVOKE ALL ON import_job
+  FROM PUBLIC, kasuwa_app, kasuwa_auth, kasuwa_sweeper, kasuwa_relay, kasuwa_test_admin;
 GRANT SELECT, INSERT ON import_job TO kasuwa_app;
 GRANT UPDATE (status, upload_id, filename, headers, suggested_mapping, mapping,
               created_count, skipped_count, failed_count, errors, errors_truncated,
@@ -320,18 +367,30 @@ BEGIN
       USING ERRCODE = 'insufficient_privilege';  -- 42501
   END IF;
 
+  -- Every job of the creator in that programme whose metadata is not yet
+  -- erased (D-L167): a live job fails; an ended job keeps its status. Both
+  -- lose the field set retention erases.
   UPDATE public.import_job j
-     SET status = 'failed',
-         finished_at = coalesce(j.finished_at, pg_catalog.now()),
-         headers = NULL,
+     SET status = CASE WHEN j.status IN ('awaiting_upload', 'reading_header', 'awaiting_mapping',
+                                         'queued', 'running')
+                       THEN 'failed' ELSE j.status END,
+         finished_at = CASE WHEN j.status IN ('awaiting_upload', 'reading_header', 'awaiting_mapping',
+                                              'queued', 'running')
+                            THEN coalesce(j.finished_at, pg_catalog.now()) ELSE j.finished_at END,
          filename = NULL,
+         headers = NULL,
          mapping = NULL,
+         suggested_mapping = NULL,
          changed_at = pg_catalog.now()
     FROM unnest(t_ids, p_ids, u_ids) AS e(tenant_id, programme_id, user_id)
    WHERE j.tenant_id = e.tenant_id
      AND j.programme_id = e.programme_id
      AND j.created_by_user_id = e.user_id
-     AND j.status IN ('awaiting_upload', 'reading_header', 'awaiting_mapping', 'queued', 'running')
+     AND (j.status IN ('awaiting_upload', 'reading_header', 'awaiting_mapping', 'queued', 'running')
+          OR j.filename IS NOT NULL
+          OR j.headers IS NOT NULL
+          OR j.mapping IS NOT NULL
+          OR j.suggested_mapping IS NOT NULL)
      -- Still (again) a member by the end of the statement: nothing ended.
      AND NOT EXISTS (SELECT 1 FROM public.user_programme up
                       WHERE up.tenant_id = e.tenant_id
@@ -341,7 +400,8 @@ BEGIN
   RETURN NULL;  -- AFTER trigger: the return value is ignored.
 END;
 $$;
-REVOKE ALL ON FUNCTION app.fail_removed_creator_imports() FROM PUBLIC;
+REVOKE ALL ON FUNCTION app.fail_removed_creator_imports()
+  FROM PUBLIC, kasuwa_app, kasuwa_auth, kasuwa_sweeper, kasuwa_relay, kasuwa_test_admin;
 
 CREATE TRIGGER user_programme_removal_fails_imports
   AFTER DELETE ON user_programme
