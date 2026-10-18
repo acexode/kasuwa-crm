@@ -118,6 +118,7 @@ export async function listContactsFor(
   tx: TenantTx,
   query: ListContactsQuery,
   rawQuery: unknown,
+  importsEnabled = false,
 ): Promise<{ data: ContactWire[]; nextCursor: string | null }> {
   const access = await loadContactFieldAccess(tx);
   const custom = await loadCustom(tx, 'contact');
@@ -139,7 +140,8 @@ export async function listContactsFor(
   // even when its contacts are in the caller's plain list.
   let importProgrammeId: string | null = null;
   if (query.importId !== undefined) {
-    importProgrammeId = await importFilterFor(tx, query.importId);
+    // With `crm_import` off there are no imports to see (D-L166).
+    importProgrammeId = importsEnabled ? await importFilterFor(tx, query.importId) : null;
     if (importProgrammeId === null) return { data: [], nextCursor: null };
   }
 

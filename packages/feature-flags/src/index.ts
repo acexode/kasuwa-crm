@@ -246,6 +246,24 @@ export const FLAGS = {
     // controls from non-writers does not exist yet.
     productionReady: false,
   },
+  /**
+   * T-0094 (D-L146, D-L166): CSV import of contacts. Unlike the presentation
+   * switches above, it gates the API itself: with it off, every
+   * `/api/v1/imports` route answers the never-existed `404 not_found`, the
+   * contacts list's `importId` filter answers an empty page, and the worker
+   * consumes none of the three import queues. The screens are T-0096's.
+   *
+   * It grants nothing: who may import is `contact.import` in the programme,
+   * decided by the permissions engine whether this is on or off.
+   */
+  crm_import: {
+    description: 'CSV import of contacts: the /api/v1/imports routes, the importId contacts filter and the worker import queues (T-0094).',
+    defaultValue: false,
+    owner: 'T-0094 (API and worker), T-0096 (screens), D-L146, D-L166',
+    // NOT production-ready: no screen drives it yet (T-0096), and the
+    // orphaned-queue sweep and the head-404 reconcile are follow-ups (D-L166).
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

@@ -22,7 +22,10 @@ import { ContactsController } from './contacts/contacts.controller';
 import {
   BullImportQueues,
   DisabledImportQueues,
+  IMPORTS_ENABLED_TOKEN,
   IMPORT_QUEUES_TOKEN,
+  ImportsEnabledGuard,
+  importsEnabled,
   STORED_OBJECTS_TOKEN,
   storedObjectsFor,
   type ImportQueues,
@@ -188,6 +191,13 @@ export interface AppModuleOptions {
    * routes that touch storage answer 503.
    */
   objectStore?: unknown;
+  /**
+   * The `crm_import` feature flag (T-0094, D-L166). `main.ts` passes it from
+   * `@kasuwa/feature-flags`. Off, the import routes answer 404 and the
+   * `importId` filter an empty page. Omitted, the routes are on only when both
+   * `redisUrl` and `objectStore` are given (an in-process boot opting in).
+   */
+  crmImport?: boolean;
 }
 
 /** Closes the import queues' Redis connections with the app. */
@@ -287,6 +297,8 @@ export class AppModule implements NestModule {
               : new BullImportQueues(options.redisUrl),
         },
         { provide: STORED_OBJECTS_TOKEN, useValue: storedObjectsFor(options.objectStore) },
+        { provide: IMPORTS_ENABLED_TOKEN, useValue: importsEnabled(options) },
+        ImportsEnabledGuard,
         ImportCommitInterceptor,
         ImportQueuesLifecycle,
         { provide: AUTH_MODE, useValue: options.authMode ?? 'stub' },

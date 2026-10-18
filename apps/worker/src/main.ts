@@ -4,6 +4,7 @@ import {
   IMPORT_RETENTION_QUEUE,
   IMPORT_RUN_QUEUE,
 } from '@kasuwa/domain-core';
+import { featureFlagClient, initialiseFeatureFlags } from '@kasuwa/feature-flags';
 import { S3ObjectStore } from '@kasuwa/storage-adapter';
 import {
   createPool,
@@ -142,10 +143,14 @@ async function main(): Promise<void> {
 
   // --- CSV import (T-0094) -------------------------------------------------
   // One worker per queue. Each job runs AS ITS CREATOR inside
-  // withTenantTransaction (import-jobs.ts); payloads are ids only. Without an
-  // object store configured, the import queues are not consumed.
+  // withTenantTransaction (import-jobs.ts); payloads are ids only. Without the
+  // flag or an object store, the import queues are not consumed.
+  // Behind the `crm_import` flag (D-L166), off by default: off, the import
+  // queues are not consumed at all.
+  await initialiseFeatureFlags();
+  const crmImport = await featureFlagClient().getBooleanValue('crm_import', false);
   const importWorkers: Worker[] = [];
-  if (storageConfigured()) {
+  if (crmImport && storageConfigured()) {
     const deps: ImportJobDeps = {
       pool,
       store: new S3ObjectStore(storageEnv()),

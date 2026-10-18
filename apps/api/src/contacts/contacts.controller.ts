@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Inject,
   Get,
   Header,
   HttpCode,
@@ -14,6 +15,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { AdminErrorFilter } from '../admin/common/admin-errors';
+import { IMPORTS_ENABLED_TOKEN } from '../imports/import-infra';
 import { KasuwaAuthGuard } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { currentTx } from '../tenancy/tenant-context';
@@ -60,6 +62,9 @@ const NO_STORE = 'no-store';
 @UseInterceptors(TenantTransactionInterceptor)
 @UseFilters(AdminErrorFilter)
 export class ContactsController {
+  /** The `crm_import` flag: off, the `importId` filter answers an empty page (T-0094). */
+  constructor(@Inject(IMPORTS_ENABLED_TOKEN) private readonly importsEnabled: boolean) {}
+
   /**
    * listContacts. `q` (name or number, phones normalised to E.164 with the
    * tenant's default country), the filters, `sort` (an enum, never a column
@@ -68,7 +73,7 @@ export class ContactsController {
   @Get()
   @Header(CACHE_CONTROL, NO_STORE)
   async list(@Query() query: unknown): Promise<{ data: ContactWire[]; nextCursor: string | null }> {
-    return listContactsFor(currentTx(), ListContactsQuery.parse(query), query);
+    return listContactsFor(currentTx(), ListContactsQuery.parse(query), query, this.importsEnabled);
   }
 
   /** getContact. Out of scope is 404, never 403. */

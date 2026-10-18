@@ -1,4 +1,4 @@
-import { HttpStatus } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, type CanActivate } from '@nestjs/common';
 import {
   IMPORT_JOB_NAMES,
   IMPORT_JOB_OPTIONS,
@@ -9,7 +9,7 @@ import {
 } from '@kasuwa/domain-core';
 import { StoredObjectRepository, type ObjectStore } from '@kasuwa/storage-adapter';
 import { Queue } from 'bullmq';
-import { AdminError } from '../admin/common/admin-errors';
+import { AdminError, notFound } from '../admin/common/admin-errors';
 
 /**
  * What the import API needs beyond the database (T-0094 suite interface A):
@@ -20,6 +20,8 @@ import { AdminError } from '../admin/common/admin-errors';
  */
 
 export const IMPORT_QUEUES_TOKEN = Symbol('IMPORT_QUEUES');
+/** Whether the `crm_import` feature flag is on for this process (T-0094, D-L166). */
+export const IMPORTS_ENABLED_TOKEN = Symbol('IMPORTS_ENABLED');
 export const STORED_OBJECTS_TOKEN = Symbol('STORED_OBJECTS');
 
 export interface ImportQueueAction {
@@ -117,4 +119,32 @@ export function storedObjectsFor(store: unknown): StoredObjectRepository | null 
 export function requireStoredObjects(repository: StoredObjectRepository | null): StoredObjectRepository {
   if (repository === null) throw unavailable();
   return repository;
+}
+
+/**
+ * The `crm_import` flag (T-0094, D-L166). Off, every import route answers the
+ * never-existed `404 not_found`, the same body as an unknown import, so the
+ * routes are hidden rather than advertised. Runs after the auth guard, so an
+ * unauthenticated call is still 401. It grants nothing: `contact.import`
+ * decides who may import whether this is on or off.
+ */
+@Injectable()
+export class ImportsEnabledGuard implements CanActivate {
+  constructor(@Inject(IMPORTS_ENABLED_TOKEN) private readonly enabled: boolean) {}
+
+  canActivate(): boolean {
+    if (!this.enabled) throw notFound();
+    return true;
+  }
+}
+
+/**
+ * Whether the import routes are on. `main.ts` decides it from the `crm_import`
+ * flag and passes it explicitly. An in-process boot that omits it (the
+ * acceptance suites) opts in by handing the app the import infrastructure:
+ * Redis AND an object store. With neither flag nor infrastructure, off.
+ */
+export function importsEnabled(options: { crmImport?: boolean; redisUrl?: string; objectStore?: unknown }): boolean {
+  if (options.crmImport !== undefined) return options.crmImport;
+  return options.redisUrl !== undefined && options.objectStore !== undefined;
 }

@@ -26,6 +26,7 @@ import { currentTx } from '../tenancy/tenant-context';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import {
   IMPORT_QUEUES_TOKEN,
+  ImportsEnabledGuard,
   STORED_OBJECTS_TOKEN,
   requireStoredObjects,
   type ImportQueues,
@@ -82,7 +83,7 @@ const NO_STORE = 'no-store';
  * `no-store` (and NoStoreMiddleware covers the guard's answers too).
  */
 @Controller('api/v1/imports')
-@UseGuards(KasuwaAuthGuard)
+@UseGuards(KasuwaAuthGuard, ImportsEnabledGuard)
 @UseInterceptors(ImportCommitInterceptor, TenantTransactionInterceptor)
 @UseFilters(AdminErrorFilter)
 export class ImportsController {

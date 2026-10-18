@@ -224,6 +224,9 @@ importers:
       '@kasuwa/domain-core':
         specifier: workspace:*
         version: link:../../packages/domain/core
+      '@kasuwa/feature-flags':
+        specifier: workspace:*
+        version: link:../../packages/feature-flags
       '@kasuwa/metadata-engine':
         specifier: workspace:*
         version: link:../../packages/metadata-engine
