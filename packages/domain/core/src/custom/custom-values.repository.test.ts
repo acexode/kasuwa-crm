@@ -6,6 +6,7 @@ import {
   customMergeSet,
   CustomValuesSqlError,
   measureCustomVisibleSize,
+  programmesReadingKey,
   projectedCustomSql,
   readProjectedCustom,
 } from './custom-values.repository';
@@ -85,24 +86,27 @@ describe('customMergeSet (ADR-0016 item 5, D-L142: (custom || set) - remove - re
 });
 
 describe('customFilterClauses (ADR-0016 item 8; D-L142: on the projected custom)', () => {
-  const readable = { [P1]: ['tier__c', 'vip__c', 'band__c'] };
+  const readable = { [P1]: ['tier__c', 'vip__c', 'band__c'], [P2]: ['tier__c'] };
 
-  it('picklist equality, boolean equality and is-empty on the projection, every key and value bound', () => {
+  it('picklist and boolean equality, and is-empty, each true only where the key is readable in the row programme', () => {
     const { add, values } = binder();
     const clauses = customFilterClauses(
       { equals: [{ key: 'tier__c', value: 'gold' }, { key: 'vip__c', value: true }], empty: ['band__c'], readable },
       add,
       'contact',
     );
-    const projected = projectedCustomSql('contact', '$1');
     expect(clauses).toEqual([
-      `(${projected} ->> $2::text) = $3::text`,
-      `(${projected} -> $4::text) = $5::jsonb`,
-      `NOT (${projected} ? $6::text)`,
+      '(CASE WHEN contact.programme_id = ANY ($1::uuid[]) THEN contact.custom ->> $2::text END) = $3::text',
+      '(CASE WHEN contact.programme_id = ANY ($4::uuid[]) THEN contact.custom -> $5::text END) = $6::jsonb',
+      'NOT (CASE WHEN contact.programme_id = ANY ($7::uuid[]) THEN contact.custom ? $8::text ELSE false END)',
     ]);
-    expect(values).toEqual([JSON.stringify(readable), 'tier__c', 'gold', 'vip__c', 'true', 'band__c']);
-    // Never the bare column: a key the caller cannot read in the row's programme is not there to match.
-    expect(clauses.join(' ')).not.toMatch(/\(custom (->|\?)/);
+    expect(values).toEqual([[P1, P2], 'tier__c', 'gold', [P1], 'vip__c', 'true', [P1], 'band__c']);
+  });
+
+  it('programmesReadingKey reads the projection for one key: unreadable everywhere is no programme', () => {
+    expect(programmesReadingKey(readable, 'tier__c')).toEqual([P1, P2]);
+    expect(programmesReadingKey(readable, 'vip__c')).toEqual([P1]);
+    expect(programmesReadingKey(readable, 'secret__c')).toEqual([]);
   });
 
   it('a hostile key or value is a bound parameter, never SQL; a bad alias is refused', () => {
@@ -113,15 +117,13 @@ describe('customFilterClauses (ADR-0016 item 8; D-L142: on the projected custom)
       'd',
     );
     expect(clauses.join(' ')).not.toContain('DROP');
-    expect(values).toEqual([JSON.stringify(readable), HOSTILE, HOSTILE, HOSTILE]);
-    expect(() =>
-      customFilterClauses({ equals: [{ key: 'a__c', value: true }], empty: [], readable }, add, HOSTILE),
-    ).toThrow(CustomValuesSqlError);
-    expect(() =>
-      customFilterClauses({ equals: [{ key: 'a__c', value: true }], empty: [], readable }, add, 'd.custom'),
-    ).toThrow(CustomValuesSqlError);
+    expect(values).toEqual([[], HOSTILE, HOSTILE, [], HOSTILE]);
+    for (const alias of [HOSTILE, 'd.custom', 'D']) {
+      expect(() => customFilterClauses({ equals: [], empty: [], readable }, add, alias), alias).toThrow(
+        CustomValuesSqlError,
+      );
+    }
     expect(customFilterClauses(undefined, add, 'd')).toEqual([]);
-    expect(customFilterClauses({ equals: [], empty: [], readable }, add, 'd')).toEqual([]);
   });
 });
 

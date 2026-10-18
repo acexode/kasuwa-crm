@@ -233,13 +233,38 @@ export interface CustomFilters {
   readable: Readonly<Record<string, readonly string[]>>;
 }
 
+/** The programmes of a readable map in which `key` may be read. */
+export function programmesReadingKey(
+  readable: Readonly<Record<string, readonly string[]>>,
+  key: string,
+): string[] {
+  return Object.entries(readable)
+    .filter(([, keys]) => keys.includes(key))
+    .map(([programmeId]) => programmeId);
+}
+
 /**
- * The filters as WHERE clauses on the projected custom of the row aliased
- * `alias` (a constant: the table name when the statement has no alias).
- * They are ANDed onto a list statement whose WHERE already starts with the
- * session's tenant and programmes, so they can only narrow it, and they are
- * evaluated as a filter inside the scoped keyset page: no index on `custom`
- * exists or is needed (D-P33). Keys and values are bound, never interpolated.
+ * The filters as WHERE clauses on the PROJECTED custom of the row aliased
+ * `alias` (a constant: the table name when the statement has no alias), so
+ * SQL fails closed on its own (D-L142). For one key the projection is exact
+ * and cheap to state: `custom.k` is in the row's projected custom iff the
+ * row's programme is one where k is readable, which `programmesReadingKey`
+ * reads off the same readable map a read binds. So, with P(k) that list,
+ *
+ *   projected -> k        is  CASE WHEN programme_id = ANY(P(k)) THEN custom -> k END
+ *   projected ? k         is  CASE WHEN programme_id = ANY(P(k)) THEN custom ? k ELSE false END
+ *
+ * Written per key, and as ONE expression per key, on purpose (the T-0084
+ * budget): evaluating the whole projection on every scanned row, or adding
+ * `programme_id = ANY(P(k))` as a separate qual, changed the planner's
+ * estimates enough to abandon the keyset index for a bitmap scan and sort.
+ * A CASE is costed and estimated like the bare `custom ->> k = v` was, so
+ * the plan stays a bounded seek.
+ *
+ * ANDed onto a list statement whose WHERE already starts with the session's
+ * tenant and programmes, so the clauses only narrow it; evaluated as a filter
+ * inside the scoped keyset page, with no index on `custom` (D-P33). Keys,
+ * values and programme lists are bound, never interpolated.
  */
 export function customFilterClauses(
   filters: CustomFilters | undefined,
@@ -247,19 +272,25 @@ export function customFilterClauses(
   alias: string,
 ): string[] {
   if (filters === undefined) return [];
-  if (filters.equals.length === 0 && filters.empty.length === 0) return [];
-  const custom = projectedCustomSql(alias, placeholder(add(JSON.stringify(filters.readable))));
+  const row = columnRef(alias);
+  if (row.includes('.')) throw new CustomValuesSqlError();
+  const custom = `${row}.custom`;
+  const readableHere = (key: string) =>
+    `${row}.programme_id = ANY (${placeholder(add(programmesReadingKey(filters.readable, key)))}::uuid[])`;
   const clauses: string[] = [];
   for (const { key, value } of filters.equals) {
+    const when = readableHere(key);
     const k = placeholder(add(key));
-    if (typeof value === 'boolean') {
-      clauses.push(`(${custom} -> ${k}::text) = ${placeholder(add(value ? 'true' : 'false'))}::jsonb`);
-    } else {
-      clauses.push(`(${custom} ->> ${k}::text) = ${placeholder(add(value))}::text`);
-    }
+    clauses.push(
+      typeof value === 'boolean'
+        ? `(CASE WHEN ${when} THEN ${custom} -> ${k}::text END) = ${placeholder(add(value ? 'true' : 'false'))}::jsonb`
+        : `(CASE WHEN ${when} THEN ${custom} ->> ${k}::text END) = ${placeholder(add(value))}::text`,
+    );
   }
   for (const key of filters.empty) {
-    clauses.push(`NOT (${custom} ? ${placeholder(add(key))}::text)`);
+    const when = readableHere(key);
+    const k = placeholder(add(key));
+    clauses.push(`NOT (CASE WHEN ${when} THEN ${custom} ? ${k}::text ELSE false END)`);
   }
   return clauses;
 }
