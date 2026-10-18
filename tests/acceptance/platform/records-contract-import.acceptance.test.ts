@@ -329,6 +329,36 @@ import { parse } from 'yaml';
  *       `fromImportId` copies by header name only while the source's
  *       headers still exist; afterwards it is `400 unknown_reference` at
  *       `fromImportId`, the same body as an import the caller cannot see.
+ *   R23 SECURITY REVIEW (D-L151), pinned as contract text and shape:
+ *       a. Import writes are the creator's: upload-urls, complete, abort,
+ *          mapping and run only for the import's `createdByUserId`; anyone
+ *          else in scope is `403 not_permitted`. Cancel: the creator or a
+ *          tenant admin. The job runs as `createdByUserId`, and re-checks
+ *          `contact.import` and scope every batch.
+ *       b. `contact.import` is held only by permission sets that also hold
+ *          `contact.write` (admin in Phase 2). Setting `ownerUserId` to
+ *          another member needs the same right as createContact
+ *          (`contact.write`).
+ *       c. Undo restores each compliance field of the restored contact at
+ *          the more restrictive of its snapshot value and the survivor's
+ *          current value; the survivor is never loosened either.
+ *       d. The duplicates cursor carries only a contact id, the lowest id in
+ *          the last set; sets are ordered by their lowest contact id
+ *          ascending; the cursor never carries the matched value.
+ *       e. Undo: the merging user who holds `contact.write` in the programme
+ *          now, or a tenant admin. All-or-nothing under the undoer's current
+ *          field security: a field to revert that is not editable is
+ *          `403 not_permitted` / `field_not_editable` and nothing changes.
+ *       f. `contact.claim_and_set_status` never permits a merge.
+ *       g. listContactMerges is gated on `contact.write` or tenant admin;
+ *          after the deferred purge an entry shows ids only.
+ *       h. listDuplicates is throttled like search: `429
+ *          too_many_requests` with a `Retry-After` header.
+ *       i. completeImportUpload checks metadata, not content: the bytes are
+ *          untrusted until parsed.
+ *       j. Signed part URLs are bearer credentials and are never logged.
+ *       k. The import result says duplicates were skipped and no restriction
+ *          was applied to existing contacts.
  *
  * LEAD EDITS TO MERGED SUITES (same branch), each the minimum that admits
  * this contract with every other assertion kept, each passing before and
@@ -858,7 +888,7 @@ const OPS: OpSpec[] = [
   { id: 'putImportMapping', method: 'put', path: `${IMPORT_ITEM}/mapping`, success: '200', schema: 'Import', body: 'PutImportMappingRequest', statuses: ['400', '401', '403', '404', '409'], tag: 'imports' },
   { id: 'runImport', method: 'post', path: `${IMPORT_ITEM}/run`, success: '202', schema: 'Import', body: null, statuses: ['400', '401', '403', '404', '409'], tag: 'imports' },
   { id: 'cancelImport', method: 'post', path: `${IMPORT_ITEM}/cancel`, success: '202', schema: 'Import', body: null, statuses: ['400', '401', '403', '404', '409'], tag: 'imports' },
-  { id: 'listDuplicates', method: 'get', path: '/api/v1/programmes/{programmeId}/duplicates', success: '200', schema: 'DuplicatePage', body: null, statuses: ['400', '401', '404'], tag: 'duplicates' },
+  { id: 'listDuplicates', method: 'get', path: '/api/v1/programmes/{programmeId}/duplicates', success: '200', schema: 'DuplicatePage', body: null, statuses: ['400', '401', '404', '429'], tag: 'duplicates' },
   { id: 'getContactMergePreview', method: 'get', path: '/api/v1/contacts/{contactId}/merge-preview', success: '200', schema: 'ContactMergePreview', body: null, statuses: ['400', '401', '404'], tag: 'duplicates' },
   { id: 'createContactMerge', method: 'post', path: MERGES, success: '201', schema: 'ContactMerge', body: 'CreateContactMergeRequest', statuses: ['400', '401', '403', '404', '409'], tag: 'duplicates' },
   { id: 'undoContactMerge', method: 'post', path: `${MERGES}/{mergeId}/undo`, success: '200', schema: 'ContactMerge', body: null, statuses: ['400', '401', '403', '404', '409', '410'], tag: 'duplicates' },
@@ -1874,7 +1904,7 @@ describe('acceptance: import, duplicates and merge contract (T-0093)', () => {
     });
 
     it('runImport: 202; it runs as the initiating user, re-resolving scope when it runs (ADR-0017 Q7); cancel is honoured between batches', () => {
-      expect(description(op('runImport'))).toMatch(/initiating user/i);
+      expect(description(op('runImport'))).toMatch(/initiating user|as `createdByUserId`/i);
       expect(description(op('runImport'))).toMatch(/saved mapping|mapping (is|has been) saved/i);
       expect(description(op('cancelImport'))).toMatch(/between batches/i);
       expect(description(op('cancelImport'))).toMatch(/`queued`|`running`/);
@@ -2480,6 +2510,119 @@ describe('acceptance: import, duplicates and merge contract (T-0093)', () => {
       }
       expect(problems).toEqual([]);
       expect(checked).toBeGreaterThan(30);
+    });
+  });
+
+  describe('security review (R23, D-L151)', () => {
+    const CREATOR_ONLY = ['issueImportUploadUrls', 'completeImportUpload', 'abortImportUpload', 'putImportMapping', 'runImport'];
+
+    it('a: upload-urls, complete, abort, mapping and run are the creator’s only; anyone else in scope is 403 not_permitted', () => {
+      const problems: string[] = [];
+      for (const id of CREATOR_ONLY) {
+        const text = description(op(id));
+        if (!/`createdByUserId`/.test(text)) problems.push(`${id}: does not name createdByUserId`);
+        if (!/403|not_permitted/.test(text)) problems.push(`${id}: does not say anyone else is 403`);
+        if (!hasError(id, '403', 'not_permitted')) problems.push(`${id}: no 403 example`);
+      }
+      expect(problems).toEqual([]);
+    });
+
+    it('a: cancel is open to the creator or a tenant admin', () => {
+      const text = description(op('cancelImport'));
+      expect(text).toMatch(/`createdByUserId`/);
+      expect(text).toMatch(/tenant admin/i);
+    });
+
+    it('a: the job runs as createdByUserId and re-checks contact.import and scope every batch', () => {
+      const text = description(op('runImport'));
+      expect(text).toMatch(/runs as `createdByUserId`|as `createdByUserId`/);
+      expect(text).toMatch(/every batch/i);
+      expect(text).toMatch(/`contact\.import`/);
+      expect(text).toMatch(/scope/i);
+    });
+
+    it('b: contact.import is held only by sets that also hold contact.write (admin in Phase 2)', () => {
+      const text = description(op('createImport'));
+      expect(text).toMatch(/`contact\.write`/);
+      expect(text).toMatch(/\badmin\b/);
+      expect(text).toMatch(/only/i);
+    });
+
+    it('b: setting ownerUserId to another member needs contact.write, as on createContact', () => {
+      const text = description(op('putImportMapping'));
+      expect(text).toMatch(/`ownerUserId`[^.]*`contact\.write`|`contact\.write`[^.]*`ownerUserId`/);
+      expect(text).toMatch(/createContact/);
+    });
+
+    it('c: undo restores each compliance field at the more restrictive of the snapshot and the survivor’s current value; the survivor is never loosened', () => {
+      const text = description(op('undoContactMerge'));
+      expect(text).toMatch(/snapshot/i);
+      expect(text).toMatch(/more restrictive/i);
+      expect(text).toMatch(/restored contact/i);
+      expect(text).toMatch(/never loosen/i);
+    });
+
+    it('d: the duplicates cursor carries only a contact id, the lowest in the last set; sets ascend by lowest contact id; never the matched value', () => {
+      const listDup = op('listDuplicates');
+      const cursor = paramNode(listDup, 'cursor', 'query');
+      const text = `${description(listDup)} ${prose(cursor?.description)}`;
+      expect(text).toMatch(/lowest contact id/i);
+      expect(text).toMatch(/ascending/i);
+      expect(text).toMatch(/cursor[^.]*only a contact id|only a contact id[^.]*cursor/i);
+      expect(text).toMatch(/cursor[^.]*never[^.]*matched value|matched value[^.]*never[^.]*cursor/i);
+    });
+
+    it('e: undo is for the merging user holding contact.write now, or a tenant admin; all-or-nothing under current field security', () => {
+      const text = description(op('undoContactMerge'));
+      expect(text).toMatch(/merging user[^.]*`contact\.write`/i);
+      expect(text).toMatch(/tenant admin/i);
+      expect(text).toMatch(/all-or-nothing/i);
+      expect(text).toMatch(/field_not_editable/);
+      expect(text).toMatch(/nothing changes/i);
+      expect(hasError('undoContactMerge', '403', 'not_permitted', /^([a-zA-Z]+|custom\.[a-z][a-z0-9_]*__c)$/, 'field_not_editable'), 'a 403 field_not_editable example at a field').toBe(true);
+    });
+
+    it('f: contact.claim_and_set_status never permits a merge', () => {
+      expect(description(op('createContactMerge'))).toMatch(/`contact\.claim_and_set_status`[^.]*never/);
+    });
+
+    it('g: listContactMerges is gated on contact.write or tenant admin; after the deferred purge an entry shows ids only', () => {
+      const text = description(op('listContactMerges'));
+      expect(text).toMatch(/`contact\.write`/);
+      expect(text).toMatch(/tenant admin/i);
+      expect(text).toMatch(/purge/i);
+      expect(text).toMatch(/ids only/i);
+    });
+
+    it('h: listDuplicates is throttled like search: 429 too_many_requests with a Retry-After header', () => {
+      const response = responses(op('listDuplicates')).get('429');
+      if (!response) throw new Error('listDuplicates documents no 429');
+      expect(hasError('listDuplicates', '429', 'too_many_requests')).toBe(true);
+      const headers = child(response, 'headers');
+      const names = headers && isMapping(headers.node) ? Object.keys(headers.node).map((name) => name.toLowerCase()) : [];
+      expect(names).toContain('retry-after');
+      expect(description(op('listDuplicates'))).toMatch(/throttl/i);
+    });
+
+    it('i: completing an upload checks metadata, not content; the bytes stay untrusted until parsed', () => {
+      const text = description(op('completeImportUpload'));
+      expect(text).toMatch(/metadata/i);
+      expect(text).toMatch(/not (the )?content/i);
+      expect(text).toMatch(/untrusted/i);
+    });
+
+    it('j: signed part URLs are bearer credentials, never logged', () => {
+      for (const id of ['createImport', 'issueImportUploadUrls']) {
+        const text = description(op(id));
+        expect(text, id).toMatch(/bearer/i);
+        expect(text, id).toMatch(/never logged/i);
+      }
+    });
+
+    it('k: the import result says duplicates were skipped and no restriction was applied to existing contacts', () => {
+      const text = description(op('getImport'));
+      expect(text).toMatch(/skipped/i);
+      expect(text).toMatch(/no restriction[^.]*existing contacts/i);
     });
   });
 
