@@ -1622,5 +1622,19 @@
   "admin.studio.custom.discard.title": "Leave without saving?",
   "admin.studio.custom.discard.body": "Your changes to this field have not been saved.",
   "admin.studio.custom.discard.confirm": "Leave without saving",
-  "admin.studio.custom.discard.keep": "Keep editing"
+  "admin.studio.custom.discard.keep": "Keep editing",
+  "custom.section.title": "Custom fields",
+  "custom.noValue": "No value",
+  "custom.boolean.true": "Yes",
+  "custom.boolean.false": "No",
+  "custom.readOnly": "You can’t change this field.",
+  "custom.currencyHint": "Amount in {currency}, for example 1250.50",
+  "custom.filter.any": "{field}: any",
+  "custom.filter.isEmpty": "Is empty",
+  "custom.filter.group": "Custom field filters",
+  "custom.error.invalid_value": "One of your custom field values isn’t valid. Check it and try again.",
+  "custom.error.custom_too_large": "The custom fields hold too much text. Shorten a value and try again.",
+  "custom.error.unknown_field": "A custom field here no longer exists. Reload the page and try again.",
+  "custom.error.field_not_editable": "Your role can’t change that custom field. It is now locked on this form.",
+  "custom.error.field_withheld": "You can’t filter on a custom field your role can’t see."
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { appendCustomFilters, type CustomFilters } from './custom-values-model';
 import { Phone, requestRecords, type RecordsResult } from './records-api';
 
 /**
@@ -52,6 +53,8 @@ export const Account = z.object({
   state: z.string().nullable().optional(),
   lga: z.string().nullable().optional(),
   parentAccountId: z.string().nullable().optional(),
+  /** Custom-field values (T-0091): withheld keys are absent and listed in `withheldFields` as `custom.<key>`. */
+  custom: z.record(z.string(), z.unknown()).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   withheldFields: z.array(z.string()),
@@ -79,6 +82,8 @@ export interface AccountListQuery {
   readonly state?: readonly string[];
   readonly lga?: readonly string[];
   readonly sort?: AccountSort;
+  /** Custom-field filters (T-0091): picklist and boolean equality, and "is empty". */
+  readonly custom?: CustomFilters;
   readonly cursor?: string;
   readonly limit?: number;
 }
@@ -95,6 +100,7 @@ export function accountListSearch(query: AccountListQuery): string {
   }
   // `name` is the server's default: sent only when it is not.
   if (query.sort !== undefined && query.sort !== 'name') params.set('sort', query.sort);
+  appendCustomFilters(params, query.custom);
   if (query.cursor !== undefined) params.set('cursor', query.cursor);
   if (query.limit !== undefined) params.set('limit', String(query.limit));
   const search = params.toString();
@@ -120,6 +126,8 @@ export interface CreateAccountBody {
 /** UpdateAccountRequest: closed, `version` plus what changed. No `programmeId`, ever. */
 export interface UpdateAccountBody {
   readonly version: number;
+  /** A per-key merge of custom-field values (T-0091): only what changed; `null` clears. */
+  readonly custom?: Readonly<Record<string, unknown>>;
   readonly name?: string;
   readonly industry?: string | null;
   readonly tier?: AccountTier | null;

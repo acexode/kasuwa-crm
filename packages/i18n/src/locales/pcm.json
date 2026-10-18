@@ -1622,5 +1622,19 @@
   "admin.studio.custom.discard.title": "You wan comot without to save?",
   "admin.studio.custom.discard.body": "Dem neva save di changes wey you make for dis field.",
   "admin.studio.custom.discard.confirm": "Comot without to save",
-  "admin.studio.custom.discard.keep": "Continue to change am"
+  "admin.studio.custom.discard.keep": "Continue to change am",
+  "custom.section.title": "Your own fields",
+  "custom.noValue": "Nothing dey",
+  "custom.boolean.true": "Yes",
+  "custom.boolean.false": "No",
+  "custom.readOnly": "You no fit change dis field.",
+  "custom.currencyHint": "Money for {currency}, like 1250.50",
+  "custom.filter.any": "{field}: any one",
+  "custom.filter.isEmpty": "E dey empty",
+  "custom.filter.group": "Filters for your own fields",
+  "custom.error.invalid_value": "One of your own field values no correct. Check am and try again.",
+  "custom.error.custom_too_large": "Your own fields get too much text. Make one value short and try again.",
+  "custom.error.unknown_field": "One of your own fields no dey again. Reload di page and try again.",
+  "custom.error.field_not_editable": "Your role no fit change dat field. We don lock am for dis form.",
+  "custom.error.field_withheld": "You no fit filter by field wey your role no fit see."
 }

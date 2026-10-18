@@ -14,6 +14,8 @@ import { RecordLoading, RecordNotFound, RecordOfflineBanner, RecordUnavailable }
 import { RecordTimeline, Value, type TimelineVocabulary } from '../record/record-timeline';
 import { ContactSheet } from './contact-sheet';
 import { StartScript } from '../script-run/start-script';
+import { CustomValuesPanel } from '../custom/custom-values';
+import { useCustomFields, type CustomContext } from '../custom/use-custom-fields';
 import {
   DETAILS,
   STATUS_CODES,
@@ -72,6 +74,7 @@ export function ContactRecordScreen({
   locales,
   live,
   scripts = false,
+  customFields = false,
 }: {
   id: string;
   locale: string;
@@ -81,9 +84,12 @@ export function ContactRecordScreen({
   live: readonly string[];
   /** The scripts flag is on in this process (read by the server page): draw the start control (T-0116). */
   scripts?: boolean;
+  /** Custom values are on in this process (read by the server page, T-0091): draw, edit and log them. */
+  customFields?: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const state = useContactRecord(id);
+  const custom = useCustomFields('contact', customFields);
   const offline = !state.online;
 
   return (
@@ -113,6 +119,8 @@ export function ContactRecordScreen({
             offline={offline}
             linkAccount={live.includes('accounts')}
             scripts={scripts}
+            custom={custom}
+            customFields={customFields}
           />
         ) : null}
       </div>
@@ -128,6 +136,8 @@ function Ready({
   offline,
   linkAccount,
   scripts,
+  custom,
+  customFields,
 }: {
   t: Translator;
   locale: string;
@@ -138,6 +148,10 @@ function Ready({
   linkAccount: boolean;
   /** The P10 start control (T-0116), behind the scripts flag on the server. Reads nothing until opened. */
   scripts: boolean;
+  /** The contact's custom-field definitions and what this session has been told is read-only (T-0091). */
+  custom: CustomContext;
+  /** The custom-fields flag, for the activity form's own definitions. */
+  customFields: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [logging, setLogging] = useState<ActivityType | null>(null);
@@ -238,6 +252,8 @@ function Ready({
         </p>
       )}
 
+      <CustomValuesPanel t={t} locale={locale} fields={custom.fields} custom={record.custom} withheldFields={record.withheldFields} />
+
       <div role="group" aria-label={t.t('record.sections')} className="grid grid-cols-2 gap-1 rounded-md bg-surface-sunken p-1 md:hidden">
         {(['activity', 'details'] as const).map((which) => (
           <button
@@ -324,7 +340,7 @@ function Ready({
             ))}
           </div>
           {logging === null ? null : (
-            <ActivityForm key={logging} t={t} type={logging} offline={offline} onSave={state.log} onClose={closeLog} />
+            <ActivityForm key={logging} t={t} type={logging} offline={offline} onSave={state.log} onClose={closeLog} customFields={customFields} />
           )}
           <RecordTimeline
             t={t}
@@ -343,7 +359,7 @@ function Ready({
       </div>
 
       {editing ? (
-        <ContactSheet t={t} record={record} offline={offline} onSave={state.save} onClose={() => setEditing(false)} />
+        <ContactSheet t={t} record={record} offline={offline} custom={custom} onSave={state.save} onClose={() => setEditing(false)} />
       ) : null}
     </div>
   );

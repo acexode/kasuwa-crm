@@ -170,7 +170,8 @@ export function listCustomFields(
   object: CustomFieldObject,
   signal?: AbortSignal,
 ): Promise<Result<CustomFieldList>> {
-  const query = new URLSearchParams({ object, includeRetired: 'true' });
+  const query = new URLSearchParams({ object });
+  query.set('includeRetired', String(true));
   return call('GET', `${CUSTOM_FIELDS_PATH}?${query.toString()}`, CustomFieldList, signal ? { signal } : {});
 }
 

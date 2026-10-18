@@ -1622,5 +1622,19 @@
   "admin.studio.custom.discard.title": "Kuondoka bila kuhifadhi?",
   "admin.studio.custom.discard.body": "Mabadiliko yako kwenye sehemu hii hayajahifadhiwa.",
   "admin.studio.custom.discard.confirm": "Ondoka bila kuhifadhi",
-  "admin.studio.custom.discard.keep": "Endelea kuhariri"
+  "admin.studio.custom.discard.keep": "Endelea kuhariri",
+  "custom.section.title": "Sehemu maalum",
+  "custom.noValue": "Hakuna thamani",
+  "custom.boolean.true": "Ndiyo",
+  "custom.boolean.false": "Hapana",
+  "custom.readOnly": "Huwezi kubadilisha sehemu hii.",
+  "custom.currencyHint": "Kiasi katika {currency}, kwa mfano 1250.50",
+  "custom.filter.any": "{field}: yoyote",
+  "custom.filter.isEmpty": "Haina kitu",
+  "custom.filter.group": "Vichujio vya sehemu maalum",
+  "custom.error.invalid_value": "Thamani moja ya sehemu maalum si sahihi. Ikague na ujaribu tena.",
+  "custom.error.custom_too_large": "Sehemu maalum zina maandishi mengi mno. Fupisha thamani moja na ujaribu tena.",
+  "custom.error.unknown_field": "Sehemu maalum haipo tena. Pakia ukurasa upya na ujaribu tena.",
+  "custom.error.field_not_editable": "Jukumu lako haliwezi kubadilisha sehemu hiyo maalum. Imefungwa kwenye fomu hii.",
+  "custom.error.field_withheld": "Huwezi kuchuja kwa sehemu maalum ambayo jukumu lako haliwezi kuiona."
 }

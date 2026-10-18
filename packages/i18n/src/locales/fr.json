@@ -1622,5 +1622,19 @@
   "admin.studio.custom.discard.title": "Quitter sans enregistrer ?",
   "admin.studio.custom.discard.body": "Vos modifications de ce champ n’ont pas été enregistrées.",
   "admin.studio.custom.discard.confirm": "Quitter sans enregistrer",
-  "admin.studio.custom.discard.keep": "Continuer la modification"
+  "admin.studio.custom.discard.keep": "Continuer la modification",
+  "custom.section.title": "Champs personnalisés",
+  "custom.noValue": "Aucune valeur",
+  "custom.boolean.true": "Oui",
+  "custom.boolean.false": "Non",
+  "custom.readOnly": "Vous ne pouvez pas modifier ce champ.",
+  "custom.currencyHint": "Montant en {currency}, par exemple 1250,50",
+  "custom.filter.any": "{field} : tous",
+  "custom.filter.isEmpty": "Est vide",
+  "custom.filter.group": "Filtres des champs personnalisés",
+  "custom.error.invalid_value": "Une valeur d’un champ personnalisé n’est pas valide. Vérifiez-la et réessayez.",
+  "custom.error.custom_too_large": "Les champs personnalisés contiennent trop de texte. Raccourcissez une valeur et réessayez.",
+  "custom.error.unknown_field": "Un champ personnalisé n’existe plus. Rechargez la page et réessayez.",
+  "custom.error.field_not_editable": "Votre rôle ne peut pas modifier ce champ personnalisé. Il est désormais verrouillé dans ce formulaire.",
+  "custom.error.field_withheld": "Vous ne pouvez pas filtrer sur un champ personnalisé que votre rôle ne peut pas voir."
 }

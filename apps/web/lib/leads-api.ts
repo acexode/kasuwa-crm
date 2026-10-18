@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { appendCustomFilters, type CustomFilters } from './custom-values-model';
 import { Account } from './accounts-api';
 import { CONTACTS_PATH, Contact, requestRecords, type ContactSource, type RecordsResult } from './records-api';
 
@@ -76,6 +77,8 @@ export interface LeadListQuery {
   readonly status?: readonly LeadStatus[];
   readonly source?: readonly ContactSource[];
   readonly sort?: LeadSort;
+  /** Custom-field filters (T-0091): picklist and boolean equality, and "is empty". */
+  readonly custom?: CustomFilters;
   readonly cursor?: string;
   readonly limit?: number;
 }
@@ -92,6 +95,7 @@ export function leadListSearch(query: LeadListQuery): string {
   for (const value of query.status ?? []) params.append('status', value);
   for (const value of query.source ?? []) params.append('source', value);
   if (query.sort !== undefined && query.sort !== DEFAULT_LEAD_SORT) params.set('sort', query.sort);
+  appendCustomFilters(params, query.custom);
   if (query.cursor !== undefined) params.set('cursor', query.cursor);
   if (query.limit !== undefined) params.set('limit', String(query.limit));
   const search = params.toString();

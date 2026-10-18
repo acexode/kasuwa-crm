@@ -19,6 +19,19 @@ import {
   type EditKey,
 } from './record-model';
 import { writeErrorId } from '../record/record-core';
+import {
+  CUSTOM_INVALID,
+  customErrorId,
+  customPatch,
+  draftOfCustom,
+  isCustomWithheld,
+  notEditableKeys,
+  rebaseCustomDraft,
+  type CustomDraft,
+} from '../../lib/custom-values-model';
+import type { CustomField } from '../../lib/custom-values-api';
+import { CustomInputs } from '../custom/custom-inputs';
+import type { CustomContext } from '../custom/use-custom-fields';
 
 /**
  * The full edit (P05/01's pencil, for writers). A dialog, so focus moves in,
@@ -41,6 +54,9 @@ import { writeErrorId } from '../record/record-core';
  * the reader's language; the sheet and everything typed stay.
  */
 
+const NO_KEYS: ReadonlySet<string> = new Set();
+const NO_FIELDS: readonly CustomField[] = [];
+
 const TEXT_KEYS = new Set<EditKey>(['displayName', 'givenNames', 'familyName', 'state', 'lga', 'tags']);
 const LIST_KEYS: Partial<Record<EditKey, MessageId>> = {
   phones: 'record.sheet.phonesHint',
@@ -55,12 +71,15 @@ export function ContactSheet({
   t,
   record,
   offline,
+  custom,
   onSave,
   onClose,
 }: {
   t: Translator;
   record: ContactRecord;
   offline: boolean;
+  /** The contact's custom-field definitions (T-0091); none while the feature is off or unread. */
+  custom?: CustomContext;
   onSave: (body: Readonly<Record<string, unknown>>) => Promise<RecordsResult<ContactRecord>>;
   onClose: () => void;
 }) {
@@ -72,12 +91,29 @@ export function ContactSheet({
   const [error, setError] = useState<MessageId | null>(null);
   const prefix = useId();
   const keys = editableKeys(base);
-  const { body, invalid } = saveBody(base, draft);
+  const { body: standard, invalid } = saveBody(base, draft);
+  const fields = custom?.fields ?? NO_FIELDS;
+  const [customDraft, setCustomDraft] = useState<CustomDraft>(() => draftOfCustom(fields, record.custom));
+  const [customInvalid, setCustomInvalid] = useState<readonly string[]>([]);
+  // Never sent: a key withheld on THIS record, or one the API has said is read-only (C4, C10).
+  const skip = new Set([
+    ...(custom?.readOnly ?? []),
+    ...fields.filter((field) => isCustomWithheld(base.withheldFields, field.apiName)).map((field) => field.apiName),
+  ]);
+  const changed = customPatch(fields, base.custom, customDraft, skip);
+  const body = changed.patch === null ? standard : { ...(standard ?? { version: base.version }), custom: changed.patch };
+
+  // The definitions arrive after the sheet may have opened: seed the untouched keys from the record.
+  useEffect(() => {
+    setCustomDraft((typed) => rebaseCustomDraft(fields, undefined, base.custom, typed));
+    // Only a change of the definitions re-seeds.
+  }, [fields]);
 
   // A fresher record arrived (the re-read after a 409): rebase the edits onto it.
   useEffect(() => {
     if (record.version === base.version) return;
     const rebased = rebaseDraft(base, record, draft);
+    setCustomDraft((typed) => rebaseCustomDraft(fields, base.custom, record.custom, typed));
     setBase(record);
     setDraft(rebased.form);
     setConflicts((held) => [...new Set([...held.filter((key) => rebased.edited.includes(key)), ...rebased.conflicts])]);
@@ -93,6 +129,11 @@ export function ContactSheet({
       setError('record.error.invalid');
       return;
     }
+    setCustomInvalid(changed.invalid);
+    if (changed.invalid.length > 0) {
+      setError(CUSTOM_INVALID);
+      return;
+    }
     if (body === null) {
       onClose();
       return;
@@ -102,8 +143,14 @@ export function ContactSheet({
     // `body` carries the version of the record the draft is seeded from.
     const result = await onSave(body);
     setSaving(false);
-    if (result.ok) onClose();
-    else setError(writeErrorId(result.error.code));
+    if (result.ok) {
+      onClose();
+      return;
+    }
+    // A refused custom value is its own translated message; a key told read-only stays so, unsent (C4).
+    const refused = customErrorId(result.error);
+    custom?.markReadOnly(notEditableKeys(result.error));
+    setError(refused ?? writeErrorId(result.error.code));
   };
 
   const inputId = (key: EditKey) => `${prefix}-${key}`;
@@ -165,6 +212,8 @@ export function ContactSheet({
       input = (
         <textarea
           {...common}
+          // The emails and phones typed here are the contact's own data, not UI copy.
+          data-record-text=""
           value={text}
           rows={2}
           aria-describedby={`${inputId(key)}-hint`}
@@ -233,6 +282,16 @@ export function ContactSheet({
             ) : null}
           </div>
         ))}
+        <CustomInputs
+          t={t}
+          fields={fields}
+          draft={customDraft}
+          withheldFields={base.withheldFields}
+          readOnly={custom?.readOnly ?? NO_KEYS}
+          disabled={saving}
+          invalid={customInvalid}
+          onChange={(key, value) => setCustomDraft((current) => ({ ...current, [key]: value }))}
+        />
       </form>
     </Dialog>
   );

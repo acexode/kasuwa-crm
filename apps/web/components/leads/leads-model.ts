@@ -1,4 +1,5 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
+import { customErrorId, type CustomFilters } from '../../lib/custom-values-model';
 import type { Account } from '../../lib/accounts-api';
 import {
   LeadSort,
@@ -181,6 +182,8 @@ export function nameAriaSort(sort: LeadSort): 'ascending' | 'descending' | 'none
 export interface LeadView {
   readonly filters: LeadFilterState;
   readonly sort: LeadSort;
+  /** Custom-field filters (T-0091); absent while the feature is off. */
+  readonly custom?: CustomFilters;
 }
 
 export const DEFAULT_LEAD_VIEW: LeadView = { filters: NO_LEAD_FILTERS, sort: '-createdAt' };
@@ -203,6 +206,7 @@ function base(q: string, view: LeadView): LeadListQuery {
     ...(trimmed === '' ? {} : { q: trimmed }),
     ...(filters.owner.length > 0 ? { owner: filters.owner } : {}),
     ...(source.length > 0 ? { source } : {}),
+    ...(view.custom === undefined ? {} : { custom: view.custom }),
     sort: view.sort,
   };
 }
@@ -380,6 +384,8 @@ export function convertRefusal(error: RecordsError, mode: ConvertMode): MessageI
  * caller's filter to remove, so it has its own sentence.
  */
 export function leadListError(error: RecordsError | null): MessageId {
+  const refusedCustom = customErrorId(error);
+  if (refusedCustom !== null) return refusedCustom;
   if (error?.details?.some((detail) => detail.code === 'field_withheld' && detail.path === 'status') === true) {
     return 'leads.error.statusWithheld';
   }

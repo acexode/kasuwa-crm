@@ -5,11 +5,13 @@ import { PipelineScreen } from '../../../components/pipeline/pipeline-screen';
 import { PIPELINE_MESSAGE_IDS } from '../../../components/pipeline/message-ids';
 import {
   crmAccountsEnabled,
+  crmCustomFieldsEnabled,
   crmLiveNav,
   crmPipelineEnabled,
   crmRecordViewEnabled,
   crmRecordsEnabled,
 } from '../../../lib/feature-flags';
+import { withCustomMessages } from '../../../components/custom/message-ids';
 import { withSearchMessages } from '../../../components/search/message-ids';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
@@ -53,16 +55,18 @@ export default async function PipelineBoardPage({ params }: { params: Promise<{ 
     crmAccountsEnabled(),
     crmRecordViewEnabled(),
   ]);
+  const customFields = await crmCustomFieldsEnabled();
 
   return (
     <PipelineScreen
       key={pipelineId}
       pipelineId={pipelineId}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(PIPELINE_MESSAGE_IDS, live))}
+      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(PIPELINE_MESSAGE_IDS, customFields), live))}
       locales={languageOptions(locale)}
       live={live}
       links={{ contacts: recordView && records, accounts: recordView && accounts }}
+      customFields={customFields}
     />
   );
 }

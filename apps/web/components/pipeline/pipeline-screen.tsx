@@ -89,6 +89,7 @@ export function PipelineScreen({
   locales,
   live,
   links,
+  customFields = false,
 }: {
   pipelineId: string;
   locale: string;
@@ -97,6 +98,8 @@ export function PipelineScreen({
   live: readonly string[];
   /** Whether `/contacts/[id]` and `/accounts/[id]` answer in this process: a summary links only then. */
   links: RecordLinks;
+  /** Custom values are on in this process (read by the server page, T-0091): the list view offers the custom filters. */
+  customFields?: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const online = useOnline();
@@ -426,6 +429,7 @@ export function PipelineScreen({
             filtered={filtersActive({ ...filterState, q: debouncedQ })}
             online={online}
             nonce={listNonce}
+            customFields={customFields}
           />
         ) : empty ? (
           <div data-testid="board-empty" className="flex flex-col items-start gap-3 rounded-lg border border-border bg-surface p-6">

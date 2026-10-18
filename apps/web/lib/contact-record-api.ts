@@ -165,6 +165,8 @@ export interface ActivityDraft {
   readonly body?: string;
   /** UTC, with a `Z`. Tasks only. */
   readonly dueAt?: string;
+  /** Custom-field values (T-0091): the filled ones only, on a create. */
+  readonly custom?: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -228,7 +230,9 @@ async function call<T>(
     return parsed.success ? { ok: true, value: parsed.data } : { ok: false, error: NETWORK_FAILURE };
   }
   const parsed = ApiError.safeParse(payload);
-  return { ok: false, error: parsed.success ? { code: parsed.data.code } : NETWORK_FAILURE };
+  if (!parsed.success) return { ok: false, error: NETWORK_FAILURE };
+  const { code, details } = parsed.data;
+  return { ok: false, error: { code, ...(details === undefined ? {} : { details }) } };
 }
 
 function contactPath(id: string): string {
@@ -263,8 +267,8 @@ export function listContactTimeline(
 }
 
 /** `createActivity`'s body: empty text is left out, never sent as `""` (minLength 1). */
-export function createActivityBody(activity: NewActivity): Record<string, string> {
-  const body: Record<string, string> =
+export function createActivityBody(activity: NewActivity): Record<string, unknown> {
+  const body: Record<string, unknown> =
     activity.contactId === undefined
       ? { type: activity.type, accountId: activity.accountId }
       : { type: activity.type, contactId: activity.contactId };
@@ -273,6 +277,7 @@ export function createActivityBody(activity: NewActivity): Record<string, string
   if (subject !== '') body.subject = subject;
   if (text !== '') body.body = text;
   if (activity.type === 'task' && activity.dueAt !== undefined) body.dueAt = activity.dueAt;
+  if (activity.custom !== undefined && Object.keys(activity.custom).length > 0) body.custom = activity.custom;
   return body;
 }
 

@@ -1622,5 +1622,19 @@
   "admin.studio.custom.discard.title": "A fita ba tare da adanawa ba?",
   "admin.studio.custom.discard.body": "Ba a adana canje-canjenka a wannan fili ba.",
   "admin.studio.custom.discard.confirm": "Fita ba tare da adanawa ba",
-  "admin.studio.custom.discard.keep": "Ci gaba da gyara"
+  "admin.studio.custom.discard.keep": "Ci gaba da gyara",
+  "custom.section.title": "Filayen keɓaɓɓu",
+  "custom.noValue": "Babu komai",
+  "custom.boolean.true": "Eh",
+  "custom.boolean.false": "A’a",
+  "custom.readOnly": "Ba za ka iya canza wannan fili ba.",
+  "custom.currencyHint": "Adadi a {currency}, misali 1250.50",
+  "custom.filter.any": "{field}: kowanne",
+  "custom.filter.isEmpty": "Babu komai a ciki",
+  "custom.filter.group": "Matatun filayen keɓaɓɓu",
+  "custom.error.invalid_value": "Ɗaya daga cikin ƙimar filayenka na keɓaɓɓu bai dace ba. Duba shi ka sake gwadawa.",
+  "custom.error.custom_too_large": "Filayen keɓaɓɓu suna ɗauke da rubutu mai yawa. Rage ƙima ɗaya ka sake gwadawa.",
+  "custom.error.unknown_field": "Ɗaya daga cikin filayen keɓaɓɓu ba ya nan kuma. Sake ɗauka shafin ka sake gwadawa.",
+  "custom.error.field_not_editable": "Matsayinka ba zai iya canza wannan fili ba. An kulle shi a wannan fom.",
+  "custom.error.field_withheld": "Ba za ka iya tace ta filin keɓaɓɓu da matsayinka ba zai iya gani ba."
 }

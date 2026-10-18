@@ -6,6 +6,19 @@ import { Icon } from '../icon';
 import { Dialog } from '../admin/dialog';
 import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from '../auth/button-classes';
 import { LockedValue } from '../records/list-parts';
+import {
+  CUSTOM_INVALID,
+  customErrorId,
+  customPatch,
+  draftOfCustom,
+  isCustomWithheld,
+  notEditableKeys,
+  rebaseCustomDraft,
+  type CustomDraft,
+} from '../../lib/custom-values-model';
+import type { CustomField } from '../../lib/custom-values-api';
+import { CustomInputs } from '../custom/custom-inputs';
+import type { CustomContext } from '../custom/use-custom-fields';
 import { AccountTier, createAccount, updateAccount, type Account, type MyProgramme } from '../../lib/accounts-api';
 import type { RecordsError } from '../../lib/records-api';
 import {
@@ -50,6 +63,9 @@ import {
  *     second press does nothing.
  */
 
+const NO_KEYS: ReadonlySet<string> = new Set();
+const NO_FIELDS: readonly CustomField[] = [];
+
 export type SheetMode = { readonly kind: 'create' } | { readonly kind: 'edit'; readonly row: Account };
 
 interface Programmes {
@@ -74,6 +90,7 @@ export function AccountSheet({
   onClose,
   onSaved,
   onRefused,
+  custom,
 }: {
   t: Translator;
   mode: SheetMode;
@@ -83,6 +100,8 @@ export function AccountSheet({
   onSaved: (row: Account) => void;
   /** A save was refused; the sheet has already said why and kept the form. */
   onRefused?: (error: RecordsError) => void;
+  /** The account's custom-field definitions (T-0091), on the record's edit only. */
+  custom?: CustomContext;
 }) {
   const served = mode.kind === 'edit' ? mode.row : null;
   // The row the form is seeded from: the person's edits are the form's difference from it.
@@ -95,11 +114,27 @@ export function AccountSheet({
   const formRef = useRef<HTMLFormElement>(null);
   const formId = useId();
   const locked = lockedFormFields(row);
+  const fields = mode.kind === 'edit' ? (custom?.fields ?? NO_FIELDS) : NO_FIELDS;
+  const [customDraft, setCustomDraft] = useState<CustomDraft>(() => draftOfCustom(fields, served?.custom));
+  const [customInvalid, setCustomInvalid] = useState<readonly string[]>([]);
+  // Never sent: a key withheld on THIS record, or one the API has said is read-only (C4, C10).
+  const skip = new Set([
+    ...(custom?.readOnly ?? []),
+    ...fields.filter((field) => isCustomWithheld(row?.withheldFields ?? [], field.apiName)).map((field) => field.apiName),
+  ]);
+  const changed = customPatch(fields, row?.custom, customDraft, skip);
+
+  // The definitions arrive after the sheet may have opened: seed the untouched keys from the record.
+  useEffect(() => {
+    setCustomDraft((typed) => rebaseCustomDraft(fields, undefined, row?.custom, typed));
+    // Only a change of the definitions re-seeds.
+  }, [fields]);
 
   // A fresher row arrived (a re-read after a 409): rebase the edits onto it.
   useEffect(() => {
     if (served === null || row === null || served.version === row.version) return;
     const rebased = rebaseAccountForm(row, served, form);
+    setCustomDraft((typed) => rebaseCustomDraft(fields, row.custom, served.custom, typed));
     setRow(served);
     setForm(rebased.form);
     setConflicts((held) => [...new Set([...held.filter((field) => rebased.edited.includes(field)), ...rebased.conflicts])]);
@@ -128,10 +163,16 @@ export function AccountSheet({
       return;
     }
     setErrors({});
+    setCustomInvalid(changed.invalid);
+    if (changed.invalid.length > 0) {
+      setRefusal(CUSTOM_INVALID);
+      return;
+    }
 
     let body = null;
     if (row !== null) {
-      body = editBody(row, form, checked.values);
+      const standard = editBody(row, form, checked.values);
+      body = changed.patch === null ? standard : { ...(standard ?? { version: row.version }), custom: changed.patch };
       if (body === null) {
         onClose();
         return;
@@ -147,7 +188,8 @@ export function AccountSheet({
       return;
     }
     setBusy(false);
-    setRefusal(refusalMessage(result.error));
+    custom?.markReadOnly(notEditableKeys(result.error));
+    setRefusal(customErrorId(result.error) ?? refusalMessage(result.error));
     onRefused?.(result.error);
   };
 
@@ -251,6 +293,17 @@ export function AccountSheet({
           {text('state', 'accounts.filter.state')}
           {text('lga', 'accounts.filter.lga')}
         </div>
+
+        <CustomInputs
+          t={t}
+          fields={fields}
+          draft={customDraft}
+          withheldFields={row?.withheldFields ?? []}
+          readOnly={custom?.readOnly ?? NO_KEYS}
+          disabled={busy}
+          invalid={customInvalid}
+          onChange={(key, value) => setCustomDraft((current) => ({ ...current, [key]: value }))}
+        />
 
         {refusal === null ? null : (
           <p role="alert" className="flex items-start gap-2 rounded-md bg-danger-soft p-3 text-body-sm text-danger-text">

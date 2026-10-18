@@ -7,6 +7,9 @@ import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from '../auth/button-classes';
 import type { RecordsError, RecordsResult } from '../../lib/records-api';
 import type { Activity, ActivityDraft, ActivityType } from '../../lib/contact-record-api';
 import { localToUtc, writeErrorId } from './record-core';
+import { CUSTOM_INVALID, customErrorId, customValues, notEditableKeys, type CustomDraft } from '../../lib/custom-values-model';
+import { CustomInputs } from '../custom/custom-inputs';
+import { useCustomFields } from '../custom/use-custom-fields';
 
 /**
  * Log a note, a task or a call against the record on screen (D-P18): the
@@ -32,6 +35,7 @@ export function ActivityForm({
   onSave,
   onClose,
   refusal,
+  customFields = false,
 }: {
   t: Translator;
   type: ActivityType;
@@ -40,12 +44,17 @@ export function ActivityForm({
   onClose: (saved: boolean) => void;
   /** A record's own copy for a refusal it can name more exactly (the deal's refused link); `null` keeps the form's. */
   refusal?: (error: RecordsError) => MessageId | null;
+  /** Custom values are on in this process (read by the server page): offer the activity's own fields (T-0091). */
+  customFields?: boolean;
 }) {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [due, setDue] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<MessageId | null>(null);
+  const custom = useCustomFields('activity', customFields);
+  const [customDraft, setCustomDraft] = useState<CustomDraft>({});
+  const [customInvalid, setCustomInvalid] = useState<readonly string[]>([]);
   const subjectRef = useRef<HTMLInputElement>(null);
   const ids = { title: useId(), subject: useId(), body: useId(), due: useId(), hint: useId() };
 
@@ -67,14 +76,29 @@ export function ActivityForm({
       }
       dueAt = utc;
     }
+    // A create carries the filled values only: never a null, never an empty key.
+    const values = customValues(custom.fields, customDraft, custom.readOnly);
+    setCustomInvalid(values.invalid);
+    if (values.invalid.length > 0) {
+      setError(CUSTOM_INVALID);
+      return;
+    }
     setSaving(true);
     setError(null);
-    const result = await onSave({ type, subject, body, ...(dueAt === undefined ? {} : { dueAt }) });
+    const result = await onSave({
+      type,
+      subject,
+      body,
+      ...(dueAt === undefined ? {} : { dueAt }),
+      ...(values.patch === null ? {} : { custom: values.patch }),
+    });
     setSaving(false);
     if (result.ok) {
       onClose(true);
     } else {
-      setError(refusal?.(result.error) ?? writeErrorId(result.error.code));
+      const refused = customErrorId(result.error);
+      if (refused !== null) custom.markReadOnly(notEditableKeys(result.error));
+      setError(refused ?? refusal?.(result.error) ?? writeErrorId(result.error.code));
     }
   };
 
@@ -139,6 +163,15 @@ export function ActivityForm({
           />
         </div>
       ) : null}
+      <CustomInputs
+        t={t}
+        fields={custom.fields}
+        draft={customDraft}
+        readOnly={custom.readOnly}
+        disabled={saving}
+        invalid={customInvalid}
+        onChange={(key, value) => setCustomDraft((current) => ({ ...current, [key]: value }))}
+      />
       <p id={ids.hint} className="text-caption text-text-muted">
         {t.t('record.form.hint')}
       </p>

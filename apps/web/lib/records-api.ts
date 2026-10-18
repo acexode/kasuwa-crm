@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { appendCustomFilters, type CustomFilters } from './custom-values-model';
 
 /**
  * The browser's half of `docs/api/records.openapi.yaml` — `listContacts`, the
@@ -79,6 +80,8 @@ export const Contact = z.object({
   whatsappOptIn: z.boolean().optional(),
   consentState: ConsentState.optional(),
   phoneNetwork: z.string().nullable().optional(),
+  /** Custom-field values (T-0091): withheld keys are absent and listed in `withheldFields` as `custom.<key>`. */
+  custom: z.record(z.string(), z.unknown()).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   withheldFields: z.array(z.string()),
@@ -154,6 +157,8 @@ export interface ContactListQuery {
   readonly source?: readonly ContactSource[];
   readonly dnd?: boolean;
   readonly whatsappOptIn?: boolean;
+  /** Custom-field filters (T-0091): picklist and boolean equality, and "is empty". */
+  readonly custom?: CustomFilters;
   readonly cursor?: string;
   readonly limit?: number;
 }
@@ -170,6 +175,7 @@ export function contactListSearch(query: ContactListQuery): string {
   for (const value of query.source ?? []) params.append('source', value);
   if (query.dnd !== undefined) params.set('dnd', String(query.dnd));
   if (query.whatsappOptIn !== undefined) params.set('whatsappOptIn', String(query.whatsappOptIn));
+  appendCustomFilters(params, query.custom);
   if (query.cursor !== undefined) params.set('cursor', query.cursor);
   if (query.limit !== undefined) params.set('limit', String(query.limit));
   const search = params.toString();

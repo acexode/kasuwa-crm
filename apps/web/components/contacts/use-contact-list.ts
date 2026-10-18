@@ -1,7 +1,7 @@
 'use client';
 
 import { listContacts, type Contact } from '../../lib/records-api';
-import { toListQuery, type FilterState } from './contacts-model';
+import { toListQuery, type ContactView } from './contacts-model';
 import { useKeysetList, type KeysetList } from '../records/use-keyset-list';
 
 /**
@@ -11,13 +11,13 @@ import { useKeysetList, type KeysetList } from '../records/use-keyset-list';
  * live. The view is the filter state; contacts have no sort control.
  */
 
-export type ContactList = KeysetList<Contact, FilterState>;
+export type ContactList = KeysetList<Contact, ContactView>;
 
 /** Module-level, so the list's effect sees one stable function. */
-function fetchContacts(q: string, filters: FilterState, cursor?: string) {
-  return listContacts(toListQuery(q, filters, cursor));
+function fetchContacts(q: string, view: ContactView, cursor?: string) {
+  return listContacts(toListQuery(q, view.filters, cursor, view.custom));
 }
 
-export function useContactList(q: string, filters: FilterState): ContactList {
-  return useKeysetList(q, filters, fetchContacts);
+export function useContactList(q: string, view: ContactView): ContactList {
+  return useKeysetList(q, view, fetchContacts);
 }

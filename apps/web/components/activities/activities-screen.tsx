@@ -76,12 +76,15 @@ export function ActivitiesScreen({
   messages,
   locales,
   live,
+  customFields = false,
 }: {
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
   /** Nav ids whose route is on here (`crmLiveNav()`), for the shell's links. */
   live: readonly string[];
+  /** Custom values are on in this process (read by the server page): the composer offers the activity's fields (T-0091). */
+  customFields?: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const data = useActivities();
@@ -247,7 +250,7 @@ export function ActivitiesScreen({
         )}
       </div>
 
-      {composing ? <ActivityComposer t={t} offline={offline} whoAmI={data.whoAmI} onSave={compose} onClose={() => setComposing(false)} /> : null}
+      {composing ? <ActivityComposer t={t} offline={offline} whoAmI={data.whoAmI} onSave={compose} onClose={() => setComposing(false)} customFields={customFields} /> : null}
       {rescheduling === null ? null : (
         <RescheduleForm
           t={t}

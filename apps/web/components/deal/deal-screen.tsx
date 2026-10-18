@@ -23,6 +23,8 @@ import {
 } from '../record/record-states';
 import { RecordTimeline, type TimelineVocabulary } from '../record/record-timeline';
 import { useOnline } from '../script-builder/use-online';
+import { CustomValuesPanel } from '../custom/custom-values';
+import { useCustomFields, type CustomContext } from '../custom/use-custom-fields';
 import { withheld, type MoveDealBody, type Pipeline } from '../../lib/pipelines-api';
 import {
   DEAL_TIMELINE_FIELDS,
@@ -130,6 +132,7 @@ export function DealScreen({
   locales,
   live,
   links,
+  customFields = false,
 }: {
   dealId: string;
   locale: string;
@@ -138,10 +141,13 @@ export function DealScreen({
   live: readonly string[];
   /** Whether `/contacts/[id]` and `/accounts/[id]` answer in this process: a summary links only then. */
   links: RecordLinks;
+  /** Custom values are on in this process (read by the server page, T-0091): draw, edit and log them. */
+  customFields?: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const online = useOnline();
   const model = useDealDetail(dealId);
+  const custom = useCustomFields('deal', customFields);
 
   return (
     <CrmShell t={t} locale={locale} locales={locales} current="deals" live={live}>
@@ -173,6 +179,8 @@ export function DealScreen({
             pipeline={model.pipeline}
             online={online}
             links={links}
+            custom={custom}
+            customFields={customFields}
           />
         ) : null}
       </div>
@@ -190,6 +198,8 @@ function Ready({
   pipeline,
   online,
   links,
+  custom,
+  customFields,
 }: {
   t: Translator;
   locale: string;
@@ -198,6 +208,10 @@ function Ready({
   pipeline: Pipeline;
   online: boolean;
   links: RecordLinks;
+  /** The deal's custom-field definitions and what this session has been told is read-only (T-0091). */
+  custom: CustomContext;
+  /** The custom-fields flag, for the activity form's own definitions. */
+  customFields: boolean;
 }) {
   const [moving, setMoving] = useState(false);
   const [prompt, setPrompt] = useState<PromptState<DealDetail> | null>(null);
@@ -503,6 +517,8 @@ function Ready({
           {announcement}
         </p>
 
+        <CustomValuesPanel t={t} locale={locale} fields={custom.fields} custom={deal.custom} withheldFields={deal.withheldFields} />
+
         <div className="grid min-w-0 items-start gap-4 md:grid-cols-3">
           <div className="flex min-w-0 flex-col gap-4">
             <section aria-labelledby={headings.fields} className={PANEL}>
@@ -652,6 +668,7 @@ function Ready({
                 onSave={log}
                 onClose={closeLog}
                 refusal={composerRefusal}
+                customFields={customFields}
               />
             )}
             <RecordTimeline
@@ -707,6 +724,7 @@ function Ready({
           t={t}
           deal={deal}
           online={online}
+          custom={custom}
           names={{
             primaryContactId: deal.contact?.displayName ?? '',
             accountId: deal.account?.name ?? '',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
@@ -8,6 +8,9 @@ import type { LanguageOption } from '../auth/language-menu';
 import { PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { isWithheld, type Contact } from '../../lib/records-api';
 import { dropQueryFromAddressBar } from '../../lib/search-query';
+import { NO_CUSTOM_FILTERS, customErrorId, setCustomFilter, type CustomFilters } from '../../lib/custom-values-model';
+import { CustomFilterBar } from '../custom/custom-filters';
+import { useCustomFields } from '../custom/use-custom-fields';
 import {
   ColumnChooser,
   FilterOptions,
@@ -81,6 +84,7 @@ export function ContactsScreen({
   locales,
   live,
   initialQ,
+  customFields = false,
 }: {
   locale: string;
   messages: MessageBundle;
@@ -92,6 +96,8 @@ export function ContactsScreen({
    * checked to be a name on the server (`nameFromUrl`): the first search.
    */
   initialQ?: string;
+  /** Custom values are on in this process (read by the server page, T-0091): offer the custom filters. */
+  customFields?: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const [q, setQ] = useState(initialQ ?? '');
@@ -105,9 +111,15 @@ export function ContactsScreen({
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
   const searchId = useId();
-  const list = useContactList(q, filters);
+  const custom = useCustomFields('contact', customFields);
+  const [customFilters, setCustomFilters] = useState<CustomFilters>(NO_CUSTOM_FILTERS);
+  const view = useMemo(() => ({ filters, custom: customFilters }), [filters, customFilters]);
+  const list = useContactList(q, view);
 
-  const searched = list.answered.q.trim() !== '' || activeFilterKeys(list.answered.view).length > 0;
+  const searched =
+    list.answered.q.trim() !== '' ||
+    activeFilterKeys(list.answered.view.filters).length > 0 ||
+    Object.keys(list.answered.view.custom).length > 0;
   const state = listState({ phase: list.phase, rowCount: list.rows.length, searching: searched });
   const locked = lockedColumns(list.rows);
   const visibleColumns = COLUMNS.filter((column) => !hidden.includes(column.key));
@@ -148,6 +160,7 @@ export function ContactsScreen({
   const clearAll = () => {
     setQ('');
     setFilters(NO_FILTERS);
+    setCustomFilters(NO_CUSTOM_FILTERS);
   };
 
   const offline = !list.online;
@@ -271,6 +284,13 @@ export function ContactsScreen({
           </div>
         </div>
 
+        <CustomFilterBar
+          t={t}
+          fields={custom.fields}
+          filters={customFilters}
+          onChange={(key, value) => setCustomFilters((current) => setCustomFilter(current, key, value))}
+        />
+
         <Body
           t={t}
           state={state}
@@ -278,7 +298,7 @@ export function ContactsScreen({
           rows={list.rows}
           columns={visibleColumns.map((column) => column.key)}
           locked={locked}
-          answered={list.answered}
+          answered={{ q: list.answered.q, view: list.answered.view.filters }}
           offline={offline}
           onClear={clearAll}
         />
@@ -479,7 +499,7 @@ function Body({
       <ListError
         t={t}
         heading="records.error.title"
-        message={`records.error.${code}` as MessageId}
+        message={customErrorId(list.error) ?? (`records.error.${code}` as MessageId)}
         code={code}
         offline={offline}
         onRetry={list.reload}

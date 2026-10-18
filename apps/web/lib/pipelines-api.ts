@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { appendCustomFilters, type CustomFilters } from './custom-values-model';
 
 /**
  * The browser's half of the pipelines and deals operations in
@@ -118,6 +119,8 @@ export const Deal = z.object({
   accountId: z.string().nullable().optional(),
   account: z.object({ id: z.string(), name: z.string() }).nullable().optional(),
   nextStep: z.string().nullable().optional(),
+  /** Custom-field values (T-0091): withheld keys are absent and listed in `withheldFields` as `custom.<key>`. */
+  custom: z.record(z.string(), z.unknown()).optional(),
   stageEnteredAt: z.string(),
   closedAt: z.string().nullable(),
   rotting: DealRotting.nullable(),
@@ -255,6 +258,8 @@ export interface DealFilters {
   readonly closeTo: string;
   /** A UTC date-time with a `Z`, or `null` for the server's default window. */
   readonly closedSince: string | null;
+  /** Custom-field filters (T-0091), on the LIST read only: the board read never carries one. */
+  readonly custom?: CustomFilters;
 }
 
 /** `q`'s `maxLength`. */
@@ -293,6 +298,7 @@ export const DEFAULT_DEAL_SORT: DealSort = '-updatedAt';
 
 export function listDeals(id: string, filters: DealFilters, sort: DealSort, cursor?: string): Promise<PipelineResult<DealPage>> {
   const params = filterParams(filters);
+  appendCustomFilters(params, filters.custom);
   if (sort !== DEFAULT_DEAL_SORT) params.set('sort', sort);
   if (cursor !== undefined) params.set('cursor', cursor);
   return pipelineRequest(withSearch(`${pipelinePath(id)}/deals`, params), DealPage);
