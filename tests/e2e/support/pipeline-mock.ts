@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { TENANT_A } from '@kasuwa/db';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-fields-mock';
 
 /**
  * The P06 half of `docs/api/records.openapi.yaml`: `listPipelines`,
@@ -132,6 +133,16 @@ import { TENANT_A } from '@kasuwa/db';
  *     (through the API) after the screen first read it. The server judges
  *     moves against the NEW configuration from the start; getPipeline serves
  *     the old one on the first read and the new one on every read after.
+ *
+ * CUSTOM FIELDS (T-0091, lead edit). `listCustomFields` is one of the
+ * operations above, answered by `custom-fields-mock.ts`. With no
+ * `customFields` option it lists nothing and no deal carries `custom`, so the
+ * T-0109 and T-0110 journeys are unchanged. With one, every Deal this mock
+ * serves (board cards, list rows, getDeal, writes) carries its projected
+ * `custom` and `custom.<key>` paths (the board's top-level `withheldFields`
+ * is unchanged, D-L141), and listDeals checks and applies the `custom[<key>]`
+ * and `customEmpty` filters there. The board declares neither filter, so a
+ * board read carrying one is still a violation.
  * ---------------------------------------------------------------------------
  */
 
@@ -1264,6 +1275,8 @@ export interface PipelineMockOptions {
   readonly requirementDrift?: boolean;
   /** The server removed Qualified → Discovery from the allow-list after the screen's first getPipeline. */
   readonly transitionDrift?: boolean;
+  /** Custom-field definitions, values and field security (T-0091). Absent: no definitions. */
+  readonly customFields?: CustomFieldsSetup;
 }
 
 export interface RecordedWrite {
@@ -1296,6 +1309,8 @@ export interface PipelineMock {
   readonly store: StoredDeal[];
   /** Every cursor the mock issued. */
   issuedCursors(): string[];
+  /** The custom-field half (T-0091): definition reads and stored values. */
+  readonly custom: CustomFieldsServer;
   release(): void;
   releaseWrites(): void;
 }
@@ -1350,6 +1365,7 @@ export async function installPipelineMock(page: Page, options: PipelineMockOptio
   const violations: string[] = [];
   const mockFaults: string[] = [];
   const plantedFaults: string[] = [];
+  const custom = new CustomFieldsServer(options.customFields, violations);
   /** Versions served per deal: a move must name one of them. */
   const servedVersions = new Map<string, Set<number>>();
   /** The row as served, per deal and version: "sent unchanged" is judged against it. */
@@ -1414,7 +1430,8 @@ export async function installPipelineMock(page: Page, options: PipelineMockOptio
     const rows = servedRows.get(row.id) ?? new Map<number, StoredDeal>();
     rows.set(row.version, clone(row));
     servedRows.set(row.id, rows);
-    return asDeal(row, config ?? serverConfig(pipelineOf(row.pipelineId)));
+    const out = asDeal(row, config ?? serverConfig(pipelineOf(row.pipelineId))) as Json & { withheldFields: string[] };
+    return custom.decorate(out, 'deal', row.id, pipelineOf(row.pipelineId).programmeId);
   };
 
   const checkHeaders = (request: Request, label: string): void => {
@@ -1638,7 +1655,10 @@ export async function installPipelineMock(page: Page, options: PipelineMockOptio
     const pipeline = resolvePipeline(route, rawId, 'listDeals');
     if (pipeline === undefined) return;
     const config = serverConfig(pipeline);
-    const problems = checkQuery(url, parameterNames('listDeals'), arrayParameters('listDeals'), 'listDeals', 100);
+    // T-0091: the custom-field filters are checked by the custom half; the rest as declared.
+    const plain = new URL(url.toString());
+    plain.search = CustomFieldsServer.withoutFilters(url.searchParams).toString();
+    const problems = checkQuery(plain, parameterNames('listDeals'), arrayParameters('listDeals'), 'listDeals', 100);
     const sort = url.searchParams.get('sort') ?? '-updatedAt';
     if (!SORT_KEYS.includes(sort)) problems.push(`sort=${sort} is not one of ${SORT_KEYS.join(', ')}`);
     if (problems.length > 0) {
@@ -1647,6 +1667,12 @@ export async function installPipelineMock(page: Page, options: PipelineMockOptio
     }
     const refused = checkFilters(url, pipeline, 'listDeals');
     if (refused !== null) return answer(route, 'listDeals', 400, refused);
+    const customRefused = custom.checkFilters('deal', url.searchParams, [PROGRAMME_ONE.id, PROGRAMME_TWO.id], `listDeals ${url.search}`);
+    if (customRefused !== undefined) return answer(route, 'listDeals', customRefused.status, customRefused.body);
+    const customKey = [...url.searchParams.entries()]
+      .filter(([name]) => name === 'customEmpty' || name.startsWith('custom['))
+      .map(([name, value]) => `${name}=${value}`)
+      .sort();
     const stageIds = url.searchParams.getAll('stageId');
     for (const stageId of stageIds) {
       if (stageIn(config, stageId) === undefined) {
@@ -1655,8 +1681,10 @@ export async function installPipelineMock(page: Page, options: PipelineMockOptio
       }
     }
     const filters = filtersOf(url);
-    const key = JSON.stringify({ filters: filtersKey(filters), stageIds: [...stageIds].sort(), sort });
-    const rows = listRows(store, pipeline.id, filters, stageIds, sort);
+    const key = JSON.stringify({ filters: filtersKey(filters), stageIds: [...stageIds].sort(), sort, custom: customKey });
+    const rows = listRows(store, pipeline.id, filters, stageIds, sort).filter((row) =>
+      custom.matches('deal', row.id, pipelineOf(row.pipelineId).programmeId, url.searchParams),
+    );
     let start = 0;
     const cursor = url.searchParams.get('cursor');
     if (cursor !== null) {
@@ -1719,6 +1747,9 @@ export async function installPipelineMock(page: Page, options: PipelineMockOptio
       return reply(400, validation([{ path: 'amount.currency', code: 'unknown_currency' }]));
     }
     if (typeof body.name === 'string' && body.name.trim() === '') problems.push('name is blank');
+    // T-0091: `custom` on a create carries values only, checked for the deal object.
+    const customAnswer = custom.checkCreate('deal', pipeline.programmeId, body.custom, 'createDeal');
+    if (customAnswer !== undefined) return reply(customAnswer.status, customAnswer.body);
     if (problems.length > 0) {
       violations.push(...problems.map((problem) => `createDeal: ${problem}`));
       return reply(400, validation(problems.map(() => ({ path: 'body', code: 'invalid_string' }))));
@@ -1747,6 +1778,7 @@ export async function installPipelineMock(page: Page, options: PipelineMockOptio
       updatedAt: when,
     };
     store.push(row);
+    custom.storeCreated(row.id, body.custom);
     return reply(201, serve(row));
   };
 
@@ -2010,6 +2042,7 @@ export async function installPipelineMock(page: Page, options: PipelineMockOptio
       if (url.pathname === PROGRAMMES_PATH && method === 'GET') {
         return answer(route, 'listMyProgrammes', 200, { data: [clone(PROGRAMME_ONE), clone(PROGRAMME_TWO)] });
       }
+      if (url.pathname === CUSTOM_FIELDS_PATH && method === 'GET') return custom.answerList(route);
       if (url.pathname === PIPELINES_PATH && method === 'GET') return listPipelines(route, url);
       const pipelineMatch = /^\/api\/v1\/pipelines\/([^/]+)(\/board|\/deals)?$/.exec(url.pathname);
       if (pipelineMatch !== null) {
@@ -2050,6 +2083,7 @@ export async function installPipelineMock(page: Page, options: PipelineMockOptio
     plantedFaults,
     store,
     issuedCursors: () => [...issued],
+    custom,
     release: () => release(),
     releaseWrites: () => releaseWrites(),
   };

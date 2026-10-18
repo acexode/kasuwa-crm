@@ -124,7 +124,8 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
   [SPEC]: '764fe62ac2db767c8b59f1a614d7f870dec872df9c712b2d6f4fba106a510ba4',
   // T-0080: the mock's activity items carry `version`, as the contract now requires.
   // T-0082 (D-L97): the mock's activity items and bodies carry `startsAt` and `endsAt`.
-  [MOCK]: 'c9786c1303ff540c4e74f09a3f6ee0b39b060848733023d8b3d7734db612da1a',
+  // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and merges `custom`.
+  [MOCK]: 'f1d564c4c40f9a8f7c6da7ceeaac8b4b0c6841d30f837433a9d1f8267955e2ce',
 };
 
 /** See the budget test in the spec for the derivation. Never above this. */

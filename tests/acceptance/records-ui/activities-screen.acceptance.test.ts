@@ -147,7 +147,8 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   // D-L118: the two budget journeys no longer fix the clock (it hid first-contentful-paint).
   [SPEC]: '690f0f111a2d452c7a023f0f44fa8489377d9d38d17b561fe711ee47bb440282',
-  [MOCK]: '19594703182b6950c79dae00b25ecd40e9d4c0c763b96f251e7b000da6108457',
+  // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and checks a create's `custom`.
+  [MOCK]: 'c530763dea23724842f083e1acd076079f6d69ef498045f0bdd8342be6a3d651',
 };
 
 /** Provisional (see the budget test in the spec). Never above this. */

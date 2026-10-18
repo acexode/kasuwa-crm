@@ -2,6 +2,7 @@ import type { Page, Request, Route } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-fields-mock';
 
 /**
  * The records API (`listContacts`), as `docs/api/records.openapi.yaml`
@@ -38,6 +39,13 @@ import { parse } from 'yaml';
  *   - No request header names a programme. Scope never travels from a client.
  *   - A cursor is echoed back exactly as served and only with the same `q`,
  *     filters and `sort` that produced it (the contract's Cursor parameter).
+ *
+ * CUSTOM FIELDS (T-0091, lead edit): `listCustomFields` is answered here too,
+ * by `custom-fields-mock.ts`, because the screen reads its definitions with the
+ * custom-fields flag on. With no `customFields` option the list is EMPTY and
+ * the rows carry no `custom`, so the T-0042 journeys see the screen unchanged.
+ * With one, rows carry their projected `custom` and `custom.<key>` paths, and
+ * the `custom[<key>]` and `customEmpty` filters are checked and applied there.
  *
  * PAGING: AT MOST TWO ROWS PER PAGE, WHATEVER `limit` SAYS
  *
@@ -399,6 +407,8 @@ export interface RecordsMockOptions {
   readonly hold?: boolean;
   /** Abort every list request, as a dropped connection does. */
   readonly networkFailure?: boolean;
+  /** Custom-field definitions, values and field security (T-0091). Absent: no definitions. */
+  readonly customFields?: CustomFieldsSetup;
 }
 
 export interface RecordsMock {
@@ -412,6 +422,8 @@ export interface RecordsMock {
   release(): void;
   /** The query of the last `listContacts` request. */
   last(): URLSearchParams;
+  /** The custom-field half (T-0091): definition reads and stored values. */
+  readonly custom: CustomFieldsServer;
 }
 
 export function isListContacts(request: Request): boolean {
@@ -431,11 +443,24 @@ export async function installRecordsMock(
   const requests: URL[] = [];
   const otherCalls: string[] = [];
   const violations: string[] = [];
+  const custom = new CustomFieldsServer(options.customFields, violations);
+  const programmeIds = [...new Set(Object.values(DATASETS).flatMap((rows) => rows.map((row) => row.programmeId)))];
   /** cursor -> the query it was served for */
   const issued = new Map<string, string>();
 
   let release: () => void = () => undefined;
   const gate = options.hold === true ? new Promise<void>((done) => (release = done)) : Promise.resolve();
+
+  await page.route(
+    (url) => url.pathname === CUSTOM_FIELDS_PATH,
+    async (route) => {
+      if (route.request().method() !== 'GET') {
+        violations.push(`${route.request().method()} ${CUSTOM_FIELDS_PATH} is not an operation the list uses`);
+        return fulfil(route, 404, errorExample('NotFound'));
+      }
+      return custom.answerList(route);
+    },
+  );
 
   await page.route(
     (url) => url.pathname === '/api/v1/contacts' || url.pathname.startsWith('/api/v1/contacts/'),
@@ -462,16 +487,24 @@ export async function installRecordsMock(
       }
 
       const params = url.searchParams;
-      const problems = validate(params);
+      // T-0091: the custom-field filters are checked by the custom half; the rest as declared.
+      const problems = validate(CustomFieldsServer.withoutFilters(params));
       if (problems.length > 0) {
         violations.push(...problems.map((problem) => `${url.search}: ${problem}`));
         const body = errorExample('ValidationFailed', 'badField');
         body.details = problems.map(() => ({ path: 'query', code: 'invalid_string' }));
         return fulfil(route, 400, body);
       }
+      const refused = custom.checkFilters('contact', params, programmeIds, `listContacts ${url.search}`);
+      if (refused !== undefined) {
+        return fulfil(route, refused.status, refused.body);
+      }
 
       const matching = dataset.filter(
-        (row) => matchesQuery(row, params.get('q') ?? '') && matchesFilters(row, params),
+        (row) =>
+          matchesQuery(row, params.get('q') ?? '') &&
+          matchesFilters(row, params) &&
+          custom.matches('contact', row.id, row.programmeId, params),
       );
 
       const cursor = params.get('cursor');
@@ -497,7 +530,10 @@ export async function installRecordsMock(
       if (nextCursor !== null) {
         issued.set(nextCursor, queryKey(params));
       }
-      return fulfil(route, 200, { data: clone(data), nextCursor });
+      return fulfil(route, 200, {
+        data: clone(data).map((row) => custom.decorate(row, 'contact', row.id, row.programmeId)),
+        nextCursor,
+      });
     },
   );
 
@@ -505,6 +541,7 @@ export async function installRecordsMock(
     requests,
     otherCalls,
     violations,
+    custom,
     release: () => release(),
     last: () => {
       const latest = requests.at(-1);

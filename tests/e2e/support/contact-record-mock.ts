@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { TENANT_A } from '@kasuwa/db';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-fields-mock';
 
 /**
  * The contact record half of `docs/api/records.openapi.yaml` — `getContact`,
@@ -88,6 +89,15 @@ import { TENANT_A } from '@kasuwa/db';
  *   - Writes apply: updateContact advances `version` and adds the items the
  *     real audit trail would; createActivity adds an activity item at the
  *     top; completing a task changes its item in place and adds none.
+ *
+ * CUSTOM FIELDS (T-0091, lead edit). `listCustomFields` is one of the
+ * operations above, answered by `custom-fields-mock.ts`; with no
+ * `customFields` option it lists nothing and no row carries `custom`, so the
+ * T-0062 journeys see the record unchanged. With one, getContact and every
+ * write answer carry the projected `custom` and its `custom.<key>` paths,
+ * updateContact's `custom` is checked and merged per key there (after the
+ * 403s above, before the 400s and the 409), and createActivity's `custom` is
+ * checked and stored for the activity object.
  * ---------------------------------------------------------------------------
  */
 
@@ -821,6 +831,8 @@ export interface ContactRecordMockOptions {
   readonly holdWrites?: boolean;
   /** Answer every otherwise-valid contact write with this refusal. */
   readonly refuse?: 'not_permitted' | 'stale_write';
+  /** Custom-field definitions, values and field security (T-0091). Absent: no definitions. */
+  readonly customFields?: CustomFieldsSetup;
 }
 
 export interface RecordedWrite {
@@ -846,6 +858,8 @@ export interface ContactRecordMock {
   readonly contacts: Map<string, ContactRow>;
   /** The timelines as they now stand. */
   readonly timelines: Map<string, TimelineItem[]>;
+  /** The custom-field half (T-0091): definition reads, custom writes and stored values. */
+  readonly custom: CustomFieldsServer;
   release(): void;
   releaseWrites(): void;
 }
@@ -965,6 +979,7 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
   const writes: RecordedWrite[] = [];
   const meCalls: string[] = [];
   const violations: string[] = [];
+  const custom = new CustomFieldsServer(options.customFields, violations);
   /** Contacts the screen has been served (a 200 from getContact or updateContact). */
   const servedContacts = new Set<string>();
   /** cursor -> the contact it was served for, and the last item id of its page */
@@ -997,7 +1012,7 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
 
   const served = (row: ContactRow): ContactRow => {
     servedContacts.add(row.id);
-    return clone(row);
+    return custom.decorate(clone(row), 'contact', row.id, row.programmeId);
   };
 
   const addItems = (contactId: string, items: TimelineItem[]): void => {
@@ -1113,6 +1128,11 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
       forbidden.details = notEditable.map((path) => ({ path, code: 'field_not_editable' }));
       return fulfil(route, 403, forbidden);
     }
+    // T-0091: `custom` is a per-key merge, checked by the custom half (its own 403s, then 400s).
+    const customAnswer = 'custom' in body ? custom.checkPatch('contact', id, row.programmeId, body.custom, 'updateContact') : undefined;
+    if (customAnswer !== undefined) {
+      return fulfil(route, customAnswer.status, customAnswer.body);
+    }
     if (problems.length > 0) {
       return fulfil(route, 400, validation(problems.map(() => ({ path: 'body', code: 'invalid_string' }))));
     }
@@ -1138,7 +1158,9 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
       }
     });
     for (const key of fields) {
-      if (key === 'ownerUserId') {
+      if (key === 'custom') {
+        custom.applyPatch('contact', id, body.custom as Json);
+      } else if (key === 'ownerUserId') {
         const owner = MEMBERS.find((member) => member.id === body.ownerUserId) ?? null;
         Object.assign(row, ownedBy(owner));
       } else {
@@ -1161,6 +1183,7 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
     for (const field of withheld) {
       delete copy[field];
     }
+    custom.decorate(copy as Json & { withheldFields: string[] }, 'activity', String(state.activity.id), programmeId);
     const problems = validateBody(copy, ACTIVITY_SCHEMA, 'activity');
     if (problems.length > 0) {
       throw new Error(`the mock built an Activity the contract rejects: ${problems.join('; ')}`);
@@ -1199,6 +1222,11 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
     const owner = body.ownerUserId;
     if (role === 'reader' || (role === 'claimer' && typeof owner === 'string' && owner !== ME.id)) {
       return fulfil(route, 403, errorExample('NotPermitted', 'action'));
+    }
+    // T-0091: `custom` on a create carries values only, checked for the activity object.
+    const customAnswer = custom.checkCreate('activity', row.programmeId, body.custom, 'createActivity');
+    if (customAnswer !== undefined) {
+      return fulfil(route, customAnswer.status, customAnswer.body);
     }
     if (problems.length > 0) {
       return fulfil(route, 400, validation(problems.map(() => ({ path: 'body', code: 'invalid_string' }))));
@@ -1243,6 +1271,7 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
       },
     };
     activities.set(activityId, state);
+    custom.storeCreated(activityId, body.custom);
     const withheld = ACTIVITY_WITHHELD[row.programmeId] ?? [];
     const item: TimelineItem = {
       id: state.itemId,
@@ -1342,6 +1371,9 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
       if (url.pathname === PROGRAMMES_PATH && method === 'GET') {
         return fulfil(route, 200, { data: [clone(PROGRAMME_ONE), clone(PROGRAMME_TWO)] });
       }
+      if (url.pathname === CUSTOM_FIELDS_PATH && method === 'GET') {
+        return custom.answerList(route);
+      }
       const contact = /^\/api\/v1\/contacts\/([^/]+)(\/timeline)?$/.exec(url.pathname);
       if (contact !== null) {
         const id = decodeURIComponent(contact[1] ?? '');
@@ -1370,6 +1402,7 @@ export async function installContactRecordMock(page: Page, options: ContactRecor
     violations,
     contacts,
     timelines,
+    custom,
     release: () => release(),
     releaseWrites: () => releaseWrites(),
   };

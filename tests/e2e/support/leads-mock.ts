@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { TENANT_A } from '@kasuwa/db';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-fields-mock';
 
 /**
  * The leads half of `docs/api/records.openapi.yaml` — `listLeads`,
@@ -1004,6 +1005,15 @@ export interface LeadsMockOptions {
    * exact-repeat rule.
    */
   readonly loseConvertResponse?: boolean;
+  /**
+   * Custom-field definitions, values and field security (T-0091, lead edit),
+   * served by `custom-fields-mock.ts`: listCustomFields (the contact object),
+   * the projected `custom` and `custom.<key>` paths on every served lead, and
+   * the `custom[<key>]` and `customEmpty` filters, checked and applied there
+   * in place of this file's own pattern-only check. Absent: listCustomFields
+   * lists nothing and the T-0058 journeys are unchanged.
+   */
+  readonly customFields?: CustomFieldsSetup;
 }
 
 export interface RecordedWrite {
@@ -1030,6 +1040,8 @@ export interface LeadsMock {
   repeats(): number;
   /** Every cursor this mock has served. */
   issuedCursors(): string[];
+  /** The custom-field half (T-0091): definition reads and stored values. */
+  readonly custom: CustomFieldsServer;
   release(): void;
   releaseWrites(): void;
 }
@@ -1092,6 +1104,7 @@ export async function installLeadsMock(page: Page, options: LeadsMockOptions = {
   const converts: RecordedWrite[] = [];
   const violations: string[] = [];
   const createdAccounts: AccountRow[] = [];
+  const custom = new CustomFieldsServer(options.customFields, violations);
 
   /** The version of each contact the screen was LAST served, by any read or write. */
   const servedVersion = new Map<string, number>();
@@ -1112,7 +1125,7 @@ export async function installLeadsMock(page: Page, options: LeadsMockOptions = {
 
   const serve = (row: ContactRow): ContactRow => {
     servedVersion.set(row.id, row.version);
-    return clone(row);
+    return custom.decorate(clone(row), 'contact', row.id, row.programmeId);
   };
 
   const serveAccount = (account: AccountRow): AccountRow => {
@@ -1156,7 +1169,8 @@ export async function installLeadsMock(page: Page, options: LeadsMockOptions = {
     // T-0088 (lead edit, D-L138): the custom-field filters are checked on their own; the rest as declared.
     const problems = [
       ...validateQuery(withoutCustomFilters(params), LIST_PARAMETERS, 'listLeads'),
-      ...customFilterProblems(params),
+      // T-0091 (lead edit): with a custom-field setup the custom half checks them, below.
+      ...(custom.configured ? [] : customFilterProblems(params)),
     ];
     if (problems.length > 0) {
       violations.push(...problems.map((problem) => `${url.search}: ${problem}`));
@@ -1180,10 +1194,18 @@ export async function installLeadsMock(page: Page, options: LeadsMockOptions = {
     if (refused.length > 0) {
       return fulfil(route, 400, validation(refused));
     }
+    if (custom.configured) {
+      const customRefused = custom.checkFilters('contact', params, programmes.map((programme) => programme.id), `listLeads ${url.search}`);
+      if (customRefused !== undefined) {
+        return fulfil(route, customRefused.status, customRefused.body);
+      }
+    }
+    const customMatch = (row: ContactRow): boolean =>
+      custom.configured ? custom.matches('contact', row.id, row.programmeId, params) : matchesCustom(row, params);
 
     const matching = sortRows(
       rows.filter(
-        (row) => isLead(row) && matchesQuery(row, params.get('q')) && matchesFilters(row, params) && matchesCustom(row, params),
+        (row) => isLead(row) && matchesQuery(row, params.get('q')) && matchesFilters(row, params) && customMatch(row),
       ),
       params.get('sort') ?? '-createdAt',
     );
@@ -1435,6 +1457,19 @@ export async function installLeadsMock(page: Page, options: LeadsMockOptions = {
   );
 
   await page.route(
+    (url) => url.pathname === CUSTOM_FIELDS_PATH,
+    async (route) => {
+      const request = route.request();
+      checkHeaders(request, 'listCustomFields');
+      if (request.method() !== 'GET') {
+        violations.push(`${request.method()} ${CUSTOM_FIELDS_PATH} is not an operation the Leads screen uses`);
+        return fulfil(route, 404, errorExample('NotFound'));
+      }
+      return custom.answerList(route);
+    },
+  );
+
+  await page.route(
     (url) =>
       url.pathname.startsWith(LEADS_PATH) || url.pathname.startsWith(CONTACTS_PATH) || url.pathname.startsWith(ACCOUNTS_PATH),
     async (route) => {
@@ -1491,6 +1526,7 @@ export async function installLeadsMock(page: Page, options: LeadsMockOptions = {
     createdAccounts,
     repeats: () => repeatCount,
     issuedCursors: () => [...issued.keys()],
+    custom,
     release: () => release(),
     releaseWrites: () => releaseWrites(),
   };
