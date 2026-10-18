@@ -3261,3 +3261,28 @@ of T-0125 proceeds on these answers unless @acexode objects.
   7. **The e2e split:** specs that inject headers run on test and stub web processes. One real-browser journey runs on
      the production process with no headers. Byte budgets keep measuring the processes they measure today.
   8. **The shared stub and scope header constants** live in `@kasuwa/config`.
+
+### D-L150 — T-0092 suite rulings; T-0093 build note (lead, 2026-10-18)
+**Status:** PROCEEDING (lead).
+- **T-0092 suite** (`lead/T-0092-acceptance`, a62e3f5; 112 tests against real SeaweedFS 3.80 and Postgres). Its rulings
+  R1–R12 are accepted:
+  - `fileId` is `stored_object.id`, and the database enforces the key shape;
+  - store methods refuse keys they did not mint;
+  - `stored_object` has no filename column (the filename lives on the import job and is erased per D-L148);
+  - the repository never carries key text;
+  - `deleted` is terminal;
+  - a URL is issued only for a `pending` row;
+  - `webEnv` refuses `S3_ENDPOINT`;
+  - `deletePrefix` also aborts in-flight multipart uploads;
+  - dev CORS is set by the gateway flag.
+- **SeaweedFS facts, pinned:**
+  - a signed `content-length` makes the bucket refuse a wrong-size part (403);
+  - URLs expire and edited URLs are refused;
+  - complete verifies the object with `head` and rejects a short object;
+  - SeaweedFS has no per-bucket CORS;
+  - it revives aborted uploads from still-live URLs, so only completion verification stops orphan objects in dev;
+  - its error XML names the key path, so SDK errors must be wrapped.
+- **There is no web CSP today.** ADR-0019's build adds a nonce CSP with `connect-src 'self'`. The storage origin joins it
+  when uploads ship (T-0096).
+- **T-0093 build:** an erased import's saved `mapping` is cleared together with `headers` and `filename` (D-L148). The
+  four new `Error.code` values get `records.error.*` i18n keys in T-0096 and T-0097.
