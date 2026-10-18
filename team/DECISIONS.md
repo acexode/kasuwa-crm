@@ -3469,3 +3469,30 @@ minor findings. All are to be fixed before merge.
   - no `as unknown as` cast;
   - `data-record-text` on tenant labels.
 - **Lead edit:** search-mock answers `listCustomFields` with an empty list, and is re-pinned.
+
+### D-L160 — T-0094 suite rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The suites are on `lead/T-0094-acceptance` (490bb87): import-api has 62 tests and
+import-isolation has 20. Interfaces A–F and rulings R1–R16 and I1–I6 are accepted. These include:
+- a part plan of min(4, ceil(size / 5 MiB));
+- resume keeps the same multipart upload;
+- the upload id is stored and never returned;
+- reads need `contact.import` (404 without it);
+- batches of at most 1,000 rows, sequential;
+- no spelling of a grant ever grants;
+- every created contact is audited with the creator as actor;
+- field security is re-checked at run time;
+- duplicates are checked within the programme and against earlier rows of the same file;
+- trunk-0 phone normalisation for NG, GH, KE and ZA.
+- **Losing scope.** A trigger on `user_programme` deletion (the 0031 pattern) marks that creator's queued, running and
+  awaiting imports in that programme `failed`, and clears `headers`, `filename` and `mapping`. Erasure therefore never
+  depends on the creator's scope.
+- **Retention also starts at upload completion** (7 days). It reschedules if the job is still running. An import left
+  in `awaiting_mapping` becomes `expired`, with its data cleared.
+- **Contract defect.** `ImportRowError.row` max becomes 100002, so it can hold the `too_many_rows` row. Fixed in T-0094.
+- **Duplicate matching** uses only phone and email fields the importer can read in that programme. Import is admin-only
+  (D-L151), so the residual risk is accepted.
+- **T-0093 R1** flips to implemented in a lead edit.
+- **Builder notes:**
+  - share the contact audit writer through a domain package, so the worker uses the same code path;
+  - a follow-up migration adds `UNIQUE (tenant_id, programme_id, id)` on `stored_object` for the composite FK.
+- **The two long-running tests** (100,000 rows) are routed to the Windows verification runner.
