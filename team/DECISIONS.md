@@ -3155,3 +3155,45 @@ passed with findings, with no critical finding. All three found the same major i
   - parse instead of casting the type select.
 - **Noted:** `listCustomFields` is unpaginated (500 definitions at most). If the admin transport ever uses cookies,
   bodyless POSTs need a CSRF control; today it uses a bearer token.
+
+### D-L146 — import, dedupe and notification task files; gap rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). Task files T-0092 to T-0101 are written from ADR-0017, ADR-0018, D-L128, D-P12, D-P27,
+D-P28 and D-P29.
+- **Raw import files (ADR-0017 "sweeper", D-L128 Q5).** A delayed BullMQ job per import deletes the raw file 7 days after
+  the job ends (24 hours after an abandoned upload), running as the initiating user (ADR-0018 Q2's identity rule). A bucket
+  lifecycle rule backs it up: object tag `kasuwa-purpose=import`, expire at 8 days, and abort incomplete multipart uploads
+  at 1 day. This way erasure never depends on the user still existing. A `head` 404 reconciles `stored_object` to
+  `deleted`. No new role.
+- **The D-P27 30-day hard delete and snapshot purge is deferred** to one follow-up task with its own identity ruling.
+  `kasuwa_sweeper` is confined to the auth tables (db invariant 8). The purge must ship before the first cell holds
+  customer data (D-L65); no populated cell exists today.
+- **Duplicate matching** is exact E.164 phone or lower-cased email within one programme, found by a scoped scan (no GIN,
+  D-P33). It is held to the T-0084 latency budget at the 120k seed. If that fails, escalate rather than add a table.
+- **Two tables are approved under CLAUDE.md section 8:**
+  - `contact_merge` (T-0095), on D-P12 and D-P27;
+  - `notification` (T-0100), on ADR-0018 point 8 and D-P29.
+- **Undo never loosens a compliance field** on the survivor (D-P28).
+- **Notification retention:** read notifications are kept 90 days. Their purge joins the deferred purge follow-up.
+- **`csv-parse` is justified in T-0094's PR,** where it is used, not T-0092's.
+- **Scope cuts accepted:**
+  - in-app notifications only (D-P29);
+  - no dry run, preview or bad-rows download (D-L128 Q6);
+  - mapping reuse through `fromImportId`, with no template table;
+  - contacts-only import;
+  - pairwise, contacts-only merge, with the merges history as the Phase 2 recycle bin;
+  - exact matching only;
+  - no `presignDownload` until the export centre.
+  - The per-contact import links (`contact.import_job_id`, `importId` filter) stay.
+- **The P28 design is overruled where it conflicts:**
+  - 4 upload parts within 25 MiB;
+  - most restrictive compliance wins (D-P28), not most recent;
+  - no name-plus-date-of-birth matching (D-P12);
+  - no bad-rows download;
+  - 25 MiB, not 100 MB.
+- **Order:**
+  - Step 0: one lead registry PR (flags `crm_import`, `crm_duplicates`, `crm_notifications`, the `run-e2e.mjs` flags
+    line, the `contact.import` right, the nav entries);
+  - wave 1: T-0092, T-0093, T-0098;
+  - wave 2: T-0094, T-0099, T-0096, T-0095;
+  - wave 3: T-0100, T-0097, T-0101.
+  - Migration numbers are assigned in merge order, from 0040.

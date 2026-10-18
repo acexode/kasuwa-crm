@@ -1135,6 +1135,12 @@ test.describe('the console on a 256 kbps link', () => {
    * build every route above measured within a few hundred bytes of the figure
    * beside it.
    * ---------------------------------------------------------------------------
+   *
+   * RE-PINNED (lead, T-0090, D-L145): the scripts tab measured 265,405 B on
+   * main (515daaa) and 265,986 B with the T-0090 admin shell, plus a bimodal
+   * late `not-found` chunk of about 525 B, against 266,000. Re-pinned to
+   * 270,000: the largest thousand within this block's ~2% of the 265,405 B
+   * floor (1.02 x 265,405 = 270,713), 1.5% over the worse mode.
    */
   const BYTE_BUDGETS: readonly { readonly label: string; readonly path: string; readonly budget: number }[] = [
     { label: 'P02/A admin home', path: '/admin', budget: 224_000 },
@@ -1145,7 +1151,7 @@ test.describe('the console on a 256 kbps link', () => {
     {
       label: 'P02/B6 the scripts tab',
       path: '/admin/programmes/11111111-0000-4000-8000-0000000c0001?tab=scripts',
-      budget: 266_000,
+      budget: 270_000,
     },
   ];
 

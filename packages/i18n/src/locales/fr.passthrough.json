@@ -74,5 +74,8 @@
   "record.language.yo",
   "activities.related.contact",
   "activities.compose.type",
-  "scripting.builder.fieldType.date"
+  "scripting.builder.fieldType.date",
+  "admin.studio.custom.type.date",
+  "admin.studio.custom.form.type",
+  "admin.studio.custom.form.classification"
 ]

@@ -345,6 +345,15 @@
     "scripting.builder.publish.title": "Pidgin is English-lexified; this is the ordinary Pidgin wording.",
     "scripting.builder.fieldType.money": "Pidgin is English-lexified; this is the ordinary Pidgin wording.",
     "search.group.contact": "A loanword this locale uses unchanged for a CRM record type, as in the navigation.",
-    "search.group.deal": "A loanword this locale uses unchanged for a CRM record type, as in the navigation."
+    "search.group.deal": "A loanword this locale uses unchanged for a CRM record type, as in the navigation.",
+    "admin.studio.custom.object.contact": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.studio.custom.object.account": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.studio.custom.object.activity": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.studio.custom.object.deal": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.studio.custom.type.number": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.studio.custom.type.date": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.studio.custom.form.label": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.studio.custom.form.apiName": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.studio.custom.form.classification": "A product name, abbreviation or loanword the admin console uses unchanged in this locale."
   }
 }
