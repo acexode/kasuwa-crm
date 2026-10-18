@@ -4,6 +4,8 @@ export * from './default-pipeline';
 export * from './fixtures';
 export * from './ids';
 export * from './migrate';
+export * from './outbox';
+export * from './outbox-events';
 export * from './permission-set-catalogue';
 export * from './pool';
 export * from './schema';

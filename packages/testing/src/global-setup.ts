@@ -4,8 +4,10 @@ import { startTestStack, type TestStack } from './containers';
 /**
  * Vitest globalSetup for the integration and isolation projects.
  *
- * One container pair per run, shared by every test file via `inject()`.
- * Starting a Postgres container per file would take longer than the tests.
+ * One Postgres and one Redis container per run, shared by every test file via
+ * `inject()`. Starting a container per file would take longer than the tests.
+ * Redis is here since T-0098: the outbox suite runs the real worker against
+ * it (`redisUrl`), and a Redis container costs a few megabytes.
  *
  * Tests that write must call `reseed(inject('migrationUrl'))` afterwards; most
  * of the isolation suite reads only, and `withForcedScope` always rolls back.
@@ -14,9 +16,11 @@ import { startTestStack, type TestStack } from './containers';
 let stack: TestStack | undefined;
 
 export async function setup(project: TestProject): Promise<void> {
-  stack = await startTestStack({ seed: true, redis: false });
+  stack = await startTestStack({ seed: true, redis: true });
   project.provide('databaseUrl', stack.databaseUrl);
   project.provide('authDatabaseUrl', stack.authDatabaseUrl);
+  project.provide('relayDatabaseUrl', stack.relayDatabaseUrl);
+  project.provide('redisUrl', stack.redisUrl);
   project.provide('migrationUrl', stack.migrationUrl);
   project.provide('testAdminUrl', stack.testAdminUrl);
 }

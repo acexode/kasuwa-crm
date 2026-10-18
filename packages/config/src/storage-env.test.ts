@@ -100,12 +100,14 @@ describe('the SSE rule in the API and worker schemas', () => {
     DATABASE_URL: 'postgres://u:p@db.example:5432/k',
     DATABASE_AUTH_URL: 'postgres://u:p@db.example:5432/k',
   };
+  // The worker requires its relay connection (T-0098); the API refuses it.
+  const worker = { ...server, DATABASE_RELAY_URL: 'postgres://u:p@db.example:5432/k' };
 
   it('accepts off in development and refuses an invalid mode', () => {
     expect(() => apiEnv({ ...server, S3_SSE_MODE: 'off' })).not.toThrow();
-    expect(() => workerEnv({ ...server, S3_SSE_MODE: 'off' })).not.toThrow();
+    expect(() => workerEnv({ ...worker, S3_SSE_MODE: 'off' })).not.toThrow();
     expect(messageOf(() => apiEnv({ ...server, S3_SSE_MODE: 'aws:kms' }))).toContain('S3_SSE_MODE');
-    expect(messageOf(() => workerEnv({ ...server, S3_SSE_MODE: 'aws:kms' }))).toContain('S3_SSE_MODE');
+    expect(messageOf(() => workerEnv({ ...worker, S3_SSE_MODE: 'aws:kms' }))).toContain('S3_SSE_MODE');
   });
 });
 

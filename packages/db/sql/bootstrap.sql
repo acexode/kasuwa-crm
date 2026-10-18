@@ -17,10 +17,11 @@
 -- Run as the superuser. Idempotent: an existing role is left alone, so a
 -- role created first by provisioning keeps its secrets-manager password.
 --
--- The three passwords below are DEVELOPMENT ONLY, and outside development
+-- The four passwords below are DEVELOPMENT ONLY, and outside development
 -- and test the migration runner, the API and the worker refuse a connection
 -- that would use one (D-L94). Real environments create kasuwa_migrator,
--- kasuwa_app and kasuwa_auth with secrets-manager passwords BEFORE applying
+-- kasuwa_app, kasuwa_auth and kasuwa_relay with secrets-manager passwords
+-- BEFORE applying
 -- this file; see team/DECISIONS.md D-L07 and
 -- docs/adr/0002-pooled-tenancy-via-rls.md.
 --
@@ -48,6 +49,15 @@
 --                       and no role is a member of it, so kasuwa_app can never
 --                       SET ROLE to it. Its table grants are explicit, in
 --                       migrations: no default privilege ever names it.
+--   kasuwa_relay      - used only by apps/worker's outbox relay, through its
+--                       own pool (DATABASE_RELAY_URL; ADR-0018, T-0098).
+--                       NOBYPASSRLS. A member of no role, and no role is a
+--                       member of it (never granted to kasuwa_app). It holds
+--                       SELECT, DELETE and UPDATE on four publication columns
+--                       of outbox_event, granted in migration 0041, and
+--                       nothing else; its policies there admit only rows not
+--                       yet dispatched or already past retention. No default
+--                       privilege ever names it.
 -- ---------------------------------------------------------------------------
 
 DO $$
@@ -73,6 +83,9 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kasuwa_auth') THEN
     CREATE ROLE kasuwa_auth LOGIN PASSWORD 'kasuwa_auth_dev' NOBYPASSRLS;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kasuwa_relay') THEN
+    CREATE ROLE kasuwa_relay LOGIN PASSWORD 'kasuwa_relay_dev' NOBYPASSRLS;
+  END IF;
 END
 $$;
 
@@ -93,14 +106,21 @@ GRANT kasuwa_sweeper TO kasuwa_app WITH INHERIT FALSE, SET TRUE;
 -- No membership in either direction: the T-0049 suite asserts both.
 ALTER ROLE kasuwa_auth LOGIN NOBYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
 
+-- The relay is bounded by its own policies on outbox_event and by grants that
+-- name that one table (ADR-0018, T-0098). No membership in either direction:
+-- unlike the sweeper it is never granted to kasuwa_app, so no SET ROLE on an
+-- app connection reaches it. No default privilege below names it, and nothing
+-- here gives it USAGE on schema app. Migration 0041 asserts all of this.
+ALTER ROLE kasuwa_relay LOGIN NOBYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+
 REVOKE ALL ON DATABASE kasuwa FROM PUBLIC;
 
-GRANT CONNECT ON DATABASE kasuwa TO kasuwa_app, kasuwa_migrator, kasuwa_auth;
+GRANT CONNECT ON DATABASE kasuwa TO kasuwa_app, kasuwa_migrator, kasuwa_auth, kasuwa_relay;
 GRANT CREATE ON DATABASE kasuwa TO kasuwa_migrator;
 
 -- Postgres 15+ no longer grants CREATE on public to PUBLIC.
 GRANT USAGE, CREATE ON SCHEMA public TO kasuwa_migrator;
-GRANT USAGE ON SCHEMA public TO kasuwa_app, kasuwa_sweeper, kasuwa_auth;
+GRANT USAGE ON SCHEMA public TO kasuwa_app, kasuwa_sweeper, kasuwa_auth, kasuwa_relay;
 
 -- Everything the migrator creates is readable/writable by the app role, but the
 -- app role never owns anything and therefore can never ALTER ... DISABLE RLS.

@@ -336,6 +336,10 @@ function startApi(databaseUrl, authDatabaseUrl, port) {
       // kasuwa_auth: the only role that may write the auth tables (T-0049).
       // The API refuses to boot without it.
       DATABASE_AUTH_URL: authDatabaseUrl,
+      // The outbox relay's connection is the worker's alone (ADR-0018,
+      // D-L156), and the API refuses it by presence: never inherit one from
+      // the shell. This harness starts no worker.
+      DATABASE_RELAY_URL: undefined,
       API_PORT: String(port),
       LOG_LEVEL: 'error',
     },
@@ -362,6 +366,7 @@ const NO_DATABASE_URLS = {
   DATABASE_URL: undefined,
   DATABASE_MIGRATION_URL: undefined,
   DATABASE_AUTH_URL: undefined,
+  DATABASE_RELAY_URL: undefined,
   KASUWA_KMS_LOCAL_MASTER_KEY: undefined,
   S3_ACCESS_KEY_ID: undefined,
   S3_SECRET_ACCESS_KEY: undefined,

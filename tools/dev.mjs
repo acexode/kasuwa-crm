@@ -55,6 +55,57 @@ const HEALTH_POLL_MS = 2_000;
  */
 const DEV_PROCESS_ENV = { ...process.env, NODE_ENV: 'development' };
 
+/**
+ * The outbox relay's connection (ADR-0018, D-L156) belongs to the worker
+ * ALONE. The API, realtime, web and the operator commands refuse
+ * DATABASE_RELAY_URL by presence, and every server process loads the one
+ * shared `.env`, so it is never written there (nor to .env.example) and is
+ * removed from every other process's environment even if the developer's
+ * shell exports it. The worker is handed it here (`workerRelayUrl`).
+ */
+function withoutRelayUrl(env) {
+  const copy = { ...env };
+  delete copy.DATABASE_RELAY_URL;
+  return copy;
+}
+const SHARED_PROCESS_ENV = withoutRelayUrl(DEV_PROCESS_ENV);
+
+/**
+ * The worker's DATABASE_RELAY_URL: the shell's, if it sets one; otherwise the
+ * dev database that DATABASE_URL names (shell first, then `.env`), logged in
+ * as kasuwa_relay with its development password from bootstrap.sql, which
+ * `applyBootstrap` has just (re-)applied.
+ */
+function workerRelayUrl() {
+  if (process.env.DATABASE_RELAY_URL) {
+    return process.env.DATABASE_RELAY_URL;
+  }
+  const fromEnvFile = () => {
+    const envPath = resolve(root, '.env');
+    if (!existsSync(envPath)) return undefined;
+    const line = envLines(readFileSync(envPath, 'utf8')).get('DATABASE_URL');
+    return line?.slice('DATABASE_URL='.length).trim().replace(/^(['"])(.*)\1$/u, '$2');
+  };
+  let url;
+  try {
+    url = new URL(process.env.DATABASE_URL || fromEnvFile() || '');
+  } catch {
+    url = new URL('postgres://localhost:55432/kasuwa');
+  }
+  url.username = 'kasuwa_relay';
+  url.password = 'kasuwa_relay_dev';
+  return url.toString();
+}
+
+/** Each app's environment: the relay URL for the worker, and for nothing else. */
+function appEnv(name) {
+  if (name === 'worker') {
+    return { ...SHARED_PROCESS_ENV, DATABASE_RELAY_URL: workerRelayUrl() };
+  }
+  // `next dev` sets its own NODE_ENV, so the web process keeps the shell's.
+  return name === 'web' ? withoutRelayUrl(process.env) : SHARED_PROCESS_ENV;
+}
+
 const APPS = [
   { name: 'api', filter: '@kasuwa/api', colour: '[36m' },
   { name: 'web', filter: '@kasuwa/web', colour: '[35m' },
@@ -271,7 +322,7 @@ function startApps() {
   const children = APPS.map((app) => {
     const child = spawn('pnpm', ['--filter', app.filter, 'dev'], {
       cwd: root,
-      ...(app.name === 'web' ? {} : { env: DEV_PROCESS_ENV }),
+      env: appEnv(app.name),
       shell: process.platform === 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -323,9 +374,9 @@ async function main() {
   console.log('applying the role bootstrap...');
   applyBootstrap();
   console.log('migrating...');
-  run('pnpm', ['--filter', '@kasuwa/db', 'migrate'], { env: DEV_PROCESS_ENV });
+  run('pnpm', ['--filter', '@kasuwa/db', 'migrate'], { env: SHARED_PROCESS_ENV });
   console.log('seeding...');
-  run('pnpm', ['--filter', '@kasuwa/db', 'seed'], { env: DEV_PROCESS_ENV });
+  run('pnpm', ['--filter', '@kasuwa/db', 'seed'], { env: SHARED_PROCESS_ENV });
 
   console.log('\nstack is up:');
   console.log('  web       http://localhost:3000');

@@ -211,6 +211,14 @@ const WorkerSchema = z.object({
   DATABASE_URL: z.string().url(),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().max(200).default(2),
 
+  // kasuwa_relay: no BYPASSRLS, a member of no role (ADR-0018, T-0098). The
+  // outbox relay's own small pool, and the only connection in any process
+  // that reaches undispatched events across tenants, so it belongs to this
+  // process alone: every other schema refuses it by presence
+  // (RELAY_FORBIDDEN below). Required: without it no event is ever
+  // published. The worker checks at boot that it logs in as kasuwa_relay.
+  DATABASE_RELAY_URL: z.string().url(),
+
   // GUARDS: the worker holds a database connection now, so it runs the
   // key-provider guard as `apiEnv` does (the rule this comment used to state
   // for that day). Only the provider is read: no worker job encrypts or
@@ -292,6 +300,7 @@ const WEB_FORBIDDEN = [
   'DATABASE_URL',
   'DATABASE_MIGRATION_URL',
   'DATABASE_AUTH_URL',
+  'DATABASE_RELAY_URL',
   'KASUWA_KMS_LOCAL_MASTER_KEY',
   'S3_ACCESS_KEY_ID',
   'S3_SECRET_ACCESS_KEY',
@@ -301,6 +310,30 @@ const WEB_FORBIDDEN = [
   'REDIS_URL',
   'OPENSEARCH_URL',
 ];
+
+/**
+ * The relay's connection (ADR-0018 point 11, D-L156). Only the worker may
+ * hold it; the API, realtime and the operator commands refuse it by presence,
+ * as the web process does (WEB_FORBIDDEN). Presence is the test, so an empty
+ * value is refused too, and the value is never echoed. It also means the
+ * variable can never go into the shared `.env`, which every server process
+ * loads: `tools/dev.mjs` hands it to the worker alone.
+ */
+const RELAY_FORBIDDEN = ['DATABASE_RELAY_URL'];
+
+/**
+ * @param {string} processName
+ * @param {EnvSource} source
+ * @returns {string[]}
+ */
+function relayProblems(processName, source) {
+  return RELAY_FORBIDDEN.filter((name) => source[name] !== undefined).map(
+    (name) =>
+      `  ${name}: must not be set for the ${processName} process. It is the outbox relay's ` +
+      'cross-tenant connection and belongs to apps/worker alone (ADR-0018). Remove it from ' +
+      'this process environment.',
+  );
+}
 
 // --- parsing ---------------------------------------------------------------
 
@@ -362,7 +395,7 @@ function webProblems(source) {
  * @returns {ApiEnv}
  */
 export function apiEnv(source = process.env) {
-  const parsed = parseOrThrow('api', ApiSchema, source);
+  const parsed = parseOrThrow('api', ApiSchema, source, relayProblems('api', source));
   assertAuthModeIsSafe(parsed);
   assertKeyProviderIsSafe(parsed);
   assertThrottleIsNotACellWideCliff(parsed);
@@ -371,7 +404,8 @@ export function apiEnv(source = process.env) {
 
 /**
  * The BullMQ worker process. Requires `DATABASE_URL` (kasuwa_app) since
- * T-0045; runs the stub-auth and key-provider guards.
+ * T-0045 and `DATABASE_RELAY_URL` (kasuwa_relay) since T-0098; runs the
+ * stub-auth and key-provider guards.
  *
  * @param {EnvSource} [source]
  * @returns {WorkerEnv}
@@ -390,7 +424,7 @@ export function workerEnv(source = process.env) {
  * @returns {RealtimeEnv}
  */
 export function realtimeEnv(source = process.env) {
-  const parsed = parseOrThrow('realtime', RealtimeSchema, source);
+  const parsed = parseOrThrow('realtime', RealtimeSchema, source, relayProblems('realtime', source));
   assertAuthModeIsSafe(parsed);
   return parsed;
 }
@@ -402,7 +436,7 @@ export function realtimeEnv(source = process.env) {
  * @returns {MigratorEnv}
  */
 export function migratorEnv(source = process.env) {
-  const parsed = parseOrThrow('migrator', MigratorSchema, source);
+  const parsed = parseOrThrow('migrator', MigratorSchema, source, relayProblems('migrator', source));
   assertAuthModeIsSafe(parsed);
   return parsed;
 }

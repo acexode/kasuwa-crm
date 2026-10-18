@@ -37,6 +37,8 @@ const WORKER_PRODUCTION: EnvSource = {
   ...PRODUCTION,
   KASUWA_KMS_PROVIDER: 'aws-kms',
   DATABASE_URL: url('kasuwa_app', SECRET),
+  // Required since T-0098 (ADR-0018): the outbox relay's own connection.
+  DATABASE_RELAY_URL: url('kasuwa_relay', SECRET),
 };
 
 /**
@@ -352,6 +354,15 @@ describe('apiEnv and workerEnv refuse dev passwords and PG* outside development 
     expectNoSecret(message);
   });
 
+  it.each(DEV_DATABASE_PASSWORDS)('workerEnv refuses DATABASE_RELAY_URL carrying %s (T-0098)', (password) => {
+    const message = messageOf(() =>
+      workerEnv({ ...WORKER_PRODUCTION, DATABASE_RELAY_URL: url('kasuwa_relay', password) }),
+    );
+    expect(message).toContain('DATABASE_RELAY_URL');
+    expect(message).not.toContain('DATABASE_URL:');
+    expectNoSecret(message);
+  });
+
   it('workerEnv sees through ?password= and percent-encoding', () => {
     for (const databaseUrl of [
       url('kasuwa_app', SECRET, REMOTE, '?password=kasuwa_app_dev'),
@@ -399,6 +410,7 @@ describe('apiEnv and workerEnv refuse dev passwords and PG* outside development 
           NODE_ENV: nodeEnv,
           PGUSER: 'kasuwa_app',
           DATABASE_URL: url('kasuwa_app', 'kasuwa_app_dev', 'localhost'),
+          DATABASE_RELAY_URL: url('kasuwa_relay', 'kasuwa_relay_dev', 'localhost'),
         }),
       ).not.toThrow();
     }
