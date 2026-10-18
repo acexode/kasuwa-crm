@@ -182,10 +182,14 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *       counts; plan meters; currencies beyond the four; text length, number
  *       decimals and range, default values, help-text translations,
  *       "required on this layout", encrypted ID fields, the filterable meter.
- *   R24. Budget. STUDIO_BUDGET_BYTES is PROVISIONAL (262,000): the screen did
- *       not exist, so nothing was measured. The ceiling is 270,000. The suite
+ *       Read on the studio's own surfaces (its screen, form and dialog), not
+ *       the whole page: the P02 menu's unbuilt Customisation entries stay
+ *       aria-disabled and announced (lead edit, T-0090, D-L145).
+ *   R24. Budget. STUDIO_BUDGET_BYTES = 266,000, pinned by the lead (T-0090,
+ *       D-L145) from the builder's runs (259,164 and 259,660 bytes on the final
+ *       code; 259,876 and 260,023 earlier). The ceiling is 270,000. The suite
  *       requires the budget to be at least, and within 5% of, what each run
- *       measures (D-L118), so the lead pins it from the builder's runs.
+ *       measures (D-L118).
  *   R25. Live. One journey drives the real API through the studio: the seed's
  *       tenant administrator creates, relabels and retires a `none` deal
  *       field unique to the run, and an agent's create is refused 403.
@@ -270,9 +274,10 @@ const ROUTE_FILE = 'apps/web/app/admin/custom-fields/page.tsx';
  * re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  // Written with this suite (T-0090, before the build). Budget PROVISIONAL (R24).
-  [SPEC]: '3e3e67d6e3a0fb597b04a56015c698a0e3d26acf4fda494b85ec0b6ab58905d2',
-  [MOCK]: 'df0767983c96bf63f74d75605e1776798b3633877283490451f5f07034fcc64a',
+  // Lead re-pin (T-0090, D-L145): the mock serves the P02 home's three reads; @p18-studio-absent reads the
+  // studio's own surfaces, not the whole body; the budget is pinned at 266,000 (R24).
+  [SPEC]: '2b561359870951d45b5b0979dbefb085a0f89114b39391dab8479e748d29fee9',
+  [MOCK]: 'eedc52ce90be2c2ba09478daa4de7e885819419b2f0c31aa789383416d61fdd1',
 };
 
 /** Never above this (R24). */
