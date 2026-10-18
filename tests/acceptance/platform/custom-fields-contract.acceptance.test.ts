@@ -166,8 +166,12 @@ import { parse } from 'yaml';
  *       collection, and no restore. Retiring sets `retiredAt`, keeps the api
  *       name taken for ever (a new field can never reinterpret old values),
  *       drops the key from every read and refuses it on every write; a
- *       repeat retire answers 200 unchanged. Retired fields stay in the list
- *       with `retiredAt` set, so the studio can show which names are taken.
+ *       repeat retire answers 200 unchanged. AMENDED (lead edit, D-L140,
+ *       D-L141): listCustomFields lists ACTIVE fields only, unless
+ *       `includeRetired=true` (an optional boolean, default false), which
+ *       adds the retired ones with `retiredAt` set, so the studio can show
+ *       which names are taken. A retire is audited as `updated` with a
+ *       `retiredAt` change: there is no `retired` audit action (D-L141).
  *   R13 The TYPE IS IMMUTABLE (ADR-0016 item 9): UpdateCustomFieldRequest is
  *       closed and holds exactly `label`, `description`, `classification`,
  *       `addValues` and `relabelValues`. No `type`, `apiName`,
@@ -200,6 +204,14 @@ import { parse } from 'yaml';
  *       `409 limit_reached` / `picklist_limit_reached`. Retired fields do not
  *       count toward the 100 (with no purge, counting them would lock a
  *       tenant out for ever; the 32 KiB cap still bounds the row).
+ *       AMENDED (lead edit, D-L140, D-L141): CustomFieldLimits is exactly
+ *       `apiBytes` (const 16384, the API's limit on what the caller can see),
+ *       `bytesPerRecord` (const 32768, the database BACKSTOP),
+ *       `definitionsPerObject` (const 500, retired ones included),
+ *       `fieldsPerObject` (100) and `picklistValues` (500), all required.
+ *       The 500-value picklist limit is reported at `config.values` on
+ *       create (`invalid_config`) and at `addValues` on update
+ *       (`picklist_limit_reached`).
  *   R17 A field created `pii` or `sensitive` starts at `none` for every
  *       unlocked permission set until an admin grants it (D-L128 Q2); a
  *       `none` field starts at `edit` (D-L45); the locked admin set is
@@ -1480,9 +1492,15 @@ describe('acceptance: custom-field contract (T-0088)', () => {
       expect(anywhere.filter((op) => op.method === 'delete' || /delete|remove|restore|unretire/i.test(op.id)).map((op) => op.id)).toEqual([]);
     });
 
-    it('listCustomFields takes exactly one parameter: object, required, a CustomFieldObject (contact, account, activity, deal)', () => {
+    it('listCustomFields takes exactly object (required, a CustomFieldObject) and includeRetired (optional boolean, default false) (lead edit, D-L140, D-L141)', () => {
       const op = admOp('listCustomFields');
-      expect(op.params.map((p) => (isMapping(p.node) ? `${str(p.node.in)} ${str(p.node.name)} ${String(p.node.required)}` : ''))).toEqual(['query object true']);
+      expect(
+        op.params
+          .map((p) => (isMapping(p.node) ? `${str(p.node.in)} ${str(p.node.name)} ${String(p.node.required === true)}` : ''))
+          .sort(),
+      ).toEqual(['query includeRetired false', 'query object true']);
+      const includeRetired = paramSchema(op, 'includeRetired').node;
+      expect(isMapping(includeRetired) ? [includeRetired.type, includeRetired.default] : [], 'includeRetired').toEqual(['boolean', false]);
       expect(isSchema(paramSchema(op, 'object'), adm('CustomFieldObject'))).toBe(true);
       expect(enumOf(adm('CustomFieldObject')).map(str).sort()).toEqual(OBJECTS);
     });
@@ -1712,6 +1730,13 @@ describe('acceptance: custom-field contract (T-0088)', () => {
       expect(text).toMatch(/refused on (every )?writes?|dropped from (every )?reads?/i);
     });
 
+    it('a retire is audited as `updated` with a `retiredAt` change, never as a `retired` event (lead edit, D-L141)', () => {
+      const text = description(admOp('retireCustomField'));
+      expect(text).toMatch(/audited\W*as\W*`?updated`?/i);
+      expect(text).toMatch(/`?retiredAt`? change/);
+      expect(text, 'the description still promises a retired audit event').not.toMatch(/`retired` event|retired event/i);
+    });
+
     it('CustomFieldDefinition is closed with exactly its keys, all required; type is a CustomFieldType; retiredAt a nullable UTC date-time', () => {
       const schema = adm('CustomFieldDefinition');
       expect(isClosed(schema)).toBe(true);
@@ -1725,7 +1750,7 @@ describe('acceptance: custom-field contract (T-0088)', () => {
       expect(caseProblems(retired, [null, '2026-10-17T09:00:00.000Z'], ['2026-10-17', '2026-10-17T09:00:00+01:00'])).toEqual([]);
     });
 
-    it('listCustomFields answers a closed CustomFieldList: objectApiName, limits, items (retired included)', () => {
+    it('listCustomFields answers a closed CustomFieldList: objectApiName, limits, items (retired only with includeRetired=true)', () => {
       const list = responseSchema(admOp('listCustomFields'), '200');
       expect(list.node).toBe(adm('CustomFieldList').node);
       expect(isClosed(list)).toBe(true);
@@ -1734,11 +1759,13 @@ describe('acceptance: custom-field contract (T-0088)', () => {
       const items = properties(list).get('items');
       expect(items ? child(items, 'items')?.node : undefined).toBe(adm('CustomFieldDefinition').node);
       expect(description(admOp('listCustomFields'))).toMatch(/retired/i);
+      // Lead edit (D-L140, D-L141): the prose says retired fields need includeRetired.
+      expect(description(admOp('listCustomFields'))).toMatch(/includeRetired/);
     });
   });
 
   describe('admin: limits and errors (R16)', () => {
-    it('CustomFieldLimits: closed, fieldsPerObject 100, picklistValues 500, bytesPerRecord 32768 (D-L128 Q1)', () => {
+    it('CustomFieldLimits: closed, exactly apiBytes 16384, bytesPerRecord 32768 (the backstop), definitionsPerObject 500, fieldsPerObject 100, picklistValues 500, all required (D-L128 Q1; lead edit, D-L140, D-L141)', () => {
       const limits = adm('CustomFieldLimits');
       expect(isSchema(properties(adm('CustomFieldList')).get('limits'), limits)).toBe(true);
       expect(isClosed(limits)).toBe(true);
@@ -1747,11 +1774,35 @@ describe('acceptance: custom-field contract (T-0088)', () => {
         const node = props.get(key)?.node;
         return isMapping(node) ? (node.const ?? (Array.isArray(node.enum) && node.enum.length === 1 ? node.enum[0] : undefined)) : undefined;
       };
-      expect([constOf('fieldsPerObject'), constOf('picklistValues'), constOf('bytesPerRecord')]).toEqual([100, 500, 32768]);
-      expect(keysOf(limits)).toEqual(['bytesPerRecord', 'fieldsPerObject', 'picklistValues']);
-      expect(required(limits).sort()).toEqual(['bytesPerRecord', 'fieldsPerObject', 'picklistValues']);
-      expect(nodeDescription(limits)).toMatch(/32 KiB/);
-      expect(nodeDescription(limits)).toMatch(/retired/i);
+      const KEYS = ['apiBytes', 'bytesPerRecord', 'definitionsPerObject', 'fieldsPerObject', 'picklistValues'];
+      expect(KEYS.map(constOf)).toEqual([16384, 32768, 500, 100, 500]);
+      for (const key of KEYS) {
+        const node = props.get(key)?.node;
+        expect(isMapping(node) ? node.type : undefined, `${key} type`).toBe('integer');
+      }
+      expect(keysOf(limits)).toEqual(KEYS);
+      expect(required(limits).sort()).toEqual(KEYS);
+      const text = nodeDescription(limits);
+      expect(text).toMatch(/32 KiB/);
+      expect(text).toMatch(/16 KiB/);
+      expect(text).toMatch(/backstop/i);
+      expect(text).toMatch(/retired/i);
+      // definitionsPerObject counts retired fields; fieldsPerObject does not.
+      const definitions = nodeDescription(props.get('definitionsPerObject') ?? limits);
+      expect(`${definitions} ${text}`).toMatch(/definitionsPerObject[^.]*retired|retired[^.]*definitionsPerObject/i);
+    });
+
+    it('the 500-value picklist limit is at config.values on create and at addValues on update (lead edit, D-L141)', () => {
+      const create = description(admOp('createCustomField'));
+      expect(create).toMatch(/500[^.]*`config\.values`/);
+      const failed = responseIn(ADMIN, 'CustomFieldValidationFailed');
+      expect(detailPairs(exampleBodies(failed)), 'no 400 example of invalid_config at config.values').toContain('config.values invalid_config');
+      const update = description(admOp('updateCustomField'));
+      expect(update.replace(/\s+/g, ' ')).toMatch(/picklist_limit_reached`? at `addValues`/);
+      const conflict = responseIn(ADMIN, 'CustomFieldConflict');
+      const got = exampleBodies(conflict).flatMap((body) => detailsOf(body).map((detail) => `${str(detail.path)} ${str(detail.code)}`));
+      expect(got).toContain('addValues picklist_limit_reached');
+      expect(got.filter((entry) => entry.endsWith('picklist_limit_reached'))).toEqual(['addValues picklist_limit_reached']);
     });
 
     it('Error.code gains limit_reached', () => {
