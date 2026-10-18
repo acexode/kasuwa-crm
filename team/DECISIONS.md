@@ -3413,3 +3413,24 @@ outbox-forgery suites).
 - **`DATABASE_RELAY_URL` never goes into the shared `.env`,** because the API and migrator refuse it by presence. The dev
   tooling passes it to the worker only.
 - **For T-0100:** the consumer re-reads the aggregate within the event's programme.
+
+### D-L157 — T-0099 review rulings; T-0121 review (lead, 2026-10-18)
+**Status:** PROCEEDING (lead).
+- **T-0099** (merged as #144). The combined review passed with two major findings, both fixed in the contract:
+  - the unread count examines at most the 500 newest unread notifications and may undercount past that, so its work is
+    bounded;
+  - a nonexistent, another user's or another tenant's cursor all give the same empty page with `nextCursor: null`.
+- **T-0099 minor fixes:**
+  - a PATCH 404 changes nothing;
+  - `Retry-After` is required on the notifications and duplicates 429s;
+  - display names are user text, rendered as text only.
+- **For T-0100:**
+  - the notification RLS restricts reads to `recipient_user_id = app.current_user_id()`;
+  - the outbox consumer checks, as the recipient, that they can read the object, and skips the notification if not;
+  - the drop rule reuses each object's own read path, so merged-away contacts are dropped;
+  - the throttle allows for several visible windows.
+- **T-0121.** The combined review passed with three minor findings:
+  - the body-parser error handler now also requires `expose`;
+  - the middleware names are pinned;
+  - route-existence probing (a 401 versus a 404) predates this change, and the routes are public in the specs, so it is
+    accepted.
