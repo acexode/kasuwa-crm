@@ -6,6 +6,7 @@ export * from './timeline/record-timeline.repository';
 export * from './contact/contact-timeline.repository';
 export * from './contact/phone';
 export * from './contact/contact-lead';
+export * from './contact/contact-events';
 export * from './account/account.repository';
 export * from './account/account-fields';
 export * from './account/account-hierarchy';

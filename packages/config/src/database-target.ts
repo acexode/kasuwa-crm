@@ -70,6 +70,7 @@ export const DEV_DATABASE_PASSWORDS: readonly string[] = Object.freeze([
   'kasuwa_migrator_dev',
   'kasuwa_app_dev',
   'kasuwa_auth_dev',
+  'kasuwa_relay_dev',
   'kasuwa_test_admin_dev',
   'postgres',
 ]);

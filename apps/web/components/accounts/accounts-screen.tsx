@@ -906,7 +906,7 @@ function Value({
       // and a screen must not infer one.
       return (
         <span className="flex flex-wrap items-center gap-2">
-          <span data-record-text="" className="whitespace-nowrap tabular-nums">
+          <span data-record-text="" dir="ltr" className="whitespace-nowrap tabular-nums">
             {formatPhone(first.e164)}
           </span>
           {phones.length > 1 ? <Muted>{t.t('records.more', { count: phones.length - 1 })}</Muted> : null}

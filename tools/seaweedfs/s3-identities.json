@@ -1,0 +1,14 @@
+{
+  "identities": [
+    {
+      "name": "kasuwa-dev-app",
+      "credentials": [
+        {
+          "accessKey": "kasuwa-dev-access",
+          "secretKey": "kasuwa-dev-secret-not-a-real-key"
+        }
+      ],
+      "actions": ["Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

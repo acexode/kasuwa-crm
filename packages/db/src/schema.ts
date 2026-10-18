@@ -9,6 +9,7 @@ import {
   jsonb,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -1451,6 +1452,83 @@ export const portalUser = pgTable(
 );
 
 /**
+ * The metadata row of every stored file (migration 0040, T-0092, ADR-0017
+ * Decision 3). Object storage has no RLS: a file is reached only through its
+ * row, read in the caller's tenant transaction, so this table's RLS is what
+ * isolates the bytes.
+ *
+ * `id` IS the storage key's fileId, and `key` equals
+ * `tenant/<tenant_id>/programme/<programme_id>/<purpose>/<id>` by a CHECK
+ * (R1); a guard trigger keeps the key, its parts and a `deleted` status
+ * fixed (D-L76). No filename column (R3). kasuwa_app holds no DELETE: rows
+ * move to `deleted`. Read and written only through @kasuwa/storage-adapter's
+ * StoredObjectRepository, which never returns the key text (R4).
+ */
+export const storedObject = pgTable(
+  'stored_object',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    /** The bucket path. Never logged, never returned by the repository. */
+    key: text('key').notNull(),
+    purpose: text('purpose').notNull(),
+    declaredSizeBytes: bigint('declared_size_bytes', { mode: 'number' }).notNull(),
+    verifiedSizeBytes: bigint('verified_size_bytes', { mode: 'number' }),
+    contentType: text('content_type').notNull(),
+    sha256: customBytea('sha256'),
+    status: text('status').notNull().default('pending'),
+    uploadedByUserId: uuid('uploaded_by_user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('stored_object_key_key').on(table.key),
+    index('stored_object_programme_created_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+  ],
+);
+
+/**
+ * The transactional outbox (migration 0041, T-0098, ADR-0018 as amended by
+ * D-L156). A producer appends a row with `appendOutboxEvent` inside its own
+ * tenant transaction; apps/worker's relay, as the NOBYPASSRLS
+ * `kasuwa_relay` role, publishes it to BullMQ and marks it. kasuwa_app holds
+ * SELECT and column-limited INSERT only (never `seq` or the publication
+ * columns); a restrictive policy pins `actor_user_id` to the session user
+ * (F-R3). The payload holds identifiers only (D-P29). The partial indexes'
+ * predicate (`published_at IS NULL AND dead_at IS NULL`) has no Drizzle
+ * mirror; the SQL is the source of truth.
+ */
+export const outboxEvent = pgTable(
+  'outbox_event',
+  {
+    id: uuid('id').primaryKey(),
+    seq: bigint('seq', { mode: 'bigint' }).notNull().generatedAlwaysAsIdentity(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    actorUserId: uuid('actor_user_id').notNull(),
+    eventType: text('event_type').notNull(),
+    schemaVersion: smallint('schema_version').notNull().default(1),
+    aggregateType: text('aggregate_type').notNull(),
+    aggregateId: uuid('aggregate_id').notNull(),
+    payload: jsonb('payload').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    attempts: smallint('attempts').notNull().default(0),
+    lastAttemptAt: timestamp('last_attempt_at', { withTimezone: true }),
+    deadAt: timestamp('dead_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('outbox_event_programme_idx').on(table.tenantId, table.programmeId),
+  ],
+);
+
+/**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
  */
@@ -1491,6 +1569,8 @@ export const TENANT_SCOPED_TABLES = [
   'portal_user',
   'audit_event',
   'audit_export',
+  'stored_object',
+  'outbox_event',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];

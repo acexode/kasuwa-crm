@@ -536,7 +536,7 @@ function FieldValue({ t, row, field }: { t: Translator; row: Contact; field: Col
       const phone = row.phones?.[0];
       return (
         <span className="flex flex-wrap items-center gap-2">
-          {phone === undefined ? notSet : <span data-record-text="" className="whitespace-nowrap tabular-nums">{formatPhone(phone.e164)}</span>}
+          {phone === undefined ? notSet : <span data-record-text="" dir="ltr" className="whitespace-nowrap tabular-nums">{formatPhone(phone.e164)}</span>}
           {row.phoneNetwork === null || row.phoneNetwork === undefined || isWithheld(row, 'phoneNetwork') ? null : (
             <span data-record-text="" className="rounded-sm bg-surface-sunken px-1 text-caption font-semibold text-text-2">
               {row.phoneNetwork}
