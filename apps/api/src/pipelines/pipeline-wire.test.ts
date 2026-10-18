@@ -6,6 +6,7 @@ import {
   toDealWire,
   toPipelineWire,
 } from './pipeline-wire';
+import { EMPTY_CUSTOM_WIRE } from '../custom-fields/custom-values';
 
 // Invented ids and synthetic names; nothing seeds them.
 const id = (tail: string) => `11111111-0000-4000-8000-0107${tail.padStart(8, '0')}`;
@@ -42,7 +43,7 @@ function card(overrides: Partial<DealCard> = {}): DealCard {
 
 describe('toDealWire (Deal: withheld fields are omitted, never nulled)', () => {
   it('carries money as strings, exactly, and the weighted amount in the same currency', () => {
-    const wire = toDealWire(card(), [], 14, NOW);
+    const wire = toDealWire(card(), [], 14, NOW, EMPTY_CUSTOM_WIRE);
     expect(wire.amount).toEqual({ amountMinor: '999999999999999995', currency: 'NGN' });
     expect(wire.weightedAmount).toEqual({ amountMinor: '100000000000000000', currency: 'NGN' });
     expect(JSON.stringify(wire)).toContain('"amountMinor":"999999999999999995"');
@@ -55,7 +56,7 @@ describe('toDealWire (Deal: withheld fields are omitted, never nulled)', () => {
       card({ amountMinor: null, currency: null, weightedAmountMinor: null }),
       [],
       14,
-      NOW,
+      NOW, EMPTY_CUSTOM_WIRE,
     );
     expect(wire).toHaveProperty('amount', null);
     expect(wire).toHaveProperty('weightedAmount', null);
@@ -70,7 +71,7 @@ describe('toDealWire (Deal: withheld fields are omitted, never nulled)', () => {
       'expectedCloseDate',
       'nextStep',
     ] as const;
-    const wire = toDealWire(card(), withheld, 14, NOW);
+    const wire = toDealWire(card(), withheld, 14, NOW, EMPTY_CUSTOM_WIRE);
     for (const key of [
       'amount',
       'weightedAmount',
@@ -92,7 +93,7 @@ describe('toDealWire (Deal: withheld fields are omitted, never nulled)', () => {
   it('a closed deal does not rot', () => {
     const closed = new Date(NOW - 400 * DAY);
     expect(
-      toDealWire(card({ closedAt: closed, stageEnteredAt: closed }), [], null, NOW).rotting,
+      toDealWire(card({ closedAt: closed, stageEnteredAt: closed }), [], null, NOW, EMPTY_CUSTOM_WIRE).rotting,
     ).toBeNull();
   });
 });

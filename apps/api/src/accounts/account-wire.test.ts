@@ -7,6 +7,7 @@ import {
 } from '@kasuwa/domain-core';
 import { describe, expect, it } from 'vitest';
 import { toAccountWire, withheldAccountWireFields } from './account-wire';
+import { EMPTY_CUSTOM_WIRE } from '../custom-fields/custom-values';
 
 const A1 = '11111111-0000-4000-8000-00005500c001';
 // Invented (CLAUDE.md 6.1): never a seeded or real person or number.
@@ -41,7 +42,7 @@ function accessWith(overrides: Record<string, AccountFieldLevel> = {}): AccountF
 
 describe('toAccountWire (records.openapi.yaml Account)', () => {
   it('sends every contract property and nothing else when nothing is withheld', () => {
-    const wire = toAccountWire(account, accessWith());
+    const wire = toAccountWire(account, accessWith(), EMPTY_CUSTOM_WIRE);
     expect(Object.keys(wire).sort()).toEqual(
       [
         'id',
@@ -59,6 +60,8 @@ describe('toAccountWire (records.openapi.yaml Account)', () => {
         'parentAccountId',
         'createdAt',
         'updatedAt',
+        // T-0089: always present, `{}` when nothing is visible.
+        'custom',
         'withheldFields',
       ].sort(),
     );
@@ -68,17 +71,17 @@ describe('toAccountWire (records.openapi.yaml Account)', () => {
   });
 
   it('omits a withheld field, never nulls it, and lists it', () => {
-    const wire = toAccountWire(account, accessWith({ tier: 'none', phones: 'none' }));
+    const wire = toAccountWire(account, accessWith({ tier: 'none', phones: 'none' }), EMPTY_CUSTOM_WIRE);
     expect('tier' in wire).toBe(false);
     expect('phones' in wire).toBe(false);
     expect(wire.withheldFields).toEqual(['tier', 'phones']);
     expect(JSON.stringify(wire)).not.toContain(PHONE);
     // A field the caller may read but not edit is still sent.
-    expect(toAccountWire(account, accessWith({ tier: 'read' })).tier).toBe('sme');
+    expect(toAccountWire(account, accessWith({ tier: 'read' }), EMPTY_CUSTOM_WIRE).tier).toBe('sme');
   });
 
   it('withholds owner together with ownerUserId, so no name survives a withheld id', () => {
-    const wire = toAccountWire(account, accessWith({ owner_user_id: 'none' }));
+    const wire = toAccountWire(account, accessWith({ owner_user_id: 'none' }), EMPTY_CUSTOM_WIRE);
     expect('ownerUserId' in wire).toBe(false);
     expect('owner' in wire).toBe(false);
     expect(wire.withheldFields).toEqual(['ownerUserId', 'owner']);
@@ -89,7 +92,7 @@ describe('toAccountWire (records.openapi.yaml Account)', () => {
   it('decides per row: a programme the access map does not carry withholds everything withholdable', () => {
     const wire = toAccountWire(
       { ...account, programmeId: '11111111-0000-4000-8000-00005500c099' },
-      accessWith(),
+      accessWith(), EMPTY_CUSTOM_WIRE,
     );
     expect(wire.withheldFields).toEqual(
       withheldAccountWireFields([...WITHHOLDABLE_ACCOUNT_FIELDS]),
@@ -98,7 +101,7 @@ describe('toAccountWire (records.openapi.yaml Account)', () => {
   });
 
   it('name is never withheld, whatever the matrix says about it', () => {
-    const wire = toAccountWire(account, accessWith({ name: 'none' }));
+    const wire = toAccountWire(account, accessWith({ name: 'none' }), EMPTY_CUSTOM_WIRE);
     expect(wire.name).toBe(account.name);
     expect(wire.withheldFields).not.toContain('name');
   });
@@ -106,7 +109,7 @@ describe('toAccountWire (records.openapi.yaml Account)', () => {
   it('sends an unowned account as null owner and ownerUserId, and lists as empty arrays', () => {
     const wire = toAccountWire(
       { ...account, ownerUserId: null, owner: null, tags: [], phones: [] },
-      accessWith(),
+      accessWith(), EMPTY_CUSTOM_WIRE,
     );
     expect(wire.ownerUserId).toBeNull();
     expect(wire.owner).toBeNull();

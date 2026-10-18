@@ -17,7 +17,6 @@ import {
 } from '@kasuwa/domain-core';
 import { canWriteActivity, loadGrants } from '@kasuwa/permissions';
 import { z } from 'zod';
-import { recordAuditEvent } from '../admin/audit/audit-writer';
 import {
   AdminError,
   notFound,
@@ -33,6 +32,18 @@ import {
   UPDATE_ACTIVITY_SECURED,
   UpdateActivityBody,
 } from './activities.schemas';
+import {
+  assertCustomPatchFits,
+  customBackstopAs400,
+  customNotEditablePaths,
+  customPatchKeys,
+  customWireFor,
+  loadCustom,
+  parseCustomCreate,
+  parseCustomPatch,
+  rawCustomOf,
+  recordAuditWithCustom,
+} from '../custom-fields/custom-values';
 import { activityAuditEvent, activityCreateChanges, activityUpdateChanges } from './activity-audit';
 import { toActivityWire, type ActivityWire } from './activity-wire';
 
@@ -163,11 +174,16 @@ export async function createActivityFor(tx: TenantTx, body: unknown): Promise<Ac
     throw notPermitted(); // 403
   }
   const access = await loadActivityFieldAccess(tx);
+  const custom = await loadCustom(tx, 'activity');
   const touched = CREATE_ACTIVITY_KEYS.filter((key) => own(raw, key) !== undefined);
-  const locked = notEditableActivityFields(access, programmeId, touched);
+  const locked = [
+    ...notEditableActivityFields(access, programmeId, touched),
+    ...customNotEditablePaths(custom, programmeId, raw),
+  ];
   if (locked.length > 0) throw fieldNotEditable(locked); // 403, naming the fields
 
   const parsed = CreateActivityBody.parse(raw); // 400
+  const customValues = parseCustomCreate(custom, rawCustomOf(raw)); // 400
 
   const details: AdminErrorDetail[] = [];
   // The second target must be in the first one's programme (0027's keys).
@@ -186,7 +202,7 @@ export async function createActivityFor(tx: TenantTx, body: unknown): Promise<Ac
   details.push(...(await dealDetail(tx, programmeId, parsed.dealId)));
   if (details.length > 0) throw validationFailed(details); // 400
 
-  const activity = await insertActivity(tx, programmeId, {
+  const activity = await customBackstopAs400(() => insertActivity(tx, programmeId, {
     type: parsed.type,
     subject: parsed.subject ?? null,
     body: parsed.body ?? null,
@@ -197,12 +213,13 @@ export async function createActivityFor(tx: TenantTx, body: unknown): Promise<Ac
     contactId: target.kind === 'contact' ? target.id : (parsed.contactId ?? null),
     accountId: parsed.accountId ?? null,
     dealId: lowerOrNull(parsed.dealId) ?? null,
-  });
-  await recordAuditEvent(
+  }, customValues));
+  await recordAuditWithCustom(
     tx,
     activityAuditEvent('created', activity, activityCreateChanges(parsed)),
+    Object.keys(customValues).sort(),
   );
-  return toActivityWire(activity, access);
+  return toActivityWire(activity, access, await customWireFor(tx, custom, activity));
 }
 
 /**
@@ -274,6 +291,7 @@ export async function updateActivityFor(
     throw notPermitted(); // 403
   }
   const access = await loadActivityFieldAccess(tx);
+  const custom = await loadCustom(tx, 'activity');
   const raw = plainObject(body) ?? {};
   const touchedKeys = (
     Object.keys(UPDATE_ACTIVITY_SECURED) as (keyof typeof UPDATE_ACTIVITY_SECURED)[]
@@ -283,24 +301,32 @@ export async function updateActivityFor(
       notEditableActivityFields(access, current.programmeId, [UPDATE_ACTIVITY_SECURED[key]])
         .length > 0 || meetingTimeInferable(access, current.programmeId, key),
   );
-  if (locked.length > 0) throw fieldNotEditable(locked); // 403, naming the body keys
+  const lockedCustom = customNotEditablePaths(custom, current.programmeId, raw);
+  if (locked.length > 0 || lockedCustom.length > 0) {
+    throw fieldNotEditable([...locked, ...lockedCustom]); // 403, naming the body keys
+  }
 
   const parsed = UpdateActivityBody.parse(body); // 400
+  const patch = parseCustomPatch(custom, rawCustomOf(raw)); // 400
   const { version, completed, ownerUserId, dueAt, startsAt, endsAt, dealId } = parsed;
   const details: AdminErrorDetail[] = [...typeDetails(current, parsed)];
   details.push(...(await ownerDetail(tx, current.programmeId, ownerUserId)));
   details.push(...(await dealDetail(tx, current.programmeId, dealId)));
   if (details.length > 0) throw validationFailed(details); // 400
+  const target = { id: current.id, programmeId: current.programmeId };
+  if (patch !== undefined) await assertCustomPatchFits(tx, custom, target, patch); // 400
 
-  const updated = await updateActivityIfVersion(
+  const updated = await customBackstopAs400(() => updateActivityIfVersion(
     tx,
-    { id: current.id, programmeId: current.programmeId, version },
+    { ...target, version },
     { complete: completed, ownerUserId, dueAt, startsAt, endsAt, dealId: lowerOrNull(dealId) },
-  );
+    patch,
+  ));
   if (updated === null) throw staleWrite(); // 409
-  await recordAuditEvent(
+  await recordAuditWithCustom(
     tx,
     activityAuditEvent('updated', updated, activityUpdateChanges(current, updated)),
+    customPatchKeys(patch),
   );
-  return toActivityWire(updated, access);
+  return toActivityWire(updated, access, await customWireFor(tx, custom, updated));
 }

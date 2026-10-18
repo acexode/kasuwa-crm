@@ -92,6 +92,13 @@ export const AUDIT_OBJECT_TYPES = [
    * reassignment's before and after owner ids (D-L71, D-L115).
    */
   'deal',
+  /**
+   * createCustomField (`created`), updateCustomField and retireCustomField
+   * (`updated`, a retire with a `retiredAt` change, D-L141) (T-0089). Tenant
+   * level (`programmeId` null). The label is `<object>.<apiName>`: tenant
+   * configuration, never a record value. Never a custom VALUE.
+   */
+  'custom_field',
 ] as const;
 export type AuditObjectType = (typeof AUDIT_OBJECT_TYPES)[number];
 
@@ -110,6 +117,7 @@ export const AUDIT_OBJECT_TYPE_LABELS: Record<AuditObjectType, string> = {
   script: 'Script',
   script_run: 'Script run',
   deal: 'Deal',
+  custom_field: 'Custom field',
 };
 
 export interface AuditChange {

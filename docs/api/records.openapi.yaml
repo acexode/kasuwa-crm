@@ -76,7 +76,7 @@ info:
     contacts, leads, accounts and deals, by name prefix (`searchRecords`),
     and contacts and leads by an exact phone or email sent in a POST body
     so the URL never carries one (`lookupRecords`). Custom-field values
-    (T-0088, ADR-0016, contract only until T-0089): `custom` on Contact
+    (T-0088, ADR-0016, served since T-0089): `custom` on Contact
     (and so on leads), Account, Activity and Deal, typed per field, merged
     per key on update, field-secured per key (a withheld key is listed as
     `custom.<key>`), and filterable by equality and "is empty" on picklist
@@ -150,7 +150,7 @@ paths:
       x-kasuwa-implemented: true
       x-kasuwa-screens: ['P04/02', 'P04/05', 'P04/06']
       description: |
-        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        **Custom fields (T-0088; served since T-0089).**
         Rows carry `custom`, with withheld keys absent and listed as
         `custom.<key>`. The `custom` (equality) and `customEmpty` (is empty)
         filters apply to picklist and boolean custom fields only; there is no
@@ -335,7 +335,7 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/02', 'P04/05']
       description: |
-        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        **Custom fields (T-0088; served since T-0089).**
         `custom` sets custom-field values at create (CustomFields: values
         only, never `null`). Every key must be editable for the caller in the
         target programme, else `403 not_permitted` with `details[].code:
@@ -398,7 +398,7 @@ paths:
       responses:
         '201':
           description: |
-            Created. The example shows `custom` (T-0088, contract only until
+            Created. The example shows `custom` (T-0088, served since
             T-0089): a withheld custom key is absent from `custom` and listed
             in `withheldFields` as `custom.<key>`.
           content:
@@ -485,7 +485,7 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/01', 'P04/02', 'P04/04']
       description: |
-        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        **Custom fields (T-0088; served since T-0089).**
         `custom` is a per-key merge (CustomFieldsPatch): a value sets a key,
         `null` clears it, and an absent key is untouched. Every key sent must
         be editable for the caller in the record's programme, else `403
@@ -555,7 +555,7 @@ paths:
                   status: qualified
                   ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
               custom:
-                summary: Set one custom field and clear another (T-0088, contract only until T-0089)
+                summary: Set one custom field and clear another (T-0088, served since T-0089)
                 value:
                   version: 3
                   custom:
@@ -750,7 +750,7 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P05/01', 'P07/07']
       description: |
-        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        **Custom fields (T-0088; served since T-0089).**
         `custom` sets custom-field values at create (CustomFields: values
         only, never `null`). Every key must be editable for the caller in the
         target programme, else `403 not_permitted` with `details[].code:
@@ -858,7 +858,7 @@ paths:
       responses:
         '201':
           description: |
-            Created. The example shows `custom` (T-0088, contract only until
+            Created. The example shows `custom` (T-0088, served since
             T-0089): a withheld custom key is absent from `custom` and listed
             in `withheldFields` as `custom.<key>`.
           headers:
@@ -903,7 +903,7 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P05/01', 'P07/01', 'P07/03', 'P07/04', 'P07/05']
       description: |
-        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        **Custom fields (T-0088; served since T-0089).**
         `custom` is a per-key merge (CustomFieldsPatch): a value sets a key,
         `null` clears it, and an absent key is untouched. Every key sent must
         be editable for the caller in the record's programme, else `403
@@ -1008,7 +1008,7 @@ paths:
                   startsAt: '2026-10-02T09:00:00.000Z'
                   endsAt: '2026-10-02T10:00:00.000Z'
               custom:
-                summary: Set one custom field and clear another (T-0088, contract only until T-0089)
+                summary: Set one custom field and clear another (T-0088, served since T-0089)
                 value:
                   version: 2
                   custom:
@@ -1406,7 +1406,7 @@ paths:
       x-kasuwa-implemented: true
       x-kasuwa-screens: ['P04/01', 'P04/04', 'P04/05', 'P04/06']
       description: |
-        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        **Custom fields (T-0088; served since T-0089).**
         Rows carry `custom`, with withheld keys absent and listed as
         `custom.<key>`. The `custom` (equality) and `customEmpty` (is empty)
         filters apply to picklist and boolean custom fields only; there is no
@@ -1537,7 +1537,7 @@ paths:
         '200':
           description: |
             One page of leads, field security applied. The example shows
-            `custom` (T-0088, contract only until T-0089), which a lead
+            `custom` (T-0088, served since T-0089), which a lead
             carries because it is a contact.
           content:
             application/json:
@@ -1648,7 +1648,7 @@ paths:
       x-kasuwa-implemented: true
       x-kasuwa-screens: ['P04/03', 'P04/05', 'P04/06']
       description: |
-        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        **Custom fields (T-0088; served since T-0089).**
         Rows carry `custom`, with withheld keys absent and listed as
         `custom.<key>`. The `custom` (equality) and `customEmpty` (is empty)
         filters apply to picklist and boolean custom fields only; there is no
@@ -1815,7 +1815,7 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/03', 'P04/05']
       description: |
-        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        **Custom fields (T-0088; served since T-0089).**
         `custom` sets custom-field values at create (CustomFields: values
         only, never `null`). Every key must be editable for the caller in the
         target programme, else `403 not_permitted` with `details[].code:
@@ -1874,7 +1874,7 @@ paths:
       responses:
         '201':
           description: |
-            Created. The example shows `custom` (T-0088, contract only until
+            Created. The example shows `custom` (T-0088, served since
             T-0089): a withheld custom key is absent from `custom` and listed
             in `withheldFields` as `custom.<key>`.
           content:
@@ -1959,7 +1959,7 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/03']
       description: |
-        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        **Custom fields (T-0088; served since T-0089).**
         `custom` is a per-key merge (CustomFieldsPatch): a value sets a key,
         `null` clears it, and an absent key is untouched. Every key sent must
         be editable for the caller in the record's programme, else `403
@@ -2021,7 +2021,7 @@ paths:
                   tier: enterprise
                   ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
               custom:
-                summary: Set a currency custom field and clear a picklist (T-0088, contract only until T-0089)
+                summary: Set a currency custom field and clear a picklist (T-0088, served since T-0089)
                 value:
                   version: 2
                   custom:
@@ -2925,7 +2925,7 @@ paths:
         qa_analyst: read
         client_portal: none
       description: |
-        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        **Custom fields (T-0088; served since T-0089).**
         Rows carry `custom`, with withheld keys absent and listed as
         `custom.<key>`. The `custom` (equality) and `customEmpty` (is empty)
         filters apply to picklist and boolean custom fields only; there is no
@@ -3046,7 +3046,7 @@ paths:
         qa_analyst: none
         client_portal: none
       description: |
-        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        **Custom fields (T-0088; served since T-0089).**
         `custom` sets custom-field values at create (CustomFields: values
         only, never `null`). Every key must be editable for the caller in the
         target programme, else `403 not_permitted` with `details[].code:
@@ -3226,7 +3226,7 @@ paths:
         qa_analyst: none
         client_portal: none
       description: |
-        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        **Custom fields (T-0088; served since T-0089).**
         `custom` is a per-key merge (CustomFieldsPatch): a value sets a key,
         `null` clears it, and an absent key is untouched. Every key sent must
         be editable for the caller in the record's programme, else `403
@@ -3305,7 +3305,7 @@ paths:
                   version: 5
                   ownerUserId: 8d2e3f4a-5b6c-4d7e-8f9a-0b1c2d3e4f02
               custom:
-                summary: Set custom fields, one a currency, and clear another (T-0088, contract only until T-0089)
+                summary: Set custom fields, one a currency, and clear another (T-0088, served since T-0089)
                 value:
                   version: 5
                   custom:
@@ -4418,13 +4418,12 @@ components:
       required: false
       style: deepObject
       explode: true
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       description: |
-        **Contract only (T-0088) until T-0089 serves it.** The live list
-        routes ignore unknown query parameters, so a screen that sent this
-        today would get unfiltered rows that look filtered (the D-L75
-        hazard). A screen must not send it while this parameter is
-        `x-kasuwa-implemented: false`.
+        **Served since T-0089 (contract T-0088).** Before T-0089 the list
+        routes ignored this unknown parameter, so rows came back unfiltered
+        while looking filtered (the D-L75 hazard); a server older than
+        T-0089 still does, so a screen checks `x-kasuwa-implemented`.
 
         Equality on a custom field: `custom[tier__c]=gold`. One value per
         key; several keys are AND-ed. Only `picklist` and `boolean` custom
@@ -4461,10 +4460,10 @@ components:
       required: false
       style: form
       explode: true
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       description: |
-        **Contract only (T-0088) until T-0089 serves it;** a screen must not
-        send it before then (see `custom`). "Is empty": rows with no value
+        **Served since T-0089 (contract T-0088);** see `custom` on older
+        servers. "Is empty": rows with no value
         for each named custom key. Repeat the parameter for several keys;
         they are AND-ed. Only `picklist` and `boolean` custom fields, as for
         `custom`: another type is `400 filter_not_supported`, a key withheld
@@ -4715,18 +4714,18 @@ components:
         present or listed in `withheldFields`. Optional, like every
         withholdable property; a client must cope with their absence.
         `account` (T-0061) and `companyName` (T-0076) are served; `custom`
-        (T-0088) is pending until T-0089 serves it.
+        (T-0088) is served since T-0089.
       properties:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             The contact's custom-field values (T-0088, ADR-0016), keyed by api
             name. Every Contact-shaped read carries it once served, listLeads
             included (a lead is a contact, D-P17). `custom` is never withheld
             itself: a withheld key is absent and listed in `withheldFields`
-            as `custom.<key>`. Optional until T-0089 serves it, then always
+            as `custom.<key>`. Served since T-0089 and always
             sent (`{}` when the record has no visible value).
 
     ContactAccountSummary:
@@ -5183,13 +5182,13 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             The activity's custom-field values (T-0088, ADR-0016), keyed by api
             name. An own property because Activity is closed. `custom` is never
             withheld itself: a withheld key is absent and listed in
-            `withheldFields` as `custom.<key>`. Optional until T-0089 serves
-            it, then always sent (`{}` when none is visible).
+            `withheldFields` as `custom.<key>`. Served since T-0089 and
+            always sent (`{}` when none is visible).
         createdByUserId:
           type: [string, 'null']
           format: uuid
@@ -5280,13 +5279,13 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field values to set at create (T-0088, ADR-0016): values
             only, never `null`. Each key must be editable for the caller in
             the target programme (else `403 field_not_editable` at
             `custom.<key>`); an unknown or retired key is `400 unknown_field`.
-            Contract only until T-0089 serves it.
+            Served since T-0089.
 
     UpdateActivityRequest:
       type: object
@@ -5351,12 +5350,12 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFieldsPatch'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field changes (T-0088, ADR-0016), merged per key: a value
             sets, `null` clears, an absent key is untouched. Each key must be
             editable in the record's programme (else `403 field_not_editable`
-            at `custom.<key>`). Contract only until T-0089 serves it.
+            at `custom.<key>`). Served since T-0089.
 
     ActivityContactSummary:
       type: object
@@ -5542,13 +5541,13 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field values to set at create (T-0088, ADR-0016): values
             only, never `null`. Each key must be editable for the caller in
             the target programme (else `403 field_not_editable` at
             `custom.<key>`); an unknown or retired key is `400 unknown_field`.
-            Contract only until T-0089 serves it.
+            Served since T-0089.
 
     UpdateContactRequest:
       type: object
@@ -5607,12 +5606,12 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFieldsPatch'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field changes (T-0088, ADR-0016), merged per key: a value
             sets, `null` clears, an absent key is untouched. Each key must be
             editable in the record's programme (else `403 field_not_editable`
-            at `custom.<key>`). Contract only until T-0089 serves it.
+            at `custom.<key>`). Served since T-0089.
 
     ConvertContactRequest:
       type: object
@@ -5799,7 +5798,7 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             The account's custom-field values (T-0088, ADR-0016), keyed by api
             name. `custom` is never withheld itself: a withheld key is absent
@@ -5852,13 +5851,13 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field values to set at create (T-0088, ADR-0016): values
             only, never `null`. Each key must be editable for the caller in
             the target programme (else `403 field_not_editable` at
             `custom.<key>`); an unknown or retired key is `400 unknown_field`.
-            Contract only until T-0089 serves it.
+            Served since T-0089.
 
     UpdateAccountRequest:
       type: object
@@ -5897,12 +5896,12 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFieldsPatch'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field changes (T-0088, ADR-0016), merged per key: a value
             sets, `null` clears, an absent key is untouched. Each key must be
             editable in the record's programme (else `403 field_not_editable`
-            at `custom.<key>`). Contract only until T-0089 serves it.
+            at `custom.<key>`). Served since T-0089.
 
     # --- pipelines and deals (P06, T-0105) ---------------------------------
 
@@ -6252,13 +6251,13 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             The deal's custom-field values (T-0088, ADR-0016), keyed by api
             name. An own property because Deal is closed. `custom` is never
             withheld itself: a withheld key is absent and listed in
-            `withheldFields` as `custom.<key>`. Optional until T-0089 serves
-            it, then always sent (`{}` when none is visible). Custom deal
+            `withheldFields` as `custom.<key>`. Served since T-0089 and
+            always sent (`{}` when none is visible). Custom deal
             fields as stage requirements are a later task.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -6359,13 +6358,13 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field values to set at create (T-0088, ADR-0016): values
             only, never `null`. Each key must be editable for the caller in
             the target programme (else `403 field_not_editable` at
             `custom.<key>`); an unknown or retired key is `400 unknown_field`.
-            Contract only until T-0089 serves it.
+            Served since T-0089.
 
     UpdateDealRequest:
       type: object
@@ -6394,12 +6393,12 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFieldsPatch'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field changes (T-0088, ADR-0016), merged per key: a value
             sets, `null` clears, an absent key is untouched. Each key must be
             editable in the record's programme (else `403 field_not_editable`
-            at `custom.<key>`). Contract only until T-0089 serves it.
+            at `custom.<key>`). Served since T-0089.
 
     MoveDealFields:
       type: object
@@ -6636,8 +6635,8 @@ components:
           description: Free text that may name a person or a business (D-L91); never logged.
 
     # --- custom-field values (T-0088; ADR-0016, D-L128, D-L138) --------------
-    # Contract only until T-0089. Every property and parameter that uses these
-    # is `x-kasuwa-implemented: false`.
+    # Served since T-0089: every property and parameter that uses these is
+    # `x-kasuwa-implemented: true`.
     CustomFieldKey:
       type: string
       minLength: 4
@@ -6751,9 +6750,12 @@ components:
         programme plus the keys being written: withheld and retired values
         never count, so `custom_too_large` cannot be used to learn the size
         of a value the caller cannot see. Larger is `400 validation_failed`
-        with `details[].code: custom_too_large` at `custom`. The database
-        keeps a 32 KiB CHECK on the whole stored object as a backstop only;
-        a caller never meets it through the API.
+        with `details[].code: custom_too_large` at `custom`. The 16 KiB
+        limit is the one callers meet. The database keeps a 512 KiB CHECK on
+        the whole stored object (D-L142) only to stop a writer that is not
+        the API; no set of live keys can reach it, every write drops retired
+        keys, and if it were ever reached the answer would still be
+        `custom_too_large`, never a 500.
 
         **Errors** name the path and a code, never the value received
         (ADR-0016 item 3): `unknown_field` (an unknown or retired key, one

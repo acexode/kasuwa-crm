@@ -578,6 +578,15 @@ function pendingContactProperties(): string[] {
   return part === undefined ? [] : Object.keys((part.properties ?? {}) as Json);
 }
 
+/**
+ * T-0089 / D-L143 (lead edit): Account's pending allOf part (`custom`, placed
+ * there by the T-0088 pin), or none once the part is gone. Admitted, never required.
+ */
+function pendingAccountProperties(): string[] {
+  const part = specSchemas().AccountPendingProperties;
+  return part === undefined ? [] : Object.keys((part.properties ?? {}) as Json);
+}
+
 const CONTACT_NEVER_WITHHELD = [
   'id',
   'programmeId',
@@ -686,7 +695,7 @@ function expectAccount(value: unknown, where: string): Json {
   expectSchema(value, 'Account', where);
   const account = value as Json;
   expect(
-    omissionProblems(account, propertiesOf('Account'), [], ACCOUNT_NEVER_WITHHELD),
+    omissionProblems(account, propertiesOf('Account'), pendingAccountProperties(), ACCOUNT_NEVER_WITHHELD),
     `${where}: field-security omission rule`,
   ).toEqual([]);
   return account;

@@ -579,6 +579,18 @@ function contactProperties(): string[] {
   return Object.keys((schema.properties ?? {}) as Json);
 }
 
+/**
+ * T-0089 / D-L143 (lead edit): the properties of Contact's pending allOf part
+ * (`ContactPendingProperties`: `custom`, placed there by the T-0088 pin).
+ * Admitted on a served record, never required.
+ */
+function contactPendingProperties(): string[] {
+  // Read through Contact's own allOf, so the helper keeps working once the part is gone.
+  const { schema, file } = deref(schemaAt('Contact'), SPEC_PATH);
+  const parts = Array.isArray(schema.allOf) ? (schema.allOf as Json[]) : [];
+  return parts.flatMap((part) => Object.keys((deref(part, file).schema.properties ?? {}) as Json));
+}
+
 /** Never withheld, per the Contact schema's description. */
 const NEVER_WITHHELD = [
   'id',
@@ -598,7 +610,8 @@ function expectContact(value: unknown, where: string): Json {
   expectSchema(value, 'Contact', where);
   const contact = value as Json;
   const named = contactProperties();
-  const extra = Object.keys(contact).filter((key) => !named.includes(key));
+  const pending = contactPendingProperties();
+  const extra = Object.keys(contact).filter((key) => !named.includes(key) && !pending.includes(key));
   expect(extra, `${where} carries properties Contact.properties does not name`).toEqual([]);
   const withheld = Array.isArray(contact.withheldFields)
     ? (contact.withheldFields as string[])

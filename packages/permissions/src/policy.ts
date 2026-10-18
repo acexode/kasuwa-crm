@@ -40,6 +40,13 @@ export const TENANT_ACTIONS = [
   'field_security.write',
   /** createAuditExport. */
   'audit.export',
+  /**
+   * createCustomField, updateCustomField and retireCustomField (T-0089,
+   * D-L138, D-L139): custom field definitions are the tenant's, not one
+   * programme's (ADR-0008), so defining one is a tenant-level act. The
+   * tenant-admin flag only; no permission set grants it, `admin` included.
+   */
+  'custom_field.write',
 ] as const;
 
 /** Writes inside one programme (D-L53). */

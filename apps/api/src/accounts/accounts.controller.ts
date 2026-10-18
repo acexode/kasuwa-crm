@@ -73,7 +73,7 @@ export class AccountsController {
   @Get()
   @Header(CACHE_CONTROL, NO_STORE)
   async list(@Query() query: unknown): Promise<{ data: AccountWire[]; nextCursor: string | null }> {
-    return listAccountsFor(currentTx(), ListAccountsQuery.parse(query));
+    return listAccountsFor(currentTx(), ListAccountsQuery.parse(query), query);
   }
 
   /**

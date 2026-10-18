@@ -11,6 +11,12 @@ import {
   type ContactSearch,
 } from '@kasuwa/domain-core';
 import { validationFailed, type AdminErrorDetail } from '../admin/common/admin-errors';
+import {
+  customFiltersFrom,
+  customWiresFor,
+  EMPTY_CUSTOM_WIRE,
+  loadCustom,
+} from '../custom-fields/custom-values';
 import { toContactWire, type ContactWire } from '../contacts/contact-wire';
 import { LEAD_FILTER_FIELDS, type ListLeadsQuery } from './leads.schemas';
 
@@ -27,8 +33,10 @@ import { LEAD_FILTER_FIELDS, type ListLeadsQuery } from './leads.schemas';
 export async function listLeadsFor(
   tx: TenantTx,
   query: ListLeadsQuery,
+  rawQuery: unknown,
 ): Promise<{ data: ContactWire[]; nextCursor: string | null }> {
   const access = await loadContactFieldAccess(tx);
+  const custom = await loadCustom(tx, 'contact');
 
   // A row's presence says "this contact is a lead, not a customer": the view
   // IS a filter on status. So a status withheld from the caller in ANY
@@ -44,6 +52,8 @@ export async function listLeadsFor(
     }
   }
   if (withheld.length > 0) throw validationFailed(withheld);
+  // T-0089: custom[key] and customEmpty, as on listContacts.
+  const customFilters = customFiltersFrom(custom, rawQuery);
 
   const owners = query.owner ?? [];
   const filters: ContactFilters = {
@@ -54,6 +64,7 @@ export async function listLeadsFor(
     // Never wider than the lead statuses: the parameter can only narrow.
     status: query.status ?? LEAD_STATUSES,
     source: query.source,
+    custom: customFilters,
   };
 
   let search: ContactSearch | undefined;
@@ -77,8 +88,11 @@ export async function listLeadsFor(
     search,
     filters,
   });
+  const wires = await customWiresFor(tx, custom, page.data);
   return {
-    data: page.data.map((contact) => toContactWire(contact, access)),
+    data: page.data.map((contact) =>
+      toContactWire(contact, access, wires.get(contact.id) ?? EMPTY_CUSTOM_WIRE),
+    ),
     nextCursor: page.nextCursor,
   };
 }

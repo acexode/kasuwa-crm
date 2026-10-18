@@ -1,5 +1,7 @@
 import { newId, type TenantTx } from '@kasuwa/db';
+import type { CustomPatch } from '@kasuwa/metadata-engine';
 import { decodeListCursor, encodeListCursor } from '../cursor';
+import { customFilterClauses, customMergeSet, type CustomFilters } from '../custom/custom-values.repository';
 import { listScopeSql, type ListScopeSql } from '../list-scope';
 import { foldForSearch, tenantDefaultCountry, type DefaultCountry } from './phone';
 
@@ -157,6 +159,11 @@ export interface ContactFilters {
    * account's own programme, which the composite key already implies.
    */
   withinProgrammeIds?: readonly string[] | undefined;
+  /**
+   * Custom-field equality and is-empty (T-0089, ADR-0016 item 8), already
+   * judged by the API against the live definitions and field security.
+   */
+  custom?: CustomFilters | undefined;
 }
 
 /**
@@ -481,6 +488,7 @@ function filterClauses(filters: ContactFilters, params: Params): string[] {
   if (filters.withinProgrammeIds !== undefined) {
     clauses.push(`programme_id = ANY(${params.add([...filters.withinProgrammeIds])}::uuid[])`);
   }
+  clauses.push(...customFilterClauses(filters.custom, (value) => params.add(value), 'contact'));
   return clauses;
 }
 
@@ -656,6 +664,7 @@ export async function insertContact(
   tx: TenantTx,
   programmeId: string,
   values: ContactValues & { displayName: string },
+  custom: Readonly<Record<string, unknown>> = {},
 ): Promise<Contact> {
   assertInScope(tx, programmeId);
   const params = new Params();
@@ -663,6 +672,8 @@ export async function insertContact(
     { column: 'id', placeholder: `${params.add(newId())}::uuid` },
     { column: 'tenant_id', placeholder: `${params.add(tx.session.tenantId)}::uuid` },
     { column: 'programme_id', placeholder: `${params.add(programmeId)}::uuid` },
+    // Validated by the API against the live definitions (T-0089). Never read back here.
+    { column: 'custom', placeholder: `${params.add(JSON.stringify(custom))}::jsonb` },
   ];
   const columns = [...fixed, ...assignments(values, params)];
   const rows = await tx.query<ContactRow>(
@@ -690,13 +701,17 @@ export async function updateContactIfVersion(
   tx: TenantTx,
   target: { id: string; programmeId: string; version: number },
   values: ContactValues,
+  custom?: CustomPatch,
 ): Promise<Contact | null> {
   assertInScope(tx, target.programmeId);
   // tenancy-reviewed: id AND tenant (from the session) AND programme (checked
   // against the session above) AND version; RLS USING and WITH CHECK besides.
   // SET never names tenant_id or programme_id: WRITABLE_COLUMNS has neither.
+  // `custom` is merged per key (T-0089) and never returned: RETURNING does
+  // not name it.
   const params = new Params();
   const sets = assignments(values, params).map((entry) => `${entry.column} = ${entry.placeholder}`);
+  if (custom !== undefined) sets.push(customMergeSet(custom, (value) => params.add(value)));
   sets.push('version = version + 1');
   const rows = await tx.query<ContactRow>(
     `UPDATE contact

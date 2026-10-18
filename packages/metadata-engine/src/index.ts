@@ -20,3 +20,5 @@ export * from './repository';
 export * from './types';
 export * from './field-security';
 export * from './field-access';
+export * from './custom-fields';
+export * from './custom-field-definitions';

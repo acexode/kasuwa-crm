@@ -22,7 +22,6 @@ import {
   type AccountWriteRefusal,
 } from '@kasuwa/domain-core';
 import { canProgramme, loadGrants } from '@kasuwa/permissions';
-import { recordAuditEvent } from '../admin/audit/audit-writer';
 import {
   AdminError,
   notFound,
@@ -32,6 +31,21 @@ import {
   type AdminErrorDetail,
 } from '../admin/common/admin-errors';
 import { toContactWire, type ContactWire } from '../contacts/contact-wire';
+import {
+  assertCustomPatchFits,
+  customBackstopAs400,
+  customFiltersFrom,
+  customNotEditablePaths,
+  customPatchKeys,
+  customWireFor,
+  customWiresFor,
+  EMPTY_CUSTOM_WIRE,
+  loadCustom,
+  parseCustomCreate,
+  parseCustomPatch,
+  rawCustomOf,
+  recordAuditWithCustom,
+} from '../custom-fields/custom-values';
 import { accountAuditEvent, accountChanges } from './account-audit';
 import { toAccountWire, type AccountWire } from './account-wire';
 import {
@@ -156,8 +170,10 @@ async function writeOr400<T>(write: () => Promise<T>): Promise<T> {
 export async function listAccountsFor(
   tx: TenantTx,
   query: ListAccountsQuery,
+  rawQuery: unknown,
 ): Promise<{ data: AccountWire[]; nextCursor: string | null }> {
   const access = await loadAccountFieldAccess(tx);
+  const custom = await loadCustom(tx, 'account');
 
   // A filter on a field withheld from the caller is 400, never silently
   // ignored: ignoring it would return rows that look filtered and are not.
@@ -169,6 +185,8 @@ export async function listAccountsFor(
     }
   }
   if (withheld.length > 0) throw validationFailed(withheld);
+  // T-0089: custom[key] and customEmpty, judged on the live definitions (400s).
+  const customFilters = customFiltersFrom(custom, rawQuery);
 
   const owners = query.owner ?? [];
   const filters: AccountFilters = {
@@ -181,6 +199,7 @@ export async function listAccountsFor(
     tags: query.tag,
     states: query.state,
     lgas: query.lga,
+    custom: customFilters,
   };
 
   const page = await listAccounts(tx, {
@@ -190,8 +209,11 @@ export async function listAccountsFor(
     search: query.q,
     filters,
   });
+  const wires = await customWiresFor(tx, custom, page.data);
   return {
-    data: page.data.map((account) => toAccountWire(account, access)),
+    data: page.data.map((account) =>
+      toAccountWire(account, access, wires.get(account.id) ?? EMPTY_CUSTOM_WIRE),
+    ),
     nextCursor: page.nextCursor,
   };
 }
@@ -199,7 +221,12 @@ export async function listAccountsFor(
 export async function getAccountFor(tx: TenantTx, id: string): Promise<AccountWire> {
   const account = await findAccountById(tx, id);
   if (account === null) throw notFound();
-  return toAccountWire(account, await loadAccountFieldAccess(tx));
+  const custom = await loadCustom(tx, 'account');
+  return toAccountWire(
+    account,
+    await loadAccountFieldAccess(tx),
+    await customWireFor(tx, custom, account),
+  );
 }
 
 /**
@@ -226,8 +253,11 @@ export async function listAccountContactsFor(
     sort: query.sort,
     filters: { accountId: account.id, withinProgrammeIds: [account.programmeId] },
   });
+  const wires = await customWiresFor(tx, await loadCustom(tx, 'contact'), page.data);
   return {
-    data: page.data.map((contact) => toContactWire(contact, access)),
+    data: page.data.map((contact) =>
+      toContactWire(contact, access, wires.get(contact.id) ?? EMPTY_CUSTOM_WIRE),
+    ),
     nextCursor: page.nextCursor,
   };
 }
@@ -276,16 +306,27 @@ export async function createAccountFor(tx: TenantTx, body: unknown): Promise<Acc
   const programmeId = createTarget(tx, raw); // 404 (or 400 for a missing/bad target)
   if (!canProgramme(grants, ACTION, programmeId)) throw notPermitted(); // 403
   const access = await loadAccountFieldAccess(tx);
-  const locked = notEditableAccountFields(access, programmeId, keys);
+  const custom = await loadCustom(tx, 'account');
+  const locked = [
+    ...notEditableAccountFields(access, programmeId, keys),
+    ...customNotEditablePaths(custom, programmeId, raw),
+  ];
   if (locked.length > 0) throw fieldNotEditable(locked); // 403, naming the fields
 
   const parsed = CreateAccountBody.parse(body); // 400
-  const { programmeId: _target, ...values } = parsed;
+  const { programmeId: _target, custom: _custom, ...values } = parsed;
+  const customValues = parseCustomCreate(custom, rawCustomOf(raw)); // 400
   await checkReferences(tx, programmeId, null, values); // 400
 
-  const account = await writeOr400(() => insertAccount(tx, programmeId, values)); // 400
-  await recordAuditEvent(tx, accountAuditEvent('created', account, accountChanges(values, null)));
-  return toAccountWire(account, access);
+  const account = await writeOr400(() =>
+    customBackstopAs400(() => insertAccount(tx, programmeId, values, customValues)),
+  ); // 400
+  await recordAuditWithCustom(
+    tx,
+    accountAuditEvent('created', account, accountChanges(values, null)),
+    Object.keys(customValues).sort(),
+  );
+  return toAccountWire(account, access, await customWireFor(tx, custom, account));
 }
 
 export async function updateAccountFor(
@@ -300,23 +341,28 @@ export async function updateAccountFor(
   const keys = plainKeys(body);
   if (keys === null) throw notAPlainObject(); // 400: no fields to judge
   const access = await loadAccountFieldAccess(tx);
-  const locked = notEditableAccountFields(access, current.programmeId, keys);
+  const custom = await loadCustom(tx, 'account');
+  const raw = body as Record<string, unknown>;
+  const locked = [
+    ...notEditableAccountFields(access, current.programmeId, keys),
+    ...customNotEditablePaths(custom, current.programmeId, raw),
+  ];
   if (locked.length > 0) throw fieldNotEditable(locked); // 403, naming the fields
 
-  const { version, ...values } = UpdateAccountBody.parse(body); // 400
+  const { version, custom: _custom, ...values } = UpdateAccountBody.parse(body); // 400
+  const patch = parseCustomPatch(custom, rawCustomOf(raw)); // 400
   await checkReferences(tx, current.programmeId, current.id, values); // 400
+  const target = { id: current.id, programmeId: current.programmeId };
+  if (patch !== undefined) await assertCustomPatchFits(tx, custom, target, patch); // 400
 
   const updated = await writeOr400(() =>
-    updateAccountIfVersion(
-      tx,
-      { id: current.id, programmeId: current.programmeId, version },
-      values,
-    ),
+    customBackstopAs400(() => updateAccountIfVersion(tx, { ...target, version }, values, patch)),
   );
   if (updated === null) throw staleWrite(); // 409
-  await recordAuditEvent(
+  await recordAuditWithCustom(
     tx,
     accountAuditEvent('updated', updated, accountChanges(values, current)),
+    customPatchKeys(patch),
   );
-  return toAccountWire(updated, access);
+  return toAccountWire(updated, access, await customWireFor(tx, custom, updated));
 }

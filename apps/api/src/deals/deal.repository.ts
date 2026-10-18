@@ -1,5 +1,7 @@
 import { newId, type TenantTx } from '@kasuwa/db';
 import {
+  customFilterClauses,
+  customMergeSet,
   dealActorOf,
   dealProgrammeMember,
   dealProgrammeMemberFlag,
@@ -8,7 +10,9 @@ import {
   encodeListCursor,
   foldForSearch,
   InvalidCursorError,
+  type CustomFilters,
 } from '@kasuwa/domain-core';
+import type { CustomPatch } from '@kasuwa/metadata-engine';
 import type { DealSort } from './deals.schemas';
 
 /**
@@ -508,6 +512,7 @@ export async function insertDeal(
   pipeline: PipelineRef,
   stageId: string,
   values: DealValues & { name: string },
+  custom: Readonly<Record<string, unknown>> = {},
 ): Promise<Deal> {
   assertInScope(tx, pipeline.programmeId);
   const params = new Params();
@@ -518,6 +523,8 @@ export async function insertDeal(
     { column: 'programme_id', value: `${params.add(pipeline.programmeId)}::uuid` },
     { column: 'pipeline_id', value: `${params.add(pipeline.id)}::uuid` },
     { column: 'stage_id', value: `${params.add(stageId)}::uuid` },
+    // T-0089: validated by the API against the live definitions; never read back here.
+    { column: 'custom', value: `${params.add(JSON.stringify(custom))}::jsonb` },
     ...assignments(values, params),
   ];
   await tx.query(
@@ -551,10 +558,13 @@ export async function updateDealIfVersion(
   target: { id: string; programmeId: string; version: number },
   values: DealValues,
   move?: { toStageId: string; toKind: StageKind },
+  custom?: CustomPatch,
 ): Promise<boolean> {
   assertInScope(tx, target.programmeId);
   const params = new Params();
   const sets = assignments(values, params).map((entry) => `${entry.column} = ${entry.value}`);
+  // T-0089: merged per key, never returned (0039 grants UPDATE (custom) only).
+  if (custom !== undefined) sets.push(customMergeSet(custom, (value) => params.add(value)));
   if (move !== undefined) {
     sets.push(`stage_id = ${params.add(move.toStageId)}::uuid`);
     sets.push('stage_entered_at = now()');
@@ -632,6 +642,8 @@ export interface DealListFilters {
   currencies?: readonly string[] | undefined;
   closeFrom?: string | undefined;
   closeTo?: string | undefined;
+  /** Custom-field equality and is-empty (T-0089), already judged by the API. */
+  custom?: CustomFilters | undefined;
 }
 
 export interface ListDealsOptions {
@@ -690,6 +702,7 @@ function listWhere(
   if (filters.closeTo !== undefined) {
     where.push(`d.expected_close_date <= ${params.add(filters.closeTo)}::date`);
   }
+  where.push(...customFilterClauses(filters.custom, (value) => params.add(value), 'd'));
   return where;
 }
 

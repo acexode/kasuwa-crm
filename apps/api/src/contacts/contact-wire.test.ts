@@ -6,6 +6,7 @@ import {
 } from '@kasuwa/domain-core';
 import { describe, expect, it } from 'vitest';
 import { toContactWire, withheldWireFields } from './contact-wire';
+import { EMPTY_CUSTOM_WIRE } from '../custom-fields/custom-values';
 
 const A1 = '11111111-0000-4000-8000-0000000c0001';
 const EMAIL = 'probe.wire-t0041@example.test';
@@ -71,7 +72,7 @@ const owned: Contact = { ...contact, ownerUserId: OWNER.id, owner: OWNER };
 
 describe('toContactWire', () => {
   it('omits a withheld field, never nulls it, and names it in withheldFields', () => {
-    const wire = toContactWire(contact, accessWith('none'));
+    const wire = toContactWire(contact, accessWith('none'), EMPTY_CUSTOM_WIRE);
     expect('emails' in wire).toBe(false);
     expect(wire.withheldFields).toEqual(['emails']);
     expect(JSON.stringify(wire)).not.toContain(EMAIL);
@@ -80,24 +81,25 @@ describe('toContactWire', () => {
   });
 
   it('sends a readable field and an always-present empty withheldFields', () => {
-    const wire = toContactWire(contact, accessWith('read'));
+    const wire = toContactWire(contact, accessWith('read'), EMPTY_CUSTOM_WIRE);
     expect(wire.emails).toEqual([EMAIL]);
     expect(wire.withheldFields).toEqual([]);
   });
 
   it('carries version, UTC timestamps, and nothing the contract does not name', () => {
-    const wire = toContactWire(contact, accessWith('edit'));
+    const wire = toContactWire(contact, accessWith('edit'), EMPTY_CUSTOM_WIRE);
     expect(wire.version).toBe(2);
     expect(wire.createdAt).toBe('2026-01-01T00:00:00.123Z');
     expect(Object.keys(wire)).not.toContain('tenantId');
-    // T-0061 added account, T-0076 companyName.
-    expect(Object.keys(wire)).toHaveLength(27);
+    // T-0061 added account, T-0076 companyName, T-0089 custom.
+    expect(Object.keys(wire)).toHaveLength(28);
+    expect(wire.custom).toEqual({});
   });
 
   it('serves companyName, null when none, and omits and names it when withheld (T-0076)', () => {
-    const readable = toContactWire(contact, accessWith('edit'));
+    const readable = toContactWire(contact, accessWith('edit'), EMPTY_CUSTOM_WIRE);
     expect(readable.companyName).toBe('Probe Wire Co');
-    expect(toContactWire({ ...contact, companyName: null }, accessWith('edit')).companyName).toBeNull();
+    expect(toContactWire({ ...contact, companyName: null }, accessWith('edit'), EMPTY_CUSTOM_WIRE).companyName).toBeNull();
 
     const withheld = toContactWire(
       contact,
@@ -110,7 +112,7 @@ describe('toContactWire', () => {
             ),
           ),
         ],
-      ]),
+      ]), EMPTY_CUSTOM_WIRE,
     );
     expect('companyName' in withheld).toBe(false);
     expect(withheld.withheldFields).toEqual(['companyName']);
@@ -120,15 +122,15 @@ describe('toContactWire', () => {
 
 describe('toContactWire: the embedded owner (T-0043)', () => {
   it('sends owner beside ownerUserId when the id is readable, and null when unassigned', () => {
-    const wire = toContactWire(owned, ownerAccess('read'));
+    const wire = toContactWire(owned, ownerAccess('read'), EMPTY_CUSTOM_WIRE);
     expect(wire.owner).toEqual(OWNER);
     expect(wire.ownerUserId).toBe(OWNER.id);
     expect(wire.withheldFields).toEqual([]);
-    expect(toContactWire(contact, ownerAccess('edit')).owner).toBeNull();
+    expect(toContactWire(contact, ownerAccess('edit'), EMPTY_CUSTOM_WIRE).owner).toBeNull();
   });
 
   it('withholds owner WITH ownerUserId: both omitted, both named, the name nowhere', () => {
-    const wire = toContactWire(owned, ownerAccess('none'));
+    const wire = toContactWire(owned, ownerAccess('none'), EMPTY_CUSTOM_WIRE);
     expect('ownerUserId' in wire).toBe(false);
     expect('owner' in wire).toBe(false);
     expect(wire.withheldFields).toEqual(['ownerUserId', 'owner']);
@@ -155,15 +157,15 @@ const accountAccess = (level: ContactFieldLevel): ContactFieldAccess =>
 
 describe('toContactWire: the embedded account (T-0061)', () => {
   it('sends account beside accountId when the id is readable, and null when unlinked', () => {
-    const wire = toContactWire(linked, accountAccess('read'));
+    const wire = toContactWire(linked, accountAccess('read'), EMPTY_CUSTOM_WIRE);
     expect(wire.account).toEqual(ACCOUNT);
     expect(wire.accountId).toBe(ACCOUNT.id);
     expect(wire.withheldFields).toEqual([]);
-    expect(toContactWire(contact, accountAccess('edit')).account).toBeNull();
+    expect(toContactWire(contact, accountAccess('edit'), EMPTY_CUSTOM_WIRE).account).toBeNull();
   });
 
   it('withholds account WITH accountId: both omitted, both named, the name nowhere', () => {
-    const wire = toContactWire(linked, accountAccess('none'));
+    const wire = toContactWire(linked, accountAccess('none'), EMPTY_CUSTOM_WIRE);
     expect('accountId' in wire).toBe(false);
     expect('account' in wire).toBe(false);
     expect(wire.withheldFields).toEqual(['accountId', 'account']);

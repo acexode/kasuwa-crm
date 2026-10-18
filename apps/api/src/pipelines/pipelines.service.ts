@@ -26,6 +26,7 @@ import {
   validationFailedFrom,
   type AdminErrorDetail,
 } from '../admin/common/admin-errors';
+import { customWiresFor, EMPTY_CUSTOM_WIRE, loadCustom } from '../custom-fields/custom-values';
 import {
   toDealWire,
   toPipelineSummaryWire,
@@ -209,6 +210,8 @@ export async function getPipelineBoardFor(
   // 6. Exact counts and totals, then each column's page.
   const tallies = await tallyBoardColumns(tx, boardQuery, boardColumns);
   const amountWithheld = withheld.includes('amount');
+  // T-0089: each card's custom values, projected in SQL, one read per column.
+  const custom = await loadCustom(tx, 'deal');
   const out: BoardStageWire[] = [];
   for (const [index, column] of boardColumns.entries()) {
     const stage = selected[index];
@@ -218,12 +221,19 @@ export async function getPipelineBoardFor(
     });
     const tally = tallies.get(column.stageId) ?? { count: 0, totals: [] };
     const last = page.cards.at(-1);
+    const wires = await customWiresFor(tx, custom, page.cards);
     out.push({
       stageId: column.stageId,
       count: tally.count,
       ...(amountWithheld ? {} : { totals: tally.totals }),
       cards: page.cards.map((card) =>
-        toDealWire(card, withheld, stage?.rottingAfterDays ?? null, nowMs),
+        toDealWire(
+          card,
+          withheld,
+          stage?.rottingAfterDays ?? null,
+          nowMs,
+          wires.get(card.id) ?? EMPTY_CUSTOM_WIRE,
+        ),
       ),
       nextCursor: page.hasMore && last !== undefined ? encodeIdCursor(last.id) : null,
     });

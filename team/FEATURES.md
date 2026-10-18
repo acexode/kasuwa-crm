@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 185 rows; built 101, partial 11, mock-only 27, flagged-off 13, deferred 10, not-started 23.
+Totals: 185 rows; built 105, partial 11, mock-only 27, flagged-off 13, deferred 10, not-started 19.
 
 ## Modules
 
@@ -132,10 +132,10 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `listPermissionSets` | GET /api/v1/admin/field-security/permission-sets — The matrix columns | built | — | — | docs/api/admin.openapi.yaml · T-0022 |
 | operation | `getFieldSecurityMatrix` | GET /api/v1/admin/field-security/matrix — Read the field-security matrix for one object | built | — | — | docs/api/admin.openapi.yaml · T-0026 |
 | operation | `updateFieldSecurityMatrix` | PUT /api/v1/admin/field-security/matrix — Save field-security changes | built | — | — | docs/api/admin.openapi.yaml · T-0026 |
-| operation | `listCustomFields` | GET /api/v1/admin/custom-fields — List the custom fields of one standard object (contract only) | not-started | — | — | docs/api/admin.openapi.yaml |
-| operation | `createCustomField` | POST /api/v1/admin/custom-fields — Define a custom field on a standard object (contract only) | not-started | — | — | docs/api/admin.openapi.yaml |
-| operation | `updateCustomField` | PATCH /api/v1/admin/custom-fields/{fieldId} — Relabel a custom field, reclassify it, or add or relabel picklist values (contract only) | not-started | — | — | docs/api/admin.openapi.yaml |
-| operation | `retireCustomField` | POST /api/v1/admin/custom-fields/{fieldId}/retire — Retire a custom field (there is no delete) (contract only) | not-started | — | — | docs/api/admin.openapi.yaml |
+| operation | `listCustomFields` | GET /api/v1/admin/custom-fields — List the custom fields of one standard object | built | — | — | docs/api/admin.openapi.yaml |
+| operation | `createCustomField` | POST /api/v1/admin/custom-fields — Define a custom field on a standard object | built | — | — | docs/api/admin.openapi.yaml |
+| operation | `updateCustomField` | PATCH /api/v1/admin/custom-fields/{fieldId} — Relabel a custom field, reclassify it, or add or relabel picklist values | built | — | — | docs/api/admin.openapi.yaml |
+| operation | `retireCustomField` | POST /api/v1/admin/custom-fields/{fieldId}/retire — Retire a custom field (there is no delete) | built | — | — | docs/api/admin.openapi.yaml |
 | operation | `listAuditEvents` | GET /api/v1/admin/audit/events — Search the audit log | built | — | — | docs/api/admin.openapi.yaml · T-0025 |
 | operation | `getAuditFilterOptions` | GET /api/v1/admin/audit/filter-options — What the filter dropdowns should offer | built | — | — | docs/api/admin.openapi.yaml · T-0025 |
 | operation | `createAuditExport` | POST /api/v1/admin/audit/exports — Start an audit-log export | built | — | — | docs/api/admin.openapi.yaml · T-0025 |

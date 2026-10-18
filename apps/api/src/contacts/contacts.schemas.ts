@@ -156,6 +156,11 @@ export const CreateContactBody = z
     programmeId: z.string().uuid().optional(),
     ...writableFields,
     source: z.enum(CONTACT_SOURCES).optional(),
+    // T-0089: admitted here and validated separately, against the live
+    // custom-field definitions (custom-fields/custom-values.ts): its schema is
+    // per tenant and per object, so it cannot be a constant. Written out, not
+    // spread: the T-0041 tripwire pins that only writableFields is spread.
+    custom: z.unknown().optional(),
   })
   .strict();
 export type CreateContactBody = z.infer<typeof CreateContactBody>;
@@ -171,6 +176,8 @@ export const UpdateContactBody = z
     version: z.number().int().min(1).max(2_147_483_647),
     ...writableFields,
     displayName: writableFields.displayName.optional(),
+    // T-0089: validated separately, against the live definitions.
+    custom: z.unknown().optional(),
   })
   .strict()
   .refine((body) => Object.keys(body).some((key) => key !== 'version'), {

@@ -64,7 +64,10 @@ import { parse } from 'yaml';
  *                                                     config.values
  *                 currency_mismatch     custom.<key>.currency  not the field's
  *                                                     currencyCode
- *                 custom_too_large      custom        merged result > 32 KiB
+ *                 custom_too_large      custom        merged result > 16 KiB
+ *                                                     of what the caller can
+ *                                                     see (D-L140; T-0089,
+ *                                                     D-L142)
  *                 field_withheld        custom.<key>  filter on a key withheld
  *                                                     in ANY reachable
  *                                                     programme
@@ -132,6 +135,11 @@ import { parse } from 'yaml';
  *   R4  The 32 KiB per-record limit (D-L128 Q1) is a server rule on the
  *       merged result, `400 custom_too_large` at `custom`; 100 keys is also
  *       `maxProperties` on both objects.
+ *       AMENDED (T-0089, D-L142 lead edit): the limit callers meet is the
+ *       16 KiB caller-visible API limit (D-L140); the database CHECK is a
+ *       512 KiB backstop (524288 octets) no live set of keys can reach, and
+ *       a backstop refusal is still `400 custom_too_large`. No description
+ *       may call 32 KiB the backstop any more.
  *   R5  Create bodies take `custom` too (CustomFields: values only, no
  *       null). T-0091's activity forms create activities with values, and a
  *       create that cannot set them forces a second write.
@@ -206,7 +214,8 @@ import { parse } from 'yaml';
  *       tenant out for ever; the 32 KiB cap still bounds the row).
  *       AMENDED (lead edit, D-L140, D-L141): CustomFieldLimits is exactly
  *       `apiBytes` (const 16384, the API's limit on what the caller can see),
- *       `bytesPerRecord` (const 32768, the database BACKSTOP),
+ *       `bytesPerRecord` (const 524288 since T-0089 / D-L142, the database
+ *       BACKSTOP, 512 KiB; it was 32768),
  *       `definitionsPerObject` (const 500, retired ones included),
  *       `fieldsPerObject` (100) and `picklistValues` (500), all required.
  *       The 500-value picklist limit is reported at `config.values` on
@@ -225,6 +234,8 @@ import { parse } from 'yaml';
  *       ignore unknown parameters, so a screen sending `custom[...]` to them
  *       today would get unfiltered rows that look filtered (the D-L75
  *       hazard). T-0091 must not send one while the flag is false.
+ *       FLIPPED (T-0089, D-L142 lead edit): T-0089 serves all of it, so
+ *       every flag, and the generated admin mock, is now pinned `true`.
  *   R20 D-L97: every example in both files validates; every e2e mock that
  *       reads either file still loads (each validates its own rows at load);
  *       and the generated admin mock is regenerated in the same change.
@@ -1204,11 +1215,14 @@ describe('acceptance: custom-field contract (T-0088)', () => {
       }
     });
 
-    it('CustomFields documents the withheld rule, the 32 KiB limit and custom_too_large (R2, R4)', () => {
+    // T-0089 / D-L142 (lead edit): the limit a caller meets is 16 KiB; the backstop is 512 KiB.
+    it('CustomFields documents the withheld rule, the 16 KiB limit, the 512 KiB backstop and custom_too_large (R2, R4)', () => {
       const text = nodeDescription(rec('CustomFields'));
       expect(text).toMatch(/`custom\.<key>`/);
       expect(text).toMatch(/`withheldFields`/);
-      expect(text).toMatch(/32 KiB/);
+      expect(text).toMatch(/16 KiB/);
+      expect(text).toMatch(/512 KiB/);
+      expect(text, 'still calls 32 KiB the backstop').not.toMatch(/32 KiB[^.]*backstop|backstop[^.]*32 KiB/i);
       expect(text).toMatch(/custom_too_large/);
       expect(text).toMatch(/retired/i);
     });
@@ -1765,7 +1779,8 @@ describe('acceptance: custom-field contract (T-0088)', () => {
   });
 
   describe('admin: limits and errors (R16)', () => {
-    it('CustomFieldLimits: closed, exactly apiBytes 16384, bytesPerRecord 32768 (the backstop), definitionsPerObject 500, fieldsPerObject 100, picklistValues 500, all required (D-L128 Q1; lead edit, D-L140, D-L141)', () => {
+    // T-0089 / D-L142 (lead edit): bytesPerRecord is the 512 KiB backstop (524288); 16 KiB is the limit callers meet.
+    it('CustomFieldLimits: closed, exactly apiBytes 16384, bytesPerRecord 524288 (the backstop), definitionsPerObject 500, fieldsPerObject 100, picklistValues 500, all required (D-L128 Q1; lead edit, D-L140, D-L141, D-L142)', () => {
       const limits = adm('CustomFieldLimits');
       expect(isSchema(properties(adm('CustomFieldList')).get('limits'), limits)).toBe(true);
       expect(isClosed(limits)).toBe(true);
@@ -1775,7 +1790,7 @@ describe('acceptance: custom-field contract (T-0088)', () => {
         return isMapping(node) ? (node.const ?? (Array.isArray(node.enum) && node.enum.length === 1 ? node.enum[0] : undefined)) : undefined;
       };
       const KEYS = ['apiBytes', 'bytesPerRecord', 'definitionsPerObject', 'fieldsPerObject', 'picklistValues'];
-      expect(KEYS.map(constOf)).toEqual([16384, 32768, 500, 100, 500]);
+      expect(KEYS.map(constOf)).toEqual([16384, 524288, 500, 100, 500]);
       for (const key of KEYS) {
         const node = props.get(key)?.node;
         expect(isMapping(node) ? node.type : undefined, `${key} type`).toBe('integer');
@@ -1783,10 +1798,16 @@ describe('acceptance: custom-field contract (T-0088)', () => {
       expect(keysOf(limits)).toEqual(KEYS);
       expect(required(limits).sort()).toEqual(KEYS);
       const text = nodeDescription(limits);
-      expect(text).toMatch(/32 KiB/);
+      expect(text).toMatch(/512 KiB/);
       expect(text).toMatch(/16 KiB/);
       expect(text).toMatch(/backstop/i);
       expect(text).toMatch(/retired/i);
+      // 16 KiB is the limit callers meet, said in so many words, and no part of the
+      // schema (property descriptions included) still gives the old 32 KiB backstop.
+      expect(text).toMatch(/16 KiB[^.]*\bcallers?\b|\bcallers?\b[^.]*16 KiB/i);
+      const whole = JSON.stringify(limits.node);
+      expect(whole).not.toMatch(/32768/);
+      expect(whole, 'still calls 32 KiB the backstop').not.toMatch(/32 KiB[^.]*backstop|backstop[^.]*32 KiB/i);
       // definitionsPerObject counts retired fields; fieldsPerObject does not.
       const definitions = nodeDescription(props.get('definitionsPerObject') ?? limits);
       expect(`${definitions} ${text}`).toMatch(/definitionsPerObject[^.]*retired|retired[^.]*definitionsPerObject/i);
@@ -1831,37 +1852,44 @@ describe('acceptance: custom-field contract (T-0088)', () => {
       expect(ADMIN_400_DETAILS.filter((entry) => !got.includes(entry))).toEqual([]);
     });
 
-    it('the limits are stated in prose where they bite: 100 and limit_reached on create, 500 on update, 32 KiB in records', () => {
+    // T-0089 / D-L142 (lead edit): the records prose states the 16 KiB limit callers meet.
+    it('the limits are stated in prose where they bite: 100 and limit_reached on create, 500 on update, 16 KiB in records', () => {
       const create = description(admOp('createCustomField'));
       expect(create).toMatch(/100/);
       expect(create).toMatch(/limit_reached/);
       expect(create).toMatch(/field_limit_reached/);
       expect(description(admOp('updateCustomField'))).toMatch(/picklist_limit_reached/);
-      expect(nodeDescription(rec('CustomFields'))).toMatch(/32 KiB/);
+      expect(nodeDescription(rec('CustomFields'))).toMatch(/16 KiB/);
     });
   });
 
-  describe('flags: contract first (R19)', () => {
-    it('the four admin operations are x-kasuwa-implemented: false', () => {
-      for (const [id] of ADMIN_OPS) expect(admOp(id).op['x-kasuwa-implemented'], id).toBe(false);
+  // T-0089 / D-L142 (lead edit): T-0089 serves all of it, so every pin flips from `false`
+  // to `true`. The prose pin that the parameter descriptions say "a screen must not send
+  // them until served" is dropped, so the builder can refresh that wording.
+  describe('flags: served by T-0089 (R19)', () => {
+    it('the four admin operations are x-kasuwa-implemented: true', () => {
+      for (const [id] of ADMIN_OPS) expect(admOp(id).op['x-kasuwa-implemented'], id).toBe(true);
     });
 
-    it('every custom property, on the record shapes and the bodies, is x-kasuwa-implemented: false', () => {
+    it('every custom property, on the record shapes and the bodies, is x-kasuwa-implemented: true', () => {
       const problems: string[] = [];
+      let checked = 0;
       for (const name of [...RECORD_SCHEMAS, ...CREATE_BODIES, ...UPDATE_BODIES]) {
         const raw = rawProperty(rec(name), 'custom');
+        checked += 1;
         if (!raw) problems.push(`${name}: no custom`);
-        else if (raw['x-kasuwa-implemented'] !== false) problems.push(`${name}.custom is not x-kasuwa-implemented: false`);
+        else if (raw['x-kasuwa-implemented'] !== true) problems.push(`${name}.custom is not x-kasuwa-implemented: true`);
       }
       expect(problems).toEqual([]);
+      // Not vacuous: four record shapes, four create bodies, four update bodies.
+      expect(checked).toBe(12);
     });
 
-    it('the custom and customEmpty parameters are x-kasuwa-implemented: false, and say a screen must not send them until served', () => {
+    it('the custom and customEmpty parameters are x-kasuwa-implemented: true', () => {
       for (const name of ['custom', 'customEmpty']) {
         const located = param(recOp('listContacts'), name);
-        expect(isMapping(located?.node) ? located.node['x-kasuwa-implemented'] : undefined, name).toBe(false);
+        expect(isMapping(located?.node) ? located.node['x-kasuwa-implemented'] : undefined, name).toBe(true);
       }
-      expect(nodeDescription(param(recOp('listContacts'), 'custom'))).toMatch(/ignore/i);
     });
   });
 
@@ -1989,10 +2017,11 @@ describe('acceptance: custom-field contract (T-0088)', () => {
       expect(checked).toBeGreaterThanOrEqual(10);
     });
 
-    it('the generated admin mock is regenerated: it lists the four operations, each implemented false (D-L97)', async () => {
+    // T-0089 / D-L142 (lead edit): the mock is regenerated with the flags, so each is `true`.
+    it('the generated admin mock is regenerated: it lists the four operations, each implemented true (D-L97)', async () => {
       const generated = (await import(resolve(E2E_SUPPORT, 'admin-mock.generated.ts'))) as { ADMIN_OPERATIONS?: readonly { operationId: string; implemented: string }[] };
       const listed = new Map((generated.ADMIN_OPERATIONS ?? []).map((entry) => [entry.operationId, entry.implemented]));
-      expect(ADMIN_OPS.map(([id]) => `${id} ${String(listed.get(id))}`)).toEqual(ADMIN_OPS.map(([id]) => `${id} false`));
+      expect(ADMIN_OPS.map(([id]) => `${id} ${String(listed.get(id))}`)).toEqual(ADMIN_OPS.map(([id]) => `${id} true`));
     });
 
     it('every other example in both files still validates (D-L97: custom fields break no mock)', () => {

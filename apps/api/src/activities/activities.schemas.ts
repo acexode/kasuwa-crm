@@ -112,6 +112,8 @@ export const CreateActivityBody = z
     // T-0111: a LINK, never a target (R1); the service checks the deal is in
     // the activity's programme (R2).
     dealId: z.string().uuid().nullable().optional(),
+    // T-0089: admitted here, validated against the live definitions separately.
+    custom: z.unknown().optional(),
   })
   .strict()
   .superRefine((body, context) => {
@@ -170,6 +172,8 @@ export const UpdateActivityBody = z
     startsAt: UtcDateTime.optional(),
     endsAt: UtcDateTime.optional(),
     dealId: z.string().uuid().nullable().optional(),
+    // T-0089: a per-key merge, validated against the live definitions separately.
+    custom: z.unknown().optional(),
   })
   .strict()
   .refine(
@@ -179,7 +183,8 @@ export const UpdateActivityBody = z
       body.dueAt !== undefined ||
       body.startsAt !== undefined ||
       body.endsAt !== undefined ||
-      body.dealId !== undefined,
+      body.dealId !== undefined ||
+      body.custom !== undefined,
     {
       message: 'an update must change something',
       path: [],

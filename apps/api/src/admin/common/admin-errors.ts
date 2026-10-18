@@ -40,6 +40,8 @@ export type AdminErrorCode =
   | 'not_found'
   | 'duplicate_name'
   | 'duplicate_code'
+  /** admin.openapi.yaml (T-0088): a custom-field limit (T-0089). */
+  | 'limit_reached'
   | 'stale_write'
   | 'role_hierarchy_cycle'
   | 'role_in_use'
