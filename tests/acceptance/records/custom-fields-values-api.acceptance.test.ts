@@ -66,8 +66,10 @@ import { collectTelemetry } from '../support/telemetry';
  *                                       caller can READ in the row's
  *                                       programme plus the keys written
  *                                       (D-L140); withheld and retired
- *                                       bytes never count. The 32 KiB
- *                                       database CHECK is a backstop only.
+ *                                       bytes never count. The 512 KiB
+ *                                       database CHECK is a backstop only
+ *                                       (D-L142); if it is ever reached it
+ *                                       is this same 400, never a 500.
  *     unknown_field      custom         a key failing `^[a-z][a-z0-9_]*__c$`
  *                        (or the query  is reported at `custom` (a filter: at
  *                        parameter)     `custom` / `customEmpty`), never at a
@@ -121,8 +123,10 @@ import { collectTelemetry } from '../support/telemetry';
  *     does see the A2 value when ACTOR reads the A2 row.
  * V4  A write by a caller from whom a key is withheld preserves that key's
  *     stored value (the SQL merge, never a read-modify-write of the visible
- *     part). Likewise a retired key's stored value survives other writes:
- *     the purge is a later task (D-L128 Q3).
+ *     part). RULED (T-0089, D-L142 lead edit; this said a retired value
+ *     survives): every custom WRITE drops retired keys from the row, so a
+ *     retired value is gone once its row is written; a row nobody writes
+ *     keeps it (the purge of untouched rows is a later task).
  * V5  The 403 for a withheld or read-only key comes before every 400 on the
  *     same body (the published order), so a bad value for a key one may not
  *     edit is 403, never `invalid_value`.
@@ -165,6 +169,16 @@ import { collectTelemetry } from '../support/telemetry';
  * V13 Activities have no read of their own: their withholding is judged on
  *     the createActivity and updateActivity answers, and the activity items
  *     of the timelines carry no `custom` (ActivityItem is closed).
+ *
+ * D-L142 (lead edits, T-0089 review rulings), pinned here:
+ *   - a backstop 23514 (a non-API writer filled the row) is 400
+ *     custom_too_large, byte for byte the API-limit refusal, never a 500;
+ *   - every custom write drops retired keys (V4);
+ *   - the size is measured under a row lock: two concurrent writes that
+ *     together pass 16 KiB never both land; the loser is custom_too_large;
+ *   - a lone UTF-16 surrogate in a text value is 400 invalid_value;
+ *   - a filter on a withheld key is still field_withheld (section 5 already
+ *     pins it; no new test).
  *
  * ==========================================================================
  * D-L23: on this branch `custom` is not a column, the bodies are closed
@@ -248,7 +262,7 @@ const FIELDS: readonly FieldSpec[] = [
   { apiName: 'ro__c', type: 'text', classification: 'none', config: {} },
   { apiName: 'old__c', type: 'picklist', classification: 'none', config: { values: [{ value: 'keep', label: 'Keep' }, { value: 'drop', label: 'Drop' }] } },
 ];
-/** Contact only: twelve text fields for the 32 KiB rule. */
+/** Contact only: twelve text fields for the 16 KiB rule. */
 const BIG_FIELDS = Array.from({ length: 12 }, (_, i) => `big${String(i + 1).padStart(2, '0')}__c`);
 const GRANTS: readonly [string, string, 'none' | 'read' | 'edit'][] = [
   ['secret__c', 'team_lead', 'none'],
@@ -974,6 +988,22 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
       expect(await versionOf('contact', C1)).toBe(version);
     });
 
+    // T-0089 / D-L142 (lead edit): JSON.stringify sends a lone surrogate as a `\udXXX` escape,
+    // which jsonb refuses ("unsupported Unicode escape sequence"); the API must refuse it first.
+    it('(D-L142) a lone UTF-16 surrogate in a text value is 400 invalid_value, never 500, on update and create; nothing is written', async () => {
+      // The control: a well-formed surrogate pair is an ordinary character.
+      await okBody(await update('contact', SUPERVISOR, C1, { custom: { txt__c: 'T-0089 pair 😀' } }), 200, 'a well-formed pair');
+      const version = await versionOf('contact', C1);
+      const lone = ['lone \uD800 high', 'lone \uDC00 low', 'reversed \uDC00\uD800 pair', 'trailing \uDBFF'];
+      for (const value of lone) {
+        const where = JSON.stringify(value);
+        expectDetail(await update('contact', SUPERVISOR, C1, { custom: { txt__c: value } }), 400, 'validation_failed', 'invalid_value', ['custom.txt__c'], `update ${where}`);
+        expectDetail(await create('activity', SUPERVISOR, PROGRAMME_A1, { custom: { txt__c: value } }), 400, 'validation_failed', 'invalid_value', ['custom.txt__c'], `create ${where}`);
+      }
+      expect(await storedCustom('contact', C1)).toEqual({ txt__c: 'T-0089 pair 😀' });
+      expect(await versionOf('contact', C1)).toBe(version);
+    });
+
     it.each(OBJECTS)('%s: one refused value per type at create, and nothing is created', async (object) => {
       const table = TABLE_OF[object];
       const count = async () =>
@@ -1092,7 +1122,7 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
   });
 
   // =========================================================================
-  // 2. The 32 KiB limit (V8)
+  // 2. The 16 KiB API limit (V8; the database backstop is 512 KiB, D-L142)
   // =========================================================================
 
   describe('the 16 KiB API limit, judged only on what the caller can see (D-L140)', () => {
@@ -1123,6 +1153,57 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
       const swap = { ...Object.fromEntries(first.slice(0, 2).map((key) => [key, null])), ...fill(second.slice(0, 2)) };
       const swapped = await okBody(await update('contact', SUPERVISOR, C1, { custom: swap }), 200, 'swap');
       expect(Object.keys(customOf(swapped, 'swap')).sort()).toEqual([first[2], ...second.slice(0, 2)].sort());
+    });
+
+    // T-0089 / D-L142 (lead edit): the size measure takes FOR UPDATE. The observer holds the
+    // row lock until BOTH writes are waiting on it, so the race is forced, not hoped for: a
+    // measure taken without the lock passes both (the row is small when each reads it), and the
+    // second then dies at the version check (409) or lands (200), either of which fails here.
+    it('(D-L142) two concurrent writes to different keys, each under 16 KiB alone and over it together, never both land: exactly one is custom_too_large', async () => {
+      const first = BIG_FIELDS.slice(0, 3); // about 9 KB
+      const second = BIG_FIELDS.slice(3, 6); // about 9 KB; together about 18 KB
+      const version = await versionOf('contact', C1);
+      // Concurrent supertest requests need a server that is already listening: when supertest
+      // starts the server itself, each request closes it on the other (ECONNREFUSED).
+      const srv = server() as { listen: (port: number, host: string, done: () => void) => void; close: (done: () => void) => void };
+      await new Promise<void>((done) => srv.listen(0, '127.0.0.1', done));
+      const holder = await observer.connect();
+      try {
+        await holder.query('BEGIN');
+        const pid = Number((await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0]?.pid);
+        await holder.query('SELECT 1 FROM contact WHERE id = $1 FOR UPDATE', [C1]);
+        let settled = 0;
+        const fire = (keys: readonly string[]) =>
+          send('patch', `/api/v1/contacts/${enc(C1)}`, SUPERVISOR, { version, custom: fill(keys) }).then((response) => {
+            settled += 1;
+            return response;
+          });
+        const pending = [fire(first), fire(second)] as const;
+        // Wait on state, never on time: both writes blocked behind the observer's lock.
+        const deadline = Date.now() + 15_000;
+        let waiting = 0;
+        while (waiting < 2 && settled === 0 && Date.now() < deadline) {
+          const row = await observer.query<{ n: string }>(
+            `SELECT count(*) AS n FROM pg_stat_activity
+              WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> $1`,
+            [pid],
+          );
+          waiting = Number(row.rows[0]?.n);
+        }
+        await holder.query('ROLLBACK');
+        const [left, right] = await Promise.all(pending);
+        const texts = `${left.status} ${left.text.slice(0, 300)} | ${right.status} ${right.text.slice(0, 300)}`;
+        expect(waiting, `the two writes never both waited on the row lock: ${texts}`).toBe(2);
+        expect([left.status, right.status].sort(), texts).toEqual([200, 400]);
+        const [winner, loser, winnerKeys] = left.status === 200 ? [left, right, first] : [right, left, second];
+        expect(winner.status).toBe(200);
+        expectDetail(loser, 400, 'validation_failed', 'custom_too_large', ['custom'], 'the losing concurrent write');
+        expect(Object.keys(await storedCustom('contact', C1)).sort()).toEqual([...winnerKeys].sort());
+      } finally {
+        await holder.query('ROLLBACK').catch(() => undefined);
+        holder.release();
+        await new Promise<void>((done) => srv.close(() => done()));
+      }
     });
 
     it('withheld bytes never count: a near-maximum withheld value changes nothing in the caller’s answers (no size oracle); the reader who can see it is judged on it', async () => {
@@ -1166,7 +1247,7 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
     });
 
     it('(D-L141 ruling 7) removing keys is never refused for size, even when the row is over the limit', async () => {
-      // Planted over 16 KiB of visible values (the database allows up to 32 KiB).
+      // Planted over 16 KiB of visible values (the database allows up to 512 KiB, D-L142).
       await plantCustom('contact', C1, fill(SIX));
       const removeOne = await update('contact', SUPERVISOR, C1, { custom: { [String(SIX[0])]: null } });
       expect(removeOne.status, `a removal was refused: ${removeOne.text}`).toBe(200);
@@ -1177,12 +1258,13 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
     });
 
     it('retired bytes never count: a large value under a retired key does not refuse a write that fits', async () => {
-      // Planted directly (the database checks only its 32 KiB backstop), then retired.
+      // Planted directly (the database checks only its 512 KiB backstop), then retired.
       await plantCustom('contact', C1, { old__c: nearMax });
       await retireField('contact', 'old__c');
       const written = await okBody(await update('contact', SUPERVISOR, C1, { custom: fill(FIVE) }), 200, 'fits without the retired bytes');
       expect(Object.keys(customOf(written, 'answer')).sort()).toEqual([...FIVE].sort());
-      expect((await storedCustom('contact', C1)).old__c, 'the retired value was purged').toBe(nearMax);
+      // T-0089 / D-L142 (lead edit; this pinned the value surviving): the write drops retired keys.
+      expect(await storedCustom('contact', C1), 'the retired value survived a custom write').toEqual(fill(FIVE));
     });
   });
 
@@ -1225,10 +1307,21 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
       const id = A1_ROW[object];
       await plantCustom(object, id, { txt__c: 'T-0089 base' });
       const version = await versionOf(object, id);
-      const [left, right] = await Promise.all([
-        update(object, SUPERVISOR, id, { custom: { tier__c: 'gold' } }, version),
-        update(object, SUPERVISOR, id, { custom: { vip__c: true } }, version),
-      ]);
+      // T-0089 / D-L142 (lead edit): concurrent supertest requests need a server that is already
+      // listening; when supertest starts the server itself, each request closes it on the other
+      // (ECONNREFUSED). The same pattern as the FOR UPDATE race test.
+      const srv = server() as { listen: (port: number, host: string, done: () => void) => void; close: (done: () => void) => void };
+      await new Promise<void>((done) => srv.listen(0, '127.0.0.1', done));
+      let left: request.Response;
+      let right: request.Response;
+      try {
+        [left, right] = await Promise.all([
+          update(object, SUPERVISOR, id, { custom: { tier__c: 'gold' } }, version),
+          update(object, SUPERVISOR, id, { custom: { vip__c: true } }, version),
+        ]);
+      } finally {
+        await new Promise<void>((done) => srv.close(() => done()));
+      }
       const statuses = [left.status, right.status].sort();
       expect(statuses, `${left.text} | ${right.text}`).toEqual([200, 409]);
       const winner = left.status === 200 ? { tier__c: 'gold' } : { vip__c: true };
@@ -1332,12 +1425,21 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
       expectDetail(nulled, 400, 'validation_failed', 'unknown_field', ['custom.old__c'], 'retired cleared');
     });
 
-    it('(V4) the stored value of a retired key survives other writes (no purge yet)', async () => {
-      await plantCustom('contact', C1, { old__c: 'keep' });
-      await retireField('contact', 'old__c');
-      await okBody(await update('contact', SUPERVISOR, C1, { custom: { tier__c: 'gold' } }), 200, 'write another key');
-      await okBody(await update('contact', SUPERVISOR, C1, { status: 'contacted' }), 200, 'write a standard field');
-      expect(await storedCustom('contact', C1)).toEqual({ old__c: 'keep', tier__c: 'gold' });
+    // T-0089 / D-L142 (lead edit): this test pinned the opposite ("survives other writes, no
+    // purge yet"). Every custom write now drops retired keys; an untouched row keeps them.
+    it.each(OBJECTS)('(V4, D-L142) %s: a custom write drops a retired key from the stored row; a row nobody writes keeps it', async (object) => {
+      const written = A1_ROW[object];
+      const untouched = A2_ROW[object];
+      await plantCustom(object, written, { old__c: 'keep', txt__c: 'T-0089 stays' });
+      await plantCustom(object, untouched, { old__c: 'keep', txt__c: 'T-0089 untouched' });
+      await retireField(object, 'old__c');
+      await okBody(await update(object, SUPERVISOR, written, { custom: { tier__c: 'gold' } }), 200, `${object}: write another key`);
+      // As the migrator, so nothing is projected away: the key is gone from the row itself.
+      expect(await storedCustom(object, written)).toEqual({ txt__c: 'T-0089 stays', tier__c: 'gold' });
+      expect(await storedCustom(object, untouched), 'a row nobody wrote lost its retired value').toEqual({
+        old__c: 'keep',
+        txt__c: 'T-0089 untouched',
+      });
     });
 
     it('a filter on a retired key is unknown_field, as for a key that never existed', async () => {
@@ -1472,6 +1574,36 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
           vip__c: false,
         });
       }
+    });
+
+    // T-0089 / D-L142 (lead edit): the 512 KiB CHECK cannot be reached through the API by live
+    // keys, but a non-API writer can fill a row. Then the database refuses (23514), and that must
+    // still be the ordinary 400 custom_too_large, byte for byte the refusal of an over-16-KiB view
+    // (this suite's ruling, so the backstop is no oracle either), never a 500.
+    it('(D-L142) a write that only the 512 KiB backstop refuses is 400 custom_too_large, the same body as the API-limit refusal; nothing is written', async () => {
+      const BACKSTOP = 524288;
+      const room = 1500; // less than the 3,000-octet value written below
+      const wrapper = '{"secret__c": ""}'.length;
+      // secret__c is withheld from ACTOR in A1, so ACTOR's own view stays tiny.
+      await plantCustom('contact', C1, { secret__c: 'x'.repeat(BACKSTOP - room - wrapper) });
+      const sizeOf = async () =>
+        Number(
+          (await observer.query<{ n: number }>('SELECT octet_length(custom::text) AS n FROM contact WHERE id = $1', [C1])).rows[0]?.n,
+        );
+      // Self-check: the row sits exactly `room` octets under the backstop.
+      expect(await sizeOf()).toBe(BACKSTOP - room);
+      const version = await versionOf('contact', C1);
+      const euros = '€'.repeat(1000); // 3,000 octets: crosses the backstop, far under 16 KiB visible
+      const crossing = await update('contact', ACTOR, C1, { custom: { txt__c: euros } });
+      expectDetail(crossing, 400, 'validation_failed', 'custom_too_large', ['custom'], 'the backstop');
+      expect(await sizeOf(), 'the refused write was applied').toBe(BACKSTOP - room);
+      expect(await versionOf('contact', C1)).toBe(version);
+      // The reference: an ordinary over-16-KiB refusal of ACTOR on another A1 row.
+      await plantCustom('contact', C1B, {});
+      const big = Object.fromEntries(BIG_FIELDS.slice(0, 6).map((key) => [key, euros]));
+      const ordinary = await update('contact', ACTOR, C1B, { custom: big });
+      expectDetail(ordinary, 400, 'validation_failed', 'custom_too_large', ['custom'], 'the API limit');
+      expect(crossing.text, 'a backstop refusal is told apart from the API-limit refusal').toBe(ordinary.text);
     });
 
     it('writing a withheld key is 403 field_not_editable at custom.<key>, value or null, before any 400 (V5), on every object; nothing is written', async () => {

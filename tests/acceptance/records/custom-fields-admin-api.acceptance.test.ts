@@ -102,8 +102,11 @@ import { asUser, withAuthDatabase } from '../support/api';
  *     `400 invalid_config` at `config.values`, exactly; on update the limit
  *     is `409 picklist_limit_reached` at `addValues`.
  * A8  (D-L140, D-L141) CustomFieldLimits is exactly apiBytes 16384,
- *     bytesPerRecord 32768, definitionsPerObject 500, fieldsPerObject 100
+ *     bytesPerRecord 524288 (the 512 KiB backstop since T-0089 / D-L142 lead
+ *     edit; it was 32768), definitionsPerObject 500, fieldsPerObject 100
  *     and picklistValues 500.
+ * A9  (T-0089, D-L142 lead edit) a lone UTF-16 surrogate in a picklist
+ *     label is 400, never a 500, on create, addValues and relabelValues.
  * A3  A custom field of a CUSTOM object is outside this API: its id is the
  *     same 404 as an invented one. The routes manage the four standard
  *     objects only, and must not become a back door to another object's
@@ -521,7 +524,7 @@ describe('acceptance: custom-field definitions over the admin API (T-0089)', () 
       ['no retiredAt', { ...example, items: [withoutRetiredAt] }],
       ['a refused type', { ...example, items: [{ ...first, type: 'textarea' }] }],
       ['a name without __c', { ...example, items: [{ ...first, apiName: 'alternate_name' }] }],
-      ['a different limit', { ...example, limits: { fieldsPerObject: 200, picklistValues: 500, bytesPerRecord: 32768 } }],
+      ['a different limit', { ...example, limits: { fieldsPerObject: 200, picklistValues: 500, bytesPerRecord: 524288 } }],
       ['a record count', { ...example, items: [{ ...first, recordCount: 3 }] }],
     ];
     for (const [label, mutant] of mutants) {
@@ -546,8 +549,8 @@ describe('acceptance: custom-field definitions over the admin API (T-0089)', () 
       expect(schemaErrors(LIST, response.body, 'list')).toEqual([]);
       expect(response.body).toEqual({
         objectApiName: object,
-        // A8 (D-L140, D-L141): the five limits, exactly.
-        limits: { apiBytes: 16384, bytesPerRecord: 32768, definitionsPerObject: 500, fieldsPerObject: 100, picklistValues: 500 },
+        // A8 (D-L140, D-L141; T-0089 / D-L142: the backstop is 524288): the five limits, exactly.
+        limits: { apiBytes: 16384, bytesPerRecord: 524288, definitionsPerObject: 500, fieldsPerObject: 100, picklistValues: 500 },
         items: [],
       });
     });
@@ -707,6 +710,20 @@ describe('acceptance: custom-field definitions over the admin API (T-0089)', () 
         expectDetail(await create(SUPERVISOR, body), 400, 'validation_failed', code, paths, label);
       }
       expect(await customCount()).toBe(before);
+    });
+
+    // T-0089 / D-L142 (lead edit): config is jsonb, and Postgres refuses a lone surrogate escape
+    // there; the API must refuse it first (isWellFormed), as a 400.
+    it('(A9, D-L142) a lone UTF-16 surrogate in a picklist label is 400 on create, never 500, and nothing is written', async () => {
+      await created(tierBody({ apiName: 'control__c' }));
+      const before = await customCount();
+      for (const label of ['Gold \uD800', '\uDC00 Gold', 'Go\uDC00\uD800ld']) {
+        const body = tierBody({ apiName: 'lone__c', config: { values: [{ value: 'gold', label }] } });
+        expectError(await create(SUPERVISOR, body), 400, 'validation_failed', `create ${JSON.stringify(label)}`);
+      }
+      expect(await customCount()).toBe(before);
+      // The control: a well-formed pair is a label like any other.
+      await created(tierBody({ apiName: 'emoji__c', config: { values: [{ value: 'gold', label: 'Gold 😀' }] } }));
     });
 
     it('the body is closed: isRequired, programmeId, id, retiredAt, tenantId and an unknown key are each 400', async () => {
@@ -881,6 +898,17 @@ describe('acceptance: custom-field definitions over the admin API (T-0089)', () 
       expect((await fieldRow(String(tier.id)))?.config).toEqual(tierBody().config);
       expect((await fieldRow(String(tier.id)))?.label).toBe('T-0089 tier');
       expect((await fieldRow(String(text.id)))?.label).toBe('T-0089 tier');
+    });
+
+    it('(A9, D-L142) a lone UTF-16 surrogate in an added or relabelled picklist label is 400, never 500, and nothing is applied', async () => {
+      const tier = await created(tierBody());
+      for (const [label, body] of [
+        ['addValues', { addValues: [{ value: 'iron', label: 'Iron \uD800' }] }],
+        ['relabelValues', { relabelValues: [{ value: 'gold', label: '\uDC00 Gold' }] }],
+      ] as const) {
+        expectError(await update(SUPERVISOR, String(tier.id), body), 400, 'validation_failed', label);
+      }
+      expect((await fieldRow(String(tier.id)))?.config).toEqual(tierBody().config);
     });
 
     it('a picklist pushed past 500 values is 409 picklist_limit_reached and nothing is applied; exactly 500 is accepted', async () => {
