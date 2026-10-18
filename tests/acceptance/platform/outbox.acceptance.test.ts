@@ -69,8 +69,20 @@ import { afterAll, beforeAll, beforeEach, describe, expect, inject, it, vi } fro
  *       kasuwa_app may be added: they only narrow), and the relay's SELECT,
  *       UPDATE and DELETE policies `TO kasuwa_relay`; none for any other role
  *       or PUBLIC.
- *       kasuwa_app holds SELECT and INSERT (INSERT may be column-narrowed) and
- *       NO UPDATE on any column, no DELETE, TRUNCATE, REFERENCES or TRIGGER.
+ *       kasuwa_app holds SELECT and INSERT (INSERT column-limited: never on
+ *       `seq`, D-L156) and NO UPDATE on any column, no DELETE, TRUNCATE,
+ *       REFERENCES or TRIGGER.
+ *       D-L156 amends ADR-0018 point 4's relay policies, and this suite pins
+ *       the amendment:
+ *         - FOR SELECT also admits `published_at = now() OR dead_at = now()`.
+ *           An UPDATE with a WHERE clause needs SELECT rights, so PostgreSQL
+ *           checks the NEW row against the SELECT policy too, RETURNING or
+ *           not. As written, the relay could not mark a row published or dead.
+ *           `now()` is fixed per transaction, so only rows marked in the
+ *           current transaction are admitted;
+ *         - FOR UPDATE's WITH CHECK requires `published_at` and `dead_at` to be
+ *           NULL or exactly now(): no back-dating a row into retention, where
+ *           the DELETE policy would erase an undispatched event.
  *       PUBLIC, kasuwa_auth and every role kasuwa_app can SET ROLE to hold
  *       nothing on it.
  *
@@ -148,6 +160,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, inject, it, vi } fro
  *       presence (an empty value too), naming it and never echoing it.
  *       Outside development and test, workerEnv refuses it with any of the
  *       repository's dev passwords, `kasuwa_relay_dev` included (D-L94).
+ *       D-L156: the variable never goes into the shared `.env` or
+ *       `.env.example`; the dev tooling hands it to the worker only.
  *
  *   I11. WORKER: apps/worker builds the relay pool from DATABASE_RELAY_URL and
  *       REFUSES TO BOOT, before any queue or schedule is touched, unless
@@ -183,11 +197,15 @@ import { afterAll, beforeAll, beforeEach, describe, expect, inject, it, vi } fro
  *   R5. Counting a consumer drop is observed as the helper's resolved reason.
  *       No metrics package exists, so the metric itself (ADR-0018 point 10) is
  *       not asserted.
+ *   R1–R5, F-R1 and F-R3 (the tenancy file) were accepted by the lead in
+ *   D-L156, with the policy amendment and the two tightenings in I3 above,
+ *   and the rule that DATABASE_RELAY_URL never enters the shared .env (I10).
  *
  * ------------------------------------------------------------------------
- * KNOWN CONSEQUENCE FOR THE LEAD — OTHER ACCEPTANCE FILES. The task file says
- * `config-schemas`, `auth-role` and `test-admin-absent` stay unmodified. They
- * cannot, as written:
+ * KNOWN CONSEQUENCE FOR THE LEAD — OTHER ACCEPTANCE FILES. DONE as lead edits
+ * under D-L156, on this branch, admitting the role and the variable and
+ * loosening nothing else. The task file said `config-schemas`, `auth-role` and
+ * `test-admin-absent` stay unmodified; they could not, because:
  *   - test-admin-absent §5 pins the real cell's roles as five with three LOGIN
  *     roles (REAL_ROLES, REAL_LOGIN_ROLES), and §6 pins bootstrap.sql's
  *     PASSWORD clauses to three pairs. kasuwa_relay is a sixth role, a fourth
@@ -1083,6 +1101,42 @@ describe('acceptance: the transactional outbox and kasuwa_relay (T-0098)', () =>
       );
       expect(marked.rowCount).toBe(1);
       expect((await observed(a))?.published).toBe(true);
+      // D-L156: the SELECT policy admits `published_at = now()`, so the mark
+      // above passes; in any LATER transaction the row is out of view again.
+      const later = await relayPool().query('SELECT 1 FROM outbox_event WHERE id = $1', [a]);
+      expect(later.rowCount, 'a row published in an earlier transaction is still visible').toBe(0);
+    });
+
+    it('D-L156: may mark a row dead (dead_at = now()), and the dead row then leaves its view', async () => {
+      // With ADR-0018's literal SELECT policy this UPDATE fails: a WHERE clause
+      // makes the NEW row subject to the SELECT policy, and a dead row fails it.
+      const id = await plant({ tenantId: TENANT_A, programmeId: PROGRAMME_A1, actorUserId: USER_A_AGENT_1 });
+      const marked = await relayPool().query(
+        'UPDATE outbox_event SET dead_at = now(), attempts = 10, last_attempt_at = now() WHERE id = $1',
+        [id],
+      );
+      expect(marked.rowCount).toBe(1);
+      expect(await observed(id)).toMatchObject({ dead: true, attempts: 10 });
+      const later = await relayPool().query('SELECT 1 FROM outbox_event WHERE id = $1', [id]);
+      expect(later.rowCount).toBe(0);
+    });
+
+    it.each([
+      ['published_at back-dated', `published_at = now() - interval '1 second'`],
+      ['published_at past retention', `published_at = now() - interval '8 days'`],
+      ['dead_at back-dated', `dead_at = now() - interval '1 second'`],
+      ['dead_at past retention', `dead_at = now() - interval '31 days'`],
+      ['dead_at in the future', `dead_at = now() + interval '1 day'`],
+    ])('D-L156: cannot set %s (UPDATE WITH CHECK requires now()): 42501, row unchanged', async (_name, assignment) => {
+      // Back-dating would put an undispatched row past retention, where the
+      // relay's own DELETE policy erases it: losing events with two statements.
+      const id = await plant({ tenantId: TENANT_A, programmeId: PROGRAMME_A1, actorUserId: USER_A_AGENT_1 });
+      const before = await observed(id);
+      const code = await relayPool()
+        .query(`UPDATE outbox_event SET ${assignment} WHERE id = $1`, [id])
+        .then(() => 'accepted', sqlState);
+      expect(await observed(id)).toEqual(before);
+      expect(code).toBe('42501');
     });
 
     it('INSERT into outbox_event is 42501: it cannot forge an event', async () => {
@@ -1295,6 +1349,37 @@ describe('acceptance: the transactional outbox and kasuwa_relay (T-0098)', () =>
         [TENANT_B, PROGRAMME_A2],
       );
       expect(landed.rows[0]?.n).toBe(0);
+    });
+
+    it('D-L156: kasuwa_app holds no INSERT on seq, so OVERRIDING SYSTEM VALUE cannot reorder an aggregate (42501)', async () => {
+      const column = await catalogue.query(
+        `SELECT has_column_privilege('kasuwa_app', 'public.outbox_event', 'seq', 'INSERT') AS seq`,
+      );
+      expect(column.rows[0], 'kasuwa_app may INSERT seq').toEqual({ seq: false });
+
+      const attempt = async (withSeq: boolean): Promise<string> => {
+        const contactId = randomUUID();
+        const columns = withSeq ? 'seq, ' : '';
+        const override = withSeq ? 'OVERRIDING SYSTEM VALUE ' : '';
+        const seqValue = withSeq ? '1, ' : '';
+        try {
+          await asUser(TENANT_A, USER_A_AGENT_1, async (tx) => {
+            await tx.query(
+              `INSERT INTO outbox_event (${columns}id, tenant_id, programme_id, actor_user_id, event_type,
+                                         schema_version, aggregate_type, aggregate_id, payload)
+               ${override}VALUES (${seqValue}$1, $2, $3, $4, $5, 1, 'contact', $6, $7::jsonb)`,
+              [randomUUID(), TENANT_A, PROGRAMME_A1, USER_A_AGENT_1, OWNER_CHANGED, contactId,
+                JSON.stringify({ contactId, previousOwnerId: USER_A_AGENT_1, newOwnerId: USER_A_AGENT_1 })],
+            );
+          });
+          return 'committed';
+        } catch (error) {
+          return sqlState(error);
+        }
+      };
+      // Control: the same row without seq lands, so the refusal is the column.
+      expect(await attempt(false)).toBe('committed');
+      expect(await attempt(true), 'kasuwa_app chose its own seq').toBe('42501');
     });
   });
 
@@ -2095,6 +2180,52 @@ describe('acceptance: the transactional outbox and kasuwa_relay (T-0098)', () =>
         const header = readFileSync(join(repoRoot, 'apps', 'worker', 'src', 'main.ts'), 'utf8');
         expect(header).not.toMatch(/There is no other connection in this process/);
         expect(header).toMatch(/kasuwa_relay/);
+      });
+    });
+
+    describe('static (D-L156): the relay URL never enters the shared .env', () => {
+      // apiEnv and migratorEnv refuse DATABASE_RELAY_URL by presence (I10), and
+      // loadWorkspaceEnv loads ONE shared .env into every process. So the
+      // variable may reach the worker's environment only. What can be pinned
+      // without running `pnpm dev` is pinned here; the runtime half is the
+      // refusal itself, which stops the API booting if the URL ever leaks.
+      const read = (path: string) => readFileSync(join(repoRoot, path), 'utf8');
+      const assigns = (source: string) => /^\s*DATABASE_RELAY_URL\s*=/m.test(source);
+
+      it('the matcher catches an assignment and ignores a comment (planted; a self-check, passes on main)', () => {
+        expect(assigns('A=1\nDATABASE_RELAY_URL=postgres://x\n')).toBe(true);
+        expect(assigns('# DATABASE_RELAY_URL=postgres://x is worker-only\n')).toBe(false);
+      });
+
+      it('.env.example assigns no DATABASE_RELAY_URL (regression guard: passes on main)', () => {
+        // .env is created from .env.example, and tools/dev.mjs copies missing
+        // database settings across: an assignment here lands in every process.
+        expect(assigns(read('.env.example'))).toBe(false);
+      });
+
+      it('tools/dev.mjs neither copies it into .env nor puts it in the shared process env (regression guard)', () => {
+        const dev = read('tools/dev.mjs');
+        const required = /REQUIRED_DATABASE_SETTINGS\s*=\s*\[([^\]]*)\]/.exec(dev);
+        expect(required, 'REQUIRED_DATABASE_SETTINGS moved; re-pin this guard').not.toBeNull();
+        expect(required?.[1] ?? '').not.toMatch(/DATABASE_RELAY_URL/);
+        const shared = /const\s+DEV_PROCESS_ENV\s*=\s*\{[^}]*\}/.exec(dev);
+        expect(shared, 'DEV_PROCESS_ENV moved; re-pin this guard').not.toBeNull();
+        expect(shared?.[0] ?? '').not.toMatch(/DATABASE_RELAY_URL/);
+      });
+
+      it('tools/dev.mjs does supply DATABASE_RELAY_URL (to the worker): `pnpm dev` cannot boot the worker otherwise', () => {
+        // Fails on main: nothing supplies it. That it goes ONLY to the worker
+        // is not provable from the text; the guard above and the API's
+        // refusal by presence cover the two ways it could leak.
+        expect(read('tools/dev.mjs')).toMatch(/DATABASE_RELAY_URL/);
+      });
+
+      it('the e2e runner gives the relay URL to no process (regression guard: passes on main)', () => {
+        // run-e2e starts the API and web, never the worker. If it ever names
+        // the variable, it may only be to clear it.
+        const runner = read('tests/e2e/scripts/run-e2e.mjs');
+        const values = [...runner.matchAll(/DATABASE_RELAY_URL\s*:\s*([^,}\n]+)/g)].map((m) => (m[1] ?? '').trim());
+        expect(values.filter((value) => value !== 'undefined')).toEqual([]);
       });
     });
   });

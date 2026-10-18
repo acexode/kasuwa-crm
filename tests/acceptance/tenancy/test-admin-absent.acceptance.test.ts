@@ -94,9 +94,10 @@ import { parse as parseYaml } from 'yaml';
  *       KASUWA_AUTH_MODE=jwt: without the second, migratorEnv refuses on the
  *       stub-auth guard first, which would look like a pass. The API's adds
  *       the KMS provider and proxy hops its own boot guards require.
- *   R3. bootstrap.sql keeps exactly three password literals:
+ *   R3. bootstrap.sql keeps exactly four password literals:
  *       kasuwa_migrator/'kasuwa_migrator_dev', kasuwa_app/'kasuwa_app_dev',
- *       kasuwa_auth/'kasuwa_auth_dev'. The sweeper and the placeholder have
+ *       kasuwa_auth/'kasuwa_auth_dev' and, since T-0098 (D-L156),
+ *       kasuwa_relay/'kasuwa_relay_dev'. The sweeper and the placeholder have
  *       none.
  *   R4. "Usable" is what the migrator can SEE: rolcanlogin, rolbypassrls, and
  *       membership in either direction. A password on a NOLOGIN role is not
@@ -135,16 +136,17 @@ const DEV_PASSWORDS = [MIGRATOR_PASSWORD, APP_PASSWORD, AUTH_PASSWORD, TEST_ADMI
 const REAL_SECRET = `t0117-${randomBytes(12).toString('hex')}`;
 const HARNESS_SECRET = `t0117-${randomBytes(12).toString('hex')}`;
 
-/** Every role a real cell has, the placeholder included. */
+/** Every role a real cell has, the placeholder included. kasuwa_relay: T-0098, D-L156. */
 const REAL_ROLES = [
   'kasuwa_app',
   'kasuwa_auth',
   'kasuwa_migrator',
+  'kasuwa_relay',
   'kasuwa_sweeper',
   'kasuwa_test_admin',
 ] as const;
 /** Of those, the ones that may log in. */
-const REAL_LOGIN_ROLES = ['kasuwa_app', 'kasuwa_auth', 'kasuwa_migrator'] as const;
+const REAL_LOGIN_ROLES = ['kasuwa_app', 'kasuwa_auth', 'kasuwa_migrator', 'kasuwa_relay'] as const;
 
 /** R2. */
 const PRODUCTION: EnvSource = { NODE_ENV: 'production', KASUWA_AUTH_MODE: 'jwt' };
@@ -704,7 +706,7 @@ describe('1. bootstrap.sql alone makes kasuwa_test_admin an inert placeholder', 
     ]);
   });
 
-  it('the roles are the five known ones, and only app, auth and migrator can log in', async () => {
+  it('the roles are the six known ones, and only app, auth, migrator and relay can log in', async () => {
     const rows = await roles(real.superuserUrl);
     expect(rows.map((row) => row.rolname)).toEqual([...REAL_ROLES]);
     expect(rows.filter((row) => row.rolcanlogin).map((row) => row.rolname)).toEqual([
@@ -1078,7 +1080,7 @@ describe('5. the runner refuses a usable kasuwa_test_admin, a blind NODE_ENV and
   });
 });
 
-describe('6. bootstrap.sql carries no password but the three documented dev ones (R3)', () => {
+describe('6. bootstrap.sql carries no password but the four documented dev ones (R3)', () => {
   const raw = readFileSync(BOOTSTRAP_SQL, 'utf8');
   const code = stripSqlComments(raw);
 
@@ -1086,7 +1088,7 @@ describe('6. bootstrap.sql carries no password but the three documented dev ones
     expect(raw).not.toContain(TEST_ADMIN_PASSWORD);
   });
 
-  it('every PASSWORD clause is one of the three pinned role/literal pairs, once each', () => {
+  it('every PASSWORD clause is one of the four pinned role/literal pairs, once each', () => {
     const keywords = code.match(/\bPASSWORD\b/giu) ?? [];
     const pairs = [
       ...code.matchAll(
@@ -1102,6 +1104,7 @@ describe('6. bootstrap.sql carries no password but the three documented dev ones
       "kasuwa_app='kasuwa_app_dev'",
       "kasuwa_auth='kasuwa_auth_dev'",
       "kasuwa_migrator='kasuwa_migrator_dev'",
+      "kasuwa_relay='kasuwa_relay_dev'",
     ]);
   });
 
@@ -1213,7 +1216,13 @@ describe('7. the API refuses the repository’s dev passwords at startup in prod
   it('the worker refuses to boot with NODE_ENV unset (D-L95)', () => {
     let message = '';
     try {
-      workerEnv({ DATABASE_URL: secretApp, REDIS_URL: 'redis://r:6379' });
+      // DATABASE_RELAY_URL: required since T-0098 (D-L156), so NODE_ENV stays
+      // the only thing missing.
+      workerEnv({
+        DATABASE_URL: secretApp,
+        DATABASE_RELAY_URL: url('kasuwa_relay', REAL_SECRET),
+        REDIS_URL: 'redis://r:6379',
+      });
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
     }

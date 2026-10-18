@@ -56,7 +56,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, inject, i
  *   - nothing it returns or prints names either tenant or the aggregate
  *     ("no error text naming either").
  *
- * RULINGS (for the lead to accept or overrule):
+ * RULINGS (all three ACCEPTED by the lead in D-L156):
  *   F-R1. The re-read compares the actor and the tenant too, not only the
  *         programme, aggregate and type that ADR-0018 point 8 lists. The
  *         actor decides whose scope the handler runs under, so an envelope
@@ -81,8 +81,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, inject, i
  *         tenant policy keeps WITH CHECK = USING (CLAUDE.md 2.4), reads stay
  *         tenant-and-programme as the platform suite pins, and the consumer
  *         still reads the row as its own actor. The section 4 test is marked
- *         as this ruling; if the lead rejects it, delete that one test and
- *         record why.
+ *         as this ruling (accepted, D-L156: the restrictive INSERT pins
+ *         `actor_user_id = app.current_user_id()`).
  *
  * Every test here fails on main: there is no table, no export and no harness
  * value. None passes by construction.
