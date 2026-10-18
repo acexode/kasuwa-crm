@@ -271,15 +271,13 @@ export function AdminShell({
                       return href === null ? (
                         // Not built yet, so not a link. A menu entry that
                         // navigates to a 404 is worse than one that visibly
-                        // does nothing — same rule as the language menu. It is
-                        // also not announced (hidden from assistive technology,
-                        // so it carries no disabled state either): a greyed-out
-                        // entry that does nothing is a promise only sighted
-                        // users can read.
+                        // does nothing — same rule as the language menu. It stays
+                        // announced as disabled, so assistive technology hears
+                        // what is coming and that it is not available yet.
                         <span
                           key={item.settingId}
                           data-setting-id={item.settingId}
-                          aria-hidden="true"
+                          aria-disabled="true"
                           className={`${className} text-text-muted`}
                         >
                           {inner}
