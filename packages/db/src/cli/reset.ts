@@ -1,4 +1,5 @@
 import {
+  assertExplicitNodeEnv,
   assertMigrationTargetIsSafe,
   effectiveDatabaseTarget,
   loadWorkspaceEnv,
@@ -18,6 +19,8 @@ import { runSeed } from '../seed';
  */
 async function main(): Promise<void> {
   loadWorkspaceEnv();
+  // First, before any connection (D-L103): NODE_ENV must be set explicitly.
+  assertExplicitNodeEnv('db:reset');
   const url = migratorEnv().DATABASE_MIGRATION_URL;
   if (!url) {
     throw new Error('DATABASE_MIGRATION_URL is not set.');
@@ -41,17 +44,19 @@ async function main(): Promise<void> {
   const client = new Client({ connectionString: url });
   await client.connect();
   try {
-    // Every table, including the authentication ones. A reset that leaves
-    // stale password hashes and live session rows behind is not a reset, and a
-    // half-dropped schema makes the next migration run fail on a table that
-    // already exists.
-    await client.query(
-      'DROP TABLE IF EXISTS ' +
-        'auth_rate_limit, auth_session, auth_challenge, user_mfa_backup_code, user_mfa_factor, ' +
-        'user_credential, ' +
-        'contact, account, user_programme, "user", programme, business_unit, tenant, ' +
-        '_kasuwa_migration CASCADE',
+    // Every table in public, from the catalogue (D-L152): a hard-coded list
+    // went stale the day a migration added a table, and left a database at
+    // head half-dropped. Includes the authentication tables and the migration
+    // ledger; stale password hashes and live sessions are not a reset.
+    const { rows } = await client.query<{ name: string }>(
+      `SELECT format('%I.%I', n.nspname, c.relname) AS name
+         FROM pg_catalog.pg_class c
+         JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND NOT c.relispartition`,
     );
+    if (rows.length > 0) {
+      await client.query(`DROP TABLE IF EXISTS ${rows.map((row) => row.name).join(', ')} CASCADE`);
+    }
     await client.query('DROP SCHEMA IF EXISTS app CASCADE');
   } finally {
     await client.end();

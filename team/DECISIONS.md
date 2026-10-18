@@ -3571,3 +3571,90 @@ tenancy folder, the record API suites, integration and unit.
   - the snapshot purge and erasure path must cover `contact_merge.snapshot` before the first populated cell;
   - after merges exist there is no safe schema rollback: recovery is forward-only (flag off, undo through the API);
   - T-0100 publishes the owner-changed event when a merge or undo changes the owner.
+
+### D-L164 — T-0100 suite rulings; T-0121 and T-0122 merged (lead, 2026-10-18)
+**Status:** PROCEEDING (lead).
+- **T-0121 merged (#149)** on the Windows verification runner's evidence: ten suites, including tenancy 151, with 0
+  failures. **T-0122 merged (#150).**
+- **The T-0100 suite** is on `lead/T-0100-acceptance` (18a330f): notifications-api has 69 tests, and outbox-forgery
+  section 5 adds 14. Rulings N-R1 to N-R9 are accepted:
+  - write a notification only if the aggregate's current owner, re-read inside the event's programme, equals the
+    payload's `newOwnerId`;
+  - never notify the actor, anyone on an owner clear (D-P23), a non-member, or a recipient who cannot read the object;
+  - **no notification when `owner_user_id` is withheld from the recipient**, because it would reveal the owner;
+  - creating a record owned by someone else counts as an assignment;
+  - a restrictive INSERT binds the actor;
+  - the unread count examines the 500 newest;
+  - the PATCH 404 is byte-identical to getContact's;
+  - a per-user, per-operation throttle;
+  - the worker consumes end to end.
+- **Task-file correction:** `INSERT … ON CONFLICT DO NOTHING` is refused (42501) under the recipient-only restrictive
+  SELECT policy, because ON CONFLICT needs SELECT rights. Idempotency is a plain INSERT in a SAVEPOINT, treating 23505 on
+  (source_event_id, recipient_user_id) as already delivered. Actors must not be able to read notification rows.
+- **Not pinned yet:** `import.finished` waits for T-0094, and merged-away contact drops wait for T-0095.
+- **Order:** the T-0100 build waits for T-0095 to merge, because both change the contact, account and deal services.
+
+### D-L165 — T-0095 suite aligned with D-L163 (lead, 2026-10-19)
+
+- **M7 (lead edits on lead/T-0095-acceptance, 216a26f and 048011f).**
+  - A fresh user's burst admits exactly 20 listDuplicates calls a minute. The 21st gets 429 with an integer
+    `Retry-After` between 1 and 60.
+  - A new test pins at most two concurrent scans per tenant. The third gets 429 at once, while another tenant
+    is unaffected. The test waits on `pg_locks`, never on a clock.
+- **Users.** Throttle-sensitive tests use per-run fresh users, because throttle windows outlive the reseed.
+  No shared fixture user calls listDuplicates.
+- **Undo.**
+  - A merger who has lost `contact.write` gets 404, byte-identical to an invented merge.
+  - Another `contact.write` holder who did not merge still gets 403.
+- **M8 latency.**
+  - The timed reader is a dedicated user, and every timed round must return 200 before its time counts.
+  - On the loaded Mac the build measured about 280 ms against the 150 ms budget. It is re-measured on the quiet
+    Windows runner before merge. If it still misses there, the build gets an index or query fix; the budget stays.
+- **Order.** T-0095 merges after T-0094. The 0040→0043 rename commits are squashed, so only 0043_contact_merge.sql
+  exists in history.
+
+### D-L166 — T-0094 build rulings; two red guards on main (lead, 2026-10-19)
+
+The build is at 257c45e on agent3/T-0094-import-api, with migration 0042. import-api passes 58 of 65 and
+import-isolation 17 of 20. All 10 failures need lead suite edits on lead/T-0094-acceptance, not build changes:
+
+1. **Test SQL defects.**
+   - The two FK tests read `array_agg(attname)` as `name[]`; cast it with `::text[]`, as the other suites do.
+   - I4's `plantObject` uses `$1` as both a uuid and text; split the parameter or cast it.
+2. **Bucket listings depend on test order.** R14 and I6 must list only the prefix of their own import (tenant,
+   programme, import id), not the whole A1 import prefix. Reseed leaves earlier tests' files behind.
+3. **R3 against S3 multipart.**
+   - A presigned part URL must carry `uploadId=` in its signed query, so R3 exempts the part URLs' query strings.
+   - R3 still requires that the upload id appears in no other response field and is never accepted from the client.
+     complete and abort resolve it on the server from the import row; the suite asserts both.
+4. **The locked `admin` set always has edit.** This stays: field security is shared by every record API and is
+   not changed by an import task.
+   - The mapping-403, R12 and R17 tests use a custom (unlocked) permission set that holds `contact.import` plus
+     the field level under test.
+   - If `contact.import` cannot be granted to a custom set, that is a build defect, and the build must fix it.
+
+**Accepted from the build:**
+- The ObjectStore port gains `presignUploadParts` (an adapter-contract change, recorded here). complete, abort and
+  parts refuse an upload id not open on exactly that key.
+- `import_job.changed_at`.
+- The audit writer and contact write schemas move to `@kasuwa/domain-core` behind re-export shims.
+- Enqueue happens after commit.
+- Without Redis or an object store the import routes answer 503.
+- New dependencies: `csv-parse` (worker) and `bullmq` (API).
+
+**Required before merge:** the `crm_import` feature flag (§4), gating the import routes.
+
+**Follow-ups, not blocking:**
+- A sweep that re-enqueues `queued` imports orphaned by a Redis failure after commit.
+- The `head`-404 reconcile for creators removed from the programme. Their files currently live until the 8-day
+  bucket lifecycle rule.
+
+**Red on main, missed by file-scoped verification:**
+- `custom-fields-storage` "(guard, S6) no new function" was meant to pin 0039 alone but checks every function.
+  0040's `app.guard_stored_object_fixed` broke it. Rescope it to "0039's file creates no function"; the
+  SECURITY DEFINER census guard still pins the real rule.
+- `storage-adapter` "workerEnv refuses S3_SSE_MODE=off" lacks `DATABASE_RELAY_URL`, which T-0098 added to
+  workerEnv. Add it to the fixture.
+
+These are lead edits on a lead branch, to merge first. From now on, verification of any PR that changes
+migrations or env schemas includes the full acceptance run, not just the touched files.
