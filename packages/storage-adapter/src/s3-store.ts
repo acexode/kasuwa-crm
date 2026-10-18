@@ -15,11 +15,12 @@ import {
   type S3ClientConfig,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { StorageEnv } from '@kasuwa/config';
+import { isStorageEnv, type StorageEnv } from '@kasuwa/config';
 import { StorageError, wrapSdkError } from './errors';
 import { assertMintedKey, assertMintedPrefix, type StorageKey, type StoragePrefix } from './keys';
 import {
   PRESIGNED_URL_TTL_SECONDS,
+  assertWithinPurposeLimits,
   isContentType,
   planParts,
   validateCompletedParts,
@@ -35,8 +36,9 @@ import {
 /**
  * The one ObjectStore implementation (ADR-0017 Decision 1, D-L128 Q1): AWS S3
  * in af-south-1, a licensed MinIO in a Silo cell, SeaweedFS in development.
- * Built from `storageEnv(env)` and nothing else; no bucket, region or endpoint
- * is ever taken from a call.
+ * Built from `storageEnv(env)` and nothing else: the constructor refuses a
+ * config `storageEnv` did not return (D-L155), and no bucket, region or
+ * endpoint is ever taken from a call.
  *
  * TWO CLIENTS. `internal` talks to S3_ENDPOINT, the host the API and worker
  * reach. `public` only SIGNS: the part URLs a browser uses carry
@@ -85,6 +87,9 @@ export class S3ObjectStore implements ObjectStore {
   readonly #sse: { ServerSideEncryption: 'AES256' } | Record<string, never>;
 
   constructor(config: StorageEnv) {
+    if (!isStorageEnv(config)) {
+      throw new StorageError('storage_invalid_request', 'the store accepts only a configuration from storageEnv');
+    }
     const base: S3ClientConfig = {
       region: config.region,
       forcePathStyle: config.forcePathStyle,
@@ -117,6 +122,7 @@ export class S3ObjectStore implements ObjectStore {
     if (!Number.isSafeInteger(options?.contentLength) || options.contentLength < 0) {
       throw new StorageError('storage_invalid_request', 'the content length must be a non-negative integer');
     }
+    assertWithinPurposeLimits(key.parts.purpose, options.contentLength);
     if (!isContentType(options.contentType)) {
       throw new StorageError('storage_invalid_request', 'the content type is malformed');
     }
@@ -227,7 +233,13 @@ export class S3ObjectStore implements ObjectStore {
           );
         }
       }
-      token = page.IsTruncated === true ? page.NextContinuationToken : undefined;
+      const next = page.IsTruncated === true ? page.NextContinuationToken : undefined;
+      // No-progress guard: a truncated page with no token, the same token
+      // again, or an empty truncated page would loop for ever. Stop loudly.
+      if (page.IsTruncated === true && (next === undefined || next === token || keys.length === 0)) {
+        throw new StorageError('storage_request_failed', 'object storage listing made no progress');
+      }
+      token = next;
     } while (token !== undefined);
     await this.#abortUploadsUnder(text);
   }
@@ -235,10 +247,16 @@ export class S3ObjectStore implements ObjectStore {
   async presignUpload(key: StorageKey, options: PresignUploadOptions): Promise<PresignedUpload> {
     assertMintedKey(key);
     const lengths = planParts(options?.contentLength, options?.partCount);
+    assertWithinPurposeLimits(key.parts.purpose, options.contentLength, options.partCount);
     const contentType = options.contentType ?? DEFAULT_CONTENT_TYPE;
     if (!isContentType(contentType)) {
       throw new StorageError('storage_invalid_request', 'the content type is malformed');
     }
+    // ONE open upload per key (D-L155): a new presign aborts any earlier
+    // upload still open on this exact key, so a client that asks twice cannot
+    // keep two sets of live part URLs. (Binding the upload id to its row is
+    // T-0094's import_job.)
+    await this.#abortUploadsUnder(String(key), true);
     const created = await this.#send('create upload', () =>
       this.#internal.send(
         new CreateMultipartUploadCommand({
@@ -316,7 +334,8 @@ export class S3ObjectStore implements ObjectStore {
     }
   }
 
-  async #abortUploadsUnder(prefix: string): Promise<void> {
+  /** `exact`: only uploads whose key IS `prefix` (a key is never a prefix of another key, but be explicit). */
+  async #abortUploadsUnder(prefix: string, exact = false): Promise<void> {
     let keyMarker: string | undefined;
     let uploadIdMarker: string | undefined;
     for (;;) {
@@ -331,7 +350,8 @@ export class S3ObjectStore implements ObjectStore {
         ),
       );
       for (const upload of page.Uploads ?? []) {
-        if (typeof upload.Key === 'string' && upload.Key.startsWith(prefix) && typeof upload.UploadId === 'string') {
+        const matches = exact ? upload.Key === prefix : upload.Key?.startsWith(prefix) === true;
+        if (matches && typeof upload.Key === 'string' && typeof upload.UploadId === 'string') {
           await this.#abort(upload.Key, upload.UploadId);
         }
       }

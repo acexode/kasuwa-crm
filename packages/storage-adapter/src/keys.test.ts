@@ -1,5 +1,6 @@
 import type { TenantTx } from '@kasuwa/db';
-import { describe, expect, it } from 'vitest';
+import type * as Db from '@kasuwa/db';
+import { describe, expect, it, vi } from 'vitest';
 import { StorageError } from './errors';
 import {
   STORAGE_PURPOSES,
@@ -12,6 +13,21 @@ import {
   tenantStoragePrefix,
 } from './keys';
 
+// The live-transaction check (D-L155) needs a real withTenantTransaction.
+// Here a stub tx counts as live once registered in `live`; the real check is
+// tested in packages/db (live-tenant-tx.test.ts and its integration twin).
+const live = vi.hoisted(() => new WeakSet<object>());
+vi.mock('@kasuwa/db', async (importOriginal) => {
+  const actual = await importOriginal<typeof Db>();
+  return {
+    ...actual,
+    assertLiveTenantTx: (tx: unknown): void => {
+      if (typeof tx !== 'object' || tx === null || !live.has(tx)) throw new actual.TenantTxNotLiveError();
+    },
+  };
+});
+
+
 // Invented ids; nothing here is a person.
 const TENANT = '0a000000-0000-4000-8000-000000000001';
 const OTHER_TENANT = '0b000000-0000-4000-8000-000000000001';
@@ -19,13 +35,15 @@ const P1 = '0a000000-0000-4000-8000-0000000000a1';
 const P2 = '0a000000-0000-4000-8000-0000000000a2';
 const USER = '0a000000-0000-4000-8000-0000000000f1';
 
-function txWith(programmeIds: string[]): TenantTx {
-  return {
+function txWith(programmeIds: string[], registered = true): TenantTx {
+  const tx: TenantTx = {
     session: { tenantId: TENANT, userId: USER, programmeIds },
     query: async () => {
       throw new Error('minting must not query');
     },
   };
+  if (registered) live.add(tx);
+  return tx;
 }
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -82,6 +100,13 @@ describe('mintStorageKey', () => {
       return;
     }
     throw new Error('it did not throw');
+  });
+
+  it('refuses a tx that is not live: forged, or a copy of a live one (D-L155)', () => {
+    const real = txWith([P1]);
+    for (const tx of [txWith([P1], false), { ...real }]) {
+      expect(() => mintStorageKey(tx, { programmeId: P1, purpose: 'import' })).toThrow(/not a live tenant transaction/);
+    }
   });
 
   it('exports exactly one purpose', () => {

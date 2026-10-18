@@ -1,9 +1,25 @@
 import type { TenantTx } from '@kasuwa/db';
-import { describe, expect, it } from 'vitest';
+import type * as Db from '@kasuwa/db';
+import { describe, expect, it, vi } from 'vitest';
 import { StoredObjectNotFoundError, StoredObjectStateError } from './errors';
 import { FakeObjectStore } from './fake';
 import type { ObjectStore } from './port';
 import { StoredObjectRepository } from './repository';
+
+// The live-transaction check (D-L155) needs a real withTenantTransaction.
+// Here a stub tx counts as live once registered in `live`; the real check is
+// tested in packages/db (live-tenant-tx.test.ts and its integration twin).
+const live = vi.hoisted(() => new WeakSet<object>());
+vi.mock('@kasuwa/db', async (importOriginal) => {
+  const actual = await importOriginal<typeof Db>();
+  return {
+    ...actual,
+    assertLiveTenantTx: (tx: unknown): void => {
+      if (typeof tx !== 'object' || tx === null || !live.has(tx)) throw new actual.TenantTxNotLiveError();
+    },
+  };
+});
+
 
 /**
  * The repository's decisions against an in-memory stand-in for the table. The
@@ -20,12 +36,17 @@ const USER = '0a000000-0000-4000-8000-0000000000f1';
 
 type Row = Record<string, unknown>;
 
+function register(registered: boolean, tx: TenantTx): TenantTx {
+  if (registered) live.add(tx);
+  return tx;
+}
+
 /** A tiny table that answers exactly the three statement shapes the repository sends. */
-function table(): { rows: Row[]; tx: (programmeIds: string[]) => TenantTx } {
+function table(): { rows: Row[]; tx: (programmeIds: string[], registered?: boolean) => TenantTx } {
   const rows: Row[] = [];
   const inScope = (row: Row, values: readonly unknown[]): boolean =>
     row.id === values[0] && row.tenant_id === values[1] && (values[2] as string[]).includes(row.programme_id as string);
-  const tx = (programmeIds: string[]): TenantTx => ({
+  const tx = (programmeIds: string[], registered = true): TenantTx => register(registered, {
     session: { tenantId: TENANT, userId: USER, programmeIds },
     query: (async (text: string, values: readonly unknown[] = []): Promise<Row[]> => {
       const sql = text.trim();
@@ -136,6 +157,33 @@ describe('StoredObjectRepository', () => {
     }
     expect([...messages]).toHaveLength(1);
     expect(calls).toEqual([]);
+  });
+
+  it('refuses every writing method on a tx that is not live, before any query or store call (D-L155)', async () => {
+    const { rows, tx } = table();
+    const { store, calls } = recording(new FakeObjectStore());
+    const repo = new StoredObjectRepository(store);
+    const id = '0a000000-0000-4000-8000-00000000beef';
+    const forged = tx([P1], false);
+    for (const call of [
+      () => repo.create(forged, { programmeId: P1, purpose: 'import', declaredSizeBytes: 10, contentType: 'text/csv' }),
+      () => repo.presignUpload(forged, id, { partCount: 1 }),
+      () => repo.completeUpload(forged, id, { uploadId: 'u', parts: [{ partNumber: 1, etag: '"e"' }] }),
+      () => repo.markDeleted(forged, id),
+    ]) {
+      await expect(call()).rejects.toThrow(/not a live tenant transaction/);
+    }
+    expect(rows).toEqual([]);
+    expect(calls).toEqual([]);
+  });
+
+  it('refuses a declared size over the purpose cap and a part count over it', async () => {
+    const { tx } = table();
+    const repo = new StoredObjectRepository(new FakeObjectStore());
+    const base = { programmeId: P1, purpose: 'import' as const, contentType: 'text/csv' };
+    await expect(repo.create(tx([P1]), { ...base, declaredSizeBytes: 25 * 1024 * 1024 + 1 })).rejects.toThrow();
+    const row = await repo.create(tx([P1]), { ...base, declaredSizeBytes: 25 * 1024 * 1024 });
+    await expect(repo.presignUpload(tx([P1]), row.id, { partCount: 5 })).rejects.toThrow();
   });
 
   it('signs the declared size, completes to uploaded, then markDeleted is terminal (R8)', async () => {

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { TenantTx } from '@kasuwa/db';
+import { assertLiveTenantTx, type TenantTx } from '@kasuwa/db';
 import { StorageError } from './errors';
 
 /**
@@ -8,8 +8,11 @@ import { StorageError } from './errors';
  *   tenant/<tenantId>/programme/<programmeId>/<purpose>/<fileId>
  *
  * A key is MINTED, never built from text:
- *   - the tenant comes from `tx.session.tenantId`, the session that
- *     `withTenantTransaction` resolved, and from nowhere else;
+ *   - `tx` must be the live tx `withTenantTransaction` is running
+ *     (`assertLiveTenantTx`, D-L155): an object literal with a made-up
+ *     `session`, a copy of a real tx, or one whose transaction has ended is
+ *     refused, so the session below is one the database resolved;
+ *   - the tenant comes from `tx.session.tenantId`, and from nowhere else;
  *   - the programme must be one of `tx.session.programmeIds`;
  *   - the purpose is one of STORAGE_PURPOSES (a closed enum);
  *   - the fileId is a fresh server UUID.
@@ -151,6 +154,7 @@ export function mintStorageKey(tx: TenantTx, input: MintStorageKeyInput): Storag
  * row's id (R1: fileId IS stored_object.id). Not exported from the package.
  */
 export function mintKeyWithId(tx: TenantTx, input: MintStorageKeyInput, fileId: string): StorageKey {
+  assertLiveTenantTx(tx);
   const tenantId = tx.session.tenantId;
   const { programmeId, purpose } = input as { programmeId?: unknown; purpose?: unknown };
   if (!isStoragePurpose(purpose)) {

@@ -1,12 +1,18 @@
 import { randomUUID } from 'node:crypto';
-import type { TenantTx } from '@kasuwa/db';
+import { assertLiveTenantTx, type TenantTx } from '@kasuwa/db';
 import {
   StoredObjectInputError,
   StoredObjectNotFoundError,
   StoredObjectStateError,
 } from './errors';
 import { isCanonicalUuid, isStoragePurpose, keyForStoredRow, mintKeyWithId, type StoragePurpose } from './keys';
-import { MAX_PARTS, isContentType, type CompletedPart, type ObjectStore, type PresignedUpload } from './port';
+import {
+  PURPOSE_LIMITS,
+  isContentType,
+  type CompletedPart,
+  type ObjectStore,
+  type PresignedUpload,
+} from './port';
 
 /**
  * `stored_object` (migration 0040, ADR-0017 Decision 3): every object has a
@@ -26,6 +32,10 @@ import { MAX_PARTS, isContentType, type CompletedPart, type ObjectStore, type Pr
  *     can leak a path.
  *   - Status moves (R8): presign and complete from `pending` only; markDeleted
  *     from any status; `deleted` is terminal. kasuwa_app cannot DELETE a row.
+ *     Migration 0040 holds the same moves in the database.
+ *   - Every method that writes or issues a URL demands the LIVE tx that
+ *     `withTenantTransaction` is running (`assertLiveTenantTx`, D-L155), so a
+ *     made-up session is never believed. `get` is the exception: see its note.
  *
  * Nothing here logs. Errors carry codes and fixed messages.
  */
@@ -126,14 +136,20 @@ export class StoredObjectRepository {
    * programmes. The key is minted from the session with the row's id (R1).
    */
   async create(tx: TenantTx, input: CreateStoredObjectInput): Promise<StoredObjectRecord> {
-    const { declaredSizeBytes, contentType } = input;
+    assertLiveTenantTx(tx);
+    const { declaredSizeBytes, contentType, purpose: requested } = input;
     if (!Number.isSafeInteger(declaredSizeBytes) || declaredSizeBytes <= 0) {
+      throw new StoredObjectInputError('declared size');
+    }
+    if (isStoragePurpose(requested) && declaredSizeBytes > PURPOSE_LIMITS[requested].maxBytes) {
       throw new StoredObjectInputError('declared size');
     }
     if (!isContentType(contentType)) throw new StoredObjectInputError('content type');
     // Refuses a programme outside the session and a purpose outside the enum.
     const key = mintKeyWithId(tx, input, randomUUID());
     const { tenantId, programmeId, purpose, fileId } = key.parts;
+    // tenancy-reviewed: tenant, programme and uploader come from the live
+    // session (the minted key); RLS and the restrictive INSERT policy re-check.
     const rows = await tx.query<Row>(
       `INSERT INTO stored_object (id, tenant_id, programme_id, key, purpose, declared_size_bytes,
                                   content_type, uploaded_by_user_id, expires_at)
@@ -146,20 +162,32 @@ export class StoredObjectRepository {
     return toRecord(row);
   }
 
-  /** The row, read in the caller's scope. Anything else is StoredObjectNotFoundError. */
+  /**
+   * The row, read in the caller's scope. Anything else is StoredObjectNotFoundError.
+   *
+   * NOT gated by `assertLiveTenantTx`, unlike every other method. The T-0092
+   * suite's R7 test hands `get` a hand-built TenantTx whose session is
+   * NARROWER than its connection's GUCs and expects the narrower read to work,
+   * which the live check would refuse. A read cannot widen anything: it runs
+   * on the caller's own connection under RLS, and filters on `tx.session` as
+   * well. Escalated in the T-0092 report rather than resolved here.
+   */
   async get(tx: TenantTx, id: string): Promise<StoredObjectRecord> {
     return this.#read(tx, id, false);
   }
 
   /**
    * Part URLs for a `pending` row, each signed for its part of the row's
-   * DECLARED size. The client chooses the part count, never the length.
+   * DECLARED size. The client chooses the part count (at most the purpose's
+   * cap), never the length. Presigning again aborts the row's earlier open
+   * upload (the store keeps one open upload per key, D-L155).
    */
   async presignUpload(tx: TenantTx, id: string, options: { partCount: number }): Promise<PresignedUpload> {
+    assertLiveTenantTx(tx);
     const record = await this.#read(tx, id, true);
     if (record.status !== 'pending') throw new StoredObjectStateError();
     const partCount = options?.partCount;
-    if (!Number.isSafeInteger(partCount) || partCount < 1 || partCount > MAX_PARTS) {
+    if (!Number.isSafeInteger(partCount) || partCount < 1 || partCount > PURPOSE_LIMITS[record.purpose].maxParts) {
       throw new StoredObjectInputError('part count');
     }
     return this.#store.presignUpload(keyOf(record), {
@@ -177,8 +205,14 @@ export class StoredObjectRepository {
    * `rejected`, which is returned rather than thrown so the move commits.
    * A failed complete (an unknown or aborted upload, a wrong ETag) throws and
    * leaves the row `pending`.
+   *
+   * METADATA ONLY (D-L155): size and content type, as `head` reports them.
+   * The bytes are not read here; parsing them is the import job's (T-0094). A
+   * missing content type in `head` is accepted, because the server set the
+   * type at CreateMultipartUpload from the row, not the client.
    */
   async completeUpload(tx: TenantTx, id: string, input: CompleteStoredObjectInput): Promise<StoredObjectRecord> {
+    assertLiveTenantTx(tx);
     const record = await this.#read(tx, id, true);
     if (record.status !== 'pending') throw new StoredObjectStateError();
     const key = keyOf(record);
@@ -196,6 +230,7 @@ export class StoredObjectRepository {
 
   /** Deletes the object and moves the row to `deleted` (terminal). Idempotent on a deleted row. */
   async markDeleted(tx: TenantTx, id: string): Promise<StoredObjectRecord> {
+    assertLiveTenantTx(tx);
     const record = await this.#read(tx, id, true);
     if (record.status === 'deleted') return record;
     await this.#store.delete(keyOf(record));
@@ -205,6 +240,8 @@ export class StoredObjectRepository {
   async #read(tx: TenantTx, id: string, forUpdate: boolean): Promise<StoredObjectRecord> {
     const { tenantId, programmeIds } = tx.session;
     if (!isCanonicalUuid(id) || programmeIds.length === 0) throw new StoredObjectNotFoundError();
+    // tenancy-reviewed: explicit tenant and programme filters from tx.session,
+    // beside RLS (CLAUDE.md 2.3, R7).
     const rows = await tx.query<Row>(
       `SELECT ${COLUMNS} FROM stored_object
         WHERE id = $1 AND tenant_id = $2 AND programme_id = ANY ($3::uuid[])
@@ -222,6 +259,8 @@ export class StoredObjectRepository {
     status: StoredObjectStatus,
     verifiedSizeBytes: number | null,
   ): Promise<StoredObjectRecord> {
+    // tenancy-reviewed: the same explicit filters as the read; migration 0040's
+    // guard holds the status moves.
     const rows = await tx.query<Row>(
       `UPDATE stored_object SET status = $4, verified_size_bytes = $5
         WHERE id = $1 AND tenant_id = $2 AND programme_id = ANY ($3::uuid[])

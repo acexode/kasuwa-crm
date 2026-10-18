@@ -1,20 +1,40 @@
 import { Readable } from 'node:stream';
 import type { TenantTx } from '@kasuwa/db';
-import { describe, expect, it } from 'vitest';
+import type * as Db from '@kasuwa/db';
+import { describe, expect, it, vi } from 'vitest';
 import { StorageError } from './errors';
 import { FakeObjectStore } from './fake';
 import { mintStorageKey, tenantStoragePrefix, type StorageKey } from './keys';
 import { MIN_PART_BYTES, planParts } from './port';
+
+// The live-transaction check (D-L155) needs a real withTenantTransaction.
+// Here a stub tx counts as live once registered in `live`; the real check is
+// tested in packages/db (live-tenant-tx.test.ts and its integration twin).
+const live = vi.hoisted(() => new WeakSet<object>());
+vi.mock('@kasuwa/db', async (importOriginal) => {
+  const actual = await importOriginal<typeof Db>();
+  return {
+    ...actual,
+    assertLiveTenantTx: (tx: unknown): void => {
+      if (typeof tx !== 'object' || tx === null || !live.has(tx)) throw new actual.TenantTxNotLiveError();
+    },
+  };
+});
+
 
 const TENANT = '0a000000-0000-4000-8000-000000000001';
 const OTHER = '0b000000-0000-4000-8000-000000000001';
 const P1 = '0a000000-0000-4000-8000-0000000000a1';
 const Q1 = '0b000000-0000-4000-8000-0000000000a1';
 
-const tx = (tenantId: string, programmeId: string): TenantTx => ({
-  session: { tenantId, userId: '0a000000-0000-4000-8000-0000000000f1', programmeIds: [programmeId] },
-  query: async () => [],
-});
+const tx = (tenantId: string, programmeId: string): TenantTx => {
+  const stub: TenantTx = {
+    session: { tenantId, userId: '0a000000-0000-4000-8000-0000000000f1', programmeIds: [programmeId] },
+    query: async () => [],
+  };
+  live.add(stub);
+  return stub;
+};
 const mint = (tenantId = TENANT, programmeId = P1): StorageKey =>
   mintStorageKey(tx(tenantId, programmeId), { programmeId, purpose: 'import' });
 
@@ -102,6 +122,23 @@ describe('FakeObjectStore', () => {
     expect(sent.status).toBe(200);
     await store.completeUpload(key, upload.uploadId, [{ partNumber: 1, etag: sent.etag }]);
     expect((await store.head(key))?.size).toBe(100);
+  });
+
+  it('caps an import at 25 MiB and 4 parts (D-L155)', async () => {
+    const store = new FakeObjectStore();
+    const MiB = 1024 * 1024;
+    await expect(store.presignUpload(mint(), { contentLength: 25 * MiB + 1, partCount: 4 })).rejects.toBeInstanceOf(StorageError);
+    await expect(store.presignUpload(mint(), { contentLength: 25 * MiB, partCount: 5 })).rejects.toBeInstanceOf(StorageError);
+    await expect(store.presignUpload(mint(), { contentLength: 25 * MiB, partCount: 4 })).resolves.toBeDefined();
+  });
+
+  it('a second presign on the same key aborts the first upload', async () => {
+    const store = new FakeObjectStore();
+    const key = mint();
+    const first = await store.presignUpload(key, { contentLength: 10, partCount: 1 });
+    const second = await store.presignUpload(key, { contentLength: 10, partCount: 1 });
+    expect(store.openUploads()).toEqual([second.uploadId]);
+    expect(store.uploadPart(first.uploadId, 1, Buffer.alloc(10)).status).toBe(403);
   });
 
   it('an aborted upload cannot be completed', async () => {

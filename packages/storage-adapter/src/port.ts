@@ -1,6 +1,6 @@
 import type { Readable } from 'node:stream';
 import { StorageError } from './errors';
-import type { StorageKey, StoragePrefix } from './keys';
+import type { StorageKey, StoragePrefix, StoragePurpose } from './keys';
 
 /**
  * The object-store port (ADR-0017 Decision 1, T-0092 suite P). Exactly eight
@@ -16,6 +16,21 @@ export const MIN_PART_BYTES = 5 * 1024 * 1024;
 /** S3's maximum part size and part count. */
 export const MAX_PART_BYTES = 5 * 1024 * 1024 * 1024;
 export const MAX_PARTS = 10_000;
+
+/**
+ * Per-purpose caps (D-L155, D-L128 Q4, D-L146): an import file is at most
+ * 25 MiB in at most 4 parts. Enforced by both stores on put and presign, and
+ * by the repository at create, so no caller can sign a URL for more.
+ */
+export const PURPOSE_LIMITS: Readonly<Record<StoragePurpose, { maxBytes: number; maxParts: number }>> =
+  Object.freeze({ import: Object.freeze({ maxBytes: 25 * 1024 * 1024, maxParts: 4 }) });
+
+export function assertWithinPurposeLimits(purpose: StoragePurpose, contentLength: number, partCount = 1): void {
+  const limits = PURPOSE_LIMITS[purpose];
+  if (contentLength > limits.maxBytes || partCount > limits.maxParts) {
+    throw new StorageError('storage_invalid_request', 'the object exceeds the limits of its purpose');
+  }
+}
 
 export interface PutOptions {
   readonly contentType: string;

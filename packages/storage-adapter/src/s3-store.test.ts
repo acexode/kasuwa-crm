@@ -24,6 +24,15 @@ const store = new S3ObjectStore(
 
 const forged = 'tenant/0a000000-0000-4000-8000-000000000001/programme/x/import/y' as unknown as StorageKey;
 
+describe('S3ObjectStore is built only from storageEnv (D-L155)', () => {
+  it('refuses a hand-assembled or copied configuration', () => {
+    const real = storageEnv({ NODE_ENV: 'test', S3_REGION: 'af-south-1', S3_BUCKET: 'kasuwa-unit' });
+    for (const config of [{ ...real }, { region: 'af-south-1', bucket: 'kasuwa-unit', sseMode: 'off' }]) {
+      expect(() => new S3ObjectStore(config as typeof real)).toThrow(StorageError);
+    }
+  });
+});
+
 describe('S3ObjectStore refuses what it did not mint, before any request', () => {
   it.each([
     ['put', () => store.put(forged, Readable.from([Buffer.from('x')]), { contentType: 'text/csv', contentLength: 1 })],

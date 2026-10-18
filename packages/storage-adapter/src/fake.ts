@@ -4,6 +4,7 @@ import { StorageError } from './errors';
 import { assertMintedKey, assertMintedPrefix, type StorageKey, type StoragePrefix } from './keys';
 import {
   PRESIGNED_URL_TTL_SECONDS,
+  assertWithinPurposeLimits,
   isContentType,
   planParts,
   validateCompletedParts,
@@ -72,6 +73,7 @@ export class FakeObjectStore implements ObjectStore {
     if (!isContentType(options.contentType) || !Number.isSafeInteger(options.contentLength)) {
       throw new StorageError('storage_invalid_request', 'the put options are malformed');
     }
+    assertWithinPurposeLimits(key.parts.purpose, options.contentLength);
     const chunks: Buffer[] = [];
     for await (const chunk of body) chunks.push(Buffer.from(chunk as Uint8Array));
     const bytes = Buffer.concat(chunks);
@@ -128,7 +130,12 @@ export class FakeObjectStore implements ObjectStore {
   async presignUpload(key: StorageKey, options: PresignUploadOptions): Promise<PresignedUpload> {
     assertMintedKey(key);
     const lengths = planParts(options?.contentLength, options?.partCount);
+    assertWithinPurposeLimits(key.parts.purpose, options.contentLength, options.partCount);
     const contentType = options.contentType ?? 'application/octet-stream';
+    // One open upload per key, as the real store: an earlier one is aborted.
+    for (const [openId, open] of this.#uploads) {
+      if (open.key === String(key)) this.#uploads.delete(openId);
+    }
     const uploadId = randomUUID();
     this.requests.push({
       operation: 'createMultipartUpload',

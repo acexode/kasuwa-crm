@@ -8,6 +8,10 @@
 # on Windows `localhost` resolves to ::1 and can reach a native service before
 # Docker's proxy. That failure looks like "password authentication failed" and
 # costs an hour. Container-internal ports are unchanged.
+#
+# LOOPBACK ONLY (D-L155): every published port binds 127.0.0.1, so the dev
+# database, cache, search and object store (with their committed development
+# credentials) are never reachable from the local network.
 services:
   postgres:
     image: postgres:16-alpine
@@ -16,7 +20,7 @@ services:
       POSTGRES_DB: kasuwa
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports: ['55432:5432']
+    ports: ['127.0.0.1:55432:5432']
     volumes:
       # The entrypoint runs these in name order, only when the volume is new;
       # `pnpm dev` re-applies both (they are idempotent) so an older volume gains
@@ -42,7 +46,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: kasuwa-redis
-    ports: ['56379:6379']
+    ports: ['127.0.0.1:56379:6379']
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 3s
@@ -57,7 +61,7 @@ services:
       DISABLE_SECURITY_PLUGIN: 'true'
       DISABLE_INSTALL_DEMO_CONFIG: 'true'
       OPENSEARCH_JAVA_OPTS: '-Xms512m -Xmx512m'
-    ports: ['59200:9200']
+    ports: ['127.0.0.1:59200:9200']
     healthcheck:
       test: ['CMD-SHELL', 'curl -fs http://localhost:9200/_cluster/health || exit 1']
       interval: 10s
@@ -91,7 +95,7 @@ services:
       -s3.config=/etc/seaweedfs/s3.json
       -s3.allowedOrigins=http://localhost:3000,http://127.0.0.1:3000
       -master.port=9333 -volume.port=8080 -filer
-    ports: ['59000:8333', '59333:9333']
+    ports: ['127.0.0.1:59000:8333', '127.0.0.1:59333:9333']
     volumes:
       - ./tools/seaweedfs/s3-identities.json:/etc/seaweedfs/s3.json:ro
       - kasuwa-s3:/data
