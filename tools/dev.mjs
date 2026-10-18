@@ -18,7 +18,28 @@ import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 
-const SERVICES = ['postgres', 'redis', 'opensearch', 'seaweedfs'];
+const ALL_SERVICES = ['postgres', 'redis', 'opensearch', 'seaweedfs'];
+
+/**
+ * `KASUWA_DEV_SERVICES=postgres,redis` brings up only those containers. The
+ * apps read nothing from OpenSearch or object storage yet (`.env.example`:
+ * "present for local parity only"), so the demo (tools/demo.mjs) skips both:
+ * OpenSearch alone is a large first pull and a 512 MB heap. Postgres and Redis
+ * are always included; an unknown name stops the script.
+ */
+function selectedServices(value) {
+  if (value === undefined || value.trim() === '') {
+    return ALL_SERVICES;
+  }
+  const named = value.split(',').map((name) => name.trim()).filter((name) => name !== '');
+  const unknown = named.filter((name) => !ALL_SERVICES.includes(name));
+  if (unknown.length > 0) {
+    throw new Error(`KASUWA_DEV_SERVICES names unknown services: ${unknown.join(', ')}`);
+  }
+  return ALL_SERVICES.filter((name) => name === 'postgres' || name === 'redis' || named.includes(name));
+}
+
+const SERVICES = selectedServices(process.env.KASUWA_DEV_SERVICES);
 const HEALTH_TIMEOUT_MS = 180_000;
 const HEALTH_POLL_MS = 2_000;
 
