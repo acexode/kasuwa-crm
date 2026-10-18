@@ -3347,3 +3347,43 @@ database attacks in tenancy/adversarial. Its rulings M1–M16 are accepted, incl
   - `merged` and `restored` in `AuditAction`;
   - `unknown_reference` at `choices.ownerUserId`.
 - **Known noise:** the adversarial "no such contact" timing check fails under load on this host (D-L100).
+
+### D-L154 — T-0099 suite rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The suite is on `lead/T-0099-acceptance` (276e60a; 78 tests). Its rulings R1–R16 are
+accepted, including:
+- a contact's notification name follows its name parts (D-L68);
+- the actor's name is null once they leave the programme (D-P23);
+- items whose object is no longer visible are dropped;
+- read-all returns the visible unread count;
+- a 30-second polling hint.
+
+Read-all gains an optional `throughId`, so that notifications arriving after the user's view are not marked read unseen.
+Per-kind counts and a list-valued `kind` are not in Phase 2. The mock-load guards in records-contract-import and
+custom-fields-contract get explicit 60 s timeouts.
+
+### D-L155 — T-0092 review rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The migration, tenancy and security reviews passed with findings, none critical.
+- **Live-transaction check:** `@kasuwa/db` tracks the transactions it really issued (`assertLiveTenantTx`). Key minting
+  and the stored-object repository refuse anything else. Object storage has no RLS, so the mint is the only guard on the
+  bytes.
+- **`tenantStoragePrefix`** is lint-banned outside a future operator-only, audited offboarding module (the D-L54
+  precedent).
+- **The storage-adapter package** declares `exports`. Deep imports are banned, and the key builders are not exported.
+- **`storageEnv`** requires https endpoints outside dev and test, accepts only the http and https schemes, and brands its
+  result; `S3ObjectStore` refuses an unbranded config.
+- **0040 hardening:**
+  - status is forward-only;
+  - `uploaded` requires a verified size equal to the declared size;
+  - a deleted row is frozen;
+  - `expires_at` cannot be cleared.
+- **Other fixes:**
+  - adapter caps per purpose (import: 25 MiB, 4 parts);
+  - a no-progress guard in `deletePrefix`;
+  - lint coverage for `.js`/`.mjs`, `@smithy/*` and the fake store in every runtime package;
+  - dev ports bound to 127.0.0.1;
+  - `tenancy-reviewed` markers on the repository's SQL.
+- **Deferred:**
+  - binding the upload id to the row moves to T-0094;
+  - bucket versioning and `s3:PutObjectTagging` to T-0005.
+- **NDPA:** Pooled data in af-south-1 means Nigerian PII is held in South Africa. That is an existing ADR-0002 and D-L128
+  decision, but it needs a transfer assessment with counsel.
