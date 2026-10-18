@@ -52,10 +52,12 @@ export function RolesScreen({
   locale,
   messages,
   locales,
+  linkedSettings,
 }: {
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
+  linkedSettings: Readonly<Record<string, string>>;
 }) {
   const t = createBundleTranslator(locale, messages);
   const router = useRouter();
@@ -152,7 +154,7 @@ export function RolesScreen({
       : (items.find((role) => role.id === roleId)?.name ?? t.t('admin.prog.unknown'));
 
   return (
-    <AdminShell locale={locale} messages={messages} locales={locales} activeSettingId="roles">
+    <AdminShell locale={locale} messages={messages} locales={locales} linkedSettings={linkedSettings} activeSettingId="roles">
       <div data-screen="P02/C" className="flex flex-col gap-6 pb-24">
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex min-w-0 flex-1 flex-col gap-2">
