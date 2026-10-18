@@ -2993,3 +2993,27 @@ found no privacy or contract defect.
 - **#133 proven at scale:** after 11 records-ui wrappers, no `next-server` or `tsx` process was left in the worktree.
 - **Pre-existing on main:** `metadata/standard-object-metadata` fails 2 of 41, because 0038's `name_search` column has
   no `field_def`. It is filed as a separate task.
+
+### D-L140 — T-0088 security review rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The combined review of the T-0088 contract passed with one major and six minor findings.
+- **The size limit must not reveal withheld bytes (major).** Before this ruling, `custom_too_large` was judged on the
+  whole stored object, so an editor could binary-search the size of keys withheld from them.
+  - The API limit is now **16 KiB**, measured on the merged `custom` restricted to keys the caller can read in the row's
+    programme, plus the keys being written.
+  - Withheld and retired values never count. The 32 KiB DB CHECK (ADR-0016 item 2) is a backstop only.
+- **Bad keys:** a key that fails the `__c` pattern is reported at path `custom`, or at the query parameter, with
+  `unknown_field`. The key is never echoed.
+- **`CustomFieldNumber`:** `maxLength` 40.
+- **Bounded definitions:**
+  - `listCustomFields?includeRetired`, default false;
+  - at most 500 definitions per object counting retired ones (`409 limit_reached` / `field_limit_reached`);
+  - the 100 active-field limit stands.
+- **Admin write order:** 401, then 403 (`custom_field.write`), then 404, then 400 (`field_retired` and body codes). A
+  repeat retire answers 200 unchanged (suite R12, which overrides the D-L139 note) only after the 403 and 404 checks.
+- **Logging:** custom values are never logged or traced, whatever the classification (D-P25), by the same reasoning as
+  audit by key only.
+- **Lead edit (a00d22f):** the leads mock withholds `custom.<key>` inside `row.custom`, and its leak check looks there.
+- **For T-0090:** the studio warns when a field's classification is raised, because reclassifying never rewrites the
+  matrix (D-L138), so cells already at `edit` stay `edit`.
+- **Noted:** `unknown_field` for retired keys does not hide past existence from tenant users, because the admin list shows
+  retired fields. It is kept for one code path; nothing leaks.
