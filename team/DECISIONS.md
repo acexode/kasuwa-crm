@@ -3309,3 +3309,22 @@ of T-0125 proceeds on these answers unless @acexode objects.
   - the import result says duplicates were skipped and no restriction was applied to existing contacts.
 - **Later decision:** a restrict-only update path, so that importing a suppression list can apply DND to existing
   contacts.
+
+### D-L152 — T-0121/T-0122 suite rulings; two failures found on main (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The suites are on `lead/T-0121-T-0122-acceptance` (69f4229, 6c284d5).
+- **T-0121 R1–R3 accepted:**
+  - a 413 answers with `code: validation_failed`;
+  - the 415s and the corrupt-gzip 400 are in scope and must not echo the client's header;
+  - an unmatched path is a 404 with `not_found` and no echo.
+- **T-0122:**
+  - `pnpm db:reset` is broken on main: a stale hard-coded drop list leaves a database at head half-dropped. Fixing it with
+    a catalogue query is in T-0122's scope (the old follow-up near D-L line 1094).
+  - The root `db:reset` script still defaults an unset NODE_ENV to development, for local use (D-L103 unchanged).
+  - The suite pins that a wrapper never overwrites an explicit NODE_ENV (I8).
+- **Found on main by a full isolation run:**
+  - `audit-coverage` lacks probes for T-0089's audited custom-field operations;
+  - `p01-auth-screens` fails because `apps/web/lib/deal-money.ts` hard-codes a currency symbol.
+
+  Both are being fixed on `lead/main-fixes-audit-currency`.
+- **Port collision seen again:** one `script-runs` request got an "Ollama" page. The fix is `lead/e2e-free-ports`, pending
+  merge.
