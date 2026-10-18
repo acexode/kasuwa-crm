@@ -158,26 +158,37 @@ describe('standard definition guards (0025)', () => {
       ).toEqual({ code: '42501' });
     });
 
-    it('lets kasuwa_app edit a standard label, and a custom field’s type', async () => {
+    it('lets kasuwa_app edit a standard label and a custom field’s label, but not its type (0039, ADR-0016 item 9)', async () => {
       const { contactId, emailsId } = await standardIds(migrator);
+      const customId = newId();
       const result = await asApp(appPool, USER_A_SUPERVISOR, async (tx) => {
         const label = await tx.query<{ label: string }>(
           `UPDATE field_def SET label = 'Email addresses' WHERE id = $1 RETURNING label`,
           [emailsId],
         );
-        const customId = newId();
         await tx.query(
           `INSERT INTO field_def (id, tenant_id, object_id, api_name, label, type)
            VALUES ($1, $2, $3, 't0053_tier', 'Tier', 'text')`,
           [customId, TENANT_A, contactId],
         );
-        const custom = await tx.query<{ type: string }>(
-          `UPDATE field_def SET type = 'textarea' WHERE id = $1 RETURNING type`,
+        const custom = await tx.query<{ label: string }>(
+          `UPDATE field_def SET label = 'Service tier' WHERE id = $1 RETURNING label`,
           [customId],
         );
-        return [label[0]?.label, custom[0]?.type];
+        return [label[0]?.label, custom[0]?.label];
       });
-      expect(result).toEqual({ ok: ['Email addresses', 'textarea'] });
+      expect(result).toEqual({ ok: ['Email addresses', 'Service tier'] });
+      // Since 0039 a custom field's type is frozen for kasuwa_app too: a change
+      // of type is a new field, then retiring the old one.
+      const refused = await asApp(appPool, USER_A_SUPERVISOR, async (tx) => {
+        await tx.query(
+          `INSERT INTO field_def (id, tenant_id, object_id, api_name, label, type)
+           VALUES ($1, $2, $3, 't0053_tier', 'Tier', 'text')`,
+          [customId, TENANT_A, contactId],
+        );
+        return tx.query(`UPDATE field_def SET type = 'textarea' WHERE id = $1 RETURNING type`, [customId]);
+      });
+      expect(refused).toEqual({ code: '42501' });
     });
 
     it('lets a migration (kasuwa_migrator) correct a standard field’s type', async () => {
