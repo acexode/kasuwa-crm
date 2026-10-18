@@ -3129,3 +3129,29 @@ passed with findings, with no critical finding. All three found the same major i
   - Its shared mock is renamed `custom-values-mock.ts`, because T-0090 already owns `custom-fields-mock.ts`.
 - **Order:** T-0090 builds first. T-0091's build waits for T-0090 to merge, because both register the flag and change
   the records process.
+
+### D-L145 — T-0090 build and review rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead).
+- **Lead edits (41d24c8):**
+  - the studio mock serves the P02 home's `/home/usage`, `/home/alerts` and `/audit/events` from their contract
+    examples;
+  - `@p18-studio-absent` reads only the studio's own regions, not the whole body;
+  - `STUDIO_BUDGET_BYTES` is 266,000 (measured 259,164 to 260,023);
+  - the P02 scripts-tab budget is 270,000 (measured 265,405 to 265,986; that spec's rule is about 2% headroom).
+- **Accessibility:** unbuilt admin menu entries stay `aria-disabled`, not `aria-hidden`, so assistive technology still
+  announces them. The test changed, not the screen.
+- **The admin shell's live menu links** travel by prop from each page's server read (`adminLiveNav()`), not by a layout
+  or context. A layout added a chunk to every admin route and broke two P02 budgets.
+- **The seven non-English studio catalogues** are drafts pending native review (D-P1).
+- **Combined review:** pass with one major finding and seven minor ones, all to be fixed before merge:
+  - the retire dialog and Save keep focus after a refusal (no `disabled` on the focused button; focus the alert);
+  - a missing picklist value is announced;
+  - the full-object state also uses `definitionsPerObject`, with no "retire to make room" advice when retired fields
+    fill the 500;
+  - a slow reload keeps the panel mounted;
+  - edits compare trimmed values on both sides;
+  - the form closes or reloads when its field is retired, and tab switches are guarded while a form is open or saving;
+  - stricter client schemas (closed configs, positive limits, `Object.hasOwn` for detail labels);
+  - parse instead of casting the type select.
+- **Noted:** `listCustomFields` is unpaginated (500 definitions at most). If the admin transport ever uses cookies,
+  bodyless POSTs need a CSRF control; today it uses a bearer token.
