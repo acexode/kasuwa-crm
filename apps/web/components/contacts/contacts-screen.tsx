@@ -14,7 +14,6 @@ import { filterableFields, NO_CUSTOM_FILTERS, listRefusalId, setCustomFilter, ty
 import { LazyCustomFilterBar } from '../custom/lazy-filters';
 import { useCustomDefinitions } from '../custom/use-custom-fields';
 import {
-  FilterOptions,
   ListError,
   ListLoading,
   LoadMore,
@@ -49,6 +48,7 @@ import { useContactList } from './use-contact-list';
 const ColumnChooser = guarded(
   dynamic<ChooserProps<ColumnKey>>(() => import('../records/column-chooser').then((module) => module.ColumnChooser<ColumnKey>), { ssr: false }),
 );
+const FilterMenu = guarded(dynamic(() => import('./contacts-filter-menu').then((module) => module.FilterMenu), { ssr: false }));
 const FilterSheet = guarded(dynamic(() => import('./contacts-filter-sheet').then((module) => module.FilterSheet), { ssr: false }));
 
 /**
@@ -242,19 +242,14 @@ export function ContactsScreen({
                 </button>
                 {popover === `filter:${spec.key}` ? (
                   <div className={`absolute start-0 top-full mt-1 w-64 ${POPOVER}`}>
-                    <ContactFilterOptions t={t} spec={spec} filters={filters} onToggle={(value) => setFilters((current) => toggleFilter(current, spec.key, value))} />
-                    <div className="mt-2 flex justify-end gap-2 border-t border-border pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setFilters((current) => ({ ...current, [spec.key]: [] }))}
-                        className={QUIET_BUTTON}
-                      >
-                        {t.t('records.filter.clear')}
-                      </button>
-                      <button type="button" data-testid="filter-apply" onClick={() => close(true)} className={SECONDARY_BUTTON}>
-                        {t.t('records.filter.done')}
-                      </button>
-                    </div>
+                    <FilterMenu
+                      t={t}
+                      spec={spec}
+                      filters={filters}
+                      onToggle={(value) => setFilters((current) => toggleFilter(current, spec.key, value))}
+                      onClear={() => setFilters((current) => ({ ...current, [spec.key]: [] }))}
+                      onDone={() => close(true)}
+                    />
                   </div>
                 ) : null}
               </div>
@@ -364,28 +359,6 @@ function UnavailableAction({
       {t.t(label)}
       <span className="sr-only">{t.t('records.action.unavailable')}</span>
     </button>
-  );
-}
-
-function ContactFilterOptions({
-  t,
-  spec,
-  filters,
-  onToggle,
-}: {
-  t: Translator;
-  spec: FilterSpec;
-  filters: FilterState;
-  onToggle: (value: string) => void;
-}) {
-  return (
-    <FilterOptions
-      menu={spec.key}
-      label={t.t(spec.label)}
-      options={spec.options.map((value) => ({ value, label: t.t(optionLabel(spec.key, value)) }))}
-      selected={filters[spec.key]}
-      onToggle={onToggle}
-    />
   );
 }
 
