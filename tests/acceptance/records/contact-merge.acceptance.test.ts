@@ -2272,11 +2272,14 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
       ];
       const tenantB = await freshUser([[PROGRAMME_B1, 'admin']], false, TENANT_B);
       okBody(await duplicates(u3, PROGRAMME_A1), 200, 'listDuplicates', 'control: one scan alone');
-      /** Backends waiting on a lock: the scans held behind the migrator's lock on contact. */
+      /**
+       * Lock requests waiting on contact: the scans held behind the migrator's lock. pg_locks,
+       * not pg_stat_activity, whose wait columns are hidden from kasuwa_migrator for other roles.
+       */
       const lockWaiters = async () => {
         const rows = await observer.query<{ n: string }>(
-          `SELECT count(*)::text AS n FROM pg_stat_activity
-            WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> pg_backend_pid()`,
+          `SELECT count(DISTINCT pid)::text AS n FROM pg_locks
+            WHERE NOT granted AND relation = to_regclass('public.contact') AND pid <> pg_backend_pid()`,
         );
         return Number(rows.rows[0]?.n ?? '0');
       };
@@ -2294,6 +2297,8 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
       const locker = await observer.connect();
       try {
         await locker.query('BEGIN');
+        // The pool's 15 s idle-in-transaction timeout would end the lock while the test waits on state.
+        await locker.query('SET LOCAL idle_in_transaction_session_timeout = 0');
         await locker.query('LOCK TABLE contact IN ACCESS EXCLUSIVE MODE');
         pending.push(duplicates(u1, PROGRAMME_A1).then((r) => r));
         pending.push(duplicates(u2, PROGRAMME_A1).then((r) => r));
