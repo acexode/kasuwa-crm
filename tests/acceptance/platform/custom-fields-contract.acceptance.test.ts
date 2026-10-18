@@ -225,6 +225,8 @@ import { parse } from 'yaml';
  *       ignore unknown parameters, so a screen sending `custom[...]` to them
  *       today would get unfiltered rows that look filtered (the D-L75
  *       hazard). T-0091 must not send one while the flag is false.
+ *       FLIPPED (T-0089, D-L142 lead edit): T-0089 serves all of it, so
+ *       every flag, and the generated admin mock, is now pinned `true`.
  *   R20 D-L97: every example in both files validates; every e2e mock that
  *       reads either file still loads (each validates its own rows at load);
  *       and the generated admin mock is regenerated in the same change.
@@ -1841,27 +1843,33 @@ describe('acceptance: custom-field contract (T-0088)', () => {
     });
   });
 
-  describe('flags: contract first (R19)', () => {
-    it('the four admin operations are x-kasuwa-implemented: false', () => {
-      for (const [id] of ADMIN_OPS) expect(admOp(id).op['x-kasuwa-implemented'], id).toBe(false);
+  // T-0089 / D-L142 (lead edit): T-0089 serves all of it, so every pin flips from `false`
+  // to `true`. The prose pin that the parameter descriptions say "a screen must not send
+  // them until served" is dropped, so the builder can refresh that wording.
+  describe('flags: served by T-0089 (R19)', () => {
+    it('the four admin operations are x-kasuwa-implemented: true', () => {
+      for (const [id] of ADMIN_OPS) expect(admOp(id).op['x-kasuwa-implemented'], id).toBe(true);
     });
 
-    it('every custom property, on the record shapes and the bodies, is x-kasuwa-implemented: false', () => {
+    it('every custom property, on the record shapes and the bodies, is x-kasuwa-implemented: true', () => {
       const problems: string[] = [];
+      let checked = 0;
       for (const name of [...RECORD_SCHEMAS, ...CREATE_BODIES, ...UPDATE_BODIES]) {
         const raw = rawProperty(rec(name), 'custom');
+        checked += 1;
         if (!raw) problems.push(`${name}: no custom`);
-        else if (raw['x-kasuwa-implemented'] !== false) problems.push(`${name}.custom is not x-kasuwa-implemented: false`);
+        else if (raw['x-kasuwa-implemented'] !== true) problems.push(`${name}.custom is not x-kasuwa-implemented: true`);
       }
       expect(problems).toEqual([]);
+      // Not vacuous: four record shapes, four create bodies, four update bodies.
+      expect(checked).toBe(12);
     });
 
-    it('the custom and customEmpty parameters are x-kasuwa-implemented: false, and say a screen must not send them until served', () => {
+    it('the custom and customEmpty parameters are x-kasuwa-implemented: true', () => {
       for (const name of ['custom', 'customEmpty']) {
         const located = param(recOp('listContacts'), name);
-        expect(isMapping(located?.node) ? located.node['x-kasuwa-implemented'] : undefined, name).toBe(false);
+        expect(isMapping(located?.node) ? located.node['x-kasuwa-implemented'] : undefined, name).toBe(true);
       }
-      expect(nodeDescription(param(recOp('listContacts'), 'custom'))).toMatch(/ignore/i);
     });
   });
 
@@ -1989,10 +1997,11 @@ describe('acceptance: custom-field contract (T-0088)', () => {
       expect(checked).toBeGreaterThanOrEqual(10);
     });
 
-    it('the generated admin mock is regenerated: it lists the four operations, each implemented false (D-L97)', async () => {
+    // T-0089 / D-L142 (lead edit): the mock is regenerated with the flags, so each is `true`.
+    it('the generated admin mock is regenerated: it lists the four operations, each implemented true (D-L97)', async () => {
       const generated = (await import(resolve(E2E_SUPPORT, 'admin-mock.generated.ts'))) as { ADMIN_OPERATIONS?: readonly { operationId: string; implemented: string }[] };
       const listed = new Map((generated.ADMIN_OPERATIONS ?? []).map((entry) => [entry.operationId, entry.implemented]));
-      expect(ADMIN_OPS.map(([id]) => `${id} ${String(listed.get(id))}`)).toEqual(ADMIN_OPS.map(([id]) => `${id} false`));
+      expect(ADMIN_OPS.map(([id]) => `${id} ${String(listed.get(id))}`)).toEqual(ADMIN_OPS.map(([id]) => `${id} true`));
     });
 
     it('every other example in both files still validates (D-L97: custom fields break no mock)', () => {
