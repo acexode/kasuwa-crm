@@ -45,6 +45,9 @@ export const AdminErrorCode = z.enum([
   'too_many_requests',
   'not_implemented',
   'service_unavailable',
+  // T-0088: a custom-field write refused at a limit (`field_limit_reached`,
+  // `picklist_limit_reached` in `details`). Additive.
+  'limit_reached',
   // T-0036: the code on every unexpected 500. Additive; generic copy.
   'internal_error',
 ]);
@@ -371,16 +374,17 @@ export type AuditEventList = z.infer<typeof AuditEventList>;
 // Transport
 // ---------------------------------------------------------------------------
 
-async function request<T>(
+export async function request<T>(
   method: string,
   path: string,
   schema: z.ZodType<T>,
-  init: { body?: unknown; signal?: AbortSignal } = {},
+  init: { body?: unknown; signal?: AbortSignal; noStore?: boolean } = {},
 ): Promise<Result<T>> {
   let response: Response;
   try {
     response = await fetch(path, {
       method,
+      ...(init.noStore === true ? { cache: 'no-store' as const } : {}),
       ...(init.body === undefined
         ? {}
         : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(init.body) }),
