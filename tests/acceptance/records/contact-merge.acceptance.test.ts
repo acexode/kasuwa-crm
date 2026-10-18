@@ -138,7 +138,10 @@ import { collectTelemetry } from '../support/telemetry';
  * M6  "The ten most recently updated": with 12 matches the set is the ten
  *     newest. The fixture puts the lowest id among the ten, so "lowest id of
  *     the set" means the same whether read over the ten or the twelve.
- * M7  THROTTLE: listDuplicates admits 60..600 in a burst per user, then 429
+ * M7  THROTTLE (LEAD EDIT, D-L163): listDuplicates admits exactly 20 per
+ *     minute per user, and a tenant runs at most two scans at once (a third
+ *     is 429 with Retry-After, while another tenant is still admitted). It
+ *     was: admits 60..600 in a burst per user, then 429
  *     `too_many_requests` with an integer `Retry-After` >= 1; the throttle is
  *     decided before validation; another user is unaffected.
  * M8  LATENCY (D-L146: the T-0084 budget): at the 120k seed (60k per
@@ -895,6 +898,20 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
     );
   }
 
+  /**
+   * LEAD EDIT (T-0095, D-L163): listDuplicates allows 20 calls per minute per user, so every
+   * test that scans gets users of its own (never the shared H.* users), and no user nears
+   * the limit except the one the throttle test exhausts on purpose. Ids never repeat within a
+   * run, because the throttle's windows outlive the reseed.
+   */
+  let readerSeq = 0;
+  async function freshUser(memberships: readonly (readonly [string, string])[], tenantAdmin = false, tenantId = TENANT_A): Promise<Headers> {
+    readerSeq += 1;
+    const id = id95(`e2${readerSeq.toString(16).padStart(6, '0')}`);
+    await plantUser(id, tenantAdmin, memberships, tenantId);
+    return asUser(tenantId, id);
+  }
+
   async function plantContact(c: ContactPlant) {
     await observer.query(
       `INSERT INTO contact (id, tenant_id, programme_id, display_name, given_names, family_name, company_name,
@@ -1092,16 +1109,6 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
   function expectSameBody(actual: request.Response, control: request.Response, where: string) {
     expect(actual.status, `${where}: ${actual.text}`).toBe(control.status);
     expect(actual.text, `${where}: not the invented id's body`).toBe(control.text);
-  }
-
-  async function timed(work: () => Promise<unknown>, rounds = 3): Promise<number> {
-    let best = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < rounds; i += 1) {
-      const t0 = performance.now();
-      await work();
-      best = Math.min(best, performance.now() - t0);
-    }
-    return best;
   }
 
   // =========================================================================
@@ -1395,8 +1402,16 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
   // =========================================================================
 
   describe('listDuplicates', () => {
+    /** Fresh per test (D-L163): an A1 admin, a tenant admin with admin in both, and TADMIN's shape. */
+    const D: Record<'admin1' | 'supervisor' | 'tadmin', Headers> = { admin1: {}, supervisor: {}, tadmin: {} };
+    beforeEach(async () => {
+      D.admin1 = await freshUser([[PROGRAMME_A1, 'admin']]);
+      D.supervisor = await freshUser([[PROGRAMME_A1, 'admin'], [PROGRAMME_A2, 'admin']], true);
+      D.tadmin = await freshUser([[PROGRAMME_A1, 'team_lead'], [PROGRAMME_A2, 'programme_manager']], true);
+    });
+
     it('returns exactly A1’s sets: exact E.164 phone (any of a contact’s numbers) or lower-cased email, within the programme, ten newest of twelve', async () => {
-      const page = okBody(await duplicates(H.admin1, PROGRAMME_A1, [['limit', '100']]), 200, 'listDuplicates', 'A1');
+      const page = okBody(await duplicates(D.admin1, PROGRAMME_A1, [['limit', '100']]), 200, 'listDuplicates', 'A1');
       expect(setKeys(page).sort()).toEqual(A1_SETS);
       expect(page.nextCursor).toBeNull();
       for (const set of page.data as Json[]) {
@@ -1411,13 +1426,13 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
     });
 
     it('never returns a matched value: no phone or email in any spelling, anywhere in the answer', async () => {
-      const response = await duplicates(H.admin1, PROGRAMME_A1, [['limit', '100']]);
+      const response = await duplicates(D.admin1, PROGRAMME_A1, [['limit', '100']]);
       okBody(response, 200, 'listDuplicates', 'A1');
       expect(identifiersIn(response.text, ALL_IDENTIFIERS)).toEqual([]);
     });
 
     it('orders sets by lowest contact id ascending', async () => {
-      const page = okBody(await duplicates(H.admin1, PROGRAMME_A1, [['limit', '100']]), 200, 'listDuplicates', 'A1');
+      const page = okBody(await duplicates(D.admin1, PROGRAMME_A1, [['limit', '100']]), 200, 'listDuplicates', 'A1');
       const lows = (page.data as Json[]).map(lowestId);
       expect(lows.length).toBe(A1_SETS.length);
       expect(lows).toEqual([...lows].sort());
@@ -1429,7 +1444,7 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
       for (let guard = 0; guard < 20; guard += 1) {
         const params: [string, string][] = [['limit', '1']];
         if (cursor !== null) params.push(['cursor', cursor]);
-        const page = okBody(await duplicates(H.admin1, PROGRAMME_A1, params), 200, 'listDuplicates', `page ${guard}`);
+        const page = okBody(await duplicates(D.admin1, PROGRAMME_A1, params), 200, 'listDuplicates', `page ${guard}`);
         const data = page.data as Json[];
         expect(data.length, 'no page longer than limit').toBeLessThanOrEqual(1);
         seen.push(...setKeys(page));
@@ -1444,41 +1459,41 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
     });
 
     it('never crosses programmes: A2’s path holds only A2’s set, and the shared number makes no set in either', async () => {
-      const a2 = okBody(await duplicates(H.supervisor, PROGRAMME_A2, [['limit', '100']]), 200, 'listDuplicates', 'A2');
+      const a2 = okBody(await duplicates(D.supervisor, PROGRAMME_A2, [['limit', '100']]), 200, 'listDuplicates', 'A2');
       expect(setKeys(a2)).toEqual(A2_SETS);
-      const a1 = okBody(await duplicates(H.supervisor, PROGRAMME_A1, [['limit', '100']]), 200, 'listDuplicates', 'A1 supervisor');
+      const a1 = okBody(await duplicates(D.supervisor, PROGRAMME_A1, [['limit', '100']]), 200, 'listDuplicates', 'A1 supervisor');
       expect(setKeys(a1).sort()).toEqual(A1_SETS);
     });
 
     it('answers a programme out of reach exactly as one that does not exist: 404, one body; another tenant’s too; a malformed id is 400', async () => {
-      okBody(await duplicates(H.admin1, PROGRAMME_A1), 200, 'listDuplicates', 'control');
-      const missing = await duplicates(H.admin1, NOWHERE);
+      okBody(await duplicates(D.admin1, PROGRAMME_A1), 200, 'listDuplicates', 'control');
+      const missing = await duplicates(D.admin1, NOWHERE);
       expectError(missing, 404, 'not_found', 'invented programme');
-      expectSameBody(await duplicates(H.admin1, PROGRAMME_A2), missing, 'A2 for an A1 admin');
-      expectSameBody(await duplicates(H.admin1, PROGRAMME_B1), missing, 'tenant B programme');
+      expectSameBody(await duplicates(D.admin1, PROGRAMME_A2), missing, 'A2 for an A1 admin');
+      expectSameBody(await duplicates(D.admin1, PROGRAMME_B1), missing, 'tenant B programme');
       expectSameBody(await duplicates(H.tenantB, PROGRAMME_A1), missing, 'A1 for tenant B');
-      expectError(await duplicates(H.admin1, 'not-a-uuid'), 400, 'validation_failed', 'malformed');
+      expectError(await duplicates(D.admin1, 'not-a-uuid'), 400, 'validation_failed', 'malformed');
     });
 
     it('a match on a field withheld from the caller yields no sets for that matchOn; the readable field still matches; another programme is unaffected', async () => {
       // TADMIN: team_lead in A1, programme_manager in A2 (field security is judged on the set, never the flag).
       await lockField('phones', 'team_lead', 'none');
-      const noPhones = okBody(await duplicates(H.tadmin, PROGRAMME_A1, [['limit', '100']]), 200, 'listDuplicates', 'phones withheld');
+      const noPhones = okBody(await duplicates(D.tadmin, PROGRAMME_A1, [['limit', '100']]), 200, 'listDuplicates', 'phones withheld');
       expect(setKeys(noPhones).sort()).toEqual(A1_SETS.filter((k) => k.startsWith('email:')));
-      const a2 = okBody(await duplicates(H.tadmin, PROGRAMME_A2, [['limit', '100']]), 200, 'listDuplicates', 'A2 readable');
+      const a2 = okBody(await duplicates(D.tadmin, PROGRAMME_A2, [['limit', '100']]), 200, 'listDuplicates', 'A2 readable');
       expect(setKeys(a2)).toEqual(A2_SETS);
       await lockField('phones', 'team_lead', 'edit');
       await lockField('emails', 'team_lead', 'none');
-      const noEmails = okBody(await duplicates(H.tadmin, PROGRAMME_A1, [['limit', '100']]), 200, 'listDuplicates', 'emails withheld');
+      const noEmails = okBody(await duplicates(D.tadmin, PROGRAMME_A1, [['limit', '100']]), 200, 'listDuplicates', 'emails withheld');
       expect(setKeys(noEmails).sort()).toEqual(A1_SETS.filter((k) => k.startsWith('phone:')));
     });
 
     it('never puts a merged-away contact in a set', async () => {
-      const before = okBody(await duplicates(H.admin1, PROGRAMME_A1, [['limit', '100']]), 200, 'listDuplicates', 'before');
+      const before = okBody(await duplicates(D.admin1, PROGRAMME_A1, [['limit', '100']]), 200, 'listDuplicates', 'before');
       expect(setKeys(before).sort()).toEqual(A1_SETS);
       await mergeOk(H.admin1, P1.id, P2.id);
       await mergeOk(H.admin1, G(12).id, G(11).id);
-      const after = okBody(await duplicates(H.admin1, PROGRAMME_A1, [['limit', '100']]), 200, 'listDuplicates', 'after');
+      const after = okBody(await duplicates(D.admin1, PROGRAMME_A1, [['limit', '100']]), 200, 'listDuplicates', 'after');
       const live = new Set((after.data as Json[]).flatMap((s) => (s.contacts as Json[]).map((c) => String(c.id))));
       expect(live.has(P2.id)).toBe(false);
       expect(live.has(G(11).id)).toBe(false);
@@ -1491,10 +1506,10 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
     });
 
     it('refuses a malformed cursor and an out-of-range limit with 400', async () => {
-      okBody(await duplicates(H.admin1, PROGRAMME_A1), 200, 'listDuplicates', 'control');
-      expectError(await duplicates(H.admin1, PROGRAMME_A1, [['cursor', '!!!']]), 400, 'validation_failed', 'cursor');
-      expectError(await duplicates(H.admin1, PROGRAMME_A1, [['limit', '0']]), 400, 'validation_failed', 'limit 0');
-      expectError(await duplicates(H.admin1, PROGRAMME_A1, [['limit', '101']]), 400, 'validation_failed', 'limit 101');
+      okBody(await duplicates(D.admin1, PROGRAMME_A1), 200, 'listDuplicates', 'control');
+      expectError(await duplicates(D.admin1, PROGRAMME_A1, [['cursor', '!!!']]), 400, 'validation_failed', 'cursor');
+      expectError(await duplicates(D.admin1, PROGRAMME_A1, [['limit', '0']]), 400, 'validation_failed', 'limit 0');
+      expectError(await duplicates(D.admin1, PROGRAMME_A1, [['limit', '101']]), 400, 'validation_failed', 'limit 101');
     });
   });
 
@@ -1831,8 +1846,9 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
     });
 
     it('keeps every identifier and name out of logs and spans across duplicates, preview, merge, list and undo', async () => {
+      const scanner = await freshUser([[PROGRAMME_A1, 'admin']]);
       const { lines, spans } = await captureEverything(async () => {
-        await duplicates(H.admin1, PROGRAMME_A1, [['limit', '100']]);
+        await duplicates(scanner, PROGRAMME_A1, [['limit', '100']]);
         await preview(H.admin1, P1.id, P2.id);
         await merge(H.admin1, P1.id, P2.id, { dnd: 'merged' });
         const done = await merge(H.admin1, P1.id, P2.id);
@@ -2097,7 +2113,7 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
       expect(fresh.rows[0]?.contact_id).toBe(P1.id);
     });
 
-    it('who: the merging user with contact.write now, or a tenant admin; anyone else in scope is 403, out of scope 404 (D-L151)', async () => {
+    it('who: the merging user with contact.write now, or a tenant admin; another contact.write holder is 403; without contact.write or out of scope 404 (D-L151, D-L163)', async () => {
       const m1 = await mergeOk(H.admin1, P1.id, P2.id);
       const before = await worldState();
       expectError(await undo(H.admin1b, String(m1.id)), 403, 'not_permitted', 'another admin-set member');
@@ -2108,7 +2124,11 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
       expectError(await undo(H.admin1, 'not-a-uuid'), 400, 'validation_failed', 'malformed');
       // The merger loses contact.write.
       await assign(ADMIN1, PROGRAMME_A1, 'agent');
-      expectError(await undo(H.admin1, String(m1.id)), 403, 'not_permitted', 'the merger, now an agent');
+      // LEAD EDIT (T-0095, D-L163): an undo by a caller without contact.write is 404, the
+      // invented merge's body, not 403.
+      const inventedForAgent = await undo(H.admin1, NOWHERE);
+      expectError(inventedForAgent, 404, 'not_found', 'invented merge, the merger now an agent');
+      expectSameBody(await undo(H.admin1, String(m1.id)), inventedForAgent, 'the merger, now an agent');
       expect(await worldState()).toEqual(before);
       // A tenant admin who did not merge may.
       const done = okBody(await undo(H.supervisor, String(m1.id)), 200, 'undoContactMerge', 'tenant admin');
@@ -2215,15 +2235,14 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
   // =========================================================================
 
   describe('the listDuplicates throttle', () => {
-    it('admits 60..600 in a burst per user, then 429 too_many_requests with Retry-After, before validation; another user is unaffected', async () => {
-      const burster = id95('e00000a1');
-      const other = id95('e00000a2');
-      await plantUser(burster, false, [[PROGRAMME_A1, 'admin']]);
-      await plantUser(other, false, [[PROGRAMME_A1, 'admin']]);
-      const headers = asUser(TENANT_A, burster);
+    // LEAD EDIT (T-0095, D-L163): 20 per minute per user (it was 60..600), and at most two
+    // scans in flight per tenant.
+    it('admits exactly 20 per user per minute, then 429 too_many_requests with Retry-After, before validation; another user is unaffected', async () => {
+      const headers = await freshUser([[PROGRAMME_A1, 'admin']]);
+      const other = await freshUser([[PROGRAMME_A1, 'admin']]);
       let admitted = 0;
       let refusal: request.Response | null = null;
-      for (let n = 0; n < 700; n += 1) {
+      for (let n = 0; n < 30; n += 1) {
         const response = await duplicates(headers, PROGRAMME_A1, [['limit', '1']]);
         if (response.status === 429) {
           refusal = response;
@@ -2232,19 +2251,79 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
         expect(response.status, `request ${n + 1}: ${response.text.slice(0, 200)}`).toBe(200);
         admitted += 1;
       }
-      process.stdout.write(`contact-merge throttle: listDuplicates admitted ${admitted}\n`);
       expect(refusal, 'never throttled').not.toBeNull();
-      expect(admitted).toBeGreaterThanOrEqual(60);
-      expect(admitted).toBeLessThanOrEqual(600);
+      expect(admitted, 'exactly 20 admitted in the window').toBe(20);
       const throttled = must(refusal, 'refusal');
       const body = expectError(throttled, 429, 'too_many_requests', 'throttled');
       expect(body.error).toBe('Too Many Requests');
       expectNoStore(throttled, '429');
       const retryAfter = Number(throttled.headers['retry-after']);
-      expect(Number.isInteger(retryAfter) && retryAfter >= 1, `Retry-After ${String(throttled.headers['retry-after'])}`).toBe(true);
+      expect(Number.isInteger(retryAfter) && retryAfter >= 1 && retryAfter <= 60, `Retry-After ${String(throttled.headers['retry-after'])}`).toBe(true);
       expectError(await duplicates(headers, PROGRAMME_A1, [['cursor', '!!!']]), 429, 'too_many_requests', 'malformed while throttled');
       expectError(await duplicates(headers, NOWHERE), 429, 'too_many_requests', 'invented programme while throttled');
-      okBody(await duplicates(asUser(TENANT_A, other), PROGRAMME_A1), 200, 'listDuplicates', 'another user');
+      okBody(await duplicates(other, PROGRAMME_A1), 200, 'listDuplicates', 'another user');
+    }, 120_000);
+
+    it('runs at most two scans per tenant at once: a third is 429 with Retry-After at once, while another tenant is still admitted (D-L163)', async () => {
+      const [u1, u2, u3] = [
+        await freshUser([[PROGRAMME_A1, 'admin']]),
+        await freshUser([[PROGRAMME_A1, 'admin']]),
+        await freshUser([[PROGRAMME_A1, 'admin']]),
+      ];
+      const tenantB = await freshUser([[PROGRAMME_B1, 'admin']], false, TENANT_B);
+      okBody(await duplicates(u3, PROGRAMME_A1), 200, 'listDuplicates', 'control: one scan alone');
+      /** Backends waiting on a lock: the scans held behind the migrator's lock on contact. */
+      const lockWaiters = async () => {
+        const rows = await observer.query<{ n: string }>(
+          `SELECT count(*)::text AS n FROM pg_stat_activity
+            WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> pg_backend_pid()`,
+        );
+        return Number(rows.rows[0]?.n ?? '0');
+      };
+      /** Waits on state, never on a clock: polls until the check holds, or fails after the deadline. */
+      const waitFor = async (check: () => Promise<boolean>, what: string) => {
+        const deadline = Date.now() + 20_000;
+        while (Date.now() < deadline) {
+          if (await check()) return;
+          await new Promise((done) => setImmediate(done));
+        }
+        throw new Error(`waited 20 s for: ${what}`);
+      };
+      const box: { third: request.Response | null; b: request.Response | null } = { third: null, b: null };
+      const pending: Promise<request.Response>[] = [];
+      const locker = await observer.connect();
+      try {
+        await locker.query('BEGIN');
+        await locker.query('LOCK TABLE contact IN ACCESS EXCLUSIVE MODE');
+        pending.push(duplicates(u1, PROGRAMME_A1).then((r) => r));
+        pending.push(duplicates(u2, PROGRAMME_A1).then((r) => r));
+        await waitFor(async () => (await lockWaiters()) >= 2, 'two tenant-A scans in flight');
+        pending.push(duplicates(u3, PROGRAMME_A1).then((r) => {
+          box.third = r;
+          return r;
+        }));
+        await waitFor(async () => box.third !== null || (await lockWaiters()) >= 3, 'the third answered, or joined the scans');
+        expect(box.third, 'the third scan was admitted and queued behind the two, not refused').not.toBeNull();
+        const third = must(box.third, 'third');
+        expectError(third, 429, 'too_many_requests', 'the third concurrent scan');
+        const retryAfter = Number(third.headers['retry-after']);
+        expect(Number.isInteger(retryAfter) && retryAfter >= 1, `Retry-After ${String(third.headers['retry-after'])}`).toBe(true);
+        // Another tenant is not capped by tenant A's scans: it is admitted, and queues on the lock.
+        pending.push(duplicates(tenantB, PROGRAMME_B1).then((r) => {
+          box.b = r;
+          return r;
+        }));
+        await waitFor(async () => box.b !== null || (await lockWaiters()) >= 3, 'tenant B answered, or joined the scans');
+        expect(box.b, `tenant B was refused: ${box.b?.text ?? ''}`).toBeNull();
+      } finally {
+        await locker.query('ROLLBACK').catch(() => undefined);
+        locker.release();
+      }
+      const [r1, r2, , rB] = await Promise.all(pending);
+      for (const [label, response] of [['first', r1], ['second', r2], ['tenant B', rB]] as const) {
+        okBody(must(response, label), 200, 'listDuplicates', `${label}, once the lock is gone`);
+      }
+      okBody(await duplicates(await freshUser([[PROGRAMME_A1, 'admin']]), PROGRAMME_A1), 200, 'listDuplicates', 'the slots are released');
     }, 120_000);
   });
 
@@ -2280,10 +2359,12 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
       process.stdout.write(`contact-merge latency: seeded in ${Math.round(performance.now() - t0)} ms\n`);
       // i % 100 in (1, 3): odd i, so A1; one phone pair per hundred -> 1,200 pairs in A1.
       // i % 250 in (2, 4): even i, so A2; one email pair per 250 -> 480 pairs in A2.
-      const reader = id95('e00000b1');
-      await plantUser(reader, false, [[PROGRAMME_A1, 'admin'], [PROGRAMME_A2, 'admin']]);
-      const headers = asUser(TENANT_A, reader);
-      const walk = async (programmeId: string) => {
+      // LEAD EDIT (T-0095, D-L163): the walks and the timing each get a user of their own, so no
+      // timed call is a 1.8 ms 429; every timed call must be a 200 before its time counts.
+      const walkerA1 = await freshUser([[PROGRAMME_A1, 'admin']]);
+      const walkerA2 = await freshUser([[PROGRAMME_A2, 'admin']]);
+      const timer = await freshUser([[PROGRAMME_A1, 'admin']]);
+      const walk = async (programmeId: string, headers: Headers) => {
         const keys: string[] = [];
         let cursor: string | null = null;
         let deep: string | null = null;
@@ -2298,16 +2379,27 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
         }
         return { keys, deep };
       };
-      const a1 = await walk(PROGRAMME_A1);
+      const a1 = await walk(PROGRAMME_A1, walkerA1);
       const plantedA1 = (A1_SETS.length) + 1_200;
       expect(new Set(a1.keys).size, 'each set once').toBe(a1.keys.length);
       expect(a1.keys.length, 'every planted A1 set').toBe(plantedA1);
-      const a2 = await walk(PROGRAMME_A2);
+      const a2 = await walk(PROGRAMME_A2, walkerA2);
       expect(a2.keys.length, 'every planted A2 set').toBe(A2_SETS.length + 480);
       const deep = must(a1.deep, 'a deep cursor');
-      await duplicates(headers, PROGRAMME_A1, [['limit', '25']]);
-      const first = await timed(() => duplicates(headers, PROGRAMME_A1, [['limit', '25']]));
-      const deepMs = await timed(() => duplicates(headers, PROGRAMME_A1, [['limit', '25'], ['cursor', deep]]));
+      const timedOk = async (call: () => Promise<request.Response>, label: string): Promise<number> => {
+        let best = Number.POSITIVE_INFINITY;
+        for (let i = 0; i < 3; i += 1) {
+          const t1 = performance.now();
+          const response = await call();
+          const ms = performance.now() - t1;
+          expect(response.status, `${label} round ${i + 1}: ${response.text.slice(0, 200)}`).toBe(200);
+          best = Math.min(best, ms);
+        }
+        return best;
+      };
+      okBody(await duplicates(timer, PROGRAMME_A1, [['limit', '25']]), 200, 'listDuplicates', 'warm-up');
+      const first = await timedOk(() => duplicates(timer, PROGRAMME_A1, [['limit', '25']]), 'first page');
+      const deepMs = await timedOk(() => duplicates(timer, PROGRAMME_A1, [['limit', '25'], ['cursor', deep]]), 'deep page');
       process.stdout.write(`contact-merge latency: first ${first.toFixed(1)} ms, deep ${deepMs.toFixed(1)} ms\n`);
       expect(first, 'first page ms').toBeLessThanOrEqual(BUDGET_MS);
       expect(deepMs, 'deep page ms').toBeLessThanOrEqual(BUDGET_MS);
