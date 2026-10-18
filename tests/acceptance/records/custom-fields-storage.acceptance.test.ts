@@ -48,12 +48,14 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
  *
  * K. CHECKS (every role, the migrator included; BYPASSRLS bypasses no CHECK).
  *    On each of the four tables a direct write is refused when `custom` is
- *    not a JSON object; when `octet_length(custom::text) > 32768` (BYTES of
- *    the jsonb text form, not characters: exactly 32768 is accepted, 32769
+ *    not a JSON object; when `octet_length(custom::text) > 524288` (BYTES of
+ *    the jsonb text form, not characters: exactly 524288 is accepted, 524289
  *    refused); or when any TOP-LEVEL key fails `^[a-z][a-z0-9_]*__c$` (keys
  *    inside a value, such as a currency's `amountMinor`, are not checked).
- *    The 32 KiB CHECK is a BACKSTOP only (D-L140): the API's own limit is
- *    16 KiB on what the caller can see, pinned in custom-fields-values-api.
+ *    The 512 KiB CHECK is a BACKSTOP only (D-L140; T-0089, D-L142 lead edit:
+ *    it was 32 KiB, which retired values and disjoint readers could reach,
+ *    making it a size oracle): the API's own limit is 16 KiB on what the
+ *    caller can see, pinned in custom-fields-values-api.
  *
  * G. GRANTS. kasuwa_app may SELECT, INSERT and UPDATE the `custom` column of
  *    all four. On activity and deal, which use column privileges (0027,
@@ -68,6 +70,15 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
  *    classification (both directions, D-P25), config (picklist values are
  *    added, so config must stay writable) and retired_at can. kasuwa_migrator
  *    can still delete one (offboarding, D5 of the delete-guard suite).
+ *    ADDED (T-0089, D-L142 lead edit):
+ *      - a custom field's `object_id` is frozen for EVERY role, the migrator
+ *        included: moving one to a custom object (then deleting it there) or
+ *        to another standard object (then re-creating its api_name) fails;
+ *      - the new restrictive DELETE policy is written positively, an
+ *        `EXISTS (... o.is_custom)` and no `NOT EXISTS`, so it fails closed;
+ *      - `CHECK (retired_at IS NULL OR is_custom)`, binding every role: a
+ *        standard field cannot be retired;
+ *      - kasuwa_app cannot un-retire a field (retired_at back to NULL).
  *
  * T. TENANCY UNCHANGED (ADR-0016 item 10). The four tables and field_def keep
  *    RLS ENABLED and FORCED and a policy whose WITH CHECK equals its USING;
@@ -90,10 +101,11 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
  * ==========================================================================
  *
  * S1  The byte limit is measured exactly as ADR-0016 item 2 writes it,
- *     `octet_length(custom::text)`, so the boundary is pinned at 32768 /
- *     32769 bytes of the jsonb text form. (The API's own 32 KiB rule is
- *     tested well away from the boundary in the values suite, so the two
- *     serialisations need not agree to the byte.)
+ *     `octet_length(custom::text)`, so the boundary is pinned at 524288 /
+ *     524289 bytes of the jsonb text form (D-L142; it was 32768 / 32769).
+ *     (The API's own 16 KiB rule is tested well away from the boundary in
+ *     the values suite, so the two serialisations need not agree to the
+ *     byte.)
  * S2  The key check rejects a key with a trailing or embedded newline, an
  *     upper-case letter, a leading digit or underscore, a non-ASCII letter
  *     and a space. A regex test that is not anchored, or anchored with a
@@ -135,7 +147,8 @@ type Table = (typeof TABLES)[number];
 
 const id89 = (tail: string) => `11111111-0000-4000-8000-0089${tail.padStart(8, '0')}`;
 
-const LIMIT_BYTES = 32768;
+/** T-0089 / D-L142 (lead edit): the backstop is 512 KiB; it was 32768. */
+const LIMIT_BYTES = 524288;
 
 type Json = Record<string, unknown>;
 
@@ -345,6 +358,8 @@ describe('acceptance: custom-field storage, migration 0039 (T-0089)', () => {
   };
   const WIDGET_OBJECT = id89('f00000a0');
   const WIDGET_FIELD = id89('f00000a1');
+  /** T-0089 / D-L142: a contact field whose api_name no other object holds, for the move probes. */
+  const MOVER_FIELD = id89('f0000005');
 
   beforeAll(async () => {
     await reseed(inject('migrationUrl'));
@@ -362,6 +377,11 @@ describe('acceptance: custom-field storage, migration 0039 (T-0089)', () => {
         [CUSTOM_FIELD[table], TENANT_A, must(objectIds.get(table), `tenant A has no ${table} object_def`)],
       );
     }
+    await migrator.query(
+      `INSERT INTO field_def (id, tenant_id, object_id, api_name, label, type, classification, is_custom, config)
+       VALUES ($1, $2, $3, 'mover__c', 'T-0089 mover', 'text', 'none', true, '{}'::jsonb)`,
+      [MOVER_FIELD, TENANT_A, must(objectIds.get('contact'), 'tenant A has no contact object_def')],
+    );
     await migrator.query(
       `INSERT INTO object_def (id, tenant_id, api_name, label, plural_label, is_custom)
        VALUES ($1, $2, 'widget', 'Widget', 'Widgets', true)`,
@@ -400,7 +420,7 @@ describe('acceptance: custom-field storage, migration 0039 (T-0089)', () => {
       const add = (table: string) =>
         `ALTER TABLE ${table} ADD COLUMN custom jsonb NOT NULL DEFAULT '{}'::jsonb,
            ADD CONSTRAINT ${table}_custom_object CHECK (jsonb_typeof(custom) = 'object') NOT VALID,
-           ADD CONSTRAINT ${table}_custom_size CHECK (octet_length(custom::text) <= 32768) NOT VALID,
+           ADD CONSTRAINT ${table}_custom_size CHECK (octet_length(custom::text) <= 524288) NOT VALID,
            ADD CONSTRAINT ${table}_custom_keys CHECK (true) NOT VALID;`;
       const good = [
         ...TABLES.map(add),
@@ -523,8 +543,10 @@ describe('acceptance: custom-field storage, migration 0039 (T-0089)', () => {
         out['a bad key beside a good one'] = await set(JSON.stringify({ tier__c: 'gold', status: 'x' }));
         out[`exactly ${LIMIT_BYTES} bytes`] = await set(jsonOfBytes(LIMIT_BYTES));
         out[`${LIMIT_BYTES + 1} bytes`] = await set(jsonOfBytes(LIMIT_BYTES + 1));
-        // Bytes, not characters: 10,923 three-byte characters are 32,769 octets.
-        out['32,781 octets in 10,935 characters'] = await set(`{"a__c": "${'€'.repeat(10923)}"}`);
+        out['32769 bytes (the old 32 KiB boundary)'] = await set(jsonOfBytes(32769));
+        // Bytes, not characters: 174,763 three-byte characters are 524,289 octets
+        // (with the 12-octet wrapper, 524,301 octets in 174,775 characters).
+        out['524,301 octets in 174,775 characters'] = await set(`{"a__c": "${'€'.repeat(174763)}"}`);
         for (const json of GOOD) out[`good ${json}`] = await set(json);
         return out;
       });
@@ -534,7 +556,9 @@ describe('acceptance: custom-field storage, migration 0039 (T-0089)', () => {
       expected['a bad key beside a good one'] = 'check_violation';
       expected[`exactly ${LIMIT_BYTES} bytes`] = 'accepted';
       expected[`${LIMIT_BYTES + 1} bytes`] = 'check_violation';
-      expected['32,781 octets in 10,935 characters'] = 'check_violation';
+      expected['524,301 octets in 174,775 characters'] = 'check_violation';
+      // And the old 32 KiB boundary no longer refuses (D-L142): 32769 octets are stored.
+      expected['32769 bytes (the old 32 KiB boundary)'] = 'accepted';
       for (const json of GOOD) expected[`good ${json}`] = 'accepted';
       expect(results).toEqual(expected);
     });
@@ -687,6 +711,127 @@ describe('acceptance: custom-field storage, migration 0039 (T-0089)', () => {
         verdict(await probe(query, 'DELETE FROM field_def WHERE id = $1 RETURNING id', [CUSTOM_FIELD.contact])),
       );
       expect(outcome).toBe('accepted');
+    });
+
+    // -----------------------------------------------------------------------
+    // T-0089 / D-L142 (lead edit): the migration-review fixes to 0039.
+    // -----------------------------------------------------------------------
+
+    /** One statement under a savepoint that is KEPT when it succeeds (the next step builds on it). */
+    async function step(query: Query, sql: string, values: unknown[] = []): Promise<Outcome> {
+      await query('SAVEPOINT t0089_step');
+      try {
+        const rows = (await query(sql, values)).length;
+        await query('RELEASE SAVEPOINT t0089_step');
+        return { accepted: true, rows };
+      } catch (error) {
+        await query('ROLLBACK TO SAVEPOINT t0089_step');
+        return outcomeOf(error);
+      }
+    }
+    const REFUSALS = ['insufficient_privilege', 'refused', 'check_violation'];
+
+    it('(D-L142) a custom field moved to a CUSTOM object cannot then be deleted there: the move is refused for kasuwa_app and kasuwa_migrator alike', async () => {
+      const app = await asApp(appPool, TENANT_A, USER_A_SUPERVISOR, async (query) => {
+        const move = verdict(
+          await step(query, 'UPDATE field_def SET object_id = $2 WHERE id = $1 RETURNING id', [MOVER_FIELD, WIDGET_OBJECT]),
+        );
+        const del = verdict(await probe(query, 'DELETE FROM field_def WHERE id = $1 RETURNING id', [MOVER_FIELD]));
+        const where = (await query<{ object_id: string }>('SELECT object_id FROM field_def WHERE id = $1', [MOVER_FIELD]))
+          .map((row) => row.object_id);
+        return { move, del, where };
+      });
+      expect(REFUSALS, `kasuwa_app's move was ${app.move}`).toContain(app.move);
+      // Had the move landed, the field would sit on a custom object, where 0039 lets kasuwa_app delete it.
+      expect({ del: app.del, where: app.where }).toEqual({
+        del: 'matched nothing',
+        where: [must(objectIds.get('contact'), 'contact object')],
+      });
+      // Every role: the migrator cannot move it either.
+      const migratorMove = await rolledBack(migrator, async (query) =>
+        verdict(await probe(query, 'UPDATE field_def SET object_id = $2 WHERE id = $1 RETURNING id', [MOVER_FIELD, WIDGET_OBJECT])),
+      );
+      expect(REFUSALS, `kasuwa_migrator's move was ${migratorMove}`).toContain(migratorMove);
+    });
+
+    it('(D-L142) a custom field moved to ANOTHER standard object cannot free its api_name for re-creation: the move is refused for every role and the name stays taken', async () => {
+      const accountObject = must(objectIds.get('account'), 'account object');
+      const contactObject = must(objectIds.get('contact'), 'contact object');
+      const recreate = `INSERT INTO field_def (id, tenant_id, object_id, api_name, label, type, classification, is_custom, config)
+                        VALUES ($1, $2, $3, 'mover__c', 'T-0089 impostor', 'text', 'none', true, '{}'::jsonb) RETURNING id`;
+      const app = await asApp(appPool, TENANT_A, USER_A_SUPERVISOR, async (query) => {
+        const move = verdict(
+          await step(query, 'UPDATE field_def SET object_id = $2 WHERE id = $1 RETURNING id', [MOVER_FIELD, accountObject]),
+        );
+        const again = await probe(query, recreate, [id89('f0000006'), TENANT_A, contactObject]);
+        return { move, again: again.accepted ? 'accepted' : again.code };
+      });
+      expect(REFUSALS, `kasuwa_app's move was ${app.move}`).toContain(app.move);
+      // The original still holds the name on contact: a re-creation is the unique violation.
+      expect(app.again, 'the api_name was re-created on contact').toBe('23505');
+      const migratorRun = await rolledBack(migrator, async (query) => {
+        const move = verdict(
+          await step(query, 'UPDATE field_def SET object_id = $2 WHERE id = $1 RETURNING id', [MOVER_FIELD, accountObject]),
+        );
+        const again = await probe(query, recreate, [id89('f0000006'), TENANT_A, contactObject]);
+        return { move, again: again.accepted ? 'accepted' : again.code };
+      });
+      expect(REFUSALS, `kasuwa_migrator's move was ${migratorRun.move}`).toContain(migratorRun.move);
+      expect(migratorRun.again).toBe('23505');
+    });
+
+    it('(D-L142) the new restrictive DELETE policy is written positively: EXISTS (... is_custom), never NOT EXISTS, so it fails closed', async () => {
+      const rows = await migrator.query<{ name: string; using: string }>(
+        `SELECT polname AS name, pg_get_expr(polqual, polrelid) AS using
+           FROM pg_policy
+          WHERE polrelid = 'public.field_def'::regclass AND polcmd = 'd' AND NOT polpermissive
+            AND polname <> 'field_def_delete_custom_only'`,
+      );
+      expect(rows.rows, 'no restrictive DELETE policy beyond 0025’s').toHaveLength(1);
+      const using = String(rows.rows[0]?.using);
+      expect(using).toMatch(/\bEXISTS\b/);
+      expect(using, 'the policy is a NOT EXISTS (fails open when the object row is unseen)').not.toMatch(/\bNOT\s+EXISTS\b/i);
+      expect(using).toMatch(/\bis_custom\b/);
+      expect(using, 'the policy tests NOT is_custom').not.toMatch(/\bNOT\s+\(*\s*(?:\w+\.)?is_custom\b/i);
+      expect(using).toContain('current_tenant_id()');
+    });
+
+    it('(D-L142) CHECK (retired_at IS NULL OR is_custom): a standard field cannot be retired, by kasuwa_migrator or kasuwa_app', async () => {
+      const defs = await migrator.query<{ def: string }>(
+        `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint
+          WHERE conrelid = 'public.field_def'::regclass AND contype = 'c'`,
+      );
+      expect(
+        defs.rows.map((row) => row.def).filter((def) => /retired_at IS NULL\)? OR (?:\(?\w+\.)?is_custom/.test(def)),
+        `field_def CHECKs: ${JSON.stringify(defs.rows)}`,
+      ).toHaveLength(1);
+      const standard = must(
+        (
+          await migrator.query<{ id: string }>(
+            `SELECT id FROM field_def WHERE tenant_id = $1 AND object_id = $2 AND NOT is_custom ORDER BY api_name LIMIT 1`,
+            [TENANT_A, must(objectIds.get('contact'), 'contact object')],
+          )
+        ).rows[0]?.id,
+        'a standard contact field',
+      );
+      const byMigrator = await rolledBack(migrator, async (query) =>
+        verdict(await probe(query, 'UPDATE field_def SET retired_at = now() WHERE id = $1 RETURNING id', [standard])),
+      );
+      expect(byMigrator, 'the CHECK binds the migrator').toBe('check_violation');
+      const byApp = await asApp(appPool, TENANT_A, USER_A_SUPERVISOR, async (query) =>
+        verdict(await probe(query, 'UPDATE field_def SET retired_at = now() WHERE id = $1 RETURNING id', [standard])),
+      );
+      expect(REFUSALS, `kasuwa_app retiring a standard field was ${byApp}`).toContain(byApp);
+    });
+
+    it('(D-L142) kasuwa_app cannot un-retire a custom field: retired_at never goes back to NULL', async () => {
+      const outcome = await asApp(appPool, TENANT_A, USER_A_SUPERVISOR, async (query) => ({
+        // The control: retiring is allowed (and kept for the next step).
+        retire: verdict(await step(query, 'UPDATE field_def SET retired_at = now() WHERE id = $1 RETURNING id', [CUSTOM_FIELD.contact])),
+        unretire: verdict(await probe(query, 'UPDATE field_def SET retired_at = NULL WHERE id = $1 RETURNING id', [CUSTOM_FIELD.contact])),
+      }));
+      expect(outcome.retire).toBe('accepted');
+      expect(REFUSALS, `un-retiring was ${outcome.unretire}`).toContain(outcome.unretire);
     });
 
     it.each(TABLES)('a custom field of %s: kasuwa_app cannot change its type; label, description, classification both ways, config and retired_at stay writable', async (table) => {
