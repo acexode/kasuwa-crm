@@ -390,6 +390,8 @@ interface ColumnSpec {
   noDefault?: true;
   /** The column must be GENERATED ALWAYS AS (...) STORED; its expression is then the "default". */
   generatedStored?: true;
+  /** T-0089 / D-L143: admitted, not required (absent on main); when present, pinned as above. */
+  optional?: true;
 }
 
 const KEYS: Record<string, ColumnSpec> = {
@@ -451,6 +453,9 @@ const COLUMN_SPEC: Readonly<Record<Table, Readonly<Record<string, ColumnSpec>>>>
     // T-0086's folded search copy of `name` (migration 0038; lead edit, D-L135). Its fold, and its
     // index's collation "C", are pinned by records/search-api.
     name_search: { type: 'text', notNull: false, generatedStored: true },
+    // T-0089 / D-L143 (lead edit): 0039's custom-field store (ADR-0016), optional so this suite
+    // holds on main (no 0039) and on the T-0089 build.
+    custom: { type: 'jsonb', notNull: true, default: /^'\{\}'::jsonb$/, optional: true },
   },
   deal_requirement_check: {
     ...KEYS,
@@ -1398,7 +1403,9 @@ describe('acceptance: the pipeline and deal tables (T-0106)', () => {
         const rows = (await migrator.query<ColumnRow>(COLUMNS_SQL, [table])).rows;
         expect(rows.length, `table ${table} not found`).toBeGreaterThan(0);
         const spec = COLUMN_SPEC[table];
-        expect(rows.map((row) => row.column).sort()).toEqual(Object.keys(spec).sort());
+        // T-0089 / D-L143: an optional column may be absent; any column not in the list still fails.
+        const required = (names: string[]) => names.filter((name) => spec[name]?.optional !== true);
+        expect(required(rows.map((row) => row.column)).sort()).toEqual(required(Object.keys(spec)).sort());
         const problems: string[] = [];
         for (const row of rows) {
           const want = spec[row.column];
