@@ -3042,3 +3042,37 @@ including:
   - listCustomFields takes `object` and `includeRetired` (default false).
 - **Process:** an agent started and then quit Docker Desktop. Docker is shared with the dialler project, so agents never
   start or stop it. Only the user does.
+
+### D-L142 — T-0089 review rulings: the size backstop, retired values, and hardening (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The migration, tenancy and security reviews of `agent2/T-0089-custom-fields-api` all
+passed with findings, with no critical finding. All three found the same major issue.
+- **The 32 KiB DB backstop was reachable, which made it a size oracle.** Retired values accumulate, and three or more
+  permission sets with disjoint readable keys can each legally store 16 KiB. A growing write then hit CHECK 23514 (a 500),
+  and a binary search recovered the size of withheld bytes. Remapping the error alone would still leak. Ruling:
+  - **The DB backstop becomes 512 KiB.** No set of live keys can reach it: 100 fields times the largest encoded value is
+    about 410 KiB. @acexode's 32 KiB per record (D-L128 Q1) now lives as the stricter **16 KiB caller-visible API limit**
+    (D-L140), which is the limit people actually meet. The backstop only stops a non-API writer.
+  - **Every custom write drops retired keys** from the row (`(custom || $set) - $remove - <retired keys>`). Retired values
+    are unreadable and unwritable already, so this is the purge happening as rows are touched. A purge of untouched rows
+    stays a later task.
+  - **A backstop 23514 is still mapped to `400 custom_too_large`,** never a 500, in case the backstop is ever reached.
+- **Migration 0039 fixes:**
+  - a custom field's `object_id` is frozen for every role, which closes moving a field to a custom object and then
+    deleting it, or moving it and re-creating its `api_name`;
+  - the restrictive DELETE policy is written positively (`EXISTS … o.is_custom`), so it fails closed;
+  - `CHECK (retired_at IS NULL OR is_custom)`, and un-retiring is frozen for kasuwa_app;
+  - `lock_timeout` is 2s;
+  - the self-check also asserts the CHECK definitions and `prosecdef = false`.
+- **Code fixes:**
+  - filters are built on the projected `custom` (a second SQL layer);
+  - the size measure takes `FOR UPDATE OF t`, so concurrent writes cannot race past 16 KiB;
+  - text values and picklist labels with a lone UTF-16 surrogate are `400` (`isWellFormed`), never a 500;
+  - a unit test proves no standard audit field name ends in `__c`.
+- **Accepted as built:**
+  - admin create parses the body before checking `objectApiName` (the object is a body field, not a path);
+  - audit stores custom keys as bare api names;
+  - creates are serialised through `field_security_version`, so a matrix editor holding a stale version gets 409;
+  - a custom field's `config.currencyCode` is frozen by the API only. A DB freeze is noted for the next lifecycle
+    decision.
+- **Follow-up task:** purge retired custom values on rows nobody writes, with a retention period agreed with counsel
+  (NDPA).
