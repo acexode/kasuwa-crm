@@ -1617,5 +1617,10 @@
   "admin.studio.custom.error.field_limit_reached": "بلغ هذا الكائن الحد الأقصى من الحقول المخصصة. أوقف حقلًا لا تستخدمه لإفساح المجال.",
   "admin.studio.custom.error.picklist_limit_reached": "بلغت هذه القائمة الحد الأقصى من القيم.",
   "admin.error.limit_reached": "تم بلوغ حد. لم يتغير شيء.",
-  "admin.studio.custom.fieldSecurity": "فتح أمان الحقول"
+  "admin.studio.custom.fieldSecurity": "فتح أمان الحقول",
+  "admin.studio.custom.limit.definitions": "استنفد هذا الكائن كل أسماء الحقول المخصصة، بما فيها الحقول الموقوفة، لذا لا يمكن إضافة المزيد.",
+  "admin.studio.custom.discard.title": "المغادرة دون حفظ؟",
+  "admin.studio.custom.discard.body": "لم تُحفظ تغييراتك على هذا الحقل.",
+  "admin.studio.custom.discard.confirm": "المغادرة دون حفظ",
+  "admin.studio.custom.discard.keep": "متابعة التعديل"
 }

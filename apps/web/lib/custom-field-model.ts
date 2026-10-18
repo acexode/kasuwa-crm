@@ -109,9 +109,9 @@ export interface EditDraft {
 export function updateBody(field: CustomFieldDefinition, draft: EditDraft): UpdateCustomFieldBody {
   const body: UpdateCustomFieldBody = {};
   const label = draft.label.trim();
-  if (label !== field.label) body.label = label;
+  if (label !== field.label.trim()) body.label = label;
   const description = draft.description.trim();
-  if (description !== (field.description ?? '')) body.description = description === '' ? null : description;
+  if (description !== (field.description ?? '').trim()) body.description = description === '' ? null : description;
   if (draft.classification !== field.classification) body.classification = draft.classification;
 
   if (field.type === 'picklist') {
@@ -119,7 +119,7 @@ export function updateBody(field: CustomFieldDefinition, draft: EditDraft): Upda
     const relabelled: PicklistValue[] = [];
     for (const entry of existing) {
       const edited = draft.valueLabels[entry.value]?.trim();
-      if (edited !== undefined && edited !== '' && edited !== entry.label) {
+      if (edited !== undefined && edited !== '' && edited !== entry.label.trim()) {
         relabelled.push({ value: entry.value, label: edited });
       }
     }
@@ -132,4 +132,41 @@ export function updateBody(field: CustomFieldDefinition, draft: EditDraft): Upda
     }
   }
   return body;
+}
+
+/**
+ * Whether an object can take another field. `fields`: the active limit is
+ * reached (retiring one makes room). `definitions`: retired fields fill the
+ * definition limit, so retiring makes NO room and the advice must not say it does.
+ */
+export function fullState(
+  items: readonly CustomFieldDefinition[],
+  limits: { fieldsPerObject: number; definitionsPerObject: number },
+): 'open' | 'fields' | 'definitions' {
+  if (items.length >= limits.definitionsPerObject) return 'definitions';
+  const active = items.filter((item) => item.retiredAt === null).length;
+  return active >= limits.fieldsPerObject ? 'fields' : 'open';
+}
+
+export interface CreateDraft {
+  label: string;
+  apiName: string;
+  type: string;
+  classification: Classification;
+  description: string;
+  currency: string;
+  newLabels: readonly string[];
+}
+
+/** Anything typed or chosen on a create form that leaving would lose. */
+export function createDirty(draft: CreateDraft): boolean {
+  return (
+    draft.label.trim() !== '' ||
+    draft.apiName !== '' ||
+    draft.type !== 'text' ||
+    draft.classification !== 'none' ||
+    draft.description.trim() !== '' ||
+    draft.currency !== '' ||
+    draft.newLabels.some((entry) => entry.trim() !== '')
+  );
 }

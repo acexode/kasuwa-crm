@@ -7,6 +7,7 @@ import { FIELD, PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../auth/button-class
 import type { ScreenError } from '../../../lib/admin-api';
 import {
   API_NAME_MAX,
+  createDirty,
   DESCRIPTION_MAX,
   LABEL_MAX,
   deriveValues,
@@ -19,6 +20,7 @@ import {
   CLASSIFICATIONS,
   CURRENCY_CODES,
   CUSTOM_FIELD_TYPES,
+  CustomFieldType as CustomFieldTypeSchema,
   createCustomField,
   currencyOf,
   picklistValuesOf,
@@ -78,6 +80,8 @@ export function FieldForm({
   limits,
   onSaved,
   onCancel,
+  onStale,
+  onState,
 }: {
   t: Translator;
   mode: 'create' | 'edit';
@@ -87,6 +91,10 @@ export function FieldForm({
   limits: CustomFieldLimits;
   onSaved: (kind: SavedKind) => void;
   onCancel: () => void;
+  /** The field is gone or retired under us: the list must be read again. */
+  onStale: () => void;
+  /** What leaving would lose, and whether a write is in flight, for the screen's guards. */
+  onState: (state: { dirty: boolean; saving: boolean }) => void;
 }) {
   const id = useId();
   const labelRef = useRef<HTMLInputElement>(null);
@@ -94,6 +102,9 @@ export function FieldForm({
   const currencyRef = useRef<HTMLSelectElement>(null);
   const nextKey = useRef(1);
   const inFlight = useRef(false);
+  const firstValueRef = useRef<HTMLInputElement>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
+  const refusalRef = useRef<HTMLDivElement>(null);
 
   // `field` is only ever read through `editField`, so edit-mode code is narrowed to a field that exists.
   const editField = mode === 'edit' ? field : undefined;
@@ -119,6 +130,12 @@ export function FieldForm({
   useEffect(() => {
     labelRef.current?.focus();
   }, []);
+
+  // A refusal is announced AND reached: focus moves to it, so a keyboard user
+  // is not left on a control that has just been disabled or replaced.
+  useEffect(() => {
+    if (refusal !== null) refusalRef.current?.focus();
+  }, [refusal]);
 
   const onLabelChange = (value: string) => {
     setLabel(value);
@@ -150,7 +167,13 @@ export function FieldForm({
     }
     if (Object.keys(found).length > 0) {
       setProblems(found);
-      const first = found.label ? labelRef.current : found.apiName ? apiNameRef.current : found.currency ? currencyRef.current : null;
+      const first = found.label
+        ? labelRef.current
+        : found.apiName
+          ? apiNameRef.current
+          : found.currency
+            ? currencyRef.current
+            : (firstValueRef.current ?? addRef.current);
       first?.focus();
       return;
     }
@@ -203,7 +226,17 @@ export function FieldForm({
     }
     // The draft stays. The reason is drawn by its own label, never by the code.
     setRefusal(failure);
+    if (failure.code === 'not_found' || failure.details?.[0]?.code === 'field_retired') onStale();
   };
+
+  const dirty =
+    editField === undefined
+      ? createDirty({ label, apiName, type, classification, description, currency, newLabels: rows.map((row) => row.label) })
+      : Object.keys(updateBody(editField, { label, description, classification, valueLabels, newLabels: rows.map((row) => row.label) })).length > 0;
+  useEffect(() => {
+    onState({ dirty, saving });
+  }, [dirty, saving, onState]);
+  useEffect(() => () => onState({ dirty: false, saving: false }), [onState]);
 
   const fieldId = (name: string) => `${id}-${name}`;
   const describedBy = (name: string, problem: MessageId | undefined) =>
@@ -313,7 +346,10 @@ export function FieldForm({
               id={fieldId('type')}
               name="type"
               value={type}
-              onChange={(event) => setType(event.target.value as CustomFieldType)}
+              onChange={(event) => {
+                const parsed = CustomFieldTypeSchema.safeParse(event.target.value);
+                if (parsed.success) setType(parsed.data);
+              }}
               aria-describedby={fieldId('type-hint')}
               className={FIELD}
             >
@@ -447,6 +483,7 @@ export function FieldForm({
             {rows.map((row, index) => (
               <li key={row.key} data-testid="picklist-row" className="flex items-center gap-2">
                 <input
+                  ref={index === 0 ? firstValueRef : undefined}
                   type="text"
                   data-part="label"
                   maxLength={LABEL_MAX}
@@ -483,7 +520,7 @@ export function FieldForm({
             <p className="text-body-sm text-text-2">{t.t('admin.studio.custom.error.picklist_limit_reached')}</p>
           ) : (
             <div>
-              <button type="button" data-testid="picklist-add" onClick={addRow} className={SECONDARY_BUTTON}>
+              <button ref={addRef} type="button" data-testid="picklist-add" onClick={addRow} className={SECONDARY_BUTTON}>
                 <Icon name="add" size="sm" />
                 {t.t('admin.studio.custom.form.values.add')}
               </button>
@@ -494,9 +531,11 @@ export function FieldForm({
 
       {refusal === null ? null : (
         <div
+          ref={refusalRef}
+          tabIndex={-1}
           role="alert"
           data-testid="form-error"
-          className="flex gap-2 rounded-md bg-danger-soft p-3 text-body-sm text-danger-text"
+          className="flex gap-2 rounded-md bg-danger-soft p-3 text-body-sm text-danger-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         >
           <Icon name="error" size="sm" />
           <p>{errorText(t, refusal)}</p>
@@ -507,7 +546,7 @@ export function FieldForm({
         <button type="button" data-testid="field-cancel" onClick={onCancel} className={SECONDARY_BUTTON}>
           {t.t('admin.studio.custom.form.cancel')}
         </button>
-        <button type="submit" data-testid="field-save" disabled={saving} className={PRIMARY_BUTTON}>
+        <button type="submit" data-testid="field-save" aria-disabled={saving} className={`${PRIMARY_BUTTON} aria-disabled:opacity-60`}>
           {t.t(saving ? 'admin.studio.custom.form.saving' : 'admin.studio.custom.form.save')}
         </button>
       </div>

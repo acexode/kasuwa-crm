@@ -44,32 +44,45 @@ export type CurrencyCode = (typeof CURRENCY_CODES)[number];
 export const PicklistValue = z.object({ value: z.string(), label: z.string() });
 export type PicklistValue = z.infer<typeof PicklistValue>;
 
-/** `values` for a picklist, `currencyCode` for a currency, `{}` for the rest. */
+/** `values` for a picklist, `currencyCode` for a currency, `{}` for the rest. Each closed: a config with anything else is not one. */
 const FieldConfig = z.union([
-  z.object({ values: z.array(PicklistValue) }),
-  z.object({ currencyCode: z.string() }),
-  z.object({}),
+  z.object({ values: z.array(PicklistValue) }).strict(),
+  z.object({ currencyCode: z.string() }).strict(),
+  z.object({}).strict(),
 ]);
 
-export const CustomFieldDefinition = z.object({
-  id: z.string(),
-  objectApiName: CustomFieldObject,
-  apiName: z.string(),
-  label: z.string(),
-  description: z.string().nullable(),
-  type: CustomFieldType,
-  classification: Classification,
-  config: FieldConfig,
-  retiredAt: z.string().nullable(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
+export const CustomFieldDefinition = z
+  .object({
+    id: z.string(),
+    objectApiName: CustomFieldObject,
+    apiName: z.string(),
+    label: z.string(),
+    description: z.string().nullable(),
+    type: CustomFieldType,
+    classification: Classification,
+    config: FieldConfig,
+    retiredAt: z.string().nullable(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })
+  // The config belongs to the type: a picklist carries values, a currency its code, every other type nothing.
+  .refine(
+    (field) =>
+      field.type === 'picklist'
+        ? 'values' in field.config
+        : field.type === 'currency'
+          ? 'currencyCode' in field.config
+          : Object.keys(field.config).length === 0,
+    { message: 'config does not fit the type' },
+  );
 export type CustomFieldDefinition = z.infer<typeof CustomFieldDefinition>;
 
 /** The limits arrive as data so a screen never hard-codes them (D-L141). */
 const CustomFieldLimits = z.object({
-  fieldsPerObject: z.number().int(),
-  picklistValues: z.number().int(),
+  fieldsPerObject: z.number().int().positive(),
+  /** Definitions per object, retired fields included: retiring never frees one. */
+  definitionsPerObject: z.number().int().positive(),
+  picklistValues: z.number().int().positive(),
 });
 export type CustomFieldLimits = z.infer<typeof CustomFieldLimits>;
 

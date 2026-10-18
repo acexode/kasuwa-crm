@@ -1617,5 +1617,10 @@
   "admin.studio.custom.error.field_limit_reached": "Ohun yìí ti ní iye pápá àdáni tó pọ̀ jù tí a gbà láàyè. Yọ pápá tí o kò lò mọ́ kúrò nílò láti ṣe àyè.",
   "admin.studio.custom.error.picklist_limit_reached": "Àtòjọ yìí ti ní iye àṣàyàn tó pọ̀ jù tí a gbà láàyè.",
   "admin.error.limit_reached": "A ti dé ààlà. Kò sí ohun tí a yí padà.",
-  "admin.studio.custom.fieldSecurity": "Ṣí ààbò pápá"
+  "admin.studio.custom.fieldSecurity": "Ṣí ààbò pápá",
+  "admin.studio.custom.limit.definitions": "Ohun yìí ti lo gbogbo orúkọ pápá àdáni rẹ̀, pẹ̀lú àwọn tí a yọ kúrò nílò, nítorí náà a kò lè fi òmíràn kún un mọ́.",
+  "admin.studio.custom.discard.title": "Jáde láì fi pamọ́?",
+  "admin.studio.custom.discard.body": "A kò tíì fi àwọn ìyípadà rẹ sí pápá yìí pamọ́.",
+  "admin.studio.custom.discard.confirm": "Jáde láì fi pamọ́",
+  "admin.studio.custom.discard.keep": "Tẹ̀síwájú láti ṣàtúnṣe"
 }

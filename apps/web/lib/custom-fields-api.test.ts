@@ -34,7 +34,7 @@ afterEach(() => {
 describe('the custom-fields client (T-0090)', () => {
   it('reads one object, retired fields included, same-origin, never cached, with no scope', async () => {
     const fetchMock = vi.fn(async () =>
-      answer({ objectApiName: 'contact', limits: { fieldsPerObject: 100, picklistValues: 500, apiBytes: 16384 }, items: [DEFINITION] }),
+      answer({ objectApiName: 'contact', limits: { fieldsPerObject: 100, definitionsPerObject: 500, picklistValues: 500, apiBytes: 16384 }, items: [DEFINITION] }),
     );
     vi.stubGlobal('fetch', fetchMock);
     const result = await listCustomFields('contact');
@@ -51,6 +51,21 @@ describe('the custom-fields client (T-0090)', () => {
     vi.stubGlobal('fetch', vi.fn(async () => answer({ objectApiName: 'lead', items: [] })));
     const result = await listCustomFields('contact');
     expect(result.ok).toBe(false);
+  });
+
+  it('refuses a non-positive limit, a config with extra keys, and a config that does not fit the type', async () => {
+    const list = (items: unknown[], fieldsPerObject = 100) =>
+      vi.fn(async () => answer({ objectApiName: 'contact', limits: { fieldsPerObject, definitionsPerObject: 500, picklistValues: 500 }, items }));
+    vi.stubGlobal('fetch', list([DEFINITION], 0));
+    expect((await listCustomFields('contact')).ok).toBe(false);
+    vi.stubGlobal('fetch', list([{ ...DEFINITION, config: { values: [{ value: 'gold', label: 'Gold' }], extra: 1 } }]));
+    expect((await listCustomFields('contact')).ok).toBe(false);
+    vi.stubGlobal('fetch', list([{ ...DEFINITION, type: 'text' }]));
+    expect((await listCustomFields('contact')).ok).toBe(false);
+    vi.stubGlobal('fetch', list([{ ...DEFINITION, type: 'currency' }]));
+    expect((await listCustomFields('contact')).ok).toBe(false);
+    vi.stubGlobal('fetch', list([DEFINITION]));
+    expect((await listCustomFields('contact')).ok).toBe(true);
   });
 
   it('creates with the body as given and parses the definition', async () => {

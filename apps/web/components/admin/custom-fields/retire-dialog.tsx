@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../../icon';
 import { SECONDARY_BUTTON } from '../../auth/button-classes';
@@ -38,6 +38,12 @@ export function RetireDialog({
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<ScreenError | null>(null);
   const inFlight = useRef(false);
+  const alertRef = useRef<HTMLDivElement>(null);
+
+  // The refusal is reached, not only announced: focus stays inside the dialog.
+  useEffect(() => {
+    if (refusal !== null) alertRef.current?.focus();
+  }, [refusal]);
 
   const confirm = async () => {
     if (inFlight.current) return;
@@ -72,9 +78,9 @@ export function RetireDialog({
           <button
             type="button"
             data-testid="retire-confirm"
-            disabled={busy}
+            aria-disabled={busy}
             onClick={() => void confirm()}
-            className="flex min-h-touch items-center justify-center rounded-md bg-danger px-4 text-body-md font-bold text-on-primary hover:bg-danger-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            className="flex min-h-touch items-center justify-center rounded-md bg-danger px-4 text-body-md font-bold text-on-primary hover:bg-danger-hover aria-disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             {t.t(busy ? 'admin.studio.custom.retire.retiring' : 'admin.studio.custom.retire.confirm')}
           </button>
@@ -82,7 +88,12 @@ export function RetireDialog({
       }
     >
       {refusal === null ? null : (
-        <div role="alert" className="flex gap-2 rounded-md bg-danger-soft p-3 text-body-sm text-danger-text">
+        <div
+          ref={alertRef}
+          tabIndex={-1}
+          role="alert"
+          className="flex gap-2 rounded-md bg-danger-soft p-3 text-body-sm text-danger-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        >
           <Icon name="error" size="sm" />
           <p>{errorText(t, refusal)}</p>
         </div>

@@ -17,6 +17,12 @@ describe('errorText', () => {
     expect(said).not.toBe(t.t('admin.error.duplicate_code'));
   });
 
+  it('does not read a label off the prototype for a hostile detail code', () => {
+    for (const code of ['constructor', 'toString', '__proto__']) {
+      expect(errorText(t, { code: 'validation_failed', details: [{ path: 'x', code }] })).toBe(t.t('admin.error.validation_failed'));
+    }
+  });
+
   it('falls back to the localised error code when there is no detail, or a detail it has no label for', () => {
     expect(errorText(t, { code: 'not_permitted' })).toBe(t.t('admin.error.not_permitted'));
     expect(errorText(t, { code: 'network' })).toBe(t.t('admin.error.network'));

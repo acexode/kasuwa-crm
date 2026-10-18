@@ -1617,5 +1617,10 @@
   "admin.studio.custom.error.field_limit_reached": "Cet objet a déjà le nombre maximal de champs personnalisés. Retirez un champ inutilisé pour faire de la place.",
   "admin.studio.custom.error.picklist_limit_reached": "Cette liste a déjà le nombre maximal de valeurs.",
   "admin.error.limit_reached": "Une limite est atteinte. Rien n’a été modifié.",
-  "admin.studio.custom.fieldSecurity": "Ouvrir la sécurité des champs"
+  "admin.studio.custom.fieldSecurity": "Ouvrir la sécurité des champs",
+  "admin.studio.custom.limit.definitions": "Cet objet a utilisé tous ses noms de champs personnalisés, champs retirés compris : aucun autre ne peut être ajouté.",
+  "admin.studio.custom.discard.title": "Quitter sans enregistrer ?",
+  "admin.studio.custom.discard.body": "Vos modifications de ce champ n’ont pas été enregistrées.",
+  "admin.studio.custom.discard.confirm": "Quitter sans enregistrer",
+  "admin.studio.custom.discard.keep": "Continuer la modification"
 }

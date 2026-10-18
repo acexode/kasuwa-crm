@@ -5,12 +5,13 @@ import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../../icon';
 import { PRIMARY_BUTTON, QUIET_BUTTON } from '../../auth/button-classes';
 import { formatCount } from '../../../lib/admin-format';
+import { fullState } from '../../../lib/custom-field-model';
 import {
   listCustomFields,
   type CustomFieldDefinition,
   type CustomFieldObject,
 } from '../../../lib/custom-fields-api';
-import { Panel } from '../panel';
+import { ErrorPanel, Panel, StillConnecting } from '../panel';
 import { useResource } from '../use-resource';
 import { FieldForm, type SavedKind } from './field-form';
 import { RetireDialog } from './retire-dialog';
@@ -49,10 +50,13 @@ export function ObjectPanel({
   t,
   locale,
   object,
+  onFormState,
 }: {
   t: Translator;
   locale: string;
   object: CustomFieldObject;
+  /** Stable. What leaving would lose, and whether a write is in flight, for the screen's guards. */
+  onFormState: (state: { dirty: boolean; saving: boolean }) => void;
 }) {
   const list = useResource((signal) => listCustomFields(object, signal), [object]);
   const [showRetired, setShowRetired] = useState(false);
@@ -71,6 +75,14 @@ export function ObjectPanel({
       newButton.current?.focus();
     }
   }, [list.data]);
+
+  // A form on a field that has since been retired (or has gone) has nothing left to edit.
+  useEffect(() => {
+    if (form.kind !== 'edit' || list.data === null) return;
+    const editing = form.field.id;
+    const current = list.data.items.find((item) => item.id === editing);
+    if (current === undefined || current.retiredAt !== null) setForm({ kind: 'closed' });
+  }, [list.data, form]);
 
   const open = (next: FormState, from: HTMLElement) => {
     opener.current = from;
@@ -91,15 +103,20 @@ export function ObjectPanel({
   };
 
   return (
-    <Panel t={t} resource={list}>
+    // With data in hand a slow or failed RELOAD is drawn beside it, never instead of it:
+    // swapping the panel out would unmount the open form and dialog under the admin's hands.
+    <Panel t={t} resource={list.data === null ? list : { ...list, slow: false, error: null }}>
       {(data) => {
         const active = data.items.filter((item) => item.retiredAt === null);
         const shown = showRetired ? data.items : active;
-        const full = active.length >= data.limits.fieldsPerObject;
+        const state = fullState(data.items, data.limits);
+        const full = state !== 'open';
         const percent = Math.min(100, Math.round((active.length / data.limits.fieldsPerObject) * 100));
 
         return (
           <div className="flex flex-col gap-4">
+            {list.slow ? <StillConnecting t={t} /> : null}
+            {list.error === null ? null : <ErrorPanel t={t} error={list.error} onRetry={list.reload} />}
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
               <div data-testid="field-limit" className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="text-body-sm text-text-2">
@@ -144,7 +161,7 @@ export function ObjectPanel({
             {full ? (
               <p role="note" data-testid="limit-note" className="flex gap-2 rounded-md bg-warning-soft p-3 text-body-sm text-warning-text">
                 <Icon name="warning" size="sm" />
-                {t.t('admin.studio.custom.error.field_limit_reached')}
+                {t.t(state === 'definitions' ? 'admin.studio.custom.limit.definitions' : 'admin.studio.custom.error.field_limit_reached')}
               </p>
             ) : null}
 
@@ -170,6 +187,8 @@ export function ObjectPanel({
                 limits={data.limits}
                 onSaved={saved}
                 onCancel={closeForm}
+                onStale={list.reload}
+                onState={onFormState}
               />
             )}
 

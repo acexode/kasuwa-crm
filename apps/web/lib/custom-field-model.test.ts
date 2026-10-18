@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   VALUE_PATTERN,
+  createDirty,
+  fullState,
   deriveValues,
   isClassificationRaised,
   isValidApiName,
@@ -156,5 +158,44 @@ describe('updateBody sends only what changed', () => {
   it('ignores picklist drafts for a field that is not a picklist', () => {
     const text = { ...TIER, type: 'text' as const, config: {} };
     expect(updateBody(text, { ...UNCHANGED, newLabels: ['Bronze'], valueLabels: { gold: 'x' } })).toEqual({});
+  });
+});
+
+describe('updateBody trims both sides', () => {
+  it('sends nothing for a stored value that carries spaces the draft lost', () => {
+    const padded = { ...TIER, label: ' Customer tier ', description: ' note ', config: { values: [{ value: 'gold', label: ' Gold ' }] } };
+    expect(updateBody(padded, { label: 'Customer tier', description: 'note', classification: 'none', valueLabels: { gold: 'Gold' }, newLabels: [] })).toEqual({});
+  });
+});
+
+describe('fullState', () => {
+  const limits = { fieldsPerObject: 3, definitionsPerObject: 5 };
+  const row = (n: number, retired: boolean) => ({ ...TIER, id: String(n), apiName: `f${n}__c`, retiredAt: retired ? '2026-10-18T09:00:00.000Z' : null });
+  it('is open below both limits', () => {
+    expect(fullState([row(1, false), row(2, true)], limits)).toBe('open');
+  });
+  it('is full by fields when the active limit is reached, and retiring makes room', () => {
+    expect(fullState([row(1, false), row(2, false), row(3, false)], limits)).toBe('fields');
+  });
+  it('is full by definitions when retired fields fill them, whatever the active count', () => {
+    expect(fullState([row(1, false), row(2, true), row(3, true), row(4, true), row(5, true)], limits)).toBe('definitions');
+  });
+});
+
+describe('createDirty', () => {
+  const clean = { label: '', apiName: '', type: 'text', classification: 'none' as const, description: '', currency: '', newLabels: [''] };
+  it('is clean for an untouched form', () => {
+    expect(createDirty(clean)).toBe(false);
+  });
+  it.each([
+    { label: 'x' },
+    { apiName: 'a__c' },
+    { type: 'picklist' },
+    { classification: 'pii' as const },
+    { description: 'd' },
+    { currency: 'NGN' },
+    { newLabels: ['', 'Gold'] },
+  ])('is dirty once %j changes', (change) => {
+    expect(createDirty({ ...clean, ...change })).toBe(true);
   });
 });

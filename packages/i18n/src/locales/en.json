@@ -1617,5 +1617,10 @@
   "admin.studio.custom.error.field_limit_reached": "This object has reached its limit of custom fields. Retire a field you no longer use to make room.",
   "admin.studio.custom.error.picklist_limit_reached": "This picklist has reached its limit of values.",
   "admin.error.limit_reached": "You have reached a limit. Nothing was changed.",
-  "admin.studio.custom.fieldSecurity": "Open field security"
+  "admin.studio.custom.fieldSecurity": "Open field security",
+  "admin.studio.custom.limit.definitions": "This object has used all of its custom field names, retired fields included, so no more can be added.",
+  "admin.studio.custom.discard.title": "Leave without saving?",
+  "admin.studio.custom.discard.body": "Your changes to this field have not been saved.",
+  "admin.studio.custom.discard.confirm": "Leave without saving",
+  "admin.studio.custom.discard.keep": "Keep editing"
 }

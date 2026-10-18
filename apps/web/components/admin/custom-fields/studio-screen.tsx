@@ -1,12 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useState } from 'react';
 import { createBundleTranslator, type MessageBundle } from '@kasuwa/i18n/bundle';
-import { LINK } from '../../auth/button-classes';
+import { LINK, PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../auth/button-classes';
 import type { LanguageOption } from '../../auth/language-menu';
 import { CUSTOM_FIELD_OBJECTS, type CustomFieldObject } from '../../../lib/custom-fields-api';
 import { AdminShell } from '../admin-shell';
+import { Dialog } from '../dialog';
+import { useUnsavedGuard } from '../use-unsaved-guard';
 import { ObjectPanel } from './object-panel';
 import { OBJECT_LABEL } from './studio-text';
 
@@ -36,7 +39,29 @@ export function StudioScreen({
   linkedSettings: Readonly<Record<string, string>>;
 }) {
   const t = createBundleTranslator(locale, messages);
+  const router = useRouter();
   const [object, setObject] = useState<CustomFieldObject>('contact');
+  const [form, setForm] = useState({ dirty: false, saving: false });
+  // Where the admin was going when the guard stopped them: another object, or a link.
+  const [leaving, setLeaving] = useState<{ object: CustomFieldObject } | { href: string } | null>(null);
+  const onFormState = useCallback((state: { dirty: boolean; saving: boolean }) => setForm(state), []);
+
+  // Links (the settings menu, field security) ask first while a form holds changes.
+  useUnsavedGuard(form.dirty, (href) => setLeaving({ href }));
+
+  const choose = (next: CustomFieldObject) => {
+    if (next === object || form.saving) return;
+    if (form.dirty) setLeaving({ object: next });
+    else setObject(next);
+  };
+  const leave = () => {
+    const target = leaving;
+    setLeaving(null);
+    setForm({ dirty: false, saving: false });
+    if (target === null) return;
+    if ('object' in target) setObject(target.object);
+    else router.push(target.href);
+  };
 
   return (
     <AdminShell locale={locale} messages={messages} locales={locales} linkedSettings={linkedSettings} activeSettingId="cu-fields">
@@ -60,7 +85,8 @@ export function StudioScreen({
                 type="button"
                 data-object-tab={entry}
                 aria-pressed={current}
-                onClick={() => setObject(entry)}
+                aria-disabled={form.saving && !current}
+                onClick={() => choose(entry)}
                 className={`flex min-h-touch items-center rounded-md border px-3 text-body-md font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
                   current ? 'border-primary bg-primary-soft text-primary-text' : 'border-border bg-surface text-text'
                 }`}
@@ -71,7 +97,29 @@ export function StudioScreen({
           })}
         </div>
 
-        <ObjectPanel key={object} t={t} locale={locale} object={object} />
+        <ObjectPanel key={object} t={t} locale={locale} object={object} onFormState={onFormState} />
+
+        {leaving === null ? null : (
+          <Dialog
+            testId="discard-dialog"
+            icon="warning"
+            tone="warning"
+            title={t.t('admin.studio.custom.discard.title')}
+            body={t.t('admin.studio.custom.discard.body')}
+            closeLabel={t.t('admin.dialog.close')}
+            onClose={() => setLeaving(null)}
+            footer={
+              <>
+                <button type="button" onClick={leave} className={SECONDARY_BUTTON}>
+                  {t.t('admin.studio.custom.discard.confirm')}
+                </button>
+                <button type="button" onClick={() => setLeaving(null)} className={PRIMARY_BUTTON}>
+                  {t.t('admin.studio.custom.discard.keep')}
+                </button>
+              </>
+            }
+          />
+        )}
       </div>
     </AdminShell>
   );

@@ -1617,5 +1617,10 @@
   "admin.studio.custom.error.field_limit_reached": "Wannan abu ya riga ya kai iyakar filayen keɓaɓɓu. Cire fili da ba ka amfani da shi don samun sarari.",
   "admin.studio.custom.error.picklist_limit_reached": "Wannan jeri ya riga ya kai iyakar zaɓuɓɓuka.",
   "admin.error.limit_reached": "An kai iyaka. Ba a canza komai ba.",
-  "admin.studio.custom.fieldSecurity": "Buɗe tsaron filaye"
+  "admin.studio.custom.fieldSecurity": "Buɗe tsaron filaye",
+  "admin.studio.custom.limit.definitions": "Wannan abu ya yi amfani da duk sunayen filayen keɓaɓɓu, har da waɗanda aka cire daga amfani, don haka ba za a iya ƙara wani ba.",
+  "admin.studio.custom.discard.title": "A fita ba tare da adanawa ba?",
+  "admin.studio.custom.discard.body": "Ba a adana canje-canjenka a wannan fili ba.",
+  "admin.studio.custom.discard.confirm": "Fita ba tare da adanawa ba",
+  "admin.studio.custom.discard.keep": "Ci gaba da gyara"
 }

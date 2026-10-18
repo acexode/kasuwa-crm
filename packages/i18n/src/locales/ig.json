@@ -1617,5 +1617,10 @@
   "admin.studio.custom.error.field_limit_reached": "Ihe a nwere ubi nkeonwe kachasị ọnụ ọgụgụ e kwere. Wepụ ubi ị na-adịghị eji iji nweta ohere.",
   "admin.studio.custom.error.picklist_limit_reached": "Ndepụta a nwere nhọrọ kachasị ọnụ ọgụgụ e kwere.",
   "admin.error.limit_reached": "Ị ruru oke. Ọ dịghị ihe e gbanwere.",
-  "admin.studio.custom.fieldSecurity": "Meghee nchekwa ubi"
+  "admin.studio.custom.fieldSecurity": "Meghee nchekwa ubi",
+  "admin.studio.custom.limit.definitions": "Ihe a ejirila aha ubi nkeonwe ya niile, gụnyere ndị e wepụrụ n’ojiji, ya mere enweghị ike ịtinye ọzọ.",
+  "admin.studio.custom.discard.title": "Hapụ n’enweghị nchekwa?",
+  "admin.studio.custom.discard.body": "Echekwabeghị mgbanwe gị n’ubi a.",
+  "admin.studio.custom.discard.confirm": "Hapụ n’enweghị nchekwa",
+  "admin.studio.custom.discard.keep": "Gaa n’ihu na-edezi"
 }

@@ -50,6 +50,6 @@ const DETAIL_LABEL: Readonly<Record<string, MessageId>> = {
 /** The localised sentence for a refusal: the detail's own label if it has one, else `admin.error.<code>`. Never the code, never the API's English. */
 export function errorText(t: Translator, error: ScreenError): string {
   const detail = error.details?.[0]?.code;
-  const own = detail === undefined ? undefined : DETAIL_LABEL[detail];
+  const own = detail !== undefined && Object.hasOwn(DETAIL_LABEL, detail) ? DETAIL_LABEL[detail] : undefined;
   return t.t(own ?? errorMessageId(error));
 }

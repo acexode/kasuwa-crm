@@ -1617,5 +1617,10 @@
   "admin.studio.custom.error.field_limit_reached": "Dis object don reach di most custom fields wey dem allow. Retire one field wey you no dey use to make space.",
   "admin.studio.custom.error.picklist_limit_reached": "Dis list don reach di most choices wey dem allow.",
   "admin.error.limit_reached": "You don reach limit. Nothing change.",
-  "admin.studio.custom.fieldSecurity": "Open di field security"
+  "admin.studio.custom.fieldSecurity": "Open di field security",
+  "admin.studio.custom.limit.definitions": "Dis object don use all im custom field names, even di retired ones, so you no fit add more.",
+  "admin.studio.custom.discard.title": "You wan comot without to save?",
+  "admin.studio.custom.discard.body": "Dem neva save di changes wey you make for dis field.",
+  "admin.studio.custom.discard.confirm": "Comot without to save",
+  "admin.studio.custom.discard.keep": "Continue to change am"
 }
