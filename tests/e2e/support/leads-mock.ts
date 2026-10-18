@@ -616,7 +616,12 @@ function checkContact(row: ContactRow): ContactRow {
   const missing = CONTACT_REQUIRED.filter((key) => !(key in row));
   // The T-0041 rule: every live property is served or listed as withheld.
   const unaccounted = LIVE_PROPERTIES.filter((key) => !(key in row) && !row.withheldFields.includes(key));
-  const leaked = row.withheldFields.filter((field) => field in row);
+  // T-0088 (D-L140): a withheld custom key is listed as `custom.<key>` and
+  // must be absent from `row.custom`, not from the row itself.
+  const custom = (row.custom ?? {}) as Record<string, unknown>;
+  const leaked = row.withheldFields.filter((field) =>
+    field.startsWith('custom.') ? field.slice('custom.'.length) in custom : field in row,
+  );
   const apart =
     row.withheldFields.includes('ownerUserId') !== row.withheldFields.includes('owner') ||
     row.withheldFields.includes('accountId') !== row.withheldFields.includes('account');
@@ -663,7 +668,12 @@ function derive(
 ): ContactRow {
   const row: ContactRow = { ...clone(CONTACT_EXAMPLE), ...overrides, withheldFields: [...withheld] };
   for (const field of withheld) {
-    delete row[field];
+    if (field.startsWith('custom.')) {
+      const custom = row.custom as Record<string, unknown> | undefined;
+      if (custom !== undefined) delete custom[field.slice('custom.'.length)];
+    } else {
+      delete row[field];
+    }
   }
   return checkContact(row);
 }
