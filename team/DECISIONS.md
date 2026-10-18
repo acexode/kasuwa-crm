@@ -3546,3 +3546,28 @@ tenancy folder, the record API suites, integration and unit.
 - **Before `crm_duplicates` is shown:** the web audit screen and its labels learn `merged` and `restored` (Agent 11,
   with T-0097).
 - **Process:** the session usage limit hit twice today with about 10 agents running. Fewer parallel agents from here.
+
+### D-L163 — T-0095 review rulings; T-0091 merged (lead, 2026-10-18)
+**Status:** PROCEEDING (lead).
+- **T-0091 is merged (#148). The custom-fields slice (T-0088 to T-0091) is complete.**
+- **Migration numbers in merge order:** T-0094 is 0042 and T-0095 is 0043.
+- **T-0095 reviews** (migration, security, tenancy) passed with findings, none critical. All are to be fixed:
+  - **The child guard locks the contact `FOR SHARE` before judging it.** This closes the race where an activity or deal
+    created during a merge pointed at the merged-away contact.
+  - **Restrictive policies:** INSERT pins `created_at = now()` and `undone_at IS NULL`, so the undo window and the PII
+    snapshot cannot be stretched; UPDATE requires an open window and `undone_at = now()`.
+  - The freeze trigger's exempt columns come from the catalogue.
+  - The REVOKE lists follow main's convention.
+  - The self-check is complete.
+  - The merges index includes `programme_id`.
+  - `deleted_at IS NULL` is added to the deal, board-card and my-activities name reads.
+  - Merge and undo audit custom fields by their bare key (the 64-character limit).
+  - **The duplicates throttle drops to 20 per minute per user, with at most 2 concurrent scans per tenant,** because
+    each page is a full programme scan.
+  - A merged-away id, or an undo, is 404 for callers without `contact.write`.
+  - The ordinal cap is tied to the phone and email caps.
+  - Service decisions are unit-tested as pure functions.
+- **Gates:**
+  - the snapshot purge and erasure path must cover `contact_merge.snapshot` before the first populated cell;
+  - after merges exist there is no safe schema rollback: recovery is forward-only (flag off, undo through the API);
+  - T-0100 publishes the owner-changed event when a merge or undo changes the owner.
