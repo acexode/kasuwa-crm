@@ -3309,3 +3309,81 @@ of T-0125 proceeds on these answers unless @acexode objects.
   - the import result says duplicates were skipped and no restriction was applied to existing contacts.
 - **Later decision:** a restrict-only update path, so that importing a suppression list can apply DND to existing
   contacts.
+
+### D-L152 — T-0121/T-0122 suite rulings; two failures found on main (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The suites are on `lead/T-0121-T-0122-acceptance` (69f4229, 6c284d5).
+- **T-0121 R1–R3 accepted:**
+  - a 413 answers with `code: validation_failed`;
+  - the 415s and the corrupt-gzip 400 are in scope and must not echo the client's header;
+  - an unmatched path is a 404 with `not_found` and no echo.
+- **T-0122:**
+  - `pnpm db:reset` is broken on main: a stale hard-coded drop list leaves a database at head half-dropped. Fixing it with
+    a catalogue query is in T-0122's scope (the old follow-up near D-L line 1094).
+  - The root `db:reset` script still defaults an unset NODE_ENV to development, for local use (D-L103 unchanged).
+  - The suite pins that a wrapper never overwrites an explicit NODE_ENV (I8).
+- **Found on main by a full isolation run:**
+  - `audit-coverage` lacks probes for T-0089's audited custom-field operations;
+  - `p01-auth-screens` fails because `apps/web/lib/deal-money.ts` hard-codes a currency symbol.
+
+  Both are being fixed on `lead/main-fixes-audit-currency`.
+- **Port collision seen again:** one `script-runs` request got an "Ollama" page. The fix is `lead/e2e-free-ports`, pending
+  merge.
+
+### D-L153 — T-0095 suite rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The suite is on `lead/T-0095-acceptance` (253c028): 69 contact-merge tests, plus 5 new
+database attacks in tenancy/adversarial. Its rulings M1–M16 are accepted, including:
+- the column is `merged_by_user_id`;
+- kasuwa_app may update only the undo columns, and the snapshot and `undo_until` are immutable;
+- a restrictive INSERT policy pins the merger to the session user;
+- one audit row per merge or undo, with field names only;
+- the default never picks an owner who has left the programme;
+- a merged-away contact answers an invented id's 404, byte for byte, on every route;
+- undo moves back only the children that still point at the survivor;
+- 150 ms latency at 60k contacts per programme.
+- **The duplicates cursor (widens D-L151).** The decoded cursor carries the lowest contact id plus the literal
+  `phone`/`email` and a version, and never a matched value. Otherwise a pair that matches on both would lose a set at a
+  page boundary.
+- **Contract additions** in T-0095:
+  - `merged` and `restored` in `AuditAction`;
+  - `unknown_reference` at `choices.ownerUserId`.
+- **Known noise:** the adversarial "no such contact" timing check fails under load on this host (D-L100).
+
+### D-L154 — T-0099 suite rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The suite is on `lead/T-0099-acceptance` (276e60a; 78 tests). Its rulings R1–R16 are
+accepted, including:
+- a contact's notification name follows its name parts (D-L68);
+- the actor's name is null once they leave the programme (D-P23);
+- items whose object is no longer visible are dropped;
+- read-all returns the visible unread count;
+- a 30-second polling hint.
+
+Read-all gains an optional `throughId`, so that notifications arriving after the user's view are not marked read unseen.
+Per-kind counts and a list-valued `kind` are not in Phase 2. The mock-load guards in records-contract-import and
+custom-fields-contract get explicit 60 s timeouts.
+
+### D-L155 — T-0092 review rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The migration, tenancy and security reviews passed with findings, none critical.
+- **Live-transaction check:** `@kasuwa/db` tracks the transactions it really issued (`assertLiveTenantTx`). Key minting
+  and the stored-object repository refuse anything else. Object storage has no RLS, so the mint is the only guard on the
+  bytes.
+- **`tenantStoragePrefix`** is lint-banned outside a future operator-only, audited offboarding module (the D-L54
+  precedent).
+- **The storage-adapter package** declares `exports`. Deep imports are banned, and the key builders are not exported.
+- **`storageEnv`** requires https endpoints outside dev and test, accepts only the http and https schemes, and brands its
+  result; `S3ObjectStore` refuses an unbranded config.
+- **0040 hardening:**
+  - status is forward-only;
+  - `uploaded` requires a verified size equal to the declared size;
+  - a deleted row is frozen;
+  - `expires_at` cannot be cleared.
+- **Other fixes:**
+  - adapter caps per purpose (import: 25 MiB, 4 parts);
+  - a no-progress guard in `deletePrefix`;
+  - lint coverage for `.js`/`.mjs`, `@smithy/*` and the fake store in every runtime package;
+  - dev ports bound to 127.0.0.1;
+  - `tenancy-reviewed` markers on the repository's SQL.
+- **Deferred:**
+  - binding the upload id to the row moves to T-0094;
+  - bucket versioning and `s3:PutObjectTagging` to T-0005.
+- **NDPA:** Pooled data in af-south-1 means Nigerian PII is held in South Africa. That is an existing ADR-0002 and D-L128
+  decision, but it needs a transfer assessment with counsel.
