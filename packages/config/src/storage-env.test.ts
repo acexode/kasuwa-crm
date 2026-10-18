@@ -1,0 +1,95 @@
+import { describe, expect, it } from 'vitest';
+import { apiEnv, storageEnv, webEnv, workerEnv } from './index';
+
+const SECRET = 'unit-secret-not-real-0092';
+const DEV = {
+  NODE_ENV: 'development',
+  S3_ENDPOINT: 'http://seaweedfs.internal.example:8333',
+  S3_PUBLIC_ENDPOINT: 'http://localhost:59000',
+  S3_REGION: 'af-south-1',
+  S3_BUCKET: 'kasuwa-local',
+  S3_FORCE_PATH_STYLE: 'true',
+  S3_ACCESS_KEY_ID: 'unit-access-not-real',
+  S3_SECRET_ACCESS_KEY: SECRET,
+};
+
+function messageOf(call: () => unknown): string {
+  try {
+    call();
+  } catch (error) {
+    return (error as Error).message;
+  }
+  throw new Error('it did not throw');
+}
+
+describe('storageEnv', () => {
+  it('parses a development store, defaulting SSE to AES256', () => {
+    const env = storageEnv(DEV);
+    expect(env).toMatchObject({
+      endpoint: 'http://seaweedfs.internal.example:8333',
+      publicEndpoint: 'http://localhost:59000',
+      region: 'af-south-1',
+      bucket: 'kasuwa-local',
+      forcePathStyle: true,
+      sseMode: 'AES256',
+    });
+    expect(env.credentials?.secretAccessKey).toBe(SECRET);
+  });
+
+  it('keeps the credentials out of JSON and spreads', () => {
+    const env = storageEnv(DEV);
+    expect(JSON.stringify(env)).not.toContain(SECRET);
+    expect(JSON.stringify({ ...env })).not.toContain(SECRET);
+  });
+
+  it('parses AWS with workload identity: no endpoint, no keys, path style off', () => {
+    const env = storageEnv({ NODE_ENV: 'production', S3_REGION: 'af-south-1', S3_BUCKET: 'kasuwa-za-1' });
+    expect(env).toMatchObject({ endpoint: undefined, publicEndpoint: undefined, forcePathStyle: false });
+    expect(env.credentials).toBeUndefined();
+  });
+
+  it('defaults the public endpoint to the internal one', () => {
+    const { S3_PUBLIC_ENDPOINT: _dropped, ...rest } = DEV;
+    expect(storageEnv(rest).publicEndpoint).toBe(DEV.S3_ENDPOINT);
+  });
+
+  it('refuses half a credential pair without echoing it', () => {
+    const { S3_ACCESS_KEY_ID: _dropped, ...rest } = DEV;
+    const message = messageOf(() => storageEnv(rest));
+    expect(message).toMatch(/S3_ACCESS_KEY_ID/);
+    expect(message).not.toContain(SECRET);
+  });
+
+  it('refuses SSE off outside development and test, and aws:kms everywhere', () => {
+    expect(() => storageEnv({ ...DEV, S3_SSE_MODE: 'off' })).not.toThrow();
+    expect(() => storageEnv({ ...DEV, NODE_ENV: 'test', S3_SSE_MODE: 'off' })).not.toThrow();
+    expect(messageOf(() => storageEnv({ ...DEV, NODE_ENV: 'production', S3_SSE_MODE: 'off' }))).toContain('S3_SSE_MODE');
+    const { NODE_ENV: _unset, ...noNodeEnv } = DEV;
+    expect(messageOf(() => storageEnv({ ...noNodeEnv, S3_SSE_MODE: 'off' }))).toContain('S3_SSE_MODE');
+    expect(messageOf(() => storageEnv({ ...DEV, S3_SSE_MODE: 'aws:kms' }))).toContain('S3_SSE_MODE');
+  });
+});
+
+describe('the SSE rule in the API and worker schemas', () => {
+  const server = {
+    NODE_ENV: 'development',
+    DATABASE_URL: 'postgres://u:p@db.example:5432/k',
+    DATABASE_AUTH_URL: 'postgres://u:p@db.example:5432/k',
+  };
+
+  it('accepts off in development and refuses an invalid mode', () => {
+    expect(() => apiEnv({ ...server, S3_SSE_MODE: 'off' })).not.toThrow();
+    expect(() => workerEnv({ ...server, S3_SSE_MODE: 'off' })).not.toThrow();
+    expect(messageOf(() => apiEnv({ ...server, S3_SSE_MODE: 'aws:kms' }))).toContain('S3_SSE_MODE');
+    expect(messageOf(() => workerEnv({ ...server, S3_SSE_MODE: 'aws:kms' }))).toContain('S3_SSE_MODE');
+  });
+});
+
+describe('the web schema', () => {
+  it('returns the public storage origin and refuses the internal endpoint', () => {
+    expect(webEnv({ S3_PUBLIC_ENDPOINT: 'http://localhost:59000' }).S3_PUBLIC_ENDPOINT).toBe('http://localhost:59000');
+    const message = messageOf(() => webEnv({ S3_ENDPOINT: `http://internal-${SECRET}.example` }));
+    expect(message).toContain('S3_ENDPOINT');
+    expect(message).not.toContain(SECRET);
+  });
+});
