@@ -14,7 +14,6 @@ import {
   loadGrants,
   type Grants,
 } from '@kasuwa/permissions';
-import { recordAuditEvent } from '../admin/audit/audit-writer';
 import {
   AdminError,
   notFound,
@@ -23,6 +22,21 @@ import {
   validationFailed,
   type AdminErrorDetail,
 } from '../admin/common/admin-errors';
+import {
+  assertCustomPatchFits,
+  customFiltersFrom,
+  customNotEditablePaths,
+  customPatchKeys,
+  customWireFor,
+  customWiresFor,
+  EMPTY_CUSTOM_WIRE,
+  loadCustom,
+  parseCustomCreate,
+  parseCustomPatch,
+  rawCustomOf,
+  recordAuditWithCustom,
+  type CustomFieldAccess,
+} from '../custom-fields/custom-values';
 import {
   dealAuditEvent,
   dealCreateChanges,
@@ -237,11 +251,16 @@ function bodyForbidden(
   tx: TenantTx,
   grants: Grants,
   access: FieldAccess,
+  custom: CustomFieldAccess,
   programmeId: string,
   raw: Record<string, unknown>,
 ): void {
   const touched = DEAL_WRITABLE_FIELDS.filter((key) => own(raw, key));
-  const locked = notEditableDealFields(access, programmeId, touched);
+  const locked = [
+    ...notEditableDealFields(access, programmeId, touched),
+    // T-0089: a custom key not `edit` in the deal's programme, before any 400 (V5).
+    ...customNotEditablePaths(custom, programmeId, raw),
+  ];
   if (locked.length > 0) throw fieldNotEditable(locked); // 403
   if (
     dealBodyAssignsOther(raw, tx.session.userId) &&
@@ -255,7 +274,8 @@ function bodyForbidden(
 
 export async function getDealFor(tx: TenantTx, id: unknown): Promise<DealWire> {
   const { deal } = await readableDeal(tx, id);
-  return toDealWire(deal, await loadDealFieldAccess(tx));
+  const custom = await loadCustom(tx, 'deal');
+  return toDealWire(deal, await loadDealFieldAccess(tx), await customWireFor(tx, custom, deal));
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -272,6 +292,7 @@ export async function listDealsFor(
   const { pipeline } = await readablePipeline(tx, pipelineId); // 404
   const query = ListDealsQuery.parse(rawQuery); // 400
   const access = await loadDealFieldAccess(tx);
+  const custom = await loadCustom(tx, 'deal');
 
   // A filter on a withheld field is 400, never silently ignored.
   const withheld: AdminErrorDetail[] = [];
@@ -282,6 +303,8 @@ export async function listDealsFor(
     }
   }
   if (withheld.length > 0) throw validationFailed(withheld);
+  // T-0089: custom[key] and customEmpty, judged on the live definitions (400s).
+  const customFilters = customFiltersFrom(custom, rawQuery);
 
   const details: AdminErrorDetail[] = [];
   const stages = await listStages(tx, pipeline);
@@ -333,10 +356,14 @@ export async function listDealsFor(
       currencies: query.currency,
       closeFrom: query.closeFrom,
       closeTo: query.closeTo,
+      custom: customFilters,
     },
   });
+  const wires = await customWiresFor(tx, custom, page.data);
   return {
-    data: page.data.map((deal) => toDealWire(deal, access, now)),
+    data: page.data.map((deal) =>
+      toDealWire(deal, access, wires.get(deal.id) ?? EMPTY_CUSTOM_WIRE, now),
+    ),
     nextCursor: page.nextCursor,
   };
 }
@@ -380,20 +407,23 @@ export async function createDealFor(
   const raw = plainObject(body);
   if (raw === null) throw notAPlainObject(); // 400: no keys to judge
   const access = await loadDealFieldAccess(tx);
-  bodyForbidden(tx, grants, access, programmeId, raw); // 403
+  const custom = await loadCustom(tx, 'deal');
+  bodyForbidden(tx, grants, access, custom, programmeId, raw); // 403
 
   const parsed = CreateDealBody.parse(raw); // 400
+  const customValues = parseCustomCreate(custom, rawCustomOf(raw)); // 400
   const values = await createValues(tx, programmeId, raw, parsed); // 400
 
   // Every deal starts in the first open stage, which has no requirements.
   const first = (await listStages(tx, pipeline)).find((stage) => stage.kind === 'open');
   if (first === undefined) throw notFound(); // 0036's rule makes this impossible
-  const deal = await insertDeal(tx, pipeline, first.id, { ...values, name: parsed.name });
-  await recordAuditEvent(
+  const deal = await insertDeal(tx, pipeline, first.id, { ...values, name: parsed.name }, customValues);
+  await recordAuditWithCustom(
     tx,
     dealAuditEvent('created', deal, dealCreateChanges(parsed, deal.ownerUserId)),
+    Object.keys(customValues).sort(),
   );
-  return toDealWire(deal, access);
+  return toDealWire(deal, access, await customWireFor(tx, custom, deal));
 }
 
 // --- update ------------------------------------------------------------------
@@ -402,6 +432,7 @@ export async function updateDealFor(tx: TenantTx, id: unknown, body: unknown): P
   const { deal: current, grants } = await readableDeal(tx, id); // 404
   const programmeId = current.programmeId;
   const access = await loadDealFieldAccess(tx);
+  const custom = await loadCustom(tx, 'deal');
   const subject = { ownerUserId: current.ownerUserId, closed: current.stageKind !== 'open' };
   const ownerReadable = dealFieldLevel(access, programmeId, 'ownerUserId') !== 'none';
   if (!canWriteDeal(grants, programmeId, tx.session.userId, subject, ownerReadable)) {
@@ -409,23 +440,28 @@ export async function updateDealFor(tx: TenantTx, id: unknown, body: unknown): P
   }
   const raw = plainObject(body);
   if (raw === null) throw notAPlainObject(); // 400
-  bodyForbidden(tx, grants, access, programmeId, raw); // 403
+  bodyForbidden(tx, grants, access, custom, programmeId, raw); // 403
 
-  const { version, ...fields } = UpdateDealBody.parse(raw); // 400
+  const { version, custom: _custom, ...fields } = UpdateDealBody.parse(raw); // 400
+  const patch = parseCustomPatch(custom, rawCustomOf(raw)); // 400
   const values = valuesFrom(fields);
   const references = await referenceDetails(tx, programmeId, values);
   if (references.length > 0) throw validationFailed(references); // 400
+  if (patch !== undefined) {
+    await assertCustomPatchFits(tx, custom, { id: current.id, programmeId }, patch); // 400
+  }
 
   if (version !== current.version) throw staleWrite(); // 409
   const target = { id: current.id, programmeId, version };
-  if (!(await updateDealIfVersion(tx, target, values))) throw staleWrite(); // 409, a race
+  if (!(await updateDealIfVersion(tx, target, values, undefined, patch))) throw staleWrite(); // 409, a race
   const updated = await findDealById(tx, current.id);
   if (updated === null) throw notFound();
-  await recordAuditEvent(
+  await recordAuditWithCustom(
     tx,
     dealAuditEvent('updated', updated, dealUpdateChanges(current, updated)),
+    customPatchKeys(patch),
   );
-  return toDealWire(updated, access);
+  return toDealWire(updated, access, await customWireFor(tx, custom, updated));
 }
 
 // --- move --------------------------------------------------------------------
@@ -548,13 +584,14 @@ export async function moveDealFor(tx: TenantTx, id: unknown, body: unknown): Pro
   await insertChecks(tx, current, newlyChecked);
   const updated = await findDealById(tx, current.id);
   if (updated === null) throw notFound();
-  await recordAuditEvent(
+  await recordAuditWithCustom(
     tx,
     dealAuditEvent(
       'updated',
       updated,
       dealMoveChanges(current, updated, filled, newlyChecked.length > 0),
     ),
+    [],
   );
-  return toDealWire(updated, access);
+  return toDealWire(updated, access, await customWireFor(tx, await loadCustom(tx, 'deal'), updated));
 }

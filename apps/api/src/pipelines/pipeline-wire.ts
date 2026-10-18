@@ -7,6 +7,7 @@ import {
   type StageTotal,
   type WithholdableDealField,
 } from '@kasuwa/domain-core';
+import type { CustomWire } from '../custom-fields/custom-values';
 
 /**
  * The wire shapes of listPipelines, getPipeline and getPipelineBoard
@@ -80,7 +81,10 @@ export interface DealWire {
   }[];
   createdAt: string;
   updatedAt: string;
-  withheldFields: WithholdableDealField[];
+  /** T-0089: custom values readable in the card's programme. */
+  custom: Record<string, unknown>;
+  /** The board's list (R21), then this card's withheld custom keys as `custom.<key>` (V12). */
+  withheldFields: (WithholdableDealField | `custom.${string}`)[];
 }
 
 export interface BoardStageWire {
@@ -170,6 +174,7 @@ export function toDealWire(
   withheld: readonly WithholdableDealField[],
   rottingAfterDays: number | null,
   nowMs: number,
+  custom: CustomWire,
 ): DealWire {
   const hidden = new Set(withheld);
   const wire: DealWire = {
@@ -190,7 +195,8 @@ export function toDealWire(
     })),
     createdAt: card.createdAt.toISOString(),
     updatedAt: card.updatedAt.toISOString(),
-    withheldFields: [...withheld],
+    custom: custom.custom,
+    withheldFields: [...withheld, ...(custom.withheld as `custom.${string}`[])],
   };
   if (!hidden.has('amount')) {
     wire.amount = money(card.amountMinor, card.currency);

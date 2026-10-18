@@ -1,5 +1,6 @@
 import type { FieldAccess } from '@kasuwa/metadata-engine';
 import { dealFieldLevel, withheldDealFields, type WithholdableDealField } from './deal-fields';
+import type { CustomWire } from '../custom-fields/custom-values';
 import type { Deal } from './deal.repository';
 
 /**
@@ -49,7 +50,9 @@ export interface DealWire {
   }[];
   createdAt: string;
   updatedAt: string;
-  withheldFields: WithholdableDealField[];
+  /** T-0089: custom values readable in this row's programme; withheld keys listed as `custom.<key>`. */
+  custom: Record<string, unknown>;
+  withheldFields: (WithholdableDealField | `custom.${string}`)[];
 }
 
 /**
@@ -86,7 +89,12 @@ export function rottingOf(
   return 'fresh';
 }
 
-export function toDealWire(deal: Deal, access: FieldAccess, now: number = Date.now()): DealWire {
+export function toDealWire(
+  deal: Deal,
+  access: FieldAccess,
+  custom: CustomWire,
+  now: number = Date.now(),
+): DealWire {
   const withheld = withheldDealFields(access, deal.programmeId);
   const shown = (field: WithholdableDealField) =>
     dealFieldLevel(access, deal.programmeId, field) !== 'none';
@@ -108,7 +116,8 @@ export function toDealWire(deal: Deal, access: FieldAccess, now: number = Date.n
     })),
     createdAt: deal.createdAt.toISOString(),
     updatedAt: deal.updatedAt.toISOString(),
-    withheldFields: withheld,
+    custom: custom.custom,
+    withheldFields: [...withheld, ...(custom.withheld as `custom.${string}`[])],
   };
 
   if (shown('amount')) {

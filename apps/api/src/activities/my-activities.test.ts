@@ -16,6 +16,7 @@ import { bucketRange, isIanaTimeZone, nextLocalMidnight } from './activity-bucke
 import { toActivityWire } from './activity-wire';
 import { programmesReading, toMyActivityWire } from './my-activities';
 import { ListCalendarQuery, ListMyActivitiesQuery } from './my-activities.schemas';
+import { EMPTY_CUSTOM_WIRE } from '../custom-fields/custom-values';
 
 // Invented values only (CLAUDE.md 6.1).
 const A1 = '11111111-0000-4000-8000-000000820a01';
@@ -438,12 +439,12 @@ describe('the audit and the Activity for meetings (T-0082, W3)', () => {
   });
 
   it('the Activity carries both times, omits a withheld one and names it', () => {
-    expect(toActivityWire(base, access())).toMatchObject({
+    expect(toActivityWire(base, access(), EMPTY_CUSTOM_WIRE)).toMatchObject({
       dueAt: null,
       startsAt: '2031-03-03T09:00:00.000Z',
       endsAt: '2031-03-03T10:00:00.000Z',
     });
-    const wire = toActivityWire(base, access({ startsAt: 'none' }));
+    const wire = toActivityWire(base, access({ startsAt: 'none' }), EMPTY_CUSTOM_WIRE);
     expect('startsAt' in wire).toBe(false);
     expect(wire.withheldFields).toEqual(['startsAt']);
   });

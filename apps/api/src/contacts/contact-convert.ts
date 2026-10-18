@@ -28,6 +28,7 @@ import { accountAuditEvent, accountChanges } from '../accounts/account-audit';
 import { toAccountWire, type AccountWire } from '../accounts/account-wire';
 import { text } from '../common/text';
 import { contactAuditEvent, contactChanges } from './contact-audit';
+import { customWireFor, loadCustom } from '../custom-fields/custom-values';
 import { toContactWire, type ContactWire } from './contact-wire';
 
 /**
@@ -191,9 +192,18 @@ export async function convertContactFor(
   );
 
   // Each record under its own field security, as getContact and getAccount.
+  // T-0089: each carries its custom values, projected in SQL like every read.
   const answer = async (contact: Contact, account: Account): Promise<ConvertContactWire> => ({
-    contact: toContactWire(contact, access),
-    account: toAccountWire(account, await loadAccountFieldAccess(tx)),
+    contact: toContactWire(
+      contact,
+      access,
+      await customWireFor(tx, await loadCustom(tx, 'contact'), contact),
+    ),
+    account: toAccountWire(
+      account,
+      await loadAccountFieldAccess(tx),
+      await customWireFor(tx, await loadCustom(tx, 'account'), account),
+    ),
   });
 
   switch (plan.outcome) {

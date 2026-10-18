@@ -111,11 +111,15 @@ const writableFields = {
   parentAccountId: z.string().uuid().nullable().optional(),
 };
 
+/** `custom` (T-0089): admitted here, validated against the live definitions separately. */
+const customField = { custom: z.unknown().optional() };
+
 /** `CreateAccountRequest`. Closed: `id`, `version`, `owner`, timestamps, `withheldFields` are 400. */
 export const CreateAccountBody = z
   .object({
     programmeId: z.string().uuid().optional(),
     ...writableFields,
+    ...customField,
   })
   .strict();
 export type CreateAccountBody = z.infer<typeof CreateAccountBody>;
@@ -131,6 +135,7 @@ export const UpdateAccountBody = z
     version: z.number().int().min(1).max(2_147_483_647),
     ...writableFields,
     name: writableFields.name.optional(),
+    ...customField,
   })
   .strict()
   .refine((body) => Object.keys(body).some((key) => key !== 'version'), {

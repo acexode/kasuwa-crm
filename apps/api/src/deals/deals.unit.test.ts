@@ -15,6 +15,7 @@ import {
   UpdateDealBody,
   isUuid,
 } from './deals.schemas';
+import { EMPTY_CUSTOM_WIRE } from '../custom-fields/custom-values';
 
 // Invented ids; nothing seeds them.
 const P1 = '11111111-0000-4000-8000-00000108f001';
@@ -206,7 +207,7 @@ describe('field security on the wire (R13)', () => {
       account_id: 'edit',
       next_step: 'none',
     });
-    const wire = toDealWire(deal(), levels, Date.UTC(2031, 0, 2));
+    const wire = toDealWire(deal(), levels, EMPTY_CUSTOM_WIRE, Date.UTC(2031, 0, 2));
     expect(wire.withheldFields).toEqual(['amount', 'ownerUserId', 'nextStep']);
     for (const key of ['amount', 'weightedAmount', 'ownerUserId', 'owner', 'nextStep']) {
       expect(key in wire, key).toBe(false);
@@ -219,11 +220,11 @@ describe('field security on the wire (R13)', () => {
   });
 
   it('serialises money as strings and never a bigint (JSON.stringify would throw)', () => {
-    const wire = toDealWire(deal(), EDIT_ALL, Date.UTC(2031, 0, 2));
+    const wire = toDealWire(deal(), EDIT_ALL, EMPTY_CUSTOM_WIRE, Date.UTC(2031, 0, 2));
     const text = JSON.stringify(wire);
     expect(text).toContain('"amountMinor":"999999999999999999"');
     expect(text).toContain('"amountMinor":"250000000000000000"');
-    expect(toDealWire(deal({ amountMinor: null, currency: null }), EDIT_ALL)).toMatchObject({
+    expect(toDealWire(deal({ amountMinor: null, currency: null }), EDIT_ALL, EMPTY_CUSTOM_WIRE)).toMatchObject({
       amount: null,
       weightedAmount: null,
     });

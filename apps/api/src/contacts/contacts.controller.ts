@@ -68,7 +68,7 @@ export class ContactsController {
   @Get()
   @Header(CACHE_CONTROL, NO_STORE)
   async list(@Query() query: unknown): Promise<{ data: ContactWire[]; nextCursor: string | null }> {
-    return listContactsFor(currentTx(), ListContactsQuery.parse(query));
+    return listContactsFor(currentTx(), ListContactsQuery.parse(query), query);
   }
 
   /** getContact. Out of scope is 404, never 403. */

@@ -115,12 +115,20 @@ export const DEAL_WRITABLE_FIELDS = [
 export type DealWritableField = (typeof DEAL_WRITABLE_FIELDS)[number];
 
 /** `CreateDealRequest`. Closed. */
-export const CreateDealBody = z.object(writableFields).strict();
+/** `custom` (T-0089): admitted here, validated against the live definitions separately. */
+const customField = { custom: z.unknown().optional() };
+
+export const CreateDealBody = z.object({ ...writableFields, ...customField }).strict();
 export type CreateDealBody = z.infer<typeof CreateDealBody>;
 
 /** `UpdateDealRequest`. Closed: `version` plus at least one field (D-L102). */
 export const UpdateDealBody = z
-  .object({ version: VERSION, ...writableFields, name: writableFields.name.optional() })
+  .object({
+    version: VERSION,
+    ...writableFields,
+    name: writableFields.name.optional(),
+    ...customField,
+  })
   .strict()
   .refine((body) => Object.keys(body).some((key) => key !== 'version'), {
     message: 'an update must change something',
