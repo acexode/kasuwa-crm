@@ -3496,3 +3496,33 @@ import-isolation has 20. Interfaces A–F and rulings R1–R16 and I1–I6 are a
   - share the contact audit writer through a domain package, so the worker uses the same code path;
   - a follow-up migration adds `UNIQUE (tenant_id, programme_id, id)` on `stored_object` for the composite FK.
 - **The two long-running tests** (100,000 rows) are routed to the Windows verification runner.
+
+### D-L161 — T-0098 review rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The migration, security and tenancy reviews passed with findings, none critical.
+- **0041, edited before merge:**
+  - the aggregate ordering key includes `tenant_id`, so one tenant cannot stall another tenant's events with a poison row;
+  - autovacuum is tuned for the queue's churn;
+  - the rollback comment is corrected;
+  - `kasuwa_relay` gets CONNECTION LIMIT 4;
+  - the self-check also asserts the identity-sequence revoke and exactly two SECURITY DEFINER functions.
+- **Code:**
+  - uuids are lowercased in append input and payload schemas (an uppercase id made events go dead silently);
+  - one queue per aggregate type, asserted in the registry;
+  - the drop reasons `not_visible` and `forged` are distinguished;
+  - the consumer helper is bound to its queue;
+  - `addBulk` has a 10 s timeout, so a Redis outage uses the backoff;
+  - the backlog query uses the seq index.
+- **Producer contract** (T-0100 onward):
+  - append after taking the aggregate's row lock, because `seq` is assigned at insert;
+  - generate event ids with `randomUUID()`;
+  - handlers are idempotent on (source_event_id, recipient).
+- **Accepted as built:**
+  - no FK on `actor_user_id` (F-R3 plus consumer re-resolution);
+  - the `last_attempt_at` tightening;
+  - the claim query's deviation from the ADR's literal NOT EXISTS;
+  - the publish backoff;
+  - bad rows counted as attempts;
+  - the relay's control of `attempts` (inside ADR-0018's blast radius).
+- **Before T-0100 ships a consumer:** an NDPA note is needed on BullMQ's failed set keeping identifiers indefinitely
+  (D-L128 Q5).
+- **T-0098 is on @acexode's personal-review list (D-A3):** a new LOGIN role, RLS and a migration.
