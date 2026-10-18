@@ -98,16 +98,16 @@ export function apiEnv(source: EnvSource = process.env): ApiEnv {
 }
 
 /**
- * The BullMQ worker process. Requires NODE_ENV (D-L95) and `DATABASE_URL`
- * (kasuwa_app); runs the stub-auth and key-provider guards and the credential
- * guard.
+ * The BullMQ worker process. Requires NODE_ENV (D-L95), `DATABASE_URL`
+ * (kasuwa_app) and `DATABASE_RELAY_URL` (kasuwa_relay, T-0098); runs the
+ * stub-auth and key-provider guards and the credential guard on both URLs.
  */
 export function workerEnv(source: EnvSource = process.env): WorkerEnv {
   refuseUnsetNodeEnv('worker', source, parseWorkerEnv);
   const parsed = parseWorkerEnv(source);
   refuse('worker', storageEncryptionProblems(source));
   if (enforced(parsed.NODE_ENV)) {
-    refuse('worker', databaseCredentialProblems(source, ['DATABASE_URL']));
+    refuse('worker', databaseCredentialProblems(source, ['DATABASE_URL', 'DATABASE_RELAY_URL']));
   }
   return parsed;
 }
