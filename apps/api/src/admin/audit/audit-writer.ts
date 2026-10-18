@@ -38,7 +38,7 @@ export const AUDIT_ACTIONS = [
   'played_recording',
   /** publishScript (T-0113, D-L96): migration 0030 adds it to audit_event_action_check. */
   'published',
-  /** createContactMerge and undoContactMerge (T-0095, D-P12): migration 0040 adds both. */
+  /** createContactMerge and undoContactMerge (T-0095, D-P12): migration 0043 adds both. */
   'merged',
   'restored',
 ] as const;

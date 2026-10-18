@@ -7,7 +7,13 @@ import {
   isEmptyValue,
   strictestCompliance,
 } from './contact-merge';
-import { decodeDuplicateCursor, encodeDuplicateCursor } from './duplicates.repository';
+import {
+  CONTACT_MAX_EMAILS,
+  CONTACT_MAX_PHONES,
+  MAX_DUPLICATE_ORDINAL,
+  decodeDuplicateCursor,
+  encodeDuplicateCursor,
+} from './duplicates.repository';
 import { InvalidCursorError } from '../cursor';
 
 // Synthetic ids only.
@@ -116,5 +122,18 @@ describe('duplicate cursors (M5)', () => {
     ]) {
       expect(() => decodeDuplicateCursor(bad), bad).toThrow(InvalidCursorError);
     }
+  });
+
+  it('ties the ordinal cap to the phone and email caps: one below the larger (D-L163)', () => {
+    expect(MAX_DUPLICATE_ORDINAL).toBe(Math.max(CONTACT_MAX_PHONES, CONTACT_MAX_EMAILS) - 1);
+    const last = encodeDuplicateCursor({
+      lowestId: ID,
+      matchOn: 'phone',
+      ordinal: MAX_DUPLICATE_ORDINAL,
+    });
+    expect(decodeDuplicateCursor(last).ordinal).toBe(MAX_DUPLICATE_ORDINAL);
+    expect(() =>
+      encodeDuplicateCursor({ lowestId: ID, matchOn: 'phone', ordinal: MAX_DUPLICATE_ORDINAL + 1 }),
+    ).toThrow(InvalidCursorError);
   });
 });

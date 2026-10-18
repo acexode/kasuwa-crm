@@ -2,13 +2,10 @@ import { HttpStatus } from '@nestjs/common';
 import type { TenantTx } from '@kasuwa/db';
 import {
   COMPLIANCE_FIELDS,
-  changedCustomKeys,
-  changedMergeFields,
   complianceOf,
   contactFieldLevel,
   decodeDuplicateCursor,
   decodeIdCursor,
-  defaultSide,
   encodeDuplicateCursor,
   encodeIdCursor,
   findContactById,
@@ -20,7 +17,6 @@ import {
   loadContactFieldAccess,
   lockOpenMergeSnapshot,
   markContactMergeUndone,
-  MERGE_FIELDS,
   moveContactChildren,
   programmeAccountExists,
   programmeMemberExists,
@@ -30,23 +26,13 @@ import {
   writeMergedValues,
   type ComplianceValues,
   type Contact,
-  type ContactFieldAccess,
   type ContactMergeRecord,
-  type MergeColumnField,
-  type MergeContact,
-  type MergeField,
   type MergeSide,
   type MergeValues,
 } from '@kasuwa/domain-core';
-import { fieldLevel } from '@kasuwa/metadata-engine';
 import { canProgramme, loadGrants } from '@kasuwa/permissions';
 import { z } from 'zod';
-import {
-  AUDIT_EVENT_MAX_CHANGES,
-  recordAuditEvent,
-  redactedChange,
-  type AuditChange,
-} from '../admin/audit/audit-writer';
+import { recordAuditEvent } from '../admin/audit/audit-writer';
 import {
   AdminError,
   notFound,
@@ -61,14 +47,23 @@ import {
   customWiresFor,
   EMPTY_CUSTOM_WIRE,
   loadCustom,
-  type CustomFieldAccess,
 } from '../custom-fields/custom-values';
+import {
+  chosenOwnerIsNotMember,
+  complianceChoicePaths,
+  lockedChoicePaths,
+  mergeDefaults,
+  mergeRefusal,
+  nameOnlyChanges,
+  planMerge,
+  planUndo,
+  undoRefusal,
+  type MergeAccess,
+} from './merge-decisions';
 import {
   ContactIdParam,
   CreateContactMergeBody,
   customChoiceKey,
-  isComplianceKey,
-  isMergeFieldKey,
   MergeIdParam,
   MergePreviewQuery,
   PageQuery,
@@ -78,7 +73,7 @@ import {
 /**
  * Duplicates, merge and undo (T-0095): listDuplicates,
  * getContactMergePreview, createContactMerge, listContactMerges and
- * undoContactMerge of records.openapi.yaml, on migration 0040.
+ * undoContactMerge of records.openapi.yaml, on migration 0043.
  *
  * ORDER (D-L53, M15): 404, then 403, then 400, then 409. A contact the caller
  * cannot read is the invented id's 404 whatever the rights; a caller without
@@ -125,28 +120,6 @@ function plainObject(value: unknown): Record<string, unknown> | null {
 const isUuid = (value: unknown): value is string =>
   typeof value === 'string' && z.string().uuid().safeParse(value).success;
 
-/** What the caller may do with each choosable field in one programme. */
-interface MergeAccess {
-  contact: ContactFieldAccess;
-  custom: CustomFieldAccess;
-  programmeId: string;
-}
-
-/** `displayName` is in no matrix row: whoever may write contacts may write it. */
-function standardLevel(access: MergeAccess, field: MergeColumnField): 'none' | 'read' | 'edit' {
-  if (field === 'displayName') return 'edit';
-  return contactFieldLevel(access.contact, access.programmeId, field);
-}
-
-function customLevel(access: MergeAccess, key: string): 'none' | 'read' | 'edit' {
-  return fieldLevel(access.custom.access, access.programmeId, key);
-}
-
-/** Live custom keys the caller may edit in the programme, in a fixed order. */
-function editableCustomKeys(access: MergeAccess): string[] {
-  return [...access.custom.defs.keys()].filter((key) => customLevel(access, key) === 'edit').sort();
-}
-
 /** Membership of each distinct non-null owner of the two contacts (D-L67, D-P23). */
 async function ownerMembership(
   tx: TenantTx,
@@ -159,44 +132,6 @@ async function ownerMembership(
     result.set(owner, await programmeMemberExists(tx, programmeId, owner));
   }
   return result;
-}
-
-/**
- * The default side of every choosable field the caller may edit (M16, M4):
- * standard fields by wire name, custom keys as `custom.<key>`. An owner who
- * is not a member of the programme is never a default; when no side offers a
- * member the owner has no entry and the merge leaves the survivor unassigned.
- */
-function mergeDefaults(
-  survivor: MergeContact,
-  merged: MergeContact,
-  access: MergeAccess,
-  members: ReadonlyMap<string, boolean>,
-): Record<string, MergeSide> {
-  const mergedIsNewer = merged.updatedAt.getTime() > survivor.updatedAt.getTime();
-  const defaults: Record<string, MergeSide> = {};
-  for (const field of MERGE_FIELDS) {
-    if (standardLevel(access, field) !== 'edit') continue;
-    const acceptable =
-      field === 'ownerUserId'
-        ? (side: MergeSide) => {
-            const owner = (side === 'survivor' ? survivor : merged).values.ownerUserId;
-            return typeof owner !== 'string' || members.get(owner) === true;
-          }
-        : undefined;
-    const side = defaultSide(
-      survivor.values[field],
-      merged.values[field],
-      mergedIsNewer,
-      acceptable,
-    );
-    if (side !== null) defaults[field] = side;
-  }
-  for (const key of editableCustomKeys(access)) {
-    const side = defaultSide(survivor.custom[key], merged.custom[key], mergedIsNewer);
-    if (side !== null) defaults[`custom.${key}`] = side;
-  }
-  return defaults;
 }
 
 // --- listDuplicates ---------------------------------------------------------------
@@ -361,11 +296,6 @@ const Snapshot = z.object({
 });
 type Snapshot = z.infer<typeof Snapshot>;
 
-/** Audit changes, field names only (D-L83), within the writer's cap: one event per merge (M3). */
-function nameOnlyChanges(fields: readonly string[]): AuditChange[] {
-  return fields.slice(0, AUDIT_EVENT_MAX_CHANGES).map((field) => redactedChange(field));
-}
-
 export async function createContactMergeFor(
   tx: TenantTx,
   body: unknown,
@@ -377,54 +307,41 @@ export async function createContactMergeFor(
   const survivorId = String(raw.survivorId).toLowerCase();
   const mergedId = String(raw.mergedId).toLowerCase();
 
-  // 404: either side unreadable (merged-away rows the caller reaches are found
-  // here, so that the 409 below can tell them apart from invented ids).
+  // 404, then 403 (mergeRefusal): merged-away rows the caller reaches are
+  // found here, so a writer can be told 409 below; anyone else gets the 404.
   const found = await findContactsForMerge(tx, [survivorId, mergedId]);
   const survivorSeen = found.find((row) => row.id === survivorId);
   const mergedSeen = found.find((row) => row.id === mergedId);
-  if (survivorSeen === undefined || mergedSeen === undefined) throw notFound();
-
-  // 403: contact.write on both sides' programmes. Claim rights never merge (D-L151).
-  const grants = await loadGrants(tx);
-  if (
-    !canProgramme(grants, WRITE, survivorSeen.programmeId) ||
-    !canProgramme(grants, WRITE, mergedSeen.programmeId)
-  ) {
-    throw notPermitted();
+  const refusal = mergeRefusal(await loadGrants(tx), survivorSeen, mergedSeen);
+  if (refusal === 'not_found' || survivorSeen === undefined || mergedSeen === undefined) {
+    throw notFound();
   }
+  if (refusal === 'not_permitted') throw notPermitted();
   const programmeId = survivorSeen.programmeId;
-  const contactAccess = await loadContactFieldAccess(tx);
-  const custom = await loadCustom(tx, 'contact');
-  const access: MergeAccess = { contact: contactAccess, custom, programmeId };
+  const access: MergeAccess = {
+    contact: await loadContactFieldAccess(tx),
+    custom: await loadCustom(tx, 'contact'),
+    programmeId,
+  };
 
   // 403: a chosen field the caller may not edit (judged on the raw choices).
   const rawChoices = plainObject(raw.choices) ?? {};
-  const locked: string[] = [];
-  for (const key of Object.keys(rawChoices)) {
-    if (isMergeFieldKey(key) && standardLevel(access, key) !== 'edit')
-      locked.push(`choices.${key}`);
-    const customKey = customChoiceKey(key);
-    if (
-      customKey !== null &&
-      custom.defs.has(customKey) &&
-      customLevel(access, customKey) !== 'edit'
-    ) {
-      locked.push(`choices.${key}`);
-    }
-  }
+  const locked = lockedChoicePaths(rawChoices, access);
   if (locked.length > 0) throw fieldNotEditable(locked);
 
   // 400s.
-  const notChoosable = Object.keys(rawChoices)
-    .filter(isComplianceKey)
-    .map((key): AdminErrorDetail => ({ path: `choices.${key}`, code: 'compliance_not_choosable' }));
-  if (notChoosable.length > 0) throw validationFailed(notChoosable);
+  const notChoosable = complianceChoicePaths(rawChoices);
+  if (notChoosable.length > 0) {
+    throw validationFailed(
+      notChoosable.map((path) => ({ path, code: 'compliance_not_choosable' })),
+    );
+  }
   const parsed = CreateContactMergeBody.parse(body);
   const choices = parsed.choices ?? {};
   const unknownCustom = Object.keys(choices)
     .filter((key) => {
       const customKey = customChoiceKey(key);
-      return customKey !== null && !custom.defs.has(customKey);
+      return customKey !== null && !access.custom.defs.has(customKey);
     })
     .map((key): AdminErrorDetail => ({ path: `choices.${key}`, code: 'unknown_field' }));
   if (unknownCustom.length > 0) throw validationFailed(unknownCustom);
@@ -434,21 +351,17 @@ export async function createContactMergeFor(
   }
 
   // Lock both, in id order, and judge the rest on what is current.
-  const locked2 = await findContactsForMerge(tx, [survivorId, mergedId], true);
-  const survivor = locked2.find((row) => row.id === survivorId);
-  const merged = locked2.find((row) => row.id === mergedId);
+  const current = await findContactsForMerge(tx, [survivorId, mergedId], true);
+  const survivor = current.find((row) => row.id === survivorId);
+  const merged = current.find((row) => row.id === mergedId);
   if (survivor === undefined || merged === undefined) throw notFound();
 
   const members = await ownerMembership(tx, programmeId, [
     survivor.values.ownerUserId,
     merged.values.ownerUserId,
   ]);
-  const chosenOwner = choices.ownerUserId;
-  if (chosenOwner !== undefined && standardLevel(access, 'ownerUserId') === 'edit') {
-    const owner = (chosenOwner === 'survivor' ? survivor : merged).values.ownerUserId;
-    if (typeof owner === 'string' && members.get(owner) !== true) {
-      throw validationFailed([{ path: 'choices.ownerUserId', code: 'unknown_reference' }]);
-    }
+  if (chosenOwnerIsNotMember(choices, survivor, merged, access, members)) {
+    throw validationFailed([{ path: 'choices.ownerUserId', code: 'unknown_reference' }]);
   }
 
   // 409s.
@@ -457,47 +370,13 @@ export async function createContactMergeFor(
     throw staleWrite();
   }
 
-  // The survivor's new values.
-  const defaults = mergeDefaults(survivor, merged, access, members);
-  const values: MergeValues = {};
-  for (const field of MERGE_FIELDS) {
-    if (standardLevel(access, field) !== 'edit') continue; // the survivor keeps its own
-    const side = choices[field] ?? defaults[field];
-    if (side === undefined) {
-      // Only the owner can lack a default (no member on either side, M4).
-      if (field === 'ownerUserId') values.ownerUserId = null;
-      continue;
-    }
-    values[field] = (side === 'merged' ? merged : survivor).values[field];
-  }
-  const compliance = strictestCompliance(
-    complianceOf(survivor.values),
-    complianceOf(merged.values),
-  );
-  values.dnd = compliance.dnd;
-  values.whatsappOptIn = compliance.whatsappOptIn;
-  values.consentState = compliance.consentState;
-
-  const customOut: Record<string, unknown> = { ...survivor.custom };
-  for (const key of editableCustomKeys(access)) {
-    const side = choices[`custom.${key}`] ?? defaults[`custom.${key}`];
-    if (side !== 'merged') continue;
-    if (key in merged.custom) customOut[key] = merged.custom[key];
-    else delete customOut[key];
-  }
-  for (const key of custom.retired) delete customOut[key]; // every custom write drops them (D-L142)
-
-  const changed = [
-    ...changedMergeFields(survivor.values, values, [...MERGE_FIELDS, ...COMPLIANCE_FIELDS]),
-    ...changedCustomKeys(survivor.custom, customOut).map((key) => `custom.${key}`),
-  ];
-
+  const plan = planMerge(survivor, merged, access, members, choices);
   const versionAfter = await customBackstopAs400(() =>
     writeMergedValues(
       tx,
       { id: survivor.id, programmeId, version: survivor.version },
-      values,
-      customOut,
+      plan.values,
+      plan.custom,
     ),
   );
   if (versionAfter === null) throw staleWrite();
@@ -523,22 +402,12 @@ export async function createContactMergeFor(
     objectId: survivor.id,
     objectLabel: survivor.id,
     programmeId,
-    changes: nameOnlyChanges(changed),
+    changes: nameOnlyChanges(plan.auditFields),
   });
   return toContactMergeWire(record);
 }
 
 // --- undoContactMerge ---------------------------------------------------------------
-
-/** The stored values of `fields` from a snapshot's record, by wire name. */
-function snapshotValues(
-  stored: Record<string, unknown>,
-  fields: readonly MergeColumnField[],
-): MergeValues {
-  const values: MergeValues = {};
-  for (const field of fields) values[field] = stored[field] ?? null;
-  return values;
-}
 
 /**
  * Every writer of `owner_user_id` checks membership (D-L67, D-P23): an owner
@@ -567,14 +436,13 @@ export async function undoContactMergeFor(
   const mergeId = MergeIdParam.parse(params).mergeId.toLowerCase(); // 400
   const record = await findContactMerge(tx, mergeId);
   if (record === null) throw notFound(); // 404
-  const programmeId = record.programmeId;
 
-  // 403 (D-L151): the merging user holding contact.write now, or a tenant admin.
-  const grants = await loadGrants(tx);
-  const mayUndo =
-    (grants.isTenantAdmin && canProgramme(grants, WRITE, programmeId)) ||
-    (record.mergedByUserId === tx.session.userId && canProgramme(grants, WRITE, programmeId));
-  if (!mayUndo) throw notPermitted();
+  // 404 without contact.write in the programme; then the merging user or a
+  // tenant admin, else 403 (D-L151, D-L163).
+  const refusal = undoRefusal(await loadGrants(tx), record, tx.session.userId);
+  if (refusal === 'not_found') throw notFound();
+  if (refusal === 'not_permitted') throw notPermitted();
+  const programmeId = record.programmeId;
 
   if (record.undoneAt !== null) return toContactMergeWire(record); // M13: a repeat changes nothing
   if (!record.undoOpen) throw undoExpired(); // 410
@@ -594,75 +462,42 @@ export async function undoContactMergeFor(
   if (survivor === undefined || merged === undefined) throw notFound();
   if (survivor.deletedAt !== null) throw alreadyMerged(); // undo the later merge first
 
-  const contactAccess = await loadContactFieldAccess(tx);
-  const custom = await loadCustom(tx, 'contact');
-  const access: MergeAccess = { contact: contactAccess, custom, programmeId };
+  const access: MergeAccess = {
+    contact: await loadContactFieldAccess(tx),
+    custom: await loadCustom(tx, 'contact'),
+    programmeId,
+  };
+  const plan = planUndo(snapshot, survivor, access);
+  if (plan.lockedFields.length > 0) throw fieldNotEditable(plan.lockedFields); // M12
 
-  // The survivor is put back only if nobody has edited it since (its version).
-  const reverted = survivor.version === snapshot.survivor.versionAfter;
-  const revert: MergeValues = {};
-  let revertCustom: Record<string, unknown> = survivor.custom;
-  const restoredOnSurvivor: string[] = [];
-  if (reverted) {
-    const before = snapshotValues(snapshot.survivor.values, MERGE_FIELDS);
-    for (const field of changedMergeFields(survivor.values, before, MERGE_FIELDS)) {
-      revert[field] = before[field];
-    }
-    revertCustom = { ...snapshot.survivor.custom };
-    for (const key of custom.retired) delete revertCustom[key];
-    const customChanged = changedCustomKeys(survivor.custom, revertCustom);
-    // M12: all or nothing under the undoer's CURRENT field security.
-    const lockedFields = [
-      ...(Object.keys(revert) as MergeField[]).filter(
-        (field) => standardLevel(access, field) !== 'edit',
-      ),
-      ...customChanged
-        .filter((key) => custom.defs.has(key) && customLevel(access, key) !== 'edit')
-        .map((key) => `custom.${key}`),
-    ];
-    if (lockedFields.length > 0) throw fieldNotEditable(lockedFields);
-    restoredOnSurvivor.push(...Object.keys(revert), ...customChanged.map((key) => `custom.${key}`));
-  }
-
-  // The merged contact comes back as it was, except that each compliance
-  // field takes the stricter of its own and the survivor's current value.
-  const restore = snapshotValues(snapshot.merged.values, MERGE_FIELDS);
-  const compliance = strictestCompliance(
-    complianceOf(snapshot.merged.values as MergeValues),
-    complianceOf(survivor.values),
-  );
-  restore.dnd = compliance.dnd;
-  restore.whatsappOptIn = compliance.whatsappOptIn;
-  restore.consentState = compliance.consentState;
-  await settleReferences(tx, programmeId, restore);
-  const restoredCustom = { ...snapshot.merged.custom };
-  for (const key of custom.retired) delete restoredCustom[key];
-
-  if (!(await restoreContact(tx, { id: merged.id, programmeId }, restore, restoredCustom))) {
+  await settleReferences(tx, programmeId, plan.restore);
+  if (
+    !(await restoreContact(tx, { id: merged.id, programmeId }, plan.restore, plan.restoreCustom))
+  ) {
     throw alreadyMerged();
   }
-  if (reverted) {
-    await settleReferences(tx, programmeId, revert);
+  if (plan.reverted) {
+    await settleReferences(tx, programmeId, plan.revert);
     const applied = await customBackstopAs400(() =>
       writeMergedValues(
         tx,
         { id: survivor.id, programmeId, version: survivor.version },
-        revert,
-        revertCustom,
+        plan.revert,
+        plan.revertCustom,
       ),
     );
     if (applied === null) throw staleWrite();
   }
   // Only what the merge moved, and only if it still points at the survivor (M11).
   await moveContactChildren(tx, programmeId, survivor.id, merged.id, snapshot.moved);
-  if (!(await markContactMergeUndone(tx, mergeId, reverted))) throw staleWrite();
+  if (!(await markContactMergeUndone(tx, mergeId, plan.reverted))) throw staleWrite();
   await recordAuditEvent(tx, {
     action: 'restored',
     objectType: 'contact',
     objectId: merged.id,
     objectLabel: merged.id,
     programmeId,
-    changes: nameOnlyChanges(restoredOnSurvivor),
+    changes: nameOnlyChanges(plan.auditFields),
   });
   const done = await findContactMerge(tx, mergeId);
   if (done === null) throw notFound();

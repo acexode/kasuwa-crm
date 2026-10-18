@@ -2,7 +2,7 @@ import { newId, type TenantTx } from '@kasuwa/db';
 
 /**
  * Contact merge and undo (T-0095; D-P12, D-P27, D-P28, D-L151, D-L153):
- * migration 0040's `contact_merge` and `contact.deleted_at`.
+ * migration 0043's `contact_merge` and `contact.deleted_at`.
  *
  * THIS IS THE ONLY CODE THAT READS A MERGED-AWAY CONTACT. Every other contact
  * read carries `deleted_at IS NULL` (contact.repository's LIVE_CONTACT); the
@@ -227,7 +227,7 @@ export async function softDeleteContact(
  * False when the row is not merged away.
  *
  * tenancy-reviewed: id AND tenant AND programme (checked against the session);
- * RLS besides. The 0040 freeze trigger does not fire: deleted_at goes NULL.
+ * RLS besides. The 0043 freeze trigger does not fire: deleted_at goes NULL.
  */
 export async function restoreContact(
   tx: TenantTx,
@@ -367,7 +367,7 @@ function toRecord(row: MergeDbRow): ContactMergeRecord {
 }
 
 /**
- * Records a merge as the session user, open for exactly 720 hours (the 0040
+ * Records a merge as the session user, open for exactly 720 hours (the 0043
  * CHECK). `snapshot` is what undo restores; it is PII and is never read back
  * by anything that serves it.
  *
@@ -421,7 +421,7 @@ export async function findContactMerge(
 
 /**
  * The snapshot of an OPEN merge, locked FOR UPDATE until COMMIT, or null when
- * it has been undone meanwhile (the 0040 restrictive UPDATE policy hides an
+ * it has been undone meanwhile (the 0043 restrictive UPDATE policy hides an
  * undone merge from a locking read, so two undos cannot both proceed).
  *
  * tenancy-reviewed: as findContactMerge.

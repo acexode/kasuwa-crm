@@ -31,7 +31,7 @@ export const MAX_PAGE_SIZE = 100;
 
 /**
  * D-P27 (T-0095): the predicate every contact read and write carries. A
- * contact merged away (migration 0040's `deleted_at`) is answered exactly as
+ * contact merged away (migration 0043's `deleted_at`) is answered exactly as
  * an id that names nothing: absent from lists, cursors, lookups and the
  * record view, and never written. Only the merge repository reads such a row,
  * to undo the merge. Unqualified: it names the statement's own `contact`.

@@ -16,13 +16,21 @@ import { AUTH_CONTEXT_KEY } from '../tenancy/stub-auth.guard';
  * honest limitation: several API instances multiply the budget, until the
  * counter moves to Redis.
  *
+ * PER TENANT, AT MOST TWO SCANS AT ONCE (D-L163). Each page is a full scan
+ * of a programme, so one tenant's users together may run only
+ * DUPLICATES_TENANT_CONCURRENCY at a time; a third is refused with
+ * `Retry-After: 1` rather than queued behind them. The slot is held until
+ * the response closes, whatever the outcome.
+ *
  * The 429 is the shared Error envelope with `code: too_many_requests` and an
  * integer `Retry-After` header (seconds to the end of the window, at least
  * 1). It says nothing about any contact. Nothing here logs.
  */
 
-/** Requests admitted per user per window: a person paging the P28 queue, never a sweep. */
-export const DUPLICATES_LIMIT = 120;
+/** Requests admitted per user per window (D-L163): a person paging the P28 queue, never a sweep. */
+export const DUPLICATES_LIMIT = 20;
+/** Scans one tenant may run at the same time (D-L163). */
+export const DUPLICATES_TENANT_CONCURRENCY = 2;
 export const DUPLICATES_WINDOW_MS = 60_000;
 
 const SWEEP_THRESHOLD = 1_000;
@@ -56,6 +64,8 @@ export function retryAfterSeconds(resetAt: number, now: number): number {
 @Injectable()
 export class DuplicatesThrottleGuard implements CanActivate {
   private readonly windows = new Map<string, Window>();
+  /** Tenant id -> scans in flight. An entry is deleted when it reaches zero. */
+  private readonly inFlight = new Map<string, number>();
 
   canActivate(context: ExecutionContext): boolean {
     const http = context.switchToHttp();
@@ -73,7 +83,32 @@ export class DuplicatesThrottleGuard implements CanActivate {
         .setHeader('Retry-After', String(retryAfterSeconds(refusedUntil, now)));
       throw new DuplicatesTooManyRequests();
     }
+    const release = this.enter(auth.tenantId);
+    if (release === null) {
+      http.getResponse<Response>().setHeader('Retry-After', '1');
+      throw new DuplicatesTooManyRequests();
+    }
+    // 'close' fires once for every response, finished or aborted.
+    http.getResponse<Response>().once('close', release);
     return true;
+  }
+
+  /**
+   * Takes one of the tenant's scan slots. Returns its release (idempotent), or
+   * null when the tenant already runs DUPLICATES_TENANT_CONCURRENCY scans.
+   */
+  enter(tenantId: string): (() => void) | null {
+    const running = this.inFlight.get(tenantId) ?? 0;
+    if (running >= DUPLICATES_TENANT_CONCURRENCY) return null;
+    this.inFlight.set(tenantId, running + 1);
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      const now = (this.inFlight.get(tenantId) ?? 1) - 1;
+      if (now <= 0) this.inFlight.delete(tenantId);
+      else this.inFlight.set(tenantId, now);
+    };
   }
 
   /** Counts one request; returns null when admitted, else the window's end. */
@@ -93,6 +128,7 @@ export class DuplicatesThrottleGuard implements CanActivate {
   /** Forgets every counter (an operator's seam). */
   clear(): void {
     this.windows.clear();
+    this.inFlight.clear();
   }
 
   private sweep(now: number): void {

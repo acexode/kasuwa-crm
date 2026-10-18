@@ -1,4 +1,6 @@
 import {
+  CONTACT_MAX_EMAILS,
+  CONTACT_MAX_PHONES,
   CONTACT_SORTS,
   DEFAULT_CONTACT_SORT,
   DEFAULT_PAGE_SIZE,
@@ -136,8 +138,8 @@ const writableFields = {
   familyName: text(0, 200).nullable().optional(),
   // T-0076 (D-L82): 1..200 code points, no NUL; `null` clears it, "" is 400.
   companyName: text(1, 200).nullable().optional(),
-  phones: z.array(Phone).max(10).optional(),
-  emails: z.array(Email).max(10).optional(),
+  phones: z.array(Phone).max(CONTACT_MAX_PHONES).optional(),
+  emails: z.array(Email).max(CONTACT_MAX_EMAILS).optional(),
   accountId: z.string().uuid().nullable().optional(),
   ownerUserId: z.string().uuid().nullable().optional(),
   status: z.enum(CONTACT_STATUSES).optional(),

@@ -42,8 +42,20 @@ export interface DuplicatePosition {
   ordinal: number;
 }
 
-/** A contact sharing more than this many numbers or addresses cannot exist (and no ordinal passes it). */
-const MAX_ORDINAL = 99;
+/** The most numbers a contact holds (createContact and updateContact refuse more). */
+export const CONTACT_MAX_PHONES = 10;
+/** The most addresses a contact holds (createContact and updateContact refuse more). */
+export const CONTACT_MAX_EMAILS = 10;
+
+/**
+ * The largest ordinal a set can have. Every set with lowest id L and kind K is
+ * keyed on one of L's own numbers (or addresses), so there are at most as many
+ * as L holds: the ordinal (from 0) stays below the cap. A row planted around
+ * the write paths with more is not paged past the cap (the statement filters
+ * it), rather than minting a cursor this server would refuse.
+ */
+export const MAX_DUPLICATE_ORDINAL = Math.max(CONTACT_MAX_PHONES, CONTACT_MAX_EMAILS) - 1;
+const MAX_ORDINAL = MAX_DUPLICATE_ORDINAL;
 
 const CursorPayload = z
   .object({
@@ -174,8 +186,9 @@ export async function listDuplicateSets(
      )
      SELECT match_on, low, ordinal, ids
        FROM ordered
-      WHERE $6::uuid IS NULL
-         OR (low, match_on COLLATE "C", ordinal) > ($6::uuid, $7::text COLLATE "C", $8::integer)
+      WHERE ordinal <= ${MAX_ORDINAL}
+        AND ($6::uuid IS NULL
+             OR (low, match_on COLLATE "C", ordinal) > ($6::uuid, $7::text COLLATE "C", $8::integer))
       ORDER BY low, match_on COLLATE "C", ordinal
       LIMIT $9`,
     [

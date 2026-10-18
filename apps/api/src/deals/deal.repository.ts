@@ -184,7 +184,8 @@ const DEAL_SELECT = `
             FROM contact c
            WHERE c.tenant_id = d.tenant_id
              AND c.programme_id = d.programme_id
-             AND c.id = d.primary_contact_id) AS contact_display_name,
+             AND c.id = d.primary_contact_id
+             AND c.deleted_at IS NULL) AS contact_display_name,
          d.account_id,
          (SELECT a.name
             FROM account a
