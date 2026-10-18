@@ -7,6 +7,7 @@ import {
 import { ADMIN_PROGRAMME_MESSAGE_IDS } from '../../../../components/admin/message-ids';
 import { activeLocale, languageOptions } from '../../../../lib/locale';
 import { adminLiveApiEnabled } from '../../../../lib/feature-flags';
+import { adminLiveNav } from '../../../../components/admin/live-nav';
 
 /**
  * `P02/B2`–`P02/B5` — one programme and its tabs.
@@ -29,6 +30,7 @@ export default async function ProgrammePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { locale } = await activeLocale();
+  const linkedSettings = await adminLiveNav();
   const { programmeId } = await params;
   const query = await searchParams;
 
@@ -41,6 +43,7 @@ export default async function ProgrammePage({
       locale={locale}
       messages={bundleMessages(locale, ADMIN_PROGRAMME_MESSAGE_IDS)}
       locales={languageOptions(locale)}
+      linkedSettings={linkedSettings}
       programmeId={programmeId}
       tab={tab}
       live={live}

@@ -422,7 +422,7 @@ function DetailValue({
         <span className="flex flex-col gap-1">
           {phones.map((phone) => (
             <span key={phone.e164} className="flex flex-wrap items-center gap-2">
-              <span data-record-text="" className="whitespace-nowrap tabular-nums">
+              <span data-record-text="" dir="ltr" className="whitespace-nowrap tabular-nums">
                 {formatPhone(phone.e164)}
               </span>
               {typeof record.phoneNetwork === 'string' && phone === phones[0] ? (

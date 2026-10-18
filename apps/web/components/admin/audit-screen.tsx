@@ -63,10 +63,12 @@ export function AuditScreen({
   locale,
   messages,
   locales,
+  linkedSettings,
 }: {
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
+  linkedSettings: Readonly<Record<string, string>>;
 }) {
   const t = createBundleTranslator(locale, messages);
 
@@ -130,7 +132,7 @@ export function AuditScreen({
     });
 
   return (
-    <AdminShell locale={locale} messages={messages} locales={locales} activeSettingId="audit">
+    <AdminShell locale={locale} messages={messages} locales={locales} linkedSettings={linkedSettings} activeSettingId="audit">
       <div data-screen="P02/E" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex min-w-0 flex-1 flex-col gap-2">

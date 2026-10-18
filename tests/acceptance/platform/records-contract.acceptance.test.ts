@@ -928,8 +928,10 @@ describe('acceptance: records contract (T-0039)', () => {
 
   describe('the P04 map view (M03 P2) is never silently implemented', () => {
     it('any map operation is x-kasuwa-implemented: false and documents 501', () => {
+      // `(?!ping)`: an import's column mapping (T-0093, putImportMapping at
+      // /imports/{importId}/mapping) is not a map view. Lead edit, T-0093.
       const maps = operations().filter(
-        (op) => /map|geo/i.test(op.id) || /(^|\/)(map|geo)/i.test(op.path),
+        (op) => /map(?!ping)|geo/i.test(op.id) || /(^|\/)(map(?!ping)|geo)/i.test(op.path),
       );
       for (const op of maps) {
         expect(op.op['x-kasuwa-implemented'], `${op.id} is a map view marked implemented`).toBe(

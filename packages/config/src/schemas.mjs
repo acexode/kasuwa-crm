@@ -260,6 +260,13 @@ const WebSchema = z.object({
   // Next's defaults.
   KASUWA_WEB_DIST_DIR: z.string().min(1).max(128).default('.next'),
   KASUWA_WEB_TSCONFIG: z.string().min(1).max(128).default('tsconfig.json'),
+
+  // Server-side only. The object store's PUBLIC origin, the host signed into
+  // the browser's presigned upload URLs (T-0092, ADR-0017): the one storage
+  // setting the web process may hold, because a CSP `connect-src` must name it
+  // (ADR-0019's build, T-0096). Never the internal S3_ENDPOINT and never the
+  // keys: both are in WEB_FORBIDDEN below.
+  S3_PUBLIC_ENDPOINT: z.string().url().optional(),
 });
 /** @typedef {z.infer<typeof WebSchema>} WebEnv */
 
@@ -274,8 +281,9 @@ const WebSchema = z.object({
  *
  * The rest are the other server-side credentials and internal endpoints the
  * development `.env` carries: the local KMS master key, the object-store
- * credentials, and the Redis and OpenSearch URLs. None is read by the web
- * process, and each is something a browser-facing process should not hold.
+ * credentials and internal endpoint, and the Redis and OpenSearch URLs. None
+ * is read by the web process, and each is something a browser-facing process
+ * should not hold.
  *
  * Presence is the test, not validity: an empty `DATABASE_URL=` is refused too.
  * The value is never echoed.
@@ -287,6 +295,9 @@ const WEB_FORBIDDEN = [
   'KASUWA_KMS_LOCAL_MASTER_KEY',
   'S3_ACCESS_KEY_ID',
   'S3_SECRET_ACCESS_KEY',
+  // The internal object-store host (T-0092 R9): the browser reaches the store
+  // only through S3_PUBLIC_ENDPOINT.
+  'S3_ENDPOINT',
   'REDIS_URL',
   'OPENSEARCH_URL',
 ];

@@ -3197,3 +3197,252 @@ D-P28 and D-P29.
   - wave 2: T-0094, T-0099, T-0096, T-0095;
   - wave 3: T-0100, T-0097, T-0101.
   - Migration numbers are assigned in merge order, from 0040.
+
+### D-L147 — Demo tooling merged; the web app has no browser session (lead, 2026-10-18)
+**Status:** PROCEEDING (lead).
+- **The gap.** The demo walkthrough found that, after a real sign-in and MFA, the web app keeps the session token nowhere
+  (no cookie, no BFF). Every API call from a real browser is unauthenticated. The e2e suites inject stub identity
+  headers, so no suite caught it.
+  - It is a P0 product gap, filed as **T-0125**, with an ADR first: BFF or API cookie, CSRF, refresh, sign-out, CSP.
+- **Demo tooling (#142) is dev-only:**
+  - `pnpm demo`;
+  - a loopback-only demo proxy that keeps the post-MFA token in an HttpOnly cookie and forwards it as Bearer;
+  - an idempotent, loopback-only demo seed through the real API, with synthetic data;
+  - smoke and TOTP helpers;
+  - the runbook `docs/demo/DEMO.md`.
+- **A markup-only RTL fix:** phone numbers render left-to-right inside Arabic layouts.
+- **Known demo limitations:**
+  - agents can read the admin console (writes are gated; known since T-0032, D-L48);
+  - Home, Inbox, Tickets and Reports are nav placeholders;
+  - Arabic is reached through `?locale=ar`;
+  - low-bandwidth mode has no visible effect yet;
+  - the contacts list shows "Assigned" and "Linked" rather than names for owner and account.
+
+### D-L148 — T-0093 suite rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The suite is on `lead/T-0093-acceptance` (8c9e728): 124 tests, R1–R21 in its header.
+- **Import compliance (D-P28).** An import creates new contacts only, because duplicates are skipped. So a cell may hold
+  a restrictive value or the new-contact default:
+  - `dnd`: true or false;
+  - `consentState`: withdrawn or unknown;
+  - `whatsappOptIn`: false.
+
+  A granting value (`whatsappOptIn` true, `consentState` pending or opted_in) is `consent_grant_refused`.
+- **Duplicates** are read at `GET /api/v1/programmes/{programmeId}/duplicates`, not through a `programmeId` query
+  parameter, which the T-0039 rule refuses (CLAUDE.md 2.2).
+- **A merged-away contact** is 404 on every `/contacts` path. `createContactMerge` answers `409 already_merged` only
+  when the caller could read the record before the merge.
+- **Header erasure.** When the raw file is deleted (7 days after the job ends, or 24 hours for an abandoned upload),
+  the import record's `headers` and `filename` are cleared too. A file without a header row would otherwise keep a
+  person's data in `headers`. `fromImportId` then fails with `unknown_reference`.
+- **New `Error.code` values** in admin.openapi.yaml: `import_status_conflict`, `upload_mismatch`, `already_merged` and
+  `undo_expired`.
+- **Errors** are capped at 1,000 per import. The limits are published as `x-kasuwa-import-limits`.
+- **Minimal lead edits** to the T-0039, T-0081, T-0056 and T-0059 suites admit the new operations.
+
+### D-L149 — ADR-0019 browser session: lead answers to its open questions (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). ADR-0019 is **Proposed** and is on @acexode's personal-review list (D-A3: auth). The build
+of T-0125 proceeds on these answers unless @acexode objects.
+- **The design:** a Next.js catch-all BFF at `apps/web/app/api/v1/[...path]` replaces the `/api/v1` rewrite.
+  - It keeps the opaque token in `__Host-kasuwa_session` (HttpOnly, Secure, SameSite=Lax, Path=/).
+  - It forwards to the API with Bearer, server-side. The API is unchanged.
+  - Every unsafe method needs an exact `Origin` match, `x-requested-with: kasuwa-web` and a JSON-only body.
+  - Stub headers are forwarded only by a web process that is itself in stub mode.
+- **Answers:**
+  1. **Lifetime:** keep the existing 12-hour absolute session, with no idle timeout and no refresh in Phase 2. An idle
+     timeout is a later product decision.
+  2. **SameSite=Lax,** so links from email and WhatsApp land signed in. The custom header plus the Origin check cover
+     CSRF.
+  3. **The demo quick-switch** is dropped with the proxy. A client that omits `Origin` on POST is refused, which fails
+     closed. Opera Mini and old WebViews are noted as a test item.
+  4. **The web-to-API leg** must use TLS outside dev and test. Plain http is refused at boot (D-L94).
+  5. **"Sign out everywhere,"** and revoking other sessions on a factor or password change, are out of scope (a
+     follow-up).
+  6. **Realtime authentication** gets its own task, before realtime ships to browsers.
+  7. **The e2e split:** specs that inject headers run on test and stub web processes. One real-browser journey runs on
+     the production process with no headers. Byte budgets keep measuring the processes they measure today.
+  8. **The shared stub and scope header constants** live in `@kasuwa/config`.
+
+### D-L150 — T-0092 suite rulings; T-0093 build note (lead, 2026-10-18)
+**Status:** PROCEEDING (lead).
+- **T-0092 suite** (`lead/T-0092-acceptance`, a62e3f5; 112 tests against real SeaweedFS 3.80 and Postgres). Its rulings
+  R1–R12 are accepted:
+  - `fileId` is `stored_object.id`, and the database enforces the key shape;
+  - store methods refuse keys they did not mint;
+  - `stored_object` has no filename column (the filename lives on the import job and is erased per D-L148);
+  - the repository never carries key text;
+  - `deleted` is terminal;
+  - a URL is issued only for a `pending` row;
+  - `webEnv` refuses `S3_ENDPOINT`;
+  - `deletePrefix` also aborts in-flight multipart uploads;
+  - dev CORS is set by the gateway flag.
+- **SeaweedFS facts, pinned:**
+  - a signed `content-length` makes the bucket refuse a wrong-size part (403);
+  - URLs expire and edited URLs are refused;
+  - complete verifies the object with `head` and rejects a short object;
+  - SeaweedFS has no per-bucket CORS;
+  - it revives aborted uploads from still-live URLs, so only completion verification stops orphan objects in dev;
+  - its error XML names the key path, so SDK errors must be wrapped.
+- **There is no web CSP today.** ADR-0019's build adds a nonce CSP with `connect-src 'self'`. The storage origin joins it
+  when uploads ship (T-0096).
+- **T-0093 build:** an erased import's saved `mapping` is cleared together with `headers` and `filename` (D-L148). The
+  four new `Error.code` values get `records.error.*` i18n keys in T-0096 and T-0097.
+
+### D-L151 — T-0093 security review rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The combined review passed with five major and several minor findings.
+- **Import writes are creator-only.** Upload-urls, complete, abort, mapping and run are open only to `createdByUserId`
+  (others get `403 not_permitted`). Cancel is open to the creator or a tenant admin. The job runs as `createdByUserId`.
+- **`contact.import` is held only by sets that also hold `contact.write`** (admin in Phase 2). Setting another member as
+  owner needs the same right as createContact (D-P14, D-L81).
+- **Undo never loosens compliance on either contact.** The restored contact takes the more restrictive of its snapshot
+  and the survivor's current value (D-P28).
+- **The duplicates cursor** carries only a contact id (the lowest id in the last set). Sets are ordered by their lowest
+  contact id. The cursor never carries the matched value.
+- **Undo** needs the merging user plus `contact.write` now, or a tenant admin. It is all-or-nothing under the undoer's
+  current field security.
+- **Minors:**
+  - `contact.import` and scope are re-checked every batch;
+  - `contact.claim_and_set_status` never permits a merge;
+  - `listContactMerges` is gated on `contact.write` or tenant admin, and shows ids only after the purge;
+  - `listDuplicates` is throttled with 429;
+  - completing an upload checks metadata only, and bytes stay untrusted until parsed;
+  - signed part URLs are never logged;
+  - the import result says duplicates were skipped and no restriction was applied to existing contacts.
+- **Later decision:** a restrict-only update path, so that importing a suppression list can apply DND to existing
+  contacts.
+
+### D-L152 — T-0121/T-0122 suite rulings; two failures found on main (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The suites are on `lead/T-0121-T-0122-acceptance` (69f4229, 6c284d5).
+- **T-0121 R1–R3 accepted:**
+  - a 413 answers with `code: validation_failed`;
+  - the 415s and the corrupt-gzip 400 are in scope and must not echo the client's header;
+  - an unmatched path is a 404 with `not_found` and no echo.
+- **T-0122:**
+  - `pnpm db:reset` is broken on main: a stale hard-coded drop list leaves a database at head half-dropped. Fixing it with
+    a catalogue query is in T-0122's scope (the old follow-up near D-L line 1094).
+  - The root `db:reset` script still defaults an unset NODE_ENV to development, for local use (D-L103 unchanged).
+  - The suite pins that a wrapper never overwrites an explicit NODE_ENV (I8).
+- **Found on main by a full isolation run:**
+  - `audit-coverage` lacks probes for T-0089's audited custom-field operations;
+  - `p01-auth-screens` fails because `apps/web/lib/deal-money.ts` hard-codes a currency symbol.
+
+  Both are being fixed on `lead/main-fixes-audit-currency`.
+- **Port collision seen again:** one `script-runs` request got an "Ollama" page. The fix is `lead/e2e-free-ports`, pending
+  merge.
+
+### D-L153 — T-0095 suite rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The suite is on `lead/T-0095-acceptance` (253c028): 69 contact-merge tests, plus 5 new
+database attacks in tenancy/adversarial. Its rulings M1–M16 are accepted, including:
+- the column is `merged_by_user_id`;
+- kasuwa_app may update only the undo columns, and the snapshot and `undo_until` are immutable;
+- a restrictive INSERT policy pins the merger to the session user;
+- one audit row per merge or undo, with field names only;
+- the default never picks an owner who has left the programme;
+- a merged-away contact answers an invented id's 404, byte for byte, on every route;
+- undo moves back only the children that still point at the survivor;
+- 150 ms latency at 60k contacts per programme.
+- **The duplicates cursor (widens D-L151).** The decoded cursor carries the lowest contact id plus the literal
+  `phone`/`email` and a version, and never a matched value. Otherwise a pair that matches on both would lose a set at a
+  page boundary.
+- **Contract additions** in T-0095:
+  - `merged` and `restored` in `AuditAction`;
+  - `unknown_reference` at `choices.ownerUserId`.
+- **Known noise:** the adversarial "no such contact" timing check fails under load on this host (D-L100).
+
+### D-L154 — T-0099 suite rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The suite is on `lead/T-0099-acceptance` (276e60a; 78 tests). Its rulings R1–R16 are
+accepted, including:
+- a contact's notification name follows its name parts (D-L68);
+- the actor's name is null once they leave the programme (D-P23);
+- items whose object is no longer visible are dropped;
+- read-all returns the visible unread count;
+- a 30-second polling hint.
+
+Read-all gains an optional `throughId`, so that notifications arriving after the user's view are not marked read unseen.
+Per-kind counts and a list-valued `kind` are not in Phase 2. The mock-load guards in records-contract-import and
+custom-fields-contract get explicit 60 s timeouts.
+
+### D-L155 — T-0092 review rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The migration, tenancy and security reviews passed with findings, none critical.
+- **Live-transaction check:** `@kasuwa/db` tracks the transactions it really issued (`assertLiveTenantTx`). Key minting
+  and the stored-object repository refuse anything else. Object storage has no RLS, so the mint is the only guard on the
+  bytes.
+- **`tenantStoragePrefix`** is lint-banned outside a future operator-only, audited offboarding module (the D-L54
+  precedent).
+- **The storage-adapter package** declares `exports`. Deep imports are banned, and the key builders are not exported.
+- **`storageEnv`** requires https endpoints outside dev and test, accepts only the http and https schemes, and brands its
+  result; `S3ObjectStore` refuses an unbranded config.
+- **0040 hardening:**
+  - status is forward-only;
+  - `uploaded` requires a verified size equal to the declared size;
+  - a deleted row is frozen;
+  - `expires_at` cannot be cleared.
+- **Other fixes:**
+  - adapter caps per purpose (import: 25 MiB, 4 parts);
+  - a no-progress guard in `deletePrefix`;
+  - lint coverage for `.js`/`.mjs`, `@smithy/*` and the fake store in every runtime package;
+  - dev ports bound to 127.0.0.1;
+  - `tenancy-reviewed` markers on the repository's SQL.
+- **Deferred:**
+  - binding the upload id to the row moves to T-0094;
+  - bucket versioning and `s3:PutObjectTagging` to T-0005.
+- **NDPA:** Pooled data in af-south-1 means Nigerian PII is held in South Africa. That is an existing ADR-0002 and D-L128
+  decision, but it needs a transfer assessment with counsel.
+
+### D-L156 — T-0098 suite rulings; an ADR-0018 policy fix (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The suites are on `lead/T-0098-acceptance` (ea25c62; 102 tests in the outbox and
+outbox-forgery suites).
+- **ADR-0018 amendment.** As written, the relay policies refuse the relay's own "mark published" and "mark dead"
+  UPDATE: the new row must pass the SELECT policy, with or without RETURNING. Fix: the relay's SELECT policy gains
+  `OR published_at = now() OR dead_at = now()`. `now()` is fixed per transaction, so the relay sees only the rows it
+  marked in the current transaction. This was proven on a scratch database.
+- **Tightened:**
+  - the relay's UPDATE WITH CHECK requires `published_at = now()` and `dead_at = now()`, so nothing can be back-dated
+    into retention;
+  - kasuwa_app's INSERT is column-limited, so it cannot choose `seq`.
+- **Accepted:**
+  - R1: 5 consumer attempts in all;
+  - R2: `relayOutboxBatch`, `sweepOutbox` and `consumeOutboxJob` in `@kasuwa/db`, with BullMQ bound in apps/worker;
+  - R3: the relay re-parses each payload and skips bad rows without blocking the batch;
+  - R4: `appendOutboxEvent` refuses before any SQL;
+  - R5: drop reasons are returned;
+  - F-R1: the consumer's re-read also matches the actor and tenant;
+  - **F-R3:** a restrictive INSERT policy pins `actor_user_id = app.current_user_id()`, so no event can name another
+    actor.
+- **Lead edits to merged suites** for the sixth role and the required `DATABASE_RELAY_URL`: test-admin-absent,
+  auth-role, auth-retention and config-schemas.
+- **`DATABASE_RELAY_URL` never goes into the shared `.env`,** because the API and migrator refuse it by presence. The dev
+  tooling passes it to the worker only.
+- **For T-0100:** the consumer re-reads the aggregate within the event's programme.
+
+### D-L157 — T-0099 review rulings; T-0121 review (lead, 2026-10-18)
+**Status:** PROCEEDING (lead).
+- **T-0099** (merged as #144). The combined review passed with two major findings, both fixed in the contract:
+  - the unread count examines at most the 500 newest unread notifications and may undercount past that, so its work is
+    bounded;
+  - a nonexistent, another user's or another tenant's cursor all give the same empty page with `nextCursor: null`.
+- **T-0099 minor fixes:**
+  - a PATCH 404 changes nothing;
+  - `Retry-After` is required on the notifications and duplicates 429s;
+  - display names are user text, rendered as text only.
+- **For T-0100:**
+  - the notification RLS restricts reads to `recipient_user_id = app.current_user_id()`;
+  - the outbox consumer checks, as the recipient, that they can read the object, and skips the notification if not;
+  - the drop rule reuses each object's own read path, so merged-away contacts are dropped;
+  - the throttle allows for several visible windows.
+- **T-0121.** The combined review passed with three minor findings:
+  - the body-parser error handler now also requires `expose`;
+  - the middleware names are pinned;
+  - route-existence probing (a 401 versus a 404) predates this change, and the routes are public in the specs, so it is
+    accepted.
+
+### D-L158 — T-0092 merged with two accepted exceptions (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). T-0092 is merged as #145 (migration 0040).
+- **`StoredObjectRepository.get` does not call `assertLiveTenantTx`.** The suite's R7 hand-builds a narrowed tx around a
+  real one. `get` is a read on the caller's own connection under RLS and explicit session filters, so a forged session
+  can only narrow visibility, never widen it. Key minting and every write do check.
+- **The DB CHECK `status <> 'uploaded' OR verified_size_bytes = declared_size_bytes`** waits for a follow-up migration
+  with a suite edit (the suite's control moves an unverified row to `uploaded`). The repository always writes the
+  verified size with `uploaded`.
+- **The 0040 status rules bind every role, the migrator included.** Only key corrections keep the D-L76 migrator
+  exemption.
+- **A presign on a row with an open upload** aborts the old upload first.

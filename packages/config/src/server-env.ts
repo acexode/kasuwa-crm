@@ -1,4 +1,5 @@
 import { databaseCredentialProblems } from './database-target';
+import { storageEncryptionProblems } from './storage-env';
 import {
   apiEnv as parseApiEnv,
   workerEnv as parseWorkerEnv,
@@ -31,6 +32,11 @@ import {
  *     included);
  *   - any variable whose name starts with `PG`, and NODE_PG_FORCE_NATIVE,
  *     which pg (or libpq) would read.
+ *
+ * In every environment, each also refuses an invalid `S3_SSE_MODE`, and outside
+ * development and test `S3_SSE_MODE=off` (T-0092, D-L128 Q3): a process that
+ * will hold the object store must not boot with encryption at rest switched
+ * off, even before it parses the rest of the store's settings (`storageEnv`).
  *
  * Both read only `source`. Neither echoes a value.
  */
@@ -84,6 +90,7 @@ function refuseUnsetNodeEnv(
 export function apiEnv(source: EnvSource = process.env): ApiEnv {
   refuseUnsetNodeEnv('api', source, parseApiEnv);
   const parsed = parseApiEnv(source);
+  refuse('api', storageEncryptionProblems(source));
   if (enforced(parsed.NODE_ENV)) {
     refuse('api', databaseCredentialProblems(source, ['DATABASE_URL', 'DATABASE_AUTH_URL']));
   }
@@ -98,6 +105,7 @@ export function apiEnv(source: EnvSource = process.env): ApiEnv {
 export function workerEnv(source: EnvSource = process.env): WorkerEnv {
   refuseUnsetNodeEnv('worker', source, parseWorkerEnv);
   const parsed = parseWorkerEnv(source);
+  refuse('worker', storageEncryptionProblems(source));
   if (enforced(parsed.NODE_ENV)) {
     refuse('worker', databaseCredentialProblems(source, ['DATABASE_URL']));
   }

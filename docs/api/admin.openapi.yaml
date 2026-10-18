@@ -4037,6 +4037,11 @@ components:
             # records.openapi.yaml (T-0105): moveDeal.
             - transition_not_allowed
             - requirements_unmet
+            # records.openapi.yaml (T-0093): import and merge.
+            - import_status_conflict
+            - upload_mismatch
+            - already_merged
+            - undo_expired
             - too_many_requests
             - not_implemented
             - service_unavailable
