@@ -152,7 +152,14 @@
 --   - outbox_event_pending_seq_idx (seq) WHERE undispatched: the claim scan.
 --   - outbox_event_pending_aggregate_idx (aggregate_type, aggregate_id, seq)
 --     WHERE undispatched: the claim's NOT EXISTS "an earlier event of this
---     aggregate is still pending".
+--     aggregate is still pending". An aggregate is (tenant_id, aggregate_type,
+--     aggregate_id) everywhere the relay compares them (D-L161), so one
+--     tenant's poison row can never hold back another tenant's events. The
+--     index keeps the T-0098 suite's pinned key (aggregate_type,
+--     aggregate_id, seq) and tenant_id is a filter on it: aggregate ids are
+--     uuids, so the extra leading column would buy no selectivity, and
+--     D-L161's (tenant_id, ...) key would fail the unmodified suite's
+--     catalogue test (I3). Raised in the T-0098 report.
 --   - outbox_event_published_idx (published_at) WHERE published_at IS NOT
 --     NULL, and outbox_event_dead_idx (dead_at) WHERE dead_at IS NOT NULL:
 --     the sweep's two range deletes, so retention never scans the table.
@@ -160,6 +167,12 @@
 --     programme or tenant delete makes (0027's M1: without it each deleted
 --     parent seq-scans the table).
 --   All built on an empty table.
+--
+-- AUTOVACUUM (D-L161). The table churns: every row is inserted, updated once
+-- or more (published, attempts) and deleted within 7 to 30 days, and the
+-- claim scans the pending partial indexes every second. Default thresholds
+-- (20% dead tuples) would let dead index entries pile up under a big
+-- backlog, so the table vacuums at 1% + 1,000 rows and analyzes at 2%.
 --
 -- ---------------------------------------------------------------------------
 -- LOCK IMPACT (D-L65)
@@ -193,8 +206,11 @@
 --   2. in a NEW migration, as kasuwa_migrator: DROP TABLE outbox_event (its
 --      policies, indexes, grants and FKs go with it). Undispatched events are
 --      lost with it; drain the relay first if they matter;
---   3. kasuwa_relay then holds nothing; dropping the role is a bootstrap
---      change for the lead.
+--   3. kasuwa_relay then holds nothing on any table. To retire the role, as
+--      the superuser: REVOKE CONNECT ON DATABASE kasuwa FROM kasuwa_relay;
+--      REVOKE USAGE ON SCHEMA public FROM kasuwa_relay; DROP ROLE
+--      kasuwa_relay; and remove it from sql/bootstrap.sql in the same change
+--      (a lead-owned file), or the next bootstrap run recreates it.
 -- ---------------------------------------------------------------------------
 
 SET LOCAL lock_timeout = '5s';
@@ -374,6 +390,13 @@ CREATE INDEX outbox_event_dead_idx
 CREATE INDEX outbox_event_programme_idx
   ON outbox_event (tenant_id, programme_id);
 
+-- See AUTOVACUUM in the header.
+ALTER TABLE outbox_event SET (
+  autovacuum_vacuum_scale_factor = 0.01,
+  autovacuum_vacuum_threshold = 1000,
+  autovacuum_analyze_scale_factor = 0.02
+);
+
 -- --- 4. RLS and policies -----------------------------------------------------------
 ALTER TABLE outbox_event ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox_event FORCE ROW LEVEL SECURITY;
@@ -547,6 +570,26 @@ BEGIN
   IF EXISTS (SELECT 1 FROM pg_catalog.pg_class c, pg_catalog.aclexplode(c.relacl) a
               WHERE c.oid = outbox AND a.grantee = 0) THEN
     RAISE EXCEPTION '0041: PUBLIC holds a privilege on outbox_event';
+  END IF;
+
+  -- The identity sequence: no serving role holds anything on it.
+  SELECT pg_catalog.string_agg(r.rolname || ':' || p.priv, ', ' ORDER BY r.rolname, p.priv)
+    INTO held
+    FROM pg_catalog.pg_roles r
+   CROSS JOIN pg_catalog.unnest(ARRAY['USAGE', 'SELECT', 'UPDATE']) AS p(priv)
+   WHERE r.rolname IN ('kasuwa_app', 'kasuwa_auth', 'kasuwa_sweeper', 'kasuwa_relay')
+     AND pg_catalog.has_sequence_privilege(
+           r.oid, pg_catalog.pg_get_serial_sequence('public.outbox_event', 'seq'), p.priv);
+  IF held IS NOT NULL THEN
+    RAISE EXCEPTION '0041: a serving role holds a privilege on the outbox_event identity sequence: %', held;
+  END IF;
+
+  -- CLAUDE.md 2.7: still exactly the two SECURITY DEFINER functions.
+  IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_proc p
+       WHERE p.prosecdef
+         AND p.pronamespace NOT IN ('pg_catalog'::pg_catalog.regnamespace,
+                                    'information_schema'::pg_catalog.regnamespace)) <> 2 THEN
+    RAISE EXCEPTION '0041: there must be exactly two SECURITY DEFINER functions (CLAUDE.md 2.7)';
   END IF;
 END
 $$;

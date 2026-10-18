@@ -111,7 +111,11 @@ ALTER ROLE kasuwa_auth LOGIN NOBYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE NOR
 -- unlike the sweeper it is never granted to kasuwa_app, so no SET ROLE on an
 -- app connection reaches it. No default privilege below names it, and nothing
 -- here gives it USAGE on schema app. Migration 0041 asserts all of this.
-ALTER ROLE kasuwa_relay LOGIN NOBYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+-- CONNECTION LIMIT 4 (D-L161): the worker's pool is 2, so two instances
+-- overlapping in a deploy fit, and a leaked or abused credential cannot take
+-- the cell's connection slots.
+ALTER ROLE kasuwa_relay LOGIN NOBYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION
+  CONNECTION LIMIT 4;
 
 REVOKE ALL ON DATABASE kasuwa FROM PUBLIC;
 
