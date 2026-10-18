@@ -36,6 +36,12 @@ export interface TestStack {
    * API's auth pool, and the only role that may write the auth tables (T-0049).
    */
   authDatabaseUrl: string;
+  /**
+   * Connection string for kasuwa_relay — NOBYPASSRLS, a member of no role. The
+   * outbox relay's pool (T-0098, ADR-0018): undispatched and expired outbox
+   * rows in every tenant, and nothing else.
+   */
+  relayDatabaseUrl: string;
   /** Connection string for kasuwa_migrator — owns the schema, BYPASSRLS. */
   migrationUrl: string;
   /** Connection string for kasuwa_test_admin — test setup and catalogue reads. */
@@ -101,6 +107,7 @@ export async function startTestStack(options: StartStackOptions = {}): Promise<T
   return {
     databaseUrl: urlFor(postgres, 'kasuwa_app', 'kasuwa_app_dev'),
     authDatabaseUrl: urlFor(postgres, 'kasuwa_auth', 'kasuwa_auth_dev'),
+    relayDatabaseUrl: urlFor(postgres, 'kasuwa_relay', 'kasuwa_relay_dev'),
     migrationUrl,
     testAdminUrl: urlFor(postgres, 'kasuwa_test_admin', 'kasuwa_test_admin_dev'),
     redisUrl: redis?.getConnectionUrl() ?? '',

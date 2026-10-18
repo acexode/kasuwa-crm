@@ -72,7 +72,10 @@ export function LeadsTable({
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState('');
 
-  const searched = list.answered.q.trim() !== '' || activeLeadFilters(list.answered.view.filters).length > 0;
+  const searched =
+    list.answered.q.trim() !== '' ||
+    activeLeadFilters(list.answered.view.filters).length > 0 ||
+    Object.keys(list.answered.view.custom ?? {}).length > 0;
   const state = listState({ phase: list.phase, rowCount: list.rows.length, searching: searched });
   const offline = !list.online;
   const converting = convertingId === null ? null : (list.rows.find((row) => row.id === convertingId) ?? null);

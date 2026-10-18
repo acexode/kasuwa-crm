@@ -1039,7 +1039,15 @@ describe('acceptance: kasuwa_auth owns the auth-table writes (T-0049)', () => {
       // the T-0045 sweep runs on kasuwa_app + kasuwa_sweeper and needs none.
       const worker: Record<string, unknown> = {
         // NODE_ENV explicit: since D-L95 the worker refuses an unset one (T-0117).
-        ...workerEnv({ ...AMBIENT, NODE_ENV: 'test', DATABASE_URL, DATABASE_AUTH_URL, REDIS_URL: 'redis://r:6379' }),
+        // DATABASE_RELAY_URL: the worker requires it since T-0098 (D-L156).
+        ...workerEnv({
+          ...AMBIENT,
+          NODE_ENV: 'test',
+          DATABASE_URL,
+          DATABASE_AUTH_URL,
+          DATABASE_RELAY_URL: 'postgres://kasuwa_relay:not-a-secret@db.internal.example:5432/kasuwa',
+          REDIS_URL: 'redis://r:6379',
+        }),
       };
       expect(worker.DATABASE_URL, 'control: the worker parsed its own URL').toBe(DATABASE_URL);
       expect(worker).not.toHaveProperty('DATABASE_AUTH_URL');

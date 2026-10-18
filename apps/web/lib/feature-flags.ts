@@ -248,6 +248,10 @@ export async function crmSearchEnabled(): Promise<boolean> {
  * "Fields" entry, which links the studio only where this is on
  * (`adminLiveNav()`, read by each admin page). No client module names it.
  *
+ * It is read by the eight record routes too (T-0091: the contact, lead, account
+ * and deal records, their activity forms and the four list filters): with it off
+ * those screens are unchanged and ship none of the custom-field code paths' strings.
+ *
  * Per process, like the others. It grants nothing: the four custom-field
  * operations are decided by the API from the session, and every write needs
  * `custom_field.write` (the tenant-admin flag), whether this is on or off.

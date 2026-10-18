@@ -38,6 +38,22 @@ Implement T-0099 on T-0098's outbox.
 - **Throttle:** as search does (D-L134).
 - **Size:** about 600 lines. If needed, split into PR 1 (migration, producers and consumer) and PR 2 (read API).
 
+## Outbox contract from T-0098 (D-L161)
+- **Producers:**
+  - take the aggregate's row lock before calling `appendOutboxEvent`: write the record first (for example the
+    `UPDATE` that changes the owner), then append in the same transaction. `seq` is assigned at insert, not at commit,
+    so without the lock two transactions on one contact can publish out of order;
+  - generate each event id with `randomUUID()`. Ids are global: the primary key, the BullMQ jobId and the consumer's
+    idempotency key;
+  - uuids may arrive in any case. The outbox lower-cases them.
+- **Consumer:**
+  - register `outboxConsumerProcessor(consumeOutboxJob, appPool, 'kasuwa.events.notifications', handler, write)`
+    (apps/worker `src/outbox.ts`). It is bound to that queue and drops jobs routed elsewhere;
+  - the handler must be idempotent: insert `ON CONFLICT (source_event_id, recipient_user_id) DO NOTHING`;
+  - it re-reads the aggregate within the event's programme (D-L156) and acts on current state, never the payload;
+  - drop outcomes are `reason` (`forged` | `actor_gone`) plus `detail` (`not_visible` | `mismatch` | `wrong_queue` |
+    `invalid` | `actor_gone`). They carry no values.
+
 ## Acceptance tests
 - `tests/acceptance/records/notifications-api.acceptance.test.ts`, plus cases in
   `tests/acceptance/tenancy/outbox-forgery.acceptance.test.ts` (lead, D-L23).

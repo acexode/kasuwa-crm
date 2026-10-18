@@ -1,4 +1,5 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
+import type { CustomFilters } from '../../lib/custom-values-filters';
 import {
   AccountSort,
   AccountTier,
@@ -225,6 +226,8 @@ export function nameAriaSort(sort: AccountSort): 'ascending' | 'descending' | 'n
 export interface AccountView {
   readonly filters: AccountFilterState;
   readonly sort: AccountSort;
+  /** Custom-field filters (T-0091); absent while the feature is off. */
+  readonly custom?: CustomFilters;
 }
 
 export const DEFAULT_ACCOUNT_VIEW: AccountView = { filters: NO_ACCOUNT_FILTERS, sort: 'name' };
@@ -245,6 +248,7 @@ export function toAccountQuery(q: string, view: AccountView, cursor?: string): A
     ...(filters.tag.length > 0 ? { tag: filters.tag } : {}),
     ...(filters.state.length > 0 ? { state: filters.state } : {}),
     ...(filters.lga.length > 0 ? { lga: filters.lga } : {}),
+    ...(view.custom === undefined ? {} : { custom: view.custom }),
     sort: view.sort,
     ...(cursor === undefined ? {} : { cursor }),
     limit: ACCOUNT_PAGE_SIZE,

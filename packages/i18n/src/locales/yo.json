@@ -1622,5 +1622,20 @@
   "admin.studio.custom.discard.title": "Jáde láì fi pamọ́?",
   "admin.studio.custom.discard.body": "A kò tíì fi àwọn ìyípadà rẹ sí pápá yìí pamọ́.",
   "admin.studio.custom.discard.confirm": "Jáde láì fi pamọ́",
-  "admin.studio.custom.discard.keep": "Tẹ̀síwájú láti ṣàtúnṣe"
+  "admin.studio.custom.discard.keep": "Tẹ̀síwájú láti ṣàtúnṣe",
+  "custom.section.title": "Àwọn pápá àdáni",
+  "custom.noValue": "Kò sí iye",
+  "custom.boolean.true": "Bẹ́ẹ̀ ni",
+  "custom.boolean.false": "Rárá",
+  "custom.readOnly": "O kò lè yí pápá yìí padà.",
+  "custom.currencyHint": "Iye owó ní {currency}, bíi 1250.50",
+  "custom.filter.any": "{field}: èyíkéyìí",
+  "custom.filter.isEmpty": "Ó ṣófo",
+  "custom.filter.group": "Àwọn ìyọ́ra fún pápá àdáni",
+  "custom.error.invalid_value": "Ọ̀kan nínú àwọn iye pápá àdáni rẹ kò tọ̀nà. Ṣàyẹ̀wò rẹ̀ kí o sì gbìyànjú lẹ́ẹ̀kansí.",
+  "custom.error.custom_too_large": "Àwọn pápá àdáni ní ọ̀rọ̀ tó pọ̀ jù. Dín iye kan kù kí o sì gbìyànjú lẹ́ẹ̀kansí.",
+  "custom.error.unknown_field": "Pápá àdáni kan kò sí mọ́. Tún ojú-ìwé náà ṣí kí o sì gbìyànjú lẹ́ẹ̀kansí.",
+  "custom.error.field_not_editable": "Ipa rẹ kò lè yí pápá àdáni yẹn padà. A ti tì í ní fọ́ọ̀mù yìí.",
+  "custom.error.field_withheld": "O kò lè ṣe ìyọ́ra lórí pápá àdáni tí ipa rẹ kò lè rí.",
+  "custom.error.withheld_write": "O kò lè yí pápá àdáni tí ipa rẹ kò lè rí padà."
 }

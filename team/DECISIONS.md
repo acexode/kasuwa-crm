@@ -3496,3 +3496,78 @@ import-isolation has 20. Interfaces A–F and rulings R1–R16 and I1–I6 are a
   - share the contact audit writer through a domain package, so the worker uses the same code path;
   - a follow-up migration adds `UNIQUE (tenant_id, programme_id, id)` on `stored_object` for the composite FK.
 - **The two long-running tests** (100,000 rows) are routed to the Windows verification runner.
+
+### D-L161 — T-0098 review rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The migration, security and tenancy reviews passed with findings, none critical.
+- **0041, edited before merge:**
+  - the aggregate ordering key includes `tenant_id`, so one tenant cannot stall another tenant's events with a poison row;
+  - autovacuum is tuned for the queue's churn;
+  - the rollback comment is corrected;
+  - `kasuwa_relay` gets CONNECTION LIMIT 4;
+  - the self-check also asserts the identity-sequence revoke and exactly two SECURITY DEFINER functions.
+- **Code:**
+  - uuids are lowercased in append input and payload schemas (an uppercase id made events go dead silently);
+  - one queue per aggregate type, asserted in the registry;
+  - the drop reasons `not_visible` and `forged` are distinguished;
+  - the consumer helper is bound to its queue;
+  - `addBulk` has a 10 s timeout, so a Redis outage uses the backoff;
+  - the backlog query uses the seq index.
+- **Producer contract** (T-0100 onward):
+  - append after taking the aggregate's row lock, because `seq` is assigned at insert;
+  - generate event ids with `randomUUID()`;
+  - handlers are idempotent on (source_event_id, recipient).
+- **Accepted as built:**
+  - no FK on `actor_user_id` (F-R3 plus consumer re-resolution);
+  - the `last_attempt_at` tightening;
+  - the claim query's deviation from the ADR's literal NOT EXISTS;
+  - the publish backoff;
+  - bad rows counted as attempts;
+  - the relay's control of `attempts` (inside ADR-0018's blast radius).
+- **Before T-0100 ships a consumer:** an NDPA note is needed on BullMQ's failed set keeping identifiers indefinitely
+  (D-L128 Q5).
+- **T-0098 is on @acexode's personal-review list (D-A3):** a new LOGIN role, RLS and a migration.
+
+### D-L162 — T-0095 build rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The build on `agent3/T-0095-merge-api` passes 60 of 62 contact-merge tests, plus the
+tenancy folder, the record API suites, integration and unit.
+- **M8 latency** measured 485–525 ms against 150 ms, on a host with load average 11–16. It is re-measured on the quiet
+  Windows runner. If it is still over, `SET LOCAL work_mem` (bounded at 64 MB) is allowed for that one statement. No new
+  table without escalation (D-L146).
+- **The "does not stop offboarding" test is wrong:** audit_event's programme FK predates this. A lead edit deletes
+  through the tenant, or plants the merge row directly.
+- **records-contract-import:** the five duplicates and merge operations flip to implemented, by lead edit.
+- **Hiding merged contacts on reads is application-layer only.** Every read path has the repository predicate, and the
+  database guards writes with triggers. A database read layer needs a new `app.*` setting or a third SECURITY DEFINER
+  function, both of which need an ADR (CLAUDE.md 2.7). Accepted for Phase 2; a follow-up ADR covers it.
+- **Accepted:**
+  - the duplicates cursor carries an integer ordinal, never a matched value;
+  - choosing `survivor` for a non-editable field is 403;
+  - the audit change list caps at 64 field names.
+- **Before `crm_duplicates` is shown:** the web audit screen and its labels learn `merged` and `restored` (Agent 11,
+  with T-0097).
+- **Process:** the session usage limit hit twice today with about 10 agents running. Fewer parallel agents from here.
+
+### D-L163 — T-0095 review rulings; T-0091 merged (lead, 2026-10-18)
+**Status:** PROCEEDING (lead).
+- **T-0091 is merged (#148). The custom-fields slice (T-0088 to T-0091) is complete.**
+- **Migration numbers in merge order:** T-0094 is 0042 and T-0095 is 0043.
+- **T-0095 reviews** (migration, security, tenancy) passed with findings, none critical. All are to be fixed:
+  - **The child guard locks the contact `FOR SHARE` before judging it.** This closes the race where an activity or deal
+    created during a merge pointed at the merged-away contact.
+  - **Restrictive policies:** INSERT pins `created_at = now()` and `undone_at IS NULL`, so the undo window and the PII
+    snapshot cannot be stretched; UPDATE requires an open window and `undone_at = now()`.
+  - The freeze trigger's exempt columns come from the catalogue.
+  - The REVOKE lists follow main's convention.
+  - The self-check is complete.
+  - The merges index includes `programme_id`.
+  - `deleted_at IS NULL` is added to the deal, board-card and my-activities name reads.
+  - Merge and undo audit custom fields by their bare key (the 64-character limit).
+  - **The duplicates throttle drops to 20 per minute per user, with at most 2 concurrent scans per tenant,** because
+    each page is a full programme scan.
+  - A merged-away id, or an undo, is 404 for callers without `contact.write`.
+  - The ordinal cap is tied to the phone and email caps.
+  - Service decisions are unit-tested as pure functions.
+- **Gates:**
+  - the snapshot purge and erasure path must cover `contact_merge.snapshot` before the first populated cell;
+  - after merges exist there is no safe schema rollback: recovery is forward-only (flag off, undo through the API);
+  - T-0100 publishes the owner-changed event when a merge or undo changes the owner.

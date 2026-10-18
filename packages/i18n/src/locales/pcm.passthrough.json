@@ -347,5 +347,7 @@
   "admin.studio.custom.type.date",
   "admin.studio.custom.form.label",
   "admin.studio.custom.form.apiName",
-  "admin.studio.custom.form.classification"
+  "admin.studio.custom.form.classification",
+  "custom.boolean.true",
+  "custom.boolean.false"
 ]

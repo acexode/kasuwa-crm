@@ -5,7 +5,16 @@ import {
   IMPORT_RUN_QUEUE,
 } from '@kasuwa/domain-core';
 import { S3ObjectStore } from '@kasuwa/storage-adapter';
-import { createPool, pruneAuthTables, refuseUsableTestAdminAtBoot } from '@kasuwa/db';
+import {
+  createPool,
+  OUTBOX_QUEUES,
+  pruneAuthTables,
+  readOutboxBacklog,
+  refuseUsableTestAdminAtBoot,
+  relayOutboxBatch,
+  sweepOutbox,
+  type OutboxQueuePort,
+} from '@kasuwa/db';
 import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import {
@@ -22,6 +31,7 @@ import {
   processImportRun,
   type ImportJobDeps,
 } from './import-jobs';
+import { refuseWrongPoolRolesAtBoot, startOutboxRelay } from './outbox';
 
 /**
  * BullMQ worker process.
@@ -33,16 +43,33 @@ import {
  *   - one queue per concern, named with a `kasuwa.` prefix
  *   - graceful shutdown, so a rolling deploy does not abandon in-flight jobs
  *
- * The database connection is DATABASE_URL, kasuwa_app: NOBYPASSRLS, the same
- * role the API runs as. There is no other connection in this process.
+ * TWO DATABASE CONNECTIONS (ADR-0018 amends what this header used to say):
+ *
+ *   - DATABASE_URL, kasuwa_app: NOBYPASSRLS, the same role the API runs as.
+ *     Every job that touches tenant data uses it, inside withTenantTransaction.
+ *   - DATABASE_RELAY_URL, kasuwa_relay: NOBYPASSRLS, a member of no role, a
+ *     small pool (2) used by the outbox relay and its sweep ONLY. Its grants
+ *     and policies (migration 0041) reach undispatched and expired
+ *     outbox_event rows in every tenant, and nothing else. No other code in
+ *     this process takes it, and no other process may hold it (the API,
+ *     realtime, web and the operator commands refuse the variable).
+ *
+ * Before any queue or schedule exists, the process refuses to boot unless
+ * DATABASE_URL logs in as kasuwa_app and DATABASE_RELAY_URL as kasuwa_relay
+ * (ADR-0013 Decision 4, ADR-0018 point 11), and, outside development and
+ * test, if kasuwa_test_admin is usable (T-0117).
  *
  * IMPORTANT for whoever adds the next job: jobs are NOT inside a tenant
  * transaction. A job that touches tenant data must open one itself with
  * `withTenantTransaction`, using the tenant and user recorded on the job
- * payload. There is no ambient tenant in a worker. The auth-retention job is
- * the one deliberate exception, and it gets its cross-tenant reach from the
- * NOBYPASSRLS `kasuwa_sweeper` role inside `pruneAuthTables` (D-L66), whose
- * policies admit only rows already past retention - never from this process.
+ * payload. There is no ambient tenant in a worker. A consumer of outbox
+ * events uses `outboxConsumerProcessor` (./outbox.ts), which re-enters the
+ * tenant as the event's actor and re-reads the event under RLS before the
+ * handler runs (ADR-0018 point 8): Redis is transport, never authority.
+ * The two deliberate cross-tenant exceptions get their reach from a
+ * NOBYPASSRLS role, never from this process: the auth-retention job from
+ * `kasuwa_sweeper` inside `pruneAuthTables` (D-L66), and the outbox relay from
+ * `kasuwa_relay`; each role's policies admit only the rows its job needs.
  */
 
 const HEARTBEAT_QUEUE = 'kasuwa.heartbeat';
@@ -50,15 +77,31 @@ const HEARTBEAT_QUEUE = 'kasuwa.heartbeat';
 async function main(): Promise<void> {
   loadWorkspaceEnv();
   const configuration = workerEnv();
-  const connection = new IORedis(configuration.REDIS_URL, { maxRetriesPerRequest: null });
   const pool = createPool({
     connectionString: configuration.DATABASE_URL,
     max: configuration.DATABASE_POOL_MAX,
     applicationName: 'kasuwa-worker',
   });
-  // Before any queue or schedule: outside development and test, refuse to
-  // start when kasuwa_test_admin is usable (T-0117, D-L94). On the app pool.
+  // The relay's own pool (ADR-0018 point 6): two connections, outbox only.
+  const relayPool = createPool({
+    connectionString: configuration.DATABASE_RELAY_URL,
+    max: 2,
+    applicationName: 'kasuwa-outbox-relay',
+  });
+  // An idle client's error (a restarted database) must not crash the process.
+  // Nothing from the error is printed: a pg message can carry values.
+  for (const each of [pool, relayPool]) {
+    each.on('error', () => {
+      process.stderr.write('a pooled database connection failed\n');
+    });
+  }
+  // Before any queue or schedule: each pool must be the role it claims to be
+  // (ADR-0018 point 11), and, outside development and test, kasuwa_test_admin
+  // must not be usable (T-0117, D-L94). On the app pool.
+  await refuseWrongPoolRolesAtBoot(pool, relayPool);
   await refuseUsableTestAdminAtBoot(pool, configuration.NODE_ENV);
+
+  const connection = new IORedis(configuration.REDIS_URL, { maxRetriesPerRequest: null });
 
   const heartbeat = new Queue(HEARTBEAT_QUEUE, { connection });
 
@@ -132,16 +175,36 @@ async function main(): Promise<void> {
     });
   }
 
+  // --- the outbox relay (T-0098, ADR-0018) ---------------------------------
+  // One BullMQ queue per consuming domain. The relay only enqueues; T-0100
+  // registers the first consumer (outboxConsumerProcessor) on its queue.
+  const outboxQueues = Object.values(OUTBOX_QUEUES).map((name) => new Queue(name, { connection }));
+  const outboxPorts: Record<string, OutboxQueuePort> = Object.fromEntries(
+    outboxQueues.map((queue) => [queue.name, { addBulk: (jobs) => queue.addBulk(jobs) }]),
+  );
+  const relay = startOutboxRelay({
+    relay: relayOutboxBatch,
+    sweep: sweepOutbox,
+    backlog: readOutboxBacklog,
+    pool: relayPool,
+    queues: outboxPorts,
+    write: (line) => process.stdout.write(`${line}\n`),
+  });
+
   process.stdout.write(
-    `kasuwa worker listening on queues ${[HEARTBEAT_QUEUE, AUTH_RETENTION_QUEUE, ...importWorkers.map((w) => w.name)].join(', ')}\n`,
+    `kasuwa worker listening on queues ${[HEARTBEAT_QUEUE, AUTH_RETENTION_QUEUE, ...importWorkers.map((w) => w.name)].join(', ')}; ` +
+      `relaying the outbox to ${outboxQueues.map((queue) => queue.name).join(', ')}\n`,
   );
 
   const shutdown = async (): Promise<void> => {
+    await relay.stop();
     await heartbeatWorker.close();
     await authRetentionWorker.close();
     for (const worker of importWorkers) await worker.close();
     await heartbeat.close();
     await authRetention.close();
+    for (const queue of outboxQueues) await queue.close();
+    await relayPool.end();
     await pool.end();
     await connection.quit();
     process.exit(0);

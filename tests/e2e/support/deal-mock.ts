@@ -42,6 +42,7 @@ import {
   type StoredCheck,
   type StoredDeal,
 } from './pipeline-mock';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
 
 /**
  * The deal detail's half of `docs/api/records.openapi.yaml`, served into the
@@ -594,6 +595,15 @@ export interface DealMockOptions {
   readonly transitionDrift?: boolean;
   /** Hand the board's operations (listPipelines, the board, listDeals, createDeal) to the routes installed before this mock. */
   readonly behindBoard?: boolean;
+  /**
+   * Custom-field definitions, values and field security (T-0091, lead edit),
+   * served by `custom-values-mock.ts`: listCustomFields, the projected
+   * `custom` on every Deal and Activity this mock answers with, and the
+   * per-key merge of updateDeal's `custom` (checked after the 403s, before the
+   * 400s and the 409) and createActivity's. Absent: listCustomFields lists
+   * nothing and no deal carries `custom`, so the T-0110 journeys are unchanged.
+   */
+  readonly customFields?: CustomFieldsSetup;
 }
 
 export interface RecordedWrite {
@@ -624,6 +634,8 @@ export interface DealMock {
   readonly store: StoredDeal[];
   /** The timelines as they now stand, by deal id. */
   readonly timelines: Map<string, StoredItem[]>;
+  /** The custom-field half (T-0091): definition reads, custom writes and stored values. */
+  readonly custom: CustomFieldsServer;
   release(): void;
   releaseWrites(): void;
 }
@@ -699,6 +711,7 @@ export async function installDealMock(page: Page, options: DealMockOptions = {})
   const violations: string[] = [];
   const mockFaults: string[] = [];
   const plantedFaults: string[] = [];
+  const custom = new CustomFieldsServer(options.customFields, violations);
   const servedVersions = new Map<string, Set<number>>();
   const servedRows = new Map<string, Map<number, StoredDeal>>();
   /** What the screen was last served of each deal: which fields it could see. */
@@ -759,7 +772,8 @@ export async function installDealMock(page: Page, options: DealMockOptions = {})
     servedRows.set(row.id, rows);
     const withheld = withheldFor(row);
     servedWithheld.set(row.id, withheld);
-    return serveRow(row, withheld, serverConfig(pipelineOf(row.pipelineId)));
+    const out = serveRow(row, withheld, serverConfig(pipelineOf(row.pipelineId))) as Json & { withheldFields: string[] };
+    return custom.decorate(out, 'deal', row.id, pipelineOf(row.pipelineId).programmeId);
   };
 
   const readBody = (request: Request, label: string): unknown => {
@@ -1008,6 +1022,9 @@ export async function installDealMock(page: Page, options: DealMockOptions = {})
       refusal.details = notEditable.map((path) => ({ path, code: 'field_not_editable' }));
       return reply(403, refusal);
     }
+    // T-0091: `custom` is a per-key merge, checked by the custom half (its own 403s, then 400s).
+    const customAnswer = 'custom' in fields ? custom.checkPatch('deal', row.id, pipeline.programmeId, fields.custom, 'updateDeal') : undefined;
+    if (customAnswer !== undefined) return reply(customAnswer.status, customAnswer.body);
     // 400: the body.
     if (problems.length > 0) return reply(400, validation('DealValidationFailed', [{ path: 'body', code: 'invalid_string' }]));
 
@@ -1019,6 +1036,7 @@ export async function installDealMock(page: Page, options: DealMockOptions = {})
     const when = serverTime(writeCount);
     const changed = Object.keys(fields).filter((key) => FIELD_PATHS[key] !== undefined);
     applyFields(row, fields);
+    if (isJson(fields.custom)) custom.applyPatch('deal', row.id, fields.custom);
     row.version += 1;
     row.updatedAt = when;
     appendItems(row.id, changed.map((field) => fieldItem(field, when, ME)));
@@ -1192,6 +1210,9 @@ export async function installDealMock(page: Page, options: DealMockOptions = {})
       refusal.details = [{ path: 'dealId', code: 'field_not_editable' }];
       return reply(403, refusal);
     }
+    // T-0091: `custom` on a create carries values only, checked for the activity object.
+    const customAnswer = row === undefined ? undefined : custom.checkCreate('activity', pipelineOf(row.pipelineId).programmeId, body.custom, 'createActivity');
+    if (customAnswer !== undefined) return reply(customAnswer.status, customAnswer.body);
     if (problems.length > 0 || row === undefined) return reply(400, validation('ValidationFailed', [{ path: 'body', code: 'invalid_string' }]));
 
     writeCount += 1;
@@ -1235,6 +1256,8 @@ export async function installDealMock(page: Page, options: DealMockOptions = {})
       delete activity.dealId;
       activity.withheldFields = ['dealId'];
     }
+    custom.storeCreated(id, body.custom);
+    custom.decorate(activity as Json & { withheldFields: string[] }, 'activity', id, String(activity.programmeId));
     return reply(201, activity);
   };
 
@@ -1284,6 +1307,7 @@ export async function installDealMock(page: Page, options: DealMockOptions = {})
       }
       if (url.pathname === ME_PATH && method === 'GET') return me(route);
       if (url.pathname === PROGRAMMES_PATH && method === 'GET') return programmes(route);
+      if (url.pathname === CUSTOM_FIELDS_PATH && method === 'GET') return custom.answerList(route);
       const pipelineMatch = /^\/api\/v1\/pipelines\/([^/]+)$/.exec(url.pathname);
       if (pipelineMatch !== null && method === 'GET') return getPipeline(route, url, pipelineMatch[1] ?? '');
       const dealMatch = /^\/api\/v1\/deals\/([^/]+)(\/move|\/timeline)?$/.exec(url.pathname);
@@ -1315,6 +1339,7 @@ export async function installDealMock(page: Page, options: DealMockOptions = {})
     plantedFaults,
     store,
     timelines,
+    custom,
     release: () => release(),
     releaseWrites: () => releaseWrites(),
   };

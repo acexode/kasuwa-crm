@@ -354,6 +354,8 @@
     "admin.studio.custom.type.date": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.studio.custom.form.label": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.studio.custom.form.apiName": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
-    "admin.studio.custom.form.classification": "A product name, abbreviation or loanword the admin console uses unchanged in this locale."
+    "admin.studio.custom.form.classification": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "custom.boolean.true": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "custom.boolean.false": "A product name, abbreviation or loanword the admin console uses unchanged in this locale."
   }
 }

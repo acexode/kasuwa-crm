@@ -9,6 +9,7 @@ import {
   jsonb,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -1561,6 +1562,41 @@ export const importJob = pgTable(
 );
 
 /**
+ * The transactional outbox (migration 0041, T-0098, ADR-0018 as amended by
+ * D-L156). A producer appends a row with `appendOutboxEvent` inside its own
+ * tenant transaction; apps/worker's relay, as the NOBYPASSRLS
+ * `kasuwa_relay` role, publishes it to BullMQ and marks it. kasuwa_app holds
+ * SELECT and column-limited INSERT only (never `seq` or the publication
+ * columns); a restrictive policy pins `actor_user_id` to the session user
+ * (F-R3). The payload holds identifiers only (D-P29). The partial indexes'
+ * predicate (`published_at IS NULL AND dead_at IS NULL`) has no Drizzle
+ * mirror; the SQL is the source of truth.
+ */
+export const outboxEvent = pgTable(
+  'outbox_event',
+  {
+    id: uuid('id').primaryKey(),
+    seq: bigint('seq', { mode: 'bigint' }).notNull().generatedAlwaysAsIdentity(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    actorUserId: uuid('actor_user_id').notNull(),
+    eventType: text('event_type').notNull(),
+    schemaVersion: smallint('schema_version').notNull().default(1),
+    aggregateType: text('aggregate_type').notNull(),
+    aggregateId: uuid('aggregate_id').notNull(),
+    payload: jsonb('payload').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    attempts: smallint('attempts').notNull().default(0),
+    lastAttemptAt: timestamp('last_attempt_at', { withTimezone: true }),
+    deadAt: timestamp('dead_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('outbox_event_programme_idx').on(table.tenantId, table.programmeId),
+  ],
+);
+
+/**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
  */
@@ -1603,6 +1639,7 @@ export const TENANT_SCOPED_TABLES = [
   'audit_export',
   'stored_object',
   'import_job',
+  'outbox_event',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];

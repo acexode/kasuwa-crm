@@ -2,6 +2,9 @@
 
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useId, useRef, useState, type RefObject } from 'react';
+import { filterableFields, NO_CUSTOM_FILTERS, setCustomFilter } from '../../lib/custom-values-filters';
+import { LazyCustomFilterBar } from '../custom/lazy-filters';
+import { useCustomDefinitions } from '../custom/use-custom-fields';
 import { createBundleTranslator, type MessageBundle, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
@@ -72,6 +75,7 @@ export function LeadsScreen({
   locales,
   live,
   initialQ,
+  customFields = false,
 }: {
   locale: string;
   messages: MessageBundle;
@@ -83,8 +87,12 @@ export function LeadsScreen({
    * checked to be a name on the server (`nameFromUrl`): the first search.
    */
   initialQ?: string;
+  /** Custom values are on in this process (read by the server page, T-0091): offer the custom filters. */
+  customFields?: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
+  // A lead is a contact (D-P17): the leads list filters on the contact's own fields.
+  const custom = useCustomDefinitions('contact', customFields);
   const [q, setQ] = useState(initialQ ?? '');
   // The search never stays in the URL (`use-keyset-list.ts`): read once, then dropped.
   useEffect(() => {
@@ -145,7 +153,7 @@ export function LeadsScreen({
 
   const clearAll = useCallback(() => {
     setQ('');
-    setView((current) => ({ ...current, filters: NO_LEAD_FILTERS }));
+    setView((current) => ({ ...current, filters: NO_LEAD_FILTERS, custom: NO_CUSTOM_FILTERS }));
   }, []);
 
   const switchTo = (next: Mode) => {
@@ -265,6 +273,15 @@ export function LeadsScreen({
             ) : null}
           </div>
         </div>
+
+        {filterableFields(custom.fields).length > 0 ? (
+        <LazyCustomFilterBar
+          t={t}
+          fields={custom.fields}
+          filters={view.custom ?? NO_CUSTOM_FILTERS}
+          onChange={(key, value) => setView((current) => ({ ...current, custom: setCustomFilter(current.custom ?? NO_CUSTOM_FILTERS, key, value) }))}
+        />
+        ) : null}
 
         {mode === 'table' ? (
           <LeadsTable
