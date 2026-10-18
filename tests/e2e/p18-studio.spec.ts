@@ -162,14 +162,13 @@ const FORM = '[data-testid="field-form"]';
 const DIALOG = '[data-testid="retire-dialog"]';
 
 /**
- * The /admin/custom-fields transferred-byte budget. PROVISIONAL: the screen
- * did not exist when this was written, so nothing could be measured. It sits
- * between the P02 console's routes (222,000 to 266,000 on the default
- * server); the acceptance suite requires it to be at least, and within 5% of,
- * what each run measures, so the first build fails here until the lead pins
- * it from the builder's measurements.
+ * The /admin/custom-fields transferred-byte budget, pinned by the lead (T-0090,
+ * D-L145) from the builder's runs: 259,164 and 259,660 bytes on the final code
+ * (259,876 and 260,023 on earlier code). 266,000 passes every run, is within 5%
+ * of the lowest, and leaves about 2.4% of headroom. The acceptance suite holds
+ * it at or under 270,000 and within 5% of what each run measures.
  */
-const STUDIO_BUDGET_BYTES = 262_000;
+const STUDIO_BUDGET_BYTES = 266_000;
 
 const EN = JSON.parse(
   readFileSync(resolve(__dirname, '..', '..', 'packages', 'i18n', 'src', 'locales', 'en.json'), 'utf8'),
@@ -1286,8 +1285,13 @@ test('the list, both forms, a refusal, the warning and the dialog pass axe @p18-
 test('none of the overruled design: custom objects, layouts, rules, delete or restore, type change, usage, plans, extra currencies @p18-studio @p18-studio-absent', async ({ page }) => {
   await openStudio(page);
   const banned = /\b(delete|restore|undo|used in|not used|unused|growth plan|scale plan|compare plans|upgrade|new object|custom objects?|relationships?|page layouts?|layout builder|validation rules?|record types?|translator|default value|help text|required on|filterable|change type)\b/i;
+  // The studio's own surfaces only: its screen, its form and its dialog (lead edit, T-0090, D-L145). The P02
+  // menu around it lists the unbuilt Customisation entries ("Page layouts", "Validation rules", "Record types")
+  // as aria-disabled, announced to assistive technology; they are the menu's, not the studio's.
   const check = async (where: string) => {
-    const copy = await visibleText(page.locator('body'));
+    const parts = await shown(page.locator(`${SCREEN}, ${FORM}, ${DIALOG}`)).all();
+    expect(parts.length, `${where}: no studio surface to read`).toBeGreaterThan(0);
+    const copy = (await Promise.all(parts.map((part) => visibleText(part)))).join(' ');
     expect(copy.match(banned)?.[0], `${where} draws the overruled design`).toBeUndefined();
   };
   await check('the list');

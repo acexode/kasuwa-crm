@@ -9,7 +9,10 @@ import { parse } from 'yaml';
  * `updateCustomField` and `retireCustomField`, plus the two reads the admin
  * shell makes on every console screen (`getAdminHomeSummary` for the
  * residency badge, `getSettingsMenuBadges` for the menu), served into the
- * browser by Playwright for T-0090 (the P18 customisation studio).
+ * browser by Playwright for T-0090 (the P18 customisation studio). The P02
+ * home's three reads (`getAdminUsage`, `listAdminAlerts`, `listAuditEvents`)
+ * are served too, from their examples, because `@p18-studio-shell` ends on
+ * `/admin` with this mock installed (lead edit, T-0090, D-L145).
  *
  * ---------------------------------------------------------------------------
  * READ FROM THE CONTRACT AT RUN TIME, AND EVERY REQUEST AND ANSWER CHECKED
@@ -52,7 +55,7 @@ import { parse } from 'yaml';
  *
  * WHAT THE MOCK ENFORCES ON EVERY REQUEST (`violations`, the SCREEN's fault)
  *
- *   - Only the six operations above; anything else under `/api/v1/` is a
+ *   - Only the nine operations above; anything else under `/api/v1/` is a
  *     violation (a record count, a usage read, a delete, a type change, a
  *     field-security write). No header names a programme, tenant or scope.
  *   - listCustomFields: only `object` (one of the four) and `includeRetired`
@@ -131,6 +134,10 @@ const FIELD_PATH = /^\/api\/v1\/admin\/custom-fields\/([^/]+)$/;
 const RETIRE_PATH = /^\/api\/v1\/admin\/custom-fields\/([^/]+)\/retire$/;
 const HOME_SUMMARY_PATH = '/api/v1/admin/home/summary';
 const BADGES_PATH = '/api/v1/admin/settings-menu/badges';
+/** The P02 home's own reads (T-0090, D-L145): `@p18-studio-shell` ends on `/admin`, which reads these three. */
+const HOME_USAGE_PATH = '/api/v1/admin/home/usage';
+const HOME_ALERTS_PATH = '/api/v1/admin/home/alerts';
+const AUDIT_EVENTS_PATH = '/api/v1/admin/audit/events';
 
 const OP = {
   listCustomFields: [LIST_PATH, 'get'],
@@ -139,6 +146,9 @@ const OP = {
   retireCustomField: ['/api/v1/admin/custom-fields/{fieldId}/retire', 'post'],
   getAdminHomeSummary: [HOME_SUMMARY_PATH, 'get'],
   getSettingsMenuBadges: [BADGES_PATH, 'get'],
+  getAdminUsage: [HOME_USAGE_PATH, 'get'],
+  listAdminAlerts: [HOME_ALERTS_PATH, 'get'],
+  listAuditEvents: [AUDIT_EVENTS_PATH, 'get'],
 } as const;
 
 export type Operation = keyof typeof OP;
@@ -480,10 +490,21 @@ const UPDATE_SCHEMA = schema('UpdateCustomFieldRequest');
 const HOME_SUMMARY = clone(at(CONTRACT, 'paths', HOME_SUMMARY_PATH, 'get', 'responses', '200', 'content', 'application/json', 'example'));
 const BADGES = clone(at(CONTRACT, 'paths', BADGES_PATH, 'get', 'responses', '200', 'content', 'application/json', 'example'));
 
+/** The P02 home's reads, each its contract example, served as the console's home screen makes them (T-0090, D-L145). */
+const HOME_READS: Readonly<Record<string, { operation: Operation; body: unknown; parameters: readonly string[] }>> = Object.fromEntries(
+  (['getAdminUsage', 'listAdminAlerts', 'listAuditEvents'] as const).map((operation) => {
+    const [path, method] = OP[operation];
+    const spec = at(CONTRACT, 'paths', path, method) as Json;
+    const parameters = ((Array.isArray(spec.parameters) ? spec.parameters : []) as unknown[]).map((raw) => String((deref(raw) as Json).name));
+    return [path, { operation, body: clone(at(spec, 'responses', '200', 'content', 'application/json', 'example')), parameters }];
+  }),
+);
+
 for (const [operation, body] of [
   ['getAdminHomeSummary', HOME_SUMMARY],
   ['getSettingsMenuBadges', BADGES],
   ['listCustomFields', LIST_EXAMPLE],
+  ...Object.values(HOME_READS).map((read) => [read.operation, read.body] as const),
 ] as const) {
   const problems = answerProblems(operation, 200, body);
   if (problems.length > 0) throw new Error(`the ${operation} example disagrees with its own schema: ${problems.join('; ')}`);
@@ -794,6 +815,13 @@ export async function installCustomFieldsMock(page: Page, options: CustomFieldsM
       if (field !== null && method === 'PATCH') return update(route, request, url, field[1] ?? '');
       if (url.pathname === HOME_SUMMARY_PATH && method === 'GET') return answer(route, 'getAdminHomeSummary', 200, clone(HOME_SUMMARY));
       if (url.pathname === BADGES_PATH && method === 'GET') return answer(route, 'getSettingsMenuBadges', 200, clone(BADGES));
+      const homeRead = HOME_READS[url.pathname];
+      if (homeRead !== undefined && method === 'GET') {
+        for (const name of new Set(url.searchParams.keys())) {
+          if (!homeRead.parameters.includes(name)) violations.push(`${homeRead.operation}: the contract declares no "${name}" parameter`);
+        }
+        return answer(route, homeRead.operation, 200, clone(homeRead.body));
+      }
       violations.push(`${method} ${url.pathname.replace(/[^/]{40,}/g, '<long>')} is not an operation the studio uses`);
       try {
         await route.fulfill({ status: 404, contentType: 'application/json', headers: { 'cache-control': 'no-store' }, body: JSON.stringify(responseExample('NotFound')) });
