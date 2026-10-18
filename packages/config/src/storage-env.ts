@@ -30,6 +30,16 @@ import type { EnvSource } from './schemas.mjs';
  *                            is refused everywhere until the per-cell KMS task
  *                            (D-L128 Q3).
  *
+ * ENDPOINT SCHEMES (D-L155): S3_ENDPOINT and S3_PUBLIC_ENDPOINT must be http:
+ * or https: everywhere, and https: outside development and test. A signed
+ * URL or a credentialled request over plain HTTP in a deployed cell would put
+ * the signature, and the object, on the wire in clear.
+ *
+ * THE RESULT IS BRANDED (D-L155): `isStorageEnv` is true only for an object
+ * this function returned, and S3ObjectStore refuses anything else, so a store
+ * can never be built from a hand-assembled configuration that skipped these
+ * checks.
+ *
  * No refusal echoes a value: the messages carry variable names only.
  */
 
@@ -105,10 +115,39 @@ export function storageEncryptionProblems(source: EnvSource): string[] {
   return [];
 }
 
+/** Every object `storageEnv` returned. Module-private: nothing else can add to it. */
+const BRANDED = new WeakSet<object>();
+
+/** True only for a configuration `storageEnv` returned. */
+export function isStorageEnv(value: unknown): value is StorageEnv {
+  return typeof value === 'object' && value !== null && BRANDED.has(value);
+}
+
+function endpointProblems(source: EnvSource): string[] {
+  const problems: string[] = [];
+  for (const name of ['S3_ENDPOINT', 'S3_PUBLIC_ENDPOINT'] as const) {
+    const value = source[name];
+    if (value === undefined) continue;
+    let protocol: string;
+    try {
+      protocol = new URL(value).protocol;
+    } catch {
+      continue; // the schema reports an invalid URL
+    }
+    if (protocol !== 'http:' && protocol !== 'https:') {
+      problems.push(`  ${name}: must be an http or https URL`);
+    } else if (protocol !== 'https:' && enforced(source.NODE_ENV)) {
+      problems.push(`  ${name}: must be https outside development and test`);
+    }
+  }
+  return problems;
+}
+
 export function storageEnv(source: EnvSource): StorageEnv {
   const problems: string[] = [];
   const parsed = StorageSchema.safeParse(source);
   if (!parsed.success) problems.push(...describe(parsed.error));
+  problems.push(...endpointProblems(source));
 
   const hasId = source.S3_ACCESS_KEY_ID !== undefined;
   const hasSecret = source.S3_SECRET_ACCESS_KEY !== undefined;
@@ -139,5 +178,7 @@ export function storageEnv(source: EnvSource): StorageEnv {
       ? Object.freeze({ accessKeyId: env.S3_ACCESS_KEY_ID, secretAccessKey: env.S3_SECRET_ACCESS_KEY })
       : undefined;
   Object.defineProperty(config, 'credentials', { value: credentials, enumerable: false });
-  return Object.freeze(config) as StorageEnv;
+  const frozen = Object.freeze(config) as StorageEnv;
+  BRANDED.add(frozen);
+  return frozen;
 }

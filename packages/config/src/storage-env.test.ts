@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apiEnv, storageEnv, webEnv, workerEnv } from './index';
+import { apiEnv, isStorageEnv, storageEnv, webEnv, workerEnv } from './index';
 
 const SECRET = 'unit-secret-not-real-0092';
 const DEV = {
@@ -67,6 +67,30 @@ describe('storageEnv', () => {
     const { NODE_ENV: _unset, ...noNodeEnv } = DEV;
     expect(messageOf(() => storageEnv({ ...noNodeEnv, S3_SSE_MODE: 'off' }))).toContain('S3_SSE_MODE');
     expect(messageOf(() => storageEnv({ ...DEV, S3_SSE_MODE: 'aws:kms' }))).toContain('S3_SSE_MODE');
+  });
+});
+
+describe('storageEnv endpoint schemes and branding (D-L155)', () => {
+  const prod = { NODE_ENV: 'production', S3_REGION: 'af-south-1', S3_BUCKET: 'kasuwa-za-1' };
+
+  it('requires https outside development and test', () => {
+    expect(() => storageEnv({ ...prod, S3_ENDPOINT: 'https://s3.example' })).not.toThrow();
+    expect(messageOf(() => storageEnv({ ...prod, S3_ENDPOINT: 'http://s3.example' }))).toContain('S3_ENDPOINT');
+    expect(messageOf(() => storageEnv({ ...prod, S3_PUBLIC_ENDPOINT: 'http://s3.example' }))).toContain(
+      'S3_PUBLIC_ENDPOINT',
+    );
+    expect(() => storageEnv({ ...DEV, NODE_ENV: 'test' })).not.toThrow();
+  });
+
+  it.each(['ftp://s3.example', 'file:///etc/passwd', 'javascript:alert(1)'])('refuses %s everywhere', (url) => {
+    expect(messageOf(() => storageEnv({ ...DEV, S3_ENDPOINT: url }))).toContain('S3_ENDPOINT');
+  });
+
+  it('brands only what it returned', () => {
+    const env = storageEnv(DEV);
+    expect(isStorageEnv(env)).toBe(true);
+    expect(isStorageEnv({ ...env })).toBe(false);
+    expect(isStorageEnv({ region: 'af-south-1', bucket: 'x' })).toBe(false);
   });
 });
 
