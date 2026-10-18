@@ -1,4 +1,5 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
+import type { CustomFilters } from '../../lib/custom-values-filters';
 import {
   ContactSource,
   ContactStatus,
@@ -113,6 +114,13 @@ export const FILTERS: readonly FilterSpec[] = [
 
 export type FilterState = Readonly<Record<FilterKey, readonly string[]>>;
 
+/** Everything about the list but the search box, replaced as one value (`useKeysetList` compares it by identity). */
+export interface ContactView {
+  readonly filters: FilterState;
+  /** Custom-field filters (T-0091); empty while the feature is off. */
+  readonly custom: CustomFilters;
+}
+
 export const NO_FILTERS: FilterState = { status: [], source: [], owner: [], dnd: [], whatsappOptIn: [] };
 
 /** Toggles one option. A single-valued filter replaces its value, or clears it. */
@@ -148,7 +156,7 @@ export function optionLabel(key: FilterKey, value: string): MessageId {
 }
 
 /** The `listContacts` query for a search box and a filter state. No scope, ever. */
-export function toListQuery(q: string, filters: FilterState, cursor?: string): ContactListQuery {
+export function toListQuery(q: string, filters: FilterState, cursor?: string, custom?: CustomFilters): ContactListQuery {
   const status = filters.status.filter((value): value is ContactStatus =>
     (ContactStatus.options as readonly string[]).includes(value),
   );
@@ -167,6 +175,7 @@ export function toListQuery(q: string, filters: FilterState, cursor?: string): C
     ...(source.length > 0 ? { source } : {}),
     ...(dnd === undefined ? {} : { dnd }),
     ...(whatsappOptIn === undefined ? {} : { whatsappOptIn }),
+    ...(custom === undefined ? {} : { custom }),
     ...(cursor === undefined ? {} : { cursor }),
     limit: PAGE_SIZE,
   };

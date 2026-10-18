@@ -1,5 +1,7 @@
 'use client';
 
+import dynamic from 'next/dynamic';
+import { guarded } from '../custom/lazy-boundary';
 import Link from 'next/link';
 import { useId, useRef, useState, type ReactNode } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
@@ -8,12 +10,12 @@ import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { FIELD, LINK, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { ActivityType, type ContactRecord } from '../../lib/contact-record-api';
-import { ActivityForm } from '../record/activity-form';
 import { recordHref, writeErrorId, zoneName } from '../record/record-core';
 import { RecordLoading, RecordNotFound, RecordOfflineBanner, RecordUnavailable } from '../record/record-states';
 import { RecordTimeline, Value, type TimelineVocabulary } from '../record/record-timeline';
-import { ContactSheet } from './contact-sheet';
 import { StartScript } from '../script-run/start-script';
+import { LazyCustomValuesPanel } from '../custom/lazy-panel';
+import { useCustomFields, useReadOnlyKeys, type CustomContext, type ReadOnlyStore } from '../custom/use-custom-fields';
 import {
   DETAILS,
   STATUS_CODES,
@@ -25,6 +27,10 @@ import {
   type DetailKey,
 } from './record-model';
 import { useContactRecord, type ContactRecordState } from './use-contact-record';
+
+// Loaded when opened: neither the edit sheet nor the activity form is on the page's first paint.
+const ContactSheet = guarded(dynamic(() => import('./contact-sheet').then((module) => module.ContactSheet), { ssr: false }));
+const ActivityForm = guarded(dynamic(() => import('../record/activity-form').then((module) => module.ActivityForm), { ssr: false }));
 
 /**
  * `P05/01` — the contact record, the 360° view (T-0062), with `P05/02` (the
@@ -72,6 +78,7 @@ export function ContactRecordScreen({
   locales,
   live,
   scripts = false,
+  customFields = false,
 }: {
   id: string;
   locale: string;
@@ -81,9 +88,13 @@ export function ContactRecordScreen({
   live: readonly string[];
   /** The scripts flag is on in this process (read by the server page): draw the start control (T-0116). */
   scripts?: boolean;
+  /** Custom values are on in this process (read by the server page, T-0091): draw, edit and log them. */
+  customFields?: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const state = useContactRecord(id);
+  const custom = useCustomFields('contact', customFields);
+  const activityKeys = useReadOnlyKeys();
   const offline = !state.online;
 
   return (
@@ -113,6 +124,9 @@ export function ContactRecordScreen({
             offline={offline}
             linkAccount={live.includes('accounts')}
             scripts={scripts}
+            custom={custom}
+            customFields={customFields}
+            activityKeys={activityKeys}
           />
         ) : null}
       </div>
@@ -128,6 +142,9 @@ function Ready({
   offline,
   linkAccount,
   scripts,
+  custom,
+  customFields,
+  activityKeys,
 }: {
   t: Translator;
   locale: string;
@@ -138,6 +155,12 @@ function Ready({
   linkAccount: boolean;
   /** The P10 start control (T-0116), behind the scripts flag on the server. Reads nothing until opened. */
   scripts: boolean;
+  /** The contact's custom-field definitions and what this session has been told is read-only (T-0091). */
+  custom: CustomContext;
+  /** The custom-fields flag, for the activity form's own definitions. */
+  customFields: boolean;
+  /** Read-only activity keys, owned here so they outlive the activity form. */
+  activityKeys: ReadOnlyStore;
 }) {
   const [editing, setEditing] = useState(false);
   const [logging, setLogging] = useState<ActivityType | null>(null);
@@ -238,6 +261,8 @@ function Ready({
         </p>
       )}
 
+      {custom.fields.length > 0 ? <LazyCustomValuesPanel t={t} locale={locale} fields={custom.fields} custom={record.custom} withheldFields={record.withheldFields} /> : null}
+
       <div role="group" aria-label={t.t('record.sections')} className="grid grid-cols-2 gap-1 rounded-md bg-surface-sunken p-1 md:hidden">
         {(['activity', 'details'] as const).map((which) => (
           <button
@@ -324,7 +349,7 @@ function Ready({
             ))}
           </div>
           {logging === null ? null : (
-            <ActivityForm key={logging} t={t} type={logging} offline={offline} onSave={state.log} onClose={closeLog} />
+            <ActivityForm key={logging} t={t} type={logging} offline={offline} onSave={state.log} onClose={closeLog} customFields={customFields} readOnlyStore={activityKeys} />
           )}
           <RecordTimeline
             t={t}
@@ -343,7 +368,7 @@ function Ready({
       </div>
 
       {editing ? (
-        <ContactSheet t={t} record={record} offline={offline} onSave={state.save} onClose={() => setEditing(false)} />
+        <ContactSheet t={t} record={record} offline={offline} custom={custom} onSave={state.save} onClose={() => setEditing(false)} />
       ) : null}
     </div>
   );

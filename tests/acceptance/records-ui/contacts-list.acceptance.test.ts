@@ -82,7 +82,8 @@ const BUDGET_RECORD = 'tests/e2e/.artifacts/p04-contacts-budget.json';
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   [SPEC]: 'f15c54f9fd16516bb5bafedf1d8725022d18876f9636c3327cd413e680b2ee46',
-  [MOCK]: '66f2e9548a9830e2297bbbec17d89ea672a417d29be661926bf0184a980cfd09',
+  // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and the custom filters.
+  [MOCK]: 'f2fc83b332de03710a704f983364ed3b36c20b3dd67b46b7499ee6fb94cc2dae',
 };
 
 /** See the budget test in the spec for the derivation. Never above this. */

@@ -1,15 +1,19 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import dynamic from 'next/dynamic';
+import { guarded } from '../custom/lazy-boundary';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
-import { PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
+import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { isWithheld, type Contact } from '../../lib/records-api';
 import { dropQueryFromAddressBar } from '../../lib/search-query';
+import { filterableFields, NO_CUSTOM_FILTERS, listRefusalId, setCustomFilter, type CustomFilters } from '../../lib/custom-values-filters';
+import { LazyCustomFilterBar } from '../custom/lazy-filters';
+import { useCustomDefinitions } from '../custom/use-custom-fields';
 import {
-  ColumnChooser,
   FilterOptions,
   ListError,
   ListLoading,
@@ -19,6 +23,7 @@ import {
   OfflineBanner,
   HeaderLock,
 } from '../records/list-parts';
+import type { ChooserProps } from '../records/column-chooser';
 import { CHIP, CHIP_OFF, CHIP_ON, FOCUS, POPOVER } from '../records/list-classes';
 import {
   COLUMNS,
@@ -39,6 +44,14 @@ import {
   type FilterState,
 } from './contacts-model';
 import { useContactList } from './use-contact-list';
+import { UnavailableAction } from './contacts-parts';
+
+// Loaded when opened: neither the phone's filter sheet nor the column chooser is on the list's first paint.
+const ColumnChooser = guarded(
+  dynamic<ChooserProps<ColumnKey>>(() => import('../records/column-chooser').then((module) => module.ColumnChooser<ColumnKey>), { ssr: false }),
+);
+const NoRows = guarded(dynamic(() => import('./contacts-no-rows').then((module) => module.NoRows), { ssr: false }));
+const FilterSheet = guarded(dynamic(() => import('./contacts-filter-sheet').then((module) => module.FilterSheet), { ssr: false }));
 
 /**
  * `P04/02` — the Contacts list — with `P04/05` (empty, no results) and `P04/06`
@@ -81,6 +94,7 @@ export function ContactsScreen({
   locales,
   live,
   initialQ,
+  customFields = false,
 }: {
   locale: string;
   messages: MessageBundle;
@@ -92,6 +106,8 @@ export function ContactsScreen({
    * checked to be a name on the server (`nameFromUrl`): the first search.
    */
   initialQ?: string;
+  /** Custom values are on in this process (read by the server page, T-0091): offer the custom filters. */
+  customFields?: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const [q, setQ] = useState(initialQ ?? '');
@@ -105,9 +121,15 @@ export function ContactsScreen({
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
   const searchId = useId();
-  const list = useContactList(q, filters);
+  const custom = useCustomDefinitions('contact', customFields);
+  const [customFilters, setCustomFilters] = useState<CustomFilters>(NO_CUSTOM_FILTERS);
+  const view = useMemo(() => ({ filters, custom: customFilters }), [filters, customFilters]);
+  const list = useContactList(q, view);
 
-  const searched = list.answered.q.trim() !== '' || activeFilterKeys(list.answered.view).length > 0;
+  const searched =
+    list.answered.q.trim() !== '' ||
+    activeFilterKeys(list.answered.view.filters).length > 0 ||
+    Object.keys(list.answered.view.custom).length > 0;
   const state = listState({ phase: list.phase, rowCount: list.rows.length, searching: searched });
   const locked = lockedColumns(list.rows);
   const visibleColumns = COLUMNS.filter((column) => !hidden.includes(column.key));
@@ -148,6 +170,7 @@ export function ContactsScreen({
   const clearAll = () => {
     setQ('');
     setFilters(NO_FILTERS);
+    setCustomFilters(NO_CUSTOM_FILTERS);
   };
 
   const offline = !list.online;
@@ -271,6 +294,15 @@ export function ContactsScreen({
           </div>
         </div>
 
+        {filterableFields(custom.fields).length > 0 ? (
+        <LazyCustomFilterBar
+          t={t}
+          fields={custom.fields}
+          filters={customFilters}
+          onChange={(key, value) => setCustomFilters((current) => setCustomFilter(current, key, value))}
+        />
+        ) : null}
+
         <Body
           t={t}
           state={state}
@@ -278,7 +310,7 @@ export function ContactsScreen({
           rows={list.rows}
           columns={visibleColumns.map((column) => column.key)}
           locked={locked}
-          answered={list.answered}
+          answered={{ q: list.answered.q, view: list.answered.view.filters }}
           offline={offline}
           onClear={clearAll}
         />
@@ -308,35 +340,6 @@ function chipText(t: Translator, spec: FilterSpec, filters: FilterState): string
 }
 
 /** Import and create are not built (createContact is contract-only), so they are visibly off. */
-function UnavailableAction({
-  t,
-  action,
-  icon,
-  label,
-  primary,
-}: {
-  t: Translator;
-  action: string;
-  icon: 'upload_file' | 'add' | 'chat';
-  label: MessageId;
-  primary?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      data-action={action}
-      data-requires-connection=""
-      aria-disabled="true"
-      title={t.t('records.action.unavailable')}
-      className={`${primary === true ? PRIMARY_BUTTON : SECONDARY_BUTTON} cursor-not-allowed opacity-60`}
-    >
-      <Icon name={icon} size="sm" />
-      {t.t(label)}
-      <span className="sr-only">{t.t('records.action.unavailable')}</span>
-    </button>
-  );
-}
-
 function ContactFilterOptions({
   t,
   spec,
@@ -356,91 +359,6 @@ function ContactFilterOptions({
       selected={filters[spec.key]}
       onToggle={onToggle}
     />
-  );
-}
-
-function FilterSheet({
-  t,
-  filters,
-  sheetRef,
-  onToggle,
-  onClear,
-  onClose,
-}: {
-  t: Translator;
-  filters: FilterState;
-  sheetRef: React.RefObject<HTMLDivElement | null>;
-  onToggle: (key: FilterKey, value: string) => void;
-  onClear: () => void;
-  onClose: () => void;
-}) {
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const titleId = useId();
-
-  useEffect(() => {
-    closeRef.current?.focus();
-  }, []);
-
-  // Focus stays inside a modal sheet: Tab past the last control comes back round.
-  const trap = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Tab') return;
-    const focusable = Array.from(
-      event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled])'),
-    );
-    const first = focusable[0];
-    const last = focusable.at(-1);
-    if (first === undefined || last === undefined) return;
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-end md:hidden">
-      <span aria-hidden="true" className="absolute inset-0 bg-scrim" />
-      <div
-        ref={sheetRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        data-testid="filter-sheet"
-        onKeyDown={trap}
-        className="relative flex max-h-full w-full flex-col gap-3 overflow-y-auto rounded-t-xl bg-surface p-4 shadow-3"
-      >
-        <div className="flex items-center gap-2">
-          <h2 id={titleId} className="flex-1 text-h4">
-            {t.t('records.filter.label')}
-          </h2>
-          <button
-            ref={closeRef}
-            type="button"
-            aria-label={t.t('records.filter.sheet.close')}
-            onClick={onClose}
-            className={`flex min-h-touch min-w-touch items-center justify-center rounded-md hover:bg-surface-sunken ${FOCUS}`}
-          >
-            <Icon name="close" size="sm" />
-          </button>
-        </div>
-        {FILTERS.map((spec) => (
-          <div key={spec.key} className="flex flex-col gap-1">
-            <b className="text-body-sm">{t.t(spec.label)}</b>
-            <ContactFilterOptions t={t} spec={spec} filters={filters} onToggle={(value) => onToggle(spec.key, value)} />
-          </div>
-        ))}
-        <div className="sticky bottom-0 flex gap-2 border-t border-border bg-surface pt-3">
-          <button type="button" onClick={onClear} className={`${SECONDARY_BUTTON} flex-1`}>
-            {t.t('records.filter.clearAll')}
-          </button>
-          <button type="button" data-testid="filter-apply" onClick={onClose} className={`${PRIMARY_BUTTON} flex-1`}>
-            {t.t('records.filter.sheet.apply')}
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -479,7 +397,7 @@ function Body({
       <ListError
         t={t}
         heading="records.error.title"
-        message={`records.error.${code}` as MessageId}
+        message={listRefusalId(list.error) ?? (`records.error.${code}` as MessageId)}
         code={code}
         offline={offline}
         onRetry={list.reload}
@@ -487,26 +405,8 @@ function Body({
     );
   }
 
-  if (state === 'empty') {
-    return <EmptyState t={t} />;
-  }
-
-  if (state === 'no-results') {
-    return (
-      <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface p-10 text-center">
-        <Icon name="search_off" size="xl" className="text-text-muted" />
-        <h2 className="text-h3">{t.t('records.noResults.title')}</h2>
-        <p data-testid="no-results-message" className="max-w-xl text-body-md text-text-2">
-          {answered.q.trim() === '' ? null : t.t('records.noResults.query', { query: answered.q.trim() })}{' '}
-          {activeFilterKeys(answered.view).length === 0
-            ? null
-            : t.t('records.noResults.filters', { filters: describeFilters(t, answered.view) })}
-        </p>
-        <button type="button" data-action="clear-search-filters" onClick={onClear} className={SECONDARY_BUTTON}>
-          {t.t('records.noResults.clear')}
-        </button>
-      </div>
-    );
+  if (state === 'empty' || state === 'no-results') {
+    return <NoRows t={t} state={state} answered={answered} onClear={onClear} />;
   }
 
   return (
@@ -581,16 +481,6 @@ function Body({
       )}
     </div>
   );
-}
-
-function describeFilters(t: Translator, filters: FilterState): string {
-  return activeFilterKeys(filters)
-    .map((key) => {
-      const spec = FILTERS.find((filter) => filter.key === key);
-      const label = spec === undefined ? key : t.t(spec.label);
-      return `${label}: ${filters[key].map((value) => t.t(optionLabel(key, value))).join(', ')}`;
-    })
-    .join('; ');
 }
 
 function NameCell({ row }: { row: Contact }) {
@@ -742,35 +632,4 @@ function FieldValue({ t, row, field }: { t: Translator; row: Contact; field: Col
         <span>{t.t(`records.channel.${row.preferredChannel}` as MessageId)}</span>
       );
   }
-}
-
-function EmptyState({ t }: { t: Translator }) {
-  return (
-    <div data-screen-state="P04/05" className="flex flex-col items-center gap-4 rounded-lg border border-border bg-surface p-8 text-center">
-      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-primary-text">
-        <Icon name="contacts" size="xl" />
-      </span>
-      <h2 className="text-h3">{t.t('records.empty.title')}</h2>
-      <p className="max-w-xl text-body-md text-text-2">{t.t('records.empty.body')}</p>
-      <div className="grid w-full max-w-3xl gap-4 text-start md:grid-cols-2">
-        <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
-          <b className="flex items-center gap-2 text-body-md">
-            <Icon name="upload_file" size="sm" />
-            {t.t('records.empty.import.title')}
-          </b>
-          <p className="text-body-sm text-text-2">{t.t('records.empty.import.body')}</p>
-          <UnavailableAction t={t} action="import-csv-empty" icon="upload_file" label="records.empty.import.action" />
-        </div>
-        <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
-          <b className="flex items-center gap-2 text-body-md">
-            <Icon name="chat" size="sm" />
-            {t.t('records.empty.capture.title')}
-          </b>
-          <p className="text-body-sm text-text-2">{t.t('records.empty.capture.body')}</p>
-          <UnavailableAction t={t} action="capture-whatsapp" icon="chat" label="records.empty.capture.action" />
-        </div>
-      </div>
-      <p className="text-body-sm text-text-muted">{t.t('records.empty.later')}</p>
-    </div>
-  );
 }

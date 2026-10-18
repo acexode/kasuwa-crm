@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { bundleMessages } from '@kasuwa/i18n';
 import { ContactsScreen } from '../../components/contacts/contacts-screen';
 import { CONTACTS_MESSAGE_IDS } from '../../components/contacts/message-ids';
-import { crmLiveNav, crmRecordsEnabled } from '../../lib/feature-flags';
+import { crmCustomFieldsEnabled, crmLiveNav, crmRecordsEnabled } from '../../lib/feature-flags';
+import { withCustomMessages } from '../../components/custom/message-ids';
 import { withSearchMessages } from '../../components/search/message-ids';
 import { activeLocale, languageOptions } from '../../lib/locale';
 import { nameFromUrl } from '../../lib/search-query';
@@ -31,6 +32,7 @@ export default async function ContactsPage({
   }
   const { locale } = await activeLocale();
   const live = await crmLiveNav();
+  const customFields = await crmCustomFieldsEnabled();
 
   const initialQ = nameFromUrl((await searchParams).q);
 
@@ -42,10 +44,11 @@ export default async function ContactsPage({
     <ContactsScreen
       key={initialQ === '' ? 'list' : `q:${crypto.randomUUID()}`}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(CONTACTS_MESSAGE_IDS, live))}
+      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(CONTACTS_MESSAGE_IDS, customFields, 'list'), live))}
       locales={languageOptions(locale)}
       live={live}
       initialQ={initialQ}
+      customFields={customFields}
     />
   );
 }

@@ -108,7 +108,8 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   [SPEC]: '4f4d7fd7d75b11d06f9b5a6b09417b977ea3a3bff6d31f84a53634727aefabb2',
-  [MOCK]: '15904ade0b25091ebfb3346a6215968718ccbc0cdc126a06fb282722bde57d35',
+  // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and the custom filters.
+  [MOCK]: '6da2ee53f6620bfd025cae52037130eb6546b101d2b0b6bf6461c87c8826ca04',
 };
 
 /** See the budget test in the spec for the derivation. Never above this. */

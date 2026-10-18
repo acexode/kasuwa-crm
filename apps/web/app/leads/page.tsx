@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { bundleMessages } from '@kasuwa/i18n';
 import { LeadsScreen } from '../../components/leads/leads-screen';
 import { LEADS_MESSAGE_IDS } from '../../components/leads/message-ids';
-import { crmLeadsEnabled, crmLiveNav } from '../../lib/feature-flags';
+import { crmCustomFieldsEnabled, crmLeadsEnabled, crmLiveNav } from '../../lib/feature-flags';
+import { withCustomMessages } from '../../components/custom/message-ids';
 import { withSearchMessages } from '../../components/search/message-ids';
 import { activeLocale, languageOptions } from '../../lib/locale';
 import { nameFromUrl } from '../../lib/search-query';
@@ -33,6 +34,7 @@ export default async function LeadsPage({
   }
   const { locale } = await activeLocale();
   const live = await crmLiveNav();
+  const customFields = await crmCustomFieldsEnabled();
 
   const initialQ = nameFromUrl((await searchParams).q);
 
@@ -44,10 +46,11 @@ export default async function LeadsPage({
     <LeadsScreen
       key={initialQ === '' ? 'list' : `q:${crypto.randomUUID()}`}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(LEADS_MESSAGE_IDS, live))}
+      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(LEADS_MESSAGE_IDS, customFields, 'list'), live))}
       locales={languageOptions(locale)}
       live={live}
       initialQ={initialQ}
+      customFields={customFields}
     />
   );
 }

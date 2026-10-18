@@ -122,7 +122,7 @@ export function listCalendar(window: CalendarWindow, cursor: string | null): Pro
 export type ComposeTarget = { readonly kind: 'contact'; readonly id: string } | { readonly kind: 'account'; readonly id: string };
 
 /** What the composer collects. Times are UTC with a `Z`. */
-export type ComposedActivity =
+export type ComposedActivity = (
   | { readonly type: 'task'; readonly subject: string; readonly dueAt: string | null; readonly target: ComposeTarget }
   | {
       readonly type: 'meeting';
@@ -130,7 +130,11 @@ export type ComposedActivity =
       readonly startsAt: string;
       readonly endsAt: string;
       readonly target: ComposeTarget;
-    };
+    }
+) & {
+  /** Custom-field values (T-0091): the filled ones only, on a create. */
+  readonly custom?: Readonly<Record<string, unknown>>;
+};
 
 /**
  * createActivity's closed body. The owner is the caller (P07 composes for the
@@ -138,8 +142,8 @@ export type ComposedActivity =
  * the one record picked, and a task carries no meeting times nor a meeting a
  * due time.
  */
-export function createBody(activity: ComposedActivity, ownerUserId: string): Record<string, string> {
-  const body: Record<string, string> = { type: activity.type, ownerUserId };
+export function createBody(activity: ComposedActivity, ownerUserId: string): Record<string, unknown> {
+  const body: Record<string, unknown> = { type: activity.type, ownerUserId };
   const subject = activity.subject.trim();
   if (subject !== '') body.subject = subject;
   if (activity.target.kind === 'contact') body.contactId = activity.target.id;
@@ -150,6 +154,7 @@ export function createBody(activity: ComposedActivity, ownerUserId: string): Rec
     body.startsAt = activity.startsAt;
     body.endsAt = activity.endsAt;
   }
+  if (activity.custom !== undefined && Object.keys(activity.custom).length > 0) body.custom = activity.custom;
   return body;
 }
 

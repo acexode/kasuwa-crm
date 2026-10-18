@@ -1,5 +1,7 @@
 'use client';
 
+import dynamic from 'next/dynamic';
+import { guarded } from '../custom/lazy-boundary';
 import Link from 'next/link';
 import { useId, useRef, useState, type ReactNode } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
@@ -7,8 +9,8 @@ import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { LINK, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
-import { AccountSheet } from '../accounts/account-sheet';
-import { ActivityForm } from '../record/activity-form';
+import { LazyCustomValuesPanel } from '../custom/lazy-panel';
+import { useCustomFields, useReadOnlyKeys, type CustomContext, type ReadOnlyStore } from '../custom/use-custom-fields';
 import { recordHref, writeErrorId, zoneName } from '../record/record-core';
 import { RecordLoading, RecordNotFound, RecordOfflineBanner, RecordUnavailable } from '../record/record-states';
 import { RecordTimeline, Value, type TimelineVocabulary } from '../record/record-timeline';
@@ -27,6 +29,10 @@ import {
   type Hierarchy,
 } from './account-record-model';
 import { useAccountRecord, type AccountRecordState } from './use-account-record';
+
+// Loaded when opened: neither the edit sheet nor the activity form is on the page's first paint.
+const AccountSheet = guarded(dynamic(() => import('../accounts/account-sheet').then((module) => module.AccountSheet), { ssr: false }));
+const ActivityForm = guarded(dynamic(() => import('../record/activity-form').then((module) => module.ActivityForm), { ssr: false }));
 
 /**
  * `P05/04` — the account record (T-0063), with the P05/05 (field security,
@@ -69,6 +75,7 @@ export function AccountRecordScreen({
   messages,
   locales,
   live,
+  customFields = false,
 }: {
   id: string;
   locale: string;
@@ -76,9 +83,13 @@ export function AccountRecordScreen({
   locales: readonly LanguageOption[];
   /** Nav ids whose route is on here (`crmLiveNav()`), for the shell's links and the contact rows. */
   live: readonly string[];
+  /** Custom values are on in this process (read by the server page, T-0091): draw, edit and log them. */
+  customFields?: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const state = useAccountRecord(id);
+  const custom = useCustomFields('account', customFields);
+  const activityKeys = useReadOnlyKeys();
   const offline = !state.online;
 
   return (
@@ -107,6 +118,9 @@ export function AccountRecordScreen({
             record={state.record}
             offline={offline}
             linkContacts={live.includes('contacts')}
+            custom={custom}
+            customFields={customFields}
+            activityKeys={activityKeys}
           />
         ) : null}
       </div>
@@ -121,6 +135,9 @@ function Ready({
   record,
   offline,
   linkContacts,
+  custom,
+  customFields,
+  activityKeys,
 }: {
   t: Translator;
   locale: string;
@@ -129,6 +146,12 @@ function Ready({
   offline: boolean;
   /** The contact record is served in this process, so a contact row may link to it. */
   linkContacts: boolean;
+  /** The account's custom-field definitions and what this session has been told is read-only (T-0091). */
+  custom: CustomContext;
+  /** The custom-fields flag, for the activity form's own definitions. */
+  customFields: boolean;
+  /** Read-only activity keys, owned here so they outlive the activity form. */
+  activityKeys: ReadOnlyStore;
 }) {
   const [editing, setEditing] = useState(false);
   const [logging, setLogging] = useState<ActivityType | null>(null);
@@ -203,6 +226,8 @@ function Ready({
         </p>
       )}
 
+      {custom.fields.length > 0 ? <LazyCustomValuesPanel t={t} locale={locale} fields={custom.fields} custom={record.custom} withheldFields={record.withheldFields} /> : null}
+
       <div className="grid min-w-0 items-start gap-4 md:grid-cols-3">
         <div className="flex min-w-0 flex-col gap-4">
           <section data-testid="record-details" aria-labelledby={headings.details} className={PANEL}>
@@ -262,7 +287,7 @@ function Ready({
             ))}
           </div>
           {logging === null ? null : (
-            <ActivityForm key={logging} t={t} type={logging} offline={offline} onSave={state.log} onClose={closeLog} />
+            <ActivityForm key={logging} t={t} type={logging} offline={offline} onSave={state.log} onClose={closeLog} customFields={customFields} readOnlyStore={activityKeys} />
           )}
           <RecordTimeline
             t={t}
@@ -286,6 +311,7 @@ function Ready({
           mode={{ kind: 'edit', row: record }}
           programmes={{ list: null, phase: 'loaded' }}
           online={!offline}
+          custom={custom}
           onClose={() => setEditing(false)}
           onSaved={(row) => {
             state.saved(row);

@@ -1622,5 +1622,20 @@
   "admin.studio.custom.discard.title": "المغادرة دون حفظ؟",
   "admin.studio.custom.discard.body": "لم تُحفظ تغييراتك على هذا الحقل.",
   "admin.studio.custom.discard.confirm": "المغادرة دون حفظ",
-  "admin.studio.custom.discard.keep": "متابعة التعديل"
+  "admin.studio.custom.discard.keep": "متابعة التعديل",
+  "custom.section.title": "الحقول المخصصة",
+  "custom.noValue": "لا توجد قيمة",
+  "custom.boolean.true": "نعم",
+  "custom.boolean.false": "لا",
+  "custom.readOnly": "لا يمكنك تغيير هذا الحقل.",
+  "custom.currencyHint": "المبلغ بعملة {currency}، مثل 1250.50",
+  "custom.filter.any": "{field}: أي قيمة",
+  "custom.filter.isEmpty": "فارغ",
+  "custom.filter.group": "عوامل تصفية الحقول المخصصة",
+  "custom.error.invalid_value": "إحدى قيم الحقول المخصصة غير صالحة. راجعها وحاول مرة أخرى.",
+  "custom.error.custom_too_large": "تحتوي الحقول المخصصة على نص أكثر من اللازم. اختصر إحدى القيم وحاول مرة أخرى.",
+  "custom.error.unknown_field": "لم يعد أحد الحقول المخصصة موجودًا. أعد تحميل الصفحة وحاول مرة أخرى.",
+  "custom.error.field_not_editable": "لا يمكن لدورك تغيير هذا الحقل المخصص. أصبح مقفلًا في هذا النموذج.",
+  "custom.error.field_withheld": "لا يمكنك التصفية حسب حقل مخصص لا يستطيع دورك رؤيته.",
+  "custom.error.withheld_write": "لا يمكنك تغيير حقل مخصص لا يستطيع دورك رؤيته."
 }

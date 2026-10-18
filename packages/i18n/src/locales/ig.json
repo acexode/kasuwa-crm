@@ -1622,5 +1622,20 @@
   "admin.studio.custom.discard.title": "Hapụ n’enweghị nchekwa?",
   "admin.studio.custom.discard.body": "Echekwabeghị mgbanwe gị n’ubi a.",
   "admin.studio.custom.discard.confirm": "Hapụ n’enweghị nchekwa",
-  "admin.studio.custom.discard.keep": "Gaa n’ihu na-edezi"
+  "admin.studio.custom.discard.keep": "Gaa n’ihu na-edezi",
+  "custom.section.title": "Ubi nkeonwe",
+  "custom.noValue": "Enweghị uru",
+  "custom.boolean.true": "Ee",
+  "custom.boolean.false": "Mba",
+  "custom.readOnly": "Ị nweghị ike ịgbanwe ubi a.",
+  "custom.currencyHint": "Ọnụọgụ n’ime {currency}, dịka 1250.50",
+  "custom.filter.any": "{field}: ọ bụla",
+  "custom.filter.isEmpty": "Ọ tọgbọ chakoo",
+  "custom.filter.group": "Nzacha nke ubi nkeonwe",
+  "custom.error.invalid_value": "Otu n’ime uru ubi nkeonwe gị adịghị mma. Lelee ya ma nwaa ọzọ.",
+  "custom.error.custom_too_large": "Ubi nkeonwe nwere ọtụtụ ederede. Mee otu uru dị mkpụmkpụ ma nwaa ọzọ.",
+  "custom.error.unknown_field": "Otu ubi nkeonwe adịghịzi. Bugharịa ibe a ma nwaa ọzọ.",
+  "custom.error.field_not_editable": "Ọrụ gị enweghị ike ịgbanwe ubi nkeonwe ahụ. E mechiri ya n’ime fọm a.",
+  "custom.error.field_withheld": "Ị nweghị ike ịzacha site n’ubi nkeonwe nke ọrụ gị na-apụghị ịhụ.",
+  "custom.error.withheld_write": "Ị nweghị ike ịgbanwe ubi nkeonwe nke ọrụ gị na-apụghị ịhụ."
 }
