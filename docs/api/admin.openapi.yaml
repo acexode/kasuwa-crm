@@ -1908,7 +1908,7 @@ paths:
       tags: [custom-fields]
       summary: List the custom fields of one standard object
       operationId: listCustomFields
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P18/B']
       description: |
         **Contract only (T-0088) until T-0089 serves it.**
@@ -2052,7 +2052,7 @@ paths:
       tags: [custom-fields]
       summary: Define a custom field on a standard object
       operationId: createCustomField
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-permission: custom_field.write
       x-kasuwa-screens: ['P18/B', 'P18/B1']
@@ -2174,7 +2174,7 @@ paths:
       tags: [custom-fields]
       summary: Relabel a custom field, reclassify it, or add or relabel picklist values
       operationId: updateCustomField
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-permission: custom_field.write
       x-kasuwa-screens: ['P18/B', 'P18/B2']
@@ -2275,7 +2275,7 @@ paths:
       tags: [custom-fields]
       summary: Retire a custom field (there is no delete)
       operationId: retireCustomField
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-permission: custom_field.write
       x-kasuwa-screens: ['P18/B']

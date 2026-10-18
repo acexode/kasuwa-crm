@@ -4418,7 +4418,7 @@ components:
       required: false
       style: deepObject
       explode: true
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       description: |
         **Contract only (T-0088) until T-0089 serves it.** The live list
         routes ignore unknown query parameters, so a screen that sent this
@@ -4461,7 +4461,7 @@ components:
       required: false
       style: form
       explode: true
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       description: |
         **Contract only (T-0088) until T-0089 serves it;** a screen must not
         send it before then (see `custom`). "Is empty": rows with no value
@@ -4720,7 +4720,7 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             The contact's custom-field values (T-0088, ADR-0016), keyed by api
             name. Every Contact-shaped read carries it once served, listLeads
@@ -5183,7 +5183,7 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             The activity's custom-field values (T-0088, ADR-0016), keyed by api
             name. An own property because Activity is closed. `custom` is never
@@ -5280,7 +5280,7 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field values to set at create (T-0088, ADR-0016): values
             only, never `null`. Each key must be editable for the caller in
@@ -5351,7 +5351,7 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFieldsPatch'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field changes (T-0088, ADR-0016), merged per key: a value
             sets, `null` clears, an absent key is untouched. Each key must be
@@ -5542,7 +5542,7 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field values to set at create (T-0088, ADR-0016): values
             only, never `null`. Each key must be editable for the caller in
@@ -5607,7 +5607,7 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFieldsPatch'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field changes (T-0088, ADR-0016), merged per key: a value
             sets, `null` clears, an absent key is untouched. Each key must be
@@ -5799,7 +5799,7 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             The account's custom-field values (T-0088, ADR-0016), keyed by api
             name. `custom` is never withheld itself: a withheld key is absent
@@ -5852,7 +5852,7 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field values to set at create (T-0088, ADR-0016): values
             only, never `null`. Each key must be editable for the caller in
@@ -5897,7 +5897,7 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFieldsPatch'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field changes (T-0088, ADR-0016), merged per key: a value
             sets, `null` clears, an absent key is untouched. Each key must be
@@ -6252,7 +6252,7 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             The deal's custom-field values (T-0088, ADR-0016), keyed by api
             name. An own property because Deal is closed. `custom` is never
@@ -6359,7 +6359,7 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFields'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field values to set at create (T-0088, ADR-0016): values
             only, never `null`. Each key must be editable for the caller in
@@ -6394,7 +6394,7 @@ components:
         custom:
           allOf:
             - $ref: '#/components/schemas/CustomFieldsPatch'
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             Custom-field changes (T-0088, ADR-0016), merged per key: a value
             sets, `null` clears, an absent key is untouched. Each key must be

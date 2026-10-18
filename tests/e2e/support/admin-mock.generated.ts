@@ -195,7 +195,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "createCustomField",
     "method": "POST",
     "path": "/api/v1/admin/custom-fields",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P18/B",
@@ -1862,7 +1862,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "listCustomFields",
     "method": "GET",
     "path": "/api/v1/admin/custom-fields",
-    "implemented": "false",
+    "implemented": "true",
     "audited": false,
     "screens": [
       "P18/B"
@@ -2674,7 +2674,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "retireCustomField",
     "method": "POST",
     "path": "/api/v1/admin/custom-fields/{fieldId}/retire",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P18/B"
@@ -2733,7 +2733,7 @@ export const ADMIN_OPERATIONS = [
     "operationId": "updateCustomField",
     "method": "PATCH",
     "path": "/api/v1/admin/custom-fields/{fieldId}",
-    "implemented": "false",
+    "implemented": "true",
     "audited": true,
     "screens": [
       "P18/B",
