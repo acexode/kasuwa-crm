@@ -12,7 +12,7 @@ import { isWithheld, type Contact } from '../../lib/records-api';
 import { dropQueryFromAddressBar } from '../../lib/search-query';
 import { filterableFields, NO_CUSTOM_FILTERS, listRefusalId, setCustomFilter, type CustomFilters } from '../../lib/custom-values-filters';
 import { LazyCustomFilterBar } from '../custom/lazy-filters';
-import { useCustomFields } from '../custom/use-custom-fields';
+import { useCustomDefinitions } from '../custom/use-custom-fields';
 import {
   FilterOptions,
   ListError,
@@ -119,7 +119,7 @@ export function ContactsScreen({
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
   const searchId = useId();
-  const custom = useCustomFields('contact', customFields);
+  const custom = useCustomDefinitions('contact', customFields);
   const [customFilters, setCustomFilters] = useState<CustomFilters>(NO_CUSTOM_FILTERS);
   const view = useMemo(() => ({ filters, custom: customFilters }), [filters, customFilters]);
   const list = useContactList(q, view);

@@ -25,7 +25,7 @@ import {
 import { formatPhone, initials, listState } from '../records/list-model';
 import { filterableFields, NO_CUSTOM_FILTERS, listRefusalId, setCustomFilter } from '../../lib/custom-values-filters';
 import { LazyCustomFilterBar } from '../custom/lazy-filters';
-import { useCustomFields } from '../custom/use-custom-fields';
+import { useCustomDefinitions } from '../custom/use-custom-fields';
 import { useKeysetList, type KeysetList } from '../records/use-keyset-list';
 import { listAccounts, listMyProgrammes, type Account, type MyProgramme } from '../../lib/accounts-api';
 import {
@@ -142,7 +142,7 @@ export function AccountsScreen({
   customFields?: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
-  const custom = useCustomFields('account', customFields);
+  const custom = useCustomDefinitions('account', customFields);
   const [q, setQ] = useState(initialQ ?? '');
   // The search never stays in the URL (`use-keyset-list.ts`): read once, then dropped.
   useEffect(() => {

@@ -18,7 +18,7 @@ import {
 } from '../../lib/pipelines-api';
 import { filterableFields, NO_CUSTOM_FILTERS, listRefusalId, setCustomFilter, type CustomFilters } from '../../lib/custom-values-filters';
 import { LazyCustomFilterBar } from '../custom/lazy-filters';
-import { useCustomFields } from '../custom/use-custom-fields';
+import { useCustomDefinitions } from '../custom/use-custom-fields';
 import { errorMessage, filtersKey, isDealSort, sortLabel, stageById } from './pipeline-model';
 import { AmountValue, CloseValue, OwnerValue, lockedProps } from './pipeline-parts';
 
@@ -62,7 +62,7 @@ export function DealList({
   /** Custom values are on in this process (read by the server page, T-0091): offer the custom filters. */
   customFields?: boolean;
 }) {
-  const definitions = useCustomFields('deal', customFields);
+  const definitions = useCustomDefinitions('deal', customFields);
   const [customFilters, setCustomFilters] = useState<CustomFilters>(NO_CUSTOM_FILTERS);
   // The list read carries the custom filters; the board's read never does (C6).
   const filters = useMemo(() => ({ ...boardFilters, custom: customFilters }), [boardFilters, customFilters]);

@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { filterableFields, NO_CUSTOM_FILTERS, setCustomFilter } from '../../lib/custom-values-filters';
 import { LazyCustomFilterBar } from '../custom/lazy-filters';
-import { useCustomFields } from '../custom/use-custom-fields';
+import { useCustomDefinitions } from '../custom/use-custom-fields';
 import { createBundleTranslator, type MessageBundle, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
@@ -92,7 +92,7 @@ export function LeadsScreen({
 }) {
   const t = createBundleTranslator(locale, messages);
   // A lead is a contact (D-P17): the leads list filters on the contact's own fields.
-  const custom = useCustomFields('contact', customFields);
+  const custom = useCustomDefinitions('contact', customFields);
   const [q, setQ] = useState(initialQ ?? '');
   // The search never stays in the URL (`use-keyset-list.ts`): read once, then dropped.
   useEffect(() => {

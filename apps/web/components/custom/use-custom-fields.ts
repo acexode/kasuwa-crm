@@ -40,11 +40,10 @@ export function useReadOnlyKeys(): ReadOnlyStore {
   return useMemo(() => ({ readOnly, markReadOnly }), [readOnly, markReadOnly]);
 }
 
-export function useCustomFields(object: CustomObject, enabled: boolean, shared?: ReadOnlyStore): CustomContext {
+/** The definitions alone, for a list: it filters, and never edits, so it keeps no read-only keys. */
+export function useCustomDefinitions(object: CustomObject, enabled: boolean): { readonly fields: readonly CustomField[]; readonly reload: () => void } {
   const [fields, setFields] = useState<readonly CustomField[]>(NONE);
   const [attempt, setAttempt] = useState(0);
-  const own = useReadOnlyKeys();
-  const store = shared ?? own;
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -56,6 +55,15 @@ export function useCustomFields(object: CustomObject, enabled: boolean, shared?:
   }, [object, enabled, attempt]);
 
   const reload = useCallback(() => setAttempt((value) => value + 1), []);
+  return useMemo(() => ({ fields, reload }), [fields, reload]);
+}
 
-  return useMemo(() => ({ fields, readOnly: store.readOnly, markReadOnly: store.markReadOnly, reload }), [fields, store, reload]);
+export function useCustomFields(object: CustomObject, enabled: boolean, shared?: ReadOnlyStore): CustomContext {
+  const definitions = useCustomDefinitions(object, enabled);
+  const own = useReadOnlyKeys();
+  const store = shared ?? own;
+  return useMemo(
+    () => ({ fields: definitions.fields, reload: definitions.reload, readOnly: store.readOnly, markReadOnly: store.markReadOnly }),
+    [definitions, store],
+  );
 }
