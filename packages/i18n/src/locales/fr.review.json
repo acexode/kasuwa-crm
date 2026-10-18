@@ -81,6 +81,9 @@
     "activities.related.contact": "The French word is spelled identically to the English one, as in records.nav.contacts.",
     "activities.compose.type": "The French word is spelled identically to the English one.",
     "scripting.builder.fieldType.date": "The French word is spelled the same as the English one.",
-    "search.group.contact": "A loanword this locale uses unchanged for a CRM record type, as in the navigation."
+    "search.group.contact": "A loanword this locale uses unchanged for a CRM record type, as in the navigation.",
+    "admin.studio.custom.type.date": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.studio.custom.form.type": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "admin.studio.custom.form.classification": "A product name, abbreviation or loanword the admin console uses unchanged in this locale."
   }
 }
