@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { guarded } from '../custom/lazy-boundary';
 import Link from 'next/link';
 import { useId, useRef, useState, type ReactNode } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
@@ -9,7 +10,7 @@ import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { LINK, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { LazyCustomValuesPanel } from '../custom/lazy-panel';
-import { useCustomFields, type CustomContext } from '../custom/use-custom-fields';
+import { useCustomFields, useReadOnlyKeys, type CustomContext, type ReadOnlyStore } from '../custom/use-custom-fields';
 import { recordHref, writeErrorId, zoneName } from '../record/record-core';
 import { RecordLoading, RecordNotFound, RecordOfflineBanner, RecordUnavailable } from '../record/record-states';
 import { RecordTimeline, Value, type TimelineVocabulary } from '../record/record-timeline';
@@ -30,8 +31,8 @@ import {
 import { useAccountRecord, type AccountRecordState } from './use-account-record';
 
 // Loaded when opened: neither the edit sheet nor the activity form is on the page's first paint.
-const AccountSheet = dynamic(() => import('../accounts/account-sheet').then((module) => module.AccountSheet), { ssr: false });
-const ActivityForm = dynamic(() => import('../record/activity-form').then((module) => module.ActivityForm), { ssr: false });
+const AccountSheet = guarded(dynamic(() => import('../accounts/account-sheet').then((module) => module.AccountSheet), { ssr: false }));
+const ActivityForm = guarded(dynamic(() => import('../record/activity-form').then((module) => module.ActivityForm), { ssr: false }));
 
 /**
  * `P05/04` — the account record (T-0063), with the P05/05 (field security,
@@ -88,6 +89,7 @@ export function AccountRecordScreen({
   const t = createBundleTranslator(locale, messages);
   const state = useAccountRecord(id);
   const custom = useCustomFields('account', customFields);
+  const activityKeys = useReadOnlyKeys();
   const offline = !state.online;
 
   return (
@@ -118,6 +120,7 @@ export function AccountRecordScreen({
             linkContacts={live.includes('contacts')}
             custom={custom}
             customFields={customFields}
+            activityKeys={activityKeys}
           />
         ) : null}
       </div>
@@ -134,6 +137,7 @@ function Ready({
   linkContacts,
   custom,
   customFields,
+  activityKeys,
 }: {
   t: Translator;
   locale: string;
@@ -146,6 +150,8 @@ function Ready({
   custom: CustomContext;
   /** The custom-fields flag, for the activity form's own definitions. */
   customFields: boolean;
+  /** Read-only activity keys, owned here so they outlive the activity form. */
+  activityKeys: ReadOnlyStore;
 }) {
   const [editing, setEditing] = useState(false);
   const [logging, setLogging] = useState<ActivityType | null>(null);
@@ -281,7 +287,7 @@ function Ready({
             ))}
           </div>
           {logging === null ? null : (
-            <ActivityForm key={logging} t={t} type={logging} offline={offline} onSave={state.log} onClose={closeLog} customFields={customFields} />
+            <ActivityForm key={logging} t={t} type={logging} offline={offline} onSave={state.log} onClose={closeLog} customFields={customFields} readOnlyStore={activityKeys} />
           )}
           <RecordTimeline
             t={t}

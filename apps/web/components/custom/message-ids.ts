@@ -16,6 +16,7 @@ const REFUSALS: readonly MessageId[] = [
   'custom.error.unknown_field',
   'custom.error.field_not_editable',
   'custom.error.field_withheld',
+  'custom.error.withheld_write',
 ];
 
 const BOOLEAN: readonly MessageId[] = ['custom.boolean.true', 'custom.boolean.false'];

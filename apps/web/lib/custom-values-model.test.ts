@@ -13,6 +13,8 @@ import {
   minorToMajor,
   notEditableKeys,
   rebaseCustomDraft,
+  resetKeys,
+  minorDigits,
   setCustomFilter,
 } from './custom-values-model';
 
@@ -47,7 +49,6 @@ describe('amounts and decimals stay text', () => {
     expect(majorToMinor('2500000.75')).toBe('250000075');
     expect(majorToMinor('1000')).toBe('100000');
     expect(majorToMinor('-12.5')).toBe('-1250');
-    expect(majorToMinor('12,5')).toBe('1250');
     expect(majorToMinor('0.00')).toBe('0');
     expect(majorToMinor('-0')).toBe('0');
     expect(majorToMinor('1.234')).toBeNull();
@@ -60,7 +61,6 @@ describe('amounts and decimals stay text', () => {
     expect(canonicalNumber('007')).toBe('7');
     expect(canonicalNumber('.5')).toBe('0.5');
     expect(canonicalNumber('-0.0')).toBe('0');
-    expect(canonicalNumber('1,5')).toBe('1.5');
     expect(canonicalNumber('123456789012345.678')).toBe('123456789012345.678');
     expect(canonicalNumber('1234567890123456789')).toBeNull();
     expect(canonicalNumber('abc')).toBeNull();
@@ -160,7 +160,7 @@ describe('refusals', () => {
     expect(customErrorId({ details: [{ path: 'custom', code: 'custom_too_large' }] })).toBe('custom.error.custom_too_large');
     expect(customErrorId({ details: [{ path: 'custom', code: 'unknown_field' }] })).toBe('custom.error.unknown_field');
     expect(customErrorId({ details: [{ path: 'custom.vip__c', code: 'field_not_editable' }] })).toBe('custom.error.field_not_editable');
-    expect(customErrorId({ details: [{ path: 'custom.vip__c', code: 'field_withheld' }] })).toBe('custom.error.field_withheld');
+    expect(customErrorId({ details: [{ path: 'custom.vip__c', code: 'field_withheld' }] })).toBe('custom.error.withheld_write');
     expect(customErrorId({ details: [{ path: 'name', code: 'invalid_value' }] })).toBeNull();
     expect(customErrorId(null)).toBeNull();
   });
@@ -189,5 +189,73 @@ describe('list filters', () => {
     expect(params.has('custom[vip__c]')).toBe(false);
     expect(setCustomFilter(filters, 'tier__c', IS_EMPTY).tier__c).toBe(IS_EMPTY);
     expect(setCustomFilter(filters, 'tier__c', '')).not.toHaveProperty('tier__c');
+  });
+});
+
+describe('separators follow the page locale (M1)', () => {
+  it('refuses grouping and a stray comma under en', () => {
+    for (const typed of ['1,000', '12,345', '1,5', '1,000.50']) {
+      expect(canonicalNumber(typed, 'en'), typed).toBeNull();
+      expect(majorToMinor(typed, 2, 'en'), typed).toBeNull();
+    }
+    expect(canonicalNumber('1.000', 'en')).toBe('1');
+  });
+
+  it('takes a comma as the decimal only where the locale has one', () => {
+    expect(canonicalNumber('12,50', 'fr')).toBe('12.5');
+    expect(majorToMinor('12,5', 2, 'fr')).toBe('1250');
+    expect(canonicalNumber('1,2,3', 'fr')).toBeNull();
+    expect(canonicalNumber('1,000.5', 'fr')).toBeNull();
+    expect(canonicalNumber('12.5', 'fr')).toBe('12.5');
+  });
+});
+
+describe('a missing key is untouched, only an explicit empty clears (D1)', () => {
+  const served = { tier__c: 'gold', note__c: 'hello' };
+  it('sends nothing for a key the draft does not hold', () => {
+    expect(customPatch(ALL, served, {}, new Set()).patch).toBeNull();
+    expect(customPatch(ALL, served, { tier__c: '' }, new Set()).patch).toEqual({ tier__c: null });
+  });
+  it('a create ignores a missing key as it does an empty one', () => {
+    expect(customValues(ALL, { note__c: 'x' }, new Set()).patch).toEqual({ note__c: 'x' });
+  });
+});
+
+describe('only what changed is validated, and sizes count what they should (D3)', () => {
+  it('an unparseable saved value never blocks a save of another key', () => {
+    const served = { score__c: 'not a number', tier__c: 'gold' };
+    const draft = { ...draftOfCustom(ALL, served), tier__c: 'silver' };
+    expect(customPatch(ALL, served, draft, new Set())).toEqual({ patch: { tier__c: 'silver' }, invalid: [] });
+  });
+  it('counts a text in code points, not UTF-16 units', () => {
+    const thousand = '😀'.repeat(1000);
+    expect(customValues([NOTE], { note__c: thousand }, new Set()).invalid).toEqual([]);
+    expect(customValues([NOTE], { note__c: `${thousand}x` }, new Set()).invalid).toEqual(['note__c']);
+  });
+  it('counts significant digits only: leading fractional zeros are free', () => {
+    expect(canonicalNumber('0.0000000000000000000012')).toBe('0.0000000000000000000012');
+    expect(canonicalNumber('0.1234567890123456789')).toBeNull();
+    expect(canonicalNumber('0.123456789012345678')).toBe('0.123456789012345678');
+  });
+});
+
+describe('currency digits come from Intl, dates must round-trip, a read-only key resets', () => {
+  it('knows the minor digits of a currency', () => {
+    expect(minorDigits('NGN')).toBe(2);
+    expect(minorDigits('JPY')).toBe(0);
+    expect(minorToMajor('1250', 0)).toBe('1250');
+    expect(majorToMinor('1250', 0)).toBe('1250');
+    expect(majorToMinor('12.5', 0)).toBeNull();
+  });
+  it('shows an impossible date as empty', () => {
+    expect(describeCustom(DUE, '2027-02-30', 'en')).toEqual({ kind: 'empty' });
+    expect(describeCustom(DUE, '2027-13-01', 'en')).toEqual({ kind: 'empty' });
+  });
+  it('puts a key told read-only back to the saved value', () => {
+    const served = { tier__c: 'gold' };
+    const typed = { ...draftOfCustom(ALL, served), tier__c: 'silver', note__c: 'x' };
+    const reset = resetKeys(ALL, served, typed, ['tier__c']);
+    expect(reset.tier__c).toBe('gold');
+    expect(reset.note__c).toBe('x');
   });
 });

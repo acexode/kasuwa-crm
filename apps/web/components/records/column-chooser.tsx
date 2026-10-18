@@ -21,19 +21,15 @@ export interface ChooserColumn<K extends string> {
 }
 
 /** The column chooser: hide and restore, a lock on what the role cannot see, and why. */
-export function ColumnChooser<K extends string>({
-  t,
-  columns,
-  hidden,
-  locked,
-  onToggle,
-}: {
-  t: Translator;
-  columns: readonly ChooserColumn<K>[];
-  hidden: readonly K[];
-  locked: readonly K[];
-  onToggle: (key: K) => void;
-}) {
+export interface ChooserProps<K extends string> {
+  readonly t: Translator;
+  readonly columns: readonly ChooserColumn<K>[];
+  readonly hidden: readonly K[];
+  readonly locked: readonly K[];
+  readonly onToggle: (key: K) => void;
+}
+
+export function ColumnChooser<K extends string>({ t, columns, hidden, locked, onToggle }: ChooserProps<K>) {
   const titleId = useId();
   return (
     <div

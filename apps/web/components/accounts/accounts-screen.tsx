@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { guarded } from '../custom/lazy-boundary';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type RefObject } from 'react';
 import { createBundleTranslator, type MessageBundle, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
@@ -58,7 +59,7 @@ import {
 import type { SheetMode } from './account-sheet';
 
 // Loaded when opened: the create and edit sheet is not on the list's first paint.
-const AccountSheet = dynamic(() => import('./account-sheet').then((module) => module.AccountSheet), { ssr: false });
+const AccountSheet = guarded(dynamic(() => import('./account-sheet').then((module) => module.AccountSheet), { ssr: false }));
 
 /**
  * `P04/03` — the Accounts list — with `P04/05` (empty, no results) and `P04/06`

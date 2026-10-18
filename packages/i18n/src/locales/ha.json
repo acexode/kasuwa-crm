@@ -1636,5 +1636,6 @@
   "custom.error.custom_too_large": "Filayen keɓaɓɓu suna ɗauke da rubutu mai yawa. Rage ƙima ɗaya ka sake gwadawa.",
   "custom.error.unknown_field": "Ɗaya daga cikin filayen keɓaɓɓu ba ya nan kuma. Sake ɗauka shafin ka sake gwadawa.",
   "custom.error.field_not_editable": "Matsayinka ba zai iya canza wannan fili ba. An kulle shi a wannan fom.",
-  "custom.error.field_withheld": "Ba za ka iya tace ta filin keɓaɓɓu da matsayinka ba zai iya gani ba."
+  "custom.error.field_withheld": "Ba za ka iya tace ta filin keɓaɓɓu da matsayinka ba zai iya gani ba.",
+  "custom.error.withheld_write": "Ba za ka iya canza filin keɓaɓɓu da matsayinka ba zai iya gani ba."
 }

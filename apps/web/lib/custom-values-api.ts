@@ -26,7 +26,7 @@ const Definition = z.object({
   type: FieldType,
   config: z.object({
     values: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
-    currencyCode: z.string().optional(),
+    currencyCode: z.enum(['NGN', 'GHS', 'KES', 'ZAR']).optional(),
   }),
   retiredAt: z.string().nullable().optional(),
 });

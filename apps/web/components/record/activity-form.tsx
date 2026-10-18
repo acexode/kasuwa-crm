@@ -7,11 +7,11 @@ import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from '../auth/button-classes';
 import type { RecordsError, RecordsResult } from '../../lib/records-api';
 import type { Activity, ActivityDraft, ActivityType } from '../../lib/contact-record-api';
 import { localToUtc, writeErrorId } from './record-core';
-import { CUSTOM_INVALID, customErrorId, notEditableKeys } from '../../lib/custom-values-core';
+import { CUSTOM_INVALID, customErrorId, namesUnknownField, notEditableKeys } from '../../lib/custom-values-core';
 import type { CustomDraft } from '../../lib/custom-values-model';
 import { LazyCustomInputs } from '../custom/lazy-inputs';
 import { useCustomModel } from '../custom/use-custom-model';
-import { useCustomFields } from '../custom/use-custom-fields';
+import { useCustomFields, type ReadOnlyStore } from '../custom/use-custom-fields';
 
 /**
  * Log a note, a task or a call against the record on screen (D-P18): the
@@ -38,6 +38,7 @@ export function ActivityForm({
   onClose,
   refusal,
   customFields = false,
+  readOnlyStore,
 }: {
   t: Translator;
   type: ActivityType;
@@ -48,15 +49,17 @@ export function ActivityForm({
   refusal?: (error: RecordsError) => MessageId | null;
   /** Custom values are on in this process (read by the server page): offer the activity's own fields (T-0091). */
   customFields?: boolean;
+  /** The screen's read-only keys, so a key told read-only stays so when the form is closed and opened again. */
+  readOnlyStore?: ReadOnlyStore;
 }) {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [due, setDue] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<MessageId | null>(null);
-  const custom = useCustomFields('activity', customFields);
+  const custom = useCustomFields('activity', customFields, readOnlyStore);
   const model = useCustomModel(custom.fields.length > 0);
-  const [customDraft, setCustomDraft] = useState<CustomDraft>({});
+  const [customDraft, setCustomDraft] = useState<CustomDraft>(() => model.draftOfCustom(custom.fields, undefined));
   const [customInvalid, setCustomInvalid] = useState<readonly string[]>([]);
   const subjectRef = useRef<HTMLInputElement>(null);
   const ids = { title: useId(), subject: useId(), body: useId(), due: useId(), hint: useId() };
@@ -80,7 +83,7 @@ export function ActivityForm({
       dueAt = utc;
     }
     // A create carries the filled values only: never a null, never an empty key.
-    const values = model === null ? { patch: null, invalid: [] } : model.customValues(custom.fields, customDraft, custom.readOnly);
+    const values = model.customValues(custom.fields, customDraft, custom.readOnly, t.locale);
     setCustomInvalid(values.invalid);
     if (values.invalid.length > 0) {
       setError(CUSTOM_INVALID);
@@ -100,7 +103,12 @@ export function ActivityForm({
       onClose(true);
     } else {
       const refused = customErrorId(result.error);
-      if (refused !== null) custom.markReadOnly(notEditableKeys(result.error));
+      if (refused !== null) {
+      const told = notEditableKeys(result.error);
+      custom.markReadOnly(told);
+      setCustomDraft((typed) => model.resetKeys(custom.fields, undefined, typed, told));
+      if (namesUnknownField(result.error)) custom.reload();
+    }
       setError(refused ?? refusal?.(result.error) ?? writeErrorId(result.error.code));
     }
   };
@@ -166,7 +174,6 @@ export function ActivityForm({
           />
         </div>
       ) : null}
-      {model === null ? null : (
       <LazyCustomInputs
         t={t}
         fields={custom.fields}
@@ -176,7 +183,6 @@ export function ActivityForm({
         invalid={customInvalid}
         onChange={(key, value) => setCustomDraft((current) => ({ ...current, [key]: value }))}
       />
-      )}
       <p id={ids.hint} className="text-caption text-text-muted">
         {t.t('record.form.hint')}
       </p>

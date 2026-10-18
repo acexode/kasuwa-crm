@@ -36,7 +36,8 @@ const REASONS: Readonly<Record<string, MessageId>> = {
   custom_too_large: 'custom.error.custom_too_large',
   unknown_field: 'custom.error.unknown_field',
   field_not_editable: 'custom.error.field_not_editable',
-  field_withheld: 'custom.error.field_withheld',
+  // On a write the key is one the caller cannot see: its own sentence (the filter's says "filter").
+  field_withheld: 'custom.error.withheld_write',
 };
 
 function aboutCustom(path: string): boolean {
@@ -60,4 +61,9 @@ export function notEditableKeys(error: Refusal | null | undefined): string[] {
     if (match?.[1] !== undefined) keys.push(match[1]);
   }
   return keys;
+}
+
+/** A refusal that says a custom field is not there: the definitions this screen holds are stale and are read again. */
+export function namesUnknownField(error: Refusal | null | undefined): boolean {
+  return error?.details?.some((detail) => detail.code === 'unknown_field' && aboutCustom(detail.path)) === true;
 }

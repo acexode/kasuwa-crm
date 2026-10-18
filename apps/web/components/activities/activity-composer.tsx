@@ -9,11 +9,11 @@ import { isUuid, writeErrorId } from '../record/record-core';
 import { hasDetail, listContacts, type RecordsResult } from '../../lib/records-api';
 import { listAccounts } from '../../lib/accounts-api';
 import type { ComposeTarget, ComposedActivity, WrittenActivity } from '../../lib/activities-api';
-import { CUSTOM_INVALID, customErrorId, notEditableKeys } from '../../lib/custom-values-core';
+import { CUSTOM_INVALID, customErrorId, namesUnknownField, notEditableKeys } from '../../lib/custom-values-core';
 import type { CustomDraft } from '../../lib/custom-values-model';
 import { LazyCustomInputs } from '../custom/lazy-inputs';
 import { useCustomModel } from '../custom/use-custom-model';
-import { useCustomFields } from '../custom/use-custom-fields';
+import { useCustomFields, type ReadOnlyStore } from '../custom/use-custom-fields';
 import { ActivityDialog } from './activity-dialog';
 import { localToUtc, meetingRule, meetingRuleLabel } from './activities-model';
 
@@ -53,11 +53,14 @@ export function ActivityComposer({
   onSave,
   onClose,
   customFields = false,
+  readOnlyStore,
 }: {
   t: Translator;
   offline: boolean;
   /** Custom values are on in this process (read by the server page): offer the activity's own fields (T-0091). */
   customFields?: boolean;
+  /** The screen's read-only keys, kept across the composer being closed and opened again. */
+  readOnlyStore?: ReadOnlyStore;
   whoAmI: () => Promise<string | null>;
   onSave: (activity: ComposedActivity, owner: string) => Promise<RecordsResult<WrittenActivity>>;
   onClose: () => void;
@@ -75,9 +78,9 @@ export function ActivityComposer({
   const [errors, setErrors] = useState<Partial<Record<Field, MessageId>>>({});
   const [alert, setAlert] = useState<MessageId | null>(null);
   const [saving, setSaving] = useState(false);
-  const custom = useCustomFields('activity', customFields);
+  const custom = useCustomFields('activity', customFields, readOnlyStore);
   const model = useCustomModel(custom.fields.length > 0);
-  const [customDraft, setCustomDraft] = useState<CustomDraft>({});
+  const [customDraft, setCustomDraft] = useState<CustomDraft>(() => model.draftOfCustom(custom.fields, undefined));
   const [customInvalid, setCustomInvalid] = useState<readonly string[]>([]);
   const searchSeq = useRef(0);
   const ids = {
@@ -177,7 +180,7 @@ export function ActivityComposer({
       setErrors(outcome.errors);
       return;
     }
-    const values = model === null ? { patch: null, invalid: [] } : model.customValues(custom.fields, customDraft, custom.readOnly);
+    const values = model.customValues(custom.fields, customDraft, custom.readOnly, t.locale);
     setCustomInvalid(values.invalid);
     if (values.invalid.length > 0) {
       setAlert(CUSTOM_INVALID);
@@ -202,7 +205,12 @@ export function ActivityComposer({
     // A refused custom value is its own translated message; a key told read-only is never sent again (C4).
     const refused = customErrorId(error);
     if (refused !== null) {
-      custom.markReadOnly(notEditableKeys(error));
+      {
+      const told = notEditableKeys(error);
+      custom.markReadOnly(told);
+      setCustomDraft((typed) => model.resetKeys(custom.fields, undefined, typed, told));
+      if (namesUnknownField(error)) custom.reload();
+    }
       setAlert(refused);
       return;
     }
@@ -375,7 +383,6 @@ export function ActivityComposer({
             </div>
           )}
 
-        {model === null ? null : (
         <LazyCustomInputs
           t={t}
           fields={custom.fields}
@@ -385,7 +392,6 @@ export function ActivityComposer({
           invalid={customInvalid}
           onChange={(key, value) => setCustomDraft((current) => ({ ...current, [key]: value }))}
         />
-        )}
 
         <p id={ids.owner} className="text-caption text-text-muted">
           {t.t('activities.compose.owner')}

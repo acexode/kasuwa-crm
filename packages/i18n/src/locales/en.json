@@ -1636,5 +1636,6 @@
   "custom.error.custom_too_large": "The custom fields hold too much text. Shorten a value and try again.",
   "custom.error.unknown_field": "A custom field here no longer exists. Reload the page and try again.",
   "custom.error.field_not_editable": "Your role can’t change that custom field. It is now locked on this form.",
-  "custom.error.field_withheld": "You can’t filter on a custom field your role can’t see."
+  "custom.error.field_withheld": "You can’t filter on a custom field your role can’t see.",
+  "custom.error.withheld_write": "You can’t change a custom field your role can’t see."
 }

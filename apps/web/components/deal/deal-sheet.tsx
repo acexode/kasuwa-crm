@@ -12,8 +12,8 @@ import {
   type PipelineResult,
 } from '../../lib/pipelines-api';
 import type { DealDetail, UpdateDealBody } from '../../lib/deal-detail-api';
-import { CUSTOM_INVALID, customErrorId, isCustomWithheld, notEditableKeys } from '../../lib/custom-values-core';
-import type { CustomChange, CustomDraft } from '../../lib/custom-values-model';
+import { CUSTOM_INVALID, customErrorId, isCustomWithheld, namesUnknownField, notEditableKeys } from '../../lib/custom-values-core';
+import type { CustomDraft } from '../../lib/custom-values-model';
 import type { CustomField } from '../../lib/custom-values-api';
 import { LazyCustomInputs } from '../custom/lazy-inputs';
 import { useCustomModel } from '../custom/use-custom-model';
@@ -55,7 +55,6 @@ import {
 const SEARCH_DEBOUNCE_MS = 300;
 const NO_KEYS: ReadonlySet<string> = new Set();
 const NO_FIELDS: readonly CustomField[] = [];
-const NO_CHANGE: CustomChange = { patch: null, invalid: [] };
 
 type PickerKey = 'primaryContactId' | 'accountId';
 
@@ -110,18 +109,17 @@ export function DealSheet({
   const offered = new Set(offeredKeys(base));
   const customDefs = custom?.fields ?? NO_FIELDS;
   const model = useCustomModel(customDefs.length > 0);
-  const [customDraft, setCustomDraft] = useState<CustomDraft>({});
+  const [customDraft, setCustomDraft] = useState<CustomDraft>(() => model.draftOfCustom(customDefs, deal.custom));
   const [customInvalid, setCustomInvalid] = useState<readonly string[]>([]);
   // Never sent: a key withheld on THIS deal, or one the API has said is read-only (C4, C10).
   const skip = new Set([
     ...(custom?.readOnly ?? []),
     ...customDefs.filter((field) => isCustomWithheld(base.withheldFields, field.apiName)).map((field) => field.apiName),
   ]);
-  const changed: CustomChange = model === null ? NO_CHANGE : model.customPatch(customDefs, base.custom, customDraft, skip);
+  const changed = model.customPatch(customDefs, base.custom, customDraft, skip, t.locale);
 
   // The definitions arrive after the sheet may have opened: seed the untouched keys from the deal.
   useEffect(() => {
-    if (model === null) return;
     setCustomDraft((typed) => model.rebaseCustomDraft(customDefs, undefined, base.custom, typed));
     // Only a change of the definitions (or the model arriving) re-seeds.
   }, [model, customDefs]);
@@ -180,7 +178,7 @@ export function DealSheet({
             ? (fresh.account?.name ?? '')
             : current.accountId,
       }));
-      if (model !== null) setCustomDraft((typed) => model.rebaseCustomDraft(customDefs, base.custom, fresh.custom, typed));
+      setCustomDraft((typed) => model.rebaseCustomDraft(customDefs, base.custom, fresh.custom, typed));
       setBase(fresh);
       setSeed(freshForm);
       setForm(rebased.form);
@@ -190,7 +188,12 @@ export function DealSheet({
     }
     setSaving(false);
     // A refused custom value is its own translated message; a key told read-only stays so, unsent (C4).
-    custom?.markReadOnly(notEditableKeys(error));
+    {
+      const told = notEditableKeys(error);
+      custom?.markReadOnly(told);
+      setCustomDraft((typed) => model.resetKeys(customDefs, base.custom, typed, told));
+      if (namesUnknownField(error)) custom?.reload();
+    }
     const refused = customErrorId(error);
     if (refused !== null) {
       setAlert(t.t(refused));
@@ -365,7 +368,6 @@ export function DealSheet({
           ) : null,
         )}
 
-        {model === null ? null : (
         <LazyCustomInputs
           t={t}
           fields={customDefs}
@@ -376,7 +378,6 @@ export function DealSheet({
           invalid={customInvalid}
           onChange={(key, value) => setCustomDraft((current) => ({ ...current, [key]: value }))}
         />
-        )}
 
         <div className="flex flex-wrap justify-end gap-2">
           <button

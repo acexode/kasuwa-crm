@@ -19,8 +19,8 @@ import {
   type EditKey,
 } from './record-model';
 import { writeErrorId } from '../record/record-core';
-import { CUSTOM_INVALID, customErrorId, isCustomWithheld, notEditableKeys } from '../../lib/custom-values-core';
-import type { CustomChange, CustomDraft } from '../../lib/custom-values-model';
+import { CUSTOM_INVALID, customErrorId, isCustomWithheld, namesUnknownField, notEditableKeys } from '../../lib/custom-values-core';
+import type { CustomDraft } from '../../lib/custom-values-model';
 import type { CustomField } from '../../lib/custom-values-api';
 import { LazyCustomInputs } from '../custom/lazy-inputs';
 import { useCustomModel } from '../custom/use-custom-model';
@@ -49,7 +49,6 @@ import type { CustomContext } from '../custom/use-custom-fields';
 
 const NO_KEYS: ReadonlySet<string> = new Set();
 const NO_FIELDS: readonly CustomField[] = [];
-const NO_CHANGE: CustomChange = { patch: null, invalid: [] };
 
 const TEXT_KEYS = new Set<EditKey>(['displayName', 'givenNames', 'familyName', 'state', 'lga', 'tags']);
 const LIST_KEYS: Partial<Record<EditKey, MessageId>> = {
@@ -88,19 +87,18 @@ export function ContactSheet({
   const { body: standard, invalid } = saveBody(base, draft);
   const fields = custom?.fields ?? NO_FIELDS;
   const model = useCustomModel(fields.length > 0);
-  const [customDraft, setCustomDraft] = useState<CustomDraft>({});
+  const [customDraft, setCustomDraft] = useState<CustomDraft>(() => model.draftOfCustom(fields, record.custom));
   const [customInvalid, setCustomInvalid] = useState<readonly string[]>([]);
   // Never sent: a key withheld on THIS record, or one the API has said is read-only (C4, C10).
   const skip = new Set([
     ...(custom?.readOnly ?? []),
     ...fields.filter((field) => isCustomWithheld(base.withheldFields, field.apiName)).map((field) => field.apiName),
   ]);
-  const changed: CustomChange = model === null ? NO_CHANGE : model.customPatch(fields, base.custom, customDraft, skip);
+  const changed = model.customPatch(fields, base.custom, customDraft, skip, t.locale);
   const body = changed.patch === null ? standard : { ...(standard ?? { version: base.version }), custom: changed.patch };
 
   // The definitions arrive after the sheet may have opened: seed the untouched keys from the record.
   useEffect(() => {
-    if (model === null) return;
     setCustomDraft((typed) => model.rebaseCustomDraft(fields, undefined, base.custom, typed));
     // Only a change of the definitions (or the model arriving) re-seeds.
   }, [model, fields]);
@@ -109,7 +107,7 @@ export function ContactSheet({
   useEffect(() => {
     if (record.version === base.version) return;
     const rebased = rebaseDraft(base, record, draft);
-    if (model !== null) setCustomDraft((typed) => model.rebaseCustomDraft(fields, base.custom, record.custom, typed));
+    setCustomDraft((typed) => model.rebaseCustomDraft(fields, base.custom, record.custom, typed));
     setBase(record);
     setDraft(rebased.form);
     setConflicts((held) => [...new Set([...held.filter((key) => rebased.edited.includes(key)), ...rebased.conflicts])]);
@@ -145,7 +143,12 @@ export function ContactSheet({
     }
     // A refused custom value is its own translated message; a key told read-only stays so, unsent (C4).
     const refused = customErrorId(result.error);
-    custom?.markReadOnly(notEditableKeys(result.error));
+    {
+      const told = notEditableKeys(result.error);
+      custom?.markReadOnly(told);
+      setCustomDraft((typed) => model.resetKeys(fields, base.custom, typed, told));
+      if (namesUnknownField(result.error)) custom?.reload();
+    }
     setError(refused ?? writeErrorId(result.error.code));
   };
 
@@ -278,7 +281,6 @@ export function ContactSheet({
             ) : null}
           </div>
         ))}
-        {model === null ? null : (
         <LazyCustomInputs
           t={t}
           fields={fields}
@@ -289,7 +291,6 @@ export function ContactSheet({
           invalid={customInvalid}
           onChange={(key, value) => setCustomDraft((current) => ({ ...current, [key]: value }))}
         />
-        )}
       </form>
     </Dialog>
   );

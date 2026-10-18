@@ -6,8 +6,8 @@ import { Icon } from '../icon';
 import { Dialog } from '../admin/dialog';
 import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from '../auth/button-classes';
 import { LockedValue } from '../records/list-parts';
-import { CUSTOM_INVALID, customErrorId, isCustomWithheld, notEditableKeys } from '../../lib/custom-values-core';
-import type { CustomChange, CustomDraft } from '../../lib/custom-values-model';
+import { CUSTOM_INVALID, customErrorId, isCustomWithheld, namesUnknownField, notEditableKeys } from '../../lib/custom-values-core';
+import type { CustomDraft } from '../../lib/custom-values-model';
 import type { CustomField } from '../../lib/custom-values-api';
 import { LazyCustomInputs } from '../custom/lazy-inputs';
 import { useCustomModel } from '../custom/use-custom-model';
@@ -58,7 +58,6 @@ import {
 
 const NO_KEYS: ReadonlySet<string> = new Set();
 const NO_FIELDS: readonly CustomField[] = [];
-const NO_CHANGE: CustomChange = { patch: null, invalid: [] };
 
 export type SheetMode = { readonly kind: 'create' } | { readonly kind: 'edit'; readonly row: Account };
 
@@ -110,18 +109,17 @@ export function AccountSheet({
   const locked = lockedFormFields(row);
   const fields = mode.kind === 'edit' ? (custom?.fields ?? NO_FIELDS) : NO_FIELDS;
   const model = useCustomModel(fields.length > 0);
-  const [customDraft, setCustomDraft] = useState<CustomDraft>({});
+  const [customDraft, setCustomDraft] = useState<CustomDraft>(() => model.draftOfCustom(fields, served?.custom));
   const [customInvalid, setCustomInvalid] = useState<readonly string[]>([]);
   // Never sent: a key withheld on THIS record, or one the API has said is read-only (C4, C10).
   const skip = new Set([
     ...(custom?.readOnly ?? []),
     ...fields.filter((field) => isCustomWithheld(row?.withheldFields ?? [], field.apiName)).map((field) => field.apiName),
   ]);
-  const changed: CustomChange = model === null ? NO_CHANGE : model.customPatch(fields, row?.custom, customDraft, skip);
+  const changed = model.customPatch(fields, row?.custom, customDraft, skip, t.locale);
 
   // The definitions arrive after the sheet may have opened: seed the untouched keys from the record.
   useEffect(() => {
-    if (model === null) return;
     setCustomDraft((typed) => model.rebaseCustomDraft(fields, undefined, row?.custom, typed));
     // Only a change of the definitions (or the model arriving) re-seeds.
   }, [model, fields]);
@@ -130,7 +128,7 @@ export function AccountSheet({
   useEffect(() => {
     if (served === null || row === null || served.version === row.version) return;
     const rebased = rebaseAccountForm(row, served, form);
-    if (model !== null) setCustomDraft((typed) => model.rebaseCustomDraft(fields, row.custom, served.custom, typed));
+    setCustomDraft((typed) => model.rebaseCustomDraft(fields, row.custom, served.custom, typed));
     setRow(served);
     setForm(rebased.form);
     setConflicts((held) => [...new Set([...held.filter((field) => rebased.edited.includes(field)), ...rebased.conflicts])]);
@@ -184,7 +182,12 @@ export function AccountSheet({
       return;
     }
     setBusy(false);
-    custom?.markReadOnly(notEditableKeys(result.error));
+    {
+      const told = notEditableKeys(result.error);
+      custom?.markReadOnly(told);
+      setCustomDraft((typed) => model.resetKeys(fields, row?.custom, typed, told));
+      if (namesUnknownField(result.error)) custom?.reload();
+    }
     setRefusal(customErrorId(result.error) ?? refusalMessage(result.error));
     onRefused?.(result.error);
   };
@@ -290,7 +293,6 @@ export function AccountSheet({
           {text('lga', 'accounts.filter.lga')}
         </div>
 
-        {model === null ? null : (
         <LazyCustomInputs
           t={t}
           fields={fields}
@@ -301,7 +303,6 @@ export function AccountSheet({
           invalid={customInvalid}
           onChange={(key, value) => setCustomDraft((current) => ({ ...current, [key]: value }))}
         />
-        )}
 
         {refusal === null ? null : (
           <p role="alert" className="flex items-start gap-2 rounded-md bg-danger-soft p-3 text-body-sm text-danger-text">

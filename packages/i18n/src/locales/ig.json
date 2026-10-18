@@ -1636,5 +1636,6 @@
   "custom.error.custom_too_large": "Ubi nkeonwe nwere ọtụtụ ederede. Mee otu uru dị mkpụmkpụ ma nwaa ọzọ.",
   "custom.error.unknown_field": "Otu ubi nkeonwe adịghịzi. Bugharịa ibe a ma nwaa ọzọ.",
   "custom.error.field_not_editable": "Ọrụ gị enweghị ike ịgbanwe ubi nkeonwe ahụ. E mechiri ya n’ime fọm a.",
-  "custom.error.field_withheld": "Ị nweghị ike ịzacha site n’ubi nkeonwe nke ọrụ gị na-apụghị ịhụ."
+  "custom.error.field_withheld": "Ị nweghị ike ịzacha site n’ubi nkeonwe nke ọrụ gị na-apụghị ịhụ.",
+  "custom.error.withheld_write": "Ị nweghị ike ịgbanwe ubi nkeonwe nke ọrụ gị na-apụghị ịhụ."
 }

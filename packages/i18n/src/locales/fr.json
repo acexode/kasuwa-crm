@@ -1636,5 +1636,6 @@
   "custom.error.custom_too_large": "Les champs personnalisés contiennent trop de texte. Raccourcissez une valeur et réessayez.",
   "custom.error.unknown_field": "Un champ personnalisé n’existe plus. Rechargez la page et réessayez.",
   "custom.error.field_not_editable": "Votre rôle ne peut pas modifier ce champ personnalisé. Il est désormais verrouillé dans ce formulaire.",
-  "custom.error.field_withheld": "Vous ne pouvez pas filtrer sur un champ personnalisé que votre rôle ne peut pas voir."
+  "custom.error.field_withheld": "Vous ne pouvez pas filtrer sur un champ personnalisé que votre rôle ne peut pas voir.",
+  "custom.error.withheld_write": "Vous ne pouvez pas modifier un champ personnalisé que votre rôle ne peut pas voir."
 }

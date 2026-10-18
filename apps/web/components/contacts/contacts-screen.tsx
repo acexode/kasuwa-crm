@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { guarded } from '../custom/lazy-boundary';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
@@ -22,7 +23,7 @@ import {
   OfflineBanner,
   HeaderLock,
 } from '../records/list-parts';
-import type { ColumnChooser as ColumnChooserComponent } from '../records/column-chooser';
+import type { ChooserProps } from '../records/column-chooser';
 import { CHIP, CHIP_OFF, CHIP_ON, FOCUS, POPOVER } from '../records/list-classes';
 import {
   COLUMNS,
@@ -45,10 +46,10 @@ import {
 import { useContactList } from './use-contact-list';
 
 // Loaded when opened: neither the phone's filter sheet nor the column chooser is on the list's first paint.
-const ColumnChooser = dynamic(() => import('../records/column-chooser').then((module) => module.ColumnChooser), {
-  ssr: false,
-}) as unknown as typeof ColumnChooserComponent;
-const FilterSheet = dynamic(() => import('./contacts-filter-sheet').then((module) => module.FilterSheet), { ssr: false });
+const ColumnChooser = guarded(
+  dynamic<ChooserProps<ColumnKey>>(() => import('../records/column-chooser').then((module) => module.ColumnChooser<ColumnKey>), { ssr: false }),
+);
+const FilterSheet = guarded(dynamic(() => import('./contacts-filter-sheet').then((module) => module.FilterSheet), { ssr: false }));
 
 /**
  * `P04/02` — the Contacts list — with `P04/05` (empty, no results) and `P04/06`

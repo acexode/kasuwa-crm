@@ -1636,5 +1636,6 @@
   "custom.error.custom_too_large": "Sehemu maalum zina maandishi mengi mno. Fupisha thamani moja na ujaribu tena.",
   "custom.error.unknown_field": "Sehemu maalum haipo tena. Pakia ukurasa upya na ujaribu tena.",
   "custom.error.field_not_editable": "Jukumu lako haliwezi kubadilisha sehemu hiyo maalum. Imefungwa kwenye fomu hii.",
-  "custom.error.field_withheld": "Huwezi kuchuja kwa sehemu maalum ambayo jukumu lako haliwezi kuiona."
+  "custom.error.field_withheld": "Huwezi kuchuja kwa sehemu maalum ambayo jukumu lako haliwezi kuiona.",
+  "custom.error.withheld_write": "Huwezi kubadilisha sehemu maalum ambayo jukumu lako haliwezi kuiona."
 }

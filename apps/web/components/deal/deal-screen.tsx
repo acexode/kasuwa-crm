@@ -24,7 +24,7 @@ import {
 import { RecordTimeline, type TimelineVocabulary } from '../record/record-timeline';
 import { useOnline } from '../script-builder/use-online';
 import { LazyCustomValuesPanel } from '../custom/lazy-panel';
-import { useCustomFields, type CustomContext } from '../custom/use-custom-fields';
+import { useCustomFields, useReadOnlyKeys, type CustomContext, type ReadOnlyStore } from '../custom/use-custom-fields';
 import { withheld, type MoveDealBody, type Pipeline } from '../../lib/pipelines-api';
 import {
   DEAL_TIMELINE_FIELDS,
@@ -148,6 +148,7 @@ export function DealScreen({
   const online = useOnline();
   const model = useDealDetail(dealId);
   const custom = useCustomFields('deal', customFields);
+  const activityKeys = useReadOnlyKeys();
 
   return (
     <CrmShell t={t} locale={locale} locales={locales} current="deals" live={live}>
@@ -181,6 +182,7 @@ export function DealScreen({
             links={links}
             custom={custom}
             customFields={customFields}
+            activityKeys={activityKeys}
           />
         ) : null}
       </div>
@@ -200,6 +202,7 @@ function Ready({
   links,
   custom,
   customFields,
+  activityKeys,
 }: {
   t: Translator;
   locale: string;
@@ -212,6 +215,8 @@ function Ready({
   custom: CustomContext;
   /** The custom-fields flag, for the activity form's own definitions. */
   customFields: boolean;
+  /** Read-only activity keys, owned here so they outlive the activity form. */
+  activityKeys: ReadOnlyStore;
 }) {
   const [moving, setMoving] = useState(false);
   const [prompt, setPrompt] = useState<PromptState<DealDetail> | null>(null);
@@ -669,6 +674,7 @@ function Ready({
                 onClose={closeLog}
                 refusal={composerRefusal}
                 customFields={customFields}
+                readOnlyStore={activityKeys}
               />
             )}
             <RecordTimeline

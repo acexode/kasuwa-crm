@@ -22,36 +22,85 @@ const INTEGER = /^-?\d+$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_DIGITS = 18;
 
-function digitCount(text: string): number {
-  return text.replace(/\D/g, '').length;
+/** Digits that carry value: leading zeros (before or after the point) do not count. */
+function significantDigits(text: string): number {
+  return text.replace(/\D/g, '').replace(/^0+/, '').length;
+}
+
+interface Separators {
+  readonly decimal: string;
+  readonly group: string;
+}
+
+/** The page locale's own decimal and group characters, from `Intl` and never from a table here. */
+function separators(locale: string): Separators {
+  try {
+    const parts = new Intl.NumberFormat(locale).formatToParts(1234567.5);
+    return {
+      decimal: parts.find((part) => part.type === 'decimal')?.value ?? '.',
+      group: parts.find((part) => part.type === 'group')?.value ?? ',',
+    };
+  } catch {
+    return { decimal: '.', group: ',' };
+  }
+}
+
+/**
+ * Typed text with its decimal separator made a point, or `null`. A comma is a
+ * decimal separator only where the locale's is a comma; grouping of any kind
+ * (`1,000`, `12,345`) is refused, never guessed at: "1,000" is a thousand in
+ * one country and one in another.
+ */
+function pointed(text: string, locale: string): string | null {
+  const { decimal, group } = separators(locale);
+  const commaDecimal = decimal === ',';
+  if (text.includes(',') && !commaDecimal) return null;
+  if (commaDecimal && text.includes('.') && group === '.') return null;
+  if (commaDecimal && text.includes(',') && text.includes('.')) return null;
+  return commaDecimal ? text.replace(',', '.') : text;
+}
+
+/** The minor-unit digits a currency has, from `Intl` (0 for a currency with none). */
+export function minorDigits(currency: string): number {
+  try {
+    return new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2;
+  } catch {
+    return 2;
+  }
 }
 
 /** `125000050` -> `1250000.50`, in text. `null` when it is not an integer string. */
-export function minorToMajor(minor: string): string | null {
+export function minorToMajor(minor: string, digits = 2): string | null {
   if (!INTEGER.test(minor)) return null;
   const negative = minor.startsWith('-');
-  const unsigned = (negative ? minor.slice(1) : minor).padStart(3, '0');
-  return `${negative ? '-' : ''}${unsigned.slice(0, -2)}.${unsigned.slice(-2)}`;
+  const unsigned = (negative ? minor.slice(1) : minor).padStart(digits + 1, '0');
+  if (digits === 0) return `${negative ? '-' : ''}${unsigned}`;
+  return `${negative ? '-' : ''}${unsigned.slice(0, -digits)}.${unsigned.slice(-digits)}`;
 }
 
-/** Typed major units (`2500000.75`, `-12,5`) -> minor units as an integer string; `null` when not an amount. */
-export function majorToMinor(text: string): string | null {
-  const match = /^(-?)(\d+)(?:[.,](\d{1,2}))?$/.exec(text.trim());
+/** Typed major units (`2500000.75`) -> minor units as an integer string; `null` when not an amount. */
+export function majorToMinor(text: string, digits = 2, locale = 'en'): string | null {
+  const dotted = pointed(text.trim(), locale);
+  if (dotted === null) return null;
+  const match = /^(-?)(\d+)(?:\.(\d*))?$/.exec(dotted);
   if (match === null) return null;
+  const fraction = match[3] ?? '';
+  if (fraction.length > digits) return null;
   const whole = (match[2] ?? '').replace(/^0+(?=\d)/, '');
-  const minor = `${whole}${(match[3] ?? '').padEnd(2, '0')}`.replace(/^0+(?=\d)/, '');
-  if (digitCount(minor) > MAX_DIGITS) return null;
+  const minor = `${whole}${fraction.padEnd(digits, '0')}`.replace(/^0+(?=\d)/, '');
+  if (significantDigits(minor) > MAX_DIGITS) return null;
   return minor === '0' ? '0' : `${match[1] ?? ''}${minor}`;
 }
 
 /** Typed decimal -> the contract's canonical form (`12.50` -> `12.5`); `null` when not a number. */
-export function canonicalNumber(text: string): string | null {
-  const match = /^(-?)(\d*)(?:[.,](\d*))?$/.exec(text.trim());
-  if (match === null) return null;
+export function canonicalNumber(text: string, locale = 'en'): string | null {
+  const dotted = pointed(text.trim(), locale);
+  if (dotted === null) return null;
+  const match = /^(-?)(\d*)(?:\.(\d*))?$/.exec(dotted);
+  if (match === null || !/\d/.test(dotted)) return null;
   const whole = (match[2] ?? '').replace(/^0+/, '');
   const fraction = (match[3] ?? '').replace(/0+$/, '');
-  if (!/\d/.test(text)) return null;
-  if (digitCount(`${whole}${fraction}`) > MAX_DIGITS) return null;
+  if (significantDigits(`${whole}${fraction}`) > MAX_DIGITS) return null;
   const body = `${whole === '' ? '0' : whole}${fraction === '' ? '' : `.${fraction}`}`;
   return body === '0' ? '0' : `${match[1] ?? ''}${body}`;
 }
@@ -101,7 +150,7 @@ export function describeCustom(field: CustomField, value: unknown, locale: strin
     }
     case 'currency': {
       const minor = typeof value === 'object' && value !== null ? (value as { amountMinor?: unknown }).amountMinor : undefined;
-      const major = typeof minor === 'string' ? minorToMajor(minor) : null;
+      const major = typeof minor === 'string' && field.currency !== null ? minorToMajor(minor, minorDigits(field.currency)) : null;
       if (major === null || field.currency === null) return EMPTY;
       const text = numberFormat(locale, { style: 'currency', currency: field.currency }).format(major as DecimalString);
       return { kind: 'text', text };
@@ -110,7 +159,9 @@ export function describeCustom(field: CustomField, value: unknown, locale: strin
       const match = typeof value === 'string' && DATE.test(value) ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(value) : null;
       if (match === null || typeof value !== 'string') return EMPTY;
       const at = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-      if (Number.isNaN(at)) return EMPTY;
+      const day = new Date(at);
+      // 2027-02-30 is not a day: it never round-trips, so it is shown as nothing, never as March.
+      if (day.getUTCFullYear() !== Number(match[1]) || day.getUTCMonth() !== Number(match[2]) - 1 || day.getUTCDate() !== Number(match[3])) return EMPTY;
       return { kind: 'date', iso: value, text: dateFormat(locale).format(at) };
     }
     case 'picklist': {
@@ -134,7 +185,7 @@ function draftText(field: CustomField, value: unknown): string {
   switch (field.type) {
     case 'currency': {
       const minor = typeof value === 'object' ? (value as { amountMinor?: unknown }).amountMinor : undefined;
-      return (typeof minor === 'string' ? minorToMajor(minor) : null) ?? '';
+      return (typeof minor === 'string' && field.currency !== null ? minorToMajor(minor, minorDigits(field.currency)) : null) ?? '';
     }
     case 'boolean':
       return typeof value === 'boolean' ? String(value) : '';
@@ -150,18 +201,18 @@ export function draftOfCustom(fields: readonly CustomField[], custom: CustomValu
 type Encoded = { readonly ok: true; readonly value: unknown } | { readonly ok: false };
 
 /** A typed text as the contract's encoding for the field; `null` is "no value". */
-export function encodeCustom(field: CustomField, text: string): Encoded {
+export function encodeCustom(field: CustomField, text: string, locale = 'en'): Encoded {
   const trimmed = text.trim();
   if (trimmed === '') return { ok: true, value: null };
   switch (field.type) {
     case 'text':
-      return /[\n\r\u2028\u2029]/.test(trimmed) || trimmed.length > 1000 ? { ok: false } : { ok: true, value: trimmed };
+      return /[\n\r\u2028\u2029]/.test(trimmed) || [...trimmed].length > 1000 ? { ok: false } : { ok: true, value: trimmed };
     case 'number': {
-      const canonical = canonicalNumber(trimmed);
+      const canonical = canonicalNumber(trimmed, locale);
       return canonical === null ? { ok: false } : { ok: true, value: canonical };
     }
     case 'currency': {
-      const minor = majorToMinor(trimmed);
+      const minor = field.currency === null ? null : majorToMinor(trimmed, minorDigits(field.currency), locale);
       return minor === null || field.currency === null ? { ok: false } : { ok: true, value: { amountMinor: minor, currency: field.currency } };
     }
     case 'date':
@@ -191,19 +242,26 @@ export interface CustomChange {
 /**
  * A per-key merge of ONLY what the person changed. `skip` is every key the
  * caller must not send: withheld for this record, or told read-only.
+ *
+ * A key missing from the draft is untouched; only an explicit `''` clears. And
+ * only a key whose text differs from the saved value is looked at at all: an
+ * untouched key that holds something this screen cannot parse (a value written
+ * by another client) never blocks a save of the others.
  */
 export function customPatch(
   fields: readonly CustomField[],
   served: CustomValues | undefined,
   draft: CustomDraft,
   skip: ReadonlySet<string>,
+  locale = 'en',
 ): CustomChange {
   const patch: Record<string, unknown> = {};
   const invalid: string[] = [];
   for (const field of fields) {
     if (skip.has(field.apiName)) continue;
-    const text = draft[field.apiName] ?? '';
-    const encoded = encodeCustom(field, text);
+    const text = draft[field.apiName];
+    if (text === undefined || text === draftText(field, served?.[field.apiName])) continue;
+    const encoded = encodeCustom(field, text, locale);
     if (!encoded.ok) {
       invalid.push(field.apiName);
       continue;
@@ -219,16 +277,33 @@ export function customPatch(
 }
 
 /** The values of a create: the filled ones only. Never a `null`, never an empty key. */
-export function customValues(fields: readonly CustomField[], draft: CustomDraft, skip: ReadonlySet<string>): CustomChange {
+export function customValues(
+  fields: readonly CustomField[],
+  draft: CustomDraft,
+  skip: ReadonlySet<string>,
+  locale = 'en',
+): CustomChange {
   const values: Record<string, unknown> = {};
   const invalid: string[] = [];
   for (const field of fields) {
-    if (skip.has(field.apiName)) continue;
-    const encoded = encodeCustom(field, draft[field.apiName] ?? '');
+    const text = draft[field.apiName];
+    if (skip.has(field.apiName) || text === undefined || text.trim() === '') continue;
+    const encoded = encodeCustom(field, text, locale);
     if (!encoded.ok) invalid.push(field.apiName);
     else if (encoded.value !== null) values[field.apiName] = encoded.value;
   }
   return { patch: Object.keys(values).length === 0 ? null : values, invalid };
+}
+
+/** Puts these keys back to the saved value (or empty): a key the API has just said is read-only is no longer the person's edit. */
+export function resetKeys(
+  fields: readonly CustomField[],
+  served: CustomValues | undefined,
+  draft: CustomDraft,
+  keys: readonly string[],
+): CustomDraft {
+  const saved = draftOfCustom(fields, served);
+  return { ...draft, ...Object.fromEntries(keys.map((key) => [key, saved[key] ?? ''])) };
 }
 
 /**

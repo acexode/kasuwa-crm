@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { guarded } from '../custom/lazy-boundary';
 import Link from 'next/link';
 import { useId, useRef, useState, type ReactNode } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
@@ -14,7 +15,7 @@ import { RecordLoading, RecordNotFound, RecordOfflineBanner, RecordUnavailable }
 import { RecordTimeline, Value, type TimelineVocabulary } from '../record/record-timeline';
 import { StartScript } from '../script-run/start-script';
 import { LazyCustomValuesPanel } from '../custom/lazy-panel';
-import { useCustomFields, type CustomContext } from '../custom/use-custom-fields';
+import { useCustomFields, useReadOnlyKeys, type CustomContext, type ReadOnlyStore } from '../custom/use-custom-fields';
 import {
   DETAILS,
   STATUS_CODES,
@@ -28,8 +29,8 @@ import {
 import { useContactRecord, type ContactRecordState } from './use-contact-record';
 
 // Loaded when opened: neither the edit sheet nor the activity form is on the page's first paint.
-const ContactSheet = dynamic(() => import('./contact-sheet').then((module) => module.ContactSheet), { ssr: false });
-const ActivityForm = dynamic(() => import('../record/activity-form').then((module) => module.ActivityForm), { ssr: false });
+const ContactSheet = guarded(dynamic(() => import('./contact-sheet').then((module) => module.ContactSheet), { ssr: false }));
+const ActivityForm = guarded(dynamic(() => import('../record/activity-form').then((module) => module.ActivityForm), { ssr: false }));
 
 /**
  * `P05/01` — the contact record, the 360° view (T-0062), with `P05/02` (the
@@ -93,6 +94,7 @@ export function ContactRecordScreen({
   const t = createBundleTranslator(locale, messages);
   const state = useContactRecord(id);
   const custom = useCustomFields('contact', customFields);
+  const activityKeys = useReadOnlyKeys();
   const offline = !state.online;
 
   return (
@@ -124,6 +126,7 @@ export function ContactRecordScreen({
             scripts={scripts}
             custom={custom}
             customFields={customFields}
+            activityKeys={activityKeys}
           />
         ) : null}
       </div>
@@ -141,6 +144,7 @@ function Ready({
   scripts,
   custom,
   customFields,
+  activityKeys,
 }: {
   t: Translator;
   locale: string;
@@ -155,6 +159,8 @@ function Ready({
   custom: CustomContext;
   /** The custom-fields flag, for the activity form's own definitions. */
   customFields: boolean;
+  /** Read-only activity keys, owned here so they outlive the activity form. */
+  activityKeys: ReadOnlyStore;
 }) {
   const [editing, setEditing] = useState(false);
   const [logging, setLogging] = useState<ActivityType | null>(null);
@@ -343,7 +349,7 @@ function Ready({
             ))}
           </div>
           {logging === null ? null : (
-            <ActivityForm key={logging} t={t} type={logging} offline={offline} onSave={state.log} onClose={closeLog} customFields={customFields} />
+            <ActivityForm key={logging} t={t} type={logging} offline={offline} onSave={state.log} onClose={closeLog} customFields={customFields} readOnlyStore={activityKeys} />
           )}
           <RecordTimeline
             t={t}
