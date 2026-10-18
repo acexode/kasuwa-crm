@@ -77,15 +77,32 @@
 -- UPDATE would:
 --   - change id, tenant_id, programme_id, purpose or key: a row can never be
 --     re-pointed at other bytes, nor moved across a tenant or a BPO client;
---   - move a row OUT of `deleted`: deleted is terminal (R8). The bytes are
---     gone; a row claiming otherwise would issue URLs for nothing, or for
---     whatever a later upload put there.
--- That binds kasuwa_app (including after SET ROLE kasuwa_sweeper),
+-- (STATUS, below, adds the D-L155 rules to the same trigger.)
+-- The key rule binds kasuwa_app (including after SET ROLE kasuwa_sweeper),
 -- kasuwa_test_admin (BYPASSRLS) and any role added later. kasuwa_app also
 -- holds no UPDATE on those columns at all (TENANCY), so its statement fails
 -- 42501 before a row is read; two independent layers. The guard reads no
 -- table: SECURITY INVOKER, pinned search_path, EXECUTE revoked. Not a
 -- SECURITY DEFINER (CLAUDE.md 2.7): the census stays at two.
+--
+-- ---------------------------------------------------------------------------
+-- STATUS (D-L155, R8), in the same guard, for EVERY role, the migrator too
+-- ---------------------------------------------------------------------------
+--   - Forward only. Allowed moves: pending -> uploaded | rejected | deleted;
+--     uploaded | rejected -> deleted. Nothing moves INTO pending.
+--   - A deleted row cannot change at all, in any column: the bytes are gone,
+--     and a row claiming otherwise would issue URLs for nothing, or for
+--     whatever a later upload put there.
+--   - expires_at, once set, cannot be cleared: the sweeper's deadline (D-L146)
+--     must not silently disappear. It may move.
+--   Refusals are 23514 (check_violation). Why the migrator is bound too: none
+--   of these is a key correction (D-L76's reason for its exemption), and a
+--   status the bytes no longer support is wrong whoever writes it.
+--   NOT HERE, deliberately: D-L155's CHECK (status <> 'uploaded' OR
+--   verified_size_bytes = declared_size_bytes). The T-0092 suite moves a
+--   planted pending row (verified NULL) to 'uploaded' as kasuwa_app and pins
+--   that as accepted ("an A1 agent can move its own row"), so the CHECK would
+--   fail the unmodified suite. Escalated in the T-0092 report.
 --
 -- ---------------------------------------------------------------------------
 -- TENANCY
@@ -241,35 +258,59 @@ GRANT SELECT, INSERT ON stored_object TO kasuwa_app;
 GRANT UPDATE (status, verified_size_bytes, sha256, expires_at) ON stored_object TO kasuwa_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON stored_object TO kasuwa_test_admin;
 
--- --- 4. the guard ----------------------------------------------------------------
--- An allow-list. See GUARD in the header. The message names the rule, never a
--- value.
+-- --- 4. the guards ---------------------------------------------------------------
+-- See GUARD and STATUS in the header. Messages name the rule, never a value.
 CREATE FUNCTION app.guard_stored_object_fixed() RETURNS trigger
   LANGUAGE plpgsql
   SECURITY INVOKER
   SET search_path = pg_catalog
 AS $$
 BEGIN
-  IF current_user = 'kasuwa_migrator' AND session_user = 'kasuwa_migrator' THEN
-    RETURN NEW;
+  -- STATUS rules bind EVERY role, the migrator included.
+  IF OLD.status = 'deleted' AND NEW IS DISTINCT FROM OLD THEN
+    RAISE EXCEPTION 'stored_object: a deleted row cannot change'
+      USING ERRCODE = 'check_violation';  -- 23514
   END IF;
-  RAISE EXCEPTION 'stored_object: the key, its parts and a deleted status are fixed and cannot be changed by this role'
-    USING ERRCODE = 'insufficient_privilege';  -- 42501, as 0027 and 0036
+  IF NEW.status IS DISTINCT FROM OLD.status
+     AND NOT ((OLD.status = 'pending' AND NEW.status IN ('uploaded', 'rejected', 'deleted'))
+              OR (OLD.status IN ('uploaded', 'rejected') AND NEW.status = 'deleted')) THEN
+    RAISE EXCEPTION 'stored_object: status moves forward only (pending to uploaded, rejected or deleted; uploaded or rejected to deleted)'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  IF NEW.expires_at IS NULL AND OLD.expires_at IS NOT NULL THEN
+    RAISE EXCEPTION 'stored_object: expires_at cannot be cleared'
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- KEYS: D-L76's allow-list, the migrator alone.
+  IF (NEW.id IS DISTINCT FROM OLD.id
+      OR NEW.tenant_id IS DISTINCT FROM OLD.tenant_id
+      OR NEW.programme_id IS DISTINCT FROM OLD.programme_id
+      OR NEW.purpose IS DISTINCT FROM OLD.purpose
+      OR NEW.key IS DISTINCT FROM OLD.key)
+     AND NOT (current_user = 'kasuwa_migrator' AND session_user = 'kasuwa_migrator') THEN
+    RAISE EXCEPTION 'stored_object: the key and its parts are fixed and cannot be changed by this role'
+      USING ERRCODE = 'insufficient_privilege';  -- 42501, as 0027 and 0036
+  END IF;
+  RETURN NEW;
 END;
 $$;
 -- Only the trigger calls it; firing a trigger needs no EXECUTE.
 REVOKE ALL ON FUNCTION app.guard_stored_object_fixed() FROM PUBLIC, kasuwa_app, kasuwa_test_admin;
 
 -- BEFORE, so the row is refused before any FK or policy check runs. No column
--- list: the WHEN clause sees the final NEW, whatever set it.
+-- list: the WHEN clause sees the final NEW, whatever set it. It skips the
+-- function on every UPDATE that touches none of the guarded facts.
 CREATE TRIGGER stored_object_fixed
   BEFORE UPDATE ON stored_object FOR EACH ROW
-  WHEN (NEW.id IS DISTINCT FROM OLD.id
+  WHEN (OLD.status = 'deleted'
+        OR NEW.status IS DISTINCT FROM OLD.status
+        OR (NEW.expires_at IS NULL AND OLD.expires_at IS NOT NULL)
+        OR NEW.id IS DISTINCT FROM OLD.id
         OR NEW.tenant_id IS DISTINCT FROM OLD.tenant_id
         OR NEW.programme_id IS DISTINCT FROM OLD.programme_id
         OR NEW.purpose IS DISTINCT FROM OLD.purpose
-        OR NEW.key IS DISTINCT FROM OLD.key
-        OR (OLD.status = 'deleted' AND NEW.status IS DISTINCT FROM 'deleted'))
+        OR NEW.key IS DISTINCT FROM OLD.key)
   EXECUTE FUNCTION app.guard_stored_object_fixed();
 
 -- --- 5. prove the posture ----------------------------------------------------------
