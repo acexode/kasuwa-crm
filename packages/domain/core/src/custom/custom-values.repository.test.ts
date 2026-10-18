@@ -65,38 +65,63 @@ describe('projectedCustomSql (ADR-0016 item 6: custom minus every key not readab
   });
 });
 
-describe('customMergeSet (ADR-0016 item 5: custom || set - remove)', () => {
-  it('binds the set as JSON and the removals as a text array; no key reaches the SQL text', () => {
+describe('customMergeSet (ADR-0016 item 5, D-L142: (custom || set) - remove - retired)', () => {
+  it('binds the set as JSON, the removals and the retired keys as text arrays; no key reaches the SQL text', () => {
     const { add, values } = binder();
-    const sql = customMergeSet({ set: { [HOSTILE]: 'v', tier__c: 'gold' }, remove: ['old__c'] }, add);
-    expect(sql).toBe('custom = (custom || $1::jsonb) - $2::text[]');
-    expect(values).toEqual([JSON.stringify({ [HOSTILE]: 'v', tier__c: 'gold' }), ['old__c']]);
+    const sql = customMergeSet(
+      { set: { [HOSTILE]: 'v', tier__c: 'gold' }, remove: ['vip__c'], drop: ['old__c'] },
+      add,
+    );
+    expect(sql).toBe('custom = ((custom || $1::jsonb) - $2::text[]) - $3::text[]');
+    expect(values).toEqual([JSON.stringify({ [HOSTILE]: 'v', tier__c: 'gold' }), ['vip__c'], ['old__c']]);
     expect(sql).not.toContain('tier__c');
+  });
+
+  it('a patch with no retired keys drops an empty list', () => {
+    const { add, values } = binder();
+    customMergeSet({ set: {}, remove: ['a__c'] }, add);
+    expect(values[2]).toEqual([]);
   });
 });
 
-describe('customFilterClauses (ADR-0016 item 8)', () => {
-  it('picklist equality, boolean equality and is-empty, every key and value bound', () => {
+describe('customFilterClauses (ADR-0016 item 8; D-L142: on the projected custom)', () => {
+  const readable = { [P1]: ['tier__c', 'vip__c', 'band__c'] };
+
+  it('picklist equality, boolean equality and is-empty on the projection, every key and value bound', () => {
     const { add, values } = binder();
     const clauses = customFilterClauses(
-      { equals: [{ key: 'tier__c', value: 'gold' }, { key: 'vip__c', value: true }], empty: ['band__c'] },
+      { equals: [{ key: 'tier__c', value: 'gold' }, { key: 'vip__c', value: true }], empty: ['band__c'], readable },
       add,
+      'contact',
     );
+    const projected = projectedCustomSql('contact', '$1');
     expect(clauses).toEqual([
-      '(custom ->> $1::text) = $2::text',
-      '(custom -> $3::text) = $4::jsonb',
-      'NOT (custom ? $5::text)',
+      `(${projected} ->> $2::text) = $3::text`,
+      `(${projected} -> $4::text) = $5::jsonb`,
+      `NOT (${projected} ? $6::text)`,
     ]);
-    expect(values).toEqual(['tier__c', 'gold', 'vip__c', 'true', 'band__c']);
+    expect(values).toEqual([JSON.stringify(readable), 'tier__c', 'gold', 'vip__c', 'true', 'band__c']);
+    // Never the bare column: a key the caller cannot read in the row's programme is not there to match.
+    expect(clauses.join(' ')).not.toMatch(/\(custom (->|\?)/);
   });
 
-  it('a hostile key or value is a bound parameter, never SQL; a bad column reference is refused', () => {
+  it('a hostile key or value is a bound parameter, never SQL; a bad alias is refused', () => {
     const { add, values } = binder();
-    const clauses = customFilterClauses({ equals: [{ key: HOSTILE, value: HOSTILE }], empty: [HOSTILE] }, add, 'd.custom');
+    const clauses = customFilterClauses(
+      { equals: [{ key: HOSTILE, value: HOSTILE }], empty: [HOSTILE], readable },
+      add,
+      'd',
+    );
     expect(clauses.join(' ')).not.toContain('DROP');
-    expect(values).toEqual([HOSTILE, HOSTILE, HOSTILE]);
-    expect(() => customFilterClauses({ equals: [], empty: [] }, add, HOSTILE)).toThrow(CustomValuesSqlError);
-    expect(customFilterClauses(undefined, add)).toEqual([]);
+    expect(values).toEqual([JSON.stringify(readable), HOSTILE, HOSTILE, HOSTILE]);
+    expect(() =>
+      customFilterClauses({ equals: [{ key: 'a__c', value: true }], empty: [], readable }, add, HOSTILE),
+    ).toThrow(CustomValuesSqlError);
+    expect(() =>
+      customFilterClauses({ equals: [{ key: 'a__c', value: true }], empty: [], readable }, add, 'd.custom'),
+    ).toThrow(CustomValuesSqlError);
+    expect(customFilterClauses(undefined, add, 'd')).toEqual([]);
+    expect(customFilterClauses({ equals: [], empty: [], readable }, add, 'd')).toEqual([]);
   });
 });
 
@@ -123,7 +148,7 @@ describe('readProjectedCustom and measureCustomVisibleSize (tenancy: the session
 
   it('measures two integers on the row in scope, and refuses a programme outside the session', async () => {
     const { tx, calls } = fakeTx([{ before: 10, after: 20 }]);
-    const patch = { set: { tier__c: 'gold' }, remove: ['vip__c'] };
+    const patch = { set: { tier__c: 'gold' }, remove: ['vip__c'], drop: ['old__c'] };
     expect(await measureCustomVisibleSize(tx, 'account', { id: ROW, programmeId: P1 }, ['tier__c'], patch)).toEqual({
       before: 10,
       after: 20,
@@ -131,7 +156,18 @@ describe('readProjectedCustom and measureCustomVisibleSize (tenancy: the session
     const [call] = calls;
     expect(call?.text).toMatch(/FROM account t/);
     expect(call?.text).toMatch(/octet_length/);
-    expect(call?.values).toEqual([ROW, TENANT, P1, [P1, P2], ['tier__c'], JSON.stringify(patch.set), ['vip__c']]);
+    // D-L142: the row is locked from the measure to the write.
+    expect(call?.text).toMatch(/FOR UPDATE OF t\s*$/);
+    expect(call?.values).toEqual([
+      ROW,
+      TENANT,
+      P1,
+      [P1, P2],
+      ['tier__c'],
+      JSON.stringify(patch.set),
+      ['vip__c'],
+      ['old__c'],
+    ]);
     await expect(
       measureCustomVisibleSize(tx, 'account', { id: ROW, programmeId: OUTSIDE }, [], patch),
     ).rejects.toThrow(CustomProgrammeOutOfScopeError);

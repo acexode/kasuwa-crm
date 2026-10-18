@@ -488,7 +488,7 @@ function filterClauses(filters: ContactFilters, params: Params): string[] {
   if (filters.withinProgrammeIds !== undefined) {
     clauses.push(`programme_id = ANY(${params.add([...filters.withinProgrammeIds])}::uuid[])`);
   }
-  clauses.push(...customFilterClauses(filters.custom, (value) => params.add(value)));
+  clauses.push(...customFilterClauses(filters.custom, (value) => params.add(value), 'contact'));
   return clauses;
 }
 

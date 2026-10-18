@@ -702,7 +702,7 @@ function listWhere(
   if (filters.closeTo !== undefined) {
     where.push(`d.expected_close_date <= ${params.add(filters.closeTo)}::date`);
   }
-  where.push(...customFilterClauses(filters.custom, (value) => params.add(value), 'd.custom'));
+  where.push(...customFilterClauses(filters.custom, (value) => params.add(value), 'd'));
   return where;
 }
 

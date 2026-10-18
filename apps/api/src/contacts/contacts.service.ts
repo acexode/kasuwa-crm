@@ -20,6 +20,7 @@ import {
 import { canProgramme, canUpdateContact, loadGrants } from '@kasuwa/permissions';
 import {
   assertCustomPatchFits,
+  customBackstopAs400,
   customFiltersFrom,
   customNotEditablePaths,
   customPatchKeys,
@@ -240,7 +241,7 @@ export async function createContactFor(tx: TenantTx, body: unknown): Promise<Con
   const customValues = parseCustomCreate(custom, rawCustomOf(raw)); // 400
   await checkReferences(tx, programmeId, values); // 400
 
-  const contact = await insertContact(tx, programmeId, values, customValues);
+  const contact = await customBackstopAs400(() => insertContact(tx, programmeId, values, customValues));
   await recordAuditWithCustom(
     tx,
     contactAuditEvent('created', contact, contactChanges(values, null)),
@@ -279,7 +280,9 @@ export async function updateContactFor(
   const target = { id: current.id, programmeId: current.programmeId };
   if (patch !== undefined) await assertCustomPatchFits(tx, custom, target, patch); // 400
 
-  const updated = await updateContactIfVersion(tx, { ...target, version }, values, patch);
+  const updated = await customBackstopAs400(() =>
+    updateContactIfVersion(tx, { ...target, version }, values, patch),
+  );
   if (updated === null) throw staleWrite(); // 409
   await recordAuditWithCustom(
     tx,

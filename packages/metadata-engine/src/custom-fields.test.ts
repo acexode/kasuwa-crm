@@ -4,6 +4,7 @@ import {
   customIssueDetails,
   customValueProblem,
   customWithheldAnywhere,
+  hasLoneSurrogate,
   isCustomFieldKey,
   jsonbTextOctets,
   notEditableCustomKeys,
@@ -98,6 +99,10 @@ describe('customValueProblem: the six Phase 2 encodings (ADR-0016 item 4)', () =
     ['txt__c', 'line\nbreak', 'invalid_value'],
     ['txt__c', 'sep\u2028arator', 'invalid_value'],
     ['txt__c', 'nul\u0000', 'invalid_value'],
+    // D-L142: a lone UTF-16 surrogate, high or low, is not a character.
+    ['txt__c', 'lone \ud800 high', 'invalid_value'],
+    ['txt__c', 'lone \udc00 low', 'invalid_value'],
+    ['txt__c', 'reversed \udc00\ud800', 'invalid_value'],
     ['num__c', 1.5, 'invalid_value'],
     ['num__c', '1.50', 'invalid_value'],
     ['num__c', '-0', 'invalid_value'],
@@ -191,6 +196,13 @@ describe('customFieldsSchema: the per-(tenant, object) Zod builder (ADR-0016 ite
   });
 });
 
+describe('hasLoneSurrogate (D-L142)', () => {
+  it('finds a lone high or low surrogate and passes well-formed text, astral characters included', () => {
+    for (const value of ['\ud800', 'a\udfff', '\udc00\ud800', `x${'\ud83d'}`]) expect(hasLoneSurrogate(value), value.length.toString()).toBe(true);
+    for (const value of ['', 'plain', '😀', '𝄞'.repeat(3), 'Ẹ̀kọ́']) expect(hasLoneSurrogate(value), value).toBe(false);
+  });
+});
+
 describe('splitCustomPatch and jsonbTextOctets', () => {
   it('splits a parsed patch into the merge halves: values set, nulls removed', () => {
     expect(splitCustomPatch({ a__c: 'x', b__c: null, c__c: undefined, d__c: false })).toEqual({
@@ -212,6 +224,7 @@ describe('access questions and the second layer (ADR-0016 item 6)', () => {
   const levels = (entries: Record<string, FieldAccessLevel>) => new Map(Object.entries(entries));
   const access: CustomFieldAccess = {
     object: 'contact',
+    retired: [],
     defs: new Map(DEFS.map((candidate) => [candidate.apiName, candidate])),
     access: new Map([
       [P1, levels({ txt__c: 'none', num__c: 'read', amt__c: 'edit', day__c: 'edit', tier__c: 'edit', vip__c: 'edit' })],

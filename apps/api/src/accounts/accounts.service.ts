@@ -33,6 +33,7 @@ import {
 import { toContactWire, type ContactWire } from '../contacts/contact-wire';
 import {
   assertCustomPatchFits,
+  customBackstopAs400,
   customFiltersFrom,
   customNotEditablePaths,
   customPatchKeys,
@@ -317,7 +318,9 @@ export async function createAccountFor(tx: TenantTx, body: unknown): Promise<Acc
   const customValues = parseCustomCreate(custom, rawCustomOf(raw)); // 400
   await checkReferences(tx, programmeId, null, values); // 400
 
-  const account = await writeOr400(() => insertAccount(tx, programmeId, values, customValues)); // 400
+  const account = await writeOr400(() =>
+    customBackstopAs400(() => insertAccount(tx, programmeId, values, customValues)),
+  ); // 400
   await recordAuditWithCustom(
     tx,
     accountAuditEvent('created', account, accountChanges(values, null)),
@@ -353,7 +356,7 @@ export async function updateAccountFor(
   if (patch !== undefined) await assertCustomPatchFits(tx, custom, target, patch); // 400
 
   const updated = await writeOr400(() =>
-    updateAccountIfVersion(tx, { ...target, version }, values, patch),
+    customBackstopAs400(() => updateAccountIfVersion(tx, { ...target, version }, values, patch)),
   );
   if (updated === null) throw staleWrite(); // 409
   await recordAuditWithCustom(

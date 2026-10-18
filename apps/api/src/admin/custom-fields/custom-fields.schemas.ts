@@ -4,6 +4,7 @@ import {
   CUSTOM_FIELD_OBJECTS,
   CUSTOM_FIELD_TYPES,
   FIELD_CLASSIFICATIONS,
+  hasLoneSurrogate,
   isCustomFieldKey,
   PICKLIST_VALUE_PATTERN,
   type CustomFieldDefinition,
@@ -11,7 +12,7 @@ import {
 } from '@kasuwa/metadata-engine';
 import { z } from 'zod';
 import type { AdminErrorDetail } from '../common/admin-errors';
-import { text } from '../../common/text';
+import { NUL_REASON, text } from '../../common/text';
 
 /**
  * Boundary schemas for the custom-field admin API (T-0088 contract, served by
@@ -26,6 +27,23 @@ import { text } from '../../common/text';
  * Every refusal carries a stable `params.reason`, which the admin filter
  * turns into `details[].code`; no detail ever echoes the value sent.
  */
+
+/**
+ * Free text with `text()`'s rules plus no lone UTF-16 surrogate (D-L142):
+ * one is not a character and cannot be stored as UTF-8, so it is
+ * `invalid_character` (the NUL code), never a silently corrupted label.
+ */
+function labelText(min: number, max: number) {
+  return text(min, max).superRefine((value, context) => {
+    if (hasLoneSurrogate(value)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'contains a lone surrogate',
+        params: { reason: NUL_REASON },
+      });
+    }
+  });
+}
 
 export const CustomFieldIdParam = z.object({ fieldId: z.string().uuid() });
 
@@ -49,13 +67,13 @@ export const CreateCustomFieldBody = z
       message: 'not a custom api name',
       params: { reason: 'invalid_api_name' },
     }),
-    label: text(1, 255),
+    label: labelText(1, 255),
     type: z.string().refine(isCustomFieldType, {
       message: 'not a Phase 2 type',
       params: { reason: 'unsupported_type' },
     }),
     classification: z.enum(FIELD_CLASSIFICATIONS).default('none'),
-    description: text(0, 2000).nullable().optional(),
+    description: labelText(0, 2000).nullable().optional(),
     config: z.unknown().optional(),
   })
   .strict();
@@ -64,14 +82,14 @@ export type CreateCustomFieldBody = z.infer<typeof CreateCustomFieldBody>;
 const PicklistValue = z
   .object({
     value: z.string().regex(PICKLIST_VALUE_PATTERN),
-    label: text(1, 255),
+    label: labelText(1, 255),
   })
   .strict();
 
 export const UpdateCustomFieldBody = z
   .object({
-    label: text(1, 255).optional(),
-    description: text(0, 2000).nullable().optional(),
+    label: labelText(1, 255).optional(),
+    description: labelText(0, 2000).nullable().optional(),
     classification: z.enum(FIELD_CLASSIFICATIONS).optional(),
     addValues: z.array(PicklistValue).min(1).max(CUSTOM_FIELD_LIMITS.picklistValues).optional(),
     relabelValues: z.array(PicklistValue).min(1).max(CUSTOM_FIELD_LIMITS.picklistValues).optional(),

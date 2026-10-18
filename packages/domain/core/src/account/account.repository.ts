@@ -242,7 +242,7 @@ function filterClauses(filters: AccountFilters, params: Params): string[] {
   if (filters.lgas !== undefined && filters.lgas.length > 0) {
     clauses.push(`lower(lga) = ANY(${params.add(lowered(filters.lgas))}::text[])`);
   }
-  clauses.push(...customFilterClauses(filters.custom, (value) => params.add(value)));
+  clauses.push(...customFilterClauses(filters.custom, (value) => params.add(value), 'account'));
   return clauses;
 }
 

@@ -1,11 +1,22 @@
 import type { TenantTx } from '@kasuwa/db';
 import type { CustomFieldAccess, CustomFieldDef, FieldAccessLevel } from '@kasuwa/metadata-engine';
+import { STANDARD_OBJECT_CATALOGUE } from '@kasuwa/db';
+import {
+  WITHHOLDABLE_ACCOUNT_FIELDS,
+  WITHHOLDABLE_ACTIVITY_FIELDS,
+  WITHHOLDABLE_CONTACT_FIELDS,
+  WITHHOLDABLE_DEAL_FIELDS,
+} from '@kasuwa/domain-core';
+import { isCustomFieldKey } from '@kasuwa/metadata-engine';
 import { describe, expect, it } from 'vitest';
 import { AdminError } from '../admin/common/admin-errors';
 import { change } from '../admin/audit/audit-writer';
+import { CONTACT_AUDIT_VALUE_FIELDS } from '../contacts/contact-audit';
 import {
+  customBackstopAs400,
   customFiltersFrom,
   customNotEditablePaths,
+  isCustomBackstopRefusal,
   customPatchKeys,
   customWireOf,
   customWriteTooLarge,
@@ -33,6 +44,7 @@ const def = (apiName: string, type: CustomFieldDef['type'], values: string[] = [
 const levels = (entries: Record<string, FieldAccessLevel>) => new Map(Object.entries(entries));
 const CUSTOM: CustomFieldAccess = {
   object: 'contact',
+  retired: ['old__c'],
   defs: new Map(
     [
       def('tier__c', 'picklist', ['gold', 'silver']),
@@ -62,16 +74,23 @@ function refusal(fn: () => unknown): { status: number; body: { details?: { path:
 
 describe('customFiltersFrom (records.openapi.yaml CustomFilter, CustomEmptyFilter)', () => {
   it('reads both query parser shapes, AND-ing equality and is-empty', () => {
+    // D-L142: the SQL filters on the projected custom, with the read's readable lists.
+    const readable = {
+      [P1]: ['big__c', 'tier__c', 'txt__c', 'vip__c'],
+      [P2]: ['band__c', 'big__c', 'tier__c', 'txt__c', 'vip__c'],
+    };
     expect(customFiltersFrom(CUSTOM, { 'custom[tier__c]': 'gold', 'custom[vip__c]': 'false' })).toEqual({
       equals: [
         { key: 'tier__c', value: 'gold' },
         { key: 'vip__c', value: false },
       ],
       empty: [],
+      readable,
     });
     expect(customFiltersFrom(CUSTOM, { custom: { tier__c: 'silver' }, customEmpty: ['vip__c', 'vip__c'] })).toEqual({
       equals: [{ key: 'tier__c', value: 'silver' }],
       empty: ['vip__c'],
+      readable,
     });
     expect(customFiltersFrom(CUSTOM, { q: 'x' })).toBeUndefined();
   });
@@ -111,7 +130,7 @@ describe('customFiltersFrom (records.openapi.yaml CustomFilter, CustomEmptyFilte
 
   it('withheld anywhere: band__c is readable in P2 and still refused, because it is none in P1', () => {
     const onlyP2: CustomFieldAccess = { ...CUSTOM, access: new Map([[P2, CUSTOM.access.get(P2) ?? new Map()]]) };
-    expect(customFiltersFrom(onlyP2, { 'custom[band__c]': 'red' })).toEqual({ equals: [{ key: 'band__c', value: 'red' }], empty: [] });
+    expect(customFiltersFrom(onlyP2, { 'custom[band__c]': 'red' })).toMatchObject({ equals: [{ key: 'band__c', value: 'red' }], empty: [] });
     expect(refusal(() => customFiltersFrom(CUSTOM, { 'custom[band__c]': 'red' })).body.details).toEqual([
       { path: 'custom.band__c', code: 'field_withheld' },
     ]);
@@ -140,8 +159,32 @@ describe('writes: 403 paths, parsing, size and audit (D-L140, D-L141)', () => {
     );
     expect(answer.body.details).toEqual([{ path: 'custom', code: 'custom_too_large' }]);
     expect(parseCustomPatch(CUSTOM, undefined)).toBeUndefined();
-    expect(parseCustomPatch(CUSTOM, { tier__c: null, vip__c: true })).toEqual({ set: { vip__c: true }, remove: ['tier__c'] });
+    // D-L142: every custom write also drops the object's retired keys.
+    expect(parseCustomPatch(CUSTOM, { tier__c: null, vip__c: true })).toEqual({
+      set: { vip__c: true },
+      remove: ['tier__c'],
+      drop: ['old__c'],
+    });
     expect(customPatchKeys({ set: { vip__c: true }, remove: ['tier__c'] })).toEqual(['tier__c', 'vip__c']);
+  });
+
+  it('maps the size backstop (23514 on <table>_custom_size) to 400 custom_too_large, and nothing else', async () => {
+    const backstop = Object.assign(new Error('x'), { code: '23514', constraint: 'deal_custom_size' });
+    await expect(
+      customBackstopAs400(() => Promise.reject(backstop)),
+    ).rejects.toMatchObject({ response: { code: 'validation_failed', details: [{ path: 'custom', code: 'custom_too_large' }] } });
+    expect(isCustomBackstopRefusal(backstop)).toBe(true);
+    for (const other of [
+      { code: '23514', constraint: 'contact_custom_keys' },
+      { code: '23514', constraint: 'account_hierarchy' },
+      { code: '23505', constraint: 'deal_custom_size' },
+      null,
+    ]) {
+      expect(isCustomBackstopRefusal(other), JSON.stringify(other)).toBe(false);
+    }
+    const unrelated = Object.assign(new Error('y'), { code: '23514', constraint: 'contact_custom_keys' });
+    await expect(customBackstopAs400(() => Promise.reject(unrelated))).rejects.toBe(unrelated);
+    expect(await customBackstopAs400(() => Promise.resolve(7))).toBe(7);
   });
 
   it('refuses for size only when the visible size passes 16 KiB AND the write grows it', () => {
@@ -189,5 +232,21 @@ describe('customWireOf (the second layer, V1, V2)', () => {
       withheld: ['custom.band__c'],
     });
     expect(customWireOf(CUSTOM, P1, {})).toEqual({ custom: {}, withheld: ['custom.band__c'] });
+  });
+});
+
+describe('standard field names are never custom keys (D-L142)', () => {
+  it('no standard field of any object, by api name or wire name, passes isCustomFieldKey', () => {
+    const names = [
+      ...STANDARD_OBJECT_CATALOGUE.flatMap((object) => object.fields.map((field) => field.apiName)),
+      ...WITHHOLDABLE_CONTACT_FIELDS,
+      ...WITHHOLDABLE_ACCOUNT_FIELDS,
+      ...WITHHOLDABLE_ACTIVITY_FIELDS,
+      ...WITHHOLDABLE_DEAL_FIELDS,
+      ...CONTACT_AUDIT_VALUE_FIELDS,
+    ];
+    // Not vacuous: every standard object contributes.
+    expect(names.length).toBeGreaterThan(40);
+    expect(names.filter((name) => isCustomFieldKey(name))).toEqual([]);
   });
 });

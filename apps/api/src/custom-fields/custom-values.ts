@@ -123,7 +123,34 @@ export function parseCustomPatch(
   if (rawCustom === undefined) return undefined;
   const parsed = customFieldsSchema([...custom.defs.values()], 'patch').safeParse(rawCustom);
   if (!parsed.success) throw validationFailed(customIssueDetails(parsed.error));
-  return splitCustomPatch(parsed.data);
+  // Every custom write also drops the object's retired keys from the row (D-L142).
+  return { ...splitCustomPatch(parsed.data), drop: [...custom.retired] };
+}
+
+/** True for Postgres's refusal by 0039's size backstop on any of the four tables. */
+export function isCustomBackstopRefusal(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const { code, constraint } = error as { code?: unknown; constraint?: unknown };
+  return (
+    code === '23514' &&
+    typeof constraint === 'string' &&
+    /^(contact|account|activity|deal)_custom_size$/.test(constraint)
+  );
+}
+
+/**
+ * Runs a record write; 0039's size backstop refusing it is `400
+ * custom_too_large` at `custom`, never a 500 (D-L142). The backstop is out of
+ * reach of the API's own rules, so this is belt and braces. Anything else is
+ * rethrown untouched.
+ */
+export async function customBackstopAs400<T>(write: () => Promise<T>): Promise<T> {
+  try {
+    return await write();
+  } catch (error) {
+    if (isCustomBackstopRefusal(error)) throw tooLarge();
+    throw error;
+  }
 }
 
 /** D-L140 and D-L141: refused only when the visible size passes 16 KiB AND the write grows it. */
@@ -338,5 +365,7 @@ export function customFiltersFrom(
   }
 
   if (details.length > 0) throw validationFailed(details);
-  return { equals, empty };
+  // The SQL evaluates the filters on the PROJECTED custom (D-L142): the same
+  // readable lists as a read, so it fails closed on its own.
+  return { equals, empty, readable: readableCustomKeysByProgramme(custom, [...custom.access.keys()]) };
 }

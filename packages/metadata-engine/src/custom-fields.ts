@@ -47,8 +47,12 @@ export const CUSTOM_FIELD_CURRENCIES = ['NGN', 'GHS', 'KES', 'ZAR'] as const;
 export const CUSTOM_FIELD_LIMITS = {
   /** The API's limit on a record's custom values, on what the caller can see plus what it writes. */
   apiBytes: 16_384,
-  /** The database backstop (0039's CHECK) on the whole stored object. */
-  bytesPerRecord: 32_768,
+  /**
+   * The database backstop (0039's CHECK) on the whole stored object, 512 KiB
+   * (D-L142): out of reach of any set of live keys, so it only stops a
+   * non-API writer. Callers meet `apiBytes`.
+   */
+  bytesPerRecord: 524_288,
   /** Definitions per object, retired ones included. */
   definitionsPerObject: 500,
   /** Active fields per object. */
@@ -95,6 +99,18 @@ export interface CustomFieldDef {
 // --- value encodings (ADR-0016 item 4; records.openapi.yaml CustomField*) -------
 
 /** CustomFieldText: one line, 1..1000 code points, no NUL. */
+/**
+ * A lone UTF-16 surrogate: not a character, and not encodable as UTF-8
+ * (Node would silently store U+FFFD). Refused rather than corrupted (D-L142).
+ * Written without the `u` flag on purpose, so the halves are seen one by one.
+ */
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+/** True when `value` holds a lone UTF-16 surrogate (String.prototype.isWellFormed, inverted). */
+export function hasLoneSurrogate(value: string): boolean {
+  return LONE_SURROGATE.test(value);
+}
+
 /** Line breaks; NUL is tested with `includes` (a NUL in a regex trips no-control-regex). */
 const TEXT_LINE_BREAK = /[\n\r\u2028\u2029]/u;
 const TEXT_MAX_CODE_POINTS = 1000;
@@ -145,6 +161,7 @@ export function customValueProblem(def: CustomFieldDef, value: unknown): CustomV
       const length = [...value].length;
       if (length < 1 || length > TEXT_MAX_CODE_POINTS) return invalid;
       if (value.includes('\u0000') || TEXT_LINE_BREAK.test(value)) return invalid;
+      if (hasLoneSurrogate(value)) return invalid;
       return null;
     }
     case 'number':
@@ -279,10 +296,16 @@ function issueCode(issue: ZodIssue): string {
   return typeof code === 'string' ? code : 'invalid_value';
 }
 
-/** A parsed patch, split for the SQL merge `custom || set - remove`. */
+/**
+ * A parsed patch, split for the SQL merge `(custom || set) - remove - drop`.
+ * `drop` is the object's RETIRED keys (D-L142): every custom write purges
+ * them from the row it touches. They are not the caller's changes, so they
+ * are never audited as such.
+ */
 export interface CustomPatch {
   set: Record<string, unknown>;
   remove: string[];
+  drop?: readonly string[];
 }
 
 export function splitCustomPatch(parsed: Record<string, unknown>): CustomPatch {
@@ -327,6 +350,8 @@ export interface CustomFieldAccess {
   defs: ReadonlyMap<string, CustomFieldDef>;
   /** Programme id -> api name -> level, for those fields (`fieldLevel` semantics). */
   access: FieldAccess;
+  /** The object's RETIRED custom keys, which every custom write drops (D-L142). */
+  retired: readonly string[];
 }
 
 const PicklistValues = z.array(z.object({ value: z.string() }).passthrough());
@@ -341,6 +366,7 @@ const DefRow = z.object({
 
 const AccessRow = z.object({
   fields: z.array(DefRow),
+  retired: z.array(z.string()),
   grants: z.array(
     z.object({
       field: z.string(),
@@ -380,6 +406,10 @@ const CUSTOM_FIELD_ACCESS_SQL = `
        FROM field_def f
       WHERE f.tenant_id = $1 AND f.object_id = o.id
         AND f.is_custom AND f.retired_at IS NULL) AS fields,
+    (SELECT coalesce(json_agg(f.api_name ORDER BY f.api_name), '[]'::json)
+       FROM field_def f
+      WHERE f.tenant_id = $1 AND f.object_id = o.id
+        AND f.is_custom AND f.retired_at IS NOT NULL) AS retired,
     (SELECT coalesce(json_agg(json_build_object(
               'field', f.api_name, 'set', gs.id, 'locked', gs.locked, 'level', g.level)),
             '[]'::json)
@@ -461,7 +491,7 @@ export async function loadCustomFieldAccess(
     })),
     reachableProgrammeIds: programmeIds,
   });
-  return { object, defs, access };
+  return { object, defs, access, retired: row.retired.filter(isCustomFieldKey) };
 }
 
 // --- questions the record APIs ask of it ------------------------------------------

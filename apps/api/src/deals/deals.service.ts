@@ -24,6 +24,7 @@ import {
 } from '../admin/common/admin-errors';
 import {
   assertCustomPatchFits,
+  customBackstopAs400,
   customFiltersFrom,
   customNotEditablePaths,
   customPatchKeys,
@@ -417,7 +418,9 @@ export async function createDealFor(
   // Every deal starts in the first open stage, which has no requirements.
   const first = (await listStages(tx, pipeline)).find((stage) => stage.kind === 'open');
   if (first === undefined) throw notFound(); // 0036's rule makes this impossible
-  const deal = await insertDeal(tx, pipeline, first.id, { ...values, name: parsed.name }, customValues);
+  const deal = await customBackstopAs400(() =>
+    insertDeal(tx, pipeline, first.id, { ...values, name: parsed.name }, customValues),
+  );
   await recordAuditWithCustom(
     tx,
     dealAuditEvent('created', deal, dealCreateChanges(parsed, deal.ownerUserId)),
@@ -453,7 +456,10 @@ export async function updateDealFor(tx: TenantTx, id: unknown, body: unknown): P
 
   if (version !== current.version) throw staleWrite(); // 409
   const target = { id: current.id, programmeId, version };
-  if (!(await updateDealIfVersion(tx, target, values, undefined, patch))) throw staleWrite(); // 409, a race
+  const written = await customBackstopAs400(() =>
+    updateDealIfVersion(tx, target, values, undefined, patch),
+  );
+  if (!written) throw staleWrite(); // 409, a race
   const updated = await findDealById(tx, current.id);
   if (updated === null) throw notFound();
   await recordAuditWithCustom(

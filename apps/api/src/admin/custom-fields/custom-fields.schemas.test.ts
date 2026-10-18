@@ -62,6 +62,24 @@ describe('CreateCustomFieldBody and createConfig (admin.openapi.yaml, A2, D-L141
   });
 });
 
+describe('lone UTF-16 surrogates in labels (D-L142)', () => {
+  const reasonsOf = (result: ReturnType<typeof UpdateCustomFieldBody.safeParse>) =>
+    result.success ? [] : result.error.issues.map((issue) => (issue.code === 'custom' ? issue.params?.['reason'] : issue.code));
+
+  it('are invalid_character in a field label, a description and a picklist label; astral characters are fine', () => {
+    expect(reasonsOf(UpdateCustomFieldBody.safeParse({ label: 'Tier \ud800' }))).toEqual(['invalid_character']);
+    expect(reasonsOf(UpdateCustomFieldBody.safeParse({ description: '\udc00' }))).toEqual(['invalid_character']);
+    expect(reasonsOf(UpdateCustomFieldBody.safeParse({ addValues: [{ value: 'a1', label: 'A \ud83d' }] }))).toEqual([
+      'invalid_character',
+    ]);
+    expect(UpdateCustomFieldBody.safeParse({ label: 'Tier 😀', addValues: [{ value: 'a1', label: '𝄞' }] }).success).toBe(true);
+    expect(createConfig('picklist', { values: [{ value: 'a1', label: '\ud800' }] })).toEqual({
+      ok: false,
+      details: [{ path: 'config.values', code: 'invalid_config' }],
+    });
+  });
+});
+
 describe('UpdateCustomFieldBody and planValues (D-L139, D-L141)', () => {
   it('is closed and non-empty', () => {
     for (const body of [{}, { type: 'number' }, { config: {} }, { removeValues: ['gold'] }, { apiName: 'x__c' }]) {

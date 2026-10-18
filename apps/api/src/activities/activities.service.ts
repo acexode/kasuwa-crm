@@ -34,6 +34,7 @@ import {
 } from './activities.schemas';
 import {
   assertCustomPatchFits,
+  customBackstopAs400,
   customNotEditablePaths,
   customPatchKeys,
   customWireFor,
@@ -201,7 +202,7 @@ export async function createActivityFor(tx: TenantTx, body: unknown): Promise<Ac
   details.push(...(await dealDetail(tx, programmeId, parsed.dealId)));
   if (details.length > 0) throw validationFailed(details); // 400
 
-  const activity = await insertActivity(tx, programmeId, {
+  const activity = await customBackstopAs400(() => insertActivity(tx, programmeId, {
     type: parsed.type,
     subject: parsed.subject ?? null,
     body: parsed.body ?? null,
@@ -212,7 +213,7 @@ export async function createActivityFor(tx: TenantTx, body: unknown): Promise<Ac
     contactId: target.kind === 'contact' ? target.id : (parsed.contactId ?? null),
     accountId: parsed.accountId ?? null,
     dealId: lowerOrNull(parsed.dealId) ?? null,
-  }, customValues);
+  }, customValues));
   await recordAuditWithCustom(
     tx,
     activityAuditEvent('created', activity, activityCreateChanges(parsed)),
@@ -315,12 +316,12 @@ export async function updateActivityFor(
   const target = { id: current.id, programmeId: current.programmeId };
   if (patch !== undefined) await assertCustomPatchFits(tx, custom, target, patch); // 400
 
-  const updated = await updateActivityIfVersion(
+  const updated = await customBackstopAs400(() => updateActivityIfVersion(
     tx,
     { ...target, version },
     { complete: completed, ownerUserId, dueAt, startsAt, endsAt, dealId: lowerOrNull(dealId) },
     patch,
-  );
+  ));
   if (updated === null) throw staleWrite(); // 409
   await recordAuditWithCustom(
     tx,

@@ -146,16 +146,19 @@ export async function readProjectedCustom(
 }
 
 /**
- * The merge (ADR-0016 item 5) as a SET item: `custom || set - remove`, so
- * writes to different keys never clobber each other, a removed key is absent
- * (never `null`), and a key the caller did not send - withheld, retired or
- * simply untouched - keeps its stored value (V4). `add` binds a value and
- * returns its placeholder.
+ * The merge (ADR-0016 item 5) as a SET item: `(custom || set) - remove -
+ * drop`, so writes to different keys never clobber each other, a removed key
+ * is absent (never `null`), and a key the caller did not send - withheld or
+ * simply untouched - keeps its stored value (V4). `drop` is the object's
+ * RETIRED keys (D-L142): a custom write purges them from the row it touches,
+ * so retired bytes cannot accumulate towards the backstop. `add` binds a
+ * value and returns its placeholder.
  */
 export function customMergeSet(patch: CustomPatch, add: (value: unknown) => string): string {
   const set = placeholder(add(JSON.stringify(patch.set)));
   const remove = placeholder(add([...patch.remove]));
-  return `custom = (custom || ${set}::jsonb) - ${remove}::text[]`;
+  const drop = placeholder(add([...(patch.drop ?? [])]));
+  return `custom = ((custom || ${set}::jsonb) - ${remove}::text[]) - ${drop}::text[]`;
 }
 
 /** The visible size of a row's custom before and after a patch, in jsonb-text octets. */
@@ -184,15 +187,20 @@ export async function measureCustomVisibleSize(
 ): Promise<CustomVisibleSize | null> {
   if (!tx.session.programmeIds.includes(target.programmeId)) throw new CustomProgrammeOutOfScopeError();
   const table = tableOf(object);
+  // FOR UPDATE OF t (D-L142): the row is locked from the measure to the
+  // write, so two concurrent writes cannot each pass on the old size and
+  // together go past 16 KiB. The write that follows is in the same
+  // transaction and also checks `version`.
   const rows = await tx.query<{ before: number; after: number }>(
     `SELECT octet_length(${keepOnly('t.custom', '$5::text[]')}::text) AS before,
             octet_length(${keepOnly('merged.custom', '$5::text[]')}::text) AS after
        FROM ${table} t
-      CROSS JOIN LATERAL (SELECT (t.custom || $6::jsonb) - $7::text[] AS custom) AS merged
+      CROSS JOIN LATERAL (SELECT ((t.custom || $6::jsonb) - $7::text[]) - $8::text[] AS custom) AS merged
       WHERE t.id = $1
         AND t.tenant_id = $2
         AND t.programme_id = $3
-        AND t.programme_id = ANY ($4::uuid[])`,
+        AND t.programme_id = ANY ($4::uuid[])
+        FOR UPDATE OF t`,
     [
       target.id,
       tx.session.tenantId,
@@ -201,6 +209,7 @@ export async function measureCustomVisibleSize(
       [...readable],
       JSON.stringify(patch.set),
       [...patch.remove],
+      [...(patch.drop ?? [])],
     ],
   );
   const row = rows[0];
@@ -215,10 +224,18 @@ export async function measureCustomVisibleSize(
 export interface CustomFilters {
   equals: readonly { key: string; value: string | boolean }[];
   empty: readonly string[];
+  /**
+   * Programme id -> the keys the caller may read there, as for the read
+   * projection. The filters are evaluated on the PROJECTED custom (D-L142),
+   * so even a filter the API failed to refuse could never match on a value
+   * the caller cannot read in that row's programme: SQL fails closed alone.
+   */
+  readable: Readonly<Record<string, readonly string[]>>;
 }
 
 /**
- * The filters as WHERE clauses on `column` (a constant column reference).
+ * The filters as WHERE clauses on the projected custom of the row aliased
+ * `alias` (a constant: the table name when the statement has no alias).
  * They are ANDed onto a list statement whose WHERE already starts with the
  * session's tenant and programmes, so they can only narrow it, and they are
  * evaluated as a filter inside the scoped keyset page: no index on `custom`
@@ -227,10 +244,11 @@ export interface CustomFilters {
 export function customFilterClauses(
   filters: CustomFilters | undefined,
   add: (value: unknown) => string,
-  column = 'custom',
+  alias: string,
 ): string[] {
   if (filters === undefined) return [];
-  const custom = columnRef(column);
+  if (filters.equals.length === 0 && filters.empty.length === 0) return [];
+  const custom = projectedCustomSql(alias, placeholder(add(JSON.stringify(filters.readable))));
   const clauses: string[] = [];
   for (const { key, value } of filters.equals) {
     const k = placeholder(add(key));
