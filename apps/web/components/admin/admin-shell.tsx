@@ -6,7 +6,8 @@ import { createBundleTranslator, type MessageBundle, type MessageId } from '@kas
 import { Icon } from '../icon';
 import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
 import { LiteModeToggle } from '../auth/lite-mode';
-import { NAV_GROUPS, filterNav, type NavGroup } from './nav-model';
+import { useFlaggedSettingIds } from './admin-nav-links';
+import { FLAGGED_NAV_HREFS, NAV_GROUPS, filterNav, type NavGroup } from './nav-model';
 import { getHomeSummary, getSettingsMenuBadges, type Severity } from '../../lib/admin-api';
 import { useResource } from './use-resource';
 
@@ -67,6 +68,7 @@ export function AdminShell({
   const drawerButtonRef = useRef<HTMLButtonElement>(null);
 
   const badges = useResource((signal) => getSettingsMenuBadges(signal), []);
+  const flaggedLinks = useFlaggedSettingIds();
 
   /**
    * The residency badge is read by the SHELL, not passed in, because it is on
@@ -256,14 +258,24 @@ export function AdminShell({
                         current ? 'bg-primary-soft font-semibold text-primary-text' : 'text-text-2'
                       }`;
 
-                      return item.href === null ? (
+                      // A flag-gated screen is a link only where its flag is on.
+                      const href =
+                        item.href ??
+                        (flaggedLinks.includes(item.settingId)
+                          ? (FLAGGED_NAV_HREFS[item.settingId] ?? null)
+                          : null);
+
+                      return href === null ? (
                         // Not built yet, so not a link. A menu entry that
                         // navigates to a 404 is worse than one that visibly
-                        // does nothing — same rule as the language menu.
+                        // does nothing — same rule as the language menu. It is
+                        // also not announced: a greyed-out entry that does
+                        // nothing is a promise only sighted users can read.
                         <span
                           key={item.settingId}
                           data-setting-id={item.settingId}
                           aria-disabled="true"
+                          aria-hidden="true"
                           className={`${className} text-text-muted`}
                         >
                           {inner}
@@ -271,7 +283,7 @@ export function AdminShell({
                       ) : (
                         <Link
                           key={item.settingId}
-                          href={item.href}
+                          href={href}
                           data-setting-id={item.settingId}
                           aria-current={current ? 'page' : undefined}
                           onClick={() => setDrawerOpen(false)}

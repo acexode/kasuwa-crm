@@ -1,0 +1,27 @@
+import { notFound } from 'next/navigation';
+import { bundleMessages } from '@kasuwa/i18n';
+import { ADMIN_STUDIO_MESSAGE_IDS } from '../../../components/admin/custom-fields/message-ids';
+import { StudioScreen } from '../../../components/admin/custom-fields/studio-screen';
+import { crmCustomFieldsEnabled } from '../../../lib/feature-flags';
+import { activeLocale, languageOptions } from '../../../lib/locale';
+
+/**
+ * `P18/B` — the customisation studio for custom fields (T-0090).
+ *
+ * Behind `crm_custom_fields`: with it off this is a real 404 and nothing of
+ * the screen ships. The flag is read here, on the server, and decides nothing
+ * about access: the API answers every read and refuses every write without
+ * `custom_field.write`, on or off.
+ */
+export default async function CustomFieldsPage() {
+  if (!(await crmCustomFieldsEnabled())) notFound();
+  const { locale } = await activeLocale();
+
+  return (
+    <StudioScreen
+      locale={locale}
+      messages={bundleMessages(locale, ADMIN_STUDIO_MESSAGE_IDS)}
+      locales={languageOptions(locale)}
+    />
+  );
+}

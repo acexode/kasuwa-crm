@@ -36,6 +36,17 @@ function item(settingId: string, label: MessageId, href: string | null = null): 
   return { settingId, label, href };
 }
 
+/**
+ * Entries whose screen is built but flag-gated, by `settingId`. `href` stays
+ * `null` in `NAV_GROUPS` — the entry is not a link unless the process says its
+ * flag is on (`AdminNavLinksProvider`) — so the table above keeps listing only
+ * screens that answer everywhere.
+ */
+export const FLAGGED_NAV_HREFS: Readonly<Record<string, string>> = {
+  // P18/B, the customisation studio (T-0090).
+  'cu-fields': '/admin/custom-fields',
+};
+
 export const NAV_GROUPS: readonly NavGroup[] = [
   {
     id: 'company',
