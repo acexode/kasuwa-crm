@@ -3328,3 +3328,22 @@ of T-0125 proceeds on these answers unless @acexode objects.
   Both are being fixed on `lead/main-fixes-audit-currency`.
 - **Port collision seen again:** one `script-runs` request got an "Ollama" page. The fix is `lead/e2e-free-ports`, pending
   merge.
+
+### D-L153 — T-0095 suite rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The suite is on `lead/T-0095-acceptance` (253c028): 69 contact-merge tests, plus 5 new
+database attacks in tenancy/adversarial. Its rulings M1–M16 are accepted, including:
+- the column is `merged_by_user_id`;
+- kasuwa_app may update only the undo columns, and the snapshot and `undo_until` are immutable;
+- a restrictive INSERT policy pins the merger to the session user;
+- one audit row per merge or undo, with field names only;
+- the default never picks an owner who has left the programme;
+- a merged-away contact answers an invented id's 404, byte for byte, on every route;
+- undo moves back only the children that still point at the survivor;
+- 150 ms latency at 60k contacts per programme.
+- **The duplicates cursor (widens D-L151).** The decoded cursor carries the lowest contact id plus the literal
+  `phone`/`email` and a version, and never a matched value. Otherwise a pair that matches on both would lose a set at a
+  page boundary.
+- **Contract additions** in T-0095:
+  - `merged` and `restored` in `AuditAction`;
+  - `unknown_reference` at `choices.ownerUserId`.
+- **Known noise:** the adversarial "no such contact" timing check fails under load on this host (D-L100).
