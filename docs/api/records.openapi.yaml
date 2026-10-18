@@ -5467,6 +5467,10 @@ paths:
         true (the "99+" badge); otherwise `capped` is false. It takes no
         parameter. Per-kind counts are not served.
 
+        **Bounded work.** The count examines at most the 500 newest unread
+        notifications, counts the visible ones among them, and caps the answer
+        at 99. It may therefore undercount when more than 500 are unread.
+
         **Polling (D-L87, no socket in Phase 2).** Poll this route, and only
         this route, every 30 seconds (`x-kasuwa-poll-interval-seconds`), only
         while the page is visible. Fetch the list when the bell or the centre
@@ -5586,7 +5590,7 @@ paths:
         **One 404.** No such notification, another user's in this tenant,
         another tenant's, and one whose object the caller can no longer read
         are one `404 not_found` body. A notification is the recipient's own,
-        so there is never 403.
+        so there is never 403. A `404` changes nothing.
       parameters:
         - name: notificationId
           in: path
@@ -5665,9 +5669,10 @@ components:
         notification id, never a time, a kind, a filter, a name or any other
         value; the server resolves the position from that row, which is the
         caller's own even when its object is no longer visible. A cursor
-        naming another user's notification answers an empty page, never
-        anyone else's rows. A malformed cursor is `400` with
-        `details[].code: invalid_cursor`.
+        naming a notification that does not exist, another user's, or another
+        tenant's gets the same answer in all three cases: an empty page with
+        `nextCursor: null`, never anyone else's rows. Only a malformed cursor
+        is `400` with `details[].code: invalid_cursor`.
     ImportId:
       name: importId
       in: path
@@ -6094,7 +6099,8 @@ components:
           description: |
             `null` when the actor is no longer a member of the object's
             programme (D-P23). Never the id printed as a name (D-L64); no
-            email, phone, role or avatar.
+            email, phone, role or avatar. User-supplied text: render it as
+            text only, never as HTML.
     Notification:
       type: object
       additionalProperties: false
@@ -6131,7 +6137,8 @@ components:
             its raw file, D-L148). A contact's name follows its parts, as in
             search (D-L68): `null` whenever `givenNames` or `familyName` is
             withheld from the reader, never composed from the readable part.
-            Here `null` may mean withheld.
+            Here `null` may mean withheld. User-supplied text: render it as
+            text only, never as HTML.
         createdAt: { type: string, format: date-time }
         readAt: { type: [string, 'null'], format: date-time }
     NotificationPage:
@@ -8966,6 +8973,7 @@ components:
       headers:
         Cache-Control: { $ref: '#/components/headers/NoStore' }
         Retry-After:
+          required: true
           description: Seconds to wait before retrying.
           schema: { type: integer, minimum: 1 }
       content:
@@ -9732,6 +9740,7 @@ components:
       headers:
         Cache-Control: { $ref: '#/components/headers/NoStore' }
         Retry-After:
+          required: true
           description: Seconds to wait before retrying.
           schema: { type: integer, minimum: 1 }
       content:
