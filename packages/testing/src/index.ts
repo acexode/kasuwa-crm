@@ -4,4 +4,5 @@ export * from './bare-postgres';
 export * from './containers';
 export * from './factories';
 export * from './isolation';
+export * from './seaweedfs';
 export * from './telemetry';

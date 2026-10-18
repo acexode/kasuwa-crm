@@ -365,6 +365,7 @@ const NO_DATABASE_URLS = {
   KASUWA_KMS_LOCAL_MASTER_KEY: undefined,
   S3_ACCESS_KEY_ID: undefined,
   S3_SECRET_ACCESS_KEY: undefined,
+  S3_ENDPOINT: undefined,
   REDIS_URL: undefined,
   OPENSEARCH_URL: undefined,
 };
