@@ -1616,5 +1616,6 @@
   "admin.studio.custom.error.duplicate": "E jirila aha api ahụ n’ihe a. Ubi ndị e wepụrụ n’ojiji na-ejigide aha ha, ya mere họrọ nke ọzọ.",
   "admin.studio.custom.error.field_limit_reached": "Ihe a nwere ubi nkeonwe kachasị ọnụ ọgụgụ e kwere. Wepụ ubi ị na-adịghị eji iji nweta ohere.",
   "admin.studio.custom.error.picklist_limit_reached": "Ndepụta a nwere nhọrọ kachasị ọnụ ọgụgụ e kwere.",
-  "admin.error.limit_reached": "Ị ruru oke. Ọ dịghị ihe e gbanwere."
+  "admin.error.limit_reached": "Ị ruru oke. Ọ dịghị ihe e gbanwere.",
+  "admin.studio.custom.fieldSecurity": "Meghee nchekwa ubi"
 }

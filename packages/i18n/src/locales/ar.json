@@ -1616,5 +1616,6 @@
   "admin.studio.custom.error.duplicate": "اسم واجهة البرمجة هذا مستخدم بالفعل في هذا الكائن. الحقول الموقوفة تحتفظ بأسمائها، لذا اختر اسمًا آخر.",
   "admin.studio.custom.error.field_limit_reached": "بلغ هذا الكائن الحد الأقصى من الحقول المخصصة. أوقف حقلًا لا تستخدمه لإفساح المجال.",
   "admin.studio.custom.error.picklist_limit_reached": "بلغت هذه القائمة الحد الأقصى من القيم.",
-  "admin.error.limit_reached": "تم بلوغ حد. لم يتغير شيء."
+  "admin.error.limit_reached": "تم بلوغ حد. لم يتغير شيء.",
+  "admin.studio.custom.fieldSecurity": "فتح أمان الحقول"
 }

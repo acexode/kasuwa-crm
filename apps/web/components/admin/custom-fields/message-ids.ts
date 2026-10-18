@@ -14,6 +14,7 @@ export const ADMIN_STUDIO_MESSAGE_IDS: readonly MessageId[] = [
   'admin.studio.custom.eyebrow',
   'admin.studio.custom.title',
   'admin.studio.custom.intro',
+  'admin.studio.custom.fieldSecurity',
   'admin.studio.custom.objects',
   'admin.studio.custom.object.contact',
   'admin.studio.custom.object.account',

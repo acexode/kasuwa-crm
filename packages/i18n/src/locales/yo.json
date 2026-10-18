@@ -1616,5 +1616,6 @@
   "admin.studio.custom.error.duplicate": "Ẹnì kan ti lo orúkọ api yẹn lórí ohun yìí. Àwọn pápá tí a yọ kúrò ń pa orúkọ wọn mọ́, nítorí náà yan òmíràn.",
   "admin.studio.custom.error.field_limit_reached": "Ohun yìí ti ní iye pápá àdáni tó pọ̀ jù tí a gbà láàyè. Yọ pápá tí o kò lò mọ́ kúrò nílò láti ṣe àyè.",
   "admin.studio.custom.error.picklist_limit_reached": "Àtòjọ yìí ti ní iye àṣàyàn tó pọ̀ jù tí a gbà láàyè.",
-  "admin.error.limit_reached": "A ti dé ààlà. Kò sí ohun tí a yí padà."
+  "admin.error.limit_reached": "A ti dé ààlà. Kò sí ohun tí a yí padà.",
+  "admin.studio.custom.fieldSecurity": "Ṣí ààbò pápá"
 }

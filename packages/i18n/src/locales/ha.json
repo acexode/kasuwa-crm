@@ -1616,5 +1616,6 @@
   "admin.studio.custom.error.duplicate": "An riga an ɗauki wannan sunan api a wannan abu. Filayen da aka cire suna riƙe sunayensu, don haka zaɓi wani.",
   "admin.studio.custom.error.field_limit_reached": "Wannan abu ya riga ya kai iyakar filayen keɓaɓɓu. Cire fili da ba ka amfani da shi don samun sarari.",
   "admin.studio.custom.error.picklist_limit_reached": "Wannan jeri ya riga ya kai iyakar zaɓuɓɓuka.",
-  "admin.error.limit_reached": "An kai iyaka. Ba a canza komai ba."
+  "admin.error.limit_reached": "An kai iyaka. Ba a canza komai ba.",
+  "admin.studio.custom.fieldSecurity": "Buɗe tsaron filaye"
 }

@@ -1616,5 +1616,6 @@
   "admin.studio.custom.error.duplicate": "Jina hilo la api tayari limetumika kwenye kipengee hiki. Sehemu zilizoondolewa huhifadhi majina yake, kwa hiyo chagua jingine.",
   "admin.studio.custom.error.field_limit_reached": "Kipengee hiki tayari kina idadi ya juu ya sehemu maalum inayoruhusiwa. Ondoa sehemu usiyotumia ili kupata nafasi.",
   "admin.studio.custom.error.picklist_limit_reached": "Orodha hii tayari ina idadi ya juu ya chaguo inayoruhusiwa.",
-  "admin.error.limit_reached": "Kikomo kimefikiwa. Hakuna kilichobadilishwa."
+  "admin.error.limit_reached": "Kikomo kimefikiwa. Hakuna kilichobadilishwa.",
+  "admin.studio.custom.fieldSecurity": "Fungua usalama wa sehemu"
 }

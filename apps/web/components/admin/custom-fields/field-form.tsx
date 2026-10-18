@@ -410,6 +410,7 @@ export function FieldForm({
           {t.t('admin.studio.custom.form.description')}
         </label>
         <textarea
+          data-record-text
           id={fieldId('description')}
           name="description"
           rows={2}

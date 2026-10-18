@@ -1614,7 +1614,8 @@
   "admin.studio.custom.error.unknown_value": "One of the values being relabelled no longer exists. Reload and try again.",
   "admin.studio.custom.error.field_retired": "This field is retired, so it can no longer be changed.",
   "admin.studio.custom.error.duplicate": "That api name is already taken on this object. Retired fields keep their names, so choose another.",
-  "admin.studio.custom.error.field_limit_reached": "This object already has the most custom fields allowed. Retire a field you no longer use to make room.",
-  "admin.studio.custom.error.picklist_limit_reached": "This picklist already has the most values allowed.",
-  "admin.error.limit_reached": "You have reached a limit. Nothing was changed."
+  "admin.studio.custom.error.field_limit_reached": "This object has reached its limit of custom fields. Retire a field you no longer use to make room.",
+  "admin.studio.custom.error.picklist_limit_reached": "This picklist has reached its limit of values.",
+  "admin.error.limit_reached": "You have reached a limit. Nothing was changed.",
+  "admin.studio.custom.fieldSecurity": "Open field security"
 }

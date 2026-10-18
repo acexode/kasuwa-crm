@@ -1616,5 +1616,6 @@
   "admin.studio.custom.error.duplicate": "Person don already use dat api name for dis object. Retired fields dey keep dia name, so choose anoda one.",
   "admin.studio.custom.error.field_limit_reached": "Dis object don reach di most custom fields wey dem allow. Retire one field wey you no dey use to make space.",
   "admin.studio.custom.error.picklist_limit_reached": "Dis list don reach di most choices wey dem allow.",
-  "admin.error.limit_reached": "You don reach limit. Nothing change."
+  "admin.error.limit_reached": "You don reach limit. Nothing change.",
+  "admin.studio.custom.fieldSecurity": "Open di field security"
 }

@@ -1,7 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { createBundleTranslator, type MessageBundle } from '@kasuwa/i18n/bundle';
+import { LINK } from '../../auth/button-classes';
 import type { LanguageOption } from '../../auth/language-menu';
 import { CUSTOM_FIELD_OBJECTS, type CustomFieldObject } from '../../../lib/custom-fields-api';
 import { AdminShell } from '../admin-shell';
@@ -41,6 +43,10 @@ export function StudioScreen({
           <span className="text-body-sm font-semibold text-text-muted">{t.t('admin.studio.custom.eyebrow')}</span>
           <h1 className="text-h2">{t.t('admin.studio.custom.title')}</h1>
           <p className="max-w-prose text-body-md text-text-2">{t.t('admin.studio.custom.intro')}</p>
+          {/* Who may read or edit a custom field is the field-security matrix's to say, not the studio's. */}
+          <Link href="/admin/field-security" className={`${LINK} w-fit`}>
+            {t.t('admin.studio.custom.fieldSecurity')}
+          </Link>
         </div>
 
         <div role="group" aria-label={t.t('admin.studio.custom.objects')} className="flex flex-wrap gap-2">
