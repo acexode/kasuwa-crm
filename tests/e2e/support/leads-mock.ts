@@ -85,6 +85,15 @@ import { TENANT_A } from '@kasuwa/db';
  *     unqualified. `q` matches names, readable phones (E.164-normalised) and
  *     a readable `companyName`; filters are any-of; `sort` orders by its key
  *     with ties on `id`.
+ *   - The custom-field filters (T-0088, lead edit, D-L138): `custom[key]=value`
+ *     (equality) and `customEmpty=key` (is empty). While the contract marks
+ *     them `x-kasuwa-implemented: false`, sending either is a violation (the
+ *     live route ignores unknown parameters: unfiltered rows that look
+ *     filtered). Once served, a key withheld in any programme is `400
+ *     field_withheld` at `custom.<key>`, and rows match on their `custom`
+ *     values. The mock holds no field definitions, so it never answers
+ *     `unknown_field` or `filter_not_supported`. They are not Leads chips
+ *     (T-0091 draws them), so they are left out of `FILTER_PARAMETERS`.
  *   - If `status` is withheld from the caller in any programme they reach,
  *     every listLeads answer is `400 field_withheld` at `status`. A filter on
  *     another field withheld in any programme is `400 field_withheld` naming
@@ -309,10 +318,69 @@ const LIST = at(CONTRACT, 'paths', LEADS_PATH, 'get');
 /** `listLeads` query parameters, `$ref`s followed. */
 export const LIST_PARAMETERS: readonly ParameterSpec[] = parametersOf(LIST);
 
-/** What the Leads chips may send: every declared parameter that is not search, sort or paging. */
+/** T-0088 (lead edit, D-L138): the custom-field filters. Not Leads chips; handled on their own below. */
+const CUSTOM_FILTERS: readonly string[] = ['custom', 'customEmpty'];
+
+/** What the Leads chips may send: every declared parameter that is not search, sort, paging or a custom-field filter. */
 export const FILTER_PARAMETERS: readonly string[] = LIST_PARAMETERS.map((p) => p.name).filter(
-  (name) => !['q', 'sort', 'cursor', 'limit'].includes(name),
+  (name) => !['q', 'sort', 'cursor', 'limit', ...CUSTOM_FILTERS].includes(name),
 );
+
+/** The raw (dereferenced) listLeads parameter object, or undefined when the contract has none. */
+function rawListParameter(name: string): Json | undefined {
+  return (at(LIST, 'parameters') as unknown[]).map((raw) => deref(raw) as Json).find((parameter) => parameter.name === name);
+}
+
+/** Whether the contract says the custom-field filters are served (`x-kasuwa-implemented: true`). */
+const CUSTOM_FILTERS_SERVED = CUSTOM_FILTERS.every((name) => rawListParameter(name)?.['x-kasuwa-implemented'] === true);
+const CUSTOM_SCHEMA = (deref(rawListParameter('custom')?.schema) ?? {}) as Json;
+const CUSTOM_KEY_PATTERN = String(((deref(CUSTOM_SCHEMA.propertyNames) ?? {}) as Json).pattern ?? '^[a-z][a-z0-9_]*__c$');
+const CUSTOM_VALUE_PATTERN = String(((deref(CUSTOM_SCHEMA.additionalProperties) ?? {}) as Json).pattern ?? '^[a-z][a-z0-9_]{0,61}[a-z0-9]$');
+
+/** `custom[key]=value` pairs from a query string. */
+function customEquals(params: URLSearchParams): [string, string][] {
+  return [...params.entries()]
+    .map(([name, value]): [RegExpExecArray | null, string] => [/^custom\[([^\]]*)\]$/.exec(name), value])
+    .filter((entry): entry is [RegExpExecArray, string] => entry[0] !== null)
+    .map(([match, value]) => [match[1] ?? '', value]);
+}
+
+/** The query without the custom-field filters, for the declared-parameter check. */
+function withoutCustomFilters(params: URLSearchParams): URLSearchParams {
+  const kept = new URLSearchParams();
+  for (const [name, value] of params.entries()) {
+    if (name !== 'customEmpty' && !/^custom\[/.test(name)) kept.append(name, value);
+  }
+  return kept;
+}
+
+/** Problems with the custom-field filters as sent; empty when there are none or they are well formed. */
+function customFilterProblems(params: URLSearchParams): string[] {
+  const equals = customEquals(params);
+  const empty = params.getAll('customEmpty');
+  if (equals.length === 0 && empty.length === 0) return [];
+  if (!CUSTOM_FILTERS_SERVED) {
+    return ['listLeads custom-field filters are x-kasuwa-implemented: false; a screen must not send them (T-0088 R19)'];
+  }
+  const problems: string[] = [];
+  for (const [key, value] of equals) {
+    if (!new RegExp(CUSTOM_KEY_PATTERN).test(key)) problems.push(`custom[${key}] is not a custom-field key`);
+    if (!new RegExp(CUSTOM_VALUE_PATTERN).test(value)) problems.push(`custom[${key}]=${value} is not a picklist or boolean value`);
+  }
+  for (const key of empty) {
+    if (!new RegExp(CUSTOM_KEY_PATTERN).test(key)) problems.push(`customEmpty=${key} is not a custom-field key`);
+  }
+  return problems;
+}
+
+/** Whether a row passes the custom-field filters: equality, and absence for `customEmpty`. */
+function matchesCustom(row: ContactRow, params: URLSearchParams): boolean {
+  const values = isJson(row.custom) ? row.custom : {};
+  return (
+    customEquals(params).every(([key, value]) => key in values && String(values[key]) === value) &&
+    params.getAll('customEmpty').every((key) => !(key in values))
+  );
+}
 
 /** The values a listLeads parameter's schema enumerates (array items or a scalar enum). */
 export function parameterEnum(name: string): readonly string[] {
@@ -548,7 +616,12 @@ function checkContact(row: ContactRow): ContactRow {
   const missing = CONTACT_REQUIRED.filter((key) => !(key in row));
   // The T-0041 rule: every live property is served or listed as withheld.
   const unaccounted = LIVE_PROPERTIES.filter((key) => !(key in row) && !row.withheldFields.includes(key));
-  const leaked = row.withheldFields.filter((field) => field in row);
+  // T-0088 (D-L140): a withheld custom key is listed as `custom.<key>` and
+  // must be absent from `row.custom`, not from the row itself.
+  const custom = (row.custom ?? {}) as Record<string, unknown>;
+  const leaked = row.withheldFields.filter((field) =>
+    field.startsWith('custom.') ? field.slice('custom.'.length) in custom : field in row,
+  );
   const apart =
     row.withheldFields.includes('ownerUserId') !== row.withheldFields.includes('owner') ||
     row.withheldFields.includes('accountId') !== row.withheldFields.includes('account');
@@ -595,7 +668,12 @@ function derive(
 ): ContactRow {
   const row: ContactRow = { ...clone(CONTACT_EXAMPLE), ...overrides, withheldFields: [...withheld] };
   for (const field of withheld) {
-    delete row[field];
+    if (field.startsWith('custom.')) {
+      const custom = row.custom as Record<string, unknown> | undefined;
+      if (custom !== undefined) delete custom[field.slice('custom.'.length)];
+    } else {
+      delete row[field];
+    }
   }
   return checkContact(row);
 }
@@ -1075,7 +1153,11 @@ export async function installLeadsMock(page: Page, options: LeadsMockOptions = {
       return route.abort('internetdisconnected');
     }
     const params = url.searchParams;
-    const problems = validateQuery(params, LIST_PARAMETERS, 'listLeads');
+    // T-0088 (lead edit, D-L138): the custom-field filters are checked on their own; the rest as declared.
+    const problems = [
+      ...validateQuery(withoutCustomFilters(params), LIST_PARAMETERS, 'listLeads'),
+      ...customFilterProblems(params),
+    ];
     if (problems.length > 0) {
       violations.push(...problems.map((problem) => `${url.search}: ${problem}`));
       return fulfil(route, 400, validation(problems.map(() => ({ path: 'query', code: 'invalid_string' }))));
@@ -1089,12 +1171,20 @@ export async function installLeadsMock(page: Page, options: LeadsMockOptions = {
     const refused = Object.entries(FILTER_FIELD)
       .filter(([parameter, field]) => params.has(parameter) && withheldAnywhere.has(field))
       .map(([parameter]) => ({ path: parameter, code: 'field_withheld' }));
+    const customKeys = [...new Set([...customEquals(params).map(([key]) => key), ...params.getAll('customEmpty')])];
+    refused.push(
+      ...customKeys
+        .filter((key) => withheldAnywhere.has(`custom.${key}`))
+        .map((key) => ({ path: `custom.${key}`, code: 'field_withheld' })),
+    );
     if (refused.length > 0) {
       return fulfil(route, 400, validation(refused));
     }
 
     const matching = sortRows(
-      rows.filter((row) => isLead(row) && matchesQuery(row, params.get('q')) && matchesFilters(row, params)),
+      rows.filter(
+        (row) => isLead(row) && matchesQuery(row, params.get('q')) && matchesFilters(row, params) && matchesCustom(row, params),
+      ),
       params.get('sort') ?? '-createdAt',
     );
 

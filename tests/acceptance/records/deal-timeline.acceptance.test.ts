@@ -515,6 +515,12 @@ function branchOf(pageSchema: Json, type: string): Json {
   throw new Error(`the page has no ${type} branch`);
 }
 
+/**
+ * T-0088 (lead edit, D-L138): Activity's standard withholdable fields as the contract named them
+ * before custom fields, so admitting `custom.<key>` can never drop a standard path.
+ */
+const ACTIVITY_WITHHOLDABLE = ['subject', 'body', 'dueAt', 'completedAt', 'startsAt', 'endsAt', 'ownerUserId', 'contactId', 'accountId', 'dealId'];
+
 function rawSchemaProperty(schema: string, key: string): Json | undefined {
   const node = deref(schemaAt(schema), SPEC_PATH).schema;
   return ((node.properties ?? {}) as Record<string, Json>)[key];
@@ -1550,7 +1556,18 @@ describe('acceptance: activities linked to a deal, and the deal timeline (T-0111
       expect(update).not.toContain('accountId');
       expect(update).not.toContain('programmeId');
       const withheld = rawSchemaProperty('Activity', 'withheldFields');
-      expect(((withheld?.items as Json | undefined)?.enum ?? []) as string[]).toContain('dealId');
+      // T-0088 (lead edit, D-L138): the items may also admit `custom.<key>` paths, as an anyOf/oneOf
+      // of the standard enum and CustomFieldWithheldPath. The standard enum must survive whole, and
+      // the only other branch allowed is CustomFieldWithheldPath.
+      const items = (withheld?.items ?? {}) as Json;
+      const variants = (Array.isArray(items.anyOf) ? items.anyOf : Array.isArray(items.oneOf) ? items.oneOf : [items]) as Json[];
+      const branches = variants.map((variant) => deref(variant, SPEC_PATH).schema);
+      const standard = branches.flatMap((branch) => (Array.isArray(branch.enum) ? (branch.enum as string[]) : []));
+      expect(standard).toEqual(expect.arrayContaining(ACTIVITY_WITHHOLDABLE));
+      expect(standard).toContain('dealId');
+      const customPath = (((loadDoc(SPEC_PATH) as Json).components as Json | undefined)?.schemas as Json | undefined)?.CustomFieldWithheldPath;
+      const others = branches.filter((branch) => !Array.isArray(branch.enum));
+      expect(others.every((branch) => customPath !== undefined && branch === customPath), 'the only other branch is CustomFieldWithheldPath').toBe(true);
     });
 
     it('listDealTimeline and every dealId property are x-kasuwa-implemented: true (the build flips them)', () => {

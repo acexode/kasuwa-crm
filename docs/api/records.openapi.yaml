@@ -45,7 +45,7 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.12.2-T-0086
+  version: 0.13.0-T-0088
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
     update. Accounts (T-0052, served since T-0055): list, get, create,
@@ -75,8 +75,13 @@ info:
     contract only until T-0086): at most three hits per type across
     contacts, leads, accounts and deals, by name prefix (`searchRecords`),
     and contacts and leads by an exact phone or email sent in a POST body
-    so the URL never carries one (`lookupRecords`). Custom-field values follow
-    in a later slice (D-L60) and will be added to this file.
+    so the URL never carries one (`lookupRecords`). Custom-field values
+    (T-0088, ADR-0016, contract only until T-0089): `custom` on Contact
+    (and so on leads), Account, Activity and Deal, typed per field, merged
+    per key on update, field-secured per key (a withheld key is listed as
+    `custom.<key>`), and filterable by equality and "is empty" on picklist
+    and boolean fields only (`custom`, `customEmpty`). The definitions are
+    the admin API's (`listCustomFields`, admin.openapi.yaml).
 
     **Display names (T-0043, D-L64).** A records screen never prints a UUID.
     Programme names come from `listMyProgrammes`; an owner's name is embedded
@@ -145,6 +150,13 @@ paths:
       x-kasuwa-implemented: true
       x-kasuwa-screens: ['P04/02', 'P04/05', 'P04/06']
       description: |
+        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        Rows carry `custom`, with withheld keys absent and listed as
+        `custom.<key>`. The `custom` (equality) and `customEmpty` (is empty)
+        filters apply to picklist and boolean custom fields only; there is no
+        custom sort. A screen must not send either filter until they are
+        served: this route ignores unknown parameters today.
+
         The P04 Contacts list. Rows come only from the programmes the session
         reaches. A BPO agent on one programme sees that programme's contacts
         and nothing else, with no parameter that could change that.
@@ -273,6 +285,8 @@ paths:
             type: string
             enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt', 'displayName', '-displayName']
             default: '-createdAt'
+        - $ref: '#/components/parameters/CustomFilter'
+        - $ref: '#/components/parameters/CustomEmptyFilter'
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -321,6 +335,18 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/02', 'P04/05']
       description: |
+        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        `custom` sets custom-field values at create (CustomFields: values
+        only, never `null`). Every key must be editable for the caller in the
+        target programme, else `403 not_permitted` with `details[].code:
+        field_not_editable` at `custom.<key>`. An unknown or retired key is
+        `400 unknown_field`; a bad value is `invalid_value`, `unknown_value`
+        or `currency_mismatch`, and more than the 16 KiB API limit (D-L140,
+        see CustomFields) is `custom_too_large`. A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details never carry the value. Audited by key only. Custom
+        values are never logged or traced, whatever the classification.
+
         **Target programme.** If the caller reaches exactly one programme,
         `programmeId` may be omitted and the server uses that one. If they
         reach several, it is required (`400 validation_failed` at
@@ -371,10 +397,45 @@ paths:
               preferredChannel: whatsapp
       responses:
         '201':
-          description: Created.
+          description: |
+            Created. The example shows `custom` (T-0088, contract only until
+            T-0089): a withheld custom key is absent from `custom` and listed
+            in `withheldFields` as `custom.<key>`.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Contact' }
+              example:
+                id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e09
+                programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                version: 1
+                displayName: Tunde Bakare
+                givenNames: Tunde
+                familyName: Bakare
+                companyName: null
+                phones: [{ type: mobile, e164: '+2348060000002' }]
+                emails: []
+                accountId: null
+                account: null
+                ownerUserId: null
+                owner: null
+                status: new
+                source: manual
+                tags: []
+                preferredLanguage: null
+                preferredChannel: whatsapp
+                state: null
+                lga: null
+                dnd: false
+                whatsappOptIn: false
+                consentState: unknown
+                phoneNetwork: null
+                createdAt: '2026-10-17T09:00:00.000Z'
+                updatedAt: '2026-10-17T09:00:00.000Z'
+                custom:
+                  tier__c: gold
+                  vip__c: true
+                  renewal_date__c: '2026-12-31'
+                withheldFields: [custom.credit_limit__c]
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '403': { $ref: '#/components/responses/NotPermitted' }
@@ -424,6 +485,24 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/01', 'P04/02', 'P04/04']
       description: |
+        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        `custom` is a per-key merge (CustomFieldsPatch): a value sets a key,
+        `null` clears it, and an absent key is untouched. Every key sent must
+        be editable for the caller in the record's programme, else `403
+        not_permitted` with `details[].code: field_not_editable` at
+        `custom.<key>`. An unknown or retired key is `400 unknown_field`; a
+        bad value is `invalid_value`, `unknown_value` or `currency_mismatch`,
+        and a merged result over the 16 KiB API limit is `custom_too_large`
+        at `custom`. That size is measured on the merged `custom` restricted
+        to the keys the caller can read in the record's programme plus the
+        keys being written; withheld and retired values never count, so the
+        answer reveals nothing about them (D-L140). A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details name the path and a code, never the value. Custom
+        changes are audited by key only, and custom values are never logged
+        or traced, whatever the field's classification (D-P25 lets free text
+        be `none`).
+
         Partial update: absent properties are unchanged; `null` clears a
         nullable field. `version` is required and must equal the record's
         current `version`, otherwise `409 stale_write`. Re-read; do not retry
@@ -468,10 +547,20 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/UpdateContactRequest' }
-            example:
-              version: 3
-              status: qualified
-              ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+            examples:
+              statusAndOwner:
+                summary: Inline edit of status and owner
+                value:
+                  version: 3
+                  status: qualified
+                  ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+              custom:
+                summary: Set one custom field and clear another (T-0088, contract only until T-0089)
+                value:
+                  version: 3
+                  custom:
+                    tier__c: platinum
+                    renewal_date__c: null
       responses:
         '200':
           description: The updated contact, field security applied. `version` has advanced.
@@ -661,6 +750,18 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P05/01', 'P07/07']
       description: |
+        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        `custom` sets custom-field values at create (CustomFields: values
+        only, never `null`). Every key must be editable for the caller in the
+        target programme, else `403 not_permitted` with `details[].code:
+        field_not_editable` at `custom.<key>`. An unknown or retired key is
+        `400 unknown_field`; a bad value is `invalid_value`, `unknown_value`
+        or `currency_mismatch`, and more than the 16 KiB API limit (D-L140,
+        see CustomFields) is `custom_too_large`. A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details never carry the value. Audited by key only. Custom
+        values are never logged or traced, whatever the classification.
+
         **Target and programme.** At least one of `contactId` and `accountId`.
         There is no `programmeId`: the activity's programme is its target's
         (the contact's when both are given). An unreachable target (no such
@@ -756,12 +857,36 @@ paths:
                   accountId: 9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c01
       responses:
         '201':
-          description: Created.
+          description: |
+            Created. The example shows `custom` (T-0088, contract only until
+            T-0089): a withheld custom key is absent from `custom` and listed
+            in `withheldFields` as `custom.<key>`.
           headers:
             Cache-Control: { $ref: '#/components/headers/NoStore' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Activity' }
+              example:
+                id: 6e7f8a9b-0c1d-4e2f-8a3b-4c5d6e7f8a09
+                programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                type: task
+                subject: Call back about the payment plan
+                body: null
+                dueAt: '2026-10-02T15:00:00.000Z'
+                completedAt: null
+                startsAt: null
+                endsAt: null
+                ownerUserId: null
+                contactId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                accountId: null
+                dealId: null
+                createdByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                version: 1
+                createdAt: '2026-10-01T09:30:00.000Z'
+                updatedAt: '2026-10-01T09:30:00.000Z'
+                custom:
+                  call_outcome__c: promised
+                withheldFields: [custom.score__c]
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '403': { $ref: '#/components/responses/NotPermitted' }
@@ -778,6 +903,24 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P05/01', 'P07/01', 'P07/03', 'P07/04', 'P07/05']
       description: |
+        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        `custom` is a per-key merge (CustomFieldsPatch): a value sets a key,
+        `null` clears it, and an absent key is untouched. Every key sent must
+        be editable for the caller in the record's programme, else `403
+        not_permitted` with `details[].code: field_not_editable` at
+        `custom.<key>`. An unknown or retired key is `400 unknown_field`; a
+        bad value is `invalid_value`, `unknown_value` or `currency_mismatch`,
+        and a merged result over the 16 KiB API limit is `custom_too_large`
+        at `custom`. That size is measured on the merged `custom` restricted
+        to the keys the caller can read in the record's programme plus the
+        keys being written; withheld and retired values never count, so the
+        answer reveals nothing about them (D-L140). A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details name the path and a code, never the value. Custom
+        changes are audited by key only, and custom values are never logged
+        or traced, whatever the field's classification (D-P25 lets free text
+        be `none`).
+
         `version` (required) plus ONLY the fields the person changed (D-L102):
         `completed: true` and/or `ownerUserId` (D-L81), and from T-0081
         `dueAt` (a task: snooze or move it; `null` clears it) and `startsAt`
@@ -864,6 +1007,13 @@ paths:
                   version: 3
                   startsAt: '2026-10-02T09:00:00.000Z'
                   endsAt: '2026-10-02T10:00:00.000Z'
+              custom:
+                summary: Set one custom field and clear another (T-0088, contract only until T-0089)
+                value:
+                  version: 2
+                  custom:
+                    call_outcome__c: callback
+                    score__c: null
       responses:
         '200':
           description: The updated activity, field security applied. `version` has advanced.
@@ -1256,6 +1406,13 @@ paths:
       x-kasuwa-implemented: true
       x-kasuwa-screens: ['P04/01', 'P04/04', 'P04/05', 'P04/06']
       description: |
+        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        Rows carry `custom`, with withheld keys absent and listed as
+        `custom.<key>`. The `custom` (equality) and `customEmpty` (is empty)
+        filters apply to picklist and boolean custom fields only; there is no
+        custom sort. A screen must not send either filter until they are
+        served: this route ignores unknown parameters today.
+
         The P04/01 Leads table and the P04/04 Kanban's columns. A lead is a
         contact at a lead stage (D-P17), not its own record, so this is a
         VIEW of contacts: the same `ContactPage` as listContacts, the same
@@ -1372,14 +1529,50 @@ paths:
             type: string
             enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt', 'displayName', '-displayName']
             default: '-createdAt'
+        - $ref: '#/components/parameters/CustomFilter'
+        - $ref: '#/components/parameters/CustomEmptyFilter'
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
-          description: One page of leads, field security applied.
+          description: |
+            One page of leads, field security applied. The example shows
+            `custom` (T-0088, contract only until T-0089), which a lead
+            carries because it is a contact.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ContactPage' }
+              example:
+                data:
+                  - id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e0a
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    version: 2
+                    displayName: Bisi Adewale
+                    givenNames: Bisi
+                    familyName: Adewale
+                    companyName: Adewale Provisions
+                    phones: [{ type: mobile, e164: '+2348030000004' }]
+                    ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    owner:
+                      id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                      displayName: Kemi Balogun
+                    status: qualified
+                    source: web_form
+                    tags: []
+                    preferredLanguage: yo
+                    preferredChannel: whatsapp
+                    state: Oyo
+                    lga: Ibadan North
+                    dnd: false
+                    whatsappOptIn: true
+                    consentState: opted_in
+                    phoneNetwork: null
+                    createdAt: '2026-10-05T10:00:00.000Z'
+                    updatedAt: '2026-10-09T11:20:00.000Z'
+                    custom:
+                      tier__c: silver
+                    withheldFields: [emails, accountId, account, custom.credit_limit__c]
+                nextCursor: null
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
 
@@ -1455,6 +1648,13 @@ paths:
       x-kasuwa-implemented: true
       x-kasuwa-screens: ['P04/03', 'P04/05', 'P04/06']
       description: |
+        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        Rows carry `custom`, with withheld keys absent and listed as
+        `custom.<key>`. The `custom` (equality) and `customEmpty` (is empty)
+        filters apply to picklist and boolean custom fields only; there is no
+        custom sort. A screen must not send either filter until they are
+        served: this route ignores unknown parameters today.
+
         The P04 Accounts list (frame 03: table, card list, split view). Rows
         come only from the programmes the session reaches. There is no
         parameter that narrows or widens that set; in particular there is no
@@ -1573,6 +1773,8 @@ paths:
             type: string
             enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt', 'name', '-name']
             default: 'name'
+        - $ref: '#/components/parameters/CustomFilter'
+        - $ref: '#/components/parameters/CustomEmptyFilter'
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -1613,6 +1815,18 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/03', 'P04/05']
       description: |
+        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        `custom` sets custom-field values at create (CustomFields: values
+        only, never `null`). Every key must be editable for the caller in the
+        target programme, else `403 not_permitted` with `details[].code:
+        field_not_editable` at `custom.<key>`. An unknown or retired key is
+        `400 unknown_field`; a bad value is `invalid_value`, `unknown_value`
+        or `currency_mismatch`, and more than the 16 KiB API limit (D-L140,
+        see CustomFields) is `custom_too_large`. A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details never carry the value. Audited by key only. Custom
+        values are never logged or traced, whatever the classification.
+
         **Target programme.** As createContact. If the caller reaches exactly
         one programme, `programmeId` may be omitted and the server uses that
         one. If they reach several, it is required (`400 validation_failed`
@@ -1659,10 +1873,33 @@ paths:
               state: Kano
       responses:
         '201':
-          description: Created.
+          description: |
+            Created. The example shows `custom` (T-0088, contract only until
+            T-0089): a withheld custom key is absent from `custom` and listed
+            in `withheldFields` as `custom.<key>`.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Account' }
+              example:
+                id: 9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c09
+                programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                name: Kano Grains Co.
+                version: 1
+                ownerUserId: null
+                owner: null
+                industry: Agriculture
+                tier: sme
+                tags: []
+                phones: [{ type: work, e164: '+2348060000102' }]
+                state: Kano
+                lga: null
+                parentAccountId: null
+                createdAt: '2026-10-17T09:05:00.000Z'
+                updatedAt: '2026-10-17T09:05:00.000Z'
+                custom:
+                  credit_limit__c: { amountMinor: '250000000', currency: NGN }
+                  segment__c: retail
+                withheldFields: [custom.score__c]
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '403': { $ref: '#/components/responses/AccountNotPermitted' }
@@ -1722,6 +1959,24 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/03']
       description: |
+        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        `custom` is a per-key merge (CustomFieldsPatch): a value sets a key,
+        `null` clears it, and an absent key is untouched. Every key sent must
+        be editable for the caller in the record's programme, else `403
+        not_permitted` with `details[].code: field_not_editable` at
+        `custom.<key>`. An unknown or retired key is `400 unknown_field`; a
+        bad value is `invalid_value`, `unknown_value` or `currency_mismatch`,
+        and a merged result over the 16 KiB API limit is `custom_too_large`
+        at `custom`. That size is measured on the merged `custom` restricted
+        to the keys the caller can read in the record's programme plus the
+        keys being written; withheld and retired values never count, so the
+        answer reveals nothing about them (D-L140). A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details name the path and a code, never the value. Custom
+        changes are audited by key only, and custom values are never logged
+        or traced, whatever the field's classification (D-P25 lets free text
+        be `none`).
+
         Partial update: absent properties are unchanged; `null` clears a
         nullable field. `version` is required and must equal the record's
         current `version`, otherwise `409 stale_write`. Re-read; do not retry
@@ -1758,10 +2013,20 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/UpdateAccountRequest' }
-            example:
-              version: 2
-              tier: enterprise
-              ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+            examples:
+              tierAndOwner:
+                summary: Inline edit of tier and owner
+                value:
+                  version: 2
+                  tier: enterprise
+                  ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+              custom:
+                summary: Set a currency custom field and clear a picklist (T-0088, contract only until T-0089)
+                value:
+                  version: 2
+                  custom:
+                    credit_limit__c: { amountMinor: '300000000', currency: NGN }
+                    segment__c: null
       responses:
         '200':
           description: The updated account, field security applied. `version` has advanced.
@@ -2660,6 +2925,13 @@ paths:
         qa_analyst: read
         client_portal: none
       description: |
+        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        Rows carry `custom`, with withheld keys absent and listed as
+        `custom.<key>`. The `custom` (equality) and `customEmpty` (is empty)
+        filters apply to picklist and boolean custom fields only; there is no
+        custom sort. A screen must not send either filter until they are
+        served: this route ignores unknown parameters today.
+
         The P06/01b list view: the pipeline's deals as Deal rows under Deal
         field security, with the board's filters. Every stage, lost
         included; `stageId` narrows to some stages. Won and lost deals that
@@ -2715,6 +2987,8 @@ paths:
             type: string
             enum: ['-updatedAt', 'updatedAt', '-createdAt', 'createdAt', 'name', '-name', 'stageEnteredAt', '-stageEnteredAt']
             default: '-updatedAt'
+        - $ref: '#/components/parameters/CustomFilter'
+        - $ref: '#/components/parameters/CustomEmptyFilter'
         - $ref: '#/components/parameters/DealCursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -2772,6 +3046,18 @@ paths:
         qa_analyst: none
         client_portal: none
       description: |
+        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        `custom` sets custom-field values at create (CustomFields: values
+        only, never `null`). Every key must be editable for the caller in the
+        target programme, else `403 not_permitted` with `details[].code:
+        field_not_editable` at `custom.<key>`. An unknown or retired key is
+        `400 unknown_field`; a bad value is `invalid_value`, `unknown_value`
+        or `currency_mismatch`, and more than the 16 KiB API limit (D-L140,
+        see CustomFields) is `custom_too_large`. A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details never carry the value. Audited by key only. Custom
+        values are never logged or traced, whatever the classification.
+
         **Where.** The deal lives in the pipeline's programme (D-L88); the
         pipeline comes from the path, so the body takes no `programmeId`,
         `pipelineId` or `stageId`. **Every deal starts in the pipeline's
@@ -2846,9 +3132,12 @@ paths:
                 closedAt: null
                 rotting: fresh
                 checks: []
+                custom:
+                  deal_source__c: referral
+                  renewal_date__c: '2027-01-31'
                 createdAt: '2026-10-12T09:00:00.000Z'
                 updatedAt: '2026-10-12T09:00:00.000Z'
-                withheldFields: []
+                withheldFields: [custom.margin__c]
         '400': { $ref: '#/components/responses/DealValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '403': { $ref: '#/components/responses/DealNotPermitted' }
@@ -2937,6 +3226,24 @@ paths:
         qa_analyst: none
         client_portal: none
       description: |
+        **Custom fields (T-0088; contract only until T-0089 serves them).**
+        `custom` is a per-key merge (CustomFieldsPatch): a value sets a key,
+        `null` clears it, and an absent key is untouched. Every key sent must
+        be editable for the caller in the record's programme, else `403
+        not_permitted` with `details[].code: field_not_editable` at
+        `custom.<key>`. An unknown or retired key is `400 unknown_field`; a
+        bad value is `invalid_value`, `unknown_value` or `currency_mismatch`,
+        and a merged result over the 16 KiB API limit is `custom_too_large`
+        at `custom`. That size is measured on the merged `custom` restricted
+        to the keys the caller can read in the record's programme plus the
+        keys being written; withheld and retired values never count, so the
+        answer reveals nothing about them (D-L140). A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details name the path and a code, never the value. Custom
+        changes are audited by key only, and custom values are never logged
+        or traced, whatever the field's classification (D-P25 lets free text
+        be `none`).
+
         Partial update. **The body is `version` plus ONLY the fields the
         person changed (D-L102)**, judged against the deal the form was
         opened on; absent properties are unchanged and `null` clears a
@@ -2997,6 +3304,14 @@ paths:
                 value:
                   version: 5
                   ownerUserId: 8d2e3f4a-5b6c-4d7e-8f9a-0b1c2d3e4f02
+              custom:
+                summary: Set custom fields, one a currency, and clear another (T-0088, contract only until T-0089)
+                value:
+                  version: 5
+                  custom:
+                    deal_source__c: partner
+                    contract_value__c: { amountMinor: '1800000000', currency: NGN }
+                    renewal_date__c: null
       responses:
         '200':
           description: The updated deal, field security applied. `version` has advanced.
@@ -4096,6 +4411,74 @@ components:
         value after the request is `400 validation_failed` with
         `details[].code: invalid_window` at `closedSince`.
 
+    # --- custom-field filters (T-0088; ADR-0016 item 8, D-L128 Q4) ---------
+    CustomFilter:
+      name: custom
+      in: query
+      required: false
+      style: deepObject
+      explode: true
+      x-kasuwa-implemented: false
+      description: |
+        **Contract only (T-0088) until T-0089 serves it.** The live list
+        routes ignore unknown query parameters, so a screen that sent this
+        today would get unfiltered rows that look filtered (the D-L75
+        hazard). A screen must not send it while this parameter is
+        `x-kasuwa-implemented: false`.
+
+        Equality on a custom field: `custom[tier__c]=gold`. One value per
+        key; several keys are AND-ed. Only `picklist` and `boolean` custom
+        fields can be filtered: a picklist takes one of its values, a
+        boolean `true` or `false`. There is no range, no text search, no
+        list of values, no nested operator and no sort on any custom field
+        (D-L128 Q4). It is evaluated inside the already-scoped page (tenant,
+        programme, id), and the cursor stays id-only (D-L80).
+
+        Errors, each `400 validation_failed` at `details[].path`
+        `custom.<key>`, never echoing the value sent:
+        - `field_withheld`: the key is withheld from the caller in any
+          programme they reach (D-L64, D-L84, D-L88), even where it is
+          readable in a row's own programme;
+        - `filter_not_supported`: the key is a custom field of another type
+          (`text`, `number`, `currency` or `date`);
+        - `unknown_field`: no such custom field on this object, or a retired
+          one (one code for both, so no key's past existence leaks). A key
+          that does not match the custom api-name pattern at all is
+          `unknown_field` at `custom` (the parameter name), and the key is
+          never echoed in `path`, `message` or anywhere else.
+      schema:
+        type: object
+        minProperties: 1
+        maxProperties: 10
+        propertyNames: { $ref: '#/components/schemas/CustomFieldKey' }
+        additionalProperties:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{0,61}[a-z0-9]$'
+          description: A picklist value (an api name), or `true` / `false` for a boolean.
+    CustomEmptyFilter:
+      name: customEmpty
+      in: query
+      required: false
+      style: form
+      explode: true
+      x-kasuwa-implemented: false
+      description: |
+        **Contract only (T-0088) until T-0089 serves it;** a screen must not
+        send it before then (see `custom`). "Is empty": rows with no value
+        for each named custom key. Repeat the parameter for several keys;
+        they are AND-ed. Only `picklist` and `boolean` custom fields, as for
+        `custom`: another type is `400 filter_not_supported`, a key withheld
+        in any programme the caller reaches is `400 field_withheld`, and an
+        unknown or retired key is `400 unknown_field`, each at
+        `custom.<key>`. A value that is not a custom api name at all is
+        `400 unknown_field` at `customEmpty`, never echoed.
+      schema:
+        type: array
+        minItems: 1
+        maxItems: 10
+        uniqueItems: true
+        items: { $ref: '#/components/schemas/CustomFieldKey' }
+
   headers:
     NoStore:
       description: |
@@ -4300,6 +4683,8 @@ components:
             Names of the properties above that field security withheld from
             this caller. Those properties are omitted from the object, never
             sent as `null`. Always present; empty when nothing was withheld.
+            A withheld custom field is listed as `custom.<key>`
+            (CustomFieldWithheldPath, T-0088); `custom` itself never is.
           items: { type: string }
 
     ContactOwner:
@@ -4329,8 +4714,20 @@ components:
         live wire's key set: the T-0041 suite checks every one of them is
         present or listed in `withheldFields`. Optional, like every
         withholdable property; a client must cope with their absence.
-        Empty today: `account` (T-0061) and `companyName` (T-0076) are served.
-      properties: {}
+        `account` (T-0061) and `companyName` (T-0076) are served; `custom`
+        (T-0088) is pending until T-0089 serves it.
+      properties:
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: false
+          description: |
+            The contact's custom-field values (T-0088, ADR-0016), keyed by api
+            name. Every Contact-shaped read carries it once served, listLeads
+            included (a lead is a contact, D-P17). `custom` is never withheld
+            itself: a withheld key is absent and listed in `withheldFields`
+            as `custom.<key>`. Optional until T-0089 serves it, then always
+            sent (`{}` when the record has no visible value).
 
     ContactAccountSummary:
       type: object
@@ -4783,6 +5180,16 @@ components:
             activity's programme; `null` when none. Withheld, and named in
             `withheldFields`, when the activity's `deal_id` field is withheld
             from the caller.
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: false
+          description: |
+            The activity's custom-field values (T-0088, ADR-0016), keyed by api
+            name. An own property because Activity is closed. `custom` is never
+            withheld itself: a withheld key is absent and listed in
+            `withheldFields` as `custom.<key>`. Optional until T-0089 serves
+            it, then always sent (`{}` when none is visible).
         createdByUserId:
           type: [string, 'null']
           format: uuid
@@ -4797,10 +5204,14 @@ components:
           type: array
           description: |
             Names of the properties above that field security withheld from
-            this caller. Always present; empty when nothing was withheld.
+            this caller. Always present; empty when nothing was withheld. A
+            withheld custom field is listed as `custom.<key>`
+            (CustomFieldWithheldPath, T-0088); `custom` itself never is.
           items:
-            type: string
-            enum: [subject, body, dueAt, completedAt, startsAt, endsAt, ownerUserId, contactId, accountId, dealId]
+            anyOf:
+              - type: string
+                enum: [subject, body, dueAt, completedAt, startsAt, endsAt, ownerUserId, contactId, accountId, dealId]
+              - $ref: '#/components/schemas/CustomFieldWithheldPath'
 
     CreateActivityRequest:
       type: object
@@ -4866,6 +5277,16 @@ components:
             or `accountId`. Must be a deal in the activity's programme, else
             `400 unknown_reference` at `dealId`, one body whether it names a
             deal elsewhere or nothing.
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: false
+          description: |
+            Custom-field values to set at create (T-0088, ADR-0016): values
+            only, never `null`. Each key must be editable for the caller in
+            the target programme (else `403 field_not_editable` at
+            `custom.<key>`); an unknown or retired key is `400 unknown_field`.
+            Contract only until T-0089 serves it.
 
     UpdateActivityRequest:
       type: object
@@ -4927,6 +5348,15 @@ components:
             else `400 unknown_reference` at `dealId`, one body whether it
             names a deal elsewhere or nothing. The only link an update may
             change: `contactId` and `accountId` stay `400`.
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFieldsPatch'
+          x-kasuwa-implemented: false
+          description: |
+            Custom-field changes (T-0088, ADR-0016), merged per key: a value
+            sets, `null` clears, an absent key is untouched. Each key must be
+            editable in the record's programme (else `403 field_not_editable`
+            at `custom.<key>`). Contract only until T-0089 serves it.
 
     ActivityContactSummary:
       type: object
@@ -5109,6 +5539,16 @@ components:
         lga: { type: [string, 'null'], maxLength: 64 }
         whatsappOptIn: { type: boolean }
         consentState: { $ref: '#/components/schemas/ConsentState' }
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: false
+          description: |
+            Custom-field values to set at create (T-0088, ADR-0016): values
+            only, never `null`. Each key must be editable for the caller in
+            the target programme (else `403 field_not_editable` at
+            `custom.<key>`); an unknown or retired key is `400 unknown_field`.
+            Contract only until T-0089 serves it.
 
     UpdateContactRequest:
       type: object
@@ -5164,6 +5604,15 @@ components:
         lga: { type: [string, 'null'], maxLength: 64 }
         whatsappOptIn: { type: boolean }
         consentState: { $ref: '#/components/schemas/ConsentState' }
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFieldsPatch'
+          x-kasuwa-implemented: false
+          description: |
+            Custom-field changes (T-0088, ADR-0016), merged per key: a value
+            sets, `null` clears, an absent key is untouched. Each key must be
+            editable in the record's programme (else `403 field_not_editable`
+            at `custom.<key>`). Contract only until T-0089 serves it.
 
     ConvertContactRequest:
       type: object
@@ -5261,6 +5710,14 @@ components:
         pipeline rollups, counts of contacts or other related records (D-P13),
         and a list of child accounts. The hierarchy is the one
         `parentAccountId` link.
+
+        **Specified, not yet served.** The `allOf` part below
+        (AccountPendingProperties) adds properties this contract specifies
+        and the live API does not send yet, each `x-kasuwa-implemented:
+        false`: `custom` (T-0088). `properties` here is exactly what the live
+        wire carries, as on Contact.
+      allOf:
+        - $ref: '#/components/schemas/AccountPendingProperties'
       properties:
         id: { type: string, format: uuid }
         programmeId:
@@ -5324,7 +5781,30 @@ components:
             Names of the properties above that field security withheld from
             this caller. Those properties are omitted from the object, never
             sent as `null`. Always present; empty when nothing was withheld.
+            A withheld custom field is listed as `custom.<key>`
+            (CustomFieldWithheldPath, T-0088); `custom` itself never is.
           items: { type: string }
+
+    AccountPendingProperties:
+      type: object
+      description: |
+        Account properties this contract specifies and the live API does not
+        serve yet (T-0088). Composed into `Account` and kept out of
+        `Account.properties` until then, because `Account.properties` is the
+        live wire's key set (the T-0054 and T-0055 suites map it to columns
+        and check every one is present or withheld). Optional; a client must
+        cope with their absence. The task that serves a property moves it
+        into `Account.properties` in the same change.
+      properties:
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: false
+          description: |
+            The account's custom-field values (T-0088, ADR-0016), keyed by api
+            name. `custom` is never withheld itself: a withheld key is absent
+            and listed in `withheldFields` as `custom.<key>`. Optional until
+            T-0089 serves it, then always sent (`{}` when none is visible).
 
     AccountPage:
       type: object
@@ -5369,6 +5849,16 @@ components:
         state: { type: [string, 'null'], maxLength: 64 }
         lga: { type: [string, 'null'], maxLength: 64 }
         parentAccountId: { type: [string, 'null'], format: uuid }
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: false
+          description: |
+            Custom-field values to set at create (T-0088, ADR-0016): values
+            only, never `null`. Each key must be editable for the caller in
+            the target programme (else `403 field_not_editable` at
+            `custom.<key>`); an unknown or retired key is `400 unknown_field`.
+            Contract only until T-0089 serves it.
 
     UpdateAccountRequest:
       type: object
@@ -5404,6 +5894,15 @@ components:
         state: { type: [string, 'null'], maxLength: 64 }
         lga: { type: [string, 'null'], maxLength: 64 }
         parentAccountId: { type: [string, 'null'], format: uuid }
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFieldsPatch'
+          x-kasuwa-implemented: false
+          description: |
+            Custom-field changes (T-0088, ADR-0016), merged per key: a value
+            sets, `null` clears, an absent key is untouched. Each key must be
+            editable in the record's programme (else `403 field_not_editable`
+            at `custom.<key>`). Contract only until T-0089 serves it.
 
     # --- pipelines and deals (P06, T-0105) ---------------------------------
 
@@ -5750,13 +6249,30 @@ components:
             per check requirement of the pipeline: 30 stages of at most 20
             requirements each bound it at 600.
           items: { $ref: '#/components/schemas/DealCheck' }
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: false
+          description: |
+            The deal's custom-field values (T-0088, ADR-0016), keyed by api
+            name. An own property because Deal is closed. `custom` is never
+            withheld itself: a withheld key is absent and listed in
+            `withheldFields` as `custom.<key>`. Optional until T-0089 serves
+            it, then always sent (`{}` when none is visible). Custom deal
+            fields as stage requirements are a later task.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         withheldFields:
           type: array
           uniqueItems: true
-          description: Always present; empty when nothing was withheld.
-          items: { $ref: '#/components/schemas/DealWithheldField' }
+          description: |
+            Always present; empty when nothing was withheld. A withheld custom
+            field is listed as `custom.<key>` (CustomFieldWithheldPath,
+            T-0088); `custom` itself never is.
+          items:
+            anyOf:
+              - $ref: '#/components/schemas/DealWithheldField'
+              - $ref: '#/components/schemas/CustomFieldWithheldPath'
 
     DealPage:
       type: object
@@ -5840,6 +6356,16 @@ components:
         primaryContactId: { type: [string, 'null'], format: uuid }
         accountId: { type: [string, 'null'], format: uuid }
         nextStep: { type: [string, 'null'], minLength: 1, maxLength: 200 }
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: false
+          description: |
+            Custom-field values to set at create (T-0088, ADR-0016): values
+            only, never `null`. Each key must be editable for the caller in
+            the target programme (else `403 field_not_editable` at
+            `custom.<key>`); an unknown or retired key is `400 unknown_field`.
+            Contract only until T-0089 serves it.
 
     UpdateDealRequest:
       type: object
@@ -5865,6 +6391,15 @@ components:
         primaryContactId: { type: [string, 'null'], format: uuid }
         accountId: { type: [string, 'null'], format: uuid }
         nextStep: { type: [string, 'null'], minLength: 1, maxLength: 200 }
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFieldsPatch'
+          x-kasuwa-implemented: false
+          description: |
+            Custom-field changes (T-0088, ADR-0016), merged per key: a value
+            sets, `null` clears, an absent key is untouched. Each key must be
+            editable in the record's programme (else `403 field_not_editable`
+            at `custom.<key>`). Contract only until T-0089 serves it.
 
     MoveDealFields:
       type: object
@@ -6100,6 +6635,176 @@ components:
           x-kasuwa-classification: pii
           description: Free text that may name a person or a business (D-L91); never logged.
 
+    # --- custom-field values (T-0088; ADR-0016, D-L128, D-L138) --------------
+    # Contract only until T-0089. Every property and parameter that uses these
+    # is `x-kasuwa-implemented: false`.
+    CustomFieldKey:
+      type: string
+      minLength: 4
+      maxLength: 63
+      pattern: '^[a-z][a-z0-9_]*__c$'
+      description: |
+        A custom field's `api_name` (`field_def.api_name`): lower snake case
+        ending in `__c` (D-P24), at most 63 characters. The standard
+        catalogue never uses the suffix, so a standard field name can never
+        be a key here.
+
+    CustomFieldText:
+      type: string
+      minLength: 1
+      maxLength: 1000
+      pattern: '^[^\u0000\n\r\u2028\u2029]+$'
+      description: |
+        A `text` custom field: one line of 1 to 1000 characters. No NUL and no
+        line break (`\n`, `\r`, U+2028 or U+2029): `textarea` is a refused
+        type, so `text` is single-line (D-L139). `""` is refused
+        (`invalid_value`); clear a value with `null` in a CustomFieldsPatch
+        (the `companyName` rule, D-L82).
+
+    CustomFieldNumber:
+      type: string
+      maxLength: 40
+      pattern: '^(?:0|-?0\.0*[1-9](?:[0-9]{0,16}[1-9])?|-?(?=(?:[^0-9]*[0-9]){1,18}[^0-9]*$)[1-9][0-9]*(?:\.[0-9]*[1-9])?)$'
+      description: |
+        A `number` custom field, as a canonical decimal STRING, never a JSON
+        number (a double loses precision). At most 18 significant digits.
+        Canonical: no leading zero (`0.5`, not `.5` or `00.5`), no trailing
+        fractional zero (`1.5`, not `1.50`; `1`, not `1.0`), no `+`, no
+        exponent, no thousands separator, and no `-0`. Anything else is
+        `400 invalid_value`.
+
+    CustomFieldCurrency:
+      type: object
+      additionalProperties: false
+      required: [amountMinor, currency]
+      description: |
+        A `currency` custom field: minor units as an integer string (a
+        `bigint` does not survive JSON) plus an ISO 4217 code. Never a float,
+        never a bare `amount`, never a symbol. `amountMinor` is signed (the
+        bigint range), at most 18 digits, with no leading zero and no `-0`.
+
+        **One currency per field, never converted** (D-L128 Q6). The currency
+        must be the field's `currencyCode`, fixed at create in its
+        definition's `config` (NGN, GHS, KES or ZAR) and never changed; a
+        value in any other currency is `400 validation_failed` with
+        `details[].code: currency_mismatch` at `custom.<key>.currency`.
+      properties:
+        amountMinor: { type: string, pattern: '^(?:0|-?[1-9][0-9]{0,17})$' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+
+    CustomFieldDate:
+      type: string
+      format: date
+      pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+      description: |
+        A `date` custom field: a real calendar date, `YYYY-MM-DD`, with no
+        time and no zone. (`datetime` is not a Phase 2 type.)
+
+    CustomFieldPicklist:
+      type: string
+      pattern: '^[a-z][a-z0-9_]{0,61}[a-z0-9]$'
+      description: |
+        A `picklist` custom field: exactly one value, an api name as stored
+        in the definition's `config.values[].value`. A well-formed value the
+        field does not define is `400 unknown_value`. The label is the
+        definition's (listCustomFields), never sent here.
+
+    CustomFieldBoolean:
+      type: boolean
+      description: A `boolean` custom field. JSON `true` or `false`, never the string.
+
+    CustomFieldValue:
+      description: |
+        One custom-field value: one of the six Phase 2 encodings (ADR-0016
+        item 4). `anyOf`, not `oneOf`, because several encodings are
+        strings. Which one applies is the field's `type`; a value of the
+        wrong encoding for its field is `400 invalid_value`.
+      anyOf:
+        - { $ref: '#/components/schemas/CustomFieldText' }
+        - { $ref: '#/components/schemas/CustomFieldNumber' }
+        - { $ref: '#/components/schemas/CustomFieldCurrency' }
+        - { $ref: '#/components/schemas/CustomFieldDate' }
+        - { $ref: '#/components/schemas/CustomFieldPicklist' }
+        - { $ref: '#/components/schemas/CustomFieldBoolean' }
+
+    CustomFields:
+      type: object
+      maxProperties: 100
+      propertyNames: { $ref: '#/components/schemas/CustomFieldKey' }
+      additionalProperties: { $ref: '#/components/schemas/CustomFieldValue' }
+      description: |
+        A record's custom-field values (ADR-0016), keyed by the field's
+        `api_name` (`…__c`), at most 100 keys. On a read, a value is never
+        `null`: a cleared field's key is absent. On a create body, the
+        values to set.
+
+        **Field security.** `custom` itself is never withheld and is never
+        named in `withheldFields`. A KEY withheld from the caller in the
+        record's programme is absent from `custom` and listed in
+        `withheldFields` as `custom.<key>` (CustomFieldWithheldPath), exactly
+        as a withheld standard field is omitted and listed. A retired field's
+        key is never sent and is refused on writes.
+
+        **Limits (D-L128 Q1, D-L140).** At most 100 keys. The API limit is
+        16 KiB (16384 bytes) of JSON, measured after a write is merged on
+        `custom` RESTRICTED to the keys the caller can read in the record's
+        programme plus the keys being written: withheld and retired values
+        never count, so `custom_too_large` cannot be used to learn the size
+        of a value the caller cannot see. Larger is `400 validation_failed`
+        with `details[].code: custom_too_large` at `custom`. The database
+        keeps a 32 KiB CHECK on the whole stored object as a backstop only;
+        a caller never meets it through the API.
+
+        **Errors** name the path and a code, never the value received
+        (ADR-0016 item 3): `unknown_field` (an unknown or retired key, one
+        code for both), `invalid_value`, `unknown_value`,
+        `currency_mismatch` and `custom_too_large`. A key that does not
+        match the custom api-name pattern at all is `unknown_field` at
+        `custom` itself: the offending key is never echoed in `path`,
+        `message` or any other field.
+
+        **Logging.** Custom values are never logged, traced or put in an
+        error body, whatever the field's classification: D-P25 lets a tenant
+        classify free text as `none`, so the classification cannot be trusted.
+
+    CustomFieldsPatch:
+      type: object
+      minProperties: 1
+      maxProperties: 100
+      propertyNames: { $ref: '#/components/schemas/CustomFieldKey' }
+      additionalProperties:
+        anyOf:
+          - { $ref: '#/components/schemas/CustomFieldValue' }
+          - { type: 'null' }
+      description: |
+        Custom-field changes on an update: a per-key merge (ADR-0016 item 5).
+        A key with a value sets it; a key with `null` clears it (the key is
+        removed); a key that is absent is untouched. Edits to different keys
+        do not clobber each other, and the record's `version` still guards
+        the row. An empty object is refused.
+
+        Every key sent must be editable for the caller in the row's
+        programme under field security, else `403 not_permitted` with
+        `details[].code: field_not_editable` at `custom.<key>`. An unknown or
+        retired key is `400 validation_failed` with
+        `details[].code: unknown_field` at `custom.<key>`; a key that does
+        not match the custom api-name pattern at all is `unknown_field` at
+        `custom`, and is never echoed. Value errors are `invalid_value`,
+        `unknown_value`, `currency_mismatch` and `custom_too_large`. The
+        size limit is 16 KiB, measured on the merged result restricted to
+        the keys the caller can read in the row's programme plus the keys
+        written: withheld and retired values never count (D-L140, see
+        CustomFields). None echoes the value, and custom values are never
+        logged or traced.
+
+    CustomFieldWithheldPath:
+      type: string
+      maxLength: 70
+      pattern: '^custom\.[a-z][a-z0-9_]*__c$'
+      description: |
+        A withheld custom key, as listed in `withheldFields`: `custom.` and
+        the field's api name (`custom.tier__c`). Never `custom` alone.
+
   responses:
     ValidationFailed:
       description: |
@@ -6171,6 +6876,86 @@ components:
                 details:
                   - path: endsAt
                     code: too_long
+            customUnknownField:
+              summary: A custom key that is not a field of the object, or a retired one; one code for both (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.region__c
+                    code: unknown_field
+            customMalformedKey:
+              summary: A custom key that is not a custom api name at all; reported at custom, never echoed (D-L140)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom
+                    code: unknown_field
+            customInvalidValue:
+              summary: A custom value of the wrong encoding for its field's type (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.score__c
+                    code: invalid_value
+            customUnknownValue:
+              summary: A picklist custom value the field does not define (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.tier__c
+                    code: unknown_value
+            customCurrencyMismatch:
+              summary: A currency custom value in another currency than the field's currencyCode (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.credit_limit__c.currency
+                    code: currency_mismatch
+            customTooLarge:
+              summary: The merged custom object, counting only keys the caller can read plus those written, is larger than 16 KiB (T-0088, D-L140)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom
+                    code: custom_too_large
+            customFilterWithheld:
+              summary: A list filter on a custom key withheld in any programme the caller reaches (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.credit_limit__c
+                    code: field_withheld
+            customFilterNotSupported:
+              summary: A list filter on a custom key that is not a picklist or a boolean (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.score__c
+                    code: filter_not_supported
 
     NotAuthenticated:
       description: |
@@ -6234,6 +7019,16 @@ components:
                 details:
                   - path: emails
                     code: field_not_editable
+            customField:
+              summary: A custom field the caller may not edit in the record's programme (T-0088)
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: custom.credit_limit__c
+                    code: field_not_editable
 
     StaleWrite:
       description: |
@@ -6295,6 +7090,16 @@ components:
                 message: You do not have permission to do that.
                 details:
                   - path: tier
+                    code: field_not_editable
+            customField:
+              summary: A custom field the caller may not edit in the record's programme (T-0088)
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: custom.score__c
                     code: field_not_editable
 
     NotImplemented:
@@ -6418,6 +7223,66 @@ components:
                 details:
                   - path: closedSince
                     code: invalid_window
+            customUnknownField:
+              summary: A custom key that is not a deal field, or a retired one; one code for both (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.region__c
+                    code: unknown_field
+            customMalformedKey:
+              summary: A custom key that is not a custom api name at all; reported at custom, never echoed (D-L140)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom
+                    code: unknown_field
+            customInvalidValue:
+              summary: A custom value of the wrong encoding for its field's type (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.margin__c
+                    code: invalid_value
+            customCurrencyMismatch:
+              summary: A currency custom value in another currency than the field's currencyCode (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.contract_value__c.currency
+                    code: currency_mismatch
+            customFilterWithheld:
+              summary: A listDeals filter on a custom key withheld in any programme the caller reaches (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.deal_source__c
+                    code: field_withheld
+            customFilterNotSupported:
+              summary: A listDeals filter on a custom key that is not a picklist or a boolean (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.margin__c
+                    code: filter_not_supported
 
     DealNotPermitted:
       description: |
@@ -6457,6 +7322,16 @@ components:
                 details:
                   - path: ownerUserId
                     code: owner_not_self
+            customField:
+              summary: A custom field the caller may not edit in the record's programme (T-0088)
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: custom.margin__c
+                    code: field_not_editable
 
     DealMoveConflict:
       description: |
