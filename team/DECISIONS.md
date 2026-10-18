@@ -3095,3 +3095,37 @@ passed with findings, with no critical finding. All three found the same major i
   - `CreateContactBody` names `custom` instead of spreading it, because of the tenancy adversarial tripwire;
   - `standard-object-guards.integration.test.ts` now expects a custom field's type change to be refused (ADR-0016
     item 9).
+
+### D-L144 — T-0090 and T-0091 suite rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead).
+- **T-0090** (`lead/T-0090-acceptance`, 515daaa; 42 static tests and 27 `@p18-studio` journeys):
+  - **Placement:** the studio is under **admin-ui**, at `/admin/custom-fields` in the admin shell. The operations are in
+    the admin contract, writes need the tenant-admin flag, and definitions are not programme-scoped.
+  - **The flag** is `crm_custom_fields`, off and not production-ready. The P02 `cu-fields` menu entry is a link only
+    while the flag is on.
+  - **Who may write:** controls show to everyone and the API's 403 is the gate (D-L84). A read-only list for
+    non-writers waits on T-0079 (a fixme).
+  - **The byte budget** of 262,000 is provisional and is re-pinned from the builder's measurements.
+  - **The P18 design is overruled by the contract wherever they conflict:**
+    - retire, never delete;
+    - type and api name are immutable, and api names carry `__c`;
+    - six types, and NGN/GHS/KES/ZAR only;
+    - a classification control (the design has none);
+    - no picklist value removal;
+    - no usage counts and no plan meters.
+- **T-0091** (`lead/T-0091-acceptance`, 297e844):
+  - **The flag:** the same `crm_custom_fields`, read on the server by all eight record routes and never named by a
+    client module.
+  - **Leads:** the lead record is the contact record (D-P17).
+  - **Activities:** custom values appear only on the create forms (values only), never on reads, because `MyActivity`
+    and timeline items carry no `custom`.
+  - **Read-only keys:** a key becomes read-only only after a 403 `field_not_editable`, since there is no capability read.
+  - **Deals:** custom filters are on the pipeline list view only.
+  - **Currency** is entered in major units and sent as integer minor units.
+  - **Formats** match `Intl` for the page's locale. Dates are calendar dates, proven from a UTC-1 browser.
+  - **Withholding** is decided per record from `withheldFields`.
+  - **Mocks:** every existing record mock answers `listCustomFields` and serves `custom` (unchanged with no setup), with
+    pins re-pinned.
+  - Its shared mock is renamed `custom-values-mock.ts`, because T-0090 already owns `custom-fields-mock.ts`.
+- **Order:** T-0090 builds first. T-0091's build waits for T-0090 to merge, because both register the flag and change
+  the records process.
