@@ -3286,3 +3286,26 @@ of T-0125 proceeds on these answers unless @acexode objects.
   when uploads ship (T-0096).
 - **T-0093 build:** an erased import's saved `mapping` is cleared together with `headers` and `filename` (D-L148). The
   four new `Error.code` values get `records.error.*` i18n keys in T-0096 and T-0097.
+
+### D-L151 — T-0093 security review rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The combined review passed with five major and several minor findings.
+- **Import writes are creator-only.** Upload-urls, complete, abort, mapping and run are open only to `createdByUserId`
+  (others get `403 not_permitted`). Cancel is open to the creator or a tenant admin. The job runs as `createdByUserId`.
+- **`contact.import` is held only by sets that also hold `contact.write`** (admin in Phase 2). Setting another member as
+  owner needs the same right as createContact (D-P14, D-L81).
+- **Undo never loosens compliance on either contact.** The restored contact takes the more restrictive of its snapshot
+  and the survivor's current value (D-P28).
+- **The duplicates cursor** carries only a contact id (the lowest id in the last set). Sets are ordered by their lowest
+  contact id. The cursor never carries the matched value.
+- **Undo** needs the merging user plus `contact.write` now, or a tenant admin. It is all-or-nothing under the undoer's
+  current field security.
+- **Minors:**
+  - `contact.import` and scope are re-checked every batch;
+  - `contact.claim_and_set_status` never permits a merge;
+  - `listContactMerges` is gated on `contact.write` or tenant admin, and shows ids only after the purge;
+  - `listDuplicates` is throttled with 429;
+  - completing an upload checks metadata only, and bytes stay untrusted until parsed;
+  - signed part URLs are never logged;
+  - the import result says duplicates were skipped and no restriction was applied to existing contacts.
+- **Later decision:** a restrict-only update path, so that importing a suppression list can apply DND to existing
+  contacts.
