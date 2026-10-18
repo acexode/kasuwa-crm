@@ -3434,3 +3434,15 @@ outbox-forgery suites).
   - the middleware names are pinned;
   - route-existence probing (a 401 versus a 404) predates this change, and the routes are public in the specs, so it is
     accepted.
+
+### D-L158 — T-0092 merged with two accepted exceptions (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). T-0092 is merged as #145 (migration 0040).
+- **`StoredObjectRepository.get` does not call `assertLiveTenantTx`.** The suite's R7 hand-builds a narrowed tx around a
+  real one. `get` is a read on the caller's own connection under RLS and explicit session filters, so a forged session
+  can only narrow visibility, never widen it. Key minting and every write do check.
+- **The DB CHECK `status <> 'uploaded' OR verified_size_bytes = declared_size_bytes`** waits for a follow-up migration
+  with a suite edit (the suite's control moves an unverified row to `uploaded`). The repository always writes the
+  verified size with `uploaded`.
+- **The 0040 status rules bind every role, the migrator included.** Only key corrections keep the D-L76 migrator
+  exemption.
+- **A presign on a row with an open upload** aborts the old upload first.
