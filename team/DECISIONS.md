@@ -3238,3 +3238,26 @@ D-P28 and D-P29.
   `undo_expired`.
 - **Errors** are capped at 1,000 per import. The limits are published as `x-kasuwa-import-limits`.
 - **Minimal lead edits** to the T-0039, T-0081, T-0056 and T-0059 suites admit the new operations.
+
+### D-L149 — ADR-0019 browser session: lead answers to its open questions (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). ADR-0019 is **Proposed** and is on @acexode's personal-review list (D-A3: auth). The build
+of T-0125 proceeds on these answers unless @acexode objects.
+- **The design:** a Next.js catch-all BFF at `apps/web/app/api/v1/[...path]` replaces the `/api/v1` rewrite.
+  - It keeps the opaque token in `__Host-kasuwa_session` (HttpOnly, Secure, SameSite=Lax, Path=/).
+  - It forwards to the API with Bearer, server-side. The API is unchanged.
+  - Every unsafe method needs an exact `Origin` match, `x-requested-with: kasuwa-web` and a JSON-only body.
+  - Stub headers are forwarded only by a web process that is itself in stub mode.
+- **Answers:**
+  1. **Lifetime:** keep the existing 12-hour absolute session, with no idle timeout and no refresh in Phase 2. An idle
+     timeout is a later product decision.
+  2. **SameSite=Lax,** so links from email and WhatsApp land signed in. The custom header plus the Origin check cover
+     CSRF.
+  3. **The demo quick-switch** is dropped with the proxy. A client that omits `Origin` on POST is refused, which fails
+     closed. Opera Mini and old WebViews are noted as a test item.
+  4. **The web-to-API leg** must use TLS outside dev and test. Plain http is refused at boot (D-L94).
+  5. **"Sign out everywhere,"** and revoking other sessions on a factor or password change, are out of scope (a
+     follow-up).
+  6. **Realtime authentication** gets its own task, before realtime ships to browsers.
+  7. **The e2e split:** specs that inject headers run on test and stub web processes. One real-browser journey runs on
+     the production process with no headers. Byte budgets keep measuring the processes they measure today.
+  8. **The shared stub and scope header constants** live in `@kasuwa/config`.
