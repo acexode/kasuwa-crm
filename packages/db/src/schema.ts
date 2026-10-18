@@ -232,7 +232,7 @@ export const contact = pgTable(
     /**
      * Migration 0039 (T-0089, ADR-0016): custom-field values, keyed by the
      * field_def api_name (`...__c`). Guarded by three CHECKs (object, at most
-     * 32 KiB, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
+     * 512 KiB backstop, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
      * withheld keys are projected out in SQL and never read whole by the API.
      */
     custom: jsonb('custom').notNull().default(sql`'{}'::jsonb`),
@@ -370,7 +370,7 @@ export const account = pgTable(
     /**
      * Migration 0039 (T-0089, ADR-0016): custom-field values, keyed by the
      * field_def api_name (`...__c`). Guarded by three CHECKs (object, at most
-     * 32 KiB, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
+     * 512 KiB backstop, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
      * withheld keys are projected out in SQL and never read whole by the API.
      */
     custom: jsonb('custom').notNull().default(sql`'{}'::jsonb`),
@@ -468,7 +468,7 @@ export const activity = pgTable(
     /**
      * Migration 0039 (T-0089, ADR-0016): custom-field values, keyed by the
      * field_def api_name (`...__c`). Guarded by three CHECKs (object, at most
-     * 32 KiB, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
+     * 512 KiB backstop, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
      * withheld keys are projected out in SQL and never read whole by the API.
      */
     custom: jsonb('custom').notNull().default(sql`'{}'::jsonb`),
@@ -841,7 +841,7 @@ export const deal = pgTable(
     /**
      * Migration 0039 (T-0089, ADR-0016): custom-field values, keyed by the
      * field_def api_name (`...__c`). Guarded by three CHECKs (object, at most
-     * 32 KiB, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
+     * 512 KiB backstop, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
      * withheld keys are projected out in SQL and never read whole by the API.
      */
     custom: jsonb('custom').notNull().default(sql`'{}'::jsonb`),

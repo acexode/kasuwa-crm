@@ -11,7 +11,8 @@
 --      deal, each with its three CHECKs, every one NOT VALID;
 --   3. kasuwa_app's column-level UPDATE on `custom` where the table uses
 --      column privileges (activity, 0027; deal, 0036);
---   4. `field_def.retired_at`;
+--   4. `field_def.retired_at`, and CHECK (retired_at IS NULL OR is_custom),
+--      NOT VALID like every CHECK here;
 --   5. ONE restrictive DELETE policy on field_def: a custom field of a
 --      standard object is retired, never deleted, by the application;
 --   6. 0025's freeze trigger extended to a custom field's `type`;
@@ -61,10 +62,15 @@
 --                             it yields NULL rather than raising, so the
 --                             is-object CHECK is what refuses an array or a
 --                             scalar, as 23514.
---   <table>_custom_size       octet_length(custom::text) <= 32768: BYTES of the
---                             jsonb text form. A BACKSTOP only (D-L140): the
---                             API's own limit is 16 KiB on the keys the caller
---                             can see, so a caller never meets this one.
+--   <table>_custom_size       octet_length(custom::text) <= 524288 (512 KiB):
+--                             BYTES of the jsonb text form. A BACKSTOP against
+--                             non-API writers only (D-L142). Callers meet the
+--                             API's 16 KiB limit on the keys they can see
+--                             (D-L140); no set of live keys can reach 512 KiB
+--                             (100 fields x the largest encoded value is about
+--                             410 KiB), and every API write drops retired keys,
+--                             so the backstop is no size oracle. The API still
+--                             maps a 23514 here to 400 custom_too_large.
 -- All three are IMMUTABLE expressions (jsonb_path_exists without _tz,
 -- octet_length, the jsonb text cast), as a CHECK requires.
 --
@@ -73,7 +79,9 @@
 -- ---------------------------------------------------------------------------
 --   - `field_def.retired_at timestamptz NULL`, no default. NULL is live.
 --   - field_def_delete_not_standard_object, RESTRICTIVE, FOR DELETE: kasuwa_app
---     may delete a field_def only when its object is a CUSTOM object. AND-ed
+--     may delete a field_def only when its object is a CUSTOM object. Written
+--     POSITIVELY (EXISTS ... o.is_custom, D-L142), so a field whose object row
+--     cannot be found is not deletable either: it fails closed. AND-ed
 --     with 0002's permissive isolation policy and 0025's
 --     field_def_delete_custom_only, so after this file kasuwa_app can delete
 --     only a custom field of a custom object (S3 of the T-0089 storage suite).
@@ -95,13 +103,17 @@
 -- 0025's app.guard_standard_field_def() and widening its trigger's WHEN, so
 -- one function still answers "what may UPDATE not change on field_def":
 --   - every role: is_custom never flips (23001, unchanged);
---   - a STANDARD field: unchanged from 0025 (object_id for every role, 23001;
---     type, config, is_required for kasuwa_app, 42501);
---   - a CUSTOM field: `type` for kasuwa_app, 42501. Its label, description,
---     classification (both ways, D-P25), config (picklist values are added)
---     and retired_at stay writable. The migrator is not frozen (S4: a
---     migration may still correct a definition), as 0025 leaves it for
---     standard fields.
+--   - every role, ANY field (D-L142): `object_id` never changes (23001). For a
+--     custom field this closes moving it to a custom object and then deleting
+--     it, or moving it away and re-creating its api_name on the old object;
+--   - a STANDARD field: unchanged from 0025 (type, config, is_required for
+--     kasuwa_app, 42501);
+--   - a CUSTOM field, for kasuwa_app (42501): `type` never changes, and a
+--     retired field is never un-retired (retired_at back to NULL). Its label,
+--     description, classification (both ways, D-P25), config (picklist values
+--     are added) and retiring it stay writable. The migrator is not frozen on
+--     these (S4: a migration may still correct a definition), as 0025 leaves
+--     it for standard fields.
 -- The WHEN clause keeps every label edit, and every custom edit that leaves
 -- the type alone, from running the function at all. 0029's classification
 -- trigger is untouched.
@@ -113,7 +125,7 @@
 --     Every statement on them here is catalogue-only: ADD COLUMN with a
 --     constant default (no rewrite since PG 11), ADD CONSTRAINT ... NOT VALID
 --     (no scan), a GRANT. So the lock is held for milliseconds at any size;
---     reads and writes queue only for that long. lock_timeout = 5s makes the
+--     reads and writes queue only for that long. lock_timeout = 2s makes the
 --     file fail fast rather than queue behind a long transaction with every
 --     request queued behind it.
 --   - object_def: SHARE ROW EXCLUSIVE (the policy's subquery names it; nothing
@@ -138,7 +150,7 @@
 --     decision.
 -- ---------------------------------------------------------------------------
 
-SET LOCAL lock_timeout = '5s';
+SET LOCAL lock_timeout = '2s';
 
 -- --- 1. locks, in a fixed order -------------------------------------------------
 LOCK TABLE object_def IN SHARE ROW EXCLUSIVE MODE;
@@ -161,7 +173,7 @@ ALTER TABLE contact
       custom, 'strict $.keyvalue() ? (!(@.key like_regex "^[a-z][a-z0-9_]*__c$"))', '{}', true
     )) NOT VALID,
   ADD CONSTRAINT contact_custom_size
-    CHECK (octet_length(custom::text) <= 32768) NOT VALID;
+    CHECK (octet_length(custom::text) <= 524288) NOT VALID;
 
 ALTER TABLE account
   ADD COLUMN custom jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -172,7 +184,7 @@ ALTER TABLE account
       custom, 'strict $.keyvalue() ? (!(@.key like_regex "^[a-z][a-z0-9_]*__c$"))', '{}', true
     )) NOT VALID,
   ADD CONSTRAINT account_custom_size
-    CHECK (octet_length(custom::text) <= 32768) NOT VALID;
+    CHECK (octet_length(custom::text) <= 524288) NOT VALID;
 
 ALTER TABLE activity
   ADD COLUMN custom jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -183,7 +195,7 @@ ALTER TABLE activity
       custom, 'strict $.keyvalue() ? (!(@.key like_regex "^[a-z][a-z0-9_]*__c$"))', '{}', true
     )) NOT VALID,
   ADD CONSTRAINT activity_custom_size
-    CHECK (octet_length(custom::text) <= 32768) NOT VALID;
+    CHECK (octet_length(custom::text) <= 524288) NOT VALID;
 
 ALTER TABLE deal
   ADD COLUMN custom jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -194,7 +206,7 @@ ALTER TABLE deal
       custom, 'strict $.keyvalue() ? (!(@.key like_regex "^[a-z][a-z0-9_]*__c$"))', '{}', true
     )) NOT VALID,
   ADD CONSTRAINT deal_custom_size
-    CHECK (octet_length(custom::text) <= 32768) NOT VALID;
+    CHECK (octet_length(custom::text) <= 524288) NOT VALID;
 
 COMMENT ON COLUMN contact.custom IS
   'Custom-field values (ADR-0016), keyed by field_def.api_name (...__c). Never logged; withheld keys are projected out in SQL.';
@@ -214,7 +226,11 @@ GRANT UPDATE (custom) ON activity TO kasuwa_app;
 GRANT UPDATE (custom) ON deal TO kasuwa_app;
 
 -- --- 4. retired_at -----------------------------------------------------------------
-ALTER TABLE field_def ADD COLUMN retired_at timestamptz;
+ALTER TABLE field_def
+  ADD COLUMN retired_at timestamptz,
+  -- Only a custom field can be retired; a standard one is the catalogue's.
+  ADD CONSTRAINT field_def_retired_custom_only
+    CHECK (retired_at IS NULL OR is_custom) NOT VALID;
 
 COMMENT ON COLUMN field_def.retired_at IS
   'When a custom field was retired (ADR-0016 item 9); NULL while live. A retired key is dropped from reads, refused on writes, and its api_name stays taken.';
@@ -226,12 +242,12 @@ CREATE POLICY field_def_delete_not_standard_object ON field_def
   FOR DELETE
   USING (
     tenant_id = app.current_tenant_id()
-    AND NOT EXISTS (
+    AND EXISTS (
       SELECT 1
         FROM public.object_def o
        WHERE o.tenant_id = field_def.tenant_id
          AND o.id = field_def.object_id
-         AND NOT o.is_custom
+         AND o.is_custom
     )
   );
 
@@ -250,12 +266,14 @@ BEGIN
       USING ERRCODE = 'restrict_violation';  -- 23001
   END IF;
 
+  -- Every role, any field (0025 for standard fields; 0039 for custom ones).
+  IF OLD.object_id IS DISTINCT FROM NEW.object_id THEN
+    RAISE EXCEPTION 'field_def.object_id is fixed: a field cannot move to another object'
+      USING ERRCODE = 'restrict_violation';  -- 23001
+  END IF;
+
   IF NOT OLD.is_custom THEN
     -- A standard field (0025, unchanged).
-    IF OLD.object_id IS DISTINCT FROM NEW.object_id THEN
-      RAISE EXCEPTION 'field_def.object_id of a standard field is fixed: a standard field cannot move to another object'
-        USING ERRCODE = 'restrict_violation';  -- 23001
-    END IF;
     IF (current_user = 'kasuwa_app' OR session_user = 'kasuwa_app')
        AND (OLD.type IS DISTINCT FROM NEW.type
             OR OLD.config IS DISTINCT FROM NEW.config
@@ -269,6 +287,11 @@ BEGIN
     IF (current_user = 'kasuwa_app' OR session_user = 'kasuwa_app')
        AND OLD.type IS DISTINCT FROM NEW.type THEN
       RAISE EXCEPTION 'field_def.type of a custom field is fixed at creation: a change of type is a new field, then retiring the old one'
+        USING ERRCODE = 'insufficient_privilege';  -- 42501
+    END IF;
+    IF (current_user = 'kasuwa_app' OR session_user = 'kasuwa_app')
+       AND OLD.retired_at IS NOT NULL AND NEW.retired_at IS NULL THEN
+      RAISE EXCEPTION 'field_def.retired_at of a custom field cannot be cleared: there is no restore'
         USING ERRCODE = 'insufficient_privilege';  -- 42501
     END IF;
   END IF;
@@ -296,7 +319,12 @@ CREATE TRIGGER field_def_standard_fixed
            OR OLD.config IS DISTINCT FROM NEW.config
            OR OLD.is_required IS DISTINCT FROM NEW.is_required)
     )
-    OR (OLD.is_custom AND OLD.type IS DISTINCT FROM NEW.type)
+    OR (
+      OLD.is_custom
+      AND (OLD.type IS DISTINCT FROM NEW.type
+           OR OLD.object_id IS DISTINCT FROM NEW.object_id
+           OR (OLD.retired_at IS NOT NULL AND NEW.retired_at IS NULL))
+    )
   )
   EXECUTE FUNCTION app.guard_standard_field_def();
 
@@ -351,6 +379,40 @@ BEGIN
       RAISE EXCEPTION '0039: kasuwa_app holds table-level UPDATE on %', t;
     END IF;
   END LOOP;
+
+  -- The guards are what this header says, not merely present (D-L142).
+  FOREACH t IN ARRAY record_tables LOOP
+    IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_constraint c
+         WHERE c.conrelid = pg_catalog.to_regclass('public.' || t)
+           AND (
+             (c.conname = t || '_custom_is_object'
+              AND pg_catalog.pg_get_constraintdef(c.oid)
+                  = 'CHECK ((jsonb_typeof(custom) = ''object''::text)) NOT VALID')
+             OR (c.conname = t || '_custom_size'
+              AND pg_catalog.pg_get_constraintdef(c.oid)
+                  = 'CHECK ((octet_length((custom)::text) <= 524288)) NOT VALID')
+             OR (c.conname = t || '_custom_keys'
+              AND pg_catalog.strpos(pg_catalog.pg_get_constraintdef(c.oid),
+                    'like_regex "^[a-z][a-z0-9_]*__c$"') > 0
+              AND pg_catalog.strpos(pg_catalog.pg_get_constraintdef(c.oid), 'strict ') > 0)
+           )) <> 3 THEN
+      RAISE EXCEPTION '0039: a custom CHECK on % does not have its expected definition', t;
+    END IF;
+  END LOOP;
+  IF NOT EXISTS (
+       SELECT 1 FROM pg_catalog.pg_constraint c
+        WHERE c.conrelid = 'public.field_def'::pg_catalog.regclass
+          AND c.conname = 'field_def_retired_custom_only' AND NOT c.convalidated
+          AND pg_catalog.pg_get_constraintdef(c.oid)
+              = 'CHECK (((retired_at IS NULL) OR is_custom)) NOT VALID') THEN
+    RAISE EXCEPTION '0039: field_def_retired_custom_only is missing or not as written';
+  END IF;
+  -- The replaced trigger function stays an INVOKER function (CLAUDE.md 2.7).
+  IF EXISTS (
+       SELECT 1 FROM pg_catalog.pg_proc p
+        WHERE p.oid = 'app.guard_standard_field_def()'::pg_catalog.regprocedure AND p.prosecdef) THEN
+    RAISE EXCEPTION '0039: the replaced field_def guard function is not SECURITY INVOKER';
+  END IF;
 
   IF NOT EXISTS (
        SELECT 1 FROM pg_catalog.pg_policy p
