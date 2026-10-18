@@ -3197,3 +3197,23 @@ D-P28 and D-P29.
   - wave 2: T-0094, T-0099, T-0096, T-0095;
   - wave 3: T-0100, T-0097, T-0101.
   - Migration numbers are assigned in merge order, from 0040.
+
+### D-L147 — Demo tooling merged; the web app has no browser session (lead, 2026-10-18)
+**Status:** PROCEEDING (lead).
+- **The gap.** The demo walkthrough found that, after a real sign-in and MFA, the web app keeps the session token nowhere
+  (no cookie, no BFF). Every API call from a real browser is unauthenticated. The e2e suites inject stub identity
+  headers, so no suite caught it.
+  - It is a P0 product gap, filed as **T-0125**, with an ADR first: BFF or API cookie, CSRF, refresh, sign-out, CSP.
+- **Demo tooling (#142) is dev-only:**
+  - `pnpm demo`;
+  - a loopback-only demo proxy that keeps the post-MFA token in an HttpOnly cookie and forwards it as Bearer;
+  - an idempotent, loopback-only demo seed through the real API, with synthetic data;
+  - smoke and TOTP helpers;
+  - the runbook `docs/demo/DEMO.md`.
+- **A markup-only RTL fix:** phone numbers render left-to-right inside Arabic layouts.
+- **Known demo limitations:**
+  - agents can read the admin console (writes are gated; known since T-0032, D-L48);
+  - Home, Inbox, Tickets and Reports are nav placeholders;
+  - Arabic is reached through `?locale=ar`;
+  - low-bandwidth mode has no visible effect yet;
+  - the contacts list shows "Assigned" and "Linked" rather than names for owner and account.
