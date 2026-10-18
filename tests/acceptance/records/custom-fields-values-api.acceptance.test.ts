@@ -1307,10 +1307,21 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
       const id = A1_ROW[object];
       await plantCustom(object, id, { txt__c: 'T-0089 base' });
       const version = await versionOf(object, id);
-      const [left, right] = await Promise.all([
-        update(object, SUPERVISOR, id, { custom: { tier__c: 'gold' } }, version),
-        update(object, SUPERVISOR, id, { custom: { vip__c: true } }, version),
-      ]);
+      // T-0089 / D-L142 (lead edit): concurrent supertest requests need a server that is already
+      // listening; when supertest starts the server itself, each request closes it on the other
+      // (ECONNREFUSED). The same pattern as the FOR UPDATE race test.
+      const srv = server() as { listen: (port: number, host: string, done: () => void) => void; close: (done: () => void) => void };
+      await new Promise<void>((done) => srv.listen(0, '127.0.0.1', done));
+      let left: request.Response;
+      let right: request.Response;
+      try {
+        [left, right] = await Promise.all([
+          update(object, SUPERVISOR, id, { custom: { tier__c: 'gold' } }, version),
+          update(object, SUPERVISOR, id, { custom: { vip__c: true } }, version),
+        ]);
+      } finally {
+        await new Promise<void>((done) => srv.close(() => done()));
+      }
       const statuses = [left.status, right.status].sort();
       expect(statuses, `${left.text} | ${right.text}`).toEqual([200, 409]);
       const winner = left.status === 200 ? { tier__c: 'gold' } : { vip__c: true };
