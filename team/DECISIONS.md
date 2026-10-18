@@ -3658,3 +3658,63 @@ import-isolation 17 of 20. All 10 failures need lead suite edits on lead/T-0094-
 
 These are lead edits on a lead branch, to merge first. From now on, verification of any PR that changes
 migrations or env schemas includes the full acceptance run, not just the touched files.
+
+### D-L167 — T-0094 review rulings (lead, 2026-10-19)
+
+Reviews of 257c45e:
+- **Tenancy:** pass with findings.
+- **Migration:** pass with findings.
+- **Security:** fail, on one blocker (B1).
+
+All of the following are required before merge unless they are marked as a follow-up.
+
+**Erasure (security B1, migration N2/N3, tenancy 1).** The removal trigger erases every job of the removed creator
+in that programme whose metadata has not yet been erased, whatever its status:
+- live jobs fail, as now;
+- jobs that have already ended keep their status, but `filename`, `headers`, `mapping` and `suggested_mapping` are
+  cleared;
+- the trigger and retention erase the same field set, and the migration header says so.
+
+The trigger cannot delete bytes, so `raw_file_deleted_at` stays the retention job's to set.
+**Follow-up, disclosed as a gap:** erasure for a creator who is disabled (not removed). The user row's status is
+not visible to RLS-scoped writers across every programme, so a correct fix needs a cross-scope maintenance path,
+and that is an ADR under CLAUDE.md 2.7. It is not to be invented in T-0094.
+
+**Liveness and denial of service (security N1, N2, N3).**
+- Run and header parsing use `stream.pipeline`, so a source error rejects instead of hanging.
+- The run parser sets `max_record_size` to the 64 KiB row cap, and `CSV_MAX_RECORD_SIZE` becomes a
+  `row_too_large` row error. Columns are capped as in the header parser.
+- **Heartbeat and stale cancel.** Every batch commit touches `changed_at`. A cancel of a `running` job whose
+  `changed_at` is more than 10 minutes old moves it straight to `cancelled`. Otherwise cancel sets
+  `cancel_requested`, which the next batch honours. Today nothing honours it, and that is a defect.
+- **Retries.** The start transaction's transient failures get BullMQ `attempts` with backoff.
+- **Follow-up:** a periodic sweep for overdue or orphaned rows (enqueue failure after commit, Redis loss), the same
+  as in D-L166.
+
+**Permissions (security N4/N7, tenancy 4).**
+- runImport and every run batch require `contact.write` as well as `contact.import`. A different owner is
+  re-checked every batch.
+- The `contact.write` 403 is decided before any reference validation, so membership cannot be probed.
+
+**Smaller required fixes.**
+- Wrap every processor's errors in fixed errors (N5).
+- A NUL in any cell is a row error, not the end of the job (N6).
+- Audit putMapping, runImport and a cancel by a tenant admin (N8).
+- The retention queue is always consumed, whatever `crm_import` says (N9).
+
+**Migration 0042, which can only be corrected before merge (N1, N4).**
+- Take ACCESS EXCLUSIVE on `stored_object` and `contact` in the opening LOCK, so no lock is upgraded mid-file.
+- Correct the header to say reads are blocked, and say that a membership DELETE waits for an in-flight batch.
+- Complete the populated-cell plan: CONCURRENTLY indexes and VALIDATE, each in its own no-transaction file.
+- REVOKE lists follow main's convention and name `kasuwa_relay`.
+- The rollback plan adds `lock_timeout`, the DROP TRIGGER lock on user_programme, and the permanent loss of
+  import provenance.
+- **Follow-ups:** column-level INSERT and a status-transition guard on import_job (defence in depth).
+
+**Bucket lifecycle.** No 8-day rule exists in the repo; the tag is set but nothing acts on it. The migration
+header and D-L166 must not describe it as live.
+**Follow-up for T-0005 infra:** an 8-day lifecycle rule on `kasuwa-purpose=import`, in dev bootstrap and in cell
+configuration.
+
+**Routed:** any future contact or CSV export neutralises leading `= + - @ \t \r` (CSV injection). This goes in
+the export task's requirements.
