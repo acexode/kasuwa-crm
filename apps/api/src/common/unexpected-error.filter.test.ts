@@ -133,9 +133,20 @@ describe('UnexpectedErrorFilter', () => {
     filter.catch(new HttpException('Gone fishing', 410), plain.host);
     expect(plain.sent).toEqual({ status: 410, body: { statusCode: 410, message: 'Gone fishing' } });
 
-    const notFound = httpHost();
+    const notFound = httpHost({ route: { path: '/api/v1/contacts/:id' } });
     filter.catch(new NotFoundException(), notFound.host);
     expect(notFound.sent.body).toEqual(new NotFoundException().getResponse());
+    expect(lines).toEqual([]);
+  });
+
+  it('answers a path that matches no route with the not_found envelope, never the path (T-0121)', () => {
+    const lines = recordLogs();
+    const unmatched = httpHost({ url: '/secret/path' });
+    filter.catch(new NotFoundException('Cannot GET /secret/path'), unmatched.host);
+    expect(unmatched.sent).toEqual({
+      status: 404,
+      body: { statusCode: 404, error: 'Not Found', code: 'not_found', message: 'Not found' },
+    });
     expect(lines).toEqual([]);
   });
 
