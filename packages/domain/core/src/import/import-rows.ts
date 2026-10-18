@@ -126,6 +126,13 @@ export function parseImportRow(record: readonly string[], context: ImportRowCont
     if (field === 'displayName') displayNameColumn = index;
     if (field === 'givenNames' || field === 'familyName') nameParts.push({ column: index, field });
     if (cell === '') continue;
+    // D-L167 N6: Postgres text cannot hold U+0000, so a NUL in ANY mapped
+    // cell (tags, state, custom text included) is this row's error, never a
+    // failed statement that ends the job.
+    if (cell.includes('\u0000')) {
+      fail(index, 'invalid_value');
+      continue;
+    }
 
     const customKey = importCustomKey(field);
     if (customKey !== null) {

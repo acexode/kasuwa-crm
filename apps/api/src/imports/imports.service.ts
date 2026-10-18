@@ -17,6 +17,7 @@ import {
   notEditableContactFields,
   programmeMemberExists,
   recordAuditEvent,
+  redactedChange,
   toImportSummaryWire,
   toImportWire,
   updateImportJob,
@@ -417,40 +418,58 @@ export async function putMappingFor(tx: TenantTx, id: string, body: unknown): Pr
   if (locked.length > 0) throw fieldNotEditable(locked);
 
   if (owner !== null) {
+    // Another member as owner needs createContact's right (D-P14, D-L81),
+    // decided BEFORE the membership check, so it cannot probe who is a
+    // member (D-L167 N7).
+    if (owner !== tx.session.userId && !canProgramme(grants, 'contact.write', job.programmeId)) throw notPermitted();
     if (!(await programmeMemberExists(tx, job.programmeId, owner))) {
       throw validationFailed([{ path: 'ownerUserId', code: 'unknown_reference' }]);
     }
-    // Another member as owner needs createContact's right (D-P14, D-L81).
-    if (owner !== tx.session.userId && !canProgramme(grants, 'contact.write', job.programmeId)) throw notPermitted();
   }
 
   const saved = mustUpdate(
     await updateImportJob(tx, job.id, { mapping: { columns, defaultCountry: parsed.defaultCountry, ownerUserId: owner } }),
   );
+  // D-L167 N8: by id, naming the field only; never a header or a column.
+  await audit(tx, 'updated', 'import_job', job.id, job.programmeId, [redactedChange('mapping')]);
   return new ImportOutcome(toImportWire(saved));
 }
 
 // --- run and cancel -------------------------------------------------------------
 
 export async function runImportFor(tx: TenantTx, id: string): Promise<ImportOutcome<ImportWire>> {
-  const { job } = await creatorsJob(tx, id);
+  const { job, grants } = await creatorsJob(tx, id);
+  // A run creates contacts: `contact.write` too, not only `contact.import`
+  // (D-L167 N4). Re-checked by every batch.
+  if (!canProgramme(grants, 'contact.write', job.programmeId)) throw notPermitted();
   if (job.status !== 'awaiting_mapping' || job.mapping === null) throw importStatusConflict();
   const queued = mustUpdate(await updateImportJob(tx, job.id, { status: 'queued' }));
+  await audit(tx, 'updated', 'import_job', job.id, job.programmeId, [change('status', 'awaiting_mapping', 'queued')]);
   return new ImportOutcome(toImportWire(queued), [{ queue: IMPORT_RUN_QUEUE, payload: payloadOf(queued) }]);
 }
+
+/** A running job whose last batch committed longer ago than this is cancelled at once (D-L167 N2). */
+export const STALE_RUN_MS = 10 * 60 * 1000;
 
 export async function cancelImportFor(tx: TenantTx, id: string): Promise<ImportOutcome<ImportWire>> {
   const grants = await loadGrants(tx);
   const job = await visibleJob(tx, grants, id, true);
   if (job.createdByUserId !== tx.session.userId && !grants.isTenantAdmin) throw notPermitted();
-  if (job.status === 'queued') {
-    const cancelled = mustUpdate(await updateImportJob(tx, job.id, { status: 'cancelled', finishedAt: 'now' }));
-    await audit(tx, 'updated', 'import_job', job.id, job.programmeId, [change('status', 'queued', 'cancelled')]);
+  // Every batch commit touches changed_at, so a running job whose changed_at
+  // is old has no live worker: nothing would honour cancel_requested.
+  const stale = job.status === 'running' && Date.now() - job.changedAt.getTime() > STALE_RUN_MS;
+  if (job.status === 'queued' || stale) {
+    const cancelled = mustUpdate(
+      await updateImportJob(tx, job.id, { status: 'cancelled', cancelRequested: true, finishedAt: 'now' }),
+    );
+    // D-L167 N8: audited whoever cancels; the actor is the session user.
+    await audit(tx, 'updated', 'import_job', job.id, job.programmeId, [change('status', job.status, 'cancelled')]);
     return new ImportOutcome(toImportWire(cancelled), [retention(cancelled, IMPORT_RETENTION.rawFileMs)]);
   }
   if (job.status === 'running') {
-    // Honoured between batches by the run, which ends the job `cancelled`.
+    // Honoured by the next batch, which ends the job `cancelled`.
     const asked = mustUpdate(await updateImportJob(tx, job.id, { cancelRequested: true }));
+    await audit(tx, 'updated', 'import_job', job.id, job.programmeId, [change('cancelRequested', 'false', 'true')]);
     return new ImportOutcome(toImportWire(asked));
   }
   throw importStatusConflict();

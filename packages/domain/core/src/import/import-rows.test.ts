@@ -135,6 +135,13 @@ describe('parseImportRow', () => {
     expect(mapped).toEqual({ ok: false, errors: [{ column: 0, code: 'required' }] });
   });
 
+  it('a NUL in any mapped cell is that row\'s invalid_value, tags included (D-L167 N6)', () => {
+    const ctx = context([col(0, 'displayName'), col(1, 'tags'), col(2, 'state')]);
+    expect(parseImportRow(['a', 'vip\u0000', ''], ctx)).toEqual({ ok: false, errors: [{ column: 1, code: 'invalid_value' }] });
+    expect(parseImportRow(['a', '', 'La\u0000gos'], ctx)).toEqual({ ok: false, errors: [{ column: 2, code: 'invalid_value' }] });
+    expect(parseImportRow(['a\u0000', '', ''], ctx)).toEqual({ ok: false, errors: [{ column: 0, code: 'invalid_value' }] });
+  });
+
   it('sets the mapping owner on every row', () => {
     const ctx = context([col(0, 'displayName')]);
     const parsed = parseImportRow(['a'], { ...ctx, mapping: { ...ctx.mapping, ownerUserId: OWNER } });

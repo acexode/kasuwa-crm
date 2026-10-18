@@ -143,34 +143,39 @@ async function main(): Promise<void> {
 
   // --- CSV import (T-0094) -------------------------------------------------
   // One worker per queue. Each job runs AS ITS CREATOR inside
-  // withTenantTransaction (import-jobs.ts); payloads are ids only. Without the
-  // flag or an object store, the import queues are not consumed.
-  // Behind the `crm_import` flag (D-L166), off by default: off, the import
-  // queues are not consumed at all.
+  // withTenantTransaction (import-jobs.ts); payloads are ids only.
+  //   - header and run are behind the `crm_import` flag (D-L166), off by
+  //     default: off, those queues are not consumed;
+  //   - retention is ALWAYS consumed when an object store is configured
+  //     (D-L167 N9): erasure must never wait on a feature switch.
   await initialiseFeatureFlags();
   const crmImport = await featureFlagClient().getBooleanValue('crm_import', false);
   const importWorkers: Worker[] = [];
-  if (crmImport && storageConfigured()) {
+  if (storageConfigured()) {
     const deps: ImportJobDeps = {
       pool,
       store: new S3ObjectStore(storageEnv()),
       redisUrl: configuration.REDIS_URL,
     };
     importWorkers.push(
-      new Worker(IMPORT_HEADER_QUEUE, async (job) => processImportHeader(deps, job.data), {
-        connection,
-        concurrency: 2,
-      }),
-      // Sequential batches per job (R5); one run at a time per worker.
-      new Worker(IMPORT_RUN_QUEUE, async (job) => processImportRun(deps, job.data), {
-        connection,
-        concurrency: 1,
-      }),
       new Worker(IMPORT_RETENTION_QUEUE, async (job) => processImportRetention(deps, job.data), {
         connection,
         concurrency: 2,
       }),
     );
+    if (crmImport) {
+      importWorkers.push(
+        new Worker(IMPORT_HEADER_QUEUE, async (job) => processImportHeader(deps, job.data), {
+          connection,
+          concurrency: 2,
+        }),
+        // Sequential batches per job (R5); one run at a time per worker.
+        new Worker(IMPORT_RUN_QUEUE, async (job) => processImportRun(deps, job.data), {
+          connection,
+          concurrency: 1,
+        }),
+      );
+    }
   }
 
   for (const worker of [heartbeatWorker, authRetentionWorker, ...importWorkers]) {

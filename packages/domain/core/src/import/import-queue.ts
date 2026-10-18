@@ -45,8 +45,19 @@ export const ImportJobPayload = z
   .strict();
 export type ImportJobPayload = z.infer<typeof ImportJobPayload>;
 
-/** Fixed BullMQ options: bounded history, nothing but numbers. */
-export const IMPORT_JOB_OPTIONS = Object.freeze({ removeOnComplete: 1000, removeOnFail: 1000 });
+/**
+ * Fixed BullMQ options: bounded history, nothing but numbers, and retries
+ * with exponential backoff (D-L167). A processor acts only on a row in the
+ * status it expects, so a retry after a transient failure (the start
+ * transaction, the bucket) picks up where the job stood, and a retry after
+ * the job moved on changes nothing.
+ */
+export const IMPORT_JOB_OPTIONS = Object.freeze({
+  removeOnComplete: 1000,
+  removeOnFail: 1000,
+  attempts: 3,
+  backoff: Object.freeze({ type: 'exponential' as const, delay: 10_000 }),
+});
 
 /**
  * BullMQ connection options from a `redis://` URL (BullMQ takes options, not

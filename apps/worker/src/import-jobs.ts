@@ -1,4 +1,3 @@
-import { Readable } from 'node:stream';
 import { UnknownSessionUserError, withTenantTransaction, type TenantTx } from '@kasuwa/db';
 import {
   IMPORT_JOB_NAMES,
@@ -34,8 +33,8 @@ import { hasLoneSurrogate, loadCustomFieldAccess } from '@kasuwa/metadata-engine
 import { canProgramme, loadGrants } from '@kasuwa/permissions';
 import { StoredObjectRepository, type ObjectStore } from '@kasuwa/storage-adapter';
 import { Queue } from 'bullmq';
-import { parse } from 'csv-parse';
 import type { Pool } from 'pg';
+import { CsvStreamError, forEachCsvRecord, readFirstCsvRecord } from './csv-stream';
 
 /**
  * The import worker's three processors (T-0094 suite interface C; ADR-0017
@@ -82,6 +81,20 @@ export class ImportJobError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'ImportJobError';
+  }
+}
+
+/**
+ * Every processor's failure leaves as an ImportJobError with a fixed message
+ * and no cause (D-L167 N5): a pg, csv-parse or SDK error can quote a row, a
+ * key or a host, and BullMQ stores `failedReason` and the stack.
+ */
+async function withFixedErrors<T>(message: string, work: () => Promise<T>): Promise<T> {
+  try {
+    return await work();
+  } catch (error) {
+    if (error instanceof ImportJobError) throw error;
+    throw new ImportJobError(message);
   }
 }
 
@@ -168,15 +181,6 @@ async function endJob(
   return ended;
 }
 
-function csvParser() {
-  return parse({
-    bom: true,
-    relax_column_count: true,
-    skip_empty_lines: false,
-    raw: true,
-  });
-}
-
 // ---------------------------------------------------------------------------
 // kasuwa.import.header
 // ---------------------------------------------------------------------------
@@ -187,23 +191,9 @@ function csvParser() {
  * characters, or carries a NUL or a lone surrogate.
  */
 export async function readHeaderRow(stream: AsyncIterable<Uint8Array>): Promise<string[] | null> {
-  const source = Readable.from(stream);
-  const parser = parse({ bom: true, relax_column_count: true, to_line: 1, max_record_size: IMPORT_LIMITS.maxRowBytes });
-  source.pipe(parser);
-  let first: unknown = null;
-  try {
-    for await (const record of parser) {
-      first = record;
-      break;
-    }
-  } catch {
-    first = null;
-  } finally {
-    source.destroy();
-    parser.destroy();
-  }
-  if (!Array.isArray(first)) return null;
-  const headers = (first as unknown[]).map((cell) => (typeof cell === 'string' ? cell.trim() : ''));
+  const first = await readFirstCsvRecord(stream);
+  if (first === null || first.tooLarge) return null;
+  const headers = first.cells.map((cell) => cell.trim());
   if (headers.length === 0 || headers.length > IMPORT_LIMITS.maxColumns) return null;
   for (const name of headers) {
     const length = [...name].length;
@@ -215,6 +205,10 @@ export async function readHeaderRow(stream: AsyncIterable<Uint8Array>): Promise<
 }
 
 export async function processImportHeader(deps: ImportJobDeps, rawPayload: unknown): Promise<Outcome> {
+  return withFixedErrors('import header failed', () => runImportHeaderJob(deps, rawPayload));
+}
+
+async function runImportHeaderJob(deps: ImportJobDeps, rawPayload: unknown): Promise<Outcome> {
   const payload = parsePayload(rawPayload);
   const storedObjects = new StoredObjectRepository(deps.store);
   const ended = await asCreator(deps, payload, async (tx) => {
@@ -258,6 +252,14 @@ function appendErrors(
   return { errors: [...job.errors, ...added.slice(0, Math.max(0, room))], errorsTruncated: true };
 }
 
+/**
+ * The rights a run needs, re-read every batch (D-L167 N4): `contact.import`
+ * AND `contact.write` in the import's programme.
+ */
+function mayRun(grants: Awaited<ReturnType<typeof loadGrants>>, programmeId: string): boolean {
+  return canProgramme(grants, 'contact.import', programmeId) && canProgramme(grants, 'contact.write', programmeId);
+}
+
 /** One batch, in one transaction as the creator, with scope, the right and field security re-read. */
 async function runBatch(
   deps: ImportJobDeps,
@@ -273,7 +275,7 @@ async function runBatch(
     if (job.status !== 'running') return { result: 'stopped' as const, ended: null };
     if (job.cancelRequested) return { result: 'stopped' as const, ended: await endJob(tx, job, 'cancelled') };
     const grants = await loadGrants(tx);
-    if (!canProgramme(grants, 'contact.import', job.programmeId) || job.mapping === null) {
+    if (!mayRun(grants, job.programmeId) || job.mapping === null) {
       return { result: 'stopped' as const, ended: await endJob(tx, job, 'failed') };
     }
     const mapping = job.mapping;
@@ -346,6 +348,10 @@ async function failRun(deps: ImportJobDeps, payload: ImportJobPayload, trailing:
 }
 
 export async function processImportRun(deps: ImportJobDeps, rawPayload: unknown): Promise<Outcome> {
+  return withFixedErrors('import run failed', () => runImportRunJob(deps, rawPayload));
+}
+
+async function runImportRunJob(deps: ImportJobDeps, rawPayload: unknown): Promise<Outcome> {
   const payload = parsePayload(rawPayload);
   const storedObjects = new StoredObjectRepository(deps.store);
 
@@ -354,7 +360,7 @@ export async function processImportRun(deps: ImportJobDeps, rawPayload: unknown)
     const job = await creatorsJob(tx, payload);
     if (job === null || job.status !== 'queued' || job.mapping === null) return null;
     const grants = await loadGrants(tx);
-    if (!canProgramme(grants, 'contact.import', job.programmeId)) {
+    if (!mayRun(grants, job.programmeId)) {
       return { ended: await endJob(tx, job, 'failed') };
     }
     const running = await updateImportJob(tx, job.id, { status: 'running' });
@@ -377,21 +383,14 @@ export async function processImportRun(deps: ImportJobDeps, rawPayload: unknown)
   }
 
   const { duplicates } = started;
-  const source = Readable.from(started.stream);
-  const parser = csvParser();
-  source.pipe(parser);
-  let header = true;
   let dataRows = 0;
   let batch: PendingRow[] = [];
   let ended: ImportJob | null = null;
   let stopped = false;
   try {
     try {
-      for await (const output of parser as AsyncIterable<{ record: string[]; raw: string }>) {
-        if (header) {
-          header = false;
-          continue;
-        }
+      await forEachCsvRecord(started.stream, async (record, index) => {
+        if (index === 0) return 'continue'; // the header row
         if (dataRows >= IMPORT_LIMITS.maxRows) {
           // R7: the first row past 100,000 is the one too_many_rows error, not imported.
           const tail: ImportRowError = { row: dataRows + 2, column: null, code: 'too_many_rows' };
@@ -399,28 +398,21 @@ export async function processImportRun(deps: ImportJobDeps, rawPayload: unknown)
           batch = [];
           ended = flushed.ended;
           stopped = flushed.result === 'stopped';
-          break;
+          return 'stop';
         }
-        batch.push({
-          row: dataRows + 2,
-          record: output.record,
-          tooLarge: Buffer.byteLength(output.raw, 'utf8') > IMPORT_LIMITS.maxRowBytes,
-        });
+        batch.push({ row: dataRows + 2, record: record.cells, tooLarge: record.tooLarge });
         dataRows += 1;
-        if (batch.length >= IMPORT_BATCH_ROWS) {
-          const done = await runBatch(deps, payload, batch, duplicates, []);
-          batch = [];
-          if (done.result === 'stopped') {
-            ended = done.ended;
-            stopped = true;
-            break;
-          }
-        }
-      }
+        if (batch.length < IMPORT_BATCH_ROWS) return 'continue';
+        const done = await runBatch(deps, payload, batch, duplicates, []);
+        batch = [];
+        if (done.result === 'continue') return 'continue';
+        ended = done.ended;
+        stopped = true;
+        return 'stop';
+      });
     } catch (error) {
-      if (error instanceof ImportJobError) throw error;
-      const isParseError = (error as { code?: unknown } | null)?.code?.toString().startsWith('CSV_') === true;
-      if (!isParseError) throw error;
+      if (!(error instanceof CsvStreamError)) throw error;
+      if (error.failure === 'source') throw error;
       // A malformed file: what was committed stays; the rest is one error.
       ended = await failRun(deps, payload, [{ row: dataRows + 2, column: null, code: 'invalid_value' }]);
       stopped = true;
@@ -434,16 +426,13 @@ export async function processImportRun(deps: ImportJobDeps, rawPayload: unknown)
     }
     if (!stopped) ended = await finishRun(deps, payload);
   } catch {
-    // Anything unexpected: fail the job if it is still visible, and throw a
-    // fixed error (a pg or csv-parse message can quote a row).
-    source.destroy();
-    parser.destroy();
+    // Anything unexpected (the bucket stream failing, the database): fail the
+    // job if it is still visible, and throw a fixed error (D-L167 N5).
     const failed = await failRun(deps, payload, []).catch(() => null);
-    if (failed !== null) await enqueue(deps, IMPORT_RETENTION_QUEUE, retentionOf(failed), IMPORT_RETENTION.rawFileMs).catch(() => undefined);
+    if (failed !== null) {
+      await enqueue(deps, IMPORT_RETENTION_QUEUE, retentionOf(failed), IMPORT_RETENTION.rawFileMs).catch(() => undefined);
+    }
     throw new ImportJobError('import run failed');
-  } finally {
-    source.destroy();
-    parser.destroy();
   }
   if (ended !== null) {
     await enqueue(deps, IMPORT_RETENTION_QUEUE, retentionOf(ended), IMPORT_RETENTION.rawFileMs);
@@ -480,6 +469,10 @@ const plus = (date: Date, ms: number) => new Date(date.getTime() + ms);
  * nothing.
  */
 export async function processImportRetention(deps: ImportJobDeps, rawPayload: unknown): Promise<Outcome> {
+  return withFixedErrors('import retention failed', () => runImportRetentionJob(deps, rawPayload));
+}
+
+async function runImportRetentionJob(deps: ImportJobDeps, rawPayload: unknown): Promise<Outcome> {
   const payload = parsePayload(rawPayload);
   const now = (deps.now ?? (() => new Date()))();
   const storedObjects = new StoredObjectRepository(deps.store);
