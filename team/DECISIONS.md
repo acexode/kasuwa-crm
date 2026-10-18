@@ -3217,3 +3217,24 @@ D-P28 and D-P29.
   - Arabic is reached through `?locale=ar`;
   - low-bandwidth mode has no visible effect yet;
   - the contacts list shows "Assigned" and "Linked" rather than names for owner and account.
+
+### D-L148 — T-0093 suite rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The suite is on `lead/T-0093-acceptance` (8c9e728): 124 tests, R1–R21 in its header.
+- **Import compliance (D-P28).** An import creates new contacts only, because duplicates are skipped. So a cell may hold
+  a restrictive value or the new-contact default:
+  - `dnd`: true or false;
+  - `consentState`: withdrawn or unknown;
+  - `whatsappOptIn`: false.
+
+  A granting value (`whatsappOptIn` true, `consentState` pending or opted_in) is `consent_grant_refused`.
+- **Duplicates** are read at `GET /api/v1/programmes/{programmeId}/duplicates`, not through a `programmeId` query
+  parameter, which the T-0039 rule refuses (CLAUDE.md 2.2).
+- **A merged-away contact** is 404 on every `/contacts` path. `createContactMerge` answers `409 already_merged` only
+  when the caller could read the record before the merge.
+- **Header erasure.** When the raw file is deleted (7 days after the job ends, or 24 hours for an abandoned upload),
+  the import record's `headers` and `filename` are cleared too. A file without a header row would otherwise keep a
+  person's data in `headers`. `fromImportId` then fails with `unknown_reference`.
+- **New `Error.code` values** in admin.openapi.yaml: `import_status_conflict`, `upload_mismatch`, `already_merged` and
+  `undo_expired`.
+- **Errors** are capped at 1,000 per import. The limits are published as `x-kasuwa-import-limits`.
+- **Minimal lead edits** to the T-0039, T-0081, T-0056 and T-0059 suites admit the new operations.
