@@ -29,6 +29,7 @@ export type { AuthMode, KmsProvider, NodeEnvName } from './guards.mjs';
 export { migratorEnv, nodeEnv, realtimeEnv, webEnv } from './schemas.mjs';
 export { apiEnv, workerEnv } from './server-env';
 export {
+  assertExplicitNodeEnv,
   assertMigrationTargetIsSafe,
   DEV_DATABASE_PASSWORDS,
   effectiveDatabaseTarget,
