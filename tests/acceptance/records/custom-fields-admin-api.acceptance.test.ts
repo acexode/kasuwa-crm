@@ -1083,14 +1083,17 @@ describe('acceptance: custom-field definitions over the admin API (T-0089)', () 
   describe('check order (D-L140): 401, 403 custom_field.write, 404, 400', () => {
     it('no session is 401 on all four operations, whatever the target', async () => {
       const field = await created(tierBody());
-      const anonymous: [string, request.Test][] = [
-        ['list', request(server()).get(`${ADMIN}?object=contact`)],
-        ['create', request(server()).post(ADMIN).set('Content-Type', 'application/json').send(JSON.stringify({ bogus: true }))],
-        ['update', request(server()).patch(`${ADMIN}/${field.id}`).set('Content-Type', 'application/json').send('{}')],
-        ['update nowhere', request(server()).patch(`${ADMIN}/${NOWHERE}`).set('Content-Type', 'application/json').send('{}')],
-        ['retire', request(server()).post(`${ADMIN}/${field.id}/retire`)],
+      // T-0089 / D-L142: thunks, built and awaited one at a time. Building every
+      // supertest request up front makes each listen/close on the shared server
+      // race the others (ECONNREFUSED).
+      const anonymous: [string, () => request.Test][] = [
+        ['list', () => request(server()).get(`${ADMIN}?object=contact`)],
+        ['create', () => request(server()).post(ADMIN).set('Content-Type', 'application/json').send(JSON.stringify({ bogus: true }))],
+        ['update', () => request(server()).patch(`${ADMIN}/${field.id}`).set('Content-Type', 'application/json').send('{}')],
+        ['update nowhere', () => request(server()).patch(`${ADMIN}/${NOWHERE}`).set('Content-Type', 'application/json').send('{}')],
+        ['retire', () => request(server()).post(`${ADMIN}/${field.id}/retire`)],
       ];
-      for (const [label, pending] of anonymous) expectError(await pending, 401, 'not_authenticated', label);
+      for (const [label, call] of anonymous) expectError(await call(), 401, 'not_authenticated', label);
     });
 
     it('a non-admin gets 403 before 404 and before every 400: an invented id, another tenant’s field, a retired field, a repeat retire and an invalid body', async () => {

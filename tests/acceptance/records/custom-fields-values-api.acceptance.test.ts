@@ -1307,7 +1307,9 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
         ['getContact', await okBody(await read('contact', SUPERVISOR, C1), 200, 'getContact')],
         ['getAccount', await okBody(await read('account', SUPERVISOR, ACC1), 200, 'getAccount')],
         ['getDeal', await okBody(await read('deal', SUPERVISOR, DEAL1), 200, 'getDeal')],
-        ['updateActivity', await okBody(await update('activity', SUPERVISOR, ACT1, { subject: 'T-0089 touched' }), 200, 'updateActivity')],
+        // T-0089 / D-L142: UpdateActivityRequest is closed and has no `subject`;
+        // `dealId: null` is a write the contract admits that leaves `custom` alone.
+        ['updateActivity', await okBody(await update('activity', SUPERVISOR, ACT1, { dealId: null }), 200, 'updateActivity')],
       ];
       const listed = await okBody(await get(SUPERVISOR, '/api/v1/contacts'), 200, 'listContacts');
       reads.push(['listContacts', ((listed.data ?? []) as Json[]).find((row) => row.id === C1)]);
@@ -1441,7 +1443,8 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
       const answers: [string, request.Response][] = [
         ['updateContact', await update('contact', ACTOR, C1, { status: 'contacted' })],
         ['updateAccount', await update('account', ACTOR, ACC1, { custom: { tier__c: 'bronze' } })],
-        ['updateActivity', await update('activity', ACTOR, ACT1, { subject: 'T-0089 touched' })],
+        // T-0089 / D-L142: a standard write the closed UpdateActivityRequest admits (it has no `subject`).
+        ['updateActivity', await update('activity', ACTOR, ACT1, { dealId: null })],
         ['updateDeal', await update('deal', ACTOR, DEAL1, { nextStep: 'T-0089 next' })],
       ];
       answers.push([
@@ -1614,23 +1617,27 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
       const p1 = must(pipelines[PROGRAMME_A1], 'A1 pipeline');
       const statuses: number[] = [];
       const recorded = await recordStatements(async () => {
-        const calls = [
-          read('contact', ACTOR, C1),
-          get(ACTOR, '/api/v1/contacts', [['limit', '100']]),
-          get(ACTOR, '/api/v1/leads', [['limit', '100']]),
-          get(ACTOR, `/api/v1/accounts/${ACC1}/contacts`),
-          read('account', ACTOR, ACC1),
-          get(ACTOR, '/api/v1/accounts', [['limit', '100']]),
-          read('deal', ACTOR, DEAL1),
-          get(ACTOR, `/api/v1/pipelines/${p1.id}/deals`),
-          get(ACTOR, `/api/v1/pipelines/${p1.id}/board`),
-          get(ACTOR, '/api/v1/contacts', [['custom[tier__c]', 'gold']]),
+        // T-0089 / D-L142: thunks, built and awaited one at a time. Building every
+        // supertest request up front makes each listen/close on the shared server
+        // race the others (ECONNREFUSED).
+        const calls: (() => request.Test)[] = [
+          () => read('contact', ACTOR, C1),
+          () => get(ACTOR, '/api/v1/contacts', [['limit', '100']]),
+          () => get(ACTOR, '/api/v1/leads', [['limit', '100']]),
+          () => get(ACTOR, `/api/v1/accounts/${ACC1}/contacts`),
+          () => read('account', ACTOR, ACC1),
+          () => get(ACTOR, '/api/v1/accounts', [['limit', '100']]),
+          () => read('deal', ACTOR, DEAL1),
+          () => get(ACTOR, `/api/v1/pipelines/${p1.id}/deals`),
+          () => get(ACTOR, `/api/v1/pipelines/${p1.id}/board`),
+          () => get(ACTOR, '/api/v1/contacts', [['custom[tier__c]', 'gold']]),
         ];
-        for (const call of calls) statuses.push((await call).status);
+        for (const call of calls) statuses.push((await call()).status);
         // The observer's version reads are recorded too; they select `version` only.
         statuses.push((await update('contact', ACTOR, C1, { custom: { tier__c: 'bronze' } })).status);
         statuses.push((await update('account', ACTOR, ACC1, { custom: { vip__c: true } })).status);
-        statuses.push((await update('activity', ACTOR, ACT1, { subject: 'T-0089 projected' })).status);
+        // T-0089 / D-L142: the closed UpdateActivityRequest has no `subject`; `dealId: null` is admitted.
+        statuses.push((await update('activity', ACTOR, ACT1, { dealId: null })).status);
         statuses.push((await update('deal', ACTOR, DEAL1, { nextStep: 'T-0089 projected' })).status);
         const version = await versionOf('deal', DEAL1);
         statuses.push((await send('post', `/api/v1/deals/${enc(DEAL1)}/move`, ACTOR, { version, toStageId: p1.s1 })).status);

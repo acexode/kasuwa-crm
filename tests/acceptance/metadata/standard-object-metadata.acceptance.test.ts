@@ -74,9 +74,13 @@ import { parse as parseYaml } from 'yaml';
  *    its `api_name` cannot change (D-P4), it cannot stop being standard, and a
  *    standard field cannot be moved to another object. "Refused" means the
  *    statement raises OR touches zero rows; either way the committed end
- *    state is asserted unchanged. NOT over-reached: custom definitions stay
- *    deletable, standard LABELS stay editable (D-P4), and kasuwa_migrator can
- *    still offboard a tenant by `DELETE FROM tenant` (delete-guard D5).
+ *    state is asserted unchanged. NOT over-reached: a custom field of a
+ *    CUSTOM object and a custom object stay deletable, standard LABELS stay
+ *    editable (D-P4), and kasuwa_migrator can still offboard a tenant by
+ *    `DELETE FROM tenant` (delete-guard D5). A custom field of a STANDARD
+ *    object is retired, never deleted (ADR-0016 item 9; 0039; T-0089 storage
+ *    suite F), so kasuwa_app's DELETE of one is refused (T-0089, D-L142 lead
+ *    edit: this suite said it stayed deletable before ADR-0016).
  *
  * 4. TENANT-SCOPED, NOT PROGRAMME-SCOPED (ADR-0008, 0002 header): tenant A's
  *    sessions see only tenant A's definitions, and every session in tenant A
@@ -246,6 +250,12 @@ const ACCOUNT_SYSTEM_COLUMNS = new Set([
   'version',
   'created_at',
   'updated_at',
+  // T-0089 / D-L142 (lead edit): internal columns, not business fields, so they
+  // carry no field_def. `name_search` is 0038's GENERATED search column (T-0086);
+  // `custom` is 0039's custom-field store (ADR-0016), whose keys are field_defs
+  // of their own.
+  'name_search',
+  'custom',
 ]);
 
 // --- catalogue reads (as kasuwa_migrator: the auditor's view) ---------------
@@ -922,29 +932,60 @@ describe('acceptance: standard object metadata (T-0053)', () => {
       expect(await standardState()).toEqual(before);
     });
 
-    it('does not over-reach: custom definitions stay deletable, even on a standard object', async () => {
+    // T-0089 / D-L142 (lead edit): this test said "custom definitions stay deletable, even on a
+    // standard object". ADR-0016 item 9 and 0039 rule otherwise: a custom field of a standard
+    // object is RETIRED, never deleted, so its stored values keep a definition. The over-reach
+    // check that remains is the custom object: its custom field and the object itself still go.
+    it('a custom field of a standard object cannot be deleted (retire instead); a custom object and its custom field stay deletable', async () => {
       const { contactId } = await standardIds();
-      const customField = '11111111-0000-4000-8000-0000005301a1';
+      const onStandard = '11111111-0000-4000-8000-0000005301a1';
       const customObject = '11111111-0000-4000-8000-0000005300a3';
+      const onCustom = '11111111-0000-4000-8000-0000005301a2';
       await asUser(TENANT_A, USER_A_SUPERVISOR, async (tx) => {
         await tx.query(
           `INSERT INTO field_def (id, tenant_id, object_id, api_name, label, type, is_custom)
            VALUES ($1, $2, $3, 'loyalty_tier', 'Loyalty tier', 'text', true)`,
-          [customField, TENANT_A, contactId],
+          [onStandard, TENANT_A, contactId],
         );
         await tx.query(
           `INSERT INTO object_def (id, tenant_id, api_name, label, is_custom)
            VALUES ($1, $2, 't0053_scratch', 'Scratch', true)`,
           [customObject, TENANT_A],
         );
+        await tx.query(
+          `INSERT INTO field_def (id, tenant_id, object_id, api_name, label, type, is_custom)
+           VALUES ($1, $2, $3, 'scratch_note', 'Scratch note', 'text', true)`,
+          [onCustom, TENANT_A, customObject],
+        );
       });
+      const stillThere = async (id: string) =>
+        (await observer.query('SELECT 1 FROM field_def WHERE id = $1', [id])).rowCount === 1;
 
-      expect(
-        await attempt('DELETE FROM field_def WHERE id = $1 RETURNING id', [customField]),
-      ).toEqual({ outcome: 'applied', rows: 1 });
-      expect(
-        await attempt('DELETE FROM object_def WHERE id = $1 RETURNING id', [customObject]),
-      ).toEqual({ outcome: 'applied', rows: 1 });
+      try {
+        // Refused: one row by id, and the broad form an attacker would try.
+        expectRefused(
+          await attempt('DELETE FROM field_def WHERE id = $1 RETURNING id', [onStandard]),
+          'deleting a custom field of the standard contact object',
+        );
+        expectRefused(
+          await attempt('DELETE FROM field_def WHERE object_id = $1 AND is_custom RETURNING id', [contactId]),
+          'deleting every custom field of the standard contact object',
+        );
+        expect(await stillThere(onStandard), 'the custom field of a standard object was deleted').toBe(true);
+
+        // Not over-reached: a custom field of a custom object, then the object, still go.
+        expect(
+          await attempt('DELETE FROM field_def WHERE id = $1 RETURNING id', [onCustom]),
+        ).toEqual({ outcome: 'applied', rows: 1 });
+        expect(await stillThere(onCustom)).toBe(false);
+        expect(
+          await attempt('DELETE FROM object_def WHERE id = $1 RETURNING id', [customObject]),
+        ).toEqual({ outcome: 'applied', rows: 1 });
+      } finally {
+        // kasuwa_migrator is BYPASSRLS: the restrictive policy binds kasuwa_app only.
+        await observer.query('DELETE FROM field_def WHERE id = ANY($1::uuid[])', [[onStandard, onCustom]]);
+        await observer.query('DELETE FROM object_def WHERE id = $1', [customObject]);
+      }
     });
 
     it('does not over-reach: a standard row’s label stays editable (D-P4)', async () => {
