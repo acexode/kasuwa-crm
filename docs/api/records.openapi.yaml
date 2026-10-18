@@ -4203,6 +4203,12 @@ paths:
 
         **Audit.** One event, `import created`: names no filename and no
         header.
+
+        **Permission sets (D-L151).** `contact.import` is held only by permission
+        sets that also hold `contact.write`. The creator is the job's owner: every
+        later write is the creator's alone (cancel also a tenant admin), and the job
+        runs as `createdByUserId`. Signed part URLs are bearer credentials and are
+        never logged.
       requestBody:
         required: true
         content:
@@ -4343,6 +4349,11 @@ paths:
         A headerless CSV puts its first data row into `headers`, and a
         filename can name a person, so neither may outlive the raw file,
         which is ADR-0017's erasure mechanism. Counts and row errors remain.
+
+        **Result (D-L151).** An import only creates contacts. A row matching an
+        existing contact is skipped as `possible_duplicate`, and no restriction
+        (DND, opt-out or consent) was applied to that existing contact: importing a
+        suppression list does not suppress anyone already in the programme.
       responses:
         '200':
           description: The job.
@@ -4438,6 +4449,13 @@ paths:
         `403 not_permitted`. In any other status the answer is
         `409 import_status_conflict`. An import the caller cannot see is
         `404 not_found`.
+
+        **Creator only (D-L151).** Open only to the import's `createdByUserId`;
+        anyone else in scope gets `403 not_permitted`. The job runs as
+        `createdByUserId`.
+
+        Signed part URLs are bearer credentials: whoever holds one can write that
+        part. They are never logged.
       requestBody:
         required: true
         content:
@@ -4497,6 +4515,15 @@ paths:
         Needs `contact.import`, else `403 not_permitted`. An import the
         caller cannot see is `404 not_found`. One audit event, `import
         uploaded`, naming no filename and no header.
+
+        **Creator only (D-L151).** Open only to the import's `createdByUserId`;
+        anyone else in scope gets `403 not_permitted`. The job runs as
+        `createdByUserId`.
+
+        **Metadata only.** Completing checks the stored object's size and type
+        against the declaration, not its content: the bytes stay untrusted until
+        they are parsed. Signed part URLs are bearer credentials and are never
+        logged.
       requestBody:
         required: true
         content:
@@ -4561,6 +4588,10 @@ paths:
 
         Needs `contact.import`, else `403 not_permitted`. An import the
         caller cannot see is `404 not_found`.
+
+        **Creator only (D-L151).** Open only to the import's `createdByUserId`;
+        anyone else in scope gets `403 not_permitted`. The job runs as
+        `createdByUserId`.
       responses:
         '200':
           description: The job, now `cancelled`.
@@ -4652,6 +4683,15 @@ paths:
         default. A granting value (`whatsappOptIn` true, `consentState`
         pending or opted_in) is not refused here but at run time, as the row
         error `consent_grant_refused`.
+
+        **Creator only (D-L151).** Open only to the import's `createdByUserId`;
+        anyone else in scope gets `403 not_permitted`. The job runs as
+        `createdByUserId`.
+
+        **Permission sets (D-L151).** `contact.import` is held only by permission
+        sets that also hold `contact.write`. Setting `ownerUserId` to another member
+        needs the same right as createContact (D-P14, D-L81), else
+        `403 not_permitted`.
       requestBody:
         required: true
         content:
@@ -4739,6 +4779,13 @@ paths:
 
         Needs `contact.import`, else `403 not_permitted`. An import the
         caller cannot see is `404 not_found`.
+
+        **Creator only (D-L151).** Open only to the import's `createdByUserId`;
+        anyone else in scope gets `403 not_permitted`. The job runs as
+        `createdByUserId`.
+
+        The run re-checks `contact.import` and the creator's scope before every
+        batch, and stops if either is gone.
       responses:
         '202':
           description: Queued.
@@ -4796,6 +4843,11 @@ paths:
 
         Needs `contact.import`, else `403 not_permitted`. An import the
         caller cannot see is `404 not_found`.
+
+        **Creator or tenant admin (D-L151).** Open to the import's
+        `createdByUserId` or a tenant admin; anyone else in scope gets
+        `403 not_permitted`. The run re-checks `contact.import` and scope every
+        batch.
       responses:
         '202':
           description: Accepted. The job may still say `running` until the current batch ends.
@@ -4865,6 +4917,12 @@ paths:
         hidden number is itself a fact about the number. `displayName` is
         `null` when withheld. Contacts merged away (D-P27) are never in a
         set.
+
+        **Cursor (D-L151).** Sets are ordered by their lowest contact id,
+        ascending. `cursor` carries only a contact id, the lowest in the last set,
+        and never the matched value, a phone or an email; this overrides the shared
+        `Cursor` text. **Throttled** like search: `429 too_many_requests` with
+        `Retry-After`, per user, decided before validation.
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -4901,6 +4959,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/DuplicatesTooManyRequests' }
 
   /api/v1/contacts/{contactId}/merge-preview:
     parameters:
@@ -5054,6 +5113,9 @@ paths:
         here, where the caller could read the contact before it was merged
         away, `409 already_merged` is the answer, because the merges
         history already shows it to them.
+
+        **Not claim (D-L151).** `contact.claim_and_set_status` never permits a
+        merge; it needs `contact.write`.
       requestBody:
         required: true
         content:
@@ -5110,6 +5172,10 @@ paths:
         and `limit` only, no total). Only merges in programmes the session
         reaches; scope is resolved from the session, never supplied. A party's
         `displayName` is `null` when field security withholds it.
+
+        **Who (D-L151).** Requires `contact.write` in the programme or tenant
+        admin; others see no merges. After the deferred purge of a merged contact,
+        an entry shows ids only (`displayName: null`).
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -5177,6 +5243,19 @@ paths:
         `409 already_merged`: undo the later merge first. A repeat undo
         answers `200` with the merge unchanged. A merge the caller cannot see
         is `404 not_found`.
+
+        **Who (D-L151).** The merging user, who must hold `contact.write` in the
+        programme now, or a tenant admin; else `403 not_permitted`.
+
+        **All or nothing.** Undo runs under the undoer's current field security: if
+        any field it would restore cannot be edited by the undoer, the answer is
+        `403 not_permitted` with `details[].code: field_not_editable` and nothing is
+        changed.
+
+        **Compliance.** On the restored contact, each of `dnd`, `whatsappOptIn` and
+        `consentState` takes the more restrictive of its snapshot value and the
+        survivor's current value (`x-kasuwa-compliance-order`), and the survivor is
+        never loosened (D-P28).
       responses:
         '200':
           description: The merge, now undone (or unchanged on a repeat).
@@ -9119,6 +9198,30 @@ components:
                 message: Too many searches. Wait a moment and try again.
                 retryAt: '2026-10-14T10:01:00.000Z'
 
+    DuplicatesTooManyRequests:
+      description: |
+        listDuplicates was called too often by this user (D-L151). Same
+        pattern as `SearchTooManyRequests`: per user, decided after
+        authentication and before validation, the shared Error envelope with
+        `code: too_many_requests`. `Retry-After` is the number of seconds to
+        wait. It says nothing about any contact.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            tooManyRequests:
+              summary: Too many duplicate scans by this user in the current window
+              value:
+                statusCode: 429
+                error: Too Many Requests
+                code: too_many_requests
+                message: Too many requests. Wait a moment and try again.
+
     ImportCreateInvalid:
       description: |
         The declaration was refused. `details` names the path and a reason code,
@@ -9485,6 +9588,16 @@ components:
                 error: Forbidden
                 code: not_permitted
                 message: You do not have permission to do that.
+            field:
+              summary: A field the undo would restore is one the undoer may not edit; nothing was changed
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: emails
+                    code: field_not_editable
 
     UndoConflict:
       description: |
