@@ -3571,3 +3571,25 @@ tenancy folder, the record API suites, integration and unit.
   - the snapshot purge and erasure path must cover `contact_merge.snapshot` before the first populated cell;
   - after merges exist there is no safe schema rollback: recovery is forward-only (flag off, undo through the API);
   - T-0100 publishes the owner-changed event when a merge or undo changes the owner.
+
+### D-L164 — T-0100 suite rulings; T-0121 and T-0122 merged (lead, 2026-10-18)
+**Status:** PROCEEDING (lead).
+- **T-0121 merged (#149)** on the Windows verification runner's evidence: ten suites, including tenancy 151, with 0
+  failures. **T-0122 merged (#150).**
+- **The T-0100 suite** is on `lead/T-0100-acceptance` (18a330f): notifications-api has 69 tests, and outbox-forgery
+  section 5 adds 14. Rulings N-R1 to N-R9 are accepted:
+  - write a notification only if the aggregate's current owner, re-read inside the event's programme, equals the
+    payload's `newOwnerId`;
+  - never notify the actor, anyone on an owner clear (D-P23), a non-member, or a recipient who cannot read the object;
+  - **no notification when `owner_user_id` is withheld from the recipient**, because it would reveal the owner;
+  - creating a record owned by someone else counts as an assignment;
+  - a restrictive INSERT binds the actor;
+  - the unread count examines the 500 newest;
+  - the PATCH 404 is byte-identical to getContact's;
+  - a per-user, per-operation throttle;
+  - the worker consumes end to end.
+- **Task-file correction:** `INSERT … ON CONFLICT DO NOTHING` is refused (42501) under the recipient-only restrictive
+  SELECT policy, because ON CONFLICT needs SELECT rights. Idempotency is a plain INSERT in a SAVEPOINT, treating 23505 on
+  (source_event_id, recipient_user_id) as already delivered. Actors must not be able to read notification rows.
+- **Not pinned yet:** `import.finished` waits for T-0094, and merged-away contact drops wait for T-0095.
+- **Order:** the T-0100 build waits for T-0095 to merge, because both change the contact, account and deal services.
