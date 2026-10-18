@@ -1,4 +1,10 @@
-import { loadWorkspaceEnv, workerEnv } from '@kasuwa/config';
+import { loadWorkspaceEnv, storageConfigured, storageEnv, workerEnv } from '@kasuwa/config';
+import {
+  IMPORT_HEADER_QUEUE,
+  IMPORT_RETENTION_QUEUE,
+  IMPORT_RUN_QUEUE,
+} from '@kasuwa/domain-core';
+import { S3ObjectStore } from '@kasuwa/storage-adapter';
 import { createPool, pruneAuthTables, refuseUsableTestAdminAtBoot } from '@kasuwa/db';
 import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
@@ -10,6 +16,12 @@ import {
   authRetentionJob,
   authRetentionLine,
 } from './auth-retention';
+import {
+  processImportHeader,
+  processImportRetention,
+  processImportRun,
+  type ImportJobDeps,
+} from './import-jobs';
 
 /**
  * BullMQ worker process.
@@ -85,7 +97,35 @@ async function main(): Promise<void> {
     { connection, concurrency: 1 },
   );
 
-  for (const worker of [heartbeatWorker, authRetentionWorker]) {
+  // --- CSV import (T-0094) -------------------------------------------------
+  // One worker per queue. Each job runs AS ITS CREATOR inside
+  // withTenantTransaction (import-jobs.ts); payloads are ids only. Without an
+  // object store configured, the import queues are not consumed.
+  const importWorkers: Worker[] = [];
+  if (storageConfigured()) {
+    const deps: ImportJobDeps = {
+      pool,
+      store: new S3ObjectStore(storageEnv()),
+      redisUrl: configuration.REDIS_URL,
+    };
+    importWorkers.push(
+      new Worker(IMPORT_HEADER_QUEUE, async (job) => processImportHeader(deps, job.data), {
+        connection,
+        concurrency: 2,
+      }),
+      // Sequential batches per job (R5); one run at a time per worker.
+      new Worker(IMPORT_RUN_QUEUE, async (job) => processImportRun(deps, job.data), {
+        connection,
+        concurrency: 1,
+      }),
+      new Worker(IMPORT_RETENTION_QUEUE, async (job) => processImportRetention(deps, job.data), {
+        connection,
+        concurrency: 2,
+      }),
+    );
+  }
+
+  for (const worker of [heartbeatWorker, authRetentionWorker, ...importWorkers]) {
     worker.on('failed', (job) => {
       // The job id and queue only. An error from pg can carry row values.
       process.stderr.write(`job ${job?.id ?? 'unknown'} on ${worker.name} failed\n`);
@@ -93,12 +133,13 @@ async function main(): Promise<void> {
   }
 
   process.stdout.write(
-    `kasuwa worker listening on queues ${HEARTBEAT_QUEUE}, ${AUTH_RETENTION_QUEUE}\n`,
+    `kasuwa worker listening on queues ${[HEARTBEAT_QUEUE, AUTH_RETENTION_QUEUE, ...importWorkers.map((w) => w.name)].join(', ')}\n`,
   );
 
   const shutdown = async (): Promise<void> => {
     await heartbeatWorker.close();
     await authRetentionWorker.close();
+    for (const worker of importWorkers) await worker.close();
     await heartbeat.close();
     await authRetention.close();
     await pool.end();
