@@ -2070,10 +2070,23 @@ paths:
         (`invalid_config` at `config`). There is no `isRequired`: a custom
         field on a standard object is never required in Phase 2.
 
-        **Limits (D-L128 Q1).** At most 100 active custom fields per object
-        per tenant; the 101st is `409 limit_reached` with
+        **Limits (D-L128 Q1, D-L140).** At most 100 active custom fields per
+        object per tenant; the 101st is `409 limit_reached` with
         `details[].code: field_limit_reached` at `objectApiName`. Retired
-        fields do not count toward the 100.
+        fields do not count toward the 100. Separately, an object holds at
+        most 500 definitions in total, and here retired fields DO count
+        (their names stay taken and nothing purges them): the 501st
+        definition is the same `409 limit_reached` /
+        `field_limit_reached`, even with fewer than 100 active fields.
+
+        **Check order (D-L140):** `401`, then `403` (`custom_field.write`),
+        then `404` (out of scope), then `400` (`field_retired` and the body
+        codes), then `409`. A caller without the permission never learns
+        whether a field id exists or is retired.
+
+        **Logging.** A definition carries no value. Custom VALUES (on the
+        records) are never logged or traced, whatever the classification:
+        D-P25 lets a tenant classify free text as `none`.
 
         **Field security (D-L128 Q2, D-L45).** A field created `pii` or
         `sensitive` starts at `none` for every unlocked permission set until
@@ -2185,6 +2198,11 @@ paths:
         `404 not_found`, one body: another tenant's field, a standard field's
         id and an id that names nothing. **Audited:** one `updated` event
         naming what changed, by key.
+
+        **Check order (D-L140):** `401`, then `403` (`custom_field.write`),
+        then `404` (out of scope), then `400` (`field_retired` and the body
+        codes), then `409`. A caller without the permission never learns
+        whether a field id exists or is retired.
       requestBody:
         required: true
         content:
@@ -2261,7 +2279,10 @@ paths:
 
         Retiring a field that is already retired answers `200` with the
         definition unchanged (its first `retiredAt`) and writes no second
-        audit event. Out of scope is `404 not_found`, one body: another
+        audit event, but only after the `403` and `404` checks: `401`, then
+        `403` (`custom_field.write`), then `404`, then the repeat-retire
+        `200` (D-L140). A caller without the permission never learns whether
+        a field is retired. Out of scope is `404 not_found`, one body: another
         tenant's field, a standard field's id and an id that names nothing.
         **Audited:** one `retired` event naming the field by api name.
       responses:
@@ -3859,10 +3880,15 @@ components:
       additionalProperties: false
       required: [fieldsPerObject, picklistValues, bytesPerRecord]
       description: |
-        The limits (D-L128 Q1), as data so a screen never hard-codes them:
-        100 active custom fields per object per tenant (retired fields do not
-        count), 500 values per picklist, and 32 KiB of custom values per
-        record.
+        The limits (D-L128 Q1, D-L140), as data so a screen never hard-codes
+        them: 100 active custom fields per object per tenant (retired fields
+        do not count), 500 values per picklist, and `bytesPerRecord`, the
+        32 KiB database backstop on a record's stored `custom`. The API's
+        own size limit is 16 KiB, counted on the keys the caller can read
+        plus those written (D-L140, records.openapi.yaml CustomFields); it is
+        not published here yet, because this schema's key set is pinned by
+        the T-0088 suite. Also not here: the cap of 500 definitions per
+        object, retired ones included.
       properties:
         fieldsPerObject: { type: integer, const: 100 }
         picklistValues: { type: integer, const: 500 }

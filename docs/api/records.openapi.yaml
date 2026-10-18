@@ -341,8 +341,11 @@ paths:
         target programme, else `403 not_permitted` with `details[].code:
         field_not_editable` at `custom.<key>`. An unknown or retired key is
         `400 unknown_field`; a bad value is `invalid_value`, `unknown_value`
-        or `currency_mismatch`, and more than 32 KiB is `custom_too_large`.
-        Error details never carry the value. Audited by key only.
+        or `currency_mismatch`, and more than the 16 KiB API limit (D-L140,
+        see CustomFields) is `custom_too_large`. A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details never carry the value. Audited by key only. Custom
+        values are never logged or traced, whatever the classification.
 
         **Target programme.** If the caller reaches exactly one programme,
         `programmeId` may be omitted and the server uses that one. If they
@@ -489,9 +492,16 @@ paths:
         not_permitted` with `details[].code: field_not_editable` at
         `custom.<key>`. An unknown or retired key is `400 unknown_field`; a
         bad value is `invalid_value`, `unknown_value` or `currency_mismatch`,
-        and a merged result over 32 KiB is `custom_too_large`. Error details
-        name the path and a code, never the value. Custom changes are audited
-        by key only, whatever the field's classification.
+        and a merged result over the 16 KiB API limit is `custom_too_large`
+        at `custom`. That size is measured on the merged `custom` restricted
+        to the keys the caller can read in the record's programme plus the
+        keys being written; withheld and retired values never count, so the
+        answer reveals nothing about them (D-L140). A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details name the path and a code, never the value. Custom
+        changes are audited by key only, and custom values are never logged
+        or traced, whatever the field's classification (D-P25 lets free text
+        be `none`).
 
         Partial update: absent properties are unchanged; `null` clears a
         nullable field. `version` is required and must equal the record's
@@ -746,8 +756,11 @@ paths:
         target programme, else `403 not_permitted` with `details[].code:
         field_not_editable` at `custom.<key>`. An unknown or retired key is
         `400 unknown_field`; a bad value is `invalid_value`, `unknown_value`
-        or `currency_mismatch`, and more than 32 KiB is `custom_too_large`.
-        Error details never carry the value. Audited by key only.
+        or `currency_mismatch`, and more than the 16 KiB API limit (D-L140,
+        see CustomFields) is `custom_too_large`. A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details never carry the value. Audited by key only. Custom
+        values are never logged or traced, whatever the classification.
 
         **Target and programme.** At least one of `contactId` and `accountId`.
         There is no `programmeId`: the activity's programme is its target's
@@ -897,9 +910,16 @@ paths:
         not_permitted` with `details[].code: field_not_editable` at
         `custom.<key>`. An unknown or retired key is `400 unknown_field`; a
         bad value is `invalid_value`, `unknown_value` or `currency_mismatch`,
-        and a merged result over 32 KiB is `custom_too_large`. Error details
-        name the path and a code, never the value. Custom changes are audited
-        by key only, whatever the field's classification.
+        and a merged result over the 16 KiB API limit is `custom_too_large`
+        at `custom`. That size is measured on the merged `custom` restricted
+        to the keys the caller can read in the record's programme plus the
+        keys being written; withheld and retired values never count, so the
+        answer reveals nothing about them (D-L140). A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details name the path and a code, never the value. Custom
+        changes are audited by key only, and custom values are never logged
+        or traced, whatever the field's classification (D-P25 lets free text
+        be `none`).
 
         `version` (required) plus ONLY the fields the person changed (D-L102):
         `completed: true` and/or `ownerUserId` (D-L81), and from T-0081
@@ -1801,8 +1821,11 @@ paths:
         target programme, else `403 not_permitted` with `details[].code:
         field_not_editable` at `custom.<key>`. An unknown or retired key is
         `400 unknown_field`; a bad value is `invalid_value`, `unknown_value`
-        or `currency_mismatch`, and more than 32 KiB is `custom_too_large`.
-        Error details never carry the value. Audited by key only.
+        or `currency_mismatch`, and more than the 16 KiB API limit (D-L140,
+        see CustomFields) is `custom_too_large`. A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details never carry the value. Audited by key only. Custom
+        values are never logged or traced, whatever the classification.
 
         **Target programme.** As createContact. If the caller reaches exactly
         one programme, `programmeId` may be omitted and the server uses that
@@ -1943,9 +1966,16 @@ paths:
         not_permitted` with `details[].code: field_not_editable` at
         `custom.<key>`. An unknown or retired key is `400 unknown_field`; a
         bad value is `invalid_value`, `unknown_value` or `currency_mismatch`,
-        and a merged result over 32 KiB is `custom_too_large`. Error details
-        name the path and a code, never the value. Custom changes are audited
-        by key only, whatever the field's classification.
+        and a merged result over the 16 KiB API limit is `custom_too_large`
+        at `custom`. That size is measured on the merged `custom` restricted
+        to the keys the caller can read in the record's programme plus the
+        keys being written; withheld and retired values never count, so the
+        answer reveals nothing about them (D-L140). A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details name the path and a code, never the value. Custom
+        changes are audited by key only, and custom values are never logged
+        or traced, whatever the field's classification (D-P25 lets free text
+        be `none`).
 
         Partial update: absent properties are unchanged; `null` clears a
         nullable field. `version` is required and must equal the record's
@@ -3022,8 +3052,11 @@ paths:
         target programme, else `403 not_permitted` with `details[].code:
         field_not_editable` at `custom.<key>`. An unknown or retired key is
         `400 unknown_field`; a bad value is `invalid_value`, `unknown_value`
-        or `currency_mismatch`, and more than 32 KiB is `custom_too_large`.
-        Error details never carry the value. Audited by key only.
+        or `currency_mismatch`, and more than the 16 KiB API limit (D-L140,
+        see CustomFields) is `custom_too_large`. A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details never carry the value. Audited by key only. Custom
+        values are never logged or traced, whatever the classification.
 
         **Where.** The deal lives in the pipeline's programme (D-L88); the
         pipeline comes from the path, so the body takes no `programmeId`,
@@ -3200,9 +3233,16 @@ paths:
         not_permitted` with `details[].code: field_not_editable` at
         `custom.<key>`. An unknown or retired key is `400 unknown_field`; a
         bad value is `invalid_value`, `unknown_value` or `currency_mismatch`,
-        and a merged result over 32 KiB is `custom_too_large`. Error details
-        name the path and a code, never the value. Custom changes are audited
-        by key only, whatever the field's classification.
+        and a merged result over the 16 KiB API limit is `custom_too_large`
+        at `custom`. That size is measured on the merged `custom` restricted
+        to the keys the caller can read in the record's programme plus the
+        keys being written; withheld and retired values never count, so the
+        answer reveals nothing about them (D-L140). A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details name the path and a code, never the value. Custom
+        changes are audited by key only, and custom values are never logged
+        or traced, whatever the field's classification (D-P25 lets free text
+        be `none`).
 
         Partial update. **The body is `version` plus ONLY the fields the
         person changed (D-L102)**, judged against the deal the form was
@@ -4402,7 +4442,10 @@ components:
         - `filter_not_supported`: the key is a custom field of another type
           (`text`, `number`, `currency` or `date`);
         - `unknown_field`: no such custom field on this object, or a retired
-          one (one code for both, so no key's past existence leaks).
+          one (one code for both, so no key's past existence leaks). A key
+          that does not match the custom api-name pattern at all is
+          `unknown_field` at `custom` (the parameter name), and the key is
+          never echoed in `path`, `message` or anywhere else.
       schema:
         type: object
         minProperties: 1
@@ -4427,7 +4470,8 @@ components:
         `custom`: another type is `400 filter_not_supported`, a key withheld
         in any programme the caller reaches is `400 field_withheld`, and an
         unknown or retired key is `400 unknown_field`, each at
-        `custom.<key>`.
+        `custom.<key>`. A value that is not a custom api name at all is
+        `400 unknown_field` at `customEmpty`, never echoed.
       schema:
         type: array
         minItems: 1
@@ -6619,6 +6663,7 @@ components:
 
     CustomFieldNumber:
       type: string
+      maxLength: 40
       pattern: '^(?:0|-?0\.0*[1-9](?:[0-9]{0,16}[1-9])?|-?(?=(?:[^0-9]*[0-9]){1,18}[^0-9]*$)[1-9][0-9]*(?:\.[0-9]*[1-9])?)$'
       description: |
         A `number` custom field, as a canonical decimal STRING, never a JSON
@@ -6700,15 +6745,27 @@ components:
         as a withheld standard field is omitted and listed. A retired field's
         key is never sent and is refused on writes.
 
-        **Limits.** At most 100 keys, and the record's whole `custom` object
-        is at most 32 KiB (32768 bytes) of JSON after a write is merged
-        (D-L128 Q1): larger is `400 validation_failed` with
-        `details[].code: custom_too_large` at `custom`.
+        **Limits (D-L128 Q1, D-L140).** At most 100 keys. The API limit is
+        16 KiB (16384 bytes) of JSON, measured after a write is merged on
+        `custom` RESTRICTED to the keys the caller can read in the record's
+        programme plus the keys being written: withheld and retired values
+        never count, so `custom_too_large` cannot be used to learn the size
+        of a value the caller cannot see. Larger is `400 validation_failed`
+        with `details[].code: custom_too_large` at `custom`. The database
+        keeps a 32 KiB CHECK on the whole stored object as a backstop only;
+        a caller never meets it through the API.
 
         **Errors** name the path and a code, never the value received
         (ADR-0016 item 3): `unknown_field` (an unknown or retired key, one
         code for both), `invalid_value`, `unknown_value`,
-        `currency_mismatch` and `custom_too_large`.
+        `currency_mismatch` and `custom_too_large`. A key that does not
+        match the custom api-name pattern at all is `unknown_field` at
+        `custom` itself: the offending key is never echoed in `path`,
+        `message` or any other field.
+
+        **Logging.** Custom values are never logged, traced or put in an
+        error body, whatever the field's classification: D-P25 lets a tenant
+        classify free text as `none`, so the classification cannot be trusted.
 
     CustomFieldsPatch:
       type: object
@@ -6730,9 +6787,15 @@ components:
         programme under field security, else `403 not_permitted` with
         `details[].code: field_not_editable` at `custom.<key>`. An unknown or
         retired key is `400 validation_failed` with
-        `details[].code: unknown_field` at `custom.<key>`. Value errors are
-        `invalid_value`, `unknown_value`, `currency_mismatch` and, on the
-        merged result, `custom_too_large`; none echoes the value.
+        `details[].code: unknown_field` at `custom.<key>`; a key that does
+        not match the custom api-name pattern at all is `unknown_field` at
+        `custom`, and is never echoed. Value errors are `invalid_value`,
+        `unknown_value`, `currency_mismatch` and `custom_too_large`. The
+        size limit is 16 KiB, measured on the merged result restricted to
+        the keys the caller can read in the row's programme plus the keys
+        written: withheld and retired values never count (D-L140, see
+        CustomFields). None echoes the value, and custom values are never
+        logged or traced.
 
     CustomFieldWithheldPath:
       type: string
@@ -6823,6 +6886,16 @@ components:
                 details:
                   - path: custom.region__c
                     code: unknown_field
+            customMalformedKey:
+              summary: A custom key that is not a custom api name at all; reported at custom, never echoed (D-L140)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom
+                    code: unknown_field
             customInvalidValue:
               summary: A custom value of the wrong encoding for its field's type (T-0088)
               value:
@@ -6854,7 +6927,7 @@ components:
                   - path: custom.credit_limit__c.currency
                     code: currency_mismatch
             customTooLarge:
-              summary: The merged custom object is larger than 32 KiB (T-0088)
+              summary: The merged custom object, counting only keys the caller can read plus those written, is larger than 16 KiB (T-0088, D-L140)
               value:
                 statusCode: 400
                 error: Bad Request
@@ -7159,6 +7232,16 @@ components:
                 message: Validation failed
                 details:
                   - path: custom.region__c
+                    code: unknown_field
+            customMalformedKey:
+              summary: A custom key that is not a custom api name at all; reported at custom, never echoed (D-L140)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom
                     code: unknown_field
             customInvalidValue:
               summary: A custom value of the wrong encoding for its field's type (T-0088)
