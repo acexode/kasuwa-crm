@@ -4352,7 +4352,7 @@ paths:
 
         **Result (D-L151).** An import only creates contacts. A row matching an
         existing contact is skipped as `possible_duplicate`, and no restriction
-        (DND, opt-out or consent) was applied to that existing contact: importing a
+        was applied to existing contacts (DND, opt-out or consent): importing a
         suppression list does not suppress anyone already in the programme.
       responses:
         '200':
@@ -4521,7 +4521,7 @@ paths:
         `createdByUserId`.
 
         **Metadata only.** Completing checks the stored object's size and type
-        against the declaration, not its content: the bytes stay untrusted until
+        against the declaration, not the content: the bytes stay untrusted until
         they are parsed. Signed part URLs are bearer credentials and are never
         logged.
       requestBody:
@@ -4690,8 +4690,8 @@ paths:
 
         **Permission sets (D-L151).** `contact.import` is held only by permission
         sets that also hold `contact.write`. Setting `ownerUserId` to another member
-        needs the same right as createContact (D-P14, D-L81), else
-        `403 not_permitted`.
+        needs `contact.write`, the same right as createContact (D-P14,
+        D-L81), else `403 not_permitted`.
       requestBody:
         required: true
         content:
@@ -5247,10 +5247,9 @@ paths:
         **Who (D-L151).** The merging user, who must hold `contact.write` in the
         programme now, or a tenant admin; else `403 not_permitted`.
 
-        **All or nothing.** Undo runs under the undoer's current field security: if
+        **All-or-nothing.** Undo runs under the undoer's current field security: if
         any field it would restore cannot be edited by the undoer, the answer is
-        `403 not_permitted` with `details[].code: field_not_editable` and nothing is
-        changed.
+        `403 not_permitted` with `details[].code: field_not_editable`, and nothing changes.
 
         **Compliance.** On the restored contact, each of `dnd`, `whatsappOptIn` and
         `consentState` takes the more restrictive of its snapshot value and the
