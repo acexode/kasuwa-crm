@@ -218,7 +218,10 @@ export function prefixStatement<Column extends FoldedColumn>(
 ): BuiltStatement {
   const params = new Params();
   const tenant = params.add(tenantId);
-  const extra = leadsOnly ? ` AND ${LEAD_STATUS_PREDICATE}` : '';
+  // D-P27 (T-0095): a merged-away contact is never a hit. Inside each branch,
+  // so the LIMIT counts live rows only.
+  const live = table === 'contact' ? ' AND deleted_at IS NULL' : '';
+  const extra = `${live}${leadsOnly ? ` AND ${LEAD_STATUS_PREDICATE}` : ''}`;
   const hits = firstThree(table, tenant, branches, range, params, extra);
   const searched = [...new Set(branches.map((branch) => branch.programmeId))];
   const scope = params.add(searched);
@@ -315,6 +318,7 @@ export async function lookupContacts(
          FROM contact c
         WHERE c.tenant_id = ${tenant}::uuid
           AND c.programme_id = ANY(${programmes}::uuid[])
+          AND c.deleted_at IS NULL
           AND ${match}
      ),
      ranked AS (

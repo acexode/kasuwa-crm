@@ -172,12 +172,14 @@ export async function findActivityTargetProgramme(
 ): Promise<string | null> {
   // A constant per kind, never input.
   const table = target.kind === 'contact' ? 'contact' : 'account';
+  // D-P27 (T-0095): a merged-away contact is no target (accounts are never soft-deleted).
+  const live = target.kind === 'contact' ? '\n        AND deleted_at IS NULL' : '';
   const rows = await tx.query<{ programme_id: string }>(
     `SELECT programme_id
        FROM ${table}
       WHERE id = $1
         AND tenant_id = $2
-        AND programme_id = ANY($3::uuid[])`,
+        AND programme_id = ANY($3::uuid[])${live}`,
     [target.id, tx.session.tenantId, [...tx.session.programmeIds]],
   );
   return rows[0]?.programme_id ?? null;
@@ -203,7 +205,8 @@ export async function programmeContactExists(
       WHERE tenant_id = $1
         AND programme_id = $2
         AND programme_id = ANY($3::uuid[])
-        AND id = $4`,
+        AND id = $4
+        AND deleted_at IS NULL`,
     [tx.session.tenantId, programmeId, [...tx.session.programmeIds], contactId],
   );
   return rows.length > 0;
