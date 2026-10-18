@@ -40,5 +40,5 @@ export {
 export type { EffectiveDatabaseTarget, MigrationTargetDecision } from './database-target';
 export type { ApiEnv, EnvSource, MigratorEnv, RealtimeEnv, WebEnv, WorkerEnv } from './schemas.mjs';
 export { loadWorkspaceEnv } from './dotenv';
-export { isStorageEnv, storageEncryptionProblems, storageEnv } from './storage-env';
+export { isStorageEnv, storageConfigured, storageEncryptionProblems, storageEnv } from './storage-env';
 export type { StorageCredentials, StorageEnv, StorageSseMode } from './storage-env';

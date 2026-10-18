@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 204 rows; built 105, partial 11, mock-only 27, flagged-off 14, deferred 10, not-started 37.
+Totals: 204 rows; built 114, partial 11, mock-only 27, flagged-off 14, deferred 10, not-started 28.
 
 ## Modules
 
@@ -185,15 +185,15 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `listDealTimeline` | GET /api/v1/deals/{dealId}/timeline — The deal's timeline — field changes and linked activities, newest first | built | — | — | docs/api/records.openapi.yaml |
 | operation | `searchRecords` | GET /api/v1/search — Global search — at most three hits per record type, no counts | built | — | — | docs/api/records.openapi.yaml · T-0086 |
 | operation | `lookupRecords` | POST /api/v1/search/lookup — Exact lookup by phone or email — a read sent as a POST so the identifier stays out of the URL | built | — | — | docs/api/records.openapi.yaml · T-0086 |
-| operation | `listImports` | GET /api/v1/imports — List imports — newest first, keyset (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `createImport` | POST /api/v1/imports — Start a contact import — declare the file and get upload URLs (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `getImport` | GET /api/v1/imports/{importId} — Get one import — status, headers, suggested mapping, counts, row errors (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `issueImportUploadUrls` | POST /api/v1/imports/{importId}/upload-urls — Re-issue expired part URLs — how a slow upload resumes (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `completeImportUpload` | POST /api/v1/imports/{importId}/complete — Complete the upload — the server verifies it and reads the header (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `abortImportUpload` | POST /api/v1/imports/{importId}/abort — Abandon an upload (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `putImportMapping` | PUT /api/v1/imports/{importId}/mapping — Save the column mapping, the default country and the owner (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `runImport` | POST /api/v1/imports/{importId}/run — Run the import (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `cancelImport` | POST /api/v1/imports/{importId}/cancel — Cancel a queued or running import (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `listImports` | GET /api/v1/imports — List imports — newest first, keyset | built | — | — | docs/api/records.openapi.yaml |
+| operation | `createImport` | POST /api/v1/imports — Start a contact import — declare the file and get upload URLs | built | — | — | docs/api/records.openapi.yaml |
+| operation | `getImport` | GET /api/v1/imports/{importId} — Get one import — status, headers, suggested mapping, counts, row errors | built | — | — | docs/api/records.openapi.yaml |
+| operation | `issueImportUploadUrls` | POST /api/v1/imports/{importId}/upload-urls — Re-issue expired part URLs — how a slow upload resumes | built | — | — | docs/api/records.openapi.yaml |
+| operation | `completeImportUpload` | POST /api/v1/imports/{importId}/complete — Complete the upload — the server verifies it and reads the header | built | — | — | docs/api/records.openapi.yaml |
+| operation | `abortImportUpload` | POST /api/v1/imports/{importId}/abort — Abandon an upload | built | — | — | docs/api/records.openapi.yaml |
+| operation | `putImportMapping` | PUT /api/v1/imports/{importId}/mapping — Save the column mapping, the default country and the owner | built | — | — | docs/api/records.openapi.yaml |
+| operation | `runImport` | POST /api/v1/imports/{importId}/run — Run the import | built | — | — | docs/api/records.openapi.yaml |
+| operation | `cancelImport` | POST /api/v1/imports/{importId}/cancel — Cancel a queued or running import | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listDuplicates` | GET /api/v1/programmes/{programmeId}/duplicates — List a programme's duplicate contact sets (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
 | operation | `getContactMergePreview` | GET /api/v1/contacts/{contactId}/merge-preview — Preview a merge — both records, the default choices and the compliance outcome (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
 | operation | `listContactMerges` | GET /api/v1/contact-merges — List merges — newest first, keyset (contract only) | not-started | — | — | docs/api/records.openapi.yaml |

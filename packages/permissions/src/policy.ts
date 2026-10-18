@@ -77,6 +77,14 @@ export const PROGRAMME_ACTIONS = [
    */
   'contact.claim_and_set_status',
   /**
+   * CSV import of contacts (T-0094, D-P14, D-L151): createImport and every
+   * import operation, in the import's programme. Reads of an import need it
+   * too (anyone else gets 404). Held only by sets that also hold
+   * `contact.write`, which today is `admin` alone, and by the tenant-admin
+   * flag. An import runs as its creator and re-checks this every batch.
+   */
+  'contact.import',
+  /**
    * createAccount and updateAccount (T-0055), in the TARGET programme: the
    * record's programme on update, `programmeId` on create. Held by `admin`
    * only (D-L69; D-P18 answered 2026-10-06: account writes stay admin-only).

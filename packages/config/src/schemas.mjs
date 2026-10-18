@@ -178,6 +178,10 @@ const ApiSchema = z.object({
 
   API_PORT: z.coerce.number().int().positive().default(3001),
 
+  // Where the import API enqueues its BullMQ jobs (T-0094). Optional: without
+  // it the import writes answer 503 and every other route is unaffected.
+  REDIS_URL: z.string().url().optional(),
+
   // NO LOCALE SETTINGS HERE. `@kasuwa/i18n` owns which languages exist and
   // which are offered, and it DERIVES the offered set from catalogue
   // completeness plus a named reviewer (D-P1, D-L27).

@@ -83,6 +83,9 @@ importers:
       '@kasuwa/permissions':
         specifier: workspace:*
         version: link:../../packages/permissions
+      '@kasuwa/storage-adapter':
+        specifier: workspace:*
+        version: link:../../packages/storage-adapter
       '@nestjs/common':
         specifier: ^11.0.1
         version: 11.2.6(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -107,6 +110,9 @@ importers:
       '@opentelemetry/sdk-trace-base':
         specifier: ^2.11.0
         version: 2.11.0(@opentelemetry/api@1.9.1)
+      bullmq:
+        specifier: ^5.34.6
+        version: 5.81.5
       pg:
         specifier: ^8.13.1
         version: 8.23.0
@@ -215,13 +221,37 @@ importers:
       '@kasuwa/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@kasuwa/domain-core':
+        specifier: workspace:*
+        version: link:../../packages/domain/core
+      '@kasuwa/metadata-engine':
+        specifier: workspace:*
+        version: link:../../packages/metadata-engine
+      '@kasuwa/permissions':
+        specifier: workspace:*
+        version: link:../../packages/permissions
+      '@kasuwa/storage-adapter':
+        specifier: workspace:*
+        version: link:../../packages/storage-adapter
       bullmq:
         specifier: ^5.34.6
         version: 5.81.5
+      csv-parse:
+        specifier: ^5.6.0
+        version: 5.6.0
       ioredis:
         specifier: ^5.4.2
         version: 5.11.1
+      pg:
+        specifier: ^8.13.1
+        version: 8.23.0
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
     devDependencies:
+      '@types/pg':
+        specifier: ^8.11.10
+        version: 8.23.1
       esbuild:
         specifier: ^0.24.2
         version: 0.24.2
@@ -3323,6 +3353,9 @@ packages:
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  csv-parse@5.6.0:
+    resolution: {integrity: sha512-l3nz3euub2QMg5ouu5U09Ew9Wf6/wQ8I++ch1loQ0ljmzhmfZYrH9fflS22i/PQEvsPvxCwxgz5q7UB8K1JO4Q==}
 
   dargs@8.1.0:
     resolution: {integrity: sha512-wAV9QHOsNbwnWdNW2FYvE1P56wtgSbM+3SZcdGiWQILwVjACCXDCI3Ai8QlCjMDB8YK5zySiXZYBiwGmNY3lnw==}
@@ -8158,6 +8191,8 @@ snapshots:
   cssesc@3.0.0: {}
 
   csstype@3.2.3: {}
+
+  csv-parse@5.6.0: {}
 
   dargs@8.1.0: {}
 

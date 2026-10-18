@@ -41,6 +41,7 @@ import {
   validationFailed,
   type AdminErrorDetail,
 } from '../admin/common/admin-errors';
+import { importFilterFor } from '../imports/imports.service';
 import { contactAuditEvent, contactChanges } from './contact-audit';
 import { toContactWire, type ContactWire } from './contact-wire';
 import {
@@ -134,6 +135,14 @@ export async function listContactsFor(
   // T-0089: custom[key] and customEmpty, judged on the live definitions (400s).
   const customFilters = customFiltersFrom(custom, rawQuery);
 
+  // T-0094 (R9, I2): an import the caller cannot see answers an empty page,
+  // even when its contacts are in the caller's plain list.
+  let importProgrammeId: string | null = null;
+  if (query.importId !== undefined) {
+    importProgrammeId = await importFilterFor(tx, query.importId);
+    if (importProgrammeId === null) return { data: [], nextCursor: null };
+  }
+
   const owners = query.owner ?? [];
   const filters: ContactFilters = {
     ownerUserIds: owners
@@ -148,6 +157,9 @@ export async function listContactsFor(
     dnd: query.dnd,
     whatsappOptIn: query.whatsappOptIn,
     custom: customFilters,
+    ...(importProgrammeId === null || query.importId === undefined
+      ? {}
+      : { importJobId: query.importId, withinProgrammeIds: [importProgrammeId] }),
   };
 
   let search: ContactSearch | undefined;

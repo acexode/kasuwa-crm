@@ -1,7 +1,8 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { createKeyProvider } from '@kasuwa/auth-crypto';
-import { apiEnv, loadWorkspaceEnv } from '@kasuwa/config';
+import { apiEnv, loadWorkspaceEnv, storageConfigured, storageEnv } from '@kasuwa/config';
+import { S3ObjectStore } from '@kasuwa/storage-adapter';
 import { initialiseFeatureFlags } from '@kasuwa/feature-flags';
 import { AppModule } from './app.module';
 import { installProcessErrorHandlers } from './common/process-errors';
@@ -43,6 +44,10 @@ async function bootstrap(): Promise<void> {
       authDatabaseUrl: configuration.DATABASE_AUTH_URL,
       poolMax: configuration.DATABASE_POOL_MAX,
       cell: configuration.KASUWA_CELL,
+      // CSV import (T-0094): the queues and the object store. Either may be
+      // absent; the import routes then answer 503.
+      ...(configuration.REDIS_URL === undefined ? {} : { redisUrl: configuration.REDIS_URL }),
+      ...(storageConfigured() ? { objectStore: new S3ObjectStore(storageEnv()) } : {}),
       // Outside development and test, refuse to start when kasuwa_test_admin
       // is usable (T-0117, D-L94); checked on the app pool before listen.
       nodeEnv: configuration.NODE_ENV,

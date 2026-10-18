@@ -24,12 +24,6 @@ import {
   type CustomFieldObject,
   type CustomPatch,
 } from '@kasuwa/metadata-engine';
-import {
-  AUDIT_EVENT_MAX_CHANGES,
-  recordAuditEvent,
-  redactedChange,
-  type AuditEventInput,
-} from '../admin/audit/audit-writer';
 import { validationFailed, type AdminErrorDetail } from '../admin/common/admin-errors';
 
 /**
@@ -183,26 +177,11 @@ export function customPatchKeys(patch: CustomPatch | undefined): string[] {
 }
 
 /**
- * Records `event` with one REDACTED change per custom key appended: the key
- * (an api name, at most 63 characters, so within the writer's field bound) and
- * never a value, whatever the field's classification. An event that would
- * pass the writer's change cap is continued in further events of the same
- * kind, so every key is audited and no write is refused for it.
+ * Records `event` with one REDACTED change per custom key (by key only). Moved
+ * into @kasuwa/domain-core by T-0094 so the import worker shares it; re-exported
+ * here so every record service keeps its import path.
  */
-export async function recordAuditWithCustom(
-  tx: TenantTx,
-  event: AuditEventInput,
-  customKeys: readonly string[],
-): Promise<void> {
-  const all = [...event.changes, ...customKeys.map((key) => redactedChange(key))];
-  if (all.length <= AUDIT_EVENT_MAX_CHANGES) {
-    await recordAuditEvent(tx, { ...event, changes: all });
-    return;
-  }
-  for (let start = 0; start < all.length; start += AUDIT_EVENT_MAX_CHANGES) {
-    await recordAuditEvent(tx, { ...event, changes: all.slice(start, start + AUDIT_EVENT_MAX_CHANGES) });
-  }
-}
+export { recordAuditWithCustom } from '@kasuwa/domain-core';
 
 /** A record's `custom` on the wire, and the withheld paths to append to its `withheldFields`. */
 export interface CustomWire {
