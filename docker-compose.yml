@@ -70,18 +70,30 @@ services:
   # Docker Hub images stopped being pullable without a subscription, and Bitnami
   # moved its catalogue behind a paywall in the same period, so neither survives
   # the "works on a clean machine" test. SeaweedFS speaks the S3 API, pulls
-  # freely and is a real storage system rather than a mock.
+  # freely and is a real storage system rather than a mock (D-L21).
   #
-  # Running with anonymous S3 access: nothing in the scaffold reads or writes
-  # object storage yet, so credentialled access would be unverifiable
-  # decoration. Agent 13 wires real identities when attachments or recordings
-  # first need them. See team/DECISIONS.md D-L21.
+  # CREDENTIALLED (T-0092, ADR-0017; ends D-L21's anonymous mode). The S3
+  # gateway reads its identities from tools/seaweedfs/s3-identities.json, a
+  # development-only credential that .env.example repeats, so every request is
+  # signed and an unsigned one is refused. See tools/seaweedfs/README.md.
+  #
+  # -s3.allowedOrigins: the web app's origins, no wildcard. SeaweedFS 3.80 has
+  # no per-bucket CORS, and without this flag it answers every origin's
+  # preflight with `*` (R11).
+  #
+  # The bucket (S3_BUCKET, default kasuwa-local) is created by `pnpm dev`
+  # (tools/dev.mjs) through `weed shell` inside this container.
   seaweedfs:
     image: chrislusf/seaweedfs:3.80
     container_name: kasuwa-s3
-    command: server -dir=/data -s3 -s3.port=8333 -master.port=9333 -volume.port=8080 -filer
+    command: >-
+      server -dir=/data -s3 -s3.port=8333
+      -s3.config=/etc/seaweedfs/s3.json
+      -s3.allowedOrigins=http://localhost:3000,http://127.0.0.1:3000
+      -master.port=9333 -volume.port=8080 -filer
     ports: ['59000:8333', '59333:9333']
     volumes:
+      - ./tools/seaweedfs/s3-identities.json:/etc/seaweedfs/s3.json:ro
       - kasuwa-s3:/data
     healthcheck:
       test: ['CMD-SHELL', 'wget -q --spider http://localhost:9333/cluster/healthz || exit 1']

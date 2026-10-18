@@ -4,8 +4,9 @@
  *
  *   1. create .env from .env.example if it is missing, and add any database
  *      connection a newer .env.example names that it lacks
- *   2. bring up Postgres, Redis, OpenSearch and MinIO, and wait for health
- *   3. re-apply the role bootstrap (idempotent), migrate and seed
+ *   2. bring up Postgres, Redis, OpenSearch and SeaweedFS, and wait for health
+ *   3. create the object-store bucket, re-apply the role bootstrap
+ *      (idempotent), migrate and seed
  *   4. run api, web, worker and realtime together, prefixing their output
  *
  * Written in plain Node rather than a shell script because the team develops on
@@ -22,10 +23,11 @@ const ALL_SERVICES = ['postgres', 'redis', 'opensearch', 'seaweedfs'];
 
 /**
  * `KASUWA_DEV_SERVICES=postgres,redis` brings up only those containers. The
- * apps read nothing from OpenSearch or object storage yet (`.env.example`:
- * "present for local parity only"), so the demo (tools/demo.mjs) skips both:
- * OpenSearch alone is a large first pull and a 512 MB heap. Postgres and Redis
- * are always included; an unknown name stops the script.
+ * apps read nothing from OpenSearch yet, and nothing in a running app writes
+ * object storage until the import endpoints (T-0094), so the demo
+ * (tools/demo.mjs) skips both: OpenSearch alone is a large first pull and a
+ * 512 MB heap. Postgres and Redis are always included; an unknown name stops
+ * the script. The bucket step below runs only when seaweedfs is selected.
  */
 function selectedServices(value) {
   if (value === undefined || value.trim() === '') {
@@ -81,6 +83,15 @@ function run(command, args, options = {}) {
  */
 const REQUIRED_DATABASE_SETTINGS = ['DATABASE_AUTH_URL'];
 
+/**
+ * Object-store settings a .env created before T-0092 lacks. Appended the same
+ * way. A .env from before T-0092 also holds the old placeholder keys, which the
+ * now-credentialled store refuses; `ensureEnvFile` says so rather than
+ * overwriting a value the developer may have set.
+ */
+const STORAGE_SETTINGS = ['S3_PUBLIC_ENDPOINT', 'S3_FORCE_PATH_STYLE', 'S3_SSE_MODE'];
+const OLD_STORAGE_PLACEHOLDER = 'kasuwa-local-placeholder';
+
 /** `NAME=value` lines of an env file, by name. Comments and blanks skipped. */
 function envLines(text) {
   const lines = new Map();
@@ -103,7 +114,7 @@ function ensureEnvFile() {
   }
   const present = envLines(readFileSync(envPath, 'utf8'));
   const example = envLines(readFileSync(examplePath, 'utf8'));
-  for (const name of REQUIRED_DATABASE_SETTINGS) {
+  for (const name of [...REQUIRED_DATABASE_SETTINGS, ...STORAGE_SETTINGS]) {
     const line = example.get(name);
     if (!present.has(name) && line !== undefined) {
       appendFileSync(envPath, `\n${line}\n`);
@@ -111,6 +122,65 @@ function ensureEnvFile() {
       console.log(`added ${name} to .env from .env.example`);
     }
   }
+  if ((present.get('S3_ACCESS_KEY_ID') ?? '').endsWith(`=${OLD_STORAGE_PLACEHOLDER}`)) {
+    console.log(
+      'note: .env still has the old placeholder S3 keys, which the dev object store now ' +
+        'refuses (T-0092). Copy S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY from .env.example.',
+    );
+  }
+}
+
+/** S3_BUCKET from .env (falling back to .env.example), checked against S3's naming rule. */
+function devBucketName() {
+  for (const file of ['.env', '.env.example']) {
+    const path = resolve(root, file);
+    if (!existsSync(path)) continue;
+    const line = envLines(readFileSync(path, 'utf8')).get('S3_BUCKET');
+    if (line !== undefined) {
+      const name = line.slice('S3_BUCKET='.length).trim();
+      // Also what keeps the name safe to put in the weed shell line below.
+      if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(name)) {
+        throw new Error(`S3_BUCKET in ${file} is not a valid bucket name`);
+      }
+      return name;
+    }
+  }
+  return 'kasuwa-local';
+}
+
+/**
+ * Creates the dev bucket (ADR-0017 "Development and test"). Through `weed
+ * shell` inside the container, as packages/testing's SeaweedFS helper does:
+ * it needs no S3 credential, so the dev identity can stay without Admin.
+ * SeaweedFS would also create a bucket on the first PUT to it, but a MinIO
+ * cell would not, and code that only works because of that would break there.
+ * Idempotent. The healthcheck covers the master, not the filer, so it retries
+ * until the bucket is listed.
+ */
+async function createDevBucket() {
+  const bucket = devBucketName();
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const result = spawnSync(
+      'docker',
+      [
+        'compose',
+        'exec',
+        '-T',
+        'seaweedfs',
+        'sh',
+        '-c',
+        `echo "s3.bucket.create -name ${bucket}" | weed shell -master=localhost:9333 >/dev/null 2>&1; ` +
+          'echo "s3.bucket.list" | weed shell -master=localhost:9333 2>/dev/null',
+      ],
+      { cwd: root, encoding: 'utf8', shell: process.platform === 'win32' },
+    );
+    if ((result.stdout ?? '').split(/\s+/).includes(bucket)) {
+      console.log(`  bucket ${bucket}: ready`);
+      return;
+    }
+    await new Promise((done) => setTimeout(done, 1_000));
+  }
+  throw new Error(`could not create the dev bucket ${bucket}; run "docker compose logs seaweedfs"`);
 }
 
 /**
@@ -245,6 +315,11 @@ async function main() {
   run('docker', ['compose', 'up', '-d', ...SERVICES]);
   await waitForHealth();
 
+  if (SERVICES.includes('seaweedfs')) {
+    console.log('creating the object-store bucket...');
+    await createDevBucket();
+  }
+
   console.log('applying the role bootstrap...');
   applyBootstrap();
   console.log('migrating...');
@@ -256,7 +331,10 @@ async function main() {
   console.log('  web       http://localhost:3000');
   console.log('  api       http://localhost:3001/health');
   console.log('  realtime  ws://localhost:3002');
-  console.log('  minio     http://localhost:9001\n');
+  if (SERVICES.includes('seaweedfs')) {
+    console.log('  s3        http://localhost:59000 (signed requests only)');
+  }
+  console.log('');
 
   startApps();
 }
