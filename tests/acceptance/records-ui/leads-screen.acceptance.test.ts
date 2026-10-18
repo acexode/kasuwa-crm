@@ -139,7 +139,8 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   [SPEC]: '436e93ce688fe1847fd539d4119cf01b26ca5d889c6f8a522f857b4d5a36a458',
   // T-0088 (lead re-pin, D-L138): the mock learned the custom-field filters `custom` and `customEmpty`.
-  [MOCK]: '23a2a59eaf55351c8b8547541db1600768921a95cc71c09e3a4764ec38a0d540',
+  // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and projects `custom`.
+  [MOCK]: '65395185e35e6937debcac899777e742eba32dc0915ac17cf63a09eab32bb9df',
 };
 
 /** See the budget test in the spec for the derivation. Never above this. */

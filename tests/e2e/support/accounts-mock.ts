@@ -2,6 +2,7 @@ import type { Page, Request, Route } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
 
 /**
  * The accounts half of `docs/api/records.openapi.yaml` — `listAccounts`,
@@ -59,6 +60,13 @@ import { parse } from 'yaml';
  * field withheld from ANY served row is `400 field_withheld` naming the
  * parameter; `sort` orders by its key with ties on `id`; created and updated
  * rows go back through the same withholding as a read.
+ *
+ * CUSTOM FIELDS (T-0091, lead edit): `listCustomFields` is answered here too,
+ * by `custom-values-mock.ts`. With no `customFields` option it lists nothing
+ * and rows carry no `custom`, so the T-0057 journeys see the screen
+ * unchanged. With one, rows carry their projected `custom` and `custom.<key>`
+ * paths, the `custom[<key>]` and `customEmpty` filters are checked and
+ * applied there, and a create's or update's `custom` is checked and stored.
  *
  * PAGING: AT MOST THREE ROWS PER PAGE, WHATEVER `limit` SAYS. Legal under the
  * contract (keyset pages need not be full), and deliberate: a screen that
@@ -606,6 +614,8 @@ export interface AccountsMockOptions {
   readonly holdWrites?: boolean;
   /** Answer every valid write with this refusal instead of applying it. */
   readonly refuse?: WriteRefusal;
+  /** Custom-field definitions, values and field security (T-0091). Absent: no definitions. */
+  readonly customFields?: CustomFieldsSetup;
 }
 
 export interface RecordedWrite {
@@ -627,6 +637,8 @@ export interface AccountsMock {
   readonly violations: string[];
   /** The rows as they now stand (writes applied), unwithheld. */
   readonly rows: AccountRow[];
+  /** The custom-field half (T-0091): definition reads, custom writes and stored values. */
+  readonly custom: CustomFieldsServer;
   release(): void;
   releaseWrites(): void;
   /** The query of the last `listAccounts` request. */
@@ -676,6 +688,7 @@ export async function installAccountsMock(page: Page, options: AccountsMockOptio
   const mapCalls: string[] = [];
   const programmeCalls: string[] = [];
   const violations: string[] = [];
+  const custom = new CustomFieldsServer(options.customFields, violations);
   /** cursor -> the query it was served for */
   const issued = new Map<string, string>();
 
@@ -686,7 +699,8 @@ export async function installAccountsMock(page: Page, options: AccountsMockOptio
     options.holdWrites === true ? new Promise<void>((done) => (releaseWrites = done)) : Promise.resolve();
 
   /** The rows a caller sees: each with its own programme's field security applied. */
-  const served = (row: AccountRow): AccountRow => withholding(row, row.withheldFields);
+  const served = (row: AccountRow): AccountRow =>
+    custom.decorate(withholding(row, row.withheldFields), 'account', row.id, row.programmeId);
 
   const checkHeaders = (request: Request, label: string): void => {
     for (const header of Object.keys(request.headers())) {
@@ -703,7 +717,8 @@ export async function installAccountsMock(page: Page, options: AccountsMockOptio
       return route.abort('internetdisconnected');
     }
     const params = url.searchParams;
-    const problems = validateQuery(params, LIST_PARAMETERS, 'listAccounts');
+    // T-0091: the custom-field filters are checked by the custom half; the rest as declared.
+    const problems = validateQuery(CustomFieldsServer.withoutFilters(params), LIST_PARAMETERS, 'listAccounts');
     if (problems.length > 0) {
       violations.push(...problems.map((problem) => `${url.search}: ${problem}`));
       return fulfil(route, 400, validation(problems.map(() => ({ path: 'query', code: 'invalid_string' }))));
@@ -717,9 +732,18 @@ export async function installAccountsMock(page: Page, options: AccountsMockOptio
     if (refused.length > 0) {
       return fulfil(route, 400, validation(refused));
     }
+    const customRefused = custom.checkFilters('account', params, programmes.map((programme) => programme.id), `listAccounts ${url.search}`);
+    if (customRefused !== undefined) {
+      return fulfil(route, customRefused.status, customRefused.body);
+    }
 
     const matching = sortRows(
-      rows.filter((row) => matchesQuery(row, params.get('q')) && matchesFilters(row, params)),
+      rows.filter(
+        (row) =>
+          matchesQuery(row, params.get('q')) &&
+          matchesFilters(row, params) &&
+          custom.matches('account', row.id, row.programmeId, params),
+      ),
       params.get('sort') ?? 'name',
     );
 
@@ -817,6 +841,10 @@ export async function installAccountsMock(page: Page, options: AccountsMockOptio
       forbidden.details = editedWithheld.map((path) => ({ path, code: 'field_not_editable' }));
       return fulfil(route, 403, forbidden);
     }
+    const customAnswer = custom.checkCreate('account', programmeId, body.custom, 'createAccount');
+    if (customAnswer !== undefined) {
+      return fulfil(route, customAnswer.status, customAnswer.body);
+    }
     const unknown = references(programmeId, body, null);
     if (unknown.length > 0) {
       return fulfil(route, 400, validation(unknown));
@@ -840,6 +868,7 @@ export async function installAccountsMock(page: Page, options: AccountsMockOptio
       withheldFields: withheld,
     };
     rows.push(row);
+    custom.storeCreated(row.id, body.custom);
     return fulfil(route, 201, served(row));
   };
 
@@ -872,12 +901,20 @@ export async function installAccountsMock(page: Page, options: AccountsMockOptio
     if (refused !== undefined) {
       return refused;
     }
+    const customAnswer = 'custom' in body ? custom.checkPatch('account', row.id, row.programmeId, body.custom, 'updateAccount') : undefined;
+    if (customAnswer !== undefined) {
+      return fulfil(route, customAnswer.status, customAnswer.body);
+    }
     const unknown = references(row.programmeId, body, row.id);
     if (unknown.length > 0) {
       return fulfil(route, 400, validation(unknown));
     }
     for (const [key, value] of Object.entries(body)) {
       if (key === 'version') {
+        continue;
+      }
+      if (key === 'custom') {
+        custom.applyPatch('account', row.id, value as Json);
         continue;
       }
       if (key === 'ownerUserId') {
@@ -902,6 +939,19 @@ export async function installAccountsMock(page: Page, options: AccountsMockOptio
         return fulfil(route, 404, errorExample('NotFound'));
       }
       return fulfil(route, 200, { data: clone(programmes) });
+    },
+  );
+
+  await page.route(
+    (url) => url.pathname === CUSTOM_FIELDS_PATH,
+    async (route) => {
+      const request = route.request();
+      checkHeaders(request, 'listCustomFields');
+      if (request.method() !== 'GET') {
+        violations.push(`${request.method()} ${CUSTOM_FIELDS_PATH} is not an operation the accounts screen uses`);
+        return fulfil(route, 404, errorExample('NotFound'));
+      }
+      return custom.answerList(route);
     },
   );
 
@@ -954,6 +1004,7 @@ export async function installAccountsMock(page: Page, options: AccountsMockOptio
     programmeCalls,
     violations,
     rows,
+    custom,
     release: () => release(),
     releaseWrites: () => releaseWrites(),
     last: () => {
