@@ -1,4 +1,6 @@
 import { newId, type TenantTx } from '@kasuwa/db';
+import type { CustomPatch } from '@kasuwa/metadata-engine';
+import { customMergeSet } from '../custom/custom-values.repository';
 
 /**
  * Activity reads and writes (T-0061; the table is 0027, T-0060).
@@ -265,15 +267,18 @@ export async function insertActivity(
   tx: TenantTx,
   programmeId: string,
   values: NewActivityValues,
+  custom: Readonly<Record<string, unknown>> = {},
 ): Promise<Activity> {
   assertInScope(tx, programmeId);
+  // `custom` (T-0089) is validated by the API against the live definitions,
+  // and never read back: RETURNING does not name it.
   const rows = await tx.query<ActivityRow>(
     `INSERT INTO activity
        (id, tenant_id, programme_id, type, subject, body, due_at, owner_user_id,
-        contact_id, account_id, created_by_user_id, starts_at, ends_at, deal_id)
+        contact_id, account_id, created_by_user_id, starts_at, ends_at, deal_id, custom)
      VALUES ($1::uuid, $2::uuid, $3::uuid, $4::text, $5::text, $6::text,
              $7::timestamptz, $8::uuid, $9::uuid, $10::uuid, $11::uuid,
-             $12::timestamptz, $13::timestamptz, $14::uuid)
+             $12::timestamptz, $13::timestamptz, $14::uuid, $15::jsonb)
      RETURNING ${SELECT_COLUMNS}`,
     [
       newId(),
@@ -290,6 +295,7 @@ export async function insertActivity(
       values.startsAt,
       values.endsAt,
       values.dealId ?? null,
+      JSON.stringify(custom),
     ],
   );
   const row = rows[0];
@@ -332,10 +338,20 @@ export async function updateActivityIfVersion(
   tx: TenantTx,
   target: { id: string; programmeId: string; version: number },
   changes: ActivityChanges,
+  custom?: CustomPatch,
 ): Promise<Activity | null> {
   assertInScope(tx, target.programmeId);
   const values: unknown[] = [target.id, tx.session.tenantId, target.programmeId, target.version];
   const sets = ['version = version + 1'];
+  // T-0089: merged per key, never returned (0039 grants UPDATE (custom) only).
+  if (custom !== undefined) {
+    sets.push(
+      customMergeSet(custom, (value) => {
+        values.push(value);
+        return `$${values.length}`;
+      }),
+    );
+  }
   if (changes.complete === true) sets.push('completed_at = COALESCE(completed_at, now())');
   if (changes.ownerUserId !== undefined) {
     values.push(changes.ownerUserId);

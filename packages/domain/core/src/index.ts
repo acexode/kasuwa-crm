@@ -30,3 +30,4 @@ export * from './pipeline/deal-actor';
 export * from './pipeline/pipeline.repository';
 export * from './search/search-fold';
 export * from './search/search.repository';
+export * from './custom/custom-values.repository';
