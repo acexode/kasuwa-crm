@@ -169,7 +169,11 @@ export function bodyParserErrorHandler(
   next: (error?: unknown) => void,
 ): void {
   const status: unknown = (error as { statusCode?: unknown } | null)?.statusCode;
-  if (typeof status !== 'number' || status < 400 || status >= 500) {
+  const exposed: unknown = (error as { expose?: unknown } | null)?.expose;
+  // `expose` is http-errors' mark on its own 4xx errors, which body-parser
+  // raises (the wrapped zlib 400 included). A 4xx from any other middleware
+  // that does not carry it passes on untouched.
+  if (typeof status !== 'number' || status < 400 || status >= 500 || exposed !== true) {
     next(error);
     return;
   }
@@ -218,4 +222,15 @@ export class JsonBodyLimit {
       }
     });
   }
+}
+
+// Pinned like `urlencodedParser`: `hasMiddleware` finds each by name, and a
+// minifier may rename a function (T-0121 security review).
+for (const [fn, name] of [
+  [safePathEncoding, 'safePathEncoding'],
+  [noStoreEverywhere, 'noStoreEverywhere'],
+  [jsonParseErrorHandler, 'jsonParseErrorHandler'],
+  [bodyParserErrorHandler, 'bodyParserErrorHandler'],
+] as const) {
+  Object.defineProperty(fn, 'name', { value: name });
 }

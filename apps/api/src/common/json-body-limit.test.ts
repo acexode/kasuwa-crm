@@ -149,7 +149,7 @@ describe('body-parser failures are the envelope (T-0121)', () => {
     [415, 'encoding.unsupported', 'Unsupported Media Type'],
     [400, 'encoding.failed', 'Bad Request'],
   ])('%s %s is validation_failed, no-store, and quotes nothing', (statusCode, type, reason) => {
-    const out = run({ statusCode, type, message: 'unsupported charset "SECRET"' });
+    const out = run({ statusCode, type, expose: true, message: 'unsupported charset "SECRET"' });
     expect(out.status).toBe(statusCode);
     expect(out.headers).toEqual(['Cache-Control: no-store']);
     expect(out.body).toEqual({
@@ -162,7 +162,10 @@ describe('body-parser failures are the envelope (T-0121)', () => {
 
   it('passes on an error that is not a body-parser 4xx', () => {
     expect(run(new Error('x')).passed).toBe(true);
-    expect(run({ statusCode: 500, type: 'x' }).passed).toBe(true);
+    expect(run({ statusCode: 500, type: 'x', expose: true }).passed).toBe(true);
+    // A 4xx from an earlier middleware that is not marked `expose` (e.g. createError(429)).
+    expect(run({ statusCode: 429, status: 429, expose: false, message: 'Too Many Requests' }).passed).toBe(true);
+    expect(run({ statusCode: 429, type: 'rate.limited' }).passed).toBe(true);
     expect(run({ message: 'no status' }).passed).toBe(true);
   });
 
@@ -193,5 +196,16 @@ describe('a stray % in a path is re-encoded before routing (T-0121)', () => {
     const fixed = fix(`/api/v1/ok%20/${value}/x?a=1`);
     expect(fixed).toBe(`/api/v1/ok%20/${value.replace(/%/gu, '%25')}/x?a=1`);
     expect(() => decodeURIComponent(fixed.split('?')[0] ?? '')).not.toThrow();
+  });
+});
+
+describe('middleware names are pinned (T-0121)', () => {
+  it.each([
+    [safePathEncoding, 'safePathEncoding'],
+    [noStoreEverywhere, 'noStoreEverywhere'],
+    [jsonParseErrorHandler, 'jsonParseErrorHandler'],
+    [bodyParserErrorHandler, 'bodyParserErrorHandler'],
+  ])('%s', (fn, name) => {
+    expect(fn.name).toBe(name);
   });
 });
