@@ -231,6 +231,21 @@ export const FLAGS = {
     // deal hits link nowhere until the spec is re-pinned after T-0110.
     productionReady: false,
   },
+  /**
+   * The P18 customisation studio at /admin/custom-fields, and the settings
+   * menu's "Fields" entry that links it (T-0090). Gates a ROUTE and a link:
+   * it grants nothing, because every custom-field write is decided by the
+   * API (`custom_field.write`, the tenant-admin flag) whether this is on or off.
+   */
+  crm_custom_fields: {
+    description: 'The P18 customisation studio for custom fields at /admin/custom-fields, and its settings-menu entry (T-0090).',
+    defaultValue: false,
+    owner: 'T-0090 (studio), T-0088 and T-0089 (contract and API), ADR-0016, D-L128',
+    // NOT production-ready: proven against the contract mock and one live
+    // journey, and the capability read (T-0079) that would hide the write
+    // controls from non-writers does not exist yet.
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

@@ -37,3 +37,7 @@ apps/web/.next-*/
 apps/web/tsconfig.e2e-*.json
 # CI test reports (junit), uploaded as artefacts on failure.
 /reports/
+
+# Demo pre-flight screenshots (tools/demo-smoke.mjs)
+/demo/screenshots/
+/demo/logs/

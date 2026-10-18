@@ -3197,3 +3197,67 @@ D-P28 and D-P29.
   - wave 2: T-0094, T-0099, T-0096, T-0095;
   - wave 3: T-0100, T-0097, T-0101.
   - Migration numbers are assigned in merge order, from 0040.
+
+### D-L147 — Demo tooling merged; the web app has no browser session (lead, 2026-10-18)
+**Status:** PROCEEDING (lead).
+- **The gap.** The demo walkthrough found that, after a real sign-in and MFA, the web app keeps the session token nowhere
+  (no cookie, no BFF). Every API call from a real browser is unauthenticated. The e2e suites inject stub identity
+  headers, so no suite caught it.
+  - It is a P0 product gap, filed as **T-0125**, with an ADR first: BFF or API cookie, CSRF, refresh, sign-out, CSP.
+- **Demo tooling (#142) is dev-only:**
+  - `pnpm demo`;
+  - a loopback-only demo proxy that keeps the post-MFA token in an HttpOnly cookie and forwards it as Bearer;
+  - an idempotent, loopback-only demo seed through the real API, with synthetic data;
+  - smoke and TOTP helpers;
+  - the runbook `docs/demo/DEMO.md`.
+- **A markup-only RTL fix:** phone numbers render left-to-right inside Arabic layouts.
+- **Known demo limitations:**
+  - agents can read the admin console (writes are gated; known since T-0032, D-L48);
+  - Home, Inbox, Tickets and Reports are nav placeholders;
+  - Arabic is reached through `?locale=ar`;
+  - low-bandwidth mode has no visible effect yet;
+  - the contacts list shows "Assigned" and "Linked" rather than names for owner and account.
+
+### D-L148 — T-0093 suite rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The suite is on `lead/T-0093-acceptance` (8c9e728): 124 tests, R1–R21 in its header.
+- **Import compliance (D-P28).** An import creates new contacts only, because duplicates are skipped. So a cell may hold
+  a restrictive value or the new-contact default:
+  - `dnd`: true or false;
+  - `consentState`: withdrawn or unknown;
+  - `whatsappOptIn`: false.
+
+  A granting value (`whatsappOptIn` true, `consentState` pending or opted_in) is `consent_grant_refused`.
+- **Duplicates** are read at `GET /api/v1/programmes/{programmeId}/duplicates`, not through a `programmeId` query
+  parameter, which the T-0039 rule refuses (CLAUDE.md 2.2).
+- **A merged-away contact** is 404 on every `/contacts` path. `createContactMerge` answers `409 already_merged` only
+  when the caller could read the record before the merge.
+- **Header erasure.** When the raw file is deleted (7 days after the job ends, or 24 hours for an abandoned upload),
+  the import record's `headers` and `filename` are cleared too. A file without a header row would otherwise keep a
+  person's data in `headers`. `fromImportId` then fails with `unknown_reference`.
+- **New `Error.code` values** in admin.openapi.yaml: `import_status_conflict`, `upload_mismatch`, `already_merged` and
+  `undo_expired`.
+- **Errors** are capped at 1,000 per import. The limits are published as `x-kasuwa-import-limits`.
+- **Minimal lead edits** to the T-0039, T-0081, T-0056 and T-0059 suites admit the new operations.
+
+### D-L149 — ADR-0019 browser session: lead answers to its open questions (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). ADR-0019 is **Proposed** and is on @acexode's personal-review list (D-A3: auth). The build
+of T-0125 proceeds on these answers unless @acexode objects.
+- **The design:** a Next.js catch-all BFF at `apps/web/app/api/v1/[...path]` replaces the `/api/v1` rewrite.
+  - It keeps the opaque token in `__Host-kasuwa_session` (HttpOnly, Secure, SameSite=Lax, Path=/).
+  - It forwards to the API with Bearer, server-side. The API is unchanged.
+  - Every unsafe method needs an exact `Origin` match, `x-requested-with: kasuwa-web` and a JSON-only body.
+  - Stub headers are forwarded only by a web process that is itself in stub mode.
+- **Answers:**
+  1. **Lifetime:** keep the existing 12-hour absolute session, with no idle timeout and no refresh in Phase 2. An idle
+     timeout is a later product decision.
+  2. **SameSite=Lax,** so links from email and WhatsApp land signed in. The custom header plus the Origin check cover
+     CSRF.
+  3. **The demo quick-switch** is dropped with the proxy. A client that omits `Origin` on POST is refused, which fails
+     closed. Opera Mini and old WebViews are noted as a test item.
+  4. **The web-to-API leg** must use TLS outside dev and test. Plain http is refused at boot (D-L94).
+  5. **"Sign out everywhere,"** and revoking other sessions on a factor or password change, are out of scope (a
+     follow-up).
+  6. **Realtime authentication** gets its own task, before realtime ships to browsers.
+  7. **The e2e split:** specs that inject headers run on test and stub web processes. One real-browser journey runs on
+     the production process with no headers. Byte budgets keep measuring the processes they measure today.
+  8. **The shared stub and scope header constants** live in `@kasuwa/config`.
