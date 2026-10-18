@@ -297,7 +297,7 @@ const TIMESTAMPTZ = 'timestamp with time zone';
  * Adding a column (deal_id, calendar fields) is a lead edit of this list.
  */
 const COLUMN_SPEC: Readonly<
-  Record<string, { type: string; notNull: boolean | null; default?: RegExp }>
+  Record<string, { type: string; notNull: boolean | null; default?: RegExp; optional?: true }>
 > = {
   id: { type: 'uuid', notNull: true },
   tenant_id: { type: 'uuid', notNull: true },
@@ -319,8 +319,13 @@ const COLUMN_SPEC: Readonly<
   version: { type: 'integer', notNull: true, default: /^1$/ },
   created_at: { type: TIMESTAMPTZ, notNull: true, default: /^now\(\)$/ },
   updated_at: { type: TIMESTAMPTZ, notNull: true, default: /^now\(\)$/ },
+  // T-0089 / D-L143 (lead edit): 0039's custom-field store (ADR-0016). `optional` admits it
+  // without requiring it, so this suite holds on main (no 0039) and on the T-0089 build;
+  // when present it must have exactly this shape.
+  custom: { type: 'jsonb', notNull: true, default: /^'\{\}'::jsonb$/, optional: true },
 };
 const ALL_COLUMNS = Object.keys(COLUMN_SPEC).sort();
+const OPTIONAL_COLUMNS = ALL_COLUMNS.filter((name) => COLUMN_SPEC[name]?.optional === true);
 
 /** The business columns: each must be a standard field_def on `activity`. */
 const REQUIRED_FIELDS = [
@@ -696,7 +701,9 @@ describe('acceptance: the activity table (T-0060)', () => {
     it('has exactly the pinned columns: deal_id since T-0111, no calendar fields', async () => {
       const found = [...(await columns()).keys()].sort();
       expect(found.length, 'table activity not found').toBeGreaterThan(0);
-      expect(found).toEqual(ALL_COLUMNS);
+      // T-0089 / D-L143: an optional column may be absent; any column not in the list still fails.
+      const required = (names: string[]) => names.filter((name) => !OPTIONAL_COLUMNS.includes(name));
+      expect(required(found)).toEqual(required(ALL_COLUMNS));
     });
 
     it('every column has the pinned type, nullability and default', async () => {
@@ -706,7 +713,7 @@ describe('acceptance: the activity table (T-0060)', () => {
       for (const [name, spec] of Object.entries(COLUMN_SPEC)) {
         const column = found.get(name);
         if (column === undefined) {
-          problems.push(`${name}: missing`);
+          if (spec.optional !== true) problems.push(`${name}: missing`);
           continue;
         }
         if (column.type !== spec.type) {

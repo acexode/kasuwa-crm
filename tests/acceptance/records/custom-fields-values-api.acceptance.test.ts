@@ -1172,6 +1172,8 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
         await holder.query('BEGIN');
         const pid = Number((await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0]?.pid);
         await holder.query('SELECT 1 FROM contact WHERE id = $1 FOR UPDATE', [C1]);
+        // The row lock gives the holder an xid; the first waiter queues on it, the next on the tuple.
+        const xid = String((await holder.query<{ xid: string }>('SELECT pg_current_xact_id()::text AS xid')).rows[0]?.xid);
         let settled = 0;
         const fire = (keys: readonly string[]) =>
           send('patch', `/api/v1/contacts/${enc(C1)}`, SUPERVISOR, { version, custom: fill(keys) }).then((response) => {
@@ -1180,13 +1182,19 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
           });
         const pending = [fire(first), fire(second)] as const;
         // Wait on state, never on time: both writes blocked behind the observer's lock.
-        const deadline = Date.now() + 15_000;
+        // T-0089 / D-L143 (lead edit): through pg_locks, which every role may read. The migrator
+        // lacks pg_read_all_stats, so pg_stat_activity.wait_event_type is NULL for kasuwa_app's
+        // sessions and the old count never reached 2. The deadline stays under the holder's
+        // idle_in_transaction_session_timeout.
+        const deadline = Date.now() + 10_000;
         let waiting = 0;
         while (waiting < 2 && settled === 0 && Date.now() < deadline) {
           const row = await observer.query<{ n: string }>(
-            `SELECT count(*) AS n FROM pg_stat_activity
-              WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> $1`,
-            [pid],
+            `SELECT count(DISTINCT pid) AS n FROM pg_locks
+              WHERE NOT granted AND pid <> $1
+                AND ((locktype = 'tuple' AND relation = 'public.contact'::regclass)
+                     OR (locktype = 'transactionid' AND transactionid::text = $2))`,
+            [pid, xid],
           );
           waiting = Number(row.rows[0]?.n);
         }

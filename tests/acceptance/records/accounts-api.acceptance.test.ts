@@ -514,7 +514,8 @@ function expectAccount(value: unknown, where: string): Json {
   const leaked = NOT_ON_AN_ACCOUNT.filter((key) => key in account);
   expect(leaked, `${where} carries properties D-L69 / D-P13 keep off an Account`).toEqual([]);
   expect(
-    omissionProblems(account, propertiesOf('Account'), [], ACCOUNT_NEVER_WITHHELD),
+    // T-0089 / D-L143 (lead edit): Account's pending allOf part (`custom`) is admitted, not required.
+    omissionProblems(account, propertiesOf('Account'), propertiesOf('AccountPendingProperties'), ACCOUNT_NEVER_WITHHELD),
     `${where}: field-security omission rule`,
   ).toEqual([]);
   return account;
