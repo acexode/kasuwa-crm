@@ -112,8 +112,9 @@ import { parse } from 'yaml';
  *     { maxFileBytes: 26214400, maxParts: 4, minPartBytes: 5242880,
  *       maxRows: 100000, maxRowBytes: 65536, maxColumns: 500,
  *       maxErrors: 1000 }
- *   x-kasuwa-import-compliance on putImportMapping: exactly
- *     { dnd: [true], whatsappOptIn: [false], consentState: [withdrawn] }
+ *   x-kasuwa-import-compliance on putImportMapping: exactly (D-L148)
+ *     { dnd: [true, false], whatsappOptIn: [false],
+ *       consentState: [withdrawn, unknown] }
  *   x-kasuwa-compliance-order on createContactMerge: exactly, most
  *     restrictive first,
  *     { dnd: [true, false], whatsappOptIn: [false, true],
@@ -152,7 +153,7 @@ import { parse } from 'yaml';
  *       admitted is NOT pinned (the task does not say). `filename` is 1..255
  *       characters with no `/`, `\`, NUL or other control character; it is
  *       stored, shown back within scope and never logged, and never appears
- *       in a storage key or URL.
+ *       in a storage key or URL. It is cleared with the raw file (R22).
  *   R4  `programmeId` on createImport is a TARGET, as on createContact: one
  *       the caller does not reach is `404`, never `403`. Permission is
  *       `contact.import` in that programme, else `403 not_permitted`. The
@@ -198,16 +199,18 @@ import { parse } from 'yaml';
  *       may not edit in the programme, `custom.<key>` for a custom field)
  *       and `unknown_field` (a custom key unknown or retired, T-0088).
  *       Errors about a COLUMN name `columns.<i>.<property>`.
- *   R8  COMPLIANCE ON IMPORT (D-P28), as data: `x-kasuwa-import-compliance`
- *       lists the only values a mapped compliance column may write:
- *       `dnd` true, `whatsappOptIn` false, `consentState` withdrawn. An
- *       empty cell leaves the default. Any other value is the row error
- *       `consent_grant_refused`, including `dnd` false and `consentState`
- *       `unknown` (strict reading of "may only be mapped to set true" and
- *       "only its restrictive values": the import cannot know the value is
- *       the default for ever, and an upsert later must not inherit a
- *       loophole). Each admitted value is the first (most restrictive) of
- *       its field's `x-kasuwa-compliance-order`.
+ *   R8  COMPLIANCE ON IMPORT (D-P28; AMENDED by D-L148), as data:
+ *       `x-kasuwa-import-compliance` lists the only values a mapped
+ *       compliance column may write. An import only CREATES contacts
+ *       (duplicates are skipped), so a cell may hold a restrictive value or
+ *       the new-contact default: `dnd` true or false, `whatsappOptIn` false,
+ *       `consentState` withdrawn or unknown. An empty cell leaves the
+ *       default. A granting value is the row error `consent_grant_refused`:
+ *       `whatsappOptIn` true, `consentState` pending or opted_in. As a rule
+ *       the suite checks: each field's admitted values are exactly the
+ *       prefix of its `x-kasuwa-compliance-order` (most restrictive first)
+ *       that ends at the field's `default` on Contact, so nothing looser
+ *       than a new contact's own default can arrive by import.
  *   R9  Row errors: `ImportRowErrorCode` is CLOSED and exactly: required,
  *       invalid_value, invalid_phone, invalid_email, too_long,
  *       unknown_value, unknown_field, custom_too_large, possible_duplicate,
@@ -234,7 +237,8 @@ import { parse } from 'yaml';
  *       sizeBytes, contentType, headers (null until read), suggestedMapping
  *       (null until read), mapping (null until saved), counts, errors,
  *       errorsTruncated, rawFileDeletedAt (null until the sweeper runs,
- *       D-L146), createdByUserId, createdAt, updatedAt, finishedAt (null
+ *       D-L146; then `headers` and `filename` are null too, R22),
+ *       createdByUserId, createdAt, updatedAt, finishedAt (null
  *       until it ends). ImportSummary, the list row, is the same without
  *       contentType, headers, suggestedMapping, mapping, errors and
  *       errorsTruncated. Users are ids only (no name: D-L64 does not make
@@ -314,6 +318,17 @@ import { parse } from 'yaml';
  *       holds a phone- or email-like string; every OTHER example in the
  *       file still validates; every e2e mock that reads the contract still
  *       loads.
+ *   R22 HEADER ERASURE (D-L148). A headerless CSV puts its first data row
+ *       into `headers`, and a filename can name a person, so neither may
+ *       outlive the raw file that ADR-0017 makes the erasure mechanism. When
+ *       the raw file is deleted (7 days after the job ends, 24 hours after
+ *       an abandoned upload), `headers` and `filename` become null on the
+ *       import record, in the same step that sets `rawFileDeletedAt`, and
+ *       the schemas say why. In every example, `rawFileDeletedAt` set means
+ *       `headers` and `filename` null, and `filename` is present until then.
+ *       `fromImportId` copies by header name only while the source's
+ *       headers still exist; afterwards it is `400 unknown_reference` at
+ *       `fromImportId`, the same body as an import the caller cannot see.
  *
  * LEAD EDITS TO MERGED SUITES (same branch), each the minimum that admits
  * this contract with every other assertion kept, each passing before and
@@ -941,10 +956,12 @@ const COMPLIANCE_ORDER: Record<string, unknown[]> = {
   consentState: ['withdrawn', 'unknown', 'pending', 'opted_in'],
 };
 const IMPORT_COMPLIANCE: Record<string, unknown[]> = {
-  dnd: [true],
+  dnd: [true, false],
   whatsappOptIn: [false],
-  consentState: ['withdrawn'],
+  consentState: ['withdrawn', 'unknown'],
 };
+/** The new-contact defaults, as Contact declares them (R8 reads them from the schema). */
+const NEW_CONTACT_DEFAULTS: Record<string, unknown> = { dnd: false, whatsappOptIn: false, consentState: 'unknown' };
 
 const IMPORT_KEYS = [
   'contentType',
@@ -1251,8 +1268,12 @@ function openObjects(roots: [string, Located][]): string[] {
   return out;
 }
 
-/** R8: the compliance rule as data, checked against the order; empty when right. */
-function importComplianceProblems(rule: unknown, order: unknown): string[] {
+/**
+ * R8 (D-L148): the compliance rule as data, checked against the order and the
+ * new-contact defaults: each field admits exactly the restrictive-first
+ * prefix of its order that ends at its default. Empty when right.
+ */
+function importComplianceProblems(rule: unknown, order: unknown, defaults: Record<string, unknown>): string[] {
   const problems: string[] = [];
   if (!isMapping(rule)) return ['x-kasuwa-import-compliance is not a mapping'];
   if (!isMapping(order)) return ['x-kasuwa-compliance-order is not a mapping'];
@@ -1268,9 +1289,27 @@ function importComplianceProblems(rule: unknown, order: unknown): string[] {
       problems.push(`${field}: no order`);
       continue;
     }
-    for (const value of admitted) {
-      if (value !== ranked[0]) problems.push(`${field}: ${JSON.stringify(value)} is not the most restrictive value ${JSON.stringify(ranked[0])}`);
+    const end = ranked.indexOf(defaults[field]);
+    if (end === -1) {
+      problems.push(`${field}: the default ${JSON.stringify(defaults[field])} is not in the order`);
+      continue;
     }
+    const expected = ranked.slice(0, end + 1);
+    if (JSON.stringify(admitted) !== JSON.stringify(expected)) {
+      problems.push(`${field}: admits ${JSON.stringify(admitted)}, the restrictive values up to the default are ${JSON.stringify(expected)}`);
+    }
+  }
+  return problems;
+}
+
+/** R22: import examples that keep a filename or headers past erasure, or lose the filename before it; empty when right. */
+function importErasureProblems(rows: [string, Mapping][]): string[] {
+  const problems: string[] = [];
+  for (const [label, row] of rows) {
+    const erased = row.rawFileDeletedAt !== null && row.rawFileDeletedAt !== undefined;
+    if (erased && row.filename !== null) problems.push(`${label}: filename kept after the raw file was deleted`);
+    if (erased && 'headers' in row && row.headers !== null) problems.push(`${label}: headers kept after the raw file was deleted`);
+    if (!erased && (typeof row.filename !== 'string' || row.filename.length === 0)) problems.push(`${label}: filename missing before the raw file was deleted`);
   }
   return problems;
 }
@@ -1740,7 +1779,7 @@ describe('acceptance: import, duplicates and merge contract (T-0093)', () => {
         for (const key of ['createdAt', 'updatedAt']) if (!accepts(prop(key), '2026-10-18T09:00:00Z') || accepts(prop(key), null)) problems.push(`${name}.${key}`);
         for (const key of ['finishedAt', 'rawFileDeletedAt']) if (!accepts(prop(key), '2026-10-18T09:00:00Z') || !accepts(prop(key), null) || accepts(prop(key), '2026-10-18')) problems.push(`${name}.${key} is not a nullable UTC time`);
         if (!accepts(prop('sizeBytes'), MAX_FILE) || accepts(prop('sizeBytes'), MAX_FILE + 1) || accepts(prop('sizeBytes'), 0)) problems.push(`${name}.sizeBytes`);
-        if (!accepts(prop('filename'), 'sample.csv') || accepts(prop('filename'), '') || accepts(prop('filename'), 'x'.repeat(256))) problems.push(`${name}.filename`);
+        if (!accepts(prop('filename'), 'sample.csv') || !accepts(prop('filename'), null) || accepts(prop('filename'), '') || accepts(prop('filename'), 'x'.repeat(256))) problems.push(`${name}.filename is not 1..255 or null (R22)`);
       }
       const props = properties(rec('Import'));
       if (!isSchema(props.get('contentType'), rec('ImportContentType'))) problems.push('Import.contentType');
@@ -1917,20 +1956,37 @@ describe('acceptance: import, duplicates and merge contract (T-0093)', () => {
       expect(description(op('putImportMapping'))).toMatch(/field_not_editable/);
     });
 
-    it('x-kasuwa-import-compliance is exactly dnd [true], whatsappOptIn [false], consentState [withdrawn] (D-P28)', () => {
+    it('x-kasuwa-import-compliance is exactly dnd [true, false], whatsappOptIn [false], consentState [withdrawn, unknown] (D-P28, D-L148)', () => {
       expect(op('putImportMapping').op['x-kasuwa-import-compliance']).toEqual(IMPORT_COMPLIANCE);
     });
 
-    it('each admitted import value is the most restrictive value of its field under x-kasuwa-compliance-order', () => {
-      expect(importComplianceProblems(op('putImportMapping').op['x-kasuwa-import-compliance'], op('createContactMerge').op['x-kasuwa-compliance-order'])).toEqual([]);
+    it('the new-contact defaults are Contact’s own: dnd false, whatsappOptIn false, consentState unknown', () => {
+      gate();
+      const contact = properties(rec('Contact'));
+      const declared = Object.fromEntries(
+        COMPLIANCE_FIELDS.map((field) => {
+          const prop = contact.get(field);
+          const node = prop ? deref(prop).node : undefined;
+          return [field, isMapping(node) ? node.default : undefined];
+        }),
+      );
+      expect(declared).toEqual(NEW_CONTACT_DEFAULTS);
     });
 
-    it('(self-check, R8) a planted grant, or a missing field, is caught by the compliance check', () => {
+    it('each field admits exactly the restrictive values up to its new-contact default under x-kasuwa-compliance-order: nothing that grants', () => {
+      expect(importComplianceProblems(op('putImportMapping').op['x-kasuwa-import-compliance'], op('createContactMerge').op['x-kasuwa-compliance-order'], NEW_CONTACT_DEFAULTS)).toEqual([]);
+    });
+
+    it('(self-check, R8) a planted grant, a dropped default, a missing field or an unordered list is caught by the compliance check', () => {
       gate();
-      expect(importComplianceProblems({ ...IMPORT_COMPLIANCE, consentState: ['withdrawn', 'opted_in'] }, COMPLIANCE_ORDER).length).toBeGreaterThan(0);
-      expect(importComplianceProblems({ ...IMPORT_COMPLIANCE, dnd: [false] }, COMPLIANCE_ORDER).length).toBeGreaterThan(0);
-      expect(importComplianceProblems({ dnd: [true], whatsappOptIn: [false] }, COMPLIANCE_ORDER).length).toBeGreaterThan(0);
-      expect(importComplianceProblems(IMPORT_COMPLIANCE, COMPLIANCE_ORDER)).toEqual([]);
+      const check = (rule: unknown): string[] => importComplianceProblems(rule, COMPLIANCE_ORDER, NEW_CONTACT_DEFAULTS);
+      expect(check({ ...IMPORT_COMPLIANCE, consentState: ['withdrawn', 'unknown', 'opted_in'] }).length, 'opted_in').toBeGreaterThan(0);
+      expect(check({ ...IMPORT_COMPLIANCE, consentState: ['withdrawn', 'unknown', 'pending'] }).length, 'pending').toBeGreaterThan(0);
+      expect(check({ ...IMPORT_COMPLIANCE, whatsappOptIn: [false, true] }).length, 'whatsappOptIn true').toBeGreaterThan(0);
+      expect(check({ ...IMPORT_COMPLIANCE, consentState: ['withdrawn'] }).length, 'default dropped').toBeGreaterThan(0);
+      expect(check({ ...IMPORT_COMPLIANCE, dnd: [false, true] }).length, 'unordered').toBeGreaterThan(0);
+      expect(check({ dnd: [true, false], whatsappOptIn: [false] }).length, 'missing field').toBeGreaterThan(0);
+      expect(check(IMPORT_COMPLIANCE)).toEqual([]);
     });
 
     it('the description states the compliance rule: restrict only, consent_grant_refused, an empty cell leaves the default, D-P28', () => {
@@ -1939,6 +1995,68 @@ describe('acceptance: import, duplicates and merge contract (T-0093)', () => {
       expect(text).toMatch(/D-P28/);
       expect(text).toMatch(/empty cell/i);
       expect(text).toMatch(/never grant/i);
+      expect(text).toMatch(/new contacts? only|only creates/i);
+      expect(text).toMatch(/default/i);
+    });
+  });
+
+  describe('header erasure (R22, D-L148)', () => {
+    it('Import.headers and filename and ImportSummary.filename are nullable, and each schema says it is cleared with the raw file', () => {
+      const problems: string[] = [];
+      for (const [name, key] of [['Import', 'headers'], ['Import', 'filename'], ['ImportSummary', 'filename']] as const) {
+        const prop = properties(rec(name)).get(key);
+        if (!prop) {
+          problems.push(`${name} has no ${key}`);
+          continue;
+        }
+        if (!accepts(prop, null)) problems.push(`${name}.${key} refuses null`);
+        const raw = isMapping(rec(name).node) && isMapping((rec(name).node as Mapping).properties) ? ((rec(name).node as Mapping).properties as Mapping)[key] : undefined;
+        const text = prose(isMapping(raw) ? raw.description : '') + ' ' + nodeDescription(prop);
+        if (!/`rawFileDeletedAt`/.test(text) || !/null/.test(text)) problems.push(`${name}.${key} does not say it is null once \`rawFileDeletedAt\` is set`);
+      }
+      expect(problems).toEqual([]);
+      // CreateImportRequest still requires a real filename.
+      expect(accepts(properties(rec('CreateImportRequest')).get('filename') ?? synthetic({}), null), 'createImport takes a null filename').toBe(false);
+    });
+
+    it('getImport states the erasure: headers and filename cleared with the raw file, 7 days after the end or 24 hours after an abandoned upload, and why', () => {
+      const text = description(op('getImport'));
+      expect(text).toMatch(/`headers` and `filename`/);
+      expect(text).toMatch(/7 days/);
+      expect(text).toMatch(/24 hours/);
+      expect(text).toMatch(/headerless|first (data )?row/i);
+      expect(text).toMatch(/D-L148/);
+    });
+
+    it('putImportMapping: fromImportId works only while the source’s headers exist, then 400 unknown_reference at fromImportId', () => {
+      const text = description(op('putImportMapping'));
+      expect(text).toMatch(/`fromImportId`[^.]*(headers|raw file)[^.]*(deleted|cleared|null)|(deleted|cleared|null)[^.]*`fromImportId`/i);
+      expect(text).toMatch(/unknown_reference/);
+      expect(hasError('putImportMapping', '400', 'validation_failed', /^fromImportId$/, 'unknown_reference')).toBe(true);
+    });
+
+    it('the examples agree: rawFileDeletedAt set means headers and filename null; filename present until then; one example shows an erased import', () => {
+      gate();
+      const rows: [string, Mapping][] = [];
+      for (const id of ['getImport', 'completeImportUpload', 'abortImportUpload', 'putImportMapping', 'runImport', 'cancelImport']) {
+        const spec = OPS.find((candidate) => candidate.id === id);
+        for (const body of successExamples(op(id), spec ? spec.success : '200')) rows.push([id, body]);
+      }
+      for (const page of successExamples(op('listImports'), '200')) {
+        for (const row of Array.isArray(page.data) ? page.data.filter(isMapping) : []) rows.push(['listImports', row]);
+      }
+      expect(importErasureProblems(rows)).toEqual([]);
+      expect(rows.some(([, row]) => row.rawFileDeletedAt !== null && row.rawFileDeletedAt !== undefined), 'no example shows an erased import').toBe(true);
+    });
+
+    it('(self-check, R22) the erasure check catches a kept filename, kept headers and a filename missing before deletion', () => {
+      gate();
+      const live = { rawFileDeletedAt: null, filename: 'sample.csv', headers: ['Name'] };
+      const gone = { rawFileDeletedAt: '2026-10-25T09:00:00Z', filename: null, headers: null };
+      expect(importErasureProblems([['a', live], ['b', gone]])).toEqual([]);
+      expect(importErasureProblems([['x', { ...gone, filename: 'sample.csv' }]]).length).toBeGreaterThan(0);
+      expect(importErasureProblems([['x', { ...gone, headers: ['Name'] }]]).length).toBeGreaterThan(0);
+      expect(importErasureProblems([['x', { ...live, filename: null }]]).length).toBeGreaterThan(0);
     });
   });
 
