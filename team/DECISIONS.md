@@ -3017,3 +3017,28 @@ found no privacy or contract defect.
   matrix (D-L138), so cells already at `edit` stay `edit`.
 - **Noted:** `unknown_field` for retired keys does not hide past existence from tenant users, because the admin list shows
   retired fields. It is kept for one code path; nothing leaks.
+
+### D-L141 — T-0089 suite rulings, and the T-0088 limits pins (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The T-0089 suite is on `lead/T-0089-acceptance` (bc205a5): storage, admin API, values API
+and budget, about 160 tests. Every failure is for the real reason. The suite header's S, A, V and F rulings stand,
+including:
+- a withheld key is listed in `withheldFields` even when the row has no value for it;
+- retired keys appear in neither `custom` nor `withheldFields`;
+- writes read back only the keys they patch;
+- withheld and retired values survive other callers' writes;
+- definitions are read live (no per-process cache);
+- `q` and global search never match custom values.
+
+**Rulings:**
+- **Retire is audited as `updated`** with a `retiredAt` change. There is no new audit action and no audit CHECK change.
+- **The 500-value picklist limit** is reported at `config.values` on create and at `addValues` on update.
+- **Audit reads may show custom key names,** because definitions are tenant-public. They never show values.
+- **A write that only removes keys, or does not grow the caller-visible size, is never refused for size** (D-L140).
+- **The board's top-level `withheldFields` is unchanged;** cards carry `custom.<key>`.
+- **custom-fields-contract R19** (flags false) flips in a lead edit when T-0089 lands.
+- **Lead edit to the T-0088 suite (D-L140):**
+  - CustomFieldLimits is exactly `apiBytes` 16384, `bytesPerRecord` 32768 (the DB backstop), `definitionsPerObject` 500
+    (retired included), `fieldsPerObject` 100 and `picklistValues` 500;
+  - listCustomFields takes `object` and `includeRetired` (default false).
+- **Process:** an agent started and then quit Docker Desktop. Docker is shared with the dialler project, so agents never
+  start or stop it. Only the user does.
