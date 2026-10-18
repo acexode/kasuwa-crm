@@ -7,7 +7,7 @@ import { createBundleTranslator, type MessageBundle, type MessageId, type Transl
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
-import { PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
+import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { isWithheld, type Contact } from '../../lib/records-api';
 import { dropQueryFromAddressBar } from '../../lib/search-query';
 import { filterableFields, NO_CUSTOM_FILTERS, listRefusalId, setCustomFilter, type CustomFilters } from '../../lib/custom-values-filters';
@@ -44,11 +44,13 @@ import {
   type FilterState,
 } from './contacts-model';
 import { useContactList } from './use-contact-list';
+import { UnavailableAction } from './contacts-parts';
 
 // Loaded when opened: neither the phone's filter sheet nor the column chooser is on the list's first paint.
 const ColumnChooser = guarded(
   dynamic<ChooserProps<ColumnKey>>(() => import('../records/column-chooser').then((module) => module.ColumnChooser<ColumnKey>), { ssr: false }),
 );
+const NoRows = guarded(dynamic(() => import('./contacts-no-rows').then((module) => module.NoRows), { ssr: false }));
 const FilterSheet = guarded(dynamic(() => import('./contacts-filter-sheet').then((module) => module.FilterSheet), { ssr: false }));
 
 /**
@@ -338,35 +340,6 @@ function chipText(t: Translator, spec: FilterSpec, filters: FilterState): string
 }
 
 /** Import and create are not built (createContact is contract-only), so they are visibly off. */
-function UnavailableAction({
-  t,
-  action,
-  icon,
-  label,
-  primary,
-}: {
-  t: Translator;
-  action: string;
-  icon: 'upload_file' | 'add' | 'chat';
-  label: MessageId;
-  primary?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      data-action={action}
-      data-requires-connection=""
-      aria-disabled="true"
-      title={t.t('records.action.unavailable')}
-      className={`${primary === true ? PRIMARY_BUTTON : SECONDARY_BUTTON} cursor-not-allowed opacity-60`}
-    >
-      <Icon name={icon} size="sm" />
-      {t.t(label)}
-      <span className="sr-only">{t.t('records.action.unavailable')}</span>
-    </button>
-  );
-}
-
 function ContactFilterOptions({
   t,
   spec,
@@ -432,26 +405,8 @@ function Body({
     );
   }
 
-  if (state === 'empty') {
-    return <EmptyState t={t} />;
-  }
-
-  if (state === 'no-results') {
-    return (
-      <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface p-10 text-center">
-        <Icon name="search_off" size="xl" className="text-text-muted" />
-        <h2 className="text-h3">{t.t('records.noResults.title')}</h2>
-        <p data-testid="no-results-message" className="max-w-xl text-body-md text-text-2">
-          {answered.q.trim() === '' ? null : t.t('records.noResults.query', { query: answered.q.trim() })}{' '}
-          {activeFilterKeys(answered.view).length === 0
-            ? null
-            : t.t('records.noResults.filters', { filters: describeFilters(t, answered.view) })}
-        </p>
-        <button type="button" data-action="clear-search-filters" onClick={onClear} className={SECONDARY_BUTTON}>
-          {t.t('records.noResults.clear')}
-        </button>
-      </div>
-    );
+  if (state === 'empty' || state === 'no-results') {
+    return <NoRows t={t} state={state} answered={answered} onClear={onClear} />;
   }
 
   return (
@@ -526,16 +481,6 @@ function Body({
       )}
     </div>
   );
-}
-
-function describeFilters(t: Translator, filters: FilterState): string {
-  return activeFilterKeys(filters)
-    .map((key) => {
-      const spec = FILTERS.find((filter) => filter.key === key);
-      const label = spec === undefined ? key : t.t(spec.label);
-      return `${label}: ${filters[key].map((value) => t.t(optionLabel(key, value))).join(', ')}`;
-    })
-    .join('; ');
 }
 
 function NameCell({ row }: { row: Contact }) {
@@ -687,35 +632,4 @@ function FieldValue({ t, row, field }: { t: Translator; row: Contact; field: Col
         <span>{t.t(`records.channel.${row.preferredChannel}` as MessageId)}</span>
       );
   }
-}
-
-function EmptyState({ t }: { t: Translator }) {
-  return (
-    <div data-screen-state="P04/05" className="flex flex-col items-center gap-4 rounded-lg border border-border bg-surface p-8 text-center">
-      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-primary-text">
-        <Icon name="contacts" size="xl" />
-      </span>
-      <h2 className="text-h3">{t.t('records.empty.title')}</h2>
-      <p className="max-w-xl text-body-md text-text-2">{t.t('records.empty.body')}</p>
-      <div className="grid w-full max-w-3xl gap-4 text-start md:grid-cols-2">
-        <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
-          <b className="flex items-center gap-2 text-body-md">
-            <Icon name="upload_file" size="sm" />
-            {t.t('records.empty.import.title')}
-          </b>
-          <p className="text-body-sm text-text-2">{t.t('records.empty.import.body')}</p>
-          <UnavailableAction t={t} action="import-csv-empty" icon="upload_file" label="records.empty.import.action" />
-        </div>
-        <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
-          <b className="flex items-center gap-2 text-body-md">
-            <Icon name="chat" size="sm" />
-            {t.t('records.empty.capture.title')}
-          </b>
-          <p className="text-body-sm text-text-2">{t.t('records.empty.capture.body')}</p>
-          <UnavailableAction t={t} action="capture-whatsapp" icon="chat" label="records.empty.capture.action" />
-        </div>
-      </div>
-      <p className="text-body-sm text-text-muted">{t.t('records.empty.later')}</p>
-    </div>
-  );
 }
