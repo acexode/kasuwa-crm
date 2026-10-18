@@ -91,6 +91,24 @@ const MIGRATION_URL_SELECTORS = [
 ];
 
 /**
+ * Only `packages/storage-adapter` may import an S3 SDK (CLAUDE.md 2.8,
+ * ADR-0017 Decision 1, T-0092). Every `no-restricted-imports` block below
+ * restates this pattern, because the rule is one rule and a later block
+ * replaces an earlier one for the files it matches; the storage adapter's own
+ * block is the one place it is left out.
+ */
+const AWS_SDK_PATTERN = {
+  group: ['@aws-sdk/*'],
+  message:
+    'Only @kasuwa/storage-adapter may import an @aws-sdk package (CLAUDE.md 2.8, ADR-0017). Use its ObjectStore port.',
+};
+const FAKE_OBJECT_STORE_PATH = {
+  name: '@kasuwa/storage-adapter',
+  importNames: ['FakeObjectStore'],
+  message: 'The in-memory object store keeps bytes in process memory. It belongs in tests only.',
+};
+
+/**
  * What app code may not import (the `apps/**` block below). Shared so that the
  * apps/web block, which replaces it there, can restate it rather than drift.
  */
@@ -105,6 +123,7 @@ const APP_RESTRICTED_IMPORT_PATHS = [
     message:
       'The channel fakes send nothing and clear every DND lookup. They belong in tests only.',
   },
+  FAKE_OBJECT_STORE_PATH,
   {
     name: '@kasuwa/domain-core',
     importNames: ['provisionTenant'],
@@ -113,6 +132,7 @@ const APP_RESTRICTED_IMPORT_PATHS = [
   },
 ];
 const APP_RESTRICTED_IMPORT_PATTERNS = [
+  AWS_SDK_PATTERN,
   {
     group: ['@kasuwa/domain-core/*'],
     message:
@@ -226,6 +246,28 @@ export default tseslint.config(
                 'The isolation harness can forge RLS session variables. It belongs in tests only.',
             },
           ],
+          patterns: [AWS_SDK_PATTERN],
+        },
+      ],
+    },
+  },
+
+  {
+    // The storage adapter is the ONE package that may import an S3 SDK
+    // (ADR-0017). This block replaces the one above for its files only, so it
+    // restates the @kasuwa/testing ban and leaves out AWS_SDK_PATTERN.
+    files: ['packages/storage-adapter/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@kasuwa/testing',
+              message:
+                'The isolation harness can forge RLS session variables. It belongs in tests only.',
+            },
+          ],
         },
       ],
     },
@@ -255,7 +297,9 @@ export default tseslint.config(
               message:
                 'The channel fakes send nothing and clear every DND lookup. They belong in tests only.',
             },
+            FAKE_OBJECT_STORE_PATH,
           ],
+          patterns: [AWS_SDK_PATTERN],
         },
       ],
     },
