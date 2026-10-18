@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 200 rows; built 105, partial 11, mock-only 27, flagged-off 14, deferred 10, not-started 33.
+Totals: 204 rows; built 105, partial 11, mock-only 27, flagged-off 14, deferred 10, not-started 37.
 
 ## Modules
 
@@ -199,6 +199,10 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `listContactMerges` | GET /api/v1/contact-merges — List merges — newest first, keyset (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
 | operation | `createContactMerge` | POST /api/v1/contact-merges — Merge two contacts — the second is merged away into the first (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
 | operation | `undoContactMerge` | POST /api/v1/contact-merges/{mergeId}/undo — Undo a merge — restore the merged contact (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `listNotifications` | GET /api/v1/notifications — List the caller's notifications, newest first (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `getNotificationUnreadCount` | GET /api/v1/notifications/unread-count — The caller's unread count, for the bell badge (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `markAllNotificationsRead` | POST /api/v1/notifications/read-all — Mark all of the caller's unread notifications read, or all of one kind (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `updateNotification` | PATCH /api/v1/notifications/{notificationId} — Mark one notification read or unread (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
 | operation | `listScripts` | GET /api/v1/scripts — List the scripts the caller may author | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `createScript` | POST /api/v1/scripts — Create a draft script in a programme | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `getScript` | GET /api/v1/scripts/{scriptId} — Get a script, with its draft and translations | built | — | — | docs/api/scripting.openapi.yaml |

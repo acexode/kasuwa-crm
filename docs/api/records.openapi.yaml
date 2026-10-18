@@ -144,6 +144,8 @@ tags:
     description: CSV contact import, from declaring a file to the row-error report (P28/A..A6).
   - name: leads
     description: Contacts at a lead stage (D-P17). A view and an action, not a record type.
+  - name: notifications
+    description: In-app notifications, the recipient's own, from events only (P26; D-P29, ADR-0018).
   - name: me
     description: The caller's own scope, as the session resolves it.
   - name: pipelines
@@ -5282,6 +5284,364 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/UndoConflict' }
         '410': { $ref: '#/components/responses/UndoExpired' }
+  /api/v1/notifications:
+    get:
+      tags: [notifications]
+      summary: List the caller's notifications, newest first
+      operationId: listNotifications
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P26/A', 'P26/A3', 'P26/B', 'P26/B2']
+      x-kasuwa-notification-kinds:
+        record_assigned: [contact, account, deal]
+        task_assigned: [activity]
+        import_finished: [import]
+      x-kasuwa-notification-display-fields:
+        contact: displayName
+        account: name
+        deal: name
+        activity: subject
+        import: filename
+      description: |
+        The caller's own in-app notifications, keyset paged (`cursor` and
+        `limit` only, no total, count or offset), newest first by `createdAt`
+        then `id`, both descending. `filter=unread` keeps the items whose
+        `readAt` is null; `kind` narrows to one kind.
+
+        **Notifications are produced only from events** (the outbox consumer,
+        ADR-0018): there is no create and no delete operation, and the only
+        operations under `/api/v1/notifications` are the four in this file. An
+        assignment the recipient makes to themselves produces no
+        notification. Read notifications are kept 90 days (D-L146); the purge
+        is a deferred follow-up.
+
+        **Kinds (D-L87).** `NotificationKind` is closed today and can only
+        grow: a later kind is an additive contract change, and a client
+        ignores an item whose kind it does not know rather than failing the
+        page. The kind fixes the object type, as data in
+        `x-kasuwa-notification-kinds` and enforced by the schema.
+        `x-kasuwa-notification-display-fields` names the field of each object
+        type that `objectDisplayName` is read from.
+
+        **No title text.** The server sends no title, body or sentence; the
+        client builds the sentence from `kind` with i18n (D-P29). The names
+        are resolved at read time, under the reader's scope and field
+        security, and are `null` when withheld.
+
+        **Dropped, not redacted (D-P29).** An item whose object the reader
+        can no longer read (out of scope, programme left, rights lost, a
+        contact merged away under D-P27) is dropped from the page, never sent
+        with its names set to null. The server examines at most `limit` of the
+        caller's notifications per page and returns the visible ones among
+        them, so a page may hold fewer than `limit` items, even none, while
+        `nextCursor` is non-null. Only `nextCursor: null` means the end.
+
+        **Cursor.** It carries only a notification id (see the
+        `NotificationCursor` parameter). **Throttled** (D-L134): `429
+        too_many_requests` with `Retry-After`, per user, decided before
+        validation.
+      parameters:
+        - name: filter
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/NotificationFilter' }
+          description: '`unread` keeps items whose `readAt` is null. Default `all`.'
+        - name: kind
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/NotificationKind' }
+          description: One kind. Not a list.
+        - $ref: '#/components/parameters/NotificationCursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of notifications.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPage' }
+              examples:
+                page:
+                  summary: Every kind, newest first; one object name withheld, one former-member actor
+                  value:
+                    data:
+                      - id: 8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c06
+                        kind: record_assigned
+                        objectType: contact
+                        objectId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                        actor: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Sample Agent }
+                        objectDisplayName: Sample Customer
+                        createdAt: '2026-10-18T09:50:00Z'
+                        readAt: null
+                      - id: 8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c05
+                        kind: record_assigned
+                        objectType: account
+                        objectId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e02
+                        actor: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e02, displayName: null }
+                        objectDisplayName: Sample Holdings
+                        createdAt: '2026-10-18T09:40:00Z'
+                        readAt: null
+                      - id: 8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c04
+                        kind: record_assigned
+                        objectType: deal
+                        objectId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e03
+                        actor: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Sample Agent }
+                        objectDisplayName: Sample renewal
+                        createdAt: '2026-10-18T09:30:00Z'
+                        readAt: '2026-10-18T09:35:00Z'
+                      - id: 8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c03
+                        kind: task_assigned
+                        objectType: activity
+                        objectId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e04
+                        actor: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Sample Agent }
+                        objectDisplayName: null
+                        createdAt: '2026-10-18T09:20:00Z'
+                        readAt: null
+                      - id: 8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c02
+                        kind: import_finished
+                        objectType: import
+                        objectId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e05
+                        actor: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Sample Agent }
+                        objectDisplayName: sample-customers.csv
+                        createdAt: '2026-10-18T09:10:00Z'
+                        readAt: null
+                    nextCursor: eyJpZCI6IjhhMWIyYzNkLTRlNWYtNGE2Yi04YzdkLTllMGYxYTJiM2MwMiJ9
+                allDropped:
+                  summary: None of the examined notifications is visible now, and the list continues
+                  value:
+                    data: []
+                    nextCursor: eyJpZCI6IjhhMWIyYzNkLTRlNWYtNGE2Yi04YzdkLTllMGYxYTJiM2MwNSJ9
+        '400':
+          description: |
+            A malformed cursor, or a `kind` or `filter` that is not a known
+            value. `details` names the path and a reason code, never the
+            submitted value.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+              examples:
+                invalidCursor:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    code: validation_failed
+                    message: Validation failed
+                    details:
+                      - path: cursor
+                        code: invalid_cursor
+                invalidKind:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    code: validation_failed
+                    message: Validation failed
+                    details:
+                      - path: kind
+                        code: invalid_value
+                invalidFilter:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    code: validation_failed
+                    message: Validation failed
+                    details:
+                      - path: filter
+                        code: invalid_value
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '429': { $ref: '#/components/responses/NotificationsTooManyRequests' }
+
+  /api/v1/notifications/unread-count:
+    get:
+      tags: [notifications]
+      summary: The caller's unread count, for the bell badge
+      operationId: getNotificationUnreadCount
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P26/A1']
+      x-kasuwa-poll-interval-seconds: 30
+      description: |
+        The caller's unread notifications that would appear in the list now,
+        so only visible items are counted (the list's drop rule applies), up
+        to 99. When there are more than 99, `count` is 99 and `capped` is
+        true (the "99+" badge); otherwise `capped` is false. It takes no
+        parameter. Per-kind counts are not served.
+
+        **Polling (D-L87, no socket in Phase 2).** Poll this route, and only
+        this route, every 30 seconds (`x-kasuwa-poll-interval-seconds`), only
+        while the page is visible. Fetch the list when the bell or the centre
+        opens, never on a timer. On `429` wait the `Retry-After` seconds
+        before resuming (D-L134).
+      responses:
+        '200':
+          description: The unread count.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationUnreadCount' }
+              examples:
+                some:
+                  summary: Seven unread
+                  value: { count: 7, capped: false }
+                capped:
+                  summary: More than 99 unread
+                  value: { count: 99, capped: true }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '429': { $ref: '#/components/responses/NotificationsTooManyRequests' }
+
+  /api/v1/notifications/read-all:
+    post:
+      tags: [notifications]
+      summary: Mark all of the caller's unread notifications read, or all of one kind
+      operationId: markAllNotificationsRead
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P26/A1']
+      description: |
+        Marks every unread notification of the caller read, or only those of
+        `kind` (the "clear assignments in one tap" action: assignments are two
+        kinds today, so that is two calls). It covers items whose object is
+        no longer visible too, which changes nothing anyone can see. The body
+        is required and may be `{}`. The answer is the new unread count
+        (`NotificationUnreadCount`), never how many rows changed, which would
+        count invisible items.
+
+        **The race (D-L154).** An optional `throughId` bounds the call: only
+        notifications at or older than that one, by `createdAt` then `id`, are
+        marked read, so one that arrives after the caller looked stays unread.
+        A `throughId` that names no notification and one that names another
+        user's (or another tenant's) are the same `400 validation_failed` with
+        `details[].code: invalid_value` at `throughId`: it never says whether
+        the id exists. The caller's own notification whose object is no
+        longer visible is a valid bound.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MarkAllNotificationsReadRequest' }
+            examples:
+              everything:
+                summary: Every unread notification
+                value: {}
+              assignments:
+                summary: Only one kind, up to the newest the caller saw
+                value:
+                  kind: record_assigned
+                  throughId: 8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c06
+      responses:
+        '200':
+          description: The new unread count.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationUnreadCount' }
+              examples:
+                cleared:
+                  summary: Everything cleared
+                  value: { count: 0, capped: false }
+        '400':
+          description: |
+            A `kind` that is not a known value, or a `throughId` that is not
+            usable (not a uuid, unknown, or someone else's: one answer).
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+              examples:
+                invalidKind:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    code: validation_failed
+                    message: Validation failed
+                    details:
+                      - path: kind
+                        code: invalid_value
+                invalidThroughId:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    code: validation_failed
+                    message: Validation failed
+                    details:
+                      - path: throughId
+                        code: invalid_value
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '429': { $ref: '#/components/responses/NotificationsTooManyRequests' }
+
+  /api/v1/notifications/{notificationId}:
+    patch:
+      tags: [notifications]
+      summary: Mark one notification read or unread
+      operationId: updateNotification
+      x-kasuwa-implemented: false
+      x-kasuwa-screens: ['P26/A']
+      description: |
+        `{ read: true }` sets `readAt`; an already-read item keeps its first
+        `readAt` (idempotent). `{ read: false }` clears it. The answer is the
+        item, with names resolved as in the list.
+
+        **One 404.** No such notification, another user's in this tenant,
+        another tenant's, and one whose object the caller can no longer read
+        are one `404 not_found` body. A notification is the recipient's own,
+        so there is never 403.
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          description: A notification identifier. A value that is not a uuid is `400`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateNotificationRequest' }
+            examples:
+              markRead:
+                value: { read: true }
+              markUnread:
+                value: { read: false }
+      responses:
+        '200':
+          description: The notification after the change.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Notification' }
+              examples:
+                read:
+                  value:
+                    id: 8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c06
+                    kind: record_assigned
+                    objectType: contact
+                    objectId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                    actor: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Sample Agent }
+                    objectDisplayName: Sample Customer
+                    createdAt: '2026-10-18T09:50:00Z'
+                    readAt: '2026-10-18T09:55:00Z'
+        '400':
+          description: A `read` that is not a boolean, or a non-uuid id.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+              examples:
+                invalidRead:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    code: validation_failed
+                    message: Validation failed
+                    details:
+                      - path: read
+                        code: invalid_value
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotificationNotFound' }
+        '429': { $ref: '#/components/responses/NotificationsTooManyRequests' }
 
 components:
   securitySchemes:
@@ -5295,6 +5655,19 @@ components:
         database.
 
   parameters:
+    NotificationCursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 2048 }
+      description: |
+        **Opaque.** Echo `nextCursor` back unchanged. It carries only a
+        notification id, never a time, a kind, a filter, a name or any other
+        value; the server resolves the position from that row, which is the
+        caller's own even when its object is no longer visible. A cursor
+        naming another user's notification answers an empty page, never
+        anyone else's rows. A malformed cursor is `400` with
+        `details[].code: invalid_cursor`.
     ImportId:
       name: importId
       in: path
@@ -5689,6 +6062,117 @@ components:
       schema: { type: string, enum: ['no-store'] }
 
   schemas:
+    NotificationKind:
+      type: string
+      enum: [record_assigned, task_assigned, import_finished]
+      description: |
+        Closed today and grow-only (D-L87): a later kind is an additive
+        contract change, and a client ignores an item whose kind it does not
+        know rather than failing the page.
+    NotificationObjectType:
+      type: string
+      enum: [contact, account, deal, activity, import]
+    NotificationFilter:
+      type: string
+      enum: [all, unread]
+      default: all
+    NotificationActor:
+      type: object
+      additionalProperties: false
+      required: [id, displayName]
+      description: |
+        Who caused the notification (an import's actor is the user who
+        started it). `displayName` is the actor's current display name while
+        they are a member of the object's programme, else `null` (the D-P23
+        former-owner rule); it is re-read every time.
+      properties:
+        id: { type: string, format: uuid }
+        displayName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 200
+          description: |
+            `null` when the actor is no longer a member of the object's
+            programme (D-P23). Never the id printed as a name (D-L64); no
+            email, phone, role or avatar.
+    Notification:
+      type: object
+      additionalProperties: false
+      required: [id, kind, objectType, objectId, actor, objectDisplayName, createdAt, readAt]
+      description: |
+        The stored identifiers plus what is resolved at read time. No title,
+        body or sentence: the client builds it from `kind` with i18n (D-P29).
+        `kind` fixes `objectType` (see `x-kasuwa-notification-kinds`).
+      oneOf:
+        - properties:
+            kind: { const: record_assigned }
+            objectType: { enum: [contact, account, deal] }
+        - properties:
+            kind: { const: task_assigned }
+            objectType: { enum: [activity] }
+        - properties:
+            kind: { const: import_finished }
+            objectType: { enum: [import] }
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: '#/components/schemas/NotificationKind' }
+        objectType: { $ref: '#/components/schemas/NotificationObjectType' }
+        objectId: { type: string, format: uuid }
+        actor: { $ref: '#/components/schemas/NotificationActor' }
+        objectDisplayName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 255
+          description: |
+            The object's display field (`x-kasuwa-notification-display-fields`),
+            read at read time under the reader's scope and field security in
+            the object's programme. `null` when that field is withheld from
+            the reader, empty, or erased (an import's filename is cleared with
+            its raw file, D-L148). A contact's name follows its parts, as in
+            search (D-L68): `null` whenever `givenNames` or `familyName` is
+            withheld from the reader, never composed from the readable part.
+            Here `null` may mean withheld.
+        createdAt: { type: string, format: date-time }
+        readAt: { type: [string, 'null'], format: date-time }
+    NotificationPage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Notification' }
+        nextCursor:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 2048
+          description: '`null` only at the end. A page may be short or empty while this is non-null.'
+    NotificationUnreadCount:
+      type: object
+      additionalProperties: false
+      required: [count, capped]
+      properties:
+        count: { type: integer, minimum: 0, maximum: 99 }
+        capped: { type: boolean, description: 'True when there are more than 99 and `count` is 99.' }
+    UpdateNotificationRequest:
+      type: object
+      additionalProperties: false
+      required: [read]
+      properties:
+        read: { type: boolean }
+    MarkAllNotificationsReadRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        kind: { $ref: '#/components/schemas/NotificationKind' }
+        throughId:
+          type: string
+          format: uuid
+          description: |
+            It carries only a notification id, never a time or a cursor (D-L154):
+            only notifications
+            at or older than it, by `createdAt` then `id`, are marked read, so
+            one that arrives after stays unread.
     ContactStatus:
       type: string
       enum: [new, contacted, qualified, unqualified, customer]
@@ -8455,6 +8939,47 @@ components:
         nextCursor: { type: [string, 'null'] }
 
   responses:
+    NotificationNotFound:
+      description: |
+        **One body for all of:** no such notification, another user's in this
+        tenant, another tenant's, and one whose object the caller can no
+        longer read. Identical to `NotFound`.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          example:
+            statusCode: 404
+            error: Not Found
+            code: not_found
+            message: Not found
+
+    NotificationsTooManyRequests:
+      description: |
+        A notifications route was called too often by this user (D-L134, as
+        for search and duplicates). Per user, decided after authentication and
+        before validation, the shared Error envelope with
+        `code: too_many_requests`. Clients that poll the count wait
+        `Retry-After` seconds before resuming. It says nothing about any
+        record.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            tooManyRequests:
+              summary: Too many notification requests by this user in the current window
+              value:
+                statusCode: 429
+                error: Too Many Requests
+                code: too_many_requests
+                message: Too many requests. Wait a moment and try again.
+
     ValidationFailed:
       description: |
         The request did not parse: a bad query value, a malformed cursor, a
