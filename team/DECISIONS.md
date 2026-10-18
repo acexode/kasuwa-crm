@@ -3387,3 +3387,29 @@ custom-fields-contract get explicit 60 s timeouts.
   - bucket versioning and `s3:PutObjectTagging` to T-0005.
 - **NDPA:** Pooled data in af-south-1 means Nigerian PII is held in South Africa. That is an existing ADR-0002 and D-L128
   decision, but it needs a transfer assessment with counsel.
+
+### D-L156 — T-0098 suite rulings; an ADR-0018 policy fix (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The suites are on `lead/T-0098-acceptance` (ea25c62; 102 tests in the outbox and
+outbox-forgery suites).
+- **ADR-0018 amendment.** As written, the relay policies refuse the relay's own "mark published" and "mark dead"
+  UPDATE: the new row must pass the SELECT policy, with or without RETURNING. Fix: the relay's SELECT policy gains
+  `OR published_at = now() OR dead_at = now()`. `now()` is fixed per transaction, so the relay sees only the rows it
+  marked in the current transaction. This was proven on a scratch database.
+- **Tightened:**
+  - the relay's UPDATE WITH CHECK requires `published_at = now()` and `dead_at = now()`, so nothing can be back-dated
+    into retention;
+  - kasuwa_app's INSERT is column-limited, so it cannot choose `seq`.
+- **Accepted:**
+  - R1: 5 consumer attempts in all;
+  - R2: `relayOutboxBatch`, `sweepOutbox` and `consumeOutboxJob` in `@kasuwa/db`, with BullMQ bound in apps/worker;
+  - R3: the relay re-parses each payload and skips bad rows without blocking the batch;
+  - R4: `appendOutboxEvent` refuses before any SQL;
+  - R5: drop reasons are returned;
+  - F-R1: the consumer's re-read also matches the actor and tenant;
+  - **F-R3:** a restrictive INSERT policy pins `actor_user_id = app.current_user_id()`, so no event can name another
+    actor.
+- **Lead edits to merged suites** for the sixth role and the required `DATABASE_RELAY_URL`: test-admin-absent,
+  auth-role, auth-retention and config-schemas.
+- **`DATABASE_RELAY_URL` never goes into the shared `.env`,** because the API and migrator refuse it by presence. The dev
+  tooling passes it to the worker only.
+- **For T-0100:** the consumer re-reads the aggregate within the event's programme.
