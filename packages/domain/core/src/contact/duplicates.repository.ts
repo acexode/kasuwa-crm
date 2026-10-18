@@ -114,6 +114,14 @@ export interface ListDuplicateSetsOptions {
   limit: number;
 }
 
+/**
+ * The duplicate scan's work_mem (D-L162: at most 64 MB, for that one
+ * statement). At 60,000 contacts per programme the grouping holds about
+ * 120,000 keys, about 18 MB in a hash table; the server default (4 MB)
+ * spills it to disk in five batches.
+ */
+export const DUPLICATE_SCAN_WORK_MEM = '64MB';
+
 /** A programme outside the session's scope: a caller bug, never scanned. */
 export class DuplicateScopeError extends Error {
   constructor() {
@@ -143,6 +151,14 @@ export async function listDuplicateSets(
 ): Promise<DuplicateSetRow[]> {
   if (!tx.session.programmeIds.includes(programmeId)) throw new DuplicateScopeError();
   if (!options.phones && !options.emails) return [];
+  // D-L162: work_mem raised for THIS statement only (bounded at 64 MB), so
+  // the hash-grouping of every number and address in the programme stays in
+  // memory instead of spilling to disk; restored straight after, so the rest
+  // of the request transaction runs at the server's setting.
+  const [previous] = await tx.query<{ work_mem: string }>(
+    `SELECT current_setting('work_mem') AS work_mem, set_config('work_mem', $1, true)`,
+    [DUPLICATE_SCAN_WORK_MEM],
+  );
   const sets = await tx.query<SetDbRow>(
     `WITH keyed AS MATERIALIZED (
        SELECT lower(v.k) COLLATE "C" AS k, v.id, v.updated_at
@@ -203,6 +219,9 @@ export async function listDuplicateSets(
       options.limit,
     ],
   );
+  if (previous !== undefined) {
+    await tx.query(`SELECT set_config('work_mem', $1, true)`, [previous.work_mem]);
+  }
   if (sets.length === 0) return [];
 
   const wanted = [...new Set(sets.flatMap((set) => set.ids))];
