@@ -4921,13 +4921,13 @@ paths:
         set.
 
         **Cursor (D-L151, widened by D-L153).** Sets are ordered by their
-        lowest contact id, ascending, then by `matchOn`. `cursor` carries the
-        lowest contact id of the last set, the literal `phone` or `email`, a
-        format version and a small ordinal among sets sharing that id and
-        `matchOn` (so a pair matching on both, or a contact with two shared
-        numbers, never loses a set at a page boundary). It never carries the
-        matched value, a phone or an email; this overrides the shared `Cursor`
-        text. **Throttled** like search: `429 too_many_requests` with
+        lowest contact id, ascending, then by `matchOn`. Of record data the
+        `cursor` carries only a contact id, the lowest in the last set; besides
+        it, only the literal `phone` or `email`, a format version and a small
+        ordinal among sets sharing that id and `matchOn` (so a pair matching on
+        both, or a contact with two shared numbers, never loses a set at a page
+        boundary). The cursor never carries the matched value, a phone or an
+        email; this overrides the shared `Cursor` text. **Throttled** like search: `429 too_many_requests` with
         `Retry-After`, per user, decided before validation.
       parameters:
         - $ref: '#/components/parameters/Cursor'
