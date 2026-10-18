@@ -1,5 +1,7 @@
-import type { MessageId } from '@kasuwa/i18n/bundle';
 import type { CustomField } from './custom-values-api';
+
+export * from './custom-values-core';
+export * from './custom-values-filters';
 
 /**
  * The pure half of the custom-value screens (T-0091): how a stored value is
@@ -15,15 +17,7 @@ import type { CustomField } from './custom-values-api';
 
 export type CustomValues = Readonly<Record<string, unknown>>;
 
-/** `custom.<key>`: how `withheldFields` and error details name a custom key. */
-export function customPath(key: string): string {
-  return `custom.${key}`;
-}
-
-export function isCustomWithheld(withheldFields: readonly string[], key: string): boolean {
-  return withheldFields.includes(customPath(key));
-}
-
+const CALENDAR_ZONE = 'UTC';
 const INTEGER = /^-?\d+$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_DIGITS = 18;
@@ -85,7 +79,8 @@ function numberFormat(locale: string, options: Intl.NumberFormatOptions): Intl.N
 }
 
 function dateFormat(locale: string): Intl.DateTimeFormat {
-  const options: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeZone: 'UTC' };
+  // A calendar date has no zone: it is formatted as the UTC day it names, in every browser.
+  const options: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeZone: CALENDAR_ZONE };
   try {
     return new Intl.DateTimeFormat(locale, options);
   } catch {
@@ -256,78 +251,3 @@ export function rebaseCustomDraft(
   );
 }
 
-// ---------------------------------------------------------------------------
-// Refusals
-// ---------------------------------------------------------------------------
-
-interface Refusal {
-  readonly details?: readonly { readonly path: string; readonly code: string }[];
-}
-
-/** What a screen says when a typed custom value is not a value of its type, before anything is sent. */
-export const CUSTOM_INVALID: MessageId = 'custom.error.invalid_value';
-
-const REASONS: Readonly<Record<string, MessageId>> = {
-  invalid_value: 'custom.error.invalid_value',
-  unknown_value: 'custom.error.invalid_value',
-  currency_mismatch: 'custom.error.invalid_value',
-  custom_too_large: 'custom.error.custom_too_large',
-  unknown_field: 'custom.error.unknown_field',
-  field_not_editable: 'custom.error.field_not_editable',
-  field_withheld: 'custom.error.field_withheld',
-};
-
-function aboutCustom(path: string): boolean {
-  return path === 'custom' || path.startsWith('custom.') || path === 'customEmpty';
-}
-
-/** The translated message for the custom-field refusal an error carries, or `null` when it carries none. */
-export function customErrorId(error: Refusal | null | undefined): MessageId | null {
-  for (const detail of error?.details ?? []) {
-    const id = REASONS[detail.code];
-    if (id !== undefined && aboutCustom(detail.path)) return id;
-  }
-  return null;
-}
-
-/** The keys a refusal named `field_not_editable`: read-only from now on, and never sent again. */
-export function notEditableKeys(error: Refusal | null | undefined): string[] {
-  const keys: string[] = [];
-  for (const detail of error?.details ?? []) {
-    const match = detail.code === 'field_not_editable' ? /^custom\.([^.]+)$/.exec(detail.path) : null;
-    if (match?.[1] !== undefined) keys.push(match[1]);
-  }
-  return keys;
-}
-
-// ---------------------------------------------------------------------------
-// List filters
-// ---------------------------------------------------------------------------
-
-/** The option value that means "no value" on a custom filter; a picklist value can never contain `-`. */
-export const IS_EMPTY = 'is-empty';
-
-/** One value per key: a picklist value, `true`/`false`, or `is-empty`. */
-export type CustomFilters = Readonly<Record<string, string>>;
-
-export const NO_CUSTOM_FILTERS: CustomFilters = {};
-
-/** The fields a list can filter on: picklist and boolean (D-L128 Q4). */
-export function filterableFields(fields: readonly CustomField[]): readonly CustomField[] {
-  return fields.filter((field) => field.type === 'picklist' || field.type === 'boolean');
-}
-
-/** Adds the custom filters to a query: `custom[key]=value`, or `customEmpty=key`. */
-export function appendCustomFilters(params: URLSearchParams, filters: CustomFilters | undefined): void {
-  for (const [key, value] of Object.entries(filters ?? {})) {
-    if (value === IS_EMPTY) params.append('customEmpty', key);
-    else if (value !== '') params.set(`custom[${key}]`, value);
-  }
-}
-
-export function setCustomFilter(filters: CustomFilters, key: string, value: string): CustomFilters {
-  const next = { ...filters };
-  if (value === '') delete next[key];
-  else next[key] = value;
-  return next;
-}

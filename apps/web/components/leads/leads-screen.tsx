@@ -2,8 +2,8 @@
 
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useId, useRef, useState, type RefObject } from 'react';
-import { NO_CUSTOM_FILTERS, setCustomFilter } from '../../lib/custom-values-model';
-import { CustomFilterBar } from '../custom/custom-filters';
+import { filterableFields, NO_CUSTOM_FILTERS, setCustomFilter } from '../../lib/custom-values-filters';
+import { LazyCustomFilterBar } from '../custom/lazy-filters';
 import { useCustomFields } from '../custom/use-custom-fields';
 import { createBundleTranslator, type MessageBundle, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
@@ -274,12 +274,14 @@ export function LeadsScreen({
           </div>
         </div>
 
-        <CustomFilterBar
+        {filterableFields(custom.fields).length > 0 ? (
+        <LazyCustomFilterBar
           t={t}
           fields={custom.fields}
           filters={view.custom ?? NO_CUSTOM_FILTERS}
           onChange={(key, value) => setView((current) => ({ ...current, custom: setCustomFilter(current.custom ?? NO_CUSTOM_FILTERS, key, value) }))}
         />
+        ) : null}
 
         {mode === 'table' ? (
           <LeadsTable

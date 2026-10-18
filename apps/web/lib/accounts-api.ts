@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { appendCustomFilters, type CustomFilters } from './custom-values-model';
+import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
 import { Phone, requestRecords, type RecordsResult } from './records-api';
 
 /**

@@ -62,7 +62,7 @@ export default async function PipelineBoardPage({ params }: { params: Promise<{ 
       key={pipelineId}
       pipelineId={pipelineId}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(PIPELINE_MESSAGE_IDS, customFields), live))}
+      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(PIPELINE_MESSAGE_IDS, customFields, 'list'), live))}
       locales={languageOptions(locale)}
       live={live}
       links={{ contacts: recordView && records, accounts: recordView && accounts }}

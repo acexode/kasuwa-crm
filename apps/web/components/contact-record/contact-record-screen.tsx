@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useId, useRef, useState, type ReactNode } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
@@ -8,13 +9,11 @@ import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { FIELD, LINK, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { ActivityType, type ContactRecord } from '../../lib/contact-record-api';
-import { ActivityForm } from '../record/activity-form';
 import { recordHref, writeErrorId, zoneName } from '../record/record-core';
 import { RecordLoading, RecordNotFound, RecordOfflineBanner, RecordUnavailable } from '../record/record-states';
 import { RecordTimeline, Value, type TimelineVocabulary } from '../record/record-timeline';
-import { ContactSheet } from './contact-sheet';
 import { StartScript } from '../script-run/start-script';
-import { CustomValuesPanel } from '../custom/custom-values';
+import { LazyCustomValuesPanel } from '../custom/lazy-panel';
 import { useCustomFields, type CustomContext } from '../custom/use-custom-fields';
 import {
   DETAILS,
@@ -27,6 +26,10 @@ import {
   type DetailKey,
 } from './record-model';
 import { useContactRecord, type ContactRecordState } from './use-contact-record';
+
+// Loaded when opened: neither the edit sheet nor the activity form is on the page's first paint.
+const ContactSheet = dynamic(() => import('./contact-sheet').then((module) => module.ContactSheet), { ssr: false });
+const ActivityForm = dynamic(() => import('../record/activity-form').then((module) => module.ActivityForm), { ssr: false });
 
 /**
  * `P05/01` — the contact record, the 360° view (T-0062), with `P05/02` (the
@@ -252,7 +255,7 @@ function Ready({
         </p>
       )}
 
-      <CustomValuesPanel t={t} locale={locale} fields={custom.fields} custom={record.custom} withheldFields={record.withheldFields} />
+      {custom.fields.length > 0 ? <LazyCustomValuesPanel t={t} locale={locale} fields={custom.fields} custom={record.custom} withheldFields={record.withheldFields} /> : null}
 
       <div role="group" aria-label={t.t('record.sections')} className="grid grid-cols-2 gap-1 rounded-md bg-surface-sunken p-1 md:hidden">
         {(['activity', 'details'] as const).map((which) => (

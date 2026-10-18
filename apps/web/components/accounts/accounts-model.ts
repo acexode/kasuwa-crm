@@ -1,5 +1,5 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
-import type { CustomFilters } from '../../lib/custom-values-model';
+import type { CustomFilters } from '../../lib/custom-values-filters';
 import {
   AccountSort,
   AccountTier,

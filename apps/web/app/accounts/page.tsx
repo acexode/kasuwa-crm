@@ -46,7 +46,7 @@ export default async function AccountsPage({
     <AccountsScreen
       key={initialQ === '' ? 'list' : `q:${crypto.randomUUID()}`}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(ACCOUNTS_MESSAGE_IDS, customFields), live))}
+      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(ACCOUNTS_MESSAGE_IDS, customFields, 'list'), live))}
       locales={languageOptions(locale)}
       live={live}
       customFields={customFields}

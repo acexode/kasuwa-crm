@@ -44,7 +44,7 @@ export default async function ContactsPage({
     <ContactsScreen
       key={initialQ === '' ? 'list' : `q:${crypto.randomUUID()}`}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(CONTACTS_MESSAGE_IDS, customFields), live))}
+      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(CONTACTS_MESSAGE_IDS, customFields, 'list'), live))}
       locales={languageOptions(locale)}
       live={live}
       initialQ={initialQ}

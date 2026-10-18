@@ -23,7 +23,7 @@ import {
 } from '../record/record-states';
 import { RecordTimeline, type TimelineVocabulary } from '../record/record-timeline';
 import { useOnline } from '../script-builder/use-online';
-import { CustomValuesPanel } from '../custom/custom-values';
+import { LazyCustomValuesPanel } from '../custom/lazy-panel';
 import { useCustomFields, type CustomContext } from '../custom/use-custom-fields';
 import { withheld, type MoveDealBody, type Pipeline } from '../../lib/pipelines-api';
 import {
@@ -517,7 +517,7 @@ function Ready({
           {announcement}
         </p>
 
-        <CustomValuesPanel t={t} locale={locale} fields={custom.fields} custom={deal.custom} withheldFields={deal.withheldFields} />
+        {custom.fields.length > 0 ? <LazyCustomValuesPanel t={t} locale={locale} fields={custom.fields} custom={deal.custom} withheldFields={deal.withheldFields} /> : null}
 
         <div className="grid min-w-0 items-start gap-4 md:grid-cols-3">
           <div className="flex min-w-0 flex-col gap-4">

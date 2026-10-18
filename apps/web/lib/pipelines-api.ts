@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { appendCustomFilters, type CustomFilters } from './custom-values-model';
+import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
 
 /**
  * The browser's half of the pipelines and deals operations in

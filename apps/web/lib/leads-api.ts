@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { appendCustomFilters, type CustomFilters } from './custom-values-model';
+import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
 import { Account } from './accounts-api';
 import { CONTACTS_PATH, Contact, requestRecords, type ContactSource, type RecordsResult } from './records-api';
 

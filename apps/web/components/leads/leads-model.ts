@@ -1,5 +1,5 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
-import { customErrorId, type CustomFilters } from '../../lib/custom-values-model';
+import { listRefusalId, type CustomFilters } from '../../lib/custom-values-filters';
 import type { Account } from '../../lib/accounts-api';
 import {
   LeadSort,
@@ -384,7 +384,7 @@ export function convertRefusal(error: RecordsError, mode: ConvertMode): MessageI
  * caller's filter to remove, so it has its own sentence.
  */
 export function leadListError(error: RecordsError | null): MessageId {
-  const refusedCustom = customErrorId(error);
+  const refusedCustom = listRefusalId(error);
   if (refusedCustom !== null) return refusedCustom;
   if (error?.details?.some((detail) => detail.code === 'field_withheld' && detail.path === 'status') === true) {
     return 'leads.error.statusWithheld';

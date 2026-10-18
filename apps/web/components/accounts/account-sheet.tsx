@@ -6,18 +6,11 @@ import { Icon } from '../icon';
 import { Dialog } from '../admin/dialog';
 import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from '../auth/button-classes';
 import { LockedValue } from '../records/list-parts';
-import {
-  CUSTOM_INVALID,
-  customErrorId,
-  customPatch,
-  draftOfCustom,
-  isCustomWithheld,
-  notEditableKeys,
-  rebaseCustomDraft,
-  type CustomDraft,
-} from '../../lib/custom-values-model';
+import { CUSTOM_INVALID, customErrorId, isCustomWithheld, notEditableKeys } from '../../lib/custom-values-core';
+import type { CustomChange, CustomDraft } from '../../lib/custom-values-model';
 import type { CustomField } from '../../lib/custom-values-api';
-import { CustomInputs } from '../custom/custom-inputs';
+import { LazyCustomInputs } from '../custom/lazy-inputs';
+import { useCustomModel } from '../custom/use-custom-model';
 import type { CustomContext } from '../custom/use-custom-fields';
 import { AccountTier, createAccount, updateAccount, type Account, type MyProgramme } from '../../lib/accounts-api';
 import type { RecordsError } from '../../lib/records-api';
@@ -65,6 +58,7 @@ import {
 
 const NO_KEYS: ReadonlySet<string> = new Set();
 const NO_FIELDS: readonly CustomField[] = [];
+const NO_CHANGE: CustomChange = { patch: null, invalid: [] };
 
 export type SheetMode = { readonly kind: 'create' } | { readonly kind: 'edit'; readonly row: Account };
 
@@ -115,26 +109,28 @@ export function AccountSheet({
   const formId = useId();
   const locked = lockedFormFields(row);
   const fields = mode.kind === 'edit' ? (custom?.fields ?? NO_FIELDS) : NO_FIELDS;
-  const [customDraft, setCustomDraft] = useState<CustomDraft>(() => draftOfCustom(fields, served?.custom));
+  const model = useCustomModel(fields.length > 0);
+  const [customDraft, setCustomDraft] = useState<CustomDraft>({});
   const [customInvalid, setCustomInvalid] = useState<readonly string[]>([]);
   // Never sent: a key withheld on THIS record, or one the API has said is read-only (C4, C10).
   const skip = new Set([
     ...(custom?.readOnly ?? []),
     ...fields.filter((field) => isCustomWithheld(row?.withheldFields ?? [], field.apiName)).map((field) => field.apiName),
   ]);
-  const changed = customPatch(fields, row?.custom, customDraft, skip);
+  const changed: CustomChange = model === null ? NO_CHANGE : model.customPatch(fields, row?.custom, customDraft, skip);
 
   // The definitions arrive after the sheet may have opened: seed the untouched keys from the record.
   useEffect(() => {
-    setCustomDraft((typed) => rebaseCustomDraft(fields, undefined, row?.custom, typed));
-    // Only a change of the definitions re-seeds.
-  }, [fields]);
+    if (model === null) return;
+    setCustomDraft((typed) => model.rebaseCustomDraft(fields, undefined, row?.custom, typed));
+    // Only a change of the definitions (or the model arriving) re-seeds.
+  }, [model, fields]);
 
   // A fresher row arrived (a re-read after a 409): rebase the edits onto it.
   useEffect(() => {
     if (served === null || row === null || served.version === row.version) return;
     const rebased = rebaseAccountForm(row, served, form);
-    setCustomDraft((typed) => rebaseCustomDraft(fields, row.custom, served.custom, typed));
+    if (model !== null) setCustomDraft((typed) => model.rebaseCustomDraft(fields, row.custom, served.custom, typed));
     setRow(served);
     setForm(rebased.form);
     setConflicts((held) => [...new Set([...held.filter((field) => rebased.edited.includes(field)), ...rebased.conflicts])]);
@@ -294,7 +290,8 @@ export function AccountSheet({
           {text('lga', 'accounts.filter.lga')}
         </div>
 
-        <CustomInputs
+        {model === null ? null : (
+        <LazyCustomInputs
           t={t}
           fields={fields}
           draft={customDraft}
@@ -304,6 +301,7 @@ export function AccountSheet({
           invalid={customInvalid}
           onChange={(key, value) => setCustomDraft((current) => ({ ...current, [key]: value }))}
         />
+        )}
 
         {refusal === null ? null : (
           <p role="alert" className="flex items-start gap-2 rounded-md bg-danger-soft p-3 text-body-sm text-danger-text">

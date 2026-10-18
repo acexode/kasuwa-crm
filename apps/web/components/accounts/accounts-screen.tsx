@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type RefObject } from 'react';
 import { createBundleTranslator, type MessageBundle, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
@@ -7,10 +8,10 @@ import { CrmShell } from '../crm/crm-shell';
 import { dropQueryFromAddressBar } from '../../lib/search-query';
 import type { LanguageOption } from '../auth/language-menu';
 import { PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
+import { ColumnChooser } from '../records/column-chooser';
 import { CHIP, CHIP_OFF, CHIP_ON, FOCUS, MENU_ROW, POPOVER } from '../records/list-classes';
 import {
   CheckMark,
-  ColumnChooser,
   FilterOptions,
   HeaderLock,
   ListError,
@@ -21,8 +22,8 @@ import {
   OfflineBanner,
 } from '../records/list-parts';
 import { formatPhone, initials, listState } from '../records/list-model';
-import { NO_CUSTOM_FILTERS, customErrorId, setCustomFilter } from '../../lib/custom-values-model';
-import { CustomFilterBar } from '../custom/custom-filters';
+import { filterableFields, NO_CUSTOM_FILTERS, listRefusalId, setCustomFilter } from '../../lib/custom-values-filters';
+import { LazyCustomFilterBar } from '../custom/lazy-filters';
 import { useCustomFields } from '../custom/use-custom-fields';
 import { useKeysetList, type KeysetList } from '../records/use-keyset-list';
 import { listAccounts, listMyProgrammes, type Account, type MyProgramme } from '../../lib/accounts-api';
@@ -54,7 +55,10 @@ import {
   type AccountFilterState,
   type AccountView,
 } from './accounts-model';
-import { AccountSheet, type SheetMode } from './account-sheet';
+import type { SheetMode } from './account-sheet';
+
+// Loaded when opened: the create and edit sheet is not on the list's first paint.
+const AccountSheet = dynamic(() => import('./account-sheet').then((module) => module.AccountSheet), { ssr: false });
 
 /**
  * `P04/03` — the Accounts list — with `P04/05` (empty, no results) and `P04/06`
@@ -350,12 +354,14 @@ export function AccountsScreen({
           </div>
         </div>
 
-        <CustomFilterBar
+        {filterableFields(custom.fields).length > 0 ? (
+        <LazyCustomFilterBar
           t={t}
           fields={custom.fields}
           filters={view.custom ?? NO_CUSTOM_FILTERS}
           onChange={(key, value) => setView((current) => ({ ...current, custom: setCustomFilter(current.custom ?? NO_CUSTOM_FILTERS, key, value) }))}
         />
+        ) : null}
 
         <Body
           t={t}
@@ -625,7 +631,7 @@ function Body({
       <ListError
         t={t}
         heading="accounts.error.title"
-        message={customErrorId(list.error) ?? listErrorMessage(list.error)}
+        message={listRefusalId(list.error) ?? listErrorMessage(list.error)}
         code={list.error?.code ?? 'network'}
         offline={offline}
         onRetry={list.reload}

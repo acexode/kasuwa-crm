@@ -7,8 +7,10 @@ import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from '../auth/button-classes';
 import type { RecordsError, RecordsResult } from '../../lib/records-api';
 import type { Activity, ActivityDraft, ActivityType } from '../../lib/contact-record-api';
 import { localToUtc, writeErrorId } from './record-core';
-import { CUSTOM_INVALID, customErrorId, customValues, notEditableKeys, type CustomDraft } from '../../lib/custom-values-model';
-import { CustomInputs } from '../custom/custom-inputs';
+import { CUSTOM_INVALID, customErrorId, notEditableKeys } from '../../lib/custom-values-core';
+import type { CustomDraft } from '../../lib/custom-values-model';
+import { LazyCustomInputs } from '../custom/lazy-inputs';
+import { useCustomModel } from '../custom/use-custom-model';
 import { useCustomFields } from '../custom/use-custom-fields';
 
 /**
@@ -53,6 +55,7 @@ export function ActivityForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<MessageId | null>(null);
   const custom = useCustomFields('activity', customFields);
+  const model = useCustomModel(custom.fields.length > 0);
   const [customDraft, setCustomDraft] = useState<CustomDraft>({});
   const [customInvalid, setCustomInvalid] = useState<readonly string[]>([]);
   const subjectRef = useRef<HTMLInputElement>(null);
@@ -77,7 +80,7 @@ export function ActivityForm({
       dueAt = utc;
     }
     // A create carries the filled values only: never a null, never an empty key.
-    const values = customValues(custom.fields, customDraft, custom.readOnly);
+    const values = model === null ? { patch: null, invalid: [] } : model.customValues(custom.fields, customDraft, custom.readOnly);
     setCustomInvalid(values.invalid);
     if (values.invalid.length > 0) {
       setError(CUSTOM_INVALID);
@@ -163,7 +166,8 @@ export function ActivityForm({
           />
         </div>
       ) : null}
-      <CustomInputs
+      {model === null ? null : (
+      <LazyCustomInputs
         t={t}
         fields={custom.fields}
         draft={customDraft}
@@ -172,6 +176,7 @@ export function ActivityForm({
         invalid={customInvalid}
         onChange={(key, value) => setCustomDraft((current) => ({ ...current, [key]: value }))}
       />
+      )}
       <p id={ids.hint} className="text-caption text-text-muted">
         {t.t('record.form.hint')}
       </p>

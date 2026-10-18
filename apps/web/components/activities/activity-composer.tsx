@@ -9,8 +9,10 @@ import { isUuid, writeErrorId } from '../record/record-core';
 import { hasDetail, listContacts, type RecordsResult } from '../../lib/records-api';
 import { listAccounts } from '../../lib/accounts-api';
 import type { ComposeTarget, ComposedActivity, WrittenActivity } from '../../lib/activities-api';
-import { CUSTOM_INVALID, customErrorId, customValues, notEditableKeys, type CustomDraft } from '../../lib/custom-values-model';
-import { CustomInputs } from '../custom/custom-inputs';
+import { CUSTOM_INVALID, customErrorId, notEditableKeys } from '../../lib/custom-values-core';
+import type { CustomDraft } from '../../lib/custom-values-model';
+import { LazyCustomInputs } from '../custom/lazy-inputs';
+import { useCustomModel } from '../custom/use-custom-model';
 import { useCustomFields } from '../custom/use-custom-fields';
 import { ActivityDialog } from './activity-dialog';
 import { localToUtc, meetingRule, meetingRuleLabel } from './activities-model';
@@ -74,6 +76,7 @@ export function ActivityComposer({
   const [alert, setAlert] = useState<MessageId | null>(null);
   const [saving, setSaving] = useState(false);
   const custom = useCustomFields('activity', customFields);
+  const model = useCustomModel(custom.fields.length > 0);
   const [customDraft, setCustomDraft] = useState<CustomDraft>({});
   const [customInvalid, setCustomInvalid] = useState<readonly string[]>([]);
   const searchSeq = useRef(0);
@@ -174,7 +177,7 @@ export function ActivityComposer({
       setErrors(outcome.errors);
       return;
     }
-    const values = customValues(custom.fields, customDraft, custom.readOnly);
+    const values = model === null ? { patch: null, invalid: [] } : model.customValues(custom.fields, customDraft, custom.readOnly);
     setCustomInvalid(values.invalid);
     if (values.invalid.length > 0) {
       setAlert(CUSTOM_INVALID);
@@ -372,7 +375,8 @@ export function ActivityComposer({
             </div>
           )}
 
-        <CustomInputs
+        {model === null ? null : (
+        <LazyCustomInputs
           t={t}
           fields={custom.fields}
           draft={customDraft}
@@ -381,6 +385,7 @@ export function ActivityComposer({
           invalid={customInvalid}
           onChange={(key, value) => setCustomDraft((current) => ({ ...current, [key]: value }))}
         />
+        )}
 
         <p id={ids.owner} className="text-caption text-text-muted">
           {t.t('activities.compose.owner')}

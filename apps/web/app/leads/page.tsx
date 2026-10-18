@@ -46,7 +46,7 @@ export default async function LeadsPage({
     <LeadsScreen
       key={initialQ === '' ? 'list' : `q:${crypto.randomUUID()}`}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(LEADS_MESSAGE_IDS, customFields), live))}
+      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(LEADS_MESSAGE_IDS, customFields, 'list'), live))}
       locales={languageOptions(locale)}
       live={live}
       initialQ={initialQ}

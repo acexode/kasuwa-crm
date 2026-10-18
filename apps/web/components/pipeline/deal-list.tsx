@@ -16,8 +16,8 @@ import {
   type Pipeline,
   type PipelineError,
 } from '../../lib/pipelines-api';
-import { NO_CUSTOM_FILTERS, customErrorId, setCustomFilter, type CustomFilters } from '../../lib/custom-values-model';
-import { CustomFilterBar } from '../custom/custom-filters';
+import { filterableFields, NO_CUSTOM_FILTERS, listRefusalId, setCustomFilter, type CustomFilters } from '../../lib/custom-values-filters';
+import { LazyCustomFilterBar } from '../custom/lazy-filters';
 import { useCustomFields } from '../custom/use-custom-fields';
 import { errorMessage, filtersKey, isDealSort, sortLabel, stageById } from './pipeline-model';
 import { AmountValue, CloseValue, OwnerValue, lockedProps } from './pipeline-parts';
@@ -124,12 +124,14 @@ export function DealList({
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-end justify-end gap-3">
-        <CustomFilterBar
+        {filterableFields(definitions.fields).length > 0 ? (
+        <LazyCustomFilterBar
           t={t}
           fields={definitions.fields}
           filters={customFilters}
           onChange={(key, value) => setCustomFilters((current) => setCustomFilter(current, key, value))}
         />
+        ) : null}
         <label className="flex flex-col gap-1 text-body-sm font-semibold">
           {t.t('pipeline.sort.label')}
           <select
@@ -168,7 +170,7 @@ export function DealList({
             <Icon name="error" size="sm" />
             {t.t('pipeline.list.error')}
           </p>
-          <p>{t.t(customErrorId(error) ?? errorMessage(error ?? { status: 0, code: 'network', details: [] }, 'read'))}</p>
+          <p>{t.t(listRefusalId(error) ?? errorMessage(error ?? { status: 0, code: 'network', details: [] }, 'read'))}</p>
           <button type="button" data-requires-connection="" disabled={!online} onClick={() => setRetry((current) => current + 1)} className={QUIET_BUTTON}>
             {t.t('records.retry')}
           </button>

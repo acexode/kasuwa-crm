@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useId, useRef, useState, type ReactNode } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
@@ -7,9 +8,7 @@ import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { LINK, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
-import { AccountSheet } from '../accounts/account-sheet';
-import { ActivityForm } from '../record/activity-form';
-import { CustomValuesPanel } from '../custom/custom-values';
+import { LazyCustomValuesPanel } from '../custom/lazy-panel';
 import { useCustomFields, type CustomContext } from '../custom/use-custom-fields';
 import { recordHref, writeErrorId, zoneName } from '../record/record-core';
 import { RecordLoading, RecordNotFound, RecordOfflineBanner, RecordUnavailable } from '../record/record-states';
@@ -29,6 +28,10 @@ import {
   type Hierarchy,
 } from './account-record-model';
 import { useAccountRecord, type AccountRecordState } from './use-account-record';
+
+// Loaded when opened: neither the edit sheet nor the activity form is on the page's first paint.
+const AccountSheet = dynamic(() => import('../accounts/account-sheet').then((module) => module.AccountSheet), { ssr: false });
+const ActivityForm = dynamic(() => import('../record/activity-form').then((module) => module.ActivityForm), { ssr: false });
 
 /**
  * `P05/04` — the account record (T-0063), with the P05/05 (field security,
@@ -217,7 +220,7 @@ function Ready({
         </p>
       )}
 
-      <CustomValuesPanel t={t} locale={locale} fields={custom.fields} custom={record.custom} withheldFields={record.withheldFields} />
+      {custom.fields.length > 0 ? <LazyCustomValuesPanel t={t} locale={locale} fields={custom.fields} custom={record.custom} withheldFields={record.withheldFields} /> : null}
 
       <div className="grid min-w-0 items-start gap-4 md:grid-cols-3">
         <div className="flex min-w-0 flex-col gap-4">

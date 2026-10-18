@@ -19,18 +19,11 @@ import {
   type EditKey,
 } from './record-model';
 import { writeErrorId } from '../record/record-core';
-import {
-  CUSTOM_INVALID,
-  customErrorId,
-  customPatch,
-  draftOfCustom,
-  isCustomWithheld,
-  notEditableKeys,
-  rebaseCustomDraft,
-  type CustomDraft,
-} from '../../lib/custom-values-model';
+import { CUSTOM_INVALID, customErrorId, isCustomWithheld, notEditableKeys } from '../../lib/custom-values-core';
+import type { CustomChange, CustomDraft } from '../../lib/custom-values-model';
 import type { CustomField } from '../../lib/custom-values-api';
-import { CustomInputs } from '../custom/custom-inputs';
+import { LazyCustomInputs } from '../custom/lazy-inputs';
+import { useCustomModel } from '../custom/use-custom-model';
 import type { CustomContext } from '../custom/use-custom-fields';
 
 /**
@@ -56,6 +49,7 @@ import type { CustomContext } from '../custom/use-custom-fields';
 
 const NO_KEYS: ReadonlySet<string> = new Set();
 const NO_FIELDS: readonly CustomField[] = [];
+const NO_CHANGE: CustomChange = { patch: null, invalid: [] };
 
 const TEXT_KEYS = new Set<EditKey>(['displayName', 'givenNames', 'familyName', 'state', 'lga', 'tags']);
 const LIST_KEYS: Partial<Record<EditKey, MessageId>> = {
@@ -93,27 +87,29 @@ export function ContactSheet({
   const keys = editableKeys(base);
   const { body: standard, invalid } = saveBody(base, draft);
   const fields = custom?.fields ?? NO_FIELDS;
-  const [customDraft, setCustomDraft] = useState<CustomDraft>(() => draftOfCustom(fields, record.custom));
+  const model = useCustomModel(fields.length > 0);
+  const [customDraft, setCustomDraft] = useState<CustomDraft>({});
   const [customInvalid, setCustomInvalid] = useState<readonly string[]>([]);
   // Never sent: a key withheld on THIS record, or one the API has said is read-only (C4, C10).
   const skip = new Set([
     ...(custom?.readOnly ?? []),
     ...fields.filter((field) => isCustomWithheld(base.withheldFields, field.apiName)).map((field) => field.apiName),
   ]);
-  const changed = customPatch(fields, base.custom, customDraft, skip);
+  const changed: CustomChange = model === null ? NO_CHANGE : model.customPatch(fields, base.custom, customDraft, skip);
   const body = changed.patch === null ? standard : { ...(standard ?? { version: base.version }), custom: changed.patch };
 
   // The definitions arrive after the sheet may have opened: seed the untouched keys from the record.
   useEffect(() => {
-    setCustomDraft((typed) => rebaseCustomDraft(fields, undefined, base.custom, typed));
-    // Only a change of the definitions re-seeds.
-  }, [fields]);
+    if (model === null) return;
+    setCustomDraft((typed) => model.rebaseCustomDraft(fields, undefined, base.custom, typed));
+    // Only a change of the definitions (or the model arriving) re-seeds.
+  }, [model, fields]);
 
   // A fresher record arrived (the re-read after a 409): rebase the edits onto it.
   useEffect(() => {
     if (record.version === base.version) return;
     const rebased = rebaseDraft(base, record, draft);
-    setCustomDraft((typed) => rebaseCustomDraft(fields, base.custom, record.custom, typed));
+    if (model !== null) setCustomDraft((typed) => model.rebaseCustomDraft(fields, base.custom, record.custom, typed));
     setBase(record);
     setDraft(rebased.form);
     setConflicts((held) => [...new Set([...held.filter((key) => rebased.edited.includes(key)), ...rebased.conflicts])]);
@@ -282,7 +278,8 @@ export function ContactSheet({
             ) : null}
           </div>
         ))}
-        <CustomInputs
+        {model === null ? null : (
+        <LazyCustomInputs
           t={t}
           fields={fields}
           draft={customDraft}
@@ -292,6 +289,7 @@ export function ContactSheet({
           invalid={customInvalid}
           onChange={(key, value) => setCustomDraft((current) => ({ ...current, [key]: value }))}
         />
+        )}
       </form>
     </Dialog>
   );
