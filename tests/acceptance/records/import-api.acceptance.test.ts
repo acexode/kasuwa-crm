@@ -130,6 +130,13 @@ import { collectTelemetry } from '../support/telemetry';
  *     upload the bucket holds open for the object's key, is never in an
  *     answer, and complete uses the STORED id (a body naming one is 400; a
  *     tampered stored id fails complete: the isolation suite).
+ *     D-L166 ruling 3: an S3 UploadPart URL must carry `uploadId=` in its
+ *     SIGNED query, so the query strings of the part URLs are exempt, and
+ *     only they. The id is in no other field, header or body of any answer
+ *     (success or error), and complete and abort never take one from the
+ *     client, in the body or the query: sending one is refused or ignored,
+ *     and the server acts on the upload stored on the job, never the one
+ *     named.
  * R4  Reads. getImport and listImports need `contact.import` in the import's
  *     programme and are NOT creator-only: another holder of the right reads
  *     the job. A programme member without the right gets 404 on every
@@ -643,6 +650,36 @@ function expectNoStore(response: request.Response, where: string): void {
   expect(String(response.headers['cache-control'] ?? ''), `${where}: Cache-Control`).toMatch(/no-store/);
 }
 
+/**
+ * A copy of an answer with the query string cut from every part URL (D-L166
+ * ruling 3: S3 signs `uploadId=` into an UploadPart URL, so that query, and
+ * only that, may carry the upload id). The path stays: it is still checked.
+ */
+function withoutPartQueries(body: unknown): unknown {
+  const copy = JSON.parse(JSON.stringify(body ?? null)) as unknown;
+  const parts = (copy as Json | null)?.parts;
+  if (Array.isArray(parts)) {
+    for (const part of parts as Json[]) {
+      if (typeof part.url === 'string') {
+        const url = new URL(part.url);
+        part.url = `${url.origin}${url.pathname}`;
+      }
+    }
+  }
+  return copy;
+}
+
+/** The upload id, raw or URL-encoded, is in no field and no header of an answer, part URLs' query strings aside (R3). */
+function expectNoUploadId(uploadId: string, body: unknown, headers: Record<string, unknown>, where: string): void {
+  // Guard against a vacuous check: an id like "null" or "" would match or miss for the wrong reason.
+  expect(uploadId, `${where}: not a real upload id`).toMatch(/^[^\s]{8,}$/);
+  const text = JSON.stringify(withoutPartQueries(body));
+  for (const form of new Set([uploadId, encodeURIComponent(uploadId)])) {
+    expect(text, `${where}: the upload id is in the body`).not.toContain(form);
+    expect(JSON.stringify(headers), `${where}: the upload id is in a header`).not.toContain(form);
+  }
+}
+
 interface UploadPart {
   partNumber: number;
   url: string;
@@ -1114,8 +1151,8 @@ describe('acceptance: the import API and job (T-0094)', () => {
 
     it('every FK on import_job carries tenant_id; the object FK carries the programme; the creator FK points at "user"', async () => {
       const fks = await observer.query<{ cols: string[]; target: string; target_cols: string[] }>(
-        `SELECT array_agg(a.attname ORDER BY k.n) AS cols, c.confrelid::regclass::text AS target,
-                array_agg(fa.attname ORDER BY k.n) AS target_cols
+        `SELECT array_agg(a.attname ORDER BY k.n)::text[] AS cols, c.confrelid::regclass::text AS target,
+                array_agg(fa.attname ORDER BY k.n)::text[] AS target_cols
            FROM pg_constraint c
            CROSS JOIN LATERAL unnest(c.conkey, c.confkey) WITH ORDINALITY AS k(col, fcol, n)
            JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.col
@@ -1141,7 +1178,7 @@ describe('acceptance: the import API and job (T-0094)', () => {
       );
       expect(column.rows).toEqual([{ type: 'uuid', notnull: false, default: null }]);
       const fk = await observer.query<{ cols: string[]; target_cols: string[] }>(
-        `SELECT array_agg(a.attname ORDER BY k.n) AS cols, array_agg(fa.attname ORDER BY k.n) AS target_cols
+        `SELECT array_agg(a.attname ORDER BY k.n)::text[] AS cols, array_agg(fa.attname ORDER BY k.n)::text[] AS target_cols
            FROM pg_constraint c
            CROSS JOIN LATERAL unnest(c.conkey, c.confkey) WITH ORDINALITY AS k(col, fcol, n)
            JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.col
@@ -1268,9 +1305,16 @@ describe('acceptance: the import API and job (T-0094)', () => {
       expect(await seaweed.listUploadDirectories(), 'the stored upload id is not an open upload in the bucket').toContain(job.upload_id);
       const object = await storedObject(job.stored_object_id);
       expect(object).toEqual({ status: 'pending', programme_id: PROGRAMME_A1, declared_size_bytes: String(bytes.length) });
-      expect(JSON.stringify(upload), 'the upload id is in an answer').not.toContain(String(job.upload_id));
+      const uploadId = String(job.upload_id);
+      // D-L166 ruling 3: the part URLs' query strings are exempt (S3 signs
+      // `uploadId=` into them), and they are for THE stored upload.
+      for (const part of upload.parts) {
+        expect(new URL(part.url).searchParams.get('uploadId'), `part ${part.partNumber}: not a part URL for the stored upload`).toBe(uploadId);
+      }
+      expectNoUploadId(uploadId, upload, {}, 'createImport, outside the part URLs’ query strings');
       const read = await get(IMPORTER, importPath(upload.importId));
-      expect(read.text, 'the upload id is in getImport').not.toContain(String(job.upload_id));
+      expectNoUploadId(uploadId, read.body, read.headers, 'getImport');
+      expect(read.text, 'the upload id is in getImport').not.toContain(uploadId);
     });
 
     it('audits `created` on import_job by id, actor the creator, naming no filename', async () => {
@@ -1432,7 +1476,10 @@ describe('acceptance: the import API and job (T-0094)', () => {
       // D-L160 ruling 3: the 7-day timer starts at a successful complete.
       const sevenDay = await retentionJobWithDelay(importId, 7 * DAY);
       expect(sevenDay.data).toEqual({ tenantId: TENANT_A, userId: USER_A_AGENT_1, importId });
-      const entries = await seaweed.listEntries(`tenant/${TENANT_A}/programme/${PROGRAMME_A1}/import/`);
+      // D-L166 item 2: only this import's own key. Earlier tests' objects
+      // stay in the bucket (reseed does not touch it), so the A1 import
+      // prefix as a whole depends on test order.
+      const entries = await seaweed.listEntries(keyOf(job));
       expect(entries.map((e) => e.key)).toEqual([keyOf(job)]);
       const tags = Object.entries(entries[0]?.extended ?? {}).map(([name, value]) => `${name}=${Buffer.from(value, 'base64').toString('utf8')}`);
       expect(tags.some((tag) => /kasuwa-purpose=import$/i.test(tag) || /kasuwa-purpose.*=import$/i.test(tag)), `no lifecycle tag on the object: ${JSON.stringify(tags)}`).toBe(true);
@@ -1481,6 +1528,107 @@ describe('acceptance: the import API and job (T-0094)', () => {
       const twice = await post(IMPORTER, importPath(upload.importId, '/complete'), { parts: etags });
       expectError(twice, 409, 'import_status_conflict', 'complete twice');
     });
+
+    it('the upload id is in no field, header or body of any answer but the part URLs’ query strings: create, re-issue, errors, complete, reads, abort (R3, D-L166)', async () => {
+      const bytes = filler(MIN_PART + 1024);
+      const created = await post(IMPORTER, '/api/v1/imports', { programmeId: PROGRAMME_A1, filename: FILE, sizeBytes: bytes.length, contentType: 'text/csv' });
+      expect(created.status, created.text).toBe(201);
+      const upload = created.body as ImportUpload;
+      expect(upload.parts.length).toBe(2);
+      const uploadId = String((await jobRow(upload.importId)).upload_id);
+      expectNoUploadId(uploadId, created.body, created.headers, 'createImport');
+      const reissue = await post(IMPORTER, importPath(upload.importId, '/upload-urls'), { partNumbers: [2] });
+      expect(reissue.status, reissue.text).toBe(200);
+      for (const part of (reissue.body as ImportUpload).parts) {
+        expect(new URL(part.url).searchParams.get('uploadId'), 'a re-issued URL is not for the stored upload').toBe(uploadId);
+      }
+      expectNoUploadId(uploadId, reissue.body, reissue.headers, 'issueImportUploadUrls');
+      const refused = await post(IMPORTER, importPath(upload.importId, '/complete'), { parts: [{ partNumber: 9, etag: 'x' }] });
+      expectError(refused, 400, 'validation_failed', 'a malformed complete');
+      expectNoUploadId(uploadId, refused.body, refused.headers, 'a refused complete');
+      const late = await post(IMPORTER, importPath(upload.importId, '/run'));
+      expect(late.status, 'run before the upload is complete').toBeGreaterThanOrEqual(400);
+      expectNoUploadId(uploadId, late.body, late.headers, 'a refused run');
+      const etags = await putParts(upload.parts, bytes);
+      const done = await post(IMPORTER, importPath(upload.importId, '/complete'), { parts: etags });
+      expect(done.status, done.text).toBe(202);
+      expectNoUploadId(uploadId, done.body, done.headers, 'completeImportUpload');
+      const read = await get(IMPORTER, importPath(upload.importId));
+      expectNoUploadId(uploadId, read.body, read.headers, 'getImport');
+      const list = await get(IMPORTER, '/api/v1/imports?limit=50');
+      expect(list.status, list.text).toBe(200);
+      expectNoUploadId(uploadId, list.body, list.headers, 'listImports');
+
+      const other = await createImport(IMPORTER, PROGRAMME_A1, csv([['Name'], ['zqabort']]));
+      const otherId = String((await jobRow(other.importId)).upload_id);
+      const aborted = await post(IMPORTER, importPath(other.importId, '/abort'));
+      expect(aborted.status, aborted.text).toBe(200);
+      expectNoUploadId(otherId, aborted.body, aborted.headers, 'abortImportUpload');
+      const after = await post(IMPORTER, importPath(other.importId, '/abort'));
+      expectError(after, 409, 'import_status_conflict', 'abort twice');
+      expectNoUploadId(otherId, after.body, after.headers, 'a refused abort');
+    }, 60_000);
+
+    it('complete and abort never take an upload id from the client: one named in the query or the body is refused or ignored, and only the STORED upload is acted on (R3, D-L166)', async () => {
+      const bytes = csv([['Name'], ['zqmine']]);
+      const isOpen = async (id: string) => (await seaweed.listUploadDirectories()).includes(id);
+      // The decoy is a real open upload the same creator could legitimately
+      // complete: the strongest id a client could name instead of its own.
+      const decoy = await createImport(IMPORTER, PROGRAMME_A1, bytes);
+      const decoyRow = await jobRow(decoy.importId);
+      const decoyId = String(decoyRow.upload_id);
+      const decoyTags = await putParts(decoy.parts, bytes);
+      const named = (via: 'query' | 'body', id: string, tail: '/complete' | '/abort', body?: Json) =>
+        via === 'query'
+          ? post(IMPORTER, `${importPath(id, tail)}?uploadId=${enc(decoyId)}`, body)
+          : post(IMPORTER, importPath(id, tail), { ...(body ?? {}), uploadId: decoyId });
+
+      for (const via of ['query', 'body'] as const) {
+        // complete
+        const mine = await createImport(IMPORTER, PROGRAMME_A1, bytes);
+        const before = await jobRow(mine.importId);
+        const mineId = String(before.upload_id);
+        expect(mineId, 'two imports share an upload id').not.toBe(decoyId);
+        const etags = await putParts(mine.parts, bytes);
+        const response = await named(via, mine.importId, '/complete', { parts: etags });
+        if (response.status < 300) {
+          expect(response.status, `complete naming an upload id in the ${via}: ignored, so the plain 202`).toBe(202);
+          expect((await seaweed.listEntries(keyOf(before))).map((e) => e.size), `complete (${via}): the stored upload was not the one completed`).toEqual([bytes.length]);
+        } else {
+          expect(response.status, `complete naming an upload id in the ${via}: ${response.text}`).toBeLessThan(500);
+          const row = await jobRow(mine.importId);
+          expect(row.status, `complete (${via}) refused, yet the job moved`).toBe('awaiting_upload');
+          expect(row.upload_id, `complete (${via}) refused, yet the stored id changed`).toBe(mineId);
+          expect(await isOpen(mineId), `complete (${via}) refused, yet the stored upload closed`).toBe(true);
+          expect(await seaweed.listEntries(keyOf(before))).toEqual([]);
+          expect((await post(IMPORTER, importPath(mine.importId, '/complete'), { parts: etags })).status, 'the plain complete after the refusal').toBe(202);
+        }
+        expectNoUploadId(decoyId, response.body, response.headers, `complete naming the decoy in the ${via}`);
+        expect(await isOpen(decoyId), `complete (${via}) touched the named upload`).toBe(true);
+        expect(await seaweed.listEntries(keyOf(decoyRow)), `complete (${via}) completed the named upload`).toEqual([]);
+
+        // abort
+        const victim = await createImport(IMPORTER, PROGRAMME_A1, bytes);
+        const victimId = String((await jobRow(victim.importId)).upload_id);
+        const abort = await named(via, victim.importId, '/abort');
+        if (abort.status < 300) {
+          expect(abort.status, `abort naming an upload id in the ${via}: ignored, so the plain 200`).toBe(200);
+          expect(await isOpen(victimId), `abort (${via}): the stored upload is still open`).toBe(false);
+        } else {
+          expect(abort.status, `abort naming an upload id in the ${via}: ${abort.text}`).toBeLessThan(500);
+          expect((await jobRow(victim.importId)).status, `abort (${via}) refused, yet the job moved`).toBe('awaiting_upload');
+          expect(await isOpen(victimId), `abort (${via}) refused, yet the stored upload closed`).toBe(true);
+          expect((await post(IMPORTER, importPath(victim.importId, '/abort'))).status, 'the plain abort after the refusal').toBe(200);
+          expect(await isOpen(victimId)).toBe(false);
+        }
+        expectNoUploadId(decoyId, abort.body, abort.headers, `abort naming the decoy in the ${via}`);
+        expect(await isOpen(decoyId), `abort (${via}) aborted the named upload`).toBe(true);
+      }
+      expect((await jobRow(decoy.importId)).status).toBe('awaiting_upload');
+      const decoyDone = await post(IMPORTER, importPath(decoy.importId, '/complete'), { parts: decoyTags });
+      expect(decoyDone.status, `the decoy's own complete: ${decoyDone.text}`).toBe(202);
+      expect((await seaweed.listEntries(keyOf(decoyRow))).map((e) => e.size)).toEqual([bytes.length]);
+    }, 120_000);
 
     it('abort is 200 `cancelled`: the open upload is gone, nothing is in the bucket, later writes are 409, retention is queued', async () => {
       const bytes = filler(MIN_PART + 1024);
