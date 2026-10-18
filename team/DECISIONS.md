@@ -3526,3 +3526,23 @@ import-isolation has 20. Interfaces A–F and rulings R1–R16 and I1–I6 are a
 - **Before T-0100 ships a consumer:** an NDPA note is needed on BullMQ's failed set keeping identifiers indefinitely
   (D-L128 Q5).
 - **T-0098 is on @acexode's personal-review list (D-A3):** a new LOGIN role, RLS and a migration.
+
+### D-L162 — T-0095 build rulings (lead, 2026-10-18)
+**Status:** PROCEEDING (lead). The build on `agent3/T-0095-merge-api` passes 60 of 62 contact-merge tests, plus the
+tenancy folder, the record API suites, integration and unit.
+- **M8 latency** measured 485–525 ms against 150 ms, on a host with load average 11–16. It is re-measured on the quiet
+  Windows runner. If it is still over, `SET LOCAL work_mem` (bounded at 64 MB) is allowed for that one statement. No new
+  table without escalation (D-L146).
+- **The "does not stop offboarding" test is wrong:** audit_event's programme FK predates this. A lead edit deletes
+  through the tenant, or plants the merge row directly.
+- **records-contract-import:** the five duplicates and merge operations flip to implemented, by lead edit.
+- **Hiding merged contacts on reads is application-layer only.** Every read path has the repository predicate, and the
+  database guards writes with triggers. A database read layer needs a new `app.*` setting or a third SECURITY DEFINER
+  function, both of which need an ADR (CLAUDE.md 2.7). Accepted for Phase 2; a follow-up ADR covers it.
+- **Accepted:**
+  - the duplicates cursor carries an integer ordinal, never a matched value;
+  - choosing `survivor` for a non-editable field is 403;
+  - the audit change list caps at 64 field names.
+- **Before `crm_duplicates` is shown:** the web audit screen and its labels learn `merged` and `restored` (Agent 11,
+  with T-0097).
+- **Process:** the session usage limit hit twice today with about 10 agents running. Fewer parallel agents from here.
