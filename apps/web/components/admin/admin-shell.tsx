@@ -6,8 +6,7 @@ import { createBundleTranslator, type MessageBundle, type MessageId } from '@kas
 import { Icon } from '../icon';
 import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
 import { LiteModeToggle } from '../auth/lite-mode';
-import { useFlaggedSettingIds } from './admin-nav-links';
-import { FLAGGED_NAV_HREFS, NAV_GROUPS, filterNav, type NavGroup } from './nav-model';
+import { NAV_GROUPS, filterNav, type NavGroup } from './nav-model';
 import { getHomeSummary, getSettingsMenuBadges, type Severity } from '../../lib/admin-api';
 import { useResource } from './use-resource';
 
@@ -45,6 +44,7 @@ export function AdminShell({
   messages,
   locales,
   activeSettingId,
+  linkedSettings,
   children,
 }: {
   locale: string;
@@ -52,6 +52,14 @@ export function AdminShell({
   locales: readonly LanguageOption[];
   /** Which settings-menu item is the current page, for `aria-current`. */
   activeSettingId: string | null;
+  /**
+   * The flag-gated menu entries that are links in this process, by `settingId`
+   * (`adminLiveNav()`, read on the server by each page). An entry whose screen
+   * is off stays a non-link, like an unbuilt one, so no menu entry leads to a
+   * 404. A prop and not a layout or a context: a layout is a chunk of its own,
+   * and every admin route would pay a request for it on a 256 kbps link.
+   */
+  linkedSettings: Readonly<Record<string, string>>;
   children: ReactNode;
 }) {
   const t = createBundleTranslator(locale, messages);
@@ -68,7 +76,6 @@ export function AdminShell({
   const drawerButtonRef = useRef<HTMLButtonElement>(null);
 
   const badges = useResource((signal) => getSettingsMenuBadges(signal), []);
-  const flaggedLinks = useFlaggedSettingIds();
 
   /**
    * The residency badge is read by the SHELL, not passed in, because it is on
@@ -259,22 +266,19 @@ export function AdminShell({
                       }`;
 
                       // A flag-gated screen is a link only where its flag is on.
-                      const href =
-                        item.href ??
-                        (flaggedLinks.includes(item.settingId)
-                          ? (FLAGGED_NAV_HREFS[item.settingId] ?? null)
-                          : null);
+                      const href = item.href || linkedSettings[item.settingId] || null;
 
                       return href === null ? (
                         // Not built yet, so not a link. A menu entry that
                         // navigates to a 404 is worse than one that visibly
                         // does nothing — same rule as the language menu. It is
-                        // also not announced: a greyed-out entry that does
-                        // nothing is a promise only sighted users can read.
+                        // also not announced (hidden from assistive technology,
+                        // so it carries no disabled state either): a greyed-out
+                        // entry that does nothing is a promise only sighted
+                        // users can read.
                         <span
                           key={item.settingId}
                           data-setting-id={item.settingId}
-                          aria-disabled="true"
                           aria-hidden="true"
                           className={`${className} text-text-muted`}
                         >

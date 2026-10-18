@@ -28,16 +28,18 @@ export function StudioScreen({
   locale,
   messages,
   locales,
+  linkedSettings,
 }: {
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
+  linkedSettings: Readonly<Record<string, string>>;
 }) {
   const t = createBundleTranslator(locale, messages);
   const [object, setObject] = useState<CustomFieldObject>('contact');
 
   return (
-    <AdminShell locale={locale} messages={messages} locales={locales} activeSettingId="cu-fields">
+    <AdminShell locale={locale} messages={messages} locales={locales} linkedSettings={linkedSettings} activeSettingId="cu-fields">
       <div data-screen="P18/B" className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <span className="text-body-sm font-semibold text-text-muted">{t.t('admin.studio.custom.eyebrow')}</span>

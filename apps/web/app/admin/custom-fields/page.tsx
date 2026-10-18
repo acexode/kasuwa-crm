@@ -3,6 +3,7 @@ import { bundleMessages } from '@kasuwa/i18n';
 import { ADMIN_STUDIO_MESSAGE_IDS } from '../../../components/admin/custom-fields/message-ids';
 import { StudioScreen } from '../../../components/admin/custom-fields/studio-screen';
 import { crmCustomFieldsEnabled } from '../../../lib/feature-flags';
+import { adminLiveNav } from '../../../components/admin/live-nav';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
 /**
@@ -16,12 +17,14 @@ import { activeLocale, languageOptions } from '../../../lib/locale';
 export default async function CustomFieldsPage() {
   if (!(await crmCustomFieldsEnabled())) notFound();
   const { locale } = await activeLocale();
+  const linkedSettings = await adminLiveNav();
 
   return (
     <StudioScreen
       locale={locale}
       messages={bundleMessages(locale, ADMIN_STUDIO_MESSAGE_IDS)}
       locales={languageOptions(locale)}
+      linkedSettings={linkedSettings}
     />
   );
 }

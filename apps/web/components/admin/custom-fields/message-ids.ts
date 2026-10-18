@@ -6,11 +6,13 @@ import { ADMIN_SHELL_MESSAGE_IDS } from '../message-ids';
  * (the same rule as `../message-ids.ts`: no `'use client'` here, ever, and only
  * what the screen asks for crosses the wire).
  *
- * The shell's bundle already carries every `admin.error.<code>` the four
- * custom-field operations can answer, `admin.error.limit_reached` included.
+ * `admin.error.limit_reached` is here and not in the shell's bundle: only a
+ * custom-field write can answer it, and every other admin route would pay for
+ * the string on a 256 kbps link.
  */
 export const ADMIN_STUDIO_MESSAGE_IDS: readonly MessageId[] = [
   ...ADMIN_SHELL_MESSAGE_IDS,
+  'admin.error.limit_reached',
   'admin.studio.custom.eyebrow',
   'admin.studio.custom.title',
   'admin.studio.custom.intro',

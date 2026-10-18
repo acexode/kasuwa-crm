@@ -374,17 +374,16 @@ export type AuditEventList = z.infer<typeof AuditEventList>;
 // Transport
 // ---------------------------------------------------------------------------
 
-export async function request<T>(
+async function request<T>(
   method: string,
   path: string,
   schema: z.ZodType<T>,
-  init: { body?: unknown; signal?: AbortSignal; noStore?: boolean } = {},
+  init: { body?: unknown; signal?: AbortSignal } = {},
 ): Promise<Result<T>> {
   let response: Response;
   try {
     response = await fetch(path, {
       method,
-      ...(init.noStore === true ? { cache: 'no-store' as const } : {}),
       ...(init.body === undefined
         ? {}
         : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(init.body) }),

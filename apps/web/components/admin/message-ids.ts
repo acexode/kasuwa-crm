@@ -58,7 +58,6 @@ export const ADMIN_SHELL_MESSAGE_IDS: readonly MessageId[] = [
   'admin.error.legal_hold_active',
   'admin.error.too_many_requests',
   'admin.error.service_unavailable',
-  'admin.error.limit_reached',
   'admin.error.not_implemented',
   'admin.error.internal_error',
   'admin.error.network',

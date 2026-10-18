@@ -245,9 +245,8 @@ export async function crmSearchEnabled(): Promise<boolean> {
  * `crm_custom_fields` (T-0090, D-L128) gates the P18 customisation studio —
  * `/admin/custom-fields` calls `notFound()` while it is off, so typing the path
  * gets a real 404 and nothing of the screen ships — and the settings menu's
- * "Fields" entry, which links the studio only where this is on (the admin
- * layout reads it and hands the menu a list of setting ids). No client module
- * names it.
+ * "Fields" entry, which links the studio only where this is on
+ * (`adminLiveNav()`, read by each admin page). No client module names it.
  *
  * Per process, like the others. It grants nothing: the four custom-field
  * operations are decided by the API from the session, and every write needs

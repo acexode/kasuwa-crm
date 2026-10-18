@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { request, type Result } from './admin-api';
+import { ApiError, NETWORK_FAILURE, type Result } from './admin-api';
 
 /**
  * The browser's half of the custom-field operations in
@@ -80,6 +80,43 @@ export const CustomFieldList = z.object({
 });
 export type CustomFieldList = z.infer<typeof CustomFieldList>;
 
+/**
+ * One call. Its own transport rather than the admin console's shared one: this
+ * module is loaded only by the studio, and a change to the shared one would be
+ * paid for by every admin route on a 256 kbps link. Same shape as there: a
+ * response the schema does not describe is a failure of the connection, never
+ * a half-drawn screen, and an error is its `code` and `details` only.
+ *
+ * `cache: 'no-store'` on every call: the list after a write must be the server's.
+ */
+async function call<T>(
+  method: string,
+  path: string,
+  schema: z.ZodType<T>,
+  init: { body?: unknown; signal?: AbortSignal } = {},
+): Promise<Result<T>> {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method,
+      cache: 'no-store',
+      ...(init.body === undefined ? {} : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(init.body) }),
+      ...(init.signal === undefined ? {} : { signal: init.signal }),
+    });
+  } catch {
+    return { ok: false, error: NETWORK_FAILURE };
+  }
+  const payload: unknown = await response.json().catch(() => null);
+  if (response.ok) {
+    const parsed = schema.safeParse(payload);
+    return parsed.success ? { ok: true, value: parsed.data } : { ok: false, error: NETWORK_FAILURE };
+  }
+  const refusal = ApiError.safeParse(payload);
+  if (!refusal.success) return { ok: false, error: NETWORK_FAILURE };
+  const { code, details } = refusal.data;
+  return { ok: false, error: { code, ...(details === undefined ? {} : { details }) } };
+}
+
 /** The picklist values a definition carries, in stored order. */
 export function picklistValuesOf(field: CustomFieldDefinition): readonly PicklistValue[] {
   return 'values' in field.config ? field.config.values : [];
@@ -121,29 +158,21 @@ export function listCustomFields(
   signal?: AbortSignal,
 ): Promise<Result<CustomFieldList>> {
   const query = new URLSearchParams({ object, includeRetired: 'true' });
-  return request('GET', `${CUSTOM_FIELDS_PATH}?${query.toString()}`, CustomFieldList, {
-    noStore: true,
-    ...(signal ? { signal } : {}),
-  });
+  return call('GET', `${CUSTOM_FIELDS_PATH}?${query.toString()}`, CustomFieldList, signal ? { signal } : {});
 }
 
 export function createCustomField(body: CreateCustomFieldBody): Promise<Result<CustomFieldDefinition>> {
-  return request('POST', CUSTOM_FIELDS_PATH, CustomFieldDefinition, { body, noStore: true });
+  return call('POST', CUSTOM_FIELDS_PATH, CustomFieldDefinition, { body });
 }
 
 export function updateCustomField(
   fieldId: string,
   body: UpdateCustomFieldBody,
 ): Promise<Result<CustomFieldDefinition>> {
-  return request('PATCH', `${CUSTOM_FIELDS_PATH}/${encodeURIComponent(fieldId)}`, CustomFieldDefinition, {
-    body,
-    noStore: true,
-  });
+  return call('PATCH', `${CUSTOM_FIELDS_PATH}/${encodeURIComponent(fieldId)}`, CustomFieldDefinition, { body });
 }
 
 /** Retire: a POST with no body. There is no delete and no restore. */
 export function retireCustomField(fieldId: string): Promise<Result<CustomFieldDefinition>> {
-  return request('POST', `${CUSTOM_FIELDS_PATH}/${encodeURIComponent(fieldId)}/retire`, CustomFieldDefinition, {
-    noStore: true,
-  });
+  return call('POST', `${CUSTOM_FIELDS_PATH}/${encodeURIComponent(fieldId)}/retire`, CustomFieldDefinition);
 }
