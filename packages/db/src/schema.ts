@@ -229,6 +229,13 @@ export const contact = pgTable(
     givenNamesSearch: text('given_names_search').generatedAlwaysAs(FOLDED_IN_0038),
     familyNameSearch: text('family_name_search').generatedAlwaysAs(FOLDED_IN_0038),
     companyNameSearch: text('company_name_search').generatedAlwaysAs(FOLDED_IN_0038),
+    /**
+     * Migration 0039 (T-0089, ADR-0016): custom-field values, keyed by the
+     * field_def api_name (`...__c`). Guarded by three CHECKs (object, at most
+     * 32 KiB, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
+     * withheld keys are projected out in SQL and never read whole by the API.
+     */
+    custom: jsonb('custom').notNull().default(sql`'{}'::jsonb`),
   },
   (table) => [
     /** Migration 0027: the target of activity's composite contact FK. */
@@ -360,6 +367,13 @@ export const account = pgTable(
     parentAccountId: uuid('parent_account_id'),
     /** Migration 0038 (T-0086): the folded search copy of `name`, generated and stored. */
     nameSearch: text('name_search').generatedAlwaysAs(FOLDED_IN_0038),
+    /**
+     * Migration 0039 (T-0089, ADR-0016): custom-field values, keyed by the
+     * field_def api_name (`...__c`). Guarded by three CHECKs (object, at most
+     * 32 KiB, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
+     * withheld keys are projected out in SQL and never read whole by the API.
+     */
+    custom: jsonb('custom').notNull().default(sql`'{}'::jsonb`),
   },
   (table) => [
     /** Migration 0038 (T-0086): the prefix index (the folded key is COLLATE "C" there). */
@@ -451,6 +465,13 @@ export const activity = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     /** Maintained by the app.touch_updated_at() trigger when a statement leaves it unchanged. */
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Migration 0039 (T-0089, ADR-0016): custom-field values, keyed by the
+     * field_def api_name (`...__c`). Guarded by three CHECKs (object, at most
+     * 32 KiB, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
+     * withheld keys are projected out in SQL and never read whole by the API.
+     */
+    custom: jsonb('custom').notNull().default(sql`'{}'::jsonb`),
   },
   (table) => [
     index('activity_contact_keyset_idx')
@@ -817,6 +838,13 @@ export const deal = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     /** Migration 0038 (T-0086): the folded search copy of `name`, generated and stored. */
     nameSearch: text('name_search').generatedAlwaysAs(FOLDED_IN_0038),
+    /**
+     * Migration 0039 (T-0089, ADR-0016): custom-field values, keyed by the
+     * field_def api_name (`...__c`). Guarded by three CHECKs (object, at most
+     * 32 KiB, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
+     * withheld keys are projected out in SQL and never read whole by the API.
+     */
+    custom: jsonb('custom').notNull().default(sql`'{}'::jsonb`),
   },
   (table) => [
     /** Migration 0038 (T-0086): the prefix index (the folded key is COLLATE "C" there). */
@@ -1111,6 +1139,12 @@ export const fieldDef = pgTable(
      * D-P25): SQLSTATE 23514, constraint `field_def_classification_raise_only`.
      */
     classification: text('classification').notNull().default('none'),
+    /**
+     * Migration 0039 (T-0089, ADR-0016 item 9): when a custom field was
+     * retired; NULL while live. A custom field of a standard object is retired,
+     * never deleted, so its api_name stays taken.
+     */
+    retiredAt: timestamp('retired_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
