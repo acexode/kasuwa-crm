@@ -56,7 +56,8 @@ import { parse } from 'yaml';
  *   NotificationPage        closed { data: Notification[], nextCursor }
  *   NotificationUnreadCount closed { count: 0..99, capped: boolean }
  *   UpdateNotificationRequest       closed { read: boolean }, required
- *   MarkAllNotificationsReadRequest closed { kind?: NotificationKind }
+ *   MarkAllNotificationsReadRequest closed { kind?: NotificationKind,
+ *                           throughId?: uuid } (D-L154)
  *
  * RESPONSES (components.responses)
  *   NotificationNotFound          updateNotification's 404: one body
@@ -76,7 +77,8 @@ import { parse } from 'yaml';
  *     listNotifications     cursor invalid_cursor; kind invalid_value;
  *                           filter invalid_value
  *     updateNotification    read invalid_value
- *     markAllNotificationsRead kind invalid_value
+ *     markAllNotificationsRead kind invalid_value; throughId invalid_value
+ *                           (unknown and someone else's alike, D-L154)
  *   404 not_found           updateNotification only (NotificationNotFound)
  *   429 too_many_requests   all four (NotificationsTooManyRequests)
  *   No 403 anywhere: a notification is the recipient's own, and anything
@@ -148,8 +150,9 @@ import { parse } from 'yaml';
  *       notifications that would appear in the list now (R6), up to 99.
  *       When there are more than 99, `count` is 99 and `capped` is true
  *       (the "99+" badge, P26/A1); otherwise `capped` is false. It takes no
- *       parameter: per-kind counts for A1's "noisy types" summary are not
- *       served (reported as a gap).
+ *       parameter. Per-kind counts (A1's "noisy types" summary) and a
+ *       list-valued `kind` are OUT for Phase 2 (D-L154): not served, and
+ *       not to be added by the build.
  *   R9  READ AND UNREAD. `PATCH { read: true }` sets `readAt` (an
  *       already-read item keeps its first `readAt`: idempotent); `{ read:
  *       false }` clears it ("click the dot to toggle read", P26/A). The
@@ -161,6 +164,16 @@ import { parse } from 'yaml';
  *       too, which changes nothing anyone can see. The body is required and
  *       may be `{}`. The answer is the new `NotificationUnreadCount`, never
  *       a count of rows changed (which would count invisible items).
+ *       THE RACE (D-L154): an optional `throughId` (a uuid, and only ever a
+ *       notification id) bounds it: only notifications at or older than that
+ *       one, by `createdAt` then `id`, are marked read, so one that arrives
+ *       after the caller looked stays unread. A `throughId` that names no
+ *       notification and one that names another user's (or another
+ *       tenant's) are the same `400 validation_failed` with
+ *       `details[].code: invalid_value` at `throughId`: it never says
+ *       whether the id exists. The caller's own notification whose object
+ *       is no longer visible is a valid bound (like the cursor, R7): it is
+ *       their own row and reveals nothing.
  *   R11 404, ONE BODY. updateNotification answers one `404 not_found` body
  *       (`NotificationNotFound`, its example identical to `NotFound`'s) for
  *       no such notification, another user's in this tenant, another
@@ -194,9 +207,13 @@ import { parse } from 'yaml';
  *       kind or a name. Every OTHER example in the file still validates and
  *       every e2e mock that reads the contract still loads.
  *
- * LEAD EDITS TO MERGED SUITES: none were needed. A draft contract that
- * passes this suite was run against every merged contract suite; none of
- * their guards refuses the four operations.
+ * LEAD EDITS TO MERGED SUITES: none were needed to admit the contract. A
+ * draft contract that passes this suite was run against every merged
+ * contract suite; none of their guards refuses the four operations.
+ * Separately (D-L154), the "every e2e mock … still loads" guards in
+ * records-contract-import (T-0093) and custom-fields-contract (T-0088) were
+ * observed timing out at vitest's 5 s default under load on main; each now
+ * has an explicit 60 s timeout, and nothing else in them changed.
  * NOT a suite edit, for the builder: `team/FEATURES.md` is generated from the
  * contract (`pnpm features`), so the features-register suite fails until it is
  * regenerated in the same change.
@@ -1544,23 +1561,71 @@ describe('acceptance: notifications contract (T-0099)', () => {
       expect(caseProblems(schema, [{ read: true }, { read: false }], [{}, { read: 'true' }, { read: null }, { read: 1 }, { read: true, readAt: T0 }, { read: true, kind: 'task_assigned' }, { readAt: T0 }])).toEqual([]);
     });
 
-    it('MarkAllNotificationsReadRequest is closed { kind?: NotificationKind }; the body is required and may be {}', () => {
+    it('MarkAllNotificationsReadRequest is closed { kind?: NotificationKind, throughId?: uuid }; the body is required and may be {}', () => {
       const schema = rec('MarkAllNotificationsReadRequest');
       expect(isClosed(schema)).toBe(true);
-      expect(keysOf(schema)).toEqual(['kind']);
+      expect(keysOf(schema)).toEqual(['kind', 'throughId']);
       expect(required(schema)).toEqual([]);
       expect(isSchema(properties(schema).get('kind'), rec('NotificationKind')), 'kind is NotificationKind').toBe(true);
       expect(isSchema(requestSchema(op('markAllNotificationsRead')), schema), 'markAllNotificationsRead body').toBe(true);
       const body = requestBody(op('markAllNotificationsRead'));
       expect(isMapping(body?.node) ? body.node.required : undefined, 'body required').toBe(true);
-      expect(caseProblems(schema, [{}, { kind: 'record_assigned' }, { kind: 'task_assigned' }, { kind: 'import_finished' }], [
+      expect(caseProblems(schema, [
+        {},
+        { kind: 'record_assigned' },
+        { kind: 'task_assigned' },
+        { kind: 'import_finished' },
+        { throughId: NID },
+        { kind: 'task_assigned', throughId: NID },
+      ], [
         { kind: 'approval_requested' },
         { kind: ['record_assigned', 'task_assigned'] },
         { kind: null },
         { ids: [NID] },
         { before: T0 },
         { read: true },
+        // throughId carries an id and nothing else (D-L154): never a time, a cursor, a list or an object.
+        { throughId: 'not-a-uuid' },
+        { throughId: T0 },
+        { throughId: null },
+        { throughId: [NID] },
+        { throughId: { id: NID } },
+        { throughId: Buffer.from(JSON.stringify({ id: NID })).toString('base64url') },
+        { throughCreatedAt: T0 },
       ])).toEqual([]);
+    });
+
+    it('D-L154: throughId bounds read-all to notifications at or older than it (createdAt, then id); a later arrival stays unread', () => {
+      const text = description(op('markAllNotificationsRead'));
+      const field = nodeDescription(properties(rec('MarkAllNotificationsReadRequest')).get('throughId'));
+      const both = `${text} ${field}`;
+      expect(text).toMatch(/`throughId`/);
+      expect(both).toMatch(/at or older|or older than/i);
+      expect(both).toMatch(/`createdAt`[^.]*`id`/);
+      expect(both).toMatch(/(later|after)[^.]*stays? unread|stays? unread[^.]*(later|after)/i);
+      expect(both).toMatch(/only (ever )?(a|the) notification id|carries only[^.]*id|only[^.]*an id/i);
+      expect(text).toMatch(/D-L154/);
+    });
+
+    it('D-L154: an unknown throughId and another user’s are the same 400 invalid_value at throughId, never revealing existence', () => {
+      const text = description(op('markAllNotificationsRead'));
+      expect(text).toMatch(/invalid_value/);
+      expect(text).toMatch(/another user['’]s|someone else['’]s/i);
+      expect(text).toMatch(/(unknown|no such|names no)/i);
+      expect(text).toMatch(/whether[^.]*exists|existence/i);
+      expect(hasError('markAllNotificationsRead', '400', 'validation_failed', /^throughId$/, 'invalid_value'), '400 at throughId').toBe(true);
+      // One answer, not two: every throughId detail in every error example is invalid_value,
+      // and no status but 400 is documented for it (no 404, no 403, no unknown_reference).
+      const throughCodes = [...responses(op('markAllNotificationsRead'))]
+        .flatMap(([status]) => errorExamples('markAllNotificationsRead', status).flatMap((body) => detailsOf(body).filter((d) => d.path === 'throughId').map((d) => `${status} ${str(d.code)}`)));
+      expect([...new Set(throughCodes)]).toEqual(['400 invalid_value']);
+    });
+
+    it('D-L154: a request example uses throughId, and it names an item the list example shows (the newest the caller saw)', () => {
+      const ids = new Set(listItems().map((entry) => str(entry.id)));
+      const bounded = requestExamples(op('markAllNotificationsRead')).filter((body) => typeof body.throughId === 'string');
+      expect(bounded.length, 'a throughId example').toBeGreaterThan(0);
+      expect(bounded.filter((body) => !ids.has(str(body.throughId))).map((body) => str(body.throughId)), 'a throughId no list example shows').toEqual([]);
     });
 
     it('R9: updateNotification sets or clears readAt, keeps the first readAt on a repeat, and answers the item', () => {
@@ -1602,7 +1667,7 @@ describe('acceptance: notifications contract (T-0099)', () => {
       expect(text).toMatch(/assignments/i);
     });
 
-    it('errors: updateNotification 400 invalid_value at read; markAllNotificationsRead 400 invalid_value at kind', () => {
+    it('errors: updateNotification 400 invalid_value at read; markAllNotificationsRead 400 invalid_value at kind (throughId: above)', () => {
       expect(hasError('updateNotification', '400', 'validation_failed', /^read$/, 'invalid_value'), 'read').toBe(true);
       expect(hasError('markAllNotificationsRead', '400', 'validation_failed', /^kind$/, 'invalid_value'), 'kind').toBe(true);
     });

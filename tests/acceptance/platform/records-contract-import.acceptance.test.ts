@@ -2755,6 +2755,9 @@ describe('acceptance: import, duplicates and merge contract (T-0093)', () => {
         }
       }
       expect(failures).toEqual([]);
-    });
+      // Lead edit (D-L154): each mock parses the 10k-line contract on import, and under a loaded
+      // machine this took over vitest's default 5 s on main (2026-10-18). A slow import is not
+      // a broken mock, so the guard waits on the imports rather than the clock.
+    }, 60_000);
   });
 });
