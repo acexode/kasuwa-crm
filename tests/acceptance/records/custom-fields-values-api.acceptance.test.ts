@@ -137,8 +137,13 @@ import { collectTelemetry } from '../support/telemetry';
  *     (1,000 four-octet characters, 4,000 octets), so the verdict flips on
  *     whether withheld bytes are counted. When a row's visible part is
  *     already over 16 KiB (because another reader filled keys this caller
- *     can see), a write that adds a value is refused. Whether a write that
- *     only removes keys is accepted there is the builder's (not asserted).
+ *     can see), a write that grows that view is refused. RULED (D-L141
+ *     ruling 7): a write that only removes keys, or does not grow the
+ *     caller-visible size (a same-size replacement, a shrink), is never
+ *     refused for size, even on a row already over the limit.
+ * V15 RULED (D-L141 ruling 6): audit READS may show custom KEY names
+ *     (definitions are tenant-public); they never show a custom value. This
+ *     suite asserts the second and never the absence of a key.
  * V14 (D-L140) Custom values are never logged or traced, whatever the
  *     classification: a `none` text value is held to the same rule as a
  *     sensitive one.
@@ -1148,6 +1153,27 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
         'supervisor sees the withheld bytes',
       );
       await okBody(await update('contact', SUPERVISOR, C1B, { custom: { tier__c: 'gold' } }), 200, 'supervisor on C1B');
+      // D-L141 ruling 7: on that over-limit view, a write that does not grow
+      // the caller-visible size is never refused for size: a same-size
+      // replacement (3,000 octets for 3,000), then a removal.
+      const sameSize = '₤'.repeat(1000);
+      const replaced = await update('contact', SUPERVISOR, C1, { custom: { [String(BIG_FIELDS[1])]: sameSize } });
+      expect(replaced.status, `same-size replacement refused: ${replaced.text}`).toBe(200);
+      const removed = await update('contact', SUPERVISOR, C1, { custom: { [String(BIG_FIELDS[0])]: null } });
+      expect(removed.status, `removal refused: ${removed.text}`).toBe(200);
+      const stored = await storedCustom('contact', C1);
+      expect([stored[String(BIG_FIELDS[1])], String(BIG_FIELDS[0]) in stored, stored.secret__c]).toEqual([sameSize, false, nearMax]);
+    });
+
+    it('(D-L141 ruling 7) removing keys is never refused for size, even when the row is over the limit', async () => {
+      // Planted over 16 KiB of visible values (the database allows up to 32 KiB).
+      await plantCustom('contact', C1, fill(SIX));
+      const removeOne = await update('contact', SUPERVISOR, C1, { custom: { [String(SIX[0])]: null } });
+      expect(removeOne.status, `a removal was refused: ${removeOne.text}`).toBe(200);
+      // About 15.1 KB now: removing one more while adding a small value shrinks it, also accepted.
+      const shrink = await update('contact', SUPERVISOR, C1, { custom: { [String(SIX[1])]: null, tier__c: 'gold' } });
+      expect(shrink.status, `a shrinking write was refused: ${shrink.text}`).toBe(200);
+      expect(Object.keys(await storedCustom('contact', C1)).sort()).toEqual([...SIX.slice(2), 'tier__c'].sort());
     });
 
     it('retired bytes never count: a large value under a retired key does not refuse a write that fits', async () => {
@@ -1548,10 +1574,14 @@ describe('acceptance: custom-field values over the records API (T-0089)', () => 
         expect(timeline.text, label).not.toContain(fresh);
         expect(timeline.text, label).not.toContain(MARK_A1);
       }
+      // V15 (D-L141 ruling 6): an audit read may name the custom keys; it never shows a value.
       const audit = await get(SUPERVISOR, '/api/v1/admin/audit/events', [['pageSize', '200']]);
       expect(audit.status, audit.text).toBe(200);
+      // Not vacuous: the read holds the event of the write above.
+      expect(audit.text, 'the audit read misses the custom write').toContain(C1);
       expect(audit.text).not.toContain(fresh);
       expect(audit.text).not.toContain(MARK_A1);
+      expect(audit.text).not.toContain('"silver"');
     });
 
     it('nothing ACTOR does in A1 puts the A1 value in a log, a span or an error body', async () => {

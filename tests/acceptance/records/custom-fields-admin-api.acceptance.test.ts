@@ -95,15 +95,15 @@ import { asUser, withAuthDatabase } from '../support/api';
  * RULINGS where the contract is silent (this suite's; the lead may reverse)
  * ==========================================================================
  *
- * A1  The audit ACTION of a retire: the contract says "one `retired` event",
- *     but neither audit_event_action_check (0008, 0030) nor AuditAction
- *     admits `retired`. This suite accepts EITHER action `retired` (which
- *     needs a CHECK swap in 0039 and an AuditAction edit, both lead
- *     decisions) OR action `updated` with a change named `retiredAt`. The
- *     lead should pick one; the report raises it.
- * A2  A picklist created with more than 500 values is `400 invalid_config`
- *     (the create text), at `config` or `config.values` (the prose says the
- *     latter, the example the former).
+ * A1  RULED (D-L141): a retire is audited as action `updated` with a change
+ *     named `retiredAt`. There is no `retired` action and no change to
+ *     audit_event_action_check; only that form passes.
+ * A2  RULED (D-L141): a picklist created with more than 500 values is
+ *     `400 invalid_config` at `config.values`, exactly; on update the limit
+ *     is `409 picklist_limit_reached` at `addValues`.
+ * A8  (D-L140, D-L141) CustomFieldLimits is exactly apiBytes 16384,
+ *     bytesPerRecord 32768, definitionsPerObject 500, fieldsPerObject 100
+ *     and picklistValues 500.
  * A3  A custom field of a CUSTOM object is outside this API: its id is the
  *     same 404 as an invented one. The routes manage the four standard
  *     objects only, and must not become a back door to another object's
@@ -546,7 +546,8 @@ describe('acceptance: custom-field definitions over the admin API (T-0089)', () 
       expect(schemaErrors(LIST, response.body, 'list')).toEqual([]);
       expect(response.body).toEqual({
         objectApiName: object,
-        limits: { fieldsPerObject: 100, picklistValues: 500, bytesPerRecord: 32768 },
+        // A8 (D-L140, D-L141): the five limits, exactly.
+        limits: { apiBytes: 16384, bytesPerRecord: 32768, definitionsPerObject: 500, fieldsPerObject: 100, picklistValues: 500 },
         items: [],
       });
     });
@@ -693,7 +694,7 @@ describe('acceptance: custom-field definitions over the admin API (T-0089)', () 
       const cases: [string, Json, string, string[]][] = [
         ['picklist with no config', { ...base, type: 'picklist' }, 'invalid_config', ['config', 'config.values']],
         ['picklist with no values', { ...base, type: 'picklist', config: { values: [] } }, 'invalid_config', ['config', 'config.values']],
-        ['picklist with 501 values', { ...base, type: 'picklist', config: { values: picklistValues(501) } }, 'invalid_config', ['config', 'config.values']],
+        ['picklist with 501 values (A2, D-L141)', { ...base, type: 'picklist', config: { values: picklistValues(501) } }, 'invalid_config', ['config.values']],
         ['a repeated picklist value', { ...base, type: 'picklist', config: { values: [{ value: 'a1', label: 'A' }, { value: 'a1', label: 'B' }] } }, 'duplicate_value', ['config.values']],
         ['currency with no config', { ...base, type: 'currency' }, 'invalid_config', ['config', 'config.currencyCode']],
         ['currency USD', { ...base, type: 'currency', config: { currencyCode: 'USD' } }, 'unknown_currency', ['config.currencyCode']],
@@ -990,10 +991,11 @@ describe('acceptance: custom-field definitions over the admin API (T-0089)', () 
       expect(events).toHaveLength(1);
       const [event] = events;
       expect(event).toMatchObject({ object_type: 'custom_field', object_id: field.id, programme_id: null });
-      const retiredAction =
-        event?.action === 'retired' ||
-        (event?.action === 'updated' && (event.changes ?? []).some((change) => change.field === 'retiredAt'));
-      expect(retiredAction, `(A1) the retire event is ${JSON.stringify(event)}`).toBe(true);
+      expect(event?.action, `(A1, D-L141) the retire event is ${JSON.stringify(event)}`).toBe('updated');
+      expect(
+        (event?.changes ?? []).some((change) => change.field === 'retiredAt'),
+        `(A1, D-L141) the retire event names no retiredAt change: ${JSON.stringify(event?.changes)}`,
+      ).toBe(true);
 
       const afterFirst = await auditIds();
       const repeat = expectDefinition(await retire(SUPERVISOR, String(field.id)), 200, 'repeat');
