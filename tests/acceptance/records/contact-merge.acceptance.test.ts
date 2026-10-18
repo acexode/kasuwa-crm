@@ -130,6 +130,11 @@ import { collectTelemetry } from '../support/telemetry';
  *     `email` and an integer 0..99 (a format version), as list-indexes I4
  *     lets a cursor carry a sort key's name. Never a phone, an email, a name
  *     or a time. TO THE LEAD: this widens D-L151's text, not its purpose.
+ *     LEAD EDIT (T-0095, D-L162): the builder's cursor also carries an
+ *     integer ordinal among sets sharing the lowest id and match kind (one
+ *     contact sharing a different number with each of two others makes two
+ *     phone sets with one lowest id: fixture T1-T3). Admitted as an integer
+ *     0..99; a fractional, negative, string or boolean leaf is refused.
  * M6  "The ten most recently updated": with 12 matches the set is the ten
  *     newest. The fixture puts the lowest id among the ten, so "lowest id of
  *     the set" means the same whether read over the ten or the twelve.
@@ -350,6 +355,15 @@ const X2: ContactPlant = { id: id95('c0000042'), programmeId: PROGRAMME_A2, disp
 const Q1: ContactPlant = { id: id95('c0000051'), programmeId: PROGRAMME_A2, displayName: 'Zqtelco One', phones: ['+2348039500021'], emails: [], status: 'new', updatedAt: '2026-02-08T00:00:00.000Z' };
 const Q2: ContactPlant = { id: id95('c0000052'), programmeId: PROGRAMME_A2, displayName: 'Zqtelco Two', phones: ['+2348039500021'], emails: [], status: 'new', updatedAt: '2026-02-09T00:00:00.000Z' };
 /**
+ * LEAD EDIT (T-0095, D-L162): one contact sharing a different number with each
+ * of two others makes TWO phone sets with the same lowest id (T1) and the same
+ * match kind. Only an ordinal in the cursor keeps the second at a page
+ * boundary (M5).
+ */
+const T1: ContactPlant = { id: id95('c0000061'), programmeId: PROGRAMME_A1, displayName: 'Zqtwin One', phones: ['+2348039500401', '+2348039500402'], emails: [], updatedAt: '2026-02-10T00:00:00.000Z' };
+const T2: ContactPlant = { id: id95('c0000062'), programmeId: PROGRAMME_A1, displayName: 'Zqtwin Two', phones: ['+2348039500401'], emails: [], updatedAt: '2026-02-11T00:00:00.000Z' };
+const T3: ContactPlant = { id: id95('c0000063'), programmeId: PROGRAMME_A1, displayName: 'Zqtwin Three', phones: ['+2348039500402'], emails: [], updatedAt: '2026-02-12T00:00:00.000Z' };
+/**
  * Twelve sharing one number (M6). G(k), k = 1 oldest .. 12 newest; the older,
  * the HIGHER the id, so the lowest id (G12) is among the ten newest.
  */
@@ -363,7 +377,7 @@ const G = (k: number): ContactPlant => ({
 });
 const GROUP = Array.from({ length: 12 }, (_, i) => G(i + 1));
 
-const BASE_PLANTS: readonly ContactPlant[] = [P1, P2, E1, E2, M1, M2, N1, X1, X2, Q1, Q2, ...GROUP];
+const BASE_PLANTS: readonly ContactPlant[] = [P1, P2, E1, E2, M1, M2, N1, X1, X2, Q1, Q2, T1, T2, T3, ...GROUP];
 
 /** Every phone and email this file plants, for the "never returned" checks. */
 const ALL_IDENTIFIERS = [...new Set(BASE_PLANTS.flatMap((c) => [...c.phones, ...c.emails]))];
@@ -374,6 +388,8 @@ const A1_SETS = [
   `email:${[P1.id, P2.id].sort().join(',')}`,
   `email:${[E1.id, E2.id].sort().join(',')}`,
   `phone:${[M1.id, M2.id].sort().join(',')}`,
+  `phone:${[T1.id, T2.id].sort().join(',')}`,
+  `phone:${[T1.id, T3.id].sort().join(',')}`,
   `phone:${GROUP.slice(2).map((c) => c.id).sort().join(',')}`,
 ].sort();
 const A2_SETS = [`phone:${[Q1.id, Q2.id].sort().join(',')}`];
@@ -1130,6 +1146,10 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
       expect(cursorProblems(b64(id), id)).toEqual([]);
       expect(cursorProblems(b64(JSON.stringify({ v: 1, id, m: 'email' })), id)).toEqual([]);
       expect(cursorProblems(b64(JSON.stringify([id, 'phone'])), id)).toEqual([]);
+      // LEAD EDIT (T-0095, D-L162): the builder's form, a version and an integer ordinal among
+      // sets sharing the lowest id and match kind. Admitted; the ordinal must be an integer.
+      expect(cursorProblems(b64(JSON.stringify({ v: 1, id, m: 'phone', n: 0 })), id)).toEqual([]);
+      expect(cursorProblems(b64(JSON.stringify({ v: 1, id, m: 'phone', n: 3 })), id)).toEqual([]);
       for (const bad of [
         b64(P2.id),
         b64(JSON.stringify({ id, value: '+2348039500001' })),
@@ -1137,6 +1157,11 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
         b64(JSON.stringify({ id, at: '2026-03-01T09:00:00.000Z' })),
         b64(JSON.stringify({ id, n: 1712345678 })),
         b64(JSON.stringify({ id, '+2348039500001': 1 })),
+        b64(JSON.stringify({ v: 1, id, m: 'phone', n: 1.5 })),
+        b64(JSON.stringify({ v: 1, id, m: 'phone', n: '1' })),
+        b64(JSON.stringify({ v: 1, id, m: 'phone', n: 100 })),
+        b64(JSON.stringify({ v: 1, id, m: 'phone', n: -1 })),
+        b64(JSON.stringify({ v: 1, id, m: 'phone', n: true })),
         'not base64!',
       ]) {
         expect(cursorProblems(bad, id), bad).not.toEqual([]);
@@ -1337,11 +1362,24 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
       expect(await count(USER_A_AGENT_2)).toBe(0);
     });
 
+    // LEAD EDIT (T-0095, D-L162): this test merged through the API, which writes an audit
+    // event carrying the programme, and audit_event's programme FK (0008) has no ON DELETE,
+    // which predates T-0095. So the DELETE failed on audit_event_programme_same_tenant_fk, not
+    // on contact_merge. The merge row is now planted directly by kasuwa_migrator (no audit
+    // event), and the assertion is unchanged: contact_merge cascades with its programme.
     it('does not stop offboarding: deleting a programme that holds merges still succeeds (rolled back)', async () => {
-      await mergeOk(H.admin1, P1.id, P2.id);
+      await observer.query(
+        `INSERT INTO contact_merge (id, tenant_id, programme_id, survivor_id, merged_id, merged_by_user_id, created_at, undo_until, snapshot)
+         VALUES ($1, $2, $3, $4, $5, $6, now(), now() + interval '30 days', '{}'::jsonb)`,
+        [id95('99000020'), TENANT_A, PROGRAMME_A1, P1.id, P2.id, ADMIN1],
+      );
+      const audit = await observer.query<{ n: string }>('SELECT count(*)::text AS n FROM audit_event WHERE programme_id = $1', [PROGRAMME_A1]);
+      expect(audit.rows[0]?.n, 'the fixture writes no audit event in A1 (else the 0008 FK, not contact_merge, decides)').toBe('0');
       const client = await observer.connect();
       try {
         await client.query('BEGIN');
+        const before = await client.query<{ n: string }>('SELECT count(*)::text AS n FROM contact_merge WHERE programme_id = $1', [PROGRAMME_A1]);
+        expect(before.rows[0]?.n, 'control: the merge row is there').toBe('1');
         await client.query('DELETE FROM programme WHERE id = $1', [PROGRAMME_A1]);
         const left = await client.query<{ n: string }>('SELECT count(*)::text AS n FROM contact_merge WHERE programme_id = $1', [PROGRAMME_A1]);
         expect(left.rows[0]?.n).toBe('0');
@@ -1402,7 +1440,7 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
         expect(identifiersIn(Buffer.from(cursor, 'base64url').toString('utf8'), ALL_IDENTIFIERS)).toEqual([]);
       }
       expect(cursor, 'the walk ended').toBeNull();
-      expect(seen.sort(), 'the phone set and the email set of one pair share a lowest id; neither may be skipped').toEqual(A1_SETS);
+      expect(seen.sort(), 'sets sharing a lowest id (a pair’s phone and email sets; T1’s two phone sets) are never skipped').toEqual(A1_SETS);
     });
 
     it('never crosses programmes: A2’s path holds only A2’s set, and the shared number makes no set in either', async () => {

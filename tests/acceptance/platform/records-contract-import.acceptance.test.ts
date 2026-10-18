@@ -128,6 +128,10 @@ import { parse } from 'yaml';
  *       new operation and the `importId` parameter are
  *       `x-kasuwa-implemented: false` until T-0094 and T-0095 serve them
  *       (with lead edits flipping the flag tests, as T-0086 and T-0089 did).
+ *       LEAD EDIT (T-0094, D-L160): the nine import operations and
+ *       `importId` now pin `true`; duplicates and merge still pin `false`.
+ *       LEAD EDIT (T-0095, D-L162): the five duplicates and merge
+ *       operations are served by T-0095 and pin `true` too.
  *       Import ops carry tag `imports` and screens from P28/A..A6; the
  *       duplicates and merge ops carry tag `duplicates` and screens from
  *       P28/C and P28/C1. Both tags are declared at the top of the file.
@@ -2091,13 +2095,14 @@ describe('acceptance: import, duplicates and merge contract (T-0093)', () => {
   });
 
   describe('the importId contacts filter (R13)', () => {
-    it('listContacts takes importId: query, optional, a uuid, x-kasuwa-implemented: false', () => {
+    // LEAD EDIT (T-0094, D-L160): served by T-0094, so the flag is now true.
+    it('listContacts takes importId: query, optional, a uuid, x-kasuwa-implemented: true (T-0094)', () => {
       const node = paramNode(op('listContacts'), 'importId', 'query');
       if (!node) throw new Error('listContacts has no importId parameter');
       expect(node.required === undefined || node.required === false, 'optional').toBe(true);
       const schema = at(node.schema ?? {});
       expect(accepts(schema, IID) && !accepts(schema, 'x') && !accepts(schema, [IID]), 'one uuid').toBe(true);
-      expect(node['x-kasuwa-implemented'], 'flag').toBe(false);
+      expect(node['x-kasuwa-implemented'], 'flag').toBe(true);
     });
 
     it('its description: scoped as every list is; an unseen import answers an empty page, never 404 or 400; not sent until served (D-L75)', () => {
@@ -2627,9 +2632,22 @@ describe('acceptance: import, duplicates and merge contract (T-0093)', () => {
   });
 
   describe('flags: contract first (R1)', () => {
-    it('every new operation is x-kasuwa-implemented: false', () => {
+    // LEAD EDIT (T-0094, D-L160): the nine import operations are served by
+    // T-0094 and flip to true.
+    // LEAD EDIT (T-0095, D-L162): the five duplicates and merge operations
+    // (listDuplicates, getContactMergePreview, createContactMerge,
+    // undoContactMerge, listContactMerges) are served by T-0095 and flip to
+    // true. Every new operation of this contract is now implemented.
+    it('every new operation is x-kasuwa-implemented: true (imports T-0094; duplicates and merge T-0095)', () => {
       const problems: string[] = [];
-      for (const spec of OPS) if (op(spec.id).op['x-kasuwa-implemented'] !== false) problems.push(spec.id);
+      for (const spec of OPS) {
+        if (op(spec.id).op['x-kasuwa-implemented'] !== true) problems.push(`${spec.id} (expected true)`);
+      }
+      expect(OPS.filter((spec) => spec.tag === 'imports').length, 'nine import operations').toBe(9);
+      expect(
+        OPS.filter((spec) => spec.tag === 'duplicates').map((spec) => spec.id).sort(),
+        'the five duplicates and merge operations',
+      ).toEqual(['createContactMerge', 'getContactMergePreview', 'listContactMerges', 'listDuplicates', 'undoContactMerge']);
       expect(problems).toEqual([]);
     });
   });
