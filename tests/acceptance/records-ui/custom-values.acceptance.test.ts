@@ -161,6 +161,8 @@ const SCREEN_MOCKS = [
   'tests/e2e/support/deal-mock.ts',
   'tests/e2e/support/pipeline-mock.ts',
   'tests/e2e/support/activities-mock.ts',
+  // D-L159: the search mock serves the lists a "see all" lands on, so it answers listCustomFields too.
+  'tests/e2e/support/search-mock.ts',
 ];
 const CUSTOM_FIELDS_PATH = '/api/v1/admin/custom-fields';
 
@@ -179,6 +181,7 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
   'tests/e2e/support/deal-mock.ts': 'aad20148fd6a36e54ef490522225622d58ff0b1aa86e9083cd4b0f3d8c2f20e8',
   'tests/e2e/support/pipeline-mock.ts': 'cb5f6a8452b1c44c1828ceaea7fdfc3a154896e96365680e2d955d59667dc6cd',
   'tests/e2e/support/activities-mock.ts': '1e3221cc41550ce894d56e7cab267ac1621ef253929c4bce5f54e75fd63270da',
+  'tests/e2e/support/search-mock.ts': '69138384e94d463bd22218f3db2bd0a4d7a30d0f9a98fc49c49cd96d0ca178c9',
 };
 
 /** The five custom-field refusals a screen draws, by code, and the id endings that may label each. */
@@ -259,12 +262,35 @@ function withoutComments(source: string): string {
 const SLICE_MARKERS = [/data-custom-field/, /data-custom-input/, /data-custom-value/, /\/api\/v1\/admin\/custom-fields/, /['"`]customEmpty['"`]/];
 
 /**
- * The slice: every apps/web module (tests excluded) that draws a custom slot,
- * input or value, reads the definitions, or builds a custom filter. Refused
- * unless it exists and names every hook somewhere.
+ * T-0090's studio (D-L159): its client and model name the custom-fields path
+ * and may ask for retired fields (the studio shows which api names are taken).
+ * They are the studio suite's to hold, never part of this record-side slice.
+ */
+const STUDIO_MODULES = ['apps/web/lib/custom-fields-api.ts', 'apps/web/lib/custom-field-model.ts'];
+
+function studioModule(file: string): boolean {
+  return STUDIO_MODULES.includes(file) || /^apps\/web\/(components|app)\/admin\//.test(file);
+}
+
+/**
+ * Every place a record-side module names `includeRetired` with anything but a
+ * literal false: `true`, `'true'`, `String(true)`, a variable, a shorthand
+ * property. A record screen never asks for retired definitions (D-L159).
+ */
+function retiredAsks(source: string): string[] {
+  return [...withoutComments(source).matchAll(/includeRetired['"`]?\s*(?:[:=,]\s*)?([^,;)}\n]*)/g)]
+    .filter((match) => !/^['"`]?false['"`]?$/.test((match[1] ?? '').trim()))
+    .map((match) => match[0].trim());
+}
+
+/**
+ * The slice: every record-side apps/web module (tests and the studio
+ * excluded) that draws a custom slot, input or value, reads the definitions,
+ * or builds a custom filter. Refused unless it exists and names every hook
+ * somewhere.
  */
 function slice(): SourceFile[] {
-  const files = webSources().filter(({ source }) => SLICE_MARKERS.some((marker) => marker.test(withoutComments(source))));
+  const files = webSources().filter(({ file, source }) => !studioModule(file) && SLICE_MARKERS.some((marker) => marker.test(withoutComments(source))));
   expect(files.map(({ file }) => file), 'no apps/web module draws data-custom-field or reads listCustomFields: custom values are not built').not.toEqual([]);
   const code = files.map(({ source }) => withoutComments(source)).join('\n');
   for (const hook of ['data-custom-field', 'data-custom-input', 'data-custom-value']) {
@@ -273,9 +299,11 @@ function slice(): SourceFile[] {
   return files;
 }
 
-/** apps/web/lib modules that call listCustomFields. */
+/** Record-side apps/web/lib modules that call listCustomFields (the studio's client excluded, D-L159). */
 function definitionClients(): SourceFile[] {
-  return webSources().filter(({ file, source }) => file.startsWith('apps/web/lib/') && withoutComments(source).includes(CUSTOM_FIELDS_PATH));
+  return webSources().filter(
+    ({ file, source }) => file.startsWith('apps/web/lib/') && !studioModule(file) && withoutComments(source).includes(CUSTOM_FIELDS_PATH),
+  );
 }
 
 function catalogue(locale: string): Record<string, string> {
@@ -410,7 +438,10 @@ describe('acceptance: T-0091 — crm_custom_fields exists, is off, is not produc
       expect(code, `${file} names an absolute API origin`).not.toMatch(/https?:\/\/[^'"`]*\/api\/v1/);
       expect(code, `${file} does not parse with Zod`).toMatch(/from ['"]zod['"]/);
       expect(code, `${file} builds a scope argument`).not.toMatch(/programmeIds?|ownerUserIds|(set|append)\(\s*['"`](programme|owner|scope)|['"`]x-[\w-]*(programme|tenant|scope)/i);
-      expect(code, `${file} asks for retired definitions: a record screen never shows one`).not.toMatch(/includeRetired['"`]?\s*[:=,]\s*['"`]?true/);
+    }
+    // Every record-side module, the slice included: any includeRetired but a literal false (D-L159).
+    for (const { file, source } of [...clients, ...slice()]) {
+      expect(retiredAsks(source), `${file} asks for retired definitions: a record screen never shows one`).toEqual([]);
     }
     for (const { file, source } of webSources()) {
       expect(withoutComments(source), `${file} imports test support`).not.toMatch(/from ['"][^'"]*(tests\/e2e|custom-values-mock|custom-fields-mock|@kasuwa\/testing)[^'"]*['"]/);
@@ -527,6 +558,24 @@ describe('acceptance: T-0091 — no colour literal, no currency symbol, no float
       expect(floatMoney(planted), `the float-money detector missed ${planted}`).not.toEqual([]);
     }
     expect(floatMoney('const minor = BigInt(whole) * 100n + BigInt(cents);')).toEqual([]);
+    // The retired-definitions guard (D-L159) bites on a record-side module, however the truth is spelt.
+    for (const planted of [
+      "const url = `/api/v1/admin/custom-fields?object=${object}&includeRetired=true`;",
+      "params.set('includeRetired', 'true');",
+      "params.set('includeRetired', String(true));",
+      'const query = { object, includeRetired: true };',
+      'const query = { object, includeRetired: showAll };',
+      'const query = { object, includeRetired };',
+    ]) {
+      expect(retiredAsks(planted), `the retired-definitions guard missed ${planted}`).not.toEqual([]);
+    }
+    for (const allowed of ["params.set('includeRetired', 'false');", 'const query = { object, includeRetired: false };', "fetch(`/api/v1/admin/custom-fields?object=${object}`)"]) {
+      expect(retiredAsks(allowed), `the retired-definitions guard fired on ${allowed}`).toEqual([]);
+    }
+    // ... and never on the studio's own modules, which may ask for retired fields.
+    expect(STUDIO_MODULES.every(studioModule)).toBe(true);
+    expect(studioModule('apps/web/components/admin/custom-fields/studio-screen.tsx')).toBe(true);
+    expect(studioModule('apps/web/lib/custom-values-api.ts'), 'the record-side client was excluded').toBe(false);
   });
 
   it('writes no colour literal anywhere in the slice', () => {
@@ -552,7 +601,7 @@ describe('acceptance: T-0091 — no colour literal, no currency symbol, no float
 // ===========================================================================
 
 describe('acceptance: T-0091 — the journeys and the mocks are the ones this suite was written with', () => {
-  it('pins p18-custom-values.spec.ts, custom-values-mock.ts and the eight screen mocks', () => {
+  it('pins p18-custom-values.spec.ts, custom-values-mock.ts and the screen mocks that answer listCustomFields', () => {
     for (const [file, pinned] of Object.entries(PINNED_SHA256)) {
       expect(existsSync(fromRoot(file)), `${file} is missing`).toBe(true);
       expect(normalisedHash(file), `${file} changed. It is part of the T-0091 acceptance contract: ask the lead to re-pin it.`).toBe(pinned);
