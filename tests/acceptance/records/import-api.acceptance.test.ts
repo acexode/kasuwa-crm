@@ -60,10 +60,12 @@ import { collectTelemetry } from '../support/telemetry';
  * B. QUEUES (BullMQ, one Redis). Exactly these names:
  *      kasuwa.import.header     enqueued by completeImportUpload (202)
  *      kasuwa.import.run        enqueued by runImport (202)
- *      kasuwa.import.retention  DELAYED: by createImport (24 hours), and at
- *                               every end of a job that the API or the run
- *                               reaches (finished, rejected at complete,
- *                               cancelled by abort): 7 days
+ *      kasuwa.import.retention  DELAYED: by createImport (24 hours); by a
+ *                               successful completeImportUpload (7 days,
+ *                               D-L160 ruling 3); and at every end of a job
+ *                               that the API or the run reaches (finished,
+ *                               rejected at complete, cancelled by abort):
+ *                               7 days
  *    Every payload is exactly `{ tenantId, userId, importId }` (ids only,
  *    Zod-parsed by the processor), where userId is the import's
  *    createdByUserId. No filename, header, mapping, cell, URL or key ever
@@ -103,13 +105,14 @@ import { collectTelemetry } from '../support/telemetry';
  *    `agent`, `team_lead`, `programme_manager` and `qa_analyst` do not.
  *
  * F. THE CONTRACT. The nine import operations and listContacts' `importId`
- *    are `x-kasuwa-implemented: true` once served (a LEAD EDIT to the T-0093
- *    suite's R1, which pins false today). The duplicates and merge
+ *    are `x-kasuwa-implemented: true` once served (the T-0093 suite's R1 is
+ *    flipped to match, a lead edit under D-L160). The duplicates and merge
  *    operations stay false (T-0095).
  *
  * ==========================================================================
- * RULINGS where the task, the contract or the decisions are silent
- * (this suite's; the lead may reverse them)
+ * RULINGS. A-F, R1-R16 and the isolation suite's I1-I5 were ACCEPTED by the
+ * lead as D-L160, which also ruled on the five gaps this suite escalated;
+ * R6, R7, R13 and R17 below carry those rulings.
  * ==========================================================================
  *
  * R1  Part plan. createImport takes no part count, so the server plans it:
@@ -137,18 +140,21 @@ import { collectTelemetry } from '../support/telemetry';
  *     least every 1,000 rows and no batch is a long transaction.
  * R6  A creator who loses the programme or `contact.import` while the job is
  *     queued or running ends it `failed`, with counts equal to the contacts
- *     committed so far, and nothing is created afterwards. Losing the
- *     programme leaves the creator unable to see the row, so the move to
- *     `failed` cannot be written by the job as the creator: 0031's pattern (a
- *     trigger on user_programme) is one way that needs no new identity.
- *     Escalated with this suite.
+ *     committed so far, and nothing is created afterwards.
+ *     D-L160 rulings 1 and 2: losing the PROGRAMME is handled by a trigger on
+ *     user_programme deletion (the 0031 pattern), because the creator can no
+ *     longer see the row. In the same statement it marks that creator's
+ *     queued, running and awaiting_* imports in that programme `failed`,
+ *     keeping the counts, and clears their headers, filename and mapping, so
+ *     erasure never depends on the creator keeping scope (the bucket
+ *     lifecycle rule removes the bytes). Losing only the RIGHT leaves the
+ *     row visible, and the run itself fails the job at the next batch.
  * R7  too_many_rows. A file may hold 100,000 DATA rows (spreadsheet rows 2
  *     to 100,001), all imported; the first row past them, spreadsheet row
  *     100,002, is the single `too_many_rows` error and is not imported.
- *     CONTRACT DEFECT, reported: ImportRowError.row has `maximum: 100001`,
- *     which cannot hold 100,002 (and counts.created's maximum of 100,000
- *     rules out the reading in which the header counts as a row). The test
- *     that observes it does not validate that one body against the schema.
+ *     D-L160 ruling 4: ImportRowError.row's maximum was 100,001, which could
+ *     not hold 100,002; the T-0094 builder raises it (to at least 100,002)
+ *     in the contract, and this suite validates that body like any other.
  *     Its status (finished or failed) is the builder's.
  * R8  Grant spellings (D-P28, D-L148). Whatever spellings of a boolean or a
  *     consent state the parser accepts, no import ever produces a contact
@@ -178,6 +184,10 @@ import { collectTelemetry } from '../support/telemetry';
  *     D-L150) while counts and errors remain; an abandoned upload is aborted
  *     and the job becomes `expired`. It audits `deleted` on stored_object
  *     with the creator as actor. A second run is a no-op.
+ *     D-L160 ruling 3: the 7-day timer also starts when complete succeeds.
+ *     An import still in `awaiting_mapping` 7 days after completion is
+ *     erased and becomes `expired`. One still `running` when the job falls
+ *     due is not touched, and the retention job enqueues itself again.
  * R14 The lifecycle tag `kasuwa-purpose=import` (D-L146) is on the completed
  *     object, as the bucket reports it.
  * R15 Duplicates: an exact E.164 phone (after normalisation) or a
@@ -189,6 +199,12 @@ import { collectTelemetry } from '../support/telemetry';
  * R16 Phone normalisation for NG, GH, KE and ZA: the trunk `0` of a national
  *     number is dropped and the default country's code prefixed; a `+`
  *     number keeps its own country whatever the default.
+ * R17 D-L160 ruling 5: the duplicate check matches only on phone and email
+ *     fields the importer can READ in the programme, so a withheld field is
+ *     never matched on (no existence oracle). Field security binds the
+ *     mapping as well (a field the importer cannot edit cannot be mapped,
+ *     and edit implies read). So the observable pin is that a withheld field
+ *     can be neither mapped nor matched, while the readable one still dedupes.
  *
  * ==========================================================================
  * D-L23: on this branch there is no import_job, no route, no queue and no
@@ -1413,6 +1429,9 @@ describe('acceptance: the import API and job (T-0094)', () => {
       expect((await storedObject(job.stored_object_id)).status).toBe('uploaded');
       const header = await onlyJob(HEADER_QUEUE, importId);
       expect(header.data).toEqual({ tenantId: TENANT_A, userId: USER_A_AGENT_1, importId });
+      // D-L160 ruling 3: the 7-day timer starts at a successful complete.
+      const sevenDay = await retentionJobWithDelay(importId, 7 * DAY);
+      expect(sevenDay.data).toEqual({ tenantId: TENANT_A, userId: USER_A_AGENT_1, importId });
       const entries = await seaweed.listEntries(`tenant/${TENANT_A}/programme/${PROGRAMME_A1}/import/`);
       expect(entries.map((e) => e.key)).toEqual([keyOf(job)]);
       const tags = Object.entries(entries[0]?.extended ?? {}).map(([name, value]) => `${name}=${Buffer.from(value, 'base64').toString('utf8')}`);
@@ -1871,6 +1890,39 @@ describe('acceptance: the import API and job (T-0094)', () => {
       expect(after.rows, 'the matched contact was changed').toEqual(before.rows);
     });
 
+    it('a field withheld from the importer is never matched on: it cannot be mapped, and the readable field still dedupes (R17, D-L160 ruling 5)', async () => {
+      await observer.query(`UPDATE contact SET emails = '["withheld.seed@example.test"]'::jsonb WHERE id = $1`, [A1_FIRST.id]);
+      const field = await observer.query<{ id: string }>(
+        `SELECT f.id FROM field_def f JOIN object_def o ON o.id = f.object_id
+          WHERE f.tenant_id = $1 AND o.api_name = 'contact' AND f.api_name = 'emails'`,
+        [TENANT_A],
+      );
+      await grant(must(field.rows[0]?.id, 'contact.emails field_def'), 'admin', 'none');
+      const rows = [
+        ['Name', 'Mobile', 'Email'],
+        ['zqw2', `0${A1_FIRST.phoneE164.slice(4)}`, ''],
+        ['zqw3', '0803 555 0177', 'withheld.seed@example.test'],
+      ];
+      const importId = await uploadAndComplete(IMPORTER, PROGRAMME_A1, csv(rows));
+      await readHeader(importId);
+      const withEmails = await put(IMPORTER, importPath(importId, '/mapping'), {
+        columns: [{ index: 0, field: 'displayName' }, { index: 1, field: 'phones' }, { index: 2, field: 'emails' }],
+        defaultCountry: 'NG',
+      });
+      expectDetail(withEmails, 403, 'not_permitted', 'field_not_editable', 'emails', 'mapping a withheld field');
+      await saveMapping(IMPORTER, importId, {
+        columns: [{ index: 0, field: 'displayName' }, { index: 1, field: 'phones' }, { index: 2, field: null }],
+        defaultCountry: 'NG',
+      });
+      const job = await queueRun(IMPORTER, importId);
+      await (await importJobs()).processImportRun(deps(), job.data);
+      const body = await getImport(IMPORTER, importId);
+      // Row 2 matches on the readable phone; row 3's email sits in an
+      // unmapped column and matches a withheld field, so it is created.
+      expect(body.errors.map(errorKey)).toEqual(['2:null:possible_duplicate']);
+      expect(body.counts).toEqual({ created: 1, skipped: 1, failed: 0 });
+    });
+
     it('never looks across programmes, even for an importer who reaches both (R15)', async () => {
       const { body } = await importCsv(
         [['Name', 'Mobile'], ['zqx2', A2_SECOND.phoneE164]],
@@ -1919,9 +1971,10 @@ describe('acceptance: the import API and job (T-0094)', () => {
       expect(body.errorsTruncated).toBe(true);
     }, 600_000);
 
-    it('100,000 data rows import and row 100,002 is the one too_many_rows error (R7; schema check skipped for the defect)', async () => {
+    it('100,000 data rows import and row 100,002 is the one too_many_rows error, inside the fixed schema (R7, D-L160)', async () => {
       const rows: string[][] = [['Name'], ...Array.from({ length: 100_001 }, (_, i) => [`zqm${i + 2}`])];
       const { importId, body } = await importCsv(rows, [{ index: 0, field: 'displayName' }]);
+      expectSchema('Import', body, 'too_many_rows import');
       expect(['finished', 'failed']).toContain(body.status);
       expect(body.counts.created).toBe(100_000);
       expect(body.errors).toEqual([{ row: 100_002, column: null, code: 'too_many_rows' }]);
@@ -2023,12 +2076,41 @@ describe('acceptance: the import API and job (T-0094)', () => {
       return { importId, job };
     }
 
-    it('a creator removed from the programme after queueing: the run creates nothing and the job is `failed` (R6)', async () => {
+    const removeFromA1 = (userId: string) =>
+      observer.query('DELETE FROM user_programme WHERE user_id = $1 AND programme_id = $2', [userId, PROGRAMME_A1]);
+
+    it('a creator removed from the programme after queueing: the removal itself fails the job and erases it; the run creates nothing (R6, D-L160)', async () => {
       const { importId, job } = await preparedRun(10, 'rmq');
-      await observer.query('DELETE FROM user_programme WHERE user_id = $1 AND programme_id = $2', [USER_A_AGENT_1, PROGRAMME_A1]);
+      await removeFromA1(USER_A_AGENT_1);
+      // Before any worker runs: the trigger did it, in the removing statement.
+      const removed = await jobRow(importId);
+      expect(removed.status, 'the removal did not fail the queued import').toBe('failed');
+      expect([removed.headers, removed.filename, removed.mapping], 'the removal did not erase the import').toEqual([null, null, null]);
       await (await importJobs()).processImportRun(deps(), job.data).catch(() => undefined);
       expect(await countImported(importId)).toBe(0);
       expect((await jobRow(importId)).status).toBe('failed');
+    });
+
+    it('the removal fails and erases the creator’s awaiting_upload and awaiting_mapping imports in THAT programme only (D-L160 rulings 1-2)', async () => {
+      await assign(USER_A_AGENT_1, PROGRAMME_A2, 'admin');
+      const upload = (await createImport(IMPORTER, PROGRAMME_A1, csv([['Name'], ['zqu']]))).importId;
+      const mapping = await uploadAndComplete(IMPORTER, PROGRAMME_A1, csv([['Name', `Mobile ${HEAD}`], ['zqm', '0803 555 0101']]));
+      await readHeader(mapping);
+      const finished = (await importCsv([['Name'], ['zqfin']], [{ index: 0, field: 'displayName' }])).importId;
+      const elsewhere = (await createImport(IMPORTER, PROGRAMME_A2, csv([['Name'], ['zqe']]))).importId;
+      const someoneElses = (await createImport(SUPERVISOR, PROGRAMME_A1, csv([['Name'], ['zqs']]))).importId;
+      await removeFromA1(USER_A_AGENT_1);
+      for (const id of [upload, mapping]) {
+        const row = await jobRow(id);
+        expect(row.status, `${id}: not failed by the removal`).toBe('failed');
+        expect([row.headers, row.filename, row.mapping], `${id}: not erased by the removal`).toEqual([null, null, null]);
+      }
+      expect((await jobRow(finished)).status, 'a finished import was re-marked').toBe('finished');
+      for (const [id, label] of [[elsewhere, 'the creator’s A2 import'], [someoneElses, 'another creator’s A1 import']] as const) {
+        const row = await jobRow(id);
+        expect(row.status, `${label} was touched`).toBe('awaiting_upload');
+        expect(row.filename, `${label} was erased`).toBe(FILE);
+      }
     });
 
     it('a creator removed from the programme between batches: `failed`, counts so far, nothing created after (R5, R6)', async () => {
@@ -2037,7 +2119,7 @@ describe('acceptance: the import API and job (T-0094)', () => {
       const committed = await betweenBatches(
         importId,
         async () => {
-          await observer.query('DELETE FROM user_programme WHERE user_id = $1 AND programme_id = $2', [USER_A_AGENT_1, PROGRAMME_A1]);
+          await removeFromA1(USER_A_AGENT_1);
         },
         async () => {
           await jobs.processImportRun(deps(), job.data).catch(() => undefined);
@@ -2048,6 +2130,7 @@ describe('acceptance: the import API and job (T-0094)', () => {
       const body = await getImport(SUPERVISOR, importId);
       expect(body.status).toBe('failed');
       expect(body.counts.created).toBe(committed);
+      expect([body.headers, body.filename, body.mapping], 'the running import was not erased').toEqual([null, null, null]);
     }, 180_000);
 
     it('a creator who loses contact.import between batches: `failed`, counts so far, nothing created after (R5, R6)', async () => {
@@ -2092,6 +2175,59 @@ describe('acceptance: the import API and job (T-0094)', () => {
       expect(await seaweed.listEntries(keyOf(before))).toEqual([]);
       expect((await storedObject(before.stored_object_id)).status).toBe('deleted');
     }, 60_000);
+
+    it('an import left awaiting_mapping: untouched at 6 days, expired and erased 7 days after completion (D-L160 ruling 3)', async () => {
+      const importId = await uploadAndComplete(IMPORTER, PROGRAMME_A1, csv([['Name', `Mobile ${HEAD}`], ['zqam', '0803 555 0101']]));
+      await readHeader(importId);
+      const completedBy = Date.now();
+      const before = await jobRow(importId);
+      expect(before.status).toBe('awaiting_mapping');
+      const job = await retentionJobWithDelay(importId, 7 * DAY);
+      const jobs = await importJobs();
+      await jobs.processImportRetention(deps(() => new Date(completedBy + 6 * DAY)), job.data);
+      const early = await jobRow(importId);
+      expect(early.status, 'erased a day early').toBe('awaiting_mapping');
+      expect(early.filename).toBe(FILE);
+      expect((await seaweed.listEntries(keyOf(before))).length).toBe(1);
+      await jobs.processImportRetention(deps(() => new Date(completedBy + 7 * DAY + HOUR)), job.data);
+      const body = await getImport(IMPORTER, importId);
+      expectSchema('Import', body, 'expired after mapping was abandoned');
+      expect(body).toMatchObject({ status: 'expired', headers: null, filename: null, mapping: null });
+      expect(body.rawFileDeletedAt).toEqual(expect.any(String));
+      expect(await seaweed.listEntries(keyOf(before)), 'the raw file is still in the bucket').toEqual([]);
+      expect((await storedObject(before.stored_object_id)).status).toBe('deleted');
+    });
+
+    it('a retention job falling due while the import is running leaves it alone and enqueues itself again (D-L160 ruling 3)', async () => {
+      const importId = await uploadAndComplete(IMPORTER, PROGRAMME_A1, csv(nameRows('rr', 2500)));
+      await readHeader(importId);
+      await saveMapping(IMPORTER, importId, { columns: [{ index: 0, field: 'displayName' }], defaultCountry: 'NG' });
+      const run = await queueRun(IMPORTER, importId);
+      const sevenDay = await retentionJobWithDelay(importId, 7 * DAY);
+      const before = await jobRow(importId);
+      const jobs = await importJobs();
+      let queuedBefore = 0;
+      let queuedAfter = 0;
+      await betweenBatches(
+        importId,
+        async () => {
+          queuedBefore = (await jobsFor(RETENTION_QUEUE, importId)).length;
+          await jobs.processImportRetention(deps(() => new Date(Date.now() + 8 * DAY)), sevenDay.data);
+          queuedAfter = (await jobsFor(RETENTION_QUEUE, importId)).length;
+          const during = await jobRow(importId);
+          expect(during.status, 'retention moved a running import').toBe('running');
+          expect(during.filename, 'retention erased a running import').toBe(FILE);
+          expect((await seaweed.listEntries(keyOf(before))).length, 'retention deleted a running import’s file').toBe(1);
+        },
+        async () => {
+          await jobs.processImportRun(deps(), run.data);
+        },
+      );
+      expect(queuedAfter, 'the retention job did not reschedule itself').toBeGreaterThan(queuedBefore);
+      const body = await getImport(IMPORTER, importId);
+      expect(body.status).toBe('finished');
+      expect(body.counts.created).toBe(2500);
+    }, 180_000);
 
     it('a retention job that is not yet due changes nothing (the 24-hour job of a finished import; R13)', async () => {
       const { importId } = await importCsv(nameRows('nd', 2), [{ index: 0, field: 'displayName' }]);
@@ -2259,12 +2395,19 @@ describe('acceptance: the import API and job (T-0094)', () => {
   // =========================================================================
 
   describe('self-checks', () => {
-    it('the schema checker refuses a row error with a value, and the too_many_rows row number (self-check)', () => {
+    it('the schema checker refuses a row error with a value, a bad code, or a number past a maximum (self-check)', () => {
       expect(schemaErrors('ImportRowError', { row: 2, column: 0, code: 'required' })).toEqual([]);
       expect(schemaErrors('ImportRowError', { row: 2, column: 0, code: 'required', value: 'x' })).not.toEqual([]);
       expect(schemaErrors('ImportRowError', { row: 2, column: 0, code: 'bad_code' })).not.toEqual([]);
-      // R7's defect, recorded: the contract cannot hold row 100,002 today.
-      expect(schemaErrors('ImportRowError', { row: 100_002, column: null, code: 'too_many_rows' })).not.toEqual([]);
+      // column's maximum is 499: the checker enforces `maximum`, so the next test can trust it.
+      expect(schemaErrors('ImportRowError', { row: 2, column: 500, code: 'required' })).not.toEqual([]);
+    });
+
+    it('the contract holds the too_many_rows row: ImportRowError.row admits 100,002 (R7, D-L160 ruling 4)', () => {
+      // Fails on main, where row's maximum is 100,001, until the T-0094
+      // builder fixes the contract.
+      expect(schemaErrors('ImportRowError', { row: 100_002, column: null, code: 'too_many_rows' })).toEqual([]);
+      expect(schemaErrors('ImportRowError', { row: 1, column: null, code: 'too_many_rows' }), 'row 1 is the header').not.toEqual([]);
     });
 
     it('csv() quotes commas, quotes and newlines, and the BOM option prefixes U+FEFF (self-check)', () => {
