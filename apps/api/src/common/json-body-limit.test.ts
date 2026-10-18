@@ -3,7 +3,10 @@ import { ExpressAdapter } from '@nestjs/platform-express';
 import { of } from 'rxjs';
 import { describe, expect, it } from 'vitest';
 import {
+  bodyParserErrorHandler,
   hasMiddleware,
+  noStoreEverywhere,
+  safePathEncoding,
   INVALID_JSON_BODY,
   JsonBodyLimit,
   jsonParseErrorHandler,
@@ -113,5 +116,82 @@ describe('a body that is not JSON (T-0108, R15)', () => {
     });
     expect(forwarded).toBe(tooLarge);
     expect(seen.status).toBeUndefined();
+  });
+});
+
+describe('body-parser failures are the envelope (T-0121)', () => {
+  function run(error: unknown): { status?: number; body?: unknown; headers: string[]; passed: boolean } {
+    const out: { status?: number; body?: unknown; headers: string[]; passed: boolean } = {
+      headers: [],
+      passed: false,
+    };
+    const response = {
+      status(code: number) {
+        out.status = code;
+        return response;
+      },
+      setHeader(name: string, value: string) {
+        out.headers.push(`${name}: ${value}`);
+      },
+      json(body: unknown) {
+        out.body = body;
+      },
+    };
+    bodyParserErrorHandler(error, {}, response, () => {
+      out.passed = true;
+    });
+    return out;
+  }
+
+  it.each([
+    [413, 'entity.too.large', 'Payload Too Large'],
+    [415, 'charset.unsupported', 'Unsupported Media Type'],
+    [415, 'encoding.unsupported', 'Unsupported Media Type'],
+    [400, 'encoding.failed', 'Bad Request'],
+  ])('%s %s is validation_failed, no-store, and quotes nothing', (statusCode, type, reason) => {
+    const out = run({ statusCode, type, message: 'unsupported charset "SECRET"' });
+    expect(out.status).toBe(statusCode);
+    expect(out.headers).toEqual(['Cache-Control: no-store']);
+    expect(out.body).toEqual({
+      statusCode,
+      error: reason,
+      code: 'validation_failed',
+      message: 'The request body could not be read.',
+    });
+  });
+
+  it('passes on an error that is not a body-parser 4xx', () => {
+    expect(run(new Error('x')).passed).toBe(true);
+    expect(run({ statusCode: 500, type: 'x' }).passed).toBe(true);
+    expect(run({ message: 'no status' }).passed).toBe(true);
+  });
+
+  it('sets no-store and passes on', () => {
+    const headers: string[] = [];
+    let passed = false;
+    noStoreEverywhere({}, { setHeader: (n: string, v: string) => headers.push(`${n}: ${v}`) } as never, () => {
+      passed = true;
+    });
+    expect(headers).toEqual(['Cache-Control: no-store']);
+    expect(passed).toBe(true);
+  });
+});
+
+describe('a stray % in a path is re-encoded before routing (T-0121)', () => {
+  const fix = (url: string): string => {
+    const request = { url };
+    safePathEncoding(request, {}, () => undefined);
+    return request.url;
+  };
+
+  it('leaves a path that decodes, and its query, alone', () => {
+    expect(fix('/api/v1/contacts/a%20b?q=%E0%A4%A')).toBe('/api/v1/contacts/a%20b?q=%E0%A4%A');
+    expect(fix('/api/v1/contacts/zzz')).toBe('/api/v1/contacts/zzz');
+  });
+
+  it.each(['%E0%A4%A', '%', '%ZZ', '%C0%AF'])('re-encodes the segment %s only', (value) => {
+    const fixed = fix(`/api/v1/ok%20/${value}/x?a=1`);
+    expect(fixed).toBe(`/api/v1/ok%20/${value.replace(/%/gu, '%25')}/x?a=1`);
+    expect(() => decodeURIComponent(fixed.split('?')[0] ?? '')).not.toThrow();
   });
 });
