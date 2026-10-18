@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { appendOutboxEvent, OutboxEventRefusedError } from './outbox';
 import {
+  assertOneQueuePerAggregateType,
   ContactOwnerChangedPayload,
   isValidOutboxPayload,
   OUTBOX_EVENT_SCHEMAS,
@@ -66,6 +67,57 @@ describe('the outbox event registry', () => {
     ]) {
       expect(ContactOwnerChangedPayload.safeParse(bad).success).toBe(false);
     }
+  });
+});
+
+describe('upper-case uuids (D-L161)', () => {
+  it('payload ids are lower-cased, so an upper-case producer still matches aggregate_id', () => {
+    const upper = {
+      contactId: CONTACT.toUpperCase(),
+      previousOwnerId: OWNER_A.toUpperCase(),
+      newOwnerId: null,
+    };
+    expect(ContactOwnerChangedPayload.parse(upper)).toEqual({
+      contactId: CONTACT,
+      previousOwnerId: OWNER_A,
+      newOwnerId: null,
+    });
+    expect(isValidOutboxPayload({ ...ROW, payload: upper })).toBe(true);
+  });
+
+  it('the consumer envelope lower-cases too', () => {
+    const parsed = OutboxEnvelopeIdentity.parse({ ...ROW, id: EVENT.toUpperCase(), tenantId: TENANT.toUpperCase() });
+    expect(parsed.id).toBe(EVENT);
+    expect(parsed.tenantId).toBe(TENANT);
+  });
+});
+
+describe('one queue per aggregate type (D-L161)', () => {
+  const definition = (queue: string) => ({
+    schema: ContactOwnerChangedPayload,
+    schemaVersion: 1,
+    aggregateType: 'contact',
+    aggregateKey: 'contactId',
+    queue: queue as 'kasuwa.events.notifications',
+  });
+
+  it('accepts the shipped registry and two types on one queue', () => {
+    expect(() => assertOneQueuePerAggregateType(OUTBOX_EVENT_TYPES)).not.toThrow();
+    expect(() =>
+      assertOneQueuePerAggregateType({
+        'contact.a_b': definition('kasuwa.events.notifications'),
+        'contact.c_d': definition('kasuwa.events.notifications'),
+      }),
+    ).not.toThrow();
+  });
+
+  it('refuses one aggregate type routed to two queues', () => {
+    expect(() =>
+      assertOneQueuePerAggregateType({
+        'contact.a_b': definition('kasuwa.events.notifications'),
+        'contact.c_d': definition('kasuwa.events.search'),
+      }),
+    ).toThrow(/more than one queue/);
   });
 });
 

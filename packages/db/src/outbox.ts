@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isValidOutboxPayload, outboxEventDefinition } from './outbox-events';
+import { isValidOutboxPayload, outboxEventDefinition, OutboxUuid } from './outbox-events';
 import { assertLiveTenantTx, type TenantTx } from './session';
 
 /**
@@ -25,11 +25,29 @@ import { assertLiveTenantTx, type TenantTx } from './session';
  * The error names the rule broken and nothing else: no id, no tenant, no
  * payload value. A refusal is a programming error in the producer, not
  * something a user caused, so it is not translated.
+ *
+ * THE PRODUCER CONTRACT (D-L161):
+ *   1. Take the aggregate's row lock BEFORE appending: write the record first
+ *      (the UPDATE that changes the owner, say), then call appendOutboxEvent
+ *      in the same transaction. `seq` is assigned at INSERT, not at COMMIT,
+ *      so two transactions changing one aggregate could otherwise commit in
+ *      one order and carry seqs in the other, and the relay would publish
+ *      the events out of order. The row lock serialises them.
+ *   2. Generate the event id with `randomUUID()` (node:crypto), fresh per
+ *      event. Ids are global, not per tenant: the id is the primary key, the
+ *      BullMQ jobId and every consumer's idempotency key. Never derive one
+ *      from the aggregate or reuse one.
+ *   3. Consumers are at-least-once (ADR-0018 point 6): an event can be
+ *      delivered twice, so its handler must be idempotent.
  */
 
-const Uuid = z.string().uuid();
+const Uuid = OutboxUuid;
 
-/** What a producer passes. Extra properties are ignored, never honoured. */
+/**
+ * What a producer passes. Extra properties are ignored, never honoured. Every
+ * id is lower-cased (D-L161), as the payload schemas lower-case theirs, so an
+ * upper-case uuid from a producer still matches the row's columns.
+ */
 const AppendInput = z.object({
   id: Uuid,
   eventType: z.string(),

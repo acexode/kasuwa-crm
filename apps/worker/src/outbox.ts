@@ -3,6 +3,7 @@ import type {
   ConsumeOutboxOutcome,
   OutboxBacklog,
   OutboxHandler,
+  OutboxQueueName,
   OutboxQueuePort,
   readOutboxBacklog,
   relayOutboxBatch,
@@ -331,7 +332,10 @@ export interface ConsumerJob {
 }
 
 /**
- * A BullMQ processor for one consuming queue. Runs `consumeOutboxJob` on the
+ * A BullMQ processor for one consuming queue, bound to that queue (a job
+ * whose event type the registry routes elsewhere is dropped). The handler
+ * must be idempotent: delivery is at-least-once (ADR-0018 point 8). Runs
+ * `consumeOutboxJob` on the
  * app pool (kasuwa_app: the consumer re-enters the tenant as the event's
  * actor, ADR-0018 point 8). A drop resolves and is logged by reason, so a
  * forged job is not retried; any other failure rejects with a sanitised
@@ -341,13 +345,14 @@ export interface ConsumerJob {
 export function outboxConsumerProcessor<T>(
   consume: Consume,
   appPool: Pool,
+  queue: OutboxQueueName,
   handler: OutboxHandler<T>,
   write: Write,
 ): (job: ConsumerJob) => Promise<ConsumeOutboxOutcome<T>['outcome']> {
   return async (job) => {
     let outcome: ConsumeOutboxOutcome<T>;
     try {
-      outcome = await consume(appPool, job.data, handler);
+      outcome = await consume(appPool, job.data, handler, { queue });
     } catch (error) {
       write(
         `outbox consume ${loggableId(job.id)} attempt=${(job.attemptsMade ?? 0) + 1} ` +
@@ -357,7 +362,8 @@ export function outboxConsumerProcessor<T>(
     }
     write(
       outcome.outcome === 'dropped'
-        ? `outbox consume ${loggableId(job.id)} outcome=dropped reason=${outcome.reason}`
+        ? `outbox consume ${loggableId(job.id)} outcome=dropped reason=${outcome.reason} ` +
+            `detail=${outcome.detail}`
         : `outbox consume ${loggableId(job.id)} outcome=handled`,
     );
     return outcome.outcome;

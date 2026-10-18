@@ -217,11 +217,21 @@ describe('outboxConsumerProcessor', () => {
   const handler = async (): Promise<string> => 'done';
 
   it('logs a drop by reason and resolves, so BullMQ does not retry a forgery', async () => {
-    const consume = vi.fn(async () => ({ outcome: 'dropped', reason: 'forged' }) as const);
+    const consume = vi.fn(
+      async () => ({ outcome: 'dropped', reason: 'forged', detail: 'not_visible' }) as const,
+    );
     const { write, seen } = lines();
-    const process = outboxConsumerProcessor(consume as unknown as Consume, APP_POOL, handler, write);
+    const process = outboxConsumerProcessor(
+      consume as unknown as Consume,
+      APP_POOL,
+      'kasuwa.events.notifications',
+      handler,
+      write,
+    );
     await expect(process({ id: 'Invented Person', data: {} })).resolves.toBe('dropped');
-    expect(seen).toEqual(['outbox consume invalid outcome=dropped reason=forged']);
+    expect(seen).toEqual(['outbox consume invalid outcome=dropped reason=forged detail=not_visible']);
+    // Bound to its queue: the helper is told which queue it serves.
+    expect(consume).toHaveBeenCalledWith(APP_POOL, {}, handler, { queue: 'kasuwa.events.notifications' });
   });
 
   it('a handler failure rejects with the class name only, and no cause', async () => {
@@ -230,7 +240,13 @@ describe('outboxConsumerProcessor', () => {
       throw new HandlerError('contact Invented Person not found');
     });
     const { write, seen } = lines();
-    const process = outboxConsumerProcessor(consume as unknown as Consume, APP_POOL, handler, write);
+    const process = outboxConsumerProcessor(
+      consume as unknown as Consume,
+      APP_POOL,
+      'kasuwa.events.notifications',
+      handler,
+      write,
+    );
     const error = await process({ id: EVENT, data: {}, attemptsMade: 2 }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(OutboxConsumerJobError);
     expect((error as Error).message).toBe('outbox consumer failed: HandlerError');

@@ -90,6 +90,33 @@ const CONSUMER_BACKOFF_MS = 5_000;
  */
 const PUBLISH_BACKOFF_CAP_SECONDS = 3_600;
 
+/**
+ * How long one addBulk may take before it counts as failed (D-L161). Shorter
+ * than the pool's 15 s idle-in-transaction timeout, so a hung Redis records a
+ * failed attempt and starts the backoff instead of the claim transaction
+ * idling until the server kills it (which would record nothing). A job that
+ * lands after the timeout is re-enqueued under the same jobId next time and
+ * BullMQ drops the duplicate: still at-least-once.
+ */
+export const OUTBOX_ENQUEUE_TIMEOUT_MS = 10_000;
+
+/** Thrown internally when addBulk outlives OUTBOX_ENQUEUE_TIMEOUT_MS. */
+class OutboxEnqueueTimeoutError extends Error {
+  override readonly name = 'OutboxEnqueueTimeoutError';
+}
+
+async function withEnqueueTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new OutboxEnqueueTimeoutError('enqueue timed out')), ms);
+  });
+  try {
+    return await Promise.race([work, timeout]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 /** BullMQ's job options for every outbox job. */
 export interface OutboxJobOptions {
   jobId: string;
@@ -192,7 +219,8 @@ const CLAIM_SQL = `
      AND NOT ${IN_BACKOFF('o')}
      AND NOT EXISTS (
            SELECT 1 FROM outbox_event e
-            WHERE e.aggregate_type = o.aggregate_type
+            WHERE e.tenant_id = o.tenant_id
+              AND e.aggregate_type = o.aggregate_type
               AND e.aggregate_id = o.aggregate_id
               AND e.seq < o.seq
               AND e.published_at IS NULL
@@ -215,7 +243,8 @@ const BLOCKED_SQL = `
    WHERE o.id = ANY ($1::uuid[])
      AND EXISTS (
            SELECT 1 FROM outbox_event e
-            WHERE e.aggregate_type = o.aggregate_type
+            WHERE e.tenant_id = o.tenant_id
+              AND e.aggregate_type = o.aggregate_type
               AND e.aggregate_id = o.aggregate_id
               AND e.seq < o.seq
               AND e.published_at IS NULL
@@ -360,7 +389,9 @@ export async function relayOutboxBatch(
 
     // claimed.rows is in seq order (CLAIM_SQL's ORDER BY).
     for (const row of claimed.rows) {
-      const aggregate = `${row.aggregate_type}:${row.aggregate_id}`;
+      // An aggregate is per tenant (D-L161): one tenant's poison row never
+      // holds back another tenant's events, even for a colliding id.
+      const aggregate = `${row.tenant_id}:${row.aggregate_type}:${row.aggregate_id}`;
       if (blocked.has(row.id) || heldAggregates.has(aggregate)) {
         heldAggregates.add(aggregate);
         continue;
@@ -394,7 +425,7 @@ export async function relayOutboxBatch(
       const port = options.queues[queue];
       try {
         if (port === undefined) throw new OutboxRelayConfigError(queue);
-        await port.addBulk(entry.jobs);
+        await withEnqueueTimeout(port.addBulk(entry.jobs), OUTBOX_ENQUEUE_TIMEOUT_MS);
         published.push(...entry.rows);
       } catch {
         // The error is not kept: it may come from Redis or a test double, and
@@ -520,11 +551,16 @@ export async function readOutboxBacklog(pool: Pool): Promise<OutboxBacklog> {
   try {
     await client.query('BEGIN READ ONLY');
     await confirmRelayRole(client);
+    // The oldest row by seq, read off the pending partial index (D-L161),
+    // rather than min(created_at) over every pending row.
     const result = await client.query<{ pending: number; oldest: number }>(
-      `SELECT count(*)::int AS pending,
-              coalesce(extract(epoch FROM now() - min(created_at)), 0)::int AS oldest
-         FROM outbox_event
-        WHERE published_at IS NULL AND dead_at IS NULL`,
+      `SELECT (SELECT count(*)::int FROM outbox_event
+                WHERE published_at IS NULL AND dead_at IS NULL) AS pending,
+              coalesce((SELECT extract(epoch FROM now() - created_at)::int
+                          FROM outbox_event
+                         WHERE published_at IS NULL AND dead_at IS NULL
+                         ORDER BY seq
+                         LIMIT 1), 0) AS oldest`,
     );
     await client.query('COMMIT');
     client.release();

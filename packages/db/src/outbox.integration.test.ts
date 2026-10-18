@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, inject, it } from 'vitest';
 import { appendOutboxEvent, OutboxEventRefusedError } from './outbox';
+import { consumeOutboxJob } from './outbox-consumer';
 import {
   OutboxRelayConfigError,
   OutboxRelayRoleError,
@@ -10,7 +11,15 @@ import {
   sweepOutbox,
   type OutboxJob,
 } from './outbox-relay';
-import { PROGRAMME_A1, PROGRAMME_A2, TENANT_A, USER_A_AGENT_1 } from './fixtures';
+import {
+  PROGRAMME_A1,
+  PROGRAMME_A2,
+  PROGRAMME_B1,
+  TENANT_A,
+  TENANT_B,
+  USER_A_AGENT_1,
+  USER_B_AGENT_1,
+} from './fixtures';
 import { createPool } from './pool';
 import { withTenantTransaction } from './session';
 
@@ -52,21 +61,26 @@ describe('outbox: relay role, backoff lever and refusals (T-0098)', () => {
     await migrator.end();
   });
 
-  async function plant(options: { aggregateId?: string; payload?: unknown } = {}): Promise<string> {
+  async function plant(
+    options: { aggregateId?: string; payload?: unknown; tenantB?: boolean } = {},
+  ): Promise<string> {
     const id = randomUUID();
     const aggregateId = options.aggregateId ?? randomUUID();
+    const [tenant, programme, actor] = options.tenantB
+      ? [TENANT_B, PROGRAMME_B1, USER_B_AGENT_1]
+      : [TENANT_A, PROGRAMME_A1, USER_A_AGENT_1];
     await migrator.query(
       `INSERT INTO outbox_event (id, tenant_id, programme_id, actor_user_id, event_type,
                                  schema_version, aggregate_type, aggregate_id, payload)
        VALUES ($1, $2, $3, $4, 'contact.owner_changed', 1, 'contact', $5, $6::jsonb)`,
       [
         id,
-        TENANT_A,
-        PROGRAMME_A1,
-        USER_A_AGENT_1,
+        tenant,
+        programme,
+        actor,
         aggregateId,
         JSON.stringify(
-          options.payload ?? { contactId: aggregateId, previousOwnerId: null, newOwnerId: USER_A_AGENT_1 },
+          options.payload ?? { contactId: aggregateId, previousOwnerId: null, newOwnerId: actor },
         ),
       ],
     );
@@ -162,5 +176,92 @@ describe('outbox: relay role, backoff lever and refusals (T-0098)', () => {
     expect((outcome.outOfScope as OutboxEventRefusedError).refusal).toBe('programme_out_of_scope');
     const rows = await migrator.query('SELECT 1 FROM outbox_event');
     expect(rows.rowCount).toBe(0);
+  });
+
+  it('D-L161: a poison row in one tenant never holds back the same aggregate id in another', async () => {
+    const shared = randomUUID();
+    await plant({ aggregateId: shared, payload: { contactId: shared, note: 'x' } });
+    const otherTenant = await plant({ aggregateId: shared, tenantB: true });
+    const sink: OutboxJob[] = [];
+    await relayOutboxBatch(relay, { queues: queues(sink), batchSize: 10 });
+    expect(sink.map((job) => job.opts.jobId)).toEqual([otherTenant]);
+  });
+
+  it('D-L161: an upper-case producer is accepted, lower-cased, and published', async () => {
+    const contactId = randomUUID();
+    const id = randomUUID();
+    await withTenantTransaction(app, { tenantId: TENANT_A, userId: USER_A_AGENT_1 }, async (tx) => {
+      await appendOutboxEvent(tx, {
+        id: id.toUpperCase(),
+        eventType: 'contact.owner_changed',
+        programmeId: PROGRAMME_A1.toUpperCase(),
+        aggregateType: 'contact',
+        aggregateId: contactId.toUpperCase(),
+        payload: {
+          contactId: contactId.toUpperCase(),
+          previousOwnerId: null,
+          newOwnerId: USER_A_AGENT_1.toUpperCase(),
+        },
+      });
+    });
+    const sink: OutboxJob[] = [];
+    const run = await relayOutboxBatch(relay, { queues: queues(sink), batchSize: 10 });
+    expect(run.outcomes).toEqual([{ id, eventType: 'contact.owner_changed', attempt: 1, outcome: 'published' }]);
+    expect(sink[0]?.data.payload).toEqual({ contactId, previousOwnerId: null, newOwnerId: USER_A_AGENT_1 });
+  });
+
+  it('D-L161: a hung addBulk times out at 10 s, records a failed attempt and commits', async () => {
+    const id = await plant();
+    const hung = {
+      'kasuwa.events.notifications': { addBulk: () => new Promise<never>(() => undefined) },
+    };
+    const run = await relayOutboxBatch(relay, { queues: hung, batchSize: 10 });
+    expect(run.outcomes).toEqual([{ id, eventType: 'contact.owner_changed', attempt: 1, outcome: 'failed' }]);
+    const row = await migrator.query<{ attempts: number }>('SELECT attempts FROM outbox_event WHERE id = $1', [id]);
+    expect(row.rows[0]?.attempts).toBe(1);
+  }, 25_000);
+
+  it('D-L161: drop details split not_visible, mismatch and wrong_queue, and carry no values', async () => {
+    const id = randomUUID();
+    const contactId = randomUUID();
+    await withTenantTransaction(app, { tenantId: TENANT_A, userId: USER_A_AGENT_1 }, async (tx) => {
+      await appendOutboxEvent(tx, {
+        id,
+        eventType: 'contact.owner_changed',
+        programmeId: PROGRAMME_A1,
+        aggregateType: 'contact',
+        aggregateId: contactId,
+        payload: { contactId, previousOwnerId: null, newOwnerId: null },
+      });
+    });
+    const envelope = {
+      id,
+      tenantId: TENANT_A,
+      programmeId: PROGRAMME_A1,
+      actorUserId: USER_A_AGENT_1,
+      eventType: 'contact.owner_changed',
+      aggregateType: 'contact',
+      aggregateId: contactId,
+    };
+    const handler = async (): Promise<string> => 'handled';
+    expect(await consumeOutboxJob(app, envelope, handler)).toEqual({ outcome: 'handled', value: 'handled' });
+    expect(await consumeOutboxJob(app, { ...envelope, id: randomUUID() }, handler)).toEqual({
+      outcome: 'dropped',
+      reason: 'forged',
+      detail: 'not_visible',
+    });
+    expect(await consumeOutboxJob(app, { ...envelope, aggregateId: randomUUID() }, handler)).toEqual({
+      outcome: 'dropped',
+      reason: 'forged',
+      detail: 'mismatch',
+    });
+    expect(
+      await consumeOutboxJob(app, envelope, handler, {
+        queue: 'kasuwa.events.search' as 'kasuwa.events.notifications',
+      }),
+    ).toEqual({ outcome: 'dropped', reason: 'forged', detail: 'wrong_queue' });
+    expect(
+      await consumeOutboxJob(app, envelope, handler, { queue: 'kasuwa.events.notifications' }),
+    ).toMatchObject({ outcome: 'handled' });
   });
 });

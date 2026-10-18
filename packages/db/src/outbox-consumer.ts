@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { OutboxEnvelopeIdentity, outboxEventDefinition } from './outbox-events';
+import { OutboxEnvelopeIdentity, outboxEventDefinition, type OutboxQueueName } from './outbox-events';
 import { UnknownSessionUserError, withTenantTransaction, type TenantTx } from './session';
 
 /**
@@ -26,8 +26,24 @@ import { UnknownSessionUserError, withTenantTransaction, type TenantTx } from '.
  *      rebuilt FROM THE ROW, payload included, never from Redis. The handler
  *      re-reads its aggregate under RLS and acts on current state.
  *
- * OUTCOMES. A drop RESOLVES `{ outcome: 'dropped', reason }` so BullMQ does
- * not retry a forgery five times; the caller counts it by reason (R5). A
+ * OUTCOMES. A drop RESOLVES `{ outcome: 'dropped', reason, detail }` so
+ * BullMQ does not retry a forgery five times; the caller counts it (R5).
+ * `reason` is the suite's F-R2 vocabulary ('forged' or 'actor_gone');
+ * `detail` splits 'forged' for the metrics (D-L161, ADR-0018 point 10):
+ *   - not_visible: no row with that id in that tenant under the actor's RLS
+ *     (another tenant's event, an invented id, or a programme the actor has
+ *     since left);
+ *   - mismatch: the row exists but differs from the envelope;
+ *   - wrong_queue: the event type belongs to another consuming queue;
+ *   - invalid: the envelope or the stored payload does not parse.
+ *   D-L161 asked for `not_visible` as its own reason; the unmodified forgery
+ *   suite pins `forged` for exactly those cases, so it is a detail instead.
+ *
+ * QUEUE BINDING (D-L161). A consumer passes the queue it serves; a job whose
+ * event type the registry routes elsewhere is dropped before any database
+ * work. A handler must be IDEMPOTENT: delivery is at-least-once, so it writes
+ * with its own idempotency key, e.g. notifications INSERT ... ON CONFLICT
+ * (source_event_id, recipient_user_id) DO NOTHING (ADR-0018 point 8). A
  * handler error, or any other failure, REJECTS, so BullMQ retries, and the
  * transaction rolls back with everything the handler wrote. The drop outcome
  * carries the reason and nothing else: no tenant, actor, aggregate or
@@ -37,9 +53,16 @@ import { UnknownSessionUserError, withTenantTransaction, type TenantTx } from '.
 
 export type OutboxDropReason = 'forged' | 'actor_gone';
 
+export type OutboxDropDetail = 'not_visible' | 'mismatch' | 'wrong_queue' | 'invalid' | 'actor_gone';
+
 export type ConsumeOutboxOutcome<T> =
   | { outcome: 'handled'; value: T }
-  | { outcome: 'dropped'; reason: OutboxDropReason };
+  | { outcome: 'dropped'; reason: OutboxDropReason; detail: OutboxDropDetail };
+
+export interface ConsumeOutboxOptions {
+  /** The queue this consumer serves. Jobs for another queue's event types are dropped. */
+  queue?: OutboxQueueName;
+}
 
 /** What the handler receives: the row as the database holds it. */
 export interface ConsumedOutboxEvent {
@@ -77,8 +100,13 @@ interface RereadRow {
   created_at: Date;
 }
 
-const FORGED = { outcome: 'dropped', reason: 'forged' } as const;
-const ACTOR_GONE = { outcome: 'dropped', reason: 'actor_gone' } as const;
+const drop = (reason: OutboxDropReason, detail: OutboxDropDetail) =>
+  ({ outcome: 'dropped', reason, detail }) as const;
+const NOT_VISIBLE = drop('forged', 'not_visible');
+const MISMATCH = drop('forged', 'mismatch');
+const WRONG_QUEUE = drop('forged', 'wrong_queue');
+const INVALID = drop('forged', 'invalid');
+const ACTOR_GONE = drop('actor_gone', 'actor_gone');
 
 /**
  * Re-enters the envelope's tenant as its actor, confirms the event against
@@ -89,12 +117,16 @@ export async function consumeOutboxJob<T>(
   pool: Pool,
   data: unknown,
   handler: OutboxHandler<T>,
+  options: ConsumeOutboxOptions = {},
 ): Promise<ConsumeOutboxOutcome<T>> {
   const parsed = OutboxEnvelopeIdentity.safeParse(data);
   if (!parsed.success) {
-    return FORGED;
+    return INVALID;
   }
   const envelope = parsed.data;
+  if (options.queue !== undefined && outboxEventDefinition(envelope.eventType)?.queue !== options.queue) {
+    return WRONG_QUEUE;
+  }
 
   try {
     return await withTenantTransaction(
@@ -103,8 +135,10 @@ export async function consumeOutboxJob<T>(
       async (tx): Promise<ConsumeOutboxOutcome<T>> => {
         const rows = await tx.query<RereadRow>(REREAD_SQL, [envelope.id, tx.session.tenantId]);
         const row = rows[0];
+        if (row === undefined) {
+          return NOT_VISIBLE;
+        }
         if (
-          row === undefined ||
           row.tenant_id !== envelope.tenantId ||
           row.programme_id !== envelope.programmeId ||
           row.actor_user_id !== envelope.actorUserId ||
@@ -115,14 +149,14 @@ export async function consumeOutboxJob<T>(
           // the explicit second check.
           !tx.session.programmeIds.includes(row.programme_id)
         ) {
-          return FORGED;
+          return MISMATCH;
         }
         const definition = outboxEventDefinition(row.event_type);
         const payload = definition?.schema.safeParse(row.payload);
         if (payload === undefined || !payload.success) {
           // The relay re-parses before enqueue (R3), so a row that fails here
           // was changed or forged after publication.
-          return FORGED;
+          return INVALID;
         }
         const event: ConsumedOutboxEvent = {
           id: row.id,

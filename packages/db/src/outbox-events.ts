@@ -26,7 +26,18 @@ import { z } from 'zod';
  * the worker before (or with) the first producer.
  */
 
-const Uuid = z.string().uuid();
+/**
+ * A uuid, LOWER-CASED (D-L161). Postgres stores and returns uuids in lower
+ * case, so a payload id compared with a column (contactId against
+ * aggregate_id) must be lower case too, or a producer passing an upper-case
+ * id writes an event the relay rejects ten times and kills, silently. Every
+ * id in a payload schema and in the producer's input goes through this.
+ */
+export const OutboxUuid = z
+  .string()
+  .uuid()
+  .transform((value) => value.toLowerCase());
+const Uuid = OutboxUuid;
 
 /** One queue per consuming domain (ADR-0018 point 6). */
 export const OUTBOX_QUEUES = Object.freeze({
@@ -54,7 +65,7 @@ export type ContactOwnerChangedPayload = z.infer<typeof ContactOwnerChangedPaylo
 /** Everything the outbox needs to know about one event type. */
 export interface OutboxEventDefinition {
   /** The strict payload schema. */
-  readonly schema: z.ZodType<Record<string, unknown>>;
+  readonly schema: z.ZodType<Record<string, unknown>, z.ZodTypeDef, unknown>;
   /** Written to `schema_version`; the relay refuses a row with another. */
   readonly schemaVersion: number;
   /** The only aggregate type this event may be about. */
@@ -63,6 +74,27 @@ export interface OutboxEventDefinition {
   readonly aggregateKey: string;
   /** The consuming domain's queue. */
   readonly queue: OutboxQueueName;
+}
+
+/**
+ * Throws unless every aggregate type routes to exactly one queue (D-L161).
+ * Order is kept per aggregate within one queue's addBulk; if two event types
+ * about the same aggregate went to different queues, one queue's failure
+ * could let a later event out ahead of an earlier one.
+ */
+export function assertOneQueuePerAggregateType(
+  types: Readonly<Record<string, OutboxEventDefinition>>,
+): void {
+  const queueOf = new Map<string, string>();
+  for (const definition of Object.values(types)) {
+    const existing = queueOf.get(definition.aggregateType);
+    if (existing !== undefined && existing !== definition.queue) {
+      throw new Error(
+        `outbox registry: aggregate type ${definition.aggregateType} routes to more than one queue`,
+      );
+    }
+    queueOf.set(definition.aggregateType, definition.queue);
+  }
 }
 
 export const OUTBOX_EVENT_TYPES: Readonly<Record<string, OutboxEventDefinition>> = Object.freeze({
@@ -74,12 +106,15 @@ export const OUTBOX_EVENT_TYPES: Readonly<Record<string, OutboxEventDefinition>>
     queue: OUTBOX_QUEUES.notifications,
   }),
 });
+assertOneQueuePerAggregateType(OUTBOX_EVENT_TYPES);
 
 /**
  * Event type -> its strict payload schema (the T-0098 suite's I5). Derived
  * from `OUTBOX_EVENT_TYPES`, so the two can never disagree.
  */
-export const OUTBOX_EVENT_SCHEMAS: Readonly<Record<string, z.ZodType<Record<string, unknown>>>> =
+export const OUTBOX_EVENT_SCHEMAS: Readonly<
+  Record<string, z.ZodType<Record<string, unknown>, z.ZodTypeDef, unknown>>
+> =
   Object.freeze(
     Object.fromEntries(
       Object.entries(OUTBOX_EVENT_TYPES).map(([type, definition]) => [type, definition.schema]),
