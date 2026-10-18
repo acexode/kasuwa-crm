@@ -3593,3 +3593,22 @@ tenancy folder, the record API suites, integration and unit.
   (source_event_id, recipient_user_id) as already delivered. Actors must not be able to read notification rows.
 - **Not pinned yet:** `import.finished` waits for T-0094, and merged-away contact drops wait for T-0095.
 - **Order:** the T-0100 build waits for T-0095 to merge, because both change the contact, account and deal services.
+
+### D-L165 — T-0095 suite aligned with D-L163 (lead, 2026-10-19)
+
+- **M7 (lead edits on lead/T-0095-acceptance, 216a26f and 048011f).**
+  - A fresh user's burst admits exactly 20 listDuplicates calls a minute. The 21st gets 429 with an integer
+    `Retry-After` between 1 and 60.
+  - A new test pins at most two concurrent scans per tenant. The third gets 429 at once, while another tenant
+    is unaffected. The test waits on `pg_locks`, never on a clock.
+- **Users.** Throttle-sensitive tests use per-run fresh users, because throttle windows outlive the reseed.
+  No shared fixture user calls listDuplicates.
+- **Undo.**
+  - A merger who has lost `contact.write` gets 404, byte-identical to an invented merge.
+  - Another `contact.write` holder who did not merge still gets 403.
+- **M8 latency.**
+  - The timed reader is a dedicated user, and every timed round must return 200 before its time counts.
+  - On the loaded Mac the build measured about 280 ms against the 150 ms budget. It is re-measured on the quiet
+    Windows runner before merge. If it still misses there, the build gets an index or query fix; the budget stays.
+- **Order.** T-0095 merges after T-0094. The 0040→0043 rename commits are squashed, so only 0043_contact_merge.sql
+  exists in history.
