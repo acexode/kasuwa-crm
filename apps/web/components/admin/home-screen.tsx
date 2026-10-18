@@ -79,10 +79,12 @@ export function AdminHomeScreen({
   locale,
   messages,
   locales,
+  linkedSettings,
 }: {
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
+  linkedSettings: Readonly<Record<string, string>>;
 }) {
   const t = createBundleTranslator(locale, messages);
 
@@ -113,7 +115,7 @@ export function AdminHomeScreen({
     <AdminShell
       locale={locale}
       messages={messages}
-      locales={locales}
+      locales={locales} linkedSettings={linkedSettings}
       activeSettingId="home"
     >
       <div data-screen="P02/A" className="flex flex-col gap-6">

@@ -240,3 +240,23 @@ export async function crmSearchEnabled(): Promise<boolean> {
     toEvaluationContext({ tenantId: CRM_SHELL }),
   );
 }
+
+/**
+ * `crm_custom_fields` (T-0090, D-L128) gates the P18 customisation studio —
+ * `/admin/custom-fields` calls `notFound()` while it is off, so typing the path
+ * gets a real 404 and nothing of the screen ships — and the settings menu's
+ * "Fields" entry, which links the studio only where this is on
+ * (`adminLiveNav()`, read by each admin page). No client module names it.
+ *
+ * Per process, like the others. It grants nothing: the four custom-field
+ * operations are decided by the API from the session, and every write needs
+ * `custom_field.write` (the tenant-admin flag), whether this is on or off.
+ */
+export async function crmCustomFieldsEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_custom_fields',
+    false,
+    toEvaluationContext({ tenantId: ADMIN_CONSOLE }),
+  );
+}

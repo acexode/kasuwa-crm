@@ -1190,9 +1190,14 @@ describe('acceptance: records contract, activities, tasks and the calendar (T-00
 
     it('no operation is named or routed like reopen, undo or restore', () => {
       gate();
+      // The one sanctioned undo is a contact merge's (D-P12, T-0093): it reopens no task.
+      // Lead edit, T-0093. Any other undo, reopen or restore is still caught.
+      const mergeUndo = (op: { id: string; path: string }): boolean =>
+        op.id === 'undoContactMerge' && op.path === '/api/v1/contact-merges/{mergeId}/undo';
       expect(
         operations()
           .filter((op) => REOPEN.test(op.id) || REOPEN.test(op.path))
+          .filter((op) => !mergeUndo(op))
           .map((op) => op.id),
       ).toEqual([]);
     });
