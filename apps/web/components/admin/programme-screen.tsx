@@ -62,6 +62,7 @@ export function ProgrammeScreen({
   locale,
   messages,
   locales,
+  linkedSettings,
   programmeId,
   tab,
   live,
@@ -69,6 +70,7 @@ export function ProgrammeScreen({
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
+  linkedSettings: Readonly<Record<string, string>>;
   programmeId: string;
   tab: ProgrammeTab;
   /**
@@ -99,7 +101,7 @@ export function ProgrammeScreen({
     `/admin/programmes/${encodeURIComponent(programmeId)}?tab=${next}`;
 
   return (
-    <AdminShell locale={locale} messages={messages} locales={locales} activeSettingId="programmes">
+    <AdminShell locale={locale} messages={messages} locales={locales} linkedSettings={linkedSettings} activeSettingId="programmes">
       <div data-screen="P02/B2" className="flex flex-col gap-6 pb-24">
         <nav aria-label={t.t('admin.prog.breadcrumb')} className="flex items-center gap-1">
           <span className="text-body-sm font-semibold text-text-muted">

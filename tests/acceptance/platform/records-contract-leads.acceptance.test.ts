@@ -152,7 +152,9 @@ import { parse } from 'yaml';
  *   depth. Any operation in the file whose id or path says merge, score,
  *   health or map/geo is `x-kasuwa-implemented: false`, documents 401 and
  *   501 (examples only not_implemented), names a P04 frame; a score or
- *   health stub's description names M17, a merge stub's D-P12.
+ *   health stub's description names M17, a merge stub's D-P12. (Lead edit,
+ *   T-0093: the four merge operations T-0093 specifies are not stubs and are
+ *   pinned by records-contract-import instead.)
  *
  *   ERRORS AND SCOPE on every operation this slice adds (listLeads,
  *   convertContact, anything under /api/v1/leads, and the not-built stubs):
@@ -350,7 +352,21 @@ const UNBUILT: { label: string; match: RegExp; waitsFor: RegExp | null }[] = [
   { label: 'map', match: /(^|\/)(map|geo)(\/|$)|Map$|^map|geo/i, waitsFor: null },
 ];
 
+/**
+ * Merge is no longer unbuilt: D-P12 was answered and T-0093 specifies it (P28/C,
+ * C1). Its four operations, at exactly these paths, are T-0093's suite's to pin,
+ * not stubs. Any other merge operation is still held to the stub rule. Lead
+ * edit, T-0093.
+ */
+const MERGE_OPERATIONS = new Map([
+  ['getContactMergePreview', '/api/v1/contacts/{contactId}/merge-preview'],
+  ['createContactMerge', '/api/v1/contact-merges'],
+  ['listContactMerges', '/api/v1/contact-merges'],
+  ['undoContactMerge', '/api/v1/contact-merges/{mergeId}/undo'],
+]);
+
 function unbuiltLabel(op: Operation): string | undefined {
+  if (MERGE_OPERATIONS.get(op.id) === op.path) return undefined;
   return UNBUILT.find((entry) => entry.match.test(op.id) || entry.match.test(op.path))?.label;
 }
 
