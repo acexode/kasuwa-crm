@@ -1897,7 +1897,7 @@ paths:
   # =========================================================================
   # Custom fields — P18/B, P18/B1, P18/B2 (T-0088; ADR-0016, D-L128, D-L138)
   #
-  # Contract only until T-0089. Definitions live in `field_def` (0002): tenant
+  # Served since T-0089. Definitions live in `field_def` (0002): tenant
   # scoped and deliberately NOT programme-scoped (ADR-0008), so a field one
   # admin defines is the same field in every programme of the tenant. The
   # VALUES live on the record rows (records.openapi.yaml `custom`) and are
@@ -1911,7 +1911,7 @@ paths:
       x-kasuwa-implemented: true
       x-kasuwa-screens: ['P18/B']
       description: |
-        **Contract only (T-0088) until T-0089 serves it.**
+        **Served since T-0089 (contract T-0088).**
 
         Every custom field defined on `object` in the caller's tenant, ordered
         by `apiName`, with the limits that apply. By default only ACTIVE
@@ -1958,7 +1958,7 @@ paths:
                 objectApiName: contact
                 limits:
                   apiBytes: 16384
-                  bytesPerRecord: 32768
+                  bytesPerRecord: 524288
                   definitionsPerObject: 500
                   fieldsPerObject: 100
                   picklistValues: 500
@@ -2057,7 +2057,7 @@ paths:
       x-kasuwa-permission: custom_field.write
       x-kasuwa-screens: ['P18/B', 'P18/B1']
       description: |
-        **Contract only (T-0088) until T-0089 serves it.**
+        **Served since T-0089 (contract T-0088).**
 
         **Permission.** `custom_field.write`, a TENANT action (D-L53): the
         tenant-admin flag only, whatever permission sets the caller holds in
@@ -2179,7 +2179,7 @@ paths:
       x-kasuwa-permission: custom_field.write
       x-kasuwa-screens: ['P18/B', 'P18/B2']
       description: |
-        **Contract only (T-0088) until T-0089 serves it.** Permission as
+        **Served since T-0089 (contract T-0088).** Permission as
         createCustomField: `custom_field.write`, the tenant-admin flag.
 
         Partial: absent properties are unchanged, and at least one is sent.
@@ -2280,7 +2280,7 @@ paths:
       x-kasuwa-permission: custom_field.write
       x-kasuwa-screens: ['P18/B']
       description: |
-        **Contract only (T-0088) until T-0089 serves it.** Permission as
+        **Served since T-0089 (contract T-0088).** Permission as
         createCustomField: `custom_field.write`, the tenant-admin flag. No
         body.
 
@@ -3899,9 +3899,10 @@ components:
         The limits (D-L128 Q1, D-L140, D-L141), as data so a screen never
         hard-codes them. `apiBytes`: the API's 16 KiB limit on a record's
         merged `custom`, counted on the keys the caller can read plus those
-        written (`custom_too_large`). `bytesPerRecord`: the 32 KiB database
-        backstop on the whole stored object, which a caller never meets
-        through the API. `definitionsPerObject`: at most 500 definitions per
+        written (`custom_too_large`). `bytesPerRecord`: the 512 KiB database
+        backstop on the whole stored object (D-L142). The 16 KiB `apiBytes`
+        limit is what callers meet; the backstop only stops a writer that is
+        not the API. `definitionsPerObject`: at most 500 definitions per
         object, retired fields included. `fieldsPerObject`: at most 100
         active fields per object; retired fields do not count. And
         `picklistValues`: at most 500 values per picklist.
@@ -3912,8 +3913,8 @@ components:
           description: 16 KiB, measured on what the caller can see plus what it writes (D-L140).
         bytesPerRecord:
           type: integer
-          const: 32768
-          description: 32 KiB, the database backstop.
+          const: 524288
+          description: 512 KiB, the database backstop against non-API writers (D-L142); callers meet `apiBytes`.
         definitionsPerObject:
           type: integer
           const: 500

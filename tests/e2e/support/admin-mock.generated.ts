@@ -1873,7 +1873,7 @@ export const ADMIN_OPERATIONS = [
           "objectApiName": "contact",
           "limits": {
             "apiBytes": 16384,
-            "bytesPerRecord": 32768,
+            "bytesPerRecord": 524288,
             "definitionsPerObject": 500,
             "fieldsPerObject": 100,
             "picklistValues": 500
