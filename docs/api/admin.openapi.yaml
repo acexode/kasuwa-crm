@@ -1914,9 +1914,11 @@ paths:
         **Contract only (T-0088) until T-0089 serves it.**
 
         Every custom field defined on `object` in the caller's tenant, ordered
-        by `apiName`, with the limits that apply. Retired fields are listed
-        too, with `retiredAt` set, so the studio can show which api names are
-        taken for ever; a record never carries a retired key. Tenant-wide,
+        by `apiName`, with the limits that apply. By default only ACTIVE
+        fields are listed: that is what the record screens read. Retired
+        fields appear only with `includeRetired=true`, with `retiredAt` set,
+        so the studio can show which api names are taken for ever (D-L140,
+        D-L141); a record never carries a retired key. Tenant-wide,
         not programme-wide: metadata is not programme-scoped (ADR-0008), so
         every user of the tenant sees one catalogue. Standard fields are not
         listed here; the field-security matrix lists every field.
@@ -1936,18 +1938,30 @@ paths:
           required: true
           schema: { $ref: '#/components/schemas/CustomFieldObject' }
           description: The standard object, by api name. A lead is a contact (D-P17).
+        - name: includeRetired
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+          description: |
+            `true` adds the retired fields (with `retiredAt` set) to the
+            active ones; the studio uses it to show which api names are
+            taken. Absent or `false`: active fields only.
       responses:
         '200':
-          description: The object's custom fields, retired ones included, and the limits.
+          description: |
+            The object's custom fields and the limits. The example is an
+            `includeRetired=true` answer, so it shows a retired field.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CustomFieldList' }
               example:
                 objectApiName: contact
                 limits:
+                  apiBytes: 16384
+                  bytesPerRecord: 32768
+                  definitionsPerObject: 500
                   fieldsPerObject: 100
                   picklistValues: 500
-                  bytesPerRecord: 32768
                 items:
                   - id: 11111111-0000-4000-8000-0000000c0001
                     objectApiName: contact
@@ -2061,9 +2075,10 @@ paths:
 
         **Types (Phase 2).** `text`, `number`, `currency`, `date`, `picklist`
         and `boolean` (CustomFieldType). Any other type is
-        `400 unsupported_type` at `type`. A `picklist` needs
-        `config.values` (1 to 500 values, unique, else `invalid_config` or
-        `duplicate_value` at `config.values`); a `currency` needs
+        `400 unsupported_type` at `type`. A `picklist` needs at least one
+        and at most 500 values in `config.values`: none, or more than 500,
+        is `400 invalid_config` at `config.values`, and a repeated value is
+        `400 duplicate_value` there (D-L141); a `currency` needs
         `config.currencyCode`, one of NGN, GHS, KES or ZAR
         (`unknown_currency` at `config.currencyCode`), fixed for the life of
         the field (D-L128 Q6); any other type takes no `config`
@@ -2284,7 +2299,8 @@ paths:
         `200` (D-L140). A caller without the permission never learns whether
         a field is retired. Out of scope is `404 not_found`, one body: another
         tenant's field, a standard field's id and an id that names nothing.
-        **Audited:** one `retired` event naming the field by api name.
+        **Audited** as `updated`, with a `retiredAt` change (before `null`,
+        after the time), naming the field by api name (D-L141).
       responses:
         '200':
           description: Retired (or already retired). The definition, `retiredAt` set.
@@ -3878,21 +3894,35 @@ components:
     CustomFieldLimits:
       type: object
       additionalProperties: false
-      required: [fieldsPerObject, picklistValues, bytesPerRecord]
+      required: [apiBytes, bytesPerRecord, definitionsPerObject, fieldsPerObject, picklistValues]
       description: |
-        The limits (D-L128 Q1, D-L140), as data so a screen never hard-codes
-        them: 100 active custom fields per object per tenant (retired fields
-        do not count), 500 values per picklist, and `bytesPerRecord`, the
-        32 KiB database backstop on a record's stored `custom`. The API's
-        own size limit is 16 KiB, counted on the keys the caller can read
-        plus those written (D-L140, records.openapi.yaml CustomFields); it is
-        not published here yet, because this schema's key set is pinned by
-        the T-0088 suite. Also not here: the cap of 500 definitions per
-        object, retired ones included.
+        The limits (D-L128 Q1, D-L140, D-L141), as data so a screen never
+        hard-codes them. `apiBytes`: the API's 16 KiB limit on a record's
+        merged `custom`, counted on the keys the caller can read plus those
+        written (`custom_too_large`). `bytesPerRecord`: the 32 KiB database
+        backstop on the whole stored object, which a caller never meets
+        through the API. `definitionsPerObject`: at most 500 definitions per
+        object, retired fields included. `fieldsPerObject`: at most 100
+        active fields per object; retired fields do not count. And
+        `picklistValues`: at most 500 values per picklist.
       properties:
-        fieldsPerObject: { type: integer, const: 100 }
+        apiBytes:
+          type: integer
+          const: 16384
+          description: 16 KiB, measured on what the caller can see plus what it writes (D-L140).
+        bytesPerRecord:
+          type: integer
+          const: 32768
+          description: 32 KiB, the database backstop.
+        definitionsPerObject:
+          type: integer
+          const: 500
+          description: Definitions per object, retired fields included (D-L141).
+        fieldsPerObject:
+          type: integer
+          const: 100
+          description: Active fields per object; retired fields do not count.
         picklistValues: { type: integer, const: 500 }
-        bytesPerRecord: { type: integer, const: 32768 }
 
     CustomFieldList:
       type: object
@@ -3903,7 +3933,7 @@ components:
         limits: { $ref: '#/components/schemas/CustomFieldLimits' }
         items:
           type: array
-          description: Every custom field of the object, retired ones included, by `apiName`.
+          description: The object's active custom fields, plus the retired ones when `includeRetired=true`, by `apiName`.
           items: { $ref: '#/components/schemas/CustomFieldDefinition' }
 
     CreateCustomFieldRequest:
@@ -4295,6 +4325,16 @@ components:
                 details:
                   - path: addValues
                     code: not_a_picklist
+            tooManyValues:
+              summary: A picklist created with no values or more than 500 in config.values (D-L141)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: config.values
+                    code: invalid_config
             unknownValue:
               summary: relabelValues naming a value the field does not have
               value:
@@ -4332,8 +4372,10 @@ components:
         `duplicate_code`: the api name is taken on this object in this tenant,
         by a live or a retired field (the answer does not say which, and
         names no other field). `limit_reached`: the object already has 100
-        active custom fields (`field_limit_reached`), or the picklist would
-        pass 500 values (`picklist_limit_reached`).
+        active custom fields, or 500 definitions retired ones included
+        (`field_limit_reached`), or the picklist would
+        pass 500 values on an update (`picklist_limit_reached` at `addValues`;
+        on a create, more than 500 is `400 invalid_config` at `config.values`).
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }

@@ -301,6 +301,18 @@ export const ADMIN_OPERATIONS = [
             }
           ]
         },
+        "tooManyValues": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "config.values",
+              "code": "invalid_config"
+            }
+          ]
+        },
         "unknownValue": {
           "statusCode": 400,
           "error": "Bad Request",
@@ -1860,9 +1872,11 @@ export const ADMIN_OPERATIONS = [
         "default": {
           "objectApiName": "contact",
           "limits": {
+            "apiBytes": 16384,
+            "bytesPerRecord": 32768,
+            "definitionsPerObject": 500,
             "fieldsPerObject": 100,
-            "picklistValues": 500,
-            "bytesPerRecord": 32768
+            "picklistValues": 500
           },
           "items": [
             {
@@ -2826,6 +2840,18 @@ export const ADMIN_OPERATIONS = [
             {
               "path": "addValues",
               "code": "not_a_picklist"
+            }
+          ]
+        },
+        "tooManyValues": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "config.values",
+              "code": "invalid_config"
             }
           ]
         },
