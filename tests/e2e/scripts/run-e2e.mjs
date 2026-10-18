@@ -27,9 +27,17 @@
  */
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { createConnection, createServer as createSocketServer } from 'node:net';
+import { createConnection } from 'node:net';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import {
+  PortInUseError,
+  assertListenersBelongTo,
+  listenersOn,
+  releaseAllPorts,
+  releasePort,
+  reservePort,
+} from './ports.mjs';
 
 const scriptsDir = resolve(import.meta.dirname);
 const e2eRoot = resolve(scriptsDir, '..');
@@ -55,34 +63,63 @@ function sleep(ms) {
   return new Promise((done) => setTimeout(done, ms));
 }
 
-function freePort() {
-  return new Promise((done, fail) => {
-    const server = createSocketServer();
-    server.on('error', fail);
-    server.listen(0, '127.0.0.1', () => {
-      const { port } = server.address();
-      server.close(() => done(port));
-    });
+/** How many ports a server may be tried on before the run gives up. */
+const MAX_PORT_ATTEMPTS = 3;
+
+/**
+ * Watch a just-spawned server for the two ways it can lose its port: saying
+ * EADDRINUSE, or exiting. Listeners are added beside pipeTo's, not instead of
+ * them, so the output still reaches the terminal unchanged.
+ */
+function watchStartup(child, port) {
+  const watch = { child, port, addressInUse: false, exited: false };
+  const scan = (chunk) => {
+    if (String(chunk).includes('EADDRINUSE')) {
+      watch.addressInUse = true;
+    }
+  };
+  child.stdout?.on('data', scan);
+  child.stderr?.on('data', scan);
+  // 'close', not 'exit': 'exit' can fire before the last of stderr is read,
+  // and an EADDRINUSE still in the pipe would be reported as a plain crash.
+  child.once('close', () => {
+    watch.exited = true;
   });
+  return watch;
 }
 
 /**
- * Wait for a server to answer. A poll on real readiness, never a fixed sleep:
+ * Wait for OUR server to answer. A poll on real readiness, never a fixed sleep:
  * the whole harness is built on the premise that waiting on a clock is how a
  * suite becomes flaky.
+ *
+ * An answer is not enough on its own (see ports.mjs): every HTTP answer is
+ * followed by a check that every listener on the port is in the process group
+ * of the child this run spawned. A stranger's answer — ready or not — throws
+ * PortInUseError, and so does the child reporting EADDRINUSE.
  */
-async function waitForHttp(url, label) {
+async function waitForHttp(url, label, watch) {
   const deadline = Date.now() + STARTUP_TIMEOUT_MS;
   let lastError = 'no attempt made';
   for (;;) {
+    if (watch.addressInUse) {
+      throw new PortInUseError(watch.port, `was refused to ${label} (EADDRINUSE)`);
+    }
+    if (watch.exited) {
+      throw new Error(`${label} exited before it answered at ${url}`);
+    }
+    let response;
     try {
-      const response = await fetch(url);
+      response = await fetch(url);
+    } catch (error) {
+      lastError = error.message;
+    }
+    if (response !== undefined) {
+      await assertListenersBelongTo(watch.port, watch.child.pid);
       if (response.ok) {
         return;
       }
       lastError = `HTTP ${response.status}`;
-    } catch (error) {
-      lastError = error.message;
     }
     if (Date.now() > deadline) {
       throw new Error(`${label} never became ready at ${url} (last: ${lastError})`);
@@ -212,9 +249,14 @@ function filler(bytes) {
   return out.padEnd(bytes, ' ');
 }
 
-function startFixtureServer(port) {
+/**
+ * In-process, so it binds port 0 and reports the port it was GIVEN: nothing is
+ * released and re-bound later, so there is no gap for another process to take
+ * it, and the kernel never hands out a port that is already bound.
+ */
+function startFixtureServer() {
   const server = createServer((request, response) => {
-    const url = new URL(request.url, `http://127.0.0.1:${port}`);
+    const url = new URL(request.url, 'http://127.0.0.1');
 
     if (url.pathname === '/filler.css') {
       const bytes = Number(url.searchParams.get('bytes') ?? '1024');
@@ -245,10 +287,11 @@ function startFixtureServer(port) {
     response.end(payload);
   });
 
-  return new Promise((done) => {
-    server.listen(port, '127.0.0.1', () => {
+  return new Promise((done, fail) => {
+    server.once('error', fail);
+    server.listen(0, '127.0.0.1', () => {
       cleanups.push(() => new Promise((closed) => server.close(closed)));
-      done(server);
+      done(server.address().port);
     });
   });
 }
@@ -610,6 +653,66 @@ function startRecordsWeb(apiUrl, port) {
   return child;
 }
 
+/**
+ * Reserve a port, hand it to a server and wait until THAT server answers on it.
+ * If the port turns out to be taken (EADDRINUSE, or another process's listener
+ * beside ours), the server is stopped and the whole thing is tried again on a
+ * fresh port, up to MAX_PORT_ATTEMPTS times.
+ *
+ * `prepare(url)` runs while the port is still bound by this process, before
+ * the server is spawned: the API uses it for the web build (which bakes in the
+ * API's url) and the database, so the long gap is held by the OS.
+ *
+ * Returns `{ url, watch }`; `watch.child` is the spawned server.
+ */
+async function startOnReservedPort({ label, path = '', prepare, start }) {
+  for (let attempt = 1; ; attempt += 1) {
+    const reservation = await reservePort(label, log);
+    const url = `http://127.0.0.1:${reservation.port}`;
+    if (prepare !== undefined) {
+      await prepare(url);
+    }
+    await reservation.handOff();
+    const watch = watchStartup(start(reservation.port, url), reservation.port);
+    try {
+      await waitForHttp(`${url}${path}`, label, watch);
+      return { url, watch };
+    } catch (error) {
+      if (!(error instanceof PortInUseError) || attempt >= MAX_PORT_ATTEMPTS) {
+        throw error;
+      }
+      log(
+        `${label}: ${error.message}; stopping it and retrying on another port (attempt ${attempt + 1} of ${MAX_PORT_ATTEMPTS})`,
+      );
+      await killTree(watch.child);
+      releasePort(reservation.port);
+    }
+  }
+}
+
+/**
+ * After Playwright: is every server still the only listener on its port? A
+ * stranger that bound beside one mid-run (see ports.mjs) may have answered
+ * some of the run's requests, so a green result could not be trusted.
+ *
+ * Only a FOREIGN listener counts here. A server of ours that died mid-run has
+ * already failed the specs that needed it; it is not this check's business.
+ */
+async function findShadowedServers(servers) {
+  if (process.platform === 'win32') {
+    return []; // see assertListenersBelongTo
+  }
+  const shadowed = [];
+  for (const { label, watch } of servers) {
+    const listeners = await listenersOn(watch.port);
+    const foreign = [...listeners].filter(([, pgid]) => pgid !== watch.child.pid).map(([pid]) => pid);
+    if (foreign.length > 0) {
+      shadowed.push(`${label}: port ${watch.port} is also held by pid ${foreign.join(', ')}`);
+    }
+  }
+  return shadowed;
+}
+
 function runPlaywright() {
   const args = [
     'exec',
@@ -658,6 +761,8 @@ async function runTeardown() {
   // what reaches Playwright and its browsers on an interrupted run, and any
   // server spawned after teardown began.
   await Promise.all([...started].map((child) => killTree(child)));
+  // Last, once every server is stopped: the ports go back to the pool.
+  releaseAllPorts();
 }
 
 /**
@@ -703,7 +808,12 @@ function killEveryGroupNow() {
 // The last resort: whatever path ends this process — including an uncaught
 // exception that skips teardown — no group it started outlives it. After a
 // normal teardown every group is already gone and this does nothing.
-process.on('exit', killEveryGroupNow);
+process.on('exit', () => {
+  killEveryGroupNow();
+  // The port locks too. A lock whose owner is dead is reclaimed by the next
+  // run anyway; this only spares it the check.
+  releaseAllPorts();
+});
 
 // A SIGHUP usually means the terminal went away, and the next write to it
 // fails with EIO or EPIPE. That must not crash the runner mid-teardown.
@@ -720,8 +830,7 @@ async function main() {
     rmSync(join(artifactsDir, 'critical-path.json'), { force: true });
   }
 
-  const fixturesPort = await freePort();
-  await startFixtureServer(fixturesPort);
+  const fixturesPort = await startFixtureServer();
   const fixturesUrl = `http://127.0.0.1:${fixturesPort}`;
   log(`fixture server on ${fixturesUrl}`);
 
@@ -729,6 +838,7 @@ async function main() {
   let webUrl = '';
   let webSelfServeUrl = '';
   let webRecordsUrl = '';
+  const servers = [];
 
   if (!wantsOverBudget) {
     // The API's port is chosen first because the web build needs it (see
@@ -737,40 +847,58 @@ async function main() {
     // V8 fatal error once and hung in compile once, while the same build alone
     // succeeded every time. Forty seconds of wall clock is cheaper than a
     // harness that fails in setup for reasons unrelated to the change.
-    const apiPort = await freePort();
-    apiUrl = `http://127.0.0.1:${apiPort}`;
-
+    //
+    // Both happen inside `prepare`, while the API's port is still bound by
+    // this process. If the API then loses its port anyway, the retry picks a
+    // new one and rebuilds, because the old url is baked into the build.
     const nextEnv = readFileSync(NEXT_ENV_FILE, 'utf8');
     cleanups.push(async () => restoreNextEnv(nextEnv));
+    let builtFor;
+    let database;
 
-    log('building apps/web for production (next build)...');
-    await buildWeb(apiUrl);
-    restoreNextEnv(nextEnv);
-
-    log('starting Postgres (Testcontainers), migrating and seeding...');
-    const database = await startDatabase();
-
-    startApi(database.databaseUrl, database.authDatabaseUrl, apiPort);
-    await waitForHttp(`${apiUrl}/health`, 'the API');
+    const api = await startOnReservedPort({
+      label: 'the API',
+      path: '/health',
+      prepare: async (url) => {
+        if (builtFor !== url) {
+          log('building apps/web for production (next build)...');
+          await buildWeb(url);
+          restoreNextEnv(nextEnv);
+          builtFor = url;
+        }
+        if (database === undefined) {
+          log('starting Postgres (Testcontainers), migrating and seeding...');
+          database = await startDatabase();
+        }
+      },
+      start: (port) => startApi(database.databaseUrl, database.authDatabaseUrl, port),
+    });
+    apiUrl = api.url;
+    servers.push({ label: 'the API', watch: api.watch });
     log(`api on ${apiUrl}`);
 
-    const webPort = await freePort();
-    webUrl = `http://127.0.0.1:${webPort}`;
-    const selfServePort = await freePort();
-    webSelfServeUrl = `http://127.0.0.1:${selfServePort}`;
-    const recordsPort = await freePort();
-    webRecordsUrl = `http://127.0.0.1:${recordsPort}`;
-    startWeb(apiUrl, webPort);
-    startSelfServeWeb(apiUrl, selfServePort);
-    startRecordsWeb(apiUrl, recordsPort);
     // The production server is ready when it answers; the dev server also
     // compiles its first route on that request, which keeps the compile out of
     // a spec's navigation.
-    await Promise.all([
-      waitForHttp(webUrl, 'the web app'),
-      waitForHttp(webSelfServeUrl, 'the self-serve web app'),
-      waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view, crm_leads, crm_activities, crm_scripts, crm_pipeline and crm_search web app'),
+    const [web, selfServe, records] = await Promise.all([
+      startOnReservedPort({ label: 'the web app', start: (port) => startWeb(apiUrl, port) }),
+      startOnReservedPort({
+        label: 'the self-serve web app',
+        start: (port) => startSelfServeWeb(apiUrl, port),
+      }),
+      startOnReservedPort({
+        label: 'the crm_records, crm_accounts, crm_record_view, crm_leads, crm_activities, crm_scripts, crm_pipeline and crm_search web app',
+        start: (port) => startRecordsWeb(apiUrl, port),
+      }),
     ]);
+    webUrl = web.url;
+    webSelfServeUrl = selfServe.url;
+    webRecordsUrl = records.url;
+    servers.push(
+      { label: 'the web app', watch: web.watch },
+      { label: 'the self-serve web app', watch: selfServe.watch },
+      { label: 'the records web app', watch: records.watch },
+    );
     restoreNextEnv(nextEnv);
     log(`web (next start, production build) on ${webUrl}`);
     log(`web (next dev, self_serve_signup + admin_live_api on) on ${webSelfServeUrl}`);
@@ -818,7 +946,15 @@ async function main() {
   );
 
   log(`running playwright project "${projectName}"`);
-  return runPlaywright();
+  const playwrightCode = await runPlaywright();
+  const shadowed = await findShadowedServers(servers);
+  if (shadowed.length > 0) {
+    for (const line of shadowed) {
+      process.stderr.write(`[e2e] a foreign process was listening beside our server; this run's results cannot be trusted. ${line}\n`);
+    }
+    return 1;
+  }
+  return playwrightCode;
 }
 
 let exitCode = 1;

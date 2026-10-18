@@ -15,7 +15,14 @@ pnpm test:e2e -- --headed                # watch it
 Docker must be running: `pnpm test:e2e` starts its own Postgres through
 Testcontainers. Nothing uses the dev stack's ports, and nothing uses 3000/3001
 — every server binds a free port and `scripts/run-e2e.mjs` writes the URLs to
-`.artifacts/stack.json` for the specs to read.
+`.artifacts/stack.<project>.json` for the specs to read.
+
+Ports come from 20000–29999, below every OS's ephemeral range, and are reserved
+across concurrent runs (worktrees included) by lock files in
+`<tmpdir>/kasuwa-e2e-ports/`. A server only counts as ready once every listener
+on its port is in the process group the runner spawned; anything else is retried
+on another port. `scripts/ports.mjs` explains why, and
+`node --test tests/e2e/scripts/ports.test.mjs` checks it.
 
 ## How to add a journey
 
