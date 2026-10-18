@@ -3076,3 +3076,22 @@ passed with findings, with no critical finding. All three found the same major i
     decision.
 - **Follow-up task:** purge retired custom values on rows nobody writes, with a retention period agreed with counsel
   (NDPA).
+
+### D-L143 — T-0089 final rulings: filter shape and older-suite edits (lead, 2026-10-18)
+**Status:** PROCEEDING (lead).
+- **Filter shape (a deviation from D-L142, accepted).** Evaluating the whole projected `custom` inside a filter broke the
+  120k budget: Postgres fell back to a bitmap scan and a sort. So a filter on key `k` reads
+  `CASE WHEN programme_id = ANY(<programmes where k is readable>) THEN custom -> k END`. It is the projection for that one
+  key, from the same session-built readable map. SQL still fails closed on its own, and the budget keeps its bounded
+  seek (first page about 24 ms, deep page about 25 ms).
+- **Lead edits (93b22dd):**
+  - contacts-api, accounts-api, leads-api and contact-timeline admit the properties of the Contact and Account allOf
+    parts (where `custom` lives, per the T-0088 placement pin);
+  - pipeline-board-api admits `custom: {}` on cards;
+  - pipeline-tables and activity-table list `custom` as an optional column (the storage suite requires it);
+  - the values race test detects waiters through `pg_locks`, because kasuwa_migrator cannot read other roles'
+    `pg_stat_activity` wait columns.
+- **Builder fixes forced by existing guards:**
+  - `CreateContactBody` names `custom` instead of spreading it, because of the tenancy adversarial tripwire;
+  - `standard-object-guards.integration.test.ts` now expects a custom field's type change to be refused (ADR-0016
+    item 9).
