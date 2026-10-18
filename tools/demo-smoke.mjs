@@ -76,6 +76,7 @@ const SCREENS = [
   ['admin-programme', `/admin/programmes/${programmeId}`],
   ['admin-roles', '/admin/roles'],
   ['admin-field-security', '/admin/field-security'],
+  ['admin-custom-fields', '/admin/custom-fields'],
   ['admin-audit', '/admin/audit'],
 ];
 
