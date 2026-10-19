@@ -88,6 +88,15 @@ export interface StackUrls {
    * and "see all" links land on screens this process serves.
    */
   webSearchUrl: string;
+  /**
+   * A fourth apps/web process for the browser session (T-0125, ADR-0019): the
+   * same production build under `next start` with NODE_ENV=test (because
+   * `crm_records` is not production-ready, D-L64), `KASUWA_AUTH_MODE=jwt`, and
+   * `crm_records` ON. Its specs inject no identity header: every identity
+   * comes from the session cookie. EMPTY unless the run's grep can select
+   * `@bff-session` (or there is no grep), to spare a gigabyte of memory.
+   */
+  webSessionUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;
   /** Static fixture pages used by the harness self-tests. */

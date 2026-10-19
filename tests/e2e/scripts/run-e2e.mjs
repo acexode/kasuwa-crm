@@ -45,6 +45,35 @@ const forwardedArgs = process.argv.slice(2).filter((argument) => argument !== '-
 const wantsOverBudget = forwardedArgs.join(' ').includes('over-budget');
 const projectName = wantsOverBudget ? 'over-budget' : 'chromium';
 
+/** Every `--grep` / `-g` pattern the caller passed through to Playwright. */
+function grepPatterns(args) {
+  const patterns = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === '--grep' || argument === '-g') {
+      patterns.push(args[index + 1] ?? '');
+      index += 1;
+    } else if (argument.startsWith('--grep=')) {
+      patterns.push(argument.slice('--grep='.length));
+    }
+  }
+  return patterns;
+}
+
+/**
+ * THE SESSION WEB PROCESS IS STARTED ONLY WHEN IT CAN BE USED (T-0125).
+ *
+ * A Next process costs this machine about a gigabyte (CLAUDE.md section 3).
+ * Only the `@bff-session` journeys use it, so it starts for a run with no grep
+ * at all (the whole suite) or a grep that names `bff-session`, and for no
+ * other. A spec that needs it reads `webSessionUrl`, which is empty when it
+ * was not started, so a mis-grepped run fails loudly instead of hitting
+ * another server.
+ */
+const patterns = grepPatterns(forwardedArgs);
+const wantsSessionWeb =
+  !wantsOverBudget && (patterns.length === 0 || patterns.some((pattern) => pattern.includes('bff-session')));
+
 const cleanups = [];
 
 function log(message) {
@@ -392,6 +421,29 @@ function restoreNextEnv(original) {
 }
 
 /**
+ * WHAT EVERY WEB PROCESS IS TOLD ABOUT ITS SESSION LAYER (ADR-0019, T-0125).
+ *
+ *   - KASUWA_WEB_ORIGIN: the process's OWN origin, exactly as a browser sends
+ *     it in `Origin`. The BFF's CSRF check compares with this and nothing else,
+ *     so each process gets its own (point 4, point 8).
+ *   - KASUWA_API_INTERNAL_URL: the server-only upstream that replaces the
+ *     `/api/v1` rewrite (point 1). A loopback http URL, which the e2e
+ *     production process may use (the T-0125 suite's I3).
+ *   - KASUWA_SESSION_COOKIE_INSECURE is REMOVED, never inherited: Chromium
+ *     stores a `Secure`, `__Host-` cookie on http://127.0.0.1, so every
+ *     process here runs with the cookie exactly as production sets it.
+ *
+ * Unknown to the web schema before T-0125, so main ignores them.
+ */
+function sessionLayerEnv(apiUrl, port) {
+  return {
+    KASUWA_WEB_ORIGIN: `http://127.0.0.1:${port}`,
+    KASUWA_API_INTERNAL_URL: apiUrl,
+    KASUWA_SESSION_COOKIE_INSECURE: undefined,
+  };
+}
+
+/**
  * `next build`, through apps/web's own wrapper (`build.mjs`), which pins
  * NODE_ENV=production so the ambient environment cannot change what is built.
  *
@@ -415,9 +467,13 @@ function buildWeb(apiUrl) {
     env: {
       ...process.env,
       NEXT_PUBLIC_API_URL: apiUrl,
+      // ADR-0019: the BFF's server-only upstream. Read at runtime, but harmless
+      // at build, and a build that needs it must not fail for want of it.
+      KASUWA_API_INTERNAL_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
       KASUWA_FEATURE_FLAGS_ON: '',
       ...NO_DATABASE_URLS,
+      KASUWA_SESSION_COOKIE_INSECURE: undefined,
     },
   });
   pipeTo(child, 'web-build');
@@ -452,6 +508,7 @@ function startWeb(apiUrl, port) {
       NEXT_TELEMETRY_DISABLED: '1',
       KASUWA_FEATURE_FLAGS_ON: '',
       ...NO_DATABASE_URLS,
+      ...sessionLayerEnv(apiUrl, port),
     },
   });
   pipeTo(child, 'web');
@@ -512,10 +569,15 @@ function startSelfServeWeb(apiUrl, port) {
     env: {
       ...process.env,
       NODE_ENV: 'development',
+      // STUB, stated rather than defaulted (ADR-0019 point 7): the `@p02-live`
+      // specs assert an identity with `extraHTTPHeaders`, and after T-0125 only
+      // a web process that is itself in stub mode forwards those headers.
+      KASUWA_AUTH_MODE: 'stub',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
       KASUWA_FEATURE_FLAGS_ON: 'self_serve_signup,admin_live_api',
       ...NO_DATABASE_URLS,
+      ...sessionLayerEnv(apiUrl, port),
       KASUWA_WEB_DIST_DIR: SELF_SERVE_DIST_DIR,
       KASUWA_WEB_TSCONFIG: SELF_SERVE_TSCONFIG,
     },
@@ -605,16 +667,61 @@ function startRecordsWeb(apiUrl, port) {
     env: {
       ...process.env,
       NODE_ENV: 'test',
-      // The real mode, as on the default server: the web process proxies
-      // `/api/v1` and authenticates nobody itself (T-0014).
-      KASUWA_AUTH_MODE: 'jwt',
+      // STUB (ADR-0019 point 7, T-0125). The specs this process serves assert
+      // an identity with `extraHTTPHeaders`, and the BFF forwards the stub
+      // headers only when the web process itself runs stub, which webEnv()
+      // refuses under NODE_ENV=production. The API still decides what that
+      // identity reaches. The real-browser session journey runs on the
+      // session process below, in `jwt`, with no injected headers.
+      KASUWA_AUTH_MODE: 'stub',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
       KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities,crm_scripts,crm_pipeline,crm_search,crm_custom_fields',
       ...NO_DATABASE_URLS,
+      ...sessionLayerEnv(apiUrl, port),
     },
   });
   pipeTo(child, 'web:records');
+  cleanups.push(async () => {
+    await killTree(child);
+    await waitForPortClosed(port);
+  });
+  return child;
+}
+
+/**
+ * THE FOURTH WEB SERVER — THE BROWSER SESSION, WITH NO INJECTED IDENTITY
+ * (T-0125, ADR-0019 point 7).
+ *
+ * The real-browser journey signs in with a password and a TOTP code and then
+ * reads `/contacts`, so it needs `crm_records`, which is not production-ready:
+ * a NODE_ENV=production process naming it refuses to boot. So, as D-L64 rules
+ * for the records process, this is the SAME production build under
+ * `next start` with NODE_ENV=test. Unlike the records process it runs
+ * `KASUWA_AUTH_MODE=jwt`: it forwards no stub identity, and every identity it
+ * carries comes from the session cookie. The specs that use it inject no
+ * header at all. Published as `webSessionUrl`. Nothing measures bytes here.
+ *
+ * The production-process half of T-0125 (stub headers ignored, the CSP, the
+ * BFF probes) runs against the default server above.
+ */
+function startSessionWeb(apiUrl, port) {
+  const child = spawnGroup('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
+    cwd: WEB_DIR,
+    shell: process.platform === 'win32',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      NODE_ENV: 'test',
+      KASUWA_AUTH_MODE: 'jwt',
+      NEXT_PUBLIC_API_URL: apiUrl,
+      NEXT_TELEMETRY_DISABLED: '1',
+      KASUWA_FEATURE_FLAGS_ON: 'crm_records',
+      ...NO_DATABASE_URLS,
+      ...sessionLayerEnv(apiUrl, port),
+    },
+  });
+  pipeTo(child, 'web:session');
   cleanups.push(async () => {
     await killTree(child);
     await waitForPortClosed(port);
@@ -741,6 +848,7 @@ async function main() {
   let webUrl = '';
   let webSelfServeUrl = '';
   let webRecordsUrl = '';
+  let webSessionUrl = '';
 
   if (!wantsOverBudget) {
     // The API's port is chosen first because the web build needs it (see
@@ -775,6 +883,11 @@ async function main() {
     startWeb(apiUrl, webPort);
     startSelfServeWeb(apiUrl, selfServePort);
     startRecordsWeb(apiUrl, recordsPort);
+    if (wantsSessionWeb) {
+      const sessionPort = await freePort();
+      webSessionUrl = `http://127.0.0.1:${sessionPort}`;
+      startSessionWeb(apiUrl, sessionPort);
+    }
     // The production server is ready when it answers; the dev server also
     // compiles its first route on that request, which keeps the compile out of
     // a spec's navigation.
@@ -782,6 +895,7 @@ async function main() {
       waitForHttp(webUrl, 'the web app'),
       waitForHttp(webSelfServeUrl, 'the self-serve web app'),
       waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view, crm_leads, crm_activities, crm_scripts, crm_pipeline, crm_search and crm_custom_fields web app'),
+      ...(wantsSessionWeb ? [waitForHttp(webSessionUrl, 'the session (jwt, crm_records) web app')] : []),
     ]);
     restoreNextEnv(nextEnv);
     log(`web (next start, production build) on ${webUrl}`);
@@ -789,6 +903,9 @@ async function main() {
     log(
       `web (next start, production build, crm_records + crm_accounts + crm_record_view + crm_leads + crm_activities + crm_scripts + crm_pipeline + crm_search + crm_custom_fields on) on ${webRecordsUrl}`,
     );
+    if (wantsSessionWeb) {
+      log(`web (next start, production build, NODE_ENV=test, jwt, crm_records on, no injected identity) on ${webSessionUrl}`);
+    }
   }
 
   // One file per Playwright project, not a shared `stack.json`. Two
@@ -821,6 +938,8 @@ async function main() {
         webPipelineUrl: webRecordsUrl,
         webSearchUrl: webRecordsUrl,
         webStudioUrl: webRecordsUrl,
+        // T-0125: empty unless this run's grep can select @bff-session.
+        webSessionUrl,
         apiUrl,
         fixturesUrl,
       },
