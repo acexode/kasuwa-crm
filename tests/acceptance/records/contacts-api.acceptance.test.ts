@@ -401,12 +401,14 @@ function contactPendingProperties(): string[] {
   return parts.flatMap((part) => Object.keys((deref(part, file).schema.properties ?? {}) as Json));
 }
 
-/** Never withheld, per the Contact schema's description. */
+/**
+ * Never withheld, per the Contact schema's description. `displayName` is not
+ * here since T-0124: it follows its name parts (D-L68, D-L180 I1).
+ */
 const NEVER_WITHHELD = [
   'id',
   'programmeId',
   'version',
-  'displayName',
   'createdAt',
   'updatedAt',
   'withheldFields',
@@ -955,7 +957,7 @@ describe('acceptance: contacts API (T-0041)', () => {
       return idsOf(expectPage(response.body, `list ${JSON.stringify(params)}`));
     };
 
-    describe('q searches name or number', () => {
+    describe('q searches names; a number goes to lookupRecords (T-0124, D-L180 I9)', () => {
       it('matches a given name and a family name, case-insensitively', async () => {
         expect(await agentIds([['q', 'amaka']])).toEqual([AMAKA.id]);
         expect(await agentIds([['q', 'EZE']])).toEqual([CHIOMA.id]);
@@ -970,6 +972,19 @@ describe('acceptance: contacts API (T-0041)', () => {
         expect(await agentIds([['q', 'Adebayo']])).toEqual([CONTACT_ADEBAYO]);
       });
 
+      /** lookupRecords' contact group, as ids: where a number is searched since T-0124. */
+      const lookupContactIds = async (headers: Headers, phone: string): Promise<string[]> => {
+        const response = await request(server())
+          .post('/api/v1/search/lookup')
+          .set(headers)
+          .set('Content-Type', 'application/json')
+          .send(JSON.stringify({ phone, types: ['contact'] }))
+          .expect(200);
+        const groups = ((response.body as Json).groups ?? []) as Json[];
+        const contacts = groups.find((group) => group.type === 'contact');
+        return ((contacts?.hits ?? []) as Json[]).map((hit) => String(hit.id));
+      };
+
       it.each([
         ['local, 0-prefixed', '08031234001'],
         ['local, spaced', '0803 123 4001'],
@@ -977,20 +992,26 @@ describe('acceptance: contacts API (T-0041)', () => {
         ['E.164', '+2348031234001'],
         ['international, spaced', '+234 803 123 4001'],
       ])(
-        'matches a phone written %s, normalised with the tenant default country',
+        'a phone written %s in q is 400 identifier_in_url; lookupRecords finds it, normalised with the tenant default country',
         async (_label, q) => {
-          expect(await agentIds([['q', q]])).toEqual([AMAKA.id]);
+          const body = expectError(await list(AGENT_1, [['q', q]]), 400, 'validation_failed');
+          expect(detailsOf(body)).toContainEqual({ path: 'q', code: 'identifier_in_url' });
+          expect(await lookupContactIds(AGENT_1, q)).toEqual([AMAKA.id]);
         },
       );
 
-      it("normalises with THIS tenant's country: a Kenyan local number finds a +254 contact in tenant B", async () => {
-        const response = await list(TENANT_B_USER, [['q', '0712 345 021']]).expect(200);
-        expect(idsOf(expectPage(response.body, 'tenant B search'))).toEqual([GRACE.id]);
+      it("a Kenyan local number in q is 400; lookupRecords normalises with THIS tenant's country and finds the +254 contact in tenant B", async () => {
+        const body = expectError(
+          await list(TENANT_B_USER, [['q', '0712 345 021']]),
+          400,
+          'validation_failed',
+        );
+        expect(detailsOf(body)).toContainEqual({ path: 'q', code: 'identifier_in_url' });
+        expect(await lookupContactIds(TENANT_B_USER, '0712 345 021')).toEqual([GRACE.id]);
       });
 
       it('never searches outside scope: a name in A2 finds nothing for agent 1, and does for the supervisor', async () => {
         expect(await agentIds([['q', 'Damilola']])).toEqual([]);
-        expect(await agentIds([['q', '+2348031234011']])).toEqual([]);
         // The control: the row exists and the search works for someone who reaches it.
         const response = await list(SUPERVISOR, [['q', 'Damilola']]).expect(200);
         expect(idsOf(expectPage(response.body, 'supervisor search'))).toEqual([DAMILOLA.id]);
@@ -1136,9 +1157,10 @@ describe('acceptance: contacts API (T-0041)', () => {
         return expectPage(response.body, `sort=${sort}`).data.map((row) => row.id);
       };
 
-      it('orders by each documented key, default -createdAt', async () => {
-        expect(await order('displayName')).toEqual([BASHIR.id, CHIOMA.id, AMAKA.id]);
-        expect(await order('-displayName')).toEqual([AMAKA.id, CHIOMA.id, BASHIR.id]);
+      it('orders by each documented key, default -createdAt; displayName is no sort key (T-0124, D-L180 I5)', async () => {
+        for (const sort of ['displayName', '-displayName']) {
+          expectError(await list(AGENT_1, [['sort', sort]]), 400, 'validation_failed');
+        }
         expect(await order('createdAt')).toEqual([AMAKA.id, BASHIR.id, CHIOMA.id]);
         expect(await order('-createdAt')).toEqual([CHIOMA.id, BASHIR.id, AMAKA.id]);
         expect(await order('updatedAt')).toEqual([AMAKA.id, CHIOMA.id, BASHIR.id]);
@@ -1151,28 +1173,28 @@ describe('acceptance: contacts API (T-0041)', () => {
         ]);
       });
 
-      it('the keyset follows the sort: paging by displayName returns every row once, in name order', async () => {
+      it('the keyset follows the sort: paging by updatedAt returns every row once, in updatedAt order', async () => {
         const first = expectPage(
           (
             await list(AGENT_1, [
-              ['sort', 'displayName'],
+              ['sort', 'updatedAt'],
               ['limit', '2'],
             ]).expect(200)
           ).body,
           'page 1',
         );
-        expect(first.data.map((row) => row.id)).toEqual([BASHIR.id, CHIOMA.id]);
+        expect(first.data.map((row) => row.id)).toEqual([AMAKA.id, CHIOMA.id]);
         const second = expectPage(
           (
             await list(AGENT_1, [
-              ['sort', 'displayName'],
+              ['sort', 'updatedAt'],
               ['limit', '2'],
               ['cursor', first.nextCursor ?? ''],
             ]).expect(200)
           ).body,
           'page 2',
         );
-        expect(second.data.map((row) => row.id)).toEqual([AMAKA.id]);
+        expect(second.data.map((row) => row.id)).toEqual([BASHIR.id]);
         expect(second.nextCursor).toBeNull();
       });
     });
@@ -1790,25 +1812,18 @@ describe('acceptance: contacts API (T-0041)', () => {
       await list(SUPERVISOR, [['lga', 'Ikeja']]).expect(200);
     });
 
-    it('q never matches a field the caller cannot read: a number finds nothing when phones are withheld', async () => {
+    it('q never matches a field the caller cannot read: a number in q is 400 identifier_in_url for every caller, phones withheld or not (T-0124)', async () => {
       await lockField('phones', 'agent', 'none');
-      const byNumber = expectPage(
-        (await list(AGENT_1, [['q', '08031234001']]).expect(200)).body,
-        'by number',
-      );
-      expect(byNumber.data, 'searching a withheld phone is an oracle for its value').toEqual([]);
+      for (const headers of [AGENT_1, SUPERVISOR]) {
+        const body = expectError(await list(headers, [['q', '08031234001']]), 400, 'validation_failed');
+        expect(detailsOf(body)).toContainEqual({ path: 'q', code: 'identifier_in_url' });
+      }
       const byName = expectPage(
         (await list(AGENT_1, [['q', 'Amaka']]).expect(200)).body,
         'by name',
       );
       expect(idsOf(byName)).toEqual([AMAKA.id]);
       expect('phones' in (byName.data[0] ?? {})).toBe(false);
-      // The control: the number search works where phones are readable.
-      const admin = expectPage(
-        (await list(SUPERVISOR, [['q', '08031234001']]).expect(200)).body,
-        'admin',
-      );
-      expect(idsOf(admin)).toEqual([AMAKA.id]);
     });
 
     describe('a writer with a withheld field (tenant admin holding the agent set in A1)', () => {

@@ -95,6 +95,13 @@ export interface StackUrls {
    * budget is measured here.
    */
   webImportUrl: string;
+  /**
+   * The same process again, which also has `crm_duplicates` ON (T-0097): the
+   * P28 duplicates and merge screen at `/contacts/duplicates`, the Contacts
+   * list that links it and the contact record its result links to. The
+   * screen's byte budget is measured here.
+   */
+  webDuplicatesUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;
   /** Static fixture pages used by the harness self-tests. */

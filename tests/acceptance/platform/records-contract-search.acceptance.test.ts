@@ -171,8 +171,8 @@ import { parse } from 'yaml';
  *       has the same shape as the query parameter's.
  *   R18 "See all" is the type's own list with `q` (listContacts, listLeads,
  *       listAccounts). Deals have no cross-pipeline list, so no "see all"
- *       for deals. A list's `q` is substring and matches numbers, so it may
- *       show more.
+ *       for deals. A list's `q` is substring, so it may show more. (T-0124,
+ *       D-L180 I9, lead re-pin: a list's `q` no longer matches numbers.)
  *   R19 Examples use synthetic names only: every name-like value in the
  *       search examples contains Sample, Fixture, Example or Test.
  *   R20 Contract first: `x-kasuwa-implemented: false` on both operations
@@ -198,7 +198,7 @@ import { parse } from 'yaml';
  *       input to lookupRecords (T-0087 tests that). A name that itself holds
  *       such a run cannot be prefix-searched by it. (listContacts' and
  *       listLeads' `q` still accept a number in the URL: reported, not
- *       changed here.)
+ *       changed here. T-0124 brought them under this rule, D-L180 I9.)
  *   R22 The phone examples (`0803 000 0001`) are placeholders and say so:
  *       Nigeria has no fictional number range (review fix 5).
  *
@@ -2164,7 +2164,10 @@ describe('acceptance: records contract, global search (T-0085)', () => {
         /deals have no cross-pipeline list, so a deal hit opens the deal and there is no "see all" for deals/,
       );
       expect(text).toMatch(
-        /A list's `q` is a substring match and also matches numbers, so "see all" may show rows this read did not/,
+        /A list's `q` is a substring match, so "see all" may show rows this read did not/,
+      );
+      expect(text, 'T-0124: a list q no longer matches numbers (D-L180 I9)').not.toMatch(
+        /also matches numbers/,
       );
       for (const id of ['listContacts', 'listLeads', 'listAccounts']) {
         expect(operation(id).params.map((p) => str(p.name)), id).toContain('q');

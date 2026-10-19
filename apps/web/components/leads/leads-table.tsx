@@ -367,7 +367,7 @@ function ConvertAction({
       <Icon name="task_alt" size="sm" />
       {t.t('leads.action.convert')}
       <span data-record-text="" className="sr-only">
-        {row.displayName}
+        {nameOrWithheld(t, row.displayName)}
       </span>
     </button>
   );

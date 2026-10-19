@@ -4064,3 +4064,92 @@ amendment:
 **Lead re-pins during the build:** contacts-api, leads-api, accounts-api (listAccountContacts' default sort),
 list-indexes, contact-merge (its DuplicateContact `typeof displayName` check), e2e p04-leads, and the
 records-contract-search R18 note. The builder lists exact lines, and the lead edits them on the suite branch.
+
+### D-L181 — T-0125 review rulings; the no-flag exception (lead, 2026-10-19)
+
+The security and tenancy reviews of febb1b8 both passed with findings. Nothing is exploitable against today's
+API, and nothing leaks across tenants.
+
+**Required before merge:**
+- **B1, the token routes fail closed whatever the content type.** A 2xx answer on a token route is always
+  buffered and Zod-parsed against an explicit allowlist of keys (`expiresAt`, `user`, `backupCodes`, plus what the
+  contract names), never `.passthrough()`. Anything else is a 502. Add a unit test that fails today: text/plain,
+  or no content type, carrying a token.
+- **Other routes (security N1).** Every buffered JSON answer of any status is refused with a 502 if it contains
+  the `ksw_s1_` token prefix at any depth. Non-JSON bodies keep streaming. No current API route serves a token
+  there.
+- **CSP coverage (N4).** The middleware matcher excludes only `api/v1/` and `fonts/`, so Next's own 404s and
+  similar pages get the CSP.
+- **Body detection (N5).** It uses `request.body !== null`, not the length headers.
+- **Buffer cap (N6).** Buffered upstream JSON is capped at 8 MiB. Above that it's a 502.
+- **x-forwarded-for (N3).** The deployment docs state that the web tier is not a proxy hop for
+  `KASUWA_TRUST_PROXY_HOPS`, and that the web server must not be exposed directly with hops of 1 or more.
+
+**Accepted and recorded:**
+- **N2.** Concurrent re-sign-ins in two tabs can leave one minted session unheld until it expires. No client holds
+  its token. This goes in the ADR's out-of-scope list.
+- **Tenancy minor 1.** Two cookies count as no session, so neither is revoked on re-sign-in. This is dev-only,
+  because `__Host-` prevents a planted second cookie in production.
+- **Tenancy minor 2.** Stub headers on pre-session routes in a stub web process are refused by the API.
+- **No feature flag, the exception to CLAUDE.md §4.** An "off" position would keep the CSRF-less, stub-forwarding
+  rewrite in the production artefact. The session layer is a security fix, not a feature, so T-0125 ships without
+  a flag.
+
+**Gate before `crm_import` is production-ready:** the storage origin joins the CSP `connect-src` (ADR-0019 point
+10), or the browser upload is blocked. This sits beside the T-0005 bucket items (D-L167, D-L171).
+
+**Review:** sign-in code is on @acexode's personal review list (D-A3). The lead asks them before merging.
+
+### D-L182 — T-0101 must cost nothing where its flag is off (lead, 2026-10-19)
+
+Windows job 13 (ee4dee2) found seven pages over their byte pins. These are records-ui pages served by the
+records process, where `crm_notifications` is off:
+- /contacts +1,078;
+- /accounts +1,831;
+- /contacts/[id] +2,240;
+- /accounts/[id] +1,249;
+- /deals/[id] +1,178;
+- the pipeline board +3,942;
+- /admin/custom-fields +457.
+
+Admin routes broke p02-live-api's budget run too. /leads is 2 bytes under its pin.
+
+So the bell's client code and strings ship in the shared shell bundles even where the flag is off. D-L177's
+8,000-byte allowance is for pages *with* the bell. Re-pinning eight budgets would hide a real regression, so it
+is rejected.
+
+**Rule:**
+- With `crm_notifications` off, the bell adds no more than 200 bytes to any page. That means the bell's client
+  component, poller, store and strings live in their own chunk, loaded only when the server-side flag says so:
+  rendered through a server-component slot, or `next/dynamic`, never a static import from the client shell.
+- With the flag on, the 8,000-byte ceiling stands.
+- The re-measured pages must fit their existing pins. A page may be re-pinned only with a measured reason other
+  than the bell.
+
+### D-L183 — T-0124: the web screens change in the same task (lead, 2026-10-19)
+
+The T-0124 build at 19a510e changes the API but leaves several web screens assuming every contact has a
+readable name:
+- the leads screen's name sort;
+- number searches in `q` on contacts and leads;
+- client schemas that require `displayName` (records-api, pipelines-api, activities-api).
+
+Merged alone, those screens would fail to parse for a caller who cannot read a name part, and break the
+records-ui journeys on main. **So the web changes are part of T-0124, not a follow-up.** Agent 11 makes them on
+the T-0124 branch.
+
+**Accepted builder decisions:**
+- listAccountContacts defaults to `-createdAt`;
+- the repository's phone match is removed;
+- a read-only name part leaves `displayName` editable (I11, still open);
+- createContact and imports are unchanged (I11);
+- only `displayName` gets a stand-in, and every other withheld variable is still refused at publish.
+
+The stand-in translations need review.
+
+**Follow-up:** the 0035 `display_name` keyset indexes are now unused. Drop them in a later migration, which
+gets migration review.
+
+The lead re-pins (contacts-api, leads-api, accounts-api, list-indexes, contact-merge, contact-timeline,
+records-contract-search R18, e2e p04-leads) are made on lead/T-0124-acceptance, and the R18 contract text changes
+with them.

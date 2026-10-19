@@ -3780,8 +3780,8 @@ paths:
         group them. **"See all" is the type's own list read with `q`**
         (listContacts, listLeads, listAccounts); deals have no cross-pipeline
         list, so a deal hit opens the deal and there is no "see all" for
-        deals. A list's `q` is a substring match and also matches numbers, so
-        "see all" may show rows this read did not.
+        deals. A list's `q` is a substring match, so "see all" may show rows
+        this read did not.
 
         **`q` is required.** A request without `q` is `400
         validation_failed` with `details[].code: query_required` at `q`.

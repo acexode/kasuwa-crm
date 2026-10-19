@@ -46,7 +46,7 @@ import {
   type FilterState,
 } from './contacts-model';
 import { useContactList } from './use-contact-list';
-import { ImportLink, UnavailableAction } from './contacts-parts';
+import { DuplicatesLink, ImportLink, UnavailableAction } from './contacts-parts';
 
 // Loaded when opened: neither the phone's filter sheet nor the column chooser is on the list's first paint.
 const ColumnChooser = guarded(
@@ -136,6 +136,8 @@ export function ContactsScreen({
   const view = useMemo(() => ({ filters, custom: customFilters, ...(importId === undefined ? {} : { importId }) }), [filters, customFilters, importId]);
   // The one place the import screen is linked from here (`live` is the server's word for what is on).
   const importHref = live.includes('import') ? '/contacts/import' : null;
+  // And the one place the duplicates screen is linked from (T-0097).
+  const duplicatesHref = live.includes('duplicates') ? '/contacts/duplicates' : null;
   // A number typed here is not sent (the API refuses it in `q`): the hint points at Search.
   const numberHeld = numberTyped(q);
   const list = useContactList(listQ(q), view);
@@ -206,6 +208,7 @@ export function ContactsScreen({
               {t.t('records.programme.chip')}
             </span>
             <span className="flex-1" />
+            {duplicatesHref === null ? null : <DuplicatesLink t={t} href={duplicatesHref} offline={offline} />}
             {importHref === null ? (
               <UnavailableAction t={t} action="import-csv" icon="upload_file" label="records.action.import" />
             ) : (
