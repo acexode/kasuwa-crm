@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { bundleMessages, createTranslator } from '@kasuwa/i18n';
 import { ImportScreen } from '../../../components/import/import-screen';
 import { IMPORT_MESSAGE_IDS } from '../../../components/import/message-ids';
-import { withSearchMessages } from '../../../components/search/message-ids';
+import { withShellMessages } from '../../../components/crm/shell-messages';
 import { crmImportEnabled, crmLiveNav, crmRecordsEnabled } from '../../../lib/feature-flags';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
@@ -39,7 +39,7 @@ export default async function ImportPage() {
   return (
     <ImportScreen
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(IMPORT_MESSAGE_IDS, live))}
+      messages={bundleMessages(locale, withShellMessages(IMPORT_MESSAGE_IDS, live))}
       locales={languageOptions(locale)}
       live={live}
     />

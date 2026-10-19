@@ -61,6 +61,34 @@ function grepPatterns(args) {
 }
 
 /**
+ * `true` when a `--grep` (a regular expression, as Playwright reads it) could
+ * select a test titled with `tag`. A pattern that is not a valid expression is
+ * read as "could select", so a typo starts the process rather than hiding it.
+ */
+function grepCanSelect(pattern, tag) {
+  try {
+    return new RegExp(pattern).test(tag) || pattern.includes(tag.slice(1));
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * THE NOTIFICATIONS WEB PROCESS IS STARTED ONLY WHEN IT CAN BE USED (T-0101,
+ * D-L177 C10).
+ *
+ * A Next process costs this machine about a gigabyte (CLAUDE.md section 3), and
+ * only the `@p26-notifications` journeys use this one, so it starts for a run
+ * with no grep at all (the whole suite) or a grep that can select that tag, and
+ * for no other. A spec that needs it reads `webNotificationsUrl`, which is empty
+ * when it was not started, so a mis-grepped run fails loudly instead of hitting
+ * another server.
+ */
+const patterns = grepPatterns(forwardedArgs);
+const wantsNotificationsWeb =
+  !wantsOverBudget && (patterns.length === 0 || patterns.some((pattern) => grepCanSelect(pattern, '@p26-notifications')));
+
+/**
  * THE SESSION WEB PROCESS IS STARTED ONLY WHEN IT CAN BE USED (T-0125).
  *
  * A Next process costs this machine about a gigabyte (CLAUDE.md section 3).
@@ -70,7 +98,6 @@ function grepPatterns(args) {
  * was not started, so a mis-grepped run fails loudly instead of hitting
  * another server.
  */
-const patterns = grepPatterns(forwardedArgs);
 const wantsSessionWeb =
   !wantsOverBudget && (patterns.length === 0 || patterns.some((pattern) => pattern.includes('bff-session')));
 
@@ -432,6 +459,10 @@ function restoreNextEnv(original) {
  *   - KASUWA_SESSION_COOKIE_INSECURE is REMOVED, never inherited: Chromium
  *     stores a `Secure`, `__Host-` cookie on http://127.0.0.1, so every
  *     process here runs with the cookie exactly as production sets it.
+ *   - S3_PUBLIC_ENDPOINT is REMOVED, never inherited (D-L187): a developer
+ *     shell that exported the `.env.example` value would otherwise put a
+ *     storage origin into every process's `connect-src` and loosen the I18
+ *     CSP checks. Only the records process sets it back, after this spread.
  *
  * Unknown to the web schema before T-0125, so main ignores them.
  */
@@ -440,6 +471,7 @@ function sessionLayerEnv(apiUrl, port) {
     KASUWA_WEB_ORIGIN: `http://127.0.0.1:${port}`,
     KASUWA_API_INTERNAL_URL: apiUrl,
     KASUWA_SESSION_COOKIE_INSECURE: undefined,
+    S3_PUBLIC_ENDPOINT: undefined,
   };
 }
 
@@ -688,6 +720,12 @@ function startRecordsWeb(apiUrl, port) {
       KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities,crm_scripts,crm_pipeline,crm_search,crm_custom_fields,crm_import,crm_duplicates',
       ...NO_DATABASE_URLS,
       ...sessionLayerEnv(apiUrl, port),
+      // D-L187 (ADR-0019 point 10, the storage clause): the import mock's
+      // object-store origin (STORAGE_ORIGIN in support/import-mock.ts), so the
+      // T-0125 CSP lets the import wizard's part uploads into `connect-src`.
+      // THIS PROCESS ONLY: the default server and the session process carry no
+      // storage origin, so the I18 CSP checks there stay strict.
+      S3_PUBLIC_ENDPOINT: 'https://storage.example',
     },
   });
   pipeTo(child, 'web:records');
@@ -731,6 +769,48 @@ function startSessionWeb(apiUrl, port) {
     },
   });
   pipeTo(child, 'web:session');
+  cleanups.push(async () => {
+    await killTree(child);
+    await waitForPortClosed(port);
+  });
+  return child;
+}
+
+/**
+ * THE FIFTH WEB SERVER — THE BELL (T-0101, D-L177 I2).
+ *
+ * The notifications bell polls on EVERY screen of the CRM shell and the admin
+ * console, and the twelve pinned records-ui mocks record any undeclared
+ * `/api/v1` call as a violation, so `crm_notifications` does NOT ride on the
+ * records process. It gets its own `next start` on the same production build,
+ * NODE_ENV=test, with EXACTLY the records process's flags plus
+ * `crm_notifications`: its pages are the records pages with the bell, and the
+ * bell's weight is a difference of two measurements on one build. Published as
+ * `webNotificationsUrl`. Started only for a run that can select
+ * `@p26-notifications` (see `wantsNotificationsWeb`).
+ */
+function startNotificationsWeb(apiUrl, port) {
+  const child = spawnGroup('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
+    cwd: WEB_DIR,
+    shell: process.platform === 'win32',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      NODE_ENV: 'test',
+      // STUB, like the records process it twins (T-0125, ADR-0019 point 7):
+      // the p26 journeys assert an identity with injected headers, which the
+      // BFF forwards only when the web process itself runs stub. It takes the
+      // same session-layer env, so its CSP and CSRF origin match the records
+      // process; it carries no S3_PUBLIC_ENDPOINT (D-L187: records only).
+      KASUWA_AUTH_MODE: 'stub',
+      NEXT_PUBLIC_API_URL: apiUrl,
+      NEXT_TELEMETRY_DISABLED: '1',
+      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities,crm_scripts,crm_pipeline,crm_search,crm_custom_fields,crm_import,crm_duplicates,crm_notifications',
+      ...NO_DATABASE_URLS,
+      ...sessionLayerEnv(apiUrl, port),
+    },
+  });
+  pipeTo(child, 'web:notifications');
   cleanups.push(async () => {
     await killTree(child);
     await waitForPortClosed(port);
@@ -858,6 +938,7 @@ async function main() {
   let webSelfServeUrl = '';
   let webRecordsUrl = '';
   let webSessionUrl = '';
+  let webNotificationsUrl = '';
 
   if (!wantsOverBudget) {
     // The API's port is chosen first because the web build needs it (see
@@ -897,6 +978,11 @@ async function main() {
       webSessionUrl = `http://127.0.0.1:${sessionPort}`;
       startSessionWeb(apiUrl, sessionPort);
     }
+    if (wantsNotificationsWeb) {
+      const notificationsPort = await freePort();
+      webNotificationsUrl = `http://127.0.0.1:${notificationsPort}`;
+      startNotificationsWeb(apiUrl, notificationsPort);
+    }
     // The production server is ready when it answers; the dev server also
     // compiles its first route on that request, which keeps the compile out of
     // a spec's navigation.
@@ -905,6 +991,7 @@ async function main() {
       waitForHttp(webSelfServeUrl, 'the self-serve web app'),
       waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view, crm_leads, crm_activities, crm_scripts, crm_pipeline, crm_search, crm_custom_fields, crm_import and crm_duplicates web app'),
       ...(wantsSessionWeb ? [waitForHttp(webSessionUrl, 'the session (jwt, crm_records) web app')] : []),
+      ...(wantsNotificationsWeb ? [waitForHttp(webNotificationsUrl, 'the records flags plus crm_notifications web app')] : []),
     ]);
     restoreNextEnv(nextEnv);
     log(`web (next start, production build) on ${webUrl}`);
@@ -914,6 +1001,9 @@ async function main() {
     );
     if (wantsSessionWeb) {
       log(`web (next start, production build, NODE_ENV=test, jwt, crm_records on, no injected identity) on ${webSessionUrl}`);
+    }
+    if (wantsNotificationsWeb) {
+      log(`web (next start, production build, NODE_ENV=test, the records flags + crm_notifications on) on ${webNotificationsUrl}`);
     }
   }
 
@@ -951,6 +1041,8 @@ async function main() {
         webSessionUrl,
         webImportUrl: webRecordsUrl,
         webDuplicatesUrl: webRecordsUrl,
+        // T-0101: empty unless this run's grep can select @p26-notifications.
+        webNotificationsUrl,
         apiUrl,
         fixturesUrl,
       },

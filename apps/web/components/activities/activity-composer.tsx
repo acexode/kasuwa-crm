@@ -8,6 +8,9 @@ import { CHIP, CHIP_OFF, CHIP_ON, MENU_ROW } from '../records/list-classes';
 import { isUuid, writeErrorId } from '../record/record-core';
 import { hasDetail, listContacts, type RecordsResult } from '../../lib/records-api';
 import { listAccounts } from '../../lib/accounts-api';
+import { lookupRecords } from '../../lib/search-api';
+import { planSearch } from '../../lib/search-query';
+import { nameOrWithheld } from '../records/name';
 import type { ComposeTarget, ComposedActivity, WrittenActivity } from '../../lib/activities-api';
 import { CUSTOM_INVALID, customErrorId, namesUnknownField, notEditableKeys } from '../../lib/custom-values-core';
 import type { CustomDraft } from '../../lib/custom-values-model';
@@ -40,6 +43,8 @@ type Field = 'subject' | 'target' | 'dueAt' | 'startsAt' | 'endsAt';
 type Picked = ComposeTarget & { readonly name: string };
 
 const SEARCH_DEBOUNCE_MS = 300;
+/** A number waits longer (as the search panel does): it is looked up once whole, not at every digit. */
+const LOOKUP_DEBOUNCE_MS = 600;
 
 function withoutField(errors: Partial<Record<Field, MessageId>>, field: Field): Partial<Record<Field, MessageId>> {
   return Object.fromEntries(Object.entries(errors).filter(([key]) => key !== field)) as Partial<Record<Field, MessageId>>;
@@ -108,7 +113,44 @@ export function ActivityComposer({
       setSearchFailed(false);
       return undefined;
     }
+    const plan = planSearch(q);
+    if (plan.kind === 'refused' || plan.kind === 'keepTyping') {
+      // A number being typed, or digits mixed into text: sent nowhere (R21, R27).
+      setResults(null);
+      setSearching(false);
+      setSearchFailed(false);
+      return undefined;
+    }
     setSearching(true);
+    if (plan.kind === 'lookup') {
+      // A phone number or an email address is looked up whole, in a POST body. Accounts hold neither.
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => {
+        void lookupRecords(plan.field, plan.value, controller.signal).then((answer) => {
+          if (seq !== searchSeq.current || controller.signal.aborted) return;
+          setSearching(false);
+          if (!answer.ok) {
+            setSearchFailed(true);
+            setResults(null);
+            return;
+          }
+          setSearchFailed(false);
+          setResults(
+            answer.value
+              .filter((group) => group.type === 'contact' || group.type === 'lead')
+              .flatMap((group) => group.hits)
+              .flatMap((hit): Picked[] =>
+                hit.kind === 'person' && isUuid(hit.id) ? [{ kind: 'contact', id: hit.id, name: nameOrWithheld(t, hit.displayName) }] : [],
+              )
+              .filter((row, index, all) => all.findIndex((other) => other.id === row.id) === index),
+          );
+        });
+      }, LOOKUP_DEBOUNCE_MS);
+      return () => {
+        window.clearTimeout(timer);
+        controller.abort();
+      };
+    }
     const timer = window.setTimeout(() => {
       void Promise.all([listContacts({ q, limit: PICKER_LIMIT }), listAccounts({ q, limit: PICKER_LIMIT })]).then(
         ([contacts, accounts]) => {
@@ -123,7 +165,7 @@ export function ActivityComposer({
           const found: Picked[] = [
             ...(contacts.ok ? contacts.value.data : [])
               .filter((row) => isUuid(row.id))
-              .map((row): Picked => ({ kind: 'contact', id: row.id, name: row.displayName })),
+              .map((row): Picked => ({ kind: 'contact', id: row.id, name: nameOrWithheld(t, row.displayName) })),
             ...(accounts.ok ? accounts.value.data : [])
               .filter((row) => isUuid(row.id))
               .map((row): Picked => ({ kind: 'account', id: row.id, name: row.name })),
@@ -133,6 +175,7 @@ export function ActivityComposer({
       );
     }, SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
+    // `t` is the bundle's translator, stable for the page's language: the box alone decides a search.
   }, [query]);
 
   const fieldProps = (field: Field, hint?: string) => ({

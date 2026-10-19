@@ -28,8 +28,9 @@ export type ContactFieldLevel = 'none' | 'read' | 'edit';
 
 /**
  * The `Contact` properties field security may withhold, as wire names, in the
- * contract's order. `id`, `programmeId`, `version`, `displayName`, the
- * timestamps and `withheldFields` are never withheld.
+ * contract's order. `id`, `programmeId`, `version`, the timestamps and
+ * `withheldFields` are never withheld. `displayName` is withheld too, but has
+ * no matrix row: it follows its name parts (`displayNameReadable`, below).
  */
 export const WITHHOLDABLE_CONTACT_FIELDS = [
   'givenNames',
@@ -140,10 +141,67 @@ export function withheldAnywhere(
   );
 }
 
+// --- displayName (D-L68, T-0085 R8, T-0124 I1) ---------------------------------
+
+/**
+ * The name parts `displayName` follows. `displayName` has no `field_def` and
+ * no grant of its own: it is readable exactly when BOTH parts are readable
+ * (`read` or `edit`) in the record's programme, and withheld when either is
+ * `none`, whatever the part's value (a NULL part that is withheld still
+ * withholds it). It is never composed from the readable part: a name that
+ * survived a withheld part would hand back what field security took away.
+ *
+ * THIS IS THE ONE PLACE THE RULE IS WRITTEN. Every read path that answers a
+ * contact's or a lead's name (the record wire, the deal, activity, duplicate
+ * and merge summaries, `q`, the timeline, scripts, search) asks one of the
+ * functions below, never `contactFieldLevel` on the parts directly.
+ */
+export const DISPLAY_NAME_PARTS = [
+  'givenNames',
+  'familyName',
+] as const satisfies readonly WithholdableContactField[];
+
+/**
+ * True when the caller may read a contact's `displayName` in `programmeId`.
+ * `parts` exists for tests that prove a caller follows the list rather than
+ * a copy of it; production callers never pass it.
+ */
+export function displayNameReadable(
+  access: ContactFieldAccess,
+  programmeId: string,
+  parts: readonly WithholdableContactField[] = DISPLAY_NAME_PARTS,
+): boolean {
+  return parts.every((part) => contactFieldLevel(access, programmeId, part) !== 'none');
+}
+
+/** Programmes in which the caller may read (and so `q` may match) `displayName`. */
+export function programmesReadingDisplayName(access: ContactFieldAccess): string[] {
+  return [...access.keys()].filter((programmeId) => displayNameReadable(access, programmeId));
+}
+
+/**
+ * A contact named inside another answer (a closed `{ id, displayName }`
+ * summary, T-0124 I3): the name when readable in the contact's programme,
+ * otherwise `null`. A summary has no `withheldFields`, so `null` is how it
+ * says "withheld".
+ */
+export function summaryDisplayName(
+  access: ContactFieldAccess,
+  programmeId: string,
+  displayName: string | null,
+): string | null {
+  return displayName !== null && displayNameReadable(access, programmeId) ? displayName : null;
+}
+
 /**
  * The properties of a write body the caller may not edit in `programmeId`,
  * in the order they were sent. Only withholdable fields are judged here; an
  * unknown or server-owned property is the body schema's business (400).
+ *
+ * `displayName` is NOT judged here, because createContact and the importer
+ * use this too, and whether a caller missing a name part may create contacts
+ * is an open product call (T-0124 I11). Updates use
+ * `notEditableContactUpdateFields`, which adds it.
  */
 export function notEditableContactFields(
   access: ContactFieldAccess,
@@ -153,5 +211,24 @@ export function notEditableContactFields(
   return sentKeys.filter(
     (key): key is WithholdableContactField =>
       isWithholdableContactField(key) && contactFieldLevel(access, programmeId, key) !== 'edit',
+  );
+}
+
+/**
+ * `notEditableContactFields` for an update, plus `displayName` when it is
+ * withheld (T-0124 I11): a caller cannot write a field they cannot read. In
+ * the order sent. Whether a `read` part makes `displayName` read-only is left
+ * open (I11), so only a withheld name is refused.
+ */
+export function notEditableContactUpdateFields(
+  access: ContactFieldAccess,
+  programmeId: string,
+  sentKeys: readonly string[],
+): (WithholdableContactField | 'displayName')[] {
+  const nameLocked = !displayNameReadable(access, programmeId);
+  return sentKeys.filter(
+    (key): key is WithholdableContactField | 'displayName' =>
+      (key === 'displayName' && nameLocked) ||
+      (isWithholdableContactField(key) && contactFieldLevel(access, programmeId, key) !== 'edit'),
   );
 }

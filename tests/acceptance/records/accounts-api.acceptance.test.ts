@@ -439,12 +439,14 @@ const ACCOUNT_NEVER_WITHHELD = [
   'withheldFields',
 ];
 
-/** Never withheld, per the Contact schema's description. */
+/**
+ * Never withheld, per the Contact schema's description. `displayName` left
+ * this list with T-0124: it follows its name parts (D-L68, D-L180 I1).
+ */
 const CONTACT_NEVER_WITHHELD = [
   'id',
   'programmeId',
   'version',
-  'displayName',
   'createdAt',
   'updatedAt',
   'withheldFields',
@@ -1652,12 +1654,12 @@ describe('acceptance: accounts API (T-0055)', () => {
       await plantAccount({ id: EMPTY_ACCOUNT, programmeId: PROGRAMME_A1, name: 'Empty Ventures' });
     });
 
-    it('returns a ContactPage of exactly the linked contacts, by displayName, no totals', async () => {
+    it('returns a ContactPage of exactly the linked contacts, newest first (-createdAt, T-0124), no totals', async () => {
       const response = await accountContacts(AGENT_1, IKOYI.id);
       expectStatus(response, 200, 'listAccountContacts');
       const page = expectContactPage(response.body, 'listAccountContacts');
-      // Amaka Obi, Bashir Lawal; Chioma (A1, unlinked) is not there.
-      expect(orderOf(page)).toEqual([AMAKA.id, BASHIR.id]);
+      // Bashir (seeded after Amaka), then Amaka; Chioma (A1, unlinked) is not there.
+      expect(orderOf(page)).toEqual([BASHIR.id, AMAKA.id]);
       for (const row of page.data) expect(row.accountId).toBe(IKOYI.id);
       expect(page.nextCursor).toBeNull();
       expectNoTotals(response, 'listAccountContacts');
@@ -1666,13 +1668,14 @@ describe('acceptance: accounts API (T-0055)', () => {
     });
 
     it('sorts by its enum only, and pages by keyset', async () => {
-      const reversed = await accountContacts(AGENT_1, IKOYI.id, [['sort', '-displayName']]);
-      expectStatus(reversed, 200, '-displayName');
-      expect(orderOf(expectContactPage(reversed.body, '-displayName'))).toEqual([
-        BASHIR.id,
+      const reversed = await accountContacts(AGENT_1, IKOYI.id, [['sort', 'createdAt']]);
+      expectStatus(reversed, 200, 'createdAt');
+      expect(orderOf(expectContactPage(reversed.body, 'createdAt'))).toEqual([
         AMAKA.id,
+        BASHIR.id,
       ]);
-      for (const sort of ['givenNames', 'emails', 'phones', 'accountId']) {
+      // T-0124 (D-L180 I5): displayName is no sort key.
+      for (const sort of ['displayName', '-displayName', 'givenNames', 'emails', 'phones', 'accountId']) {
         expectError(
           await accountContacts(AGENT_1, IKOYI.id, [['sort', sort]]),
           400,
@@ -1682,14 +1685,14 @@ describe('acceptance: accounts API (T-0055)', () => {
       const first = await accountContacts(AGENT_1, IKOYI.id, [['limit', '1']]);
       expectStatus(first, 200, 'page 1');
       const firstPage = expectContactPage(first.body, 'page 1');
-      expect(orderOf(firstPage)).toEqual([AMAKA.id]);
+      expect(orderOf(firstPage)).toEqual([BASHIR.id]);
       const second = await accountContacts(AGENT_1, IKOYI.id, [
         ['limit', '1'],
         ['cursor', firstPage.nextCursor ?? ''],
       ]);
       expectStatus(second, 200, 'page 2');
       const secondPage = expectContactPage(second.body, 'page 2');
-      expect(orderOf(secondPage)).toEqual([BASHIR.id]);
+      expect(orderOf(secondPage)).toEqual([AMAKA.id]);
       expect(secondPage.nextCursor).toBeNull();
     });
 

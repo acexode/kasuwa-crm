@@ -22,10 +22,12 @@ import {
   inputsFromAnswers,
   isAcknowledged,
   localesOf,
+  nameWithheld,
   readForm,
   stepsOf,
   unreadTitles,
   wordingFor,
+  WITHHELD_NAME_MESSAGE_ID,
   type FillContext,
   type Step,
 } from './run-model';
@@ -184,10 +186,12 @@ function RunView({
               <span className="text-text-muted">{t.t('scripting.run.contactUnavailable')}</span>
             ) : contactHref !== null ? (
               <Link href={contactHref} className={LINK}>
-                <span data-record-text="">{state.contact.displayName}</span>
+                <ContactName t={t} contact={state.contact} />
               </Link>
             ) : (
-              <b data-record-text="">{state.contact.displayName}</b>
+              <b>
+                <ContactName t={t} contact={state.contact} />
+              </b>
             )}
           </p>
         </div>
@@ -310,12 +314,28 @@ function RunView({
   );
 }
 
+/** The run's contact by name, or the stand-in when its name is withheld (D-L68, D-L180). */
+function ContactName({ t, contact }: { t: Translator; contact: RunContact }) {
+  return nameWithheld(contact) ? (
+    <span data-variable-placeholder="" data-withheld-name="">
+      {t.t(WITHHELD_NAME_MESSAGE_ID)}
+    </span>
+  ) : (
+    <span data-record-text="">{contact.displayName}</span>
+  );
+}
+
 function Wording({ t, text, context }: { t: Translator; text: string; context: FillContext }) {
   return (
     <p data-script-text="" className="whitespace-pre-line break-words text-body-lg">
       {fill(text, context).map((segment, index) =>
         segment.kind === 'text' ? (
           <span key={index}>{segment.text}</span>
+        ) : segment.kind === 'withheldName' ? (
+          // D-L180 (T-0124 I13): the name is withheld, so a neutral stand-in.
+          <span key={index} data-variable-placeholder="" data-withheld-name="" className="rounded-sm bg-surface-sunken px-1 text-body-md text-text-muted">
+            {t.t(WITHHELD_NAME_MESSAGE_ID)}
+          </span>
         ) : (
           <span key={index} data-variable-placeholder="" className="rounded-sm bg-surface-sunken px-1 text-body-md text-text-muted">
             {t.t('scripting.run.placeholder')}

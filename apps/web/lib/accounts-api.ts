@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { identifierShaped } from './search-query';
 import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
 import { Phone, requestRecords, type RecordsResult } from './records-api';
 
@@ -94,7 +95,8 @@ const ARRAY_PARAMETERS = ['owner', 'tier', 'industry', 'tag', 'state', 'lga'] as
 export function accountListSearch(query: AccountListQuery): string {
   const params = new URLSearchParams();
   const q = query.q?.trim() ?? '';
-  if (q !== '') params.set('q', q.slice(0, 100));
+  // Never an identifier: a number is looked up (lookupRecords), and must not reach a URL (R21).
+  if (q !== '' && !identifierShaped(q)) params.set('q', q.slice(0, 100));
   for (const name of ARRAY_PARAMETERS) {
     for (const value of query[name] ?? []) params.append(name, value);
   }

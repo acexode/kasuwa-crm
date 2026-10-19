@@ -140,8 +140,8 @@ import {
  *     Language, Consent and DND chips are listContacts' and are not drawn.
  *   - Status offers the four lead stages only; `customer` is never a chip, a
  *     column or a move target. Leaving the lead stages is convert's job.
- *   - Sort only by `sort`'s enum (createdAt, updatedAt, displayName): never by
- *     company, status, owner or source.
+ *   - Sort only by `sort`'s enum (createdAt, updatedAt; T-0124 removed
+ *     displayName, D-L180 I5): never by name, company, status, owner or source.
  *   - No totals, no live chip counts and no Kanban column counts (D-P13).
  *   - The Kanban move writes `{ version, status }` and nothing else (D-P14,
  *     D-P18: an agent may change status). P04/01's inline Owner edit is not
@@ -851,21 +851,21 @@ test.describe('P04/01 — the leads table', () => {
     await expect(row(page, LEAD_EXAMPLE.id)).toBeVisible();
     await expect(row(page, LEAD_NEW.id)).toHaveCount(0);
 
-    // A number as a person types it; the server normalises it to E.164, so the
-    // screen may send it as typed or with the spacing removed.
-    const byNumber = page.waitForRequest(
-      (request) =>
-        isListLeads(request) && (new URL(request.url()).searchParams.get('q') ?? '').replace(/\D/g, '') === '08060000002',
+    // A family name as a person types it. A number never goes in a list's q
+    // since T-0124 (identifier_in_url, D-L180 I9; lead re-pin), so the journey
+    // searches by name.
+    const byName = page.waitForRequest(
+      (request) => isListLeads(request) && (new URL(request.url()).searchParams.get('q') ?? '').trim() === 'Bakare',
     );
-    await shown(screen(page).locator('input[type="search"]')).first().fill('0806 000 0002');
-    await byNumber;
+    await shown(screen(page).locator('input[type="search"]')).first().fill('Bakare');
+    await byName;
     await expect(row(page, LEAD_NEW.id)).toBeVisible();
     await expect(row(page, LEAD_EXAMPLE.id)).toHaveCount(0);
 
-    // Names and numbers are personal data: in the address bar they land in
-    // history, bookmarks and every Referer (D-L64).
-    expect(page.url(), 'the search term was written into the page URL').not.toMatch(/fabrics|0806|[?&]q=/i);
-    expect(await page.title(), 'the search term was written into the document title').not.toMatch(/fabrics|0806/i);
+    // Names are personal data: in the address bar they land in history,
+    // bookmarks and every Referer (D-L64).
+    expect(page.url(), 'the search term was written into the page URL').not.toMatch(/fabrics|bakare|[?&]q=/i);
+    expect(await page.title(), 'the search term was written into the document title').not.toMatch(/fabrics|bakare/i);
 
     // q is at most 100 characters (the mock records anything longer).
     const long = 'Bakare Logistics '.repeat(8);
@@ -989,27 +989,29 @@ test.describe('P04/01 — the leads table', () => {
     if ((await control.count()) > 0) {
       const sorted = page.waitForRequest(isListLeads);
       await control.first().click();
-      await shown(page.locator('[data-sort-option="-displayName"]')).first().click();
+      await shown(page.locator('[data-sort-option="createdAt"]')).first().click();
       sent = new URL((await sorted).url()).searchParams;
     } else {
-      // A sortable name header: one or two presses reach -displayName.
-      const header = screen(page).locator('[role="columnheader"][data-column="displayName"] button');
-      await expect(header, 'no sort control and no sortable name header').toBeVisible();
+      // A sortable created header: one or two presses reach createdAt (oldest
+      // first). T-0124 removed the displayName sort (D-L180 I5; lead re-pin).
+      const header = screen(page).locator('[role="columnheader"][data-column="createdAt"] button');
+      await expect(header, 'no sort control and no sortable created header').toBeVisible();
       const first = page.waitForRequest(isListLeads);
       await header.click();
       sent = new URL((await first).url()).searchParams;
-      if (sent.get('sort') !== '-displayName') {
+      if (sent.get('sort') !== 'createdAt') {
         const second = page.waitForRequest(isListLeads);
         await header.click();
         sent = new URL((await second).url()).searchParams;
       }
     }
-    expect(sent.get('sort'), 'the sort did not reach -displayName').toBe('-displayName');
+    expect(sent.get('sort'), 'the sort did not reach createdAt').toBe('createdAt');
     expect(SORT_VALUES).toContain(sent.get('sort'));
     expect(sent.has('cursor'), 'a new sort was sent with the old cursor').toBe(false);
-    // Under -displayName, Zainab leads the first page and Adaeze is on the next.
+    // Under createdAt, the oldest lead (page two's) leads the first page and the
+    // newest, Tunde Bakare, is on the next.
     await expect(row(page, LEAD_PAGE_TWO.id)).toBeVisible();
-    await expect(row(page, LEAD_EXAMPLE.id)).toHaveCount(0);
+    await expect(row(page, LEAD_NEW.id)).toHaveCount(0);
   });
 
   test('a withheld field shows a lock, per row, never an empty cell, and a null field is never a lock @leads-p04 @leads-p04-locked', async ({

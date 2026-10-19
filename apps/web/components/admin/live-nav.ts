@@ -1,4 +1,4 @@
-import { crmCustomFieldsEnabled } from '../../lib/feature-flags';
+import { crmCustomFieldsEnabled, crmNotificationsEnabled } from '../../lib/feature-flags';
 
 /**
  * The admin settings-menu entries whose ROUTE is on in this process, as
@@ -13,4 +13,13 @@ import { crmCustomFieldsEnabled } from '../../lib/feature-flags';
  */
 export async function adminLiveNav(): Promise<Readonly<Record<string, string>>> {
   return (await crmCustomFieldsEnabled()) ? { 'cu-fields': '/admin/custom-fields' } : {};
+}
+
+/**
+ * Whether the console's header draws the notifications bell (T-0101): its own
+ * answer and its own prop, because it is not a settings-menu entry (D-L179 N10).
+ * Server only, like the rest of this file.
+ */
+export async function adminBellLive(): Promise<boolean> {
+  return crmNotificationsEnabled();
 }

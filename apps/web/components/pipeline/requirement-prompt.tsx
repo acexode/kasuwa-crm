@@ -5,6 +5,7 @@ import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { FIELD, PRIMARY_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { MENU_ROW } from '../records/list-classes';
+import { nameOrWithheld } from '../records/name';
 import { DEAL_CURRENCIES, searchRecords, type MoveDealBody, type Pipeline, type PickerRow } from '../../lib/pipelines-api';
 import {
   amountInvalid,
@@ -317,14 +318,14 @@ function Picker({
               onClick={() =>
                 onInput({
                   ...input,
-                  text: { ...input.text, [requirementId]: row.name },
-                  picked: { ...input.picked, [requirementId]: { id: row.id, name: row.name } },
+                  text: { ...input.text, [requirementId]: nameOrWithheld(t, row.name) },
+                  picked: { ...input.picked, [requirementId]: { id: row.id, name: nameOrWithheld(t, row.name) } },
                 })
               }
               className={`${MENU_ROW} text-text`}
             >
               <Icon name={kind === 'accountId' ? 'domain' : 'person'} size="sm" className="text-text-muted" />
-              <span data-record-text="">{row.name}</span>
+              <span data-record-text="">{nameOrWithheld(t, row.name)}</span>
             </button>
           ))}
         </div>

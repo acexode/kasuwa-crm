@@ -61,9 +61,9 @@ describe('ListAccountsQuery', () => {
 });
 
 describe('ListAccountContactsQuery', () => {
-  it('defaults sort to displayName and accepts only the contacts sort enum', () => {
-    expect(ListAccountContactsQuery.parse({}).sort).toBe('displayName');
-    for (const sort of ['givenNames', 'emails', 'phones', 'accountId']) {
+  it('defaults sort to -createdAt and accepts only the contacts sort enum, never displayName (T-0124 I5)', () => {
+    expect(ListAccountContactsQuery.parse({}).sort).toBe('-createdAt');
+    for (const sort of ['givenNames', 'emails', 'phones', 'accountId', 'displayName', '-displayName']) {
       expect(ListAccountContactsQuery.safeParse({ sort }).success, sort).toBe(false);
     }
   });

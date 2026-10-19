@@ -9,7 +9,7 @@ import {
   MAX_PAGE_SIZE,
 } from '@kasuwa/domain-core';
 import { z } from 'zod';
-import { text } from '../common/text';
+import { nameQuery } from '../common/name-query';
 
 /**
  * Boundary schemas for the contacts API, transcribed from
@@ -51,8 +51,9 @@ const queryBoolean = z
   .optional();
 
 export const ListContactsQuery = z.object({
-  // text(): a NUL is 400, never a Postgres 22021 and so a 500 (D-L78).
-  q: text(1, 100).optional(),
+  // A name only (T-0124 I7, I9): a NUL is 400, never a Postgres 22021 and so
+  // a 500 (D-L78); a phone or an email is 400 identifier_in_url (R21).
+  q: nameQuery(1, 100).optional(),
   owner: many(
     z
       .string()

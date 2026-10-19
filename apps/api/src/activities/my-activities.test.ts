@@ -7,6 +7,8 @@ import {
   SECURED_ACTIVITY_FIELDS,
   type Activity,
   type ActivityFieldLevel,
+  type ContactFieldAccess,
+  type ContactFieldLevel,
   type MyActivityRow,
 } from '@kasuwa/domain-core';
 import { describe, expect, it } from 'vitest';
@@ -277,9 +279,28 @@ const row: MyActivityRow = {
   version: 4,
 };
 
+/** Contact name parts per programme (T-0124 I3); both readable unless overridden. */
+const names = (
+  a1: Partial<Record<'givenNames' | 'familyName', ContactFieldLevel>> = {},
+  a2: Partial<Record<'givenNames' | 'familyName', ContactFieldLevel>> = {},
+): ContactFieldAccess =>
+  new Map(
+    [
+      [A1, a1],
+      [A2, a2],
+    ].map(([programme, levels]) => [
+      programme as string,
+      new Map([
+        ['givenNames', 'edit'],
+        ['familyName', 'edit'],
+        ...Object.entries(levels as object),
+      ]) as ContactFieldAccess extends ReadonlyMap<string, infer V> ? V : never,
+    ]),
+  );
+
 describe('toMyActivityWire (T-0082, L3)', () => {
   it('is exactly the MyActivity keys: summaries, no body, no owner', () => {
-    const wire = toMyActivityWire(row, access());
+    const wire = toMyActivityWire(row, access(), names());
     expect(wire).toEqual({
       id: ID,
       programmeId: A1,
@@ -301,6 +322,7 @@ describe('toMyActivityWire (T-0082, L3)', () => {
     const wire = toMyActivityWire(
       { ...row, contactId: null, contactDisplayName: null, accountId: null, accountName: null },
       access(),
+      names(),
     );
     expect(wire).toMatchObject({ contact: null, account: null, withheldFields: [] });
   });
@@ -309,6 +331,7 @@ describe('toMyActivityWire (T-0082, L3)', () => {
     const wire = toMyActivityWire(
       row,
       access({ subject: 'none', contactId: 'none', accountId: 'none', completedAt: 'none' }),
+      names(),
     );
     for (const key of ['subject', 'contact', 'account', 'completedAt']) {
       expect(key in wire, key).toBe(false);
@@ -319,8 +342,27 @@ describe('toMyActivityWire (T-0082, L3)', () => {
 
   it('is judged in the activity’s own programme', () => {
     const both = access({}, { subject: 'none' });
-    expect(toMyActivityWire({ ...row, programmeId: A2 }, both).withheldFields).toEqual(['subject']);
-    expect(toMyActivityWire(row, both).withheldFields).toEqual([]);
+    expect(toMyActivityWire({ ...row, programmeId: A2 }, both, names()).withheldFields).toEqual(['subject']);
+    expect(toMyActivityWire(row, both, names()).withheldFields).toEqual([]);
+  });
+
+  it('the contact summary’s displayName is null when a name part is withheld in the activity’s programme, never composed (T-0124 I3)', () => {
+    for (const part of ['givenNames', 'familyName'] as const) {
+      const wire = toMyActivityWire(row, access(), names({ [part]: 'none' }));
+      expect(wire.contact).toEqual({ id: CONTACT, displayName: null });
+      expect(wire.withheldFields).toEqual([]);
+      expect(JSON.stringify(wire)).not.toContain('Probe Person');
+    }
+    // Judged in the row's programme: withheld in A2 only leaves an A1 row named.
+    expect(toMyActivityWire(row, access(), names({}, { familyName: 'none' })).contact).toEqual({
+      id: CONTACT,
+      displayName: 'Probe Person',
+    });
+    // A read-only part leaves it readable.
+    expect(toMyActivityWire(row, access(), names({ familyName: 'read' })).contact).toEqual({
+      id: CONTACT,
+      displayName: 'Probe Person',
+    });
   });
 });
 

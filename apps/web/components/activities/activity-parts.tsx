@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { Translator } from '@kasuwa/i18n/bundle';
+import { nameOrWithheld } from '../records/name';
 import { Icon } from '../icon';
 import { LINK } from '../auth/button-classes';
 import { LockedValue } from '../records/list-parts';
@@ -111,7 +112,7 @@ function LockedSummary({ t, kind }: { t: Translator; kind: 'contact' | 'account'
 export function Related({ t, item }: { t: Translator; item: MyActivity }) {
   const parts = [];
   if (withheld(item, 'contact')) parts.push(<LockedSummary key="contact" t={t} kind="contact" />);
-  else if (item.contact) parts.push(<Summary key="contact" t={t} kind="contact" id={item.contact.id} name={item.contact.displayName} />);
+  else if (item.contact) parts.push(<Summary key="contact" t={t} kind="contact" id={item.contact.id} name={nameOrWithheld(t, item.contact.displayName)} />);
   if (withheld(item, 'account')) parts.push(<LockedSummary key="account" t={t} kind="account" />);
   else if (item.account) parts.push(<Summary key="account" t={t} kind="account" id={item.account.id} name={item.account.name} />);
   return parts.length === 0 ? null : <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">{parts}</span>;

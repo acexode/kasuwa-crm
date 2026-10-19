@@ -1886,7 +1886,7 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
     it('is absent from lists, leads, search, lookup and account children (each seen before the merge as the control)', async () => {
       const probes = async () => ({
         listName: ids((await get(H.admin1, '/api/v1/contacts', [['q', 'Zqmergegiven']])).body),
-        listPhone: ids((await get(H.admin1, '/api/v1/contacts', [['q', '+2348039500009']])).body),
+        // T-0124 (D-L180 I9): a number in a list's q is 400; lookupPhone below covers the number.
         leads: ids((await get(H.admin1, '/api/v1/leads', [['limit', '100']])).body),
         accountChildren: ids((await get(H.admin1, `/api/v1/accounts/${ACC1}/contacts`, [['limit', '100']])).body),
         searchName: (await searchText(H.admin1, 'Zqmergegiven')).includes(P2.id),
@@ -1896,13 +1896,13 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
       });
       const before = await probes();
       expect(before, 'control: every path finds P2 before the merge').toEqual({
-        listName: [P2.id], listPhone: [P2.id], leads: expect.arrayContaining([P2.id]) as unknown, accountChildren: [P2.id],
+        listName: [P2.id], leads: expect.arrayContaining([P2.id]) as unknown, accountChildren: [P2.id],
         searchName: true, searchCompany: true, lookupEmail: true, lookupPhone: true,
       });
       await mergeOk(H.admin1, P1.id, P2.id, KEEP_SURVIVOR);
       const after = await probes();
       expect(after).toEqual({
-        listName: [], listPhone: [], leads: expect.not.arrayContaining([P2.id]) as unknown, accountChildren: [],
+        listName: [], leads: expect.not.arrayContaining([P2.id]) as unknown, accountChildren: [],
         searchName: false, searchCompany: false, lookupEmail: false, lookupPhone: false,
       });
       // The tenant admin across both programmes sees no more than the merger.
@@ -1971,11 +1971,16 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
     });
 
     it('answers a listContacts cursor naming it exactly as a cursor naming a row out of scope (M9)', async () => {
-      // A cursor for P2: page the A1 contacts by name until P2 is the last row.
+      // A cursor for P2: page the contacts by -updatedAt until P2 is the last row
+      // of a page that has a next one (T-0124, D-L180 I5: displayName is no
+      // longer a sort key). Descending, because P2 (2026-04-01) is the newest
+      // row the supervisor reaches: ascending it is the very last row, whose
+      // nextCursor is null, so no cursor ever names it. Descending it is the
+      // first row and X2 (2026-02-07) the eighth, each with a page after it.
       const cursorAfter = async (headers: Headers, target: string): Promise<string> => {
         let cursor: string | undefined;
         for (let guard = 0; guard < 40; guard += 1) {
-          const params: [string, string][] = [['limit', '1'], ['sort', 'displayName']];
+          const params: [string, string][] = [['limit', '1'], ['sort', '-updatedAt']];
           if (cursor !== undefined) params.push(['cursor', cursor]);
           const page = (await get(headers, '/api/v1/contacts', params)).body as Json;
           const next = page.nextCursor as string | null;
@@ -1988,8 +1993,8 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
       const deadCursor = await cursorAfter(H.supervisor, P2.id);
       const outOfScope = await cursorAfter(H.supervisor, X2.id);
       await mergeOk(H.admin1, P1.id, P2.id, KEEP_SURVIVOR);
-      const control = await get(H.admin1, '/api/v1/contacts', [['limit', '1'], ['sort', 'displayName'], ['cursor', outOfScope]]);
-      const probe = await get(H.admin1, '/api/v1/contacts', [['limit', '1'], ['sort', 'displayName'], ['cursor', deadCursor]]);
+      const control = await get(H.admin1, '/api/v1/contacts', [['limit', '1'], ['sort', '-updatedAt'], ['cursor', outOfScope]]);
+      const probe = await get(H.admin1, '/api/v1/contacts', [['limit', '1'], ['sort', '-updatedAt'], ['cursor', deadCursor]]);
       expect(probe.status, probe.text).toBe(control.status);
       expect(probe.text).toBe(control.text);
     });
