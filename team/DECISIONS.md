@@ -4039,3 +4039,28 @@ The combined review of ee4dee2 passed with findings: no security or privacy defe
   known to be 0.
 - **Size.** Commit `dfe9ad7` splits at the poller/count/store versus model seam. Correct the report's figure
   (N15).
+
+### D-L180 — T-0124 suite accepted; scripts substitute, never branch on, a withheld name (lead, 2026-10-19)
+
+The suite is on lead/T-0124-acceptance at eeac666. The wire suite has 62 tests, of which 45 fail on main for the
+real reason. The contract suite has 33 tests, of which 18 fail on main. Rulings I1–I17 are accepted, with one
+amendment:
+- **I1.** `displayName` is readable exactly when both `givenNames` and `familyName` are readable in the record's
+  programme. It is never composed from a readable part.
+- **I4.** This supersedes D-L175 C9's "Contact.displayName is never withheld". The nullable summaries stand (I3).
+- **I9, R21.** A `q` that looks like a phone or email on listContacts and listLeads is `400 identifier_in_url`.
+- **I13, amended.** A script may still *display* `{contact.displayName}`. When the name is withheld from the
+  running agent, the script shows a neutral, translated stand-in (for example "the customer"), and publishing is
+  not blocked. A script may never *branch* on `displayName` where any set it runs under could have it withheld:
+  the branch taken would disclose the name. Publish refuses such a branch. Blocking every greeting whenever any
+  set withholds a name part would make greetings unusable for exactly the clients who restrict names. That is a
+  product cost with no security gain, since substitution discloses nothing. @acexode may overrule.
+- **Left unpinned on purpose (I11):**
+  - createContact and imports when `displayName` is withheld from the creator;
+  - whether a read-only name part makes `displayName` read-only.
+
+  Both are product calls for a later task.
+
+**Lead re-pins during the build:** contacts-api, leads-api, accounts-api (listAccountContacts' default sort),
+list-indexes, contact-merge (its DuplicateContact `typeof displayName` check), e2e p04-leads, and the
+records-contract-search R18 note. The builder lists exact lines, and the lead edits them on the suite branch.
