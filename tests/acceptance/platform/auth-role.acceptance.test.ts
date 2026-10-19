@@ -1014,7 +1014,13 @@ describe('acceptance: kasuwa_auth owns the auth-table writes (T-0049)', () => {
     });
 
     it('webEnv and webBuildEnv refuse DATABASE_AUTH_URL by presence, naming it, without echoing it', () => {
-      const WEB = { ...AMBIENT, NODE_ENV: 'development' };
+      // T-0125 (D-L178): webEnv requires both session URLs.
+      const WEB = {
+        ...AMBIENT,
+        NODE_ENV: 'development',
+        KASUWA_WEB_ORIGIN: 'http://localhost:3000',
+        KASUWA_API_INTERNAL_URL: 'http://127.0.0.1:3001',
+      };
       // The control: a web environment without it parses.
       expect(() => webEnv(WEB)).not.toThrow();
       expect(() => webBuildEnv(WEB)).not.toThrow();
