@@ -7,6 +7,7 @@ import { Icon } from '../icon';
 import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
 import { LiteModeToggle } from '../auth/lite-mode';
 import { NAV_GROUPS, filterNav, type NavGroup } from './nav-model';
+import { NotificationBell } from '../notifications/bell';
 import { getHomeSummary, getSettingsMenuBadges, type Severity } from '../../lib/admin-api';
 import { useResource } from './use-resource';
 
@@ -159,6 +160,8 @@ export function AdminShell({
             {t.t('admin.shell.residency', { region: regionName })}
           </span>
         )}
+
+        {linkedSettings.notifications === undefined ? null : <NotificationBell t={t} locale={locale} live={[]} />}
 
         <LanguageMenu
           options={locales}

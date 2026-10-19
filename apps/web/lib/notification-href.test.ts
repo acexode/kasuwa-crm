@@ -19,6 +19,10 @@ describe('notificationHref', () => {
     expect(notificationHref({ objectType: 'import', objectId: ID }, ['contact'])).toBeNull();
   });
 
+  it.each(['activity', 'import'])('links no %s whose id is not a uuid', (type) => {
+    expect(notificationHref({ objectType: type, objectId: 'not-a-uuid' }, ALL)).toBeNull();
+  });
+
   it.each(['../../admin/roles', 'not-a-uuid', `${ID}/../../admin`, `${ID}?tab=x`, `${ID}#x`, ` ${ID}`, `${ID}\n`, 'javascript:alert(1)', '', '%2e%2e%2fadmin'])('never links objectId %j', (bad) => {
     expect(notificationHref({ objectType: 'contact', objectId: bad }, ALL)).toBeNull();
   });

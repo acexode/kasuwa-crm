@@ -18,23 +18,20 @@ const RECORD_ROUTE: Readonly<Record<string, string>> = {
   deal: '/deals/',
 };
 
-const LIST_ROUTE: Readonly<Record<string, string>> = {
-  activity: '/activities',
-  import: '/contacts/import',
-};
-
 export function notificationHref(
   item: Pick<NotificationItem, 'objectType' | 'objectId'> | { readonly objectType?: unknown; readonly objectId?: unknown },
   live: readonly string[],
 ): string | null {
   const type = typeof item.objectType === 'string' ? item.objectType : '';
-  if (!live.includes(type)) return null;
+  const id = item.objectId;
+  // Every link needs a well-formed id, even the list screens that never print it: an id that is not a uuid is a notification that cannot be trusted to point anywhere.
+  if (!live.includes(type) || typeof id !== 'string' || !UUID.test(id)) return null;
   const record = RECORD_ROUTE[type];
-  if (record !== undefined) {
-    const id = item.objectId;
-    return typeof id === 'string' && UUID.test(id) ? `${record}${id}` : null;
-  }
-  return LIST_ROUTE[type] ?? null;
+  if (record !== undefined) return `${record}${id}`;
+  // The list screens: nothing takes the id, so they link only where their own screen is on.
+  if (type === 'activity' && live.includes('activity')) return '/activities';
+  if (type === 'import' && live.includes('import')) return '/contacts/import';
+  return null;
 }
 
 /**
