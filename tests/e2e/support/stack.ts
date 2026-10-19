@@ -89,6 +89,15 @@ export interface StackUrls {
    */
   webSearchUrl: string;
   /**
+   * A fourth apps/web process for the browser session (T-0125, ADR-0019): the
+   * same production build under `next start` with NODE_ENV=test (because
+   * `crm_records` is not production-ready, D-L64), `KASUWA_AUTH_MODE=jwt`, and
+   * `crm_records` ON. Its specs inject no identity header: every identity
+   * comes from the session cookie. EMPTY unless the run's grep can select
+   * `@bff-session` (or there is no grep), to spare a gigabyte of memory.
+   */
+  webSessionUrl: string;
+  /**
    * The same process as `webRecordsUrl`, which also has `crm_import` ON
    * (T-0096): the P28 import wizard at `/contacts/import`, the Contacts list
    * that links it and the list its report links back to. The wizard's byte
