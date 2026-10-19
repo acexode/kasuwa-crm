@@ -1,3 +1,5 @@
+import { numberingLocale } from './numbering';
+
 /**
  * Formatting and parsing for the admin console, kept pure so it can be tested
  * without a browser.
@@ -75,7 +77,7 @@ function localeAliases(locale: string): Map<string, DurationUnit> {
   for (const unit of Object.keys(UNIT_SECONDS) as DurationUnit[]) {
     for (const unitDisplay of ['short', 'long', 'narrow'] as const) {
       try {
-        const rendered = new Intl.NumberFormat(locale, {
+        const rendered = new Intl.NumberFormat(numberingLocale(locale), {
           style: 'unit',
           unit,
           unitDisplay,
@@ -109,7 +111,7 @@ export function formatDuration(locale: string, seconds: number): string {
 
   const value = seconds / UNIT_SECONDS[unit];
   try {
-    return new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'short' }).format(
+    return new Intl.NumberFormat(numberingLocale(locale), { style: 'unit', unit, unitDisplay: 'short' }).format(
       value,
     );
   } catch {
@@ -140,7 +142,7 @@ export function parseDuration(locale: string, text: string): number | null {
 
 /** A percentage with one decimal, the way the contract sends SLA attainment. */
 export function formatPercent(locale: string, value: number, decimals = 1): string {
-  return new Intl.NumberFormat(locale, {
+  return new Intl.NumberFormat(numberingLocale(locale), {
     style: 'percent',
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
@@ -148,7 +150,7 @@ export function formatPercent(locale: string, value: number, decimals = 1): stri
 }
 
 export function formatCount(locale: string, value: number): string {
-  return new Intl.NumberFormat(locale).format(value);
+  return new Intl.NumberFormat(numberingLocale(locale)).format(value);
 }
 
 /**
@@ -159,7 +161,7 @@ export function formatCount(locale: string, value: number): string {
 export function formatMeter(locale: string, value: number, unit: string): string {
   if (unit === 'byte') {
     const gigabytes = value / 1_000_000_000;
-    return new Intl.NumberFormat(locale, {
+    return new Intl.NumberFormat(numberingLocale(locale), {
       style: 'unit',
       unit: 'gigabyte',
       unitDisplay: 'short',
@@ -178,7 +180,7 @@ export function formatMoney(locale: string, amountMinor: string, currency: strin
   const minor = Number(amountMinor);
   if (!Number.isFinite(minor)) return '';
   // Two minor digits for every currency in scope (NGN, GHS, KES, ZAR).
-  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(minor / 100);
+  return new Intl.NumberFormat(numberingLocale(locale), { style: 'currency', currency }).format(minor / 100);
 }
 
 /**

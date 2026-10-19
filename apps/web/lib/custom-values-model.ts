@@ -1,4 +1,5 @@
 import type { CustomField } from './custom-values-api';
+import { numberingLocale } from './numbering';
 
 export * from './custom-values-core';
 export * from './custom-values-filters';
@@ -35,7 +36,7 @@ interface Separators {
 /** The page locale's own decimal and group characters, from `Intl` and never from a table here. */
 function separators(locale: string): Separators {
   try {
-    const parts = new Intl.NumberFormat(locale).formatToParts(1234567.5);
+    const parts = new Intl.NumberFormat(numberingLocale(locale)).formatToParts(1234567.5);
     return {
       decimal: parts.find((part) => part.type === 'decimal')?.value ?? '.',
       group: parts.find((part) => part.type === 'group')?.value ?? ',',
@@ -121,7 +122,7 @@ type DecimalString = `${number}`;
 
 function numberFormat(locale: string, options: Intl.NumberFormatOptions): Intl.NumberFormat {
   try {
-    return new Intl.NumberFormat(locale, options);
+    return new Intl.NumberFormat(numberingLocale(locale), options);
   } catch {
     return new Intl.NumberFormat('en', options);
   }

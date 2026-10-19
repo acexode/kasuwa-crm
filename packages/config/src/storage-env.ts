@@ -11,7 +11,8 @@ import type { EnvSource } from './schemas.mjs';
  * development. There is no per-tier branch: a Bridge tenant shares its cell's
  * bucket under its own `tenant/<id>/` prefix (D-L128 Q2).
  *
- * Judged on the environment it is GIVEN, never `process.env` behind the
+ * Judged on the environment it is GIVEN (`process.env` only as the explicit
+ * default a server entry point relies on, T-0094), never merged behind the
  * caller's back. The region and the bucket come from here and nowhere else;
  * nothing in a request can name either.
  *
@@ -143,7 +144,17 @@ function endpointProblems(source: EnvSource): string[] {
   return problems;
 }
 
-export function storageEnv(source: EnvSource): StorageEnv {
+/**
+ * True when `source` names an object store at all (S3_BUCKET is set). A
+ * server process may then build one with `storageEnv`; without it, the
+ * features that need storage stay off (T-0094's import routes answer 503).
+ */
+export function storageConfigured(source: EnvSource = process.env): boolean {
+  const bucket = source.S3_BUCKET;
+  return typeof bucket === 'string' && bucket !== '';
+}
+
+export function storageEnv(source: EnvSource = process.env): StorageEnv {
   const problems: string[] = [];
   const parsed = StorageSchema.safeParse(source);
   if (!parsed.success) problems.push(...describe(parsed.error));

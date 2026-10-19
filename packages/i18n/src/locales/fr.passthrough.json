@@ -77,5 +77,8 @@
   "scripting.builder.fieldType.date",
   "admin.studio.custom.type.date",
   "admin.studio.custom.form.type",
-  "admin.studio.custom.form.classification"
+  "admin.studio.custom.form.classification",
+  "import.mapfield.source",
+  "import.country.GH",
+  "import.country.KE"
 ]

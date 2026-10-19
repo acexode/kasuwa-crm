@@ -1013,6 +1013,17 @@ const SERVER_PROD_SAFE: Env = {
   KASUWA_KMS_KEY_ID: 'alias/kasuwa-acceptance',
 };
 
+/**
+ * D-L166 (lead edit), as config-schemas' productionSafeFor: workerEnv requires
+ * the relay's own connection since T-0098 (ADR-0018, D-L156), and every other
+ * process refuses it by presence, so it is added for the worker alone.
+ * Without it workerEnv refuses SERVER_PROD_SAFE on DATABASE_RELAY_URL, never
+ * reaching S3_SSE_MODE.
+ */
+const DATABASE_RELAY_URL = 'postgres://kasuwa_relay:x-prod-pw-0092@db.internal.example:5432/kasuwa';
+const serverProdSafeFor = (name: 'apiEnv' | 'workerEnv'): Env =>
+  name === 'workerEnv' ? { ...SERVER_PROD_SAFE, DATABASE_RELAY_URL } : SERVER_PROD_SAFE;
+
 const without = (env: Env, ...keys: string[]): Env =>
   Object.fromEntries(Object.entries(env).filter(([name]) => !keys.includes(name)));
 
@@ -1098,10 +1109,11 @@ describe('acceptance: T-0092 storage configuration (C)', () => {
     '%s refuses S3_SSE_MODE=off under production, and boots without it (the control)',
     async (name) => {
       const parse = await configFn(name);
-      expect(() => parse(SERVER_PROD_SAFE), `${name} no longer boots the production-safe environment`).not.toThrow();
-      expect(() => parse({ ...SERVER_PROD_SAFE, NODE_ENV: 'development', S3_SSE_MODE: 'off' })).not.toThrow();
+      const safe = serverProdSafeFor(name);
+      expect(() => parse(safe), `${name} no longer boots the production-safe environment`).not.toThrow();
+      expect(() => parse({ ...safe, NODE_ENV: 'development', S3_SSE_MODE: 'off' })).not.toThrow();
       const error = await rejectionOf(
-        () => parse({ ...SERVER_PROD_SAFE, S3_SSE_MODE: 'off' }),
+        () => parse({ ...safe, S3_SSE_MODE: 'off' }),
         `${name} booted in production with S3_SSE_MODE=off`,
       );
       expect(error.message).toContain('S3_SSE_MODE');

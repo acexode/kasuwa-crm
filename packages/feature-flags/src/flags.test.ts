@@ -25,6 +25,7 @@ describe('feature flags', () => {
       'crm_pipeline',
       'crm_search',
       'crm_custom_fields',
+      'crm_import',
     ]);
   });
 
@@ -197,6 +198,15 @@ describe('feature flags', () => {
     expect(() =>
       assertFlagsAreProductionSafe({ nodeEnv: 'test', enabled: ['crm_records', 'crm_accounts', 'crm_record_view', 'crm_leads', 'crm_search'] }),
     ).not.toThrow();
+  });
+
+  it('ships crm_import OFF, its own switch, and not production-ready (T-0094)', () => {
+    expect(FLAGS.crm_import.defaultValue).toBe(false);
+    expect(FLAGS.crm_import.productionReady).toBe(false);
+    expect(flagConfiguration([]).crm_import.defaultVariant).toBe('off');
+    expect(flagConfiguration(['crm_import']).crm_import.defaultVariant).toBe('on');
+    expect(flagConfiguration(['crm_records']).crm_import.defaultVariant).toBe('off');
+    expect(() => assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: ['crm_import'] })).toThrow();
   });
 
   it('ships crm_custom_fields OFF, its own switch, and not production-ready (T-0090)', () => {

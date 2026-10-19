@@ -1,8 +1,9 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { createKeyProvider } from '@kasuwa/auth-crypto';
-import { apiEnv, loadWorkspaceEnv } from '@kasuwa/config';
-import { initialiseFeatureFlags } from '@kasuwa/feature-flags';
+import { apiEnv, loadWorkspaceEnv, storageConfigured, storageEnv } from '@kasuwa/config';
+import { S3ObjectStore } from '@kasuwa/storage-adapter';
+import { featureFlagClient, initialiseFeatureFlags } from '@kasuwa/feature-flags';
 import { AppModule } from './app.module';
 import { installProcessErrorHandlers } from './common/process-errors';
 import { startTelemetry } from './telemetry/sdk';
@@ -32,6 +33,8 @@ async function bootstrap(): Promise<void> {
   const configuration = apiEnv();
 
   await initialiseFeatureFlags();
+  // T-0094 (D-L166): CSV import is behind `crm_import`, off by default.
+  const crmImport = await featureFlagClient().getBooleanValue('crm_import', false);
 
   // Before the app is built, so the first request is already traced.
   startTelemetry(configuration.KASUWA_OTEL_EXPORTER);
@@ -43,6 +46,12 @@ async function bootstrap(): Promise<void> {
       authDatabaseUrl: configuration.DATABASE_AUTH_URL,
       poolMax: configuration.DATABASE_POOL_MAX,
       cell: configuration.KASUWA_CELL,
+      // CSV import (T-0094): the flag, then the queues and the object store,
+      // wired only with the flag on. With it on and either absent, the import
+      // routes answer 503.
+      crmImport,
+      ...(crmImport && configuration.REDIS_URL !== undefined ? { redisUrl: configuration.REDIS_URL } : {}),
+      ...(crmImport && storageConfigured() ? { objectStore: new S3ObjectStore(storageEnv()) } : {}),
       // Outside development and test, refuse to start when kasuwa_test_admin
       // is usable (T-0117, D-L94); checked on the app pool before listen.
       nodeEnv: configuration.NODE_ENV,

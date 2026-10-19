@@ -11,6 +11,7 @@ import {
   isContentType,
   type CompletedPart,
   type ObjectStore,
+  type PresignedPart,
   type PresignedUpload,
 } from './port';
 
@@ -226,6 +227,62 @@ export class StoredObjectRepository {
       await this.#store.delete(key);
     }
     return this.#move(tx, record, verified ? 'uploaded' : 'rejected', head?.size ?? null);
+  }
+
+  /**
+   * Fresh part URLs for the upload ALREADY open on a `pending` row (T-0094 R2,
+   * a resume): the same upload, the row's declared size re-planned into the
+   * same parts. Unlike `presignUpload`, it never opens or aborts an upload.
+   * The upload id is the one the caller stored when it presigned (T-0094
+   * keeps it on import_job, D-L155); the store refuses one that is not open
+   * on this row's key.
+   */
+  async presignUploadParts(
+    tx: TenantTx,
+    id: string,
+    options: { uploadId: string; partCount: number; partNumbers: readonly number[] },
+  ): Promise<readonly PresignedPart[]> {
+    assertLiveTenantTx(tx);
+    const record = await this.#read(tx, id, true);
+    if (record.status !== 'pending') throw new StoredObjectStateError();
+    const partCount = options?.partCount;
+    if (!Number.isSafeInteger(partCount) || partCount < 1 || partCount > PURPOSE_LIMITS[record.purpose].maxParts) {
+      throw new StoredObjectInputError('part count');
+    }
+    return this.#store.presignUploadParts(keyOf(record), options.uploadId, {
+      contentLength: record.declaredSizeBytes,
+      partCount,
+      partNumbers: options.partNumbers,
+    });
+  }
+
+  /**
+   * Abandons a `pending` row's upload (T-0094 abort and the 24-hour expiry):
+   * aborts the open upload, deletes any object at the key, and moves the row
+   * to `deleted`. Idempotent on a deleted row.
+   */
+  async abortUpload(tx: TenantTx, id: string, uploadId: string | null): Promise<StoredObjectRecord> {
+    assertLiveTenantTx(tx);
+    const record = await this.#read(tx, id, true);
+    if (record.status === 'deleted') return record;
+    const key = keyOf(record);
+    if (uploadId !== null) await this.#store.abortUpload(key, uploadId);
+    await this.#store.delete(key);
+    return this.#move(tx, record, 'deleted', record.verifiedSizeBytes);
+  }
+
+  /**
+   * The bytes of an `uploaded` row, for the worker that parses them (T-0094).
+   * The row is read in the caller's scope first; anything else is
+   * StoredObjectNotFoundError or StoredObjectStateError, and the store is
+   * never called. The stream outlives the transaction: callers re-check
+   * scope before they act on what they read.
+   */
+  async openStream(tx: TenantTx, id: string): Promise<AsyncIterable<Uint8Array>> {
+    assertLiveTenantTx(tx);
+    const record = await this.#read(tx, id, false);
+    if (record.status !== 'uploaded') throw new StoredObjectStateError();
+    return this.#store.getStream(keyOf(record));
   }
 
   /** Deletes the object and moves the row to `deleted` (terminal). Idempotent on a deleted row. */

@@ -120,10 +120,15 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
  * S5  The migration does not VALIDATE its own CHECKs (D-L65: expand now,
  *     validate in a later file). Whether that later file is part of T-0089
  *     is the lead's; this suite only pins 0039.
- * S6  "No new function" is a census: every function in the `app` and
- *     `public` schemas is named by a `CREATE FUNCTION` in bootstrap.sql or a
- *     migration before 0039. Replacing an existing function (to extend the
- *     0025 freeze trigger) is allowed; adding one is not.
+ * S6  "No new function" pins 0039's own file: every `CREATE [OR REPLACE]
+ *     FUNCTION` in it names a function that bootstrap.sql or a migration
+ *     before 0039 already created. Replacing an existing function (to extend
+ *     the 0025 freeze trigger) is allowed; adding one is not.
+ *     D-L166 (lead edit): this was a census of every `app` and `public`
+ *     function in the database, which a LATER migration's function (0040's
+ *     `app.guard_stored_object_fixed`) broke although 0039 had not changed.
+ *     What a later file may create is not this suite's to pin; the
+ *     SECURITY DEFINER census guard still pins CLAUDE.md 2.7 for everyone.
  *
  * ==========================================================================
  * D-L23: on this branch there is no 0039, no `custom` column and no
@@ -935,18 +940,19 @@ describe('acceptance: custom-field storage, migration 0039 (T-0089)', () => {
       expect(rows.rows.map((row) => row.name)).toEqual(['app.resolve_session', 'app.resolve_tenant_by_slug']);
     });
 
-    it('(guard, S6) no new function: every app and public function was created before 0039', async () => {
+    it('(guard, S6) no new function: every function 0039’s file creates or replaces was created before 0039', () => {
       const known = functionsCreatedBefore0039();
-      // Not vacuous: the app schema has dozens of functions.
+      // Not vacuous: the app schema has dozens of functions before 0039.
       expect(known.size).toBeGreaterThan(10);
-      const rows = await migrator.query<{ name: string }>(
-        `SELECT n.nspname || '.' || p.proname AS name
-           FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-          WHERE n.nspname IN ('app', 'public')
-            AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')
-          ORDER BY 1`,
-      );
-      expect(rows.rows.map((row) => row.name).filter((name) => !known.has(name))).toEqual([]);
+      // Not vacuous either: the file must exist and have been read.
+      const file = require0039();
+      expect(file.sql.trim().length, `${file.name} is empty`).toBeGreaterThan(0);
+      const created = [
+        ...codeOf(file.sql).matchAll(/\bCREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:"?(\w+)"?\.)?"?(\w+)"?\s*\(/gi),
+      ].map((match) => `${(match[1] ?? 'public').toLowerCase()}.${String(match[2]).toLowerCase()}`);
+      // `created` may legitimately be empty (0039 need not replace anything);
+      // the two checks above are what keep an empty list from passing blind.
+      expect(created.filter((name) => !known.has(name)), `${file.name} creates a new function`).toEqual([]);
     });
 
     it('(guard) no new table or role: 0039 creates none, and the kasuwa roles are bootstrap’s', async () => {

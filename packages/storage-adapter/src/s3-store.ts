@@ -29,7 +29,10 @@ import {
   type ObjectHead,
   type ObjectStore,
   type PresignUploadOptions,
+  type PresignUploadPartsOptions,
+  type PresignedPart,
   type PresignedUpload,
+  selectPlannedParts,
   type PutOptions,
 } from './port';
 
@@ -273,24 +276,10 @@ export class S3ObjectStore implements ObjectStore {
       throw new StorageError('storage_request_failed', 'object storage create upload returned no upload id');
     }
     try {
-      const parts = await Promise.all(
-        lengths.map(async (contentLength, index) => {
-          const partNumber = index + 1;
-          const url = await getSignedUrl(
-            this.#public,
-            new UploadPartCommand({
-              Bucket: this.#bucket,
-              Key: String(key),
-              UploadId: uploadId,
-              PartNumber: partNumber,
-              ContentLength: contentLength,
-            }),
-            // The length is SIGNED: the bucket refuses a body of any other
-            // length (R5, observed on SeaweedFS 3.80; S3 does the same).
-            { expiresIn: PRESIGNED_URL_TTL_SECONDS, signableHeaders: new Set(['content-length']) },
-          );
-          return { partNumber, url, contentLength };
-        }),
+      const parts = await this.#signParts(
+        key,
+        uploadId,
+        lengths.map((contentLength, index) => ({ partNumber: index + 1, contentLength })),
       );
       return { uploadId, parts };
     } catch (error) {
@@ -299,10 +288,84 @@ export class S3ObjectStore implements ObjectStore {
     }
   }
 
+  /** T-0094 R2: fresh URLs for parts of the upload already open on this key. */
+  async presignUploadParts(
+    key: StorageKey,
+    uploadId: string,
+    options: PresignUploadPartsOptions,
+  ): Promise<readonly PresignedPart[]> {
+    assertMintedKey(key);
+    validateUploadId(uploadId);
+    const selected = selectPlannedParts(options?.contentLength, options?.partCount, options?.partNumbers);
+    assertWithinPurposeLimits(key.parts.purpose, options.contentLength, options.partCount);
+    await this.#assertUploadOpen(key, uploadId);
+    try {
+      return await this.#signParts(key, uploadId, selected);
+    } catch (error) {
+      throw wrapSdkError('presign', error);
+    }
+  }
+
+  async #signParts(
+    key: StorageKey,
+    uploadId: string,
+    parts: readonly { partNumber: number; contentLength: number }[],
+  ): Promise<PresignedPart[]> {
+    return Promise.all(
+      parts.map(async ({ partNumber, contentLength }) => {
+        const url = await getSignedUrl(
+          this.#public,
+          new UploadPartCommand({
+            Bucket: this.#bucket,
+            Key: String(key),
+            UploadId: uploadId,
+            PartNumber: partNumber,
+            ContentLength: contentLength,
+          }),
+          // The length is SIGNED: the bucket refuses a body of any other
+          // length (R5, observed on SeaweedFS 3.80; S3 does the same).
+          { expiresIn: PRESIGNED_URL_TTL_SECONDS, signableHeaders: new Set(['content-length']) },
+        );
+        return { partNumber, url, contentLength };
+      }),
+    );
+  }
+
+  /**
+   * Refuses an upload id that is not an open upload on EXACTLY this key
+   * (T-0094 I3). A bucket may look an upload up by its id alone; checking the
+   * listing first means a stored id tampered to another key's upload (another
+   * tenant's included) is never completed, re-signed or touched here.
+   */
+  async #assertUploadOpen(key: StorageKey, uploadId: string): Promise<void> {
+    const name = String(key);
+    let keyMarker: string | undefined;
+    let uploadIdMarker: string | undefined;
+    for (;;) {
+      const page = await this.#send('list uploads', () =>
+        this.#internal.send(
+          new ListMultipartUploadsCommand({
+            Bucket: this.#bucket,
+            Prefix: name,
+            ...(keyMarker === undefined ? {} : { KeyMarker: keyMarker }),
+            ...(uploadIdMarker === undefined ? {} : { UploadIdMarker: uploadIdMarker }),
+          }),
+        ),
+      );
+      if ((page.Uploads ?? []).some((upload) => upload.Key === name && upload.UploadId === uploadId)) return;
+      if (page.IsTruncated !== true) break;
+      if (page.NextKeyMarker === keyMarker && page.NextUploadIdMarker === uploadIdMarker) break;
+      keyMarker = page.NextKeyMarker;
+      uploadIdMarker = page.NextUploadIdMarker;
+    }
+    throw new StorageError('storage_upload_not_found', 'object storage upload not found (NoSuchUpload)');
+  }
+
   async completeUpload(key: StorageKey, uploadId: string, parts: readonly CompletedPart[]): Promise<void> {
     assertMintedKey(key);
     validateUploadId(uploadId);
     const sorted = validateCompletedParts(parts);
+    await this.#assertUploadOpen(key, uploadId);
     await this.#send('complete upload', () =>
       this.#internal.send(
         new CompleteMultipartUploadCommand({
@@ -315,10 +378,20 @@ export class S3ObjectStore implements ObjectStore {
     );
   }
 
-  /** Idempotent: an upload that is already gone is not an error. */
+  /**
+   * Idempotent: an upload that is already gone is not an error. Only an
+   * upload open on EXACTLY this key is aborted (T-0094 I3): a stored id
+   * tampered to another key's upload leaves that upload untouched.
+   */
   async abortUpload(key: StorageKey, uploadId: string): Promise<void> {
     assertMintedKey(key);
     validateUploadId(uploadId);
+    try {
+      await this.#assertUploadOpen(key, uploadId);
+    } catch (error) {
+      if (error instanceof StorageError && error.code === 'storage_upload_not_found') return;
+      throw error;
+    }
     await this.#abort(String(key), uploadId);
   }
 
