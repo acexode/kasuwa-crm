@@ -3718,3 +3718,88 @@ configuration.
 
 **Routed:** any future contact or CSV export neutralises leading `= + - @ \t \r` (CSV injection). This goes in
 the export task's requirements.
+
+### D-L168 — T-0096 import screen suite accepted (lead, 2026-10-19)
+
+The suite is on lead/T-0096-acceptance at a6b570a: 58 acceptance tests, 44 journeys under `@p28-import`, and a
+mock checked against the contract YAML. Rulings I1–I11 in its header are accepted as written.
+- **I1** The Contacts list's import action links to `/contacts/import` when `crm_import` is live.
+- **I2** Four steps (upload, mapping, phones, run). There is no review or dry-run step (D-L128 Q6).
+- **I3** Browser-direct multipart upload:
+  - the size cap is checked before create;
+  - two parts at a time, with no session header sent to the bucket;
+  - up to 5 tries per part;
+  - an expired URL is re-issued for the remaining parts only;
+  - complete is sent once.
+- **I4** The page never reads file bytes in script. Resuming after the tab closes is not built.
+- **I5** Mapping:
+  - `displayName`, or a given or family name, is the only requirement;
+  - reuse is via `fromImportId`, never from an erased import;
+  - a field refused with 403 is not offered again.
+- **I8** Polling backs off between 400 ms and 20 s. If its growth check flakes on a loaded host, the lead
+  amends the check; the screen does not sleep to satisfy it.
+- **I9** The report:
+  - erased headers show as a column position or letter;
+  - the Contacts list sends `importId` on its read (a P04 change, inside T-0096).
+- **I10** Dates are drawn in `<time>`.
+- **I11** `IMPORT_BUDGET_BYTES` stays at a provisional 250,000 until the lead re-pins it from the builder's
+  measurement, as for T-0109.
+- **Owner** is absent, null or the caller only (D-L64).
+- **Extra journey:** `@p28-import-markup` is kept. A header and a filename are user content and render as text.
+
+**Design conflicts** resolve to what is built, as the suite lists them: 25 MiB, 100,000 rows, CSV only,
+contacts only, no preview of values, earlier rows of the same file win (D-L160), restrict-only consent.
+
+**Not held:** the live journey against T-0094's real API is added after T-0094 merges. The storage origin in
+the CSP waits for T-0125.
+
+**Flag:** `crm_import` is added by T-0094. If T-0096 is built first, it declares the flag identically and
+rebases after T-0094 merges.
+
+### D-L169 — Custom permission sets hold no actions; three T-0094 tests go pending (lead, 2026-10-19)
+
+D-L166 item 4 assumed `contact.import` could be granted to a custom permission set. It cannot:
+- set grants are a static allow-list keyed by set key (`SET_PERMITS`, packages/permissions/src/policy.ts);
+- `permission_set` defines no grant (0006);
+- an unlocked set planted by a suite holds no actions at all.
+
+Today the only holders of `contact.import` are the locked `admin` and tenant-admin sets, and locked sets always
+have edit. So the import path's field-security refusals cannot be reached through the API.
+
+- **The tests.** The mapping-403, R12 and R17 tests move unchanged in intent to
+  `tests/acceptance/records/import-field-security.pending.acceptance.test.ts` (the pending project). They are
+  promoted when custom sets can carry actions. Meanwhile the build's unit tests pin field security at mapping time
+  and per batch, and the security review checked both.
+- **Not done in T-0094.** Grants for custom sets need a new table, so that is a decision, not an
+  implementation detail (CLAUDE.md §8). It becomes its own task in the permissions area, with an ADR or D-L
+  covering:
+  - a grant table, with RLS and `TENANT_SCOPED_TABLES`;
+  - which actions a tenant may grant;
+  - whether `contact.import` implies `contact.write` at grant time (D-L151, D-L167).
+- **D-L167's permission requirement still holds in code.** runImport and every batch check `contact.write`. It is
+  vacuous today, but stops being so as soon as grants exist.
+
+### D-L170 — T-0095 M8 met on a quiet host; main's full run (lead, 2026-10-19)
+
+**T-0095 at 9cb6dd3** (adds 64 MB `work_mem` for the duplicates statement only, restored straight after). The
+Windows runner, which was quiet, ran contact-merge twice with `--project isolation`:
+- 63 of 63 passed both times;
+- M8 first page 142.4 and 144.1 ms, deep page 143.7 and 145.7 ms, against 150 ms.
+
+The budget stands and is met. The margin is small (5–8 ms), so the duplicates scan gets a cache or precomputed
+key table, but only if a populated cell or a later suite pushes it over. Nothing is added now. On the loaded
+Mac, M8 is expected to miss and is not a merge signal.
+
+**Main 8e6cf3c, full run on the Windows runner (D-L166: full acceptance for every migration or env change).**
+- Integration passes 299 of 299.
+- Unit has 1 failure: the deal-money Arabic digits on that host's ICU. This is the known follow-up; set
+  `numberingSystem` explicitly.
+- Isolation has 5 failures:
+  - auth-availability took 125 ms against a 100 ms bound during the sign-in burst. A timing flake, watched, not
+    fixed.
+  - storage-adapter and the S6 guard: the two D-L166 items.
+  - contacts-list P04/02 measured 226,461 bytes against a 226,000 budget. T-0121's no-store headers added the
+    bytes. It is re-pinned to 227,000 on lead/main-guard-fixes (b2740b9); only `CONTACTS_BUDGET_BYTES` moved, as
+    the pin rule allows.
+
+lead/main-guard-fixes merges as soon as it is proved.
