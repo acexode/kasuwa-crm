@@ -80,3 +80,10 @@ export const CONTACTS_MESSAGE_IDS: readonly MessageId[] = [
   'admin.slow.body',
   'admin.slow.switch',
 ];
+
+/**
+ * The words of the "filtered by one import" chip (T-0096, N9), bundled only
+ * where the import is live (`live.includes('import')`): a process without it
+ * sends none of them to a 256 kbps user.
+ */
+export const CONTACTS_IMPORT_MESSAGE_IDS: readonly MessageId[] = ['records.importFilter.note', 'records.importFilter.clear'];

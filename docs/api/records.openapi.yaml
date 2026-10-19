@@ -302,7 +302,7 @@ paths:
         - name: importId
           in: query
           required: false
-          x-kasuwa-implemented: false
+          x-kasuwa-implemented: true
           description: |
             The contacts a CSV import created (T-0093, P28/A5: the result
             report's link). Scoped as every list is. An import the caller
@@ -4144,9 +4144,9 @@ paths:
 
   # -------------------------------------------------------------------------
   # CSV import, duplicates and merge (P28; T-0093, ADR-0017, D-L128 Q4/Q6/Q7,
-  # D-L146, D-L148). CONTRACT ONLY: every operation below is
-  # `x-kasuwa-implemented: false` until T-0094 (imports) and T-0095
-  # (duplicates and merge) serve it. Keep the screens on the mock.
+  # D-L146, D-L148). The import operations are served since T-0094
+  # (`x-kasuwa-implemented: true`); the duplicates and merge operations stay
+  # `false` until T-0095 serves them. Keep those screens on the mock.
   #
   # The five rules at the top of this file apply unchanged. Three more apply
   # here. No cell value appears anywhere (an import answers headers, counts
@@ -4161,7 +4161,7 @@ paths:
       tags: [imports]
       summary: Start a contact import — declare the file and get upload URLs
       operationId: createImport
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P28/A', 'P28/A1']
       x-kasuwa-import-limits:
@@ -4259,7 +4259,7 @@ paths:
       tags: [imports]
       summary: List imports — newest first, keyset
       operationId: listImports
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P28/A', 'P28/A5']
       description: |
         The import history, newest first, keyset paged: `cursor` and `limit`
@@ -4320,7 +4320,7 @@ paths:
       tags: [imports]
       summary: Get one import — status, headers, suggested mapping, counts, row errors
       operationId: getImport
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P28/A2', 'P28/A3', 'P28/A4', 'P28/A5', 'P28/A6']
       description: |
         The job the import screens poll. Readable only in a programme the
@@ -4439,7 +4439,7 @@ paths:
       tags: [imports]
       summary: Re-issue expired part URLs — how a slow upload resumes
       operationId: issueImportUploadUrls
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P28/A1']
       description: |
         Re-issues URLs for the named parts while the job is
@@ -4501,7 +4501,7 @@ paths:
       tags: [imports]
       summary: Complete the upload — the server verifies it and reads the header
       operationId: completeImportUpload
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P28/A1', 'P28/A2']
       description: |
@@ -4580,7 +4580,7 @@ paths:
       tags: [imports]
       summary: Abandon an upload
       operationId: abortImportUpload
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P28/A1']
       description: |
         Abandons an upload. Takes no request body. Allowed in
@@ -4635,7 +4635,7 @@ paths:
       tags: [imports]
       summary: Save the column mapping, the default country and the owner
       operationId: putImportMapping
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P28/A2', 'P28/A3']
       x-kasuwa-import-compliance:
         dnd: [true, false]
@@ -4765,7 +4765,7 @@ paths:
       tags: [imports]
       summary: Run the import
       operationId: runImport
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P28/A3', 'P28/A4']
       description: |
         Queues the job. Takes no request body. Allowed in `awaiting_mapping`
@@ -4835,7 +4835,7 @@ paths:
       tags: [imports]
       summary: Cancel a queued or running import
       operationId: cancelImport
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P28/A4']
       description: |
         Asks the job to stop. Takes no request body. Allowed in `queued` or
@@ -4897,7 +4897,7 @@ paths:
       tags: [duplicates]
       summary: List a programme's duplicate contact sets
       operationId: listDuplicates
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P28/C']
       description: |
         Sets of contacts that match on exact E.164 phone or lower-cased email
@@ -4920,10 +4920,14 @@ paths:
         `null` when withheld. Contacts merged away (D-P27) are never in a
         set.
 
-        **Cursor (D-L151).** Sets are ordered by their lowest contact id,
-        ascending. `cursor` carries only a contact id, the lowest in the last set,
-        and never the matched value, a phone or an email; this overrides the shared
-        `Cursor` text. **Throttled** like search: `429 too_many_requests` with
+        **Cursor (D-L151, widened by D-L153).** Sets are ordered by their
+        lowest contact id, ascending, then by `matchOn`. Of record data the
+        `cursor` carries only a contact id, the lowest in the last set; besides
+        it, only the literal `phone` or `email`, a format version and a small
+        ordinal among sets sharing that id and `matchOn` (so a pair matching on
+        both, or a contact with two shared numbers, never loses a set at a page
+        boundary). The cursor never carries the matched value, a phone or an
+        email; this overrides the shared `Cursor` text. **Throttled** like search: `429 too_many_requests` with
         `Retry-After`, per user, decided before validation.
       parameters:
         - $ref: '#/components/parameters/Cursor'
@@ -4970,7 +4974,7 @@ paths:
       tags: [duplicates]
       summary: Preview a merge — both records, the default choices and the compliance outcome
       operationId: getContactMergePreview
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P28/C1']
       description: |
         `contactId` is the survivor and `with` the contact to merge away. Both
@@ -5078,7 +5082,7 @@ paths:
       tags: [duplicates]
       summary: Merge two contacts — the second is merged away into the first
       operationId: createContactMerge
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P28/C1']
       x-kasuwa-compliance-order:
@@ -5165,7 +5169,7 @@ paths:
       tags: [duplicates]
       summary: List merges — newest first, keyset
       operationId: listContactMerges
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P28/C1']
       description: |
         The merge history, which is Phase 2's recycle bin: a merge is the only
@@ -5225,7 +5229,7 @@ paths:
       tags: [duplicates]
       summary: Undo a merge — restore the merged contact
       operationId: undoContactMerge
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P28/C1']
       description: |
@@ -8699,8 +8703,11 @@ components:
         row:
           type: integer
           minimum: 2
-          maximum: 100001
-          description: The row as a spreadsheet shows it; the header is row 1.
+          maximum: 100002
+          description: |
+            The row as a spreadsheet shows it; the header is row 1. 100,002 is
+            the first row past the 100,000-row limit, the one `too_many_rows`
+            (D-L160 ruling 4).
         column:
           type: [integer, 'null']
           minimum: 0
@@ -9999,7 +10006,9 @@ components:
       description: |
         `details` names the path and a reason code, never the submitted value:
         `choices.<field>` for a compliance field (`compliance_not_choosable`),
-        `mergedId` for a contact in another programme or the survivor itself.
+        `mergedId` for a contact in another programme or the survivor itself,
+        and `choices.ownerUserId` (`unknown_reference`, D-L67's body) when the
+        chosen side's owner is not a member of the programme (D-P23, D-L153).
       headers:
         Cache-Control: { $ref: '#/components/headers/NoStore' }
       content:
@@ -10036,6 +10045,16 @@ components:
                 details:
                   - path: mergedId
                     code: same_contact
+            ownerNotMember:
+              summary: The chosen side's owner has left the programme
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: choices.ownerUserId
+                    code: unknown_reference
 
     MergeNotPermitted:
       description: |

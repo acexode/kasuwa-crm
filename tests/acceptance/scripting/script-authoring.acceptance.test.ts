@@ -3563,14 +3563,15 @@ describe('acceptance: script authoring (T-0113)', () => {
       expect(JSON.stringify(third[0])).not.toContain(MARK);
     });
 
-    it('audit_event’s action CHECK admits 0008’s ten actions plus `published`, and nothing else', async () => {
+    it('audit_event’s action CHECK admits 0008’s ten actions plus `published` (and T-0095’s `merged` and `restored`, D-L173), and nothing else', async () => {
       const definition = await observer.query<{ definition: string | null }>(
         `SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint
           WHERE conrelid = 'public.audit_event'::regclass AND conname = 'audit_event_action_check'`,
       );
       const def = definition.rows[0]?.definition ?? '';
       expect(def, 'audit_event_action_check is missing').not.toBe('');
-      expect(checkValues(def)).toEqual([...AUDIT_ACTIONS_0008, 'published'].sort());
+      // D-L173: 0043 (T-0095) legitimately adds `merged` and `restored`.
+      expect(checkValues(def)).toEqual([...AUDIT_ACTIONS_0008, 'published', 'merged', 'restored'].sort());
       // Behaviour, not only the text: a `published` row is accepted, and a
       // near miss is still refused (rolled back).
       const outcomes = await rolledBackTx(observer, async (query) => {

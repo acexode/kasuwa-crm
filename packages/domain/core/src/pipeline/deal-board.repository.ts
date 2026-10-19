@@ -306,7 +306,8 @@ const CARD_COLUMNS = `
   d.primary_contact_id,
   (SELECT deal_contact.display_name FROM contact deal_contact
     WHERE deal_contact.tenant_id = d.tenant_id AND deal_contact.programme_id = d.programme_id
-      AND deal_contact.id = d.primary_contact_id) AS contact_display_name,
+      AND deal_contact.id = d.primary_contact_id
+      AND deal_contact.deleted_at IS NULL) AS contact_display_name,
   d.account_id,
   (SELECT deal_account.name FROM account deal_account
     WHERE deal_account.tenant_id = d.tenant_id AND deal_account.programme_id = d.programme_id

@@ -28,6 +28,15 @@ import { foldForSearch, tenantDefaultCountry, type DefaultCountry } from './phon
  */
 
 export const MAX_PAGE_SIZE = 100;
+
+/**
+ * D-P27 (T-0095): the predicate every contact read and write carries. A
+ * contact merged away (migration 0043's `deleted_at`) is answered exactly as
+ * an id that names nothing: absent from lists, cursors, lookups and the
+ * record view, and never written. Only the merge repository reads such a row,
+ * to undo the merge. Unqualified: it names the statement's own `contact`.
+ */
+export const LIVE_CONTACT = 'deleted_at IS NULL';
 export const DEFAULT_PAGE_SIZE = 25;
 
 export interface ContactPhone {
@@ -159,6 +168,12 @@ export interface ContactFilters {
    * account's own programme, which the composite key already implies.
    */
   withinProgrammeIds?: readonly string[] | undefined;
+  /**
+   * The contacts one import created (T-0094). The API sets it only for an
+   * import the caller can see, together with `withinProgrammeIds` naming that
+   * import's programme; any other import is an empty page before this runs.
+   */
+  importJobId?: string | undefined;
   /**
    * Custom-field equality and is-empty (T-0089, ADR-0016 item 8), already
    * judged by the API against the live definitions and field security.
@@ -488,6 +503,9 @@ function filterClauses(filters: ContactFilters, params: Params): string[] {
   if (filters.withinProgrammeIds !== undefined) {
     clauses.push(`programme_id = ANY(${params.add([...filters.withinProgrammeIds])}::uuid[])`);
   }
+  if (filters.importJobId !== undefined) {
+    clauses.push(`import_job_id = ${params.add(filters.importJobId)}::uuid`);
+  }
   clauses.push(...customFilterClauses(filters.custom, (value) => params.add(value), 'contact'));
   return clauses;
 }
@@ -523,7 +541,8 @@ function keysetClause(
             FROM contact cursor_row
            WHERE cursor_row.id = ${params.add(id)}::uuid
              AND cursor_row.tenant_id = ${scope.tenantId}
-             AND ${scope.programmeIn('cursor_row.programme_id')})`;
+             AND ${scope.programmeIn('cursor_row.programme_id')}
+             AND cursor_row.deleted_at IS NULL)`;
 }
 
 export async function listContacts(
@@ -538,7 +557,12 @@ export async function listContacts(
   // clause is ANDed on and can only narrow (see searchClause). One programme
   // is scalar equality, so a programme-led index gives the order (M1).
   const scope = listScopeSql(tx.session, (value) => params.add(value));
-  const where = [`tenant_id = ${scope.tenantId}`, scope.programmeIn('programme_id')];
+  // D-P27 (T-0095): a merged-away contact is in no list, page or cursor.
+  const where = [
+    `tenant_id = ${scope.tenantId}`,
+    scope.programmeIn('programme_id'),
+    LIVE_CONTACT,
+  ];
   if (options.cursor !== undefined) where.push(keysetClause(sort, options.cursor, params, scope));
   if (options.search !== undefined) where.push(searchClause(options.search, params));
   if (options.filters !== undefined) where.push(...filterClauses(options.filters, params));
@@ -570,7 +594,8 @@ export async function findContactById(tx: TenantTx, id: string): Promise<Contact
        FROM contact
       WHERE id = $1
         AND tenant_id = $2
-        AND programme_id = ANY($3::uuid[])`,
+        AND programme_id = ANY($3::uuid[])
+        AND ${LIVE_CONTACT}`,
     [id, tx.session.tenantId, tx.session.programmeIds],
   );
   const row = rows[0];
@@ -656,6 +681,16 @@ function assertInScope(tx: TenantTx, programmeId: string): void {
 }
 
 /**
+ * The two server-owned columns an import sets on a contact it creates
+ * (T-0094): never reachable from createContact, whose body has neither.
+ */
+export interface ImportedContactColumns {
+  readonly importJobId: string;
+  /** D-P28: an import may set DND either way on a NEW contact, never grant consent. */
+  readonly dnd: boolean;
+}
+
+/**
  * Inserts a contact in `programmeId`, which must be in the session's scope.
  * tenancy-reviewed: tenant from the session, programme checked against the
  * session, and RLS WITH CHECK refuses either independently.
@@ -665,6 +700,7 @@ export async function insertContact(
   programmeId: string,
   values: ContactValues & { displayName: string },
   custom: Readonly<Record<string, unknown>> = {},
+  imported?: ImportedContactColumns,
 ): Promise<Contact> {
   assertInScope(tx, programmeId);
   const params = new Params();
@@ -675,6 +711,14 @@ export async function insertContact(
     // Validated by the API against the live definitions (T-0089). Never read back here.
     { column: 'custom', placeholder: `${params.add(JSON.stringify(custom))}::jsonb` },
   ];
+  if (imported !== undefined) {
+    // T-0094: the job in the SAME programme (the composite FK refuses any
+    // other), and the D-P28 restrict-or-default `dnd` the import worker judged.
+    fixed.push(
+      { column: 'import_job_id', placeholder: `${params.add(imported.importJobId)}::uuid` },
+      { column: 'dnd', placeholder: `${params.add(imported.dnd)}::boolean` },
+    );
+  }
   const columns = [...fixed, ...assignments(values, params)];
   const rows = await tx.query<ContactRow>(
     `INSERT INTO contact (${columns.map((entry) => entry.column).join(', ')})
@@ -720,6 +764,7 @@ export async function updateContactIfVersion(
         AND tenant_id = ${params.add(tx.session.tenantId)}::uuid
         AND programme_id = ${params.add(target.programmeId)}::uuid
         AND version = ${params.add(target.version)}::integer
+        AND ${LIVE_CONTACT}
       RETURNING ${SELECT_COLUMNS}`,
     params.values,
   );

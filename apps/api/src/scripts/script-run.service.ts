@@ -660,6 +660,11 @@ export async function completeScriptRunFor(
     ); // 409
   }
 
+  // D-P27 (T-0095, M10): a run started before its contact was merged away
+  // never logs a call on that contact. Refused as an unreadable contact is
+  // (404), before anything is written; undoing the merge lets it complete.
+  if ((await findContactById(tx, run.contactId)) === null) throw notFound();
+
   // One transaction (the request's): the call, the callback task and the run
   // are written together or not at all. Both activities are the caller's.
   const owner = tx.session.userId;

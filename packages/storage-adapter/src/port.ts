@@ -60,6 +60,17 @@ export interface PresignedPart {
   readonly contentLength: number;
 }
 
+/**
+ * Fresh URLs for some parts of an upload that is ALREADY open (T-0094 R2, a
+ * resume): the same upload, the same part sizes, a new 5-minute expiry.
+ */
+export interface PresignUploadPartsOptions {
+  /** The declared total, as at presignUpload: the part sizes are re-planned from it. */
+  readonly contentLength: number;
+  readonly partCount: number;
+  readonly partNumbers: readonly number[];
+}
+
 export interface PresignedUpload {
   readonly uploadId: string;
   readonly parts: readonly PresignedPart[];
@@ -80,6 +91,20 @@ export interface ObjectStore {
   /** Every object under the prefix, and every in-flight multipart upload (R10). */
   deletePrefix(prefix: StoragePrefix): Promise<void>;
   presignUpload(key: StorageKey, options: PresignUploadOptions): Promise<PresignedUpload>;
+  /**
+   * Re-signs part URLs of an upload already open on `key` (T-0094 R2). Refuses
+   * an upload id that is not open on exactly this key (`storage_upload_not_found`).
+   */
+  presignUploadParts(
+    key: StorageKey,
+    uploadId: string,
+    options: PresignUploadPartsOptions,
+  ): Promise<readonly PresignedPart[]>;
+  /**
+   * Completes the upload. Refuses an upload id that is not open on exactly
+   * this key (T-0094 I3): a stored id tampered to another key's upload never
+   * completes that upload here.
+   */
   completeUpload(key: StorageKey, uploadId: string, parts: readonly CompletedPart[]): Promise<void>;
   abortUpload(key: StorageKey, uploadId: string): Promise<void>;
 }
@@ -111,6 +136,27 @@ export function planParts(contentLength: number, partCount: number): number[] {
     );
   }
   return [...Array.from({ length: partCount - 1 }, () => size), last];
+}
+
+/** The part numbers to re-sign: distinct, within the plan. Returns the sizes, by number. */
+export function selectPlannedParts(
+  contentLength: number,
+  partCount: number,
+  partNumbers: readonly number[],
+): { partNumber: number; contentLength: number }[] {
+  const lengths = planParts(contentLength, partCount);
+  if (!Array.isArray(partNumbers) || partNumbers.length === 0 || partNumbers.length > lengths.length) {
+    throw new StorageError('storage_invalid_request', 'the part numbers are out of range');
+  }
+  const seen = new Set<number>();
+  return partNumbers.map((partNumber) => {
+    const size = Number.isInteger(partNumber) ? lengths[partNumber - 1] : undefined;
+    if (size === undefined || seen.has(partNumber)) {
+      throw new StorageError('storage_invalid_request', 'the part numbers are out of range');
+    }
+    seen.add(partNumber);
+    return { partNumber, contentLength: size };
+  });
 }
 
 const ETAG = /^"?[A-Za-z0-9-]{1,128}"?$/u;

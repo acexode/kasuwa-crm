@@ -17,6 +17,7 @@ import {
   type SignUpCountry,
 } from '../../lib/phone';
 import { formatRetryTime } from '../../lib/retry-time';
+import { numberingLocale } from '../../lib/numbering';
 
 /**
  * `P01/3` — create a workspace. Behind `self_serve_signup` (D-P2); the page
@@ -83,7 +84,7 @@ export function SignUpScreen({
     }
   }, [error, invalid]);
 
-  const sizeFormat = new Intl.NumberFormat(locale);
+  const sizeFormat = new Intl.NumberFormat(numberingLocale(locale));
   const sizeLabel = (value: EmployeeSize): string => {
     if (value.endsWith('+')) return `${sizeFormat.format(Number(value.slice(0, -1)))}+`;
     const [low, high] = value.split('-').map(Number);

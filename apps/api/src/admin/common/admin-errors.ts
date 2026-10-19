@@ -60,6 +60,12 @@ export type AdminErrorCode =
   /** records.openapi.yaml (T-0105): moveDeal's conflicts (T-0108). */
   | 'transition_not_allowed'
   | 'requirements_unmet'
+  /** records.openapi.yaml (T-0093): the import operations' conflicts (T-0094). */
+  | 'import_status_conflict'
+  | 'upload_mismatch'
+  /** records.openapi.yaml (T-0093): createContactMerge and undoContactMerge (T-0095). */
+  | 'already_merged'
+  | 'undo_expired'
   | 'too_many_requests'
   | 'not_implemented'
   | 'service_unavailable'
@@ -82,6 +88,7 @@ const REASON: Partial<Record<number, string>> = {
   [HttpStatus.FORBIDDEN]: 'Forbidden',
   [HttpStatus.NOT_FOUND]: 'Not Found',
   [HttpStatus.CONFLICT]: 'Conflict',
+  [HttpStatus.GONE]: 'Gone',
   [HttpStatus.UNPROCESSABLE_ENTITY]: 'Unprocessable Entity',
   [HttpStatus.TOO_MANY_REQUESTS]: 'Too Many Requests',
   [HttpStatus.NOT_IMPLEMENTED]: 'Not Implemented',

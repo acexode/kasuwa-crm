@@ -3803,3 +3803,82 @@ Mac, M8 is expected to miss and is not a merge signal.
     the pin rule allows.
 
 lead/main-guard-fixes merges as soon as it is proved.
+
+### D-L171 — T-0096 review rulings (lead, 2026-10-19)
+
+The combined review of 560b51e passed with findings: no security or privacy defect, and one blocker.
+The following are required before merge:
+- **B1.** Leaving an upload stops it.
+  - `leave()` and an unmount effect call `cancel()`.
+  - History "Open" is unavailable while an upload runs.
+- **N1.** `resume()` resets the re-issue count. `expiresAt` is kept, and a part's URL is re-issued before sending
+  once it has expired.
+- **N2.** If the network fails on `complete`, the screen reads the import with getImport and continues when the
+  status is past `awaiting_upload`.
+- **N3.** No cancel while `complete` is in flight.
+- **N4.** A lost `run` answer recovers: `queued` and `running` move to the run step.
+- **N6.** Polling pauses while the tab is hidden.
+- **N7.** Part URLs are `z.string().url()`, absolute https or the configured storage origin, and never
+  `location.origin`. That stops a mock or bug PUTting CSV bytes same-origin with the cookie.
+- **N8.** Unit tests for the uploader state machine (DoD §5): pause and resume, expiry re-issue, a single
+  `complete`, give-up, cancel. B1 and N1–N4 each get a test that fails without the fix.
+- **N9.** Correctness beats bytes. The Contacts list shows a one-line "filtered by import" chip that clears to
+  `/contacts`. If that breaks the 227,000 P04 pin, the lead re-pins from the measurement.
+- **N10, N11, N12.**
+  - Percentages use `Intl.NumberFormat` with `style: 'percent'`.
+  - The live region announces state changes only.
+  - The size copy says MiB, or rounds down honestly.
+  - The 409 copy points to the history, not "reload".
+- **N13.** The report is updated.
+
+N5 (double `onFail`) is fixed if convenient.
+
+**Follow-up for T-0005 infra:** real buckets must expose `ETag` through CORS. Only the mock does today, and
+without it every browser upload fails. This goes beside the 8-day lifecycle rule (D-L167).
+
+**Split** follows the review's stack: lead suite PR, flag and harness, catalogues (structural, exempt), client
+and uploader, Contacts list, screen part 1, screen part 2. T-0096 merges after T-0094.
+
+### D-L172 — T-0125 browser-session suite accepted, pending ADR-0019 (lead, 2026-10-19)
+
+The suite is on lead/T-0125-acceptance at f95f7b0. Rulings I1–I24 in its header are accepted. On main it gives
+40 failures, every one for the real reason, and 8 passes by design: the controls, the regression guards, the pins,
+and a log scan that refuses to pass without real output.
+
+A throwaway reference BFF passed 25 of 29 journeys. Of the 4 failures, 3 were test defects, since fixed, and 1 was
+compression, which the reference didn't implement. The final run against main and the deliberate-bug run are still
+owed (Docker outage); the Windows runner does them before the build starts.
+
+**Where ADR-0019 was silent, the suite rules conservatively.** These go to @acexode with the ADR review, as
+proposed amendments:
+1. The browser journey runs on a dedicated production-build web process (`webSessionUrl`), because the default
+   production process cannot serve `/contacts` (I1).
+2. `Secure` and `__Host-` stay on for loopback http (I2). `KASUWA_API_INTERNAL_URL` must be https under
+   production, except on a loopback host (I3). D-L149 #4 had no loopback exception, so the e2e production process
+   could not boot.
+3. `KASUWA_WEB_ORIGIN` and `KASUWA_API_INTERNAL_URL` are required in every mode (I22).
+4. The nonce is at least 128 bits (I18). A navigation to `/api/*` gets the API's unknown-route 404 (I13).
+5. Two session cookies in one request never mix tenants and never 5xx.
+
+The landing page after sign-in, and return paths, are unruled and untested.
+
+**For the build** (from the suite's reference run):
+- Next 15.5 does not compress App Router route-handler responses, so the BFF gzips the body itself (I15).
+- `webEnv()` is read lazily, because module scope breaks `next build`.
+- When the BFF lands, the `webEnv` fixtures in config-schemas, storage-adapter, outbox and auth-role need
+  `KASUWA_WEB_ORIGIN` and `KASUWA_API_INTERNAL_URL`. These are lead re-pins, done inside T-0125.
+
+**Order:** the build starts only after @acexode accepts ADR-0019 (D-A3).
+
+### D-L173 — T-0095 gate: two stale pins re-pinned; T-0095 merged (lead, 2026-10-19)
+
+The Windows full gate on 8b92b9e was green apart from known noise and two pins in other suites that T-0095
+legitimately changes:
+- import-api pin F expected `listDuplicates` and `createContactMerge` to stay unimplemented. It now expects them
+  implemented.
+- script-authoring's `audit_event_action_check` pin now also admits 0043's `merged` and `restored`.
+
+Both are lead edits on lead/T-0095-acceptance (0a59f5e), lint-clean. The observed values in the failures were
+exactly the new expectations.
+
+M8 measured 135 ms on the quiet runner. The 100,000-row import passes in 295 s. T-0095 merges as #161.
