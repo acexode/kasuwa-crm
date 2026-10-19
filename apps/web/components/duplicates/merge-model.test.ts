@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ContactMerge, ContactMergePreview, PreviewContact } from '../../lib/duplicates-api';
 import { COMPLIANCE_FIELDS, MERGE_FIELDS } from '../../lib/duplicates-api';
 import { mergeRefusal, undoRefusal } from './duplicates-model';
-import { DRAWN_FIELDS, complianceLabel, complianceRows, fieldValue, mergeBody, mergeReducer, rowsOf, startMerge, type MergeAction, type MergeView } from './merge-model';
+import { DRAWN_FIELDS, complianceLabel, complianceRows, fieldValue, findOwnMerge, mergeBody, mergeReducer, rowsOf, startMerge, type MergeAction, type MergeView } from './merge-model';
 
 const A = '3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01';
 const B = '3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e02';
@@ -211,5 +211,30 @@ describe('the merge view’s state (I5, I7–I10)', () => {
 
   it('keeps a failed preview from leaving a stale one on screen', () => {
     expect(run(loaded(), { type: 'reread' }, { type: 'loadFailed' })).toMatchObject({ load: 'failed', preview: null });
+  });
+});
+
+describe('a merge whose answer was lost (B1)', () => {
+  const sent: readonly [string, string] = [A, B];
+
+  it('finds the person’s own open merge of the pair, in either orientation', () => {
+    const own = merge();
+    expect(findOwnMerge([own], sent)).toBe(own);
+    const flipped = merge({ survivor: { id: B, displayName: null }, merged: { id: A, displayName: 'x' } });
+    expect(findOwnMerge([flipped], sent)).toBe(flipped);
+  });
+
+  it('is not fooled by an undone merge, another pair or an empty history', () => {
+    expect(findOwnMerge([merge({ undoneAt: '2026-10-19T00:00:00Z' })], sent)).toBeNull();
+    expect(findOwnMerge([merge({ merged: { id: C, displayName: null } })], sent)).toBeNull();
+    expect(findOwnMerge([], sent)).toBeNull();
+  });
+
+  it('shows the found merge as the result, with Undo, and unblocks Merge', () => {
+    const lost = run(startMerge(sent), { type: 'loaded', preview: preview() }, { type: 'merging' }, { type: 'lost' });
+    expect(lost).toMatchObject({ step: 'compare', blocked: true, dirty: true });
+    const found = run(lost, { type: 'merged', merge: merge() });
+    expect(found).toMatchObject({ step: 'done', undoable: true, blocked: false });
+    expect(found.merge?.survivor.id).toBe(A);
   });
 });

@@ -196,6 +196,11 @@ export interface MergeView {
   /** False once the server has said this merge cannot be undone, or that it has expired. */
   readonly undoable: boolean;
   readonly expired: boolean;
+  /**
+   * A merge was sent and its answer never arrived (B1) and the history did not show it: whether it
+   * happened is unknown, so Merge stays off and the person goes back to the sets.
+   */
+  readonly blocked: boolean;
   /** The sets or the history changed under this view: coming back must read them again. */
   readonly dirty: boolean;
 }
@@ -209,12 +214,13 @@ export type MergeAction =
   | { readonly type: 'merging' }
   | { readonly type: 'merged'; readonly merge: ContactMerge }
   | { readonly type: 'mergeFailed'; readonly refusal: Refusal }
+  | { readonly type: 'lost' }
   | { readonly type: 'undoing' }
   | { readonly type: 'undone'; readonly merge: ContactMerge }
   | { readonly type: 'undoFailed'; readonly refusal: Refusal };
 
 export function startMerge(pair: readonly [string, string]): MergeView {
-  return { pair, mainId: pair[0], otherId: pair[1], names: {}, load: 'loading', preview: null, overrides: {}, refused: [], step: 'compare', merge: null, undoable: true, expired: false, dirty: false };
+  return { pair, mainId: pair[0], otherId: pair[1], names: {}, load: 'loading', preview: null, overrides: {}, refused: [], step: 'compare', merge: null, undoable: true, expired: false, blocked: false, dirty: false };
 }
 
 export function mergeReducer(view: MergeView, action: MergeAction): MergeView {
@@ -243,7 +249,10 @@ export function mergeReducer(view: MergeView, action: MergeAction): MergeView {
     case 'merging':
       return { ...view, step: 'merging' };
     case 'merged':
-      return { ...view, step: 'done', merge: action.merge, undoable: true, expired: false, dirty: true };
+      return { ...view, step: 'done', merge: action.merge, undoable: true, expired: false, blocked: false, dirty: true };
+    case 'lost':
+      // The answer was lost and the history shows nothing of ours: do not send again blind.
+      return { ...view, step: 'compare', blocked: true, dirty: true };
     case 'mergeFailed': {
       const base: MergeView = { ...view, step: 'compare' };
       switch (action.refusal.effect) {
@@ -272,4 +281,17 @@ export function mergeReducer(view: MergeView, action: MergeAction): MergeView {
         expired: action.refusal.effect === 'expired',
       };
   }
+}
+
+/**
+ * After a merge's answer was lost (B1): the person's own open merge of this
+ * pair in the history's first page, in either orientation (the API may name the
+ * survivor the other way round), or `null`. An undone merge is not it: merging
+ * the pair again would be a new merge.
+ */
+export function findOwnMerge(rows: readonly ContactMerge[], pair: readonly [string, string]): ContactMerge | null {
+  const [a, b] = pair;
+  return (
+    rows.find((row) => row.undoneAt === null && ((row.survivor.id === a && row.merged.id === b) || (row.survivor.id === b && row.merged.id === a))) ?? null
+  );
 }
