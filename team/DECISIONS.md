@@ -4008,3 +4008,34 @@ The T-0125 build starts against lead/T-0125-acceptance (44e8734).
 **Lead re-pins during the build:** the `webEnv` fixtures in config-schemas, storage-adapter, outbox and
 auth-role gain `KASUWA_WEB_ORIGIN` and `KASUWA_API_INTERNAL_URL` (D-L172). The builder reports them, and the lead
 edits them on the suite branch.
+
+### D-L179 — T-0101 review rulings (lead, 2026-10-19)
+
+The combined review of ee4dee2 passed with findings: no security or privacy defect, and one blocker.
+
+**Required before merge:**
+- **B1, the poller stalls.** When `wake()` declines, or a 429 hold is still running, the poller schedules the
+  remaining wait: `max(heldUntil, lastStartedAt + cadence) - now`, or the remaining coalescing time. Add a
+  fake-clock test for the quick tab switch and for the 429-then-hide sequence; each must fail today.
+- **The count must not double-step (N1, N2).** The epoch moves, or a pending write is marked, when a write is
+  sent, and count answers that overlap it are dropped. A 404 refreshes the count instead of stepping it.
+- **Mark-all (N3, N4).**
+  - A mark-all answer is dropped if the query changed since it was sent (a generation check).
+  - `markAllCovered` is bounded by position up to `throughId`.
+  - Dots and mark-all are serialised: dots are disabled while mark-all is in flight, and mark-all while any dot is
+    busy.
+- **Caps (N5, N6, N8).** Auto-continue stops after 3 empty pages and then offers "Show older". Every
+  `Retry-After` is capped at 15 minutes. `CountAnswer` is `.max(99)`.
+- **N7, the shared `requestRecords` change.** `use-import-job` treats `too_many_requests` as keep-polling with the
+  wait honoured, as it did when the code was `network`. Add a test for the envelope-less 429 path. No other screen
+  may change behaviour.
+- **Links and props (N9, N10).**
+  - The import link, and the existing `import` live id, require both `crm_import` and `crm_records`.
+  - The admin bell is passed as its own prop, not in `linkedSettings`.
+- **N11.** The store resets to its initial count when the last subscriber detaches.
+- **N12.** Write sequencing (resends, the epoch, the generation counter) moves into a pure, unit-tested module,
+  following D-L176's lesson. N1–N4 each get a test.
+- **N13, N14.** The dropdown makes the page behind it inert. "All caught up" shows only when the count is
+  known to be 0.
+- **Size.** Commit `dfe9ad7` splits at the poller/count/store versus model seam. Correct the report's figure
+  (N15).
