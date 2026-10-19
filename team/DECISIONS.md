@@ -4064,3 +4064,38 @@ amendment:
 **Lead re-pins during the build:** contacts-api, leads-api, accounts-api (listAccountContacts' default sort),
 list-indexes, contact-merge (its DuplicateContact `typeof displayName` check), e2e p04-leads, and the
 records-contract-search R18 note. The builder lists exact lines, and the lead edits them on the suite branch.
+
+### D-L181 — T-0125 review rulings; the no-flag exception (lead, 2026-10-19)
+
+The security and tenancy reviews of febb1b8 both passed with findings. Nothing is exploitable against today's
+API, and nothing leaks across tenants.
+
+**Required before merge:**
+- **B1, the token routes fail closed whatever the content type.** A 2xx answer on a token route is always
+  buffered and Zod-parsed against an explicit allowlist of keys (`expiresAt`, `user`, `backupCodes`, plus what the
+  contract names), never `.passthrough()`. Anything else is a 502. Add a unit test that fails today: text/plain,
+  or no content type, carrying a token.
+- **Other routes (security N1).** Every buffered JSON answer of any status is refused with a 502 if it contains
+  the `ksw_s1_` token prefix at any depth. Non-JSON bodies keep streaming. No current API route serves a token
+  there.
+- **CSP coverage (N4).** The middleware matcher excludes only `api/v1/` and `fonts/`, so Next's own 404s and
+  similar pages get the CSP.
+- **Body detection (N5).** It uses `request.body !== null`, not the length headers.
+- **Buffer cap (N6).** Buffered upstream JSON is capped at 8 MiB. Above that it's a 502.
+- **x-forwarded-for (N3).** The deployment docs state that the web tier is not a proxy hop for
+  `KASUWA_TRUST_PROXY_HOPS`, and that the web server must not be exposed directly with hops of 1 or more.
+
+**Accepted and recorded:**
+- **N2.** Concurrent re-sign-ins in two tabs can leave one minted session unheld until it expires. No client holds
+  its token. This goes in the ADR's out-of-scope list.
+- **Tenancy minor 1.** Two cookies count as no session, so neither is revoked on re-sign-in. This is dev-only,
+  because `__Host-` prevents a planted second cookie in production.
+- **Tenancy minor 2.** Stub headers on pre-session routes in a stub web process are refused by the API.
+- **No feature flag, the exception to CLAUDE.md §4.** An "off" position would keep the CSRF-less, stub-forwarding
+  rewrite in the production artefact. The session layer is a security fix, not a feature, so T-0125 ships without
+  a flag.
+
+**Gate before `crm_import` is production-ready:** the storage origin joins the CSP `connect-src` (ADR-0019 point
+10), or the browser upload is blocked. This sits beside the T-0005 bucket items (D-L167, D-L171).
+
+**Review:** sign-in code is on @acexode's personal review list (D-A3). The lead asks them before merging.
