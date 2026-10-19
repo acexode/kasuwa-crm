@@ -375,6 +375,19 @@
     "import.country.KE": "A country name spelled the same in this language, with its dial code.",
     "import.country.ZA": "A country name spelled the same in this language, with its dial code.",
     "import.report.row": "Pidgin is English-lexified: the ordinary Pidgin label for this is the English word.",
-    "import.report.position": "Pidgin is English-lexified: the ordinary Pidgin label for this is the English word."
+    "import.report.position": "Pidgin is English-lexified: the ordinary Pidgin label for this is the English word.",
+    "duplicates.programme.label": "A word spelled the same in this language.",
+    "duplicates.more": "A word spelled the same in this language.",
+    "duplicates.retry": "A word spelled the same in this language.",
+    "duplicates.history.title": "A word spelled the same in this language.",
+    "duplicates.undo": "A word spelled the same in this language.",
+    "duplicates.merge.compare": "A word spelled the same in this language.",
+    "duplicates.merge.submit": "A word spelled the same in this language.",
+    "duplicates.col.field": "A word spelled the same in this language.",
+    "duplicates.col.main": "A word spelled the same in this language.",
+    "duplicates.compliance.title": "A word spelled the same in this language.",
+    "duplicates.confirm.cancel": "A word spelled the same in this language.",
+    "duplicates.confirm.close": "A word spelled the same in this language.",
+    "records.action.duplicates": "A word spelled the same in this language."
   }
 }
