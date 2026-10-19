@@ -46,6 +46,9 @@
     "records.source.api": "An abbreviation used unchanged in this locale.",
     "records.channel.whatsapp": "A product name. WhatsApp is spelled the same in this locale.",
     "records.channel.sms": "An abbreviation used unchanged in this locale.",
-    "accounts.filter.lga": "An abbreviation (Local Government Area, Nigeria) used unchanged in this locale, as in records.col.state."
+    "accounts.filter.lga": "An abbreviation (Local Government Area, Nigeria) used unchanged in this locale, as in records.col.state.",
+    "import.country.NG": "A country name spelled the same in this language, with its dial code.",
+    "import.country.GH": "A country name spelled the same in this language, with its dial code.",
+    "import.country.KE": "A country name spelled the same in this language, with its dial code."
   }
 }
