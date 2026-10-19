@@ -4153,3 +4153,31 @@ gets migration review.
 The lead re-pins (contacts-api, leads-api, accounts-api, list-indexes, contact-merge, contact-timeline,
 records-contract-search R18, e2e p04-leads) are made on lead/T-0124-acceptance, and the R18 contract text changes
 with them.
+
+### D-L184 — T-0124 review rulings (lead, 2026-10-19)
+
+The security and tenancy reviews of 19a510e both passed with findings. Nothing blocks merge, and each name is
+judged in the record's own programme.
+
+**Required before merge:**
+- **One rule (both reviews, finding 1).** The notifications path calls the shared `DISPLAY_NAME_PARTS` and
+  `displayNameReadable`, instead of its own `NAME_FIELDS.contact` copy.
+- **Sensitivity is inherited (finding 2).** The script fact for `displayName` is `sensitive` when any name part is
+  sensitive (D-L13 covers derived fields, failing closed). It then follows exactly the rules a sensitive part
+  follows, at publish and at run.
+- **Housekeeping (finding 5).** Remove `displayNameWithheldAnywhere` if nothing uses it. Fix the stale comments in
+  contacts.controller `list` ("name or number … E.164") and activity-fields ("always sent").
+- **The board (tenancy 3).** A comment at pipelines.service where the name is judged once per board points to the
+  composite keys that make it correct.
+- **The web (security 6, the part T-0124 can fix).** The activity composer, and any other web control, routes
+  identifier-shaped input to lookupRecords instead of sending it as a `q` to listAccounts or listContacts.
+
+**Accepted:**
+- **Undo (3).** It reveals that a merge changed a withheld name to an undoer who has lost read. That is
+  consistent with M12 (D-L151), and the undoer is the merger or an admin.
+
+**Follow-ups:**
+- **Merge consistency (4).** A merge can update a name part while `displayName`, withheld from the caller,
+  stays as it was. This belongs to I11's open product question on derived-name writes.
+- **R21 for listAccounts and listDeals.** Their `q` still accepts identifiers in URLs that ingress logs record.
+  That's a new task. It predates T-0124, which was kept to I10.
