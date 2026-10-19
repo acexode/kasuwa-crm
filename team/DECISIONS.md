@@ -3923,3 +3923,26 @@ data, so the 30-day bound is the retention basis.
   silently end paging;
 - batched mark-all-read;
 - `created_at` versus commit time in read-all (milliseconds; accepted).
+
+### D-L175 — T-0097 duplicates screen suite accepted (lead, 2026-10-19)
+
+The suite is on lead/T-0097-acceptance at 8cabacc: 50 acceptance tests and 31 `@p28-duplicates` tags. The mock
+is checked against records.openapi.yaml and admin.openapi.yaml, and the spec and mock are hash-pinned.
+`DUPLICATES_BUDGET_BYTES` is a provisional 250,000; the lead re-pins it from the builder's measurement.
+
+- **Rulings.** I1–I17 are accepted as written, including the strict calls:
+  - a same-tick double click sends one merge (I7);
+  - returning to the sets after a merge or undo shows fresh data (I8, I10);
+  - an undo 404 shows the generic not-found words (I10, D-L163).
+- **Flag.** `crm_duplicates` is confirmed as the flag name: default off, presentation only, and the builder
+  registers it (I1). The audit screen's merged and restored labels come from D-L162 and are not behind the flag
+  (I13).
+- **Design conflicts C1–C8** resolve to what is built: no "merged into" link, pairwise merges only, no confidence
+  or matched values, most-restrictive consent, no "not duplicates" action.
+- **Contract follow-up (C9).**
+  - `DuplicateContact.displayName` and `ContactMergeParty.displayName` may be null when withheld, while
+    `Contact.displayName` is never withheld. Each operation's schema is right as written, so the description text
+    is aligned.
+  - The merge-preview example's `defaults` should list every editable field, as T-0095 serves it.
+
+  Both are docs-only fixes for the next contract touch.
