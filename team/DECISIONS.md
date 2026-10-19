@@ -3838,3 +3838,34 @@ without it every browser upload fails. This goes beside the 8-day lifecycle rule
 
 **Split** follows the review's stack: lead suite PR, flag and harness, catalogues (structural, exempt), client
 and uploader, Contacts list, screen part 1, screen part 2. T-0096 merges after T-0094.
+
+### D-L172 — T-0125 browser-session suite accepted, pending ADR-0019 (lead, 2026-10-19)
+
+The suite is on lead/T-0125-acceptance at f95f7b0. Rulings I1–I24 in its header are accepted. On main it gives
+40 failures, every one for the real reason, and 8 passes by design: the controls, the regression guards, the pins,
+and a log scan that refuses to pass without real output.
+
+A throwaway reference BFF passed 25 of 29 journeys. Of the 4 failures, 3 were test defects, since fixed, and 1 was
+compression, which the reference didn't implement. The final run against main and the deliberate-bug run are still
+owed (Docker outage); the Windows runner does them before the build starts.
+
+**Where ADR-0019 was silent, the suite rules conservatively.** These go to @acexode with the ADR review, as
+proposed amendments:
+1. The browser journey runs on a dedicated production-build web process (`webSessionUrl`), because the default
+   production process cannot serve `/contacts` (I1).
+2. `Secure` and `__Host-` stay on for loopback http (I2). `KASUWA_API_INTERNAL_URL` must be https under
+   production, except on a loopback host (I3). D-L149 #4 had no loopback exception, so the e2e production process
+   could not boot.
+3. `KASUWA_WEB_ORIGIN` and `KASUWA_API_INTERNAL_URL` are required in every mode (I22).
+4. The nonce is at least 128 bits (I18). A navigation to `/api/*` gets the API's unknown-route 404 (I13).
+5. Two session cookies in one request never mix tenants and never 5xx.
+
+The landing page after sign-in, and return paths, are unruled and untested.
+
+**For the build** (from the suite's reference run):
+- Next 15.5 does not compress App Router route-handler responses, so the BFF gzips the body itself (I15).
+- `webEnv()` is read lazily, because module scope breaks `next build`.
+- When the BFF lands, the `webEnv` fixtures in config-schemas, storage-adapter, outbox and auth-role need
+  `KASUWA_WEB_ORIGIN` and `KASUWA_API_INTERNAL_URL`. These are lead re-pins, done inside T-0125.
+
+**Order:** the build starts only after @acexode accepts ADR-0019 (D-A3).

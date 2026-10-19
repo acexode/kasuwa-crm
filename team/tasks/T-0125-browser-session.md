@@ -22,8 +22,13 @@ hide this because they inject stub identity headers through Playwright. The demo
 - **Then build it,** keeping the session as the only source of scope (CLAUDE.md 2.2).
 
 ## Acceptance tests
-To be named by the lead's suite branch. It must include a real-browser journey that signs in and then loads a CRM screen
-with no injected headers.
+`lead/T-0125-acceptance` (f95f7b0, D-L172):
+- `tests/acceptance/session/browser-session.acceptance.test.ts`, with 48 tests and rulings I1–I24;
+- `tests/e2e/bff-session.spec.ts` and `tests/e2e/support/bff-session.ts`, which hold the 29 `@bff-session`
+  journeys and probes and are hash-pinned;
+- the `run-e2e.mjs` and `stack.ts` lead edits, which add the `webSessionUrl` process.
+
+The build may not start until ADR-0019 is Accepted by @acexode (D-A3).
 
 ## Non-goals
 SSO and SAML, and "remember this device" beyond what the ADR rules.

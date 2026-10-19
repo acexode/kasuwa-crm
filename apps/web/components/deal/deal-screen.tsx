@@ -62,6 +62,7 @@ import {
   uuidHref,
 } from './deal-model';
 import { useDealDetail, type DealDetailModel } from './use-deal-detail';
+import { numberingLocale } from '../../lib/numbering';
 
 /**
  * `P06/05` — the deal detail (T-0110), and `P06/06` — the same at 360 px —
@@ -761,7 +762,7 @@ function ignore(): void {}
 
 function percent(locale: string, basisPoints: number): string {
   try {
-    return new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }).format(
+    return new Intl.NumberFormat(numberingLocale(locale), { style: 'percent', maximumFractionDigits: 2 }).format(
       basisPoints / 10_000,
     );
   } catch {

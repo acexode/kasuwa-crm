@@ -15,6 +15,7 @@ import {
   type RequirementField,
   type StageRequirement,
 } from '../../lib/pipelines-api';
+import { numberingLocale } from '../../lib/numbering';
 
 /**
  * The pure half of the P06 board and list (T-0109): filters, the allow-list,
@@ -422,7 +423,7 @@ export function formatInstantDate(locale: string, instant: string): string {
 /** The count exactly as served, grouped for the reader. Never added to, never rounded (R4). */
 export function formatCount(locale: string, count: number): string {
   try {
-    return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(count);
+    return new Intl.NumberFormat(numberingLocale(locale), { maximumFractionDigits: 0 }).format(count);
   } catch {
     return String(count);
   }

@@ -1248,7 +1248,7 @@ describe('acceptance: the import API and job (T-0094)', () => {
       expect(((list.body as { data: Json[] }).data ?? []).map((row) => row.id)).not.toContain(upload.importId);
     });
 
-    it('the nine import operations and listContacts’ importId are x-kasuwa-implemented: true; duplicates stay false (pinned F)', async () => {
+    it('the nine import operations and listContacts’ importId are x-kasuwa-implemented: true; duplicates flip with T-0095 (pinned F, D-L173)', async () => {
       // Fails until served AND until the lead flips T-0093's R1. The table
       // read keeps this from passing on a contract-only change.
       await observer.query('SELECT 1 FROM import_job LIMIT 1');
@@ -1269,7 +1269,8 @@ describe('acceptance: the import API and job (T-0094)', () => {
       const parameters = (ops.get('listContacts')?.parameters ?? []) as Json[];
       const importId = parameters.find((p) => p.name === 'importId');
       expect(importId?.['x-kasuwa-implemented'], 'listContacts importId').toBe(true);
-      for (const id of ['listDuplicates', 'createContactMerge']) expect(ops.get(id)?.['x-kasuwa-implemented']).toBe(false);
+      // D-L173: T-0095 implements the duplicates and merge operations.
+      for (const id of ['listDuplicates', 'createContactMerge']) expect(ops.get(id)?.['x-kasuwa-implemented']).toBe(true);
     });
   });
 

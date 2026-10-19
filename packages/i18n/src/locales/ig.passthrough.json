@@ -40,5 +40,6 @@
   "tokens.contrast.ratio",
   "tokens.sample.arabic",
   "tokens.sample.text",
-  "accounts.filter.lga"
+  "accounts.filter.lga",
+  "import.country.KE"
 ]
