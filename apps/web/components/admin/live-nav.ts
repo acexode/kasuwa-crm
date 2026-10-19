@@ -1,4 +1,4 @@
-import { crmCustomFieldsEnabled } from '../../lib/feature-flags';
+import { crmCustomFieldsEnabled, crmNotificationsEnabled } from '../../lib/feature-flags';
 
 /**
  * The admin settings-menu entries whose ROUTE is on in this process, as
@@ -12,5 +12,10 @@ import { crmCustomFieldsEnabled } from '../../lib/feature-flags';
  * carries no table of flag-gated routes, and no client module names a flag.
  */
 export async function adminLiveNav(): Promise<Readonly<Record<string, string>>> {
-  return (await crmCustomFieldsEnabled()) ? { 'cu-fields': '/admin/custom-fields' } : {};
+  const [fields, bell] = await Promise.all([crmCustomFieldsEnabled(), crmNotificationsEnabled()]);
+  return {
+    ...(fields ? { 'cu-fields': '/admin/custom-fields' } : {}),
+    // Not a settings entry: the shell's bell (T-0101). Its centre link leaves the console for the CRM shell.
+    ...(bell ? { notifications: '/notifications' } : {}),
+  };
 }

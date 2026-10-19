@@ -160,7 +160,7 @@ export async function crmActivitiesEnabled(): Promise<boolean> {
  * as "not available yet", exactly like an unbuilt one (`components/crm/crm-nav.ts`).
  */
 export async function crmLiveNav(): Promise<string[]> {
-  const [contacts, accounts, leads, activities, pipeline, search, csvImport] = await Promise.all([
+  const [contacts, accounts, leads, activities, pipeline, search, csvImport, recordView, notifications] = await Promise.all([
     crmRecordsEnabled(),
     crmAccountsEnabled(),
     crmLeadsEnabled(),
@@ -168,6 +168,8 @@ export async function crmLiveNav(): Promise<string[]> {
     crmPipelineEnabled(),
     crmSearchEnabled(),
     crmImportEnabled(),
+    crmRecordViewEnabled(),
+    crmNotificationsEnabled(),
   ]);
   return [
     ...(leads ? ['leads'] : []),
@@ -179,6 +181,18 @@ export async function crmLiveNav(): Promise<string[]> {
     ...(search ? ['search'] : []),
     // Not a nav item either: the Contacts list's import action links `/contacts/import` only where this is on (T-0096, I1).
     ...(csvImport ? ['import'] : []),
+    // Not a nav item either: the shell's bell (T-0101), and the object types a notification may link,
+    // because a link is made only to a route that answers (a contact record needs two flags).
+    ...(notifications
+      ? [
+          'notifications',
+          ...(contacts && recordView ? ['notifications:contact'] : []),
+          ...(accounts && recordView ? ['notifications:account'] : []),
+          ...(pipeline ? ['notifications:deal'] : []),
+          ...(activities ? ['notifications:activity'] : []),
+          ...(csvImport ? ['notifications:import'] : []),
+        ]
+      : []),
   ];
 }
 
@@ -284,6 +298,25 @@ export async function crmImportEnabled(): Promise<boolean> {
   await initialiseFeatureFlags();
   return featureFlagClient().getBooleanValue(
     'crm_import',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/**
+ * `crm_notifications` (T-0101, D-L177) gates the P26 ROUTE — `/notifications`
+ * calls `notFound()` while it is off, so typing the path gets a real 404 and
+ * nothing of the screen ships — and, through `crmLiveNav()` as `notifications`
+ * and `adminLiveNav()`, the bell in the CRM shell and the admin console. No
+ * client module names it.
+ *
+ * A presentation switch, like `crm_search`: the notifications API and its
+ * consumer run whether or not it is on, and serve only the caller's own rows.
+ */
+export async function crmNotificationsEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_notifications',
     false,
     toEvaluationContext({ tenantId: CRM_SHELL }),
   );
