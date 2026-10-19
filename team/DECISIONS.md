@@ -4260,3 +4260,29 @@ twin the records flags. I2's intent stands: the notifications process twins the 
 Both processes keep their own grep gate. The notifications process twins the records process's mode and
 `sessionLayerEnv`. Only the records process gets `S3_PUBLIC_ENDPOINT` (D-L187). This is a lead edit to
 notifications-screen.acceptance on lead/T-0125-acceptance.
+
+### D-L189 — Two follow-on fixes after the Phase 2 merges (lead, 2026-10-19)
+
+**T-0053 metadata (main was red after T-0124).** standard-object-metadata's `contactFieldExpectation` expects a
+field_def for every non-required Contact property, except those in its own `DERIVED` map. T-0124 rightly took
+`displayName` out of `Contact.required` (D-L180 I1/I2). It is derived from givenNames AND familyName and has no
+field_def, so it joins `DERIVED`. This is a lead edit on lead/fix-metadata-derived (d6d9745); no code or migration
+changes.
+
+**T-0125 merged with main (c90db7e).**
+- T-0101's `notifications-api.ts` called `fetch` directly. Under the BFF its mark-read writes would lack the CSRF
+  header and be refused, so it now goes through `apiFetch`.
+- The header spacing tightens below `sm`, so the bell and the account menu fit 360 px together.
+- The nonce is 22 base64 characters (128 bits).
+
+**Five more pins take the D-L187 required session cost (about 1.5 KB per shell page):**
+
+| Page | Old pin | Why | New pin |
+|---|---|---|---|
+| /contacts/[id] | 236,000 | main already measures up to 235,920; branch up to 237,469 | 239,000 |
+| /contacts | 230,000 | fits by 400–900 bytes, inside the ±500-byte run noise | 232,000 |
+| /accounts | 235,000 | fits by 347 bytes | 237,000 |
+| /leads | 234,900 | fits by 610 bytes | 236,500 |
+| /admin/programmes | 222,000 | fits by about 120 bytes | 224,000 |
+
+Each new pin stays inside its suite's ceiling and 5% rule.
