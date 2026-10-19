@@ -102,6 +102,12 @@ export interface StackUrls {
    * screen's byte budget is measured here.
    */
   webDuplicatesUrl: string;
+  /**
+   * The records process's flags plus `crm_notifications` (T-0101): the bell on
+   * every CRM and admin screen, and the P26 centre at `/notifications`. Empty
+   * unless the run's grep can select `@p26-notifications` (D-L177 C10).
+   */
+  webNotificationsUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;
   /** Static fixture pages used by the harness self-tests. */

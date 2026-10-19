@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { bundleMessages, createTranslator } from '@kasuwa/i18n';
 import { DuplicatesScreen } from '../../../components/duplicates/duplicates-screen';
 import { DUPLICATES_MESSAGE_IDS } from '../../../components/duplicates/message-ids';
-import { withSearchMessages } from '../../../components/search/message-ids';
+import { withShellMessages } from '../../../components/crm/shell-messages';
 import { crmDuplicatesEnabled, crmLiveNav, crmRecordsEnabled } from '../../../lib/feature-flags';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
@@ -40,7 +40,7 @@ export default async function DuplicatesPage() {
   return (
     <DuplicatesScreen
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(DUPLICATES_MESSAGE_IDS, live))}
+      messages={bundleMessages(locale, withShellMessages(DUPLICATES_MESSAGE_IDS, live))}
       locales={languageOptions(locale)}
       live={live}
     />

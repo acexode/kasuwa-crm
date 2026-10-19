@@ -12,7 +12,7 @@ import {
   crmRecordsEnabled,
 } from '../../../lib/feature-flags';
 import { withCustomMessages } from '../../../components/custom/message-ids';
-import { withSearchMessages } from '../../../components/search/message-ids';
+import { withShellMessages } from '../../../components/crm/shell-messages';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
 /**
@@ -64,7 +64,7 @@ export default async function DealPage({ params }: { params: Promise<{ dealId: s
       key={dealId}
       dealId={dealId}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(DEAL_MESSAGE_IDS, customFields), live))}
+      messages={bundleMessages(locale, withShellMessages(withCustomMessages(DEAL_MESSAGE_IDS, customFields), live))}
       locales={languageOptions(locale)}
       live={live}
       links={{ contacts: recordView && records, accounts: recordView && accounts }}
