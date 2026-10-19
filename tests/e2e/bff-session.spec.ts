@@ -1,6 +1,6 @@
 import { createServer, type IncomingHttpHeaders } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test, type Browser, type BrowserContext, type Page, type Request } from '@playwright/test';
 import {
   PROGRAMME_A1,
   PROGRAMME_A2,
@@ -221,8 +221,21 @@ test.describe('T-0125 — a real browser signs in and keeps its session', () => 
     const page = await context.newPage();
 
     const sent: Promise<{ url: string; method: string; headers: Record<string, string> }>[] = [];
+    // request.allHeaders() never settles for a request the page aborts after its response
+    // (Playwright 1.63: Chromium sends no request extra-info), e.g. a Link prefetch cut short
+    // by navigation. Such a request emits `requestfailed`; fall back to the headers Playwright
+    // already holds, which still carry any injected x-kasuwa-* or authorization header (D-L186).
+    const failed = new Map<Request, () => void>();
+    context.on('requestfailed', (request) => failed.get(request)?.());
     context.on('request', (request) => {
-      sent.push(request.allHeaders().then((headers) => ({ url: request.url(), method: request.method(), headers })));
+      const onFailed = new Promise<void>((resolve) => failed.set(request, resolve));
+      sent.push(
+        Promise.race([request.allHeaders(), onFailed.then(() => request.headers())]).then((headers) => ({
+          url: request.url(),
+          method: request.method(),
+          headers,
+        })),
+      );
     });
     const scripts: Promise<string>[] = [];
     context.on('response', (response) => {
