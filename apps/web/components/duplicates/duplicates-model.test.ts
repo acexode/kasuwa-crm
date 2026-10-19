@@ -9,10 +9,10 @@ const C = '3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e03';
 function merge(extra: Partial<ContactMerge> = {}): ContactMerge {
   return {
     id: '9a1b2c3d-4e5f-4a60-8b71-8c9d0e1f2a01',
-    programmeId: 'p1',
+    programmeId: '0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01',
     survivor: { id: A, displayName: 'Sample Fixture' },
     merged: { id: B, displayName: null },
-    mergedByUserId: 'u1',
+    mergedByUserId: '7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01',
     mergedAt: '2026-10-18T09:00:00Z',
     undoUntil: '2026-11-17T09:00:00Z',
     undoneAt: null,

@@ -40,6 +40,9 @@ import { useMergeHistory } from './use-merge-history';
  * on the device (D-P21).
  * ---------------------------------------------------------------------------
  */
+/** How long a programme choice must stand before it is scanned. */
+const PROGRAMME_SETTLE_MS = 300;
+
 export function DuplicatesScreen({
   locale,
   messages,
@@ -63,7 +66,18 @@ export function DuplicatesScreen({
     if (programmeId === '' && programmes.programmes[0] !== undefined) setProgrammeId(programmes.programmes[0].id);
   }, [programmes.programmes, programmeId]);
 
-  const sets = useDuplicateSets(programmeId === '' ? null : programmeId);
+  // A scan is a whole-programme scan and an aborted one still holds a server slot (D-L163): scan the programme
+  // the person settled on, not each one they pass while choosing.
+  const [scanned, setScanned] = useState('');
+  useEffect(() => {
+    if (programmeId === '' || scanned === '') {
+      setScanned(programmeId);
+      return undefined;
+    }
+    const timer = setTimeout(() => setScanned(programmeId), PROGRAMME_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [programmeId, scanned]);
+  const sets = useDuplicateSets(scanned === '' ? null : scanned);
   const history = useMergeHistory({ onUndone: sets.reload, onMessage: setMessage });
   const shown = message ?? sets.failure;
 
