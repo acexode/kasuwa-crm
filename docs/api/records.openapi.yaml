@@ -195,17 +195,29 @@ paths:
           in: query
           required: false
           description: |
-            Search by name or number. The name part matches the display, given
-            and family names, case- and diacritic-insensitively (`Adebayo`
-            finds `Adébáyọ̀`). The number part is normalised to E.164 with the
-            tenant's default country before matching, so `0803 123 4567`,
-            `2348031234567` and `+234 803 123 4567` all find `+2348031234567`.
-            It matches only phones the caller may read.
+            Search by name. It matches the display, given and family names,
+            case- and diacritic-insensitively (`Adebayo` finds `Adébáyọ̀`),
+            each only where the caller may read it, row by row in the row's
+            own programme. `displayName` follows its name parts (D-L68): it
+            is never matched where `givenNames` or `familyName` is withheld,
+            so a row reachable only through a withheld `displayName` is
+            absent. A NUL character is `400 validation_failed`.
+
+            **Never a phone or an email address (R21, T-0124).** The
+            URL reaches access logs and browser history. An `@`, or a run of
+            6 or more decimal digits of any script once everything that is
+            neither a letter nor a digit is removed (after NFKC), is
+            `400 validation_failed` with `details[].code: identifier_in_url`
+            at `q`, and the value is never echoed or logged. Send those to
+            lookupRecords, whose POST body carries them.
           schema:
             type: string
             minLength: 1
             maxLength: 100
-            description: Name or number. A phone is matched in E.164.
+            description: A name only (never an identifier; see above).
+            not:
+              description: The identifier rule (R21, D-L135) as an ECMA-262 Unicode (`u`) regular expression; the server applies it after NFKC.
+              pattern: '[@＠﹫]|\p{Nd}(?:[^\p{L}\p{Nd}]*\p{Nd}){5}'
         - name: owner
           in: query
           required: false
@@ -292,10 +304,12 @@ paths:
             One of a fixed set; a leading `-` is descending. **Deliberately not
             a free column name.** Ordering by a withheld field would leak its
             values one comparison at a time. Ties break on `id`, so the keyset
-            is total.
+            is total. `displayName` left the set with T-0124 (I5): it follows
+            its name parts and can be withheld, so `sort=displayName` is
+            `400 validation_failed` for every caller.
           schema:
             type: string
-            enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt', 'displayName', '-displayName']
+            enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt']
             default: '-createdAt'
         - $ref: '#/components/parameters/CustomFilter'
         - $ref: '#/components/parameters/CustomEmptyFilter'
@@ -348,6 +362,34 @@ paths:
                     createdAt: '2026-10-01T09:12:00.000Z'
                     updatedAt: '2026-10-03T14:40:00.000Z'
                     withheldFields: [emails, accountId, account]
+                  # A row in a programme where the caller's set withholds
+                  # familyName: displayName is withheld with it (D-L68,
+                  # T-0124), omitted and listed, never composed from givenNames.
+                  - id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e07
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a02
+                    version: 1
+                    givenNames: Ngozi
+                    companyName: null
+                    phones: [{ type: mobile, e164: '+2348030000007' }]
+                    emails: []
+                    accountId: null
+                    account: null
+                    ownerUserId: null
+                    owner: null
+                    status: new
+                    source: manual
+                    tags: []
+                    preferredLanguage: en
+                    preferredChannel: voice
+                    state: null
+                    lga: null
+                    dnd: false
+                    whatsappOptIn: false
+                    consentState: unknown
+                    phoneNetwork: MTN
+                    createdAt: '2026-09-30T08:00:00.000Z'
+                    updatedAt: '2026-09-30T08:00:00.000Z'
+                    withheldFields: [displayName, familyName]
                 nextCursor: eyJjIjoiMjAyNi0xMC0wMVQwOToxMjowMC4wMDAwMDBaIiwiaSI6IjNmMGM5YTUyIn0
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
@@ -647,7 +689,9 @@ paths:
         so it follows `consentState`'s field security: when `consentState`
         is withheld, every `consent_changed` item is omitted too. Likewise an
         item naming `ownerUserId` follows `ownerUserId`, and one naming
-        `accountId` follows `accountId`.
+        `accountId` follows `accountId`, and one naming `displayName`
+        follows `displayName`: omitted when `givenNames` or `familyName` is
+        withheld (D-L68, T-0124).
 
         Omission happens before paging: withheld items are filtered out
         before the page is cut, so every page holds `limit` items unless it
@@ -1492,17 +1536,27 @@ paths:
           required: false
           description: |
             Search, as listContacts' `q`: names (case- and
-            diacritic-insensitive) and numbers (normalised to E.164), and also
-            `companyName` (case- and diacritic-insensitive). Each field is
-            matched only in the programmes where the caller may read it, row
-            by row: a hit on a withheld company or number would disclose its
-            value one query at a time. A NUL character is
-            `400 validation_failed`.
+            diacritic-insensitive), and also `companyName` (case- and
+            diacritic-insensitive). Each field is matched only in the
+            programmes where the caller may read it, row by row: a hit on a
+            withheld company or name would disclose its value one query at a
+            time. `displayName` is never matched where it is withheld, that
+            is where `givenNames` or `familyName` is withheld (D-L68). A NUL
+            character is `400 validation_failed`.
+
+            **Never a phone or an email address (R21, T-0124),** as
+            listContacts' `q`: after NFKC, an `@` or a run of 6 or more
+            decimal digits is `400 validation_failed` with
+            `details[].code: identifier_in_url` at `q`, never echoed. Send
+            those to lookupRecords.
           schema:
             type: string
             minLength: 1
             maxLength: 100
-            description: Name, number or company. A phone is matched in E.164.
+            description: A name or a company only (never an identifier; see above).
+            not:
+              description: The identifier rule (R21, D-L135) as an ECMA-262 Unicode (`u`) regular expression; the server applies it after NFKC.
+              pattern: '[@＠﹫]|\p{Nd}(?:[^\p{L}\p{Nd}]*\p{Nd}){5}'
         - name: owner
           in: query
           required: false
@@ -1552,7 +1606,7 @@ paths:
             which field security can withhold.
           schema:
             type: string
-            enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt', 'displayName', '-displayName']
+            enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt']
             default: '-createdAt'
         - $ref: '#/components/parameters/CustomFilter'
         - $ref: '#/components/parameters/CustomEmptyFilter'
@@ -2099,11 +2153,13 @@ paths:
           required: false
           description: |
             As listContacts' `sort`: a fixed set of never-withheld keys, a
-            leading `-` descending, ties broken on `id`.
+            leading `-` descending, ties broken on `id`. The default was
+            `displayName` until T-0124 (I5): a name is withholdable, so it is
+            no sort key and no default order.
           schema:
             type: string
-            enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt', 'displayName', '-displayName']
-            default: 'displayName'
+            enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt']
+            default: '-createdAt'
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -6222,7 +6278,7 @@ components:
 
     Contact:
       type: object
-      required: [id, programmeId, version, displayName, createdAt, updatedAt, withheldFields]
+      required: [id, programmeId, version, createdAt, updatedAt, withheldFields]
       description: |
         One contact as the caller may see it.
 
@@ -6233,8 +6289,19 @@ components:
         which P04/02 locks for the agent role, is not nullable: an empty list
         means none.
 
-        `id`, `programmeId`, `version`, `displayName`, `createdAt`, `updatedAt`
-        and `withheldFields` are never withheld.
+        `id`, `programmeId`, `version`, `createdAt`, `updatedAt` and
+        `withheldFields` are never withheld.
+
+        **`displayName` follows its name parts (D-L68, T-0124).** It has no
+        field-security row of its own: it is readable exactly when both
+        `givenNames` and `familyName` are readable (`read` or `edit`) in the
+        record's programme. When either is withheld, `displayName` is
+        withheld too, whatever the part's value: it is omitted and listed in
+        `withheldFields`, never sent as `null`, and never composed from the
+        readable part. The tenant-admin flag never lifts it. A caller it is
+        withheld from may not write it (`403 not_permitted`,
+        `field_not_editable` at `displayName`), it is no sort key, and `q`
+        never matches it.
 
         **Specified, not yet served.** The `allOf` part below adds properties
         this contract specifies and the live API does not send yet (each is
@@ -6255,7 +6322,13 @@ components:
           type: integer
           minimum: 1
           description: Optimistic-concurrency token. Send it back on updateContact.
-        displayName: { type: string, maxLength: 200 }
+        displayName:
+          type: string
+          maxLength: 200
+          description: |
+            Withheld (omitted and listed) unless both `givenNames` and
+            `familyName` are readable in the record's programme (D-L68); never
+            composed from one of them.
         givenNames: { type: [string, 'null'], maxLength: 200 }
         familyName: { type: [string, 'null'], maxLength: 200 }
         companyName:
@@ -7062,10 +7135,15 @@ components:
         Closed: the activity's contact, an id and a name to print, nothing
         else (no phone, email, owner or status). The contact is always in the
         activity's programme, so this names nobody the caller's programme
-        cannot see.
+        cannot see. `displayName` is `null` when contact field security
+        withholds it from the caller (a name part withheld in that programme,
+        D-L68, T-0124); the id is still served.
       properties:
         id: { type: string, format: uuid }
-        displayName: { type: string, maxLength: 200 }
+        displayName:
+          type: [string, 'null']
+          maxLength: 200
+          description: '`null` when withheld: `givenNames` or `familyName` is withheld (D-L68). Never composed.'
 
     MyActivity:
       type: object
@@ -7791,9 +7869,17 @@ components:
       type: object
       additionalProperties: false
       required: [id, displayName]
+      description: |
+        The deal's primary contact, an id and a name to print. `displayName`
+        is judged by CONTACT field security in the deal's programme (the
+        contact's, by the composite key): `null` when withheld, that is when
+        `givenNames` or `familyName` is withheld (D-L68, T-0124). Never
+        composed from one part.
       properties:
         id: { type: string, format: uuid }
-        displayName: { type: string }
+        displayName:
+          type: [string, 'null']
+          description: '`null` when withheld (D-L68).'
 
     DealAccountSummary:
       type: object
@@ -8828,7 +8914,7 @@ components:
         displayName:
           type: [string, 'null']
           maxLength: 200
-          description: '`null` when field security withholds it.'
+          description: '`null` when field security withholds it: `givenNames` or `familyName` is withheld in the programme (D-L68). Never composed.'
         updatedAt: { type: string, format: date-time }
 
     DuplicateSet:
