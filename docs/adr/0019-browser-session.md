@@ -1,6 +1,6 @@
 # ADR-0019 — The browser session: a same-origin BFF holds the token in an HttpOnly cookie
 
-- **Status:** Proposed (T-0125, D-L147). @acexode reviews personally (D-A3: auth).
+- **Status:** Accepted by @acexode on 2026-10-19, with the five amendments at the end (D-L178). Proposed under T-0125 and D-L147.
 - **Date:** 2026-10-18
 - **Deciders:** Lead; Agent 1 drafted it; @acexode reviews
 - **Amends:** ADR-0007 (where stub identity may travel), ADR-0008 (how the opaque token reaches a browser). Removes the
@@ -399,3 +399,18 @@ not. Rejected; no new dependency is needed for this design at all.
    byte budgets measure.
 8. **Where the shared header constants live.** `apps/web` cannot import `apps/api`. Candidates are a small export in
    `@kasuwa/config` or `@kasuwa/permissions`; either is a shared-scope package both may use (CLAUDE.md 2.5).
+
+## Amendments on acceptance (2026-10-19, D-L178)
+These settle points this ADR left open. They were ruled by the T-0125 suite (D-L172) and confirmed by @acexode.
+1. **The browser journey's process.** The real-browser journey runs on a dedicated production-build web process
+   (`webSessionUrl`), started only when `@bff-session` is selected, because the default production process cannot
+   serve `/contacts`.
+2. **Loopback.**
+   - `Secure` and the `__Host-` prefix stay on for loopback http.
+   - `KASUWA_API_INTERNAL_URL` must be https under production, except on a loopback host. This adds a loopback
+     exception to D-L149 #4.
+   - `127.0.0.1.evil.example` is not loopback.
+3. **Required settings.** `KASUWA_WEB_ORIGIN` and `KASUWA_API_INTERNAL_URL` are required in every mode.
+4. **Nonce and 404.** The CSP nonce is at least 128 bits and fresh per response. A browser navigation to `/api/*`
+   gets the API's unknown-route 404.
+5. **Two session cookies.** A request carrying two session cookies never mixes tenants and never answers 5xx.
