@@ -7,7 +7,7 @@ import {
   MAX_PAGE_SIZE,
 } from '@kasuwa/domain-core';
 import { z } from 'zod';
-import { text } from '../common/text';
+import { nameQuery } from '../common/name-query';
 import { CONTACT_SOURCES } from '../contacts/contacts.schemas';
 
 /**
@@ -38,8 +38,10 @@ function many<T extends z.ZodTypeAny>(item: T, maxItems: number) {
 }
 
 export const ListLeadsQuery = z.object({
-  // text(): no NUL (D-L78), which would otherwise reach Postgres as a 22021.
-  q: text(1, 100).optional(),
+  // A name or a company only (T-0124 I9): no NUL (D-L78), which would
+  // otherwise reach Postgres as a 22021; a phone or an email is 400
+  // identifier_in_url (R21).
+  q: nameQuery(1, 100).optional(),
   owner: many(
     z
       .string()

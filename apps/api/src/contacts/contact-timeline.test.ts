@@ -59,7 +59,7 @@ function change(field: string, extra: Partial<TimelineChangeRow> = {}): Timeline
 const map = (rows: TimelineChangeRow[]) => toTimelineItems(rows, activityAccess(), A1);
 
 describe('visibleChangeFields', () => {
-  it('lists every timeline field the caller may read, and always displayName', () => {
+  it('lists every timeline field the caller may read, displayName when both name parts are', () => {
     const fields = visibleChangeFields(contactAccess({ emails: 'none', consentState: 'none' }), A1);
     expect(fields).toContain('displayName');
     expect(fields).toContain('status');
@@ -84,7 +84,18 @@ describe('visibleChangeFields', () => {
   });
 
   it('fails closed for a programme the access map does not carry', () => {
-    expect(visibleChangeFields(contactAccess(), 'elsewhere')).toEqual(['displayName']);
+    expect(visibleChangeFields(contactAccess(), 'elsewhere')).toEqual([]);
+  });
+
+  it('displayName follows its name parts: withheld with either, readable with a read-only part (T-0124 I12)', () => {
+    for (const part of ['givenNames', 'familyName'] as const) {
+      expect(visibleChangeFields(contactAccess({ [part]: 'none' }), A1), part).not.toContain(
+        'displayName',
+      );
+    }
+    expect(visibleChangeFields(contactAccess({ familyName: 'read' }), A1)).toContain(
+      'displayName',
+    );
   });
 });
 

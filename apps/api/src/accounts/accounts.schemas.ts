@@ -80,8 +80,12 @@ export const ACCOUNT_FILTER_FIELDS = {
   lga: 'lga',
 } as const;
 
-/** listAccountContacts sorts as listContacts does, by displayName by default. */
-export const DEFAULT_ACCOUNT_CONTACT_SORT: ContactSort = 'displayName';
+/**
+ * listAccountContacts sorts as listContacts does, newest first by default.
+ * It was `displayName` until T-0124 (I5): a default order on a withholdable
+ * name ranks the rows by a value the caller may not read.
+ */
+export const DEFAULT_ACCOUNT_CONTACT_SORT: ContactSort = '-createdAt';
 
 export const ListAccountContactsQuery = z.object({
   sort: z.enum(CONTACT_SORTS).default(DEFAULT_ACCOUNT_CONTACT_SORT),
