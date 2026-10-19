@@ -90,6 +90,13 @@ session lasts 12 hours. **Sign out** (top right of every screen) ends it at the 
 browser profile ends the previous one. There is no user switcher any more: presenters sign in for real, as every
 user will.
 
+**The web tier is not a proxy hop** (D-L181 N3). The BFF passes `X-Forwarded-For` on exactly as it received it and
+appends nothing, so the API's `KASUWA_TRUST_PROXY_HOPS` counts only the proxies in front of the web server (the
+ingress or load balancer), never the web server itself. And the web server must **never be exposed to clients
+directly while the API runs with `KASUWA_TRUST_PROXY_HOPS` of 1 or more**: the client would then write the very
+`X-Forwarded-For` entry the API believes, and pick its own sign-in throttle bucket. Locally (the demo, `pnpm dev`) the
+API trusts no hop, which is safe.
+
 ## 4. Who to sign in as
 
 Credentials are the committed **development** fixtures in `packages/db/src/fixtures.ts` (`SEED_TENANTS` for the
