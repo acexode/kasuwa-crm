@@ -3,6 +3,7 @@ import type { TenantTx } from '@kasuwa/db';
 import {
   AccountWriteRefusedError,
   accountFieldWithheldAnywhere,
+  appendOwnerChangedEvent,
   checkAccountHierarchy,
   contactFieldLevel,
   findAccountById,
@@ -326,6 +327,14 @@ export async function createAccountFor(tx: TenantTx, body: unknown): Promise<Acc
     accountAuditEvent('created', account, accountChanges(values, null)),
     Object.keys(customValues).sort(),
   );
+  // N-R4: an account created for someone else is an assignment (T-0100).
+  await appendOwnerChangedEvent(tx, {
+    object: 'account',
+    id: account.id,
+    programmeId,
+    previousOwnerId: null,
+    newOwnerId: account.ownerUserId,
+  });
   return toAccountWire(account, access, await customWireFor(tx, custom, account));
 }
 
@@ -364,5 +373,13 @@ export async function updateAccountFor(
     accountAuditEvent('updated', updated, accountChanges(values, current)),
     customPatchKeys(patch),
   );
+  // After the UPDATE, which holds the row's lock until commit (D-L161).
+  await appendOwnerChangedEvent(tx, {
+    object: 'account',
+    id: updated.id,
+    programmeId: updated.programmeId,
+    previousOwnerId: current.ownerUserId,
+    newOwnerId: updated.ownerUserId,
+  });
   return toAccountWire(updated, access, await customWireFor(tx, custom, updated));
 }

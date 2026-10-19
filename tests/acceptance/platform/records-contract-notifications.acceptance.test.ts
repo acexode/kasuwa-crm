@@ -1729,9 +1729,11 @@ describe('acceptance: notifications contract (T-0099)', () => {
       for (const found of gate()) expect(found.op['x-kasuwa-audited'] === undefined || found.op['x-kasuwa-audited'] === false, found.id).toBe(true);
     });
 
-    it('every new operation is x-kasuwa-implemented: false', () => {
+    // Lead edit for T-0100 (the build serves all four): flipped from `false`.
+    // This test fails on main until the build flips the contract.
+    it('every new operation is x-kasuwa-implemented: true (T-0100 serves them)', () => {
       const problems: string[] = [];
-      for (const entry of OPS) if (op(entry.id).op['x-kasuwa-implemented'] !== false) problems.push(entry.id);
+      for (const entry of OPS) if (op(entry.id).op['x-kasuwa-implemented'] !== true) problems.push(entry.id);
       expect(problems).toEqual([]);
     });
 

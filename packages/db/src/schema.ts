@@ -1647,6 +1647,56 @@ export const outboxEvent = pgTable(
 );
 
 /**
+ * The in-app notification inbox (migration 0044, T-0100, ADR-0018, D-P29,
+ * D-L157, D-L164). Written by the outbox consumer as the event's actor, read
+ * and marked read by its recipient alone: a restrictive SELECT and UPDATE
+ * policy pin `recipient_user_id` to the session user, and a restrictive INSERT
+ * policy pins `actor_user_id` to it. Identifiers and codes only: no name,
+ * subject, filename or value. kasuwa_app holds SELECT, INSERT and UPDATE
+ * (read_at): no DELETE. UNIQUE (source_event_id, recipient_user_id) is the
+ * idempotency key; the handler inserts in a SAVEPOINT and treats 23505 as
+ * already delivered (never ON CONFLICT: that needs SELECT rights). The SQL is
+ * the source of truth.
+ */
+export const notification = pgTable(
+  'notification',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    recipientUserId: uuid('recipient_user_id').notNull(),
+    /** record_assigned | task_assigned | import_finished (CHECK). */
+    kind: text('kind').notNull(),
+    /** contact | account | deal | activity | import (CHECK; the kind fixes it). */
+    objectType: text('object_type').notNull(),
+    objectId: uuid('object_id').notNull(),
+    actorUserId: uuid('actor_user_id').notNull(),
+    sourceEventId: uuid('source_event_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    readAt: timestamp('read_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('notification_source_event_recipient_key').on(
+      table.sourceEventId,
+      table.recipientUserId,
+    ),
+    index('notification_recipient_idx').on(
+      table.tenantId,
+      table.recipientUserId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    // The unread count and "mark all read" never walk read rows: a partial
+    // twin of the recipient index (migration 0044).
+    index('notification_recipient_unread_idx')
+      .on(table.tenantId, table.recipientUserId, table.createdAt.desc(), table.id.desc())
+      .where(sql`read_at IS NULL`),
+    index('notification_programme_idx').on(table.tenantId, table.programmeId),
+    index('notification_actor_idx').on(table.tenantId, table.actorUserId),
+  ],
+);
+
+/**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
  */
@@ -1691,6 +1741,7 @@ export const TENANT_SCOPED_TABLES = [
   'stored_object',
   'import_job',
   'outbox_event',
+  'notification',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];

@@ -159,6 +159,11 @@ const APP_RESTRICTED_IMPORT_PATTERNS = [
     message:
       'Import @kasuwa/domain-core from its main entry. Operator-only code must not be reachable from apps.',
   },
+  {
+    group: ['@kasuwa/metadata-engine/*'],
+    message:
+      "@kasuwa/metadata-engine's sub-paths are for @kasuwa/domain-core only: loadFieldAccessForUser reads ANOTHER user's access (T-0100, D-L174).",
+  },
 ];
 const WEB_CONFIG_IMPORT_MESSAGE =
   'apps/web imports configuration only from @kasuwa/config/web or @kasuwa/config/feature-flags. The main entry exports loadWorkspaceEnv(), which would load the workspace .env (and DATABASE_URL) into the web process (T-0014).';
