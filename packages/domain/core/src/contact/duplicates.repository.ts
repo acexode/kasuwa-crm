@@ -1,6 +1,7 @@
 import type { TenantTx } from '@kasuwa/db';
 import { z } from 'zod';
 import { InvalidCursorError, LIST_CURSOR_VERSION, MAX_CURSOR_LENGTH } from '../cursor';
+import { CONTACT_MAX_EMAILS, CONTACT_MAX_PHONES } from './contact-write-schema';
 
 /**
  * Duplicate contact sets (T-0095; D-P12, D-P33, D-L146, D-L151, D-L153).
@@ -41,11 +42,6 @@ export interface DuplicatePosition {
   matchOn: DuplicateMatchOn;
   ordinal: number;
 }
-
-/** The most numbers a contact holds (createContact and updateContact refuse more). */
-export const CONTACT_MAX_PHONES = 10;
-/** The most addresses a contact holds (createContact and updateContact refuse more). */
-export const CONTACT_MAX_EMAILS = 10;
 
 /**
  * The largest ordinal a set can have. Every set with lowest id L and kind K is

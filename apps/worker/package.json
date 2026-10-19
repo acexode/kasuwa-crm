@@ -14,9 +14,26 @@
   "dependencies": {
     "@kasuwa/config": "workspace:*",
     "@kasuwa/db": "workspace:*",
+    "@kasuwa/domain-core": "workspace:*",
+    "@kasuwa/feature-flags": "workspace:*",
+    "@kasuwa/metadata-engine": "workspace:*",
+    "@kasuwa/permissions": "workspace:*",
+    "@kasuwa/storage-adapter": "workspace:*",
     "bullmq": "^5.34.6",
-    "ioredis": "^5.4.2"
+    "csv-parse": "^5.6.0",
+    "ioredis": "^5.4.2",
+    "pg": "^8.13.1",
+    "zod": "^3.24.1"
   },
-  "devDependencies": { "esbuild": "^0.24.2", "tsx": "^4.19.2" },
-  "nx": { "tags": ["scope:app", "type:app"] }
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "esbuild": "^0.24.2",
+    "tsx": "^4.19.2"
+  },
+  "nx": {
+    "tags": [
+      "scope:app",
+      "type:app"
+    ]
+  }
 }

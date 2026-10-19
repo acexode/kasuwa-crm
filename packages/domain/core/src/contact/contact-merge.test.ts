@@ -7,9 +7,8 @@ import {
   isEmptyValue,
   strictestCompliance,
 } from './contact-merge';
+import { CONTACT_MAX_EMAILS, CONTACT_MAX_PHONES } from './contact-write-schema';
 import {
-  CONTACT_MAX_EMAILS,
-  CONTACT_MAX_PHONES,
   MAX_DUPLICATE_ORDINAL,
   decodeDuplicateCursor,
   encodeDuplicateCursor,

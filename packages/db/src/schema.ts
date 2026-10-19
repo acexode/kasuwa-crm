@@ -238,6 +238,11 @@ export const contact = pgTable(
      */
     custom: jsonb('custom').notNull().default(sql`'{}'::jsonb`),
     /**
+     * Migration 0042 (T-0094): the import that created the contact, or null.
+     * Composite FK (tenant_id, programme_id, import_job_id) -> import_job.
+     */
+    importJobId: uuid('import_job_id'),
+    /**
      * Migration 0043 (T-0095, D-P27): set when the contact is merged away. A
      * merged-away contact is absent from every read (the repositories'
      * `deleted_at IS NULL`) and frozen for writes (contact_merged_away_frozen).
@@ -245,6 +250,10 @@ export const contact = pgTable(
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => [
+    /** Migration 0042 (T-0094): the importId filter on listContacts. Partial. */
+    index('contact_import_job_idx')
+      .on(table.tenantId, table.programmeId, table.importJobId)
+      .where(sql`import_job_id IS NOT NULL`),
     /** Migration 0027: the target of activity's composite contact FK. */
     uniqueIndex('contact_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
     index('contact_keyset_idx').on(table.tenantId, table.programmeId, table.createdAt, table.id),
@@ -1534,12 +1543,71 @@ export const storedObject = pgTable(
   },
   (table) => [
     uniqueIndex('stored_object_key_key').on(table.key),
+    /** Migration 0042 (T-0094): the target of import_job's composite FK. */
+    uniqueIndex('stored_object_tenant_programme_id_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.id,
+    ),
     index('stored_object_programme_created_idx').on(
       table.tenantId,
       table.programmeId,
       table.createdAt.desc(),
       table.id.desc(),
     ),
+  ],
+);
+
+/**
+ * A contact import job (migration 0042, T-0094, ADR-0017 flow steps 1-7).
+ * Holds the file's declaration, its column NAMES, the saved mapping and the
+ * report (counts and `{ row, column, code }` errors), never a cell value.
+ * Runs as `created_by_user_id` (D-L128 Q7, D-L151), pinned to the session
+ * user at insert by a restrictive policy. `filename`, `headers` and `mapping`
+ * are erased with the raw file (D-L148). kasuwa_app holds no DELETE, and no
+ * UPDATE on the keys. `changed_at` rather than `updated_at`: see 0042.
+ */
+export const importJob = pgTable(
+  'import_job',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    storedObjectId: uuid('stored_object_id').notNull(),
+    createdByUserId: uuid('created_by_user_id').notNull(),
+    status: text('status').notNull().default('awaiting_upload'),
+    /** The open multipart upload (D-L155). Never returned by the API. */
+    uploadId: text('upload_id'),
+    /** User text: never logged, erased with the raw file. */
+    filename: text('filename'),
+    sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
+    contentType: text('content_type').notNull(),
+    partCount: integer('part_count').notNull(),
+    headers: jsonb('headers'),
+    suggestedMapping: jsonb('suggested_mapping'),
+    mapping: jsonb('mapping'),
+    createdCount: integer('created_count').notNull().default(0),
+    skippedCount: integer('skipped_count').notNull().default(0),
+    failedCount: integer('failed_count').notNull().default(0),
+    errors: jsonb('errors').notNull().default(sql`'[]'::jsonb`),
+    errorsTruncated: boolean('errors_truncated').notNull().default(false),
+    cancelRequested: boolean('cancel_requested').notNull().default(false),
+    rawFileDeletedAt: timestamp('raw_file_deleted_at', { withTimezone: true }),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('import_job_stored_object_key').on(table.storedObjectId),
+    uniqueIndex('import_job_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
+    index('import_job_programme_created_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    index('import_job_creator_idx').on(table.tenantId, table.createdByUserId, table.programmeId),
   ],
 );
 
@@ -1621,6 +1689,7 @@ export const TENANT_SCOPED_TABLES = [
   'audit_event',
   'audit_export',
   'stored_object',
+  'import_job',
   'outbox_event',
 ] as const;
 

@@ -169,6 +169,12 @@ export interface ContactFilters {
    */
   withinProgrammeIds?: readonly string[] | undefined;
   /**
+   * The contacts one import created (T-0094). The API sets it only for an
+   * import the caller can see, together with `withinProgrammeIds` naming that
+   * import's programme; any other import is an empty page before this runs.
+   */
+  importJobId?: string | undefined;
+  /**
    * Custom-field equality and is-empty (T-0089, ADR-0016 item 8), already
    * judged by the API against the live definitions and field security.
    */
@@ -497,6 +503,9 @@ function filterClauses(filters: ContactFilters, params: Params): string[] {
   if (filters.withinProgrammeIds !== undefined) {
     clauses.push(`programme_id = ANY(${params.add([...filters.withinProgrammeIds])}::uuid[])`);
   }
+  if (filters.importJobId !== undefined) {
+    clauses.push(`import_job_id = ${params.add(filters.importJobId)}::uuid`);
+  }
   clauses.push(...customFilterClauses(filters.custom, (value) => params.add(value), 'contact'));
   return clauses;
 }
@@ -672,6 +681,16 @@ function assertInScope(tx: TenantTx, programmeId: string): void {
 }
 
 /**
+ * The two server-owned columns an import sets on a contact it creates
+ * (T-0094): never reachable from createContact, whose body has neither.
+ */
+export interface ImportedContactColumns {
+  readonly importJobId: string;
+  /** D-P28: an import may set DND either way on a NEW contact, never grant consent. */
+  readonly dnd: boolean;
+}
+
+/**
  * Inserts a contact in `programmeId`, which must be in the session's scope.
  * tenancy-reviewed: tenant from the session, programme checked against the
  * session, and RLS WITH CHECK refuses either independently.
@@ -681,6 +700,7 @@ export async function insertContact(
   programmeId: string,
   values: ContactValues & { displayName: string },
   custom: Readonly<Record<string, unknown>> = {},
+  imported?: ImportedContactColumns,
 ): Promise<Contact> {
   assertInScope(tx, programmeId);
   const params = new Params();
@@ -691,6 +711,14 @@ export async function insertContact(
     // Validated by the API against the live definitions (T-0089). Never read back here.
     { column: 'custom', placeholder: `${params.add(JSON.stringify(custom))}::jsonb` },
   ];
+  if (imported !== undefined) {
+    // T-0094: the job in the SAME programme (the composite FK refuses any
+    // other), and the D-P28 restrict-or-default `dnd` the import worker judged.
+    fixed.push(
+      { column: 'import_job_id', placeholder: `${params.add(imported.importJobId)}::uuid` },
+      { column: 'dnd', placeholder: `${params.add(imported.dnd)}::boolean` },
+    );
+  }
   const columns = [...fixed, ...assignments(values, params)];
   const rows = await tx.query<ContactRow>(
     `INSERT INTO contact (${columns.map((entry) => entry.column).join(', ')})
