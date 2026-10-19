@@ -166,7 +166,7 @@ const APP_RESTRICTED_IMPORT_PATTERNS = [
   },
 ];
 const WEB_CONFIG_IMPORT_MESSAGE =
-  'apps/web imports configuration only from @kasuwa/config/web or @kasuwa/config/feature-flags. The main entry exports loadWorkspaceEnv(), which would load the workspace .env (and DATABASE_URL) into the web process (T-0014).';
+  'apps/web imports configuration only from @kasuwa/config/web, @kasuwa/config/session or @kasuwa/config/feature-flags. The main entry exports loadWorkspaceEnv(), which would load the workspace .env (and DATABASE_URL) into the web process (T-0014).';
 
 const BOUNDARY_CONSTRAINTS = [
   {
@@ -396,6 +396,7 @@ export default tseslint.config(
               group: [
                 '@kasuwa/config/*',
                 '!@kasuwa/config/web',
+                '!@kasuwa/config/session',
                 '!@kasuwa/config/feature-flags',
                 // gitignore semantics: a file under an excluded directory cannot
                 // be re-included, so src/ is re-included first, then narrowed.
@@ -516,7 +517,8 @@ export default tseslint.config(
   // tooling block's `no-console: off`.
   {
     files: ['packages/config/**/*.mjs', 'apps/web/build.mjs'],
-    languageOptions: { globals: { process: 'readonly' } },
+    // URL: the WHATWG parser the session-layer checks use (ADR-0019 point 8).
+    languageOptions: { globals: { process: 'readonly', URL: 'readonly' } },
   },
 
   // --- generated files are not hand-maintained -----------------------------
