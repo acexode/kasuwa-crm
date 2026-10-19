@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { signOut } from '../../lib/auth-api';
+import { signOut } from '../../lib/sign-out';
 import { SIGN_IN_PATH } from '../../lib/api-fetch';
 import { QUIET_BUTTON } from './button-classes';
 

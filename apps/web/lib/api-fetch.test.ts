@@ -81,3 +81,18 @@ describe('apiFetch (ADR-0019 step d)', () => {
     expect(() => sendToSignIn()).not.toThrow();
   });
 });
+
+describe('signOut', () => {
+  it('posts a bodyless, CSRF-headed sign-out and never throws', async () => {
+    const { signOut } = await import('./sign-out');
+    const fetchMock = stubFetch(204);
+    await signOut();
+    const [path, init] = (fetchMock.mock.calls[0] as unknown as [string, RequestInit]);
+    expect(path).toBe('/api/v1/auth/sign-out');
+    expect(init.method).toBe('POST');
+    expect(init.body).toBeUndefined();
+    expect((init.headers as Record<string, string>)[CSRF_HEADER]).toBe(CSRF_HEADER_VALUE);
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))));
+    await expect(signOut()).resolves.toBeUndefined();
+  });
+});
