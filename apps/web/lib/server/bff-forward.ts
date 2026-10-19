@@ -1,7 +1,7 @@
 import { promisify } from 'node:util';
 import { gzip as gzipCallback } from 'node:zlib';
 import { z } from 'zod';
-import { INTERNAL_ERROR_BODY, NOT_FOUND_BODY, SCOPE_HEADER_REJECTED_BODY } from '@kasuwa/config/session';
+import { INTERNAL_ERROR_BODY, NOT_FOUND_BODY, SCOPE_HEADER_REJECTED_BODY, SESSION_TOKEN_PREFIX } from '@kasuwa/config/session';
 import { CSRF_REJECTED_BODY, hasRequestBody, isNavigation, passesCsrf } from './csrf';
 import { FORWARDED_RESPONSE_HEADERS, hasScopeHeader, upstreamHeaders } from './header-policy';
 import {
@@ -101,15 +101,35 @@ const TOKEN_ROUTES = new Set(['auth/mfa', 'auth/mfa/enrol/confirm']);
 
 const SIGN_OUT_ROUTE = 'auth/sign-out';
 
-/** What the API's token-issuing 200 must look like before the BFF trusts it. Unknown keys (backup codes) pass through. */
-const IssuedSession = z
+/**
+ * What a token route's 2xx must be, EXACTLY, before the BFF trusts it (D-L181
+ * B1): `SessionEstablished` and `SessionWithBackupCodes` in
+ * docs/api/auth.openapi.yaml, with `CurrentUser` as the user. Strict, never
+ * passthrough: an unknown key is a 502, because the BFF cannot know that a key
+ * it has never heard of is not a second credential.
+ */
+const IssuedUser = z
+  .object({ id: z.string(), tenantId: z.string(), email: z.string(), displayName: z.string(), locale: z.string() })
+  .strict();
+const SessionEstablished = z
   .object({
     accessToken: z.string().min(1),
-    tokenType: z.string(),
+    tokenType: z.literal('Bearer'),
     expiresAt: z.string().datetime({ offset: true }),
-    user: z.object({ id: z.string(), tenantId: z.string() }).passthrough(),
+    user: IssuedUser,
   })
-  .passthrough();
+  .strict();
+const SessionWithBackupCodes = SessionEstablished.extend({
+  backupCodes: z.array(z.string()).min(1).max(10),
+}).strict();
+
+const ISSUED_SESSION: Readonly<Record<string, typeof SessionEstablished | typeof SessionWithBackupCodes>> = {
+  'auth/mfa': SessionEstablished,
+  'auth/mfa/enrol/confirm': SessionWithBackupCodes,
+};
+
+/** The most upstream JSON the BFF will hold in memory to inspect (D-L181 N6). */
+export const MAX_UPSTREAM_JSON_BYTES = 8 * 1024 * 1024;
 
 const BAD_GATEWAY_BODY = Object.freeze({ ...INTERNAL_ERROR_BODY, statusCode: 502, error: 'Bad Gateway' });
 
@@ -205,12 +225,10 @@ function isJsonType(contentType: string | null): boolean {
   return normalised === 'application/json' || normalised.endsWith('+json');
 }
 
-/** Reads at most `limit` bytes of a request body; null when it is larger. */
-async function readBounded(request: Request, limit: number): Promise<Uint8Array<ArrayBuffer> | null> {
-  const declared = Number(request.headers.get('content-length') ?? '0');
-  if (Number.isFinite(declared) && declared > limit) return null;
-  if (request.body === null) return new Uint8Array(0);
-  const reader = request.body.getReader();
+/** Reads at most `limit` bytes of a body stream; null when it is larger. */
+async function readBounded(stream: ReadableStream<Uint8Array> | null, limit: number): Promise<Uint8Array<ArrayBuffer> | null> {
+  if (stream === null) return new Uint8Array(0);
+  const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
   for (;;) {
@@ -230,6 +248,39 @@ async function readBounded(request: Request, limit: number): Promise<Uint8Array<
     offset += chunk.byteLength;
   }
   return body;
+}
+
+/** Every string in a parsed JSON value, keys included, at any depth. */
+function* stringsIn(value: unknown): Generator<string> {
+  if (typeof value === 'string') {
+    yield value;
+  } else if (Array.isArray(value)) {
+    for (const item of value) yield* stringsIn(item);
+  } else if (typeof value === 'object' && value !== null) {
+    for (const [key, item] of Object.entries(value)) {
+      yield key;
+      yield* stringsIn(item);
+    }
+  }
+}
+
+/**
+ * Whether a buffered answer carries a session token (D-L181 N1): the raw text,
+ * and, when it parses, every decoded string at any depth (a `\u006b` escape
+ * is still a token once the page parses it).
+ */
+export function carriesSessionToken(text: string): boolean {
+  if (text.includes(SESSION_TOKEN_PREFIX)) return true;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return false;
+  }
+  for (const value of stringsIn(parsed)) {
+    if (value.includes(SESSION_TOKEN_PREFIX)) return true;
+  }
+  return false;
 }
 
 /** Revokes the session a new sign-in replaces (point 3). Best effort: a failure here never fails the sign-in. */
@@ -277,18 +328,23 @@ export function createBffHandler(resolveConfig: () => BffConfig, deps: BffDepend
 
     if (hasScopeHeader(incoming)) return jsonAnswer(400, SCOPE_HEADER_REJECTED_BODY);
 
-    if (!passesCsrf(method, incoming, config.webOrigin)) return jsonAnswer(403, CSRF_REJECTED_BODY);
+    // The body is read (bounded) BEFORE the CSRF verdict, so "has a body" is
+    // what arrived, never what Content-Length or Transfer-Encoding claimed
+    // (D-L181 N5). Under Next every POST carries a body stream, even an empty
+    // one, so a stream that yields no bytes is a bodyless request.
+    let body: Uint8Array<ArrayBuffer> | undefined;
+    if (method !== 'GET' && method !== 'HEAD' && hasRequestBody(request)) {
+      const declared = Number(incoming.get('content-length') ?? '0');
+      const read = Number.isFinite(declared) && declared > MAX_REQUEST_BODY_BYTES ? null : await readBounded(request.body, MAX_REQUEST_BODY_BYTES);
+      if (read === null) return jsonAnswer(413, PAYLOAD_TOO_LARGE_BODY);
+      if (read.byteLength > 0) body = read;
+    }
+
+    if (!passesCsrf(method, incoming, config.webOrigin, body !== undefined)) return jsonAnswer(403, CSRF_REJECTED_BODY);
 
     const preSession = PRE_SESSION_ROUTES.has(target.route);
     const cookie: SessionCookie = readSessionCookie(incoming.get('cookie'), config.cookie);
     const bearer = cookie.kind === 'token' && !preSession ? cookie.token : null;
-
-    let body: Uint8Array<ArrayBuffer> | undefined;
-    if (method !== 'GET' && method !== 'HEAD' && hasRequestBody(incoming)) {
-      const read = await readBounded(request, MAX_REQUEST_BODY_BYTES);
-      if (read === null) return jsonAnswer(413, PAYLOAD_TOO_LARGE_BODY);
-      body = read;
-    }
 
     const isSignOut = method === 'POST' && target.route === SIGN_OUT_ROUTE;
     const signOutCookies = isSignOut ? [clearSessionSetCookie(config.cookie)] : [];
@@ -310,66 +366,75 @@ export function createBffHandler(resolveConfig: () => BffConfig, deps: BffDepend
     }
 
     const headers = answerHeaders(upstream);
-    for (const line of signOutCookies) headers.append('set-cookie', line);
+    const cookieLines = [...signOutCookies];
+    if (upstream.status === 401 && !preSession && !isSignOut) cookieLines.push(clearSessionSetCookie(config.cookie));
+    for (const line of cookieLines) headers.append('set-cookie', line);
     if (isSignOut) headers.set('clear-site-data', '"cache"');
-    if (upstream.status === 401 && !preSession && !isSignOut) {
-      headers.append('set-cookie', clearSessionSetCookie(config.cookie));
-    }
+    const refuse = async (): Promise<Response> => {
+      await upstream.body?.cancel().catch(() => undefined);
+      const answer = jsonAnswer(502, BAD_GATEWAY_BODY, cookieLines);
+      if (isSignOut) answer.headers.set('clear-site-data', '"cache"');
+      return answer;
+    };
 
     if (method === 'HEAD' || nullBodyStatus(upstream.status)) {
       await upstream.body?.cancel();
       return new Response(null, { status: upstream.status, headers });
     }
 
-    const contentType = upstream.headers.get('content-type');
-    if (!isJsonType(contentType)) {
-      // Not JSON (an export, a file): streamed through untouched.
+    // A token route is ALWAYS buffered and inspected, whatever it says its
+    // content type is (D-L181 B1). Any other non-JSON answer (an export, a
+    // file) streams through untouched; any other JSON is buffered so it can
+    // be checked for a token (N1).
+    const issuesToken = method === 'POST' && TOKEN_ROUTES.has(target.route);
+    if (!issuesToken && !isJsonType(upstream.headers.get('content-type'))) {
       return new Response(upstream.body, { status: upstream.status, headers });
     }
 
-    let bytes: Uint8Array<ArrayBuffer>;
+    let bytes: Uint8Array<ArrayBuffer> | null;
     try {
-      bytes = new Uint8Array(await upstream.arrayBuffer());
+      bytes = await readBounded(upstream.body, MAX_UPSTREAM_JSON_BYTES);
     } catch {
-      return jsonAnswer(502, BAD_GATEWAY_BODY, signOutCookies);
+      bytes = null;
     }
+    if (bytes === null) return refuse();
 
-    if (upstream.ok) {
+    if (issuesToken && upstream.ok) {
+      const schema = ISSUED_SESSION[target.route];
       let parsed: unknown;
       try {
         parsed = JSON.parse(new TextDecoder().decode(bytes));
       } catch {
-        parsed = undefined;
+        return refuse();
       }
-      const issuesToken = method === 'POST' && TOKEN_ROUTES.has(target.route);
-      const carriesToken = typeof parsed === 'object' && parsed !== null && 'accessToken' in parsed;
-      if (issuesToken) {
-        const issued = IssuedSession.safeParse(parsed);
-        if (!issued.success) return jsonAnswer(502, BAD_GATEWAY_BODY);
-        const { accessToken } = issued.data;
-        const forBrowser = Object.fromEntries(
-          Object.entries(issued.data).filter(([key]) => key !== 'accessToken' && key !== 'tokenType'),
-        );
-        const maxAge = maxAgeUntil(new Date(issued.data.expiresAt), deps.now());
-        if (maxAge <= 0) return jsonAnswer(502, BAD_GATEWAY_BODY);
-        let setCookie: string;
-        try {
-          setCookie = sessionSetCookie(accessToken, maxAge, config.cookie);
-        } catch {
-          return jsonAnswer(502, BAD_GATEWAY_BODY);
-        }
-        // One browser profile holds one session: the one this sign-in
-        // replaces is ended, not orphaned (point 3, I10).
-        if (cookie.kind === 'token' && cookie.token !== accessToken) {
-          await revokePrevious(config, deps, cookie.token);
-        }
-        headers.append('set-cookie', setCookie);
-        bytes = new TextEncoder().encode(JSON.stringify(forBrowser));
-      } else if (carriesToken) {
-        // A token on any other route would reach page JavaScript. The API has
-        // no such route; if one ever appears, it fails closed here.
-        return jsonAnswer(502, BAD_GATEWAY_BODY);
+      const issued = schema === undefined ? undefined : schema.safeParse(parsed);
+      if (issued === undefined || !issued.success) return refuse();
+      const { accessToken, expiresAt, user } = issued.data;
+      const backupCodes = 'backupCodes' in issued.data ? issued.data.backupCodes : undefined;
+      const maxAge = maxAgeUntil(new Date(expiresAt), deps.now());
+      if (maxAge <= 0) return refuse();
+      let setCookie: string;
+      try {
+        setCookie = sessionSetCookie(accessToken, maxAge, config.cookie);
+      } catch {
+        return refuse();
       }
+      // Built from the allowlist, never by deleting keys from what arrived.
+      const forBrowser = { expiresAt, user, ...(backupCodes === undefined ? {} : { backupCodes }) };
+      bytes = new TextEncoder().encode(JSON.stringify(forBrowser));
+      if (carriesSessionToken(new TextDecoder().decode(bytes))) return refuse();
+      // One browser profile holds one session: the one this sign-in
+      // replaces is ended, not orphaned (point 3, I10).
+      if (cookie.kind === 'token' && cookie.token !== accessToken) {
+        await revokePrevious(config, deps, cookie.token);
+      }
+      headers.append('set-cookie', setCookie);
+      headers.set('content-type', 'application/json; charset=utf-8');
+    } else if (carriesSessionToken(new TextDecoder().decode(bytes))) {
+      // A token on any other answer, of any status, would reach page
+      // JavaScript. The API has no such answer; if one ever appears, it
+      // fails closed here (D-L181 N1).
+      return refuse();
     }
 
     if (bytes.byteLength >= COMPRESS_MIN_BYTES && acceptsGzip(incoming.get('accept-encoding'))) {

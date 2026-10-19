@@ -18,9 +18,10 @@ import { CSRF_HEADER, CSRF_HEADER_VALUE } from '@kasuwa/config/session';
  *      preflight, and nothing at this origin answers one. This is the control
  *      that closes BODYLESS POSTs: a form or a `no-cors` fetch can send one
  *      without a preflight, but cannot add this header.
- *   3. A request with a body is `application/json`. text/plain, form and
- *      multipart are the three a cross-site form can send; a body with no
- *      type at all is refused too. A bodyless request needs no type.
+ *   3. A request with a body (bytes that actually arrived) is
+ *      `application/json`. text/plain, form and multipart are the three a
+ *      cross-site form can send; a body with no type at all is refused too.
+ *      A bodyless request needs no type.
  *
  * The verdict is a boolean on purpose: the caller answers every refusal with
  * one fixed body that names no check (I4), so there is nothing to report.
@@ -33,15 +34,14 @@ export function isSafeMethod(method: string): boolean {
 }
 
 /**
- * Whether the request carries a body: a positive `Content-Length`, or any
- * `Transfer-Encoding` (a chunked body has no length up front). A browser sends
- * `Content-Length: 0` on a bodyless POST.
+ * Whether the request MAY carry a body: a body stream exists (D-L181 N5).
+ * The length headers are a claim, not a fact, so they are never consulted.
+ * Next hands a route a stream for every POST, even an empty one, so the
+ * handler then reads it (bounded) and treats zero bytes as bodyless; the
+ * CSRF verdict takes that result, never the headers.
  */
-export function hasRequestBody(headers: Headers): boolean {
-  if (headers.has('transfer-encoding')) return true;
-  const length = headers.get('content-length');
-  if (length === null) return false;
-  return !/^\s*0+\s*$/.test(length);
+export function hasRequestBody(request: Request): boolean {
+  return request.body !== null;
 }
 
 /** `application/json`, with or without parameters (a charset), case-insensitive on the type. */
@@ -51,14 +51,17 @@ export function isJsonContentType(value: string | null): boolean {
   return type.trim().toLowerCase() === 'application/json';
 }
 
-/** True when the request may proceed; false when it is refused as CSRF. */
-export function passesCsrf(method: string, headers: Headers, webOrigin: string): boolean {
+/**
+ * True when the request may proceed; false when it is refused as CSRF.
+ * `hasBody` is whether bytes actually arrived.
+ */
+export function passesCsrf(method: string, headers: Headers, webOrigin: string, hasBody: boolean): boolean {
   if (isSafeMethod(method)) return true;
   if (headers.get('origin') !== webOrigin) return false;
   const site = headers.get('sec-fetch-site');
   if (site !== null && site !== 'same-origin') return false;
   if (headers.get(CSRF_HEADER) !== CSRF_HEADER_VALUE) return false;
-  if (hasRequestBody(headers) && !isJsonContentType(headers.get('content-type'))) return false;
+  if (hasBody && !isJsonContentType(headers.get('content-type'))) return false;
   return true;
 }
 

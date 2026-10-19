@@ -4,6 +4,18 @@ import { CSRF_REJECTED_BODY, hasRequestBody, isJsonContentType, isNavigation, pa
 
 const ORIGIN = 'http://127.0.0.1:3000';
 
+/**
+ * Fixture shorthand: in these cases the bytes that arrived match the length
+ * the fixture names. (The BFF itself never reads that header; it counts.)
+ */
+function arrived(headers: Headers): boolean {
+  return headers.has('transfer-encoding') || Number(headers.get('content-length') ?? '0') > 0;
+}
+
+function verdict(method: string, headers: Headers): boolean {
+  return passesCsrf(method, headers, ORIGIN, arrived(headers));
+}
+
 function good(extra: Record<string, string> = {}): Headers {
   return new Headers({ origin: ORIGIN, [CSRF_HEADER]: CSRF_HEADER_VALUE, 'sec-fetch-site': 'same-origin', ...extra });
 }
@@ -17,17 +29,17 @@ function without(name: string, extra: Record<string, string> = {}): Headers {
 describe('passesCsrf (ADR-0019 point 4)', () => {
   it('lets every safe method through untouched, whatever it carries', () => {
     for (const method of ['GET', 'HEAD', 'OPTIONS', 'get']) {
-      expect(passesCsrf(method, new Headers({ origin: 'http://evil.example' }), ORIGIN)).toBe(true);
+      expect(verdict(method, new Headers({ origin: 'http://evil.example' }))).toBe(true);
     }
   });
 
   it('passes a well-formed bodyless write and a well-formed JSON write', () => {
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
-      expect(passesCsrf(method, good({ 'content-length': '0' }), ORIGIN), method).toBe(true);
-      expect(passesCsrf(method, good({ 'content-length': '2', 'content-type': 'application/json' }), ORIGIN), method).toBe(true);
-      expect(passesCsrf(method, good({ 'content-length': '2', 'content-type': 'Application/JSON; charset=utf-8' }), ORIGIN), method).toBe(true);
+      expect(verdict(method, good({ 'content-length': '0' })), method).toBe(true);
+      expect(verdict(method, good({ 'content-length': '2', 'content-type': 'application/json' })), method).toBe(true);
+      expect(verdict(method, good({ 'content-length': '2', 'content-type': 'Application/JSON; charset=utf-8' })), method).toBe(true);
     }
-    expect(passesCsrf('POST', without('sec-fetch-site'), ORIGIN), 'Sec-Fetch-Site is optional').toBe(true);
+    expect(verdict('POST', without('sec-fetch-site')), 'Sec-Fetch-Site is optional').toBe(true);
   });
 
   it.each<[string, Headers]>([
@@ -51,12 +63,12 @@ describe('passesCsrf (ADR-0019 point 4)', () => {
     ['a chunked body with no type', good({ 'transfer-encoding': 'chunked' })],
     ['a json-ish lookalike type', good({ 'content-length': '2', 'content-type': 'application/jsonx' })],
   ])('refuses %s', (_label, headers) => {
-    expect(passesCsrf('POST', headers, ORIGIN)).toBe(false);
+    expect(verdict('POST', headers)).toBe(false);
   });
 
   it('never compares with Host or X-Forwarded-Host', () => {
     const forged = good({ origin: 'http://evil.example', host: 'evil.example', 'x-forwarded-host': 'evil.example' });
-    expect(passesCsrf('POST', forged, ORIGIN)).toBe(false);
+    expect(verdict('POST', forged)).toBe(false);
   });
 
   it('answers every refusal with one body that names no check', () => {
@@ -66,12 +78,16 @@ describe('passesCsrf (ADR-0019 point 4)', () => {
 });
 
 describe('the helpers', () => {
-  it('reads a body from a positive length or any transfer-encoding', () => {
-    expect(hasRequestBody(new Headers())).toBe(false);
-    expect(hasRequestBody(new Headers({ 'content-length': '0' }))).toBe(false);
-    expect(hasRequestBody(new Headers({ 'content-length': '000' }))).toBe(false);
-    expect(hasRequestBody(new Headers({ 'content-length': '1' }))).toBe(true);
-    expect(hasRequestBody(new Headers({ 'transfer-encoding': 'chunked' }))).toBe(true);
+  it('decides "may have a body" by the stream, never by the length headers (D-L181 N5)', () => {
+    expect(hasRequestBody(new Request('http://x/', { method: 'GET', headers: { 'content-length': '5' } }))).toBe(false);
+    expect(hasRequestBody(new Request('http://x/', { method: 'POST', headers: { 'content-length': '0' }, body: 'abc' }))).toBe(true);
+    expect(hasRequestBody(new Request('http://x/', { method: 'POST', headers: { 'content-length': '9' } }))).toBe(false);
+  });
+
+  it('takes the body verdict it is given: a bodyless write needs no type, a write with bytes needs JSON', () => {
+    const bodyless = new Headers({ origin: ORIGIN, [CSRF_HEADER]: CSRF_HEADER_VALUE, 'content-length': '7' });
+    expect(passesCsrf('POST', bodyless, ORIGIN, false)).toBe(true);
+    expect(passesCsrf('POST', new Headers({ origin: ORIGIN, [CSRF_HEADER]: CSRF_HEADER_VALUE, 'content-length': '0' }), ORIGIN, true)).toBe(false);
   });
 
   it('knows JSON only by its media type', () => {

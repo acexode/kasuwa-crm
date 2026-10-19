@@ -98,6 +98,12 @@ export const CSRF_HEADER_VALUE = 'kasuwa-web';
  * which `webEnv()` refuses outside development and test.
  */
 export const SESSION_COOKIE_NAME = '__Host-kasuwa_session';
+
+/**
+ * Every API session token starts with this (ADR-0008). The BFF refuses, as a
+ * 502, any buffered answer that carries it outside the cookie (D-L181).
+ */
+export const SESSION_TOKEN_PREFIX = 'ksw_s1_';
 export const INSECURE_SESSION_COOKIE_NAME = 'kasuwa_session';
 
 /**

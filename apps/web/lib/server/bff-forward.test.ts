@@ -1,7 +1,7 @@
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { NOT_FOUND_BODY, SCOPE_HEADER_REJECTED_BODY } from '@kasuwa/config/session';
-import { createBffHandler, upstreamTarget, type BffConfig } from './bff-forward';
+import { MAX_UPSTREAM_JSON_BYTES, carriesSessionToken, createBffHandler, upstreamTarget, type BffConfig } from './bff-forward';
 
 /**
  * The BFF against a fake upstream (ADR-0019 points 1 to 5 and 9). Invented
@@ -241,13 +241,9 @@ describe('the upstream target (I17)', () => {
 });
 
 describe('token capture (point 3)', () => {
-  const issued = {
-    accessToken: TOKEN,
-    tokenType: 'Bearer',
-    expiresAt: EXPIRES,
-    user: { id: 'u1', tenantId: 't1', email: 'x@kasuwa.example', displayName: 'X', locale: 'en' },
-    backupCodes: ['x1'],
-  };
+  const user = { id: 'u1', tenantId: 't1', email: 'x@kasuwa.example', displayName: 'X', locale: 'en' };
+  const issued = { accessToken: TOKEN, tokenType: 'Bearer', expiresAt: EXPIRES, user };
+  const confirmed = { ...issued, backupCodes: ['aaaaa-bbbbb', 'ccccc-ddddd'] };
 
   it('sets the cookie from the MFA answer and strips the token from the body', async () => {
     const { handle } = harness(() => json(200, issued));
@@ -255,15 +251,55 @@ describe('token capture (point 3)', () => {
     expect(response.status).toBe(200);
     const text = await response.text();
     expect(text).not.toContain('ksw_s1_');
-    expect(JSON.parse(text)).toEqual({ expiresAt: EXPIRES, user: issued.user, backupCodes: ['x1'] });
+    expect(JSON.parse(text)).toEqual({ expiresAt: EXPIRES, user });
     expect(setCookies(response)).toEqual([`__Host-kasuwa_session=${TOKEN}; Max-Age=43200; Path=/; HttpOnly; Secure; SameSite=Lax`]);
   });
 
-  it('does the same for enrolment confirmation', async () => {
-    const { handle } = harness(() => json(200, issued));
+  it('does the same for enrolment confirmation, keeping the backup codes', async () => {
+    const { handle } = harness(() => json(200, confirmed));
     const response = await handle(request('/api/v1/auth/mfa/enrol/confirm', { method: 'POST', headers: JSON_WRITE, body: '{}' }));
-    expect(await response.text()).not.toContain('ksw_s1_');
+    const text = await response.text();
+    expect(text).not.toContain('ksw_s1_');
+    expect(JSON.parse(text)).toEqual({ expiresAt: EXPIRES, user, backupCodes: confirmed.backupCodes });
     expect(setCookies(response)).toHaveLength(1);
+  });
+
+  // D-L181 B1. Both of these passed the token straight to the page before:
+  // a token route's non-JSON answer used to stream through untouched.
+  it.each([
+    ['text/plain', { 'content-type': 'text/plain' }],
+    ['no content type', {}],
+  ])('fails closed on a token route answering %s, whatever the body says', async (_label, typeHeaders) => {
+    const { handle } = harness(() => new Response(JSON.stringify(issued), { status: 200, headers: typeHeaders }));
+    const response = await handle(request('/api/v1/auth/mfa', { method: 'POST', headers: JSON_WRITE, body: '{}' }));
+    // Parsed as the contract regardless of type: a well-formed body is captured, never streamed.
+    expect(await response.text()).not.toContain('ksw_s1_');
+    expect(response.headers.get('content-type')).toMatch(/^application\/json/);
+  });
+
+  it.each([
+    ['text/plain', { 'content-type': 'text/plain' }, `token=${TOKEN}`],
+    ['no content type', {}, `${TOKEN}`],
+  ])('answers 502 to a token route answering %s that is not the contract', async (_label, typeHeaders, body) => {
+    const { handle } = harness(() => new Response(body, { status: 200, headers: typeHeaders }));
+    const response = await handle(request('/api/v1/auth/mfa', { method: 'POST', headers: JSON_WRITE, body: '{}' }));
+    expect(response.status).toBe(502);
+    expect(await response.text()).not.toContain('ksw_s1_');
+    expect(setCookies(response)).toEqual([]);
+  });
+
+  it('answers 502 to a token answer with any key the contract does not name, at any level', async () => {
+    for (const body of [
+      { ...issued, refreshToken: 'x' },
+      { ...issued, user: { ...user, sessionId: 's' } },
+      { ...issued, backupCodes: ['a'] },
+      { ...issued, tokenType: 'MAC' },
+    ]) {
+      const { handle } = harness(() => json(200, body));
+      const response = await handle(request('/api/v1/auth/mfa', { method: 'POST', headers: JSON_WRITE, body: '{}' }));
+      expect(response.status, JSON.stringify(Object.keys(body))).toBe(502);
+      expect(setCookies(response)).toEqual([]);
+    }
   });
 
   it('answers 502 rather than pass on a token answer it cannot parse', async () => {
@@ -290,6 +326,7 @@ describe('token capture (point 3)', () => {
 
   it('revokes the session it replaces (one session per profile, I10)', async () => {
     const { handle, sent } = harness((entry) => (entry.url.endsWith('/auth/mfa') ? json(200, issued) : new Response(null, { status: 204 })));
+    // (the replaced session's revocation is the second upstream call)
     const response = await handle(request('/api/v1/auth/mfa', { method: 'POST', headers: { ...JSON_WRITE, cookie: cookie(OLD) }, body: '{}' }));
     expect(response.status).toBe(200);
     expect(sent[0]?.headers.has('authorization')).toBe(false);
@@ -395,5 +432,61 @@ describe('errors and the wire (points 1 and 6)', () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('');
     expect(sent[0]?.method).toBe('HEAD');
+  });
+});
+
+describe('no token on any other answer (D-L181 N1)', () => {
+  it.each([
+    [200, { data: [{ note: `${TOKEN}` }] }],
+    [404, { code: 'not_found', hint: TOKEN }],
+    [401, { code: 'not_authenticated', nested: { deep: [{ [TOKEN]: 1 }] } }],
+  ])('answers 502 to a %s JSON answer carrying the prefix anywhere', async (status, body) => {
+    const { handle } = harness(() => json(status, body));
+    const response = await handle(request('/api/v1/contacts', { headers: { cookie: cookie(OLD) } }));
+    expect(response.status).toBe(502);
+    expect(await response.text()).not.toContain('ksw_s1_');
+  });
+
+  it('sees an escaped prefix too', () => {
+    expect(carriesSessionToken('{"a":"\\u006bsw_s1_x"}')).toBe(true);
+    expect(carriesSessionToken('{"a":"kswXs1"}')).toBe(false);
+    expect(carriesSessionToken('not json')).toBe(false);
+  });
+
+  it('keeps streaming a non-JSON answer untouched', async () => {
+    const { handle } = harness(() => new Response(`id,note\n1,${TOKEN}\n`, { status: 200, headers: { 'content-type': 'text/csv' } }));
+    const response = await handle(request('/api/v1/admin/audit/export', { headers: { cookie: cookie(TOKEN) } }));
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('id,note');
+  });
+
+  it('caps a buffered JSON answer at 8 MiB (D-L181 N6)', async () => {
+    const big = `{"pad":"${'a'.repeat(MAX_UPSTREAM_JSON_BYTES)}"}`;
+    const { handle } = harness(() => new Response(big, { status: 200, headers: { 'content-type': 'application/json' } }));
+    const response = await handle(request('/api/v1/contacts', { headers: { cookie: cookie(TOKEN) } }));
+    expect(response.status).toBe(502);
+  });
+});
+
+describe('what counts as a body (D-L181 N5)', () => {
+  it('passes an empty body stream as bodyless, whatever Content-Length claims', async () => {
+    const { handle, sent } = harness(() => new Response(null, { status: 204 }));
+    const lying = new Request(`${WEB}/api/v1/auth/sign-out`, { method: 'POST', headers: { ...WRITE, 'content-length': '5', cookie: cookie(TOKEN) }, body: '' });
+    const response = await handle(lying);
+    expect(response.status).toBe(204);
+    expect(sent[0]?.body).toBeUndefined();
+  });
+
+  it('refuses bytes with no JSON type even when no length header announced them', async () => {
+    const { handle, sent } = harness();
+    const chunked = new Request(`${WEB}/api/v1/contacts`, {
+      method: 'POST',
+      headers: { ...WRITE, cookie: cookie(TOKEN) },
+      body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('a=1')); controller.close(); } }),
+      duplex: 'half',
+    } as RequestInit);
+    const response = await handle(chunked);
+    expect(response.status).toBe(403);
+    expect(sent).toHaveLength(0);
   });
 });
