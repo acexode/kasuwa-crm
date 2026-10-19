@@ -44,13 +44,20 @@ describe('the duplicates client (T-0097)', () => {
   });
 
   it('reads a set as served and refuses one that carries a score or a matched value’s shape it does not know', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => answer({ data: [{ matchOn: 'phone', contacts: [{ id: ID, displayName: null, updatedAt: 'x' }, { id: OTHER, displayName: 'A', updatedAt: 'y' }] }], nextCursor: 'next' })));
+    vi.stubGlobal('fetch', vi.fn(async () => answer({ data: [{ matchOn: 'phone', contacts: [{ id: ID, displayName: null, updatedAt: '2026-10-10T09:00:00Z' }, { id: OTHER, displayName: 'A', updatedAt: '2026-10-11T09:00:00Z' }] }], nextCursor: 'next' })));
     const read = await listDuplicates(PROGRAMME);
     expect(read.ok && read.value.data[0]?.contacts[0]?.displayName).toBeNull();
     expect(read.ok && read.value.nextCursor).toBe('next');
     // A set of one, or a match on something else, is not the contract's: a connection-class failure, never a draw.
     vi.stubGlobal('fetch', vi.fn(async () => answer({ data: [{ matchOn: 'name', contacts: [] }], nextCursor: null })));
     expect(await listDuplicates(PROGRAMME)).toEqual({ ok: false, error: { code: 'network' } });
+  });
+
+  it('refuses an id that is not a uuid and a time that is not a date-time (N9)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => answer({ data: [{ matchOn: 'phone', contacts: [{ id: 'x', displayName: 'a', updatedAt: '2026-10-10T09:00:00Z' }, { id: OTHER, displayName: 'b', updatedAt: '2026-10-10T09:00:00Z' }] }], nextCursor: null })));
+    expect(await listDuplicates(PROGRAMME)).toEqual({ ok: false, error: { code: 'network' } });
+    vi.stubGlobal('fetch', vi.fn(async () => answer({ data: [{ ...MERGE, undoUntil: 'next month' }], nextCursor: null })));
+    expect(await listContactMerges()).toEqual({ ok: false, error: { code: 'network' } });
   });
 
   it('carries Retry-After from a 429 as whole seconds, and nothing from a header it cannot read', async () => {

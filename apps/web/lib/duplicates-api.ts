@@ -33,11 +33,14 @@ export const MATCH_ON = ['phone', 'email'] as const;
 export const MatchOn = z.enum(MATCH_ON);
 export type MatchOn = z.infer<typeof MatchOn>;
 
+const Id = z.string().uuid();
+const Instant = z.string().datetime();
+
 const DuplicateContact = z.object({
-  id: z.string(),
+  id: Id,
   /** `null` when field security withholds it: drawn as a label, never as the word "null". */
   displayName: z.string().nullable(),
-  updatedAt: z.string(),
+  updatedAt: Instant,
 });
 export type DuplicateContact = z.infer<typeof DuplicateContact>;
 
@@ -95,18 +98,18 @@ const ContactMergePreview = z.object({
 });
 export type ContactMergePreview = z.infer<typeof ContactMergePreview>;
 
-const MergeParty = z.object({ id: z.string(), displayName: z.string().nullable() });
+const MergeParty = z.object({ id: Id, displayName: z.string().nullable() });
 
 const ContactMerge = z.object({
-  id: z.string(),
-  programmeId: z.string(),
+  id: Id,
+  programmeId: Id,
   survivor: MergeParty,
   merged: MergeParty,
-  mergedByUserId: z.string(),
-  mergedAt: z.string(),
-  undoUntil: z.string(),
-  undoneAt: z.string().nullable(),
-  undoneByUserId: z.string().nullable(),
+  mergedByUserId: Id,
+  mergedAt: Instant,
+  undoUntil: Instant,
+  undoneAt: Instant.nullable(),
+  undoneByUserId: Id.nullable(),
   survivorReverted: z.boolean().nullable(),
 });
 export type ContactMerge = z.infer<typeof ContactMerge>;
