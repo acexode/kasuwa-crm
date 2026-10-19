@@ -52,7 +52,7 @@ const DEMO_FLAGS = [
   'admin_live_api',
 ];
 /** Flags added to the demo automatically once their task has merged. */
-const DEMO_FLAGS_WHEN_PRESENT = ['crm_custom_fields'];
+const DEMO_FLAGS_WHEN_PRESENT = ['crm_custom_fields', 'crm_import', 'crm_duplicates', 'crm_notifications'];
 
 const PORTS = { web: 3000, api: 3001, realtime: 3002 };
 
