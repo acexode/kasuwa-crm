@@ -19,6 +19,7 @@ const MARKER = 'n0t-a-pw-unit-91x';
 const DATABASE_URL = `postgres://kasuwa_app:${MARKER}@localhost:5432/kasuwa`;
 const MIGRATION_URL = `postgres://kasuwa_migrator:${MARKER}@localhost:5432/kasuwa`;
 const AUTH_URL = `postgres://kasuwa_auth:${MARKER}@localhost:5432/kasuwa`;
+const RELAY_URL = `postgres://kasuwa_relay:${MARKER}@localhost:5432/kasuwa`;
 
 /** apiEnv and workerEnv refuse an unset NODE_ENV (D-L95), so fixtures name one. */
 const DEV: EnvSource = { NODE_ENV: 'development' };
@@ -100,7 +101,7 @@ describe('api environment', () => {
 
     it('is carried by no other process schema', () => {
       const worker: Record<string, unknown> = {
-        ...workerEnv({ ...DEV, DATABASE_URL, DATABASE_AUTH_URL: AUTH_URL }),
+        ...workerEnv({ ...DEV, DATABASE_URL, DATABASE_RELAY_URL: RELAY_URL, DATABASE_AUTH_URL: AUTH_URL }),
       };
       const realtime: Record<string, unknown> = {
         ...realtimeEnv({ DATABASE_AUTH_URL: AUTH_URL }),
@@ -124,7 +125,12 @@ describe('per-process schemas parse only what their process needs', () => {
   it('the worker needs DATABASE_URL (T-0045) and never keeps the migrator URL', () => {
     expect(() => workerEnv({ ...DEV })).toThrow(/DATABASE_URL/);
     const env: Record<string, unknown> = {
-      ...workerEnv({ ...DEV, DATABASE_URL, DATABASE_MIGRATION_URL: MIGRATION_URL }),
+      ...workerEnv({
+        ...DEV,
+        DATABASE_URL,
+        DATABASE_RELAY_URL: RELAY_URL,
+        DATABASE_MIGRATION_URL: MIGRATION_URL,
+      }),
     };
     expect(env.DATABASE_URL).toBe(DATABASE_URL);
     expect(env).not.toHaveProperty('DATABASE_MIGRATION_URL');
@@ -137,6 +143,7 @@ describe('per-process schemas parse only what their process needs', () => {
   it('refuses a production worker on the local key provider', () => {
     const production = {
       DATABASE_URL,
+      DATABASE_RELAY_URL: RELAY_URL,
       NODE_ENV: 'production',
       KASUWA_AUTH_MODE: 'jwt',
     } satisfies EnvSource;
@@ -146,12 +153,52 @@ describe('per-process schemas parse only what their process needs', () => {
 
   it('reads each process its own settings', () => {
     expect(
-      workerEnv({ ...DEV, DATABASE_URL, REDIS_URL: 'redis://cache.example:6379' }).REDIS_URL,
+      workerEnv({
+        ...DEV,
+        DATABASE_URL,
+        DATABASE_RELAY_URL: RELAY_URL,
+        REDIS_URL: 'redis://cache.example:6379',
+      }).REDIS_URL,
     ).toBe('redis://cache.example:6379');
     expect(realtimeEnv({ REALTIME_PORT: '4002' }).REALTIME_PORT).toBe(4002);
     expect(migratorEnv({ DATABASE_MIGRATION_URL: MIGRATION_URL }).DATABASE_MIGRATION_URL).toBe(
       MIGRATION_URL,
     );
+  });
+
+  describe('the relay connection (T-0098, ADR-0018)', () => {
+    it('the worker requires DATABASE_RELAY_URL, returns it, and never echoes it', () => {
+      expect(workerEnv({ ...DEV, DATABASE_URL, DATABASE_RELAY_URL: RELAY_URL }).DATABASE_RELAY_URL).toBe(
+        RELAY_URL,
+      );
+      expect(() => workerEnv({ ...DEV, DATABASE_URL })).toThrow(/DATABASE_RELAY_URL/);
+      let message = '';
+      try {
+        workerEnv({ ...DEV, DATABASE_URL, DATABASE_RELAY_URL: `not a url ${MARKER}` });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toMatch(/DATABASE_RELAY_URL/);
+      expect(message).not.toContain(MARKER);
+    });
+
+    it.each([
+      ['apiEnv', () => apiEnv({ ...API_BASE, DATABASE_RELAY_URL: RELAY_URL })],
+      ['apiEnv (empty)', () => apiEnv({ ...API_BASE, DATABASE_RELAY_URL: '' })],
+      ['realtimeEnv', () => realtimeEnv({ DATABASE_RELAY_URL: RELAY_URL })],
+      ['migratorEnv', () => migratorEnv({ DATABASE_RELAY_URL: RELAY_URL })],
+      ['webEnv', () => webEnv({ DATABASE_RELAY_URL: RELAY_URL })],
+      ['webBuildEnv', () => webBuildEnv({ DATABASE_RELAY_URL: RELAY_URL })],
+    ])('%s refuses it by presence, naming it and not echoing it', (_name, parse) => {
+      let message = '(it did not throw)';
+      try {
+        parse();
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toMatch(/DATABASE_RELAY_URL: must not be set/u);
+      expect(message).not.toContain(MARKER);
+    });
   });
 
   it('judges the object it is given, not process.env', () => {
@@ -176,6 +223,7 @@ describe('web environment', () => {
       'KASUWA_KMS_LOCAL_MASTER_KEY',
       'S3_ACCESS_KEY_ID',
       'S3_SECRET_ACCESS_KEY',
+      'S3_ENDPOINT',
       'REDIS_URL',
       'OPENSEARCH_URL',
     ]) {
@@ -303,7 +351,13 @@ describe('stub auth guard', () => {
   it('refuses at parse time in every process schema, explicit or defaulted', () => {
     const server: EnvSource = { ...API_BASE, NODE_ENV: 'production' };
     for (const parse of [apiEnv, workerEnv, realtimeEnv, migratorEnv, webEnv]) {
-      const env = parse === webEnv ? { NODE_ENV: 'production' } : server;
+      // The worker also requires its relay URL (T-0098), which the others refuse.
+      const env =
+        parse === webEnv
+          ? { NODE_ENV: 'production' }
+          : parse === workerEnv
+            ? { ...server, DATABASE_RELAY_URL: RELAY_URL }
+            : server;
       expect(() => parse({ ...env, KASUWA_AUTH_MODE: 'stub' }), parse.name).toThrow(
         /Refusing to start/,
       );

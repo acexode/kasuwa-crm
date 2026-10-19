@@ -112,6 +112,14 @@ export const AUDIT_VALUE_POLICY: Readonly<Record<AuditObjectType, ValuePolicy>> 
   // ids only (x-kasuwa-audit-names); never an answer, a note or a node id.
   script_run: CONFIGURATION,
   deal: { kind: 'field_secured', object: 'deal', valueFields: DEAL_VALUE_FIELDS },
+  // T-0089: a definition's api name, type, classification and labels are
+  // tenant configuration (definitions are tenant-public, D-L141). It never
+  // carries a custom VALUE: those are audited on the record, by key only.
+  custom_field: CONFIGURATION,
+  // T-0094: an import's and a stored file's events carry ids, statuses and
+  // counts only; never a filename, a header, a key or a cell.
+  import_job: CONFIGURATION,
+  stored_object: CONFIGURATION,
 };
 
 /** An object type outside the closed list: nothing in it is readable. */

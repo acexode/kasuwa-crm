@@ -336,6 +336,10 @@ function startApi(databaseUrl, authDatabaseUrl, port) {
       // kasuwa_auth: the only role that may write the auth tables (T-0049).
       // The API refuses to boot without it.
       DATABASE_AUTH_URL: authDatabaseUrl,
+      // The outbox relay's connection is the worker's alone (ADR-0018,
+      // D-L156), and the API refuses it by presence: never inherit one from
+      // the shell. This harness starts no worker.
+      DATABASE_RELAY_URL: undefined,
       API_PORT: String(port),
       LOG_LEVEL: 'error',
     },
@@ -362,9 +366,11 @@ const NO_DATABASE_URLS = {
   DATABASE_URL: undefined,
   DATABASE_MIGRATION_URL: undefined,
   DATABASE_AUTH_URL: undefined,
+  DATABASE_RELAY_URL: undefined,
   KASUWA_KMS_LOCAL_MASTER_KEY: undefined,
   S3_ACCESS_KEY_ID: undefined,
   S3_SECRET_ACCESS_KEY: undefined,
+  S3_ENDPOINT: undefined,
   REDIS_URL: undefined,
   OPENSEARCH_URL: undefined,
 };
@@ -584,6 +590,17 @@ function startSelfServeWeb(apiUrl, port) {
  * `/leads` and `/accounts`, all served here. Published as `webSearchUrl`; the
  * `/search` byte budget is measured on this build, and the palette's weight
  * (loaded on first open only) is held by every other screen's budget here.
+ * `crm_custom_fields` RIDES HERE TOO (T-0090): the P18 studio at
+ * `/admin/custom-fields`, inside the admin console this process serves like
+ * every other (the admin routes are not flag-gated). The settings menu's
+ * "Fields" entry links it only where the flag is on, so the default server
+ * stays flagless and unlinked. Published as `webStudioUrl`; the studio's byte
+ * budget is measured on this build.
+ * `crm_import` RIDES HERE TOO (T-0096): the P28 import wizard at
+ * `/contacts/import`. The Contacts list that links it, and that the report's
+ * "view the imported contacts" link lands on with `?importId=`, is served
+ * here, and the CRM shell's links all resolve. Published as `webImportUrl`;
+ * the screen's byte budget is measured on this build.
  */
 function startRecordsWeb(apiUrl, port) {
   const child = spawnGroup('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
@@ -598,7 +615,7 @@ function startRecordsWeb(apiUrl, port) {
       KASUWA_AUTH_MODE: 'jwt',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
-      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities,crm_scripts,crm_pipeline,crm_search',
+      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities,crm_scripts,crm_pipeline,crm_search,crm_custom_fields,crm_import',
       ...NO_DATABASE_URLS,
     },
   });
@@ -769,13 +786,13 @@ async function main() {
     await Promise.all([
       waitForHttp(webUrl, 'the web app'),
       waitForHttp(webSelfServeUrl, 'the self-serve web app'),
-      waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view, crm_leads, crm_activities, crm_scripts, crm_pipeline and crm_search web app'),
+      waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view, crm_leads, crm_activities, crm_scripts, crm_pipeline, crm_search, crm_custom_fields and crm_import web app'),
     ]);
     restoreNextEnv(nextEnv);
     log(`web (next start, production build) on ${webUrl}`);
     log(`web (next dev, self_serve_signup + admin_live_api on) on ${webSelfServeUrl}`);
     log(
-      `web (next start, production build, crm_records + crm_accounts + crm_record_view + crm_leads + crm_activities + crm_scripts + crm_pipeline + crm_search on) on ${webRecordsUrl}`,
+      `web (next start, production build, crm_records + crm_accounts + crm_record_view + crm_leads + crm_activities + crm_scripts + crm_pipeline + crm_search + crm_custom_fields + crm_import on) on ${webRecordsUrl}`,
     );
   }
 
@@ -793,9 +810,9 @@ async function main() {
     `${JSON.stringify(
       // `webLiveUrl` is the same process as `webSelfServeUrl`, and
       // `webAccountsUrl`, `webRecordViewUrl`, `webLeadsUrl`, `webActivitiesUrl` and
-      // `webScriptsUrl`, `webPipelineUrl` and `webSearchUrl` as `webRecordsUrl`; the
+      // `webScriptsUrl`, `webPipelineUrl`, `webSearchUrl` and `webStudioUrl` as `webRecordsUrl`; the
       // second name says which flag a spec is relying on (T-0035, T-0057, T-0062,
-      // T-0058, T-0083, T-0115, T-0116, T-0109 and T-0087).
+      // T-0058, T-0083, T-0115, T-0116, T-0109, T-0087 and T-0090).
       {
         webUrl,
         webSelfServeUrl,
@@ -808,6 +825,8 @@ async function main() {
         webScriptsUrl: webRecordsUrl,
         webPipelineUrl: webRecordsUrl,
         webSearchUrl: webRecordsUrl,
+        webStudioUrl: webRecordsUrl,
+        webImportUrl: webRecordsUrl,
         apiUrl,
         fixturesUrl,
       },

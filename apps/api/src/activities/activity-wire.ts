@@ -5,6 +5,7 @@ import {
   type ActivityType,
   type WithholdableActivityField,
 } from '@kasuwa/domain-core';
+import type { CustomWire } from '../custom-fields/custom-values';
 
 /**
  * `#/components/schemas/Activity` on the wire, field security applied
@@ -38,10 +39,20 @@ export interface ActivityWire {
   version: number;
   createdAt: string;
   updatedAt: string;
-  withheldFields: WithholdableActivityField[];
+  /**
+   * T-0089: custom values readable in the activity's programme (on the create
+   * and update answers, the only activity reads, V13); withheld keys listed
+   * as `custom.<key>`.
+   */
+  custom: Record<string, unknown>;
+  withheldFields: (WithholdableActivityField | `custom.${string}`)[];
 }
 
-export function toActivityWire(activity: Activity, access: ActivityFieldAccess): ActivityWire {
+export function toActivityWire(
+  activity: Activity,
+  access: ActivityFieldAccess,
+  custom: CustomWire,
+): ActivityWire {
   const withheld = withheldActivityFields(access, activity.programmeId);
   const readable: Partial<Record<WithholdableActivityField, unknown>> = {
     subject: activity.subject,
@@ -65,6 +76,7 @@ export function toActivityWire(activity: Activity, access: ActivityFieldAccess):
     version: activity.version,
     createdAt: activity.createdAt.toISOString(),
     updatedAt: activity.updatedAt.toISOString(),
-    withheldFields: withheld,
+    custom: custom.custom,
+    withheldFields: [...withheld, ...(custom.withheld as `custom.${string}`[])],
   };
 }

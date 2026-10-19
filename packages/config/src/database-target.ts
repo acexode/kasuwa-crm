@@ -70,6 +70,7 @@ export const DEV_DATABASE_PASSWORDS: readonly string[] = Object.freeze([
   'kasuwa_migrator_dev',
   'kasuwa_app_dev',
   'kasuwa_auth_dev',
+  'kasuwa_relay_dev',
   'kasuwa_test_admin_dev',
   'postgres',
 ]);
@@ -315,4 +316,22 @@ export function assertMigrationTargetIsSafe(
     );
   }
   return { enforce: true, nodeEnv: parsed.NODE_ENV };
+}
+
+/**
+ * Destructive dev tools (`db:reset`, and any later one) need NODE_ENV set
+ * EXPLICITLY (T-0122, D-L103). The migration runner lets an unset NODE_ENV
+ * through when the URL is loopback (D-L95), because a real cell's next boot
+ * catches it; a DROP cannot be caught later, and loopback includes
+ * `kubectl port-forward` and cloud-sql-proxy tunnels. Call this FIRST, before
+ * any connection. The message names the variable only: no URL, host or port.
+ * An empty or unrecognised value is left to `assertMigrationTargetIsSafe`.
+ */
+export function assertExplicitNodeEnv(toolName: string, source: EnvSource = process.env): void {
+  if (source.NODE_ENV === undefined) {
+    throw new Error(
+      `${toolName} refuses to run with NODE_ENV unset. Set NODE_ENV=development ` +
+        '(or test) explicitly; nothing was changed.',
+    );
+  }
 }

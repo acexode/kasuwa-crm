@@ -91,6 +91,44 @@ const MIGRATION_URL_SELECTORS = [
 ];
 
 /**
+ * Only `packages/storage-adapter` may import an S3 SDK (CLAUDE.md 2.8,
+ * ADR-0017 Decision 1, T-0092). Every `no-restricted-imports` block below
+ * restates this pattern, because the rule is one rule and a later block
+ * replaces an earlier one for the files it matches; the storage adapter's own
+ * block is the one place it is left out.
+ */
+const AWS_SDK_PATTERN = {
+  // @smithy/* is the SDK's own runtime (D-L155): importing it is naming the
+  // SDK by another route.
+  group: ['@aws-sdk/*', '@smithy/*'],
+  message:
+    'Only @kasuwa/storage-adapter may import an @aws-sdk or @smithy package (CLAUDE.md 2.8, ADR-0017). Use its ObjectStore port.',
+};
+/** The adapter has one entry point (package.json `exports`); its internals mint keys from rows (D-L155). */
+const STORAGE_ADAPTER_DEEP_PATTERN = {
+  group: ['@kasuwa/storage-adapter/*'],
+  message:
+    'Import @kasuwa/storage-adapter from its main entry. Its internals rebuild storage keys and must not be reachable.',
+};
+/** Every runtime package: the fake keeps bytes in process memory. */
+const FAKE_OBJECT_STORE_PATH = {
+  name: '@kasuwa/storage-adapter',
+  importNames: ['FakeObjectStore'],
+  message: 'The in-memory object store keeps bytes in process memory. It belongs in tests only.',
+};
+/**
+ * Apps and domains (D-L155): the fake, and `tenantStoragePrefix`, which
+ * deletes a whole tenant's files. Only a future operator offboarding module
+ * may import it, and that module must audit the call.
+ */
+const STORAGE_ADAPTER_APP_PATH = {
+  name: '@kasuwa/storage-adapter',
+  importNames: ['FakeObjectStore', 'tenantStoragePrefix'],
+  message:
+    'FakeObjectStore is for tests only. tenantStoragePrefix deletes a tenant’s files: only an audited operator offboarding module may import it (D-L155).',
+};
+
+/**
  * What app code may not import (the `apps/**` block below). Shared so that the
  * apps/web block, which replaces it there, can restate it rather than drift.
  */
@@ -105,6 +143,7 @@ const APP_RESTRICTED_IMPORT_PATHS = [
     message:
       'The channel fakes send nothing and clear every DND lookup. They belong in tests only.',
   },
+  STORAGE_ADAPTER_APP_PATH,
   {
     name: '@kasuwa/domain-core',
     importNames: ['provisionTenant'],
@@ -113,10 +152,17 @@ const APP_RESTRICTED_IMPORT_PATHS = [
   },
 ];
 const APP_RESTRICTED_IMPORT_PATTERNS = [
+  AWS_SDK_PATTERN,
+  STORAGE_ADAPTER_DEEP_PATTERN,
   {
     group: ['@kasuwa/domain-core/*'],
     message:
       'Import @kasuwa/domain-core from its main entry. Operator-only code must not be reachable from apps.',
+  },
+  {
+    group: ['@kasuwa/metadata-engine/*'],
+    message:
+      "@kasuwa/metadata-engine's sub-paths are for @kasuwa/domain-core only: loadFieldAccessForUser reads ANOTHER user's access (T-0100, D-L174).",
   },
 ];
 const WEB_CONFIG_IMPORT_MESSAGE =
@@ -225,6 +271,53 @@ export default tseslint.config(
               message:
                 'The isolation harness can forge RLS session variables. It belongs in tests only.',
             },
+            FAKE_OBJECT_STORE_PATH,
+          ],
+          patterns: [AWS_SDK_PATTERN, STORAGE_ADAPTER_DEEP_PATTERN],
+        },
+      ],
+    },
+  },
+
+  {
+    // The same for plain JavaScript (D-L155): a .js or .mjs file is exactly
+    // where an SDK import would otherwise slip past a TypeScript-only rule.
+    // Later blocks (apps/**, apps/web/**, the adapter's own) replace this one
+    // for their files and restate it.
+    files: ['**/*.{js,mjs,cjs,jsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@kasuwa/testing',
+              message:
+                'The isolation harness can forge RLS session variables. It belongs in tests only.',
+            },
+            FAKE_OBJECT_STORE_PATH,
+          ],
+          patterns: [AWS_SDK_PATTERN, STORAGE_ADAPTER_DEEP_PATTERN],
+        },
+      ],
+    },
+  },
+
+  {
+    // The storage adapter is the ONE package that may import an S3 SDK
+    // (ADR-0017). This block replaces the two above for its files only, so it
+    // restates the @kasuwa/testing ban and leaves out AWS_SDK_PATTERN.
+    files: ['packages/storage-adapter/**/*.{ts,tsx,js,mjs,cjs,jsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@kasuwa/testing',
+              message:
+                'The isolation harness can forge RLS session variables. It belongs in tests only.',
+            },
           ],
         },
       ],
@@ -255,7 +348,9 @@ export default tseslint.config(
               message:
                 'The channel fakes send nothing and clear every DND lookup. They belong in tests only.',
             },
+            STORAGE_ADAPTER_APP_PATH,
           ],
+          patterns: [AWS_SDK_PATTERN, STORAGE_ADAPTER_DEEP_PATTERN],
         },
       ],
     },

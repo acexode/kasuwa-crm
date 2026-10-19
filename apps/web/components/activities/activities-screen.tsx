@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useReadOnlyKeys } from '../custom/use-custom-fields';
 import { useCallback, useState } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
@@ -76,15 +77,19 @@ export function ActivitiesScreen({
   messages,
   locales,
   live,
+  customFields = false,
 }: {
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
   /** Nav ids whose route is on here (`crmLiveNav()`), for the shell's links. */
   live: readonly string[];
+  /** Custom values are on in this process (read by the server page): the composer offers the activity's fields (T-0091). */
+  customFields?: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const data = useActivities();
+  const activityKeys = useReadOnlyKeys();
   const [view, setView] = useState<View>('tasks');
   const [composing, setComposing] = useState(false);
   const [rescheduling, setRescheduling] = useState<MyActivity | null>(null);
@@ -247,7 +252,7 @@ export function ActivitiesScreen({
         )}
       </div>
 
-      {composing ? <ActivityComposer t={t} offline={offline} whoAmI={data.whoAmI} onSave={compose} onClose={() => setComposing(false)} /> : null}
+      {composing ? <ActivityComposer t={t} offline={offline} whoAmI={data.whoAmI} onSave={compose} onClose={() => setComposing(false)} customFields={customFields} readOnlyStore={activityKeys} /> : null}
       {rescheduling === null ? null : (
         <RescheduleForm
           t={t}

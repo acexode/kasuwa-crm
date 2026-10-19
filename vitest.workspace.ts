@@ -23,10 +23,13 @@ const alias = {
   '@kasuwa/config': resolve(root, 'packages/config/src/index.ts'),
   '@kasuwa/db': resolve(root, 'packages/db/src/index.ts'),
   '@kasuwa/permissions': resolve(root, 'packages/permissions/src/index.ts'),
+  // Longer key first (prefix match): domain-core's sub-path-only loader.
+  '@kasuwa/metadata-engine/field-access-for-user': resolve(root, 'packages/metadata-engine/src/field-access-for-user.ts'),
   '@kasuwa/metadata-engine': resolve(root, 'packages/metadata-engine/src/index.ts'),
   '@kasuwa/telephony-adapter': resolve(root, 'packages/telephony-adapter/src/index.ts'),
   '@kasuwa/channel-adapter': resolve(root, 'packages/channel-adapter/src/index.ts'),
   '@kasuwa/wfm-adapter': resolve(root, 'packages/wfm-adapter/src/index.ts'),
+  '@kasuwa/storage-adapter': resolve(root, 'packages/storage-adapter/src/index.ts'),
   // Longer key first (prefix match): the operator-only provisioning subpath.
   '@kasuwa/domain-core/provisioning': resolve(root, 'packages/domain/core/src/provisioning.ts'),
   '@kasuwa/domain-core': resolve(root, 'packages/domain/core/src/index.ts'),

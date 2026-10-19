@@ -130,8 +130,18 @@ const WEB_PROD_SAFE: Env = {
   NEXT_PUBLIC_API_URL: 'https://api.example.test',
 };
 
+/**
+ * The relay's own connection (T-0098, ADR-0018, D-L156). workerEnv requires
+ * it and every other process refuses it by presence, so it is added for the
+ * worker alone rather than to SERVER_PROD_SAFE, which apiEnv and realtimeEnv
+ * share.
+ */
+const DATABASE_RELAY_URL = `postgres://kasuwa_relay:${LEAK_MARKER}@db.internal.example:5432/kasuwa`;
+
 function productionSafeFor(name: ProcessName): Env {
-  return name === 'webEnv' ? WEB_PROD_SAFE : SERVER_PROD_SAFE;
+  if (name === 'webEnv') return WEB_PROD_SAFE;
+  if (name === 'workerEnv') return { ...SERVER_PROD_SAFE, DATABASE_RELAY_URL };
+  return SERVER_PROD_SAFE;
 }
 
 function without(env: Env, key: string): Env {

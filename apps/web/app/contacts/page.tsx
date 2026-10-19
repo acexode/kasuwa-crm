@@ -1,10 +1,12 @@
 import { notFound } from 'next/navigation';
 import { bundleMessages } from '@kasuwa/i18n';
 import { ContactsScreen } from '../../components/contacts/contacts-screen';
-import { CONTACTS_MESSAGE_IDS } from '../../components/contacts/message-ids';
-import { crmLiveNav, crmRecordsEnabled } from '../../lib/feature-flags';
+import { CONTACTS_IMPORT_MESSAGE_IDS, CONTACTS_MESSAGE_IDS } from '../../components/contacts/message-ids';
+import { crmCustomFieldsEnabled, crmLiveNav, crmRecordsEnabled } from '../../lib/feature-flags';
+import { withCustomMessages } from '../../components/custom/message-ids';
 import { withSearchMessages } from '../../components/search/message-ids';
 import { activeLocale, languageOptions } from '../../lib/locale';
+import { importIdFromUrl } from '../../lib/import-model';
 import { nameFromUrl } from '../../lib/search-query';
 
 /**
@@ -31,8 +33,12 @@ export default async function ContactsPage({
   }
   const { locale } = await activeLocale();
   const live = await crmLiveNav();
+  const customFields = await crmCustomFieldsEnabled();
 
-  const initialQ = nameFromUrl((await searchParams).q);
+  const query = await searchParams;
+  const initialQ = nameFromUrl(query.q);
+  // The report's link (T-0096, I9): honoured only where the import is live, and only as a uuid.
+  const importId = live.includes('import') ? importIdFromUrl(query.importId) : undefined;
 
   return (
     // A render that carries a q is a "see all" (the screen drops q from the
@@ -40,12 +46,14 @@ export default async function ContactsPage({
     // a fresh screen searching that q, even from this same screen's palette and
     // even for the same q twice. Without a q, the key is stable.
     <ContactsScreen
-      key={initialQ === '' ? 'list' : `q:${crypto.randomUUID()}`}
+      key={initialQ === '' ? (importId === undefined ? 'list' : `import:${importId}`) : `q:${crypto.randomUUID()}`}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(CONTACTS_MESSAGE_IDS, live))}
+      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(importId === undefined ? CONTACTS_MESSAGE_IDS : [...CONTACTS_MESSAGE_IDS, ...CONTACTS_IMPORT_MESSAGE_IDS], customFields, 'list'), live))}
       locales={languageOptions(locale)}
       live={live}
       initialQ={initialQ}
+      customFields={customFields}
+      {...(importId === undefined ? {} : { importId })}
     />
   );
 }

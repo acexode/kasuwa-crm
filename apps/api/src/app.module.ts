@@ -1,6 +1,9 @@
 import {
+  Inject,
+  Injectable,
   Module,
   type DynamicModule,
+  type OnApplicationShutdown,
   type MiddlewareConsumer,
   type NestModule,
 } from '@nestjs/common';
@@ -16,11 +19,31 @@ import { AuthController } from './auth/auth.controller';
 import { AuthModule } from './auth/auth.module';
 import type { AuthPolicy } from './auth/auth.policy';
 import { ContactsController } from './contacts/contacts.controller';
+import {
+  BullImportQueues,
+  DisabledImportQueues,
+  IMPORTS_ENABLED_TOKEN,
+  IMPORT_QUEUES_TOKEN,
+  ImportsEnabledGuard,
+  importsEnabled,
+  STORED_OBJECTS_TOKEN,
+  storedObjectsFor,
+  type ImportQueues,
+} from './imports/import-infra';
+import { ImportCommitInterceptor, ImportsController } from './imports/imports.controller';
 import { DatabaseModule } from './database/database.module';
 import { DealsController, PipelineDealsController } from './deals/deals.controller';
 import { HealthController } from './health/health.controller';
 import { LeadsController } from './leads/leads.controller';
+import { DuplicatesThrottleGuard } from './merges/duplicates-throttle.guard';
+import {
+  ContactMergePreviewController,
+  ContactMergesController,
+  DuplicatesController,
+} from './merges/merges.controller';
 import { MeController } from './me/me.controller';
+import { NotificationThrottleGuard } from './notifications/notification-throttle.guard';
+import { NotificationsController } from './notifications/notifications.controller';
 import { PipelinesController } from './pipelines/pipelines.controller';
 import { CHANNEL, createApiChannel } from './messaging/channel';
 import { ContactScriptsController, ScriptRunsController } from './scripts/script-runs.controller';
@@ -61,6 +84,15 @@ export const RECORDS_CONTROLLERS = [
   DealsController,
   // Global search (T-0086): searchRecords and lookupRecords.
   SearchController,
+  // CSV import (T-0094): the nine import operations.
+  ImportsController,
+  // Duplicates, merge and undo (T-0095).
+  DuplicatesController,
+  ContactMergePreviewController,
+  ContactMergesController,
+  // Notifications (T-0100): listNotifications, getNotificationUnreadCount,
+  // updateNotification and markAllNotificationsRead.
+  NotificationsController,
 ];
 
 /**
@@ -161,6 +193,36 @@ export interface AppModuleOptions {
    * default the channel provider uses.
    */
   nodeEnv?: NodeEnvName;
+  /**
+   * Redis, where the import API enqueues its BullMQ jobs (T-0094 interface
+   * A). `main.ts` passes REDIS_URL. Omitted, the import writes that enqueue
+   * answer 503, and every other route is unaffected.
+   */
+  redisUrl?: string;
+  /**
+   * The object store the import API presigns, completes and heads through
+   * (T-0094 interface A), only ever via StoredObjectRepository. `main.ts`
+   * passes an S3ObjectStore built from `storageEnv`. Omitted, the import
+   * routes that touch storage answer 503.
+   */
+  objectStore?: unknown;
+  /**
+   * The `crm_import` feature flag (T-0094, D-L166). `main.ts` passes it from
+   * `@kasuwa/feature-flags`. Off, the import routes answer 404 and the
+   * `importId` filter an empty page. Omitted, the routes are on only when both
+   * `redisUrl` and `objectStore` are given (an in-process boot opting in).
+   */
+  crmImport?: boolean;
+}
+
+/** Closes the import queues' Redis connections with the app. */
+@Injectable()
+class ImportQueuesLifecycle implements OnApplicationShutdown {
+  constructor(@Inject(IMPORT_QUEUES_TOKEN) private readonly queues: ImportQueues) {}
+
+  async onApplicationShutdown(): Promise<void> {
+    await this.queues.close();
+  }
 }
 
 /**
@@ -240,6 +302,24 @@ export class AppModule implements NestModule {
         // The per-user search budgets (T-0086, D-L134): one instance, so one
         // set of counters, for both search routes.
         SearchThrottleGuard,
+        // CSV import (T-0094): the queues, the stored-object repository and
+        // the interceptor that enqueues only after a transaction commits.
+        {
+          provide: IMPORT_QUEUES_TOKEN,
+          useFactory: (): ImportQueues =>
+            options.redisUrl === undefined
+              ? new DisabledImportQueues()
+              : new BullImportQueues(options.redisUrl),
+        },
+        { provide: STORED_OBJECTS_TOKEN, useValue: storedObjectsFor(options.objectStore) },
+        { provide: IMPORTS_ENABLED_TOKEN, useValue: importsEnabled(options) },
+        ImportsEnabledGuard,
+        ImportCommitInterceptor,
+        ImportQueuesLifecycle,
+        // The per-user listDuplicates budget (T-0095, D-L151): one set of counters.
+        DuplicatesThrottleGuard,
+        // The per-user, per-operation notifications budgets (T-0100, D-L134): one set of counters.
+        NotificationThrottleGuard,
         { provide: AUTH_MODE, useValue: options.authMode ?? 'stub' },
         {
           provide: CHANNEL,

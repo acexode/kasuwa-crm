@@ -45,6 +45,9 @@ export const AdminErrorCode = z.enum([
   'too_many_requests',
   'not_implemented',
   'service_unavailable',
+  // T-0088: a custom-field write refused at a limit (`field_limit_reached`,
+  // `picklist_limit_reached` in `details`). Additive.
+  'limit_reached',
   // T-0036: the code on every unexpected 500. Additive; generic copy.
   'internal_error',
 ]);

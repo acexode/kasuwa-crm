@@ -1,3 +1,5 @@
+import { numberingLocale } from './numbering';
+
 /**
  * Deal money on the P06 board (T-0109, D-L88, D-P19): exact, in the
  * currency's own format, for the page's language.
@@ -17,7 +19,7 @@
 
 function numberFormat(locale: string, options: Intl.NumberFormatOptions): Intl.NumberFormat {
   try {
-    return new Intl.NumberFormat(locale, options);
+    return new Intl.NumberFormat(numberingLocale(locale), options);
   } catch {
     return new Intl.NumberFormat('en', options);
   }
@@ -47,8 +49,10 @@ function digitSet(locale: string): readonly string[] {
 
 /**
  * `amountMinor` (a decimal string of minor units) as the active language
- * writes it: `('en', '125050', 'GHS')` is "GH₵1,250.50" in Intl's own symbol,
- * and the fraction is written in the same digits as the whole part. Throws
+ * writes it: `('en', '125050', 'GHS')` is Intl's own cedi mark followed by
+ * "1,250.50" — exactly what `Intl.NumberFormat('en', { style: 'currency',
+ * currency: 'GHS' })` draws for 1250.50, but without passing through a JS
+ * number — and the fraction is written in the same digits as the whole part. Throws
  * `UnreadableAmountError` for anything but a digit run.
  */
 export function formatDealMoney(locale: string, amountMinor: string, currency: string): string {

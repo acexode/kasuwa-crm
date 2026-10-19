@@ -44,6 +44,7 @@ export function AdminShell({
   messages,
   locales,
   activeSettingId,
+  linkedSettings,
   children,
 }: {
   locale: string;
@@ -51,6 +52,14 @@ export function AdminShell({
   locales: readonly LanguageOption[];
   /** Which settings-menu item is the current page, for `aria-current`. */
   activeSettingId: string | null;
+  /**
+   * The flag-gated menu entries that are links in this process, by `settingId`
+   * (`adminLiveNav()`, read on the server by each page). An entry whose screen
+   * is off stays a non-link, like an unbuilt one, so no menu entry leads to a
+   * 404. A prop and not a layout or a context: a layout is a chunk of its own,
+   * and every admin route would pay a request for it on a 256 kbps link.
+   */
+  linkedSettings: Readonly<Record<string, string>>;
   children: ReactNode;
 }) {
   const t = createBundleTranslator(locale, messages);
@@ -256,10 +265,15 @@ export function AdminShell({
                         current ? 'bg-primary-soft font-semibold text-primary-text' : 'text-text-2'
                       }`;
 
-                      return item.href === null ? (
+                      // A flag-gated screen is a link only where its flag is on.
+                      const href = item.href || linkedSettings[item.settingId] || null;
+
+                      return href === null ? (
                         // Not built yet, so not a link. A menu entry that
                         // navigates to a 404 is worse than one that visibly
-                        // does nothing — same rule as the language menu.
+                        // does nothing — same rule as the language menu. It stays
+                        // announced as disabled, so assistive technology hears
+                        // what is coming and that it is not available yet.
                         <span
                           key={item.settingId}
                           data-setting-id={item.settingId}
@@ -271,7 +285,7 @@ export function AdminShell({
                       ) : (
                         <Link
                           key={item.settingId}
-                          href={item.href}
+                          href={href}
                           data-setting-id={item.settingId}
                           aria-current={current ? 'page' : undefined}
                           onClick={() => setDrawerOpen(false)}

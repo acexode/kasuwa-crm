@@ -317,9 +317,18 @@ interface Expected {
   path: string;
   screens: string[];
   params: string[];
+  /**
+   * T-0088 (lead edit, D-L138): parameters admitted but not required here. The custom-field
+   * suite pins their presence; this suite stays green before and after that contract lands.
+   */
+  optionalParams?: string[];
   responses: string[];
   errorOrder: string[];
 }
+
+/** T-0088 (lead edit, D-L138): the custom-field property, admitted on Deal and its bodies, pinned by the T-0088 suite. */
+const CUSTOM_PROPERTY = 'custom';
+const withoutCustom = (keys: string[]): string[] => keys.filter((key) => key !== CUSTOM_PROPERTY);
 
 const PIPELINE_PATH = '/api/v1/pipelines/{pipelineId}';
 const DEAL_PATH = '/api/v1/deals/{dealId}';
@@ -359,6 +368,8 @@ const EXPECTED: Expected[] = [
     path: `${PIPELINE_PATH}/deals`,
     screens: ['P06/01b'],
     params: ['pipelineId', ...FILTERS, 'stageId', 'sort', 'cursor', 'limit'],
+    // T-0088 (lead edit, D-L138): the custom-field filters join the list view.
+    optionalParams: ['custom', 'customEmpty'],
     responses: ['200', '400', '401', '404'],
     errorOrder: ['404 not_found', '400 validation_failed'],
   },
@@ -1160,9 +1171,13 @@ describe('acceptance: records contract, pipelines and deals (T-0105)', () => {
     for (const expected of EXPECTED) {
       it(`${expected.id} takes exactly ${expected.params.join(', ')}`, () => {
         const op = operation(expected.id);
-        expect(op.params.map((parameter) => str(parameter.name)).sort()).toEqual(
-          [...expected.params].sort(),
-        );
+        const optional = expected.optionalParams ?? [];
+        expect(
+          op.params
+            .map((parameter) => str(parameter.name))
+            .filter((name) => !optional.includes(name))
+            .sort(),
+        ).toEqual([...expected.params].sort());
         for (const parameter of op.params) {
           const name = str(parameter.name);
           const where = /Id$/.test(name) && op.path.includes(`{${name}}`) ? 'path' : 'query';
@@ -1880,7 +1895,9 @@ describe('acceptance: records contract, pipelines and deals (T-0105)', () => {
       const deal = schemaNamed('Deal');
       expect(isClosed(deal)).toBe(true);
       expect(required(deal).sort()).toEqual([...NEVER_WITHHELD].sort());
-      expect(keysOf(deal)).toEqual(
+      // T-0088 (lead edit, D-L138): `custom` (the custom-field values) is admitted, never required.
+      expect(required(deal)).not.toContain(CUSTOM_PROPERTY);
+      expect(withoutCustom(keysOf(deal))).toEqual(
         [...NEVER_WITHHELD, ...WITHHOLDABLE, ...DERIVED.map(([derived]) => derived)].sort(),
       );
     });
@@ -1962,7 +1979,8 @@ describe('acceptance: records contract, pipelines and deals (T-0105)', () => {
     it('createDeal takes exactly the editable fields, requires a name, and takes no stage (R3)', () => {
       const body = requestSchema('createDeal');
       expect(isClosed(body)).toBe(true);
-      expect(keysOf(body)).toEqual(
+      // T-0088 (lead edit, D-L138): `custom` (custom-field values at create) is admitted.
+      expect(withoutCustom(keysOf(body))).toEqual(
         [
           'accountId',
           'amount',
@@ -1983,7 +2001,8 @@ describe('acceptance: records contract, pipelines and deals (T-0105)', () => {
     it('updateDeal is version plus the changed fields only, never the stage (D-L102, D-L88)', () => {
       const body = requestSchema('updateDeal');
       expect(isClosed(body)).toBe(true);
-      expect(keysOf(body)).toEqual(
+      // T-0088 (lead edit, D-L138): `custom` (a per-key merge of custom-field values) is admitted.
+      expect(withoutCustom(keysOf(body))).toEqual(
         [
           'accountId',
           'amount',

@@ -50,6 +50,8 @@ export function getDealDetail(id: string): Promise<PipelineResult<DealDetail>> {
  */
 export interface UpdateDealBody {
   readonly version: number;
+  /** A per-key merge of custom-field values (T-0091): only what changed; `null` clears. */
+  readonly custom?: Readonly<Record<string, unknown>>;
   readonly name?: string;
   readonly amount?: DealMoney | null;
   readonly expectedCloseDate?: string | null;
@@ -168,6 +170,8 @@ export interface DealActivityDraft {
   readonly body?: string;
   /** UTC, with a `Z`. Tasks only. */
   readonly dueAt?: string;
+  /** Custom-field values (T-0091): the filled ones only, on a create. */
+  readonly custom?: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -179,8 +183,8 @@ export function dealActivityBody(
   dealId: string,
   targets: DealActivityTargets,
   draft: DealActivityDraft,
-): Record<string, string> {
-  const body: Record<string, string> = { type: draft.type, dealId };
+): Record<string, unknown> {
+  const body: Record<string, unknown> = { type: draft.type, dealId };
   if (targets.contactId !== null) body.contactId = targets.contactId;
   if (targets.accountId !== null) body.accountId = targets.accountId;
   const subject = draft.subject?.trim() ?? '';
@@ -188,6 +192,7 @@ export function dealActivityBody(
   if (subject !== '') body.subject = subject;
   if (text !== '') body.body = text;
   if (draft.type === 'task' && draft.dueAt !== undefined) body.dueAt = draft.dueAt;
+  if (draft.custom !== undefined && Object.keys(draft.custom).length > 0) body.custom = draft.custom;
   return body;
 }
 

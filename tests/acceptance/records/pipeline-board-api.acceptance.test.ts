@@ -694,6 +694,12 @@ function normaliseCard(card: Json): Json {
   const out: Json = { ...card };
   delete out.createdAt;
   delete out.updatedAt;
+  // T-0089 / D-L143 (lead edit): a card is a Deal, so it may carry `custom` (absent on main).
+  // This suite plants no custom value, so when present it is exactly `{}`.
+  if ('custom' in out) {
+    expect(out.custom, `card ${String(out.id)}: custom with no custom values planted`).toEqual({});
+    delete out.custom;
+  }
   for (const key of ['stageEnteredAt', 'closedAt']) {
     if (typeof out[key] === 'string') out[key] = iso(Date.parse(String(out[key])));
   }

@@ -767,6 +767,8 @@ describe('acceptance: auth-table retention (T-0045 part 1)', () => {
           NODE_ENV: 'test',
           DATABASE_URL: 'postgres://kasuwa_app:not-a-secret@localhost:5432/kasuwa',
           DATABASE_MIGRATION_URL: 'postgres://kasuwa_migrator:not-a-secret@localhost:5432/kasuwa',
+          // Required since T-0098 (D-L156); the worker's relay connection.
+          DATABASE_RELAY_URL: 'postgres://kasuwa_relay:not-a-secret@localhost:5432/kasuwa',
           REDIS_URL: 'redis://localhost:6379',
         }),
       };

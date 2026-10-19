@@ -2,6 +2,7 @@ import type { TenantTx } from '@kasuwa/db';
 import { describe, expect, it } from 'vitest';
 import { checkRowOf, findDealById, listDeals } from './deal.repository';
 import { toDealWire } from './deal-wire';
+import { EMPTY_CUSTOM_WIRE } from '../custom-fields/custom-values';
 
 /**
  * T-0123 (D-L127, D-P23): a check's checker is named only while a member of
@@ -132,7 +133,7 @@ describe('the deals API reads judge each checker in the deal’s programme (T-01
     );
     const deal = await findDealById(tx, DEAL_1);
     if (deal === null) throw new Error('expected a deal');
-    const wire = toDealWire(deal, new Map(), AT.getTime());
+    const wire = toDealWire(deal, new Map(), EMPTY_CUSTOM_WIRE, AT.getTime());
     expect(wire.checks.map((check) => check.checkedBy)).toEqual([
       { id: FORMER, displayName: null },
     ]);

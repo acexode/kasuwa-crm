@@ -160,13 +160,14 @@ export async function crmActivitiesEnabled(): Promise<boolean> {
  * as "not available yet", exactly like an unbuilt one (`components/crm/crm-nav.ts`).
  */
 export async function crmLiveNav(): Promise<string[]> {
-  const [contacts, accounts, leads, activities, pipeline, search] = await Promise.all([
+  const [contacts, accounts, leads, activities, pipeline, search, csvImport] = await Promise.all([
     crmRecordsEnabled(),
     crmAccountsEnabled(),
     crmLeadsEnabled(),
     crmActivitiesEnabled(),
     crmPipelineEnabled(),
     crmSearchEnabled(),
+    crmImportEnabled(),
   ]);
   return [
     ...(leads ? ['leads'] : []),
@@ -176,6 +177,8 @@ export async function crmLiveNav(): Promise<string[]> {
     ...(pipeline ? ['deals'] : []),
     // Not a nav item: the shell's header entry and the Ctrl/Cmd+K palette (T-0087).
     ...(search ? ['search'] : []),
+    // Not a nav item either: the Contacts list's import action links `/contacts/import` only where this is on (T-0096, I1).
+    ...(csvImport ? ['import'] : []),
   ];
 }
 
@@ -236,6 +239,51 @@ export async function crmSearchEnabled(): Promise<boolean> {
   await initialiseFeatureFlags();
   return featureFlagClient().getBooleanValue(
     'crm_search',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/**
+ * `crm_custom_fields` (T-0090, D-L128) gates the P18 customisation studio —
+ * `/admin/custom-fields` calls `notFound()` while it is off, so typing the path
+ * gets a real 404 and nothing of the screen ships — and the settings menu's
+ * "Fields" entry, which links the studio only where this is on
+ * (`adminLiveNav()`, read by each admin page). No client module names it.
+ *
+ * It is read by the eight record routes too (T-0091: the contact, lead, account
+ * and deal records, their activity forms and the four list filters): with it off
+ * those screens are unchanged and ship none of the custom-field code paths' strings.
+ *
+ * Per process, like the others. It grants nothing: the four custom-field
+ * operations are decided by the API from the session, and every write needs
+ * `custom_field.write` (the tenant-admin flag), whether this is on or off.
+ */
+export async function crmCustomFieldsEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_custom_fields',
+    false,
+    toEvaluationContext({ tenantId: ADMIN_CONSOLE }),
+  );
+}
+
+/**
+ * `crm_import` (T-0096, D-L146, D-L168) gates the P28 ROUTE — `/contacts/import`
+ * calls `notFound()` while it is off, so typing the path gets a real 404 and
+ * nothing of the screen ships — and, through `crmLiveNav()` as `import`, the
+ * Contacts list's import action, which links the screen only where this is on,
+ * and its `importId` filter. No client module names it.
+ *
+ * Per process, like the others. It grants nothing: the import operations are
+ * decided by the API from the session and `contact.import` in the programme,
+ * and the same flag switches the API itself on (T-0094), whether or not this
+ * process serves the screen.
+ */
+export async function crmImportEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_import',
     false,
     toEvaluationContext({ tenantId: CRM_SHELL }),
   );

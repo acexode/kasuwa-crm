@@ -314,7 +314,10 @@ function recordViewOperations(): Operation[] {
   return operations().filter(
     (op) =>
       op.id === TIMELINE ||
-      /^\/api\/v1\/contacts\/\{[^}]+\}\/./.test(op.path) ||
+      // The merge preview sits under one contact for D-P27's 404 rule but is a
+      // P28/C1 screen's read, not the record view's. Lead edit, T-0093.
+      (/^\/api\/v1\/contacts\/\{[^}]+\}\/./.test(op.path) &&
+        !(op.id === 'getContactMergePreview' && op.path === '/api/v1/contacts/{contactId}/merge-preview')) ||
       unbuiltLabel(op) !== undefined,
   );
 }

@@ -8,6 +8,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { activityAuditEvent, activityCreateChanges, activityUpdateChanges } from './activity-audit';
 import { toActivityWire } from './activity-wire';
+import { EMPTY_CUSTOM_WIRE } from '../custom-fields/custom-values';
 
 // Invented values only (CLAUDE.md 6.1).
 const A1 = '11111111-0000-4000-8000-000000610101';
@@ -51,7 +52,7 @@ const access = (overrides: Record<string, ActivityFieldLevel> = {}) =>
 
 describe('toActivityWire', () => {
   it('sends every property, no tenant id, UTC times', () => {
-    const wire = toActivityWire(activity, access());
+    const wire = toActivityWire(activity, access(), EMPTY_CUSTOM_WIRE);
     expect(wire).toMatchObject({
       id: activity.id,
       programmeId: A1,
@@ -67,7 +68,7 @@ describe('toActivityWire', () => {
   });
 
   it('omits a withheld field, never nulls it, and names it', () => {
-    const wire = toActivityWire(activity, access({ body: 'none', ownerUserId: 'none' }));
+    const wire = toActivityWire(activity, access({ body: 'none', ownerUserId: 'none' }), EMPTY_CUSTOM_WIRE);
     expect('body' in wire).toBe(false);
     expect('ownerUserId' in wire).toBe(false);
     expect(wire.withheldFields).toEqual(['body', 'ownerUserId']);
@@ -75,7 +76,7 @@ describe('toActivityWire', () => {
   });
 
   it('never withholds type, even when the matrix says none', () => {
-    expect(toActivityWire(activity, access({ type: 'none' })).type).toBe('task');
+    expect(toActivityWire(activity, access({ type: 'none' }), EMPTY_CUSTOM_WIRE).type).toBe('task');
   });
 });
 
@@ -119,9 +120,9 @@ describe('the deal link (T-0111)', () => {
   const OTHER_DEAL = '11111111-0000-4000-8000-000000610107';
 
   it('serves dealId, null when unlinked, and withholds it under none (R7)', () => {
-    expect(toActivityWire(activity, access()).dealId).toBeNull();
-    expect(toActivityWire({ ...activity, dealId: DEAL }, access()).dealId).toBe(DEAL);
-    const withheld = toActivityWire({ ...activity, dealId: DEAL }, access({ dealId: 'none' }));
+    expect(toActivityWire(activity, access(), EMPTY_CUSTOM_WIRE).dealId).toBeNull();
+    expect(toActivityWire({ ...activity, dealId: DEAL }, access(), EMPTY_CUSTOM_WIRE).dealId).toBe(DEAL);
+    const withheld = toActivityWire({ ...activity, dealId: DEAL }, access({ dealId: 'none' }), EMPTY_CUSTOM_WIRE);
     expect('dealId' in withheld).toBe(false);
     expect(withheld.withheldFields).toEqual(['dealId']);
     expect(JSON.stringify(withheld)).not.toContain(DEAL);

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
 
 /**
  * The browser's half of `docs/api/records.openapi.yaml` — `listContacts`, the
@@ -79,6 +80,8 @@ export const Contact = z.object({
   whatsappOptIn: z.boolean().optional(),
   consentState: ConsentState.optional(),
   phoneNetwork: z.string().nullable().optional(),
+  /** Custom-field values (T-0091): withheld keys are absent and listed in `withheldFields` as `custom.<key>`. */
+  custom: z.record(z.string(), z.unknown()).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   withheldFields: z.array(z.string()),
@@ -113,9 +116,18 @@ export const RecordsErrorCode = z.enum([
 ]);
 export type RecordsErrorCode = z.infer<typeof RecordsErrorCode>;
 
+/**
+ * The refusals only the import operations answer (T-0096, D-L150). Kept out of
+ * `RecordsErrorCode`, which every records screen spreads into its message
+ * bundle: a code a screen can never receive must not cost it a sentence on a
+ * 256 kbps link.
+ */
+export const ImportErrorCode = z.enum(['import_status_conflict', 'upload_mismatch']);
+export type ImportErrorCode = z.infer<typeof ImportErrorCode>;
+
 const ApiError = z.object({
   statusCode: z.number(),
-  code: RecordsErrorCode,
+  code: z.union([RecordsErrorCode, ImportErrorCode]),
   message: z.string(),
   details: z.array(z.object({ path: z.string(), code: z.string() })).optional(),
   /** On a 429: the earliest time a retry can succeed (the search throttle, T-0085). */
@@ -124,7 +136,7 @@ const ApiError = z.object({
 
 /** The request never arrived, or the answer was not the contract's. */
 export const NETWORK_ERROR_CODE = 'network' as const;
-export type RecordsScreenErrorCode = RecordsErrorCode | typeof NETWORK_ERROR_CODE;
+export type RecordsScreenErrorCode = RecordsErrorCode | ImportErrorCode | typeof NETWORK_ERROR_CODE;
 
 /** One `details[]` entry: a path and a reason code, never the submitted value. */
 export interface RecordsErrorDetail {
@@ -154,6 +166,10 @@ export interface ContactListQuery {
   readonly source?: readonly ContactSource[];
   readonly dnd?: boolean;
   readonly whatsappOptIn?: boolean;
+  /** The contacts one CSV import created (T-0096, I9): sent only where `crm_import` is live. */
+  readonly importId?: string;
+  /** Custom-field filters (T-0091): picklist and boolean equality, and "is empty". */
+  readonly custom?: CustomFilters;
   readonly cursor?: string;
   readonly limit?: number;
 }
@@ -170,6 +186,8 @@ export function contactListSearch(query: ContactListQuery): string {
   for (const value of query.source ?? []) params.append('source', value);
   if (query.dnd !== undefined) params.set('dnd', String(query.dnd));
   if (query.whatsappOptIn !== undefined) params.set('whatsappOptIn', String(query.whatsappOptIn));
+  if (query.importId !== undefined) params.set('importId', query.importId);
+  appendCustomFilters(params, query.custom);
   if (query.cursor !== undefined) params.set('cursor', query.cursor);
   if (query.limit !== undefined) params.set('limit', String(query.limit));
   const search = params.toString();
@@ -187,7 +205,7 @@ export function contactListSearch(query: ContactListQuery): string {
 export async function requestRecords<T>(
   path: string,
   schema: z.ZodType<T, z.ZodTypeDef, unknown>,
-  init: { readonly method: 'GET' | 'POST' | 'PATCH'; readonly body?: unknown; readonly signal?: AbortSignal } = {
+  init: { readonly method: 'GET' | 'POST' | 'PATCH' | 'PUT'; readonly body?: unknown; readonly signal?: AbortSignal } = {
     method: 'GET',
   },
 ): Promise<RecordsResult<T>> {

@@ -45,7 +45,7 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Records API
-  version: 0.12.2-T-0086
+  version: 0.14.0-T-0093
   description: |
     Contacts: list (search, filters, sort, keyset paging), get, create and
     update. Accounts (T-0052, served since T-0055): list, get, create,
@@ -75,8 +75,19 @@ info:
     contract only until T-0086): at most three hits per type across
     contacts, leads, accounts and deals, by name prefix (`searchRecords`),
     and contacts and leads by an exact phone or email sent in a POST body
-    so the URL never carries one (`lookupRecords`). Custom-field values follow
-    in a later slice (D-L60) and will be added to this file.
+    so the URL never carries one (`lookupRecords`). Custom-field values
+    (T-0088, ADR-0016, served since T-0089): `custom` on Contact
+    (and so on leads), Account, Activity and Deal, typed per field, merged
+    per key on update, field-secured per key (a withheld key is listed as
+    `custom.<key>`), and filterable by equality and "is empty" on picklist
+    and boolean fields only (`custom`, `customEmpty`). The definitions are
+    the admin API's (`listCustomFields`, admin.openapi.yaml). CSV import,
+    duplicates and merge (P28, T-0093, contract only until T-0094 and
+    T-0095): the import job from `createImport` to the row-error report
+    (`getImport`), the `importId` filter on `listContacts`, a programme's
+    duplicate sets (`listDuplicates`), and merging two contacts with undo
+    for 30 days (`getContactMergePreview`, `createContactMerge`,
+    `undoContactMerge`, `listContactMerges`).
 
     **Display names (T-0043, D-L64).** A records screen never prints a UUID.
     Programme names come from `listMyProgrammes`; an owner's name is embedded
@@ -127,8 +138,14 @@ tags:
     description: People a programme sells to, serves or collects from.
   - name: deals
     description: Opportunities in a pipeline, moved stage to stage through moveDeal.
+  - name: duplicates
+    description: Duplicate contact sets within a programme, and merging two contacts (P28/C, C1; D-P12).
+  - name: imports
+    description: CSV contact import, from declaring a file to the row-error report (P28/A..A6).
   - name: leads
     description: Contacts at a lead stage (D-P17). A view and an action, not a record type.
+  - name: notifications
+    description: In-app notifications, the recipient's own, from events only (P26; D-P29, ADR-0018).
   - name: me
     description: The caller's own scope, as the session resolves it.
   - name: pipelines
@@ -145,6 +162,13 @@ paths:
       x-kasuwa-implemented: true
       x-kasuwa-screens: ['P04/02', 'P04/05', 'P04/06']
       description: |
+        **Custom fields (T-0088; served since T-0089).**
+        Rows carry `custom`, with withheld keys absent and listed as
+        `custom.<key>`. The `custom` (equality) and `customEmpty` (is empty)
+        filters apply to picklist and boolean custom fields only; there is no
+        custom sort. A screen must not send either filter until they are
+        served: this route ignores unknown parameters today.
+
         The P04 Contacts list. Rows come only from the programmes the session
         reaches. A BPO agent on one programme sees that programme's contacts
         and nothing else, with no parameter that could change that.
@@ -273,6 +297,21 @@ paths:
             type: string
             enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt', 'displayName', '-displayName']
             default: '-createdAt'
+        - $ref: '#/components/parameters/CustomFilter'
+        - $ref: '#/components/parameters/CustomEmptyFilter'
+        - name: importId
+          in: query
+          required: false
+          x-kasuwa-implemented: true
+          description: |
+            The contacts a CSV import created (T-0093, P28/A5: the result
+            report's link). Scoped as every list is. An import the caller
+            cannot see, or that does not exist, answers an empty page, never a
+            `404` or `400`, so it is no oracle for imports. A screen must not
+            send it until it is served: this route ignores unknown parameters
+            today, so it would get unfiltered rows that look filtered
+            (D-L75).
+          schema: { type: string, format: uuid }
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -321,6 +360,18 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/02', 'P04/05']
       description: |
+        **Custom fields (T-0088; served since T-0089).**
+        `custom` sets custom-field values at create (CustomFields: values
+        only, never `null`). Every key must be editable for the caller in the
+        target programme, else `403 not_permitted` with `details[].code:
+        field_not_editable` at `custom.<key>`. An unknown or retired key is
+        `400 unknown_field`; a bad value is `invalid_value`, `unknown_value`
+        or `currency_mismatch`, and more than the 16 KiB API limit (D-L140,
+        see CustomFields) is `custom_too_large`. A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details never carry the value. Audited by key only. Custom
+        values are never logged or traced, whatever the classification.
+
         **Target programme.** If the caller reaches exactly one programme,
         `programmeId` may be omitted and the server uses that one. If they
         reach several, it is required (`400 validation_failed` at
@@ -371,10 +422,45 @@ paths:
               preferredChannel: whatsapp
       responses:
         '201':
-          description: Created.
+          description: |
+            Created. The example shows `custom` (T-0088, served since
+            T-0089): a withheld custom key is absent from `custom` and listed
+            in `withheldFields` as `custom.<key>`.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Contact' }
+              example:
+                id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e09
+                programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                version: 1
+                displayName: Tunde Bakare
+                givenNames: Tunde
+                familyName: Bakare
+                companyName: null
+                phones: [{ type: mobile, e164: '+2348060000002' }]
+                emails: []
+                accountId: null
+                account: null
+                ownerUserId: null
+                owner: null
+                status: new
+                source: manual
+                tags: []
+                preferredLanguage: null
+                preferredChannel: whatsapp
+                state: null
+                lga: null
+                dnd: false
+                whatsappOptIn: false
+                consentState: unknown
+                phoneNetwork: null
+                createdAt: '2026-10-17T09:00:00.000Z'
+                updatedAt: '2026-10-17T09:00:00.000Z'
+                custom:
+                  tier__c: gold
+                  vip__c: true
+                  renewal_date__c: '2026-12-31'
+                withheldFields: [custom.credit_limit__c]
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '403': { $ref: '#/components/responses/NotPermitted' }
@@ -424,6 +510,24 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/01', 'P04/02', 'P04/04']
       description: |
+        **Custom fields (T-0088; served since T-0089).**
+        `custom` is a per-key merge (CustomFieldsPatch): a value sets a key,
+        `null` clears it, and an absent key is untouched. Every key sent must
+        be editable for the caller in the record's programme, else `403
+        not_permitted` with `details[].code: field_not_editable` at
+        `custom.<key>`. An unknown or retired key is `400 unknown_field`; a
+        bad value is `invalid_value`, `unknown_value` or `currency_mismatch`,
+        and a merged result over the 16 KiB API limit is `custom_too_large`
+        at `custom`. That size is measured on the merged `custom` restricted
+        to the keys the caller can read in the record's programme plus the
+        keys being written; withheld and retired values never count, so the
+        answer reveals nothing about them (D-L140). A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details name the path and a code, never the value. Custom
+        changes are audited by key only, and custom values are never logged
+        or traced, whatever the field's classification (D-P25 lets free text
+        be `none`).
+
         Partial update: absent properties are unchanged; `null` clears a
         nullable field. `version` is required and must equal the record's
         current `version`, otherwise `409 stale_write`. Re-read; do not retry
@@ -468,10 +572,20 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/UpdateContactRequest' }
-            example:
-              version: 3
-              status: qualified
-              ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+            examples:
+              statusAndOwner:
+                summary: Inline edit of status and owner
+                value:
+                  version: 3
+                  status: qualified
+                  ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+              custom:
+                summary: Set one custom field and clear another (T-0088, served since T-0089)
+                value:
+                  version: 3
+                  custom:
+                    tier__c: platinum
+                    renewal_date__c: null
       responses:
         '200':
           description: The updated contact, field security applied. `version` has advanced.
@@ -661,6 +775,18 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P05/01', 'P07/07']
       description: |
+        **Custom fields (T-0088; served since T-0089).**
+        `custom` sets custom-field values at create (CustomFields: values
+        only, never `null`). Every key must be editable for the caller in the
+        target programme, else `403 not_permitted` with `details[].code:
+        field_not_editable` at `custom.<key>`. An unknown or retired key is
+        `400 unknown_field`; a bad value is `invalid_value`, `unknown_value`
+        or `currency_mismatch`, and more than the 16 KiB API limit (D-L140,
+        see CustomFields) is `custom_too_large`. A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details never carry the value. Audited by key only. Custom
+        values are never logged or traced, whatever the classification.
+
         **Target and programme.** At least one of `contactId` and `accountId`.
         There is no `programmeId`: the activity's programme is its target's
         (the contact's when both are given). An unreachable target (no such
@@ -756,12 +882,36 @@ paths:
                   accountId: 9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c01
       responses:
         '201':
-          description: Created.
+          description: |
+            Created. The example shows `custom` (T-0088, served since
+            T-0089): a withheld custom key is absent from `custom` and listed
+            in `withheldFields` as `custom.<key>`.
           headers:
             Cache-Control: { $ref: '#/components/headers/NoStore' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Activity' }
+              example:
+                id: 6e7f8a9b-0c1d-4e2f-8a3b-4c5d6e7f8a09
+                programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                type: task
+                subject: Call back about the payment plan
+                body: null
+                dueAt: '2026-10-02T15:00:00.000Z'
+                completedAt: null
+                startsAt: null
+                endsAt: null
+                ownerUserId: null
+                contactId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                accountId: null
+                dealId: null
+                createdByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                version: 1
+                createdAt: '2026-10-01T09:30:00.000Z'
+                updatedAt: '2026-10-01T09:30:00.000Z'
+                custom:
+                  call_outcome__c: promised
+                withheldFields: [custom.score__c]
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '403': { $ref: '#/components/responses/NotPermitted' }
@@ -778,6 +928,24 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P05/01', 'P07/01', 'P07/03', 'P07/04', 'P07/05']
       description: |
+        **Custom fields (T-0088; served since T-0089).**
+        `custom` is a per-key merge (CustomFieldsPatch): a value sets a key,
+        `null` clears it, and an absent key is untouched. Every key sent must
+        be editable for the caller in the record's programme, else `403
+        not_permitted` with `details[].code: field_not_editable` at
+        `custom.<key>`. An unknown or retired key is `400 unknown_field`; a
+        bad value is `invalid_value`, `unknown_value` or `currency_mismatch`,
+        and a merged result over the 16 KiB API limit is `custom_too_large`
+        at `custom`. That size is measured on the merged `custom` restricted
+        to the keys the caller can read in the record's programme plus the
+        keys being written; withheld and retired values never count, so the
+        answer reveals nothing about them (D-L140). A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details name the path and a code, never the value. Custom
+        changes are audited by key only, and custom values are never logged
+        or traced, whatever the field's classification (D-P25 lets free text
+        be `none`).
+
         `version` (required) plus ONLY the fields the person changed (D-L102):
         `completed: true` and/or `ownerUserId` (D-L81), and from T-0081
         `dueAt` (a task: snooze or move it; `null` clears it) and `startsAt`
@@ -864,6 +1032,13 @@ paths:
                   version: 3
                   startsAt: '2026-10-02T09:00:00.000Z'
                   endsAt: '2026-10-02T10:00:00.000Z'
+              custom:
+                summary: Set one custom field and clear another (T-0088, served since T-0089)
+                value:
+                  version: 2
+                  custom:
+                    call_outcome__c: callback
+                    score__c: null
       responses:
         '200':
           description: The updated activity, field security applied. `version` has advanced.
@@ -1256,6 +1431,13 @@ paths:
       x-kasuwa-implemented: true
       x-kasuwa-screens: ['P04/01', 'P04/04', 'P04/05', 'P04/06']
       description: |
+        **Custom fields (T-0088; served since T-0089).**
+        Rows carry `custom`, with withheld keys absent and listed as
+        `custom.<key>`. The `custom` (equality) and `customEmpty` (is empty)
+        filters apply to picklist and boolean custom fields only; there is no
+        custom sort. A screen must not send either filter until they are
+        served: this route ignores unknown parameters today.
+
         The P04/01 Leads table and the P04/04 Kanban's columns. A lead is a
         contact at a lead stage (D-P17), not its own record, so this is a
         VIEW of contacts: the same `ContactPage` as listContacts, the same
@@ -1372,14 +1554,50 @@ paths:
             type: string
             enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt', 'displayName', '-displayName']
             default: '-createdAt'
+        - $ref: '#/components/parameters/CustomFilter'
+        - $ref: '#/components/parameters/CustomEmptyFilter'
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
-          description: One page of leads, field security applied.
+          description: |
+            One page of leads, field security applied. The example shows
+            `custom` (T-0088, served since T-0089), which a lead
+            carries because it is a contact.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ContactPage' }
+              example:
+                data:
+                  - id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e0a
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    version: 2
+                    displayName: Bisi Adewale
+                    givenNames: Bisi
+                    familyName: Adewale
+                    companyName: Adewale Provisions
+                    phones: [{ type: mobile, e164: '+2348030000004' }]
+                    ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    owner:
+                      id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                      displayName: Kemi Balogun
+                    status: qualified
+                    source: web_form
+                    tags: []
+                    preferredLanguage: yo
+                    preferredChannel: whatsapp
+                    state: Oyo
+                    lga: Ibadan North
+                    dnd: false
+                    whatsappOptIn: true
+                    consentState: opted_in
+                    phoneNetwork: null
+                    createdAt: '2026-10-05T10:00:00.000Z'
+                    updatedAt: '2026-10-09T11:20:00.000Z'
+                    custom:
+                      tier__c: silver
+                    withheldFields: [emails, accountId, account, custom.credit_limit__c]
+                nextCursor: null
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
 
@@ -1455,6 +1673,13 @@ paths:
       x-kasuwa-implemented: true
       x-kasuwa-screens: ['P04/03', 'P04/05', 'P04/06']
       description: |
+        **Custom fields (T-0088; served since T-0089).**
+        Rows carry `custom`, with withheld keys absent and listed as
+        `custom.<key>`. The `custom` (equality) and `customEmpty` (is empty)
+        filters apply to picklist and boolean custom fields only; there is no
+        custom sort. A screen must not send either filter until they are
+        served: this route ignores unknown parameters today.
+
         The P04 Accounts list (frame 03: table, card list, split view). Rows
         come only from the programmes the session reaches. There is no
         parameter that narrows or widens that set; in particular there is no
@@ -1573,6 +1798,8 @@ paths:
             type: string
             enum: ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt', 'name', '-name']
             default: 'name'
+        - $ref: '#/components/parameters/CustomFilter'
+        - $ref: '#/components/parameters/CustomEmptyFilter'
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -1613,6 +1840,18 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/03', 'P04/05']
       description: |
+        **Custom fields (T-0088; served since T-0089).**
+        `custom` sets custom-field values at create (CustomFields: values
+        only, never `null`). Every key must be editable for the caller in the
+        target programme, else `403 not_permitted` with `details[].code:
+        field_not_editable` at `custom.<key>`. An unknown or retired key is
+        `400 unknown_field`; a bad value is `invalid_value`, `unknown_value`
+        or `currency_mismatch`, and more than the 16 KiB API limit (D-L140,
+        see CustomFields) is `custom_too_large`. A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details never carry the value. Audited by key only. Custom
+        values are never logged or traced, whatever the classification.
+
         **Target programme.** As createContact. If the caller reaches exactly
         one programme, `programmeId` may be omitted and the server uses that
         one. If they reach several, it is required (`400 validation_failed`
@@ -1659,10 +1898,33 @@ paths:
               state: Kano
       responses:
         '201':
-          description: Created.
+          description: |
+            Created. The example shows `custom` (T-0088, served since
+            T-0089): a withheld custom key is absent from `custom` and listed
+            in `withheldFields` as `custom.<key>`.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Account' }
+              example:
+                id: 9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c09
+                programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                name: Kano Grains Co.
+                version: 1
+                ownerUserId: null
+                owner: null
+                industry: Agriculture
+                tier: sme
+                tags: []
+                phones: [{ type: work, e164: '+2348060000102' }]
+                state: Kano
+                lga: null
+                parentAccountId: null
+                createdAt: '2026-10-17T09:05:00.000Z'
+                updatedAt: '2026-10-17T09:05:00.000Z'
+                custom:
+                  credit_limit__c: { amountMinor: '250000000', currency: NGN }
+                  segment__c: retail
+                withheldFields: [custom.score__c]
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '403': { $ref: '#/components/responses/AccountNotPermitted' }
@@ -1722,6 +1984,24 @@ paths:
       x-kasuwa-audited: true
       x-kasuwa-screens: ['P04/03']
       description: |
+        **Custom fields (T-0088; served since T-0089).**
+        `custom` is a per-key merge (CustomFieldsPatch): a value sets a key,
+        `null` clears it, and an absent key is untouched. Every key sent must
+        be editable for the caller in the record's programme, else `403
+        not_permitted` with `details[].code: field_not_editable` at
+        `custom.<key>`. An unknown or retired key is `400 unknown_field`; a
+        bad value is `invalid_value`, `unknown_value` or `currency_mismatch`,
+        and a merged result over the 16 KiB API limit is `custom_too_large`
+        at `custom`. That size is measured on the merged `custom` restricted
+        to the keys the caller can read in the record's programme plus the
+        keys being written; withheld and retired values never count, so the
+        answer reveals nothing about them (D-L140). A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details name the path and a code, never the value. Custom
+        changes are audited by key only, and custom values are never logged
+        or traced, whatever the field's classification (D-P25 lets free text
+        be `none`).
+
         Partial update: absent properties are unchanged; `null` clears a
         nullable field. `version` is required and must equal the record's
         current `version`, otherwise `409 stale_write`. Re-read; do not retry
@@ -1758,10 +2038,20 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/UpdateAccountRequest' }
-            example:
-              version: 2
-              tier: enterprise
-              ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+            examples:
+              tierAndOwner:
+                summary: Inline edit of tier and owner
+                value:
+                  version: 2
+                  tier: enterprise
+                  ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+              custom:
+                summary: Set a currency custom field and clear a picklist (T-0088, served since T-0089)
+                value:
+                  version: 2
+                  custom:
+                    credit_limit__c: { amountMinor: '300000000', currency: NGN }
+                    segment__c: null
       responses:
         '200':
           description: The updated account, field security applied. `version` has advanced.
@@ -2660,6 +2950,13 @@ paths:
         qa_analyst: read
         client_portal: none
       description: |
+        **Custom fields (T-0088; served since T-0089).**
+        Rows carry `custom`, with withheld keys absent and listed as
+        `custom.<key>`. The `custom` (equality) and `customEmpty` (is empty)
+        filters apply to picklist and boolean custom fields only; there is no
+        custom sort. A screen must not send either filter until they are
+        served: this route ignores unknown parameters today.
+
         The P06/01b list view: the pipeline's deals as Deal rows under Deal
         field security, with the board's filters. Every stage, lost
         included; `stageId` narrows to some stages. Won and lost deals that
@@ -2715,6 +3012,8 @@ paths:
             type: string
             enum: ['-updatedAt', 'updatedAt', '-createdAt', 'createdAt', 'name', '-name', 'stageEnteredAt', '-stageEnteredAt']
             default: '-updatedAt'
+        - $ref: '#/components/parameters/CustomFilter'
+        - $ref: '#/components/parameters/CustomEmptyFilter'
         - $ref: '#/components/parameters/DealCursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -2772,6 +3071,18 @@ paths:
         qa_analyst: none
         client_portal: none
       description: |
+        **Custom fields (T-0088; served since T-0089).**
+        `custom` sets custom-field values at create (CustomFields: values
+        only, never `null`). Every key must be editable for the caller in the
+        target programme, else `403 not_permitted` with `details[].code:
+        field_not_editable` at `custom.<key>`. An unknown or retired key is
+        `400 unknown_field`; a bad value is `invalid_value`, `unknown_value`
+        or `currency_mismatch`, and more than the 16 KiB API limit (D-L140,
+        see CustomFields) is `custom_too_large`. A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details never carry the value. Audited by key only. Custom
+        values are never logged or traced, whatever the classification.
+
         **Where.** The deal lives in the pipeline's programme (D-L88); the
         pipeline comes from the path, so the body takes no `programmeId`,
         `pipelineId` or `stageId`. **Every deal starts in the pipeline's
@@ -2846,9 +3157,12 @@ paths:
                 closedAt: null
                 rotting: fresh
                 checks: []
+                custom:
+                  deal_source__c: referral
+                  renewal_date__c: '2027-01-31'
                 createdAt: '2026-10-12T09:00:00.000Z'
                 updatedAt: '2026-10-12T09:00:00.000Z'
-                withheldFields: []
+                withheldFields: [custom.margin__c]
         '400': { $ref: '#/components/responses/DealValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '403': { $ref: '#/components/responses/DealNotPermitted' }
@@ -2937,6 +3251,24 @@ paths:
         qa_analyst: none
         client_portal: none
       description: |
+        **Custom fields (T-0088; served since T-0089).**
+        `custom` is a per-key merge (CustomFieldsPatch): a value sets a key,
+        `null` clears it, and an absent key is untouched. Every key sent must
+        be editable for the caller in the record's programme, else `403
+        not_permitted` with `details[].code: field_not_editable` at
+        `custom.<key>`. An unknown or retired key is `400 unknown_field`; a
+        bad value is `invalid_value`, `unknown_value` or `currency_mismatch`,
+        and a merged result over the 16 KiB API limit is `custom_too_large`
+        at `custom`. That size is measured on the merged `custom` restricted
+        to the keys the caller can read in the record's programme plus the
+        keys being written; withheld and retired values never count, so the
+        answer reveals nothing about them (D-L140). A key that is not a custom
+        api name at all is `400 unknown_field` at `custom`, never echoed.
+        Error details name the path and a code, never the value. Custom
+        changes are audited by key only, and custom values are never logged
+        or traced, whatever the field's classification (D-P25 lets free text
+        be `none`).
+
         Partial update. **The body is `version` plus ONLY the fields the
         person changed (D-L102)**, judged against the deal the form was
         opened on; absent properties are unchanged and `null` clears a
@@ -2997,6 +3329,14 @@ paths:
                 value:
                   version: 5
                   ownerUserId: 8d2e3f4a-5b6c-4d7e-8f9a-0b1c2d3e4f02
+              custom:
+                summary: Set custom fields, one a currency, and clear another (T-0088, served since T-0089)
+                value:
+                  version: 5
+                  custom:
+                    deal_source__c: partner
+                    contract_value__c: { amountMinor: '1800000000', currency: NGN }
+                    renewal_date__c: null
       responses:
         '200':
           description: The updated deal, field security applied. `version` has advanced.
@@ -3802,6 +4142,1515 @@ paths:
         '401': { $ref: '#/components/responses/NotAuthenticated' }
         '429': { $ref: '#/components/responses/SearchTooManyRequests' }
 
+  # -------------------------------------------------------------------------
+  # CSV import, duplicates and merge (P28; T-0093, ADR-0017, D-L128 Q4/Q6/Q7,
+  # D-L146, D-L148). The import operations are served since T-0094
+  # (`x-kasuwa-implemented: true`); the duplicates and merge operations stay
+  # `false` until T-0095 serves them. Keep those screens on the mock.
+  #
+  # The five rules at the top of this file apply unchanged. Three more apply
+  # here. No cell value appears anywhere (an import answers headers, counts
+  # and row error codes, never a cell). Every answer is `no-store`. Limits
+  # and compliance rules are published as data (`x-kasuwa-import-limits`,
+  # `x-kasuwa-import-compliance`, `x-kasuwa-compliance-order`) so a screen and
+  # the server read one number.
+  # -------------------------------------------------------------------------
+
+  /api/v1/imports:
+    post:
+      tags: [imports]
+      summary: Start a contact import — declare the file and get upload URLs
+      operationId: createImport
+      x-kasuwa-implemented: true
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P28/A', 'P28/A1']
+      x-kasuwa-import-limits:
+        maxFileBytes: 26214400
+        maxParts: 4
+        minPartBytes: 5242880
+        maxRows: 100000
+        maxRowBytes: 65536
+        maxColumns: 500
+        maxErrors: 1000
+      description: |
+        Declares a CSV file for import into one programme and returns
+        pre-signed multipart upload URLs. The browser uploads the parts
+        straight to storage; the file never passes through the API. Contacts
+        only: a lead is a contact with a lead status (D-P17).
+
+        **Permission.** `contact.import` in the target programme, else
+        `403 not_permitted`. `programmeId` is a target, as on createContact:
+        one the caller does not reach is `404 not_found`, never `403`,
+        the same body as one that does not exist.
+
+        **Limits (`x-kasuwa-import-limits`).** `sizeBytes` is 1 to 26,214,400
+        (25 MiB); over it is `400 validation_failed` with
+        `details[].code: file_too_large` at `sizeBytes`. A file is uploaded in
+        at most 4 parts; every part but the last is at least 5 MiB
+        (5,242,880 bytes), and each part's size is signed into its URL. URLs
+        are valid for 5 minutes (`expiresAt`); `issueImportUploadUrls`
+        re-issues them.
+
+        **Types.** `contentType` is exactly `text/csv`, `application/csv` or
+        `application/vnd.ms-excel`, and the last only with a `filename`
+        ending `.csv` in any case: Windows browsers send it for CSV, and an
+        `.xls` must not slip in under it. Anything else is
+        `400 validation_failed` with `details[].code: unsupported_type` at
+        `contentType`.
+
+        **Filename.** 1 to 255 characters, with no `/`, `\`, NUL or other
+        control character. It is stored, shown back within scope, never
+        logged, and never in a storage key or URL. It is cleared with the raw
+        file (`rawFileDeletedAt`, D-L148).
+
+        **Audit.** One event, `import created`: names no filename and no
+        header.
+
+        **Permission sets (D-L151).** `contact.import` is held only by permission
+        sets that also hold `contact.write`. The creator is the job's owner: every
+        later write is the creator's alone (cancel also a tenant admin), and the job
+        runs as `createdByUserId`. Signed part URLs are bearer credentials and are
+        never logged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateImportRequest' }
+            examples:
+              csv:
+                summary: A 12 MiB CSV
+                value:
+                  programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                  filename: sample-customers.csv
+                  sizeBytes: 12582912
+                  contentType: text/csv
+      responses:
+        '201':
+          description: |
+            Declared, status `awaiting_upload`. `parts` are numbered from 1,
+            sum to `sizeBytes`, and every part but the last is at least 5 MiB.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportUpload' }
+              examples:
+                multipart:
+                  summary: 12 MiB in three parts
+                  value:
+                    importId: 5e1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6a01
+                    parts:
+                      - partNumber: 1
+                        url: https://storage.example/kasuwa-imports/upload?part=1&expires=300&signature=sig-a
+                        sizeBytes: 5242880
+                      - partNumber: 2
+                        url: https://storage.example/kasuwa-imports/upload?part=2&expires=300&signature=sig-b
+                        sizeBytes: 5242880
+                      - partNumber: 3
+                        url: https://storage.example/kasuwa-imports/upload?part=3&expires=300&signature=sig-c
+                        sizeBytes: 2097152
+                    expiresAt: '2026-10-18T09:05:00Z'
+        '400': { $ref: '#/components/responses/ImportCreateInvalid' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/ImportNotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+    get:
+      tags: [imports]
+      summary: List imports — newest first, keyset
+      operationId: listImports
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P28/A', 'P28/A5']
+      description: |
+        The import history, newest first, keyset paged: `cursor` and `limit`
+        only, no total (D-P13). Only imports in programmes the session reaches
+        and where the caller holds `contact.import`: an import in a programme
+        where they lack it is not listed (reads never answer `403`). Scope is
+        resolved from the session, never supplied.
+
+        Each row is an `ImportSummary`: status, counts and times, never
+        headers, a mapping or row errors. `filename` is `null` once the raw
+        file is deleted (`rawFileDeletedAt`).
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page, newest first.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportPage' }
+              examples:
+                page:
+                  summary: A finished import and an older one whose raw file is already deleted
+                  value:
+                    data:
+                      - id: 5e1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6a01
+                        programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                        status: finished
+                        filename: sample-customers.csv
+                        sizeBytes: 12582912
+                        counts: { created: 1195, skipped: 2, failed: 3 }
+                        rawFileDeletedAt: null
+                        createdByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                        createdAt: '2026-10-18T09:00:00Z'
+                        updatedAt: '2026-10-18T09:12:00Z'
+                        finishedAt: '2026-10-18T09:12:00Z'
+                      - id: 5e1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6a02
+                        programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                        status: finished
+                        filename: null
+                        sizeBytes: 482113
+                        counts: { created: 310, skipped: 0, failed: 0 }
+                        rawFileDeletedAt: '2026-10-15T09:00:00Z'
+                        createdByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                        createdAt: '2026-10-08T08:00:00Z'
+                        updatedAt: '2026-10-15T09:00:00Z'
+                        finishedAt: '2026-10-08T08:04:00Z'
+                    nextCursor: null
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+
+  /api/v1/imports/{importId}:
+    parameters:
+      - $ref: '#/components/parameters/ImportId'
+    get:
+      tags: [imports]
+      summary: Get one import — status, headers, suggested mapping, counts, row errors
+      operationId: getImport
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P28/A2', 'P28/A3', 'P28/A4', 'P28/A5', 'P28/A6']
+      description: |
+        The job the import screens poll. Readable only in a programme the
+        caller reaches and holds `contact.import` in; any other import is
+        `404 not_found`, never `403`.
+
+        **`headers`** are the file's column names, never a cell: no cell
+        value appears anywhere in an import, an error `detail` included
+        (ADR-0017, D-L128 Q6), and there is no dry run, sample or preview of
+        file values. `suggestedMapping` is a guess by header name; the saved
+        mapping is `mapping`.
+
+        **Row errors.** `errors` holds at most 1,000 `{ row, column, code }`
+        entries, the lowest row numbers first, and `errorsTruncated` says
+        whether more were dropped. `counts.failed` counts every failed row,
+        not only the listed ones; `counts.skipped` counts rows skipped as
+        possible duplicates (each also listed as `possible_duplicate` while
+        under the cap). `row` is the row as a spreadsheet shows it: the
+        header row is row 1, so the first data row is 2. `column` is the
+        zero-based index into `headers`, or `null` for a whole-row error
+        (`row_too_large`, `too_many_rows`, `possible_duplicate`).
+        `too_many_rows` is one error, at the first row past 100,000, which is
+        not imported. A row over 65,536 bytes is `row_too_large`.
+
+        **Erasure (D-L148).** The raw file is deleted 7 days after the job
+        ends, or 24 hours after an abandoned upload, and in the same step
+        `rawFileDeletedAt` is set and `headers` and `filename` become `null`.
+        A headerless CSV puts its first data row into `headers`, and a
+        filename can name a person, so neither may outlive the raw file,
+        which is ADR-0017's erasure mechanism. Counts and row errors remain.
+
+        **Result (D-L151).** An import only creates contacts. A row matching an
+        existing contact is skipped as `possible_duplicate`, and no restriction
+        was applied to existing contacts (DND, opt-out or consent): importing a
+        suppression list does not suppress anyone already in the programme.
+      responses:
+        '200':
+          description: The job.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Import' }
+              examples:
+                finished:
+                  summary: Finished, with row errors
+                  value:
+                    id: 5e1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6a01
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    status: finished
+                    filename: sample-customers.csv
+                    sizeBytes: 12582912
+                    contentType: text/csv
+                    headers: [First name, Last name, Phone, Email, WhatsApp opt-in, Status]
+                    suggestedMapping:
+                      - { index: 0, field: givenNames }
+                      - { index: 1, field: familyName }
+                      - { index: 2, field: phones }
+                      - { index: 3, field: emails }
+                      - { index: 4, field: whatsappOptIn }
+                      - { index: 5, field: status }
+                    mapping:
+                      columns:
+                        - { index: 0, field: givenNames }
+                        - { index: 1, field: familyName }
+                        - { index: 2, field: phones }
+                        - { index: 3, field: emails }
+                        - { index: 4, field: whatsappOptIn }
+                        - { index: 5, field: status }
+                      defaultCountry: NG
+                      ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    counts: { created: 1195, skipped: 2, failed: 3 }
+                    errors:
+                      - { row: 4, column: null, code: possible_duplicate }
+                      - { row: 9, column: 2, code: invalid_phone }
+                      - { row: 15, column: 4, code: consent_grant_refused }
+                      - { row: 31, column: null, code: possible_duplicate }
+                      - { row: 52, column: 3, code: invalid_email }
+                    errorsTruncated: false
+                    rawFileDeletedAt: null
+                    createdByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    createdAt: '2026-10-18T09:00:00Z'
+                    updatedAt: '2026-10-18T09:12:00Z'
+                    finishedAt: '2026-10-18T09:12:00Z'
+                awaitingMapping:
+                  summary: Header read, waiting for the mapping
+                  value:
+                    id: 5e1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6a03
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    status: awaiting_mapping
+                    filename: sample-customers.csv
+                    sizeBytes: 12582912
+                    contentType: text/csv
+                    headers: [Full name, Mobile, Notes]
+                    suggestedMapping:
+                      - { index: 0, field: displayName }
+                      - { index: 1, field: phones }
+                      - { index: 2, field: null }
+                    mapping: null
+                    counts: { created: 0, skipped: 0, failed: 0 }
+                    errors: []
+                    errorsTruncated: false
+                    rawFileDeletedAt: null
+                    createdByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    createdAt: '2026-10-18T09:00:00Z'
+                    updatedAt: '2026-10-18T09:01:00Z'
+                    finishedAt: null
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/imports/{importId}/upload-urls:
+    parameters:
+      - $ref: '#/components/parameters/ImportId'
+    post:
+      tags: [imports]
+      summary: Re-issue expired part URLs — how a slow upload resumes
+      operationId: issueImportUploadUrls
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P28/A1']
+      description: |
+        Re-issues URLs for the named parts while the job is
+        `awaiting_upload`. URLs expire after 5 minutes, so a slow upload
+        resumes here: send the numbers of the parts still to upload. Part
+        sizes are those of the original declaration.
+
+        Needs `contact.import` in the import's programme, else
+        `403 not_permitted`. In any other status the answer is
+        `409 import_status_conflict`. An import the caller cannot see is
+        `404 not_found`.
+
+        **Creator only (D-L151).** Open only to the import's `createdByUserId`;
+        anyone else in scope gets `403 not_permitted`. The job runs as
+        `createdByUserId`.
+
+        Signed part URLs are bearer credentials: whoever holds one can write that
+        part. They are never logged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IssueImportUploadUrlsRequest' }
+            examples:
+              resume:
+                summary: Parts 2 and 3 are still to upload
+                value:
+                  partNumbers: [2, 3]
+      responses:
+        '200':
+          description: Fresh URLs for the parts asked for, with a new `expiresAt`.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportUpload' }
+              examples:
+                reissued:
+                  value:
+                    importId: 5e1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6a01
+                    parts:
+                      - partNumber: 2
+                        url: https://storage.example/kasuwa-imports/upload?part=2&expires=300&signature=sig-d
+                        sizeBytes: 5242880
+                      - partNumber: 3
+                        url: https://storage.example/kasuwa-imports/upload?part=3&expires=300&signature=sig-e
+                        sizeBytes: 2097152
+                    expiresAt: '2026-10-18T09:20:00Z'
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/ImportNotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/ImportStatusConflict' }
+
+  /api/v1/imports/{importId}/complete:
+    parameters:
+      - $ref: '#/components/parameters/ImportId'
+    post:
+      tags: [imports]
+      summary: Complete the upload — the server verifies it and reads the header
+      operationId: completeImportUpload
+      x-kasuwa-implemented: true
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P28/A1', 'P28/A2']
+      description: |
+        Sent with each part's `etag` once every part is uploaded. Allowed in
+        `awaiting_upload` only (else `409 import_status_conflict`). The
+        answer is `202`: the job moves to `reading_header` and then
+        `awaiting_mapping`; poll getImport.
+
+        **`422 upload_mismatch`.** The stored object's size or type differs
+        from the declaration. The job becomes `rejected` and its object is
+        deleted; start again with createImport.
+
+        Needs `contact.import`, else `403 not_permitted`. An import the
+        caller cannot see is `404 not_found`. One audit event, `import
+        uploaded`, naming no filename and no header.
+
+        **Creator only (D-L151).** Open only to the import's `createdByUserId`;
+        anyone else in scope gets `403 not_permitted`. The job runs as
+        `createdByUserId`.
+
+        **Metadata only.** Completing checks the stored object's size and type
+        against the declaration, not the content: the bytes stay untrusted until
+        they are parsed. Signed part URLs are bearer credentials and are never
+        logged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CompleteImportUploadRequest' }
+            examples:
+              threeParts:
+                value:
+                  parts:
+                    - { partNumber: 1, etag: '"9b2cf535f27731c974343645a3985328"' }
+                    - { partNumber: 2, etag: '"0f1e2d3c4b5a69788796a5b4c3d2e1f0"' }
+                    - { partNumber: 3, etag: '"a1b2c3d4e5f60718293a4b5c6d7e8f90"' }
+      responses:
+        '202':
+          description: Accepted. The header is being read.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Import' }
+              examples:
+                reading:
+                  value:
+                    id: 5e1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6a01
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    status: reading_header
+                    filename: sample-customers.csv
+                    sizeBytes: 12582912
+                    contentType: text/csv
+                    headers: null
+                    suggestedMapping: null
+                    mapping: null
+                    counts: { created: 0, skipped: 0, failed: 0 }
+                    errors: []
+                    errorsTruncated: false
+                    rawFileDeletedAt: null
+                    createdByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    createdAt: '2026-10-18T09:00:00Z'
+                    updatedAt: '2026-10-18T09:01:00Z'
+                    finishedAt: null
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/ImportNotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/ImportStatusConflict' }
+        '422': { $ref: '#/components/responses/UploadMismatch' }
+
+  /api/v1/imports/{importId}/abort:
+    parameters:
+      - $ref: '#/components/parameters/ImportId'
+    post:
+      tags: [imports]
+      summary: Abandon an upload
+      operationId: abortImportUpload
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P28/A1']
+      description: |
+        Abandons an upload. Takes no request body. Allowed in
+        `awaiting_upload` only (else `409 import_status_conflict`); the job
+        becomes `cancelled` and any uploaded parts are deleted. An upload left
+        for 24 hours becomes `expired` without a call.
+
+        Needs `contact.import`, else `403 not_permitted`. An import the
+        caller cannot see is `404 not_found`.
+
+        **Creator only (D-L151).** Open only to the import's `createdByUserId`;
+        anyone else in scope gets `403 not_permitted`. The job runs as
+        `createdByUserId`.
+      responses:
+        '200':
+          description: The job, now `cancelled`.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Import' }
+              examples:
+                cancelled:
+                  value:
+                    id: 5e1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6a04
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    status: cancelled
+                    filename: sample-customers.csv
+                    sizeBytes: 12582912
+                    contentType: text/csv
+                    headers: null
+                    suggestedMapping: null
+                    mapping: null
+                    counts: { created: 0, skipped: 0, failed: 0 }
+                    errors: []
+                    errorsTruncated: false
+                    rawFileDeletedAt: null
+                    createdByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    createdAt: '2026-10-18T09:00:00Z'
+                    updatedAt: '2026-10-18T09:03:00Z'
+                    finishedAt: '2026-10-18T09:03:00Z'
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/ImportNotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/ImportStatusConflict' }
+
+  /api/v1/imports/{importId}/mapping:
+    parameters:
+      - $ref: '#/components/parameters/ImportId'
+    put:
+      tags: [imports]
+      summary: Save the column mapping, the default country and the owner
+      operationId: putImportMapping
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P28/A2', 'P28/A3']
+      x-kasuwa-import-compliance:
+        dnd: [true, false]
+        whatsappOptIn: [false]
+        consentState: [withdrawn, unknown]
+      description: |
+        A full replace of the job's mapping, allowed in `awaiting_mapping`
+        only (else `409 import_status_conflict`). Needs `contact.import`,
+        else `403 not_permitted`; an import the caller cannot see is
+        `404 not_found`.
+
+        **Body.** Exactly one of `columns` (1 to 500 `{ index, field }`) or
+        `fromImportId`. `defaultCountry` (NG, GH, KE or ZA) is always
+        required: phones are normalised to E.164 with it. `ownerUserId` is
+        optional and must be a member of the programme (D-L67), else
+        `400 unknown_reference` at `ownerUserId`; it owns every contact the
+        job creates. `field` is a contact api name, `custom.<key>` or `null`
+        to ignore the column. Only `phones`, `emails` and `tags` may be
+        mapped by more than one column; any other repeat is
+        `400 duplicate_mapping` at `columns.<i>.field`, and an index beyond
+        the file's headers is `400 unknown_column` at `columns.<i>.index`.
+
+        **`fromImportId`** copies an earlier job's mapping by header name
+        (the mapping template, M21, with no template table). It works only
+        while that job's headers still exist: once its raw file is deleted
+        its headers are null (D-L148), and `fromImportId` then answers
+        `400 unknown_reference`, as it does for an import the caller cannot
+        see.
+
+        **Required fields.** `displayName` is required, satisfied by mapping
+        `displayName` or at least one of `givenNames` and `familyName`.
+        Otherwise `400 mapping_incomplete`, one detail per missing api name
+        (`displayName`). A custom key that is unknown or retired is
+        `unknown_field` (T-0088).
+
+        **Field security.** A field the caller may not edit in the
+        programme is `403 not_permitted` with
+        `details[].code: field_not_editable` naming the field
+        (`custom.<key>` for a custom field), never a column.
+
+        **Compliance (D-P28, D-L148).** An import only creates new contacts
+        (duplicates are skipped) and never grants consent. A mapped
+        compliance column may write only the values in
+        `x-kasuwa-import-compliance`: `dnd` true or false, `whatsappOptIn`
+        false, `consentState` withdrawn or unknown, each the restrictive
+        values up to a new contact's own default. An empty cell leaves the
+        default. A granting value (`whatsappOptIn` true, `consentState`
+        pending or opted_in) is not refused here but at run time, as the row
+        error `consent_grant_refused`.
+
+        **Creator only (D-L151).** Open only to the import's `createdByUserId`;
+        anyone else in scope gets `403 not_permitted`. The job runs as
+        `createdByUserId`.
+
+        **Permission sets (D-L151).** `contact.import` is held only by permission
+        sets that also hold `contact.write`. Setting `ownerUserId` to another member
+        needs `contact.write`, the same right as createContact (D-P14,
+        D-L81), else `403 not_permitted`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PutImportMappingRequest' }
+            examples:
+              columns:
+                summary: Map four columns, ignore one
+                value:
+                  columns:
+                    - { index: 0, field: givenNames }
+                    - { index: 1, field: familyName }
+                    - { index: 2, field: phones }
+                    - { index: 3, field: null }
+                  defaultCountry: NG
+                  ownerUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+              template:
+                summary: Copy an earlier import's mapping by header name
+                value:
+                  fromImportId: 5e1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6a01
+                  defaultCountry: GH
+      responses:
+        '200':
+          description: The job with its saved mapping (resolved to columns, never a `fromImportId`).
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Import' }
+              examples:
+                saved:
+                  value:
+                    id: 5e1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6a03
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    status: awaiting_mapping
+                    filename: sample-customers.csv
+                    sizeBytes: 12582912
+                    contentType: text/csv
+                    headers: [Full name, Mobile, Notes]
+                    suggestedMapping:
+                      - { index: 0, field: displayName }
+                      - { index: 1, field: phones }
+                      - { index: 2, field: null }
+                    mapping:
+                      columns:
+                        - { index: 0, field: displayName }
+                        - { index: 1, field: phones }
+                        - { index: 2, field: null }
+                      defaultCountry: NG
+                      ownerUserId: null
+                    counts: { created: 0, skipped: 0, failed: 0 }
+                    errors: []
+                    errorsTruncated: false
+                    rawFileDeletedAt: null
+                    createdByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    createdAt: '2026-10-18T09:00:00Z'
+                    updatedAt: '2026-10-18T09:02:00Z'
+                    finishedAt: null
+        '400': { $ref: '#/components/responses/ImportMappingInvalid' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/ImportMappingNotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/ImportStatusConflict' }
+
+  /api/v1/imports/{importId}/run:
+    parameters:
+      - $ref: '#/components/parameters/ImportId'
+    post:
+      tags: [imports]
+      summary: Run the import
+      operationId: runImport
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P28/A3', 'P28/A4']
+      description: |
+        Queues the job. Takes no request body. Allowed in `awaiting_mapping`
+        with a saved mapping (else `409 import_status_conflict`). The answer
+        is `202` with the job, `queued`; poll getImport.
+
+        The job runs as the initiating user and re-resolves that user's
+        scope and field security when it runs, not when it was queued
+        (ADR-0017 Q7): a user removed from the programme meanwhile creates
+        nothing. It only creates contacts; duplicates are skipped as
+        `possible_duplicate` and a granting compliance value is the row error
+        `consent_grant_refused`.
+
+        Needs `contact.import`, else `403 not_permitted`. An import the
+        caller cannot see is `404 not_found`.
+
+        **Creator only (D-L151).** Open only to the import's `createdByUserId`;
+        anyone else in scope gets `403 not_permitted`. The job runs as
+        `createdByUserId`.
+
+        The run re-checks `contact.import` and the creator's scope before every
+        batch, and stops if either is gone.
+      responses:
+        '202':
+          description: Queued.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Import' }
+              examples:
+                queued:
+                  value:
+                    id: 5e1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6a03
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    status: queued
+                    filename: sample-customers.csv
+                    sizeBytes: 12582912
+                    contentType: text/csv
+                    headers: [Full name, Mobile, Notes]
+                    suggestedMapping: null
+                    mapping:
+                      columns:
+                        - { index: 0, field: displayName }
+                        - { index: 1, field: phones }
+                        - { index: 2, field: null }
+                      defaultCountry: NG
+                      ownerUserId: null
+                    counts: { created: 0, skipped: 0, failed: 0 }
+                    errors: []
+                    errorsTruncated: false
+                    rawFileDeletedAt: null
+                    createdByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    createdAt: '2026-10-18T09:00:00Z'
+                    updatedAt: '2026-10-18T09:03:00Z'
+                    finishedAt: null
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/ImportNotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/ImportStatusConflict' }
+
+  /api/v1/imports/{importId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/ImportId'
+    post:
+      tags: [imports]
+      summary: Cancel a queued or running import
+      operationId: cancelImport
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P28/A4']
+      description: |
+        Asks the job to stop. Takes no request body. Allowed in `queued` or
+        `running` (else `409 import_status_conflict`). It is honoured between
+        batches, so the `202` may still say `running`; contacts already
+        created stay created. The job ends `cancelled`.
+
+        Needs `contact.import`, else `403 not_permitted`. An import the
+        caller cannot see is `404 not_found`.
+
+        **Creator or tenant admin (D-L151).** Open to the import's
+        `createdByUserId` or a tenant admin; anyone else in scope gets
+        `403 not_permitted`. The run re-checks `contact.import` and scope every
+        batch.
+      responses:
+        '202':
+          description: Accepted. The job may still say `running` until the current batch ends.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Import' }
+              examples:
+                running:
+                  value:
+                    id: 5e1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6a03
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    status: running
+                    filename: sample-customers.csv
+                    sizeBytes: 12582912
+                    contentType: text/csv
+                    headers: [Full name, Mobile, Notes]
+                    suggestedMapping: null
+                    mapping:
+                      columns:
+                        - { index: 0, field: displayName }
+                        - { index: 1, field: phones }
+                        - { index: 2, field: null }
+                      defaultCountry: NG
+                      ownerUserId: null
+                    counts: { created: 400, skipped: 0, failed: 0 }
+                    errors: []
+                    errorsTruncated: false
+                    rawFileDeletedAt: null
+                    createdByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    createdAt: '2026-10-18T09:00:00Z'
+                    updatedAt: '2026-10-18T09:05:00Z'
+                    finishedAt: null
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/ImportNotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/ImportStatusConflict' }
+
+  /api/v1/programmes/{programmeId}/duplicates:
+    parameters:
+      - $ref: '#/components/parameters/ProgrammeIdPath'
+    get:
+      tags: [duplicates]
+      summary: List a programme's duplicate contact sets
+      operationId: listDuplicates
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P28/C']
+      description: |
+        Sets of contacts that match on exact E.164 phone or lower-cased email
+        within one programme (D-P12), keyset paged (`cursor` and `limit`
+        only, no total). The programme is in the path, not the query, so the
+        scope rule holds (the task file spelled it `?programmeId=`): a
+        programme the caller does not reach is `404 not_found`, the same body
+        as one that does not exist.
+
+        **Exact only.** No fuzzy or name matching, no confidence score and
+        no "match score": a set is `{ matchOn, contacts }`. The matched value
+        is never returned, so the list tells the caller nothing about a
+        number or an address it does not already show. A set holds 2 to 10
+        contacts, the ten most recently updated, with no count and no "more"
+        flag. The same pair may appear in a phone set and an email set.
+
+        **Field security.** A match on a field withheld from the caller in
+        that programme yields no sets for that `matchOn`: two rows sharing a
+        hidden number is itself a fact about the number. `displayName` is
+        `null` when withheld. Contacts merged away (D-P27) are never in a
+        set.
+
+        **Cursor (D-L151, widened by D-L153).** Sets are ordered by their
+        lowest contact id, ascending, then by `matchOn`. Of record data the
+        `cursor` carries only a contact id, the lowest in the last set; besides
+        it, only the literal `phone` or `email`, a format version and a small
+        ordinal among sets sharing that id and `matchOn` (so a pair matching on
+        both, or a contact with two shared numbers, never loses a set at a page
+        boundary). The cursor never carries the matched value, a phone or an
+        email; this overrides the shared `Cursor` text. **Throttled** like search: `429 too_many_requests` with
+        `Retry-After`, per user, decided before validation.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of duplicate sets.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DuplicatePage' }
+              examples:
+                page:
+                  summary: A phone set and an email set, one name withheld
+                  value:
+                    data:
+                      - matchOn: phone
+                        contacts:
+                          - id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                            displayName: Adaeze Okonkwo
+                            updatedAt: '2026-10-10T09:00:00Z'
+                          - id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e02
+                            displayName: A. Okonkwo
+                            updatedAt: '2026-10-14T11:30:00Z'
+                      - matchOn: email
+                        contacts:
+                          - id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e03
+                            displayName: null
+                            updatedAt: '2026-10-12T08:15:00Z'
+                          - id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e04
+                            displayName: Tunde Bakare
+                            updatedAt: '2026-10-09T16:45:00Z'
+                    nextCursor: null
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/DuplicatesTooManyRequests' }
+
+  /api/v1/contacts/{contactId}/merge-preview:
+    parameters:
+      - $ref: '#/components/parameters/ContactId'
+    get:
+      tags: [duplicates]
+      summary: Preview a merge — both records, the default choices and the compliance outcome
+      operationId: getContactMergePreview
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P28/C1']
+      description: |
+        `contactId` is the survivor and `with` the contact to merge away. Both
+        come back as `Contact`, field security applied. A merged-away contact
+        is `404` on every contact operation, this one included (D-P27).
+
+        **`defaults`** picks, per choosable field the caller may edit, the
+        side updated more recently if its value is non-empty, else the other
+        side. It never names a compliance field or a field withheld on either
+        side.
+
+        **`compliance`** is the outcome by `x-kasuwa-compliance-order`: the
+        most restrictive value wins, whatever the survivor or the date
+        (D-P28). An outcome field the caller cannot read is omitted and
+        listed in `withheldFields`.
+
+        **Scope.** `with` out of scope is `404 not_found`; in another
+        programme the caller can see it is `400 validation_failed` with
+        `details[].code: cross_programme` at `with`; the same id twice is
+        `same_contact` at `with`. Nothing is written.
+      parameters:
+        - $ref: '#/components/parameters/MergeWith'
+      responses:
+        '200':
+          description: The preview. Nothing is merged.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContactMergePreview' }
+              examples:
+                preview:
+                  summary: The merged side is newer, and stricter on consent
+                  value:
+                    survivor:
+                      id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                      programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                      version: 3
+                      displayName: Adaeze Okonkwo
+                      givenNames: Adaeze
+                      familyName: Okonkwo
+                      companyName: null
+                      phones: [{ type: mobile, e164: '+2348030000001' }]
+                      emails: [adaeze.okonkwo@example.com]
+                      accountId: null
+                      ownerUserId: null
+                      status: contacted
+                      source: whatsapp
+                      tags: []
+                      preferredLanguage: en
+                      preferredChannel: whatsapp
+                      state: Lagos
+                      lga: null
+                      dnd: false
+                      whatsappOptIn: true
+                      consentState: opted_in
+                      createdAt: '2026-10-01T09:12:00Z'
+                      updatedAt: '2026-10-10T09:00:00Z'
+                      withheldFields: []
+                    merged:
+                      id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e02
+                      programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                      version: 1
+                      displayName: Adaeze Okonkwo
+                      givenNames: Adaeze
+                      familyName: Okonkwo
+                      companyName: Okonkwo Fabrics
+                      phones: [{ type: mobile, e164: '+2348030000001' }]
+                      emails: []
+                      accountId: null
+                      ownerUserId: null
+                      status: qualified
+                      source: web_form
+                      tags: [Callback set]
+                      preferredLanguage: null
+                      preferredChannel: null
+                      state: Lagos
+                      lga: Ikeja
+                      dnd: true
+                      whatsappOptIn: true
+                      consentState: withdrawn
+                      createdAt: '2026-10-05T10:00:00Z'
+                      updatedAt: '2026-10-14T11:30:00Z'
+                      withheldFields: []
+                    defaults:
+                      companyName: merged
+                      emails: survivor
+                      status: merged
+                      source: merged
+                      tags: merged
+                      preferredLanguage: survivor
+                      preferredChannel: survivor
+                      lga: merged
+                    compliance:
+                      dnd: true
+                      whatsappOptIn: true
+                      consentState: withdrawn
+                      withheldFields: []
+        '400': { $ref: '#/components/responses/MergePreviewInvalid' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/contact-merges:
+    post:
+      tags: [duplicates]
+      summary: Merge two contacts — the second is merged away into the first
+      operationId: createContactMerge
+      x-kasuwa-implemented: true
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P28/C1']
+      x-kasuwa-compliance-order:
+        dnd: [true, false]
+        whatsappOptIn: [false, true]
+        consentState: [withdrawn, unknown, pending, opted_in]
+      description: |
+        Merges `mergedId` into `survivorId` in one transaction: chosen field
+        values move to the survivor, the merged contact's activities move
+        with it, and the merged contact is soft-deleted. The merge is
+        undoable for 30 days (undoContactMerge). Exactly two records; merge
+        more by repeating. Needs `contact.write` in the programme, else
+        `403 not_permitted`. Writes one audit event per merge (D-P12), naming
+        fields and never values.
+
+        **`choices`** is optional; an absent choosable field takes the
+        preview's default. A field the caller may not edit, or that is
+        withheld, keeps the survivor's value, and choosing it is
+        `403 not_permitted` with `details[].code: field_not_editable` at
+        `choices.<field>`: a merge is never a way round field security.
+
+        **Compliance is not choosable.** `dnd`, `whatsappOptIn` and
+        `consentState` in `choices` are `400 validation_failed` with
+        `details[].code: compliance_not_choosable` at `choices.<field>`. Each
+        always takes the most restrictive value by
+        `x-kasuwa-compliance-order`, most restrictive first, whichever record
+        survives (D-P28).
+
+        **Scope.** Both versions must be current: `409 stale_write`
+        otherwise. `mergedId` in another programme the caller can see is
+        `400 cross_programme` at `mergedId`; the same id twice is
+        `same_contact`. A contact the caller cannot read is `404 not_found`.
+        A merged-away contact is 404 on every contact operation (D-P27);
+        here, where the caller could read the contact before it was merged
+        away, `409 already_merged` is the answer, because the merges
+        history already shows it to them.
+
+        **Not claim (D-L151).** `contact.claim_and_set_status` never permits a
+        merge; it needs `contact.write`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateContactMergeRequest' }
+            examples:
+              merge:
+                summary: Keep the survivor, but take the newer status and tags
+                value:
+                  survivorId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                  mergedId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e02
+                  survivorVersion: 3
+                  mergedVersion: 1
+                  choices:
+                    status: merged
+                    tags: merged
+      responses:
+        '201':
+          description: Merged. Undo is open until `undoUntil`.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContactMerge' }
+              examples:
+                merged:
+                  value:
+                    id: 9a1b2c3d-4e5f-4a60-8b71-8c9d0e1f2a01
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    survivor: { id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01, displayName: Adaeze Okonkwo }
+                    merged: { id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e02, displayName: Adaeze Okonkwo }
+                    mergedByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    mergedAt: '2026-10-18T09:00:00Z'
+                    undoUntil: '2026-11-17T09:00:00Z'
+                    undoneAt: null
+                    undoneByUserId: null
+                    survivorReverted: null
+        '400': { $ref: '#/components/responses/MergeInvalid' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/MergeNotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/MergeConflict' }
+
+    get:
+      tags: [duplicates]
+      summary: List merges — newest first, keyset
+      operationId: listContactMerges
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P28/C1']
+      description: |
+        The merge history, which is Phase 2's recycle bin: a merge is the only
+        soft delete, so the merges list is where a merged-away contact can be
+        found and undone. Newest first by `mergedAt`, keyset paged (`cursor`
+        and `limit` only, no total). Only merges in programmes the session
+        reaches; scope is resolved from the session, never supplied. A party's
+        `displayName` is `null` when field security withholds it.
+
+        **Who (D-L151).** Requires `contact.write` in the programme or tenant
+        admin; others see no merges. After the deferred purge of a merged contact,
+        an entry shows ids only (`displayName: null`).
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page, newest first.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContactMergePage' }
+              examples:
+                page:
+                  summary: A fresh merge and an undone one
+                  value:
+                    data:
+                      - id: 9a1b2c3d-4e5f-4a60-8b71-8c9d0e1f2a01
+                        programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                        survivor: { id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01, displayName: Adaeze Okonkwo }
+                        merged: { id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e02, displayName: Adaeze Okonkwo }
+                        mergedByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                        mergedAt: '2026-10-18T09:00:00Z'
+                        undoUntil: '2026-11-17T09:00:00Z'
+                        undoneAt: null
+                        undoneByUserId: null
+                        survivorReverted: null
+                      - id: 9a1b2c3d-4e5f-4a60-8b71-8c9d0e1f2a02
+                        programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                        survivor: { id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e03, displayName: null }
+                        merged: { id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e04, displayName: Tunde Bakare }
+                        mergedByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                        mergedAt: '2026-10-12T14:00:00Z'
+                        undoUntil: '2026-11-11T14:00:00Z'
+                        undoneAt: '2026-10-13T08:00:00Z'
+                        undoneByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                        survivorReverted: false
+                    nextCursor: null
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+
+  /api/v1/contact-merges/{mergeId}/undo:
+    parameters:
+      - $ref: '#/components/parameters/MergeId'
+    post:
+      tags: [duplicates]
+      summary: Undo a merge — restore the merged contact
+      operationId: undoContactMerge
+      x-kasuwa-implemented: true
+      x-kasuwa-audited: true
+      x-kasuwa-screens: ['P28/C1']
+      description: |
+        Takes no request body. Allowed for the merging user or a tenant
+        admin, else `403 not_permitted`, until `undoUntil`, which is
+        `mergedAt` plus exactly 30 days; after that it is
+        `410 undo_expired`. The merged contact is restored and its
+        activities move back.
+
+        **`survivorReverted`** is `true` when the survivor's chosen fields
+        were put back (it was not edited since the merge) and `false` when it
+        was edited and keeps its current values. Undo never loosens a
+        compliance field on the survivor (D-L146): the restrictive value the
+        merge produced stays.
+
+        **Conflicts.** A survivor since merged away into another contact is
+        `409 already_merged`: undo the later merge first. A repeat undo
+        answers `200` with the merge unchanged. A merge the caller cannot see
+        is `404 not_found`.
+
+        **Who (D-L151).** The merging user, who must hold `contact.write` in the
+        programme now, or a tenant admin; else `403 not_permitted`.
+
+        **All-or-nothing.** Undo runs under the undoer's current field security: if
+        any field it would restore cannot be edited by the undoer, the answer is
+        `403 not_permitted` with `details[].code: field_not_editable`, and nothing changes.
+
+        **Compliance.** On the restored contact, each of `dnd`, `whatsappOptIn` and
+        `consentState` takes the more restrictive of its snapshot value and the
+        survivor's current value (`x-kasuwa-compliance-order`), and the survivor is
+        never loosened (D-P28).
+      responses:
+        '200':
+          description: The merge, now undone (or unchanged on a repeat).
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContactMerge' }
+              examples:
+                undone:
+                  value:
+                    id: 9a1b2c3d-4e5f-4a60-8b71-8c9d0e1f2a01
+                    programmeId: 0b6a1f3e-2c4d-4e5f-8a9b-0c1d2e3f4a01
+                    survivor: { id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01, displayName: Adaeze Okonkwo }
+                    merged: { id: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e02, displayName: Adaeze Okonkwo }
+                    mergedByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    mergedAt: '2026-10-18T09:00:00Z'
+                    undoUntil: '2026-11-17T09:00:00Z'
+                    undoneAt: '2026-10-20T11:30:00Z'
+                    undoneByUserId: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01
+                    survivorReverted: true
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/MergeUndoNotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/UndoConflict' }
+        '410': { $ref: '#/components/responses/UndoExpired' }
+  /api/v1/notifications:
+    get:
+      tags: [notifications]
+      summary: List the caller's notifications, newest first
+      operationId: listNotifications
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P26/A', 'P26/A3', 'P26/B', 'P26/B2']
+      x-kasuwa-notification-kinds:
+        record_assigned: [contact, account, deal]
+        task_assigned: [activity]
+        import_finished: [import]
+      x-kasuwa-notification-display-fields:
+        contact: displayName
+        account: name
+        deal: name
+        activity: subject
+        import: filename
+      description: |
+        The caller's own in-app notifications, keyset paged (`cursor` and
+        `limit` only, no total, count or offset), newest first by `createdAt`
+        then `id`, both descending. `filter=unread` keeps the items whose
+        `readAt` is null; `kind` narrows to one kind.
+
+        **Notifications are produced only from events** (the outbox consumer,
+        ADR-0018): there is no create and no delete operation, and the only
+        operations under `/api/v1/notifications` are the four in this file. An
+        assignment the recipient makes to themselves produces no
+        notification. Read notifications are kept 90 days (D-L146); the purge
+        is a deferred follow-up.
+
+        **Kinds (D-L87).** `NotificationKind` is closed today and can only
+        grow: a later kind is an additive contract change, and a client
+        ignores an item whose kind it does not know rather than failing the
+        page. The kind fixes the object type, as data in
+        `x-kasuwa-notification-kinds` and enforced by the schema.
+        `x-kasuwa-notification-display-fields` names the field of each object
+        type that `objectDisplayName` is read from.
+
+        **No title text.** The server sends no title, body or sentence; the
+        client builds the sentence from `kind` with i18n (D-P29). The names
+        are resolved at read time, under the reader's scope and field
+        security, and are `null` when withheld.
+
+        **Dropped, not redacted (D-P29).** An item whose object the reader
+        can no longer read (out of scope, programme left, rights lost, a
+        contact merged away under D-P27) is dropped from the page, never sent
+        with its names set to null. The server examines at most `limit` of the
+        caller's notifications per page and returns the visible ones among
+        them, so a page may hold fewer than `limit` items, even none, while
+        `nextCursor` is non-null. Only `nextCursor: null` means the end.
+
+        **Cursor.** It carries only a notification id (see the
+        `NotificationCursor` parameter). **Throttled** (D-L134): `429
+        too_many_requests` with `Retry-After`, per user, decided before
+        validation.
+      parameters:
+        - name: filter
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/NotificationFilter' }
+          description: '`unread` keeps items whose `readAt` is null. Default `all`.'
+        - name: kind
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/NotificationKind' }
+          description: One kind. Not a list.
+        - $ref: '#/components/parameters/NotificationCursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of notifications.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPage' }
+              examples:
+                page:
+                  summary: Every kind, newest first; one object name withheld, one former-member actor
+                  value:
+                    data:
+                      - id: 8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c06
+                        kind: record_assigned
+                        objectType: contact
+                        objectId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                        actor: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Sample Agent }
+                        objectDisplayName: Sample Customer
+                        createdAt: '2026-10-18T09:50:00Z'
+                        readAt: null
+                      - id: 8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c05
+                        kind: record_assigned
+                        objectType: account
+                        objectId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e02
+                        actor: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e02, displayName: null }
+                        objectDisplayName: Sample Holdings
+                        createdAt: '2026-10-18T09:40:00Z'
+                        readAt: null
+                      - id: 8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c04
+                        kind: record_assigned
+                        objectType: deal
+                        objectId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e03
+                        actor: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Sample Agent }
+                        objectDisplayName: Sample renewal
+                        createdAt: '2026-10-18T09:30:00Z'
+                        readAt: '2026-10-18T09:35:00Z'
+                      - id: 8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c03
+                        kind: task_assigned
+                        objectType: activity
+                        objectId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e04
+                        actor: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Sample Agent }
+                        objectDisplayName: null
+                        createdAt: '2026-10-18T09:20:00Z'
+                        readAt: null
+                      - id: 8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c02
+                        kind: import_finished
+                        objectType: import
+                        objectId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e05
+                        actor: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Sample Agent }
+                        objectDisplayName: sample-customers.csv
+                        createdAt: '2026-10-18T09:10:00Z'
+                        readAt: null
+                    nextCursor: eyJpZCI6IjhhMWIyYzNkLTRlNWYtNGE2Yi04YzdkLTllMGYxYTJiM2MwMiJ9
+                allDropped:
+                  summary: None of the examined notifications is visible now, and the list continues
+                  value:
+                    data: []
+                    nextCursor: eyJpZCI6IjhhMWIyYzNkLTRlNWYtNGE2Yi04YzdkLTllMGYxYTJiM2MwNSJ9
+        '400':
+          description: |
+            A malformed cursor, or a `kind` or `filter` that is not a known
+            value. `details` names the path and a reason code, never the
+            submitted value.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+              examples:
+                invalidCursor:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    code: validation_failed
+                    message: Validation failed
+                    details:
+                      - path: cursor
+                        code: invalid_cursor
+                invalidKind:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    code: validation_failed
+                    message: Validation failed
+                    details:
+                      - path: kind
+                        code: invalid_value
+                invalidFilter:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    code: validation_failed
+                    message: Validation failed
+                    details:
+                      - path: filter
+                        code: invalid_value
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '429': { $ref: '#/components/responses/NotificationsTooManyRequests' }
+
+  /api/v1/notifications/unread-count:
+    get:
+      tags: [notifications]
+      summary: The caller's unread count, for the bell badge
+      operationId: getNotificationUnreadCount
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P26/A1']
+      x-kasuwa-poll-interval-seconds: 30
+      description: |
+        The caller's unread notifications that would appear in the list now,
+        so only visible items are counted (the list's drop rule applies), up
+        to 99. When there are more than 99, `count` is 99 and `capped` is
+        true (the "99+" badge); otherwise `capped` is false. It takes no
+        parameter. Per-kind counts are not served.
+
+        **Bounded work.** The count examines at most the 500 newest unread
+        notifications, counts the visible ones among them, and caps the answer
+        at 99. It may therefore undercount when more than 500 are unread.
+
+        **Polling (D-L87, no socket in Phase 2).** Poll this route, and only
+        this route, every 30 seconds (`x-kasuwa-poll-interval-seconds`), only
+        while the page is visible. Fetch the list when the bell or the centre
+        opens, never on a timer. On `429` wait the `Retry-After` seconds
+        before resuming (D-L134).
+      responses:
+        '200':
+          description: The unread count.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationUnreadCount' }
+              examples:
+                some:
+                  summary: Seven unread
+                  value: { count: 7, capped: false }
+                capped:
+                  summary: More than 99 unread
+                  value: { count: 99, capped: true }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '429': { $ref: '#/components/responses/NotificationsTooManyRequests' }
+
+  /api/v1/notifications/read-all:
+    post:
+      tags: [notifications]
+      summary: Mark all of the caller's unread notifications read, or all of one kind
+      operationId: markAllNotificationsRead
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P26/A1']
+      description: |
+        Marks every unread notification of the caller read, or only those of
+        `kind` (the "clear assignments in one tap" action: assignments are two
+        kinds today, so that is two calls). It covers items whose object is
+        no longer visible too, which changes nothing anyone can see. The body
+        is required and may be `{}`. The answer is the new unread count
+        (`NotificationUnreadCount`), never how many rows changed, which would
+        count invisible items.
+
+        **The race (D-L154).** An optional `throughId` bounds the call: only
+        notifications at or older than that one, by `createdAt` then `id`, are
+        marked read, so one that arrives after the caller looked stays unread.
+        A `throughId` that names no notification and one that names another
+        user's (or another tenant's) are the same `400 validation_failed` with
+        `details[].code: invalid_value` at `throughId`: it never says whether
+        the id exists. The caller's own notification whose object is no
+        longer visible is a valid bound.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MarkAllNotificationsReadRequest' }
+            examples:
+              everything:
+                summary: Every unread notification
+                value: {}
+              assignments:
+                summary: Only one kind, up to the newest the caller saw
+                value:
+                  kind: record_assigned
+                  throughId: 8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c06
+      responses:
+        '200':
+          description: The new unread count.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationUnreadCount' }
+              examples:
+                cleared:
+                  summary: Everything cleared
+                  value: { count: 0, capped: false }
+        '400':
+          description: |
+            A `kind` that is not a known value, or a `throughId` that is not
+            usable (not a uuid, unknown, or someone else's: one answer).
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+              examples:
+                invalidKind:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    code: validation_failed
+                    message: Validation failed
+                    details:
+                      - path: kind
+                        code: invalid_value
+                invalidThroughId:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    code: validation_failed
+                    message: Validation failed
+                    details:
+                      - path: throughId
+                        code: invalid_value
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '429': { $ref: '#/components/responses/NotificationsTooManyRequests' }
+
+  /api/v1/notifications/{notificationId}:
+    patch:
+      tags: [notifications]
+      summary: Mark one notification read or unread
+      operationId: updateNotification
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P26/A']
+      description: |
+        `{ read: true }` sets `readAt`; an already-read item keeps its first
+        `readAt` (idempotent). `{ read: false }` clears it. The answer is the
+        item, with names resolved as in the list.
+
+        **One 404.** No such notification, another user's in this tenant,
+        another tenant's, and one whose object the caller can no longer read
+        are one `404 not_found` body. A notification is the recipient's own,
+        so there is never 403. A `404` changes nothing.
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          description: A notification identifier. A value that is not a uuid is `400`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateNotificationRequest' }
+            examples:
+              markRead:
+                value: { read: true }
+              markUnread:
+                value: { read: false }
+      responses:
+        '200':
+          description: The notification after the change.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Notification' }
+              examples:
+                read:
+                  value:
+                    id: 8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c06
+                    kind: record_assigned
+                    objectType: contact
+                    objectId: 3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01
+                    actor: { id: 7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e01, displayName: Sample Agent }
+                    objectDisplayName: Sample Customer
+                    createdAt: '2026-10-18T09:50:00Z'
+                    readAt: '2026-10-18T09:55:00Z'
+        '400':
+          description: A `read` that is not a boolean, or a non-uuid id.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+              examples:
+                invalidRead:
+                  value:
+                    statusCode: 400
+                    error: Bad Request
+                    code: validation_failed
+                    message: Validation failed
+                    details:
+                      - path: read
+                        code: invalid_value
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotificationNotFound' }
+        '429': { $ref: '#/components/responses/NotificationsTooManyRequests' }
+
 components:
   securitySchemes:
     sessionToken:
@@ -3814,6 +5663,56 @@ components:
         database.
 
   parameters:
+    NotificationCursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 2048 }
+      description: |
+        **Opaque.** Echo `nextCursor` back unchanged. It carries only a
+        notification id, never a time, a kind, a filter, a name or any other
+        value; the server resolves the position from that row, which is the
+        caller's own even when its object is no longer visible. A cursor
+        naming a notification that does not exist, another user's, or another
+        tenant's gets the same answer in all three cases: an empty page with
+        `nextCursor: null`, never anyone else's rows. Only a malformed cursor
+        is `400` with `details[].code: invalid_cursor`.
+    ImportId:
+      name: importId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        An import identifier. An import the caller cannot reach, whether in
+        another tenant, another programme, a programme where they lack
+        `contact.import`, or nowhere, is `404 not_found`. A value that is not
+        a uuid is `400`.
+    ProgrammeIdPath:
+      name: programmeId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        A programme identifier, as a record in the path (a scoped target, like
+        a pipeline). A programme the caller does not reach is `404 not_found`,
+        the same body as one that does not exist. Never a query parameter.
+    MergeId:
+      name: mergeId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        A contact merge identifier. A merge the caller cannot reach is
+        `404 not_found`. A value that is not a uuid is `400`.
+    MergeWith:
+      name: with
+      in: query
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        The contact to merge away into `contactId`, the survivor. Required.
+        Out of scope is `404 not_found`; in another programme the caller can
+        see, `400 cross_programme`; equal to `contactId`, `400 same_contact`.
     ContactId:
       name: contactId
       in: path
@@ -4096,6 +5995,73 @@ components:
         value after the request is `400 validation_failed` with
         `details[].code: invalid_window` at `closedSince`.
 
+    # --- custom-field filters (T-0088; ADR-0016 item 8, D-L128 Q4) ---------
+    CustomFilter:
+      name: custom
+      in: query
+      required: false
+      style: deepObject
+      explode: true
+      x-kasuwa-implemented: true
+      description: |
+        **Served since T-0089 (contract T-0088).** Before T-0089 the list
+        routes ignored this unknown parameter, so rows came back unfiltered
+        while looking filtered (the D-L75 hazard); a server older than
+        T-0089 still does, so a screen checks `x-kasuwa-implemented`.
+
+        Equality on a custom field: `custom[tier__c]=gold`. One value per
+        key; several keys are AND-ed. Only `picklist` and `boolean` custom
+        fields can be filtered: a picklist takes one of its values, a
+        boolean `true` or `false`. There is no range, no text search, no
+        list of values, no nested operator and no sort on any custom field
+        (D-L128 Q4). It is evaluated inside the already-scoped page (tenant,
+        programme, id), and the cursor stays id-only (D-L80).
+
+        Errors, each `400 validation_failed` at `details[].path`
+        `custom.<key>`, never echoing the value sent:
+        - `field_withheld`: the key is withheld from the caller in any
+          programme they reach (D-L64, D-L84, D-L88), even where it is
+          readable in a row's own programme;
+        - `filter_not_supported`: the key is a custom field of another type
+          (`text`, `number`, `currency` or `date`);
+        - `unknown_field`: no such custom field on this object, or a retired
+          one (one code for both, so no key's past existence leaks). A key
+          that does not match the custom api-name pattern at all is
+          `unknown_field` at `custom` (the parameter name), and the key is
+          never echoed in `path`, `message` or anywhere else.
+      schema:
+        type: object
+        minProperties: 1
+        maxProperties: 10
+        propertyNames: { $ref: '#/components/schemas/CustomFieldKey' }
+        additionalProperties:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{0,61}[a-z0-9]$'
+          description: A picklist value (an api name), or `true` / `false` for a boolean.
+    CustomEmptyFilter:
+      name: customEmpty
+      in: query
+      required: false
+      style: form
+      explode: true
+      x-kasuwa-implemented: true
+      description: |
+        **Served since T-0089 (contract T-0088);** see `custom` on older
+        servers. "Is empty": rows with no value
+        for each named custom key. Repeat the parameter for several keys;
+        they are AND-ed. Only `picklist` and `boolean` custom fields, as for
+        `custom`: another type is `400 filter_not_supported`, a key withheld
+        in any programme the caller reaches is `400 field_withheld`, and an
+        unknown or retired key is `400 unknown_field`, each at
+        `custom.<key>`. A value that is not a custom api name at all is
+        `400 unknown_field` at `customEmpty`, never echoed.
+      schema:
+        type: array
+        minItems: 1
+        maxItems: 10
+        uniqueItems: true
+        items: { $ref: '#/components/schemas/CustomFieldKey' }
+
   headers:
     NoStore:
       description: |
@@ -4105,6 +6071,119 @@ components:
       schema: { type: string, enum: ['no-store'] }
 
   schemas:
+    NotificationKind:
+      type: string
+      enum: [record_assigned, task_assigned, import_finished]
+      description: |
+        Closed today and grow-only (D-L87): a later kind is an additive
+        contract change, and a client ignores an item whose kind it does not
+        know rather than failing the page.
+    NotificationObjectType:
+      type: string
+      enum: [contact, account, deal, activity, import]
+    NotificationFilter:
+      type: string
+      enum: [all, unread]
+      default: all
+    NotificationActor:
+      type: object
+      additionalProperties: false
+      required: [id, displayName]
+      description: |
+        Who caused the notification (an import's actor is the user who
+        started it). `displayName` is the actor's current display name while
+        they are a member of the object's programme, else `null` (the D-P23
+        former-owner rule); it is re-read every time.
+      properties:
+        id: { type: string, format: uuid }
+        displayName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 200
+          description: |
+            `null` when the actor is no longer a member of the object's
+            programme (D-P23). Never the id printed as a name (D-L64); no
+            email, phone, role or avatar. User-supplied text: render it as
+            text only, never as HTML.
+    Notification:
+      type: object
+      additionalProperties: false
+      required: [id, kind, objectType, objectId, actor, objectDisplayName, createdAt, readAt]
+      description: |
+        The stored identifiers plus what is resolved at read time. No title,
+        body or sentence: the client builds it from `kind` with i18n (D-P29).
+        `kind` fixes `objectType` (see `x-kasuwa-notification-kinds`).
+      oneOf:
+        - properties:
+            kind: { const: record_assigned }
+            objectType: { enum: [contact, account, deal] }
+        - properties:
+            kind: { const: task_assigned }
+            objectType: { enum: [activity] }
+        - properties:
+            kind: { const: import_finished }
+            objectType: { enum: [import] }
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: '#/components/schemas/NotificationKind' }
+        objectType: { $ref: '#/components/schemas/NotificationObjectType' }
+        objectId: { type: string, format: uuid }
+        actor: { $ref: '#/components/schemas/NotificationActor' }
+        objectDisplayName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 255
+          description: |
+            The object's display field (`x-kasuwa-notification-display-fields`),
+            read at read time under the reader's scope and field security in
+            the object's programme. `null` when that field is withheld from
+            the reader, empty, or erased (an import's filename is cleared with
+            its raw file, D-L148). A contact's name follows its parts, as in
+            search (D-L68): `null` whenever `givenNames` or `familyName` is
+            withheld from the reader, never composed from the readable part.
+            Here `null` may mean withheld. User-supplied text: render it as
+            text only, never as HTML.
+        createdAt: { type: string, format: date-time }
+        readAt: { type: [string, 'null'], format: date-time }
+    NotificationPage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Notification' }
+        nextCursor:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 2048
+          description: '`null` only at the end. A page may be short or empty while this is non-null.'
+    NotificationUnreadCount:
+      type: object
+      additionalProperties: false
+      required: [count, capped]
+      properties:
+        count: { type: integer, minimum: 0, maximum: 99 }
+        capped: { type: boolean, description: 'True when there are more than 99 and `count` is 99.' }
+    UpdateNotificationRequest:
+      type: object
+      additionalProperties: false
+      required: [read]
+      properties:
+        read: { type: boolean }
+    MarkAllNotificationsReadRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        kind: { $ref: '#/components/schemas/NotificationKind' }
+        throughId:
+          type: string
+          format: uuid
+          description: |
+            It carries only a notification id, never a time or a cursor (D-L154):
+            only notifications
+            at or older than it, by `createdAt` then `id`, are marked read, so
+            one that arrives after stays unread.
     ContactStatus:
       type: string
       enum: [new, contacted, qualified, unqualified, customer]
@@ -4300,6 +6379,8 @@ components:
             Names of the properties above that field security withheld from
             this caller. Those properties are omitted from the object, never
             sent as `null`. Always present; empty when nothing was withheld.
+            A withheld custom field is listed as `custom.<key>`
+            (CustomFieldWithheldPath, T-0088); `custom` itself never is.
           items: { type: string }
 
     ContactOwner:
@@ -4329,8 +6410,20 @@ components:
         live wire's key set: the T-0041 suite checks every one of them is
         present or listed in `withheldFields`. Optional, like every
         withholdable property; a client must cope with their absence.
-        Empty today: `account` (T-0061) and `companyName` (T-0076) are served.
-      properties: {}
+        `account` (T-0061) and `companyName` (T-0076) are served; `custom`
+        (T-0088) is served since T-0089.
+      properties:
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: true
+          description: |
+            The contact's custom-field values (T-0088, ADR-0016), keyed by api
+            name. Every Contact-shaped read carries it once served, listLeads
+            included (a lead is a contact, D-P17). `custom` is never withheld
+            itself: a withheld key is absent and listed in `withheldFields`
+            as `custom.<key>`. Served since T-0089 and always
+            sent (`{}` when the record has no visible value).
 
     ContactAccountSummary:
       type: object
@@ -4783,6 +6876,16 @@ components:
             activity's programme; `null` when none. Withheld, and named in
             `withheldFields`, when the activity's `deal_id` field is withheld
             from the caller.
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: true
+          description: |
+            The activity's custom-field values (T-0088, ADR-0016), keyed by api
+            name. An own property because Activity is closed. `custom` is never
+            withheld itself: a withheld key is absent and listed in
+            `withheldFields` as `custom.<key>`. Served since T-0089 and
+            always sent (`{}` when none is visible).
         createdByUserId:
           type: [string, 'null']
           format: uuid
@@ -4797,10 +6900,14 @@ components:
           type: array
           description: |
             Names of the properties above that field security withheld from
-            this caller. Always present; empty when nothing was withheld.
+            this caller. Always present; empty when nothing was withheld. A
+            withheld custom field is listed as `custom.<key>`
+            (CustomFieldWithheldPath, T-0088); `custom` itself never is.
           items:
-            type: string
-            enum: [subject, body, dueAt, completedAt, startsAt, endsAt, ownerUserId, contactId, accountId, dealId]
+            anyOf:
+              - type: string
+                enum: [subject, body, dueAt, completedAt, startsAt, endsAt, ownerUserId, contactId, accountId, dealId]
+              - $ref: '#/components/schemas/CustomFieldWithheldPath'
 
     CreateActivityRequest:
       type: object
@@ -4866,6 +6973,16 @@ components:
             or `accountId`. Must be a deal in the activity's programme, else
             `400 unknown_reference` at `dealId`, one body whether it names a
             deal elsewhere or nothing.
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: true
+          description: |
+            Custom-field values to set at create (T-0088, ADR-0016): values
+            only, never `null`. Each key must be editable for the caller in
+            the target programme (else `403 field_not_editable` at
+            `custom.<key>`); an unknown or retired key is `400 unknown_field`.
+            Served since T-0089.
 
     UpdateActivityRequest:
       type: object
@@ -4927,6 +7044,15 @@ components:
             else `400 unknown_reference` at `dealId`, one body whether it
             names a deal elsewhere or nothing. The only link an update may
             change: `contactId` and `accountId` stay `400`.
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFieldsPatch'
+          x-kasuwa-implemented: true
+          description: |
+            Custom-field changes (T-0088, ADR-0016), merged per key: a value
+            sets, `null` clears, an absent key is untouched. Each key must be
+            editable in the record's programme (else `403 field_not_editable`
+            at `custom.<key>`). Served since T-0089.
 
     ActivityContactSummary:
       type: object
@@ -5109,6 +7235,16 @@ components:
         lga: { type: [string, 'null'], maxLength: 64 }
         whatsappOptIn: { type: boolean }
         consentState: { $ref: '#/components/schemas/ConsentState' }
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: true
+          description: |
+            Custom-field values to set at create (T-0088, ADR-0016): values
+            only, never `null`. Each key must be editable for the caller in
+            the target programme (else `403 field_not_editable` at
+            `custom.<key>`); an unknown or retired key is `400 unknown_field`.
+            Served since T-0089.
 
     UpdateContactRequest:
       type: object
@@ -5164,6 +7300,15 @@ components:
         lga: { type: [string, 'null'], maxLength: 64 }
         whatsappOptIn: { type: boolean }
         consentState: { $ref: '#/components/schemas/ConsentState' }
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFieldsPatch'
+          x-kasuwa-implemented: true
+          description: |
+            Custom-field changes (T-0088, ADR-0016), merged per key: a value
+            sets, `null` clears, an absent key is untouched. Each key must be
+            editable in the record's programme (else `403 field_not_editable`
+            at `custom.<key>`). Served since T-0089.
 
     ConvertContactRequest:
       type: object
@@ -5261,6 +7406,14 @@ components:
         pipeline rollups, counts of contacts or other related records (D-P13),
         and a list of child accounts. The hierarchy is the one
         `parentAccountId` link.
+
+        **Specified, not yet served.** The `allOf` part below
+        (AccountPendingProperties) adds properties this contract specifies
+        and the live API does not send yet, each `x-kasuwa-implemented:
+        false`: `custom` (T-0088). `properties` here is exactly what the live
+        wire carries, as on Contact.
+      allOf:
+        - $ref: '#/components/schemas/AccountPendingProperties'
       properties:
         id: { type: string, format: uuid }
         programmeId:
@@ -5324,7 +7477,30 @@ components:
             Names of the properties above that field security withheld from
             this caller. Those properties are omitted from the object, never
             sent as `null`. Always present; empty when nothing was withheld.
+            A withheld custom field is listed as `custom.<key>`
+            (CustomFieldWithheldPath, T-0088); `custom` itself never is.
           items: { type: string }
+
+    AccountPendingProperties:
+      type: object
+      description: |
+        Account properties this contract specifies and the live API does not
+        serve yet (T-0088). Composed into `Account` and kept out of
+        `Account.properties` until then, because `Account.properties` is the
+        live wire's key set (the T-0054 and T-0055 suites map it to columns
+        and check every one is present or withheld). Optional; a client must
+        cope with their absence. The task that serves a property moves it
+        into `Account.properties` in the same change.
+      properties:
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: true
+          description: |
+            The account's custom-field values (T-0088, ADR-0016), keyed by api
+            name. `custom` is never withheld itself: a withheld key is absent
+            and listed in `withheldFields` as `custom.<key>`. Optional until
+            T-0089 serves it, then always sent (`{}` when none is visible).
 
     AccountPage:
       type: object
@@ -5369,6 +7545,16 @@ components:
         state: { type: [string, 'null'], maxLength: 64 }
         lga: { type: [string, 'null'], maxLength: 64 }
         parentAccountId: { type: [string, 'null'], format: uuid }
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: true
+          description: |
+            Custom-field values to set at create (T-0088, ADR-0016): values
+            only, never `null`. Each key must be editable for the caller in
+            the target programme (else `403 field_not_editable` at
+            `custom.<key>`); an unknown or retired key is `400 unknown_field`.
+            Served since T-0089.
 
     UpdateAccountRequest:
       type: object
@@ -5404,6 +7590,15 @@ components:
         state: { type: [string, 'null'], maxLength: 64 }
         lga: { type: [string, 'null'], maxLength: 64 }
         parentAccountId: { type: [string, 'null'], format: uuid }
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFieldsPatch'
+          x-kasuwa-implemented: true
+          description: |
+            Custom-field changes (T-0088, ADR-0016), merged per key: a value
+            sets, `null` clears, an absent key is untouched. Each key must be
+            editable in the record's programme (else `403 field_not_editable`
+            at `custom.<key>`). Served since T-0089.
 
     # --- pipelines and deals (P06, T-0105) ---------------------------------
 
@@ -5750,13 +7945,30 @@ components:
             per check requirement of the pipeline: 30 stages of at most 20
             requirements each bound it at 600.
           items: { $ref: '#/components/schemas/DealCheck' }
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: true
+          description: |
+            The deal's custom-field values (T-0088, ADR-0016), keyed by api
+            name. An own property because Deal is closed. `custom` is never
+            withheld itself: a withheld key is absent and listed in
+            `withheldFields` as `custom.<key>`. Served since T-0089 and
+            always sent (`{}` when none is visible). Custom deal
+            fields as stage requirements are a later task.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         withheldFields:
           type: array
           uniqueItems: true
-          description: Always present; empty when nothing was withheld.
-          items: { $ref: '#/components/schemas/DealWithheldField' }
+          description: |
+            Always present; empty when nothing was withheld. A withheld custom
+            field is listed as `custom.<key>` (CustomFieldWithheldPath,
+            T-0088); `custom` itself never is.
+          items:
+            anyOf:
+              - $ref: '#/components/schemas/DealWithheldField'
+              - $ref: '#/components/schemas/CustomFieldWithheldPath'
 
     DealPage:
       type: object
@@ -5840,6 +8052,16 @@ components:
         primaryContactId: { type: [string, 'null'], format: uuid }
         accountId: { type: [string, 'null'], format: uuid }
         nextStep: { type: [string, 'null'], minLength: 1, maxLength: 200 }
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFields'
+          x-kasuwa-implemented: true
+          description: |
+            Custom-field values to set at create (T-0088, ADR-0016): values
+            only, never `null`. Each key must be editable for the caller in
+            the target programme (else `403 field_not_editable` at
+            `custom.<key>`); an unknown or retired key is `400 unknown_field`.
+            Served since T-0089.
 
     UpdateDealRequest:
       type: object
@@ -5865,6 +8087,15 @@ components:
         primaryContactId: { type: [string, 'null'], format: uuid }
         accountId: { type: [string, 'null'], format: uuid }
         nextStep: { type: [string, 'null'], minLength: 1, maxLength: 200 }
+        custom:
+          allOf:
+            - $ref: '#/components/schemas/CustomFieldsPatch'
+          x-kasuwa-implemented: true
+          description: |
+            Custom-field changes (T-0088, ADR-0016), merged per key: a value
+            sets, `null` clears, an absent key is untouched. Each key must be
+            editable in the record's programme (else `403 field_not_editable`
+            at `custom.<key>`). Served since T-0089.
 
     MoveDealFields:
       type: object
@@ -6100,7 +8331,670 @@ components:
           x-kasuwa-classification: pii
           description: Free text that may name a person or a business (D-L91); never logged.
 
+    # --- custom-field values (T-0088; ADR-0016, D-L128, D-L138) --------------
+    # Served since T-0089: every property and parameter that uses these is
+    # `x-kasuwa-implemented: true`.
+    CustomFieldKey:
+      type: string
+      minLength: 4
+      maxLength: 63
+      pattern: '^[a-z][a-z0-9_]*__c$'
+      description: |
+        A custom field's `api_name` (`field_def.api_name`): lower snake case
+        ending in `__c` (D-P24), at most 63 characters. The standard
+        catalogue never uses the suffix, so a standard field name can never
+        be a key here.
+
+    CustomFieldText:
+      type: string
+      minLength: 1
+      maxLength: 1000
+      pattern: '^[^\u0000\n\r\u2028\u2029]+$'
+      description: |
+        A `text` custom field: one line of 1 to 1000 characters. No NUL and no
+        line break (`\n`, `\r`, U+2028 or U+2029): `textarea` is a refused
+        type, so `text` is single-line (D-L139). `""` is refused
+        (`invalid_value`); clear a value with `null` in a CustomFieldsPatch
+        (the `companyName` rule, D-L82).
+
+    CustomFieldNumber:
+      type: string
+      maxLength: 40
+      pattern: '^(?:0|-?0\.0*[1-9](?:[0-9]{0,16}[1-9])?|-?(?=(?:[^0-9]*[0-9]){1,18}[^0-9]*$)[1-9][0-9]*(?:\.[0-9]*[1-9])?)$'
+      description: |
+        A `number` custom field, as a canonical decimal STRING, never a JSON
+        number (a double loses precision). At most 18 significant digits.
+        Canonical: no leading zero (`0.5`, not `.5` or `00.5`), no trailing
+        fractional zero (`1.5`, not `1.50`; `1`, not `1.0`), no `+`, no
+        exponent, no thousands separator, and no `-0`. Anything else is
+        `400 invalid_value`.
+
+    CustomFieldCurrency:
+      type: object
+      additionalProperties: false
+      required: [amountMinor, currency]
+      description: |
+        A `currency` custom field: minor units as an integer string (a
+        `bigint` does not survive JSON) plus an ISO 4217 code. Never a float,
+        never a bare `amount`, never a symbol. `amountMinor` is signed (the
+        bigint range), at most 18 digits, with no leading zero and no `-0`.
+
+        **One currency per field, never converted** (D-L128 Q6). The currency
+        must be the field's `currencyCode`, fixed at create in its
+        definition's `config` (NGN, GHS, KES or ZAR) and never changed; a
+        value in any other currency is `400 validation_failed` with
+        `details[].code: currency_mismatch` at `custom.<key>.currency`.
+      properties:
+        amountMinor: { type: string, pattern: '^(?:0|-?[1-9][0-9]{0,17})$' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+
+    CustomFieldDate:
+      type: string
+      format: date
+      pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+      description: |
+        A `date` custom field: a real calendar date, `YYYY-MM-DD`, with no
+        time and no zone. (`datetime` is not a Phase 2 type.)
+
+    CustomFieldPicklist:
+      type: string
+      pattern: '^[a-z][a-z0-9_]{0,61}[a-z0-9]$'
+      description: |
+        A `picklist` custom field: exactly one value, an api name as stored
+        in the definition's `config.values[].value`. A well-formed value the
+        field does not define is `400 unknown_value`. The label is the
+        definition's (listCustomFields), never sent here.
+
+    CustomFieldBoolean:
+      type: boolean
+      description: A `boolean` custom field. JSON `true` or `false`, never the string.
+
+    CustomFieldValue:
+      description: |
+        One custom-field value: one of the six Phase 2 encodings (ADR-0016
+        item 4). `anyOf`, not `oneOf`, because several encodings are
+        strings. Which one applies is the field's `type`; a value of the
+        wrong encoding for its field is `400 invalid_value`.
+      anyOf:
+        - { $ref: '#/components/schemas/CustomFieldText' }
+        - { $ref: '#/components/schemas/CustomFieldNumber' }
+        - { $ref: '#/components/schemas/CustomFieldCurrency' }
+        - { $ref: '#/components/schemas/CustomFieldDate' }
+        - { $ref: '#/components/schemas/CustomFieldPicklist' }
+        - { $ref: '#/components/schemas/CustomFieldBoolean' }
+
+    CustomFields:
+      type: object
+      maxProperties: 100
+      propertyNames: { $ref: '#/components/schemas/CustomFieldKey' }
+      additionalProperties: { $ref: '#/components/schemas/CustomFieldValue' }
+      description: |
+        A record's custom-field values (ADR-0016), keyed by the field's
+        `api_name` (`…__c`), at most 100 keys. On a read, a value is never
+        `null`: a cleared field's key is absent. On a create body, the
+        values to set.
+
+        **Field security.** `custom` itself is never withheld and is never
+        named in `withheldFields`. A KEY withheld from the caller in the
+        record's programme is absent from `custom` and listed in
+        `withheldFields` as `custom.<key>` (CustomFieldWithheldPath), exactly
+        as a withheld standard field is omitted and listed. A retired field's
+        key is never sent and is refused on writes.
+
+        **Limits (D-L128 Q1, D-L140).** At most 100 keys. The API limit is
+        16 KiB (16384 bytes) of JSON, measured after a write is merged on
+        `custom` RESTRICTED to the keys the caller can read in the record's
+        programme plus the keys being written: withheld and retired values
+        never count, so `custom_too_large` cannot be used to learn the size
+        of a value the caller cannot see. Larger is `400 validation_failed`
+        with `details[].code: custom_too_large` at `custom`. The 16 KiB
+        limit is the one callers meet. The database keeps a 512 KiB CHECK on
+        the whole stored object (D-L142) only to stop a writer that is not
+        the API; no set of live keys can reach it, every write drops retired
+        keys, and if it were ever reached the answer would still be
+        `custom_too_large`, never a 500.
+
+        **Errors** name the path and a code, never the value received
+        (ADR-0016 item 3): `unknown_field` (an unknown or retired key, one
+        code for both), `invalid_value`, `unknown_value`,
+        `currency_mismatch` and `custom_too_large`. A key that does not
+        match the custom api-name pattern at all is `unknown_field` at
+        `custom` itself: the offending key is never echoed in `path`,
+        `message` or any other field.
+
+        **Logging.** Custom values are never logged, traced or put in an
+        error body, whatever the field's classification: D-P25 lets a tenant
+        classify free text as `none`, so the classification cannot be trusted.
+
+    CustomFieldsPatch:
+      type: object
+      minProperties: 1
+      maxProperties: 100
+      propertyNames: { $ref: '#/components/schemas/CustomFieldKey' }
+      additionalProperties:
+        anyOf:
+          - { $ref: '#/components/schemas/CustomFieldValue' }
+          - { type: 'null' }
+      description: |
+        Custom-field changes on an update: a per-key merge (ADR-0016 item 5).
+        A key with a value sets it; a key with `null` clears it (the key is
+        removed); a key that is absent is untouched. Edits to different keys
+        do not clobber each other, and the record's `version` still guards
+        the row. An empty object is refused.
+
+        Every key sent must be editable for the caller in the row's
+        programme under field security, else `403 not_permitted` with
+        `details[].code: field_not_editable` at `custom.<key>`. An unknown or
+        retired key is `400 validation_failed` with
+        `details[].code: unknown_field` at `custom.<key>`; a key that does
+        not match the custom api-name pattern at all is `unknown_field` at
+        `custom`, and is never echoed. Value errors are `invalid_value`,
+        `unknown_value`, `currency_mismatch` and `custom_too_large`. The
+        size limit is 16 KiB, measured on the merged result restricted to
+        the keys the caller can read in the row's programme plus the keys
+        written: withheld and retired values never count (D-L140, see
+        CustomFields). None echoes the value, and custom values are never
+        logged or traced.
+
+    CustomFieldWithheldPath:
+      type: string
+      maxLength: 70
+      pattern: '^custom\.[a-z][a-z0-9_]*__c$'
+      description: |
+        A withheld custom key, as listed in `withheldFields`: `custom.` and
+        the field's api name (`custom.tier__c`). Never `custom` alone.
+
+    # -----------------------------------------------------------------------
+    # Import, duplicates and merge (T-0093). Every object is closed and none
+    # has a property for a cell, a sample, a matched value or a score.
+    # -----------------------------------------------------------------------
+
+    ImportStatus:
+      type: string
+      enum: [awaiting_upload, reading_header, awaiting_mapping, queued, running, finished, failed, rejected, cancelled, expired]
+      description: |
+        `awaiting_upload` (24 hours, then `expired`), `reading_header`,
+        `awaiting_mapping`, `queued`, `running`, then one of `finished`,
+        `failed`, `rejected` (the upload did not match its declaration),
+        `cancelled` or `expired`.
+
+    ImportContentType:
+      type: string
+      enum: [text/csv, application/csv, application/vnd.ms-excel]
+      description: |
+        `application/vnd.ms-excel` is admitted only with a filename ending
+        `.csv`; Windows browsers send it for CSV.
+
+    CreateImportRequest:
+      type: object
+      additionalProperties: false
+      required: [programmeId, filename, sizeBytes, contentType]
+      description: |
+        A target `programmeId` (an unreachable one is `404`), and the file as
+        declared. `filename` is 1 to 255 characters with no `/`, `\`, NUL or
+        other control character. `application/vnd.ms-excel` is admitted only
+        when `filename` ends `.csv` in any case.
+      properties:
+        programmeId: { type: string, format: uuid }
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: '^[^/\\\u0000-\u001f\u007f]+$'
+        sizeBytes: { type: integer, minimum: 1, maximum: 26214400 }
+        contentType: { $ref: '#/components/schemas/ImportContentType' }
+      anyOf:
+        - properties:
+            contentType: { enum: [text/csv, application/csv] }
+        - properties:
+            contentType: { const: application/vnd.ms-excel }
+            filename: { pattern: '\.[cC][sS][vV]$' }
+
+    ImportUploadPart:
+      type: object
+      additionalProperties: false
+      required: [partNumber, url, sizeBytes]
+      properties:
+        partNumber: { type: integer, minimum: 1, maximum: 4 }
+        url:
+          type: string
+          format: uri
+          description: |
+            A pre-signed URL valid for 5 minutes. The part's size is signed
+            into it. It never contains the filename.
+        sizeBytes: { type: integer, minimum: 1, maximum: 26214400 }
+
+    ImportUpload:
+      type: object
+      additionalProperties: false
+      required: [importId, parts, expiresAt]
+      properties:
+        importId: { type: string, format: uuid }
+        parts:
+          type: array
+          minItems: 1
+          maxItems: 4
+          items: { $ref: '#/components/schemas/ImportUploadPart' }
+        expiresAt:
+          type: string
+          format: date-time
+          description: When the URLs expire (5 minutes after issue).
+
+    IssueImportUploadUrlsRequest:
+      type: object
+      additionalProperties: false
+      required: [partNumbers]
+      properties:
+        partNumbers:
+          type: array
+          minItems: 1
+          maxItems: 4
+          uniqueItems: true
+          items: { type: integer, minimum: 1, maximum: 4 }
+
+    ImportCompletedPart:
+      type: object
+      additionalProperties: false
+      required: [partNumber, etag]
+      properties:
+        partNumber: { type: integer, minimum: 1, maximum: 4 }
+        etag: { type: string, minLength: 1, maxLength: 256 }
+
+    CompleteImportUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [parts]
+      properties:
+        parts:
+          type: array
+          minItems: 1
+          maxItems: 4
+          items: { $ref: '#/components/schemas/ImportCompletedPart' }
+
+    ImportDefaultCountry:
+      type: string
+      enum: [NG, GH, KE, ZA]
+      description: Phones in the file are normalised to E.164 with this country.
+
+    ImportField:
+      description: |
+        A contact api name a CSV column may set, or `custom.<key>`. Never an
+        id, programme, version, owner (the whole job's owner is the mapping's
+        `ownerUserId`), account, `phoneNetwork`, a timestamp or `custom` as a
+        whole.
+      anyOf:
+        - type: string
+          enum: [displayName, givenNames, familyName, companyName, phones, emails, status, source, tags, preferredLanguage, preferredChannel, state, lga, dnd, whatsappOptIn, consentState]
+        - type: string
+          pattern: '^custom\.[a-z][a-z0-9_]*__c$'
+
+    ImportColumnMapping:
+      type: object
+      additionalProperties: false
+      required: [index, field]
+      properties:
+        index: { type: integer, minimum: 0, maximum: 499, description: Zero-based index into the file's headers. }
+        field:
+          description: The field this column sets, or `null` to ignore the column.
+          oneOf:
+            - { $ref: '#/components/schemas/ImportField' }
+            - { type: 'null' }
+
+    ImportMapping:
+      type: object
+      additionalProperties: false
+      required: [columns, defaultCountry, ownerUserId]
+      description: The saved mapping, resolved to columns (never a `fromImportId`).
+      properties:
+        columns:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: '#/components/schemas/ImportColumnMapping' }
+        defaultCountry: { $ref: '#/components/schemas/ImportDefaultCountry' }
+        ownerUserId: { type: [string, 'null'], format: uuid }
+
+    PutImportMappingRequest:
+      type: object
+      additionalProperties: false
+      required: [defaultCountry]
+      description: |
+        A full replace. Exactly one of `columns` and `fromImportId`.
+        `fromImportId` copies an earlier job's mapping by header name.
+      oneOf:
+        - required: [columns]
+        - required: [fromImportId]
+      properties:
+        columns:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: '#/components/schemas/ImportColumnMapping' }
+        fromImportId: { type: string, format: uuid }
+        defaultCountry: { $ref: '#/components/schemas/ImportDefaultCountry' }
+        ownerUserId:
+          type: [string, 'null']
+          format: uuid
+          description: A member of the programme (D-L67). `null` or absent leaves the contacts unowned.
+
+    ImportCounts:
+      type: object
+      additionalProperties: false
+      required: [created, skipped, failed]
+      description: |
+        `failed` counts every failed row, not only the listed ones. `skipped`
+        counts rows skipped as possible duplicates.
+      properties:
+        created: { type: integer, minimum: 0, maximum: 100000 }
+        skipped: { type: integer, minimum: 0, maximum: 100000 }
+        failed: { type: integer, minimum: 0, maximum: 100000 }
+
+    ImportRowErrorCode:
+      type: string
+      enum: [required, invalid_value, invalid_phone, invalid_email, too_long, unknown_value, unknown_field, custom_too_large, possible_duplicate, consent_grant_refused, field_not_editable, row_too_large, too_many_rows]
+      description: A closed set. Never carries or implies the cell's value.
+
+    ImportRowError:
+      type: object
+      additionalProperties: false
+      required: [row, column, code]
+      description: No value, header, message or detail, by design (D-L128 Q6).
+      properties:
+        row:
+          type: integer
+          minimum: 2
+          maximum: 100002
+          description: |
+            The row as a spreadsheet shows it; the header is row 1. 100,002 is
+            the first row past the 100,000-row limit, the one `too_many_rows`
+            (D-L160 ruling 4).
+        column:
+          type: [integer, 'null']
+          minimum: 0
+          maximum: 499
+          description: Zero-based index into `headers`, or `null` for a whole-row error.
+        code: { $ref: '#/components/schemas/ImportRowErrorCode' }
+
+    ImportSummary:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, status, filename, sizeBytes, counts, rawFileDeletedAt, createdByUserId, createdAt, updatedAt, finishedAt]
+      description: The list row. No headers, mapping or row errors.
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/ImportStatus' }
+        filename:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 255
+          description: |
+            `null` once `rawFileDeletedAt` is set: a filename can name a
+            person, so it is cleared with the raw file (D-L148).
+        sizeBytes: { type: integer, minimum: 1, maximum: 26214400 }
+        counts: { $ref: '#/components/schemas/ImportCounts' }
+        rawFileDeletedAt:
+          type: [string, 'null']
+          format: date-time
+          description: When the raw file was deleted; `null` until the sweeper runs.
+        createdByUserId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        finishedAt: { type: [string, 'null'], format: date-time, description: '`null` until the job ends.' }
+
+    Import:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, status, filename, sizeBytes, contentType, headers, suggestedMapping, mapping, counts, errors, errorsTruncated, rawFileDeletedAt, createdByUserId, createdAt, updatedAt, finishedAt]
+      description: |
+        One import job. It holds the file's column names and row error codes,
+        never a cell value.
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/ImportStatus' }
+        filename:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 255
+          description: |
+            `null` once `rawFileDeletedAt` is set: a filename can name a
+            person, so it is cleared with the raw file (D-L148).
+        sizeBytes: { type: integer, minimum: 1, maximum: 26214400 }
+        contentType: { $ref: '#/components/schemas/ImportContentType' }
+        headers:
+          description: |
+            The file's column names, never a cell: at most 500, each 1 to 255
+            characters. `null` until the header is read, and `null` again
+            once `rawFileDeletedAt` is set: a headerless CSV puts its first
+            data row here, so it is cleared with the raw file (D-L148).
+          oneOf:
+            - type: array
+              maxItems: 500
+              items: { type: string, minLength: 1, maxLength: 255 }
+            - { type: 'null' }
+        suggestedMapping:
+          description: A guess by header name. `null` until the header is read.
+          oneOf:
+            - type: array
+              maxItems: 500
+              items: { $ref: '#/components/schemas/ImportColumnMapping' }
+            - { type: 'null' }
+        mapping:
+          description: The saved mapping. `null` until saved.
+          oneOf:
+            - { $ref: '#/components/schemas/ImportMapping' }
+            - { type: 'null' }
+        counts: { $ref: '#/components/schemas/ImportCounts' }
+        errors:
+          type: array
+          maxItems: 1000
+          description: The lowest row numbers first, at most 1,000.
+          items: { $ref: '#/components/schemas/ImportRowError' }
+        errorsTruncated:
+          type: boolean
+          description: True when more row errors were dropped from `errors`.
+        rawFileDeletedAt:
+          type: [string, 'null']
+          format: date-time
+          description: When the raw file was deleted; `null` until the sweeper runs.
+        createdByUserId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        finishedAt: { type: [string, 'null'], format: date-time, description: '`null` until the job ends.' }
+
+    ImportPage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      description: Keyset page, newest first. No total, count or offset (D-P13).
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ImportSummary' }
+        nextCursor: { type: [string, 'null'] }
+
+    DuplicateMatchOn:
+      type: string
+      enum: [phone, email]
+
+    DuplicateContact:
+      type: object
+      additionalProperties: false
+      required: [id, displayName, updatedAt]
+      description: No phone, email, matched value or score.
+      properties:
+        id: { type: string, format: uuid }
+        displayName:
+          type: [string, 'null']
+          maxLength: 200
+          description: '`null` when field security withholds it.'
+        updatedAt: { type: string, format: date-time }
+
+    DuplicateSet:
+      type: object
+      additionalProperties: false
+      required: [matchOn, contacts]
+      properties:
+        matchOn: { $ref: '#/components/schemas/DuplicateMatchOn' }
+        contacts:
+          type: array
+          minItems: 2
+          maxItems: 10
+          description: The ten most recently updated, with no count and no "more" flag.
+          items: { $ref: '#/components/schemas/DuplicateContact' }
+
+    DuplicatePage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/DuplicateSet' }
+        nextCursor: { type: [string, 'null'] }
+
+    MergeSide:
+      type: string
+      enum: [survivor, merged]
+
+    MergeField:
+      type: string
+      enum: [displayName, givenNames, familyName, companyName, phones, emails, accountId, ownerUserId, status, source, tags, preferredLanguage, preferredChannel, state, lga]
+      description: |
+        The standard fields a merge may choose. Never a compliance field,
+        an id, a version or a timestamp. `custom.<key>` is also choosable.
+
+    MergeChoices:
+      type: object
+      description: |
+        Keys are a `MergeField` or `custom.<key>`; values are the side whose
+        value the survivor takes.
+      propertyNames:
+        anyOf:
+          - { $ref: '#/components/schemas/MergeField' }
+          - { type: string, pattern: '^custom\.[a-z][a-z0-9_]*__c$' }
+      additionalProperties: { $ref: '#/components/schemas/MergeSide' }
+
+    MergeComplianceOutcome:
+      type: object
+      additionalProperties: false
+      required: [withheldFields]
+      description: |
+        The merged contact's compliance values, by `x-kasuwa-compliance-order`
+        (the most restrictive wins). A field the caller cannot read is
+        omitted and named in `withheldFields`.
+      properties:
+        dnd: { type: boolean }
+        whatsappOptIn: { type: boolean }
+        consentState: { $ref: '#/components/schemas/ConsentState' }
+        withheldFields:
+          type: array
+          items: { type: string, enum: [dnd, whatsappOptIn, consentState] }
+
+    ContactMergePreview:
+      type: object
+      additionalProperties: false
+      required: [survivor, merged, defaults, compliance]
+      properties:
+        survivor: { $ref: '#/components/schemas/Contact' }
+        merged: { $ref: '#/components/schemas/Contact' }
+        defaults: { $ref: '#/components/schemas/MergeChoices' }
+        compliance: { $ref: '#/components/schemas/MergeComplianceOutcome' }
+
+    CreateContactMergeRequest:
+      type: object
+      additionalProperties: false
+      required: [survivorId, mergedId, survivorVersion, mergedVersion]
+      properties:
+        survivorId: { type: string, format: uuid }
+        mergedId: { type: string, format: uuid }
+        survivorVersion: { type: integer, minimum: 1, maximum: 2147483647 }
+        mergedVersion: { type: integer, minimum: 1, maximum: 2147483647 }
+        choices: { $ref: '#/components/schemas/MergeChoices' }
+
+    ContactMergeParty:
+      type: object
+      additionalProperties: false
+      required: [id, displayName]
+      description: An id and a name to print; `null` when withheld. Never a UUID printed as a name (D-L64).
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: [string, 'null'] }
+
+    ContactMerge:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, survivor, merged, mergedByUserId, mergedAt, undoUntil, undoneAt, undoneByUserId, survivorReverted]
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        survivor: { $ref: '#/components/schemas/ContactMergeParty' }
+        merged: { $ref: '#/components/schemas/ContactMergeParty' }
+        mergedByUserId: { type: string, format: uuid }
+        mergedAt: { type: string, format: date-time }
+        undoUntil: { type: string, format: date-time, description: '`mergedAt` plus exactly 30 days.' }
+        undoneAt: { type: [string, 'null'], format: date-time }
+        undoneByUserId: { type: [string, 'null'], format: uuid }
+        survivorReverted:
+          type: [boolean, 'null']
+          description: |
+            `true` when the survivor's chosen fields were put back, `false`
+            when it was edited since and kept its values; `null` until undone.
+
+    ContactMergePage:
+      type: object
+      additionalProperties: false
+      required: [data, nextCursor]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ContactMerge' }
+        nextCursor: { type: [string, 'null'] }
+
   responses:
+    NotificationNotFound:
+      description: |
+        **One body for all of:** no such notification, another user's in this
+        tenant, another tenant's, and one whose object the caller can no
+        longer read. Identical to `NotFound`.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          example:
+            statusCode: 404
+            error: Not Found
+            code: not_found
+            message: Not found
+
+    NotificationsTooManyRequests:
+      description: |
+        A notifications route was called too often by this user (D-L134, as
+        for search and duplicates). Per user, decided after authentication and
+        before validation, the shared Error envelope with
+        `code: too_many_requests`. Clients that poll the count wait
+        `Retry-After` seconds before resuming. It says nothing about any
+        record.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        Retry-After:
+          required: true
+          description: Seconds to wait before retrying.
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            tooManyRequests:
+              summary: Too many notification requests by this user in the current window
+              value:
+                statusCode: 429
+                error: Too Many Requests
+                code: too_many_requests
+                message: Too many requests. Wait a moment and try again.
+
     ValidationFailed:
       description: |
         The request did not parse: a bad query value, a malformed cursor, a
@@ -6171,6 +9065,86 @@ components:
                 details:
                   - path: endsAt
                     code: too_long
+            customUnknownField:
+              summary: A custom key that is not a field of the object, or a retired one; one code for both (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.region__c
+                    code: unknown_field
+            customMalformedKey:
+              summary: A custom key that is not a custom api name at all; reported at custom, never echoed (D-L140)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom
+                    code: unknown_field
+            customInvalidValue:
+              summary: A custom value of the wrong encoding for its field's type (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.score__c
+                    code: invalid_value
+            customUnknownValue:
+              summary: A picklist custom value the field does not define (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.tier__c
+                    code: unknown_value
+            customCurrencyMismatch:
+              summary: A currency custom value in another currency than the field's currencyCode (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.credit_limit__c.currency
+                    code: currency_mismatch
+            customTooLarge:
+              summary: The merged custom object, counting only keys the caller can read plus those written, is larger than 16 KiB (T-0088, D-L140)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom
+                    code: custom_too_large
+            customFilterWithheld:
+              summary: A list filter on a custom key withheld in any programme the caller reaches (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.credit_limit__c
+                    code: field_withheld
+            customFilterNotSupported:
+              summary: A list filter on a custom key that is not a picklist or a boolean (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.score__c
+                    code: filter_not_supported
 
     NotAuthenticated:
       description: |
@@ -6234,6 +9208,16 @@ components:
                 details:
                   - path: emails
                     code: field_not_editable
+            customField:
+              summary: A custom field the caller may not edit in the record's programme (T-0088)
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: custom.credit_limit__c
+                    code: field_not_editable
 
     StaleWrite:
       description: |
@@ -6295,6 +9279,16 @@ components:
                 message: You do not have permission to do that.
                 details:
                   - path: tier
+                    code: field_not_editable
+            customField:
+              summary: A custom field the caller may not edit in the record's programme (T-0088)
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: custom.score__c
                     code: field_not_editable
 
     NotImplemented:
@@ -6418,6 +9412,66 @@ components:
                 details:
                   - path: closedSince
                     code: invalid_window
+            customUnknownField:
+              summary: A custom key that is not a deal field, or a retired one; one code for both (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.region__c
+                    code: unknown_field
+            customMalformedKey:
+              summary: A custom key that is not a custom api name at all; reported at custom, never echoed (D-L140)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom
+                    code: unknown_field
+            customInvalidValue:
+              summary: A custom value of the wrong encoding for its field's type (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.margin__c
+                    code: invalid_value
+            customCurrencyMismatch:
+              summary: A currency custom value in another currency than the field's currencyCode (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.contract_value__c.currency
+                    code: currency_mismatch
+            customFilterWithheld:
+              summary: A listDeals filter on a custom key withheld in any programme the caller reaches (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.deal_source__c
+                    code: field_withheld
+            customFilterNotSupported:
+              summary: A listDeals filter on a custom key that is not a picklist or a boolean (T-0088)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: custom.margin__c
+                    code: filter_not_supported
 
     DealNotPermitted:
       description: |
@@ -6457,6 +9511,16 @@ components:
                 details:
                   - path: ownerUserId
                     code: owner_not_self
+            customField:
+              summary: A custom field the caller may not edit in the record's programme (T-0088)
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: custom.margin__c
+                    code: field_not_editable
 
     DealMoveConflict:
       description: |
@@ -6672,6 +9736,455 @@ components:
                 code: too_many_requests
                 message: Too many searches. Wait a moment and try again.
                 retryAt: '2026-10-14T10:01:00.000Z'
+
+    DuplicatesTooManyRequests:
+      description: |
+        listDuplicates was called too often by this user (D-L151). Same
+        pattern as `SearchTooManyRequests`: per user, decided after
+        authentication and before validation, the shared Error envelope with
+        `code: too_many_requests`. `Retry-After` is the number of seconds to
+        wait. It says nothing about any contact.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        Retry-After:
+          required: true
+          description: Seconds to wait before retrying.
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            tooManyRequests:
+              summary: Too many duplicate scans by this user in the current window
+              value:
+                statusCode: 429
+                error: Too Many Requests
+                code: too_many_requests
+                message: Too many requests. Wait a moment and try again.
+
+    ImportCreateInvalid:
+      description: |
+        The declaration was refused. `details` names the path and a reason code,
+        never the submitted value or filename.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            fileTooLarge:
+              summary: Over 25 MiB
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: sizeBytes
+                    code: file_too_large
+            unsupportedType:
+              summary: Not a CSV
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: contentType
+                    code: unsupported_type
+            badFilename:
+              summary: A filename with a path separator or control character
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: filename
+                    code: invalid_string
+
+    ImportNotPermitted:
+      description: |
+        **Writes only, and never a substitute for `404`.** The caller can reach the
+        import's programme and lacks `contact.import` in it. If they cannot reach it,
+        the answer is `404`.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            action:
+              summary: No import permission in the programme
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+
+    ImportStatusConflict:
+      description: |
+        The import is in a status that does not admit this write. Nothing was
+        applied. Read the job (`getImport`) and act on its status.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            wrongStatus:
+              summary: The job is not in the status this write needs
+              value:
+                statusCode: 409
+                error: Conflict
+                code: import_status_conflict
+                message: This import cannot do that right now.
+
+    UploadMismatch:
+      description: |
+        The stored object's size or type differs from the declaration. The job is
+        now `rejected` and its object is deleted. Start again with `createImport`.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            mismatch:
+              summary: Size or type differs from the declaration
+              value:
+                statusCode: 422
+                error: Unprocessable Entity
+                code: upload_mismatch
+                message: The uploaded file does not match what was declared.
+
+    ImportMappingInvalid:
+      description: |
+        The mapping was refused. `details` names a field (`mapping_incomplete`,
+        `unknown_reference`) or a column (`columns.<i>.index`, `columns.<i>.field`)
+        and a reason code, never a header or a cell.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            mappingIncomplete:
+              summary: A required field left unmapped
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: displayName
+                    code: mapping_incomplete
+            unknownColumn:
+              summary: An index beyond the file's headers
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: columns.7.index
+                    code: unknown_column
+            duplicateMapping:
+              summary: A field other than phones, emails or tags mapped twice
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: columns.3.field
+                    code: duplicate_mapping
+            unknownOwner:
+              summary: An owner who is not a member of the programme
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: ownerUserId
+                    code: unknown_reference
+            unknownTemplate:
+              summary: An earlier import that is unseen, or whose headers are cleared
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: fromImportId
+                    code: unknown_reference
+            unknownCustomField:
+              summary: A custom key that is unknown or retired
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: columns.2.field
+                    code: unknown_field
+
+    ImportMappingNotPermitted:
+      description: |
+        **Writes only, and never a substitute for `404`.** Either the caller lacks
+        `contact.import` in the programme, or a mapped field is one they may not edit
+        there: `details[].path` names the field (`custom.<key>` for a custom field),
+        never a column.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            action:
+              summary: No import permission in the programme
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+            field:
+              summary: A field the caller may not edit in the programme
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: status
+                    code: field_not_editable
+            customField:
+              summary: A custom field the caller may not edit in the programme
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: custom.credit_limit__c
+                    code: field_not_editable
+
+    MergePreviewInvalid:
+      description: |
+        `with` is in another programme the caller can see (`cross_programme`) or is
+        the survivor itself (`same_contact`). Not a uuid is `400` too. `details` names
+        the path and a reason code, never an id.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            crossProgramme:
+              summary: The other contact is in another programme
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: with
+                    code: cross_programme
+            sameContact:
+              summary: The same contact twice
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: with
+                    code: same_contact
+
+    MergeInvalid:
+      description: |
+        `details` names the path and a reason code, never the submitted value:
+        `choices.<field>` for a compliance field (`compliance_not_choosable`),
+        `mergedId` for a contact in another programme or the survivor itself,
+        and `choices.ownerUserId` (`unknown_reference`, D-L67's body) when the
+        chosen side's owner is not a member of the programme (D-P23, D-L153).
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            complianceNotChoosable:
+              summary: A compliance field in choices
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: choices.dnd
+                    code: compliance_not_choosable
+            crossProgramme:
+              summary: The merged contact is in another programme
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: mergedId
+                    code: cross_programme
+            sameContact:
+              summary: The same contact twice
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: mergedId
+                    code: same_contact
+            ownerNotMember:
+              summary: The chosen side's owner has left the programme
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: choices.ownerUserId
+                    code: unknown_reference
+
+    MergeNotPermitted:
+      description: |
+        **Writes only, and never a substitute for `404`.** The caller lacks
+        `contact.write` in the programme, or chose a field they may not edit or may
+        not read (`details[].path` is `choices.<field>`; the survivor keeps its
+        value).
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            action:
+              summary: No contact.write in the programme
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+            field:
+              summary: A field the caller may not edit
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: choices.emails
+                    code: field_not_editable
+            customField:
+              summary: A custom field the caller may not edit
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: choices.custom.credit_limit__c
+                    code: field_not_editable
+
+    MergeConflict:
+      description: |
+        `stale_write`: a version is not current; re-read and preview again.
+        `already_merged`: a contact the caller could read before it was merged away
+        (it is `404` on every contact operation, D-P27; here the merge history
+        already shows it to them).
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            stale:
+              summary: A version is not current
+              value:
+                statusCode: 409
+                error: Conflict
+                code: stale_write
+                message: Someone else saved changes while you were editing. Reload and try again.
+            alreadyMerged:
+              summary: One of the two was merged away already
+              value:
+                statusCode: 409
+                error: Conflict
+                code: already_merged
+                message: That contact has already been merged.
+
+    MergeUndoNotPermitted:
+      description: |
+        **Writes only, and never a substitute for `404`.** The caller can see the
+        merge and is neither the merging user nor a tenant admin.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            action:
+              summary: Not the merging user and not a tenant admin
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+            field:
+              summary: A field the undo would restore is one the undoer may not edit; nothing was changed
+              value:
+                statusCode: 403
+                error: Forbidden
+                code: not_permitted
+                message: You do not have permission to do that.
+                details:
+                  - path: emails
+                    code: field_not_editable
+
+    UndoConflict:
+      description: |
+        The survivor has since been merged away into another contact. Undo the later
+        merge first.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            alreadyMerged:
+              summary: The survivor was merged away since
+              value:
+                statusCode: 409
+                error: Conflict
+                code: already_merged
+                message: That contact has already been merged.
+
+    UndoExpired:
+      description: |
+        The 30-day undo window (`undoUntil`) has passed. The merge stands.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/json:
+          schema: { $ref: './admin.openapi.yaml#/components/schemas/Error' }
+          examples:
+            expired:
+              summary: Past undoUntil
+              value:
+                statusCode: 410
+                error: Gone
+                code: undo_expired
+                message: The time to undo this merge has passed.
 
 security:
   - sessionToken: []

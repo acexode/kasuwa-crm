@@ -41,6 +41,26 @@ describe('formatDealMoney', () => {
     expect(formatDealMoney('fr', '125050', 'ZAR')).toMatch(/1\s?250,50/);
   });
 
+  it('draws exactly what Intl currency formatting draws, wherever a number is still exact', () => {
+    // The whole string — mark, its position, spacing, grouping, decimal — is
+    // Intl's. Compared against plain Intl.NumberFormat in style currency for
+    // amounts small enough that the number path is exact, so nothing here
+    // (and nothing in deal-money.ts) has to type a currency mark.
+    const cases: readonly [string, string, string, number][] = [
+      ['en', '125050', 'GHS', 1250.5],
+      ['en', '5', 'NGN', 0.05],
+      ['en-NG', '366000000030', 'NGN', 3660000000.3],
+      ['en-KE', '99', 'KES', 0.99],
+      ['en-ZA', '123456', 'ZAR', 1234.56],
+      ['fr', '125050', 'ZAR', 1250.5],
+      ['en', '1250', 'JPY', 1250],
+    ];
+    for (const [locale, minor, currency, major] of cases) {
+      const intl = new Intl.NumberFormat(locale, { style: 'currency', currency }).format(major);
+      expect(formatDealMoney(locale, minor, currency), `${locale} ${currency} ${minor}`).toBe(intl);
+    }
+  });
+
   it('survives a language Intl does not know', () => {
     expect(digits(formatDealMoney('en-XA', '125050', 'NGN'))).toBe('125050');
   });

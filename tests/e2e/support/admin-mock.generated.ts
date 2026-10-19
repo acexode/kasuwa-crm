@@ -192,6 +192,237 @@ export const ADMIN_OPERATIONS = [
     }
   },
   {
+    "operationId": "createCustomField",
+    "method": "POST",
+    "path": "/api/v1/admin/custom-fields",
+    "implemented": "true",
+    "audited": true,
+    "screens": [
+      "P18/B",
+      "P18/B1"
+    ],
+    "responses": {
+      "201": {
+        "default": {
+          "id": "11111111-0000-4000-8000-0000000c0006",
+          "objectApiName": "contact",
+          "apiName": "tier__c",
+          "label": "Customer tier",
+          "description": "The service tier agreed with the client.",
+          "type": "picklist",
+          "classification": "none",
+          "config": {
+            "values": [
+              {
+                "value": "gold",
+                "label": "Gold"
+              },
+              {
+                "value": "silver",
+                "label": "Silver"
+              }
+            ]
+          },
+          "retiredAt": null,
+          "createdAt": "2026-10-14T09:20:00.000Z",
+          "updatedAt": "2026-10-14T09:20:00.000Z"
+        }
+      },
+      "400": {
+        "invalidApiName": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "apiName",
+              "code": "invalid_api_name"
+            }
+          ]
+        },
+        "unsupportedType": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "type",
+              "code": "unsupported_type"
+            }
+          ]
+        },
+        "invalidConfig": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "config",
+              "code": "invalid_config"
+            }
+          ]
+        },
+        "unknownCurrency": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "config.currencyCode",
+              "code": "unknown_currency"
+            }
+          ]
+        },
+        "duplicateValue": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "config.values",
+              "code": "duplicate_value"
+            }
+          ]
+        },
+        "notAPicklist": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "addValues",
+              "code": "not_a_picklist"
+            }
+          ]
+        },
+        "tooManyValues": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "config.values",
+              "code": "invalid_config"
+            }
+          ]
+        },
+        "unknownValue": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "relabelValues",
+              "code": "unknown_value"
+            }
+          ]
+        },
+        "duplicateAddedValue": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "addValues",
+              "code": "duplicate_value"
+            }
+          ]
+        },
+        "fieldRetired": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "fieldId",
+              "code": "field_retired"
+            }
+          ]
+        }
+      },
+      "401": {
+        "default": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "not_authenticated",
+          "message": "Not authenticated"
+        }
+      },
+      "403": {
+        "default": {
+          "statusCode": 403,
+          "error": "Forbidden",
+          "code": "not_permitted",
+          "message": "You do not have permission to do that."
+        }
+      },
+      "404": {
+        "default": {
+          "statusCode": 404,
+          "error": "Not Found",
+          "code": "not_found",
+          "message": "Not found"
+        }
+      },
+      "409": {
+        "duplicate": {
+          "statusCode": 409,
+          "error": "Conflict",
+          "code": "duplicate_code",
+          "message": "That api name is already in use on this object.",
+          "details": [
+            {
+              "path": "apiName",
+              "code": "duplicate"
+            }
+          ]
+        },
+        "fieldLimit": {
+          "statusCode": 409,
+          "error": "Conflict",
+          "code": "limit_reached",
+          "message": "This object already has the most custom fields allowed.",
+          "details": [
+            {
+              "path": "objectApiName",
+              "code": "field_limit_reached"
+            }
+          ]
+        },
+        "picklistLimit": {
+          "statusCode": 409,
+          "error": "Conflict",
+          "code": "limit_reached",
+          "message": "This picklist already has the most values allowed.",
+          "details": [
+            {
+              "path": "addValues",
+              "code": "picklist_limit_reached"
+            }
+          ]
+        }
+      },
+      "501": {
+        "default": {
+          "statusCode": 501,
+          "error": "Not Implemented",
+          "code": "not_implemented",
+          "message": "This endpoint is not available yet."
+        }
+      }
+    }
+  },
+  {
     "operationId": "createDisposition",
     "method": "POST",
     "path": "/api/v1/admin/programmes/{programmeId}/dispositions",
@@ -1628,6 +1859,178 @@ export const ADMIN_OPERATIONS = [
     }
   },
   {
+    "operationId": "listCustomFields",
+    "method": "GET",
+    "path": "/api/v1/admin/custom-fields",
+    "implemented": "true",
+    "audited": false,
+    "screens": [
+      "P18/B"
+    ],
+    "responses": {
+      "200": {
+        "default": {
+          "objectApiName": "contact",
+          "limits": {
+            "apiBytes": 16384,
+            "bytesPerRecord": 524288,
+            "definitionsPerObject": 500,
+            "fieldsPerObject": 100,
+            "picklistValues": 500
+          },
+          "items": [
+            {
+              "id": "11111111-0000-4000-8000-0000000c0001",
+              "objectApiName": "contact",
+              "apiName": "alternate_name__c",
+              "label": "Alternate name",
+              "description": "Another name the customer goes by.",
+              "type": "text",
+              "classification": "pii",
+              "config": {},
+              "retiredAt": null,
+              "createdAt": "2026-10-14T09:00:00.000Z",
+              "updatedAt": "2026-10-14T09:00:00.000Z"
+            },
+            {
+              "id": "11111111-0000-4000-8000-0000000c0002",
+              "objectApiName": "contact",
+              "apiName": "credit_limit__c",
+              "label": "Credit limit",
+              "description": null,
+              "type": "currency",
+              "classification": "sensitive",
+              "config": {
+                "currencyCode": "NGN"
+              },
+              "retiredAt": null,
+              "createdAt": "2026-10-14T09:05:00.000Z",
+              "updatedAt": "2026-10-14T09:05:00.000Z"
+            },
+            {
+              "id": "11111111-0000-4000-8000-0000000c0003",
+              "objectApiName": "contact",
+              "apiName": "legacy_ref__c",
+              "label": "Legacy reference",
+              "description": "Imported from the previous system.",
+              "type": "text",
+              "classification": "none",
+              "config": {},
+              "retiredAt": "2026-10-16T12:00:00.000Z",
+              "createdAt": "2026-10-01T08:00:00.000Z",
+              "updatedAt": "2026-10-16T12:00:00.000Z"
+            },
+            {
+              "id": "11111111-0000-4000-8000-0000000c0004",
+              "objectApiName": "contact",
+              "apiName": "renewal_date__c",
+              "label": "Renewal date",
+              "description": null,
+              "type": "date",
+              "classification": "none",
+              "config": {},
+              "retiredAt": null,
+              "createdAt": "2026-10-14T09:10:00.000Z",
+              "updatedAt": "2026-10-14T09:10:00.000Z"
+            },
+            {
+              "id": "11111111-0000-4000-8000-0000000c0005",
+              "objectApiName": "contact",
+              "apiName": "satisfaction_score__c",
+              "label": "Satisfaction score",
+              "description": "From the last survey, 0 to 10.",
+              "type": "number",
+              "classification": "none",
+              "config": {},
+              "retiredAt": null,
+              "createdAt": "2026-10-14T09:15:00.000Z",
+              "updatedAt": "2026-10-14T09:15:00.000Z"
+            },
+            {
+              "id": "11111111-0000-4000-8000-0000000c0006",
+              "objectApiName": "contact",
+              "apiName": "tier__c",
+              "label": "Customer tier",
+              "description": "The service tier agreed with the client.",
+              "type": "picklist",
+              "classification": "none",
+              "config": {
+                "values": [
+                  {
+                    "value": "gold",
+                    "label": "Gold"
+                  },
+                  {
+                    "value": "silver",
+                    "label": "Silver"
+                  },
+                  {
+                    "value": "platinum",
+                    "label": "Platinum"
+                  }
+                ]
+              },
+              "retiredAt": null,
+              "createdAt": "2026-10-14T09:20:00.000Z",
+              "updatedAt": "2026-10-15T10:00:00.000Z"
+            },
+            {
+              "id": "11111111-0000-4000-8000-0000000c0007",
+              "objectApiName": "contact",
+              "apiName": "vip__c",
+              "label": "Priority customer",
+              "description": null,
+              "type": "boolean",
+              "classification": "none",
+              "config": {},
+              "retiredAt": null,
+              "createdAt": "2026-10-14T09:25:00.000Z",
+              "updatedAt": "2026-10-14T09:25:00.000Z"
+            }
+          ]
+        }
+      },
+      "400": {
+        "default": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "warnAtPercentOfTarget",
+              "code": "too_big"
+            }
+          ]
+        }
+      },
+      "401": {
+        "default": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "not_authenticated",
+          "message": "Not authenticated"
+        }
+      },
+      "404": {
+        "default": {
+          "statusCode": 404,
+          "error": "Not Found",
+          "code": "not_found",
+          "message": "Not found"
+        }
+      },
+      "501": {
+        "default": {
+          "statusCode": 501,
+          "error": "Not Implemented",
+          "code": "not_implemented",
+          "message": "This endpoint is not available yet."
+        }
+      }
+    }
+  },
+  {
     "operationId": "listDispositions",
     "method": "GET",
     "path": "/api/v1/admin/programmes/{programmeId}/dispositions",
@@ -2255,6 +2658,300 @@ export const ADMIN_OPERATIONS = [
           "error": "Not Found",
           "code": "not_found",
           "message": "Not found"
+        }
+      },
+      "501": {
+        "default": {
+          "statusCode": 501,
+          "error": "Not Implemented",
+          "code": "not_implemented",
+          "message": "This endpoint is not available yet."
+        }
+      }
+    }
+  },
+  {
+    "operationId": "retireCustomField",
+    "method": "POST",
+    "path": "/api/v1/admin/custom-fields/{fieldId}/retire",
+    "implemented": "true",
+    "audited": true,
+    "screens": [
+      "P18/B"
+    ],
+    "responses": {
+      "200": {
+        "default": {
+          "id": "11111111-0000-4000-8000-0000000c0003",
+          "objectApiName": "contact",
+          "apiName": "legacy_ref__c",
+          "label": "Legacy reference",
+          "description": "Imported from the previous system.",
+          "type": "text",
+          "classification": "none",
+          "config": {},
+          "retiredAt": "2026-10-16T12:00:00.000Z",
+          "createdAt": "2026-10-01T08:00:00.000Z",
+          "updatedAt": "2026-10-16T12:00:00.000Z"
+        }
+      },
+      "401": {
+        "default": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "not_authenticated",
+          "message": "Not authenticated"
+        }
+      },
+      "403": {
+        "default": {
+          "statusCode": 403,
+          "error": "Forbidden",
+          "code": "not_permitted",
+          "message": "You do not have permission to do that."
+        }
+      },
+      "404": {
+        "default": {
+          "statusCode": 404,
+          "error": "Not Found",
+          "code": "not_found",
+          "message": "Not found"
+        }
+      },
+      "501": {
+        "default": {
+          "statusCode": 501,
+          "error": "Not Implemented",
+          "code": "not_implemented",
+          "message": "This endpoint is not available yet."
+        }
+      }
+    }
+  },
+  {
+    "operationId": "updateCustomField",
+    "method": "PATCH",
+    "path": "/api/v1/admin/custom-fields/{fieldId}",
+    "implemented": "true",
+    "audited": true,
+    "screens": [
+      "P18/B",
+      "P18/B2"
+    ],
+    "responses": {
+      "200": {
+        "default": {
+          "id": "11111111-0000-4000-8000-0000000c0006",
+          "objectApiName": "contact",
+          "apiName": "tier__c",
+          "label": "Customer tier",
+          "description": "The service tier agreed with the client.",
+          "type": "picklist",
+          "classification": "none",
+          "config": {
+            "values": [
+              {
+                "value": "gold",
+                "label": "Gold"
+              },
+              {
+                "value": "silver",
+                "label": "Silver"
+              },
+              {
+                "value": "platinum",
+                "label": "Platinum"
+              }
+            ]
+          },
+          "retiredAt": null,
+          "createdAt": "2026-10-14T09:20:00.000Z",
+          "updatedAt": "2026-10-15T10:00:00.000Z"
+        }
+      },
+      "400": {
+        "invalidApiName": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "apiName",
+              "code": "invalid_api_name"
+            }
+          ]
+        },
+        "unsupportedType": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "type",
+              "code": "unsupported_type"
+            }
+          ]
+        },
+        "invalidConfig": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "config",
+              "code": "invalid_config"
+            }
+          ]
+        },
+        "unknownCurrency": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "config.currencyCode",
+              "code": "unknown_currency"
+            }
+          ]
+        },
+        "duplicateValue": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "config.values",
+              "code": "duplicate_value"
+            }
+          ]
+        },
+        "notAPicklist": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "addValues",
+              "code": "not_a_picklist"
+            }
+          ]
+        },
+        "tooManyValues": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "config.values",
+              "code": "invalid_config"
+            }
+          ]
+        },
+        "unknownValue": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "relabelValues",
+              "code": "unknown_value"
+            }
+          ]
+        },
+        "duplicateAddedValue": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "addValues",
+              "code": "duplicate_value"
+            }
+          ]
+        },
+        "fieldRetired": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "fieldId",
+              "code": "field_retired"
+            }
+          ]
+        }
+      },
+      "401": {
+        "default": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "not_authenticated",
+          "message": "Not authenticated"
+        }
+      },
+      "403": {
+        "default": {
+          "statusCode": 403,
+          "error": "Forbidden",
+          "code": "not_permitted",
+          "message": "You do not have permission to do that."
+        }
+      },
+      "404": {
+        "default": {
+          "statusCode": 404,
+          "error": "Not Found",
+          "code": "not_found",
+          "message": "Not found"
+        }
+      },
+      "409": {
+        "duplicate": {
+          "statusCode": 409,
+          "error": "Conflict",
+          "code": "duplicate_code",
+          "message": "That api name is already in use on this object.",
+          "details": [
+            {
+              "path": "apiName",
+              "code": "duplicate"
+            }
+          ]
+        },
+        "fieldLimit": {
+          "statusCode": 409,
+          "error": "Conflict",
+          "code": "limit_reached",
+          "message": "This object already has the most custom fields allowed.",
+          "details": [
+            {
+              "path": "objectApiName",
+              "code": "field_limit_reached"
+            }
+          ]
+        },
+        "picklistLimit": {
+          "statusCode": 409,
+          "error": "Conflict",
+          "code": "limit_reached",
+          "message": "This picklist already has the most values allowed.",
+          "details": [
+            {
+              "path": "addValues",
+              "code": "picklist_limit_reached"
+            }
+          ]
         }
       },
       "501": {

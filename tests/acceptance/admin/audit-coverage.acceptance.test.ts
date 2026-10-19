@@ -75,6 +75,16 @@ import { asUser, withAuthDatabase } from '../support/api';
  *   - portal invites: `objectType: 'portal_user'`, `action: 'invited'`,
  *     `objectId` = the portal user id; `access` is a plain change, `email` a
  *     redacted one. A resend (D-L49) is a successful write: one more event.
+ *   - custom-field definition writes (T-0089; LEAD EDIT under D-L152, when
+ *     T-0089 flipped createCustomField, updateCustomField and
+ *     retireCustomField live and audited): `objectType: 'custom_field'`,
+ *     `objectId` = the field id, `programmeId: null` (tenant-level metadata,
+ *     ADR-0008), named by api name. Create is `created`; update is
+ *     `updated`, naming what changed by key; retire is `updated` with a
+ *     `retiredAt` change, before null (D-L141); a repeat retire answers 200
+ *     and writes nothing. Custom changes are audited by key only (ADR-0016
+ *     item 7), so no event here carries a record value. The writes need the
+ *     tenant-admin flag (D-L53), which the supervisor has and agent 1 lacks.
  *
  * Callers. No permissions engine: tenant A writes as USER_A_SUPERVISOR (A1 and
  * A2), refusals-by-scope as USER_A_AGENT_1 (A1 only), tenant B as
@@ -106,9 +116,13 @@ const dispositionsPath = (programmeId: string) => `${programmePath(programmeId)}
 const dispositionPath = (programmeId: string, dispositionId: string) =>
   `${dispositionsPath(programmeId)}/${dispositionId}`;
 const orderPath = (programmeId: string) => `${dispositionsPath(programmeId)}/order`;
+const CUSTOM_FIELDS = '/api/v1/admin/custom-fields';
+const customFieldPath = (fieldId: string) => `${CUSTOM_FIELDS}/${fieldId}`;
+const retireFieldPath = (fieldId: string) => `${customFieldPath(fieldId)}/retire`;
 
 /** Never real rows: same shape as the seed ids, nothing seeds them. */
 const NO_SUCH_ROLE = '11111111-0000-4000-8000-0000000f9999';
+const NO_SUCH_FIELD = '11111111-0000-4000-8000-0000000f9998';
 
 /** The field-security probe's object, inserted by the coverage test. */
 const PROBE_OBJECT_ID = '11111111-0000-4000-8000-0000003300a1';
@@ -140,6 +154,8 @@ const uniqueName = (label: string) => `${label} ${RUN}-${next()}`;
 const uniqueCode = (prefix: string) =>
   `${prefix}_${RUN.toUpperCase().slice(-6)}${next()}`.slice(0, 16);
 const inviteAddress = () => `audit.invitee.${RUN}.${next()}@client.example`;
+/** Lower snake case ending `__c`, at most 63 characters (D-P24). RUN is base 36, so lower case. */
+const uniqueApiName = (label: string) => `${label}_${RUN}_${next()}__c`;
 
 type Headers = Record<string, string>;
 type Json = Record<string, unknown>;
@@ -489,6 +505,22 @@ describe('acceptance: audit coverage of every audited write (T-0033)', () => {
         'listDispositions',
       ) as { items: { id: string }[] }
     ).items.map((item) => item.id);
+
+  /** A text custom field on contacts, created as the supervisor (a tenant admin). */
+  const createCustomField = async (apiName: string = uniqueApiName('audit_probe')) =>
+    expectStatus(
+      await send('post', CUSTOM_FIELDS, A).send({
+        objectApiName: 'contact',
+        apiName,
+        label: uniqueName('Audit field'),
+        type: 'text',
+      }),
+      201,
+      'createCustomField (setup)',
+    ) as { id: string; apiName: string; retiredAt: string | null };
+
+  const retireCustomField = async (fieldId: string) =>
+    expectStatus(await send('post', retireFieldPath(fieldId), A), 200, 'retireCustomField (setup)');
 
   const slaVersion = async (programmeId: string) =>
     (
@@ -990,6 +1022,114 @@ describe('acceptance: audit coverage of every audited write (T-0033)', () => {
       };
     },
 
+    // --- custom fields (T-0089; lead edit, D-L152) -----------------------------
+    createCustomField: async () => {
+      const taken = await createCustomField();
+      const body = (apiName: string) => ({
+        objectApiName: 'contact',
+        apiName,
+        label: uniqueName('Audit field'),
+        type: 'text',
+      });
+      return {
+        actor: A,
+        events: 1,
+        refusals: [
+          {
+            label: 'createCustomField without the tenant-admin flag',
+            send: () => send('post', CUSTOM_FIELDS, A_AGENT_1).send(body(uniqueApiName('agent'))),
+            status: 403,
+          },
+          {
+            label: 'createCustomField with an api name that does not end in __c',
+            send: () => send('post', CUSTOM_FIELDS, A).send(body(`no_suffix_${RUN}`)),
+            status: 400,
+          },
+          {
+            label: 'createCustomField with an api name already taken on the object',
+            send: () => send('post', CUSTOM_FIELDS, A).send(body(taken.apiName)),
+            status: 409,
+          },
+        ],
+        success: {
+          label: 'createCustomField',
+          send: () => send('post', CUSTOM_FIELDS, A).send(body(uniqueApiName('audit_new'))),
+          status: 201,
+        },
+      };
+    },
+
+    updateCustomField: async () => {
+      const target = await createCustomField();
+      const retired = await createCustomField();
+      await retireCustomField(retired.id);
+      return {
+        actor: A,
+        events: 1,
+        refusals: [
+          {
+            label: 'updateCustomField without the tenant-admin flag',
+            send: () =>
+              send('patch', customFieldPath(target.id), A_AGENT_1).send({ label: 'Outsider' }),
+            status: 403,
+          },
+          {
+            label: 'updateCustomField on a field that does not exist',
+            send: () => send('patch', customFieldPath(NO_SUCH_FIELD), A).send({ label: 'Ghost' }),
+            status: 404,
+          },
+          {
+            label: 'updateCustomField on a retired field (field_retired)',
+            send: () =>
+              send('patch', customFieldPath(retired.id), A).send({ label: 'After retire' }),
+            status: 400,
+          },
+        ],
+        success: {
+          label: 'updateCustomField',
+          send: () =>
+            send('patch', customFieldPath(target.id), A).send({
+              label: uniqueName('Relabelled field'),
+            }),
+          status: 200,
+        },
+      };
+    },
+
+    retireCustomField: async () => {
+      const target = await createCustomField();
+      const already = await createCustomField();
+      await retireCustomField(already.id);
+      return {
+        actor: A,
+        events: 1,
+        refusals: [
+          {
+            label: 'retireCustomField without the tenant-admin flag',
+            send: () => send('post', retireFieldPath(target.id), A_AGENT_1),
+            status: 403,
+          },
+          {
+            label: 'retireCustomField on a field that does not exist',
+            send: () => send('post', retireFieldPath(NO_SUCH_FIELD), A),
+            status: 404,
+          },
+          {
+            // Not a refusal by status: the spec answers 200 with the definition
+            // unchanged, and writes "no second audit event" (D-L140).
+            label: 'retireCustomField on a field already retired (200, nothing written)',
+            send: () => send('post', retireFieldPath(already.id), A),
+            status: 200,
+          },
+        ],
+        success: {
+          label: 'retireCustomField',
+          send: () => send('post', retireFieldPath(target.id), A),
+          status: 200,
+        },
+      };
+    },
+
     // --- audit ---------------------------------------------------------------
     createAuditExport: async () => ({
       actor: A,
@@ -1057,6 +1197,16 @@ describe('acceptance: audit coverage of every audited write (T-0033)', () => {
       'reorderDispositions',
     ]) {
       expect(byId.get(operationId)?.audited, `${operationId} is not marked audited`).toBe(true);
+    }
+  });
+
+  it('the spec marks the T-0089 custom-field writes live and audited, so the coverage check reaches them (D-L152)', () => {
+    const byId = new Map(specOperations().map((op) => [op.operationId, op]));
+    for (const operationId of ['createCustomField', 'updateCustomField', 'retireCustomField']) {
+      const op = byId.get(operationId);
+      expect(op, `${operationId} not found in admin.openapi.yaml`).toBeDefined();
+      expect(op?.implemented, `${operationId} is not marked implemented`).toBe(true);
+      expect(op?.audited, `${operationId} is not marked audited`).toBe(true);
     }
   });
 
@@ -1412,6 +1562,99 @@ describe('acceptance: audit coverage of every audited write (T-0033)', () => {
     }
   });
 
+  it('custom-field definition writes are tenant-level `custom_field` events: created, updated by key, retired as `updated` with retiredAt (T-0089, D-L141, D-L152)', async () => {
+    try {
+      const apiName = uniqueApiName('audit_tier');
+      const created = await callAndCollect({
+        label: 'createCustomField (picklist, pii)',
+        send: () =>
+          send('post', CUSTOM_FIELDS, A).send({
+            objectApiName: 'contact',
+            apiName,
+            label: uniqueName('Audit tier'),
+            type: 'picklist',
+            classification: 'pii',
+            config: { values: [{ value: 'gold', label: 'Gold' }] },
+          }),
+        status: 201,
+      });
+      const id = (created.body as { id: string }).id;
+      const createdEntry = single(created.added, 'createCustomField');
+      expect(createdEntry.action).toBe('created');
+      expect(createdEntry.objectType).toBe('custom_field');
+      expect(createdEntry.objectId, 'the event names the field').toBe(id);
+      expect(createdEntry.programmeId, 'a definition is tenant-level (ADR-0008)').toBeNull();
+      expect(createdEntry.actor.id).toBe(USER_A_SUPERVISOR);
+      // "with the api name, type and classification"; where it says them is the builder's.
+      const createdText = JSON.stringify({
+        label: createdEntry.objectLabel,
+        changes: createdEntry.changes,
+      });
+      for (const word of [apiName, 'picklist', 'pii']) {
+        expect(createdText, `the created event does not name ${word}`).toContain(word);
+      }
+
+      // Relabel and lower the classification in one write: ONE event, by key.
+      const updated = await callAndCollect({
+        label: 'updateCustomField (label and classification)',
+        send: () =>
+          send('patch', customFieldPath(id), A).send({
+            label: uniqueName('Audit service tier'),
+            classification: 'none',
+          }),
+        status: 200,
+      });
+      const updatedEntry = single(updated.added, 'updateCustomField');
+      expect(updatedEntry.action).toBe('updated');
+      expect(updatedEntry.objectType).toBe('custom_field');
+      expect(updatedEntry.objectId).toBe(id);
+      expect(updatedEntry.programmeId).toBeNull();
+      expect(changeOf(updatedEntry, 'label'), 'the relabel is not named').toBeDefined();
+      expect(changeOf(updatedEntry, 'classification')).toEqual(
+        expect.objectContaining({ before: 'pii', after: 'none', redacted: false }),
+      );
+      expect(changeOf(updatedEntry, 'retiredAt'), 'an update is not a retire').toBeUndefined();
+
+      // D-L141: a retire is `updated`, with retiredAt moving from null to the time.
+      const retired = await callAndCollect({
+        label: 'retireCustomField',
+        send: () => send('post', retireFieldPath(id), A),
+        status: 200,
+      });
+      const retiredAt = (retired.body as { retiredAt: string | null }).retiredAt;
+      expect(retiredAt, 'the retired definition carries retiredAt').toMatch(UTC_ISO);
+      const retiredEntry = single(retired.added, 'retireCustomField');
+      expect(retiredEntry.action, '(D-L141) a retire is audited as `updated`').toBe('updated');
+      expect(retiredEntry.objectType).toBe('custom_field');
+      expect(retiredEntry.objectId).toBe(id);
+      expect(retiredEntry.programmeId).toBeNull();
+      const retiredChange = changeOf(retiredEntry, 'retiredAt');
+      expect(retiredChange, '(D-L141) the retire names no retiredAt change').toBeDefined();
+      expect(retiredChange?.before ?? null, 'a field is live before its retire').toBeNull();
+      expect(retiredChange?.redacted).toBe(false);
+      expect(
+        Math.abs(Date.parse(String(retiredChange?.after)) - Date.parse(String(retiredAt))),
+        `retiredAt after (${String(retiredChange?.after)}) is not the time the field was retired (${String(retiredAt)})`,
+      ).toBeLessThan(1000);
+
+      // A repeat retire answers 200 with the first time, and writes nothing.
+      const repeat = await callAndCollect({
+        label: 'retireCustomField again',
+        send: () => send('post', retireFieldPath(id), A),
+        status: 200,
+      });
+      expect((repeat.body as { retiredAt: string | null }).retiredAt).toBe(retiredAt);
+      expect(repeat.added, 'a repeat retire was audited').toEqual([]);
+
+      // Tenant-level is not cross-tenant: tenant B reads none of them.
+      const ids = [createdEntry.id, updatedEntry.id, retiredEntry.id];
+      const seenByB = (await allEvents(B)).filter((entry) => ids.includes(entry.id));
+      expect(seenByB, 'tenant B can read tenant A custom-field events').toEqual([]);
+    } finally {
+      await fresh();
+    }
+  });
+
   // --- 4. visibility (D-L48) -------------------------------------------------
 
   it('the new programme-scoped events are visible to members of that programme only', async () => {
@@ -1531,6 +1774,9 @@ describe('acceptance: audit coverage of every audited write (T-0033)', () => {
 
   it('tenant B writing at tenant A programme ids gets 404 and leaves no event in either tenant', async () => {
     try {
+      // A tenant A custom field for tenant B (an admin in B) to aim at. Created
+      // before the snapshot, so its own event is not counted.
+      const field = await createCustomField();
       const before = new Set(
         [...(await allEvents(A)), ...(await allEvents(B))].map((entry) => entry.id),
       );
@@ -1564,6 +1810,12 @@ describe('acceptance: audit coverage of every audited write (T-0033)', () => {
               category: 'resolved',
             }),
         ],
+        // T-0089 (D-L152): another tenant's field is the same 404 as no field.
+        [
+          'updateCustomField',
+          () => send('patch', customFieldPath(field.id), B).send({ label: 'Cross tenant' }),
+        ],
+        ['retireCustomField', () => send('post', retireFieldPath(field.id), B)],
       ];
       for (const [operationId, attempt] of attempts) {
         const response = await attempt();

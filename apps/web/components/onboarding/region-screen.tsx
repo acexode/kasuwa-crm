@@ -5,6 +5,7 @@ import { createBundleTranslator, type MessageBundle, type MessageId } from '@kas
 import { Icon } from '../icon';
 import type { LanguageOption } from '../auth/language-menu';
 import { OnboardingShell, StepHeading } from './onboarding-shell';
+import { numberingLocale } from '../../lib/numbering';
 
 /**
  * `P01/5.1` — where the tenant's data lives. Behind `self_serve_signup`.
@@ -46,7 +47,7 @@ export function RegionScreen({
 }) {
   const t = createBundleTranslator(locale, messages);
   const router = useRouter();
-  const latency = new Intl.NumberFormat(locale, {
+  const latency = new Intl.NumberFormat(numberingLocale(locale), {
     style: 'unit',
     unit: 'millisecond',
     unitDisplay: 'short',

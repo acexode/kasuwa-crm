@@ -24,6 +24,9 @@ describe('feature flags', () => {
       'crm_scripts',
       'crm_pipeline',
       'crm_search',
+      'crm_custom_fields',
+      'crm_import',
+      'crm_notifications',
     ]);
   });
 
@@ -195,6 +198,44 @@ describe('feature flags', () => {
     ).toThrow(/Refusing to start.*crm_search/);
     expect(() =>
       assertFlagsAreProductionSafe({ nodeEnv: 'test', enabled: ['crm_records', 'crm_accounts', 'crm_record_view', 'crm_leads', 'crm_search'] }),
+    ).not.toThrow();
+  });
+
+  it('ships crm_import OFF, its own switch, and not production-ready (T-0094)', () => {
+    expect(FLAGS.crm_import.defaultValue).toBe(false);
+    expect(FLAGS.crm_import.productionReady).toBe(false);
+    expect(flagConfiguration([]).crm_import.defaultVariant).toBe('off');
+    expect(flagConfiguration(['crm_import']).crm_import.defaultVariant).toBe('on');
+    expect(flagConfiguration(['crm_records']).crm_import.defaultVariant).toBe('off');
+    expect(() => assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: ['crm_import'] })).toThrow();
+  });
+
+  it('ships crm_notifications OFF, its own switch, and not production-ready (T-0100)', () => {
+    expect(FLAGS.crm_notifications.defaultValue).toBe(false);
+    expect(FLAGS.crm_notifications.productionReady).toBe(false);
+    expect(flagConfiguration([]).crm_notifications.defaultVariant).toBe('off');
+    expect(flagConfiguration(['crm_notifications']).crm_notifications.defaultVariant).toBe('on');
+    expect(flagConfiguration(['crm_import']).crm_notifications.defaultVariant).toBe('off');
+    expect(() =>
+      assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: ['crm_notifications'] }),
+    ).toThrow();
+  });
+
+  it('ships crm_custom_fields OFF, its own switch, and not production-ready (T-0090)', () => {
+    expect(FLAGS.crm_custom_fields.defaultValue).toBe(false);
+    expect(FLAGS.crm_custom_fields.productionReady).toBe(false);
+    expect(flagConfiguration([]).crm_custom_fields.defaultVariant).toBe('off');
+    expect(flagConfiguration(['crm_custom_fields']).crm_custom_fields.defaultVariant).toBe('on');
+    // It rides on the records process but turns no other flag on, and none turns it on.
+    expect(flagConfiguration(['crm_custom_fields']).crm_records.defaultVariant).toBe('off');
+    expect(
+      flagConfiguration(['crm_records', 'crm_accounts', 'crm_record_view', 'crm_leads', 'crm_search']).crm_custom_fields.defaultVariant,
+    ).toBe('off');
+    expect(() =>
+      assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: ['crm_custom_fields'] }),
+    ).toThrow(/Refusing to start.*crm_custom_fields/);
+    expect(() =>
+      assertFlagsAreProductionSafe({ nodeEnv: 'test', enabled: ['crm_records', 'crm_custom_fields'] }),
     ).not.toThrow();
   });
 

@@ -40,6 +40,13 @@ export const TENANT_ACTIONS = [
   'field_security.write',
   /** createAuditExport. */
   'audit.export',
+  /**
+   * createCustomField, updateCustomField and retireCustomField (T-0089,
+   * D-L138, D-L139): custom field definitions are the tenant's, not one
+   * programme's (ADR-0008), so defining one is a tenant-level act. The
+   * tenant-admin flag only; no permission set grants it, `admin` included.
+   */
+  'custom_field.write',
 ] as const;
 
 /** Writes inside one programme (D-L53). */
@@ -69,6 +76,14 @@ export const PROGRAMME_ACTIONS = [
    * Implied by `admin`, as every programme action is.
    */
   'contact.claim_and_set_status',
+  /**
+   * CSV import of contacts (T-0094, D-P14, D-L151): createImport and every
+   * import operation, in the import's programme. Reads of an import need it
+   * too (anyone else gets 404). Held only by sets that also hold
+   * `contact.write`, which today is `admin` alone, and by the tenant-admin
+   * flag. An import runs as its creator and re-checks this every batch.
+   */
+  'contact.import',
   /**
    * createAccount and updateAccount (T-0055), in the TARGET programme: the
    * record's programme on update, `programmeId` on create. Held by `admin`

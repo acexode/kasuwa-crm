@@ -178,6 +178,10 @@ const ApiSchema = z.object({
 
   API_PORT: z.coerce.number().int().positive().default(3001),
 
+  // Where the import API enqueues its BullMQ jobs (T-0094). Optional: without
+  // it the import writes answer 503 and every other route is unaffected.
+  REDIS_URL: z.string().url().optional(),
+
   // NO LOCALE SETTINGS HERE. `@kasuwa/i18n` owns which languages exist and
   // which are offered, and it DERIVES the offered set from catalogue
   // completeness plus a named reviewer (D-P1, D-L27).
@@ -210,6 +214,14 @@ const WorkerSchema = z.object({
   // DATABASE_MIGRATION_URL in the environment never reaches the worker.
   DATABASE_URL: z.string().url(),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().max(200).default(2),
+
+  // kasuwa_relay: no BYPASSRLS, a member of no role (ADR-0018, T-0098). The
+  // outbox relay's own small pool, and the only connection in any process
+  // that reaches undispatched events across tenants, so it belongs to this
+  // process alone: every other schema refuses it by presence
+  // (RELAY_FORBIDDEN below). Required: without it no event is ever
+  // published. The worker checks at boot that it logs in as kasuwa_relay.
+  DATABASE_RELAY_URL: z.string().url(),
 
   // GUARDS: the worker holds a database connection now, so it runs the
   // key-provider guard as `apiEnv` does (the rule this comment used to state
@@ -260,6 +272,13 @@ const WebSchema = z.object({
   // Next's defaults.
   KASUWA_WEB_DIST_DIR: z.string().min(1).max(128).default('.next'),
   KASUWA_WEB_TSCONFIG: z.string().min(1).max(128).default('tsconfig.json'),
+
+  // Server-side only. The object store's PUBLIC origin, the host signed into
+  // the browser's presigned upload URLs (T-0092, ADR-0017): the one storage
+  // setting the web process may hold, because a CSP `connect-src` must name it
+  // (ADR-0019's build, T-0096). Never the internal S3_ENDPOINT and never the
+  // keys: both are in WEB_FORBIDDEN below.
+  S3_PUBLIC_ENDPOINT: z.string().url().optional(),
 });
 /** @typedef {z.infer<typeof WebSchema>} WebEnv */
 
@@ -274,8 +293,9 @@ const WebSchema = z.object({
  *
  * The rest are the other server-side credentials and internal endpoints the
  * development `.env` carries: the local KMS master key, the object-store
- * credentials, and the Redis and OpenSearch URLs. None is read by the web
- * process, and each is something a browser-facing process should not hold.
+ * credentials and internal endpoint, and the Redis and OpenSearch URLs. None
+ * is read by the web process, and each is something a browser-facing process
+ * should not hold.
  *
  * Presence is the test, not validity: an empty `DATABASE_URL=` is refused too.
  * The value is never echoed.
@@ -284,12 +304,40 @@ const WEB_FORBIDDEN = [
   'DATABASE_URL',
   'DATABASE_MIGRATION_URL',
   'DATABASE_AUTH_URL',
+  'DATABASE_RELAY_URL',
   'KASUWA_KMS_LOCAL_MASTER_KEY',
   'S3_ACCESS_KEY_ID',
   'S3_SECRET_ACCESS_KEY',
+  // The internal object-store host (T-0092 R9): the browser reaches the store
+  // only through S3_PUBLIC_ENDPOINT.
+  'S3_ENDPOINT',
   'REDIS_URL',
   'OPENSEARCH_URL',
 ];
+
+/**
+ * The relay's connection (ADR-0018 point 11, D-L156). Only the worker may
+ * hold it; the API, realtime and the operator commands refuse it by presence,
+ * as the web process does (WEB_FORBIDDEN). Presence is the test, so an empty
+ * value is refused too, and the value is never echoed. It also means the
+ * variable can never go into the shared `.env`, which every server process
+ * loads: `tools/dev.mjs` hands it to the worker alone.
+ */
+const RELAY_FORBIDDEN = ['DATABASE_RELAY_URL'];
+
+/**
+ * @param {string} processName
+ * @param {EnvSource} source
+ * @returns {string[]}
+ */
+function relayProblems(processName, source) {
+  return RELAY_FORBIDDEN.filter((name) => source[name] !== undefined).map(
+    (name) =>
+      `  ${name}: must not be set for the ${processName} process. It is the outbox relay's ` +
+      'cross-tenant connection and belongs to apps/worker alone (ADR-0018). Remove it from ' +
+      'this process environment.',
+  );
+}
 
 // --- parsing ---------------------------------------------------------------
 
@@ -351,7 +399,7 @@ function webProblems(source) {
  * @returns {ApiEnv}
  */
 export function apiEnv(source = process.env) {
-  const parsed = parseOrThrow('api', ApiSchema, source);
+  const parsed = parseOrThrow('api', ApiSchema, source, relayProblems('api', source));
   assertAuthModeIsSafe(parsed);
   assertKeyProviderIsSafe(parsed);
   assertThrottleIsNotACellWideCliff(parsed);
@@ -360,7 +408,8 @@ export function apiEnv(source = process.env) {
 
 /**
  * The BullMQ worker process. Requires `DATABASE_URL` (kasuwa_app) since
- * T-0045; runs the stub-auth and key-provider guards.
+ * T-0045 and `DATABASE_RELAY_URL` (kasuwa_relay) since T-0098; runs the
+ * stub-auth and key-provider guards.
  *
  * @param {EnvSource} [source]
  * @returns {WorkerEnv}
@@ -379,7 +428,7 @@ export function workerEnv(source = process.env) {
  * @returns {RealtimeEnv}
  */
 export function realtimeEnv(source = process.env) {
-  const parsed = parseOrThrow('realtime', RealtimeSchema, source);
+  const parsed = parseOrThrow('realtime', RealtimeSchema, source, relayProblems('realtime', source));
   assertAuthModeIsSafe(parsed);
   return parsed;
 }
@@ -391,7 +440,7 @@ export function realtimeEnv(source = process.env) {
  * @returns {MigratorEnv}
  */
 export function migratorEnv(source = process.env) {
-  const parsed = parseOrThrow('migrator', MigratorSchema, source);
+  const parsed = parseOrThrow('migrator', MigratorSchema, source, relayProblems('migrator', source));
   assertAuthModeIsSafe(parsed);
   return parsed;
 }

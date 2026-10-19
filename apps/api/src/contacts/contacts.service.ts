@@ -1,6 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import type { TenantTx } from '@kasuwa/db';
 import {
+  appendOwnerChangedEvent,
   findContactById,
   insertContact,
   listContacts,
@@ -18,7 +19,21 @@ import {
   type ContactValues,
 } from '@kasuwa/domain-core';
 import { canProgramme, canUpdateContact, loadGrants } from '@kasuwa/permissions';
-import { recordAuditEvent } from '../admin/audit/audit-writer';
+import {
+  assertCustomPatchFits,
+  customBackstopAs400,
+  customFiltersFrom,
+  customNotEditablePaths,
+  customPatchKeys,
+  customWireFor,
+  customWiresFor,
+  EMPTY_CUSTOM_WIRE,
+  loadCustom,
+  parseCustomCreate,
+  parseCustomPatch,
+  rawCustomOf,
+  recordAuditWithCustom,
+} from '../custom-fields/custom-values';
 import {
   AdminError,
   notFound,
@@ -27,6 +42,7 @@ import {
   validationFailed,
   type AdminErrorDetail,
 } from '../admin/common/admin-errors';
+import { importFilterFor } from '../imports/imports.service';
 import { contactAuditEvent, contactChanges } from './contact-audit';
 import { toContactWire, type ContactWire } from './contact-wire';
 import {
@@ -102,8 +118,11 @@ async function checkReferences(
 export async function listContactsFor(
   tx: TenantTx,
   query: ListContactsQuery,
+  rawQuery: unknown,
+  importsEnabled = false,
 ): Promise<{ data: ContactWire[]; nextCursor: string | null }> {
   const access = await loadContactFieldAccess(tx);
+  const custom = await loadCustom(tx, 'contact');
 
   // A filter on a field withheld from the caller is 400, never silently
   // ignored: ignoring it would return rows that look filtered and are not.
@@ -115,6 +134,17 @@ export async function listContactsFor(
     }
   }
   if (withheld.length > 0) throw validationFailed(withheld);
+  // T-0089: custom[key] and customEmpty, judged on the live definitions (400s).
+  const customFilters = customFiltersFrom(custom, rawQuery);
+
+  // T-0094 (R9, I2): an import the caller cannot see answers an empty page,
+  // even when its contacts are in the caller's plain list.
+  let importProgrammeId: string | null = null;
+  if (query.importId !== undefined) {
+    // With `crm_import` off there are no imports to see (D-L166).
+    importProgrammeId = importsEnabled ? await importFilterFor(tx, query.importId) : null;
+    if (importProgrammeId === null) return { data: [], nextCursor: null };
+  }
 
   const owners = query.owner ?? [];
   const filters: ContactFilters = {
@@ -129,6 +159,10 @@ export async function listContactsFor(
     lgas: query.lga,
     dnd: query.dnd,
     whatsappOptIn: query.whatsappOptIn,
+    custom: customFilters,
+    ...(importProgrammeId === null || query.importId === undefined
+      ? {}
+      : { importJobId: query.importId, withinProgrammeIds: [importProgrammeId] }),
   };
 
   let search: ContactSearch | undefined;
@@ -150,8 +184,11 @@ export async function listContactsFor(
     search,
     filters,
   });
+  const wires = await customWiresFor(tx, custom, page.data);
   return {
-    data: page.data.map((contact) => toContactWire(contact, access)),
+    data: page.data.map((contact) =>
+      toContactWire(contact, access, wires.get(contact.id) ?? EMPTY_CUSTOM_WIRE),
+    ),
     nextCursor: page.nextCursor,
   };
 }
@@ -160,7 +197,8 @@ export async function getContactFor(tx: TenantTx, id: string): Promise<ContactWi
   const contact = await findContactById(tx, id);
   if (contact === null) throw notFound();
   const access = await loadContactFieldAccess(tx);
-  return toContactWire(contact, access);
+  const custom = await loadCustom(tx, 'contact');
+  return toContactWire(contact, access, await customWireFor(tx, custom, contact));
 }
 
 // --- writes ------------------------------------------------------------------
@@ -206,16 +244,33 @@ export async function createContactFor(tx: TenantTx, body: unknown): Promise<Con
   const programmeId = createTarget(tx, raw); // 404
   if (!canProgramme(grants, ACTION, programmeId)) throw notPermitted(); // 403
   const access = await loadContactFieldAccess(tx);
-  const locked = notEditableContactFields(access, programmeId, keys);
+  const custom = await loadCustom(tx, 'contact');
+  const locked = [
+    ...notEditableContactFields(access, programmeId, keys),
+    ...customNotEditablePaths(custom, programmeId, raw),
+  ];
   if (locked.length > 0) throw fieldNotEditable(locked); // 403, naming the fields
 
   const parsed = CreateContactBody.parse(body); // 400
-  const { programmeId: _target, ...values } = parsed;
+  const { programmeId: _target, custom: _custom, ...values } = parsed;
+  const customValues = parseCustomCreate(custom, rawCustomOf(raw)); // 400
   await checkReferences(tx, programmeId, values); // 400
 
-  const contact = await insertContact(tx, programmeId, values);
-  await recordAuditEvent(tx, contactAuditEvent('created', contact, contactChanges(values, null)));
-  return toContactWire(contact, access);
+  const contact = await customBackstopAs400(() => insertContact(tx, programmeId, values, customValues));
+  await recordAuditWithCustom(
+    tx,
+    contactAuditEvent('created', contact, contactChanges(values, null)),
+    Object.keys(customValues).sort(),
+  );
+  // N-R4: a contact created for someone else is an assignment (T-0100).
+  await appendOwnerChangedEvent(tx, {
+    object: 'contact',
+    id: contact.id,
+    programmeId,
+    previousOwnerId: null,
+    newOwnerId: contact.ownerUserId,
+  });
+  return toContactWire(contact, access, await customWireFor(tx, custom, contact));
 }
 
 export async function updateContactFor(
@@ -233,22 +288,37 @@ export async function updateContactFor(
     throw notPermitted(); // 403
   }
   const access = await loadContactFieldAccess(tx);
+  const custom = await loadCustom(tx, 'contact');
   const keys = plainKeys(body) ?? [];
-  const locked = notEditableContactFields(access, current.programmeId, keys);
+  const raw = plainKeys(body) === null ? {} : (body as Record<string, unknown>);
+  const locked = [
+    ...notEditableContactFields(access, current.programmeId, keys),
+    ...customNotEditablePaths(custom, current.programmeId, raw),
+  ];
   if (locked.length > 0) throw fieldNotEditable(locked); // 403, naming the fields
 
-  const { version, ...values } = UpdateContactBody.parse(body); // 400
+  const { version, custom: _custom, ...values } = UpdateContactBody.parse(body); // 400
+  const patch = parseCustomPatch(custom, rawCustomOf(raw)); // 400
   await checkReferences(tx, current.programmeId, values); // 400
+  const target = { id: current.id, programmeId: current.programmeId };
+  if (patch !== undefined) await assertCustomPatchFits(tx, custom, target, patch); // 400
 
-  const updated = await updateContactIfVersion(
-    tx,
-    { id: current.id, programmeId: current.programmeId, version },
-    values,
+  const updated = await customBackstopAs400(() =>
+    updateContactIfVersion(tx, { ...target, version }, values, patch),
   );
   if (updated === null) throw staleWrite(); // 409
-  await recordAuditEvent(
+  await recordAuditWithCustom(
     tx,
     contactAuditEvent('updated', updated, contactChanges(values, current)),
+    customPatchKeys(patch),
   );
-  return toContactWire(updated, access);
+  // After the UPDATE, which holds the row's lock until commit (D-L161).
+  await appendOwnerChangedEvent(tx, {
+    object: 'contact',
+    id: updated.id,
+    programmeId: updated.programmeId,
+    previousOwnerId: current.ownerUserId,
+    newOwnerId: updated.ownerUserId,
+  });
+  return toContactWire(updated, access, await customWireFor(tx, custom, updated));
 }

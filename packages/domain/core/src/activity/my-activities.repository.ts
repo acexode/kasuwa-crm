@@ -175,6 +175,7 @@ const ACTIVITY_COLUMNS = `
 const SUMMARY_JOINS = `
   LEFT JOIN contact c
          ON c.tenant_id = $1 AND c.programme_id = e.programme_id AND c.id = e.contact_id
+        AND c.deleted_at IS NULL
   LEFT JOIN account ac
          ON ac.tenant_id = $1 AND ac.programme_id = e.programme_id AND ac.id = e.account_id`;
 

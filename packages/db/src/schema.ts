@@ -9,6 +9,7 @@ import {
   jsonb,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -229,8 +230,30 @@ export const contact = pgTable(
     givenNamesSearch: text('given_names_search').generatedAlwaysAs(FOLDED_IN_0038),
     familyNameSearch: text('family_name_search').generatedAlwaysAs(FOLDED_IN_0038),
     companyNameSearch: text('company_name_search').generatedAlwaysAs(FOLDED_IN_0038),
+    /**
+     * Migration 0039 (T-0089, ADR-0016): custom-field values, keyed by the
+     * field_def api_name (`...__c`). Guarded by three CHECKs (object, at most
+     * 512 KiB backstop, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
+     * withheld keys are projected out in SQL and never read whole by the API.
+     */
+    custom: jsonb('custom').notNull().default(sql`'{}'::jsonb`),
+    /**
+     * Migration 0042 (T-0094): the import that created the contact, or null.
+     * Composite FK (tenant_id, programme_id, import_job_id) -> import_job.
+     */
+    importJobId: uuid('import_job_id'),
+    /**
+     * Migration 0043 (T-0095, D-P27): set when the contact is merged away. A
+     * merged-away contact is absent from every read (the repositories'
+     * `deleted_at IS NULL`) and frozen for writes (contact_merged_away_frozen).
+     */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => [
+    /** Migration 0042 (T-0094): the importId filter on listContacts. Partial. */
+    index('contact_import_job_idx')
+      .on(table.tenantId, table.programmeId, table.importJobId)
+      .where(sql`import_job_id IS NOT NULL`),
     /** Migration 0027: the target of activity's composite contact FK. */
     uniqueIndex('contact_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
     index('contact_keyset_idx').on(table.tenantId, table.programmeId, table.createdAt, table.id),
@@ -360,6 +383,13 @@ export const account = pgTable(
     parentAccountId: uuid('parent_account_id'),
     /** Migration 0038 (T-0086): the folded search copy of `name`, generated and stored. */
     nameSearch: text('name_search').generatedAlwaysAs(FOLDED_IN_0038),
+    /**
+     * Migration 0039 (T-0089, ADR-0016): custom-field values, keyed by the
+     * field_def api_name (`...__c`). Guarded by three CHECKs (object, at most
+     * 512 KiB backstop, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
+     * withheld keys are projected out in SQL and never read whole by the API.
+     */
+    custom: jsonb('custom').notNull().default(sql`'{}'::jsonb`),
   },
   (table) => [
     /** Migration 0038 (T-0086): the prefix index (the folded key is COLLATE "C" there). */
@@ -451,6 +481,13 @@ export const activity = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     /** Maintained by the app.touch_updated_at() trigger when a statement leaves it unchanged. */
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Migration 0039 (T-0089, ADR-0016): custom-field values, keyed by the
+     * field_def api_name (`...__c`). Guarded by three CHECKs (object, at most
+     * 512 KiB backstop, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
+     * withheld keys are projected out in SQL and never read whole by the API.
+     */
+    custom: jsonb('custom').notNull().default(sql`'{}'::jsonb`),
   },
   (table) => [
     index('activity_contact_keyset_idx')
@@ -647,6 +684,50 @@ export const scriptRun = pgTable(
   ],
 );
 
+// --- the merge trail (migration 0043, T-0095) --------------------------------
+
+/**
+ * One merge of two contacts in one programme (0043; D-P12, D-P27, D-L151).
+ * Composite FKs hold both contacts in the merge's programme. kasuwa_app may
+ * read and insert, and update ONLY the three undo columns; the snapshot (the
+ * merged-away row, PII) and the window are immutable for it and never served.
+ * A RESTRICTIVE INSERT policy pins `merged_by_user_id` to the session user
+ * and `created_at` to now(); a RESTRICTIVE UPDATE policy admits one undo,
+ * inside the window, as the session user.
+ */
+export const contactMerge = pgTable(
+  'contact_merge',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    /** Composite FK (tenant_id, programme_id, survivor_id) -> contact, RESTRICT. */
+    survivorId: uuid('survivor_id').notNull(),
+    /** Composite FK (tenant_id, programme_id, merged_id) -> contact, RESTRICT. */
+    mergedId: uuid('merged_id').notNull(),
+    /** Composite FK (tenant_id, merged_by_user_id) -> "user". The undo right rests on it. */
+    mergedByUserId: uuid('merged_by_user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** created_at + exactly 720 hours (CHECK). */
+    undoUntil: timestamp('undo_until', { withTimezone: true }).notNull(),
+    undoneAt: timestamp('undone_at', { withTimezone: true }),
+    undoneByUserId: uuid('undone_by_user_id'),
+    survivorReverted: boolean('survivor_reverted'),
+    /** PII: the merged-away row and the survivor's prior values. Never served or logged. */
+    snapshot: jsonb('snapshot').notNull(),
+  },
+  (table) => [
+    index('contact_merge_recent_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    index('contact_merge_merged_idx').on(table.tenantId, table.programmeId, table.mergedId),
+    index('contact_merge_survivor_idx').on(table.tenantId, table.programmeId, table.survivorId),
+  ],
+);
+
 // --- pipelines and deals (migration 0036, T-0106) ---------------------------
 
 /** Stage kinds (a CHECK in 0036): exactly one won and one lost per pipeline. */
@@ -817,6 +898,13 @@ export const deal = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     /** Migration 0038 (T-0086): the folded search copy of `name`, generated and stored. */
     nameSearch: text('name_search').generatedAlwaysAs(FOLDED_IN_0038),
+    /**
+     * Migration 0039 (T-0089, ADR-0016): custom-field values, keyed by the
+     * field_def api_name (`...__c`). Guarded by three CHECKs (object, at most
+     * 512 KiB backstop, every key `^[a-z][a-z0-9_]*__c$`). Programme-scoped by the row;
+     * withheld keys are projected out in SQL and never read whole by the API.
+     */
+    custom: jsonb('custom').notNull().default(sql`'{}'::jsonb`),
   },
   (table) => [
     /** Migration 0038 (T-0086): the prefix index (the folded key is COLLATE "C" there). */
@@ -1111,6 +1199,12 @@ export const fieldDef = pgTable(
      * D-P25): SQLSTATE 23514, constraint `field_def_classification_raise_only`.
      */
     classification: text('classification').notNull().default('none'),
+    /**
+     * Migration 0039 (T-0089, ADR-0016 item 9): when a custom field was
+     * retired; NULL while live. A custom field of a standard object is retired,
+     * never deleted, so its api_name stays taken.
+     */
+    retiredAt: timestamp('retired_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1417,6 +1511,192 @@ export const portalUser = pgTable(
 );
 
 /**
+ * The metadata row of every stored file (migration 0040, T-0092, ADR-0017
+ * Decision 3). Object storage has no RLS: a file is reached only through its
+ * row, read in the caller's tenant transaction, so this table's RLS is what
+ * isolates the bytes.
+ *
+ * `id` IS the storage key's fileId, and `key` equals
+ * `tenant/<tenant_id>/programme/<programme_id>/<purpose>/<id>` by a CHECK
+ * (R1); a guard trigger keeps the key, its parts and a `deleted` status
+ * fixed (D-L76). No filename column (R3). kasuwa_app holds no DELETE: rows
+ * move to `deleted`. Read and written only through @kasuwa/storage-adapter's
+ * StoredObjectRepository, which never returns the key text (R4).
+ */
+export const storedObject = pgTable(
+  'stored_object',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    /** The bucket path. Never logged, never returned by the repository. */
+    key: text('key').notNull(),
+    purpose: text('purpose').notNull(),
+    declaredSizeBytes: bigint('declared_size_bytes', { mode: 'number' }).notNull(),
+    verifiedSizeBytes: bigint('verified_size_bytes', { mode: 'number' }),
+    contentType: text('content_type').notNull(),
+    sha256: customBytea('sha256'),
+    status: text('status').notNull().default('pending'),
+    uploadedByUserId: uuid('uploaded_by_user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('stored_object_key_key').on(table.key),
+    /** Migration 0042 (T-0094): the target of import_job's composite FK. */
+    uniqueIndex('stored_object_tenant_programme_id_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.id,
+    ),
+    index('stored_object_programme_created_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+  ],
+);
+
+/**
+ * A contact import job (migration 0042, T-0094, ADR-0017 flow steps 1-7).
+ * Holds the file's declaration, its column NAMES, the saved mapping and the
+ * report (counts and `{ row, column, code }` errors), never a cell value.
+ * Runs as `created_by_user_id` (D-L128 Q7, D-L151), pinned to the session
+ * user at insert by a restrictive policy. `filename`, `headers` and `mapping`
+ * are erased with the raw file (D-L148). kasuwa_app holds no DELETE, and no
+ * UPDATE on the keys. `changed_at` rather than `updated_at`: see 0042.
+ */
+export const importJob = pgTable(
+  'import_job',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    storedObjectId: uuid('stored_object_id').notNull(),
+    createdByUserId: uuid('created_by_user_id').notNull(),
+    status: text('status').notNull().default('awaiting_upload'),
+    /** The open multipart upload (D-L155). Never returned by the API. */
+    uploadId: text('upload_id'),
+    /** User text: never logged, erased with the raw file. */
+    filename: text('filename'),
+    sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
+    contentType: text('content_type').notNull(),
+    partCount: integer('part_count').notNull(),
+    headers: jsonb('headers'),
+    suggestedMapping: jsonb('suggested_mapping'),
+    mapping: jsonb('mapping'),
+    createdCount: integer('created_count').notNull().default(0),
+    skippedCount: integer('skipped_count').notNull().default(0),
+    failedCount: integer('failed_count').notNull().default(0),
+    errors: jsonb('errors').notNull().default(sql`'[]'::jsonb`),
+    errorsTruncated: boolean('errors_truncated').notNull().default(false),
+    cancelRequested: boolean('cancel_requested').notNull().default(false),
+    rawFileDeletedAt: timestamp('raw_file_deleted_at', { withTimezone: true }),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('import_job_stored_object_key').on(table.storedObjectId),
+    uniqueIndex('import_job_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
+    index('import_job_programme_created_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    index('import_job_creator_idx').on(table.tenantId, table.createdByUserId, table.programmeId),
+  ],
+);
+
+/**
+ * The transactional outbox (migration 0041, T-0098, ADR-0018 as amended by
+ * D-L156). A producer appends a row with `appendOutboxEvent` inside its own
+ * tenant transaction; apps/worker's relay, as the NOBYPASSRLS
+ * `kasuwa_relay` role, publishes it to BullMQ and marks it. kasuwa_app holds
+ * SELECT and column-limited INSERT only (never `seq` or the publication
+ * columns); a restrictive policy pins `actor_user_id` to the session user
+ * (F-R3). The payload holds identifiers only (D-P29). The partial indexes'
+ * predicate (`published_at IS NULL AND dead_at IS NULL`) has no Drizzle
+ * mirror; the SQL is the source of truth.
+ */
+export const outboxEvent = pgTable(
+  'outbox_event',
+  {
+    id: uuid('id').primaryKey(),
+    seq: bigint('seq', { mode: 'bigint' }).notNull().generatedAlwaysAsIdentity(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    actorUserId: uuid('actor_user_id').notNull(),
+    eventType: text('event_type').notNull(),
+    schemaVersion: smallint('schema_version').notNull().default(1),
+    aggregateType: text('aggregate_type').notNull(),
+    aggregateId: uuid('aggregate_id').notNull(),
+    payload: jsonb('payload').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    attempts: smallint('attempts').notNull().default(0),
+    lastAttemptAt: timestamp('last_attempt_at', { withTimezone: true }),
+    deadAt: timestamp('dead_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('outbox_event_programme_idx').on(table.tenantId, table.programmeId),
+  ],
+);
+
+/**
+ * The in-app notification inbox (migration 0044, T-0100, ADR-0018, D-P29,
+ * D-L157, D-L164). Written by the outbox consumer as the event's actor, read
+ * and marked read by its recipient alone: a restrictive SELECT and UPDATE
+ * policy pin `recipient_user_id` to the session user, and a restrictive INSERT
+ * policy pins `actor_user_id` to it. Identifiers and codes only: no name,
+ * subject, filename or value. kasuwa_app holds SELECT, INSERT and UPDATE
+ * (read_at): no DELETE. UNIQUE (source_event_id, recipient_user_id) is the
+ * idempotency key; the handler inserts in a SAVEPOINT and treats 23505 as
+ * already delivered (never ON CONFLICT: that needs SELECT rights). The SQL is
+ * the source of truth.
+ */
+export const notification = pgTable(
+  'notification',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    recipientUserId: uuid('recipient_user_id').notNull(),
+    /** record_assigned | task_assigned | import_finished (CHECK). */
+    kind: text('kind').notNull(),
+    /** contact | account | deal | activity | import (CHECK; the kind fixes it). */
+    objectType: text('object_type').notNull(),
+    objectId: uuid('object_id').notNull(),
+    actorUserId: uuid('actor_user_id').notNull(),
+    sourceEventId: uuid('source_event_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    readAt: timestamp('read_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('notification_source_event_recipient_key').on(
+      table.sourceEventId,
+      table.recipientUserId,
+    ),
+    index('notification_recipient_idx').on(
+      table.tenantId,
+      table.recipientUserId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    // The unread count and "mark all read" never walk read rows: a partial
+    // twin of the recipient index (migration 0044).
+    index('notification_recipient_unread_idx')
+      .on(table.tenantId, table.recipientUserId, table.createdAt.desc(), table.id.desc())
+      .where(sql`read_at IS NULL`),
+    index('notification_programme_idx').on(table.tenantId, table.programmeId),
+    index('notification_actor_idx').on(table.tenantId, table.actorUserId),
+  ],
+);
+
+/**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
  */
@@ -1427,6 +1707,7 @@ export const TENANT_SCOPED_TABLES = [
   'user',
   'user_programme',
   'contact',
+  'contact_merge',
   'account',
   'activity',
   'script',
@@ -1457,6 +1738,10 @@ export const TENANT_SCOPED_TABLES = [
   'portal_user',
   'audit_event',
   'audit_export',
+  'stored_object',
+  'import_job',
+  'outbox_event',
+  'notification',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];

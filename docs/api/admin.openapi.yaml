@@ -104,6 +104,10 @@ tags:
     description: The role hierarchy. Who can see whose records.
   - name: field-security
     description: Which permission sets may read or edit which field.
+  - name: custom-fields
+    description: |
+      Custom field definitions on the standard objects (contact, account,
+      activity, deal). Tenant-wide, never programme-scoped (ADR-0008).
   - name: audit
     description: The immutable record of admin, security and data actions.
 
@@ -1891,6 +1895,436 @@ paths:
         '501': { $ref: '#/components/responses/NotImplemented' }
 
   # =========================================================================
+  # Custom fields — P18/B, P18/B1, P18/B2 (T-0088; ADR-0016, D-L128, D-L138)
+  #
+  # Served since T-0089. Definitions live in `field_def` (0002): tenant
+  # scoped and deliberately NOT programme-scoped (ADR-0008), so a field one
+  # admin defines is the same field in every programme of the tenant. The
+  # VALUES live on the record rows (records.openapi.yaml `custom`) and are
+  # programme-scoped by the row. There is no delete and no type change.
+  # =========================================================================
+  /api/v1/admin/custom-fields:
+    get:
+      tags: [custom-fields]
+      summary: List the custom fields of one standard object
+      operationId: listCustomFields
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P18/B']
+      description: |
+        **Served since T-0089 (contract T-0088).**
+
+        Every custom field defined on `object` in the caller's tenant, ordered
+        by `apiName`, with the limits that apply. By default only ACTIVE
+        fields are listed: that is what the record screens read. Retired
+        fields appear only with `includeRetired=true`, with `retiredAt` set,
+        so the studio can show which api names are taken for ever (D-L140,
+        D-L141); a record never carries a retired key. Tenant-wide,
+        not programme-wide: metadata is not programme-scoped (ADR-0008), so
+        every user of the tenant sees one catalogue. Standard fields are not
+        listed here; the field-security matrix lists every field.
+
+        There is no `403` and no permission: any authenticated user of the
+        tenant may read the definitions, because the record screens (T-0091)
+        need each field's label, type and picklist labels. The list carries
+        definitions only, never a record or a value, and never a count of
+        records using a field.
+
+        An `object` the tenant has no `object_def` row for is `404
+        not_found`, the same body as everywhere else; a value that is not one
+        of the four objects is `400`.
+      parameters:
+        - name: object
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/CustomFieldObject' }
+          description: The standard object, by api name. A lead is a contact (D-P17).
+        - name: includeRetired
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+          description: |
+            `true` adds the retired fields (with `retiredAt` set) to the
+            active ones; the studio uses it to show which api names are
+            taken. Absent or `false`: active fields only.
+      responses:
+        '200':
+          description: |
+            The object's custom fields and the limits. The example is an
+            `includeRetired=true` answer, so it shows a retired field.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomFieldList' }
+              example:
+                objectApiName: contact
+                limits:
+                  apiBytes: 16384
+                  bytesPerRecord: 524288
+                  definitionsPerObject: 500
+                  fieldsPerObject: 100
+                  picklistValues: 500
+                items:
+                  - id: 11111111-0000-4000-8000-0000000c0001
+                    objectApiName: contact
+                    apiName: alternate_name__c
+                    label: Alternate name
+                    description: Another name the customer goes by.
+                    type: text
+                    classification: pii
+                    config: {}
+                    retiredAt: null
+                    createdAt: '2026-10-14T09:00:00.000Z'
+                    updatedAt: '2026-10-14T09:00:00.000Z'
+                  - id: 11111111-0000-4000-8000-0000000c0002
+                    objectApiName: contact
+                    apiName: credit_limit__c
+                    label: Credit limit
+                    description: null
+                    type: currency
+                    classification: sensitive
+                    config: { currencyCode: NGN }
+                    retiredAt: null
+                    createdAt: '2026-10-14T09:05:00.000Z'
+                    updatedAt: '2026-10-14T09:05:00.000Z'
+                  - id: 11111111-0000-4000-8000-0000000c0003
+                    objectApiName: contact
+                    apiName: legacy_ref__c
+                    label: Legacy reference
+                    description: Imported from the previous system.
+                    type: text
+                    classification: none
+                    config: {}
+                    retiredAt: '2026-10-16T12:00:00.000Z'
+                    createdAt: '2026-10-01T08:00:00.000Z'
+                    updatedAt: '2026-10-16T12:00:00.000Z'
+                  - id: 11111111-0000-4000-8000-0000000c0004
+                    objectApiName: contact
+                    apiName: renewal_date__c
+                    label: Renewal date
+                    description: null
+                    type: date
+                    classification: none
+                    config: {}
+                    retiredAt: null
+                    createdAt: '2026-10-14T09:10:00.000Z'
+                    updatedAt: '2026-10-14T09:10:00.000Z'
+                  - id: 11111111-0000-4000-8000-0000000c0005
+                    objectApiName: contact
+                    apiName: satisfaction_score__c
+                    label: Satisfaction score
+                    description: From the last survey, 0 to 10.
+                    type: number
+                    classification: none
+                    config: {}
+                    retiredAt: null
+                    createdAt: '2026-10-14T09:15:00.000Z'
+                    updatedAt: '2026-10-14T09:15:00.000Z'
+                  - id: 11111111-0000-4000-8000-0000000c0006
+                    objectApiName: contact
+                    apiName: tier__c
+                    label: Customer tier
+                    description: The service tier agreed with the client.
+                    type: picklist
+                    classification: none
+                    config:
+                      values:
+                        - { value: gold, label: Gold }
+                        - { value: silver, label: Silver }
+                        - { value: platinum, label: Platinum }
+                    retiredAt: null
+                    createdAt: '2026-10-14T09:20:00.000Z'
+                    updatedAt: '2026-10-15T10:00:00.000Z'
+                  - id: 11111111-0000-4000-8000-0000000c0007
+                    objectApiName: contact
+                    apiName: vip__c
+                    label: Priority customer
+                    description: null
+                    type: boolean
+                    classification: none
+                    config: {}
+                    retiredAt: null
+                    createdAt: '2026-10-14T09:25:00.000Z'
+                    updatedAt: '2026-10-14T09:25:00.000Z'
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+    post:
+      tags: [custom-fields]
+      summary: Define a custom field on a standard object
+      operationId: createCustomField
+      x-kasuwa-implemented: true
+      x-kasuwa-audited: true
+      x-kasuwa-permission: custom_field.write
+      x-kasuwa-screens: ['P18/B', 'P18/B1']
+      description: |
+        **Served since T-0089 (contract T-0088).**
+
+        **Permission.** `custom_field.write`, a TENANT action (D-L53): the
+        tenant-admin flag only, whatever permission sets the caller holds in
+        its programmes. Without it: `403 not_permitted`. The definition is
+        tenant-wide (ADR-0008); there is no `programmeId`, and none may be
+        sent (the body is closed).
+
+        **Names (D-P24).** `apiName` is lower snake case ending in `__c`, at
+        most 63 characters, unique per tenant and object, and immutable. A
+        malformed one is `400 invalid_api_name` at `apiName`. A name already
+        taken on the object, by a live field or a retired one, is
+        `409 duplicate_code` at `apiName`: a retired name stays taken for
+        ever, so a new field can never reinterpret old values. The answer
+        never names the existing field or says whether it is retired.
+
+        **Types (Phase 2).** `text`, `number`, `currency`, `date`, `picklist`
+        and `boolean` (CustomFieldType). Any other type is
+        `400 unsupported_type` at `type`. A `picklist` needs at least one
+        and at most 500 values in `config.values`: none, or more than 500,
+        is `400 invalid_config` at `config.values`, and a repeated value is
+        `400 duplicate_value` there (D-L141); a `currency` needs
+        `config.currencyCode`, one of NGN, GHS, KES or ZAR
+        (`unknown_currency` at `config.currencyCode`), fixed for the life of
+        the field (D-L128 Q6); any other type takes no `config`
+        (`invalid_config` at `config`). There is no `isRequired`: a custom
+        field on a standard object is never required in Phase 2.
+
+        **Limits (D-L128 Q1, D-L140).** At most 100 active custom fields per
+        object per tenant; the 101st is `409 limit_reached` with
+        `details[].code: field_limit_reached` at `objectApiName`. Retired
+        fields do not count toward the 100. Separately, an object holds at
+        most 500 definitions in total, and here retired fields DO count
+        (their names stay taken and nothing purges them): the 501st
+        definition is the same `409 limit_reached` /
+        `field_limit_reached`, even with fewer than 100 active fields.
+
+        **Check order (D-L140):** `401`, then `403` (`custom_field.write`),
+        then `404` (out of scope), then `400` (`field_retired` and the body
+        codes), then `409`. A caller without the permission never learns
+        whether a field id exists or is retired.
+
+        **Logging.** A definition carries no value. Custom VALUES (on the
+        records) are never logged or traced, whatever the classification:
+        D-P25 lets a tenant classify free text as `none`.
+
+        **Field security (D-L128 Q2, D-L45).** A field created `pii` or
+        `sensitive` starts at `none` for every unlocked permission set until
+        an admin grants access in the field-security matrix. A `none` field
+        starts at `edit` for every set, as a never-saved cell does (D-L45).
+        The locked admin set is always `edit`.
+
+        **Audited:** one `created` event naming the field (`objectType:
+        custom_field`, `programmeId: null`, tenant-level), with the api name,
+        type and classification and never a value.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCustomFieldRequest' }
+            examples:
+              picklist:
+                summary: A picklist on contacts
+                value:
+                  objectApiName: contact
+                  apiName: tier__c
+                  label: Customer tier
+                  type: picklist
+                  description: The service tier agreed with the client.
+                  config:
+                    values:
+                      - { value: gold, label: Gold }
+                      - { value: silver, label: Silver }
+              currency:
+                summary: A sensitive currency field on accounts
+                value:
+                  objectApiName: account
+                  apiName: credit_limit__c
+                  label: Credit limit
+                  type: currency
+                  classification: sensitive
+                  config: { currencyCode: NGN }
+      responses:
+        '201':
+          description: Created. The new definition.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomFieldDefinition' }
+              example:
+                id: 11111111-0000-4000-8000-0000000c0006
+                objectApiName: contact
+                apiName: tier__c
+                label: Customer tier
+                description: The service tier agreed with the client.
+                type: picklist
+                classification: none
+                config:
+                  values:
+                    - { value: gold, label: Gold }
+                    - { value: silver, label: Silver }
+                retiredAt: null
+                createdAt: '2026-10-14T09:20:00.000Z'
+                updatedAt: '2026-10-14T09:20:00.000Z'
+        '400': { $ref: '#/components/responses/CustomFieldValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/CustomFieldConflict' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/custom-fields/{fieldId}:
+    parameters:
+      - $ref: '#/components/parameters/FieldId'
+    patch:
+      tags: [custom-fields]
+      summary: Relabel a custom field, reclassify it, or add or relabel picklist values
+      operationId: updateCustomField
+      x-kasuwa-implemented: true
+      x-kasuwa-audited: true
+      x-kasuwa-permission: custom_field.write
+      x-kasuwa-screens: ['P18/B', 'P18/B2']
+      description: |
+        **Served since T-0089 (contract T-0088).** Permission as
+        createCustomField: `custom_field.write`, the tenant-admin flag.
+
+        Partial: absent properties are unchanged, and at least one is sent.
+        **The type is immutable** (ADR-0016 item 9), and so are `apiName`,
+        `objectApiName` and the currency of a currency field: none is in the
+        body, which is closed. A change of type is a new field, a copy, then
+        retiring the old one.
+
+        **Picklist values** are added (`addValues`) or relabelled
+        (`relabelValues`, by `value`), and are never removed, so no stored
+        value becomes unreadable. `addValues` or `relabelValues` on a field
+        that is not a picklist is `400 not_a_picklist` at `addValues`; a
+        relabel naming a value the field does not have is `400 unknown_value`
+        at `relabelValues`; adding a value the field already has is
+        `400 duplicate_value` at `addValues` (D-L139). A picklist pushed past 500 values is
+        `409 limit_reached` with `details[].code: picklist_limit_reached` at
+        `addValues`; nothing in the request is applied.
+
+        **Classification** (D-P25, D-L138). A custom field stays freely
+        classifiable: `classification` may be raised or lowered after
+        create, and every change is audited by key (the field's api name,
+        before and after, never a value). Reclassifying never rewrites the
+        field-security matrix: the `none` default for `pii` and `sensitive`
+        fields applies at create only, so an admin who lowers or raises a
+        field reviews its cells separately.
+
+        **A retired field cannot be changed** (D-L139): any update to it is
+        `400 validation_failed` with `details[].code: field_retired` at
+        `fieldId`, and nothing is applied. It is not `404`: the list shows
+        retired fields, so the caller can already see it. Out of scope is
+        `404 not_found`, one body: another tenant's field, a standard field's
+        id and an id that names nothing. **Audited:** one `updated` event
+        naming what changed, by key.
+
+        **Check order (D-L140):** `401`, then `403` (`custom_field.write`),
+        then `404` (out of scope), then `400` (`field_retired` and the body
+        codes), then `409`. A caller without the permission never learns
+        whether a field id exists or is retired.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateCustomFieldRequest' }
+            examples:
+              addValue:
+                summary: Add a picklist value
+                value:
+                  addValues:
+                    - { value: platinum, label: Platinum }
+              relabel:
+                summary: Relabel the field and one value
+                value:
+                  label: Service tier
+                  relabelValues:
+                    - { value: gold, label: Gold plus }
+              reclassify:
+                summary: Raise the classification
+                value:
+                  classification: pii
+      responses:
+        '200':
+          description: The updated definition.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomFieldDefinition' }
+              example:
+                id: 11111111-0000-4000-8000-0000000c0006
+                objectApiName: contact
+                apiName: tier__c
+                label: Customer tier
+                description: The service tier agreed with the client.
+                type: picklist
+                classification: none
+                config:
+                  values:
+                    - { value: gold, label: Gold }
+                    - { value: silver, label: Silver }
+                    - { value: platinum, label: Platinum }
+                retiredAt: null
+                createdAt: '2026-10-14T09:20:00.000Z'
+                updatedAt: '2026-10-15T10:00:00.000Z'
+        '400': { $ref: '#/components/responses/CustomFieldValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/CustomFieldConflict' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/admin/custom-fields/{fieldId}/retire:
+    parameters:
+      - $ref: '#/components/parameters/FieldId'
+    post:
+      tags: [custom-fields]
+      summary: Retire a custom field (there is no delete)
+      operationId: retireCustomField
+      x-kasuwa-implemented: true
+      x-kasuwa-audited: true
+      x-kasuwa-permission: custom_field.write
+      x-kasuwa-screens: ['P18/B']
+      description: |
+        **Served since T-0089 (contract T-0088).** Permission as
+        createCustomField: `custom_field.write`, the tenant-admin flag. No
+        body.
+
+        **Retire, never delete** (D-L128 Q3). The definition is not deleted:
+        it gets `retiredAt`, and its api name stays taken for ever, so a new
+        field can never reinterpret old values. From then on the key is
+        dropped from every read (it is projected out in SQL) and refused on
+        every write (`400 unknown_field`, the same code as a key that never
+        existed). Stored values stay on the rows, unreadable, until a purge
+        exists (a later task). There is no restore.
+
+        Retiring a field that is already retired answers `200` with the
+        definition unchanged (its first `retiredAt`) and writes no second
+        audit event, but only after the `403` and `404` checks: `401`, then
+        `403` (`custom_field.write`), then `404`, then the repeat-retire
+        `200` (D-L140). A caller without the permission never learns whether
+        a field is retired. Out of scope is `404 not_found`, one body: another
+        tenant's field, a standard field's id and an id that names nothing.
+        **Audited** as `updated`, with a `retiredAt` change (before `null`,
+        after the time), naming the field by api name (D-L141).
+      responses:
+        '200':
+          description: Retired (or already retired). The definition, `retiredAt` set.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomFieldDefinition' }
+              example:
+                id: 11111111-0000-4000-8000-0000000c0003
+                objectApiName: contact
+                apiName: legacy_ref__c
+                label: Legacy reference
+                description: Imported from the previous system.
+                type: text
+                classification: none
+                config: {}
+                retiredAt: '2026-10-16T12:00:00.000Z'
+                createdAt: '2026-10-01T08:00:00.000Z'
+                updatedAt: '2026-10-16T12:00:00.000Z'
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '403': { $ref: '#/components/responses/NotPermitted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  # =========================================================================
   # Audit log — P02/E, P02/E1, P02/E2
   # =========================================================================
   /api/v1/admin/audit/events:
@@ -2237,6 +2671,15 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    FieldId:
+      name: fieldId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        A custom field definition's id (T-0088). Another tenant's field, a
+        standard field's id and an id that names nothing are all `404
+        not_found`, one body.
     AlertId:
       name: alertId
       in: path
@@ -3132,6 +3575,8 @@ components:
         - rotated
         - played_recording
         - published
+        - merged
+        - restored
       description: |
         `viewed` and `played_recording` are here because M2 requires record
         views of sensitive fields and recording playback to be audited, even
@@ -3141,6 +3586,13 @@ components:
         `scripting.openapi.yaml`, object type `script`; T-0113, D-L96). Its
         changes name the version number and the ids of the compliance nodes
         added, removed and changed, never wording.
+
+        `merged` and `restored` are a contact merge and its undo
+        (`createContactMerge` and `undoContactMerge` in
+        `records.openapi.yaml`, object type `contact`; T-0095, D-P12). Exactly
+        one event each. Every change is a field name with `before` and `after`
+        null (D-L83): the survivor's fields the merge changed, compliance
+        fields included (D-P28), and never a value, a name or an identifier.
 
     AuditActor:
       type: object
@@ -3344,6 +3796,206 @@ components:
         requestedAt: { type: string, format: date-time }
         completedAt: { type: [string, 'null'], format: date-time }
 
+    # --- custom fields (T-0088; ADR-0016, D-L128, D-L138) ----------------
+    CustomFieldObject:
+      type: string
+      enum: [contact, account, activity, deal]
+      description: |
+        The standard objects that take custom fields in Phase 2 (ADR-0016;
+        D-P17: a lead is a contact, so `contact` covers leads).
+
+    CustomFieldType:
+      type: string
+      enum: [text, number, currency, date, picklist, boolean]
+      description: |
+        The Phase 2 types (ADR-0016 item 4), each with its own value encoding
+        in records.openapi.yaml (CustomFieldText to CustomFieldBoolean).
+        Refused until each has its own decision: `textarea`, `datetime`,
+        `multipicklist`, `lookup`, `formula`, `rollup`, `phone`, `email` and
+        `url`. A body naming any other type is `400 validation_failed` with
+        `details[].code: unsupported_type` at `type`. Immutable after create.
+
+    CustomFieldApiName:
+      type: string
+      minLength: 4
+      maxLength: 63
+      pattern: '^[a-z][a-z0-9_]*__c$'
+      description: |
+        A custom field's api name: lower snake case ending in `__c` (D-P24),
+        within the api-name bound of 63 characters. Unique per tenant and
+        object, retired fields included; immutable.
+
+    CustomFieldPicklistValue:
+      type: object
+      additionalProperties: false
+      required: [value, label]
+      description: |
+        One picklist value. `value` is what a record stores (an api name,
+        immutable); `label` is what a screen prints, and may be relabelled.
+      properties:
+        value: { type: string, pattern: '^[a-z][a-z0-9_]{0,61}[a-z0-9]$' }
+        label: { type: string, minLength: 1, maxLength: 255 }
+
+    CustomFieldPicklistConfig:
+      type: object
+      additionalProperties: false
+      required: [values]
+      description: A picklist's values, 1 to 500, each `value` unique (`duplicate_value`).
+      properties:
+        values:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: '#/components/schemas/CustomFieldPicklistValue' }
+
+    CustomFieldCurrencyConfig:
+      type: object
+      additionalProperties: false
+      required: [currencyCode]
+      description: |
+        A currency field's one currency (D-L128 Q6): NGN, GHS, KES or ZAR,
+        fixed for the life of the field and never converted. Any other code
+        is `400 unknown_currency` at `config.currencyCode`; the list is not
+        an `enum`, so a schema-driven pipe cannot answer with a generic error.
+      properties:
+        currencyCode: { type: string, pattern: '^[A-Z]{3}$' }
+
+    CustomFieldConfig:
+      description: |
+        A create body's `config`: `values` for a `picklist`, `currencyCode`
+        for a `currency`, and absent for every other type. A config that does
+        not fit the type is `400 invalid_config` at `config`.
+      oneOf:
+        - { $ref: '#/components/schemas/CustomFieldPicklistConfig' }
+        - { $ref: '#/components/schemas/CustomFieldCurrencyConfig' }
+
+    CustomFieldDefinition:
+      type: object
+      additionalProperties: false
+      required: [id, objectApiName, apiName, label, description, type, classification, config, retiredAt, createdAt, updatedAt]
+      description: |
+        One custom field definition (`field_def`, `is_custom`). Tenant-wide,
+        never programme-scoped (ADR-0008). Carries no value and no count of
+        records using the field. No `isRequired`: never required in Phase 2.
+      properties:
+        id: { type: string, format: uuid }
+        objectApiName: { $ref: '#/components/schemas/CustomFieldObject' }
+        apiName: { $ref: '#/components/schemas/CustomFieldApiName' }
+        label: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: [string, 'null'], maxLength: 2000 }
+        type: { $ref: '#/components/schemas/CustomFieldType' }
+        classification: { $ref: '#/components/schemas/FieldClassification' }
+        config:
+          description: |
+            `values` for a picklist, `currencyCode` for a currency, and `{}`
+            for every other type.
+          oneOf:
+            - { $ref: '#/components/schemas/CustomFieldPicklistConfig' }
+            - { $ref: '#/components/schemas/CustomFieldCurrencyConfig' }
+            - { type: object, additionalProperties: false, maxProperties: 0 }
+        retiredAt:
+          type: [string, 'null']
+          format: date-time
+          description: When the field was retired (UTC); `null` while it is live.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CustomFieldLimits:
+      type: object
+      additionalProperties: false
+      required: [apiBytes, bytesPerRecord, definitionsPerObject, fieldsPerObject, picklistValues]
+      description: |
+        The limits (D-L128 Q1, D-L140, D-L141), as data so a screen never
+        hard-codes them. `apiBytes`: the API's 16 KiB limit on a record's
+        merged `custom`, counted on the keys the caller can read plus those
+        written (`custom_too_large`). `bytesPerRecord`: the 512 KiB database
+        backstop on the whole stored object (D-L142). The 16 KiB `apiBytes`
+        limit is what callers meet; the backstop only stops a writer that is
+        not the API. `definitionsPerObject`: at most 500 definitions per
+        object, retired fields included. `fieldsPerObject`: at most 100
+        active fields per object; retired fields do not count. And
+        `picklistValues`: at most 500 values per picklist.
+      properties:
+        apiBytes:
+          type: integer
+          const: 16384
+          description: 16 KiB, measured on what the caller can see plus what it writes (D-L140).
+        bytesPerRecord:
+          type: integer
+          const: 524288
+          description: 512 KiB, the database backstop against non-API writers (D-L142); callers meet `apiBytes`.
+        definitionsPerObject:
+          type: integer
+          const: 500
+          description: Definitions per object, retired fields included (D-L141).
+        fieldsPerObject:
+          type: integer
+          const: 100
+          description: Active fields per object; retired fields do not count.
+        picklistValues: { type: integer, const: 500 }
+
+    CustomFieldList:
+      type: object
+      additionalProperties: false
+      required: [objectApiName, limits, items]
+      properties:
+        objectApiName: { $ref: '#/components/schemas/CustomFieldObject' }
+        limits: { $ref: '#/components/schemas/CustomFieldLimits' }
+        items:
+          type: array
+          description: The object's active custom fields, plus the retired ones when `includeRetired=true`, by `apiName`.
+          items: { $ref: '#/components/schemas/CustomFieldDefinition' }
+
+    CreateCustomFieldRequest:
+      type: object
+      additionalProperties: false
+      required: [objectApiName, apiName, label, type]
+      description: |
+        Closed. No `id`, `retiredAt`, timestamps, `isRequired`, `programmeId`
+        or tenant id: each is `400`.
+      properties:
+        objectApiName: { $ref: '#/components/schemas/CustomFieldObject' }
+        apiName: { $ref: '#/components/schemas/CustomFieldApiName' }
+        label: { type: string, minLength: 1, maxLength: 255 }
+        type: { $ref: '#/components/schemas/CustomFieldType' }
+        classification:
+          type: string
+          enum: [none, pii, sensitive]
+          default: none
+          description: |
+            `none < pii < sensitive` (D-L45). A `pii` or `sensitive` field
+            starts at `none` for unlocked permission sets (D-L128 Q2).
+        description: { type: [string, 'null'], maxLength: 2000 }
+        config: { $ref: '#/components/schemas/CustomFieldConfig' }
+
+    UpdateCustomFieldRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: |
+        Closed, at least one property. No `type`, `apiName`, `objectApiName`
+        or `config`: the type and the currency never change, and picklist
+        values are added or relabelled, never removed.
+      properties:
+        label: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: [string, 'null'], maxLength: 2000 }
+        classification:
+          type: string
+          enum: [none, pii, sensitive]
+          description: Raise or lower (D-P25); audited by key. No default.
+        addValues:
+          type: array
+          minItems: 1
+          maxItems: 500
+          description: New values, appended. A value the field already has is `400 duplicate_value`.
+          items: { $ref: '#/components/schemas/CustomFieldPicklistValue' }
+        relabelValues:
+          type: array
+          minItems: 1
+          maxItems: 500
+          description: New labels for existing values, by `value`.
+          items: { $ref: '#/components/schemas/CustomFieldPicklistValue' }
+
     # --- the error envelope ----------------------------------------------
     Error:
       type: object
@@ -3375,6 +4027,8 @@ components:
             - not_found
             - duplicate_name
             - duplicate_code
+            # T-0088: a tenant-wide limit on custom fields (D-L128 Q1).
+            - limit_reached
             - stale_write
             - role_hierarchy_cycle
             - role_in_use
@@ -3392,6 +4046,11 @@ components:
             # records.openapi.yaml (T-0105): moveDeal.
             - transition_not_allowed
             - requirements_unmet
+            # records.openapi.yaml (T-0093): import and merge.
+            - import_status_conflict
+            - upload_mismatch
+            - already_merged
+            - undo_expired
             - too_many_requests
             - not_implemented
             - service_unavailable
@@ -3611,6 +4270,158 @@ components:
                 error: Conflict
                 code: legal_hold_active
                 message: Retention cannot be shortened while a legal hold is on.
+
+    CustomFieldValidationFailed:
+      description: |
+        `ValidationFailed` on a custom-field write (T-0088): the body did not
+        parse, or names a type, name, config or value the field cannot take.
+        `details` names paths and reason codes only, never the value sent.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            invalidApiName:
+              summary: An api name without the __c suffix, or not lower snake case
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: apiName
+                    code: invalid_api_name
+            unsupportedType:
+              summary: A type outside the Phase 2 list
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: type
+                    code: unsupported_type
+            invalidConfig:
+              summary: A config that does not fit the type
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: config
+                    code: invalid_config
+            unknownCurrency:
+              summary: A currency code that is not NGN, GHS, KES or ZAR
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: config.currencyCode
+                    code: unknown_currency
+            duplicateValue:
+              summary: The same picklist value twice
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: config.values
+                    code: duplicate_value
+            notAPicklist:
+              summary: addValues on a field that is not a picklist
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: addValues
+                    code: not_a_picklist
+            tooManyValues:
+              summary: A picklist created with no values or more than 500 in config.values (D-L141)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: config.values
+                    code: invalid_config
+            unknownValue:
+              summary: relabelValues naming a value the field does not have
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: relabelValues
+                    code: unknown_value
+            duplicateAddedValue:
+              summary: addValues naming a value the field already has
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: addValues
+                    code: duplicate_value
+            fieldRetired:
+              summary: updateCustomField on a retired field (D-L139)
+              value:
+                statusCode: 400
+                error: Bad Request
+                code: validation_failed
+                message: Validation failed
+                details:
+                  - path: fieldId
+                    code: field_retired
+
+    CustomFieldConflict:
+      description: |
+        The custom-field write cannot be applied as sent; nothing is applied.
+        `duplicate_code`: the api name is taken on this object in this tenant,
+        by a live or a retired field (the answer does not say which, and
+        names no other field). `limit_reached`: the object already has 100
+        active custom fields, or 500 definitions retired ones included
+        (`field_limit_reached`), or the picklist would
+        pass 500 values on an update (`picklist_limit_reached` at `addValues`;
+        on a create, more than 500 is `400 invalid_config` at `config.values`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            duplicate:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: duplicate_code
+                message: That api name is already in use on this object.
+                details:
+                  - path: apiName
+                    code: duplicate
+            fieldLimit:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: limit_reached
+                message: This object already has the most custom fields allowed.
+                details:
+                  - path: objectApiName
+                    code: field_limit_reached
+            picklistLimit:
+              value:
+                statusCode: 409
+                error: Conflict
+                code: limit_reached
+                message: This picklist already has the most values allowed.
+                details:
+                  - path: addValues
+                    code: picklist_limit_reached
 
     TooManyRequests:
       description: |

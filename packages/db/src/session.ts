@@ -235,6 +235,41 @@ export async function assertScopeIntact(
 }
 
 /**
+ * Every TenantTx that `withTenantTransaction` handed out and whose transaction
+ * is still open (D-L155). Module-private: nothing outside this module can add
+ * to it. A tx is added when its callback starts and removed at COMMIT or
+ * ROLLBACK, before the connection goes back to the pool.
+ */
+const LIVE_TENANT_TXS = new WeakSet<TenantTx>();
+
+/**
+ * Raised by `assertLiveTenantTx` for a tx that `withTenantTransaction` did not
+ * hand out, or whose transaction has ended. Names nothing.
+ */
+export class TenantTxNotLiveError extends Error {
+  override readonly name = 'TenantTxNotLiveError';
+  readonly code = 'tenant_tx_not_live' as const;
+
+  constructor() {
+    super('not a live tenant transaction');
+  }
+}
+
+/**
+ * Refuses a TenantTx that is not the very object `withTenantTransaction` is
+ * running right now: an object literal with a `session` and a `query`, a
+ * spread or other copy of a real tx, or a real tx used after its transaction
+ * committed or rolled back (D-L155). For code that trusts `tx.session` to
+ * decide scope, such as minting a storage key, where a forged session would be
+ * believed.
+ */
+export function assertLiveTenantTx(tx: unknown): asserts tx is TenantTx {
+  if (typeof tx !== 'object' || tx === null || !LIVE_TENANT_TXS.has(tx as TenantTx)) {
+    throw new TenantTxNotLiveError();
+  }
+}
+
+/**
  * Opens a transaction, establishes the RLS session context, runs `fn`, then
  * commits (or rolls back on any throw) and returns the connection to the pool.
  */
@@ -248,6 +283,7 @@ export async function withTenantTransaction<T>(
 
   const client: PoolClient = await pool.connect();
   let discard = false;
+  let live: TenantTx | undefined;
   try {
     await client.query('BEGIN');
 
@@ -285,6 +321,8 @@ export async function withTenantTransaction<T>(
       },
     };
 
+    live = tx;
+    LIVE_TENANT_TXS.add(tx);
     const value = await fn(tx);
 
     // The context the database is enforcing must still be the context that was
@@ -297,9 +335,11 @@ export async function withTenantTransaction<T>(
       programmeIds: formatProgrammeIds(programmeIds),
     });
 
+    LIVE_TENANT_TXS.delete(tx);
     await client.query('COMMIT');
     return value;
   } catch (error) {
+    if (live !== undefined) LIVE_TENANT_TXS.delete(live);
     // A connection whose scope or role was tampered with is not trusted again.
     if (error instanceof SessionScopeViolationError) discard = true;
     try {

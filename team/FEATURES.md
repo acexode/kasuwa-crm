@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 181 rows; built 101, partial 11, mock-only 27, flagged-off 13, deferred 10, not-started 19.
+Totals: 206 rows; built 123, partial 11, mock-only 27, flagged-off 16, deferred 10, not-started 19.
 
 ## Modules
 
@@ -132,6 +132,10 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `listPermissionSets` | GET /api/v1/admin/field-security/permission-sets — The matrix columns | built | — | — | docs/api/admin.openapi.yaml · T-0022 |
 | operation | `getFieldSecurityMatrix` | GET /api/v1/admin/field-security/matrix — Read the field-security matrix for one object | built | — | — | docs/api/admin.openapi.yaml · T-0026 |
 | operation | `updateFieldSecurityMatrix` | PUT /api/v1/admin/field-security/matrix — Save field-security changes | built | — | — | docs/api/admin.openapi.yaml · T-0026 |
+| operation | `listCustomFields` | GET /api/v1/admin/custom-fields — List the custom fields of one standard object | built | — | — | docs/api/admin.openapi.yaml |
+| operation | `createCustomField` | POST /api/v1/admin/custom-fields — Define a custom field on a standard object | built | — | — | docs/api/admin.openapi.yaml |
+| operation | `updateCustomField` | PATCH /api/v1/admin/custom-fields/{fieldId} — Relabel a custom field, reclassify it, or add or relabel picklist values | built | — | — | docs/api/admin.openapi.yaml |
+| operation | `retireCustomField` | POST /api/v1/admin/custom-fields/{fieldId}/retire — Retire a custom field (there is no delete) | built | — | — | docs/api/admin.openapi.yaml |
 | operation | `listAuditEvents` | GET /api/v1/admin/audit/events — Search the audit log | built | — | — | docs/api/admin.openapi.yaml · T-0025 |
 | operation | `getAuditFilterOptions` | GET /api/v1/admin/audit/filter-options — What the filter dropdowns should offer | built | — | — | docs/api/admin.openapi.yaml · T-0025 |
 | operation | `createAuditExport` | POST /api/v1/admin/audit/exports — Start an audit-log export | built | — | — | docs/api/admin.openapi.yaml · T-0025 |
@@ -181,6 +185,24 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `listDealTimeline` | GET /api/v1/deals/{dealId}/timeline — The deal's timeline — field changes and linked activities, newest first | built | — | — | docs/api/records.openapi.yaml |
 | operation | `searchRecords` | GET /api/v1/search — Global search — at most three hits per record type, no counts | built | — | — | docs/api/records.openapi.yaml · T-0086 |
 | operation | `lookupRecords` | POST /api/v1/search/lookup — Exact lookup by phone or email — a read sent as a POST so the identifier stays out of the URL | built | — | — | docs/api/records.openapi.yaml · T-0086 |
+| operation | `listImports` | GET /api/v1/imports — List imports — newest first, keyset | built | — | — | docs/api/records.openapi.yaml |
+| operation | `createImport` | POST /api/v1/imports — Start a contact import — declare the file and get upload URLs | built | — | — | docs/api/records.openapi.yaml |
+| operation | `getImport` | GET /api/v1/imports/{importId} — Get one import — status, headers, suggested mapping, counts, row errors | built | — | — | docs/api/records.openapi.yaml |
+| operation | `issueImportUploadUrls` | POST /api/v1/imports/{importId}/upload-urls — Re-issue expired part URLs — how a slow upload resumes | built | — | — | docs/api/records.openapi.yaml |
+| operation | `completeImportUpload` | POST /api/v1/imports/{importId}/complete — Complete the upload — the server verifies it and reads the header | built | — | — | docs/api/records.openapi.yaml |
+| operation | `abortImportUpload` | POST /api/v1/imports/{importId}/abort — Abandon an upload | built | — | — | docs/api/records.openapi.yaml |
+| operation | `putImportMapping` | PUT /api/v1/imports/{importId}/mapping — Save the column mapping, the default country and the owner | built | — | — | docs/api/records.openapi.yaml |
+| operation | `runImport` | POST /api/v1/imports/{importId}/run — Run the import | built | — | — | docs/api/records.openapi.yaml |
+| operation | `cancelImport` | POST /api/v1/imports/{importId}/cancel — Cancel a queued or running import | built | — | — | docs/api/records.openapi.yaml |
+| operation | `listDuplicates` | GET /api/v1/programmes/{programmeId}/duplicates — List a programme's duplicate contact sets | built | — | — | docs/api/records.openapi.yaml |
+| operation | `getContactMergePreview` | GET /api/v1/contacts/{contactId}/merge-preview — Preview a merge — both records, the default choices and the compliance outcome | built | — | — | docs/api/records.openapi.yaml |
+| operation | `listContactMerges` | GET /api/v1/contact-merges — List merges — newest first, keyset | built | — | — | docs/api/records.openapi.yaml |
+| operation | `createContactMerge` | POST /api/v1/contact-merges — Merge two contacts — the second is merged away into the first | built | — | — | docs/api/records.openapi.yaml |
+| operation | `undoContactMerge` | POST /api/v1/contact-merges/{mergeId}/undo — Undo a merge — restore the merged contact | built | — | — | docs/api/records.openapi.yaml |
+| operation | `listNotifications` | GET /api/v1/notifications — List the caller's notifications, newest first | built | — | — | docs/api/records.openapi.yaml |
+| operation | `getNotificationUnreadCount` | GET /api/v1/notifications/unread-count — The caller's unread count, for the bell badge | built | — | — | docs/api/records.openapi.yaml |
+| operation | `markAllNotificationsRead` | POST /api/v1/notifications/read-all — Mark all of the caller's unread notifications read, or all of one kind | built | — | — | docs/api/records.openapi.yaml |
+| operation | `updateNotification` | PATCH /api/v1/notifications/{notificationId} — Mark one notification read or unread | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listScripts` | GET /api/v1/scripts — List the scripts the caller may author | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `createScript` | POST /api/v1/scripts — Create a draft script in a programme | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `getScript` | GET /api/v1/scripts/{scriptId} — Get a script, with its draft and translations | built | — | — | docs/api/scripting.openapi.yaml |
@@ -215,6 +237,9 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `crm_scripts` | The P10 in-call scripts in manual mode: the builder at /scripts (T-0115) and the agent run at /script-runs/[runId], started from the contact record (T-0116). | flagged-off | `crm_scripts` | D-L88, D-L114 | packages/feature-flags/src/index.ts |
 | flag | `crm_pipeline` | The P06 pipeline board and list view at /pipelines/[pipelineId], with the pipeline index at /pipelines (T-0109). | flagged-off | `crm_pipeline` | D-L88, D-L115 | packages/feature-flags/src/index.ts |
 | flag | `crm_search` | The P27 global search screen at /search and the Ctrl/Cmd+K command palette in the CRM shell (T-0087). | flagged-off | `crm_search` | D-L133, D-L135 | packages/feature-flags/src/index.ts |
+| flag | `crm_custom_fields` | The P18 customisation studio for custom fields at /admin/custom-fields, and its settings-menu entry (T-0090). | flagged-off | `crm_custom_fields` | D-L128 | packages/feature-flags/src/index.ts |
+| flag | `crm_import` | CSV import of contacts: the /api/v1/imports routes, the importId contacts filter and the worker import queues (T-0094). | flagged-off | `crm_import` | D-L146, D-L166 | packages/feature-flags/src/index.ts |
+| flag | `crm_notifications` | The P26 notification bell and centre in the CRM shell (T-0101); the notifications API and consumer run regardless (T-0100). | flagged-off | `crm_notifications` | D-L87, D-L146, D-L164 | packages/feature-flags/src/index.ts |
 
 ## Deferred decisions
 

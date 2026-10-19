@@ -7,6 +7,7 @@ import {
   type ContactPhone,
   type WithholdableContactField,
 } from '@kasuwa/domain-core';
+import type { CustomWire } from '../custom-fields/custom-values';
 
 /**
  * Wire properties that are not in the field-security matrix themselves but
@@ -87,10 +88,20 @@ export interface ContactWire {
   phoneNetwork?: string | null;
   createdAt: string;
   updatedAt: string;
-  withheldFields: WithheldContactWireField[];
+  /**
+   * T-0089 (ADR-0016): custom values readable in this row's programme; `{}`
+   * when none. Never withheld itself: a withheld KEY is absent and listed in
+   * `withheldFields` as `custom.<key>`.
+   */
+  custom: Record<string, unknown>;
+  withheldFields: (WithheldContactWireField | `custom.${string}`)[];
 }
 
-export function toContactWire(contact: Contact, access: ContactFieldAccess): ContactWire {
+export function toContactWire(
+  contact: Contact,
+  access: ContactFieldAccess,
+  custom: CustomWire,
+): ContactWire {
   const withheld = withheldWireFields(withheldContactFields(access, contact.programmeId));
   const readable: Partial<Record<WithheldContactWireField, unknown>> = {
     givenNames: contact.givenNames,
@@ -123,6 +134,7 @@ export function toContactWire(contact: Contact, access: ContactFieldAccess): Con
     ...(readable as Partial<ContactWire>),
     createdAt: contact.createdAt.toISOString(),
     updatedAt: contact.updatedAt.toISOString(),
-    withheldFields: withheld,
+    custom: custom.custom,
+    withheldFields: [...withheld, ...(custom.withheld as `custom.${string}`[])],
   };
 }

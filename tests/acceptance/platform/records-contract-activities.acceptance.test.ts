@@ -1105,7 +1105,9 @@ describe('acceptance: records contract, activities, tasks and the calendar (T-00
       const body = requestSchema(UPDATE);
       expect(isClosed(body)).toBe(true);
       // T-0111 (lead edit): dealId, the deal link, is the one link an update may change.
-      expect([...properties(body).keys()].sort()).toEqual(
+      // T-0088 (lead edit, D-L138): `custom`, a per-key merge of custom-field values, is admitted
+      // (the T-0088 suite pins its presence and shape); every other key stays exactly as it was.
+      expect([...properties(body).keys()].filter((key) => key !== 'custom').sort()).toEqual(
         ['completed', 'dealId', 'dueAt', 'endsAt', 'ownerUserId', 'startsAt', 'version'].sort(),
       );
       expect(required(body)).toEqual(['version']);
@@ -1188,9 +1190,14 @@ describe('acceptance: records contract, activities, tasks and the calendar (T-00
 
     it('no operation is named or routed like reopen, undo or restore', () => {
       gate();
+      // The one sanctioned undo is a contact merge's (D-P12, T-0093): it reopens no task.
+      // Lead edit, T-0093. Any other undo, reopen or restore is still caught.
+      const mergeUndo = (op: { id: string; path: string }): boolean =>
+        op.id === 'undoContactMerge' && op.path === '/api/v1/contact-merges/{mergeId}/undo';
       expect(
         operations()
           .filter((op) => REOPEN.test(op.id) || REOPEN.test(op.path))
+          .filter((op) => !mergeUndo(op))
           .map((op) => op.id),
       ).toEqual([]);
     });

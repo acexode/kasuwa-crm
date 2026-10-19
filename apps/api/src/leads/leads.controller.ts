@@ -34,6 +34,6 @@ export class LeadsController {
   @Get()
   @Header('Cache-Control', 'no-store')
   async list(@Query() query: unknown): Promise<{ data: ContactWire[]; nextCursor: string | null }> {
-    return listLeadsFor(currentTx(), ListLeadsQuery.parse(query));
+    return listLeadsFor(currentTx(), ListLeadsQuery.parse(query), query);
   }
 }

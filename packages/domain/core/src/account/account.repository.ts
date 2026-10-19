@@ -1,5 +1,7 @@
 import { newId, type TenantTx } from '@kasuwa/db';
+import type { CustomPatch } from '@kasuwa/metadata-engine';
 import { decodeListCursor, encodeListCursor } from '../cursor';
+import { customFilterClauses, customMergeSet, type CustomFilters } from '../custom/custom-values.repository';
 import { listScopeSql, type ListScopeSql } from '../list-scope';
 import type { ContactPhone } from '../contact/contact.repository';
 import { foldForSearch } from '../contact/phone';
@@ -105,6 +107,8 @@ export interface AccountFilters {
   states?: readonly string[] | undefined;
   /** Exact, case-insensitive. */
   lgas?: readonly string[] | undefined;
+  /** Custom-field equality and is-empty (T-0089), already judged by the API. */
+  custom?: CustomFilters | undefined;
 }
 
 export interface ListAccountsOptions {
@@ -238,6 +242,7 @@ function filterClauses(filters: AccountFilters, params: Params): string[] {
   if (filters.lgas !== undefined && filters.lgas.length > 0) {
     clauses.push(`lower(lga) = ANY(${params.add(lowered(filters.lgas))}::text[])`);
   }
+  clauses.push(...customFilterClauses(filters.custom, (value) => params.add(value), 'account'));
   return clauses;
 }
 
@@ -487,6 +492,7 @@ export async function insertAccount(
   tx: TenantTx,
   programmeId: string,
   values: AccountValues & { name: string },
+  custom: Readonly<Record<string, unknown>> = {},
 ): Promise<Account> {
   assertInScope(tx, programmeId);
   const params = new Params();
@@ -494,6 +500,8 @@ export async function insertAccount(
     { column: 'id', placeholder: `${params.add(newId())}::uuid` },
     { column: 'tenant_id', placeholder: `${params.add(tx.session.tenantId)}::uuid` },
     { column: 'programme_id', placeholder: `${params.add(programmeId)}::uuid` },
+    // Validated by the API against the live definitions (T-0089). Never read back here.
+    { column: 'custom', placeholder: `${params.add(JSON.stringify(custom))}::jsonb` },
   ];
   const columns = [...fixed, ...assignments(values, params)];
   const rows = await refusalsMapped(() =>
@@ -521,13 +529,16 @@ export async function updateAccountIfVersion(
   tx: TenantTx,
   target: { id: string; programmeId: string; version: number },
   values: AccountValues,
+  custom?: CustomPatch,
 ): Promise<Account | null> {
   assertInScope(tx, target.programmeId);
   // tenancy-reviewed: id AND tenant (from the session) AND programme (checked
   // against the session above) AND version; RLS USING and WITH CHECK besides.
   // SET never names id, tenant_id or programme_id: WRITABLE_COLUMNS has none.
+  // `custom` is merged per key (T-0089) and never returned.
   const params = new Params();
   const sets = assignments(values, params).map((entry) => `${entry.column} = ${entry.placeholder}`);
+  if (custom !== undefined) sets.push(customMergeSet(custom, (value) => params.add(value)));
   sets.push('version = version + 1');
   const rows = await refusalsMapped(() =>
     tx.query<AccountRow>(

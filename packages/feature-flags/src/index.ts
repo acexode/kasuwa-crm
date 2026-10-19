@@ -231,6 +231,55 @@ export const FLAGS = {
     // deal hits link nowhere until the spec is re-pinned after T-0110.
     productionReady: false,
   },
+  /**
+   * The P18 customisation studio at /admin/custom-fields, and the settings
+   * menu's "Fields" entry that links it (T-0090). Gates a ROUTE and a link:
+   * it grants nothing, because every custom-field write is decided by the
+   * API (`custom_field.write`, the tenant-admin flag) whether this is on or off.
+   */
+  crm_custom_fields: {
+    description: 'The P18 customisation studio for custom fields at /admin/custom-fields, and its settings-menu entry (T-0090).',
+    defaultValue: false,
+    owner: 'T-0090 (studio), T-0088 and T-0089 (contract and API), ADR-0016, D-L128',
+    // NOT production-ready: proven against the contract mock and one live
+    // journey, and the capability read (T-0079) that would hide the write
+    // controls from non-writers does not exist yet.
+    productionReady: false,
+  },
+  /**
+   * T-0094 (D-L146, D-L166): CSV import of contacts. Unlike the presentation
+   * switches above, it gates the API itself: with it off, every
+   * `/api/v1/imports` route answers the never-existed `404 not_found`, the
+   * contacts list's `importId` filter answers an empty page, and the worker
+   * consumes none of the three import queues. The screens are T-0096's.
+   *
+   * It grants nothing: who may import is `contact.import` in the programme,
+   * decided by the permissions engine whether this is on or off.
+   */
+  crm_import: {
+    description: 'CSV import of contacts: the /api/v1/imports routes, the importId contacts filter and the worker import queues (T-0094).',
+    defaultValue: false,
+    owner: 'T-0094 (API and worker), T-0096 (screens), D-L146, D-L166',
+    // NOT production-ready: no screen drives it yet (T-0096), and the
+    // orphaned-queue sweep and the head-404 reconcile are follow-ups (D-L166).
+    productionReady: false,
+  },
+  /**
+   * T-0100 (D-L146, D-L164): the in-app notifications the bell and centre show
+   * (P26; T-0101 owns the screens). A PRESENTATION switch, like `crm_search`:
+   * it gates the screens, not the API. The producers, the outbox consumer and
+   * the four routes run whether or not it is on, deliberately: an event that
+   * is appended and never consumed would sit in the queue, and the routes
+   * serve only the caller's own rows. It grants nothing.
+   */
+  crm_notifications: {
+    description: 'The P26 notification bell and centre in the CRM shell (T-0101); the notifications API and consumer run regardless (T-0100).',
+    defaultValue: false,
+    owner: 'T-0101 (screens), T-0100 (API and consumer), T-0099 (contract), D-L87, D-L146, D-L164',
+    // NOT production-ready: no screen reads it yet (T-0101), and old
+    // notifications are not purged (D-L146's retention is a follow-up).
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

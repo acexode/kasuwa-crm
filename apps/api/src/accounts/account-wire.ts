@@ -6,6 +6,7 @@ import {
   type ContactPhone,
   type WithholdableAccountField,
 } from '@kasuwa/domain-core';
+import type { CustomWire } from '../custom-fields/custom-values';
 
 /**
  * `owner` is not in the field-security matrix (no field_def, D-L73) but is
@@ -62,10 +63,16 @@ export interface AccountWire {
   parentAccountId?: string | null;
   createdAt: string;
   updatedAt: string;
-  withheldFields: WithheldAccountWireField[];
+  /** T-0089: custom values readable in this row's programme; withheld keys listed as `custom.<key>`. */
+  custom: Record<string, unknown>;
+  withheldFields: (WithheldAccountWireField | `custom.${string}`)[];
 }
 
-export function toAccountWire(account: Account, access: AccountFieldAccess): AccountWire {
+export function toAccountWire(
+  account: Account,
+  access: AccountFieldAccess,
+  custom: CustomWire,
+): AccountWire {
   const withheld = withheldAccountWireFields(withheldAccountFields(access, account.programmeId));
   const readable: Partial<Record<WithheldAccountWireField, unknown>> = {
     ownerUserId: account.ownerUserId,
@@ -90,6 +97,7 @@ export function toAccountWire(account: Account, access: AccountFieldAccess): Acc
     ...(readable as Partial<AccountWire>),
     createdAt: account.createdAt.toISOString(),
     updatedAt: account.updatedAt.toISOString(),
-    withheldFields: withheld,
+    custom: custom.custom,
+    withheldFields: [...withheld, ...(custom.withheld as `custom.${string}`[])],
   };
 }

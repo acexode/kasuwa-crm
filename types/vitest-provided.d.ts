@@ -17,6 +17,13 @@ declare module 'vitest' {
      * API's auth pool; the only writer of the auth tables (T-0049, D-P16).
      */
     authDatabaseUrl: string;
+    /**
+     * kasuwa_relay connection string - NOBYPASSRLS, a member of no role. The
+     * outbox relay's pool (T-0098, ADR-0018).
+     */
+    relayDatabaseUrl: string;
+    /** A real Redis (T-0098): the outbox suite runs the worker against it. */
+    redisUrl: string;
     /** kasuwa_migrator connection string - owns the schema, BYPASSRLS. */
     migrationUrl: string;
     /** kasuwa_test_admin connection string - test setup and catalogue reads. */

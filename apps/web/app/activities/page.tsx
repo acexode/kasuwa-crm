@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { bundleMessages } from '@kasuwa/i18n';
 import { ActivitiesScreen } from '../../components/activities/activities-screen';
 import { ACTIVITIES_MESSAGE_IDS } from '../../components/activities/message-ids';
-import { crmActivitiesEnabled, crmLiveNav } from '../../lib/feature-flags';
+import { crmActivitiesEnabled, crmCustomFieldsEnabled, crmLiveNav } from '../../lib/feature-flags';
+import { withCustomMessages } from '../../components/custom/message-ids';
 import { withSearchMessages } from '../../components/search/message-ids';
 import { activeLocale, languageOptions } from '../../lib/locale';
 
@@ -25,13 +26,15 @@ export default async function ActivitiesPage() {
   }
   const { locale } = await activeLocale();
   const live = await crmLiveNav();
+  const customFields = await crmCustomFieldsEnabled();
 
   return (
     <ActivitiesScreen
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(ACTIVITIES_MESSAGE_IDS, live))}
+      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(ACTIVITIES_MESSAGE_IDS, customFields), live))}
       locales={languageOptions(locale)}
       live={live}
+      customFields={customFields}
     />
   );
 }
