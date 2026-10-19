@@ -3778,3 +3778,28 @@ have edit. So the import path's field-security refusals cannot be reached throug
   - whether `contact.import` implies `contact.write` at grant time (D-L151, D-L167).
 - **D-L167's permission requirement still holds in code.** runImport and every batch check `contact.write`. It is
   vacuous today, but stops being so as soon as grants exist.
+
+### D-L170 — T-0095 M8 met on a quiet host; main's full run (lead, 2026-10-19)
+
+**T-0095 at 9cb6dd3** (adds 64 MB `work_mem` for the duplicates statement only, restored straight after). The
+Windows runner, which was quiet, ran contact-merge twice with `--project isolation`:
+- 63 of 63 passed both times;
+- M8 first page 142.4 and 144.1 ms, deep page 143.7 and 145.7 ms, against 150 ms.
+
+The budget stands and is met. The margin is small (5–8 ms), so the duplicates scan gets a cache or precomputed
+key table, but only if a populated cell or a later suite pushes it over. Nothing is added now. On the loaded
+Mac, M8 is expected to miss and is not a merge signal.
+
+**Main 8e6cf3c, full run on the Windows runner (D-L166: full acceptance for every migration or env change).**
+- Integration passes 299 of 299.
+- Unit has 1 failure: the deal-money Arabic digits on that host's ICU. This is the known follow-up; set
+  `numberingSystem` explicitly.
+- Isolation has 5 failures:
+  - auth-availability took 125 ms against a 100 ms bound during the sign-in burst. A timing flake, watched, not
+    fixed.
+  - storage-adapter and the S6 guard: the two D-L166 items.
+  - contacts-list P04/02 measured 226,461 bytes against a 226,000 budget. T-0121's no-store headers added the
+    bytes. It is re-pinned to 227,000 on lead/main-guard-fixes (b2740b9); only `CONTACTS_BUDGET_BYTES` moved, as
+    the pin rule allows.
+
+lead/main-guard-fixes merges as soon as it is proved.
