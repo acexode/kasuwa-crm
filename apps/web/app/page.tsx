@@ -24,8 +24,8 @@ import { carriesSessionCookie, landingPath } from '../lib/server/landing';
  * languages, and a Beta entry is unreviewed, never incomplete.
  *
  * A BROWSER THAT ALREADY HOLDS A SESSION COOKIE is sent on to the app
- * (T-0125): this is where the second factor lands, and where a link to the
- * front door arrives. A dead cookie bounces once: the landing screen's first
+ * (T-0125), for example after following a link to the front door. The second
+ * factor does not come through here: it goes straight to the same landing. A dead cookie bounces once: the landing screen's first
  * read is a 401, the BFF clears the cookie, and the browser returns here with
  * none. See `lib/server/landing.ts`.
  */
