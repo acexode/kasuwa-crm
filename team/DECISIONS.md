@@ -3869,3 +3869,16 @@ The landing page after sign-in, and return paths, are unruled and untested.
   `KASUWA_WEB_ORIGIN` and `KASUWA_API_INTERNAL_URL`. These are lead re-pins, done inside T-0125.
 
 **Order:** the build starts only after @acexode accepts ADR-0019 (D-A3).
+
+### D-L173 — T-0095 gate: two stale pins re-pinned; T-0095 merged (lead, 2026-10-19)
+
+The Windows full gate on 8b92b9e was green apart from known noise and two pins in other suites that T-0095
+legitimately changes:
+- import-api pin F expected `listDuplicates` and `createContactMerge` to stay unimplemented. It now expects them
+  implemented.
+- script-authoring's `audit_event_action_check` pin now also admits 0043's `merged` and `restored`.
+
+Both are lead edits on lead/T-0095-acceptance (0a59f5e), lint-clean. The observed values in the failures were
+exactly the new expectations.
+
+M8 measured 135 ms on the quiet runner. The 100,000-row import passes in 295 s. T-0095 merges as #161.
