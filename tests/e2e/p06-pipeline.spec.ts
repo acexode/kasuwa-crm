@@ -246,7 +246,7 @@ const SCREEN = '[data-screen="P06/01"]';
  * fails until the lead re-pins this one line to the builder's first green
  * measurement. Why the ceiling: see the budget test.
  */
-const PIPELINE_BUDGET_BYTES = 255_000;
+const PIPELINE_BUDGET_BYTES = 259_000;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 

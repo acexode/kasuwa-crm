@@ -1971,12 +1971,16 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
     });
 
     it('answers a listContacts cursor naming it exactly as a cursor naming a row out of scope (M9)', async () => {
-      // A cursor for P2: page the A1 contacts by updatedAt until P2 is the last row
-      // (T-0124, D-L180 I5: displayName is no longer a sort key).
+      // A cursor for P2: page the contacts by -updatedAt until P2 is the last row
+      // of a page that has a next one (T-0124, D-L180 I5: displayName is no
+      // longer a sort key). Descending, because P2 (2026-04-01) is the newest
+      // row the supervisor reaches: ascending it is the very last row, whose
+      // nextCursor is null, so no cursor ever names it. Descending it is the
+      // first row and X2 (2026-02-07) the eighth, each with a page after it.
       const cursorAfter = async (headers: Headers, target: string): Promise<string> => {
         let cursor: string | undefined;
         for (let guard = 0; guard < 40; guard += 1) {
-          const params: [string, string][] = [['limit', '1'], ['sort', 'updatedAt']];
+          const params: [string, string][] = [['limit', '1'], ['sort', '-updatedAt']];
           if (cursor !== undefined) params.push(['cursor', cursor]);
           const page = (await get(headers, '/api/v1/contacts', params)).body as Json;
           const next = page.nextCursor as string | null;
@@ -1989,8 +1993,8 @@ describe('acceptance: duplicate sets, merge and undo, contact soft delete (T-009
       const deadCursor = await cursorAfter(H.supervisor, P2.id);
       const outOfScope = await cursorAfter(H.supervisor, X2.id);
       await mergeOk(H.admin1, P1.id, P2.id, KEEP_SURVIVOR);
-      const control = await get(H.admin1, '/api/v1/contacts', [['limit', '1'], ['sort', 'updatedAt'], ['cursor', outOfScope]]);
-      const probe = await get(H.admin1, '/api/v1/contacts', [['limit', '1'], ['sort', 'updatedAt'], ['cursor', deadCursor]]);
+      const control = await get(H.admin1, '/api/v1/contacts', [['limit', '1'], ['sort', '-updatedAt'], ['cursor', outOfScope]]);
+      const probe = await get(H.admin1, '/api/v1/contacts', [['limit', '1'], ['sort', '-updatedAt'], ['cursor', deadCursor]]);
       expect(probe.status, probe.text).toBe(control.status);
       expect(probe.text).toBe(control.text);
     });

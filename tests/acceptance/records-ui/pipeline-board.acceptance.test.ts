@@ -256,7 +256,13 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
   [MOCK]: 'cb5f6a8452b1c44c1828ceaea7fdfc3a154896e96365680e2d955d59667dc6cd',
 };
 
-/** Never above this (R19). */
+/**
+ * Never above this (R19). T-0124 lead re-pin (D-L183): Windows job on c2277bb
+ * measured 255,330 bytes against the 255,000 pin, from the board's withheld-
+ * name rendering (`records.name.withheld` and the shared name helper).
+ * PIPELINE_BUDGET_BYTES moved to 259,000: about 1.4% over that measurement,
+ * under this ceiling and inside the 5% rule.
+ */
 const PIPELINE_BUDGET_CEILING = 260_000;
 
 /** Re-pinned within 5% of what the run measured, like /activities (D-L118) and /leads (T-0058). */

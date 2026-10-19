@@ -38,7 +38,8 @@ import { parse } from 'yaml';
  *   Map, `P04/05` empty and no results, `P04/06` loading and offline.
  *
  *   listContacts query parameters:
- *     q              "name or number"; a phone is matched in E.164. Bounded.
+ *     q              a name only; a phone or email is 400 identifier_in_url
+ *                    (T-0124, D-L180 I9; lead re-pin). Bounded.
  *     owner|ownerId, status, source, tag|tags, state, lga  — filters
  *     dnd, whatsappOptIn                                   — boolean filters
  *     sort           an ENUM. A free-form sort column would let a caller order
@@ -510,7 +511,7 @@ describe('acceptance: records contract (T-0039)', () => {
   });
 
   describe('listContacts: search, filters, sort and keyset paging', () => {
-    it('q is "name or number", a phone matched in E.164, and bounded', () => {
+    it('q is a name search, refuses identifiers with identifier_in_url, and is bounded (T-0124, D-L180 I9)', () => {
       const q = param(operation('listContacts'), 'q');
       expect(q, 'listContacts has no q query parameter').toBeDefined();
       if (!q) return;
@@ -519,8 +520,12 @@ describe('acceptance: records contract (T-0039)', () => {
       const maxLength = isMapping(schema.node) ? schema.node.maxLength : undefined;
       expect(typeof maxLength === 'number' && maxLength > 0, 'q has no maxLength').toBe(true);
       const description = `${str(q.description)}\n${describedAs(schema)}`;
-      expect(description, 'q is not documented as "name or number"').toMatch(/name or number/i);
-      expect(description, 'q does not say a phone is matched in E.164').toMatch(/E\.164/);
+      expect(description, 'q is not documented as a name search').toMatch(/search by name/i);
+      expect(description, 'q still promises a number search').not.toMatch(/name or number|E\.164/i);
+      expect(description, 'q does not refuse identifiers with identifier_in_url').toMatch(
+        /identifier_in_url/,
+      );
+      expect(description, 'q does not send identifiers to lookupRecords').toMatch(/lookupRecords/);
     });
 
     const FILTERS: [label: string, name: RegExp][] = [
