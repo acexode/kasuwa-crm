@@ -13,7 +13,10 @@ import {
   type ObjectHead,
   type ObjectStore,
   type PresignUploadOptions,
+  type PresignUploadPartsOptions,
+  type PresignedPart,
   type PresignedUpload,
+  selectPlannedParts,
   type PutOptions,
 } from './port';
 
@@ -152,6 +155,25 @@ export class FakeObjectStore implements ObjectStore {
         contentLength,
       })),
     };
+  }
+
+  async presignUploadParts(
+    key: StorageKey,
+    uploadId: string,
+    options: PresignUploadPartsOptions,
+  ): Promise<readonly PresignedPart[]> {
+    assertMintedKey(key);
+    validateUploadId(uploadId);
+    const selected = selectPlannedParts(options?.contentLength, options?.partCount, options?.partNumbers);
+    const upload = this.#uploads.get(uploadId);
+    if (upload === undefined || upload.key !== String(key)) {
+      throw new StorageError('storage_upload_not_found', 'object storage upload not found (NoSuchUpload)');
+    }
+    return selected.map(({ partNumber, contentLength }) => ({
+      partNumber,
+      url: `${this.#publicOrigin}/fake/${uploadId}/${partNumber}?X-Amz-Expires=${PRESIGNED_URL_TTL_SECONDS}`,
+      contentLength,
+    }));
   }
 
   /** The browser's PUT of one part. Refuses a body of any length but the signed one, as the bucket does. */

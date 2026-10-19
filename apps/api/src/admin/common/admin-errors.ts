@@ -60,6 +60,9 @@ export type AdminErrorCode =
   /** records.openapi.yaml (T-0105): moveDeal's conflicts (T-0108). */
   | 'transition_not_allowed'
   | 'requirements_unmet'
+  /** records.openapi.yaml (T-0093): the import operations' conflicts (T-0094). */
+  | 'import_status_conflict'
+  | 'upload_mismatch'
   | 'too_many_requests'
   | 'not_implemented'
   | 'service_unavailable'

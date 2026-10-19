@@ -1,8 +1,10 @@
 import {
   CONTACT_SORTS,
+  CONTACT_SOURCES,
+  CONTACT_STATUSES,
+  CONTACT_WRITABLE_FIELDS,
   DEFAULT_CONTACT_SORT,
   DEFAULT_PAGE_SIZE,
-  E164,
   MAX_CURSOR_LENGTH,
   MAX_PAGE_SIZE,
 } from '@kasuwa/domain-core';
@@ -20,27 +22,13 @@ import { text } from '../common/text';
  * `programmeId` on update and `tenantId` anywhere are refused.
  */
 
-export const CONTACT_STATUSES = [
-  'new',
-  'contacted',
-  'qualified',
-  'unqualified',
-  'customer',
-] as const;
-export const CONTACT_SOURCES = [
-  'whatsapp',
-  'ussd',
-  'web_form',
-  'missed_call',
-  'import',
-  'api',
-  'manual',
-  'referral',
-  'walk_in',
-] as const;
-export const PREFERRED_CHANNELS = ['whatsapp', 'sms', 'voice', 'email'] as const;
-export const CONSENT_STATES = ['unknown', 'opted_in', 'pending', 'withdrawn'] as const;
-export const PHONE_TYPES = ['mobile', 'work', 'home', 'other'] as const;
+export {
+  CONSENT_STATES,
+  CONTACT_SOURCES,
+  CONTACT_STATUSES,
+  PHONE_TYPES,
+  PREFERRED_CHANNELS,
+} from '@kasuwa/domain-core';
 
 const UUID_PATTERN =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -79,6 +67,9 @@ export const ListContactsQuery = z.object({
   lga: many(z.string().min(1).max(64), 40),
   dnd: queryBoolean,
   whatsappOptIn: queryBoolean,
+  // T-0094: the contacts one import created. An import the caller cannot see
+  // (another tenant, programme, or no `contact.import`) is an empty page.
+  importId: z.string().uuid().optional(),
   sort: z.enum(CONTACT_SORTS).default(DEFAULT_CONTACT_SORT),
   cursor: z.string().min(1).max(MAX_CURSOR_LENGTH).optional(),
   limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
@@ -100,54 +91,14 @@ export const FILTER_FIELDS = {
   whatsappOptIn: 'whatsappOptIn',
 } as const;
 
-const Phone = z
-  .object({
-    type: z.enum(PHONE_TYPES),
-    e164: z.string().regex(E164),
-  })
-  .strict();
-
-const Email = z.string().max(254).email();
-
 /**
- * RFC 5646 langtag structure, the same expression as 0019's
- * contact_preferred_language_bcp47_check, so a bad tag is a 400 here rather
- * than a CHECK violation (a 500) there.
- */
-const BCP47 = new RegExp(
-  '^((' +
-    '([A-Za-z]{2,3}(-[A-Za-z]{3}){0,3}|[A-Za-z]{4,8})' +
-    '(-[A-Za-z]{4})?' +
-    '(-([A-Za-z]{2}|[0-9]{3}))?' +
-    '(-([A-Za-z0-9]{5,8}|[0-9][A-Za-z0-9]{3}))*' +
-    '(-[0-9A-WY-Za-wy-z](-[A-Za-z0-9]{2,8})+)*' +
-    '(-[Xx](-[A-Za-z0-9]{1,8})+)?' +
-    ')|([Xx](-[A-Za-z0-9]{1,8})+))$',
-);
-
-/**
- * Properties both writes accept, as the contract names them. The free-text
- * names go through `text()` (D-L78): a NUL is 400 `invalid_character`, never
- * a Postgres 22021 (a 500); lengths are counted in code points.
+ * Properties both writes accept, as the contract names them: the shared
+ * definitions in @kasuwa/domain-core (contact-write-schema.ts), which the
+ * import worker parses every CSV row with too (T-0094), so the two can never
+ * drift. Free text goes through `text()` (D-L78).
  */
 const writableFields = {
-  displayName: text(1, 200),
-  givenNames: text(0, 200).nullable().optional(),
-  familyName: text(0, 200).nullable().optional(),
-  // T-0076 (D-L82): 1..200 code points, no NUL; `null` clears it, "" is 400.
-  companyName: text(1, 200).nullable().optional(),
-  phones: z.array(Phone).max(10).optional(),
-  emails: z.array(Email).max(10).optional(),
-  accountId: z.string().uuid().nullable().optional(),
-  ownerUserId: z.string().uuid().nullable().optional(),
-  status: z.enum(CONTACT_STATUSES).optional(),
-  tags: z.array(z.string().min(1).max(64)).max(50).optional(),
-  preferredLanguage: z.string().max(35).regex(BCP47).nullable().optional(),
-  preferredChannel: z.enum(PREFERRED_CHANNELS).nullable().optional(),
-  state: z.string().max(64).nullable().optional(),
-  lga: z.string().max(64).nullable().optional(),
-  whatsappOptIn: z.boolean().optional(),
-  consentState: z.enum(CONSENT_STATES).optional(),
+  ...CONTACT_WRITABLE_FIELDS,
 };
 
 /** `CreateContactRequest`. Closed: `id`, `version`, `dnd`, `phoneNetwork`, timestamps are 400. */

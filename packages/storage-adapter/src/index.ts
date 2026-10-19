@@ -12,12 +12,13 @@ export {
 export type { StorageErrorCode } from './errors';
 export { STORAGE_PURPOSES, StorageKey, StoragePrefix, mintStorageKey, tenantStoragePrefix } from './keys';
 export type { MintStorageKeyInput, StoragePurpose } from './keys';
-export { MIN_PART_BYTES, PRESIGNED_URL_TTL_SECONDS, planParts } from './port';
+export { MIN_PART_BYTES, PRESIGNED_URL_TTL_SECONDS, planParts, selectPlannedParts } from './port';
 export type {
   CompletedPart,
   ObjectHead,
   ObjectStore,
   PresignUploadOptions,
+  PresignUploadPartsOptions,
   PresignedPart,
   PresignedUpload,
   PutOptions,
