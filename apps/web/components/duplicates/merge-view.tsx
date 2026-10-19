@@ -6,9 +6,9 @@ import { Icon } from '../icon';
 import { Dialog } from '../admin/dialog';
 import { StillConnecting } from '../admin/panel';
 import { PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
-import { createContactMerge, getContactMergePreview, undoContactMerge } from '../../lib/duplicates-api';
+import { createContactMerge, getContactMergePreview, listContactMerges, undoContactMerge } from '../../lib/duplicates-api';
 import { mergeRefusal, undoRefusal } from './duplicates-model';
-import { mergeBody, mergeReducer, startMerge } from './merge-model';
+import { findOwnMerge, mergeBody, mergeReducer, startMerge } from './merge-model';
 import { PersonName, Skeleton } from './duplicates-parts';
 import { MergeCompare } from './merge-compare';
 import { MergeResult } from './merge-result';
@@ -45,6 +45,8 @@ export function MergeView({
   const [view, dispatch] = useReducer(mergeReducer, pair, startMerge);
   const [confirming, setConfirming] = useState(false);
   const sending = useRef(false);
+  /** A merge's answer was lost in this view: a later already_merged may be our own merge (B1). */
+  const lostAnswer = useRef(false);
   const mounted = useRef(true);
   const say = useRef(onMessage);
   say.current = onMessage;
@@ -79,13 +81,34 @@ export function MergeView({
     setConfirming(false);
     say.current(null);
     dispatch({ type: 'merging' });
-    const result = await createContactMerge(mergeBody(view.preview, view.overrides, view.refused));
-    sending.current = false;
-    if (!mounted.current) return;
+    const body = mergeBody(view.preview, view.overrides, view.refused);
+    const result = await createContactMerge(body);
+    if (!mounted.current) {
+      sending.current = false;
+      return;
+    }
     if (result.ok) {
+      sending.current = false;
       dispatch({ type: 'merged', merge: result.value });
       return;
     }
+    // A lost answer, or a refusal that may be our own merge arriving twice: ask the history before saying anything (B1).
+    const unsure = result.error.code === 'network' || (result.error.code === 'already_merged' && lostAnswer.current);
+    if (unsure) {
+      lostAnswer.current = true;
+      const history = await listContactMerges();
+      sending.current = false;
+      if (!mounted.current) return;
+      const own = history.ok ? findOwnMerge(history.value.data, [body.survivorId, body.mergedId]) : null;
+      if (own !== null) {
+        dispatch({ type: 'merged', merge: own });
+        return;
+      }
+      say.current(mergeRefusal(result.error).message);
+      dispatch({ type: 'lost' });
+      return;
+    }
+    sending.current = false;
     const refusal = mergeRefusal(result.error);
     say.current(refusal.message);
     dispatch({ type: 'mergeFailed', refusal });
@@ -115,7 +138,7 @@ export function MergeView({
   return (
     <section data-testid="merge-view" aria-labelledby="merge-title" className="flex min-w-0 flex-col gap-4">
       <div>
-        <button type="button" data-testid="merge-back" onClick={() => onBack(view.dirty)} className={QUIET_BUTTON}>
+        <button type="button" data-testid="merge-back" disabled={view.step === 'merging' || view.step === 'undoing'} onClick={() => onBack(view.dirty)} className={QUIET_BUTTON}>
           <Icon name="arrow_back" size="sm" />
           {t.t('duplicates.merge.back')}
         </button>
@@ -170,7 +193,7 @@ export function MergeView({
           <MergeCompare t={t} preview={preview} overrides={view.overrides} refused={view.refused} disabled={busy} onPick={(field, side) => dispatch({ type: 'pick', field, side })} />
 
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" data-testid="merge-submit" disabled={busy} onClick={() => setConfirming(true)} className={PRIMARY_BUTTON}>
+            <button type="button" data-testid="merge-submit" disabled={busy || view.blocked} onClick={() => setConfirming(true)} className={PRIMARY_BUTTON}>
               {t.t('duplicates.merge.submit')}
             </button>
             {view.step === 'merging' ? (

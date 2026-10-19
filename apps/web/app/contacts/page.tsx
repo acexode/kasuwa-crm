@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { bundleMessages } from '@kasuwa/i18n';
 import { ContactsScreen } from '../../components/contacts/contacts-screen';
-import { CONTACTS_IMPORT_MESSAGE_IDS, CONTACTS_MESSAGE_IDS } from '../../components/contacts/message-ids';
+import { CONTACTS_DUPLICATES_MESSAGE_IDS, CONTACTS_IMPORT_MESSAGE_IDS, CONTACTS_MESSAGE_IDS } from '../../components/contacts/message-ids';
 import { crmCustomFieldsEnabled, crmLiveNav, crmRecordsEnabled } from '../../lib/feature-flags';
 import { withCustomMessages } from '../../components/custom/message-ids';
 import { withSearchMessages } from '../../components/search/message-ids';
@@ -48,7 +48,7 @@ export default async function ContactsPage({
     <ContactsScreen
       key={initialQ === '' ? (importId === undefined ? 'list' : `import:${importId}`) : `q:${crypto.randomUUID()}`}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(importId === undefined ? CONTACTS_MESSAGE_IDS : [...CONTACTS_MESSAGE_IDS, ...CONTACTS_IMPORT_MESSAGE_IDS], customFields, 'list'), live))}
+      messages={bundleMessages(locale, withSearchMessages(withCustomMessages([...(importId === undefined ? CONTACTS_MESSAGE_IDS : [...CONTACTS_MESSAGE_IDS, ...CONTACTS_IMPORT_MESSAGE_IDS]), ...(live.includes('duplicates') ? CONTACTS_DUPLICATES_MESSAGE_IDS : [])], customFields, 'list'), live))}
       locales={languageOptions(locale)}
       live={live}
       initialQ={initialQ}
