@@ -112,6 +112,8 @@ export function NotificationGroups({
   readonly items: readonly NotificationItem[];
   readonly headingLevel: 2 | 3;
   readonly busyIds: readonly string[];
+  /** A mark-all is in flight: every dot waits (N4). */
+  readonly allBusy: boolean;
 }) {
   const groups = useMemo(() => groupByDay(items), [items]);
   const today = dayKey(Date.now());
@@ -129,7 +131,7 @@ export function NotificationGroups({
             </Heading>
             <ul className="flex flex-col gap-1">
               {group.items.map((item) => (
-                <NotificationRow key={item.id} item={item} busy={row.busyIds.includes(item.id)} t={row.t} locale={row.locale} live={row.live} onToggle={row.onToggle} onOpen={row.onOpen} />
+                <NotificationRow key={item.id} item={item} busy={row.allBusy || row.busyIds.includes(item.id)} t={row.t} locale={row.locale} live={row.live} onToggle={row.onToggle} onOpen={row.onOpen} />
               ))}
             </ul>
           </section>

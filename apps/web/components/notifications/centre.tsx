@@ -8,6 +8,7 @@ import { liveObjectTypes } from '../../lib/notification-href';
 import { CENTRE_LIMIT, unreadIn } from '../../lib/notification-model';
 import { countServerSnapshot, countSnapshot, subscribeCount } from '../../lib/notification-store';
 import { isEmptyForever } from '../../lib/notification-view';
+import { canReadAll } from '../../lib/notification-writes';
 import { NOTIFICATION_KINDS, type NotificationFilter, type NotificationKind } from '../../lib/notifications-api';
 import { Icon } from '../icon';
 import { CHIP, CHIP_OFF, CHIP_ON, FOCUS } from '../records/list-classes';
@@ -45,7 +46,8 @@ export function NotificationCentre({
 
   const waiting = state.listWaitUntil !== null || state.writeWaitUntil !== null;
   const anyUnreadElsewhere = kind === null && count.known && (count.count > 0 || count.capped);
-  const canReadAll = state.phase === 'ready' && state.headId !== null && !state.allBusy && (unreadIn(state.items, kind) > 0 || anyUnreadElsewhere);
+  // A mark-all and a dot are never in flight together (N4): `canReadAll` also waits for every busy dot.
+  const readAllUsable = state.phase === 'ready' && canReadAll(state, Date.now()) && (unreadIn(state.items, kind) > 0 || anyUnreadElsewhere);
 
   const chip = (on: boolean) => `${CHIP} ${on ? CHIP_ON : CHIP_OFF}`;
 
@@ -57,7 +59,7 @@ export function NotificationCentre({
           <button
             type="button"
             data-testid="notifications-read-all"
-            disabled={!canReadAll}
+            disabled={!readAllUsable}
             onClick={view.readAll}
             className={`flex min-h-touch items-center gap-2 rounded-md px-3 text-body-sm font-semibold text-primary-text hover:bg-surface-sunken disabled:text-text-muted ${FOCUS}`}
           >
@@ -103,6 +105,7 @@ export function NotificationCentre({
             locale={locale}
             live={liveObjectTypes(live)}
             busyIds={state.busyIds}
+            allBusy={state.allBusy}
             onToggle={view.toggle}
             onOpen={view.open}
           />

@@ -82,10 +82,17 @@ export function NotificationBell({ t, locale, live }: { t: Translator; locale: s
     setSaid(count.capped ? t.t('notifications.announce.riseCapped', { count: count.count }) : t.t('notifications.announce.rise', { count: count.count }));
   }, [count, t]);
 
+  // The dropdown makes the page inert while it is open, the bell included, so focus goes back only after it has unmounted and the page is live again.
+  const focusBack = useRef(false);
   const close = useCallback((returnFocus: boolean) => {
+    focusBack.current = returnFocus;
     setOpen(false);
-    if (returnFocus) buttonRef.current?.focus();
   }, []);
+  useEffect(() => {
+    if (open || !focusBack.current) return;
+    focusBack.current = false;
+    buttonRef.current?.focus();
+  }, [open]);
 
   const badge = badgeLabel(count);
   const label = count.capped

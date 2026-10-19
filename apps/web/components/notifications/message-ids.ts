@@ -47,6 +47,8 @@ export const LIST_MESSAGE_IDS: readonly MessageId[] = [
   'notifications.readAll',
   'notifications.caughtUp.title',
   'notifications.caughtUp.body',
+  'notifications.empty.title',
+  'notifications.empty.body',
   'notifications.loading',
   'notifications.slow',
   'notifications.error.write',
@@ -79,9 +81,7 @@ export const CENTRE_MESSAGE_IDS: readonly MessageId[] = [
   'notifications.kind.all',
   'notifications.readAllKind',
   'notifications.more',
-  'notifications.empty.title',
   'notifications.empty.unreadTitle',
-  'notifications.empty.body',
 ];
 
 /** A shell page's bundle, plus the bell's strings where the notifications flag is live (`live` is `crmLiveNav()`, or the admin menu's keys). */

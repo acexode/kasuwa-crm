@@ -6,8 +6,10 @@ import type { Translator } from '@kasuwa/i18n/bundle';
 import { countServerSnapshot, countSnapshot, subscribeCount } from '../../lib/notification-store';
 import { DROPDOWN_LIMIT, unreadIn } from '../../lib/notification-model';
 import { isEmptyForever } from '../../lib/notification-view';
+import { canReadAll } from '../../lib/notification-writes';
 import { Icon } from '../icon';
 import { FOCUS } from '../records/list-classes';
+import { inertOutside } from './inert-outside';
 import { LoadingNotifications, NotificationGroups, ViewStatus } from './notification-list';
 import { useNotificationView } from './use-notification-view';
 
@@ -49,8 +51,12 @@ export function NotificationDropdown({
   const { state } = view;
   const count = useSyncExternalStore(subscribeCount, countSnapshot, countServerSnapshot);
 
+  // A modal dialog: the page behind it neither takes focus nor is read, until it closes (N13).
   useEffect(() => {
+    const panel = panelRef.current;
+    const undo = panel === null ? undefined : inertOutside(panel);
     closeRef.current?.focus();
+    return undo;
   }, []);
 
   useEffect(() => {
@@ -96,9 +102,11 @@ export function NotificationDropdown({
   }, []);
 
   const unreadDrawn = unreadIn(state.items, null);
-  const countZero = !count.known || (count.count === 0 && !count.capped);
-  // A3: nothing unread, by what is drawn and, when the count is known, by the count; or nothing at all.
-  const caughtUp = state.phase === 'ready' && (isEmptyForever(state) || (unreadDrawn === 0 && countZero));
+  // A3 only when the count is KNOWN to be zero and nothing drawn is unread (N14): an unknown count
+  // (the poll has not answered, or is failing) says nothing, and "all caught up" would be a guess.
+  const countZero = count.known && count.count === 0 && !count.capped;
+  const caughtUp = state.phase === 'ready' && unreadDrawn === 0 && countZero;
+  const nothingAtAll = isEmptyForever(state) && !caughtUp;
 
   return (
     <div
@@ -118,7 +126,7 @@ export function NotificationDropdown({
           <button
             type="button"
             data-testid="notifications-read-all"
-            disabled={state.headId === null || state.allBusy}
+            disabled={!canReadAll(state, Date.now())}
             onClick={view.readAll}
             className={`flex min-h-touch items-center gap-2 rounded-md px-2 text-body-sm font-semibold text-primary-text hover:bg-surface-sunken disabled:text-text-muted ${FOCUS}`}
           >
@@ -147,6 +155,12 @@ export function NotificationDropdown({
             <p className="text-body-sm text-text-2">{t.t('notifications.caughtUp.body')}</p>
           </div>
         ) : null}
+        {nothingAtAll ? (
+          <div className="flex flex-col items-center gap-1 p-4 text-center">
+            <p className="font-semibold">{t.t('notifications.empty.title')}</p>
+            <p className="text-body-sm text-text-2">{t.t('notifications.empty.body')}</p>
+          </div>
+        ) : null}
         <NotificationGroups
           items={state.items}
           headingLevel={3}
@@ -154,6 +168,7 @@ export function NotificationDropdown({
           locale={locale}
           live={live}
           busyIds={state.busyIds}
+          allBusy={state.allBusy}
           onToggle={view.toggle}
           onOpen={view.open}
         />
