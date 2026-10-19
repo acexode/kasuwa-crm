@@ -199,14 +199,31 @@ const FIELD_ACCESS_SQL = `
  * or a name that could not be one; see the header.
  */
 export async function loadFieldAccess(tx: TenantTx, objectApiName: string): Promise<FieldAccess> {
+  return readFieldAccess(tx, objectApiName, tx.session.userId, tx.session.programmeIds);
+}
+
+/**
+ * The shared read behind `loadFieldAccess` and the sub-path-only
+ * `loadFieldAccessForUser` (./field-access-for-user.ts). Deliberately NOT in
+ * the package barrel (index.ts names this file's exports one by one): it takes
+ * a user id, so only the sub-path may reach it.
+ */
+export async function readFieldAccess(
+  tx: TenantTx,
+  objectApiName: string,
+  userId: string,
+  programmeIds: readonly string[],
+): Promise<FieldAccess> {
   // Malformed names never reach the database, and fail exactly as an unknown
   // object does: the caller learns nothing from the difference.
   if (!apiNameSchema.safeParse(objectApiName).success) {
     throw new UnknownObjectDefError();
   }
-  const { tenantId, userId, programmeIds } = tx.session;
+  // tenancy-reviewed: tenant from the session; the user and programmes are the
+  // caller's (`loadFieldAccess`: the session's own; `loadFieldAccessForUser`:
+  // the user named, programmes clamped to the session's); RLS besides.
   const rows = await tx.query(FIELD_ACCESS_SQL, [
-    tenantId,
+    tx.session.tenantId,
     objectApiName,
     userId,
     [...programmeIds],

@@ -19,6 +19,15 @@ export * from './api-name';
 export * from './repository';
 export * from './types';
 export * from './field-security';
-export * from './field-access';
+// Named, not `export *`: `readFieldAccess` takes a user id and stays off the
+// barrel (T-0100, D-L174); its only consumer is ./field-access-for-user.
+export {
+  fieldLevel,
+  loadFieldAccess,
+  resolveFieldAccess,
+  type FieldAccess,
+  type FieldAccessGrant,
+  type FieldAccessMembership,
+} from './field-access';
 export * from './custom-fields';
 export * from './custom-field-definitions';

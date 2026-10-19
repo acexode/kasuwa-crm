@@ -11,6 +11,7 @@ import { DealsController, PipelineDealsController } from '../deals/deals.control
 import { ImportsController } from '../imports/imports.controller';
 import { LeadsController } from '../leads/leads.controller';
 import { MeController } from '../me/me.controller';
+import { NotificationsController } from '../notifications/notifications.controller';
 import {
   ContactMergePreviewController,
   ContactMergesController,
@@ -42,7 +43,7 @@ describe('NoStoreMiddleware', () => {
 });
 
 describe('AppModule applies it to every records controller (T-0080, D-L90)', () => {
-  it('names contacts, leads, accounts, activities, me, my activities (T-0082), pipelines (T-0107), deals (T-0108), search (T-0086), imports (T-0094) and duplicates and merges (T-0095)', () => {
+  it('names contacts, leads, accounts, activities, me, my activities (T-0082), pipelines (T-0107), deals (T-0108), search (T-0086), imports (T-0094), duplicates and merges (T-0095) and notifications (T-0100)', () => {
     expect([...RECORDS_CONTROLLERS]).toEqual([
       ContactsController,
       LeadsController,
@@ -58,6 +59,7 @@ describe('AppModule applies it to every records controller (T-0080, D-L90)', () 
       DuplicatesController,
       ContactMergePreviewController,
       ContactMergesController,
+      NotificationsController,
     ]);
   });
 

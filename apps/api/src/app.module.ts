@@ -42,6 +42,8 @@ import {
   DuplicatesController,
 } from './merges/merges.controller';
 import { MeController } from './me/me.controller';
+import { NotificationThrottleGuard } from './notifications/notification-throttle.guard';
+import { NotificationsController } from './notifications/notifications.controller';
 import { PipelinesController } from './pipelines/pipelines.controller';
 import { CHANNEL, createApiChannel } from './messaging/channel';
 import { ContactScriptsController, ScriptRunsController } from './scripts/script-runs.controller';
@@ -88,6 +90,9 @@ export const RECORDS_CONTROLLERS = [
   DuplicatesController,
   ContactMergePreviewController,
   ContactMergesController,
+  // Notifications (T-0100): listNotifications, getNotificationUnreadCount,
+  // updateNotification and markAllNotificationsRead.
+  NotificationsController,
 ];
 
 /**
@@ -313,6 +318,8 @@ export class AppModule implements NestModule {
         ImportQueuesLifecycle,
         // The per-user listDuplicates budget (T-0095, D-L151): one set of counters.
         DuplicatesThrottleGuard,
+        // The per-user, per-operation notifications budgets (T-0100, D-L134): one set of counters.
+        NotificationThrottleGuard,
         { provide: AUTH_MODE, useValue: options.authMode ?? 'stub' },
         {
           provide: CHANNEL,

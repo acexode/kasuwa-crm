@@ -1,6 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import type { TenantTx } from '@kasuwa/db';
 import {
+  appendOwnerChangedEvent,
   programmeAccountExists,
   programmeContactExists,
   programmeMemberExists,
@@ -426,6 +427,14 @@ export async function createDealFor(
     dealAuditEvent('created', deal, dealCreateChanges(parsed, deal.ownerUserId)),
     Object.keys(customValues).sort(),
   );
+  // N-R4: a deal created for someone else is an assignment (T-0100).
+  await appendOwnerChangedEvent(tx, {
+    object: 'deal',
+    id: deal.id,
+    programmeId,
+    previousOwnerId: null,
+    newOwnerId: deal.ownerUserId,
+  });
   return toDealWire(deal, access, await customWireFor(tx, custom, deal));
 }
 
@@ -467,6 +476,14 @@ export async function updateDealFor(tx: TenantTx, id: unknown, body: unknown): P
     dealAuditEvent('updated', updated, dealUpdateChanges(current, updated)),
     customPatchKeys(patch),
   );
+  // After the UPDATE, which holds the row's lock until commit (D-L161).
+  await appendOwnerChangedEvent(tx, {
+    object: 'deal',
+    id: updated.id,
+    programmeId: updated.programmeId,
+    previousOwnerId: current.ownerUserId,
+    newOwnerId: updated.ownerUserId,
+  });
   return toDealWire(updated, access, await customWireFor(tx, custom, updated));
 }
 

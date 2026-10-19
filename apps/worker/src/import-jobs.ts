@@ -6,6 +6,7 @@ import {
   IMPORT_RETENTION,
   IMPORT_RETENTION_QUEUE,
   ImportJobPayload,
+  appendImportFinishedEvent,
   change,
   contactAuditEvent,
   contactChanges,
@@ -178,6 +179,12 @@ async function endJob(
     change('skipped', null, String(ended.counts.skipped)),
     change('failed', null, String(ended.counts.failed)),
   ]);
+  // T-0100: ONE notification event per job that ran to an end or failed, never
+  // one per row. A job the user cancelled needs no notification: they know.
+  // The session user is the creator (asCreator), who is the one told.
+  if (status !== 'cancelled') {
+    await appendImportFinishedEvent(tx, { id: ended.id, programmeId: ended.programmeId });
+  }
   return ended;
 }
 

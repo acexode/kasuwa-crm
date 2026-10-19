@@ -41,6 +41,7 @@
       "@kasuwa/db": ["packages/db/src/index.ts"],
       "@kasuwa/permissions": ["packages/permissions/src/index.ts"],
       "@kasuwa/metadata-engine": ["packages/metadata-engine/src/index.ts"],
+      "@kasuwa/metadata-engine/field-access-for-user": ["packages/metadata-engine/src/field-access-for-user.ts"],
       "@kasuwa/telephony-adapter": ["packages/telephony-adapter/src/index.ts"],
       "@kasuwa/channel-adapter": ["packages/channel-adapter/src/index.ts"],
       "@kasuwa/wfm-adapter": ["packages/wfm-adapter/src/index.ts"],
