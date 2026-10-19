@@ -25,6 +25,8 @@ export interface ViewState {
   readonly headId: string | null;
   readonly phase: ViewPhase;
   readonly loadingMore: boolean;
+  /** Pages in a row that came back with nothing to draw: auto-continue stops after `MAX_EMPTY_RUN`, then the reader asks (N5). */
+  readonly emptyRun: number;
   /** A read failed (not a 429): the code to translate, for the first page or the next one. */
   readonly readError: string | null;
   /** A write failed after its resends: the code to translate. */
@@ -44,6 +46,7 @@ export const INITIAL_VIEW: ViewState = {
   headId: null,
   phase: 'loading',
   loadingMore: false,
+  emptyRun: 0,
   readError: null,
   writeError: null,
   listWaitUntil: null,
@@ -66,14 +69,15 @@ export type ViewAction =
   | { readonly type: 'all-busy'; readonly on: boolean }
   | { readonly type: 'item-state'; readonly id: string; readonly readAt: string | null }
   | { readonly type: 'item-gone'; readonly id: string }
-  | { readonly type: 'all-read'; readonly kind: NotificationKind | null; readonly readAt: string }
+  | { readonly type: 'all-read'; readonly kind: NotificationKind | null; readonly readAt: string; readonly throughId: string }
   | { readonly type: 'write-failed'; readonly code: string }
   | { readonly type: 'write-ok' };
 
 export function viewReducer(state: ViewState, action: ViewAction): ViewState {
   switch (action.type) {
     case 'reset':
-      return { ...INITIAL_VIEW };
+      // A write in flight is still in flight under the new query: what gates the next one is kept (N4).
+      return { ...INITIAL_VIEW, busyIds: state.busyIds, allBusy: state.allBusy, writeWaitUntil: state.writeWaitUntil };
     case 'first-loaded':
       return {
         ...state,
@@ -82,6 +86,7 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
         headId: action.page.headId,
         phase: 'ready',
         loadingMore: false,
+        emptyRun: action.page.items.length === 0 ? 1 : 0,
         readError: null,
         listWaitUntil: null,
       };
@@ -95,6 +100,7 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
         // The head is the newest the view ever drew: a later page cannot move it.
         headId: state.headId ?? action.page.headId,
         loadingMore: false,
+        emptyRun: action.page.items.length === 0 ? state.emptyRun + 1 : 0,
         listWaitUntil: null,
       };
     case 'read-failed':
@@ -117,7 +123,7 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
     case 'item-gone':
       return { ...state, items: removeItem(state.items, action.id) };
     case 'all-read':
-      return { ...state, items: markAllCovered(state.items, action.kind, action.readAt), writeError: null };
+      return { ...state, items: markAllCovered(state.items, action.kind, action.readAt, action.throughId), writeError: null };
     case 'write-failed':
       return { ...state, writeError: action.code };
     case 'write-ok':
@@ -130,9 +136,12 @@ export function isEmptyForever(state: ViewState): boolean {
   return state.phase === 'ready' && state.items.length === 0 && state.nextCursor === null;
 }
 
-/** An empty page that is not the last: the view continues by itself, once. */
+/** The most empty pages a view reads by itself before it stops and offers "Show older" (N5). */
+export const MAX_EMPTY_RUN = 3;
+
+/** An empty page that is not the last: the view continues by itself, up to `MAX_EMPTY_RUN` pages. */
 export function shouldContinue(state: ViewState, now: number): boolean {
-  return state.phase === 'ready' && state.items.length === 0 && state.nextCursor !== null && !state.loadingMore && state.readError === null && (state.listWaitUntil === null || state.listWaitUntil <= now);
+  return state.phase === 'ready' && state.items.length === 0 && state.emptyRun < MAX_EMPTY_RUN && state.nextCursor !== null && !state.loadingMore && state.readError === null && (state.listWaitUntil === null || state.listWaitUntil <= now);
 }
 
 /** The wait to show after a 429, in whole seconds from `now`, never below one. */
@@ -142,6 +151,3 @@ export function waitSeconds(until: number | null, now: number): number {
 
 /** The default wait when a 429 carries no `Retry-After`. */
 export const DEFAULT_WAIT_MS = 5_000;
-
-/** The delays before each resend of a write whose answer was lost: both inside the ten seconds I14 allows. */
-export const RESEND_DELAYS_MS: readonly number[] = [1_000, 3_000];

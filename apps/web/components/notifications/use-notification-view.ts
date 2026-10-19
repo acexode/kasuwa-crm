@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useReducer, useRef } from 'react';
-import { refreshCount, setCount, stepCount } from '../../lib/notification-store';
-import { DEFAULT_WAIT_MS, INITIAL_VIEW, RESEND_DELAYS_MS, shouldContinue, viewReducer, type ViewState } from '../../lib/notification-view';
+import { refreshCount, setCount, stepCount, writeEnded, writeStarted } from '../../lib/notification-store';
+import { DEFAULT_WAIT_MS, INITIAL_VIEW, shouldContinue, viewReducer, type ViewState } from '../../lib/notification-view';
+import { canReadAll, canToggle, dotEffect, isCurrentGeneration, sendWithResends } from '../../lib/notification-writes';
 import { listNotifications, markAllRead, updateNotification, type NotificationFilter, type NotificationItem, type NotificationKind } from '../../lib/notifications-api';
-import type { RecordsResult } from '../../lib/records-api';
+import { retryAfterMs } from '../../lib/records-api';
 
 /**
  * Drives one drawn list (the dropdown's or the centre's) against the four
@@ -40,21 +41,12 @@ export interface NotificationView {
   readonly readAll: () => void;
 }
 
-const sleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms));
 
-/** One write, sent again with the same body when its answer was lost. */
-async function sendWithResends<T>(run: () => Promise<RecordsResult<T>>): Promise<RecordsResult<T>> {
-  let result = await run();
-  for (const delay of RESEND_DELAYS_MS) {
-    if (result.ok || result.error.code !== 'network') return result;
-    await sleep(delay);
-    result = await run();
-  }
-  return result;
-}
+const wait = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms));
 
+/** The earliest time a retry may go out after a 429: its `Retry-After`, capped (N6), or a short default. */
 function waitFrom(retryAfterSeconds: number | undefined): number {
-  return Date.now() + (retryAfterSeconds === undefined ? DEFAULT_WAIT_MS : retryAfterSeconds * 1000);
+  return Date.now() + retryAfterMs(retryAfterSeconds, DEFAULT_WAIT_MS);
 }
 
 export function useNotificationView(query: Query, autoContinue: boolean): NotificationView {
@@ -65,6 +57,8 @@ export function useNotificationView(query: Query, autoContinue: boolean): Notifi
   queryRef.current = query;
   const controller = useRef<AbortController | null>(null);
   const moving = useRef(false);
+  /** Bumped every time the query changes: an answer sent under an earlier one is not drawn (N3). */
+  const generation = useRef(0);
   const timers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
   const later = useCallback((run: () => void, at: number) => {
@@ -130,6 +124,7 @@ export function useNotificationView(query: Query, autoContinue: boolean): Notifi
   // A new query starts from the top, with no cursor carried over (I9). Leaving aborts the read in flight.
   useEffect(() => {
     const pending = timers.current;
+    generation.current += 1;
     dispatch({ type: 'reset' });
     loadFirst();
     return () => {
@@ -145,11 +140,6 @@ export function useNotificationView(query: Query, autoContinue: boolean): Notifi
     if (autoContinue && shouldContinue(state, Date.now())) loadMore();
   }, [autoContinue, state, loadMore]);
 
-  const writeBlocked = (): boolean => {
-    const until = stateRef.current.writeWaitUntil;
-    return until !== null && until > Date.now();
-  };
-
   const afterWriteFailure = useCallback(
     (code: string, retryAfterSeconds: number | undefined) => {
       if (code === 'too_many_requests') {
@@ -159,8 +149,6 @@ export function useNotificationView(query: Query, autoContinue: boolean): Notifi
         return;
       }
       dispatch({ type: 'write-failed', code });
-      // Whether it applied is unknown: the count is read again, and the next page read shows the rest.
-      refreshCount();
     },
     [later],
   );
@@ -168,23 +156,26 @@ export function useNotificationView(query: Query, autoContinue: boolean): Notifi
   const setRead = useCallback(
     (item: NotificationItem, read: boolean) => {
       const drawn = stateRef.current.items.find((row) => row.id === item.id);
-      if (drawn === undefined || stateRef.current.busyIds.includes(item.id) || writeBlocked()) return;
+      if (drawn === undefined || !canToggle(stateRef.current, item.id, Date.now())) return;
       const wasUnread = drawn.readAt === null;
       dispatch({ type: 'busy', id: item.id, on: true });
-      void sendWithResends(() => updateNotification(item.id, read)).then((result) => {
+      // No count read is believed while this is in flight, so none can undo or double what it does (N1).
+      writeStarted();
+      void sendWithResends(() => updateNotification(item.id, read), wait).then((result) => {
         dispatch({ type: 'busy', id: item.id, on: false });
+        const effect = dotEffect(wasUnread, result.ok ? { ok: true, readAt: result.value.readAt } : { ok: false, code: result.error.code });
         if (result.ok) {
           dispatch({ type: 'item-state', id: item.id, readAt: result.value.readAt });
-          const nowUnread = result.value.readAt === null;
-          if (wasUnread && !nowUnread) stepCount(-1);
-          else if (!wasUnread && nowUnread) stepCount(1);
         } else if (result.error.code === 'not_found') {
           // Gone from the reader's view: drawn no more, never sent again, and nothing said about why.
           dispatch({ type: 'item-gone', id: item.id });
-          if (wasUnread) stepCount(-1);
         } else {
           afterWriteFailure(result.error.code, result.error.retryAfterSeconds);
         }
+        writeEnded();
+        // The write is over, so what it did to the badge is read now: a confirmed change steps it once; a 404 or an unknown outcome reads it again (N2).
+        if (effect.kind === 'step') stepCount(effect.delta);
+        else if (effect.kind === 'refresh') refreshCount();
       });
     },
     [afterWriteFailure],
@@ -201,18 +192,24 @@ export function useNotificationView(query: Query, autoContinue: boolean): Notifi
   const readAll = useCallback(() => {
     const current = stateRef.current;
     const throughId = current.headId;
-    if (throughId === null || current.allBusy || writeBlocked()) return;
+    if (throughId === null || !canReadAll(current, Date.now())) return;
     const kind = queryRef.current.kind;
+    const sentIn = generation.current;
     // One body, built once: a resend is the same bounded request, never a wider one (D-L154).
     const body = { throughId, ...(kind === null ? {} : { kind }) };
     dispatch({ type: 'all-busy', on: true });
-    void sendWithResends(() => markAllRead(body)).then((result) => {
+    writeStarted();
+    void sendWithResends(() => markAllRead(body), wait).then((result) => {
       dispatch({ type: 'all-busy', on: false });
       if (result.ok) {
+        // The count is the server's whatever the screen is showing now; the rows only if it is still the list this was asked of (N3).
         setCount(result.value);
-        dispatch({ type: 'all-read', kind, readAt: new Date().toISOString() });
+        if (isCurrentGeneration(sentIn, generation.current)) dispatch({ type: 'all-read', kind, readAt: new Date().toISOString(), throughId });
+        writeEnded();
       } else {
         afterWriteFailure(result.error.code, result.error.retryAfterSeconds);
+        writeEnded();
+        refreshCount();
       }
     });
   }, [afterWriteFailure]);

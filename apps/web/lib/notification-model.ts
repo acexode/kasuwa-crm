@@ -157,13 +157,16 @@ export function removeItem(items: readonly NotificationItem[], id: string): read
 }
 
 /**
- * What a mark-all covers among the DRAWN items: everything at or older than the
- * newest the view drew, of the kind when one is named. The drawn list is the
- * view's own, newest first, so with a bound taken from its head that is every
- * drawn item of the kind.
+ * What a mark-all covers among the DRAWN items: those at or older than
+ * `throughId`, by POSITION in the drawn list (newest first), of the kind when one
+ * is named (N3). An item drawn above the bound is newer than what the reader had
+ * seen and stays unread. If the bound itself is no longer drawn (it was a 404,
+ * removed), it was the view's newest, so everything drawn is older and covered.
  */
-export function markAllCovered(items: readonly NotificationItem[], kind: NotificationKind | null, readAt: string): readonly NotificationItem[] {
-  return items.map((item) => (item.readAt === null && (kind === null || item.kind === kind) ? { ...item, readAt } : item));
+export function markAllCovered(items: readonly NotificationItem[], kind: NotificationKind | null, readAt: string, throughId: string): readonly NotificationItem[] {
+  const bound = items.findIndex((item) => item.id === throughId);
+  const from = bound < 0 ? 0 : bound;
+  return items.map((item, index) => (index >= from && item.readAt === null && (kind === null || item.kind === kind) ? { ...item, readAt } : item));
 }
 
 export function unreadIn(items: readonly NotificationItem[], kind: NotificationKind | null): number {

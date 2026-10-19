@@ -66,10 +66,16 @@ describe('what a write does to the drawn list', () => {
   });
 
   it('marks all, or all of one kind, keeping a first readAt', () => {
-    expect(markAllCovered(list, null, 'T').map((row) => row.readAt)).toEqual(['T', 'T', '2026-10-18T07:30:00Z']);
-    expect(markAllCovered(list, 'task_assigned', 'T').map((row) => row.readAt)).toEqual([null, 'T', '2026-10-18T07:30:00Z']);
+    expect(markAllCovered(list, null, 'T', 'a').map((row) => row.readAt)).toEqual(['T', 'T', '2026-10-18T07:30:00Z']);
+    expect(markAllCovered(list, 'task_assigned', 'T', 'a').map((row) => row.readAt)).toEqual([null, 'T', '2026-10-18T07:30:00Z']);
     expect(unreadIn(list, null)).toBe(2);
     expect(unreadIn(list, 'task_assigned')).toBe(1);
+  });
+
+  it('covers only what is at or older than the bound, by position (N3)', () => {
+    expect(markAllCovered(list, null, 'T', 'b').map((row) => row.readAt)).toEqual([null, 'T', '2026-10-18T07:30:00Z']);
+    // A bound that is no longer drawn was the newest: everything drawn is older.
+    expect(markAllCovered(list, null, 'T', 'gone').map((row) => row.readAt)).toEqual(['T', 'T', '2026-10-18T07:30:00Z']);
   });
 
   it('appends in served order without drawing an id twice', () => {

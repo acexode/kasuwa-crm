@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { INITIAL_VIEW, RESEND_DELAYS_MS, isEmptyForever, shouldContinue, viewReducer, waitSeconds, type ViewState } from './notification-view';
+import { INITIAL_VIEW, MAX_EMPTY_RUN, isEmptyForever, shouldContinue, viewReducer, waitSeconds, type ViewState } from './notification-view';
 import type { NotificationItem, NotificationPage } from './notifications-api';
 
 function item(id: string, extra: Partial<NotificationItem> = {}): NotificationItem {
@@ -56,6 +56,19 @@ describe('paging', () => {
     expect(viewReducer(state, { type: 'list-wait-over' }).listWaitUntil).toBeNull();
   });
 
+  it('stops continuing by itself after three empty pages in a row (N5), and a page with items resets the run', () => {
+    let state = ready([], 'c1');
+    expect(state.emptyRun).toBe(1);
+    state = viewReducer(state, { type: 'more-loaded', page: page([], 'c2') });
+    state = viewReducer(state, { type: 'more-loaded', page: page([], 'c3') });
+    expect(state.emptyRun).toBe(MAX_EMPTY_RUN);
+    expect(shouldContinue(state, 0)).toBe(false);
+    // The way on stays: the cursor is still there for the reader to ask with.
+    expect(state.nextCursor).toBe('c3');
+    expect(isEmptyForever(state)).toBe(false);
+    expect(viewReducer(state, { type: 'more-loaded', page: page(['a'], 'c4') }).emptyRun).toBe(0);
+  });
+
   it('is a failed view only when the first page never arrived', () => {
     expect(viewReducer(INITIAL_VIEW, { type: 'read-failed', code: 'internal_error' }).phase).toBe('failed');
   });
@@ -73,7 +86,7 @@ describe('writes are drawn when answered', () => {
   it('marks all, or one kind, and clears a write error', () => {
     let state = viewReducer(ready(['a', 'b']), { type: 'write-failed', code: 'network' });
     expect(state.writeError).toBe('network');
-    state = viewReducer(state, { type: 'all-read', kind: null, readAt: 'T' });
+    state = viewReducer(state, { type: 'all-read', kind: null, readAt: 'T', throughId: 'a' });
     expect(state.items.every((row) => row.readAt === 'T')).toBe(true);
     expect(state.writeError).toBeNull();
   });
@@ -90,15 +103,10 @@ describe('writes are drawn when answered', () => {
   });
 });
 
-describe('waits and resends', () => {
+describe('waits', () => {
   it('says whole seconds, never below one', () => {
     expect(waitSeconds(null, 0)).toBe(0);
     expect(waitSeconds(10_100, 10_000)).toBe(1);
     expect(waitSeconds(13_000, 10_000)).toBe(3);
-  });
-
-  it('resends a lost answer twice at most, all inside ten seconds', () => {
-    expect(RESEND_DELAYS_MS).toHaveLength(2);
-    expect(RESEND_DELAYS_MS.reduce((sum, delay) => sum + delay, 0)).toBeLessThan(10_000);
   });
 });
