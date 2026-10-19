@@ -17,6 +17,7 @@ import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
 import { LiteModeToggle } from '../auth/lite-mode';
+import { SignOutButton } from '../auth/sign-out-button';
 import { SHELL_SEARCH_STRINGS } from '../search/message-ids';
 import { CRM_NAV, liveHref, type CrmNavItem } from './crm-nav';
 
@@ -37,8 +38,9 @@ import { CRM_NAV, liveHref, type CrmNavItem } from './crm-nav';
  * never opens it never pays for it. While it is open, everything behind it is
  * inert; when it closes, focus goes back to where it was.
  *
- * Still to come, and deliberately absent rather than faked: notifications,
- * agent availability and the account menu. Each needs an API that does not
+ * Sign out (T-0125, ADR-0019 point 5) ends the session at the API and lands
+ * on sign-in. Still to come, and deliberately absent rather than faked:
+ * notifications, agent availability and the account menu. Each needs an API that does not
  * exist yet; a control that does nothing is a promise the product breaks the
  * first time someone presses it.
  */
@@ -229,6 +231,7 @@ export function CrmShell({
           accessibleName={t.t('auth.topbar.lite.toggle')}
           compact
         />
+        <SignOutButton label={t.t('auth.signOut')} />
       </header>
 
       <div {...behind} className="flex min-w-0 flex-1 items-stretch">

@@ -75,6 +75,24 @@ const HEX_SELECTOR = {
  */
 const MIGRATION_URL_MESSAGE =
   'DATABASE_MIGRATION_URL is the kasuwa_migrator (BYPASSRLS) connection. Only operator commands (migrate, seed, tenant:provision) may read it; no app process.';
+/**
+ * apps/web calls its API through ONE wrapper, `apps/web/lib/api-fetch.ts`
+ * (ADR-0019 step d, T-0125). It sends the CSRF header the BFF requires on
+ * every write and sends a signed-out browser to sign-in; a raw `fetch` would
+ * skip both, and a bodyless write would then be refused as CSRF at runtime
+ * rather than here. So no `fetch(...)` in apps/web outside the wrapper and the
+ * BFF's own server code (`lib/server/`), whatever its argument.
+ */
+const RAW_FETCH_MESSAGE =
+  'Call the API through apiFetch (apps/web/lib/api-fetch.ts): it sends the CSRF header and handles a lost session (ADR-0019).';
+const RAW_FETCH_SELECTORS = [
+  { selector: "CallExpression[callee.type='Identifier'][callee.name='fetch']", message: RAW_FETCH_MESSAGE },
+  {
+    selector: "CallExpression[callee.type='MemberExpression'][callee.property.name='fetch'][callee.object.name=/^(window|globalThis|self)$/]",
+    message: RAW_FETCH_MESSAGE,
+  },
+];
+
 const MIGRATION_URL_SELECTORS = [
   {
     selector: "MemberExpression[property.name='DATABASE_MIGRATION_URL']",
@@ -447,6 +465,20 @@ export default tseslint.config(
     files: ['apps/**'],
     rules: {
       'no-restricted-syntax': ['error', ...ENV_SELECTORS, HEX_SELECTOR, ...MIGRATION_URL_SELECTORS],
+    },
+  },
+  {
+    // apps/web, as above, plus no raw fetch outside the wrapper (ADR-0019).
+    files: ['apps/web/**'],
+    ignores: ['apps/web/**/*.test.ts', 'apps/web/**/*.test.tsx', 'apps/web/lib/api-fetch.ts', 'apps/web/lib/server/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...ENV_SELECTORS,
+        HEX_SELECTOR,
+        ...MIGRATION_URL_SELECTORS,
+        ...RAW_FETCH_SELECTORS,
+      ],
     },
   },
   {

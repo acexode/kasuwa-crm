@@ -6,6 +6,7 @@ import { createBundleTranslator, type MessageBundle, type MessageId } from '@kas
 import { Icon } from '../icon';
 import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
 import { LiteModeToggle } from '../auth/lite-mode';
+import { SignOutButton } from '../auth/sign-out-button';
 import { NAV_GROUPS, filterNav, type NavGroup } from './nav-model';
 import { getHomeSummary, getSettingsMenuBadges, type Severity } from '../../lib/admin-api';
 import { useResource } from './use-resource';
@@ -175,6 +176,7 @@ export function AdminShell({
           accessibleName={t.t('auth.topbar.lite.toggle')}
           compact
         />
+        <SignOutButton label={t.t('auth.signOut')} />
       </header>
 
       <div className="relative flex flex-1 items-stretch">

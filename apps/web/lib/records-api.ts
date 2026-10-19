@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
+import { apiFetch } from './api-fetch';
 
 /**
  * The browser's half of `docs/api/records.openapi.yaml` — `listContacts`, the
@@ -211,17 +212,12 @@ export async function requestRecords<T>(
 ): Promise<RecordsResult<T>> {
   let response: Response;
   try {
-    response = await fetch(path, {
+    // apiFetch never caches: every records answer carries personal data at a
+    // URL that is the same for every user of every tenant (the BFF also sends
+    // `Cache-Control: no-store`; that is the second layer).
+    response = await apiFetch(path, {
       method: init.method,
-      // Every records answer carries personal data at a URL that is the same
-      // for every user of every tenant: never from, or into, the HTTP cache
-      // (the API also sends `Cache-Control: no-store`; this is the second layer).
-      cache: 'no-store',
-      headers:
-        init.body === undefined
-          ? { accept: 'application/json' }
-          : { accept: 'application/json', 'content-type': 'application/json' },
-      ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+      ...(init.body === undefined ? {} : { body: init.body }),
       ...(init.signal === undefined ? {} : { signal: init.signal }),
     });
   } catch {

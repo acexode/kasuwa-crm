@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ApiError, NETWORK_FAILURE, type Result } from './admin-api';
+import { apiFetch } from './api-fetch';
 
 /**
  * The browser's half of the custom-field operations in
@@ -110,10 +111,9 @@ async function call<T>(
 ): Promise<Result<T>> {
   let response: Response;
   try {
-    response = await fetch(path, {
+    response = await apiFetch(path, {
       method,
-      cache: 'no-store',
-      ...(init.body === undefined ? {} : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(init.body) }),
+      ...(init.body === undefined ? {} : { body: init.body }),
       ...(init.signal === undefined ? {} : { signal: init.signal }),
     });
   } catch {

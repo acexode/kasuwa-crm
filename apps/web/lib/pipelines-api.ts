@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
+import { apiFetch } from './api-fetch';
 
 /**
  * The browser's half of the pipelines and deals operations in
@@ -198,11 +199,9 @@ export async function pipelineRequest<T>(
 ): Promise<PipelineResult<T>> {
   let response: Response;
   try {
-    response = await fetch(path, {
+    response = await apiFetch(path, {
       method: body === undefined ? 'GET' : (method ?? 'POST'),
-      cache: 'no-store',
-      headers: body === undefined ? { accept: 'application/json' } : { accept: 'application/json', 'content-type': 'application/json' },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(body === undefined ? {} : { body }),
     });
   } catch {
     return { ok: false, error: NETWORK_FAILURE };

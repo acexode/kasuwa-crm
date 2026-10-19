@@ -82,7 +82,11 @@ export function MfaScreen({
       setPending(false);
 
       if (result.ok) {
-        router.push('/');
+        // The BFF has set the session cookie (the body carries no token,
+        // ADR-0019 point 3). The front door, rendered on the server WITH that
+        // cookie, sends the browser on to the app (app/page.tsx). `replace`,
+        // so Back does not return to a spent challenge.
+        router.replace('/');
         return;
       }
       setError(result.error);
