@@ -14,7 +14,7 @@ import { undoRefusal } from './duplicates-model';
  *
  * AN UNDO IS ASKED ONCE. The server's refusal decides what the row offers
  * next: a 410 turns the merge expired (the server's clock wins over the
- * browser's); a 404, a 403 or a 409 takes the control away, because asking
+ * browser's); a 404, a 403 or a 409 takes the control away for good (it stays away across reloads of the list), because asking
  * again cannot change the answer. A dropped connection is the one refusal that
  * leaves the control where it was.
  *
@@ -55,6 +55,7 @@ export function useMergeHistory(callbacks: {
   const [attempt, setAttempt] = useState(0);
   const mounted = useRef(true);
   const sending = useRef(false);
+  const generation = useRef(0);
   const cursor = useRef<string | null>(null);
   cursor.current = nextCursor;
   const latest = useRef(callbacks);
@@ -68,6 +69,9 @@ export function useMergeHistory(callbacks: {
   }, []);
 
   useEffect(() => {
+    // A reload drops any "show more" still in flight: a stale page 2 never lands on a fresh page 1 (N3).
+    generation.current += 1;
+    setLoadingMore(false);
     const controller = new AbortController();
     setPhase('loading');
     void listContactMerges(undefined, controller.signal).then((result) => {
@@ -75,7 +79,6 @@ export function useMergeHistory(callbacks: {
       if (result.ok) {
         setRows(result.value.data);
         setNextCursor(result.value.nextCursor);
-        setClosed(new Set());
         setPhase('loaded');
       } else {
         setPhase('error');
@@ -88,8 +91,9 @@ export function useMergeHistory(callbacks: {
     const from = cursor.current;
     if (from === null || loadingMore) return;
     setLoadingMore(true);
+    const mine = generation.current;
     void listContactMerges(from).then((result) => {
-      if (!mounted.current) return;
+      if (!mounted.current || mine !== generation.current) return;
       setLoadingMore(false);
       if (!result.ok) return;
       setRows((held) => [...held, ...result.value.data]);
