@@ -22,7 +22,7 @@ import { CRM_NAV, liveHref, type CrmNavItem } from './crm-nav';
 
 /**
  * The bell is its OWN chunk (D-L182): a lazy `import()` (React's own, as the palette's: `next/dynamic` would add its runtime to every page) that is rendered only where
- * the server-side flag says so, so a process with `crm_notifications` off never ships
+ * the server-side flag says so, so a process with the notifications flag off never ships
  * its component, poller, store or writes, and the shell costs it nothing.
  */
 const NotificationBell = lazy(() => import('../notifications/bell'));

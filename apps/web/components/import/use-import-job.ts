@@ -17,10 +17,12 @@ import type { RecordsError } from '../../lib/records-api';
  *
  * A READ THAT FAILS IS TRIED AGAIN. A dropped connection is `retrying`, not an
  * ended import: the next read is simply the next one in the schedule. So is a
- * `429`, which is a wait and never an ended import: the next read waits the
- * time the server named in `retryAt` (capped at 15 minutes) if that is longer
- * than the schedule's own. Only a refusal that is neither (a `404` for an import that is
- * not ours) ends it, and says so through `onRefused`.
+ * `429` (D-L179 N7), which is a wait and never an ended import: the schedule's
+ * own growing wait (up to 20 s) is the wait. The server's `Retry-After` is not
+ * read here, because carrying it through the shared records client costs every
+ * records page bytes where the notifications flag is off (D-L182). Only a
+ * refusal that is not the network (a `404` for an import that is not ours)
+ * ends it, and says so through `onRefused`.
  */
 export type PollPhase = 'header' | 'run';
 
@@ -55,11 +57,11 @@ export function useImportJob(
     let done = false;
     let inFlight = false;
 
-    const schedule = (attempt: number, waitMs = 0): void => {
+    const schedule = (attempt: number): void => {
       next = attempt;
       // A hidden tab reads nothing (N6): the schedule picks up again when it is shown.
       if (document.hidden) return;
-      timer = setTimeout(() => void read(attempt), Math.min(900_000, Math.max(waitMs, pollDelay(attempt, base))));
+      timer = setTimeout(() => void read(attempt), pollDelay(attempt, base));
     };
 
     const read = async (attempt: number): Promise<void> => {
@@ -75,9 +77,6 @@ export function useImportJob(
         if (done) return;
       } else if (result.error.code === 'network' || result.error.code === 'too_many_requests') {
         setRetrying(true);
-        // The wait the server named, when it named one (`retryAt`), capped; else the schedule's own growing wait.
-        schedule(attempt + 1, Date.parse(result.error.retryAt ?? '') - Date.now() || 0);
-        return;
       } else {
         done = true;
         latest.current.onRefused(result.error);
