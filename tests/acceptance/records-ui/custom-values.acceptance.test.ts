@@ -178,7 +178,8 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
   'tests/e2e/support/accounts-mock.ts': '6da2ee53f6620bfd025cae52037130eb6546b101d2b0b6bf6461c87c8826ca04',
   'tests/e2e/support/contact-record-mock.ts': '894c18ec5d9337bca3d22aa2cb9119600243c21b7a984cfcbbb15b3ede712a12',
   // T-0124 (lead re-pin, D-L183): the account-record mock reads listAccountContacts' default sort from the contract.
-  'tests/e2e/support/account-record-mock.ts': '219df4b7dcf75cc08a3c44b7362788791c3684053583e4d0aca6192fcc0d2ace',
+  // T-0124 (lead re-pin): the account-record mock's contactsOf returns the served order.
+  'tests/e2e/support/account-record-mock.ts': '5f65af2afb70c9e1e703e1cef1a979ff603c22c801bca40fd5d11eba0e916bf0',
   'tests/e2e/support/deal-mock.ts': 'aad20148fd6a36e54ef490522225622d58ff0b1aa86e9083cd4b0f3d8c2f20e8',
   'tests/e2e/support/pipeline-mock.ts': 'cb5f6a8452b1c44c1828ceaea7fdfc3a154896e96365680e2d955d59667dc6cd',
   'tests/e2e/support/activities-mock.ts': '1e3221cc41550ce894d56e7cab267ac1621ef253929c4bce5f54e75fd63270da',

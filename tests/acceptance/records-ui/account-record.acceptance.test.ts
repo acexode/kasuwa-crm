@@ -136,7 +136,8 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
   // T-0082 (D-L97): the mock's activity items and bodies carry `startsAt` and `endsAt`.
   // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and merges `custom`.
   // T-0124 (lead re-pin, D-L183): listAccountContacts' default sort is read from the contract (-createdAt), not invented as displayName.
-  [MOCK]: '219df4b7dcf75cc08a3c44b7362788791c3684053583e4d0aca6192fcc0d2ace',
+  // T-0124 (lead re-pin): contactsOf returns the served order (-createdAt, ties on id), not the written name order.
+  [MOCK]: '5f65af2afb70c9e1e703e1cef1a979ff603c22c801bca40fd5d11eba0e916bf0',
 };
 
 /** See the budget test in the spec. Never above this. */

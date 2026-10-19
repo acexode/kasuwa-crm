@@ -713,7 +713,8 @@ function person(id: string, displayName: string, phone: string, extra: Partial<C
 }
 
 const CONTACTS: Readonly<Record<string, readonly ContactRow[]>> = {
-  // Served sorted by displayName (the default sort), ties on id.
+  // Written in name order; SERVED in the contract's default sort (-createdAt
+  // since T-0124, D-L183), ties on id: see contactsOf.
   [ACCOUNT_FULL.id]: [
     contactOf(ACCOUNT_FULL, { id: CONTACT_EXAMPLE.id, displayName: CONTACT_EXAMPLE.displayName }),
     contactOf(ACCOUNT_FULL, person(CONTACT_ID('11'), 'Bola Adewale', '+2348030000111', { status: 'customer', consentState: 'pending' })),
@@ -728,9 +729,26 @@ const CONTACTS: Readonly<Record<string, readonly ContactRow[]>> = {
 /** At most this many contact rows on one page, whatever `limit` asks for. */
 export const CONTACT_PAGE_CAP = 4;
 
-/** Every contact listAccountContacts serves for an account, in default order. */
+/** listAccountContacts' order for one `sort`: the key, then the id, reversed for a leading `-`. */
+function contactOrder(sort: string): (a: ContactRow, b: ContactRow) => number {
+  const descending = sort.startsWith('-');
+  const key = sort.replace(/^-/, '');
+  return (a, b) => {
+    const left = String(a[key] ?? '');
+    const right = String(b[key] ?? '');
+    const byKey = left < right ? -1 : left > right ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    return descending ? -byKey : byKey;
+  };
+}
+
+/**
+ * Every contact listAccountContacts serves for an account, in the order it
+ * serves them with no `sort`: the contract's default (CONTACT_SORT_DEFAULT,
+ * read from the YAML). The route sorts with the same comparator, so the
+ * journeys' "first contact" and "served order" are the served ones (T-0124).
+ */
 export function contactsOf(accountId: string): readonly ContactRow[] {
-  return CONTACTS[accountId] ?? [];
+  return [...(CONTACTS[accountId] ?? [])].sort(contactOrder(CONTACT_SORT_DEFAULT));
 }
 
 // ---------------------------------------------------------------------------
@@ -1362,15 +1380,7 @@ export async function installAccountRecordMock(page: Page, options: AccountRecor
       refused.details = [{ path: 'accountId', code: 'field_withheld' }];
       return answer(route, 'listAccountContacts', 400, refused);
     }
-    const rows = [...contactsOf(id)];
-    const descending = sort.startsWith('-');
-    const key = sort.replace(/^-/, '');
-    rows.sort((a, b) => {
-      const left = String(a[key] ?? '');
-      const right = String(b[key] ?? '');
-      const byKey = left < right ? -1 : left > right ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-      return descending ? -byKey : byKey;
-    });
+    const rows = [...(CONTACTS[id] ?? [])].sort(contactOrder(sort));
     let offset = 0;
     const cursor = url.searchParams.get('cursor');
     if (cursor !== null) {
