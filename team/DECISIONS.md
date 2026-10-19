@@ -3803,3 +3803,38 @@ Mac, M8 is expected to miss and is not a merge signal.
     the pin rule allows.
 
 lead/main-guard-fixes merges as soon as it is proved.
+
+### D-L171 — T-0096 review rulings (lead, 2026-10-19)
+
+The combined review of 560b51e passed with findings: no security or privacy defect, and one blocker.
+The following are required before merge:
+- **B1.** Leaving an upload stops it.
+  - `leave()` and an unmount effect call `cancel()`.
+  - History "Open" is unavailable while an upload runs.
+- **N1.** `resume()` resets the re-issue count. `expiresAt` is kept, and a part's URL is re-issued before sending
+  once it has expired.
+- **N2.** If the network fails on `complete`, the screen reads the import with getImport and continues when the
+  status is past `awaiting_upload`.
+- **N3.** No cancel while `complete` is in flight.
+- **N4.** A lost `run` answer recovers: `queued` and `running` move to the run step.
+- **N6.** Polling pauses while the tab is hidden.
+- **N7.** Part URLs are `z.string().url()`, absolute https or the configured storage origin, and never
+  `location.origin`. That stops a mock or bug PUTting CSV bytes same-origin with the cookie.
+- **N8.** Unit tests for the uploader state machine (DoD §5): pause and resume, expiry re-issue, a single
+  `complete`, give-up, cancel. B1 and N1–N4 each get a test that fails without the fix.
+- **N9.** Correctness beats bytes. The Contacts list shows a one-line "filtered by import" chip that clears to
+  `/contacts`. If that breaks the 227,000 P04 pin, the lead re-pins from the measurement.
+- **N10, N11, N12.**
+  - Percentages use `Intl.NumberFormat` with `style: 'percent'`.
+  - The live region announces state changes only.
+  - The size copy says MiB, or rounds down honestly.
+  - The 409 copy points to the history, not "reload".
+- **N13.** The report is updated.
+
+N5 (double `onFail`) is fixed if convenient.
+
+**Follow-up for T-0005 infra:** real buckets must expose `ETag` through CORS. Only the mock does today, and
+without it every browser upload fails. This goes beside the 8-day lifecycle rule (D-L167).
+
+**Split** follows the review's stack: lead suite PR, flag and harness, catalogues (structural, exempt), client
+and uploader, Contacts list, screen part 1, screen part 2. T-0096 merges after T-0094.
