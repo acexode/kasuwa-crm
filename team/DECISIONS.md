@@ -4125,3 +4125,59 @@ is rejected.
 - With the flag on, the 8,000-byte ceiling stands.
 - The re-measured pages must fit their existing pins. A page may be re-pinned only with a measured reason other
   than the bell.
+
+### D-L183 — T-0124: the web screens change in the same task (lead, 2026-10-19)
+
+The T-0124 build at 19a510e changes the API but leaves several web screens assuming every contact has a
+readable name:
+- the leads screen's name sort;
+- number searches in `q` on contacts and leads;
+- client schemas that require `displayName` (records-api, pipelines-api, activities-api).
+
+Merged alone, those screens would fail to parse for a caller who cannot read a name part, and break the
+records-ui journeys on main. **So the web changes are part of T-0124, not a follow-up.** Agent 11 makes them on
+the T-0124 branch.
+
+**Accepted builder decisions:**
+- listAccountContacts defaults to `-createdAt`;
+- the repository's phone match is removed;
+- a read-only name part leaves `displayName` editable (I11, still open);
+- createContact and imports are unchanged (I11);
+- only `displayName` gets a stand-in, and every other withheld variable is still refused at publish.
+
+The stand-in translations need review.
+
+**Follow-up:** the 0035 `display_name` keyset indexes are now unused. Drop them in a later migration, which
+gets migration review.
+
+The lead re-pins (contacts-api, leads-api, accounts-api, list-indexes, contact-merge, contact-timeline,
+records-contract-search R18, e2e p04-leads) are made on lead/T-0124-acceptance, and the R18 contract text changes
+with them.
+
+### D-L184 — T-0124 review rulings (lead, 2026-10-19)
+
+The security and tenancy reviews of 19a510e both passed with findings. Nothing blocks merge, and each name is
+judged in the record's own programme.
+
+**Required before merge:**
+- **One rule (both reviews, finding 1).** The notifications path calls the shared `DISPLAY_NAME_PARTS` and
+  `displayNameReadable`, instead of its own `NAME_FIELDS.contact` copy.
+- **Sensitivity is inherited (finding 2).** The script fact for `displayName` is `sensitive` when any name part is
+  sensitive (D-L13 covers derived fields, failing closed). It then follows exactly the rules a sensitive part
+  follows, at publish and at run.
+- **Housekeeping (finding 5).** Remove `displayNameWithheldAnywhere` if nothing uses it. Fix the stale comments in
+  contacts.controller `list` ("name or number … E.164") and activity-fields ("always sent").
+- **The board (tenancy 3).** A comment at pipelines.service where the name is judged once per board points to the
+  composite keys that make it correct.
+- **The web (security 6, the part T-0124 can fix).** The activity composer, and any other web control, routes
+  identifier-shaped input to lookupRecords instead of sending it as a `q` to listAccounts or listContacts.
+
+**Accepted:**
+- **Undo (3).** It reveals that a merge changed a withheld name to an undoer who has lost read. That is
+  consistent with M12 (D-L151), and the undoer is the merger or an admin.
+
+**Follow-ups:**
+- **Merge consistency (4).** A merge can update a name part while `displayName`, withheld from the caller,
+  stays as it was. This belongs to I11's open product question on derived-name writes.
+- **R21 for listAccounts and listDeals.** Their `q` still accepts identifiers in URLs that ingress logs record.
+  That's a new task. It predates T-0124, which was kept to I10.

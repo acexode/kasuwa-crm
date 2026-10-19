@@ -84,5 +84,6 @@
   "notifications.bell.label",
   "notifications.dropdown.title",
   "notifications.title",
-  "notifications.kind.label"
+  "notifications.kind.label",
+  "duplicates.programme.label"
 ]

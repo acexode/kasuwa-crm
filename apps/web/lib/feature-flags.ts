@@ -160,7 +160,7 @@ export async function crmActivitiesEnabled(): Promise<boolean> {
  * as "not available yet", exactly like an unbuilt one (`components/crm/crm-nav.ts`).
  */
 export async function crmLiveNav(): Promise<string[]> {
-  const [contacts, accounts, leads, activities, pipeline, search, csvImport, recordView, notifications] = await Promise.all([
+  const [contacts, accounts, leads, activities, pipeline, search, csvImport, duplicates, recordView, notifications] = await Promise.all([
     crmRecordsEnabled(),
     crmAccountsEnabled(),
     crmLeadsEnabled(),
@@ -168,6 +168,7 @@ export async function crmLiveNav(): Promise<string[]> {
     crmPipelineEnabled(),
     crmSearchEnabled(),
     crmImportEnabled(),
+    crmDuplicatesEnabled(),
     crmRecordViewEnabled(),
     crmNotificationsEnabled(),
   ]);
@@ -182,6 +183,8 @@ export async function crmLiveNav(): Promise<string[]> {
     // Not a nav item either: the Contacts list's import action links `/contacts/import` only where this is on (T-0096, I1).
     // The import screen's own links need the Contacts list it lands back on (D-L179 N9): both flags.
     ...(csvImport && contacts ? ['import'] : []),
+    // Not a nav item either: the Contacts list links `/contacts/duplicates` only where this is on (T-0097, I1).
+    ...(duplicates ? ['duplicates'] : []),
     // Not a nav item either: the shell's bell (T-0101), and the object types a notification may link,
     // because a link is made only to a route that answers (a contact record needs two flags).
     ...(notifications
@@ -308,7 +311,7 @@ export async function crmImportEnabled(): Promise<boolean> {
  * `crm_notifications` (T-0101, D-L177) gates the P26 ROUTE — `/notifications`
  * calls `notFound()` while it is off, so typing the path gets a real 404 and
  * nothing of the screen ships — and, through `crmLiveNav()` as `notifications`
- * and `adminLiveNav()`, the bell in the CRM shell and the admin console. No
+ * and `adminBellLive()`, the bell in the CRM shell and the admin console. No
  * client module names it.
  *
  * A presentation switch, like `crm_search`: the notifications API and its
@@ -318,6 +321,26 @@ export async function crmNotificationsEnabled(): Promise<boolean> {
   await initialiseFeatureFlags();
   return featureFlagClient().getBooleanValue(
     'crm_notifications',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/**
+ * `crm_duplicates` (T-0097, D-L146, D-L175) gates the P28 ROUTE —
+ * `/contacts/duplicates` calls `notFound()` while it is off, so typing the path
+ * gets a real 404 and nothing of the screen ships — and, through
+ * `crmLiveNav()` as `duplicates`, the Contacts list's link to it. No client
+ * module names it.
+ *
+ * Per process, like the others, and presentation only: the five duplicates and
+ * merge operations are served by the API whatever this says, and who may merge
+ * is `contact.write` in the programme, decided there.
+ */
+export async function crmDuplicatesEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_duplicates',
     false,
     toEvaluationContext({ tenantId: CRM_SHELL }),
   );
