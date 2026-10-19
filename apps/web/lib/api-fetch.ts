@@ -18,8 +18,9 @@
  *     here, no Authorization header and no identity of any kind. (Not stated
  *     in the call: it is the default, and every byte here ships on every
  *     screen.)
- *   - a 401 sends the user to sign-in (I6), except where the caller IS the
- *     sign-in flow and a 401 means a wrong password or code.
+ *   - a 401 the BFF marks `x-kasuwa-session: ended` sends the user to
+ *     sign-in (I6), except where the caller IS the sign-in flow and a 401
+ *     means a wrong password or code.
  *
  * Never a scope header: nothing a screen sends names a programme
  * (CLAUDE.md 2.2), so this takes no header argument at all.
@@ -27,6 +28,8 @@
 
 const CSRF_HEADER = 'x-requested-with';
 const CSRF_HEADER_VALUE = 'kasuwa-web';
+/** The BFF's mark on a 401 that means "signed out" (lib/server/bff-forward.ts). */
+const SESSION_ENDED_HEADER = 'x-kasuwa-session';
 
 /** Where a signed-out browser lands: P01/1. */
 export const SIGN_IN_PATH = '/';
@@ -73,7 +76,14 @@ export async function apiFetch(path: string, init: ApiFetchInit = {}): Promise<R
     ...(hasBody ? { body: JSON.stringify(init.body) } : {}),
     ...(init.signal === undefined ? {} : { signal: init.signal }),
   });
-  if (response.status === 401 && (init.onUnauthenticated ?? 'sign-in') === 'sign-in') {
+  // Only a 401 the BFF marks as "signed out" (a refused session cookie, or no
+  // identity in a jwt process) leaves the page: any other 401 is the caller's
+  // to show (T-0125 gate, the notifications abort journey).
+  if (
+    response.status === 401 &&
+    (init.onUnauthenticated ?? 'sign-in') === 'sign-in' &&
+    response.headers.get(SESSION_ENDED_HEADER) === 'ended'
+  ) {
     sendToSignIn();
   }
   return response;

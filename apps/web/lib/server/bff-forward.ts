@@ -101,6 +101,9 @@ const TOKEN_ROUTES = new Set(['auth/mfa', 'auth/mfa/enrol/confirm']);
 
 const SIGN_OUT_ROUTE = 'auth/sign-out';
 
+/** Set on a 401 that means the browser is signed out; the web app's fetch wrapper then goes to sign-in. */
+export const SESSION_ENDED_HEADER = 'x-kasuwa-session';
+
 /**
  * What a token route's 2xx must be, EXACTLY, before the BFF trusts it (D-L181
  * B1): `SessionEstablished` and `SessionWithBackupCodes` in
@@ -367,7 +370,16 @@ export function createBffHandler(resolveConfig: () => BffConfig, deps: BffDepend
 
     const headers = answerHeaders(upstream);
     const cookieLines = [...signOutCookies];
-    if (upstream.status === 401 && !preSession && !isSignOut) cookieLines.push(clearSessionSetCookie(config.cookie));
+    if (upstream.status === 401 && !preSession && !isSignOut) {
+      cookieLines.push(clearSessionSetCookie(config.cookie));
+      // "Go to sign-in" (I6), said only when the 401 means the browser is
+      // signed out: a session cookie was presented and refused, or this
+      // process runs jwt, where no cookie is no identity. In a stub-mode
+      // process a cookieless 401 means "no stub identity" (a test or a
+      // developer's header), and sending that page to sign-in would only
+      // tear it down mid-render.
+      if (cookie.kind === 'token' || !config.forwardStubIdentity) headers.set(SESSION_ENDED_HEADER, 'ended');
+    }
     for (const line of cookieLines) headers.append('set-cookie', line);
     if (isSignOut) headers.set('clear-site-data', '"cache"');
     const refuse = async (): Promise<Response> => {

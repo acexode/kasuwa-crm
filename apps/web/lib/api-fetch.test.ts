@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from '@kasuwa/config/session';
 import { apiFetch, sendToSignIn } from './api-fetch';
 
-function stubFetch(status = 200): ReturnType<typeof vi.fn> {
-  const fetchMock = vi.fn(async () => new Response('{}', { status, headers: { 'content-type': 'application/json' } }));
+function stubFetch(status = 200, extra: Record<string, string> = {}): ReturnType<typeof vi.fn> {
+  const fetchMock = vi.fn(async () => new Response('{}', { status, headers: { 'content-type': 'application/json', ...extra } }));
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }
@@ -58,16 +58,24 @@ describe('apiFetch (ADR-0019 step d)', () => {
     await expect(apiFetch('/contacts')).rejects.toThrow(/\/api\/ only/);
   });
 
-  it('sends a signed-out browser to sign-in on a 401 (I6)', async () => {
-    stubFetch(401);
+  it('sends a signed-out browser to sign-in on a 401 the BFF marks as signed out (I6)', async () => {
+    stubFetch(401, { 'x-kasuwa-session': 'ended' });
     const assign = stubWindow('/contacts');
     const response = await apiFetch('/api/v1/contacts');
     expect(response.status).toBe(401);
     expect(assign).toHaveBeenCalledWith('/');
   });
 
-  it('hands the sign-in flow its own 401 back', async () => {
+  it('leaves the page alone on an unmarked 401, and hands it to the caller', async () => {
     stubFetch(401);
+    const assign = stubWindow('/contacts');
+    const response = await apiFetch('/api/v1/contacts');
+    expect(response.status).toBe(401);
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('hands the sign-in flow its own 401 back', async () => {
+    stubFetch(401, { 'x-kasuwa-session': 'ended' });
     const assign = stubWindow('/verify');
     await apiFetch('/api/v1/auth/mfa', { method: 'POST', body: {}, onUnauthenticated: 'return' });
     expect(assign).not.toHaveBeenCalled();

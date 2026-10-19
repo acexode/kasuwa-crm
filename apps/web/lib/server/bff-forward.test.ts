@@ -374,6 +374,21 @@ describe('sign-out and 401 (point 5)', () => {
     expect(setCookies(response)[0]).toMatch(/^__Host-kasuwa_session=; Max-Age=0/);
   });
 
+  it('marks a 401 as signed out only when it is: a refused cookie, or no identity in a jwt process', async () => {
+    const unauthenticated = () => json(401, { code: 'not_authenticated' });
+    const jwt = harness(unauthenticated);
+    expect((await jwt.handle(request('/api/v1/contacts'))).headers.get('x-kasuwa-session')).toBe('ended');
+    expect((await jwt.handle(request('/api/v1/contacts', { headers: { cookie: cookie(TOKEN) } }))).headers.get('x-kasuwa-session')).toBe('ended');
+    const stub = harness(unauthenticated, { forwardStubIdentity: true });
+    expect((await stub.handle(request('/api/v1/contacts', { headers: { cookie: cookie(TOKEN) } }))).headers.get('x-kasuwa-session')).toBe('ended');
+    expect((await stub.handle(request('/api/v1/contacts'))).headers.get('x-kasuwa-session'), 'a stub-mode 401 with no cookie is a missing stub identity').toBeNull();
+    const wrongPassword = harness(() => json(401, { code: 'invalid_credentials' }));
+    const signIn = await wrongPassword.handle(request('/api/v1/auth/sign-in', { method: 'POST', headers: { ...JSON_WRITE, cookie: cookie(TOKEN) }, body: '{}' }));
+    expect(signIn.headers.get('x-kasuwa-session'), 'a wrong password is not a signed-out browser').toBeNull();
+    const ok = harness();
+    expect((await ok.handle(request('/api/v1/contacts', { headers: { cookie: cookie(TOKEN) } }))).headers.get('x-kasuwa-session')).toBeNull();
+  });
+
   it('does not clear the cookie on a wrong password', async () => {
     const { handle } = harness(() => json(401, { code: 'invalid_credentials' }));
     const response = await handle(request('/api/v1/auth/sign-in', { method: 'POST', headers: { ...JSON_WRITE, cookie: cookie(TOKEN) }, body: '{}' }));
