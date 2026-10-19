@@ -4242,3 +4242,21 @@ The pipeline board takes the same 259,000 that T-0124 sets (D-L183), so the two 
 **ADR-0019 point 10, the storage clause, is implemented.** When `S3_PUBLIC_ENDPOINT` is set, that one origin
 joins `connect-src`. This satisfies the D-L181 gate for `crm_import`'s CSP. The e2e records process gets
 `S3_PUBLIC_ENDPOINT: 'https://storage.example'`, the mock's storage origin, as a lead edit to run-e2e.mjs.
+
+### D-L188 — T-0124 merged; T-0101's I2 excludes the T-0125 session process (lead, 2026-10-19)
+
+T-0124 merged as #176. Merged with main, it passes lint and typecheck on 20 projects and unit 2,985 of 2,985.
+
+The T-0125 and T-0101 e2e harness changes each add a web process to run-e2e.mjs (`webSessionUrl` for
+`@bff-session`, `webNotificationsUrl` for `@p26-notifications`). T-0101's acceptance check I2 requires exactly one
+process whose flags include `crm_records` but not `crm_notifications`. The T-0125 session process is a jwt-mode
+process with `crm_records` only, so the merged runner has two.
+
+**Ruling:** I2 judges only the stub-mode records processes. A jwt-mode process (the `@bff-session` journey
+process, ADR-0019 amendment 1) is excluded by its auth mode, because it exists to prove the real session, not to
+twin the records flags. I2's intent stands: the notifications process twins the records process plus
+`crm_notifications`, and the records process does not get the flag.
+
+Both processes keep their own grep gate. The notifications process twins the records process's mode and
+`sessionLayerEnv`. Only the records process gets `S3_PUBLIC_ENDPOINT` (D-L187). This is a lead edit to
+notifications-screen.acceptance on lead/T-0125-acceptance.
