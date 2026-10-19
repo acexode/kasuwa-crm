@@ -45,6 +45,49 @@ const forwardedArgs = process.argv.slice(2).filter((argument) => argument !== '-
 const wantsOverBudget = forwardedArgs.join(' ').includes('over-budget');
 const projectName = wantsOverBudget ? 'over-budget' : 'chromium';
 
+/** Every `--grep` / `-g` pattern the caller passed through to Playwright. */
+function grepPatterns(args) {
+  const patterns = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === '--grep' || argument === '-g') {
+      patterns.push(args[index + 1] ?? '');
+      index += 1;
+    } else if (argument.startsWith('--grep=')) {
+      patterns.push(argument.slice('--grep='.length));
+    }
+  }
+  return patterns;
+}
+
+/**
+ * `true` when a `--grep` (a regular expression, as Playwright reads it) could
+ * select a test titled with `tag`. A pattern that is not a valid expression is
+ * read as "could select", so a typo starts the process rather than hiding it.
+ */
+function grepCanSelect(pattern, tag) {
+  try {
+    return new RegExp(pattern).test(tag) || pattern.includes(tag.slice(1));
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * THE NOTIFICATIONS WEB PROCESS IS STARTED ONLY WHEN IT CAN BE USED (T-0101,
+ * D-L177 C10).
+ *
+ * A Next process costs this machine about a gigabyte (CLAUDE.md section 3), and
+ * only the `@p26-notifications` journeys use this one, so it starts for a run
+ * with no grep at all (the whole suite) or a grep that can select that tag, and
+ * for no other. A spec that needs it reads `webNotificationsUrl`, which is empty
+ * when it was not started, so a mis-grepped run fails loudly instead of hitting
+ * another server.
+ */
+const patterns = grepPatterns(forwardedArgs);
+const wantsNotificationsWeb =
+  !wantsOverBudget && (patterns.length === 0 || patterns.some((pattern) => grepCanSelect(pattern, '@p26-notifications')));
+
 const cleanups = [];
 
 function log(message) {
@@ -627,6 +670,42 @@ function startRecordsWeb(apiUrl, port) {
   return child;
 }
 
+/**
+ * THE FOURTH WEB SERVER — THE BELL (T-0101, D-L177 I2).
+ *
+ * The notifications bell polls on EVERY screen of the CRM shell and the admin
+ * console, and the twelve pinned records-ui mocks record any undeclared
+ * `/api/v1` call as a violation, so `crm_notifications` does NOT ride on the
+ * records process. It gets its own `next start` on the same production build,
+ * NODE_ENV=test, with EXACTLY the records process's flags plus
+ * `crm_notifications`: its pages are the records pages with the bell, and the
+ * bell's weight is a difference of two measurements on one build. Published as
+ * `webNotificationsUrl`. Started only for a run that can select
+ * `@p26-notifications` (see `wantsNotificationsWeb`).
+ */
+function startNotificationsWeb(apiUrl, port) {
+  const child = spawnGroup('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
+    cwd: WEB_DIR,
+    shell: process.platform === 'win32',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      NODE_ENV: 'test',
+      KASUWA_AUTH_MODE: 'jwt',
+      NEXT_PUBLIC_API_URL: apiUrl,
+      NEXT_TELEMETRY_DISABLED: '1',
+      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities,crm_scripts,crm_pipeline,crm_search,crm_custom_fields,crm_import,crm_notifications',
+      ...NO_DATABASE_URLS,
+    },
+  });
+  pipeTo(child, 'web:notifications');
+  cleanups.push(async () => {
+    await killTree(child);
+    await waitForPortClosed(port);
+  });
+  return child;
+}
+
 function runPlaywright() {
   const args = [
     'exec',
@@ -746,6 +825,7 @@ async function main() {
   let webUrl = '';
   let webSelfServeUrl = '';
   let webRecordsUrl = '';
+  let webNotificationsUrl = '';
 
   if (!wantsOverBudget) {
     // The API's port is chosen first because the web build needs it (see
@@ -780,6 +860,11 @@ async function main() {
     startWeb(apiUrl, webPort);
     startSelfServeWeb(apiUrl, selfServePort);
     startRecordsWeb(apiUrl, recordsPort);
+    if (wantsNotificationsWeb) {
+      const notificationsPort = await freePort();
+      webNotificationsUrl = `http://127.0.0.1:${notificationsPort}`;
+      startNotificationsWeb(apiUrl, notificationsPort);
+    }
     // The production server is ready when it answers; the dev server also
     // compiles its first route on that request, which keeps the compile out of
     // a spec's navigation.
@@ -787,6 +872,7 @@ async function main() {
       waitForHttp(webUrl, 'the web app'),
       waitForHttp(webSelfServeUrl, 'the self-serve web app'),
       waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view, crm_leads, crm_activities, crm_scripts, crm_pipeline, crm_search, crm_custom_fields and crm_import web app'),
+      ...(wantsNotificationsWeb ? [waitForHttp(webNotificationsUrl, 'the records flags plus crm_notifications web app')] : []),
     ]);
     restoreNextEnv(nextEnv);
     log(`web (next start, production build) on ${webUrl}`);
@@ -794,6 +880,9 @@ async function main() {
     log(
       `web (next start, production build, crm_records + crm_accounts + crm_record_view + crm_leads + crm_activities + crm_scripts + crm_pipeline + crm_search + crm_custom_fields + crm_import on) on ${webRecordsUrl}`,
     );
+    if (wantsNotificationsWeb) {
+      log(`web (next start, production build, NODE_ENV=test, the records flags + crm_notifications on) on ${webNotificationsUrl}`);
+    }
   }
 
   // One file per Playwright project, not a shared `stack.json`. Two
@@ -827,6 +916,8 @@ async function main() {
         webSearchUrl: webRecordsUrl,
         webStudioUrl: webRecordsUrl,
         webImportUrl: webRecordsUrl,
+        // T-0101: empty unless this run's grep can select @p26-notifications.
+        webNotificationsUrl,
         apiUrl,
         fixturesUrl,
       },
