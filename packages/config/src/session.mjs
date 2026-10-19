@@ -9,8 +9,8 @@
  * use. One definition, so the two layers cannot drift: a scope header the API
  * refuses is a scope header the BFF refuses, with the same body.
  *
- * THIS MODULE IMPORTS NOTHING AND READS NOTHING. It holds no secret and no
- * environment value, so it is safe in any process and in a browser bundle.
+ * THIS MODULE READS NOTHING, and imports only the pure `./guards.mjs`. It
+ * holds no secret and no environment value, so it is safe in any process and in a browser bundle.
  * It is JavaScript for the same reason as `./schemas.mjs`: nothing between it
  * and a native `import()` may need a TypeScript loader.
  */
@@ -99,3 +99,10 @@ export const CSRF_HEADER_VALUE = 'kasuwa-web';
  */
 export const SESSION_COOKIE_NAME = '__Host-kasuwa_session';
 export const INSECURE_SESSION_COOKIE_NAME = 'kasuwa_session';
+
+/**
+ * Loopback, as the session layer's boot guard decides it (127.0.0.0/8,
+ * `localhost`, `[::1]`; never `127.0.0.1.evil.example`). Re-exported for the
+ * web app's CSP, which omits `upgrade-insecure-requests` on loopback.
+ */
+export { isLoopbackHostname } from './guards.mjs';
