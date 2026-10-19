@@ -21,8 +21,25 @@
 export {
   assertAuthModeIsSafe,
   assertKeyProviderIsSafe,
+  assertSessionCookieIsSafe,
   assertThrottleIsNotACellWideCliff,
+  isLoopbackHostname,
 } from './guards.mjs';
+// The header policy and fixed bodies the API and the web BFF share (ADR-0019,
+// D-L149 #8). apps/web imports them from `@kasuwa/config/session`.
+export {
+  CSRF_HEADER,
+  CSRF_HEADER_VALUE,
+  FORBIDDEN_SCOPE_HEADERS,
+  INSECURE_SESSION_COOKIE_NAME,
+  INTERNAL_ERROR_BODY,
+  NOT_FOUND_BODY,
+  SCOPE_HEADER_REJECTED_BODY,
+  SESSION_COOKIE_NAME,
+  SESSION_TOKEN_PREFIX,
+  STUB_TENANT_HEADER,
+  STUB_USER_HEADER,
+} from './session.mjs';
 export type { AuthMode, KmsProvider, NodeEnvName } from './guards.mjs';
 // apiEnv and workerEnv come from ./server-env, which adds the database
 // credential guard (T-0117, D-L94) to the schemas in ./schemas.mjs.

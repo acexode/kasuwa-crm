@@ -15,6 +15,7 @@ import { recordHref, writeErrorId, zoneName } from '../record/record-core';
 import { RecordLoading, RecordNotFound, RecordOfflineBanner, RecordUnavailable } from '../record/record-states';
 import { RecordTimeline, Value, type TimelineVocabulary } from '../record/record-timeline';
 import { LockedValue } from '../records/list-parts';
+import { nameOrWithheld } from '../records/name';
 import { formatPhone } from '../records/list-model';
 import type { Account } from '../../lib/accounts-api';
 import { ActivityType } from '../../lib/contact-record-api';
@@ -565,10 +566,10 @@ function ContactRow({ t, row, link }: { t: Translator; row: Contact; link: boole
       <span data-field="displayName" className="min-w-0 break-words font-semibold">
         {href !== null ? (
           <Link href={href} className={`inline-flex min-h-touch items-center ${LINK}`}>
-            <span data-record-text="">{row.displayName}</span>
+            <span data-record-text="">{nameOrWithheld(t, row.displayName)}</span>
           </Link>
         ) : (
-          <span data-record-text="">{row.displayName}</span>
+          <span data-record-text="">{nameOrWithheld(t, row.displayName)}</span>
         )}
       </span>
       <span data-field="phones" data-locked={phonesLocked ? 'true' : undefined} className="text-body-sm text-text-2">

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   assertAuthModeIsSafe,
   assertKeyProviderIsSafe,
+  assertSessionCookieIsSafe,
   assertThrottleIsNotACellWideCliff,
 } from './guards.mjs';
 
@@ -253,18 +254,71 @@ const MigratorSchema = z.object({
 
 // --- web -------------------------------------------------------------------
 
+/**
+ * A bare origin: `http:` or `https:`, a host, an optional port, and nothing
+ * else (no userinfo, no path, no query, no fragment), written exactly as a
+ * browser writes an `Origin` header. The issue messages never quote the
+ * value: an operator who pastes a credential-bearing URL here must not find
+ * it echoed in a boot log.
+ *
+ * @param {string} value
+ * @param {z.RefinementCtx} context
+ * @returns {void}
+ */
+function refineOrigin(value, context) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'must be an absolute http(s) URL' });
+    return;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'must be http: or https:' });
+    return;
+  }
+  if (url.username !== '' || url.password !== '') {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'must not carry credentials' });
+    return;
+  }
+  if (value !== url.origin) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'must be a bare origin (scheme://host[:port], lowercase, no path, query or trailing slash)',
+    });
+  }
+}
+
+
 const WebSchema = z.object({
   ...baseShape,
 
-  // PUBLIC. Every `NEXT_PUBLIC_*` variable is INLINED INTO THE BROWSER BUNDLE by
-  // Next at build time, so anything written here is readable by anyone who can
-  // load the page. Never give a secret, an internal hostname that must stay
-  // internal, or a credential-bearing URL a `NEXT_PUBLIC_` name.
+  // THE BROWSER SESSION LAYER (ADR-0019, T-0125). All three are server-side
+  // only: no `NEXT_PUBLIC_` name, so none is ever inlined into a bundle. The
+  // browser never needs the API's address; it talks to its own origin, and the
+  // BFF route handler (`app/api/v1/[...path]`) talks to the API.
   //
-  // Today the browser never sees this one in practice (every fetch is a
-  // relative `/api/v1/...` path, and `next.config.mjs` rewrites it here), but
-  // the prefix makes it public whether or not app code reads it.
-  NEXT_PUBLIC_API_URL: z.string().url().default('http://127.0.0.1:3001'),
+  // KASUWA_WEB_ORIGIN: this process's OWN origin, exactly as a browser sends
+  // it in `Origin` (scheme, host and port; lowercase; no path, no trailing
+  // slash, no userinfo). The CSRF check compares `Origin` with this and with
+  // nothing else, never with `Host` or `X-Forwarded-Host` (point 4).
+  // Required in every mode (amendment 3).
+  KASUWA_WEB_ORIGIN: z.string().superRefine(refineOrigin),
+
+  // KASUWA_API_INTERNAL_URL: where the BFF sends `/api/v1/*`, server-side,
+  // with the session as `Authorization: Bearer` (point 1). It replaces the
+  // `/api/v1` rewrite and `NEXT_PUBLIC_API_URL`. Read at runtime, so a build
+  // is no longer tied to one API origin. An origin, with no credentials.
+  // Required in every mode (amendment 3); https outside development and test
+  // unless loopback (assertSessionCookieIsSafe).
+  KASUWA_API_INTERNAL_URL: z.string().superRefine(refineOrigin),
+
+  // KASUWA_SESSION_COOKIE_INSECURE: "1" drops `Secure` and the `__Host-`
+  // prefix, for a browser that will not store a Secure cookie on
+  // http://localhost. Development and test only; its presence refuses boot
+  // anywhere else (point 8). A string, not a boolean, because presence is
+  // the test and coercion would lose an empty value.
+  KASUWA_SESSION_COOKIE_INSECURE: z.string().optional(),
 
   // Server-side only (no `NEXT_PUBLIC_` prefix): read by `next.config.mjs` and
   // never inlined. HARNESS-ONLY: a second dev server in the same checkout gets
@@ -281,6 +335,18 @@ const WebSchema = z.object({
   S3_PUBLIC_ENDPOINT: z.string().url().optional(),
 });
 /** @typedef {z.infer<typeof WebSchema>} WebEnv */
+
+/**
+ * The BUILD's view of the same schema: the two session-layer URLs are optional
+ * there, because `next build` serves no request and the artefact is started
+ * later, under the runtime environment, where `webEnv()` requires them. When
+ * given, they are still checked for shape.
+ */
+const WebBuildSchema = WebSchema.extend({
+  KASUWA_WEB_ORIGIN: WebSchema.shape.KASUWA_WEB_ORIGIN.optional(),
+  KASUWA_API_INTERNAL_URL: WebSchema.shape.KASUWA_API_INTERNAL_URL.optional(),
+});
+/** @typedef {z.infer<typeof WebBuildSchema>} WebBuildEnv */
 
 /**
  * Names the web process must not be GIVEN, not merely need not read.
@@ -455,6 +521,7 @@ export function migratorEnv(source = process.env) {
 export function webEnv(source = process.env) {
   const parsed = parseOrThrow('web', WebSchema, source, webProblems(source));
   assertAuthModeIsSafe(parsed);
+  assertSessionCookieIsSafe(parsed);
   return parsed;
 }
 
@@ -463,7 +530,8 @@ export function webEnv(source = process.env) {
  * just the same, because the build is where values are inlined into the
  * bundle.
  *
- * It does not run the stub-auth guard, and that is the only difference. A
+ * It does not run the stub-auth or session-cookie guards, and does not require
+ * the session layer's two URLs (ADR-0019); those are the only differences. A
  * build is not a boot: it serves no request and resolves no caller, and the
  * artefact it produces is started later by `next start`, under the runtime
  * environment, where `webEnv` runs the guard before the server accepts a
@@ -471,10 +539,10 @@ export function webEnv(source = process.env) {
  * demand a runtime auth setting it never uses (and CI builds with none).
  *
  * @param {EnvSource} [source]
- * @returns {WebEnv}
+ * @returns {WebBuildEnv}
  */
 export function webBuildEnv(source = process.env) {
-  return parseOrThrow('web build', WebSchema, source, webProblems(source));
+  return parseOrThrow('web build', WebBuildSchema, source, webProblems(source));
 }
 
 /**

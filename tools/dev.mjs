@@ -97,13 +97,36 @@ function workerRelayUrl() {
   return url.toString();
 }
 
+/**
+ * The web process's session layer (ADR-0019, T-0125), which `webEnv()`
+ * requires in every mode. The web process loads no `.env`, so they are handed
+ * to it here; a value exported in the shell wins.
+ *
+ *   KASUWA_WEB_ORIGIN        the origin the browser uses, exactly. The BFF
+ *                            refuses every write whose Origin differs, so open
+ *                            the app at http://localhost:3000, not 127.0.0.1.
+ *   KASUWA_API_INTERNAL_URL  where the BFF reaches the API, server-side.
+ */
+const WEB_SESSION_LAYER = {
+  KASUWA_WEB_ORIGIN: 'http://localhost:3000',
+  KASUWA_API_INTERNAL_URL: 'http://127.0.0.1:3001',
+};
+
 /** Each app's environment: the relay URL for the worker, and for nothing else. */
 function appEnv(name) {
   if (name === 'worker') {
     return { ...SHARED_PROCESS_ENV, DATABASE_RELAY_URL: workerRelayUrl() };
   }
-  // `next dev` sets its own NODE_ENV, so the web process keeps the shell's.
-  return name === 'web' ? withoutRelayUrl(process.env) : SHARED_PROCESS_ENV;
+  if (name === 'web') {
+    // `next dev` sets its own NODE_ENV, so the web process keeps the shell's.
+    const env = withoutRelayUrl(process.env);
+    return {
+      ...env,
+      KASUWA_WEB_ORIGIN: env.KASUWA_WEB_ORIGIN || WEB_SESSION_LAYER.KASUWA_WEB_ORIGIN,
+      KASUWA_API_INTERNAL_URL: env.KASUWA_API_INTERNAL_URL || WEB_SESSION_LAYER.KASUWA_API_INTERNAL_URL,
+    };
+  }
+  return SHARED_PROCESS_ENV;
 }
 
 const APPS = [
@@ -379,7 +402,7 @@ async function main() {
   run('pnpm', ['--filter', '@kasuwa/db', 'seed'], { env: SHARED_PROCESS_ENV });
 
   console.log('\nstack is up:');
-  console.log('  web       http://localhost:3000');
+  console.log('  web       http://localhost:3000  (sign in here; use exactly this address)');
   console.log('  api       http://localhost:3001/health');
   console.log('  realtime  ws://localhost:3002');
   if (SERVICES.includes('seaweedfs')) {

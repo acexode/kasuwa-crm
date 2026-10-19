@@ -105,15 +105,15 @@ export interface ContactPage {
   nextCursor: string | null;
 }
 
-/** The contract's `sort` enum. A key outside it never reaches SQL. */
-export const CONTACT_SORTS = [
-  '-createdAt',
-  'createdAt',
-  '-updatedAt',
-  'updatedAt',
-  'displayName',
-  '-displayName',
-] as const;
+/**
+ * The contract's `sort` enum. A key outside it never reaches SQL.
+ *
+ * Sort keys are never-withheld fields only (T-0124 I5): an order on a field
+ * the caller cannot read discloses it, row against row. `displayName` left
+ * the enum when it became withholdable (D-L68), for every caller, a reader
+ * of every name included, so the enum never depends on who asks.
+ */
+export const CONTACT_SORTS = ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt'] as const;
 export type ContactSort = (typeof CONTACT_SORTS)[number];
 export const DEFAULT_CONTACT_SORT: ContactSort = '-createdAt';
 
@@ -127,7 +127,7 @@ interface SortSpec {
    * under RLS, so a deep page filtered its way to the cursor (D-L112 ruling 8).
    * The cut only bounded a cursor that carried the name; cursors are id-only.
    */
-  column: 'created_at' | 'updated_at' | 'display_name';
+  column: 'created_at' | 'updated_at';
   direction: 'ASC' | 'DESC';
 }
 
@@ -136,8 +136,6 @@ const SORT_SPECS: Record<ContactSort, SortSpec> = {
   createdAt: { column: 'created_at', direction: 'ASC' },
   '-updatedAt': { column: 'updated_at', direction: 'DESC' },
   updatedAt: { column: 'updated_at', direction: 'ASC' },
-  displayName: { column: 'display_name', direction: 'ASC' },
-  '-displayName': { column: 'display_name', direction: 'DESC' },
 };
 
 /** Filters, already parsed. Each one is "any of"; different filters AND. */
@@ -185,19 +183,22 @@ export interface ContactFilters {
  * `q`, with what field security allows. Each `...ProgrammeIds` list names
  * the programmes in which that field may be matched: a field the caller may
  * not read in a programme is never matched there, or `q` would be an oracle
- * for its value. `displayName` is never withheld and is always matched.
+ * for its value. `displayName` follows its name parts (D-L68, T-0124 I7), so
+ * it has its own list like any other field.
+ *
+ * There is no phone match (T-0124 I9, R21): the API refuses an identifier
+ * in `q` before this runs, and a number short enough to pass is no E.164.
+ * Numbers are found through lookupRecords' POST body.
  */
 export interface ContactSearch {
   text: string;
-  /** `q` normalised to E.164, or null when it does not read as a number. */
-  phoneE164: string | null;
-  phoneProgrammeIds: readonly string[];
+  displayNameProgrammeIds: readonly string[];
   givenNamesProgrammeIds: readonly string[];
   familyNameProgrammeIds: readonly string[];
   /**
    * Programmes in which `companyName` may be matched (listLeads, T-0076).
    * Absent: the company is not searched at all (listContacts' `q` is names
-   * and numbers, as its contract says).
+   * only, as its contract says).
    */
   companyNameProgrammeIds?: readonly string[] | undefined;
 }
@@ -438,7 +439,10 @@ class Params {
 // value is a bound parameter; column names come from constants.
 function searchClause(search: ContactSearch, params: Params): string {
   const folded = params.add(foldForSearch(search.text));
-  const alternatives = [`strpos(${fold('display_name')}, ${folded}) > 0`];
+  const alternatives = [
+    `(programme_id = ANY(${params.add([...search.displayNameProgrammeIds])}::uuid[])
+      AND strpos(${fold('display_name')}, ${folded}) > 0)`,
+  ];
   alternatives.push(
     `(programme_id = ANY(${params.add([...search.givenNamesProgrammeIds])}::uuid[])
       AND strpos(${fold('given_names')}, ${folded}) > 0)`,
@@ -451,12 +455,6 @@ function searchClause(search: ContactSearch, params: Params): string {
     alternatives.push(
       `(programme_id = ANY(${params.add([...search.companyNameProgrammeIds])}::uuid[])
         AND strpos(${fold('company_name')}, ${folded}) > 0)`,
-    );
-  }
-  if (search.phoneE164 !== null) {
-    alternatives.push(
-      `(programme_id = ANY(${params.add([...search.phoneProgrammeIds])}::uuid[])
-        AND phones @> jsonb_build_array(jsonb_build_object('e164', ${params.add(search.phoneE164)}::text)))`,
     );
   }
   return `(${alternatives.join(' OR ')})`;

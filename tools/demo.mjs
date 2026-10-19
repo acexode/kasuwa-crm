@@ -8,9 +8,14 @@
  *      read nothing from OpenSearch or object storage yet; `--full` starts them)
  *   3. waits for the API and the web app, then adds the demo data
  *      (`tools/demo-seed.mjs`, through the real API)
- *   4. starts the demo front door on http://localhost:3100 (`tools/demo-proxy.mjs`)
- *   5. opens every demo screen once in a headless browser so `next dev` has
- *      compiled them before the audience arrives (`--no-warm` skips it)
+ *   4. signs in for real and opens every demo screen once in a headless
+ *      browser so `next dev` has compiled them before the audience arrives
+ *      (`--no-warm` skips it)
+ *
+ * The app is the web app itself, on http://localhost:3000. Since T-0125 it
+ * keeps a real session after sign-in (ADR-0019: an HttpOnly cookie behind
+ * its own BFF), so the demo needs no front door of its own and no user
+ * switcher: presenters sign in for real, as every user will.
  *
  * Ctrl+C stops everything it started, apps and containers. `pnpm demo:down`
  * does the same from another terminal (or after a crash).
@@ -47,9 +52,9 @@ const DEMO_FLAGS = [
   'admin_live_api',
 ];
 /** Flags added to the demo automatically once their task has merged. */
-const DEMO_FLAGS_WHEN_PRESENT = ['crm_custom_fields'];
+const DEMO_FLAGS_WHEN_PRESENT = ['crm_custom_fields', 'crm_import', 'crm_duplicates', 'crm_notifications'];
 
-const PORTS = { web: 3000, api: 3001, realtime: 3002, demo: 3100 };
+const PORTS = { web: 3000, api: 3001, realtime: 3002 };
 
 function log(message) {
   console.log(`[demo] ${message}`);
@@ -106,7 +111,6 @@ async function waitFor(url, label, timeoutMs) {
 function killLeftovers() {
   const patterns = [
     `${root}/tools/dev.mjs`,
-    `${root}/tools/demo-proxy.mjs`,
     `${root}/apps/`,
     `${root}/node_modules/.pnpm/next@`,
   ];
@@ -256,16 +260,6 @@ async function main() {
     log('the demo seed failed; the stack is still up with the plain test seed.');
   }
 
-  const proxy = spawn('node', [join(root, 'tools', 'demo-proxy.mjs')], {
-    cwd: root,
-    detached: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  children.push(proxy);
-  proxy.stdout.pipe(createWriteStream(join(logDir, 'proxy.log')));
-  proxy.stderr.pipe(createWriteStream(join(logDir, 'proxy-errors.log')));
-  await waitFor(`http://127.0.0.1:${PORTS.demo}/__demo`, 'The demo proxy', 30_000);
-
   if (!args.has('--no-warm')) {
     log('warming every demo screen (first compile in next dev; a few minutes)...');
     const warm = spawnSync('node', [join(root, 'tools', 'demo-smoke.mjs')], {
@@ -280,11 +274,9 @@ async function main() {
 
   log(`ready after ${Math.round((Date.now() - started) / 1000)}s`);
   log('');
-  log(`  open     http://localhost:${PORTS.demo}            (sign in for real, or...)`);
-  log(
-    `  switch   http://localhost:${PORTS.demo}/__demo     (act as admin / agent / another tenant)`,
-  );
-  log('  TOTP     node tools/demo-totp.mjs admin');
+  log(`  open     http://localhost:${PORTS.web}   (exactly this address; sign in for real)`);
+  log('  TOTP     node tools/demo-totp.mjs admin   (agent, agent2, unassigned, tenantb)');
+  log('  switch   Sign out (top right), then sign in as the next person');
   log('  stop     Ctrl+C here (or `pnpm demo:down` elsewhere)');
 }
 

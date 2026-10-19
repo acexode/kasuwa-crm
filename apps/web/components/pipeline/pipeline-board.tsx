@@ -8,6 +8,7 @@ import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { FOCUS } from '../records/list-classes';
 import { withheld, type Deal, type Pipeline } from '../../lib/pipelines-api';
 import { DRAG_CLICK_WINDOW_MS, errorMessage, formatCount, formatInstantDate, isUuid, stageById, swallowsClick } from './pipeline-model';
+import { nameOrWithheld } from '../records/name';
 import { AmountValue, CloseValue, Locked, Money, OwnerValue, lockedProps } from './pipeline-parts';
 import type { Column } from './use-pipeline-board';
 
@@ -406,7 +407,7 @@ function DealCard({
           )}
         </p>
       </div>
-      <Related deal={deal} links={links} />
+      <Related t={t} deal={deal} links={links} />
       <p data-field="amount" {...lockedProps(deal, 'amount')} className="font-semibold">
         <span className="sr-only">{t.t('pipeline.field.amount')} </span>
         <AmountValue t={t} locale={locale} deal={deal} />
@@ -496,7 +497,7 @@ function swallowNextClick(card: Element): void {
 }
 
 /** The account and contact summaries: a link only from a well-formed uuid (R15), else text. */
-function Related({ deal, links }: { deal: Deal; links: RecordLinks }) {
+function Related({ t, deal, links }: { t: Translator; deal: Deal; links: RecordLinks }) {
   const account = deal.account ?? null;
   const contact = deal.contact ?? null;
   if (account === null && contact === null) return null;
@@ -511,7 +512,7 @@ function Related({ deal, links }: { deal: Deal; links: RecordLinks }) {
       {contact === null ? null : (
         <p data-related="contact" className="flex min-w-0 items-center gap-1">
           <Icon name="person" size="sm" />
-          <Summary href={links.contacts && isUuid(contact.id) ? `/contacts/${contact.id}` : null} text={contact.displayName} />
+          <Summary href={links.contacts && isUuid(contact.id) ? `/contacts/${contact.id}` : null} text={nameOrWithheld(t, contact.displayName)} />
         </p>
       )}
     </div>

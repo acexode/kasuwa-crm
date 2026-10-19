@@ -13,8 +13,8 @@ and do the "Morning of the demo" checklist an hour before you present.
 | Node **20.14 or newer** first on `PATH` (nvm's Node 16 breaks the tooling) | `node -v` |
 | pnpm 9 | `pnpm -v` |
 | The dialler stack **stopped** (one Docker stack at a time, CLAUDE.md) | `docker ps` shows no `dialler-*` |
-| Nothing else on ports 3000, 3001, 3002, 3100, 55432, 56379 | see Troubleshooting |
-| Chrome or Safari, at 100% zoom, a 1440 px wide window or larger | |
+| Nothing else on ports 3000, 3001, 3002, 55432, 56379 | see Troubleshooting |
+| Chrome, at 100% zoom, a 1440 px wide window or larger (Safari: see Troubleshooting) | |
 
 On this Mac, start every terminal with:
 
@@ -31,7 +31,7 @@ pnpm install --frozen-lockfile
 ```
 
 That is all. You do **not** need to edit `.env` for the demo: `pnpm demo` turns the flags on itself. `tools/dev.mjs`
-creates `.env` from `.env.example` the first time. If you prefer `pnpm dev` (no demo data, no proxy), put this line
+creates `.env` from `.env.example` the first time. If you prefer `pnpm dev` (no demo data), put this line
 in `.env` **and** export it in your shell (the web process does not read `.env`):
 
 ```bash
@@ -49,9 +49,12 @@ KASUWA_FEATURE_FLAGS_ON=crm_records,crm_accounts,crm_record_view,crm_leads,crm_a
 | `crm_pipeline` | Pipeline board and list, deal record |
 | `crm_search` | `/search` and the Ctrl/Cmd+K palette |
 | `crm_custom_fields` | The customisation studio at `/admin/custom-fields` (T-0090) |
+| `crm_import` | The CSV import wizard at `/contacts/import` (T-0096). Uploads need object storage (`pnpm demo --full`) and a bucket that exposes `ETag` over CORS (T-0005); without them the wizard shows but an upload fails |
+| `crm_duplicates` | The duplicates and merge screen at `/contacts/duplicates`, with undo (T-0097) |
+| `crm_notifications` | The notification bell in both shells and the centre at `/notifications` (T-0101) |
 | `admin_live_api` | Two admin panels (programme KPIs, skill cover) show **labelled sample data** |
 
-`pnpm demo` adds `crm_custom_fields` automatically whenever the flag exists in `packages/feature-flags`. A new flag
+`pnpm demo` adds `crm_custom_fields`, `crm_import`, `crm_duplicates` and `crm_notifications` automatically whenever each flag exists in `packages/feature-flags`. A new flag
 that merges later: add it to `DEMO_FLAGS` in `tools/demo.mjs`, or set `KASUWA_FEATURE_FLAGS_ON` yourself (it then
 replaces the list entirely). `self_serve_signup` stays off: its endpoints answer 501.
 
@@ -70,27 +73,32 @@ What `pnpm demo` does, in order (log in `demo/logs/dev.log`):
    `pnpm demo --full` starts them too), bootstrap, migrate, **the test seed** (which truncates first), then the API,
    web, worker and realtime processes. About 30 seconds.
 3. Adds the demo data through the real API (`tools/demo-seed.mjs`). About 5 seconds.
-4. Starts the demo front door on **http://localhost:3100** (`tools/demo-proxy.mjs`).
-5. Opens every screen once headlessly so `next dev` has compiled them (2 to 3 minutes). `--no-warm` skips it, at the
-   price of a 5 to 10 second wait on each screen's first open.
+4. Signs in for real as `admin` in a headless browser and opens every screen once, so `next dev` has compiled them
+   (2 to 3 minutes). `--no-warm` skips it, at the price of a 5 to 10 second wait on each screen's first open.
 
 When it prints `ready after ...s`:
 
 | URL | What |
 |---|---|
-| **http://localhost:3100** | **Use this one.** The app with a session (see below) |
-| http://localhost:3100/__demo | The user switcher |
-| http://localhost:3000 | The raw web app. Do not demo from here: every CRM screen is empty or "not authenticated" |
+| **http://localhost:3000** | **The app.** Use exactly this address (not `127.0.0.1`): see below |
 | http://localhost:3001/health | The API |
 
-### Why port 3100 and not 3000
+### How the session works
 
-The web app signs you in for real (password, then a TOTP code) but **does not yet keep the session token** after
-the second factor: there is no session cookie or BFF. So in a plain browser every CRM screen calls the API with no
-identity. `tools/demo-proxy.mjs` fills that gap for the demo only: it keeps the token from a real sign-in in an
-HttpOnly cookie and sends it as `Authorization: Bearer`, or, for a quick user switch, sends the development stub
-identity headers. Neither path grants scope: the API still reads programme membership from the database on every
-request. This is a known gap for the lead, not something to mention to the audience.
+Since T-0125 the web app keeps a real session after sign-in (ADR-0019). The second factor's answer sets an HttpOnly
+cookie, `__Host-kasuwa_session`, which page JavaScript cannot read, and the web app's own route handler at
+`/api/v1/*` sends it to the API server-side. The browser talks only to http://localhost:3000. Every write must come
+from that exact origin, so `http://127.0.0.1:3000` signs in but then refuses every save: use `localhost`. The
+session lasts 12 hours. **Sign out** (top right of every screen) ends it at the API; signing in again in the same
+browser profile ends the previous one. There is no user switcher any more: presenters sign in for real, as every
+user will.
+
+**The web tier is not a proxy hop** (D-L181 N3). The BFF passes `X-Forwarded-For` on exactly as it received it and
+appends nothing, so the API's `KASUWA_TRUST_PROXY_HOPS` counts only the proxies in front of the web server (the
+ingress or load balancer), never the web server itself. And the web server must **never be exposed to clients
+directly while the API runs with `KASUWA_TRUST_PROXY_HOPS` of 1 or more**: the client would then write the very
+`X-Forwarded-For` entry the API believes, and pick its own sign-in throttle bucket. Locally (the demo, `pnpm dev`) the
+API trusts no hop, which is safe.
 
 ## 4. Who to sign in as
 
@@ -98,7 +106,7 @@ Credentials are the committed **development** fixtures in `packages/db/src/fixtu
 emails, `SEED_PASSWORD`, and `SEED_TOTP_SECRETS`). Never real values; never type them into anything but this local
 app. For the second factor run `node tools/demo-totp.mjs <role>`, which prints the current six-digit code.
 
-| Role (switcher name) | Person | Tenant (workspace slug) | Sees |
+| Role (for `demo-totp`) | Person | Tenant (workspace slug) | Sees |
 |---|---|---|---|
 | `admin` | Musa Bello, tenant admin and supervisor | Sahel BPO (`sahel-bpo`) | Both programmes: Bank X Collections and Telco Y Care; the admin console |
 | `agent` | Tunde Adeyemi, agent | Sahel BPO | Bank X Collections only |
@@ -106,12 +114,17 @@ app. For the second factor run `node tools/demo-totp.mjs <role>`, which prints t
 | `unassigned` | Emeka Nwosu | Sahel BPO | Nothing at all (in no programme) |
 | `tenantb` | Wanjiru Kamau, tenant admin | Rift Valley Contact (`rift-valley-contact`) | Another tenant: Kenyan contacts, nothing of Sahel BPO |
 
-Two ways in:
+Signing in: http://localhost:3000, the workspace slug, the person's email and the fixture password, then the code
+from `node tools/demo-totp.mjs <role>`. You land on Contacts.
 
-- **For real** (do this once, at the start): http://localhost:3100, workspace `sahel-bpo`, Musa's email and the
-  fixture password, then the code from `node tools/demo-totp.mjs admin`. You land on Contacts.
-- **Quick switch** (for every later change of user): http://localhost:3100/__demo, click a role. Keep this open in a
-  second tab.
+**Changing user.** One browser profile holds one session, so either:
+
+- **Sign out** (top right) and sign in as the next person; or, faster on stage,
+- keep one window per person you will switch between, each in its **own Chrome profile** (or one normal window and
+  one Incognito window; all Incognito windows share one session). Sign each in once before you start.
+
+A TOTP code works once: signing the same person in again within 30 seconds needs the next code. Run
+`node tools/demo-totp.mjs <role>` again and wait for it to change.
 
 ## 5. The demo data
 
@@ -135,7 +148,8 @@ No BVN, NIN or real person. Re-running the seed adds nothing (`pnpm demo:seed`).
 
 ## 6. The demo script (25 to 30 minutes)
 
-Open http://localhost:3100 in one tab and http://localhost:3100/__demo in another.
+Open http://localhost:3000. For the role changes below, sign out and back in, or use the per-person windows from
+section 4. "Switch to `agent`" below means either.
 
 ### 1. Sign in and the shell (2 min) as `admin`, for real
 
@@ -205,7 +219,7 @@ Open http://localhost:3100 in one tab and http://localhost:3100/__demo in anothe
 
 ### 9. Admin console and field security (4 min)
 
-- As `admin`, open http://localhost:3100/admin (there is no link to it from the CRM shell yet). Admin home (setup health, recent admin
+- As `admin`, open http://localhost:3000/admin (there is no link to it from the CRM shell yet). Admin home (setup health, recent admin
   changes); **BPO → Programmes → Bank X Collections**: Overview (the KPI tiles are marked **Sample data**), Agents
   and skills, SLA, Dispositions (the five codes), Scripts, Retention, Portal users. **Roles hierarchy**. **Audit log**
   (every change you just made is there).
@@ -229,7 +243,7 @@ Open http://localhost:3100 in one tab and http://localhost:3100/__demo in anothe
 - Language menu: **Français**, then **Hausa**. Note the Beta badges (unreviewed translations are labelled, never
   half-translated).
 - Arabic is not on the menu (no reviewer yet) but previews on any page: add `?locale=ar`, e.g.
-  http://localhost:3100/contacts?locale=ar. The whole layout mirrors, the nav moves right, phone numbers stay
+  http://localhost:3000/contacts?locale=ar. The whole layout mirrors, the nav moves right, phone numbers stay
   left-to-right.
 - Switch back to **English** from the menu before moving on (the choice is kept in a cookie).
 - **Low-bandwidth mode**: the switch at the far right of the header.
@@ -238,7 +252,7 @@ Open http://localhost:3100 in one tab and http://localhost:3100/__demo in anothe
 
 ### 12. Custom fields: the customisation studio (3 min) as `admin`
 
-http://localhost:3100/admin/custom-fields (Admin → Customisation → Fields), tab **Contacts and leads**.
+http://localhost:3000/admin/custom-fields (Admin → Customisation → Fields), tab **Contacts and leads**.
 
 1. **New field** → Label `Repayment plan` (the api name `repayment_plan__c` fills itself), Type **Picklist**,
    values `Weekly`, `Monthly`, `Lump sum` (Add a value for each) → Save.
@@ -261,7 +275,7 @@ http://localhost:3100/admin/custom-fields (Admin → Customisation → Fields), 
 
 | Avoid | Why |
 |---|---|
-| Demoing from http://localhost:3000 | No session in the browser yet; use :3100 |
+| Opening the app at http://127.0.0.1:3000 | Writes are refused there (the session's origin check). Use http://localhost:3000 |
 | **Home, Inbox, Tickets, Reports** in the CRM nav; most admin groups (Channels, Data, Compliance, Automation, Integrations, Billing, Company) | Not built in Phase 2 (placeholders) |
 | **Import** and **Connect WhatsApp number** buttons | Disabled: import and capture come later |
 | The admin console as an **agent** | Admin reads are open to every tenant user today (writes are gated, the audit log included, T-0032 / D-L48). Show the admin console only as `admin` |
@@ -294,8 +308,8 @@ To wipe the database volume too (rarely needed): `docker compose down -v` before
    `demo/screenshots/` (git-ignored).
 4. Sign in for real once as `admin`, rehearse steps 8 (script run) and 12 (custom fields) once, then **restart**
    (`Ctrl+C`, `pnpm demo`) so the audience sees a clean state.
-5. Browser: 100% zoom, one tab on http://localhost:3100, one on http://localhost:3100/__demo. Close the Next.js
-   dev badge (the round "N" bottom left) if it distracts.
+5. Browser: 100% zoom, http://localhost:3000, and the per-person windows signed in if you use them (section 4).
+   Close the Next.js dev badge (the round "N" bottom left) if it distracts.
 
 ## 10. Troubleshooting
 
@@ -303,11 +317,13 @@ To wipe the database volume too (rarely needed): `docker compose down -v` before
 |---|---|
 | `Docker is not running` | Start Docker Desktop, wait until it says running, retry. Do not restart it mid-demo |
 | `The dialler stack is running` | Stop it from its own project (`docker compose down` there) |
-| `Port 3000 (web) is already in use` (or 3001, 3002, 3100) | `pnpm demo:down`; if it persists, `lsof -nP -iTCP:3000 -sTCP:LISTEN` and stop that process |
+| `Port 3000 (web) is already in use` (or 3001, 3002) | `pnpm demo:down`; if it persists, `lsof -nP -iTCP:3000 -sTCP:LISTEN` and stop that process |
 | `kasuwa-postgres` name already in use | Another checkout's stack is up: run `docker compose down` in that checkout |
 | `Unsupported engine` warnings, or odd syntax errors | Node is too old: `node -v` must be 20.14+; put `/usr/local/bin` first on `PATH` |
-| Screens say "not authenticated" or show nothing | You are on :3000, or the demo cookie expired (12 h): use :3100 and switch user at `/__demo` |
-| Sign-in: the code is rejected | The code changes every 30 s; run `node tools/demo-totp.mjs admin` again and type it straight away |
+| You land back on sign-in | The session ended: it expired (12 h), you signed in elsewhere in the same browser profile, or you signed out. Sign in again |
+| Saving anything fails, but reading works | You opened `127.0.0.1:3000`. Use http://localhost:3000 |
+| Safari signs in but every screen sends you back to sign-in | That Safari build will not keep a `Secure` cookie on `http://localhost`. Use Chrome, or stop and start with `KASUWA_SESSION_COOKIE_INSECURE=1 pnpm demo` (development only; it refuses to start anywhere else) |
+| Sign-in: the code is rejected | The code changes every 30 s, and each code works once per person (the warm-up and `pnpm demo:smoke` spend one). Run `node tools/demo-totp.mjs admin` again, wait for a new code, type it straight away |
 | Sign-in: "account locked" | Too many wrong attempts. Restart (`pnpm demo`) clears the lockout |
 | A screen hangs on first open | `next dev` is compiling; wait 10 s. Run the warm-up: `pnpm demo:smoke` |
 | `demo-seed: ... answered 4xx` | Read the error code; the stack still works with the plain test seed. Restart to retry |

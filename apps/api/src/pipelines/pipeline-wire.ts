@@ -67,7 +67,8 @@ export interface DealWire {
   ownerUserId?: string | null;
   owner?: { id: string; displayName: string | null } | null;
   primaryContactId?: string | null;
-  contact?: { id: string; displayName: string } | null;
+  /** T-0124 I3: `displayName` null when a contact name part is withheld (D-L68). */
+  contact?: { id: string; displayName: string | null } | null;
   accountId?: string | null;
   account?: { id: string; name: string } | null;
   nextStep?: string | null;
@@ -172,6 +173,8 @@ function money(amountMinor: string | null, currency: string | null): DealMoneyWi
 export function toDealWire(
   card: DealCard,
   withheld: readonly WithholdableDealField[],
+  /** `displayNameReadable` for the board's programme (T-0124 I3). */
+  contactNameReadable: boolean,
   rottingAfterDays: number | null,
   nowMs: number,
   custom: CustomWire,
@@ -209,7 +212,13 @@ export function toDealWire(
   }
   if (!hidden.has('primaryContactId')) {
     wire.primaryContactId = card.primaryContactId;
-    wire.contact = card.contact;
+    wire.contact =
+      card.contact === null
+        ? null
+        : {
+            id: card.contact.id,
+            displayName: contactNameReadable ? card.contact.displayName : null,
+          };
   }
   if (!hidden.has('accountId')) {
     wire.accountId = card.accountId;

@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
 import { LiteModeToggle } from '../auth/lite-mode';
+import { SignOutButton } from '../auth/sign-out-button';
 import { NAV_GROUPS, filterNav, type NavGroup } from './nav-model';
 import { getHomeSummary, getSettingsMenuBadges, type Severity } from '../../lib/admin-api';
 import { useResource } from './use-resource';
@@ -39,12 +40,16 @@ const SEVERITY_BADGE: Readonly<Record<Severity, string>> = {
   danger: 'bg-danger-soft text-danger-text',
 };
 
+/** The bell is its own chunk, rendered only where the server-side flag says so (D-L182). */
+const NotificationBell = lazy(() => import('../notifications/bell'));
+
 export function AdminShell({
   locale,
   messages,
   locales,
   activeSettingId,
   linkedSettings,
+  bell,
   children,
 }: {
   locale: string;
@@ -60,6 +65,8 @@ export function AdminShell({
    * and every admin route would pay a request for it on a 256 kbps link.
    */
   linkedSettings: Readonly<Record<string, string>>;
+  /** The notifications bell is on in this process (`adminBellLive()`, read on the server by each page). */
+  bell: boolean;
   children: ReactNode;
 }) {
   const t = createBundleTranslator(locale, messages);
@@ -121,7 +128,8 @@ export function AdminShell({
 
   return (
     <div className="flex min-h-screen flex-col bg-bg text-text">
-      <header className="sticky top-0 z-30 flex h-16 shrink-0 flex-wrap items-center gap-3 border-b border-border bg-surface px-4">
+      {/* Tighter spacing below `sm`: at 360 px the bell (T-0101) and the account menu (T-0125) fit on one row only so. */}
+      <header className="sticky top-0 z-30 flex h-16 shrink-0 flex-wrap items-center gap-2 border-b border-border bg-surface px-2 sm:gap-3 sm:px-4">
         <button
           ref={drawerButtonRef}
           type="button"
@@ -141,8 +149,10 @@ export function AdminShell({
           <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-body-md font-extrabold text-accent">
             {t.t('app.name').slice(0, 1)}
           </span>
-          <b className="text-body-md">{t.t('app.name')}</b>
-          <span className="rounded-sm bg-primary-soft px-2 text-caption font-bold text-primary-text">
+          {/* The words only from `sm` up: at 360 px the header needs the room
+              for the account menu, and wrapped onto two rows before it (T-0125). */}
+          <b className="sr-only text-body-md sm:not-sr-only">{t.t('app.name')}</b>
+          <span className="sr-only rounded-sm bg-primary-soft px-2 text-caption font-bold text-primary-text sm:not-sr-only">
             {t.t('admin.shell.admin')}
           </span>
         </Link>
@@ -160,6 +170,12 @@ export function AdminShell({
           </span>
         )}
 
+        {bell ? (
+          <Suspense>
+            <NotificationBell t={t} locale={locale} live={[]} />
+          </Suspense>
+        ) : null}
+
         <LanguageMenu
           options={locales}
           current={locale}
@@ -175,6 +191,7 @@ export function AdminShell({
           accessibleName={t.t('auth.topbar.lite.toggle')}
           compact
         />
+        <SignOutButton label={t.t('auth.signOut')} menuLabel={t.t('auth.account')} />
       </header>
 
       <div className="relative flex flex-1 items-stretch">

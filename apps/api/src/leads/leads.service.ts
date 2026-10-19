@@ -3,9 +3,8 @@ import {
   LEAD_STATUSES,
   listContacts,
   loadContactFieldAccess,
-  loadTenantDefaultCountry,
-  phoneSearchE164,
   programmesReading,
+  programmesReadingDisplayName,
   withheldAnywhere,
   type ContactFilters,
   type ContactSearch,
@@ -27,8 +26,8 @@ import { LEAD_FILTER_FIELDS, type ListLeadsQuery } from './leads.schemas';
  * and the same field security on every row; only the status set is fixed to
  * the lead statuses. There is no lead record and no lead id.
  *
- * NOTHING HERE LOGS: `q` is a name, a number or a company (D-L64), and every
- * row is a person's data.
+ * NOTHING HERE LOGS: `q` is a name or a company (D-L64; an identifier is
+ * refused at the boundary, R21), and every row is a person's data.
  */
 export async function listLeadsFor(
   tx: TenantTx,
@@ -69,11 +68,11 @@ export async function listLeadsFor(
 
   let search: ContactSearch | undefined;
   if (query.q !== undefined) {
-    const country = await loadTenantDefaultCountry(tx);
+    // Per row (T-0124 I7): a withheld displayName is never matched. No phone
+    // match: an identifier in `q` was refused at the boundary (R21).
     search = {
       text: query.q,
-      phoneE164: phoneSearchE164(query.q, country),
-      phoneProgrammeIds: programmesReading(access, 'phones'),
+      displayNameProgrammeIds: programmesReadingDisplayName(access),
       givenNamesProgrammeIds: programmesReading(access, 'givenNames'),
       familyNameProgrammeIds: programmesReading(access, 'familyName'),
       // Per row: a company withheld in a programme is never matched there.

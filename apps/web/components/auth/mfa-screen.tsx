@@ -28,6 +28,7 @@ export function MfaScreen({
   initialMethod,
   initialHint,
   initialResendAvailableAt,
+  landing,
 }: {
   messages: MessageBundle;
   locale: string;
@@ -36,6 +37,8 @@ export function MfaScreen({
   initialMethod: MfaMethodType;
   initialHint: string | null;
   initialResendAvailableAt: string | null;
+  /** Where a signed-in browser lands, decided on the server (`lib/server/landing.ts`). */
+  landing: string;
 }) {
   const t = createBundleTranslator(locale, messages);
   const router = useRouter();
@@ -82,12 +85,18 @@ export function MfaScreen({
       setPending(false);
 
       if (result.ok) {
-        router.push('/');
+        // The BFF has set the session cookie (the body carries no token,
+        // ADR-0019 point 3). Straight to the landing the server chose, with no
+        // redirect hop on the way: a hop through `/` makes the router abort
+        // the redirected request after its answer arrives, which is noise at
+        // best (T-0125 gate). `replace`, so Back does not return to a spent
+        // challenge.
+        router.replace(landing);
         return;
       }
       setError(result.error);
     },
-    [challengeId, code, expired, method, pending, router],
+    [challengeId, code, expired, landing, method, pending, router],
   );
 
   function applyChallenge(challenge: MfaChallengeStarted) {

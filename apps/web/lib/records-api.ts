@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
+import { apiFetch } from './api-fetch';
+import { identifierShaped } from './search-query';
 
 /**
  * The browser's half of `docs/api/records.openapi.yaml` — `listContacts`, the
@@ -62,7 +64,8 @@ export const Contact = z.object({
   id: z.string(),
   programmeId: z.string(),
   version: z.number().int(),
-  displayName: z.string(),
+  /** Omitted, and listed in `withheldFields`, when `givenNames` or `familyName` is withheld (D-L68, T-0124): never composed from a readable part. */
+  displayName: z.string().optional(),
   givenNames: z.string().nullable().optional(),
   familyName: z.string().nullable().optional(),
   phones: z.array(Phone).optional(),
@@ -125,9 +128,18 @@ export type RecordsErrorCode = z.infer<typeof RecordsErrorCode>;
 export const ImportErrorCode = z.enum(['import_status_conflict', 'upload_mismatch']);
 export type ImportErrorCode = z.infer<typeof ImportErrorCode>;
 
+/**
+ * The refusals only the merge operations answer (T-0097, D-L148): `already_merged`
+ * (409, on a merge, and on an undo whose survivor was merged away since) and
+ * `undo_expired` (410). Kept out of `RecordsErrorCode` for the same reason as
+ * the import codes: only the duplicates screen pays for their sentences.
+ */
+export const DuplicatesErrorCode = z.enum(['already_merged', 'undo_expired']);
+export type DuplicatesErrorCode = z.infer<typeof DuplicatesErrorCode>;
+
 const ApiError = z.object({
   statusCode: z.number(),
-  code: z.union([RecordsErrorCode, ImportErrorCode]),
+  code: z.union([RecordsErrorCode, ImportErrorCode, DuplicatesErrorCode]),
   message: z.string(),
   details: z.array(z.object({ path: z.string(), code: z.string() })).optional(),
   /** On a 429: the earliest time a retry can succeed (the search throttle, T-0085). */
@@ -136,7 +148,7 @@ const ApiError = z.object({
 
 /** The request never arrived, or the answer was not the contract's. */
 export const NETWORK_ERROR_CODE = 'network' as const;
-export type RecordsScreenErrorCode = RecordsErrorCode | ImportErrorCode | typeof NETWORK_ERROR_CODE;
+export type RecordsScreenErrorCode = RecordsErrorCode | ImportErrorCode | DuplicatesErrorCode | typeof NETWORK_ERROR_CODE;
 
 /** One `details[]` entry: a path and a reason code, never the submitted value. */
 export interface RecordsErrorDetail {
@@ -150,6 +162,8 @@ export interface RecordsError {
   readonly details?: readonly RecordsErrorDetail[];
   /** On `too_many_requests`, when the contract sends it: the earliest a retry can succeed (ISO 8601, UTC). */
   readonly retryAt?: string;
+  /** On a 429 that sends `Retry-After` in seconds (the duplicates scan, D-L163): how long to wait before asking again. */
+  readonly retryAfterSeconds?: number;
 }
 
 export type RecordsResult<T> =
@@ -180,7 +194,8 @@ export const CONTACTS_PATH = '/api/v1/contacts';
 export function contactListSearch(query: ContactListQuery): string {
   const params = new URLSearchParams();
   const q = query.q?.trim() ?? '';
-  if (q !== '') params.set('q', q.slice(0, 100));
+  // Never an identifier: the API refuses one (`identifier_in_url`), and it must not reach a URL (R21).
+  if (q !== '' && !identifierShaped(q)) params.set('q', q.slice(0, 100));
   for (const value of query.owner ?? []) params.append('owner', value);
   for (const value of query.status ?? []) params.append('status', value);
   for (const value of query.source ?? []) params.append('source', value);
@@ -211,17 +226,12 @@ export async function requestRecords<T>(
 ): Promise<RecordsResult<T>> {
   let response: Response;
   try {
-    response = await fetch(path, {
+    // apiFetch never caches: every records answer carries personal data at a
+    // URL that is the same for every user of every tenant (the BFF also sends
+    // `Cache-Control: no-store`; that is the second layer).
+    response = await apiFetch(path, {
       method: init.method,
-      // Every records answer carries personal data at a URL that is the same
-      // for every user of every tenant: never from, or into, the HTTP cache
-      // (the API also sends `Cache-Control: no-store`; this is the second layer).
-      cache: 'no-store',
-      headers:
-        init.body === undefined
-          ? { accept: 'application/json' }
-          : { accept: 'application/json', 'content-type': 'application/json' },
-      ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+      ...(init.body === undefined ? {} : { body: init.body }),
       ...(init.signal === undefined ? {} : { signal: init.signal }),
     });
   } catch {
@@ -242,12 +252,16 @@ export async function requestRecords<T>(
     return { ok: false, error: NETWORK_FAILURE };
   }
   const { code, details, retryAt } = parsed.data;
+  // Delta-seconds only: an HTTP-date, a zero or a negative is no wait at all.
+  const waited = Number(response.headers.get('retry-after'));
+  const retryAfterSeconds = Number.isInteger(waited) && waited >= 1 ? waited : undefined;
   return {
     ok: false,
     error: {
       code,
       ...(details === undefined ? {} : { details }),
       ...(retryAt === undefined ? {} : { retryAt }),
+      ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }),
     },
   };
 }

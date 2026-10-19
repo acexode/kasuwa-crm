@@ -9,6 +9,7 @@ import {
   type RecordsError,
   type RecordsResult,
 } from './records-api';
+import { apiFetch } from './api-fetch';
 
 /**
  * The browser's half of the P05 contact record (T-0062): `getContact`,
@@ -209,16 +210,11 @@ async function call<T>(
 ): Promise<RecordsResult<T>> {
   let response: Response;
   try {
-    response = await fetch(path, {
+    // apiFetch never caches: every answer here is a person's record or a staff
+    // member's identity, on a shared desk (T-0062 review).
+    response = await apiFetch(path, {
       method: init.method ?? 'GET',
-      // Never into the browser's HTTP cache: every answer here is a person's
-      // record or a staff member's identity, on a shared desk (T-0062 review).
-      cache: 'no-store',
-      headers:
-        init.body === undefined
-          ? { accept: 'application/json' }
-          : { accept: 'application/json', 'content-type': 'application/json' },
-      ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+      ...(init.body === undefined ? {} : { body: init.body }),
       ...(init.signal === undefined ? {} : { signal: init.signal }),
     });
   } catch {

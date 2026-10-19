@@ -68,14 +68,19 @@ describe('P04/02 filters and the query', () => {
 
   it('builds a query with no scope, no total and no empty q', () => {
     const filters = toggleFilter(toggleFilter(NO_FILTERS, 'status', 'qualified'), 'dnd', 'true');
-    const search = contactListSearch(toListQuery('  0803 000 000 ', filters));
+    const search = contactListSearch(toListQuery('  Sample Fixture ', filters));
     const params = new URLSearchParams(search);
-    expect(params.get('q')).toBe('0803 000 000');
+    expect(params.get('q')).toBe('Sample Fixture');
     expect(params.getAll('status')).toEqual(['qualified']);
     expect(params.get('dnd')).toBe('true');
     expect(params.get('limit')).toBe('25');
     expect([...params.keys()].filter((key) => /programme|total|page|offset/i.test(key))).toEqual([]);
     expect(new URLSearchParams(contactListSearch(toListQuery('   ', NO_FILTERS))).has('q')).toBe(false);
+  });
+
+  it('never sends a number or an address as q (identifier_in_url, R21)', () => {
+    expect(new URLSearchParams(contactListSearch(toListQuery('0803 000 000', NO_FILTERS))).has('q')).toBe(false);
+    expect(new URLSearchParams(contactListSearch(toListQuery('sample@example.test', NO_FILTERS))).has('q')).toBe(false);
   });
 
   it('echoes a cursor verbatim', () => {

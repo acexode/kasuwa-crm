@@ -1,5 +1,9 @@
 import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import { Catch, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  INTERNAL_ERROR_BODY as SHARED_INTERNAL_ERROR_BODY,
+  NOT_FOUND_BODY as SHARED_NOT_FOUND_BODY,
+} from '@kasuwa/config';
 import { isPoolConnectionTimeout } from '@kasuwa/db';
 import { InvalidCursorError } from '@kasuwa/domain-core';
 import type { Request, Response } from 'express';
@@ -47,25 +51,23 @@ import { ValidationExceptionFilter } from './zod-exception.filter';
  * two global filters Nest happens to try first.
  */
 
-/** The fixed 500 body. `code` is in both specs' `Error.code` enums. */
-export const INTERNAL_ERROR_BODY = Object.freeze({
-  statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-  error: 'Internal Server Error',
-  code: 'internal_error',
-  message: 'Something went wrong on our side. Please try again.',
-});
+/**
+ * The fixed 500 body. `code` is in both specs' `Error.code` enums. Defined in
+ * `@kasuwa/config` since T-0125, because the web BFF answers an unreachable
+ * API with the same body (ADR-0019 point 1).
+ */
+export const INTERNAL_ERROR_BODY = SHARED_INTERNAL_ERROR_BODY;
 
 // The 503 body and Retry-After live in ./service-unavailable, shared with the
 // hashing-overload 503 so both kinds of load shedding answer identically.
 export { SERVICE_UNAVAILABLE_BODY, SERVICE_UNAVAILABLE_RETRY_AFTER_SECONDS };
 
-/** The 404 for a path that matches no route. `not_found` is in the admin `Error.code` enum. */
-export const NOT_FOUND_BODY = Object.freeze({
-  statusCode: HttpStatus.NOT_FOUND,
-  error: 'Not Found',
-  code: 'not_found',
-  message: 'Not found',
-});
+/**
+ * The 404 for a path that matches no route. `not_found` is in the admin
+ * `Error.code` enum. Shared with the web BFF, which answers a top-level
+ * navigation to `/api/*` with exactly this (ADR-0019, amendment 4).
+ */
+export const NOT_FOUND_BODY = SHARED_NOT_FOUND_BODY;
 
 /** The route TEMPLATE Express matched (`/api/v1/contacts/:id`), never the URL. */
 export function routeTemplate(request: unknown): string {

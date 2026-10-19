@@ -1,3 +1,4 @@
+import type { MessageId } from '@kasuwa/i18n/bundle';
 import { KEY_PATTERN, VARIABLE, nodeById, type FormField, type ScriptGraph, type ScriptLocale, type ScriptNode, type ScriptVersion } from '../../lib/script-graph';
 import type { AnswerValue, NodeAnswer, RunContact, RunOutcome, ScriptRun } from '../../lib/script-runs-api';
 import { numberingLocale } from '../../lib/numbering';
@@ -119,7 +120,24 @@ export function wordingFor(node: ScriptNode, version: ScriptVersion, locale: Scr
 // Variables: filled in from what the screen holds, a placeholder otherwise
 // ---------------------------------------------------------------------------
 
-export type Segment = { readonly kind: 'text'; readonly text: string } | { readonly kind: 'placeholder'; readonly variable: string };
+export type Segment =
+  | { readonly kind: 'text'; readonly text: string }
+  | { readonly kind: 'placeholder'; readonly variable: string }
+  /**
+   * `{contact.displayName}` withheld from this agent (D-L68, D-L180, T-0124
+   * I13): drawn as a neutral, translated stand-in ("the customer"), the
+   * message the scripting contract names as
+   * `x-kasuwa-withheld-name-message-id`. Never the name, never a part of it.
+   */
+  | { readonly kind: 'withheldName' };
+
+/** The stand-in's message id (scripting.openapi.yaml getScriptRunScript `x-kasuwa-withheld-name-message-id`). */
+export const WITHHELD_NAME_MESSAGE_ID: MessageId = 'scripting.run.withheldName';
+
+/** True when the contact is loaded and field security withholds its `displayName` (it follows its name parts). */
+export function nameWithheld(contact: RunContact | null): boolean {
+  return contact !== null && (contact.withheldFields.includes('displayName') || typeof contact.displayName !== 'string');
+}
 
 export interface FillContext {
   readonly contact: RunContact | null;
@@ -151,7 +169,11 @@ function answerValue(context: FillContext, nodeId: string, key: string): string 
   return formatAnswer(field, value, context.locale);
 }
 
-/** Wording as text segments, each variable replaced by its value or by a placeholder. Never HTML. */
+/**
+ * Wording as text segments, each variable replaced by its value or by a
+ * placeholder; a withheld `{contact.displayName}` by the name's stand-in.
+ * Never HTML. Display only: nothing here decides a branch (the server does).
+ */
 export function fill(text: string, context: FillContext): Segment[] {
   const segments: Segment[] = [];
   let last = 0;
@@ -161,6 +183,11 @@ export function fill(text: string, context: FillContext): Segment[] {
     const variable = match[1] ?? '';
     const [family, first, second] = variable.split('.');
     let value: string | null = null;
+    if (family === 'contact' && first === 'displayName' && second === undefined && nameWithheld(context.contact)) {
+      segments.push({ kind: 'withheldName' });
+      last = at + match[0].length;
+      continue;
+    }
     if (family === 'contact' && first !== undefined) value = contactValue(context.contact, first);
     else if (family === 'agent') value = context.agentName;
     else if (family === 'answer' && first !== undefined && second !== undefined) value = answerValue(context, first, second);

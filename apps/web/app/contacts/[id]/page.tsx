@@ -5,7 +5,7 @@ import { CONTACT_RECORD_MESSAGE_IDS } from '../../../components/contact-record/m
 import { START_SCRIPT_MESSAGE_IDS } from '../../../components/script-run/message-ids';
 import { crmCustomFieldsEnabled, crmLiveNav, crmRecordViewEnabled, crmRecordsEnabled, crmScriptsEnabled } from '../../../lib/feature-flags';
 import { withCustomMessages } from '../../../components/custom/message-ids';
-import { withSearchMessages } from '../../../components/search/message-ids';
+import { withShellMessages } from '../../../components/crm/shell-messages';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
 /**
@@ -49,7 +49,7 @@ export default async function ContactRecordPage({ params }: { params: Promise<{ 
     <ContactRecordScreen
       id={id}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(scripts ? [...CONTACT_RECORD_MESSAGE_IDS, ...START_SCRIPT_MESSAGE_IDS] : CONTACT_RECORD_MESSAGE_IDS, customFields), live))}
+      messages={bundleMessages(locale, withShellMessages(withCustomMessages(scripts ? [...CONTACT_RECORD_MESSAGE_IDS, ...START_SCRIPT_MESSAGE_IDS] : CONTACT_RECORD_MESSAGE_IDS, customFields), live))}
       locales={languageOptions(locale)}
       live={live}
       scripts={scripts}

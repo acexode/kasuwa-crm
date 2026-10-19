@@ -122,3 +122,90 @@ export function assertThrottleIsNotACellWideCliff(env) {
     );
   }
 }
+
+/**
+ * Whether a URL's hostname is a loopback address: `localhost`, `[::1]`, or
+ * 127.0.0.0/8 (ADR-0019 point 8, amendment 2).
+ *
+ * Takes the hostname as the WHATWG URL parser leaves it, which canonicalises
+ * a numeric IPv4 address. So `127.0.0.1.evil.example` is a domain name that
+ * merely begins with 127., and is not loopback.
+ *
+ * @param {string} hostname
+ * @returns {boolean}
+ */
+export function isLoopbackHostname(hostname) {
+  if (hostname === 'localhost' || hostname === '[::1]') {
+    return true;
+  }
+  const octets = /^127\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/u.exec(hostname);
+  return octets !== null && octets.slice(1).every((octet) => Number(octet) <= 255);
+}
+
+/**
+ * Fail-closed guard for the browser session layer (ADR-0019 point 8, D-L94).
+ *
+ * The cookie's attributes are constants in code (HttpOnly, SameSite=Lax,
+ * Path=/, no Domain, the `__Host-` name), so no deployment can weaken them by
+ * configuration. What configuration CAN do, and this refuses:
+ *
+ *   - KASUWA_SESSION_COOKIE_INSECURE outside development and test. Its
+ *     PRESENCE refuses, with any value, empty and "0" included: a flag whose
+ *     off-switch is a particular spelling is a flag somebody sets by mistake.
+ *     Inside development and test it must be exactly "1", for the same reason.
+ *   - an `http:` KASUWA_WEB_ORIGIN outside development and test, unless the
+ *     host is loopback (browsers treat loopback as a secure context, so the
+ *     cookie keeps `Secure` and its prefix there; this is not "loopback means
+ *     development", D-L95).
+ *   - an `http:` KASUWA_API_INTERNAL_URL outside development and test, unless
+ *     the host is loopback (D-L149 #4 with amendment 2): the Bearer token
+ *     travels on that leg.
+ *
+ * Runs on an already-parsed environment, so both URLs have been checked for
+ * shape (an origin, no credentials) by the schema. Messages name the variable
+ * and never echo its value.
+ *
+ * @param {{
+ *   readonly NODE_ENV: NodeEnvName;
+ *   readonly KASUWA_SESSION_COOKIE_INSECURE?: string | undefined;
+ *   readonly KASUWA_WEB_ORIGIN?: string | undefined;
+ *   readonly KASUWA_API_INTERNAL_URL?: string | undefined;
+ * }} env
+ * @returns {void}
+ */
+export function assertSessionCookieIsSafe(env) {
+  const relaxed = env.NODE_ENV === 'development' || env.NODE_ENV === 'test';
+  if (env.KASUWA_SESSION_COOKIE_INSECURE !== undefined) {
+    if (!relaxed) {
+      throw new Error(
+        'Refusing to start: KASUWA_SESSION_COOKIE_INSECURE is set. It drops Secure and the ' +
+          '__Host- prefix from the session cookie and exists only for development and test; ' +
+          'outside them its presence, with any value, refuses boot. Remove it. See ' +
+          'docs/adr/0019-browser-session.md point 8.',
+      );
+    }
+    if (env.KASUWA_SESSION_COOKIE_INSECURE !== '1') {
+      throw new Error(
+        'Refusing to start: KASUWA_SESSION_COOKIE_INSECURE must be exactly "1" when it is set. ' +
+          'Unset it to keep the secure cookie.',
+      );
+    }
+  }
+  if (relaxed) {
+    return;
+  }
+  for (const name of /** @type {const} */ (['KASUWA_WEB_ORIGIN', 'KASUWA_API_INTERNAL_URL'])) {
+    const value = env[name];
+    if (value === undefined) {
+      continue;
+    }
+    const url = new URL(value);
+    if (url.protocol !== 'https:' && !isLoopbackHostname(url.hostname)) {
+      throw new Error(
+        `Refusing to start: ${name} must be https outside development and test (a loopback ` +
+          'host is the one exception). See docs/adr/0019-browser-session.md point 8 and ' +
+          'team/DECISIONS.md D-L149.',
+      );
+    }
+  }
+}

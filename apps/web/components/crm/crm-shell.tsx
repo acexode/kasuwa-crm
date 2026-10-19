@@ -17,8 +17,16 @@ import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
 import { LiteModeToggle } from '../auth/lite-mode';
+import { SignOutButton } from '../auth/sign-out-button';
 import { SHELL_SEARCH_STRINGS } from '../search/message-ids';
 import { CRM_NAV, liveHref, type CrmNavItem } from './crm-nav';
+
+/**
+ * The bell is its OWN chunk (D-L182): a lazy `import()` (React's own, as the palette's: `next/dynamic` would add its runtime to every page) that is rendered only where
+ * the server-side flag says so, so a process with the notifications flag off never ships
+ * its component, poller, store or writes, and the shell costs it nothing.
+ */
+const NotificationBell = lazy(() => import('../notifications/bell'));
 
 /**
  * The CRM app shell (T-0042) — the frame every record screen sits in, and NOT
@@ -37,8 +45,16 @@ import { CRM_NAV, liveHref, type CrmNavItem } from './crm-nav';
  * never opens it never pays for it. While it is open, everything behind it is
  * inert; when it closes, focus goes back to where it was.
  *
- * Still to come, and deliberately absent rather than faked: notifications,
- * agent availability and the account menu. Each needs an API that does not
+ * THE BELL (T-0101, P26). Where the notifications flag is on in this process
+ * (`live.includes('notifications')`), the header draws the notifications bell:
+ * its code, the count store and the poller are in this shell's first load, and
+ * the dropdown is a dynamic `import()` on its first open.
+ *
+ * SIGN OUT (T-0125, ADR-0019 point 5) ends the session at the API and lands on
+ * sign-in. Below `sm` it sits behind a 44 px account button.
+ *
+ * Still to come, and deliberately absent rather than faked: agent
+ * availability and the rest of the account menu. Each needs an API that does not
  * exist yet; a control that does nothing is a promise the product breaks the
  * first time someone presses it.
  */
@@ -144,6 +160,7 @@ export function CrmShell({
   // is always among them, so it is never a link to a 404.
   const home = CRM_NAV.map((item) => liveHref(item, live)).find((href) => href !== null) ?? null;
   const searchLive = live.includes('search');
+  const bellLive = live.includes('notifications');
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [Palette, setPalette] = useState<LazyExoticComponent<ComponentType<PaletteProps>> | null>(null);
   const openRef = useRef(false);
@@ -189,7 +206,8 @@ export function CrmShell({
 
   return (
     <div data-shell="crm" className="flex min-h-screen flex-col bg-bg text-text">
-      <header {...behind} className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
+      {/* Tighter spacing below `sm`: at 360 px the bell (T-0101) and the account menu (T-0125) fit on one row only so. */}
+      <header {...behind} className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-surface px-2 sm:gap-3 sm:px-4">
         <Link href={home ?? `/${current}`} className={`flex shrink-0 items-center gap-2 rounded-md ${LINK_FOCUS}`}>
           <span
             aria-hidden="true"
@@ -197,7 +215,8 @@ export function CrmShell({
           >
             {t.t('app.name').slice(0, 1)}
           </span>
-          <b className="text-body-md">{t.t('app.name')}</b>
+          {/* The word only from `sm` up: at 360 px the header needs the room for the account menu (T-0125) and the bell (T-0101). */}
+          <b className="sr-only text-body-md sm:not-sr-only">{t.t('app.name')}</b>
         </Link>
         <span className="flex-1" />
         {searchLive ? (
@@ -214,6 +233,11 @@ export function CrmShell({
             <span className="sr-only sm:not-sr-only">{t.t(SHELL_SEARCH_STRINGS.entry)}</span>
           </Link>
         ) : null}
+        {bellLive ? (
+          <Suspense>
+            <NotificationBell t={t} locale={locale} live={live} />
+          </Suspense>
+        ) : null}
         <LanguageMenu
           options={locales}
           current={locale}
@@ -229,6 +253,7 @@ export function CrmShell({
           accessibleName={t.t('auth.topbar.lite.toggle')}
           compact
         />
+        <SignOutButton label={t.t('auth.signOut')} menuLabel={t.t('auth.account')} />
       </header>
 
       <div {...behind} className="flex min-w-0 flex-1 items-stretch">

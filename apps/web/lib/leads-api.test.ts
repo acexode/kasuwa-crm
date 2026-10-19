@@ -67,7 +67,7 @@ describe('leadListSearch', () => {
         owner: ['me', 'unassigned'],
         status: ['new', 'contacted'],
         source: ['whatsapp'],
-        sort: '-displayName',
+        sort: '-updatedAt',
         cursor: 'abc',
         limit: 25,
       }).slice(1),
@@ -76,7 +76,7 @@ describe('leadListSearch', () => {
     expect(params.getAll('owner')).toEqual(['me', 'unassigned']);
     expect(params.getAll('status')).toEqual(['new', 'contacted']);
     expect(params.getAll('source')).toEqual(['whatsapp']);
-    expect(params.get('sort')).toBe('-displayName');
+    expect(params.get('sort')).toBe('-updatedAt');
     expect(params.get('cursor')).toBe('abc');
     expect(params.get('limit')).toBe('25');
     expect([...params.keys()].some((key) => /programme|tenant|account/i.test(key))).toBe(false);
@@ -88,6 +88,19 @@ describe('leadListSearch', () => {
     expect(new URLSearchParams(leadListSearch({ q: `${'a'.repeat(99)} b` }).slice(1)).get('q')).toBe('a'.repeat(99));
     expect(leadListSearch({ q: '   ' })).toBe('');
     expect(leadListSearch({ sort: '-createdAt' })).toBe('');
+  });
+
+  it('never puts a phone number or an email address in q (the API refuses it: identifier_in_url)', () => {
+    expect(leadListSearch({ q: '0803 000 0001' })).toBe('');
+    expect(leadListSearch({ q: 'sample@example.test' })).toBe('');
+    expect(new URLSearchParams(leadListSearch({ q: 'Unit 12 Block 3456' }).slice(1)).get('q')).toBe('Unit 12 Block 3456');
+  });
+
+  it('a name the caller may not read is omitted, and the row still parses', () => {
+    const { displayName: _name, ...rest } = ROW;
+    const row = Lead.parse({ ...rest, withheldFields: ['displayName', 'familyName'] });
+    expect(row.displayName).toBeUndefined();
+    expect(isWithheld(row, 'displayName')).toBe(true);
   });
 });
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { apiFetch } from './api-fetch';
 
 /**
  * One same-origin request to the scripting API (`docs/api/scripting.openapi.yaml`),
@@ -77,14 +78,9 @@ export async function scriptingRequest<T>(
 ): Promise<ScriptingResult<T>> {
   let response: Response;
   try {
-    response = await fetch(path, {
+    response = await apiFetch(path, {
       method: init.method ?? 'GET',
-      cache: 'no-store',
-      headers:
-        init.body === undefined
-          ? { accept: 'application/json' }
-          : { accept: 'application/json', 'content-type': 'application/json' },
-      ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+      ...(init.body === undefined ? {} : { body: init.body }),
       ...(init.signal === undefined ? {} : { signal: init.signal }),
     });
   } catch {

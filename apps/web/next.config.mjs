@@ -16,9 +16,10 @@ import { webBuildEnv, webEnv } from '@kasuwa/config/src/web.mjs';
  *     of a database URL, without the stub-auth guard. A build is not a boot;
  *     it resolves no caller, and CI builds with no auth mode at all.
  *   - every other phase, `next dev` and `next start` included, runs `webEnv()`,
- *     which DOES run the guard. A production web server with
- *     KASUWA_AUTH_MODE unset or `stub` refuses to start here, before it binds a
- *     port, exactly as the API does.
+ *     which DOES run the guards. A production web server with
+ *     KASUWA_AUTH_MODE unset or `stub`, or with an unsafe session layer
+ *     (ADR-0019 point 8), refuses to start here, before it binds a port,
+ *     exactly as the API does.
  *
  * @param {string} phase
  * @returns {import('next').NextConfig}
@@ -55,25 +56,11 @@ export default function nextConfig(phase) {
     // server components and never reach a browser bundle.
     transpilePackages: ['@kasuwa/ui', '@kasuwa/i18n', '@kasuwa/feature-flags', '@kasuwa/config'],
 
-    /**
-     * THE API IS SAME-ORIGIN TO THE BROWSER.
-     *
-     * Every fetch in `apps/web` is a relative `/api/v1/...` path, and this
-     * rewrite is the only place an API hostname appears. No third origin for
-     * the browser to resolve: on a 300 ms link an extra DNS lookup, TLS
-     * handshake and CORS preflight is most of a second before the first byte of
-     * a sign-in response, per request.
-     *
-     * `next build` resolves this into the routes manifest, so the API origin
-     * has to be known at build time.
-     */
-    async rewrites() {
-      return [
-        {
-          source: '/api/v1/:path*',
-          destination: `${env.NEXT_PUBLIC_API_URL}/api/v1/:path*`,
-        },
-      ];
-    },
+    // THE API IS SAME-ORIGIN TO THE BROWSER, through a route handler rather
+    // than a rewrite (ADR-0019, T-0125). `app/api/v1/[...path]/route.ts` is the
+    // browser's only door to the API: it keeps the session in an HttpOnly
+    // cookie, enforces CSRF and forwards server-side to KASUWA_API_INTERNAL_URL,
+    // read at runtime through webEnv(). So no API address is resolved at build
+    // time, none is inlined into a bundle, and there is no rewrite here.
   };
 }

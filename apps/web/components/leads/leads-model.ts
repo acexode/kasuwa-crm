@@ -25,7 +25,10 @@ import { ContactSource, hasDetail, isWithheld, type RecordsError } from '../../l
  *   - Filters are `listLeads` parameters: owner, status, source. Status
  *     offers the four lead stages only; `customer` is never a chip, a column
  *     or a move target. Leaving the lead stages is convert's job.
- *   - Sort is `sort`'s enum only: never company, status, owner or source.
+ *   - Sort is `sort`'s enum only: created and updated, either way. Never
+ *     company, status, owner or source, and never the name: `displayName`
+ *     follows its name parts and can be withheld (T-0124, D-L68), so
+ *     `sort=displayName` is a 400.
  *   - No totals, no live chip counts, no Kanban column counts (D-P13).
  *   - The one contact write is a Kanban move, `{ version, status }`.
  *   - Convert is one `convertContact`: an account in the lead's own
@@ -163,19 +166,10 @@ const SORT_LABELS: Readonly<Record<LeadSort, MessageId>> = {
   createdAt: 'accounts.sort.oldest',
   '-updatedAt': 'accounts.sort.updatedRecent',
   updatedAt: 'accounts.sort.updatedOldest',
-  displayName: 'accounts.sort.nameAsc',
-  '-displayName': 'accounts.sort.nameDesc',
 };
 
 export function leadSortLabel(sort: LeadSort): MessageId {
   return SORT_LABELS[sort];
-}
-
-/** `aria-sort` for the name header: the only column whose key is in `sort`'s enum. */
-export function nameAriaSort(sort: LeadSort): 'ascending' | 'descending' | 'none' {
-  if (sort === 'displayName') return 'ascending';
-  if (sort === '-displayName') return 'descending';
-  return 'none';
 }
 
 /** Everything about the list but the search box, replaced as one value (`useKeysetList` compares it by identity). */

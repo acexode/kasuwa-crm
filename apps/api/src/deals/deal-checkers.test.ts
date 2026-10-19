@@ -133,7 +133,7 @@ describe('the deals API reads judge each checker in the deal’s programme (T-01
     );
     const deal = await findDealById(tx, DEAL_1);
     if (deal === null) throw new Error('expected a deal');
-    const wire = toDealWire(deal, new Map(), EMPTY_CUSTOM_WIRE, AT.getTime());
+    const wire = toDealWire(deal, new Map(), new Map(), EMPTY_CUSTOM_WIRE, AT.getTime());
     expect(wire.checks.map((check) => check.checkedBy)).toEqual([
       { id: FORMER, displayName: null },
     ]);

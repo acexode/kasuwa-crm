@@ -1,4 +1,5 @@
 import {
+  displayNameReadable,
   withheldContactFields,
   type Contact,
   type ContactAccountSummary,
@@ -28,17 +29,20 @@ const DERIVED: readonly (readonly [
   ['account', 'accountId'],
 ];
 
-/** A name `withheldFields` may carry. */
-export type WithheldContactWireField = WithholdableContactField | DerivedContactField;
+/** A name `withheldFields` may carry. `displayName` follows its name parts (D-L68). */
+export type WithheldContactWireField = 'displayName' | WithholdableContactField | DerivedContactField;
 
 /**
  * The wire's `withheldFields` for the matrix's withheld list: each withheld
- * field, followed by any property derived from it, in contract order.
+ * field, followed by any property derived from it, in contract order, with
+ * `displayName` first when `nameReadable` is false (`displayNameReadable`).
  */
 export function withheldWireFields(
   withheld: readonly WithholdableContactField[],
+  nameReadable = true,
 ): WithheldContactWireField[] {
-  const result: WithheldContactWireField[] = [];
+  // `displayName` first: it precedes the name parts in the contract's order.
+  const result: WithheldContactWireField[] = nameReadable ? [] : ['displayName'];
   for (const field of withheld) {
     result.push(field);
     for (const [derived, source] of DERIVED) {
@@ -62,7 +66,8 @@ export interface ContactWire {
   id: string;
   programmeId: string;
   version: number;
-  displayName: string;
+  /** T-0124 (D-L68): withheld, so omitted and listed, unless both name parts are readable. */
+  displayName?: string;
   givenNames?: string | null;
   familyName?: string | null;
   /** T-0076 (D-P17): free text, field-secured as `company_name`. */
@@ -102,8 +107,12 @@ export function toContactWire(
   access: ContactFieldAccess,
   custom: CustomWire,
 ): ContactWire {
-  const withheld = withheldWireFields(withheldContactFields(access, contact.programmeId));
+  const withheld = withheldWireFields(
+    withheldContactFields(access, contact.programmeId),
+    displayNameReadable(access, contact.programmeId),
+  );
   const readable: Partial<Record<WithheldContactWireField, unknown>> = {
+    displayName: contact.displayName,
     givenNames: contact.givenNames,
     familyName: contact.familyName,
     companyName: contact.companyName,
@@ -130,7 +139,6 @@ export function toContactWire(
     id: contact.id,
     programmeId: contact.programmeId,
     version: contact.version,
-    displayName: contact.displayName,
     ...(readable as Partial<ContactWire>),
     createdAt: contact.createdAt.toISOString(),
     updatedAt: contact.updatedAt.toISOString(),

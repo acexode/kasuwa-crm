@@ -10,7 +10,7 @@ import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { isWithheld, type Contact } from '../../lib/records-api';
-import { dropQueryFromAddressBar } from '../../lib/search-query';
+import { dropQueryFromAddressBar, listQ, numberTyped } from '../../lib/search-query';
 import { filterableFields, NO_CUSTOM_FILTERS, listRefusalId, setCustomFilter, type CustomFilters } from '../../lib/custom-values-filters';
 import { LazyCustomFilterBar } from '../custom/lazy-filters';
 import { useCustomDefinitions } from '../custom/use-custom-fields';
@@ -21,6 +21,7 @@ import {
   LoadMore,
   LockedValue,
   Muted,
+  NumberSearchHint,
   OfflineBanner,
   HeaderLock,
 } from '../records/list-parts';
@@ -45,7 +46,7 @@ import {
   type FilterState,
 } from './contacts-model';
 import { useContactList } from './use-contact-list';
-import { ImportLink, UnavailableAction } from './contacts-parts';
+import { DuplicatesLink, ImportLink, UnavailableAction } from './contacts-parts';
 
 // Loaded when opened: neither the phone's filter sheet nor the column chooser is on the list's first paint.
 const ColumnChooser = guarded(
@@ -135,7 +136,11 @@ export function ContactsScreen({
   const view = useMemo(() => ({ filters, custom: customFilters, ...(importId === undefined ? {} : { importId }) }), [filters, customFilters, importId]);
   // The one place the import screen is linked from here (`live` is the server's word for what is on).
   const importHref = live.includes('import') ? '/contacts/import' : null;
-  const list = useContactList(q, view);
+  // And the one place the duplicates screen is linked from (T-0097).
+  const duplicatesHref = live.includes('duplicates') ? '/contacts/duplicates' : null;
+  // A number typed here is not sent (the API refuses it in `q`): the hint points at Search.
+  const numberHeld = numberTyped(q);
+  const list = useContactList(listQ(q), view);
 
   const searched =
     list.answered.q.trim() !== '' ||
@@ -203,6 +208,7 @@ export function ContactsScreen({
               {t.t('records.programme.chip')}
             </span>
             <span className="flex-1" />
+            {duplicatesHref === null ? null : <DuplicatesLink t={t} href={duplicatesHref} offline={offline} />}
             {importHref === null ? (
               <UnavailableAction t={t} action="import-csv" icon="upload_file" label="records.action.import" />
             ) : (
@@ -318,6 +324,8 @@ export function ContactsScreen({
             ) : null}
           </div>
         </div>
+
+        {numberHeld ? <NumberSearchHint t={t} searchLive={live.includes('search')} /> : null}
 
         {filterableFields(custom.fields).length > 0 ? (
         <LazyCustomFilterBar
@@ -471,7 +479,7 @@ function Body({
                 {columns.map((key) =>
                   key === 'displayName' ? (
                     <th key={key} scope="row" data-field={key} className="p-3 text-start font-normal">
-                      <NameCell row={row} />
+                      <NameCell t={t} row={row} />
                     </th>
                   ) : (
                     <FieldCell key={key} t={t} row={row} field={key} as="td" />
@@ -487,7 +495,7 @@ function Body({
         {rows.map((row) => (
           <li key={row.id} data-row-id={row.id} className="flex min-w-0 flex-col gap-1 rounded-lg border border-border bg-surface p-3">
             <div data-field="displayName" className="min-w-0">
-              <NameCell row={row} />
+              <NameCell t={t} row={row} />
             </div>
             <FieldCell t={t} row={row} field="phones" as="div" />
             <div className="flex flex-wrap items-center gap-2">
@@ -511,18 +519,25 @@ function Body({
   );
 }
 
-function NameCell({ row }: { row: Contact }) {
+function NameCell({ t, row }: { t: Translator; row: Contact }) {
+  const name = row.displayName;
   return (
     <span className="flex min-w-0 items-center gap-3">
       <span
         aria-hidden="true"
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-caption font-bold text-primary-text"
       >
-        {initials(row.displayName)}
+        {name === undefined ? <Icon name="lock" size="sm" /> : initials(name)}
       </span>
-      <b data-record-text="" className="min-w-0 truncate text-body-sm">
-        {row.displayName}
-      </b>
+      {name === undefined ? (
+        <span data-name-withheld="" className="min-w-0 truncate text-body-sm text-text-muted">
+          {t.t('records.name.withheld')}
+        </span>
+      ) : (
+        <b data-record-text="" className="min-w-0 truncate text-body-sm">
+          {name}
+        </b>
+      )}
     </span>
   );
 }
@@ -559,7 +574,7 @@ function FieldValue({ t, row, field }: { t: Translator; row: Contact; field: Col
   const notSet = <Muted>{t.t('records.cell.empty')}</Muted>;
   switch (field) {
     case 'displayName':
-      return <NameCell row={row} />;
+      return <NameCell t={t} row={row} />;
     case 'phones': {
       const phone = row.phones?.[0];
       return (

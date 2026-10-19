@@ -6,6 +6,10 @@
   "reviewedAt": null,
   "note": "Candidate draft produced by Agent 11, not by a professional translator. D-P1 assigns French to paid professional translation; until that translation is bought and recorded here, French is not offered.",
   "passthroughRationale": {
+    "notifications.bell.label": "The same word in French.",
+    "notifications.dropdown.title": "The same word in French.",
+    "notifications.title": "The same word in French.",
+    "notifications.kind.label": "The same word in French.",
     "app.name": "Product name. It is spelled the same in every locale.",
     "tokens.sample.text": "A typographic specimen, not prose. It already mixes Yoruba, Hausa and Igbo glyphs on purpose, and translating it would destroy what it tests.",
     "tokens.contrast.ratio": "A numeric format, \"{ratio}:1\". No words.",
@@ -87,6 +91,7 @@
     "admin.studio.custom.form.classification": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "import.mapfield.source": "A word spelled the same in this language.",
     "import.country.GH": "A country name spelled the same in this language, with its dial code.",
-    "import.country.KE": "A country name spelled the same in this language, with its dial code."
+    "import.country.KE": "A country name spelled the same in this language, with its dial code.",
+    "duplicates.programme.label": "A word spelled the same in this language."
   }
 }

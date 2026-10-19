@@ -137,13 +137,21 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  * re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  [SPEC]: '436e93ce688fe1847fd539d4119cf01b26ca5d889c6f8a522f857b4d5a36a458',
+  // T-0124 (lead re-pin, D-L183): search by a name, not a number; sort by createdAt, not -displayName.
+  [SPEC]: '5529e0cc03db39950f7a986732b3b6ae84ba0ab5edb245bb5ab829a4bd1c6155',
   // T-0088 (lead re-pin, D-L138): the mock learned the custom-field filters `custom` and `customEmpty`.
   // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and projects `custom`.
   [MOCK]: '65395185e35e6937debcac899777e742eba32dc0915ac17cf63a09eab32bb9df',
 };
 
-/** See the budget test in the spec for the derivation. Never above this. */
+/**
+ * See the budget test in the spec for the derivation. Never above this.
+ * T-0125 lead re-pin (D-L189): the browser session's required cost on every
+ * shell page (D-L187). c90db7e measured /leads at 234,290 bytes
+ * against the 234,900 pin; LEADS_BUDGET_BYTES moved to 236,500, about 0.9% over,
+ * under this ceiling and inside the 5% rule. The spec's hash ignores the
+ * budget literal, so it is not re-pinned.
+ */
 const LEADS_BUDGET_CEILING = 255_000;
 
 /** Re-pinned within 5% of what the run measured, like /contacts (T-0042) and P01/1 (T-0035). */

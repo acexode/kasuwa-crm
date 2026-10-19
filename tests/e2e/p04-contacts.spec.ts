@@ -69,7 +69,9 @@ import {
  *                                          number, a tag) and not UI copy; the
  *                                          pseudo-locale check skips it, and
  *                                          checks it really is served data
- *   type="search" input                    "name or number"
+ *   type="search" input                    a name search (T-0124: no number)
+ *   [data-testid="number-search-hint"]     shown instead of sending a typed
+ *                                          phone, email or number as q
  *   [data-filter="<listContacts param>"]   a filter chip
  *   [data-filter-menu="<param>"] [data-filter-option="<wire value>"]
  *   [data-testid="filter-apply"]           optional "Done" in a filter menu
@@ -95,8 +97,10 @@ import {
  *     have no field and are not drawn.
  *   - Filters are `listContacts` parameters. P04's "Preferred language" and
  *     "Consent status" chips have no parameter and are not drawn.
- *   - The search is "name or number". P04's placeholder also promises email;
- *     `q` does not search email, so the box must not say it does.
+ *   - The search is by name. A typed phone, email or number sends no `q`
+ *     (T-0124, D-L180 I9) and shows the number-search hint. P04's placeholder
+ *     also promises email; `q` does not search email, so the box must not say
+ *     it does.
  *   - Status values are the contract's codes, labelled through i18n; P04's
  *     Active/Prospect/Former are not values (D-L61).
  *   - Ids are not names. The contract gives an agent no programme, owner or
@@ -111,9 +115,14 @@ const SCREEN = '[data-screen="P04/02"]';
  * under 240,000 bytes and within 5% of what this run measures, so re-pin it to
  * the measurement once the screen exists. Why 240,000: see the budget test.
  */
-const CONTACTS_BUDGET_BYTES = 230_000;
+const CONTACTS_BUDGET_BYTES = 232_000;
 
+/** A half-typed number: since T-0124 it never goes in a list's q (D-L180 I9). */
 const NUMBER_SEARCH = '0803 000 000';
+/** Adaeze Okonkwo's family name: the name search that does send q. */
+const NAME_SEARCH = 'Okonkwo';
+/** One letter in every default row's name, so a name search reaches page two. */
+const NAME_ON_EVERY_ROW = 'e';
 const NAME_WITH_NO_MATCH = 'Okorafor';
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
@@ -359,29 +368,43 @@ test.describe('P04/02 — the contacts table', () => {
     await expectNoSeriousAxe(page, 'P04/02');
   });
 
-  test('"name or number" search sends q, keeps it out of the address bar, and does not promise email @p04 @p04-search', async ({
+  test('name search sends q; a typed number sends no q and shows the number-search hint; neither reaches the address bar @p04 @p04-search', async ({
     page,
   }) => {
     const mock = await openContacts(page, { state: 'ready' });
     const search = shown(screen(page).locator('input[type="search"]')).first();
     await expect(search).toBeVisible();
 
-    // The contract's q matches name and number only (P04's placeholder also says email).
+    // The contract's q matches names only (P04's placeholder also says email).
     const promise = `${(await search.getAttribute('placeholder')) ?? ''} ${(await search.getAttribute('aria-label')) ?? ''}`;
     expect(promise, 'the search box promises an email search q does not do').not.toMatch(/e-?mail/i);
 
-    const sent = page.waitForRequest(
-      (request) => isListContacts(request) && new URL(request.url()).searchParams.has('q'),
-    );
+    // T-0124 (D-L180 I9, lead re-pin): a phone, email or half-typed number never
+    // goes in q, where it would land in URL and access logs. The screen shows
+    // the number-search hint instead.
     await search.fill(NUMBER_SEARCH);
-    const q = new URL((await sent).url()).searchParams.get('q') ?? '';
-    expect(q.replace(/\D/g, ''), 'q does not carry the number typed').toContain('803000000');
-    await expect(row(page, CONTACT_EXAMPLE.id)).toBeVisible();
+    await expect(shown(screen(page).getByTestId('number-search-hint')).first()).toBeVisible();
+    expect(page.url(), 'the number was written into the page URL').not.toMatch(/803|[?&]q=/);
+    expect(await page.title(), 'the number was written into the document title').not.toMatch(/803/);
 
-    // A phone number is personal data. In the address bar it lands in history,
+    // The positive control, and the ordering proof: a name typed AFTER the
+    // number does send q. Requests are sent in typing order, so once the name's
+    // request has arrived, a q carrying the number would already have been seen.
+    const sent = page.waitForRequest(
+      (request) => isListContacts(request) && new URL(request.url()).searchParams.get('q') === NAME_SEARCH,
+    );
+    await search.fill(NAME_SEARCH);
+    await sent;
+    await expect(row(page, CONTACT_EXAMPLE.id)).toBeVisible();
+    const numbered = mock.requests
+      .map((url) => url.searchParams.get('q'))
+      .filter((q): q is string => q !== null && /\d/.test(q));
+    expect(numbered, 'a listContacts request carried the typed number in q').toEqual([]);
+
+    // A name is personal data too. In the address bar it lands in history,
     // bookmarks, screenshots and the Referer of every link followed.
-    expect(page.url(), 'the search term was written into the page URL').not.toMatch(/803|[?&]q=/);
-    expect(await page.title(), 'the search term was written into the document title').not.toMatch(/803/);
+    expect(page.url(), 'the search term was written into the page URL').not.toMatch(/okonkwo|803|[?&]q=/i);
+    expect(await page.title(), 'the search term was written into the document title').not.toMatch(/okonkwo|803/i);
     expect(mock.requests.length).toBeGreaterThan(1);
   });
 
@@ -555,7 +578,8 @@ test.describe('P04/02 — the contacts table', () => {
     const searched = page.waitForRequest(
       (request) => isListContacts(request) && new URL(request.url()).searchParams.has('q'),
     );
-    await shown(screen(page).locator('input[type="search"]')).first().fill(NUMBER_SEARCH);
+    // T-0124: a name, not a number (a number sends no q, D-L180 I9).
+    await shown(screen(page).locator('input[type="search"]')).first().fill(NAME_ON_EVERY_ROW);
     const q = new URL((await searched).url()).searchParams.get('q');
     await expect(pager(page)).toBeEnabled();
 

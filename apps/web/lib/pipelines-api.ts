@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
+import { apiFetch } from './api-fetch';
+import { identifierShaped } from './search-query';
 
 /**
  * The browser's half of the pipelines and deals operations in
@@ -115,7 +117,8 @@ export const Deal = z.object({
   ownerUserId: z.string().nullable().optional(),
   owner: z.object({ id: z.string(), displayName: z.string().nullable() }).nullable().optional(),
   primaryContactId: z.string().nullable().optional(),
-  contact: z.object({ id: z.string(), displayName: z.string() }).nullable().optional(),
+  /** `displayName: null` when a name part is withheld from the caller (D-L68, T-0124): print the stand-in. */
+  contact: z.object({ id: z.string(), displayName: z.string().nullable().optional() }).nullable().optional(),
   accountId: z.string().nullable().optional(),
   account: z.object({ id: z.string(), name: z.string() }).nullable().optional(),
   nextStep: z.string().nullable().optional(),
@@ -198,11 +201,9 @@ export async function pipelineRequest<T>(
 ): Promise<PipelineResult<T>> {
   let response: Response;
   try {
-    response = await fetch(path, {
+    response = await apiFetch(path, {
       method: body === undefined ? 'GET' : (method ?? 'POST'),
-      cache: 'no-store',
-      headers: body === undefined ? { accept: 'application/json' } : { accept: 'application/json', 'content-type': 'application/json' },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(body === undefined ? {} : { body }),
     });
   } catch {
     return { ok: false, error: NETWORK_FAILURE };
@@ -373,11 +374,12 @@ export function moveDeal(id: string, body: MoveDealBody): Promise<PipelineResult
 export interface PickerRow {
   readonly id: string;
   readonly programmeId: string;
-  readonly name: string;
+  /** `null` when the contact's name is withheld from the caller (D-L68, T-0124). */
+  readonly name: string | null;
 }
 
 const PickedContacts = z.object({
-  data: z.array(z.object({ id: z.string(), programmeId: z.string(), displayName: z.string() })),
+  data: z.array(z.object({ id: z.string(), programmeId: z.string(), displayName: z.string().optional() })),
 });
 const PickedAccounts = z.object({
   data: z.array(z.object({ id: z.string(), programmeId: z.string(), name: z.string() })),
@@ -396,15 +398,18 @@ export async function searchRecords(
 ): Promise<PipelineResult<readonly PickerRow[]>> {
   const params = new URLSearchParams({ q: q.trim().slice(0, DEAL_QUERY_MAX) });
   if (kind === 'primaryContactId') {
+    // An identifier never enters a URL, and listContacts refuses one (`identifier_in_url`): numbers are Search's.
+    if (identifierShaped(q)) return { ok: true, value: [] };
     const result = await pipelineRequest(withSearch(CONTACTS_PATH, params), PickedContacts);
     if (!result.ok) return result;
     return {
       ok: true,
       value: result.value.data
         .filter((row) => row.programmeId === programmeId)
-        .map((row) => ({ id: row.id, programmeId: row.programmeId, name: row.displayName })),
+        .map((row) => ({ id: row.id, programmeId: row.programmeId, name: row.displayName ?? null })),
     };
   }
+  if (identifierShaped(q)) return { ok: true, value: [] };
   const result = await pipelineRequest(withSearch(ACCOUNTS_PATH, params), PickedAccounts);
   if (!result.ok) return result;
   return { ok: true, value: result.value.data.filter((row) => row.programmeId === programmeId) };

@@ -6,6 +6,8 @@
   "reviewedAt": null,
   "note": "Candidate draft produced by Agent 11, not by a Pidgin speaker. D-P1 notes that Nigerian Pidgin has no single agreed written standard, so a house style has to be chosen by a named reviewer rather than assumed by a drafter. Until that reviewer is named and recorded here, Pidgin is not offered.",
   "passthroughRationale": {
+    "notifications.day.today": "Nigerian Pidgin says \"Today\" as English does.",
+    "notifications.day.yesterday": "Nigerian Pidgin says \"Yesterday\" as English does.",
     "app.name": "Product name. It is spelled the same in every locale.",
     "tokens.sample.text": "A typographic specimen, not prose. It already mixes Yoruba, Hausa and Igbo glyphs on purpose, and translating it would destroy what it tests.",
     "tokens.contrast.ratio": "A numeric format, \"{ratio}:1\". No words.",
@@ -49,6 +51,7 @@
     "admin.shell.help": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.shell.notifications": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.shell.account": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "auth.account": "A loanword the CRM and admin shells' account menu uses unchanged in this locale, as admin.shell.account does.",
     "admin.nav.group.company": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.nav.group.bpo": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.nav.group.channels": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
@@ -375,6 +378,19 @@
     "import.country.KE": "A country name spelled the same in this language, with its dial code.",
     "import.country.ZA": "A country name spelled the same in this language, with its dial code.",
     "import.report.row": "Pidgin is English-lexified: the ordinary Pidgin label for this is the English word.",
-    "import.report.position": "Pidgin is English-lexified: the ordinary Pidgin label for this is the English word."
+    "import.report.position": "Pidgin is English-lexified: the ordinary Pidgin label for this is the English word.",
+    "duplicates.programme.label": "A word spelled the same in this language.",
+    "duplicates.more": "A word spelled the same in this language.",
+    "duplicates.retry": "A word spelled the same in this language.",
+    "duplicates.history.title": "A word spelled the same in this language.",
+    "duplicates.undo": "A word spelled the same in this language.",
+    "duplicates.merge.compare": "A word spelled the same in this language.",
+    "duplicates.merge.submit": "A word spelled the same in this language.",
+    "duplicates.col.field": "A word spelled the same in this language.",
+    "duplicates.col.main": "A word spelled the same in this language.",
+    "duplicates.compliance.title": "A word spelled the same in this language.",
+    "duplicates.confirm.cancel": "A word spelled the same in this language.",
+    "duplicates.confirm.close": "A word spelled the same in this language.",
+    "records.action.duplicates": "A word spelled the same in this language."
   }
 }

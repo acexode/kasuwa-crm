@@ -24,7 +24,7 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *      `/contacts` is a real 404 without it and renders with it.
  *   2. A CRM app shell with its own nav, separate from the admin console.
  *   3. P04 frame 02 against the contract mock: the documented columns, a
- *      "name or number" search that sends `q`, filter chips that send the
+ *      name search that sends `q` (a number sends none since T-0124), filter chips that send the
  *      contract's filter parameters, a column chooser, locked columns (a lock,
  *      never an empty cell; the chooser says why), the programme chip, and
  *      next-page paging on `nextCursor` with no total and no "Page X of Y".
@@ -81,12 +81,20 @@ const BUDGET_RECORD = 'tests/e2e/.artifacts/p04-contacts-budget.json';
  * re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  [SPEC]: 'f15c54f9fd16516bb5bafedf1d8725022d18876f9636c3327cd413e680b2ee46',
+  // T-0124 (lead re-pin, D-L180 I9): a typed number sends no q and shows the number-search hint; paging searches by name.
+  [SPEC]: '24d5f4af5c09cf5447d9aaa3516a76843cb3ca411abcd56a3d6d6aa0b4bd4bb6',
   // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and the custom filters.
   [MOCK]: 'f2fc83b332de03710a704f983364ed3b36c20b3dd67b46b7499ee6fb94cc2dae',
 };
 
-/** See the budget test in the spec for the derivation. Never above this. */
+/**
+ * See the budget test in the spec for the derivation. Never above this.
+ * T-0125 lead re-pin (D-L189): the browser session's required cost on every
+ * shell page (D-L187). c90db7e measured /contacts at 229,066-229,577 bytes
+ * against the 230,000 pin; CONTACTS_BUDGET_BYTES moved to 232,000, about 1.1% over the highest run,
+ * under this ceiling and inside the 5% rule. The spec's hash ignores the
+ * budget literal, so it is not re-pinned.
+ */
 const CONTACTS_BUDGET_CEILING = 240_000;
 
 /** Re-pinned within 5% of what the run measured, like P01/1 (T-0035). */
@@ -100,7 +108,7 @@ const REQUIRED: readonly (readonly [tag: string, what: string])[] = [
   ['@p04-flag-on', '/contacts renders with crm_records on'],
   ['@p04-shell', 'a CRM shell with its own nav, separate from admin, every link resolving'],
   ['@p04-columns', 'the documented columns, only Contact properties, axe-clean'],
-  ['@p04-search', '"name or number" sends q, stays out of the URL, promises no email search'],
+  ['@p04-search', 'a name sends q; a typed number sends no q and shows the number-search hint (T-0124); neither reaches the URL; no email promised'],
   ['@p04-filters', 'chips send the contract filter parameters and nothing else'],
   ['@p04-column-chooser', 'the column chooser hides and restores a column'],
   ['@p04-locked', 'a withheld field is a lock, never empty; a null is never a lock'],

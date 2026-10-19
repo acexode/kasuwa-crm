@@ -34,7 +34,9 @@ import { SCRIPT_LOCALES, translationMismatches } from './script-graph';
  * Contact wire name is `unknown_field` (a branch) or `unknown_variable` (a
  * variable); one on a field classified `sensitive` is `sensitive_field`
  * (until D-L13); one on a field any `script.run` set cannot read is
- * `branch_on_withheld_field`. Lookups are Map-based, never on a plain object,
+ * `branch_on_withheld_field`, except a VARIABLE on `contact.displayName`:
+ * a withheld name is displayed as a translated stand-in (D-L180, T-0124
+ * I13), so only a branch on it is refused. Lookups are Map-based, never on a plain object,
  * so `constructor` and `toString` are unknown like any other name.
  */
 
@@ -49,6 +51,12 @@ export interface ScriptContactField {
   sensitive: boolean;
   /** Some `script.run` set has `none` on it (R1: whether or not anyone holds the set). */
   withheld: boolean;
+  /**
+   * A withheld value is DISPLAYED as a neutral, translated stand-in, so a
+   * variable on it is not refused; a branch still is (D-L180, T-0124 I13:
+   * `displayName` only). Absent: false.
+   */
+  standIn?: boolean;
 }
 
 export interface PublishContext {
@@ -152,7 +160,9 @@ function fieldCodes(
   if (field === undefined) return [unknownCode];
   const codes: string[] = [];
   if (field.sensitive) codes.push('sensitive_field');
-  if (field.withheld) codes.push('branch_on_withheld_field');
+  // A displayed stand-in discloses nothing; the side a branch takes would.
+  const displayed = unknownCode === 'unknown_variable' && field.standIn === true;
+  if (field.withheld && !displayed) codes.push('branch_on_withheld_field');
   return codes;
 }
 

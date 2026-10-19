@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { apiFetch } from './api-fetch';
 
 /**
  * The record screens' read of the custom-field DEFINITIONS (`listCustomFields`,
@@ -47,10 +48,8 @@ export interface CustomField {
 export async function listActiveCustomFields(object: CustomObject, signal?: AbortSignal): Promise<readonly CustomField[] | null> {
   const query = new URLSearchParams({ object });
   try {
-    const response = await fetch(`${CUSTOM_FIELDS_PATH}?${query.toString()}`, {
+    const response = await apiFetch(`${CUSTOM_FIELDS_PATH}?${query.toString()}`, {
       method: 'GET',
-      cache: 'no-store',
-      headers: { accept: 'application/json' },
       ...(signal === undefined ? {} : { signal }),
     });
     if (!response.ok) return null;

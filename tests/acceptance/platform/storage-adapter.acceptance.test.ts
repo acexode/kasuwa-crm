@@ -407,6 +407,12 @@ async function adapter(): Promise<AdapterModule> {
   return loaded as unknown as AdapterModule;
 }
 
+/** T-0125 (ADR-0019, D-L178): webEnv requires both session URLs in every mode. */
+const WEB_SESSION_URLS = {
+  KASUWA_WEB_ORIGIN: 'http://localhost:3000',
+  KASUWA_API_INTERNAL_URL: 'http://127.0.0.1:3001',
+};
+
 async function configFn(name: 'storageEnv' | 'apiEnv' | 'workerEnv' | 'webEnv'): Promise<EnvFn> {
   const loaded: Record<string, unknown> = { ...(await import(CONFIG_MODULE)) };
   const candidate = loaded[name];
@@ -1122,7 +1128,7 @@ describe('acceptance: T-0092 storage configuration (C)', () => {
 
   it('webEnv accepts S3_PUBLIC_ENDPOINT and returns it (the CSP origin)', async () => {
     const webEnv = await configFn('webEnv');
-    const parsed = webEnv({ ...AMBIENT, NODE_ENV: 'development', S3_PUBLIC_ENDPOINT: 'http://localhost:59000' }) as Record<
+    const parsed = webEnv({ ...AMBIENT, ...WEB_SESSION_URLS, NODE_ENV: 'development', S3_PUBLIC_ENDPOINT: 'http://localhost:59000' }) as Record<
       string,
       unknown
     >;
@@ -1138,9 +1144,9 @@ describe('acceptance: T-0092 storage configuration (C)', () => {
     ['S3_ENDPOINT', `http://internal-${LEAK}.example:8333`],
   ])('webEnv refuses %s, naming it and echoing nothing (T-0014, R9)', async (name, value) => {
     const webEnv = await configFn('webEnv');
-    expect(() => webEnv({ ...AMBIENT, NODE_ENV: 'development' })).not.toThrow();
+    expect(() => webEnv({ ...AMBIENT, ...WEB_SESSION_URLS, NODE_ENV: 'development' })).not.toThrow();
     const error = await rejectionOf(
-      () => webEnv({ ...AMBIENT, NODE_ENV: 'development', [name]: value }),
+      () => webEnv({ ...AMBIENT, ...WEB_SESSION_URLS, NODE_ENV: 'development', [name]: value }),
       `webEnv accepted ${name}`,
     );
     expect(error.message).toContain(name);

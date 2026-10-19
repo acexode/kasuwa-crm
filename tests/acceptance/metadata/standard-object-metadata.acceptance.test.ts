@@ -222,6 +222,9 @@ const META_PROPERTY = 'withheldFields';
 const DERIVED: Readonly<Record<string, string>> = {
   owner: 'ownerUserId',
   account: 'accountId',
+  // T-0124 (D-L68, D-L180 I1, D-L189): readable only when givenNames AND familyName
+  // are; no field_def of its own. The map takes one source; familyName is the other.
+  displayName: 'givenNames',
 };
 
 /** Contact field_defs: `required` must exist, nothing outside `allowed`. */

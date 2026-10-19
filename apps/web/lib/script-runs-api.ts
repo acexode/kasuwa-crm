@@ -100,7 +100,12 @@ export type DispositionPage = z.infer<typeof DispositionPage>;
  * variable may name any Contact field, and a field the caller may not read is
  * omitted and named in `withheldFields`, so it renders as a placeholder.
  */
-export const RunContact = z.object({ id: z.string(), displayName: z.string(), withheldFields: z.array(z.string()) }).passthrough();
+/**
+ * The contact as getContact returns it. `displayName` is absent (and listed
+ * in `withheldFields`) when a name part is withheld (D-L68, T-0124): the
+ * screen then draws the stand-in, never a part of the name.
+ */
+export const RunContact = z.object({ id: z.string(), displayName: z.string().optional(), withheldFields: z.array(z.string()) }).passthrough();
 export type RunContact = z.infer<typeof RunContact>;
 
 const Me = z.object({ id: z.string(), displayName: z.string() });
