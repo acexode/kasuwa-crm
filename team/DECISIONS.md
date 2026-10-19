@@ -3882,3 +3882,44 @@ Both are lead edits on lead/T-0095-acceptance (0a59f5e), lint-clean. The observe
 exactly the new expectations.
 
 M8 measured 135 ms on the quiet runner. The 100,000-row import passes in 295 s. T-0095 merges as #161.
+
+### D-L174 — T-0100 review rulings; the NDPA gate for failed envelopes (lead, 2026-10-19)
+
+All three reviews of 8bab3ad passed with findings: migration, security and tenancy. None found an isolation
+breach. The hard gate is that 0044 has never executed; the Windows full gate runs before merge.
+
+**The D-L161 NDPA gate is closed by bounding retention, not by a note alone.** Relay jobs get
+`removeOnFail: { age: 2592000 }` (30 days), matching the outbox's dead-row retention, so a failed envelope never
+outlives its outbox row. Failed envelopes hold ids only: tenant, programme, actor, aggregate and owner ids, with
+no names or values. `failedReason` is a sanitised class name. Contact and staff ids are pseudonymous personal
+data, so the 30-day bound is the retention basis.
+
+**Required before merge:**
+- **Read-time owner check (security M1, tenancy 1).** `record_assigned` and `task_assigned` items are dropped from
+  lists, counts and read-all when the reader's `owner_user_id` level is `none` at read time.
+- **`loadFieldAccessForUser` (M3, tenancy 2).** It filters `programmeIds` to `tx.session.programmeIds`, and it
+  leaves the package barrel for a domain-core-only sub-path export.
+- **Handler errors (m1, migration 9).**
+  - `ownerWithheldFrom` catches only `UnknownObjectDefError` and rethrows everything else.
+  - The handler skips, rather than retries, 23503 on the recipient FK and 42501 on the actor's lost scope.
+- **`publishOwnerChange`** checks uuid shape, not just `typeof`.
+- **Housekeeping.**
+  - `// tenancy-reviewed` markers on every raw statement (tenancy 3).
+  - Mirror the partial unread index in schema.ts, or correct the comment (migration 7).
+  - Correct 0044's rollback note: DROP TABLE takes ACCESS EXCLUSIVE on the referenced tables. Needs a
+    `lock_timeout` and a quiet window (migration rollback plan).
+
+**Accepted as built:**
+- the actor FK `ON DELETE CASCADE` (SET NULL is impossible and RESTRICT would block erasure; user hard-deletes are
+  already blocked in practice);
+- the builder's decisions 1–10 in team/reports/T-0100.md, including the always-on producers and consumer and the
+  presentation-only `crm_notifications` flag;
+- producer failures failing the write closed (M2);
+- the unconstrained `read_at` (recipient-only).
+
+**Follow-ups:**
+- a notification purge plus a per-recipient cap or aggregation (with D-L146);
+- a cursor carrying `(created_at, id)`, so a cursor row lost to programme removal or the actor cascade doesn't
+  silently end paging;
+- batched mark-all-read;
+- `created_at` versus commit time in read-all (milliseconds; accepted).
