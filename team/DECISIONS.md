@@ -4318,3 +4318,23 @@ that answer, and api-fetch redirects only on that marker. Every other 401 reache
 journeys (401-clears, revoked-redirect) must still pass.
 
 Also confirmed: M8 is 133.5 and 137.6 ms on the quiet Windows host (main 042262b). The Mac's 254 ms was load.
+
+### D-L192 — Phase 2 complete; Phase 3 held for the user's hands-on test (lead, 2026-10-19)
+
+**Merged:**
+- T-0094, T-0096: import (#152–#159);
+- T-0095, T-0097: merge and dedupe (#161, #164–#173);
+- T-0100, T-0101: notifications (#162, #175);
+- T-0124: displayName (#176);
+- T-0125: browser session (#174);
+- the T-0053 metadata re-pin (#177), demo flags (#178), and the BFF keep-alive fix (#179, a GET/HEAD retry on reset; API keepAliveTimeout 65 s).
+
+**The end-of-phase full run (D-L111)** went in folder batches across the Mac and the Windows runner, and is green.
+The only noise is auth-availability timing, and M8 latency, which passes at 133–137 ms on the quiet host.
+
+**For the user:** `pnpm demo` runs every Phase 2 screen through the real BFF. docs/demo/PHASE2-TEST-CHECKLIST.md is
+the hands-on test.
+
+**Phase 3, and the logged follow-ups, wait for the user's go-ahead.** The follow-ups are D-L167, D-L169, D-L171,
+D-L174, D-L183, D-L184, the TOTP step-file race between @p02-live and @bff-session, and the stale 245,000 comments in
+p05-account.spec.
