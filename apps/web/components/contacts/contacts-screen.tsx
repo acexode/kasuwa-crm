@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { guarded } from '../custom/lazy-boundary';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
@@ -44,7 +45,7 @@ import {
   type FilterState,
 } from './contacts-model';
 import { useContactList } from './use-contact-list';
-import { UnavailableAction } from './contacts-parts';
+import { ImportLink, UnavailableAction } from './contacts-parts';
 
 // Loaded when opened: neither the phone's filter sheet nor the column chooser is on the list's first paint.
 const ColumnChooser = guarded(
@@ -95,6 +96,7 @@ export function ContactsScreen({
   live,
   initialQ,
   customFields = false,
+  importId,
 }: {
   locale: string;
   messages: MessageBundle;
@@ -108,6 +110,13 @@ export function ContactsScreen({
   initialQ?: string;
   /** Custom values are on in this process (read by the server page, T-0091): offer the custom filters. */
   customFields?: boolean;
+  /**
+   * The import whose contacts to list (the report's link, T-0096 I9), already
+   * checked to be a uuid on the server and passed only where the import flag is
+   * live: the API ignores an unknown filter, so sending it where it is not
+   * served would show unfiltered rows that look filtered (D-L75).
+   */
+  importId?: string;
 }) {
   const t = createBundleTranslator(locale, messages);
   const [q, setQ] = useState(initialQ ?? '');
@@ -123,13 +132,16 @@ export function ContactsScreen({
   const searchId = useId();
   const custom = useCustomDefinitions('contact', customFields);
   const [customFilters, setCustomFilters] = useState<CustomFilters>(NO_CUSTOM_FILTERS);
-  const view = useMemo(() => ({ filters, custom: customFilters }), [filters, customFilters]);
+  const view = useMemo(() => ({ filters, custom: customFilters, ...(importId === undefined ? {} : { importId }) }), [filters, customFilters, importId]);
+  // The one place the import screen is linked from here (`live` is the server's word for what is on).
+  const importHref = live.includes('import') ? '/contacts/import' : null;
   const list = useContactList(q, view);
 
   const searched =
     list.answered.q.trim() !== '' ||
     activeFilterKeys(list.answered.view.filters).length > 0 ||
-    Object.keys(list.answered.view.custom).length > 0;
+    Object.keys(list.answered.view.custom).length > 0 ||
+    list.answered.view.importId !== undefined;
   const state = listState({ phase: list.phase, rowCount: list.rows.length, searching: searched });
   const locked = lockedColumns(list.rows);
   const visibleColumns = COLUMNS.filter((column) => !hidden.includes(column.key));
@@ -191,11 +203,24 @@ export function ContactsScreen({
               {t.t('records.programme.chip')}
             </span>
             <span className="flex-1" />
-            <UnavailableAction t={t} action="import-csv" icon="upload_file" label="records.action.import" />
+            {importHref === null ? (
+              <UnavailableAction t={t} action="import-csv" icon="upload_file" label="records.action.import" />
+            ) : (
+              <ImportLink t={t} href={importHref} action="import-csv" label="records.action.import" offline={offline} />
+            )}
             <UnavailableAction t={t} action="capture-new" icon="add" label="records.action.new" primary />
           </div>
           <p className="text-body-sm text-text-2">{t.t('records.programme.note')}</p>
         </div>
+
+        {importId === undefined ? null : (
+          <p data-testid="import-filter" className="flex flex-wrap items-center gap-2 text-body-sm text-text-2">
+            {t.t('records.importFilter.note')}
+            <Link href="/contacts" prefetch={false} className="font-semibold text-primary-text underline">
+              {t.t('records.importFilter.clear')}
+            </Link>
+          </p>
+        )}
 
         <div role="search" className="flex min-w-0 flex-wrap items-center gap-2">
           <label htmlFor={searchId} className="flex min-h-touch min-w-0 flex-1 items-center gap-2 rounded-md border border-border-strong bg-surface px-3 md:max-w-sm">
@@ -313,6 +338,7 @@ export function ContactsScreen({
           answered={{ q: list.answered.q, view: list.answered.view.filters }}
           offline={offline}
           onClear={clearAll}
+          importHref={importHref}
         />
 
         {popover === 'sheet' ? (
@@ -376,6 +402,7 @@ function Body({
   answered,
   offline,
   onClear,
+  importHref,
 }: {
   t: Translator;
   state: ReturnType<typeof listState>;
@@ -386,6 +413,7 @@ function Body({
   answered: { readonly q: string; readonly view: FilterState };
   offline: boolean;
   onClear: () => void;
+  importHref: string | null;
 }) {
   if (state === 'loading') {
     return <ListLoading t={t} slow={list.slow} label="records.loading" />;
@@ -406,7 +434,7 @@ function Body({
   }
 
   if (state === 'empty' || state === 'no-results') {
-    return <NoRows t={t} state={state} answered={answered} onClear={onClear} />;
+    return <NoRows t={t} state={state} answered={answered} onClear={onClear} importHref={importHref} offline={offline} />;
   }
 
   return (
