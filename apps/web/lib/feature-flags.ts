@@ -180,7 +180,8 @@ export async function crmLiveNav(): Promise<string[]> {
     // Not a nav item: the shell's header entry and the Ctrl/Cmd+K palette (T-0087).
     ...(search ? ['search'] : []),
     // Not a nav item either: the Contacts list's import action links `/contacts/import` only where this is on (T-0096, I1).
-    ...(csvImport ? ['import'] : []),
+    // The import screen's own links need the Contacts list it lands back on (D-L179 N9): both flags.
+    ...(csvImport && contacts ? ['import'] : []),
     // Not a nav item either: the shell's bell (T-0101), and the object types a notification may link,
     // because a link is made only to a route that answers (a contact record needs two flags).
     ...(notifications
@@ -190,7 +191,7 @@ export async function crmLiveNav(): Promise<string[]> {
           ...(accounts && recordView ? ['notifications:account'] : []),
           ...(pipeline ? ['notifications:deal'] : []),
           ...(activities ? ['notifications:activity'] : []),
-          ...(csvImport ? ['notifications:import'] : []),
+          ...(csvImport && contacts ? ['notifications:import'] : []),
         ]
       : []),
   ];

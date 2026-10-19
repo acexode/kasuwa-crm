@@ -1,7 +1,7 @@
 import { bundleMessages } from '@kasuwa/i18n';
 import { AuditScreen } from '../../../components/admin/audit-screen';
 import { ADMIN_AUDIT_MESSAGE_IDS } from '../../../components/admin/message-ids';
-import { adminLiveNav } from '../../../components/admin/live-nav';
+import { adminBellLive, adminLiveNav } from '../../../components/admin/live-nav';
 import { withNotificationMessages } from '../../../components/notifications/message-ids';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
@@ -9,13 +9,15 @@ import { activeLocale, languageOptions } from '../../../lib/locale';
 export default async function AuditPage() {
   const { locale } = await activeLocale();
   const linkedSettings = await adminLiveNav();
+  const bell = await adminBellLive();
 
   return (
     <AuditScreen
       locale={locale}
-      messages={bundleMessages(locale, withNotificationMessages(ADMIN_AUDIT_MESSAGE_IDS, Object.keys(linkedSettings)))}
+      messages={bundleMessages(locale, withNotificationMessages(ADMIN_AUDIT_MESSAGE_IDS, bell ? ['notifications'] : []))}
       locales={languageOptions(locale)}
       linkedSettings={linkedSettings}
+      bell={bell}
     />
   );
 }

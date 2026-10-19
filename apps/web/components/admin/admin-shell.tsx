@@ -46,6 +46,7 @@ export function AdminShell({
   locales,
   activeSettingId,
   linkedSettings,
+  bell,
   children,
 }: {
   locale: string;
@@ -61,6 +62,8 @@ export function AdminShell({
    * and every admin route would pay a request for it on a 256 kbps link.
    */
   linkedSettings: Readonly<Record<string, string>>;
+  /** The notifications bell is on in this process (`adminBellLive()`, read on the server by each page). */
+  bell: boolean;
   children: ReactNode;
 }) {
   const t = createBundleTranslator(locale, messages);
@@ -161,7 +164,7 @@ export function AdminShell({
           </span>
         )}
 
-        {linkedSettings.notifications === undefined ? null : <NotificationBell t={t} locale={locale} live={[]} />}
+        {bell ? <NotificationBell t={t} locale={locale} live={[]} /> : null}
 
         <LanguageMenu
           options={locales}

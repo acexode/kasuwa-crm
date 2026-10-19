@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getImport, type ImportJob } from '../../lib/imports-api';
 import { isTerminal, pollDelay } from '../../lib/import-model';
-import type { RecordsError } from '../../lib/records-api';
+import { retryAfterMs, type RecordsError } from '../../lib/records-api';
 
 /**
  * Reads one import job until it has nothing more to say (T-0096, I8).
@@ -16,9 +16,11 @@ import type { RecordsError } from '../../lib/records-api';
  * the answer says so, and when the screen goes away.
  *
  * A READ THAT FAILS IS TRIED AGAIN. A dropped connection is `retrying`, not an
- * ended import: the next read is simply the next one in the schedule. Only a
- * refusal that is not the network (a `404` for an import that is not ours)
- * ends it, and says so through `onRefused`.
+ * ended import: the next read is simply the next one in the schedule. So is a
+ * `429`, which is a wait and never an ended import: the next read waits the
+ * server's `Retry-After` (capped at 15 minutes) if that is longer than the
+ * schedule's own. Only a refusal that is neither (a `404` for an import that is
+ * not ours) ends it, and says so through `onRefused`.
  */
 export type PollPhase = 'header' | 'run';
 
@@ -53,11 +55,11 @@ export function useImportJob(
     let done = false;
     let inFlight = false;
 
-    const schedule = (attempt: number): void => {
+    const schedule = (attempt: number, waitMs = 0): void => {
       next = attempt;
       // A hidden tab reads nothing (N6): the schedule picks up again when it is shown.
       if (document.hidden) return;
-      timer = setTimeout(() => void read(attempt), pollDelay(attempt, base));
+      timer = setTimeout(() => void read(attempt), Math.max(waitMs, pollDelay(attempt, base)));
     };
 
     const read = async (attempt: number): Promise<void> => {
@@ -71,8 +73,10 @@ export function useImportJob(
         latest.current.onJob(result.value);
         done = phase === 'header' ? result.value.status !== 'reading_header' && result.value.status !== 'awaiting_upload' : isTerminal(result.value.status);
         if (done) return;
-      } else if (result.error.code === 'network') {
+      } else if (result.error.code === 'network' || result.error.code === 'too_many_requests') {
         setRetrying(true);
+        schedule(attempt + 1, retryAfterMs(result.error.retryAfterSeconds, 0));
+        return;
       } else {
         done = true;
         latest.current.onRefused(result.error);
