@@ -160,7 +160,7 @@ export async function crmActivitiesEnabled(): Promise<boolean> {
  * as "not available yet", exactly like an unbuilt one (`components/crm/crm-nav.ts`).
  */
 export async function crmLiveNav(): Promise<string[]> {
-  const [contacts, accounts, leads, activities, pipeline, search, csvImport] = await Promise.all([
+  const [contacts, accounts, leads, activities, pipeline, search, csvImport, duplicates] = await Promise.all([
     crmRecordsEnabled(),
     crmAccountsEnabled(),
     crmLeadsEnabled(),
@@ -168,6 +168,7 @@ export async function crmLiveNav(): Promise<string[]> {
     crmPipelineEnabled(),
     crmSearchEnabled(),
     crmImportEnabled(),
+    crmDuplicatesEnabled(),
   ]);
   return [
     ...(leads ? ['leads'] : []),
@@ -179,6 +180,8 @@ export async function crmLiveNav(): Promise<string[]> {
     ...(search ? ['search'] : []),
     // Not a nav item either: the Contacts list's import action links `/contacts/import` only where this is on (T-0096, I1).
     ...(csvImport ? ['import'] : []),
+    // Not a nav item either: the Contacts list links `/contacts/duplicates` only where this is on (T-0097, I1).
+    ...(duplicates ? ['duplicates'] : []),
   ];
 }
 
@@ -284,6 +287,26 @@ export async function crmImportEnabled(): Promise<boolean> {
   await initialiseFeatureFlags();
   return featureFlagClient().getBooleanValue(
     'crm_import',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/**
+ * `crm_duplicates` (T-0097, D-L146, D-L175) gates the P28 ROUTE —
+ * `/contacts/duplicates` calls `notFound()` while it is off, so typing the path
+ * gets a real 404 and nothing of the screen ships — and, through
+ * `crmLiveNav()` as `duplicates`, the Contacts list's link to it. No client
+ * module names it.
+ *
+ * Per process, like the others, and presentation only: the five duplicates and
+ * merge operations are served by the API whatever this says, and who may merge
+ * is `contact.write` in the programme, decided there.
+ */
+export async function crmDuplicatesEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_duplicates',
     false,
     toEvaluationContext({ tenantId: CRM_SHELL }),
   );
