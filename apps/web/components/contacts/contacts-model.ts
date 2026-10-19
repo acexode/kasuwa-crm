@@ -119,6 +119,8 @@ export interface ContactView {
   readonly filters: FilterState;
   /** Custom-field filters (T-0091); empty while the feature is off. */
   readonly custom: CustomFilters;
+  /** The one CSV import whose contacts are listed (T-0096, I9); absent for the whole list. */
+  readonly importId?: string;
 }
 
 export const NO_FILTERS: FilterState = { status: [], source: [], owner: [], dnd: [], whatsappOptIn: [] };
@@ -156,7 +158,7 @@ export function optionLabel(key: FilterKey, value: string): MessageId {
 }
 
 /** The `listContacts` query for a search box and a filter state. No scope, ever. */
-export function toListQuery(q: string, filters: FilterState, cursor?: string, custom?: CustomFilters): ContactListQuery {
+export function toListQuery(q: string, filters: FilterState, cursor?: string, custom?: CustomFilters, importId?: string): ContactListQuery {
   const status = filters.status.filter((value): value is ContactStatus =>
     (ContactStatus.options as readonly string[]).includes(value),
   );
@@ -176,6 +178,7 @@ export function toListQuery(q: string, filters: FilterState, cursor?: string, cu
     ...(dnd === undefined ? {} : { dnd }),
     ...(whatsappOptIn === undefined ? {} : { whatsappOptIn }),
     ...(custom === undefined ? {} : { custom }),
+    ...(importId === undefined ? {} : { importId }),
     ...(cursor === undefined ? {} : { cursor }),
     limit: PAGE_SIZE,
   };

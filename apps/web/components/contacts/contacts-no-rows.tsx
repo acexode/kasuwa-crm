@@ -4,7 +4,7 @@ import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { SECONDARY_BUTTON } from '../auth/button-classes';
 import { FILTERS, activeFilterKeys, optionLabel, type FilterState } from './contacts-model';
-import { UnavailableAction } from './contacts-parts';
+import { ImportLink, UnavailableAction } from './contacts-parts';
 
 /**
  * The two states with no rows on P04/05: no contacts yet, and no results for
@@ -15,13 +15,18 @@ export function NoRows({
   state,
   answered,
   onClear,
+  importHref,
+  offline,
 }: {
   t: Translator;
   state: 'empty' | 'no-results';
   answered: { readonly q: string; readonly view: FilterState };
   onClear: () => void;
+  /** The import screen, where it is live here (`live.includes('import')`, decided by the list). */
+  importHref: string | null;
+  offline: boolean;
 }) {
-  if (state === 'empty') return <EmptyState t={t} />;
+  if (state === 'empty') return <EmptyState t={t} importHref={importHref} offline={offline} />;
 
     return (
       <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface p-10 text-center">
@@ -50,7 +55,7 @@ function describeFilters(t: Translator, filters: FilterState): string {
     .join('; ');
 }
 
-function EmptyState({ t }: { t: Translator }) {
+function EmptyState({ t, importHref, offline }: { t: Translator; importHref: string | null; offline: boolean }) {
   return (
     <div data-screen-state="P04/05" className="flex flex-col items-center gap-4 rounded-lg border border-border bg-surface p-8 text-center">
       <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-primary-text">
@@ -65,7 +70,11 @@ function EmptyState({ t }: { t: Translator }) {
             {t.t('records.empty.import.title')}
           </b>
           <p className="text-body-sm text-text-2">{t.t('records.empty.import.body')}</p>
-          <UnavailableAction t={t} action="import-csv-empty" icon="upload_file" label="records.empty.import.action" />
+          {importHref === null ? (
+            <UnavailableAction t={t} action="import-csv-empty" icon="upload_file" label="records.empty.import.action" />
+          ) : (
+            <ImportLink t={t} href={importHref} action="import-csv-empty" label="records.empty.import.action" offline={offline} />
+          )}
         </div>
         <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
           <b className="flex items-center gap-2 text-body-md">
