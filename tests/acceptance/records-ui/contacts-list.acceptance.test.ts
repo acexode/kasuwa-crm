@@ -87,7 +87,14 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
   [MOCK]: 'f2fc83b332de03710a704f983364ed3b36c20b3dd67b46b7499ee6fb94cc2dae',
 };
 
-/** See the budget test in the spec for the derivation. Never above this. */
+/**
+ * See the budget test in the spec for the derivation. Never above this.
+ * T-0125 lead re-pin (D-L189): the browser session's required cost on every
+ * shell page (D-L187). c90db7e measured /contacts at 229,066-229,577 bytes
+ * against the 230,000 pin; CONTACTS_BUDGET_BYTES moved to 232,000, about 1.1% over the highest run,
+ * under this ceiling and inside the 5% rule. The spec's hash ignores the
+ * budget literal, so it is not re-pinned.
+ */
 const CONTACTS_BUDGET_CEILING = 240_000;
 
 /** Re-pinned within 5% of what the run measured, like P01/1 (T-0035). */
