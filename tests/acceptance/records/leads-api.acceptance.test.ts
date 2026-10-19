@@ -131,9 +131,9 @@ import { collectTelemetry, type Telemetry } from '../support/telemetry';
  *     1..100, `invalid_cursor`, owner and source filters, unknown query
  *     parameters ignored, scope headers 400: all as listContacts. `status`
  *     narrows to lead statuses only (`customer` is 400). `q` matches the
- *     display, given and family names, numbers (E.164-normalised) and
- *     `companyName`, each ONLY where the caller may read it IN THAT ROW'S
- *     PROGRAMME. If `status` is withheld from the caller in ANY programme they
+ *     display, given and family names and `companyName`, each ONLY where the
+ *     caller may read it IN THAT ROW'S PROGRAMME; a number in `q` is 400
+ *     `identifier_in_url` since T-0124 (D-L180 I9; lead re-pin). If `status` is withheld from the caller in ANY programme they
  *     reach, the answer is 400 `validation_failed` with
  *     `{ path: 'status', code: 'field_withheld' }`, with or without a `status`
  *     parameter, and no row. A cursor never widens the view: replayed from
@@ -587,11 +587,11 @@ function pendingAccountProperties(): string[] {
   return part === undefined ? [] : Object.keys((part.properties ?? {}) as Json);
 }
 
+/** `displayName` left this list with T-0124: it follows its name parts (D-L68, D-L180 I1). */
 const CONTACT_NEVER_WITHHELD = [
   'id',
   'programmeId',
   'version',
-  'displayName',
   'createdAt',
   'updatedAt',
   'withheldFields',
@@ -1317,10 +1317,8 @@ describe('acceptance: leads API (T-0076)', () => {
           'owner sent while ownerUserId is withheld',
           { ...without('ownerUserId'), withheldFields: ['ownerUserId'] },
         ],
-        [
-          'displayName listed as withheld',
-          { ...without('displayName'), withheldFields: ['displayName'] },
-        ],
+        // T-0124: displayName may be withheld now (omitted and listed), but never nulled.
+        ['displayName sent as null', { ...row, displayName: null }],
       ];
       for (const [label, mutant] of mutants) {
         let rejected = false;
@@ -1962,9 +1960,14 @@ describe('acceptance: leads API (T-0076)', () => {
       return orderOf(expectContactPage(response.body, `sort=${String(sort)}`));
     };
 
-    it('orders by each listContacts key; the default is -createdAt', async () => {
-      expect(await order('displayName')).toEqual([AMAKA.id, BASHIR.id, KELECHI, ZAINAB]);
-      expect(await order('-displayName')).toEqual([ZAINAB, KELECHI, BASHIR.id, AMAKA.id]);
+    it('orders by each listContacts key; the default is -createdAt; displayName is no sort key (T-0124, D-L180 I5)', async () => {
+      for (const sort of ['displayName', '-displayName']) {
+        expectError(
+          await leads(AGENT_1, [['sort', sort]]),
+          400,
+          'validation_failed',
+        );
+      }
       expect(await order('createdAt')).toEqual([KELECHI, AMAKA.id, BASHIR.id, ZAINAB]);
       expect(await order('-createdAt')).toEqual([ZAINAB, BASHIR.id, AMAKA.id, KELECHI]);
       expect(await order('updatedAt')).toEqual([BASHIR.id, ZAINAB, AMAKA.id, KELECHI]);
@@ -1973,7 +1976,7 @@ describe('acceptance: leads API (T-0076)', () => {
     });
 
     it('limit 2 gives two rows and a cursor, then the rest; every row exactly once under each sort', async () => {
-      for (const sort of ['-createdAt', 'displayName', 'updatedAt']) {
+      for (const sort of ['-createdAt', 'createdAt', 'updatedAt']) {
         const seen: string[] = [];
         let cursor: string | null = null;
         for (let guard = 0; guard < 10; guard += 1) {
@@ -2002,7 +2005,7 @@ describe('acceptance: leads API (T-0076)', () => {
       expect(cursor).not.toBe('');
       for (const params of [
         [
-          ['sort', 'displayName'],
+          ['sort', 'createdAt'],
           ['cursor', cursor],
         ],
         [['cursor', 'not-base64-json']],
@@ -2013,34 +2016,36 @@ describe('acceptance: leads API (T-0076)', () => {
     });
 
     it('a cursor never widens the view: the supervisor’s, or one from listContacts, yields only agent 1’s leads', async () => {
+      // By createdAt the supervisor's first lead is Kelechi (A1, the earliest);
+      // A2's Damilola comes after Zainab, so a widened view would show her.
       const foreign = await leads(SUPERVISOR, [
-        ['sort', 'displayName'],
+        ['sort', 'createdAt'],
         ['limit', '1'],
       ]);
       expectStatus(foreign, 200, 'supervisor page 1');
       const supervisorCursor = expectContactPage(foreign.body, 'supervisor').nextCursor ?? '';
       const replayed = await leads(AGENT_1, [
-        ['sort', 'displayName'],
+        ['sort', 'createdAt'],
         ['limit', '100'],
         ['cursor', supervisorCursor],
       ]);
       expectStatus(replayed, 200, 'agent 1 with the supervisor’s cursor');
       expect(orderOf(expectContactPage(replayed.body, 'replayed'))).toEqual([
+        AMAKA.id,
         BASHIR.id,
-        KELECHI,
         ZAINAB,
       ]);
 
-      // listContacts by name: Amaka Obi, Bashir Lawal, Chioma (customer),
-      // Kelechi, Obinna (null), Zainab. A cursor after Bashir, replayed here.
+      // listContacts by createdAt: Kelechi, Amaka, Bashir, Chioma (customer),
+      // Zainab, Obinna (null). A cursor after Amaka, replayed here.
       const contactPage = await contacts(AGENT_1, [
-        ['sort', 'displayName'],
+        ['sort', 'createdAt'],
         ['limit', '2'],
       ]);
       expectStatus(contactPage, 200, 'listContacts page 1');
       const contactCursor = expectContactPage(contactPage.body, 'contacts').nextCursor ?? '';
       const crossed = await leads(AGENT_1, [
-        ['sort', 'displayName'],
+        ['sort', 'createdAt'],
         ['limit', '100'],
         ['cursor', contactCursor],
       ]);
@@ -2086,11 +2091,15 @@ describe('acceptance: leads API (T-0076)', () => {
       await setContact(ZAINAB, { company_name: COMPANY });
     });
 
-    it('q finds names, numbers in any format and the company; never a customer or a null status', async () => {
+    it('q finds names and the company, refuses a number in any format (T-0124, D-L180 I9); never a customer or a null status', async () => {
       expect(await leadIds(AGENT_1, [['q', 'Amaka']])).toEqual([AMAKA.id]);
       expect(await leadIds(AGENT_1, [['q', 'lawal']])).toEqual([BASHIR.id]);
       for (const number of ['08030076001', '+2348030076001', '2348030076001']) {
-        expect(await leadIds(AGENT_1, [['q', number]]), `q=${number}`).toEqual([KELECHI]);
+        const body = expectError(await leads(AGENT_1, [['q', number]]), 400, 'validation_failed');
+        expect(detailsOf(body), `q=${number}`).toContainEqual({
+          path: 'q',
+          code: 'identifier_in_url',
+        });
       }
       expect(await leadIds(AGENT_1, [['q', COMPANY]])).toEqual([ZAINAB]);
       expect(await leadIds(AGENT_1, [['q', COMPANY.toLowerCase()]])).toEqual([ZAINAB]);
@@ -2126,10 +2135,16 @@ describe('acceptance: leads API (T-0076)', () => {
       expect(await leadIds(AGENT_2, [['q', COMPANY]])).toEqual(sorted([ZAINAB, DAMILOLA.id]));
     });
 
-    it('a withheld phone is never matched by number', async () => {
+    it('a number in q is 400 identifier_in_url for every caller, phones withheld or not, so it is no oracle on a withheld phone (T-0124)', async () => {
       await lockField('contact', 'phones', 'agent', 'none');
-      expect(await leadIds(AGENT_1, [['q', '08030076001']])).toEqual([]);
-      expect(await leadIds(SUPERVISOR, [['q', '08030076001']])).toEqual([KELECHI]);
+      for (const headers of [AGENT_1, SUPERVISOR]) {
+        const body = expectError(
+          await leads(headers, [['q', '08030076001']]),
+          400,
+          'validation_failed',
+        );
+        expect(detailsOf(body)).toContainEqual({ path: 'q', code: 'identifier_in_url' });
+      }
     });
 
     it('status withheld: 400 field_withheld at status, with or without a status parameter, and no row', async () => {
@@ -3404,7 +3419,8 @@ describe('acceptance: leads API (T-0076)', () => {
       const outcomes: [string, number, request.Response][] = [];
       const { telemetry, lines } = await captureEverything(async () => {
         outcomes.push(['search company', 200, await leads(SUPERVISOR, [['q', 'Abiodun']])]);
-        outcomes.push(['search number', 200, await leads(SUPERVISOR, [['q', '08030076601']])]);
+        // T-0124: a number in q is refused (identifier_in_url), and still never logged.
+        outcomes.push(['search number', 400, await leads(SUPERVISOR, [['q', '08030076601']])]);
         outcomes.push([
           'convert',
           200,
@@ -3467,10 +3483,8 @@ describe('acceptance: leads API (T-0076)', () => {
       expect(outcomes.map(([label, , response]) => [label, response.status])).toEqual(
         outcomes.map(([label, status]) => [label, status]),
       );
-      for (const label of ['search company', 'search number']) {
-        const found = outcomes.find(([candidate]) => candidate === label)?.[2];
-        expect(idsOf(expectContactPage(found?.body, label)), label).toEqual([PII_LEAD]);
-      }
+      const company = outcomes.find(([candidate]) => candidate === 'search company')?.[2];
+      expect(idsOf(expectContactPage(company?.body, 'search company'))).toEqual([PII_LEAD]);
       expect(
         telemetry.spans.length,
         'no spans were recorded — is telemetry wired?',
