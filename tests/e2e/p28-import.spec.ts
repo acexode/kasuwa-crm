@@ -187,7 +187,7 @@ const SCREEN = '[data-screen="P28"]';
  * re-pins it within 5% of the builder's first green measurement (D-L118), as
  * T-0109 did; until then the acceptance suite's budget check fails by design.
  */
-const IMPORT_BUDGET_BYTES = 250_000;
+const IMPORT_BUDGET_BYTES = 232_000;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
