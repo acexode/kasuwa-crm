@@ -1,11 +1,12 @@
 # .claude/hooks
 
-Two hooks, configured in `.claude/settings.json`.
+Three hooks, configured in `.claude/settings.json`.
 
 | Hook | Fires on | Does |
 |---|---|---|
 | `protect-paths.mjs` | `PreToolUse` for Edit/Write | Refuses edits under `tests/acceptance/`, `packages/db/migrations/` and `packages/db/sql/` unless `KASUWA_LEAD_SESSION=1` |
 | `post-edit-tests.mjs` | `PostToolUse` for Edit/Write | Runs the **unit** tests for the package containing the edited file |
+| `guard-kill.mjs` | `PreToolUse` for Bash | Refuses `killall`, `pkill` (except `pkill -P <pid>`), `kill -1`/`kill 0`, and quitting Docker Desktop. Kill only what you started, by pid. Self-test: `node --test .claude/hooks/guard-kill.test.mjs` |
 
 Git hooks live in `.husky/`: `pre-commit` runs affected lint and typecheck,
 `commit-msg` enforces conventional commits.
