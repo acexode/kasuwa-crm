@@ -15,6 +15,7 @@ import {
   withTenantTransaction,
   type TenantTx,
 } from '@kasuwa/db';
+import * as domainCore from '@kasuwa/domain-core';
 import { reseed } from '@kasuwa/testing';
 import type { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, inject, it, vi } from 'vitest';
@@ -86,6 +87,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, inject, i
  *
  * Every test here fails on main: there is no table, no export and no harness
  * value. None passes by construction.
+ *
+ * SECTION 5 (T-0100, a lead edit by Agent 12 under D-L23): the same forgeries
+ * against the REAL notifications handler (`handleNotificationEvent` from
+ * @kasuwa/domain-core), replays, raw-SQL events that pass the helper but aim
+ * across a programme (D-L156) or a tenant, the N-R1 gate, and N-R5 (no raw
+ * INSERT of a notification as another actor). Sections 0–4 are unchanged.
  */
 
 const SUITE_APP_NAME = 'acceptance-t0098-forgery';
@@ -511,6 +518,240 @@ describe('acceptance (tenancy): a forged outbox job writes nothing, anywhere (T-
         [USER_A_SUPERVISOR],
       );
       expect(landed.rows[0]?.n).toBe(0);
+    });
+  });
+
+  // =========================================================================
+  // 5. T-0100 (lead edit, D-L23): the REAL notifications handler under the
+  //    same forgeries, plus the raw-SQL attacks on events and on the
+  //    notification table. The interfaces are pinned in
+  //    tests/acceptance/records/notifications-api.acceptance.test.ts (I1–I3,
+  //    N-R1, N-R5). Sections 0–4 above use a recording stub, which proves the
+  //    helper never calls a handler for a forgery; this section proves the
+  //    handler the worker really registers writes nothing for one, and that a
+  //    row which passes the helper's checks still cannot aim a notification
+  //    across a programme or a tenant.
+  //
+  //    On main every test here fails: no `notification` table, and no
+  //    `handleNotificationEvent` export.
+  // =========================================================================
+
+  describe('5. T-0100: the real notifications handler writes nothing for a forged, replayed or misaimed job', () => {
+    type Handler = (tx: TenantTx, envelope: Record<string, unknown>) => Promise<unknown>;
+    type ConsumeBound = (
+      pool: Pool,
+      data: unknown,
+      handler: Handler,
+      options: { queue: string },
+    ) => Promise<ConsumeOutcome>;
+
+    let planted = 0;
+
+    function realHandler(): Handler {
+      const candidate: unknown = (domainCore as Record<string, unknown>).handleNotificationEvent;
+      if (typeof candidate !== 'function') {
+        throw new Error('T-0100 I1: @kasuwa/domain-core does not export handleNotificationEvent');
+      }
+      return candidate as Handler;
+    }
+
+    async function consumeReal(data: unknown): Promise<ConsumeOutcome | { threw: string }> {
+      // Resolved outside the try: a missing export fails the test by name,
+      // not as "a forged job threw".
+      const handler = realHandler();
+      try {
+        return await pinned<ConsumeBound>('consumeOutboxJob')(appPool, data, handler, { queue: NOTIFICATIONS_QUEUE });
+      } catch (error) {
+        return { threw: error instanceof Error ? error.name : 'non-error' };
+      }
+    }
+
+    /** A user in one programme with the `agent` set, planted by the migrator. */
+    async function freshAgent(tenantId: string, programmeId: string): Promise<string> {
+      planted += 1;
+      const id = `11111111-0000-4000-8000-0100e9${planted.toString(16).padStart(6, '0')}`;
+      await observer.query(
+        `INSERT INTO "user" (id, tenant_id, email, display_name, is_tenant_admin) VALUES ($1, $2, $3, $4, false)`,
+        [id, tenantId, `t0100.forgery.${planted}@example.test`, `Zqn Forgery Fixture ${planted}`],
+      );
+      await observer.query(
+        `INSERT INTO user_programme (user_id, programme_id, tenant_id, permission_set_id)
+         SELECT $1, $2, $3, ps.id FROM permission_set ps WHERE ps.tenant_id = $3 AND ps.key = 'agent'`,
+        [id, programmeId, tenantId],
+      );
+      return id;
+    }
+
+    /**
+     * A producer, as T-0100's must behave (D-L161): lock and change the owner,
+     * then append in the same transaction. Returns the genuine envelope the
+     * real relay enqueued for it.
+     */
+    async function genuineAssignment(
+      tenantId: string,
+      actor: string,
+      programmeId: string,
+      contactId: string,
+      newOwnerId: string,
+    ): Promise<Record<string, unknown>> {
+      const id = randomUUID();
+      await withTenantTransaction(appPool, { tenantId, userId: actor }, async (tx) => {
+        const locked = await tx.query<{ owner_user_id: string | null }>(
+          'SELECT owner_user_id FROM contact WHERE id = $1 AND tenant_id = $2 AND programme_id = $3 FOR UPDATE',
+          [contactId, tenantId, programmeId],
+        );
+        const previousOwnerId = locked[0]?.owner_user_id ?? null;
+        await tx.query('UPDATE contact SET owner_user_id = $1 WHERE id = $2 AND tenant_id = $3', [newOwnerId, contactId, tenantId]);
+        await pinned<AppendOutboxEvent>('appendOutboxEvent')(tx, {
+          id,
+          eventType: OWNER_CHANGED,
+          programmeId,
+          aggregateType: 'contact',
+          aggregateId: contactId,
+          payload: { contactId, previousOwnerId, newOwnerId },
+        });
+      });
+      const envelope = (await envelopes()).get(id);
+      if (envelope === undefined) throw new Error('fixture: the relay enqueued no job for the event');
+      return envelope;
+    }
+
+    /** A raw event row, as any kasuwa_app session may INSERT it (actor = itself, F-R3). */
+    async function rawEvent(
+      tenantId: string,
+      actor: string,
+      programmeId: string,
+      contactId: string,
+      newOwnerId: string,
+    ): Promise<Record<string, unknown>> {
+      const id = randomUUID();
+      await withTenantTransaction(appPool, { tenantId, userId: actor }, async (tx) => {
+        await tx.query(
+          `INSERT INTO outbox_event (id, tenant_id, programme_id, actor_user_id, event_type, schema_version,
+                                     aggregate_type, aggregate_id, payload)
+           VALUES ($1, $2, $3, $4, $5, 1, 'contact', $6, $7::jsonb)`,
+          [id, tenantId, programmeId, actor, OWNER_CHANGED, contactId,
+            JSON.stringify({ contactId, previousOwnerId: null, newOwnerId })],
+        );
+      });
+      const envelope = (await envelopes()).get(id);
+      if (envelope === undefined) throw new Error('fixture: the relay did not publish the raw event');
+      return envelope;
+    }
+
+    async function notificationDigest(): Promise<string> {
+      const result = await observer.query<{ d: string | null; n: number }>(
+        `SELECT md5(string_agg(md5(row_to_json(t)::text), ',' ORDER BY md5(row_to_json(t)::text))) AS d, count(*)::int AS n
+           FROM notification t WHERE t.tenant_id = ANY($1::uuid[])`,
+        [[TENANT_A, TENANT_B]],
+      );
+      return `${result.rows[0]?.n ?? -1}:${result.rows[0]?.d ?? 'empty'}`;
+    }
+
+    async function notificationsFor(recipient: string): Promise<number> {
+      const result = await observer.query<{ n: number }>(
+        'SELECT count(*)::int AS n FROM notification WHERE recipient_user_id = $1',
+        [recipient],
+      );
+      return result.rows[0]?.n ?? -1;
+    }
+
+    beforeEach(async () => {
+      await observer.query('DELETE FROM notification').catch(() => undefined);
+    });
+
+    it('control: a genuine assignment, consumed by the real handler, notifies the new owner exactly once', async () => {
+      const recipient = await freshAgent(TENANT_A, PROGRAMME_A1);
+      const envelope = await genuineAssignment(TENANT_A, USER_A_SUPERVISOR, PROGRAMME_A1, CONTACT_A1, recipient);
+      expect(await consumeReal(envelope)).toMatchObject({ outcome: 'handled' });
+      expect(await notificationsFor(recipient)).toBe(1);
+    });
+
+    it.each([
+      ['tenant B with B\'s actor', () => ({ tenantId: TENANT_B, actorUserId: USER_B_AGENT_1 })],
+      ['tenant B with A\'s actor', () => ({ tenantId: TENANT_B })],
+      ['the aggregate swapped for tenant B\'s contact', () => ({ aggregateId: CONTACT_B1 })],
+      ['the aggregate swapped for another A1 contact', () => ({ aggregateId: seededContact(TENANT_A, PROGRAMME_A1, 1) })],
+      ['the programme swapped for A2', () => ({ programmeId: PROGRAMME_A2 })],
+      ['F-R1: the actor swapped for the supervisor', () => ({ actorUserId: USER_A_SUPERVISOR })],
+      ['an invented event id', () => ({ id: randomUUID() })],
+      ['the event type swapped', () => ({ eventType: 'deal.owner_changed' })],
+    ])('%s: dropped, and the notification table is unchanged', async (_name, swap) => {
+      const recipient = await freshAgent(TENANT_A, PROGRAMME_A1);
+      // The genuine event is the agent's own assignment of a contact to a
+      // colleague, so the actor swap to the supervisor widens the scope.
+      const agent = await freshAgent(TENANT_A, PROGRAMME_A1);
+      const envelope = await genuineAssignment(TENANT_A, agent, PROGRAMME_A1, CONTACT_A1, recipient);
+      const before = await notificationDigest();
+      const outcome = await consumeReal({ ...envelope, ...swap() });
+      expect(outcome, 'a forged job threw').not.toHaveProperty('threw');
+      expect(outcome).toMatchObject({ outcome: 'dropped' });
+      expect(await notificationDigest(), 'a forged job wrote a notification').toBe(before);
+      // Non-vacuity: the untouched envelope does write.
+      expect(await consumeReal(envelope)).toMatchObject({ outcome: 'handled' });
+      expect(await notificationsFor(recipient)).toBe(1);
+    });
+
+    it('a replayed job (three times, then twice at once) leaves one notification and never throws', async () => {
+      const recipient = await freshAgent(TENANT_A, PROGRAMME_A1);
+      const envelope = await genuineAssignment(TENANT_A, USER_A_SUPERVISOR, PROGRAMME_A1, CONTACT_A1, recipient);
+      for (let n = 0; n < 3; n += 1) expect(await consumeReal(envelope)).toMatchObject({ outcome: 'handled' });
+      const concurrent = await Promise.all([consumeReal(envelope), consumeReal(envelope)]);
+      expect(concurrent.filter((outcome) => 'threw' in outcome)).toEqual([]);
+      expect(await notificationsFor(recipient)).toBe(1);
+    });
+
+    it('D-L156: a raw event in A1 naming an A2 contact (actor in both) is handled and notifies nobody', async () => {
+      const ownerInA2 = await freshAgent(TENANT_A, PROGRAMME_A2);
+      await observer.query('UPDATE contact SET owner_user_id = $1 WHERE id = $2', [ownerInA2, CONTACT_A2]);
+      const envelope = await rawEvent(TENANT_A, USER_A_SUPERVISOR, PROGRAMME_A1, CONTACT_A2, ownerInA2);
+      const before = await notificationDigest();
+      const outcome = await consumeReal(envelope);
+      expect(outcome, 'the row matches its envelope, so the helper hands it on').toMatchObject({ outcome: 'handled' });
+      expect(await notificationDigest()).toBe(before);
+      expect(await notificationsFor(ownerInA2)).toBe(0);
+    });
+
+    it('a raw event in tenant A naming tenant B\'s contact and owner notifies nobody in either tenant', async () => {
+      await observer.query('UPDATE contact SET owner_user_id = $1 WHERE id = $2', [USER_B_AGENT_1, CONTACT_B1]);
+      const agent = await freshAgent(TENANT_A, PROGRAMME_A1);
+      const envelope = await rawEvent(TENANT_A, agent, PROGRAMME_A1, CONTACT_B1, USER_B_AGENT_1);
+      const before = await notificationDigest();
+      const outcome = await consumeReal(envelope);
+      expect(outcome).not.toHaveProperty('threw');
+      expect(await notificationDigest()).toBe(before);
+    });
+
+    it('N-R1: a raw event naming a newOwnerId who is not the owner notifies neither the named user nor the owner', async () => {
+      const owner = await freshAgent(TENANT_A, PROGRAMME_A1);
+      const named = await freshAgent(TENANT_A, PROGRAMME_A1);
+      const agent = await freshAgent(TENANT_A, PROGRAMME_A1);
+      await observer.query('UPDATE contact SET owner_user_id = $1 WHERE id = $2', [owner, CONTACT_A1]);
+      const envelope = await rawEvent(TENANT_A, agent, PROGRAMME_A1, CONTACT_A1, named);
+      expect(await consumeReal(envelope)).toMatchObject({ outcome: 'handled' });
+      expect(await notificationsFor(named)).toBe(0);
+      expect(await notificationsFor(owner)).toBe(0);
+    });
+
+    it('N-R5: raw SQL cannot INSERT a notification as another actor, in another programme or tenant, or for another tenant\'s user', async () => {
+      const agent = await freshAgent(TENANT_A, PROGRAMME_A1);
+      const recipient = await freshAgent(TENANT_A, PROGRAMME_A1);
+      const attempt = async (row: { tenantId?: string; programmeId?: string; actor?: string; recipient?: string }): Promise<string> =>
+        withTenantTransaction(appPool, { tenantId: TENANT_A, userId: agent }, (tx) =>
+          tx.query(
+            `INSERT INTO notification (id, tenant_id, programme_id, recipient_user_id, kind, object_type, object_id, actor_user_id, source_event_id)
+             VALUES ($1, $2, $3, $4, 'record_assigned', 'contact', $5, $6, $7)`,
+            [randomUUID(), row.tenantId ?? TENANT_A, row.programmeId ?? PROGRAMME_A1, row.recipient ?? recipient, CONTACT_A1, row.actor ?? agent, randomUUID()],
+          ),
+        ).then(() => 'committed', (error: { code?: string }) => error.code ?? 'error');
+      // Control: as itself, in its programme, for a colleague: the consumer's own shape.
+      expect(await attempt({})).toBe('committed');
+      const before = await notificationDigest();
+      expect(await attempt({ actor: USER_A_SUPERVISOR }), 'a notification "from" the supervisor').toBe('42501');
+      expect(await attempt({ programmeId: PROGRAMME_A2 })).toBe('42501');
+      expect(await attempt({ tenantId: TENANT_B, programmeId: PROGRAMME_B1 })).toBe('42501');
+      expect(await attempt({ recipient: USER_B_AGENT_1 }), 'a tenant B recipient on a tenant A row').not.toBe('committed');
+      expect(await notificationDigest()).toBe(before);
     });
   });
 });
