@@ -26,6 +26,7 @@ describe('feature flags', () => {
       'crm_search',
       'crm_custom_fields',
       'crm_import',
+      'crm_notifications',
     ]);
   });
 
@@ -207,6 +208,17 @@ describe('feature flags', () => {
     expect(flagConfiguration(['crm_import']).crm_import.defaultVariant).toBe('on');
     expect(flagConfiguration(['crm_records']).crm_import.defaultVariant).toBe('off');
     expect(() => assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: ['crm_import'] })).toThrow();
+  });
+
+  it('ships crm_notifications OFF, its own switch, and not production-ready (T-0100)', () => {
+    expect(FLAGS.crm_notifications.defaultValue).toBe(false);
+    expect(FLAGS.crm_notifications.productionReady).toBe(false);
+    expect(flagConfiguration([]).crm_notifications.defaultVariant).toBe('off');
+    expect(flagConfiguration(['crm_notifications']).crm_notifications.defaultVariant).toBe('on');
+    expect(flagConfiguration(['crm_import']).crm_notifications.defaultVariant).toBe('off');
+    expect(() =>
+      assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: ['crm_notifications'] }),
+    ).toThrow();
   });
 
   it('ships crm_custom_fields OFF, its own switch, and not production-ready (T-0090)', () => {

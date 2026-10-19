@@ -1701,10 +1701,9 @@ describe('acceptance: the transactional outbox and kasuwa_relay (T-0098)', () =>
           keepsCompletedForAWeek(job.opts?.removeOnComplete),
           `removeOnComplete ${JSON.stringify(job.opts?.removeOnComplete)} can drop a job inside 7 days`,
         ).toBe(true);
-        expect(
-          [undefined, false],
-          'removeOnFail trims the dead-letter set automatically (D-L128 Q5: by hand)',
-        ).toContain(job.opts?.removeOnFail);
+        // D-L174 supersedes D-L128 Q5 for retention: a failed envelope is
+        // kept 30 days, the outbox's dead-row retention, and never longer.
+        expect(job.opts?.removeOnFail, 'removeOnFail keeps failed envelopes 30 days (D-L174)').toEqual({ age: 2592000 });
         expect(row?.published, `${row?.id} was not marked published`).toBe(true);
       }
 

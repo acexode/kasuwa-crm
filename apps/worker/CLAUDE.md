@@ -5,7 +5,7 @@
 
 ## What this package is
 
-BullMQ worker process: the auth-table retention job, and the outbox relay and its sweep (T-0098). No consumer of outbox events yet (T-0100).
+BullMQ worker process: the auth-table retention job, and the outbox relay and its sweep (T-0098). The notifications consumer on `kasuwa.events.notifications` (T-0100, `handleNotificationEvent` from `@kasuwa/domain-core`).
 
 ## Invariants
 

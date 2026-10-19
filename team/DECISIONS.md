@@ -3882,3 +3882,185 @@ Both are lead edits on lead/T-0095-acceptance (0a59f5e), lint-clean. The observe
 exactly the new expectations.
 
 M8 measured 135 ms on the quiet runner. The 100,000-row import passes in 295 s. T-0095 merges as #161.
+
+### D-L174 — T-0100 review rulings; the NDPA gate for failed envelopes (lead, 2026-10-19)
+
+All three reviews of 8bab3ad passed with findings: migration, security and tenancy. None found an isolation
+breach. The hard gate is that 0044 has never executed; the Windows full gate runs before merge.
+
+**The D-L161 NDPA gate is closed by bounding retention, not by a note alone.** Relay jobs get
+`removeOnFail: { age: 2592000 }` (30 days), matching the outbox's dead-row retention, so a failed envelope never
+outlives its outbox row. Failed envelopes hold ids only: tenant, programme, actor, aggregate and owner ids, with
+no names or values. `failedReason` is a sanitised class name. Contact and staff ids are pseudonymous personal
+data, so the 30-day bound is the retention basis.
+
+**Required before merge:**
+- **Read-time owner check (security M1, tenancy 1).** `record_assigned` and `task_assigned` items are dropped from
+  lists, counts and read-all when the reader's `owner_user_id` level is `none` at read time.
+- **`loadFieldAccessForUser` (M3, tenancy 2).** It filters `programmeIds` to `tx.session.programmeIds`, and it
+  leaves the package barrel for a domain-core-only sub-path export.
+- **Handler errors (m1, migration 9).**
+  - `ownerWithheldFrom` catches only `UnknownObjectDefError` and rethrows everything else.
+  - The handler skips, rather than retries, 23503 on the recipient FK and 42501 on the actor's lost scope.
+- **`publishOwnerChange`** checks uuid shape, not just `typeof`.
+- **Housekeeping.**
+  - `// tenancy-reviewed` markers on every raw statement (tenancy 3).
+  - Mirror the partial unread index in schema.ts, or correct the comment (migration 7).
+  - Correct 0044's rollback note: DROP TABLE takes ACCESS EXCLUSIVE on the referenced tables. Needs a
+    `lock_timeout` and a quiet window (migration rollback plan).
+
+**Accepted as built:**
+- the actor FK `ON DELETE CASCADE` (SET NULL is impossible and RESTRICT would block erasure; user hard-deletes are
+  already blocked in practice);
+- the builder's decisions 1–10 in team/reports/T-0100.md, including the always-on producers and consumer and the
+  presentation-only `crm_notifications` flag;
+- producer failures failing the write closed (M2);
+- the unconstrained `read_at` (recipient-only).
+
+**Follow-ups:**
+- a notification purge plus a per-recipient cap or aggregation (with D-L146);
+- a cursor carrying `(created_at, id)`, so a cursor row lost to programme removal or the actor cascade doesn't
+  silently end paging;
+- batched mark-all-read;
+- `created_at` versus commit time in read-all (milliseconds; accepted).
+
+### D-L175 — T-0097 duplicates screen suite accepted (lead, 2026-10-19)
+
+The suite is on lead/T-0097-acceptance at 8cabacc: 50 acceptance tests and 31 `@p28-duplicates` tags. The mock
+is checked against records.openapi.yaml and admin.openapi.yaml, and the spec and mock are hash-pinned.
+`DUPLICATES_BUDGET_BYTES` is a provisional 250,000; the lead re-pins it from the builder's measurement.
+
+- **Rulings.** I1–I17 are accepted as written, including the strict calls:
+  - a same-tick double click sends one merge (I7);
+  - returning to the sets after a merge or undo shows fresh data (I8, I10);
+  - an undo 404 shows the generic not-found words (I10, D-L163).
+- **Flag.** `crm_duplicates` is confirmed as the flag name: default off, presentation only, and the builder
+  registers it (I1). The audit screen's merged and restored labels come from D-L162 and are not behind the flag
+  (I13).
+- **Design conflicts C1–C8** resolve to what is built: no "merged into" link, pairwise merges only, no confidence
+  or matched values, most-restrictive consent, no "not duplicates" action.
+- **Contract follow-up (C9).**
+  - `DuplicateContact.displayName` and `ContactMergeParty.displayName` may be null when withheld, while
+    `Contact.displayName` is never withheld. Each operation's schema is right as written, so the description text
+    is aligned.
+  - The merge-preview example's `defaults` should list every editable field, as T-0095 serves it.
+
+  Both are docs-only fixes for the next contract touch.
+
+### D-L176 — T-0097 review rulings (lead, 2026-10-19)
+
+The combined review of e2a42fb passed with findings: no security or privacy defect, and one blocker.
+
+**Required before merge:**
+- **B1, a lost merge answer.** A `network` result from createContactMerge, or `already_merged` after a network
+  failure in the same view, triggers a read of `listContactMerges`. If an open entry matches the sent pair, the
+  screen shows it as the person's own merge, with result, survivor link and Undo. Otherwise it shows the refusal
+  with Merge disabled. Add a unit test that fails without the fix.
+- **N1.** Back is disabled while a merge or undo is in flight.
+- **N2.** Refused undos stay closed across history reloads (I10).
+- **N3.** History "Show more" is aborted or generation-checked against reloads.
+- **N4.** Programme changes are debounced (about 300 ms) or scan on commit, because aborted scans still hold
+  server slots (D-L163).
+- **N6.** The result announces itself (a status region or focus), and focus after the dialog never drops to
+  `<body>`.
+- **N7.** The `already_merged` copy no longer promises a reread that doesn't happen, or the reread happens.
+- **N8.** `generateMetadata` checks both flags.
+- **N9.** Datetimes use `.datetime()` and ids use `.uuid()` in the client schemas.
+
+**Accepted:**
+- **N5.** History expiry is judged by the browser clock, and a 410 corrects it.
+- **The 429 behaviour.** The first two refusals each retry once after the wait; the third shows a button.
+
+**API follow-up.** T-0095's merged and restored audit events use a contact UUID as `objectLabel`. That is not a
+disclosure, because the same value is in `objectId`, but it is poor to read. The replacement must be a generic
+"Contact" label, never `displayName`, because audit readers may not see the name.
+
+### D-L177 — T-0101 notifications screen suite accepted (lead, 2026-10-19)
+
+The suite is on lead/T-0101-acceptance at 8a98d2b: 48 acceptance tests and 39 `@p26-notifications` journeys. It
+uses Playwright's clock with no sleeps, and the spec and mock are hash-pinned. `NOTIFICATIONS_BUDGET_BYTES` is a
+provisional 250,000, which the lead re-pins. The bell may add at most 8,000 bytes to every CRM screen's first
+load.
+
+- **Rulings.** I1–I22 are accepted as written.
+- **C10, the harness cost.** The `webNotificationsUrl` process (I2) starts only when the grep can select
+  `@p26-notifications`, as `webSessionUrl` does for `@bff-session` (D-L172), so ordinary runs pay nothing.
+  Re-pinning 12 mocks to tolerate the poll is rejected, because it would weaken their "no undeclared call" guard.
+- **C1.** The poll interval is anything from 30 to 60 s.
+- **C2–C9.** Resolve to what is built.
+- **C11.** D-L174's cursor follow-up isn't visible from the client and stays a follow-up.
+- **C12.** The task's line estimate is superseded; the build ships as a stack.
+- **Flag.** `crm_notifications` is declared by T-0100. If T-0101 builds first, it copies the entry word for word.
+
+### D-L178 — ADR-0019 accepted; T-0125 build starts (lead, 2026-10-19)
+
+@acexode accepted ADR-0019 (D-A3) and confirmed all five points the suite ruled where the ADR was silent
+(D-L172). They are now the ADR's amendments 1–5:
+1. a dedicated `webSessionUrl` process for the browser journey;
+2. Secure and `__Host-` kept on loopback, with https required for the internal API URL under production except
+   on loopback;
+3. both URLs required in every mode;
+4. a nonce of at least 128 bits, and the API's 404 for navigations to `/api/*`;
+5. two session cookies never mix tenants and never 5xx.
+
+The T-0125 build starts against lead/T-0125-acceptance (44e8734).
+
+**Lead re-pins during the build:** the `webEnv` fixtures in config-schemas, storage-adapter, outbox and
+auth-role gain `KASUWA_WEB_ORIGIN` and `KASUWA_API_INTERNAL_URL` (D-L172). The builder reports them, and the lead
+edits them on the suite branch.
+
+### D-L179 — T-0101 review rulings (lead, 2026-10-19)
+
+The combined review of ee4dee2 passed with findings: no security or privacy defect, and one blocker.
+
+**Required before merge:**
+- **B1, the poller stalls.** When `wake()` declines, or a 429 hold is still running, the poller schedules the
+  remaining wait: `max(heldUntil, lastStartedAt + cadence) - now`, or the remaining coalescing time. Add a
+  fake-clock test for the quick tab switch and for the 429-then-hide sequence; each must fail today.
+- **The count must not double-step (N1, N2).** The epoch moves, or a pending write is marked, when a write is
+  sent, and count answers that overlap it are dropped. A 404 refreshes the count instead of stepping it.
+- **Mark-all (N3, N4).**
+  - A mark-all answer is dropped if the query changed since it was sent (a generation check).
+  - `markAllCovered` is bounded by position up to `throughId`.
+  - Dots and mark-all are serialised: dots are disabled while mark-all is in flight, and mark-all while any dot is
+    busy.
+- **Caps (N5, N6, N8).** Auto-continue stops after 3 empty pages and then offers "Show older". Every
+  `Retry-After` is capped at 15 minutes. `CountAnswer` is `.max(99)`.
+- **N7, the shared `requestRecords` change.** `use-import-job` treats `too_many_requests` as keep-polling with the
+  wait honoured, as it did when the code was `network`. Add a test for the envelope-less 429 path. No other screen
+  may change behaviour.
+- **Links and props (N9, N10).**
+  - The import link, and the existing `import` live id, require both `crm_import` and `crm_records`.
+  - The admin bell is passed as its own prop, not in `linkedSettings`.
+- **N11.** The store resets to its initial count when the last subscriber detaches.
+- **N12.** Write sequencing (resends, the epoch, the generation counter) moves into a pure, unit-tested module,
+  following D-L176's lesson. N1–N4 each get a test.
+- **N13, N14.** The dropdown makes the page behind it inert. "All caught up" shows only when the count is
+  known to be 0.
+- **Size.** Commit `dfe9ad7` splits at the poller/count/store versus model seam. Correct the report's figure
+  (N15).
+
+### D-L180 — T-0124 suite accepted; scripts substitute, never branch on, a withheld name (lead, 2026-10-19)
+
+The suite is on lead/T-0124-acceptance at eeac666. The wire suite has 62 tests, of which 45 fail on main for the
+real reason. The contract suite has 33 tests, of which 18 fail on main. Rulings I1–I17 are accepted, with one
+amendment:
+- **I1.** `displayName` is readable exactly when both `givenNames` and `familyName` are readable in the record's
+  programme. It is never composed from a readable part.
+- **I4.** This supersedes D-L175 C9's "Contact.displayName is never withheld". The nullable summaries stand (I3).
+- **I9, R21.** A `q` that looks like a phone or email on listContacts and listLeads is `400 identifier_in_url`.
+- **I13, amended.** A script may still *display* `{contact.displayName}`. When the name is withheld from the
+  running agent, the script shows a neutral, translated stand-in (for example "the customer"), and publishing is
+  not blocked. A script may never *branch* on `displayName` where any set it runs under could have it withheld:
+  the branch taken would disclose the name. Publish refuses such a branch. Blocking every greeting whenever any
+  set withholds a name part would make greetings unusable for exactly the clients who restrict names. That is a
+  product cost with no security gain, since substitution discloses nothing. @acexode may overrule.
+- **Left unpinned on purpose (I11):**
+  - createContact and imports when `displayName` is withheld from the creator;
+  - whether a read-only name part makes `displayName` read-only.
+
+  Both are product calls for a later task.
+
+**Lead re-pins during the build:** contacts-api, leads-api, accounts-api (listAccountContacts' default sort),
+list-indexes, contact-merge (its DuplicateContact `typeof displayName` check), e2e p04-leads, and the
+records-contract-search R18 note. The builder lists exact lines, and the lead edits them on the suite branch.

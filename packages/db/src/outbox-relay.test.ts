@@ -57,15 +57,17 @@ describe('the relay envelope', () => {
 });
 
 describe('job options (R1, D-L128 Q3 and Q5)', () => {
-  it('five consumer attempts, exponential backoff, completed kept a week, failed kept', () => {
+  it('five consumer attempts, exponential backoff, completed kept a week, failed kept 30 days (D-L174)', () => {
     const options = outboxJobOptions(EVENT);
     expect(options).toEqual({
       jobId: EVENT,
       attempts: OUTBOX_CONSUMER_ATTEMPTS,
       backoff: { type: 'exponential', delay: 5_000 },
       removeOnComplete: { age: OUTBOX_RETENTION.publishedDays * 24 * 60 * 60 },
-      removeOnFail: false,
+      removeOnFail: { age: 2_592_000 },
     });
+    // D-L174: bounded to the dead-row retention, never kept forever.
+    expect(options.removeOnFail.age).toBe(OUTBOX_RETENTION.deadDays * 24 * 60 * 60);
     expect(options.attempts).toBe(5);
     expect(options.removeOnComplete.age).toBeGreaterThanOrEqual(604_800);
   });

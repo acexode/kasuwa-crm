@@ -5293,7 +5293,7 @@ paths:
       tags: [notifications]
       summary: List the caller's notifications, newest first
       operationId: listNotifications
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P26/A', 'P26/A3', 'P26/B', 'P26/B2']
       x-kasuwa-notification-kinds:
         record_assigned: [contact, account, deal]
@@ -5461,7 +5461,7 @@ paths:
       tags: [notifications]
       summary: The caller's unread count, for the bell badge
       operationId: getNotificationUnreadCount
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P26/A1']
       x-kasuwa-poll-interval-seconds: 30
       description: |
@@ -5503,7 +5503,7 @@ paths:
       tags: [notifications]
       summary: Mark all of the caller's unread notifications read, or all of one kind
       operationId: markAllNotificationsRead
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P26/A1']
       description: |
         Marks every unread notification of the caller read, or only those of
@@ -5584,7 +5584,7 @@ paths:
       tags: [notifications]
       summary: Mark one notification read or unread
       operationId: updateNotification
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P26/A']
       description: |
         `{ read: true }` sets `readAt`; an already-read item keeps its first

@@ -47,7 +47,7 @@ export const OUTBOX_QUEUES = Object.freeze({
 export type OutboxQueueName = (typeof OUTBOX_QUEUES)[keyof typeof OUTBOX_QUEUES];
 
 /**
- * `contact.owner_changed` (the contact domain; T-0100 wires the producer).
+ * `contact.owner_changed` (the contact domain; T-0100 is the producer).
  * The contact's id and the previous and new owners' ids. Staff ids are not
  * personal data in this sense (D-L71). Either owner may be null: a contact can
  * be assigned from, or released to, nobody.
@@ -61,6 +61,50 @@ export const ContactOwnerChangedPayload = z
   .strict();
 
 export type ContactOwnerChangedPayload = z.infer<typeof ContactOwnerChangedPayload>;
+
+/**
+ * `account.owner_changed`, `deal.owner_changed` and `activity.assigned` (T-0100,
+ * I2): the same shape as the contact's, keyed by the aggregate they are about.
+ * Ids only (D-P29); either owner may be null.
+ */
+export const AccountOwnerChangedPayload = z
+  .object({
+    accountId: Uuid,
+    previousOwnerId: Uuid.nullable(),
+    newOwnerId: Uuid.nullable(),
+  })
+  .strict();
+
+export type AccountOwnerChangedPayload = z.infer<typeof AccountOwnerChangedPayload>;
+
+export const DealOwnerChangedPayload = z
+  .object({
+    dealId: Uuid,
+    previousOwnerId: Uuid.nullable(),
+    newOwnerId: Uuid.nullable(),
+  })
+  .strict();
+
+export type DealOwnerChangedPayload = z.infer<typeof DealOwnerChangedPayload>;
+
+export const ActivityAssignedPayload = z
+  .object({
+    activityId: Uuid,
+    previousOwnerId: Uuid.nullable(),
+    newOwnerId: Uuid.nullable(),
+  })
+  .strict();
+
+export type ActivityAssignedPayload = z.infer<typeof ActivityAssignedPayload>;
+
+/**
+ * `import.finished` (T-0100; T-0094's worker is the producer): one event per
+ * import job, never one per row. The job's id and nothing else: the outcome
+ * is re-read from the job, and the recipient is its creator.
+ */
+export const ImportFinishedPayload = z.object({ importId: Uuid }).strict();
+
+export type ImportFinishedPayload = z.infer<typeof ImportFinishedPayload>;
 
 /** Everything the outbox needs to know about one event type. */
 export interface OutboxEventDefinition {
@@ -103,6 +147,34 @@ export const OUTBOX_EVENT_TYPES: Readonly<Record<string, OutboxEventDefinition>>
     schemaVersion: 1,
     aggregateType: 'contact',
     aggregateKey: 'contactId',
+    queue: OUTBOX_QUEUES.notifications,
+  }),
+  'account.owner_changed': Object.freeze({
+    schema: AccountOwnerChangedPayload,
+    schemaVersion: 1,
+    aggregateType: 'account',
+    aggregateKey: 'accountId',
+    queue: OUTBOX_QUEUES.notifications,
+  }),
+  'deal.owner_changed': Object.freeze({
+    schema: DealOwnerChangedPayload,
+    schemaVersion: 1,
+    aggregateType: 'deal',
+    aggregateKey: 'dealId',
+    queue: OUTBOX_QUEUES.notifications,
+  }),
+  'activity.assigned': Object.freeze({
+    schema: ActivityAssignedPayload,
+    schemaVersion: 1,
+    aggregateType: 'activity',
+    aggregateKey: 'activityId',
+    queue: OUTBOX_QUEUES.notifications,
+  }),
+  'import.finished': Object.freeze({
+    schema: ImportFinishedPayload,
+    schemaVersion: 1,
+    aggregateType: 'import',
+    aggregateKey: 'importId',
     queue: OUTBOX_QUEUES.notifications,
   }),
 });

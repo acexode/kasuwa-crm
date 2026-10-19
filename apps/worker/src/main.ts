@@ -1,5 +1,6 @@
 import { loadWorkspaceEnv, storageConfigured, storageEnv, workerEnv } from '@kasuwa/config';
 import {
+  handleNotificationEvent,
   IMPORT_HEADER_QUEUE,
   IMPORT_RETENTION_QUEUE,
   IMPORT_RUN_QUEUE,
@@ -7,6 +8,7 @@ import {
 import { featureFlagClient, initialiseFeatureFlags } from '@kasuwa/feature-flags';
 import { S3ObjectStore } from '@kasuwa/storage-adapter';
 import {
+  consumeOutboxJob,
   createPool,
   OUTBOX_QUEUES,
   pruneAuthTables,
@@ -32,7 +34,7 @@ import {
   processImportRun,
   type ImportJobDeps,
 } from './import-jobs';
-import { refuseWrongPoolRolesAtBoot, startOutboxRelay } from './outbox';
+import { outboxConsumerProcessor, refuseWrongPoolRolesAtBoot, startOutboxRelay } from './outbox';
 
 /**
  * BullMQ worker process.
@@ -178,7 +180,24 @@ async function main(): Promise<void> {
     }
   }
 
-  for (const worker of [heartbeatWorker, authRetentionWorker, ...importWorkers]) {
+  // --- the notifications consumer (T-0100, ADR-0018 point 8) ---------------
+  // ALWAYS consumed, behind no flag: an event that is relayed and never
+  // consumed would sit in BullMQ, and the producers append whether or not any
+  // screen is on. It runs on the app pool (kasuwa_app): the helper re-enters
+  // the tenant as the event's actor and re-reads the event under RLS first.
+  const notificationsWorker = new Worker(
+    OUTBOX_QUEUES.notifications,
+    outboxConsumerProcessor(
+      consumeOutboxJob,
+      pool,
+      OUTBOX_QUEUES.notifications,
+      handleNotificationEvent,
+      (line) => process.stdout.write(`${line}\n`),
+    ),
+    { connection, concurrency: 4 },
+  );
+
+  for (const worker of [heartbeatWorker, authRetentionWorker, ...importWorkers, notificationsWorker]) {
     worker.on('failed', (job) => {
       // The job id and queue only. An error from pg can carry row values.
       process.stderr.write(`job ${job?.id ?? 'unknown'} on ${worker.name} failed\n`);
@@ -186,8 +205,8 @@ async function main(): Promise<void> {
   }
 
   // --- the outbox relay (T-0098, ADR-0018) ---------------------------------
-  // One BullMQ queue per consuming domain. The relay only enqueues; T-0100
-  // registers the first consumer (outboxConsumerProcessor) on its queue.
+  // One BullMQ queue per consuming domain. The relay only enqueues; the
+  // consumer of each queue is registered above (notifications, T-0100).
   const outboxQueues = Object.values(OUTBOX_QUEUES).map((name) => new Queue(name, { connection }));
   const outboxPorts: Record<string, OutboxQueuePort> = Object.fromEntries(
     outboxQueues.map((queue) => [queue.name, { addBulk: (jobs) => queue.addBulk(jobs) }]),
@@ -202,7 +221,7 @@ async function main(): Promise<void> {
   });
 
   process.stdout.write(
-    `kasuwa worker listening on queues ${[HEARTBEAT_QUEUE, AUTH_RETENTION_QUEUE, ...importWorkers.map((w) => w.name)].join(', ')}; ` +
+    `kasuwa worker listening on queues ${[HEARTBEAT_QUEUE, AUTH_RETENTION_QUEUE, ...importWorkers.map((w) => w.name), notificationsWorker.name].join(', ')}; ` +
       `relaying the outbox to ${outboxQueues.map((queue) => queue.name).join(', ')}\n`,
   );
 
@@ -211,6 +230,7 @@ async function main(): Promise<void> {
     await heartbeatWorker.close();
     await authRetentionWorker.close();
     for (const worker of importWorkers) await worker.close();
+    await notificationsWorker.close();
     await heartbeat.close();
     await authRetention.close();
     for (const queue of outboxQueues) await queue.close();
