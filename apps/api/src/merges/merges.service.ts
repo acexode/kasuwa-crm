@@ -424,6 +424,11 @@ export async function createContactMergeFor(
  * cleared (`appendOwnerChangedEvent`). Called after the statement that wrote
  * the row, which holds its lock until commit (D-L161).
  */
+/** A uuid, or null: the snapshot's values are `unknown`, and a payload id must be a uuid (D-L174). */
+function ownerIdOrNull(value: unknown): string | null {
+  return typeof value === 'string' && isUuid(value) ? value : null;
+}
+
 async function publishOwnerChange(
   tx: TenantTx,
   contact: { id: string; programmeId: string },
@@ -435,8 +440,8 @@ async function publishOwnerChange(
     object: 'contact',
     id: contact.id,
     programmeId: contact.programmeId,
-    previousOwnerId: typeof previous === 'string' ? previous : null,
-    newOwnerId: typeof next === 'string' ? next : null,
+    previousOwnerId: ownerIdOrNull(previous),
+    newOwnerId: ownerIdOrNull(next),
   });
 }
 

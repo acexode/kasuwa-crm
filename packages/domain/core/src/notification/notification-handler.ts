@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { ConsumedOutboxEvent, TenantTx } from '@kasuwa/db';
-import { fieldLevel, loadFieldAccessForUser } from '@kasuwa/metadata-engine';
+import { fieldLevel, UnknownObjectDefError } from '@kasuwa/metadata-engine';
+import { loadFieldAccessForUser } from '@kasuwa/metadata-engine/field-access-for-user';
 import { canProgramme, canReadPipelines, type Grants } from '@kasuwa/permissions';
 import type { OwnerChangeObject } from './owner-events';
 import { NOTIFICATION_KIND_OF, type NotificationObjectType } from './notification-events';
@@ -47,7 +48,12 @@ export type NotificationHandling = 'written' | 'duplicate' | 'skipped';
 const SAVEPOINT = 'kasuwa_notification_delivery';
 const UNIQUE_KEY = 'notification_source_event_recipient_key';
 
-/** Each aggregate's table, selected by a fixed map: no identifier ever comes from an event. */
+/**
+ * Each aggregate's table, selected by a fixed map: no identifier ever comes from an event.
+ *
+ * tenancy-reviewed: each statement filters on id, tenant (the session's) and the
+ * event's programme (one the consumer already checked is in scope), beside RLS.
+ */
 const OWNER_SQL: Readonly<Record<OwnerChangeObject, string>> = {
   contact: `SELECT owner_user_id FROM contact
              WHERE id = $1 AND tenant_id = $2 AND programme_id = $3 AND deleted_at IS NULL`,
@@ -93,7 +99,8 @@ async function recipientGrants(
   programmeId: string,
 ): Promise<Grants | null> {
   // tenancy-reviewed: tenant from the session; the recipient and programme are
-  // the event's, re-validated above; RLS besides.
+  // the event's (the programme is in the session's scope, checked by the
+  // consumer); RLS besides.
   const rows = await tx.query<MemberRow>(
     `SELECT u.is_tenant_admin, ps.key AS set_key
        FROM "user" u
@@ -143,9 +150,12 @@ async function ownerWithheldFrom(
   try {
     const access = await loadFieldAccessForUser(tx, OBJECT_DEF[object], recipientId, [programmeId]);
     return fieldLevel(access, programmeId, 'owner_user_id') === 'none';
-  } catch {
-    // No definition for the object, or anything else: nothing is disclosed.
-    return true;
+  } catch (error) {
+    // No definition for the object: every field is withheld (fail closed).
+    // Anything else (a lost connection, a bug) is NOT swallowed: it rejects
+    // and the job is retried, never silently skipped (D-L174).
+    if (error instanceof UnknownObjectDefError) return true;
+    throw error;
   }
 }
 
@@ -159,9 +169,15 @@ interface Delivery {
 }
 
 /** Plain INSERT in a SAVEPOINT; 23505 on the idempotency key is "already delivered". */
-async function deliver(tx: TenantTx, delivery: Delivery): Promise<'written' | 'duplicate'> {
+async function deliver(
+  tx: TenantTx,
+  delivery: Delivery,
+): Promise<'written' | 'duplicate' | 'skipped'> {
   await tx.query(`SAVEPOINT ${SAVEPOINT}`);
   try {
+    // tenancy-reviewed: tenant and actor from the session (the restrictive
+    // INSERT policy pins the actor again); the programme is the event's, one
+    // the session reaches (the permissive WITH CHECK refuses any other).
     await tx.query(
       `INSERT INTO notification
          (id, tenant_id, programme_id, recipient_user_id, kind, object_type, object_id,
@@ -182,13 +198,30 @@ async function deliver(tx: TenantTx, delivery: Delivery): Promise<'written' | 'd
     await tx.query(`RELEASE SAVEPOINT ${SAVEPOINT}`);
     return 'written';
   } catch (error) {
-    if (isDuplicateDelivery(error)) {
-      await tx.query(`ROLLBACK TO SAVEPOINT ${SAVEPOINT}`);
-      await tx.query(`RELEASE SAVEPOINT ${SAVEPOINT}`);
-      return 'duplicate';
-    }
-    throw error;
+    const refused = isDuplicateDelivery(error)
+      ? 'duplicate'
+      : isUndeliverable(error)
+        ? 'skipped'
+        : null;
+    if (refused === null) throw error;
+    await tx.query(`ROLLBACK TO SAVEPOINT ${SAVEPOINT}`);
+    await tx.query(`RELEASE SAVEPOINT ${SAVEPOINT}`);
+    return refused;
   }
+}
+
+/**
+ * Failures that retrying cannot fix, so the job is SKIPPED, not retried five
+ * times and parked (D-L174): 23503 on the recipient FK (the recipient was
+ * deleted between the read and the insert) and 42501 (the actor lost the
+ * programme between the consumer's check and the insert, so RLS refuses the
+ * row). Nothing from the error is kept.
+ */
+export function isUndeliverable(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const { code, constraint } = error as { code?: unknown; constraint?: unknown };
+  if (code === '42501') return true;
+  return code === '23503' && constraint === 'notification_recipient_same_tenant_fk';
 }
 
 /** True for 23505 on the idempotency key, and for nothing else. */
@@ -247,6 +280,8 @@ async function handleImportFinished(
   tx: TenantTx,
   event: ConsumedOutboxEvent,
 ): Promise<NotificationHandling> {
+  // tenancy-reviewed: id, tenant (the session's) and the event's programme,
+  // which the consumer checked is in scope; RLS besides.
   const rows = await tx.query<ImportRow>(
     `SELECT created_by_user_id, status FROM import_job
       WHERE id = $1 AND tenant_id = $2 AND programme_id = $3`,

@@ -1,24 +1,25 @@
 import type { ConsumedOutboxEvent, TenantTx } from '@kasuwa/db';
 import type { Grants } from '@kasuwa/permissions';
+import { UnknownObjectDefError } from '@kasuwa/metadata-engine';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const fieldAccess = vi.hoisted(() => ({ level: 'edit' as 'edit' | 'read' | 'none', throws: false }));
+const fieldAccess = vi.hoisted(() => ({
+  level: 'edit' as 'edit' | 'read' | 'none',
+  throws: false as false | 'unknown' | 'other',
+}));
 
-vi.mock('@kasuwa/metadata-engine', async (importOriginal) => {
-  const real: Record<string, unknown> & { UnknownObjectDefError: new (id?: string) => Error } =
-    await importOriginal();
-  return {
-    ...real,
-    loadFieldAccessForUser: vi.fn(async (_tx: unknown, _object: string, _user: string, programmes: readonly string[]) => {
-      if (fieldAccess.throws) throw new real.UnknownObjectDefError('contact');
-      return new Map(programmes.map((id) => [id, new Map([['owner_user_id', fieldAccess.level]])]));
-    }),
-  };
-});
+vi.mock('@kasuwa/metadata-engine/field-access-for-user', () => ({
+  loadFieldAccessForUser: vi.fn(async (_tx: unknown, _object: string, _user: string, programmes: readonly string[]) => {
+    if (fieldAccess.throws === 'unknown') throw new UnknownObjectDefError('contact');
+    if (fieldAccess.throws === 'other') throw new Error('connection lost');
+    return new Map(programmes.map((id) => [id, new Map([['owner_user_id', fieldAccess.level]])]));
+  }),
+}));
 
 import {
   handleNotificationEvent,
   isDuplicateDelivery,
+  isUndeliverable,
   recipientMayRead,
 } from './notification-handler';
 
@@ -152,8 +153,14 @@ describe('handleNotificationEvent: owner events (T-0100 N-R1, N-R2, N-R3)', () =
   });
 
   it('N-R3: fails closed when the object has no field catalogue', async () => {
-    fieldAccess.throws = true;
+    fieldAccess.throws = 'unknown';
     expect(await handleNotificationEvent(fakeTx(), event())).toBe('skipped');
+    expect(inserts()).toEqual([]);
+  });
+
+  it('D-L174: any other failure reading field access REJECTS (retried), never skipped', async () => {
+    fieldAccess.throws = 'other';
+    await expect(handleNotificationEvent(fakeTx(), event())).rejects.toThrow('connection lost');
     expect(inserts()).toEqual([]);
   });
 
@@ -178,10 +185,30 @@ describe('handleNotificationEvent: idempotency (D-L164)', () => {
   });
 
   it('rejects for any other failure, so the job is retried', async () => {
-    world.insertError = Object.assign(new Error('boom'), { code: '42501' });
+    world.insertError = Object.assign(new Error('boom'), { code: '40001' });
     await expect(handleNotificationEvent(fakeTx(), event())).rejects.toThrow('boom');
     world.insertError = Object.assign(new Error('boom'), { code: '23505', constraint: 'notification_pkey' });
     await expect(handleNotificationEvent(fakeTx(), event())).rejects.toThrow('boom');
+  });
+
+  it.each([
+    ['42501 (the actor lost the programme)', { code: '42501' }],
+    ['23503 on the recipient FK', { code: '23503', constraint: 'notification_recipient_same_tenant_fk' }],
+  ])('D-L174: %s is SKIPPED, not retried: the savepoint is rolled back and it resolves', async (_name, fields) => {
+    world.insertError = Object.assign(new Error('refused'), fields);
+    expect(await handleNotificationEvent(fakeTx(), event())).toBe('skipped');
+    expect(asked.slice(-2).map((text) => text.split(' ').slice(0, 2).join(' '))).toEqual([
+      'ROLLBACK TO',
+      'RELEASE SAVEPOINT',
+    ]);
+  });
+
+  it('isUndeliverable is 42501, and 23503 on the recipient FK only', () => {
+    expect(isUndeliverable({ code: '42501' })).toBe(true);
+    expect(isUndeliverable({ code: '23503', constraint: 'notification_recipient_same_tenant_fk' })).toBe(true);
+    expect(isUndeliverable({ code: '23503', constraint: 'notification_actor_same_tenant_fk' })).toBe(false);
+    expect(isUndeliverable({ code: '40001' })).toBe(false);
+    expect(isUndeliverable(null)).toBe(false);
   });
 
   it('isDuplicateDelivery is exactly 23505 on that key', () => {

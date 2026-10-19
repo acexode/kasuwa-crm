@@ -123,7 +123,7 @@ export interface OutboxJobOptions {
   attempts: number;
   backoff: { type: 'exponential'; delay: number };
   removeOnComplete: { age: number };
-  removeOnFail: false;
+  removeOnFail: { age: number };
 }
 
 export interface OutboxJob {
@@ -315,6 +315,9 @@ export function outboxEnvelopeFor(row: {
   return parsed.success ? { envelope: parsed.data, queue: definition.queue } : undefined;
 }
 
+/** How long a failed (dead-lettered) job is kept: the outbox's dead-row retention, 30 days (D-L174). */
+export const FAILED_JOB_RETENTION_SECONDS = 2_592_000;
+
 /** BullMQ options for one event (R1, D-L128 Q3 and Q5). */
 export function outboxJobOptions(eventId: string): OutboxJobOptions {
   return {
@@ -322,8 +325,11 @@ export function outboxJobOptions(eventId: string): OutboxJobOptions {
     attempts: OUTBOX_CONSUMER_ATTEMPTS,
     backoff: { type: 'exponential', delay: CONSUMER_BACKOFF_MS },
     removeOnComplete: { age: COMPLETED_JOB_RETENTION_SECONDS },
-    // The failed set is the dead-letter queue, trimmed by hand (Q5).
-    removeOnFail: false,
+    // The failed set is the dead-letter queue. An envelope holds ids only, but
+    // contact and staff ids are pseudonymous personal data, so it is bounded to
+    // the outbox's own dead-row retention (30 days) and never outlives it
+    // (D-L174, closing D-L161's NDPA gate; supersedes Q5's "by hand").
+    removeOnFail: { age: FAILED_JOB_RETENTION_SECONDS },
   };
 }
 

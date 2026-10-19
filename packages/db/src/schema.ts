@@ -1655,9 +1655,8 @@ export const outboxEvent = pgTable(
  * subject, filename or value. kasuwa_app holds SELECT, INSERT and UPDATE
  * (read_at): no DELETE. UNIQUE (source_event_id, recipient_user_id) is the
  * idempotency key; the handler inserts in a SAVEPOINT and treats 23505 as
- * already delivered (never ON CONFLICT: that needs SELECT rights). The partial
- * unread index's predicate (`read_at IS NULL`) has no Drizzle mirror below;
- * the SQL is the source of truth.
+ * already delivered (never ON CONFLICT: that needs SELECT rights). The SQL is
+ * the source of truth.
  */
 export const notification = pgTable(
   'notification',
@@ -1687,6 +1686,11 @@ export const notification = pgTable(
       table.createdAt.desc(),
       table.id.desc(),
     ),
+    // The unread count and "mark all read" never walk read rows: a partial
+    // twin of the recipient index (migration 0044).
+    index('notification_recipient_unread_idx')
+      .on(table.tenantId, table.recipientUserId, table.createdAt.desc(), table.id.desc())
+      .where(sql`read_at IS NULL`),
     index('notification_programme_idx').on(table.tenantId, table.programmeId),
     index('notification_actor_idx').on(table.tenantId, table.actorUserId),
   ],

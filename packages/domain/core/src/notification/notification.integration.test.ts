@@ -10,7 +10,11 @@ import {
 import type { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, inject, it } from 'vitest';
 import { handleNotificationEvent } from './notification-handler';
-import { notificationObjectKey, resolveNotificationObjects } from './notification.repository';
+import {
+  listNotificationRows,
+  notificationObjectKey,
+  resolveNotificationObjects,
+} from './notification.repository';
 
 /**
  * T-0100 against real Postgres and RLS: the two rules the acceptance suite
@@ -204,5 +208,47 @@ describe('notifications: merged-away contacts and imports (T-0100)', () => {
       resolveNotificationObjects(tx, [record]),
     );
     expect(asAgent.has(notificationObjectKey('import', job))).toBe(false);
+  });
+
+  it('D-L174: once owner_user_id is withheld from the reader, an item they were assigned is gone from the list', async () => {
+    const contactId = await plantContact('5', false, USER_A_AGENT_1);
+    const field = await migrator.query<{ id: string; set_id: string }>(
+      `SELECT f.id, ps.id AS set_id
+         FROM field_def f
+         JOIN object_def o ON o.id = f.object_id AND o.tenant_id = f.tenant_id
+         JOIN permission_set ps ON ps.tenant_id = f.tenant_id AND ps.key = 'agent'
+        WHERE f.tenant_id = $1 AND o.api_name = 'contact' AND f.api_name = 'owner_user_id' AND NOT o.is_custom`,
+      [TENANT_A],
+    );
+    const [found] = field.rows;
+    if (found === undefined) throw new Error('fixture drift: no contact.owner_user_id field_def');
+    const notificationId = randomUUID();
+    await migrator.query(
+      `INSERT INTO notification (id, tenant_id, programme_id, recipient_user_id, kind, object_type, object_id, actor_user_id, source_event_id)
+       VALUES ($1, $2, $3, $4, 'record_assigned', 'contact', $5, $6, $7)`,
+      [notificationId, TENANT_A, PROGRAMME_A1, USER_A_AGENT_1, contactId, USER_A_SUPERVISOR, randomUUID()],
+    );
+    planted.notifications.push(notificationId);
+    const visible = async (): Promise<boolean> =>
+      withTenantTransaction(app, { tenantId: TENANT_A, userId: USER_A_AGENT_1 }, async (tx) => {
+        const page = await listNotificationRows(tx, { limit: 10, unreadOnly: false });
+        const names = await resolveNotificationObjects(tx, page.rows);
+        return names.has(notificationObjectKey('contact', contactId));
+      });
+    expect(await visible(), 'control').toBe(true);
+    await migrator.query(
+      `INSERT INTO field_security_grant (tenant_id, field_id, permission_set_id, level)
+       VALUES ($1, $2, $3, 'none')
+       ON CONFLICT (tenant_id, field_id, permission_set_id) DO UPDATE SET level = EXCLUDED.level`,
+      [TENANT_A, found.id, found.set_id],
+    );
+    try {
+      expect(await visible()).toBe(false);
+    } finally {
+      await migrator.query('DELETE FROM field_security_grant WHERE field_id = $1 AND permission_set_id = $2', [
+        found.id,
+        found.set_id,
+      ]);
+    }
   });
 });

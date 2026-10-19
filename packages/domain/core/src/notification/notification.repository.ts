@@ -99,6 +99,7 @@ export async function listNotificationRows(
 ): Promise<{ rows: NotificationRecord[]; nextCursor: string | null }> {
   const { tenantId, userId, programmeIds } = tx.session;
   if (programmeIds.length === 0) return { rows: [], nextCursor: null };
+  // tenancy-reviewed: tenant, recipient and programmes from the session, beside RLS and the restrictive recipient policy.
   const found = await tx.query<Row>(
     `SELECT ${COLUMNS}
        FROM notification n
@@ -135,6 +136,7 @@ export async function listNotificationRows(
 export async function listUnreadWindow(tx: TenantTx): Promise<NotificationRecord[]> {
   const { tenantId, userId, programmeIds } = tx.session;
   if (programmeIds.length === 0) return [];
+  // tenancy-reviewed: tenant, recipient and programmes from the session, beside RLS and the restrictive recipient policy.
   const rows = await tx.query<Row>(
     `SELECT ${COLUMNS}
        FROM notification n
@@ -156,6 +158,7 @@ export async function findOwnNotification(
 ): Promise<NotificationRecord | null> {
   const { tenantId, userId, programmeIds } = tx.session;
   if (!UUID.test(id) || programmeIds.length === 0) return null;
+  // tenancy-reviewed: id, tenant, recipient and programmes from the session, beside RLS and the restrictive recipient policy.
   const rows = await tx.query<Row>(
     `SELECT ${COLUMNS}
        FROM notification n
@@ -180,6 +183,7 @@ export async function setNotificationRead(
 ): Promise<NotificationRecord | null> {
   const { tenantId, userId, programmeIds } = tx.session;
   if (!UUID.test(id) || programmeIds.length === 0) return null;
+  // tenancy-reviewed: id, tenant, recipient and programmes from the session, beside RLS and the restrictive recipient policy.
   const rows = await tx.query<Row>(
     `UPDATE notification AS n
         SET read_at = CASE WHEN $5::boolean THEN COALESCE(n.read_at, now()) ELSE NULL END
@@ -211,6 +215,7 @@ export async function markNotificationsRead(
 ): Promise<void> {
   const { tenantId, userId, programmeIds } = tx.session;
   if (programmeIds.length === 0) return;
+  // tenancy-reviewed: tenant, recipient and programmes from the session, beside RLS and the restrictive recipient policy.
   await tx.query(
     `UPDATE notification AS n
         SET read_at = now()
@@ -246,7 +251,12 @@ interface NamedRow {
   name: string | null;
 }
 
-/** Each type's read: a fixed statement, the name column aliased `name`. Live rows only. */
+/**
+ * Each type's read: a fixed statement, the name column aliased `name`. Live rows only.
+ *
+ * tenancy-reviewed: every statement filters tenant (the session's) and the
+ * session's programmes explicitly, beside RLS.
+ */
 const OBJECT_SQL: Readonly<Record<NotificationObjectType, string>> = {
   contact: `SELECT id, programme_id, display_name AS name FROM contact
              WHERE tenant_id = $1 AND id = ANY ($2::uuid[]) AND programme_id = ANY ($3::uuid[])
@@ -315,6 +325,7 @@ export async function resolveNotificationObjects(
     const wanted = records.filter((record) => record.objectType === objectType);
     if (wanted.length === 0) continue;
     const ids = [...new Set(wanted.map((record) => record.objectId.toLowerCase()))];
+    // tenancy-reviewed: tenant and programmes from the session; the ids are the page's own rows (already the caller's); RLS besides.
     const rows = await tx.query<NamedRow>(OBJECT_SQL[objectType], [
       tenantId,
       ids,
@@ -326,6 +337,16 @@ export async function resolveNotificationObjects(
       const row = byId.get(record.objectId.toLowerCase());
       if (row === undefined || row.programme_id !== record.programmeId) continue;
       if (!readerMayRead(grants, objectType, row.programme_id)) continue;
+      // D-L174: "you were assigned X" tells the reader who owns X. When the
+      // reader's set withholds `owner_user_id` in that programme NOW, the item
+      // is dropped (the consumer checked once, at write time; field security
+      // can change after). A missing definition reads as withheld.
+      if (
+        access !== null &&
+        fieldLevel(access, row.programme_id, 'owner_user_id') === 'none'
+      ) {
+        continue;
+      }
       let readable = true;
       if (access !== null && objectType !== 'import') {
         readable = NAME_FIELDS[objectType].every(
@@ -358,6 +379,7 @@ export async function resolveNotificationActors(
 ): Promise<Map<string, string>> {
   const names = new Map<string, string>();
   if (records.length === 0) return names;
+  // tenancy-reviewed: tenant from the session; the actors and programmes are the page's own rows; RLS besides.
   const rows = await tx.query<ActorRow>(
     `SELECT up.user_id, up.programme_id, u.display_name
        FROM user_programme up

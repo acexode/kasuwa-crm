@@ -203,29 +203,12 @@ export async function loadFieldAccess(tx: TenantTx, objectApiName: string): Prom
 }
 
 /**
- * ANOTHER user's field access for one object, in the programmes named (T-0100).
- *
- * The one deliberate exception to "no argument names a user": the
- * notifications consumer runs as the ACTOR of an event and must judge what the
- * RECIPIENT may read before it writes them a row, because a notification that
- * says "you were assigned X" must not reveal a field the recipient's set
- * withholds (D-L157). It is the same read `loadFieldAccess` does, under the
- * caller's own RLS: the catalogue and the memberships are tenant-scoped, so it
- * widens nothing the session could not already read. A user with no membership
- * in a programme gets `none` for every field there (fail closed), and the
- * caller passes the programmes it means to ask about, never a list from a
- * client. Do not call it with an id that came from a request.
+ * The shared read behind `loadFieldAccess` and the sub-path-only
+ * `loadFieldAccessForUser` (./field-access-for-user.ts). Deliberately NOT in
+ * the package barrel (index.ts names this file's exports one by one): it takes
+ * a user id, so only the sub-path may reach it.
  */
-export async function loadFieldAccessForUser(
-  tx: TenantTx,
-  objectApiName: string,
-  userId: string,
-  programmeIds: readonly string[],
-): Promise<FieldAccess> {
-  return readFieldAccess(tx, objectApiName, userId, programmeIds);
-}
-
-async function readFieldAccess(
+export async function readFieldAccess(
   tx: TenantTx,
   objectApiName: string,
   userId: string,
@@ -236,6 +219,9 @@ async function readFieldAccess(
   if (!apiNameSchema.safeParse(objectApiName).success) {
     throw new UnknownObjectDefError();
   }
+  // tenancy-reviewed: tenant from the session; the user and programmes are the
+  // caller's (`loadFieldAccess`: the session's own; `loadFieldAccessForUser`:
+  // the user named, programmes clamped to the session's); RLS besides.
   const rows = await tx.query(FIELD_ACCESS_SQL, [
     tx.session.tenantId,
     objectApiName,

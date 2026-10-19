@@ -123,7 +123,10 @@
 -- application first (the worker's consumer, then the API routes and the
 -- producers), then the schema.ts mirror and the TENANT_SCOPED_TABLES entry;
 -- then, in a NEW migration, DROP TABLE notification. Unread notifications
--- are lost with it.
+-- are lost with it. That DROP TABLE takes ACCESS EXCLUSIVE on notification AND
+-- on every table it references (tenant, programme and "user"), which blocks
+-- reads and writes of all three until it commits: the rollback migration must
+-- SET LOCAL lock_timeout (as this file does) and run in a quiet window.
 -- ---------------------------------------------------------------------------
 
 SET LOCAL lock_timeout = '5s';
