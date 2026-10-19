@@ -196,6 +196,14 @@ export function contactListSearch(query: ContactListQuery): string {
   return search === '' ? '' : `?${search}`;
 }
 
+/** A `Retry-After` is honoured whole, but a nonsense header is not an hour-long silence: every wait taken from one is capped here (N6). */
+export const RETRY_AFTER_CAP_MS = 900_000;
+
+/** A server's `Retry-After` (seconds) as a wait in ms, capped; `fallbackMs` when it sent none. */
+export function retryAfterMs(seconds: number | undefined, fallbackMs: number): number {
+  return seconds === undefined ? fallbackMs : Math.min(RETRY_AFTER_CAP_MS, Math.max(0, seconds * 1000));
+}
+
 /**
  * `Retry-After` as whole seconds, or `undefined`. Only the delta-seconds form
  * the contract declares (`integer, minimum 1`) is read: an HTTP date is not
@@ -218,7 +226,17 @@ export function parseRetryAfter(header: string | null): number | undefined {
 export async function requestRecords<T>(
   path: string,
   schema: z.ZodType<T, z.ZodTypeDef, unknown>,
-  init: { readonly method: 'GET' | 'POST' | 'PATCH' | 'PUT'; readonly body?: unknown; readonly signal?: AbortSignal } = {
+  init: {
+    readonly method: 'GET' | 'POST' | 'PATCH' | 'PUT';
+    readonly body?: unknown;
+    readonly signal?: AbortSignal;
+    /**
+     * A 429 with no envelope but a `Retry-After` is `too_many_requests` with its wait, not `network`.
+     * Opt-in (notifications, T-0101): every other caller keeps reading that answer as it always has
+     * (a lost answer), so no other screen changes behaviour (D-L179 N7).
+     */
+    readonly readBareThrottle?: boolean;
+  } = {
     method: 'GET',
   },
 ): Promise<RecordsResult<T>> {
@@ -254,7 +272,7 @@ export async function requestRecords<T>(
   const parsed = ApiError.safeParse(payload);
   if (!parsed.success) {
     // A 429 from a layer in front of the API has no envelope, but a wait is still a wait.
-    return response.status === 429 && retryAfterSeconds !== undefined
+    return init.readBareThrottle === true && response.status === 429 && retryAfterSeconds !== undefined
       ? { ok: false, error: { code: 'too_many_requests', retryAfterSeconds } }
       : { ok: false, error: NETWORK_FAILURE };
   }

@@ -1,4 +1,4 @@
-import { INITIAL_COUNT, applyLocalCount, applyLocalStep, applyServerCount, needsReread, type CountState } from './notification-count';
+import { INITIAL_COUNT, applyLocalCount, applyLocalStep, applyServerCount, beginWrite, endWrite, needsReread, type CountState } from './notification-count';
 import { createPoller, type PollOutcome, type Poller } from './notification-poller';
 import { getUnreadCount, type UnreadCount } from './notifications-api';
 
@@ -82,6 +82,8 @@ export function subscribeCount(listener: () => void): () => void {
       if (listeners.size === 0) {
         detach?.();
         detach = null;
+        // Nothing about a notification outlives the screens that show it (D-P21): the next one starts unknown (N11).
+        state = INITIAL_COUNT;
       }
     }, 0);
   };
@@ -93,6 +95,15 @@ export function countSnapshot(): CountState {
 
 export function countServerSnapshot(): CountState {
   return INITIAL_COUNT;
+}
+
+/** A write is about to be sent: no count read is believed until it is answered (N1). Pair with `writeEnded`. */
+export function writeStarted(): void {
+  set(beginWrite(state));
+}
+
+export function writeEnded(): void {
+  set(endWrite(state));
 }
 
 /** The reader marked one item read (-1) or unread (+1) and the server agreed: the badge follows at once. */

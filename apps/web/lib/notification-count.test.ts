@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { INITIAL_COUNT, applyLocalCount, applyLocalStep, applyServerCount, badgeLabel, isRise, needsReread } from './notification-count';
+import { INITIAL_COUNT, applyLocalCount, beginWrite, endWrite, applyLocalStep, applyServerCount, badgeLabel, isRise, needsReread } from './notification-count';
 
 const known = (count: number, capped = false) => applyServerCount(INITIAL_COUNT, { count, capped }, 0);
 
@@ -47,5 +47,36 @@ describe('announcements', () => {
     expect(isRise(known(9), known(8))).toBe(false);
     expect(isRise(known(99), known(99, true))).toBe(true);
     expect(isRise(known(99, true), known(99))).toBe(false);
+  });
+});
+
+describe('a write in flight (N1)', () => {
+  it('drops a count read that began before the write was sent', () => {
+    const before = known(7);
+    const sent = beginWrite(before);
+    expect(applyServerCount(sent, { count: 6, capped: false }, before.epoch)).toBe(sent);
+  });
+
+  it('drops a count read that began after the send but is answered while the write is still unanswered', () => {
+    const sent = beginWrite(known(7));
+    expect(applyServerCount(sent, { count: 7, capped: false }, sent.epoch)).toBe(sent);
+  });
+
+  it('believes a read again once the write is answered, and a step then lands once, not twice', () => {
+    const sent = beginWrite(known(7));
+    const stepped = applyLocalStep(sent, -1);
+    const done = endWrite(stepped);
+    expect(done.pending).toBe(0);
+    expect(done.count).toBe(6);
+    expect(applyServerCount(done, { count: 6, capped: false }, done.epoch).count).toBe(6);
+    // The read that straddled the whole write carries the epoch from before it.
+    expect(applyServerCount(done, { count: 7, capped: false }, 0)).toBe(done);
+  });
+
+  it('counts overlapping writes', () => {
+    const two = beginWrite(beginWrite(known(3)));
+    expect(two.pending).toBe(2);
+    expect(endWrite(two).pending).toBe(1);
+    expect(endWrite(endWrite(endWrite(two))).pending).toBe(0);
   });
 });

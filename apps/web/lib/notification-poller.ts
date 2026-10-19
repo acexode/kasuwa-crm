@@ -1,3 +1,5 @@
+import { retryAfterMs } from './records-api';
+
 /**
  * The bell's poller (T-0101, I5-I7), with no React, no `window` and no
  * `fetch`: everything it touches is handed in, so every rule below is a unit
@@ -13,6 +15,10 @@
  *   - a 5xx or a network failure waits `CADENCE_MS * 2^n`, never less than the
  *     cadence, never more than five minutes, and never gives up; one success
  *     returns to the cadence;
+ *   - A WAKE THAT DECLINES STILL SCHEDULES. Pausing clears the timer, so a
+ *     wake that is turned away (inside the coalescing window, or while a 429's
+ *     wait runs) must set the next read itself, for the time that is left:
+ *     otherwise the poller would never read again (B1, D-L179).
  *   - a read is requested for "the newest truth" with `refresh()` (after a
  *     local change a stale answer was dropped): it obeys a 429's wait but not
  *     the failure back-off or the wake coalescing.
@@ -21,8 +27,7 @@
 export const CADENCE_MS = 45_000;
 export const BACKOFF_CAP_MS = 300_000;
 export const WAKE_COALESCE_MS = 5_000;
-/** A `Retry-After` is honoured whole, but a nonsense header is not an hour-long silence. */
-export const RETRY_AFTER_CAP_MS = 900_000;
+export { RETRY_AFTER_CAP_MS, retryAfterMs } from './records-api';
 
 export type PollOutcome =
   | { readonly kind: 'ok' }
@@ -46,8 +51,7 @@ export function waitAfter(outcome: PollOutcome, failures: number): Wait {
     case 'aborted':
       return { waitMs: CADENCE_MS, failures: 0, hold: false };
     case 'throttled': {
-      const asked = outcome.retryAfterSeconds === undefined ? CADENCE_MS : outcome.retryAfterSeconds * 1000;
-      return { waitMs: Math.max(CADENCE_MS, Math.min(RETRY_AFTER_CAP_MS, asked)), failures, hold: true };
+      return { waitMs: Math.max(CADENCE_MS, retryAfterMs(outcome.retryAfterSeconds, CADENCE_MS)), failures, hold: true };
     }
     case 'failed': {
       const next = failures + 1;
@@ -96,6 +100,8 @@ export function createPoller(env: PollerEnv): Poller {
   let heldUntil = 0;
   let lastStartedAt: number | null = null;
   let refreshWanted = false;
+  /** When the schedule says the next read is due: the last read's wait, absolute. Survives a pause. */
+  let nextDue = 0;
 
   const clear = (): void => {
     if (timer !== null) env.clearTimer(timer);
@@ -124,6 +130,7 @@ export function createPoller(env: PollerEnv): Poller {
     const wait = waitAfter(outcome, failures);
     failures = wait.failures;
     heldUntil = wait.hold ? env.now() + wait.waitMs : 0;
+    nextDue = env.now() + wait.waitMs;
     if (refreshWanted) {
       schedule(wait.hold ? wait.waitMs : 0);
       return;
@@ -145,8 +152,12 @@ export function createPoller(env: PollerEnv): Poller {
     },
     wake() {
       if (!running) return;
-      if (shouldReadOnWake({ visible: env.isVisible(), now: env.now(), lastStartedAt, inFlight: controller !== null, heldUntil })) {
+      const now = env.now();
+      if (shouldReadOnWake({ visible: env.isVisible(), now, lastStartedAt, inFlight: controller !== null, heldUntil })) {
         void readNow();
+      } else if (env.isVisible() && controller === null && timer === null) {
+        // Turned away: pause() had cleared the timer, so put the next read back, no earlier than what held it off.
+        schedule(Math.max(0, Math.max(nextDue, heldUntil, (lastStartedAt ?? now) + WAKE_COALESCE_MS) - now));
       }
     },
     pause() {

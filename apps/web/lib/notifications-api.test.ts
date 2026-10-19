@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getUnreadCount, listNotifications, markAllRead, notificationSearch, toItem, updateNotification } from './notifications-api';
-import { parseRetryAfter } from './records-api';
+import { listContacts, parseRetryAfter } from './records-api';
 
 const ID = '8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c06';
 const OBJECT = '3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01';
@@ -66,6 +66,23 @@ describe('notifications client', () => {
     stub(429, { statusCode: 429, code: 'too_many_requests', message: 'x' }, { 'retry-after': '30' });
     const result = await getUnreadCount();
     expect(!result.ok && result.error).toMatchObject({ code: 'too_many_requests', retryAfterSeconds: 30 });
+  });
+
+  it('reads a 429 with no envelope as a wait, for the notifications calls only (N7)', async () => {
+    const bare = () => vi.stubGlobal('fetch', vi.fn(async () => new Response('Too Many Requests', { status: 429, headers: { 'retry-after': '20' } })));
+    bare();
+    const mine = await getUnreadCount();
+    expect(!mine.ok && mine.error).toMatchObject({ code: 'too_many_requests', retryAfterSeconds: 20 });
+    // Every other records call still reads it as a lost answer, as before.
+    bare();
+    const other = await listContacts({});
+    expect(!other.ok && other.error.code).toBe('network');
+  });
+
+  it('refuses a count past the cap (N8)', async () => {
+    stub(200, { count: 100, capped: true });
+    const result = await getUnreadCount();
+    expect(!result.ok && result.error.code).toBe('network');
   });
 
   it('reads Retry-After as whole seconds only', () => {

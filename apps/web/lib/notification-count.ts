@@ -15,11 +15,13 @@ export interface CountState {
   readonly known: boolean;
   readonly count: number;
   readonly capped: boolean;
-  /** Bumped by every LOCAL change; a read that began before the latest bump is stale. */
+  /** Bumped by every LOCAL change and every write SENT; a read that began before the latest bump is stale. */
   readonly epoch: number;
+  /** Writes sent and not yet answered. While there is one, no count read is believed (N1). */
+  readonly pending: number;
 }
 
-export const INITIAL_COUNT: CountState = { known: false, count: 0, capped: false, epoch: 0 };
+export const INITIAL_COUNT: CountState = { known: false, count: 0, capped: false, epoch: 0, pending: 0 };
 
 /** The badge text: nothing at 0, the number to 99 exactly, "99+" when more (the cap is the contract's). */
 export function badgeLabel(state: CountState): string {
@@ -29,14 +31,25 @@ export function badgeLabel(state: CountState): string {
 
 /** A server answer for a read that STARTED at `startedEpoch`; dropped when a local change came since (latest answer wins). */
 export function applyServerCount(state: CountState, answer: UnreadCount, startedEpoch: number): CountState {
-  if (startedEpoch !== state.epoch) return state;
+  // A read that overlaps a write (begun before it was sent, or answered while it is in flight) saw the state on one side of it: it is dropped.
+  if (startedEpoch !== state.epoch || state.pending > 0) return state;
   if (state.known && state.count === answer.count && state.capped === answer.capped) return state;
-  return { known: true, count: answer.count, capped: answer.capped, epoch: state.epoch };
+  return { ...state, known: true, count: answer.count, capped: answer.capped };
+}
+
+/** A write is about to be sent: reads in flight are outdated, and none is believed until it is answered (N1). */
+export function beginWrite(state: CountState): CountState {
+  return { ...state, epoch: state.epoch + 1, pending: state.pending + 1 };
+}
+
+/** A write was answered (or given up on): the next read is believed again. */
+export function endWrite(state: CountState): CountState {
+  return { ...state, epoch: state.epoch + 1, pending: Math.max(0, state.pending - 1) };
 }
 
 /** A local change that carries the server's own answer (a mark-all): authoritative, and it outdates every read in flight. */
 export function applyLocalCount(state: CountState, answer: UnreadCount): CountState {
-  return { known: true, count: answer.count, capped: answer.capped, epoch: state.epoch + 1 };
+  return { ...state, known: true, count: answer.count, capped: answer.capped, epoch: state.epoch + 1 };
 }
 
 /**

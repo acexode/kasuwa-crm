@@ -88,7 +88,7 @@ const RawPage = z.object({
 });
 
 const CountAnswer = z.object({
-  count: z.number().int().min(0),
+  count: z.number().int().min(0).max(99),
   capped: z.boolean(),
 });
 
@@ -144,6 +144,7 @@ export function notificationSearch(query: NotificationQuery): string {
 export function listNotifications(query: NotificationQuery, signal?: AbortSignal): Promise<RecordsResult<NotificationPage>> {
   return requestRecords(`/api/v1/notifications${notificationSearch(query)}`, PageAnswer, {
     method: 'GET',
+    readBareThrottle: true,
     ...(signal === undefined ? {} : { signal }),
   });
 }
@@ -151,6 +152,7 @@ export function listNotifications(query: NotificationQuery, signal?: AbortSignal
 export function getUnreadCount(signal?: AbortSignal): Promise<RecordsResult<UnreadCount>> {
   return requestRecords('/api/v1/notifications/unread-count', CountAnswer, {
     method: 'GET',
+    readBareThrottle: true,
     ...(signal === undefined ? {} : { signal }),
   });
 }
@@ -159,6 +161,7 @@ export function getUnreadCount(signal?: AbortSignal): Promise<RecordsResult<Unre
 export function markAllRead(body: { readonly throughId: string; readonly kind?: NotificationKind }, signal?: AbortSignal): Promise<RecordsResult<UnreadCount>> {
   return requestRecords('/api/v1/notifications/read-all', CountAnswer, {
     method: 'POST',
+    readBareThrottle: true,
     body: body.kind === undefined ? { throughId: body.throughId } : { kind: body.kind, throughId: body.throughId },
     ...(signal === undefined ? {} : { signal }),
   });
@@ -167,6 +170,7 @@ export function markAllRead(body: { readonly throughId: string; readonly kind?: 
 export function updateNotification(id: string, read: boolean, signal?: AbortSignal): Promise<RecordsResult<{ id: string; readAt: string | null }>> {
   return requestRecords(`/api/v1/notifications/${encodeURIComponent(id)}`, UpdateAnswer, {
     method: 'PATCH',
+    readBareThrottle: true,
     body: { read },
     ...(signal === undefined ? {} : { signal }),
   });

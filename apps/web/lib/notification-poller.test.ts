@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BACKOFF_CAP_MS, CADENCE_MS, WAKE_COALESCE_MS, createPoller, shouldReadOnWake, waitAfter, type PollOutcome } from './notification-poller';
+import { BACKOFF_CAP_MS, CADENCE_MS, RETRY_AFTER_CAP_MS, WAKE_COALESCE_MS, retryAfterMs, createPoller, shouldReadOnWake, waitAfter, type PollOutcome } from './notification-poller';
 
 describe('waitAfter', () => {
   it('returns to the cadence after a success and clears the failures', () => {
@@ -141,5 +141,46 @@ describe('createPoller on a fake clock', () => {
     await vi.advanceTimersByTimeAsync(CADENCE_MS * 2);
     expect(aborted).toBe(true);
     expect(reads).toHaveLength(1);
+  });
+
+  // B1 (D-L179): pause() clears the timer, so a declined wake used to leave nothing scheduled, for good.
+  it('keeps polling after a quick hide and show inside the coalescing window', async () => {
+    const poller = make();
+    poller.start();
+    await vi.advanceTimersByTimeAsync(2_000);
+    visible = false;
+    poller.pause();
+    await vi.advanceTimersByTimeAsync(1_000);
+    visible = true;
+    poller.wake();
+    await vi.advanceTimersByTimeAsync(60 * 60_000);
+    expect(reads.length).toBeGreaterThan(60);
+    const gaps = reads.slice(1).map((at, index) => at - (reads[index] ?? 0));
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(WAKE_COALESCE_MS);
+    poller.stop();
+  });
+
+  it('keeps polling after a 429 hold followed by a hide and show, and still waits the whole Retry-After', async () => {
+    outcomes = [{ kind: 'throttled', retryAfterSeconds: 120 }];
+    const poller = make();
+    poller.start();
+    await vi.advanceTimersByTimeAsync(2_000);
+    visible = false;
+    poller.pause();
+    await vi.advanceTimersByTimeAsync(60_000);
+    visible = true;
+    poller.wake();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(reads).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(60 * 60_000);
+    expect((reads[1] ?? 0) - (reads[0] ?? 0)).toBeGreaterThanOrEqual(120_000);
+    expect(reads.length).toBeGreaterThan(60);
+    poller.stop();
+  });
+
+  it('caps a Retry-After at fifteen minutes', () => {
+    expect(retryAfterMs(undefined, 7)).toBe(7);
+    expect(retryAfterMs(30, 7)).toBe(30_000);
+    expect(retryAfterMs(999_999, 7)).toBe(RETRY_AFTER_CAP_MS);
   });
 });
