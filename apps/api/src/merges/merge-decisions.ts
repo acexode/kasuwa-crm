@@ -5,6 +5,7 @@ import {
   complianceOf,
   contactFieldLevel,
   defaultSide,
+  displayNameReadable,
   MERGE_FIELDS,
   strictestCompliance,
   type ContactFieldAccess,
@@ -43,12 +44,19 @@ export interface MergeAccess {
   programmeId: string;
 }
 
-/** `displayName` is in no matrix row: whoever may write contacts may write it. */
+/**
+ * `displayName` is in no matrix row: it follows its name parts (D-L68). A
+ * caller who reads both may choose it (whether a `read` part makes it
+ * read-only is left open, T-0124 I11); anyone else may not, so it is never a
+ * default for them and choosing it is 403 `field_not_editable`.
+ */
 export function standardLevel(
   access: MergeAccess,
   field: MergeColumnField,
 ): 'none' | 'read' | 'edit' {
-  if (field === 'displayName') return 'edit';
+  if (field === 'displayName') {
+    return displayNameReadable(access.contact, access.programmeId) ? 'edit' : 'none';
+  }
   return contactFieldLevel(access.contact, access.programmeId, field);
 }
 

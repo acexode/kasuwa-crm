@@ -1,3 +1,4 @@
+import { summaryDisplayName, type ContactFieldAccess } from '@kasuwa/domain-core';
 import type { FieldAccess } from '@kasuwa/metadata-engine';
 import { dealFieldLevel, withheldDealFields, type WithholdableDealField } from './deal-fields';
 import type { CustomWire } from '../custom-fields/custom-values';
@@ -10,7 +11,8 @@ import type { Deal } from './deal.repository';
  * Withheld fields are OMITTED, never nulled, and named in `withheldFields`;
  * withholding `amount` also omits `weightedAmount`, `ownerUserId` also
  * `owner`, `primaryContactId` also `contact`, `accountId` also `account`.
- * `name` is never withheld (R13).
+ * `name` is never withheld (R13). The contact summary's `displayName` is
+ * judged by CONTACT field security and is `null` when withheld (T-0124 I3).
  *
  * MONEY IS A STRING (D-L121, R19): `amountMinor` stays the digit string
  * Postgres rendered. The weighted amount is computed in BigInt, half-even per
@@ -36,7 +38,8 @@ export interface DealWire {
   ownerUserId?: string | null;
   owner?: { id: string; displayName: string | null } | null;
   primaryContactId?: string | null;
-  contact?: { id: string; displayName: string } | null;
+  /** T-0124 I3: `displayName` null when a contact name part is withheld (D-L68). */
+  contact?: { id: string; displayName: string | null } | null;
   accountId?: string | null;
   account?: { id: string; name: string } | null;
   nextStep?: string | null;
@@ -92,6 +95,7 @@ export function rottingOf(
 export function toDealWire(
   deal: Deal,
   access: FieldAccess,
+  contactAccess: ContactFieldAccess,
   custom: CustomWire,
   now: number = Date.now(),
 ): DealWire {
@@ -145,7 +149,16 @@ export function toDealWire(
     wire.contact =
       deal.primaryContactId === null || deal.contactDisplayName === null
         ? null
-        : { id: deal.primaryContactId, displayName: deal.contactDisplayName };
+        : {
+            id: deal.primaryContactId,
+            // CONTACT field security, in the contact's programme, which the
+            // composite key makes the deal's own (T-0124 I3).
+            displayName: summaryDisplayName(
+              contactAccess,
+              deal.programmeId,
+              deal.contactDisplayName,
+            ),
+          };
   }
   if (shown('accountId')) {
     wire.accountId = deal.accountId;

@@ -6,8 +6,11 @@ import {
   listMyCalendar,
   listMyOpenTasks,
   loadActivityFieldAccess,
+  loadContactFieldAccess,
+  summaryDisplayName,
   timeZoneNameExists,
   type ActivityFieldAccess,
+  type ContactFieldAccess,
   type MyActivityCursorKind,
   type MyActivityPageRows,
   type MyActivityRow,
@@ -46,7 +49,8 @@ export interface MyActivityWire {
   completedAt?: string | null;
   startsAt?: string | null;
   endsAt?: string | null;
-  contact?: { id: string; displayName: string } | null;
+  /** T-0124 I3: `displayName` null when a contact name part is withheld (D-L68). */
+  contact?: { id: string; displayName: string | null } | null;
   account?: { id: string; name: string } | null;
   version: number;
   withheldFields: MyActivityWithheld[];
@@ -74,9 +78,16 @@ const iso = (value: Date | null) => value?.toISOString() ?? null;
  * One row on the wire. WITHHELD MEANS OMITTED, NEVER NULLED, and named: a
  * property the caller may not read in the activity's programme is deleted;
  * `contact` follows `contactId` and `account` follows `accountId`. No body
- * and no owner, ever (the contract's item is closed).
+ * and no owner, ever (the contract's item is closed). The contact's
+ * `displayName` is judged by CONTACT field security in the activity's
+ * programme, which is the contact's (the join's key), and is `null` when
+ * withheld (T-0124 I3).
  */
-export function toMyActivityWire(row: MyActivityRow, access: ActivityFieldAccess): MyActivityWire {
+export function toMyActivityWire(
+  row: MyActivityRow,
+  access: ActivityFieldAccess,
+  contactAccess: ContactFieldAccess,
+): MyActivityWire {
   const readable = (field: SecuredActivityField) =>
     activityFieldLevel(access, row.programmeId, field) !== 'none';
   const withheld: MyActivityWithheld[] = [];
@@ -104,7 +115,10 @@ export function toMyActivityWire(row: MyActivityRow, access: ActivityFieldAccess
     'contact',
     'contactId',
     row.contactId !== null && row.contactDisplayName !== null
-      ? { id: row.contactId, displayName: row.contactDisplayName }
+      ? {
+          id: row.contactId,
+          displayName: summaryDisplayName(contactAccess, row.programmeId, row.contactDisplayName),
+        }
       : null,
   );
   put(
@@ -134,9 +148,10 @@ function page(
   kind: MyActivityCursorKind,
   rows: MyActivityPageRows,
   access: ActivityFieldAccess,
+  contactAccess: ContactFieldAccess,
 ): MyActivityPageWire {
   return {
-    data: rows.rows.map((row) => toMyActivityWire(row, access)),
+    data: rows.rows.map((row) => toMyActivityWire(row, access, contactAccess)),
     nextCursor: rows.nextCursorId === null ? null : encodeActivityCursor(kind, rows.nextCursorId),
   };
 }
@@ -161,7 +176,7 @@ export async function listMyActivitiesFor(
     cursorId,
     limit: query.limit,
   });
-  return page('tasks', rows, access);
+  return page('tasks', rows, access, await loadContactFieldAccess(tx));
 }
 
 /** listCalendar. */
@@ -182,5 +197,5 @@ export async function listCalendarFor(
     cursorId,
     limit: query.limit,
   });
-  return page('calendar', rows, access);
+  return page('calendar', rows, access, await loadContactFieldAccess(tx));
 }

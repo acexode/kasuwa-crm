@@ -2,6 +2,7 @@ import { HttpStatus } from '@nestjs/common';
 import type { TenantTx } from '@kasuwa/db';
 import {
   appendOwnerChangedEvent,
+  loadContactFieldAccess,
   programmeAccountExists,
   programmeContactExists,
   programmeMemberExists,
@@ -277,7 +278,12 @@ function bodyForbidden(
 export async function getDealFor(tx: TenantTx, id: unknown): Promise<DealWire> {
   const { deal } = await readableDeal(tx, id);
   const custom = await loadCustom(tx, 'deal');
-  return toDealWire(deal, await loadDealFieldAccess(tx), await customWireFor(tx, custom, deal));
+  return toDealWire(
+    deal,
+    await loadDealFieldAccess(tx),
+    await loadContactFieldAccess(tx),
+    await customWireFor(tx, custom, deal),
+  );
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -362,9 +368,10 @@ export async function listDealsFor(
     },
   });
   const wires = await customWiresFor(tx, custom, page.data);
+  const contactAccess = await loadContactFieldAccess(tx);
   return {
     data: page.data.map((deal) =>
-      toDealWire(deal, access, wires.get(deal.id) ?? EMPTY_CUSTOM_WIRE, now),
+      toDealWire(deal, access, contactAccess, wires.get(deal.id) ?? EMPTY_CUSTOM_WIRE, now),
     ),
     nextCursor: page.nextCursor,
   };
@@ -435,7 +442,12 @@ export async function createDealFor(
     previousOwnerId: null,
     newOwnerId: deal.ownerUserId,
   });
-  return toDealWire(deal, access, await customWireFor(tx, custom, deal));
+  return toDealWire(
+    deal,
+    access,
+    await loadContactFieldAccess(tx),
+    await customWireFor(tx, custom, deal),
+  );
 }
 
 // --- update ------------------------------------------------------------------
@@ -484,7 +496,12 @@ export async function updateDealFor(tx: TenantTx, id: unknown, body: unknown): P
     previousOwnerId: current.ownerUserId,
     newOwnerId: updated.ownerUserId,
   });
-  return toDealWire(updated, access, await customWireFor(tx, custom, updated));
+  return toDealWire(
+    updated,
+    access,
+    await loadContactFieldAccess(tx),
+    await customWireFor(tx, custom, updated),
+  );
 }
 
 // --- move --------------------------------------------------------------------
@@ -616,5 +633,10 @@ export async function moveDealFor(tx: TenantTx, id: unknown, body: unknown): Pro
     ),
     [],
   );
-  return toDealWire(updated, access, await customWireFor(tx, await loadCustom(tx, 'deal'), updated));
+  return toDealWire(
+    updated,
+    access,
+    await loadContactFieldAccess(tx),
+    await customWireFor(tx, await loadCustom(tx, 'deal'), updated),
+  );
 }

@@ -3,10 +3,12 @@ import {
   boardColumnCards,
   boardColumnSelects,
   decodeIdCursor,
+  displayNameReadable,
   encodeIdCursor,
   findPipeline,
   isUuid,
   listPipelines,
+  loadContactFieldAccess,
   loadDealFieldAccess,
   loadPipelineDetail,
   loadPipelineStages,
@@ -212,6 +214,12 @@ export async function getPipelineBoardFor(
   const amountWithheld = withheld.includes('amount');
   // T-0089: each card's custom values, projected in SQL, one read per column.
   const custom = await loadCustom(tx, 'deal');
+  // A card's contact is in the pipeline's programme (the composite key), so
+  // CONTACT field security is judged once, there (T-0124 I3).
+  const contactNameReadable = displayNameReadable(
+    await loadContactFieldAccess(tx),
+    pipeline.programmeId,
+  );
   const out: BoardStageWire[] = [];
   for (const [index, column] of boardColumns.entries()) {
     const stage = selected[index];
@@ -230,6 +238,7 @@ export async function getPipelineBoardFor(
         toDealWire(
           card,
           withheld,
+          contactNameReadable,
           stage?.rottingAfterDays ?? null,
           nowMs,
           wires.get(card.id) ?? EMPTY_CUSTOM_WIRE,
