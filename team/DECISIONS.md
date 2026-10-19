@@ -3755,3 +3755,26 @@ the CSP waits for T-0125.
 
 **Flag:** `crm_import` is added by T-0094. If T-0096 is built first, it declares the flag identically and
 rebases after T-0094 merges.
+
+### D-L169 — Custom permission sets hold no actions; three T-0094 tests go pending (lead, 2026-10-19)
+
+D-L166 item 4 assumed `contact.import` could be granted to a custom permission set. It cannot:
+- set grants are a static allow-list keyed by set key (`SET_PERMITS`, packages/permissions/src/policy.ts);
+- `permission_set` defines no grant (0006);
+- an unlocked set planted by a suite holds no actions at all.
+
+Today the only holders of `contact.import` are the locked `admin` and tenant-admin sets, and locked sets always
+have edit. So the import path's field-security refusals cannot be reached through the API.
+
+- **The tests.** The mapping-403, R12 and R17 tests move unchanged in intent to
+  `tests/acceptance/records/import-field-security.pending.acceptance.test.ts` (the pending project). They are
+  promoted when custom sets can carry actions. Meanwhile the build's unit tests pin field security at mapping time
+  and per batch, and the security review checked both.
+- **Not done in T-0094.** Grants for custom sets need a new table, so that is a decision, not an
+  implementation detail (CLAUDE.md §8). It becomes its own task in the permissions area, with an ADR or D-L
+  covering:
+  - a grant table, with RLS and `TENANT_SCOPED_TABLES`;
+  - which actions a tenant may grant;
+  - whether `contact.import` implies `contact.write` at grant time (D-L151, D-L167).
+- **D-L167's permission requirement still holds in code.** runImport and every batch check `contact.write`. It is
+  vacuous today, but stops being so as soon as grants exist.
