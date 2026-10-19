@@ -302,6 +302,20 @@ async function revokePrevious(config: BffConfig, deps: BffDependencies, token: s
   }
 }
 
+/**
+ * Connection-level failures of a reused keep-alive socket, as Node's fetch
+ * (undici) reports them: a `TypeError('fetch failed')` whose cause carries the
+ * socket's code. A timeout or an abort is not one, and is never retried.
+ */
+const CONNECTION_RESET_CODES = new Set(['ECONNRESET', 'EPIPE', 'UND_ERR_SOCKET', 'UND_ERR_CLOSED']);
+
+export function isConnectionReset(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const code = (error as { code?: unknown }).code;
+  const cause = (error as { cause?: { code?: unknown } }).cause;
+  return [code, cause?.code].some((value) => typeof value === 'string' && CONNECTION_RESET_CODES.has(value));
+}
+
 /** The headers an upstream answer keeps (allowlisted), with the BFF's own on top. */
 function answerHeaders(upstream: Response): Headers {
   const headers = new Headers();
@@ -352,20 +366,34 @@ export function createBffHandler(resolveConfig: () => BffConfig, deps: BffDepend
     const isSignOut = method === 'POST' && target.route === SIGN_OUT_ROUTE;
     const signOutCookies = isSignOut ? [clearSessionSetCookie(config.cookie)] : [];
 
-    let upstream: Response;
-    try {
-      upstream = await deps.fetch(destination, {
+    const signal = AbortSignal.any([request.signal, AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)]);
+    const send = () =>
+      deps.fetch(destination, {
         method,
         headers: upstreamHeaders(incoming, { bearer, forwardStubIdentity: config.forwardStubIdentity }),
         ...(body === undefined ? {} : { body }),
         cache: 'no-store',
         redirect: 'manual',
-        signal: AbortSignal.any([request.signal, AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)]),
+        signal,
       });
-    } catch {
-      const answer = jsonAnswer(502, BAD_GATEWAY_BODY, signOutCookies);
-      if (isSignOut) answer.headers.set('clear-site-data', '"cache"');
-      return answer;
+
+    let upstream: Response;
+    try {
+      upstream = await send();
+    } catch (error) {
+      // ONE retry, for a read only, when the pooled connection was reset
+      // before any answer: the keep-alive race, where the API closes an idle
+      // socket just as `fetch` reuses it (the demo's intermittent 502s). A
+      // write is never repeated: the API may have acted on it.
+      const retry = (method === 'GET' || method === 'HEAD') && !signal.aborted && isConnectionReset(error);
+      try {
+        if (!retry) throw error;
+        upstream = await send();
+      } catch {
+        const answer = jsonAnswer(502, BAD_GATEWAY_BODY, signOutCookies);
+        if (isSignOut) answer.headers.set('clear-site-data', '"cache"');
+        return answer;
+      }
     }
 
     const headers = answerHeaders(upstream);

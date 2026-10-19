@@ -83,6 +83,16 @@ async function bootstrap(): Promise<void> {
   );
 
   app.enableShutdownHooks();
+  // KEEP-ALIVE (T-0125 follow-up). The web BFF reaches this server over pooled
+  // keep-alive connections. Node closes an idle one after 5 s by default, and
+  // the client's idle timers are coarse enough to reuse a socket right at that
+  // edge, which the server then resets: a read the BFF answered 502 at the
+  // demo. Idle sockets now live 65 s (the client, told so by the Keep-Alive
+  // header, drops them first), and the header timeout stays above it, as Node
+  // requires. The BFF also retries a read once on such a reset.
+  const server = app.getHttpServer() as { keepAliveTimeout: number; headersTimeout: number };
+  server.keepAliveTimeout = 65_000;
+  server.headersTimeout = 66_000;
   await app.listen(configuration.API_PORT);
   process.stdout.write(`kasuwa api listening on ${configuration.API_PORT}\n`);
 }
