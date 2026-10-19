@@ -103,7 +103,7 @@ describe('contact writes and search (T-0041)', () => {
     });
   });
 
-  it('searches names without diacritics and phones only where they may be read', async () => {
+  it('searches names without diacritics, each field only where it may be read, and never a phone', async () => {
     await inRollback(USER_A_SUPERVISOR, async (tx) => {
       const adebayo = await insertContact(tx, PROGRAMME_A1, {
         displayName: 'T0041 Probe',
@@ -111,28 +111,26 @@ describe('contact writes and search (T-0041)', () => {
         phones: [{ type: 'mobile', e164: '+2348069990411' }],
       });
       const everywhere = [PROGRAMME_A1, PROGRAMME_A2];
-      const search = (text: string, phoneE164: string | null, phoneProgrammeIds: string[]) =>
+      const search = (text: string, displayNameProgrammeIds: string[] = everywhere) =>
         listContacts(tx, {
           limit: 100,
           search: {
             text,
-            phoneE164,
-            phoneProgrammeIds,
+            displayNameProgrammeIds,
             givenNamesProgrammeIds: everywhere,
             familyNameProgrammeIds: everywhere,
           },
         });
 
-      expect((await search('adebayo', null, everywhere)).data.map((c) => c.id)).toEqual([
-        adebayo.id,
-      ]);
-      const byPhone = await search('08069990411', '+2348069990411', everywhere);
-      expect(byPhone.data.map((c) => c.id)).toEqual([adebayo.id]);
-      // Phones withheld in A1: the same number finds nothing there.
-      expect((await search('08069990411', '+2348069990411', [PROGRAMME_A2])).data).toEqual([]);
+      expect((await search('adebayo')).data.map((c) => c.id)).toEqual([adebayo.id]);
+      expect((await search('t0041 probe')).data.map((c) => c.id)).toEqual([adebayo.id]);
+      // T-0124 I7: displayName withheld in A1 is never matched there.
+      expect((await search('t0041 probe', [PROGRAMME_A2])).data).toEqual([]);
+      // R21: q never matches a phone.
+      expect((await search('+2348069990411')).data).toEqual([]);
       // Wildcards are literal.
-      expect((await search('%', null, everywhere)).data).toEqual([]);
-      expect((await search('_', null, everywhere)).data).toEqual([]);
+      expect((await search('%')).data).toEqual([]);
+      expect((await search('_')).data).toEqual([]);
     });
   });
 
@@ -182,18 +180,18 @@ describe('contact writes and search (T-0041)', () => {
     });
   });
 
-  it('pages by displayName in name order, every row once', async () => {
+  it('pages by updatedAt, every row once', async () => {
     await inRollback(USER_A_SUPERVISOR, async (tx) => {
       const collected: string[] = [];
       let cursor: string | undefined;
       for (let page = 0; page < 20; page += 1) {
-        const result = await listContacts(tx, { limit: 2, cursor, sort: 'displayName' });
-        collected.push(...result.data.map((contact) => contact.displayName));
+        const result = await listContacts(tx, { limit: 2, cursor, sort: 'updatedAt' });
+        collected.push(...result.data.map((contact) => contact.id));
         if (result.nextCursor === null) break;
         cursor = result.nextCursor;
       }
-      const all = await listContacts(tx, { limit: 100, sort: 'displayName' });
-      expect(collected).toEqual(all.data.map((contact) => contact.displayName));
+      const all = await listContacts(tx, { limit: 100, sort: 'updatedAt' });
+      expect(collected).toEqual(all.data.map((contact) => contact.id));
       expect(collected).toHaveLength(6);
     });
   });

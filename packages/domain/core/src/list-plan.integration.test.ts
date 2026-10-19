@@ -52,7 +52,6 @@ function hasSort(node: PlanNode): boolean {
 const CONTACT_PROGRAMME_LED: Record<string, string> = {
   createdAt: 'contact_keyset_idx',
   updatedAt: 'contact_programme_updated_keyset_idx',
-  displayName: 'contact_programme_display_name_keyset_idx',
 };
 const ACCOUNT_PROGRAMME_LED: Record<string, string> = {
   createdAt: 'account_keyset_idx',
@@ -132,7 +131,8 @@ describe('list plans by session scope (T-0084, M1)', () => {
     }
   }
 
-  const contactSorts: ContactSort[] = ['-createdAt', 'updatedAt', 'displayName', '-displayName'];
+  // T-0124 I5: displayName is no longer a sort key; every contact key remains.
+  const contactSorts: ContactSort[] = ['-createdAt', 'createdAt', 'updatedAt', '-updatedAt'];
   const accountSorts: AccountSort[] = ['name', '-updatedAt', 'createdAt'];
   const someId = '11111111-0000-4000-8000-0000000000ff';
 
@@ -170,10 +170,10 @@ describe('list plans by session scope (T-0084, M1)', () => {
 
   it('a two-programme session sends = ANY and pages from a tenant-led index', async () => {
     const plan = await planOf(USER_A_SUPERVISOR, 'contact', (tx) =>
-      listContacts(tx, { limit: 25, sort: 'displayName' }),
+      listContacts(tx, { limit: 25, sort: 'updatedAt' }),
     );
     expect(plan.text).toMatch(/programme_id = ANY\(\$\d+::uuid\[\]\)/);
-    expect(plan.indexes).toEqual(['contact_tenant_display_name_keyset_idx']);
+    expect(plan.indexes).toEqual(['contact_tenant_updated_keyset_idx']);
     expect(plan.sorted).toBe(false);
   });
 });
