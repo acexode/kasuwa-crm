@@ -596,6 +596,11 @@ function startSelfServeWeb(apiUrl, port) {
  * "Fields" entry links it only where the flag is on, so the default server
  * stays flagless and unlinked. Published as `webStudioUrl`; the studio's byte
  * budget is measured on this build.
+ * `crm_import` RIDES HERE TOO (T-0096): the P28 import wizard at
+ * `/contacts/import`. The Contacts list that links it, and that the report's
+ * "view the imported contacts" link lands on with `?importId=`, is served
+ * here, and the CRM shell's links all resolve. Published as `webImportUrl`;
+ * the screen's byte budget is measured on this build.
  */
 function startRecordsWeb(apiUrl, port) {
   const child = spawnGroup('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
@@ -610,7 +615,7 @@ function startRecordsWeb(apiUrl, port) {
       KASUWA_AUTH_MODE: 'jwt',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
-      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities,crm_scripts,crm_pipeline,crm_search,crm_custom_fields',
+      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities,crm_scripts,crm_pipeline,crm_search,crm_custom_fields,crm_import',
       ...NO_DATABASE_URLS,
     },
   });
@@ -781,13 +786,13 @@ async function main() {
     await Promise.all([
       waitForHttp(webUrl, 'the web app'),
       waitForHttp(webSelfServeUrl, 'the self-serve web app'),
-      waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view, crm_leads, crm_activities, crm_scripts, crm_pipeline, crm_search and crm_custom_fields web app'),
+      waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view, crm_leads, crm_activities, crm_scripts, crm_pipeline, crm_search, crm_custom_fields and crm_import web app'),
     ]);
     restoreNextEnv(nextEnv);
     log(`web (next start, production build) on ${webUrl}`);
     log(`web (next dev, self_serve_signup + admin_live_api on) on ${webSelfServeUrl}`);
     log(
-      `web (next start, production build, crm_records + crm_accounts + crm_record_view + crm_leads + crm_activities + crm_scripts + crm_pipeline + crm_search + crm_custom_fields on) on ${webRecordsUrl}`,
+      `web (next start, production build, crm_records + crm_accounts + crm_record_view + crm_leads + crm_activities + crm_scripts + crm_pipeline + crm_search + crm_custom_fields + crm_import on) on ${webRecordsUrl}`,
     );
   }
 
@@ -821,6 +826,7 @@ async function main() {
         webPipelineUrl: webRecordsUrl,
         webSearchUrl: webRecordsUrl,
         webStudioUrl: webRecordsUrl,
+        webImportUrl: webRecordsUrl,
         apiUrl,
         fixturesUrl,
       },

@@ -1,5 +1,7 @@
 'use client';
 
+import dynamic from 'next/dynamic';
+import { guarded } from '../custom/lazy-boundary';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type RefObject } from 'react';
 import { createBundleTranslator, type MessageBundle, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
@@ -7,10 +9,10 @@ import { CrmShell } from '../crm/crm-shell';
 import { dropQueryFromAddressBar } from '../../lib/search-query';
 import type { LanguageOption } from '../auth/language-menu';
 import { PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
+import { ColumnChooser } from '../records/column-chooser';
 import { CHIP, CHIP_OFF, CHIP_ON, FOCUS, MENU_ROW, POPOVER } from '../records/list-classes';
 import {
   CheckMark,
-  ColumnChooser,
   FilterOptions,
   HeaderLock,
   ListError,
@@ -21,6 +23,9 @@ import {
   OfflineBanner,
 } from '../records/list-parts';
 import { formatPhone, initials, listState } from '../records/list-model';
+import { filterableFields, NO_CUSTOM_FILTERS, listRefusalId, setCustomFilter } from '../../lib/custom-values-filters';
+import { LazyCustomFilterBar } from '../custom/lazy-filters';
+import { useCustomDefinitions } from '../custom/use-custom-fields';
 import { useKeysetList, type KeysetList } from '../records/use-keyset-list';
 import { listAccounts, listMyProgrammes, type Account, type MyProgramme } from '../../lib/accounts-api';
 import {
@@ -51,7 +56,10 @@ import {
   type AccountFilterState,
   type AccountView,
 } from './accounts-model';
-import { AccountSheet, type SheetMode } from './account-sheet';
+import type { SheetMode } from './account-sheet';
+
+// Loaded when opened: the create and edit sheet is not on the list's first paint.
+const AccountSheet = guarded(dynamic(() => import('./account-sheet').then((module) => module.AccountSheet), { ssr: false }));
 
 /**
  * `P04/03` — the Accounts list — with `P04/05` (empty, no results) and `P04/06`
@@ -118,6 +126,7 @@ export function AccountsScreen({
   locales,
   live,
   initialQ,
+  customFields = false,
 }: {
   locale: string;
   messages: MessageBundle;
@@ -129,8 +138,11 @@ export function AccountsScreen({
    * checked to be a name on the server (`nameFromUrl`): the first search.
    */
   initialQ?: string;
+  /** Custom values are on in this process (read by the server page, T-0091): offer the custom filters. */
+  customFields?: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
+  const custom = useCustomDefinitions('account', customFields);
   const [q, setQ] = useState(initialQ ?? '');
   // The search never stays in the URL (`use-keyset-list.ts`): read once, then dropped.
   useEffect(() => {
@@ -156,7 +168,10 @@ export function AccountsScreen({
     setWithheldSeen((current) => (seen.every((field) => current.has(field)) ? current : new Set([...current, ...seen])));
   }, [list.rows, list.error]);
 
-  const searched = list.answered.q.trim() !== '' || activeAccountFilters(list.answered.view.filters).length > 0;
+  const searched =
+    list.answered.q.trim() !== '' ||
+    activeAccountFilters(list.answered.view.filters).length > 0 ||
+    Object.keys(list.answered.view.custom ?? NO_CUSTOM_FILTERS).length > 0;
   const state = listState({ phase: list.phase, rowCount: list.rows.length, searching: searched });
   const lockedColumns = lockedAccountColumns(list.rows);
   const lockedFilters = lockedAccountFilters(withheldSeen);
@@ -198,7 +213,7 @@ export function AccountsScreen({
 
   const clearAll = () => {
     setQ('');
-    setView((current) => ({ ...current, filters: NO_ACCOUNT_FILTERS }));
+    setView((current) => ({ ...current, filters: NO_ACCOUNT_FILTERS, custom: NO_CUSTOM_FILTERS }));
   };
 
   const startCreate = () => {
@@ -339,6 +354,15 @@ export function AccountsScreen({
             ) : null}
           </div>
         </div>
+
+        {filterableFields(custom.fields).length > 0 ? (
+        <LazyCustomFilterBar
+          t={t}
+          fields={custom.fields}
+          filters={view.custom ?? NO_CUSTOM_FILTERS}
+          onChange={(key, value) => setView((current) => ({ ...current, custom: setCustomFilter(current.custom ?? NO_CUSTOM_FILTERS, key, value) }))}
+        />
+        ) : null}
 
         <Body
           t={t}
@@ -608,7 +632,7 @@ function Body({
       <ListError
         t={t}
         heading="accounts.error.title"
-        message={listErrorMessage(list.error)}
+        message={listRefusalId(list.error) ?? listErrorMessage(list.error)}
         code={list.error?.code ?? 'network'}
         offline={offline}
         onRetry={list.reload}

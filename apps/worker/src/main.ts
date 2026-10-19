@@ -1,4 +1,11 @@
-import { loadWorkspaceEnv, workerEnv } from '@kasuwa/config';
+import { loadWorkspaceEnv, storageConfigured, storageEnv, workerEnv } from '@kasuwa/config';
+import {
+  IMPORT_HEADER_QUEUE,
+  IMPORT_RETENTION_QUEUE,
+  IMPORT_RUN_QUEUE,
+} from '@kasuwa/domain-core';
+import { featureFlagClient, initialiseFeatureFlags } from '@kasuwa/feature-flags';
+import { S3ObjectStore } from '@kasuwa/storage-adapter';
 import {
   createPool,
   OUTBOX_QUEUES,
@@ -19,6 +26,12 @@ import {
   authRetentionJob,
   authRetentionLine,
 } from './auth-retention';
+import {
+  processImportHeader,
+  processImportRetention,
+  processImportRun,
+  type ImportJobDeps,
+} from './import-jobs';
 import { refuseWrongPoolRolesAtBoot, startOutboxRelay } from './outbox';
 
 /**
@@ -128,7 +141,44 @@ async function main(): Promise<void> {
     { connection, concurrency: 1 },
   );
 
-  for (const worker of [heartbeatWorker, authRetentionWorker]) {
+  // --- CSV import (T-0094) -------------------------------------------------
+  // One worker per queue. Each job runs AS ITS CREATOR inside
+  // withTenantTransaction (import-jobs.ts); payloads are ids only.
+  //   - header and run are behind the `crm_import` flag (D-L166), off by
+  //     default: off, those queues are not consumed;
+  //   - retention is ALWAYS consumed when an object store is configured
+  //     (D-L167 N9): erasure must never wait on a feature switch.
+  await initialiseFeatureFlags();
+  const crmImport = await featureFlagClient().getBooleanValue('crm_import', false);
+  const importWorkers: Worker[] = [];
+  if (storageConfigured()) {
+    const deps: ImportJobDeps = {
+      pool,
+      store: new S3ObjectStore(storageEnv()),
+      redisUrl: configuration.REDIS_URL,
+    };
+    importWorkers.push(
+      new Worker(IMPORT_RETENTION_QUEUE, async (job) => processImportRetention(deps, job.data), {
+        connection,
+        concurrency: 2,
+      }),
+    );
+    if (crmImport) {
+      importWorkers.push(
+        new Worker(IMPORT_HEADER_QUEUE, async (job) => processImportHeader(deps, job.data), {
+          connection,
+          concurrency: 2,
+        }),
+        // Sequential batches per job (R5); one run at a time per worker.
+        new Worker(IMPORT_RUN_QUEUE, async (job) => processImportRun(deps, job.data), {
+          connection,
+          concurrency: 1,
+        }),
+      );
+    }
+  }
+
+  for (const worker of [heartbeatWorker, authRetentionWorker, ...importWorkers]) {
     worker.on('failed', (job) => {
       // The job id and queue only. An error from pg can carry row values.
       process.stderr.write(`job ${job?.id ?? 'unknown'} on ${worker.name} failed\n`);
@@ -152,7 +202,7 @@ async function main(): Promise<void> {
   });
 
   process.stdout.write(
-    `kasuwa worker listening on queues ${HEARTBEAT_QUEUE}, ${AUTH_RETENTION_QUEUE}; ` +
+    `kasuwa worker listening on queues ${[HEARTBEAT_QUEUE, AUTH_RETENTION_QUEUE, ...importWorkers.map((w) => w.name)].join(', ')}; ` +
       `relaying the outbox to ${outboxQueues.map((queue) => queue.name).join(', ')}\n`,
   );
 
@@ -160,6 +210,7 @@ async function main(): Promise<void> {
     await relay.stop();
     await heartbeatWorker.close();
     await authRetentionWorker.close();
+    for (const worker of importWorkers) await worker.close();
     await heartbeat.close();
     await authRetention.close();
     for (const queue of outboxQueues) await queue.close();

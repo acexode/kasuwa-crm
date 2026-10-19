@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { FIELD, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
@@ -16,6 +16,9 @@ import {
   type Pipeline,
   type PipelineError,
 } from '../../lib/pipelines-api';
+import { filterableFields, NO_CUSTOM_FILTERS, listRefusalId, setCustomFilter, type CustomFilters } from '../../lib/custom-values-filters';
+import { LazyCustomFilterBar } from '../custom/lazy-filters';
+import { useCustomDefinitions } from '../custom/use-custom-fields';
 import { errorMessage, filtersKey, isDealSort, sortLabel, stageById } from './pipeline-model';
 import { AmountValue, CloseValue, OwnerValue, lockedProps } from './pipeline-parts';
 
@@ -41,10 +44,11 @@ export function DealList({
   t,
   locale,
   pipeline,
-  filters,
+  filters: boardFilters,
   filtered,
   online,
   nonce,
+  customFields = false,
 }: {
   t: Translator;
   locale: string;
@@ -55,7 +59,13 @@ export function DealList({
   online: boolean;
   /** Bumped after a create: read again from the top. */
   nonce: number;
+  /** Custom values are on in this process (read by the server page, T-0091): offer the custom filters. */
+  customFields?: boolean;
 }) {
+  const definitions = useCustomDefinitions('deal', customFields);
+  const [customFilters, setCustomFilters] = useState<CustomFilters>(NO_CUSTOM_FILTERS);
+  // The list read carries the custom filters; the board's read never does (C6).
+  const filters = useMemo(() => ({ ...boardFilters, custom: customFilters }), [boardFilters, customFilters]);
   const [sort, setSort] = useState<DealSort>(DEFAULT_DEAL_SORT);
   const [rows, setRows] = useState<readonly Deal[]>([]);
   const [phase, setPhase] = useState<Phase>('loading');
@@ -114,6 +124,14 @@ export function DealList({
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-end justify-end gap-3">
+        {filterableFields(definitions.fields).length > 0 ? (
+        <LazyCustomFilterBar
+          t={t}
+          fields={definitions.fields}
+          filters={customFilters}
+          onChange={(key, value) => setCustomFilters((current) => setCustomFilter(current, key, value))}
+        />
+        ) : null}
         <label className="flex flex-col gap-1 text-body-sm font-semibold">
           {t.t('pipeline.sort.label')}
           <select
@@ -152,13 +170,13 @@ export function DealList({
             <Icon name="error" size="sm" />
             {t.t('pipeline.list.error')}
           </p>
-          <p>{t.t(errorMessage(error ?? { status: 0, code: 'network', details: [] }, 'read'))}</p>
+          <p>{t.t(listRefusalId(error) ?? errorMessage(error ?? { status: 0, code: 'network', details: [] }, 'read'))}</p>
           <button type="button" data-requires-connection="" disabled={!online} onClick={() => setRetry((current) => current + 1)} className={QUIET_BUTTON}>
             {t.t('records.retry')}
           </button>
         </div>
       ) : rows.length === 0 ? (
-        filtered ? (
+        filtered || Object.keys(customFilters).length > 0 ? (
           <p data-testid="list-no-results" className="rounded-lg border border-border bg-surface p-6 text-body-sm text-text-2">
             {t.t('pipeline.list.noResults')}
           </p>

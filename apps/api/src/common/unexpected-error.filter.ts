@@ -59,6 +59,14 @@ export const INTERNAL_ERROR_BODY = Object.freeze({
 // hashing-overload 503 so both kinds of load shedding answer identically.
 export { SERVICE_UNAVAILABLE_BODY, SERVICE_UNAVAILABLE_RETRY_AFTER_SECONDS };
 
+/** The 404 for a path that matches no route. `not_found` is in the admin `Error.code` enum. */
+export const NOT_FOUND_BODY = Object.freeze({
+  statusCode: HttpStatus.NOT_FOUND,
+  error: 'Not Found',
+  code: 'not_found',
+  message: 'Not found',
+});
+
 /** The route TEMPLATE Express matched (`/api/v1/contacts/:id`), never the URL. */
 export function routeTemplate(request: unknown): string {
   const route: unknown = (request as { route?: unknown } | undefined)?.route;
@@ -122,6 +130,12 @@ export class UnexpectedErrorFilter implements ExceptionFilter {
       // a string becomes `{ statusCode, message }`. Not logged, as there.
       const body = exception.getResponse();
       const status = exception.getStatus();
+      if (status === HttpStatus.NOT_FOUND && routeTemplate(request) === '(unmatched)') {
+        // Nest's `Cannot GET /the/path` echoes the path and has no `code`
+        // (T-0121): a path that matches no route is the envelope's 404.
+        this.reply(response, status, { ...NOT_FOUND_BODY });
+        return;
+      }
       this.reply(
         response,
         status,

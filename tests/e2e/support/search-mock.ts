@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { TENANT_A } from '@kasuwa/db';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer } from './custom-values-mock';
 
 /**
  * The P27 half of `docs/api/records.openapi.yaml` — `searchRecords` (GET,
@@ -108,6 +109,13 @@ import { TENANT_A } from '@kasuwa/db';
  *     so it may be in both groups with the same id.
  *   - A lookup searches contacts and leads only; account and deal groups are
  *     answered empty. A hit never carries the number or address that found it.
+ *
+ * CUSTOM FIELDS (T-0091, D-L159, lead edit). With `crm_custom_fields` on, the
+ * list screens a "see all" lands on read their custom-field definitions.
+ * `listCustomFields` is therefore one of the operations above, answered by
+ * `custom-values-mock.ts` with an EMPTY list (the search journeys define no
+ * custom field), its query checked and its answer validated against
+ * admin.openapi.yaml there. With no definitions those screens are unchanged.
  * ---------------------------------------------------------------------------
  */
 
@@ -1065,6 +1073,8 @@ export async function installSearchMock(page: Page, options: SearchMockOptions =
   const mockFaults: string[] = [];
   const plantedFaults: string[] = [];
   const abandoned: string[] = [];
+  // T-0091 (D-L159): no custom field is defined in a search journey, so listCustomFields answers an empty list.
+  const custom = new CustomFieldsServer(undefined, violations);
   let left = false;
 
   let release: () => void = () => undefined;
@@ -1296,6 +1306,7 @@ export async function installSearchMock(page: Page, options: SearchMockOptions =
       if (listing !== undefined && method === 'GET') return list(route, url, listing);
       if (url.pathname === PROGRAMMES_PATH && method === 'GET') return answer(route, 'listMyProgrammes', 200, clone(PROGRAMMES_ANSWER));
       if (url.pathname === ME_PATH && method === 'GET') return answer(route, 'getCurrentUser', 200, clone(CURRENT_USER));
+      if (url.pathname === CUSTOM_FIELDS_PATH && method === 'GET') return custom.answerList(route);
       if (left && method === 'GET') {
         afterLeave.push(url);
       } else {

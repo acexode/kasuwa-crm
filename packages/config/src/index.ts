@@ -29,6 +29,7 @@ export type { AuthMode, KmsProvider, NodeEnvName } from './guards.mjs';
 export { migratorEnv, nodeEnv, realtimeEnv, webEnv } from './schemas.mjs';
 export { apiEnv, workerEnv } from './server-env';
 export {
+  assertExplicitNodeEnv,
   assertMigrationTargetIsSafe,
   DEV_DATABASE_PASSWORDS,
   effectiveDatabaseTarget,
@@ -40,5 +41,5 @@ export {
 export type { EffectiveDatabaseTarget, MigrationTargetDecision } from './database-target';
 export type { ApiEnv, EnvSource, MigratorEnv, RealtimeEnv, WebEnv, WorkerEnv } from './schemas.mjs';
 export { loadWorkspaceEnv } from './dotenv';
-export { isStorageEnv, storageEncryptionProblems, storageEnv } from './storage-env';
+export { isStorageEnv, storageConfigured, storageEncryptionProblems, storageEnv } from './storage-env';
 export type { StorageCredentials, StorageEnv, StorageSseMode } from './storage-env';

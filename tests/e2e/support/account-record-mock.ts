@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { TENANT_A } from '@kasuwa/db';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
 
 /**
  * The account record half of `docs/api/records.openapi.yaml` — `getAccount`,
@@ -109,6 +110,16 @@ import { TENANT_A } from '@kasuwa/db';
  *   - `staleTask`: somebody else reassigns ITEM_TASK just before the screen's
  *     first updateActivity for it lands, so its version moves 3 -> 4 and that
  *     write is `409 stale_write`. A re-read of the timeline serves 4.
+ *
+ * CUSTOM FIELDS (T-0091, lead edit). `listCustomFields` is one of the
+ * operations above, answered by `custom-values-mock.ts` (its answers are
+ * checked against admin.openapi.yaml there, not by `answerProblems`). With no
+ * `customFields` option it lists nothing and no row carries `custom`, so the
+ * T-0063 journeys see the record unchanged. With one, getAccount and
+ * updateAccount carry the projected `custom` and `custom.<key>` paths,
+ * updateAccount's `custom` is checked and merged per key there (after the
+ * 403s, before the 400s and the 409), and createActivity's `custom` is
+ * checked and stored for the activity object.
  * ---------------------------------------------------------------------------
  */
 
@@ -997,6 +1008,8 @@ export interface AccountRecordMockOptions {
    * ends. The database forbids it (D-L74); the screen must still stop at four.
    */
   readonly hierarchyCycle?: boolean;
+  /** Custom-field definitions, values and field security (T-0091). Absent: no definitions. */
+  readonly customFields?: CustomFieldsSetup;
 }
 
 export interface RecordedWrite {
@@ -1025,6 +1038,8 @@ export interface AccountRecordMock {
   readonly accounts: Map<string, AccountRow>;
   /** The timelines as they now stand. */
   readonly timelines: Map<string, TimelineItem[]>;
+  /** The custom-field half (T-0091): definition reads, custom writes and stored values. */
+  readonly custom: CustomFieldsServer;
   release(): void;
   releaseWrites(): void;
 }
@@ -1165,6 +1180,7 @@ export async function installAccountRecordMock(page: Page, options: AccountRecor
   const writes: RecordedWrite[] = [];
   const violations: string[] = [];
   const mockFaults: string[] = [];
+  const custom = new CustomFieldsServer(options.customFields, violations);
   /** Accounts the screen has been served (a 200 from getAccount or updateAccount). */
   const servedAccounts = new Set<string>();
   /** parentAccountId values the mock has served, so getAccount on them is legitimate. */
@@ -1216,7 +1232,7 @@ export async function installAccountRecordMock(page: Page, options: AccountRecor
   const served = (row: AccountRow): AccountRow => {
     servedAccounts.add(row.id);
     if (typeof row.parentAccountId === 'string') servedParents.add(row.parentAccountId);
-    return clone(row);
+    return custom.decorate(clone(row), 'account', row.id, row.programmeId);
   };
 
   const addItems = (accountId: string, items: TimelineItem[]): void => {
@@ -1412,6 +1428,11 @@ export async function installAccountRecordMock(page: Page, options: AccountRecor
       forbidden.details = notEditable.map((path) => ({ path, code: 'field_not_editable' }));
       return reply(403, forbidden);
     }
+    // T-0091: `custom` is a per-key merge, checked by the custom half (its own 403s, then 400s).
+    const customAnswer = 'custom' in body ? custom.checkPatch('account', id, row.programmeId, body.custom, 'updateAccount') : undefined;
+    if (customAnswer !== undefined) {
+      return reply(customAnswer.status, customAnswer.body);
+    }
     if (problems.length > 0) {
       return reply(400, validation(problems.map(() => ({ path: 'body', code: 'invalid_string' }))));
     }
@@ -1444,7 +1465,9 @@ export async function installAccountRecordMock(page: Page, options: AccountRecor
       .filter((key) => ACCOUNT_TIMELINE_FIELDS.includes(key))
       .map((key, index) => change(`ti_w${String(writeCount).padStart(3, '0')}x${index}`, when, ME, key));
     for (const key of fields) {
-      if (key === 'ownerUserId') {
+      if (key === 'custom') {
+        custom.applyPatch('account', id, body.custom as Json);
+      } else if (key === 'ownerUserId') {
         Object.assign(row, ownedBy(MEMBERS.find((member) => member.id === body.ownerUserId) ?? null));
       } else {
         row[key] = body[key];
@@ -1465,6 +1488,7 @@ export async function installAccountRecordMock(page: Page, options: AccountRecor
     for (const field of withheld) {
       delete copy[field];
     }
+    custom.decorate(copy as Json & { withheldFields: string[] }, 'activity', String(state.activity.id), String(state.activity.programmeId));
     state.servedVersions.add(Number(copy.version));
     return copy;
   };
@@ -1508,6 +1532,11 @@ export async function installAccountRecordMock(page: Page, options: AccountRecor
     if (role === 'reader' || (role === 'agent' && typeof owner === 'string' && owner !== ME.id)) {
       return reply(403, errorExample('NotPermitted', 'action'));
     }
+    // T-0091: `custom` on a create carries values only, checked for the activity object.
+    const customAnswer = custom.checkCreate('activity', row.programmeId, body.custom, 'createActivity');
+    if (customAnswer !== undefined) {
+      return reply(customAnswer.status, customAnswer.body);
+    }
     if (problems.length > 0) {
       return reply(400, validation(problems.map(() => ({ path: 'body', code: 'invalid_string' }))));
     }
@@ -1547,6 +1576,7 @@ export async function installAccountRecordMock(page: Page, options: AccountRecor
       },
     };
     activities.set(activityId, state);
+    custom.storeCreated(activityId, body.custom);
     const item: TimelineItem = {
       id: state.itemId,
       type: 'activity',
@@ -1652,6 +1682,9 @@ export async function installAccountRecordMock(page: Page, options: AccountRecor
       if (url.pathname === PROGRAMMES_PATH && method === 'GET') {
         return answer(route, 'listMyProgrammes', 200, { data: [clone(PROGRAMME_ONE), clone(PROGRAMME_TWO)] });
       }
+      if (url.pathname === CUSTOM_FIELDS_PATH && method === 'GET') {
+        return custom.answerList(route);
+      }
       const account = /^\/api\/v1\/accounts\/([^/]+)(\/timeline|\/contacts)?$/.exec(url.pathname);
       if (account !== null && account[1] !== 'map') {
         const id = decodeURIComponent(account[1] ?? '');
@@ -1687,6 +1720,7 @@ export async function installAccountRecordMock(page: Page, options: AccountRecor
     mockFaults,
     accounts,
     timelines,
+    custom,
     release: () => release(),
     releaseWrites: () => releaseWrites(),
   };

@@ -70,4 +70,25 @@ describe('prefixStatement (T-0086 review fix 1)', () => {
     );
     expect(text).toContain(`AND ${LEAD_STATUS_PREDICATE}`);
   });
+
+  it('never returns a merged-away contact: every contact branch carries deleted_at IS NULL (T-0095)', () => {
+    const contact = prefixStatement(
+      'contact',
+      TENANT,
+      [
+        { programmeId: A1, column: 'display_name_search' },
+        { programmeId: A2, column: 'given_names_search' },
+      ],
+      range,
+      true,
+    );
+    expect(contact.text.match(/AND deleted_at IS NULL/g)).toHaveLength(2);
+    const account = prefixStatement(
+      'account',
+      TENANT,
+      [{ programmeId: A1, column: 'name_search' }],
+      range,
+    );
+    expect(account.text).not.toContain('deleted_at');
+  });
 });

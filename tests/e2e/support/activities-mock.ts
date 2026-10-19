@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { TENANT_A } from '@kasuwa/db';
+import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
 
 /**
  * The P07 half of `docs/api/records.openapi.yaml` — `listMyActivities`,
@@ -108,6 +109,14 @@ import { TENANT_A } from '@kasuwa/db';
  *     lands, somebody else applies the next change in the list (and the
  *     version advances), so that write is `409 stale_write`. A re-read serves
  *     the new state.
+ *
+ * CUSTOM FIELDS (T-0091, lead edit). `listCustomFields` is one of the
+ * operations above, answered by `custom-values-mock.ts`. With no
+ * `customFields` option it lists nothing, so the T-0083 journeys are
+ * unchanged. With one, createActivity's `custom` (values only) is checked for
+ * the activity object there (its 403s before this file's 400s) and the 201
+ * carries the projected `custom`. `MyActivity` carries no `custom`, so the
+ * lists never do.
  * ---------------------------------------------------------------------------
  */
 
@@ -991,6 +1000,8 @@ export interface ActivitiesMockOptions {
    * advances, so that write is a 409.
    */
   readonly concurrent?: { readonly activityId: string; readonly changes: readonly Readonly<Record<string, string>>[] };
+  /** Custom-field definitions, values and field security (T-0091). Absent: no definitions. */
+  readonly customFields?: CustomFieldsSetup;
 }
 
 export interface RecordedWrite {
@@ -1019,6 +1030,8 @@ export interface ActivitiesMock {
   readonly plantedFaults: string[];
   /** The activities as they now stand. */
   readonly store: StoredActivity[];
+  /** The custom-field half (T-0091): definition reads, custom writes and stored values. */
+  readonly custom: CustomFieldsServer;
   release(): void;
   releaseWrites(): void;
 }
@@ -1064,6 +1077,7 @@ export async function installActivitiesMock(page: Page, options: ActivitiesMockO
   const violations: string[] = [];
   const mockFaults: string[] = [];
   const plantedFaults: string[] = [];
+  const custom = new CustomFieldsServer(options.customFields, violations);
   /** Versions served per activity id: a write must name one of them. */
   const servedVersions = new Map<string, Set<number>>();
   /** Versions already answered 409 per activity: sending one again is a blind retry. */
@@ -1330,6 +1344,14 @@ export async function installActivitiesMock(page: Page, options: ActivitiesMockO
       ...problems.map((problem) => `createActivity: ${problem}`),
       ...errors.map((error) => `createActivity: ${error.path} ${error.code} — the composer should have said so and sent nothing`),
     );
+    // T-0091: `custom` on a create carries values only, checked for the activity object in the target's programme.
+    const targetProgramme = String(
+      (targetKind === 'contact' ? PICK_CONTACTS : PICK_ACCOUNTS).find((entry) => entry.id === targetId)?.programmeId ?? PROGRAMME_ONE.id,
+    );
+    const customAnswer = custom.checkCreate('activity', targetProgramme, body.custom, 'createActivity');
+    if (customAnswer !== undefined) {
+      return reply(customAnswer.status, customAnswer.body);
+    }
     if (problems.length > 0 || errors.length > 0) {
       return reply(400, validation(errors.length > 0 ? errors : problems.map(() => ({ path: 'body', code: 'invalid_string' }))));
     }
@@ -1360,7 +1382,9 @@ export async function installActivitiesMock(page: Page, options: ActivitiesMockO
     const versions = servedVersions.get(id) ?? new Set<number>();
     versions.add(1);
     servedVersions.set(id, versions);
-    return reply(201, asActivity(row));
+    custom.storeCreated(id, body.custom);
+    const created = asActivity(row) as Json & { withheldFields: string[] };
+    return reply(201, custom.decorate(created, 'activity', id, row.programmeId));
   };
 
   // ----- updateActivity ----------------------------------------------------------
@@ -1486,6 +1510,7 @@ export async function installActivitiesMock(page: Page, options: ActivitiesMockO
       if (url.pathname === PROGRAMMES_PATH && method === 'GET') {
         return answer(route, 'listMyProgrammes', 200, { data: [clone(PROGRAMME_ONE), clone(PROGRAMME_TWO), clone(PROGRAMME_THREE)] });
       }
+      if (url.pathname === CUSTOM_FIELDS_PATH && method === 'GET') return custom.answerList(route);
       if (url.pathname === MY_ACTIVITIES_PATH && method === 'GET') return myActivities(route, url);
       if (url.pathname === CALENDAR_PATH && method === 'GET') return calendar(route, url);
       if (url.pathname === CONTACTS_PATH && method === 'GET') return picker(route, url, 'contact');
@@ -1515,6 +1540,7 @@ export async function installActivitiesMock(page: Page, options: ActivitiesMockO
     mockFaults,
     plantedFaults,
     store,
+    custom,
     release: () => release(),
     releaseWrites: () => releaseWrites(),
   };

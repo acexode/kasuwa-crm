@@ -5,11 +5,13 @@ import { DealScreen } from '../../../components/deal/deal-screen';
 import { DEAL_MESSAGE_IDS } from '../../../components/deal/message-ids';
 import {
   crmAccountsEnabled,
+  crmCustomFieldsEnabled,
   crmLiveNav,
   crmPipelineEnabled,
   crmRecordViewEnabled,
   crmRecordsEnabled,
 } from '../../../lib/feature-flags';
+import { withCustomMessages } from '../../../components/custom/message-ids';
 import { withSearchMessages } from '../../../components/search/message-ids';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
@@ -54,6 +56,7 @@ export default async function DealPage({ params }: { params: Promise<{ dealId: s
     crmAccountsEnabled(),
     crmRecordViewEnabled(),
   ]);
+  const customFields = await crmCustomFieldsEnabled();
 
   return (
     // Keyed by id: following a link to another deal starts a fresh screen, with nothing of the last one carried over.
@@ -61,10 +64,11 @@ export default async function DealPage({ params }: { params: Promise<{ dealId: s
       key={dealId}
       dealId={dealId}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(DEAL_MESSAGE_IDS, live))}
+      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(DEAL_MESSAGE_IDS, customFields), live))}
       locales={languageOptions(locale)}
       live={live}
       links={{ contacts: recordView && records, accounts: recordView && accounts }}
+      customFields={customFields}
     />
   );
 }

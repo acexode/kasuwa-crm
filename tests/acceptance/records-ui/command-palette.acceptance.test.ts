@@ -355,7 +355,8 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   // D-L137 re-pin: deal links while crm_pipeline is live, the M1–M3 and M5 journeys, code-point lengths, budget 223,000.
   [SPEC]: '5ce6c45bf5c90c3179e441a0fd599e2b695907a4963a2a286549cb5493a1e926',
-  [MOCK]: '3984b7ee8da022d8c9bf6d888a4770a7281cab6e0fec4c9a8fa9683e12d77d0c',
+  // T-0091 (D-L159, lead re-pin): the mock answers listCustomFields with an empty list (the list screens read it with crm_custom_fields on).
+  [MOCK]: '69138384e94d463bd22218f3db2bd0a4d7a30d0f9a98fc49c49cd96d0ca178c9',
 };
 
 /** Never above this (R26). */

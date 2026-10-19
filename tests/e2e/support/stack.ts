@@ -88,6 +88,13 @@ export interface StackUrls {
    * and "see all" links land on screens this process serves.
    */
   webSearchUrl: string;
+  /**
+   * The same process as `webRecordsUrl`, which also has `crm_import` ON
+   * (T-0096): the P28 import wizard at `/contacts/import`, the Contacts list
+   * that links it and the list its report links back to. The wizard's byte
+   * budget is measured here.
+   */
+  webImportUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;
   /** Static fixture pages used by the harness self-tests. */

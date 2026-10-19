@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { bundleMessages } from '@kasuwa/i18n';
 import { AccountRecordScreen } from '../../../components/account-record/account-record-screen';
 import { ACCOUNT_RECORD_MESSAGE_IDS } from '../../../components/account-record/message-ids';
-import { crmAccountsEnabled, crmLiveNav, crmRecordViewEnabled } from '../../../lib/feature-flags';
+import { crmAccountsEnabled, crmCustomFieldsEnabled, crmLiveNav, crmRecordViewEnabled } from '../../../lib/feature-flags';
+import { withCustomMessages } from '../../../components/custom/message-ids';
 import { withSearchMessages } from '../../../components/search/message-ids';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
@@ -37,6 +38,7 @@ export default async function AccountRecordPage({ params }: { params: Promise<{ 
   }
   const { locale } = await activeLocale();
   const live = await crmLiveNav();
+  const customFields = await crmCustomFieldsEnabled();
 
   return (
     // Keyed by id: following a breadcrumb to another account starts a fresh
@@ -45,9 +47,10 @@ export default async function AccountRecordPage({ params }: { params: Promise<{ 
       key={id}
       id={id}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(ACCOUNT_RECORD_MESSAGE_IDS, live))}
+      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(ACCOUNT_RECORD_MESSAGE_IDS, customFields), live))}
       locales={languageOptions(locale)}
       live={live}
+      customFields={customFields}
     />
   );
 }

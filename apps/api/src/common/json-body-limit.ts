@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
+import { STATUS_CODES } from 'node:http';
 
 /**
  * The JSON body limit (T-0113, D-L96).
@@ -55,6 +56,59 @@ export function hasMiddleware(app: unknown, name: string): boolean {
 function urlencodedParser(_request: unknown, _response: unknown, next: () => void): void {
   next();
 }
+// Nest finds this by name, and a bundler or minifier may rename the function
+// (T-0121): the name is set explicitly so it cannot be.
+Object.defineProperty(urlencodedParser, 'name', { value: 'urlencodedParser' });
+
+/**
+ * `Cache-Control: no-store` on every answer, installed on the adapter before
+ * the body parser (T-0121): a body-parser failure never reaches a controller or
+ * a module-level middleware (`MiddlewareConsumer` mounts at `init()`, after the
+ * parser). Named, so `hasMiddleware` makes the install idempotent.
+ */
+export function noStoreEverywhere(
+  _request: unknown,
+  response: MinimalResponse,
+  next: () => void,
+): void {
+  response.setHeader('Cache-Control', 'no-store');
+  next();
+}
+
+/**
+ * A stray `%` in a path is re-encoded (`%25`) before routing (T-0121). Express
+ * decodes every path parameter with `decodeURIComponent`, and a malformed
+ * encoding throws its own "Failed to decode param" 400, before any route's own
+ * answer, even for a path that matches no route. Re-encoded, the parameter is
+ * the literal text, which the route refuses as it refuses any value that is
+ * not an id. Only segments that do not decode are touched; the query string is
+ * left alone.
+ */
+export function safePathEncoding(
+  request: { url?: string },
+  _response: unknown,
+  next: () => void,
+): void {
+  const url = request.url;
+  if (typeof url === 'string') {
+    const queryAt = url.search(/[?#]/u);
+    const path = queryAt === -1 ? url : url.slice(0, queryAt);
+    const rest = queryAt === -1 ? '' : url.slice(queryAt);
+    const fixed = path
+      .split('/')
+      .map((segment) => {
+        try {
+          decodeURIComponent(segment);
+          return segment;
+        } catch {
+          return segment.replace(/%/gu, '%25');
+        }
+      })
+      .join('/');
+    if (fixed !== path) request.url = fixed + rest;
+  }
+  next();
+}
 
 /**
  * A BODY THAT IS NOT JSON IS THE ENVELOPE'S 400 (T-0108, R15). Body-parser
@@ -98,6 +152,49 @@ export function jsonParseErrorHandler(
   response.status(400).json(INVALID_JSON_BODY);
 }
 
+/**
+ * EVERY OTHER BODY-PARSER REFUSAL is the envelope too (T-0121): the 413 for an
+ * over-limit body, the 415s for a charset or Content-Encoding it will not
+ * read, the 400 for a gzip body that does not inflate. Their messages quote
+ * what the client sent, so the body is fixed per status: Node's reason phrase,
+ * `validation_failed`, and one fixed message. A body-parser error is
+ * recognised by its 4xx `statusCode` (a corrupt gzip body carries none
+ * of body-parser's `type`s; this runs before any route, so nothing else
+ * can arrive here).
+ */
+export function bodyParserErrorHandler(
+  error: unknown,
+  _request: unknown,
+  response: MinimalResponse,
+  next: (error?: unknown) => void,
+): void {
+  const status: unknown = (error as { statusCode?: unknown } | null)?.statusCode;
+  const exposed: unknown = (error as { expose?: unknown } | null)?.expose;
+  // `expose` is http-errors' mark on its own 4xx errors, which body-parser
+  // raises (the wrapped zlib 400 included). A 4xx from any other middleware
+  // that does not carry it passes on untouched.
+  if (typeof status !== 'number' || status < 400 || status >= 500 || exposed !== true) {
+    next(error);
+    return;
+  }
+  response.setHeader('Cache-Control', 'no-store');
+  response.status(status).json(bodyParserErrorBody(status));
+}
+
+export function bodyParserErrorBody(status: number): {
+  statusCode: number;
+  error: string;
+  code: string;
+  message: string;
+} {
+  return {
+    statusCode: status,
+    error: STATUS_CODES[status] ?? 'Bad Request',
+    code: 'validation_failed',
+    message: 'The request body could not be read.',
+  };
+}
+
 @Injectable()
 export class JsonBodyLimit {
   constructor(@Inject(HttpAdapterHost) host: HttpAdapterHost) {
@@ -105,15 +202,35 @@ export class JsonBodyLimit {
       const adapter: unknown = host.httpAdapter;
       if (!(adapter instanceof ExpressAdapter)) return;
       // Once per app: a second AppModule on the same adapter adds nothing.
+      if (!hasMiddleware(adapter.getInstance(), 'safePathEncoding')) {
+        adapter.use(safePathEncoding);
+      }
+      if (!hasMiddleware(adapter.getInstance(), 'noStoreEverywhere')) {
+        adapter.use(noStoreEverywhere);
+      }
       if (!hasMiddleware(adapter.getInstance(), 'jsonParser')) {
         adapter.useBodyParser('json', false, { limit: JSON_BODY_LIMIT_BYTES });
       }
       if (!hasMiddleware(adapter.getInstance(), 'jsonParseErrorHandler')) {
         adapter.use(jsonParseErrorHandler);
       }
+      if (!hasMiddleware(adapter.getInstance(), 'bodyParserErrorHandler')) {
+        adapter.use(bodyParserErrorHandler);
+      }
       if (!hasMiddleware(adapter.getInstance(), 'urlencodedParser')) {
         adapter.use(urlencodedParser);
       }
     });
   }
+}
+
+// Pinned like `urlencodedParser`: `hasMiddleware` finds each by name, and a
+// minifier may rename a function (T-0121 security review).
+for (const [fn, name] of [
+  [safePathEncoding, 'safePathEncoding'],
+  [noStoreEverywhere, 'noStoreEverywhere'],
+  [jsonParseErrorHandler, 'jsonParseErrorHandler'],
+  [bodyParserErrorHandler, 'bodyParserErrorHandler'],
+] as const) {
+  Object.defineProperty(fn, 'name', { value: name });
 }
