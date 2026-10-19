@@ -670,9 +670,10 @@ describe('acceptance: notifications — table, producers, consumer and read API 
   }
 
   async function outboxFor(aggregateId: string): Promise<OutboxRow[]> {
+    // ORDER BY the column, not the `seq` text alias: as text, "100" sorts before "99".
     const result = await observer.query<OutboxRow>(
       `SELECT id, seq::text AS seq, tenant_id, programme_id, actor_user_id, event_type, aggregate_type, aggregate_id, payload
-         FROM outbox_event WHERE aggregate_id = $1 ORDER BY seq`,
+         FROM outbox_event WHERE aggregate_id = $1 ORDER BY outbox_event.seq`,
       [aggregateId],
     );
     return result.rows;
