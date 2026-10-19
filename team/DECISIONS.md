@@ -3946,3 +3946,31 @@ is checked against records.openapi.yaml and admin.openapi.yaml, and the spec and
   - The merge-preview example's `defaults` should list every editable field, as T-0095 serves it.
 
   Both are docs-only fixes for the next contract touch.
+
+### D-L176 — T-0097 review rulings (lead, 2026-10-19)
+
+The combined review of e2a42fb passed with findings: no security or privacy defect, and one blocker.
+
+**Required before merge:**
+- **B1, a lost merge answer.** A `network` result from createContactMerge, or `already_merged` after a network
+  failure in the same view, triggers a read of `listContactMerges`. If an open entry matches the sent pair, the
+  screen shows it as the person's own merge, with result, survivor link and Undo. Otherwise it shows the refusal
+  with Merge disabled. Add a unit test that fails without the fix.
+- **N1.** Back is disabled while a merge or undo is in flight.
+- **N2.** Refused undos stay closed across history reloads (I10).
+- **N3.** History "Show more" is aborted or generation-checked against reloads.
+- **N4.** Programme changes are debounced (about 300 ms) or scan on commit, because aborted scans still hold
+  server slots (D-L163).
+- **N6.** The result announces itself (a status region or focus), and focus after the dialog never drops to
+  `<body>`.
+- **N7.** The `already_merged` copy no longer promises a reread that doesn't happen, or the reread happens.
+- **N8.** `generateMetadata` checks both flags.
+- **N9.** Datetimes use `.datetime()` and ids use `.uuid()` in the client schemas.
+
+**Accepted:**
+- **N5.** History expiry is judged by the browser clock, and a 410 corrects it.
+- **The 429 behaviour.** The first two refusals each retry once after the wait; the third shows a button.
+
+**API follow-up.** T-0095's merged and restored audit events use a contact UUID as `objectLabel`. That is not a
+disclosure, because the same value is in `objectId`, but it is poor to read. The replacement must be a generic
+"Contact" label, never `displayName`, because audit readers may not see the name.
