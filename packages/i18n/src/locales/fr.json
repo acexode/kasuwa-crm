@@ -1831,7 +1831,7 @@
   "duplicates.error.staleWrite": "L'un de ces contacts a été modifié pendant votre examen. La comparaison a été relue : vérifiez-la, puis fusionnez.",
   "duplicates.error.fieldNotEditable": "Vous ne pouvez pas choisir ce champ. Il est maintenant verrouillé et la valeur de la fiche principale est conservée.",
   "duplicates.error.alreadyMerged": "Le contact conservé a depuis été fusionné dans un autre. Annulez d'abord la fusion la plus récente.",
-  "records.error.already_merged": "L'un de ces contacts a déjà été fusionné. La liste est relue.",
+  "records.error.already_merged": "L'un de ces contacts a déjà été fusionné. Revenez aux doublons pour voir la liste à jour.",
   "records.error.undo_expired": "Cette fusion ne peut plus être annulée.",
   "records.action.duplicates": "Doublons",
   "admin.audit.action.merged": "Fusionné",

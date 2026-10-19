@@ -1831,7 +1831,7 @@
   "duplicates.error.staleWrite": "Mmoja wa wasiliani hawa alibadilishwa ulipokuwa ukikagua. Ulinganisho umesomwa upya: uukague, kisha uunganishe.",
   "duplicates.error.fieldNotEditable": "Huwezi kuchagua sehemu hiyo. Sasa imefungwa na thamani ya rekodi kuu inabaki.",
   "duplicates.error.alreadyMerged": "Mwasiliani aliyebaki ameunganishwa ndani ya mwingine tangu hapo. Tendua kwanza muunganisho wa baadaye.",
-  "records.error.already_merged": "Mmoja wa wasiliani hawa ameshaunganishwa. Orodha inasomwa upya.",
+  "records.error.already_merged": "Mmoja wa wasiliani hawa ameshaunganishwa. Rudi kwenye rekodi zinazorudiwa ili uone orodha ya sasa.",
   "records.error.undo_expired": "Muunganisho huu hauwezi kutenduliwa tena.",
   "records.action.duplicates": "Rekodi zinazorudiwa",
   "admin.audit.action.merged": "Imeunganishwa",

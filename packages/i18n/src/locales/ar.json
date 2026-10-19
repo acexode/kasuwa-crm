@@ -1831,7 +1831,7 @@
   "duplicates.error.staleWrite": "تغيّرت إحدى جهتي الاتصال أثناء مراجعتك. أُعيدت قراءة المقارنة: راجعها ثم ادمج.",
   "duplicates.error.fieldNotEditable": "لا يمكنك اختيار هذا الحقل. أصبح مقفلًا الآن وتُحفَظ قيمة السجل الرئيسي.",
   "duplicates.error.alreadyMerged": "دُمجت جهة الاتصال المحتفَظ بها في أخرى منذ ذلك الحين. تراجع أولًا عن الدمج الأحدث.",
-  "records.error.already_merged": "دُمجت إحدى جهتي الاتصال بالفعل. تُعاد قراءة القائمة.",
+  "records.error.already_merged": "دُمجت إحدى جهتي الاتصال بالفعل. عد إلى التكرارات لرؤية القائمة الحالية.",
   "records.error.undo_expired": "لم يعد بالإمكان التراجع عن هذا الدمج.",
   "records.action.duplicates": "التكرارات",
   "admin.audit.action.merged": "دُمج",

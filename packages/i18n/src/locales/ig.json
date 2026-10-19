@@ -1831,7 +1831,7 @@
   "duplicates.error.staleWrite": "E gbanwere otu n'ime ndị mmekọrịta a mgbe ị na-elele. Agụgharịrị ntụnyere ahụ: lelee ya, wee jikọta.",
   "duplicates.error.fieldNotEditable": "Ị nweghị ike ịhọrọ ahịrị ahụ. Ekpochiela ya ugbu a, a na-edebekwa ụkpụrụ ndekọ bụ isi.",
   "duplicates.error.alreadyMerged": "E jikọtala onye mmekọrịta e debere n'ime onye ọzọ. Buru ụzọ kagbuo njikọ ikpeazụ.",
-  "records.error.already_merged": "E jikọtalarị otu n'ime ndị mmekọrịta a. Anyị na-agụgharị ndepụta ahụ.",
+  "records.error.already_merged": "E jikọtalarị otu n'ime ndị mmekọrịta a. Laghachi na ndekọ yiri onwe ha ka ị hụ ndepụta nke ugbu a.",
   "records.error.undo_expired": "Enweghị ike ịkagbu njikọ a ọzọ.",
   "records.action.duplicates": "Ndekọ yiri onwe ha",
   "admin.audit.action.merged": "E jikọtara",
