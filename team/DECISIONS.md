@@ -4125,3 +4125,31 @@ is rejected.
 - With the flag on, the 8,000-byte ceiling stands.
 - The re-measured pages must fit their existing pins. A page may be re-pinned only with a measured reason other
   than the bell.
+
+### D-L183 — T-0124: the web screens change in the same task (lead, 2026-10-19)
+
+The T-0124 build at 19a510e changes the API but leaves several web screens assuming every contact has a
+readable name:
+- the leads screen's name sort;
+- number searches in `q` on contacts and leads;
+- client schemas that require `displayName` (records-api, pipelines-api, activities-api).
+
+Merged alone, those screens would fail to parse for a caller who cannot read a name part, and break the
+records-ui journeys on main. **So the web changes are part of T-0124, not a follow-up.** Agent 11 makes them on
+the T-0124 branch.
+
+**Accepted builder decisions:**
+- listAccountContacts defaults to `-createdAt`;
+- the repository's phone match is removed;
+- a read-only name part leaves `displayName` editable (I11, still open);
+- createContact and imports are unchanged (I11);
+- only `displayName` gets a stand-in, and every other withheld variable is still refused at publish.
+
+The stand-in translations need review.
+
+**Follow-up:** the 0035 `display_name` keyset indexes are now unused. Drop them in a later migration, which
+gets migration review.
+
+The lead re-pins (contacts-api, leads-api, accounts-api, list-indexes, contact-merge, contact-timeline,
+records-contract-search R18, e2e p04-leads) are made on lead/T-0124-acceptance, and the R18 contract text changes
+with them.
