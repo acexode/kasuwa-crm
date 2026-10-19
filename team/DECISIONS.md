@@ -4286,3 +4286,18 @@ changes.
 | /admin/programmes | 222,000 | fits by about 120 bytes | 224,000 |
 
 Each new pin stays inside its suite's ceiling and 5% rule.
+
+### D-L190 — The account record's byte ceiling rises to 250,000 (lead, 2026-10-19)
+
+The account record's `ACCOUNT_RECORD_BUDGET_CEILING` of 245,000 was the lead's provisional figure from before the
+screen existed, copied from the contact record's ceiling. With T-0125's required session cost (D-L187, D-L189:
+CSP header, nonce, account menu, the shell's `api-fetch` and `sign-out`), /accounts/[id] measures 246,898 bytes.
+No pin can pass under a 245,000 ceiling.
+
+- **Ceiling:** 250,000.
+- **Pin:** 249,500, which is about 1% headroom and inside the 5% rule (259,243).
+- **The test title** changes to match.
+- **Cost:** about 0.1 s at 256 kbps.
+
+This is a lead edit on lead/T-0125-acceptance. The contact record's own 245,000 ceiling is unchanged, because its
+pin is 239,000.

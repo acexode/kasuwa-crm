@@ -185,7 +185,14 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
   [MOCK]: '5f292a2fc9c209bb0de597c2ab274d4be44cf72da87a1b2a901f3212d2104e36',
 };
 
-/** Never above this (I11). */
+/**
+ * Never above this (I11). T-0125 lead re-pin (D-L189): the browser session's
+ * required cost on every shell page (D-L187). The Mac final check on 01e4401
+ * measured /contacts/import at 232,163 bytes against the 232,000 pin;
+ * IMPORT_BUDGET_BYTES moved to 234,500, about 1.0% over, under this ceiling
+ * and inside the 5% rule. The spec's hash ignores the budget literal, so it
+ * is not re-pinned.
+ */
 const IMPORT_BUDGET_CEILING = 255_000;
 const BUDGET_HEADROOM = 1.05;
 const PRD_CEILING_BYTES = 300 * 1024;
