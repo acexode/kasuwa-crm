@@ -187,7 +187,7 @@ const SCREEN = '[data-screen="P28"]';
  * re-pins it within 5% of the builder's first green measurement (D-L118), as
  * T-0109 did; until then the acceptance suite's budget check fails by design.
  */
-const IMPORT_BUDGET_BYTES = 232_000;
+const IMPORT_BUDGET_BYTES = 234_500;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
@@ -583,7 +583,6 @@ test('the contract mock refuses what the contract and the screen’s rules refus
   // fetch() from a page that exists today (the default server) and watch each
   // malformed request land in `violations`. No `active` mock here: the
   // violations are deliberate and counted explicitly.
-  const { webUrl } = stack();
 
   // D-L160's plan, and the contract example's own (12 MiB in 5, 5 and 2).
   expect(partPlan(12 * MIB)).toEqual([5 * MIB, 5 * MIB, 2 * MIB]);
@@ -602,7 +601,9 @@ test('the contract mock refuses what the contract and the screen’s rules refus
   expect(answerProblems('getImport', 200, { ...H_FINISHED, sample: ['x'] }), 'a sample property passed the strict check').not.toEqual([]);
 
   const mock = await installImportMock(page);
-  await page.goto(`${webUrl}/`);
+  // The records process: the only one whose CSP admits the storage origin (D-L187); the
+  // default production process keeps connect-src 'self' (I18), which blocks put() below.
+  await page.goto(`${importUrl()}/`);
   const call = (path: string, method: string, body?: unknown, headers: Record<string, string> = {}) =>
     page.evaluate(
       async ({ path: target, method: verb, body: payload, headers: extra }) => {

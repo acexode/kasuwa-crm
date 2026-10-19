@@ -11,6 +11,28 @@ so that a front-end task is not blocked waiting for a back-end task to merge.
 | `records.openapi.yaml` | Agent 3 — Core CRM records | T-0039 | T-0041 (contacts API), T-0042 (P04 Contacts list) |
 | `scripting.openapi.yaml` | Agent 6 — Contact-Centre Integration | T-0112 | T-0113, T-0114 (scripts and runs APIs), T-0115, T-0116 (P10 screens) |
 
+## What a browser sees: the BFF's variance from `auth.openapi.yaml` (ADR-0019)
+
+The specs describe the API as any client calls it, with `Authorization: Bearer`. A browser never does: the web app's
+route handler at `/api/v1/*` (T-0125, ADR-0019) is its only door, and it differs from the specs in exactly these ways.
+
+- **`POST /auth/mfa` and `POST /auth/mfa/enrol/confirm`.** On a 200 the BFF puts `accessToken` into the HttpOnly
+  `__Host-kasuwa_session` cookie (`Max-Age` until `expiresAt`) and removes `accessToken` and `tokenType` from the
+  body. The browser receives `{ expiresAt, user }` (plus `backupCodes` on enrolment confirm), never the token. An
+  answer that does not parse is a 502.
+- **`POST /auth/sign-out`.** Clears the cookie and sends `Clear-Site-Data: "cache"` whatever the API answered.
+- **Any 401** from a route that needs a session clears the cookie. The body is the API's, verbatim.
+- **Every unsafe method** must carry `Origin` equal to the web origin, `x-requested-with: kasuwa-web`, and (with a
+  body) `Content-Type: application/json`; otherwise `403 { code: "csrf_rejected" }`, before the API is reached.
+- **A scope header** is the API's own `400` (`scope_header_not_accepted`), before the API is reached.
+- **A top-level navigation** to `/api/*` is the API's unknown-route `404`.
+- **Every answer** carries `Cache-Control: no-store`, `X-Content-Type-Options: nosniff` and
+  `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`; a JSON body over 1 KB is gzipped.
+- An unreachable API is `502` with the `internal_error` code.
+
+Non-browser clients (tests, integrations, a future mobile app) call the API directly with Bearer and see the specs
+exactly as written.
+
 ## Running a mock server
 
 No dependency is added for this; run it ad hoc.

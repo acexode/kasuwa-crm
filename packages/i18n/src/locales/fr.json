@@ -44,6 +44,8 @@
   "auth.topbar.lite": "Mode léger",
   "auth.topbar.lite.on": "Mode léger activé",
   "auth.topbar.lite.toggle": "Mode faible débit",
+  "auth.signOut": "Se déconnecter",
+  "auth.account": "Votre compte",
   "auth.panel.headline": "Toutes vos conversations clients. Au même endroit.",
   "auth.panel.body": "WhatsApp, appels, SMS et e-mail pour les équipes commerciales et de support à Lagos, Accra, Nairobi, Johannesburg et Dakar.",
   "auth.panel.channel.whatsapp": "WhatsApp",

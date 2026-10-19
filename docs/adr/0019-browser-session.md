@@ -168,6 +168,10 @@ does).
   does.
 - Out of scope, recorded so they are not mistaken for oversights: "sign out everywhere", revoking other sessions on a
   factor or password change, and "remember this device" (open question 5).
+- Also out of scope, accepted on review (D-L181 N2): two sign-ins completing at the same moment in two tabs of one
+  profile can each mint a session, and only the cookie written last survives. The other session is then held by no
+  client (no browser, page or log ever saw its token) and simply expires on the API's clock. Closing it would need the
+  BFF to serialise sign-ins per profile, which it cannot do without server-side state.
 
 ### 6. Low-bandwidth cost
 

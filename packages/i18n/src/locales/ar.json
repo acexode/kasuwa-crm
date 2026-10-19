@@ -44,6 +44,8 @@
   "auth.topbar.lite": "الوضع الخفيف",
   "auth.topbar.lite.on": "الوضع الخفيف مفعَّل",
   "auth.topbar.lite.toggle": "وضع البيانات المنخفضة",
+  "auth.signOut": "تسجيل الخروج",
+  "auth.account": "حسابك",
   "auth.panel.headline": "كل محادثة مع العميل. في مكان واحد.",
   "auth.panel.body": "واتساب والمكالمات والرسائل القصيرة والبريد الإلكتروني لفرق المبيعات والدعم في لاغوس وأكرا ونيروبي وجوهانسبرغ وداكار.",
   "auth.panel.channel.whatsapp": "واتساب",

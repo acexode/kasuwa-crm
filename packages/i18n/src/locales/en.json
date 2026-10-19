@@ -44,6 +44,8 @@
   "auth.topbar.lite": "Lite mode",
   "auth.topbar.lite.on": "Lite mode on",
   "auth.topbar.lite.toggle": "Low-bandwidth mode",
+  "auth.signOut": "Sign out",
+  "auth.account": "Your account",
   "auth.panel.headline": "Every customer conversation. One place.",
   "auth.panel.body": "WhatsApp, calls, SMS and email for sales and support teams in Lagos, Accra, Nairobi, Joburg and Dakar.",
   "auth.panel.channel.whatsapp": "WhatsApp",

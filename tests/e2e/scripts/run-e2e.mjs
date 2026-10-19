@@ -88,6 +88,19 @@ const patterns = grepPatterns(forwardedArgs);
 const wantsNotificationsWeb =
   !wantsOverBudget && (patterns.length === 0 || patterns.some((pattern) => grepCanSelect(pattern, '@p26-notifications')));
 
+/**
+ * THE SESSION WEB PROCESS IS STARTED ONLY WHEN IT CAN BE USED (T-0125).
+ *
+ * A Next process costs this machine about a gigabyte (CLAUDE.md section 3).
+ * Only the `@bff-session` journeys use it, so it starts for a run with no grep
+ * at all (the whole suite) or a grep that names `bff-session`, and for no
+ * other. A spec that needs it reads `webSessionUrl`, which is empty when it
+ * was not started, so a mis-grepped run fails loudly instead of hitting
+ * another server.
+ */
+const wantsSessionWeb =
+  !wantsOverBudget && (patterns.length === 0 || patterns.some((pattern) => pattern.includes('bff-session')));
+
 const cleanups = [];
 
 function log(message) {
@@ -435,6 +448,34 @@ function restoreNextEnv(original) {
 }
 
 /**
+ * WHAT EVERY WEB PROCESS IS TOLD ABOUT ITS SESSION LAYER (ADR-0019, T-0125).
+ *
+ *   - KASUWA_WEB_ORIGIN: the process's OWN origin, exactly as a browser sends
+ *     it in `Origin`. The BFF's CSRF check compares with this and nothing else,
+ *     so each process gets its own (point 4, point 8).
+ *   - KASUWA_API_INTERNAL_URL: the server-only upstream that replaces the
+ *     `/api/v1` rewrite (point 1). A loopback http URL, which the e2e
+ *     production process may use (the T-0125 suite's I3).
+ *   - KASUWA_SESSION_COOKIE_INSECURE is REMOVED, never inherited: Chromium
+ *     stores a `Secure`, `__Host-` cookie on http://127.0.0.1, so every
+ *     process here runs with the cookie exactly as production sets it.
+ *   - S3_PUBLIC_ENDPOINT is REMOVED, never inherited (D-L187): a developer
+ *     shell that exported the `.env.example` value would otherwise put a
+ *     storage origin into every process's `connect-src` and loosen the I18
+ *     CSP checks. Only the records process sets it back, after this spread.
+ *
+ * Unknown to the web schema before T-0125, so main ignores them.
+ */
+function sessionLayerEnv(apiUrl, port) {
+  return {
+    KASUWA_WEB_ORIGIN: `http://127.0.0.1:${port}`,
+    KASUWA_API_INTERNAL_URL: apiUrl,
+    KASUWA_SESSION_COOKIE_INSECURE: undefined,
+    S3_PUBLIC_ENDPOINT: undefined,
+  };
+}
+
+/**
  * `next build`, through apps/web's own wrapper (`build.mjs`), which pins
  * NODE_ENV=production so the ambient environment cannot change what is built.
  *
@@ -458,9 +499,13 @@ function buildWeb(apiUrl) {
     env: {
       ...process.env,
       NEXT_PUBLIC_API_URL: apiUrl,
+      // ADR-0019: the BFF's server-only upstream. Read at runtime, but harmless
+      // at build, and a build that needs it must not fail for want of it.
+      KASUWA_API_INTERNAL_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
       KASUWA_FEATURE_FLAGS_ON: '',
       ...NO_DATABASE_URLS,
+      KASUWA_SESSION_COOKIE_INSECURE: undefined,
     },
   });
   pipeTo(child, 'web-build');
@@ -495,6 +540,7 @@ function startWeb(apiUrl, port) {
       NEXT_TELEMETRY_DISABLED: '1',
       KASUWA_FEATURE_FLAGS_ON: '',
       ...NO_DATABASE_URLS,
+      ...sessionLayerEnv(apiUrl, port),
     },
   });
   pipeTo(child, 'web');
@@ -555,10 +601,15 @@ function startSelfServeWeb(apiUrl, port) {
     env: {
       ...process.env,
       NODE_ENV: 'development',
+      // STUB, stated rather than defaulted (ADR-0019 point 7): the `@p02-live`
+      // specs assert an identity with `extraHTTPHeaders`, and after T-0125 only
+      // a web process that is itself in stub mode forwards those headers.
+      KASUWA_AUTH_MODE: 'stub',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
       KASUWA_FEATURE_FLAGS_ON: 'self_serve_signup,admin_live_api',
       ...NO_DATABASE_URLS,
+      ...sessionLayerEnv(apiUrl, port),
       KASUWA_WEB_DIST_DIR: SELF_SERVE_DIST_DIR,
       KASUWA_WEB_TSCONFIG: SELF_SERVE_TSCONFIG,
     },
@@ -657,13 +708,24 @@ function startRecordsWeb(apiUrl, port) {
     env: {
       ...process.env,
       NODE_ENV: 'test',
-      // The real mode, as on the default server: the web process proxies
-      // `/api/v1` and authenticates nobody itself (T-0014).
-      KASUWA_AUTH_MODE: 'jwt',
+      // STUB (ADR-0019 point 7, T-0125). The specs this process serves assert
+      // an identity with `extraHTTPHeaders`, and the BFF forwards the stub
+      // headers only when the web process itself runs stub, which webEnv()
+      // refuses under NODE_ENV=production. The API still decides what that
+      // identity reaches. The real-browser session journey runs on the
+      // session process below, in `jwt`, with no injected headers.
+      KASUWA_AUTH_MODE: 'stub',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
       KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities,crm_scripts,crm_pipeline,crm_search,crm_custom_fields,crm_import,crm_duplicates',
       ...NO_DATABASE_URLS,
+      ...sessionLayerEnv(apiUrl, port),
+      // D-L187 (ADR-0019 point 10, the storage clause): the import mock's
+      // object-store origin (STORAGE_ORIGIN in support/import-mock.ts), so the
+      // T-0125 CSP lets the import wizard's part uploads into `connect-src`.
+      // THIS PROCESS ONLY: the default server and the session process carry no
+      // storage origin, so the I18 CSP checks there stay strict.
+      S3_PUBLIC_ENDPOINT: 'https://storage.example',
     },
   });
   pipeTo(child, 'web:records');
@@ -675,7 +737,47 @@ function startRecordsWeb(apiUrl, port) {
 }
 
 /**
- * THE FOURTH WEB SERVER — THE BELL (T-0101, D-L177 I2).
+ * THE FOURTH WEB SERVER — THE BROWSER SESSION, WITH NO INJECTED IDENTITY
+ * (T-0125, ADR-0019 point 7).
+ *
+ * The real-browser journey signs in with a password and a TOTP code and then
+ * reads `/contacts`, so it needs `crm_records`, which is not production-ready:
+ * a NODE_ENV=production process naming it refuses to boot. So, as D-L64 rules
+ * for the records process, this is the SAME production build under
+ * `next start` with NODE_ENV=test. Unlike the records process it runs
+ * `KASUWA_AUTH_MODE=jwt`: it forwards no stub identity, and every identity it
+ * carries comes from the session cookie. The specs that use it inject no
+ * header at all. Published as `webSessionUrl`. Nothing measures bytes here.
+ *
+ * The production-process half of T-0125 (stub headers ignored, the CSP, the
+ * BFF probes) runs against the default server above.
+ */
+function startSessionWeb(apiUrl, port) {
+  const child = spawnGroup('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
+    cwd: WEB_DIR,
+    shell: process.platform === 'win32',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      NODE_ENV: 'test',
+      KASUWA_AUTH_MODE: 'jwt',
+      NEXT_PUBLIC_API_URL: apiUrl,
+      NEXT_TELEMETRY_DISABLED: '1',
+      KASUWA_FEATURE_FLAGS_ON: 'crm_records',
+      ...NO_DATABASE_URLS,
+      ...sessionLayerEnv(apiUrl, port),
+    },
+  });
+  pipeTo(child, 'web:session');
+  cleanups.push(async () => {
+    await killTree(child);
+    await waitForPortClosed(port);
+  });
+  return child;
+}
+
+/**
+ * THE FIFTH WEB SERVER — THE BELL (T-0101, D-L177 I2).
  *
  * The notifications bell polls on EVERY screen of the CRM shell and the admin
  * console, and the twelve pinned records-ui mocks record any undeclared
@@ -695,11 +797,17 @@ function startNotificationsWeb(apiUrl, port) {
     env: {
       ...process.env,
       NODE_ENV: 'test',
-      KASUWA_AUTH_MODE: 'jwt',
+      // STUB, like the records process it twins (T-0125, ADR-0019 point 7):
+      // the p26 journeys assert an identity with injected headers, which the
+      // BFF forwards only when the web process itself runs stub. It takes the
+      // same session-layer env, so its CSP and CSRF origin match the records
+      // process; it carries no S3_PUBLIC_ENDPOINT (D-L187: records only).
+      KASUWA_AUTH_MODE: 'stub',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
       KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities,crm_scripts,crm_pipeline,crm_search,crm_custom_fields,crm_import,crm_duplicates,crm_notifications',
       ...NO_DATABASE_URLS,
+      ...sessionLayerEnv(apiUrl, port),
     },
   });
   pipeTo(child, 'web:notifications');
@@ -829,6 +937,7 @@ async function main() {
   let webUrl = '';
   let webSelfServeUrl = '';
   let webRecordsUrl = '';
+  let webSessionUrl = '';
   let webNotificationsUrl = '';
 
   if (!wantsOverBudget) {
@@ -864,6 +973,11 @@ async function main() {
     startWeb(apiUrl, webPort);
     startSelfServeWeb(apiUrl, selfServePort);
     startRecordsWeb(apiUrl, recordsPort);
+    if (wantsSessionWeb) {
+      const sessionPort = await freePort();
+      webSessionUrl = `http://127.0.0.1:${sessionPort}`;
+      startSessionWeb(apiUrl, sessionPort);
+    }
     if (wantsNotificationsWeb) {
       const notificationsPort = await freePort();
       webNotificationsUrl = `http://127.0.0.1:${notificationsPort}`;
@@ -876,6 +990,7 @@ async function main() {
       waitForHttp(webUrl, 'the web app'),
       waitForHttp(webSelfServeUrl, 'the self-serve web app'),
       waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view, crm_leads, crm_activities, crm_scripts, crm_pipeline, crm_search, crm_custom_fields, crm_import and crm_duplicates web app'),
+      ...(wantsSessionWeb ? [waitForHttp(webSessionUrl, 'the session (jwt, crm_records) web app')] : []),
       ...(wantsNotificationsWeb ? [waitForHttp(webNotificationsUrl, 'the records flags plus crm_notifications web app')] : []),
     ]);
     restoreNextEnv(nextEnv);
@@ -884,6 +999,9 @@ async function main() {
     log(
       `web (next start, production build, crm_records + crm_accounts + crm_record_view + crm_leads + crm_activities + crm_scripts + crm_pipeline + crm_search + crm_custom_fields + crm_import + crm_duplicates on) on ${webRecordsUrl}`,
     );
+    if (wantsSessionWeb) {
+      log(`web (next start, production build, NODE_ENV=test, jwt, crm_records on, no injected identity) on ${webSessionUrl}`);
+    }
     if (wantsNotificationsWeb) {
       log(`web (next start, production build, NODE_ENV=test, the records flags + crm_notifications on) on ${webNotificationsUrl}`);
     }
@@ -919,6 +1037,8 @@ async function main() {
         webPipelineUrl: webRecordsUrl,
         webSearchUrl: webRecordsUrl,
         webStudioUrl: webRecordsUrl,
+        // T-0125: empty unless this run's grep can select @bff-session.
+        webSessionUrl,
         webImportUrl: webRecordsUrl,
         webDuplicatesUrl: webRecordsUrl,
         // T-0101: empty unless this run's grep can select @p26-notifications.

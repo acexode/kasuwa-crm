@@ -23,6 +23,8 @@ const RELAY_URL = `postgres://kasuwa_relay:${MARKER}@localhost:5432/kasuwa`;
 
 /** apiEnv and workerEnv refuse an unset NODE_ENV (D-L95), so fixtures name one. */
 const DEV: EnvSource = { NODE_ENV: 'development' };
+/** The two settings webEnv() requires in every mode (ADR-0019, amendment 3). Loopback, so production accepts them too. */
+const WEB: EnvSource = { KASUWA_WEB_ORIGIN: 'http://localhost:3000', KASUWA_API_INTERNAL_URL: 'http://127.0.0.1:3001' };
 const API_BASE: EnvSource = { ...DEV, DATABASE_URL, DATABASE_AUTH_URL: AUTH_URL };
 
 describe('api environment', () => {
@@ -203,14 +205,14 @@ describe('per-process schemas parse only what their process needs', () => {
 
   it('judges the object it is given, not process.env', () => {
     // Nothing but the argument decides: an empty object parses to defaults.
-    expect(webEnv({}).NEXT_PUBLIC_API_URL).toBe('http://127.0.0.1:3001');
+    expect(webEnv({ ...WEB }).KASUWA_API_INTERNAL_URL).toBe('http://127.0.0.1:3001');
     expect(() => apiEnv({})).toThrow(/DATABASE_URL/);
   });
 });
 
 describe('web environment', () => {
-  it('parses with nothing set, using the harness defaults', () => {
-    const env = webEnv({});
+  it('parses with only the session layer set, using the harness defaults', () => {
+    const env = webEnv({ ...WEB });
     expect(env.KASUWA_WEB_DIST_DIR).toBe('.next');
     expect(env.KASUWA_WEB_TSCONFIG).toBe('tsconfig.json');
   });
@@ -247,13 +249,13 @@ describe('web environment', () => {
   });
 
   it('reports a forbidden name and a schema error together', () => {
-    expect(() => webEnv({ DATABASE_URL, NEXT_PUBLIC_API_URL: 'not a url' })).toThrow(
-      /DATABASE_URL[\s\S]*NEXT_PUBLIC_API_URL/,
+    expect(() => webEnv({ ...WEB, DATABASE_URL, KASUWA_API_INTERNAL_URL: 'not a url' })).toThrow(
+      /DATABASE_URL[\s\S]*KASUWA_API_INTERNAL_URL/,
     );
   });
 
   it('the build does not run the stub-auth guard; the server does', () => {
-    const production: EnvSource = { NODE_ENV: 'production' };
+    const production: EnvSource = { ...WEB, NODE_ENV: 'production' };
     expect(() => webBuildEnv(production)).not.toThrow();
     expect(() => webEnv(production)).toThrow(/Refusing to start/);
     expect(() => webEnv({ ...production, KASUWA_AUTH_MODE: 'jwt' })).not.toThrow();
@@ -354,7 +356,7 @@ describe('stub auth guard', () => {
       // The worker also requires its relay URL (T-0098), which the others refuse.
       const env =
         parse === webEnv
-          ? { NODE_ENV: 'production' }
+          ? { ...WEB, NODE_ENV: 'production' }
           : parse === workerEnv
             ? { ...server, DATABASE_RELAY_URL: RELAY_URL }
             : server;

@@ -262,6 +262,13 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
  * name rendering (`records.name.withheld` and the shared name helper).
  * PIPELINE_BUDGET_BYTES moved to 259,000: about 1.4% over that measurement,
  * under this ceiling and inside the 5% rule.
+ *
+ * T-0125 lead re-pin (D-L187): 42e1f69 measured 256,343 bytes against the
+ * 255,000 pin, from the browser session's required cost on every shell page
+ * (the document's CSP header, nonce attributes, the account menu, and the
+ * shell chunk's api-fetch and sign-out code). The same 259,000 covers it:
+ * about 1.0% over that measurement, under this ceiling and inside the 5% rule.
+ * The spec's hash ignores the budget literal, so it is not re-pinned.
  */
 const PIPELINE_BUDGET_CEILING = 260_000;
 

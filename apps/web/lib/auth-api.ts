@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { apiFetch } from './api-fetch';
 
 /**
  * The browser's half of `docs/api/auth.openapi.yaml`.
@@ -7,10 +8,10 @@ import { z } from 'zod';
  * input even when our own server sent it, and a cast would let a contract
  * change reach a component as `undefined` three renders later.
  *
- * SAME-ORIGIN ON PURPOSE. Every call here is a relative path, so the browser
- * never learns an API hostname and no `process.env` is needed in app code
- * (lint-enforced). `next.config.mjs` rewrites `/api/v1/*` to whichever API
- * origin the deployment runs.
+ * SAME-ORIGIN ON PURPOSE. Every call here is a relative path through
+ * `apiFetch`, so the browser never learns an API hostname and no `process.env`
+ * is needed in app code (lint-enforced). The BFF route handler at
+ * `app/api/v1/[...path]` forwards it to the API server-side (ADR-0019).
  *
  * SWITCH ON `code`, NEVER ON `message`. `message` is English prose that will be
  * translated and reworded; `code` is a fixed enum in the spec, and the web app
@@ -69,9 +70,17 @@ export const MfaChallengeStarted = z.object({
 });
 export type MfaChallengeStarted = z.infer<typeof MfaChallengeStarted>;
 
+/**
+ * A successful second factor, AS THE BROWSER RECEIVES IT (ADR-0019 point 3).
+ *
+ * The API's answer also carries the session token; the BFF puts it in an
+ * HttpOnly cookie and removes it, with its type, before the body reaches this
+ * code. So the browser never holds the token, even for one render, and there
+ * is nothing here to store. This deliberately differs from
+ * `docs/api/auth.openapi.yaml`, which describes the API's own answer to a
+ * non-browser client.
+ */
 export const SessionEstablished = z.object({
-  accessToken: z.string(),
-  tokenType: z.string(),
   expiresAt: z.string(),
   user: z.object({
     id: z.string(),
@@ -142,10 +151,12 @@ export async function post<T>(
 ): Promise<Result<T>> {
   let response: Response;
   try {
-    response = await fetch(path, {
+    // `return`: on these routes a 401 is the answer (a wrong password or code),
+    // not a lost session, so the screen shows it rather than leaving.
+    response = await apiFetch(path, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      body,
+      onUnauthenticated: 'return',
       ...(signal === undefined ? {} : { signal }),
     });
   } catch {
@@ -200,3 +211,4 @@ export function reissueMfaChallenge(
 export function lookupSso(domain: string, signal?: AbortSignal): Promise<Result<SsoConnection>> {
   return post('/api/v1/auth/sso/lookup', { domain }, SsoConnection, signal);
 }
+

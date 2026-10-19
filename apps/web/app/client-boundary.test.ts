@@ -103,3 +103,67 @@ describe('the server/client boundary', () => {
     });
   }
 });
+
+/**
+ * NO BROWSER CODE REACHES `lib/server/` (ADR-0019 step c, T-0125).
+ *
+ * `lib/server/` holds the BFF: the cookie, the CSRF check, the header policy
+ * and the upstream address. None of it may be bundled for a browser. A
+ * `'use client'` module, or anything a client module imports, that reaches
+ * into `lib/server/` would ship it, so this walks every client module's
+ * relative imports transitively and fails on the first path into it. (Next
+ * would also refuse a `node:` import in a client bundle, but only at build
+ * time and only for some of what lives there.)
+ */
+const webRoot = resolve(here, '..');
+const serverRoot = resolve(webRoot, 'lib', 'server');
+
+function sources(directory: string): string[] {
+  return readdirSync(directory).flatMap((entry) => {
+    const full = resolve(directory, entry);
+    if (statSync(full).isDirectory()) return entry === 'node_modules' || entry.startsWith('.') ? [] : sources(full);
+    return /\.tsx?$/.test(full) && !/\.test\.tsx?$/.test(full) ? [full] : [];
+  });
+}
+
+const ANY_IMPORT = /(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?'(\.[^']*)'|import\(\s*'(\.[^']*)'\s*\)/g;
+
+function localImports(file: string): string[] {
+  const source = readFileSync(file, 'utf8');
+  const found: string[] = [];
+  for (const match of source.matchAll(ANY_IMPORT)) {
+    if (match[0].includes('import type') || match[0].includes('export type')) continue;
+    const target = resolveLocal(file, match[1] ?? match[2] ?? '');
+    if (target !== null) found.push(target);
+  }
+  return found;
+}
+
+describe('the browser never reaches lib/server', () => {
+  const clientModules = ['app', 'components', 'lib'].flatMap((directory) => sources(resolve(webRoot, directory))).filter(isClientModule);
+
+  it('finds client modules to check', () => {
+    expect(clientModules.length).toBeGreaterThan(0);
+  });
+
+  it('no lib/server module is itself a client module', () => {
+    expect(sources(serverRoot).filter(isClientModule)).toEqual([]);
+  });
+
+  it('no client module imports lib/server, directly or through anything it imports', () => {
+    const offences: string[] = [];
+    const seen = new Set<string>();
+    const queue = clientModules.map((file) => ({ file, from: file }));
+    while (queue.length > 0) {
+      const next = queue.shift();
+      if (next === undefined || seen.has(next.file)) continue;
+      seen.add(next.file);
+      if (next.file.startsWith(`${serverRoot}/`) || next.file.startsWith(`${serverRoot}\\`)) {
+        offences.push(`${next.from.slice(webRoot.length + 1)} reaches ${next.file.slice(webRoot.length + 1)}`);
+        continue;
+      }
+      for (const target of localImports(next.file)) queue.push({ file: target, from: next.from });
+    }
+    expect(offences).toEqual([]);
+  });
+});

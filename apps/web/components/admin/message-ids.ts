@@ -27,6 +27,8 @@ export const ADMIN_SHELL_MESSAGE_IDS: readonly MessageId[] = [
   'auth.topbar.lite',
   'auth.topbar.lite.on',
   'auth.topbar.lite.toggle',
+  'auth.signOut',
+  'auth.account',
   'admin.shell.admin',
   'admin.shell.menu.toggle',
   'admin.shell.menu.label',

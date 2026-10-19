@@ -2,6 +2,7 @@ import { bundleMessages } from '@kasuwa/i18n';
 import { MfaScreen } from '../../components/auth/mfa-screen';
 import { MFA_MESSAGE_IDS } from '../../components/auth/message-ids';
 import { activeLocale, languageOptions } from '../../lib/locale';
+import { landingPath } from '../../lib/server/landing';
 
 /**
  * `P01/2`, `P01/2a`, `P01/2b` — the second factor.
@@ -34,6 +35,7 @@ export default async function VerifyPage({
       initialMethod={method}
       initialHint={hint}
       initialResendAvailableAt={resendAt}
+      landing={await landingPath()}
     />
   );
 }

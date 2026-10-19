@@ -17,6 +17,7 @@ import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
 import { LiteModeToggle } from '../auth/lite-mode';
+import { SignOutButton } from '../auth/sign-out-button';
 import { SHELL_SEARCH_STRINGS } from '../search/message-ids';
 import { CRM_NAV, liveHref, type CrmNavItem } from './crm-nav';
 
@@ -49,8 +50,11 @@ const NotificationBell = lazy(() => import('../notifications/bell'));
  * its code, the count store and the poller are in this shell's first load, and
  * the dropdown is a dynamic `import()` on its first open.
  *
- * Still to come, and deliberately absent rather than faked: agent availability
- * and the account menu. Each needs an API that does not
+ * SIGN OUT (T-0125, ADR-0019 point 5) ends the session at the API and lands on
+ * sign-in. Below `sm` it sits behind a 44 px account button.
+ *
+ * Still to come, and deliberately absent rather than faked: agent
+ * availability and the rest of the account menu. Each needs an API that does not
  * exist yet; a control that does nothing is a promise the product breaks the
  * first time someone presses it.
  */
@@ -202,7 +206,8 @@ export function CrmShell({
 
   return (
     <div data-shell="crm" className="flex min-h-screen flex-col bg-bg text-text">
-      <header {...behind} className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
+      {/* Tighter spacing below `sm`: at 360 px the bell (T-0101) and the account menu (T-0125) fit on one row only so. */}
+      <header {...behind} className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-surface px-2 sm:gap-3 sm:px-4">
         <Link href={home ?? `/${current}`} className={`flex shrink-0 items-center gap-2 rounded-md ${LINK_FOCUS}`}>
           <span
             aria-hidden="true"
@@ -210,8 +215,8 @@ export function CrmShell({
           >
             {t.t('app.name').slice(0, 1)}
           </span>
-          {/* With the bell the 360 px header is one 44 px target too wide: the name goes to the screen reader alone below `sm`. */}
-          <b className={`text-body-md ${bellLive ? 'sr-only sm:not-sr-only' : ''}`}>{t.t('app.name')}</b>
+          {/* The word only from `sm` up: at 360 px the header needs the room for the account menu (T-0125) and the bell (T-0101). */}
+          <b className="sr-only text-body-md sm:not-sr-only">{t.t('app.name')}</b>
         </Link>
         <span className="flex-1" />
         {searchLive ? (
@@ -248,6 +253,7 @@ export function CrmShell({
           accessibleName={t.t('auth.topbar.lite.toggle')}
           compact
         />
+        <SignOutButton label={t.t('auth.signOut')} menuLabel={t.t('auth.account')} />
       </header>
 
       <div {...behind} className="flex min-w-0 flex-1 items-stretch">

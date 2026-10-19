@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { apiFetch } from './api-fetch';
 
 /**
  * The browser's half of `docs/api/admin.openapi.yaml` — the contract behind the
@@ -382,11 +383,9 @@ async function request<T>(
 ): Promise<Result<T>> {
   let response: Response;
   try {
-    response = await fetch(path, {
+    response = await apiFetch(path, {
       method,
-      ...(init.body === undefined
-        ? {}
-        : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(init.body) }),
+      ...(init.body === undefined ? {} : { body: init.body }),
       ...(init.signal === undefined ? {} : { signal: init.signal }),
     });
   } catch {

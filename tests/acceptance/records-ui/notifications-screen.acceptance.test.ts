@@ -57,7 +57,12 @@ import { OUTCOMES_FILE, type E2eOutcome } from '../support/e2e-outcomes-reporter
  *       it gets its own `next start` process on the same production build,
  *       NODE_ENV=test, with EXACTLY the records process's flags plus
  *       `crm_notifications`, so its pages are the records pages with the bell and
- *       the bell's weight is measurable as a difference (I21).
+ *       the bell's weight is measurable as a difference (I21). It runs in the
+ *       records process's auth mode. AMENDED (lead, D-L188): only the
+ *       records processes NOT in `jwt` mode are judged. T-0125's
+ *       `@bff-session` process is jwt with `crm_records` alone; it exists to
+ *       prove the real session, not to twin the records flags, so it is
+ *       excluded by its KASUWA_AUTH_MODE.
  *   I3. Client. The four operations from the BROWSER, same-origin, Zod-parsed
  *       (`.uuid()` ids, `.datetime()` times, D-L176 N9), `no-store`, no scope
  *       argument. Nothing about notifications is kept on the device (D-P21).
@@ -494,6 +499,24 @@ function processFlagLists(runner: string): string[][] {
   return [...runner.matchAll(/KASUWA_FEATURE_FLAGS_ON:\s*['"`]([^'"`]*)['"`]/g)].map((match) => (match[1] ?? '').split(/[,\s]+/).filter((flag) => flag.length > 0));
 }
 
+/**
+ * Every web process in run-e2e.mjs that names KASUWA_FEATURE_FLAGS_ON, with
+ * the KASUWA_AUTH_MODE set in the SAME `env: { ... }` object (D-L188). The
+ * runner is cut at each `env: {`, so a mode is never borrowed from another
+ * process; `undefined` where the object sets none.
+ */
+function webProcesses(runner: string): { mode: string | undefined; flags: string[] }[] {
+  return runner
+    .split(/\benv:\s*\{/)
+    .slice(1)
+    .flatMap((block) => {
+      const flags = /KASUWA_FEATURE_FLAGS_ON:\s*['"`]([^'"`]*)['"`]/.exec(block);
+      if (flags === null) return [];
+      const mode = /KASUWA_AUTH_MODE:\s*['"`]([^'"`]*)['"`]/.exec(block);
+      return [{ mode: mode?.[1], flags: (flags[1] ?? '').split(/[,\s]+/).filter((flag) => flag.length > 0) }];
+    });
+}
+
 /** The test tags in a spec's code (titles and annotations), comments and package scopes excluded. */
 function tagsIn(file: string): string[] {
   return [...withoutComments(readFileSync(fromRoot(file), 'utf8')).matchAll(/@[a-z0-9][\w-]*/gi)].map((match) => match[0]).filter((tag) => /^@(p\d|leads|harness)/i.test(tag));
@@ -594,12 +617,18 @@ describe('acceptance: T-0101 — crm_notifications exists, is off, is not produc
 
   it('serves the bell from its OWN web process: exactly the records flags plus crm_notifications, published as webNotificationsUrl; the records process stays without it (I2)', () => {
     const runner = readFileSync(fromRoot('tests/e2e/scripts/run-e2e.mjs'), 'utf8');
-    const lists = processFlagLists(runner);
-    const records = lists.filter((flags) => flags.includes('crm_records') && !flags.includes(FLAG));
-    expect(records, 'run-e2e.mjs has no records process without crm_notifications (twelve pinned mocks would see the bell’s poll)').toHaveLength(1);
-    const withFlag = lists.filter((flags) => flags.includes(FLAG));
-    expect(withFlag, `no web process in run-e2e.mjs carries ${FLAG}, or more than one does`).toHaveLength(1);
-    expect([...(withFlag[0] ?? [])].sort(), 'the notifications process is not the records process plus crm_notifications: the bell’s weight would not be a difference').toEqual([...(records[0] ?? []), FLAG].sort());
+    const processes = webProcesses(runner);
+    // D-L188: a jwt-mode process (T-0125's `@bff-session` process, ADR-0019
+    // amendment 1) exists to prove the real session, not to twin the records
+    // flags, so it is excluded BY ITS AUTH MODE. Only `jwt` is excluded: a
+    // process whose mode cannot be read is still judged.
+    const judged = processes.filter(({ mode }) => mode !== 'jwt');
+    const records = judged.filter(({ flags }) => flags.includes('crm_records') && !flags.includes(FLAG));
+    expect(records.map(({ flags }) => flags), 'run-e2e.mjs has no stub-mode records process without crm_notifications, or more than one (twelve pinned mocks would see the bell’s poll)').toHaveLength(1);
+    const withFlag = processes.filter(({ flags }) => flags.includes(FLAG));
+    expect(withFlag.map(({ flags }) => flags), `no web process in run-e2e.mjs carries ${FLAG}, or more than one does`).toHaveLength(1);
+    expect([...(withFlag[0]?.flags ?? [])].sort(), 'the notifications process is not the records process plus crm_notifications: the bell’s weight would not be a difference').toEqual([...(records[0]?.flags ?? []), FLAG].sort());
+    expect(withFlag[0]?.mode, 'the notifications process does not run in the records process’s auth mode (D-L188: it twins it)').toBe(records[0]?.mode);
     expect(runner, 'run-e2e.mjs does not publish webNotificationsUrl in the stack file').toContain('webNotificationsUrl');
     expect(runner, 'the default web server no longer forces every flag empty').toMatch(/KASUWA_FEATURE_FLAGS_ON:\s*''/);
   });
@@ -783,6 +812,14 @@ describe('acceptance: T-0101 — no colour literal, no device storage, no HTML f
     expect(reachableFrom([shell], true, [], planted("const Lazy = dynamic(() => import('../notifications/centre'));")).has(centre)).toBe(true);
     // The run-e2e flag reader, on a planted runner.
     expect(processFlagLists("KASUWA_FEATURE_FLAGS_ON: '',\nKASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_notifications',")).toEqual([[], ['crm_records', 'crm_notifications']]);
+    // The per-process reader (D-L188): each mode stays with its own env object, never the next one's.
+    expect(
+      webProcesses("env: { KASUWA_FEATURE_FLAGS_ON: '' },\nenv: { KASUWA_AUTH_MODE: 'jwt', KASUWA_FEATURE_FLAGS_ON: 'crm_records' },\nenv: { KASUWA_AUTH_MODE: 'stub', KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_notifications' }"),
+    ).toEqual([
+      { mode: undefined, flags: [] },
+      { mode: 'jwt', flags: ['crm_records'] },
+      { mode: 'stub', flags: ['crm_records', 'crm_notifications'] },
+    ]);
   });
 
   it('writes no colour literal anywhere in the slice', () => {

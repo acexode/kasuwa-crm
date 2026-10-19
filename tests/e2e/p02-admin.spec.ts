@@ -1141,13 +1141,25 @@ test.describe('the console on a 256 kbps link', () => {
    * late `not-found` chunk of about 525 B, against 266,000. Re-pinned to
    * 270,000: the largest thousand within this block's ~2% of the 265,405 B
    * floor (1.02 x 265,405 = 270,713), 1.5% over the worse mode.
+   *
+   * RE-PINNED (lead, T-0125, D-L187): the browser session's required cost on
+   * every shell page (the document's CSP header, nonce attributes, the account
+   * menu, and the shell chunk's api-fetch and sign-out code) measured on
+   * 42e1f69: /admin 224,738 B and /admin/roles 224,051 B against 224,000, now
+   * 227,000 (1.0% and 1.3% over); /admin/field-security 257,379 B and
+   * /admin/audit 257,228 B against 257,000, now 261,000 (1.4% and 1.5% over).
+   * Each is inside this block's ~2% and under the 300 KB cap.
+   *
+   * RE-PINNED (lead, T-0125, D-L189): the same required session cost on
+   * /admin/programmes, measured on c90db7e at 221,858-221,883 B against
+   * 222,000, now 224,000 (about 1.0% over the higher figure).
    */
   const BYTE_BUDGETS: readonly { readonly label: string; readonly path: string; readonly budget: number }[] = [
-    { label: 'P02/A admin home', path: '/admin', budget: 224_000 },
-    { label: 'P02/B the programmes list', path: '/admin/programmes', budget: 222_000 },
-    { label: 'P02/C the role tree', path: '/admin/roles', budget: 224_000 },
-    { label: 'P02/D the field-security matrix', path: '/admin/field-security', budget: 257_000 },
-    { label: 'P02/E the audit log', path: '/admin/audit', budget: 257_000 },
+    { label: 'P02/A admin home', path: '/admin', budget: 227_000 }, // D-L187
+    { label: 'P02/B the programmes list', path: '/admin/programmes', budget: 224_000 }, // D-L189
+    { label: 'P02/C the role tree', path: '/admin/roles', budget: 227_000 }, // D-L187
+    { label: 'P02/D the field-security matrix', path: '/admin/field-security', budget: 261_000 }, // D-L187
+    { label: 'P02/E the audit log', path: '/admin/audit', budget: 261_000 }, // D-L187
     {
       label: 'P02/B6 the scripts tab',
       path: '/admin/programmes/11111111-0000-4000-8000-0000000c0001?tab=scripts',

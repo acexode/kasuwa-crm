@@ -113,7 +113,7 @@ describe('the SSE rule in the API and worker schemas', () => {
 
 describe('the web schema', () => {
   it('returns the public storage origin and refuses the internal endpoint', () => {
-    expect(webEnv({ S3_PUBLIC_ENDPOINT: 'http://localhost:59000' }).S3_PUBLIC_ENDPOINT).toBe('http://localhost:59000');
+    expect(webEnv({ KASUWA_WEB_ORIGIN: 'http://localhost:3000', KASUWA_API_INTERNAL_URL: 'http://127.0.0.1:3001', S3_PUBLIC_ENDPOINT: 'http://localhost:59000' }).S3_PUBLIC_ENDPOINT).toBe('http://localhost:59000');
     const message = messageOf(() => webEnv({ S3_ENDPOINT: `http://internal-${SECRET}.example` }));
     expect(message).toContain('S3_ENDPOINT');
     expect(message).not.toContain(SECRET);

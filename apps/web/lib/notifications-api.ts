@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { apiFetch } from './api-fetch';
 import type { RecordsResult } from './records-api';
 import { parseRetryAfter } from './retry-after';
 
@@ -106,11 +107,13 @@ async function request<T>(
 ): Promise<RecordsResult<T>> {
   let response: Response;
   try {
-    response = await fetch(path, {
+    // Through the one wrapper (ADR-0019 step d, T-0125): the BFF refuses a
+    // write without its CSRF header, and a lost session goes to sign-in.
+    response = await apiFetch(path, {
       method: init.method,
+      // Never from or into the HTTP cache: a staff member's notifications (D-L176 N9).
       cache: 'no-store',
-      headers: init.body === undefined ? { accept: 'application/json' } : { accept: 'application/json', 'content-type': 'application/json' },
-      ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+      ...(init.body === undefined ? {} : { body: init.body }),
       ...(init.signal === undefined ? {} : { signal: init.signal }),
     });
   } catch {

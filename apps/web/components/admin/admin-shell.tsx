@@ -6,6 +6,7 @@ import { createBundleTranslator, type MessageBundle, type MessageId } from '@kas
 import { Icon } from '../icon';
 import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
 import { LiteModeToggle } from '../auth/lite-mode';
+import { SignOutButton } from '../auth/sign-out-button';
 import { NAV_GROUPS, filterNav, type NavGroup } from './nav-model';
 import { getHomeSummary, getSettingsMenuBadges, type Severity } from '../../lib/admin-api';
 import { useResource } from './use-resource';
@@ -127,7 +128,8 @@ export function AdminShell({
 
   return (
     <div className="flex min-h-screen flex-col bg-bg text-text">
-      <header className="sticky top-0 z-30 flex h-16 shrink-0 flex-wrap items-center gap-3 border-b border-border bg-surface px-4">
+      {/* Tighter spacing below `sm`: at 360 px the bell (T-0101) and the account menu (T-0125) fit on one row only so. */}
+      <header className="sticky top-0 z-30 flex h-16 shrink-0 flex-wrap items-center gap-2 border-b border-border bg-surface px-2 sm:gap-3 sm:px-4">
         <button
           ref={drawerButtonRef}
           type="button"
@@ -147,8 +149,10 @@ export function AdminShell({
           <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-body-md font-extrabold text-accent">
             {t.t('app.name').slice(0, 1)}
           </span>
-          <b className="text-body-md">{t.t('app.name')}</b>
-          <span className="rounded-sm bg-primary-soft px-2 text-caption font-bold text-primary-text">
+          {/* The words only from `sm` up: at 360 px the header needs the room
+              for the account menu, and wrapped onto two rows before it (T-0125). */}
+          <b className="sr-only text-body-md sm:not-sr-only">{t.t('app.name')}</b>
+          <span className="sr-only rounded-sm bg-primary-soft px-2 text-caption font-bold text-primary-text sm:not-sr-only">
             {t.t('admin.shell.admin')}
           </span>
         </Link>
@@ -187,6 +191,7 @@ export function AdminShell({
           accessibleName={t.t('auth.topbar.lite.toggle')}
           compact
         />
+        <SignOutButton label={t.t('auth.signOut')} menuLabel={t.t('auth.account')} />
       </header>
 
       <div className="relative flex flex-1 items-stretch">

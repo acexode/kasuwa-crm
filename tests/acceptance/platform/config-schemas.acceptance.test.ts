@@ -100,7 +100,13 @@ const DATABASE_MIGRATION_URL = `postgres://kasuwa_migrator:${LEAK_MARKER}@db.int
 const DATABASE_AUTH_URL = `postgres://kasuwa_auth:${LEAK_MARKER}@db.internal.example:5432/kasuwa`;
 
 /** Development, nothing API-specific: what the web process legitimately starts with. */
-const WEB_DEV: Env = { ...AMBIENT, NODE_ENV: 'development' };
+// T-0125 (ADR-0019, D-L178): both URLs are required in every mode.
+const WEB_DEV: Env = {
+  ...AMBIENT,
+  NODE_ENV: 'development',
+  KASUWA_WEB_ORIGIN: 'http://localhost:3000',
+  KASUWA_API_INTERNAL_URL: 'http://127.0.0.1:3001',
+};
 
 /**
  * Production, with every OTHER production guard satisfied, so the only thing
@@ -127,7 +133,9 @@ const WEB_PROD_SAFE: Env = {
   NODE_ENV: 'production',
   KASUWA_AUTH_MODE: 'jwt',
   KASUWA_CELL: 'za-1',
-  NEXT_PUBLIC_API_URL: 'https://api.example.test',
+  // T-0125: the rewrite and NEXT_PUBLIC_API_URL are gone; the BFF needs both URLs.
+  KASUWA_WEB_ORIGIN: 'https://app.example.test',
+  KASUWA_API_INTERNAL_URL: 'https://api.example.test',
 };
 
 /**
@@ -220,7 +228,7 @@ describe('acceptance: a missing API-only variable fails the API and only the API
 
   it('does not fail webEnv() on the same environment', async () => {
     const webEnv = await exported('webEnv');
-    expect(() => webEnv({ ...AMBIENT, NODE_ENV: 'development' })).not.toThrow();
+    expect(() => webEnv(WEB_DEV)).not.toThrow();
   });
 
   it('judges the environment it is GIVEN, not the ambient process.env', async () => {
@@ -232,7 +240,7 @@ describe('acceptance: a missing API-only variable fails the API and only the API
     vi.stubEnv('DATABASE_URL', DATABASE_URL);
     const apiEnv = await exported('apiEnv');
     const webEnv = await exported('webEnv');
-    expect(() => webEnv({ ...AMBIENT, NODE_ENV: 'development' })).not.toThrow();
+    expect(() => webEnv(WEB_DEV)).not.toThrow();
     expect(() => apiEnv({ ...AMBIENT, NODE_ENV: 'development', DATABASE_AUTH_URL })).toThrow(
       /DATABASE_URL/,
     );

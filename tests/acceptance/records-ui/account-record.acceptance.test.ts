@@ -141,8 +141,18 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
   [MOCK]: '5f65af2afb70c9e1e703e1cef1a979ff603c22c801bca40fd5d11eba0e916bf0',
 };
 
-/** See the budget test in the spec. Never above this. */
-const ACCOUNT_RECORD_BUDGET_CEILING = 245_000;
+/**
+ * See the budget test in the spec. Never above this.
+ * RAISED (lead, T-0125, D-L190) from 245,000, the provisional figure set
+ * before the screen existed: with the browser session's required cost
+ * (D-L187, D-L189) the Mac final check on 01e4401 measured /accounts/[id] at
+ * 246,898 bytes, which no pin under 245,000 could cover. ACCOUNT_RECORD_BUDGET_BYTES
+ * moved to 249,500, about 1.1% over, inside the 5% rule (259,243). The
+ * spec's hash ignores the budget literal, so it is not re-pinned; the spec's
+ * own comments still say 245,000 and are left as they are, because editing
+ * them would change the pinned hash.
+ */
+const ACCOUNT_RECORD_BUDGET_CEILING = 250_000;
 
 /** Re-pinned within 5% of what the run measured, like /contacts/[id] (T-0062) and P01/1 (T-0035). */
 const BUDGET_HEADROOM = 1.05;
@@ -737,7 +747,7 @@ describe('acceptance: T-0063 — the account record in a browser', () => {
     });
   }
 
-  it('pins /accounts/[id] at or under 245,000 bytes and within 5% of what this run measured', () => {
+  it('pins /accounts/[id] at or under 250,000 bytes and within 5% of what this run measured', () => {
     const spec = readFileSync(fromRoot(SPEC), 'utf8');
     const literal = BUDGET_LITERAL.exec(spec);
     expect(literal, 'ACCOUNT_RECORD_BUDGET_BYTES is not where it was').not.toBeNull();
