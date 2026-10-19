@@ -199,7 +199,8 @@ export function CrmShell({
           >
             {t.t('app.name').slice(0, 1)}
           </span>
-          <b className="text-body-md">{t.t('app.name')}</b>
+          {/* The word only from `sm` up: at 360 px the header needs the room (T-0125). */}
+          <b className="sr-only text-body-md sm:not-sr-only">{t.t('app.name')}</b>
         </Link>
         <span className="flex-1" />
         {searchLive ? (
@@ -231,7 +232,7 @@ export function CrmShell({
           accessibleName={t.t('auth.topbar.lite.toggle')}
           compact
         />
-        <SignOutButton label={t.t('auth.signOut')} />
+        <SignOutButton label={t.t('auth.signOut')} menuLabel={t.t('auth.account')} />
       </header>
 
       <div {...behind} className="flex min-w-0 flex-1 items-stretch">

@@ -179,6 +179,7 @@
   "admin.scripts.status.draft",
   "admin.scripts.version",
   "admin.shell.account",
+  "auth.account",
   "admin.shell.admin",
   "admin.shell.help",
   "admin.shell.home",

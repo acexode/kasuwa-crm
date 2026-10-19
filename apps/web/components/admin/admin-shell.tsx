@@ -142,8 +142,10 @@ export function AdminShell({
           <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-body-md font-extrabold text-accent">
             {t.t('app.name').slice(0, 1)}
           </span>
-          <b className="text-body-md">{t.t('app.name')}</b>
-          <span className="rounded-sm bg-primary-soft px-2 text-caption font-bold text-primary-text">
+          {/* The words only from `sm` up: at 360 px the header needs the room
+              for the account menu, and wrapped onto two rows before it (T-0125). */}
+          <b className="sr-only text-body-md sm:not-sr-only">{t.t('app.name')}</b>
+          <span className="sr-only rounded-sm bg-primary-soft px-2 text-caption font-bold text-primary-text sm:not-sr-only">
             {t.t('admin.shell.admin')}
           </span>
         </Link>
@@ -176,7 +178,7 @@ export function AdminShell({
           accessibleName={t.t('auth.topbar.lite.toggle')}
           compact
         />
-        <SignOutButton label={t.t('auth.signOut')} />
+        <SignOutButton label={t.t('auth.signOut')} menuLabel={t.t('auth.account')} />
       </header>
 
       <div className="relative flex flex-1 items-stretch">

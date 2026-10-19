@@ -49,6 +49,7 @@
     "admin.shell.help": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.shell.notifications": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.shell.account": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "auth.account": "A loanword the CRM and admin shells' account menu uses unchanged in this locale, as admin.shell.account does.",
     "admin.nav.group.company": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.nav.group.bpo": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.nav.group.channels": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",

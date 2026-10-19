@@ -53,6 +53,7 @@ export const CRM_SHELL_MESSAGE_IDS: readonly MessageId[] = [
   'auth.topbar.lite.on',
   'auth.topbar.lite.toggle',
   'auth.signOut',
+  'auth.account',
   'records.nav.label',
   'records.nav.soon',
   ...CRM_NAV.map((item) => item.label),
