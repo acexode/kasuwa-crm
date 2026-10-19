@@ -5,11 +5,11 @@ import {
   findContactById,
   insertContact,
   listContacts,
-  loadTenantDefaultCountry,
   notEditableContactFields,
-  phoneSearchE164,
+  notEditableContactUpdateFields,
   programmeAccountExists,
   programmesReading,
+  programmesReadingDisplayName,
   loadContactFieldAccess,
   programmeMemberExists,
   updateContactIfVersion,
@@ -64,9 +64,10 @@ import {
  * controller). Scope comes from `tx.session`, permissions and field security
  * from the database, both re-read on every request.
  *
- * NOTHING HERE LOGS. Every input is a person's data, and `q` is often a phone
- * number (D-L64); the request span carries the route template and never the
- * query string (telemetry/attributes.ts).
+ * NOTHING HERE LOGS. Every input is a person's data, and `q` is a name
+ * (D-L64): an identifier-shaped `q` is refused at the boundary, never echoed
+ * (R21); the request span carries the route template and never the query
+ * string (telemetry/attributes.ts).
  */
 
 /** Create needs full `contact.write`; update also accepts D-P14's grant (`canUpdateContact`). */
@@ -167,11 +168,12 @@ export async function listContactsFor(
 
   let search: ContactSearch | undefined;
   if (query.q !== undefined) {
-    const country = await loadTenantDefaultCountry(tx);
+    // Per row, in the row's own programme (T-0124 I7): a name withheld there
+    // is never matched there, so `q` is no oracle for it. No phone match: an
+    // identifier in `q` was refused at the boundary (R21).
     search = {
       text: query.q,
-      phoneE164: phoneSearchE164(query.q, country),
-      phoneProgrammeIds: programmesReading(access, 'phones'),
+      displayNameProgrammeIds: programmesReadingDisplayName(access),
       givenNamesProgrammeIds: programmesReading(access, 'givenNames'),
       familyNameProgrammeIds: programmesReading(access, 'familyName'),
     };
@@ -292,7 +294,8 @@ export async function updateContactFor(
   const keys = plainKeys(body) ?? [];
   const raw = plainKeys(body) === null ? {} : (body as Record<string, unknown>);
   const locked = [
-    ...notEditableContactFields(access, current.programmeId, keys),
+    // T-0124 I11: a withheld displayName is not editable either.
+    ...notEditableContactUpdateFields(access, current.programmeId, keys),
     ...customNotEditablePaths(custom, current.programmeId, raw),
   ];
   if (locked.length > 0) throw fieldNotEditable(locked); // 403, naming the fields

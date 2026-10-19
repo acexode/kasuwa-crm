@@ -22,6 +22,9 @@ export const CONTACTS_MESSAGE_IDS: readonly MessageId[] = [
   'records.action.unavailable',
   'records.search.label',
   'records.search.placeholder',
+  'records.search.numberHint',
+  'records.search.useSearch',
+  'records.name.withheld',
   'records.filter.label',
   'records.filter.active',
   'records.filter.clear',
@@ -87,3 +90,6 @@ export const CONTACTS_MESSAGE_IDS: readonly MessageId[] = [
  * sends none of them to a 256 kbps user.
  */
 export const CONTACTS_IMPORT_MESSAGE_IDS: readonly MessageId[] = ['records.importFilter.note', 'records.importFilter.clear'];
+
+/** The words of the link to the duplicates screen (T-0097), bundled only where it is live (`live.includes('duplicates')`). */
+export const CONTACTS_DUPLICATES_MESSAGE_IDS: readonly MessageId[] = ['records.action.duplicates'];

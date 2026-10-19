@@ -132,10 +132,13 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  * re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  [SPEC]: '6ec161967da8cb5c8e9b4758a5f005287ab2de730872ba2104fa6aafe170870c',
+  // T-0124 (lead re-pin): @p05-account-mock replays a cursor under sort=createdAt, not the removed -displayName.
+  [SPEC]: 'd6c7e45e13041d40c497c7fb2989326f44886ce4ee2c34db9bdc4407509b67f2',
   // T-0082 (D-L97): the mock's activity items and bodies carry `startsAt` and `endsAt`.
   // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and merges `custom`.
-  [MOCK]: '10629d748960be2ce5d489be649950ab5cf5ad3faaddf8f9c5bb79f8af25a613',
+  // T-0124 (lead re-pin, D-L183): listAccountContacts' default sort is read from the contract (-createdAt), not invented as displayName.
+  // T-0124 (lead re-pin): contactsOf returns the served order (-createdAt, ties on id), not the written name order.
+  [MOCK]: '5f65af2afb70c9e1e703e1cef1a979ff603c22c801bca40fd5d11eba0e916bf0',
 };
 
 /** See the budget test in the spec. Never above this. */

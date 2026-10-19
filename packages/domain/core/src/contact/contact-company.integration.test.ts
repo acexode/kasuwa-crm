@@ -83,8 +83,7 @@ describe('contact company name (T-0076)', () => {
             limit: 100,
             search: {
               text: 'oja probe',
-              phoneE164: null,
-              phoneProgrammeIds: [],
+              displayNameProgrammeIds: [],
               givenNamesProgrammeIds: [],
               familyNameProgrammeIds: [],
               companyNameProgrammeIds,

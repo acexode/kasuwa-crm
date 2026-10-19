@@ -250,6 +250,32 @@ describe('publishProblems (T-0113, D-L93)', () => {
     ]);
   });
 
+  it('a withheld displayName is displayed as a stand-in, so a variable publishes; a branch on it is refused (D-L180, T-0124 I13)', () => {
+    const withheld = context({ displayName: { withheld: true, standIn: true } });
+    // The greeting variable in good() publishes.
+    expect(codesAt(publishProblems(good(), {}, withheld), 'nodes.greet.text')).toEqual([]);
+    const translated: Translations = { ha: { greet: { text: 'Sannu {contact.displayName}' } } };
+    expect(
+      codesAt(publishProblems(good(), translated, withheld), 'translations.ha.greet.text'),
+    ).toEqual([]);
+    const branch = withNode('cust', (node) => ({
+      ...node,
+      condition: { source: 'contact_field', field: 'displayName', operator: 'is_set' },
+    }));
+    expect(codesAt(publishProblems(branch, {}, withheld), 'nodes.cust.condition.field')).toEqual([
+      'branch_on_withheld_field',
+    ]);
+    expect(codesAt(publishProblems(branch, {}, context()), 'nodes.cust.condition.field')).toEqual(
+      [],
+    );
+    // standIn is displayName's alone: any other withheld variable is still refused.
+    const other = context({ givenNames: { withheld: true } });
+    const graph = withNode('greet', (node) => ({ ...node, text: 'Hi {contact.givenNames}' }));
+    expect(codesAt(publishProblems(graph, {}, other), 'nodes.greet.text')).toEqual([
+      'branch_on_withheld_field',
+    ]);
+  });
+
   it('disposition_not_live: one code for anything but a live disposition', () => {
     const graph = withNode('close', (node) => ({
       ...node,

@@ -138,7 +138,9 @@ import { asUser, withAuthDatabase } from '../support/api';
  *   R7. Filters other than the leads view's own status set (owner, tag,
  *       state...) are not index-checked: the task names lists and sorts, not
  *       filter combinations.
- *   R8. The displayName sort key cannot stay `left(display_name, 200)`.
+ *   R8. (Moot since T-0124, D-L180 I5: displayName is no longer a sort key;
+ *       the 0035 display_name keyset indexes are dropped later, D-L183.)
+ *       The displayName sort key cannot stay `left(display_name, 200)`.
  *       `left` is not LEAKPROOF, so under FORCE RLS a keyset predicate on it
  *       is never an index condition: with a (tenant_id, left(display_name,
  *       200), id) index the order comes from the index but a deep page still
@@ -190,15 +192,9 @@ const SEED_CHUNK = 10_000;
 const REPO_ROOT = resolve(__dirname, '../../..');
 const MIGRATIONS_DIR = resolve(REPO_ROOT, 'packages/db/migrations');
 
-// The contract's enums, hard-coded (I1).
-const CONTACT_SORTS = [
-  '-createdAt',
-  'createdAt',
-  '-updatedAt',
-  'updatedAt',
-  'displayName',
-  '-displayName',
-] as const;
+// The contract's enums, hard-coded (I1). T-0124 (D-L180 I5) removed the
+// displayName sorts: sort keys are never-withheld fields (lead re-pin).
+const CONTACT_SORTS = ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt'] as const;
 const ACCOUNT_SORTS = [
   'name',
   '-name',
@@ -225,7 +221,6 @@ interface ListSpec {
 const CONTACT_COLUMNS = {
   createdAt: 'created_at',
   updatedAt: 'updated_at',
-  displayName: 'display_name',
 };
 const LISTS: readonly ListSpec[] = [
   {
@@ -803,7 +798,7 @@ describe('acceptance: list indexes and id-only cursors (T-0084)', () => {
     for (const good of [
       CONTACT_ID(42),
       { id: CONTACT_ID(42) },
-      { i: CONTACT_ID(42).toUpperCase(), s: 'displayName', v: 1 },
+      { i: CONTACT_ID(42).toUpperCase(), s: 'updatedAt', v: 1 },
       [CONTACT_ID(42), '-createdAt'],
     ]) {
       expect(cursorProblems(encode(good), row, CONTACT_SORTS), JSON.stringify(good)).toEqual([]);
@@ -916,8 +911,7 @@ describe('acceptance: list indexes and id-only cursors (T-0084)', () => {
     }, 120_000);
 
     it('a deep page returns exactly the rows that follow the cursor row, for three pages', async () => {
-      const sorts =
-        list.table === 'contact' ? ['-createdAt', 'displayName'] : ['name', '-updatedAt'];
+      const sorts = list.table === 'contact' ? ['-createdAt', 'updatedAt'] : ['name', '-updatedAt'];
       for (const sort of sorts) {
         const { cursor: start, markerId } = await deepCursor(list, SUPERVISOR, sort);
         const expected = await expectedAfter(list, SUPERVISOR, sort, markerId, 300);

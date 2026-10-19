@@ -8,11 +8,11 @@ import { useCustomDefinitions } from '../custom/use-custom-fields';
 import { createBundleTranslator, type MessageBundle, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
-import { dropQueryFromAddressBar } from '../../lib/search-query';
+import { dropQueryFromAddressBar, listQ, numberTyped } from '../../lib/search-query';
 import type { LanguageOption } from '../auth/language-menu';
 import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { CHIP, CHIP_OFF, CHIP_ON, FOCUS, MENU_ROW, POPOVER } from '../records/list-classes';
-import { CheckMark, FilterOptions } from '../records/list-parts';
+import { CheckMark, FilterOptions, NumberSearchHint } from '../records/list-parts';
 import type { ListState } from '../records/list-model';
 import {
   DEFAULT_LEAD_VIEW,
@@ -274,6 +274,8 @@ export function LeadsScreen({
           </div>
         </div>
 
+        {numberTyped(q) ? <NumberSearchHint t={t} searchLive={live.includes('search')} /> : null}
+
         {filterableFields(custom.fields).length > 0 ? (
         <LazyCustomFilterBar
           t={t}
@@ -287,14 +289,14 @@ export function LeadsScreen({
           <LeadsTable
             t={t}
             locale={locale}
-            q={q}
+            q={listQ(q)}
             view={view}
             onState={setState}
             onWithheld={noteWithheld}
             onClear={clearAll}
           />
         ) : (
-          <LeadsKanban t={t} locale={locale} q={q} view={view} onState={setState} onWithheld={noteWithheld} />
+          <LeadsKanban t={t} locale={locale} q={listQ(q)} view={view} onState={setState} onWithheld={noteWithheld} />
         )}
       </div>
     </CrmShell>

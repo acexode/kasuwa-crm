@@ -4,7 +4,7 @@ import { bundleMessages, createTranslator } from '@kasuwa/i18n';
 import { ScriptEditorScreen } from '../../../components/script-builder/script-editor-screen';
 import { SCRIPT_EDITOR_MESSAGE_IDS } from '../../../components/script-builder/message-ids';
 import { crmLiveNav, crmRecordsEnabled, crmScriptsEnabled } from '../../../lib/feature-flags';
-import { withSearchMessages } from '../../../components/search/message-ids';
+import { withShellMessages } from '../../../components/crm/shell-messages';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
 /**
@@ -50,7 +50,7 @@ export default async function ScriptEditorPage({ params }: { params: Promise<{ s
       key={scriptId}
       id={scriptId}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(SCRIPT_EDITOR_MESSAGE_IDS, live))}
+      messages={bundleMessages(locale, withShellMessages(SCRIPT_EDITOR_MESSAGE_IDS, live))}
       locales={languageOptions(locale)}
       live={live}
     />

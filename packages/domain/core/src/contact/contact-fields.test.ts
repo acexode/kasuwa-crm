@@ -4,8 +4,12 @@ import {
   contactFieldAccessFromObjectAccess,
   contactFieldApiName,
   contactFieldLevel,
+  displayNameReadable,
   notEditableContactFields,
+  notEditableContactUpdateFields,
   programmesReading,
+  programmesReadingDisplayName,
+  summaryDisplayName,
   WITHHOLDABLE_CONTACT_FIELDS,
   withheldAnywhere,
   withheldContactFields,
@@ -115,5 +119,54 @@ describe('notEditableContactFields', () => {
     expect(notEditableContactFields(access, A1, ['version', 'displayName', 'nickname'])).toEqual(
       [],
     );
+  });
+});
+
+describe('displayName follows its name parts (D-L68, T-0124 I1)', () => {
+  const access = (perProgramme: Record<string, Record<string, ContactFieldLevel>>) =>
+    contactFieldAccessFromObjectAccess(objectAccess(perProgramme), Object.keys(perProgramme));
+
+  it('is readable exactly when both givenNames and familyName are readable (read or edit)', () => {
+    const cases: [Record<string, ContactFieldLevel>, boolean][] = [
+      [{}, true],
+      [{ given_names: 'read', family_name: 'read' }, true],
+      [{ family_name: 'read' }, true],
+      [{ given_names: 'none' }, false],
+      [{ family_name: 'none' }, false],
+      [{ given_names: 'none', family_name: 'none' }, false],
+      // Another field withheld changes nothing.
+      [{ emails: 'none', company_name: 'none' }, true],
+    ];
+    for (const [overrides, readable] of cases) {
+      expect(displayNameReadable(access({ [A1]: overrides }), A1), JSON.stringify(overrides)).toBe(
+        readable,
+      );
+    }
+  });
+
+  it('fails closed for a programme the access map does not know', () => {
+    expect(displayNameReadable(access({ [A1]: {} }), A2)).toBe(false);
+  });
+
+  it('is judged per programme', () => {
+    const both = access({ [A1]: { family_name: 'none' }, [A2]: {} });
+    expect(programmesReadingDisplayName(both)).toEqual([A2]);
+  });
+
+  it('a summary carries the name or null, never a part', () => {
+    const both = access({ [A1]: { given_names: 'none' }, [A2]: {} });
+    expect(summaryDisplayName(both, A1, 'Zq Person')).toBeNull();
+    expect(summaryDisplayName(both, A2, 'Zq Person')).toBe('Zq Person');
+    expect(summaryDisplayName(both, A2, null)).toBeNull();
+  });
+
+  it('an update naming displayName is refused only where it is withheld, in the order sent; create is not judged here (I11)', () => {
+    const hidden = access({ [A1]: { family_name: 'none', emails: 'read' } });
+    expect(
+      notEditableContactUpdateFields(hidden, A1, ['status', 'displayName', 'emails', 'version']),
+    ).toEqual(['displayName', 'emails']);
+    expect(notEditableContactFields(hidden, A1, ['displayName'])).toEqual([]);
+    const readOnlyPart = access({ [A1]: { family_name: 'read' } });
+    expect(notEditableContactUpdateFields(readOnlyPart, A1, ['displayName'])).toEqual([]);
   });
 });

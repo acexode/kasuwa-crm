@@ -131,9 +131,10 @@ import { collectTelemetry, type Telemetry } from '../support/telemetry';
  *     the creator, at the event's time. `before` is `null` for a value field,
  *     and `unknown` for consent (the contract: a contact's consent starts at
  *     `unknown`). A field the create did not send yields no item (no
- *     "whatsappOptIn: null -> false" noise). `displayName` is always sent and
- *     never withheld, so every reader sees that, when and by whom the contact
- *     was created. No new item type: the union is closed (D-L72) and the
+ *     "whatsappOptIn: null -> false" noise). `displayName` is always sent, so
+ *     a reader of both name parts sees that, when and by whom the contact was
+ *     created; since T-0124 (D-L180 I1, I12) its item follows `displayName`
+ *     and is omitted for a caller missing a name part. No new item type: the union is closed (D-L72) and the
  *     T-0059 suite admits only field_changed, consent_changed and activity.
  *
  * T9. ACTORS (ruled here; D-L73 left it to this suite). `{ id, displayName }`
@@ -591,12 +592,14 @@ function contactPendingProperties(): string[] {
   return parts.flatMap((part) => Object.keys((deref(part, file).schema.properties ?? {}) as Json));
 }
 
-/** Never withheld, per the Contact schema's description. */
+/**
+ * Never withheld, per the Contact schema's description. `displayName` left
+ * this list with T-0124: it follows its name parts (D-L68, D-L180 I1).
+ */
 const NEVER_WITHHELD = [
   'id',
   'programmeId',
   'version',
-  'displayName',
   'createdAt',
   'updatedAt',
   'withheldFields',

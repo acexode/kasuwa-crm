@@ -66,9 +66,10 @@ export class ContactsController {
   constructor(@Inject(IMPORTS_ENABLED_TOKEN) private readonly importsEnabled: boolean) {}
 
   /**
-   * listContacts. `q` (name or number, phones normalised to E.164 with the
-   * tenant's default country), the filters, `sort` (an enum, never a column
-   * name) and keyset paging. Unknown query parameters are ignored.
+   * listContacts. `q` (a name only, matched where readable; a phone or an
+   * email is 400 identifier_in_url, R21, T-0124), the filters, `sort` (an
+   * enum of never-withheld keys, never a column name) and keyset paging.
+   * Unknown query parameters are ignored.
    */
   @Get()
   @Header(CACHE_CONTROL, NO_STORE)

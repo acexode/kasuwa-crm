@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { bundleMessages, createTranslator } from '@kasuwa/i18n';
+import { withNotificationMessages } from '../../components/notifications/message-ids';
 import { SearchScreen } from '../../components/search/search-screen';
 import { SEARCH_MESSAGE_IDS } from '../../components/search/screen-message-ids';
 import { crmLiveNav, crmSearchEnabled } from '../../lib/feature-flags';
@@ -37,13 +38,14 @@ export default async function SearchPage({
   }
   const { locale } = await activeLocale();
   const query = await searchParams;
+  const live = await crmLiveNav();
 
   return (
     <SearchScreen
       locale={locale}
-      messages={bundleMessages(locale, SEARCH_MESSAGE_IDS)}
+      messages={bundleMessages(locale, withNotificationMessages(SEARCH_MESSAGE_IDS, live))}
       locales={languageOptions(locale)}
-      live={await crmLiveNav()}
+      live={live}
       initialText={nameFromUrl(query.q)}
     />
   );

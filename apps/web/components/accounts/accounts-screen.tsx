@@ -6,7 +6,7 @@ import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type R
 import { createBundleTranslator, type MessageBundle, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
-import { dropQueryFromAddressBar } from '../../lib/search-query';
+import { dropQueryFromAddressBar, listQ, numberTyped } from '../../lib/search-query';
 import type { LanguageOption } from '../auth/language-menu';
 import { PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { ColumnChooser } from '../records/column-chooser';
@@ -20,6 +20,7 @@ import {
   LoadMore,
   LockedValue,
   Muted,
+  NumberSearchHint,
   OfflineBanner,
 } from '../records/list-parts';
 import { formatPhone, initials, listState } from '../records/list-model';
@@ -157,7 +158,7 @@ export function AccountsScreen({
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
   const searchId = useId();
-  const list = useKeysetList(q, view, fetchAccounts);
+  const list = useKeysetList(listQ(q), view, fetchAccounts);
   const programmes = useMyProgrammes();
 
   // A filter on a field withheld from the caller is `400 field_withheld`. Every
@@ -354,6 +355,8 @@ export function AccountsScreen({
             ) : null}
           </div>
         </div>
+
+        {numberTyped(q) ? <NumberSearchHint t={t} searchLive={live.includes('search')} /> : null}
 
         {filterableFields(custom.fields).length > 0 ? (
         <LazyCustomFilterBar

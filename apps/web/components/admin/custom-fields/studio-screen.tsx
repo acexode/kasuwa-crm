@@ -32,11 +32,13 @@ export function StudioScreen({
   messages,
   locales,
   linkedSettings,
+  bell,
 }: {
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
   linkedSettings: Readonly<Record<string, string>>;
+  bell: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const router = useRouter();
@@ -64,7 +66,7 @@ export function StudioScreen({
   };
 
   return (
-    <AdminShell locale={locale} messages={messages} locales={locales} linkedSettings={linkedSettings} activeSettingId="cu-fields">
+    <AdminShell locale={locale} messages={messages} locales={locales} linkedSettings={linkedSettings} bell={bell} activeSettingId="cu-fields">
       <div data-screen="P18/B" className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <span className="text-body-sm font-semibold text-text-muted">{t.t('admin.studio.custom.eyebrow')}</span>

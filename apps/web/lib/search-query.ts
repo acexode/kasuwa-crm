@@ -104,6 +104,24 @@ export function planSearch(text: string): SearchPlan {
 }
 
 /**
+ * A list's own search box (listContacts, listLeads, the pickers over them): text
+ * that is, or is becoming, a phone number or an email address is never sent as
+ * `q`. The API refuses an identifier-shaped `q` as `400 identifier_in_url`
+ * (T-0124 I9, R21), and a number typed key by key would otherwise put up to five
+ * of its digits in the URL (R27). The screen says so and points at Search, which
+ * looks a whole number up in a POST body.
+ */
+export function numberTyped(text: string): boolean {
+  const kind = planSearch(text).kind;
+  return kind === 'lookup' || kind === 'refused' || kind === 'keepTyping';
+}
+
+/** The `q` a list may send for what is in its box: the name, or nothing while a number is typed. */
+export function listQ(text: string): string {
+  return numberTyped(text) ? '' : text;
+}
+
+/**
  * A `q` read from a page's own URL ("see all", or a link someone was sent),
  * as a list's first search: only a name ever, so a crafted
  * `?q=<phone number>` is dropped, never searched (R12).

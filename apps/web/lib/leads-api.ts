@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
+import { identifierShaped } from './search-query';
 import { Account } from './accounts-api';
 import { CONTACTS_PATH, Contact, requestRecords, type ContactSource, type RecordsResult } from './records-api';
 
@@ -35,8 +36,12 @@ export const LEADS_PATH = '/api/v1/leads';
 export const LeadStatus = z.enum(['new', 'contacted', 'qualified', 'unqualified']);
 export type LeadStatus = z.infer<typeof LeadStatus>;
 
-/** `sort`'s fixed set: every key is one field security never withholds (never `companyName`). */
-export const LeadSort = z.enum(['-createdAt', 'createdAt', '-updatedAt', 'updatedAt', 'displayName', '-displayName']);
+/**
+ * `sort`'s fixed set: every key is one field security never withholds (never
+ * `companyName`, and since T-0124 never `displayName`, which follows its name
+ * parts: `sort=displayName` is a 400).
+ */
+export const LeadSort = z.enum(['-createdAt', 'createdAt', '-updatedAt', 'updatedAt']);
 export type LeadSort = z.infer<typeof LeadSort>;
 
 /** The server's default order: sent only when it is not this. */
@@ -90,7 +95,7 @@ export const LEAD_QUERY_MAX = 100;
 export function leadListSearch(query: LeadListQuery): string {
   const params = new URLSearchParams();
   const q = query.q?.trim().slice(0, LEAD_QUERY_MAX).trim() ?? '';
-  if (q !== '') params.set('q', q);
+  if (q !== '' && !identifierShaped(q)) params.set('q', q);
   for (const value of query.owner ?? []) params.append('owner', value);
   for (const value of query.status ?? []) params.append('status', value);
   for (const value of query.source ?? []) params.append('source', value);

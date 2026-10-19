@@ -24,9 +24,11 @@ import {
   restoreContact,
   softDeleteContact,
   strictestCompliance,
+  summaryDisplayName,
   writeMergedValues,
   type ComplianceValues,
   type Contact,
+  type ContactFieldAccess,
   type ContactMergeRecord,
   type MergeSide,
   type MergeValues,
@@ -174,7 +176,8 @@ export async function listDuplicatesFor(
         matchOn: set.matchOn,
         contacts: set.contacts.map((contact) => ({
           id: contact.id,
-          displayName: contact.displayName,
+          // T-0124 I3: null when a name part is withheld in the programme.
+          displayName: summaryDisplayName(access, programmeId, contact.displayName),
           updatedAt: contact.updatedAt.toISOString(),
         })),
       })),
@@ -266,13 +269,21 @@ export interface ContactMergeWire {
   survivorReverted: boolean | null;
 }
 
-/** Never the snapshot. A contact's displayName is never withheld (it is in no matrix row). */
-export function toContactMergeWire(record: ContactMergeRecord): ContactMergeWire {
+/**
+ * Never the snapshot. Each party's `displayName` follows its name parts in
+ * the merge's programme (D-L68, T-0124 I3): `null` when withheld.
+ */
+export function toContactMergeWire(
+  record: ContactMergeRecord,
+  access: ContactFieldAccess,
+): ContactMergeWire {
+  const name = (displayName: string | null) =>
+    summaryDisplayName(access, record.programmeId, displayName);
   return {
     id: record.id,
     programmeId: record.programmeId,
-    survivor: { id: record.survivorId, displayName: record.survivorDisplayName },
-    merged: { id: record.mergedId, displayName: record.mergedDisplayName },
+    survivor: { id: record.survivorId, displayName: name(record.survivorDisplayName) },
+    merged: { id: record.mergedId, displayName: name(record.mergedDisplayName) },
     mergedByUserId: record.mergedByUserId,
     mergedAt: record.mergedAt.toISOString(),
     undoUntil: record.undoUntil.toISOString(),
@@ -412,7 +423,7 @@ export async function createContactMergeFor(
     programmeId,
     changes: nameOnlyChanges(plan.auditFields),
   });
-  return toContactMergeWire(record);
+  return toContactMergeWire(record, access.contact);
 }
 
 // --- notifications (T-0100, D-L163) --------------------------------------------------
@@ -482,7 +493,9 @@ export async function undoContactMergeFor(
   if (refusal === 'not_permitted') throw notPermitted();
   const programmeId = record.programmeId;
 
-  if (record.undoneAt !== null) return toContactMergeWire(record); // M13: a repeat changes nothing
+  if (record.undoneAt !== null) {
+    return toContactMergeWire(record, await loadContactFieldAccess(tx)); // M13: a repeat changes nothing
+  }
   if (!record.undoOpen) throw undoExpired(); // 410
 
   const rawSnapshot = await lockOpenMergeSnapshot(tx, mergeId);
@@ -490,7 +503,7 @@ export async function undoContactMergeFor(
     // Undone by a concurrent request meanwhile: the repeat's answer.
     const now = await findContactMerge(tx, mergeId);
     if (now === null) throw notFound();
-    return toContactMergeWire(now);
+    return toContactMergeWire(now, await loadContactFieldAccess(tx));
   }
   const snapshot = Snapshot.parse(rawSnapshot);
 
@@ -552,7 +565,7 @@ export async function undoContactMergeFor(
   });
   const done = await findContactMerge(tx, mergeId);
   if (done === null) throw notFound();
-  return toContactMergeWire(done);
+  return toContactMergeWire(done, access.contact);
 }
 
 // --- listContactMerges ----------------------------------------------------------------
@@ -567,8 +580,9 @@ export async function listContactMergesFor(
   const grants = await loadGrants(tx);
   const programmes = tx.session.programmeIds.filter((id) => canProgramme(grants, WRITE, id));
   const rows = await listContactMerges(tx, programmes, page.limit, after);
+  const access = await loadContactFieldAccess(tx);
   return {
-    data: rows.data.map(toContactMergeWire),
+    data: rows.data.map((record) => toContactMergeWire(record, access)),
     nextCursor: rows.nextId === null ? null : encodeIdCursor(rows.nextId),
   };
 }

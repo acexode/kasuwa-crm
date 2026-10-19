@@ -368,5 +368,20 @@
   "import.country.KE",
   "import.country.ZA",
   "import.report.row",
-  "import.report.position"
+  "import.report.position",
+  "notifications.day.today",
+  "notifications.day.yesterday",
+  "duplicates.programme.label",
+  "duplicates.more",
+  "duplicates.retry",
+  "duplicates.history.title",
+  "duplicates.undo",
+  "duplicates.merge.compare",
+  "duplicates.merge.submit",
+  "duplicates.col.field",
+  "duplicates.col.main",
+  "duplicates.compliance.title",
+  "duplicates.confirm.cancel",
+  "duplicates.confirm.close",
+  "records.action.duplicates"
 ]

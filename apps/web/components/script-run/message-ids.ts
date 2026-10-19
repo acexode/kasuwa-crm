@@ -67,6 +67,8 @@ export const SCRIPT_RUN_MESSAGE_IDS: readonly MessageId[] = [
   'scripting.run.step.current',
   'scripting.run.step.done',
   'scripting.run.placeholder',
+  // T-0124 I13 (D-L180): a withheld {contact.displayName}'s stand-in.
+  'scripting.run.withheldName',
   'scripting.run.fallback',
   'scripting.run.hint',
   'scripting.run.next',

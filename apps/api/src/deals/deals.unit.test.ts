@@ -16,9 +16,20 @@ import {
   isUuid,
 } from './deals.schemas';
 import { EMPTY_CUSTOM_WIRE } from '../custom-fields/custom-values';
+import type { ContactFieldAccess } from '@kasuwa/domain-core';
 
 // Invented ids; nothing seeds them.
 const P1 = '11111111-0000-4000-8000-00000108f001';
+/** Contact field security in P1: both name parts readable (T-0124 I3). */
+const NAMES_READABLE: ContactFieldAccess = new Map([
+  [
+    P1,
+    new Map([
+      ['givenNames', 'edit'],
+      ['familyName', 'read'],
+    ]),
+  ],
+]);
 const OWNER = '11111111-0000-4000-8000-00000108f002';
 const OTHER = '11111111-0000-4000-8000-00000108f003';
 const STAGE_A = '11111111-0000-4000-8000-00000108f004';
@@ -207,7 +218,7 @@ describe('field security on the wire (R13)', () => {
       account_id: 'edit',
       next_step: 'none',
     });
-    const wire = toDealWire(deal(), levels, EMPTY_CUSTOM_WIRE, Date.UTC(2031, 0, 2));
+    const wire = toDealWire(deal(), levels, NAMES_READABLE, EMPTY_CUSTOM_WIRE, Date.UTC(2031, 0, 2));
     expect(wire.withheldFields).toEqual(['amount', 'ownerUserId', 'nextStep']);
     for (const key of ['amount', 'weightedAmount', 'ownerUserId', 'owner', 'nextStep']) {
       expect(key in wire, key).toBe(false);
@@ -220,13 +231,50 @@ describe('field security on the wire (R13)', () => {
   });
 
   it('serialises money as strings and never a bigint (JSON.stringify would throw)', () => {
-    const wire = toDealWire(deal(), EDIT_ALL, EMPTY_CUSTOM_WIRE, Date.UTC(2031, 0, 2));
+    const wire = toDealWire(deal(), EDIT_ALL, NAMES_READABLE, EMPTY_CUSTOM_WIRE, Date.UTC(2031, 0, 2));
     const text = JSON.stringify(wire);
     expect(text).toContain('"amountMinor":"999999999999999999"');
     expect(text).toContain('"amountMinor":"250000000000000000"');
-    expect(toDealWire(deal({ amountMinor: null, currency: null }), EDIT_ALL, EMPTY_CUSTOM_WIRE)).toMatchObject({
+    expect(toDealWire(deal({ amountMinor: null, currency: null }), EDIT_ALL, NAMES_READABLE, EMPTY_CUSTOM_WIRE)).toMatchObject({
       amount: null,
       weightedAmount: null,
+    });
+  });
+});
+
+describe('toDealWire contact summary (T-0124 I3)', () => {
+  const CONTACT = '11111111-0000-4000-8000-00000124c001';
+  const named = deal({ primaryContactId: CONTACT, contactDisplayName: 'Zq Synthetic Person' });
+
+  it('names the contact for a reader of both parts', () => {
+    expect(toDealWire(named, EDIT_ALL, NAMES_READABLE, EMPTY_CUSTOM_WIRE).contact).toEqual({
+      id: CONTACT,
+      displayName: 'Zq Synthetic Person',
+    });
+  });
+
+  it('is null, the id still served, when either part is withheld in the deal’s programme, and nothing is listed', () => {
+    for (const part of ['givenNames', 'familyName']) {
+      const access: ContactFieldAccess = new Map([
+        [
+          P1,
+          new Map([
+            ['givenNames', part === 'givenNames' ? 'none' : 'edit'],
+            ['familyName', part === 'familyName' ? 'none' : 'edit'],
+          ]),
+        ],
+      ]);
+      const wire = toDealWire(named, EDIT_ALL, access, EMPTY_CUSTOM_WIRE);
+      expect(wire.contact, part).toEqual({ id: CONTACT, displayName: null });
+      expect(wire.withheldFields).toEqual([]);
+      expect(JSON.stringify(wire)).not.toContain('Zq Synthetic');
+    }
+  });
+
+  it('fails closed for a programme the contact access does not know', () => {
+    expect(toDealWire(named, EDIT_ALL, new Map(), EMPTY_CUSTOM_WIRE).contact).toEqual({
+      id: CONTACT,
+      displayName: null,
     });
   });
 });

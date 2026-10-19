@@ -80,5 +80,10 @@
   "admin.studio.custom.form.classification",
   "import.mapfield.source",
   "import.country.GH",
-  "import.country.KE"
+  "import.country.KE",
+  "notifications.bell.label",
+  "notifications.dropdown.title",
+  "notifications.title",
+  "notifications.kind.label",
+  "duplicates.programme.label"
 ]

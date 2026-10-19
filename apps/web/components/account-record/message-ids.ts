@@ -48,6 +48,7 @@ export const ACCOUNT_RECORD_MESSAGE_IDS: readonly MessageId[] = [
   ...ActivityKind.options.map((value) => `record.activity.type.${value}` as MessageId),
   'records.cell.empty',
   'records.locked',
+  'records.name.withheld',
   'records.owner.unassigned',
   'records.loadMore',
   'records.loadingMore',

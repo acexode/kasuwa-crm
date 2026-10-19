@@ -16,7 +16,11 @@ import type { RecordsError } from '../../lib/records-api';
  * the answer says so, and when the screen goes away.
  *
  * A READ THAT FAILS IS TRIED AGAIN. A dropped connection is `retrying`, not an
- * ended import: the next read is simply the next one in the schedule. Only a
+ * ended import: the next read is simply the next one in the schedule. So is a
+ * `429` (D-L179 N7), which is a wait and never an ended import: the schedule's
+ * own growing wait (up to 20 s) is the wait. The server's `Retry-After` is not
+ * read here, because carrying it through the shared records client costs every
+ * records page bytes where the notifications flag is off (D-L182). Only a
  * refusal that is not the network (a `404` for an import that is not ours)
  * ends it, and says so through `onRefused`.
  */
@@ -71,7 +75,7 @@ export function useImportJob(
         latest.current.onJob(result.value);
         done = phase === 'header' ? result.value.status !== 'reading_header' && result.value.status !== 'awaiting_upload' : isTerminal(result.value.status);
         if (done) return;
-      } else if (result.error.code === 'network') {
+      } else if (result.error.code === 'network' || result.error.code === 'too_many_requests') {
         setRetrying(true);
       } else {
         done = true;

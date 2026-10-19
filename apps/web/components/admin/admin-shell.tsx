@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
@@ -39,12 +39,16 @@ const SEVERITY_BADGE: Readonly<Record<Severity, string>> = {
   danger: 'bg-danger-soft text-danger-text',
 };
 
+/** The bell is its own chunk, rendered only where the server-side flag says so (D-L182). */
+const NotificationBell = lazy(() => import('../notifications/bell'));
+
 export function AdminShell({
   locale,
   messages,
   locales,
   activeSettingId,
   linkedSettings,
+  bell,
   children,
 }: {
   locale: string;
@@ -60,6 +64,8 @@ export function AdminShell({
    * and every admin route would pay a request for it on a 256 kbps link.
    */
   linkedSettings: Readonly<Record<string, string>>;
+  /** The notifications bell is on in this process (`adminBellLive()`, read on the server by each page). */
+  bell: boolean;
   children: ReactNode;
 }) {
   const t = createBundleTranslator(locale, messages);
@@ -159,6 +165,12 @@ export function AdminShell({
             {t.t('admin.shell.residency', { region: regionName })}
           </span>
         )}
+
+        {bell ? (
+          <Suspense>
+            <NotificationBell t={t} locale={locale} live={[]} />
+          </Suspense>
+        ) : null}
 
         <LanguageMenu
           options={locales}

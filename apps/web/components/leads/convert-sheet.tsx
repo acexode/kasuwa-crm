@@ -7,8 +7,10 @@ import { Dialog } from '../admin/dialog';
 import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from '../auth/button-classes';
 import { FOCUS, MENU_ROW } from '../records/list-classes';
 import { CheckMark } from '../records/list-parts';
+import { nameOrWithheld } from '../records/name';
 import { SEARCH_DEBOUNCE_MS } from '../records/use-keyset-list';
 import { listAccounts, type Account } from '../../lib/accounts-api';
+import { identifierShaped } from '../../lib/search-query';
 import { convertLead, type ConvertLeadBody, type ConvertLeadResult, type Lead } from '../../lib/leads-api';
 import type { RecordsError } from '../../lib/records-api';
 import {
@@ -94,7 +96,8 @@ export function ConvertSheet({
     const trimmed = term.trim();
     sequence.current += 1;
     const mine = sequence.current;
-    if (mode !== 'existing' || trimmed === '') {
+    // A number is never an account name: nothing is sent (R21), and Search is where it goes.
+    if (mode !== 'existing' || trimmed === '' || identifierShaped(trimmed)) {
       setSearch(IDLE);
       return undefined;
     }
@@ -163,7 +166,7 @@ export function ConvertSheet({
       <form id={formId} noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <p data-record-text="" className="break-words text-body-md font-semibold">
-            {lead.displayName}
+            {nameOrWithheld(t, lead.displayName)}
           </p>
           <p className="text-body-sm text-text-2">{t.t('leads.convert.body')}</p>
         </div>

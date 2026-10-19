@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
+import { nameOrWithheld } from '../records/name';
 import { QUIET_BUTTON } from '../auth/button-classes';
 import { FOCUS, MENU_ROW } from '../records/list-classes';
 import { LoadMore, OfflineBanner } from '../records/list-parts';
@@ -191,7 +192,7 @@ export function LeadsKanban({
         const served = result.value;
         mutators[from]((rows) => withoutRow(rows, row.id));
         if (isLeadStatus(served.status)) mutators[served.status]((rows) => withRowFirst(rows, served));
-        setAnnouncement(t.t('leads.move.moved', { name: served.displayName, stage: t.t(statusLabel(body.status)) }));
+        setAnnouncement(t.t('leads.move.moved', { name: nameOrWithheld(t, served.displayName), stage: t.t(statusLabel(body.status)) }));
         if (byControl) setRefocus(row.id);
         return;
       }
@@ -435,7 +436,13 @@ function Card({
         <Icon name="drag_indicator" size="sm" className="text-text-muted" />
         <div className="flex min-w-0 flex-1 flex-col gap-1 text-body-sm">
           <p data-field="displayName" className="break-words font-semibold">
-            <span data-record-text="">{row.displayName}</span>
+            {row.displayName === undefined ? (
+              <span data-name-withheld="" className="text-text-muted">
+                {nameOrWithheld(t, row.displayName)}
+              </span>
+            ) : (
+              <span data-record-text="">{row.displayName}</span>
+            )}
           </p>
           <p {...fieldProps(row, 'companyName')} className="min-w-0 text-text-2">
             <LeadValue t={t} row={row} field="companyName" />
@@ -458,7 +465,7 @@ function Card({
         <Icon name="open_with" size="sm" />
         {t.t('leads.move.button')}
         <span data-record-text="" className="sr-only">
-          {row.displayName}
+          {nameOrWithheld(t, row.displayName)}
         </span>
       </button>
       {menuOpen ? (

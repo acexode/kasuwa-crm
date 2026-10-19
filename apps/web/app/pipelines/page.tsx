@@ -4,7 +4,7 @@ import { bundleMessages, createTranslator } from '@kasuwa/i18n';
 import { PipelineIndexScreen } from '../../components/pipeline/pipeline-index-screen';
 import { PIPELINE_INDEX_MESSAGE_IDS } from '../../components/pipeline/message-ids';
 import { crmLiveNav, crmPipelineEnabled } from '../../lib/feature-flags';
-import { withSearchMessages } from '../../components/search/message-ids';
+import { withShellMessages } from '../../components/crm/shell-messages';
 import { activeLocale, languageOptions } from '../../lib/locale';
 
 /**
@@ -34,7 +34,7 @@ export default async function PipelinesPage() {
   return (
     <PipelineIndexScreen
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(PIPELINE_INDEX_MESSAGE_IDS, live))}
+      messages={bundleMessages(locale, withShellMessages(PIPELINE_INDEX_MESSAGE_IDS, live))}
       locales={languageOptions(locale)}
       live={live}
     />

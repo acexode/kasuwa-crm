@@ -4,7 +4,7 @@ import { LeadsScreen } from '../../components/leads/leads-screen';
 import { LEADS_MESSAGE_IDS } from '../../components/leads/message-ids';
 import { crmCustomFieldsEnabled, crmLeadsEnabled, crmLiveNav } from '../../lib/feature-flags';
 import { withCustomMessages } from '../../components/custom/message-ids';
-import { withSearchMessages } from '../../components/search/message-ids';
+import { withShellMessages } from '../../components/crm/shell-messages';
 import { activeLocale, languageOptions } from '../../lib/locale';
 import { nameFromUrl } from '../../lib/search-query';
 
@@ -46,7 +46,7 @@ export default async function LeadsPage({
     <LeadsScreen
       key={initialQ === '' ? 'list' : `q:${crypto.randomUUID()}`}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(LEADS_MESSAGE_IDS, customFields, 'list'), live))}
+      messages={bundleMessages(locale, withShellMessages(withCustomMessages(LEADS_MESSAGE_IDS, customFields, 'list'), live))}
       locales={languageOptions(locale)}
       live={live}
       initialQ={initialQ}
