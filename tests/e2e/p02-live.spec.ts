@@ -17,6 +17,7 @@ import {
   USER_A_NO_PROGRAMME,
 } from '@kasuwa/db';
 import { translate } from '@kasuwa/i18n';
+import { SESSION_COOKIE, signIn } from './support/bff-session';
 import { stack } from './support/stack';
 import { LIVE_ADMIN, LIVE_FIELDS, LIVE_OBJECT } from './support/live-fixtures';
 
@@ -650,15 +651,24 @@ test('the default console never shows sample data, whatever the browser sends @p
   // default. The KPI read goes to the real endpoint, which is not built, so
   // the panel fails visibly — and nothing a browser sends turns sample data
   // on in its place.
+  //
+  // The identity is a REAL session (lead edit, T-0125): since ADR-0019 the
+  // default process runs `jwt` and drops stub identity headers (I11), so Musa
+  // signs in through this process's BFF (password and a fresh TOTP code) and
+  // the browser carries his `__Host-` session cookie. Only the identity
+  // changed; the forged flag header, cookies and query parameter are as before.
+  const { webUrl } = stack();
+  const session = await signIn(webUrl, LIVE_ADMIN.userId);
   const context = await browser.newContext({
-    extraHTTPHeaders: { ...IDENTITY, 'x-kasuwa-feature-flags': 'admin_live_api' },
+    extraHTTPHeaders: { 'x-kasuwa-feature-flags': 'admin_live_api' },
   });
   await context.addCookies([
-    { name: 'admin_live_api', value: 'on', url: stack().webUrl },
-    { name: 'kasuwa_flags', value: 'admin_live_api', url: stack().webUrl },
+    { name: SESSION_COOKIE, value: session.token, domain: new URL(webUrl).hostname, path: '/', httpOnly: true, secure: true, sameSite: 'Lax' },
+    { name: 'admin_live_api', value: 'on', url: webUrl },
+    { name: 'kasuwa_flags', value: 'admin_live_api', url: webUrl },
   ]);
   const page = await context.newPage();
-  await page.goto(`${stack().webUrl}/admin/programmes/${PROGRAMME_A1}?admin_live_api=on`);
+  await page.goto(`${webUrl}/admin/programmes/${PROGRAMME_A1}?admin_live_api=on`);
   await expect(page.getByRole('heading', { level: 1, name: BANK_X })).toBeVisible();
   await expect(page.getByTestId('panel-error').first()).toBeVisible();
   await expect(page.locator('[data-source="mock"]')).toHaveCount(0);

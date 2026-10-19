@@ -4301,3 +4301,20 @@ No pin can pass under a 245,000 ceiling.
 
 This is a lead edit on lead/T-0125-acceptance. The contact record's own 245,000 ceiling is unchanged, because its
 pin is 239,000.
+
+### D-L191 — api-fetch redirects only when the BFF has ended the session (lead, 2026-10-19)
+
+On the T-0125 branch, four journeys failed with "Execution context was destroyed … navigation":
+- @p18-studio-errors;
+- @p06-pipeline-locked;
+- @p26-notifications-abort;
+- one of p02-live-api's grep runs.
+
+The likely shared cause is the builder's decision 13: api-fetch sent the user to `/` on any 401. Screens built to
+draw a 401 as a localised error, with their state kept, lost the page instead.
+
+**Ruling:** only the BFF knows the session is gone, because it clears the cookie on an upstream 401 (I6). It marks
+that answer, and api-fetch redirects only on that marker. Every other 401 reaches the caller unchanged. I6's
+journeys (401-clears, revoked-redirect) must still pass.
+
+Also confirmed: M8 is 133.5 and 137.6 ms on the quiet Windows host (main 042262b). The Mac's 254 ms was load.
