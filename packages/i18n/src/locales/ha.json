@@ -1208,6 +1208,7 @@
   "scripting.run.step.current": "Yanzu",
   "scripting.run.step.done": "An gama",
   "scripting.run.placeholder": "ba a nuna ba",
+  "scripting.run.withheldName": "abokin ciniki",
   "scripting.run.fallback": "Babu rubutu a {language} – ana nuna {source}",
   "scripting.run.hint": "Domin kai:",
   "scripting.run.next": "Na gaba",

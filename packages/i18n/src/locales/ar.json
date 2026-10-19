@@ -1208,6 +1208,7 @@
   "scripting.run.step.current": "الآن",
   "scripting.run.step.done": "تمّت",
   "scripting.run.placeholder": "غير معروض",
+  "scripting.run.withheldName": "العميل",
   "scripting.run.fallback": "لا يوجد نص بلغة {language} – يُعرض بلغة {source}",
   "scripting.run.hint": "لك:",
   "scripting.run.next": "التالي",

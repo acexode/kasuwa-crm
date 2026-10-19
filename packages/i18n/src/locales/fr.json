@@ -1208,6 +1208,7 @@
   "scripting.run.step.current": "Maintenant",
   "scripting.run.step.done": "Fait",
   "scripting.run.placeholder": "non affiché",
+  "scripting.run.withheldName": "le client",
   "scripting.run.fallback": "Pas de texte en {language} – affichage en {source}",
   "scripting.run.hint": "Pour vous :",
   "scripting.run.next": "Suivant",

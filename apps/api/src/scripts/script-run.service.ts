@@ -2,6 +2,7 @@ import { HttpStatus } from '@nestjs/common';
 import type { TenantTx } from '@kasuwa/db';
 import {
   contactFieldLevel,
+  displayNameReadable,
   findContactById,
   insertActivity,
   InvalidCursorError,
@@ -257,9 +258,13 @@ function fieldReader(tx: TenantTx, run: { programmeId: string; contactId: string
     const fact = facts.get(field);
     if (fact === undefined) return { kind: 'withheld' };
     if (fact.sensitive) return { kind: 'sensitive' };
-    if (field !== 'displayName') {
+    access ??= await loadContactFieldAccess(tx);
+    if (field === 'displayName') {
+      // D-L68 (T-0124 I13): the name follows its parts. A branch on a withheld
+      // name would disclose it by the side it took, so the run stops instead.
+      if (!displayNameReadable(access, run.programmeId)) return { kind: 'withheld' };
+    } else {
       if (!isWithholdableContactField(field)) return { kind: 'withheld' };
-      access ??= await loadContactFieldAccess(tx);
       if (contactFieldLevel(access, run.programmeId, field) === 'none') return { kind: 'withheld' };
     }
     if (contact === undefined) contact = await findContactById(tx, run.contactId);

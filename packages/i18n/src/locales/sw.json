@@ -1208,6 +1208,7 @@
   "scripting.run.step.current": "Sasa",
   "scripting.run.step.done": "Imekamilika",
   "scripting.run.placeholder": "haionyeshwi",
+  "scripting.run.withheldName": "mteja",
   "scripting.run.fallback": "Hakuna maandishi ya {language} – inaonyesha {source}",
   "scripting.run.hint": "Kwa ajili yako:",
   "scripting.run.next": "Inayofuata",

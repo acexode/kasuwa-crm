@@ -1208,6 +1208,7 @@
   "scripting.run.step.current": "Now now",
   "scripting.run.step.done": "E don do",
   "scripting.run.placeholder": "we no show am",
+  "scripting.run.withheldName": "di customer",
   "scripting.run.fallback": "No {language} text – na {source} we dey show",
   "scripting.run.hint": "Na for you:",
   "scripting.run.next": "Next one",

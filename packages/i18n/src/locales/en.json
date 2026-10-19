@@ -1208,6 +1208,7 @@
   "scripting.run.step.current": "Now",
   "scripting.run.step.done": "Done",
   "scripting.run.placeholder": "not shown",
+  "scripting.run.withheldName": "the customer",
   "scripting.run.fallback": "No {language} text – showing {source}",
   "scripting.run.hint": "For you:",
   "scripting.run.next": "Next",

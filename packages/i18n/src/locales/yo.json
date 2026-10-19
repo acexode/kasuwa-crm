@@ -1208,6 +1208,7 @@
   "scripting.run.step.current": "Báyìí",
   "scripting.run.step.done": "Ó ti parí",
   "scripting.run.placeholder": "a kò fi hàn",
+  "scripting.run.withheldName": "oníbàárà",
   "scripting.run.fallback": "Kò sí ọ̀rọ̀ ní {language} – à ń fi {source} hàn",
   "scripting.run.hint": "Fún ọ:",
   "scripting.run.next": "Èyí tó kàn",

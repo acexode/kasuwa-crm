@@ -1208,6 +1208,7 @@
   "scripting.run.step.current": "Ugbu a",
   "scripting.run.step.done": "Emechaala",
   "scripting.run.placeholder": "egosighị ya",
+  "scripting.run.withheldName": "onye ahịa",
   "scripting.run.fallback": "Enweghị ederede {language} – a na-egosi {source}",
   "scripting.run.hint": "Maka gị:",
   "scripting.run.next": "Nke ọzọ",
