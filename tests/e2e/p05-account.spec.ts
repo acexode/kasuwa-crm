@@ -597,7 +597,8 @@ test('the contract mock refuses what the contract refuses, and checks its own an
   await expectViolation(timeline(ACCOUNT_FULL.id, `?cursor=${encodeURIComponent(longCursor)}`), 'GET', undefined, 400, /another account/);
   await expectViolation(contacts(ACCOUNT_FULL.id, '?sort=status'), 'GET', undefined, 400, /not in the contract's enum/);
   await expectViolation(contacts(ACCOUNT_FULL.id, '?programmeId=x'), 'GET', undefined, 400, /no "programmeId"/);
-  await expectViolation(contacts(ACCOUNT_FULL.id, `?sort=-displayName&cursor=${encodeURIComponent(gridCursor)}`), 'GET', undefined, 400, /echoed, not built/);
+  // A cursor served under the default sort, replayed under another the enum offers (T-0124: displayName is no sort key).
+  await expectViolation(contacts(ACCOUNT_FULL.id, `?sort=createdAt&cursor=${encodeURIComponent(gridCursor)}`), 'GET', undefined, 400, /echoed, not built/);
   await expectViolation(account(ACCOUNT_FULL.id), 'GET', undefined, 200, /scope is never supplied/, { 'x-kasuwa-programme-id': PROGRAMME_ONE.id });
   // Not operations the account record uses: the list (where children would be scanned for), the Map, a contact.
   await expectViolation(`/api/v1/accounts?parentAccountId=${ACCOUNT_FULL.id}`, 'GET', undefined, 404, /not an operation the account record uses/);

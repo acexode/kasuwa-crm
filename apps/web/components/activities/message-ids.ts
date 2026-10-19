@@ -93,6 +93,7 @@ export const ACTIVITIES_MESSAGE_IDS: readonly MessageId[] = [
   'record.error.stale',
   'record.conflict.otherChange',
   'records.locked',
+  'records.name.withheld',
   'records.loadMore',
   'records.loadingMore',
   'records.retry',

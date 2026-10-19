@@ -2,6 +2,12 @@ import type { TenantTx } from '@kasuwa/db';
 import { fieldLevel, loadFieldAccess, UnknownObjectDefError, type FieldAccess } from '@kasuwa/metadata-engine';
 import { canProgramme, canReadPipelines, loadGrants, type Grants } from '@kasuwa/permissions';
 import {
+  contactFieldAccessFromObjectAccess,
+  DISPLAY_NAME_PARTS,
+  displayNameReadable,
+  type WithholdableContactField,
+} from '../contact/contact-fields';
+import {
   NOTIFICATION_KINDS,
   NOTIFICATION_OBJECT_TYPES,
   type NotificationKind,
@@ -271,14 +277,36 @@ const OBJECT_SQL: Readonly<Record<NotificationObjectType, string>> = {
             WHERE tenant_id = $1 AND id = ANY ($2::uuid[]) AND programme_id = ANY ($3::uuid[])`,
 };
 
-/** The standard field_def api_names that gate each object's display name. */
-const NAME_FIELDS: Readonly<Record<Exclude<NotificationObjectType, 'import'>, readonly string[]>> = {
-  // D-L68: a contact's name follows its parts, never composed from one of them.
-  contact: ['given_names', 'family_name'],
-  account: ['name'],
-  deal: ['name'],
-  activity: ['subject'],
+/**
+ * The standard field_def api_name that gates each non-contact object's
+ * display name. A contact's name is not here: it follows the shared rule
+ * (`DISPLAY_NAME_PARTS`, `displayNameReadable`; D-L68, D-L184), never a copy.
+ */
+const NAME_FIELD: Readonly<Record<Exclude<NotificationObjectType, 'import' | 'contact'>, string>> = {
+  account: 'name',
+  deal: 'name',
+  activity: 'subject',
 };
+
+/**
+ * Whether the reader may read the object's display name in `programmeId`,
+ * from that object's generic field access (`loadFieldAccess`, api names). For
+ * a contact, the access is mapped to wire names (`contactFieldApiName`) and
+ * judged by `displayNameReadable`. `contactNameParts` exists for the unit
+ * test that proves this follows the shared list; callers never pass it.
+ */
+export function notificationNameReadable(
+  objectType: Exclude<NotificationObjectType, 'import'>,
+  access: FieldAccess,
+  programmeId: string,
+  contactNameParts: readonly WithholdableContactField[] = DISPLAY_NAME_PARTS,
+): boolean {
+  if (objectType === 'contact') {
+    const contactAccess = contactFieldAccessFromObjectAccess(access, [programmeId]);
+    return displayNameReadable(contactAccess, programmeId, contactNameParts);
+  }
+  return fieldLevel(access, programmeId, NAME_FIELD[objectType]) !== 'none';
+}
 
 async function accessOrNone(tx: TenantTx, objectApiName: string): Promise<FieldAccess> {
   try {
@@ -349,9 +377,7 @@ export async function resolveNotificationObjects(
       }
       let readable = true;
       if (access !== null && objectType !== 'import') {
-        readable = NAME_FIELDS[objectType].every(
-          (field) => fieldLevel(access, row.programme_id, field) !== 'none',
-        );
+        readable = notificationNameReadable(objectType, access, row.programme_id);
       }
       resolved.set(
         notificationObjectKey(objectType, record.objectId),

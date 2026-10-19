@@ -404,7 +404,20 @@ paths:
         classified `sensitive`, refused until D-L13 rules on them), and
         `branch_on_withheld_field` (a branch or a variable on a contact field
         that any permission set holding `script.run` in the programme
-        cannot read at publish time, so no agent's run is built to stop).
+        cannot read at publish time, so no agent's run is built to stop; a
+        variable on `contact.displayName` is never refused for this, see
+        below).
+
+        **`contact.displayName` (D-L68, D-L180, T-0124 I13).** It has no
+        field-security row: it follows its name parts, withheld wherever
+        `givenNames` or `familyName` is withheld. A branch on `displayName`
+        is refused with `branch_on_withheld_field` when any set holding
+        `script.run` cannot read `givenNames` or `familyName`, because the
+        side a run took would disclose the name. Displaying it is allowed:
+        publishing a `{contact.displayName}` greeting is not blocked by
+        this rule, and an agent the name is withheld from sees a neutral,
+        translated stand-in in its place (getScriptRunScript,
+        `x-kasuwa-withheld-name-message-id`). A `read` part blocks nothing.
 
         **Reachability is checked in linear time**: one pass over the nodes
         and edges (every node reachable from the start, every node reaches
@@ -736,6 +749,7 @@ paths:
       x-kasuwa-permission: script.run
       x-kasuwa-screens: ['P10/01', 'P10/04']
       x-kasuwa-error-order: ['404 not_found', '400 validation_failed']
+      x-kasuwa-withheld-name-message-id: scripting.run.withheldName
       description: |
         The agent's copy of the script: always the version named by the
         run's `versionId`, never the latest. This is how an agent without
@@ -749,6 +763,14 @@ paths:
         security applied. A variable on a withheld field, or on a field
         classified `sensitive` since publish, renders as a placeholder and
         never stops the run; this operation never returns contact values.
+
+        **`{contact.displayName}` (D-L68, D-L180, T-0124 I13)** follows its
+        name parts: when getContact omits `displayName` and lists it in
+        `withheldFields` (`givenNames` or `familyName` is withheld), the
+        screen draws a neutral, translated stand-in, the message named by
+        `x-kasuwa-withheld-name-message-id` (for example "the customer"),
+        never the name and never a part of it. The wording here always keeps
+        the token; the server never substitutes it.
       responses:
         '200':
           description: The pinned version.
@@ -796,6 +818,13 @@ paths:
         `currentNodeId` is the branch. Following either side would tell the
         caller something about a value they may not read. A stopped run can
         only be completed.
+
+        **`displayName` follows its name parts** (D-L68, T-0124 I13): when
+        `givenNames` or `familyName` is withheld from the caller in the
+        run's programme, a branch on `displayName` stops the run with
+        `stopReason: field_withheld`, as any withheld field does. A variable
+        on `{contact.displayName}` never stops the run: the screen shows a
+        neutral, translated stand-in in place of the name (D-L180).
 
         **A field that is now `sensitive`** (T-0112 re-review N7, refined
         in the final review): only a BRANCH on it stops the run, with

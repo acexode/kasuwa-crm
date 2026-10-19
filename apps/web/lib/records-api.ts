@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
+import { identifierShaped } from './search-query';
 
 /**
  * The browser's half of `docs/api/records.openapi.yaml` — `listContacts`, the
@@ -62,7 +63,8 @@ export const Contact = z.object({
   id: z.string(),
   programmeId: z.string(),
   version: z.number().int(),
-  displayName: z.string(),
+  /** Omitted, and listed in `withheldFields`, when `givenNames` or `familyName` is withheld (D-L68, T-0124): never composed from a readable part. */
+  displayName: z.string().optional(),
   givenNames: z.string().nullable().optional(),
   familyName: z.string().nullable().optional(),
   phones: z.array(Phone).optional(),
@@ -191,7 +193,8 @@ export const CONTACTS_PATH = '/api/v1/contacts';
 export function contactListSearch(query: ContactListQuery): string {
   const params = new URLSearchParams();
   const q = query.q?.trim() ?? '';
-  if (q !== '') params.set('q', q.slice(0, 100));
+  // Never an identifier: the API refuses one (`identifier_in_url`), and it must not reach a URL (R21).
+  if (q !== '' && !identifierShaped(q)) params.set('q', q.slice(0, 100));
   for (const value of query.owner ?? []) params.append('owner', value);
   for (const value of query.status ?? []) params.append('status', value);
   for (const value of query.source ?? []) params.append('source', value);

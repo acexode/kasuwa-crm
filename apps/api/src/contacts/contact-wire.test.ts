@@ -174,7 +174,57 @@ describe('toContactWire: the embedded account (T-0061)', () => {
   });
 });
 
+/** Every field edit in A1, except `part` at `level`. */
+const partAccess = (
+  part: 'givenNames' | 'familyName',
+  level: ContactFieldLevel,
+): ContactFieldAccess =>
+  new Map([
+    [
+      A1,
+      new Map(
+        WITHHOLDABLE_CONTACT_FIELDS.map((field) => [field, field === part ? level : 'edit'] as const),
+      ),
+    ],
+  ]);
+
+describe('toContactWire: displayName follows its name parts (D-L68, T-0124 I1, I2)', () => {
+  it('serves displayName when both parts are readable, a read-only part included', () => {
+    for (const level of ['edit', 'read'] as const) {
+      const wire = toContactWire(contact, partAccess('familyName', level), EMPTY_CUSTOM_WIRE);
+      expect(wire.displayName).toBe('Probe Person');
+      expect(wire.withheldFields).not.toContain('displayName');
+    }
+  });
+
+  it('omits displayName, never nulls or composes it, and lists it first, when either part is withheld', () => {
+    for (const part of ['givenNames', 'familyName'] as const) {
+      const wire = toContactWire(contact, partAccess(part, 'none'), EMPTY_CUSTOM_WIRE);
+      expect('displayName' in wire, part).toBe(false);
+      expect(wire.withheldFields).toEqual(['displayName', part]);
+      expect(JSON.stringify(wire)).not.toContain('Probe Person');
+    }
+    // familyName is NULL on this contact and still withholds the name.
+    expect(contact.familyName).toBeNull();
+  });
+
+  it('fails closed for a programme the access map does not know', () => {
+    const wire = toContactWire(contact, new Map(), EMPTY_CUSTOM_WIRE);
+    expect('displayName' in wire).toBe(false);
+    expect(wire.withheldFields[0]).toBe('displayName');
+  });
+});
+
 describe('withheldWireFields', () => {
+  it('puts displayName first when the name is not readable', () => {
+    expect(withheldWireFields(['familyName', 'emails'], false)).toEqual([
+      'displayName',
+      'familyName',
+      'emails',
+    ]);
+    expect(withheldWireFields(['familyName'], true)).toEqual(['familyName']);
+  });
+
   it('follows a withheld ownerUserId with owner, keeping contract order', () => {
     expect(withheldWireFields(['emails', 'ownerUserId', 'status'])).toEqual([
       'emails',

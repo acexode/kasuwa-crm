@@ -3,6 +3,7 @@ import {
   CONTACT_FOLDED_COLUMNS,
   LEAD_STATUSES,
   contactFieldLevel,
+  displayNameReadable,
   loadContactFieldAccess,
   loadTenantDefaultCountry,
   lookupContacts,
@@ -109,12 +110,11 @@ export interface NameAccess {
 export function nameAccess(access: ContactFieldAccess, programmeId: string): NameAccess {
   const reads = (field: 'givenNames' | 'familyName' | 'companyName') =>
     contactFieldLevel(access, programmeId, field) !== 'none';
-  const givenNames = reads('givenNames');
-  const familyName = reads('familyName');
   return {
-    displayName: givenNames && familyName,
-    givenNames,
-    familyName,
+    // The one rule (contact-fields.ts), never restated here.
+    displayName: displayNameReadable(access, programmeId),
+    givenNames: reads('givenNames'),
+    familyName: reads('familyName'),
     companyName: reads('companyName'),
   };
 }

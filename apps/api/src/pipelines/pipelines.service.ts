@@ -3,10 +3,12 @@ import {
   boardColumnCards,
   boardColumnSelects,
   decodeIdCursor,
+  displayNameReadable,
   encodeIdCursor,
   findPipeline,
   isUuid,
   listPipelines,
+  loadContactFieldAccess,
   loadDealFieldAccess,
   loadPipelineDetail,
   loadPipelineStages,
@@ -212,6 +214,18 @@ export async function getPipelineBoardFor(
   const amountWithheld = withheld.includes('amount');
   // T-0089: each card's custom values, projected in SQL, one read per column.
   const custom = await loadCustom(tx, 'deal');
+  // CONTACT field security is judged ONCE, in the pipeline's programme
+  // (T-0124 I3), and that is correct for every card. A deal's stage is a
+  // stage of its pipeline in the same programme (deal_stage_same_pipeline_fk
+  // onto pipeline_stage, whose own composite key is
+  // 0036_pipeline_and_deal.sql:379, (tenant_id, programme_id, pipeline_id)),
+  // and its primary contact is in the deal's programme (0036:530,
+  // deal_primary_contact_same_programme_fk on (tenant_id, programme_id,
+  // primary_contact_id)). So no card's contact is in another programme.
+  const contactNameReadable = displayNameReadable(
+    await loadContactFieldAccess(tx),
+    pipeline.programmeId,
+  );
   const out: BoardStageWire[] = [];
   for (const [index, column] of boardColumns.entries()) {
     const stage = selected[index];
@@ -230,6 +244,7 @@ export async function getPipelineBoardFor(
         toDealWire(
           card,
           withheld,
+          contactNameReadable,
           stage?.rottingAfterDays ?? null,
           nowMs,
           wires.get(card.id) ?? EMPTY_CUSTOM_WIRE,

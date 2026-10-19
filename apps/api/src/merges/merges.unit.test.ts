@@ -13,6 +13,7 @@ import {
   chosenOwnerIsNotMember,
   complianceChoicePaths,
   lockedChoicePaths,
+  mergeDefaults,
   mergeRefusal,
   nameOnlyChanges,
   planMerge,
@@ -175,6 +176,31 @@ describe('the undo right (D-L151, D-L163)', () => {
   it('is 404 without contact.write in the programme, the merger included', () => {
     expect(undoRefusal(grants({ [P1]: 'agent' }), merge, ME)).toBe('not_found');
     expect(undoRefusal(grants({ [P2]: 'admin' }), merge, ME)).toBe('not_found');
+  });
+});
+
+describe('displayName on a merge follows its name parts (D-L68, T-0124 I11)', () => {
+  it('is never a default, choosing it is 403, and the plan keeps the survivor’s, when a part is withheld', () => {
+    for (const part of ['givenNames', 'familyName']) {
+      const a = access({ [part]: 'none' });
+      expect(lockedChoicePaths({ displayName: 'merged' }, a), part).toEqual([
+        'choices.displayName',
+      ]);
+      const survivor = contact(S_ID, { displayName: 'Older Name' });
+      const merged = contact(M_ID, { displayName: 'Newer Name' }, { updatedAt: LATER });
+      expect(Object.keys(mergeDefaults(survivor, merged, a, new Map()))).not.toContain(
+        'displayName',
+      );
+      expect(planMerge(survivor, merged, a, new Map(), {}).values).not.toHaveProperty(
+        'displayName',
+      );
+    }
+  });
+
+  it('is choosable for a reader of both parts, a read-only part included', () => {
+    for (const a of [access(), access({ familyName: 'read' })]) {
+      expect(lockedChoicePaths({ displayName: 'merged' }, a)).toEqual([]);
+    }
   });
 });
 

@@ -5,6 +5,8 @@ import {
   completionOffered,
   fieldErrors,
   fill,
+  nameWithheld,
+  WITHHELD_NAME_MESSAGE_ID,
   formatAnswer,
   initialLocale,
   inputsFromAnswers,
@@ -172,6 +174,18 @@ describe('variables are filled from what the screen holds; a withheld one is a p
     expect(fill('{contact.displayName}', { ...context, contact: null })).toEqual([{ kind: 'placeholder', variable: 'contact.displayName' }]);
     expect(fill('{answer.ptp.reason}', context)).toEqual([{ kind: 'placeholder', variable: 'answer.ptp.reason' }]);
     expect(fill('{agent.displayName}', { ...context, agentName: null })[0]?.kind).toBe('placeholder');
+  });
+
+  it('draws a withheld displayName as the name’s stand-in, never a name part (D-L180, T-0124 I13)', () => {
+    const { displayName: _name, ...rest } = CONTACT;
+    const withheld = { ...rest, givenNames: 'Adaeze', withheldFields: ['displayName', 'familyName'] };
+    const segments = fill('Good afternoon, {contact.displayName}.', { ...context, contact: withheld });
+    expect(segments).toEqual([{ kind: 'text', text: 'Good afternoon, ' }, { kind: 'withheldName' }, { kind: 'text', text: '.' }]);
+    expect(JSON.stringify(segments)).not.toContain('Adaeze');
+    expect(nameWithheld(withheld)).toBe(true);
+    expect(nameWithheld(CONTACT)).toBe(false);
+    expect(nameWithheld(null)).toBe(false);
+    expect(WITHHELD_NAME_MESSAGE_ID).toBe('scripting.run.withheldName');
   });
 
   it('leaves text that is not one of the three families alone, as text', () => {

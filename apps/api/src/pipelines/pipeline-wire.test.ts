@@ -43,7 +43,7 @@ function card(overrides: Partial<DealCard> = {}): DealCard {
 
 describe('toDealWire (Deal: withheld fields are omitted, never nulled)', () => {
   it('carries money as strings, exactly, and the weighted amount in the same currency', () => {
-    const wire = toDealWire(card(), [], 14, NOW, EMPTY_CUSTOM_WIRE);
+    const wire = toDealWire(card(), [], true, 14, NOW, EMPTY_CUSTOM_WIRE);
     expect(wire.amount).toEqual({ amountMinor: '999999999999999995', currency: 'NGN' });
     expect(wire.weightedAmount).toEqual({ amountMinor: '100000000000000000', currency: 'NGN' });
     expect(JSON.stringify(wire)).toContain('"amountMinor":"999999999999999995"');
@@ -55,6 +55,7 @@ describe('toDealWire (Deal: withheld fields are omitted, never nulled)', () => {
     const wire = toDealWire(
       card({ amountMinor: null, currency: null, weightedAmountMinor: null }),
       [],
+      true,
       14,
       NOW, EMPTY_CUSTOM_WIRE,
     );
@@ -71,7 +72,7 @@ describe('toDealWire (Deal: withheld fields are omitted, never nulled)', () => {
       'expectedCloseDate',
       'nextStep',
     ] as const;
-    const wire = toDealWire(card(), withheld, 14, NOW, EMPTY_CUSTOM_WIRE);
+    const wire = toDealWire(card(), withheld, true, 14, NOW, EMPTY_CUSTOM_WIRE);
     for (const key of [
       'amount',
       'weightedAmount',
@@ -90,10 +91,18 @@ describe('toDealWire (Deal: withheld fields are omitted, never nulled)', () => {
     expect(wire.name).toBe('T0107 synthetic deal');
   });
 
+  it('the contact summary carries null for displayName when a contact name part is withheld (T-0124 I3)', () => {
+    const shown = toDealWire(card(), [], true, 14, NOW, EMPTY_CUSTOM_WIRE);
+    const hidden = toDealWire(card(), [], false, 14, NOW, EMPTY_CUSTOM_WIRE);
+    expect(shown.contact?.displayName).toEqual(expect.any(String));
+    expect(hidden.contact).toEqual({ id: shown.contact?.id, displayName: null });
+    expect(hidden.withheldFields).toEqual([]);
+  });
+
   it('a closed deal does not rot', () => {
     const closed = new Date(NOW - 400 * DAY);
     expect(
-      toDealWire(card({ closedAt: closed, stageEnteredAt: closed }), [], null, NOW, EMPTY_CUSTOM_WIRE).rotting,
+      toDealWire(card({ closedAt: closed, stageEnteredAt: closed }), [], true, null, NOW, EMPTY_CUSTOM_WIRE).rotting,
     ).toBeNull();
   });
 });

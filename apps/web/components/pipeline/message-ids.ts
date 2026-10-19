@@ -45,6 +45,7 @@ export const PIPELINE_MESSAGE_IDS: readonly MessageId[] = [
   ...SHARED,
   'records.nav.deals',
   'records.locked',
+  'records.name.withheld',
   'records.owner.former',
   'records.filter.label',
   'records.filter.clearAll',

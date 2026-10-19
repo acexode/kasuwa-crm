@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanName, identifierShaped, nameFromUrl, phoneLike, planSearch } from './search-query';
+import { cleanName, identifierShaped, listQ, nameFromUrl, numberTyped, phoneLike, planSearch } from './search-query';
 
 /** PLACEHOLDER numbers only (the contract's own +234803000000x). */
 describe('planSearch: what a search box holds, and where it may go (T-0087)', () => {
@@ -78,5 +78,18 @@ describe('nameFromUrl: a q in a URL is only ever a name (R12)', () => {
     expect(nameFromUrl('s')).toBe('');
     expect(nameFromUrl(['sam', 'x'])).toBe('');
     expect(nameFromUrl(undefined)).toBe('');
+  });
+});
+
+describe('a list’s own search box (T-0124 I9, R21)', () => {
+  it('holds back a number or an address, whole or half typed, and sends a name', () => {
+    for (const text of ['0803 000 0001', '0803', 'sample@example.test', 'Sample 0803/000/0001']) {
+      expect(numberTyped(text), text).toBe(true);
+      expect(listQ(text), text).toBe('');
+    }
+    for (const text of ['Sample', 'Unit 12 Block 3456', 'A', '']) {
+      expect(numberTyped(text), text).toBe(false);
+      expect(listQ(text), text).toBe(text);
+    }
   });
 });

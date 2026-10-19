@@ -1,5 +1,6 @@
 import {
   contactFieldLevel,
+  displayNameReadable,
   findContactById,
   isWithholdableContactField,
   loadContactFieldAccess,
@@ -31,7 +32,8 @@ export { TimelineQuery } from '../timeline/record-timeline';
  * What only the contact's timeline decides:
  *   - FIELD SECURITY: the CONTACT matrix judges change items.
  *     `consent_changed` follows `consentState`; owner and account items
- *     follow theirs; `displayName` is never withheld. An activity is on it
+ *     follow theirs; `displayName` follows its name parts (D-L68, T-0124
+ *     I12). An activity is on it
  *     through its `contact_id`, so a withheld `contact_id` hides every
  *     activity item.
  *   - VALUES (D-L72). Only for the value fields, only when the event recorded
@@ -94,14 +96,14 @@ export type TimelinePageWire = TimelinePage<TimelineItemWire>;
 
 /**
  * The audit change fields the caller may see on this contact: every timeline
- * field whose Contact property is readable in `programmeId`. `displayName` is
- * never withheld. A field outside the closed union (a property a later slice
+ * field whose Contact property is readable in `programmeId`. `displayName`
+ * follows its name parts (`displayNameReadable`, T-0124 I12). A field outside the closed union (a property a later slice
  * adds) is never shown until the contract names it.
  */
 export function visibleChangeFields(access: ContactFieldAccess, programmeId: string): string[] {
   return [...TIMELINE_VALUE_FIELDS, ...TIMELINE_REDACTED_FIELDS, CONSENT_FIELD].filter(
     (field) =>
-      field === 'displayName' ||
+      (field === 'displayName' && displayNameReadable(access, programmeId)) ||
       (isWithholdableContactField(field) &&
         contactFieldLevel(access, programmeId, field) !== 'none'),
   );

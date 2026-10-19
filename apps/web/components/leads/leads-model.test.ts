@@ -20,7 +20,6 @@ import {
   moveBody,
   moveRefusal,
   moveTargets,
-  nameAriaSort,
   pickableAccounts,
   suggestedAccountName,
   toColumnQuery,
@@ -87,13 +86,9 @@ describe('the lead stages', () => {
     expect(LEAD_COLUMNS.map((column) => column.key)).toEqual(['displayName', 'companyName', 'phones', 'status', 'source', 'owner']);
   });
 
-  it('sorts only by sort’s enum, and only the name header is sortable', () => {
-    expect([...LEAD_SORTS].sort()).toEqual(
-      ['-createdAt', 'createdAt', '-updatedAt', 'updatedAt', 'displayName', '-displayName'].sort(),
-    );
-    expect(nameAriaSort('displayName')).toBe('ascending');
-    expect(nameAriaSort('-displayName')).toBe('descending');
-    expect(nameAriaSort('-createdAt')).toBe('none');
+  it('sorts only by sort’s enum, and never by the name (it follows its name parts: sort=displayName is a 400, T-0124)', () => {
+    expect([...LEAD_SORTS].sort()).toEqual(['-createdAt', 'createdAt', '-updatedAt', 'updatedAt'].sort());
+    expect(LEAD_SORTS.some((sort) => /displayName/.test(sort))).toBe(false);
   });
 });
 
@@ -122,13 +117,13 @@ describe('locks are per row', () => {
 
 describe('the queries', () => {
   it('the table sends q, its filters and its sort, never a scope', () => {
-    const view = { filters: toggleLeadFilter(toggleLeadFilter(NO_LEAD_FILTERS, 'status', 'contacted'), 'owner', 'me'), sort: '-displayName' as const };
+    const view = { filters: toggleLeadFilter(toggleLeadFilter(NO_LEAD_FILTERS, 'status', 'contacted'), 'owner', 'me'), sort: '-updatedAt' as const };
     const query = toLeadQuery(' Fabrics ', view, 'cursor-1');
     expect(query).toEqual({
       q: 'Fabrics',
       owner: ['me'],
       status: ['contacted'],
-      sort: '-displayName',
+      sort: '-updatedAt',
       cursor: 'cursor-1',
       limit: 25,
     });

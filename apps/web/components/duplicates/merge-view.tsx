@@ -230,11 +230,11 @@ export function MergeView({
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-body-sm">
             <dt className="text-text-2">{t.t('duplicates.role.kept')}</dt>
             <dd className="min-w-0">
-              <PersonName t={t} name={preview.survivor.displayName} />
+              <PersonName t={t} name={preview.survivor.displayName ?? null} />
             </dd>
             <dt className="text-text-2">{t.t('duplicates.role.merged')}</dt>
             <dd className="min-w-0">
-              <PersonName t={t} name={preview.merged.displayName} />
+              <PersonName t={t} name={preview.merged.displayName ?? null} />
             </dd>
           </dl>
         </Dialog>

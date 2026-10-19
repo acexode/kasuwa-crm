@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useId, useRef, useState, type ReactNode } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
+import { nameOrWithheld } from '../records/name';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { FIELD, LINK, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
@@ -219,11 +220,15 @@ function Ready({
             aria-hidden="true"
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-soft-strong text-h5 font-bold text-primary-text md:h-16 md:w-16"
           >
-            {initials(record.displayName)}
+            {record.displayName === undefined ? <Icon name="lock" size="sm" /> : initials(record.displayName)}
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h1 data-record-text="" className="break-words text-h3 md:text-h2">
-              {record.displayName}
+            <h1
+              data-record-text={record.displayName === undefined ? undefined : ''}
+              data-name-withheld={record.displayName === undefined ? '' : undefined}
+              className="break-words text-h3 md:text-h2"
+            >
+              {nameOrWithheld(t, record.displayName)}
             </h1>
             {state.programmeName === null ? null : (
               <p data-record-text="" className="text-body-sm text-text-2">

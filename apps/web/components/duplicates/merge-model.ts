@@ -184,7 +184,7 @@ export interface MergeView {
   readonly mainId: string;
   readonly otherId: string;
   /** The names a preview has served, by id, so the main-record choice stays drawn while the next preview is read. */
-  readonly names: Readonly<Record<string, string>>;
+  readonly names: Readonly<Record<string, string | null>>;
   readonly load: 'loading' | 'ready' | 'failed';
   readonly preview: ContactMergePreview | null;
   /** Only what the person changed: everything else is the API's default. */
@@ -239,7 +239,7 @@ export function mergeReducer(view: MergeView, action: MergeAction): MergeView {
         load: 'ready',
         preview: action.preview,
         overrides,
-        names: { ...view.names, [action.preview.survivor.id]: action.preview.survivor.displayName, [action.preview.merged.id]: action.preview.merged.displayName },
+        names: { ...view.names, [action.preview.survivor.id]: action.preview.survivor.displayName ?? null, [action.preview.merged.id]: action.preview.merged.displayName ?? null },
       };
     }
     case 'loadFailed':

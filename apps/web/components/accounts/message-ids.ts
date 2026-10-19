@@ -63,6 +63,8 @@ export const ACCOUNT_CREATE_ONLY_MESSAGE_IDS: readonly MessageId[] = [
 export const ACCOUNTS_MESSAGE_IDS: readonly MessageId[] = [
   ...CRM_SHELL_MESSAGE_IDS,
   'accounts.title',
+  'records.search.numberHint',
+  'records.search.useSearch',
   'accounts.programme.note',
   'accounts.programme.unknown',
   'records.programme.chip',
