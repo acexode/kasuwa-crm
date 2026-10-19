@@ -23,7 +23,7 @@ import { activeLocale, languageOptions } from '../../../lib/locale';
  * failed states are the user's to see. The title never carries a name.
  */
 export async function generateMetadata(): Promise<Metadata> {
-  if (!(await crmDuplicatesEnabled())) {
+  if (!(await crmDuplicatesEnabled()) || !(await crmRecordsEnabled())) {
     return {};
   }
   const { locale } = await activeLocale();
