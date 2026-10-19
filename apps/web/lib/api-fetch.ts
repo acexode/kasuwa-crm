@@ -37,6 +37,11 @@ export interface ApiFetchInit {
   readonly body?: unknown;
   readonly signal?: AbortSignal;
   /**
+   * Always `no-store`, whatever is passed: accepted so a transport can state
+   * its own rule where a reader (or a suite) looks for it.
+   */
+  readonly cache?: 'no-store';
+  /**
    * What a 401 means. `sign-in` (the default): the session is gone, so go to
    * P01/1. `return`: the caller is the sign-in flow, and a 401 is its answer
    * (a wrong password, a wrong code), so just hand it back.

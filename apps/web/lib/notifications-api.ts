@@ -111,6 +111,8 @@ async function request<T>(
     // write without its CSRF header, and a lost session goes to sign-in.
     response = await apiFetch(path, {
       method: init.method,
+      // Never from or into the HTTP cache: a staff member's notifications (D-L176 N9).
+      cache: 'no-store',
       ...(init.body === undefined ? {} : { body: init.body }),
       ...(init.signal === undefined ? {} : { signal: init.signal }),
     });
