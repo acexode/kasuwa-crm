@@ -1831,7 +1831,7 @@
   "duplicates.error.staleWrite": "Dem change one of these contacts as you dey check am. We don read the comparison again: check am, then merge.",
   "duplicates.error.fieldNotEditable": "You no fit choose that field. E don lock now and na the main record value go remain.",
   "duplicates.error.alreadyMerged": "Dem don join the contact wey dem keep enter another one. Undo the later merge first.",
-  "records.error.already_merged": "Dem don already join one of these contacts. We dey read the list again.",
+  "records.error.already_merged": "Dem don already join one of these contacts. Go back to the duplicates make you see the list wey dey now.",
   "records.error.undo_expired": "You no fit undo this merge again.",
   "records.action.duplicates": "Duplicates",
   "admin.audit.action.merged": "Dem join am",
