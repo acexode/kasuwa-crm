@@ -206,7 +206,8 @@ export function CrmShell({
 
   return (
     <div data-shell="crm" className="flex min-h-screen flex-col bg-bg text-text">
-      <header {...behind} className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
+      {/* Tighter spacing below `sm`: at 360 px the bell (T-0101) and the account menu (T-0125) fit on one row only so. */}
+      <header {...behind} className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-surface px-2 sm:gap-3 sm:px-4">
         <Link href={home ?? `/${current}`} className={`flex shrink-0 items-center gap-2 rounded-md ${LINK_FOCUS}`}>
           <span
             aria-hidden="true"

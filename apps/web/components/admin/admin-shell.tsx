@@ -128,7 +128,8 @@ export function AdminShell({
 
   return (
     <div className="flex min-h-screen flex-col bg-bg text-text">
-      <header className="sticky top-0 z-30 flex h-16 shrink-0 flex-wrap items-center gap-3 border-b border-border bg-surface px-4">
+      {/* Tighter spacing below `sm`: at 360 px the bell (T-0101) and the account menu (T-0125) fit on one row only so. */}
+      <header className="sticky top-0 z-30 flex h-16 shrink-0 flex-wrap items-center gap-2 border-b border-border bg-surface px-2 sm:gap-3 sm:px-4">
         <button
           ref={drawerButtonRef}
           type="button"
