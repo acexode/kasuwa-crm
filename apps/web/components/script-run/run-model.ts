@@ -1,5 +1,6 @@
 import { KEY_PATTERN, VARIABLE, nodeById, type FormField, type ScriptGraph, type ScriptLocale, type ScriptNode, type ScriptVersion } from '../../lib/script-graph';
 import type { AnswerValue, NodeAnswer, RunContact, RunOutcome, ScriptRun } from '../../lib/script-runs-api';
+import { numberingLocale } from '../../lib/numbering';
 
 /**
  * The pure half of the P10 agent screen (T-0116): which steps are drawn, what
@@ -230,7 +231,7 @@ export function formatMoney(minor: string, currency: string, locale: string): st
   const whole = magnitude / scale;
   const fraction = magnitude % scale;
   try {
-    const format = new Intl.NumberFormat(locale, { style: 'currency', currency, minimumFractionDigits: digits, maximumFractionDigits: digits });
+    const format = new Intl.NumberFormat(numberingLocale(locale), { style: 'currency', currency, minimumFractionDigits: digits, maximumFractionDigits: digits });
     // The whole part formatted by Intl, the fraction spliced in from the
     // integer remainder: never by dividing to a float.
     return format
@@ -258,7 +259,7 @@ export function formatDate(day: string, locale: string): string {
 export function formatAnswer(field: FormField | undefined, value: AnswerValue, locale: string): string | null {
   if (value === null) return null;
   if (typeof value === 'object') return formatMoney(value.amountMinor, value.currency, locale);
-  if (typeof value === 'number') return new Intl.NumberFormat(locale).format(value);
+  if (typeof value === 'number') return new Intl.NumberFormat(numberingLocale(locale)).format(value);
   if (field?.type === 'date') return formatDate(value, locale);
   if (field?.type === 'choice') return field.options?.find((option) => option.key === value)?.label ?? value;
   return value;

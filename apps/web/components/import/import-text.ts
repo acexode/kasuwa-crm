@@ -1,6 +1,7 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
 import type { RecordsError } from '../../lib/records-api';
 import { ROW_ERROR_CODES } from '../../lib/import-model';
+import { numberingLocale } from '../../lib/numbering';
 
 /**
  * Words for what the import API answers (T-0096). Always by `code`, never by
@@ -48,7 +49,7 @@ export function formatWhen(locale: string, iso: string): string {
 
 export function formatCount(locale: string, value: number): string {
   try {
-    return new Intl.NumberFormat(locale).format(value);
+    return new Intl.NumberFormat(numberingLocale(locale)).format(value);
   } catch {
     return new Intl.NumberFormat('en').format(value);
   }
