@@ -81,5 +81,9 @@
   "import.mapfield.source",
   "import.country.GH",
   "import.country.KE",
+  "notifications.bell.label",
+  "notifications.dropdown.title",
+  "notifications.title",
+  "notifications.kind.label",
   "duplicates.programme.label"
 ]

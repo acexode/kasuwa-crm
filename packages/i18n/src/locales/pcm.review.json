@@ -6,6 +6,8 @@
   "reviewedAt": null,
   "note": "Candidate draft produced by Agent 11, not by a Pidgin speaker. D-P1 notes that Nigerian Pidgin has no single agreed written standard, so a house style has to be chosen by a named reviewer rather than assumed by a drafter. Until that reviewer is named and recorded here, Pidgin is not offered.",
   "passthroughRationale": {
+    "notifications.day.today": "Nigerian Pidgin says \"Today\" as English does.",
+    "notifications.day.yesterday": "Nigerian Pidgin says \"Yesterday\" as English does.",
     "app.name": "Product name. It is spelled the same in every locale.",
     "tokens.sample.text": "A typographic specimen, not prose. It already mixes Yoruba, Hausa and Igbo glyphs on purpose, and translating it would destroy what it tests.",
     "tokens.contrast.ratio": "A numeric format, \"{ratio}:1\". No words.",

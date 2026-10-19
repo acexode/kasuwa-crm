@@ -4209,3 +4209,36 @@ x-kasuwa-* or authorization header, so the I11 check is undiminished. This is a 
 lead/T-0125-acceptance (7c76905) with the spec hash re-pinned, merged into the build as de6aa69.
 
 The Windows job 18 failure (the API never ready) did not reproduce on the Mac; it was host load.
+
+### D-L187 — T-0125 merge-check fixes; five pages re-pinned for required session cost (lead, 2026-10-19)
+
+The Windows merge check (job 21, a3ff869) passed browser-session 48 of 48, but found a 65 px sideways scroll at
+360 px and /contacts at +2,931 bytes. At 42e1f69:
+- **360 px fixed.** Below `sm`, sign-out sits behind a 44 px `user-menu` button (I20 allows it), and the wordmark
+  text is visually hidden but kept in the accessible name.
+- **Most of the bytes were waste.** The middleware put the 342-byte CSP header on every `/_next/static` chunk,
+  where it does nothing. `_next/static/`, `_next/image` and prefetches now skip it. /contacts and
+  /contacts/duplicates are back under their pins.
+
+**The residual is required** and comes to about +1.0 to 1.6 KB per shell page:
+- the document's CSP header (342 bytes, ADR-0019 point 10, I18);
+- nonce attributes (about 250 bytes, I18);
+- the account menu (about 190 bytes, I20);
+- the shell chunk's `api-fetch`, `sign-out` and menu code (about 630 to 770 bytes).
+
+So five pins are re-pinned with that reason (the D-L182 rule allows a measured, required cause):
+
+| Page | Measured | Old pin | Over by |
+|---|---|---|---|
+| /admin | 224,738 | 224,000 | 738 |
+| /admin/roles | 224,051 | 224,000 | 51 |
+| /admin/field-security | 257,379 | 257,000 | 379 |
+| /admin/audit | 257,228 | 257,000 | 228 |
+| pipeline board | 256,343 | 255,000 | 1,343 |
+
+Each new pin covers its measurement with about 1 to 1.5% headroom, inside its suite's ceiling and 5% rule.
+The pipeline board takes the same 259,000 that T-0124 sets (D-L183), so the two branches agree.
+
+**ADR-0019 point 10, the storage clause, is implemented.** When `S3_PUBLIC_ENDPOINT` is set, that one origin
+joins `connect-src`. This satisfies the D-L181 gate for `crm_import`'s CSP. The e2e records process gets
+`S3_PUBLIC_ENDPOINT: 'https://storage.example'`, the mock's storage origin, as a lead edit to run-e2e.mjs.

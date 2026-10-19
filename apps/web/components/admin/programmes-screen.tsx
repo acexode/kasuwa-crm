@@ -80,11 +80,13 @@ export function ProgrammesScreen({
   messages,
   locales,
   linkedSettings,
+  bell,
 }: {
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
   linkedSettings: Readonly<Record<string, string>>;
+  bell: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const [query, setQuery] = useState('');
@@ -108,7 +110,7 @@ export function ProgrammesScreen({
     <AdminShell
       locale={locale}
       messages={messages}
-      locales={locales} linkedSettings={linkedSettings}
+      locales={locales} linkedSettings={linkedSettings} bell={bell}
       activeSettingId="programmes"
     >
       <div data-screen="P02/B" className="flex flex-col gap-6">

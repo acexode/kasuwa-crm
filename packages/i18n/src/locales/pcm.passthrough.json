@@ -369,6 +369,8 @@
   "import.country.ZA",
   "import.report.row",
   "import.report.position",
+  "notifications.day.today",
+  "notifications.day.yesterday",
   "duplicates.programme.label",
   "duplicates.more",
   "duplicates.retry",

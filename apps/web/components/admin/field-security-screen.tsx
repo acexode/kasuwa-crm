@@ -83,11 +83,13 @@ export function FieldSecurityScreen({
   messages,
   locales,
   linkedSettings,
+  bell,
 }: {
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
   linkedSettings: Readonly<Record<string, string>>;
+  bell: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const router = useRouter();
@@ -194,7 +196,7 @@ export function FieldSecurityScreen({
   const allSelected = rows.length > 0 && rows.every((row) => selected.has(row.fieldApiName));
 
   return (
-    <AdminShell locale={locale} messages={messages} locales={locales} linkedSettings={linkedSettings} activeSettingId="fls">
+    <AdminShell locale={locale} messages={messages} locales={locales} linkedSettings={linkedSettings} bell={bell} activeSettingId="fls">
       <div data-screen="P02/D" className="flex flex-col gap-4 pb-24">
         <div className="flex flex-col gap-2">
           <span className="text-body-sm font-semibold text-text-muted">

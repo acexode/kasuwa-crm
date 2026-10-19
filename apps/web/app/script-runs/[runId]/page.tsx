@@ -4,7 +4,7 @@ import { bundleMessages, createTranslator } from '@kasuwa/i18n';
 import { ScriptRunScreen } from '../../../components/script-run/script-run-screen';
 import { SCRIPT_RUN_MESSAGE_IDS } from '../../../components/script-run/message-ids';
 import { crmLiveNav, crmRecordViewEnabled, crmRecordsEnabled, crmScriptsEnabled } from '../../../lib/feature-flags';
-import { withSearchMessages } from '../../../components/search/message-ids';
+import { withShellMessages } from '../../../components/crm/shell-messages';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
 /**
@@ -54,7 +54,7 @@ export default async function ScriptRunPage({ params }: { params: Promise<{ runI
       key={runId}
       id={runId}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(SCRIPT_RUN_MESSAGE_IDS, live))}
+      messages={bundleMessages(locale, withShellMessages(SCRIPT_RUN_MESSAGE_IDS, live))}
       locales={languageOptions(locale)}
       live={live}
       recordLink={await crmRecordViewEnabled()}

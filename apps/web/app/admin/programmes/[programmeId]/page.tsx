@@ -7,7 +7,8 @@ import {
 import { ADMIN_PROGRAMME_MESSAGE_IDS } from '../../../../components/admin/message-ids';
 import { activeLocale, languageOptions } from '../../../../lib/locale';
 import { adminLiveApiEnabled } from '../../../../lib/feature-flags';
-import { adminLiveNav } from '../../../../components/admin/live-nav';
+import { adminBellLive, adminLiveNav } from '../../../../components/admin/live-nav';
+import { withNotificationMessages } from '../../../../components/notifications/message-ids';
 
 /**
  * `P02/B2`–`P02/B5` — one programme and its tabs.
@@ -30,7 +31,7 @@ export default async function ProgrammePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { locale } = await activeLocale();
-  const linkedSettings = await adminLiveNav();
+  const [linkedSettings, bell] = await Promise.all([adminLiveNav(), adminBellLive()]);
   const { programmeId } = await params;
   const query = await searchParams;
 
@@ -41,9 +42,10 @@ export default async function ProgrammePage({
   return (
     <ProgrammeScreen
       locale={locale}
-      messages={bundleMessages(locale, ADMIN_PROGRAMME_MESSAGE_IDS)}
+      messages={bundleMessages(locale, withNotificationMessages(ADMIN_PROGRAMME_MESSAGE_IDS, bell ? ['notifications'] : []))}
       locales={languageOptions(locale)}
       linkedSettings={linkedSettings}
+      bell={bell}
       programmeId={programmeId}
       tab={tab}
       live={live}
