@@ -13,8 +13,9 @@ import { loadFieldAccess } from '@kasuwa/metadata-engine';
  * does not lift it (D-L63).
  *
  * `type` is NOT withholdable on the wire: an activity without its type is
- * not an activity a screen can draw, so it is always sent, as a contact's
- * `displayName` is. Its matrix row still decides whether it may be WRITTEN.
+ * not an activity a screen can draw, so it is always sent. (A contact's
+ * `displayName` is not like this: it follows its name parts, T-0124.) Its
+ * matrix row still decides whether it may be WRITTEN.
  *
  * Pure apart from `loadActivityFieldAccess`, which is one round trip through
  * the generic loader.

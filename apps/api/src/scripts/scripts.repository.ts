@@ -1,10 +1,7 @@
 import { newId, type TenantTx } from '@kasuwa/db';
-import {
-  contactFieldApiName,
-  DISPLAY_NAME_PARTS,
-  WITHHOLDABLE_CONTACT_FIELDS,
-} from '@kasuwa/domain-core';
+import { contactFieldApiName, WITHHOLDABLE_CONTACT_FIELDS } from '@kasuwa/domain-core';
 import { permissionSetKeysGranting } from '@kasuwa/permissions';
+import { displayNameFact } from './script-field-gate';
 import type { ScriptContactField } from './script-publish';
 
 /**
@@ -545,7 +542,8 @@ export const SCRIPT_CONTACT_FIELDS: readonly string[] = [
  * not anyone holds the set today; a grant is tenant-wide). A withholdable
  * field with no field_def at all fails closed, as field security does: it
  * is withheld. `displayName` has no field_def: it follows its name parts
- * (D-L68), so it is withheld when either part is, and `standIn`, because a
+ * (D-L68), so it is withheld when either part is, `sensitive` when either
+ * part is (D-L184, `displayNameFact`), and `standIn`, because a
  * withheld name is DISPLAYED as a translated stand-in rather than refused
  * (D-L180, T-0124 I13); only a branch on it is refused.
  *
@@ -579,9 +577,9 @@ export async function contactFieldFacts(
         : { sensitive: row.sensitive, withheld: row.withheld },
     );
   }
-  // The one rule (DISPLAY_NAME_PARTS): withheld when any part is, for any set.
-  const nameWithheld = DISPLAY_NAME_PARTS.some((part) => facts.get(part)?.withheld !== false);
-  facts.set('displayName', { sensitive: false, withheld: nameWithheld, standIn: true });
+  // Derived from the parts (DISPLAY_NAME_PARTS): withheld when any part is,
+  // sensitive when any part is (D-L184). The run reads these same facts.
+  facts.set('displayName', displayNameFact(facts));
   return facts;
 }
 

@@ -1,12 +1,9 @@
 import { HttpStatus } from '@nestjs/common';
 import type { TenantTx } from '@kasuwa/db';
 import {
-  contactFieldLevel,
-  displayNameReadable,
   findContactById,
   insertActivity,
   InvalidCursorError,
-  isWithholdableContactField,
   loadContactFieldAccess,
   type Contact,
   type ContactFieldAccess,
@@ -28,6 +25,7 @@ import {
   validationFailedFrom,
   type AdminErrorDetail,
 } from '../admin/common/admin-errors';
+import { fieldGate } from './script-field-gate';
 import { isNodeId, stringProblems, type ScriptLocale } from './script-graph';
 import { runCompletedEvent, runStartedEvent, runSupersededEvent } from './script-run-audit';
 import {
@@ -255,18 +253,11 @@ function fieldReader(tx: TenantTx, run: { programmeId: string; contactId: string
   let contact: Contact | null | undefined;
   return async (field: string): Promise<FieldReading> => {
     facts ??= await contactFieldFacts(tx);
-    const fact = facts.get(field);
-    if (fact === undefined) return { kind: 'withheld' };
-    if (fact.sensitive) return { kind: 'sensitive' };
     access ??= await loadContactFieldAccess(tx);
-    if (field === 'displayName') {
-      // D-L68 (T-0124 I13): the name follows its parts. A branch on a withheld
-      // name would disclose it by the side it took, so the run stops instead.
-      if (!displayNameReadable(access, run.programmeId)) return { kind: 'withheld' };
-    } else {
-      if (!isWithholdableContactField(field)) return { kind: 'withheld' };
-      if (contactFieldLevel(access, run.programmeId, field) === 'none') return { kind: 'withheld' };
-    }
+    // The pure decision (script-field-gate.ts): a displayName with a
+    // sensitive part is `sensitive`, as that part is (D-L184).
+    const refusal = fieldGate(field, facts, access, run.programmeId);
+    if (refusal !== null) return refusal;
     if (contact === undefined) contact = await findContactById(tx, run.contactId);
     if (contact === null || contact.programmeId !== run.programmeId) return { kind: 'withheld' };
     return { kind: 'value', value: contactValue(contact, field) };

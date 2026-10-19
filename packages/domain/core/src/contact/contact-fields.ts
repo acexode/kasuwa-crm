@@ -161,21 +161,22 @@ export const DISPLAY_NAME_PARTS = [
   'familyName',
 ] as const satisfies readonly WithholdableContactField[];
 
-/** True when the caller may read a contact's `displayName` in `programmeId`. */
-export function displayNameReadable(access: ContactFieldAccess, programmeId: string): boolean {
-  return DISPLAY_NAME_PARTS.every(
-    (part) => contactFieldLevel(access, programmeId, part) !== 'none',
-  );
+/**
+ * True when the caller may read a contact's `displayName` in `programmeId`.
+ * `parts` exists for tests that prove a caller follows the list rather than
+ * a copy of it; production callers never pass it.
+ */
+export function displayNameReadable(
+  access: ContactFieldAccess,
+  programmeId: string,
+  parts: readonly WithholdableContactField[] = DISPLAY_NAME_PARTS,
+): boolean {
+  return parts.every((part) => contactFieldLevel(access, programmeId, part) !== 'none');
 }
 
 /** Programmes in which the caller may read (and so `q` may match) `displayName`. */
 export function programmesReadingDisplayName(access: ContactFieldAccess): string[] {
   return [...access.keys()].filter((programmeId) => displayNameReadable(access, programmeId));
-}
-
-/** True when `displayName` is withheld from the caller in ANY programme they reach. */
-export function displayNameWithheldAnywhere(access: ContactFieldAccess): boolean {
-  return [...access.keys()].some((programmeId) => !displayNameReadable(access, programmeId));
 }
 
 /**
