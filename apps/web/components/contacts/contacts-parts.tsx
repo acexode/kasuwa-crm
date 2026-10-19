@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
+import { PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 
 /** A control for something that is not built yet: drawn, named, and disabled with its reason. */
 export function UnavailableAction({
@@ -68,6 +68,31 @@ export function ImportLink({
     >
       <Icon name="upload_file" size="sm" />
       {t.t(label)}
+    </Link>
+  );
+}
+
+/**
+ * The link to the duplicates screen where it is live (T-0097, I1): a quiet
+ * link beside the import action, not another primary button. Offline it is
+ * `aria-disabled` and does not navigate, like every control that needs a
+ * connection (`data-requires-connection`, P04/06).
+ */
+export function DuplicatesLink({ t, href, offline }: { t: Translator; href: string; offline: boolean }) {
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      data-action="duplicates"
+      data-requires-connection=""
+      aria-disabled={offline ? 'true' : undefined}
+      onClick={(event) => {
+        if (offline) event.preventDefault();
+      }}
+      className={`${QUIET_BUTTON} ${offline ? 'cursor-not-allowed opacity-60' : ''}`}
+    >
+      <Icon name="group" size="sm" />
+      {t.t('records.action.duplicates')}
     </Link>
   );
 }
