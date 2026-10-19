@@ -432,6 +432,10 @@ function restoreNextEnv(original) {
  *   - KASUWA_SESSION_COOKIE_INSECURE is REMOVED, never inherited: Chromium
  *     stores a `Secure`, `__Host-` cookie on http://127.0.0.1, so every
  *     process here runs with the cookie exactly as production sets it.
+ *   - S3_PUBLIC_ENDPOINT is REMOVED, never inherited (D-L187): a developer
+ *     shell that exported the `.env.example` value would otherwise put a
+ *     storage origin into every process's `connect-src` and loosen the I18
+ *     CSP checks. Only the records process sets it back, after this spread.
  *
  * Unknown to the web schema before T-0125, so main ignores them.
  */
@@ -440,6 +444,7 @@ function sessionLayerEnv(apiUrl, port) {
     KASUWA_WEB_ORIGIN: `http://127.0.0.1:${port}`,
     KASUWA_API_INTERNAL_URL: apiUrl,
     KASUWA_SESSION_COOKIE_INSECURE: undefined,
+    S3_PUBLIC_ENDPOINT: undefined,
   };
 }
 
@@ -684,6 +689,12 @@ function startRecordsWeb(apiUrl, port) {
       KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities,crm_scripts,crm_pipeline,crm_search,crm_custom_fields,crm_import',
       ...NO_DATABASE_URLS,
       ...sessionLayerEnv(apiUrl, port),
+      // D-L187 (ADR-0019 point 10, the storage clause): the import mock's
+      // object-store origin (STORAGE_ORIGIN in support/import-mock.ts), so the
+      // T-0125 CSP lets the import wizard's part uploads into `connect-src`.
+      // THIS PROCESS ONLY: the default server and the session process carry no
+      // storage origin, so the I18 CSP checks there stay strict.
+      S3_PUBLIC_ENDPOINT: 'https://storage.example',
     },
   });
   pipeTo(child, 'web:records');

@@ -256,7 +256,15 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
   [MOCK]: 'cb5f6a8452b1c44c1828ceaea7fdfc3a154896e96365680e2d955d59667dc6cd',
 };
 
-/** Never above this (R19). */
+/**
+ * Never above this (R19). T-0125 lead re-pin (D-L187): 42e1f69 measured
+ * 256,343 bytes against the 255,000 pin, from the browser session's required
+ * cost on every shell page (the document's CSP header, nonce attributes, the
+ * account menu, and the shell chunk's api-fetch and sign-out code).
+ * PIPELINE_BUDGET_BYTES moved to 259,000, the value T-0124 sets (D-L183):
+ * about 1.0% over that measurement, under this ceiling and inside the 5% rule.
+ * The spec's hash ignores the budget literal, so it is not re-pinned.
+ */
 const PIPELINE_BUDGET_CEILING = 260_000;
 
 /** Re-pinned within 5% of what the run measured, like /activities (D-L118) and /leads (T-0058). */
