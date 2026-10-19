@@ -80,5 +80,6 @@
   "admin.studio.custom.form.classification",
   "import.mapfield.source",
   "import.country.GH",
-  "import.country.KE"
+  "import.country.KE",
+  "duplicates.programme.label"
 ]
