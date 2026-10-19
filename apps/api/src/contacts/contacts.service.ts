@@ -1,6 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import type { TenantTx } from '@kasuwa/db';
 import {
+  appendOwnerChangedEvent,
   findContactById,
   insertContact,
   listContacts,
@@ -261,6 +262,14 @@ export async function createContactFor(tx: TenantTx, body: unknown): Promise<Con
     contactAuditEvent('created', contact, contactChanges(values, null)),
     Object.keys(customValues).sort(),
   );
+  // N-R4: a contact created for someone else is an assignment (T-0100).
+  await appendOwnerChangedEvent(tx, {
+    object: 'contact',
+    id: contact.id,
+    programmeId,
+    previousOwnerId: null,
+    newOwnerId: contact.ownerUserId,
+  });
   return toContactWire(contact, access, await customWireFor(tx, custom, contact));
 }
 
@@ -303,5 +312,13 @@ export async function updateContactFor(
     contactAuditEvent('updated', updated, contactChanges(values, current)),
     customPatchKeys(patch),
   );
+  // After the UPDATE, which holds the row's lock until commit (D-L161).
+  await appendOwnerChangedEvent(tx, {
+    object: 'contact',
+    id: updated.id,
+    programmeId: updated.programmeId,
+    previousOwnerId: current.ownerUserId,
+    newOwnerId: updated.ownerUserId,
+  });
   return toContactWire(updated, access, await customWireFor(tx, custom, updated));
 }

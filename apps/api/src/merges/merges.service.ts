@@ -1,6 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import type { TenantTx } from '@kasuwa/db';
 import {
+  appendOwnerChangedEvent,
   COMPLIANCE_FIELDS,
   complianceOf,
   contactFieldLevel,
@@ -380,6 +381,13 @@ export async function createContactMergeFor(
     ),
   );
   if (versionAfter === null) throw staleWrite();
+  // The survivor may take the merged contact's owner (D-L163).
+  await publishOwnerChange(
+    tx,
+    { id: survivor.id, programmeId },
+    survivor.values.ownerUserId,
+    plan.values.ownerUserId,
+  );
   if (!(await softDeleteContact(tx, { id: merged.id, programmeId, version: merged.version }))) {
     throw staleWrite();
   }
@@ -405,6 +413,31 @@ export async function createContactMergeFor(
     changes: nameOnlyChanges(plan.auditFields),
   });
   return toContactMergeWire(record);
+}
+
+// --- notifications (T-0100, D-L163) --------------------------------------------------
+
+/**
+ * Publishes `contact.owner_changed` when a merge or an undo changed a live
+ * contact's owner (D-L163). `next` undefined means the write did not touch the
+ * owner. No event for a self-assignment, an unchanged owner or an owner
+ * cleared (`appendOwnerChangedEvent`). Called after the statement that wrote
+ * the row, which holds its lock until commit (D-L161).
+ */
+async function publishOwnerChange(
+  tx: TenantTx,
+  contact: { id: string; programmeId: string },
+  previous: unknown,
+  next: unknown,
+): Promise<void> {
+  if (next === undefined) return;
+  await appendOwnerChangedEvent(tx, {
+    object: 'contact',
+    id: contact.id,
+    programmeId: contact.programmeId,
+    previousOwnerId: typeof previous === 'string' ? previous : null,
+    newOwnerId: typeof next === 'string' ? next : null,
+  });
 }
 
 // --- undoContactMerge ---------------------------------------------------------------
@@ -476,6 +509,13 @@ export async function undoContactMergeFor(
   ) {
     throw alreadyMerged();
   }
+  // The restored contact's owner as the snapshot holds it (D-L163).
+  await publishOwnerChange(
+    tx,
+    { id: merged.id, programmeId },
+    merged.values.ownerUserId,
+    plan.restore.ownerUserId,
+  );
   if (plan.reverted) {
     await settleReferences(tx, programmeId, plan.revert);
     const applied = await customBackstopAs400(() =>
@@ -487,6 +527,12 @@ export async function undoContactMergeFor(
       ),
     );
     if (applied === null) throw staleWrite();
+    await publishOwnerChange(
+      tx,
+      { id: survivor.id, programmeId },
+      survivor.values.ownerUserId,
+      plan.revert.ownerUserId,
+    );
   }
   // Only what the merge moved, and only if it still points at the survivor (M11).
   await moveContactChildren(tx, programmeId, survivor.id, merged.id, snapshot.moved);

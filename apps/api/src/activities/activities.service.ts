@@ -1,6 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import type { TenantTx } from '@kasuwa/db';
 import {
+  appendOwnerChangedEvent,
   type Activity,
   type ActivityFieldAccess,
   activityFieldLevel,
@@ -219,6 +220,14 @@ export async function createActivityFor(tx: TenantTx, body: unknown): Promise<Ac
     activityAuditEvent('created', activity, activityCreateChanges(parsed)),
     Object.keys(customValues).sort(),
   );
+  // N-R4: a task created for someone else is an assignment (T-0100).
+  await appendOwnerChangedEvent(tx, {
+    object: 'activity',
+    id: activity.id,
+    programmeId,
+    previousOwnerId: null,
+    newOwnerId: activity.ownerUserId,
+  });
   return toActivityWire(activity, access, await customWireFor(tx, custom, activity));
 }
 
@@ -328,5 +337,13 @@ export async function updateActivityFor(
     activityAuditEvent('updated', updated, activityUpdateChanges(current, updated)),
     customPatchKeys(patch),
   );
+  // After the UPDATE, which holds the row's lock until commit (D-L161).
+  await appendOwnerChangedEvent(tx, {
+    object: 'activity',
+    id: updated.id,
+    programmeId: updated.programmeId,
+    previousOwnerId: current.ownerUserId,
+    newOwnerId: updated.ownerUserId,
+  });
   return toActivityWire(updated, access, await customWireFor(tx, custom, updated));
 }
