@@ -1831,7 +1831,7 @@
   "duplicates.error.staleWrite": "One of these contacts was changed while you were reviewing. The comparison has been read again: check it, then merge.",
   "duplicates.error.fieldNotEditable": "You cannot choose that field. It is now locked and the main record's value is kept.",
   "duplicates.error.alreadyMerged": "The kept contact has since been merged into another. Undo the later merge first.",
-  "records.error.already_merged": "One of these contacts has already been merged. The list is being read again.",
+  "records.error.already_merged": "One of these contacts has already been merged. Go back to the duplicates to see the current list.",
   "records.error.undo_expired": "This merge can no longer be undone.",
   "records.action.duplicates": "Duplicates",
   "admin.audit.action.merged": "Merged",

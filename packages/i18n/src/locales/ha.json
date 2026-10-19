@@ -1831,7 +1831,7 @@
   "duplicates.error.staleWrite": "An canza ɗaya daga cikin waɗannan abokan hulɗa yayin da kuke dubawa. An sake karanta kwatancen: duba shi, sannan ku haɗa.",
   "duplicates.error.fieldNotEditable": "Ba za ku iya zaɓar wannan filin ba. Yanzu an kulle shi kuma ana riƙe ƙimar babban bayanin.",
   "duplicates.error.alreadyMerged": "An riga an haɗa abokin hulɗar da aka ajiye cikin wani. Fara warware haɗin na baya.",
-  "records.error.already_merged": "An riga an haɗa ɗaya daga cikin waɗannan abokan hulɗa. Ana sake karanta jerin.",
+  "records.error.already_merged": "An riga an haɗa ɗaya daga cikin waɗannan abokan hulɗa. Koma zuwa kwafi don ganin jerin na yanzu.",
   "records.error.undo_expired": "Ba za a iya warware wannan haɗin ba kuma.",
   "records.action.duplicates": "Kwafi",
   "admin.audit.action.merged": "An haɗa",

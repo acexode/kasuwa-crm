@@ -1831,7 +1831,7 @@
   "duplicates.error.staleWrite": "A ṣàtúnṣe ọ̀kan nínú àwọn olùbáṣepọ̀ wọ̀nyí nígbà tí ò ń ṣàyẹ̀wò. A ti tún ka ìfiwéra náà: ṣàyẹ̀wò rẹ̀, lẹ́yìn náà da pọ̀.",
   "duplicates.error.fieldNotEditable": "O kò lè yan ààyè yẹn. A ti tì í báyìí, a sì pa ìníyelórí ìwé àkọsílẹ̀ pàtàkì mọ́.",
   "duplicates.error.alreadyMerged": "A ti da olùbáṣepọ̀ tí a pa mọ́ mọ́ òmíràn. Kọ́kọ́ fagilé ìdàpọ̀ tó kẹ́yìn.",
-  "records.error.already_merged": "A ti da ọ̀kan nínú àwọn olùbáṣepọ̀ wọ̀nyí pọ̀ tẹ́lẹ̀. À ń tún ka àtòjọ náà.",
+  "records.error.already_merged": "A ti da ọ̀kan nínú àwọn olùbáṣepọ̀ wọ̀nyí pọ̀ tẹ́lẹ̀. Padà sí àwọn àdàkọ láti rí àtòjọ ti ìsinsìnyí.",
   "records.error.undo_expired": "A kò lè fagilé ìdàpọ̀ yìí mọ́.",
   "records.action.duplicates": "Àwọn àdàkọ",
   "admin.audit.action.merged": "A dà pọ̀",
