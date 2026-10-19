@@ -213,6 +213,12 @@ import { collectTelemetry } from '../support/telemetry';
  *     and edit implies read). So the observable pin is that a withheld field
  *     can be neither mapped nor matched, while the readable one still dedupes.
  *
+ * D-L169: the tests for R12, R17 and the mapping-time 403 live in
+ * tests/acceptance/records/import-field-security.pending.acceptance.test.ts.
+ * They need an importer whose field levels are honoured, which means an
+ * unlocked set holding contact.import. Custom permission sets cannot hold
+ * actions yet, and the locked `admin` set always has edit.
+ *
  * ==========================================================================
  * D-L23: on this branch there is no import_job, no route, no queue and no
  * apps/worker/src/import-jobs.ts. Every test except those titled
@@ -796,6 +802,9 @@ describe('acceptance: the import API and job (T-0094)', () => {
     // Custom fields on contact: tier__c (picklist, no grants: editable),
     // secret__c (text, admin set may only READ), late__c (text, admin set may
     // edit; a test lowers it to read after the mapping is saved).
+    // D-L169: the tests that depended on these grants being honoured moved
+    // to import-field-security.pending.acceptance.test.ts. The fields stay
+    // because the remaining tests map tier__c and late__c.
     const objectRow = await observer.query<{ id: string }>(
       `SELECT id FROM object_def WHERE tenant_id = $1 AND api_name = 'contact'`,
       [TENANT_A],
@@ -1720,15 +1729,8 @@ describe('acceptance: the import API and job (T-0094)', () => {
       }
     });
 
-    it('a mapped field the creator may not edit is 403 field_not_editable at the field, never a column', async () => {
-      const importId = await uploadAndComplete(IMPORTER, PROGRAMME_A1, csv([['Name', 'Secret'], ['zqa', 'x']]));
-      await readHeader(importId);
-      const response = await put(IMPORTER, importPath(importId, '/mapping'), {
-        columns: [{ index: 0, field: 'displayName' }, { index: 1, field: 'custom.secret__c' }],
-        defaultCountry: 'NG',
-      });
-      expectDetail(response, 403, 'not_permitted', 'field_not_editable', 'custom.secret__c', 'withheld custom field');
-    });
+    // D-L169: "a mapped field the creator may not edit is 403" moved to
+    // import-field-security.pending.acceptance.test.ts (custom sets hold no actions yet).
 
     it('fromImportId copies an earlier mapping BY HEADER NAME into a file with another column order; the answer has no fromImportId', async () => {
       const first = await importCsv([['Name', 'Mobile'], ['zqfirst', '0803 555 0101']], [{ index: 0, field: 'displayName' }, { index: 1, field: 'phones' }]);
@@ -2038,38 +2040,8 @@ describe('acceptance: the import API and job (T-0094)', () => {
       expect(after.rows, 'the matched contact was changed').toEqual(before.rows);
     });
 
-    it('a field withheld from the importer is never matched on: it cannot be mapped, and the readable field still dedupes (R17, D-L160 ruling 5)', async () => {
-      await observer.query(`UPDATE contact SET emails = '["withheld.seed@example.test"]'::jsonb WHERE id = $1`, [A1_FIRST.id]);
-      const field = await observer.query<{ id: string }>(
-        `SELECT f.id FROM field_def f JOIN object_def o ON o.id = f.object_id
-          WHERE f.tenant_id = $1 AND o.api_name = 'contact' AND f.api_name = 'emails'`,
-        [TENANT_A],
-      );
-      await grant(must(field.rows[0]?.id, 'contact.emails field_def'), 'admin', 'none');
-      const rows = [
-        ['Name', 'Mobile', 'Email'],
-        ['zqw2', `0${A1_FIRST.phoneE164.slice(4)}`, ''],
-        ['zqw3', '0803 555 0177', 'withheld.seed@example.test'],
-      ];
-      const importId = await uploadAndComplete(IMPORTER, PROGRAMME_A1, csv(rows));
-      await readHeader(importId);
-      const withEmails = await put(IMPORTER, importPath(importId, '/mapping'), {
-        columns: [{ index: 0, field: 'displayName' }, { index: 1, field: 'phones' }, { index: 2, field: 'emails' }],
-        defaultCountry: 'NG',
-      });
-      expectDetail(withEmails, 403, 'not_permitted', 'field_not_editable', 'emails', 'mapping a withheld field');
-      await saveMapping(IMPORTER, importId, {
-        columns: [{ index: 0, field: 'displayName' }, { index: 1, field: 'phones' }, { index: 2, field: null }],
-        defaultCountry: 'NG',
-      });
-      const job = await queueRun(IMPORTER, importId);
-      await (await importJobs()).processImportRun(deps(), job.data);
-      const body = await getImport(IMPORTER, importId);
-      // Row 2 matches on the readable phone; row 3's email sits in an
-      // unmapped column and matches a withheld field, so it is created.
-      expect(body.errors.map(errorKey)).toEqual(['2:null:possible_duplicate']);
-      expect(body.counts).toEqual({ created: 1, skipped: 1, failed: 0 });
-    });
+    // D-L169: R17 "a field withheld from the importer is never matched on"
+    // moved to import-field-security.pending.acceptance.test.ts.
 
     it('never looks across programmes, even for an importer who reaches both (R15)', async () => {
       const { body } = await importCsv(
@@ -2134,21 +2106,8 @@ describe('acceptance: the import API and job (T-0094)', () => {
       expect(last.rows[0]?.n, 'row 100,001 imported and row 100,002 not').toBe('1');
     }, 1_200_000);
 
-    it('field security is re-resolved at run: a field made read-only after mapping is field_not_editable per row, never written (R12)', async () => {
-      const importId = await uploadAndComplete(IMPORTER, PROGRAMME_A1, csv([['Name', 'Late'], ['zqf2', 'v'], ['zqf3', '']]));
-      await readHeader(importId);
-      await saveMapping(IMPORTER, importId, { columns: [{ index: 0, field: 'displayName' }, { index: 1, field: 'custom.late__c' }], defaultCountry: 'NG' });
-      const job = await queueRun(IMPORTER, importId);
-      await grant(id94('f00000000003'), 'admin', 'read');
-      await (await importJobs()).processImportRun(deps(), job.data);
-      const body = await getImport(IMPORTER, importId);
-      expect(body.errors.map(errorKey)).toEqual(['2:1:field_not_editable']);
-      const written = await observer.query<{ n: string }>(
-        `SELECT count(*)::text AS n FROM contact WHERE import_job_id = $1 AND custom ? 'late__c'`,
-        [importId],
-      );
-      expect(written.rows[0]?.n).toBe('0');
-    });
+    // D-L169: R12 "field security is re-resolved at run" moved to
+    // import-field-security.pending.acceptance.test.ts.
 
     it('no cell, header or filename in logs, telemetry, the job row, audit, queues or errors; the API answers only headers', async () => {
       // A number no fixture holds; checked in its national and E.164 digits.
