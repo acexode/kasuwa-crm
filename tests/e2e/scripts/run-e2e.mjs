@@ -663,6 +663,10 @@ function startSelfServeWeb(apiUrl, port) {
  * "view the imported contacts" link lands on with `?importId=`, is served
  * here, and the CRM shell's links all resolve. Published as `webImportUrl`;
  * the screen's byte budget is measured on this build.
+ * `crm_duplicates` RIDES HERE TOO (T-0097): the P28 duplicates and merge screen
+ * at `/contacts/duplicates`. The Contacts list that links it, and the contact
+ * record its result links to, are served here. Published as `webDuplicatesUrl`;
+ * the screen's byte budget is measured on this build.
  */
 function startRecordsWeb(apiUrl, port) {
   const child = spawnGroup('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
@@ -681,7 +685,7 @@ function startRecordsWeb(apiUrl, port) {
       KASUWA_AUTH_MODE: 'stub',
       NEXT_PUBLIC_API_URL: apiUrl,
       NEXT_TELEMETRY_DISABLED: '1',
-      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities,crm_scripts,crm_pipeline,crm_search,crm_custom_fields,crm_import',
+      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_accounts,crm_record_view,crm_leads,crm_activities,crm_scripts,crm_pipeline,crm_search,crm_custom_fields,crm_import,crm_duplicates',
       ...NO_DATABASE_URLS,
       ...sessionLayerEnv(apiUrl, port),
     },
@@ -899,14 +903,14 @@ async function main() {
     await Promise.all([
       waitForHttp(webUrl, 'the web app'),
       waitForHttp(webSelfServeUrl, 'the self-serve web app'),
-      waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view, crm_leads, crm_activities, crm_scripts, crm_pipeline, crm_search, crm_custom_fields and crm_import web app'),
+      waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view, crm_leads, crm_activities, crm_scripts, crm_pipeline, crm_search, crm_custom_fields, crm_import and crm_duplicates web app'),
       ...(wantsSessionWeb ? [waitForHttp(webSessionUrl, 'the session (jwt, crm_records) web app')] : []),
     ]);
     restoreNextEnv(nextEnv);
     log(`web (next start, production build) on ${webUrl}`);
     log(`web (next dev, self_serve_signup + admin_live_api on) on ${webSelfServeUrl}`);
     log(
-      `web (next start, production build, crm_records + crm_accounts + crm_record_view + crm_leads + crm_activities + crm_scripts + crm_pipeline + crm_search + crm_custom_fields + crm_import on) on ${webRecordsUrl}`,
+      `web (next start, production build, crm_records + crm_accounts + crm_record_view + crm_leads + crm_activities + crm_scripts + crm_pipeline + crm_search + crm_custom_fields + crm_import + crm_duplicates on) on ${webRecordsUrl}`,
     );
     if (wantsSessionWeb) {
       log(`web (next start, production build, NODE_ENV=test, jwt, crm_records on, no injected identity) on ${webSessionUrl}`);
@@ -946,6 +950,7 @@ async function main() {
         // T-0125: empty unless this run's grep can select @bff-session.
         webSessionUrl,
         webImportUrl: webRecordsUrl,
+        webDuplicatesUrl: webRecordsUrl,
         apiUrl,
         fixturesUrl,
       },

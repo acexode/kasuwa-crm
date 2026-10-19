@@ -4064,3 +4064,148 @@ amendment:
 **Lead re-pins during the build:** contacts-api, leads-api, accounts-api (listAccountContacts' default sort),
 list-indexes, contact-merge (its DuplicateContact `typeof displayName` check), e2e p04-leads, and the
 records-contract-search R18 note. The builder lists exact lines, and the lead edits them on the suite branch.
+
+### D-L181 — T-0125 review rulings; the no-flag exception (lead, 2026-10-19)
+
+The security and tenancy reviews of febb1b8 both passed with findings. Nothing is exploitable against today's
+API, and nothing leaks across tenants.
+
+**Required before merge:**
+- **B1, the token routes fail closed whatever the content type.** A 2xx answer on a token route is always
+  buffered and Zod-parsed against an explicit allowlist of keys (`expiresAt`, `user`, `backupCodes`, plus what the
+  contract names), never `.passthrough()`. Anything else is a 502. Add a unit test that fails today: text/plain,
+  or no content type, carrying a token.
+- **Other routes (security N1).** Every buffered JSON answer of any status is refused with a 502 if it contains
+  the `ksw_s1_` token prefix at any depth. Non-JSON bodies keep streaming. No current API route serves a token
+  there.
+- **CSP coverage (N4).** The middleware matcher excludes only `api/v1/` and `fonts/`, so Next's own 404s and
+  similar pages get the CSP.
+- **Body detection (N5).** It uses `request.body !== null`, not the length headers.
+- **Buffer cap (N6).** Buffered upstream JSON is capped at 8 MiB. Above that it's a 502.
+- **x-forwarded-for (N3).** The deployment docs state that the web tier is not a proxy hop for
+  `KASUWA_TRUST_PROXY_HOPS`, and that the web server must not be exposed directly with hops of 1 or more.
+
+**Accepted and recorded:**
+- **N2.** Concurrent re-sign-ins in two tabs can leave one minted session unheld until it expires. No client holds
+  its token. This goes in the ADR's out-of-scope list.
+- **Tenancy minor 1.** Two cookies count as no session, so neither is revoked on re-sign-in. This is dev-only,
+  because `__Host-` prevents a planted second cookie in production.
+- **Tenancy minor 2.** Stub headers on pre-session routes in a stub web process are refused by the API.
+- **No feature flag, the exception to CLAUDE.md §4.** An "off" position would keep the CSRF-less, stub-forwarding
+  rewrite in the production artefact. The session layer is a security fix, not a feature, so T-0125 ships without
+  a flag.
+
+**Gate before `crm_import` is production-ready:** the storage origin joins the CSP `connect-src` (ADR-0019 point
+10), or the browser upload is blocked. This sits beside the T-0005 bucket items (D-L167, D-L171).
+
+**Review:** sign-in code is on @acexode's personal review list (D-A3). The lead asks them before merging.
+
+### D-L182 — T-0101 must cost nothing where its flag is off (lead, 2026-10-19)
+
+Windows job 13 (ee4dee2) found seven pages over their byte pins. These are records-ui pages served by the
+records process, where `crm_notifications` is off:
+- /contacts +1,078;
+- /accounts +1,831;
+- /contacts/[id] +2,240;
+- /accounts/[id] +1,249;
+- /deals/[id] +1,178;
+- the pipeline board +3,942;
+- /admin/custom-fields +457.
+
+Admin routes broke p02-live-api's budget run too. /leads is 2 bytes under its pin.
+
+So the bell's client code and strings ship in the shared shell bundles even where the flag is off. D-L177's
+8,000-byte allowance is for pages *with* the bell. Re-pinning eight budgets would hide a real regression, so it
+is rejected.
+
+**Rule:**
+- With `crm_notifications` off, the bell adds no more than 200 bytes to any page. That means the bell's client
+  component, poller, store and strings live in their own chunk, loaded only when the server-side flag says so:
+  rendered through a server-component slot, or `next/dynamic`, never a static import from the client shell.
+- With the flag on, the 8,000-byte ceiling stands.
+- The re-measured pages must fit their existing pins. A page may be re-pinned only with a measured reason other
+  than the bell.
+
+### D-L183 — T-0124: the web screens change in the same task (lead, 2026-10-19)
+
+The T-0124 build at 19a510e changes the API but leaves several web screens assuming every contact has a
+readable name:
+- the leads screen's name sort;
+- number searches in `q` on contacts and leads;
+- client schemas that require `displayName` (records-api, pipelines-api, activities-api).
+
+Merged alone, those screens would fail to parse for a caller who cannot read a name part, and break the
+records-ui journeys on main. **So the web changes are part of T-0124, not a follow-up.** Agent 11 makes them on
+the T-0124 branch.
+
+**Accepted builder decisions:**
+- listAccountContacts defaults to `-createdAt`;
+- the repository's phone match is removed;
+- a read-only name part leaves `displayName` editable (I11, still open);
+- createContact and imports are unchanged (I11);
+- only `displayName` gets a stand-in, and every other withheld variable is still refused at publish.
+
+The stand-in translations need review.
+
+**Follow-up:** the 0035 `display_name` keyset indexes are now unused. Drop them in a later migration, which
+gets migration review.
+
+The lead re-pins (contacts-api, leads-api, accounts-api, list-indexes, contact-merge, contact-timeline,
+records-contract-search R18, e2e p04-leads) are made on lead/T-0124-acceptance, and the R18 contract text changes
+with them.
+
+### D-L184 — T-0124 review rulings (lead, 2026-10-19)
+
+The security and tenancy reviews of 19a510e both passed with findings. Nothing blocks merge, and each name is
+judged in the record's own programme.
+
+**Required before merge:**
+- **One rule (both reviews, finding 1).** The notifications path calls the shared `DISPLAY_NAME_PARTS` and
+  `displayNameReadable`, instead of its own `NAME_FIELDS.contact` copy.
+- **Sensitivity is inherited (finding 2).** The script fact for `displayName` is `sensitive` when any name part is
+  sensitive (D-L13 covers derived fields, failing closed). It then follows exactly the rules a sensitive part
+  follows, at publish and at run.
+- **Housekeeping (finding 5).** Remove `displayNameWithheldAnywhere` if nothing uses it. Fix the stale comments in
+  contacts.controller `list` ("name or number … E.164") and activity-fields ("always sent").
+- **The board (tenancy 3).** A comment at pipelines.service where the name is judged once per board points to the
+  composite keys that make it correct.
+- **The web (security 6, the part T-0124 can fix).** The activity composer, and any other web control, routes
+  identifier-shaped input to lookupRecords instead of sending it as a `q` to listAccounts or listContacts.
+
+**Accepted:**
+- **Undo (3).** It reveals that a merge changed a withheld name to an undoer who has lost read. That is
+  consistent with M12 (D-L151), and the undoer is the merger or an admin.
+
+**Follow-ups:**
+- **Merge consistency (4).** A merge can update a name part while `displayName`, withheld from the caller,
+  stays as it was. This belongs to I11's open product question on derived-name writes.
+- **R21 for listAccounts and listDeals.** Their `q` still accepts identifiers in URLs that ingress logs record.
+  That's a new task. It predates T-0124, which was kept to I10.
+
+### D-L185 — T-0101 flag-off cost fixed; the import job's throttle wait amended (lead, 2026-10-19)
+
+At 0f048f4, with `crm_notifications` off, every page gains no more than 195 bytes over main, so all pins are
+unchanged (D-L182). With it on, the bell adds about 5.8 to 6.5 KB, under the 8,000 ceiling. The main cost was not
+the bell: the new centre route didn't use the shared `auth/button-classes`, so that module left Next's commons
+chunk and landed on every list page. The centre now uses it.
+
+**D-L179 N7 amended.** `use-import-job` treats `too_many_requests` as keep-polling on its own growing schedule,
+capped at 20 s, and does not read `Retry-After`. Carrying `Retry-After` through the shared records client would
+cost every records page about 80 bytes. A bounded back-off already meets "never hammer". The notifications client
+keeps its own `Retry-After` handling.
+
+### D-L186 — T-0125 journey hang: a test defect, fixed by a lead edit (lead, 2026-10-19)
+
+The `@bff-session-journey` test hung at its 240 s timeout on both the Windows runner and the Mac (7ffc018). Every
+other browser-session test passed on the Mac (391 of 394 across the session, auth, auth-ui, e2e-harness and
+re-pinned config suites).
+
+Cause: the spec captured every request with `request.allHeaders()`. In Playwright 1.63 that never settles for a
+request the page aborts after its response (Chromium sends no request extra-info), and Next aborts some by design,
+such as a Link prefetch cut short by navigation.
+
+The spec now falls back to `request.headers()` on `requestfailed`. Those headers still carry any injected
+x-kasuwa-* or authorization header, so the I11 check is undiminished. This is a lead edit on
+lead/T-0125-acceptance (7c76905) with the spec hash re-pinned, merged into the build as de6aa69.
+
+The Windows job 18 failure (the API never ready) did not reproduce on the Mac; it was host load.

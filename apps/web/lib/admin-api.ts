@@ -926,6 +926,10 @@ export const AuditAction = z.enum([
   'played_recording',
   // A script version published (T-0113, D-L96).
   'published',
+  // Two contacts merged, and a merge undone (T-0095, migration 0043, D-L162). Not behind
+  // `crm_duplicates`: the API merges whatever any web flag says, so the log must read it.
+  'merged',
+  'restored',
 ]);
 export type AuditAction = z.infer<typeof AuditAction>;
 
