@@ -4,6 +4,9 @@
 - **Date:** 2026-09-26
 - **Deciders:** Lead agent, @acexode
 - **Source:** Decision D-L05; the brief ("real auth comes later")
+- **Amended by:** ADR-0019 (T-0125). Stub identity headers now cross the web tier only when the web process itself
+  runs `KASUWA_AUTH_MODE=stub` (refused under `NODE_ENV=production`); a `jwt` web process drops them, and refuses
+  scope headers with the API's own 400.
 
 ## Context
 

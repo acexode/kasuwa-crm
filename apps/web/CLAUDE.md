@@ -194,11 +194,28 @@ directive, because a client module's exports become client references and a
 server component importing one gets a proxy, which fails at request time and not
 at compile time.
 
-**The API is same-origin.** Every fetch is a relative `/api/v1/...` path;
-`next.config.mjs` rewrites it, reading the origin through `webEnv()` from
-`@kasuwa/config/web` (T-0014). No `process.env` anywhere in apps/web (bar the
-`...process.env` spread in `build.mjs`), and no extra DNS
-lookup, TLS handshake or CORS preflight on a 300 ms link.
+**The API is same-origin, through the BFF (ADR-0019, T-0125).** Every browser
+call goes through `lib/api-fetch.ts` (ESLint refuses a raw `fetch` anywhere
+else in apps/web) to a relative `/api/v1/...` path. The route handler
+`app/api/v1/[...path]/route.ts` is the browser's only door to the API: it
+keeps the session token in the HttpOnly `__Host-kasuwa_session` cookie, never
+shows it to page JavaScript, enforces CSRF on every unsafe method, and forwards
+server-side to `KASUWA_API_INTERNAL_URL` with `Authorization: Bearer`. There is
+no rewrite and no `NEXT_PUBLIC_API_URL`: the browser never learns the API's
+address. The BFF resolves no session and decides no scope; the API does, per
+request. Its code is `lib/server/` (server only; no client module may import
+it, and `app/client-boundary.test.ts` walks the imports to prove it). It is on
+the D-A3 review list: a bug in header filtering there is an auth bug.
+
+`middleware.ts` sets the page CSP with a fresh nonce on every page response
+(`lib/server/csp.ts`); `connect-src` is `'self'` alone. A new external origin
+the browser must reach is an ADR-0019 amendment, not an edit to that file.
+
+`webEnv()` (from `@kasuwa/config/web`, T-0014) requires `KASUWA_WEB_ORIGIN`
+(this process's own origin, exactly as the browser sends it) and
+`KASUWA_API_INTERNAL_URL`. No `process.env` anywhere in apps/web (bar the
+`...process.env` spread in `build.mjs`), and no extra DNS lookup, TLS handshake
+or CORS preflight on a 300 ms link.
 
 ## Icons
 
