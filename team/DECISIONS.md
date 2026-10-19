@@ -3991,3 +3991,20 @@ load.
 - **C11.** D-L174's cursor follow-up isn't visible from the client and stays a follow-up.
 - **C12.** The task's line estimate is superseded; the build ships as a stack.
 - **Flag.** `crm_notifications` is declared by T-0100. If T-0101 builds first, it copies the entry word for word.
+
+### D-L178 — ADR-0019 accepted; T-0125 build starts (lead, 2026-10-19)
+
+@acexode accepted ADR-0019 (D-A3) and confirmed all five points the suite ruled where the ADR was silent
+(D-L172). They are now the ADR's amendments 1–5:
+1. a dedicated `webSessionUrl` process for the browser journey;
+2. Secure and `__Host-` kept on loopback, with https required for the internal API URL under production except
+   on loopback;
+3. both URLs required in every mode;
+4. a nonce of at least 128 bits, and the API's 404 for navigations to `/api/*`;
+5. two session cookies never mix tenants and never 5xx.
+
+The T-0125 build starts against lead/T-0125-acceptance (44e8734).
+
+**Lead re-pins during the build:** the `webEnv` fixtures in config-schemas, storage-adapter, outbox and
+auth-role gain `KASUWA_WEB_ORIGIN` and `KASUWA_API_INTERNAL_URL` (D-L172). The builder reports them, and the lead
+edits them on the suite branch.
