@@ -360,10 +360,14 @@ describe('acceptance (adversarial): import isolation (T-0094)', () => {
   /** A stored_object row the migrator plants, referenced by no job. */
   async function plantObject(tail: string, tenantId: string, programmeId: string, userId: string): Promise<string> {
     const id = id94(tail);
+    // D-L166 item 1: the key is its own text parameter. Binding one parameter
+    // as both a uuid column and a text operand is refused by Postgres
+    // ("inconsistent types deduced for parameter") before the statement under
+    // test runs.
     await observer.query(
       `INSERT INTO stored_object (id, tenant_id, programme_id, key, purpose, declared_size_bytes, content_type, uploaded_by_user_id)
-       VALUES ($1, $2, $3, 'tenant/' || $2 || '/programme/' || $3 || '/import/' || $1, 'import', 10, 'text/csv', $4)`,
-      [id, tenantId, programmeId, userId],
+       VALUES ($1, $2, $3, $5, 'import', 10, 'text/csv', $4)`,
+      [id, tenantId, programmeId, userId, `tenant/${tenantId}/programme/${programmeId}/import/${id}`],
     );
     return id;
   }
@@ -654,9 +658,18 @@ describe('acceptance (adversarial): import isolation (T-0094)', () => {
         expect(part.url).not.toContain(FILE);
       }
       const etags = await putParts(upload.parts, bytes);
+      // D-L166 item 2: earlier tests leave their objects in the bucket (reseed
+      // does not touch it), so only THIS import's own key is listed whole;
+      // tenant A's prefix is compared before and after, which keeps "complete
+      // wrote nowhere else" without depending on test order.
+      const keysUnder = async (prefix: string) => (await seaweed.listEntries(prefix)).map((e) => e.key).sort();
+      const beforeA = await keysUnder(`tenant/${TENANT_A}/`);
+      expect(beforeA, 'an object sits at the key before complete').not.toContain(keyOf(row));
       const before = await seaweed.listEntries(`tenant/${TENANT_B}/`);
       expect((await post(CREATOR, importPath(upload.importId, '/complete'), { parts: etags })).status).toBe(202);
-      expect((await seaweed.listEntries(`tenant/${TENANT_A}/`)).map((e) => e.key)).toEqual([keyOf(row)]);
+      expect((await seaweed.listEntries(keyOf(row))).map((e) => e.key)).toEqual([keyOf(row)]);
+      const afterA = await keysUnder(`tenant/${TENANT_A}/`);
+      expect(afterA.filter((key) => !beforeA.includes(key)), 'complete wrote somewhere but the import’s own key').toEqual([keyOf(row)]);
       expect(await seaweed.listEntries(`tenant/${TENANT_B}/`)).toEqual(before);
     });
 
