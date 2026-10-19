@@ -242,6 +242,12 @@ export const contact = pgTable(
      * Composite FK (tenant_id, programme_id, import_job_id) -> import_job.
      */
     importJobId: uuid('import_job_id'),
+    /**
+     * Migration 0043 (T-0095, D-P27): set when the contact is merged away. A
+     * merged-away contact is absent from every read (the repositories'
+     * `deleted_at IS NULL`) and frozen for writes (contact_merged_away_frozen).
+     */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => [
     /** Migration 0042 (T-0094): the importId filter on listContacts. Partial. */
@@ -675,6 +681,50 @@ export const scriptRun = pgTable(
       table.scriptId,
       table.versionId,
     ),
+  ],
+);
+
+// --- the merge trail (migration 0043, T-0095) --------------------------------
+
+/**
+ * One merge of two contacts in one programme (0043; D-P12, D-P27, D-L151).
+ * Composite FKs hold both contacts in the merge's programme. kasuwa_app may
+ * read and insert, and update ONLY the three undo columns; the snapshot (the
+ * merged-away row, PII) and the window are immutable for it and never served.
+ * A RESTRICTIVE INSERT policy pins `merged_by_user_id` to the session user
+ * and `created_at` to now(); a RESTRICTIVE UPDATE policy admits one undo,
+ * inside the window, as the session user.
+ */
+export const contactMerge = pgTable(
+  'contact_merge',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    /** Composite FK (tenant_id, programme_id, survivor_id) -> contact, RESTRICT. */
+    survivorId: uuid('survivor_id').notNull(),
+    /** Composite FK (tenant_id, programme_id, merged_id) -> contact, RESTRICT. */
+    mergedId: uuid('merged_id').notNull(),
+    /** Composite FK (tenant_id, merged_by_user_id) -> "user". The undo right rests on it. */
+    mergedByUserId: uuid('merged_by_user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** created_at + exactly 720 hours (CHECK). */
+    undoUntil: timestamp('undo_until', { withTimezone: true }).notNull(),
+    undoneAt: timestamp('undone_at', { withTimezone: true }),
+    undoneByUserId: uuid('undone_by_user_id'),
+    survivorReverted: boolean('survivor_reverted'),
+    /** PII: the merged-away row and the survivor's prior values. Never served or logged. */
+    snapshot: jsonb('snapshot').notNull(),
+  },
+  (table) => [
+    index('contact_merge_recent_idx').on(
+      table.tenantId,
+      table.programmeId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    index('contact_merge_merged_idx').on(table.tenantId, table.programmeId, table.mergedId),
+    index('contact_merge_survivor_idx').on(table.tenantId, table.programmeId, table.survivorId),
   ],
 );
 
@@ -1607,6 +1657,7 @@ export const TENANT_SCOPED_TABLES = [
   'user',
   'user_programme',
   'contact',
+  'contact_merge',
   'account',
   'activity',
   'script',

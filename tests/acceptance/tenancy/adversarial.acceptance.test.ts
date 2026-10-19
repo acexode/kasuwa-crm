@@ -1033,3 +1033,164 @@ describe('acceptance: adversarial tenancy attacks', () => {
     expect(reachable.tenants).toBe(1);
   });
 });
+
+/**
+ * LEAD EDIT (T-0095, D-L23; Agent 12): attacks on `contact_merge`, the undo
+ * trail of a merge (D-P12, D-P27, D-L151), from below the API.
+ *
+ * Why here and not only in records/contact-merge: undo restores a contact
+ * from the row's snapshot, and the right to undo rests on
+ * `merged_by_user_id`. So the row is an authority, not a log, and the
+ * question this file always asks applies: with the GUCs forged to anything,
+ * what can still be done to it?
+ *
+ * Pinned (the column names are contact-merge's: survivor_id, merged_id,
+ * merged_by_user_id, undo_until, undone_at, undone_by_user_id, snapshot):
+ *   - a session reaching BOTH programmes still cannot record a merge across
+ *     them (the composite keys, not the policy, stop it);
+ *   - a session cannot record a merge in another user's name: a RESTRICTIVE
+ *     INSERT policy, `merged_by_user_id = app.current_user_id()`, as
+ *     audit_event_actor_is_session does for the audit actor (0008);
+ *   - no session can delete or truncate a merge, extend its window, re-point
+ *     it or rewrite its snapshot; it can only mark it undone;
+ *   - another tenant reads none, whatever programme ids it forges;
+ *   - a session cannot write a merge into another tenant.
+ * Each test opens with a control that must succeed, so none passes on a
+ * database without the table (main, before T-0095), where every statement
+ * fails with 42P01.
+ */
+describe('acceptance: adversarial attacks on the merge trail (T-0095 lead edit)', () => {
+  let appPool: Pool;
+  let migrator: Pool;
+  const a1 = SEED_CONTACTS.filter((c) => c.programmeId === PROGRAMME_A1).map((c) => c.id);
+  const a2 = SEED_CONTACTS.filter((c) => c.programmeId === PROGRAMME_A2).map((c) => c.id);
+  const SURVIVOR = a1[0] ?? '';
+  const MERGED = a1[1] ?? '';
+  const ELSEWHERE = a2[0] ?? '';
+  const MERGE_ID = '11111111-0000-4000-8000-0095aaaa0001';
+
+  const INSERT_SQL = `
+    INSERT INTO contact_merge (id, tenant_id, programme_id, survivor_id, merged_id, merged_by_user_id,
+                               created_at, undo_until, snapshot)
+    VALUES ($1, $2, $3, $4, $5, $6, now(), now() + interval '30 days', '{}'::jsonb)`;
+
+  type Query = <R extends Record<string, unknown>>(sql: string, values?: unknown[]) => Promise<R[]>;
+
+  /** One statement under a savepoint, always rolled back to it: 'ok:<rows>' or the SQLSTATE. */
+  async function attempt(query: Query, sql: string, values: unknown[] = []): Promise<string> {
+    await query('SAVEPOINT t0095_attack');
+    try {
+      const rows = await query(sql, values);
+      return `ok:${rows.length}`;
+    } catch (error) {
+      return String((error as { code?: unknown }).code ?? error);
+    } finally {
+      await query('ROLLBACK TO SAVEPOINT t0095_attack');
+    }
+  }
+
+  beforeAll(async () => {
+    appPool = createPool({ connectionString: inject('databaseUrl'), max: 2 });
+    migrator = createPool({ connectionString: inject('migrationUrl'), max: 2 });
+  });
+
+  afterAll(async () => {
+    await appPool?.end();
+    await migrator?.end();
+    await reseed(inject('migrationUrl'));
+  });
+
+  /** One A1 merge row, planted by kasuwa_migrator. */
+  async function plantMerge(): Promise<void> {
+    await migrator.query('DELETE FROM contact_merge WHERE id = $1', [MERGE_ID]);
+    await migrator.query(INSERT_SQL, [MERGE_ID, TENANT_A, PROGRAMME_A1, SURVIVOR, MERGED, USER_A_SUPERVISOR]);
+  }
+
+  it('a session forging scope over BOTH programmes still cannot record a merge across them', async () => {
+    expect([SURVIVOR, MERGED, ELSEWHERE].every((id) => id !== ''), 'fixture drift').toBe(true);
+    const outcomes = await withForcedScope(
+      appPool,
+      { tenantId: TENANT_A, userId: USER_A_SUPERVISOR, programmeIds: [PROGRAMME_A1, PROGRAMME_A2] },
+      async (query) => ({
+        control: await attempt(query, `${INSERT_SQL} RETURNING id`, [newId(), TENANT_A, PROGRAMME_A1, SURVIVOR, MERGED, USER_A_SUPERVISOR]),
+        mergedElsewhere: await attempt(query, INSERT_SQL, [newId(), TENANT_A, PROGRAMME_A1, SURVIVOR, ELSEWHERE, USER_A_SUPERVISOR]),
+        survivorElsewhere: await attempt(query, INSERT_SQL, [newId(), TENANT_A, PROGRAMME_A2, SURVIVOR, ELSEWHERE, USER_A_SUPERVISOR]),
+      }),
+    );
+    expect(outcomes.control, 'control: a same-programme merge').toBe('ok:1');
+    expect(outcomes.mergedElsewhere).toBe('23503');
+    expect(outcomes.survivorElsewhere).toBe('23503');
+  });
+
+  it('a session cannot record a merge in another user’s name, which would hand them the undo right', async () => {
+    const outcomes = await withForcedScope(
+      appPool,
+      { tenantId: TENANT_A, userId: USER_A_AGENT_1, programmeIds: [PROGRAMME_A1] },
+      async (query) => ({
+        control: await attempt(query, `${INSERT_SQL} RETURNING id`, [newId(), TENANT_A, PROGRAMME_A1, SURVIVOR, MERGED, USER_A_AGENT_1]),
+        forged: await attempt(query, INSERT_SQL, [newId(), TENANT_A, PROGRAMME_A1, SURVIVOR, MERGED, USER_A_SUPERVISOR]),
+      }),
+    );
+    expect(outcomes.control, 'control: in the session user’s own name').toBe('ok:1');
+    expect(outcomes.forged, 'merged_by_user_id must be the session user').toBe('42501');
+  });
+
+  it('no session can erase the trail, extend the window, re-point a merge or rewrite its snapshot; it can only mark it undone', async () => {
+    await plantMerge();
+    const outcomes = await withForcedScope(
+      appPool,
+      { tenantId: TENANT_A, userId: USER_A_SUPERVISOR, programmeIds: [PROGRAMME_A1, PROGRAMME_A2] },
+      async (query) => ({
+        control: await attempt(
+          query,
+          'UPDATE contact_merge SET undone_at = now(), undone_by_user_id = $2, survivor_reverted = true WHERE id = $1 RETURNING id',
+          [MERGE_ID, USER_A_SUPERVISOR],
+        ),
+        delete: await attempt(query, 'DELETE FROM contact_merge WHERE id = $1 RETURNING id', [MERGE_ID]),
+        truncate: await attempt(query, 'TRUNCATE contact_merge'),
+        extend: await attempt(query, `UPDATE contact_merge SET undo_until = undo_until + interval '1 year' WHERE id = $1 RETURNING id`, [MERGE_ID]),
+        backdate: await attempt(query, `UPDATE contact_merge SET created_at = now() WHERE id = $1 RETURNING id`, [MERGE_ID]),
+        repoint: await attempt(query, 'UPDATE contact_merge SET merged_id = $2 WHERE id = $1 RETURNING id', [MERGE_ID, SURVIVOR]),
+        reassign: await attempt(query, 'UPDATE contact_merge SET merged_by_user_id = $2 WHERE id = $1 RETURNING id', [MERGE_ID, USER_A_AGENT_1]),
+        snapshot: await attempt(query, `UPDATE contact_merge SET snapshot = '{"dnd": false}'::jsonb WHERE id = $1 RETURNING id`, [MERGE_ID]),
+      }),
+    );
+    expect(outcomes.control, 'control: marking it undone').toBe('ok:1');
+    for (const [attack, outcome] of Object.entries(outcomes)) {
+      if (attack === 'control') continue;
+      // 42501: no privilege. A DELETE matching nothing would also leave the trail, but there is no grant to try with.
+      expect(outcome, attack).toBe('42501');
+    }
+    const still = await migrator.query<{ n: string }>('SELECT count(*)::text AS n FROM contact_merge WHERE id = $1 AND undone_at IS NULL', [MERGE_ID]);
+    expect(still.rows[0]?.n, 'every attempt rolled back').toBe('1');
+  });
+
+  it('another tenant reads no merge, whatever programme ids it forges; a programme outside the scope reads none either', async () => {
+    await plantMerge();
+    const count = (scope: { tenantId: string; programmeIds: string[] }) =>
+      withForcedScope(appPool, { ...scope, userId: USER_A_SUPERVISOR }, async (query) => {
+        const rows = await query<{ n: string; snap: string | null }>(
+          'SELECT count(*)::text AS n, max(snapshot::text) AS snap FROM contact_merge',
+        );
+        return { n: Number(rows[0]?.n ?? '-1'), snap: rows[0]?.snap ?? null };
+      });
+    expect((await count({ tenantId: TENANT_A, programmeIds: [PROGRAMME_A1] })).n, 'control').toBe(1);
+    expect(await count({ tenantId: TENANT_B, programmeIds: [PROGRAMME_A1, PROGRAMME_A2] })).toEqual({ n: 0, snap: null });
+    expect(await count({ tenantId: TENANT_A, programmeIds: [PROGRAMME_A2] })).toEqual({ n: 0, snap: null });
+    expect(await count({ tenantId: TENANT_A, programmeIds: [] })).toEqual({ n: 0, snap: null });
+  });
+
+  it('a session cannot write a merge row into another tenant', async () => {
+    const tenantBContacts = SEED_CONTACTS.filter((c) => c.programmeId === PROGRAMME_B1).map((c) => c.id);
+    const outcomes = await withForcedScope(
+      appPool,
+      { tenantId: TENANT_A, userId: USER_A_SUPERVISOR, programmeIds: [PROGRAMME_A1, PROGRAMME_B1] },
+      async (query) => ({
+        control: await attempt(query, `${INSERT_SQL} RETURNING id`, [newId(), TENANT_A, PROGRAMME_A1, SURVIVOR, MERGED, USER_A_SUPERVISOR]),
+        intoB: await attempt(query, INSERT_SQL, [newId(), TENANT_B, PROGRAMME_B1, tenantBContacts[0], tenantBContacts[1], USER_B_AGENT_1]),
+      }),
+    );
+    expect(outcomes.control).toBe('ok:1');
+    expect(['42501', '23503'], `into tenant B: ${outcomes.intoB}`).toContain(outcomes.intoB);
+  });
+});

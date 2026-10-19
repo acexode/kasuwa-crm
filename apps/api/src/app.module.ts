@@ -35,6 +35,12 @@ import { DatabaseModule } from './database/database.module';
 import { DealsController, PipelineDealsController } from './deals/deals.controller';
 import { HealthController } from './health/health.controller';
 import { LeadsController } from './leads/leads.controller';
+import { DuplicatesThrottleGuard } from './merges/duplicates-throttle.guard';
+import {
+  ContactMergePreviewController,
+  ContactMergesController,
+  DuplicatesController,
+} from './merges/merges.controller';
 import { MeController } from './me/me.controller';
 import { PipelinesController } from './pipelines/pipelines.controller';
 import { CHANNEL, createApiChannel } from './messaging/channel';
@@ -78,6 +84,10 @@ export const RECORDS_CONTROLLERS = [
   SearchController,
   // CSV import (T-0094): the nine import operations.
   ImportsController,
+  // Duplicates, merge and undo (T-0095).
+  DuplicatesController,
+  ContactMergePreviewController,
+  ContactMergesController,
 ];
 
 /**
@@ -301,6 +311,8 @@ export class AppModule implements NestModule {
         ImportsEnabledGuard,
         ImportCommitInterceptor,
         ImportQueuesLifecycle,
+        // The per-user listDuplicates budget (T-0095, D-L151): one set of counters.
+        DuplicatesThrottleGuard,
         { provide: AUTH_MODE, useValue: options.authMode ?? 'stub' },
         {
           provide: CHANNEL,

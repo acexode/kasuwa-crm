@@ -95,7 +95,8 @@ export class DuplicateScanOutOfScopeError extends Error {
 }
 
 /**
- * Loads the programme's readable phones and emails into a port.
+ * Loads the programme's readable phones and emails into a port. A contact
+ * merged away (T-0095, D-P27) is no duplicate: it is absent from every read.
  *
  * tenancy-reviewed: tenant from the session, the programme checked against
  * the session's scope, RLS besides; keyset by id, never OFFSET. A field the
@@ -118,6 +119,7 @@ export async function loadProgrammeDuplicates(
       `SELECT id, ${phonesColumn}, ${emailsColumn}
          FROM contact
         WHERE tenant_id = $1 AND programme_id = $2 AND id > $3::uuid
+          AND deleted_at IS NULL
         ORDER BY id
         LIMIT $4`,
       [tx.session.tenantId, programmeId, after, pageSize],

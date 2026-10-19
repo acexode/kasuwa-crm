@@ -28,6 +28,15 @@ import { foldForSearch, tenantDefaultCountry, type DefaultCountry } from './phon
  */
 
 export const MAX_PAGE_SIZE = 100;
+
+/**
+ * D-P27 (T-0095): the predicate every contact read and write carries. A
+ * contact merged away (migration 0043's `deleted_at`) is answered exactly as
+ * an id that names nothing: absent from lists, cursors, lookups and the
+ * record view, and never written. Only the merge repository reads such a row,
+ * to undo the merge. Unqualified: it names the statement's own `contact`.
+ */
+export const LIVE_CONTACT = 'deleted_at IS NULL';
 export const DEFAULT_PAGE_SIZE = 25;
 
 export interface ContactPhone {
@@ -532,7 +541,8 @@ function keysetClause(
             FROM contact cursor_row
            WHERE cursor_row.id = ${params.add(id)}::uuid
              AND cursor_row.tenant_id = ${scope.tenantId}
-             AND ${scope.programmeIn('cursor_row.programme_id')})`;
+             AND ${scope.programmeIn('cursor_row.programme_id')}
+             AND cursor_row.deleted_at IS NULL)`;
 }
 
 export async function listContacts(
@@ -547,7 +557,12 @@ export async function listContacts(
   // clause is ANDed on and can only narrow (see searchClause). One programme
   // is scalar equality, so a programme-led index gives the order (M1).
   const scope = listScopeSql(tx.session, (value) => params.add(value));
-  const where = [`tenant_id = ${scope.tenantId}`, scope.programmeIn('programme_id')];
+  // D-P27 (T-0095): a merged-away contact is in no list, page or cursor.
+  const where = [
+    `tenant_id = ${scope.tenantId}`,
+    scope.programmeIn('programme_id'),
+    LIVE_CONTACT,
+  ];
   if (options.cursor !== undefined) where.push(keysetClause(sort, options.cursor, params, scope));
   if (options.search !== undefined) where.push(searchClause(options.search, params));
   if (options.filters !== undefined) where.push(...filterClauses(options.filters, params));
@@ -579,7 +594,8 @@ export async function findContactById(tx: TenantTx, id: string): Promise<Contact
        FROM contact
       WHERE id = $1
         AND tenant_id = $2
-        AND programme_id = ANY($3::uuid[])`,
+        AND programme_id = ANY($3::uuid[])
+        AND ${LIVE_CONTACT}`,
     [id, tx.session.tenantId, tx.session.programmeIds],
   );
   const row = rows[0];
@@ -748,6 +764,7 @@ export async function updateContactIfVersion(
         AND tenant_id = ${params.add(tx.session.tenantId)}::uuid
         AND programme_id = ${params.add(target.programmeId)}::uuid
         AND version = ${params.add(target.version)}::integer
+        AND ${LIVE_CONTACT}
       RETURNING ${SELECT_COLUMNS}`,
     params.values,
   );

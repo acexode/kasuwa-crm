@@ -14,6 +14,8 @@ import {
 import type { ContactPhone, ContactValues } from '../contact/contact.repository';
 import {
   BCP47,
+  CONTACT_MAX_EMAILS,
+  CONTACT_MAX_PHONES,
   CONTACT_SOURCES,
   CONTACT_STATUSES,
   CONTACT_WRITABLE_FIELDS,
@@ -263,7 +265,9 @@ export function parseImportRow(record: readonly string[], context: ImportRowCont
     }
   }
 
-  if (phones.length > 10 || emails.length > 10 || tags.length > 50) fail(null, 'too_long');
+  if (phones.length > CONTACT_MAX_PHONES || emails.length > CONTACT_MAX_EMAILS || tags.length > 50) {
+    fail(null, 'too_long');
+  }
   if (phones.length > 0) values.phones = phones;
   if (emails.length > 0) values.emails = emails;
   if (tags.length > 0) values.tags = tags;

@@ -60,6 +60,11 @@ export const BCP47 = new RegExp(
     ')|([Xx](-[A-Za-z0-9]{1,8})+))$',
 );
 
+/** The most numbers a contact holds; the duplicates ordinal cap derives from it (T-0095). */
+export const CONTACT_MAX_PHONES = 10;
+/** The most addresses a contact holds; the duplicates ordinal cap derives from it (T-0095). */
+export const CONTACT_MAX_EMAILS = 10;
+
 /**
  * Properties both contact writes accept, as the contract names them. The
  * free-text names go through `text()` (D-L78): a NUL is 400
@@ -72,8 +77,8 @@ export const CONTACT_WRITABLE_FIELDS = {
   familyName: text(0, 200).nullable().optional(),
   // T-0076 (D-L82): 1..200 code points, no NUL; `null` clears it, "" is 400.
   companyName: text(1, 200).nullable().optional(),
-  phones: z.array(ContactPhoneSchema).max(10).optional(),
-  emails: z.array(ContactEmailSchema).max(10).optional(),
+  phones: z.array(ContactPhoneSchema).max(CONTACT_MAX_PHONES).optional(),
+  emails: z.array(ContactEmailSchema).max(CONTACT_MAX_EMAILS).optional(),
   accountId: z.string().uuid().nullable().optional(),
   ownerUserId: z.string().uuid().nullable().optional(),
   status: z.enum(CONTACT_STATUSES).optional(),

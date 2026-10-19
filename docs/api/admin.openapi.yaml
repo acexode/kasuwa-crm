@@ -3575,6 +3575,8 @@ components:
         - rotated
         - played_recording
         - published
+        - merged
+        - restored
       description: |
         `viewed` and `played_recording` are here because M2 requires record
         views of sensitive fields and recording playback to be audited, even
@@ -3584,6 +3586,13 @@ components:
         `scripting.openapi.yaml`, object type `script`; T-0113, D-L96). Its
         changes name the version number and the ids of the compliance nodes
         added, removed and changed, never wording.
+
+        `merged` and `restored` are a contact merge and its undo
+        (`createContactMerge` and `undoContactMerge` in
+        `records.openapi.yaml`, object type `contact`; T-0095, D-P12). Exactly
+        one event each. Every change is a field name with `before` and `after`
+        null (D-L83): the survivor's fields the merge changed, compliance
+        fields included (D-P28), and never a value, a name or an identifier.
 
     AuditActor:
       type: object
