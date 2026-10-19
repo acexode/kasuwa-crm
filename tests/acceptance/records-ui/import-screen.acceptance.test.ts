@@ -181,7 +181,7 @@ const ADMIN_CONTRACT = 'docs/api/admin.openapi.yaml';
  * re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  [SPEC]: '628d1c8362f0380ab96f8f233414b4d703563b9ca08bcd9967b8208c584c2ecf',
+  [SPEC]: '87f64b62aa10b42b6474ad6c59c4a9fc63ed05bbff97f00d1aeea5822ac41e0b',
   [MOCK]: '5f292a2fc9c209bb0de597c2ab274d4be44cf72da87a1b2a901f3212d2104e36',
 };
 
