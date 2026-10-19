@@ -9,8 +9,8 @@ import { contentSecurityPolicy, newNonce, type CspMode } from './lib/server/csp'
  *    put on the REQUEST's `content-security-policy` header, where Next reads
  *    it and stamps it on every script it renders, and on the RESPONSE, where
  *    the browser enforces it. The policy itself is `lib/server/csp.ts`. The
- *    BFF at `/api/*` sets its own (`default-src 'none'`), so `api/` is not
- *    matched here.
+ *    BFF at `/api/v1/*` sets its own (`default-src 'none'`), so only
+ *    `api/v1/` (and `fonts/`) is left out of the matcher.
  *
  * 2. A `?locale=` PREVIEW, carried into the request for that request only.
  *    A layout does not receive `searchParams` — only pages do — and
@@ -54,8 +54,11 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   runtime: 'nodejs',
-  // Static assets need no policy and no locale decision, and running
-  // middleware on every font request is latency nobody asked for. The BFF
-  // (`api/`) sets its own policy.
-  matcher: ['/((?!_next/static|_next/image|fonts|api/).*)'],
+  // Everything gets the policy except two prefixes (D-L181 N4): the BFF
+  // (`api/v1/`), which sets its own `default-src 'none'`, and the self-hosted
+  // fonts (`fonts/`). Trailing slashes, so `/api/other`, `/fonts-x` and Next's
+  // own 404s are covered. Static chunks get it too; on a script or stylesheet
+  // response the header is inert, and an exclusion list that grows is how a
+  // page ends up without one.
+  matcher: ['/((?!api/v1/|fonts/).*)'],
 };
