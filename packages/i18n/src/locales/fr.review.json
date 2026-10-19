@@ -87,6 +87,7 @@
     "admin.studio.custom.form.classification": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "import.mapfield.source": "A word spelled the same in this language.",
     "import.country.GH": "A country name spelled the same in this language, with its dial code.",
-    "import.country.KE": "A country name spelled the same in this language, with its dial code."
+    "import.country.KE": "A country name spelled the same in this language, with its dial code.",
+    "duplicates.programme.label": "A word spelled the same in this language."
   }
 }
