@@ -4181,3 +4181,15 @@ judged in the record's own programme.
   stays as it was. This belongs to I11's open product question on derived-name writes.
 - **R21 for listAccounts and listDeals.** Their `q` still accepts identifiers in URLs that ingress logs record.
   That's a new task. It predates T-0124, which was kept to I10.
+
+### D-L185 — T-0101 flag-off cost fixed; the import job's throttle wait amended (lead, 2026-10-19)
+
+At 0f048f4, with `crm_notifications` off, every page gains no more than 195 bytes over main, so all pins are
+unchanged (D-L182). With it on, the bell adds about 5.8 to 6.5 KB, under the 8,000 ceiling. The main cost was not
+the bell: the new centre route didn't use the shared `auth/button-classes`, so that module left Next's commons
+chunk and landed on every list page. The centre now uses it.
+
+**D-L179 N7 amended.** `use-import-job` treats `too_many_requests` as keep-polling on its own growing schedule,
+capped at 20 s, and does not read `Retry-After`. Carrying `Retry-After` through the shared records client would
+cost every records page about 80 bytes. A bounded back-off already meets "never hammer". The notifications client
+keeps its own `Retry-After` handling.
