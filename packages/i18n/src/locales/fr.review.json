@@ -84,6 +84,9 @@
     "search.group.contact": "A loanword this locale uses unchanged for a CRM record type, as in the navigation.",
     "admin.studio.custom.type.date": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
     "admin.studio.custom.form.type": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
-    "admin.studio.custom.form.classification": "A product name, abbreviation or loanword the admin console uses unchanged in this locale."
+    "admin.studio.custom.form.classification": "A product name, abbreviation or loanword the admin console uses unchanged in this locale.",
+    "import.mapfield.source": "A word spelled the same in this language.",
+    "import.country.GH": "A country name spelled the same in this language, with its dial code.",
+    "import.country.KE": "A country name spelled the same in this language, with its dial code."
   }
 }
