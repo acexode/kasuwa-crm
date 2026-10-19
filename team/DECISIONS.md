@@ -3974,3 +3974,20 @@ The combined review of e2a42fb passed with findings: no security or privacy defe
 **API follow-up.** T-0095's merged and restored audit events use a contact UUID as `objectLabel`. That is not a
 disclosure, because the same value is in `objectId`, but it is poor to read. The replacement must be a generic
 "Contact" label, never `displayName`, because audit readers may not see the name.
+
+### D-L177 — T-0101 notifications screen suite accepted (lead, 2026-10-19)
+
+The suite is on lead/T-0101-acceptance at 8a98d2b: 48 acceptance tests and 39 `@p26-notifications` journeys. It
+uses Playwright's clock with no sleeps, and the spec and mock are hash-pinned. `NOTIFICATIONS_BUDGET_BYTES` is a
+provisional 250,000, which the lead re-pins. The bell may add at most 8,000 bytes to every CRM screen's first
+load.
+
+- **Rulings.** I1–I22 are accepted as written.
+- **C10, the harness cost.** The `webNotificationsUrl` process (I2) starts only when the grep can select
+  `@p26-notifications`, as `webSessionUrl` does for `@bff-session` (D-L172), so ordinary runs pay nothing.
+  Re-pinning 12 mocks to tolerate the poll is rejected, because it would weaken their "no undeclared call" guard.
+- **C1.** The poll interval is anything from 30 to 60 s.
+- **C2–C9.** Resolve to what is built.
+- **C11.** D-L174's cursor follow-up isn't visible from the client and stays a follow-up.
+- **C12.** The task's line estimate is superseded; the build ships as a stack.
+- **Flag.** `crm_notifications` is declared by T-0100. If T-0101 builds first, it copies the entry word for word.
