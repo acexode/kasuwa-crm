@@ -7,6 +7,12 @@
         "hooks": [
           { "type": "command", "command": "node .claude/hooks/protect-paths.mjs" }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "node .claude/hooks/guard-kill.mjs" }
+        ]
       }
     ],
     "PostToolUse": [
