@@ -4,7 +4,7 @@ import { ActivitiesScreen } from '../../components/activities/activities-screen'
 import { ACTIVITIES_MESSAGE_IDS } from '../../components/activities/message-ids';
 import { crmActivitiesEnabled, crmCustomFieldsEnabled, crmLiveNav } from '../../lib/feature-flags';
 import { withCustomMessages } from '../../components/custom/message-ids';
-import { withSearchMessages } from '../../components/search/message-ids';
+import { withShellMessages } from '../../components/crm/shell-messages';
 import { activeLocale, languageOptions } from '../../lib/locale';
 
 /**
@@ -31,7 +31,7 @@ export default async function ActivitiesPage() {
   return (
     <ActivitiesScreen
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(ACTIVITIES_MESSAGE_IDS, customFields), live))}
+      messages={bundleMessages(locale, withShellMessages(withCustomMessages(ACTIVITIES_MESSAGE_IDS, customFields), live))}
       locales={languageOptions(locale)}
       live={live}
       customFields={customFields}

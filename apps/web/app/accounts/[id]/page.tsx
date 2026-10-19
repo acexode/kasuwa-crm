@@ -4,7 +4,7 @@ import { AccountRecordScreen } from '../../../components/account-record/account-
 import { ACCOUNT_RECORD_MESSAGE_IDS } from '../../../components/account-record/message-ids';
 import { crmAccountsEnabled, crmCustomFieldsEnabled, crmLiveNav, crmRecordViewEnabled } from '../../../lib/feature-flags';
 import { withCustomMessages } from '../../../components/custom/message-ids';
-import { withSearchMessages } from '../../../components/search/message-ids';
+import { withShellMessages } from '../../../components/crm/shell-messages';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
 /**
@@ -47,7 +47,7 @@ export default async function AccountRecordPage({ params }: { params: Promise<{ 
       key={id}
       id={id}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(ACCOUNT_RECORD_MESSAGE_IDS, customFields), live))}
+      messages={bundleMessages(locale, withShellMessages(withCustomMessages(ACCOUNT_RECORD_MESSAGE_IDS, customFields), live))}
       locales={languageOptions(locale)}
       live={live}
       customFields={customFields}

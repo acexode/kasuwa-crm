@@ -8,6 +8,7 @@ import { ADMIN_PROGRAMME_MESSAGE_IDS } from '../../../../components/admin/messag
 import { activeLocale, languageOptions } from '../../../../lib/locale';
 import { adminLiveApiEnabled } from '../../../../lib/feature-flags';
 import { adminLiveNav } from '../../../../components/admin/live-nav';
+import { withNotificationMessages } from '../../../../components/notifications/message-ids';
 
 /**
  * `P02/B2`–`P02/B5` — one programme and its tabs.
@@ -41,7 +42,7 @@ export default async function ProgrammePage({
   return (
     <ProgrammeScreen
       locale={locale}
-      messages={bundleMessages(locale, ADMIN_PROGRAMME_MESSAGE_IDS)}
+      messages={bundleMessages(locale, withNotificationMessages(ADMIN_PROGRAMME_MESSAGE_IDS, Object.keys(linkedSettings)))}
       locales={languageOptions(locale)}
       linkedSettings={linkedSettings}
       programmeId={programmeId}

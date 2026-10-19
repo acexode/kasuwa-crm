@@ -4,6 +4,7 @@ import { ADMIN_STUDIO_MESSAGE_IDS } from '../../../components/admin/custom-field
 import { StudioScreen } from '../../../components/admin/custom-fields/studio-screen';
 import { crmCustomFieldsEnabled } from '../../../lib/feature-flags';
 import { adminLiveNav } from '../../../components/admin/live-nav';
+import { withNotificationMessages } from '../../../components/notifications/message-ids';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
 /**
@@ -22,7 +23,7 @@ export default async function CustomFieldsPage() {
   return (
     <StudioScreen
       locale={locale}
-      messages={bundleMessages(locale, ADMIN_STUDIO_MESSAGE_IDS)}
+      messages={bundleMessages(locale, withNotificationMessages(ADMIN_STUDIO_MESSAGE_IDS, Object.keys(linkedSettings)))}
       locales={languageOptions(locale)}
       linkedSettings={linkedSettings}
     />

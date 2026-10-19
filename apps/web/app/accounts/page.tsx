@@ -4,7 +4,7 @@ import { AccountsScreen } from '../../components/accounts/accounts-screen';
 import { ACCOUNTS_MESSAGE_IDS } from '../../components/accounts/message-ids';
 import { crmAccountsEnabled, crmCustomFieldsEnabled, crmLiveNav } from '../../lib/feature-flags';
 import { withCustomMessages } from '../../components/custom/message-ids';
-import { withSearchMessages } from '../../components/search/message-ids';
+import { withShellMessages } from '../../components/crm/shell-messages';
 import { activeLocale, languageOptions } from '../../lib/locale';
 import { nameFromUrl } from '../../lib/search-query';
 
@@ -46,7 +46,7 @@ export default async function AccountsPage({
     <AccountsScreen
       key={initialQ === '' ? 'list' : `q:${crypto.randomUUID()}`}
       locale={locale}
-      messages={bundleMessages(locale, withSearchMessages(withCustomMessages(ACCOUNTS_MESSAGE_IDS, customFields, 'list'), live))}
+      messages={bundleMessages(locale, withShellMessages(withCustomMessages(ACCOUNTS_MESSAGE_IDS, customFields, 'list'), live))}
       locales={languageOptions(locale)}
       live={live}
       customFields={customFields}
