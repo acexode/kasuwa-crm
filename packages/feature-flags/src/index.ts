@@ -264,6 +264,22 @@ export const FLAGS = {
     // orphaned-queue sweep and the head-404 reconcile are follow-ups (D-L166).
     productionReady: false,
   },
+  /**
+   * T-0100 (D-L146, D-L164): the in-app notifications the bell and centre show
+   * (P26; T-0101 owns the screens). A PRESENTATION switch, like `crm_search`:
+   * it gates the screens, not the API. The producers, the outbox consumer and
+   * the four routes run whether or not it is on, deliberately: an event that
+   * is appended and never consumed would sit in the queue, and the routes
+   * serve only the caller's own rows. It grants nothing.
+   */
+  crm_notifications: {
+    description: 'The P26 notification bell and centre in the CRM shell (T-0101); the notifications API and consumer run regardless (T-0100).',
+    defaultValue: false,
+    owner: 'T-0101 (screens), T-0100 (API and consumer), T-0099 (contract), D-L87, D-L146, D-L164',
+    // NOT production-ready: no screen reads it yet (T-0101), and old
+    // notifications are not purged (D-L146's retention is a follow-up).
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

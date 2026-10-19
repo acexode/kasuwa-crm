@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 205 rows; built 119, partial 11, mock-only 27, flagged-off 15, deferred 10, not-started 23.
+Totals: 206 rows; built 123, partial 11, mock-only 27, flagged-off 16, deferred 10, not-started 19.
 
 ## Modules
 
@@ -199,10 +199,10 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `listContactMerges` | GET /api/v1/contact-merges — List merges — newest first, keyset | built | — | — | docs/api/records.openapi.yaml |
 | operation | `createContactMerge` | POST /api/v1/contact-merges — Merge two contacts — the second is merged away into the first | built | — | — | docs/api/records.openapi.yaml |
 | operation | `undoContactMerge` | POST /api/v1/contact-merges/{mergeId}/undo — Undo a merge — restore the merged contact | built | — | — | docs/api/records.openapi.yaml |
-| operation | `listNotifications` | GET /api/v1/notifications — List the caller's notifications, newest first (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `getNotificationUnreadCount` | GET /api/v1/notifications/unread-count — The caller's unread count, for the bell badge (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `markAllNotificationsRead` | POST /api/v1/notifications/read-all — Mark all of the caller's unread notifications read, or all of one kind (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
-| operation | `updateNotification` | PATCH /api/v1/notifications/{notificationId} — Mark one notification read or unread (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
+| operation | `listNotifications` | GET /api/v1/notifications — List the caller's notifications, newest first | built | — | — | docs/api/records.openapi.yaml |
+| operation | `getNotificationUnreadCount` | GET /api/v1/notifications/unread-count — The caller's unread count, for the bell badge | built | — | — | docs/api/records.openapi.yaml |
+| operation | `markAllNotificationsRead` | POST /api/v1/notifications/read-all — Mark all of the caller's unread notifications read, or all of one kind | built | — | — | docs/api/records.openapi.yaml |
+| operation | `updateNotification` | PATCH /api/v1/notifications/{notificationId} — Mark one notification read or unread | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listScripts` | GET /api/v1/scripts — List the scripts the caller may author | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `createScript` | POST /api/v1/scripts — Create a draft script in a programme | built | — | — | docs/api/scripting.openapi.yaml |
 | operation | `getScript` | GET /api/v1/scripts/{scriptId} — Get a script, with its draft and translations | built | — | — | docs/api/scripting.openapi.yaml |
@@ -239,6 +239,7 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `crm_search` | The P27 global search screen at /search and the Ctrl/Cmd+K command palette in the CRM shell (T-0087). | flagged-off | `crm_search` | D-L133, D-L135 | packages/feature-flags/src/index.ts |
 | flag | `crm_custom_fields` | The P18 customisation studio for custom fields at /admin/custom-fields, and its settings-menu entry (T-0090). | flagged-off | `crm_custom_fields` | D-L128 | packages/feature-flags/src/index.ts |
 | flag | `crm_import` | CSV import of contacts: the /api/v1/imports routes, the importId contacts filter and the worker import queues (T-0094). | flagged-off | `crm_import` | D-L146, D-L166 | packages/feature-flags/src/index.ts |
+| flag | `crm_notifications` | The P26 notification bell and centre in the CRM shell (T-0101); the notifications API and consumer run regardless (T-0100). | flagged-off | `crm_notifications` | D-L87, D-L146, D-L164 | packages/feature-flags/src/index.ts |
 
 ## Deferred decisions
 
