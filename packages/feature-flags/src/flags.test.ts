@@ -26,6 +26,7 @@ describe('feature flags', () => {
       'crm_search',
       'crm_custom_fields',
       'crm_import',
+      'crm_duplicates',
     ]);
   });
 
@@ -207,6 +208,15 @@ describe('feature flags', () => {
     expect(flagConfiguration(['crm_import']).crm_import.defaultVariant).toBe('on');
     expect(flagConfiguration(['crm_records']).crm_import.defaultVariant).toBe('off');
     expect(() => assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: ['crm_import'] })).toThrow();
+  });
+
+  it('ships crm_duplicates OFF, its own switch, and not production-ready (T-0097)', () => {
+    expect(FLAGS.crm_duplicates.defaultValue).toBe(false);
+    expect(FLAGS.crm_duplicates.productionReady).toBe(false);
+    expect(flagConfiguration([]).crm_duplicates.defaultVariant).toBe('off');
+    expect(flagConfiguration(['crm_duplicates']).crm_duplicates.defaultVariant).toBe('on');
+    expect(flagConfiguration(['crm_records', 'crm_import']).crm_duplicates.defaultVariant).toBe('off');
+    expect(() => assertFlagsAreProductionSafe({ nodeEnv: 'production', enabled: ['crm_duplicates'] })).toThrow();
   });
 
   it('ships crm_custom_fields OFF, its own switch, and not production-ready (T-0090)', () => {

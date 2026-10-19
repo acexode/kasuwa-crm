@@ -264,6 +264,21 @@ export const FLAGS = {
     // orphaned-queue sweep and the head-404 reconcile are follow-ups (D-L166).
     productionReady: false,
   },
+  /**
+   * T-0097 (D-L146, D-L175): the P28 duplicates and merge screen at
+   * `/contacts/duplicates`, and the Contacts list's link to it. A PRESENTATION
+   * switch, like `crm_custom_fields`: T-0095 serves the five duplicates and
+   * merge operations ungated, so this flag hides a screen and grants nothing.
+   * Who may merge is `contact.write` in the programme, decided by the API.
+   */
+  crm_duplicates: {
+    description: 'The P28 duplicates and merge screen at /contacts/duplicates and its link on the Contacts list (T-0097).',
+    defaultValue: false,
+    owner: 'T-0097 (screen), T-0095 (API), D-L146, D-L175',
+    // NOT production-ready: proven against the contract mock only; the live
+    // journey against T-0095's real API follows once the screen merges.
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 205 rows; built 119, partial 11, mock-only 27, flagged-off 15, deferred 10, not-started 23.
+Totals: 206 rows; built 119, partial 11, mock-only 27, flagged-off 16, deferred 10, not-started 23.
 
 ## Modules
 
@@ -239,6 +239,7 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `crm_search` | The P27 global search screen at /search and the Ctrl/Cmd+K command palette in the CRM shell (T-0087). | flagged-off | `crm_search` | D-L133, D-L135 | packages/feature-flags/src/index.ts |
 | flag | `crm_custom_fields` | The P18 customisation studio for custom fields at /admin/custom-fields, and its settings-menu entry (T-0090). | flagged-off | `crm_custom_fields` | D-L128 | packages/feature-flags/src/index.ts |
 | flag | `crm_import` | CSV import of contacts: the /api/v1/imports routes, the importId contacts filter and the worker import queues (T-0094). | flagged-off | `crm_import` | D-L146, D-L166 | packages/feature-flags/src/index.ts |
+| flag | `crm_duplicates` | The P28 duplicates and merge screen at /contacts/duplicates and its link on the Contacts list (T-0097). | flagged-off | `crm_duplicates` | D-L146, D-L175 | packages/feature-flags/src/index.ts |
 
 ## Deferred decisions
 
