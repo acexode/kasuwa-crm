@@ -1,3 +1,5 @@
+import { numberingLocale } from './numbering';
+
 /**
  * Deal money on the P06 board (T-0109, D-L88, D-P19): exact, in the
  * currency's own format, for the page's language.
@@ -17,7 +19,7 @@
 
 function numberFormat(locale: string, options: Intl.NumberFormatOptions): Intl.NumberFormat {
   try {
-    return new Intl.NumberFormat(locale, options);
+    return new Intl.NumberFormat(numberingLocale(locale), options);
   } catch {
     return new Intl.NumberFormat('en', options);
   }

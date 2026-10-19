@@ -7,6 +7,7 @@ import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/b
 import { MAX_FILE_BYTES } from '../../lib/import-model';
 import type { UploadView } from '../../lib/import-upload';
 import type { ProgrammeList } from './use-import-history';
+import { numberingLocale } from '../../lib/numbering';
 
 /**
  * A and A1: the target programme, the file, and its upload.
@@ -27,7 +28,7 @@ const MIB = 1_048_576;
 /** A percentage in the reader's own numerals and format. */
 function percent(locale: string, value: number): string {
   try {
-    return new Intl.NumberFormat(locale, { style: 'percent' }).format(value / 100);
+    return new Intl.NumberFormat(numberingLocale(locale), { style: 'percent' }).format(value / 100);
   } catch {
     return new Intl.NumberFormat('en', { style: 'percent' }).format(value / 100);
   }
