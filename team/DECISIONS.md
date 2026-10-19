@@ -4099,3 +4099,29 @@ API, and nothing leaks across tenants.
 10), or the browser upload is blocked. This sits beside the T-0005 bucket items (D-L167, D-L171).
 
 **Review:** sign-in code is on @acexode's personal review list (D-A3). The lead asks them before merging.
+
+### D-L182 — T-0101 must cost nothing where its flag is off (lead, 2026-10-19)
+
+Windows job 13 (ee4dee2) found seven pages over their byte pins. These are records-ui pages served by the
+records process, where `crm_notifications` is off:
+- /contacts +1,078;
+- /accounts +1,831;
+- /contacts/[id] +2,240;
+- /accounts/[id] +1,249;
+- /deals/[id] +1,178;
+- the pipeline board +3,942;
+- /admin/custom-fields +457.
+
+Admin routes broke p02-live-api's budget run too. /leads is 2 bytes under its pin.
+
+So the bell's client code and strings ship in the shared shell bundles even where the flag is off. D-L177's
+8,000-byte allowance is for pages *with* the bell. Re-pinning eight budgets would hide a real regression, so it
+is rejected.
+
+**Rule:**
+- With `crm_notifications` off, the bell adds no more than 200 bytes to any page. That means the bell's client
+  component, poller, store and strings live in their own chunk, loaded only when the server-side flag says so:
+  rendered through a server-component slot, or `next/dynamic`, never a static import from the client shell.
+- With the flag on, the 8,000-byte ceiling stands.
+- The re-measured pages must fit their existing pins. A page may be re-pinned only with a measured reason other
+  than the bell.
