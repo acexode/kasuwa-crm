@@ -4181,3 +4181,31 @@ judged in the record's own programme.
   stays as it was. This belongs to I11's open product question on derived-name writes.
 - **R21 for listAccounts and listDeals.** Their `q` still accepts identifiers in URLs that ingress logs record.
   That's a new task. It predates T-0124, which was kept to I10.
+
+### D-L185 — T-0101 flag-off cost fixed; the import job's throttle wait amended (lead, 2026-10-19)
+
+At 0f048f4, with `crm_notifications` off, every page gains no more than 195 bytes over main, so all pins are
+unchanged (D-L182). With it on, the bell adds about 5.8 to 6.5 KB, under the 8,000 ceiling. The main cost was not
+the bell: the new centre route didn't use the shared `auth/button-classes`, so that module left Next's commons
+chunk and landed on every list page. The centre now uses it.
+
+**D-L179 N7 amended.** `use-import-job` treats `too_many_requests` as keep-polling on its own growing schedule,
+capped at 20 s, and does not read `Retry-After`. Carrying `Retry-After` through the shared records client would
+cost every records page about 80 bytes. A bounded back-off already meets "never hammer". The notifications client
+keeps its own `Retry-After` handling.
+
+### D-L186 — T-0125 journey hang: a test defect, fixed by a lead edit (lead, 2026-10-19)
+
+The `@bff-session-journey` test hung at its 240 s timeout on both the Windows runner and the Mac (7ffc018). Every
+other browser-session test passed on the Mac (391 of 394 across the session, auth, auth-ui, e2e-harness and
+re-pinned config suites).
+
+Cause: the spec captured every request with `request.allHeaders()`. In Playwright 1.63 that never settles for a
+request the page aborts after its response (Chromium sends no request extra-info), and Next aborts some by design,
+such as a Link prefetch cut short by navigation.
+
+The spec now falls back to `request.headers()` on `requestfailed`. Those headers still carry any injected
+x-kasuwa-* or authorization header, so the I11 check is undiminished. This is a lead edit on
+lead/T-0125-acceptance (7c76905) with the spec hash re-pinned, merged into the build as de6aa69.
+
+The Windows job 18 failure (the API never ready) did not reproduce on the Mac; it was host load.

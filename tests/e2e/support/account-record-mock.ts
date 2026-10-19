@@ -370,11 +370,15 @@ export const ACCOUNT_TIERS: readonly string[] = enumOf('AccountTier');
 export const ACTIVITY_TYPES: readonly string[] = enumOf('ActivityType');
 /** The Account fields an account timeline item may name (AccountFieldChangedItem). */
 export const ACCOUNT_TIMELINE_FIELDS: readonly string[] = enumOf('AccountFieldChangedItem', 'properties', 'field');
-export const CONTACT_SORTS: readonly string[] = (
-  (at(CONTRACT, 'paths', OP.listAccountContacts[0], 'get', 'parameters') as unknown[])
-    .map((raw) => deref(raw, CONTRACT).node as Json)
-    .find((parameter) => parameter.name === 'sort')?.schema as { enum: string[] }
-).enum.map(String);
+const CONTACT_SORT_SCHEMA = (at(CONTRACT, 'paths', OP.listAccountContacts[0], 'get', 'parameters') as unknown[])
+  .map((raw) => deref(raw, CONTRACT).node as Json)
+  .find((parameter) => parameter.name === 'sort')?.schema as { enum: string[]; default?: string };
+export const CONTACT_SORTS: readonly string[] = CONTACT_SORT_SCHEMA.enum.map(String);
+/**
+ * The contract's default for listAccountContacts' `sort`, read from the YAML
+ * rather than invented: `-createdAt` since T-0124 (D-L180 I5, D-L183).
+ */
+export const CONTACT_SORT_DEFAULT: string = String(CONTACT_SORT_SCHEMA.default ?? '-createdAt');
 
 const ACCOUNT_PROPERTIES: readonly string[] = Object.keys(at(schema('Account'), 'properties') as Json);
 const ACCOUNT_REQUIRED = at(schema('Account'), 'required') as string[];
@@ -1340,7 +1344,7 @@ export async function installAccountRecordMock(page: Page, options: AccountRecor
       return route.abort('internetdisconnected');
     }
     const problems = checkQuery(url, CONTACTS_PARAMETERS, 'listAccountContacts');
-    const sort = url.searchParams.get('sort') ?? 'displayName';
+    const sort = url.searchParams.get('sort') ?? CONTACT_SORT_DEFAULT;
     if (!CONTACT_SORTS.includes(sort)) problems.push(`sort=${sort} is not in the contract's enum`);
     if (problems.length > 0) {
       violations.push(...problems.map((problem) => `${url.search}: ${problem}`));
