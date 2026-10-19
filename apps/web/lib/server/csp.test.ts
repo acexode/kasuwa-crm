@@ -37,6 +37,16 @@ describe('the page CSP (ADR-0019 point 10, I18)', () => {
     expect(prod.get('style-src')).not.toContain("'unsafe-inline'");
   });
 
+  it('adds only the object store\'s origin to connect-src, and only when it is configured', () => {
+    const without = directives(contentSecurityPolicy('n', { development: false, webOrigin: 'https://app.kasuwa.example' }));
+    expect(without.get('connect-src')).toEqual(["'self'"]);
+    const withStorage = directives(
+      contentSecurityPolicy('n', { development: false, webOrigin: 'https://app.kasuwa.example', storageEndpoint: 'https://store.kasuwa.example/kasuwa-za-1?x=1' }),
+    );
+    expect(withStorage.get('connect-src')).toEqual(["'self'", 'https://store.kasuwa.example']);
+    expect(withStorage.get('default-src')).toEqual(["'self'"]);
+  });
+
   it('draws a fresh nonce of at least 128 bits every time', () => {
     const nonces = Array.from({ length: 50 }, () => newNonce());
     expect(new Set(nonces).size).toBe(50);

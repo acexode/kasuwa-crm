@@ -32,7 +32,11 @@ let mode: CspMode | undefined;
 function cspMode(): CspMode {
   if (mode === undefined) {
     const env = webEnv();
-    mode = Object.freeze({ development: env.NODE_ENV === 'development', webOrigin: env.KASUWA_WEB_ORIGIN });
+    mode = Object.freeze({
+      development: env.NODE_ENV === 'development',
+      webOrigin: env.KASUWA_WEB_ORIGIN,
+      storageEndpoint: env.S3_PUBLIC_ENDPOINT,
+    });
   }
   return mode;
 }
@@ -54,11 +58,23 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   runtime: 'nodejs',
-  // Everything gets the policy except two prefixes (D-L181 N4): the BFF
-  // (`api/v1/`), which sets its own `default-src 'none'`, and the self-hosted
-  // fonts (`fonts/`). Trailing slashes, so `/api/other`, `/fonts-x` and Next's
-  // own 404s are covered. Static chunks get it too; on a script or stylesheet
-  // response the header is inert, and an exclusion list that grows is how a
-  // page ends up without one.
-  matcher: ['/((?!api/v1/|fonts/).*)'],
+  // Every page gets the policy (D-L181 N4): `/api/other`, Next's own 404s and
+  // everything else. Left out, with trailing slashes: the BFF (`api/v1/`),
+  // which sets its own `default-src 'none'`; the self-hosted fonts
+  // (`fonts/`); and Next's hashed static files (`_next/static/`,
+  // `_next/image`). A CSP on a script, stylesheet or image response is inert,
+  // and putting it there cost ~340 bytes on every chunk: about 4.4 KB on the
+  // /contacts budget, measured (T-0125 gate). Link PREFETCHES are left out
+  // too, as Next's own nonce guidance does: a prefetched RSC payload is not a
+  // document and renders no script, and each one carried the header for
+  // nothing (~365 bytes per prefetch on the admin budgets).
+  matcher: [
+    {
+      source: '/((?!api/v1/|fonts/|_next/static/|_next/image).*)',
+      missing: [
+        { type: 'header', key: 'next-router-prefetch' },
+        { type: 'header', key: 'purpose', value: 'prefetch' },
+      ],
+    },
+  ],
 };
