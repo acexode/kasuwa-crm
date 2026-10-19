@@ -5,7 +5,6 @@ import {
   contactFieldApiName,
   contactFieldLevel,
   displayNameReadable,
-  displayNameWithheldAnywhere,
   notEditableContactFields,
   notEditableContactUpdateFields,
   programmesReading,
@@ -152,8 +151,6 @@ describe('displayName follows its name parts (D-L68, T-0124 I1)', () => {
   it('is judged per programme', () => {
     const both = access({ [A1]: { family_name: 'none' }, [A2]: {} });
     expect(programmesReadingDisplayName(both)).toEqual([A2]);
-    expect(displayNameWithheldAnywhere(both)).toBe(true);
-    expect(displayNameWithheldAnywhere(access({ [A1]: {}, [A2]: {} }))).toBe(false);
   });
 
   it('a summary carries the name or null, never a part', () => {

@@ -214,8 +214,14 @@ export async function getPipelineBoardFor(
   const amountWithheld = withheld.includes('amount');
   // T-0089: each card's custom values, projected in SQL, one read per column.
   const custom = await loadCustom(tx, 'deal');
-  // A card's contact is in the pipeline's programme (the composite key), so
-  // CONTACT field security is judged once, there (T-0124 I3).
+  // CONTACT field security is judged ONCE, in the pipeline's programme
+  // (T-0124 I3), and that is correct for every card. A deal's stage is a
+  // stage of its pipeline in the same programme (deal_stage_same_pipeline_fk
+  // onto pipeline_stage, whose own composite key is
+  // 0036_pipeline_and_deal.sql:379, (tenant_id, programme_id, pipeline_id)),
+  // and its primary contact is in the deal's programme (0036:530,
+  // deal_primary_contact_same_programme_fk on (tenant_id, programme_id,
+  // primary_contact_id)). So no card's contact is in another programme.
   const contactNameReadable = displayNameReadable(
     await loadContactFieldAccess(tx),
     pipeline.programmeId,
