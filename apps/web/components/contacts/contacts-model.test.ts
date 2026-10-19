@@ -82,6 +82,12 @@ describe('P04/02 filters and the query', () => {
     const params = new URLSearchParams(contactListSearch(toListQuery('', NO_FILTERS, 'eyJjIjoi+/=')));
     expect(params.get('cursor')).toBe('eyJjIjoi+/=');
   });
+
+  it('sends importId only when the list is one import’s contacts (T-0096, I9)', () => {
+    const id = '5e1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6a01';
+    expect(new URLSearchParams(contactListSearch(toListQuery('', NO_FILTERS, undefined, undefined, id))).get('importId')).toBe(id);
+    expect(new URLSearchParams(contactListSearch(toListQuery('', NO_FILTERS))).has('importId')).toBe(false);
+  });
 });
 
 describe('P04/05 and P04/06 states', () => {
