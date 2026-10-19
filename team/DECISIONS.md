@@ -4008,3 +4008,59 @@ The T-0125 build starts against lead/T-0125-acceptance (44e8734).
 **Lead re-pins during the build:** the `webEnv` fixtures in config-schemas, storage-adapter, outbox and
 auth-role gain `KASUWA_WEB_ORIGIN` and `KASUWA_API_INTERNAL_URL` (D-L172). The builder reports them, and the lead
 edits them on the suite branch.
+
+### D-L179 — T-0101 review rulings (lead, 2026-10-19)
+
+The combined review of ee4dee2 passed with findings: no security or privacy defect, and one blocker.
+
+**Required before merge:**
+- **B1, the poller stalls.** When `wake()` declines, or a 429 hold is still running, the poller schedules the
+  remaining wait: `max(heldUntil, lastStartedAt + cadence) - now`, or the remaining coalescing time. Add a
+  fake-clock test for the quick tab switch and for the 429-then-hide sequence; each must fail today.
+- **The count must not double-step (N1, N2).** The epoch moves, or a pending write is marked, when a write is
+  sent, and count answers that overlap it are dropped. A 404 refreshes the count instead of stepping it.
+- **Mark-all (N3, N4).**
+  - A mark-all answer is dropped if the query changed since it was sent (a generation check).
+  - `markAllCovered` is bounded by position up to `throughId`.
+  - Dots and mark-all are serialised: dots are disabled while mark-all is in flight, and mark-all while any dot is
+    busy.
+- **Caps (N5, N6, N8).** Auto-continue stops after 3 empty pages and then offers "Show older". Every
+  `Retry-After` is capped at 15 minutes. `CountAnswer` is `.max(99)`.
+- **N7, the shared `requestRecords` change.** `use-import-job` treats `too_many_requests` as keep-polling with the
+  wait honoured, as it did when the code was `network`. Add a test for the envelope-less 429 path. No other screen
+  may change behaviour.
+- **Links and props (N9, N10).**
+  - The import link, and the existing `import` live id, require both `crm_import` and `crm_records`.
+  - The admin bell is passed as its own prop, not in `linkedSettings`.
+- **N11.** The store resets to its initial count when the last subscriber detaches.
+- **N12.** Write sequencing (resends, the epoch, the generation counter) moves into a pure, unit-tested module,
+  following D-L176's lesson. N1–N4 each get a test.
+- **N13, N14.** The dropdown makes the page behind it inert. "All caught up" shows only when the count is
+  known to be 0.
+- **Size.** Commit `dfe9ad7` splits at the poller/count/store versus model seam. Correct the report's figure
+  (N15).
+
+### D-L180 — T-0124 suite accepted; scripts substitute, never branch on, a withheld name (lead, 2026-10-19)
+
+The suite is on lead/T-0124-acceptance at eeac666. The wire suite has 62 tests, of which 45 fail on main for the
+real reason. The contract suite has 33 tests, of which 18 fail on main. Rulings I1–I17 are accepted, with one
+amendment:
+- **I1.** `displayName` is readable exactly when both `givenNames` and `familyName` are readable in the record's
+  programme. It is never composed from a readable part.
+- **I4.** This supersedes D-L175 C9's "Contact.displayName is never withheld". The nullable summaries stand (I3).
+- **I9, R21.** A `q` that looks like a phone or email on listContacts and listLeads is `400 identifier_in_url`.
+- **I13, amended.** A script may still *display* `{contact.displayName}`. When the name is withheld from the
+  running agent, the script shows a neutral, translated stand-in (for example "the customer"), and publishing is
+  not blocked. A script may never *branch* on `displayName` where any set it runs under could have it withheld:
+  the branch taken would disclose the name. Publish refuses such a branch. Blocking every greeting whenever any
+  set withholds a name part would make greetings unusable for exactly the clients who restrict names. That is a
+  product cost with no security gain, since substitution discloses nothing. @acexode may overrule.
+- **Left unpinned on purpose (I11):**
+  - createContact and imports when `displayName` is withheld from the creator;
+  - whether a read-only name part makes `displayName` read-only.
+
+  Both are product calls for a later task.
+
+**Lead re-pins during the build:** contacts-api, leads-api, accounts-api (listAccountContacts' default sort),
+list-indexes, contact-merge (its DuplicateContact `typeof displayName` check), e2e p04-leads, and the
+records-contract-search R18 note. The builder lists exact lines, and the lead edits them on the suite branch.
