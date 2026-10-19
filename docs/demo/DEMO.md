@@ -49,9 +49,12 @@ KASUWA_FEATURE_FLAGS_ON=crm_records,crm_accounts,crm_record_view,crm_leads,crm_a
 | `crm_pipeline` | Pipeline board and list, deal record |
 | `crm_search` | `/search` and the Ctrl/Cmd+K palette |
 | `crm_custom_fields` | The customisation studio at `/admin/custom-fields` (T-0090) |
+| `crm_import` | The CSV import wizard at `/contacts/import` (T-0096). Uploads need object storage (`pnpm demo --full`) and a bucket that exposes `ETag` over CORS (T-0005); without them the wizard shows but an upload fails |
+| `crm_duplicates` | The duplicates and merge screen at `/contacts/duplicates`, with undo (T-0097) |
+| `crm_notifications` | The notification bell in both shells and the centre at `/notifications` (T-0101) |
 | `admin_live_api` | Two admin panels (programme KPIs, skill cover) show **labelled sample data** |
 
-`pnpm demo` adds `crm_custom_fields` automatically whenever the flag exists in `packages/feature-flags`. A new flag
+`pnpm demo` adds `crm_custom_fields`, `crm_import`, `crm_duplicates` and `crm_notifications` automatically whenever each flag exists in `packages/feature-flags`. A new flag
 that merges later: add it to `DEMO_FLAGS` in `tools/demo.mjs`, or set `KASUWA_FEATURE_FLAGS_ON` yourself (it then
 replaces the list entirely). `self_serve_signup` stays off: its endpoints answer 501.
 
