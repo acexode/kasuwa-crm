@@ -21,6 +21,7 @@ export const DEAL_MESSAGE_IDS: readonly MessageId[] = [
   'notFound.body',
   'records.nav.deals',
   'records.locked',
+  'records.name.withheld',
   'records.owner.former',
   'records.cell.empty',
   'records.retry',

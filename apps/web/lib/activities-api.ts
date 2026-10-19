@@ -39,7 +39,8 @@ export type ActivityBucket = z.infer<typeof ActivityBucket>;
 export const ListedType = z.enum(['task', 'meeting']);
 export type ListedType = z.infer<typeof ListedType>;
 
-const ContactSummary = z.object({ id: z.string(), displayName: z.string() });
+/** `displayName: null` when a name part is withheld from the caller (D-L68, T-0124). */
+const ContactSummary = z.object({ id: z.string(), displayName: z.string().nullable().optional() });
 const AccountSummary = z.object({ id: z.string(), name: z.string() });
 
 export const MyActivity = z.object({

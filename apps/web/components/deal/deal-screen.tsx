@@ -63,6 +63,7 @@ import {
 } from './deal-model';
 import { useDealDetail, type DealDetailModel } from './use-deal-detail';
 import { numberingLocale } from '../../lib/numbering';
+import { nameOrWithheld } from '../records/name';
 
 /**
  * `P06/05` — the deal detail (T-0110), and `P06/06` — the same at 360 px —
@@ -733,7 +734,7 @@ function Ready({
           online={online}
           custom={custom}
           names={{
-            primaryContactId: deal.contact?.displayName ?? '',
+            primaryContactId: deal.contact ? nameOrWithheld(t, deal.contact.displayName) : '',
             accountId: deal.account?.name ?? '',
           }}
           onSave={(body) => updateDeal(deal.id, body)}
@@ -818,7 +819,7 @@ function Related({
   const locked = withheld(deal, field);
   const summary = kind === 'contact' ? (deal.contact ?? null) : (deal.account ?? null);
   const name =
-    summary === null ? null : 'displayName' in summary ? summary.displayName : summary.name;
+    summary === null ? null : 'name' in summary ? summary.name : nameOrWithheld(t, summary.displayName);
   const href =
     summary === null || !link
       ? null

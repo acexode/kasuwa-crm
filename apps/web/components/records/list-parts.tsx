@@ -1,11 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { StillConnecting } from '../admin/panel';
 import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
-import { MENU_ROW } from './list-classes';
+import { FOCUS, MENU_ROW } from './list-classes';
 import { formatSyncedAt } from './list-model';
 
 /**
@@ -123,6 +124,27 @@ export function LoadMore({
         {loading ? t.t('records.loadingMore') : t.t('records.loadMore')}
       </button>
     </div>
+  );
+}
+
+/**
+ * A number or an email address typed into a list's own search box (T-0124 I9,
+ * R21): it is not sent, because the API refuses an identifier in `q`, and it
+ * must not reach a URL. The box says where the number goes instead. Search
+ * (`/search`) looks a whole number up in a POST body; the link is drawn only
+ * where it is live (`live.includes('search')`), and carries nothing typed.
+ */
+export function NumberSearchHint({ t, searchLive }: { t: Translator; searchLive: boolean }) {
+  return (
+    <p role="status" data-testid="number-search-hint" className="flex flex-wrap items-center gap-x-2 text-body-sm text-text-2">
+      <Icon name="info" size="sm" />
+      <span>{t.t('records.search.numberHint')}</span>
+      {searchLive ? (
+        <Link href="/search" prefetch={false} className={`font-semibold text-primary-text underline ${FOCUS}`}>
+          {t.t('records.search.useSearch')}
+        </Link>
+      ) : null}
+    </p>
   );
 }
 

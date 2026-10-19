@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useState } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
+import { nameOrWithheld } from '../records/name';
 import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { FOCUS } from '../records/list-classes';
 import { HeaderLock, ListError, ListLoading, LoadMore, Muted, OfflineBanner } from '../records/list-parts';
@@ -19,7 +20,6 @@ import {
   leadListError,
   leadOptionLabel,
   lockedLeadColumns,
-  nameAriaSort,
   toLeadQuery,
   withheldFromLeadError,
   type LeadColumnKey,
@@ -96,7 +96,7 @@ export function LeadsTable({
     (result: ConvertLeadResult) => {
       mutate((rows) => rows.map((row) => (row.id === result.contact.id ? result.contact : row)));
       setConvertingId(null);
-      setAnnouncement(t.t('leads.convert.done', { name: result.contact.displayName, account: result.account.name }));
+      setAnnouncement(t.t('leads.convert.done', { name: nameOrWithheld(t, result.contact.displayName), account: result.account.name }));
     },
     [mutate, t],
   );
@@ -115,7 +115,7 @@ export function LeadsTable({
   return (
     <>
       {offline ? <OfflineBanner t={t} locale={locale} syncedAt={list.syncedAt} /> : null}
-      <Body t={t} state={state} list={list} sort={view.sort} offline={offline} onClear={onClear} onConvert={startConvert} />
+      <Body t={t} state={state} list={list} offline={offline} onClear={onClear} onConvert={startConvert} />
       <p role="status" className="sr-only">
         {announcement}
       </p>
@@ -147,7 +147,6 @@ function Body({
   t,
   state,
   list,
-  sort,
   offline,
   onClear,
   onConvert,
@@ -155,7 +154,6 @@ function Body({
   t: Translator;
   state: ListState;
   list: KeysetList<Lead, LeadView>;
-  sort: LeadView['sort'];
   offline: boolean;
   onClear: () => void;
   onConvert: (row: Lead) => void;
@@ -230,7 +228,6 @@ function Body({
                   role="columnheader"
                   scope="col"
                   data-column={column.key}
-                  aria-sort={column.key === 'displayName' ? nameAriaSort(sort) : undefined}
                   className="p-3 text-start font-bold"
                 >
                   <span className="inline-flex items-center gap-1">
@@ -248,7 +245,7 @@ function Body({
             {rows.map((row) => (
               <tr key={row.id} data-row-id={row.id} className="border-t border-border align-top hover:bg-surface-sunken">
                 <th scope="row" data-field="displayName" className="p-3 text-start font-normal">
-                  <NameCell row={row} />
+                  <NameCell t={t} row={row} />
                 </th>
                 {TABLE_FIELDS.map((field) => (
                   <td key={field} {...fieldProps(row, field)} className="p-3">
@@ -269,7 +266,7 @@ function Body({
           <li key={row.id} data-row-id={row.id} className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-surface p-3">
             <div className="flex min-w-0 items-start gap-2">
               <div data-field="displayName" className="min-w-0 flex-1">
-                <NameCell row={row} />
+                <NameCell t={t} row={row} />
               </div>
               <ConvertAction t={t} row={row} offline={offline} onConvert={onConvert} />
             </div>
@@ -301,18 +298,25 @@ function Body({
 }
 
 /** People get round avatars (P04/01); the initials are decoration. */
-function NameCell({ row }: { row: Lead }) {
+function NameCell({ t, row }: { t: Translator; row: Lead }) {
+  const name = row.displayName;
   return (
     <span className="flex min-w-0 items-center gap-3">
       <span
         aria-hidden="true"
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-caption font-bold text-primary-text"
       >
-        {initials(row.displayName)}
+        {name === undefined ? <Icon name="lock" size="sm" /> : initials(name)}
       </span>
-      <b data-record-text="" className="min-w-0 break-words text-body-sm">
-        {row.displayName}
-      </b>
+      {name === undefined ? (
+        <span data-name-withheld="" className="min-w-0 break-words text-body-sm text-text-muted">
+          {t.t('records.name.withheld')}
+        </span>
+      ) : (
+        <b data-record-text="" className="min-w-0 break-words text-body-sm">
+          {name}
+        </b>
+      )}
     </span>
   );
 }

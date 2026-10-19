@@ -5,6 +5,7 @@ import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { MENU_ROW } from '../records/list-classes';
+import { nameOrWithheld } from '../records/name';
 import {
   DEAL_CURRENCIES,
   searchRecords,
@@ -171,7 +172,7 @@ export function DealSheet({
       setLabels((current) => ({
         primaryContactId:
           rebased.form.primaryContactId === freshForm.primaryContactId
-            ? (fresh.contact?.displayName ?? '')
+            ? (fresh.contact ? nameOrWithheld(t, fresh.contact.displayName) : '')
             : current.primaryContactId,
         accountId:
           rebased.form.accountId === freshForm.accountId
@@ -359,7 +360,7 @@ export function DealSheet({
               pickedId={form[key]}
               pickedName={labels[key]}
               onPick={(row) => {
-                setLabels((current) => ({ ...current, [key]: row?.name ?? '' }));
+                setLabels((current) => ({ ...current, [key]: row === null ? '' : nameOrWithheld(t, row.name) }));
                 set(key, row?.id ?? '');
               }}
             >
@@ -523,7 +524,7 @@ function RecordPicker({
                 size="sm"
                 className="text-text-muted"
               />
-              <span data-record-text="">{row.name}</span>
+              <span data-record-text="">{nameOrWithheld(t, row.name)}</span>
             </button>
           ))}
         </div>
