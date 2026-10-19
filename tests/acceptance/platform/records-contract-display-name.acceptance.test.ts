@@ -58,9 +58,17 @@ import { parse } from 'yaml';
  * I12 listContactTimeline: an item naming `displayName` follows
  *     `displayName`, as one naming `ownerUserId` follows `ownerUserId`.
  *     SILENT; ruled from the operation's own omission rule.
- * I13 Scripting: `{contact.displayName}` and a branch on `displayName`
- *     follow the name parts (publish's `branch_on_withheld_field`, the run's
- *     `field_withheld`); the scripting contract says so. Not in the task
+ * I13 Scripting, as amended by D-L180. A script may DISPLAY
+ *     `{contact.displayName}`: publishing is not blocked, and when the name
+ *     is withheld from the running agent the client shows a neutral,
+ *     translated stand-in. The scripting contract names that stand-in's
+ *     message id as `x-kasuwa-withheld-name-message-id` on
+ *     getScriptRunScript (where substitution is specified); the id is its
+ *     own (not the generic `scripting.run.placeholder`, "not shown") and is
+ *     in every ScriptLocale catalogue. A script may never BRANCH on
+ *     `displayName` where a set it runs under could withhold a name part:
+ *     publishScript says it refuses such a branch, and advanceScriptRun says
+ *     a branch on a withheld `displayName` stops the run. Not in the task
  *     file; found by grepping for displayName.
  * I17 Every schema in the records contract with a `displayName` property is
  *     classified below (contact record, contact summary, user name, request
@@ -613,6 +621,66 @@ function qIdentifierProblems(op: Operation, qSchema: Located, qText: string): st
 }
 
 // ---------------------------------------------------------------------------
+// I13 as amended by D-L180: display is substituted, branching is refused.
+// ---------------------------------------------------------------------------
+
+const LOCALES_DIR = resolve(repoRoot, 'packages/i18n/src/locales');
+/** The generic withheld-variable placeholder ("not shown"): not a name's stand-in. */
+const GENERIC_PLACEHOLDER_ID = 'scripting.run.placeholder';
+const STAND_IN_KEY = 'x-kasuwa-withheld-name-message-id';
+
+/** What a scripting operation's text fails to say under amended I13; empty when right. */
+function scriptingI13Problems(text: string, where: 'publish' | 'run'): string[] {
+  const sentences = prose(text).split(/(?<=\.)\s+/);
+  const problems: string[] = [];
+  const outcome =
+    where === 'publish' ? /refus|branch_on_withheld_field|409/i : /stop|field_withheld/i;
+  const branchRule = sentences.some(
+    (s) =>
+      /displayName/.test(s) &&
+      /\bbranch/i.test(s) &&
+      /givenNames|familyName|name parts?/.test(s) &&
+      outcome.test(s),
+  );
+  if (!branchRule)
+    problems.push(`${where}: no sentence refuses a branch on displayName by its name parts`);
+  if (!/stand-in/i.test(text))
+    problems.push(`${where}: a withheld displayed name is not said to be a stand-in`);
+  const blocked = sentences.filter(
+    (s) =>
+      /variable/i.test(s) &&
+      /displayName/.test(s) &&
+      /refus|branch_on_withheld_field|409/i.test(s) &&
+      !/(not|never) (blocked|refused)/i.test(s),
+  );
+  if (blocked.length > 0)
+    problems.push(`${where}: a variable on displayName is refused: ${blocked.join(' ')}`);
+  if (where === 'publish' && !/(not|never) blocked|still publish|is allowed/i.test(text)) {
+    problems.push('publish: does not say displaying the name keeps publishing open');
+  }
+  return problems;
+}
+
+/** What is wrong with the stand-in's message id on an operation; empty when right. */
+function standInProblems(op: Mapping): string[] {
+  const id = op[STAND_IN_KEY];
+  if (typeof id !== 'string' || id === '') return [`no ${STAND_IN_KEY}`];
+  if (id === GENERIC_PLACEHOLDER_ID)
+    return [`${id} is the generic "not shown" placeholder, not a name's stand-in`];
+  const locales = (schemaNamed('ScriptLocale', SCRIPTING_PATH).node as Mapping).enum;
+  const problems: string[] = [];
+  const list = Array.isArray(locales) ? locales.map(str) : [];
+  if (list.length === 0) problems.push('ScriptLocale lists no locale');
+  for (const locale of list) {
+    const file = resolve(LOCALES_DIR, `${locale}.json`);
+    const catalogue = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as Mapping) : {};
+    const value = catalogue[id];
+    if (typeof value !== 'string' || value.trim() === '' || value.includes('{')) {
+      problems.push(`${locale}: ${id} is ${JSON.stringify(value)}`);
+    }
+  }
+  return problems;
+}
 
 describe('acceptance: records contract, displayName follows its name parts everywhere (T-0124)', () => {
   describe('every displayName is classified, and each class follows one rule (I2, I3, I4, I17)', () => {
@@ -964,17 +1032,59 @@ describe('acceptance: records contract, displayName follows its name parts every
       expect(text).toMatch(/`displayName`[^.]{0,160}\b(follows|withheld|omitted)\b/);
     });
 
-    it('scripting: a branch or a variable on contact.displayName follows the name parts, at publish and in a run (I13)', () => {
-      const publish = description(operation('publishScript', SCRIPTING_PATH));
-      const advance = description(operation('advanceScriptRun', SCRIPTING_PATH));
-      for (const [label, text] of [
-        ['publishScript', publish],
-        ['advanceScriptRun', advance],
-      ] as const) {
-        expect(text, label).toMatch(
-          /displayName[^.]*(givenNames|name parts)|(givenNames|name parts)[^.]*displayName/,
-        );
+    it('publishScript: displaying contact.displayName is allowed and substituted with a stand-in; a branch on it is refused where a set could withhold a name part (I13, D-L180)', () => {
+      expect(
+        scriptingI13Problems(description(operation('publishScript', SCRIPTING_PATH)), 'publish'),
+      ).toEqual([]);
+    });
+
+    it('advanceScriptRun: a branch on a withheld displayName stops the run; a displayed one is a stand-in (I13, D-L180)', () => {
+      expect(
+        scriptingI13Problems(description(operation('advanceScriptRun', SCRIPTING_PATH)), 'run'),
+      ).toEqual([]);
+    });
+
+    it('getScriptRunScript names the stand-in’s own message id, and every ScriptLocale catalogue carries it (I13, D-L180)', () => {
+      expect(standInProblems(operation('getScriptRunScript', SCRIPTING_PATH).op)).toEqual([]);
+    });
+
+    it('(self-check) the I13 judges refuse a blocked greeting, a silent branch rule, a missing or generic message id and a missing translation', () => {
+      const good =
+        'A variable on `{contact.displayName}` is substituted: when the name is withheld the screen shows a neutral, translated stand-in, and publishing is not blocked. A branch on `displayName` is refused (`branch_on_withheld_field`) when any set holding script.run cannot read `givenNames` or `familyName`.';
+      expect(scriptingI13Problems(good, 'publish')).toEqual([]);
+      const run =
+        'A branch on `displayName` whose `givenNames` or `familyName` is withheld stops the run. A displayed name that is withheld is a stand-in.';
+      expect(scriptingI13Problems(run, 'run')).toEqual([]);
+      const bad: [string, string, 'publish' | 'run'][] = [
+        [
+          'blocks greetings',
+          'A variable or a branch on `displayName` is refused when a set cannot read `givenNames`. A stand-in is never used.',
+          'publish',
+        ],
+        [
+          'no branch rule',
+          'A variable on `{contact.displayName}` is substituted with a stand-in.',
+          'publish',
+        ],
+        [
+          'no stand-in',
+          'A branch on `displayName` is refused when a set cannot read `givenNames`.',
+          'run',
+        ],
+      ];
+      for (const [label, text, where] of bad) {
+        expect(scriptingI13Problems(text, where).length, label).toBeGreaterThan(0);
       }
+      expect(standInProblems({}).length, 'no message id').toBeGreaterThan(0);
+      expect(
+        standInProblems({ 'x-kasuwa-withheld-name-message-id': 'scripting.run.placeholder' })
+          .length,
+        'the generic placeholder',
+      ).toBeGreaterThan(0);
+      expect(
+        standInProblems({ 'x-kasuwa-withheld-name-message-id': 'zq.t0124.no.such.message' }).length,
+        'untranslated',
+      ).toBeGreaterThan(0);
     });
   });
 });

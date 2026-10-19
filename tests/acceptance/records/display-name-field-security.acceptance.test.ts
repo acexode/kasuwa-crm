@@ -119,14 +119,19 @@ import { collectTelemetry, type Telemetry } from '../support/telemetry';
  *     follows `ownerUserId`. SILENT; ruled from listContactTimeline's own
  *     omission rule.
  * I13 SCRIPTING (not in the task file; found by grepping the API: scripts
- *     treat `contact.displayName` as never withheld). A branch on
- *     `displayName` stops the run with `field_withheld` when it is withheld
- *     from the run's agent; publishing a variable or a branch on
- *     `contact.displayName` is `409 script_invalid`
- *     `branch_on_withheld_field` when any set holding `script.run` cannot
- *     read a name part. A `read` part blocks nothing. CONSEQUENCE, flagged:
- *     a tenant that withholds a name part from an agent set can no longer
- *     publish a `{contact.displayName}` greeting.
+ *     treat `contact.displayName` as never withheld). AMENDED BY D-L180:
+ *     - DISPLAY stays allowed. Publishing `{contact.displayName}` is never
+ *       blocked by this rule. When the name is withheld from the running
+ *       agent, no run answer carries it; the wording keeps the token, the
+ *       agent's getContact omits and lists `displayName`, and the client
+ *       draws a neutral translated stand-in whose message id the scripting
+ *       contract names (`x-kasuwa-withheld-name-message-id`, pinned in the
+ *       contract half). The drawn DOM belongs to a p10-agent journey.
+ *     - BRANCHING stays refused. Publishing a branch on `displayName` is
+ *       `409 script_invalid` `branch_on_withheld_field` when any set holding
+ *       `script.run` cannot read a name part; a run whose branch reads a
+ *       withheld `displayName` stops with `field_withheld` at the branch and
+ *       never takes either side. A `read` part blocks nothing.
  * I14 AUDIT (D-L176). No audit event about a contact carries its
  *     `displayName` or a name part in `object_label` or `changes`. Guard.
  * I15 OUT OF SCOPE, by the contract: user names (owner, actor, checker,
@@ -1753,28 +1758,75 @@ describe('acceptance: displayName follows its name parts everywhere, list q and 
       expect(response.text, 'publish details never carry wording').not.toContain(MARK);
     }
 
-    it.each([
-      ['a variable', 'variable'],
-      ['a branch', 'branch'],
-    ] as const)(
-      'publishScript: %s on contact.displayName is branch_on_withheld_field when a script.run set cannot read a name part',
-      async (_label, kind) => {
-        expectStatus(
-          (await publishGraph(kind)).response,
-          201,
-          'control: publishes while nothing is withheld',
-        );
-        await lockFamilyFromTeamLead();
-        expectWithheldRefusal(
-          (await publishGraph(kind)).response,
-          `publish ${kind} on displayName`,
-        );
-      },
-    );
+    it('publishScript: a branch on contact.displayName is branch_on_withheld_field when a script.run set cannot read a name part', async () => {
+      expectStatus(
+        (await publishGraph('branch')).response,
+        201,
+        'control: publishes while nothing is withheld',
+      );
+      await lockFamilyFromTeamLead();
+      expectWithheldRefusal(
+        (await publishGraph('branch')).response,
+        'publish branch on displayName',
+      );
+    });
 
-    it('(guard, passes on main) a read-only name part does not block publishing', async () => {
+    it('(guard, passes on main) a read-only name part does not block a branch on displayName', async () => {
       await lockField('family_name', 'team_lead', 'read');
-      expectStatus((await publishGraph('variable')).response, 201, 'publish with a read-only part');
+      expectStatus((await publishGraph('branch')).response, 201, 'publish with a read-only part');
+    });
+
+    // D-L180, I13 amended: DISPLAYING the name stays allowed. Substitution is the
+    // client's (scripting contract: variables are filled from the contact as
+    // getContact returned it), so on the wire the rule is: publishing is not
+    // blocked; no run answer ever carries the name; the wording carries the
+    // token for the client to replace; and the agent's getContact omits and
+    // lists displayName, which is what makes the client draw the stand-in. The
+    // stand-in's message id is pinned in the contract half
+    // (x-kasuwa-withheld-name-message-id); the drawn DOM is a p10-agent journey.
+    it('a variable on contact.displayName still publishes when a set cannot read a name part, and a withheld agent’s run never carries the name, only the token for the stand-in', async () => {
+      await lockFamilyFromTeamLead();
+      const { scriptId, response } = await publishGraph('variable');
+      expectStatus(response, 201, 'publish {contact.displayName} while team_lead lacks familyName');
+
+      const runAs = async (caller: UserPlant, c: Named) => {
+        const started = await post(caller.headers, RUNS, { scriptId, contactId: c.id });
+        expectStatus(started, 201, 'startScriptRun');
+        const run = started.body as Json;
+        const advanced = await post(caller.headers, `${RUNS}/${String(run.id)}/advance`, {
+          revision: run.revision,
+        });
+        expectStatus(advanced, 200, 'advanceScriptRun');
+        const read = await get(caller.headers, `${RUNS}/${String(run.id)}`);
+        expectStatus(read, 200, 'getScriptRun');
+        const wording = await get(caller.headers, `${RUNS}/${String(run.id)}/script`);
+        expectStatus(wording, 200, 'getScriptRunScript');
+        const contact = await get(caller.headers, `${CONTACTS}/${c.id}`);
+        expectStatus(contact, 200, 'getContact (what the client substitutes from)');
+        return { answers: [started, advanced, read, wording], wording, contact };
+      };
+
+      const openContact = await plantNamed();
+      const open = await runAs(await openCaller(), openContact);
+      expect(
+        judge('record', 'readable', 200, open.contact.text, open.contact.body, [openContact]),
+        'control: a reader of both parts gets the name to substitute',
+      ).toEqual([]);
+
+      const c = await plantNamed();
+      const hidden = await runAs(await hiddenCaller(), c);
+      const leaked = hidden.answers.flatMap((answer) =>
+        c.secrets.filter((secret) => answer.text.toLowerCase().includes(secret)),
+      );
+      expect(leaked, 'a run answer carried the withheld name').toEqual([]);
+      expect(
+        hidden.wording.text,
+        'the wording keeps the token for the client to replace',
+      ).toContain('{contact.displayName}');
+      expect(
+        judge('record', 'withheld', 200, hidden.contact.text, hidden.contact.body, [c]),
+        'the agent’s contact omits and lists displayName, so the client draws the stand-in',
+      ).toEqual([]);
     });
 
     it('a run’s branch on displayName stops with field_withheld once a name part is withheld from its agent; a reader goes on', async () => {
