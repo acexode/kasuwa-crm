@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useRef } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { LINK, SECONDARY_BUTTON } from '../auth/button-classes';
@@ -18,12 +19,18 @@ import { PersonName, When } from './duplicates-parts';
  */
 export function MergeResult({ t, locale, view, onUndo }: { t: Translator; locale: string; view: MergeView; onUndo: () => void }) {
   const merge = view.merge;
+  const heading = useRef<HTMLHeadingElement>(null);
+  const shown = view.step === 'undone' ? 'undone' : 'done';
+  // The result announces itself: the dialog that sent the merge is gone, and focus must not fall to the page (N6).
+  useEffect(() => {
+    if (merge !== null) heading.current?.focus();
+  }, [merge === null, shown]);
   if (merge === null) return null;
 
   if (view.step === 'undone') {
     return (
       <section data-testid="merge-undone" className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4">
-        <h3 className="flex items-center gap-2 text-h4">
+        <h3 ref={heading} tabIndex={-1} className="flex items-center gap-2 text-h4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
           <Icon name="check_circle" size="sm" />
           {t.t('duplicates.undone')}
         </h3>
@@ -39,7 +46,7 @@ export function MergeResult({ t, locale, view, onUndo }: { t: Translator; locale
 
   return (
     <section data-testid="merge-done" className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-      <h3 className="flex items-center gap-2 text-h4">
+      <h3 ref={heading} tabIndex={-1} className="flex items-center gap-2 text-h4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
         <Icon name="check_circle" size="sm" />
         {t.t('duplicates.done.title')}
       </h3>
