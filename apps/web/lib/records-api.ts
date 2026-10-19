@@ -150,6 +150,8 @@ export interface RecordsError {
   readonly details?: readonly RecordsErrorDetail[];
   /** On `too_many_requests`, when the contract sends it: the earliest a retry can succeed (ISO 8601, UTC). */
   readonly retryAt?: string;
+  /** On a 429 that sends `Retry-After` (notifications, D-L134): the seconds to wait, a positive whole number. */
+  readonly retryAfterSeconds?: number;
 }
 
 export type RecordsResult<T> =
@@ -195,6 +197,17 @@ export function contactListSearch(query: ContactListQuery): string {
 }
 
 /**
+ * `Retry-After` as whole seconds, or `undefined`. Only the delta-seconds form
+ * the contract declares (`integer, minimum 1`) is read: an HTTP date is not
+ * guessed at, because a wrong wait is worse than none.
+ */
+export function parseRetryAfter(header: string | null): number | undefined {
+  if (header === null || !/^\d{1,6}$/.test(header.trim())) return undefined;
+  const seconds = Number(header.trim());
+  return seconds >= 1 ? seconds : undefined;
+}
+
+/**
  * One same-origin records request, its answer parsed with `schema`. Every
  * records client goes through here (contacts, accounts), so a refusal is read
  * the same way everywhere: by `code` and `details[].code`, never `message`.
@@ -237,9 +250,13 @@ export async function requestRecords<T>(
     return parsed.success ? { ok: true, value: parsed.data } : { ok: false, error: NETWORK_FAILURE };
   }
 
+  const retryAfterSeconds = parseRetryAfter(response.headers.get('retry-after'));
   const parsed = ApiError.safeParse(payload);
   if (!parsed.success) {
-    return { ok: false, error: NETWORK_FAILURE };
+    // A 429 from a layer in front of the API has no envelope, but a wait is still a wait.
+    return response.status === 429 && retryAfterSeconds !== undefined
+      ? { ok: false, error: { code: 'too_many_requests', retryAfterSeconds } }
+      : { ok: false, error: NETWORK_FAILURE };
   }
   const { code, details, retryAt } = parsed.data;
   return {
@@ -248,6 +265,7 @@ export async function requestRecords<T>(
       code,
       ...(details === undefined ? {} : { details }),
       ...(retryAt === undefined ? {} : { retryAt }),
+      ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }),
     },
   };
 }
