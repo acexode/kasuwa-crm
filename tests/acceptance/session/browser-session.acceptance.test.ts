@@ -256,7 +256,7 @@ const E2E_RUN_TIMEOUT_MS = 2_400_000;
  * change to the acceptance contract: the lead re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  [SPEC]: '10afbf4985c24b0d03851e13e9b98296bce191c5526e23223f6f613a88888cf2',
+  [SPEC]: 'e2a4de7b9705d6ae8efafd7d1c066c0f62638d19fdba84ae3cb5ed1e07d5b0d2',
   [SUPPORT]: '8f1a6b3f3291f345c74ac0ade11641011c9f8ea0369b47737c32b588b4faaba2',
 };
 
