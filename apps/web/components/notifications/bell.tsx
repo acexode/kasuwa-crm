@@ -6,7 +6,7 @@ import { badgeLabel, isRise } from '../../lib/notification-count';
 import { liveObjectTypes } from '../../lib/notification-href';
 import { countServerSnapshot, countSnapshot, subscribeCount } from '../../lib/notification-store';
 import { Icon } from '../icon';
-import { FOCUS } from '../records/list-classes';
+import { FOCUS } from './classes';
 
 /**
  * The notifications bell (P26 A, A1), drawn in the CRM shell and the admin
@@ -50,7 +50,7 @@ function DropdownFailed({ t, onClose }: DropdownProps) {
       aria-modal="true"
       aria-labelledby={titleId}
       data-testid="notifications-dropdown"
-      className="fixed inset-x-2 top-16 z-40 flex flex-col items-start gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3 sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-2 sm:w-96"
+      className="fixed inset-x-0 bottom-0 z-40 mx-auto flex w-full max-w-md flex-col items-start gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3"
     >
       <h2 id={titleId} className="text-h4 font-bold">
         {t.t('notifications.error.title')}
@@ -62,7 +62,7 @@ function DropdownFailed({ t, onClose }: DropdownProps) {
   );
 }
 
-export function NotificationBell({ t, locale, live }: { t: Translator; locale: string; live: readonly string[] }) {
+export default function NotificationBell({ t, locale, live }: { t: Translator; locale: string; live: readonly string[] }) {
   const count = useSyncExternalStore(subscribeCount, countSnapshot, countServerSnapshot);
   const [open, setOpen] = useState(false);
   const [Dropdown, setDropdown] = useState<LazyExoticComponent<ComponentType<DropdownProps>> | null>(null);
@@ -119,14 +119,14 @@ export function NotificationBell({ t, locale, live }: { t: Translator; locale: s
           setDropdown((current: LazyExoticComponent<ComponentType<DropdownProps>> | null) => current ?? loadDropdown());
           setOpen(true);
         }}
-        className={`relative flex min-h-touch min-w-touch items-center justify-center rounded-md border border-border bg-surface text-text hover:bg-surface-sunken ${FOCUS}`}
+        className={`flex min-h-touch min-w-touch items-center justify-center gap-1 rounded-md border border-border bg-surface text-text hover:bg-surface-sunken ${FOCUS}`}
       >
         <Icon name="notifications" size="sm" />
         {badge === '' ? null : (
           <span
             aria-hidden="true"
             data-testid="notifications-badge"
-            className="absolute -end-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-danger px-1 text-caption font-bold text-on-primary"
+            className="rounded-full bg-danger px-1 text-caption font-bold text-on-primary"
           >
             {badge}
           </span>

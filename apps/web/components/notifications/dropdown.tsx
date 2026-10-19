@@ -8,7 +8,7 @@ import { DROPDOWN_LIMIT, unreadIn } from '../../lib/notification-model';
 import { isEmptyForever } from '../../lib/notification-view';
 import { canReadAll } from '../../lib/notification-writes';
 import { Icon } from '../icon';
-import { FOCUS } from '../records/list-classes';
+import { FOCUS } from './classes';
 import { inertOutside } from './inert-outside';
 import { LoadingNotifications, NotificationGroups, ViewStatus } from './notification-list';
 import { useNotificationView } from './use-notification-view';
@@ -116,7 +116,7 @@ export function NotificationDropdown({
       aria-labelledby={titleId}
       data-testid="notifications-dropdown"
       onKeyDown={onKeyDown}
-      className="fixed inset-x-2 bottom-2 top-16 z-40 flex flex-col gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3 sm:absolute sm:inset-x-auto sm:bottom-auto sm:end-0 sm:top-full sm:mt-2 sm:w-96"
+      className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-h-screen w-full max-w-md flex-col gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3"
     >
       <div className="flex items-center gap-2">
         <h2 id={titleId} className="min-w-0 flex-1 truncate text-h4 font-bold">
@@ -128,7 +128,7 @@ export function NotificationDropdown({
             data-testid="notifications-read-all"
             disabled={!canReadAll(state, Date.now())}
             onClick={view.readAll}
-            className={`flex min-h-touch items-center gap-2 rounded-md px-2 text-body-sm font-semibold text-primary-text hover:bg-surface-sunken disabled:text-text-muted ${FOCUS}`}
+            className={`flex min-h-touch items-center gap-2 rounded-md px-2 text-body-sm font-semibold text-primary-text hover:bg-surface-sunken disabled:opacity-60 ${FOCUS}`}
           >
             <Icon name="done_all" size="sm" />
             {t.t('notifications.readAll')}
@@ -145,7 +145,7 @@ export function NotificationDropdown({
         </button>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto sm:max-h-96 sm:flex-none">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
         <ViewStatus t={t} state={state} onRetry={view.reload} />
         {state.phase === 'loading' && state.listWaitUntil === null ? <LoadingNotifications t={t} /> : null}
         {caughtUp ? (

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getImport, type ImportJob } from '../../lib/imports-api';
 import { isTerminal, pollDelay } from '../../lib/import-model';
-import { retryAfterMs, type RecordsError } from '../../lib/records-api';
+import type { RecordsError } from '../../lib/records-api';
 
 /**
  * Reads one import job until it has nothing more to say (T-0096, I8).
@@ -18,8 +18,8 @@ import { retryAfterMs, type RecordsError } from '../../lib/records-api';
  * A READ THAT FAILS IS TRIED AGAIN. A dropped connection is `retrying`, not an
  * ended import: the next read is simply the next one in the schedule. So is a
  * `429`, which is a wait and never an ended import: the next read waits the
- * server's `Retry-After` (capped at 15 minutes) if that is longer than the
- * schedule's own. Only a refusal that is neither (a `404` for an import that is
+ * time the server named in `retryAt` (capped at 15 minutes) if that is longer
+ * than the schedule's own. Only a refusal that is neither (a `404` for an import that is
  * not ours) ends it, and says so through `onRefused`.
  */
 export type PollPhase = 'header' | 'run';
@@ -59,7 +59,7 @@ export function useImportJob(
       next = attempt;
       // A hidden tab reads nothing (N6): the schedule picks up again when it is shown.
       if (document.hidden) return;
-      timer = setTimeout(() => void read(attempt), Math.max(waitMs, pollDelay(attempt, base)));
+      timer = setTimeout(() => void read(attempt), Math.min(900_000, Math.max(waitMs, pollDelay(attempt, base))));
     };
 
     const read = async (attempt: number): Promise<void> => {
@@ -75,7 +75,8 @@ export function useImportJob(
         if (done) return;
       } else if (result.error.code === 'network' || result.error.code === 'too_many_requests') {
         setRetrying(true);
-        schedule(attempt + 1, retryAfterMs(result.error.retryAfterSeconds, 0));
+        // The wait the server named, when it named one (`retryAt`), capped; else the schedule's own growing wait.
+        schedule(attempt + 1, Date.parse(result.error.retryAt ?? '') - Date.now() || 0);
         return;
       } else {
         done = true;

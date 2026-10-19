@@ -8,8 +8,7 @@ import { activeLocale, languageOptions } from '../../../lib/locale';
 /** `P02/E`, `P02/E1`, `P02/E2` — the audit log, its empty state and its export. */
 export default async function AuditPage() {
   const { locale } = await activeLocale();
-  const linkedSettings = await adminLiveNav();
-  const bell = await adminBellLive();
+  const [linkedSettings, bell] = await Promise.all([adminLiveNav(), adminBellLive()]);
 
   return (
     <AuditScreen

@@ -8,8 +8,7 @@ import { activeLocale, languageOptions } from '../../../lib/locale';
 /** `P02/D`, `P02/D1`, `P02/D2` — the field-level security matrix. */
 export default async function FieldSecurityPage() {
   const { locale } = await activeLocale();
-  const linkedSettings = await adminLiveNav();
-  const bell = await adminBellLive();
+  const [linkedSettings, bell] = await Promise.all([adminLiveNav(), adminBellLive()]);
 
   return (
     <FieldSecurityScreen

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getUnreadCount, listNotifications, markAllRead, notificationSearch, toItem, updateNotification } from './notifications-api';
-import { listContacts, parseRetryAfter } from './records-api';
+import { listContacts } from './records-api';
+import { parseRetryAfter } from './retry-after';
 
 const ID = '8a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c06';
 const OBJECT = '3f0c9a52-6d1e-4b8a-9f2e-1a2b3c4d5e01';

@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { requestRecords, type RecordsResult } from './records-api';
+import type { RecordsResult } from './records-api';
+import { parseRetryAfter } from './retry-after';
 
 /**
  * The browser's half of the notifications tag in
@@ -7,9 +8,12 @@ import { requestRecords, type RecordsResult } from './records-api';
  * getNotificationUnreadCount, markAllNotificationsRead and updateNotification,
  * for the P26 bell and centre (T-0101).
  *
- * SAME-ORIGIN, RELATIVE PATHS, through `requestRecords`: never from or into the
+ * SAME-ORIGIN, RELATIVE PATHS, with `cache: 'no-store'`: never from or into the
  * HTTP cache (names of people at a URL that is the same for every user), no
- * header argument, and NO SCOPE ARGUMENT. The session says who the reader is;
+ * header argument, and NO SCOPE ARGUMENT. It has its own small `request`
+ * rather than `requestRecords` because it reads a bare 429's `Retry-After`,
+ * and a change to the shared one would cost every records page bytes where this
+ * flag is off (D-L182). The session says who the reader is;
  * the API says what they reach (CLAUDE.md section 2, rule 2).
  *
  * TOLERANT OF WHAT THE CONTRACT SAYS WILL GROW. A kind this client does not
@@ -82,6 +86,49 @@ const RawItem = z.object({
 
 const Head = z.object({ id: z.string().uuid() });
 
+/** The `code`s these operations answer with (the shared envelope's), a copy of the records client's so this module imports no value from it (D-L182). */
+const Envelope = z.object({
+  code: z.enum(['validation_failed', 'not_authenticated', 'not_permitted', 'not_found', 'stale_write', 'too_many_requests', 'service_unavailable', 'internal_error']),
+});
+
+const NETWORK_FAILURE: RecordsResult<never> = { ok: false, error: { code: 'network' } };
+
+/**
+ * One same-origin request, its answer parsed with `schema`. An answer the
+ * contract does not describe is a lost answer, not the reader's fault. A 429
+ * carries its `Retry-After` whether or not it has the shared error envelope
+ * (a layer in front of the API sends none, but a wait is still a wait).
+ */
+async function request<T>(
+  path: string,
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  init: { readonly method: 'GET' | 'POST' | 'PATCH'; readonly body?: unknown; readonly signal?: AbortSignal },
+): Promise<RecordsResult<T>> {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method: init.method,
+      cache: 'no-store',
+      headers: init.body === undefined ? { accept: 'application/json' } : { accept: 'application/json', 'content-type': 'application/json' },
+      ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+      ...(init.signal === undefined ? {} : { signal: init.signal }),
+    });
+  } catch {
+    return NETWORK_FAILURE;
+  }
+  const payload: unknown = await response.json().catch(() => null);
+  if (response.ok) {
+    const parsed = schema.safeParse(payload);
+    return parsed.success ? { ok: true, value: parsed.data } : NETWORK_FAILURE;
+  }
+  const retryAfterSeconds = parseRetryAfter(response.headers.get('retry-after'));
+  const envelope = Envelope.safeParse(payload);
+  if (!envelope.success) {
+    return response.status === 429 && retryAfterSeconds !== undefined ? { ok: false, error: { code: 'too_many_requests', retryAfterSeconds } } : NETWORK_FAILURE;
+  }
+  return { ok: false, error: { code: envelope.data.code, ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }) } };
+}
+
 const RawPage = z.object({
   data: z.array(z.unknown()),
   nextCursor: z.string().nullable(),
@@ -142,35 +189,31 @@ export function notificationSearch(query: NotificationQuery): string {
 }
 
 export function listNotifications(query: NotificationQuery, signal?: AbortSignal): Promise<RecordsResult<NotificationPage>> {
-  return requestRecords(`/api/v1/notifications${notificationSearch(query)}`, PageAnswer, {
+  return request(`/api/v1/notifications${notificationSearch(query)}`, PageAnswer, {
     method: 'GET',
-    readBareThrottle: true,
     ...(signal === undefined ? {} : { signal }),
   });
 }
 
 export function getUnreadCount(signal?: AbortSignal): Promise<RecordsResult<UnreadCount>> {
-  return requestRecords('/api/v1/notifications/unread-count', CountAnswer, {
+  return request('/api/v1/notifications/unread-count', CountAnswer, {
     method: 'GET',
-    readBareThrottle: true,
     ...(signal === undefined ? {} : { signal }),
   });
 }
 
 /** Always bounded: without `throughId` an arrival after the reader looked would be marked read too (D-L154). */
 export function markAllRead(body: { readonly throughId: string; readonly kind?: NotificationKind }, signal?: AbortSignal): Promise<RecordsResult<UnreadCount>> {
-  return requestRecords('/api/v1/notifications/read-all', CountAnswer, {
+  return request('/api/v1/notifications/read-all', CountAnswer, {
     method: 'POST',
-    readBareThrottle: true,
     body: body.kind === undefined ? { throughId: body.throughId } : { kind: body.kind, throughId: body.throughId },
     ...(signal === undefined ? {} : { signal }),
   });
 }
 
 export function updateNotification(id: string, read: boolean, signal?: AbortSignal): Promise<RecordsResult<{ id: string; readAt: string | null }>> {
-  return requestRecords(`/api/v1/notifications/${encodeURIComponent(id)}`, UpdateAnswer, {
+  return request(`/api/v1/notifications/${encodeURIComponent(id)}`, UpdateAnswer, {
     method: 'PATCH',
-    readBareThrottle: true,
     body: { read },
     ...(signal === undefined ? {} : { signal }),
   });

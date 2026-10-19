@@ -1,13 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
 import { LiteModeToggle } from '../auth/lite-mode';
 import { NAV_GROUPS, filterNav, type NavGroup } from './nav-model';
-import { NotificationBell } from '../notifications/bell';
 import { getHomeSummary, getSettingsMenuBadges, type Severity } from '../../lib/admin-api';
 import { useResource } from './use-resource';
 
@@ -39,6 +38,9 @@ const SEVERITY_BADGE: Readonly<Record<Severity, string>> = {
   warning: 'bg-warning-soft text-warning-text',
   danger: 'bg-danger-soft text-danger-text',
 };
+
+/** The bell is its own chunk, rendered only where the server-side flag says so (D-L182). */
+const NotificationBell = lazy(() => import('../notifications/bell'));
 
 export function AdminShell({
   locale,
@@ -164,7 +166,11 @@ export function AdminShell({
           </span>
         )}
 
-        {bell ? <NotificationBell t={t} locale={locale} live={[]} /> : null}
+        {bell ? (
+          <Suspense>
+            <NotificationBell t={t} locale={locale} live={[]} />
+          </Suspense>
+        ) : null}
 
         <LanguageMenu
           options={locales}

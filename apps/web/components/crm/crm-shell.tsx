@@ -17,9 +17,15 @@ import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
 import { LiteModeToggle } from '../auth/lite-mode';
-import { NotificationBell } from '../notifications/bell';
 import { SHELL_SEARCH_STRINGS } from '../search/message-ids';
 import { CRM_NAV, liveHref, type CrmNavItem } from './crm-nav';
+
+/**
+ * The bell is its OWN chunk (D-L182): a lazy `import()` (React's own, as the palette's: `next/dynamic` would add its runtime to every page) that is rendered only where
+ * the server-side flag says so, so a process with `crm_notifications` off never ships
+ * its component, poller, store or writes, and the shell costs it nothing.
+ */
+const NotificationBell = lazy(() => import('../notifications/bell'));
 
 /**
  * The CRM app shell (T-0042) — the frame every record screen sits in, and NOT
@@ -222,7 +228,11 @@ export function CrmShell({
             <span className="sr-only sm:not-sr-only">{t.t(SHELL_SEARCH_STRINGS.entry)}</span>
           </Link>
         ) : null}
-        {bellLive ? <NotificationBell t={t} locale={locale} live={live} /> : null}
+        {bellLive ? (
+          <Suspense>
+            <NotificationBell t={t} locale={locale} live={live} />
+          </Suspense>
+        ) : null}
         <LanguageMenu
           options={locales}
           current={locale}

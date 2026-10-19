@@ -1,4 +1,4 @@
-import { retryAfterMs } from './records-api';
+import { retryAfterMs } from './retry-after';
 
 /**
  * The bell's poller (T-0101, I5-I7), with no React, no `window` and no
@@ -27,7 +27,7 @@ import { retryAfterMs } from './records-api';
 export const CADENCE_MS = 45_000;
 export const BACKOFF_CAP_MS = 300_000;
 export const WAKE_COALESCE_MS = 5_000;
-export { RETRY_AFTER_CAP_MS, retryAfterMs } from './records-api';
+export { RETRY_AFTER_CAP_MS, retryAfterMs } from './retry-after';
 
 export type PollOutcome =
   | { readonly kind: 'ok' }

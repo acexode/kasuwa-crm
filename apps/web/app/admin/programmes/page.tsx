@@ -8,8 +8,7 @@ import { activeLocale, languageOptions } from '../../../lib/locale';
 /** `P02/B` — the programmes list — and `P02/B1`, its first-run empty state. */
 export default async function ProgrammesPage() {
   const { locale } = await activeLocale();
-  const linkedSettings = await adminLiveNav();
-  const bell = await adminBellLive();
+  const [linkedSettings, bell] = await Promise.all([adminLiveNav(), adminBellLive()]);
 
   return (
     <ProgrammesScreen

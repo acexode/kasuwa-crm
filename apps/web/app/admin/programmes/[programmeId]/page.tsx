@@ -31,8 +31,7 @@ export default async function ProgrammePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { locale } = await activeLocale();
-  const linkedSettings = await adminLiveNav();
-  const bell = await adminBellLive();
+  const [linkedSettings, bell] = await Promise.all([adminLiveNav(), adminBellLive()]);
   const { programmeId } = await params;
   const query = await searchParams;
 

@@ -19,8 +19,7 @@ import { activeLocale, languageOptions } from '../../lib/locale';
  */
 export default async function AdminHomePage() {
   const { locale } = await activeLocale();
-  const linkedSettings = await adminLiveNav();
-  const bell = await adminBellLive();
+  const [linkedSettings, bell] = await Promise.all([adminLiveNav(), adminBellLive()]);
 
   return (
     <AdminHomeScreen

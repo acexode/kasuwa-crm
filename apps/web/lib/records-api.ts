@@ -125,9 +125,18 @@ export type RecordsErrorCode = z.infer<typeof RecordsErrorCode>;
 export const ImportErrorCode = z.enum(['import_status_conflict', 'upload_mismatch']);
 export type ImportErrorCode = z.infer<typeof ImportErrorCode>;
 
+/**
+ * The refusals only the merge operations answer (T-0097, D-L148): `already_merged`
+ * (409, on a merge, and on an undo whose survivor was merged away since) and
+ * `undo_expired` (410). Kept out of `RecordsErrorCode` for the same reason as
+ * the import codes: only the duplicates screen pays for their sentences.
+ */
+export const DuplicatesErrorCode = z.enum(['already_merged', 'undo_expired']);
+export type DuplicatesErrorCode = z.infer<typeof DuplicatesErrorCode>;
+
 const ApiError = z.object({
   statusCode: z.number(),
-  code: z.union([RecordsErrorCode, ImportErrorCode]),
+  code: z.union([RecordsErrorCode, ImportErrorCode, DuplicatesErrorCode]),
   message: z.string(),
   details: z.array(z.object({ path: z.string(), code: z.string() })).optional(),
   /** On a 429: the earliest time a retry can succeed (the search throttle, T-0085). */
@@ -136,7 +145,7 @@ const ApiError = z.object({
 
 /** The request never arrived, or the answer was not the contract's. */
 export const NETWORK_ERROR_CODE = 'network' as const;
-export type RecordsScreenErrorCode = RecordsErrorCode | ImportErrorCode | typeof NETWORK_ERROR_CODE;
+export type RecordsScreenErrorCode = RecordsErrorCode | ImportErrorCode | DuplicatesErrorCode | typeof NETWORK_ERROR_CODE;
 
 /** One `details[]` entry: a path and a reason code, never the submitted value. */
 export interface RecordsErrorDetail {
@@ -150,7 +159,7 @@ export interface RecordsError {
   readonly details?: readonly RecordsErrorDetail[];
   /** On `too_many_requests`, when the contract sends it: the earliest a retry can succeed (ISO 8601, UTC). */
   readonly retryAt?: string;
-  /** On a 429 that sends `Retry-After` (notifications, D-L134): the seconds to wait, a positive whole number. */
+  /** On a 429 that sends `Retry-After` in seconds (the duplicates scan, D-L163): how long to wait before asking again. */
   readonly retryAfterSeconds?: number;
 }
 
@@ -196,25 +205,6 @@ export function contactListSearch(query: ContactListQuery): string {
   return search === '' ? '' : `?${search}`;
 }
 
-/** A `Retry-After` is honoured whole, but a nonsense header is not an hour-long silence: every wait taken from one is capped here (N6). */
-export const RETRY_AFTER_CAP_MS = 900_000;
-
-/** A server's `Retry-After` (seconds) as a wait in ms, capped; `fallbackMs` when it sent none. */
-export function retryAfterMs(seconds: number | undefined, fallbackMs: number): number {
-  return seconds === undefined ? fallbackMs : Math.min(RETRY_AFTER_CAP_MS, Math.max(0, seconds * 1000));
-}
-
-/**
- * `Retry-After` as whole seconds, or `undefined`. Only the delta-seconds form
- * the contract declares (`integer, minimum 1`) is read: an HTTP date is not
- * guessed at, because a wrong wait is worse than none.
- */
-export function parseRetryAfter(header: string | null): number | undefined {
-  if (header === null || !/^\d{1,6}$/.test(header.trim())) return undefined;
-  const seconds = Number(header.trim());
-  return seconds >= 1 ? seconds : undefined;
-}
-
 /**
  * One same-origin records request, its answer parsed with `schema`. Every
  * records client goes through here (contacts, accounts), so a refusal is read
@@ -226,17 +216,7 @@ export function parseRetryAfter(header: string | null): number | undefined {
 export async function requestRecords<T>(
   path: string,
   schema: z.ZodType<T, z.ZodTypeDef, unknown>,
-  init: {
-    readonly method: 'GET' | 'POST' | 'PATCH' | 'PUT';
-    readonly body?: unknown;
-    readonly signal?: AbortSignal;
-    /**
-     * A 429 with no envelope but a `Retry-After` is `too_many_requests` with its wait, not `network`.
-     * Opt-in (notifications, T-0101): every other caller keeps reading that answer as it always has
-     * (a lost answer), so no other screen changes behaviour (D-L179 N7).
-     */
-    readonly readBareThrottle?: boolean;
-  } = {
+  init: { readonly method: 'GET' | 'POST' | 'PATCH' | 'PUT'; readonly body?: unknown; readonly signal?: AbortSignal } = {
     method: 'GET',
   },
 ): Promise<RecordsResult<T>> {
@@ -268,15 +248,14 @@ export async function requestRecords<T>(
     return parsed.success ? { ok: true, value: parsed.data } : { ok: false, error: NETWORK_FAILURE };
   }
 
-  const retryAfterSeconds = parseRetryAfter(response.headers.get('retry-after'));
   const parsed = ApiError.safeParse(payload);
   if (!parsed.success) {
-    // A 429 from a layer in front of the API has no envelope, but a wait is still a wait.
-    return init.readBareThrottle === true && response.status === 429 && retryAfterSeconds !== undefined
-      ? { ok: false, error: { code: 'too_many_requests', retryAfterSeconds } }
-      : { ok: false, error: NETWORK_FAILURE };
+    return { ok: false, error: NETWORK_FAILURE };
   }
   const { code, details, retryAt } = parsed.data;
+  // Delta-seconds only: an HTTP-date, a zero or a negative is no wait at all.
+  const waited = Number(response.headers.get('retry-after'));
+  const retryAfterSeconds = Number.isInteger(waited) && waited >= 1 ? waited : undefined;
   return {
     ok: false,
     error: {

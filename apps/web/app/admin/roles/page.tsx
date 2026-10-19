@@ -8,8 +8,7 @@ import { activeLocale, languageOptions } from '../../../lib/locale';
 /** `P02/C`–`P02/C3` — the role hierarchy, its moves and its delete dialog. */
 export default async function RolesPage() {
   const { locale } = await activeLocale();
-  const linkedSettings = await adminLiveNav();
-  const bell = await adminBellLive();
+  const [linkedSettings, bell] = await Promise.all([adminLiveNav(), adminBellLive()]);
 
   return (
     <RolesScreen

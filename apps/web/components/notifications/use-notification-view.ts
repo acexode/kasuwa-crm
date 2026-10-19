@@ -5,7 +5,7 @@ import { refreshCount, setCount, stepCount, writeEnded, writeStarted } from '../
 import { DEFAULT_WAIT_MS, INITIAL_VIEW, shouldContinue, viewReducer, type ViewState } from '../../lib/notification-view';
 import { canReadAll, canToggle, dotEffect, isCurrentGeneration, sendWithResends } from '../../lib/notification-writes';
 import { listNotifications, markAllRead, updateNotification, type NotificationFilter, type NotificationItem, type NotificationKind } from '../../lib/notifications-api';
-import { retryAfterMs } from '../../lib/records-api';
+import { retryAfterMs } from '../../lib/retry-after';
 
 /**
  * Drives one drawn list (the dropdown's or the centre's) against the four

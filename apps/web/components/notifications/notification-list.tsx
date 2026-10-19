@@ -7,7 +7,7 @@ import { notificationHref } from '../../lib/notification-href';
 import { ACTOR_MARK, OBJECT_MARK, formatDay, formatTime, groupByDay, relativeDay, dayKey, sentenceKey, sentenceParts, sentenceVariant, SENTENCE_IDS } from '../../lib/notification-model';
 import type { ViewState } from '../../lib/notification-view';
 import type { NotificationItem } from '../../lib/notifications-api';
-import { FOCUS } from '../records/list-classes';
+import { FOCUS } from './classes';
 import { errorMessageId } from './message-ids';
 
 /**
@@ -79,7 +79,7 @@ export function NotificationRow({ item, t, locale, live, busy, onToggle, onOpen 
         onClick={() => onToggle(item)}
         className={`flex min-h-touch min-w-touch shrink-0 items-center justify-center rounded-md ${FOCUS}`}
       >
-        <span aria-hidden="true" className={`block h-3 w-3 rounded-full border-2 ${unread ? 'border-primary bg-primary' : 'border-text-muted bg-transparent'}`} />
+        <span aria-hidden="true" className={`block h-3 w-3 rounded-full border-2 ${unread ? 'border-primary bg-primary' : 'border-border-strong bg-transparent'}`} />
       </button>
       <div className="flex min-w-0 flex-1 flex-col gap-1 py-2">
         {href === null ? (

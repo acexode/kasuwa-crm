@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from 'react';
 import { createBundleTranslator, type MessageBundle } from '@kasuwa/i18n/bundle';
+import { SECONDARY_BUTTON } from '../auth/button-classes';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { liveObjectTypes } from '../../lib/notification-href';
@@ -20,6 +21,10 @@ import { useNotificationView } from './use-notification-view';
  * `P26` frames B and B2 — the notification centre at `/notifications`, in the
  * CRM shell: unread or all, one kind or all kinds, in day groups, paged by the
  * cursor exactly as served.
+ *
+ * `SECONDARY_BUTTON` is the shared button class every other screen already loads: a screen that
+ * did not use it would leave the one chunk of modules every route shares (the bundler's
+ * "commons") and push it into every other page's own chunks (D-L182).
  *
  * Absent on purpose (C2-C4): per-type counts on the tabs and an exact unread
  * total (the count is capped at 99 and per-kind counts are not served), "clear
@@ -61,7 +66,7 @@ export function NotificationCentre({
             data-testid="notifications-read-all"
             disabled={!readAllUsable}
             onClick={view.readAll}
-            className={`flex min-h-touch items-center gap-2 rounded-md px-3 text-body-sm font-semibold text-primary-text hover:bg-surface-sunken disabled:text-text-muted ${FOCUS}`}
+            className={`flex min-h-touch items-center gap-2 rounded-md px-3 text-body-sm font-semibold text-primary-text hover:bg-surface-sunken disabled:opacity-60 ${FOCUS}`}
           >
             <Icon name="done_all" size="sm" />
             {kind === null ? t.t('notifications.readAll') : t.t('notifications.readAllKind', { kind: t.t(kindLabel(kind)) })}
@@ -115,7 +120,7 @@ export function NotificationCentre({
               data-testid="notifications-more"
               disabled={state.loadingMore || waiting}
               onClick={view.loadMore}
-              className={`flex min-h-touch items-center justify-center rounded-md border border-border bg-surface px-4 text-body-sm font-semibold text-primary-text hover:bg-surface-sunken disabled:text-text-muted ${FOCUS}`}
+              className={SECONDARY_BUTTON}
             >
               {t.t(state.loadingMore ? 'notifications.loading' : 'notifications.more')}
             </button>
