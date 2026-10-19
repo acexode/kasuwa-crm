@@ -48,14 +48,14 @@ describe('apiFetch (ADR-0019 step d)', () => {
     const init = sentInit(fetchMock);
     expect(init.method).toBe('GET');
     expect(init.cache).toBe('no-store');
-    expect(init.credentials).toBe('same-origin');
+    expect(init.credentials, 'same-origin is fetch\'s default; nothing widens it').toBeUndefined();
     expect(JSON.stringify(init.headers)).not.toMatch(/authorization|x-kasuwa|programme|tenant|scope/i);
   });
 
   it('takes relative /api/ paths only', async () => {
     stubFetch();
-    await expect(apiFetch('https://api.example/api/v1/contacts')).rejects.toThrow(/relative/);
-    await expect(apiFetch('/contacts')).rejects.toThrow(/relative/);
+    await expect(apiFetch('https://api.example/api/v1/contacts')).rejects.toThrow(/\/api\/ only/);
+    await expect(apiFetch('/contacts')).rejects.toThrow(/\/api\/ only/);
   });
 
   it('sends a signed-out browser to sign-in on a 401 (I6)', async () => {

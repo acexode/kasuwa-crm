@@ -47,11 +47,15 @@ export interface CspMode {
   readonly storageEndpoint?: string | undefined;
 }
 
-/** At least 128 bits from the platform CSPRNG, base64 (I18, amendment 4). */
+/**
+ * 128 bits from the platform CSPRNG, base64 without its `==` padding: 22
+ * characters (I18, amendment 4). The padding carries no entropy and is
+ * repeated on every script tag of every page.
+ */
 export function newNonce(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
-  return Buffer.from(bytes).toString('base64');
+  return Buffer.from(bytes).toString('base64').replace(/=+$/, '');
 }
 
 export function contentSecurityPolicy(nonce: string, mode: CspMode): string {

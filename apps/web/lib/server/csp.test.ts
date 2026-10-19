@@ -51,7 +51,7 @@ describe('the page CSP (ADR-0019 point 10, I18)', () => {
     const nonces = Array.from({ length: 50 }, () => newNonce());
     expect(new Set(nonces).size).toBe(50);
     for (const nonce of nonces) {
-      expect(nonce).toMatch(/^[A-Za-z0-9+/=]{22,}$/);
+      expect(nonce).toMatch(/^[A-Za-z0-9+/]{22}$/);
       expect(Buffer.from(nonce, 'base64').byteLength).toBeGreaterThanOrEqual(16);
     }
   });

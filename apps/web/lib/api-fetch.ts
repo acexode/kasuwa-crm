@@ -13,9 +13,11 @@
  *   - `cache: 'no-store'`: every answer is one session's data at a URL that is
  *     the same for every user. The BFF also sends `no-store`; this is the
  *     second layer.
- *   - `credentials: 'same-origin'` (the default, stated): the session is an
- *     HttpOnly cookie the browser attaches and this code never sees. There is
- *     no token here, no Authorization header and no identity of any kind.
+ *   - the default `credentials: 'same-origin'`: the session is an HttpOnly
+ *     cookie the browser attaches and this code never sees. There is no token
+ *     here, no Authorization header and no identity of any kind. (Not stated
+ *     in the call: it is the default, and every byte here ships on every
+ *     screen.)
  *   - a 401 sends the user to sign-in (I6), except where the caller IS the
  *     sign-in flow and a 401 means a wrong password or code.
  *
@@ -53,7 +55,7 @@ export async function apiFetch(path: string, init: ApiFetchInit = {}): Promise<R
   if (!path.startsWith('/api/')) {
     // A same-origin relative path, always. An absolute URL would carry the
     // session's cookie nowhere useful and is not what this is for.
-    throw new Error('apiFetch takes a relative /api/ path');
+    throw new Error('apiFetch: /api/ only');
   }
   const hasBody = init.body !== undefined;
   const headers: Record<string, string> = hasBody
@@ -62,7 +64,6 @@ export async function apiFetch(path: string, init: ApiFetchInit = {}): Promise<R
   const response = await fetch(path, {
     method: init.method ?? 'GET',
     cache: 'no-store',
-    credentials: 'same-origin',
     headers,
     ...(hasBody ? { body: JSON.stringify(init.body) } : {}),
     ...(init.signal === undefined ? {} : { signal: init.signal }),
