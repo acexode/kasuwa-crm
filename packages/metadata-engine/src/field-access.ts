@@ -199,14 +199,45 @@ const FIELD_ACCESS_SQL = `
  * or a name that could not be one; see the header.
  */
 export async function loadFieldAccess(tx: TenantTx, objectApiName: string): Promise<FieldAccess> {
+  return readFieldAccess(tx, objectApiName, tx.session.userId, tx.session.programmeIds);
+}
+
+/**
+ * ANOTHER user's field access for one object, in the programmes named (T-0100).
+ *
+ * The one deliberate exception to "no argument names a user": the
+ * notifications consumer runs as the ACTOR of an event and must judge what the
+ * RECIPIENT may read before it writes them a row, because a notification that
+ * says "you were assigned X" must not reveal a field the recipient's set
+ * withholds (D-L157). It is the same read `loadFieldAccess` does, under the
+ * caller's own RLS: the catalogue and the memberships are tenant-scoped, so it
+ * widens nothing the session could not already read. A user with no membership
+ * in a programme gets `none` for every field there (fail closed), and the
+ * caller passes the programmes it means to ask about, never a list from a
+ * client. Do not call it with an id that came from a request.
+ */
+export async function loadFieldAccessForUser(
+  tx: TenantTx,
+  objectApiName: string,
+  userId: string,
+  programmeIds: readonly string[],
+): Promise<FieldAccess> {
+  return readFieldAccess(tx, objectApiName, userId, programmeIds);
+}
+
+async function readFieldAccess(
+  tx: TenantTx,
+  objectApiName: string,
+  userId: string,
+  programmeIds: readonly string[],
+): Promise<FieldAccess> {
   // Malformed names never reach the database, and fail exactly as an unknown
   // object does: the caller learns nothing from the difference.
   if (!apiNameSchema.safeParse(objectApiName).success) {
     throw new UnknownObjectDefError();
   }
-  const { tenantId, userId, programmeIds } = tx.session;
   const rows = await tx.query(FIELD_ACCESS_SQL, [
-    tenantId,
+    tx.session.tenantId,
     objectApiName,
     userId,
     [...programmeIds],
