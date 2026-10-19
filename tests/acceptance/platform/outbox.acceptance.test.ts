@@ -2109,7 +2109,17 @@ describe('acceptance: the transactional outbox and kasuwa_relay (T-0098)', () =>
         ['apiEnv', apiEnv, { ...AMBIENT, NODE_ENV: 'development', DATABASE_URL, DATABASE_AUTH_URL }],
         ['realtimeEnv', realtimeEnv, { ...AMBIENT, NODE_ENV: 'development' }],
         ['migratorEnv', migratorEnv, { ...AMBIENT, NODE_ENV: 'development' }],
-        ['webEnv', webEnv, { ...AMBIENT, NODE_ENV: 'development' }],
+        // T-0125 (D-L178): webEnv requires both session URLs.
+        [
+          'webEnv',
+          webEnv,
+          {
+            ...AMBIENT,
+            NODE_ENV: 'development',
+            KASUWA_WEB_ORIGIN: 'http://localhost:3000',
+            KASUWA_API_INTERNAL_URL: 'http://127.0.0.1:3001',
+          },
+        ],
         ['webBuildEnv', webBuildEnv, { ...AMBIENT, NODE_ENV: 'development' }],
       ];
       const problems: string[] = [];
