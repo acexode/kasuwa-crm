@@ -76,11 +76,8 @@ describe('describeCustom', () => {
       kind: 'text',
       text: new Intl.NumberFormat('en', { style: 'currency', currency: 'NGN' }).format(1250000.5),
     });
-    expect(describeCustom(DUE, '2027-03-01', 'en')).toEqual({
-      kind: 'date',
-      iso: '2027-03-01',
-      text: new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeZone: 'UTC' }).format(Date.UTC(2027, 2, 1)),
-    });
+    // T-0143 writes English dates day first, as every design export does (lib/date-locale.ts).
+    expect(describeCustom(DUE, '2027-03-01', 'en')).toEqual({ kind: 'date', iso: '2027-03-01', text: '1 Mar 2027' });
   });
 
   it('keeps every digit of an 18-digit amount', () => {

@@ -13,7 +13,7 @@ import {
   type OnboardingCurrency,
 } from '../../lib/money-format';
 import { StepHeading } from './onboarding-shell';
-import { zoneNameLocale } from '../../lib/retry-time';
+import { zoneAbbreviation } from '../../lib/zone-name';
 
 /**
  * The board's sample amount, 1,250,000 in MAJOR units. Display only, never a
@@ -89,10 +89,7 @@ export function CurrencyStep({
   // server-rendered HTML and the first client render agree.
   useEffect(() => {
     const name = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const short =
-      new Intl.DateTimeFormat(zoneNameLocale(t.locale), { timeZone: name, timeZoneName: 'short' })
-        .formatToParts(new Date())
-        .find((part) => part.type === 'timeZoneName')?.value ?? '';
+    const short = zoneAbbreviation(t.locale, new Date(), name);
     // "Africa/Lagos" -> "Lagos": the city, as the board shows it.
     const city = (name.split('/').pop() ?? name).replace(/_/g, ' ');
     setZone({ name, city, short });

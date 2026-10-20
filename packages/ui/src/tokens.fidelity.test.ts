@@ -134,7 +134,8 @@ describe('radii, spacing half steps, control heights and shell', () => {
 
   it('keeps the standard control height equal to the touch floor', () => {
     expect(CONTROL_HEIGHT.base).toBe(SPACING.touch);
-    expect(Object.values(CONTROL_HEIGHT)).toEqual(['36px', '40px', '44px', '48px', '52px']);
+    // T-0137 added xs 30px for the P26 bell dropdown's filter chips (desktop only).
+    expect(Object.values(CONTROL_HEIGHT)).toEqual(['30px', '36px', '40px', '44px', '48px', '52px']);
   });
 
   it('exposes control heights and shell dimensions as spacing utilities', () => {

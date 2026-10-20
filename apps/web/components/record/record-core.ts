@@ -1,6 +1,7 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
 import type { RecordsError, RecordsResult, RecordsScreenErrorCode } from '../../lib/records-api';
 import { dateFormatter, tidyMonth } from '../../lib/date-locale';
+import { zoneAbbreviation } from '../../lib/zone-name';
 
 /**
  * The pure half every P05 record shares — the contact (T-0062) and the
@@ -68,31 +69,11 @@ export function formatTime(locale: string, iso: string): string {
 }
 
 /**
- * The zones Kasuwa's desks sit in, by their English long name, as the people
- * there write them. `Intl` abbreviates Africa/Lagos as "GMT+1" in English;
- * every Lagos desk, and the P05 design, says "WAT" (T-0134). Matched on the
- * long name so every IANA zone in a region maps, not one city.
+ * The browser's zone as people there name it ("WAT", "EAT", "SAST"), for the
+ * timeline's header: the abbreviation in every locale (`lib/zone-name.ts`, T-0144).
  */
-const AFRICAN_ZONES: Readonly<Record<string, string>> = {
-  // Engines differ: Node's ICU says "West Africa Standard Time", Chromium's "West Africa Time".
-  'West Africa Standard Time': 'WAT',
-  'West Africa Time': 'WAT',
-  'West Africa Summer Time': 'WAST',
-  'Central Africa Time': 'CAT',
-  'East Africa Time': 'EAT',
-  'South Africa Standard Time': 'SAST',
-  'South Africa Time': 'SAST',
-  'Greenwich Mean Time': 'GMT',
-};
-
-/** The browser's zone as people there name it ("WAT", "EAT", "SAST"), for the timeline's header. */
 export function zoneName(locale: string, at: Date = new Date()): string {
-  const long = new Intl.DateTimeFormat('en', { timeZoneName: 'long' })
-    .formatToParts(at)
-    .find((part) => part.type === 'timeZoneName')?.value;
-  const known = long === undefined ? undefined : AFRICAN_ZONES[long];
-  if (known !== undefined) return known;
-  return formatter(locale, { timeZoneName: 'short' }).formatToParts(at).find((part) => part.type === 'timeZoneName')?.value ?? '';
+  return zoneAbbreviation(locale, at);
 }
 
 /** A local calendar day ("2026-10-20"), to group a timeline by day in the browser's zone. */

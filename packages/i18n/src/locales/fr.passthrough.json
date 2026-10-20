@@ -153,5 +153,14 @@
   "admin.studio.editor.subtitle",
   "admin.studio.option.unique",
   "admin.studio.builder.mobile",
-  "admin.studio.builder.inspectorTitle"
+  "admin.studio.builder.inspectorTitle",
+  "admin.home.subtitle",
+  "admin.home.subtitle.noPlan",
+  "admin.home.recent.what",
+  "admin.audit.summary",
+  "admin.prog.field.client",
+  "admin.audit.object.contact",
+  "admin.audit.object.programme",
+  "admin.audit.object.script",
+  "admin.audit.object.disposition"
 ]

@@ -1,4 +1,5 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
+import { zoneAbbreviation } from '../../lib/zone-name';
 
 /**
  * How P03 writes times, days and money (T-0132). Pure functions, no
@@ -52,21 +53,9 @@ export function formatClock(locale: string, at: Date): string {
   return formatter(locale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(at);
 }
 
-const OFFSET_ONLY = /^(GMT|UTC)([+-−]|$)/u;
-
-/** The browser's zone by its name ("WAT", "EAT", "SAST"), or its offset where no name is known. */
+/** The browser's zone by its name ("WAT", "EAT", "SAST") in every locale, or its offset where no name is known (`lib/zone-name.ts`, T-0144). */
 export function zoneName(locale: string, at: Date = new Date()): string {
-  const read = (tag: string): string =>
-    formatter(tag, { timeZoneName: 'short' })
-      .formatToParts(at)
-      .find((part) => part.type === 'timeZoneName')?.value ?? '';
-  const own = read(locale);
-  if (!OFFSET_ONLY.test(own)) return own;
-  for (const tag of ['en-NG', 'en-KE', 'en-ZA', 'en-GH']) {
-    const named = read(tag);
-    if (named !== '' && !OFFSET_ONLY.test(named)) return named;
-  }
-  return own;
+  return zoneAbbreviation(locale, at);
 }
 
 /** Local midnight today and tomorrow, as UTC instants: the agenda's calendar window. */

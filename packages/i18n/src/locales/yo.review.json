@@ -66,6 +66,11 @@
     "data.migration.salesforce.initial": "A product name, kept as the vendor writes it.",
     "admin.studio.meter.unknown": "Studio copy (T-0142) that reads the same in this language: a symbol, a placeholder pattern, a product term or an established loanword.",
     "admin.studio.editor.subtitle": "Studio copy (T-0142) that reads the same in this language: a symbol, a placeholder pattern, a product term or an established loanword.",
-    "admin.studio.relationships.zoom": "Studio copy (T-0142) that reads the same in this language: a symbol, a placeholder pattern, a product term or an established loanword."
+    "admin.studio.relationships.zoom": "Studio copy (T-0142) that reads the same in this language: a symbol, a placeholder pattern, a product term or an established loanword.",
+    "admin.home.subtitle": "A separator or placeholder pattern from the admin screens (T-0140, T-0144): only {arguments} and punctuation, which read the same in this language.",
+    "admin.home.subtitle.noPlan": "A separator or placeholder pattern from the admin screens (T-0140, T-0144): only {arguments} and punctuation, which read the same in this language.",
+    "admin.home.recent.what": "A separator or placeholder pattern from the admin screens (T-0140, T-0144): only {arguments} and punctuation, which read the same in this language.",
+    "admin.audit.summary": "A separator or placeholder pattern from the admin screens (T-0140, T-0144): only {arguments} and punctuation, which read the same in this language.",
+    "admin.audit.chip": "A separator or placeholder pattern from the admin screens (T-0140, T-0144): only {arguments} and punctuation, which read the same in this language."
   }
 }

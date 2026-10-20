@@ -43,5 +43,10 @@
   "data.migration.salesforce",
   "data.migration.salesforce.initial",
   "admin.studio.meter.unknown",
-  "admin.studio.editor.subtitle"
+  "admin.studio.editor.subtitle",
+  "admin.home.subtitle",
+  "admin.home.subtitle.noPlan",
+  "admin.home.recent.what",
+  "admin.audit.summary",
+  "admin.audit.chip"
 ]

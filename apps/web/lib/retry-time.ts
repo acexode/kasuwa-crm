@@ -1,3 +1,5 @@
+import { zoneAbbreviation } from './zone-name';
+
 /**
  * Renders "you can try again at ..." for `P01/1b`.
  *
@@ -9,8 +11,8 @@
  * acceptance test asserts that both arrive.
  *
  * Conversion is explicit (`CLAUDE.md` section 4: dates are UTC in the database,
- * converted at the edges). `Intl.DateTimeFormat` does the arithmetic, including
- * the abbreviation, so nothing here maintains a table of zone names.
+ * converted at the edges). `Intl.DateTimeFormat` does the arithmetic; the zone
+ * is named by `zoneAbbreviation` ("WAT" in every locale, T-0144).
  */
 /**
  * An index signature as well as the two named fields, so the result can be
@@ -49,10 +51,8 @@ export function formatRetryTime(
   let zone: string;
   try {
     time = new Intl.DateTimeFormat(locale, options).format(when);
-    zone =
-      new Intl.DateTimeFormat(zoneNameLocale(locale), { ...options, timeZoneName: 'short' })
-        .formatToParts(when)
-        .find((part) => part.type === 'timeZoneName')?.value ?? (timeZone ?? '');
+    const named = zoneAbbreviation(locale, when, timeZone);
+    zone = named === '' ? (timeZone ?? '') : named;
   } catch {
     // An unknown IANA id throws rather than guessing. Showing UTC and saying so
     // is honest; showing a local time under a zone name we could not resolve is
@@ -62,14 +62,4 @@ export function formatRetryTime(
   }
 
   return { time, zone };
-}
-
-/**
- * English names African zones by their letters only in an African English:
- * `en` says "GMT+1" where `en-NG` says "WAT" (and EAT, SAST, CAT), which is
- * what the P01 design prints and what a Lagos or Nairobi roster calls them.
- * Other languages keep their own convention ("UTC+1" in French).
- */
-export function zoneNameLocale(locale: string): string {
-  return locale === 'en' || locale.startsWith('en-') ? 'en-NG' : locale;
 }

@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { EN_CATALOGUE, REGISTERED_LOCALES, bundleMessages, type MessageId } from '@kasuwa/i18n';
 import { RecordsErrorCode } from '../../lib/records-api';
-import { ACTIVITIES_MESSAGE_IDS } from './message-ids';
+import type { ActivitiesPlaceholders } from '../../lib/feature-flags';
+import { ACTIVITIES_MESSAGE_IDS, activitiesMessageIds } from './message-ids';
 import { BUCKETS, bucketLabel, meetingRuleLabel, snoozeLabel } from './activities-model';
 
 /**
@@ -34,18 +35,43 @@ const SOURCES = [
   '../crm/crm-shell.tsx',
 ];
 
+const PLACEHOLDER_KEYS: readonly (keyof ActivitiesPlaceholders)[] = [
+  'calendarSync',
+  'bookingPages',
+  'fieldCheckin',
+  'priority',
+  'reminders',
+];
+const placeholdersWith = (on: (key: keyof ActivitiesPlaceholders) => boolean): ActivitiesPlaceholders =>
+  Object.fromEntries(PLACEHOLDER_KEYS.map((key) => [key, on(key)])) as unknown as ActivitiesPlaceholders;
+
 describe('the activities screen bundles every id it renders', () => {
   const available = new Set<string>(ACTIVITIES_MESSAGE_IDS);
+  // T-0136 bundles the D-L194 placeholders' strings only where their flag is
+  // on, so a source may name an id that only the flag-on bundle carries.
+  const flagged = new Set<string>(activitiesMessageIds(placeholdersWith(() => true)).filter((id) => !available.has(id)));
 
   for (const file of SOURCES) {
-    it(`${file} names nothing outside ACTIVITIES_MESSAGE_IDS`, () => {
+    it(`${file} names nothing outside ACTIVITIES_MESSAGE_IDS and the flag-gated placeholders`, () => {
       const named = catalogueIds(file);
       expect(named.length, `${file} names no message id: the scan is reading nothing`).toBeGreaterThan(0);
       // list-parts names the chooser and filter copy this screen never draws.
       const drawn = file === '../records/list-parts.tsx' ? named.filter((id) => id === 'records.locked') : named;
-      expect(drawn.filter((id) => !available.has(id))).toEqual([]);
+      expect(drawn.filter((id) => !available.has(id) && !flagged.has(id))).toEqual([]);
     });
   }
+
+  it('ships no placeholder string with every flag off, and each flag adds only its own (D-L194)', () => {
+    expect(activitiesMessageIds(placeholdersWith(() => false))).toEqual([...ACTIVITIES_MESSAGE_IDS]);
+    const added = PLACEHOLDER_KEYS.map((only) =>
+      activitiesMessageIds(placeholdersWith((key) => key === only)).filter((id) => !available.has(id)),
+    );
+    for (const [index, ids] of added.entries()) {
+      expect(ids.length, PLACEHOLDER_KEYS[index]).toBeGreaterThan(0);
+    }
+    expect(added.flat().length).toBe(new Set(added.flat()).size);
+    expect(new Set(added.flat())).toEqual(flagged);
+  });
 
   it('bundles the computed ids a scan cannot see: buckets, empty states, presets, meeting rules, types, errors', () => {
     const computed: string[] = [
@@ -68,8 +94,9 @@ describe('the activities screen bundles every id it renders', () => {
   });
 
   it('resolves in every registered locale', () => {
+    const everything = activitiesMessageIds(placeholdersWith(() => true));
     for (const locale of REGISTERED_LOCALES) {
-      expect(() => bundleMessages(locale, ACTIVITIES_MESSAGE_IDS as readonly MessageId[]), locale).not.toThrow();
+      expect(() => bundleMessages(locale, everything as readonly MessageId[]), locale).not.toThrow();
     }
   });
 });
