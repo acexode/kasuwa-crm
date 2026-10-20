@@ -153,25 +153,25 @@ export function MergeCompare({
   const recordColumns = threeWay ? 3 : 2;
 
   return (
-    <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-surface">
-      <table data-testid="merge-compare" className="w-full min-w-[640px] table-fixed border-separate border-spacing-0 text-body-sm">
+    <div className="min-w-0 overflow-hidden rounded-lg border border-border bg-surface md:overflow-x-auto">
+      <table data-testid="merge-compare" className="w-full table-fixed border-separate border-spacing-0 text-body-sm max-md:block md:min-w-[640px]">
         <caption className="sr-only">{t.t('duplicates.merge.compare')}</caption>
-        <colgroup>
+        <colgroup className="max-md:hidden">
           <col className="w-[150px]" />
           {Array.from({ length: recordColumns + 1 }, (_, index) => (
             <col key={index} />
           ))}
         </colgroup>
-        <thead>
-          <tr className="bg-surface-sunken">
-            <th scope="col" className="border-b border-border px-4 pb-3 pt-2.5 text-start align-bottom text-meta font-bold">
+        <thead className="max-md:block">
+          <tr className="bg-surface-sunken max-md:grid max-md:grid-cols-2">
+            <th scope="col" className="border-b border-border px-4 pb-3 pt-2.5 text-start align-bottom text-meta font-bold max-md:hidden">
               {t.t('duplicates.col.field')}
             </th>
             {columns.map((column, index) => {
               const main = column.id === mainId;
               const created = contact(column);
               return (
-                <th key={column.id} scope="col" className="border-b border-border px-1.5 pb-2.5 pt-2.5 text-start align-top font-normal">
+                <th key={column.id} scope="col" className="border-b border-border px-1.5 pb-2.5 pt-2.5 text-start align-top font-normal max-md:block">
                   <label
                     className={`flex min-w-0 cursor-pointer flex-col gap-0.5 rounded-10 bg-surface px-3 py-2.5 ${
                       main ? 'border-2 border-primary bg-primary-soft' : 'border border-border'
@@ -204,7 +204,7 @@ export function MergeCompare({
               );
             })}
             {threeWay ? (
-              <th scope="col" data-merge-slot="third" className="border-b border-border px-1.5 pb-2.5 pt-2.5 text-start align-top font-normal">
+              <th scope="col" data-merge-slot="third" className="border-b border-border px-1.5 pb-2.5 pt-2.5 text-start align-top font-normal max-md:hidden">
                 <span aria-disabled="true" className="flex min-w-0 flex-col gap-0.5 rounded-10 border border-dashed border-border-strong bg-surface px-3 py-2.5 text-text-muted">
                   <span className="flex items-center gap-2">
                     <span aria-hidden="true" className="size-4.5 shrink-0 rounded-full border-2 border-border" />
@@ -214,7 +214,7 @@ export function MergeCompare({
                 </span>
               </th>
             ) : null}
-            <th scope="col" className="border-b border-border px-1.5 pb-2.5 pt-2.5 text-start align-top font-normal">
+            <th scope="col" className="border-b border-border px-1.5 pb-2.5 pt-2.5 text-start align-top font-normal max-md:col-span-2 max-md:block">
               <span className="flex min-h-full flex-col justify-end gap-0.5 rounded-10 bg-success-soft px-3 py-2.5">
                 <b className="mt-auto text-body-sm font-bold text-success-text">{t.t('duplicates.result.title')}</b>
                 <span className="text-caption font-normal text-text-2">{t.t('duplicates.result.body')}</span>
@@ -222,7 +222,7 @@ export function MergeCompare({
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="max-md:block">
           {preview === null
             ? Array.from({ length: 5 }, (_, index) => (
                 <tr key={index} aria-hidden="true">
@@ -236,7 +236,7 @@ export function MergeCompare({
               ))}
         </tbody>
         {preview === null ? null : (
-          <tbody data-testid="merge-compliance">
+          <tbody data-testid="merge-compliance" className="max-md:block">
             {complianceRows(preview).map((row) => (
               <ComplianceTableRow key={row.field} t={t} row={row} preview={preview} columns={columns} threeWay={threeWay} />
             ))}
@@ -257,11 +257,11 @@ function RecordOrigin({ t, locale, contact }: { t: Translator; locale: string; c
   );
 }
 
-const CELL = 'border-b border-border px-1.5 py-1.5 align-middle';
+const CELL = 'border-b border-border px-1.5 py-1.5 align-middle max-md:block max-md:border-b-0';
 
 function FieldHeader({ label, note }: { label: string; note?: ReactNode }) {
   return (
-    <th scope="row" className="border-b border-border px-4 py-2 text-start align-middle font-normal">
+    <th scope="row" className="border-b border-border px-4 py-2 text-start align-middle font-normal max-md:col-span-2 max-md:block max-md:border-b-0 max-md:pb-0">
       <span className="flex flex-col">
         <b className="break-words text-body-sm font-bold">{label}</b>
         {note === undefined ? null : <span className="text-caption font-normal text-text-2">{note}</span>}
@@ -295,12 +295,13 @@ function Row({
   const kept = row.kind === 'choice' && row.pick !== null ? fieldValue(preview[row.pick], row.field) : fieldValue(preview.survivor, row.field);
   return (
     <tr
+      className="max-md:grid max-md:grid-cols-2 max-md:border-b max-md:border-border max-md:py-1.5"
       data-merge-field={row.field}
       {...(row.kind === 'withheld' ? { 'data-withheld': 'true' } : {})}
       {...(row.kind === 'locked' ? { 'data-locked': 'true' } : {})}
     >
       <FieldHeader label={label} note={equal ? t.t('duplicates.same') : row.kind === 'locked' ? t.t('duplicates.locked.short') : undefined} />
-      <td colSpan={2} className={CELL}>
+      <td colSpan={2} className={`${CELL} max-md:col-span-2`}>
         {row.kind === 'withheld' ? (
           <p className="m-0 flex items-center gap-2 px-3 text-body-sm text-text-2">
             <Icon name="lock" size={18} />
@@ -341,11 +342,12 @@ function Row({
         ) : null}
       </td>
       {threeWay ? (
-        <td className={`${CELL} px-4 text-text-muted`}>
+        <td className={`${CELL} px-4 text-text-muted max-md:hidden`}>
           <span aria-hidden="true">—</span>
         </td>
       ) : null}
-      <td className={`${CELL} px-4 font-bold`}>
+      <td className={`${CELL} px-4 font-bold max-md:col-span-2 max-md:flex max-md:gap-1.5`}>
+        <span className="font-normal text-success-text md:hidden">{t.t('duplicates.result.title')}:</span>
         {row.kind === 'withheld' ? <span className="font-normal text-text-2">{t.t('duplicates.withheld')}</span> : <Value t={t} value={kept} />}
       </td>
     </tr>
@@ -373,7 +375,7 @@ function ComplianceTableRow({
   threeWay: boolean;
 }) {
   return (
-    <tr data-merge-compliance={row.field} {...(row.withheld ? { 'data-withheld': 'true' } : {})}>
+    <tr data-merge-compliance={row.field} {...(row.withheld ? { 'data-withheld': 'true' } : {})} className="max-md:grid max-md:grid-cols-2 max-md:border-b max-md:border-border max-md:py-1.5">
       <FieldHeader label={t.t(COMPLIANCE_LABELS[row.field])} note={t.t('duplicates.compliance.kept')} />
       {columns.map((column) => {
         const own = recordCompliance(preview[column.side], row.field);
@@ -387,11 +389,12 @@ function ComplianceTableRow({
         );
       })}
       {threeWay ? (
-        <td className={`${CELL} px-4 text-text-muted`}>
+        <td className={`${CELL} px-4 text-text-muted max-md:hidden`}>
           <span aria-hidden="true">—</span>
         </td>
       ) : null}
-      <td className={`${CELL} px-4`}>
+      <td className={`${CELL} px-4 max-md:col-span-2 max-md:flex max-md:gap-1.5`}>
+        <span className="text-success-text md:hidden">{t.t('duplicates.result.title')}:</span>
         {row.withheld ? (
           <span className="text-text-2">{t.t('duplicates.withheld')}</span>
         ) : (
