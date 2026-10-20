@@ -486,12 +486,16 @@ async function numberForms(page: Page, decimal: string): Promise<string[]> {
 
 async function dateForms(page: Page, isoDate: string): Promise<string[]> {
   return page.evaluate((iso) => {
-    const lang = document.documentElement.lang || 'en';
+    // T-0149 (T-0143, lib/date-locale.ts): bare `en` is written as Nigerian English, day first, with "Sep" for "Sept",
+    // as every design export writes dates; any other language keeps its own forms. Still the browser's own Intl output.
+    const documentLang = document.documentElement.lang || 'en';
+    const lang = /^en$/i.test(documentLang) ? 'en-NG' : documentLang;
+    const tidy = (text: string) => (/^en(-|$)/i.test(lang) ? text.replace(/\bSept\b/g, 'Sep') : text);
     const [year, month, day] = iso.split('-').map(Number);
     const at = Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1);
     const out = new Set<string>();
     for (const dateStyle of ['short', 'medium', 'long', 'full'] as const) {
-      out.add(new Intl.DateTimeFormat(lang, { dateStyle, timeZone: 'UTC' }).format(at).replace(/\s+/g, ' ').trim());
+      out.add(tidy(new Intl.DateTimeFormat(lang, { dateStyle, timeZone: 'UTC' }).format(at).replace(/\s+/g, ' ').trim()));
     }
     return [...out];
   }, isoDate);
@@ -1367,6 +1371,8 @@ test.describe('at 360 px', () => {
 
   test('the record, its custom values and the edit form fit 360 px with no sideways scroll, axe-clean @p18-custom-values @p18-custom-values-mobile', async ({ page }) => {
     await openContact(page, CONTACT_FULL.id, { role: 'writer', customFields: contactSetup() });
+    // T-0149 (T-0134): at 360 the record is underline tabs, Activity first; the custom values are on Details.
+    await page.locator(CONTACT_SCREEN).getByRole('tab', { name: EN['record.section.details'] ?? '<record.section.details>', exact: true }).click();
     await expect(slot(page, CONTACT_SCREEN, 'credit_limit__c')).toBeVisible();
     const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(await overflow(), 'the record scrolls sideways at 360 px').toBeLessThanOrEqual(0);

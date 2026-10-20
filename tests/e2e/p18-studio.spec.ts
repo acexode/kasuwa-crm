@@ -706,6 +706,10 @@ test('the studio sits in the admin shell, whose Fields entry links it where the 
   await expect(entry).toHaveAttribute('aria-current', 'page');
   await expect(page.locator('[data-shell="crm"]'), 'the studio is drawn in the CRM shell').toHaveCount(0);
 
+  // T-0149 (T-0130): the language menu's /translations link moved into the account menu, so the page's links are the
+  // settings menu's; every group is opened so each of its entries is checked, not only the Customisation group's.
+  for (const toggle of await menu.locator('[data-testid^="nav-group-"][aria-expanded="false"]').all()) await toggle.click();
+
   const hrefs = [...new Set(await page.locator('a[href^="/"]').evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute('href') ?? '')))];
   expect(hrefs.length, 'the page links nowhere — not even the settings menu').toBeGreaterThan(2);
   for (const href of hrefs) {
