@@ -18,6 +18,7 @@ export type IconName =
   | 'archive'
   | 'arrow_back'
   | 'arrow_downward'
+  | 'arrow_drop_down_circle'
   | 'arrow_forward'
   | 'arrow_upward'
   | 'assignment_ind'
@@ -44,6 +45,7 @@ export type IconName =
   | 'check_box'
   | 'check_box_outline_blank'
   | 'check_circle'
+  | 'checklist'
   | 'chevron_left'
   | 'chevron_right'
   | 'close'
@@ -64,6 +66,7 @@ export type IconName =
   | 'delete'
   | 'description'
   | 'design_services'
+  | 'desktop_windows'
   | 'dialpad'
   | 'do_not_disturb_on'
   | 'domain'
@@ -73,6 +76,7 @@ export type IconName =
   | 'drag_pan'
   | 'edit'
   | 'edit_note'
+  | 'emergency'
   | 'error'
   | 'event'
   | 'event_available'
@@ -82,10 +86,14 @@ export type IconName =
   | 'expand_less'
   | 'expand_more'
   | 'extension'
+  | 'filter_alt'
   | 'filter_alt_off'
+  | 'fingerprint'
   | 'flag'
   | 'flashlight_on'
   | 'forum'
+  | 'function'
+  | 'functions'
   | 'gavel'
   | 'gpp_maybe'
   | 'group'
@@ -150,6 +158,7 @@ export type IconName =
   | 'person_off'
   | 'phone_iphone'
   | 'photo_camera'
+  | 'pin'
   | 'play_arrow'
   | 'priority_high'
   | 'public'
@@ -177,8 +186,10 @@ export type IconName =
   | 'settings'
   | 'share'
   | 'shield'
+  | 'shield_lock'
   | 'shield_person'
   | 'shopping_cart'
+  | 'short_text'
   | 'signal_cellular_4_bar'
   | 'signal_cellular_alt'
   | 'signal_cellular_alt_1_bar'
@@ -205,6 +216,7 @@ export type IconName =
   | 'timer'
   | 'timer_off'
   | 'today'
+  | 'toggle_on'
   | 'touch_app'
   | 'translate'
   | 'trending_up'
@@ -220,6 +232,7 @@ export type IconName =
   | 'vertical_align_top'
   | 'vertical_split'
   | 'videocam'
+  | 'view_agenda'
   | 'view_column'
   | 'view_kanban'
   | 'visibility'
@@ -246,6 +259,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'archive',
   'arrow_back',
   'arrow_downward',
+  'arrow_drop_down_circle',
   'arrow_forward',
   'arrow_upward',
   'assignment_ind',
@@ -272,6 +286,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'check_box',
   'check_box_outline_blank',
   'check_circle',
+  'checklist',
   'chevron_left',
   'chevron_right',
   'close',
@@ -292,6 +307,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'delete',
   'description',
   'design_services',
+  'desktop_windows',
   'dialpad',
   'do_not_disturb_on',
   'domain',
@@ -301,6 +317,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'drag_pan',
   'edit',
   'edit_note',
+  'emergency',
   'error',
   'event',
   'event_available',
@@ -310,10 +327,14 @@ export const ICON_NAMES: readonly IconName[] = [
   'expand_less',
   'expand_more',
   'extension',
+  'filter_alt',
   'filter_alt_off',
+  'fingerprint',
   'flag',
   'flashlight_on',
   'forum',
+  'function',
+  'functions',
   'gavel',
   'gpp_maybe',
   'group',
@@ -378,6 +399,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'person_off',
   'phone_iphone',
   'photo_camera',
+  'pin',
   'play_arrow',
   'priority_high',
   'public',
@@ -405,8 +427,10 @@ export const ICON_NAMES: readonly IconName[] = [
   'settings',
   'share',
   'shield',
+  'shield_lock',
   'shield_person',
   'shopping_cart',
+  'short_text',
   'signal_cellular_4_bar',
   'signal_cellular_alt',
   'signal_cellular_alt_1_bar',
@@ -433,6 +457,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'timer',
   'timer_off',
   'today',
+  'toggle_on',
   'touch_app',
   'translate',
   'trending_up',
@@ -448,6 +473,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'vertical_align_top',
   'vertical_split',
   'videocam',
+  'view_agenda',
   'view_column',
   'view_kanban',
   'visibility',

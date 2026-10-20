@@ -41,6 +41,20 @@ export interface SidePanelProps {
   readonly initialFocus?: RefObject<HTMLElement | null> | undefined;
   /** Draw it in place inside a positioned frame: the gallery's specimens. */
   readonly preview?: boolean | undefined;
+  /**
+   * A 40px tile before the title (P18's field editor, T-0142). With one, the
+   * header is the export's taller editor header: 14px 16px 14px 20px, its
+   * divider always drawn.
+   */
+  readonly leading?: ReactNode | undefined;
+  /** `studio`: P18's 460px editor drawer (T-0142). Defaults to the 400px drawer. */
+  readonly size?: 'default' | 'studio' | undefined;
+  /**
+   * The body draws no padding and does not scroll: the caller lays out its own
+   * tabs, scrolling body and footer, as P18's field form does to keep its
+   * submit button inside the `<form>` (T-0142).
+   */
+  readonly flush?: boolean | undefined;
 }
 
 type Form = 'drawer' | 'sheet';
@@ -102,6 +116,9 @@ function SidePanel({
   modal = true,
   initialFocus,
   preview = false,
+  leading,
+  size = 'default',
+  flush = false,
 }: SidePanelProps & { readonly form: Form }) {
   const [panel, setPanel] = useState<HTMLDivElement | null>(null);
   const titleId = useId();
@@ -129,6 +146,7 @@ function SidePanel({
         className={cx(
           'z-50 flex min-h-0 flex-col bg-surface-raised text-text shadow-3 outline-none',
           PANEL[form],
+          form === 'drawer' && size === 'studio' && 'sm:w-overlay-studio-panel-tablet',
           preview && '!absolute !animate-none',
         )}
       >
@@ -139,10 +157,11 @@ function SidePanel({
         <div
           className={cx(
             'flex shrink-0 items-center border-b transition-colors duration-quick',
-            HEADER[form],
-            scrolled ? 'border-border' : 'border-transparent',
+            leading === undefined ? HEADER[form] : 'gap-3 py-3.5 pe-4 ps-5',
+            scrolled || leading !== undefined ? 'border-border' : 'border-transparent',
           )}
         >
+          {leading === undefined ? null : <span className="flex shrink-0">{leading}</span>}
           <div className="flex min-w-0 flex-1 flex-col">
             <h2 id={titleId} className={cx('m-0 truncate text-text', TITLE[form])}>
               {title}
@@ -156,7 +175,10 @@ function SidePanel({
         <div
           ref={bodyRef}
           data-k-overlay-body=""
-          className={cx('flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto', BODY[form])}
+          className={cx(
+            'flex min-h-0 flex-1 flex-col',
+            flush ? 'overflow-hidden' : cx('gap-3.5 overflow-y-auto', BODY[form]),
+          )}
         >
           {children}
         </div>

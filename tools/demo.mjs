@@ -97,6 +97,15 @@ const DEMO_FLAGS = [
   // T-0137: P26's placeholders for notification types and preferences (D-L194).
   'notification_types',
   'notification_preferences',
+  // T-0142: P18 Customisation Studio placeholders (D-L194).
+  'studio_objects',
+  'studio_layouts',
+  'studio_validation',
+  'studio_relationships',
+  'studio_record_types',
+  'custom_field_types_extended',
+  'studio_field_usage',
+  'studio_field_translations',
 ];
 /** Flags added to the demo automatically once their task has merged. */
 const DEMO_FLAGS_WHEN_PRESENT = ['crm_custom_fields', 'crm_import', 'crm_duplicates', 'crm_notifications'];
