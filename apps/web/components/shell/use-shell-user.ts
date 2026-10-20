@@ -18,10 +18,23 @@ const Me = z.object({ displayName: z.string() });
 let known: string | null = null;
 let pending: Promise<string | null> | null = null;
 
+/**
+ * One read of the name. A refusal's body is cancelled, never left unread: an
+ * unread body keeps the request open in the browser, so the page never
+ * settles (every shell page's byte budget waited on it forever, T-0148).
+ */
+export async function readShellUserName(): Promise<string | null> {
+  const response = await apiFetch('/api/v1/auth/me');
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    return null;
+  }
+  return Me.parse(await response.json()).displayName;
+}
+
 function load(): Promise<string | null> {
   if (pending === null) {
-    pending = apiFetch('/api/v1/auth/me')
-      .then(async (response) => (response.ok ? Me.parse(await response.json()).displayName : null))
+    pending = readShellUserName()
       .catch(() => null)
       .then((name) => {
         known = name;
