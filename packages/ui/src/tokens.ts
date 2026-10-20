@@ -145,6 +145,10 @@ export const TYPE_SCALE = {
    * a different thing: an overline is a label, these are values.
    */
   micro: { size: '11px', lineHeight: '16px', weight: '700', tracking: '0' },
+  /** The logo tile's letter: 17/20/800 (every shell export; T-0130). */
+  logo: { size: '17px', lineHeight: '20px', weight: '800', tracking: '0' },
+  /** The icon rail's labels under each 22px glyph: 10/14/600 (P03, P04; T-0130). */
+  'rail-label': { size: '10px', lineHeight: '14px', weight: '600', tracking: '0' },
   /** Menu section labels, kbd, bottom-nav labels: 11/16/700 caps at 0.06em. */
   overline: {
     size: '11px',
@@ -302,6 +306,8 @@ export function resolveIconSize(size: IconSize | IconSizeAlias): IconSize {
  *   adminNav     272  the admin settings nav
  *   bottomBar     64  the phone bottom bar
  *   mobileHeader  56  the phone's per-screen app bar
+ *   search       420  the top bar's inline search field (flex 0 1 420px, T-0130)
+ *   fab           56  the phone's extended "+ New" button (T-0130)
  */
 export const SHELL = {
   header: '60px',
@@ -311,6 +317,8 @@ export const SHELL = {
   adminNav: '272px',
   bottomBar: '64px',
   mobileHeader: '56px',
+  search: '420px',
+  fab: '56px',
 } as const;
 
 /**

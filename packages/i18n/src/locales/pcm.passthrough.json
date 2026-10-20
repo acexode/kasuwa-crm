@@ -400,5 +400,8 @@
   "design.components.tabs.tickets",
   "design.components.kbd.search",
   "design.components.kbd.escape",
-  "design.components.heading.consent"
+  "design.components.heading.consent",
+  "records.nav.calls",
+  "records.nav.more",
+  "admin.shell.tenant"
 ]

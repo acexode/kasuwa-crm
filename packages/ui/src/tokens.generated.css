@@ -175,6 +175,14 @@
   --k-line-height-micro: 16px;
   --k-font-weight-micro: 700;
   --k-tracking-micro: 0;
+  --k-font-size-logo: 17px;
+  --k-line-height-logo: 20px;
+  --k-font-weight-logo: 800;
+  --k-tracking-logo: 0;
+  --k-font-size-rail-label: 10px;
+  --k-line-height-rail-label: 14px;
+  --k-font-weight-rail-label: 600;
+  --k-tracking-rail-label: 0;
   --k-font-size-overline: 11px;
   --k-line-height-overline: 16px;
   --k-font-weight-overline: 700;
@@ -233,6 +241,8 @@
   --k-shell-admin-nav: 272px;
   --k-shell-bottom-bar: 64px;
   --k-shell-mobile-header: 56px;
+  --k-shell-search: 420px;
+  --k-shell-fab: 56px;
   
   /* overlays and data display (T-0129) */
   --k-overlay-drawer: 400px;
@@ -461,6 +471,8 @@
   --k-line-height-label: 24px;
   --k-line-height-meta: 21px;
   --k-line-height-micro: 18px;
+  --k-line-height-logo: 22px;
+  --k-line-height-rail-label: 15px;
   --k-line-height-overline: 18px;
 }
 
