@@ -13,6 +13,7 @@ import {
   MOTION,
   RADIUS,
   SEMANTIC_TOKEN_NAMES,
+  OVERLAY,
   SHELL,
   SPACING,
   TYPE_SCALE,
@@ -96,6 +97,9 @@ export function buildTailwindPreset(): string {
     ...Object.keys(SHELL).map(
       (key) => `    'shell-${kebab(key)}': 'var(${CSS_VAR_PREFIX}-shell-${cssKey(key)})',`,
     ),
+    ...Object.keys(OVERLAY).map(
+      (key) => `    'overlay-${kebab(key)}': 'var(${CSS_VAR_PREFIX}-overlay-${cssKey(key)})',`,
+    ),
     ...Object.keys(LAYOUT).map(
       (key) => `    'layout-${kebab(key)}': 'var(${CSS_VAR_PREFIX}-layout-${cssKey(key)})',`,
     ),
@@ -151,6 +155,7 @@ ${spacing}
       },
       borderRadius: {
 ${radius}
+    'sheet': 'var(${CSS_VAR_PREFIX}-radius-sheet)',
       },
       boxShadow: {
 ${shadows}
@@ -160,9 +165,31 @@ ${controlShadows}
 ${durations}
       },
       // \`animate-spin\` turns at the design's speed, not Tailwind's 1s.
+      // The overlays' entrances (T-0129, v1.1 Patterns "Dismissal & motion":
+      // a 240ms slide; under reduced motion the global layer cuts each to one
+      // frame). Distances are percentages of the element, never pixels.
       animation: {
         spin: 'spin var(${CSS_VAR_PREFIX}-duration-spin) linear infinite',
+        shimmer: 'k-shimmer var(${CSS_VAR_PREFIX}-duration-shimmer) ease-in-out infinite',
+        'fade-in': 'k-fade-in var(${CSS_VAR_PREFIX}-duration-base) var(${CSS_VAR_PREFIX}-ease) both',
+        'pop-in': 'k-pop-in var(${CSS_VAR_PREFIX}-duration-base) var(${CSS_VAR_PREFIX}-ease) both',
+        'drawer-in': 'k-drawer-in var(${CSS_VAR_PREFIX}-duration-base) var(${CSS_VAR_PREFIX}-ease) both',
+        'drawer-in-rtl': 'k-drawer-in-rtl var(${CSS_VAR_PREFIX}-duration-base) var(${CSS_VAR_PREFIX}-ease) both',
+        'sheet-in': 'k-sheet-in var(${CSS_VAR_PREFIX}-duration-base) var(${CSS_VAR_PREFIX}-ease) both',
+        'toast-in': 'k-toast-in var(${CSS_VAR_PREFIX}-duration-base) var(${CSS_VAR_PREFIX}-ease) both',
       },
+      keyframes: {
+        'k-shimmer': { '0%': { transform: 'translateX(-100%)' }, '100%': { transform: 'translateX(100%)' } },
+        'k-fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },
+        'k-pop-in': { from: { opacity: '0', transform: 'scale(.97)' }, to: { opacity: '1', transform: 'none' } },
+        'k-drawer-in': { from: { transform: 'translateX(100%)' }, to: { transform: 'none' } },
+        'k-drawer-in-rtl': { from: { transform: 'translateX(-100%)' }, to: { transform: 'none' } },
+        'k-sheet-in': { from: { transform: 'translateY(100%)' }, to: { transform: 'none' } },
+        'k-toast-in': { from: { opacity: '0', transform: 'translateY(50%)' }, to: { opacity: '1', transform: 'none' } },
+      },
+      // The v1.1 text links and the bulk bar's "Select all" sit 3px under
+      // their text (T-0129).
+      textUnderlineOffset: { 3: '3px' },
       transitionTimingFunction: {
         DEFAULT: 'var(${CSS_VAR_PREFIX}-ease)',
         kasuwa: 'var(${CSS_VAR_PREFIX}-ease)',

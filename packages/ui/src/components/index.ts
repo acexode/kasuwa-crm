@@ -55,3 +55,6 @@ export { Select, type SelectProps } from './select';
 export { Switch, type SwitchProps } from './switch';
 export { Tabs, type TabItem, type TabsProps } from './tabs';
 export { TextField, type TextFieldProps } from './text-field';
+
+// Part 2 (T-0129): table, overlays and feedback.
+export * from './part-2';
