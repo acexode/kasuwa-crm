@@ -231,7 +231,19 @@ export async function crmLiveNav(): Promise<string[]> {
 }
 
 /** The P04 list placeholder flags (T-0133, D-L194) that are on in this process. */
-const LIST_PLACEHOLDER_FLAGS = ['map_view', 'bulk_actions', 'saved_views', 'last_activity', 'quick_actions', 'more_filters'] as const;
+const LIST_PLACEHOLDER_FLAGS = [
+  'map_view',
+  'bulk_actions',
+  'saved_views',
+  'last_activity',
+  'quick_actions',
+  'more_filters',
+  // T-0138 (D-L194): the P27 search and palette placeholders, read the same way.
+  'recent_searches',
+  'programme_scope_search',
+  'ai_assistant',
+  'search_filters',
+] as const;
 
 /**
  * `map_view`, `bulk_actions`, `saved_views`, `last_activity`,

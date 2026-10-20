@@ -47,6 +47,10 @@ describe('feature flags', () => {
       'last_activity',
       'quick_actions',
       'more_filters',
+      'recent_searches',
+      'programme_scope_search',
+      'ai_assistant',
+      'search_filters',
     ]);
   });
 

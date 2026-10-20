@@ -32,6 +32,7 @@ export type IconName =
   | 'bookmark'
   | 'bookmark_add'
   | 'business_center'
+  | 'calendar_today'
   | 'call'
   | 'call_end'
   | 'call_received'
@@ -124,6 +125,7 @@ export type IconName =
   | 'merge'
   | 'mic'
   | 'mobile_off'
+  | 'monitoring'
   | 'more_horiz'
   | 'more_vert'
   | 'move_up'
@@ -161,6 +163,7 @@ export type IconName =
   | 'science'
   | 'search'
   | 'search_off'
+  | 'select_all'
   | 'send'
   | 'settings'
   | 'share'
@@ -240,6 +243,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'bookmark',
   'bookmark_add',
   'business_center',
+  'calendar_today',
   'call',
   'call_end',
   'call_received',
@@ -332,6 +336,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'merge',
   'mic',
   'mobile_off',
+  'monitoring',
   'more_horiz',
   'more_vert',
   'move_up',
@@ -369,6 +374,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'science',
   'search',
   'search_off',
+  'select_all',
   'send',
   'settings',
   'share',

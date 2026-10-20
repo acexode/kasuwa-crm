@@ -73,6 +73,11 @@ const DEMO_FLAGS = [
   'last_activity',
   'quick_actions',
   'more_filters',
+  // T-0138 (D-L194): the P27 placeholders.
+  'recent_searches',
+  'programme_scope_search',
+  'ai_assistant',
+  'search_filters',
 ];
 /** Flags added to the demo automatically once their task has merged. */
 const DEMO_FLAGS_WHEN_PRESENT = ['crm_custom_fields', 'crm_import', 'crm_duplicates', 'crm_notifications'];
