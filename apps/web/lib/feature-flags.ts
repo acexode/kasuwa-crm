@@ -381,15 +381,12 @@ export async function crmNotificationsEnabled(): Promise<boolean> {
  * The P26 placeholders (T-0137, D-L194), as `live` entries for the bell and
  * the centre: `notification-types` (the types no module produces yet, drawn
  * disabled), `notification-preferences` (the Preferences button, the bell's
- * gear and `/settings/notifications`), `notification-toasts` and
- * `security-alerts` (mounted, empty until something raises one). Read only
- * where `crm_notifications` is on; each is presentation only.
+ * gear and `/settings/notifications`). Read only where `crm_notifications`
+ * is on; each is presentation only.
  */
 export const NOTIFICATION_PLACEHOLDERS = {
   'notification-types': 'notification_types',
   'notification-preferences': 'notification_preferences',
-  'notification-toasts': 'notification_toasts',
-  'security-alerts': 'security_alerts',
 } as const;
 
 export async function notificationPlaceholders(): Promise<string[]> {

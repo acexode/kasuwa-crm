@@ -437,6 +437,7 @@
     "records.paging.next": "The same word in this locale.",
     "records.empty.import.zoho": "Product names, unchanged in this locale.",
     "records.empty.import.salesforce": "Product names, unchanged in this locale.",
-    "records.empty.capture.ussd": "The same words in this locale."
+    "records.empty.capture.ussd": "The same words in this locale.",
+    "notifications.prefs.channel.whatsapp": "Product name of the WhatsApp channel. It is spelled the same in every locale."
   }
 }

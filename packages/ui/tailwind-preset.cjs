@@ -258,6 +258,7 @@ module.exports = {
     'layout-filter-rail': 'var(--k-layout-filter-rail)',
     'layout-page-wide': 'var(--k-layout-page-wide)',
     'layout-settings-aside': 'var(--k-layout-settings-aside)',
+    'layout-prefs-channel': 'var(--k-layout-prefs-channel)',
       },
       borderRadius: {
     '6': 'var(--k-radius-6)',

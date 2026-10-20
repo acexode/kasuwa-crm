@@ -254,6 +254,7 @@
   --k-layout-filter-rail: 240px;
   --k-layout-page-wide: 1116px;
   --k-layout-settings-aside: 380px;
+  --k-layout-prefs-channel: 88px;
   
   /* overlays and data display (T-0129) */
   --k-overlay-drawer: 400px;

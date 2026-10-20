@@ -341,6 +341,7 @@ export const SHELL = {
  *   filterRail     240  the notification centre's filter card beside its list
  *   pageWide      1116  the centre's page column (1180 less its 32px padding each side)
  *   settingsAside  380  the preferences page's right column (quiet hours, digest)
+ *   prefsChannel    88  one channel column of the preferences matrix
  */
 export const LAYOUT = {
   authPanel: '520px',
@@ -353,6 +354,7 @@ export const LAYOUT = {
   filterRail: '240px',
   pageWide: '1116px',
   settingsAside: '380px',
+  prefsChannel: '88px',
 } as const;
 
 /**

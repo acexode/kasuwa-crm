@@ -305,6 +305,7 @@
   "leads.views.all",
   "notifications.day.today",
   "notifications.day.yesterday",
+  "notifications.prefs.channel.whatsapp",
   "onboarding.continue",
   "onboarding.skip.short",
   "onboarding.step.team",

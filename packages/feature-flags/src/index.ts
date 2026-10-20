@@ -514,29 +514,6 @@ export const FLAGS = {
     owner: 'T-0137 (placeholder), the notification-preferences API when it is built',
     productionReady: false,
   },
-  /**
-   * D-L194, T-0137: P26 C, the toast stack for notifications that arrive while
-   * a page is open. Nothing pushes a notification to the browser yet (the
-   * list is never read on a timer, T-0101 I5), so the stack is mounted and
-   * stays empty, the design's own empty state.
-   */
-  notification_toasts: {
-    description: 'The P26 notification toast stack, mounted empty until notifications are pushed to the browser (T-0137, D-L194).',
-    defaultValue: false,
-    owner: 'T-0137 (placeholder), the realtime push when it is built',
-    productionReady: false,
-  },
-  /**
-   * D-L194, T-0137: P26 A2, the critical security banner under the top bar
-   * and the pinned critical row. No module raises a security alert yet, so the
-   * banner is mounted and draws nothing until one does.
-   */
-  security_alerts: {
-    description: 'The P26 critical security banner, mounted empty until sign-in alerts are raised (T-0137, D-L194).',
-    defaultValue: false,
-    owner: 'T-0137 (placeholder), the sign-in alerting module when it is built',
-    productionReady: false,
-  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;
