@@ -17,6 +17,7 @@ const SIZE_CLASS: Record<IconSize, string> = {
   20: 'text-icon-20',
   22: 'text-icon-22',
   24: 'text-icon-24',
+  26: 'text-icon-26',
   28: 'text-icon-28',
   32: 'text-icon-32',
 };

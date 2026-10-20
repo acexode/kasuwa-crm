@@ -32,6 +32,7 @@ describe('feature flags', () => {
       'crm_tickets',
       'crm_calls',
       'crm_reports',
+      'product_tour',
       'map_view',
       'bulk_actions',
       'saved_views',

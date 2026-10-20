@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { SECONDARY_BUTTON } from './button-classes';
+import { Button } from '@kasuwa/ui/components';
+import { Emphasis } from './rich-text';
 
 /**
  * The live resend countdown from `P01/2a`, also used by `P01/4`.
@@ -36,15 +37,14 @@ export function ResendControl({
 
   if (remaining <= 0) {
     return (
-      <button
-        type="button"
+      <Button
         onClick={onResend}
         disabled={disabled}
         data-testid={`${testIdPrefix}-now`}
-        className={SECONDARY_BUTTON}
+        className="self-start"
       >
         {nowLabel}
-      </button>
+      </Button>
     );
   }
 
@@ -53,7 +53,14 @@ export function ResendControl({
 
   return (
     <p aria-live="polite" data-testid={`${testIdPrefix}-countdown`} className="text-body-sm text-text-2">
-      {waitingLabel(`${minutes}:${seconds}`)}
+      <Emphasis
+        sentence={(clock) => waitingLabel(clock ?? '')}
+        values={[
+          <strong key="clock" className="font-mono text-text">
+            {`${minutes}:${seconds}`}
+          </strong>,
+        ]}
+      />
     </p>
   );
 }

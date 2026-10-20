@@ -55,6 +55,8 @@ const DEMO_FLAGS = [
   'crm_tickets',
   'crm_calls',
   'crm_reports',
+  // T-0131: P01/6's tour button, drawn disabled until a tour exists (D-L194).
+  'product_tour',
   // T-0133 (D-L194): the P04 placeholders.
   'map_view',
   'bulk_actions',

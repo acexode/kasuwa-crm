@@ -327,6 +327,18 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * D-L194, T-0131: the P01/6 "Take a 2-minute tour" button. There is no tour
+   * yet, so with the flag on the button is drawn in the design's place in its
+   * disabled state, never as a link to nothing. Presentation only.
+   */
+  product_tour: {
+    description: 'The P01/6 product-tour button, drawn disabled until a tour exists (D-L194).',
+    defaultValue: false,
+    owner: 'T-0131 (placeholder), D-L194',
+    // NOT production-ready: there is no tour behind the button.
+    productionReady: false,
+  },
+  /**
    * T-0133 (D-L194, D-L195): the P04 lists' Map segment, drawn DISABLED in the
    * view switcher with the design's tooltip. The Map view itself answers 501
    * (D-L69, T-0039); the flag shows where it will be, and grants nothing.
