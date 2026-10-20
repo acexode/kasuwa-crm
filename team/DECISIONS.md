@@ -4338,3 +4338,18 @@ the hands-on test.
 **Phase 3, and the logged follow-ups, wait for the user's go-ahead.** The follow-ups are D-L167, D-L169, D-L171,
 D-L174, D-L183, D-L184, the TOTP step-file race between @p02-live and @bff-session, and the stale 245,000 comments in
 p05-account.spec.
+
+### D-L193 — Phase 3 blocked until the UI matches the Claude Design exports (user, 2026-10-20)
+
+**Finding:** in the hands-on test the user found a large gap between the built screens and the Claude Design
+designs. The agents didn't follow the designs closely. The user suspects that how the design HTML was downloaded is a
+cause. The exports are in docs/design/P01–P28, with the design system in docs/design/v1.1: `*.dc.html` files, plus
+P10's plain `.html`.
+
+**Ruling:**
+- Phase 3 doesn't start until every built screen matches its Claude Design export exactly.
+- The work starts in a new lead session. Step one is to check whether the exports are complete and faithful (styles,
+  fonts, assets, every state), and to re-export them if they aren't, before any screen is rebuilt.
+
+**Notes from the hands-on test so far:** the TOTP step shows "Text a code to" with no phone number for the demo
+users. The option should be hidden when no number is on file.
