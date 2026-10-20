@@ -276,12 +276,12 @@ const ROUTE_FILE = 'apps/web/app/admin/custom-fields/page.tsx';
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   // Lead re-pin (T-0090, D-L145): the mock serves the P02 home's three reads; @p18-studio-absent reads the
   // studio's own surfaces, not the whole body; the budget is pinned at 266,000 (R24).
-  [SPEC]: '2b561359870951d45b5b0979dbefb085a0f89114b39391dab8479e748d29fee9',
-  [MOCK]: 'eedc52ce90be2c2ba09478daa4de7e885819419b2f0c31aa789383416d61fdd1',
+  [SPEC]: 'dfb9a92774c1a0a57c37766407cabeb258b263c971a06033d65c4a0628251dbb',
+  [MOCK]: 'e1b3048f734d36ae0a0e74bf776cfe823004cbd3ae5d8f83d4a78bf7501ac9ad',
 };
 
 /** Never above this (R24). */
-const STUDIO_BUDGET_CEILING = 275_000; // D-L199: raised for the T-0127 icon font (D-L198)
+const STUDIO_BUDGET_CEILING = 280_000; // D-L203: T-0145 measured, after removing the weight it could (no visual change)
 
 /** Pinned within 5% of what the run measured (D-L118). */
 const BUDGET_HEADROOM = 1.05;

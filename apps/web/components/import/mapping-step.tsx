@@ -4,7 +4,7 @@ import { useId } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import type { IconName } from '@kasuwa/ui';
 import { Icon } from '../icon';
-import { StillConnecting } from '../admin/panel';
+import { StillConnecting } from '../admin/still-connecting';
 import { CheckChip, NativeSelect, TABLE_CARD, TABLE_HEAD } from '../data/parts';
 import { IMPORT_FIELDS, complianceMapped, nameMapped, repeatedFields, type Choices } from '../../lib/import-model';
 import type { ImportSummary } from '../../lib/imports-api';

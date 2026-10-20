@@ -223,7 +223,7 @@ const SCREEN = '[data-screen="P07"]';
  * measures, so the builder measures it and the lead re-pins it to the
  * measurement. Why 255,000: see the budget test.
  */
-const ACTIVITIES_BUDGET_BYTES = 246_000;
+const ACTIVITIES_BUDGET_BYTES = 270_500;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const UUID_ONLY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

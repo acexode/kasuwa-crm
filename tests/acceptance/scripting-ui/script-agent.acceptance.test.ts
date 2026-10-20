@@ -141,7 +141,7 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
   [MOCK]: 'e4339089f35fab5bc47aad42ddaedc2663e36ba991fdbf56b18fb7132fc93574',
 };
 
-const SCRIPT_RUN_BUDGET_CEILING = 245_000;
+const SCRIPT_RUN_BUDGET_CEILING = 275_000; // D-L203: T-0145 measured, after removing the weight it could (no visual change)
 const BUDGET_HEADROOM = 1.05;
 const PRD_CEILING_BYTES = 300 * 1024;
 

@@ -88,7 +88,7 @@ export function AdminLinkButton({
   readonly children: ReactNode;
 }) {
   return (
-    <Link href={href} className={adminButtonClass(variant, className)} {...rest}>
+    <Link href={href} prefetch={false} className={adminButtonClass(variant, className)} {...rest}>
       {icon === undefined ? null : <Icon name={icon} size={20} />}
       {children}
     </Link>

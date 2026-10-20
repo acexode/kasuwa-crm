@@ -11,7 +11,7 @@ import {
   type PipelineError,
   type StageTotal,
 } from '../../lib/pipelines-api';
-import { STILL_CONNECTING_MS } from '../admin/use-resource';
+import { STILL_CONNECTING_MS } from '../../lib/still-connecting';
 import { filtersKey } from './pipeline-model';
 
 /**

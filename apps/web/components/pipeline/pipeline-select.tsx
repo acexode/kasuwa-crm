@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
-import { listMyProgrammes } from '../../lib/accounts-api';
+import { listMyProgrammes } from '../../lib/my-programmes-api';
 import { listPipelines, type PipelineSummary } from '../../lib/pipelines-api';
 import { pipelineHref } from './pipeline-model';
 

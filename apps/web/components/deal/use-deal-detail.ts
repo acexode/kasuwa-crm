@@ -10,7 +10,7 @@ import {
   type DealDetail,
   type DealTimelineItem,
 } from '../../lib/deal-detail-api';
-import { STILL_CONNECTING_MS } from '../admin/use-resource';
+import { STILL_CONNECTING_MS } from '../../lib/still-connecting';
 import { appendPage, noTimeline, type TimelineState } from '../record/record-core';
 
 /**

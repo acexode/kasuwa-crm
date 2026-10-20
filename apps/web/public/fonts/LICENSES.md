@@ -9,8 +9,8 @@ a matching `@font-face` is dead weight on a 256 kbps connection.
 |---|---|---|
 | Noto Sans | `noto-sans-latin*.woff2`, `noto-sans-currency-*.woff2` | SIL Open Font License 1.1 |
 | Noto Sans Arabic | `noto-sans-arabic-arabic-*.woff2` | SIL Open Font License 1.1 |
-| JetBrains Mono | `jetbrains-mono-latin*.woff2` | SIL Open Font License 1.1 |
-| Material Symbols Rounded | `material-symbols-rounded-subset.woff2` | Apache License 2.0 |
+| JetBrains Mono | `jetbrains-mono-latin*.woff2`, `jetbrains-mono-figures-*.woff2`, `jetbrains-mono-capitals-*.woff2`, `jetbrains-mono-letters-*.woff2` | SIL Open Font License 1.1 |
+| Material Symbols Rounded | `material-symbols-rounded-subset.woff2`, `material-symbols-rounded-filled-subset.woff2` | Apache License 2.0 |
 
 All four are redistributable, which is what makes self-hosting possible.
 
@@ -33,15 +33,22 @@ fixed; `packages/ui/src/fonts.test.ts` fails on any external origin.
 
 | File | Size |
 |---|---|
-| `noto-sans-latin-400800.woff2` | ~34 KB |
-| `jetbrains-mono-latin-400600.woff2` | ~30 KB |
-| `material-symbols-rounded-subset.woff2` | ~8 KB |
+| `noto-sans-latin-400800.woff2` | ~35 KB |
+| `material-symbols-rounded-subset.woff2` | ~26 KB |
+| `material-symbols-rounded-filled-subset.woff2` | ~5 KB |
+| `jetbrains-mono-figures-400600.woff2` | ~7.5 KB |
+| `jetbrains-mono-capitals-400600.woff2` | ~3 KB |
+| `jetbrains-mono-letters-400600.woff2` | ~5 KB |
+| `jetbrains-mono-latin-400600.woff2` | ~31 KB |
 | `jetbrains-mono-latin-ext-400600.woff2` | ~11 KB |
 | `noto-sans-currency-400800.woff2` | ~3 KB |
 | `noto-sans-latin-ext-400800.woff2` | ~164 KB |
 | `noto-sans-arabic-arabic-400700.woff2` | ~162 KB |
 
-The critical path is about **74 KB** — Latin, mono and icons. The two large
+The critical path is about **70 KB**: Latin, icons and the mono figures face.
+JetBrains Mono's Latin file is mostly the code ligatures punctuation builds, so
+the figures, capitals and lowercase that screens actually draw in mono are
+carved into three small faces (T-0145) and the 31 KB file is left for the rest. The two large
 files carry Latin Extended (the Yoruba, Igbo and Hausa diacritics: ẹ ọ ṣ ɓ ɗ ƙ)
 and Arabic, and each `@font-face` declares a `unicode-range`, so a browser only
 downloads them when the page actually contains those characters. Removing the

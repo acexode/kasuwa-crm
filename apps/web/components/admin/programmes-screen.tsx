@@ -280,6 +280,7 @@ function ProgrammeRow({
     >
       <th scope="row" className="py-2.5 pe-2 ps-5 text-start font-normal">
         <Link
+          prefetch={false}
           href={href}
           className="flex min-w-0 flex-col gap-0.5 rounded-sm outline-none is-focus-visible:ring-focus"
         >

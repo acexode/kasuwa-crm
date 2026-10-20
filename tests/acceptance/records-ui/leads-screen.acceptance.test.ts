@@ -138,7 +138,7 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   // T-0124 (lead re-pin, D-L183): search by a name, not a number; sort by createdAt, not -displayName.
-  [SPEC]: '5529e0cc03db39950f7a986732b3b6ae84ba0ab5edb245bb5ab829a4bd1c6155',
+  [SPEC]: 'b0882dab50357b415a150ae5a35be9d87ac57e84505f683cc0184912de9b7ccf',
   // T-0088 (lead re-pin, D-L138): the mock learned the custom-field filters `custom` and `customEmpty`.
   // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and projects `custom`.
   [MOCK]: '65395185e35e6937debcac899777e742eba32dc0915ac17cf63a09eab32bb9df',
@@ -152,7 +152,7 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
  * under this ceiling and inside the 5% rule. The spec's hash ignores the
  * budget literal, so it is not re-pinned.
  */
-const LEADS_BUDGET_CEILING = 255_000;
+const LEADS_BUDGET_CEILING = 285_000; // D-L203: T-0145 measured, after removing the weight it could (no visual change)
 
 /** Re-pinned within 5% of what the run measured, like /contacts (T-0042) and P01/1 (T-0035). */
 const BUDGET_HEADROOM = 1.05;

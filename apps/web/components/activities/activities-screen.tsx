@@ -1,6 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { clientLazy } from '../../lib/client-lazy';
 import { useReadOnlyKeys } from '../custom/use-custom-fields';
 import { useCallback, useState } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
@@ -56,24 +56,11 @@ import { useActivities } from './use-activities';
  * ---------------------------------------------------------------------------
  */
 
-const ActivitiesCalendar = dynamic(() => import('./activities-calendar').then((module) => module.ActivitiesCalendar), {
-  ssr: false,
-  loading: PanelLoading,
-});
-const ActivityComposer = dynamic(() => import('./activity-composer').then((module) => module.ActivityComposer), {
-  ssr: false,
-});
-const RescheduleForm = dynamic(() => import('./reschedule-form').then((module) => module.RescheduleForm), {
-  ssr: false,
-});
-const BookingPages = dynamic(() => import('./activity-booking').then((module) => module.BookingPages), {
-  ssr: false,
-  loading: PanelLoading,
-});
-const FieldCheckin = dynamic(() => import('./activity-checkin').then((module) => module.FieldCheckin), {
-  ssr: false,
-  loading: PanelLoading,
-});
+const ActivitiesCalendar = clientLazy(() => import('./activities-calendar').then((module) => module.ActivitiesCalendar), { loading: PanelLoading });
+const ActivityComposer = clientLazy(() => import('./activity-composer').then((module) => module.ActivityComposer));
+const RescheduleForm = clientLazy(() => import('./reschedule-form').then((module) => module.RescheduleForm));
+const BookingPages = clientLazy(() => import('./activity-booking').then((module) => module.BookingPages), { loading: PanelLoading });
+const FieldCheckin = clientLazy(() => import('./activity-checkin').then((module) => module.FieldCheckin), { loading: PanelLoading });
 
 function PanelLoading() {
   return <div aria-busy="true" className="h-64 rounded-lg bg-surface-sunken" />;

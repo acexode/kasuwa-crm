@@ -127,6 +127,7 @@ export function ProgrammeScreen({
             <span>{t.t('admin.prog.eyebrow')}</span>
             <Icon name="chevron_right" size={16} className="rtl:-scale-x-100" />
             <Link
+              prefetch={false}
               href="/admin/programmes"
               className="rounded-sm text-primary-text underline underline-offset-2 outline-none is-focus-visible:ring-focus"
             >
@@ -207,6 +208,7 @@ export function ProgrammeScreen({
             const selected = value === tab;
             return (
               <Link
+                prefetch={false}
                 key={value}
                 role="tab"
                 href={href(value)}

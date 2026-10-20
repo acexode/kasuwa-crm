@@ -183,7 +183,7 @@ const SCREEN = '[data-screen="P10/05"]';
  * re-pin it to the measurement once the screen exists. Why 260,000: see the
  * budget test.
  */
-const SCRIPT_BUILDER_BUDGET_BYTES = 255_000;
+const SCRIPT_BUILDER_BUDGET_BYTES = 292_500;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 

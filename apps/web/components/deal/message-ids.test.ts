@@ -96,7 +96,8 @@ describe('the deal detail bundles every id it renders', () => {
     for (const locale of REGISTERED_LOCALES) {
       const messages = bundleMessages(locale, DEAL_MESSAGE_IDS);
       expect(
-        DEAL_MESSAGE_IDS.filter((id: MessageId) => typeof messages[id] !== 'string'),
+        // T-0145: an ICU message crosses parsed (not a string), so "resolved" means present.
+        DEAL_MESSAGE_IDS.filter((id: MessageId) => messages[id] === undefined),
         locale,
       ).toEqual([]);
     }

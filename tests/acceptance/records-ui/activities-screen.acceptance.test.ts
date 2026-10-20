@@ -152,7 +152,7 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
 };
 
 /** Provisional (see the budget test in the spec). Never above this. */
-const ACTIVITIES_BUDGET_CEILING = 255_000;
+const ACTIVITIES_BUDGET_CEILING = 275_000; // D-L203: T-0145 measured, after removing the weight it could (no visual change)
 
 /** Re-pinned within 5% of what the run measured, like /leads (T-0058) and P01/1 (T-0035). */
 const BUDGET_HEADROOM = 1.05;

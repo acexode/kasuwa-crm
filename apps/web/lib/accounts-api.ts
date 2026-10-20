@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { identifierShaped } from './search-query';
+import { identifierShaped } from './identifier-shaped';
 import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
 import { Phone, requestRecords, type RecordsResult } from './records-api';
 
@@ -29,7 +29,6 @@ import { Phone, requestRecords, type RecordsResult } from './records-api';
  */
 
 export const ACCOUNTS_PATH = '/api/v1/accounts';
-export const MY_PROGRAMMES_PATH = '/api/v1/me/programmes';
 
 export const AccountTier = z.enum(['enterprise', 'mid_market', 'sme']);
 export type AccountTier = z.infer<typeof AccountTier>;
@@ -147,13 +146,6 @@ export function updateAccount(id: string, body: UpdateAccountBody): Promise<Reco
   return requestRecords(`${ACCOUNTS_PATH}/${encodeURIComponent(id)}`, Account, { method: 'PATCH', body });
 }
 
-export const MyProgramme = z.object({ id: z.string(), name: z.string() });
-export type MyProgramme = z.infer<typeof MyProgramme>;
-
-const MyProgrammes = z.object({ data: z.array(MyProgramme) });
-
-/** The caller's own programmes with their names (T-0043). The session decides the list. */
-export async function listMyProgrammes(): Promise<RecordsResult<readonly MyProgramme[]>> {
-  const result = await requestRecords(MY_PROGRAMMES_PATH, MyProgrammes);
-  return result.ok ? { ok: true, value: result.value.data } : result;
-}
+// The caller's programmes live in `my-programmes-api` (T-0145): every CRM
+// screen's programme line needs them, and none of the rest of this client.
+export { MY_PROGRAMMES_PATH, MyProgramme, listMyProgrammes } from './my-programmes-api';

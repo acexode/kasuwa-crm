@@ -48,6 +48,7 @@ export function RecordBreadcrumb({ t, href, list, current }: { t: Translator; hr
         <li className="inline-flex items-center gap-1">
           <Link
             href={href}
+            prefetch={false}
             className="rounded-sm text-primary-text underline underline-offset-2 focus-visible:outline-none focus-visible:ring-focus"
           >
             {list}

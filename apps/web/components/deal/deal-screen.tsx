@@ -1,6 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { clientLazy } from '../../lib/client-lazy';
 import Link from 'next/link';
 import { useCallback, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
@@ -102,21 +102,10 @@ import { nameOrWithheld } from '../records/name';
  * ---------------------------------------------------------------------------
  */
 
-const MoveSheet = dynamic(
-  () => import('../pipeline/move-sheet').then((module) => module.MoveSheet),
-  { ssr: false },
-);
-const RequirementPrompt = dynamic(
-  () => import('../pipeline/requirement-prompt').then((module) => module.RequirementPrompt),
-  { ssr: false },
-);
-const DealSheet = dynamic(() => import('./deal-sheet').then((module) => module.DealSheet), {
-  ssr: false,
-});
-const ActivityForm = dynamic(
-  () => import('../record/activity-form').then((module) => module.ActivityForm),
-  { ssr: false },
-);
+const MoveSheet = clientLazy(() => import('../pipeline/move-sheet').then((module) => module.MoveSheet));
+const RequirementPrompt = clientLazy(() => import('../pipeline/requirement-prompt').then((module) => module.RequirementPrompt));
+const DealSheet = clientLazy(() => import('./deal-sheet').then((module) => module.DealSheet));
+const ActivityForm = clientLazy(() => import('../record/activity-form').then((module) => module.ActivityForm));
 
 const PANEL = 'flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-surface p-4';
 
@@ -423,7 +412,7 @@ function Ready({
         <nav data-testid="deal-breadcrumb" aria-label={t.t('deal.breadcrumb')} className="hidden md:block">
           <ol className="flex min-w-0 flex-wrap items-center gap-x-1 text-meta">
             <li className="inline-flex items-center">
-              <Link href="/pipelines" className={`inline-flex items-center underline underline-offset-[3px] text-primary-text ${FOCUS}`}>
+              <Link prefetch={false} href="/pipelines" className={`inline-flex items-center underline underline-offset-[3px] text-primary-text ${FOCUS}`}>
                 {t.t('records.nav.deals')}
               </Link>
             </li>
@@ -434,7 +423,7 @@ function Ready({
                   {pipelineLabel}
                 </span>
               ) : (
-                <Link href={pipelineHref} className={`inline-flex min-w-0 items-center break-words underline underline-offset-[3px] text-primary-text ${FOCUS}`}>
+                <Link prefetch={false} href={pipelineHref} className={`inline-flex min-w-0 items-center break-words underline underline-offset-[3px] text-primary-text ${FOCUS}`}>
                   <span data-record-text="">{pipelineLabel}</span>
                 </Link>
               )}

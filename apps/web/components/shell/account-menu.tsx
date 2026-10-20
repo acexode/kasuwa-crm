@@ -2,11 +2,8 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
-import { Icon } from '../icon';
-import { BetaBadge, chooseLanguage, type LanguageOption } from '../auth/language-menu';
-import { useLiteMode } from '../auth/lite-mode';
-import { signOut } from '../../lib/sign-out';
-import { SIGN_IN_PATH } from '../../lib/api-fetch';
+import type { LanguageOption } from '../auth/language-choice';
+import type { AccountItems as AccountItemsComponent } from './account-items';
 import { SHELL_FOCUS, ShellAvatar } from './shell-parts';
 import { useShellUserName } from './use-shell-user';
 
@@ -15,8 +12,10 @@ import { useShellUserName } from './use-shell-user';
  * carry no language button and no "Sign out" link: both moved here, so the bar
  * is the design's (search, lite mode, bell, avatar) and nothing else.
  *
- * `AccountItems` is the list itself, shared by the desktop popover and the
- * phone's More sheet, so the two cannot drift. Menu rows follow the v1.1 menu:
+ * `AccountItems` (its own module) is the list itself, shared by the desktop
+ * popover and the phone's More sheet, so the two cannot drift. It loads on the
+ * first press (T-0145): the popover opens once it has arrived, so it is never
+ * drawn empty, and focus lands on an item exactly as before. Menu rows follow the v1.1 menu:
  * 40px rows at radius 6, 14px text, the selected language primary-soft with a
  * check, 11/700 caps section labels.
  *
@@ -25,105 +24,29 @@ import { useShellUserName } from './use-shell-user';
  * screen survives into the signed-out one.
  */
 
-const ROW = `flex h-control-md w-full items-center gap-2.5 rounded-6 px-3 text-start text-body-sm text-text is-hover:bg-surface-sunken ${SHELL_FOCUS}`;
 
-export function AccountItems({
-  t,
-  locale,
-  locales,
-  withLite,
-  name,
-}: {
-  t: Translator;
-  locale: string;
-  locales: readonly LanguageOption[];
-  /** The lite-mode switch, where the bar itself has none (the admin bar, the phone sheet). */
-  withLite: boolean;
-  name: string | null;
-}) {
-  const [pending, setPending] = useState(false);
-  const { lite, setLite } = useLiteMode();
-  const groupId = useId();
-  const helpLink = locales.find((option) => option.beta !== undefined)?.beta;
+type ItemsComponent = typeof AccountItemsComponent;
 
-  return (
-    <>
-      {name === null ? null : (
-        <p className="truncate px-3 pb-1 pt-2 text-body-sm font-semibold text-text">{name}</p>
-      )}
-      {withLite ? (
-        <button
-          type="button"
-          role="menuitemcheckbox"
-          aria-checked={lite}
-          data-testid="lite-mode-toggle"
-          onClick={() => setLite(!lite)}
-          className={ROW}
-        >
-          <Icon name="network_check" size={20} className="text-text-2" />
-          <span className="flex-1">{t.t('auth.topbar.lite.toggle')}</span>
-          {lite ? <Icon name="check" size={20} className="text-primary-text" /> : null}
-        </button>
-      ) : null}
-      <p id={groupId} className="px-3 pb-1 pt-2 text-overline text-text-muted">
-        {t.t('auth.topbar.language')}
-      </p>
-      <div role="group" aria-labelledby={groupId} className="flex flex-col">
-        {locales.map((option) => {
-          const selected = option.code === locale;
-          return (
-            <button
-              key={option.code}
-              type="button"
-              role="menuitemradio"
-              aria-checked={selected}
-              lang={option.code}
-              data-testid="language-option"
-              onClick={() => {
-                if (!selected) chooseLanguage(option.code);
-              }}
-              className={`${ROW} ${selected ? 'bg-primary-soft font-semibold' : ''}`}
-            >
-              <span className="flex-1">{option.label}</span>
-              {option.beta === undefined ? null : <BetaBadge text={option.beta.badge} lang={locale} />}
-              {selected ? <Icon name="check" size={20} className="text-primary-text" /> : null}
-            </button>
-          );
-        })}
-      </div>
-      {helpLink === undefined ? null : (
-        <a
-          href={helpLink.href}
-          role="menuitem"
-          data-testid="language-help"
-          lang={locale}
-          className={`${ROW} font-semibold text-primary-text underline underline-offset-2`}
-        >
-          <Icon name="translate" size={20} />
-          {helpLink.help}
-        </a>
-      )}
-      <span role="separator" className="mx-1 my-1 block border-t border-border" />
-      <button
-        type="button"
-        role="menuitem"
-        data-testid="sign-out"
-        aria-busy={pending || undefined}
-        aria-disabled={pending || undefined}
-        onClick={() => {
-          if (pending) return;
-          setPending(true);
-          void signOut().then(() => {
-            window.location.assign(SIGN_IN_PATH);
-          });
-        }}
-        className={ROW}
-      >
-        <Icon name="logout" size={20} className="text-text-2" />
-        {t.t('auth.signOut')}
-      </button>
-    </>
+let itemsModule: Promise<ItemsComponent> | null = null;
+
+/**
+ * The account items' module, fetched once. A failed fetch is forgotten, so
+ * the next press tries again rather than leaving the menu shut for good.
+ */
+export function loadAccountItems(): Promise<ItemsComponent> {
+  itemsModule ??= import('./account-items').then(
+    (module) => module.AccountItems,
+    (error: unknown) => {
+      itemsModule = null;
+      throw error;
+    },
   );
+  return itemsModule;
+}
+
+/** Starts the fetch early, on a hover or a focus, so a press usually finds it there. */
+export function preloadAccountItems(): void {
+  loadAccountItems().catch(() => undefined);
 }
 
 /** Up and Down move between the menu's items, Home and End to the ends (WAI-ARIA menu). */
@@ -165,6 +88,7 @@ export function AccountMenu({
 }) {
   const name = useShellUserName();
   const [open, setOpen] = useState(false);
+  const [Items, setItems] = useState<ItemsComponent | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -203,13 +127,27 @@ export function AccountMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        onClick={() => setOpen((current) => !current)}
+        onPointerEnter={preloadAccountItems}
+        onFocus={preloadAccountItems}
+        onClick={() => {
+          if (open) {
+            setOpen(false);
+            return;
+          }
+          loadAccountItems().then(
+            (loaded) => {
+              setItems(() => loaded);
+              setOpen(true);
+            },
+            () => undefined,
+          );
+        }}
         // 36px drawn, a 44px target: the invisible band keeps the hit area.
         className={`relative flex rounded-full before:absolute before:-inset-1 ${SHELL_FOCUS}`}
       >
         <ShellAvatar name={name} locale={locale} />
       </button>
-      {open ? (
+      {open && Items !== null ? (
         <div
           ref={menuRef}
           id={menuId}
@@ -221,7 +159,7 @@ export function AccountMenu({
           }}
           className="absolute end-0 top-full z-40 mt-2 flex w-64 flex-col rounded-10 border border-border bg-surface-raised p-1 shadow-2"
         >
-          <AccountItems t={t} locale={locale} locales={locales} withLite={withLite} name={name} />
+          <Items t={t} locale={locale} locales={locales} withLite={withLite} name={name} />
         </div>
       ) : null}
     </div>

@@ -48,7 +48,8 @@ describe('the duplicates screen bundles every id it renders', () => {
   it('resolves in every registered locale, and the Contacts link’s words too', () => {
     for (const locale of REGISTERED_LOCALES) {
       const bundle = bundleMessages(locale, [...DUPLICATES_MESSAGE_IDS, ...CONTACTS_DUPLICATES_MESSAGE_IDS]);
-      expect([...DUPLICATES_MESSAGE_IDS, ...CONTACTS_DUPLICATES_MESSAGE_IDS].filter((id: MessageId) => typeof bundle[id] !== 'string'), locale).toEqual([]);
+      // T-0145: an ICU message crosses parsed (not a string), so "resolved" means present.
+      expect([...DUPLICATES_MESSAGE_IDS, ...CONTACTS_DUPLICATES_MESSAGE_IDS].filter((id: MessageId) => bundle[id] === undefined), locale).toEqual([]);
     }
   });
 });

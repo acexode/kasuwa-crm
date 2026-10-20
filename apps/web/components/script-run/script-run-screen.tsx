@@ -13,7 +13,7 @@ import { Checkbox } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
-import { StillConnecting } from '../admin/panel';
+import { StillConnecting } from '../admin/still-connecting';
 import { RecordNotFound, RecordOfflineBanner, RecordUnavailable } from '../record/record-states';
 import { formatClock } from '../record/record-core';
 import { TypePill } from '../script-shared/node-style';
