@@ -217,6 +217,7 @@ export type IconName =
   | 'swipe_left'
   | 'sync'
   | 'sync_alt'
+  | 'table'
   | 'table_rows'
   | 'target'
   | 'task_alt'
@@ -467,6 +468,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'swipe_left',
   'sync',
   'sync_alt',
+  'table',
   'table_rows',
   'target',
   'task_alt',
