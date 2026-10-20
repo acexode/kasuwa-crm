@@ -43,8 +43,8 @@ import {
   type LeadFilterState,
   type LeadView,
 } from './leads-model';
-import { LeadValue, StatusPill, dndOf, fieldProps, leadSubLine, networkOf, ownerText } from './lead-parts';
-import { PhoneValue } from '../records/list-table';
+import { LeadValue, StatusPill, dndOf, fieldProps, leadSubLine, networkOf, ownerPart } from './lead-parts';
+import { LineParts, PhoneValue, recordPart, subLine } from '../records/list-table';
 
 /**
  * `P04/01`'s body (T-0058, restyled to the export by T-0133): the leads table
@@ -518,10 +518,10 @@ function LeadCard({
         ]
       : []),
   ];
-  const meta = [
-    !isWithheld(row, 'companyName') && typeof row.companyName === 'string' ? row.companyName : null,
-    ownerText(t, row),
-  ].filter((part): part is string => part !== null && part !== '');
+  const meta = subLine([
+    !isWithheld(row, 'companyName') && typeof row.companyName === 'string' ? recordPart(row.companyName) : null,
+    ownerPart(t, row),
+  ]);
   return (
     <RecordCard t={t} rowId={row.id} name={name} actions={actions} avatar={<RecordAvatar name={row.displayName} size={44} />}>
       <CardName t={t} name={name} withheld={row.displayName === undefined} whatsapp={row.whatsappOptIn === true && !isWithheld(row, 'whatsappOptIn')} />
@@ -532,9 +532,9 @@ function LeadCard({
           <PhoneValue t={t} e164={phone.e164} network={networkOf(row)} dnd={dndOf(row)} more={0} compact />
         )}
       </span>
-      {meta.length === 0 ? null : (
-        <span data-record-text="" className="truncate text-caption text-text-2">
-          {meta.join(' · ')}
+      {meta === null ? null : (
+        <span className="truncate text-caption text-text-2">
+          <LineParts parts={meta} />
         </span>
       )}
       <span className="mt-0.75 flex items-center gap-1.5">

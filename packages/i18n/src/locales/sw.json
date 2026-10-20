@@ -1059,6 +1059,7 @@
   "records.owner.assigned": "Amepangiwa",
   "records.owner.unassigned": "Hajapangiwa mtu",
   "records.owner.former": "Msimamizi wa zamani",
+  "records.owner.named": "Mmiliki: {name}",
   "records.name.withheld": "Jina limezuiliwa",
   "records.search.numberHint": "Nambari na barua pepe hazitafutwi kwenye orodha hii. Tumia Tafuta kutafuta moja.",
   "records.search.useSearch": "Tafuta",

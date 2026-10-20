@@ -136,7 +136,9 @@ export function NodeInspector({ t, graph, node, language, isStart, readOnly, dis
         <TypePill t={t} type={node.type} />
         {isStart ? <span className="text-caption font-normal text-text-muted">{t.t('scripting.builder.startNode')}</span> : null}
         <span className="flex-1" />
-        <code className="font-mono text-micro font-normal text-text-muted">{node.id}</code>
+        <code data-script-text="" className="font-mono text-micro font-normal text-text-muted">
+          {node.id}
+        </code>
         {readOnly ? null : (
           <>
             {isStart ? null : (
@@ -291,7 +293,7 @@ function Variables({ t, graph, disabled, onInsert }: { t: Translator; graph: Scr
             title={option.kind === 'answer' ? `${t.t('scripting.builder.variable.answer')} ${option.fieldLabel}` : t.t(`scripting.builder.variable.${option.variable}` as MessageId)}
             className="inline-flex h-[26px] max-w-full items-center truncate rounded-[5px] border border-primary-soft-strong bg-primary-soft px-[7px] font-mono text-micro font-normal text-primary-text is-hover:bg-primary-soft-strong is-focus-visible:ring-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text"
           >
-            {`{${option.variable}}`}
+            <span data-script-text="">{`{${option.variable}}`}</span>
             <span className="sr-only">
               {option.kind === 'answer' ? (
                 <>

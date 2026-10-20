@@ -111,7 +111,7 @@ export function ScriptEditorScreen({
       locales={locales}
       current="studio"
       live={live}
-      appBar={{ title: name ?? t.t('scripting.builder.title'), back: '/scripts' }}
+      appBar={name === undefined ? { title: t.t('scripting.builder.title'), back: '/scripts' } : { title: name, titleText: 'script', back: '/scripts' }}
     >
       <div
         data-screen="P10/05"
@@ -864,7 +864,9 @@ function TranslationEditor({
       <div className="flex items-center gap-2">
         <TypePill t={t} type={node.type} />
         <span className="flex-1" />
-        <code className="font-mono text-micro font-normal text-text-muted">{node.id}</code>
+        <code data-script-text="" className="font-mono text-micro font-normal text-text-muted">
+          {node.id}
+        </code>
       </div>
       <p data-script-text="" className="text-label font-bold">
         {node.title}

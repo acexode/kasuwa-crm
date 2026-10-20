@@ -99,16 +99,40 @@ function eventEnd(item: MyActivity): string {
 }
 
 /** "10:00–10:45" in `<time>`s, a task's due time alone. */
-function TimeSpan({ locale, item, className = '', startOnly = false }: { locale: string; item: MyActivity; className?: string; startOnly?: boolean }) {
+/**
+ * "10:00–11:00", and with `zone` "10:00–11:00 WAT". The zone is written inside
+ * the last <time>, as My tasks writes "12:00 WAT" (`DueTime`): it is part of
+ * the time, the same abbreviation in every locale, never a word to translate.
+ */
+function TimeSpan({
+  locale,
+  item,
+  className = '',
+  startOnly = false,
+  zone = '',
+}: {
+  locale: string;
+  item: MyActivity;
+  className?: string;
+  startOnly?: boolean;
+  zone?: string;
+}) {
   const start = eventStart(item) ?? '';
   const end = eventEnd(item);
+  const suffix = zone === '' ? '' : ` ${zone}`;
   return (
     <span className={className}>
-      <time dateTime={start}>{formatClockTime(locale, start)}</time>
+      <time dateTime={start}>
+        {formatClockTime(locale, start)}
+        {end === '' ? suffix : null}
+      </time>
       {end === '' ? null : (
         <span className={startOnly ? 'sr-only' : ''}>
           {'–'}
-          <time dateTime={end}>{formatClockTime(locale, end)}</time>
+          <time dateTime={end}>
+            {formatClockTime(locale, end)}
+            {suffix}
+          </time>
         </span>
       )}
     </span>
@@ -532,8 +556,7 @@ function EventDetail({
           <span className="text-meta text-text-2">
             <time dateTime={start}>{formatDayShort(locale, start)}</time>
             {' · '}
-            <TimeSpan locale={locale} item={item} />
-            {` ${zoneSuffix(new Date(start))}`}
+            <TimeSpan locale={locale} item={item} zone={zoneSuffix(new Date(start))} />
           </span>
         </div>
       </div>
