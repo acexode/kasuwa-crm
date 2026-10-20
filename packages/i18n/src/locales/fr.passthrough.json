@@ -85,5 +85,16 @@
   "notifications.dropdown.title",
   "notifications.title",
   "notifications.kind.label",
-  "duplicates.programme.label"
+  "duplicates.programme.label",
+  "design.components.section.actions",
+  "design.components.section.navigation",
+  "design.components.heading.avatars",
+  "design.components.state.focus",
+  "design.components.variant.danger",
+  "design.components.tag.vip",
+  "design.components.tag.p1",
+  "design.components.segmented.dense",
+  "design.components.segmented.kanban",
+  "design.components.tabs.tickets",
+  "design.components.kbd.search"
 ]

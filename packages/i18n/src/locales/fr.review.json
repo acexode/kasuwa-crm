@@ -92,6 +92,17 @@
     "import.mapfield.source": "A word spelled the same in this language.",
     "import.country.GH": "A country name spelled the same in this language, with its dial code.",
     "import.country.KE": "A country name spelled the same in this language, with its dial code.",
-    "duplicates.programme.label": "A word spelled the same in this language."
+    "duplicates.programme.label": "A word spelled the same in this language.",
+    "design.components.section.actions": "The same word in French.",
+    "design.components.section.navigation": "The same word in French.",
+    "design.components.heading.avatars": "The same word in French.",
+    "design.components.state.focus": "The same word in French.",
+    "design.components.variant.danger": "The same word in French.",
+    "design.components.tag.vip": "An abbreviation (VIP) used unchanged in this locale.",
+    "design.components.tag.p1": "A priority code (P1), used unchanged in every locale.",
+    "design.components.segmented.dense": "The same word in French.",
+    "design.components.segmented.kanban": "Kanban is a loanword, used unchanged in this locale.",
+    "design.components.tabs.tickets": "The same word in French.",
+    "design.components.kbd.search": "The label printed on the keys (Ctrl and K), the same on keyboards in this locale."
   }
 }

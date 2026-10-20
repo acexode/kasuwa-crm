@@ -30,7 +30,7 @@ import {
  */
 
 interface PresetUtility {
-  readonly [property: string]: string;
+  readonly [property: string]: string | PresetUtility;
 }
 
 interface Preset {
@@ -41,7 +41,10 @@ interface Preset {
       borderRadius: Record<string, string>;
     };
   };
-  plugins: ((api: { addUtilities: (u: Record<string, PresetUtility>) => void }) => void)[];
+  plugins: ((api: {
+    addUtilities: (u: Record<string, PresetUtility>) => void;
+    addVariant: (name: string, selectors: string | string[]) => void;
+  }) => void)[];
 }
 
 function evaluatePreset(): Preset {
@@ -53,7 +56,7 @@ function evaluatePreset(): Preset {
 function presetUtilities(): Record<string, PresetUtility> {
   const utilities: Record<string, PresetUtility> = {};
   for (const plugin of evaluatePreset().plugins) {
-    plugin({ addUtilities: (added) => Object.assign(utilities, added) });
+    plugin({ addUtilities: (added) => Object.assign(utilities, added), addVariant: () => {} });
   }
   return utilities;
 }
@@ -201,10 +204,13 @@ describe('focus utilities', () => {
   });
 
   it('keeps a transparent outline under both, for forced-colours mode', () => {
+    // field-focus keeps it everywhere. ring-focus keeps it only where
+    // box-shadow is dropped, and has no outline otherwise (T-0128: the v1.1
+    // ring is the whole indicator).
     const utilities = presetUtilities();
-    for (const name of ['.ring-focus', '.field-focus']) {
-      expect(utilities[name]?.outline, name).toBe('2px solid transparent');
-    }
+    expect(utilities['.field-focus']?.outline).toBe('2px solid transparent');
+    const forced = utilities['.ring-focus']?.['@media (forced-colors: active)'];
+    expect(typeof forced === 'object' ? forced.outline : forced).toBe('2px solid transparent');
   });
 
   it('never emits the focus shadows as root custom properties', () => {

@@ -384,5 +384,21 @@
   "duplicates.compliance.title",
   "duplicates.confirm.cancel",
   "duplicates.confirm.close",
-  "records.action.duplicates"
+  "records.action.duplicates",
+  "design.components.heading.buttons",
+  "design.components.heading.tabs",
+  "design.components.variant.danger",
+  "design.components.variant.icon",
+  "design.components.sample.export",
+  "design.components.sample.columns",
+  "design.components.field.email",
+  "design.components.tag.vip",
+  "design.components.tag.p1",
+  "design.components.segmented.kanban",
+  "design.components.tabs.overview",
+  "design.components.tabs.deals",
+  "design.components.tabs.tickets",
+  "design.components.kbd.search",
+  "design.components.kbd.escape",
+  "design.components.heading.consent"
 ]
