@@ -168,7 +168,7 @@ export const FLAGS = {
     productionReady: false,
   },
   call_bar: {
-    description: 'The Call action on records, disabled until the telephony integration places calls (T-0134).',
+    description: 'The Call action on records, disabled until the telephony integration places calls (T-0134); and the P10 run call bar, not connected, with the loan card and "Writes to record" in their empty states (T-0139, D-L88, D-P31).',
     defaultValue: false,
     owner: 'T-0134 (placeholder), the voice module (ADR-0003), D-L194',
     productionReady: false,
@@ -713,6 +713,42 @@ export const FLAGS = {
     description: 'P26 notification preferences at /settings/notifications and the links to it, drawn disabled until a preferences API exists (T-0137, D-L194).',
     defaultValue: false,
     owner: 'T-0137 (placeholder), the notification-preferences API when it is built',
+    productionReady: false,
+  },
+  /**
+   * T-0139 (D-L194): the P10 elements with no backend yet. Each is drawn in
+   * the design's own empty or disabled state, never with invented data, and
+   * comes alive with the module that owns it. Presentation only: none of them
+   * reaches an endpoint, and each grants nothing.
+   */
+  crm_studio: {
+    description: 'The Studio entry in the CRM rail, a disabled placeholder (current on the script screens) until a capability read lets it link to the builder (T-0139, D-L194, R3).',
+    defaultValue: false,
+    owner: 'T-0139 (shell placeholder), T-0079',
+    productionReady: false,
+  },
+  ai_script_hints: {
+    description: 'The P10 run AI next-line suggestion strip, in its empty state with "Use line" disabled, until M17 serves suggestions (T-0139, D-L194).',
+    defaultValue: false,
+    owner: 'T-0139 (placeholder), M17',
+    productionReady: false,
+  },
+  script_programme_assignment: {
+    description: 'The P10 builder "Assigned to" programme chips, disabled: a script belongs to one programme (D-L91) until multi-programme assignment exists (T-0139, D-L194).',
+    defaultValue: false,
+    owner: 'T-0139 (placeholder), D-L91',
+    productionReady: false,
+  },
+  script_preview: {
+    description: 'The P10 builder Preview button, disabled until preview-as-agent with a sample record exists (T-0139, D-L88, D-L194).',
+    defaultValue: false,
+    owner: 'T-0139 (placeholder)',
+    productionReady: false,
+  },
+  script_version_changes: {
+    description: 'The P10 run version banner\'s "What changed" button, disabled until agents can read a newer version\'s change list (T-0139, D-L194).',
+    defaultValue: false,
+    owner: 'T-0139 (placeholder)',
     productionReady: false,
   },
 } as const satisfies Record<string, FlagDefinition>;

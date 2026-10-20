@@ -153,6 +153,7 @@ export type IconName =
   | 'phone_iphone'
   | 'photo_camera'
   | 'play_arrow'
+  | 'play_circle'
   | 'priority_high'
   | 'public'
   | 'publish'
@@ -384,6 +385,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'phone_iphone',
   'photo_camera',
   'play_arrow',
+  'play_circle',
   'priority_high',
   'public',
   'publish',

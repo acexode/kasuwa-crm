@@ -160,12 +160,13 @@ export async function crmActivitiesEnabled(): Promise<boolean> {
  * state, as the design draws it; off, the entry is not drawn. `crmLiveNav()`
  * reports each as `placeholder:<id>`. Presentation only: grants nothing.
  */
-const UNBUILT_NAV = ['inbox', 'tickets', 'calls', 'reports'] as const;
+const UNBUILT_NAV = ['inbox', 'tickets', 'calls', 'studio', 'reports'] as const;
 
 const PLACEHOLDER_FLAG = {
   inbox: 'crm_inbox',
   tickets: 'crm_tickets',
   calls: 'crm_calls',
+  studio: 'crm_studio',
   reports: 'crm_reports',
 } as const satisfies Record<(typeof UNBUILT_NAV)[number], string>;
 
@@ -249,6 +250,12 @@ const LIST_PLACEHOLDER_FLAGS = [
   'programme_scope_search',
   'ai_assistant',
   'search_filters',
+  // T-0139 (D-L194): the P10 placeholders, each drawn in the design's empty or disabled state.
+  'call_bar',
+  'ai_script_hints',
+  'script_programme_assignment',
+  'script_preview',
+  'script_version_changes',
 ] as const;
 
 /**
