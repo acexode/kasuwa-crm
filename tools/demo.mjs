@@ -88,6 +88,11 @@ const DEMO_FLAGS = [
   'last_activity',
   'quick_actions',
   'more_filters',
+  // T-0138 (D-L194): the P27 placeholders.
+  'recent_searches',
+  'programme_scope_search',
+  'ai_assistant',
+  'search_filters',
   // T-0132: P03 Home, and its widgets with no module behind them yet (D-L194).
   'crm_home',
   'whatsapp_inbox',
@@ -99,6 +104,12 @@ const DEMO_FLAGS = [
   'notification_preferences',
   // T-0140: P02's flagged placeholders (D-L194).
   'admin_placeholders',
+  // T-0139 (D-L194): the P10 placeholders.
+  'crm_studio',
+  'ai_script_hints',
+  'script_programme_assignment',
+  'script_preview',
+  'script_version_changes',
 ];
 /** Flags added to the demo automatically once their task has merged. */
 const DEMO_FLAGS_WHEN_PRESENT = ['crm_custom_fields', 'crm_import', 'crm_duplicates', 'crm_notifications'];

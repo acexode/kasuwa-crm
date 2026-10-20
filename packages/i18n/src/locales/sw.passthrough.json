@@ -46,12 +46,14 @@
   "records.col.wa",
   "records.col.whatsappOptIn",
   "records.filter.active",
+  "records.nav.studio",
   "records.source.api",
   "records.source.ussd",
   "records.source.whatsapp",
   "records.view.kanban",
   "region.ke.name",
   "region.ng.name",
+  "scripting.builder.version.short",
   "signup.country.GH",
   "signup.country.KE",
   "signup.country.NG",
@@ -66,5 +68,8 @@
   "home.widget.size.s",
   "home.widget.size.m",
   "home.widget.size.l",
-  "home.widget.size.xl"
+  "home.widget.size.xl",
+  "search.key.slash",
+  "search.key.ctrl",
+  "search.palette.ai"
 ]

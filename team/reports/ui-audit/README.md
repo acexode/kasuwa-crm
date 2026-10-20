@@ -102,6 +102,11 @@ The fix: pass the SMS hint through, and render the option only when the challeng
 | P27 search | Partial phone-number match strip | D-L133 | Same info strip, showing the existing "type the whole number" guidance in the design's style. |
 | P27 search | "3 results hidden…" strip | D-L133 | Not drawn: a hidden-results count is an existence leak. |
 | P27 search | Programme scope pill and menu | D-L87 | Ruling 1 (`programme_scope_search` flag). |
+| P27 search | Counts on the object chips, group headers, facets, "See all 12 results" and "12 results" | D-P13 | Same chips, headers, boxes and button without numbers; the results subtitle says what is shown instead (T-0138). |
+| P27 search | Phone, city and segment line; amount and close date; owner; "3 days ago" | Not in the search contract (hits carry a name, a company and a lead's status) | Company line where served, the lead status pill; owner and updated columns behind `search_filters` with the empty dash (T-0138). |
+| P27 search | "Create contact" / "Create lead" on no matches | No create flow in the web app yet | Same buttons, drawn in the lists' "Not available yet" state; a lookup never repeats the number (T-0138). |
+| P27 palette | Call last contact, Create ticket, Go to wallboard; Switch programme's current programme and waiting counts | D-L194; no telephony, tickets or wallboard; no current-programme concept | Rows drawn disabled behind their module's placeholder flag; Switch programme lists the session's programmes disabled, with no "Current" pill or counts (T-0138). |
+| P27 palette | Ask AI and the D3 answer | D-L194 | Ask AI row disabled behind `ai_assistant`; D3 is not built (T-0138). |
 | P28 import | Review step stats and error table | D-L128 Q6 | Same step and layout, with the counts the API returns; no invented totals. |
 | P03 home | Landing on Home | D-L172 | Superseded by ruling 3. |
 | P06 board | "Any amount" and "All territories" filters | R14 (no amount-band or territory filter in the contract) | Same dropdowns, same place: the currency and won-window filters the contract has (T-0135). |

@@ -222,6 +222,50 @@ export function Dialog({
   );
 }
 
+export interface CommandDialogProps {
+  readonly open: boolean;
+  readonly onClose: VoidFunction;
+  /** The dialog's accessible name ("Command palette"): it has no visible title row. */
+  readonly label: string;
+  readonly children: ReactNode;
+  /** What to focus on open: the palette's own input. */
+  readonly initialFocus?: RefObject<HTMLElement | null> | undefined;
+  readonly 'data-testid'?: string | undefined;
+}
+
+/**
+ * The command palette's dialog (P27 D, T-0138): the Dialog's overlay
+ * behaviour (scrim, focus trap, inert page, scroll lock, focus returned) with
+ * no title row. 660px, radius 14, a 1px border, shadow-3, 96px from the top
+ * from 1280px up and 64px below it; at most the viewport less 150px (110px
+ * below 1280). On a phone it is full screen, as every v1.1 dialog is. The
+ * first row is the caller's own input, so its name is `label`.
+ */
+export function CommandDialog({ open, onClose, label, children, initialFocus, ...rest }: CommandDialogProps) {
+  const [panel, setPanel] = useState<HTMLDivElement | null>(null);
+  useOverlay({ open, onClose, panel, modal: true, initialFocus });
+
+  if (!open) return null;
+  return (
+    <Portal>
+      <div className="fixed inset-0 z-50 flex items-start justify-center px-6 pt-16 max-sm:p-0 min-[1280px]:pt-24">
+        <div aria-hidden="true" onClick={onClose} className="absolute inset-0 animate-fade-in bg-scrim" />
+        <div
+          ref={setPanel}
+          role="dialog"
+          aria-modal="true"
+          aria-label={label}
+          tabIndex={-1}
+          data-testid={rest['data-testid']}
+          className="relative flex max-h-[calc(100vh-110px)] w-full min-h-0 max-w-[660px] animate-pop-in flex-col overflow-hidden rounded-14 border border-border bg-surface text-text shadow-3 outline-none max-sm:h-full max-sm:max-h-full max-sm:max-w-none max-sm:rounded-none max-sm:border-0 min-[1280px]:max-h-[calc(100vh-150px)]"
+        >
+          {children}
+        </div>
+      </div>
+    </Portal>
+  );
+}
+
 export type ConfirmTone = 'danger' | 'primary' | 'warning';
 
 const DISC: Record<ConfirmTone, string> = {

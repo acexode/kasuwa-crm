@@ -48,6 +48,7 @@
   "records.source.whatsapp",
   "records.view.kanban",
   "region.ke.name",
+  "scripting.builder.version.short",
   "signup.country.KE",
   "tokens.contrast.ratio",
   "tokens.sample.arabic",
@@ -60,5 +61,8 @@
   "home.widget.size.s",
   "home.widget.size.m",
   "home.widget.size.l",
-  "home.widget.size.xl"
+  "home.widget.size.xl",
+  "search.key.slash",
+  "search.key.ctrl",
+  "search.palette.ai"
 ]

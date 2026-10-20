@@ -157,6 +157,7 @@ person_off
 phone_iphone
 photo_camera
 play_arrow
+play_circle
 priority_high
 public
 publish
@@ -234,3 +235,7 @@ warning
 where_to_vote
 work
 workspaces
+# P27 search and command palette (T-0138).
+calendar_today
+monitoring
+select_all

@@ -46,6 +46,7 @@
   "records.source.ussd",
   "records.source.whatsapp",
   "records.view.kanban",
+  "scripting.builder.version.short",
   "tokens.contrast.ratio",
   "tokens.sample.arabic",
   "tokens.sample.text",
@@ -57,5 +58,8 @@
   "home.widget.size.s",
   "home.widget.size.m",
   "home.widget.size.l",
-  "home.widget.size.xl"
+  "home.widget.size.xl",
+  "search.key.slash",
+  "search.key.ctrl",
+  "search.palette.ai"
 ]
