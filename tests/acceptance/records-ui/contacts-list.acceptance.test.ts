@@ -82,7 +82,7 @@ const BUDGET_RECORD = 'tests/e2e/.artifacts/p04-contacts-budget.json';
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   // T-0124 (lead re-pin, D-L180 I9): a typed number sends no q and shows the number-search hint; paging searches by name.
-  [SPEC]: '24d5f4af5c09cf5447d9aaa3516a76843cb3ca411abcd56a3d6d6aa0b4bd4bb6',
+  [SPEC]: 'bacd22041ec9bbd1bad9b903c8fc9454532bb2c23fdc0846a6a8c97205fef916',
   // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and the custom filters.
   [MOCK]: 'f2fc83b332de03710a704f983364ed3b36c20b3dd67b46b7499ee6fb94cc2dae',
 };
@@ -95,7 +95,7 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
  * under this ceiling and inside the 5% rule. The spec's hash ignores the
  * budget literal, so it is not re-pinned.
  */
-const CONTACTS_BUDGET_CEILING = 245_000; // D-L199: raised for the T-0127 icon font (D-L198)
+const CONTACTS_BUDGET_CEILING = 280_000; // D-L203: T-0145 measured, after removing the weight it could (no visual change)
 
 /** Re-pinned within 5% of what the run measured, like P01/1 (T-0035). */
 const BUDGET_HEADROOM = 1.05;

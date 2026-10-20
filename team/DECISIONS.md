@@ -4524,3 +4524,31 @@ E2e runs on the Mac are serialised through one lock, to keep Docker alive.
 
 **Byte budgets:** most CRM pages now transfer about 308–339 KB, above PRD 2.13's 300,000. The fix is to make the
 pages smaller, not to raise the limit. T-0145 finds and removes the weight, then re-pins under D-L182/D-L199.
+
+### D-L203 — Page weight after the UI work: what was removed, and the new pins and ceilings (lead, 2026-10-21)
+
+**Before.** At the gate (main f0ac1bc), most CRM pages transferred 308–352 KB, above PRD 2.13's 300,000.
+
+**T-0145** removed every byte it could without a visual change:
+- split the JetBrains Mono font into figures, capitals and lowercase subsets: −24 to −36 KB a page;
+- sent ICU messages pre-parsed, with a small client formatter: −11.8 KB on every page, sign-in included;
+- replaced `next/dynamic` with React `lazy`;
+- broke up modules that were pulled in whole for one helper;
+- moved menus, sheets and flag-off placeholders to load on first use;
+- turned off link prefetch on the rails and nav.
+
+Pixel diffs against main at 1440, 1024 and 360, light and dark, are at most 2/255, which is noise. The new mono
+subsets draw about 0.9% less ink, as D-L44's currency subset already does. fontTools, a new tool, is declined.
+
+**After.** Every page is under 300,000. The pipeline board is the heaviest at 295,844. All 40 budget and paint
+journeys pass under the e2e lock (lead run, 2026-10-21).
+
+**Rulings:**
+- E2e pins move to the measured value ×1.012, rounded up to 500, per D-L199 (T-0145's table in team/reports/T-0145.md).
+- Fifteen acceptance ceilings move to the next 5,000 above the pin. None is above 300,000. The pipeline board's
+  ceiling equals 300,000, and its pin (299,500) stays under it.
+- The remaining weight is the design itself: about 12 KB of CSS on every page, about 4 KB of icon font, and mono
+  figures on lists. It is accepted as the price of D-L193.
+- **Declined for now:** splitting Noto Sans Latin, which would lose kerning at accented letters, and per-area icon
+  faces, which would change D-L198. Revisit only if a later page can't fit.
+- Acceptance SHA-256 pins for the e2e specs amended in T-0146 to T-0150 are re-pinned in this same lead commit.
