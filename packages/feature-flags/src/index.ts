@@ -543,6 +543,19 @@ export const FLAGS = {
     owner: 'T-0133 (placeholder)',
     productionReady: false,
   },
+  /**
+   * T-0140 (D-L194): the P02 console's designed controls whose backend is not
+   * built. The usage meters the API does not serve (WhatsApp conversations,
+   * storage, AI credits) draw in their empty state, and Alert settings, the
+   * programme cards' Edit links and the role panel's View people are drawn
+   * disabled. Presentation only; it grants nothing.
+   */
+  admin_placeholders: {
+    description: 'P02 usage meters without data in their empty state, and disabled P02 controls with no backend yet (T-0140, D-L194).',
+    defaultValue: false,
+    owner: 'T-0140 (placeholder)',
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

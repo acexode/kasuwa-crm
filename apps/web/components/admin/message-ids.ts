@@ -70,6 +70,45 @@ export const ADMIN_SHELL_MESSAGE_IDS: readonly MessageId[] = [
   ...NAV_MESSAGE_IDS,
 ];
 
+/** The audit log's action labels, shared by `P02/A`'s recent changes and `P02/E`. */
+const AUDIT_ACTION_MESSAGE_IDS: readonly MessageId[] = [
+  'admin.audit.action.created',
+  'admin.audit.action.updated',
+  'admin.audit.action.deleted',
+  'admin.audit.action.exported',
+  'admin.audit.action.invited',
+  'admin.audit.action.viewed',
+  'admin.audit.action.failed_sign_in',
+  'admin.audit.action.rejected',
+  'admin.audit.action.rotated',
+  'admin.audit.action.played_recording',
+  'admin.audit.action.published',
+  'admin.audit.action.merged',
+  'admin.audit.action.restored',
+];
+
+/** Object types by name rather than key (T-0140), for `P02/A` and `P02/E`. */
+const AUDIT_OBJECT_MESSAGE_IDS: readonly MessageId[] = [
+  'admin.audit.object.account',
+  'admin.audit.object.activity',
+  'admin.audit.object.audit_export',
+  'admin.audit.object.contact',
+  'admin.audit.object.custom_field',
+  'admin.audit.object.deal',
+  'admin.audit.object.disposition',
+  'admin.audit.object.field_security',
+  'admin.audit.object.import_job',
+  'admin.audit.object.invoice',
+  'admin.audit.object.portal_user',
+  'admin.audit.object.programme',
+  'admin.audit.object.retention_policy',
+  'admin.audit.object.role',
+  'admin.audit.object.script',
+  'admin.audit.object.script_run',
+  'admin.audit.object.sla_policy',
+  'admin.audit.record.id',
+];
+
 /** `P02/A` — admin home. */
 export const ADMIN_HOME_MESSAGE_IDS: readonly MessageId[] = [
   ...ADMIN_SHELL_MESSAGE_IDS,
@@ -111,6 +150,20 @@ export const ADMIN_HOME_MESSAGE_IDS: readonly MessageId[] = [
   'admin.home.recent.col.actor',
   'admin.home.recent.col.what',
   'admin.home.recent.col.record',
+  'admin.home.subtitle',
+  'admin.home.subtitle.plan',
+  'admin.home.subtitle.countries',
+  'admin.home.subtitle.users',
+  'admin.home.usage.today',
+  'admin.home.usage.resets',
+  'admin.home.usage.noData',
+  'admin.home.usage.noData.note',
+  'admin.home.usage.meter.whatsapp_conversations',
+  'admin.home.usage.meter.storage',
+  'admin.home.usage.meter.ai_credits',
+  'admin.home.recent.what',
+  ...AUDIT_ACTION_MESSAGE_IDS,
+  ...AUDIT_OBJECT_MESSAGE_IDS,
 ];
 
 const PROGRAMME_STATUS_MESSAGE_IDS: readonly MessageId[] = [

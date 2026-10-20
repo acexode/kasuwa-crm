@@ -480,3 +480,13 @@ export async function productTourShown(): Promise<boolean> {
   await initialiseFeatureFlags();
   return featureFlagClient().getBooleanValue('product_tour', false, toEvaluationContext({ tenantId: PRE_TENANT }));
 }
+
+/**
+ * `admin_placeholders` (D-L194, T-0140): whether the P02 console draws its
+ * designed controls that have no backend yet, in their empty or disabled
+ * state. Per process, like the tour button.
+ */
+export async function adminPlaceholdersShown(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue('admin_placeholders', false, toEvaluationContext({ tenantId: PRE_TENANT }));
+}

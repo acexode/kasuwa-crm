@@ -206,3 +206,167 @@ export function formatDate(locale: string, iso: string, timeZone?: string): stri
     ...(timeZone === undefined ? {} : { timeZone }),
   }).format(date);
 }
+
+/*
+ * ---------------------------------------------------------------------------
+ * THE DESIGN'S SHORT FORMS (T-0140)
+ *
+ * The admin export writes times as "27 Sep, 14:32 WAT" and periods as
+ * "1–30 Sep 2026": day before month, a 24-hour clock and the zone by its
+ * African name. ICU's English says "Sept" and "GMT+1", so English is assembled
+ * from its parts; every other language keeps its own order and its own zone
+ * convention ("UTC+1" in French). The zone is always named: a BPO roster spans
+ * WAT, EAT and SAST, and a bare "14:32" is a time somebody acts on in the
+ * wrong hour.
+ * ---------------------------------------------------------------------------
+ */
+
+function english(locale: string): boolean {
+  return /^en(-|$)/i.test(locale) && !/^en-XA$/i.test(locale);
+}
+
+function safeFormatter(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  try {
+    return new Intl.DateTimeFormat(locale, options);
+  } catch {
+    return new Intl.DateTimeFormat('en', options);
+  }
+}
+
+function partOf(parts: readonly Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes): string {
+  return parts.find((entry) => entry.type === type)?.value ?? '';
+}
+
+/**
+ * A zone as a person in the region says it: "WAT", "EAT", "SAST" through
+ * ICU's en-NG names, else the locale's own short name ("UTC+1").
+ */
+export function formatZone(locale: string, when: Date, timeZone?: string): string {
+  const zoneLocale = english(locale) ? 'en-NG' : locale;
+  return partOf(
+    safeFormatter(zoneLocale, {
+      timeZoneName: 'short',
+      ...(timeZone === undefined ? {} : { timeZone }),
+    }).formatToParts(when),
+    'timeZoneName',
+  );
+}
+
+/** "27 Sep, 14:32 WAT". `timeZone` unset means the reader's own zone. */
+export function formatStamp(locale: string, iso: string, timeZone?: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const zone = timeZone === undefined ? {} : { timeZone };
+  const parts = safeFormatter(locale, {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    ...zone,
+  }).formatToParts(date);
+  const clock = `${partOf(parts, 'hour')}:${partOf(parts, 'minute')}`;
+  const name = formatZone(locale, date, timeZone);
+  if (english(locale)) {
+    const month = partOf(parts, 'month').replace(/^Sept$/, 'Sep');
+    return `${partOf(parts, 'day')} ${month}, ${clock} ${name}`.trim();
+  }
+  const text = safeFormatter(locale, {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    ...zone,
+  }).format(date);
+  return `${text} ${name}`.trim();
+}
+
+/** "27 Sep", for a reset date. */
+export function formatDayMonth(locale: string, date: Date, timeZone?: string): string {
+  const zone = timeZone === undefined ? {} : { timeZone };
+  const parts = safeFormatter(locale, { day: 'numeric', month: 'short', ...zone }).formatToParts(date);
+  if (english(locale)) {
+    return `${partOf(parts, 'day')} ${partOf(parts, 'month').replace(/^Sept$/, 'Sep')}`;
+  }
+  return safeFormatter(locale, { day: 'numeric', month: 'short', ...zone }).format(date);
+}
+
+/**
+ * A usage period, "1–30 Sep 2026", from the contract's half-open
+ * `[periodStart, periodEnd)`: the last day shown is the day before the end.
+ * Billing periods are calendar months in UTC, so they are drawn in UTC; in
+ * the reader's zone a 00:00Z boundary would land on the wrong day.
+ */
+export function formatPeriod(locale: string, startIso: string, endIso: string): string {
+  const start = new Date(startIso);
+  const end = new Date(new Date(endIso).getTime() - 1);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '';
+  // English in the day-month order the design writes ("1–30 Sep 2026").
+  const text = safeFormatter(english(locale) ? 'en-GB' : locale, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).formatRange(start, end);
+  return english(locale) ? text.replace(/\bSept\b/g, 'Sep') : text;
+}
+
+/**
+ * Where today sits in a usage period: day `day` of `days`. `null` when today
+ * is outside it, so the marker is not drawn rather than drawn wrong.
+ */
+export function periodProgress(
+  startIso: string,
+  endIso: string,
+  now: Date = new Date(),
+): { day: number; days: number } | null {
+  const start = new Date(startIso).getTime();
+  const end = new Date(endIso).getTime();
+  const at = now.getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+  if (at < start || at >= end) return null;
+  const dayMs = 86_400_000;
+  return { day: Math.floor((at - start) / dayMs) + 1, days: Math.round((end - start) / dayMs) };
+}
+
+/** A country's name in the reader's language, from its ISO 3166 code ("NG" → "Nigeria"). */
+export function formatCountry(locale: string, code: string | null | undefined): string | null {
+  if (code === null || code === undefined || code === '') return null;
+  try {
+    return new Intl.DisplayNames([locale, 'en'], { type: 'region' }).of(code.toUpperCase()) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+/** True for a value that is an identifier rather than a name: a UUID or a bare hex id. */
+export function looksLikeId(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+}
+
+/**
+ * How long ago, the way the export writes it ("5 min ago", "2 hours ago",
+ * "yesterday"); past a week, the day itself ("27 Sep"). English is set in
+ * en-GB, whose short units have no full stop ("5 min ago", not "5 min. ago").
+ */
+export function formatAgo(locale: string, iso: string, now: Date = new Date()): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const seconds = Math.round((date.getTime() - now.getTime()) / 1000);
+  const abs = Math.abs(seconds);
+  const relativeLocale = english(locale) ? 'en-GB' : locale;
+  // Minutes short ("5 min ago"), hours and days long ("2 hours ago"), as the export writes them.
+  const relative = (style: 'short' | 'long'): Intl.RelativeTimeFormat => {
+    try {
+      return new Intl.RelativeTimeFormat(relativeLocale, { numeric: 'auto', style });
+    } catch {
+      return new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto', style });
+    }
+  };
+  if (abs < 60) return relative('long').format(0, 'second');
+  if (abs < 3_600) return relative('short').format(Math.round(seconds / 60), 'minute');
+  if (abs < 86_400) return relative('long').format(Math.round(seconds / 3_600), 'hour');
+  if (abs < 7 * 86_400) return relative('long').format(Math.round(seconds / 86_400), 'day');
+  return formatDayMonth(locale, date);
+}

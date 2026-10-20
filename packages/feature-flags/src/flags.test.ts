@@ -47,6 +47,7 @@ describe('feature flags', () => {
       'last_activity',
       'quick_actions',
       'more_filters',
+      'admin_placeholders',
     ]);
   });
 
