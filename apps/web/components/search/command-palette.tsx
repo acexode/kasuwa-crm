@@ -516,7 +516,7 @@ export function CommandPalette({
         {ai ? <KeyHint onSunken keyLabel={KEYS.question} label={t.t('search.footer.askAi')} /> : null}
         <span className="flex-1" />
         {scope ? (
-          <span className="inline-flex items-center gap-1 font-semibold text-text-2">
+          <span className="hidden items-center gap-1 whitespace-nowrap font-semibold text-text-2 sm:inline-flex">
             <Icon name="badge" size={16} />
             {t.t('search.scope.all')}
           </span>

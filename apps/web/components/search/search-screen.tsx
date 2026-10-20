@@ -83,7 +83,7 @@ export function SearchScreen({
 
   return (
     <CrmShell t={t} locale={locale} locales={locales} current="search" live={live}>
-      <div data-screen="P27" className="flex w-full min-w-0 max-w-[1280px] flex-col gap-4 md:px-2 md:pb-4 md:pt-1">
+      <div data-screen="P27" className="flex w-full min-w-0 max-w-[1232px] flex-col gap-4 md:px-2 md:pb-4 md:pt-1">
         <ResultsPage t={t} text={text} live={live} origin={field.origin} />
       </div>
     </CrmShell>
@@ -366,7 +366,7 @@ function ResultRow({
   programme: string | undefined;
 }) {
   const grid = columns
-    ? 'grid-cols-[40px_minmax(0,1fr)_110px] min-[1280px]:grid-cols-[40px_minmax(0,1fr)_150px_120px]'
+    ? 'grid-cols-[40px_minmax(0,1fr)] md:grid-cols-[40px_minmax(0,1fr)_110px] min-[1280px]:grid-cols-[40px_minmax(0,1fr)_150px_120px]'
     : 'grid-cols-[40px_minmax(0,1fr)]';
   const className = `grid min-h-[68px] w-full items-center gap-3.5 border-b border-border bg-surface px-4 py-2.5 text-start text-text ${grid} ${
     row.href === null ? '' : `is-hover:bg-surface-sunken ${FOCUS} focus-visible:ring-inset`
@@ -375,8 +375,8 @@ function ResultRow({
     <>
       <TypeTile type={row.type} large />
       <span className="flex min-w-0 flex-col gap-0.75">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="flex min-w-0 text-label font-semibold leading-[21px]">
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 md:flex-nowrap">
+          <span className="flex min-w-0 max-w-full text-label font-semibold leading-[21px] max-md:basis-full max-md:[&_[data-field=name]]:whitespace-normal">
             <RowName row={row} query={query} t={t} />
           </span>
           <span className="inline-flex h-5 shrink-0 items-center rounded-6 bg-surface-sunken px-[7px] text-micro text-text-2">
@@ -398,7 +398,7 @@ function ResultRow({
             <span aria-hidden="true">{EMPTY}</span>
             <span className="sr-only">{t.t('search.col.none')}</span>
           </span>
-          <span className="flex flex-col items-end gap-1 text-caption font-normal text-text-muted">
+          <span className="hidden flex-col items-end gap-1 text-caption font-normal text-text-muted md:flex">
             <span aria-hidden="true">{EMPTY}</span>
             <span className="sr-only">{t.t('search.col.none')}</span>
           </span>
