@@ -43,13 +43,81 @@ export function formatDateTime(locale: string, iso: string): string {
   return formatter(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(at);
 }
 
+/** The time of day with the zone it is in ("09:12 WAT"), for "last synced". */
 export function formatClock(locale: string, at: Date): string {
-  return formatter(locale, { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }).format(at);
+  const zone = zoneName(locale, at);
+  const clock = formatTime(locale, at.toISOString());
+  return zone === '' ? clock : `${clock} ${zone}`;
 }
 
-/** The browser's zone as the locale abbreviates it ("GMT+1", "WAT"), for the timeline's header. */
+/**
+ * The time of day on a 24-hour clock ("14:02"), as the P05 timeline draws it:
+ * the day is the group heading above it. In the browser's zone.
+ */
+export function formatTime(locale: string, iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  return formatter(locale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(at);
+}
+
+/**
+ * The zones Kasuwa's desks sit in, by their English long name, as the people
+ * there write them. `Intl` abbreviates Africa/Lagos as "GMT+1" in English;
+ * every Lagos desk, and the P05 design, says "WAT" (T-0134). Matched on the
+ * long name so every IANA zone in a region maps, not one city.
+ */
+const AFRICAN_ZONES: Readonly<Record<string, string>> = {
+  // Engines differ: Node's ICU says "West Africa Standard Time", Chromium's "West Africa Time".
+  'West Africa Standard Time': 'WAT',
+  'West Africa Time': 'WAT',
+  'West Africa Summer Time': 'WAST',
+  'Central Africa Time': 'CAT',
+  'East Africa Time': 'EAT',
+  'South Africa Standard Time': 'SAST',
+  'South Africa Time': 'SAST',
+  'Greenwich Mean Time': 'GMT',
+};
+
+/** The browser's zone as people there name it ("WAT", "EAT", "SAST"), for the timeline's header. */
 export function zoneName(locale: string, at: Date = new Date()): string {
+  const long = formatter('en', { timeZoneName: 'long' })
+    .formatToParts(at)
+    .find((part) => part.type === 'timeZoneName')?.value;
+  const known = long === undefined ? undefined : AFRICAN_ZONES[long];
+  if (known !== undefined) return known;
   return formatter(locale, { timeZoneName: 'short' }).formatToParts(at).find((part) => part.type === 'timeZoneName')?.value ?? '';
+}
+
+/** A local calendar day ("2026-10-20"), to group a timeline by day in the browser's zone. */
+export function dayKey(iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+}
+
+/** How a day group is headed: today, yesterday, or the date ("Mon 28 Sep"). */
+export type DayHeading = { readonly kind: 'today' } | { readonly kind: 'yesterday' } | { readonly kind: 'date'; readonly text: string };
+
+export function dayHeading(locale: string, key: string, now: Date = new Date()): DayHeading {
+  if (key === dayKey(now.toISOString())) return { kind: 'today' };
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (key === dayKey(yesterday.toISOString())) return { kind: 'yesterday' };
+  const [year, month, day] = key.split('-').map(Number) as [number, number, number];
+  const at = new Date(year, month - 1, day);
+  const sameYear = year === now.getFullYear();
+  return {
+    kind: 'date',
+    text: formatter(locale, { weekday: 'short', day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) }).format(at),
+  };
+}
+
+/** A date alone ("12 Aug 2019"), for Created. */
+export function formatDate(locale: string, iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  return formatter(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(at);
 }
 
 /**

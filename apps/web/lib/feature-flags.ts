@@ -184,7 +184,8 @@ async function crmPlaceholderEnabled(id: (typeof UNBUILT_NAV)[number]): Promise<
  * as "not available yet", exactly like an unbuilt one (`components/crm/crm-nav.ts`).
  */
 export async function crmLiveNav(): Promise<string[]> {
-  const [contacts, accounts, leads, activities, pipeline, search, csvImport, duplicates, recordView, notifications, ...placeholders] = await Promise.all([
+  const [home, contacts, accounts, leads, activities, pipeline, search, csvImport, duplicates, recordView, notifications, notificationExtras, ...placeholders] = await Promise.all([
+    crmHomeEnabled(),
     crmRecordsEnabled(),
     crmAccountsEnabled(),
     crmLeadsEnabled(),
@@ -195,12 +196,15 @@ export async function crmLiveNav(): Promise<string[]> {
     crmDuplicatesEnabled(),
     crmRecordViewEnabled(),
     crmNotificationsEnabled(),
+    notificationPlaceholders(),
     ...UNBUILT_NAV.map((id) => crmPlaceholderEnabled(id)),
   ]);
   const listPlaceholders = await listPlaceholderFlags();
   return [
     // The rail's entries for unbuilt modules (T-0130, D-L194): drawn, disabled, only where their flag is on.
     ...UNBUILT_NAV.filter((_, index) => placeholders[index] === true).map((id) => `placeholder:${id}`),
+    // P03 Home (T-0132, D-L196): the rail's first entry, and so the landing.
+    ...(home ? ['home'] : []),
     ...(leads ? ['leads'] : []),
     ...(contacts ? ['contacts'] : []),
     ...(accounts ? ['accounts'] : []),
@@ -223,6 +227,8 @@ export async function crmLiveNav(): Promise<string[]> {
           ...(pipeline ? ['notifications:deal'] : []),
           ...(activities ? ['notifications:activity'] : []),
           ...(csvImport && contacts ? ['notifications:import'] : []),
+          // P26's placeholders (T-0137, D-L194): drawn only where their own flag is on too.
+          ...notificationExtras,
         ]
       : []),
     // Not nav items: the P04 lists' placeholders (T-0133, D-L194), by flag name.
@@ -375,6 +381,33 @@ export async function crmNotificationsEnabled(): Promise<boolean> {
 }
 
 /**
+ * The P26 placeholders (T-0137, D-L194), as `live` entries for the bell and
+ * the centre: `notification-types` (the types no module produces yet, drawn
+ * disabled), `notification-preferences` (the Preferences button, the bell's
+ * gear and `/settings/notifications`). Read only where `crm_notifications`
+ * is on; each is presentation only.
+ */
+export const NOTIFICATION_PLACEHOLDERS = {
+  'notification-types': 'notification_types',
+  'notification-preferences': 'notification_preferences',
+} as const;
+
+export async function notificationPlaceholders(): Promise<string[]> {
+  await initialiseFeatureFlags();
+  const entries = Object.entries(NOTIFICATION_PLACEHOLDERS);
+  const on = await Promise.all(
+    entries.map(([, flag]) => featureFlagClient().getBooleanValue(flag, false, toEvaluationContext({ tenantId: CRM_SHELL }))),
+  );
+  return entries.filter((_, index) => on[index] === true).map(([id]) => id);
+}
+
+/** `/settings/notifications` answers only where both the bell and its preferences placeholder are on. */
+export async function notificationPreferencesEnabled(): Promise<boolean> {
+  if (!(await crmNotificationsEnabled())) return false;
+  return (await notificationPlaceholders()).includes('notification-preferences');
+}
+
+/**
  * `crm_duplicates` (T-0097, D-L146, D-L175) gates the P28 ROUTE —
  * `/contacts/duplicates` calls `notFound()` while it is off, so typing the path
  * gets a real 404 and nothing of the screen ships — and, through
@@ -489,4 +522,54 @@ export async function productTourShown(): Promise<boolean> {
 export async function adminPlaceholdersShown(): Promise<boolean> {
   await initialiseFeatureFlags();
   return featureFlagClient().getBooleanValue('admin_placeholders', false, toEvaluationContext({ tenantId: PRE_TENANT }));
+}
+
+/**
+ * `crm_home` (T-0132, D-L196) gates the P03 ROUTE — `/home` calls `notFound()`
+ * while it is off, so typing the path gets a real 404 and nothing of the screen
+ * ships — and, through `crmLiveNav()` as `home`, the rail and bottom-bar Home
+ * entry and the signed-in landing (`lib/server/landing.ts`). No client module
+ * names it.
+ *
+ * Per process, like the others, and presentation only: every widget reads
+ * through the activities and deals APIs, which scope each row from the session
+ * and `user_programme` whether this is on or off.
+ */
+export async function crmHomeEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue('crm_home', false, toEvaluationContext({ tenantId: CRM_SHELL }));
+}
+
+/**
+ * The P03 widgets with no module behind them (D-L194), and the US$ toggle,
+ * each behind its module's own flag. On, the widget is offered and drawn in the
+ * design's own empty state (never a number or a name); off, it is neither drawn
+ * nor offered in the Add-widget drawer. Read here and passed down as booleans.
+ */
+export interface HomeWidgetFlags {
+  readonly aiNba: boolean;
+  readonly whatsapp: boolean;
+  readonly quota: boolean;
+  readonly approvals: boolean;
+  readonly kpis: boolean;
+  readonly fx: boolean;
+  /** T-0136's `calendar_sync`: the agenda's empty state offers "Connect calendar", disabled (D-P22). */
+  readonly calendar: boolean;
+}
+
+export async function homeWidgetFlags(): Promise<HomeWidgetFlags> {
+  await initialiseFeatureFlags();
+  const context = toEvaluationContext({ tenantId: CRM_SHELL });
+  const read = (name: 'ai_nba' | 'whatsapp_inbox' | 'quota' | 'approvals' | 'home_kpis' | 'fx_display' | 'calendar_sync') =>
+    featureFlagClient().getBooleanValue(name, false, context);
+  const [aiNba, whatsapp, quota, approvals, kpis, fx, calendar] = await Promise.all([
+    read('ai_nba'),
+    read('whatsapp_inbox'),
+    read('quota'),
+    read('approvals'),
+    read('home_kpis'),
+    read('fx_display'),
+    read('calendar_sync'),
+  ]);
+  return { aiNba, whatsapp, quota, approvals, kpis, fx, calendar };
 }

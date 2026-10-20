@@ -63,13 +63,14 @@ export function formatDay(day: string, locale: string): string {
   }
 }
 
-/** The time of day of an item, in the reader's zone. */
+/** The time of day of an item, in the reader's zone, on the 24-hour clock the P26 export draws ("10:15"). */
 export function formatTime(instant: string, locale: string, timeZone?: string): string {
   try {
     return new Intl.DateTimeFormat(numberingLocale(locale), {
       ...(timeZone === undefined ? {} : { timeZone }),
       hour: '2-digit',
       minute: '2-digit',
+      hourCycle: 'h23',
     }).format(new Date(instant));
   } catch {
     return instant;

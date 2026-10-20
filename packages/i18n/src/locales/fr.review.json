@@ -109,6 +109,14 @@
     "records.col.wa": "An abbreviation (WA, WhatsApp) used unchanged in this locale.",
     "records.card.whatsapp": "A product name. WhatsApp is spelled the same in this locale.",
     "records.card.sms": "An abbreviation (SMS) used unchanged in this locale.",
-    "leads.via": "The same word in this locale."
+    "leads.via": "The same word in this locale.",
+    "notifications.prefs.channel.whatsapp": "Product name of the WhatsApp channel. It is spelled the same in every locale.",
+    "home.dateLine": "A day, a clock time and a time-zone name joined by punctuation. No words to translate.",
+    "home.widget.size.s": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
+    "home.widget.size.m": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
+    "home.widget.size.l": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
+    "home.widget.size.xl": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
+    "home.agenda.minutes": "The same in this language as in English: a code, a name or punctuation only.",
+    "home.agenda.contactHidden": "The same in this language as in English: a code, a name or punctuation only."
   }
 }

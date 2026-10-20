@@ -59,7 +59,16 @@ export function Brand({
  * radius 8, 13/600, a 20px `network_check`. Off is bordered surface; on is
  * accent-soft with an accent edge and reads "Lite mode on".
  */
-export function ShellLiteToggle({ t, className }: { t: Translator; className?: string }) {
+export function ShellLiteToggle({
+  t,
+  className,
+  compact = false,
+}: {
+  t: Translator;
+  className?: string;
+  /** Icon only, as the phone app bar draws it (P03 at 360); the switch keeps its name. */
+  compact?: boolean;
+}) {
   const { lite, setLite } = useLiteMode();
   return (
     <button
@@ -76,7 +85,7 @@ export function ShellLiteToggle({ t, className }: { t: Translator; className?: s
       } ${className ?? ''}`}
     >
       <Icon name="network_check" size={20} />
-      <span>{t.t(lite ? 'auth.topbar.lite.on' : 'auth.topbar.lite')}</span>
+      <span className={compact ? 'sr-only' : undefined}>{t.t(lite ? 'auth.topbar.lite.on' : 'auth.topbar.lite')}</span>
     </button>
   );
 }

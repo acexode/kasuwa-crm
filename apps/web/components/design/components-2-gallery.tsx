@@ -37,6 +37,9 @@ import {
   TableSelectCell,
   TableSelectHeader,
   Toast,
+  CriticalBanner,
+  NotificationToast,
+  NotificationToastStack,
   ToastProvider,
   useToast,
   type PillTone,
@@ -457,6 +460,54 @@ function Toasts({ t }: { readonly t: T }) {
   );
 }
 
+/** P26 C and A2 (T-0137): the notification toast stack and the critical security banner, drawn in flow. */
+function NotificationSurfaces({ t }: { readonly t: T }) {
+  const noop = () => undefined;
+  return (
+    <Card title={t('design.components2.p26.heading')}>
+      <div className="flex flex-col gap-4">
+        <CriticalBanner
+          className="rounded-10"
+          title={t('design.components2.p26.banner.title')}
+          secondary={{ label: t('design.components2.p26.banner.me'), onClick: noop }}
+          primary={{ label: t('design.components2.p26.banner.secure'), onClick: noop }}
+        >
+          {t('design.components2.p26.banner.body')}
+        </CriticalBanner>
+        <NotificationToastStack label={t('notifications.title')} placement="inline">
+          <NotificationToast
+            icon="payments"
+            tone="success"
+            title={t('notifications.prefs.event.payment')}
+            body={t('notifications.prefs.event.paymentBody')}
+            action={{ label: t('design.components2.p26.view'), onClick: noop }}
+            dismissLabel={t('design.components2.toast.dismiss')}
+            onDismiss={noop}
+          />
+          <NotificationToast
+            icon="timer"
+            tone="warning"
+            title={t('notifications.type.sla')}
+            body={t('notifications.prefs.event.slaBody')}
+            dismissLabel={t('design.components2.toast.dismiss')}
+            onDismiss={noop}
+          />
+          <NotificationToast
+            icon="error"
+            tone="danger"
+            error
+            title={t('notifications.prefs.event.einvoice')}
+            body={t('notifications.prefs.event.einvoiceBody')}
+            action={{ label: t('design.components2.p26.fix'), onClick: noop, primary: true }}
+            dismissLabel={t('design.components2.toast.dismiss')}
+            onDismiss={noop}
+          />
+        </NotificationToastStack>
+      </div>
+    </Card>
+  );
+}
+
 function ConfirmSpecimen({ t }: { readonly t: T }) {
   return (
     <div className="relative flex min-h-full items-center justify-center rounded-lg border border-border bg-scrim px-6 py-12">
@@ -541,6 +592,7 @@ function Overlays({ t, locale }: { readonly t: T; readonly locale: string }) {
         <Toasts t={t} />
         <ConfirmSpecimen t={t} />
       </div>
+      <NotificationSurfaces t={t} />
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="relative h-overlay-preview-frame overflow-hidden rounded-lg border border-border">
           <Caption>{t('design.components2.caption.drawer')}</Caption>
