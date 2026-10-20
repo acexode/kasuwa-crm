@@ -219,6 +219,7 @@
   --k-radius-full: 999px;
   
   /* control heights, icon sizes, app shell */
+  --k-control-height-xs: 30px;
   --k-control-height-sm: 36px;
   --k-control-height-md: 40px;
   --k-control-height-base: 44px;
@@ -250,6 +251,10 @@
   --k-layout-column-wide: 520px;
   --k-layout-wizard: 640px;
   --k-layout-wizard-stepper: 880px;
+  --k-layout-filter-rail: 240px;
+  --k-layout-page-wide: 1116px;
+  --k-layout-settings-aside: 380px;
+  --k-layout-prefs-channel: 88px;
   
   /* overlays and data display (T-0129) */
   --k-overlay-drawer: 400px;
@@ -264,6 +269,8 @@
   --k-overlay-empty-text: 280px;
   --k-overlay-preview-frame: 480px;
   --k-overlay-preview-frame-compact: 560px;
+  --k-overlay-notification-panel: 440px;
+  --k-overlay-notification-toast: 380px;
   --k-radius-sheet: 20px;
   
   /* elevation — the shadow values themselves are semantic, so they differ per theme */

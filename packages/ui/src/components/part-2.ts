@@ -91,3 +91,13 @@ export {
   type ToastProviderProps,
   type ToastTone,
 } from './toast';
+export {
+  CriticalBanner,
+  NotificationToast,
+  NotificationToastStack,
+  type CriticalBannerProps,
+  type NotificationToastAction,
+  type NotificationToastProps,
+  type NotificationToastStackProps,
+  type NotificationToastTone,
+} from './notification-cards';

@@ -53,6 +53,7 @@
     "records.view.kanban": "A loanword (Kanban) used unchanged in this locale.",
     "records.col.wa": "An abbreviation (WA, WhatsApp) used unchanged in this locale.",
     "records.card.whatsapp": "A product name. WhatsApp is spelled the same in this locale.",
-    "records.card.sms": "An abbreviation (SMS) used unchanged in this locale."
+    "records.card.sms": "An abbreviation (SMS) used unchanged in this locale.",
+    "notifications.prefs.channel.whatsapp": "Product name of the WhatsApp channel. It is spelled the same in every locale."
   }
 }

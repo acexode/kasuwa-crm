@@ -40,6 +40,14 @@ const SHARED_IDS: readonly MessageId[] = [
   'records.filter.status',
   'records.retry',
   'scripting.builder.field.value',
+  // P26 C and A2 specimens (T-0137).
+  'notifications.title',
+  'notifications.prefs.event.payment',
+  'notifications.prefs.event.paymentBody',
+  'notifications.type.sla',
+  'notifications.prefs.event.slaBody',
+  'notifications.prefs.event.einvoice',
+  'notifications.prefs.event.einvoiceBody',
 ];
 
 const GALLERY_IDS: readonly MessageId[] = [
