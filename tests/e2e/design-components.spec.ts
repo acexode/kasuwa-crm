@@ -178,7 +178,9 @@ for (const scheme of ['light', 'dark'] as const) {
       expect(s['outline-style'] === 'none' || s['outline-style'] === '').toBe(true);
       const focus = await colour(page, 'focus');
       expect(s['box-shadow']).toContain(focus);
-      expect(s['box-shadow']).toMatch(/0px 0px 0px 2px .*0px 0px 0px 4px/);
+      // T-0150 (T-0128 report): Chromium serialises the two shadows with a comma
+      // after the first, so the gap-then-ring shape is matched across it.
+      expect(s['box-shadow']).toMatch(/0px 0px 0px 2px,.*0px 0px 0px 4px/);
     });
 
     test('text field: 44 px, radius 8, 1 px border-strong, 15 px value, 14/600 label; focus is a primary border and a 3 px soft halo @t0128', async ({
@@ -348,7 +350,10 @@ for (const scheme of ['light', 'dark'] as const) {
       expect(active['box-shadow']).not.toBe('none');
     });
 
-    test('tabs are underline tabs: 14/600; the active tab is primary-text with a 2 px primary underline @t0128', async ({
+    // T-0150 (T-0128 report): every design source draws the active tab at 700
+    // with a 3 px primary underline inside the tab (v1.1 `inset 0 -3px 0`, P05
+    // and P07 measured), built as an ::after bar so the focus ring cannot replace it.
+    test('tabs are underline tabs: 14 px; the active tab is primary-text at 700 with a 3 px primary underline @t0128', async ({
       page,
     }) => {
       const active = await style(
@@ -356,17 +361,18 @@ for (const scheme of ['light', 'dark'] as const) {
         'font-size',
         'font-weight',
         'color',
-        'border-bottom-width',
-        'border-bottom-color',
         'background-color',
       );
       expect(active['font-size']).toBe('14px');
-      expect(active['font-weight']).toBe('600');
+      expect(active['font-weight']).toBe('700');
       expect(active.color).toBe(await colour(page, 'primary-text', 'color'));
-      expect(active['border-bottom-width']).toBe('2px');
-      expect(active['border-bottom-color']).toBe(
-        await colour(page, 'primary', 'border-bottom-color'),
-      );
+      const underline = await at(page, 'tab-active').evaluate((element) => {
+        const after = getComputedStyle(element, '::after');
+        return { height: after.height, background: after.backgroundColor, bottom: after.bottom };
+      });
+      expect(underline.height).toBe('3px');
+      expect(underline.bottom).toBe('0px');
+      expect(underline.background).toBe(await colour(page, 'primary'));
       expect(active['background-color'], 'tabs are not pills').toBe('rgba(0, 0, 0, 0)');
       const rest = await style(at(page, 'tab'), 'color');
       expect(rest.color).toBe(await colour(page, 'text-2', 'color'));

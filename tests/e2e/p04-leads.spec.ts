@@ -1670,7 +1670,11 @@ test('at 360px the table and the Kanban fit without sideways page scroll and pas
   await expectNoSeriousAxe(page, 'P04/01 at 360px');
 
   // Columns may scroll inside their own container; the page itself may not.
+  // T-0150 (T-0133): the P04 phone frames draw no view switcher, so the Kanban
+  // is opened at 1024 (where the switcher is) and the viewport narrowed back.
+  await page.setViewportSize({ width: 1024, height: 740 });
   await shown(screen(page).locator('[data-view-option="kanban"]')).first().click();
+  await page.setViewportSize({ width: 360, height: 740 });
   await expect(screen(page).locator('[data-kanban-column="new"]').first()).toBeAttached();
   await expect(screen(page).locator(`[data-kanban-column="new"] [data-row-id="${LEAD_NEW.id}"]`).first()).toBeAttached();
   expect(await overflow(), 'the Kanban scrolls the page sideways at 360px').toBeLessThanOrEqual(0);
