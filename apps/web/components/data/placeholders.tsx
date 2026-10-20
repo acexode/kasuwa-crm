@@ -176,7 +176,7 @@ export function RequestsPlaceholder(props: FrameProps) {
             </Button>
           }
         />
-        <dl className="m-0 grid grid-cols-2 gap-3.5 xl:grid-cols-4">
+        <dl className="m-0 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
           {DSR_TILES.map((tile) => (
             <StatTile key={tile} label={t.t(`data.requests.tile.${tile}` as MessageId)} value={<span aria-label={t.t('data.requests.none')}>—</span>} />
           ))}

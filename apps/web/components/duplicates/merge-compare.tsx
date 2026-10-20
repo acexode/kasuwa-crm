@@ -51,7 +51,7 @@ function Value({ t, value }: { t: Translator; value: FieldValue }) {
   return (
     <span className="flex min-w-0 flex-wrap gap-x-2">
       {value.parts.map((part, index) => (
-        <span key={index} data-record-text="" dir="auto" className="min-w-0 break-all">
+        <span key={index} data-record-text="" dir="auto" className="min-w-0 break-words">
           {part}
         </span>
       ))}

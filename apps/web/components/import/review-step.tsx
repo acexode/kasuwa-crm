@@ -45,7 +45,7 @@ export function ReviewStep({
       <h2 id={`${id}-title`} className="sr-only">
         {t.t('import.step.review')}
       </h2>
-      <dl className="m-0 grid grid-cols-2 gap-3.5 xl:grid-cols-4">
+      <dl className="m-0 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         <StatTile icon="table_rows" label={t.t('import.review.columns')} value={formatCount(locale, headers.length)} />
         <StatTile icon="check_circle" tone="success" label={t.t('import.review.mapped')} value={formatCount(locale, mapped)} />
         <StatTile icon="do_not_disturb_on" label={t.t('import.review.skipped')} value={formatCount(locale, headers.length - mapped)} />
