@@ -50,6 +50,15 @@ const DEMO_FLAGS = [
   'crm_pipeline',
   'crm_search',
   'admin_live_api',
+  // T-0134 (D-L194): the P05 record placeholders, in the design's empty or disabled state.
+  'whatsapp_composer',
+  'ai_summary',
+  'ai_nba',
+  'call_bar',
+  'record_related',
+  'identity_check',
+  'record_addresses',
+  'record_follow',
   // T-0130: the rail's placeholders for unbuilt modules (D-L194).
   'crm_inbox',
   'crm_tickets',

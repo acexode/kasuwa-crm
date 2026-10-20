@@ -6,6 +6,8 @@ import { crmAccountsEnabled, crmCustomFieldsEnabled, crmLiveNav, crmRecordViewEn
 import { withCustomMessages } from '../../../components/custom/message-ids';
 import { withShellMessages } from '../../../components/crm/shell-messages';
 import { activeLocale, languageOptions } from '../../../lib/locale';
+import { recordPlaceholders } from '../../../lib/record-flags';
+import { placeholderMessageIds } from '../../../components/record/frame-message-ids';
 
 /**
  * `P05/04` — the account record (T-0063), with `P05/05` and `P05/06`.
@@ -39,6 +41,9 @@ export default async function AccountRecordPage({ params }: { params: Promise<{ 
   const { locale } = await activeLocale();
   const live = await crmLiveNav();
   const customFields = await crmCustomFieldsEnabled();
+  // T-0134 (D-L194): the designed blocks with no module yet, each behind its own flag.
+  const placeholders = await recordPlaceholders();
+  const ids = [...ACCOUNT_RECORD_MESSAGE_IDS, ...placeholderMessageIds(placeholders)];
 
   return (
     // Keyed by id: following a breadcrumb to another account starts a fresh
@@ -47,10 +52,11 @@ export default async function AccountRecordPage({ params }: { params: Promise<{ 
       key={id}
       id={id}
       locale={locale}
-      messages={bundleMessages(locale, withShellMessages(withCustomMessages(ACCOUNT_RECORD_MESSAGE_IDS, customFields), live))}
+      messages={bundleMessages(locale, withShellMessages(withCustomMessages(ids, customFields), live))}
       locales={languageOptions(locale)}
       live={live}
       customFields={customFields}
+      placeholders={placeholders}
     />
   );
 }
