@@ -1,19 +1,20 @@
 'use client';
 
-import type { Translator } from '@kasuwa/i18n/bundle';
+import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
+import { Button, EmptyState } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
-import { SECONDARY_BUTTON } from '../auth/button-classes';
+import { StatusPill, TABLE_CARD } from '../data/parts';
 import type { ImportHistory } from './use-import-history';
 import type { ImportSummary, Programme } from '../../lib/imports-api';
-import type { MessageId } from '@kasuwa/i18n/bundle';
 import { formatCount, formatWhen } from './import-text';
+import { STATUS_TONE } from './job-view';
 
 /**
- * The past imports, as the API serves them (newest first, no total): the
- * file, the programme by name, when, the status in words and how many were
- * created. An import whose raw file was deleted has no filename any more
- * (D-L148), and says so in a neutral label: never "null", never a blank.
- * Each opens its run or report.
+ * The past imports, as the API serves them (newest first, no total), as the
+ * export's bordered table: the file in mono, "Contacts · programme", when, how
+ * many were created, the status pill and Open. An import whose raw file was
+ * deleted has no filename any more (D-L148), and says so in a neutral label:
+ * never "null", never a blank. Each opens its run or report.
  *
  * A filename is a person's own and can name another person: drawn as text,
  * never parsed, and never put in a URL, a title or the console.
@@ -36,7 +37,7 @@ export function ImportHistoryList({
 }) {
   return (
     <section data-testid="import-history" aria-labelledby="import-history-title" className="flex flex-col gap-3">
-      <h2 id="import-history-title" className="text-h3">
+      <h2 id="import-history-title" className="m-0 text-sheet-title">
         {t.t('import.history.title')}
       </h2>
       {history.phase === 'loading' ? (
@@ -44,22 +45,29 @@ export function ImportHistoryList({
           <span role="status" className="sr-only">
             {t.t('admin.loading')}
           </span>
-          <div aria-hidden="true" className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3">
+          <div aria-hidden="true" className={`${TABLE_CARD} flex flex-col`}>
             {Array.from({ length: 3 }, (_, index) => (
-              <span key={index} className="h-10 rounded-sm bg-surface-sunken" />
+              <span key={index} className="flex h-[52px] items-center gap-4 border-b border-border px-4 last:border-b-0">
+                <span className="h-3.5 w-40 rounded-sm bg-surface-sunken" />
+                <span className="h-3.5 flex-1 rounded-sm bg-surface-sunken" />
+              </span>
             ))}
           </div>
         </div>
       ) : null}
       {history.phase === 'error' ? (
-        <p role="alert" className="flex items-start gap-2 text-body-sm text-danger-text">
-          <Icon name="error" size="sm" />
+        <p role="alert" className="m-0 flex items-start gap-2 text-body-sm text-danger-text">
+          <Icon name="error" size={20} />
           {t.t('import.history.failed')}
         </p>
       ) : null}
-      {history.phase === 'loaded' && history.rows.length === 0 ? <p className="text-body-md text-text-2">{t.t('import.history.empty')}</p> : null}
+      {history.phase === 'loaded' && history.rows.length === 0 ? (
+        <div className={`${TABLE_CARD} px-5 py-6`}>
+          <EmptyState icon="history" tone="neutral" headingLevel={3} title={t.t('import.history.empty')} body={t.t('import.history.empty.body')} />
+        </div>
+      ) : null}
       {history.rows.length === 0 ? null : (
-        <ul className="flex flex-col rounded-lg border border-border bg-surface">
+        <ul className={`${TABLE_CARD} m-0 list-none p-0`}>
           {history.rows.map((row) => (
             <HistoryRow key={row.id} t={t} locale={locale} row={row} programmes={programmes} canOpen={canOpen} onOpen={onOpen} />
           ))}
@@ -67,9 +75,9 @@ export function ImportHistoryList({
       )}
       {history.nextCursor === null ? null : (
         <div>
-          <button type="button" disabled={history.loadingMore} onClick={history.loadMore} className={SECONDARY_BUTTON}>
+          <Button disabled={history.loadingMore} onClick={history.loadMore}>
             {t.t('import.history.more')}
-          </button>
+          </Button>
         </div>
       )}
     </section>
@@ -97,41 +105,43 @@ function HistoryRow({
     <li
       data-import-row={row.id}
       {...(erased ? { 'data-erased': 'true' } : {})}
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border p-3 last:border-b-0"
+      className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-border px-4 py-3 text-body-sm last:border-b-0 lg:grid lg:min-h-[52px] lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto_auto] lg:py-2"
     >
-      <div className="flex min-w-0 flex-1 basis-48 flex-col gap-1">
-        {row.filename === null ? (
-          <span className="text-body-md font-semibold text-text-2">{t.t('import.erased.file')}</span>
+      {row.filename === null ? (
+        <span className="basis-full text-body-sm font-semibold text-text-2 lg:basis-auto">{t.t('import.erased.file')}</span>
+      ) : (
+        <span data-record-text="" dir="auto" className="min-w-0 basis-full break-all font-mono text-meta lg:basis-auto lg:truncate">
+          {row.filename}
+        </span>
+      )}
+      <span className="min-w-0 truncate text-text-2 lg:text-text">
+        {t.t('import.object.contacts')}
+        {' · '}
+        {programme === undefined ? (
+          t.t('import.programme.unknown')
         ) : (
-          <span data-record-text="" dir="auto" className="break-words text-body-md font-semibold">
-            {row.filename}
+          <span data-record-text="" dir="auto">
+            {programme.name}
           </span>
         )}
-        <span className="flex flex-wrap items-center gap-x-2 text-body-sm text-text-2">
-          {programme === undefined ? (
-            t.t('import.programme.unknown')
-          ) : (
-            <span data-record-text="" dir="auto">
-              {programme.name}
-            </span>
-          )}
-          <time dateTime={row.createdAt}>{formatWhen(locale, row.createdAt)}</time>
-        </span>
-      </div>
-      <span className="rounded-full bg-surface-sunken px-3 py-1 text-body-sm font-semibold text-text-2">{t.t(`import.status.${row.status}` as MessageId)}</span>
-      <span className="text-body-sm text-text-2">
-        <b className="tabular-nums text-text">{formatCount(locale, row.counts.created)}</b> {t.t('import.count.created')}
       </span>
-      <button
-        type="button"
+      <time dateTime={row.createdAt} className="text-text-2">
+        {formatWhen(locale, row.createdAt)}
+      </time>
+      <span className="text-text">
+        <b className="font-semibold tabular-nums">{formatCount(locale, row.counts.created)}</b> {t.t('import.count.created.lower')}
+      </span>
+      <StatusPill tone={STATUS_TONE[row.status]}>{t.t(`import.status.${row.status}` as MessageId)}</StatusPill>
+      <Button
+        size="compact"
         data-import-open=""
         disabled={!canOpen}
         aria-label={t.t('import.history.openLabel', { name: row.filename ?? t.t('import.erased.file') })}
         onClick={() => onOpen(row.id)}
-        className={SECONDARY_BUTTON}
+        className="ms-auto lg:ms-0"
       >
         {t.t('import.history.open')}
-      </button>
+      </Button>
     </li>
   );
 }
