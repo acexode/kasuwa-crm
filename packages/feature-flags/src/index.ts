@@ -326,6 +326,61 @@ export const FLAGS = {
     owner: 'T-0130 (shell placeholder), the reports module when it is built',
     productionReady: false,
   },
+  /**
+   * T-0136 (D-L194, D-P22): the P07 calendar's external-calendar furniture,
+   * drawn in the design's not-connected state: the "Your work calendar isn't
+   * connected" banner with its Connect buttons (disabled), the "Kasuwa only"
+   * source chip and the attendee panel of the event detail, empty. No
+   * calendar is read and nothing is connected. Presentation only.
+   */
+  calendar_sync: {
+    description: 'P07 calendar: the not-connected Google/Microsoft banner, source chip and empty attendee panel (T-0136, D-L194, D-P22).',
+    defaultValue: false,
+    owner: 'T-0136 (placeholder), the calendar-sync module when it is built (D-P22)',
+    productionReady: false,
+  },
+  /**
+   * T-0136 (D-L194, D-P22): the P07 "Booking pages" view, drawn as the
+   * design's editor in its empty, disabled state. Nothing is published and
+   * nothing is saved. Presentation only.
+   */
+  booking_pages: {
+    description: 'P07 Booking pages view, the design editor in its empty, disabled state (T-0136, D-L194, D-P22).',
+    defaultValue: false,
+    owner: 'T-0136 (placeholder), the booking-pages module when it is built (D-P22)',
+    productionReady: false,
+  },
+  /**
+   * T-0136 (D-L194): the P07 phone "Check-in" view and the composer's Visit
+   * type, drawn in their disabled state. No location or photo is read.
+   */
+  field_checkin: {
+    description: 'P07 phone Check-in view and the composer Visit type, disabled (T-0136, D-L194).',
+    defaultValue: false,
+    owner: 'T-0136 (placeholder), the field check-in module when it is built',
+    productionReady: false,
+  },
+  /**
+   * T-0136 (D-L194, D-L105): activity priority. The contract has none, so
+   * each task row draws the design's priority pill as "No priority" and the
+   * "High priority" and "Deals" filter chips are drawn disabled.
+   */
+  activity_priority: {
+    description: 'P07 task rows: the priority pill placeholder and the High priority and Deals filter chips, disabled (T-0136, D-L194).',
+    defaultValue: false,
+    owner: 'T-0136 (placeholder), the activity-priority work when it is built (D-L105)',
+    productionReady: false,
+  },
+  /**
+   * T-0136 (D-L194, D-P29): the composer's "Remind the customer by" block,
+   * drawn with every channel off and disabled. Nothing is ever sent.
+   */
+  activity_reminders: {
+    description: 'P07 composer: the customer-reminder channels, disabled (T-0136, D-L194, D-P29).',
+    defaultValue: false,
+    owner: 'T-0136 (placeholder), the reminders work when it is built (D-P29)',
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

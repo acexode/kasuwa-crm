@@ -36,6 +36,7 @@ bolt
 bookmark
 bookmark_add
 business_center
+calendar_month
 call
 call_end
 call_received
@@ -139,6 +140,7 @@ pause_circle
 payments
 person
 person_add
+person_off
 phone_iphone
 photo_camera
 play_arrow
@@ -164,6 +166,7 @@ search_off
 send
 settings
 share
+shopping_cart
 signal_cellular_4_bar
 signal_cellular_alt
 signal_cellular_alt_1_bar
@@ -187,6 +190,7 @@ thumb_down
 thumb_up
 timer
 timer_off
+today
 touch_app
 translate
 trending_up
@@ -194,15 +198,18 @@ tune
 undo
 unfold_less
 unfold_more
+upcoming
 upload
 upload_file
 verified
 verified_user
 vertical_align_top
+videocam
 view_column
 view_kanban
 visibility
 visibility_off
 warning
+where_to_vote
 work
 workspaces

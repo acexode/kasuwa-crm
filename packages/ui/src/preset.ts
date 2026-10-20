@@ -115,6 +115,16 @@ export function buildTailwindPreset(): string {
     .map((name) => `    '${name}': 'var(${CSS_VAR_PREFIX}-duration-${name})',`)
     .join('\n');
 
+  // Event tints (P07 calendar, T-0136): a chart colour mixed 18% into
+  // surface, as the export draws every event block, legend swatch and month
+  // chip. A mix of two theme variables, so it follows light and dark.
+  const chartTints = Array.from({ length: 7 }, (_, index) => index + 1)
+    .map(
+      (step) =>
+        `        '.bg-chart-${step}-tint': { 'background-color': 'color-mix(in oklch, var(${CSS_VAR_PREFIX}-chart-${step}) 18%, var(${CSS_VAR_PREFIX}-surface))' },`,
+    )
+    .join('\n');
+
   return `/* eslint-disable */
 /**
  * GENERATED FILE — do not edit. Source: packages/ui/src/preset.ts (Design ${DESIGN_VERSION})
@@ -212,6 +222,7 @@ ${typeExtras}
           'border-color': '${FOCUS.fieldBorder}',
           'box-shadow': '${FOCUS.field}',
         },
+${chartTints}
       });
     },
   ],

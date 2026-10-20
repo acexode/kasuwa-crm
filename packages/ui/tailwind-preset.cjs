@@ -314,6 +314,13 @@ module.exports = {
           'border-color': 'var(--k-primary)',
           'box-shadow': '0 0 0 3px var(--k-primary-soft-strong)',
         },
+        '.bg-chart-1-tint': { 'background-color': 'color-mix(in oklch, var(--k-chart-1) 18%, var(--k-surface))' },
+        '.bg-chart-2-tint': { 'background-color': 'color-mix(in oklch, var(--k-chart-2) 18%, var(--k-surface))' },
+        '.bg-chart-3-tint': { 'background-color': 'color-mix(in oklch, var(--k-chart-3) 18%, var(--k-surface))' },
+        '.bg-chart-4-tint': { 'background-color': 'color-mix(in oklch, var(--k-chart-4) 18%, var(--k-surface))' },
+        '.bg-chart-5-tint': { 'background-color': 'color-mix(in oklch, var(--k-chart-5) 18%, var(--k-surface))' },
+        '.bg-chart-6-tint': { 'background-color': 'color-mix(in oklch, var(--k-chart-6) 18%, var(--k-surface))' },
+        '.bg-chart-7-tint': { 'background-color': 'color-mix(in oklch, var(--k-chart-7) 18%, var(--k-surface))' },
       });
     },
   ],
