@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
+import { Banner } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { StillConnecting } from '../admin/panel';
 import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
@@ -39,32 +40,25 @@ export function OfflineBanner({
 }) {
   const time = syncedAt === null ? null : formatSyncedAt(locale, syncedAt);
   return (
-    <div role="status" data-testid="offline-banner" className="-mx-4 -mt-4 md:mx-0 md:mt-0">
-      <div className="hidden items-center gap-3 rounded-10 bg-inverse py-2.5 pe-2.5 ps-4 text-body-sm text-on-inverse md:flex">
-        <Icon name="cloud_off" size={20} />
-        <p className="flex-1">
-          <b>{t.t('records.offline.title')}</b>{' '}
-          {time === null ? (
-            t.t('records.offline.never')
-          ) : (
-            <>
-              {t.t('records.offline.cached')} <span className="font-mono">{time}</span>
-              {'. '}
-              {t.t('records.offline.after')}
-            </>
-          )}
-        </p>
-        {onRetry === undefined ? null : (
-          <button
-            type="button"
-            onClick={onRetry}
-            className={`h-control-sm shrink-0 rounded-md border border-current px-3.5 text-meta font-bold ${FOCUS}`}
-          >
-            {t.t('records.retry')}
-          </button>
+    <div data-testid="offline-banner" className="-mx-4 -mt-4 md:mx-0 md:mt-0">
+      <Banner
+        tone="offline"
+        icon="cloud_off"
+        title={t.t('records.offline.title')}
+        className="max-md:hidden"
+        {...(onRetry === undefined ? {} : { action: { label: t.t('records.retry'), onClick: onRetry } })}
+      >
+        {time === null ? (
+          t.t('records.offline.never')
+        ) : (
+          <>
+            {t.t('records.offline.cached')} <span className="font-mono">{time}</span>
+            {'. '}
+            {t.t('records.offline.after')}
+          </>
         )}
-      </div>
-      <p className="flex items-center gap-2 bg-inverse px-4 py-2 text-caption text-on-inverse md:hidden">
+      </Banner>
+      <p role="status" className="flex items-center gap-2 bg-inverse px-4 py-2 text-caption text-on-inverse md:hidden">
         <Icon name="cloud_off" size={16} />
         <span className="flex-1">
           <b>{t.t('records.offline.short')}</b>

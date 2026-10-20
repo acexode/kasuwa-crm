@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import type { IconName } from '@kasuwa/ui';
-import { Icon } from '../icon';
-import { FOCUS } from './list-classes';
+import { BulkAction as UiBulkAction, TableBulkBar } from '@kasuwa/ui/components';
 
 /**
  * P04's selection and bulk bar (T-0133, D-L194, D-L195), behind
@@ -60,7 +59,7 @@ export const BULK_UPDATE: BulkAction = { key: 'update', icon: 'edit_note', label
 export const BULK_MERGE: BulkAction = { key: 'merge', icon: 'merge', label: 'records.bulk.merge' };
 export const BULK_WHATSAPP: BulkAction = { key: 'whatsapp', icon: 'chat', label: 'records.bulk.whatsapp' };
 
-/** The inverse bar: 48px, radius 10, "3 selected", the actions, and ✕. */
+/** The inverse bar (`TableBulkBar`, T-0129): "3 selected", "Select all on this page", the actions, and ✕. */
 export function BulkBar({
   t,
   count,
@@ -76,44 +75,28 @@ export function BulkBar({
 }) {
   if (count === 0 || actions.length === 0) return null;
   return (
-    <div
-      role="toolbar"
-      aria-label={t.t('records.bulk.label')}
+    <TableBulkBar
       data-testid="bulk-bar"
-      className="hidden min-h-12 flex-wrap items-center gap-0.5 rounded-10 bg-inverse py-1 pe-1.5 ps-4 text-on-inverse md:flex"
-    >
-      <b className="me-1.5 text-body-sm">{t.t('records.bulk.selected', { count })}</b>
-      <button
-        type="button"
-        onClick={onSelectPage}
-        className={`h-10 px-2 text-meta font-semibold underline underline-offset-2 ${FOCUS}`}
-      >
-        {t.t('records.select.page')}
-      </button>
-      <span aria-hidden="true" className="mx-2 h-6 w-px bg-current opacity-30" />
-      {actions.map((action) => (
-        <button
+      aria-label={t.t('records.bulk.label')}
+      count={t.t('records.bulk.selected', { count })}
+      selectAll={{ label: t.t('records.select.page'), onClick: onSelectPage }}
+      clearLabel={t.t('records.bulk.clear')}
+      onClear={onClear}
+      className="max-md:hidden"
+      actions={actions.map((action) => (
+        // No bulk endpoint yet (D-L194): the design's disabled action, at its 0.45 fade on the inverse bar.
+        <UiBulkAction
           key={action.key}
-          type="button"
           data-bulk-action={action.key}
+          icon={action.icon}
           disabled
           title={t.t('records.action.unavailable')}
-          className="inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-meta font-semibold opacity-45 disabled:cursor-not-allowed"
+          className="opacity-45 disabled:text-on-inverse"
         >
-          <Icon name={action.icon} size={18} />
           {t.t(action.label)}
           <span className="sr-only">{t.t('records.action.unavailable')}</span>
-        </button>
+        </UiBulkAction>
       ))}
-      <span className="flex-1" />
-      <button
-        type="button"
-        aria-label={t.t('records.bulk.clear')}
-        onClick={onClear}
-        className={`flex size-10 items-center justify-center rounded-md ${FOCUS}`}
-      >
-        <Icon name="close" size={20} />
-      </button>
-    </div>
+    />
   );
 }
