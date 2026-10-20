@@ -450,5 +450,6 @@
   "activities.sync.microsoft",
   "activities.view.booking",
   "activities.view.checkin",
-  "activities.zone.label"
+  "activities.zone.label",
+  "activities.compose.title"
 ]

@@ -549,10 +549,12 @@ function EventDetail({
         ) : null}
         {withheld(item, 'completedAt') ? <CompletionMark t={t} item={item} /> : null}
       </div>
-      <span className="flex flex-wrap items-center gap-1.5 text-meta">
-        <Icon name="link" size={16} className="text-text-2" />
-        <Related t={t} item={item} />
-      </span>
+      {item.contact || item.account || withheld(item, 'contact') || withheld(item, 'account') ? (
+        <span className="flex flex-wrap items-center gap-1.5 text-meta [&_a]:underline [&_a]:underline-offset-[3px]">
+          <Icon name="link" size={16} className="text-text-2" />
+          <Related t={t} item={item} />
+        </span>
+      ) : null}
       {sync ? (
         <div data-placeholder="attendees" className="flex flex-col gap-1.5">
           <span className="text-overline text-text-muted">{t.t('activities.calendar.attendees')}</span>
@@ -651,7 +653,9 @@ export function ActivitiesCalendar({
   const byDay = placeEvents(state.items, window);
   const blanks = view.range === 'month' ? leadingBlanks(window) : 0;
   const drawn = [...byDay.values()].some((items) => items.length > 0);
-  const selectedItem = selected === null ? null : (state.items.find((item) => item.id === selected) ?? null);
+  // As the design opens: the panel shows today's first event until another is chosen.
+  const todaysFirst = narrow ? null : (byDay.get(today)?.[0] ?? null);
+  const selectedItem = selected === null ? todaysFirst : (state.items.find((item) => item.id === selected) ?? null);
   const grid = view.range !== 'month';
 
   // Kasuwa's own events that overlap one another (D-L194: only with calendar_sync).
@@ -825,7 +829,7 @@ export function ActivitiesCalendar({
                   days={window.days}
                   byDay={byDay}
                   today={today}
-                  selected={selected}
+                  selected={selectedItem?.id ?? null}
                   clashes={clashes}
                   onSelect={setSelected}
                 />
@@ -853,7 +857,7 @@ export function ActivitiesCalendar({
               }}
             />
           ) : null}
-          {(narrow || view.range === 'month') && selectedItem !== null ? (
+          {(narrow || view.range === 'month') && selected !== null && selectedItem !== null ? (
             <EventDetail t={t} locale={locale} item={selectedItem} sync={sync} actions={actions} />
           ) : null}
         </>

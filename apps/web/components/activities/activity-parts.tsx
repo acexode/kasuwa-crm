@@ -100,22 +100,22 @@ function Summary({
   const label = t.t(kind === 'contact' ? 'activities.related.contact' : 'activities.related.account');
   const inner = (
     <>
-      <Icon name={icon} size={14} />
-      <span className="shrink-0">{`${label} ·`}</span>
-      <span data-record-text="" className="truncate">
-        {name}
+      <Icon name={icon} size={14} className="mt-px" />
+      <span className="min-w-0 break-words">
+        {`${label} · `}
+        <span data-record-text="">{name}</span>
       </span>
     </>
   );
   return (
     <span data-related={kind} className="inline-flex min-w-0 items-center font-semibold text-primary-text">
       {href === null ? (
-        <span className="inline-flex min-w-0 items-center gap-0.75">{inner}</span>
+        <span className="inline-flex min-w-0 items-start gap-0.75">{inner}</span>
       ) : (
         <Link
           href={href}
           prefetch={false}
-          className="inline-flex min-w-0 items-center gap-0.75 rounded-sm is-hover:underline is-focus-visible:ring-focus"
+          className="inline-flex min-w-0 items-start gap-0.75 rounded-sm is-hover:underline is-focus-visible:ring-focus"
         >
           {inner}
         </Link>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Avatar, Button, IconButton } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
@@ -77,7 +77,7 @@ function SnoozeMenu({
       data-testid="snooze-menu"
       role="group"
       aria-labelledby={labelId}
-      className="absolute end-0 top-full z-10 mt-1 flex w-60 flex-col rounded-10 border border-border bg-surface-raised p-1 shadow-2"
+      className="absolute end-0 top-full z-10 mt-1 flex w-72 flex-col rounded-10 border border-border bg-surface-raised p-1 shadow-2"
     >
       <p id={labelId} className="px-2.5 pb-1 pt-1.5 text-overline text-text-muted">
         {t.t('activities.snooze.menu')}
@@ -95,8 +95,8 @@ function SnoozeMenu({
           }}
           className={MENU_ITEM}
         >
-          <span className="flex-1">{t.t(snoozeLabel(option.preset))}</span>
-          <time dateTime={option.at.toISOString()} className="font-mono text-micro font-normal text-text-muted">
+          <span className="min-w-0 flex-1">{t.t(snoozeLabel(option.preset))}</span>
+          <time dateTime={option.at.toISOString()} className="shrink-0 whitespace-nowrap font-mono text-micro font-normal text-text-muted">
             {formatWhen(locale, option.at)}
           </time>
         </button>
@@ -227,6 +227,13 @@ function errorText(error: RecordsError | null): MessageId {
   return `records.error.${error?.code ?? 'network'}` as MessageId;
 }
 
+const noSubscribe = () => () => {};
+
+/** `true` once in the browser: today's date is the browser's, never the server's guess. */
+function useInBrowser(): boolean {
+  return useSyncExternalStore(noSubscribe, () => true, () => false);
+}
+
 const BUCKET_ICON = { overdue: 'error', today: 'today', upcoming: 'upcoming' } as const;
 
 function Bucket({
@@ -252,6 +259,7 @@ function Bucket({
 }) {
   const headingId = useId();
   const overdue = bucket === 'overdue';
+  const inBrowser = useInBrowser();
   const today = new Date();
   return (
     <section
@@ -264,7 +272,7 @@ function Bucket({
         <Icon name={BUCKET_ICON[bucket]} size={18} className={overdue ? 'text-danger-text' : 'text-text'} />
         <h2 id={headingId} className={`text-label font-bold ${overdue ? 'text-danger-text' : 'text-text'}`}>
           {t.t(bucketLabel(bucket))}
-          {bucket === 'today' ? (
+          {bucket === 'today' && inBrowser ? (
             <>
               {' · '}
               <time dateTime={dayKey(today)}>{formatDayShort(locale, today)}</time>
