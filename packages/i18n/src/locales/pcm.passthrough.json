@@ -437,5 +437,14 @@
   "whatsapp.cost.marketing",
   "whatsapp.cost.service",
   "whatsapp.window.mark",
-  "whatsapp.window.title"
+  "whatsapp.window.title",
+  "home.dateLine",
+  "home.range.week.short",
+  "home.range.month.short",
+  "home.range.quarter.short",
+  "home.widget.size.s",
+  "home.widget.size.m",
+  "home.widget.size.l",
+  "home.widget.size.xl",
+  "home.w.forecast.desc"
 ]

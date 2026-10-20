@@ -47,5 +47,10 @@
   "records.view.kanban",
   "tokens.contrast.ratio",
   "tokens.sample.arabic",
-  "tokens.sample.text"
+  "tokens.sample.text",
+  "home.dateLine",
+  "home.widget.size.s",
+  "home.widget.size.m",
+  "home.widget.size.l",
+  "home.widget.size.xl"
 ]
