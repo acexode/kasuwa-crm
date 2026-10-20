@@ -1,6 +1,7 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
 import { ContactSource, RecordsErrorCode } from '../../lib/records-api';
 import { CRM_SHELL_MESSAGE_IDS } from '../crm/crm-nav';
+import { P04_CHROME_MESSAGE_IDS } from '../records/list-message-ids';
 import { LEAD_COLUMNS, LEAD_FILTERS, LEAD_SORTS, LEAD_STATUSES, leadSortLabel, sourceLabel, statusLabel } from './leads-model';
 
 /**
@@ -15,7 +16,19 @@ import { LEAD_COLUMNS, LEAD_FILTERS, LEAD_SORTS, LEAD_STATUSES, leadSortLabel, s
  */
 export const LEADS_MESSAGE_IDS: readonly MessageId[] = [
   ...CRM_SHELL_MESSAGE_IDS,
+  ...P04_CHROME_MESSAGE_IDS,
   'leads.title',
+  'leads.views.all',
+  'leads.action.new',
+  'leads.search.placeholderWide',
+  'leads.filter.show',
+  'leads.via',
+  'leads.empty.import.title',
+  'leads.empty.import.body',
+  'leads.empty.capture.title',
+  'leads.empty.capture.body',
+  'records.col.lead',
+  'records.col.displayName',
   'leads.programme.note',
   'records.programme.chip',
   'leads.view.label',

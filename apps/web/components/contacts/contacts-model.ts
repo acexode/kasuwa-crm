@@ -121,6 +121,8 @@ export interface ContactView {
   readonly custom: CustomFilters;
   /** The one CSV import whose contacts are listed (T-0096, I9); absent for the whole list. */
   readonly importId?: string;
+  /** Rows per page, 25, 50 or 100 (P04's footer, T-0133): the read's `limit`. */
+  readonly pageSize?: number;
 }
 
 export const NO_FILTERS: FilterState = { status: [], source: [], owner: [], dnd: [], whatsappOptIn: [] };
@@ -158,7 +160,14 @@ export function optionLabel(key: FilterKey, value: string): MessageId {
 }
 
 /** The `listContacts` query for a search box and a filter state. No scope, ever. */
-export function toListQuery(q: string, filters: FilterState, cursor?: string, custom?: CustomFilters, importId?: string): ContactListQuery {
+export function toListQuery(
+  q: string,
+  filters: FilterState,
+  cursor?: string,
+  custom?: CustomFilters,
+  importId?: string,
+  pageSize: number = PAGE_SIZE,
+): ContactListQuery {
   const status = filters.status.filter((value): value is ContactStatus =>
     (ContactStatus.options as readonly string[]).includes(value),
   );
@@ -180,7 +189,7 @@ export function toListQuery(q: string, filters: FilterState, cursor?: string, cu
     ...(custom === undefined ? {} : { custom }),
     ...(importId === undefined ? {} : { importId }),
     ...(cursor === undefined ? {} : { cursor }),
-    limit: PAGE_SIZE,
+    limit: pageSize,
   };
 }
 

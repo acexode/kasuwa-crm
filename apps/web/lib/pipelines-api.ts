@@ -90,7 +90,8 @@ export const Pipeline = z.object({
 });
 export type Pipeline = z.infer<typeof Pipeline>;
 
-export const PipelineSummary = z.object({ id: z.string(), name: z.string() });
+/** `programmeId` tells two pipelines of the same name apart, by their programme's name (T-0135). */
+export const PipelineSummary = z.object({ id: z.string(), name: z.string(), programmeId: z.string().optional() });
 export type PipelineSummary = z.infer<typeof PipelineSummary>;
 
 export const PipelinePage = z.object({ data: z.array(PipelineSummary), nextCursor: z.string().nullable() });

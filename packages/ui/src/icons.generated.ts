@@ -100,6 +100,7 @@ export type IconName =
   | 'import_export'
   | 'inbox'
   | 'info'
+  | 'input'
   | 'inventory_2'
   | 'join'
   | 'key'
@@ -118,10 +119,12 @@ export type IconName =
   | 'logout'
   | 'mail'
   | 'manage_search'
+  | 'map'
   | 'mark_email_read'
   | 'mark_email_unread'
   | 'menu'
   | 'menu_book'
+  | 'merge'
   | 'mic'
   | 'mobile_off'
   | 'more_horiz'
@@ -138,6 +141,7 @@ export type IconName =
   | 'payments'
   | 'person'
   | 'person_add'
+  | 'person_add_alt'
   | 'phone_iphone'
   | 'photo_camera'
   | 'play_arrow'
@@ -183,6 +187,7 @@ export type IconName =
   | 'swap_horiz'
   | 'swipe_left'
   | 'sync_alt'
+  | 'table_rows'
   | 'task_alt'
   | 'thumb_down'
   | 'thumb_up'
@@ -200,6 +205,7 @@ export type IconName =
   | 'verified'
   | 'verified_user'
   | 'vertical_align_top'
+  | 'vertical_split'
   | 'view_column'
   | 'view_kanban'
   | 'visibility'
@@ -307,6 +313,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'import_export',
   'inbox',
   'info',
+  'input',
   'inventory_2',
   'join',
   'key',
@@ -325,10 +332,12 @@ export const ICON_NAMES: readonly IconName[] = [
   'logout',
   'mail',
   'manage_search',
+  'map',
   'mark_email_read',
   'mark_email_unread',
   'menu',
   'menu_book',
+  'merge',
   'mic',
   'mobile_off',
   'more_horiz',
@@ -345,6 +354,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'payments',
   'person',
   'person_add',
+  'person_add_alt',
   'phone_iphone',
   'photo_camera',
   'play_arrow',
@@ -390,6 +400,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'swap_horiz',
   'swipe_left',
   'sync_alt',
+  'table_rows',
   'task_alt',
   'thumb_down',
   'thumb_up',
@@ -407,6 +418,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'verified',
   'verified_user',
   'vertical_align_top',
+  'vertical_split',
   'view_column',
   'view_kanban',
   'visibility',

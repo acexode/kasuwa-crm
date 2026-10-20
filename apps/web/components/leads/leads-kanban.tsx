@@ -8,11 +8,14 @@ import { QUIET_BUTTON } from '../auth/button-classes';
 import { FOCUS, MENU_ROW } from '../records/list-classes';
 import { LoadMore, OfflineBanner } from '../records/list-parts';
 import { useKeysetList, type KeysetList } from '../records/use-keyset-list';
-import type { ListState } from '../records/list-model';
+import { initials, type ListState } from '../records/list-model';
+import { PhoneValue } from '../records/list-table';
+import { isWithheld } from '../../lib/records-api';
 import { getLead, listLeads, moveLead, type Lead, type LeadStatus } from '../../lib/leads-api';
 import {
   LEAD_STATUSES,
   isLeadStatus,
+  leadCellWithheld,
   leadListError,
   moveBody,
   moveRefusal,
@@ -25,7 +28,7 @@ import {
   type LeadColumnView,
   type LeadView,
 } from './leads-model';
-import { LeadValue, fieldProps } from './lead-parts';
+import { LeadValue, dndOf, fieldProps, networkOf } from './lead-parts';
 
 /**
  * `P04/04` — the leads Kanban by status (T-0058, D-L86). Loaded when the
@@ -306,6 +309,14 @@ export function LeadsKanban({
   );
 }
 
+/** P04 "Kanban": each stage's dot. */
+const STAGE_DOT: Readonly<Record<LeadStatus, string>> = {
+  new: 'bg-info',
+  contacted: 'bg-primary',
+  qualified: 'bg-success',
+  unqualified: 'bg-text-muted',
+};
+
 function Column({
   t,
   status,
@@ -336,11 +347,12 @@ function Column({
     <section
       data-kanban-column={status}
       aria-labelledby={headingId}
-      className={`flex min-w-60 flex-1 basis-0 flex-col gap-2 rounded-lg border p-2 ${
-        over ? 'border-primary bg-primary-soft' : 'border-border bg-surface-sunken'
+      className={`flex w-72 flex-none flex-col gap-2 rounded-lg border px-2.5 pb-3 ${
+        over ? 'border-primary bg-primary-soft' : 'border-transparent bg-surface-sunken'
       }`}
     >
-      <h2 id={headingId} className="px-2 pt-1 text-body-sm font-bold">
+      <h2 id={headingId} className="-mx-2.5 flex items-center gap-2 px-3.5 pb-1 pt-3 text-body-sm font-bold">
+        <span aria-hidden="true" className={`size-2.5 rounded-full ${STAGE_DOT[status]}`} />
         {t.t(statusLabel(status))}
       </h2>
 
@@ -393,6 +405,37 @@ function Column({
   );
 }
 
+/** The card's owner: a 22px accent-soft initials disc, a dashed circle when unassigned, a lock when withheld. */
+function OwnerDisc({ t, row }: { t: Translator; row: Lead }) {
+  if (leadCellWithheld(row, 'owner')) {
+    return (
+      <span className="text-text-muted" title={t.t('records.locked')}>
+        <Icon name="lock" size={16} />
+        <span className="sr-only">{t.t('records.locked')}</span>
+      </span>
+    );
+  }
+  if (row.owner === null || row.owner === undefined) {
+    return (
+      <span title={t.t('records.owner.unassigned')} className="size-6 rounded-full border border-dashed border-border-strong">
+        <span className="sr-only">{t.t('records.owner.unassigned')}</span>
+      </span>
+    );
+  }
+  const name = row.owner.displayName ?? t.t('records.owner.former');
+  return (
+    <span
+      title={name}
+      className="flex size-6 items-center justify-center rounded-full bg-accent-soft text-micro text-accent-text"
+    >
+      <span aria-hidden="true">{row.owner.displayName === null ? '' : initials(name)}</span>
+      <span data-record-text="" className="sr-only">
+        {name}
+      </span>
+    </span>
+  );
+}
+
 function Card({
   t,
   row,
@@ -428,30 +471,45 @@ function Card({
       // The platform's own drag (of text or the element) would cancel the
       // pointer events this board moves cards with.
       onDragStart={(event) => event.preventDefault()}
-      className={`flex min-w-0 select-none flex-col gap-2 rounded-md border border-border bg-surface p-3 ${
+      className={`flex min-w-0 select-none flex-col gap-2 rounded-10 border border-border bg-surface p-3 ${
         online && !pending ? 'cursor-grab' : ''
       } ${lifted ? 'relative z-10 cursor-grabbing shadow-3' : 'shadow-1'} ${pending ? 'opacity-60' : ''}`}
     >
-      <div className="flex min-w-0 items-start gap-2">
-        <Icon name="drag_indicator" size="sm" className="text-text-muted" />
-        <div className="flex min-w-0 flex-1 flex-col gap-1 text-body-sm">
-          <p data-field="displayName" className="break-words font-semibold">
-            {row.displayName === undefined ? (
-              <span data-name-withheld="" className="text-text-muted">
-                {nameOrWithheld(t, row.displayName)}
-              </span>
-            ) : (
-              <span data-record-text="">{row.displayName}</span>
-            )}
-          </p>
-          <p {...fieldProps(row, 'companyName')} className="min-w-0 text-text-2">
-            <LeadValue t={t} row={row} field="companyName" />
-          </p>
-          <p {...fieldProps(row, 'owner')} className="min-w-0 text-caption text-text-2">
-            <LeadValue t={t} row={row} field="owner" />
-          </p>
-        </div>
+      <div className="flex min-w-0 items-center gap-2">
+        <span
+          aria-hidden="true"
+          className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-soft-strong text-micro text-primary-text"
+        >
+          {row.displayName === undefined ? <Icon name="lock" size={14} /> : initials(row.displayName)}
+        </span>
+        <p data-field="displayName" className="min-w-0 flex-1 truncate text-body-sm font-bold">
+          {row.displayName === undefined ? (
+            <span data-name-withheld="" className="font-normal text-text-muted">
+              {nameOrWithheld(t, row.displayName)}
+            </span>
+          ) : (
+            <span data-record-text="">{row.displayName}</span>
+          )}
+        </p>
+        {row.whatsappOptIn === true && !isWithheld(row, 'whatsappOptIn') ? (
+          <span role="img" aria-label={t.t('records.wa.in')} className="flex text-success-text">
+            <Icon name="chat" size={16} />
+          </span>
+        ) : null}
       </div>
+      <p {...fieldProps(row, 'companyName')} className="min-w-0 text-caption text-text-2">
+        <LeadValue t={t} row={row} field="companyName" />
+      </p>
+      {(row.phones ?? []).length === 0 && !isWithheld(row, 'phones') ? null : (
+        <p {...fieldProps(row, 'phones')} className="min-w-0">
+          {isWithheld(row, 'phones') || row.phones?.[0] === undefined ? (
+            <LeadValue t={t} row={row} field="phones" />
+          ) : (
+            <PhoneValue t={t} e164={row.phones[0].e164} network={networkOf(row)} dnd={dndOf(row)} more={0} compact />
+          )}
+        </p>
+      )}
+      <div className="flex min-w-0 items-center gap-2 border-t border-border pt-1.5">
       <button
         type="button"
         data-action="move-lead"
@@ -460,14 +518,19 @@ function Card({
         aria-controls={menuOpen ? menuId : undefined}
         disabled={!online || pending}
         onClick={() => onMenu(!menuOpen)}
-        className={`${QUIET_BUTTON} self-start disabled:cursor-not-allowed disabled:opacity-60`}
+        className={`-ms-1.5 inline-flex h-control-sm items-center gap-1 rounded-6 px-1.5 text-caption font-semibold text-primary-text hover:bg-primary-soft disabled:cursor-not-allowed disabled:text-disabled-text ${FOCUS}`}
       >
-        <Icon name="open_with" size="sm" />
+        <Icon name="open_with" size={16} />
         {t.t('leads.move.button')}
         <span data-record-text="" className="sr-only">
           {nameOrWithheld(t, row.displayName)}
         </span>
       </button>
+        <span className="flex-1" />
+        <span {...fieldProps(row, 'owner')} className="flex">
+          <OwnerDisc t={t} row={row} />
+        </span>
+      </div>
       {menuOpen ? (
         <div id={menuId} role="group" aria-label={t.t('leads.move.menu')} className="flex flex-col border-t border-border pt-2">
           {moveTargets(row).map((target, index) => (
