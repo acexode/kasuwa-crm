@@ -9,6 +9,7 @@ import {
   FOCUS,
   ICON_SIZE,
   kebab,
+  LAYOUT,
   MOTION,
   RADIUS,
   SEMANTIC_TOKEN_NAMES,
@@ -94,6 +95,9 @@ export function buildTailwindPreset(): string {
     ),
     ...Object.keys(SHELL).map(
       (key) => `    'shell-${kebab(key)}': 'var(${CSS_VAR_PREFIX}-shell-${cssKey(key)})',`,
+    ),
+    ...Object.keys(LAYOUT).map(
+      (key) => `    'layout-${kebab(key)}': 'var(${CSS_VAR_PREFIX}-layout-${cssKey(key)})',`,
     ),
   ].join('\n');
 

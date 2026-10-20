@@ -14,6 +14,7 @@ import {
   RADIUS,
   SEMANTIC_DARK,
   SEMANTIC_LIGHT,
+  LAYOUT,
   SHELL,
   SPACING,
   TYPE_SCALE,
@@ -103,6 +104,9 @@ export function buildTokensCss(): string {
     ),
     ...Object.entries(SHELL).map(
       ([name, value]) => `${CSS_VAR_PREFIX}-shell-${cssKey(name)}: ${value};`,
+    ),
+    ...Object.entries(LAYOUT).map(
+      ([name, value]) => `${CSS_VAR_PREFIX}-layout-${cssKey(name)}: ${value};`,
     ),
     '',
     '/* elevation — the shadow values themselves are semantic, so they differ per theme */',

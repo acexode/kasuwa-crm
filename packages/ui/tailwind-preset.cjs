@@ -226,6 +226,13 @@ module.exports = {
     'shell-admin-nav': 'var(--k-shell-admin-nav)',
     'shell-bottom-bar': 'var(--k-shell-bottom-bar)',
     'shell-mobile-header': 'var(--k-shell-mobile-header)',
+    'layout-auth-panel': 'var(--k-layout-auth-panel)',
+    'layout-auth-header': 'var(--k-layout-auth-header)',
+    'layout-column': 'var(--k-layout-column)',
+    'layout-column-verify': 'var(--k-layout-column-verify)',
+    'layout-column-wide': 'var(--k-layout-column-wide)',
+    'layout-wizard': 'var(--k-layout-wizard)',
+    'layout-wizard-stepper': 'var(--k-layout-wizard-stepper)',
       },
       borderRadius: {
     '6': 'var(--k-radius-6)',
