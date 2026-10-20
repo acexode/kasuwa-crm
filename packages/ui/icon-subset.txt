@@ -157,6 +157,7 @@ person_off
 phone_iphone
 photo_camera
 play_arrow
+play_circle
 priority_high
 public
 publish

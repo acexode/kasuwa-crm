@@ -160,12 +160,13 @@ export async function crmActivitiesEnabled(): Promise<boolean> {
  * state, as the design draws it; off, the entry is not drawn. `crmLiveNav()`
  * reports each as `placeholder:<id>`. Presentation only: grants nothing.
  */
-const UNBUILT_NAV = ['inbox', 'tickets', 'calls', 'reports'] as const;
+const UNBUILT_NAV = ['inbox', 'tickets', 'calls', 'studio', 'reports'] as const;
 
 const PLACEHOLDER_FLAG = {
   inbox: 'crm_inbox',
   tickets: 'crm_tickets',
   calls: 'crm_calls',
+  studio: 'crm_studio',
   reports: 'crm_reports',
 } as const satisfies Record<(typeof UNBUILT_NAV)[number], string>;
 
@@ -237,7 +238,20 @@ export async function crmLiveNav(): Promise<string[]> {
 }
 
 /** The P04 list placeholder flags (T-0133, D-L194) that are on in this process. */
-const LIST_PLACEHOLDER_FLAGS = ['map_view', 'bulk_actions', 'saved_views', 'last_activity', 'quick_actions', 'more_filters'] as const;
+const LIST_PLACEHOLDER_FLAGS = [
+  'map_view',
+  'bulk_actions',
+  'saved_views',
+  'last_activity',
+  'quick_actions',
+  'more_filters',
+  // T-0139 (D-L194): the P10 placeholders, each drawn in the design's empty or disabled state.
+  'call_bar',
+  'ai_script_hints',
+  'script_programme_assignment',
+  'script_preview',
+  'script_version_changes',
+] as const;
 
 /**
  * `map_view`, `bulk_actions`, `saved_views`, `last_activity`,

@@ -23,6 +23,7 @@
   "pipeline.template.percent",
   "records.filter.active",
   "records.source.ussd",
+  "scripting.builder.version.short",
   "tokens.contrast.ratio",
   "tokens.sample.arabic",
   "tokens.sample.text",

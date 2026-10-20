@@ -3,7 +3,7 @@
 import { useId, useRef, type ReactNode } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
-import { FIELD, QUIET_BUTTON } from '../auth/button-classes';
+import { TypePill } from '../script-shared/node-style';
 import {
   CONDITION_OPERATORS,
   FORM_FIELD_TYPES,
@@ -41,13 +41,25 @@ import {
  * while a published version is shown: a version is immutable.
  */
 
-const INPUT = `${FIELD} w-full read-only:bg-surface-sunken disabled:opacity-60`;
-const LABEL = 'flex min-w-0 flex-col gap-1 text-body-sm font-semibold';
+/** The export's inspector controls: 40px, radius 8, a border-strong edge, 14px text. */
+const INPUT =
+  'h-control-md w-full min-w-0 rounded-md border border-border-strong bg-surface px-2.5 text-body-sm text-text placeholder:text-text-muted is-hover:border-text-2 is-focus:field-focus read-only:bg-surface-sunken disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text';
+const TEXTAREA =
+  'w-full min-w-0 resize-y rounded-md border border-border-strong bg-surface p-2.5 text-body-sm leading-[21px] text-text placeholder:text-text-muted is-hover:border-text-2 is-focus:field-focus read-only:bg-surface-sunken';
+const LABEL = 'flex min-w-0 flex-col gap-1.5 text-caption font-bold text-text-2';
+/** A quiet text action inside the inspector (add an answer, add a field). */
+const QUIET =
+  'inline-flex min-h-touch items-center gap-1 self-start rounded-md px-1 text-meta font-bold text-primary-text is-hover:bg-primary-soft is-focus-visible:ring-focus md:min-h-0 md:py-1';
+/** A 32px icon button in the inspector's header (the export's delete). */
+const ICON_BUTTON = 'flex size-8 shrink-0 items-center justify-center rounded-6 is-hover:bg-surface-sunken is-focus-visible:ring-focus';
 
 export interface InspectorProps {
   readonly t: Translator;
   readonly graph: ScriptGraph;
   readonly node: ScriptNode;
+  /** The source language's name, for "Line · English". */
+  readonly language: string;
+  readonly isStart: boolean;
   readonly readOnly: boolean;
   readonly dispositions: readonly AuthorDisposition[];
   readonly conflicts: readonly string[];
@@ -114,56 +126,58 @@ function TargetSelect({
   );
 }
 
-export function NodeInspector({ t, graph, node, readOnly, dispositions, conflicts, onChange, onRemove, onStart }: InspectorProps) {
+export function NodeInspector({ t, graph, node, language, isStart, readOnly, dispositions, conflicts, onChange, onRemove, onStart }: InspectorProps) {
   const text = useRef<HTMLTextAreaElement | null>(null);
   const set = (key: string, value: unknown) => onChange(withProperty(node, key, value));
 
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="rounded-sm bg-surface-sunken px-2 text-caption font-bold uppercase text-text-2">{t.t(`scripting.nodeType.${node.type}` as MessageId)}</span>
+    <div className="flex min-w-0 flex-col gap-3.5">
+      <div className="flex items-center gap-2">
+        <TypePill t={t} type={node.type} />
+        {isStart ? <span className="text-caption font-normal text-text-muted">{t.t('scripting.builder.startNode')}</span> : null}
+        <span className="flex-1" />
+        <code className="font-mono text-micro font-normal text-text-muted">{node.id}</code>
         {readOnly ? null : (
-          <span className="flex flex-wrap gap-1">
-            {graph.startNodeId === node.id ? null : (
-              <button type="button" onClick={onStart} className={QUIET_BUTTON}>
-                <Icon name="vertical_align_top" size="sm" />
-                {t.t('scripting.builder.makeStart')}
+          <>
+            {isStart ? null : (
+              <button type="button" onClick={onStart} aria-label={t.t('scripting.builder.makeStart')} title={t.t('scripting.builder.makeStart')} className={`${ICON_BUTTON} text-text-2`}>
+                <Icon name="vertical_align_top" size={18} />
               </button>
             )}
-            <button type="button" onClick={onRemove} className={QUIET_BUTTON}>
-              <Icon name="delete" size="sm" />
-              {t.t('scripting.builder.remove')}
+            <button type="button" onClick={onRemove} aria-label={t.t('scripting.builder.remove')} title={t.t('scripting.builder.remove')} className={`${ICON_BUTTON} text-danger-text`}>
+              <Icon name="delete" size={18} />
             </button>
-          </span>
+          </>
         )}
       </div>
 
       {conflicts.length > 0 ? (
-        <p data-testid="changed-elsewhere" role="note" className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-sm text-warning-text">
-          <Icon name="warning" size="sm" />
+        <p data-testid="changed-elsewhere" role="note" className="flex items-start gap-2 rounded-md bg-warning-soft px-3 py-2.5 text-meta text-warning-text">
+          <Icon name="warning" size={18} />
           {t.t('scripting.builder.changedElsewhere')}
         </p>
       ) : null}
 
-      <Field label={t.t('scripting.builder.field.title')}>
+      <Field label={t.t('scripting.builder.field.name')}>
         {(id) => (
           <input id={id} data-field-input="title" value={node.title} maxLength={120} readOnly={readOnly} onChange={(event) => set('title', event.target.value)} className={INPUT} />
         )}
       </Field>
 
       {node.type === 'branch' ? null : (
-        <Field label={t.t(node.type === 'end' ? 'scripting.builder.field.closing' : 'scripting.builder.field.text')}>
+        <Field label={t.t('scripting.builder.field.line', { language })}>
           {(id) => (
             <textarea
               id={id}
               ref={text}
               data-field-input="text"
-              rows={4}
+              rows={5}
               maxLength={4000}
               value={node.text ?? ''}
               readOnly={readOnly}
               onChange={(event) => set('text', node.type === 'end' && event.target.value === '' ? null : event.target.value)}
-              className={`${INPUT} py-2`}
+              placeholder={t.t('scripting.builder.linePlaceholder')}
+              className={TEXTAREA}
             />
           )}
         </Field>
@@ -187,6 +201,8 @@ export function NodeInspector({ t, graph, node, readOnly, dispositions, conflict
         />
       )}
 
+      <div className="flex min-w-0 flex-col gap-3 border-t border-border pt-3">
+      <h3 className="text-overline text-text-muted">{t.t('scripting.builder.settings')}</h3>
       {node.type === 'question' ? (
         <Field label={t.t('scripting.builder.field.hint')}>
           {(id) => (
@@ -251,6 +267,7 @@ export function NodeInspector({ t, graph, node, readOnly, dispositions, conflict
           )}
         </Field>
       ) : null}
+      </div>
     </div>
   );
 }
@@ -258,9 +275,9 @@ export function NodeInspector({ t, graph, node, readOnly, dispositions, conflict
 function Variables({ t, graph, disabled, onInsert }: { t: Translator; graph: ScriptGraph; disabled: boolean; onInsert: (token: string) => void }) {
   const label = useId();
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <p id={label} className="text-body-sm font-semibold">
-        {t.t('scripting.builder.variables')}
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <p id={label} className="text-caption font-bold text-text-2">
+        {t.t('scripting.builder.variables.heading')}
       </p>
       <div role="group" aria-labelledby={label} className="flex flex-wrap gap-1">
         {variablesFor(graph).map((option) => (
@@ -271,15 +288,19 @@ function Variables({ t, graph, disabled, onInsert }: { t: Translator; graph: Scr
             data-variable={option.variable}
             disabled={disabled}
             onClick={() => onInsert(`{${option.variable}}`)}
-            className="inline-flex min-h-touch items-center gap-1 rounded-full border border-border-strong bg-surface px-3 text-body-sm hover:bg-surface-sunken disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            title={option.kind === 'answer' ? `${t.t('scripting.builder.variable.answer')} ${option.fieldLabel}` : t.t(`scripting.builder.variable.${option.variable}` as MessageId)}
+            className="inline-flex h-[26px] max-w-full items-center truncate rounded-[5px] border border-primary-soft-strong bg-primary-soft px-[7px] font-mono text-micro font-normal text-primary-text is-hover:bg-primary-soft-strong is-focus-visible:ring-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text"
           >
-            {option.kind === 'answer' ? (
-              <>
-                {t.t('scripting.builder.variable.answer')} <span data-script-text="">{option.fieldLabel}</span>
-              </>
-            ) : (
-              t.t(`scripting.builder.variable.${option.variable}` as MessageId)
-            )}
+            {`{${option.variable}}`}
+            <span className="sr-only">
+              {option.kind === 'answer' ? (
+                <>
+                  {t.t('scripting.builder.variable.answer')} <span data-script-text="">{option.fieldLabel}</span>
+                </>
+              ) : (
+                t.t(`scripting.builder.variable.${option.variable}` as MessageId)
+              )}
+            </span>
           </button>
         ))}
       </div>
@@ -309,11 +330,11 @@ function Choices({
   };
   return (
     <fieldset aria-labelledby={heading} className="flex min-w-0 flex-col gap-2">
-      <legend id={heading} className="text-body-sm font-semibold">
+      <legend id={heading} className="mb-1.5 text-caption font-bold text-text-2">
         {t.t('scripting.builder.field.choices')}
       </legend>
       {node.choices.map((choice, index) => (
-        <div key={choice.key} data-choice-row="" className="grid min-w-0 gap-2 rounded-md border border-border p-2 sm:grid-cols-2">
+        <div key={choice.key} data-choice-row="" className="grid min-w-0 gap-2 rounded-md border border-border p-2">
           <input
             data-field-input="choice-label"
             aria-label={t.t('scripting.builder.field.choice', { number: index + 1 })}
@@ -339,9 +360,9 @@ function Choices({
                 type="button"
                 aria-label={t.t('scripting.builder.removeChoice', { number: index + 1 })}
                 onClick={() => onChange({ ...node, choices: node.choices.filter((_, at) => at !== index) })}
-                className={QUIET_BUTTON}
+                className={`${ICON_BUTTON} text-text-2`}
               >
-                <Icon name="close" size="sm" />
+                <Icon name="close" size={18} />
               </button>
             )}
           </div>
@@ -357,9 +378,9 @@ function Choices({
               choices: [...node.choices, { key: free(), label: t.t('scripting.builder.newChoice'), next: node.choices[node.choices.length - 1]?.next ?? node.id }],
             })
           }
-          className={`${QUIET_BUTTON} self-start`}
+          className={QUIET}
         >
-          <Icon name="add" size="sm" />
+          <Icon name="add" size={18} />
           {t.t('scripting.builder.addChoice')}
         </button>
       )}
@@ -384,12 +405,12 @@ function FormFields({
   const setField = (index: number, field: FormField) => onChange({ ...node, fields: node.fields.map((entry, at) => (at === index ? field : entry)) });
   return (
     <fieldset aria-labelledby={heading} className="flex min-w-0 flex-col gap-2">
-      <legend id={heading} className="text-body-sm font-semibold">
+      <legend id={heading} className="mb-1.5 text-caption font-bold text-text-2">
         {t.t('scripting.builder.field.fields')}
       </legend>
-      <p className="text-caption text-text-muted">{t.t('scripting.builder.form.note')}</p>
+      <p className="text-caption font-normal text-text-muted">{t.t('scripting.builder.form.note')}</p>
       {node.fields.map((field, index) => (
-        <div key={field.key} data-form-field-row="" className="grid min-w-0 gap-2 rounded-md border border-border p-2 sm:grid-cols-2">
+        <div key={field.key} data-form-field-row="" className="grid min-w-0 gap-2 rounded-md border border-border p-2">
           <input
             data-field-input="form-field-label"
             aria-label={t.t('scripting.builder.field.fieldLabel', { number: index + 1 })}
@@ -415,7 +436,7 @@ function FormFields({
               </option>
             ))}
           </select>
-          <label className="flex min-h-touch items-center gap-2 text-body-sm">
+          <label className="flex min-h-touch items-center gap-2 text-body-sm text-text md:min-h-0">
             <input
               type="checkbox"
               data-field-input="form-field-required"
@@ -430,9 +451,9 @@ function FormFields({
             <button
               type="button"
               onClick={() => onChange({ ...node, fields: node.fields.filter((_, at) => at !== index) })}
-              className={`${QUIET_BUTTON} justify-self-start`}
+              className={QUIET}
             >
-              <Icon name="delete" size="sm" />
+              <Icon name="delete" size={18} />
               {t.t('scripting.builder.removeField')}
             </button>
           )}
@@ -443,9 +464,9 @@ function FormFields({
           type="button"
           data-action="add-form-field"
           onClick={() => onChange({ ...node, fields: [...node.fields, newField(node.fields, t.t('scripting.builder.newField'))] })}
-          className={`${QUIET_BUTTON} self-start`}
+          className={QUIET}
         >
-          <Icon name="add" size="sm" />
+          <Icon name="add" size={18} />
           {t.t('scripting.builder.addField')}
         </button>
       )}
@@ -627,7 +648,7 @@ function Branch({
           }
         </Field>
       )}
-      {condition.operator === 'one_of' ? <p className="text-caption text-text-muted">{t.t('scripting.builder.valueHint')}</p> : null}
+      {condition.operator === 'one_of' ? <p className="text-caption font-normal text-text-muted">{t.t('scripting.builder.valueHint')}</p> : null}
 
       <Field label={t.t('scripting.builder.field.whenTrue')}>
         {(id) => (
@@ -660,7 +681,7 @@ function Branch({
         )}
       </Field>
 
-      <p className="text-caption text-text-muted">{t.t('scripting.builder.branch.note')}</p>
+      <p className="text-caption font-normal text-text-muted">{t.t('scripting.builder.branch.note')}</p>
     </div>
   );
 }
