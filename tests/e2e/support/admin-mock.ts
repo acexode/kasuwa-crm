@@ -120,6 +120,20 @@ interface ProgrammeRow {
   [key: string]: unknown;
 }
 
+/**
+ * The signed-in admin, shaped as `CurrentUser` in `docs/api/auth.openapi.yaml`
+ * (id, tenantId, email, displayName, locale; identity only, never scope). The
+ * contract publishes no 200 example, so this is the one body here not read
+ * from a generated example. Invented values.
+ */
+const CURRENT_ADMIN = {
+  id: '11111111-0000-4000-8000-0000000a0001',
+  tenantId: '11111111-0000-4000-8000-000000000001',
+  email: 'admin@tenant.example',
+  displayName: 'Ada Okafor',
+  locale: 'en-NG',
+} as const;
+
 interface RoleRow {
   id: string;
   name: string;
@@ -161,6 +175,21 @@ export async function installAdminMock(
     deletedRoles: new Set<string>(),
     requests: [],
   };
+
+  // T-0146: since T-0130 every admin shell reads `/api/v1/auth/me` for the
+  // avatar. The default web process runs jwt, so a cookieless read answers
+  // 401 "session ended" and the page leaves for sign-in, which is right for a
+  // real signed-out visitor. These journeys are a signed-in admin, so the
+  // mock serves that admin's identity (auth.openapi.yaml `CurrentUser`).
+  await page.route(
+    (url) => url.pathname === '/api/v1/auth/me',
+    (route) => {
+      if (route.request().method() !== 'GET') {
+        throw new Error(`${route.request().method()} /api/v1/auth/me is not an operation the admin shell uses.`);
+      }
+      return json(route, 200, CURRENT_ADMIN);
+    },
+  );
 
   await page.route('**/api/v1/admin/**', async (route) => {
     const request = route.request();

@@ -573,7 +573,7 @@ export function FieldForm({
                   <div className={STUDIO_LABEL}>
                     <span>{t.t('admin.studio.custom.form.currency')}</span>
                     <span className="flex h-control-base items-center gap-2 rounded-md border border-border bg-disabled-bg px-3 text-body-sm font-normal text-text-2 md:h-control-md">
-                      <span className="flex-1">{savedCurrency === null ? '' : currencyOptionLabel(locale, savedCurrency)}</span>
+                      <span className="flex-1">{savedCurrency === null ? '' : currencyOptionLabel(t, locale, savedCurrency)}</span>
                       <Icon name="lock" size={16} className="text-text-muted" />
                     </span>
                   </div>
@@ -597,7 +597,7 @@ export function FieldForm({
                         <option value="">{t.t('admin.studio.custom.form.currency.choose')}</option>
                         {CURRENCY_CODES.map((code) => (
                           <option key={code} value={code}>
-                            {currencyOptionLabel(locale, code)}
+                            {currencyOptionLabel(t, locale, code)}
                           </option>
                         ))}
                       </select>

@@ -1,6 +1,6 @@
 import type { CustomField } from './custom-values-api';
 import { numberingLocale } from './numbering';
-import { dateFormatter } from './date-locale';
+import { dateFormatter, tidyMonth } from './date-locale';
 
 export * from './custom-values-core';
 export * from './custom-values-filters';
@@ -160,7 +160,7 @@ export function describeCustom(field: CustomField, value: unknown, locale: strin
       const day = new Date(at);
       // 2027-02-30 is not a day: it never round-trips, so it is shown as nothing, never as March.
       if (day.getUTCFullYear() !== Number(match[1]) || day.getUTCMonth() !== Number(match[2]) - 1 || day.getUTCDate() !== Number(match[3])) return EMPTY;
-      return { kind: 'date', iso: value, text: dateFormat(locale).format(at) };
+      return { kind: 'date', iso: value, text: tidyMonth(locale, dateFormat(locale).format(at)) };
     }
     case 'picklist': {
       const label = field.values.find((entry) => entry.value === value)?.label;

@@ -649,6 +649,8 @@ test('the Contacts list links /contacts/duplicates, it lands on the screen, and 
   active = mock;
   const response = await page.goto(`${duplicatesUrl()}/contacts`);
   expect(response?.status(), '/contacts on the records process').toBe(200);
+  // T-0149 (T-0133): the Contacts list's import and duplicates links sit in its "Import / export" menu, as P04 draws it.
+  await shown(page.getByTestId('import-export')).first().click();
   const entry = shown(page.locator('a[href="/contacts/duplicates"]')).first();
   await expect(entry, 'the Contacts list does not link the duplicates screen').toBeVisible();
   await entry.click();
@@ -712,10 +714,15 @@ test('the sets are drawn as served: matched on phone or email in words, names as
   expect(await visibleText(withheld), 'a withheld name prints null, undefined or a stand-in').not.toMatch(/\bnull\b|\bundefined\b|Sample Withheld Fixture/);
   await expect(withheld.locator('[data-record-text]'), 'a withheld label is marked as record data').toHaveCount(0);
 
-  for (const contact of [A1, A2, B1, B2]) {
-    const times = await shown(page.locator(`[data-duplicate-contact="${contact.id}"] time`)).evaluateAll((items) => items.map((item) => item.getAttribute('datetime') ?? ''));
-    expect(times.length, `${contact.id}'s updatedAt is not drawn in a <time>`).toBeGreaterThan(0);
-    expect(times.every((value) => Date.parse(value) === Date.parse(contact.updatedAt)), `${contact.id}'s <time> is not its updatedAt`).toBe(true);
+  // T-0149 (T-0141): the sets are the export's table, whose "Last updated" column is one date per set: the newest
+  // updatedAt among its records, exactly as served, in a <time>.
+  for (const group of [[A1, A2], [B1, B2]]) {
+    const first = group[0];
+    if (first === undefined) continue;
+    const newest = Math.max(...group.map((contact) => Date.parse(contact.updatedAt)));
+    const times = await shown(setWith(page, first.id).locator('time')).evaluateAll((items) => items.map((item) => item.getAttribute('datetime') ?? ''));
+    expect(times.length, `${first.id}'s set draws no updatedAt in a <time>`).toBeGreaterThan(0);
+    expect(times.every((value) => Date.parse(value) === newest), `${first.id}'s set's <time> is not its newest updatedAt`).toBe(true);
   }
   const html = await byTestId(page, 'duplicate-sets').innerHTML();
   for (const value of PII_VALUES.filter((entry) => entry.startsWith('+') || entry.includes('@'))) {
