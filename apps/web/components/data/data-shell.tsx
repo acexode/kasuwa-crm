@@ -125,7 +125,7 @@ export function DataShell({
           {footer === undefined ? null : (
             <footer
               data-testid="data-action-bar"
-              className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-border bg-surface px-4 py-3 md:px-5 xl:px-8"
+              className="sticky bottom-0 z-10 flex min-h-[69px] flex-wrap items-center gap-3 border-t border-border bg-surface px-4 py-3 md:px-5 xl:px-8"
             >
               {footer}
             </footer>
@@ -158,7 +158,7 @@ export function DataHeader({
   return (
     <header className="flex flex-col gap-3.5">
       {back === undefined ? null : <div className="-mb-1.5">{back}</div>}
-      <div className="flex flex-wrap items-start gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h1 className="m-0 text-title-sm">{title}</h1>
           {lede === undefined ? null : (

@@ -141,7 +141,7 @@ export function MappingStep({
             <label htmlFor={reuseSelect} className="text-meta font-semibold">
               {t.t('import.map.reuse.label')}
             </label>
-            <NativeSelect id={reuseSelect} data-testid="import-reuse" value={reuseId} disabled={busy} onChange={(event) => onReuse(event.target.value)} className="w-full sm:w-auto">
+            <NativeSelect id={reuseSelect} data-testid="import-reuse" value={reuseId} disabled={busy} onChange={(event) => onReuse(event.target.value)} className="w-full sm:w-64">
               <option value="">{t.t('import.map.reuse.none')}</option>
               {reusable.map((entry) => (
                 <option key={entry.id} value={entry.id}>

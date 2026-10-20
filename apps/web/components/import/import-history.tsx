@@ -6,7 +6,7 @@ import { Icon } from '../icon';
 import { StatusPill, TABLE_CARD } from '../data/parts';
 import type { ImportHistory } from './use-import-history';
 import type { ImportSummary, Programme } from '../../lib/imports-api';
-import { formatCount, formatWhen } from './import-text';
+import { formatCount, formatDay, formatWhen } from './import-text';
 import { STATUS_TONE } from './job-view';
 
 /**
@@ -125,8 +125,8 @@ function HistoryRow({
           </span>
         )}
       </span>
-      <time dateTime={row.createdAt} className="text-text-2">
-        {formatWhen(locale, row.createdAt)}
+      <time dateTime={row.createdAt} title={formatWhen(locale, row.createdAt)} className="text-text-2">
+        {formatDay(locale, row.createdAt)}
       </time>
       <span className="text-text">
         <b className="font-semibold tabular-nums">{formatCount(locale, row.counts.created)}</b> {t.t('import.count.created.lower')}

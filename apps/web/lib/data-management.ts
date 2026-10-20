@@ -1,6 +1,5 @@
-import { adminBellLive } from '../components/admin/live-nav';
 import type { DataLive } from '../components/data/data-shell';
-import { crmDuplicatesEnabled, crmImportEnabled, crmRecordsEnabled, dataManagement, type DataManagement } from './feature-flags';
+import { crmDuplicatesEnabled, crmImportEnabled, crmNotificationsEnabled, crmRecordsEnabled, dataManagement, type DataManagement } from './feature-flags';
 
 /**
  * What a P28 Data management page needs from the server (T-0141): the flags,
@@ -19,7 +18,7 @@ export async function dataPage(): Promise<DataPage> {
     crmRecordsEnabled(),
     crmImportEnabled(),
     crmDuplicatesEnabled(),
-    adminBellLive(),
+    crmNotificationsEnabled(),
   ]);
   return {
     flags,

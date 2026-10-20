@@ -83,7 +83,7 @@ export function JobView({
         <div className="flex items-start gap-3">
           <IconTile icon={ended ? (job.status === 'finished' ? 'check_circle' : 'info') : 'sync'} size="lg" />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <h2 id="import-job-title" className="m-0 text-h6 font-bold">
+            <h2 id="import-job-title" className="m-0 text-sheet-title">
               {t.t(ended ? 'import.report.into' : 'import.job.into', { programme })}
             </h2>
             <span className="flex flex-wrap items-center gap-x-1.5 text-meta text-text-2">
