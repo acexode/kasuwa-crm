@@ -50,6 +50,11 @@ const DEMO_FLAGS = [
   'crm_pipeline',
   'crm_search',
   'admin_live_api',
+  // T-0130: the rail's placeholders for unbuilt modules (D-L194).
+  'crm_inbox',
+  'crm_tickets',
+  'crm_calls',
+  'crm_reports',
   // T-0133 (D-L194): the P04 placeholders.
   'map_view',
   'bulk_actions',
