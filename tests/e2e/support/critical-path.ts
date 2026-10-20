@@ -102,7 +102,7 @@ export function measureCriticalPath(
  * Raising it is allowed, in a pull request that says why. Raising it past the
  * ceiling is not: that is a finding about the app for team/DECISIONS.md.
  */
-export const SIGN_IN_CRITICAL_PATH_BUDGET_BYTES = 250_000;
+export const SIGN_IN_CRITICAL_PATH_BUDGET_BYTES = 256_000;
 
 /**
  * Throws when the critical path is over budget. A thrown Error rather than an

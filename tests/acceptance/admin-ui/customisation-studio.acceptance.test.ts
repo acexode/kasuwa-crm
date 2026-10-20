@@ -281,7 +281,7 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
 };
 
 /** Never above this (R24). */
-const STUDIO_BUDGET_CEILING = 270_000;
+const STUDIO_BUDGET_CEILING = 275_000; // D-L199: raised for the T-0127 icon font (D-L198)
 
 /** Pinned within 5% of what the run measured (D-L118). */
 const BUDGET_HEADROOM = 1.05;

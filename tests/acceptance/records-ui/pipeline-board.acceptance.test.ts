@@ -270,7 +270,7 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
  * about 1.0% over that measurement, under this ceiling and inside the 5% rule.
  * The spec's hash ignores the budget literal, so it is not re-pinned.
  */
-const PIPELINE_BUDGET_CEILING = 260_000;
+const PIPELINE_BUDGET_CEILING = 270_000; // D-L199: raised for the T-0127 icon font (D-L198)
 
 /** Re-pinned within 5% of what the run measured, like /activities (D-L118) and /leads (T-0058). */
 const BUDGET_HEADROOM = 1.05;
