@@ -212,6 +212,7 @@ export default function TokensPage() {
                     lineHeight: spec.lineHeight,
                     fontWeight: Number(spec.weight),
                     letterSpacing: spec.tracking,
+                    textTransform: 'transform' in spec ? spec.transform : undefined,
                     fontFamily: step === 'mono' ? FONT_FAMILIES.mono : undefined,
                   }}
                 >

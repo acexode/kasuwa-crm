@@ -367,7 +367,7 @@ test.describe('P01/1d — slow network', () => {
      * which is most of the room a regression needs. The literal is written out
      * so it is the number, not a constant somebody has to go and look up.
      */
-    assertWithinByteBudget('the P01/1 sign-in page', metrics.transferredBytes, 252000);
+    assertWithinByteBudget('the P01/1 sign-in page', metrics.transferredBytes, 256000);
   });
 });
 

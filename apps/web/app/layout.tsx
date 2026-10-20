@@ -44,7 +44,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang={locale} dir={dir}>
-      <body className="min-h-screen bg-bg font-sans text-text antialiased">
+      <body className="min-h-screen bg-bg font-sans text-body-sm text-text antialiased">
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface-raised focus:px-4 focus:py-2 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-focus"
