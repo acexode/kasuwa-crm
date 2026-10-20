@@ -14,12 +14,21 @@ import {
   type ReactNode,
 } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
+import { Button, Kbd } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
-import { LanguageMenu, type LanguageOption } from '../auth/language-menu';
-import { LiteModeToggle } from '../auth/lite-mode';
-import { SignOutButton } from '../auth/sign-out-button';
+import type { LanguageOption } from '../auth/language-menu';
 import { SHELL_SEARCH_STRINGS } from '../search/message-ids';
-import { CRM_NAV, liveHref, type CrmNavItem } from './crm-nav';
+import { AccountItems, AccountMenu, moveInMenu } from '../shell/account-menu';
+import { Brand, SHELL_FOCUS, ShellLiteToggle } from '../shell/shell-parts';
+import { useShellUserName } from '../shell/use-shell-user';
+import {
+  CRM_NAV,
+  CRM_SCREEN_TITLES,
+  bottomNav,
+  liveHref,
+  shownNav,
+  type CrmNavItem,
+} from './crm-nav';
 
 /**
  * The bell is its OWN chunk (D-L182): a lazy `import()` (React's own, as the palette's: `next/dynamic` would add its runtime to every page) that is rendered only where
@@ -29,35 +38,47 @@ import { CRM_NAV, liveHref, type CrmNavItem } from './crm-nav';
 const NotificationBell = lazy(() => import('../notifications/bell'));
 
 /**
- * The CRM app shell (T-0042) — the frame every record screen sits in, and NOT
- * the admin console's. Different people, different jobs: an agent working a
- * queue never sees the settings menu, and an admin frame wearing a different
- * menu would leak one into the other.
+ * The CRM app shell (T-0042, rebuilt to the designs by T-0130) — the frame
+ * every record screen sits in, and NOT the admin console's.
  *
- * A sidebar from `md` up and a five-item bottom bar at 360 px, as P04 draws
- * both. Unbuilt destinations are non-links (see `crm-nav.ts`).
+ * FROM `md` UP (P03 frame 01, P04, P05, P07): a 60px top bar — logo and
+ * wordmark, the inline search field with its Ctrl K hint, then the labelled
+ * Lite mode switch, the bell and the avatar menu (language and Sign out) — over
+ * a 72px sunken icon rail, kept at 1024.
+ *
+ * BELOW `md` (P04/02, P05, P07 at 360): no global top bar. The bar becomes the
+ * screen's own 56px app bar — a 48px menu (or back) button, a title and
+ * subtitle, and 48px trailing actions — which a screen fills through `appBar`;
+ * until it does, the bar shows the screen's nav title. A 64px bottom bar holds
+ * Home, Inbox, the current object, Deals and More, each a 52×28 pill, and a
+ * screen may put its extended "+ New" button above it through `fab`. The menu
+ * button and More open one sheet with every entry and the account items.
+ *
+ * It is ONE header element at every width, restyled by breakpoint, so the
+ * bell — its own chunk, poller and store — is mounted once.
  *
  * THE GLOBAL SEARCH (T-0087, P27). Where its flag is on in this process
- * (`live.includes('search')`, from `crmLiveNav()`), the header links `/search`
- * and Control+K or Meta+K opens the command palette from anywhere in the
- * shell, a text field included. The palette's code is a dynamic `import()`
- * made on the first open (R29): it is in no screen's first load, so a user who
- * never opens it never pays for it. While it is open, everything behind it is
- * inert; when it closes, focus goes back to where it was.
+ * (`live.includes('search')`), the bar's search field is a link to `/search`
+ * that opens the command palette instead when pressed, and Control+K or
+ * Meta+K opens it from anywhere in the shell, a text field included. The
+ * palette's code is a dynamic `import()` made on the first open (R29). While it
+ * is open, everything behind it is inert; when it closes, focus goes back.
  *
- * THE BELL (T-0101, P26). Where the notifications flag is on in this process
- * (`live.includes('notifications')`), the header draws the notifications bell:
- * its code, the count store and the poller are in this shell's first load, and
- * the dropdown is a dynamic `import()` on its first open.
- *
- * SIGN OUT (T-0125, ADR-0019 point 5) ends the session at the API and lands on
- * sign-in. Below `sm` it sits behind a 44 px account button.
+ * THE BELL (T-0101, P26), where `live.includes('notifications')`.
  *
  * Still to come, and deliberately absent rather than faked: agent
- * availability and the rest of the account menu. Each needs an API that does not
- * exist yet; a control that does nothing is a promise the product breaks the
- * first time someone presses it.
+ * availability. It needs an API that does not exist yet.
  */
+
+export interface CrmAppBar {
+  /** The screen's title, already translated. */
+  readonly title: string;
+  readonly subtitle?: string;
+  /** A back link in place of the menu button (a record's list). */
+  readonly back?: string;
+  /** 48px trailing actions; given, they replace the default search and bell. */
+  readonly actions?: ReactNode;
+}
 
 interface PaletteProps {
   t: Translator;
@@ -81,48 +102,21 @@ function loadPalette(): LazyExoticComponent<ComponentType<PaletteProps>> {
   );
 }
 
-const QUIET_BUTTON_SHELL =
-  'flex min-h-touch items-center justify-center gap-2 rounded-md px-3 text-body-sm font-semibold text-primary-text hover:bg-surface-sunken';
+/** A 48px app-bar button (P04/02: `width:48px;height:48px`, a 24px glyph). */
+const BAR_BUTTON = `flex size-control-lg shrink-0 items-center justify-center rounded-md text-text is-hover:bg-surface-sunken ${SHELL_FOCUS}`;
 
-const LINK_FOCUS =
-  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
-
-function SideItem({ item, href, current, t }: { item: CrmNavItem; href: string | null; current: string; t: Translator }) {
-  const active = item.id === current;
-  const className = `flex min-h-touch items-center gap-3 rounded-md px-3 text-body-sm font-semibold ${LINK_FOCUS}`;
-  if (href === null) {
-    return (
-      <span aria-disabled="true" className={`${className} text-text-muted`}>
-        <Icon name={item.icon} size="sm" />
-        {t.t(item.label)}
-        <span className="sr-only">{t.t('records.nav.soon')}</span>
-      </span>
-    );
-  }
-  return (
-    <Link
-      href={href}
-      aria-current={active ? 'page' : undefined}
-      className={`${className} ${active ? 'bg-primary-soft text-primary-text' : 'text-text hover:bg-surface-sunken'}`}
-    >
-      <Icon name={item.icon} size="sm" />
-      {t.t(item.label)}
-    </Link>
-  );
-}
-
-function BottomItem({ item, href, current, t }: { item: CrmNavItem; href: string | null; current: string; t: Translator }) {
-  const active = item.id === current;
-  const className = `flex min-h-touch min-w-0 flex-col items-center justify-center gap-1 px-1 text-caption font-semibold ${LINK_FOCUS}`;
+/** A rail item: 56×52, radius 10, a 22px glyph over a 10/600 label (P03, P04). */
+function RailItem({ item, href, active, t }: { item: CrmNavItem; href: string | null; active: boolean; t: Translator }) {
+  const className = `flex min-h-shell-rail-item-height w-shell-rail-item-width flex-col items-center justify-center gap-0.5 rounded-10 px-0.5 text-center text-rail-label ${SHELL_FOCUS}`;
   const inner = (
     <>
-      <Icon name={item.icon} size="sm" />
-      <span className="max-w-full truncate">{t.t(item.label)}</span>
+      <Icon name={item.icon} size={22} />
+      <span className="max-w-full break-words">{t.t(item.label)}</span>
     </>
   );
   if (href === null) {
     return (
-      <span aria-disabled="true" className={`${className} text-text-muted`}>
+      <span aria-disabled="true" title={t.t('records.nav.soon')} className={`${className} text-text-2`}>
         {inner}
         <span className="sr-only">{t.t('records.nav.soon')}</span>
       </span>
@@ -132,8 +126,45 @@ function BottomItem({ item, href, current, t }: { item: CrmNavItem; href: string
     <Link
       href={href}
       aria-current={active ? 'page' : undefined}
-      className={`${className} ${active ? 'text-primary-text' : 'text-text'}`}
+      className={`${className} ${active ? 'bg-primary-soft text-primary-text' : 'text-text-2 is-hover:bg-surface'}`}
     >
+      {inner}
+    </Link>
+  );
+}
+
+/**
+ * A bottom-bar item: a 52×28 pill (radius 14) behind a 22px glyph,
+ * primary-soft and filled when active, over an 11px label (700 active, 500 not).
+ */
+function BottomItem({ item, href, active, t }: { item: CrmNavItem; href: string | null; active: boolean; t: Translator }) {
+  const className = `flex min-w-0 flex-col items-center justify-center gap-0.5 text-micro ${SHELL_FOCUS} ${
+    active ? 'font-bold text-primary-text' : 'font-medium text-text-2'
+  }`;
+  const inner = (
+    <>
+      <span
+        className={`flex h-7 w-control-xl items-center justify-center rounded-14 ${active ? 'bg-primary-soft' : ''}`}
+      >
+        {item.icon === 'bar_chart' ? (
+          <Icon name={item.icon} size={22} />
+        ) : (
+          <Icon name={item.icon} size={22} filled={active} />
+        )}
+      </span>
+      <span className="max-w-full truncate">{t.t(item.label)}</span>
+    </>
+  );
+  if (href === null) {
+    return (
+      <span aria-disabled="true" className={className}>
+        {inner}
+        <span className="sr-only">{t.t('records.nav.soon')}</span>
+      </span>
+    );
+  }
+  return (
+    <Link href={href} aria-current={active ? 'page' : undefined} className={className}>
       {inner}
     </Link>
   );
@@ -145,6 +176,8 @@ export function CrmShell({
   locales,
   current,
   live,
+  appBar,
+  fab,
   children,
 }: {
   t: Translator;
@@ -154,6 +187,10 @@ export function CrmShell({
   current: string;
   /** Nav ids whose route is on in this process (`crmLiveNav()`); only these link. */
   live: readonly string[];
+  /** The phone app bar (below `md`). Left out, it shows the screen's nav title. */
+  appBar?: CrmAppBar;
+  /** The phone's extended "+ New" button (`CrmFab`), drawn above the bottom bar below `md`. */
+  fab?: ReactNode;
   children: ReactNode;
 }) {
   // The wordmark goes to the first screen that answers here: the one inside
@@ -161,12 +198,26 @@ export function CrmShell({
   const home = CRM_NAV.map((item) => liveHref(item, live)).find((href) => href !== null) ?? null;
   const searchLive = live.includes('search');
   const bellLive = live.includes('notifications');
+  const rail = shownNav(live);
+  const bottom = bottomNav(live, current);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [Palette, setPalette] = useState<LazyExoticComponent<ComponentType<PaletteProps>> | null>(null);
   const openRef = useRef(false);
   const openerRef = useRef<Element | null>(null);
   const wasOpen = useRef(false);
   openRef.current = paletteOpen;
+
+  const navTitle = CRM_NAV.find((item) => item.id === current)?.label ?? CRM_SCREEN_TITLES[current] ?? 'app.name';
+  const barTitle = appBar?.title ?? t.t(navTitle);
+
+  const openPalette = useCallback(() => {
+    if (openRef.current || document.querySelector('[aria-modal="true"]') !== null) return;
+    openerRef.current = document.activeElement;
+    // `lazy` returns an object, not a function, so React stores it rather than calling it.
+    setPalette((loaded: LazyExoticComponent<ComponentType<PaletteProps>> | null) => loaded ?? loadPalette());
+    setPaletteOpen(true);
+  }, []);
 
   // Control+K and Meta+K, from anywhere in the shell, a text field included
   // (R4), on any keyboard layout (`code` is the physical key, D-L137 L2). Not
@@ -177,15 +228,11 @@ export function CrmShell({
       const isK = event.code === 'KeyK' || event.key.toLowerCase() === 'k';
       if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || !isK) return;
       event.preventDefault();
-      if (openRef.current || document.querySelector('[aria-modal="true"]') !== null) return;
-      openerRef.current = document.activeElement;
-      // `lazy` returns an object, not a function, so React stores it rather than calling it.
-      setPalette((current: LazyExoticComponent<ComponentType<PaletteProps>> | null) => current ?? loadPalette());
-      setPaletteOpen(true);
+      openPalette();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [searchLive]);
+  }, [searchLive, openPalette]);
 
   // Focus goes back where it was once the palette has closed and the page is no longer inert.
   useEffect(() => {
@@ -202,87 +249,272 @@ export function CrmShell({
 
   const closePalette = useCallback(() => setPaletteOpen(false), []);
   const retryPalette = useCallback(() => setPalette(loadPalette()), []);
-  const behind = paletteOpen ? { inert: true } : {};
+  const closeSheet = useCallback(() => setSheetOpen(false), []);
+  const behind = paletteOpen || sheetOpen ? { inert: true } : {};
 
   return (
     <div data-shell="crm" className="flex min-h-screen flex-col bg-bg text-text">
-      {/* Tighter spacing below `sm`: at 360 px the bell (T-0101) and the account menu (T-0125) fit on one row only so. */}
-      <header {...behind} className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-surface px-2 sm:gap-3 sm:px-4">
-        <Link href={home ?? `/${current}`} className={`flex shrink-0 items-center gap-2 rounded-md ${LINK_FOCUS}`}>
-          <span
-            aria-hidden="true"
-            className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-body-md font-extrabold text-accent"
+      <header
+        {...behind}
+        className="sticky top-0 z-30 flex h-shell-mobile-header shrink-0 items-center gap-0.5 border-b border-border bg-surface px-1 md:h-shell-header md:gap-2 md:pe-3 md:ps-4"
+      >
+        {/* Phone: the screen's own app bar. */}
+        {appBar?.back === undefined ? (
+          <button
+            type="button"
+            aria-label={t.t('shell.menu.open')}
+            aria-haspopup="dialog"
+            aria-expanded={sheetOpen}
+            data-testid="crm-menu"
+            onClick={() => setSheetOpen(true)}
+            className={`${BAR_BUTTON} md:hidden`}
           >
-            {t.t('app.name').slice(0, 1)}
-          </span>
-          {/* The word only from `sm` up: at 360 px the header needs the room for the account menu (T-0125) and the bell (T-0101). */}
-          <b className="sr-only text-body-md sm:not-sr-only">{t.t('app.name')}</b>
-        </Link>
-        <span className="flex-1" />
+            <Icon name="menu" size={24} />
+          </button>
+        ) : (
+          <Link href={appBar.back} aria-label={t.t('shell.back')} className={`${BAR_BUTTON} md:hidden`}>
+            <Icon name="arrow_back" size={24} className="rtl:-scale-x-100" />
+          </Link>
+        )}
+        <div className="flex min-w-0 flex-1 flex-col md:hidden">
+          <b className="truncate text-h5 font-bold">{barTitle}</b>
+          {appBar?.subtitle === undefined ? null : (
+            <span className="truncate text-caption font-normal text-text-muted">{appBar.subtitle}</span>
+          )}
+        </div>
+        {appBar?.actions === undefined ? (
+          searchLive ? (
+            <Link
+              href="/search"
+              prefetch={false}
+              aria-label={t.t(SHELL_SEARCH_STRINGS.entry)}
+              aria-current={current === 'search' ? 'page' : undefined}
+              className={`${BAR_BUTTON} md:hidden`}
+            >
+              <Icon name="search" size={24} />
+            </Link>
+          ) : null
+        ) : (
+          <div className="flex shrink-0 items-center md:hidden">{appBar.actions}</div>
+        )}
+
+        {/* From `md` up: the global top bar. */}
+        <div className="hidden md:flex">
+          <Brand t={t} href={home} />
+        </div>
         {searchLive ? (
           <Link
             href="/search"
             prefetch={false}
-            aria-current={current === 'search' ? 'page' : undefined}
             aria-keyshortcuts="Control+K Meta+K"
-            className={`flex min-h-touch min-w-touch shrink-0 items-center justify-center gap-2 rounded-md border border-border px-2 text-body-sm font-semibold sm:px-3 ${
-              current === 'search' ? 'bg-primary-soft text-primary-text' : 'bg-surface text-text hover:bg-surface-sunken'
-            } ${LINK_FOCUS}`}
+            aria-current={current === 'search' ? 'page' : undefined}
+            data-testid="shell-search"
+            onClick={(event) => {
+              // A plain press opens the palette; a modified one (a new tab) follows the link.
+              if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+              event.preventDefault();
+              openPalette();
+            }}
+            className={`ms-5 hidden h-control-md min-w-0 shrink grow-0 basis-shell-search items-center gap-2 rounded-md bg-surface-sunken px-3 text-body-sm text-text-muted is-hover:bg-border md:flex ${SHELL_FOCUS}`}
           >
-            <Icon name="search" size="sm" />
-            <span className="sr-only sm:not-sr-only">{t.t(SHELL_SEARCH_STRINGS.entry)}</span>
+            <Icon name="search" size={20} />
+            <span className="min-w-0 flex-1 truncate">{t.t('shell.search.placeholder')}</span>
+            <Kbd aria-hidden="true">{t.t('design.components.kbd.search')}</Kbd>
           </Link>
         ) : null}
+        <span className="hidden flex-1 md:block" />
+        <ShellLiteToggle t={t} className="hidden md:inline-flex" />
         {bellLive ? (
-          <Suspense>
-            <NotificationBell t={t} locale={locale} live={live} />
-          </Suspense>
+          <div className={appBar?.actions === undefined ? 'flex shrink-0' : 'hidden shrink-0 md:flex'}>
+            <Suspense>
+              <NotificationBell t={t} locale={locale} live={live} />
+            </Suspense>
+          </div>
         ) : null}
-        <LanguageMenu
-          options={locales}
-          current={locale}
-          label={t.t('auth.topbar.language')}
-          currentLabel={t.t('auth.topbar.language.current', {
-            language: locales.find((option) => option.code === locale)?.label ?? locale,
-          })}
-          compact
-        />
-        <LiteModeToggle
-          label={t.t('auth.topbar.lite')}
-          onLabel={t.t('auth.topbar.lite.on')}
-          accessibleName={t.t('auth.topbar.lite.toggle')}
-          compact
-        />
-        <SignOutButton label={t.t('auth.signOut')} menuLabel={t.t('auth.account')} />
+        <div className="hidden md:flex">
+          <AccountMenu t={t} locale={locale} locales={locales} withLite={false} />
+        </div>
       </header>
 
       <div {...behind} className="flex min-w-0 flex-1 items-stretch">
         <nav
           aria-label={t.t('records.nav.label')}
-          className="hidden w-56 shrink-0 flex-col gap-1 border-e border-border bg-surface p-3 md:flex"
+          className="hidden w-shell-rail shrink-0 border-e border-border bg-surface-sunken md:block"
         >
-          {CRM_NAV.map((item) => (
-            <SideItem key={item.id} item={item} href={liveHref(item, live)} current={current} t={t} />
-          ))}
+          <div className="sticky top-shell-header flex flex-col items-center gap-1 py-3">
+            {rail.map((item) => (
+              <RailItem key={item.id} item={item} href={liveHref(item, live)} active={item.id === current} t={t} />
+            ))}
+          </div>
         </nav>
-        <div className="min-w-0 flex-1 p-4 pb-16 md:p-6">{children}</div>
+        {/* Below `md` the bottom padding clears the bar, and the FAB where there is one. */}
+        <div className={`min-w-0 flex-1 p-4 md:p-6 ${fab === undefined ? 'pb-24' : 'pb-40'}`}>{children}</div>
       </div>
+
+      {fab === undefined ? null : (
+        <div {...behind} className="fixed bottom-20 end-4 z-30 md:hidden">
+          {fab}
+        </div>
+      )}
 
       <nav
         {...behind}
         aria-label={t.t('records.nav.label')}
-        className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-5 border-t border-border bg-surface md:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid h-shell-bottom-bar auto-cols-fr grid-flow-col border-t border-border bg-surface md:hidden"
       >
-        {CRM_NAV.filter((item) => item.mobile).map((item) => (
-          <BottomItem key={item.id} item={item} href={liveHref(item, live)} current={current} t={t} />
+        {bottom.map((item) => (
+          <BottomItem key={item.id} item={item} href={liveHref(item, live)} active={item.id === current} t={t} />
         ))}
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={sheetOpen}
+          data-testid="crm-more"
+          onClick={() => setSheetOpen(true)}
+          className={`flex min-w-0 flex-col items-center justify-center gap-0.5 text-micro font-medium text-text-2 ${SHELL_FOCUS}`}
+        >
+          <span className="flex h-7 w-control-xl items-center justify-center rounded-14">
+            <Icon name="menu" size={22} />
+          </span>
+          <span className="max-w-full truncate">{t.t('records.nav.more')}</span>
+        </button>
       </nav>
+
+      {sheetOpen ? (
+        <NavSheet t={t} locale={locale} locales={locales} live={live} current={current} onClose={closeSheet} />
+      ) : null}
 
       {searchLive && paletteOpen && Palette !== null ? (
         <Suspense fallback={<PaletteLoading t={t} onClose={closePalette} />}>
           <Palette t={t} onClose={closePalette} onRetry={retryPalette} dealsLive={live.includes('deals')} />
         </Suspense>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * The phone's extended "+ New" button (P04/02): 56px, 0 20 0 16, radius 16,
+ * primary, 15/700 with a 24px `add`, shadow-2. A list screen passes one as the
+ * shell's `fab`; the shell places it above the bottom bar, on phones only.
+ */
+export function CrmFab({ label, onClick, href }: { label: string; onClick?: () => void; href?: string }) {
+  const className = `flex h-shell-fab items-center gap-2 rounded-xl bg-primary pe-5 ps-4 text-label font-bold text-on-primary shadow-2 is-hover:bg-primary-hover is-active:bg-primary-active ${SHELL_FOCUS}`;
+  const inner = (
+    <>
+      <Icon name="add" size={24} />
+      {label}
+    </>
+  );
+  return href === undefined ? (
+    <button type="button" onClick={onClick} className={className}>
+      {inner}
+    </button>
+  ) : (
+    <Link href={href} className={className}>
+      {inner}
+    </Link>
+  );
+}
+
+/**
+ * The phone's navigation sheet, opened by the app bar's menu button and by
+ * More: every entry this process draws, then the account items (lite mode,
+ * language, sign out) that live in the desktop bar and avatar menu. A modal
+ * bottom sheet on the scrim; Escape or a press on the scrim closes it, and
+ * focus goes back to what opened it.
+ */
+function NavSheet({
+  t,
+  locale,
+  locales,
+  live,
+  current,
+  onClose,
+}: {
+  t: Translator;
+  locale: string;
+  locales: readonly LanguageOption[];
+  live: readonly string[];
+  current: string;
+  onClose: () => void;
+}) {
+  const titleId = useId();
+  const name = useShellUserName();
+  const sheetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const opener = document.activeElement;
+    sheetRef.current?.querySelector<HTMLElement>('a, button')?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      if (opener instanceof HTMLElement && document.contains(opener)) opener.focus();
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-end md:hidden"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <span aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-scrim" />
+      <div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        data-testid="crm-nav-sheet"
+        className="flex max-h-screen w-full flex-col overflow-y-auto rounded-t-xl bg-surface-raised p-2 pb-4 shadow-3"
+      >
+        <div className="flex items-center gap-2 ps-3">
+          <h2 id={titleId} className="flex-1 text-card-title">
+            {t.t('records.nav.label')}
+          </h2>
+          <button type="button" aria-label={t.t('shell.menu.close')} onClick={onClose} className={BAR_BUTTON}>
+            <Icon name="close" size={24} />
+          </button>
+        </div>
+        <nav aria-labelledby={titleId} className="grid grid-cols-4 gap-1 pb-2">
+          {shownNav(live).map((item) => {
+            const href = liveHref(item, live);
+            const active = item.id === current;
+            const className = `flex min-h-shell-fab flex-col items-center justify-center gap-0.5 rounded-10 px-1 text-center text-micro font-semibold ${SHELL_FOCUS}`;
+            const inner = (
+              <>
+                <Icon name={item.icon} size={22} />
+                <span className="max-w-full truncate">{t.t(item.label)}</span>
+              </>
+            );
+            return href === null ? (
+              <span key={item.id} aria-disabled="true" className={`${className} text-text-muted`}>
+                {inner}
+                <span className="sr-only">{t.t('records.nav.soon')}</span>
+              </span>
+            ) : (
+              <Link
+                key={item.id}
+                href={href}
+                onClick={onClose}
+                aria-current={active ? 'page' : undefined}
+                className={`${className} ${active ? 'bg-primary-soft text-primary-text' : 'text-text-2 is-hover:bg-surface-sunken'}`}
+              >
+                {inner}
+              </Link>
+            );
+          })}
+        </nav>
+        <div role="menu" aria-label={t.t('auth.account')} onKeyDown={moveInMenu} className="flex flex-col border-t border-border pt-1">
+          <AccountItems t={t} locale={locale} locales={locales} withLite name={name} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -316,7 +548,7 @@ function PaletteOverlay({ onClose, children }: { onClose: () => void; children: 
 function PaletteLoading({ t, onClose }: { t: Translator; onClose: () => void }) {
   return (
     <PaletteOverlay onClose={onClose}>
-      <p role="status" className="w-full max-w-xl bg-surface-raised p-4 text-body-md text-text-2 shadow-3 sm:rounded-lg">
+      <p role="status" className="w-full max-w-xl bg-surface-raised p-4 text-body-md text-text-2 shadow-3 sm:rounded-14">
         {t.t(SHELL_SEARCH_STRINGS.loading)}
       </p>
     </PaletteOverlay>
@@ -337,20 +569,20 @@ function PaletteFailed({ t, onClose, onRetry }: PaletteProps) {
         aria-modal="true"
         aria-labelledby={titleId}
         data-testid="command-palette-failed"
-        className="flex w-full max-w-xl flex-col items-start gap-2 bg-surface-raised p-4 shadow-3 sm:rounded-lg"
+        className="flex w-full max-w-xl flex-col items-start gap-2 bg-surface-raised p-4 shadow-3 sm:rounded-14"
       >
-        <h2 id={titleId} className="flex items-center gap-2 text-h4 font-bold">
-          <Icon name="error" size="sm" />
+        <h2 id={titleId} className="flex items-center gap-2 text-card-title">
+          <Icon name="error" size={20} />
           {t.t(SHELL_SEARCH_STRINGS.failedTitle)}
         </h2>
         <p className="text-body-sm text-text-2">{t.t(SHELL_SEARCH_STRINGS.failedBody)}</p>
         <div className="flex flex-wrap gap-2">
-          <button ref={retryRef} type="button" onClick={onRetry} className={`${QUIET_BUTTON_SHELL} ${LINK_FOCUS}`}>
+          <Button ref={retryRef} variant="ghost" onClick={onRetry}>
             {t.t(SHELL_SEARCH_STRINGS.retry)}
-          </button>
-          <button type="button" onClick={onClose} className={`${QUIET_BUTTON_SHELL} ${LINK_FOCUS}`}>
+          </Button>
+          <Button variant="ghost" onClick={onClose}>
             {t.t(SHELL_SEARCH_STRINGS.close)}
-          </button>
+          </Button>
         </div>
       </div>
     </PaletteOverlay>

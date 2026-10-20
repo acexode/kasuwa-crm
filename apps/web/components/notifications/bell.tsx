@@ -119,14 +119,19 @@ export default function NotificationBell({ t, locale, live }: { t: Translator; l
           setDropdown((current: LazyExoticComponent<ComponentType<DropdownProps>> | null) => current ?? loadDropdown());
           setOpen(true);
         }}
-        className={`flex min-h-touch min-w-touch items-center justify-center gap-1 rounded-md border border-border bg-surface text-text hover:bg-surface-sunken ${FOCUS}`}
+        // The header bell (P03, P26; T-0130): a 44px ghost button, a 22px glyph
+        // in text-2, filled and primary-soft while its dropdown is open, and the
+        // count in a danger pill ringed in surface at the glyph's shoulder.
+        className={`relative flex size-control-base items-center justify-center rounded-md outline-none focus-visible:ring-focus ${
+          open ? 'bg-primary-soft text-primary-text' : 'text-text-2 is-hover:bg-surface-sunken'
+        }`}
       >
-        <Icon name="notifications" size="sm" />
+        <Icon name="notifications" size={22} filled={open} />
         {badge === '' ? null : (
           <span
             aria-hidden="true"
             data-testid="notifications-badge"
-            className="rounded-full bg-danger px-1 text-caption font-bold text-on-primary"
+            className="absolute start-5 top-1 flex h-5 min-w-5 items-center justify-center whitespace-nowrap rounded-full border-2 border-surface bg-danger px-1 text-micro text-on-primary"
           >
             {badge}
           </span>

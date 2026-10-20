@@ -36,6 +36,10 @@ describe('feature flags', () => {
       'crm_import',
       'crm_notifications',
       'crm_duplicates',
+      'crm_inbox',
+      'crm_tickets',
+      'crm_calls',
+      'crm_reports',
     ]);
   });
 

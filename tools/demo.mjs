@@ -59,6 +59,11 @@ const DEMO_FLAGS = [
   'identity_check',
   'record_addresses',
   'record_follow',
+  // T-0130: the rail's placeholders for unbuilt modules (D-L194).
+  'crm_inbox',
+  'crm_tickets',
+  'crm_calls',
+  'crm_reports',
 ];
 /** Flags added to the demo automatically once their task has merged. */
 const DEMO_FLAGS_WHEN_PRESENT = ['crm_custom_fields', 'crm_import', 'crm_duplicates', 'crm_notifications'];
