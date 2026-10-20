@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { bundleMessages } from '@kasuwa/i18n';
 import { ActivitiesScreen } from '../../components/activities/activities-screen';
-import { ACTIVITIES_MESSAGE_IDS } from '../../components/activities/message-ids';
+import { activitiesMessageIds } from '../../components/activities/message-ids';
 import { activitiesPlaceholders, crmActivitiesEnabled, crmCustomFieldsEnabled, crmLiveNav } from '../../lib/feature-flags';
 import { withCustomMessages } from '../../components/custom/message-ids';
 import { withShellMessages } from '../../components/crm/shell-messages';
@@ -33,11 +33,11 @@ export default async function ActivitiesPage() {
   return (
     <ActivitiesScreen
       locale={locale}
-      messages={bundleMessages(locale, withShellMessages(withCustomMessages(ACTIVITIES_MESSAGE_IDS, customFields), live))}
+      messages={bundleMessages(locale, withShellMessages(withCustomMessages(activitiesMessageIds(placeholders), customFields), live))}
       locales={languageOptions(locale)}
       live={live}
       customFields={customFields}
-      placeholders={placeholders}
+      placeholders={(Object.keys(placeholders) as (keyof typeof placeholders)[]).filter((key) => placeholders[key])}
     />
   );
 }

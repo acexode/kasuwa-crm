@@ -81,13 +81,16 @@ function PanelLoading() {
 
 type View = 'tasks' | 'calendar' | 'booking' | 'checkin';
 
-const NO_PLACEHOLDERS: ActivitiesPlaceholders = {
-  calendarSync: false,
-  bookingPages: false,
-  fieldCheckin: false,
-  priority: false,
-  reminders: false,
-};
+/** The flags that are on, by name: an empty list (all off) serialises to `[]`, naming nothing. */
+function placeholderFlags(on: readonly (keyof ActivitiesPlaceholders)[]): ActivitiesPlaceholders {
+  return {
+    calendarSync: on.includes('calendarSync'),
+    bookingPages: on.includes('bookingPages'),
+    fieldCheckin: on.includes('fieldCheckin'),
+    priority: on.includes('priority'),
+    reminders: on.includes('reminders'),
+  };
+}
 
 /** The sentence for a refused write. `field_not_editable` is its own: a role that can read a time but not move it. */
 function refusal(error: RecordsError): MessageId {
@@ -101,7 +104,7 @@ export function ActivitiesScreen({
   locales,
   live,
   customFields = false,
-  placeholders = NO_PLACEHOLDERS,
+  placeholders: enabled = [],
 }: {
   locale: string;
   messages: MessageBundle;
@@ -110,9 +113,10 @@ export function ActivitiesScreen({
   live: readonly string[];
   /** Custom values are on in this process (read by the server page): the composer offers the activity's fields (T-0091). */
   customFields?: boolean;
-  /** P07's flagged placeholders (T-0136, D-L194), read by the server page. */
-  placeholders?: ActivitiesPlaceholders;
+  /** P07's flagged placeholders that are on (T-0136, D-L194), read by the server page. */
+  placeholders?: readonly (keyof ActivitiesPlaceholders)[];
 }) {
+  const placeholders = placeholderFlags(enabled);
   const t = createBundleTranslator(locale, messages);
   const data = useActivities();
   const activityKeys = useReadOnlyKeys();
