@@ -37,7 +37,10 @@ export function EmptyLanding({
   footer,
   phoneActions,
   phoneNote,
+  actions,
 }: {
+  /** One primary action under the explanation, at every width (Accounts: "New account"). */
+  actions?: ReactNode;
   icon: IconName;
   title: string;
   body: string;
@@ -56,7 +59,8 @@ export function EmptyLanding({
           <h2 className="text-h4 font-extrabold md:text-title">{title}</h2>
           <p className="max-w-xl text-body-md text-text-2">{body}</p>
         </div>
-        <div className="hidden w-full grid-cols-2 gap-4 text-start md:grid">
+        {actions === undefined ? null : <div className="flex flex-wrap justify-center gap-2">{actions}</div>}
+        <div className={`hidden w-full grid-cols-2 gap-4 text-start ${cards.length === 0 ? '' : 'md:grid'}`}>
           {cards.map((card) => (
             <div key={card.title} className="flex flex-col gap-2.5 rounded-lg border border-border bg-surface p-5">
               <span className="flex items-center gap-2.5">
@@ -74,9 +78,9 @@ export function EmptyLanding({
             </div>
           ))}
         </div>
-        <span className="hidden text-meta text-text-muted md:block">{footer}</span>
+        {footer === null ? null : <span className="hidden text-meta text-text-muted md:block">{footer}</span>}
         <div className="flex w-full flex-col gap-2 md:hidden">{phoneActions}</div>
-        <span className="text-caption text-text-2 md:hidden">{phoneNote}</span>
+        {phoneNote === '' ? null : <span className="text-caption text-text-2 md:hidden">{phoneNote}</span>}
       </div>
     </div>
   );

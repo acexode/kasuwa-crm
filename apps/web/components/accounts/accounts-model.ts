@@ -51,14 +51,18 @@ export interface AccountColumn {
   readonly fixed?: true;
 }
 
-/** P04/03's order (Account, Industry, Tier, Phone, Owner, Tags, State), then what the chooser can add. */
+/**
+ * P04/03's order (T-0133): Account, Phone, Industry, Owner — Last activity
+ * after it where `last_activity` is on — then Tier, Tags, State, and what the
+ * chooser can add. The export's WA and Email columns have no Account property.
+ */
 export const ACCOUNT_COLUMNS: readonly AccountColumn[] = [
   { key: 'name', label: 'accounts.col.name', defaultVisible: true, fields: ['name'], fixed: true },
-  { key: 'industry', label: 'accounts.col.industry', defaultVisible: true, fields: ['industry'] },
-  { key: 'tier', label: 'accounts.col.tier', defaultVisible: true, fields: ['tier'] },
   { key: 'phones', label: 'records.col.phones', defaultVisible: true, fields: ['phones'] },
+  { key: 'industry', label: 'accounts.col.industry', defaultVisible: true, fields: ['industry'] },
   // The contract withholds `owner` and `ownerUserId` together; either locks it.
   { key: 'owner', label: 'records.col.ownerUserId', defaultVisible: true, fields: ['owner', 'ownerUserId'] },
+  { key: 'tier', label: 'accounts.col.tier', defaultVisible: true, fields: ['tier'] },
   { key: 'tags', label: 'records.col.tags', defaultVisible: true, fields: ['tags'] },
   { key: 'state', label: 'records.col.state', defaultVisible: true, fields: ['state'] },
   { key: 'programmeId', label: 'accounts.col.programme', defaultVisible: false, fields: ['programmeId'] },
@@ -224,6 +228,8 @@ export function nameAriaSort(sort: AccountSort): 'ascending' | 'descending' | 'n
 
 /** Everything about the list but the search box, replaced as one value (`useKeysetList` compares it by identity). */
 export interface AccountView {
+  /** Rows per page, 25, 50 or 100 (P04's footer, T-0133): the read's `limit`. */
+  readonly pageSize?: number;
   readonly filters: AccountFilterState;
   readonly sort: AccountSort;
   /** Custom-field filters (T-0091); absent while the feature is off. */
@@ -251,7 +257,7 @@ export function toAccountQuery(q: string, view: AccountView, cursor?: string): A
     ...(view.custom === undefined ? {} : { custom: view.custom }),
     sort: view.sort,
     ...(cursor === undefined ? {} : { cursor }),
-    limit: ACCOUNT_PAGE_SIZE,
+    limit: view.pageSize ?? ACCOUNT_PAGE_SIZE,
   };
 }
 
