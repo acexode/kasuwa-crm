@@ -73,8 +73,9 @@ function useDocked(): boolean {
  * the export's `fieldCols`, plus a 44px column for the retire control.
  */
 const COLUMNS = {
-  wide: 'md:grid-cols-[minmax(0,1.6fr)_minmax(0,1.3fr)_minmax(0,1fr)_130px_120px_44px]',
-  wideUsage: 'md:grid-cols-[minmax(0,1.6fr)_minmax(0,1.3fr)_minmax(0,1fr)_130px_110px_120px_44px]',
+  // The export drops Modified below 1280 (its `wideF` is desktop only): narrow at md, wide from xl.
+  wide: 'md:grid-cols-[minmax(0,1.5fr)_minmax(0,1.1fr)_minmax(0,1fr)_104px_44px] xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1.3fr)_minmax(0,1fr)_130px_120px_44px]',
+  wideUsage: 'md:grid-cols-[minmax(0,1.5fr)_minmax(0,1.1fr)_minmax(0,1fr)_104px_90px_44px] xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1.3fr)_minmax(0,1fr)_130px_110px_120px_44px]',
   narrow: 'md:grid-cols-[minmax(0,1.5fr)_minmax(0,1.1fr)_minmax(0,1fr)_104px_44px]',
   narrowUsage: 'md:grid-cols-[minmax(0,1.5fr)_minmax(0,1.1fr)_minmax(0,1fr)_104px_90px_44px]',
 } as const;
@@ -421,7 +422,11 @@ export function ObjectPanel({
                       <span role="columnheader">{t.t('admin.studio.col.type')}</span>
                       <span role="columnheader">{t.t('admin.studio.col.properties')}</span>
                       {flags.usage ? <span role="columnheader">{t.t('admin.studio.col.usedIn')}</span> : null}
-                      {dockedOpen ? null : <span role="columnheader">{t.t('admin.studio.col.modified')}</span>}
+                      {dockedOpen ? null : (
+                        <span role="columnheader" className="hidden xl:block">
+                          {t.t('admin.studio.col.modified')}
+                        </span>
+                      )}
                       <span role="columnheader">
                         <span className="sr-only">{t.t('admin.studio.col.actions')}</span>
                       </span>
@@ -498,7 +503,7 @@ export function ObjectPanel({
                             </span>
                           ) : null}
                           {dockedOpen ? null : (
-                            <span role="cell" className="hidden text-meta text-text-muted md:block">
+                            <span role="cell" className="hidden text-meta text-text-muted xl:block">
                               {modifiedDate(locale, item.updatedAt)}
                             </span>
                           )}
