@@ -68,7 +68,6 @@ describe('feature flags', () => {
       'notification_types',
       'notification_preferences',
       'crm_studio',
-      'call_bar',
       'ai_script_hints',
       'script_programme_assignment',
       'script_preview',

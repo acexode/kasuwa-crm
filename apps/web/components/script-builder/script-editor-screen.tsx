@@ -380,7 +380,7 @@ function Editor({
               title={t.t('scripting.builder.preview.soon')}
               className={`${HEADER_BUTTON} ${OUTLINE}`}
             >
-              <Icon name="play_arrow" size={18} />
+              <Icon name="play_circle" size={18} />
               {t.t('scripting.builder.preview')}
             </button>
           ) : null}

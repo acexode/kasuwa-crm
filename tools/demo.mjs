@@ -99,7 +99,6 @@ const DEMO_FLAGS = [
   'notification_preferences',
   // T-0139 (D-L194): the P10 placeholders.
   'crm_studio',
-  'call_bar',
   'ai_script_hints',
   'script_programme_assignment',
   'script_preview',
