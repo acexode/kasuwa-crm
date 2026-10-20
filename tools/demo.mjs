@@ -102,6 +102,8 @@ const DEMO_FLAGS = [
   // T-0137: P26's placeholders for notification types and preferences (D-L194).
   'notification_types',
   'notification_preferences',
+  // T-0140: P02's flagged placeholders (D-L194).
+  'admin_placeholders',
   // T-0139 (D-L194): the P10 placeholders.
   'crm_studio',
   'ai_script_hints',

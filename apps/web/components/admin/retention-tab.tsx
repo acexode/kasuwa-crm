@@ -5,7 +5,8 @@ import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { Panel, errorMessageId } from './panel';
 import { useResource, type Resource } from './use-resource';
-import { SECONDARY_BUTTON } from '../auth/button-classes';
+import { CARD, Notice, UnsavedBar } from './admin-ui';
+import { Toggle } from './sla-tab';
 import {
   getRetention,
   saveRetention,
@@ -182,14 +183,14 @@ export function RetentionTab({
     changed.includes(field) ? 'border-accent bg-accent-soft' : 'border-border-strong bg-surface';
 
   return (
-    <div data-screen="P02/B7" className="flex flex-col gap-4">
+    <div data-screen="P02/B7" className="flex flex-col gap-6">
       {/* General guidance, not legal advice — the design's words, kept. */}
       <p
         role="note"
         data-testid="retention-notice"
-        className="flex gap-3 rounded-lg bg-info-soft p-4 text-body-sm text-info-text"
+        className="m-0 flex gap-2.5 rounded-lg bg-info-soft px-4 py-3.5 text-body-sm text-info-text"
       >
-        <Icon name="info" size="sm" />
+        <Icon name="info" size={20} className="shrink-0" />
         <span>
           {loaded === null || loaded.workspaceDefaultDays === null
             ? t.t('admin.ret.notice.noDefault')
@@ -205,9 +206,9 @@ export function RetentionTab({
       <p
         role="note"
         data-testid="retention-scope-note"
-        className="flex gap-3 rounded-lg border border-border bg-surface-sunken p-4 text-body-sm text-text-2"
+        className="-mt-3 m-0 flex gap-2.5 rounded-lg border border-border bg-surface-sunken px-4 py-3 text-meta text-text-2"
       >
-        <Icon name="help" size="sm" />
+        <Icon name="help" size={18} className="shrink-0" />
         <span>{t.t('admin.ret.scope.note')}</span>
       </p>
 
@@ -215,27 +216,27 @@ export function RetentionTab({
         <div
           role="note"
           data-testid="retention-unset"
-          className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4"
+          className={`${CARD} flex flex-col gap-1 p-4`}
         >
-          <b className="text-body-md font-semibold">{t.t('admin.ret.unset.title')}</b>
-          <span className="text-body-sm text-text-2">{t.t('admin.ret.unset.body')}</span>
+          <b className="text-body-sm font-semibold">{t.t('admin.ret.unset.title')}</b>
+          <span className="text-meta text-text-2">{t.t('admin.ret.unset.body')}</span>
         </div>
       ) : null}
 
       <Panel t={t} resource={view} skeletonRows={6}>
         {(data) =>
           draft === null ? null : (
-            <section className="flex flex-col rounded-lg border border-border bg-surface px-5">
+            <section className={`${CARD} flex flex-col px-5 py-1`}>
               {PERIOD_ROWS.map((row) => (
                 <div
                   key={row.field}
                   data-testid="retention-row"
                   data-retention-field={row.field}
-                  className="flex flex-wrap items-center gap-4 border-b border-border py-4"
+                  className="flex flex-wrap items-center gap-4 border-b border-border py-3.5"
                 >
-                  <div className="flex min-w-60 flex-1 flex-col gap-1">
+                  <div className="flex min-w-60 flex-1 flex-col gap-0.5">
                     <b className="text-body-sm font-semibold">{t.t(row.label)}</b>
-                    <span className="text-body-sm text-text-2">{t.t(row.note)}</span>
+                    <span className="text-meta text-text-2">{t.t(row.note)}</span>
                     {shortened.includes(row.field) ? (
                       <span
                         data-testid="retention-shortened"
@@ -255,7 +256,7 @@ export function RetentionTab({
                         [row.field]: event.target.value === '' ? null : Number(event.target.value),
                       })
                     }
-                    className={`min-h-touch w-48 rounded-md border px-3 text-body-md text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${mark(row.field)}`}
+                    className={`h-control-md w-44 cursor-pointer rounded-md border ps-3 pe-2 text-body-sm text-text is-focus:field-focus ${mark(row.field)}`}
                   >
                     {/* Unchosen on a first write: a placeholder, never a
                         pre-selected period (see retention-model.ts). */}
@@ -273,17 +274,17 @@ export function RetentionTab({
                 </div>
               ))}
 
-              <fieldset className="flex flex-col gap-3 border-b border-border py-4">
-                <legend className="text-body-sm font-semibold">{t.t('admin.ret.onExpiry')}</legend>
+              <fieldset className="m-0 flex flex-col gap-2.5 border-0 border-b border-solid border-border px-0 pb-4 pt-4">
+                <legend className="float-left mb-2.5 w-full p-0 text-body-sm font-semibold">{t.t('admin.ret.onExpiry')}</legend>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {EXPIRY_OPTIONS.map((option) => (
                     <label
                       key={option}
                       data-testid={`retention-expiry-${option}`}
-                      className={`flex min-h-touch cursor-pointer items-start gap-3 rounded-lg border p-4 ${
+                      className={`flex min-h-touch cursor-pointer items-start gap-2.5 rounded-10 border px-4 py-3.5 ${
                         draft.onExpiry === option
                           ? 'border-primary bg-primary-soft'
-                          : 'border-border bg-surface'
+                          : 'border-border bg-surface is-hover:bg-surface-sunken'
                       }`}
                     >
                       <input
@@ -291,13 +292,13 @@ export function RetentionTab({
                         name="retention-on-expiry"
                         checked={draft.onExpiry === option}
                         onChange={() => setDraft({ ...draft, onExpiry: option })}
-                        className="mt-1"
+                        className="mt-0.5 size-4.5 shrink-0 accent-primary"
                       />
-                      <span className="flex flex-col gap-1">
+                      <span className="flex flex-col gap-0.5">
                         <b className="text-body-sm font-semibold">
                           {t.t(`admin.ret.onExpiry.${option}` as MessageId)}
                         </b>
-                        <span className="text-body-sm text-text-2">
+                        <span className="text-meta text-text-2">
                           {t.t(`admin.ret.onExpiry.${option}.note` as MessageId)}
                         </span>
                       </span>
@@ -306,7 +307,7 @@ export function RetentionTab({
                 </div>
               </fieldset>
 
-              <RetentionToggle
+              <Toggle
                 label={t.t('admin.ret.redact')}
                 note={t.t('admin.ret.redact.note')}
                 checked={draft.redactSensitiveNumbersInTranscripts}
@@ -318,7 +319,7 @@ export function RetentionTab({
                 }
               />
 
-              <RetentionToggle
+              <Toggle
                 label={t.t('admin.ret.hold')}
                 note={t.t('admin.ret.hold.note')}
                 checked={draft.legalHold}
@@ -333,57 +334,34 @@ export function RetentionTab({
       </Panel>
 
       {saveError === null ? null : (
-        <p
-          role="alert"
-          data-testid="retention-save-error"
-          data-error-code={saveError.code}
-          className="rounded-md bg-danger-soft p-3 text-body-sm text-danger-text"
-        >
+        <Notice tone="danger" testId="retention-save-error" errorCode={saveError.code}>
           {t.t(errorMessageId(saveError))}
-        </p>
+        </Notice>
       )}
 
       {toast === null ? null : (
-        <p
-          role="status"
-          data-testid="retention-toast"
-          className="rounded-md bg-success-soft p-3 text-body-sm text-success-text"
-        >
+        <Notice tone="success" testId="retention-toast">
           {toast}
-        </p>
+        </Notice>
       )}
 
       {changed.length === 0 ? null : (
-        <div
-          data-testid="unsaved-bar"
-          className="fixed inset-x-0 bottom-0 z-20 flex flex-wrap items-center gap-3 border-t border-border bg-inverse p-4 text-on-inverse"
-        >
-          <Icon name="edit_note" className="text-accent" />
-          <b data-testid="unsaved-count" className="flex-1 text-body-sm">
-            {t.t('admin.unsaved.count', { count: changed.length })}
-          </b>
-          <button
-            type="button"
-            data-testid="discard-changes"
-            onClick={() => {
-              if (loaded !== null) setDraft(draftOf(loaded));
-              setSaveError(null);
-              setToast(t.t('admin.unsaved.discarded'));
-            }}
-            className={`${SECONDARY_BUTTON} border-border-strong bg-transparent text-on-inverse`}
-          >
-            {t.t('admin.unsaved.discard')}
-          </button>
-          <button
-            type="button"
-            data-testid="save-changes"
-            disabled={saving || write === null}
-            onClick={() => void save()}
-            className="flex min-h-touch items-center justify-center rounded-md bg-accent px-4 text-body-md font-bold text-on-accent disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          >
-            {saving ? t.t('admin.unsaved.saving') : t.t('admin.unsaved.save')}
-          </button>
-        </div>
+        <UnsavedBar
+          label={t.t('admin.unsaved.region')}
+          count={t.t('admin.unsaved.count', { count: changed.length })}
+          detail={t.t('admin.ret.unsaved.detail', { count: changed.length })}
+          discardLabel={t.t('admin.unsaved.discard')}
+          saveLabel={t.t('admin.unsaved.save')}
+          savingLabel={t.t('admin.unsaved.saving')}
+          saving={saving}
+          saveDisabled={write === null}
+          onDiscard={() => {
+            if (loaded !== null) setDraft(draftOf(loaded));
+            setSaveError(null);
+            setToast(t.t('admin.unsaved.discarded'));
+          }}
+          onSave={() => void save()}
+        />
       )}
     </div>
   );
@@ -398,54 +376,4 @@ function periodOptions(stored: number | null): readonly number[] {
   return stored === null || RETENTION_PERIOD_DAYS.includes(stored)
     ? RETENTION_PERIOD_DAYS
     : [...RETENTION_PERIOD_DAYS, stored].sort((a, b) => a - b);
-}
-
-function RetentionToggle({
-  label,
-  note,
-  checked,
-  changed,
-  changedLabel,
-  testId,
-  onChange,
-}: {
-  label: string;
-  note: string;
-  checked: boolean;
-  changed: boolean;
-  changedLabel: string;
-  testId: string;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <div className="flex items-center gap-4 border-b border-border py-4 last:border-b-0">
-      <div className="flex flex-1 flex-col gap-1">
-        <b className="text-body-sm font-semibold">{label}</b>
-        <span className="text-body-sm text-text-2">{note}</span>
-        {changed ? (
-          <span className="text-caption font-bold text-accent-text">{changedLabel}</span>
-        ) : null}
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        data-testid={testId}
-        data-changed={changed ? 'true' : 'false'}
-        onClick={() => onChange(!checked)}
-        className={`flex min-h-touch min-w-touch shrink-0 items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-          changed ? 'bg-accent-soft' : ''
-        }`}
-      >
-        <span
-          className={`flex h-6 w-11 items-center rounded-full p-1 transition-colors duration-quick motion-reduce:transition-none ${
-            checked ? 'justify-end bg-primary' : 'justify-start bg-border-strong'
-          }`}
-        >
-          <span className="h-4 w-4 rounded-full bg-on-primary" />
-        </span>
-      </button>
-    </div>
-  );
 }

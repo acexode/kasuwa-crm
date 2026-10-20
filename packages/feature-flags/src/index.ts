@@ -600,6 +600,19 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0140 (D-L194): the P02 console's designed controls whose backend is not
+   * built. The usage meters the API does not serve (WhatsApp conversations,
+   * storage, AI credits) draw in their empty state, and Alert settings, the
+   * programme cards' Edit links and the role panel's View people are drawn
+   * disabled. Presentation only; it grants nothing.
+   */
+  admin_placeholders: {
+    description: 'P02 usage meters without data in their empty state, and disabled P02 controls with no backend yet (T-0140, D-L194).',
+    defaultValue: false,
+    owner: 'T-0140 (placeholder)',
+    productionReady: false,
+  },
+  /**
    * T-0138 (D-L194, D-L195, D-L133 R19): P27's RECENT SEARCHES and RECENTLY
    * VIEWED panel, in the design's empty state. Nothing is stored, on the device
    * or the server, so the panel only ever says that searches will show there.

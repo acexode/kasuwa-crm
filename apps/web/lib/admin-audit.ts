@@ -74,3 +74,83 @@ export function activeFilterCount(filters: {
   if (filters.ipPrefix !== '') count += 1;
   return count;
 }
+
+/**
+ * How each action is coloured (`P02/E`, T-0140): additions green, changes
+ * blue, removals and refusals red, data leaving the system amber, and the
+ * routine rest neutral. Every badge carries its word too, so the colour is
+ * never the only signal.
+ */
+export type AuditActionTone = 'success' | 'info' | 'danger' | 'warning' | 'neutral';
+
+const ACTION_TONE: Readonly<Record<string, AuditActionTone>> = {
+  created: 'success',
+  published: 'success',
+  restored: 'success',
+  updated: 'info',
+  merged: 'info',
+  deleted: 'danger',
+  rejected: 'danger',
+  failed_sign_in: 'danger',
+  exported: 'warning',
+  played_recording: 'warning',
+  invited: 'neutral',
+  rotated: 'neutral',
+  viewed: 'neutral',
+};
+
+export function auditActionTone(action: string): AuditActionTone {
+  return ACTION_TONE[action] ?? 'neutral';
+}
+
+/** The actions with a catalogue label (`admin.audit.action.<action>`). */
+export const AUDIT_ACTIONS = Object.keys(ACTION_TONE);
+
+export function isLabelledAction(action: string): boolean {
+  return Object.prototype.hasOwnProperty.call(ACTION_TONE, action);
+}
+
+/**
+ * The object types the API writes today, each with a catalogue label
+ * (`admin.audit.object.<type>`), so "retention_policy" reads "Retention
+ * policy" in every language rather than as a key.
+ */
+export const AUDIT_OBJECT_TYPES = [
+  'account',
+  'activity',
+  'audit_export',
+  'contact',
+  'custom_field',
+  'deal',
+  'disposition',
+  'field_security',
+  'import_job',
+  'invoice',
+  'portal_user',
+  'programme',
+  'retention_policy',
+  'role',
+  'script',
+  'script_run',
+  'sla_policy',
+] as const;
+
+export type AuditObjectType = (typeof AUDIT_OBJECT_TYPES)[number];
+
+export function isLabelledObjectType(value: string): value is AuditObjectType {
+  return (AUDIT_OBJECT_TYPES as readonly string[]).includes(value);
+}
+
+/**
+ * A key a newer API writes before this catalogue knows it, made readable
+ * ("sms_sender_id" → "Sms sender id", "versionNumber" → "Version number"). A fallback only: the catalogue label,
+ * then the server's own label, come first.
+ */
+export function humaniseKey(key: string): string {
+  const words = key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return words === '' ? key : words.charAt(0).toUpperCase() + words.slice(1);
+}

@@ -76,6 +76,7 @@ describe('feature flags', () => {
       'script_programme_assignment',
       'script_preview',
       'script_version_changes',
+      'admin_placeholders',
     ]);
   });
 

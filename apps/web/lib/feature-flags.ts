@@ -534,6 +534,16 @@ export async function productTourShown(): Promise<boolean> {
 }
 
 /**
+ * `admin_placeholders` (D-L194, T-0140): whether the P02 console draws its
+ * designed controls that have no backend yet, in their empty or disabled
+ * state. Per process, like the tour button.
+ */
+export async function adminPlaceholdersShown(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue('admin_placeholders', false, toEvaluationContext({ tenantId: PRE_TENANT }));
+}
+
+/**
  * `crm_home` (T-0132, D-L196) gates the P03 ROUTE — `/home` calls `notFound()`
  * while it is off, so typing the path gets a real 404 and nothing of the screen
  * ships — and, through `crmLiveNav()` as `home`, the rail and bottom-bar Home
