@@ -2,9 +2,8 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
+import { Banner, Button, Dialog, Tabs, TextField, type TabItem } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
-import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from '../auth/button-classes';
-import { CHIP, CHIP_OFF, CHIP_ON, MENU_ROW } from '../records/list-classes';
 import { isUuid, writeErrorId } from '../record/record-core';
 import { hasDetail, listContacts, type RecordsResult } from '../../lib/records-api';
 import { listAccounts } from '../../lib/accounts-api';
@@ -17,8 +16,9 @@ import type { CustomDraft } from '../../lib/custom-values-model';
 import { LazyCustomInputs } from '../custom/lazy-inputs';
 import { useCustomModel } from '../custom/use-custom-model';
 import { useCustomFields, type ReadOnlyStore } from '../custom/use-custom-fields';
-import { ActivityDialog } from './activity-dialog';
-import { localToUtc, meetingRule, meetingRuleLabel } from './activities-model';
+import { HOUR_MS, localToUtc, meetingRule, meetingRuleLabel, toLocalInput } from './activities-model';
+import { zoneSuffix } from './activity-format';
+import { ToggleChip } from './activity-chips';
 
 /**
  * P07/07 — compose a task or a meeting, for the caller (the owner is the
@@ -37,7 +37,19 @@ import { localToUtc, meetingRule, meetingRuleLabel } from './activities-model';
  * this component's memory only.
  */
 
-type Kind = 'task' | 'meeting';
+type Kind = 'call' | 'meeting' | 'visit' | 'task' | 'note';
+
+/** The design's five type tabs, in its order; Visit only where `field_checkin` is on, and never saved. */
+const KINDS: readonly { readonly kind: Kind; readonly icon: 'call' | 'groups' | 'location_on' | 'task_alt' | 'sticky_note_2' }[] = [
+  { kind: 'call', icon: 'call' },
+  { kind: 'meeting', icon: 'groups' },
+  { kind: 'visit', icon: 'location_on' },
+  { kind: 'task', icon: 'task_alt' },
+  { kind: 'note', icon: 'sticky_note_2' },
+];
+
+/** The design's duration pills, in minutes. */
+const DURATIONS = [15, 30, 45, 60, 90] as const;
 type Field = 'subject' | 'target' | 'dueAt' | 'startsAt' | 'endsAt';
 
 type Picked = ComposeTarget & { readonly name: string };
@@ -53,7 +65,10 @@ const PICKER_LIMIT = 10;
 
 export function ActivityComposer({
   t,
+  locale: _locale,
   offline,
+  visit = false,
+  reminders = false,
   whoAmI,
   onSave,
   onClose,
@@ -61,7 +76,12 @@ export function ActivityComposer({
   readOnlyStore,
 }: {
   t: Translator;
+  locale: string;
   offline: boolean;
+  /** `field_checkin` (D-L194): the Visit tab, drawn and disabled. */
+  visit?: boolean;
+  /** `activity_reminders` (D-L194, D-P29): the customer-reminder pills, drawn and disabled. */
+  reminders?: boolean;
   /** Custom values are on in this process (read by the server page): offer the activity's own fields (T-0091). */
   customFields?: boolean;
   /** The screen's read-only keys, kept across the composer being closed and opened again. */
@@ -70,8 +90,9 @@ export function ActivityComposer({
   onSave: (activity: ComposedActivity, owner: string) => Promise<RecordsResult<WrittenActivity>>;
   onClose: () => void;
 }) {
-  const [kind, setKind] = useState<Kind>('task');
+  const [kind, setKind] = useState<Kind>('meeting');
   const [subject, setSubject] = useState('');
+  const [notes, setNotes] = useState('');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<readonly Picked[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -99,6 +120,8 @@ export function ActivityComposer({
     endsAt: useId(),
     owner: useId(),
     error: useId(),
+    form: useId(),
+    notes: useId(),
   };
 
   // One search box over contacts AND accounts: listContacts and listAccounts
@@ -178,18 +201,9 @@ export function ActivityComposer({
     // `t` is the bundle's translator, stable for the page's language: the box alone decides a search.
   }, [query]);
 
-  const fieldProps = (field: Field, hint?: string) => ({
-    'aria-invalid': errors[field] === undefined ? undefined : true,
-    'aria-describedby': [errors[field] === undefined ? null : `${ids.error}-${field}`, hint ?? null].filter((id) => id !== null).join(' ') || undefined,
-  });
-
   const fieldError = (field: Field) => {
     const message = errors[field];
-    return message === undefined ? null : (
-      <p id={`${ids.error}-${field}`} data-field-error={field} className="text-body-sm text-danger-text">
-        {t.t(message)}
-      </p>
-    );
+    return message === undefined ? undefined : <span data-field-error={field}>{t.t(message)}</span>;
   };
 
   /** The activity the form describes, or the messages that stop it being sent. */
@@ -197,11 +211,15 @@ export function ActivityComposer({
     const found: Partial<Record<Field, MessageId>> = {};
     if (subject.trim() === '') found.subject = 'activities.compose.error.subject';
     if (target === null) found.target = 'activities.compose.error.target';
+    if (kind === 'call' || kind === 'note' || kind === 'visit') {
+      if (Object.keys(found).length > 0 || target === null || kind === 'visit') return { errors: found };
+      return { activity: { type: kind, subject, target: { kind: target.kind, id: target.id }, body: notes } };
+    }
     if (kind === 'task') {
       const dueAt = due === '' ? null : localToUtc(due);
       if (due !== '' && dueAt === null) found.dueAt = 'record.error.invalid';
       if (Object.keys(found).length > 0 || target === null) return { errors: found };
-      return { activity: { type: 'task', subject, dueAt, target: { kind: target.kind, id: target.id } } };
+      return { activity: { type: 'task', subject, dueAt, target: { kind: target.kind, id: target.id }, body: notes } };
     }
     const startsAt = starts === '' ? null : localToUtc(starts);
     const endsAt = ends === '' ? null : localToUtc(ends);
@@ -212,12 +230,12 @@ export function ActivityComposer({
       if (rule !== null) found[rule === 'required' && startsAt === null ? 'startsAt' : 'endsAt'] = meetingRuleLabel(rule);
     }
     if (Object.keys(found).length > 0 || target === null || startsAt === null || endsAt === null) return { errors: found };
-    return { activity: { type: 'meeting', subject, startsAt, endsAt, target: { kind: target.kind, id: target.id } } };
+    return { activity: { type: 'meeting', subject, startsAt, endsAt, target: { kind: target.kind, id: target.id }, body: notes } };
   };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (saving || offline) return;
+    if (saving || offline || kind === 'visit') return;
     const outcome = compose();
     if ('errors' in outcome) {
       setErrors(outcome.errors);
@@ -269,116 +287,163 @@ export function ActivityComposer({
     setAlert(writeErrorId(error.code));
   };
 
+  const zone = zoneSuffix();
+  const zoneAside = <span className="text-body-sm font-medium text-text-muted">{zone}</span>;
+
   const timeInput = (field: 'dueAt' | 'startsAt' | 'endsAt', label: MessageId, value: string, set: (value: string) => void) => (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={ids[field]} className="text-body-sm font-semibold">
-        {t.t(label)}
-      </label>
-      <input
-        id={ids[field]}
-        type="datetime-local"
-        data-field-input={field}
-        value={value}
-        onChange={(event) => set(event.target.value)}
-        className={FIELD}
-        {...fieldProps(field)}
-      />
-      {fieldError(field)}
-    </div>
+    <TextField
+      id={ids[field]}
+      type="datetime-local"
+      mono
+      label={
+        <>
+          {t.t(label)} {zoneAside}
+        </>
+      }
+      data-field-input={field}
+      value={value}
+      onChange={(event) => {
+        set(event.target.value);
+        setErrors((current) => withoutField(current, field));
+      }}
+      error={fieldError(field)}
+    />
   );
 
+  /** Minutes between the two typed times, when both parse: which duration pill is lit. */
+  const minutes = (() => {
+    const from = starts === '' ? null : localToUtc(starts);
+    const to = ends === '' ? null : localToUtc(ends);
+    return from === null || to === null ? null : Math.round((Date.parse(to) - Date.parse(from)) / 60_000);
+  })();
+
+  /** A duration pill sets the end from the start; with no start yet, it starts at the next half hour. */
+  const pickDuration = (length: number) => {
+    let from = starts === '' ? null : localToUtc(starts);
+    if (from === null) {
+      const next = new Date(Math.ceil(Date.now() / (HOUR_MS / 2)) * (HOUR_MS / 2));
+      from = next.toISOString();
+      setStarts(toLocalInput(from));
+    }
+    setEnds(toLocalInput(new Date(Date.parse(from) + length * 60_000).toISOString()));
+    setErrors((current) => withoutField(withoutField(current, 'startsAt'), 'endsAt'));
+  };
+
+  const tabs: TabItem[] = KINDS.filter((entry) => entry.kind !== 'visit' || visit).map((entry) => ({
+    value: entry.kind,
+    label: t.t(`activities.compose.kind.${entry.kind}` as MessageId),
+    icon: entry.icon,
+    disabled: entry.kind === 'visit',
+    attributes: { 'data-activity-type': entry.kind },
+  }));
+
+  const duration = (length: number) =>
+    length < 60
+      ? t.t('activities.compose.minutes', { count: length })
+      : length === 60
+        ? t.t('activities.compose.hour')
+        : t.t('activities.compose.hourHalf');
+
   return (
-    <ActivityDialog testId="activity-composer" title={t.t('activities.compose.title')} closeLabel={t.t('record.sheet.close')} onClose={onClose}>
-      <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
-        {alert === null ? null : (
-          <p role="alert" className="flex items-start gap-2 rounded-md bg-danger-soft p-3 text-body-sm text-danger-text">
-            <Icon name="error" size="sm" />
-            {t.t(alert)}
-          </p>
-        )}
-        <div role="group" aria-labelledby={ids.type} className="flex flex-col gap-1">
-          <span id={ids.type} className="text-body-sm font-semibold">
-            {t.t('activities.compose.type')}
-          </span>
-          <div className="flex flex-wrap gap-2">
-            {(['task', 'meeting'] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                data-activity-type={option}
-                aria-pressed={kind === option}
-                onClick={() => {
-                  setKind(option);
-                  setErrors({});
-                }}
-                className={`${CHIP} ${kind === option ? CHIP_ON : CHIP_OFF}`}
-              >
-                <Icon name={option === 'meeting' ? 'event' : 'task_alt'} size="sm" />
-                {t.t(`record.activity.type.${option}` as MessageId)}
-              </button>
-            ))}
-          </div>
-        </div>
+    <Dialog
+      open
+      testId="activity-composer"
+      size="composer"
+      title={t.t('activities.compose.title')}
+      closeLabel={t.t('record.sheet.close')}
+      onClose={onClose}
+      toolbar={
+        <Tabs
+          aria-label={t.t('activities.compose.type')}
+          items={tabs}
+          value={kind}
+          onValueChange={(next) => {
+            setKind(next as Kind);
+            setErrors({});
+          }}
+          className="gap-0.5 overflow-x-auto px-2 pt-1"
+        />
+      }
+      footerNote={offline ? t.t('activities.compose.offline') : t.t('activities.compose.owner')}
+      secondaryAction={
+        <Button onClick={onClose} className="!h-control-lg !px-4">
+          {t.t('record.form.cancel')}
+        </Button>
+      }
+      primaryAction={
+        <Button
+          variant="primary"
+          type="submit"
+          form={ids.form}
+          data-action="save-activity"
+          data-requires-connection=""
+          disabled={offline || saving || kind === 'visit'}
+          className="!h-control-lg !px-[18px] !font-bold"
+        >
+          {saving ? t.t('record.saving') : t.t('record.form.save')}
+        </Button>
+      }
+    >
+      <form id={ids.form} noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-3.5">
+        {alert === null ? null : <Banner tone="danger">{t.t(alert)}</Banner>}
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor={ids.subject} className="text-body-sm font-semibold">
-            {t.t('record.form.subject')}
-          </label>
-          <input
-            id={ids.subject}
-            data-field-input="subject"
-            value={subject}
-            maxLength={200}
-            autoComplete="off"
-            onChange={(event) => setSubject(event.target.value)}
-            className={FIELD}
-            {...fieldProps('subject')}
-          />
-          {fieldError('subject')}
-        </div>
+        <TextField
+          id={ids.subject}
+          label={t.t('record.form.subject')}
+          data-field-input="subject"
+          value={subject}
+          maxLength={200}
+          autoComplete="off"
+          onChange={(event) => {
+            setSubject(event.target.value);
+            setErrors((current) => withoutField(current, 'subject'));
+          }}
+          error={fieldError('subject')}
+        />
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor={ids.target} className="text-body-sm font-semibold">
-            {t.t('activities.compose.target')}
-          </label>
+        <div className="flex flex-col gap-1.5">
           {target === null ? (
-            <>
-              <input
-                id={ids.target}
-                type="search"
-                data-field-input="target"
-                value={query}
-                maxLength={100}
-                autoComplete="off"
-                aria-controls={ids.results}
-                onChange={(event) => setQuery(event.target.value)}
-                className={FIELD}
-                {...fieldProps('target', ids.targetHint)}
-              />
-              <p id={ids.targetHint} className="text-caption text-text-muted">
-                {t.t('activities.compose.target.hint')}
-              </p>
-            </>
+            <TextField
+              id={ids.target}
+              type="search"
+              label={t.t('activities.compose.target')}
+              hint={t.t('activities.compose.target.hint')}
+              data-field-input="target"
+              value={query}
+              maxLength={100}
+              autoComplete="off"
+              aria-controls={ids.results}
+              onChange={(event) => setQuery(event.target.value)}
+              error={fieldError('target')}
+            />
           ) : (
-            <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-surface px-3 py-2">
-              <Icon name={target.kind === 'contact' ? 'person' : 'domain'} size="sm" />
-              <span className="sr-only">{t.t('activities.compose.target.picked')}</span>
-              <span data-record-text="" className="min-w-0 flex-1 truncate font-semibold">
-                {target.name}
+            <>
+              <span id={ids.target} className="text-body-sm font-semibold">
+                {t.t('activities.compose.target')}
               </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setTarget(null);
-                  setQuery('');
-                }}
-                className={QUIET_BUTTON}
-              >
-                {t.t('activities.compose.target.change')}
-              </button>
-            </div>
+              <span className="flex flex-wrap gap-1.5">
+                <span className="inline-flex h-[34px] max-w-full items-center gap-1 rounded-md bg-primary-soft pe-1 ps-2.5 text-meta font-semibold text-primary-text">
+                  <Icon name={target.kind === 'contact' ? 'person' : 'domain'} size={16} />
+                  <span className="sr-only">{t.t('activities.compose.target.picked')}</span>
+                  <span className="shrink-0">{`${t.t(target.kind === 'contact' ? 'activities.related.contact' : 'activities.related.account')} ·`}</span>
+                  <span data-record-text="" className="min-w-0 truncate">
+                    {target.name}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={t.t('activities.compose.target.change')}
+                    onClick={() => {
+                      setTarget(null);
+                      setQuery('');
+                    }}
+                    className="flex size-7 shrink-0 items-center justify-center rounded-6 is-hover:bg-primary-soft-strong is-focus-visible:ring-focus"
+                  >
+                    <Icon name="close" size={18} />
+                  </button>
+                </span>
+              </span>
+            </>
           )}
-          {fieldError('target')}
           <div id={ids.results} aria-live="polite">
             {target === null && searching ? <p className="text-caption text-text-2">{t.t('activities.compose.target.searching')}</p> : null}
             {target === null && !searching && searchFailed ? (
@@ -388,7 +453,7 @@ export function ActivityComposer({
               <p className="text-caption text-text-2">{t.t('activities.compose.target.none')}</p>
             ) : null}
             {target === null && !searching && results !== null && results.length > 0 ? (
-              <ul className="flex flex-col rounded-md border border-border bg-surface">
+              <ul className="flex flex-col rounded-10 border border-border bg-surface p-1 shadow-1">
                 {results.map((option) => (
                   <li key={`${option.kind}:${option.id}`}>
                     <button
@@ -400,9 +465,9 @@ export function ActivityComposer({
                         setResults(null);
                         setErrors((current) => withoutField(current, 'target'));
                       }}
-                      className={`${MENU_ROW} text-text`}
+                      className="flex min-h-touch w-full items-center gap-2 rounded-6 px-2.5 text-start text-body-sm text-text is-hover:bg-surface-sunken is-focus-visible:ring-focus"
                     >
-                      <Icon name={option.kind === 'contact' ? 'person' : 'domain'} size="sm" />
+                      <Icon name={option.kind === 'contact' ? 'person' : 'domain'} size={18} className="text-text-2" />
                       <span data-record-text="" className="min-w-0 flex-1 truncate">
                         {option.name}
                       </span>
@@ -417,14 +482,68 @@ export function ActivityComposer({
           </div>
         </div>
 
-        {kind === 'task'
-          ? timeInput('dueAt', 'record.activity.due', due, setDue)
-          : (
-            <div className="grid gap-3 sm:grid-cols-2">
+        {kind === 'task' ? timeInput('dueAt', 'record.activity.due', due, setDue) : null}
+
+        {kind === 'meeting' ? (
+          <>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
               {timeInput('startsAt', 'activities.field.startsAt', starts, setStarts)}
               {timeInput('endsAt', 'activities.field.endsAt', ends, setEnds)}
             </div>
-          )}
+            <div role="group" aria-labelledby={`${ids.form}-duration`} className="flex flex-col gap-1.5">
+              <span id={`${ids.form}-duration`} className="text-body-sm font-semibold">
+                {t.t('activities.compose.duration')}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {DURATIONS.map((length) => (
+                  <ToggleChip key={length} size="choice" data-duration={length} pressed={minutes === length} onClick={() => pickDuration(length)}>
+                    {duration(length)}
+                  </ToggleChip>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        {reminders && kind === 'meeting' ? (
+          <div role="group" aria-labelledby={`${ids.form}-remind`} data-placeholder="reminders" className="flex flex-col gap-1.5">
+            <span id={`${ids.form}-remind`} className="text-body-sm font-semibold">
+              {t.t('activities.compose.remind')}
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {(['whatsapp', 'sms', 'email'] as const).map((channel) => (
+                <ToggleChip
+                  key={channel}
+                  size="choice"
+                  soft
+                  pressed={false}
+                  disabled
+                  icon={channel === 'whatsapp' ? 'chat' : channel === 'sms' ? 'sms' : 'mail'}
+                  className="!font-semibold"
+                >
+                  {t.t(`activities.compose.remind.${channel}` as MessageId)}
+                </ToggleChip>
+              ))}
+            </div>
+            <span className="text-caption text-text-muted">{t.t('activities.compose.remind.hint')}</span>
+          </div>
+        ) : null}
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={ids.notes} className="text-body-sm font-semibold">
+            {t.t('activities.compose.notes')}
+          </label>
+          <textarea
+            id={ids.notes}
+            data-field-input="body"
+            rows={3}
+            maxLength={10000}
+            value={notes}
+            placeholder={t.t('activities.compose.notes.placeholder')}
+            onChange={(event) => setNotes(event.target.value)}
+            className="min-h-[76px] resize-y rounded-md border border-border-strong bg-surface px-3 py-2.5 text-label font-normal text-text placeholder:text-text-muted is-focus:field-focus"
+          />
+        </div>
 
         <LazyCustomInputs
           t={t}
@@ -435,26 +554,7 @@ export function ActivityComposer({
           invalid={customInvalid}
           onChange={(key, value) => setCustomDraft((current) => ({ ...current, [key]: value }))}
         />
-
-        <p id={ids.owner} className="text-caption text-text-muted">
-          {t.t('activities.compose.owner')}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="submit"
-            data-action="save-activity"
-            data-requires-connection=""
-            aria-describedby={ids.owner}
-            disabled={offline || saving}
-            className={PRIMARY_BUTTON}
-          >
-            {saving ? t.t('record.saving') : t.t('record.form.save')}
-          </button>
-          <button type="button" onClick={onClose} className={QUIET_BUTTON}>
-            {t.t('record.form.cancel')}
-          </button>
-        </div>
       </form>
-    </ActivityDialog>
+    </Dialog>
   );
 }

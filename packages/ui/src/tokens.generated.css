@@ -147,6 +147,10 @@
   --k-line-height-title: 36px;
   --k-font-weight-title: 800;
   --k-tracking-title: -0.01em;
+  --k-font-size-title-phone: 22px;
+  --k-line-height-title-phone: 28px;
+  --k-font-weight-title-phone: 800;
+  --k-tracking-title-phone: -0.01em;
   --k-font-size-title-sm: 26px;
   --k-line-height-title-sm: 34px;
   --k-font-weight-title-sm: 800;
@@ -219,6 +223,7 @@
   --k-radius-full: 999px;
   
   /* control heights, icon sizes, app shell */
+  --k-control-height-xs: 30px;
   --k-control-height-sm: 36px;
   --k-control-height-md: 40px;
   --k-control-height-base: 44px;
@@ -250,12 +255,23 @@
   --k-layout-column-wide: 520px;
   --k-layout-wizard: 640px;
   --k-layout-wizard-stepper: 880px;
+  --k-layout-home-max: 1368px;
+  --k-layout-home-time: 52px;
+  --k-layout-home-deal-name: 170px;
+  --k-layout-home-add-tile: 140px;
+  --k-layout-home-progress: 360px;
+  --k-layout-home-skeleton-tall: 120px;
+  --k-layout-filter-rail: 240px;
+  --k-layout-page-wide: 1116px;
+  --k-layout-settings-aside: 380px;
+  --k-layout-prefs-channel: 88px;
   
   /* overlays and data display (T-0129) */
   --k-overlay-drawer: 400px;
   --k-overlay-dialog-confirm: 360px;
   --k-overlay-dialog-form: 440px;
   --k-overlay-dialog-wide: 640px;
+  --k-overlay-dialog-composer: 560px;
   --k-overlay-menu: 300px;
   --k-overlay-toast: 400px;
   --k-overlay-table-footer: 56px;
@@ -263,6 +279,8 @@
   --k-overlay-empty-text: 280px;
   --k-overlay-preview-frame: 480px;
   --k-overlay-preview-frame-compact: 560px;
+  --k-overlay-notification-panel: 440px;
+  --k-overlay-notification-toast: 380px;
   --k-radius-sheet: 20px;
   
   /* elevation — the shadow values themselves are semantic, so they differ per theme */
@@ -471,6 +489,7 @@
   --k-line-height-mono: 22px;
   --k-line-height-headline: 57px;
   --k-line-height-title: 40px;
+  --k-line-height-title-phone: 31px;
   --k-line-height-title-sm: 37px;
   --k-line-height-card-title: 26px;
   --k-line-height-sheet-title: 26px;

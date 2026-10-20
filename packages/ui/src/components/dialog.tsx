@@ -55,11 +55,12 @@ export function OverlayCloseButton({ label, onClick, className }: CloseButtonPro
   );
 }
 
-export type DialogSize = 'form' | 'wide';
+export type DialogSize = 'form' | 'wide' | 'composer';
 
 const WIDTH: Record<DialogSize, string> = {
   form: 'sm:max-w-overlay-dialog-form',
   wide: 'sm:max-w-overlay-dialog-wide',
+  composer: 'sm:max-w-overlay-dialog-composer',
 };
 
 export interface DialogProps {
@@ -83,6 +84,19 @@ export interface DialogProps {
    * or scroll lock: the /design/components-2 gallery's specimens.
    */
   readonly preview?: boolean | undefined;
+  /**
+   * A fixed strip between the header and the body, such as P07's activity-type
+   * tabs (T-0136). With one, the header's divider always shows.
+   */
+  readonly toolbar?: ReactNode | undefined;
+  /**
+   * A line of helper text at the start of the footer (P07: "Saved to
+   * Kasuwa."). With one, the footer keeps both actions on a phone, as the
+   * P07 composer draws them, instead of the single full-width primary.
+   */
+  readonly footerNote?: ReactNode | undefined;
+  /** `data-testid` on the dialog element. */
+  readonly testId?: string | undefined;
 }
 
 /** A portal for a live overlay; the children as they are for a preview. */
@@ -108,6 +122,9 @@ export function Dialog({
   size = 'form',
   initialFocus,
   preview = false,
+  toolbar,
+  footerNote,
+  testId,
 }: DialogProps) {
   const [panel, setPanel] = useState<HTMLDivElement | null>(null);
   const titleId = useId();
@@ -132,6 +149,7 @@ export function Dialog({
           aria-modal={preview ? undefined : 'true'}
           aria-labelledby={titleId}
           tabIndex={-1}
+          data-testid={testId}
           className={cx(
             'relative flex w-full min-h-0 flex-col overflow-hidden bg-surface-raised text-text shadow-3 outline-none',
             preview ? 'h-full sm:h-auto sm:max-h-full sm:rounded-14' : 'h-full sm:h-auto sm:max-h-[85vh] sm:rounded-14',
@@ -143,7 +161,7 @@ export function Dialog({
             className={cx(
               'flex shrink-0 items-center gap-1 border-b p-1 transition-colors duration-quick',
               'min-h-shell-mobile-header sm:min-h-shell-header sm:gap-2 sm:py-2 sm:pe-2 sm:ps-5',
-              scrolled ? 'border-border' : 'border-transparent',
+              scrolled || toolbar !== undefined ? 'border-border' : 'border-transparent',
             )}
           >
             <h2
@@ -158,6 +176,7 @@ export function Dialog({
               className="max-sm:order-first max-sm:size-control-lg"
             />
           </div>
+          {toolbar === undefined ? null : <div className="shrink-0">{toolbar}</div>}
           <div
             ref={bodyRef}
             data-k-overlay-body=""
@@ -168,7 +187,19 @@ export function Dialog({
             )}
             {children}
           </div>
-          {hasFooter ? (
+          {hasFooter && footerNote !== undefined ? (
+            <div
+              className={cx(
+                'flex shrink-0 flex-wrap items-center gap-2 border-t border-border px-5 pb-4 pt-3',
+                more && 'shadow-scroll-edge',
+              )}
+            >
+              <span className="min-w-0 flex-[1_1_140px] text-caption text-text-muted">{footerNote}</span>
+              {secondaryAction === undefined ? null : <span className="flex">{secondaryAction}</span>}
+              {primaryAction === undefined ? null : <span className="flex">{primaryAction}</span>}
+            </div>
+          ) : null}
+          {hasFooter && footerNote === undefined ? (
             <div
               className={cx(
                 'flex shrink-0 justify-end gap-2 border-t border-border px-4 pb-4 pt-3 sm:px-5 sm:py-3',

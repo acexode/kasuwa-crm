@@ -44,6 +44,8 @@ export const SCRIPT_RUN_MESSAGE_IDS: readonly MessageId[] = [
   ...CRM_SHELL_MESSAGE_IDS,
   'notFound.title',
   'notFound.body',
+  // T-0134: the shared not-found's hint (record-states.tsx).
+  'record.notFound.hint',
   'records.offline.title',
   'records.offline.never',
   'record.offline',
