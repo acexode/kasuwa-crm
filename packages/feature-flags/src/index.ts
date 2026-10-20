@@ -424,6 +424,70 @@ export const FLAGS = {
     // NOT production-ready: there is no tour behind the button.
     productionReady: false,
   },
+  /**
+   * T-0133 (D-L194, D-L195): the P04 lists' Map segment, drawn DISABLED in the
+   * view switcher with the design's tooltip. The Map view itself answers 501
+   * (D-L69, T-0039); the flag shows where it will be, and grants nothing.
+   */
+  map_view: {
+    description: 'The disabled Map segment in the P04 list view switchers (T-0133, D-L194).',
+    defaultValue: false,
+    owner: 'T-0133 (placeholder), D-L69',
+    productionReady: false,
+  },
+  /**
+   * T-0133 (D-L194, D-L195): the P04 lists' selection column and bulk action
+   * bar. No bulk endpoint exists, so every bar action is drawn disabled; on
+   * Accounts no action is allowed (T-0057), so only the column is drawn.
+   */
+  bulk_actions: {
+    description: 'Row selection and the bulk action bar on the P04 lists, actions disabled until built (T-0133, D-L194).',
+    defaultValue: false,
+    owner: 'T-0133 (placeholder), T-0057, T-0058',
+    productionReady: false,
+  },
+  /**
+   * T-0133 (D-L194): the P04 saved-views menu. Saved views have no backend:
+   * the menu offers the one built-in view and a disabled "Save current
+   * filters as a view".
+   */
+  saved_views: {
+    description: 'The saved-views menu on the P04 lists, with only the built-in view (T-0133, D-L194).',
+    defaultValue: false,
+    owner: 'T-0133 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0133 (D-L194): the P04 "Last activity" column. No list read carries a
+   * last activity, so every cell is the design's empty dash.
+   */
+  last_activity: {
+    description: 'The Last activity column on the P04 lists, empty until a list read serves it (T-0133, D-L194).',
+    defaultValue: false,
+    owner: 'T-0133 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0133 (D-L194, ADR-0003): the phone cards' swipe actions, Call, WhatsApp
+   * and SMS. Telephony and the inbox are not wired, so they are drawn disabled.
+   */
+  quick_actions: {
+    description: 'Call, WhatsApp and SMS swipe actions on the P04 phone cards, disabled until wired (T-0133, D-L194).',
+    defaultValue: false,
+    owner: 'T-0133 (placeholder), ADR-0003',
+    productionReady: false,
+  },
+  /**
+   * T-0133 (D-L194): the P04 filter chips the design draws for filters no list
+   * read declares (Preferred language, Consent status, and State/LGA, Source
+   * or DND where a list cannot filter on them), drawn disabled.
+   */
+  more_filters: {
+    description: 'Disabled P04 filter chips for filters the list reads do not declare yet (T-0133, D-L194).',
+    defaultValue: false,
+    owner: 'T-0133 (placeholder)',
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

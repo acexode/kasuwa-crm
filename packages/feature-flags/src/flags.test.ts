@@ -41,6 +41,12 @@ describe('feature flags', () => {
       'deal_relationships',
       'deal_quotes',
       'product_tour',
+      'map_view',
+      'bulk_actions',
+      'saved_views',
+      'last_activity',
+      'quick_actions',
+      'more_filters',
     ]);
   });
 

@@ -59,25 +59,56 @@ export function sourceLabel(source: string): MessageId {
 // ---------------------------------------------------------------------------
 
 /** A column is a Contact property, by name (`data-column`). */
-export type LeadColumnKey = 'displayName' | 'companyName' | 'phones' | 'status' | 'source' | 'owner';
+export type LeadColumnKey =
+  | 'displayName'
+  | 'phones'
+  | 'whatsappOptIn'
+  | 'emails'
+  | 'companyName'
+  | 'owner'
+  | 'tags'
+  | 'status'
+  | 'source';
 
 export interface LeadColumn {
   readonly key: LeadColumnKey;
   readonly label: MessageId;
   /** The Contact properties whose withholding locks this cell. */
   readonly fields: readonly string[];
+  /** Shown before anyone touches the chooser. */
+  readonly defaultVisible: boolean;
+  /** The name column: always shown, never offered for hiding. */
+  readonly fixed?: true;
 }
 
-/** P04/01's order: Lead, Company, Phone, Status, Source, Owner. */
+/**
+ * P04/01's order (T-0133): Lead, Phone, WA, Email, Company, Owner, Tags,
+ * Status — Last activity sits between Owner and Tags where `last_activity` is
+ * on, and Lead score is not drawn (D-L69). Source is in the name's second line
+ * ("via Missed call · Lagos · Ikeja") and in the chooser.
+ */
 export const LEAD_COLUMNS: readonly LeadColumn[] = [
-  { key: 'displayName', label: 'records.col.displayName', fields: ['displayName'] },
-  { key: 'companyName', label: 'leads.col.companyName', fields: ['companyName'] },
-  { key: 'phones', label: 'records.col.phones', fields: ['phones'] },
-  { key: 'status', label: 'records.col.status', fields: ['status'] },
-  { key: 'source', label: 'records.col.source', fields: ['source'] },
+  { key: 'displayName', label: 'records.col.lead', fields: ['displayName'], defaultVisible: true, fixed: true },
+  { key: 'phones', label: 'records.col.phones', fields: ['phones'], defaultVisible: true },
+  { key: 'whatsappOptIn', label: 'records.col.whatsappOptIn', fields: ['whatsappOptIn'], defaultVisible: true },
+  { key: 'emails', label: 'records.col.emails', fields: ['emails'], defaultVisible: true },
+  { key: 'companyName', label: 'leads.col.companyName', fields: ['companyName'], defaultVisible: true },
   // The contract withholds `owner` and `ownerUserId` together; either locks it.
-  { key: 'owner', label: 'records.col.ownerUserId', fields: ['owner', 'ownerUserId'] },
+  { key: 'owner', label: 'records.col.ownerUserId', fields: ['owner', 'ownerUserId'], defaultVisible: true },
+  { key: 'tags', label: 'records.col.tags', fields: ['tags'], defaultVisible: true },
+  { key: 'status', label: 'records.col.status', fields: ['status'], defaultVisible: true },
+  { key: 'source', label: 'records.col.source', fields: ['source'], defaultVisible: false },
 ];
+
+export function defaultHiddenLeadColumns(): LeadColumnKey[] {
+  return LEAD_COLUMNS.filter((column) => !column.defaultVisible).map((column) => column.key);
+}
+
+/** Hides or restores a column. The fixed name column cannot be hidden. */
+export function toggleLeadColumn(hidden: readonly LeadColumnKey[], key: LeadColumnKey): LeadColumnKey[] {
+  if (LEAD_COLUMNS.find((column) => column.key === key)?.fixed === true) return [...hidden];
+  return hidden.includes(key) ? hidden.filter((value) => value !== key) : [...hidden, key];
+}
 
 export function leadColumnLabel(key: LeadColumnKey): MessageId {
   return LEAD_COLUMNS.find((column) => column.key === key)?.label ?? 'records.col.displayName';
@@ -176,6 +207,8 @@ export function leadSortLabel(sort: LeadSort): MessageId {
 export interface LeadView {
   readonly filters: LeadFilterState;
   readonly sort: LeadSort;
+  /** Rows per page, 25, 50 or 100 (P04's footer, T-0133): the read's `limit`. */
+  readonly pageSize?: number;
   /** Custom-field filters (T-0091); absent while the feature is off. */
   readonly custom?: CustomFilters;
 }
@@ -212,7 +245,7 @@ export function toLeadQuery(q: string, view: LeadView, cursor?: string): LeadLis
     ...base(q, view),
     ...(status.length > 0 ? { status } : {}),
     ...(cursor === undefined ? {} : { cursor }),
-    limit: LEAD_PAGE_SIZE,
+    limit: view.pageSize ?? LEAD_PAGE_SIZE,
   };
 }
 

@@ -104,6 +104,11 @@
     "design.components.segmented.kanban": "Kanban is a loanword, used unchanged in this locale.",
     "design.components.tabs.tickets": "The same word in French.",
     "design.components.kbd.search": "The label printed on the keys (Ctrl and K), the same on keyboards in this locale.",
-    "auth.footer.compliance": "The names of two data-protection laws, NDPA and POPIA. They are acronyms in every language."
+    "auth.footer.compliance": "The names of two data-protection laws, NDPA and POPIA. They are acronyms in every language.",
+    "records.view.kanban": "A loanword (Kanban) used unchanged in this locale.",
+    "records.col.wa": "An abbreviation (WA, WhatsApp) used unchanged in this locale.",
+    "records.card.whatsapp": "A product name. WhatsApp is spelled the same in this locale.",
+    "records.card.sms": "An abbreviation (SMS) used unchanged in this locale.",
+    "leads.via": "The same word in this locale."
   }
 }
