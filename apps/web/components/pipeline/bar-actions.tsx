@@ -28,7 +28,12 @@ export function DealsBarActions({
   return (
     <>
       {live.includes('search') ? (
-        <Link href="/search" prefetch={false} aria-label={t.t(SHELL_SEARCH_STRINGS.entry)} className={BAR_BUTTON}>
+        <Link
+          href="/search"
+          prefetch={false}
+          aria-label={t.t(SHELL_SEARCH_STRINGS.entry)}
+          className={BAR_BUTTON}
+        >
           <Icon name="search" size={24} />
         </Link>
       ) : null}

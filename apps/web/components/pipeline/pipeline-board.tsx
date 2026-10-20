@@ -496,7 +496,7 @@ function DealCard({
           aria-haspopup="dialog"
           disabled={!online || pending}
           onClick={onMoveSheet}
-          className={`-me-1.5 -mt-1 hidden size-8 shrink-0 items-center justify-center rounded-6 text-text-muted hover:bg-surface-sunken hover:text-text disabled:cursor-not-allowed disabled:text-disabled-text md:flex ${FOCUS}`}
+          className={`-me-1 -mt-0.5 hidden size-6 shrink-0 items-center justify-center rounded-sm text-text-muted hover:bg-surface-sunken hover:text-text disabled:cursor-not-allowed disabled:text-disabled-text md:flex ${FOCUS}`}
         >
           <Icon name="drag_indicator" size={18} />
           <span className="sr-only">

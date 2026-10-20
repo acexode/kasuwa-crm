@@ -73,5 +73,7 @@ export const TEMPLATE_MESSAGE_IDS: readonly MessageId[] = TEMPLATES.flatMap((tem
   templateKey(`pipeline.template.${template.id}.name`),
   templateKey(`pipeline.template.${template.id}.description`),
   templateKey(`pipeline.template.${template.id}.rule`),
-  ...template.stages.map(([stage]) => templateKey(`pipeline.template.${template.id}.stage.${stage}`)),
+  ...template.stages.map(([stage]) =>
+    templateKey(`pipeline.template.${template.id}.stage.${stage}`),
+  ),
 ]);

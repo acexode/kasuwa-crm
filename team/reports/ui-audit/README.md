@@ -99,6 +99,10 @@ The fix: pass the SMS hint through, and render the option only when the challeng
 | P27 search | Programme scope pill and menu | D-L87 | Ruling 1 (`programme_scope_search` flag). |
 | P28 import | Review step stats and error table | D-L128 Q6 | Same step and layout, with the counts the API returns; no invented totals. |
 | P03 home | Landing on Home | D-L172 | Superseded by ruling 3. |
+| P06 board | "Any amount" and "All territories" filters | R14 (no amount-band or territory filter in the contract) | Same dropdowns, same place: the currency and won-window filters the contract has (T-0135). |
+| P06 board | "Won this quarter" and "+7 won earlier this quarter" | D-L88 (won covers `closedSince`, default 90 days) | Same figure and box, labelled "Won since {date}" with the served window; won cards stay listed under the box (T-0135). |
+| P06 list | Footer count and totals | R13 (the list holds lost deals the board totals never cover) | Not drawn (T-0135). |
+| P06 deal | Commit/Renewal badges, deal number, Forecast category, Territory, Lead source, Type | No such Deal fields | Not drawn; the header carries account and owner, the key fields what the Deal serves (T-0135). |
 | P01/1 sign in | Work email straight after the divider | D-L195 | Workspace field kept above it, as a 48px field with its help line. |
 | P01/3 sign up | No password; carrier pill ("MTN") in the phone field | D-L195, T-0007b | Password field kept (48px, with help). Joined phone field without the carrier pill. |
 | P01/5.1 region | Nigeria "Enterprise", Kenya "Included", both selectable | D-P2, D-P11 | Same cards and tag style; both tagged "Talk to sales" in the Enterprise colours, not selectable, with the sales note. |

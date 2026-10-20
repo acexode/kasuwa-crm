@@ -216,7 +216,7 @@ export function DealList({
           <table data-testid="deal-list" className="w-full min-w-[1170px] table-fixed border-separate border-spacing-0 text-start text-meta">
             <colgroup>
               <col className="w-[22%]" />
-              <col className="w-[170px]" />
+              <col className="w-[180px]" />
               <col className="w-[150px]" />
               <col className="w-[130px]" />
               <col className="w-[110px]" />
@@ -362,7 +362,7 @@ function Row({
           )}
         </span>
       </TableCell>
-      <TableCell className={`${fill} px-2`}>
+      <TableCell className={`${fill} !px-2`}>
         <label className="relative flex items-center">
           <span className="sr-only">{t.t('pipeline.list.stageFor', { deal: deal.name })}</span>
           {gated ? (

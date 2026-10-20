@@ -549,7 +549,7 @@ function Ready({
                 data-requires-connection=""
                 disabled={!online || busy}
                 onClick={() => (moves.next === null ? undefined : requestMove(moves.next.id))}
-                className="px-4 text-body-sm"
+                className="px-4 !text-body-sm"
               >
                 {t.t('deal.action.moveTo', { stage: moves.next.name })}
                 {nextCount > 0 ? <span className="rounded-full bg-primary-hover px-1.5 py-0.5 text-micro">{t.t('pipeline.move.toComplete', { count: nextCount })}</span> : null}
@@ -562,7 +562,7 @@ function Ready({
                 data-requires-connection=""
                 disabled={!online || busy}
                 onClick={() => (moves.back === null ? undefined : requestMove(moves.back.id))}
-                className="px-3.5 text-body-sm"
+                className="px-3.5 !text-body-sm"
               >
                 {t.t('deal.action.backTo', { stage: moves.back.name })}
               </Button>
@@ -851,12 +851,13 @@ const CHEVRON_FIRST = {
 
 type StepState = 'done' | 'current' | 'allowed' | 'blocked';
 
-/** A step on the path: behind the deal (done), where it is, a stage the allow-list lets it reach, or not. */
+/** A step on the path: behind the deal (done), where it is, a later stage the allow-list lets it reach, or not. */
 function stepState(pipeline: Pipeline, deal: DealDetail, step: PipelineStage): StepState {
   if (step.id === deal.stageId) return 'current';
-  if (isAllowed(pipeline, deal.stageId, step.id)) return 'allowed';
+  // Behind the deal is done, as P06/12 draws it, even where the allow-list lets it step back ("Back to …" is the way back).
   const current = stageById(pipeline, deal.stageId);
   if (current !== undefined && current.kind !== 'lost' && step.position < current.position) return 'done';
+  if (isAllowed(pipeline, deal.stageId, step.id)) return 'allowed';
   return 'blocked';
 }
 

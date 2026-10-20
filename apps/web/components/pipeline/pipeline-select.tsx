@@ -37,15 +37,27 @@ export function pipelineChoices(
   return pipelines.map((pipeline) => ({
     id: pipeline.id,
     name: pipeline.name,
-    qualifier: (seen.get(pipeline.name) ?? 0) > 1 && pipeline.programmeId !== undefined ? (programmes.get(pipeline.programmeId) ?? null) : null,
+    qualifier:
+      (seen.get(pipeline.name) ?? 0) > 1 && pipeline.programmeId !== undefined
+        ? (programmes.get(pipeline.programmeId) ?? null)
+        : null,
   }));
 }
 
 export function choiceLabel(t: Translator, choice: PipelineChoice): string {
-  return choice.qualifier === null ? choice.name : t.t('pipeline.select.qualified', { name: choice.name, programme: choice.qualifier });
+  return choice.qualifier === null
+    ? choice.name
+    : t.t('pipeline.select.qualified', { name: choice.name, programme: choice.qualifier });
 }
 
-export type ChoicesState = { readonly phase: 'loading' } | { readonly phase: 'error' } | { readonly phase: 'ready'; readonly choices: readonly PipelineChoice[]; readonly more: boolean };
+export type ChoicesState =
+  | { readonly phase: 'loading' }
+  | { readonly phase: 'error' }
+  | {
+      readonly phase: 'ready';
+      readonly choices: readonly PipelineChoice[];
+      readonly more: boolean;
+    };
 
 /** The caller's pipelines (the first page) and their programmes' names, read once. */
 export function usePipelineChoices(retry = 0): ChoicesState {
@@ -60,8 +72,16 @@ export function usePipelineChoices(retry = 0): ChoicesState {
         return;
       }
       // Without the programmes' names a duplicate is still drawn, just unqualified.
-      const names = new Map(programmes.ok ? programmes.value.map((programme) => [programme.id, programme.name] as const) : []);
-      setState({ phase: 'ready', choices: pipelineChoices(pipelines.value.data, names), more: pipelines.value.nextCursor !== null });
+      const names = new Map(
+        programmes.ok
+          ? programmes.value.map((programme) => [programme.id, programme.name] as const)
+          : [],
+      );
+      setState({
+        phase: 'ready',
+        choices: pipelineChoices(pipelines.value.data, names),
+        more: pipelines.value.nextCursor !== null,
+      });
     });
     return () => {
       live = false;
@@ -107,7 +127,9 @@ export function PipelineSelect({
         }}
         className="h-control-base w-full min-w-0 cursor-pointer appearance-none truncate rounded-md border border-border-strong bg-surface pe-10 ps-3 text-label font-bold text-text is-hover:border-text-2 is-focus:field-focus"
       >
-        {currentId === null ? <option value="">{placeholder ?? t.t('pipeline.select.label')}</option> : null}
+        {currentId === null ? (
+          <option value="">{placeholder ?? t.t('pipeline.select.label')}</option>
+        ) : null}
         {currentId !== null && !known ? (
           <option value={currentId} data-record-text="">
             {currentName ?? ''}

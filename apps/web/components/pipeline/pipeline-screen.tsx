@@ -1,9 +1,26 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ComponentPropsWithoutRef, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+} from 'react';
 import { createBundleTranslator, type MessageBundle, type Translator } from '@kasuwa/i18n/bundle';
-import { Banner, Button, EmptyState, SegmentedControl, Switch, initials } from '@kasuwa/ui/components';
+import {
+  Banner,
+  Button,
+  EmptyState,
+  SegmentedControl,
+  Select,
+  Switch,
+  initials,
+} from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
@@ -86,11 +103,23 @@ import { usePipelineBoard } from './use-pipeline-board';
  * ---------------------------------------------------------------------------
  */
 
-const DealList = dynamic(() => import('./deal-list').then((module) => module.DealList), { ssr: false, loading: Loading });
-const MoveSheet = dynamic(() => import('./move-sheet').then((module) => module.MoveSheet), { ssr: false });
-const RequirementPrompt = dynamic(() => import('./requirement-prompt').then((module) => module.RequirementPrompt), { ssr: false });
-const DealCreate = dynamic(() => import('./deal-create').then((module) => module.DealCreate), { ssr: false });
-const FilterSheet = dynamic(() => import('./filter-sheet').then((module) => module.FilterSheet), { ssr: false });
+const DealList = dynamic(() => import('./deal-list').then((module) => module.DealList), {
+  ssr: false,
+  loading: Loading,
+});
+const MoveSheet = dynamic(() => import('./move-sheet').then((module) => module.MoveSheet), {
+  ssr: false,
+});
+const RequirementPrompt = dynamic(
+  () => import('./requirement-prompt').then((module) => module.RequirementPrompt),
+  { ssr: false },
+);
+const DealCreate = dynamic(() => import('./deal-create').then((module) => module.DealCreate), {
+  ssr: false,
+});
+const FilterSheet = dynamic(() => import('./filter-sheet').then((module) => module.FilterSheet), {
+  ssr: false,
+});
 
 function Loading() {
   return <div aria-busy="true" className="h-64 rounded-lg bg-surface-sunken" />;
@@ -113,7 +142,6 @@ interface OwnerChoice {
   readonly id: string;
   readonly name: string;
 }
-
 
 export function PipelineScreen({
   pipelineId,
@@ -187,7 +215,8 @@ export function PipelineScreen({
     const found = new Map<string, string>();
     for (const column of columns) {
       for (const card of column.cards) {
-        if (card.owner !== null && card.owner !== undefined && card.owner.displayName !== null) found.set(card.owner.id, card.owner.displayName);
+        if (card.owner !== null && card.owner !== undefined && card.owner.displayName !== null)
+          found.set(card.owner.id, card.owner.displayName);
       }
     }
     setOwners((current) => {
@@ -200,7 +229,9 @@ export function PipelineScreen({
         }
       }
       if (!changed) return current;
-      return [...next.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, locale));
+      return [...next.entries()]
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name, locale));
     });
   }, [columns, locale]);
 
@@ -220,8 +251,12 @@ export function PipelineScreen({
   // keyboard user is not dropped at the top of the page.
   useEffect(() => {
     if (refocus === null) return;
-    const controls = document.querySelectorAll<HTMLElement>(`[data-deal-card="${CSS.escape(refocus)}"] [data-action="move-deal"]`);
-    Array.from(controls).find((control) => control.offsetParent !== null)?.focus();
+    const controls = document.querySelectorAll<HTMLElement>(
+      `[data-deal-card="${CSS.escape(refocus)}"] [data-action="move-deal"]`,
+    );
+    Array.from(controls)
+      .find((control) => control.offsetParent !== null)
+      ?.focus();
     setRefocus(null);
   }, [refocus, columns]);
 
@@ -236,7 +271,8 @@ export function PipelineScreen({
 
   /** A refusal as the person reads it: translated, naming fields and requirements by label, never an id. */
   const refusalText = useCallback(
-    (error: PipelineError, config: Pipeline | null): Promise<string> => moveRefusalText(t, error, config, refreshPipeline),
+    (error: PipelineError, config: Pipeline | null): Promise<string> =>
+      moveRefusalText(t, error, config, refreshPipeline),
     [refreshPipeline, t],
   );
 
@@ -262,7 +298,11 @@ export function PipelineScreen({
         place(result.value);
         reload();
         setListNonce((current) => current + 1);
-        setAnnouncement(t.t('pipeline.move.moved', { stage: stageById(pipeline, result.value.stageId)?.name ?? '' }));
+        setAnnouncement(
+          t.t('pipeline.move.moved', {
+            stage: stageById(pipeline, result.value.stageId)?.name ?? '',
+          }),
+        );
         if (byControl) setRefocus(deal.id);
         return;
       }
@@ -280,9 +320,28 @@ export function PipelineScreen({
           setPrompt((current) => {
             if (current === null) return current;
             const stage = stageById(pipeline, current.toStageId);
-            if (!fresh.ok || stage === undefined) return { ...current, sending: false, refusal: t.t(errorMessage(fresh.ok ? error : fresh.error)) };
-            const { views, conflicts } = rebaseViews(current.views, current.deal, fresh.value, stage, withheldFields, current.input);
-            return { ...current, deal: fresh.value, views, conflicts, sending: false, refusal: t.t('pipeline.prompt.stale') };
+            if (!fresh.ok || stage === undefined)
+              return {
+                ...current,
+                sending: false,
+                refusal: t.t(errorMessage(fresh.ok ? error : fresh.error)),
+              };
+            const { views, conflicts } = rebaseViews(
+              current.views,
+              current.deal,
+              fresh.value,
+              stage,
+              withheldFields,
+              current.input,
+            );
+            return {
+              ...current,
+              deal: fresh.value,
+              views,
+              conflicts,
+              sending: false,
+              refusal: t.t('pipeline.prompt.stale'),
+            };
           });
           return;
         }
@@ -294,7 +353,9 @@ export function PipelineScreen({
       const text = await refusalText(error, pipeline);
       setBusy(deal.id, false);
       if (fromPrompt && promptRef.current !== null) {
-        setPrompt((current) => (current === null ? current : { ...current, sending: false, refusal: text }));
+        setPrompt((current) =>
+          current === null ? current : { ...current, sending: false, refusal: text },
+        );
       } else {
         setBlocked(blockedFor(deal, body.toStageId, text));
       }
@@ -309,7 +370,13 @@ export function PipelineScreen({
    */
   const requestMove = useCallback(
     (deal: Deal, toStageId: string, byControl: boolean) => {
-      if (!navigator.onLine || pipeline === null || toStageId === deal.stageId || pending.has(deal.id)) return;
+      if (
+        !navigator.onLine ||
+        pipeline === null ||
+        toStageId === deal.stageId ||
+        pending.has(deal.id)
+      )
+        return;
       setBlocked(null);
       setAnnouncement('');
       if (!isAllowed(pipeline, deal.stageId, toStageId)) {
@@ -320,7 +387,15 @@ export function PipelineScreen({
       if (stage === undefined) return;
       const views = requirementViews(stage, deal, withheldFields);
       if (views.some((entry) => !entry.met)) {
-        setPrompt({ deal, toStageId, views, input: EMPTY_INPUT, conflicts: [], refusal: null, sending: false });
+        setPrompt({
+          deal,
+          toStageId,
+          views,
+          input: EMPTY_INPUT,
+          conflicts: [],
+          refusal: null,
+          sending: false,
+        });
         return;
       }
       void send(deal, { version: deal.version, toStageId }, false, byControl);
@@ -352,9 +427,13 @@ export function PipelineScreen({
     setListNonce((current) => current + 1);
   }, [reload, t]);
 
-  const setFilter = (change: Partial<FilterState>) => setFilterState((current) => ({ ...current, ...change }));
+  const setFilter = (change: Partial<FilterState>) =>
+    setFilterState((current) => ({ ...current, ...change }));
   const active = filtersActive(filterState);
-  const empty = model.phase === 'ready' && !filtersActive({ ...filterState, q: debouncedQ }) && columns.every((column) => column.count === 0);
+  const empty =
+    model.phase === 'ready' &&
+    !filtersActive({ ...filterState, q: debouncedQ }) &&
+    columns.every((column) => column.count === 0);
   const known = model.phase === 'ready' || withheldSeen.length > 0;
   const hiddenFields = [...new Set([...withheldSeen, ...withheldFields])];
   const dialogOpen = sheet !== null || prompt !== null || creating || filtering;
@@ -381,7 +460,12 @@ export function PipelineScreen({
       locales={locales}
       current="deals"
       live={live}
-      appBar={{ title: t.t('records.nav.deals'), actions: <DealsBarActions t={t} live={live} onNew={newDeal} newDisabled={!online || !ready} /> }}
+      appBar={{
+        title: t.t('records.nav.deals'),
+        actions: (
+          <DealsBarActions t={t} live={live} onNew={newDeal} newDisabled={!online || !ready} />
+        ),
+      }}
     >
       <div data-screen="P06/01" data-view={view} className="flex min-w-0 flex-col gap-3 md:gap-4">
         {/* Behind an open dialog the screen is inert: focus cannot reach another card and open a second one. */}
@@ -412,8 +496,18 @@ export function PipelineScreen({
                 onValueChange={(value) => setView(value === 'list' ? 'list' : 'board')}
                 className="hidden md:inline-flex"
                 options={[
-                  { value: 'board', label: t.t('pipeline.view.board'), icon: 'view_kanban', attributes: { 'data-view-option': 'board' } },
-                  { value: 'list', label: t.t('pipeline.view.list'), icon: 'list', attributes: { 'data-view-option': 'list' } },
+                  {
+                    value: 'board',
+                    label: t.t('pipeline.view.board'),
+                    icon: 'view_kanban',
+                    attributes: { 'data-view-option': 'board' },
+                  },
+                  {
+                    value: 'list',
+                    label: t.t('pipeline.view.list'),
+                    icon: 'list',
+                    attributes: { 'data-view-option': 'list' },
+                  },
                 ]}
               />
             ) : null}
@@ -423,7 +517,13 @@ export function PipelineScreen({
                 title={t.t('pipeline.usd.unavailable')}
                 className="hidden h-control-base items-center rounded-md border border-border-strong bg-surface pe-3 ps-1 md:inline-flex"
               >
-                <Switch label={<span className="text-meta font-semibold">{t.t('pipeline.usd.show')}</span>} disabled checked={false} />
+                <Switch
+                  label={
+                    <span className="text-meta font-semibold">{t.t('pipeline.usd.show')}</span>
+                  }
+                  disabled
+                  checked={false}
+                />
               </span>
             ) : null}
             <Button
@@ -439,7 +539,9 @@ export function PipelineScreen({
             </Button>
           </div>
 
-          {modules.summary && summary !== null ? <SummaryLine t={t} locale={locale} summary={summary} closedSince={model.closedSince} /> : null}
+          {modules.summary && summary !== null ? (
+            <SummaryLine t={t} locale={locale} summary={summary} closedSince={model.closedSince} />
+          ) : null}
 
           {ready || model.phase === 'loading' ? (
             <>
@@ -451,12 +553,27 @@ export function PipelineScreen({
               >
                 {known && !hiddenFields.includes('ownerUserId') && owners.length > 0 ? (
                   <>
-                    <span className="ps-1 text-meta font-semibold text-text-2">{t.t('pipeline.filter.owner')}</span>
-                    <OwnerRow t={t} locale={locale} owners={owners} picked={filterState.owners} onChange={(next) => setFilter({ owners: next })} />
+                    <span className="ps-1 text-meta font-semibold text-text-2">
+                      {t.t('pipeline.filter.owner')}
+                    </span>
+                    <OwnerRow
+                      t={t}
+                      locale={locale}
+                      owners={owners}
+                      picked={filterState.owners}
+                      onChange={(next) => setFilter({ owners: next })}
+                    />
                     <span aria-hidden="true" className="h-7 w-px bg-border" />
                   </>
                 ) : null}
-                {known ? <FilterControls t={t} state={filterState} withheldFields={hiddenFields} onChange={setFilter} /> : null}
+                {known ? (
+                  <FilterControls
+                    t={t}
+                    state={filterState}
+                    withheldFields={hiddenFields}
+                    onChange={setFilter}
+                  />
+                ) : null}
                 <label htmlFor={searchId} className="relative flex items-center">
                   <span className="sr-only">{t.t('pipeline.search.label')}</span>
                   <span className="pointer-events-none absolute start-2.5 flex text-text-2">
@@ -476,7 +593,9 @@ export function PipelineScreen({
                 </label>
                 <span className="flex-1" />
                 {ready ? (
-                  <span className="text-meta text-text-muted">{t.t('pipeline.filter.shown', { count: shown })}</span>
+                  <span className="text-meta text-text-muted">
+                    {t.t('pipeline.filter.shown', { count: shown })}
+                  </span>
                 ) : null}
                 {active ? (
                   <button
@@ -496,14 +615,23 @@ export function PipelineScreen({
                   aria-haspopup="dialog"
                   onClick={() => setFiltering(true)}
                   className={`inline-flex h-control-md shrink-0 items-center gap-1.5 rounded-full border px-3 text-meta font-semibold is-focus-visible:ring-focus ${
-                    active ? 'border-primary bg-primary-soft text-primary-text' : 'border-border-strong bg-surface text-text'
+                    active
+                      ? 'border-primary bg-primary-soft text-primary-text'
+                      : 'border-border-strong bg-surface text-text'
                   }`}
                 >
                   <Icon name="tune" size={18} />
                   {t.t('pipeline.filter.more')}
                 </button>
                 {known && !hiddenFields.includes('ownerUserId') ? (
-                  <OwnerRow t={t} locale={locale} owners={owners} picked={filterState.owners} onChange={(next) => setFilter({ owners: next })} compact />
+                  <OwnerRow
+                    t={t}
+                    locale={locale}
+                    owners={owners}
+                    picked={filterState.owners}
+                    onChange={(next) => setFilter({ owners: next })}
+                    compact
+                  />
                 ) : null}
               </div>
             </>
@@ -511,10 +639,15 @@ export function PipelineScreen({
 
           {online ? null : <OfflineBanner t={t} locale={locale} syncedAt={model.syncedAt} />}
 
-          {blocked === null ? null : <BlockedBanner t={t} blocked={blocked} onDismiss={() => setBlocked(null)} />}
+          {blocked === null ? null : (
+            <BlockedBanner t={t} blocked={blocked} onDismiss={() => setBlocked(null)} />
+          )}
           {model.refreshFailed ? (
             <div data-testid="board-refresh-failed">
-              <Banner tone="warning" action={online ? { label: t.t('records.retry'), onClick: model.reload } : undefined}>
+              <Banner
+                tone="warning"
+                action={online ? { label: t.t('records.retry'), onClick: model.reload } : undefined}
+              >
                 {t.t('pipeline.board.refreshFailed')}
               </Banner>
             </div>
@@ -524,7 +657,11 @@ export function PipelineScreen({
           </p>
 
           {ready && view === 'board' && !empty && pipeline !== null ? (
-            <div role="group" aria-label={t.t('pipeline.stages.label')} className="-mx-4 flex gap-1.5 overflow-x-auto px-4 py-0.5 md:hidden">
+            <div
+              role="group"
+              aria-label={t.t('pipeline.stages.label')}
+              className="-mx-4 flex gap-1.5 overflow-x-auto px-4 py-0.5 md:hidden"
+            >
               {columns.map((column, index) => {
                 const selected = index === activeColumn;
                 return (
@@ -535,11 +672,17 @@ export function PipelineScreen({
                     data-stage-chip={column.stageId}
                     onClick={() => scrollToColumn(index)}
                     className={`inline-flex h-control-md shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-meta font-bold is-focus-visible:ring-focus ${
-                      selected ? 'border-primary bg-primary text-on-primary' : 'border-border-strong bg-surface text-text'
+                      selected
+                        ? 'border-primary bg-primary text-on-primary'
+                        : 'border-border-strong bg-surface text-text'
                     }`}
                   >
-                    <span data-record-text="">{stageById(pipeline, column.stageId)?.name ?? ''}</span>
-                    <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-micro ${selected ? 'bg-primary-hover' : 'bg-surface-sunken'}`}>
+                    <span data-record-text="">
+                      {stageById(pipeline, column.stageId)?.name ?? ''}
+                    </span>
+                    <span
+                      className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-micro ${selected ? 'bg-primary-hover' : 'bg-surface-sunken'}`}
+                    >
                       {formatCount(locale, column.count)}
                     </span>
                   </button>
@@ -556,12 +699,18 @@ export function PipelineScreen({
               </span>
               <div aria-hidden="true" className="flex gap-3 overflow-hidden">
                 {[0, 1, 2, 3, 4].map((index) => (
-                  <span key={index} className="h-[420px] min-w-[228px] flex-1 shrink-0 rounded-lg border border-border bg-surface-sunken" />
+                  <span
+                    key={index}
+                    className="h-[420px] min-w-[228px] flex-1 shrink-0 rounded-lg border border-border bg-surface-sunken"
+                  />
                 ))}
               </div>
             </div>
           ) : model.phase === 'not-found' ? (
-            <div data-testid="record-not-found" className="flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-6">
+            <div
+              data-testid="record-not-found"
+              className="flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-6"
+            >
               <span className="mb-1.5 flex size-12 items-center justify-center rounded-full bg-surface-sunken text-text-2">
                 <Icon name="search_off" size={24} />
               </span>
@@ -578,8 +727,18 @@ export function PipelineScreen({
                 <Icon name="error" size={20} />
                 {t.t('pipeline.board.error')}
               </p>
-              <p>{t.t(errorMessage(model.error ?? { status: 0, code: 'network', details: [] }, 'read'))}</p>
-              <button type="button" data-requires-connection="" disabled={!online} onClick={model.reload} className={QUIET_BUTTON}>
+              <p>
+                {t.t(
+                  errorMessage(model.error ?? { status: 0, code: 'network', details: [] }, 'read'),
+                )}
+              </p>
+              <button
+                type="button"
+                data-requires-connection=""
+                disabled={!online}
+                onClick={model.reload}
+                className={QUIET_BUTTON}
+              >
                 {t.t('records.retry')}
               </button>
             </div>
@@ -600,13 +759,22 @@ export function PipelineScreen({
               onClearFilters={() => setFilterState(NO_FILTERS)}
             />
           ) : empty ? (
-            <div data-testid="board-empty" className="max-w-[960px] rounded-xl border border-border bg-surface p-7">
+            <div
+              data-testid="board-empty"
+              className="max-w-[960px] rounded-xl border border-border bg-surface p-7"
+            >
               <EmptyState
                 icon="view_kanban"
                 title={t.t('pipeline.board.empty.title')}
                 body={t.t('pipeline.board.empty.body')}
                 action={
-                  <Button variant="primary" icon="add" data-requires-connection="" disabled={!online} onClick={newDeal}>
+                  <Button
+                    variant="primary"
+                    icon="add"
+                    data-requires-connection=""
+                    disabled={!online}
+                    onClick={newDeal}
+                  >
                     {t.t('pipeline.newDeal')}
                   </Button>
                 }
@@ -653,7 +821,9 @@ export function PipelineScreen({
             pipeline={pipeline}
             prompt={prompt}
             online={online}
-            onInput={(input) => setPrompt((current) => (current === null ? current : { ...current, input }))}
+            onInput={(input) =>
+              setPrompt((current) => (current === null ? current : { ...current, input }))
+            }
             onClose={() => setPrompt(null)}
             onConfirm={confirmPrompt}
           />
@@ -670,7 +840,12 @@ export function PipelineScreen({
           />
         ) : null}
         {filtering ? (
-          <FilterSheet t={t} active={active} onClear={() => setFilterState(NO_FILTERS)} onClose={() => setFiltering(false)}>
+          <FilterSheet
+            t={t}
+            active={active}
+            onClear={() => setFilterState(NO_FILTERS)}
+            onClose={() => setFiltering(false)}
+          >
             <label className="flex min-w-0 flex-col gap-1.5 text-body-sm font-semibold">
               {t.t('pipeline.search.label')}
               <input
@@ -684,7 +859,13 @@ export function PipelineScreen({
                 className={`${FIELD} font-normal`}
               />
             </label>
-            <Filters t={t} state={filterState} withheldFields={hiddenFields} owners={owners} onChange={setFilter} />
+            <Filters
+              t={t}
+              state={filterState}
+              withheldFields={hiddenFields}
+              owners={owners}
+              onChange={setFilter}
+            />
           </FilterSheet>
         ) : null}
       </div>
@@ -693,7 +874,19 @@ export function PipelineScreen({
 }
 
 /** One currency's figure, or each currency's, joined: never converted, never summed across currencies. */
-function Sums({ t, locale, sums, weighted = false, tone = 'text-text' }: { t: Translator; locale: string; sums: readonly CurrencySum[]; weighted?: boolean; tone?: string }) {
+function Sums({
+  t,
+  locale,
+  sums,
+  weighted = false,
+  tone = 'text-text',
+}: {
+  t: Translator;
+  locale: string;
+  sums: readonly CurrencySum[];
+  weighted?: boolean;
+  tone?: string;
+}) {
   if (sums.length === 0) return <b className={`font-mono text-label ${tone}`}>{'—'}</b>;
   return (
     <>
@@ -701,7 +894,15 @@ function Sums({ t, locale, sums, weighted = false, tone = 'text-text' }: { t: Tr
         <span key={sum.currency}>
           {index === 0 ? null : ' + '}
           <b className={`text-label ${tone}`}>
-            <Money t={t} locale={locale} money={{ amountMinor: weighted ? sum.weightedAmountMinor : sum.amountMinor, currency: sum.currency }} shape="compact" />
+            <Money
+              t={t}
+              locale={locale}
+              money={{
+                amountMinor: weighted ? sum.weightedAmountMinor : sum.amountMinor,
+                currency: sum.currency,
+              }}
+              shape="compact"
+            />
           </b>
         </span>
       ))}
@@ -710,22 +911,38 @@ function Sums({ t, locale, sums, weighted = false, tone = 'text-text' }: { t: Tr
 }
 
 /** P06/01's summary line: the served column figures, added per currency. */
-function SummaryLine({ t, locale, summary, closedSince }: { t: Translator; locale: string; summary: BoardSummary; closedSince: string | null }) {
+function SummaryLine({
+  t,
+  locale,
+  summary,
+  closedSince,
+}: {
+  t: Translator;
+  locale: string;
+  summary: BoardSummary;
+  closedSince: string | null;
+}) {
   return (
-    <div data-testid="board-summary" className="flex flex-wrap items-baseline gap-x-5 gap-y-2 text-meta text-text-2">
+    <div
+      data-testid="board-summary"
+      className="flex flex-wrap items-baseline gap-x-5 gap-y-2 text-meta text-text-2"
+    >
       {summary.open === null ? null : (
         <>
           <span>
             {t.t('pipeline.summary.open')} <Sums t={t} locale={locale} sums={summary.open} />
           </span>
           <span>
-            {t.t('pipeline.summary.weighted')} <Sums t={t} locale={locale} sums={summary.open} weighted />
+            {t.t('pipeline.summary.weighted')}{' '}
+            <Sums t={t} locale={locale} sums={summary.open} weighted />
           </span>
         </>
       )}
       {summary.won === null || closedSince === null ? null : (
         <span>
-          {t.t('pipeline.summary.wonSince', { date: formatShortDate(locale, closedSince.slice(0, 10)) })}{' '}
+          {t.t('pipeline.summary.wonSince', {
+            date: formatShortDate(locale, closedSince.slice(0, 10)),
+          })}{' '}
           <Sums t={t} locale={locale} sums={summary.won} tone="text-success-text" />
         </span>
       )}
@@ -756,7 +973,12 @@ function OwnerRow({
 }) {
   const any = picked.length > 0;
   return (
-    <div role="group" aria-label={t.t('pipeline.filter.owner')} data-filter-group="owner" className="flex shrink-0">
+    <div
+      role="group"
+      aria-label={t.t('pipeline.filter.owner')}
+      data-filter-group="owner"
+      className="flex shrink-0"
+    >
       {owners.map((owner) => {
         const on = picked.includes(owner.id);
         return (
@@ -767,13 +989,17 @@ function OwnerRow({
             aria-label={owner.name}
             title={owner.name}
             data-owner-option={owner.id}
-            onClick={() => onChange(on ? picked.filter((id) => id !== owner.id) : [...picked, owner.id])}
+            onClick={() =>
+              onChange(on ? picked.filter((id) => id !== owner.id) : [...picked, owner.id])
+            }
             className={`flex ${compact ? 'h-control-md' : 'h-control-base'} w-touch shrink-0 items-center justify-center rounded-full is-focus-visible:ring-focus`}
           >
             <span
               aria-hidden="true"
               className={`flex size-8 items-center justify-center rounded-full text-micro transition-opacity duration-quick ${
-                on ? 'bg-primary text-on-primary ring-2 ring-primary ring-offset-2 ring-offset-surface' : 'bg-primary-soft-strong text-primary-text'
+                on
+                  ? 'bg-primary text-on-primary ring-2 ring-primary ring-offset-2 ring-offset-surface'
+                  : 'bg-primary-soft-strong text-primary-text'
               } ${any && !on ? 'opacity-55' : ''}`}
             >
               {initials(owner.name, locale)}
@@ -865,7 +1091,9 @@ function FilterControls({
               </option>
             ))}
           </FilterSelect>
-          {state.closePreset === 'custom' ? <CloseDates t={t} state={state} onChange={onChange} /> : null}
+          {state.closePreset === 'custom' ? (
+            <CloseDates t={t} state={state} onChange={onChange} />
+          ) : null}
         </>
       )}
       {withheldFields.includes('amount') ? null : (
@@ -893,7 +1121,8 @@ function FilterControls({
         data-filter="closedSince"
         value={String(state.wonDays)}
         onChange={(event) => {
-          const days = WON_WINDOWS.find((choice) => String(choice) === event.target.value) ?? state.wonDays;
+          const days =
+            WON_WINDOWS.find((choice) => String(choice) === event.target.value) ?? state.wonDays;
           onChange({ wonDays: days, closedSince: closedSinceFor(days, Date.now()) });
         }}
       >
@@ -907,13 +1136,28 @@ function FilterControls({
   );
 }
 
-function CloseDates({ t, state, onChange }: { t: Translator; state: FilterState; onChange: (change: Partial<FilterState>) => void }) {
-  const control = 'h-control-md rounded-md border border-border-strong bg-surface px-2 text-meta text-text is-focus:field-focus';
+function CloseDates({
+  t,
+  state,
+  onChange,
+}: {
+  t: Translator;
+  state: FilterState;
+  onChange: (change: Partial<FilterState>) => void;
+}) {
+  const control =
+    'h-control-md rounded-md border border-border-strong bg-surface px-2 text-meta text-text is-focus:field-focus';
   return (
     <span className="flex items-center gap-2">
       <label className="flex items-center gap-1.5 text-meta font-semibold text-text-2">
         {t.t('pipeline.filter.closeFrom')}
-        <input type="date" data-filter-input="closeFrom" value={state.closeFrom} onChange={(event) => onChange({ closeFrom: event.target.value })} className={control} />
+        <input
+          type="date"
+          data-filter-input="closeFrom"
+          value={state.closeFrom}
+          onChange={(event) => onChange({ closeFrom: event.target.value })}
+          className={control}
+        />
       </label>
       <label className="flex items-center gap-1.5 text-meta font-semibold text-text-2">
         {t.t('pipeline.filter.closeTo')}
@@ -951,57 +1195,63 @@ function Filters({
   const label = 'flex min-w-0 flex-col gap-1.5 text-body-sm font-semibold';
   const control = `${FIELD} font-normal`;
   return (
-    <div role="group" aria-label={t.t('records.filter.label')} className="flex min-w-0 flex-col gap-4">
+    <div
+      role="group"
+      aria-label={t.t('records.filter.label')}
+      className="flex min-w-0 flex-col gap-4"
+    >
       {withheldFields.includes('ownerUserId') ? null : (
-        <label className={label}>
-          {t.t('pipeline.filter.owner')}
-          <select
-            data-filter="owner"
-            value={state.owners.length === 1 ? (state.owners[0] ?? '') : state.owner}
-            onChange={(event) => {
-              const value = event.target.value;
-              if ((OWNER_FILTERS as readonly string[]).includes(value)) onChange({ owner: value as OwnerFilter, owners: [] });
-              else if (owners.some((owner) => owner.id === value)) onChange({ owner: '', owners: [value] });
-              else onChange({ owner: '', owners: [] });
-            }}
-            className={control}
-          >
-            <option value="">{t.t('pipeline.filter.owner.any')}</option>
-            <option value="me">{t.t('pipeline.filter.owner.me')}</option>
-            <option value="unassigned">{t.t('pipeline.card.unassigned')}</option>
-            {owners.map((owner) => (
-              <option key={owner.id} value={owner.id} data-record-text="">
-                {owner.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select
+          label={t.t('pipeline.filter.owner')}
+          data-filter="owner"
+          value={state.owners.length === 1 ? (state.owners[0] ?? '') : state.owner}
+          onChange={(event) => {
+            const value = event.target.value;
+            if ((OWNER_FILTERS as readonly string[]).includes(value))
+              onChange({ owner: value as OwnerFilter, owners: [] });
+            else if (owners.some((owner) => owner.id === value))
+              onChange({ owner: '', owners: [value] });
+            else onChange({ owner: '', owners: [] });
+          }}
+        >
+          <option value="">{t.t('pipeline.filter.owner.any')}</option>
+          <option value="me">{t.t('pipeline.filter.owner.me')}</option>
+          <option value="unassigned">{t.t('pipeline.card.unassigned')}</option>
+          {owners.map((owner) => (
+            <option key={owner.id} value={owner.id} data-record-text="">
+              {owner.name}
+            </option>
+          ))}
+        </Select>
       )}
       {withheldFields.includes('expectedCloseDate') ? null : (
         <>
-          <label className={label}>
-            {t.t('pipeline.filter.close')}
-            <select
-              data-filter="close"
-              value={state.closePreset}
-              onChange={(event) => {
-                const preset = isClosePreset(event.target.value) ? event.target.value : 'any';
-                onChange({ closePreset: preset, ...(closeRangeFor(preset, Date.now()) ?? {}) });
-              }}
-              className={control}
-            >
-              {CLOSE_PRESETS.map((preset) => (
-                <option key={preset} value={preset}>
-                  {t.t(CLOSE_PRESET_LABELS[preset])}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            label={t.t('pipeline.filter.close')}
+            data-filter="close"
+            value={state.closePreset}
+            onChange={(event) => {
+              const preset = isClosePreset(event.target.value) ? event.target.value : 'any';
+              onChange({ closePreset: preset, ...(closeRangeFor(preset, Date.now()) ?? {}) });
+            }}
+          >
+            {CLOSE_PRESETS.map((preset) => (
+              <option key={preset} value={preset}>
+                {t.t(CLOSE_PRESET_LABELS[preset])}
+              </option>
+            ))}
+          </Select>
           {state.closePreset === 'custom' ? (
             <div className="grid grid-cols-2 gap-3">
               <label className={label}>
                 {t.t('pipeline.filter.closeFrom')}
-                <input type="date" data-filter-input="closeFrom" value={state.closeFrom} onChange={(event) => onChange({ closeFrom: event.target.value })} className={control} />
+                <input
+                  type="date"
+                  data-filter-input="closeFrom"
+                  value={state.closeFrom}
+                  onChange={(event) => onChange({ closeFrom: event.target.value })}
+                  className={control}
+                />
               </label>
               <label className={label}>
                 {t.t('pipeline.filter.closeTo')}
@@ -1019,36 +1269,36 @@ function Filters({
         </>
       )}
       {withheldFields.includes('amount') ? null : (
-        <label className={label}>
-          {t.t('pipeline.filter.currency')}
-          <select data-filter="currency" value={state.currency} onChange={(event) => onChange({ currency: event.target.value })} className={control}>
-            <option value="">{t.t('pipeline.filter.currency.any')}</option>
-            {DEAL_CURRENCIES.map((code) => (
-              <option key={code} value={code} data-record-text="">
-                {code}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      <label className={label}>
-        {t.t('pipeline.filter.won')}
-        <select
-          data-filter="closedSince"
-          value={String(state.wonDays)}
-          onChange={(event) => {
-            const days = WON_WINDOWS.find((choice) => String(choice) === event.target.value) ?? state.wonDays;
-            onChange({ wonDays: days, closedSince: closedSinceFor(days, Date.now()) });
-          }}
-          className={control}
+        <Select
+          label={t.t('pipeline.filter.currency')}
+          data-filter="currency"
+          value={state.currency}
+          onChange={(event) => onChange({ currency: event.target.value })}
         >
-          {WON_WINDOWS.map((days) => (
-            <option key={days} value={String(days)}>
-              {t.t('pipeline.filter.won.days', { days })}
+          <option value="">{t.t('pipeline.filter.currency.any')}</option>
+          {DEAL_CURRENCIES.map((code) => (
+            <option key={code} value={code} data-record-text="">
+              {code}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      )}
+      <Select
+        label={t.t('pipeline.filter.won')}
+        data-filter="closedSince"
+        value={String(state.wonDays)}
+        onChange={(event) => {
+          const days =
+            WON_WINDOWS.find((choice) => String(choice) === event.target.value) ?? state.wonDays;
+          onChange({ wonDays: days, closedSince: closedSinceFor(days, Date.now()) });
+        }}
+      >
+        {WON_WINDOWS.map((days) => (
+          <option key={days} value={String(days)}>
+            {t.t('pipeline.filter.won.days', { days })}
+          </option>
+        ))}
+      </Select>
     </div>
   );
 }
@@ -1058,7 +1308,15 @@ function Filters({
  * danger. With a deal and a target it names both in bold, then why; the deal
  * stayed where it was. Dismissable.
  */
-function BlockedBanner({ t, blocked, onDismiss }: { t: Translator; blocked: Blocked; onDismiss: () => void }) {
+function BlockedBanner({
+  t,
+  blocked,
+  onDismiss,
+}: {
+  t: Translator;
+  blocked: Blocked;
+  onDismiss: () => void;
+}) {
   return (
     <div
       role="alert"
@@ -1069,7 +1327,12 @@ function BlockedBanner({ t, blocked, onDismiss }: { t: Translator; blocked: Bloc
       <span className="min-w-0 flex-[1_1_240px]">
         {blocked.dealName === undefined ? null : (
           <>
-            <b>{t.t('pipeline.blocked.title', { deal: blocked.dealName, stage: blocked.stageName ?? '' })}</b>{' '}
+            <b>
+              {t.t('pipeline.blocked.title', {
+                deal: blocked.dealName,
+                stage: blocked.stageName ?? '',
+              })}
+            </b>{' '}
           </>
         )}
         {blocked.text}
