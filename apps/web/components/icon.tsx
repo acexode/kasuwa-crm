@@ -1,4 +1,34 @@
-import type { IconName } from '@kasuwa/ui';
+import type { ICON_SIZE_ALIAS, IconName, IconSize, IconSizeAlias } from '@kasuwa/ui';
+
+/**
+ * Icon sizes come from the icon's own scale, `ICON_SIZE` in `@kasuwa/ui`, keyed
+ * by pixel size: pass the number the export uses (`size={22}` for a rail or
+ * header icon). Never a type-scale class: those also set a font
+ * weight, and a weight above 400 on the icon font draws a faux-bold glyph.
+ *
+ * `sm`/`md`/`lg`/`xl` are the pre-T-0127 names, kept so existing screens render
+ * at the size they always did (18/20/24/32). The class strings are literal so
+ * Tailwind's scanner sees them; `Record<IconSize, …>` makes a size added to
+ * `ICON_SIZE` without a class here a compile error.
+ *
+ * Types only from `@kasuwa/ui`: this component ships in client bundles, and a
+ * value import would pull the package barrel (every colour, the CSS and preset
+ * builders) into them. `typeof ICON_SIZE_ALIAS` still pins `ALIAS` to the
+ * package's mapping, value for value, at compile time.
+ */
+const ALIAS: typeof ICON_SIZE_ALIAS = { sm: 18, md: 20, lg: 24, xl: 32 };
+
+const SIZE_CLASS: Record<IconSize, string> = {
+  14: 'text-icon-14',
+  15: 'text-icon-15',
+  16: 'text-icon-16',
+  18: 'text-icon-18',
+  20: 'text-icon-20',
+  22: 'text-icon-22',
+  24: 'text-icon-24',
+  28: 'text-icon-28',
+  32: 'text-icon-32',
+};
 
 /**
  * A glyph from the self-hosted Material Symbols subset.
@@ -17,35 +47,22 @@ import type { IconName } from '@kasuwa/ui';
  * or inside a button that carries one; an icon that is the only content of a
  * control gets its name from `aria-label` on the control, never from here.
  */
-/**
- * Icon sizes are TYPE-scale steps, because an icon font's size is a font size.
- * The design uses 18/20/22/28 px; the scale offers 18, 20, 24 and 32, so the
- * two odd values round to the nearest step rather than becoming a raw `22px`
- * somewhere in a class name. A one-off size is how a design system starts
- * leaking, exactly like a one-off colour.
- */
-const SIZE_CLASS = {
-  sm: 'text-body-lg',
-  md: 'text-h4',
-  lg: 'text-h3',
-  xl: 'text-h2',
-} as const;
-
-export type IconSize = keyof typeof SIZE_CLASS;
-
 export function Icon({
   name,
   size = 'md',
+  filled = false,
   className,
 }: {
   name: IconName;
-  size?: IconSize;
+  size?: IconSize | IconSizeAlias;
+  /** The design's filled variant: the active bottom-tab icon, the bell, `gpp_maybe`. */
+  filled?: boolean;
   className?: string;
 }) {
   return (
     <span
       aria-hidden="true"
-      className={`k-icon shrink-0 leading-none ${SIZE_CLASS[size]} ${className ?? ''}`}
+      className={`k-icon shrink-0 leading-none ${SIZE_CLASS[typeof size === 'number' ? size : ALIAS[size]]}${filled ? ' k-icon-filled' : ''} ${className ?? ''}`}
     >
       {name}
     </span>

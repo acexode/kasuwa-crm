@@ -29,12 +29,12 @@ export interface CrmNavItem {
 }
 
 export const CRM_NAV: readonly CrmNavItem[] = [
-  { id: 'home', label: 'records.nav.home', icon: 'space_dashboard', href: null, mobile: true },
+  { id: 'home', label: 'records.nav.home', icon: 'home', href: null, mobile: true },
   { id: 'inbox', label: 'records.nav.inbox', icon: 'forum', href: null, mobile: true },
   { id: 'leads', label: 'records.nav.leads', icon: 'person_add', href: '/leads', mobile: false },
   { id: 'contacts', label: 'records.nav.contacts', icon: 'contacts', href: '/contacts', mobile: true },
   { id: 'accounts', label: 'records.nav.accounts', icon: 'domain', href: '/accounts', mobile: false },
-  { id: 'activities', label: 'records.nav.activities', icon: 'task_alt', href: '/activities', mobile: false },
+  { id: 'activities', label: 'records.nav.activities', icon: 'event_note', href: '/activities', mobile: false },
   { id: 'deals', label: 'records.nav.deals', icon: 'handshake', href: '/pipelines', mobile: true },
   { id: 'tickets', label: 'records.nav.tickets', icon: 'confirmation_number', href: null, mobile: false },
   { id: 'reports', label: 'records.nav.reports', icon: 'bar_chart', href: null, mobile: true },

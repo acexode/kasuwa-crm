@@ -75,7 +75,7 @@ export function ActivityDialog({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <span aria-hidden="true" className="absolute inset-0 -z-10 bg-inverse opacity-60" />
+      <span aria-hidden="true" className="absolute inset-0 -z-10 bg-scrim" />
       <div
         ref={panelRef}
         role="dialog"

@@ -106,7 +106,7 @@ export function Dialog({
       {/* The scrim is its own element so the panel is not dimmed with it.
           `inverse` is the design system's dark surface; there is no scrim
           token and inventing a colour here is exactly what lint forbids. */}
-      <span aria-hidden="true" className="absolute inset-0 -z-10 bg-inverse opacity-60" />
+      <span aria-hidden="true" className="absolute inset-0 -z-10 bg-scrim" />
       <div
         ref={panelRef}
         role="dialog"
