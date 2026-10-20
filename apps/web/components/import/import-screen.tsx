@@ -1,18 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
-import { Icon } from '../icon';
+import { Button, Stepper, type StepperStep } from '@kasuwa/ui/components';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
-import { SECONDARY_BUTTON } from '../auth/button-classes';
 import { STILL_CONNECTING_MS } from '../admin/use-resource';
+import { BarStatus, DataHeader, DataShell, type DataLive } from '../data/data-shell';
 import {
   DEFAULT_COUNTRIES,
   choicesFrom,
   declare,
   isTerminal,
+  nameMapped,
   refusedFields,
+  repeatedFields,
   toColumns,
   withChoice,
   withoutFields,
@@ -21,20 +23,27 @@ import {
 } from '../../lib/import-model';
 import { ImportUploader, type UploadFailure, type UploadView } from '../../lib/import-upload';
 import { cancelImport, createImport, getImport, putImportMapping, runImport, type ImportJob } from '../../lib/imports-api';
+import { Icon } from '../icon';
 import { ImportHistoryList } from './import-history';
-import { refusalId } from './import-text';
-import { JobView } from './job-view';
+import { formatCount, refusalId } from './import-text';
+import { JobView, RunLoading } from './job-view';
 import { MappingStep } from './mapping-step';
 import { PhonesStep } from './phones-step';
-import { UploadStep } from './upload-step';
+import { ReviewStep } from './review-step';
+import { UploadStep, type PickedFile } from './upload-step';
 import { useImportJob, type PollPhase } from './use-import-job';
 import { useImportHistory, useProgrammes } from './use-import-history';
 
 /**
- * `P28` — the CSV import wizard and its history (T-0096), behind the import flag,
- * which only the server page reads. Four steps (I2): upload, mapping, phones
- * and duplicates, the run and its report. The design's dry-run "review" step
- * is gone (D-L128 Q6): an import runs once and reports counts and row errors.
+ * `P28` A–A6 — the CSV import wizard and its history (T-0096, restyled to the
+ * export by T-0141), behind the import flag, which only the server page reads.
+ *
+ * TWO FRAMES, ONE SCREEN. In the admin Data management area (`data_management`,
+ * T-0141) it is the design's five steps — Upload, Map fields, Clean up,
+ * Review, Import — with the sticky action bar. At `/contacts/import` in the
+ * CRM shell (the flag off) it keeps the four steps T-0096 shipped: the Review
+ * step is D-L128 Q6's, drawn only with the counts the API returns, and the
+ * contract that route is held to names four.
  *
  * ---------------------------------------------------------------------------
  * THE FILE NEVER COMES HERE. It goes from the browser to the bucket in pieces
@@ -53,24 +62,29 @@ import { useImportHistory, useProgrammes } from './use-import-history';
  * ---------------------------------------------------------------------------
  */
 
-type Step = 'upload' | 'mapping' | 'phones' | 'run';
-const STEPS: readonly Step[] = ['upload', 'mapping', 'phones', 'run'];
+type Step = 'upload' | 'mapping' | 'phones' | 'review' | 'run';
 
 /** Statuses after which a wizard still on the mapping or phones step has nothing left to map. */
 const DEAD_ENDS = ['rejected', 'failed', 'expired', 'cancelled'] as const;
+
+export type ImportFrame =
+  | { readonly kind: 'crm'; readonly live: readonly string[] }
+  | { readonly kind: 'data'; readonly bell: boolean; readonly sections: DataLive };
 
 export function ImportScreen({
   locale,
   messages,
   locales,
-  live,
+  frame,
 }: {
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
-  live: readonly string[];
+  frame: ImportFrame;
 }) {
   const t = createBundleTranslator(locale, messages);
+  const designed = frame.kind === 'data';
+  const steps: readonly Step[] = designed ? ['upload', 'mapping', 'phones', 'review', 'run'] : ['upload', 'mapping', 'phones', 'run'];
   const programmes = useProgrammes();
   const history = useImportHistory();
 
@@ -80,14 +94,17 @@ export function ImportScreen({
   const [tooLarge, setTooLarge] = useState(false);
   const [error, setError] = useState<MessageId | null>(null);
   const [upload, setUpload] = useState<UploadView | null>(null);
+  const [picked, setPicked] = useState<PickedFile | null>(null);
   const uploader = useRef<ImportUploader | null>(null);
   const [hasUploader, setHasUploader] = useState(false);
   const [importId, setImportId] = useState<string | null>(null);
   const [job, setJob] = useState<ImportJob | null>(null);
   const [choices, setChoices] = useState<Choices | null>(null);
+  const [suggested, setSuggested] = useState<Choices | null>(null);
   const [country, setCountry] = useState<DefaultCountry>('NG');
   const [readOnly, setReadOnly] = useState<ReadonlySet<string>>(new Set());
   const [reuseId, setReuseId] = useState('');
+  const [fixFirst, setFixFirst] = useState(false);
   const [busy, setBusy] = useState(false);
   const locked = useRef(false);
   const [cancelling, setCancelling] = useState(false);
@@ -109,7 +126,9 @@ export function ImportScreen({
   // The suggestion is the mapping until the person changes it; a field already refused is never in it.
   useEffect(() => {
     if (choices !== null || fromHistory || job === null || job.status !== 'awaiting_mapping' || job.headers === null) return;
-    setChoices(withoutFields(choicesFrom(job.headers.length, job.suggestedMapping), readOnly));
+    const first = withoutFields(choicesFrom(job.headers.length, job.suggestedMapping), readOnly);
+    setSuggested(first);
+    setChoices(first);
   }, [job, choices, fromHistory, readOnly]);
 
   // A file the server rejected, or a job that ended while still being mapped, has nothing left to map.
@@ -143,10 +162,13 @@ export function ImportScreen({
     setFromHistory(false);
     setStep('upload');
     setUpload(null);
+    setPicked(null);
     setImportId(null);
     setJob(null);
     setChoices(null);
+    setSuggested(null);
     setReuseId('');
+    setFixFirst(false);
     setError(null);
     setCancelling(false);
     setTooLarge(false);
@@ -163,6 +185,7 @@ export function ImportScreen({
     uploader.current = null;
     setHasUploader(false);
     setUpload(null);
+    setPicked(null);
     setImportId(null);
   };
 
@@ -175,14 +198,18 @@ export function ImportScreen({
     }
     const declared = declare(file.name, file.type, file.size);
     if (!declared.ok) {
-      if (declared.reason === 'file_too_large') setTooLarge(true);
-      else setError('import.error.unsupported_type');
+      if (declared.reason === 'file_too_large') {
+        setPicked({ name: file.name, size: file.size });
+        setTooLarge(true);
+      } else setError('import.error.unsupported_type');
       return;
     }
+    setPicked({ name: file.name, size: file.size });
     setUpload({ state: 'uploading', percent: 0, completing: false });
     const created = await createImport({ programmeId, filename: file.name, sizeBytes: file.size, contentType: declared.contentType });
     if (!created.ok) {
       setUpload(null);
+      setPicked(null);
       setError(refusalId(created.error));
       return;
     }
@@ -199,6 +226,7 @@ export function ImportScreen({
     uploader.current = null;
     setHasUploader(false);
     setUpload(null);
+    setPicked(null);
     setImportId(null);
     setJob(null);
     setError(null);
@@ -294,138 +322,234 @@ export function ImportScreen({
   };
 
   const reusable = history.rows.filter((row) => row.status === 'finished' && row.filename !== null && row.rawFileDeletedAt === null && row.id !== importId);
+  const programmeName = programmes.programmes.find((entry) => entry.id === (job?.programmeId ?? programmeId))?.name ?? null;
 
-  return (
-    <CrmShell t={t} locale={locale} locales={locales} current="contacts" live={live}>
-      <div data-screen="P28" className="flex min-w-0 flex-col gap-4">
-        <header className="flex flex-col gap-1">
-          <h1 className="text-h2">{t.t('import.wizard.title')}</h1>
-          <p className="text-body-md text-text-2">{t.t('import.wizard.subtitle')}</p>
-        </header>
+  // ---------------------------------------------------------------------------
+  // The sticky action bar: what the step is waiting for, and its one way on.
+  // ---------------------------------------------------------------------------
+  const ready = choices !== null && nameMapped(choices) && repeatedFields(choices).length === 0;
+  const continueButton = (label: MessageId, disabled: boolean, onClick: () => void, testId = 'import-continue') => (
+    <Button variant="primary" data-testid={testId} disabled={disabled} onClick={onClick} trailingIcon="arrow_forward" className="rtl:[&_.k-icon:last-child]:-scale-x-100">
+      {t.t(label)}
+    </Button>
+  );
+  const backButton = (onClick: () => void) => (
+    <Button icon="arrow_back" disabled={busy} onClick={onClick} className="rtl:[&_.k-icon]:-scale-x-100">
+      {t.t('import.back')}
+    </Button>
+  );
 
-        <StepList t={t} current={step} />
-
-        {error === null ? null : (
-          <p
-            role="alert"
-            data-testid="import-error"
-            className="flex items-start gap-2 rounded-lg border border-danger bg-danger-soft p-3 text-body-sm text-danger-text"
-          >
-            <Icon name="error" size="sm" />
-            {t.t(error)}
-          </p>
+  let bar: ReactNode = null;
+  if (step === 'upload') {
+    bar = (
+      <>
+        {tooLarge ? (
+          <BarStatus icon="error" tone="danger">{t.t('import.bar.smaller')}</BarStatus>
+        ) : upload?.state === 'done' ? (
+          <BarStatus icon="check_circle" tone="success">{t.t('import.upload.done')}</BarStatus>
+        ) : (
+          <BarStatus icon="hourglass_top">{t.t(upload === null ? 'import.bar.choose' : 'import.bar.wait')}</BarStatus>
         )}
+        {continueButton(designed ? 'import.continue.mapping' : 'import.continue', upload?.state !== 'done', () => {
+          setError(null);
+          setStep('mapping');
+        })}
+      </>
+    );
+  } else if (step === 'mapping') {
+    const total = job?.headers?.length ?? 0;
+    bar = (
+      <>
+        {backButton(() => setStep('upload'))}
+        {choices === null ? (
+          <BarStatus icon="hourglass_top">{t.t('import.map.reading')}</BarStatus>
+        ) : ready ? (
+          <BarStatus icon="check_circle" tone="success">{t.t('import.bar.decided', { count: total, formatted: formatCount(locale, total) })}</BarStatus>
+        ) : (
+          <BarStatus icon="error" tone="danger">{t.t(nameMapped(choices) ? 'import.bar.repeated' : 'import.bar.noName')}</BarStatus>
+        )}
+        {continueButton('import.continue', !ready || busy, () => {
+          setError(null);
+          setStep('phones');
+        })}
+      </>
+    );
+  } else if (step === 'phones') {
+    bar = (
+      <>
+        {backButton(() => setStep('mapping'))}
+        <BarStatus icon="info">{t.t('import.bar.unsaved')}</BarStatus>
+        {designed
+          ? continueButton('import.continue.review', busy, () => {
+              setError(null);
+              setStep('review');
+            })
+          : continueButton('import.start', busy, () => void start(), 'import-start')}
+      </>
+    );
+  } else if (step === 'review') {
+    bar = (
+      <>
+        {backButton(() => setStep('phones'))}
+        <BarStatus icon="info">{t.t('import.bar.background')}</BarStatus>
+        {fixFirst
+          ? continueButton('import.review.another', busy, leave, 'import-restart')
+          : (
+              <Button variant="primary" data-testid="import-start" disabled={busy} loading={busy} onClick={() => void start()} trailingIcon="arrow_forward" className="rtl:[&_.k-icon:last-child]:-scale-x-100">
+                {t.t('import.start')}
+              </Button>
+            )}
+      </>
+    );
+  } else if (job !== null) {
+    const live = job.status === 'queued' || job.status === 'running';
+    const canLeave = fromHistory || isTerminal(job.status);
+    bar = (
+      <>
+        {live ? <BarStatus icon="sync">{t.t('import.bar.running')}</BarStatus> : <BarStatus icon={job.status === 'finished' ? 'check_circle' : 'info'} tone={job.status === 'finished' ? 'success' : 'muted'}>{t.t(`import.status.${job.status}` as MessageId)}</BarStatus>}
+        {canLeave ? (
+          fromHistory ? (
+            <Button icon="arrow_back" onClick={leave} className="rtl:[&_.k-icon]:-scale-x-100">
+              {t.t('import.job.back')}
+            </Button>
+          ) : (
+            continueButton('import.report.again', false, leave, 'import-again')
+          )
+        ) : null}
+      </>
+    );
+  }
 
-        <div className="rounded-lg border border-border bg-surface p-4">
-          {step === 'upload' ? (
-            <UploadStep
-              t={t}
-              locale={locale}
-              programmes={programmes}
-              programmeId={programmeId}
-              tooLarge={tooLarge}
-              upload={upload}
-              controls={hasUploader}
-              onProgramme={(id) => {
-                setProgrammeId(id);
-                setReadOnly(new Set());
-              }}
-              onFile={(file) => void onFile(file)}
-              onPause={() => uploader.current?.pause()}
-              onResume={retryUpload}
-              onRetry={retryUpload}
-              onCancel={() => void cancelUpload()}
-              onContinue={() => {
-                setError(null);
-                setStep('mapping');
-              }}
-            />
-          ) : null}
-          {step === 'mapping' ? (
-            <MappingStep
-              t={t}
-              locale={locale}
-              headers={job?.headers ?? null}
-              choices={choices}
-              readOnly={readOnly}
-              reusable={reusable}
-              reuseId={reuseId}
-              busy={busy}
-              slow={slow}
-              onChoice={(index, field) => setChoices((held) => (held === null ? held : withChoice(held, index, field)))}
-              onReuse={(id) => void reuseMapping(id)}
-              onContinue={() => {
-                setError(null);
-                setStep('phones');
-              }}
-            />
-          ) : null}
-          {step === 'phones' ? (
-            <PhonesStep t={t} country={country} busy={busy} onCountry={setCountry} onBack={() => setStep('mapping')} onStart={() => void start()} />
-          ) : null}
-          {step === 'run' ? (
-            job === null ? (
-              <RunLoading t={t} failed={error !== null} onLeave={leave} />
-            ) : (
-              <JobView
-                t={t}
-                locale={locale}
-                job={job}
-                retrying={poll.retrying}
-                cancelling={cancelling}
-                onCancel={() => void cancelRun()}
-                onLeave={leave}
-                leaveLabel={fromHistory ? 'import.job.back' : 'import.report.again'}
-                canLeave={fromHistory || isTerminal(job.status)}
-              />
-            )
-          ) : null}
-        </div>
+  const body = (
+    <div data-screen="P28" data-step-current={step} className="flex min-w-0 flex-col gap-5">
+      <DataHeader title={t.t('import.wizard.title')} lede={t.t('import.wizard.subtitle')}>
+        <StepList t={t} steps={steps} current={step} />
+      </DataHeader>
 
-        {step === 'upload' ? <ImportHistoryList t={t} locale={locale} history={history} programmes={programmes.programmes} canOpen={upload === null || upload.state === 'done'} onOpen={openFromHistory} /> : null}
-      </div>
-    </CrmShell>
-  );
-}
-
-/** A labelled list of the four steps; the one in hand is `aria-current="step"`. */
-function StepList({ t, current }: { t: Translator; current: Step }) {
-  const at = STEPS.indexOf(current);
-  return (
-    <ol data-testid="import-steps" aria-label={t.t('import.steps.label')} className="grid grid-cols-4 gap-1">
-      {STEPS.map((step, index) => (
-        <li
-          key={step}
-          data-step={step}
-          {...(step === current ? { 'aria-current': 'step' as const } : {})}
-          className={`flex min-w-0 flex-col items-center gap-1 rounded-md p-2 text-center text-caption font-semibold ${
-            step === current ? 'bg-primary text-on-primary' : index < at ? 'bg-primary-soft text-primary-text' : 'bg-surface-sunken text-text-2'
-          }`}
+      {error === null ? null : (
+        <p
+          role="alert"
+          data-testid="import-error"
+          className="m-0 flex items-start gap-3 rounded-lg bg-danger-soft px-5 py-4 text-body-sm text-danger-text"
         >
-          <span aria-hidden="true" className="flex h-6 items-center text-body-sm font-bold">
-            {index < at ? <Icon name="check" size="sm" /> : index + 1}
-          </span>
-          <span className="max-w-full break-words">{t.t(`import.step.${step}` as MessageId)}</span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-/** An import opened from the history that has not been read yet, or could not be. */
-function RunLoading({ t, failed, onLeave }: { t: Translator; failed: boolean; onLeave: () => void }) {
-  return (
-    <section aria-busy={!failed} className="flex flex-col gap-3">
-      {failed ? null : (
-        <p role="status" className="text-body-md text-text-2">
-          {t.t('import.job.loading')}
+          <Icon name="error" size={20} className="mt-px shrink-0" />
+          {t.t(error)}
         </p>
       )}
-      <div>
-        <button type="button" onClick={onLeave} className={SECONDARY_BUTTON}>
-          {t.t('import.job.back')}
-        </button>
-      </div>
-    </section>
+
+      {step === 'upload' ? (
+        <UploadStep
+          t={t}
+          locale={locale}
+          designed={designed}
+          migrationHref={frame.kind === 'data' && frame.sections.migration ? '/admin/data/migration' : null}
+          programmes={programmes}
+          programmeId={programmeId}
+          tooLarge={tooLarge}
+          picked={picked}
+          upload={upload}
+          controls={hasUploader}
+          onProgramme={(id) => {
+            setProgrammeId(id);
+            setReadOnly(new Set());
+          }}
+          onFile={(file) => void onFile(file)}
+          onPause={() => uploader.current?.pause()}
+          onResume={retryUpload}
+          onRetry={retryUpload}
+          onCancel={() => void cancelUpload()}
+        />
+      ) : null}
+      {step === 'mapping' ? (
+        <MappingStep
+          t={t}
+          locale={locale}
+          designed={designed}
+          headers={job?.headers ?? null}
+          choices={choices}
+          suggested={suggested}
+          readOnly={readOnly}
+          reusable={reusable}
+          reuseId={reuseId}
+          busy={busy}
+          slow={slow}
+          onChoice={(index, field) => setChoices((held) => (held === null ? held : withChoice(held, index, field)))}
+          onReuse={(id) => void reuseMapping(id)}
+        />
+      ) : null}
+      {step === 'phones' ? <PhonesStep t={t} designed={designed} country={country} onCountry={setCountry} /> : null}
+      {step === 'review' && choices !== null ? (
+        <ReviewStep
+          t={t}
+          locale={locale}
+          headers={job?.headers ?? []}
+          choices={choices}
+          programmeName={programmeName}
+          country={country}
+          fixFirst={fixFirst}
+          onFixFirst={setFixFirst}
+        />
+      ) : null}
+      {step === 'run' ? (
+        job === null ? (
+          <RunLoading t={t} failed={error !== null} onLeave={leave} />
+        ) : (
+          <JobView
+            t={t}
+            locale={locale}
+            job={job}
+            programmeName={programmeName}
+            retrying={poll.retrying}
+            cancelling={cancelling}
+            onCancel={() => void cancelRun()}
+          />
+        )
+      ) : null}
+
+      {step === 'upload' || (designed && step === 'run' && job !== null) ? (
+        <ImportHistoryList t={t} locale={locale} history={history} programmes={programmes.programmes} canOpen={upload === null || upload.state === 'done'} onOpen={openFromHistory} />
+      ) : null}
+
+      {frame.kind === 'crm' && bar !== null ? (
+        <div data-testid="data-action-bar" className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+          {bar}
+        </div>
+      ) : null}
+    </div>
+  );
+
+  if (frame.kind === 'crm') {
+    return (
+      <CrmShell t={t} locale={locale} locales={locales} current="contacts" live={frame.live}>
+        {body}
+      </CrmShell>
+    );
+  }
+  return (
+    <DataShell t={t} locale={locale} messages={messages} locales={locales} bell={frame.bell} current="import" live={frame.sections} footer={bar ?? undefined}>
+      {body}
+    </DataShell>
+  );
+}
+
+/**
+ * The step list (the T-0129 Stepper, to the export): numbered 26px circles
+ * with inline labels and hairline connectors; the one in hand is
+ * `aria-current="step"`, and each item keeps its `data-step`.
+ */
+function StepList({ t, steps, current }: { t: Translator; steps: readonly Step[]; current: Step }) {
+  const at = steps.indexOf(current);
+  const items: StepperStep[] = steps.map((step, index) => ({
+    label: t.t(`import.step.${step}` as MessageId),
+    state: index < at ? 'done' : index === at ? 'active' : 'todo',
+    attributes: { 'data-step': step },
+  }));
+  return (
+    <Stepper
+      steps={items}
+      label={t.t('import.steps.label')}
+      listAttributes={{ 'data-testid': 'import-steps' }}
+      compactSummary={t.t('import.steps.compact', { step: at + 1, total: steps.length, label: t.t(`import.step.${current}` as MessageId) })}
+    />
   );
 }

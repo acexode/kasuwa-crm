@@ -132,7 +132,7 @@ export function ImportStep({
                 aria-hidden="true"
                 className="flex size-8 flex-shrink-0 items-center justify-center rounded-md bg-surface-sunken text-body-sm font-extrabold text-text-2"
               >
-                {value === 'csv' ? <Icon name="description" size={20} /> : sourceName(value).charAt(0)}
+                {value === 'csv' ? <Icon name="table" size={20} /> : sourceName(value).charAt(0)}
               </span>
               {sourceName(value)}
             </button>

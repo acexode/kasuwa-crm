@@ -2,6 +2,8 @@ import type { MessageId } from '@kasuwa/i18n/bundle';
 import type { RecordsError } from '../../lib/records-api';
 import { ROW_ERROR_CODES } from '../../lib/import-model';
 import { numberingLocale } from '../../lib/numbering';
+import { dateFormatter, tidyMonth } from '../../lib/date-locale';
+import { formatDateTime } from '../record/record-core';
 
 /**
  * Words for what the import API answers (T-0096). Always by `code`, never by
@@ -28,12 +30,10 @@ export function rowErrorId(code: string): MessageId {
   return (ROW_ERROR_CODES as readonly string[]).includes(code) ? (`import.error.${code}` as MessageId) : 'import.error.other';
 }
 
-function formatter(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
-  try {
-    return new Intl.DateTimeFormat(locale, options);
-  } catch {
-    return new Intl.DateTimeFormat('en', options);
-  }
+/** Day first in every English, "Sep" not "Sept" (`lib/date-locale.ts`, T-0143). */
+function formatter(locale: string, options: Intl.DateTimeFormatOptions): { format: (at: Date) => string } {
+  const inner = dateFormatter(locale, options);
+  return { format: (at) => tidyMonth(locale, inner.format(at)) };
 }
 
 /**
@@ -44,7 +44,8 @@ function formatter(locale: string, options: Intl.DateTimeFormatOptions): Intl.Da
 export function formatWhen(locale: string, iso: string): string {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return '';
-  return formatter(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }).format(at);
+  // "20 Oct 15:00 WAT", as every record screen writes it; never "GMT+1" (T-0143).
+  return formatDateTime(locale, iso);
 }
 
 export function formatCount(locale: string, value: number): string {
@@ -53,4 +54,12 @@ export function formatCount(locale: string, value: number): string {
   } catch {
     return new Intl.NumberFormat('en').format(value);
   }
+}
+
+/** A day as the reader's calendar shows it ("12 Sep"), with the year when it is not this one. A date, not a moment: no zone. */
+export function formatDay(locale: string, iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  const sameYear = at.getFullYear() === new Date().getFullYear();
+  return formatter(locale, sameYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' }).format(at);
 }

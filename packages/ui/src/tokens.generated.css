@@ -248,6 +248,9 @@
   --k-shell-mobile-header: 56px;
   --k-shell-search: 420px;
   --k-shell-fab: 56px;
+  --k-shell-data-nav: 232px;
+  --k-shell-data-nav-compact: 196px;
+  --k-shell-data-content: 1240px;
   --k-layout-auth-panel: 520px;
   --k-layout-auth-header: 64px;
   --k-layout-column: 400px;
@@ -265,6 +268,9 @@
   --k-layout-page-wide: 1116px;
   --k-layout-settings-aside: 380px;
   --k-layout-prefs-channel: 88px;
+  --k-layout-studio-aside: 340px;
+  --k-layout-studio-palette: 272px;
+  --k-layout-studio-inspector: 320px;
   
   /* overlays and data display (T-0129) */
   --k-overlay-drawer: 400px;
@@ -281,6 +287,8 @@
   --k-overlay-preview-frame-compact: 560px;
   --k-overlay-notification-panel: 440px;
   --k-overlay-notification-toast: 380px;
+  --k-overlay-studio-panel: 480px;
+  --k-overlay-studio-panel-tablet: 460px;
   --k-radius-sheet: 20px;
   
   /* elevation — the shadow values themselves are semantic, so they differ per theme */
@@ -351,6 +359,9 @@
   --k-chart-5: #D55E00;
   --k-chart-6: #CC79A7;
   --k-chart-7: #847C71;
+  
+  /* native controls, scrollbars and select popups follow the theme (T-0143) */
+  color-scheme: light;
 }
 
 /* Explicit opt-in, so a tenant or a user preference can pin a theme. */
@@ -408,6 +419,7 @@
   --k-chart-5: #E8732A;
   --k-chart-6: #D98CB6;
   --k-chart-7: #ABA398;
+  color-scheme: dark;
 }
 
 /* System preference, unless light has been explicitly pinned. */
@@ -466,6 +478,7 @@
     --k-chart-5: #E8732A;
     --k-chart-6: #D98CB6;
     --k-chart-7: #ABA398;
+    color-scheme: dark;
   }
 }
 

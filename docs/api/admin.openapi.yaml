@@ -142,9 +142,10 @@ paths:
         whole. Three placeholder rules exist, worth 100 points together:
         `users_without_mfa` (40), `open_critical_alerts` (35) and
         `open_warning_alerts` (25), each computed over the caller's reachable
-        users and alerts. `planName` is `Not set` (or `Trial` for a trial
-        tenant) until M23 stores a plan, and `countryCount` is the number of
-        distinct locale regions among reachable users and the tenant default.
+        users and alerts. `planName` is empty (or `Trial` for a trial
+        tenant) until M23 stores a plan, and a client leaves an empty plan
+        out; `countryCount` is the number of distinct locale regions among
+        reachable users and the tenant default.
       responses:
         '200':
           description: The workspace summary.
@@ -2742,7 +2743,11 @@ components:
           properties:
             id: { type: string, format: uuid }
             name: { type: string }
-            planName: { type: string }
+            planName:
+              type: string
+              description: >-
+                The plan's display name. Empty while no plan is stored (M23);
+                never placeholder copy, which a client would print as a plan.
             countryCount: { type: integer }
             userCount: { type: integer }
         dataRegion:

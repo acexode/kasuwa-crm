@@ -9,11 +9,13 @@ import {
   type MessageId,
   type Translator,
 } from '@kasuwa/i18n/bundle';
+import { Checkbox } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { StillConnecting } from '../admin/panel';
 import { RecordNotFound, RecordOfflineBanner, RecordUnavailable } from '../record/record-states';
+import { formatClock } from '../record/record-core';
 import { TypePill } from '../script-shared/node-style';
 import {
   nodeById,
@@ -490,21 +492,15 @@ function ContactLink({
   );
 }
 
-/** The time a version was published, with the zone named: "13:55 WAT". */
+/**
+ * The time a version was published, with the zone named: "13:55 WAT". The
+ * zone is the one people at the desk say (`zoneName`), never ICU English's
+ * "GMT+1" (T-0143).
+ */
 function clock(locale: string, iso: string): string {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return '';
-  const options: Intl.DateTimeFormatOptions = {
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-    timeZoneName: 'short',
-  };
-  try {
-    return new Intl.DateTimeFormat(locale, options).format(at);
-  } catch {
-    return new Intl.DateTimeFormat('en', options).format(at);
-  }
+  return formatClock(locale, at);
 }
 
 /** The export's version banner: info-soft, a 1px info edge, radius 12; a title, a body, "What changed" and a dismiss. */
@@ -1113,27 +1109,33 @@ function CompliancePart({
   }
   return (
     <div className="flex flex-col gap-3">
-      <label
-        htmlFor={box}
-        className={`flex min-h-12 cursor-pointer items-center gap-2.5 rounded-10 border px-3 py-2 ${acked ? 'border-success bg-success-soft' : 'border-warning bg-warning-soft'}`}
+      {/*
+        The tick is the @kasuwa/ui Checkbox (T-0143), not a native box, so it
+        follows the theme. It stays disabled once the server has the
+        acknowledgement (it cannot be taken back); that state is drawn as a
+        success tick on the success row, not the greyed disabled box.
+      */}
+      <div
+        className={`flex min-h-12 items-center gap-2.5 rounded-10 border px-3 py-0.5 ${acked ? 'border-success bg-success-soft' : 'border-warning bg-warning-soft'}`}
       >
-        <input
+        <Checkbox
           id={box}
-          type="checkbox"
           data-action="acknowledge"
           data-requires-connection=""
           checked={acked}
           disabled={disabled || acked}
           onChange={() => void state.acknowledge(node.id, shown)}
-          className="size-5 shrink-0 accent-success"
+          label={<span className="flex-1 font-semibold">{t.t('scripting.run.acknowledge')}</span>}
+          className={`flex-1 gap-2.5 ${
+            acked
+              ? '!cursor-default !text-text [&_.k-icon]:!text-on-primary [&_input]:!border-success [&_input]:!bg-success'
+              : ''
+          }`}
         />
-        <span className="flex-1 text-body-sm font-semibold text-text">
-          {t.t('scripting.run.acknowledge')}
-        </span>
         <span className="text-caption font-normal text-text-muted max-md:hidden">
           {t.t('scripting.run.logged')}
         </span>
-      </label>
+      </div>
       <div className="flex flex-wrap items-center justify-end gap-2.5">
         {acked ? null : (
           <span className="text-caption font-normal text-text-muted">

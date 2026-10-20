@@ -5,12 +5,16 @@ import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { Dialog } from '../admin/dialog';
 import { StillConnecting } from '../admin/panel';
-import { PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
+import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
+import { Button } from '@kasuwa/ui/components';
+import type { IconName } from '@kasuwa/ui';
+import type { MessageId as Id } from '@kasuwa/i18n/bundle';
+import { BackLink, DataHeader } from '../data/data-shell';
 import { createContactMerge, getContactMergePreview, listContactMerges, undoContactMerge } from '../../lib/duplicates-api';
 import { mergeRefusal, undoRefusal } from './duplicates-model';
 import { findOwnMerge, mergeBody, mergeReducer, startMerge } from './merge-model';
-import { PersonName, Skeleton } from './duplicates-parts';
-import { MergeCompare } from './merge-compare';
+import { PersonName } from './duplicates-parts';
+import { MergeCompare, type CompareColumn } from './merge-compare';
 import { MergeResult } from './merge-result';
 import { useStillConnecting } from './use-still-connecting';
 
@@ -28,16 +32,25 @@ import { useStillConnecting } from './use-still-connecting';
  * is not cancelled (a half-cancelled write is worse than a late one); its
  * answer is simply not drawn once the screen has gone.
  */
+/** What the API moves to the main record (activities and deals as primary contact); the preview serves no counts, so none is drawn. */
+const MOVES: readonly (readonly [IconName, Id])[] = [
+  ['handshake', 'duplicates.moves.deals'],
+  ['event', 'duplicates.moves.activities'],
+];
+
 export function MergeView({
   t,
   locale,
   pair,
+  threeWay,
   onBack,
   onMessage,
 }: {
   t: Translator;
   locale: string;
   pair: readonly [string, string];
+  /** `merge_three_way`: the compare draws its disabled third slot. */
+  threeWay: boolean;
   /** `dirty`: a merge or an undo happened, so the sets and the history are read again. */
   onBack: (dirty: boolean) => void;
   onMessage: (message: MessageId | null) => void;
@@ -134,73 +147,84 @@ export function MergeView({
   const comparing = view.step === 'compare' || view.step === 'merging';
   const preview = view.preview;
   const busy = view.step !== 'compare';
+  const columns = view.pair.map((id) => ({ id, side: id === view.mainId ? ('survivor' as const) : ('merged' as const) })) as unknown as readonly [CompareColumn, CompareColumn];
 
   return (
-    <section data-testid="merge-view" aria-labelledby="merge-title" className="flex min-w-0 flex-col gap-4">
-      <div>
-        <button type="button" data-testid="merge-back" disabled={view.step === 'merging' || view.step === 'undoing'} onClick={() => onBack(view.dirty)} className={QUIET_BUTTON}>
-          <Icon name="arrow_back" size="sm" />
-          {t.t('duplicates.merge.back')}
-        </button>
-      </div>
-      <header className="flex flex-col gap-1">
-        <h2 id="merge-title" className="text-h3">
-          {t.t('duplicates.merge.title')}
-        </h2>
-        <p className="text-body-sm text-text-2">{t.t('duplicates.merge.intro')}</p>
-      </header>
+    <section data-testid="merge-view" aria-labelledby="merge-title" className="flex min-w-0 flex-col gap-5">
+      <DataHeader
+        back={
+          <BackLink testId="merge-back" disabled={view.step === 'merging' || view.step === 'undoing'} onClick={() => onBack(view.dirty)}>
+            {t.t('duplicates.merge.back')}
+          </BackLink>
+        }
+        title={<span id="merge-title">{t.t('duplicates.merge.title')}</span>}
+        lede={t.t('duplicates.merge.intro')}
+      />
 
+      {comparing && view.load === 'loading' && slow ? <StillConnecting t={t} /> : null}
       {comparing && view.load === 'loading' ? (
-        <div className="flex flex-col gap-3">
-          {slow ? <StillConnecting t={t} /> : null}
-          <Skeleton t={t} label="duplicates.merge.loading" rows={5} />
-        </div>
+        <span role="status" className="sr-only">
+          {t.t('duplicates.merge.loading')}
+        </span>
       ) : null}
 
       {comparing && view.load === 'failed' ? (
         <div className="flex flex-col items-start gap-2">
-          <p className="text-body-md text-text-2">{t.t('duplicates.merge.failed')}</p>
-          <button type="button" onClick={() => dispatch({ type: 'reread' })} className={SECONDARY_BUTTON}>
+          <p className="m-0 text-body-md text-text-2">{t.t('duplicates.merge.failed')}</p>
+          <Button icon="refresh" onClick={() => dispatch({ type: 'reread' })}>
             {t.t('duplicates.retry')}
-          </button>
+          </Button>
         </div>
       ) : null}
 
-      {comparing && Object.keys(view.names).length > 0 ? (
-        <fieldset disabled={busy} className="flex min-w-0 flex-col gap-2">
-          <legend className="mb-1 text-body-md font-semibold">{t.t('duplicates.merge.mainLegend')}</legend>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {view.pair.map((id) => (
-              <label key={id} className={`flex min-h-touch min-w-0 cursor-pointer items-center gap-3 rounded-md border p-3 ${id === view.mainId ? 'border-primary bg-primary-soft' : 'border-border bg-surface'}`}>
-                <input
-                  type="radio"
-                  name={`main-${view.pair.join('-')}`}
-                  data-main={id}
-                  checked={id === view.mainId}
-                  disabled={busy}
-                  onChange={() => dispatch({ type: 'main', id })}
-                  className="h-5 w-5 shrink-0 accent-primary"
-                />
-                <PersonName t={t} name={view.names[id] ?? null} />
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      ) : null}
-
-      {comparing && preview !== null ? (
+      {comparing && view.load !== 'failed' ? (
         <>
-          <MergeCompare t={t} preview={preview} overrides={view.overrides} refused={view.refused} disabled={busy} onPick={(field, side) => dispatch({ type: 'pick', field, side })} />
+          <MergeCompare
+            t={t}
+            locale={locale}
+            preview={preview}
+            columns={columns}
+            names={view.names}
+            mainId={view.mainId}
+            mainName={`main-${view.pair.join('-')}`}
+            overrides={view.overrides}
+            refused={view.refused}
+            disabled={busy || view.load !== 'ready'}
+            threeWay={threeWay}
+            onMain={(id) => dispatch({ type: 'main', id })}
+            onPick={(field, side) => dispatch({ type: 'pick', field, side })}
+          />
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button type="button" data-testid="merge-submit" disabled={busy || view.blocked} onClick={() => setConfirming(true)} className={PRIMARY_BUTTON}>
-              {t.t('duplicates.merge.submit')}
-            </button>
+          <div className="grid gap-3 xl:grid-cols-2">
+            <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface px-4 py-3.5">
+              <b className="text-body-sm font-bold">{t.t('duplicates.moves.title')}</b>
+              <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+                {MOVES.map(([icon, label]) => (
+                  <li key={label} className="inline-flex h-[30px] items-center gap-1.5 rounded-full bg-surface-sunken px-2.5 text-meta font-semibold">
+                    <Icon name={icon} size={16} className="text-text-2" />
+                    {t.t(label)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <p data-testid="merge-compliance-note" className="m-0 flex gap-2.5 rounded-lg bg-info-soft px-4 py-3.5 text-meta text-text">
+              <Icon name="verified_user" size={20} className="shrink-0 text-info-text" />
+              <span>
+                <b className="font-bold">{t.t('duplicates.compliance.title')}. </b>
+                {t.t('duplicates.compliance.note')}
+              </span>
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {view.step === 'merging' ? (
-              <span role="status" className="text-body-sm text-text-2">
+              <span role="status" className="me-auto text-body-sm text-text-2">
                 {t.t('duplicates.merging')}
               </span>
             ) : null}
+            <Button variant="primary" icon="join" data-testid="merge-submit" disabled={busy || view.blocked || preview === null} onClick={() => setConfirming(true)}>
+              {t.t('duplicates.merge.submit')}
+            </Button>
           </div>
         </>
       ) : null}

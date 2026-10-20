@@ -235,7 +235,33 @@ warning
 where_to_vote
 work
 workspaces
+# T-0141 (P28 data management): the sub-nav (cloud_sync, privacy_tip), the
+# import run (sync) and the migration connect card (edit_off, link_off).
+cloud_sync
+edit_off
+link_off
+privacy_tip
+sync
 # P27 search and command palette (T-0138).
 calendar_today
 monitoring
 select_all
+# T-0142 (P18 Customisation Studio): the field types' glyphs (short_text, pin,
+# arrow_drop_down_circle, checklist, function, functions, shield_lock,
+# toggle_on), the field properties (emergency, fingerprint, filter_alt), and the
+# layout builder's sections and device toggle (view_agenda, desktop_windows).
+short_text
+pin
+arrow_drop_down_circle
+checklist
+function
+functions
+shield_lock
+toggle_on
+emergency
+fingerprint
+filter_alt
+view_agenda
+desktop_windows
+# T-0143 (P01 onboarding): the CSV source tile (table); sync is above (T-0141).
+table

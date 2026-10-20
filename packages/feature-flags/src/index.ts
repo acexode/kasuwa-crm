@@ -600,6 +600,64 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0141 (D-L193, D-L194): P28's admin "Data management" area at
+   * `/admin/data/*`: the admin bar with its section title, the 232px sub-nav
+   * and the sticky action bar, holding the import wizard (with the design's
+   * Review step) and the duplicates screen. With it on, `/contacts/import` and
+   * `/contacts/duplicates` redirect into the area; off, they render in the CRM
+   * shell as before. Presentation only: grants nothing.
+   */
+  data_management: {
+    description: 'The P28 admin Data management area at /admin/data, with the five-step import wizard and duplicates (T-0141, D-L194).',
+    defaultValue: false,
+    owner: 'T-0141 (screens), T-0096, T-0097',
+    productionReady: false,
+  },
+  /**
+   * T-0141 (D-L194): P28's Migration section (frames B–B5), drawn in the
+   * design's own not-connected state: no connector exists, so the connect
+   * button is disabled and nothing is read from another CRM.
+   */
+  data_migration: {
+    description: 'The P28 Migration placeholder in Data management, not connected (T-0141, D-L194).',
+    defaultValue: false,
+    owner: 'T-0141 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0141 (D-L194): P28's Export centre (frames D, D1), drawn empty: there is
+   * no export or approval API, so the list is the design's empty state and
+   * New export is disabled.
+   */
+  data_export: {
+    description: 'The P28 Export centre placeholder in Data management, empty (T-0141, D-L194).',
+    defaultValue: false,
+    owner: 'T-0141 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0141 (D-L194): P28's Data-subject requests (frames E–E3), drawn empty:
+   * there is no DSR API, so the tiles carry no figure, the table is the
+   * design's empty state and Log a request is disabled.
+   */
+  dsr: {
+    description: 'The P28 Data-subject requests placeholder in Data management, empty (T-0141, D-L194).',
+    defaultValue: false,
+    owner: 'T-0141 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0141 (D-L194, D-L146): the third record slot in the P28 merge compare,
+   * drawn disabled. Merges are pairwise (D-L146); the slot shows where a
+   * three-way merge would sit and holds no record.
+   */
+  merge_three_way: {
+    description: 'The disabled third record slot in the P28 merge compare; merges stay pairwise (T-0141, D-L146, D-L194).',
+    defaultValue: false,
+    owner: 'T-0141 (placeholder), D-L146',
+    productionReady: false,
+  },
+  /**
    * T-0140 (D-L194): the P02 console's designed controls whose backend is not
    * built. The usage meters the API does not serve (WhatsApp conversations,
    * storage, AI credits) draw in their empty state, and Alert settings, the
@@ -762,6 +820,75 @@ export const FLAGS = {
     description: 'The P10 run version banner\'s "What changed" button, disabled until agents can read a newer version\'s change list (T-0139, D-L194).',
     defaultValue: false,
     owner: 'T-0139 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0142: the P18 Customisation Studio's sections with no backend yet.
+   * Each route (`/admin/studio…`) is a real 404 while its flag is off, and its
+   * settings-menu entry stays a non-link. On, the screen is drawn in the
+   * design's own empty or disabled state: the four standard objects the
+   * contract already names, and never an invented object, rule, layout or
+   * number. Presentation only.
+   */
+  studio_objects: {
+    description: 'P18 Object manager at /admin/studio and the object header chips, in their empty state until custom objects exist (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), custom objects when they are built',
+    productionReady: false,
+  },
+  studio_layouts: {
+    description: 'P18 page layouts and the layout builder at /admin/studio/layouts, in their empty state until layouts exist (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), page layouts when they are built',
+    productionReady: false,
+  },
+  studio_validation: {
+    description: 'P18 validation rules at /admin/studio/validation-rules, in their empty state until rules exist (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), validation rules when they are built',
+    productionReady: false,
+  },
+  studio_relationships: {
+    description: 'P18 relationships view at /admin/studio/relationships and its buttons, in their empty state until lookups exist (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), lookup and master-detail fields when they are built',
+    productionReady: false,
+  },
+  studio_record_types: {
+    description: 'P18 record types at /admin/studio/record-types, in their empty state until record types exist (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), record types when they are built',
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0142: the field editor's designed types the custom-field
+   * contract refuses (multi-select, lookup, formula, roll-up, phone, email,
+   * NIN/BVN secure, file), drawn as disabled cards in the type picker. Off,
+   * the picker offers exactly the contract's six.
+   */
+  custom_field_types_extended: {
+    description: 'P18 field types the contract does not accept yet, drawn disabled in the type picker (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), each field type when the contract accepts it',
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0142: what the field list and editor draw about a field that no
+   * read serves yet: the "Used in" column and banner, "Not used anywhere", the
+   * Filterable meter and the Required, Unique and Filterable switches, each in
+   * its empty or disabled state. Off, none is drawn.
+   */
+  studio_field_usage: {
+    description: 'P18 field usage, the Filterable meter and the field property switches, in their empty or disabled state (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), field usage and properties when they are served',
+    productionReady: false,
+  },
+  /** D-L194, T-0142: the field editor's Translations tab, disabled until field-label translations are stored. */
+  studio_field_translations: {
+    description: 'P18 field editor Translations tab, drawn disabled until field-label translations exist (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), field-label translations when they are built',
     productionReady: false,
   },
 } as const satisfies Record<string, FlagDefinition>;

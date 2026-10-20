@@ -1,5 +1,6 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
 import type { RecordsError, RecordsResult, RecordsScreenErrorCode } from '../../lib/records-api';
+import { dateFormatter, tidyMonth } from '../../lib/date-locale';
 
 /**
  * The pure half every P05 record shares — the contact (T-0062) and the
@@ -29,18 +30,24 @@ export type ValueView =
 // person reads their clock in. BPO rosters span WAT, EAT and SAST.
 // ---------------------------------------------------------------------------
 
+/** Day first on a 24-hour clock in every English (`lib/date-locale.ts`, T-0143). */
 function formatter(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
-  try {
-    return new Intl.DateTimeFormat(locale, options);
-  } catch {
-    return new Intl.DateTimeFormat('en', options);
-  }
+  return dateFormatter(locale, options);
 }
 
-export function formatDateTime(locale: string, iso: string): string {
+/**
+ * A moment with its zone named, as the designs write it: "20 Oct 15:00 WAT",
+ * with the year only when it is not this year ("3 Sep 2025 09:30 WAT"). A
+ * bare time is one somebody acts on in the wrong hour; rosters span WAT, EAT
+ * and SAST.
+ */
+export function formatDateTime(locale: string, iso: string, now: Date = new Date()): string {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return '';
-  return formatter(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(at);
+  const year = at.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' as const };
+  const day = tidyMonth(locale, formatter(locale, { day: 'numeric', month: 'short', ...year }).format(at));
+  const zone = zoneName(locale, at);
+  return [day, formatTime(locale, iso), zone].filter((part) => part !== '').join(' ');
 }
 
 /** The time of day with the zone it is in ("09:12 WAT"), for "last synced". */
@@ -80,7 +87,7 @@ const AFRICAN_ZONES: Readonly<Record<string, string>> = {
 
 /** The browser's zone as people there name it ("WAT", "EAT", "SAST"), for the timeline's header. */
 export function zoneName(locale: string, at: Date = new Date()): string {
-  const long = formatter('en', { timeZoneName: 'long' })
+  const long = new Intl.DateTimeFormat('en', { timeZoneName: 'long' })
     .formatToParts(at)
     .find((part) => part.type === 'timeZoneName')?.value;
   const known = long === undefined ? undefined : AFRICAN_ZONES[long];
@@ -107,17 +114,16 @@ export function dayHeading(locale: string, key: string, now: Date = new Date()):
   const [year, month, day] = key.split('-').map(Number) as [number, number, number];
   const at = new Date(year, month - 1, day);
   const sameYear = year === now.getFullYear();
-  return {
-    kind: 'date',
-    text: formatter(locale, { weekday: 'short', day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) }).format(at),
-  };
+  const text = formatter(locale, { weekday: 'short', day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) }).format(at);
+  // English joins the weekday with a comma ("Tue, 20 Oct"); P05 writes "Tue 20 Oct".
+  return { kind: 'date', text: tidyMonth(locale, /^en(-|$)/i.test(locale) ? text.replace(',', '') : text) };
 }
 
 /** A date alone ("12 Aug 2019"), for Created. */
 export function formatDate(locale: string, iso: string): string {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return '';
-  return formatter(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(at);
+  return tidyMonth(locale, formatter(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(at));
 }
 
 /**

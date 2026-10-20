@@ -68,6 +68,13 @@
     "home.widget.size.xl": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
     "search.key.slash": "A keyboard key, not a word.",
     "search.key.ctrl": "The Ctrl key keeps its keyboard label.",
-    "search.palette.ai": "AI is the term Swahili speakers use for the assistant."
+    "search.palette.ai": "AI is the term Swahili speakers use for the assistant.",
+    "data.migration.zoho": "A product name, kept as the vendor writes it.",
+    "data.migration.zoho.initial": "A product name, kept as the vendor writes it.",
+    "data.migration.salesforce": "A product name, kept as the vendor writes it.",
+    "data.migration.salesforce.initial": "A product name, kept as the vendor writes it.",
+    "admin.studio.meter.unknown": "Studio copy (T-0142) that reads the same in this language: a symbol, a placeholder pattern, a product term or an established loanword.",
+    "admin.studio.editor.subtitle": "Studio copy (T-0142) that reads the same in this language: a symbol, a placeholder pattern, a product term or an established loanword.",
+    "admin.studio.relationships.zoom": "Studio copy (T-0142) that reads the same in this language: a symbol, a placeholder pattern, a product term or an established loanword."
   }
 }

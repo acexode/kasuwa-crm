@@ -16,6 +16,7 @@ import {
   type StageRequirement,
 } from '../../lib/pipelines-api';
 import { numberingLocale } from '../../lib/numbering';
+import { dateFormatter, tidyMonth } from '../../lib/date-locale';
 
 /**
  * The pure half of the P06 board and list (T-0109): filters, the allow-list,
@@ -501,12 +502,10 @@ export function findRequirement(pipeline: Pipeline | null, id: string): StageReq
 // Dates
 // ---------------------------------------------------------------------------
 
-function dateFormat(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
-  try {
-    return new Intl.DateTimeFormat(locale, options);
-  } catch {
-    return new Intl.DateTimeFormat('en', options);
-  }
+/** Day first in every English, "Sep" not "Sept" (`lib/date-locale.ts`, T-0143). */
+function dateFormat(locale: string, options: Intl.DateTimeFormatOptions): { format: (at: Date) => string } {
+  const inner = dateFormatter(locale, options);
+  return { format: (at) => tidyMonth(locale, inner.format(at)) };
 }
 
 /** A calendar date (`YYYY-MM-DD`, no zone) as the reader writes it, never shifted by a zone. */

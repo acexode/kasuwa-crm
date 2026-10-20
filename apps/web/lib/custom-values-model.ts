@@ -1,5 +1,6 @@
 import type { CustomField } from './custom-values-api';
 import { numberingLocale } from './numbering';
+import { dateFormatter } from './date-locale';
 
 export * from './custom-values-core';
 export * from './custom-values-filters';
@@ -130,12 +131,8 @@ function numberFormat(locale: string, options: Intl.NumberFormatOptions): Intl.N
 
 function dateFormat(locale: string): Intl.DateTimeFormat {
   // A calendar date has no zone: it is formatted as the UTC day it names, in every browser.
-  const options: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeZone: CALENDAR_ZONE };
-  try {
-    return new Intl.DateTimeFormat(locale, options);
-  } catch {
-    return new Intl.DateTimeFormat('en', options);
-  }
+  // Day first in every English ("20 Oct 2026"), T-0143.
+  return dateFormatter(locale, { dateStyle: 'medium', timeZone: CALENDAR_ZONE });
 }
 
 /** The value as a screen draws it, or `empty` for anything the definition does not describe (never drawn raw). */

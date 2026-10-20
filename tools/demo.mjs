@@ -88,6 +88,12 @@ const DEMO_FLAGS = [
   'last_activity',
   'quick_actions',
   'more_filters',
+  // T-0141 (D-L194): P28's Data management area and its placeholders.
+  'data_management',
+  'data_migration',
+  'data_export',
+  'dsr',
+  'merge_three_way',
   // T-0138 (D-L194): the P27 placeholders.
   'recent_searches',
   'programme_scope_search',
@@ -110,6 +116,15 @@ const DEMO_FLAGS = [
   'script_programme_assignment',
   'script_preview',
   'script_version_changes',
+  // T-0142: P18 Customisation Studio placeholders (D-L194).
+  'studio_objects',
+  'studio_layouts',
+  'studio_validation',
+  'studio_relationships',
+  'studio_record_types',
+  'custom_field_types_extended',
+  'studio_field_usage',
+  'studio_field_translations',
 ];
 /** Flags added to the demo automatically once their task has merged. */
 const DEMO_FLAGS_WHEN_PRESENT = ['crm_custom_fields', 'crm_import', 'crm_duplicates', 'crm_notifications'];

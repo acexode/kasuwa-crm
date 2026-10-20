@@ -5,6 +5,8 @@
  * a server component may import it.
  */
 
+import { formatClock } from '../record/record-core';
+
 export type ListState = 'loading' | 'ready' | 'empty' | 'no-results' | 'error';
 
 /**
@@ -61,17 +63,6 @@ export function initials(name: string): string {
  * SAST. The browser's zone is the one the person reads their clock in.
  */
 export function formatSyncedAt(locale: string, at: Date): string {
-  try {
-    return new Intl.DateTimeFormat(locale, {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZoneName: 'short',
-    }).format(at);
-  } catch {
-    return new Intl.DateTimeFormat('en', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZoneName: 'short',
-    }).format(at);
-  }
+  // "15:00 WAT": 24-hour, and the zone a desk names, not ICU English's "GMT+1" (T-0143).
+  return formatClock(locale, at);
 }

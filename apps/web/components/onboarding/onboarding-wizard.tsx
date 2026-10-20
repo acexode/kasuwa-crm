@@ -301,7 +301,7 @@ function Checklist({
               }`}
             >
               {item.state === 'done' ? <Icon name="check" size={18} /> : null}
-              {item.state === 'progress' ? <Icon name="refresh" size={18} /> : null}
+              {item.state === 'progress' ? <Icon name="sync" size={18} /> : null}
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-px">
               <span className="sr-only">{t.t(`done.state.${item.state}` as MessageId)}</span>
