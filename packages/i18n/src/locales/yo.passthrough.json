@@ -48,5 +48,9 @@
   "records.view.kanban",
   "tokens.contrast.ratio",
   "tokens.sample.arabic",
-  "tokens.sample.text"
+  "tokens.sample.text",
+  "activities.calendar.source",
+  "activities.compose.remind.sms",
+  "activities.compose.remind.whatsapp",
+  "activities.due.today"
 ]

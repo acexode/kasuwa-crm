@@ -142,6 +142,62 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0134 (D-L193, D-L194): the P05 record blocks the design draws whose
+   * module does not exist yet. Each is built in the design's own empty or
+   * disabled state, never with a fake number, name or total, and each comes
+   * alive with its module. On in `pnpm demo`, off by default, so production
+   * can hide them. Presentation switches only: none of them reads or grants
+   * anything.
+   */
+  whatsapp_composer: {
+    description: 'The P05 record composer (WhatsApp, SMS, Email, Note tabs) with the 24-hour window, and the WhatsApp/SMS/Email actions (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the channels module (send and the window), D-L194',
+    productionReady: false,
+  },
+  ai_summary: {
+    description: 'The P05 record AI summary card, in its empty state until the AI module serves summaries (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the AI module, D-L194',
+    productionReady: false,
+  },
+  ai_nba: {
+    description: 'The P05 record next-best-action card, in its empty state until the AI module serves suggestions (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the AI module, D-L194',
+    productionReady: false,
+  },
+  call_bar: {
+    description: 'The Call action on records, disabled until the telephony integration places calls (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the voice module (ADR-0003), D-L194',
+    productionReady: false,
+  },
+  record_related: {
+    description: 'The P05 record Related lists (deals, tickets, quotes, invoices, campaigns) and their New deal, New ticket and payment-link actions, empty until their modules serve them (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the pipeline, tickets, billing and campaigns modules, D-L194',
+    productionReady: false,
+  },
+  identity_check: {
+    description: 'The P05 contact Identity card (NIN and BVN checks), not checked until the identity integration exists (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the identity integration, D-L194',
+    productionReady: false,
+  },
+  record_addresses: {
+    description: 'The P05 record Addresses card, showing the State and LGA the record holds until addresses are served (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the addresses contract, D-L194',
+    productionReady: false,
+  },
+  record_follow: {
+    description: 'The Follow button on P05 records, disabled until following is served (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the notifications module, D-L194',
+    productionReady: false,
+  },
+  /**
    * T-0058 (D-L64, D-L86): the P04 Leads list and its Kanban by status, with
    * convert, at `/leads`. It gates the ROUTE: `/leads` answers a real 404
    * while it is off, whatever `crm_records` and `crm_accounts` say. The CRM
@@ -324,6 +380,61 @@ export const FLAGS = {
     description: 'The Reports entry in the CRM rail, a disabled placeholder until reports are built (T-0130, D-L194).',
     defaultValue: false,
     owner: 'T-0130 (shell placeholder), the reports module when it is built',
+    productionReady: false,
+  },
+  /**
+   * T-0136 (D-L194, D-P22): the P07 calendar's external-calendar furniture,
+   * drawn in the design's not-connected state: the "Your work calendar isn't
+   * connected" banner with its Connect buttons (disabled), the "Kasuwa only"
+   * source chip and the attendee panel of the event detail, empty. No
+   * calendar is read and nothing is connected. Presentation only.
+   */
+  calendar_sync: {
+    description: 'P07 calendar: the not-connected Google/Microsoft banner, source chip and empty attendee panel (T-0136, D-L194, D-P22).',
+    defaultValue: false,
+    owner: 'T-0136 (placeholder), the calendar-sync module when it is built (D-P22)',
+    productionReady: false,
+  },
+  /**
+   * T-0136 (D-L194, D-P22): the P07 "Booking pages" view, drawn as the
+   * design's editor in its empty, disabled state. Nothing is published and
+   * nothing is saved. Presentation only.
+   */
+  booking_pages: {
+    description: 'P07 Booking pages view, the design editor in its empty, disabled state (T-0136, D-L194, D-P22).',
+    defaultValue: false,
+    owner: 'T-0136 (placeholder), the booking-pages module when it is built (D-P22)',
+    productionReady: false,
+  },
+  /**
+   * T-0136 (D-L194): the P07 phone "Check-in" view and the composer's Visit
+   * type, drawn in their disabled state. No location or photo is read.
+   */
+  field_checkin: {
+    description: 'P07 phone Check-in view and the composer Visit type, disabled (T-0136, D-L194).',
+    defaultValue: false,
+    owner: 'T-0136 (placeholder), the field check-in module when it is built',
+    productionReady: false,
+  },
+  /**
+   * T-0136 (D-L194, D-L105): activity priority. The contract has none, so
+   * each task row draws the design's priority pill as "No priority" and the
+   * "High priority" and "Deals" filter chips are drawn disabled.
+   */
+  activity_priority: {
+    description: 'P07 task rows: the priority pill placeholder and the High priority and Deals filter chips, disabled (T-0136, D-L194).',
+    defaultValue: false,
+    owner: 'T-0136 (placeholder), the activity-priority work when it is built (D-L105)',
+    productionReady: false,
+  },
+  /**
+   * T-0136 (D-L194, D-P29): the composer's "Remind the customer by" block,
+   * drawn with every channel off and disabled. Nothing is ever sent.
+   */
+  activity_reminders: {
+    description: 'P07 composer: the customer-reminder channels, disabled (T-0136, D-L194, D-P29).',
+    defaultValue: false,
+    owner: 'T-0136 (placeholder), the reminders work when it is built (D-P29)',
     productionReady: false,
   },
   /**

@@ -437,6 +437,8 @@ export const OVERLAY = {
   dialogConfirm: '360px',
   dialogForm: '440px',
   dialogWide: '640px',
+  /** P07's Log activity composer (T-0136): 560px, between the form and wide steps. */
+  dialogComposer: '560px',
   menu: '300px',
   toast: '400px',
   tableFooter: '56px',

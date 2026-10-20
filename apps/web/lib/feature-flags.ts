@@ -425,6 +425,46 @@ export async function crmDuplicatesEnabled(): Promise<boolean> {
 }
 
 /**
+ * P07's flagged placeholders (T-0136, D-L194): elements the design draws whose
+ * module does not exist yet, each shown in the design's own empty or disabled
+ * state while its flag is on, and not drawn at all while it is off. Read on
+ * the server and handed to the client screen as booleans. Presentation only:
+ * nothing here reads, connects, books or sends anything.
+ */
+export interface ActivitiesPlaceholders {
+  /** The not-connected calendar banner, the source chip and the empty attendee panel (D-P22). */
+  readonly calendarSync: boolean;
+  /** The Booking pages view, its editor empty and disabled (D-P22). */
+  readonly bookingPages: boolean;
+  /** The phone Check-in view and the composer's Visit type, disabled. */
+  readonly fieldCheckin: boolean;
+  /** The priority pill placeholder and the disabled priority and deal filter chips (D-L105). */
+  readonly priority: boolean;
+  /** The composer's customer-reminder channels, disabled (D-P29). */
+  readonly reminders: boolean;
+}
+
+const ACTIVITIES_PLACEHOLDER_FLAGS = {
+  calendarSync: 'calendar_sync',
+  bookingPages: 'booking_pages',
+  fieldCheckin: 'field_checkin',
+  priority: 'activity_priority',
+  reminders: 'activity_reminders',
+} as const satisfies Record<keyof ActivitiesPlaceholders, string>;
+
+export async function activitiesPlaceholders(): Promise<ActivitiesPlaceholders> {
+  await initialiseFeatureFlags();
+  const client = featureFlagClient();
+  const context = toEvaluationContext({ tenantId: CRM_SHELL });
+  const entries = await Promise.all(
+    (Object.entries(ACTIVITIES_PLACEHOLDER_FLAGS) as [keyof ActivitiesPlaceholders, string][]).map(
+      async ([key, flag]) => [key, await client.getBooleanValue(flag, false, context)] as const,
+    ),
+  );
+  return Object.fromEntries(entries) as unknown as ActivitiesPlaceholders;
+}
+
+/**
  * The P06 modules drawn as D-L194 placeholders (T-0135): each a design element
  * with no backend yet, in the design's own empty or disabled state. Read on
  * the server and passed down as booleans, like every flag here; no client

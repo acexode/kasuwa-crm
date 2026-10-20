@@ -125,6 +125,8 @@ export type ComposeTarget = { readonly kind: 'contact'; readonly id: string } | 
 /** What the composer collects. Times are UTC with a `Z`. */
 export type ComposedActivity = (
   | { readonly type: 'task'; readonly subject: string; readonly dueAt: string | null; readonly target: ComposeTarget }
+  /** A call logged after it happened, or a note (T-0136): no time of its own beyond when it was logged. */
+  | { readonly type: 'call' | 'note'; readonly subject: string; readonly target: ComposeTarget }
   | {
       readonly type: 'meeting';
       readonly subject: string;
@@ -133,6 +135,8 @@ export type ComposedActivity = (
       readonly target: ComposeTarget;
     }
 ) & {
+  /** The composer's Notes (T-0136): free text, never logged. Blank is left out. */
+  readonly body?: string;
   /** Custom-field values (T-0091): the filled ones only, on a create. */
   readonly custom?: Readonly<Record<string, unknown>>;
 };
@@ -151,10 +155,12 @@ export function createBody(activity: ComposedActivity, ownerUserId: string): Rec
   else body.accountId = activity.target.id;
   if (activity.type === 'task') {
     if (activity.dueAt !== null) body.dueAt = activity.dueAt;
-  } else {
+  } else if (activity.type === 'meeting') {
     body.startsAt = activity.startsAt;
     body.endsAt = activity.endsAt;
   }
+  const notes = activity.body?.trim() ?? '';
+  if (notes !== '') body.body = notes;
   if (activity.custom !== undefined && Object.keys(activity.custom).length > 0) body.custom = activity.custom;
   return body;
 }

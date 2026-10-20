@@ -7,6 +7,8 @@ import { crmCustomFieldsEnabled, crmLiveNav, crmRecordViewEnabled, crmRecordsEna
 import { withCustomMessages } from '../../../components/custom/message-ids';
 import { withShellMessages } from '../../../components/crm/shell-messages';
 import { activeLocale, languageOptions } from '../../../lib/locale';
+import { recordPlaceholders } from '../../../lib/record-flags';
+import { placeholderMessageIds } from '../../../components/record/frame-message-ids';
 
 /**
  * `P05/01` — the contact record, the 360° view (T-0062), with `P05/02`,
@@ -44,16 +46,20 @@ export default async function ContactRecordPage({ params }: { params: Promise<{ 
   const live = await crmLiveNav();
   const scripts = await crmScriptsEnabled();
   const customFields = await crmCustomFieldsEnabled();
+  // T-0134 (D-L194): the designed blocks with no module yet, each behind its own flag.
+  const placeholders = await recordPlaceholders();
+  const ids = [...(scripts ? [...CONTACT_RECORD_MESSAGE_IDS, ...START_SCRIPT_MESSAGE_IDS] : CONTACT_RECORD_MESSAGE_IDS), ...placeholderMessageIds(placeholders)];
 
   return (
     <ContactRecordScreen
       id={id}
       locale={locale}
-      messages={bundleMessages(locale, withShellMessages(withCustomMessages(scripts ? [...CONTACT_RECORD_MESSAGE_IDS, ...START_SCRIPT_MESSAGE_IDS] : CONTACT_RECORD_MESSAGE_IDS, customFields), live))}
+      messages={bundleMessages(locale, withShellMessages(withCustomMessages(ids, customFields), live))}
       locales={languageOptions(locale)}
       live={live}
       scripts={scripts}
       customFields={customFields}
+      placeholders={placeholders}
     />
   );
 }

@@ -113,6 +113,10 @@ The fix: pass the SMS hint through, and render the option only when the challeng
 | P01/5.1 region | Nigeria "Enterprise", Kenya "Included", both selectable | D-P2, D-P11 | Same cards and tag style; both tagged "Talk to sales" in the Enterprise colours, not selectable, with the sales note. |
 | P01/2 two-step | Passkey and backup-code rows always | T-0126, T-0131 | Each row only when the challenge marks the method available. The API has no passkey method, so that row is hidden. |
 | P01/6 success | "{Company} is ready", "Go to Inbox", "Take a 2-minute tour", "2 invites sent" | No inbox, tour or invite endpoint | "Your workspace is ready", "Go to Home"; the tour button disabled behind `product_tour`; invites say "on the list", never "sent". |
+| P05 records | Timeline filter pills with counts ("All 8", "Calls 1") | D-P13 | Same pills without counts (T-0134). |
+| P05 records | Offline "2 changes queued", View queue (2), Send relabelled Queue, "Queued" chips | D-P21, D-L64 | Same inverse band with the last-synced time; no queue count or button; write controls disabled (T-0134). |
+| P05 records | Contact ID / Account ID (`KSW-C-…`) in the SYSTEM group | No human-readable id exists; UUIDs are never printed | The SYSTEM group keeps Created and Programme in the same place (T-0134). |
+| P05 account | "Contacts · 12", "12 contacts" chip, Hierarchy roll-ups and child accounts | D-P13, D-L98 (children not served, T-0118) | Contacts card without a count; the Hierarchy card draws the ancestors and this account only, with no money (T-0134). |
 
 ## Order and tasks
 

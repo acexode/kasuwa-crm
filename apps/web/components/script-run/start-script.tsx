@@ -4,7 +4,6 @@ import dynamic from 'next/dynamic';
 import { useId, useState } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
-import { SECONDARY_BUTTON } from '../auth/button-classes';
 
 /**
  * `P10/04` — the "Start script" control on the contact record (T-0116, R1, R2).
@@ -31,9 +30,10 @@ export function StartScript({ t, contactId, offline }: { t: Translator; contactI
         aria-controls={open ? menu : undefined}
         disabled={offline}
         onClick={() => setOpen((value) => !value)}
-        className={`${SECONDARY_BUTTON} disabled:opacity-60`}
+        // The P05 action bar's secondary button (T-0134): 44px, 15/600, the v1.1 disabled tokens.
+        className="inline-flex h-control-base shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-border-strong bg-surface px-3.5 text-body-sm font-semibold text-text is-hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-focus disabled:cursor-not-allowed disabled:border-border disabled:text-disabled-text"
       >
-        <Icon name="description" size="sm" />
+        <Icon name="description" size={20} />
         {t.t('scripting.start')}
       </button>
       {open ? (

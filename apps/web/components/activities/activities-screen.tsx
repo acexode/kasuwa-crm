@@ -4,11 +4,10 @@ import dynamic from 'next/dynamic';
 import { useReadOnlyKeys } from '../custom/use-custom-fields';
 import { useCallback, useState } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
+import { Banner, Button, IconButton, SegmentedControl, Tabs, type SegmentedOption, type TabItem } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
-import { CrmShell } from '../crm/crm-shell';
+import { CrmFab, CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
-import { PRIMARY_BUTTON } from '../auth/button-classes';
-import { CHIP, CHIP_OFF, CHIP_ON } from '../records/list-classes';
 import { writeErrorId } from '../record/record-core';
 import { hasDetail, type RecordsError, type RecordsResult } from '../../lib/records-api';
 import {
@@ -19,15 +18,19 @@ import {
   type MyActivity,
   type WrittenActivity,
 } from '../../lib/activities-api';
+import type { ActivitiesPlaceholders } from '../../lib/feature-flags';
 import { versionOf } from './activities-model';
-import { formatClockTime, zoneLabel } from './activity-format';
+import { formatClockTime, zonePill } from './activity-format';
 import { MyTasks } from './my-tasks';
 import { useActivities } from './use-activities';
 
 /**
- * P07 — Activities (T-0083, `docs/design/P07/`): My tasks by bucket
- * (P07/01–02), the calendar (P07/03–05), the composer (P07/07) and the
- * reschedule form, behind its own flag, which only the server page reads.
+ * P07 — Activities (T-0083, T-0136, `docs/design/P07/`): My tasks by bucket
+ * (P07/01–08), the calendar (P07/09–18), the "Log activity" composer
+ * (P07/19–21) and the reschedule form, behind its own flag, which only the
+ * server page reads. T-0136 draws it to the export: one header row with the
+ * segmented views and the zone pill, the phone's own app bar and underline
+ * tabs, and the inverse offline banner.
  *
  * ---------------------------------------------------------------------------
  * THE ZONE IS THE BROWSER'S. Buckets are the server's, computed in the zone
@@ -40,10 +43,14 @@ import { useActivities } from './use-activities';
  * re-read and rebased; a 403 `field_not_editable` is its own sentence and is
  * never retried.
  *
+ * FLAGGED PLACEHOLDERS (D-L194). Booking pages, check-in, the calendar's
+ * not-connected furniture, the priority pill and the reminder channels are
+ * drawn in the design's empty or disabled state, each behind its own flag
+ * (`placeholders`, read on the server). Off, none is drawn.
+ *
  * HIDDEN, BECAUSE THE CONTRACT HAS NO HOME FOR THEM (D-L105, D-P13, D-P21,
- * D-P22): priority, bulk actions, Undo, external calendars and "connect your
- * calendar", holidays, the AI brief, booking pages, check-in, attendees,
- * locations, reminder channels, the offline queue and every count.
+ * D-P22): bulk actions, Undo, holidays, the AI brief, the offline queue and
+ * every count.
  *
  * IN MEMORY ONLY (D-L64). Offline, every write is off and nothing queues.
  * ---------------------------------------------------------------------------
@@ -59,12 +66,31 @@ const ActivityComposer = dynamic(() => import('./activity-composer').then((modul
 const RescheduleForm = dynamic(() => import('./reschedule-form').then((module) => module.RescheduleForm), {
   ssr: false,
 });
+const BookingPages = dynamic(() => import('./activity-booking').then((module) => module.BookingPages), {
+  ssr: false,
+  loading: PanelLoading,
+});
+const FieldCheckin = dynamic(() => import('./activity-checkin').then((module) => module.FieldCheckin), {
+  ssr: false,
+  loading: PanelLoading,
+});
 
 function PanelLoading() {
   return <div aria-busy="true" className="h-64 rounded-lg bg-surface-sunken" />;
 }
 
-type View = 'tasks' | 'calendar';
+type View = 'tasks' | 'calendar' | 'booking' | 'checkin';
+
+/** The flags that are on, by name: an empty list (all off) serialises to `[]`, naming nothing. */
+function placeholderFlags(on: readonly (keyof ActivitiesPlaceholders)[]): ActivitiesPlaceholders {
+  return {
+    calendarSync: on.includes('calendarSync'),
+    bookingPages: on.includes('bookingPages'),
+    fieldCheckin: on.includes('fieldCheckin'),
+    priority: on.includes('priority'),
+    reminders: on.includes('reminders'),
+  };
+}
 
 /** The sentence for a refused write. `field_not_editable` is its own: a role that can read a time but not move it. */
 function refusal(error: RecordsError): MessageId {
@@ -78,6 +104,7 @@ export function ActivitiesScreen({
   locales,
   live,
   customFields = false,
+  placeholders: enabled = [],
 }: {
   locale: string;
   messages: MessageBundle;
@@ -86,7 +113,10 @@ export function ActivitiesScreen({
   live: readonly string[];
   /** Custom values are on in this process (read by the server page): the composer offers the activity's fields (T-0091). */
   customFields?: boolean;
+  /** P07's flagged placeholders that are on (T-0136, D-L194), read by the server page. */
+  placeholders?: readonly (keyof ActivitiesPlaceholders)[];
 }) {
+  const placeholders = placeholderFlags(enabled);
   const t = createBundleTranslator(locale, messages);
   const data = useActivities();
   const activityKeys = useReadOnlyKeys();
@@ -145,9 +175,9 @@ export function ActivitiesScreen({
 
   const actions = { offline, busy, onComplete, onSnooze, onReschedule };
 
-  const openCalendar = () => {
-    setView('calendar');
-    data.openCalendar();
+  const show = (next: View) => {
+    setView(next);
+    if (next === 'calendar') data.openCalendar();
   };
 
   const compose = async (activity: ComposedActivity, owner: string): Promise<RecordsResult<WrittenActivity>> => {
@@ -159,100 +189,165 @@ export function ActivitiesScreen({
     return result;
   };
 
-  const zone = data.zone === null ? '' : zoneLabel(locale);
+  const openComposer = () => {
+    if (!offline) setComposing(true);
+  };
+
+  const zone = data.zone === null ? '' : zonePill();
+
+  // The design's third view is Booking pages on a desk and Check-in on a
+  // phone; each is drawn only where its flag is on (D-L194).
+  const viewIcon = { tasks: 'task_alt', calendar: 'calendar_month', booking: 'event_available', checkin: 'where_to_vote' } as const;
+  const desktopViews: View[] = ['tasks', 'calendar', ...(placeholders.bookingPages ? (['booking'] as const) : [])];
+  const phoneViews: View[] = ['tasks', 'calendar', ...(placeholders.fieldCheckin ? (['checkin'] as const) : [])];
+  const viewLabel = (option: View) => t.t(`activities.view.${option}` as MessageId);
+  const viewAction = (option: View) => ({ 'data-action': `view-${option}` });
+
+  const segments: SegmentedOption[] = desktopViews.map((option) => ({
+    value: option,
+    label: viewLabel(option),
+    icon: viewIcon[option],
+    attributes: viewAction(option),
+  }));
+  const phoneTabs: TabItem[] = phoneViews.map((option) => ({
+    value: option,
+    label: viewLabel(option),
+    attributes: viewAction(option),
+  }));
+
+  const barTitle = t.t(view === 'checkin' ? 'activities.bar.checkin' : view === 'calendar' ? 'activities.view.calendar' : view === 'booking' ? 'activities.view.booking' : 'activities.view.tasks');
 
   return (
-    <CrmShell t={t} locale={locale} locales={locales} current="activities" live={live}>
-      <div data-screen="P07" className="flex flex-col gap-4">
-        <header className="flex flex-wrap items-center gap-3">
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h1 className="text-h3 font-bold">{t.t('activities.title')}</h1>
-            {zone === '' ? null : (
-              <p className="flex items-center gap-1 text-body-sm text-text-2">
-                <Icon name="schedule" size="sm" />
-                {t.t('activities.zone', { zone })}
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
+    <CrmShell
+      t={t}
+      locale={locale}
+      locales={locales}
+      current="activities"
+      live={live}
+      appBar={{
+        title: barTitle,
+        actions: (
+          <IconButton
+            variant="ghost"
+            icon="add_circle"
+            label={t.t('activities.compose')}
             data-action="compose"
             data-requires-connection=""
             disabled={offline}
-            onClick={() => setComposing(true)}
-            className={PRIMARY_BUTTON}
+            onClick={openComposer}
+            className="!size-12 !text-primary-text [&>.k-icon]:!text-icon-28"
+          />
+        ),
+      }}
+      fab={view === 'checkin' ? undefined : <CrmFab label={t.t('activities.compose')} onClick={openComposer} />}
+    >
+      <div data-screen="P07" className="flex min-h-full flex-col gap-3 md:gap-4 md:px-1">
+        {/* Phone: the design's underline tabs, full width under the app bar. */}
+        <div className="-mx-4 -mt-4 border-b border-border bg-surface px-2 md:hidden">
+          <Tabs
+            aria-label={t.t('activities.view.label')}
+            items={phoneTabs}
+            value={view}
+            onValueChange={(next) => show(next as View)}
+            className="grid auto-cols-fr grid-flow-col border-b-0 [&>button]:justify-center"
+          />
+        </div>
+
+        {/* Desk: one row — the title, the views, the zone and New activity. */}
+        <header className="hidden flex-wrap items-center gap-x-4 gap-y-2.5 md:flex">
+          <h1 className="text-title">{t.t('activities.title')}</h1>
+          <SegmentedControl
+            aria-label={t.t('activities.view.label')}
+            options={segments}
+            value={view}
+            onValueChange={(next) => show(next as View)}
+            className="!gap-0.5 !rounded-10 [&>button]:!h-[38px] [&>button]:!rounded-[7px]"
+          />
+          <span className="flex-1" />
+          {zone === '' ? null : (
+            <span
+              data-testid="zone-pill"
+              className="inline-flex h-8 items-center gap-1 rounded-full bg-primary-soft px-2.5 text-caption font-bold text-primary-text"
+            >
+              <Icon name="schedule" size={15} />
+              <span className="sr-only">{t.t('activities.zone.label')}</span>
+              {zone}
+            </span>
+          )}
+          <Button
+            variant="primary"
+            icon="add"
+            data-action="compose"
+            data-requires-connection=""
+            disabled={offline}
+            onClick={openComposer}
+            className="!px-4"
           >
-            <Icon name="add" size="sm" />
             {t.t('activities.compose')}
-          </button>
+          </Button>
         </header>
 
         {offline ? (
-          <div
-            role="status"
-            data-testid="offline-banner"
-            className="flex items-start gap-3 rounded-lg border border-warning bg-warning-soft p-3 text-body-sm text-warning-text"
-          >
-            <Icon name="cloud_off" size="sm" />
-            <p>
-              <b>{t.t('records.offline.title')}</b>{' '}
+          <div data-testid="offline-banner">
+            <Banner tone="offline" title={t.t('records.offline.title')} className="!ps-3.5">
               {data.syncedAt === null ? null : (
                 <>
                   {t.t('activities.offline.synced')}{' '}
-                  <time dateTime={data.syncedAt.toISOString()}>{formatClockTime(locale, data.syncedAt)}</time>{' '}
+                  <time dateTime={data.syncedAt.toISOString()}>{formatClockTime(locale, data.syncedAt)}</time>
+                  {'. '}
                 </>
               )}
               {t.t('records.offline.never')}
-            </p>
+            </Banner>
           </div>
         ) : null}
 
-        {notice === null ? null : (
-          <p role="alert" className="flex items-start gap-2 rounded-md bg-danger-soft p-3 text-body-sm text-danger-text">
-            <Icon name="error" size="sm" />
-            {t.t(notice)}
-          </p>
-        )}
-
-        <div role="group" aria-label={t.t('activities.view.label')} className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            data-action="view-tasks"
-            aria-pressed={view === 'tasks'}
-            onClick={() => setView('tasks')}
-            className={`${CHIP} ${view === 'tasks' ? CHIP_ON : CHIP_OFF}`}
-          >
-            <Icon name="task_alt" size="sm" />
-            {t.t('activities.view.tasks')}
-          </button>
-          <button
-            type="button"
-            data-action="view-calendar"
-            aria-pressed={view === 'calendar'}
-            onClick={openCalendar}
-            className={`${CHIP} ${view === 'calendar' ? CHIP_ON : CHIP_OFF}`}
-          >
-            <Icon name="event" size="sm" />
-            {t.t('activities.view.calendar')}
-          </button>
-        </div>
+        {notice === null ? null : <Banner tone="danger">{t.t(notice)}</Banner>}
 
         {view === 'tasks' ? (
-          <MyTasks t={t} locale={locale} buckets={data.buckets} actions={actions} onRetry={data.retryBucket} onMore={(bucket) => void data.loadMore(bucket)} />
-        ) : (
+          <MyTasks
+            t={t}
+            locale={locale}
+            buckets={data.buckets}
+            actions={actions}
+            owner={data.meName}
+            priority={placeholders.priority}
+            onRetry={data.retryBucket}
+            onMore={(bucket) => void data.loadMore(bucket)}
+            onCompose={openComposer}
+            onPlan={() => show('calendar')}
+          />
+        ) : null}
+        {view === 'calendar' ? (
           <ActivitiesCalendar
             t={t}
             locale={locale}
             view={data.calendarView}
             state={data.calendar}
             actions={actions}
+            sync={placeholders.calendarSync}
             onShow={data.showCalendar}
             onRetry={data.retryCalendar}
           />
-        )}
+        ) : null}
+        {view === 'booking' && placeholders.bookingPages ? <BookingPages t={t} owner={data.meName} /> : null}
+        {view === 'checkin' && placeholders.fieldCheckin ? <FieldCheckin t={t} /> : null}
       </div>
 
-      {composing ? <ActivityComposer t={t} offline={offline} whoAmI={data.whoAmI} onSave={compose} onClose={() => setComposing(false)} customFields={customFields} readOnlyStore={activityKeys} /> : null}
+      {composing ? (
+        <ActivityComposer
+          t={t}
+          locale={locale}
+          offline={offline}
+          whoAmI={data.whoAmI}
+          onSave={compose}
+          onClose={() => setComposing(false)}
+          customFields={customFields}
+          readOnlyStore={activityKeys}
+          visit={placeholders.fieldCheckin}
+          reminders={placeholders.reminders}
+        />
+      ) : null}
       {rescheduling === null ? null : (
         <RescheduleForm
           t={t}
