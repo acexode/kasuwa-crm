@@ -155,6 +155,14 @@
   --k-line-height-card-title: 24px;
   --k-font-weight-card-title: 700;
   --k-tracking-card-title: 0;
+  --k-font-size-sheet-title: 17px;
+  --k-line-height-sheet-title: 24px;
+  --k-font-weight-sheet-title: 700;
+  --k-tracking-sheet-title: 0;
+  --k-font-size-body-relaxed: 14px;
+  --k-line-height-body-relaxed: 21px;
+  --k-font-weight-body-relaxed: 400;
+  --k-tracking-body-relaxed: 0;
   --k-font-size-label: 15px;
   --k-line-height-label: 22px;
   --k-font-weight-label: 600;
@@ -190,6 +198,7 @@
   --k-space-2_5: 10px;
   --k-space-3_5: 14px;
   --k-space-4_5: 18px;
+  --k-space-5_5: 22px;
   --k-space-6_5: 26px;
   --k-space-touch: 44px;
   --k-radius-6: 6px;
@@ -214,6 +223,7 @@
   --k-icon-size-20: 20px;
   --k-icon-size-22: 22px;
   --k-icon-size-24: 24px;
+  --k-icon-size-26: 26px;
   --k-icon-size-28: 28px;
   --k-icon-size-32: 32px;
   --k-shell-header: 60px;
@@ -223,6 +233,18 @@
   --k-shell-admin-nav: 272px;
   --k-shell-bottom-bar: 64px;
   --k-shell-mobile-header: 56px;
+  
+  /* overlays and data display (T-0129) */
+  --k-overlay-drawer: 400px;
+  --k-overlay-dialog-confirm: 360px;
+  --k-overlay-dialog-form: 440px;
+  --k-overlay-dialog-wide: 640px;
+  --k-overlay-menu: 300px;
+  --k-overlay-toast: 400px;
+  --k-overlay-table-footer: 56px;
+  --k-overlay-pager-item: 30px;
+  --k-overlay-empty-text: 280px;
+  --k-radius-sheet: 20px;
   
   /* elevation — the shadow values themselves are semantic, so they differ per theme */
   --k-elevation-0: none;
@@ -235,6 +257,7 @@
   --k-duration-quick: 160ms;
   --k-duration-base: 240ms;
   --k-duration-spin: 800ms;
+  --k-duration-shimmer: 1400ms;
   --k-ease: cubic-bezier(.2,.8,.2,1);
   
   /* semantic tokens — light is the default theme */
@@ -431,6 +454,8 @@
   --k-line-height-title: 40px;
   --k-line-height-title-sm: 37px;
   --k-line-height-card-title: 26px;
+  --k-line-height-sheet-title: 26px;
+  --k-line-height-body-relaxed: 23px;
   --k-line-height-label: 24px;
   --k-line-height-meta: 21px;
   --k-line-height-micro: 18px;

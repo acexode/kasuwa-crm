@@ -125,6 +125,16 @@ export const TYPE_SCALE = {
   'title-sm': { size: '26px', lineHeight: '34px', weight: '800', tracking: '0' },
   /** Card and section titles: 16/24/700. */
   'card-title': { size: '16px', lineHeight: '24px', weight: '700', tracking: '0' },
+  /**
+   * Empty-state and bottom-sheet titles: 17/24/700 (v1.1 Patterns "I · Empty
+   * states", "J · Drawers & modals", T-0129).
+   */
+  'sheet-title': { size: '17px', lineHeight: '24px', weight: '700', tracking: '0' },
+  /**
+   * Explanatory body copy in empty states and dialogs: 14/21/400 (v1.1
+   * Patterns, T-0129). One pixel looser than body-sm.
+   */
+  'body-relaxed': { size: '14px', lineHeight: '21px', weight: '400', tracking: '0' },
   /** Button labels, input values, settings-nav rows: 15/22/600. */
   label: { size: '15px', lineHeight: '22px', weight: '600', tracking: '0' },
   /** Meta lines, helper text, toolbar chips: 13/19/400 (chips set their own 600). */
@@ -170,6 +180,10 @@ export const ARABIC_LINE_HEIGHT_MULTIPLIER = 1.1;
  *   2.25 9px  a consent pill's side padding (3px 9px)
  *   4.5 18px  how far the switch knob travels (44 - 20 - 3 - 3)
  *   6.5 26px  the switch track's height
+ *
+ * T-0129 adds one: 5.5 22px, the confirm dialog's padding (v1.1 Components).
+ * 4.5 and 6.5 also size the table's 18px checkbox and the stepper's 26px
+ * circles.
  */
 export const SPACING = {
   '0': '0px',
@@ -184,6 +198,7 @@ export const SPACING = {
   '4': '16px',
   '4.5': '18px',
   '5': '20px',
+  '5.5': '22px',
   '6': '24px',
   '6.5': '26px',
   '8': '32px',
@@ -252,6 +267,7 @@ export const ICON_SIZE = {
   20: '20px',
   22: '22px',
   24: '24px',
+  26: '26px',
   28: '28px',
   32: '32px',
 } as const;
@@ -339,7 +355,52 @@ export const FOCUS = {
 export const CONTROL_SHADOW = {
   knob: '0 1px 2px rgba(0,0,0,.3)',
   'switch-disabled': `inset 0 0 0 1px var(${CSS_VAR_PREFIX}-border)`,
+  /**
+   * The sticky table header's drop shadow (v1.1 Components "Table": "Sticky
+   * header with shadow on scroll"). A literal in the export, both themes (T-0129).
+   */
+  'table-header': '0 2px 4px rgba(0,0,0,.06)',
+  /**
+   * A dialog, drawer or sheet footer while content remains below it (v1.1
+   * Patterns "J · Drawers & modals": the footer shadow reacts to scroll).
+   */
+  'scroll-edge': '0 -8px 12px -8px rgba(0,0,0,.28)',
 } as const;
+
+/**
+ * Overlay and data-display dimensions (T-0129), from the v1.1 Components and
+ * Patterns pages and the P04 list export:
+ *
+ *   drawer         400  the right drawer ("Drawer 400px (max 90vw)")
+ *   dialogConfirm  360  a confirm dialog's max width
+ *   dialogForm     440  a form dialog's max width ("modal 440–640px")
+ *   dialogWide     640  the widest form dialog
+ *   menu           300  a menu or popover's default width (P04 saved views)
+ *   toast          400  a toast's max width at the desktop's bottom-right
+ *   tableFooter     56  the table footer: Showing, rows per page, pager (P04)
+ *   pagerItem       30  a rows-per-page segment in that footer (P04)
+ *   emptyText      280  an empty state's centred body line (v1.1 Components)
+ *
+ * They join the spacing scale like SHELL: `max-w-overlay-drawer`,
+ * `h-overlay-table-footer`.
+ */
+export const OVERLAY = {
+  drawer: '400px',
+  dialogConfirm: '360px',
+  dialogForm: '440px',
+  dialogWide: '640px',
+  menu: '300px',
+  toast: '400px',
+  tableFooter: '56px',
+  pagerItem: '30px',
+  emptyText: '280px',
+} as const;
+
+/**
+ * The bottom sheet's top corners (v1.1 Patterns: `20px 20px 0 0`). Its own
+ * radius rather than a RADIUS step: no other surface uses it (T-0129).
+ */
+export const SHEET_RADIUS = '20px';
 
 /** `railItemWidth` -> `rail-item-width`, for CSS variable and utility names. */
 export function kebab(name: string): string {
@@ -378,6 +439,12 @@ export const MOTION = {
    * which leaves the static ring the export asks for.
    */
   spin: { duration: '800ms', use: 'Loading spinner, one turn' },
+  /**
+   * One sweep of the skeleton shimmer (v1.1 Components "Skeleton loaders":
+   * `kshimmer 1.4s ease-in-out infinite`). Stopped entirely under reduced
+   * motion by `[data-k-shimmer]` in the global layer (T-0129).
+   */
+  shimmer: { duration: '1400ms', use: 'Skeleton shimmer, one sweep' },
 } as const;
 
 export const MOTION_EASING = 'cubic-bezier(.2,.8,.2,1)';

@@ -30,7 +30,7 @@ export function Radio({ label, invalid = false, disabled, className, ...rest }: 
           type="radio"
           disabled={disabled}
           aria-invalid={invalid || undefined}
-          className={cx(BOX, 'rounded-full checked:border-primary disabled:checked:border-border')}
+          className={cx(BOX, 'size-5 rounded-full checked:border-primary disabled:checked:border-border')}
           {...rest}
         />
         <span
