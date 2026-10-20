@@ -11,6 +11,10 @@ import { landingPath } from '../../lib/server/landing';
  * the contract is explicit that a successful first factor returns a
  * `challengeId` and no session, so a challenge id in a shared link gets an
  * attacker a form and a `401`. Scope still comes from the server, always.
+ *
+ * The masked SMS number is deliberately NOT read from the URL (T-0126): it is
+ * a fragment of a personal phone number, and a URL ends up in history and in
+ * logs. The screen reads it from sessionStorage (`lib/mfa-sms-option.ts`).
  */
 export default async function VerifyPage({
   searchParams,
@@ -23,7 +27,6 @@ export default async function VerifyPage({
 
   const challenge = typeof search.challenge === 'string' ? search.challenge : '';
   const method = search.method === 'sms' ? 'sms' : 'totp';
-  const hint = typeof search.hint === 'string' ? search.hint : null;
   const resendAt = typeof search.resendAt === 'string' ? search.resendAt : null;
 
   return (
@@ -33,7 +36,6 @@ export default async function VerifyPage({
       locales={languageOptions(locale)}
       challengeId={challenge}
       initialMethod={method}
-      initialHint={hint}
       initialResendAvailableAt={resendAt}
       landing={await landingPath()}
     />
