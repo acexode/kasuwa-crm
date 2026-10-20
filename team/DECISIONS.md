@@ -4400,3 +4400,23 @@ the browser lands on Home. This supersedes D-L172's "first live nav entry" rule.
 Builders: agent-11-frontend on Opus 5.5 at high effort. Two may build at once. Verification stays one
 Docker-backed e2e run at a time on the Mac; a second run goes to the Windows runner. Every PR links
 before/after screenshot pairs made with `tools/design-parity`, at every designed width, light and dark.
+
+### D-L198 — Icon font split, and icons inherit their weight (lead, 2026-10-20, T-0127)
+
+**Context:** T-0127 grows the icon subset from 121 to 198 glyphs and adds the FILL axis. As a single variable font
+that adds 16,176 bytes to every page that draws an icon. On the current pins that would break the contact record
+(245,000) and account record (250,000, D-L190) ceilings. The builder also found that the exports' icons inherit
+the surrounding font-weight, so Chromium synthesises bold inside 600/700 text. 51 of 78 icon/weight pairs in P04
+render faux-bold in the design itself.
+
+**Ruling:**
+- **Two icon faces.**
+  - A static FILL 0 subset for every icon (about 21.8 KB, +7.6 KB on today).
+  - A filled-only subset (about 5 KB), loaded only where a filled icon is drawn.
+  - The filled glyphs live in their own list. The `filled` prop only accepts names from it, and
+    `tools/verify-icons.mjs` fails a filled icon outside it, so the second face cannot render a blank box.
+- **Weight is inherited.** `.k-icon` takes its weight from its parent, with synthesis allowed, exactly as the
+  export renders. The defect T-0127 fixed was the type-scale size classes imposing their own weight. The new
+  `text-icon-*` utilities set size only.
+- **Budgets.** Pages re-pin under D-L182 with the measured cause, which is this icon change. A ceiling that still
+  breaks after the split comes back to the lead with numbers before anyone raises it.
