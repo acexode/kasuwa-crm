@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
 import type { IconName } from '@kasuwa/ui';
-import { Button, SegmentedControl, Tabs, type DataAttributes } from '@kasuwa/ui/components';
+import { Button, Menu, MenuItem, SegmentedControl, Tabs, type DataAttributes } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 
 /**
@@ -155,105 +155,31 @@ function moreButtonClass(count: number): string | null {
   return count === 5 ? 'md:hidden' : 'xl:hidden';
 }
 
-/** A small menu under its trigger: Escape closes it and returns focus, a click outside closes it. */
-function Popover({
-  label,
-  entries,
-  onClose,
-  triggerRef,
-  align = 'start',
-}: {
-  label: string;
-  entries: readonly (MenuEntry & { className?: string })[];
-  onClose: () => void;
-  triggerRef: React.RefObject<HTMLButtonElement | null>;
-  align?: 'start' | 'end';
-}) {
-  const menu = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    menu.current?.querySelector<HTMLButtonElement>('button:not([disabled])')?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onClose();
-        triggerRef.current?.focus();
-      }
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        const items = Array.from(menu.current?.querySelectorAll<HTMLButtonElement>('button:not([disabled])') ?? []).filter(
-          (item) => item.offsetParent !== null,
-        );
-        const at = items.findIndex((item) => item === document.activeElement);
-        const next = items[(at + (event.key === 'ArrowDown' ? 1 : items.length - 1)) % Math.max(items.length, 1)];
-        if (next !== undefined) {
-          event.preventDefault();
-          next.focus();
-        }
-      }
-    };
-    const onPointer = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!menu.current?.contains(target) && !triggerRef.current?.contains(target)) onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    document.addEventListener('pointerdown', onPointer);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('pointerdown', onPointer);
-    };
-  }, [onClose, triggerRef]);
-
+function MenuEntries({ entries }: { entries: readonly (MenuEntry & { className?: string })[] }) {
   return (
-    <div
-      ref={menu}
-      role="menu"
-      aria-label={label}
-      className={`absolute top-full z-20 mt-1 flex min-w-56 flex-col rounded-10 border border-border bg-surface-raised p-1 shadow-3 ${
-        align === 'end' ? 'end-0' : 'start-0'
-      }`}
-    >
+    <>
       {entries.map((entry) => (
-        <button
-          key={entry.key}
-          type="button"
-          role="menuitem"
-          disabled={entry.disabled}
-          onClick={() => {
-            onClose();
-            entry.onSelect();
-          }}
-          className={`flex min-h-touch items-center gap-2.5 rounded-md px-3 text-start text-body-sm font-semibold text-text is-hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-focus disabled:cursor-not-allowed disabled:text-disabled-text ${entry.className ?? ''}`}
-          {...entry.attributes}
-        >
-          <Icon name={entry.icon} size={20} className="text-text-2" />
+        <MenuItem key={entry.key} icon={entry.icon} disabled={entry.disabled} onSelect={entry.onSelect} className={entry.className} {...entry.attributes}>
           {entry.label}
-        </button>
+        </MenuItem>
       ))}
-    </div>
+    </>
   );
 }
 
 function MenuAction({ action, className }: { action: RecordAction; className: string }) {
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
   return (
-    <span className={`relative ${className} max-md:flex-1`}>
-      <Button
-        ref={trigger}
-        icon={action.icon}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        disabled={action.disabled}
-        title={action.title}
-        onClick={() => setOpen((value) => !value)}
-        className={`w-full ${ACTION_SIZE}`}
-        {...action.attributes}
-      >
-        <span className="max-md:sr-only">{action.label}</span>
-      </Button>
-      {open && action.menu !== undefined ? (
-        <Popover label={action.label} entries={action.menu} triggerRef={trigger} onClose={() => setOpen(false)} />
-      ) : null}
-    </span>
+    <Menu
+      aria-label={action.label}
+      className={`${className} max-md:flex-1`}
+      trigger={(props) => (
+        <Button {...props} icon={action.icon} disabled={action.disabled} title={action.title} className={`w-full ${ACTION_SIZE}`} {...action.attributes}>
+          <span className="max-md:sr-only">{action.label}</span>
+        </Button>
+      )}
+    >
+      <MenuEntries entries={action.menu ?? []} />
+    </Menu>
   );
 }
 
@@ -262,8 +188,6 @@ function MenuAction({ action, className }: { action: RecordAction; className: st
  * icon-only at 360. `extra` (the P10 start control) follows the actions.
  */
 export function ActionBar({ t, actions, extra }: { t: Translator; actions: readonly RecordAction[]; extra?: ReactNode }) {
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreRef = useRef<HTMLButtonElement>(null);
   const moreClass = moreButtonClass(actions.length);
   const overflow = actions.flatMap((action, index) => {
     if (index < 4) return [];
@@ -302,25 +226,20 @@ export function ActionBar({ t, actions, extra }: { t: Translator; actions: reado
         ),
       )}
       {moreClass === null ? null : (
-        <span className={`relative ${moreClass} max-md:flex-1`}>
-          <Button
-            ref={moreRef}
-            icon="more_horiz"
-            aria-haspopup="menu"
-            aria-expanded={moreOpen}
-            aria-label={t.t('record.action.moreLabel')}
-            title={t.t('record.action.more')}
-            onClick={() => setMoreOpen((value) => !value)}
-            className={`w-full ${ACTION_SIZE}`}
-          >
-            <span aria-hidden="true" className="max-md:sr-only">
-              {t.t('record.action.more')}
-            </span>
-          </Button>
-          {moreOpen ? (
-            <Popover label={t.t('record.action.moreLabel')} entries={overflow} triggerRef={moreRef} align="end" onClose={() => setMoreOpen(false)} />
-          ) : null}
-        </span>
+        <Menu
+          aria-label={t.t('record.action.moreLabel')}
+          align="end"
+          className={`${moreClass} max-md:flex-1`}
+          trigger={(props) => (
+            <Button {...props} icon="more_horiz" aria-label={t.t('record.action.moreLabel')} title={t.t('record.action.more')} className={`w-full ${ACTION_SIZE}`}>
+              <span aria-hidden="true" className="max-md:sr-only">
+                {t.t('record.action.more')}
+              </span>
+            </Button>
+          )}
+        >
+          <MenuEntries entries={overflow} />
+        </Menu>
       )}
       {extra}
     </div>
@@ -338,8 +257,6 @@ const BAR_ICON = 'flex size-control-lg shrink-0 items-center justify-center roun
  * arrow and the title). The kebab holds the record's own entries.
  */
 export function RecordAppBarActions({ t, search, entries }: { t: Translator; search: boolean; entries: readonly MenuEntry[] }) {
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
   return (
     <>
       {search ? (
@@ -347,20 +264,19 @@ export function RecordAppBarActions({ t, search, entries }: { t: Translator; sea
           <Icon name="search" size={24} />
         </Link>
       ) : null}
-      <span className="relative">
-        <button
-          ref={trigger}
-          type="button"
+      {entries.length === 0 ? null : (
+        <Menu
           aria-label={t.t('record.appBar.more')}
-          aria-haspopup="menu"
-          aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
-          className={BAR_ICON}
+          align="end"
+          trigger={(props) => (
+            <button {...props} type="button" aria-label={t.t('record.appBar.more')} className={BAR_ICON}>
+              <Icon name="more_vert" size={24} />
+            </button>
+          )}
         >
-          <Icon name="more_vert" size={24} />
-        </button>
-        {open ? <Popover label={t.t('record.appBar.more')} entries={entries} triggerRef={trigger} align="end" onClose={() => setOpen(false)} /> : null}
-      </span>
+          <MenuEntries entries={entries} />
+        </Menu>
+      )}
     </>
   );
 }

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
+import { Banner } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { StillConnecting } from '../admin/panel';
 import { QUIET_BUTTON } from '../auth/button-classes';
@@ -22,22 +23,15 @@ import { formatClock } from './record-core';
  */
 export function RecordOfflineBanner({ t, locale, syncedAt }: { t: Translator; locale: string; syncedAt: Date | null }) {
   return (
-    <div
-      role="status"
-      data-testid="offline-banner"
-      className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-2 rounded-10 bg-inverse py-2 pe-2 ps-4 text-body-sm text-on-inverse"
-    >
-      <Icon name="cloud_off" size={20} />
-      <p className="min-w-0 flex-[1_1_200px]">
-        <b>{t.t('records.offline.title')}</b>{' '}
+    <div data-testid="offline-banner">
+      <Banner tone="offline" title={t.t('records.offline.title')}>
         {syncedAt === null ? t.t('records.offline.never') : t.t('record.offline', { time: formatClock(locale, syncedAt) })}
-      </p>
+      </Banner>
     </div>
   );
 }
 
 const SKELETON_CARD = 'flex flex-col gap-3 rounded-lg border border-border bg-surface p-4';
-const BAR = 'rounded-md bg-surface-sunken';
 
 /**
  * P05/06 loading: skeletons in the final layout — the header with three chip
@@ -68,22 +62,22 @@ export function RecordLoading({ t, slow, label }: { t: Translator; slow: boolean
         <div data-testid="record-skeleton" aria-hidden="true" className={`${SKELETON_CARD} hidden xl:flex`}>
           <span className="h-4 w-1/2 rounded-sm bg-surface-sunken" />
           {Array.from({ length: 5 }, (_, index) => (
-            <span key={index} className={`h-11 ${BAR}`} />
+            <span key={index} className="h-11 rounded-md bg-surface-sunken" />
           ))}
         </div>
         <div data-testid="record-skeleton" aria-hidden="true" className={SKELETON_CARD}>
           <span className="h-4 w-1/2 rounded-sm bg-surface-sunken" />
-          <span className={`h-[120px] ${BAR}`} />
+          <span className="h-[120px] rounded-md bg-surface-sunken" />
           {Array.from({ length: 4 }, (_, index) => (
-            <span key={index} className={`h-16 ${BAR} ${index > 1 ? 'hidden lg:block' : ''}`} />
+            <span key={index} className={`h-16 rounded-md bg-surface-sunken ${index > 1 ? 'hidden lg:block' : ''}`} />
           ))}
         </div>
         <div data-testid="record-skeleton" aria-hidden="true" className={`${SKELETON_CARD} hidden lg:flex`}>
           <span className="h-4 w-1/2 rounded-sm bg-surface-sunken" />
-          <span className={`h-[140px] ${BAR}`} />
-          <span className={`h-16 ${BAR}`} />
-          <span className={`h-11 ${BAR}`} />
-          <span className={`h-11 ${BAR}`} />
+          <span className="h-[140px] rounded-md bg-surface-sunken" />
+          <span className="h-16 rounded-md bg-surface-sunken" />
+          <span className="h-11 rounded-md bg-surface-sunken" />
+          <span className="h-11 rounded-md bg-surface-sunken" />
         </div>
       </div>
     </div>
