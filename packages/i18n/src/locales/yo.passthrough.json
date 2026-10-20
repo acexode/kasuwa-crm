@@ -39,5 +39,9 @@
   "design.components.segmented.kanban",
   "design.components.kbd.search",
   "design.components.kbd.escape",
-  "auth.footer.compliance"
+  "auth.footer.compliance",
+  "records.view.kanban",
+  "records.col.wa",
+  "records.card.whatsapp",
+  "records.card.sms"
 ]

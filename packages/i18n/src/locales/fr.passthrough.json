@@ -97,5 +97,10 @@
   "design.components.segmented.kanban",
   "design.components.tabs.tickets",
   "design.components.kbd.search",
-  "auth.footer.compliance"
+  "auth.footer.compliance",
+  "records.view.kanban",
+  "records.col.wa",
+  "records.card.whatsapp",
+  "records.card.sms",
+  "leads.via"
 ]
