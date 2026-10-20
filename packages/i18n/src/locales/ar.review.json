@@ -36,6 +36,10 @@
     "home.widget.size.l": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
     "home.widget.size.xl": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
     "search.key.ctrl": "The Ctrl key keeps its Latin keyboard label.",
-    "search.key.slash": "A keyboard key, not a word."
+    "search.key.slash": "A keyboard key, not a word.",
+    "data.migration.zoho": "A product name, kept as the vendor writes it.",
+    "data.migration.zoho.initial": "A product name, kept as the vendor writes it.",
+    "data.migration.salesforce": "A product name, kept as the vendor writes it.",
+    "data.migration.salesforce.initial": "A product name, kept as the vendor writes it."
   }
 }

@@ -60,6 +60,12 @@ describe('feature flags', () => {
       'last_activity',
       'quick_actions',
       'more_filters',
+      'data_management',
+      'data_migration',
+      'data_export',
+      'dsr',
+      'merge_three_way',
+      'admin_placeholders',
       'recent_searches',
       'programme_scope_search',
       'ai_assistant',
@@ -76,7 +82,6 @@ describe('feature flags', () => {
       'script_programme_assignment',
       'script_preview',
       'script_version_changes',
-      'admin_placeholders',
     ]);
   });
 

@@ -54,3 +54,11 @@ export function formatCount(locale: string, value: number): string {
     return new Intl.NumberFormat('en').format(value);
   }
 }
+
+/** A day as the reader's calendar shows it ("12 Sep"), with the year when it is not this one. A date, not a moment: no zone. */
+export function formatDay(locale: string, iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  const sameYear = at.getFullYear() === new Date().getFullYear();
+  return formatter(locale, sameYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' }).format(at);
+}

@@ -88,6 +88,12 @@ const DEMO_FLAGS = [
   'last_activity',
   'quick_actions',
   'more_filters',
+  // T-0141 (D-L194): P28's Data management area and its placeholders.
+  'data_management',
+  'data_migration',
+  'data_export',
+  'dsr',
+  'merge_three_way',
   // T-0138 (D-L194): the P27 placeholders.
   'recent_searches',
   'programme_scope_search',

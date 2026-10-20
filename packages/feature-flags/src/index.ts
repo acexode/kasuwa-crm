@@ -600,6 +600,64 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0141 (D-L193, D-L194): P28's admin "Data management" area at
+   * `/admin/data/*`: the admin bar with its section title, the 232px sub-nav
+   * and the sticky action bar, holding the import wizard (with the design's
+   * Review step) and the duplicates screen. With it on, `/contacts/import` and
+   * `/contacts/duplicates` redirect into the area; off, they render in the CRM
+   * shell as before. Presentation only: grants nothing.
+   */
+  data_management: {
+    description: 'The P28 admin Data management area at /admin/data, with the five-step import wizard and duplicates (T-0141, D-L194).',
+    defaultValue: false,
+    owner: 'T-0141 (screens), T-0096, T-0097',
+    productionReady: false,
+  },
+  /**
+   * T-0141 (D-L194): P28's Migration section (frames B–B5), drawn in the
+   * design's own not-connected state: no connector exists, so the connect
+   * button is disabled and nothing is read from another CRM.
+   */
+  data_migration: {
+    description: 'The P28 Migration placeholder in Data management, not connected (T-0141, D-L194).',
+    defaultValue: false,
+    owner: 'T-0141 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0141 (D-L194): P28's Export centre (frames D, D1), drawn empty: there is
+   * no export or approval API, so the list is the design's empty state and
+   * New export is disabled.
+   */
+  data_export: {
+    description: 'The P28 Export centre placeholder in Data management, empty (T-0141, D-L194).',
+    defaultValue: false,
+    owner: 'T-0141 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0141 (D-L194): P28's Data-subject requests (frames E–E3), drawn empty:
+   * there is no DSR API, so the tiles carry no figure, the table is the
+   * design's empty state and Log a request is disabled.
+   */
+  dsr: {
+    description: 'The P28 Data-subject requests placeholder in Data management, empty (T-0141, D-L194).',
+    defaultValue: false,
+    owner: 'T-0141 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0141 (D-L194, D-L146): the third record slot in the P28 merge compare,
+   * drawn disabled. Merges are pairwise (D-L146); the slot shows where a
+   * three-way merge would sit and holds no record.
+   */
+  merge_three_way: {
+    description: 'The disabled third record slot in the P28 merge compare; merges stay pairwise (T-0141, D-L146, D-L194).',
+    defaultValue: false,
+    owner: 'T-0141 (placeholder), D-L146',
+    productionReady: false,
+  },
+  /**
    * T-0140 (D-L194): the P02 console's designed controls whose backend is not
    * built. The usage meters the API does not serve (WhatsApp conversations,
    * storage, AI credits) draw in their empty state, and Alert settings, the

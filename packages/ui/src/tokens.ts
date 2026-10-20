@@ -312,6 +312,8 @@ export function resolveIconSize(size: IconSize | IconSizeAlias): IconSize {
  *   mobileHeader  56  the phone's per-screen app bar
  *   search       420  the top bar's inline search field (flex 0 1 420px, T-0130)
  *   fab           56  the phone's extended "+ New" button (T-0130)
+ *   dataNav      232  P28's Data management sub-nav (T-0141), 196 at 1024
+ *   dataContent 1240  P28's content column, at most (T-0141)
  */
 export const SHELL = {
   header: '60px',
@@ -323,6 +325,9 @@ export const SHELL = {
   mobileHeader: '56px',
   search: '420px',
   fab: '56px',
+  dataNav: '232px',
+  dataNavCompact: '196px',
+  dataContent: '1240px',
 } as const;
 
 /**

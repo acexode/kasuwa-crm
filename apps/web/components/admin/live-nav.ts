@@ -1,4 +1,5 @@
 import { crmCustomFieldsEnabled, crmNotificationsEnabled } from '../../lib/feature-flags';
+import { dataPage } from '../../lib/data-management';
 
 /**
  * The admin settings-menu entries whose ROUTE is on in this process, as
@@ -12,7 +13,14 @@ import { crmCustomFieldsEnabled, crmNotificationsEnabled } from '../../lib/featu
  * carries no table of flag-gated routes, and no client module names a flag.
  */
 export async function adminLiveNav(): Promise<Readonly<Record<string, string>>> {
-  return (await crmCustomFieldsEnabled()) ? { 'cu-fields': '/admin/custom-fields' } : {};
+  const [fields, data] = await Promise.all([crmCustomFieldsEnabled(), dataPage()]);
+  // T-0141: the Data management area's sections, each where its screen is on.
+  return {
+    ...(fields ? { 'cu-fields': '/admin/custom-fields' } : {}),
+    ...(data.sections.import ? { 'd-io': '/admin/data/import' } : {}),
+    ...(data.sections.duplicates ? { 'd-dedup': '/admin/data/duplicates' } : {}),
+    ...(data.sections.requests ? { 'co-dsr': '/admin/data/requests' } : {}),
+  };
 }
 
 /**

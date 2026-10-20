@@ -51,6 +51,7 @@ export type IconName =
   | 'cloud'
   | 'cloud_done'
   | 'cloud_off'
+  | 'cloud_sync'
   | 'cloud_upload'
   | 'co_present'
   | 'coffee'
@@ -74,6 +75,7 @@ export type IconName =
   | 'drag_pan'
   | 'edit'
   | 'edit_note'
+  | 'edit_off'
   | 'error'
   | 'event'
   | 'event_available'
@@ -117,6 +119,7 @@ export type IconName =
   | 'light_mode'
   | 'lightbulb'
   | 'link'
+  | 'link_off'
   | 'list'
   | 'location_on'
   | 'lock'
@@ -155,6 +158,7 @@ export type IconName =
   | 'play_arrow'
   | 'play_circle'
   | 'priority_high'
+  | 'privacy_tip'
   | 'public'
   | 'publish'
   | 'published_with_changes'
@@ -200,6 +204,7 @@ export type IconName =
   | 'support_agent'
   | 'swap_horiz'
   | 'swipe_left'
+  | 'sync'
   | 'sync_alt'
   | 'table_rows'
   | 'target'
@@ -283,6 +288,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'cloud',
   'cloud_done',
   'cloud_off',
+  'cloud_sync',
   'cloud_upload',
   'co_present',
   'coffee',
@@ -306,6 +312,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'drag_pan',
   'edit',
   'edit_note',
+  'edit_off',
   'error',
   'event',
   'event_available',
@@ -349,6 +356,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'light_mode',
   'lightbulb',
   'link',
+  'link_off',
   'list',
   'location_on',
   'lock',
@@ -387,6 +395,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'play_arrow',
   'play_circle',
   'priority_high',
+  'privacy_tip',
   'public',
   'publish',
   'published_with_changes',
@@ -432,6 +441,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'support_agent',
   'swap_horiz',
   'swipe_left',
+  'sync',
   'sync_alt',
   'table_rows',
   'target',

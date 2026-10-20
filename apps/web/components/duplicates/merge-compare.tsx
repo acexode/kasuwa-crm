@@ -1,27 +1,49 @@
 'use client';
 
-import { useId } from 'react';
-import type { Translator } from '@kasuwa/i18n/bundle';
+import { useId, type ReactNode } from 'react';
+import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
-import type { ContactMergePreview, MergeSide, PreviewContact } from '../../lib/duplicates-api';
-import { COMPLIANCE_LABELS, FIELD_LABELS, complianceLabel, complianceRows, fieldValue, rowsOf, type DrawnField, type FieldRow, type FieldValue } from './merge-model';
+import type { ComplianceField, ContactMergePreview, MergeSide, PreviewContact } from '../../lib/duplicates-api';
+import { formatDay } from '../import/import-text';
+import {
+  COMPLIANCE_LABELS,
+  FIELD_LABELS,
+  complianceLabel,
+  complianceRows,
+  fieldValue,
+  rowsOf,
+  type ComplianceRow,
+  type FieldRow,
+  type FieldValue,
+} from './merge-model';
 
 /**
- * C1's comparison, as a table: a row header per field and, in the one cell, a
- * labelled radio group naming the two sides. At 360 px the two options stack,
- * so nothing scrolls sideways; from `sm` they sit side by side.
+ * C1's comparison, to the export: one `<table>` with a Field column, one
+ * column per record (a header card holding the main-record radio, when the
+ * record was created and how), and the success-soft "Merged record" column
+ * showing what will be saved.
+ *
+ * The columns stay in the pair's order whichever record is the main one: the
+ * preview is read the other way round when the main record changes (survivor
+ * and merged swap), and each column finds its side by id. Merges are pairwise
+ * (D-L146); with `merge_three_way` on, a third column is drawn in its disabled
+ * state, holding no record.
  *
  * THREE KINDS OF ROW, drawn differently on purpose:
- *   - a CHOICE: the person's pick, or the API's default, selected;
+ *   - a CHOICE: one named radio group per field, spanning the record columns,
+ *     the person's pick (or the API's default) selected;
  *   - WITHHELD: either side's field security hides it, so no value and no
  *     choice is drawn, and none of the value is in the page;
  *   - LOCKED: readable on both sides but not editable by the caller (or
  *     refused by the API since), so both values are shown and neither can be
  *     chosen: a merge is never a way round field security.
  *
- * Compliance is a second table, because it is a different promise: locked at
- * the most restrictive outcome whichever record is the main one (D-P28).
+ * Compliance rows are locked at the most restrictive outcome whichever record
+ * is the main one (D-P28): each record's value is shown, the outcome is in the
+ * merged column, and nothing is chosen.
  */
+
+const LETTERS = ['A', 'B', 'C'] as const;
 
 function Value({ t, value }: { t: Translator; value: FieldValue }) {
   if (value.kind === 'empty') return <span className="text-text-muted">{t.t('records.cell.empty')}</span>;
@@ -29,7 +51,7 @@ function Value({ t, value }: { t: Translator; value: FieldValue }) {
   return (
     <span className="flex min-w-0 flex-wrap gap-x-2">
       {value.parts.map((part, index) => (
-        <span key={index} data-record-text="" dir="auto" className="min-w-0 break-all">
+        <span key={index} data-record-text="" dir="auto" className="min-w-0 break-words">
           {part}
         </span>
       ))}
@@ -37,46 +59,214 @@ function Value({ t, value }: { t: Translator; value: FieldValue }) {
   );
 }
 
-function Option({
+function same(a: FieldValue, b: FieldValue): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/** One record's pick: a 40px pill, primary-edged on primary-soft when chosen. */
+function Pick({
   t,
-  side,
-  contact,
-  field,
+  letter,
+  value,
   name,
+  side,
   checked,
   disabled,
   onChange,
 }: {
   t: Translator;
-  side: MergeSide;
-  contact: PreviewContact;
-  field: DrawnField;
+  letter: string;
+  value: FieldValue;
   name: string;
+  side: MergeSide;
   checked: boolean;
   disabled: boolean;
   onChange: () => void;
 }) {
   return (
-    <label className={`flex min-h-touch min-w-0 cursor-pointer items-start gap-3 rounded-md border p-2 ${checked ? 'border-primary bg-primary-soft' : 'border-border bg-surface'}`}>
-      <input type="radio" name={name} data-merge-side={side} checked={checked} disabled={disabled} onChange={onChange} className="mt-1 h-5 w-5 shrink-0 accent-primary" />
-      <span className="flex min-w-0 flex-col gap-1">
-        <span className="text-caption text-text-2">{t.t(side === 'survivor' ? 'duplicates.col.main' : 'duplicates.col.other')}</span>
-        <Value t={t} value={fieldValue(contact, field)} />
+    <label
+      className={`flex min-h-control-md min-w-0 items-center gap-2.5 rounded-md border px-3 py-1.5 text-body-sm ${
+        checked ? 'border-primary bg-primary-soft' : 'border-transparent'
+      } ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+    >
+      <span className="relative flex size-4.5 shrink-0 items-center justify-center">
+        <input
+          type="radio"
+          name={name}
+          data-merge-side={side}
+          checked={checked}
+          disabled={disabled}
+          onChange={onChange}
+          className="peer absolute inset-0 m-0 cursor-pointer appearance-none rounded-full border-2 border-border-strong checked:border-primary focus-visible:ring-focus disabled:cursor-not-allowed"
+        />
+        <span aria-hidden="true" className="pointer-events-none hidden size-2 rounded-full bg-primary peer-checked:block" />
+      </span>
+      <span className="sr-only">{t.t('duplicates.record.label', { letter })}</span>
+      <span className="min-w-0 truncate">
+        <Value t={t} value={value} />
       </span>
     </label>
   );
 }
 
-function ReadOnly({ t, preview, field }: { t: Translator; preview: ContactMergePreview; field: DrawnField }) {
+export interface CompareColumn {
+  readonly id: string;
+  readonly side: MergeSide;
+}
+
+export function MergeCompare({
+  t,
+  locale,
+  preview,
+  columns,
+  names,
+  mainId,
+  mainName,
+  overrides,
+  refused,
+  disabled,
+  threeWay,
+  onMain,
+  onPick,
+}: {
+  t: Translator;
+  locale: string;
+  /** `null` while the preview for this main record is being read. */
+  preview: ContactMergePreview | null;
+  /** The pair, in its own order, each with the side it is in the preview. */
+  columns: readonly [CompareColumn, CompareColumn];
+  names: Readonly<Record<string, string | null>>;
+  mainId: string;
+  /** The main-record radios' group name. */
+  mainName: string;
+  overrides: Readonly<Record<string, MergeSide>>;
+  refused: readonly string[];
+  disabled: boolean;
+  /** `merge_three_way`: draw the disabled third record slot. */
+  threeWay: boolean;
+  onMain: (id: string) => void;
+  onPick: (field: string, side: MergeSide) => void;
+}) {
+  const group = useId();
+  const rows = preview === null ? [] : rowsOf(preview, overrides, refused);
+  const contact = (column: CompareColumn): PreviewContact | null => (preview === null ? null : preview[column.side]);
+  const recordColumns = threeWay ? 3 : 2;
+
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {(['survivor', 'merged'] as const).map((side) => (
-        <div key={side} className="flex min-w-0 flex-col gap-1 rounded-md border border-border bg-surface-sunken p-2">
-          <span className="text-caption text-text-2">{t.t(side === 'survivor' ? 'duplicates.col.main' : 'duplicates.col.other')}</span>
-          <Value t={t} value={fieldValue(preview[side], field)} />
-        </div>
-      ))}
+    <div className="min-w-0 overflow-hidden rounded-lg border border-border bg-surface md:overflow-x-auto">
+      <table data-testid="merge-compare" className="w-full table-fixed border-separate border-spacing-0 text-body-sm max-md:block md:min-w-[640px]">
+        <caption className="sr-only">{t.t('duplicates.merge.compare')}</caption>
+        <colgroup className="max-md:hidden">
+          <col className="w-[150px]" />
+          {Array.from({ length: recordColumns + 1 }, (_, index) => (
+            <col key={index} />
+          ))}
+        </colgroup>
+        <thead className="max-md:block">
+          <tr className="bg-surface-sunken max-md:grid max-md:grid-cols-2">
+            <th scope="col" className="border-b border-border px-4 pb-3 pt-2.5 text-start align-bottom text-meta font-bold max-md:hidden">
+              {t.t('duplicates.col.field')}
+            </th>
+            {columns.map((column, index) => {
+              const main = column.id === mainId;
+              const created = contact(column);
+              return (
+                <th key={column.id} scope="col" className="border-b border-border px-1.5 pb-2.5 pt-2.5 text-start align-top font-normal max-md:block">
+                  <label
+                    className={`flex min-w-0 cursor-pointer flex-col gap-0.5 rounded-10 bg-surface px-3 py-2.5 ${
+                      main ? 'border-2 border-primary bg-primary-soft' : 'border border-border'
+                    } ${disabled ? 'cursor-not-allowed' : ''}`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="relative flex size-4.5 shrink-0 items-center justify-center">
+                        <input
+                          type="radio"
+                          name={mainName}
+                          data-main={column.id}
+                          checked={main}
+                          disabled={disabled}
+                          onChange={() => onMain(column.id)}
+                          className="peer absolute inset-0 m-0 cursor-pointer appearance-none rounded-full border-2 border-border-strong checked:border-primary focus-visible:ring-focus disabled:cursor-not-allowed"
+                        />
+                        <span aria-hidden="true" className="pointer-events-none hidden size-2 rounded-full bg-primary peer-checked:block" />
+                      </span>
+                      <b className="text-body-sm font-bold text-text">{t.t('duplicates.record.label', { letter: LETTERS[index] ?? '' })}</b>
+                      {names[column.id] === undefined ? null : (
+                        <span className="sr-only">{names[column.id] ?? t.t('duplicates.withheld')}</span>
+                      )}
+                    </span>
+                    <span className="text-caption font-normal text-text-2">
+                      {created === null ? ' ' : <RecordOrigin t={t} locale={locale} contact={created} />}
+                    </span>
+                    {main ? <span className="text-caption font-bold text-primary-text">{t.t('duplicates.col.main')}</span> : null}
+                  </label>
+                </th>
+              );
+            })}
+            {threeWay ? (
+              <th scope="col" data-merge-slot="third" className="border-b border-border px-1.5 pb-2.5 pt-2.5 text-start align-top font-normal max-md:hidden">
+                <span aria-disabled="true" className="flex min-w-0 flex-col gap-0.5 rounded-10 border border-dashed border-border-strong bg-surface px-3 py-2.5 text-text-muted">
+                  <span className="flex items-center gap-2">
+                    <span aria-hidden="true" className="size-4.5 shrink-0 rounded-full border-2 border-border" />
+                    <b className="text-body-sm font-bold">{t.t('duplicates.record.label', { letter: 'C' })}</b>
+                  </span>
+                  <span className="text-caption font-normal">{t.t('duplicates.third.body')}</span>
+                </span>
+              </th>
+            ) : null}
+            <th scope="col" className="border-b border-border px-1.5 pb-2.5 pt-2.5 text-start align-top font-normal max-md:col-span-2 max-md:block">
+              <span className="flex min-h-full flex-col justify-end gap-0.5 rounded-10 bg-success-soft px-3 py-2.5">
+                <b className="mt-auto text-body-sm font-bold text-success-text">{t.t('duplicates.result.title')}</b>
+                <span className="text-caption font-normal text-text-2">{t.t('duplicates.result.body')}</span>
+              </span>
+            </th>
+          </tr>
+        </thead>
+        <tbody className="max-md:block">
+          {preview === null
+            ? Array.from({ length: 5 }, (_, index) => (
+                <tr key={index} aria-hidden="true">
+                  <td colSpan={recordColumns + 2} className="border-b border-border px-4 py-3">
+                    <span className="block h-7 rounded-md bg-surface-sunken" />
+                  </td>
+                </tr>
+              ))
+            : rows.map((row) => (
+                <Row key={row.field} t={t} row={row} preview={preview} columns={columns} group={group} disabled={disabled} threeWay={threeWay} onPick={onPick} />
+              ))}
+        </tbody>
+        {preview === null ? null : (
+          <tbody data-testid="merge-compliance" className="max-md:block">
+            {complianceRows(preview).map((row) => (
+              <ComplianceTableRow key={row.field} t={t} row={row} preview={preview} columns={columns} threeWay={threeWay} />
+            ))}
+          </tbody>
+        )}
+      </table>
     </div>
+  );
+}
+
+function RecordOrigin({ t, locale, contact }: { t: Translator; locale: string; contact: PreviewContact }) {
+  const created = t.t('duplicates.record.created', { date: formatDay(locale, contact.createdAt) });
+  return (
+    <>
+      <time dateTime={contact.createdAt}>{created}</time>
+      {contact.source === null || contact.source === undefined ? null : ` · ${t.t(`records.source.${contact.source}` as MessageId)}`}
+    </>
+  );
+}
+
+const CELL = 'border-b border-border px-1.5 py-1.5 align-middle max-md:block max-md:border-b-0';
+
+function FieldHeader({ label, note }: { label: string; note?: ReactNode }) {
+  return (
+    <th scope="row" className="border-b border-border px-4 py-2 text-start align-middle font-normal max-md:col-span-2 max-md:block max-md:border-b-0 max-md:pb-0">
+      <span className="flex flex-col">
+        <b className="break-words text-body-sm font-bold">{label}</b>
+        {note === undefined ? null : <span className="text-caption font-normal text-text-2">{note}</span>}
+      </span>
+    </th>
   );
 }
 
@@ -84,130 +274,135 @@ function Row({
   t,
   row,
   preview,
+  columns,
   group,
   disabled,
+  threeWay,
   onPick,
 }: {
   t: Translator;
   row: FieldRow;
   preview: ContactMergePreview;
+  columns: readonly [CompareColumn, CompareColumn];
   group: string;
   disabled: boolean;
+  threeWay: boolean;
   onPick: (field: string, side: MergeSide) => void;
 }) {
   const label = t.t(FIELD_LABELS[row.field]);
+  const values = columns.map((column) => fieldValue(preview[column.side], row.field)) as [FieldValue, FieldValue];
+  const equal = row.kind !== 'withheld' && same(values[0], values[1]);
+  const kept = row.kind === 'choice' && row.pick !== null ? fieldValue(preview[row.pick], row.field) : fieldValue(preview.survivor, row.field);
   return (
     <tr
+      className="max-md:grid max-md:grid-cols-2 max-md:border-b max-md:border-border max-md:py-1.5"
       data-merge-field={row.field}
       {...(row.kind === 'withheld' ? { 'data-withheld': 'true' } : {})}
       {...(row.kind === 'locked' ? { 'data-locked': 'true' } : {})}
-      className="border-b border-border align-top last:border-b-0"
     >
-      <th scope="row" className="w-1/3 min-w-0 break-words p-2 text-start text-body-sm font-semibold sm:w-1/4">
-        {label}
-      </th>
-      <td className="min-w-0 p-2">
+      <FieldHeader label={label} note={equal ? t.t('duplicates.same') : row.kind === 'locked' ? t.t('duplicates.locked.short') : undefined} />
+      <td colSpan={2} className={`${CELL} max-md:col-span-2`}>
         {row.kind === 'withheld' ? (
-          <p className="flex items-center gap-2 text-body-sm text-text-2">
-            <Icon name="lock" size="sm" />
+          <p className="m-0 flex items-center gap-2 px-3 text-body-sm text-text-2">
+            <Icon name="lock" size={18} />
             {t.t('duplicates.withheld')}
           </p>
         ) : null}
         {row.kind === 'locked' ? (
-          <div className="flex flex-col gap-2">
-            <ReadOnly t={t} preview={preview} field={row.field} />
-            <p className="flex items-center gap-2 text-caption text-text-2">
-              <Icon name="lock" size="sm" />
-              {t.t('duplicates.locked')}
-            </p>
+          <div className="grid grid-cols-2 gap-3" title={t.t('duplicates.locked')}>
+            {values.map((value, index) => (
+              <span key={index} className="flex min-w-0 items-center gap-2 px-3 text-body-sm">
+                <Icon name="lock" size={16} className="shrink-0 text-text-muted" />
+                <span className="sr-only">{t.t('duplicates.record.label', { letter: LETTERS[index] ?? '' })}</span>
+                <span className="min-w-0 truncate">
+                  <Value t={t} value={value} />
+                </span>
+              </span>
+            ))}
+            <span className="sr-only">{t.t('duplicates.locked')}</span>
           </div>
         ) : null}
         {row.kind === 'choice' ? (
-          <fieldset disabled={disabled} className="grid min-w-0 gap-2 sm:grid-cols-2">
+          <fieldset disabled={disabled} className="m-0 grid min-w-0 grid-cols-2 gap-3 border-0 p-0">
             <legend className="sr-only">{label}</legend>
-            {(['survivor', 'merged'] as const).map((side) => (
-              <Option
-                key={side}
+            {columns.map((column, index) => (
+              <Pick
+                key={column.id}
                 t={t}
-                side={side}
-                contact={preview[side]}
-                field={row.field}
+                letter={LETTERS[index] ?? ''}
+                value={values[index] ?? { kind: 'empty' }}
                 name={`${group}-${row.field}`}
-                checked={row.pick === side}
+                side={column.side}
+                checked={row.pick === column.side}
                 disabled={disabled}
-                onChange={() => onPick(row.field, side)}
+                onChange={() => onPick(row.field, column.side)}
               />
             ))}
           </fieldset>
         ) : null}
       </td>
+      {threeWay ? (
+        <td className={`${CELL} px-4 text-text-muted max-md:hidden`}>
+          <span aria-hidden="true">—</span>
+        </td>
+      ) : null}
+      <td className={`${CELL} px-4 font-bold max-md:col-span-2 max-md:flex max-md:gap-1.5`}>
+        <span className="font-normal text-success-text md:hidden">{t.t('duplicates.result.title')}:</span>
+        {row.kind === 'withheld' ? <span className="font-normal text-text-2">{t.t('duplicates.withheld')}</span> : <Value t={t} value={kept} />}
+      </td>
     </tr>
   );
 }
 
-export function MergeCompare({
+/** A record's own compliance value, drawn as words, or withheld. */
+function recordCompliance(contact: PreviewContact, field: ComplianceField): ComplianceRow {
+  const value = contact[field];
+  const withheld = contact.withheldFields.includes(field) || value === undefined;
+  return { field, withheld, value: withheld ? null : String(value) };
+}
+
+function ComplianceTableRow({
   t,
+  row,
   preview,
-  overrides,
-  refused,
-  disabled,
-  onPick,
+  columns,
+  threeWay,
 }: {
   t: Translator;
+  row: ComplianceRow;
   preview: ContactMergePreview;
-  overrides: Readonly<Record<string, MergeSide>>;
-  refused: readonly string[];
-  disabled: boolean;
-  onPick: (field: string, side: MergeSide) => void;
+  columns: readonly [CompareColumn, CompareColumn];
+  threeWay: boolean;
 }) {
-  const group = useId();
-  const rows = rowsOf(preview, overrides, refused);
   return (
-    <div className="flex flex-col gap-4">
-      <table data-testid="merge-compare" className="w-full table-fixed rounded-lg border border-border bg-surface">
-        <caption className="sr-only">{t.t('duplicates.merge.compare')}</caption>
-        <thead className="sr-only">
-          <tr>
-            <th scope="col">{t.t('duplicates.col.field')}</th>
-            <th scope="col">{t.t('duplicates.col.value')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <Row key={row.field} t={t} row={row} preview={preview} group={group} disabled={disabled} onPick={onPick} />
-          ))}
-        </tbody>
-      </table>
-      <table data-testid="merge-compliance" className="w-full table-fixed rounded-lg border border-border bg-surface-sunken">
-        <caption className="p-2 text-start text-body-sm font-bold">
-          <span className="flex items-center gap-2">
-            <Icon name="lock" size="sm" />
-            {t.t('duplicates.compliance.title')}
+    <tr data-merge-compliance={row.field} {...(row.withheld ? { 'data-withheld': 'true' } : {})} className="max-md:grid max-md:grid-cols-2 max-md:border-b max-md:border-border max-md:py-1.5">
+      <FieldHeader label={t.t(COMPLIANCE_LABELS[row.field])} note={t.t('duplicates.compliance.kept')} />
+      {columns.map((column) => {
+        const own = recordCompliance(preview[column.side], row.field);
+        return (
+          <td key={column.id} className={`${CELL} px-4 text-text-2`}>
+            <span className="flex items-center gap-2">
+              <Icon name="lock" size={16} className="shrink-0 text-text-muted" />
+              {own.withheld ? t.t('duplicates.withheld') : t.t(complianceLabel(own))}
+            </span>
+          </td>
+        );
+      })}
+      {threeWay ? (
+        <td className={`${CELL} px-4 text-text-muted max-md:hidden`}>
+          <span aria-hidden="true">—</span>
+        </td>
+      ) : null}
+      <td className={`${CELL} px-4 max-md:col-span-2 max-md:flex max-md:gap-1.5`}>
+        <span className="text-success-text md:hidden">{t.t('duplicates.result.title')}:</span>
+        {row.withheld ? (
+          <span className="text-text-2">{t.t('duplicates.withheld')}</span>
+        ) : (
+          <span data-compliance-value={row.value ?? ''} className="font-bold">
+            {t.t(complianceLabel(row))}
           </span>
-        </caption>
-        <tbody>
-          {complianceRows(preview).map((row) => (
-            <tr key={row.field} data-merge-compliance={row.field} {...(row.withheld ? { 'data-withheld': 'true' } : {})} className="border-t border-border">
-              <th scope="row" className="w-1/3 min-w-0 break-words p-2 text-start text-body-sm font-semibold sm:w-1/4">
-                {t.t(COMPLIANCE_LABELS[row.field])}
-              </th>
-              <td className="min-w-0 p-2 text-body-sm">
-                {row.withheld ? (
-                  <span className="text-text-2">{t.t('duplicates.withheld')}</span>
-                ) : (
-                  <span data-compliance-value={row.value ?? ''} className="font-semibold">
-                    {t.t(complianceLabel(row))}
-                  </span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p data-testid="merge-compliance-note" className="flex items-start gap-2 text-body-sm text-text-2">
-        <Icon name="info" size="sm" />
-        {t.t('duplicates.compliance.note')}
-      </p>
-    </div>
+        )}
+      </td>
+    </tr>
   );
 }

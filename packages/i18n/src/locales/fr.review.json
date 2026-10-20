@@ -121,6 +121,14 @@
     "search.type.contact": "The same word in French.",
     "search.palette.actions": "The same word in French.",
     "search.key.slash": "A keyboard key, not a word.",
-    "search.key.ctrl": "The Ctrl key is labelled Ctrl on French keyboards."
+    "search.key.ctrl": "The Ctrl key is labelled Ctrl on French keyboards.",
+    "import.object.contacts": "The same word in French.",
+    "import.object.tickets": "The same word in French.",
+    "data.nav.migration": "The same word in French.",
+    "data.migration.zoho": "A product name, kept as the vendor writes it.",
+    "data.migration.zoho.initial": "A product name, kept as the vendor writes it.",
+    "data.migration.salesforce": "A product name, kept as the vendor writes it.",
+    "data.migration.salesforce.initial": "A product name, kept as the vendor writes it.",
+    "data.requests.col.type": "The same word in French."
   }
 }

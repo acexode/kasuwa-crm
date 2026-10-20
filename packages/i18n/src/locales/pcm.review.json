@@ -460,6 +460,20 @@
     "search.switch.title": "Nigerian Pidgin says this as English does.",
     "search.key.slash": "A keyboard key, not a word.",
     "search.key.ctrl": "The Ctrl key keeps its keyboard label.",
-    "search.palette.ai": "Nigerian Pidgin says AI as English does."
+    "search.palette.ai": "Nigerian Pidgin says AI as English does.",
+    "import.duplicates.skip": "The same word in Nigerian Pidgin.",
+    "import.review.fix": "The same word in Nigerian Pidgin.",
+    "data.shell.title": "The same word in Nigerian Pidgin.",
+    "data.nav.exports": "The same word in Nigerian Pidgin.",
+    "duplicates.record.label": "The same word in Nigerian Pidgin.",
+    "data.migration.zoho": "A product name, kept as the vendor writes it.",
+    "data.migration.zoho.initial": "A product name, kept as the vendor writes it.",
+    "data.migration.salesforce": "A product name, kept as the vendor writes it.",
+    "data.migration.salesforce.initial": "A product name, kept as the vendor writes it.",
+    "data.migration.connect.title": "The same word in Nigerian Pidgin.",
+    "data.exports.title": "The same word in Nigerian Pidgin.",
+    "data.exports.new": "The same word in Nigerian Pidgin.",
+    "data.requests.none": "The same word in Nigerian Pidgin.",
+    "data.requests.col.request": "The same word in Nigerian Pidgin."
   }
 }

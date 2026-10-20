@@ -534,6 +534,41 @@ export async function productTourShown(): Promise<boolean> {
 }
 
 /**
+ * P28's Data management area and its D-L194 placeholders (T-0141). Read on the
+ * server and handed to the screens as booleans; no client module names a flag.
+ *
+ *   area        `/admin/data/*` exists, and `/contacts/import` and
+ *               `/contacts/duplicates` redirect into it.
+ *   migration   the Migration section, in the design's not-connected state.
+ *   exports     the Export centre, empty.
+ *   requests    Data-subject requests, empty.
+ *   threeWay    the merge compare's disabled third record slot.
+ *
+ * Presentation only: nothing here reads, connects, exports or merges anything.
+ */
+export interface DataManagement {
+  readonly area: boolean;
+  readonly migration: boolean;
+  readonly exports: boolean;
+  readonly requests: boolean;
+  readonly threeWay: boolean;
+}
+
+export async function dataManagement(): Promise<DataManagement> {
+  await initialiseFeatureFlags();
+  const client = featureFlagClient();
+  const context = toEvaluationContext({ tenantId: CRM_SHELL });
+  const [area, migration, exports, requests, threeWay] = await Promise.all([
+    client.getBooleanValue('data_management', false, context),
+    client.getBooleanValue('data_migration', false, context),
+    client.getBooleanValue('data_export', false, context),
+    client.getBooleanValue('dsr', false, context),
+    client.getBooleanValue('merge_three_way', false, context),
+  ]);
+  return { area, migration, exports, requests, threeWay };
+}
+
+/**
  * `admin_placeholders` (D-L194, T-0140): whether the P02 console draws its
  * designed controls that have no backend yet, in their empty or disabled
  * state. Per process, like the tour button.
