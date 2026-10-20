@@ -288,7 +288,9 @@ export function ActivityComposer({
   };
 
   const zone = zoneSuffix();
-  const zoneAside = <span className="text-body-sm font-medium text-text-muted">{zone}</span>;
+  // The zone label is part of the time, as in My tasks and the calendar: it sits in a <time>,
+  // which keeps it out of the pseudo-locale check like every other time (T-0150).
+  const zoneAside = <time className="text-body-sm font-medium text-text-muted">{zone}</time>;
 
   const timeInput = (field: 'dueAt' | 'startsAt' | 'endsAt', label: MessageId, value: string, set: (value: string) => void) => (
     <TextField

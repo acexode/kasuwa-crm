@@ -184,7 +184,9 @@ function TaskRow({
         </div>
       </div>
       {owner === null ? null : (
-        <span className="mt-[7px] shrink-0" title={owner}>
+        // The tooltip is the translated "Owner: {name}", never a bare name: a
+        // title is copy, read in the UI's language (T-0150).
+        <span className="mt-[7px] shrink-0" title={t.t('activities.owner', { name: owner })}>
           <span className="sr-only">{t.t('activities.owner', { name: owner })}</span>
           <Avatar name={owner} size={32} locale={locale} className="!size-[30px] !bg-accent-soft !text-[11px] !text-accent-text" />
         </span>

@@ -422,16 +422,20 @@ function OwnerDisc({ t, row }: { t: Translator; row: Lead }) {
       </span>
     );
   }
-  const name = row.owner.displayName ?? t.t('records.owner.former');
+  const served = row.owner.displayName;
+  // The tooltip is copy ("Owner: {name}"), and only a served name is record
+  // text: "Former owner" is copy too (T-0150).
+  const label = served === null ? t.t('records.owner.former') : t.t('records.owner.named', { name: served });
   return (
-    <span
-      title={name}
-      className="flex size-6 items-center justify-center rounded-full bg-accent-soft text-micro text-accent-text"
-    >
-      <span aria-hidden="true">{row.owner.displayName === null ? '' : initials(name)}</span>
-      <span data-record-text="" className="sr-only">
-        {name}
-      </span>
+    <span title={label} className="flex size-6 items-center justify-center rounded-full bg-accent-soft text-micro text-accent-text">
+      <span aria-hidden="true">{served === null ? '' : initials(served)}</span>
+      {served === null ? (
+        <span className="sr-only">{label}</span>
+      ) : (
+        <span data-record-text="" className="sr-only">
+          {served}
+        </span>
+      )}
     </span>
   );
 }

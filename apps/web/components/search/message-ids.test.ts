@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { EN_CATALOGUE, REGISTERED_LOCALES, bundleMessages, type MessageId } from '@kasuwa/i18n';
 import { CRM_SHELL_MESSAGE_IDS } from '../crm/crm-nav';
 import { SEARCH_TYPES } from '../../lib/search-api';
-import { SEARCH_PANEL_MESSAGE_IDS, SHELL_SEARCH_STRINGS, groupLabel, withSearchMessages } from './message-ids';
+import { SEARCH_AI_MESSAGE_IDS, SEARCH_PANEL_MESSAGE_IDS, SHELL_SEARCH_STRINGS, groupLabel, withSearchMessages } from './message-ids';
 import { SEARCH_MESSAGE_IDS } from './screen-message-ids';
 
 /**
@@ -25,13 +25,24 @@ function catalogueIds(file: string): string[] {
 
 describe('the search panel and palette bundle every id they render', () => {
   const panel = new Set<string>(SEARCH_PANEL_MESSAGE_IDS);
+  const ai = new Set<string>(SEARCH_AI_MESSAGE_IDS);
   for (const file of ['search-panel.tsx', 'command-palette.tsx']) {
-    it(`${file} names nothing outside SEARCH_PANEL_MESSAGE_IDS`, () => {
+    it(`${file} names nothing outside SEARCH_PANEL_MESSAGE_IDS and the ai_assistant ids`, () => {
       const named = catalogueIds(file);
       expect(named.length).toBeGreaterThan(0);
-      expect(named.filter((id) => !panel.has(id))).toEqual([]);
+      expect(named.filter((id) => !panel.has(id) && !ai.has(id))).toEqual([]);
     });
   }
+
+  it('the AI strings are their own set, never in the panel bundle (T-0150, D-L194)', () => {
+    expect(SEARCH_AI_MESSAGE_IDS.filter((id) => panel.has(id))).toEqual([]);
+    // Every id the palette and dropdown name under ai_assistant is in it.
+    const aiNamed = [...catalogueIds('command-palette.tsx'), ...catalogueIds('search-dropdown.tsx')].filter((id) =>
+      /(^search\.ai\.|Ai$|\.ai$)/.test(id),
+    );
+    expect(aiNamed.length).toBeGreaterThan(0);
+    expect(aiNamed.filter((id) => !ai.has(id))).toEqual([]);
+  });
 
   it('the shell names no search string as a literal: only SHELL_SEARCH_STRINGS, all in the panel bundle', () => {
     expect(catalogueIds('../crm/crm-shell.tsx').filter((id) => id.startsWith('search.'))).toEqual([]);
@@ -42,6 +53,13 @@ describe('the search panel and palette bundle every id they render', () => {
     const base: readonly MessageId[] = ['app.name'];
     expect(withSearchMessages(base, ['contacts'])).toEqual(base);
     expect(withSearchMessages(base, ['contacts', 'search'])).toEqual([...base, ...SEARCH_PANEL_MESSAGE_IDS]);
+    // The AI strings ride only with ai_assistant (T-0150): a page without the assistant sends none of them.
+    expect(withSearchMessages(base, ['contacts', 'ai_assistant'])).toEqual(base);
+    expect(withSearchMessages(base, ['contacts', 'search', 'ai_assistant'])).toEqual([
+      ...base,
+      ...SEARCH_PANEL_MESSAGE_IDS,
+      ...SEARCH_AI_MESSAGE_IDS,
+    ]);
     expect(CRM_SHELL_MESSAGE_IDS.filter((id) => id.startsWith('search.'))).toEqual([]);
   });
 
@@ -56,8 +74,9 @@ describe('the search panel and palette bundle every id they render', () => {
 
   it('resolves in every registered locale', () => {
     for (const locale of REGISTERED_LOCALES) {
-      const bundle = bundleMessages(locale, SEARCH_PANEL_MESSAGE_IDS);
-      expect(SEARCH_PANEL_MESSAGE_IDS.filter((id: MessageId) => typeof bundle[id] !== 'string'), locale).toEqual([]);
+      const ids = [...SEARCH_PANEL_MESSAGE_IDS, ...SEARCH_AI_MESSAGE_IDS];
+      const bundle = bundleMessages(locale, ids);
+      expect(ids.filter((id: MessageId) => typeof bundle[id] !== 'string'), locale).toEqual([]);
     }
   });
 });

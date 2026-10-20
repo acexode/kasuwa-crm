@@ -501,6 +501,7 @@
   "activities.filter.high",
   "activities.filter.label",
   "activities.owner",
+  "records.owner.named",
   "activities.priority.none",
   "activities.sync.google",
   "activities.sync.kasuwaOnly",

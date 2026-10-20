@@ -65,9 +65,7 @@ export const SEARCH_PANEL_MESSAGE_IDS: readonly MessageId[] = [
   'search.footer.open',
   'search.footer.close',
   'search.footer.run',
-  'search.footer.askAi',
   'search.footer.commands',
-  'search.footer.commandsAi',
   'search.footer.keys',
   'search.seeAllResults',
   'search.chip.label',
@@ -107,7 +105,6 @@ export const SEARCH_PANEL_MESSAGE_IDS: readonly MessageId[] = [
   'search.palette.suggested',
   'search.palette.actions',
   'search.palette.goTo',
-  'search.palette.ai',
   'search.cmd.createLead',
   'search.cmd.createLead.hint',
   'search.cmd.call',
@@ -123,10 +120,6 @@ export const SEARCH_PANEL_MESSAGE_IDS: readonly MessageId[] = [
   'search.cmd.liteOff',
   'search.cmd.liteOff.hint',
   'search.cmd.unavailable',
-  'search.ai.ask',
-  'search.ai.ask.hint',
-  'search.ai.askQuery',
-  'search.ai.askQuery.hint',
   'search.switch.chip',
   'search.switch.back',
   'search.switch.placeholder',
@@ -168,8 +161,30 @@ export const SHELL_SEARCH_STRINGS = {
   scopePlaceholder: 'search.scope.placeholder',
 } as const satisfies Readonly<Record<string, MessageId>>;
 
-/** A CRM page's bundle, plus the search's strings where `crm_search` is live (`live` is `crmLiveNav()`). */
+/**
+ * The palette's and dropdown's "Ask AI" strings (T-0138), drawn only where
+ * `ai_assistant` is on (D-L194). Bundled only then too, as T-0136 does for the
+ * P07 placeholders: a page with no assistant sends none of its words, which
+ * is both bytes at 256 kbps and a promise the page never shows (T-0150).
+ */
+export const SEARCH_AI_MESSAGE_IDS: readonly MessageId[] = [
+  'search.footer.askAi',
+  'search.footer.commandsAi',
+  'search.palette.ai',
+  'search.ai.ask',
+  'search.ai.ask.hint',
+  'search.ai.askQuery',
+  'search.ai.askQuery.hint',
+];
+
+/**
+ * A CRM page's bundle, plus the search's strings where `crm_search` is live
+ * (`live` is `crmLiveNav()`), and the AI ones only where `ai_assistant` is too.
+ */
 export function withSearchMessages(ids: readonly MessageId[], live: readonly string[]): readonly MessageId[] {
-  return live.includes('search') ? [...ids, ...SEARCH_PANEL_MESSAGE_IDS] : ids;
+  if (!live.includes('search')) return ids;
+  return live.includes('ai_assistant')
+    ? [...ids, ...SEARCH_PANEL_MESSAGE_IDS, ...SEARCH_AI_MESSAGE_IDS]
+    : [...ids, ...SEARCH_PANEL_MESSAGE_IDS];
 }
 
