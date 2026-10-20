@@ -978,7 +978,7 @@ function StepCard({
 /** The export's AI suggestion strip (D-L194, `ai_script_hints`), in its empty state: nothing to suggest, "Use line" disabled. */
 function AiStrip({ t, onDismiss }: { t: Translator; onDismiss: () => void }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-full border border-primary-soft-strong bg-primary-soft py-2 pe-2 ps-3">
+    <div className="flex items-center gap-2.5 rounded-full border border-primary-soft-strong bg-primary-soft py-2 pe-2 ps-3 max-md:rounded-xl">
       <Icon name="auto_awesome" size={18} className="shrink-0 text-primary-text" />
       <span className="min-w-0 flex-1 text-meta text-text-2">{t.t('scripting.run.ai.empty')}</span>
       <span className="flex gap-1">

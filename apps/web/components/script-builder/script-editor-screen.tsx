@@ -519,7 +519,7 @@ function Editor({
 
         <section
           aria-label={t.t('scripting.builder.canvas')}
-          className="relative flex min-h-[60vh] min-w-0 flex-1 flex-col md:min-h-0"
+          className="relative flex h-[60vh] min-w-0 flex-none flex-col md:h-auto md:min-h-0 md:flex-1"
         >
           {readOnly && viewing !== null ? (
             <div
