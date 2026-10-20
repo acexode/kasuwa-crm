@@ -47,6 +47,12 @@ describe('feature flags', () => {
       'last_activity',
       'quick_actions',
       'more_filters',
+      'crm_studio',
+      'call_bar',
+      'ai_script_hints',
+      'script_programme_assignment',
+      'script_preview',
+      'script_version_changes',
     ]);
   });
 

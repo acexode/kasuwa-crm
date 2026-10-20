@@ -45,6 +45,7 @@
   "records.source.ussd",
   "records.source.whatsapp",
   "records.view.kanban",
+  "scripting.builder.version.short",
   "tokens.contrast.ratio",
   "tokens.sample.arabic",
   "tokens.sample.text"

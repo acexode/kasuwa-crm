@@ -73,6 +73,13 @@ const DEMO_FLAGS = [
   'last_activity',
   'quick_actions',
   'more_filters',
+  // T-0139 (D-L194): the P10 placeholders.
+  'crm_studio',
+  'call_bar',
+  'ai_script_hints',
+  'script_programme_assignment',
+  'script_preview',
+  'script_version_changes',
 ];
 /** Flags added to the demo automatically once their task has merged. */
 const DEMO_FLAGS_WHEN_PRESENT = ['crm_custom_fields', 'crm_import', 'crm_duplicates', 'crm_notifications'];

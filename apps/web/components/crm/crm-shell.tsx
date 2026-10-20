@@ -115,7 +115,12 @@ function RailItem({ item, href, active, t }: { item: CrmNavItem; href: string | 
     </>
   );
   if (href === null) {
-    return (
+    // A placeholder entry can still be where the person is (Studio on the script screens, T-0139).
+    return active ? (
+      <span aria-current="page" className={`${className} bg-primary-soft text-primary-text`}>
+        {inner}
+      </span>
+    ) : (
       <span aria-disabled="true" title={t.t('records.nav.soon')} className={`${className} text-text-2`}>
         {inner}
         <span className="sr-only">{t.t('records.nav.soon')}</span>
@@ -146,7 +151,7 @@ function BottomItem({ item, href, active, t }: { item: CrmNavItem; href: string 
       <span
         className={`flex h-7 w-control-xl items-center justify-center rounded-14 ${active ? 'bg-primary-soft' : ''}`}
       >
-        {item.icon === 'bar_chart' ? (
+        {item.icon === 'bar_chart' || item.icon === 'account_tree' ? (
           <Icon name={item.icon} size={22} />
         ) : (
           <Icon name={item.icon} size={22} filled={active} />
@@ -157,7 +162,7 @@ function BottomItem({ item, href, active, t }: { item: CrmNavItem; href: string 
   );
   if (href === null) {
     return (
-      <span aria-disabled="true" className={className}>
+      <span aria-disabled={active ? undefined : 'true'} aria-current={active ? 'page' : undefined} className={className}>
         {inner}
         <span className="sr-only">{t.t('records.nav.soon')}</span>
       </span>
