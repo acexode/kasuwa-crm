@@ -80,6 +80,8 @@ import { parse } from 'yaml';
 
 export const RECORDS_CONTRACT_SOURCE = 'docs/api/records.openapi.yaml';
 export const ADMIN_CONTRACT_SOURCE = 'docs/api/admin.openapi.yaml';
+/** T-0148: the shell's own identity read (getCurrentUser, T-0130's avatar) is answered from this contract. */
+export const AUTH_CONTRACT_SOURCE = 'docs/api/auth.openapi.yaml';
 
 const repoRoot = resolve(__dirname, '..', '..', '..');
 
@@ -99,6 +101,7 @@ function load(source: string): unknown {
 
 const CONTRACT: unknown = load(RECORDS_CONTRACT_SOURCE);
 const ADMIN_CONTRACT: unknown = load(ADMIN_CONTRACT_SOURCE);
+const AUTH_CONTRACT: unknown = load(AUTH_CONTRACT_SOURCE);
 
 const DOCUMENTS: Readonly<Record<string, unknown>> = {
   './records.openapi.yaml': CONTRACT,
@@ -230,6 +233,26 @@ export function validateBody(value: unknown, raw: unknown, path: string, doc: un
 // ---------------------------------------------------------------------------
 
 export const NOTIFICATIONS_PATH = '/api/v1/notifications';
+
+/** T-0148: the shell's identity read (auth.openapi.yaml getCurrentUser). */
+const ME_PATH = '/api/v1/auth/me';
+if ((at(AUTH_CONTRACT, 'paths', ME_PATH, 'get') as Json).operationId !== 'getCurrentUser') {
+  throw new Error(`${AUTH_CONTRACT_SOURCE}: GET ${ME_PATH} is no longer getCurrentUser: re-pin the notifications mock`);
+}
+
+/** getCurrentUser's body: a placeholder person (the auth contract has no example). Identity only, never scope. */
+const CURRENT_USER: Json = {
+  id: '7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e09',
+  tenantId: '11111111-0000-4000-8000-00000000a001',
+  email: 'reader@example.test',
+  displayName: 'Sample Reader',
+  locale: 'en-NG',
+};
+
+/** The body against the contract's CurrentUser, closed: a property it does not name is the mock's fault. */
+function meProblems(body: Json): string[] {
+  return validateBody(body, at(AUTH_CONTRACT, 'components', 'schemas', 'CurrentUser'), '', AUTH_CONTRACT, true);
+}
 
 const OP = {
   listNotifications: [NOTIFICATIONS_PATH, 'get'],
@@ -652,6 +675,8 @@ export interface NotificationsMock {
   readonly calls: ApiCall[];
   /** Other /api/v1 requests let through under `otherScreens`. */
   readonly otherReads: string[];
+  /** The shell's own getCurrentUser reads (T-0130's avatar), answered here unless `otherScreens` (T-0148). */
+  readonly shellReads: string[];
   /** Contract breaches by the SCREEN. Must be empty at the end of every test. */
   readonly violations: string[];
   /** Answers the MOCK built that its contract rejects. Must be empty, always. */
@@ -688,6 +713,7 @@ export async function installNotificationsMock(page: Page, options: Notification
   const requests: URL[] = [];
   const calls: ApiCall[] = [];
   const otherReads: string[] = [];
+  const shellReads: string[] = [];
   const violations: string[] = [];
   const mockFaults: string[] = [];
 
@@ -947,6 +973,23 @@ export async function installNotificationsMock(page: Page, options: Notification
         if (href.includes(value)) violations.push(`${method} ${url.pathname} put a name in a URL`);
       }
 
+      // T-0148 (T-0130): the CRM and admin shells read the signed-in person's name ONCE per page load for the
+      // avatar's initials. It is the shell's read, not the notification screens': answered from the auth
+      // contract, checked like theirs (GET only, no query, no scope; the checks above), and kept apart in
+      // `shellReads`. Anything else under /api/v1 is still a violation.
+      if (url.pathname === ME_PATH) {
+        if (method !== 'GET' || url.search !== '' || raw !== '') {
+          violations.push(`${method} ${ME_PATH}${url.search === '' ? '' : ' with a query'}${raw === '' ? '' : ' with a body'} is not getCurrentUser`);
+        }
+        shellReads.push(`${method} ${ME_PATH}`);
+        const problems = meProblems(CURRENT_USER);
+        if (problems.length > 0) mockFaults.push(...problems.map((problem) => `getCurrentUser 200: ${problem}`));
+        await route
+          .fulfill({ status: 200, contentType: 'application/json', headers: { 'cache-control': 'no-store' }, body: JSON.stringify(CURRENT_USER) })
+          .catch(() => undefined);
+        return;
+      }
+
       const segments = url.pathname.split('/').map((segment) => decodeURIComponent(segment));
       let operation: Operation | undefined;
       let id = '';
@@ -1052,6 +1095,7 @@ export async function installNotificationsMock(page: Page, options: Notification
     requests,
     calls,
     otherReads,
+    shellReads,
     violations,
     mockFaults,
     callsOf: (operation: Operation) => calls.filter((call) => call.operation === operation),

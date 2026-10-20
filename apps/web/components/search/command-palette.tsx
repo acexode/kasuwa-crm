@@ -452,7 +452,14 @@ export function CommandPalette({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto pb-2 pt-1.5">
+      {/* The rows scroll, and their links are not tab stops (the input owns them): the region itself is one, so a
+          keyboard can scroll it (axe scrollable-region-focusable, T-0148). */}
+      <div
+        role="region"
+        aria-label={t.t('search.palette.label')}
+        tabIndex={0}
+        className={`min-h-0 flex-1 overflow-y-auto pb-2 pt-1.5 ${FOCUS} focus-visible:ring-inset`}
+      >
         {mode === 'switch' ? (
           <SwitchStep t={t} programmes={programmes} filter={folded(text)} />
         ) : (

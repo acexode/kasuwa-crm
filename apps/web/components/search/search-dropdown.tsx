@@ -230,9 +230,13 @@ export default function SearchDropdown({ t, text, live, listboxId, keysRef, onAc
                     </span>
                     <span className="flex-1" />
                     {seeAll === null || group.type === 'deal' ? null : (
+                      // Inside the listbox, so an option (a link there failed axe's aria-required-children,
+                      // T-0148); it keeps its tab stop and is never the arrow keys' active row.
                       <Link
                         href={seeAll}
                         prefetch={false}
+                        role="option"
+                        aria-selected={false}
                         data-see-all={group.type}
                         onClick={(event) => {
                           event.preventDefault();

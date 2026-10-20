@@ -192,7 +192,16 @@ export function MergeCompare({
                       </span>
                       <b className="text-body-sm font-bold text-text">{t.t('duplicates.record.label', { letter: LETTERS[index] ?? '' })}</b>
                       {names[column.id] === undefined ? null : (
-                        <span className="sr-only">{names[column.id] ?? t.t('duplicates.withheld')}</span>
+                        // The name is the record's own data, never UI copy: marked so (T-0149).
+                        <span className="sr-only">
+                          {names[column.id] === null ? (
+                            t.t('duplicates.withheld')
+                          ) : (
+                            <span data-record-text="" dir="auto">
+                              {names[column.id]}
+                            </span>
+                          )}
+                        </span>
                       )}
                     </span>
                     <span className="text-caption font-normal text-text-2">

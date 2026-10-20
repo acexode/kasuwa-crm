@@ -187,9 +187,12 @@ function ResultsPage({ t, text, live, origin }: { t: Translator; text: string; l
                     key={type}
                     size="compact"
                     checked={on}
+                    // A type with no hit in this answer narrows to nothing: an inactive box, drawn in the
+                    // disabled tone. Dimmed by opacity instead it failed 4.5:1 while still acting (T-0148).
+                    disabled={dim}
                     data-facet={type}
                     onChange={() => setChosen(on ? chosen.filter((kind) => kind !== type) : [...chosen, type])}
-                    className={`min-h-9 rounded-6 px-1.5 text-body-sm ${dim ? 'opacity-50' : ''}`}
+                    className="min-h-9 rounded-6 px-1.5 text-body-sm"
                     label={
                       <span className="flex min-w-0 flex-1 items-center gap-2.5">
                         <Icon name={TYPE_ICON[type]} size={18} className="text-text-2" />

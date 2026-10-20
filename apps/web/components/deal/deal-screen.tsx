@@ -9,7 +9,7 @@ import {
   type MessageId,
   type Translator,
 } from '@kasuwa/i18n/bundle';
-import { Button, initials } from '@kasuwa/ui/components';
+import { Button, Pill, initials } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
@@ -54,7 +54,6 @@ import {
 import { moveRefusalText } from '../pipeline/move-refusal';
 import { AmountValue, Locked, Money, OwnerValue, daysSince } from '../pipeline/pipeline-parts';
 import { NO_MODULES, type DealModules } from '../pipeline/deal-modules';
-import { choiceLabel, usePipelineChoices, type ChoicesState } from '../pipeline/pipeline-select';
 import { DealsBarActions } from '../pipeline/bar-actions';
 import type { RecordLinks } from '../pipeline/pipeline-board';
 import {
@@ -228,8 +227,6 @@ function Ready({
   activityKeys: ReadOnlyStore;
   modules: DealModules;
 }) {
-  // The breadcrumb's pipeline is told apart from a namesake by its programme, as the board's dropdown is.
-  const choices: ChoicesState = usePipelineChoices();
   const [moving, setMoving] = useState(false);
   const [prompt, setPrompt] = useState<PromptState<DealDetail> | null>(null);
   const [editing, setEditing] = useState(false);
@@ -397,8 +394,9 @@ function Ready({
 
   const probability = stage === undefined ? null : formatPercent(locale, stage.probabilityBp);
   const pipelineHref = uuidHref('/pipelines', pipeline.id);
-  const choice = choices.phase === 'ready' ? choices.choices.find((entry) => entry.id === pipeline.id) : undefined;
-  const pipelineLabel = choice === undefined ? pipeline.name : choiceLabel(t, choice);
+  // The breadcrumb names the pipeline getPipeline served. The detail never lists pipelines (T-0110's mock: listPipelines is
+  // a board read), so a namesake is not qualified by programme here; the breadcrumb is one pipeline, never a choice.
+  const pipelineLabel = pipeline.name;
   const nowMs = Date.now();
   const moves = stageMoves(pipeline, deal);
   const unmetFor = (target: PipelineStage) => requirementViews(target, deal, deal.withheldFields).filter((view) => !view.met).length;
@@ -445,6 +443,14 @@ function Ready({
               <h1 id={headings.stage} data-record-text="" className="break-words text-h4 font-bold leading-tight md:text-title-sm md:font-bold">
                 {deal.name}
               </h1>
+              {/* A lost deal is on no step of the path, so its stage is named here instead (T-0110's [data-field="stage"]). */}
+              {stage?.kind === 'lost' ? (
+                <Pill tone="danger" icon="thumb_down" className="self-start">
+                  <span data-record-text="" data-field="stage">
+                    {stage.name}
+                  </span>
+                </Pill>
+              ) : null}
               <p className="flex min-w-0 flex-wrap items-center gap-x-1 text-body-sm leading-[21px] text-text-2">
                 <span data-related="account" data-locked={withheld(deal, 'accountId') ? 'true' : undefined}>
                   {withheld(deal, 'accountId') ? (
@@ -476,7 +482,10 @@ function Ready({
               </b>
               {closeDate === null || closeDays === null ? null : (
                 <span className="text-caption font-normal text-text-2">
-                  {t.t('deal.header.closes')} <b className="text-text">{formatShortDate(locale, closeDate)}</b>{' '}
+                  {t.t('deal.header.closes')}{' '}
+                  <b className="text-text">
+                    <time dateTime={closeDate}>{formatShortDate(locale, closeDate)}</time>
+                  </b>{' '}
                   {closeDays >= 0 ? t.t('deal.header.daysLeft', { days: closeDays }) : t.t('deal.header.daysOverdue', { days: -closeDays })}
                 </span>
               )}
@@ -522,7 +531,8 @@ function Ready({
                         {step.name}
                       </span>
                     </span>
-                    <span className="whitespace-nowrap text-micro font-semibold opacity-90">{sub}</span>
+                    {/* Faded only on the solid current step: muted text on the sunken step is at the AA floor already (axe, T-0147). */}
+                    <span className={`whitespace-nowrap text-micro font-semibold ${state === 'current' ? 'opacity-90' : ''}`}>{sub}</span>
                   </li>
                 );
               })}

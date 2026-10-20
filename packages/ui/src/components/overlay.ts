@@ -26,9 +26,15 @@ const FOCUSABLE = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 
-function focusables(root: HTMLElement): HTMLElement[] {
+/**
+ * The overlay's tab stops, in order. An element with `tabindex="-1"` is not
+ * one, whatever its tag: a listbox's option links (the command palette's
+ * rows) are reached with the arrow keys, and counting one as the trap's last
+ * stop let Tab walk out of the dialog from the real last one (D-L137 M2).
+ */
+export function focusables(root: HTMLElement): HTMLElement[] {
   return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-    (element) => element.getClientRects().length > 0,
+    (element) => element.tabIndex >= 0 && element.getClientRects().length > 0,
   );
 }
 
