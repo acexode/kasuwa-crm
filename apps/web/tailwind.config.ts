@@ -9,7 +9,13 @@ import kasuwaPreset from '@kasuwa/ui/tailwind-preset';
  */
 const config: Config = {
   presets: [kasuwaPreset as Partial<Config>],
-  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  // The component library styles itself with these utilities, so Tailwind has
+  // to see its source (T-0128).
+  content: [
+    './app/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    '../../packages/ui/src/components/**/*.{ts,tsx}',
+  ],
 };
 
 export default config;

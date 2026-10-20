@@ -34,6 +34,8 @@ const alias = {
   // Longer key first (prefix match): the operator-only provisioning subpath.
   '@kasuwa/domain-core/provisioning': resolve(root, 'packages/domain/core/src/provisioning.ts'),
   '@kasuwa/domain-core': resolve(root, 'packages/domain/core/src/index.ts'),
+  // Longer key first (prefix match): the components entry point (T-0128).
+  '@kasuwa/ui/components': resolve(root, 'packages/ui/src/components/index.ts'),
   '@kasuwa/ui': resolve(root, 'packages/ui/src/index.ts'),
   // The longer key must come first: Vite matches a string alias as a
   // PREFIX, so '@kasuwa/i18n' would otherwise swallow '@kasuwa/i18n/bundle'.
