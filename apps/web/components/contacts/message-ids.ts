@@ -1,6 +1,7 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
 import { ContactSource, ContactStatus, ConsentState, PreferredChannel, RecordsErrorCode } from '../../lib/records-api';
 import { CRM_SHELL_MESSAGE_IDS } from '../crm/crm-nav';
+import { P04_CHROME_MESSAGE_IDS } from '../records/list-message-ids';
 import { COLUMNS, FILTERS, optionLabel } from './contacts-model';
 
 /**
@@ -14,7 +15,23 @@ import { COLUMNS, FILTERS, optionLabel } from './contacts-model';
  */
 export const CONTACTS_MESSAGE_IDS: readonly MessageId[] = [
   ...CRM_SHELL_MESSAGE_IDS,
+  ...P04_CHROME_MESSAGE_IDS,
   'records.title',
+  'records.views.all',
+  'records.search.placeholderWide',
+  'records.filter.show',
+  'records.col.displayName',
+  'records.account.none',
+  'records.empty.title',
+  'records.empty.body',
+  'records.empty.import.title',
+  'records.empty.import.body',
+  'records.empty.capture.title',
+  'records.empty.capture.body',
+  'records.noResults.title',
+  'records.action.duplicates',
+  'records.importFilter.note',
+  'records.importFilter.clear',
   'records.programme.chip',
   'records.programme.note',
   'records.action.import',

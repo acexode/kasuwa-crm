@@ -10,6 +10,7 @@ import {
   crmPipelineEnabled,
   crmRecordViewEnabled,
   crmRecordsEnabled,
+  dealModules,
 } from '../../../lib/feature-flags';
 import { withCustomMessages } from '../../../components/custom/message-ids';
 import { withShellMessages } from '../../../components/crm/shell-messages';
@@ -55,7 +56,7 @@ export default async function PipelineBoardPage({ params }: { params: Promise<{ 
     crmAccountsEnabled(),
     crmRecordViewEnabled(),
   ]);
-  const customFields = await crmCustomFieldsEnabled();
+  const [customFields, modules] = await Promise.all([crmCustomFieldsEnabled(), dealModules()]);
 
   return (
     <PipelineScreen
@@ -67,6 +68,7 @@ export default async function PipelineBoardPage({ params }: { params: Promise<{ 
       live={live}
       links={{ contacts: recordView && records, accounts: recordView && accounts }}
       customFields={customFields}
+      modules={modules}
     />
   );
 }

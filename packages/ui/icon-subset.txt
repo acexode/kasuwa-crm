@@ -8,6 +8,8 @@
 # lacked: team/reports/ui-audit/foundations.md section 2, plus the v1.1 signal
 # glyphs. Every glyph costs bytes on every page at 256 kbps, so a glyph only a
 # not-yet-built screen uses is added by the task that builds it.
+# T-0133 (P04 lists): the view switcher (table_rows, map, vertical_split), the
+# Source chip (input), and the bulk bar (person_add_alt, merge).
 account_balance
 account_tree
 add
@@ -103,6 +105,7 @@ image
 import_export
 inbox
 info
+input
 inventory_2
 join
 key
@@ -121,9 +124,11 @@ lock_open
 logout
 mail
 manage_search
+map
 mark_email_read
 menu
 menu_book
+merge
 mic
 mobile_off
 more_horiz
@@ -140,6 +145,7 @@ pause_circle
 payments
 person
 person_add
+person_add_alt
 person_off
 phone_iphone
 photo_camera
@@ -185,6 +191,7 @@ support_agent
 swap_horiz
 swipe_left
 sync_alt
+table_rows
 task_alt
 thumb_down
 thumb_up
@@ -204,6 +211,7 @@ upload_file
 verified
 verified_user
 vertical_align_top
+vertical_split
 videocam
 view_column
 view_kanban

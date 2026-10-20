@@ -45,8 +45,45 @@ export const DEFAULT_WON_DAYS = 90;
 export const OWNER_FILTERS = ['me', 'unassigned'] as const;
 export type OwnerFilter = (typeof OWNER_FILTERS)[number];
 
+/** The close-date presets of P06/01's "Any close date" dropdown; `custom` shows the two dates. */
+export const CLOSE_PRESETS = ['any', 'month', 'next60', 'overdue', 'custom'] as const;
+export type ClosePreset = (typeof CLOSE_PRESETS)[number];
+
+export function isClosePreset(value: string): value is ClosePreset {
+  return (CLOSE_PRESETS as readonly string[]).includes(value);
+}
+
+function isoDate(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/**
+ * A preset as the calendar dates the API filters on, in the reader's own
+ * zone, fixed when it is chosen (so a column's cursor stays valid). `custom`
+ * keeps what was typed.
+ */
+export function closeRangeFor(preset: ClosePreset, nowMs: number): { readonly closeFrom: string; readonly closeTo: string } | null {
+  const now = new Date(nowMs);
+  switch (preset) {
+    case 'any':
+      return { closeFrom: '', closeTo: '' };
+    case 'month':
+      return { closeFrom: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)), closeTo: isoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0)) };
+    case 'next60':
+      return { closeFrom: isoDate(now), closeTo: isoDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 60)) };
+    case 'overdue':
+      return { closeFrom: '', closeTo: isoDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)) };
+    case 'custom':
+      return null;
+  }
+}
+
 export interface FilterState {
   readonly q: string;
+  /** The owners picked in the avatar row: user ids, as the contract's `owner` takes them. */
+  readonly owners: readonly string[];
+  readonly closePreset: ClosePreset;
   readonly owner: OwnerFilter | '';
   readonly currency: string;
   readonly closeFrom: string;
@@ -62,6 +99,8 @@ export interface FilterState {
 
 export const NO_FILTERS: FilterState = {
   q: '',
+  owners: [],
+  closePreset: 'any',
   owner: '',
   currency: '',
   closeFrom: '',
@@ -89,7 +128,7 @@ export function toDealFilters(state: FilterState, withheldFields: readonly strin
   const closeTo = !closeHidden && CALENDAR_DATE.test(state.closeTo) && (closeFrom === '' || state.closeTo >= closeFrom) ? state.closeTo : '';
   return {
     q: state.q,
-    owner: state.owner !== '' && !withheldFields.includes('ownerUserId') ? [state.owner] : [],
+    owner: withheldFields.includes('ownerUserId') ? [] : [...state.owners.filter(isUuid), ...(state.owner === '' ? [] : [state.owner])],
     currency: isDealCurrency(state.currency) && !withheldFields.includes('amount') ? [state.currency] : [],
     closeFrom,
     closeTo,
@@ -101,12 +140,74 @@ export function toDealFilters(state: FilterState, withheldFields: readonly strin
 export function filtersActive(state: FilterState): boolean {
   return (
     state.q.trim() !== '' ||
+    state.owners.length > 0 ||
     state.owner !== '' ||
     state.currency !== '' ||
     state.closeFrom !== '' ||
     state.closeTo !== '' ||
     state.wonDays !== DEFAULT_WON_DAYS
   );
+}
+
+// ---------------------------------------------------------------------------
+// The board's summary line (T-0135): the served figures, added per currency
+// ---------------------------------------------------------------------------
+
+export interface CurrencySum {
+  readonly currency: string;
+  readonly amountMinor: string;
+  readonly weightedAmountMinor: string;
+}
+
+export interface BoardSummary {
+  /** Per currency, open stages only; `null` when `amount` is withheld. */
+  readonly open: readonly CurrencySum[] | null;
+  /** Per currency, the won column (its served window); `null` when withheld. */
+  readonly won: readonly CurrencySum[] | null;
+  /** The open columns' exact counts, added. */
+  readonly openCount: number;
+}
+
+interface SummaryColumn {
+  readonly stageId: string;
+  readonly count: number;
+  readonly totals: readonly { readonly currency: string; readonly amountMinor: string; readonly weightedAmountMinor: string }[] | undefined;
+}
+
+function addTotals(into: Map<string, { amount: bigint; weighted: bigint }>, column: SummaryColumn): void {
+  for (const total of column.totals ?? []) {
+    const current = into.get(total.currency) ?? { amount: 0n, weighted: 0n };
+    into.set(total.currency, { amount: current.amount + BigInt(total.amountMinor), weighted: current.weighted + BigInt(total.weightedAmountMinor) });
+  }
+}
+
+function sums(map: Map<string, { amount: bigint; weighted: bigint }>): CurrencySum[] {
+  return [...map.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([currency, value]) => ({ currency, amountMinor: value.amount.toString(), weightedAmountMinor: value.weighted.toString() }));
+}
+
+/**
+ * The served column figures added up: never converted, never summed across
+ * currencies (D-P19), in BigInt, so a 24-digit total stays exact. Counts are
+ * the served exact counts. A withheld amount is `null`, never zero.
+ */
+export function boardSummary(pipeline: Pipeline, columns: readonly SummaryColumn[]): BoardSummary {
+  const open = new Map<string, { amount: bigint; weighted: bigint }>();
+  const won = new Map<string, { amount: bigint; weighted: bigint }>();
+  let openCount = 0;
+  let locked = false;
+  for (const column of columns) {
+    const kind = stageById(pipeline, column.stageId)?.kind;
+    if (column.totals === undefined) locked = true;
+    if (kind === 'open') {
+      openCount += column.count;
+      addTotals(open, column);
+    } else if (kind === 'won') {
+      addTotals(won, column);
+    }
+  }
+  return { open: locked ? null : sums(open), won: locked ? null : sums(won), openCount };
 }
 
 /** A stable key for "the board answered these filters". */
@@ -412,6 +513,27 @@ function dateFormat(locale: string, options: Intl.DateTimeFormatOptions): Intl.D
 export function formatCalendarDate(locale: string, date: string): string {
   if (!CALENDAR_DATE.test(date)) return date;
   return dateFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00.000Z`));
+}
+
+/** A calendar date without its year ("15 Dec"), as the P06 cards and list draw it. Never shifted by a zone. */
+export function formatShortDate(locale: string, date: string): string {
+  if (!CALENDAR_DATE.test(date)) return date;
+  return dateFormat(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00.000Z`));
+}
+
+/** A calendar date with its weekday ("Sat 31 Oct 2026"), as the deal's key fields draw it. */
+export function formatLongDate(locale: string, date: string): string {
+  if (!CALENDAR_DATE.test(date)) return date;
+  return dateFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00.000Z`));
+}
+
+/** A stage's probability as the reader writes a percentage ("70%"). */
+export function formatPercent(locale: string, basisPoints: number): string {
+  try {
+    return new Intl.NumberFormat(numberingLocale(locale), { style: 'percent', maximumFractionDigits: 1 }).format(basisPoints / 10_000);
+  } catch {
+    return new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 1 }).format(basisPoints / 10_000);
+  }
 }
 
 /** An instant's date in the reader's own zone. */

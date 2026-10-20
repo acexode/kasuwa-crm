@@ -13,8 +13,15 @@ import { numberingLocale } from './numbering';
  *
  * NO CURRENCY SYMBOL IS WRITTEN HERE (CLAUDE.md 4). The symbol, its position,
  * the grouping and the minor digits all come from Intl, for the active
- * language. Never compact: the design's abbreviated millions are overruled by
- * D-P19's exactness, so a column total reads to the last kobo.
+ * language. The symbol is Intl's NARROW one (`currencyDisplay: 'narrowSymbol'`),
+ * so naira reads "₦31,000,000" as P06 draws it, not "NGN 31,000,000.00".
+ *
+ * THREE SHAPES (T-0135, D-L193). `formatDealMoney` is exact to the last kobo
+ * (the deal header and key fields). `formatDealMoneyWhole` rounds to the major
+ * unit, half up, by string arithmetic (the board cards and the list, which the
+ * design draws without minor units). `formatDealMoneyCompact` is the design's
+ * column-header short form ("₦40M", "₦15.9M"): a label, not an amount, so it
+ * alone goes through a JS number, and an exact figure is always one step away.
  */
 
 function numberFormat(locale: string, options: Intl.NumberFormatOptions): Intl.NumberFormat {
@@ -62,7 +69,7 @@ export function formatDealMoney(locale: string, amountMinor: string, currency: s
   const whole = BigInt(padded.slice(0, padded.length - digits));
   const native = digitSet(locale);
   const fraction = Array.from(padded.slice(padded.length - digits), (digit) => native[digit.charCodeAt(0) - 48] ?? digit).join('');
-  const format = numberFormat(locale, { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const format = numberFormat(locale, { style: 'currency', currency, currencyDisplay: 'narrowSymbol', minimumFractionDigits: 0, maximumFractionDigits: 0 });
   const parts = format.formatToParts(whole);
   if (digits === 0) {
     return parts.map((part) => part.value).join('');
@@ -73,6 +80,45 @@ export function formatDealMoney(locale: string, amountMinor: string, currency: s
       .find((part) => part.type === 'decimal')?.value ?? '.';
   const lastInteger = parts.map((part) => part.type).lastIndexOf('integer');
   return parts.map((part, index) => (index === lastInteger ? `${part.value}${decimal}${fraction}` : part.value)).join('');
+}
+
+/** The major units of `amountMinor`, rounded half up, as a BigInt: exact at any size. */
+function wholeUnits(amountMinor: string, currency: string): bigint {
+  if (!/^\d+$/.test(amountMinor)) throw new UnreadableAmountError();
+  const digits = minorDigits(currency);
+  if (digits === 0) return BigInt(amountMinor);
+  const padded = amountMinor.padStart(digits + 1, '0');
+  const whole = BigInt(padded.slice(0, padded.length - digits));
+  const first = padded.charCodeAt(padded.length - digits) - 48;
+  return first >= 5 ? whole + 1n : whole;
+}
+
+/**
+ * `amountMinor` rounded to the major unit (half up), with Intl's narrow
+ * symbol: "₦31,000,000". The board's cards and the list's amounts (P06/01,
+ * P06/03). Never through a JS number.
+ */
+export function formatDealMoneyWhole(locale: string, amountMinor: string, currency: string): string {
+  const whole = wholeUnits(amountMinor, currency);
+  return numberFormat(locale, { style: 'currency', currency, currencyDisplay: 'narrowSymbol', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(whole);
+}
+
+/**
+ * The design's short form for a column header or a summary: "₦40M",
+ * "₦15.9M", "₦340K" (P06/01). Intl's compact notation for the language, at
+ * most one decimal. A label, so a JS number is fine here: the exact figure is
+ * on the cards and the list.
+ */
+export function formatDealMoneyCompact(locale: string, amountMinor: string, currency: string): string {
+  const whole = wholeUnits(amountMinor, currency);
+  return numberFormat(locale, {
+    style: 'currency',
+    currency,
+    currencyDisplay: 'narrowSymbol',
+    notation: 'compact',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(Number(whole));
 }
 
 /** DealMoney's ceiling: at most 18 digits of minor units, no leading zero. */

@@ -1,6 +1,7 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
 import { REQUIREMENT_FIELDS } from '../../lib/pipelines-api';
 import { CRM_SHELL_MESSAGE_IDS } from '../crm/crm-nav';
+import { TEMPLATE_MESSAGE_IDS } from './pipeline-templates';
 
 /**
  * The strings P06 needs, resolved on the SERVER (T-0109).
@@ -39,6 +40,20 @@ export const PIPELINE_INDEX_MESSAGE_IDS: readonly MessageId[] = [
   'pipeline.index.error',
   'pipeline.index.empty.title',
   'pipeline.index.empty.body',
+  // T-0135: the header dropdown and the first-pipeline template picker.
+  'pipeline.select.label',
+  'pipeline.select.qualified',
+  'pipeline.select.choose',
+  'pipeline.select.new',
+  'pipeline.template.title',
+  'pipeline.template.body',
+  'pipeline.template.label',
+  'pipeline.template.stagesIn',
+  'pipeline.template.percent',
+  'pipeline.template.create',
+  'pipeline.template.blank',
+  'pipeline.template.unavailable',
+  ...TEMPLATE_MESSAGE_IDS,
 ];
 
 export const PIPELINE_MESSAGE_IDS: readonly MessageId[] = [
@@ -138,4 +153,52 @@ export const PIPELINE_MESSAGE_IDS: readonly MessageId[] = [
   'pipeline.create.error.currency',
   'pipeline.create.submit',
   'pipeline.created',
+  // T-0135: the P06 rebuild (header, summary, filters, cards, list, dialogs).
+  'pipeline.select.label',
+  'pipeline.select.qualified',
+  'pipeline.select.choose',
+  'pipeline.select.new',
+  'pipeline.usd.show',
+  'pipeline.usd.unavailable',
+  'pipeline.summary.open',
+  'pipeline.summary.weighted',
+  'pipeline.summary.wonSince',
+  'pipeline.summary.openDeals',
+  'pipeline.filter.shown',
+  'pipeline.filter.more',
+  'pipeline.filter.done',
+  'pipeline.filter.close',
+  'pipeline.filter.close.any',
+  'pipeline.filter.close.month',
+  'pipeline.filter.close.next60',
+  'pipeline.filter.close.overdue',
+  'pipeline.filter.close.custom',
+  'pipeline.filter.won.option',
+  'pipeline.stages.label',
+  'pipeline.column.gated',
+  'pipeline.won.count',
+  'pipeline.won.drop',
+  'pipeline.card.inStage',
+  'pipeline.card.stale',
+  'pipeline.card.rotting',
+  'pipeline.card.overdue',
+  'pipeline.card.noNextStep',
+  'pipeline.card.whatsappNone',
+  'pipeline.blocked.title',
+  'pipeline.blocked.dismiss',
+  'pipeline.list.weighted',
+  'pipeline.list.close',
+  'pipeline.list.inStage',
+  'pipeline.list.whatsapp',
+  'pipeline.list.stageFor',
+  'pipeline.list.stageOption',
+  'pipeline.move.titleFor',
+  'pipeline.move.current',
+  'pipeline.move.toComplete',
+  'pipeline.prompt.titleTo',
+  'pipeline.prompt.progress',
+  'pipeline.prompt.rules',
+  'pipeline.prompt.fields',
+  'pipeline.prompt.checklist',
+  'pipeline.prompt.left',
 ];
