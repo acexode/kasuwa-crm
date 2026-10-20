@@ -109,20 +109,34 @@ export const TYPE_CARDS: readonly TypeCard[] = [
   { id: 'file', icon: 'attach_file', label: 'admin.studio.type.file', description: 'admin.studio.type.file.desc', supported: false },
 ];
 
-/** "₦ Nigerian naira (NGN)", from Intl in the reader's language: no hard-coded symbol or name. */
-export function currencyOptionLabel(locale: string, code: string): string {
-  let name = code;
+/** The four contract currencies' names, from the catalogue (CLDR's own names in each language). */
+const CURRENCY_NAME: Readonly<Record<string, MessageId>> = {
+  NGN: 'admin.studio.custom.currency.name.NGN',
+  GHS: 'admin.studio.custom.currency.name.GHS',
+  KES: 'admin.studio.custom.currency.name.KES',
+  ZAR: 'admin.studio.custom.currency.name.ZAR',
+};
+
+/**
+ * "₦ Nigerian naira (NGN)": the symbol from Intl (never hard-coded), the name
+ * from the catalogue. The name was Intl's until T-0149, which in a language
+ * ICU knows no names for falls back to English, the one thing a translated
+ * menu must never do; the catalogue carries CLDR's names instead.
+ */
+export function currencyOptionLabel(t: Translator, locale: string, code: string): string {
+  const id = Object.hasOwn(CURRENCY_NAME, code) ? CURRENCY_NAME[code] : undefined;
+  const name = id === undefined ? code : t.t(id);
   let symbol = '';
   try {
-    name = new Intl.DisplayNames([locale], { type: 'currency' }).of(code) ?? code;
     symbol =
       new Intl.NumberFormat(locale, { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol' })
         .formatToParts(0)
         .find((part) => part.type === 'currency')?.value ?? '';
   } catch {
-    return code;
+    symbol = '';
   }
-  return symbol === '' || symbol === code ? `${name} (${code})` : `${symbol} ${name} (${code})`;
+  const named = name === code ? code : `${name} (${code})`;
+  return symbol === '' || symbol === code ? named : `${symbol} ${named}`;
 }
 
 /**

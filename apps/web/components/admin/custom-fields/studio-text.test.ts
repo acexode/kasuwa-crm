@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createTranslator } from '@kasuwa/i18n';
-import { errorText, modifiedDate } from './studio-text';
+import { currencyOptionLabel, errorText, modifiedDate } from './studio-text';
 
 const t = createTranslator('en');
 
@@ -37,5 +37,14 @@ describe('modifiedDate', () => {
   it('writes English day first with "Sep", and nothing for a date that is not one (T-0149)', () => {
     expect(modifiedDate('en', '2026-09-03T10:00:00Z')).toBe('3 Sep 2026');
     expect(modifiedDate('en', 'not a date')).toBe('');
+  });
+});
+
+describe('currencyOptionLabel', () => {
+  it('names a currency from the catalogue, in the reader’s language, with Intl’s symbol (T-0149)', () => {
+    expect(currencyOptionLabel(t, 'en', 'NGN')).toBe(`₦ ${t.t('admin.studio.custom.currency.name.NGN')} (NGN)`);
+    const fr = createTranslator('fr');
+    expect(currencyOptionLabel(fr, 'fr', 'KES')).toContain(fr.t('admin.studio.custom.currency.name.KES'));
+    expect(currencyOptionLabel(t, 'en', 'XYZ')).not.toContain('undefined');
   });
 });
