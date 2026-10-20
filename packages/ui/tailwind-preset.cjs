@@ -238,6 +238,7 @@ module.exports = {
     'overlay-dialog-confirm': 'var(--k-overlay-dialog-confirm)',
     'overlay-dialog-form': 'var(--k-overlay-dialog-form)',
     'overlay-dialog-wide': 'var(--k-overlay-dialog-wide)',
+    'overlay-dialog-composer': 'var(--k-overlay-dialog-composer)',
     'overlay-menu': 'var(--k-overlay-menu)',
     'overlay-toast': 'var(--k-overlay-toast)',
     'overlay-table-footer': 'var(--k-overlay-table-footer)',

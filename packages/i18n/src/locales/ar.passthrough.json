@@ -21,5 +21,9 @@
   "design.components.tag.p1",
   "design.components.kbd.search",
   "design.components.kbd.escape",
-  "auth.footer.compliance"
+  "auth.footer.compliance",
+  "activities.calendar.source",
+  "activities.compose.remind.sms",
+  "activities.compose.remind.whatsapp",
+  "activities.due.today"
 ]

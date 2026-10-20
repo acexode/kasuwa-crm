@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useReadOnlyKeys } from '../custom/use-custom-fields';
 import { useCallback, useState } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
-import { Button, IconButton, SegmentedControl, Tabs, type SegmentedOption, type TabItem } from '@kasuwa/ui/components';
+import { Banner, Button, IconButton, SegmentedControl, Tabs, type SegmentedOption, type TabItem } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { CrmFab, CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
@@ -284,14 +284,8 @@ export function ActivitiesScreen({
         </header>
 
         {offline ? (
-          <div
-            role="status"
-            data-testid="offline-banner"
-            className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-2 rounded-10 bg-inverse py-2 pe-2 ps-3.5 text-body-sm text-on-inverse"
-          >
-            <Icon name="cloud_off" size={20} />
-            <p className="min-w-0 flex-[1_1_200px]">
-              <b>{t.t('records.offline.title')}</b>{' '}
+          <div data-testid="offline-banner">
+            <Banner tone="offline" title={t.t('records.offline.title')} className="!ps-3.5">
               {data.syncedAt === null ? null : (
                 <>
                   {t.t('activities.offline.synced')}{' '}
@@ -300,16 +294,11 @@ export function ActivitiesScreen({
                 </>
               )}
               {t.t('records.offline.never')}
-            </p>
+            </Banner>
           </div>
         ) : null}
 
-        {notice === null ? null : (
-          <p role="alert" className="flex items-start gap-2 rounded-10 border border-danger bg-danger-soft px-3.5 py-2.5 text-meta text-danger-text">
-            <Icon name="error" size={20} />
-            {t.t(notice)}
-          </p>
-        )}
+        {notice === null ? null : <Banner tone="danger">{t.t(notice)}</Banner>}
 
         {view === 'tasks' ? (
           <MyTasks

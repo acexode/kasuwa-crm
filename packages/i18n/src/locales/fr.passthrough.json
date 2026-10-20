@@ -97,5 +97,14 @@
   "design.components.segmented.kanban",
   "design.components.tabs.tickets",
   "design.components.kbd.search",
-  "auth.footer.compliance"
+  "auth.footer.compliance",
+  "activities.booking.questions",
+  "activities.calendar.source",
+  "activities.checkin.photo",
+  "activities.compose.kind.note",
+  "activities.compose.minutes",
+  "activities.compose.notes",
+  "activities.compose.remind.sms",
+  "activities.compose.remind.whatsapp",
+  "activities.due.today"
 ]
