@@ -1,4 +1,5 @@
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
+import type { IconName } from '@kasuwa/ui';
 import type { ScreenError } from '../../../lib/admin-api';
 import type { Classification, CustomFieldObject, CustomFieldType } from '../../../lib/custom-fields-api';
 import { errorMessageId } from '../panel';
@@ -52,4 +53,89 @@ export function errorText(t: Translator, error: ScreenError): string {
   const detail = error.details?.[0]?.code;
   const own = detail !== undefined && Object.hasOwn(DETAIL_LABEL, detail) ? DETAIL_LABEL[detail] : undefined;
   return t.t(own ?? errorMessageId(error));
+}
+
+/** Each type's glyph, from the export's type list (T-0142). `boolean` is not in the export: `toggle_on`. */
+export const TYPE_ICON: Readonly<Record<CustomFieldType, IconName>> = {
+  text: 'short_text',
+  number: 'pin',
+  currency: 'payments',
+  date: 'event',
+  picklist: 'arrow_drop_down_circle',
+  boolean: 'toggle_on',
+};
+
+/** The export's thirteen types, plus the contract's `boolean`, which the export does not draw. */
+export type DesignedType =
+  | CustomFieldType
+  | 'multi'
+  | 'lookup'
+  | 'formula'
+  | 'rollup'
+  | 'phone'
+  | 'email'
+  | 'secure'
+  | 'file';
+
+export interface TypeCard {
+  readonly id: DesignedType;
+  readonly icon: IconName;
+  readonly label: MessageId;
+  readonly description: MessageId;
+  /** A type the contract accepts. The rest are drawn disabled behind `custom_field_types_extended` (D-L194). */
+  readonly supported: boolean;
+}
+
+/**
+ * The type picker's cards, in the export's order, with `boolean` after the
+ * picklist: the contract's six first, so the cards an admin can choose are
+ * never scattered between disabled ones.
+ */
+export const TYPE_CARDS: readonly TypeCard[] = [
+  { id: 'text', icon: 'short_text', label: 'admin.studio.custom.type.text', description: 'admin.studio.type.text.desc', supported: true },
+  { id: 'number', icon: 'pin', label: 'admin.studio.custom.type.number', description: 'admin.studio.type.number.desc', supported: true },
+  { id: 'currency', icon: 'payments', label: 'admin.studio.custom.type.currency', description: 'admin.studio.type.currency.desc', supported: true },
+  { id: 'date', icon: 'event', label: 'admin.studio.custom.type.date', description: 'admin.studio.type.date.desc', supported: true },
+  { id: 'picklist', icon: 'arrow_drop_down_circle', label: 'admin.studio.custom.type.picklist', description: 'admin.studio.type.picklist.desc', supported: true },
+  { id: 'boolean', icon: 'toggle_on', label: 'admin.studio.custom.type.boolean', description: 'admin.studio.type.boolean.desc', supported: true },
+  { id: 'multi', icon: 'checklist', label: 'admin.studio.type.multi', description: 'admin.studio.type.multi.desc', supported: false },
+  { id: 'lookup', icon: 'link', label: 'admin.studio.type.lookup', description: 'admin.studio.type.lookup.desc', supported: false },
+  { id: 'formula', icon: 'function', label: 'admin.studio.type.formula', description: 'admin.studio.type.formula.desc', supported: false },
+  { id: 'rollup', icon: 'functions', label: 'admin.studio.type.rollup', description: 'admin.studio.type.rollup.desc', supported: false },
+  { id: 'phone', icon: 'call', label: 'admin.studio.type.phone', description: 'admin.studio.type.phone.desc', supported: false },
+  { id: 'email', icon: 'mail', label: 'admin.studio.type.email', description: 'admin.studio.type.email.desc', supported: false },
+  { id: 'secure', icon: 'shield_lock', label: 'admin.studio.type.secure', description: 'admin.studio.type.secure.desc', supported: false },
+  { id: 'file', icon: 'attach_file', label: 'admin.studio.type.file', description: 'admin.studio.type.file.desc', supported: false },
+];
+
+/** "₦ Nigerian naira (NGN)", from Intl in the reader's language: no hard-coded symbol or name. */
+export function currencyOptionLabel(locale: string, code: string): string {
+  let name = code;
+  let symbol = '';
+  try {
+    name = new Intl.DisplayNames([locale], { type: 'currency' }).of(code) ?? code;
+    symbol =
+      new Intl.NumberFormat(locale, { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol' })
+        .formatToParts(0)
+        .find((part) => part.type === 'currency')?.value ?? '';
+  } catch {
+    return code;
+  }
+  return symbol === '' || symbol === code ? `${name} (${code})` : `${symbol} ${name} (${code})`;
+}
+
+/**
+ * "2 Oct 2026": the export's day-first date. Plain `en` writes the month
+ * first, which no desk Kasuwa serves reads that way, so only the bare tag is
+ * read as en-NG (the same rule as P03's `home-format.ts`). Shown in the
+ * reader's own zone.
+ */
+export function modifiedDate(locale: string, iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  try {
+    return new Intl.DateTimeFormat(locale === 'en' ? 'en-NG' : locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
+  } catch {
+    return date.toISOString().slice(0, 10);
+  }
 }

@@ -122,6 +122,16 @@ The fix: pass the SMS hint through, and render the option only when the challeng
 | P05 records | Offline "2 changes queued", View queue (2), Send relabelled Queue, "Queued" chips | D-P21, D-L64 | Same inverse band with the last-synced time; no queue count or button; write controls disabled (T-0134). |
 | P05 records | Contact ID / Account ID (`KSW-C-…`) in the SYSTEM group | No human-readable id exists; UUIDs are never printed | The SYSTEM group keeps Created and Programme in the same place (T-0134). |
 | P05 account | "Contacts · 12", "12 contacts" chip, Hierarchy roll-ups and child accounts | D-P13, D-L98 (children not served, T-0118) | Contacts card without a count; the Hierarchy card draws the ancestors and this account only, with no money (T-0134). |
+| P28 frame | Sub-nav pills "Running", "148", "1", "2 due" | No migration, export or DSR API; D-P13 | Same sub-nav rows without pills (T-0141). |
+| P28 import | "about 10 s left at 1.1 MB/s", the simulate-offline button | No transfer rate is measured; the button is a prototype control | Same upload row: name, size, bar, "72% · 27.5 of 38.2 MB", pause/resume/retry and cancel (T-0141). |
+| P28 import | Objects Accounts, Leads, Tickets, custom object; "Import records" | D-L146 (contacts only) | Same radio cards: Contacts selected, the others disabled "Not available yet" in the Data management area only (T-0141). |
+| P28 A1 | Split / zip / migrate option cards | D-L146 | Same danger card with the file's name, size, the limit and the advice; no options (T-0141). |
+| P28 A2 | Sample values; "Save as template"; required "Last name" and "Phone or email" | D-P21, D-L146, I5 | Sample values column with the empty dash (Data area only); the reuse-a-previous-import select; one "A name" chip. Status column and summary line are real (T-0141). |
+| P28 A4 | Phone stat tiles, before/after table, "Numbers we can't read", Name + date of birth, on-match radios, "1,406 rows match" | D-P21, D-P12 | Phone card with the country select and its help; Duplicates card with Phone and Email switches locked on, the one outcome (Skip the row) and the rule sentence (T-0141). |
+| P28 A6 | Big percentage, "Updated" count, "notify you by email" | No row total before the end; D-L128 Q6; D-P29 | Status pill in its place; Created / Skipped / Failed; an indeterminate bar while running, full when done (T-0141). |
+| P28 C | Confidence "High · 98%", "Found" date, chip counts, Accounts and Leads tabs, Matching rules | D-P12, D-P13, D-L146 | "Exact match" pill, the newest update, chips without counts, Accounts and Leads disabled, Matching rules disabled; the programme select kept (T-0141). |
+| P28 C1 | Merge 3 records, "Not duplicates", "14 conversations, 5 tickets…" | D-L146 (pairwise), no operation, no counts served | Two record columns plus a disabled third slot (`merge_three_way`); no Not duplicates; "Activities" and "Deals" chips without counts (what the API moves) (T-0141). |
+| P28 B, D, E | Migration jobs, exports, data requests and their counts | No API (D-L194) | Same screens empty or disabled behind `data_migration`, `data_export`, `dsr`; tiles show a dash (T-0141). |
 
 ## Order and tasks
 

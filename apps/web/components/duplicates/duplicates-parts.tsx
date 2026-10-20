@@ -9,10 +9,10 @@ import { formatWhen } from '../import/import-text';
  * parsed, or — when field security withholds it (`null`) — a label of ours,
  * never the word "null" and never marked as record data.
  */
-export function PersonName({ t, name }: { t: Translator; name: string | null }) {
+export function PersonName({ t, name, quiet = false }: { t: Translator; name: string | null; quiet?: boolean }) {
   if (name === null) return <span className="text-text-2">{t.t('duplicates.withheld')}</span>;
   return (
-    <span data-record-text="" dir="auto" className="min-w-0 break-words font-semibold">
+    <span data-record-text="" dir="auto" className={`min-w-0 break-words ${quiet ? '' : 'font-bold'}`}>
       {name}
     </span>
   );
@@ -29,9 +29,9 @@ export function Banner({ t, message }: { t: Translator; message: MessageId }) {
     <p
       role="alert"
       data-testid="duplicates-error"
-      className="flex items-start gap-2 rounded-lg border border-danger bg-danger-soft p-3 text-body-sm text-danger-text"
+      className="m-0 flex items-start gap-3 rounded-lg bg-danger-soft px-5 py-4 text-body-sm text-danger-text"
     >
-      <Icon name="error" size="sm" />
+      <Icon name="error" size={20} className="shrink-0" />
       {t.t(message)}
     </p>
   );

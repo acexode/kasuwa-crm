@@ -248,6 +248,9 @@
   --k-shell-mobile-header: 56px;
   --k-shell-search: 420px;
   --k-shell-fab: 56px;
+  --k-shell-data-nav: 232px;
+  --k-shell-data-nav-compact: 196px;
+  --k-shell-data-content: 1240px;
   --k-layout-auth-panel: 520px;
   --k-layout-auth-header: 64px;
   --k-layout-column: 400px;
@@ -265,6 +268,9 @@
   --k-layout-page-wide: 1116px;
   --k-layout-settings-aside: 380px;
   --k-layout-prefs-channel: 88px;
+  --k-layout-studio-aside: 340px;
+  --k-layout-studio-palette: 272px;
+  --k-layout-studio-inspector: 320px;
   
   /* overlays and data display (T-0129) */
   --k-overlay-drawer: 400px;
@@ -281,6 +287,8 @@
   --k-overlay-preview-frame-compact: 560px;
   --k-overlay-notification-panel: 440px;
   --k-overlay-notification-toast: 380px;
+  --k-overlay-studio-panel: 480px;
+  --k-overlay-studio-panel-tablet: 460px;
   --k-radius-sheet: 20px;
   
   /* elevation — the shadow values themselves are semantic, so they differ per theme */

@@ -534,6 +534,41 @@ export async function productTourShown(): Promise<boolean> {
 }
 
 /**
+ * P28's Data management area and its D-L194 placeholders (T-0141). Read on the
+ * server and handed to the screens as booleans; no client module names a flag.
+ *
+ *   area        `/admin/data/*` exists, and `/contacts/import` and
+ *               `/contacts/duplicates` redirect into it.
+ *   migration   the Migration section, in the design's not-connected state.
+ *   exports     the Export centre, empty.
+ *   requests    Data-subject requests, empty.
+ *   threeWay    the merge compare's disabled third record slot.
+ *
+ * Presentation only: nothing here reads, connects, exports or merges anything.
+ */
+export interface DataManagement {
+  readonly area: boolean;
+  readonly migration: boolean;
+  readonly exports: boolean;
+  readonly requests: boolean;
+  readonly threeWay: boolean;
+}
+
+export async function dataManagement(): Promise<DataManagement> {
+  await initialiseFeatureFlags();
+  const client = featureFlagClient();
+  const context = toEvaluationContext({ tenantId: CRM_SHELL });
+  const [area, migration, exports, requests, threeWay] = await Promise.all([
+    client.getBooleanValue('data_management', false, context),
+    client.getBooleanValue('data_migration', false, context),
+    client.getBooleanValue('data_export', false, context),
+    client.getBooleanValue('dsr', false, context),
+    client.getBooleanValue('merge_three_way', false, context),
+  ]);
+  return { area, migration, exports, requests, threeWay };
+}
+
+/**
  * `admin_placeholders` (D-L194, T-0140): whether the P02 console draws its
  * designed controls that have no backend yet, in their empty or disabled
  * state. Per process, like the tour button.
@@ -591,4 +626,49 @@ export async function homeWidgetFlags(): Promise<HomeWidgetFlags> {
     read('calendar_sync'),
   ]);
   return { aiNba, whatsapp, quota, approvals, kpis, fx, calendar };
+}
+
+/**
+ * T-0142 (D-L194): the P18 Customisation Studio's placeholder sections and
+ * the field editor's parts no read serves yet. Each is presentation only: on,
+ * the part is drawn in the design's own empty or disabled state; off, it is
+ * not drawn and its route is a real 404. Read on the server, passed down as
+ * booleans, so no client module names a flag.
+ */
+export interface StudioFlags {
+  readonly objects: boolean;
+  readonly layouts: boolean;
+  readonly validation: boolean;
+  readonly relationships: boolean;
+  readonly recordTypes: boolean;
+  readonly extendedTypes: boolean;
+  readonly usage: boolean;
+  readonly translations: boolean;
+}
+
+export async function studioFlags(): Promise<StudioFlags> {
+  await initialiseFeatureFlags();
+  const context = toEvaluationContext({ tenantId: ADMIN_CONSOLE });
+  const read = (
+    name:
+      | 'studio_objects'
+      | 'studio_layouts'
+      | 'studio_validation'
+      | 'studio_relationships'
+      | 'studio_record_types'
+      | 'custom_field_types_extended'
+      | 'studio_field_usage'
+      | 'studio_field_translations',
+  ) => featureFlagClient().getBooleanValue(name, false, context);
+  const [objects, layouts, validation, relationships, recordTypes, extendedTypes, usage, translations] = await Promise.all([
+    read('studio_objects'),
+    read('studio_layouts'),
+    read('studio_validation'),
+    read('studio_relationships'),
+    read('studio_record_types'),
+    read('custom_field_types_extended'),
+    read('studio_field_usage'),
+    read('studio_field_translations'),
+  ]);
+  return { objects, layouts, validation, relationships, recordTypes, extendedTypes, usage, translations };
 }

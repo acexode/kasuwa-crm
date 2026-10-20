@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { bundleMessages, createTranslator } from '@kasuwa/i18n';
 import { ImportScreen } from '../../../components/import/import-screen';
 import { IMPORT_MESSAGE_IDS } from '../../../components/import/message-ids';
 import { withShellMessages } from '../../../components/crm/shell-messages';
-import { crmImportEnabled, crmLiveNav, crmRecordsEnabled } from '../../../lib/feature-flags';
+import { crmImportEnabled, crmLiveNav, crmRecordsEnabled, dataManagement } from '../../../lib/feature-flags';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
 /**
@@ -33,6 +33,8 @@ export default async function ImportPage() {
   if (!(await crmImportEnabled()) || !(await crmRecordsEnabled())) {
     notFound();
   }
+  // T-0141: with the Data management area on, the wizard lives there; this path keeps working by sending people on.
+  if ((await dataManagement()).area) redirect('/admin/data/import');
   const { locale } = await activeLocale();
   const live = await crmLiveNav();
 
@@ -41,7 +43,7 @@ export default async function ImportPage() {
       locale={locale}
       messages={bundleMessages(locale, withShellMessages(IMPORT_MESSAGE_IDS, live))}
       locales={languageOptions(locale)}
-      live={live}
+      frame={{ kind: 'crm', live }}
     />
   );
 }

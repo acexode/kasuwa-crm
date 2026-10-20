@@ -312,6 +312,8 @@ export function resolveIconSize(size: IconSize | IconSizeAlias): IconSize {
  *   mobileHeader  56  the phone's per-screen app bar
  *   search       420  the top bar's inline search field (flex 0 1 420px, T-0130)
  *   fab           56  the phone's extended "+ New" button (T-0130)
+ *   dataNav      232  P28's Data management sub-nav (T-0141), 196 at 1024
+ *   dataContent 1240  P28's content column, at most (T-0141)
  */
 export const SHELL = {
   header: '60px',
@@ -323,6 +325,9 @@ export const SHELL = {
   mobileHeader: '56px',
   search: '420px',
   fab: '56px',
+  dataNav: '232px',
+  dataNavCompact: '196px',
+  dataContent: '1240px',
 } as const;
 
 /**
@@ -372,6 +377,13 @@ export const LAYOUT = {
   pageWide: '1116px',
   settingsAside: '380px',
   prefsChannel: '88px',
+  /**
+   * From the P18 export (T-0142): the relationships view's selected-object
+   * aside, and the layout builder's palette and inspector columns.
+   */
+  studioAside: '340px',
+  studioPalette: '272px',
+  studioInspector: '320px',
 } as const;
 
 /**
@@ -465,6 +477,12 @@ export const OVERLAY = {
   previewFrameCompact: '560px',
   notificationPanel: '440px',
   notificationToast: '380px',
+  /**
+   * P18's field editor (T-0142): docked beside the field table at 480 from
+   * 1280 up, and an overlay drawer at 460 below it (the export's `panelW`).
+   */
+  studioPanel: '480px',
+  studioPanelTablet: '460px',
 } as const;
 
 /**
