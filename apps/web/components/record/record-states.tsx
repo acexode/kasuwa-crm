@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Banner } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
-import { StillConnecting } from '../admin/panel';
+import { StillConnecting } from '../admin/still-connecting';
 import { QUIET_BUTTON } from '../auth/button-classes';
 import type { RecordsError } from '../../lib/records-api';
 import { formatClock } from './record-core';
@@ -102,6 +102,7 @@ export function RecordNotFound({ t, back }: { t: Translator; back?: { readonly h
         <p className="text-label font-normal text-text-2">{t.t('notFound.body')}</p>
         {back === undefined ? null : (
           <Link
+            prefetch={false}
             href={back.href}
             className="inline-flex h-control-lg items-center rounded-md bg-primary px-4.5 text-label text-on-primary is-hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-focus"
           >

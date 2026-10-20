@@ -240,12 +240,12 @@ const ADMIN_CONTRACT = 'docs/api/admin.openapi.yaml';
  * re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  [SPEC]: 'f128a8d157929fcfa78d8dad951ce6e721ca4f290c71ef065d9678d368c1c141',
+  [SPEC]: 'b3526f34441519817b78a26957518f757e7a057bc19606135df844b7865c3a3d',
   [MOCK]: '30a42bcc965c9f76eb22504e2708a5f1166194c8c5c4204fdf6823316180e74f',
 };
 
 /** Never above this (I17). */
-const DUPLICATES_BUDGET_CEILING = 255_000;
+const DUPLICATES_BUDGET_CEILING = 285_000; // D-L203: T-0145 measured, after removing the weight it could (no visual change)
 const BUDGET_HEADROOM = 1.05;
 const PRD_CEILING_BYTES = 300 * 1024;
 

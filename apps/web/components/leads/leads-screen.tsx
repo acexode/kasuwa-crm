@@ -1,6 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { clientLazy } from '../../lib/client-lazy';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { filterableFields, NO_CUSTOM_FILTERS, setCustomFilter } from '../../lib/custom-values-filters';
 import { LazyCustomFilterBar } from '../custom/lazy-filters';
@@ -80,17 +80,11 @@ import { LeadsTable, type LeadsMeta } from './leads-table';
  * ---------------------------------------------------------------------------
  */
 
-const LeadsKanban = dynamic(() => import('./leads-kanban').then((module) => module.LeadsKanban), {
-  ssr: false,
-  loading: BoardLoading,
-});
+const LeadsKanban = clientLazy(() => import('./leads-kanban').then((module) => module.LeadsKanban), { loading: BoardLoading });
 const ColumnChooser = guarded(
-  dynamic<ChooserProps<LeadColumnKey>>(
-    () => import('../records/column-chooser').then((module) => module.ColumnChooser<LeadColumnKey>),
-    { ssr: false },
-  ),
+  clientLazy<ChooserProps<LeadColumnKey>>(() => import('../records/column-chooser').then((module) => module.ColumnChooser<LeadColumnKey>)),
 );
-const FilterSheet = guarded(dynamic(() => import('../records/filter-sheet').then((module) => module.FilterSheet), { ssr: false }));
+const FilterSheet = guarded(clientLazy(() => import('../records/filter-sheet').then((module) => module.FilterSheet)));
 
 function BoardLoading() {
   return <div aria-busy="true" className="h-64 rounded-lg bg-surface-sunken" />;

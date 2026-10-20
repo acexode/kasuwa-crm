@@ -7,7 +7,7 @@ import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { DataHeader, DataShell, type DataLive } from '../data/data-shell';
 import { NativeSelect } from '../data/parts';
-import { StillConnecting } from '../admin/panel';
+import { StillConnecting } from '../admin/still-connecting';
 import { formatCount } from '../import/import-text';
 import { Banner, Skeleton } from './duplicates-parts';
 import { HistoryList } from './history-list';

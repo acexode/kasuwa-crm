@@ -392,6 +392,7 @@ export function AdminShell({
               </div>
 
               <Link
+                prefetch={false}
                 href="/admin"
                 aria-current={activeSettingId === 'home' ? 'page' : undefined}
                 className={`${GROUP_ROW} ${activeSettingId === 'home' ? 'bg-primary-soft text-primary-text' : 'text-text'}`}
@@ -474,6 +475,7 @@ export function AdminShell({
                             </span>
                           ) : (
                             <Link
+                              prefetch={false}
                               key={item.settingId}
                               href={href}
                               data-setting-id={item.settingId}
@@ -538,6 +540,7 @@ export function AdminBreadcrumb({
               </span>
             ) : (
               <Link
+                prefetch={false}
                 href={step.href}
                 className={`flex h-8 items-center rounded-6 px-1.5 text-primary-text is-hover:bg-surface-sunken ${SHELL_FOCUS}`}
               >

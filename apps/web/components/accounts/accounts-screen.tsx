@@ -1,6 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { clientLazy } from '../../lib/client-lazy';
 import { guarded } from '../custom/lazy-boundary';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type RefObject } from 'react';
 import { createBundleTranslator, type MessageBundle, type Translator } from '@kasuwa/i18n/bundle';
@@ -80,8 +80,8 @@ import {
 import type { SheetMode } from './account-sheet';
 
 // Loaded when opened: the create and edit sheet and the phone's filter sheet are not on the list's first paint.
-const AccountSheet = guarded(dynamic(() => import('./account-sheet').then((module) => module.AccountSheet), { ssr: false }));
-const FilterSheet = guarded(dynamic(() => import('../records/filter-sheet').then((module) => module.FilterSheet), { ssr: false }));
+const AccountSheet = guarded(clientLazy(() => import('./account-sheet').then((module) => module.AccountSheet)));
+const FilterSheet = guarded(clientLazy(() => import('../records/filter-sheet').then((module) => module.FilterSheet)));
 
 /**
  * `P04/03` — the Accounts list — with `P04/05` (empty, no results) and `P04/06`

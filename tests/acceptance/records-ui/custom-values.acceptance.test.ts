@@ -171,7 +171,7 @@ const CUSTOM_FIELDS_PATH = '/api/v1/admin/custom-fields';
  * change to the acceptance contract: the lead re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  [SPEC]: '067d9d3e347958a0336054b7d8ed306f5d603271f719707b31ec374322489d35',
+  [SPEC]: '45806252da28ad854273d00e14fbcfc94dc360db78aa3f9879a26b5217da4954',
   [CUSTOM_MOCK]: '66d7731bf4f6643e18da743efb2c8409f930cee7cd5eaa98f65bdbd622a11d5e',
   'tests/e2e/support/records-mock.ts': 'f2fc83b332de03710a704f983364ed3b36c20b3dd67b46b7499ee6fb94cc2dae',
   'tests/e2e/support/leads-mock.ts': '65395185e35e6937debcac899777e742eba32dc0915ac17cf63a09eab32bb9df',

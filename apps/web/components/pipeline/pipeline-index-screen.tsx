@@ -11,7 +11,7 @@ import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { FOCUS } from '../records/list-classes';
 import { appendPage } from '../records/list-model';
 import { useOnline } from '../script-builder/use-online';
-import { listMyProgrammes } from '../../lib/accounts-api';
+import { listMyProgrammes } from '../../lib/my-programmes-api';
 import { listPipelines, type PipelineError, type PipelineSummary } from '../../lib/pipelines-api';
 import type { DealModules } from '../../lib/feature-flags';
 import { errorMessage, pipelineHref } from './pipeline-model';

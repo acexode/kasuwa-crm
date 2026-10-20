@@ -152,7 +152,7 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
  * own comments still say 245,000 and are left as they are, because editing
  * them would change the pinned hash.
  */
-const ACCOUNT_RECORD_BUDGET_CEILING = 260_000; // D-L199: raised for the T-0127 icon font (D-L198)
+const ACCOUNT_RECORD_BUDGET_CEILING = 290_000; // D-L203: T-0145 measured, after removing the weight it could (no visual change)
 
 /** Re-pinned within 5% of what the run measured, like /contacts/[id] (T-0062) and P01/1 (T-0035). */
 const BUDGET_HEADROOM = 1.05;

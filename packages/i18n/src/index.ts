@@ -4,7 +4,7 @@ import { DESIGN_MENU_LOCALES, LOCALE_SOURCES } from './catalogues';
 import { deriveBetaLocales, deriveSupportedLocales, localeReadiness } from './completeness';
 import { pseudoCatalogue } from './pseudo';
 import type { Catalogue, MessageId } from './message-id';
-import type { MessageBundle, Translator } from './bundle';
+import type { MessageBundle, ParsedMessage, Translator } from './bundle';
 import en from './locales/en.json';
 
 /**
@@ -53,7 +53,7 @@ export {
   localeLabel,
   textDirection,
 } from './bundle';
-export type { MessageBundle, TextDirection, Translator } from './bundle';
+export type { MessageBundle, ParsedMessage, TextDirection, Translator } from './bundle';
 
 /**
  * Derived. Do not turn this back into a literal: an incomplete locale would be
@@ -179,10 +179,28 @@ export function translate(locale: string, id: string, values?: Record<string, un
  * the handful of strings a screen asked for cross the wire. The client half is
  * `createBundleTranslator` in `./bundle`, which imports no catalogue at all.
  */
+/**
+ * What `bundleMessages` sends for one resolved string (T-0145): the string
+ * itself when it has no ICU syntax, which is how `t` has always returned such a
+ * string, and otherwise the tree `IntlMessageFormat` parses it to, with the
+ * same locale, for the browser's formatter in `./bundle`. A message that does
+ * not parse stays a string, so it fails where it always did, when a screen
+ * formats it, and not while the page is built.
+ */
+export function bundledMessage(message: string, locale: string): string | ParsedMessage {
+  if (!message.includes('{')) return message;
+  try {
+    return new IntlMessageFormat(message, locale).getAst();
+  } catch {
+    return message;
+  }
+}
+
 export function bundleMessages(locale: string, ids: readonly MessageId[]): MessageBundle {
-  const bundle: Record<string, string> = {};
+  const bundle: Record<string, string | ParsedMessage> = {};
   for (const id of ids) {
-    bundle[id] = resolveMessage(locale, id);
+    // ICU strings cross already parsed (T-0145): see `MessageBundle`.
+    bundle[id] = bundledMessage(resolveMessage(locale, id), locale);
   }
   return bundle;
 }

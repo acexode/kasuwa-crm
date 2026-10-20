@@ -44,6 +44,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const SCREENS: Readonly<Record<string, readonly MessageId[]>> = {
   'admin-shell.tsx': ADMIN_SHELL_MESSAGE_IDS,
   'panel.tsx': ADMIN_SHELL_MESSAGE_IDS,
+  // T-0145: the slow-network state, out of panel.tsx so CRM screens skip the rest of it.
+  'still-connecting.tsx': ADMIN_SHELL_MESSAGE_IDS,
   'home-screen.tsx': ADMIN_HOME_MESSAGE_IDS,
   'programmes-screen.tsx': ADMIN_PROGRAMMES_MESSAGE_IDS,
   'programme-screen.tsx': ADMIN_PROGRAMME_MESSAGE_IDS,

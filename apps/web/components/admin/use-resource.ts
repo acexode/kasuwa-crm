@@ -23,7 +23,9 @@ import type { Result, ScreenError } from '../../lib/admin-api';
  * it would repaint a programme's data over a different programme's screen.
  */
 
-export const STILL_CONNECTING_MS = 4_000;
+import { STILL_CONNECTING_MS } from '../../lib/still-connecting';
+
+export { STILL_CONNECTING_MS };
 
 export interface Resource<T> {
   readonly data: T | null;

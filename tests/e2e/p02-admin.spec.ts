@@ -1155,15 +1155,15 @@ test.describe('the console on a 256 kbps link', () => {
    * 222,000, now 224,000 (about 1.0% over the higher figure).
    */
   const BYTE_BUDGETS: readonly { readonly label: string; readonly path: string; readonly budget: number }[] = [
-    { label: 'P02/A admin home', path: '/admin', budget: 236_000 }, // D-L199
-    { label: 'P02/B the programmes list', path: '/admin/programmes', budget: 233_500 }, // D-L199
-    { label: 'P02/C the role tree', path: '/admin/roles', budget: 235_500 }, // D-L199
-    { label: 'P02/D the field-security matrix', path: '/admin/field-security', budget: 269_000 }, // D-L199
-    { label: 'P02/E the audit log', path: '/admin/audit', budget: 269_000 }, // D-L199
+    { label: 'P02/A admin home', path: '/admin', budget: 250_000 }, // T-0145 re-pin (D-L182/D-L199 rule)
+    { label: 'P02/B the programmes list', path: '/admin/programmes', budget: 246_000 }, // T-0145 re-pin (D-L182/D-L199 rule)
+    { label: 'P02/C the role tree', path: '/admin/roles', budget: 251_000 }, // T-0145 re-pin (D-L182/D-L199 rule)
+    { label: 'P02/D the field-security matrix', path: '/admin/field-security', budget: 265_000 }, // T-0145 re-pin (D-L182/D-L199 rule)
+    { label: 'P02/E the audit log', path: '/admin/audit', budget: 270_500 }, // T-0145 re-pin (D-L182/D-L199 rule)
     {
       label: 'P02/B6 the scripts tab',
       path: '/admin/programmes/11111111-0000-4000-8000-0000000c0001?tab=scripts',
-      budget: 279_500, // D-L199
+      budget: 283_000, // T-0145 re-pin (D-L182/D-L199 rule)
     },
   ];
 

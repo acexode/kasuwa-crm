@@ -8,7 +8,7 @@ import { SegmentedControl, type SegmentedOption } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { Emphasis } from '../auth/rich-text';
 import { LineParts } from './list-table';
-import type { MyProgramme } from '../../lib/accounts-api';
+import type { MyProgramme } from '../../lib/my-programmes-api';
 import {
   FOCUS,
   HEADER_BUTTON,
@@ -97,7 +97,13 @@ export function CountChip({ t, count }: { t: Translator; count: string | null })
       className="rounded-6 bg-surface-sunken px-2 py-0.75 font-mono text-meta font-semibold text-text-2"
     >
       <span aria-hidden="true">{count}</span>
-      <span className="sr-only">{t.t('records.count.more', { count })}</span>
+      {/*
+        The spoken sentence is in the sans face: it is never seen (sr-only),
+        but a browser still downloads a font for every character it lays out,
+        and in mono its letters cost the 5 KB lowercase face on every list
+        (T-0145). The visible figures stay in mono.
+      */}
+      <span className="sr-only font-sans">{t.t('records.count.more', { count })}</span>
     </span>
   );
 }

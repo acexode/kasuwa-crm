@@ -84,5 +84,5 @@ test('/onboarding stays inside its transferred byte budget @budget', async ({ pa
   const { webUrl } = stack();
   const metrics = await measurePageLoad(page, `${webUrl}/onboarding`, 'default');
   recordProfileMetrics('default', metrics);
-  assertWithinByteBudget('P01/5.2 the onboarding wizard', metrics.transferredBytes, 257000);
+  assertWithinByteBudget('P01/5.2 the onboarding wizard', metrics.transferredBytes, 236500);
 });

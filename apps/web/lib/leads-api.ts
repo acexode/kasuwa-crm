@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
-import { identifierShaped } from './search-query';
+import { identifierShaped } from './identifier-shaped';
 import { Account } from './accounts-api';
 import { CONTACTS_PATH, Contact, requestRecords, type ContactSource, type RecordsResult } from './records-api';
 

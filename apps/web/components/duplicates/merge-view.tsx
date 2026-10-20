@@ -4,7 +4,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { Dialog } from '../admin/dialog';
-import { StillConnecting } from '../admin/panel';
+import { StillConnecting } from '../admin/still-connecting';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { Button } from '@kasuwa/ui/components';
 import type { IconName } from '@kasuwa/ui';

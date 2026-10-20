@@ -29,12 +29,11 @@
 export const SEARCH_Q_MIN = 2;
 export const SEARCH_Q_MAX = 100;
 
-/** D-L135's identifier rule (see the header). */
-export function identifierShaped(text: string): boolean {
-  const normal = text.normalize('NFKC');
-  if (normal.includes('@')) return true;
-  return /\p{Nd}{6,}/u.test(normal.replace(/[^\p{L}\p{Nd}]/gu, ''));
-}
+// D-L135's identifier rule (see the header) lives in `identifier-shaped`
+// (T-0145): the record and pipeline clients need it, and none of the rest.
+import { identifierShaped } from './identifier-shaped';
+
+export { identifierShaped };
 
 /** R27: after NFKC, at least one decimal digit of any script and no letter. */
 export function phoneLike(text: string): boolean {

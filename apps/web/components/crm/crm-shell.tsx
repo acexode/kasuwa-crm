@@ -19,9 +19,10 @@ import { Icon } from '../icon';
 import type { LanguageOption } from '../auth/language-menu';
 import { SHELL_SEARCH_STRINGS } from '../search/message-ids';
 import { CommandsButton, TopBarSearch, useShellShortcuts } from '../search/top-bar-search';
-import { AccountItems, AccountMenu, moveInMenu } from '../shell/account-menu';
+import { AccountMenu } from '../shell/account-menu';
 import { Brand, SHELL_FOCUS, ShellLiteToggle } from '../shell/shell-parts';
-import { useShellUserName } from '../shell/use-shell-user';
+import type { NavSheet as NavSheetComponent } from './crm-nav-sheet';
+import { BAR_BUTTON } from './crm-classes';
 import {
   CRM_NAV,
   CRM_SCREEN_TITLES,
@@ -30,6 +31,26 @@ import {
   shownNav,
   type CrmNavItem,
 } from './crm-nav';
+
+type NavSheetType = typeof NavSheetComponent;
+
+let sheetModule: Promise<NavSheetType> | null = null;
+
+/**
+ * The phone's navigation sheet, fetched on the first press of the menu button
+ * or More (T-0145) and opened once it has arrived, so it is never drawn empty.
+ * A failed fetch is forgotten, so the next press tries again.
+ */
+function loadNavSheet(): Promise<NavSheetType> {
+  sheetModule ??= import('./crm-nav-sheet').then(
+    (module) => module.NavSheet,
+    (error: unknown) => {
+      sheetModule = null;
+      throw error;
+    },
+  );
+  return sheetModule;
+}
 
 /**
  * The bell is its OWN chunk (D-L182): a lazy `import()` (React's own, as the palette's: `next/dynamic` would add its runtime to every page) that is rendered only where
@@ -118,7 +139,6 @@ function loadPalette(): LazyExoticComponent<ComponentType<PaletteProps>> {
 }
 
 /** A 48px app-bar button (P04/02: `width:48px;height:48px`, a 24px glyph). */
-const BAR_BUTTON = `flex size-control-lg shrink-0 items-center justify-center rounded-md text-text is-hover:bg-surface-sunken ${SHELL_FOCUS}`;
 
 /** A rail item: 56×52, radius 10, a 22px glyph over a 10/600 label (P03, P04). */
 function RailItem({ item, href, active, t }: { item: CrmNavItem; href: string | null; active: boolean; t: Translator }) {
@@ -145,6 +165,7 @@ function RailItem({ item, href, active, t }: { item: CrmNavItem; href: string | 
   return (
     <Link
       href={href}
+      prefetch={false}
       aria-current={active ? 'page' : undefined}
       className={`${className} ${active ? 'bg-primary-soft text-primary-text' : 'text-text-2 is-hover:bg-surface'}`}
     >
@@ -184,7 +205,7 @@ function BottomItem({ item, href, active, t }: { item: CrmNavItem; href: string 
     );
   }
   return (
-    <Link href={href} aria-current={active ? 'page' : undefined} className={className}>
+    <Link href={href} prefetch={false} aria-current={active ? 'page' : undefined} className={className}>
       {inner}
     </Link>
   );
@@ -225,6 +246,7 @@ export function CrmShell({
   const bottom = bottomNav(live, current, bottomObjects);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [NavSheet, setNavSheet] = useState<NavSheetType | null>(null);
   const [Palette, setPalette] = useState<LazyExoticComponent<ComponentType<PaletteProps>> | null>(null);
   const openRef = useRef(false);
   const openerRef = useRef<Element | null>(null);
@@ -276,6 +298,15 @@ export function CrmShell({
   const closePalette = useCallback(() => setPaletteOpen(false), []);
   const retryPalette = useCallback(() => setPalette(loadPalette()), []);
   const closeSheet = useCallback(() => setSheetOpen(false), []);
+  const openSheet = useCallback(() => {
+    loadNavSheet().then(
+      (loaded) => {
+        setNavSheet(() => loaded);
+        setSheetOpen(true);
+      },
+      () => undefined,
+    );
+  }, []);
   const behind = paletteOpen || sheetOpen ? { inert: true } : {};
 
   return (
@@ -296,13 +327,13 @@ export function CrmShell({
             aria-haspopup="dialog"
             aria-expanded={sheetOpen}
             data-testid="crm-menu"
-            onClick={() => setSheetOpen(true)}
+            onClick={openSheet}
             className={`${BAR_BUTTON} md:hidden`}
           >
             <Icon name="menu" size={24} />
           </button>
         ) : (
-          <Link href={appBar.back} aria-label={t.t('shell.back')} className={`${BAR_BUTTON} md:hidden`}>
+          <Link href={appBar.back} prefetch={false} aria-label={t.t('shell.back')} className={`${BAR_BUTTON} md:hidden`}>
             <Icon name="arrow_back" size={24} className="rtl:-scale-x-100" />
           </Link>
         )}
@@ -388,7 +419,7 @@ export function CrmShell({
           aria-haspopup="dialog"
           aria-expanded={sheetOpen}
           data-testid="crm-more"
-          onClick={() => setSheetOpen(true)}
+          onClick={openSheet}
           className={`flex min-w-0 flex-col items-center justify-center gap-0.5 text-micro font-medium text-text-2 ${SHELL_FOCUS}`}
         >
           <span className="flex h-7 w-control-xl items-center justify-center rounded-14">
@@ -398,7 +429,7 @@ export function CrmShell({
         </button>
       </nav>
 
-      {sheetOpen ? (
+      {sheetOpen && NavSheet !== null ? (
         <NavSheet t={t} locale={locale} locales={locales} live={live} current={current} onClose={closeSheet} />
       ) : null}
 
@@ -429,111 +460,9 @@ export function CrmFab({ label, onClick, href }: { label: string; onClick?: () =
       {inner}
     </button>
   ) : (
-    <Link href={href} className={className}>
+    <Link href={href} prefetch={false} className={className}>
       {inner}
     </Link>
-  );
-}
-
-/**
- * The phone's navigation sheet, opened by the app bar's menu button and by
- * More: every entry this process draws, then the account items (lite mode,
- * language, sign out) that live in the desktop bar and avatar menu. A modal
- * bottom sheet on the scrim; Escape or a press on the scrim closes it, and
- * focus goes back to what opened it.
- */
-function NavSheet({
-  t,
-  locale,
-  locales,
-  live,
-  current,
-  onClose,
-}: {
-  t: Translator;
-  locale: string;
-  locales: readonly LanguageOption[];
-  live: readonly string[];
-  current: string;
-  onClose: () => void;
-}) {
-  const titleId = useId();
-  const name = useShellUserName();
-  const sheetRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const opener = document.activeElement;
-    sheetRef.current?.querySelector<HTMLElement>('a, button')?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      onClose();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      if (opener instanceof HTMLElement && document.contains(opener)) opener.focus();
-    };
-  }, [onClose]);
-
-  return (
-    <div
-      className="fixed inset-0 z-40 flex items-end md:hidden"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <span aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-scrim" />
-      <div
-        ref={sheetRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        data-testid="crm-nav-sheet"
-        className="flex max-h-screen w-full flex-col overflow-y-auto rounded-t-xl bg-surface-raised p-2 pb-4 shadow-3"
-      >
-        <div className="flex items-center gap-2 ps-3">
-          <h2 id={titleId} className="flex-1 text-card-title">
-            {t.t('records.nav.label')}
-          </h2>
-          <button type="button" aria-label={t.t('shell.menu.close')} onClick={onClose} className={BAR_BUTTON}>
-            <Icon name="close" size={24} />
-          </button>
-        </div>
-        <nav aria-labelledby={titleId} className="grid grid-cols-4 gap-1 pb-2">
-          {shownNav(live).map((item) => {
-            const href = liveHref(item, live);
-            const active = item.id === current;
-            const className = `flex min-h-shell-fab flex-col items-center justify-center gap-0.5 rounded-10 px-1 text-center text-micro font-semibold ${SHELL_FOCUS}`;
-            const inner = (
-              <>
-                <Icon name={item.icon} size={22} />
-                <span className="max-w-full truncate">{t.t(item.label)}</span>
-              </>
-            );
-            return href === null ? (
-              <span key={item.id} aria-disabled="true" className={`${className} text-text-muted`}>
-                {inner}
-                <span className="sr-only">{t.t('records.nav.soon')}</span>
-              </span>
-            ) : (
-              <Link
-                key={item.id}
-                href={href}
-                onClick={onClose}
-                aria-current={active ? 'page' : undefined}
-                className={`${className} ${active ? 'bg-primary-soft text-primary-text' : 'text-text-2 is-hover:bg-surface-sunken'}`}
-              >
-                {inner}
-              </Link>
-            );
-          })}
-        </nav>
-        <div role="menu" aria-label={t.t('auth.account')} onKeyDown={moveInMenu} className="flex flex-col border-t border-border pt-1">
-          <AccountItems t={t} locale={locale} locales={locales} withLite name={name} />
-        </div>
-      </div>
-    </div>
   );
 }
 
