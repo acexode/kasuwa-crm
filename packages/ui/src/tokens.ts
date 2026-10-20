@@ -129,6 +129,12 @@ export const TYPE_SCALE = {
   label: { size: '15px', lineHeight: '22px', weight: '600', tracking: '0' },
   /** Meta lines, helper text, toolbar chips: 13/19/400 (chips set their own 600). */
   meta: { size: '13px', lineHeight: '19px', weight: '400', tracking: '0' },
+  /**
+   * Count badges, small tags (network, DND) and kbd keys: 11/16/700, in the
+   * case it was written (T-0128). Kbd sets its own 400. The caps step below is
+   * a different thing: an overline is a label, these are values.
+   */
+  micro: { size: '11px', lineHeight: '16px', weight: '700', tracking: '0' },
   /** Menu section labels, kbd, bottom-nav labels: 11/16/700 caps at 0.06em. */
   overline: {
     size: '11px',
@@ -157,9 +163,16 @@ export const ARABIC_LINE_HEIGHT_MULTIPLIER = 1.1;
  * The half steps 6, 10 and 14px are the screen exports' most common gaps (6px
  * alone appears 585 times). They are explicit tokens so `gap-1.5` reads the
  * design system rather than Tailwind's default ramp (T-0127).
+ *
+ * T-0128 adds the three the v1.1 controls need, keyed the same way (key x 4):
+ *   0.75 3px  pill and badge padding (3px 10px), the segmented track's padding,
+ *             the switch knob's inset
+ *   4.5 18px  how far the switch knob travels (44 - 20 - 3 - 3)
+ *   6.5 26px  the switch track's height
  */
 export const SPACING = {
   '0': '0px',
+  '0.75': '3px',
   '1': '4px',
   '1.5': '6px',
   '2': '8px',
@@ -167,8 +180,10 @@ export const SPACING = {
   '3': '12px',
   '3.5': '14px',
   '4': '16px',
+  '4.5': '18px',
   '5': '20px',
   '6': '24px',
+  '6.5': '26px',
   '8': '32px',
   '10': '40px',
   '12': '48px',
@@ -288,9 +303,13 @@ export const SHELL = {
  *   field  inputs and selects: a primary border plus a 3px primary-soft-strong
  *          halo.
  *
- * Both are box-shadows, so the utilities also keep a transparent outline: in
- * forced-colours mode box-shadow is dropped and the outline is what remains.
- * Wiring them into components is T-0128.
+ * Both are box-shadows. In forced-colours mode box-shadow is dropped, so each
+ * utility also draws a transparent outline there, which the browser paints in
+ * the system colour. `ring-focus` draws that outline ONLY in forced-colours
+ * mode and sets `outline-style: none` otherwise: the v1.1 ring is the whole
+ * focus indicator, and a transparent outline left in place still reports
+ * `outline-style: solid` (T-0128). `field-focus` keeps its outline as T-0127
+ * built it.
  *
  * Emitted only as the `ring-focus` and `field-focus` utilities, never as a
  * `:root` custom property: a custom property resolves its `var()`s where it is
@@ -301,6 +320,23 @@ export const FOCUS = {
   ring: `0 0 0 2px var(${CSS_VAR_PREFIX}-surface), 0 0 0 4px var(${CSS_VAR_PREFIX}-focus)`,
   field: `0 0 0 3px var(${CSS_VAR_PREFIX}-primary-soft-strong)`,
   fieldBorder: `var(${CSS_VAR_PREFIX}-primary)`,
+} as const;
+
+/**
+ * Shadows that belong to one control rather than to the elevation scale
+ * (T-0128). Emitted only as Tailwind `shadow-*` utilities, never as `:root`
+ * custom properties, for the same reason as FOCUS: `switch-disabled` reads
+ * `--k-border` on the element that draws it.
+ *
+ *   knob             the switch knob, v1.1 Components "Toggle". A literal in
+ *                    the export, the same in both themes.
+ *   switch-disabled  the admin-locked switch's 1px inner edge, from the same
+ *                    place: a disabled track is disabled-bg, which on a surface
+ *                    needs an edge to read as a control at all.
+ */
+export const CONTROL_SHADOW = {
+  knob: '0 1px 2px rgba(0,0,0,.3)',
+  'switch-disabled': `inset 0 0 0 1px var(${CSS_VAR_PREFIX}-border)`,
 } as const;
 
 /** `railItemWidth` -> `rail-item-width`, for CSS variable and utility names. */
@@ -334,6 +370,12 @@ export const MOTION = {
   instant: { duration: '100ms', use: 'Hover, press' },
   quick: { duration: '160ms', use: 'Toggles, tabs, chips' },
   base: { duration: '240ms', use: 'Menus, toasts, drawers' },
+  /**
+   * One turn of the loading spinner (v1.1 Components: `kspin .8s linear
+   * infinite`). Under reduced motion the global layer stops it after one frame,
+   * which leaves the static ring the export asks for.
+   */
+  spin: { duration: '800ms', use: 'Loading spinner, one turn' },
 } as const;
 
 export const MOTION_EASING = 'cubic-bezier(.2,.8,.2,1)';

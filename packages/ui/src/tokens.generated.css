@@ -163,6 +163,10 @@
   --k-line-height-meta: 19px;
   --k-font-weight-meta: 400;
   --k-tracking-meta: 0;
+  --k-font-size-micro: 11px;
+  --k-line-height-micro: 16px;
+  --k-font-weight-micro: 700;
+  --k-tracking-micro: 0;
   --k-font-size-overline: 11px;
   --k-line-height-overline: 16px;
   --k-font-weight-overline: 700;
@@ -180,9 +184,12 @@
   --k-space-10: 40px;
   --k-space-12: 48px;
   --k-space-16: 64px;
+  --k-space-0_75: 3px;
   --k-space-1_5: 6px;
   --k-space-2_5: 10px;
   --k-space-3_5: 14px;
+  --k-space-4_5: 18px;
+  --k-space-6_5: 26px;
   --k-space-touch: 44px;
   --k-radius-6: 6px;
   --k-radius-10: 10px;
@@ -226,6 +233,7 @@
   --k-duration-instant: 100ms;
   --k-duration-quick: 160ms;
   --k-duration-base: 240ms;
+  --k-duration-spin: 800ms;
   --k-ease: cubic-bezier(.2,.8,.2,1);
   
   /* semantic tokens — light is the default theme */
@@ -424,6 +432,7 @@
   --k-line-height-card-title: 26px;
   --k-line-height-label: 24px;
   --k-line-height-meta: 21px;
+  --k-line-height-micro: 18px;
   --k-line-height-overline: 18px;
 }
 

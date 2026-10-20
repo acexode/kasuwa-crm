@@ -1,6 +1,7 @@
 import {
   COLOUR_SCALES,
   CONTROL_HEIGHT,
+  CONTROL_SHADOW,
   CSS_VAR_PREFIX,
   cssKey,
   DESIGN_VERSION,
@@ -104,6 +105,12 @@ export function buildTailwindPreset(): string {
     .map((level) => `    '${level}': 'var(${CSS_VAR_PREFIX}-elevation-${level})',`)
     .join('\n');
 
+  // Control shadows are literal values (or var() references resolved on the
+  // element), never root custom properties: see CONTROL_SHADOW in tokens.ts.
+  const controlShadows = Object.entries(CONTROL_SHADOW)
+    .map(([name, value]) => `    '${name}': '${value}',`)
+    .join('\n');
+
   const durations = Object.keys(MOTION)
     .map((name) => `    '${name}': 'var(${CSS_VAR_PREFIX}-duration-${name})',`)
     .join('\n');
@@ -143,9 +150,14 @@ ${radius}
       },
       boxShadow: {
 ${shadows}
+${controlShadows}
       },
       transitionDuration: {
 ${durations}
+      },
+      // \`animate-spin\` turns at the design's speed, not Tailwind's 1s.
+      animation: {
+        spin: 'spin var(${CSS_VAR_PREFIX}-duration-spin) linear infinite',
       },
       transitionTimingFunction: {
         DEFAULT: 'var(${CSS_VAR_PREFIX}-ease)',
@@ -164,13 +176,35 @@ ${durations}
     // tailwindcss/plugin, so the preset needs no import. Use the focus shapes
     // behind a variant: \`focus-visible:ring-focus\`. Never combine \`ring-focus\`
     // with a \`ring-N\` width utility: both write box-shadow, and one discards the other.
-    function ({ addUtilities }) {
+    //
+    // The four state variants (T-0128) are how @kasuwa/ui/components style
+    // hover, press and focus. Each also matches \`data-preview\`, so the
+    // /design/components gallery can show a state at rest, the way the v1.1
+    // Components page does, from the same class that styles the live state:
+    //   is-hover          hover, only on devices that hover (a tap on Android
+    //                     must not leave a button stuck in its hover colour),
+    //                     never on a disabled control
+    //   is-active         pressed, never on a disabled control
+    //   is-focus-visible  keyboard focus: buttons, checkboxes, chips, tabs
+    //   is-focus          any focus: text fields and selects, which show their
+    //                     focus while the user types, however they got there
+    function ({ addUtilities, addVariant }) {
+      addVariant('is-hover', [
+        '@media (hover: hover) { &:hover:not(:disabled) }',
+        '&[data-preview~="hover"]',
+      ]);
+      addVariant('is-active', ['&:active:not(:disabled)', '&[data-preview~="active"]']);
+      addVariant('is-focus-visible', ['&:focus-visible', '&[data-preview~="focus"]']);
+      addVariant('is-focus', ['&:focus', '&[data-preview~="focus"]']);
       addUtilities({
 ${typeExtras}
         '.ring-focus': {
-          outline: '2px solid transparent',
-          'outline-offset': '2px',
+          'outline-style': 'none',
           'box-shadow': '${FOCUS.ring}',
+          '@media (forced-colors: active)': {
+            outline: '2px solid transparent',
+            'outline-offset': '2px',
+          },
         },
         '.field-focus': {
           outline: '2px solid transparent',
