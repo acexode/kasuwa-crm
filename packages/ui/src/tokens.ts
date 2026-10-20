@@ -339,7 +339,7 @@ export const SHELL = {
  * And from the P26 export (T-0137):
  *
  *   filterRail     240  the notification centre's filter card beside its list
- *   pageWide      1180  the centre's page column, padding included
+ *   pageWide      1116  the centre's page column (1180 less its 32px padding each side)
  *   settingsAside  380  the preferences page's right column (quiet hours, digest)
  */
 export const LAYOUT = {
@@ -351,7 +351,7 @@ export const LAYOUT = {
   wizard: '640px',
   wizardStepper: '880px',
   filterRail: '240px',
-  pageWide: '1180px',
+  pageWide: '1116px',
   settingsAside: '380px',
 } as const;
 

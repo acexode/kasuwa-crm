@@ -140,7 +140,7 @@ export function NotificationCentre({
       live={live}
       appBar={{ title: t.t('notifications.title'), ...(summary === null ? {} : { subtitle: summary }) }}
     >
-      <div data-screen="P26" className="flex w-full min-w-0 max-w-layout-page-wide flex-col gap-3 md:mx-2 md:mt-1 md:gap-4">
+      <div data-screen="P26" className="flex w-full min-w-0 max-w-layout-page-wide flex-col gap-3 md:gap-4 xl:mx-2 xl:mt-1">
         {/* Header: the title and its count on the left, Mark all read and Preferences on the right (B); on a phone the app bar carries the title. */}
         <div className="flex flex-wrap items-end justify-end gap-x-3 gap-y-2 max-md:-mt-2 max-md:gap-x-1">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5 max-md:sr-only">
