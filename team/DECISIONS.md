@@ -4420,3 +4420,57 @@ render faux-bold in the design itself.
   `text-icon-*` utilities set size only.
 - **Budgets.** Pages re-pin under D-L182 with the measured cause, which is this icon change. A ceiling that still
   breaks after the split comes back to the lead with numbers before anyone raises it.
+
+### D-L199 — Every page re-pinned for the T-0127 icon font; seven ceilings raised (lead, 2026-10-20)
+
+**Measured cause.** A full e2e run on agent11/T-0127-tokens-icons (98d486a plus main 5dae764): 690 passed, and
+24 failed, every one of them a byte budget. The growth is the icon subset required by D-L193 and D-L198. On the
+sign-in critical path, `material-symbols-rounded-subset.woff2` transfers 22,102 bytes, against about 14,500 before
+(+7,580 in the font file). The six text fonts are byte-identical. Pages grew between 805 bytes (P01/1, whose pin
+had slack) and 7,922 bytes (deal detail).
+
+**Re-pins.** Each pin is the measured value plus about 1.2%, rounded up to the next 500, under D-L182's
+measured-cause rule:
+
+| Page | Measured | Old pin | New pin |
+|---|---|---|---|
+| Sign-in critical path | 252,820 | 250,000 | 256,000 |
+| P01/1 sign-in | 252,805 | 252,000 | 256,000 |
+| P01/5.2 onboarding | 253,879 | 248,000 | 257,000 |
+| P02 admin home | 233,163 | 227,000 | 236,000 |
+| P02 programmes | 230,681 | 224,000 | 233,500 |
+| P02 roles | 232,466 | 227,000 | 235,500 |
+| P02 field security | 265,782 | 261,000 | 269,000 |
+| P02 audit | 265,653 | 261,000 | 269,000 |
+| P02 scripts tab | 275,777 | 270,000 | 279,500 |
+| /leads | 243,056 | 236,500 | 246,000 |
+| /contacts | 238,865 | 232,000 | 242,000 |
+| /accounts | 243,385 | 237,000 | 246,500 |
+| /contacts/[id] | 245,708 | 239,000 | 249,000 |
+| /accounts/[id] | 255,185 | 249,500 | 258,500 |
+| Pipeline board | 264,250 | 259,000 | 267,500 |
+| Deal detail | 257,922 | 250,000 | 261,500 |
+| /activities | 243,045 | 236,000 | 246,000 |
+| Script run | 242,045 | 240,000 | 245,000 |
+| Script builder | 251,903 | 250,000 | 255,000 |
+| Customisation studio | 271,197 | 266,000 | 274,500 |
+| /notifications | 238,757 | 234,000 | 242,000 |
+| /search | 226,560 | 223,000 | 229,500 |
+| /contacts/duplicates | 240,786 | 235,000 | 244,000 |
+| /contacts/import | 241,492 | 234,500 | 244,500 |
+
+**Ceilings raised.** Seven per-screen ceilings fall below their new pins and are raised to the next 5,000 above
+the pin:
+- contacts list 240,000 → 245,000
+- accounts list 245,000 → 250,000
+- contact record 245,000 → 250,000
+- account record 250,000 → 260,000, superseding D-L190's figure
+- pipeline board 260,000 → 270,000
+- deal detail 260,000 → 265,000
+- studio 270,000 → 275,000
+
+All stay under the PRD 2.13 limit of 300,000. The heaviest page is P02's scripts tab at 279,500.
+
+**For the rest of the D-L193 programme.** The component library and shell (T-0128 to T-0130) will move every page
+again. Each of those PRs re-pins on its own measured run and states the cause. No ceiling is ever raised past
+300,000, and none is raised without a row in a decision like this one.

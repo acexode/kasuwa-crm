@@ -136,7 +136,7 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
  * under this ceiling and inside the 5% rule. The spec's hash ignores the
  * budget literal, so it is not re-pinned.
  */
-const CONTACT_RECORD_BUDGET_CEILING = 245_000;
+const CONTACT_RECORD_BUDGET_CEILING = 250_000; // D-L199: raised for the T-0127 icon font (D-L198)
 
 /** Re-pinned within 5% of what the run measured, like /contacts (T-0042) and P01/1 (T-0035). */
 const BUDGET_HEADROOM = 1.05;
