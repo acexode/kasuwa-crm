@@ -61,7 +61,11 @@ export const FONT_FAMILIES = {
 
 export const FONT_WEIGHTS = {
   regular: '400',
+  /** The caption step, and secondary bottom-bar labels. */
+  medium: '500',
   semibold: '600',
+  /** Card titles, overlines, badges: the screen exports' most-used weight. */
+  bold: '700',
   extrabold: '800',
 } as const;
 
@@ -101,6 +105,38 @@ export const TYPE_SCALE = {
     tracking: '0',
     fontFeature: "'tnum' 1",
   },
+
+  // -------------------------------------------------------------------------
+  // The screen exports' vocabulary (T-0127, D-L193).
+  //
+  // The v1.1 ramp above is the design system page. The screen exports use a
+  // second set of sizes that the ramp does not list, hundreds of times each
+  // (team/reports/ui-audit/foundations.md section 1 has the counts). Without
+  // these steps every builder rounded 13px to 12 or 14 and 28px/800 to
+  // 32px/700, and every screen came out bigger and looser than its design.
+  // Use the step the export uses; never round to a neighbour.
+  // -------------------------------------------------------------------------
+
+  /** P01 brand-panel headline: 44/52/800, -0.88px tracking (measured in the P01 export). */
+  headline: { size: '44px', lineHeight: '52px', weight: '800', tracking: '-0.02em' },
+  /** Page title on lists (P04, P07): 28/36/800. */
+  title: { size: '28px', lineHeight: '36px', weight: '800', tracking: '-0.01em' },
+  /** Page title on records and admin (P05, P02): 26/34/800. */
+  'title-sm': { size: '26px', lineHeight: '34px', weight: '800', tracking: '0' },
+  /** Card and section titles: 16/24/700. */
+  'card-title': { size: '16px', lineHeight: '24px', weight: '700', tracking: '0' },
+  /** Button labels, input values, settings-nav rows: 15/22/600. */
+  label: { size: '15px', lineHeight: '22px', weight: '600', tracking: '0' },
+  /** Meta lines, helper text, toolbar chips: 13/19/400 (chips set their own 600). */
+  meta: { size: '13px', lineHeight: '19px', weight: '400', tracking: '0' },
+  /** Menu section labels, kbd, bottom-nav labels: 11/16/700 caps at 0.06em. */
+  overline: {
+    size: '11px',
+    lineHeight: '16px',
+    weight: '700',
+    tracking: '0.06em',
+    transform: 'uppercase',
+  },
 } as const satisfies Record<string, TypeStep>;
 
 export type TypeScaleStep = keyof typeof TYPE_SCALE;
@@ -115,12 +151,21 @@ export const ARABIC_LINE_HEIGHT_MULTIPLIER = 1.1;
 // Spacing, radius, elevation, motion — export section "03 Foundations"
 // ---------------------------------------------------------------------------
 
-/** 4px base. Keys are multiples, so `space-4` is 16px. */
+/**
+ * 4px base. Keys are multiples, so `space-4` is 16px.
+ *
+ * The half steps 6, 10 and 14px are the screen exports' most common gaps (6px
+ * alone appears 585 times). They are explicit tokens so `gap-1.5` reads the
+ * design system rather than Tailwind's default ramp (T-0127).
+ */
 export const SPACING = {
   '0': '0px',
   '1': '4px',
+  '1.5': '6px',
   '2': '8px',
+  '2.5': '10px',
   '3': '12px',
+  '3.5': '14px',
   '4': '16px',
   '5': '20px',
   '6': '24px',
@@ -132,13 +177,144 @@ export const SPACING = {
   touch: '44px',
 } as const;
 
+/**
+ * The named steps are v1.1's. The numeric ones are the screen exports' (T-0127):
+ * 6px for menu rows, segmented items and chips; 10px for menus, popovers,
+ * toasts, table wrappers and rail items; 14px for dialogs. Named by their pixel
+ * value because they sit between the named steps, not after them.
+ */
 export const RADIUS = {
   sm: '4px',
+  '6': '6px',
   md: '8px',
+  '10': '10px',
   lg: '12px',
+  '14': '14px',
   xl: '16px',
   full: '999px',
 } as const;
+
+/**
+ * Control heights (T-0127), from the v1.1 Components page and the screen
+ * exports:
+ *
+ *   sm   36  compact desktop controls: toolbar chips, segmented items, Columns.
+ *           Desktop only, and the control still keeps a 44px hit area.
+ *   md   40  header search, menu rows, table header.
+ *   base 44  form controls and standard buttons. The same value as `touch`.
+ *   lg   48  mobile inputs, icon buttons and the phone app bar's buttons.
+ *   xl   52  mobile full-width primary buttons.
+ *
+ * `SPACING.touch` stays the WCAG 2.2 floor; this is the visual height, which
+ * may be smaller than the target only where the hit area is padded back out.
+ */
+export const CONTROL_HEIGHT = {
+  sm: '36px',
+  md: '40px',
+  base: '44px',
+  lg: '48px',
+  xl: '52px',
+} as const;
+
+/**
+ * Icon sizes (T-0127). An icon's own scale, NOT the type scale: a type step
+ * also sets a font weight, and a weight above 400 on the icon font (which ships
+ * weight 400 only) makes the browser draw a faux-bold glyph. Keyed by pixel
+ * size so a builder copies the export's number rather than mapping it.
+ *
+ * Counts in the screen exports: 20 (293), 18 (271), 22 (123: rail, header
+ * buttons, icon buttons, bottom nav), 16 (107: table sort, chip close), 15 (63:
+ * consent pills), 14 (53), 24, 28 and 32.
+ */
+export const ICON_SIZE = {
+  14: '14px',
+  15: '15px',
+  16: '16px',
+  18: '18px',
+  20: '20px',
+  22: '22px',
+  24: '24px',
+  28: '28px',
+  32: '32px',
+} as const;
+
+export type IconSize = keyof typeof ICON_SIZE;
+
+/**
+ * The four names `<Icon size>` took before T-0127, kept so existing screens
+ * render unchanged: each is the pixel size its type step used to give it.
+ * New code passes the export's pixel size instead.
+ */
+export const ICON_SIZE_ALIAS = {
+  sm: 18,
+  md: 20,
+  lg: 24,
+  xl: 32,
+} as const satisfies Record<string, IconSize>;
+
+export type IconSizeAlias = keyof typeof ICON_SIZE_ALIAS;
+
+/** The pixel size an icon renders at, for a pixel size or a legacy alias. */
+export function resolveIconSize(size: IconSize | IconSizeAlias): IconSize {
+  return typeof size === 'number' ? size : ICON_SIZE_ALIAS[size];
+}
+
+/**
+ * App-shell dimensions (T-0127), from the screen exports (P03, P04, P05, P02):
+ *
+ *   header        60  desktop top bar
+ *   rail          72  the sunken icon rail, at 1440 and 1024
+ *   railItemWidth 56, railItemHeight 52: a rail item
+ *   adminNav     272  the admin settings nav
+ *   bottomBar     64  the phone bottom bar
+ *   mobileHeader  56  the phone's per-screen app bar
+ */
+export const SHELL = {
+  header: '60px',
+  rail: '72px',
+  railItemWidth: '56px',
+  railItemHeight: '52px',
+  adminNav: '272px',
+  bottomBar: '64px',
+  mobileHeader: '56px',
+} as const;
+
+/**
+ * Focus treatments (T-0127), from the v1.1 Components page. Two shapes, not one:
+ *
+ *   ring   buttons, checkboxes, radios, chips: a 2px surface gap, then a 2px
+ *          focus ring, so the ring reads on any fill.
+ *   field  inputs and selects: a primary border plus a 3px primary-soft-strong
+ *          halo.
+ *
+ * Both are box-shadows, so the utilities also keep a transparent outline: in
+ * forced-colours mode box-shadow is dropped and the outline is what remains.
+ * Wiring them into components is T-0128.
+ *
+ * Emitted only as the `ring-focus` and `field-focus` utilities, never as a
+ * `:root` custom property: a custom property resolves its `var()`s where it is
+ * declared, so the ring's surface gap would be the ROOT surface, not the
+ * surface the control actually sits on.
+ */
+export const FOCUS = {
+  ring: `0 0 0 2px var(${CSS_VAR_PREFIX}-surface), 0 0 0 4px var(${CSS_VAR_PREFIX}-focus)`,
+  field: `0 0 0 3px var(${CSS_VAR_PREFIX}-primary-soft-strong)`,
+  fieldBorder: `var(${CSS_VAR_PREFIX}-primary)`,
+} as const;
+
+/** `railItemWidth` -> `rail-item-width`, for CSS variable and utility names. */
+export function kebab(name: string): string {
+  return name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+}
+
+/**
+ * A token key as it appears in a CSS custom property name. `1.5` is not a
+ * legal identifier character sequence, so a half step becomes `1_5`:
+ * `--k-space-1_5`. The Tailwind key stays `1.5` (`gap-1.5`).
+ */
+export function cssKey(key: string): string {
+  return kebab(key).replace('.', '_');
+}
 
 /**
  * Elevation 0 is flat with a border, not a faint shadow — a border survives

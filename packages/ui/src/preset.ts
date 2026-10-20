@@ -1,11 +1,17 @@
 import {
   COLOUR_SCALES,
+  CONTROL_HEIGHT,
   CSS_VAR_PREFIX,
+  cssKey,
   DESIGN_VERSION,
   ELEVATION,
+  FOCUS,
+  ICON_SIZE,
+  kebab,
   MOTION,
   RADIUS,
   SEMANTIC_TOKEN_NAMES,
+  SHELL,
   SPACING,
   TYPE_SCALE,
 } from './tokens';
@@ -39,29 +45,58 @@ export function buildTailwindPreset(): string {
     })
     .join('\n');
 
-  const fontSizes = Object.entries(TYPE_SCALE)
-    .map(([step, spec]) => {
+  const fontSizes = Object.keys(TYPE_SCALE)
+    .map((step) => {
       const extras = [
         `lineHeight: 'var(${CSS_VAR_PREFIX}-line-height-${step})'`,
         `fontWeight: 'var(${CSS_VAR_PREFIX}-font-weight-${step})'`,
         `letterSpacing: 'var(${CSS_VAR_PREFIX}-tracking-${step})'`,
       ];
-      if ('transform' in spec) {
-        extras.push(`textTransform: '${spec.transform}'`);
-      }
-      if ('fontFeature' in spec) {
-        extras.push(`fontFeatureSettings: "${spec.fontFeature}"`);
-      }
       return `    '${step}': ['var(${CSS_VAR_PREFIX}-font-size-${step})', { ${extras.join(', ')} }],`;
     })
     .join('\n');
 
-  const spacing = Object.keys(SPACING)
-    .map((key) => `    '${key}': 'var(${CSS_VAR_PREFIX}-space-${key})',`)
+  // Tailwind's fontSize config reads lineHeight, letterSpacing and fontWeight
+  // only. A textTransform or fontFeatureSettings there is silently dropped, so
+  // `text-h6` and `text-overline` rendered in sentence case and `text-mono`
+  // without tabular figures. They are emitted as utilities on the same class
+  // instead, which Tailwind merges with the font-size rule.
+  const typeExtras = Object.entries(TYPE_SCALE)
+    .flatMap(([step, spec]) => {
+      const declarations = [
+        'transform' in spec ? `'text-transform': '${spec.transform}'` : null,
+        'fontFeature' in spec ? `'font-feature-settings': "${spec.fontFeature}"` : null,
+      ].filter((line): line is string => line !== null);
+      return declarations.length === 0
+        ? []
+        : [`        '.text-${step}': { ${declarations.join(', ')} },`];
+    })
     .join('\n');
 
+  // Icon sizes are font sizes with NO weight, line height or tracking: a type
+  // step's weight on the icon font draws a faux-bold glyph (T-0127).
+  const iconSizes = Object.keys(ICON_SIZE)
+    .map((key) => `    'icon-${key}': 'var(${CSS_VAR_PREFIX}-icon-size-${cssKey(key)})',`)
+    .join('\n');
+
+  // Control heights and shell dimensions join the spacing scale, so one token
+  // drives h-, w-, min-h-, inset and padding alike: `h-control-sm`,
+  // `w-shell-rail`, `top-shell-header`, `pb-shell-bottom-bar`.
+  const spacing = [
+    ...Object.keys(SPACING).map(
+      (key) => `    '${key}': 'var(${CSS_VAR_PREFIX}-space-${cssKey(key)})',`,
+    ),
+    ...Object.keys(CONTROL_HEIGHT).map(
+      (key) =>
+        `    'control-${kebab(key)}': 'var(${CSS_VAR_PREFIX}-control-height-${cssKey(key)})',`,
+    ),
+    ...Object.keys(SHELL).map(
+      (key) => `    'shell-${kebab(key)}': 'var(${CSS_VAR_PREFIX}-shell-${cssKey(key)})',`,
+    ),
+  ].join('\n');
+
   const radius = Object.keys(RADIUS)
-    .map((key) => `    '${key}': 'var(${CSS_VAR_PREFIX}-radius-${key})',`)
+    .map((key) => `    '${key}': 'var(${CSS_VAR_PREFIX}-radius-${cssKey(key)})',`)
     .join('\n');
 
   const shadows = Object.keys(ELEVATION)
@@ -97,6 +132,7 @@ module.exports = {
       },
       fontSize: {
 ${fontSizes}
+${iconSizes}
       },
       spacing: {
 ${spacing}
@@ -121,6 +157,28 @@ ${durations}
       minWidth: { touch: 'var(${CSS_VAR_PREFIX}-space-touch)' },
     },
   },
+  plugins: [
+    // Type-step properties Tailwind's fontSize cannot carry, then the two focus
+    // shapes (T-0127; values in tokens.ts FOCUS). A plain function rather than
+    // tailwindcss/plugin, so the preset needs no import. Use the focus shapes
+    // behind a variant: \`focus-visible:ring-focus\`.
+    function ({ addUtilities }) {
+      addUtilities({
+${typeExtras}
+        '.ring-focus': {
+          outline: '2px solid transparent',
+          'outline-offset': '2px',
+          'box-shadow': '${FOCUS.ring}',
+        },
+        '.field-focus': {
+          outline: '2px solid transparent',
+          'outline-offset': '2px',
+          'border-color': '${FOCUS.fieldBorder}',
+          'box-shadow': '${FOCUS.field}',
+        },
+      });
+    },
+  ],
 };
 `;
 }

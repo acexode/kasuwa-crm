@@ -1,16 +1,20 @@
 import {
   ARABIC_LINE_HEIGHT_MULTIPLIER,
   COLOUR_SCALES,
+  CONTROL_HEIGHT,
   CSS_VAR_PREFIX,
+  cssKey,
   DESIGN_VERSION,
   ELEVATION,
   FONT_FAMILIES,
   FONT_WEIGHTS,
+  ICON_SIZE,
   MOTION,
   MOTION_EASING,
   RADIUS,
   SEMANTIC_DARK,
   SEMANTIC_LIGHT,
+  SHELL,
   SPACING,
   TYPE_SCALE,
 } from './tokens';
@@ -83,8 +87,23 @@ export function buildTokensCss(): string {
     ...typeDeclarations(),
     '',
     '/* spacing, radius */',
-    ...Object.entries(SPACING).map(([name, value]) => `${CSS_VAR_PREFIX}-space-${name}: ${value};`),
-    ...Object.entries(RADIUS).map(([name, value]) => `${CSS_VAR_PREFIX}-radius-${name}: ${value};`),
+    ...Object.entries(SPACING).map(
+      ([name, value]) => `${CSS_VAR_PREFIX}-space-${cssKey(name)}: ${value};`,
+    ),
+    ...Object.entries(RADIUS).map(
+      ([name, value]) => `${CSS_VAR_PREFIX}-radius-${cssKey(name)}: ${value};`,
+    ),
+    '',
+    '/* control heights, icon sizes, app shell */',
+    ...Object.entries(CONTROL_HEIGHT).map(
+      ([name, value]) => `${CSS_VAR_PREFIX}-control-height-${cssKey(name)}: ${value};`,
+    ),
+    ...Object.entries(ICON_SIZE).map(
+      ([name, value]) => `${CSS_VAR_PREFIX}-icon-size-${cssKey(name)}: ${value};`,
+    ),
+    ...Object.entries(SHELL).map(
+      ([name, value]) => `${CSS_VAR_PREFIX}-shell-${cssKey(name)}: ${value};`,
+    ),
     '',
     '/* elevation — the shadow values themselves are semantic, so they differ per theme */',
     ...Object.entries(ELEVATION).map(
