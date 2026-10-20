@@ -142,6 +142,62 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0134 (D-L193, D-L194): the P05 record blocks the design draws whose
+   * module does not exist yet. Each is built in the design's own empty or
+   * disabled state, never with a fake number, name or total, and each comes
+   * alive with its module. On in `pnpm demo`, off by default, so production
+   * can hide them. Presentation switches only: none of them reads or grants
+   * anything.
+   */
+  whatsapp_composer: {
+    description: 'The P05 record composer (WhatsApp, SMS, Email, Note tabs) with the 24-hour window, and the WhatsApp/SMS/Email actions (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the channels module (send and the window), D-L194',
+    productionReady: false,
+  },
+  ai_summary: {
+    description: 'The P05 record AI summary card, in its empty state until the AI module serves summaries (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the AI module, D-L194',
+    productionReady: false,
+  },
+  ai_nba: {
+    description: 'The P05 record next-best-action card, in its empty state until the AI module serves suggestions (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the AI module, D-L194',
+    productionReady: false,
+  },
+  call_bar: {
+    description: 'The Call action on records, disabled until the telephony integration places calls (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the voice module (ADR-0003), D-L194',
+    productionReady: false,
+  },
+  record_related: {
+    description: 'The P05 record Related lists (deals, tickets, quotes, invoices, campaigns) and their New deal, New ticket and payment-link actions, empty until their modules serve them (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the pipeline, tickets, billing and campaigns modules, D-L194',
+    productionReady: false,
+  },
+  identity_check: {
+    description: 'The P05 contact Identity card (NIN and BVN checks), not checked until the identity integration exists (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the identity integration, D-L194',
+    productionReady: false,
+  },
+  record_addresses: {
+    description: 'The P05 record Addresses card, showing the State and LGA the record holds until addresses are served (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the addresses contract, D-L194',
+    productionReady: false,
+  },
+  record_follow: {
+    description: 'The Follow button on P05 records, disabled until following is served (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the notifications module, D-L194',
+    productionReady: false,
+  },
+  /**
    * T-0058 (D-L64, D-L86): the P04 Leads list and its Kanban by status, with
    * convert, at `/leads`. It gates the ROUTE: `/leads` answers a real 404
    * while it is off, whatever `crm_records` and `crm_accounts` say. The CRM
