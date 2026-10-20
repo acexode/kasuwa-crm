@@ -293,7 +293,8 @@ async function captureApp(prefixes) {
         path,
       );
     const ids = {};
-    if (wanted('p05') || wanted('p06') || wanted('p10')) {
+    const needsIds = (prefix) => prefixes.length === 0 || prefixes.some((p) => p.startsWith(prefix) || prefix.startsWith(p));
+    if (needsIds('p05') || needsIds('p06') || needsIds('p10')) {
       const contacts = (await get('/api/v1/contacts?q=Babatunde')).data;
       ids.contact = (
         contacts.find((row) => row.displayName === 'Babatunde Alabi') ?? contacts[0]
