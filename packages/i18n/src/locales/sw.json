@@ -243,6 +243,8 @@
   "home.w.agenda.desc": "Mikutano, simu na kazi za leo",
   "home.w.agenda.empty.title": "Hakuna kilichopangwa leo",
   "home.w.agenda.empty.body": "Kazi na mikutano ya leo huonekana hapa.",
+  "home.w.agenda.empty.bodyCalendar": "Unganisha kalenda yako ili kuona mikutano hapa.",
+  "home.w.agenda.empty.cta": "Unganisha kalenda",
   "home.w.deals.title": "Mipango inayohitaji umakini",
   "home.w.deals.desc": "Mipango iliyodorora na isiyo na hatua inayofuata",
   "home.w.deals.sub": "Zinadorora au hazina hatua inayofuata",

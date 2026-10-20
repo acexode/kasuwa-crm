@@ -91,6 +91,7 @@ export interface HomeFlags {
   readonly approvals: boolean;
   readonly kpis: boolean;
   readonly fx: boolean;
+  readonly calendar: boolean;
 }
 
 const RANGE_LABEL: Readonly<Record<Range, { long: MessageId; short: MessageId; sub: MessageId }>> = {
@@ -418,7 +419,16 @@ export function HomeScreen({
                   onCustomise={() => setEditing(true)}
                   onRemove={() => commit(remove(layout, item.type))}
                 >
-                  <WidgetBody t={t} locale={locale} type={item.type} title={title} span={item.span} data={data} live={live} />
+                  <WidgetBody
+                    t={t}
+                    locale={locale}
+                    type={item.type}
+                    title={title}
+                    span={item.span}
+                    data={data}
+                    live={live}
+                    calendar={flags.calendar}
+                  />
                 </WidgetCard>
               </div>
             );
@@ -462,6 +472,7 @@ function WidgetBody({
   span,
   data,
   live,
+  calendar,
 }: {
   t: Translator;
   locale: string;
@@ -470,6 +481,8 @@ function WidgetBody({
   span: Span;
   data: HomeData;
   live: readonly string[];
+  /** `calendar_sync` (T-0136): the design's "Connect calendar" empty state, its action disabled (D-P22). */
+  calendar: boolean;
 }) {
   const tall = span >= 8;
   const now = data.now;
@@ -477,7 +490,20 @@ function WidgetBody({
     if (data.agenda.phase === 'loading' || now === null) return <WidgetSkeleton t={t} title={title} tall={tall} />;
     if (data.agenda.phase === 'error') return <WidgetError t={t} onRetry={data.retryAgenda} />;
     if (data.agenda.value.length === 0) {
-      return <WidgetEmpty icon={WIDGETS.agenda.emptyIcon} title={t.t(emptyTitle(type))} body={t.t(emptyBody(type))} />;
+      return calendar ? (
+        <WidgetEmpty
+          icon={WIDGETS.agenda.emptyIcon}
+          title={t.t(emptyTitle(type))}
+          body={t.t('home.w.agenda.empty.bodyCalendar')}
+          action={
+            <Button disabled className="!h-control-base !px-3.5 !text-body-sm !font-semibold">
+              {t.t('home.w.agenda.empty.cta')}
+            </Button>
+          }
+        />
+      ) : (
+        <WidgetEmpty icon={WIDGETS.agenda.emptyIcon} title={t.t(emptyTitle(type))} body={t.t(emptyBody(type))} />
+      );
     }
     return (
       <AgendaWidget

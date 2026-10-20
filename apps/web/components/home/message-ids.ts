@@ -95,5 +95,7 @@ export const HOME_MESSAGE_IDS: readonly MessageId[] = [
   'home.deals.addNext',
   'home.deals.clear.title',
   'home.deals.clear.body',
+  'home.w.agenda.empty.bodyCalendar',
+  'home.w.agenda.empty.cta',
   ...homeWidgetMessageIds(),
 ];

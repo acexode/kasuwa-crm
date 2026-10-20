@@ -243,6 +243,8 @@
   "home.w.agenda.desc": "اجتماعات ومكالمات ومهام اليوم",
   "home.w.agenda.empty.title": "لا شيء مجدول اليوم",
   "home.w.agenda.empty.body": "تظهر هنا المهام والاجتماعات المستحقة اليوم.",
+  "home.w.agenda.empty.bodyCalendar": "اربط تقويمك لرؤية الاجتماعات هنا.",
+  "home.w.agenda.empty.cta": "ربط التقويم",
   "home.w.deals.title": "صفقات تحتاج إلى انتباه",
   "home.w.deals.desc": "صفقات متعثرة وصفقات بلا خطوة تالية",
   "home.w.deals.sub": "تتباطأ أو تفتقد خطوة تالية",

@@ -243,6 +243,8 @@
   "home.w.agenda.desc": "Réunions, appels et tâches d'aujourd'hui",
   "home.w.agenda.empty.title": "Rien de prévu aujourd'hui",
   "home.w.agenda.empty.body": "Les tâches et réunions du jour apparaissent ici.",
+  "home.w.agenda.empty.bodyCalendar": "Connectez votre agenda pour voir vos réunions ici.",
+  "home.w.agenda.empty.cta": "Connecter l'agenda",
   "home.w.deals.title": "Affaires à surveiller",
   "home.w.deals.desc": "Affaires qui stagnent ou sans étape suivante",
   "home.w.deals.sub": "Qui stagnent ou sans étape suivante",

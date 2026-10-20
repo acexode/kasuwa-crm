@@ -513,20 +513,23 @@ export interface HomeWidgetFlags {
   readonly approvals: boolean;
   readonly kpis: boolean;
   readonly fx: boolean;
+  /** T-0136's `calendar_sync`: the agenda's empty state offers "Connect calendar", disabled (D-P22). */
+  readonly calendar: boolean;
 }
 
 export async function homeWidgetFlags(): Promise<HomeWidgetFlags> {
   await initialiseFeatureFlags();
   const context = toEvaluationContext({ tenantId: CRM_SHELL });
-  const read = (name: 'ai_nba' | 'whatsapp_inbox' | 'quota' | 'approvals' | 'home_kpis' | 'fx_display') =>
+  const read = (name: 'ai_nba' | 'whatsapp_inbox' | 'quota' | 'approvals' | 'home_kpis' | 'fx_display' | 'calendar_sync') =>
     featureFlagClient().getBooleanValue(name, false, context);
-  const [aiNba, whatsapp, quota, approvals, kpis, fx] = await Promise.all([
+  const [aiNba, whatsapp, quota, approvals, kpis, fx, calendar] = await Promise.all([
     read('ai_nba'),
     read('whatsapp_inbox'),
     read('quota'),
     read('approvals'),
     read('home_kpis'),
     read('fx_display'),
+    read('calendar_sync'),
   ]);
-  return { aiNba, whatsapp, quota, approvals, kpis, fx };
+  return { aiNba, whatsapp, quota, approvals, kpis, fx, calendar };
 }

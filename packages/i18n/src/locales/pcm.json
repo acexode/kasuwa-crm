@@ -243,6 +243,8 @@
   "home.w.agenda.desc": "Meetings, calls and work for today",
   "home.w.agenda.empty.title": "Nothing dey for today",
   "home.w.agenda.empty.body": "Work and meetings for today go show here.",
+  "home.w.agenda.empty.bodyCalendar": "Connect your calendar make you see meetings here.",
+  "home.w.agenda.empty.cta": "Connect calendar now",
   "home.w.deals.title": "Deals wey need your eye",
   "home.w.deals.desc": "Deals wey don spoil and deals wey no get next step",
   "home.w.deals.sub": "Dey cold or no get next step",

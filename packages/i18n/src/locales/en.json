@@ -243,6 +243,8 @@
   "home.w.agenda.desc": "Meetings, calls and tasks for today",
   "home.w.agenda.empty.title": "Nothing scheduled today",
   "home.w.agenda.empty.body": "Tasks and meetings due today show here.",
+  "home.w.agenda.empty.bodyCalendar": "Connect your calendar to see meetings here.",
+  "home.w.agenda.empty.cta": "Connect calendar",
   "home.w.deals.title": "Deals needing attention",
   "home.w.deals.desc": "Rotting deals and deals with no next step",
   "home.w.deals.sub": "Going stale or missing a next step",

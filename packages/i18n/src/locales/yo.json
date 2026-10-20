@@ -243,6 +243,8 @@
   "home.w.agenda.desc": "Ìpàdé, ìpè àti iṣẹ́ òní",
   "home.w.agenda.empty.title": "Kò sí ohun tí a ṣètò fún òní",
   "home.w.agenda.empty.body": "Iṣẹ́ àti ìpàdé òní máa hàn níbí.",
+  "home.w.agenda.empty.bodyCalendar": "So kàlẹ́ńdà rẹ pọ̀ láti rí àwọn ìpàdé níbí.",
+  "home.w.agenda.empty.cta": "So kàlẹ́ńdà pọ̀",
   "home.w.deals.title": "Àwọn àdéhùn tó nílò àfiyèsí",
   "home.w.deals.desc": "Àwọn àdéhùn tó ti dúró àti àwọn tí kò ní ìgbésẹ̀ tó kàn",
   "home.w.deals.sub": "Tí ń dúró tàbí tí kò ní ìgbésẹ̀ tó kàn",

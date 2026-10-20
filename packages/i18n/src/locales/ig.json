@@ -243,6 +243,8 @@
   "home.w.agenda.desc": "Nzukọ, oku na ọrụ nke taa",
   "home.w.agenda.empty.title": "Ọ dịghị ihe a haziri taa",
   "home.w.agenda.empty.body": "Ọrụ na nzukọ nke taa na-egosi ebe a.",
+  "home.w.agenda.empty.bodyCalendar": "Jikọọ kalenda gị ka ịhụ nzukọ ebe a.",
+  "home.w.agenda.empty.cta": "Jikọọ kalenda",
   "home.w.deals.title": "Azụmahịa chọrọ nlebara anya",
   "home.w.deals.desc": "Azụmahịa kwụsịrị na ndị na-enweghị nzọụkwụ ọzọ",
   "home.w.deals.sub": "Na-akwụsị ma ọ bụ enweghị nzọụkwụ ọzọ",

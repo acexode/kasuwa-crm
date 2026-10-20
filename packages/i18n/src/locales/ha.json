@@ -243,6 +243,8 @@
   "home.w.agenda.desc": "Tarurruka, kiraye-kiraye da ayyuka na yau",
   "home.w.agenda.empty.title": "Babu abin da aka tsara yau",
   "home.w.agenda.empty.body": "Ayyuka da tarurruka na yau suna bayyana a nan.",
+  "home.w.agenda.empty.bodyCalendar": "Haɗa kalandarka don ganin tarurruka a nan.",
+  "home.w.agenda.empty.cta": "Haɗa kalanda",
   "home.w.deals.title": "Yarjejeniyoyi masu buƙatar kulawa",
   "home.w.deals.desc": "Yarjejeniyoyi da suka tsaya da marasa mataki na gaba",
   "home.w.deals.sub": "Masu tsayawa ko marasa mataki na gaba",
