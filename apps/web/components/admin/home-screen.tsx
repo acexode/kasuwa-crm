@@ -146,15 +146,24 @@ export function AdminHomeScreen({
   const visibleAlerts = (items: readonly AdminAlert[]) =>
     includeDismissed ? items : items.filter((alert) => !alert.dismissed);
 
+  // No stored plan (null, or empty from the API until M23) leaves the plan out
+  // rather than printing a placeholder as if it were a plan's name (T-0143).
+  const planName = summary.data?.tenant.planName ?? null;
   const subtitle =
     summary.data === null
       ? undefined
-      : t.t('admin.home.subtitle', {
-          name: summary.data.tenant.name,
-          plan: t.t('admin.home.subtitle.plan', { plan: summary.data.tenant.planName }),
-          countries: t.t('admin.home.subtitle.countries', { count: summary.data.tenant.countryCount }),
-          users: t.t('admin.home.subtitle.users', { count: summary.data.tenant.userCount }),
-        });
+      : planName === null || planName.trim() === ''
+        ? t.t('admin.home.subtitle.noPlan', {
+            name: summary.data.tenant.name,
+            countries: t.t('admin.home.subtitle.countries', { count: summary.data.tenant.countryCount }),
+            users: t.t('admin.home.subtitle.users', { count: summary.data.tenant.userCount }),
+          })
+        : t.t('admin.home.subtitle', {
+            name: summary.data.tenant.name,
+            plan: t.t('admin.home.subtitle.plan', { plan: planName }),
+            countries: t.t('admin.home.subtitle.countries', { count: summary.data.tenant.countryCount }),
+            users: t.t('admin.home.subtitle.users', { count: summary.data.tenant.userCount }),
+          });
 
   return (
     <AdminShell

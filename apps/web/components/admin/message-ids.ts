@@ -153,6 +153,7 @@ export const ADMIN_HOME_MESSAGE_IDS: readonly MessageId[] = [
   'admin.home.recent.col.record',
   'admin.home.subtitle',
   'admin.home.subtitle.plan',
+  'admin.home.subtitle.noPlan',
   'admin.home.subtitle.countries',
   'admin.home.subtitle.users',
   'admin.home.usage.today',

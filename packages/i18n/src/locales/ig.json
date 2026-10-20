@@ -2941,6 +2941,7 @@
   "search.key.ctrl": "Ctrl",
   "search.palette.ai": "AI",
   "admin.home.subtitle": "{name} · {plan} · {countries} · {users}",
+  "admin.home.subtitle.noPlan": "{name} · {countries} · {users}",
   "admin.home.subtitle.plan": "Atụmatụ {plan}",
   "admin.home.subtitle.countries": "{count, plural, one {obodo #} other {obodo #}}",
   "admin.home.subtitle.users": "{count, plural, one {onye ọrụ #} other {ndị ọrụ #}}",

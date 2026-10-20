@@ -271,7 +271,7 @@ export function AdminShell({
 
   return (
     <div className="flex min-h-screen flex-col bg-bg text-text">
-      <header className="sticky top-0 z-30 flex h-shell-header shrink-0 items-center gap-2 border-b border-border bg-surface px-2 sm:gap-3 sm:px-4">
+      <header className="sticky top-0 z-30 flex h-shell-header shrink-0 items-center gap-1 border-b border-border bg-surface px-2 sm:gap-3 sm:px-4">
         {nav ? (
           <button
             ref={drawerButtonRef}
@@ -306,7 +306,7 @@ export function AdminShell({
           <TenantSwitcher t={t} name={tenantName} />
         )}
 
-        <span className="flex-1" />
+        <span className="min-w-0 flex-1" />
 
         {region === null ? null : (
           <span
@@ -316,7 +316,7 @@ export function AdminShell({
             aria-label={t.t('admin.shell.residency', {
               region: `${region.displayName} (${region.code})`,
             })}
-            className="inline-flex h-8 min-w-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-success-soft px-3 text-meta font-semibold text-success-text"
+            className="inline-flex size-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-success-soft text-meta font-semibold text-success-text md:w-auto md:min-w-0 md:shrink md:justify-start md:px-3"
           >
             <Icon name="location_on" size={18} />
             <span className="hidden min-w-0 md:inline-flex">
