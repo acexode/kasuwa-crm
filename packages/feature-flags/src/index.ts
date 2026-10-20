@@ -142,6 +142,62 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0134 (D-L193, D-L194): the P05 record blocks the design draws whose
+   * module does not exist yet. Each is built in the design's own empty or
+   * disabled state, never with a fake number, name or total, and each comes
+   * alive with its module. On in `pnpm demo`, off by default, so production
+   * can hide them. Presentation switches only: none of them reads or grants
+   * anything.
+   */
+  whatsapp_composer: {
+    description: 'The P05 record composer (WhatsApp, SMS, Email, Note tabs) with the 24-hour window, and the WhatsApp/SMS/Email actions (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the channels module (send and the window), D-L194',
+    productionReady: false,
+  },
+  ai_summary: {
+    description: 'The P05 record AI summary card, in its empty state until the AI module serves summaries (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the AI module, D-L194',
+    productionReady: false,
+  },
+  ai_nba: {
+    description: 'The P05 record next-best-action card, and the P03 Home "Next best actions" and "AI usage" widgets, in their empty states until the AI module serves suggestions (T-0134, T-0132).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the AI module, D-L194',
+    productionReady: false,
+  },
+  call_bar: {
+    description: 'The Call action on records, disabled until the telephony integration places calls (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the voice module (ADR-0003), D-L194',
+    productionReady: false,
+  },
+  record_related: {
+    description: 'The P05 record Related lists (deals, tickets, quotes, invoices, campaigns) and their New deal, New ticket and payment-link actions, empty until their modules serve them (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the pipeline, tickets, billing and campaigns modules, D-L194',
+    productionReady: false,
+  },
+  identity_check: {
+    description: 'The P05 contact Identity card (NIN and BVN checks), not checked until the identity integration exists (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the identity integration, D-L194',
+    productionReady: false,
+  },
+  record_addresses: {
+    description: 'The P05 record Addresses card, showing the State and LGA the record holds until addresses are served (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the addresses contract, D-L194',
+    productionReady: false,
+  },
+  record_follow: {
+    description: 'The Follow button on P05 records, disabled until following is served (T-0134).',
+    defaultValue: false,
+    owner: 'T-0134 (placeholder), the notifications module, D-L194',
+    productionReady: false,
+  },
+  /**
    * T-0058 (D-L64, D-L86): the P04 Leads list and its Kanban by status, with
    * convert, at `/leads`. It gates the ROUTE: `/leads` answers a real 404
    * while it is off, whatever `crm_records` and `crm_accounts` say. The CRM
@@ -327,6 +383,61 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0136 (D-L194, D-P22): the P07 calendar's external-calendar furniture,
+   * drawn in the design's not-connected state: the "Your work calendar isn't
+   * connected" banner with its Connect buttons (disabled), the "Kasuwa only"
+   * source chip and the attendee panel of the event detail, empty. No
+   * calendar is read and nothing is connected. Presentation only.
+   */
+  calendar_sync: {
+    description: 'P07 calendar: the not-connected Google/Microsoft banner, source chip and empty attendee panel (T-0136, D-L194, D-P22).',
+    defaultValue: false,
+    owner: 'T-0136 (placeholder), the calendar-sync module when it is built (D-P22)',
+    productionReady: false,
+  },
+  /**
+   * T-0136 (D-L194, D-P22): the P07 "Booking pages" view, drawn as the
+   * design's editor in its empty, disabled state. Nothing is published and
+   * nothing is saved. Presentation only.
+   */
+  booking_pages: {
+    description: 'P07 Booking pages view, the design editor in its empty, disabled state (T-0136, D-L194, D-P22).',
+    defaultValue: false,
+    owner: 'T-0136 (placeholder), the booking-pages module when it is built (D-P22)',
+    productionReady: false,
+  },
+  /**
+   * T-0136 (D-L194): the P07 phone "Check-in" view and the composer's Visit
+   * type, drawn in their disabled state. No location or photo is read.
+   */
+  field_checkin: {
+    description: 'P07 phone Check-in view and the composer Visit type, disabled (T-0136, D-L194).',
+    defaultValue: false,
+    owner: 'T-0136 (placeholder), the field check-in module when it is built',
+    productionReady: false,
+  },
+  /**
+   * T-0136 (D-L194, D-L105): activity priority. The contract has none, so
+   * each task row draws the design's priority pill as "No priority" and the
+   * "High priority" and "Deals" filter chips are drawn disabled.
+   */
+  activity_priority: {
+    description: 'P07 task rows: the priority pill placeholder and the High priority and Deals filter chips, disabled (T-0136, D-L194).',
+    defaultValue: false,
+    owner: 'T-0136 (placeholder), the activity-priority work when it is built (D-L105)',
+    productionReady: false,
+  },
+  /**
+   * T-0136 (D-L194, D-P29): the composer's "Remind the customer by" block,
+   * drawn with every channel off and disabled. Nothing is ever sent.
+   */
+  activity_reminders: {
+    description: 'P07 composer: the customer-reminder channels, disabled (T-0136, D-L194, D-P29).',
+    defaultValue: false,
+    owner: 'T-0136 (placeholder), the reminders work when it is built (D-P29)',
+    productionReady: false,
+  },
+  /**
    * T-0135 (D-L194): the P06 "Show US$" switch. No FX module serves a rate,
    * so the switch is drawn in the design's disabled state and no US$ figure
    * is ever drawn. It comes alive with the FX module.
@@ -489,6 +600,73 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0132 (D-L196): the P03 Home route at `/home`, the rail and bottom-bar
+   * Home entry, and Home as the signed-in landing. Off, `/home` is a real 404
+   * and the browser lands on the first live CRM screen as before.
+   * Presentation only: every widget reads through the existing scoped APIs.
+   */
+  crm_home: {
+    description: 'The P03 Home screen at /home, its nav entry, and Home as the signed-in landing (T-0132, D-L196).',
+    defaultValue: false,
+    owner: 'T-0132, D-L196',
+    // NOT production-ready: the layout is kept in the browser until the per-user table exists.
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0132: Home widgets whose module is not built. With a flag on,
+   * its widgets are offered and drawn in the design's own empty state, never
+   * with a number or a name; off, they are neither drawn nor offered. Home's
+   * "Next best actions" and "AI usage" share T-0134's `ai_nba`.
+   */
+  whatsapp_inbox: {
+    description: 'The Home "WhatsApp awaiting reply" widget, in its not-connected state until channels exist (T-0132, D-L194).',
+    defaultValue: false,
+    owner: 'T-0132 (placeholder), the WhatsApp channel when it is built',
+    productionReady: false,
+  },
+  quota: {
+    description: 'The Home quota, forecast and leaderboard widgets, in their empty state until quotas exist (T-0132, D-L194).',
+    defaultValue: false,
+    owner: 'T-0132 (placeholder), the quota model when it is built',
+    productionReady: false,
+  },
+  approvals: {
+    description: 'The Home "Approvals" widget, in its caught-up state until approvals exist (T-0132, D-L194).',
+    defaultValue: false,
+    owner: 'T-0132 (placeholder), approvals when they are built',
+    productionReady: false,
+  },
+  home_kpis: {
+    description:
+      'The Home KPI widgets with no data source yet (tickets, queues, CSAT, programme stats, schedule, announcements, revenue, cost, profitability, SLA, pipeline by stage), in their empty state (T-0132, D-L194).',
+    defaultValue: false,
+    owner: 'T-0132 (placeholder), each module when it is built',
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0137: the P26 notification types that have no producer yet
+   * (mentions, approvals, SLA warnings, campaigns, payments, e-invoices,
+   * security). With the flag on, the centre's filter rail and the bell's chips
+   * draw them where the design does, disabled; off, they are not drawn. Each
+   * comes alive with the module that produces it. Presentation only.
+   */
+  notification_types: {
+    description: 'The P26 filter entries for notification types no module produces yet, drawn disabled (T-0137, D-L194).',
+    defaultValue: false,
+    owner: 'T-0137 (placeholder), each producing module when it is built',
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0137: P26 D/D1, notification preferences at
+   * `/settings/notifications`, and the Preferences button, the bell's gear and
+   * B2's "Set preferences" that lead to it. There is no preferences API, so
+   * the screen is drawn in its disabled state and saves nothing. Off, the
+   * route is a 404 and nothing links to it.
+   */
+  notification_preferences: {
+    description: 'P26 notification preferences at /settings/notifications and the links to it, drawn disabled until a preferences API exists (T-0137, D-L194).',
+    defaultValue: false,
+    owner: 'T-0137 (placeholder), the notification-preferences API when it is built',
    * T-0139 (D-L194): the P10 elements with no backend yet. Each is drawn in
    * the design's own empty or disabled state, never with invented data, and
    * comes alive with the module that owns it. Presentation only: none of them

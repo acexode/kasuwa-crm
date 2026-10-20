@@ -17,6 +17,7 @@
   "import.source.hubspot",
   "import.source.salesforce",
   "import.source.zoho",
+  "notifications.prefs.channel.whatsapp",
   "pipeline.list.stageOption",
   "pipeline.select.qualified",
   "pipeline.template.percent",
@@ -25,5 +26,14 @@
   "scripting.builder.version.short",
   "tokens.contrast.ratio",
   "tokens.sample.arabic",
-  "tokens.sample.text"
+  "tokens.sample.text",
+  "activities.calendar.source",
+  "activities.compose.remind.sms",
+  "activities.compose.remind.whatsapp",
+  "activities.due.today",
+  "home.dateLine",
+  "home.widget.size.s",
+  "home.widget.size.m",
+  "home.widget.size.l",
+  "home.widget.size.xl"
 ]

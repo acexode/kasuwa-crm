@@ -3,6 +3,7 @@ import { DEAL_TIMELINE_FIELDS } from '../../lib/deal-detail-api';
 import { REQUIREMENT_FIELDS } from '../../lib/pipelines-api';
 import { CRM_SHELL_MESSAGE_IDS } from '../crm/crm-nav';
 import { PIPELINE_ERROR_IDS } from '../pipeline/message-ids';
+import { TIMELINE_FRAME_MESSAGE_IDS } from '../record/frame-message-ids';
 
 /**
  * The strings P06/05 needs, resolved on the SERVER (T-0110).
@@ -17,6 +18,9 @@ import { PIPELINE_ERROR_IDS } from '../pipeline/message-ids';
 export const DEAL_MESSAGE_IDS: readonly MessageId[] = [
   ...CRM_SHELL_MESSAGE_IDS,
   ...PIPELINE_ERROR_IDS,
+  // T-0134: the shared timeline's day headings and note box, and the not-found hint.
+  ...TIMELINE_FRAME_MESSAGE_IDS,
+  'record.notFound.hint',
   'notFound.title',
   'notFound.body',
   'records.nav.deals',

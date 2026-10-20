@@ -1,4 +1,5 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
+import type { ActivitiesPlaceholders } from '../../lib/feature-flags';
 import { RecordsErrorCode } from '../../lib/records-api';
 import { CRM_SHELL_MESSAGE_IDS } from '../crm/crm-nav';
 import { BUCKETS, bucketLabel, meetingRuleLabel, snoozeLabel, type MeetingRule, type SnoozePreset } from './activities-model';
@@ -17,8 +18,138 @@ import { BUCKETS, bucketLabel, meetingRuleLabel, snoozeLabel, type MeetingRule, 
 const SNOOZE_PRESETS: readonly SnoozePreset[] = ['hour', 'tomorrow', 'nextWeek'];
 const MEETING_RULES: readonly MeetingRule[] = ['required', 'invalid_range', 'too_long'];
 
+/**
+ * T-0136: the strings the design's layout added — the views, the filters,
+ * the time grid and panel, the composer's tabs and pills, and the flagged
+ * placeholders (booking pages, check-in, calendar sync, priority, reminders),
+ * which ride with the page so a flag switched on never shows an id.
+ */
+const DESIGN_MESSAGE_IDS: readonly MessageId[] = [
+  'activities.zone.label',
+  'activities.filter.label',
+  'activities.filter.all',
+  'activities.filter.mine',
+  'activities.owner',
+  'activities.unavailable',
+  'activities.due.overdue',
+  'activities.due.today',
+  'activities.due.yesterday',
+  'activities.caughtUp.add',
+  'activities.caughtUp.plan',
+  'activities.calendar.day',
+  'activities.calendar.todayShort',
+  'activities.calendar.allDay',
+  'activities.calendar.detail',
+  'activities.calendar.pick',
+  'activities.calendar.source',
+  'activities.calendar.dayEmpty',
+  'activities.compose.kind.call',
+  'activities.compose.kind.meeting',
+  'activities.compose.kind.task',
+  'activities.compose.kind.note',
+  'activities.compose.duration',
+  'activities.compose.minutes',
+  'activities.compose.hour',
+  'activities.compose.hourHalf',
+  'activities.compose.notes',
+  'activities.compose.notes.placeholder',
+  'activities.compose.offline',
+];
+
+/**
+ * The flagged placeholders' strings (D-L194), bundled only where their flag
+ * is on: with it off, the page carries none of their words.
+ */
+const PLACEHOLDER_MESSAGE_IDS: Readonly<Record<keyof ActivitiesPlaceholders, readonly MessageId[]>> = {
+  calendarSync: [
+    'activities.calendar.attendees',
+    'activities.calendar.attendees.none',
+    'activities.sync.title',
+    'activities.sync.body',
+    'activities.sync.google',
+    'activities.sync.microsoft',
+    'activities.sync.kasuwaOnly',
+    'activities.clash.title',
+    'activities.clash.body',
+    'activities.clash.review',
+  ],
+  bookingPages: [
+    'activities.view.booking',
+    'activities.booking.settings',
+    'activities.booking.title',
+    'activities.booking.notSetUp',
+    'activities.booking.pageTitle',
+    'activities.booking.pageTitle.placeholder',
+    'activities.booking.link',
+    'activities.booking.link.placeholder',
+    'activities.booking.copy',
+    'activities.booking.length',
+    'activities.booking.where',
+    'activities.booking.where.video',
+    'activities.booking.where.phone',
+    'activities.booking.where.person',
+    'activities.booking.availability',
+    'activities.booking.availability.none',
+    'activities.booking.holidays',
+    'activities.booking.questions',
+    'activities.booking.question.name',
+    'activities.booking.question.phone',
+    'activities.booking.required',
+    'activities.booking.confirm',
+    'activities.booking.preview',
+    'activities.booking.preview.hint',
+    'activities.booking.empty.title',
+    'activities.booking.empty.body',
+  ],
+  fieldCheckin: [
+    'activities.view.checkin',
+    'activities.bar.checkin',
+    'activities.compose.kind.visit',
+    'activities.checkin.eyebrow',
+    'activities.checkin.none',
+    'activities.checkin.none.body',
+    'activities.checkin.map',
+    'activities.checkin.location',
+    'activities.checkin.location.body',
+    'activities.checkin.photo',
+    'activities.checkin.photo.take',
+    'activities.checkin.photo.hint',
+    'activities.checkin.outcome',
+    'activities.checkin.outcome.met',
+    'activities.checkin.outcome.order',
+    'activities.checkin.outcome.samples',
+    'activities.checkin.outcome.away',
+    'activities.checkin.outcome.closed',
+    'activities.checkin.notes.placeholder',
+    'activities.checkin.submit',
+  ],
+  priority: [
+    'activities.filter.high',
+    'activities.filter.deals',
+    'activities.priority.none',
+  ],
+  reminders: [
+    'activities.compose.remind',
+    'activities.compose.remind.whatsapp',
+    'activities.compose.remind.sms',
+    'activities.compose.remind.email',
+    'activities.compose.remind.hint',
+  ],
+};
+
+/** Every message the page needs, the flagged placeholders' only where their flag is on. */
+export function activitiesMessageIds(placeholders: ActivitiesPlaceholders): MessageId[] {
+  return [
+    ...ACTIVITIES_MESSAGE_IDS,
+    ...(Object.keys(PLACEHOLDER_MESSAGE_IDS) as (keyof ActivitiesPlaceholders)[]).flatMap((key) =>
+      placeholders[key] ? PLACEHOLDER_MESSAGE_IDS[key] : [],
+    ),
+  ];
+}
+
 export const ACTIVITIES_MESSAGE_IDS: readonly MessageId[] = [
   ...CRM_SHELL_MESSAGE_IDS,
+  ...DESIGN_MESSAGE_IDS,
   'activities.title',
   'activities.zone',
   'activities.compose',

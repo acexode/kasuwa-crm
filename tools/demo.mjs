@@ -50,11 +50,26 @@ const DEMO_FLAGS = [
   'crm_pipeline',
   'crm_search',
   'admin_live_api',
+  // T-0134 (D-L194): the P05 record placeholders, in the design's empty or disabled state.
+  'whatsapp_composer',
+  'ai_summary',
+  'ai_nba',
+  'call_bar',
+  'record_related',
+  'identity_check',
+  'record_addresses',
+  'record_follow',
   // T-0130: the rail's placeholders for unbuilt modules (D-L194).
   'crm_inbox',
   'crm_tickets',
   'crm_calls',
   'crm_reports',
+  // T-0136: P07's flagged placeholders (D-L194).
+  'calendar_sync',
+  'booking_pages',
+  'field_checkin',
+  'activity_priority',
+  'activity_reminders',
   // D-L194 placeholders (T-0135): on in the demo, off by default elsewhere.
   'fx_display',
   'pipeline_summary',
@@ -73,6 +88,15 @@ const DEMO_FLAGS = [
   'last_activity',
   'quick_actions',
   'more_filters',
+  // T-0132: P03 Home, and its widgets with no module behind them yet (D-L194).
+  'crm_home',
+  'whatsapp_inbox',
+  'quota',
+  'approvals',
+  'home_kpis',
+  // T-0137: P26's placeholders for notification types and preferences (D-L194).
+  'notification_types',
+  'notification_preferences',
   // T-0139 (D-L194): the P10 placeholders.
   'crm_studio',
   'call_bar',

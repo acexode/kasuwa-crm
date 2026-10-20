@@ -93,6 +93,11 @@ The fix: pass the SMS hint through, and render the option only when the challeng
 | P07 activities | Calendar sync chips, clash banner, holidays, booking pages | D-P22 | Ruling 1 (`calendar_sync`, `booking_pages` flags; design's not-connected state). |
 | P10 run | Call bar, "Writes to record" rail | D-L88, D-P31 | Ruling 1 (`call_bar` flag); "Writes to record" shows the design's empty state. |
 | P26 notifications | Counts on the filter rail | D-P13 | Same rail without counts. |
+| P26 notifications | One "Assignments" type covering every assignment | T-0099 (one kind per filter) | "Assignments" filters record assignments; a "Tasks" entry right after it filters task assignments. |
+| P26 notifications | Tablet "Type [All types ▾]" select | T-0101 I20 (kinds visible as chips at 1024) | The served kinds as pills after a "Type" label, in the select's place. |
+| P26 notifications | Row body text and inline actions | D-P29 (no stored text) | Title (the sentence) and object line only; no action on assignment or import rows, as the design draws them. |
+| P26 notifications | "13 in the last 90 days", "90 days" in A3 | Not served (D-L146 retention pending) | Subtitle is the bell's capped count; A3 body drops the 90 days. |
+| P26 preferences | Personal channel sub-labels, quiet-hour times, chosen digest | No preferences API | Same layout, every control disabled; only the two in-app deliveries that exist are checked. |
 | P27 search | Recent searches / recently viewed | D-L133 (R19) | Same panel, showing the design's empty state ("No recent searches"). |
 | P27 search | Partial phone-number match strip | D-L133 | Same info strip, showing the existing "type the whole number" guidance in the design's style. |
 | P27 search | "3 results hidden…" strip | D-L133 | Not drawn: a hidden-results count is an existence leak. |
@@ -108,6 +113,10 @@ The fix: pass the SMS hint through, and render the option only when the challeng
 | P01/5.1 region | Nigeria "Enterprise", Kenya "Included", both selectable | D-P2, D-P11 | Same cards and tag style; both tagged "Talk to sales" in the Enterprise colours, not selectable, with the sales note. |
 | P01/2 two-step | Passkey and backup-code rows always | T-0126, T-0131 | Each row only when the challenge marks the method available. The API has no passkey method, so that row is hidden. |
 | P01/6 success | "{Company} is ready", "Go to Inbox", "Take a 2-minute tour", "2 invites sent" | No inbox, tour or invite endpoint | "Your workspace is ready", "Go to Home"; the tour button disabled behind `product_tour`; invites say "on the list", never "sent". |
+| P05 records | Timeline filter pills with counts ("All 8", "Calls 1") | D-P13 | Same pills without counts (T-0134). |
+| P05 records | Offline "2 changes queued", View queue (2), Send relabelled Queue, "Queued" chips | D-P21, D-L64 | Same inverse band with the last-synced time; no queue count or button; write controls disabled (T-0134). |
+| P05 records | Contact ID / Account ID (`KSW-C-…`) in the SYSTEM group | No human-readable id exists; UUIDs are never printed | The SYSTEM group keeps Created and Programme in the same place (T-0134). |
+| P05 account | "Contacts · 12", "12 contacts" chip, Hierarchy roll-ups and child accounts | D-P13, D-L98 (children not served, T-0118) | Contacts card without a count; the Hierarchy card draws the ancestors and this account only, with no money (T-0134). |
 
 ## Order and tasks
 
