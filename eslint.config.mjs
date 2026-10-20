@@ -500,7 +500,9 @@ export default tseslint.config(
 
   // --- no hard-coded user-facing strings in the web app --------------------
   {
-    files: ['apps/web/**/*.tsx'],
+    // The component library too (T-0128): a control never holds copy of its
+    // own; every word reaches it as a prop, from the caller's catalogue.
+    files: ['apps/web/**/*.tsx', 'packages/ui/src/components/**/*.tsx'],
     plugins: { i18next },
     rules: {
       // jsx-text-only: flags visible text nodes. Attribute values (className,

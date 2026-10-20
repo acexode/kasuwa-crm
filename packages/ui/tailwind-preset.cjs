@@ -182,6 +182,7 @@ module.exports = {
     'card-title': ['var(--k-font-size-card-title)', { lineHeight: 'var(--k-line-height-card-title)', fontWeight: 'var(--k-font-weight-card-title)', letterSpacing: 'var(--k-tracking-card-title)' }],
     'label': ['var(--k-font-size-label)', { lineHeight: 'var(--k-line-height-label)', fontWeight: 'var(--k-font-weight-label)', letterSpacing: 'var(--k-tracking-label)' }],
     'meta': ['var(--k-font-size-meta)', { lineHeight: 'var(--k-line-height-meta)', fontWeight: 'var(--k-font-weight-meta)', letterSpacing: 'var(--k-tracking-meta)' }],
+    'micro': ['var(--k-font-size-micro)', { lineHeight: 'var(--k-line-height-micro)', fontWeight: 'var(--k-font-weight-micro)', letterSpacing: 'var(--k-tracking-micro)' }],
     'overline': ['var(--k-font-size-overline)', { lineHeight: 'var(--k-line-height-overline)', fontWeight: 'var(--k-font-weight-overline)', letterSpacing: 'var(--k-tracking-overline)' }],
     'icon-14': 'var(--k-icon-size-14)',
     'icon-15': 'var(--k-icon-size-15)',
@@ -205,9 +206,13 @@ module.exports = {
     '10': 'var(--k-space-10)',
     '12': 'var(--k-space-12)',
     '16': 'var(--k-space-16)',
+    '0.75': 'var(--k-space-0_75)',
     '1.5': 'var(--k-space-1_5)',
+    '2.25': 'var(--k-space-2_25)',
     '2.5': 'var(--k-space-2_5)',
     '3.5': 'var(--k-space-3_5)',
+    '4.5': 'var(--k-space-4_5)',
+    '6.5': 'var(--k-space-6_5)',
     'touch': 'var(--k-space-touch)',
     'control-sm': 'var(--k-control-height-sm)',
     'control-md': 'var(--k-control-height-md)',
@@ -237,11 +242,18 @@ module.exports = {
     '1': 'var(--k-elevation-1)',
     '2': 'var(--k-elevation-2)',
     '3': 'var(--k-elevation-3)',
+    'knob': '0 1px 2px rgba(0,0,0,.3)',
+    'switch-disabled': 'inset 0 0 0 1px var(--k-border)',
       },
       transitionDuration: {
     'instant': 'var(--k-duration-instant)',
     'quick': 'var(--k-duration-quick)',
     'base': 'var(--k-duration-base)',
+    'spin': 'var(--k-duration-spin)',
+      },
+      // `animate-spin` turns at the design's speed, not Tailwind's 1s.
+      animation: {
+        spin: 'spin var(--k-duration-spin) linear infinite',
       },
       transitionTimingFunction: {
         DEFAULT: 'var(--k-ease)',
@@ -260,15 +272,37 @@ module.exports = {
     // tailwindcss/plugin, so the preset needs no import. Use the focus shapes
     // behind a variant: `focus-visible:ring-focus`. Never combine `ring-focus`
     // with a `ring-N` width utility: both write box-shadow, and one discards the other.
-    function ({ addUtilities }) {
+    //
+    // The four state variants (T-0128) are how @kasuwa/ui/components style
+    // hover, press and focus. Each also matches `data-preview`, so the
+    // /design/components gallery can show a state at rest, the way the v1.1
+    // Components page does, from the same class that styles the live state:
+    //   is-hover          hover, only on devices that hover (a tap on Android
+    //                     must not leave a button stuck in its hover colour),
+    //                     never on a disabled control
+    //   is-active         pressed, never on a disabled control
+    //   is-focus-visible  keyboard focus: buttons, checkboxes, chips, tabs
+    //   is-focus          any focus: text fields and selects, which show their
+    //                     focus while the user types, however they got there
+    function ({ addUtilities, addVariant }) {
+      addVariant('is-hover', [
+        '@media (hover: hover) { &:hover:not(:disabled) }',
+        '&[data-preview~="hover"]',
+      ]);
+      addVariant('is-active', ['&:active:not(:disabled)', '&[data-preview~="active"]']);
+      addVariant('is-focus-visible', ['&:focus-visible', '&[data-preview~="focus"]']);
+      addVariant('is-focus', ['&:focus', '&[data-preview~="focus"]']);
       addUtilities({
         '.text-h6': { 'text-transform': 'uppercase' },
         '.text-mono': { 'font-feature-settings': "'tnum' 1" },
         '.text-overline': { 'text-transform': 'uppercase' },
         '.ring-focus': {
-          outline: '2px solid transparent',
-          'outline-offset': '2px',
+          'outline-style': 'none',
           'box-shadow': '0 0 0 2px var(--k-surface), 0 0 0 4px var(--k-focus)',
+          '@media (forced-colors: active)': {
+            outline: '2px solid transparent',
+            'outline-offset': '2px',
+          },
         },
         '.field-focus': {
           outline: '2px solid transparent',

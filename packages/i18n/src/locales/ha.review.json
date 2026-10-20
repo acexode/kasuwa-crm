@@ -43,6 +43,11 @@
     "records.channel.whatsapp": "A product name. WhatsApp is spelled the same in this locale.",
     "records.channel.sms": "An abbreviation used unchanged in this locale.",
     "accounts.filter.lga": "An abbreviation (Local Government Area, Nigeria) used unchanged in this locale, as in records.col.state.",
-    "import.country.KE": "A country name spelled the same in this language, with its dial code."
+    "import.country.KE": "A country name spelled the same in this language, with its dial code.",
+    "design.components.tag.vip": "An abbreviation (VIP) used unchanged in this locale.",
+    "design.components.tag.p1": "A priority code (P1), used unchanged in every locale.",
+    "design.components.segmented.kanban": "Kanban is a loanword, used unchanged in this locale.",
+    "design.components.kbd.search": "The label printed on the keys (Ctrl and K), the same on keyboards in this locale.",
+    "design.components.kbd.escape": "The label printed on the Esc key, the same on keyboards in this locale."
   }
 }
