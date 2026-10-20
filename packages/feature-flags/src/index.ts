@@ -162,7 +162,7 @@ export const FLAGS = {
     productionReady: false,
   },
   ai_nba: {
-    description: 'The P05 record next-best-action card, in its empty state until the AI module serves suggestions (T-0134).',
+    description: 'The P05 record next-best-action card, and the P03 Home "Next best actions" and "AI usage" widgets, in their empty states until the AI module serves suggestions (T-0134, T-0132).',
     defaultValue: false,
     owner: 'T-0134 (placeholder), the AI module, D-L194',
     productionReady: false,
@@ -655,6 +655,76 @@ export const FLAGS = {
     description: 'The disabled third record slot in the P28 merge compare; merges stay pairwise (T-0141, D-L146, D-L194).',
     defaultValue: false,
     owner: 'T-0141 (placeholder), D-L146',
+    productionReady: false,
+  },
+  /**
+   * T-0132 (D-L196): the P03 Home route at `/home`, the rail and bottom-bar
+   * Home entry, and Home as the signed-in landing. Off, `/home` is a real 404
+   * and the browser lands on the first live CRM screen as before.
+   * Presentation only: every widget reads through the existing scoped APIs.
+   */
+  crm_home: {
+    description: 'The P03 Home screen at /home, its nav entry, and Home as the signed-in landing (T-0132, D-L196).',
+    defaultValue: false,
+    owner: 'T-0132, D-L196',
+    // NOT production-ready: the layout is kept in the browser until the per-user table exists.
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0132: Home widgets whose module is not built. With a flag on,
+   * its widgets are offered and drawn in the design's own empty state, never
+   * with a number or a name; off, they are neither drawn nor offered. Home's
+   * "Next best actions" and "AI usage" share T-0134's `ai_nba`.
+   */
+  whatsapp_inbox: {
+    description: 'The Home "WhatsApp awaiting reply" widget, in its not-connected state until channels exist (T-0132, D-L194).',
+    defaultValue: false,
+    owner: 'T-0132 (placeholder), the WhatsApp channel when it is built',
+    productionReady: false,
+  },
+  quota: {
+    description: 'The Home quota, forecast and leaderboard widgets, in their empty state until quotas exist (T-0132, D-L194).',
+    defaultValue: false,
+    owner: 'T-0132 (placeholder), the quota model when it is built',
+    productionReady: false,
+  },
+  approvals: {
+    description: 'The Home "Approvals" widget, in its caught-up state until approvals exist (T-0132, D-L194).',
+    defaultValue: false,
+    owner: 'T-0132 (placeholder), approvals when they are built',
+    productionReady: false,
+  },
+  home_kpis: {
+    description:
+      'The Home KPI widgets with no data source yet (tickets, queues, CSAT, programme stats, schedule, announcements, revenue, cost, profitability, SLA, pipeline by stage), in their empty state (T-0132, D-L194).',
+    defaultValue: false,
+    owner: 'T-0132 (placeholder), each module when it is built',
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0137: the P26 notification types that have no producer yet
+   * (mentions, approvals, SLA warnings, campaigns, payments, e-invoices,
+   * security). With the flag on, the centre's filter rail and the bell's chips
+   * draw them where the design does, disabled; off, they are not drawn. Each
+   * comes alive with the module that produces it. Presentation only.
+   */
+  notification_types: {
+    description: 'The P26 filter entries for notification types no module produces yet, drawn disabled (T-0137, D-L194).',
+    defaultValue: false,
+    owner: 'T-0137 (placeholder), each producing module when it is built',
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0137: P26 D/D1, notification preferences at
+   * `/settings/notifications`, and the Preferences button, the bell's gear and
+   * B2's "Set preferences" that lead to it. There is no preferences API, so
+   * the screen is drawn in its disabled state and saves nothing. Off, the
+   * route is a 404 and nothing links to it.
+   */
+  notification_preferences: {
+    description: 'P26 notification preferences at /settings/notifications and the links to it, drawn disabled until a preferences API exists (T-0137, D-L194).',
+    defaultValue: false,
+    owner: 'T-0137 (placeholder), the notification-preferences API when it is built',
     productionReady: false,
   },
 } as const satisfies Record<string, FlagDefinition>;

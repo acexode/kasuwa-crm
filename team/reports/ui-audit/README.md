@@ -93,6 +93,11 @@ The fix: pass the SMS hint through, and render the option only when the challeng
 | P07 activities | Calendar sync chips, clash banner, holidays, booking pages | D-P22 | Ruling 1 (`calendar_sync`, `booking_pages` flags; design's not-connected state). |
 | P10 run | Call bar, "Writes to record" rail | D-L88, D-P31 | Ruling 1 (`call_bar` flag); "Writes to record" shows the design's empty state. |
 | P26 notifications | Counts on the filter rail | D-P13 | Same rail without counts. |
+| P26 notifications | One "Assignments" type covering every assignment | T-0099 (one kind per filter) | "Assignments" filters record assignments; a "Tasks" entry right after it filters task assignments. |
+| P26 notifications | Tablet "Type [All types ▾]" select | T-0101 I20 (kinds visible as chips at 1024) | The served kinds as pills after a "Type" label, in the select's place. |
+| P26 notifications | Row body text and inline actions | D-P29 (no stored text) | Title (the sentence) and object line only; no action on assignment or import rows, as the design draws them. |
+| P26 notifications | "13 in the last 90 days", "90 days" in A3 | Not served (D-L146 retention pending) | Subtitle is the bell's capped count; A3 body drops the 90 days. |
+| P26 preferences | Personal channel sub-labels, quiet-hour times, chosen digest | No preferences API | Same layout, every control disabled; only the two in-app deliveries that exist are checked. |
 | P27 search | Recent searches / recently viewed | D-L133 (R19) | Same panel, showing the design's empty state ("No recent searches"). |
 | P27 search | Partial phone-number match strip | D-L133 | Same info strip, showing the existing "type the whole number" guidance in the design's style. |
 | P27 search | "3 results hidden…" strip | D-L133 | Not drawn: a hidden-results count is an existence leak. |

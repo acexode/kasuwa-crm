@@ -4,17 +4,18 @@ import { bffConfig } from './bff-config';
 import { readSessionCookie } from './session-cookie';
 
 /**
- * WHERE A SIGNED-IN BROWSER LANDS (T-0125). SERVER ONLY.
+ * WHERE A SIGNED-IN BROWSER LANDS (T-0125, T-0132). SERVER ONLY.
  *
- * ADR-0019 leaves the landing page unruled (D-L172). This is the smallest
- * rule that does not show a signed-in user the sign-in form: the first CRM
- * screen whose flag is on in this process, in nav order, and otherwise the
- * admin console. It decides navigation only, never access: whatever the
- * landing screen reads still goes through the BFF to the API, which resolves
- * the session and the scope on that request.
+ * On P03 Home wherever `crm_home` is on in this process (D-L196, which
+ * supersedes D-L172's "first live nav entry" rule). Where it is off, the
+ * earlier rule stands: the first CRM screen whose flag is on, in nav order,
+ * and otherwise the admin console. It decides navigation only, never access:
+ * whatever the landing screen reads still goes through the BFF to the API,
+ * which resolves the session and the scope on that request.
  */
 export async function landingPath(): Promise<string> {
   const live = await crmLiveNav();
+  if (live.includes('home')) return '/home';
   return CRM_NAV.map((item) => liveHref(item, live)).find((href) => href !== null) ?? '/admin';
 }
 

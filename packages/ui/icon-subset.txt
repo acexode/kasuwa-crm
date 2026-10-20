@@ -18,6 +18,7 @@ add_link
 add_task
 alarm
 alt_route
+alternate_email
 apartment
 approval
 archive
@@ -43,9 +44,11 @@ call
 call_end
 call_received
 campaign
+category
 chat
 check
 check_box
+check_box_outline_blank
 check_circle
 chevron_left
 chevron_right
@@ -99,6 +102,7 @@ headset_mic
 help
 history
 home
+hourglass_bottom
 hourglass_top
 hub
 image
@@ -106,11 +110,13 @@ import_export
 inbox
 info
 input
+insights
 inventory_2
 join
 key
 language
 layers
+leaderboard
 left_panel_close
 left_panel_open
 light_mode
@@ -126,6 +132,7 @@ mail
 manage_search
 map
 mark_email_read
+mark_email_unread
 menu
 menu_book
 merge
@@ -150,6 +157,7 @@ person_off
 phone_iphone
 photo_camera
 play_arrow
+priority_high
 public
 publish
 published_with_changes
@@ -163,6 +171,7 @@ remove
 replay
 request_quote
 rule
+savings
 schedule
 schedule_send
 schema
@@ -170,8 +179,11 @@ science
 search
 search_off
 send
+sentiment_satisfied
 settings
 share
+shield
+shield_person
 shopping_cart
 signal_cellular_4_bar
 signal_cellular_alt
@@ -192,6 +204,7 @@ swap_horiz
 swipe_left
 sync_alt
 table_rows
+target
 task_alt
 thumb_down
 thumb_up

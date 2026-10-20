@@ -65,6 +65,13 @@ describe('feature flags', () => {
       'data_export',
       'dsr',
       'merge_three_way',
+      'crm_home',
+      'whatsapp_inbox',
+      'quota',
+      'approvals',
+      'home_kpis',
+      'notification_types',
+      'notification_preferences',
     ]);
   });
 
