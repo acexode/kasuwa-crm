@@ -16,5 +16,9 @@
   "records.source.ussd",
   "tokens.contrast.ratio",
   "tokens.sample.arabic",
-  "tokens.sample.text"
+  "tokens.sample.text",
+  "design.components.tag.vip",
+  "design.components.tag.p1",
+  "design.components.kbd.search",
+  "design.components.kbd.escape"
 ]

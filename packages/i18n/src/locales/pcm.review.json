@@ -391,6 +391,21 @@
     "duplicates.compliance.title": "A word spelled the same in this language.",
     "duplicates.confirm.cancel": "A word spelled the same in this language.",
     "duplicates.confirm.close": "A word spelled the same in this language.",
-    "records.action.duplicates": "A word spelled the same in this language."
+    "records.action.duplicates": "A word spelled the same in this language.",
+    "design.components.heading.buttons": "A word spelled the same in this language.",
+    "design.components.heading.tabs": "A word spelled the same in this language.",
+    "design.components.variant.danger": "A word spelled the same in this language.",
+    "design.components.variant.icon": "A word spelled the same in this language.",
+    "design.components.sample.export": "A word spelled the same in this language.",
+    "design.components.sample.columns": "A word spelled the same in this language.",
+    "design.components.field.email": "A word spelled the same in this language.",
+    "design.components.tag.vip": "An abbreviation (VIP) used unchanged in this locale.",
+    "design.components.tag.p1": "A priority code (P1), used unchanged in every locale.",
+    "design.components.segmented.kanban": "Kanban is a loanword, used unchanged in this locale.",
+    "design.components.tabs.overview": "A word spelled the same in this language.",
+    "design.components.tabs.deals": "A word spelled the same in this language.",
+    "design.components.tabs.tickets": "A word spelled the same in this language.",
+    "design.components.kbd.search": "The label printed on the keys (Ctrl and K), the same on keyboards in this locale.",
+    "design.components.kbd.escape": "The label printed on the Esc key, the same on keyboards in this locale."
   }
 }

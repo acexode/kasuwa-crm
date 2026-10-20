@@ -42,5 +42,10 @@
   "accounts.filter.lga",
   "import.country.NG",
   "import.country.GH",
-  "import.country.KE"
+  "import.country.KE",
+  "design.components.tag.vip",
+  "design.components.tag.p1",
+  "design.components.segmented.kanban",
+  "design.components.kbd.search",
+  "design.components.kbd.escape"
 ]
