@@ -43,6 +43,7 @@ campaign
 chat
 check
 check_box
+check_box_outline_blank
 check_circle
 chevron_left
 chevron_right
@@ -96,17 +97,20 @@ headset_mic
 help
 history
 home
+hourglass_bottom
 hourglass_top
 hub
 image
 import_export
 inbox
 info
+insights
 inventory_2
 join
 key
 language
 layers
+leaderboard
 left_panel_close
 left_panel_open
 light_mode
@@ -120,6 +124,7 @@ lock_open
 logout
 mail
 manage_search
+map
 mark_email_read
 menu
 menu_book
@@ -142,6 +147,7 @@ person_add
 phone_iphone
 photo_camera
 play_arrow
+priority_high
 public
 publish
 published_with_changes
@@ -155,6 +161,7 @@ remove
 replay
 request_quote
 rule
+savings
 schedule
 schedule_send
 schema
@@ -162,6 +169,7 @@ science
 search
 search_off
 send
+sentiment_satisfied
 settings
 share
 signal_cellular_4_bar
@@ -182,11 +190,13 @@ support_agent
 swap_horiz
 swipe_left
 sync_alt
+target
 task_alt
 thumb_down
 thumb_up
 timer
 timer_off
+today
 touch_app
 translate
 trending_up
@@ -199,6 +209,7 @@ upload_file
 verified
 verified_user
 vertical_align_top
+videocam
 view_column
 view_kanban
 visibility

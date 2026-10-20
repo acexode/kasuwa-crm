@@ -333,6 +333,15 @@ export const SHELL = {
  *   columnWide     520  sign up (P01/3) and setup complete (P01/6)
  *   wizard         640  the setup wizard's step body (P01/5.x)
  *   wizardStepper  880  the setup wizard's stepper
+ *
+ * And P03 Home's (T-0132), from `Kasuwa Home Dashboards`:
+ *
+ *   homeMax          1368  the dashboard's content column (`max-width:1368px`)
+ *   homeTime           52  the agenda's time column
+ *   homeDealName      170  a deal row's name block before the amount wraps
+ *   homeAddTile       140  the dashed "Add widget" tile in customise mode
+ *   homeProgress      360  the new-tenant setup progress bar
+ *   homeSkeletonTall  120  a large widget's (L, XL) skeleton block; 80 is h-20
  */
 export const LAYOUT = {
   authPanel: '520px',
@@ -342,6 +351,12 @@ export const LAYOUT = {
   columnWide: '520px',
   wizard: '640px',
   wizardStepper: '880px',
+  homeMax: '1368px',
+  homeTime: '52px',
+  homeDealName: '170px',
+  homeAddTile: '140px',
+  homeProgress: '360px',
+  homeSkeletonTall: '120px',
 } as const;
 
 /**

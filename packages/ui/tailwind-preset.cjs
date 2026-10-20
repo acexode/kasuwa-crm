@@ -252,6 +252,12 @@ module.exports = {
     'layout-column-wide': 'var(--k-layout-column-wide)',
     'layout-wizard': 'var(--k-layout-wizard)',
     'layout-wizard-stepper': 'var(--k-layout-wizard-stepper)',
+    'layout-home-max': 'var(--k-layout-home-max)',
+    'layout-home-time': 'var(--k-layout-home-time)',
+    'layout-home-deal-name': 'var(--k-layout-home-deal-name)',
+    'layout-home-add-tile': 'var(--k-layout-home-add-tile)',
+    'layout-home-progress': 'var(--k-layout-home-progress)',
+    'layout-home-skeleton-tall': 'var(--k-layout-home-skeleton-tall)',
       },
       borderRadius: {
     '6': 'var(--k-radius-6)',

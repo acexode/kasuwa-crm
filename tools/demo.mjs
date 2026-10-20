@@ -57,6 +57,14 @@ const DEMO_FLAGS = [
   'crm_reports',
   // T-0131: P01/6's tour button, drawn disabled until a tour exists (D-L194).
   'product_tour',
+  // T-0132: P03 Home, and its widgets with no module behind them yet (D-L194).
+  'crm_home',
+  'ai_nba',
+  'whatsapp_inbox',
+  'quota',
+  'approvals',
+  'home_kpis',
+  'fx_display',
 ];
 /** Flags added to the demo automatically once their task has merged. */
 const DEMO_FLAGS_WHEN_PRESENT = ['crm_custom_fields', 'crm_import', 'crm_duplicates', 'crm_notifications'];

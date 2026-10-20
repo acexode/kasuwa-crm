@@ -39,6 +39,7 @@ export type IconName =
   | 'chat'
   | 'check'
   | 'check_box'
+  | 'check_box_outline_blank'
   | 'check_circle'
   | 'chevron_left'
   | 'chevron_right'
@@ -92,17 +93,20 @@ export type IconName =
   | 'help'
   | 'history'
   | 'home'
+  | 'hourglass_bottom'
   | 'hourglass_top'
   | 'hub'
   | 'image'
   | 'import_export'
   | 'inbox'
   | 'info'
+  | 'insights'
   | 'inventory_2'
   | 'join'
   | 'key'
   | 'language'
   | 'layers'
+  | 'leaderboard'
   | 'left_panel_close'
   | 'left_panel_open'
   | 'light_mode'
@@ -116,6 +120,7 @@ export type IconName =
   | 'logout'
   | 'mail'
   | 'manage_search'
+  | 'map'
   | 'mark_email_read'
   | 'menu'
   | 'menu_book'
@@ -138,6 +143,7 @@ export type IconName =
   | 'phone_iphone'
   | 'photo_camera'
   | 'play_arrow'
+  | 'priority_high'
   | 'public'
   | 'publish'
   | 'published_with_changes'
@@ -151,6 +157,7 @@ export type IconName =
   | 'replay'
   | 'request_quote'
   | 'rule'
+  | 'savings'
   | 'schedule'
   | 'schedule_send'
   | 'schema'
@@ -158,6 +165,7 @@ export type IconName =
   | 'search'
   | 'search_off'
   | 'send'
+  | 'sentiment_satisfied'
   | 'settings'
   | 'share'
   | 'signal_cellular_4_bar'
@@ -178,11 +186,13 @@ export type IconName =
   | 'swap_horiz'
   | 'swipe_left'
   | 'sync_alt'
+  | 'target'
   | 'task_alt'
   | 'thumb_down'
   | 'thumb_up'
   | 'timer'
   | 'timer_off'
+  | 'today'
   | 'touch_app'
   | 'translate'
   | 'trending_up'
@@ -195,6 +205,7 @@ export type IconName =
   | 'verified'
   | 'verified_user'
   | 'vertical_align_top'
+  | 'videocam'
   | 'view_column'
   | 'view_kanban'
   | 'visibility'
@@ -241,6 +252,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'chat',
   'check',
   'check_box',
+  'check_box_outline_blank',
   'check_circle',
   'chevron_left',
   'chevron_right',
@@ -294,17 +306,20 @@ export const ICON_NAMES: readonly IconName[] = [
   'help',
   'history',
   'home',
+  'hourglass_bottom',
   'hourglass_top',
   'hub',
   'image',
   'import_export',
   'inbox',
   'info',
+  'insights',
   'inventory_2',
   'join',
   'key',
   'language',
   'layers',
+  'leaderboard',
   'left_panel_close',
   'left_panel_open',
   'light_mode',
@@ -318,6 +333,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'logout',
   'mail',
   'manage_search',
+  'map',
   'mark_email_read',
   'menu',
   'menu_book',
@@ -340,6 +356,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'phone_iphone',
   'photo_camera',
   'play_arrow',
+  'priority_high',
   'public',
   'publish',
   'published_with_changes',
@@ -353,6 +370,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'replay',
   'request_quote',
   'rule',
+  'savings',
   'schedule',
   'schedule_send',
   'schema',
@@ -360,6 +378,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'search',
   'search_off',
   'send',
+  'sentiment_satisfied',
   'settings',
   'share',
   'signal_cellular_4_bar',
@@ -380,11 +399,13 @@ export const ICON_NAMES: readonly IconName[] = [
   'swap_horiz',
   'swipe_left',
   'sync_alt',
+  'target',
   'task_alt',
   'thumb_down',
   'thumb_up',
   'timer',
   'timer_off',
+  'today',
   'touch_app',
   'translate',
   'trending_up',
@@ -397,6 +418,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'verified',
   'verified_user',
   'vertical_align_top',
+  'videocam',
   'view_column',
   'view_kanban',
   'visibility',

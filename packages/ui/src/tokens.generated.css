@@ -250,6 +250,12 @@
   --k-layout-column-wide: 520px;
   --k-layout-wizard: 640px;
   --k-layout-wizard-stepper: 880px;
+  --k-layout-home-max: 1368px;
+  --k-layout-home-time: 52px;
+  --k-layout-home-deal-name: 170px;
+  --k-layout-home-add-tile: 140px;
+  --k-layout-home-progress: 360px;
+  --k-layout-home-skeleton-tall: 120px;
   
   /* overlays and data display (T-0129) */
   --k-overlay-drawer: 400px;
