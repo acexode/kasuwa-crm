@@ -55,8 +55,6 @@ const MANIFEST = {
   notBuilt: [] as readonly string[],
 } as const;
 
-
-
 /**
  * Drain the mock's route handlers before the context closes.
  *
@@ -267,10 +265,9 @@ test.describe('P01/1b — the account is locked', () => {
     await expect(retry).toBeVisible();
     const rendered = await retry.innerText();
     expect(rendered, 'the lockout does not render a clock time').toMatch(/\d{1,2}:\d{2}/);
-    expect(
-      rendered,
-      'the lockout names a time without naming the zone it is in (P01/1b)',
-    ).toMatch(/\(([A-Z]{2,5}|GMT[+-]\d{1,2}(:\d{2})?|UTC)\)/);
+    expect(rendered, 'the lockout names a time without naming the zone it is in (P01/1b)').toMatch(
+      /\(([A-Z]{2,5}|GMT[+-]\d{1,2}(:\d{2})?|UTC)\)/,
+    );
 
     // A lockout must not itself become the oracle: it is applied to the
     // submitted identifier whether or not an account exists.
@@ -427,7 +424,10 @@ test.describe('P01/2, P01/2a, P01/2b — two-step verification', () => {
 
   test('P01/2a — the SMS fallback counts down before it offers a resend @p01', async ({ page }) => {
     const { webUrl } = stack();
-    await installAuthMock(page);
+    // SMS is offered only when it is available AND a number is on file (T-0126).
+    await installAuthMock(page, {
+      smsMethod: { available: true, deliveryHint: '+234 ••• ••• 0142' },
+    });
     await page.goto(webUrl);
     await fillSignIn(page, REAL_EMAIL, REAL_PASSWORD);
 
