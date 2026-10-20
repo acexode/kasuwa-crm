@@ -2,8 +2,8 @@
 
 import { useEffect, useId, useState } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
+import { Chip, Select } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
-import { FIELD, PRIMARY_BUTTON } from '../auth/button-classes';
 import type { LanguageOption } from '../auth/language-menu';
 import {
   ONBOARDING_CURRENCIES,
@@ -13,6 +13,7 @@ import {
   type OnboardingCurrency,
 } from '../../lib/money-format';
 import { StepHeading } from './onboarding-shell';
+import { zoneNameLocale } from '../../lib/retry-time';
 
 /**
  * The board's sample amount, 1,250,000 in MAJOR units. Display only, never a
@@ -52,9 +53,6 @@ function MoneySentence({ sentence, amount }: { sentence: (sample: string) => str
   );
 }
 
-const PRESSABLE =
-  'min-h-touch rounded-md px-3 text-body-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
-
 /**
  * `P01/5.2` — currency and language.
  *
@@ -85,25 +83,27 @@ export function CurrencyStep({
   onToggleCustomerLanguage: (code: string) => void;
 }) {
   const id = useId();
-  const [zone, setZone] = useState<{ name: string; short: string } | null>(null);
+  const [zone, setZone] = useState<{ name: string; city: string; short: string } | null>(null);
 
   // The browser knows the zone; the server does not. Read after mount so the
   // server-rendered HTML and the first client render agree.
   useEffect(() => {
     const name = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const short =
-      new Intl.DateTimeFormat(t.locale, { timeZone: name, timeZoneName: 'short' })
+      new Intl.DateTimeFormat(zoneNameLocale(t.locale), { timeZone: name, timeZoneName: 'short' })
         .formatToParts(new Date())
         .find((part) => part.type === 'timeZoneName')?.value ?? '';
-    setZone({ name, short });
+    // "Africa/Lagos" -> "Lagos": the city, as the board shows it.
+    const city = (name.split('/').pop() ?? name).replace(/_/g, ' ');
+    setZone({ name, city, short });
   }, [t.locale]);
 
   return (
     <>
       <StepHeading title={t.t('currency.title')} subtitle={t.t('currency.subtitle')} />
 
-      <fieldset className="flex flex-col gap-3 border-0 p-0">
-        <legend className="mb-2 text-body-sm font-semibold">{t.t('currency.legend')}</legend>
+      <fieldset className="m-0 flex flex-col gap-2.5 border-0 p-0">
+        <legend className="mb-2.5 p-0 text-body-sm font-semibold">{t.t('currency.legend')}</legend>
         <div className="grid grid-cols-3 gap-2 md:grid-cols-6">
           {ONBOARDING_CURRENCIES.map((entry) => {
             const pressed = entry.code === currency.code;
@@ -114,88 +114,93 @@ export function CurrencyStep({
                 aria-pressed={pressed}
                 data-currency={entry.code}
                 onClick={() => onCurrency(entry)}
-                className={`${PRESSABLE} flex flex-col items-center justify-center gap-1 py-2 ${
-                  pressed ? 'border-2 border-primary bg-primary-soft' : 'border border-border-strong bg-surface'
+                className={`flex h-14 flex-col items-center justify-center gap-px rounded-10 text-text focus-visible:ring-focus ${
+                  pressed ? 'border-2 border-primary bg-primary-soft' : 'border border-border-strong bg-surface hover:bg-surface-sunken'
                 }`}
               >
-                <strong className="font-mono text-body-lg">{currencySymbol(entry)}</strong>
-                <span className="font-mono text-caption text-text-2">{entry.code}</span>
+                <strong className="text-body-md font-bold">{currencySymbol(entry)}</strong>
+                <span className="text-caption font-normal text-text-2">{entry.code}</span>
               </button>
             );
           })}
         </div>
-        <p aria-live="polite" data-testid="currency-preview" className="text-body-sm text-text-2">
-          <MoneySentence
-            sentence={(sample) => t.t('currency.preview', { sample })}
-            amount={formatMinorUnits(previewMinorUnits(currency), currency)}
-          />
+        <p
+          aria-live="polite"
+          data-testid="currency-preview"
+          className="flex items-center gap-2 rounded-md bg-surface-sunken px-3 py-2.5 text-body-sm"
+        >
+          <span>
+            <MoneySentence
+              sentence={(sample) => t.t('currency.preview', { sample })}
+              amount={formatMinorUnits(previewMinorUnits(currency), currency)}
+            />
+          </span>
         </p>
       </fieldset>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="flex flex-col gap-2">
-          <span className="text-body-sm font-semibold">{t.t('currency.teamLanguage')}</span>
-          <select
-            value={teamLanguage}
-            onChange={(event) => onTeamLanguage(event.target.value)}
-            aria-describedby={`${id}-team-help`}
-            className={FIELD}
-          >
-            {teamLanguages.map((option) => (
-              <option key={option.code} value={option.code} lang={option.code}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <span id={`${id}-team-help`} className="text-caption text-text-muted">
-            {t.t('currency.teamLanguage.help')}
-          </span>
-        </label>
-        <div className="flex flex-col gap-2">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Select
+          size="large"
+          label={t.t('currency.teamLanguage')}
+          hint={t.t('currency.teamLanguage.help')}
+          value={teamLanguage}
+          onChange={(event) => onTeamLanguage(event.target.value)}
+        >
+          {teamLanguages.map((option) => (
+            <option key={option.code} value={option.code} lang={option.code}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+        <div className="flex min-w-0 flex-col gap-1.5">
           <span id={`${id}-zone-label`} className="text-body-sm font-semibold">
             {t.t('currency.timeZone')}
           </span>
+          {/* Read from the browser and shown as the export draws it: the city,
+              then the zone's letters in a pill. */}
           <output
             aria-labelledby={`${id}-zone-label`}
             data-testid="time-zone"
-            className="flex min-h-touch items-center justify-between rounded-md border border-border bg-surface-sunken px-3 text-body-md"
+            className="flex h-control-lg items-center gap-2 rounded-md border border-border-strong bg-surface pe-3 ps-3.5 text-body-md"
           >
             {zone === null ? (
               <span className="text-text-muted">{t.t('currency.timeZone.detecting')}</span>
             ) : (
               <>
-                <span>{zone.name}</span>
-                <span className="font-mono text-body-sm text-text-2">{zone.short}</span>
+                <span className="min-w-0 flex-1 truncate" title={zone.name}>
+                  {zone.city}
+                </span>
+                <span className="rounded-sm bg-primary-soft px-2 py-0.5 text-caption font-bold text-primary-text">
+                  {zone.short}
+                </span>
               </>
             )}
           </output>
-          <span className="text-caption text-text-muted">{t.t('currency.timeZone.help')}</span>
+          <span className="text-meta text-text-muted">{t.t('currency.timeZone.help')}</span>
         </div>
       </div>
 
-      <fieldset className="flex flex-col gap-2 border-0 p-0">
-        <legend className="mb-2 text-body-sm font-semibold">{t.t('currency.customerLanguages')}</legend>
+      <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+        <legend className="mb-2 p-0 text-body-sm font-semibold">{t.t('currency.customerLanguages')}</legend>
         <div className="flex flex-wrap gap-2">
           {customerLanguages.map((option) => {
             const pressed = chosenCustomerLanguages.has(option.code);
             return (
-              <button
+              <Chip
                 key={option.code}
-                type="button"
+                variant="choice"
                 lang={option.code}
+                active={pressed}
                 aria-pressed={pressed}
+                {...(pressed ? { icon: 'check' as const } : {})}
                 onClick={() => onToggleCustomerLanguage(option.code)}
-                className={`${PRESSABLE} inline-flex items-center gap-1 rounded-full ${
-                  pressed ? 'border border-primary bg-primary-soft text-primary-text' : 'border border-border-strong bg-surface'
-                }`}
               >
-                {pressed ? <Icon name="check" size="sm" /> : null}
                 {option.label}
-              </button>
+              </Chip>
             );
           })}
         </div>
-        <span className="text-caption text-text-muted">{t.t('currency.customerLanguages.help')}</span>
+        <span className="text-meta text-text-muted">{t.t('currency.customerLanguages.help')}</span>
       </fieldset>
     </>
   );
@@ -219,26 +224,26 @@ export function WhatsAppStep({ t }: { t: Translator }) {
     ['whatsapp.cost.service', 'whatsapp.cost.level.free', 'text-success-text'],
     ['whatsapp.cost.utility', 'whatsapp.cost.level.low', 'text-text'],
     ['whatsapp.cost.auth', 'whatsapp.cost.level.low', 'text-text'],
-    ['whatsapp.cost.marketing', 'whatsapp.cost.level.highest', 'text-warning-text'],
+    ['whatsapp.cost.marketing', 'whatsapp.cost.level.highest', 'text-text'],
   ] as const;
 
   return (
     <>
       <StepHeading title={t.t('whatsapp.title')} subtitle={t.t('whatsapp.subtitle')} />
 
-      <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-        <strong className="text-body-md">{t.t('whatsapp.need.title')}</strong>
-        <ul className="flex list-none flex-col gap-2 p-0 text-body-sm text-text-2">
-          <li className="flex gap-2">
-            <Icon name="smartphone" size="sm" className="text-primary-text" />
+      <div className="flex flex-col gap-2.5 rounded-lg border border-border bg-surface p-4">
+        <strong className="text-label font-bold">{t.t('whatsapp.need.title')}</strong>
+        <ul className="m-0 flex list-none flex-col gap-2.5 p-0 text-body-sm text-text-2">
+          <li className="flex gap-2.5">
+            <Icon name="smartphone" size={20} className="text-text" />
             {t.t('whatsapp.need.number')}
           </li>
-          <li className="flex gap-2">
-            <Icon name="domain" size="sm" className="text-primary-text" />
+          <li className="flex gap-2.5">
+            <Icon name="business_center" size={20} className="text-text" />
             {t.t('whatsapp.need.meta')}
           </li>
-          <li className="flex gap-2">
-            <Icon name="description" size="sm" className="text-primary-text" />
+          <li className="flex gap-2.5">
+            <Icon name="description" size={20} className="text-text" />
             {t.t('whatsapp.need.registration')}
           </li>
         </ul>
@@ -248,30 +253,34 @@ export function WhatsAppStep({ t }: { t: Translator }) {
         type="button"
         data-testid="whatsapp-connect"
         onClick={() => setUnavailable(true)}
-        className={PRIMARY_BUTTON}
+        className="flex h-control-xl items-center justify-center gap-2 rounded-10 bg-primary px-4 text-body-md font-bold text-on-primary hover:bg-primary-hover focus-visible:ring-focus"
       >
-        <Icon name="open_in_new" size="sm" />
+        <Icon name="open_in_new" size={22} />
         {t.t('whatsapp.connect')}
       </button>
-      <p className="text-caption text-text-muted">{t.t('whatsapp.connect.note')}</p>
+      <p className="-mt-2 text-center text-meta text-text-muted">{t.t('whatsapp.connect.note')}</p>
       {unavailable ? (
-        <p role="status" data-testid="whatsapp-unavailable" className="rounded-lg bg-info-soft p-3 text-body-sm text-info-text">
+        <p
+          role="status"
+          data-testid="whatsapp-unavailable"
+          className="rounded-10 bg-info-soft px-3.5 py-3 text-body-sm text-info-text"
+        >
           {t.t('whatsapp.connect.unavailable')}
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-        <strong className="flex items-center gap-2 text-body-md">
-          <Icon name="schedule" size="sm" />
+      <div className="flex flex-col gap-3 rounded-lg bg-surface-sunken p-4">
+        <strong className="flex items-center gap-2 text-label font-bold">
+          <Icon name="schedule" size={20} />
           {t.t('whatsapp.window.title')}
         </strong>
         <p className="text-body-sm text-text-2">{t.t('whatsapp.window.body')}</p>
         <div aria-hidden="true" className="flex flex-col gap-1">
-          <div className="flex h-2 overflow-hidden rounded-full">
+          <div className="flex h-2.5 overflow-hidden rounded-full">
             <span className="flex-[2] bg-success" />
-            <span className="flex-1 bg-border-strong" />
+            <span className="flex-1 bg-border-strong opacity-50" />
           </div>
-          <div className="flex justify-between font-mono text-caption text-text-muted">
+          <div className="flex justify-between font-mono text-caption font-normal text-text-muted">
             <span>{t.t('whatsapp.window.start')}</span>
             <span>{t.t('whatsapp.window.mark')}</span>
             <span>{t.t('whatsapp.window.end')}</span>
@@ -279,20 +288,23 @@ export function WhatsAppStep({ t }: { t: Translator }) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4">
-        <strong className="flex items-center gap-2 text-body-md">
-          <Icon name="payments" size="sm" />
+      <div className="flex flex-col rounded-lg border border-border bg-surface p-4">
+        <strong className="mb-2 flex items-center gap-2 text-label font-bold">
+          <Icon name="payments" size={20} />
           {t.t('whatsapp.cost.title')}
         </strong>
         <dl data-testid="whatsapp-costs" className="m-0 flex flex-col">
           {costs.map(([label, level, tone]) => (
-            <div key={label} className="flex justify-between gap-3 border-b border-border py-2 text-body-sm">
+            <div
+              key={label}
+              className="flex justify-between gap-3 border-b border-border py-2.5 text-body-sm last:border-b-0"
+            >
               <dt>{t.t(label)}</dt>
               <dd className={`m-0 font-bold ${tone}`}>{t.t(level)}</dd>
             </div>
           ))}
         </dl>
-        <p className="pt-2 text-caption text-text-muted">{t.t('whatsapp.cost.note')}</p>
+        <p className="mt-1.5 text-meta text-text-muted">{t.t('whatsapp.cost.note')}</p>
       </div>
     </>
   );

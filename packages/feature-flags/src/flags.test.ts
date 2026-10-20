@@ -40,6 +40,7 @@ describe('feature flags', () => {
       'deal_risk',
       'deal_relationships',
       'deal_quotes',
+      'product_tour',
     ]);
   });
 

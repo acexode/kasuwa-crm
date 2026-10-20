@@ -44,6 +44,7 @@
   "admin.studio.custom.form.type",
   "admin.studio.custom.type.date",
   "app.name",
+  "auth.footer.compliance",
   "auth.panel.channel.sms",
   "auth.panel.channel.whatsapp",
   "auth.signIn.google",

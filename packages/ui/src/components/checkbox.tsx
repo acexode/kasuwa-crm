@@ -36,6 +36,11 @@ export interface CheckboxProps extends Omit<ComponentPropsWithRef<'input'>, 'typ
   readonly indeterminate?: boolean;
   /** A required box left unticked: danger edge and label. */
   readonly invalid?: boolean;
+  /**
+   * `compact` is the table's 18px box with a 16px glyph (v1.1 Components
+   * "Table", T-0129). Default is the 20px form checkbox.
+   */
+  readonly size?: 'default' | 'compact';
 }
 
 function assignRef<T>(ref: Ref<T> | undefined, value: T | null): void {
@@ -47,6 +52,7 @@ export function Checkbox({
   label,
   indeterminate = false,
   invalid = false,
+  size = 'default',
   disabled,
   className,
   ref,
@@ -83,18 +89,19 @@ export function Checkbox({
           aria-invalid={invalid || undefined}
           className={cx(
             BOX,
+            size === 'compact' ? 'size-4.5' : 'size-5',
             'rounded-sm checked:border-primary checked:bg-primary indeterminate:border-primary indeterminate:bg-primary disabled:checked:border-border disabled:checked:bg-disabled-bg',
           )}
           {...rest}
         />
         <Glyph
           name="check"
-          size={18}
+          size={size === 'compact' ? 16 : 18}
           className="pointer-events-none absolute inset-0 hidden items-center justify-center text-on-primary peer-checked:flex peer-indeterminate:hidden peer-disabled:text-disabled-text"
         />
         <Glyph
           name="remove"
-          size={18}
+          size={size === 'compact' ? 16 : 18}
           className="pointer-events-none absolute inset-0 hidden items-center justify-center text-on-primary peer-indeterminate:flex peer-disabled:text-disabled-text"
         />
       </span>
