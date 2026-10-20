@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { identifierShaped } from './search-query';
+import { identifierShaped } from './identifier-shaped';
 import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
 import { Phone, requestRecords, type RecordsResult } from './records-api';
 

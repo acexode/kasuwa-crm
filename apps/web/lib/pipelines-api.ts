@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
 import { apiFetch } from './api-fetch';
-import { identifierShaped } from './search-query';
+import { identifierShaped } from './identifier-shaped';
 
 /**
  * The browser's half of the pipelines and deals operations in

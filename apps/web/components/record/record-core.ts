@@ -1,7 +1,7 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
 import type { RecordsError, RecordsResult, RecordsScreenErrorCode } from '../../lib/records-api';
 import { dateFormatter, tidyMonth } from '../../lib/date-locale';
-import { zoneAbbreviation } from '../../lib/zone-name';
+import { formatClock, formatTime, zoneName } from '../../lib/clock';
 
 /**
  * The pure half every P05 record shares — the contact (T-0062) and the
@@ -26,6 +26,10 @@ export type ValueView =
   | { readonly kind: 'text'; readonly text: string }
   | { readonly kind: 'empty' };
 
+// The clock, the time of day and the zone's name live in `lib/clock` (T-0145),
+// so a screen that shows only "last synced" does not ship the rest of this.
+export { formatClock, formatTime, zoneName };
+
 // ---------------------------------------------------------------------------
 // Times. Stored in UTC; shown in the browser's zone, which is the one the
 // person reads their clock in. BPO rosters span WAT, EAT and SAST.
@@ -49,31 +53,6 @@ export function formatDateTime(locale: string, iso: string, now: Date = new Date
   const day = tidyMonth(locale, formatter(locale, { day: 'numeric', month: 'short', ...year }).format(at));
   const zone = zoneName(locale, at);
   return [day, formatTime(locale, iso), zone].filter((part) => part !== '').join(' ');
-}
-
-/** The time of day with the zone it is in ("09:12 WAT"), for "last synced". */
-export function formatClock(locale: string, at: Date): string {
-  const zone = zoneName(locale, at);
-  const clock = formatTime(locale, at.toISOString());
-  return zone === '' ? clock : `${clock} ${zone}`;
-}
-
-/**
- * The time of day on a 24-hour clock ("14:02"), as the P05 timeline draws it:
- * the day is the group heading above it. In the browser's zone.
- */
-export function formatTime(locale: string, iso: string): string {
-  const at = new Date(iso);
-  if (Number.isNaN(at.getTime())) return '';
-  return formatter(locale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(at);
-}
-
-/**
- * The browser's zone as people there name it ("WAT", "EAT", "SAST"), for the
- * timeline's header: the abbreviation in every locale (`lib/zone-name.ts`, T-0144).
- */
-export function zoneName(locale: string, at: Date = new Date()): string {
-  return zoneAbbreviation(locale, at);
 }
 
 /** A local calendar day ("2026-10-20"), to group a timeline by day in the browser's zone. */

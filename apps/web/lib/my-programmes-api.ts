@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { requestRecords, type RecordsResult } from './records-api';
+import { requestRecords, type RecordsResult } from './records-request';
 
 /**
  * The caller's own programmes with their names (T-0043), apart from the

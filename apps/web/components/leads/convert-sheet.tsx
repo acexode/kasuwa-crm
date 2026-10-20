@@ -10,7 +10,7 @@ import { CheckMark } from '../records/list-parts';
 import { nameOrWithheld } from '../records/name';
 import { SEARCH_DEBOUNCE_MS } from '../records/use-keyset-list';
 import { listAccounts, type Account } from '../../lib/accounts-api';
-import { identifierShaped } from '../../lib/search-query';
+import { identifierShaped } from '../../lib/identifier-shaped';
 import { convertLead, type ConvertLeadBody, type ConvertLeadResult, type Lead } from '../../lib/leads-api';
 import type { RecordsError } from '../../lib/records-api';
 import {

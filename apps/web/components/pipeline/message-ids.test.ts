@@ -24,6 +24,9 @@ function catalogueIds(file: string): string[] {
 
 const BOARD_SOURCES = [
   'pipeline-screen.tsx',
+  // T-0145: the phone's filter form and the flagged summary and USD switch, loaded on demand.
+  'board-extras.tsx',
+  'filter-labels.ts',
   'pipeline-board.tsx',
   'pipeline-parts.tsx',
   'deal-list.tsx',

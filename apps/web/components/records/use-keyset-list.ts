@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RecordsError, RecordsResult } from '../../lib/records-api';
-import { STILL_CONNECTING_MS } from '../admin/use-resource';
+import { STILL_CONNECTING_MS } from '../../lib/still-connecting';
 import { appendPage } from './list-model';
 
 /**

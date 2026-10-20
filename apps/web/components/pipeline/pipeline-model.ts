@@ -549,3 +549,10 @@ export function formatCount(locale: string, count: number): string {
     return String(count);
   }
 }
+
+
+/** An owner offered in the avatar row: someone who owns a deal this board has served. */
+export interface OwnerChoice {
+  readonly id: string;
+  readonly name: string;
+}

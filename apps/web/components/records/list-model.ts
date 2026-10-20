@@ -5,7 +5,7 @@
  * a server component may import it.
  */
 
-import { formatClock } from '../record/record-core';
+import { formatClock } from '../../lib/clock';
 
 export type ListState = 'loading' | 'ready' | 'empty' | 'no-results' | 'error';
 
