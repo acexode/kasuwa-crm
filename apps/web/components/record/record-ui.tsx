@@ -241,7 +241,8 @@ export function ActionBar({ t, actions, extra }: { t: Translator; actions: reado
           <MenuEntries entries={overflow} />
         </Menu>
       )}
-      {extra}
+      {/* The P10 start control: on its own row at 360, after the icon-only actions. */}
+      {extra === undefined || extra === null ? null : <div className="flex flex-wrap gap-2 max-md:basis-full">{extra}</div>}
     </div>
   );
 }
