@@ -259,7 +259,7 @@ export function AdminHomeScreen({
                               </span>
                             ) : null}
                             {href === null ? null : (
-                              <Link href={href} className={`${TEXT_ACTION} font-bold`}>
+                              <Link prefetch={false} href={href} className={`${TEXT_ACTION} font-bold`}>
                                 {t.t('admin.home.health.fix')}
                               </Link>
                             )}
@@ -356,6 +356,7 @@ export function AdminHomeScreen({
                               alert.actionLabel === undefined ||
                               href === null ? null : (
                                 <Link
+                                  prefetch={false}
                                   href={href}
                                   className={`${adminButtonClass('secondary')} h-9 px-3 text-meta max-sm:hidden`}
                                 >
@@ -432,7 +433,7 @@ export function AdminHomeScreen({
             <h2 id="admin-recent" className="m-0 flex-1 text-card-title">
               {t.t('admin.home.recent.title')}
             </h2>
-            <Link href="/admin/audit" data-testid="recent-see-all" className={TEXT_ACTION}>
+            <Link prefetch={false} href="/admin/audit" data-testid="recent-see-all" className={TEXT_ACTION}>
               {t.t('admin.home.recent.seeAll')}
             </Link>
           </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { listMyProgrammes, type MyProgramme } from '../../lib/accounts-api';
+import { listMyProgrammes, type MyProgramme } from '../../lib/my-programmes-api';
 
 export interface Programmes {
   /** `null` until read, or when the read failed: a screen then names no programme. */

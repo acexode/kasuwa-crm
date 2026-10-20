@@ -21,7 +21,16 @@ let pending: Promise<string | null> | null = null;
 function load(): Promise<string | null> {
   if (pending === null) {
     pending = apiFetch('/api/v1/auth/me')
-      .then(async (response) => (response.ok ? Me.parse(await response.json()).displayName : null))
+      .then(async (response) => {
+        if (response.ok) return Me.parse(await response.json()).displayName;
+        // Read the refusal to its end, even though nothing in it is used. An
+        // unread body leaves the request open: the browser never finishes
+        // loading it, so it holds a connection for as long as the page lives
+        // (on a 256 kbps link, one of the six it has), and the T-0145 budget
+        // runs never saw the page settle.
+        await response.arrayBuffer();
+        return null;
+      })
       .catch(() => null)
       .then((name) => {
         known = name;

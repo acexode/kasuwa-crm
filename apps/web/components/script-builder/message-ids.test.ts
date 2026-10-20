@@ -75,7 +75,8 @@ describe('every P10 screen bundles every id it renders (T-0115, T-0116)', () => 
     it(`${name}: resolves in every registered language`, () => {
       for (const locale of REGISTERED_LOCALES) {
         const bundle = bundleMessages(locale, ids as Parameters<typeof bundleMessages>[1]);
-        expect(Object.values(bundle).filter((text) => text.trim() === '')).toEqual([]);
+        // T-0145: an ICU message crosses parsed (not a string), so "resolved" means present.
+        expect(Object.values(bundle).filter((text) => typeof text === 'string' && text.trim() === '')).toEqual([]);
       }
     });
   }

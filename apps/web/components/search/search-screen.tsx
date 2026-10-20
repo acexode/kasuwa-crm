@@ -125,6 +125,7 @@ function ResultsPage({ t, text, live, origin }: { t: Translator; text: string; l
         <div className="flex min-w-0 flex-[1_1_360px] flex-col gap-1">
           {originItem !== undefined && originHref !== null ? (
             <Link
+              prefetch={false}
               href={originHref}
               className={`inline-flex h-7 items-center gap-1 self-start rounded-6 pe-1.5 ps-0.5 text-meta font-semibold text-primary-text ${FOCUS}`}
             >

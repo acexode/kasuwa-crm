@@ -32,6 +32,34 @@
  * the page uses a code point in its range, so a naira amount now costs the
  * small file and Yorùbá, Igbo and Hausa diacritics still get the large one.
  *
+ * MONO FIGURES AND LETTERS (T-0145)
+ *
+ * JetBrains Mono draws amounts, phone numbers, ids and the shell's "Ctrl K"
+ * hint. Google's Latin file is 31 KB, almost all of it the code ligatures that
+ * punctuation pairs build (`->`, `!=`, `::`), and one hint in the top bar was
+ * downloading all of it on every CRM screen; a `₦` added the 11.6 KB
+ * Latin-Extended file on top. So the face is carved like D-L44's currency
+ * signs, into small `text=` subsets listed ahead of the large files:
+ *
+ *   figures  what nearly every screen draws: digits, the separators of an
+ *            amount, a phone number, a date and a range, the currency signs,
+ *            the bullet a masked password is drawn with, and the five letters
+ *            of "Ctrl K". It also holds the SPACE: an element in a mono face
+ *            downloads the face covering U+0020 for its line metrics even when
+ *            it is empty (the sign-in password box), so the space has to live
+ *            in the smallest file.
+ *   capitals the other capitals: currency codes, compact suffixes and ids
+ *            (`KES 75K`, `₦37.9M`, `PRG-0031`).
+ *   letters  the other lowercase letters, and the characters of an identifier
+ *            or a merge field (`owner_user_id`, `{contact.displayName}`).
+ *
+ * The Latin and Latin-Extended files stay, minus those code points, for the
+ * rest of the punctuation and accented letters. A face downloads only when the
+ * page draws a code point in its range, so a screen of numbers costs about
+ * 7 KB of mono instead of 43 KB. The glyphs are the same glyphs from the same
+ * release, so nothing renders differently: Google serves `text=` subsets with
+ * the same tables, unhinted, as its per-script files.
+ *
  * ICON SUBSETTING
  *
  * Material Symbols Rounded is several megabytes whole. Only the glyphs the
@@ -59,6 +87,37 @@ const iconTypesOut = resolve(root, 'packages/ui/src/icons.generated.ts');
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
+/** ₦ (naira) and ₵ (cedi): the signs D-L44 found pulling in Latin-Extended. */
+const CURRENCY_TEXT = '\u20A6\u20B5';
+
+/**
+ * JetBrains Mono's small face (T-0145): the space, which makes it the face an
+ * empty mono field downloads for its metrics; the no-break, narrow no-break
+ * and thin spaces `Intl` formats with; digits; the separators of an amount, a
+ * phone number, a date, a time and a range (`+ , - . / : % ( )`, en and em
+ * dash, minus sign, multiplication sign); the currency signs; the bullet a
+ * masked password is drawn with; and C, K, l, r and t, the letters of the
+ * shell's "Ctrl K" hint, which is on every CRM screen.
+ */
+const MONO_FIGURES_TEXT =
+  ' \u00A0\u202F\u2009' +
+  '0123456789' +
+  '+,-./:%()' +
+  '\u2013\u2014\u2212\u00D7' +
+  '$\u00A3\u20AC\u20A6\u20B5' +
+  '\u2022' +
+  'CKlrt';
+
+/**
+ * The other capitals: a currency code (`KES 75K`, `GH₵`), a compact amount's
+ * suffix (`₦37.9M`), an id (`PRG-0031`). Apart from the lowercase letters, so
+ * the board's amounts do not download the lowercase.
+ */
+const MONO_CAPITALS_TEXT = 'ABDEFGHIJLMNOPQRSTUVWXYZ';
+
+/** The other lowercase letters, and what an identifier or a merge field adds. */
+const MONO_LETTERS_TEXT = 'abcdefghijkmnopqsuvwxyz' + '_@{}\u2019';
+
 /**
  * Subsets shipped per family. Cyrillic, Greek, Devanagari and Vietnamese are
  * not needed. Noto Sans Arabic ships ONLY the arabic subset — Noto Sans already
@@ -75,7 +134,7 @@ const FAMILIES = [
     subsets: DEFAULT_SUBSETS,
     note: 'Latin Extended A/B + Additional — Yoruba, Igbo, Hausa diacritics',
     // D-L44: a small face for the currency signs, carved out of latin-ext.
-    currency: true,
+    carveOuts: [{ name: 'currency', text: CURRENCY_TEXT }],
   },
   {
     id: 'noto-sans-arabic',
@@ -90,18 +149,38 @@ const FAMILIES = [
     family: 'JetBrains Mono',
     subsets: DEFAULT_SUBSETS,
     note: 'ids, E.164 phone numbers, money — tabular figures',
+    // T-0145: figures and letters carved out of latin and latin-ext.
+    carveOuts: [
+      { name: 'figures', text: MONO_FIGURES_TEXT },
+      { name: 'capitals', text: MONO_CAPITALS_TEXT },
+      { name: 'letters', text: MONO_LETTERS_TEXT },
+    ],
   },
 ];
 
-/** ₦ (naira) and ₵ (cedi): the signs D-L44 found pulling in Latin-Extended. */
-const CURRENCY_CODE_POINTS = [0x20a6, 0x20b5];
+/** The code points of a `text=` string, ascending and unique. */
+function codePointsOf(text) {
+  return [...new Set([...text].map((char) => char.codePointAt(0)))].sort((a, b) => a - b);
+}
+
+/** Ascending code points -> the shortest list of `[start, end]` spans. */
+function spansOf(points) {
+  const ranges = [];
+  for (const point of points) {
+    const last = ranges[ranges.length - 1];
+    if (last !== undefined && last[1] === point - 1) last[1] = point;
+    else ranges.push([point, point]);
+  }
+  return ranges;
+}
 
 /**
- * A currency subset is a handful of glyphs. Anything near the size of the file
+ * A carved subset is a handful of glyphs. Anything near the size of the file
  * it replaces means `text=` stopped subsetting, and shipping it would put the
- * 168 KB back on every screen with a naira amount.
+ * large file back on every screen that draws one of its characters (for the
+ * currency signs, the 168 KB Latin-Extended file).
  */
-const CURRENCY_SUBSET_MAX_BYTES = 20 * 1024;
+const CARVED_SUBSET_MAX_BYTES = 20 * 1024;
 
 async function fetchText(url) {
   const response = await fetch(url, { headers: { 'User-Agent': UA } });
@@ -220,16 +299,7 @@ function readNames(path) {
  * the naira and cedi signs D-L44 keeps on small files only.
  */
 function ligatureRange(names) {
-  const points = [
-    ...new Set([0x20, ...[...names.join('')].map((char) => char.codePointAt(0))]),
-  ].sort((a, b) => a - b);
-  const ranges = [];
-  for (const point of points) {
-    const last = ranges[ranges.length - 1];
-    if (last !== undefined && last[1] === point - 1) last[1] = point;
-    else ranges.push([point, point]);
-  }
-  return formatRange(ranges);
+  return formatRange(spansOf(codePointsOf(` ${names.join('')}`)));
 }
 
 async function main() {
@@ -262,21 +332,31 @@ async function main() {
 
     blocks.push(`/* ${spec.family} — ${spec.note} */`);
 
-    if (spec.currency === true) {
-      // Ahead of latin-ext, and carrying only the signs, so the small file is
-      // the one a naira amount downloads (D-L44).
-      const text = encodeURIComponent(String.fromCodePoint(...CURRENCY_CODE_POINTS));
-      const currencyCss = await fetchText(`${spec.css}&text=${text}`);
-      const [currencyFace] = parseFaces(currencyCss);
-      if (currencyFace === undefined) {
-        throw new Error(`No currency subset returned for ${spec.family}.`);
-      }
-      const fileName = `${spec.id}-currency-${currencyFace.weight.replace(/\s+/g, '')}.woff2`;
-      const bytes = await fetchBinary(currencyFace.url);
-      if (bytes.byteLength > CURRENCY_SUBSET_MAX_BYTES) {
+    // Carved subsets first (D-L44, T-0145): each a `text=` request for a few
+    // code points, which are then cut out of the large faces' ranges so no
+    // large file claims them. The carve-outs of one family never overlap.
+    const carveOuts = spec.carveOuts ?? [];
+    const carved = [];
+    for (const carveOut of carveOuts) {
+      const points = codePointsOf(carveOut.text);
+      const clash = points.filter((point) => carved.includes(point));
+      if (clash.length > 0) {
         throw new Error(
-          `${spec.family} currency subset is ${bytes.byteLength} bytes, over ` +
-            `${CURRENCY_SUBSET_MAX_BYTES}; text= has stopped subsetting.`,
+          `${spec.family}: carve-out ${carveOut.name} repeats ${clash.map(hex).join(', ')}.`,
+        );
+      }
+      carved.push(...points);
+      const carvedCss = await fetchText(`${spec.css}&text=${encodeURIComponent(carveOut.text)}`);
+      const [carvedFace] = parseFaces(carvedCss);
+      if (carvedFace === undefined) {
+        throw new Error(`No ${carveOut.name} subset returned for ${spec.family}.`);
+      }
+      const fileName = `${spec.id}-${carveOut.name}-${carvedFace.weight.replace(/\s+/g, '')}.woff2`;
+      const bytes = await fetchBinary(carvedFace.url);
+      if (bytes.byteLength > CARVED_SUBSET_MAX_BYTES) {
+        throw new Error(
+          `${spec.family} ${carveOut.name} subset is ${bytes.byteLength} bytes, over ` +
+            `${CARVED_SUBSET_MAX_BYTES}; text= has stopped subsetting.`,
         );
       }
       writeFileSync(resolve(fontDir, fileName), bytes);
@@ -285,11 +365,11 @@ async function main() {
         renderFace({
           family: spec.family,
           localPath: `/fonts/${fileName}`,
-          style: currencyFace.style,
-          weight: currencyFace.weight,
+          style: carvedFace.style,
+          weight: carvedFace.weight,
           // Stated here rather than copied from the response: these are the
           // code points the file was asked for, and the ones carved out below.
-          unicodeRange: formatRange(CURRENCY_CODE_POINTS.map((point) => [point, point])),
+          unicodeRange: formatRange(spansOf(points)),
           display: 'swap',
         }),
       );
@@ -306,8 +386,8 @@ async function main() {
           style: face.style,
           weight: face.weight,
           unicodeRange:
-            spec.currency === true && face.unicodeRange !== ''
-              ? withoutCodePoints(face.unicodeRange, CURRENCY_CODE_POINTS)
+            carved.length > 0 && face.unicodeRange !== ''
+              ? withoutCodePoints(face.unicodeRange, carved)
               : face.unicodeRange,
           // Text must be readable while the font loads; on a slow connection
           // `block` means a blank screen.

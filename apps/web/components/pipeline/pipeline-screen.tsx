@@ -1,6 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { clientLazy } from '../../lib/client-lazy';
 import {
   useCallback,
   useEffect,
@@ -25,7 +25,7 @@ import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { FIELD, QUIET_BUTTON } from '../auth/button-classes';
-import { StillConnecting } from '../admin/panel';
+import { StillConnecting } from '../admin/still-connecting';
 import { useOnline } from '../script-builder/use-online';
 import {
   DEAL_CURRENCIES,
@@ -103,23 +103,11 @@ import { usePipelineBoard } from './use-pipeline-board';
  * ---------------------------------------------------------------------------
  */
 
-const DealList = dynamic(() => import('./deal-list').then((module) => module.DealList), {
-  ssr: false,
-  loading: Loading,
-});
-const MoveSheet = dynamic(() => import('./move-sheet').then((module) => module.MoveSheet), {
-  ssr: false,
-});
-const RequirementPrompt = dynamic(
-  () => import('./requirement-prompt').then((module) => module.RequirementPrompt),
-  { ssr: false },
-);
-const DealCreate = dynamic(() => import('./deal-create').then((module) => module.DealCreate), {
-  ssr: false,
-});
-const FilterSheet = dynamic(() => import('./filter-sheet').then((module) => module.FilterSheet), {
-  ssr: false,
-});
+const DealList = clientLazy(() => import('./deal-list').then((module) => module.DealList), { loading: Loading });
+const MoveSheet = clientLazy(() => import('./move-sheet').then((module) => module.MoveSheet));
+const RequirementPrompt = clientLazy(() => import('./requirement-prompt').then((module) => module.RequirementPrompt));
+const DealCreate = clientLazy(() => import('./deal-create').then((module) => module.DealCreate));
+const FilterSheet = clientLazy(() => import('./filter-sheet').then((module) => module.FilterSheet));
 
 function Loading() {
   return <div aria-busy="true" className="h-64 rounded-lg bg-surface-sunken" />;

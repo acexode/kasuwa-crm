@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Banner } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
-import { StillConnecting } from '../admin/panel';
+import { StillConnecting } from '../admin/still-connecting';
 import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { FOCUS, MENU_ROW } from './list-classes';
 import { formatSyncedAt } from './list-model';

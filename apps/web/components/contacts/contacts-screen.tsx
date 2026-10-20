@@ -1,6 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { clientLazy } from '../../lib/client-lazy';
 import Link from 'next/link';
 import { guarded } from '../custom/lazy-boundary';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -65,10 +65,10 @@ import { useContactList } from './use-contact-list';
 
 // Loaded when opened: neither the phone's filter sheet nor the column chooser is on the list's first paint.
 const ColumnChooser = guarded(
-  dynamic<ChooserProps<ColumnKey>>(() => import('../records/column-chooser').then((module) => module.ColumnChooser<ColumnKey>), { ssr: false }),
+  clientLazy<ChooserProps<ColumnKey>>(() => import('../records/column-chooser').then((module) => module.ColumnChooser<ColumnKey>)),
 );
-const NoRows = guarded(dynamic(() => import('./contacts-no-rows').then((module) => module.NoRows), { ssr: false }));
-const FilterSheet = guarded(dynamic(() => import('../records/filter-sheet').then((module) => module.FilterSheet), { ssr: false }));
+const NoRows = guarded(clientLazy(() => import('./contacts-no-rows').then((module) => module.NoRows)));
+const FilterSheet = guarded(clientLazy(() => import('../records/filter-sheet').then((module) => module.FilterSheet)));
 
 /**
  * `P04/02` — the Contacts list — with `P04/05` (empty, no results) and `P04/06`

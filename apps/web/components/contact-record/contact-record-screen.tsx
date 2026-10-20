@@ -1,6 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { clientLazy } from '../../lib/client-lazy';
 import { guarded } from '../custom/lazy-boundary';
 import Link from 'next/link';
 import { useId, useRef, useState, type ReactNode } from 'react';
@@ -52,15 +52,15 @@ import {
 import { useContactRecord, type ContactRecordState } from './use-contact-record';
 
 // Loaded when opened: neither the edit sheet nor the activity form is on the page's first paint.
-const ContactSheet = guarded(dynamic(() => import('./contact-sheet').then((module) => module.ContactSheet), { ssr: false }));
-const ActivityForm = guarded(dynamic(() => import('../record/activity-form').then((module) => module.ActivityForm), { ssr: false }));
+const ContactSheet = guarded(clientLazy(() => import('./contact-sheet').then((module) => module.ContactSheet)));
+const ActivityForm = guarded(clientLazy(() => import('../record/activity-form').then((module) => module.ActivityForm)));
 // The D-L194 placeholders: loaded only where their flag is on, so with every flag off none of them ships.
-const Composer = dynamic(() => import('../record/record-placeholders').then((module) => module.Composer), { ssr: false });
-const AiSummaryCard = dynamic(() => import('../record/record-placeholders').then((module) => module.AiSummaryCard), { ssr: false });
-const NextBestActionCard = dynamic(() => import('../record/record-placeholders').then((module) => module.NextBestActionCard), { ssr: false });
-const RelatedSections = dynamic(() => import('../record/record-placeholders').then((module) => module.RelatedSections), { ssr: false });
-const IdentityCard = dynamic(() => import('../record/record-placeholders').then((module) => module.IdentityCard), { ssr: false });
-const AddressesCard = dynamic(() => import('../record/record-placeholders').then((module) => module.AddressesCard), { ssr: false });
+const Composer = clientLazy(() => import('../record/record-placeholders').then((module) => module.Composer));
+const AiSummaryCard = clientLazy(() => import('../record/record-placeholders').then((module) => module.AiSummaryCard));
+const NextBestActionCard = clientLazy(() => import('../record/record-placeholders').then((module) => module.NextBestActionCard));
+const RelatedSections = clientLazy(() => import('../record/record-placeholders').then((module) => module.RelatedSections));
+const IdentityCard = clientLazy(() => import('../record/record-placeholders').then((module) => module.IdentityCard));
+const AddressesCard = clientLazy(() => import('../record/record-placeholders').then((module) => module.AddressesCard));
 
 /**
  * `P05/01` — the contact record, the 360° view (T-0062), rebuilt to the
@@ -560,7 +560,7 @@ function Subtitle({ t, record, linkAccount }: { t: Translator; record: ContactRe
           {record.account.name}
         </span>
       ) : (
-        <Link href={href} className="rounded-sm font-semibold text-primary-text underline underline-offset-2 focus-visible:outline-none focus-visible:ring-focus">
+        <Link prefetch={false} href={href} className="rounded-sm font-semibold text-primary-text underline underline-offset-2 focus-visible:outline-none focus-visible:ring-focus">
           <span data-record-text="">{record.account.name}</span>
         </Link>
       ),
@@ -861,7 +861,7 @@ function AccountSummary({ t, record, link }: { t: Translator; record: ContactRec
         ) : record.account === null || record.account === undefined ? (
           <span className="text-meta text-text-muted">{t.t('records.account.none')}</span>
         ) : href !== null ? (
-          <Link href={href} className="break-words rounded-sm text-body-sm font-bold text-primary-text underline underline-offset-2 focus-visible:outline-none focus-visible:ring-focus">
+          <Link prefetch={false} href={href} className="break-words rounded-sm text-body-sm font-bold text-primary-text underline underline-offset-2 focus-visible:outline-none focus-visible:ring-focus">
             <span data-record-text="">{record.account.name}</span>
           </Link>
         ) : (

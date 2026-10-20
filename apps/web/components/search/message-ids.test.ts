@@ -57,7 +57,8 @@ describe('the search panel and palette bundle every id they render', () => {
   it('resolves in every registered locale', () => {
     for (const locale of REGISTERED_LOCALES) {
       const bundle = bundleMessages(locale, SEARCH_PANEL_MESSAGE_IDS);
-      expect(SEARCH_PANEL_MESSAGE_IDS.filter((id: MessageId) => typeof bundle[id] !== 'string'), locale).toEqual([]);
+      // T-0145: an ICU message crosses parsed (not a string), so "resolved" means present.
+      expect(SEARCH_PANEL_MESSAGE_IDS.filter((id: MessageId) => bundle[id] === undefined), locale).toEqual([]);
     }
   });
 });

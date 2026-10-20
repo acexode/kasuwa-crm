@@ -139,7 +139,7 @@ export function NotificationPreferences({
             <nav aria-label={t.t('notifications.prefs.breadcrumb')} className="flex items-center gap-1 text-meta max-md:hidden">
               <span className="px-1 text-text-2">{t.t('notifications.prefs.settings')}</span>
               <Icon name="chevron_right" size={18} className="text-text-muted rtl:-scale-x-100" />
-              <Link href="/notifications" className={`rounded-sm px-1 font-semibold text-primary-text ${FOCUS}`}>
+              <Link prefetch={false} href="/notifications" className={`rounded-sm px-1 font-semibold text-primary-text ${FOCUS}`}>
                 {t.t('notifications.title')}
               </Link>
             </nav>

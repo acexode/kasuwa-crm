@@ -48,7 +48,7 @@ export function Brand({
   return href === null ? (
     <span className={className}>{inner}</span>
   ) : (
-    <Link href={href} className={className}>
+    <Link href={href} prefetch={false} className={className}>
       {inner}
     </Link>
   );

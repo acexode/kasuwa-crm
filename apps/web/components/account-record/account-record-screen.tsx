@@ -1,6 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { clientLazy } from '../../lib/client-lazy';
 import { guarded } from '../custom/lazy-boundary';
 import Link from 'next/link';
 import { useId, useRef, useState, type ReactNode } from 'react';
@@ -54,14 +54,14 @@ import {
 import { useAccountRecord, type AccountRecordState } from './use-account-record';
 
 // Loaded when opened: neither the edit sheet nor the activity form is on the page's first paint.
-const AccountSheet = guarded(dynamic(() => import('../accounts/account-sheet').then((module) => module.AccountSheet), { ssr: false }));
-const ActivityForm = guarded(dynamic(() => import('../record/activity-form').then((module) => module.ActivityForm), { ssr: false }));
+const AccountSheet = guarded(clientLazy(() => import('../accounts/account-sheet').then((module) => module.AccountSheet)));
+const ActivityForm = guarded(clientLazy(() => import('../record/activity-form').then((module) => module.ActivityForm)));
 // The D-L194 placeholders: loaded only where their flag is on, so with every flag off none of them ships.
-const Composer = dynamic(() => import('../record/record-placeholders').then((module) => module.Composer), { ssr: false });
-const AiSummaryCard = dynamic(() => import('../record/record-placeholders').then((module) => module.AiSummaryCard), { ssr: false });
-const NextBestActionCard = dynamic(() => import('../record/record-placeholders').then((module) => module.NextBestActionCard), { ssr: false });
-const RelatedSections = dynamic(() => import('../record/record-placeholders').then((module) => module.RelatedSections), { ssr: false });
-const AddressesCard = dynamic(() => import('../record/record-placeholders').then((module) => module.AddressesCard), { ssr: false });
+const Composer = clientLazy(() => import('../record/record-placeholders').then((module) => module.Composer));
+const AiSummaryCard = clientLazy(() => import('../record/record-placeholders').then((module) => module.AiSummaryCard));
+const NextBestActionCard = clientLazy(() => import('../record/record-placeholders').then((module) => module.NextBestActionCard));
+const RelatedSections = clientLazy(() => import('../record/record-placeholders').then((module) => module.RelatedSections));
+const AddressesCard = clientLazy(() => import('../record/record-placeholders').then((module) => module.AddressesCard));
 
 /**
  * `P05/04` — the account record (T-0063), rebuilt to the export in T-0134
@@ -550,7 +550,7 @@ function Subtitle({ t, record, parent }: { t: Translator; record: Account; paren
             {parent.name}
           </span>
         ) : (
-          <Link href={href} className="rounded-sm font-semibold text-primary-text underline underline-offset-2 focus-visible:outline-none focus-visible:ring-focus">
+          <Link prefetch={false} href={href} className="rounded-sm font-semibold text-primary-text underline underline-offset-2 focus-visible:outline-none focus-visible:ring-focus">
             <span data-record-text="">{parent.name}</span>
           </Link>
         )}
@@ -659,7 +659,7 @@ function HierarchyCard({ t, record, hierarchy }: { t: Translator; record: Accoun
                     {ancestor.name}
                   </b>
                 ) : (
-                  <Link href={href} className="break-words rounded-sm text-meta font-semibold text-text underline-offset-2 is-hover:underline focus-visible:outline-none focus-visible:ring-focus">
+                  <Link prefetch={false} href={href} className="break-words rounded-sm text-meta font-semibold text-text underline-offset-2 is-hover:underline focus-visible:outline-none focus-visible:ring-focus">
                     <span data-record-text="">{ancestor.name}</span>
                   </Link>
                 )}
@@ -844,7 +844,7 @@ function ContactTile({ t, row, link }: { t: Translator; row: Contact; link: bool
         <span className="flex min-w-0 flex-1 flex-col">
           <span data-field="displayName" className="min-w-0 break-words text-body-sm font-bold">
             {href !== null ? (
-              <Link href={href} className="rounded-sm text-text underline-offset-2 is-hover:underline focus-visible:outline-none focus-visible:ring-focus">
+              <Link prefetch={false} href={href} className="rounded-sm text-text underline-offset-2 is-hover:underline focus-visible:outline-none focus-visible:ring-focus">
                 <span data-record-text="">{name}</span>
               </Link>
             ) : (

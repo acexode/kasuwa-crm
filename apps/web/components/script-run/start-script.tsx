@@ -1,6 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { clientLazy } from '../../lib/client-lazy';
 import { useId, useState } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
@@ -15,7 +15,7 @@ import { Icon } from '../icon';
  * Drawn only where the record's SERVER page found the scripts flag on; this
  * module never reads a flag. Offline it is off, like every write (D-P21).
  */
-const ScriptMenu = dynamic(() => import('./script-menu').then((module) => module.ScriptMenu), { ssr: false });
+const ScriptMenu = clientLazy(() => import('./script-menu').then((module) => module.ScriptMenu));
 
 export function StartScript({ t, contactId, offline }: { t: Translator; contactId: string; offline: boolean }) {
   const [open, setOpen] = useState(false);

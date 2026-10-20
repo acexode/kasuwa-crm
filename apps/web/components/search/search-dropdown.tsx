@@ -14,7 +14,7 @@ import {
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import type { IconName } from '@kasuwa/ui';
 import { Icon } from '../icon';
-import { listMyProgrammes, type MyProgramme } from '../../lib/accounts-api';
+import { listMyProgrammes, type MyProgramme } from '../../lib/my-programmes-api';
 import { seeAllHref, type SearchType } from '../../lib/search-api';
 import { planSearch } from '../../lib/search-query';
 import { groupLabel, seeAllLabel } from './message-ids';

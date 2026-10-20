@@ -9,7 +9,7 @@ import { CommandDialog } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { useLiteMode } from '../auth/lite-mode';
 import { CRM_NAV, liveHref, shownNav } from '../crm/crm-nav';
-import { listMyProgrammes, type MyProgramme } from '../../lib/accounts-api';
+import { listMyProgrammes, type MyProgramme } from '../../lib/my-programmes-api';
 import { planSearch, folded } from '../../lib/search-query';
 import { groupLabel } from './message-ids';
 import { rowsOf, type SearchRow } from './search-model';

@@ -1,6 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { clientLazy } from '../../lib/client-lazy';
 import { useCallback, useEffect, useState } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
@@ -57,7 +57,7 @@ import { PhoneValue } from '../records/list-table';
  * by the contact convert answers with, so the next write carries its version.
  */
 
-const ConvertSheet = dynamic(() => import('./convert-sheet').then((module) => module.ConvertSheet), { ssr: false });
+const ConvertSheet = clientLazy(() => import('./convert-sheet').then((module) => module.ConvertSheet));
 
 /** Module-level, so the list's effect sees one stable function. */
 function fetchLeads(q: string, view: LeadView, cursor?: string) {

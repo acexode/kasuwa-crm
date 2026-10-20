@@ -63,7 +63,8 @@ describe('the pipeline screens bundle every id they render', () => {
   it('resolves in every registered locale, so no language throws at request time', () => {
     for (const locale of REGISTERED_LOCALES) {
       const bundle = bundleMessages(locale, PIPELINE_MESSAGE_IDS);
-      expect(PIPELINE_MESSAGE_IDS.filter((id: MessageId) => typeof bundle[id] !== 'string'), locale).toEqual([]);
+      // T-0145: an ICU message crosses parsed (not a string), so "resolved" means present.
+      expect(PIPELINE_MESSAGE_IDS.filter((id: MessageId) => bundle[id] === undefined), locale).toEqual([]);
     }
   });
 });
