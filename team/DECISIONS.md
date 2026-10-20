@@ -4490,3 +4490,23 @@ differently.
 - They are styled only with the T-0127 Tailwind utilities, so no colour or pixel literal appears in a
   component.
 - `/design/components` shows every variant for review, beside `/design/tokens`.
+
+### D-L201 — UI first, testing at the end (user, 2026-10-20)
+
+After about five hours on foundations and verification, the user asked for faster, tangible progress: "skip the
+e2e and any other testing, focus mainly on the ui, the e2e should come at the end".
+
+**Ruling:**
+- For the rest of the D-L193 programme, builders don't run unit, acceptance, integration, isolation or e2e
+  suites, and don't write new tests.
+- Each PR is checked visually instead: `tools/design-parity.mjs` pairs against the export at the designed widths,
+  light and dark, plus one UI review.
+- The pre-push hook still runs lint and typecheck, so the build keeps compiling.
+- PRs merge on that basis.
+- At the end of the programme there is one full gate: unit, integration, isolation and e2e.
+  - Byte budgets are re-pinned once, from that run, under D-L182/D-L199.
+  - Acceptance suites committed for these tasks (T-0128 and on) are made to pass, or amended by the lead
+    with a recorded reason.
+  - Failures found then are fixed before Phase 3.
+- Builders may run up to three at once. Only one `pnpm demo` runs at a time (fixed ports 3000–3002). Builders
+  that only need `/design/*` pages run `next dev` on their own port.
