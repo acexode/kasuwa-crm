@@ -218,9 +218,10 @@ export const CONTROL_HEIGHT = {
 
 /**
  * Icon sizes (T-0127). An icon's own scale, NOT the type scale: a type step
- * also sets a font weight, and a weight above 400 on the icon font (which ships
- * weight 400 only) makes the browser draw a faux-bold glyph. Keyed by pixel
- * size so a builder copies the export's number rather than mapping it.
+ * also sets its own font weight. In the Claude Design exports an icon inherits
+ * the weight of the text around it, and the browser synthesises bold from the
+ * weight-400 face (D-L198); a size class must not override that. Keyed by
+ * pixel size so a builder copies the export's number rather than mapping it.
  *
  * Counts in the screen exports: 20 (293), 18 (271), 22 (123: rail, header
  * buttons, icon buttons, bottom nav), 16 (107: table sort, chip close), 15 (63:

@@ -58,7 +58,7 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Material Symbols Rounded — subset to the 198 icons the design uses */
+/* Material Symbols Rounded — subset to the 198 icons the design uses, FILL 0 */
 @font-face {
   font-family: 'Material Symbols Rounded';
   font-style: normal;
@@ -68,16 +68,26 @@
   unicode-range: U+0020, U+0030-0032, U+0034-0035, U+005F, U+0061-007A;
 }
 
+/* Material Symbols Rounded Filled — the 13 glyphs the design draws filled, FILL axis */
+@font-face {
+  font-family: 'Material Symbols Rounded Filled';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/material-symbols-rounded-filled-subset.woff2') format('woff2');
+  unicode-range: U+0020, U+005F, U+0061-0069, U+006B-0070, U+0072-0076, U+0079;
+}
+
 /* Ligature setup for the icon font. */
 /*
- * The subset ships weight 400 only. A heavier weight on the element (a type
- * utility, font-bold) would make the browser draw a faux-bold glyph, so
- * synthesis is off and the weight is pinned (T-0127).
+ * No font-weight here, deliberately (T-0127, D-L198): an icon inherits the
+ * weight of the text around it and the browser synthesises bold from the
+ * weight-400 face, exactly as the Claude Design exports render. What made
+ * glyphs wrongly heavy was a type-scale class on the icon imposing its own
+ * weight; icon sizes are now text-icon-* utilities, which set a size only.
  */
 .k-icon {
   font-family: 'Material Symbols Rounded';
-  font-weight: 400;
-  font-synthesis: none;
   font-style: normal;
   line-height: 1;
   letter-spacing: normal;
@@ -86,11 +96,11 @@
   word-wrap: normal;
   direction: ltr;
   font-feature-settings: 'liga';
-  font-variation-settings: 'FILL' 0;
   -webkit-font-smoothing: antialiased;
 }
 
 /* The filled variant: active bottom-tab icons, the bell, gpp_maybe. */
 .k-icon-filled {
+  font-family: 'Material Symbols Rounded Filled';
   font-variation-settings: 'FILL' 1;
 }

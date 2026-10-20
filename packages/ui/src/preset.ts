@@ -73,8 +73,9 @@ export function buildTailwindPreset(): string {
     })
     .join('\n');
 
-  // Icon sizes are font sizes with NO weight, line height or tracking: a type
-  // step's weight on the icon font draws a faux-bold glyph (T-0127).
+  // Icon sizes are font sizes with NO weight, line height or tracking: an icon
+  // inherits the weight of the text around it, as in the exports (D-L198), and
+  // a type step's own weight would override that (T-0127).
   const iconSizes = Object.keys(ICON_SIZE)
     .map((key) => `    'icon-${key}': 'var(${CSS_VAR_PREFIX}-icon-size-${cssKey(key)})',`)
     .join('\n');

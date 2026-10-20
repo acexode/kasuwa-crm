@@ -30,6 +30,14 @@
  * A name from a non-literal expression (`name={group.icon}`) is left to the
  * union, which types it.
  *
+ * FILLED ICONS (T-0127, D-L198). Filled glyphs ship in a second, small face
+ * holding only `packages/ui/icon-subset-filled.txt`. A reference is filled when
+ * the `<Icon>` carries a `filled` prop (bare, or any value but `{false}`), or
+ * when the element's class list has `k-icon-filled`. A filled reference to a
+ * name outside that list fails, as does a filled list naming a glyph the main
+ * subset lacks (`filled={active}` falls back to the main face when false). The
+ * filled list is optional: a root without one has no filled glyphs at all.
+ *
  * Both directions are reported. Used-but-not-subset fails (exit 1), one line per
  * offence naming the icon and the file. Subset-but-unused only WARNS: a check
  * that fails on dead weight gets disabled (T-0006 scope 3). For the unused
@@ -43,6 +51,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 
 const SUBSET_FILE = 'packages/ui/icon-subset.txt';
+const FILLED_FILE = 'packages/ui/icon-subset-filled.txt';
 const SKIP_DIRS = new Set(['node_modules', '.next', 'dist']);
 const ICON_TOKEN = /^[a-z0-9_]+$/;
 
@@ -65,9 +74,12 @@ function parseArgs(argv) {
 class UsageError extends Error {}
 
 /** Blank lines and `#` lines ignored, each line trimmed (so CRLF works). */
-function readSubset(root) {
-  const path = resolve(root, SUBSET_FILE);
-  if (!existsSync(path)) throw new UsageError(`${SUBSET_FILE} not found under ${root}`);
+function readSubset(root, file = SUBSET_FILE, required = true) {
+  const path = resolve(root, file);
+  if (!existsSync(path)) {
+    if (required) throw new UsageError(`${file} not found under ${root}`);
+    return new Set();
+  }
   return new Set(
     readFileSync(path, 'utf8')
       .split('\n')
@@ -248,6 +260,18 @@ function attributeValue(attrs, attribute) {
   return undefined;
 }
 
+/** True if the tag's attributes ask for the filled face: `filled`, `filled={x}`, not `{false}`. */
+function hasFilled(attrs) {
+  for (const match of attrs.matchAll(/(?:^|\s)filled(?![\w-])/g)) {
+    if (!isTopLevel(attrs, match.index)) continue;
+    const rest = attrs.slice(match.index + match[0].length).trimStart();
+    if (!rest.startsWith('=')) return true;
+    const value = attributeValue(attrs, 'filled');
+    return value === undefined || value.trim() !== 'false';
+  }
+  return false;
+}
+
 function isTopLevel(text, index) {
   let i = 0;
   while (i < index) {
@@ -267,13 +291,13 @@ function lineOf(src, index) {
   return line;
 }
 
-/** Every literal icon reference in one file: `{ name, line }`. */
+/** Every literal icon reference in one file: `{ name, line, filled }`. */
 function referencesIn(rawSource) {
   const src = blankComments(rawSource);
   const found = [];
   let dynamic = 0;
-  const add = (values, index) => {
-    for (const name of values.names) found.push({ name, line: lineOf(src, index) });
+  const add = (values, index, filled = false) => {
+    for (const name of values.names) found.push({ name, line: lineOf(src, index), filled });
     if (values.dynamic) dynamic += 1;
   };
 
@@ -284,17 +308,18 @@ function referencesIn(rawSource) {
     // Form 1 and 2: <Icon name=…>
     if (match[1] === 'Icon') {
       const value = attributeValue(tag.attrs, 'name');
-      if (value !== undefined) add(valuesOf(value), match.index);
+      if (value !== undefined) add(valuesOf(value), match.index, hasFilled(tag.attrs));
     }
 
     // Form 3: ligature text inside an element carrying the k-icon class.
-    if (!tag.selfClosing && /(?<![\w-])k-icon(?![\w-])/.test(tag.attrs)) {
+    if (!tag.selfClosing && /(?<![\w-])k-icon(?:-filled)?(?![\w-])/.test(tag.attrs)) {
+      const filled = /(?<![\w-])k-icon-filled(?![\w-])/.test(tag.attrs);
       const close = src.indexOf('<', tag.end);
       const text = src.slice(tag.end, close === -1 ? src.length : close).trim();
       if (text.startsWith('{') && text.endsWith('}')) {
-        add(valuesOf(text.slice(1, -1)), tag.end);
+        add(valuesOf(text.slice(1, -1)), tag.end, filled);
       } else if (text !== '') {
-        add({ names: [text], dynamic: false }, tag.end);
+        add({ names: [text], dynamic: false }, tag.end, filled);
       }
     }
   }
@@ -313,9 +338,12 @@ function softUses(source, subset) {
 function main() {
   const { root } = parseArgs(process.argv.slice(2));
   const subset = readSubset(root);
+  const filledSubset = readSubset(root, FILLED_FILE, false);
   const files = listSources(resolve(root, 'apps'));
 
   const missing = [];
+  const missingFilled = [];
+  const usedFilled = new Set();
   const used = new Set();
   let references = 0;
   let dynamic = 0;
@@ -330,6 +358,10 @@ function main() {
       used.add(name);
       if (!subset.has(name) || !ICON_TOKEN.test(name)) missing.push({ name, rel, line });
     }
+    for (const { name, line } of result.found.filter((reference) => reference.filled)) {
+      usedFilled.add(name);
+      if (!filledSubset.has(name)) missingFilled.push({ name, rel, line });
+    }
     for (const name of softUses(source, subset)) used.add(name);
   }
 
@@ -338,6 +370,40 @@ function main() {
     console.warn(
       `verify-icons: warning: unused subset icon "${name}" (nothing under apps/ names it)`,
     );
+  }
+
+  // Worded without "unused": the name is still used by the main face, and the
+  // unused report is about the main subset. Often a false alarm, because the
+  // bottom bar fills a dynamic name (`filled={active}`), which no scan resolves.
+  for (const name of [...filledSubset].filter((n) => !usedFilled.has(n)).sort()) {
+    console.warn(
+      `verify-icons: warning: filled icon "${name}" is never drawn filled by a literal reference`,
+    );
+  }
+
+  const strays = [...filledSubset].filter((name) => !subset.has(name)).sort();
+  if (missingFilled.length > 0 || strays.length > 0) {
+    for (const { name, rel, line } of missingFilled) {
+      console.error(
+        `verify-icons: missing filled icon "${name}" at ${rel}:${line} (not in ${FILLED_FILE})`,
+      );
+    }
+    for (const name of strays) {
+      console.error(
+        `verify-icons: filled icon "${name}" is in ${FILLED_FILE} but not in ${SUBSET_FILE}`,
+      );
+    }
+    for (const { name, rel, line } of missing) {
+      console.error(
+        `verify-icons: missing icon "${name}" at ${rel}:${line} (not in ${SUBSET_FILE})`,
+      );
+    }
+    console.error(
+      `\nFILLED ICON CHECK FAILED: ${missingFilled.length + strays.length} filled glyph problem(s).\n` +
+        'A filled glyph missing from the filled face renders as a blank box. Put the name in ' +
+        `${FILLED_FILE} (and ${SUBSET_FILE}) and run pnpm ui:fetch-fonts.`,
+    );
+    process.exit(1);
   }
 
   if (missing.length > 0) {
@@ -356,7 +422,8 @@ function main() {
 
   console.log(
     `icon subset verified: ${references} literal reference(s) in ${files.length} file(s), ` +
-      `all within the ${subset.size}-glyph subset; ${dynamic} non-literal name(s) left to the IconName union; ` +
+      `all within the ${subset.size}-glyph subset (${usedFilled.size} drawn filled, ` +
+      `all within the ${filledSubset.size}-glyph filled subset); ${dynamic} non-literal name(s) left to the IconName union; ` +
       `${unused.length} subset glyph(s) without a reference`,
   );
 }

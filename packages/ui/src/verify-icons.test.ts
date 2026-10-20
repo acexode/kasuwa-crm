@@ -19,13 +19,14 @@ afterAll(() => {
   for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
 });
 
-function check(screen: string): { status: number | null; output: string } {
+function check(screen: string, filled?: string): { status: number | null; output: string } {
   const root = mkdtempSync(resolve(tmpdir(), 'kasuwa-verify-icons-'));
   dirs.push(root);
   const files: Record<string, string> = {
     'packages/ui/icon-subset.txt': 'home\nclose\nerror\ntimer_off\nsms\nbar_chart\n',
     'apps/web/screen.tsx': screen,
   };
+  if (filled !== undefined) files['packages/ui/icon-subset-filled.txt'] = filled;
   for (const [relative, content] of Object.entries(files)) {
     const path = resolve(root, relative);
     mkdirSync(dirname(path), { recursive: true });
@@ -102,5 +103,68 @@ describe('verify-icons: what does not count', () => {
     dirs.push(root);
     const run = spawnSync(process.execPath, [script, '--root', root], { encoding: 'utf8' });
     expect(run.status).toBe(2);
+  });
+});
+
+function missingFilled(output: string): string[] {
+  return [...output.matchAll(/missing filled icon "([^"]+)"/g)].map((match) => match[1] ?? '');
+}
+
+/**
+ * Filled glyphs ship in a second face holding only icon-subset-filled.txt
+ * (T-0127, D-L198). A filled name outside it is a blank box, exactly like an
+ * unlisted name in the main face, so it fails the same way.
+ */
+describe('verify-icons: filled icons', () => {
+  const FILLED = '# the bell and the bottom tab\nhome\nsms\n';
+
+  it('accepts a filled icon in the filled list', () => {
+    const run = check('const a = <Icon name="home" filled />;\n', FILLED);
+    expect(run.status).toBe(0);
+  });
+
+  it('fails a bare filled prop on a glyph only the main face has', () => {
+    const run = check('const a = <Icon name="close" filled />;\n', FILLED);
+    expect(run.status).toBe(1);
+    expect(missingFilled(run.output)).toEqual(['close']);
+  });
+
+  it('checks every arm when filled is an expression, and ignores filled={false}', () => {
+    const run = check(
+      [
+        "const a = <Icon name={tab === 'home' ? 'home' : 'error'} filled={active} />;",
+        'const b = <Icon name="close" filled={false} />;',
+        '',
+      ].join('\n'),
+      FILLED,
+    );
+    expect(run.status).toBe(1);
+    expect(missingFilled(run.output)).toEqual(['error']);
+  });
+
+  it('treats ligature text in a k-icon-filled element as a filled reference', () => {
+    const run = check(
+      'const a = <span className="k-icon k-icon-filled">bar_chart</span>;\n',
+      FILLED,
+    );
+    expect(missingFilled(run.output)).toEqual(['bar_chart']);
+  });
+
+  it('fails a filled reference when there is no filled list at all', () => {
+    const run = check('const a = <Icon name="home" filled />;\n');
+    expect(run.status).toBe(1);
+    expect(missingFilled(run.output)).toEqual(['home']);
+  });
+
+  it('fails a filled list naming a glyph the main subset lacks', () => {
+    // filled={active} draws the MAIN face when false, so it must have the glyph too.
+    const run = check('const a = <Icon name="home" filled />;\n', 'home\nnotifications\n');
+    expect(run.status).toBe(1);
+    expect(run.output).toMatch(/filled icon "notifications" is in .* but not in/);
+  });
+
+  it('does not mistake a prop that merely starts with filled for the filled prop', () => {
+    const run = check('const a = <Icon name="close" filledLabel="x" />;\n', FILLED);
+    expect(run.status).toBe(0);
   });
 });

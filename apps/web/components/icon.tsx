@@ -1,10 +1,17 @@
-import type { ICON_SIZE_ALIAS, IconName, IconSize, IconSizeAlias } from '@kasuwa/ui';
+import type {
+  FilledIconName,
+  ICON_SIZE_ALIAS,
+  IconName,
+  IconSize,
+  IconSizeAlias,
+} from '@kasuwa/ui';
 
 /**
  * Icon sizes come from the icon's own scale, `ICON_SIZE` in `@kasuwa/ui`, keyed
  * by pixel size: pass the number the export uses (`size={22}` for a rail or
- * header icon). Never a type-scale class: those also set a font
- * weight, and a weight above 400 on the icon font draws a faux-bold glyph.
+ * header icon). Never a type-scale class: those also set a font weight, which
+ * overrode the weight the icon should inherit. Like the Claude Design exports,
+ * an icon takes the weight of the text around it (D-L198).
  *
  * `sm`/`md`/`lg`/`xl` are the pre-T-0127 names, kept so existing screens render
  * at the size they always did (18/20/24/32). The class strings are literal so
@@ -47,18 +54,26 @@ const SIZE_CLASS: Record<IconSize, string> = {
  * or inside a button that carries one; an icon that is the only content of a
  * control gets its name from `aria-label` on the control, never from here.
  */
-export function Icon({
-  name,
-  size = 'md',
-  filled = false,
-  className,
-}: {
-  name: IconName;
+/**
+ * `filled` draws the second, small face ('Material Symbols Rounded Filled'),
+ * which holds only `packages/ui/icon-subset-filled.txt`. A filled name outside
+ * that list would be a blank box, so `filled` narrows `name` to
+ * `FilledIconName`. Every filled name is also an `IconName`, so a
+ * `filled={active}` that turns false is safe.
+ */
+type IconProps = {
   size?: IconSize | IconSizeAlias;
-  /** The design's filled variant: the active bottom-tab icon, the bell, `gpp_maybe`. */
-  filled?: boolean;
   className?: string;
-}) {
+} & (
+  | { name: IconName; filled?: false }
+  | {
+      name: FilledIconName;
+      /** The design's filled variant: the active bottom-tab icon, the bell, `gpp_maybe`. */
+      filled: boolean;
+    }
+);
+
+export function Icon({ name, size = 'md', filled = false, className }: IconProps) {
   return (
     <span
       aria-hidden="true"

@@ -177,7 +177,8 @@ describe('icon sizes', () => {
   });
 
   it('emits icon font sizes that set no weight, line height or tracking', () => {
-    // A type step's weight on the weight-400 icon font draws a faux-bold glyph.
+    // An icon inherits the surrounding weight, as the exports do (D-L198); a
+    // weight here would override it, which is the defect the type classes had.
     const { fontSize } = evaluatePreset().theme.extend;
     for (const key of Object.keys(ICON_SIZE)) {
       expect(fontSize[`icon-${key}`], `icon-${key}`).toBe(`var(--k-icon-size-${key})`);
