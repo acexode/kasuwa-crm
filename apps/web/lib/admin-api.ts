@@ -104,7 +104,8 @@ export const AdminHomeSummary = z.object({
   tenant: z.object({
     id: z.string(),
     name: z.string(),
-    planName: z.string(),
+    /** Null or empty while no plan is stored (M23); the subtitle then leaves it out. */
+    planName: z.string().nullable(),
     countryCount: z.number(),
     userCount: z.number(),
   }),

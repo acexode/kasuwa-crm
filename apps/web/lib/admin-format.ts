@@ -1,4 +1,5 @@
 import { numberingLocale } from './numbering';
+import { dateFormatter, tidyMonth } from './date-locale';
 
 /**
  * Formatting and parsing for the admin console, kept pure so it can be tested
@@ -191,20 +192,29 @@ export function formatMoney(locale: string, amountMinor: string, currency: strin
 export function formatDateTime(locale: string, iso: string, timeZone?: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    ...(timeZone === undefined ? {} : { timeZone }),
-  }).format(date);
+  // Day first and 24-hour in every English ("20 Oct 2026, 15:00"), T-0143.
+  return tidyMonth(
+    locale,
+    dateFormatter(locale, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      hourCycle: 'h23',
+      ...(timeZone === undefined ? {} : { timeZone }),
+    }).format(date),
+  );
 }
 
 export function formatDate(locale: string, iso: string, timeZone?: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: 'medium',
-    ...(timeZone === undefined ? {} : { timeZone }),
-  }).format(date);
+  // Day first in every English ("20 Oct 2026"), T-0143.
+  return tidyMonth(
+    locale,
+    dateFormatter(locale, {
+      dateStyle: 'medium',
+      ...(timeZone === undefined ? {} : { timeZone }),
+    }).format(date),
+  );
 }
 
 /*

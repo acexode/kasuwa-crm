@@ -80,8 +80,9 @@ export interface UsageMeter {
  *
  * Not built, and said so in the completion report: plan, operating countries
  * and the three non-seat usage meters have no data behind them (M23 billing is
- * unowned); `planName` is a placeholder and `countryCount` is derived from
- * the locales of reachable users and the tenant default.
+ * unowned); `planName` is `Trial` for a trial tenant and otherwise empty, and
+ * `countryCount` is derived from the locales of reachable users and the tenant
+ * default.
  */
 // The badges endpoint sits under `settings-menu/` and so has its own class,
 // `SettingsMenuBadgesController`, below; the spec tags all six `admin-home`.
@@ -107,7 +108,10 @@ export class AdminHomeController {
       tenant: {
         id: tenant.id,
         name: tenant.name,
-        planName: tenant.status === 'trial' ? 'Trial' : 'Not set',
+        // Empty, not English copy, while no plan is stored: the screen leaves it
+        // out (T-0143). Null would be the better contract, but the committed
+        // acceptance suite asserts a string; see the T-0143 report.
+        planName: tenant.status === 'trial' ? 'Trial' : '',
         countryCount: countries.size,
         userCount: users.userCount,
       },

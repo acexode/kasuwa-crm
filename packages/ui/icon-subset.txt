@@ -263,3 +263,5 @@ fingerprint
 filter_alt
 view_agenda
 desktop_windows
+# T-0143 (P01 onboarding): the CSV source tile (table); sync is above (T-0141).
+table

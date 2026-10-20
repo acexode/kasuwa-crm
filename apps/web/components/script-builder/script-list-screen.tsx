@@ -25,6 +25,7 @@ import {
   type ScriptSummary,
 } from '../../lib/scripting-api';
 import { useOnline } from './use-online';
+import { formatDayFirst } from '../../lib/date-locale';
 
 /**
  * `P10/05` — the script builder's list (T-0115): the scripts the caller may
@@ -388,19 +389,8 @@ function ScriptRow({
 export function formatDay(locale: string, iso: string): string {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return '';
-  try {
-    return new Intl.DateTimeFormat(locale, {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    }).format(at);
-  } catch {
-    return new Intl.DateTimeFormat('en', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    }).format(at);
-  }
+  // "20 Oct 2026": day first in every English (T-0143).
+  return formatDayFirst(locale, at, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 /** Create a draft in a programme chosen by NAME. The API's 403 is the gate (D-L84); what was typed is kept. */

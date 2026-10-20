@@ -359,6 +359,9 @@
   --k-chart-5: #D55E00;
   --k-chart-6: #CC79A7;
   --k-chart-7: #847C71;
+  
+  /* native controls, scrollbars and select popups follow the theme (T-0143) */
+  color-scheme: light;
 }
 
 /* Explicit opt-in, so a tenant or a user preference can pin a theme. */
@@ -416,6 +419,7 @@
   --k-chart-5: #E8732A;
   --k-chart-6: #D98CB6;
   --k-chart-7: #ABA398;
+  color-scheme: dark;
 }
 
 /* System preference, unless light has been explicitly pinned. */
@@ -474,6 +478,7 @@
     --k-chart-5: #E8732A;
     --k-chart-6: #D98CB6;
     --k-chart-7: #ABA398;
+    color-scheme: dark;
   }
 }
 

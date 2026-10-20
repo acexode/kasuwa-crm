@@ -2941,6 +2941,7 @@
   "search.switch.empty": "لم يُسند إليك أي برنامج.",
   "search.key.slash": "/",
   "admin.home.subtitle": "{name} · {plan} · {countries} · {users}",
+  "admin.home.subtitle.noPlan": "{name} · {countries} · {users}",
   "admin.home.subtitle.plan": "خطة {plan}",
   "admin.home.subtitle.countries": "{count, plural, zero {لا دول} one {دولة واحدة} two {دولتان} few {# دول} many {# دولة} other {# دولة}}",
   "admin.home.subtitle.users": "{count, plural, zero {لا مستخدمين} one {مستخدم واحد} two {مستخدمان} few {# مستخدمين} many {# مستخدمًا} other {# مستخدم}}",

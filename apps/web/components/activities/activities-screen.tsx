@@ -6,7 +6,7 @@ import { useCallback, useState } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
 import { Banner, Button, IconButton, SegmentedControl, Tabs, type SegmentedOption, type TabItem } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
-import { CrmFab, CrmShell } from '../crm/crm-shell';
+import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { writeErrorId } from '../record/record-core';
 import { hasDetail, type RecordsError, type RecordsResult } from '../../lib/records-api';
@@ -239,7 +239,6 @@ export function ActivitiesScreen({
           />
         ),
       }}
-      fab={view === 'checkin' ? undefined : <CrmFab label={t.t('activities.compose')} onClick={openComposer} />}
     >
       <div data-screen="P07" className="flex min-h-full flex-col gap-3 md:gap-4 md:px-1">
         {/* Phone: the design's underline tabs, full width under the app bar. */}

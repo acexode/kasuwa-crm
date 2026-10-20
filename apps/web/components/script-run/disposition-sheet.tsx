@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
-import { localToUtc, zoneName } from '../record/record-core';
+import { formatDateTime, localToUtc, zoneName } from '../record/record-core';
 import type { ScriptGraph } from '../../lib/script-graph';
 import {
   completeScriptRun,
@@ -39,14 +39,8 @@ export interface Completion {
 
 /** A callback time in the browser's zone, on a 24-hour clock. */
 export function formatWhen(locale: string, iso: string): string {
-  const at = new Date(iso);
-  if (Number.isNaN(at.getTime())) return '';
-  const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
-  try {
-    return new Intl.DateTimeFormat(locale, options).format(at);
-  } catch {
-    return new Intl.DateTimeFormat('en', options).format(at);
-  }
+  // "20 Oct 15:00 WAT": day first, 24-hour and the zone named, as on P05 (T-0143).
+  return formatDateTime(locale, iso);
 }
 
 interface ListState {
