@@ -3,9 +3,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
+import { Button, Chip, Select, TextField } from '@kasuwa/ui/components';
+import { Icon } from '../icon';
 import { AuthShell } from '../auth/auth-shell';
 import { shellStrings } from '../auth/shell-strings';
-import { FIELD, LINK, PRIMARY_BUTTON } from '../auth/button-classes';
+import { AUTH_LINK, PAGE_SUBTITLE, PAGE_TITLE } from '../auth/auth-classes';
 import type { LanguageOption } from '../auth/language-menu';
 import type { ScreenError } from '../../lib/auth-api';
 import { EMPLOYEE_SIZES, signUp, type EmployeeSize } from '../../lib/sign-up-api';
@@ -144,10 +146,10 @@ export function SignUpScreen({
 
   return (
     <AuthShell strings={shellStrings(t)} locales={locales} currentLocale={locale}>
-      <section data-screen="P01/3" className="flex w-full max-w-xl flex-col gap-5">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-h3 text-text">{t.t('signup.title')}</h1>
-          <p className="text-body-md text-text-2">{t.t('signup.subtitle')}</p>
+      <section data-screen="P01/3" className="flex w-full max-w-layout-column-wide flex-col gap-4.5">
+        <div className="flex flex-col gap-1.5">
+          <h1 className={PAGE_TITLE}>{t.t('signup.title')}</h1>
+          <p className={PAGE_SUBTITLE}>{t.t('signup.subtitle')}</p>
         </div>
 
         {error !== undefined || invalid.length > 0 ? (
@@ -157,59 +159,84 @@ export function SignUpScreen({
             tabIndex={-1}
             data-testid="sign-up-error"
             data-error-code={error?.code ?? 'validation_failed'}
-            className="flex flex-col gap-1 rounded-lg bg-danger-soft p-3 text-body-sm text-danger-text"
+            className="flex gap-2.5 rounded-10 bg-danger-soft px-3.5 py-3 text-body-sm text-danger-text outline-offset-2"
           >
-            <strong>{t.t(`auth.error.${error?.code ?? 'validation_failed'}` as MessageId)}</strong>
-            {error?.retryAt !== undefined ? (
-              <span>{t.t('auth.locked.retryAt', formatRetryTime(error.retryAt, error.timeZone, locale))}</span>
-            ) : null}
+            <Icon name="error" size={20} />
+            <span className="flex flex-col gap-1">
+              <strong>{t.t(`auth.error.${error?.code ?? 'validation_failed'}` as MessageId)}</strong>
+              {error?.retryAt !== undefined ? (
+                <span>{t.t('auth.locked.retryAt', formatRetryTime(error.retryAt, error.timeZone, locale))}</span>
+              ) : null}
+            </span>
           </div>
         ) : null}
 
-        <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
-          <div className="grid gap-4 md:grid-cols-2">
+        <form onSubmit={submit} className="flex flex-col gap-4.5" noValidate>
+          <div className="grid gap-4 sm:grid-cols-2">
             <TextField
               id={`${id}-fullName`}
+              size="large"
               label={t.t('signup.fullName.label')}
               name="fullName"
               autoComplete="name"
               value={fullName}
-              onChange={setFullName}
-              invalid={isInvalid('fullName')}
+              onChange={(event) => setFullName(event.target.value)}
               error={fieldError('fullName')}
             />
             <TextField
               id={`${id}-email`}
+              size="large"
               label={t.t('signup.email.label')}
               name="email"
               type="email"
               inputMode="email"
               autoComplete="email"
               value={email}
-              onChange={setEmail}
-              invalid={isInvalid('email')}
-              help={t.t('signup.email.help')}
+              onChange={(event) => setEmail(event.target.value)}
+              hint={t.t('signup.email.help')}
               error={fieldError('email')}
             />
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <label htmlFor={`${id}-phone`} className="text-body-sm font-semibold">
               {t.t('signup.phone.label')}
             </label>
-            <div className="flex gap-2">
-              <select
-                aria-label={t.t('signup.phone.country')}
-                value={dial}
-                onChange={(event) => setDial(event.target.value as SignUpCountry)}
-                className={`${FIELD} font-mono`}
-              >
-                {SIGN_UP_COUNTRIES.map((entry) => (
-                  <option key={entry.code} value={entry.code}>
-                    {`+${entry.dial} · ${t.t(`signup.country.${entry.code}` as MessageId)}`}
-                  </option>
-                ))}
-              </select>
+            {/*
+              The export's joined phone control: the country code as a sunken
+              segment, then the national number in mono. The segment is the
+              platform <select> laid invisibly over its own drawing, so the
+              list is the phone's native picker and the closed control shows
+              only the flag and the code. No carrier badge: detecting the
+              network needs a prefix table that number portability makes wrong
+              (team/reports/T-0007b.md).
+            */}
+            <span
+              className={`flex h-control-lg items-stretch overflow-hidden rounded-md bg-surface focus-within:field-focus ${
+                isInvalid('phone') ? 'border-2 border-danger' : 'border border-border-strong'
+              }`}
+            >
+              <span className="relative flex items-center gap-1.5 border-e border-border bg-surface-sunken pe-2 ps-3">
+                <span aria-hidden="true" className="text-body-md">
+                  {flagOf(dial)}
+                </span>
+                <span aria-hidden="true" dir="ltr" className="font-mono text-body-sm">
+                  {`+${dialCode(dial)}`}
+                </span>
+                <Icon name="expand_more" size={18} className="text-text-muted" />
+                <select
+                  aria-label={t.t('signup.phone.country')}
+                  value={dial}
+                  onChange={(event) => setDial(event.target.value as SignUpCountry)}
+                  className="absolute inset-0 cursor-pointer appearance-none opacity-0"
+                >
+                  {SIGN_UP_COUNTRIES.map((entry) => (
+                    <option key={entry.code} value={entry.code}>
+                      {`+${entry.dial} · ${t.t(`signup.country.${entry.code}` as MessageId)}`}
+                    </option>
+                  ))}
+                </select>
+              </span>
               <input
                 id={`${id}-phone`}
                 name="phone"
@@ -220,77 +247,73 @@ export function SignUpScreen({
                 onChange={(event) => setPhone(event.target.value)}
                 aria-invalid={isInvalid('phone')}
                 aria-describedby={describedBy('phone', `${id}-phone-help`)}
-                className={`${FIELD} min-w-0 flex-1 font-mono`}
+                className="min-w-0 flex-1 border-0 bg-transparent px-2.5 font-mono text-body-md text-text outline-none placeholder:text-text-muted"
               />
-            </div>
-            <span id={`${id}-phone-help`} className="text-caption text-text-muted">
-              {t.t('signup.phone.help', { dial: `+${dialCode(dial)}` })}
             </span>
             {isInvalid('phone') ? (
-              <span id={`${id}-phone-error`} className="text-body-sm text-danger-text">
+              <span id={`${id}-phone-error`} className="text-meta text-danger-text">
                 {fieldError('phone')}
               </span>
             ) : null}
+            <span id={`${id}-phone-help`} className="text-meta text-text-muted">
+              {t.t('signup.phone.help', { dial: `+${dialCode(dial)}` })}
+            </span>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             <TextField
               id={`${id}-company`}
+              size="large"
               label={t.t('signup.company.label')}
               name="organisationName"
               autoComplete="organization"
               value={company}
-              onChange={setCompany}
-              invalid={isInvalid('company')}
+              onChange={(event) => setCompany(event.target.value)}
               error={fieldError('company')}
             />
-            <label className="flex flex-col gap-2">
-              <span className="text-body-sm font-semibold">{t.t('signup.country.label')}</span>
-              <select
-                name="country"
-                value={country}
-                onChange={(event) => setCountry(event.target.value as SignUpCountry)}
-                className={FIELD}
-              >
-                {SIGN_UP_COUNTRIES.map((entry) => (
-                  <option key={entry.code} value={entry.code}>
-                    {t.t(`signup.country.${entry.code}` as MessageId)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <Select
+              size="large"
+              label={t.t('signup.country.label')}
+              name="country"
+              value={country}
+              onChange={(event) => setCountry(event.target.value as SignUpCountry)}
+            >
+              {SIGN_UP_COUNTRIES.map((entry) => (
+                <option key={entry.code} value={entry.code}>
+                  {t.t(`signup.country.${entry.code}` as MessageId)}
+                </option>
+              ))}
+            </Select>
           </div>
 
+          {/* Not on the board: the contract needs a password (D-L195). */}
           <TextField
             id={`${id}-password`}
+            size="large"
             label={t.t('signup.password.label')}
             name="password"
             type="password"
             autoComplete="new-password"
             value={password}
-            onChange={setPassword}
-            invalid={isInvalid('password')}
-            help={t.t('signup.password.help')}
+            onChange={(event) => setPassword(event.target.value)}
+            hint={t.t('signup.password.help')}
             error={fieldError('password')}
           />
 
-          <fieldset className="flex flex-col gap-2 border-0 p-0">
-            <legend className="mb-2 text-body-sm font-semibold">{t.t('signup.employees.legend')}</legend>
+          <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+            <legend className="mb-2 p-0 text-body-sm font-semibold">{t.t('signup.employees.legend')}</legend>
             <div className="flex flex-wrap gap-2">
               {EMPLOYEE_SIZES.map((value) => (
-                <button
+                <Chip
                   key={value}
-                  type="button"
+                  variant="choice"
+                  large
+                  active={size === value}
                   aria-pressed={size === value}
                   onClick={() => setSize(value)}
-                  className={`min-h-touch rounded-md border px-3 text-body-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-                    size === value
-                      ? 'border-primary bg-primary text-on-primary'
-                      : 'border-border-strong bg-surface text-text'
-                  }`}
                 >
                   {sizeLabel(value)}
-                </button>
+                </Chip>
               ))}
             </div>
           </fieldset>
@@ -300,33 +323,45 @@ export function SignUpScreen({
             role="switch"
             aria-checked={isBpo}
             onClick={() => setIsBpo(!isBpo)}
-            className={`flex min-h-touch items-center gap-3 rounded-lg border p-3 text-start focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
+            className={`flex items-center gap-3.5 rounded-10 border p-3.5 text-start text-text focus-visible:ring-focus ${
               isBpo ? 'border-primary bg-primary-soft' : 'border-border-strong bg-surface'
             }`}
           >
-            <span className="flex flex-1 flex-col gap-1">
-              <strong className="text-body-md text-text">{t.t('signup.bpo.title')}</strong>
-              <span className="text-body-sm text-text-2">{t.t(isBpo ? 'signup.bpo.on' : 'signup.bpo.off')}</span>
+            <span className="flex flex-1 flex-col gap-0.5">
+              <strong className="text-label font-bold">{t.t('signup.bpo.title')}</strong>
+              <span className="text-meta text-text-2">{t.t(isBpo ? 'signup.bpo.on' : 'signup.bpo.off')}</span>
             </span>
+            {/* The v1.1 switch track and knob, drawn inside the card that is the switch. */}
             <span
               aria-hidden="true"
-              className={`flex h-6 w-10 flex-shrink-0 items-center rounded-full p-1 ${
-                isBpo ? 'justify-end bg-primary' : 'justify-start bg-border-strong'
+              className={`relative inline-flex h-6.5 w-touch flex-shrink-0 rounded-full transition-colors duration-quick ${
+                isBpo ? 'bg-primary' : 'bg-border-strong'
               }`}
             >
-              <span className="h-4 w-4 rounded-full bg-surface" />
+              <span
+                className={`absolute start-0.75 top-0.75 size-5 rounded-full bg-on-primary shadow-knob transition-transform duration-quick ${
+                  isBpo ? 'translate-x-4.5 rtl:-translate-x-4.5' : ''
+                }`}
+              />
             </span>
           </button>
 
-          <button type="submit" disabled={pending} data-testid="sign-up-submit" className={PRIMARY_BUTTON}>
-            {t.t(pending ? 'signup.submitting' : 'signup.submit')}
-          </button>
+          <Button
+            type="submit"
+            variant="primary"
+            size="large"
+            loading={pending}
+            loadingLabel={t.t('signup.submitting')}
+            data-testid="sign-up-submit"
+            className="w-full"
+          >
+            {t.t('signup.submit')}
+          </Button>
         </form>
 
-        <p className="text-caption text-text-muted">{t.t('signup.terms')}</p>
-        <p className="text-body-sm text-text-2">
-          {t.t('signup.signIn.prompt')}{' '}
-          <a href="/" className={LINK}>
+        <p className="text-meta text-text-muted">
+          {t.t('signup.terms')} {t.t('signup.signIn.prompt')}{' '}
+          <a href="/" className={AUTH_LINK}>
             {t.t('signup.signIn.link')}
           </a>
         </p>
@@ -336,67 +371,10 @@ export function SignUpScreen({
 }
 
 /**
- * A labelled text input whose accessible name is the LABEL ALONE. Help and
- * error text are attached with `aria-describedby`, not wrapped inside the
- * label — wrapping them makes a screen reader read the help text twice, once as
- * the name and once as the description, and it was how the first draft of this
- * form named its password field "Password At least 12 characters…".
+ * The country's flag as its regional-indicator emoji: two code points the
+ * phone's own emoji font draws, so no image is sent (256 kbps) and no colour
+ * is typed here.
  */
-function TextField({
-  id,
-  label,
-  name,
-  value,
-  onChange,
-  invalid,
-  type = 'text',
-  inputMode,
-  autoComplete,
-  help,
-  error,
-}: {
-  id: string;
-  label: string;
-  name: string;
-  value: string;
-  onChange: (next: string) => void;
-  invalid: boolean;
-  type?: 'text' | 'email' | 'password';
-  inputMode?: 'text' | 'email';
-  autoComplete: string;
-  help?: string;
-  error?: string | undefined;
-}) {
-  const described = [help === undefined ? undefined : `${id}-help`, error === undefined ? undefined : `${id}-error`]
-    .filter(Boolean)
-    .join(' ');
-  return (
-    <div className="flex flex-col gap-2">
-      <label htmlFor={id} className="text-body-sm font-semibold">
-        {label}
-      </label>
-      <input
-        id={id}
-        name={name}
-        type={type}
-        inputMode={inputMode}
-        autoComplete={autoComplete}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        aria-invalid={invalid}
-        aria-describedby={described === '' ? undefined : described}
-        className={FIELD}
-      />
-      {help === undefined ? null : (
-        <span id={`${id}-help`} className="text-caption text-text-muted">
-          {help}
-        </span>
-      )}
-      {error === undefined ? null : (
-        <span id={`${id}-error`} className="text-body-sm text-danger-text">
-          {error}
-        </span>
-      )}
-    </div>
-  );
+function flagOf(country: SignUpCountry): string {
+  return String.fromCodePoint(...[...country].map((letter) => 0x1f1e6 + letter.charCodeAt(0) - 65));
 }

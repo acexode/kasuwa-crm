@@ -1,7 +1,7 @@
 'use client';
 
 
-import { PRIMARY_BUTTON } from './button-classes';
+import { AUTH_COLUMN } from './auth-classes';
 
 /**
  * `P01/1d` — the slow-network state.
@@ -43,41 +43,47 @@ export function SlowConnection({
   onKeepWaiting: () => void;
 }) {
   return (
-    <section data-screen="P01/1d" className="flex w-full max-w-lg flex-col gap-5">
+    <section data-screen="P01/1d" className={AUTH_COLUMN}>
       <span className="sr-only">{skeletonLabel}</span>
       <div
         role="status"
         data-testid="still-connecting"
-        className="flex flex-col gap-3 rounded-lg bg-info-soft p-4 text-body-sm text-info-text"
+        className="flex flex-col gap-2.5 rounded-10 bg-info-soft p-3.5 text-body-sm text-info-text"
       >
-        <p className="flex items-center gap-3 font-bold">
+        <p className="flex items-center gap-2.5 font-bold">
           <span
             aria-hidden="true"
-            className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent motion-reduce:animate-none"
+            className="inline-block size-4.5 animate-spin rounded-full border-2 border-current border-e-transparent motion-reduce:animate-none"
           />
           {title}
         </p>
         <p className="text-text-2">{body}</p>
         <div className="flex flex-wrap gap-2">
-          <button type="button" data-testid="switch-to-lite" onClick={onSwitch} className={PRIMARY_BUTTON}>
+          <button
+            type="button"
+            data-testid="switch-to-lite"
+            onClick={onSwitch}
+            className="h-control-base rounded-md bg-primary px-3.5 text-body-sm font-semibold text-on-primary hover:bg-primary-hover focus-visible:ring-focus"
+          >
             {switchLabel}
           </button>
           <button
             type="button"
             onClick={onKeepWaiting}
-            className="flex min-h-touch items-center justify-center rounded-md px-3 text-body-sm font-semibold text-primary-text hover:bg-surface-sunken focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            className="h-control-base rounded-md px-3 text-body-sm font-semibold text-primary-text hover:bg-primary-soft focus-visible:ring-focus"
           >
             {keepWaitingLabel}
           </button>
         </div>
       </div>
 
-      <div aria-hidden="true" className="flex flex-col gap-4">
-        <span className="h-8 w-2/3 rounded-sm bg-surface-sunken" />
-        <span className="h-4 w-1/2 rounded-sm bg-surface-sunken" />
-        <span className="h-12 rounded-md bg-surface-sunken" />
-        <span className="h-12 rounded-md bg-surface-sunken" />
-        <span className="h-12 rounded-md bg-surface-sunken" />
+      <div aria-hidden="true" className="flex flex-col gap-3.5">
+        <span className="h-7 w-8/12 rounded-6 bg-surface-sunken" />
+        <span className="h-3.5 w-7/12 rounded-sm bg-surface-sunken" />
+        <span className="h-control-lg rounded-md bg-surface-sunken" />
+        <span className="h-control-lg rounded-md bg-surface-sunken" />
+        <span className="h-control-lg rounded-md bg-surface-sunken" />
+        <span className="h-control-lg rounded-md bg-surface-sunken opacity-70" />
       </div>
     </section>
   );

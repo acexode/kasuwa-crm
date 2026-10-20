@@ -14,4 +14,4 @@ export function rowTone(disabled: boolean, invalid: boolean): string {
 }
 
 export const BOX =
-  'peer size-5 shrink-0 cursor-[inherit] appearance-none border-2 border-border-strong bg-transparent transition-colors duration-quick is-focus-visible:ring-focus aria-[invalid=true]:border-danger disabled:border-border disabled:bg-disabled-bg';
+  'peer shrink-0 cursor-[inherit] appearance-none border-2 border-border-strong bg-transparent transition-colors duration-quick is-focus-visible:ring-focus aria-[invalid=true]:border-danger disabled:border-border disabled:bg-disabled-bg';

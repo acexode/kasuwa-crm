@@ -2,14 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
+import { Button } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
-import { PRIMARY_BUTTON, QUIET_BUTTON } from '../auth/button-classes';
+import { AuthShell } from '../auth/auth-shell';
+import { shellStrings } from '../auth/shell-strings';
 import type { LanguageOption } from '../auth/language-menu';
 import type { InviteAddress } from '../../lib/invite-emails';
 import { ONBOARDING_CURRENCIES, type OnboardingCurrency } from '../../lib/money-format';
 import { ImportStep, columnsToFix, type CsvMapping, type ImportSource } from './import-step';
 import { InviteStep, type InviteRole } from './invite-step';
 import { OnboardingShell } from './onboarding-shell';
+import { useRouter } from 'next/navigation';
 import { CurrencyStep, WhatsAppStep } from './simple-steps';
 
 /**
@@ -59,13 +62,23 @@ export function OnboardingWizard({
   locale,
   locales,
   customerLanguages,
+  regionReachable,
+  tourShown,
 }: {
   messages: MessageBundle;
   locale: string;
   locales: readonly LanguageOption[];
   customerLanguages: readonly LanguageOption[];
+  /**
+   * `self_serve_signup`, from the server: step 1 (`/sign-up/region`) exists.
+   * Off, step 2's Back is drawn in place but disabled, never a link to a 404.
+   */
+  regionReachable: boolean;
+  /** `product_tour` (D-L194): draw P01/6's tour button, disabled until a tour exists. */
+  tourShown: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
+  const router = useRouter();
   const sectionRef = useRef<HTMLElement>(null);
   const firstRender = useRef(true);
 
@@ -99,33 +112,64 @@ export function OnboardingWizard({
   const step = STEP_NUMBER[stage];
   const skippable = stage === 'whatsapp' || stage === 'import' || stage === 'team';
 
+  if (stage === 'done') {
+    return (
+      <AuthShell strings={shellStrings(t)} locales={locales} currentLocale={locale} trustFooter={false}>
+        <section
+          ref={sectionRef}
+          data-screen={SCREEN.done}
+          className="my-auto flex w-full max-w-layout-column-wide flex-col gap-5"
+        >
+          <Checklist
+            t={t}
+            mapping={mapping}
+            inviteCount={invites.filter((entry) => entry.problem === null).length}
+            onGo={(next) => setStage(next)}
+            tourShown={tourShown}
+          />
+        </section>
+      </AuthShell>
+    );
+  }
+
   return (
     <OnboardingShell
       t={t}
       locales={locales}
       locale={locale}
-      step={step}
+      step={step ?? 1}
       back={
-        index > 0 && stage !== 'done'
+        index > 0
           ? { label: t.t('onboarding.back'), onClick: () => go(STAGES[index - 1]) }
-          : undefined
+          : {
+              // Step 2's Back returns to the data region (P01/5.1), which only
+              // a self-serve tenant has.
+              label: t.t('onboarding.back'),
+              onClick: () => router.push('/sign-up/region'),
+              disabled: !regionReachable,
+            }
       }
       skip={
         skippable
-          ? { label: t.t('onboarding.skip'), onClick: () => go(STAGES[index + 1]), testId: 'onboarding-skip' }
+          ? {
+              label: t.t('onboarding.skip'),
+              shortLabel: t.t('onboarding.skip.short'),
+              onClick: () => go(STAGES[index + 1]),
+              testId: 'onboarding-skip',
+            }
           : undefined
       }
-      next={
-        stage === 'done'
-          ? undefined
-          : {
-              label: t.t(stage === 'team' ? 'onboarding.finish' : 'onboarding.continue'),
-              onClick: () => go(STAGES[index + 1]),
-              testId: 'onboarding-continue',
-            }
-      }
+      next={{
+        label: t.t(stage === 'team' ? 'onboarding.finish' : 'onboarding.continue'),
+        onClick: () => go(STAGES[index + 1]),
+        testId: 'onboarding-continue',
+      }}
     >
-      <section ref={sectionRef} data-screen={SCREEN[stage]} className="flex w-full max-w-2xl flex-col gap-5">
+      <section
+        ref={sectionRef}
+        data-screen={SCREEN[stage]}
+        className={`flex w-full max-w-layout-wizard flex-col ${stage === 'currency' ? 'gap-5' : 'gap-4.5'}`}
+      >
         {stage === 'currency' ? (
           <CurrencyStep
             t={t}
@@ -153,14 +197,6 @@ export function OnboardingWizard({
         {stage === 'team' ? (
           <InviteStep t={t} invites={invites} onInvites={setInvites} role={role} onRole={setRole} />
         ) : null}
-        {stage === 'done' ? (
-          <Checklist
-            t={t}
-            mapping={mapping}
-            inviteCount={invites.filter((entry) => entry.problem === null).length}
-            onGo={(next) => setStage(next)}
-          />
-        ) : null}
       </section>
     </OnboardingShell>
   );
@@ -187,11 +223,13 @@ function Checklist({
   mapping,
   inviteCount,
   onGo,
+  tourShown,
 }: {
   t: Translator;
   mapping: CsvMapping | null;
   inviteCount: number;
   onGo: (stage: Stage) => void;
+  tourShown: boolean;
 }) {
   const items: ChecklistItem[] = [
     { key: 'workspace', state: 'done', title: t.t('done.item.workspace'), detail: t.t('done.item.workspace.detail') },
@@ -230,46 +268,56 @@ function Checklist({
 
   return (
     <>
-      <span className="flex h-16 w-16 items-center justify-center self-center rounded-full bg-success-soft text-success-text">
-        <Icon name="check" size="xl" />
+      <span className="flex size-16 items-center justify-center rounded-full bg-success-soft text-success-text">
+        <Icon name="check" size={32} />
       </span>
-      <div className="flex flex-col gap-2 text-center">
-        <h1 tabIndex={-1} className="text-h3 text-text">
+      <div className="flex flex-col gap-1.5">
+        <h1 tabIndex={-1} className="text-h2 text-text">
           {t.t('done.title')}
         </h1>
         <p className="text-body-md text-text-2">{t.t('done.subtitle')}</p>
       </div>
 
-      <ul data-testid="checklist" className="flex list-none flex-col gap-2 p-0">
+      {/* One card of divided rows, as the board draws it. */}
+      <ul
+        data-testid="checklist"
+        className="m-0 flex list-none flex-col overflow-hidden rounded-lg border border-border bg-surface p-0"
+      >
         {items.map((item) => (
           <li
             key={item.key}
             data-item={item.key}
             data-state={item.state}
-            className="flex items-center gap-3 rounded-lg border border-border bg-surface p-3"
+            className="flex items-center gap-3 border-b border-border px-3.5 py-2.5 last:border-b-0"
           >
             <span
               aria-hidden="true"
-              className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
+              className={`flex size-7 flex-shrink-0 items-center justify-center rounded-full ${
                 item.state === 'done'
-                  ? 'bg-success-soft text-success-text'
+                  ? 'bg-success text-on-primary'
                   : item.state === 'progress'
                     ? 'bg-info-soft text-info-text'
                     : 'border-2 border-border-strong'
               }`}
             >
-              {item.state === 'done' ? <Icon name="check" size="sm" /> : null}
-              {item.state === 'progress' ? <Icon name="hourglass_top" size="sm" /> : null}
+              {item.state === 'done' ? <Icon name="check" size={18} /> : null}
+              {item.state === 'progress' ? <Icon name="refresh" size={18} /> : null}
             </span>
-            <span className="flex flex-1 flex-col">
+            <span className="flex min-w-0 flex-1 flex-col gap-px">
               <span className="sr-only">{t.t(`done.state.${item.state}` as MessageId)}</span>
-              <strong className={`text-body-sm ${item.state === 'done' ? 'font-medium text-text-2' : 'text-text'}`}>
+              <strong
+                className={`text-label ${item.state === 'done' ? 'font-medium text-text-2' : 'font-bold text-text'}`}
+              >
                 {item.title}
               </strong>
-              <span className="text-body-sm text-text-2">{item.detail}</span>
+              <span className="text-meta text-text-2">{item.detail}</span>
             </span>
             {item.action !== undefined ? (
-              <button type="button" onClick={() => onGo(item.action?.stage ?? 'done')} className={QUIET_BUTTON}>
+              <button
+                type="button"
+                onClick={() => onGo(item.action?.stage ?? 'done')}
+                className="h-control-base whitespace-nowrap rounded-md px-1 text-body-sm font-semibold text-primary-text hover:underline focus-visible:ring-focus"
+              >
                 {item.action.label}
               </button>
             ) : null}
@@ -277,9 +325,19 @@ function Checklist({
         ))}
       </ul>
 
-      <a href="/admin" className={PRIMARY_BUTTON}>
-        {t.t('done.home')}
-      </a>
+      <div className="flex flex-wrap gap-2">
+        <a
+          href="/admin"
+          className="flex h-control-lg flex-[1_1_180px] items-center justify-center rounded-md bg-primary px-3.5 text-body-md font-semibold text-on-primary hover:bg-primary-hover focus-visible:ring-focus"
+        >
+          {t.t('done.home')}
+        </a>
+        {tourShown ? (
+          <Button size="large" disabled className="flex-[1_1_180px]">
+            {t.t('done.tour')}
+          </Button>
+        ) : null}
+      </div>
     </>
   );
 }
