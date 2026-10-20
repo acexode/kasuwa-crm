@@ -643,6 +643,32 @@ export const FLAGS = {
     owner: 'T-0132 (placeholder), each module when it is built',
     productionReady: false,
   },
+  /**
+   * D-L194, T-0137: the P26 notification types that have no producer yet
+   * (mentions, approvals, SLA warnings, campaigns, payments, e-invoices,
+   * security). With the flag on, the centre's filter rail and the bell's chips
+   * draw them where the design does, disabled; off, they are not drawn. Each
+   * comes alive with the module that produces it. Presentation only.
+   */
+  notification_types: {
+    description: 'The P26 filter entries for notification types no module produces yet, drawn disabled (T-0137, D-L194).',
+    defaultValue: false,
+    owner: 'T-0137 (placeholder), each producing module when it is built',
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0137: P26 D/D1, notification preferences at
+   * `/settings/notifications`, and the Preferences button, the bell's gear and
+   * B2's "Set preferences" that lead to it. There is no preferences API, so
+   * the screen is drawn in its disabled state and saves nothing. Off, the
+   * route is a 404 and nothing links to it.
+   */
+  notification_preferences: {
+    description: 'P26 notification preferences at /settings/notifications and the links to it, drawn disabled until a preferences API exists (T-0137, D-L194).',
+    defaultValue: false,
+    owner: 'T-0137 (placeholder), the notification-preferences API when it is built',
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

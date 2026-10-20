@@ -45,6 +45,9 @@ export const CRM_NAV: readonly CrmNavItem[] = [
   { id: 'reports', label: 'records.nav.reports', icon: 'bar_chart', href: null, placeholder: true },
 ];
 
+/** The phone bottom bar's Alerts tab (P26 E2): the notification centre, never on the rail. */
+export const ALERTS_TAB: CrmNavItem = { id: 'notifications', label: 'notifications.tab', icon: 'notifications', href: '/notifications', placeholder: false };
+
 /** The entry's link, or `null` when it is unbuilt or its flag is off here. */
 export function liveHref(item: CrmNavItem, live: readonly string[]): string | null {
   return item.href !== null && live.includes(item.id) ? item.href : null;
@@ -69,6 +72,11 @@ export function shownNav(live: readonly string[]): readonly CrmNavItem[] {
 export function bottomNav(live: readonly string[], current: string, objects?: readonly string[]): readonly CrmNavItem[] {
   const shown = shownNav(live);
   const lead = shown.filter((item) => item.id === 'home' || item.id === 'inbox');
+  // P26 E2 (T-0137): on the notification centre the bar is Home, Inbox, Deals, Alerts (active), More.
+  // Only there: the Alerts label is in the centre's bundle, and the rail has no such entry.
+  if (current === 'notifications' && live.includes('notifications')) {
+    return [...shown.filter((item) => item.id === 'home' || item.id === 'inbox' || item.id === 'deals'), ALERTS_TAB];
+  }
   if (objects !== undefined) {
     const picked = objects.flatMap((id) => shown.filter((item) => item.id === id));
     if (picked.length === objects.length) return [...lead, ...picked];

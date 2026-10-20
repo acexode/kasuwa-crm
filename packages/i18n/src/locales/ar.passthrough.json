@@ -17,6 +17,7 @@
   "import.source.hubspot",
   "import.source.salesforce",
   "import.source.zoho",
+  "notifications.prefs.channel.whatsapp",
   "pipeline.list.stageOption",
   "pipeline.select.qualified",
   "pipeline.template.percent",

@@ -236,6 +236,7 @@ export const RADIUS = {
  * Control heights (T-0127), from the v1.1 Components page and the screen
  * exports:
  *
+ *   xs   30  the bell dropdown's filter chips (P26 A, T-0137). Desktop only.
  *   sm   36  compact desktop controls: toolbar chips, segmented items, Columns.
  *           Desktop only, and the control still keeps a 44px hit area.
  *   md   40  header search, menu rows, table header.
@@ -247,6 +248,7 @@ export const RADIUS = {
  * may be smaller than the target only where the hit area is padded back out.
  */
 export const CONTROL_HEIGHT = {
+  xs: '30px',
   sm: '36px',
   md: '40px',
   base: '44px',
@@ -344,6 +346,13 @@ export const SHELL = {
  *   homeAddTile       140  the dashed "Add widget" tile in customise mode
  *   homeProgress      360  the new-tenant setup progress bar
  *   homeSkeletonTall  120  a large widget's (L, XL) skeleton block; 80 is h-20
+ *
+ * And from the P26 export (T-0137):
+ *
+ *   filterRail     240  the notification centre's filter card beside its list
+ *   pageWide      1116  the centre's page column (1180 less its 32px padding each side)
+ *   settingsAside  380  the preferences page's right column (quiet hours, digest)
+ *   prefsChannel    88  one channel column of the preferences matrix
  */
 export const LAYOUT = {
   authPanel: '520px',
@@ -359,6 +368,10 @@ export const LAYOUT = {
   homeAddTile: '140px',
   homeProgress: '360px',
   homeSkeletonTall: '120px',
+  filterRail: '240px',
+  pageWide: '1116px',
+  settingsAside: '380px',
+  prefsChannel: '88px',
 } as const;
 
 /**
@@ -430,6 +443,8 @@ export const CONTROL_SHADOW = {
  *   emptyText      280  an empty state's centred body line (v1.1 Components)
  *   previewFrame   480  the Patterns page's drawer and modal specimen tiles,
  *                       and 560 for its phone specimens (/design/components-2)
+ *   notificationPanel  440  the bell's popover under the top bar (P26 A, T-0137)
+ *   notificationToast  380  a notification toast at the bottom-right (P26 C, T-0137)
  *
  * They join the spacing scale like SHELL: `max-w-overlay-drawer`,
  * `h-overlay-table-footer`.
@@ -448,6 +463,8 @@ export const OVERLAY = {
   emptyText: '280px',
   previewFrame: '480px',
   previewFrameCompact: '560px',
+  notificationPanel: '440px',
+  notificationToast: '380px',
 } as const;
 
 /**

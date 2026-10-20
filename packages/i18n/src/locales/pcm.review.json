@@ -438,6 +438,7 @@
     "records.empty.import.zoho": "Product names, unchanged in this locale.",
     "records.empty.import.salesforce": "Product names, unchanged in this locale.",
     "records.empty.capture.ussd": "The same words in this locale.",
+    "notifications.prefs.channel.whatsapp": "Product name of the WhatsApp channel. It is spelled the same in every locale.",
     "home.dateLine": "A day, a clock time and a time-zone name joined by punctuation. No words to translate.",
     "home.range.week.short": "The same in this language as in English: a code, a name or punctuation only.",
     "home.range.month.short": "The same in this language as in English: a code, a name or punctuation only.",

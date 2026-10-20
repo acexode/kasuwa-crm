@@ -33,6 +33,7 @@
   "import.source.hubspot",
   "import.source.salesforce",
   "import.source.zoho",
+  "notifications.prefs.channel.whatsapp",
   "onboarding.step.whatsapp",
   "pipeline.list.stageOption",
   "pipeline.list.whatsapp",
