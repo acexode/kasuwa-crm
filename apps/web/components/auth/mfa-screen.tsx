@@ -16,6 +16,13 @@ import {
   type MfaMethodType,
   type ScreenError,
 } from '../../lib/auth-api';
+import {
+  browserSessionStore,
+  forgetSmsOption,
+  recallSmsOption,
+  rememberSmsOption,
+  smsOptionHint,
+} from '../../lib/mfa-sms-option';
 import type { LanguageOption } from './language-menu';
 
 const CODE_LENGTH = 6;
@@ -26,7 +33,6 @@ export function MfaScreen({
   locales,
   challengeId,
   initialMethod,
-  initialHint,
   initialResendAvailableAt,
   landing,
 }: {
@@ -35,7 +41,6 @@ export function MfaScreen({
   locales: readonly LanguageOption[];
   challengeId: string;
   initialMethod: MfaMethodType;
-  initialHint: string | null;
   initialResendAvailableAt: string | null;
   /** Where a signed-in browser lands, decided on the server (`lib/server/landing.ts`). */
   landing: string;
@@ -44,12 +49,22 @@ export function MfaScreen({
   const router = useRouter();
 
   const [method, setMethod] = useState<MfaMethodType>(initialMethod);
-  const [hint, setHint] = useState<string | null>(initialHint);
+  const [hint, setHint] = useState<string | null>(null);
+  // The masked number "Text a code to …" offers, or `null` to hide it (T-0126).
+  // Starts hidden on the server and on first paint; sessionStorage is read
+  // after hydration, so a reload of /verify keeps the decision sign-in made.
+  const [smsOffer, setSmsOffer] = useState<string | null>(null);
   const [resendAt, setResendAt] = useState<string | null>(initialResendAvailableAt);
   const [code, setCode] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<ScreenError | undefined>(undefined);
   const alertRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const remembered = recallSmsOption(browserSessionStore(), challengeId);
+    setSmsOffer(remembered);
+    setHint((current) => current ?? remembered);
+  }, [challengeId]);
 
   useEffect(() => {
     if (error !== undefined) {
@@ -85,6 +100,7 @@ export function MfaScreen({
       setPending(false);
 
       if (result.ok) {
+        forgetSmsOption(browserSessionStore(), challengeId);
         // The BFF has set the session cookie (the body carries no token,
         // ADR-0019 point 3). Straight to the landing the server chose, with no
         // redirect hop on the way: a hop through `/` makes the router abort
@@ -103,6 +119,12 @@ export function MfaScreen({
     setMethod(challenge.method);
     setResendAt(challenge.resendAvailableAt);
     setHint(challenge.methods.find((entry) => entry.type === challenge.method)?.deliveryHint ?? null);
+    // Same rule as sign-in, so a reissue that withdraws SMS hides the option
+    // here and after a reload. Keyed by the id in the URL, which is the one a
+    // reload reads.
+    const offer = smsOptionHint(challenge.methods);
+    setSmsOffer(offer);
+    rememberSmsOption(browserSessionStore(), challengeId, offer);
   }
 
   const switchTo = useCallback(
@@ -224,15 +246,17 @@ export function MfaScreen({
                 <Icon name="passkey" />
                 {t.t('auth.mfa.alt.passkey')}
               </button>
-              <button
-                type="button"
-                data-testid="switch-to-sms"
-                onClick={() => void switchTo('sms')}
-                className={SECONDARY_BUTTON}
-              >
-                <Icon name="sms" />
-                {t.t('auth.mfa.alt.sms', { hint: hint ?? '' })}
-              </button>
+              {smsOffer !== null ? (
+                <button
+                  type="button"
+                  data-testid="switch-to-sms"
+                  onClick={() => void switchTo('sms')}
+                  className={SECONDARY_BUTTON}
+                >
+                  <Icon name="sms" />
+                  {t.t('auth.mfa.alt.sms', { hint: smsOffer })}
+                </button>
+              ) : null}
               <button type="button" onClick={() => void switchTo('backup_code')} className={SECONDARY_BUTTON}>
                 <Icon name="key" />
                 {t.t('auth.mfa.alt.backup')}
