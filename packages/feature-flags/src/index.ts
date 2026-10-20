@@ -486,6 +486,9 @@ export const FLAGS = {
     description: 'Disabled P04 filter chips for filters the list reads do not declare yet (T-0133, D-L194).',
     defaultValue: false,
     owner: 'T-0133 (placeholder)',
+    productionReady: false,
+  },
+  /**
    * D-L194, T-0137: the P26 notification types that have no producer yet
    * (mentions, approvals, SLA warnings, campaigns, payments, e-invoices,
    * security). With the flag on, the centre's filter rail and the bell's chips
