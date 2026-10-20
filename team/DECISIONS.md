@@ -4474,3 +4474,19 @@ All stay under the PRD 2.13 limit of 300,000. The heaviest page is P02's scripts
 **For the rest of the D-L193 programme.** The component library and shell (T-0128 to T-0130) will move every page
 again. Each of those PRs re-pins on its own measured run and states the cause. No ceiling is ever raised past
 300,000, and none is raised without a row in a decision like this one.
+### D-L200 — Components live in packages/ui, behind their own entry point (lead, 2026-10-20, T-0128)
+
+The D-L193 audit found no component layer: every screen hand-rolls its controls from copied class strings
+(`auth/button-classes.ts`, `records/list-classes.ts`, inline strings), and each copy drifts from the spec
+differently.
+
+**Ruling:**
+- Components are built once in `packages/ui/src/components/` and published as `@kasuwa/ui/components`.
+- React is a peer dependency. It is already in the workspace through apps/web, so no new package is
+  installed.
+- The components never import the `@kasuwa/ui` root, the colour tables or the generators at run time. The
+  root exports token tables and generators, and a client component importing it would ship them on every
+  page.
+- They are styled only with the T-0127 Tailwind utilities, so no colour or pixel literal appears in a
+  component.
+- `/design/components` shows every variant for review, beside `/design/tokens`.
