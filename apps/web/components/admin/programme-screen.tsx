@@ -196,7 +196,7 @@ export function ProgrammeScreen({
         <div
           role="tablist"
           aria-label={t.t('admin.prog.tabs')}
-          className="-mt-1 flex gap-0.5 overflow-x-auto border-b border-border"
+          className="relative -mt-1 flex gap-0.5 overflow-x-auto border-b border-border"
         >
           {PROGRAMME_TABS.map((value) => {
             // Counts only where the API serves them (T-0140): the programme

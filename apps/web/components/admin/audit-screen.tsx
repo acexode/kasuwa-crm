@@ -363,7 +363,7 @@ export function AuditScreen({
               </div>
             ) : (
               <div className={`${CARD} min-w-0 overflow-hidden`}>
-                <div className="overflow-x-auto">
+                <div className="relative overflow-x-auto">
                   <table className="w-full min-w-max border-collapse text-body-sm">
                     <caption className="sr-only">{t.t('admin.audit.title')}</caption>
                     <thead className={TABLE_HEAD}>
@@ -395,7 +395,7 @@ export function AuditScreen({
                         const type = objectName(entry.objectType);
                         const record =
                           label !== null && looksLikeId(label)
-                            ? t.t('admin.audit.record.id', { id: label.slice(0, 8) })
+                            ? t.t('admin.audit.record.id', { id: label.slice(-6).toUpperCase() })
                             : label;
                         const detailId = `audit-detail-${entry.id}`;
                         return (

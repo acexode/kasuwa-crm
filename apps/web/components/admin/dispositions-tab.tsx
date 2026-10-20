@@ -108,7 +108,7 @@ export function DispositionsTab({
       <Panel t={t} resource={dispositions} skeletonRows={8}>
         {(data) => (
           <div className={`${CARD} overflow-hidden`}>
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full min-w-max border-collapse text-body-sm">
                 <caption className="sr-only">{t.t('admin.prog.tab.dispositions')}</caption>
                 <thead className={TABLE_HEAD}>

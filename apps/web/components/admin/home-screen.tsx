@@ -447,7 +447,7 @@ export function AdminHomeScreen({
                       rawRecord === null
                         ? null
                         : looksLikeId(rawRecord)
-                          ? t.t('admin.audit.record.id', { id: rawRecord.slice(0, 8) })
+                          ? t.t('admin.audit.record.id', { id: rawRecord.slice(-6).toUpperCase() })
                           : withheldIfIdentifier(rawRecord);
                     return (
                       <li

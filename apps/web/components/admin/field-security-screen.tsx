@@ -366,7 +366,7 @@ export function FieldSecurityScreen({
 
         <Panel t={t} resource={matrix} skeletonRows={10}>
           {(loadedMatrix) => (
-            <div className={`${CARD} overflow-auto`}>
+            <div className={`${CARD} relative overflow-auto`}>
               <table className="w-full min-w-max border-collapse text-body-sm">
                 <caption className="sr-only">{t.t('admin.fls.title')}</caption>
                 <thead className="bg-surface-sunken">

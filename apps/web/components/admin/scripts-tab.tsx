@@ -92,7 +92,7 @@ export function ScriptsTab({
               role="region"
               aria-label={t.t('admin.prog.tab.scripts')}
               tabIndex={0}
-              className={`${CARD} overflow-x-auto outline-none is-focus-visible:ring-focus`}
+              className={`${CARD} relative overflow-x-auto outline-none is-focus-visible:ring-focus`}
             >
               <table className="w-full min-w-max border-collapse text-body-sm">
                 <caption className="sr-only">{t.t('admin.prog.tab.scripts')}</caption>

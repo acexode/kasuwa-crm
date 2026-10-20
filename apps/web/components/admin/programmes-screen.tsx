@@ -199,7 +199,7 @@ export function ProgrammesScreen({
                   </div>
                 ) : (
                   <div className={`${CARD} overflow-hidden`}>
-                    <div className="overflow-x-auto">
+                    <div className="relative overflow-x-auto">
                       <table className="w-full min-w-max border-collapse text-body-sm">
                         <caption className="sr-only">{t.t('admin.prog.title')}</caption>
                         <thead className={TABLE_HEAD}>

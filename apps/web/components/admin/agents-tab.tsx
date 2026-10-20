@@ -118,7 +118,7 @@ export function AgentsTab({
           </AdminButton>
         </div>
 
-        <div className="overflow-x-auto [&>[role=status]]:m-4 [&>[role=alert]]:m-4">
+        <div className="relative overflow-x-auto [&>[role=status]]:m-4 [&>[role=alert]]:m-4">
           <Panel t={t} resource={agents} skeletonRows={6}>
             {(data) => (
               <table className="w-full min-w-max border-collapse text-body-sm">

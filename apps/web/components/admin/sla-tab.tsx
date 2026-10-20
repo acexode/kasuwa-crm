@@ -221,9 +221,9 @@ export function SlaTab({
     changed.includes(field) ? 'border-accent bg-accent-soft' : 'border-border-strong bg-surface';
 
   /** The export's 40px inline field and select: radius 8, 14px, a 1px edge (amber once edited). */
-  const fieldClass = (field: string) =>
-    `h-control-md w-full min-w-0 rounded-md border px-3 text-body-sm text-text is-focus:field-focus aria-[invalid=true]:border-2 aria-[invalid=true]:border-danger ${mark(field)}`;
-  const selectClass = (field: string) => `${fieldClass(field)} cursor-pointer ps-2.5`;
+  const fieldClass = (field: string, width = 'w-full') =>
+    `h-control-md ${width} min-w-0 rounded-md border px-3 text-body-sm text-text is-focus:field-focus aria-[invalid=true]:border-2 aria-[invalid=true]:border-danger ${mark(field)}`;
+  const selectClass = (field: string, width = 'w-full') => `${fieldClass(field, width)} cursor-pointer ps-2.5`;
 
   return (
     <div data-screen="P02/B4" className="flex flex-col gap-6">
@@ -236,7 +236,7 @@ export function SlaTab({
                   <h2 className="m-0 text-card-title">{t.t('admin.sla.title')}</h2>
                   <p className="m-0 text-meta text-text-2">{t.t('admin.sla.subtitle')}</p>
                 </div>
-                <div className="overflow-x-auto">
+                <div className="relative overflow-x-auto">
                   <table className="w-full min-w-max border-collapse text-body-sm">
                     <caption className="sr-only">{t.t('admin.sla.title')}</caption>
                     <thead className={TABLE_HEAD}>
@@ -379,7 +379,7 @@ export function SlaTab({
                       onChange={(event) =>
                         setDraft({ ...draft, warnAtPercentOfTarget: Number(event.target.value) })
                       }
-                      className={`${selectClass('warnAtPercentOfTarget')} w-auto`}
+                      className={selectClass('warnAtPercentOfTarget', 'w-auto')}
                     >
                       {WARN_PERCENTS.map((percent) => (
                         <option key={percent} value={percent}>
@@ -395,7 +395,7 @@ export function SlaTab({
                       onChange={(event) =>
                         setDraft({ ...draft, warnNotifyRole: event.target.value as SlaNotifyRole })
                       }
-                      className={`${selectClass('warnNotifyRole')} w-auto`}
+                      className={selectClass('warnNotifyRole', 'w-auto')}
                     >
                       {WARN_ROLES.map((role) => (
                         <option key={role} value={role}>
@@ -417,7 +417,7 @@ export function SlaTab({
                           breachNotifyRole: event.target.value as SlaNotifyRole,
                         })
                       }
-                      className={`${selectClass('breachNotifyRole')} w-auto`}
+                      className={selectClass('breachNotifyRole', 'w-auto')}
                     >
                       {BREACH_ROLES.map((role) => (
                         <option key={role} value={role}>
