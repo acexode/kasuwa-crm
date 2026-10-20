@@ -184,7 +184,7 @@ async function crmPlaceholderEnabled(id: (typeof UNBUILT_NAV)[number]): Promise<
  * as "not available yet", exactly like an unbuilt one (`components/crm/crm-nav.ts`).
  */
 export async function crmLiveNav(): Promise<string[]> {
-  const [contacts, accounts, leads, activities, pipeline, search, csvImport, duplicates, recordView, notifications, ...placeholders] = await Promise.all([
+  const [contacts, accounts, leads, activities, pipeline, search, csvImport, duplicates, recordView, notifications, notificationExtras, ...placeholders] = await Promise.all([
     crmRecordsEnabled(),
     crmAccountsEnabled(),
     crmLeadsEnabled(),
@@ -195,6 +195,7 @@ export async function crmLiveNav(): Promise<string[]> {
     crmDuplicatesEnabled(),
     crmRecordViewEnabled(),
     crmNotificationsEnabled(),
+    notificationPlaceholders(),
     ...UNBUILT_NAV.map((id) => crmPlaceholderEnabled(id)),
   ]);
   return [
@@ -222,6 +223,8 @@ export async function crmLiveNav(): Promise<string[]> {
           ...(pipeline ? ['notifications:deal'] : []),
           ...(activities ? ['notifications:activity'] : []),
           ...(csvImport && contacts ? ['notifications:import'] : []),
+          // P26's placeholders (T-0137, D-L194): drawn only where their own flag is on too.
+          ...notificationExtras,
         ]
       : []),
   ];
@@ -351,6 +354,36 @@ export async function crmNotificationsEnabled(): Promise<boolean> {
     false,
     toEvaluationContext({ tenantId: CRM_SHELL }),
   );
+}
+
+/**
+ * The P26 placeholders (T-0137, D-L194), as `live` entries for the bell and
+ * the centre: `notification-types` (the types no module produces yet, drawn
+ * disabled), `notification-preferences` (the Preferences button, the bell's
+ * gear and `/settings/notifications`), `notification-toasts` and
+ * `security-alerts` (mounted, empty until something raises one). Read only
+ * where `crm_notifications` is on; each is presentation only.
+ */
+export const NOTIFICATION_PLACEHOLDERS = {
+  'notification-types': 'notification_types',
+  'notification-preferences': 'notification_preferences',
+  'notification-toasts': 'notification_toasts',
+  'security-alerts': 'security_alerts',
+} as const;
+
+export async function notificationPlaceholders(): Promise<string[]> {
+  await initialiseFeatureFlags();
+  const entries = Object.entries(NOTIFICATION_PLACEHOLDERS);
+  const on = await Promise.all(
+    entries.map(([, flag]) => featureFlagClient().getBooleanValue(flag, false, toEvaluationContext({ tenantId: CRM_SHELL }))),
+  );
+  return entries.filter((_, index) => on[index] === true).map(([id]) => id);
+}
+
+/** `/settings/notifications` answers only where both the bell and its preferences placeholder are on. */
+export async function notificationPreferencesEnabled(): Promise<boolean> {
+  if (!(await crmNotificationsEnabled())) return false;
+  return (await notificationPlaceholders()).includes('notification-preferences');
 }
 
 /**

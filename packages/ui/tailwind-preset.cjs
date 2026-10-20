@@ -220,6 +220,7 @@ module.exports = {
     '5.5': 'var(--k-space-5_5)',
     '6.5': 'var(--k-space-6_5)',
     'touch': 'var(--k-space-touch)',
+    'control-xs': 'var(--k-control-height-xs)',
     'control-sm': 'var(--k-control-height-sm)',
     'control-md': 'var(--k-control-height-md)',
     'control-base': 'var(--k-control-height-base)',

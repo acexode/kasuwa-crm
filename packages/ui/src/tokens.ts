@@ -234,6 +234,7 @@ export const RADIUS = {
  * Control heights (T-0127), from the v1.1 Components page and the screen
  * exports:
  *
+ *   xs   30  the bell dropdown's filter chips (P26 A, T-0137). Desktop only.
  *   sm   36  compact desktop controls: toolbar chips, segmented items, Columns.
  *           Desktop only, and the control still keeps a 44px hit area.
  *   md   40  header search, menu rows, table header.
@@ -245,6 +246,7 @@ export const RADIUS = {
  * may be smaller than the target only where the hit area is padded back out.
  */
 export const CONTROL_HEIGHT = {
+  xs: '30px',
   sm: '36px',
   md: '40px',
   base: '44px',

@@ -219,6 +219,7 @@
   --k-radius-full: 999px;
   
   /* control heights, icon sizes, app shell */
+  --k-control-height-xs: 30px;
   --k-control-height-sm: 36px;
   --k-control-height-md: 40px;
   --k-control-height-base: 44px;
