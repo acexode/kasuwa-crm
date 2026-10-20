@@ -200,7 +200,7 @@ export function AdminShell({
             type="button"
             aria-label={t.t('admin.shell.menu.close')}
             onClick={() => setDrawerOpen(false)}
-            className="fixed inset-0 z-20 bg-inverse opacity-60 lg:hidden"
+            className="fixed inset-0 z-20 bg-scrim lg:hidden"
           />
         ) : null}
 

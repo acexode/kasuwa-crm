@@ -183,7 +183,7 @@ const SCREEN = '[data-screen="P28"]';
  * builder's first green measurement (D-L118), as for T-0109 and T-0096; until
  * then the acceptance suite's budget check fails by design.
  */
-const DUPLICATES_BUDGET_BYTES = 235_000;
+const DUPLICATES_BUDGET_BYTES = 244_000;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 

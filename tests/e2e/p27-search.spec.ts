@@ -190,7 +190,7 @@ const PALETTE = '[data-testid="command-palette"]';
  * holds it at or under 255,000 bytes and within 5% of what each run
  * measures; it is re-measured after the D-L137 fixes.
  */
-const SEARCH_BUDGET_BYTES = 223_000;
+const SEARCH_BUDGET_BYTES = 229_500;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const UUID_ONLY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

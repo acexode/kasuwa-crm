@@ -1,0 +1,26 @@
+# Material Symbols Rounded glyphs the design draws FILLED (T-0127, D-L198).
+# They ship in a second, small face ('Material Symbols Rounded Filled') that a
+# page downloads only when it draws one, so the main subset stays static.
+#
+# `<Icon filled>` accepts only these names (the generated FilledIconName union),
+# and `pnpm verify:icons` fails on a filled reference outside this list: a
+# filled glyph missing from this face renders as a BLANK BOX.
+# Every name here must also be in icon-subset.txt. Regenerate with:
+#   pnpm ui:fetch-fonts
+#
+# P26: the bell and the security banner.
+notifications
+gpp_maybe
+lock
+# The active bottom-tab icon (P26 fills it), for every CRM nav entry that can
+# sit on the phone bottom bar, plus More.
+home
+forum
+contacts
+person_add
+domain
+event_note
+handshake
+confirmation_number
+headset_mic
+menu
