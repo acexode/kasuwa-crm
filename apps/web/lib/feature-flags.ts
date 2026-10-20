@@ -627,3 +627,48 @@ export async function homeWidgetFlags(): Promise<HomeWidgetFlags> {
   ]);
   return { aiNba, whatsapp, quota, approvals, kpis, fx, calendar };
 }
+
+/**
+ * T-0142 (D-L194): the P18 Customisation Studio's placeholder sections and
+ * the field editor's parts no read serves yet. Each is presentation only: on,
+ * the part is drawn in the design's own empty or disabled state; off, it is
+ * not drawn and its route is a real 404. Read on the server, passed down as
+ * booleans, so no client module names a flag.
+ */
+export interface StudioFlags {
+  readonly objects: boolean;
+  readonly layouts: boolean;
+  readonly validation: boolean;
+  readonly relationships: boolean;
+  readonly recordTypes: boolean;
+  readonly extendedTypes: boolean;
+  readonly usage: boolean;
+  readonly translations: boolean;
+}
+
+export async function studioFlags(): Promise<StudioFlags> {
+  await initialiseFeatureFlags();
+  const context = toEvaluationContext({ tenantId: ADMIN_CONSOLE });
+  const read = (
+    name:
+      | 'studio_objects'
+      | 'studio_layouts'
+      | 'studio_validation'
+      | 'studio_relationships'
+      | 'studio_record_types'
+      | 'custom_field_types_extended'
+      | 'studio_field_usage'
+      | 'studio_field_translations',
+  ) => featureFlagClient().getBooleanValue(name, false, context);
+  const [objects, layouts, validation, relationships, recordTypes, extendedTypes, usage, translations] = await Promise.all([
+    read('studio_objects'),
+    read('studio_layouts'),
+    read('studio_validation'),
+    read('studio_relationships'),
+    read('studio_record_types'),
+    read('custom_field_types_extended'),
+    read('studio_field_usage'),
+    read('studio_field_translations'),
+  ]);
+  return { objects, layouts, validation, relationships, recordTypes, extendedTypes, usage, translations };
+}

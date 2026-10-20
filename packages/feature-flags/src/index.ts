@@ -822,6 +822,75 @@ export const FLAGS = {
     owner: 'T-0139 (placeholder)',
     productionReady: false,
   },
+  /**
+   * D-L194, T-0142: the P18 Customisation Studio's sections with no backend yet.
+   * Each route (`/admin/studio…`) is a real 404 while its flag is off, and its
+   * settings-menu entry stays a non-link. On, the screen is drawn in the
+   * design's own empty or disabled state: the four standard objects the
+   * contract already names, and never an invented object, rule, layout or
+   * number. Presentation only.
+   */
+  studio_objects: {
+    description: 'P18 Object manager at /admin/studio and the object header chips, in their empty state until custom objects exist (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), custom objects when they are built',
+    productionReady: false,
+  },
+  studio_layouts: {
+    description: 'P18 page layouts and the layout builder at /admin/studio/layouts, in their empty state until layouts exist (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), page layouts when they are built',
+    productionReady: false,
+  },
+  studio_validation: {
+    description: 'P18 validation rules at /admin/studio/validation-rules, in their empty state until rules exist (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), validation rules when they are built',
+    productionReady: false,
+  },
+  studio_relationships: {
+    description: 'P18 relationships view at /admin/studio/relationships and its buttons, in their empty state until lookups exist (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), lookup and master-detail fields when they are built',
+    productionReady: false,
+  },
+  studio_record_types: {
+    description: 'P18 record types at /admin/studio/record-types, in their empty state until record types exist (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), record types when they are built',
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0142: the field editor's designed types the custom-field
+   * contract refuses (multi-select, lookup, formula, roll-up, phone, email,
+   * NIN/BVN secure, file), drawn as disabled cards in the type picker. Off,
+   * the picker offers exactly the contract's six.
+   */
+  custom_field_types_extended: {
+    description: 'P18 field types the contract does not accept yet, drawn disabled in the type picker (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), each field type when the contract accepts it',
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0142: what the field list and editor draw about a field that no
+   * read serves yet: the "Used in" column and banner, "Not used anywhere", the
+   * Filterable meter and the Required, Unique and Filterable switches, each in
+   * its empty or disabled state. Off, none is drawn.
+   */
+  studio_field_usage: {
+    description: 'P18 field usage, the Filterable meter and the field property switches, in their empty or disabled state (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), field usage and properties when they are served',
+    productionReady: false,
+  },
+  /** D-L194, T-0142: the field editor's Translations tab, disabled until field-label translations are stored. */
+  studio_field_translations: {
+    description: 'P18 field editor Translations tab, drawn disabled until field-label translations exist (T-0142, D-L194).',
+    defaultValue: false,
+    owner: 'T-0142 (placeholder), field-label translations when they are built',
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

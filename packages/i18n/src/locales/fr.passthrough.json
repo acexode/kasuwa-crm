@@ -145,5 +145,13 @@
   "data.migration.zoho.initial",
   "data.migration.salesforce",
   "data.migration.salesforce.initial",
-  "data.requests.col.type"
+  "data.requests.col.type",
+  "admin.studio.object.standard",
+  "admin.studio.meter.unknown",
+  "admin.studio.col.type",
+  "admin.studio.col.actions",
+  "admin.studio.editor.subtitle",
+  "admin.studio.option.unique",
+  "admin.studio.builder.mobile",
+  "admin.studio.builder.inspectorTitle"
 ]

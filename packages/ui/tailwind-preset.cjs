@@ -253,6 +253,8 @@ module.exports = {
     'overlay-preview-frame-compact': 'var(--k-overlay-preview-frame-compact)',
     'overlay-notification-panel': 'var(--k-overlay-notification-panel)',
     'overlay-notification-toast': 'var(--k-overlay-notification-toast)',
+    'overlay-studio-panel': 'var(--k-overlay-studio-panel)',
+    'overlay-studio-panel-tablet': 'var(--k-overlay-studio-panel-tablet)',
     'layout-auth-panel': 'var(--k-layout-auth-panel)',
     'layout-auth-header': 'var(--k-layout-auth-header)',
     'layout-column': 'var(--k-layout-column)',
@@ -270,6 +272,9 @@ module.exports = {
     'layout-page-wide': 'var(--k-layout-page-wide)',
     'layout-settings-aside': 'var(--k-layout-settings-aside)',
     'layout-prefs-channel': 'var(--k-layout-prefs-channel)',
+    'layout-studio-aside': 'var(--k-layout-studio-aside)',
+    'layout-studio-palette': 'var(--k-layout-studio-palette)',
+    'layout-studio-inspector': 'var(--k-layout-studio-inspector)',
       },
       borderRadius: {
     '6': 'var(--k-radius-6)',

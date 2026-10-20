@@ -1,4 +1,4 @@
-import { crmCustomFieldsEnabled, crmNotificationsEnabled } from '../../lib/feature-flags';
+import { crmCustomFieldsEnabled, crmNotificationsEnabled, studioFlags } from '../../lib/feature-flags';
 import { dataPage } from '../../lib/data-management';
 
 /**
@@ -13,10 +13,15 @@ import { dataPage } from '../../lib/data-management';
  * carries no table of flag-gated routes, and no client module names a flag.
  */
 export async function adminLiveNav(): Promise<Readonly<Record<string, string>>> {
-  const [fields, data] = await Promise.all([crmCustomFieldsEnabled(), dataPage()]);
-  // T-0141: the Data management area's sections, each where its screen is on.
+  const [fields, data, studio] = await Promise.all([crmCustomFieldsEnabled(), dataPage(), studioFlags()]);
+  // T-0141: the Data management area's sections, and T-0142: the studio's placeholder sections (D-L194),
+  // each a link only where its own screen is on.
   return {
+    ...(studio.objects ? { 'cu-obj': '/admin/studio' } : {}),
     ...(fields ? { 'cu-fields': '/admin/custom-fields' } : {}),
+    ...(studio.layouts ? { 'cu-layouts': '/admin/studio/layouts' } : {}),
+    ...(studio.validation ? { 'cu-val': '/admin/studio/validation-rules' } : {}),
+    ...(studio.recordTypes ? { 'cu-rt': '/admin/studio/record-types' } : {}),
     ...(data.sections.import ? { 'd-io': '/admin/data/import' } : {}),
     ...(data.sections.duplicates ? { 'd-dedup': '/admin/data/duplicates' } : {}),
     ...(data.sections.requests ? { 'co-dsr': '/admin/data/requests' } : {}),

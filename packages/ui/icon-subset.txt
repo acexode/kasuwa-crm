@@ -246,3 +246,20 @@ sync
 calendar_today
 monitoring
 select_all
+# T-0142 (P18 Customisation Studio): the field types' glyphs (short_text, pin,
+# arrow_drop_down_circle, checklist, function, functions, shield_lock,
+# toggle_on), the field properties (emergency, fingerprint, filter_alt), and the
+# layout builder's sections and device toggle (view_agenda, desktop_windows).
+short_text
+pin
+arrow_drop_down_circle
+checklist
+function
+functions
+shield_lock
+toggle_on
+emergency
+fingerprint
+filter_alt
+view_agenda
+desktop_windows

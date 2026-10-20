@@ -377,6 +377,13 @@ export const LAYOUT = {
   pageWide: '1116px',
   settingsAside: '380px',
   prefsChannel: '88px',
+  /**
+   * From the P18 export (T-0142): the relationships view's selected-object
+   * aside, and the layout builder's palette and inspector columns.
+   */
+  studioAside: '340px',
+  studioPalette: '272px',
+  studioInspector: '320px',
 } as const;
 
 /**
@@ -470,6 +477,12 @@ export const OVERLAY = {
   previewFrameCompact: '560px',
   notificationPanel: '440px',
   notificationToast: '380px',
+  /**
+   * P18's field editor (T-0142): docked beside the field table at 480 from
+   * 1280 up, and an overlay drawer at 460 below it (the export's `panelW`).
+   */
+  studioPanel: '480px',
+  studioPanelTablet: '460px',
 } as const;
 
 /**
