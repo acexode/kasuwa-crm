@@ -17,6 +17,7 @@ import { RecordLoading, RecordNotFound, RecordOfflineBanner, RecordUnavailable }
 import { Value, type TimelineVocabulary } from '../record/record-timeline';
 import { TimelineCard } from '../record/timeline-card';
 import {
+  ACTION_SIZE,
   ActionBar,
   CARD,
   CARD_TITLE,
@@ -500,7 +501,7 @@ function Ready({
             <Subtitle t={t} record={record} linkAccount={linkAccount} />
           </div>
           {flags.follow ? (
-            <Button icon="notifications" disabled title={soon} className="max-md:w-control-base max-md:px-0">
+            <Button icon="notifications" disabled title={soon} className={`max-md:w-control-base ${ACTION_SIZE}`}>
               <span className="max-md:sr-only">{t.t('record.action.follow')}</span>
             </Button>
           ) : null}

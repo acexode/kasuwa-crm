@@ -31,9 +31,9 @@ export function StartScript({ t, contactId, offline }: { t: Translator; contactI
         disabled={offline}
         onClick={() => setOpen((value) => !value)}
         // The P05 action bar's secondary button (T-0134): 44px, 15/600, the v1.1 disabled tokens.
-        className="inline-flex h-control-base shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-border-strong bg-surface px-3 text-label text-text is-hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-focus disabled:cursor-not-allowed disabled:border-border disabled:text-disabled-text"
+        className="inline-flex h-control-base shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-border-strong bg-surface px-3.5 text-body-sm font-semibold text-text is-hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-focus disabled:cursor-not-allowed disabled:border-border disabled:text-disabled-text"
       >
-        <Icon name="description" size={22} />
+        <Icon name="description" size={20} />
         {t.t('scripting.start')}
       </button>
       {open ? (

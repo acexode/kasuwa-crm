@@ -27,6 +27,13 @@ export const CARD = 'flex min-w-0 flex-col rounded-lg border border-border bg-su
 /** A card title: 16/24/700. */
 export const CARD_TITLE = 'text-card-title';
 
+/**
+ * The record header's button size: 44px tall like every Button, but the
+ * export's 14/600 label, 20px glyph and 14px padding (the library's default
+ * is 15/600 with a 22px glyph). Icon-only, and full width, below `md`.
+ */
+export const ACTION_SIZE = '!text-body-sm !font-semibold [&_.k-icon]:text-icon-20 max-md:!px-0 md:!px-3.5';
+
 /** Caps group label, 12/700 with 0.05em tracking, as the export's "What's happened" and "Contact info". */
 export const CAPS = 'text-caption font-bold uppercase tracking-wider';
 
@@ -238,7 +245,7 @@ function MenuAction({ action, className }: { action: RecordAction; className: st
         disabled={action.disabled}
         title={action.title}
         onClick={() => setOpen((value) => !value)}
-        className="w-full max-md:px-0"
+        className={`w-full ${ACTION_SIZE}`}
         {...action.attributes}
       >
         <span className="max-md:sr-only">{action.label}</span>
@@ -287,7 +294,7 @@ export function ActionBar({ t, actions, extra }: { t: Translator; actions: reado
             disabled={action.disabled}
             title={action.title ?? action.label}
             onClick={action.onClick}
-            className={`${inlineClass(index)} max-md:flex-1 max-md:px-0`}
+            className={`${inlineClass(index)} max-md:flex-1 ${ACTION_SIZE}`}
             {...action.attributes}
           >
             <span className="max-md:sr-only">{action.label}</span>
@@ -304,7 +311,7 @@ export function ActionBar({ t, actions, extra }: { t: Translator; actions: reado
             aria-label={t.t('record.action.moreLabel')}
             title={t.t('record.action.more')}
             onClick={() => setMoreOpen((value) => !value)}
-            className="w-full max-md:px-0"
+            className={`w-full ${ACTION_SIZE}`}
           >
             <span aria-hidden="true" className="max-md:sr-only">
               {t.t('record.action.more')}

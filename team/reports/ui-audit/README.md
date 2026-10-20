@@ -99,6 +99,10 @@ The fix: pass the SMS hint through, and render the option only when the challeng
 | P27 search | Programme scope pill and menu | D-L87 | Ruling 1 (`programme_scope_search` flag). |
 | P28 import | Review step stats and error table | D-L128 Q6 | Same step and layout, with the counts the API returns; no invented totals. |
 | P03 home | Landing on Home | D-L172 | Superseded by ruling 3. |
+| P05 records | Timeline filter pills with counts ("All 8", "Calls 1") | D-P13 | Same pills without counts (T-0134). |
+| P05 records | Offline "2 changes queued", View queue (2), Send relabelled Queue, "Queued" chips | D-P21, D-L64 | Same inverse band with the last-synced time; no queue count or button; write controls disabled (T-0134). |
+| P05 records | Contact ID / Account ID (`KSW-C-…`) in the SYSTEM group | No human-readable id exists; UUIDs are never printed | The SYSTEM group keeps Created and Programme in the same place (T-0134). |
+| P05 account | "Contacts · 12", "12 contacts" chip, Hierarchy roll-ups and child accounts | D-P13, D-L98 (children not served, T-0118) | Contacts card without a count; the Hierarchy card draws the ancestors and this account only, with no money (T-0134). |
 
 ## Order and tasks
 
