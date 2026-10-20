@@ -13,6 +13,8 @@ const TONE: Record<AvatarTone, string> = {
   success: 'bg-success-soft text-success-text',
 };
 
+const OFFLINE = 'bg-surface-sunken text-text-muted';
+
 const SIZE: Record<AvatarSize, string> = {
   // 44: the record header and presence avatar. 14/700 initials.
   44: 'size-touch text-body-sm font-bold',
@@ -32,7 +34,8 @@ export interface AvatarProps extends Omit<ComponentPropsWithRef<'span'>, 'childr
   /**
    * Presence, as a shape as well as a colour (v1.1: "Each presence has a
    * unique shape/glyph, not just a colour"): available is a filled success
-   * dot ringed in surface; offline is a hollow border-strong ring.
+   * dot ringed in surface; offline is a hollow border-strong ring, and the
+   * whole avatar goes surface-sunken in text-muted.
    */
   readonly presence?: AvatarPresence;
   /**
@@ -71,7 +74,8 @@ export function Avatar({
       className={cx(
         'relative inline-flex shrink-0 select-none items-center justify-center rounded-full',
         SIZE[size],
-        TONE[avatarTone(seed ?? name)],
+        // Offline greys the whole avatar, as v1.1 draws "AD · Offline".
+        presence === 'offline' ? OFFLINE : TONE[avatarTone(seed ?? name)],
         className,
       )}
       {...rest}

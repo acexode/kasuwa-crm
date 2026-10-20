@@ -23,9 +23,16 @@ import { Spinner } from './spinner';
  * with aria-describedby, so a screen reader reads them with the field.
  */
 
-/** The control's shared look. Exported to the select, not to callers. */
+/**
+ * The control's shared look. Exported to the select, not to callers.
+ *
+ * No colour transition: the export does not ask for one on fields, and a
+ * focus edge that fades in reads as lag on a slow phone. (It would also leave
+ * the computed border mid-fade for 100ms after focus, which is what a test
+ * of the focus state reads.)
+ */
 export const FIELD_CONTROL =
-  'h-control-base w-full min-w-0 rounded-md bg-surface ps-3 text-label font-normal text-text transition-colors duration-instant placeholder:text-text-muted is-focus:field-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text';
+  'h-control-base w-full min-w-0 rounded-md bg-surface ps-3 text-label font-normal text-text placeholder:text-text-muted is-focus:field-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text';
 
 export const FIELD_EDGE = 'border border-border-strong is-hover:border-text-2';
 export const FIELD_EDGE_ERROR = 'border-2 border-danger';

@@ -389,6 +389,17 @@ describe('Avatar', () => {
     );
   });
 
+  it('greys an offline avatar instead of colouring it', () => {
+    const classes = classesOf(
+      html(createElement(Avatar, { name: 'Kwame Mensah', presence: 'offline' })),
+      'span',
+    );
+    expect(classes).toEqual(expect.arrayContaining(['bg-surface-sunken', 'text-text-muted']));
+    expect(
+      classes.filter((name) => name.endsWith('-soft') || name.endsWith('-soft-strong')),
+    ).toEqual([]);
+  });
+
   it('falls back to a person glyph when the name has no letters', () => {
     expect(html(createElement(Avatar, { name: '—' }))).toContain('>person<');
   });
