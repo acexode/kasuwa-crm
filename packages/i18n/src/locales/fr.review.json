@@ -103,6 +103,7 @@
     "design.components.segmented.dense": "The same word in French.",
     "design.components.segmented.kanban": "Kanban is a loanword, used unchanged in this locale.",
     "design.components.tabs.tickets": "The same word in French.",
-    "design.components.kbd.search": "The label printed on the keys (Ctrl and K), the same on keyboards in this locale."
+    "design.components.kbd.search": "The label printed on the keys (Ctrl and K), the same on keyboards in this locale.",
+    "auth.footer.compliance": "The names of two data-protection laws, NDPA and POPIA. They are acronyms in every language."
   }
 }

@@ -53,7 +53,11 @@ export function LanguageMenu({
   label: string;
   /** "Language: {language}", already formatted — this is the accessible name. */
   currentLabel: string;
-  compact: boolean;
+  /**
+   * The two-letter code instead of the endonym. `'phone'` shows the code
+   * below `md` and the endonym above it, as the P01 top bar does (T-0131).
+   */
+  compact: boolean | 'phone';
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -115,22 +119,29 @@ export function LanguageMenu({
         aria-controls={open ? listId : undefined}
         aria-label={currentLabel}
         onClick={() => setOpen((previous) => !previous)}
-        className="inline-flex min-h-touch items-center gap-1 rounded-md border border-border bg-surface px-2 text-body-sm font-semibold text-text hover:bg-surface-sunken focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        className="inline-flex h-control-base shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border bg-surface pe-2 ps-2.5 text-body-sm font-semibold text-text hover:bg-surface-sunken focus-visible:ring-focus"
       >
-        <Icon name="language" />
-        <span lang={currentOption?.code}>
-          {compact
-            ? (currentOption?.code.slice(0, 2).toUpperCase() ?? '')
-            : (currentOption?.label ?? '')}
-        </span>
-        {currentOption?.beta === undefined || compact ? null : (
-          <BetaBadge text={currentOption.beta.badge} lang={current} />
+        <Icon name="language" size={20} />
+        {compact === false ? null : (
+          <span lang={currentOption?.code} className={compact === 'phone' ? 'md:hidden' : undefined}>
+            {currentOption?.code.slice(0, 2).toUpperCase() ?? ''}
+          </span>
         )}
-        <Icon name={open ? 'expand_less' : 'expand_more'} size="sm" />
+        {compact === true ? null : (
+          <span lang={currentOption?.code} className={compact === 'phone' ? 'hidden md:inline' : undefined}>
+            {currentOption?.label ?? ''}
+          </span>
+        )}
+        {currentOption?.beta === undefined || compact === true ? null : (
+          <span className={compact === 'phone' ? 'hidden md:inline' : undefined}>
+            <BetaBadge text={currentOption.beta.badge} lang={current} />
+          </span>
+        )}
+        <Icon name={open ? 'expand_less' : 'expand_more'} size={18} />
       </button>
 
       {open ? (
-        <div className="absolute end-0 top-full z-10 mt-1 flex w-max flex-col rounded-lg border border-border bg-surface-raised p-1 shadow-2">
+        <div className="absolute end-0 top-full z-10 mt-1.5 flex w-max flex-col rounded-10 border border-border bg-surface-raised p-1 shadow-2">
           <ul id={listId} role="listbox" aria-label={label} className="flex flex-col">
             {options.map((option, index) => {
               const selected = option.code === current;
@@ -161,7 +172,7 @@ export function LanguageMenu({
                       optionRefs.current[next]?.focus();
                     }
                   }}
-                  className={`flex min-h-touch w-full cursor-pointer items-center gap-2 rounded-sm px-3 text-start text-body-sm text-text hover:bg-surface-sunken focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
+                  className={`flex min-h-touch w-full cursor-pointer items-center gap-2 rounded-6 px-2.5 text-start text-body-sm text-text hover:bg-surface-sunken focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus ${
                     selected ? 'bg-primary-soft font-bold' : 'font-normal'
                   }`}
                 >
