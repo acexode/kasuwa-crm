@@ -1,5 +1,7 @@
 import type { ComponentPropsWithRef, ReactNode } from 'react';
+import type { IconName } from '../icons.generated';
 import { cx } from './class-names';
+import { Glyph } from './glyph';
 
 /**
  * Pills, tags and count badges, to the v1.1 Components page ("Badges & status
@@ -9,7 +11,8 @@ import { cx } from './class-names';
  * the caller writes that word. These render it; they never invent one.
  */
 
-export type PillTone = 'info' | 'warning' | 'danger' | 'success' | 'neutral' | 'primary';
+export type PillTone =
+  'info' | 'warning' | 'danger' | 'success' | 'neutral' | 'primary' | 'unknown';
 
 const PILL_TONE: Record<PillTone, string> = {
   info: 'bg-info-soft text-info-text',
@@ -18,24 +21,37 @@ const PILL_TONE: Record<PillTone, string> = {
   success: 'bg-success-soft text-success-text',
   neutral: 'bg-surface-sunken text-text-2',
   primary: 'bg-primary-soft text-primary-text',
+  // v1.1 "Consent unknown": no fill, a dashed border-strong edge.
+  unknown: 'border border-dashed border-border-strong text-text-2',
 };
 
 export interface PillProps extends ComponentPropsWithRef<'span'> {
   readonly tone: PillTone;
+  /**
+   * A 15px leading glyph. With one, the pill is v1.1's consent pill ("Consent
+   * & DND"): 12/600 at 3px 9px with a 4px gap. Consent carries an icon so it
+   * never relies on colour alone.
+   */
+  readonly icon?: IconName;
   readonly children: ReactNode;
 }
 
-/** A status pill: 12/700 at 3px 10px, radius 999, a *-text word on its *-soft fill. */
-export function Pill({ tone, className, children, ...rest }: PillProps) {
+/**
+ * A status pill: 12/700 at 3px 10px, radius 999, a *-text word on its *-soft
+ * fill (v1.1 "Badges & status pills"). With an icon, a consent pill.
+ */
+export function Pill({ tone, icon, className, children, ...rest }: PillProps) {
   return (
     <span
       className={cx(
-        'inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.75 text-caption font-bold',
+        'inline-flex items-center whitespace-nowrap rounded-full py-0.75 text-caption',
+        icon === undefined ? 'px-2.5 font-bold' : 'gap-1 px-2.25 font-semibold',
         PILL_TONE[tone],
         className,
       )}
       {...rest}
     >
+      {icon === undefined ? null : <Glyph name={icon} size={15} />}
       {children}
     </span>
   );

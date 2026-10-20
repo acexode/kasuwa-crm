@@ -1,4 +1,4 @@
-import type { ComponentPropsWithRef, MouseEvent, ReactNode } from 'react';
+import type { ComponentPropsWithRef, ReactNode } from 'react';
 import type { IconName } from '../icons.generated';
 import { cx } from './class-names';
 import { Glyph } from './glyph';
@@ -104,7 +104,7 @@ export function Button({
       type={type}
       aria-busy={loading || undefined}
       aria-disabled={loading || undefined}
-      onClick={loading ? (event: MouseEvent<HTMLButtonElement>) => event.preventDefault() : onClick}
+      onClick={loading ? undefined : onClick}
       className={cx(BASE, SIZE[size], VARIANT[variant], className)}
       {...rest}
     >
@@ -193,7 +193,7 @@ export function IconButton({
       aria-pressed={pressed}
       aria-busy={loading || undefined}
       aria-disabled={loading || undefined}
-      onClick={loading ? (event: MouseEvent<HTMLButtonElement>) => event.preventDefault() : onClick}
+      onClick={loading ? undefined : onClick}
       className={cx(
         'relative inline-flex size-control-base shrink-0 select-none items-center justify-center rounded-md border transition-colors duration-instant is-focus-visible:ring-focus disabled:cursor-not-allowed',
         ICON_VARIANT[variant],

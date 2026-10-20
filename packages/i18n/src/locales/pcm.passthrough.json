@@ -399,5 +399,6 @@
   "design.components.tabs.deals",
   "design.components.tabs.tickets",
   "design.components.kbd.search",
-  "design.components.kbd.escape"
+  "design.components.kbd.escape",
+  "design.components.heading.consent"
 ]

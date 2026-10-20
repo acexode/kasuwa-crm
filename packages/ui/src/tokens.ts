@@ -164,9 +164,10 @@ export const ARABIC_LINE_HEIGHT_MULTIPLIER = 1.1;
  * alone appears 585 times). They are explicit tokens so `gap-1.5` reads the
  * design system rather than Tailwind's default ramp (T-0127).
  *
- * T-0128 adds the three the v1.1 controls need, keyed the same way (key x 4):
+ * T-0128 adds the four the v1.1 controls need, keyed the same way (key x 4):
  *   0.75 3px  pill and badge padding (3px 10px), the segmented track's padding,
  *             the switch knob's inset
+ *   2.25 9px  a consent pill's side padding (3px 9px)
  *   4.5 18px  how far the switch knob travels (44 - 20 - 3 - 3)
  *   6.5 26px  the switch track's height
  */
@@ -176,6 +177,7 @@ export const SPACING = {
   '1': '4px',
   '1.5': '6px',
   '2': '8px',
+  '2.25': '9px',
   '2.5': '10px',
   '3': '12px',
   '3.5': '14px',

@@ -208,6 +208,7 @@ module.exports = {
     '16': 'var(--k-space-16)',
     '0.75': 'var(--k-space-0_75)',
     '1.5': 'var(--k-space-1_5)',
+    '2.25': 'var(--k-space-2_25)',
     '2.5': 'var(--k-space-2_5)',
     '3.5': 'var(--k-space-3_5)',
     '4.5': 'var(--k-space-4_5)',

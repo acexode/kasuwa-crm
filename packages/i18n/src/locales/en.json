@@ -1966,5 +1966,11 @@
   "design.components.presence.available": "Available",
   "design.components.presence.offline": "Offline",
   "design.components.kbd.search": "Ctrl K",
-  "design.components.kbd.escape": "Esc"
+  "design.components.kbd.escape": "Esc",
+  "design.components.heading.consent": "Consent and DND",
+  "design.components.consent.whatsapp": "WhatsApp opt-in",
+  "design.components.consent.recording": "Recording consent",
+  "design.components.consent.dnd": "DND · full block",
+  "design.components.consent.marketing": "Marketing opt-out",
+  "design.components.consent.unknown": "Consent unknown"
 }

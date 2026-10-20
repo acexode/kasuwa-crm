@@ -1966,5 +1966,11 @@
   "design.components.presence.available": "A shirye",
   "design.components.presence.offline": "Ba ya kan layi",
   "design.components.kbd.search": "Ctrl K",
-  "design.components.kbd.escape": "Esc"
+  "design.components.kbd.escape": "Esc",
+  "design.components.heading.consent": "Izini da DND",
+  "design.components.consent.whatsapp": "Izinin WhatsApp",
+  "design.components.consent.recording": "Izinin rikodi",
+  "design.components.consent.dnd": "DND · toshe gaba ɗaya",
+  "design.components.consent.marketing": "Ƙin tallace-tallace",
+  "design.components.consent.unknown": "Ba a san izini ba"
 }

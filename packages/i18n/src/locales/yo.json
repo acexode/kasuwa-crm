@@ -1966,5 +1966,11 @@
   "design.components.presence.available": "Ó wà",
   "design.components.presence.offline": "Kò sí lórí ayélujára",
   "design.components.kbd.search": "Ctrl K",
-  "design.components.kbd.escape": "Esc"
+  "design.components.kbd.escape": "Esc",
+  "design.components.heading.consent": "Ìyọ̀ǹda àti DND",
+  "design.components.consent.whatsapp": "Ìyọ̀ǹda WhatsApp",
+  "design.components.consent.recording": "Ìyọ̀ǹda àkọsílẹ̀ ohùn",
+  "design.components.consent.dnd": "DND · ìdènà pátápátá",
+  "design.components.consent.marketing": "Kíkọ ìpolówó",
+  "design.components.consent.unknown": "A kò mọ ìyọ̀ǹda"
 }

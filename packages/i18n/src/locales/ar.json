@@ -1966,5 +1966,11 @@
   "design.components.presence.available": "متاح",
   "design.components.presence.offline": "غير متصل",
   "design.components.kbd.search": "Ctrl K",
-  "design.components.kbd.escape": "Esc"
+  "design.components.kbd.escape": "Esc",
+  "design.components.heading.consent": "الموافقة وعدم الإزعاج",
+  "design.components.consent.whatsapp": "موافقة واتساب",
+  "design.components.consent.recording": "موافقة على التسجيل",
+  "design.components.consent.dnd": "عدم الإزعاج · حظر كامل",
+  "design.components.consent.marketing": "رفض التسويق",
+  "design.components.consent.unknown": "الموافقة غير معروفة"
 }

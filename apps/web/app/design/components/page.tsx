@@ -382,6 +382,26 @@ function Badges({ t, locale }: { t: Translate; locale: string }) {
         </div>
       </div>
       <div className="flex flex-col gap-3">
+        <h3 className="text-h5 font-bold text-text">{t('design.components.heading.consent')}</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <Pill tone="success" icon="check_circle">
+            {t('design.components.consent.whatsapp')}
+          </Pill>
+          <Pill tone="success" icon="mic">
+            {t('design.components.consent.recording')}
+          </Pill>
+          <Pill tone="danger" icon="do_not_disturb_on">
+            {t('design.components.consent.dnd')}
+          </Pill>
+          <Pill tone="warning" icon="campaign">
+            {t('design.components.consent.marketing')}
+          </Pill>
+          <Pill tone="unknown" icon="help">
+            {t('design.components.consent.unknown')}
+          </Pill>
+        </div>
+      </div>
+      <div className="flex flex-col gap-3">
         <h3 className="text-h5 font-bold text-text">{t('design.components.heading.tags')}</h3>
         <div className="flex flex-wrap items-center gap-2">
           <Tag tone="primary" data-gallery="tag">

@@ -1966,5 +1966,11 @@
   "design.components.presence.available": "Disponible",
   "design.components.presence.offline": "Hors ligne",
   "design.components.kbd.search": "Ctrl K",
-  "design.components.kbd.escape": "Échap"
+  "design.components.kbd.escape": "Échap",
+  "design.components.heading.consent": "Consentement et DND",
+  "design.components.consent.whatsapp": "Accord WhatsApp",
+  "design.components.consent.recording": "Accord d’enregistrement",
+  "design.components.consent.dnd": "DND · blocage total",
+  "design.components.consent.marketing": "Refus du marketing",
+  "design.components.consent.unknown": "Consentement inconnu"
 }

@@ -1966,5 +1966,11 @@
   "design.components.presence.available": "Dị",
   "design.components.presence.offline": "Anọghị n’ịntanetị",
   "design.components.kbd.search": "Ctrl K",
-  "design.components.kbd.escape": "Esc"
+  "design.components.kbd.escape": "Esc",
+  "design.components.heading.consent": "Nkwenye na DND",
+  "design.components.consent.whatsapp": "Nkwenye WhatsApp",
+  "design.components.consent.recording": "Nkwenye ndekọ",
+  "design.components.consent.dnd": "DND · mgbochi zuru ezu",
+  "design.components.consent.marketing": "Ajụ mgbasa ozi",
+  "design.components.consent.unknown": "Amaghị nkwenye"
 }

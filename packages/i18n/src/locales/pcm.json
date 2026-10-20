@@ -1966,5 +1966,11 @@
   "design.components.presence.available": "E dey available",
   "design.components.presence.offline": "E no dey online",
   "design.components.kbd.search": "Ctrl K",
-  "design.components.kbd.escape": "Esc"
+  "design.components.kbd.escape": "Esc",
+  "design.components.heading.consent": "Consent and DND",
+  "design.components.consent.whatsapp": "WhatsApp yes",
+  "design.components.consent.recording": "Dem agree make we record",
+  "design.components.consent.dnd": "DND · block everything",
+  "design.components.consent.marketing": "No marketing",
+  "design.components.consent.unknown": "We no know if dem agree"
 }
