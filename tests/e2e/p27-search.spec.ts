@@ -183,6 +183,19 @@ import { NOW as PIPELINE_NOW, PIPELINE_ONE, installPipelineMock } from './suppor
 const SCREEN = '[data-screen="P27"]';
 const PALETTE = '[data-testid="command-palette"]';
 
+/*
+ * T-0148 (T-0138, D-L193/D-L194/D-L195): P27 rebuilt to the export moved the hooks, not the rules.
+ *   - /search is P27/C, a results page. From md up its box is the top bar's field
+ *     (`[data-testid="shell-search"]`, the combobox) outside [data-screen="P27"]; below md the page draws
+ *     its own `search-input`. `pageOf` is the screen with that box; `input` finds either.
+ *   - The results page lists hits flat, in served group order, each `[data-hit][data-hit-type]`: hits are
+ *     located by type, and group order is read from the hits (`groupsWithHits`).
+ *   - The grouped panel with per-type "see all" (P27/A1) is the top bar's dropdown on every other CRM
+ *     screen (`topBarOf`, panel `[data-testid="search-dropdown"]`); the palette (D1) groups but has no
+ *     "see all".
+ */
+const DROPDOWN = '[data-testid="search-dropdown"]';
+
 /**
  * The /search transferred-byte budget, pinned by the lead (D-L137, R26): the
  * builder measured 213,798 and 214,306 bytes, and 223,000 passes both with
@@ -433,27 +446,58 @@ function paletteOf(page: Page): Locator {
 }
 
 function input(root: Locator): Locator {
-  return shown(root.locator('[data-testid="search-input"]')).first();
+  // T-0148 (T-0138): `shell-search` is the top bar's field, the /search page's box from md up (P27/C).
+  return shown(root.locator('[data-testid="search-input"], [data-testid="shell-search"]')).first();
+}
+
+/** T-0148 (T-0138): the /search screen with the box that drives it (the top bar's field from md up). */
+function pageOf(page: Page): Locator {
+  return page.locator('[data-shell="crm"]').filter({ has: page.locator(SCREEN) });
+}
+
+/** T-0148 (T-0138): the top bar, holding the field and its P27/A dropdown, on a CRM screen other than /search. */
+function topBarOf(page: Page): Locator {
+  return page.locator('[data-shell="crm"] header');
+}
+
+function dropdownOf(page: Page): Locator {
+  return shown(page.locator(DROPDOWN)).first();
 }
 
 function group(root: Locator, type: string): Locator {
   return shown(root.locator(`[data-group="${type}"]`)).first();
 }
 
+// T-0148 (T-0138): a hit is found by its own type, so the flat P27/C list and the grouped panels read alike;
+// where groups are drawn, `expectDrawn` also holds every hit inside the group of its type.
 function hit(root: Locator, type: string, id: string): Locator {
-  return shown(root.locator(`[data-group="${type}"] [data-hit="${id}"]`)).first();
+  return shown(root.locator(`[data-hit="${id}"][data-hit-type="${type}"]`)).first();
 }
 
 async function hitIds(root: Locator, type: string): Promise<string[]> {
-  return shown(root.locator(`[data-group="${type}"] [data-hit]`)).evaluateAll((hits) =>
+  return shown(root.locator(`[data-hit][data-hit-type="${type}"]`)).evaluateAll((hits) =>
     hits.map((element) => element.getAttribute('data-hit') ?? ''),
   );
 }
 
-/** The groups drawn with at least one hit, in DOM order. */
+/**
+ * The types drawn with at least one hit, in DOM order (T-0148: read from the hits, so the flat P27/C list
+ * counts too). A type whose hits are split by another type's appears twice, and fails the order check.
+ */
 async function groupsWithHits(root: Locator): Promise<string[]> {
-  return shown(root.locator('[data-group]')).evaluateAll((groups) =>
-    groups.filter((element) => element.querySelector('[data-hit]') !== null).map((element) => element.getAttribute('data-group') ?? ''),
+  return shown(root.locator('[data-hit][data-hit-type]')).evaluateAll((hits) =>
+    hits
+      .map((element) => element.getAttribute('data-hit-type') ?? '')
+      .filter((type, index, all) => index === 0 || all[index - 1] !== type),
+  );
+}
+
+/** Where groups are drawn, every hit sits in the group of its own type (T-0148: the old locator's guarantee). */
+async function hitsOutsideTheirGroup(root: Locator): Promise<string[]> {
+  return shown(root.locator('[data-group] [data-hit]')).evaluateAll((hits) =>
+    hits
+      .filter((element) => element.closest('[data-group]')?.getAttribute('data-group') !== element.getAttribute('data-hit-type'))
+      .map((element) => element.getAttribute('data-hit') ?? ''),
   );
 }
 
@@ -562,7 +606,7 @@ async function expectNoSeriousAxe(page: Page, label: string): Promise<void> {
     (violation) => violation.impact === 'critical' || violation.impact === 'serious',
   );
   expect(
-    blocking.map((violation) => `${violation.id}: ${violation.help}`),
+    blocking.map((violation) => `${violation.id}: ${violation.help} (${violation.nodes.map((node) => node.target.join(' ')).join('; ')})`),
     `serious or critical accessibility violations on ${label}`,
   ).toEqual([]);
   expect(results.passes.length, 'axe checked nothing').toBeGreaterThan(0);
@@ -592,9 +636,13 @@ async function openContacts(page: Page, options: SearchMockOptions = {}): Promis
 }
 
 async function openPalette(page: Page, chord = 'Control+k'): Promise<Locator> {
-  await page.keyboard.press(chord);
   const palette = paletteOf(page);
-  await expect(palette, `${chord} did not open the command palette`).toBeVisible();
+  // T-0148: right after a navigation the chord can land before the shell has hydrated and listens for it,
+  // so it is pressed again until the palette opens (pressing it with the palette open does nothing).
+  await expect(async () => {
+    await page.keyboard.press(chord);
+    await expect(palette).toBeVisible({ timeout: 2_000 });
+  }, `${chord} did not open the command palette`).toPass({ timeout: 30_000 });
   await expect(palette).toHaveAttribute('role', 'dialog');
   await expect(input(palette), 'the palette did not put focus in its search box').toBeFocused();
   return palette;
@@ -632,6 +680,7 @@ async function expectDrawn(root: Locator, expected: Expected | undefined): Promi
     await expect.poll(() => hitIds(root, type), { message: `the ${type} group is not the served hits, in served order` }).toEqual(expected[type]);
   }
   expect(await groupsWithHits(root), 'the groups are not in the served order').toEqual(SEARCH_TYPES.filter((type) => expected[type].length > 0));
+  expect(await hitsOutsideTheirGroup(root), 'a hit is drawn in another type’s group').toEqual([]);
 }
 
 /** The national number's digits, as ASCII, whatever script they were typed in. */
@@ -1068,8 +1117,8 @@ test.describe('crm_search gates /search and the palette', () => {
 
   test('/search renders the P27 search screen with crm_search on @p27-search @p27-search-flag-on', async ({ page }) => {
     await openSearch(page);
-    await expect(input(screenOf(page))).toBeVisible();
-    await expect(input(screenOf(page))).toHaveAttribute('role', 'combobox');
+    await expect(input(pageOf(page))).toBeVisible();
+    await expect(input(pageOf(page))).toHaveAttribute('role', 'combobox');
   });
 });
 
@@ -1083,12 +1132,15 @@ test('/search sits in the CRM shell, whose header links it, and no link on it is
   await expect(shell).toBeVisible();
   await expect(shell.locator(SCREEN)).toBeVisible();
   await expect(screenOf(page).locator(PALETTE), 'the screen is drawn inside a dialog').toHaveCount(0);
-  const entry = shown(shell.locator('header a[href="/search"]')).first();
+  // T-0148 (T-0138, P27/A and C): from md up the header's search entry is the top bar's field, which IS this
+  // page's box; the phone app bar's link to /search (held at 360px below) still marks the page current.
+  const entry = shown(shell.locator('header [data-testid="shell-search"]')).first();
   await expect(entry, 'the CRM header has no search entry').toBeVisible();
-  await expect(entry).toHaveAttribute('aria-current', 'page');
+  await expect(entry).toHaveAttribute('role', 'combobox');
+  await expect(shell.locator('header a[href="/search"]').first()).toHaveAttribute('aria-current', 'page');
   await expect(page.getByTestId('settings-menu')).toHaveCount(0);
 
-  await searchFor(page, screenOf(page), 'sam');
+  await searchFor(page, pageOf(page), 'sam');
   const hrefs = [...new Set(await page.locator('a[href^="/"]').evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute('href') ?? '')))];
   expect(hrefs.length, 'the page links nowhere — not even the CRM nav').toBeGreaterThan(3);
   for (const href of hrefs) {
@@ -1098,7 +1150,8 @@ test('/search sits in the CRM shell, whose header links it, and no link on it is
 
   // The same entry, on another screen of the shell.
   await page.goto(`${searchUrl()}/contacts`);
-  await expect(shown(page.locator('[data-shell="crm"] header a[href="/search"]')).first(), '/contacts has no search entry').toBeVisible();
+  // T-0148 (T-0138): the top bar's field, as on /search.
+  await expect(shown(page.locator('[data-shell="crm"] header [data-testid="shell-search"]')).first(), '/contacts has no search entry').toBeVisible();
 });
 
 // ===========================================================================
@@ -1173,7 +1226,7 @@ test.describe('the command palette', () => {
     expect(new Set(options).size, 'two options share an id (a lead is in two groups: ids must still differ)').toBe(options.length);
     expect(options.every((id) => id !== ''), 'an option has no id for aria-activedescendant').toBe(true);
 
-    await page.keyboard.press('ArrowDown');
+    // T-0148 (T-0138, P27 D `csel: 0`): the answer arrives with its first option already active.
     await expect(box).toHaveAttribute('aria-activedescendant', options[0] ?? '<none>');
     await expect(listbox.locator(`[id="${options[0] ?? ''}"]`)).toHaveAttribute('aria-selected', 'true');
     await expect(listbox.locator(`[id="${options[0] ?? ''}"]`), 'the first option is not the first contact hit').toHaveAttribute('data-hit', C_SAMPLEWISE.id);
@@ -1288,7 +1341,8 @@ test('after a lookup with hits and no "see all", Tab stays in the palette on rea
   }
 });
 
-test('on a list screen, the palette’s "see all" for that list applies the new name to its box and list and drops q from the address bar (D-L137 M3) @p27-search @p27-search-same-route', async ({
+// T-0148 (T-0138): "see all" is the top bar dropdown's (P27/A1); the palette (D1) draws none. The rule is D-L137 M3's.
+test('on a list screen, the top bar’s "see all" for that list applies the new name to its box and list and drops q from the address bar (D-L137 M3) @p27-search @p27-search-same-route', async ({
   page,
 }) => {
   const mock = await installSearchMock(page);
@@ -1309,12 +1363,12 @@ test('on a list screen, the palette’s "see all" for that list applies the new 
     const typed = page.waitForRequest(reads(api, 'Sampleold'));
     await box.fill('Sampleold');
     await typed;
-    const palette = await openPalette(page);
-    await searchFor(page, palette, 'sam');
+    const bar = topBarOf(page);
+    await searchFor(page, bar, 'sam');
     const applied = page.waitForRequest(reads(api, 'sam'));
-    await shown(palette.locator(`a[data-see-all="${type}"]`)).first().click();
+    await shown(bar.locator(`a[data-see-all="${type}"]`)).first().click();
     await applied;
-    await expect(page.locator(PALETTE).filter({ visible: true }), `the palette stayed open after "see all" on ${path}`).toHaveCount(0);
+    await expect(page.locator(DROPDOWN).filter({ visible: true }), `the dropdown stayed open after "see all" on ${path}`).toHaveCount(0);
     await expect(box, `${path}'s search box does not show the new name`).toHaveValue('sam');
     await expect.poll(() => new URL(page.url()).searchParams.has('q'), { message: `${path} kept q in the address bar` }).toBe(false);
     expect(new URL(page.url()).pathname, `"see all" left ${path}`).toBe(path);
@@ -1323,7 +1377,7 @@ test('on a list screen, the palette’s "see all" for that list applies the new 
 
 test('a 429 draws the too-many-requests message, never "check your connection" (D-L137 M5) @p27-search @p27-search-rate-limited', async ({ page }) => {
   await openSearch(page, { rateLimited: true });
-  const root = screenOf(page);
+  const root = pageOf(page);
   const answered = page.waitForResponse((response) => isSearchRead(response.request(), 'sam'));
   await input(root).fill('sam');
   expect((await answered).status(), 'the mock did not answer 429').toBe(429);
@@ -1342,9 +1396,11 @@ test('a 429 draws the too-many-requests message, never "check your connection" (
 test('hits are grouped in the served order, at most three each in served order, labelled, with no count, total or "more" @p27-search @p27-search-groups', async ({
   page,
 }) => {
-  await openSearch(page);
-  const root = screenOf(page);
+  // T-0148 (T-0138): the grouped panel is P27/A1, the top bar's dropdown on a CRM screen other than /search.
+  await openContacts(page);
+  const root = topBarOf(page);
   await searchFor(page, root, 'sam');
+  const panel = dropdownOf(page);
   for (const type of SEARCH_TYPES) {
     expect((await hitIds(root, type)).length, `more than three ${type} hits`).toBeLessThanOrEqual(3);
     await expectSaysOneOf(group(root, type), searchLabels(`.group.${type}`), `the ${type} group`);
@@ -1353,9 +1409,9 @@ test('hits are grouped in the served order, at most three each in served order, 
   // A lead is a contact too: both groups carry it, each its own option.
   await expect(hit(root, 'contact', L_FIXTURE.id)).toBeVisible();
   await expect(hit(root, 'lead', L_FIXTURE.id)).toBeVisible();
-  const chrome = await copyText(root);
+  const chrome = await copyText(panel);
   expect(chrome, 'a count, total or "more" is drawn (D-P13)').not.toMatch(/\d|\bmore\b|\btotal\b|\bresults?\b\s*\(/i);
-  await expectAnnouncementHonest(root);
+  await expectAnnouncementHonest(panel);
   await expectNoSeriousAxe(page, 'P27/A1, grouped results');
 
   // A different answer replaces the groups: none of the old hits stays.
@@ -1366,17 +1422,17 @@ test('hits are grouped in the served order, at most three each in served order, 
 test('"see all" is the type’s own list with q, for contacts, leads and accounts, never for deals, and the list reads it @p27-search @p27-search-see-all', async ({
   page,
 }) => {
-  const mock = await openSearch(page);
-  const targets: readonly (readonly [SearchType, string, string])[] = [
-    ['contact', '/contacts', '/api/v1/contacts'],
-    ['lead', '/leads', '/api/v1/leads'],
-    ['account', '/accounts', '/api/v1/accounts'],
+  // T-0148 (T-0138): "see all" is in the top bar's dropdown (P27/A1), opened here from another list than
+  // its own (the same-route landing is @p27-search-same-route's).
+  const mock = await openContacts(page);
+  const targets: readonly (readonly [SearchType, string, string, string])[] = [
+    ['contact', '/contacts', '/api/v1/contacts', '/accounts'],
+    ['lead', '/leads', '/api/v1/leads', '/contacts'],
+    ['account', '/accounts', '/api/v1/accounts', '/contacts'],
   ];
-  for (const [type, path, api] of targets) {
-    if (page.url() !== `${searchUrl()}/search`) {
-      await page.goto(`${searchUrl()}/search`);
-    }
-    const root = screenOf(page);
+  for (const [type, path, api, from] of targets) {
+    await page.goto(`${searchUrl()}${from}`);
+    const root = topBarOf(page);
     await searchFor(page, root, 'sam');
     await expect(shown(root.locator('[data-see-all="deal"]')), 'deals have no list, so no "see all"').toHaveCount(0);
     const link = shown(root.locator(`a[data-see-all="${type}"]`)).first();
@@ -1395,15 +1451,15 @@ test('"see all" is the type’s own list with q, for contacts, leads and account
     expect.arrayContaining(['/api/v1/contacts', '/api/v1/leads', '/api/v1/accounts']),
   );
 
-  // An answer with no hits still offers the lists (their q is a substring and matches more).
-  await page.goto(`${searchUrl()}/search`);
-  const root = screenOf(page);
+  // T-0148 (T-0138, P27/A5): an answer with no hits draws no group, so no per-type "see all"; the footer's
+  // "See all results" goes to /search, never with the text in its URL, and nothing ever offers a deal list.
+  await page.goto(`${searchUrl()}/contacts`);
+  const root = topBarOf(page);
   await input(root).fill(NO_MATCH);
   await expect(shown(root.getByTestId('search-empty'))).toBeVisible();
-  for (const [type] of targets) {
-    await expect(shown(root.locator(`a[data-see-all="${type}"]`)).first(), `no "see all" for ${type} after an empty answer`).toBeVisible();
-  }
-  await expect(shown(root.locator('[data-see-all="deal"]'))).toHaveCount(0);
+  await expect(shown(root.locator('[data-see-all]')), 'a "see all" with no group to see').toHaveCount(0);
+  await expect(shown(root.getByTestId('search-see-all-results'))).toBeVisible();
+  await expect(root.getByTestId('search-see-all-results'), '"See all results" is a link carrying the text').not.toHaveAttribute('href', /.*/);
 });
 
 // ===========================================================================
@@ -1417,7 +1473,7 @@ test('requests are debounced, never shorter than 2 characters once folded, never
   // pending debounce at once, so "nothing was sent" is decided, not hoped.
   await page.clock.install();
   const mock = await openSearch(page);
-  const root = screenOf(page);
+  const root = pageOf(page);
   const box = input(root);
 
   for (const short of ['s', ' s ', 'É', 'ś', 'Ø ', '   ', '\u{1E900}', ' \u{1E900} ']) {
@@ -1551,7 +1607,7 @@ test('a phone number in any common format goes ONLY to lookupRecords, as a POST 
 
 test('an email address goes ONLY to lookupRecords, as a POST body, compared whole @p27-search @p27-search-lookup-email', async ({ page }) => {
   const mock = await openSearch(page);
-  const root = screenOf(page);
+  const root = pageOf(page);
   const sent = await lookUp(page, root, `  ${EMAIL}  `);
   expect(sent, 'the address was not sent to the lookup').toBeDefined();
   expect(sent?.method()).toBe('POST');
@@ -1645,7 +1701,7 @@ test('separators of any kind and digits of any script make an identifier: only t
   await page.clock.install();
   const wire = await tapWire(page);
   const mock = await openSearch(page);
-  const root = screenOf(page);
+  const root = pageOf(page);
   const box = input(root);
 
   for (const [typed, what] of KEYED_IDENTIFIERS) {
@@ -1684,7 +1740,7 @@ test('the page URL, history, links, titles and every request URL never carry a p
 }) => {
   const wire = await tapWire(page);
   const mock = await openSearch(page);
-  const root = screenOf(page);
+  const root = pageOf(page);
 
   // A name may ride in the screen's own URL (the builder's choice); only a name.
   await searchFor(page, root, 'sam');
@@ -1723,8 +1779,8 @@ test('the page URL, history, links, titles and every request URL never carry a p
     await page.goto(crafted);
     await expect(screenOf(page)).toBeVisible();
     await expect.poll(() => carries(page.url(), identifier), { message: 'the screen left a crafted identifier in the address bar' }).toBe(false);
-    await expect(input(screenOf(page)), 'the crafted identifier was put in the search box').not.toHaveValue(new RegExp(identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
-    await searchFor(page, screenOf(page), 'samw');
+    await expect(input(pageOf(page)), 'the crafted identifier was put in the search box').not.toHaveValue(new RegExp(identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+    await searchFor(page, pageOf(page), 'samw');
     expect(mock.lookups.length, 'a crafted identifier was looked up').toBe(lookupsBefore);
   }
 });
@@ -1867,7 +1923,7 @@ test('hits link only from well-formed uuids, URL-encoded; deals to /deals/<id> w
 test.describe('states', () => {
   test('loading draws its own state, never "no matches" or an error, until the answer arrives @p27-search @p27-search-states', async ({ page }) => {
     const mock = await openSearch(page, { hold: true });
-    const root = screenOf(page);
+    const root = pageOf(page);
     await input(root).fill('sam');
     await expect(shown(root.getByTestId('search-loading'))).toBeVisible();
     await expect(shown(root.getByTestId('search-empty'))).toHaveCount(0);
@@ -1881,7 +1937,7 @@ test.describe('states', () => {
     page,
   }) => {
     await openSearch(page);
-    const root = screenOf(page);
+    const root = pageOf(page);
     await expect(shown(root.getByTestId('search-empty')), '"no matches" before anything was typed').toHaveCount(0);
     await expect(shown(root.locator('[data-hit]')), 'hits before anything was typed (recent searches are not served)').toHaveCount(0);
     await input(root).fill(NO_MATCH);
@@ -1898,7 +1954,7 @@ test.describe('states', () => {
 
   test('a failed read is an error, never "no matches", for a name and for a lookup @p27-search @p27-search-states', async ({ page }) => {
     await openSearch(page, { networkFailure: true });
-    const root = screenOf(page);
+    const root = pageOf(page);
     await input(root).fill('sam');
     const error = shown(root.getByTestId('search-error')).first();
     await expect(error).toBeVisible();
@@ -1929,12 +1985,14 @@ test('a type the caller cannot read is simply empty: no hint, lock, count or err
 
 test('a group of a type this screen does not know is ignored; the rest is drawn (R17, additive types) @p27-search @p27-search-additive', async ({ page }) => {
   const mock = await openSearch(page, { futureGroup: true });
-  const root = screenOf(page);
+  const root = pageOf(page);
   await searchFor(page, root, 'sam');
   expect(mock.plantedFaults.length, 'the future group was not served').toBeGreaterThan(0);
   await expect(shown(root.getByTestId('search-error')), 'an unknown group type broke the whole answer').toHaveCount(0);
   expect(await page.evaluate(() => document.body.innerText), 'the unknown group was drawn').not.toContain(FUTURE_GROUP_TEXT);
   await expect(root.locator('[data-group="ticket"]')).toHaveCount(0);
+  // T-0148 (T-0138): the P27/C list has no group elements; a ticket row would carry its type.
+  await expect(root.locator('[data-hit-type="ticket"]')).toHaveCount(0);
 });
 
 // ===========================================================================
@@ -1973,15 +2031,24 @@ test('nothing is stored on the device and no recent search is kept, even in memo
 test('none of the overruled design: no partial-number hint, hidden count, facets, filters, scope menu, recents, commands, AI or create @p27-search @p27-search-absent', async ({
   page,
 }) => {
+  // T-0148 (T-0138): amended narrowly for D-L194 and D-L195. P27 now draws its export: the results page's
+  // Filters card, whose OBJECT boxes narrow what was served and count nothing, and its Sort (Best match, the
+  // served order); the palette's commands and Go to rows; and, drawn DISABLED for want of a create flow, the
+  // create offers (A5, D) and "Recently updated". Still banned here, where their flags are off: recents, the
+  // scope menu, Ask AI, the owner and date filters, calls, tickets and the wallboard. Banned everywhere: a
+  // count (D-P13), the hidden-results count (D-L195), a partial-number promise (D-L133), groups no module
+  // serves, and a designed control with no backend that acts.
   await openSearch(page);
   const banned: readonly (readonly [RegExp, string])[] = [
-    [/also match|with or without spaces|0 or \+234|partial number/i, 'the partial-number hint (A2, overruled)'],
-    [/not on\b|not assigned|you can['’]?t open|cannot open|who to ask|ask (your|an) admin|\bhidden\b/i, 'the hidden-results count (B)'],
-    [/\bfilters?\b|owned by me|\bowner\b|any time|this week|clear all|best match|recently updated|\bsort\b/i, 'filters, facets or sort (A3, C)'],
-    [/search in\b|all (my )?programmes|switch programme|your programmes|\bscope\b/i, 'the scope menu (B1, D2)'],
-    [/\brecent\b|recently viewed|clear history/i, 'recent searches (A)'],
-    [/ask ai|\bAI\b|suggested|run a command|\bcall\b/i, 'commands, calls or Ask AI (D, D3)'],
-    [/create (a )?(contact|lead)|new (contact|lead)|add (contact|lead)/i, 'the create offer (A5)'],
+    // "The whole number is matched, with or without spaces or a leading 0" is the D-L195 strip's whole-number
+    // guidance, so "with or without spaces" is no longer banned on its own; a promise of part of a number is.
+    [/also match|0 or \+234|partial number|part of (a|the) number/i, 'the partial-number hint (A2, overruled)'],
+    [/not on\b|not assigned|you can['’]?t open|cannot open|who to ask|ask (your|an) admin|\bhidden\b/i, 'the hidden-results count (B, D-L195)'],
+    [/owned by me|\bowner\b|any time|this week|last \d+ days|\banyone\b/i, 'owner or date filters (A3, C: search_filters is off)'],
+    [/search in\b|all (my )?programmes|switch programme|your programmes|\bscope\b/i, 'the scope menu (B1, D2: programme_scope_search is off)'],
+    [/recent searches|recently viewed|clear history/i, 'recent searches (A: recent_searches is off)'],
+    [/ask ai|kasuwa ai|\bAI\b/i, 'Ask AI (D, D3: ai_assistant is off)'],
+    [/\bcall\b|wallboard|create ticket/i, 'calls, tickets or the wallboard (their placeholders are off)'],
     [/tickets?\b|conversations?\b|\bKB\b|knowledge base|articles?\b/i, 'groups no module serves'],
   ];
   const check = async (root: Locator, where: string) => {
@@ -1990,15 +2057,37 @@ test('none of the overruled design: no partial-number hint, hidden count, facets
       expect(copy, `${what} is drawn on ${where}`).not.toMatch(pattern);
     }
     expect(copy, `a count is drawn on ${where} (D-P13)`).not.toMatch(/\(\s*\d+\s*\)|\b\d+\s+(results?|matches|more|hidden|others?|contacts?|leads?|accounts?|deals?)\b|\+\d+\b|\bof \d+\b/i);
-    await expect(root.locator('[data-facet], input[type="checkbox"], select, [role="menu"], [role="menuitemcheckbox"]'), `facets, filters or a scope menu on ${where}`).toHaveCount(0);
-    await expect(root.locator('[aria-hidden="true"]', { hasText: /^\s*(auto_awesome|tune|filter_list|badge|history|dialpad|person_add|bolt|call)\s*$/ }), `a hidden feature’s icon on ${where}`).toHaveCount(0);
+    await expect(
+      root.locator('[role="menu"], [role="menuitemcheckbox"], input[type="radio"], [data-testid="search-scope"], [data-testid="search-scope-menu"], [data-testid="search-recent"]'),
+      `owner or date filters, a scope menu or recents on ${where}`,
+    ).toHaveCount(0);
+    // `dialpad` is the D-L195 phone strip's own glyph (P27 A2), so it is no longer banned; the rest still are.
+    await expect(root.locator('[aria-hidden="true"]', { hasText: /^\s*(auto_awesome|tune|filter_list|badge|history|call)\s*$/ }), `a hidden feature’s icon on ${where}`).toHaveCount(0);
+    // The object facets are checkboxes, one per served type, and nothing else is.
+    const boxes = await root.locator('input[type="checkbox"]').evaluateAll((inputs) => inputs.map((box) => box.closest('[data-facet]')?.getAttribute('data-facet') ?? 'not a facet'));
+    expect(boxes.filter((facet) => !(SEARCH_TYPES as readonly string[]).includes(facet)), `a checkbox that is not an object facet on ${where}`).toEqual([]);
+    // Sort: the served order, and nothing it cannot do.
+    const sorts = await root.locator('select option').evaluateAll((options) => options.map((option) => ({ disabled: (option as HTMLOptionElement).disabled, first: option.previousElementSibling === null })));
+    expect(sorts.filter((option) => !option.first && !option.disabled), `a sort the search does not serve can be chosen on ${where}`).toEqual([]);
+    // No create flow exists: every create offer is disabled.
+    const creating = await root.evaluate((element) =>
+      Array.from(element.querySelectorAll('a, button, [role="option"], [role="button"]'))
+        .filter((node) => /create (a )?(contact|lead)|new (contact|lead)|add (contact|lead)/i.test(node.textContent ?? ''))
+        .filter((node) => !node.hasAttribute('disabled') && node.getAttribute('aria-disabled') !== 'true')
+        .map((node) => (node.textContent ?? '').replace(/\s+/g, ' ').trim()),
+    );
+    expect(creating, `a create offer acts on ${where}, with no create flow`).toEqual([]);
   };
-  const root = screenOf(page);
-  await check(root, 'the screen, nothing typed');
+  const root = pageOf(page);
+  const screen = screenOf(page);
+  await check(screen, 'the screen, nothing typed');
   await searchFor(page, root, 'sam');
-  await check(root, 'the screen with results');
+  await check(screen, 'the screen with results');
   await lookUp(page, root, PHONE);
-  await check(root, 'the screen after a lookup');
+  await check(screen, 'the screen after a lookup');
+  await input(root).fill(NO_MATCH);
+  await expect(shown(screen.getByTestId('search-empty'))).toBeVisible();
+  await check(screen, 'the screen with no matches');
   const palette = await openPalette(page);
   await check(palette, 'the palette, nothing typed');
   await searchFor(page, palette, 'sam');
@@ -2017,7 +2106,7 @@ test('at 360px the search fits without sideways page scroll, keeps its header en
   await page.setViewportSize({ width: 360, height: 780 });
   await openSearch(page);
   await expect(shown(page.locator('[data-shell="crm"] header a[href="/search"]')).first(), 'no search entry at 360px').toBeVisible();
-  const root = screenOf(page);
+  const root = pageOf(page);
   await searchFor(page, root, 'sam');
   const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(await overflow(), 'the search scrolls sideways at 360px').toBeLessThanOrEqual(0);
@@ -2063,13 +2152,19 @@ test('locale=en-XA renders every string as pseudo text, record data excepted @p2
   const empty = await report(page.locator('[data-shell="crm"]'));
   expect(empty.english, 'strings on the search screen that did not come through i18n').toEqual([]);
   expect(empty.pseudoCount, 'almost no pseudo text: the check saw nothing').toBeGreaterThanOrEqual(5);
-  const root = screenOf(page);
+  const root = pageOf(page);
   await searchFor(page, root, 'sam');
   const results = await report(page.locator('[data-shell="crm"]'));
   expect(results.english, 'strings among the results that did not come through i18n').toEqual([]);
   expect(results.forged, 'UI copy marked data-record-text that is not served record data').toEqual([]);
+  // T-0148 (T-0138, P27/C): the results page names each hit's type in a tag, not a group header.
   for (const type of SEARCH_TYPES) {
-    expect(await groupChrome(root, type), `the ${type} group label is not translated`).toMatch(PSEUDO);
+    const tag = await hit(root, type, EXPECTED.sam?.[type][0] ?? '').evaluate((element) => {
+      const copy = element.cloneNode(true) as Element;
+      copy.querySelectorAll('[aria-hidden="true"], [data-record-text]').forEach((node) => node.remove());
+      return (copy.textContent ?? '').replace(/\s+/g, ' ').trim();
+    });
+    expect(tag, `the ${type} type label is not translated`).toMatch(PSEUDO);
   }
   const palette = await openPalette(page);
   await input(palette).fill(NO_MATCH);

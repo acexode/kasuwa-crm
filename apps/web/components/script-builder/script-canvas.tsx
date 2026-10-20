@@ -110,7 +110,8 @@ export function tokens(text: string): { text: string; variable: boolean }[] {
 
 export function Variable({ text }: { text: string }) {
   return (
-    <code className="rounded-[3px] bg-primary-soft px-0.75 font-mono text-micro font-normal text-primary-text">
+    // A `{variable}` is part of the script's own wording, never UI copy (T-0150).
+    <code data-script-text="" className="rounded-[3px] bg-primary-soft px-0.75 font-mono text-micro font-normal text-primary-text">
       {text}
     </code>
   );

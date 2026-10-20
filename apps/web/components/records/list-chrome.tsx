@@ -6,6 +6,8 @@ import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import type { IconName } from '@kasuwa/ui';
 import { SegmentedControl, type SegmentedOption } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
+import { Emphasis } from '../auth/rich-text';
+import { LineParts } from './list-table';
 import type { MyProgramme } from '../../lib/accounts-api';
 import {
   FOCUS,
@@ -100,9 +102,14 @@ export function CountChip({ t, count }: { t: Translator; count: string | null })
   );
 }
 
-function programmeNames(programmes: readonly MyProgramme[] | null): string | null {
+/**
+ * The caller's programme names, each its own `data-record-text` (served by
+ * `/me/programmes`), with the comma between them left as plain text: one
+ * joined string would not be a served value (T-0150).
+ */
+function programmeNames(programmes: readonly MyProgramme[] | null): ReactNode | null {
   if (programmes === null || programmes.length === 0) return null;
-  return programmes.map((programme) => programme.name).join(', ');
+  return <LineParts parts={programmes.map((programme) => ({ text: programme.name, record: true }))} separator=", " />;
 }
 
 /**
@@ -129,10 +136,17 @@ export function ProgrammePill({
       }`}
     >
       <Icon name="work" size={compact ? 15 : 16} />
-      <span data-record-text="" className="truncate">
-        {names === null
-          ? t.t('records.programme.chip')
-          : t.t(programmes?.length === 1 ? 'records.programme.one' : 'records.programme.many', { names })}
+      <span className="truncate">
+        {names === null ? (
+          t.t('records.programme.chip')
+        ) : (
+          // The sentence is copy and the names are record data: the names go
+          // back into the translated sentence at the catalogue's own position.
+          <Emphasis
+            sentence={(slot) => t.t(programmes?.length === 1 ? 'records.programme.one' : 'records.programme.many', { names: slot })}
+            values={[names]}
+          />
+        )}
       </span>
     </span>
   );
@@ -161,9 +175,7 @@ export function ScopeLine({
         ) : (
           <>
             {t.t('records.scope.only')}{' '}
-            <b data-record-text="" className="text-text">
-              {names}
-            </b>{' '}
+            <b className="text-text">{names}</b>{' '}
             {t.t('records.scope.rest')}
           </>
         )}

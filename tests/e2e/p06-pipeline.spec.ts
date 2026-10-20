@@ -591,7 +591,8 @@ async function drag(page: Page, source: Locator, target: Locator): Promise<void>
 }
 
 async function openMoveSheet(page: Page, dealId: string): Promise<Locator> {
-  const button = anyCard(page, dealId).locator('[data-action="move-deal"]').first();
+  // T-0147: a card carries two move controls since T-0135 (the desktop's drag handle, the phone's Move stage), one hidden.
+  const button = shown(anyCard(page, dealId).locator('[data-action="move-deal"]')).first();
   await expect(button, 'the card has no move control').toBeVisible();
   await button.click();
   const sheet = shown(page.getByTestId('move-sheet')).first();
@@ -689,7 +690,10 @@ async function offersFilter(page: Page, selector: string): Promise<boolean> {
 async function closeInput(page: Page, name: 'closeFrom' | 'closeTo'): Promise<Locator> {
   const input = shown(page.locator(`[data-filter-input="${name}"]`));
   if ((await input.count()) === 0) {
-    await shown(screen(page).locator('[data-filter="close"]')).first().click();
+    const control = shown(screen(page).locator('[data-filter="close"]')).first();
+    // T-0147: the close-date filter is now a preset <select> (T-0135, D-L193); its "Choose dates" preset shows the inputs.
+    if ((await control.evaluate((element) => element.tagName)) === 'SELECT') await control.selectOption('custom');
+    else await control.click();
   }
   const visible = shown(page.locator(`[data-filter-input="${name}"]`)).first();
   await expect(visible, `no ${name} input`).toBeVisible();
@@ -1293,6 +1297,11 @@ test.describe('P06/01 — the board', () => {
     expect(await countOf(page, S_QUALIFIED.id)).toBe('0');
     await expect(shown(column(page, S_QUALIFIED.id).getByTestId('column-empty')).first()).toBeVisible();
 
+    // T-0147: the owner select, with Me and Unassigned, now lives in the phone's Filters sheet (T-0135, D-L193: P06/01
+    // draws only owner avatars on a desktop), so it is checked at 360px; the desktop's avatar row is checked after it.
+    const desktop = page.viewportSize();
+    await page.setViewportSize({ width: 360, height: 780 });
+    await shown(screen(page).locator('[data-action="open-filters"]')).first().click();
     const owners = await filterOptions(page, 'owner');
     expect(owners).toEqual(expect.arrayContaining(['me', 'unassigned']));
     for (const value of owners) {
@@ -1301,6 +1310,22 @@ test.describe('P06/01 — the board', () => {
     const byOwner = page.waitForRequest((request) => isBoardRead(request) && new URL(request.url()).searchParams.getAll('owner').includes('me'));
     await chooseFilter(page, 'owner', 'me');
     await byOwner;
+    await page.keyboard.press('Escape');
+    await expect(shown(page.getByTestId('filter-sheet'))).toHaveCount(0);
+    if (desktop !== null) await page.setViewportSize(desktop);
+    // T-0147: the desktop's avatar row (T-0135): one toggle per owner, each an id, sent as the contract's `owner`.
+    const avatars = shown(screen(page).locator('[data-filter-group="owner"] [data-owner-option]'));
+    const avatarIds = await avatars.evaluateAll((elements) => elements.map((element) => element.getAttribute('data-owner-option') ?? ''));
+    expect(avatarIds.length, 'the desktop offers no owner avatars').toBeGreaterThan(0);
+    for (const value of avatarIds) expect(UUID.test(value) && value.length === 36, `owner avatar ${value}`).toBe(true);
+    const avatarId = avatarIds[0] ?? '';
+    const byAvatar = page.waitForRequest((request) => {
+      const sent = new URL(request.url()).searchParams.getAll('owner');
+      return isBoardRead(request) && sent.includes(avatarId) && sent.includes('me');
+    });
+    await avatars.first().click();
+    await byAvatar;
+    await expect(avatars.first()).toHaveAttribute('aria-pressed', 'true');
     expect([...(await filterOptions(page, 'currency'))].sort(), 'the currency filter is not exactly NGN, GHS, KES and ZAR').toEqual([...CURRENCIES].sort());
     const byCurrency = page.waitForRequest((request) => isBoardRead(request) && new URL(request.url()).searchParams.getAll('currency').includes('NGN'));
     await chooseFilter(page, 'currency', 'NGN');
@@ -1328,7 +1353,8 @@ test.describe('P06/01 — the board', () => {
     await page.unrouteAll({ behavior: 'ignoreErrors' });
     await openBoard(page, { pipelineId: PIPELINE_TWO.id });
     await boardSettled(page, PIPELINE_TWO);
-    expect(await offersFilter(page, '[data-filter="owner"]'), 'an owner filter with the owner withheld').toBe(false);
+    // T-0147: the desktop's owner filter is the avatar row (T-0135); neither it nor a select may be offered.
+    expect(await offersFilter(page, '[data-filter="owner"], [data-filter-group="owner"]'), 'an owner filter with the owner withheld').toBe(false);
     expect(await offersFilter(page, '[data-filter="currency"]'), 'a currency filter with the amount withheld').toBe(false);
     expect(await offersFilter(page, '[data-filter="close"], [data-filter-input="closeFrom"], [data-filter-input="closeTo"]'), 'a close-date filter with the close date withheld').toBe(false);
     expect(await offersFilter(page, '[data-filter="q"]'), 'no search: the name is never withheld').toBe(true);
@@ -1350,7 +1376,12 @@ test.describe('P06/01b — the list view', () => {
     await expect(shown(screen(page).locator('[data-testid="deal-list"] [data-deal-row]')).first()).toBeVisible();
     expect(await listIds(page), 'the rows are not in served order').toEqual(listRows(mock.store, PIPELINE_ONE.id, NO_FILTERS, [], sort).map((row) => row.id));
     const lostRow = shown(screen(page).locator(`[data-deal-row="${D_L1.id}"]`)).first();
-    expect(await visibleText(lostRow.locator('[data-field="stage"]').first()), 'a lost deal’s stage is not named').toContain(S_LOST.name);
+    // T-0147: the list's stage cell is now P06/03's select pill (T-0135, D-L193); a select draws its chosen option.
+    const lostStage = lostRow.locator('[data-field="stage"]').first();
+    const lostStageText = (await lostStage.evaluate((element) => element.tagName)) === 'SELECT'
+      ? await lostStage.evaluate((element) => (element as HTMLSelectElement).selectedOptions[0]?.textContent ?? '')
+      : await visibleText(lostStage);
+    expect(lostStageText, 'a lost deal’s stage is not named').toContain(S_LOST.name);
     await expect(shown(screen(page).locator(`[data-deal-row="${D_L2.id}"]`)), 'a deal lost before the window is listed').toHaveCount(0);
     await expectMoney(page, shown(screen(page).locator(`[data-deal-row="${D_BIG.id}"] [data-field="amount"]`)).first(), '999999999999999999', 'NGN', 'the list’s amount');
 

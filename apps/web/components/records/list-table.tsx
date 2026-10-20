@@ -104,7 +104,7 @@ export function NameBlock({
 }: {
   t: Translator;
   name: string | undefined;
-  sub: string | null;
+  sub: readonly LinePart[] | null;
   square?: boolean;
 }) {
   return (
@@ -120,9 +120,9 @@ export function NameBlock({
             {name}
           </b>
         )}
-        {sub === null || sub === '' ? null : (
-          <span data-record-text="" className="truncate text-caption text-text-muted">
-            {sub}
+        {sub === null || sub.length === 0 ? null : (
+          <span className="truncate text-caption text-text-muted">
+            <LineParts parts={sub} />
           </span>
         )}
       </span>
@@ -130,10 +130,45 @@ export function NameBlock({
   );
 }
 
-/** "via Missed call · Lagos · Ikeja": the readable parts, joined. */
-export function subLine(parts: readonly (string | null | undefined)[]): string | null {
-  const kept = parts.filter((part): part is string => typeof part === 'string' && part !== '');
-  return kept.length === 0 ? null : kept.join(' · ');
+/**
+ * One piece of a joined line ("via Missed call · Lagos · Ikeja"). A served
+ * value is `record`, and only it is marked `data-record-text`: a translated
+ * piece ("via Missed call", "Unassigned") is copy, and the separators are
+ * neither, so a joined line never passes copy off as record data (T-0150).
+ */
+export interface LinePart {
+  readonly text: string;
+  readonly record: boolean;
+}
+
+/** A served value as a line part, or nothing when it is absent or empty. */
+export function recordPart(text: string | null | undefined): LinePart | null {
+  return typeof text === 'string' && text !== '' ? { text, record: true } : null;
+}
+
+/** Translated copy as a line part. */
+export function copyPart(text: string | null | undefined): LinePart | null {
+  return typeof text === 'string' && text !== '' ? { text, record: false } : null;
+}
+
+/** "via Missed call · Lagos · Ikeja": the readable parts, in order, or null when none is. */
+export function subLine(parts: readonly (LinePart | null)[]): LinePart[] | null {
+  const kept = parts.filter((part): part is LinePart => part !== null && part.text !== '');
+  return kept.length === 0 ? null : kept;
+}
+
+/** The parts drawn inline with `separator` between them; record parts each in their own `data-record-text`. */
+export function LineParts({ parts, separator = ' · ' }: { parts: readonly LinePart[]; separator?: string }) {
+  return (
+    <>
+      {parts.map((part, index) => (
+        <span key={index}>
+          {index === 0 ? null : separator}
+          {part.record ? <span data-record-text="">{part.text}</span> : part.text}
+        </span>
+      ))}
+    </>
+  );
 }
 
 /** A phone: mono 13px, then the network as an outlined 11/700 tag, then DND in danger-soft. */
