@@ -255,7 +255,9 @@ async function captureApp(prefixes) {
     prefixes.length === 0 || prefixes.some((prefix) => name.startsWith(prefix));
   const browser = await chromium.launch();
   try {
-    const signedOut = await browser.newContext();
+    // The designs are drawn on a Lagos desk ("All times WAT"); shoot in that zone, not the host's (T-0134).
+    const desk = { timezoneId: 'Africa/Lagos' };
+    const signedOut = await browser.newContext(desk);
     const anon = await signedOut.newPage();
     for (const [name, path] of [
       ['p01-signin', '/'],
@@ -279,7 +281,7 @@ async function captureApp(prefixes) {
     }
     await signedOut.close();
 
-    const context = await browser.newContext();
+    const context = await browser.newContext(desk);
     const page = await context.newPage();
     await signIn(page, role);
     const get = (path) =>

@@ -7,6 +7,8 @@ import { tierLabel } from '../accounts/accounts-model';
 import { ACCOUNT_EDIT_SHEET_MESSAGE_IDS } from '../accounts/message-ids';
 import { CRM_SHELL_MESSAGE_IDS } from '../crm/crm-nav';
 import { ACCOUNT_DETAILS, accountFieldLabel } from './account-record-model';
+import { RECORD_FRAME_MESSAGE_IDS } from '../record/frame-message-ids';
+import { ContactStatus } from '../../lib/records-api';
 
 /**
  * The strings P05/04 needs, resolved on the SERVER (T-0063).
@@ -22,6 +24,18 @@ export const ACCOUNT_RECORD_MESSAGE_IDS: readonly MessageId[] = [
   ...CRM_SHELL_MESSAGE_IDS,
   // The record opens T-0057's sheet to EDIT only: nothing of the create flow ships here.
   ...ACCOUNT_EDIT_SHEET_MESSAGE_IDS,
+  // T-0134: the P05 frame, and the account's own groups, hierarchy card and contact tiles.
+  ...RECORD_FRAME_MESSAGE_IDS,
+  'record.group.system',
+  'account.group.company',
+  'account.group.location',
+  'account.hierarchy.title',
+  'account.hierarchy.this',
+  'account.hierarchy.parent',
+  'account.tile.consent',
+  'account.partOf',
+  'account.notFound.back',
+  ...ContactStatus.options.map((value) => `records.status.${value}` as MessageId),
   'accounts.title',
   'notFound.title',
   'notFound.body',
