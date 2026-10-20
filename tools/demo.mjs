@@ -88,6 +88,17 @@ const DEMO_FLAGS = [
   'last_activity',
   'quick_actions',
   'more_filters',
+  // T-0141 (D-L194): P28's Data management area and its placeholders.
+  'data_management',
+  'data_migration',
+  'data_export',
+  'dsr',
+  'merge_three_way',
+  // T-0138 (D-L194): the P27 placeholders.
+  'recent_searches',
+  'programme_scope_search',
+  'ai_assistant',
+  'search_filters',
   // T-0132: P03 Home, and its widgets with no module behind them yet (D-L194).
   'crm_home',
   'whatsapp_inbox',
@@ -97,6 +108,14 @@ const DEMO_FLAGS = [
   // T-0137: P26's placeholders for notification types and preferences (D-L194).
   'notification_types',
   'notification_preferences',
+  // T-0140: P02's flagged placeholders (D-L194).
+  'admin_placeholders',
+  // T-0139 (D-L194): the P10 placeholders.
+  'crm_studio',
+  'ai_script_hints',
+  'script_programme_assignment',
+  'script_preview',
+  'script_version_changes',
   // T-0142: P18 Customisation Studio placeholders (D-L194).
   'studio_objects',
   'studio_layouts',

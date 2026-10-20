@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { cx } from './class-names';
+import { cx, type DataAttributes } from './class-names';
 import { Glyph } from './glyph';
 
 /**
@@ -24,6 +24,8 @@ export type StepState = 'done' | 'active' | 'todo';
 export interface StepperStep {
   readonly label: ReactNode;
   readonly state: StepState;
+  /** `data-*` hooks for the step's list item (a screen's `data-step`). */
+  readonly attributes?: DataAttributes | undefined;
 }
 
 export interface StepperProps {
@@ -36,6 +38,8 @@ export interface StepperProps {
    */
   readonly compactSummary?: ReactNode | undefined;
   readonly className?: string | undefined;
+  /** `data-*` hooks for the list itself (a screen's `data-testid`). */
+  readonly listAttributes?: DataAttributes | undefined;
 }
 
 const CIRCLE: Record<StepState, string> = {
@@ -52,7 +56,7 @@ function isDone(step: StepperStep): boolean {
   return step.state === 'done';
 }
 
-export function Stepper({ steps, label, compactSummary, className }: StepperProps) {
+export function Stepper({ steps, label, compactSummary, className, listAttributes }: StepperProps) {
   const active = steps.findIndex(isActive);
   const done = steps.filter(isDone).length;
   const progress = steps.length === 0 ? 0 : ((active === -1 ? done : active + 1) / steps.length) * 100;
@@ -61,6 +65,7 @@ export function Stepper({ steps, label, compactSummary, className }: StepperProp
   return (
     <div className={className}>
       <ol
+        {...listAttributes}
         aria-label={label}
         className={cx(
           'm-0 flex list-none flex-wrap items-center gap-x-2.5 gap-y-1.5 p-0',
@@ -71,6 +76,7 @@ export function Stepper({ steps, label, compactSummary, className }: StepperProp
           <li
             // Steps are a fixed sequence; their order is their identity.
             key={index}
+            {...step.attributes}
             aria-current={step.state === 'active' ? 'step' : undefined}
             className="flex items-center gap-2"
           >

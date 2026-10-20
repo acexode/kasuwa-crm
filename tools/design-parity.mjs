@@ -346,6 +346,11 @@ async function captureApp(prefixes) {
       ['p27-search', '/search?q=Kano'],
       ['p28-import', '/contacts/import'],
       ['p28-duplicates', '/contacts/duplicates'],
+      ['p28-data-import', '/admin/data/import'],
+      ['p28-data-duplicates', '/admin/data/duplicates'],
+      ['p28-data-migration', '/admin/data/migration'],
+      ['p28-data-exports', '/admin/data/exports'],
+      ['p28-data-requests', '/admin/data/requests'],
       ['p01-onboarding', '/onboarding'],
       ['design-components-2', '/design/components-2'],
     ];

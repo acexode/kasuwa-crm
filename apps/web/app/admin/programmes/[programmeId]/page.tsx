@@ -6,7 +6,7 @@ import {
 } from '../../../../components/admin/programme-tabs';
 import { ADMIN_PROGRAMME_MESSAGE_IDS } from '../../../../components/admin/message-ids';
 import { activeLocale, languageOptions } from '../../../../lib/locale';
-import { adminLiveApiEnabled } from '../../../../lib/feature-flags';
+import { adminLiveApiEnabled, adminPlaceholdersShown } from '../../../../lib/feature-flags';
 import { adminBellLive, adminLiveNav } from '../../../../components/admin/live-nav';
 import { withNotificationMessages } from '../../../../components/notifications/message-ids';
 
@@ -37,7 +37,7 @@ export default async function ProgrammePage({
 
   const requested = Array.isArray(query.tab) ? query.tab[0] : query.tab;
   const tab: ProgrammeTab = isProgrammeTab(requested) ? requested : 'overview';
-  const live = await adminLiveApiEnabled();
+  const [live, placeholders] = await Promise.all([adminLiveApiEnabled(), adminPlaceholdersShown()]);
 
   return (
     <ProgrammeScreen
@@ -49,6 +49,7 @@ export default async function ProgrammePage({
       programmeId={programmeId}
       tab={tab}
       live={live}
+      placeholders={placeholders}
     />
   );
 }

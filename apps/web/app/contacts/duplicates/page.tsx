@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { bundleMessages, createTranslator } from '@kasuwa/i18n';
 import { DuplicatesScreen } from '../../../components/duplicates/duplicates-screen';
 import { DUPLICATES_MESSAGE_IDS } from '../../../components/duplicates/message-ids';
 import { withShellMessages } from '../../../components/crm/shell-messages';
-import { crmDuplicatesEnabled, crmLiveNav, crmRecordsEnabled } from '../../../lib/feature-flags';
+import { crmDuplicatesEnabled, crmLiveNav, crmRecordsEnabled, dataManagement } from '../../../lib/feature-flags';
 import { activeLocale, languageOptions } from '../../../lib/locale';
 
 /**
@@ -34,6 +34,8 @@ export default async function DuplicatesPage() {
   if (!(await crmDuplicatesEnabled()) || !(await crmRecordsEnabled())) {
     notFound();
   }
+  // T-0141: with the Data management area on, duplicates live there; this path keeps working by sending people on.
+  if ((await dataManagement()).area) redirect('/admin/data/duplicates');
   const { locale } = await activeLocale();
   const live = await crmLiveNav();
 
@@ -42,7 +44,7 @@ export default async function DuplicatesPage() {
       locale={locale}
       messages={bundleMessages(locale, withShellMessages(DUPLICATES_MESSAGE_IDS, live))}
       locales={languageOptions(locale)}
-      live={live}
+      frame={{ kind: 'crm', live }}
     />
   );
 }

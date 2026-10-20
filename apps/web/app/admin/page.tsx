@@ -4,6 +4,7 @@ import { ADMIN_HOME_MESSAGE_IDS } from '../../components/admin/message-ids';
 import { adminBellLive, adminLiveNav } from '../../components/admin/live-nav';
 import { withNotificationMessages } from '../../components/notifications/message-ids';
 import { activeLocale, languageOptions } from '../../lib/locale';
+import { adminPlaceholdersShown } from '../../lib/feature-flags';
 
 /**
  * `P02/A` and `P02/A1` — admin home and the settings menu.
@@ -19,7 +20,11 @@ import { activeLocale, languageOptions } from '../../lib/locale';
  */
 export default async function AdminHomePage() {
   const { locale } = await activeLocale();
-  const [linkedSettings, bell] = await Promise.all([adminLiveNav(), adminBellLive()]);
+  const [linkedSettings, bell, placeholders] = await Promise.all([
+    adminLiveNav(),
+    adminBellLive(),
+    adminPlaceholdersShown(),
+  ]);
 
   return (
     <AdminHomeScreen
@@ -28,6 +33,7 @@ export default async function AdminHomePage() {
       locales={languageOptions(locale)}
       linkedSettings={linkedSettings}
       bell={bell}
+      placeholders={placeholders}
     />
   );
 }

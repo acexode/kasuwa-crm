@@ -35,6 +35,7 @@ export type IconName =
   | 'bookmark_add'
   | 'business_center'
   | 'calendar_month'
+  | 'calendar_today'
   | 'call'
   | 'call_end'
   | 'call_received'
@@ -52,6 +53,7 @@ export type IconName =
   | 'cloud'
   | 'cloud_done'
   | 'cloud_off'
+  | 'cloud_sync'
   | 'cloud_upload'
   | 'co_present'
   | 'coffee'
@@ -76,6 +78,7 @@ export type IconName =
   | 'drag_pan'
   | 'edit'
   | 'edit_note'
+  | 'edit_off'
   | 'emergency'
   | 'error'
   | 'event'
@@ -124,6 +127,7 @@ export type IconName =
   | 'light_mode'
   | 'lightbulb'
   | 'link'
+  | 'link_off'
   | 'list'
   | 'location_on'
   | 'lock'
@@ -140,6 +144,7 @@ export type IconName =
   | 'merge'
   | 'mic'
   | 'mobile_off'
+  | 'monitoring'
   | 'more_horiz'
   | 'more_vert'
   | 'move_up'
@@ -160,7 +165,9 @@ export type IconName =
   | 'photo_camera'
   | 'pin'
   | 'play_arrow'
+  | 'play_circle'
   | 'priority_high'
+  | 'privacy_tip'
   | 'public'
   | 'publish'
   | 'published_with_changes'
@@ -181,6 +188,7 @@ export type IconName =
   | 'science'
   | 'search'
   | 'search_off'
+  | 'select_all'
   | 'send'
   | 'sentiment_satisfied'
   | 'settings'
@@ -207,6 +215,7 @@ export type IconName =
   | 'support_agent'
   | 'swap_horiz'
   | 'swipe_left'
+  | 'sync'
   | 'sync_alt'
   | 'table_rows'
   | 'target'
@@ -276,6 +285,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'bookmark_add',
   'business_center',
   'calendar_month',
+  'calendar_today',
   'call',
   'call_end',
   'call_received',
@@ -293,6 +303,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'cloud',
   'cloud_done',
   'cloud_off',
+  'cloud_sync',
   'cloud_upload',
   'co_present',
   'coffee',
@@ -317,6 +328,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'drag_pan',
   'edit',
   'edit_note',
+  'edit_off',
   'emergency',
   'error',
   'event',
@@ -365,6 +377,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'light_mode',
   'lightbulb',
   'link',
+  'link_off',
   'list',
   'location_on',
   'lock',
@@ -381,6 +394,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'merge',
   'mic',
   'mobile_off',
+  'monitoring',
   'more_horiz',
   'more_vert',
   'move_up',
@@ -401,7 +415,9 @@ export const ICON_NAMES: readonly IconName[] = [
   'photo_camera',
   'pin',
   'play_arrow',
+  'play_circle',
   'priority_high',
+  'privacy_tip',
   'public',
   'publish',
   'published_with_changes',
@@ -422,6 +438,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'science',
   'search',
   'search_off',
+  'select_all',
   'send',
   'sentiment_satisfied',
   'settings',
@@ -448,6 +465,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'support_agent',
   'swap_horiz',
   'swipe_left',
+  'sync',
   'sync_alt',
   'table_rows',
   'target',

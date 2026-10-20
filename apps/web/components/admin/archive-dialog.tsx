@@ -7,7 +7,7 @@ import { Icon } from '../icon';
 import { Dialog } from './dialog';
 import { Skeleton, StillConnecting, ErrorPanel, errorMessageId } from './panel';
 import { useResource } from './use-resource';
-import { SECONDARY_BUTTON } from '../auth/button-classes';
+import { AdminButton } from './admin-ui';
 import { archiveProgramme, getArchivePreview, type ScreenError } from '../../lib/admin-api';
 
 /**
@@ -125,23 +125,17 @@ export function ArchiveDialog({
       onClose={onClose}
       footer={
         <>
-          <button
-            type="button"
-            data-testid="archive-cancel"
-            onClick={onClose}
-            className={SECONDARY_BUTTON}
-          >
+          <AdminButton data-testid="archive-cancel" onClick={onClose}>
             {t.t('admin.archive.cancel')}
-          </button>
-          <button
-            type="button"
+          </AdminButton>
+          <AdminButton
+            variant="danger"
             data-testid="archive-confirm"
             disabled={busy || !matches}
             onClick={() => void archive()}
-            className="flex min-h-touch items-center justify-center rounded-md bg-danger px-4 text-body-md font-bold text-on-primary hover:bg-danger-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             {t.t('admin.archive.confirm')}
-          </button>
+          </AdminButton>
         </>
       }
     >
@@ -154,26 +148,26 @@ export function ArchiveDialog({
       ) : (
         <ul
           data-testid="archive-impacts"
-          className="flex list-none flex-col gap-2 rounded-md bg-surface-sunken p-4"
+          className="m-0 flex list-none flex-col gap-2 rounded-10 bg-surface-sunken px-3.5 py-3"
         >
           {impacts.map((impact) => (
-            <li key={impact.id} className="flex gap-2 text-body-sm">
-              <Icon name={impact.icon} size="sm" className="text-text-2" />
+            <li key={impact.id} className="flex gap-2.5 text-meta">
+              <Icon name={impact.icon} size={18} className="shrink-0 text-text-2" />
               {t.t(impact.id, { count: impact.value })}
             </li>
           ))}
           {/* Null means we do not know which rule applies. Nothing is better
               than a rule we invented — see the note at the top. */}
           {data.retentionSummary === null || data.retentionSummary === undefined ? null : (
-            <li data-testid="archive-retention" className="flex gap-2 text-body-sm">
-              <Icon name="inventory_2" size="sm" className="text-text-2" />
+            <li data-testid="archive-retention" className="flex gap-2.5 text-meta">
+              <Icon name="inventory_2" size={18} className="shrink-0 text-text-2" />
               {t.t('admin.archive.impact.retention', { rule: data.retentionSummary })}
             </li>
           )}
         </ul>
       )}
 
-      <label className="flex flex-col gap-2 text-body-sm font-bold">
+      <label className="flex flex-col gap-1.5 text-meta font-bold">
         {t.t('admin.archive.typeName', { name: programmeName })}
         <input
           type="text"
@@ -181,7 +175,7 @@ export function ArchiveDialog({
           data-testid="archive-confirmation"
           value={confirmation}
           onChange={(event) => setConfirmation(event.target.value)}
-          className="min-h-touch rounded-md border border-border-strong bg-surface px-3 text-body-md font-normal text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          className="h-control-md rounded-md border border-border-strong bg-surface px-3 text-body-sm font-normal text-text is-focus:field-focus"
         />
       </label>
 
@@ -190,7 +184,7 @@ export function ArchiveDialog({
           role="alert"
           data-testid="archive-error"
           data-error-code={error.code}
-          className="rounded-md bg-danger-soft p-3 text-body-sm text-danger-text"
+          className="m-0 rounded-10 bg-danger-soft px-3.5 py-3 text-meta text-danger-text"
         >
           {t.t(errorMessageId(error))}
         </p>
