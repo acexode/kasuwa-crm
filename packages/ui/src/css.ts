@@ -130,6 +130,9 @@ export function buildTokensCss(): string {
     '',
     '/* semantic tokens — light is the default theme */',
     ...light,
+    '',
+    '/* native controls, scrollbars and select popups follow the theme (T-0143) */',
+    'color-scheme: light;',
   ];
 
   return [
@@ -139,11 +142,11 @@ export function buildTokensCss(): string {
     block(':root', rootDeclarations),
     '',
     '/* Explicit opt-in, so a tenant or a user preference can pin a theme. */',
-    block('[data-theme="dark"]', dark),
+    block('[data-theme="dark"]', [...dark, 'color-scheme: dark;']),
     '',
     '/* System preference, unless light has been explicitly pinned. */',
     '@media (prefers-color-scheme: dark) {',
-    block(':root:not([data-theme="light"])', dark, '  '),
+    block(':root:not([data-theme="light"])', [...dark, 'color-scheme: dark;'], '  '),
     '}',
     '',
     '/*',
