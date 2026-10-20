@@ -39,6 +39,7 @@ export const CONTACT_RECORD_MESSAGE_IDS: readonly MessageId[] = [
   ...CRM_SHELL_MESSAGE_IDS,
   // T-0134: the P05 frame, and the contact's own groups, chips and consent card.
   ...RECORD_FRAME_MESSAGE_IDS,
+  'record.appBar.contact',
   'record.group.contact',
   'record.group.personal',
   'record.group.consent',

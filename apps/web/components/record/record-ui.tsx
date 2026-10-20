@@ -36,7 +36,7 @@ export const CAPS = 'text-caption font-bold uppercase tracking-wider';
 
 export function RecordBreadcrumb({ t, href, list, current }: { t: Translator; href: string; list: string; current: ReactNode }) {
   return (
-    <nav aria-label={t.t('record.breadcrumb')}>
+    <nav aria-label={t.t('record.breadcrumb')} className="max-md:hidden">
       <ol className="flex flex-wrap items-center gap-1 text-meta">
         <li className="inline-flex items-center gap-1">
           <Link
@@ -317,6 +317,44 @@ export function ActionBar({ t, actions, extra }: { t: Translator; actions: reado
       )}
       {extra}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The phone app bar's trailing actions
+// ---------------------------------------------------------------------------
+
+const BAR_ICON = 'flex size-control-lg shrink-0 items-center justify-center rounded-md text-text is-hover:bg-surface-sunken outline-none focus-visible:ring-focus';
+
+/**
+ * P05 at 360: the app bar's search and kebab (the shell draws the back
+ * arrow and the title). The kebab holds the record's own entries.
+ */
+export function RecordAppBarActions({ t, search, entries }: { t: Translator; search: boolean; entries: readonly MenuEntry[] }) {
+  const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      {search ? (
+        <Link href="/search" prefetch={false} aria-label={t.t('search.title')} className={BAR_ICON}>
+          <Icon name="search" size={24} />
+        </Link>
+      ) : null}
+      <span className="relative">
+        <button
+          ref={trigger}
+          type="button"
+          aria-label={t.t('record.appBar.more')}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+          className={BAR_ICON}
+        >
+          <Icon name="more_vert" size={24} />
+        </button>
+        {open ? <Popover label={t.t('record.appBar.more')} entries={entries} triggerRef={trigger} align="end" onClose={() => setOpen(false)} /> : null}
+      </span>
+    </>
   );
 }
 

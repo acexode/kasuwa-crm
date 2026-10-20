@@ -26,6 +26,7 @@ export const ACCOUNT_RECORD_MESSAGE_IDS: readonly MessageId[] = [
   ...ACCOUNT_EDIT_SHEET_MESSAGE_IDS,
   // T-0134: the P05 frame, and the account's own groups, hierarchy card and contact tiles.
   ...RECORD_FRAME_MESSAGE_IDS,
+  'record.appBar.account',
   'record.group.system',
   'account.group.company',
   'account.group.location',

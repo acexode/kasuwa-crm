@@ -26,9 +26,12 @@ import {
   NameBadge,
   RecordBreadcrumb,
   RecordLayout,
+  RecordAppBarActions,
+  type MenuEntry,
   type Pane,
   type RecordAction,
 } from '../record/record-ui';
+import type { CrmAppBar } from '../crm/crm-shell';
 import type { ComposerChannel } from '../record/record-placeholders';
 import { StartScript } from '../script-run/start-script';
 import { LazyCustomValuesPanel } from '../custom/lazy-panel';
@@ -96,6 +99,11 @@ const CONTACT_TIMELINE: TimelineVocabulary = {
   describe: (field, value) => describeValue(field, value as Parameters<typeof describeValue>[1]),
 };
 
+/** P05 at 360: "← Contact" with search and a kebab, as the export's app bar draws it. */
+function appBar(title: string, back: string, actions: ReactNode): CrmAppBar {
+  return { title, back, actions };
+}
+
 type Notice = { readonly kind: 'error'; readonly id: MessageId } | { readonly kind: 'saved' } | null;
 
 /** Details in the export's groups. Every DETAILS key is in exactly one. */
@@ -135,9 +143,29 @@ export function ContactRecordScreen({
   const activityKeys = useReadOnlyKeys();
   const offline = !state.online;
   const record = state.phase === 'ready' ? state.record : null;
+  // Owned here, not in Ready, so the phone app bar's kebab can open them too.
+  const [editing, setEditing] = useState(false);
+  const [logging, setLogging] = useState<ActivityType | null>(null);
+  const [tab, setTab] = useState('activity');
+  const kebab: MenuEntry[] =
+    record === null
+      ? []
+      : [
+          { key: 'edit', icon: 'edit', label: t.t('record.edit'), disabled: offline, onSelect: () => setEditing(true) },
+          ...ActivityType.options.map((type) => ({
+            key: type,
+            icon: type === 'note' ? ('sticky_note_2' as const) : type === 'task' ? ('task_alt' as const) : ('call' as const),
+            label: t.t(`record.activity.type.${type}` as MessageId),
+            disabled: offline,
+            onSelect: () => {
+              setTab('activity');
+              setLogging(type);
+            },
+          })),
+        ];
 
   return (
-    <CrmShell t={t} locale={locale} locales={locales} current="contacts" live={live}>
+    <CrmShell t={t} locale={locale} locales={locales} current="contacts" live={live} appBar={appBar(t.t('record.appBar.contact'), '/contacts', <RecordAppBarActions t={t} search={live.includes('search')} entries={kebab} />)}>
       <div data-screen="P05/01" data-record-state={state.phase} className="flex min-w-0 flex-col gap-3 lg:gap-4">
         {record === null ? null : (
           <RecordBreadcrumb
@@ -171,6 +199,12 @@ export function ContactRecordScreen({
             customFields={customFields}
             activityKeys={activityKeys}
             flags={placeholders}
+            editing={editing}
+            setEditing={setEditing}
+            logging={logging}
+            setLogging={setLogging}
+            tab={tab}
+            setTab={setTab}
           />
         )}
       </div>
@@ -190,6 +224,12 @@ function Ready({
   customFields,
   activityKeys,
   flags,
+  editing,
+  setEditing,
+  logging,
+  setLogging,
+  tab,
+  setTab,
 }: {
   t: Translator;
   locale: string;
@@ -207,13 +247,16 @@ function Ready({
   /** Read-only activity keys, owned here so they outlive the activity form. */
   activityKeys: ReadOnlyStore;
   flags: RecordPlaceholders;
+  editing: boolean;
+  setEditing: (editing: boolean) => void;
+  logging: ActivityType | null;
+  setLogging: (type: ActivityType | null) => void;
+  tab: string;
+  setTab: (tab: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [logging, setLogging] = useState<ActivityType | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
-  const [tab, setTab] = useState('activity');
   const [pane, setPane] = useState<Pane>('insights');
   const [channel, setChannel] = useState<ComposerChannel>('whatsapp');
   const composerInput = useRef<HTMLTextAreaElement>(null);
