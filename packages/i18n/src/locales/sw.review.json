@@ -65,6 +65,9 @@
     "home.widget.size.s": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
     "home.widget.size.m": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
     "home.widget.size.l": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
-    "home.widget.size.xl": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words."
+    "home.widget.size.xl": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
+    "admin.studio.meter.unknown": "Studio copy (T-0142) that reads the same in this language: a symbol, a placeholder pattern, a product term or an established loanword.",
+    "admin.studio.editor.subtitle": "Studio copy (T-0142) that reads the same in this language: a symbol, a placeholder pattern, a product term or an established loanword.",
+    "admin.studio.relationships.zoom": "Studio copy (T-0142) that reads the same in this language: a symbol, a placeholder pattern, a product term or an established loanword."
   }
 }

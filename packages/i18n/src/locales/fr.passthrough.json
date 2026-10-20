@@ -126,5 +126,13 @@
   "home.widget.size.l",
   "home.widget.size.xl",
   "home.agenda.minutes",
-  "home.agenda.contactHidden"
+  "home.agenda.contactHidden",
+  "admin.studio.object.standard",
+  "admin.studio.meter.unknown",
+  "admin.studio.col.type",
+  "admin.studio.col.actions",
+  "admin.studio.editor.subtitle",
+  "admin.studio.option.unique",
+  "admin.studio.builder.mobile",
+  "admin.studio.builder.inspectorTitle"
 ]
