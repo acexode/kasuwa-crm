@@ -147,6 +147,10 @@
   --k-line-height-title: 36px;
   --k-font-weight-title: 800;
   --k-tracking-title: -0.01em;
+  --k-font-size-title-phone: 22px;
+  --k-line-height-title-phone: 28px;
+  --k-font-weight-title-phone: 800;
+  --k-tracking-title-phone: -0.01em;
   --k-font-size-title-sm: 26px;
   --k-line-height-title-sm: 34px;
   --k-font-weight-title-sm: 800;
@@ -477,6 +481,7 @@
   --k-line-height-mono: 22px;
   --k-line-height-headline: 57px;
   --k-line-height-title: 40px;
+  --k-line-height-title-phone: 31px;
   --k-line-height-title-sm: 37px;
   --k-line-height-card-title: 26px;
   --k-line-height-sheet-title: 26px;

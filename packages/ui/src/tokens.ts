@@ -121,6 +121,8 @@ export const TYPE_SCALE = {
   headline: { size: '44px', lineHeight: '52px', weight: '800', tracking: '-0.02em' },
   /** Page title on lists (P04, P07): 28/36/800. */
   title: { size: '28px', lineHeight: '36px', weight: '800', tracking: '-0.01em' },
+  /** P03 Home's greeting on a phone: 22/28/800 (the export's `h1` at 360, T-0132). */
+  'title-phone': { size: '22px', lineHeight: '28px', weight: '800', tracking: '-0.01em' },
   /** Page title on records and admin (P05, P02): 26/34/800. */
   'title-sm': { size: '26px', lineHeight: '34px', weight: '800', tracking: '0' },
   /** Card and section titles: 16/24/700. */

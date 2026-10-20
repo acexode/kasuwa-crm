@@ -178,6 +178,7 @@ module.exports = {
     'mono': ['var(--k-font-size-mono)', { lineHeight: 'var(--k-line-height-mono)', fontWeight: 'var(--k-font-weight-mono)', letterSpacing: 'var(--k-tracking-mono)' }],
     'headline': ['var(--k-font-size-headline)', { lineHeight: 'var(--k-line-height-headline)', fontWeight: 'var(--k-font-weight-headline)', letterSpacing: 'var(--k-tracking-headline)' }],
     'title': ['var(--k-font-size-title)', { lineHeight: 'var(--k-line-height-title)', fontWeight: 'var(--k-font-weight-title)', letterSpacing: 'var(--k-tracking-title)' }],
+    'title-phone': ['var(--k-font-size-title-phone)', { lineHeight: 'var(--k-line-height-title-phone)', fontWeight: 'var(--k-font-weight-title-phone)', letterSpacing: 'var(--k-tracking-title-phone)' }],
     'title-sm': ['var(--k-font-size-title-sm)', { lineHeight: 'var(--k-line-height-title-sm)', fontWeight: 'var(--k-font-weight-title-sm)', letterSpacing: 'var(--k-tracking-title-sm)' }],
     'card-title': ['var(--k-font-size-card-title)', { lineHeight: 'var(--k-line-height-card-title)', fontWeight: 'var(--k-font-weight-card-title)', letterSpacing: 'var(--k-tracking-card-title)' }],
     'sheet-title': ['var(--k-font-size-sheet-title)', { lineHeight: 'var(--k-line-height-sheet-title)', fontWeight: 'var(--k-font-weight-sheet-title)', letterSpacing: 'var(--k-tracking-sheet-title)' }],
