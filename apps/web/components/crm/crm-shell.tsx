@@ -78,6 +78,12 @@ export interface CrmAppBar {
   readonly back?: string;
   /** 48px trailing actions; given, they replace the default search and bell. */
   readonly actions?: ReactNode;
+  /**
+   * The logo tile in place of the menu button, and no visible title (P03 Home
+   * at 360: the tile, then the screen's own actions). The title stays as the
+   * bar's accessible heading; More still opens the navigation sheet.
+   */
+  readonly brand?: boolean;
 }
 
 interface PaletteProps {
@@ -178,6 +184,7 @@ export function CrmShell({
   live,
   appBar,
   fab,
+  bottomObjects,
   children,
 }: {
   t: Translator;
@@ -191,6 +198,8 @@ export function CrmShell({
   appBar?: CrmAppBar;
   /** The phone's extended "+ New" button (`CrmFab`), drawn above the bottom bar below `md`. */
   fab?: ReactNode;
+  /** The bottom bar's two object slots, where the screen names its own (`bottomNav`). */
+  bottomObjects?: readonly string[];
   children: ReactNode;
 }) {
   // The wordmark goes to the first screen that answers here: the one inside
@@ -199,7 +208,7 @@ export function CrmShell({
   const searchLive = live.includes('search');
   const bellLive = live.includes('notifications');
   const rail = shownNav(live);
-  const bottom = bottomNav(live, current);
+  const bottom = bottomNav(live, current, bottomObjects);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [Palette, setPalette] = useState<LazyExoticComponent<ComponentType<PaletteProps>> | null>(null);
@@ -259,7 +268,11 @@ export function CrmShell({
         className="sticky top-0 z-30 flex h-shell-mobile-header shrink-0 items-center gap-0.5 border-b border-border bg-surface px-1 md:h-shell-header md:gap-2 md:pe-3 md:ps-4"
       >
         {/* Phone: the screen's own app bar. */}
-        {appBar?.back === undefined ? (
+        {appBar?.brand === true ? (
+          <div className="flex ps-3 md:hidden">
+            <Brand t={t} href={null} wordmark={false} />
+          </div>
+        ) : appBar?.back === undefined ? (
           <button
             type="button"
             aria-label={t.t('shell.menu.open')}
@@ -277,7 +290,7 @@ export function CrmShell({
           </Link>
         )}
         <div className="flex min-w-0 flex-1 flex-col md:hidden">
-          <b className="truncate text-h5 font-bold">{barTitle}</b>
+          <b className={appBar?.brand === true ? 'sr-only' : 'truncate text-h5 font-bold'}>{barTitle}</b>
           {appBar?.subtitle === undefined ? null : (
             <span className="truncate text-caption font-normal text-text-muted">{appBar.subtitle}</span>
           )}

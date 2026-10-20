@@ -121,6 +121,8 @@ export const TYPE_SCALE = {
   headline: { size: '44px', lineHeight: '52px', weight: '800', tracking: '-0.02em' },
   /** Page title on lists (P04, P07): 28/36/800. */
   title: { size: '28px', lineHeight: '36px', weight: '800', tracking: '-0.01em' },
+  /** P03 Home's greeting on a phone: 22/28/800 (the export's `h1` at 360, T-0132). */
+  'title-phone': { size: '22px', lineHeight: '28px', weight: '800', tracking: '-0.01em' },
   /** Page title on records and admin (P05, P02): 26/34/800. */
   'title-sm': { size: '26px', lineHeight: '34px', weight: '800', tracking: '0' },
   /** Card and section titles: 16/24/700. */
@@ -336,6 +338,15 @@ export const SHELL = {
  *   wizard         640  the setup wizard's step body (P01/5.x)
  *   wizardStepper  880  the setup wizard's stepper
  *
+ * And P03 Home's (T-0132), from `Kasuwa Home Dashboards`:
+ *
+ *   homeMax          1368  the dashboard's content column (`max-width:1368px`)
+ *   homeTime           52  the agenda's time column
+ *   homeDealName      170  a deal row's name block before the amount wraps
+ *   homeAddTile       140  the dashed "Add widget" tile in customise mode
+ *   homeProgress      360  the new-tenant setup progress bar
+ *   homeSkeletonTall  120  a large widget's (L, XL) skeleton block; 80 is h-20
+ *
  * And from the P26 export (T-0137):
  *
  *   filterRail     240  the notification centre's filter card beside its list
@@ -351,6 +362,12 @@ export const LAYOUT = {
   columnWide: '520px',
   wizard: '640px',
   wizardStepper: '880px',
+  homeMax: '1368px',
+  homeTime: '52px',
+  homeDealName: '170px',
+  homeAddTile: '140px',
+  homeProgress: '360px',
+  homeSkeletonTall: '120px',
   filterRail: '240px',
   pageWide: '1116px',
   settingsAside: '380px',

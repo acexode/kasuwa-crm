@@ -42,6 +42,7 @@ export type IconName =
   | 'chat'
   | 'check'
   | 'check_box'
+  | 'check_box_outline_blank'
   | 'check_circle'
   | 'chevron_left'
   | 'chevron_right'
@@ -95,6 +96,7 @@ export type IconName =
   | 'help'
   | 'history'
   | 'home'
+  | 'hourglass_bottom'
   | 'hourglass_top'
   | 'hub'
   | 'image'
@@ -102,11 +104,13 @@ export type IconName =
   | 'inbox'
   | 'info'
   | 'input'
+  | 'insights'
   | 'inventory_2'
   | 'join'
   | 'key'
   | 'language'
   | 'layers'
+  | 'leaderboard'
   | 'left_panel_close'
   | 'left_panel_open'
   | 'light_mode'
@@ -147,6 +151,7 @@ export type IconName =
   | 'phone_iphone'
   | 'photo_camera'
   | 'play_arrow'
+  | 'priority_high'
   | 'public'
   | 'publish'
   | 'published_with_changes'
@@ -160,6 +165,7 @@ export type IconName =
   | 'replay'
   | 'request_quote'
   | 'rule'
+  | 'savings'
   | 'schedule'
   | 'schedule_send'
   | 'schema'
@@ -167,6 +173,7 @@ export type IconName =
   | 'search'
   | 'search_off'
   | 'send'
+  | 'sentiment_satisfied'
   | 'settings'
   | 'share'
   | 'shield'
@@ -191,6 +198,7 @@ export type IconName =
   | 'swipe_left'
   | 'sync_alt'
   | 'table_rows'
+  | 'target'
   | 'task_alt'
   | 'thumb_down'
   | 'thumb_up'
@@ -262,6 +270,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'chat',
   'check',
   'check_box',
+  'check_box_outline_blank',
   'check_circle',
   'chevron_left',
   'chevron_right',
@@ -315,6 +324,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'help',
   'history',
   'home',
+  'hourglass_bottom',
   'hourglass_top',
   'hub',
   'image',
@@ -322,11 +332,13 @@ export const ICON_NAMES: readonly IconName[] = [
   'inbox',
   'info',
   'input',
+  'insights',
   'inventory_2',
   'join',
   'key',
   'language',
   'layers',
+  'leaderboard',
   'left_panel_close',
   'left_panel_open',
   'light_mode',
@@ -367,6 +379,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'phone_iphone',
   'photo_camera',
   'play_arrow',
+  'priority_high',
   'public',
   'publish',
   'published_with_changes',
@@ -380,6 +393,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'replay',
   'request_quote',
   'rule',
+  'savings',
   'schedule',
   'schedule_send',
   'schema',
@@ -387,6 +401,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'search',
   'search_off',
   'send',
+  'sentiment_satisfied',
   'settings',
   'share',
   'shield',
@@ -411,6 +426,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'swipe_left',
   'sync_alt',
   'table_rows',
+  'target',
   'task_alt',
   'thumb_down',
   'thumb_up',

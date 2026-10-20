@@ -55,5 +55,10 @@
   "activities.calendar.source",
   "activities.compose.remind.sms",
   "activities.compose.remind.whatsapp",
-  "activities.due.today"
+  "activities.due.today",
+  "home.dateLine",
+  "home.widget.size.s",
+  "home.widget.size.m",
+  "home.widget.size.l",
+  "home.widget.size.xl"
 ]

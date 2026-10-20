@@ -317,7 +317,7 @@ async function captureApp(prefixes) {
     }
     const programme = '11111111-0000-4000-8000-0000000c0001';
     const SCREENS = [
-      ['p03-home', '/'],
+      ['p03-home', '/home'],
       ['p04-contacts', '/contacts'],
       ['p04-leads', '/leads'],
       ['p04-accounts', '/accounts'],

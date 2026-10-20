@@ -484,5 +484,14 @@
   "activities.view.booking",
   "activities.view.checkin",
   "activities.zone.label",
-  "activities.compose.title"
+  "activities.compose.title",
+  "home.dateLine",
+  "home.range.week.short",
+  "home.range.month.short",
+  "home.range.quarter.short",
+  "home.widget.size.s",
+  "home.widget.size.m",
+  "home.widget.size.l",
+  "home.widget.size.xl",
+  "home.w.forecast.desc"
 ]

@@ -13,7 +13,8 @@ import type { FilledIconName } from '@kasuwa/ui';
  *   - NOT BUILT YET, with a module flag (`placeholder: true`): drawn, disabled,
  *     as the design draws it, only where `placeholder:<id>` is live
  *     (D-L194); not drawn at all where its flag is off.
- *   - Home: built by T-0132 (D-L196). Drawn disabled until it gains its `href`.
+ *   - Home: P03, built by T-0132 (D-L196) behind `crm_home`. First in the
+ *     list, so it is also where a signed-in browser lands (`landingPath()`).
  *
  * Every icon but Reports' is in the filled face too (`icon-subset-filled.txt`),
  * because the phone bottom bar draws the active entry's icon filled (P26), and
@@ -32,7 +33,7 @@ export interface CrmNavItem {
 }
 
 export const CRM_NAV: readonly CrmNavItem[] = [
-  { id: 'home', label: 'records.nav.home', icon: 'home', href: null, placeholder: false },
+  { id: 'home', label: 'records.nav.home', icon: 'home', href: '/home', placeholder: false },
   { id: 'inbox', label: 'records.nav.inbox', icon: 'forum', href: null, placeholder: true },
   { id: 'leads', label: 'records.nav.leads', icon: 'person_add', href: '/leads', placeholder: false },
   { id: 'contacts', label: 'records.nav.contacts', icon: 'contacts', href: '/contacts', placeholder: false },
@@ -61,20 +62,31 @@ export function shownNav(live: readonly string[]): readonly CrmNavItem[] {
  * The phone bottom bar (P04/02, P03): Home, Inbox, the current object, Deals,
  * then More, which the shell draws. The third slot is the screen's own entry
  * when it is not already on the bar, and Contacts otherwise.
+ *
+ * A screen may name its own two object slots instead (`objects`): P03 Home
+ * draws Deals and Calls for a seller, Tickets and Calls for a support or BPO
+ * agent. Only where every named entry is drawn in this process: an unbuilt
+ * module's entry needs its flag, and a bar with a hole in it is worse than
+ * the default one.
  */
-export function bottomNav(live: readonly string[], current: string): readonly CrmNavItem[] {
+export function bottomNav(live: readonly string[], current: string, objects?: readonly string[]): readonly CrmNavItem[] {
   const shown = shownNav(live);
+  const lead = shown.filter((item) => item.id === 'home' || item.id === 'inbox');
   // P26 E2 (T-0137): on the notification centre the bar is Home, Inbox, Deals, Alerts (active), More.
   // Only there: the Alerts label is in the centre's bundle, and the rail has no such entry.
   if (current === 'notifications' && live.includes('notifications')) {
     return [...shown.filter((item) => item.id === 'home' || item.id === 'inbox' || item.id === 'deals'), ALERTS_TAB];
+  }
+  if (objects !== undefined) {
+    const picked = objects.flatMap((id) => shown.filter((item) => item.id === id));
+    if (picked.length === objects.length) return [...lead, ...picked];
   }
   const fixed = new Set(['home', 'inbox', 'deals']);
   const object =
     shown.find((item) => item.id === current && !fixed.has(item.id)) ??
     shown.find((item) => item.id === 'contacts');
   return [
-    ...shown.filter((item) => item.id === 'home' || item.id === 'inbox'),
+    ...lead,
     ...(object === undefined ? [] : [object]),
     ...shown.filter((item) => item.id === 'deals'),
   ];

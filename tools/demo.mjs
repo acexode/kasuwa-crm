@@ -88,6 +88,12 @@ const DEMO_FLAGS = [
   'last_activity',
   'quick_actions',
   'more_filters',
+  // T-0132: P03 Home, and its widgets with no module behind them yet (D-L194).
+  'crm_home',
+  'whatsapp_inbox',
+  'quota',
+  'approvals',
+  'home_kpis',
   // T-0137: P26's placeholders for notification types and preferences (D-L194).
   'notification_types',
   'notification_preferences',

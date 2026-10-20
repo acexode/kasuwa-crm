@@ -184,7 +184,8 @@ async function crmPlaceholderEnabled(id: (typeof UNBUILT_NAV)[number]): Promise<
  * as "not available yet", exactly like an unbuilt one (`components/crm/crm-nav.ts`).
  */
 export async function crmLiveNav(): Promise<string[]> {
-  const [contacts, accounts, leads, activities, pipeline, search, csvImport, duplicates, recordView, notifications, notificationExtras, ...placeholders] = await Promise.all([
+  const [home, contacts, accounts, leads, activities, pipeline, search, csvImport, duplicates, recordView, notifications, notificationExtras, ...placeholders] = await Promise.all([
+    crmHomeEnabled(),
     crmRecordsEnabled(),
     crmAccountsEnabled(),
     crmLeadsEnabled(),
@@ -202,6 +203,8 @@ export async function crmLiveNav(): Promise<string[]> {
   return [
     // The rail's entries for unbuilt modules (T-0130, D-L194): drawn, disabled, only where their flag is on.
     ...UNBUILT_NAV.filter((_, index) => placeholders[index] === true).map((id) => `placeholder:${id}`),
+    // P03 Home (T-0132, D-L196): the rail's first entry, and so the landing.
+    ...(home ? ['home'] : []),
     ...(leads ? ['leads'] : []),
     ...(contacts ? ['contacts'] : []),
     ...(accounts ? ['accounts'] : []),
@@ -509,4 +512,54 @@ export async function dealModules(): Promise<DealModules> {
 export async function productTourShown(): Promise<boolean> {
   await initialiseFeatureFlags();
   return featureFlagClient().getBooleanValue('product_tour', false, toEvaluationContext({ tenantId: PRE_TENANT }));
+}
+
+/**
+ * `crm_home` (T-0132, D-L196) gates the P03 ROUTE — `/home` calls `notFound()`
+ * while it is off, so typing the path gets a real 404 and nothing of the screen
+ * ships — and, through `crmLiveNav()` as `home`, the rail and bottom-bar Home
+ * entry and the signed-in landing (`lib/server/landing.ts`). No client module
+ * names it.
+ *
+ * Per process, like the others, and presentation only: every widget reads
+ * through the activities and deals APIs, which scope each row from the session
+ * and `user_programme` whether this is on or off.
+ */
+export async function crmHomeEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue('crm_home', false, toEvaluationContext({ tenantId: CRM_SHELL }));
+}
+
+/**
+ * The P03 widgets with no module behind them (D-L194), and the US$ toggle,
+ * each behind its module's own flag. On, the widget is offered and drawn in the
+ * design's own empty state (never a number or a name); off, it is neither drawn
+ * nor offered in the Add-widget drawer. Read here and passed down as booleans.
+ */
+export interface HomeWidgetFlags {
+  readonly aiNba: boolean;
+  readonly whatsapp: boolean;
+  readonly quota: boolean;
+  readonly approvals: boolean;
+  readonly kpis: boolean;
+  readonly fx: boolean;
+  /** T-0136's `calendar_sync`: the agenda's empty state offers "Connect calendar", disabled (D-P22). */
+  readonly calendar: boolean;
+}
+
+export async function homeWidgetFlags(): Promise<HomeWidgetFlags> {
+  await initialiseFeatureFlags();
+  const context = toEvaluationContext({ tenantId: CRM_SHELL });
+  const read = (name: 'ai_nba' | 'whatsapp_inbox' | 'quota' | 'approvals' | 'home_kpis' | 'fx_display' | 'calendar_sync') =>
+    featureFlagClient().getBooleanValue(name, false, context);
+  const [aiNba, whatsapp, quota, approvals, kpis, fx, calendar] = await Promise.all([
+    read('ai_nba'),
+    read('whatsapp_inbox'),
+    read('quota'),
+    read('approvals'),
+    read('home_kpis'),
+    read('fx_display'),
+    read('calendar_sync'),
+  ]);
+  return { aiNba, whatsapp, quota, approvals, kpis, fx, calendar };
 }

@@ -162,7 +162,7 @@ export const FLAGS = {
     productionReady: false,
   },
   ai_nba: {
-    description: 'The P05 record next-best-action card, in its empty state until the AI module serves suggestions (T-0134).',
+    description: 'The P05 record next-best-action card, and the P03 Home "Next best actions" and "AI usage" widgets, in their empty states until the AI module serves suggestions (T-0134, T-0132).',
     defaultValue: false,
     owner: 'T-0134 (placeholder), the AI module, D-L194',
     productionReady: false,
@@ -597,6 +597,50 @@ export const FLAGS = {
     description: 'Disabled P04 filter chips for filters the list reads do not declare yet (T-0133, D-L194).',
     defaultValue: false,
     owner: 'T-0133 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0132 (D-L196): the P03 Home route at `/home`, the rail and bottom-bar
+   * Home entry, and Home as the signed-in landing. Off, `/home` is a real 404
+   * and the browser lands on the first live CRM screen as before.
+   * Presentation only: every widget reads through the existing scoped APIs.
+   */
+  crm_home: {
+    description: 'The P03 Home screen at /home, its nav entry, and Home as the signed-in landing (T-0132, D-L196).',
+    defaultValue: false,
+    owner: 'T-0132, D-L196',
+    // NOT production-ready: the layout is kept in the browser until the per-user table exists.
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0132: Home widgets whose module is not built. With a flag on,
+   * its widgets are offered and drawn in the design's own empty state, never
+   * with a number or a name; off, they are neither drawn nor offered. Home's
+   * "Next best actions" and "AI usage" share T-0134's `ai_nba`.
+   */
+  whatsapp_inbox: {
+    description: 'The Home "WhatsApp awaiting reply" widget, in its not-connected state until channels exist (T-0132, D-L194).',
+    defaultValue: false,
+    owner: 'T-0132 (placeholder), the WhatsApp channel when it is built',
+    productionReady: false,
+  },
+  quota: {
+    description: 'The Home quota, forecast and leaderboard widgets, in their empty state until quotas exist (T-0132, D-L194).',
+    defaultValue: false,
+    owner: 'T-0132 (placeholder), the quota model when it is built',
+    productionReady: false,
+  },
+  approvals: {
+    description: 'The Home "Approvals" widget, in its caught-up state until approvals exist (T-0132, D-L194).',
+    defaultValue: false,
+    owner: 'T-0132 (placeholder), approvals when they are built',
+    productionReady: false,
+  },
+  home_kpis: {
+    description:
+      'The Home KPI widgets with no data source yet (tickets, queues, CSAT, programme stats, schedule, announcements, revenue, cost, profitability, SLA, pipeline by stage), in their empty state (T-0132, D-L194).',
+    defaultValue: false,
+    owner: 'T-0132 (placeholder), each module when it is built',
     productionReady: false,
   },
   /**
