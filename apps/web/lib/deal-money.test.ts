@@ -8,7 +8,7 @@ function digits(text: string): string {
 
 /** The currency mark Intl gives `currency` in `locale`, read from Intl here too, never typed. */
 function mark(locale: string, currency: string): string {
-  return new Intl.NumberFormat(locale, { style: 'currency', currency }).formatToParts(1).find((part) => part.type === 'currency')?.value ?? '';
+  return new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'narrowSymbol' }).formatToParts(1).find((part) => part.type === 'currency')?.value ?? '';
 }
 
 describe('formatDealMoney', () => {
@@ -56,7 +56,7 @@ describe('formatDealMoney', () => {
       ['en', '1250', 'JPY', 1250],
     ];
     for (const [locale, minor, currency, major] of cases) {
-      const intl = new Intl.NumberFormat(locale, { style: 'currency', currency }).format(major);
+      const intl = new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'narrowSymbol' }).format(major);
       expect(formatDealMoney(locale, minor, currency), `${locale} ${currency} ${minor}`).toBe(intl);
     }
   });

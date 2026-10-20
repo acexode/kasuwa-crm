@@ -55,6 +55,15 @@ const DEMO_FLAGS = [
   'crm_tickets',
   'crm_calls',
   'crm_reports',
+  // D-L194 placeholders (T-0135): on in the demo, off by default elsewhere.
+  'fx_display',
+  'pipeline_summary',
+  'pipeline_templates',
+  'whatsapp_recency',
+  'deal_products',
+  'deal_risk',
+  'deal_relationships',
+  'deal_quotes',
   // T-0131: P01/6's tour button, drawn disabled until a tour exists (D-L194).
   'product_tour',
   // T-0133 (D-L194): the P04 placeholders.
