@@ -252,7 +252,7 @@ export function HeaderLabel({ t, label, locked, children }: { t: Translator; lab
 }
 
 /** Tags as 22px sunken squares, two shown and "+n". */
-export function TagList({ t, tags }: { t: Translator; tags: readonly string[] }) {
+export function TagList({ tags }: { t?: Translator; tags: readonly string[] }) {
   return (
     <span className="flex min-w-0 items-center gap-1 overflow-hidden">
       {tags.slice(0, 2).map((tag) => (

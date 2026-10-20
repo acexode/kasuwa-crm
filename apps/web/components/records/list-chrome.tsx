@@ -440,14 +440,68 @@ export interface HeaderProps {
 }
 
 /**
- * P04's page header at `md` and up, and the phone's title block below it.
- * The phone's block stands in for the per-screen app bar until T-0130's shell
- * draws one: title, "All leads · 25+", the saved-views bookmark and the
- * overflow menu (Import / export), then the programme pill and its one line.
+ * The phone app bar's trailing actions (P04 360): the saved-views bookmark,
+ * where `saved_views` is on, and the overflow menu (Import / export). The
+ * shell draws the bar itself (T-0130, `appBar`); this fills its actions.
  */
-export function ListHeader({ t, title, count, programmes, savedViews, switcher, menuItems, primary, offline }: HeaderProps) {
+export function PhoneBarActions({
+  t,
+  savedViews,
+  menuItems,
+  offline,
+}: {
+  t: Translator;
+  savedViews: boolean;
+  menuItems: readonly MenuItem[];
+  offline: boolean;
+}) {
   const overflow = useMenu();
   const overflowId = useId();
+  return (
+    <>
+      {savedViews ? (
+        <button
+          type="button"
+          aria-label={t.t('records.views.title')}
+          className={`flex size-12 items-center justify-center rounded-md text-text hover:bg-surface-sunken ${FOCUS}`}
+        >
+          <Icon name="bookmark" size={24} />
+        </button>
+      ) : null}
+      <div className="relative">
+        <button
+          ref={overflow.triggerRef}
+          type="button"
+          aria-label={t.t('records.importExport')}
+          aria-haspopup="menu"
+          aria-expanded={overflow.open}
+          aria-controls={overflow.open ? overflowId : undefined}
+          onClick={overflow.toggle}
+          className={`flex size-12 items-center justify-center rounded-md text-text hover:bg-surface-sunken ${FOCUS}`}
+        >
+          <Icon name="more_vert" size={24} />
+        </button>
+        {overflow.open ? (
+          <div id={overflowId} ref={overflow.panelRef} role="menu" className={`absolute end-0 top-full mt-1 w-64 ${P04_MENU}`}>
+            <MenuItems t={t} items={menuItems} offline={offline} onPick={() => overflow.close(false)} />
+          </div>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+/** The phone app bar's subtitle: "All leads · 25+", or "Unsaved view · 25+". */
+export function phoneSubtitle(t: Translator, view: MessageId, unsaved: boolean, count: string | null): string {
+  const name = t.t(unsaved ? 'records.views.unsaved' : view);
+  return count === null ? name : `${name} · ${count}`;
+}
+
+/**
+ * P04's page header at `md` and up; below `md` the shell's app bar carries
+ * the title (`appBar`), and this draws only the programme pill and its line.
+ */
+export function ListHeader({ t, title, count, programmes, savedViews, switcher, menuItems, primary, offline }: HeaderProps) {
   return (
     <>
       <div className="hidden flex-col gap-2 md:flex">
@@ -464,50 +518,9 @@ export function ListHeader({ t, title, count, programmes, savedViews, switcher, 
         <ScopeLine t={t} programmes={programmes} />
       </div>
 
-      <div className="-mx-4 -mt-4 flex flex-col gap-1.5 bg-surface px-4 md:hidden">
-        <div className="flex min-h-14 items-center gap-0.5">
-          <div className="flex min-w-0 flex-1 flex-col">
-            <span role="heading" aria-level={1} className="text-h5 font-extrabold">
-              {t.t(title)}
-            </span>
-            <span className="truncate text-caption text-text-muted">
-              {t.t(savedViews?.unsaved === true ? 'records.views.unsaved' : (savedViews?.allLabel ?? title))}
-              {count === null ? null : <> · <span className="font-mono">{count}</span></>}
-            </span>
-          </div>
-          {savedViews === null ? null : (
-            <button
-              type="button"
-              aria-label={t.t('records.views.title')}
-              className={`flex size-12 items-center justify-center rounded-md text-text hover:bg-surface-sunken ${FOCUS}`}
-            >
-              <Icon name="bookmark" size={24} />
-            </button>
-          )}
-          <div className="relative">
-            <button
-              ref={overflow.triggerRef}
-              type="button"
-              aria-label={t.t('records.importExport')}
-              aria-haspopup="menu"
-              aria-expanded={overflow.open}
-              aria-controls={overflow.open ? overflowId : undefined}
-              onClick={overflow.toggle}
-              className={`flex size-12 items-center justify-center rounded-md text-text hover:bg-surface-sunken ${FOCUS}`}
-            >
-              <Icon name="more_vert" size={24} />
-            </button>
-            {overflow.open ? (
-              <div id={overflowId} ref={overflow.panelRef} role="menu" className={`absolute end-0 top-full mt-1 w-64 ${P04_MENU}`}>
-                <MenuItems t={t} items={menuItems} offline={offline} onPick={() => overflow.close(false)} />
-              </div>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex flex-col gap-1">
-          <ProgrammePill t={t} programmes={programmes} compact />
-          <ScopeLine t={t} programmes={programmes} compact />
-        </div>
+      <div className="-mx-4 -mt-4 flex flex-col gap-1 bg-surface px-4 pt-1 md:hidden">
+        <ProgrammePill t={t} programmes={programmes} compact />
+        <ScopeLine t={t} programmes={programmes} compact />
       </div>
     </>
   );

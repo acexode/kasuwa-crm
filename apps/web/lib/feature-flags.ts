@@ -197,7 +197,7 @@ export async function crmLiveNav(): Promise<string[]> {
     crmNotificationsEnabled(),
     ...UNBUILT_NAV.map((id) => crmPlaceholderEnabled(id)),
   ]);
-  const placeholders = await listPlaceholderFlags();
+  const listPlaceholders = await listPlaceholderFlags();
   return [
     // The rail's entries for unbuilt modules (T-0130, D-L194): drawn, disabled, only where their flag is on.
     ...UNBUILT_NAV.filter((_, index) => placeholders[index] === true).map((id) => `placeholder:${id}`),
@@ -226,7 +226,7 @@ export async function crmLiveNav(): Promise<string[]> {
         ]
       : []),
     // Not nav items: the P04 lists' placeholders (T-0133, D-L194), by flag name.
-    ...placeholders,
+    ...listPlaceholders,
   ];
 }
 

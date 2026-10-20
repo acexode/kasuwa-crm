@@ -324,6 +324,9 @@ export const FLAGS = {
     description: 'The Reports entry in the CRM rail, a disabled placeholder until reports are built (T-0130, D-L194).',
     defaultValue: false,
     owner: 'T-0130 (shell placeholder), the reports module when it is built',
+    productionReady: false,
+  },
+  /**
    * T-0133 (D-L194, D-L195): the P04 lists' Map segment, drawn DISABLED in the
    * view switcher with the design's tooltip. The Map view itself answers 501
    * (D-L69, T-0039); the flag shows where it will be, and grants nothing.

@@ -165,9 +165,10 @@ export function SwipeHint({ t, label }: { t: Translator; label: MessageId }) {
 }
 
 /**
- * The phone's floating "+ New": 56px, radius 16, primary, shadow 2, 16px from
- * the edge and clear of the bottom bar. Drawn here until T-0130's shell offers
- * a FAB slot. `onClick` absent: the create flow is not built (aria-disabled).
+ * The phone's "+ New" for a list whose create flow is not built: the shell's
+ * `CrmFab` look (56px, radius 16, primary, shadow 2), `aria-disabled`, with the
+ * reason. Passed as the shell's `fab` (T-0130), which places it. A list that
+ * can create uses `CrmFab` itself.
  */
 export function NewFab({
   t,
@@ -190,7 +191,7 @@ export function NewFab({
       aria-disabled={unavailable || offline ? 'true' : undefined}
       title={unavailable ? t.t('records.action.unavailable') : undefined}
       onClick={unavailable || offline ? undefined : onClick}
-      className={`fixed bottom-20 end-4 z-30 flex h-14 items-center gap-2 rounded-xl bg-primary pe-5 ps-4 text-label font-bold text-on-primary shadow-2 aria-disabled:cursor-not-allowed md:hidden ${FOCUS}`}
+      className={`flex h-shell-fab items-center gap-2 rounded-xl bg-primary pe-5 ps-4 text-label font-bold text-on-primary shadow-2 aria-disabled:cursor-not-allowed ${FOCUS}`}
     >
       <Icon name="add" size={24} />
       {t.t('records.action.newShort')}

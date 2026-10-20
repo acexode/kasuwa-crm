@@ -6,7 +6,6 @@ import { guarded } from '../custom/lazy-boundary';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
 import type { IconName } from '@kasuwa/ui';
-import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
@@ -18,7 +17,7 @@ import { useCustomDefinitions } from '../custom/use-custom-fields';
 import { FilterOptions, ListError, ListLoading, LockedValue, Muted, NumberSearchHint, OfflineBanner } from '../records/list-parts';
 import type { ChooserProps } from '../records/column-chooser';
 import { FOCUS, POPOVER, TH } from '../records/list-classes';
-import { ListHeader, NewButton, ViewSwitcher, heldCount, type MenuItem } from '../records/list-chrome';
+import { ListHeader, NewButton, PhoneBarActions, ViewSwitcher, heldCount, phoneSubtitle, type MenuItem } from '../records/list-chrome';
 import { ActiveFilterChips, ColumnsButton, FilterChip, FilterSheetButton, SearchField, UnavailableChip } from '../records/list-toolbar';
 import {
   HeaderLabel,
@@ -263,8 +262,23 @@ export function ContactsScreen({
     (spec): spec is FilterSpec => spec !== undefined,
   );
 
+  const count = heldCount(locale, list.rows.length, list.nextCursor !== null);
+  const unsaved = activeCount > 0 || q.trim() !== '';
+
   return (
-    <CrmShell t={t} locale={locale} locales={locales} current="contacts" live={live}>
+    <CrmShell
+      t={t}
+      locale={locale}
+      locales={locales}
+      current="contacts"
+      live={live}
+      appBar={{
+        title: t.t('records.title'),
+        subtitle: phoneSubtitle(t, 'records.views.all', unsaved, count),
+        actions: <PhoneBarActions t={t} savedViews={flags.savedViews} menuItems={menuItems} offline={offline} />,
+      }}
+      fab={<NewFab t={t} action="capture-new-fab" offline={offline} />}
+    >
       <div data-screen="P04/02" data-list-state={state} className="flex min-w-0 flex-col md:gap-3">
         {offline ? (
           <OfflineBanner
@@ -280,9 +294,9 @@ export function ContactsScreen({
         <ListHeader
           t={t}
           title="records.title"
-          count={heldCount(locale, list.rows.length, list.nextCursor !== null)}
+          count={count}
           programmes={programmes.list}
-          savedViews={flags.savedViews ? { allLabel: 'records.views.all', unsaved: activeCount > 0 || q.trim() !== '' } : null}
+          savedViews={flags.savedViews ? { allLabel: 'records.views.all', unsaved } : null}
           switcher={<ViewSwitcher t={t} value="table" built={['table']} mapView={flags.mapView} onChange={() => undefined} />}
           menuItems={menuItems}
           primary={<NewButton t={t} label="records.action.new" action="capture-new" offline={offline} />}
@@ -382,8 +396,6 @@ export function ContactsScreen({
           onPageSize={setPageSize}
           importHref={importHref}
         />
-
-        <NewFab t={t} action="capture-new-fab" offline={offline} />
 
         {popover === 'sheet' ? (
           <FilterSheet
@@ -846,7 +858,3 @@ function FieldValue({ t, row, field }: { t: Translator; row: Contact; field: Exc
       );
   }
 }
-
-/** Unused icon import guard for the chip glyph map's type. */
-export type { IconName };
-export { Icon };

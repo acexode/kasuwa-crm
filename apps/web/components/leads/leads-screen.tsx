@@ -17,7 +17,7 @@ import { MENU_ROW, POPOVER, TOOL_BUTTON } from '../records/list-classes';
 import { CheckMark, FilterOptions, NumberSearchHint, OfflineBanner } from '../records/list-parts';
 import type { ChooserProps } from '../records/column-chooser';
 import type { ListState } from '../records/list-model';
-import { ListHeader, NewButton, ViewSwitcher, heldCount, type ListView, type MenuItem } from '../records/list-chrome';
+import { ListHeader, NewButton, PhoneBarActions, ViewSwitcher, heldCount, phoneSubtitle, type ListView, type MenuItem } from '../records/list-chrome';
 import {
   ActiveFilterChips,
   ColumnsButton,
@@ -238,8 +238,23 @@ export function LeadsScreen({
     selected: view.filters[spec.key],
   }));
 
+  const count = mode === 'table' && meta !== null ? heldCount(locale, meta.held, meta.more) : null;
+  const unsaved = activeCount > 0 || q.trim() !== '';
+
   return (
-    <CrmShell t={t} locale={locale} locales={locales} current="leads" live={live}>
+    <CrmShell
+      t={t}
+      locale={locale}
+      locales={locales}
+      current="leads"
+      live={live}
+      appBar={{
+        title: t.t('leads.title'),
+        subtitle: phoneSubtitle(t, 'leads.views.all', unsaved, count),
+        actions: <PhoneBarActions t={t} savedViews={flags.savedViews} menuItems={menuItems} offline={offline} />,
+      }}
+      fab={<NewFab t={t} action="capture-new-lead-fab" offline={offline} />}
+    >
       <div data-screen="P04/01" data-list-state={state} className="flex min-w-0 flex-col md:gap-3">
         {offline && meta !== null && mode === 'table' ? (
           <OfflineBanner
@@ -255,9 +270,9 @@ export function LeadsScreen({
         <ListHeader
           t={t}
           title="leads.title"
-          count={mode === 'table' && meta !== null ? heldCount(locale, meta.held, meta.more) : null}
+          count={count}
           programmes={programmes.list}
-          savedViews={flags.savedViews ? { allLabel: 'leads.views.all', unsaved: activeCount > 0 || q.trim() !== '' } : null}
+          savedViews={flags.savedViews ? { allLabel: 'leads.views.all', unsaved } : null}
           switcher={<ViewSwitcher t={t} value={mode} built={['table', 'kanban']} mapView={flags.mapView} onChange={switchTo} />}
           menuItems={menuItems}
           primary={<NewButton t={t} label="leads.action.new" action="capture-new-lead" offline={offline} />}
@@ -374,8 +389,6 @@ export function LeadsScreen({
         ) : (
           <LeadsKanban t={t} locale={locale} q={listQ(q)} view={view} onState={setState} onWithheld={noteWithheld} />
         )}
-
-        <NewFab t={t} action="capture-new-lead-fab" offline={offline} />
 
         {popover === 'sheet' ? (
           <FilterSheet
