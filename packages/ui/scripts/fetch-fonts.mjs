@@ -457,7 +457,9 @@ async function main() {
     '',
     '/* The filled variant: active bottom-tab icons, the bell, gpp_maybe. */',
     '.k-icon-filled {',
-    "  font-family: 'Material Symbols Rounded Filled';",
+    // The outline face second: if the filled file fails to load, the glyph
+    // degrades to its outline rather than to the raw ligature word.
+    "  font-family: 'Material Symbols Rounded Filled', 'Material Symbols Rounded';",
     "  font-variation-settings: 'FILL' 1;",
     '}',
     '',

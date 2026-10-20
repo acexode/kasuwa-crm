@@ -101,6 +101,6 @@
 
 /* The filled variant: active bottom-tab icons, the bell, gpp_maybe. */
 .k-icon-filled {
-  font-family: 'Material Symbols Rounded Filled';
+  font-family: 'Material Symbols Rounded Filled', 'Material Symbols Rounded';
   font-variation-settings: 'FILL' 1;
 }

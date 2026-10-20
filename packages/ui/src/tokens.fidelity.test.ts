@@ -107,7 +107,7 @@ describe('type steps from the screen exports', () => {
 });
 
 describe('radii, spacing half steps, control heights and shell', () => {
-  it('orders the radii by size, the export steps between the v1.1 ones', () => {
+  it('has exactly the v1.1 radii plus the export steps 6, 10 and 14', () => {
     const pixels = Object.values(RADIUS)
       .map((value) => Number.parseFloat(value))
       .sort((a, b) => a - b);

@@ -54,6 +54,8 @@ const SUBSET_FILE = 'packages/ui/icon-subset.txt';
 const FILLED_FILE = 'packages/ui/icon-subset-filled.txt';
 const SKIP_DIRS = new Set(['node_modules', '.next', 'dist']);
 const ICON_TOKEN = /^[a-z0-9_]+$/;
+/** The class that switches an element to the filled face. */
+const FILLED_CLASS = /(?<![\w-])k-icon-filled(?![\w-])/;
 
 function parseArgs(argv) {
   let root = resolve(import.meta.dirname, '..');
@@ -305,15 +307,17 @@ function referencesIn(rawSource) {
     const tag = readTag(src, match.index + match[0].length);
     if (tag === undefined) continue;
 
-    // Form 1 and 2: <Icon name=…>
+    // Form 1 and 2: <Icon name=…>. Filled by the prop, or by a `k-icon-filled`
+    // class on the tag itself, self-closing included.
     if (match[1] === 'Icon') {
       const value = attributeValue(tag.attrs, 'name');
-      if (value !== undefined) add(valuesOf(value), match.index, hasFilled(tag.attrs));
+      const filled = hasFilled(tag.attrs) || FILLED_CLASS.test(tag.attrs);
+      if (value !== undefined) add(valuesOf(value), match.index, filled);
     }
 
     // Form 3: ligature text inside an element carrying the k-icon class.
     if (!tag.selfClosing && /(?<![\w-])k-icon(?:-filled)?(?![\w-])/.test(tag.attrs)) {
-      const filled = /(?<![\w-])k-icon-filled(?![\w-])/.test(tag.attrs);
+      const filled = FILLED_CLASS.test(tag.attrs);
       const close = src.indexOf('<', tag.end);
       const text = src.slice(tag.end, close === -1 ? src.length : close).trim();
       if (text.startsWith('{') && text.endsWith('}')) {

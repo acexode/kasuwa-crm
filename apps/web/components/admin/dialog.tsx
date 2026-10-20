@@ -104,8 +104,8 @@ export function Dialog({
       }}
     >
       {/* The scrim is its own element so the panel is not dimmed with it.
-          `inverse` is the design system's dark surface; there is no scrim
-          token and inventing a colour here is exactly what lint forbids. */}
+          `bg-scrim` is the design's overlay token; `bg-inverse` turned the
+          page cream in dark mode (T-0127). */}
       <span aria-hidden="true" className="absolute inset-0 -z-10 bg-scrim" />
       <div
         ref={panelRef}

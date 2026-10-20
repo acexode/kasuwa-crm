@@ -150,6 +150,12 @@ describe('verify-icons: filled icons', () => {
     expect(missingFilled(run.output)).toEqual(['bar_chart']);
   });
 
+  it('treats a k-icon-filled class on a self-closing <Icon> as filled', () => {
+    const run = check('const a = <Icon name="close" className="k-icon-filled" />;\n', FILLED);
+    expect(run.status).toBe(1);
+    expect(missingFilled(run.output)).toEqual(['close']);
+  });
+
   it('fails a filled reference when there is no filled list at all', () => {
     const run = check('const a = <Icon name="home" filled />;\n');
     expect(run.status).toBe(1);

@@ -162,7 +162,8 @@ ${durations}
     // Type-step properties Tailwind's fontSize cannot carry, then the two focus
     // shapes (T-0127; values in tokens.ts FOCUS). A plain function rather than
     // tailwindcss/plugin, so the preset needs no import. Use the focus shapes
-    // behind a variant: \`focus-visible:ring-focus\`.
+    // behind a variant: \`focus-visible:ring-focus\`. Never combine \`ring-focus\`
+    // with a \`ring-N\` width utility: both write box-shadow, and one discards the other.
     function ({ addUtilities }) {
       addUtilities({
 ${typeExtras}
