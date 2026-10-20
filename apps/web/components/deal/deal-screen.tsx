@@ -54,7 +54,6 @@ import {
 import { moveRefusalText } from '../pipeline/move-refusal';
 import { AmountValue, Locked, Money, OwnerValue, daysSince } from '../pipeline/pipeline-parts';
 import { NO_MODULES, type DealModules } from '../pipeline/deal-modules';
-import { choiceLabel, usePipelineChoices, type ChoicesState } from '../pipeline/pipeline-select';
 import { DealsBarActions } from '../pipeline/bar-actions';
 import type { RecordLinks } from '../pipeline/pipeline-board';
 import {
@@ -239,8 +238,6 @@ function Ready({
   activityKeys: ReadOnlyStore;
   modules: DealModules;
 }) {
-  // The breadcrumb's pipeline is told apart from a namesake by its programme, as the board's dropdown is.
-  const choices: ChoicesState = usePipelineChoices();
   const [moving, setMoving] = useState(false);
   const [prompt, setPrompt] = useState<PromptState<DealDetail> | null>(null);
   const [editing, setEditing] = useState(false);
@@ -408,8 +405,9 @@ function Ready({
 
   const probability = stage === undefined ? null : formatPercent(locale, stage.probabilityBp);
   const pipelineHref = uuidHref('/pipelines', pipeline.id);
-  const choice = choices.phase === 'ready' ? choices.choices.find((entry) => entry.id === pipeline.id) : undefined;
-  const pipelineLabel = choice === undefined ? pipeline.name : choiceLabel(t, choice);
+  // The breadcrumb names the pipeline getPipeline served. The detail never lists pipelines (T-0110's mock: listPipelines is
+  // a board read), so a namesake is not qualified by programme here; the breadcrumb is one pipeline, never a choice.
+  const pipelineLabel = pipeline.name;
   const nowMs = Date.now();
   const moves = stageMoves(pipeline, deal);
   const unmetFor = (target: PipelineStage) => requirementViews(target, deal, deal.withheldFields).filter((view) => !view.met).length;

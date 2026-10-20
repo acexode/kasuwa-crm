@@ -706,6 +706,11 @@ test('the studio sits in the admin shell, whose Fields entry links it where the 
   await expect(entry).toHaveAttribute('aria-current', 'page');
   await expect(page.locator('[data-shell="crm"]'), 'the studio is drawn in the CRM shell').toHaveCount(0);
 
+  // T-0149 (T-0130): the language menu's /translations link moved into the account menu, so the page's links are the
+  // settings menu's; every group is opened so each of its entries is checked, not only the Customisation group's.
+  const closed = menu.locator('[data-testid^="nav-group-"][aria-expanded="false"]');
+  while ((await closed.count()) > 0) await closed.first().click();
+
   const hrefs = [...new Set(await page.locator('a[href^="/"]').evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute('href') ?? '')))];
   expect(hrefs.length, 'the page links nowhere — not even the settings menu').toBeGreaterThan(2);
   for (const href of hrefs) {
@@ -1323,6 +1328,9 @@ test('at 360px the studio and its form fit without sideways page scroll and pass
   await expectNoSeriousAxe(page, 'P18 at 360px');
   const form = await openCreate(page);
   await choose(form, 'type', 'picklist');
+  // T-0149 (T-0142): on a phone the editor is a bottom sheet whose body scrolls, and picking a type card scrolls it
+  // down to the card; the label is above. It must still come into view on the screen, not sit off it.
+  await form.locator('[name="label"]').scrollIntoViewIfNeeded();
   await expect(form.locator('[name="label"]')).toBeInViewport();
   expect(await overflow(), 'the create form scrolls sideways at 360px').toBeLessThanOrEqual(0);
   await expectNoSeriousAxe(page, 'the create form at 360px');

@@ -2,6 +2,7 @@ import type { Page, Request, Route } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
+import { AUTH_CONTRACT_SOURCE, answerProblems as authAnswerProblems } from './pipeline-mock';
 
 /**
  * The custom-field half of `docs/api/admin.openapi.yaml` (T-0088 contract,
@@ -55,7 +56,8 @@ import { parse } from 'yaml';
  *
  * WHAT THE MOCK ENFORCES ON EVERY REQUEST (`violations`, the SCREEN's fault)
  *
- *   - Only the nine operations above; anything else under `/api/v1/` is a
+ *   - Only the nine operations above, and the shells' `getCurrentUser`
+ *     (T-0130; added T-0149); anything else under `/api/v1/` is a
  *     violation (a record count, a usage read, a delete, a type change, a
  *     field-security write). No header names a programme, tenant or scope.
  *   - listCustomFields: only `object` (one of the four) and `includeRetired`
@@ -138,6 +140,24 @@ const BADGES_PATH = '/api/v1/admin/settings-menu/badges';
 const HOME_USAGE_PATH = '/api/v1/admin/home/usage';
 const HOME_ALERTS_PATH = '/api/v1/admin/home/alerts';
 const AUDIT_EVENTS_PATH = '/api/v1/admin/audit/events';
+/**
+ * `getCurrentUser` (auth.openapi.yaml): since T-0130 every shell reads it once
+ * per page load for the avatar's name. Identity only, never scope. Lead-
+ * authorised amendment, T-0149 (D-L202): the studio's journeys are a signed-in
+ * admin, so the mock serves that admin, checked against the auth contract.
+ */
+const ME_PATH = '/api/v1/auth/me';
+const CURRENT_ADMIN = {
+  id: '11111111-0000-4000-8000-0000000a0001',
+  tenantId: '11111111-0000-4000-8000-000000000001',
+  email: 'admin@tenant.example',
+  displayName: 'Sample Studio Admin',
+  locale: 'en-NG',
+} as const;
+{
+  const problems = authAnswerProblems('getCurrentUser', 200, CURRENT_ADMIN);
+  if (problems.length > 0) throw new Error(`CURRENT_ADMIN disagrees with ${AUTH_CONTRACT_SOURCE}: ${problems.join('; ')}`);
+}
 
 const OP = {
   listCustomFields: [LIST_PATH, 'get'],
@@ -815,6 +835,15 @@ export async function installCustomFieldsMock(page: Page, options: CustomFieldsM
       if (field !== null && method === 'PATCH') return update(route, request, url, field[1] ?? '');
       if (url.pathname === HOME_SUMMARY_PATH && method === 'GET') return answer(route, 'getAdminHomeSummary', 200, clone(HOME_SUMMARY));
       if (url.pathname === BADGES_PATH && method === 'GET') return answer(route, 'getSettingsMenuBadges', 200, clone(BADGES));
+      if (url.pathname === ME_PATH && method === 'GET') {
+        if (url.search !== '') violations.push('getCurrentUser was sent a query string: it takes none');
+        try {
+          await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'cache-control': 'no-store' }, body: JSON.stringify(CURRENT_ADMIN) });
+        } catch {
+          // Abandoned.
+        }
+        return;
+      }
       const homeRead = HOME_READS[url.pathname];
       if (homeRead !== undefined && method === 'GET') {
         for (const name of new Set(url.searchParams.keys())) {
