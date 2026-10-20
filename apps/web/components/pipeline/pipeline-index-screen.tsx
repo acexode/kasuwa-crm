@@ -16,6 +16,7 @@ import { listPipelines, type PipelineError, type PipelineSummary } from '../../l
 import type { DealModules } from '../../lib/feature-flags';
 import { errorMessage, pipelineHref } from './pipeline-model';
 import { PipelineSelect, choiceLabel, pipelineChoices } from './pipeline-select';
+import { DealsBarActions } from './bar-actions';
 import { TEMPLATES, templateKey, type TemplateId } from './pipeline-templates';
 
 /**
@@ -92,7 +93,7 @@ export function PipelineIndexScreen({
   const empty = phase === 'loaded' && rows.length === 0;
 
   return (
-    <CrmShell t={t} locale={locale} locales={locales} current="deals" live={live}>
+    <CrmShell t={t} locale={locale} locales={locales} current="deals" live={live} appBar={{ title: t.t('records.nav.deals'), actions: <DealsBarActions t={t} live={live} /> }}>
       <div data-screen="P06/index" className="flex min-w-0 flex-col gap-3 md:gap-4">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2.5">
           <h1 className="sr-only text-title md:not-sr-only">{t.t('records.nav.deals')}</h1>

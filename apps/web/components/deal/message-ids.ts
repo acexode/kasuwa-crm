@@ -127,6 +127,7 @@ export const DEAL_MESSAGE_IDS: readonly MessageId[] = [
   'record.error.invalid',
   'record.error.stale',
   // T-0135: the P06/12 rebuild.
+  'deal.documentTitle',
   'deal.header.noAccount',
   'deal.header.owner',
   'deal.header.closes',

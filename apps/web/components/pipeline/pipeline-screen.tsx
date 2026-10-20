@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 import { createBundleTranslator, type MessageBundle, type Translator } from '@kasuwa/i18n/bundle';
-import { Button, IconButton, SegmentedControl, Switch, initials } from '@kasuwa/ui/components';
+import { Button, SegmentedControl, Switch, initials } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
@@ -50,6 +50,7 @@ import { moveRefusalText } from './move-refusal';
 import { PipelineBoard, type RecordLinks } from './pipeline-board';
 import { Money, OfflineBanner } from './pipeline-parts';
 import { PipelineSelect, usePipelineChoices } from './pipeline-select';
+import { DealsBarActions } from './bar-actions';
 import { usePipelineBoard } from './use-pipeline-board';
 
 /**
@@ -374,7 +375,14 @@ export function PipelineScreen({
   const newDeal = () => setCreating(true);
 
   return (
-    <CrmShell t={t} locale={locale} locales={locales} current="deals" live={live}>
+    <CrmShell
+      t={t}
+      locale={locale}
+      locales={locales}
+      current="deals"
+      live={live}
+      appBar={{ title: t.t('records.nav.deals'), actions: <DealsBarActions t={t} live={live} onNew={newDeal} newDisabled={!online || !ready} /> }}
+    >
       <div data-screen="P06/01" data-view={view} className="flex min-w-0 flex-col gap-3 md:gap-4">
         {/* Behind an open dialog the screen is inert: focus cannot reach another card and open a second one. */}
         <div inert={dialogOpen} className="flex min-w-0 flex-col gap-3 md:gap-4">
@@ -395,16 +403,6 @@ export function PipelineScreen({
               currentId={pipelineId}
               currentName={pipeline?.name ?? ''}
               className="flex-1 basis-0 md:max-w-[280px] md:flex-initial md:basis-[280px]"
-            />
-            <IconButton
-              icon="add_circle"
-              label={t.t('pipeline.newDeal')}
-              variant="ghost"
-              data-action="new-deal"
-              data-requires-connection=""
-              disabled={!online || !ready}
-              onClick={newDeal}
-              className="text-primary-text md:hidden"
             />
             <span className="hidden flex-1 md:block" />
             {ready ? (

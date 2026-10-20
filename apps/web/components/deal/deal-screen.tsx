@@ -55,6 +55,7 @@ import { moveRefusalText } from '../pipeline/move-refusal';
 import { AmountValue, Locked, Money, OwnerValue, daysSince } from '../pipeline/pipeline-parts';
 import { NO_MODULES, type DealModules } from '../pipeline/deal-modules';
 import { choiceLabel, usePipelineChoices, type ChoicesState } from '../pipeline/pipeline-select';
+import { DealsBarActions } from '../pipeline/bar-actions';
 import type { RecordLinks } from '../pipeline/pipeline-board';
 import {
   activityTargets,
@@ -161,7 +162,14 @@ export function DealScreen({
   const activityKeys = useReadOnlyKeys();
 
   return (
-    <CrmShell t={t} locale={locale} locales={locales} current="deals" live={live}>
+    <CrmShell
+      t={t}
+      locale={locale}
+      locales={locales}
+      current="deals"
+      live={live}
+      appBar={{ title: t.t('deal.documentTitle'), back: (model.pipeline === null ? null : uuidHref('/pipelines', model.pipeline.id)) ?? '/pipelines', actions: <DealsBarActions t={t} live={live} /> }}
+    >
       <div
         data-screen="P06/05"
         data-record-state={model.phase}
