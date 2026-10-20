@@ -2974,7 +2974,7 @@
   "admin.audit.object.deal": "Affaire",
   "admin.audit.object.disposition": "Disposition",
   "admin.audit.object.field_security": "Sécurité des champs",
-  "admin.audit.object.import_job": "Import",
+  "admin.audit.object.import_job": "Importation",
   "admin.audit.object.invoice": "Facture",
   "admin.audit.object.portal_user": "Utilisateur du portail",
   "admin.audit.object.programme": "Programme",
