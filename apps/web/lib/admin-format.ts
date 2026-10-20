@@ -1,5 +1,6 @@
 import { numberingLocale } from './numbering';
 import { dateFormatter, tidyMonth } from './date-locale';
+import { zoneAbbreviation } from './zone-name';
 
 /**
  * Formatting and parsing for the admin console, kept pure so it can be tested
@@ -248,18 +249,11 @@ function partOf(parts: readonly Intl.DateTimeFormatPart[], type: Intl.DateTimeFo
 }
 
 /**
- * A zone as a person in the region says it: "WAT", "EAT", "SAST" through
- * ICU's en-NG names, else the locale's own short name ("UTC+1").
+ * A zone as a person in the region says it: "WAT", "EAT", "SAST", in every
+ * locale (`lib/zone-name.ts`, T-0144), else the locale's own offset.
  */
 export function formatZone(locale: string, when: Date, timeZone?: string): string {
-  const zoneLocale = english(locale) ? 'en-NG' : locale;
-  return partOf(
-    safeFormatter(zoneLocale, {
-      timeZoneName: 'short',
-      ...(timeZone === undefined ? {} : { timeZone }),
-    }).formatToParts(when),
-    'timeZoneName',
-  );
+  return zoneAbbreviation(locale, when, timeZone);
 }
 
 /** "27 Sep, 14:32 WAT". `timeZone` unset means the reader's own zone. */
