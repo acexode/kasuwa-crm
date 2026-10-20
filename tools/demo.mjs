@@ -50,6 +50,15 @@ const DEMO_FLAGS = [
   'crm_pipeline',
   'crm_search',
   'admin_live_api',
+  // D-L194 placeholders (T-0135): on in the demo, off by default elsewhere.
+  'fx_display',
+  'pipeline_summary',
+  'pipeline_templates',
+  'whatsapp_recency',
+  'deal_products',
+  'deal_risk',
+  'deal_relationships',
+  'deal_quotes',
 ];
 /** Flags added to the demo automatically once their task has merged. */
 const DEMO_FLAGS_WHEN_PRESENT = ['crm_custom_fields', 'crm_import', 'crm_duplicates', 'crm_notifications'];

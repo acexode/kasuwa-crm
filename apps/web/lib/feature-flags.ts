@@ -345,3 +345,41 @@ export async function crmDuplicatesEnabled(): Promise<boolean> {
     toEvaluationContext({ tenantId: CRM_SHELL }),
   );
 }
+
+/**
+ * The P06 modules drawn as D-L194 placeholders (T-0135): each a design element
+ * with no backend yet, in the design's own empty or disabled state. Read on
+ * the server and passed down as booleans, like every flag here; no client
+ * module names a flag.
+ */
+export interface DealModules {
+  /** The disabled "Show US$" switch. */
+  readonly fxDisplay: boolean;
+  /** The board summary line, from the served totals and counts. */
+  readonly summary: boolean;
+  /** The first-pipeline template picker. */
+  readonly templates: boolean;
+  /** The last WhatsApp contact, an empty dash. */
+  readonly whatsapp: boolean;
+  readonly products: boolean;
+  readonly risk: boolean;
+  readonly relationships: boolean;
+  readonly quotes: boolean;
+}
+
+export async function dealModules(): Promise<DealModules> {
+  await initialiseFeatureFlags();
+  const client = featureFlagClient();
+  const context = toEvaluationContext({ tenantId: CRM_SHELL });
+  const [fxDisplay, summary, templates, whatsapp, products, risk, relationships, quotes] = await Promise.all([
+    client.getBooleanValue('fx_display', false, context),
+    client.getBooleanValue('pipeline_summary', false, context),
+    client.getBooleanValue('pipeline_templates', false, context),
+    client.getBooleanValue('whatsapp_recency', false, context),
+    client.getBooleanValue('deal_products', false, context),
+    client.getBooleanValue('deal_risk', false, context),
+    client.getBooleanValue('deal_relationships', false, context),
+    client.getBooleanValue('deal_quotes', false, context),
+  ]);
+  return { fxDisplay, summary, templates, whatsapp, products, risk, relationships, quotes };
+}

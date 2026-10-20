@@ -28,6 +28,14 @@ describe('feature flags', () => {
       'crm_import',
       'crm_notifications',
       'crm_duplicates',
+      'fx_display',
+      'pipeline_summary',
+      'pipeline_templates',
+      'whatsapp_recency',
+      'deal_products',
+      'deal_risk',
+      'deal_relationships',
+      'deal_quotes',
     ]);
   });
 

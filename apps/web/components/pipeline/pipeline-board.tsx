@@ -4,12 +4,12 @@ import Link from 'next/link';
 import { useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
-import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
+import { SECONDARY_BUTTON } from '../auth/button-classes';
 import { FOCUS } from '../records/list-classes';
-import { withheld, type Deal, type Pipeline } from '../../lib/pipelines-api';
-import { DRAG_CLICK_WINDOW_MS, errorMessage, formatCount, formatInstantDate, isUuid, stageById, swallowsClick } from './pipeline-model';
+import { withheld, type Deal, type Pipeline, type PipelineStage, type StageTotal } from '../../lib/pipelines-api';
+import { DRAG_CLICK_WINDOW_MS, errorMessage, formatCount, formatInstantDate, formatPercent, isUuid, stageById, swallowsClick } from './pipeline-model';
 import { nameOrWithheld } from '../records/name';
-import { AmountValue, CloseValue, Locked, Money, OwnerValue, lockedProps } from './pipeline-parts';
+import { AmountValue, CloseShort, InStageChip, Locked, Money, OwnerAvatar, lockedProps } from './pipeline-parts';
 import type { Column } from './use-pipeline-board';
 
 /**
@@ -96,9 +96,12 @@ export function PipelineBoard({
   online,
   pending,
   links,
+  whatsapp = false,
+  blockedId = null,
   onLoadMore,
   onDrop,
   onMoveSheet,
+  onActiveColumn,
 }: {
   t: Translator;
   locale: string;
@@ -109,12 +112,24 @@ export function PipelineBoard({
   online: boolean;
   pending: ReadonlySet<string>;
   links: RecordLinks;
+  /** `whatsapp_recency` (D-L194): the last-WhatsApp chip, an empty dash. */
+  whatsapp?: boolean;
+  /** The card P06/07's banner names: outlined in danger. */
+  blockedId?: string | null;
   onLoadMore: (stageId: string) => void;
   /** A card dropped on another column: the screen decides what is sent. */
   onDrop: (dealId: string, toStageId: string) => void;
   onMoveSheet: (deal: Deal) => void;
+  /** At 360 px, the column the sideways scroller rests on, for the stage chips. */
+  onActiveColumn?: (index: number) => void;
 }) {
   const [dragging, setDragging] = useState<string | null>(null);
+  // "Now", read once a minute: days in stage and "overdue" are whole days.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const [over, setOver] = useState<string | null>(null);
   const dragRef = useRef<Drag | null>(null);
   const hintId = useId();
@@ -126,7 +141,8 @@ export function PipelineBoard({
     // A mouse or a pen, the primary button, not on a control, and only online.
     if (!online || event.button !== 0 || event.pointerType === 'touch' || pending.has(deal.id)) return;
     // A control is pressed, not dragged; the card's name link is the exception (R15).
-    if ((event.target as Element).closest('button, a:not([data-deal-link]), input, select') !== null) return;
+    // The drag handle is the exception too: pressed, it opens the move sheet; dragged, it lifts the card.
+    if ((event.target as Element).closest('button:not([data-drag-handle]), a:not([data-deal-link]), input, select') !== null) return;
     dragRef.current = { dealId: deal.id, from: deal.stageId, element: event.currentTarget, x: event.clientX, y: event.clientY, active: false, ghost: null };
 
     const onMove = (moved: PointerEvent) => {
@@ -173,21 +189,33 @@ export function PipelineBoard({
   };
 
   const amountWithheld = withheldFields.includes('amount');
+  // A column's bar is its total against the largest column total in the same currency.
+  const largest = new Map<string, bigint>();
+  for (const column of columns) {
+    for (const total of column.totals ?? []) {
+      const amount = BigInt(total.amountMinor);
+      if (amount > (largest.get(total.currency) ?? 0n)) largest.set(total.currency, amount);
+    }
+  }
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <p id={hintId} className="text-body-sm text-text-2">
-        {t.t('pipeline.board.hint')}
-      </p>
       <div
         role="region"
         aria-label={t.t('pipeline.board.label')}
         aria-describedby={hintId}
         tabIndex={0}
         data-testid="board"
+        onScroll={(event) => {
+          if (onActiveColumn === undefined) return;
+          const scroller = event.currentTarget;
+          const first = scroller.querySelector<HTMLElement>('[data-stage-column]');
+          if (first === null) return;
+          onActiveColumn(Math.round(scroller.scrollLeft / (first.offsetWidth + 12)));
+        }}
         // `relative`: the cards' visually hidden labels are absolutely
         // positioned, and must not escape the scroller and widen the page.
-        className={`relative flex min-w-0 snap-x snap-mandatory gap-3 overflow-x-auto pb-2 md:snap-none ${dragging === null ? '' : 'select-none'} ${FOCUS}`}
+        className={`relative -mx-4 flex min-w-0 snap-x snap-mandatory items-start gap-3 overflow-x-auto px-4 pb-2 md:mx-0 md:snap-none md:px-0 ${dragging === null ? '' : 'select-none'} ${FOCUS}`}
       >
         {columns.map((column) => {
           const stage = stageById(pipeline, column.stageId);
@@ -197,8 +225,8 @@ export function PipelineBoard({
               t={t}
               locale={locale}
               column={column}
-              name={stage?.name ?? ''}
-              kind={stage?.kind ?? 'open'}
+              stage={stage}
+              largest={largest}
               closedSince={closedSince}
               amountWithheld={amountWithheld}
               online={online}
@@ -206,6 +234,9 @@ export function PipelineBoard({
               dragging={dragging}
               pending={pending}
               links={links}
+              whatsapp={whatsapp}
+              blockedId={blockedId}
+              nowMs={nowMs}
               onLoadMore={() => onLoadMore(column.stageId)}
               onDragStart={startDrag}
               onMoveSheet={onMoveSheet}
@@ -213,16 +244,28 @@ export function PipelineBoard({
           );
         })}
       </div>
+      <p id={hintId} className="hidden text-caption font-normal text-text-muted md:block">
+        {t.t('pipeline.board.hint')}
+      </p>
     </div>
   );
+}
+
+/** The bar's width, in whole percent of the largest column in that currency. */
+function barPercent(totals: readonly StageTotal[] | undefined, largest: ReadonlyMap<string, bigint>): number {
+  const total = totals?.[0];
+  if (total === undefined) return 0;
+  const max = largest.get(total.currency) ?? 0n;
+  if (max === 0n) return 0;
+  return Number((BigInt(total.amountMinor) * 100n) / max);
 }
 
 function StageColumn({
   t,
   locale,
   column,
-  name,
-  kind,
+  stage,
+  largest,
   closedSince,
   amountWithheld,
   online,
@@ -230,6 +273,9 @@ function StageColumn({
   dragging,
   pending,
   links,
+  whatsapp,
+  blockedId,
+  nowMs,
   onLoadMore,
   onDragStart,
   onMoveSheet,
@@ -237,8 +283,8 @@ function StageColumn({
   t: Translator;
   locale: string;
   column: Column;
-  name: string;
-  kind: 'open' | 'won' | 'lost';
+  stage: PipelineStage | undefined;
+  largest: ReadonlyMap<string, bigint>;
   closedSince: string | null;
   amountWithheld: boolean;
   online: boolean;
@@ -246,11 +292,18 @@ function StageColumn({
   dragging: string | null;
   pending: ReadonlySet<string>;
   links: RecordLinks;
+  whatsapp: boolean;
+  blockedId: string | null;
+  nowMs: number;
   onLoadMore: () => void;
   onDragStart: (event: ReactPointerEvent<HTMLElement>, deal: Deal) => void;
   onMoveSheet: (deal: Deal) => void;
 }) {
   const headingId = useId();
+  const kind = stage?.kind ?? 'open';
+  const won = kind === 'won';
+  const gated = (stage?.requirements.length ?? 0) > 0;
+  const bar = barPercent(column.totals, largest);
   return (
     <section
       data-stage-column={column.stageId}
@@ -258,54 +311,79 @@ function StageColumn({
       aria-labelledby={headingId}
       // At most a screen tall, its cards scrolling inside it: the page itself
       // never scrolls far, so every column's top stays in reach of a drop.
-      className={`flex max-h-screen w-72 shrink-0 snap-start flex-col gap-2 rounded-lg border p-2 ${
-        over ? 'border-primary bg-primary-soft' : 'border-border bg-surface-sunken'
-      }`}
+      className={`flex max-h-screen shrink-0 snap-start flex-col gap-2.5 rounded-lg bg-surface-sunken p-2.5 md:min-h-[420px] ${
+        won ? 'w-[300px] md:w-[200px]' : 'w-[300px] md:w-auto md:min-w-[228px] md:flex-1 md:basis-0'
+      } ${over ? 'border-2 border-primary' : 'border border-border'}`}
     >
-      <header className="flex shrink-0 flex-col gap-1 px-2 pt-1">
-        <div className="flex items-baseline gap-2">
-          <h2 id={headingId} className="min-w-0 flex-1 break-words text-body-md font-bold">
+      <header className="flex shrink-0 flex-col gap-1 px-0.5 pb-1 pt-0.5">
+        <div className="flex items-center gap-1.5">
+          <h2 id={headingId} className="min-w-0 break-words text-body-sm font-bold">
             <span data-field="stage-name" data-record-text="">
-              {name}
+              {stage?.name ?? ''}
             </span>
           </h2>
-          <span data-stage-count="" className="rounded-full bg-surface px-2 text-body-sm font-semibold tabular-nums">
+          {gated ? (
+            <span title={t.t('pipeline.column.gated')} className="flex text-text-2">
+              <Icon name="lock" size={16} />
+              <span className="sr-only">{t.t('pipeline.column.gated')}</span>
+            </span>
+          ) : null}
+          <span data-stage-count="" className="rounded-full bg-surface px-1.5 py-px text-caption font-bold text-text-2 tabular-nums">
             <span className="sr-only">{t.t('pipeline.column.countLabel')} </span>
             {formatCount(locale, column.count)}
           </span>
+          <span className="flex-1" />
+          {stage === undefined ? null : <span className="text-micro text-text-muted">{formatPercent(locale, stage.probabilityBp)}</span>}
         </div>
-        {kind === 'won' && closedSince !== null ? (
-          <p data-testid="won-since" className="text-caption text-text-2">
-            {t.t('pipeline.won.since')} <time dateTime={closedSince}>{formatInstantDate(locale, closedSince)}</time>
-          </p>
-        ) : null}
         {amountWithheld || column.totals === undefined ? (
           <p data-stage-totals="" data-locked="true" className="text-caption">
             <Locked t={t} />
           </p>
         ) : column.totals.length === 0 ? null : (
-          <ul data-stage-totals="" className="flex flex-col text-caption text-text-2">
+          <ul data-stage-totals="" className="flex flex-col">
             {column.totals.map((total) => (
-              <li key={total.currency} data-stage-total={total.currency} className="flex flex-wrap items-baseline gap-x-2">
-                <b className="text-body-sm text-text">
-                  <Money t={t} locale={locale} money={{ amountMinor: total.amountMinor, currency: total.currency }} kind="amount" />
+              <li key={total.currency} data-stage-total={total.currency} className="flex flex-wrap items-baseline gap-x-1.5">
+                <b className="text-label font-bold">
+                  <Money t={t} locale={locale} money={{ amountMinor: total.amountMinor, currency: total.currency }} kind="amount" shape="compact" />
                 </b>
-                <span>
+                <span className="text-caption font-normal text-text-2">
                   {t.t('pipeline.column.weighted')}{' '}
-                  <Money t={t} locale={locale} money={{ amountMinor: total.weightedAmountMinor, currency: total.currency }} kind="weighted" />
+                  <Money t={t} locale={locale} money={{ amountMinor: total.weightedAmountMinor, currency: total.currency }} kind="weighted" shape="compact" className="font-semibold" />
                 </span>
               </li>
             ))}
           </ul>
         )}
+        <span aria-hidden="true" className="h-1 overflow-hidden rounded-sm bg-surface">
+          <span className={`block h-full ${won ? 'bg-success' : 'bg-chart-1'}`} style={{ width: `${bar}%` }} />
+        </span>
       </header>
 
+      {won ? (
+        <div className="flex flex-col gap-0.5 rounded-10 bg-success-soft px-3 py-2.5 text-caption font-normal text-success-text">
+          <b className="text-meta font-bold">{t.t('pipeline.won.count', { count: column.count })}</b>
+          {closedSince === null ? null : (
+            <span data-testid="won-since">
+              {t.t('pipeline.won.since')} <time dateTime={closedSince}>{formatInstantDate(locale, closedSince)}</time>
+            </span>
+          )}
+          {amountWithheld || column.totals === undefined
+            ? null
+            : column.totals.map((total) => (
+                <Money key={total.currency} t={t} locale={locale} money={{ amountMinor: total.amountMinor, currency: total.currency }} shape="whole" />
+              ))}
+          <span>{t.t('pipeline.won.drop')}</span>
+        </div>
+      ) : null}
+
       {column.cards.length === 0 ? (
-        <p data-testid="column-empty" className="px-2 py-4 text-body-sm text-text-2">
-          {t.t('pipeline.column.empty')}
-        </p>
+        won ? null : (
+          <p data-testid="column-empty" className="rounded-10 border border-dashed border-border-strong p-3 text-meta text-text-2">
+            {t.t('pipeline.column.empty')}
+          </p>
+        )
       ) : (
-        <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+        <ul className="-m-1 flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto p-1">
           {column.cards.map((deal) => (
             <DealCard
               key={deal.id}
@@ -315,7 +393,10 @@ function StageColumn({
               online={online}
               lifted={dragging === deal.id}
               pending={pending.has(deal.id)}
+              blocked={blockedId === deal.id}
               links={links}
+              whatsapp={whatsapp}
+              nowMs={nowMs}
               onPointerDown={(event) => onDragStart(event, deal)}
               onMoveSheet={() => onMoveSheet(deal)}
             />
@@ -344,12 +425,6 @@ function StageColumn({
   );
 }
 
-const ROTTING_TONE = {
-  fresh: 'border-border',
-  stale: 'border-warning',
-  rotting: 'border-danger',
-} as const;
-
 function DealCard({
   t,
   locale,
@@ -357,7 +432,10 @@ function DealCard({
   online,
   lifted,
   pending,
+  blocked,
   links,
+  whatsapp,
+  nowMs,
   onPointerDown,
   onMoveSheet,
 }: {
@@ -367,11 +445,15 @@ function DealCard({
   online: boolean;
   lifted: boolean;
   pending: boolean;
+  blocked: boolean;
   links: RecordLinks;
+  whatsapp: boolean;
+  nowMs: number;
   onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
   onMoveSheet: () => void;
 }) {
-  const tone = deal.rotting === null ? 'border-border' : ROTTING_TONE[deal.rotting];
+  const nextWithheld = withheld(deal, 'nextStep');
+  const next = deal.nextStep ?? null;
   return (
     <li
       data-deal-card={deal.id}
@@ -381,13 +463,12 @@ function DealCard({
       // The platform's own drag (of text or the element) would cancel the
       // pointer events this board moves cards with.
       onDragStart={(event) => event.preventDefault()}
-      className={`flex min-w-0 select-none flex-col gap-2 rounded-md border bg-surface p-3 text-body-sm ${tone} ${
-        online && !pending ? 'cursor-grab' : ''
+      className={`flex min-w-0 select-none flex-col gap-2 rounded-10 border bg-surface p-3 text-body-sm ${blocked ? 'border-danger ring-1 ring-danger' : 'border-border'} ${
+        online && !pending ? 'md:cursor-grab' : ''
       } ${lifted ? 'opacity-60' : 'shadow-1'} ${pending ? 'opacity-60' : ''}`}
     >
-      <div className="flex min-w-0 items-start gap-2">
-        <Icon name="drag_indicator" size="sm" className="text-text-muted" />
-        <p data-field="name" className="min-w-0 flex-1 break-words font-semibold">
+      <div className="flex min-w-0 items-start gap-1.5">
+        <p data-field="name" className="min-w-0 flex-1 break-words text-body-sm font-bold">
           {isUuid(deal.id) ? (
             // The deal detail (T-0110, R15). A drag may start on the name: the
             // board's pointer handler lets this link through, and a click that
@@ -406,59 +487,80 @@ function DealCard({
             <span data-record-text="">{deal.name}</span>
           )}
         </p>
+        {/* The drag handle is also the keyboard's and the screen reader's way to move (WCAG 2.2 SC 2.5.7). */}
+        <button
+          type="button"
+          data-action="move-deal"
+          data-drag-handle=""
+          data-requires-connection=""
+          aria-haspopup="dialog"
+          disabled={!online || pending}
+          onClick={onMoveSheet}
+          className={`-me-1.5 -mt-1 hidden size-8 shrink-0 items-center justify-center rounded-6 text-text-muted hover:bg-surface-sunken hover:text-text disabled:cursor-not-allowed disabled:text-disabled-text md:flex ${FOCUS}`}
+        >
+          <Icon name="drag_indicator" size={18} />
+          <span className="sr-only">
+            {t.t('pipeline.card.move')} <span data-record-text="">{deal.name}</span>
+          </span>
+        </button>
       </div>
       <Related t={t} deal={deal} links={links} />
-      <p data-field="amount" {...lockedProps(deal, 'amount')} className="font-semibold">
+      <p data-field="amount" {...lockedProps(deal, 'amount')} className="-mt-0.5 text-label font-semibold">
         <span className="sr-only">{t.t('pipeline.field.amount')} </span>
-        <AmountValue t={t} locale={locale} deal={deal} />
+        <AmountValue t={t} locale={locale} deal={deal} shape="whole" />
       </p>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-text-2">
-        <p data-field="owner" {...lockedProps(deal, 'ownerUserId')} className="inline-flex min-w-0 items-center gap-1">
-          <Icon name="person" size="sm" />
-          <span className="sr-only">{t.t('pipeline.field.owner')} </span>
-          <OwnerValue t={t} deal={deal} />
-        </p>
-        {withheld(deal, 'expectedCloseDate') || (deal.expectedCloseDate ?? null) !== null ? (
-          <p data-field="expectedCloseDate" {...lockedProps(deal, 'expectedCloseDate')} className="inline-flex items-center gap-1">
-            <Icon name="event" size="sm" />
-            <span className="sr-only">{t.t('pipeline.field.expectedCloseDate')} </span>
-            <CloseValue t={t} locale={locale} deal={deal} />
-          </p>
-        ) : null}
-      </div>
-      {withheld(deal, 'nextStep') || (deal.nextStep ?? null) !== null ? (
-        <p data-field="nextStep" {...lockedProps(deal, 'nextStep')} className="flex min-w-0 items-start gap-1 text-caption text-text-2">
-          <Icon name="arrow_forward" size="sm" />
+      {nextWithheld ? (
+        <p data-field="nextStep" data-locked="true" className="flex min-w-0 items-start gap-1.5 rounded-6 bg-surface-sunken px-2 py-1.5 text-caption font-semibold">
+          <Icon name="flag" size={15} />
           <span className="sr-only">{t.t('pipeline.field.nextStep')} </span>
-          {withheld(deal, 'nextStep') ? (
-            <Locked t={t} />
-          ) : (
-            <span data-record-text="" className="min-w-0 break-words">
-              {deal.nextStep}
-            </span>
-          )}
+          <Locked t={t} />
         </p>
-      ) : null}
-      {deal.rotting === 'stale' ? (
-        <p className="flex items-center gap-1 text-caption font-semibold text-warning-text">
-          <Icon name="schedule" size="sm" />
-          {t.t('pipeline.rotting.stale')}
+      ) : next !== null ? (
+        <p data-field="nextStep" className="flex min-w-0 items-start gap-1.5 rounded-6 bg-surface-sunken px-2 py-1.5 text-caption font-semibold text-text">
+          <Icon name="flag" size={15} />
+          <span className="sr-only">{t.t('pipeline.field.nextStep')} </span>
+          <span data-record-text="" className="min-w-0 break-words">
+            {next}
+          </span>
         </p>
-      ) : deal.rotting === 'rotting' ? (
-        <p className="flex items-center gap-1 text-caption font-semibold text-danger-text">
-          <Icon name="warning" size="sm" />
-          {t.t('pipeline.rotting.rotting')}
+      ) : deal.rotting === null ? null : (
+        <p className="flex min-w-0 items-start gap-1.5 rounded-6 bg-warning-soft px-2 py-1.5 text-caption font-semibold text-warning-text">
+          <Icon name="warning" size={15} />
+          {t.t('pipeline.card.noNextStep')}
         </p>
-      ) : null}
+      )}
+      <div className="flex flex-wrap items-center gap-1.5 text-caption font-semibold text-text-2">
+        <InStageChip t={t} deal={deal} nowMs={nowMs} />
+        {withheld(deal, 'expectedCloseDate') || (deal.expectedCloseDate ?? null) !== null ? (
+          <span data-field="expectedCloseDate" {...lockedProps(deal, 'expectedCloseDate')} className="inline-flex items-center">
+            <span className="sr-only">{t.t('pipeline.field.expectedCloseDate')} </span>
+            <CloseShort t={t} locale={locale} deal={deal} nowMs={nowMs} />
+          </span>
+        ) : null}
+        {whatsapp ? (
+          <span title={t.t('pipeline.card.whatsappNone')} className="inline-flex items-center gap-0.5 font-normal text-text-muted">
+            <Icon name="chat" size={14} />
+            <span aria-hidden="true">{'—'}</span>
+            <span className="sr-only">{t.t('pipeline.card.whatsappNone')}</span>
+          </span>
+        ) : null}
+        <span className="flex-1" />
+        <span data-field="owner" {...lockedProps(deal, 'ownerUserId')} className="inline-flex">
+          <span className="sr-only">{t.t('pipeline.field.owner')} </span>
+          <OwnerAvatar t={t} deal={deal} locale={locale} />
+        </span>
+      </div>
+      {/* P06/09: on a phone, a full-width Move stage under every card. */}
       <button
         type="button"
         data-action="move-deal"
         data-requires-connection=""
+        aria-haspopup="dialog"
         disabled={!online || pending}
         onClick={onMoveSheet}
-        className={`${QUIET_BUTTON} self-start disabled:cursor-not-allowed disabled:opacity-60`}
+        className={`flex h-control-base items-center justify-center gap-1.5 rounded-md border border-border-strong bg-surface text-body-sm font-semibold text-text disabled:cursor-not-allowed disabled:border-border disabled:text-disabled-text md:hidden ${FOCUS}`}
       >
-        <Icon name="open_with" size="sm" />
+        <Icon name="move_up" size={18} />
         {t.t('pipeline.card.move')}
         <span data-record-text="" className="sr-only">
           {deal.name}
@@ -496,39 +598,34 @@ function swallowNextClick(card: Element): void {
   window.addEventListener('pointerdown', disarm, true);
 }
 
-/** The account and contact summaries: a link only from a well-formed uuid (R15), else text. */
+/** The account and contact summaries, one plain sub-line ("Account · Contact"): a link only from a well-formed uuid (R15), else text. */
 function Related({ t, deal, links }: { t: Translator; deal: Deal; links: RecordLinks }) {
   const account = deal.account ?? null;
   const contact = deal.contact ?? null;
   if (account === null && contact === null) return null;
   return (
-    <div className="flex min-w-0 flex-col gap-1 text-caption text-text-2">
+    <p className="-mt-1 min-w-0 break-words text-meta font-normal text-text-2">
       {account === null ? null : (
-        <p data-related="account" className="flex min-w-0 items-center gap-1">
-          <Icon name="domain" size="sm" />
+        <span data-related="account">
           <Summary href={links.accounts && isUuid(account.id) ? `/accounts/${account.id}` : null} text={account.name} />
-        </p>
+        </span>
       )}
+      {account !== null && contact !== null ? <span aria-hidden="true">{' · '}</span> : null}
       {contact === null ? null : (
-        <p data-related="contact" className="flex min-w-0 items-center gap-1">
-          <Icon name="person" size="sm" />
+        <span data-related="contact">
           <Summary href={links.contacts && isUuid(contact.id) ? `/contacts/${contact.id}` : null} text={nameOrWithheld(t, contact.displayName)} />
-        </p>
+        </span>
       )}
-    </div>
+    </p>
   );
 }
 
 function Summary({ href, text }: { href: string | null; text: string }) {
   if (href === null) {
-    return (
-      <span data-record-text="" className="min-w-0 break-words">
-        {text}
-      </span>
-    );
+    return <span data-record-text="">{text}</span>;
   }
   return (
-    <Link href={href} prefetch={false} data-record-text="" className={`min-w-0 break-words font-semibold text-primary-text underline ${FOCUS}`}>
+    <Link href={href} prefetch={false} data-record-text="" className={`rounded-sm hover:text-primary-text hover:underline ${FOCUS}`}>
       {text}
     </Link>
   );

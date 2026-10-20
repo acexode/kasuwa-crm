@@ -295,6 +295,92 @@ export const FLAGS = {
     // journey against T-0095's real API follows once the screen merges.
     productionReady: false,
   },
+  /**
+   * T-0135 (D-L194): the P06 "Show US$" switch. No FX module serves a rate,
+   * so the switch is drawn in the design's disabled state and no US$ figure
+   * is ever drawn. It comes alive with the FX module.
+   */
+  fx_display: {
+    description: 'The disabled Show US$ switch on the P06 board header until an FX rate is served (T-0135, D-L194).',
+    defaultValue: false,
+    owner: 'T-0135 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0135: the P06 board's summary line (open pipeline, weighted, won in the
+   * window, open deals). Every figure is the board read's own per-currency
+   * totals and exact counts (D-P19), added per currency and never converted.
+   * Off by default because R4 kept the board to per-column figures; the lead
+   * asked for the line in the D-L193 pass.
+   */
+  pipeline_summary: {
+    description: 'The P06 board summary line built from the served column totals and counts (T-0135).',
+    defaultValue: false,
+    owner: 'T-0135',
+    productionReady: false,
+  },
+  /**
+   * T-0135 (D-L194): the P06 first-pipeline template picker. No operation
+   * creates a pipeline yet, so "Create pipeline" is drawn disabled.
+   */
+  pipeline_templates: {
+    description: 'The P06 first-pipeline template picker, with Create disabled until a pipeline can be created (T-0135, D-L194).',
+    defaultValue: false,
+    owner: 'T-0135 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0135 (D-L194): the last-WhatsApp-contact chip on P06 cards and the
+   * list's WhatsApp column. No deal read carries it, so every cell is the
+   * design's empty dash.
+   */
+  whatsapp_recency: {
+    description: 'The last WhatsApp contact on P06 cards and list rows, an empty dash until the inbox serves it (T-0135, D-L194).',
+    defaultValue: false,
+    owner: 'T-0135 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0135 (D-L194): the deal detail's Products card (line items, VAT 7.5%
+   * and totals), in its empty state: no product or price-book module exists.
+   */
+  deal_products: {
+    description: 'The P06 deal detail Products and VAT card, empty until products exist (T-0135, D-L194).',
+    defaultValue: false,
+    owner: 'T-0135 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0135 (D-L194): the deal detail's AI Deal risk card, in its empty
+   * state: no scoring exists.
+   */
+  deal_risk: {
+    description: 'The P06 deal detail Deal risk card, empty until scoring exists (T-0135, D-L194).',
+    defaultValue: false,
+    owner: 'T-0135 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0135 (D-L194): the deal detail's Contact roles and Competitors cards.
+   * Contact roles shows the served primary contact; roles, engagement and
+   * competitors have no backend and show the design's empty state.
+   */
+  deal_relationships: {
+    description: 'The P06 deal detail Contact roles and Competitors cards (T-0135, D-L194).',
+    defaultValue: false,
+    owner: 'T-0135 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0135 (D-L194): the deal detail's Quotes and Approval history cards, in
+   * their empty states: no quote or approval module exists.
+   */
+  deal_quotes: {
+    description: 'The P06 deal detail Quotes and Approval history cards, empty until those modules exist (T-0135, D-L194).',
+    defaultValue: false,
+    owner: 'T-0135 (placeholder)',
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

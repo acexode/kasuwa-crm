@@ -20,6 +20,21 @@ import { FOCUS } from '../records/list-classes';
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+export type DialogSize = 'dialog' | 'sheet' | 'prompt';
+
+/**
+ * Sizes, as P06 draws them. `sheet` (the move sheet, P06/09's bottom sheet):
+ * a 20px-radius sheet with a grab handle on a phone, a 448px dialog from `sm`.
+ * `prompt` ("Complete to move", P06/05 and P06/06): full screen on a phone,
+ * 560px with a 16px radius from `sm`. `dialog` (the create form): a sheet on a
+ * phone, 512px from `sm`.
+ */
+const PANEL_SIZE: Record<DialogSize, string> = {
+  dialog: 'max-h-full rounded-t-xl sm:max-w-lg sm:rounded-xl',
+  sheet: 'max-h-full rounded-t-[20px] sm:max-w-md sm:rounded-xl',
+  prompt: 'h-full max-h-full sm:h-auto sm:max-w-[560px] sm:rounded-xl',
+};
+
 export function PipelineDialog({
   testId,
   title,
@@ -28,6 +43,8 @@ export function PipelineDialog({
   busy = false,
   onClose,
   children,
+  footer,
+  size = 'dialog',
 }: {
   testId: string;
   title: ReactNode;
@@ -37,6 +54,9 @@ export function PipelineDialog({
   busy?: boolean;
   onClose: () => void;
   children: ReactNode;
+  /** A footer bar under a scrolling body, P06/05's "4 left · Cancel · Move". */
+  footer?: ReactNode;
+  size?: DialogSize;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -87,7 +107,7 @@ export function PipelineDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
+      className={`fixed inset-0 z-50 flex justify-center sm:items-center sm:p-6 ${size === 'prompt' ? 'items-stretch' : 'items-end'}`}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !busy) onClose();
       }}
@@ -101,14 +121,15 @@ export function PipelineDialog({
         tabIndex={-1}
         data-testid={testId}
         onKeyDown={onKeyDown}
-        className={`flex max-h-full w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-t-lg bg-surface-raised p-4 shadow-3 sm:rounded-lg sm:p-6 ${FOCUS}`}
+        className={`flex w-full min-h-0 flex-col overflow-hidden bg-surface-raised shadow-3 ${PANEL_SIZE[size]} ${FOCUS}`}
       >
-        <div className="flex items-start gap-3">
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h2 id={titleId} className="text-h4 font-bold">
+        {size === 'sheet' ? <span aria-hidden="true" className="mx-auto mb-0.5 mt-2 h-1 w-10 shrink-0 rounded-sm bg-border-strong sm:hidden" /> : null}
+        <div className={`flex shrink-0 items-start gap-2 pe-2 ps-5 ${size === 'sheet' ? 'pb-2 pt-2 sm:border-b sm:border-border sm:pb-3 sm:pt-3.5' : 'border-b border-border pb-3 pt-3.5'}`}>
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <h2 id={titleId} className="break-words text-h5 font-bold">
               {title}
             </h2>
-            {subtitle === undefined ? null : <div className="min-w-0 break-words text-body-sm text-text-2">{subtitle}</div>}
+            {subtitle === undefined ? null : <div className="min-w-0 break-words text-meta text-text-2">{subtitle}</div>}
           </div>
           <button
             type="button"
@@ -116,12 +137,15 @@ export function PipelineDialog({
             // Not while a write is in flight: its answer must land somewhere (as Escape and the backdrop).
             disabled={busy}
             onClick={onClose}
-            className={`flex min-h-touch min-w-touch items-center justify-center rounded-md text-text-muted hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS}`}
+            className={`flex size-touch shrink-0 items-center justify-center rounded-md text-text hover:bg-surface-sunken disabled:cursor-not-allowed disabled:text-disabled-text ${FOCUS}`}
           >
-            <Icon name="close" />
+            <Icon name="close" size={22} />
           </button>
         </div>
-        {children}
+        <div className={`flex min-h-0 flex-1 flex-col overflow-y-auto ${size === 'sheet' ? 'gap-1 px-2 pb-4 sm:px-3 sm:pt-2' : 'gap-4.5 px-5 py-4'}`}>{children}</div>
+        {footer === undefined ? null : (
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border px-5 pb-4 pt-3">{footer}</div>
+        )}
       </div>
     </div>
   );
