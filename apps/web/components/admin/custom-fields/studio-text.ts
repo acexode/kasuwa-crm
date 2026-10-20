@@ -3,6 +3,7 @@ import type { IconName } from '@kasuwa/ui';
 import type { ScreenError } from '../../../lib/admin-api';
 import type { Classification, CustomFieldObject, CustomFieldType } from '../../../lib/custom-fields-api';
 import { errorMessageId } from '../panel';
+import { formatDayFirst } from '../../../lib/date-locale';
 
 /**
  * The studio's labels, by the closed sets the contract names. One table per
@@ -133,9 +134,6 @@ export function currencyOptionLabel(locale: string, code: string): string {
 export function modifiedDate(locale: string, iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
-  try {
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-NG' : locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
-  } catch {
-    return date.toISOString().slice(0, 10);
-  }
+  // Day first, "Sep" not "Sept", as every Kasuwa date (T-0143's lib/date-locale.ts).
+  return formatDayFirst(locale, date, { day: 'numeric', month: 'short', year: 'numeric' });
 }

@@ -444,7 +444,9 @@ export function ObjectPanel({
                           data-classification={item.classification}
                           data-retired={retired ? 'true' : 'false'}
                           onClick={(event) => {
-                            if (retired || event.target instanceof HTMLButtonElement) return;
+                            // A press on a control in the row (or on the glyph inside one) is that control's own:
+                            // the retire button must not also open the editor behind its dialog (T-0149).
+                            if (retired || (event.target instanceof Element && event.target.closest('button, a, input') !== null)) return;
                             const edit = event.currentTarget.querySelector<HTMLElement>('[data-testid="field-edit"]');
                             if (edit !== null) open({ kind: 'edit', field: item }, edit);
                           }}
@@ -469,8 +471,12 @@ export function ObjectPanel({
                               </button>
                             )}
                             {item.description === null || item.description === '' ? null : (
-                              <span title={item.description} className="flex shrink-0 text-text-muted">
-                                <Icon name="help" size={16} />
+                              <span className="flex shrink-0 text-text-muted">
+                                {/* The tooltip is the tenant's own text, so it sits on the glyph only; assistive
+                                    technology reads the same text once, marked as record data (T-0149). */}
+                                <span aria-hidden="true" title={item.description} className="flex">
+                                  <Icon name="help" size={16} />
+                                </span>
                                 <span data-record-text className="sr-only">
                                   {item.description}
                                 </span>
@@ -504,7 +510,7 @@ export function ObjectPanel({
                           ) : null}
                           {dockedOpen ? null : (
                             <span role="cell" className="hidden text-meta text-text-muted xl:block">
-                              {modifiedDate(locale, item.updatedAt)}
+                              <time dateTime={item.updatedAt}>{modifiedDate(locale, item.updatedAt)}</time>
                             </span>
                           )}
                           <span role="cell" className="col-start-2 row-start-1 flex justify-end md:col-start-auto md:row-start-auto">
