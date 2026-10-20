@@ -243,6 +243,9 @@
   --k-shell-mobile-header: 56px;
   --k-shell-search: 420px;
   --k-shell-fab: 56px;
+  --k-shell-data-nav: 232px;
+  --k-shell-data-nav-compact: 196px;
+  --k-shell-data-content: 1240px;
   --k-layout-auth-panel: 520px;
   --k-layout-auth-header: 64px;
   --k-layout-column: 400px;

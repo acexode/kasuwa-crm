@@ -40,6 +40,11 @@ describe('feature flags', () => {
       'crm_tickets',
       'crm_calls',
       'crm_reports',
+      'calendar_sync',
+      'booking_pages',
+      'field_checkin',
+      'activity_priority',
+      'activity_reminders',
       'fx_display',
       'pipeline_summary',
       'pipeline_templates',
@@ -55,6 +60,11 @@ describe('feature flags', () => {
       'last_activity',
       'quick_actions',
       'more_filters',
+      'data_management',
+      'data_migration',
+      'data_export',
+      'dsr',
+      'merge_three_way',
     ]);
   });
 

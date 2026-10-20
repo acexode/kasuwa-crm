@@ -88,6 +88,12 @@ const DEMO_FLAGS = [
   'last_activity',
   'quick_actions',
   'more_filters',
+  // T-0141 (D-L194): P28's Data management area and its placeholders.
+  'data_management',
+  'data_migration',
+  'data_export',
+  'dsr',
+  'merge_three_way',
 ];
 /** Flags added to the demo automatically once their task has merged. */
 const DEMO_FLAGS_WHEN_PRESENT = ['crm_custom_fields', 'crm_import', 'crm_duplicates', 'crm_notifications'];
