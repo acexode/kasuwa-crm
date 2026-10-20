@@ -32,6 +32,7 @@ export type IconName =
   | 'bookmark'
   | 'bookmark_add'
   | 'business_center'
+  | 'calendar_month'
   | 'call'
   | 'call_end'
   | 'call_received'
@@ -139,6 +140,7 @@ export type IconName =
   | 'person'
   | 'person_add'
   | 'person_add_alt'
+  | 'person_off'
   | 'phone_iphone'
   | 'photo_camera'
   | 'play_arrow'
@@ -164,6 +166,7 @@ export type IconName =
   | 'send'
   | 'settings'
   | 'share'
+  | 'shopping_cart'
   | 'signal_cellular_4_bar'
   | 'signal_cellular_alt'
   | 'signal_cellular_alt_1_bar'
@@ -188,6 +191,7 @@ export type IconName =
   | 'thumb_up'
   | 'timer'
   | 'timer_off'
+  | 'today'
   | 'touch_app'
   | 'translate'
   | 'trending_up'
@@ -195,17 +199,20 @@ export type IconName =
   | 'undo'
   | 'unfold_less'
   | 'unfold_more'
+  | 'upcoming'
   | 'upload'
   | 'upload_file'
   | 'verified'
   | 'verified_user'
   | 'vertical_align_top'
   | 'vertical_split'
+  | 'videocam'
   | 'view_column'
   | 'view_kanban'
   | 'visibility'
   | 'visibility_off'
   | 'warning'
+  | 'where_to_vote'
   | 'work'
   | 'workspaces'
   ;
@@ -240,6 +247,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'bookmark',
   'bookmark_add',
   'business_center',
+  'calendar_month',
   'call',
   'call_end',
   'call_received',
@@ -347,6 +355,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'person',
   'person_add',
   'person_add_alt',
+  'person_off',
   'phone_iphone',
   'photo_camera',
   'play_arrow',
@@ -372,6 +381,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'send',
   'settings',
   'share',
+  'shopping_cart',
   'signal_cellular_4_bar',
   'signal_cellular_alt',
   'signal_cellular_alt_1_bar',
@@ -396,6 +406,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'thumb_up',
   'timer',
   'timer_off',
+  'today',
   'touch_app',
   'translate',
   'trending_up',
@@ -403,17 +414,20 @@ export const ICON_NAMES: readonly IconName[] = [
   'undo',
   'unfold_less',
   'unfold_more',
+  'upcoming',
   'upload',
   'upload_file',
   'verified',
   'verified_user',
   'vertical_align_top',
   'vertical_split',
+  'videocam',
   'view_column',
   'view_kanban',
   'visibility',
   'visibility_off',
   'warning',
+  'where_to_vote',
   'work',
   'workspaces',
 ];
