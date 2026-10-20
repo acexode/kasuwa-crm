@@ -85,6 +85,8 @@ export function useActivities() {
   const [online, setOnline] = useState(true);
   const [syncedAt, setSyncedAt] = useState<Date | null>(null);
   const [me, setMe] = useState<string | null>(null);
+  /** The caller's display name, for the owner avatar on each row: every row here is the caller's own. */
+  const [meName, setMeName] = useState<string | null>(null);
   const [versions, setVersions] = useState<Readonly<Record<string, number>>>({});
   const bucketSeq = useRef<Record<ActivityBucket, number>>({ overdue: 0, today: 0, upcoming: 0 });
   const calendarSeq = useRef(0);
@@ -137,7 +139,9 @@ export function useActivities() {
     setZone(zoneRef.current);
     void refreshBuckets();
     void getCurrentUser().then((result) => {
-      if (result.ok) setMe(result.value.id);
+      if (!result.ok) return;
+      setMe(result.value.id);
+      setMeName(result.value.displayName);
     });
   }, [refreshBuckets]);
 
@@ -218,6 +222,7 @@ export function useActivities() {
     const result = await getCurrentUser();
     if (!result.ok) return null;
     setMe(result.value.id);
+    setMeName(result.value.displayName);
     return result.value.id;
   }, [me]);
 
@@ -238,6 +243,8 @@ export function useActivities() {
     versions,
     noteVersion,
     whoAmI,
+    me,
+    meName,
   };
 }
 

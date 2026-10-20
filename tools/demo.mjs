@@ -64,6 +64,12 @@ const DEMO_FLAGS = [
   'crm_tickets',
   'crm_calls',
   'crm_reports',
+  // T-0136: P07's flagged placeholders (D-L194).
+  'calendar_sync',
+  'booking_pages',
+  'field_checkin',
+  'activity_priority',
+  'activity_reminders',
   // D-L194 placeholders (T-0135): on in the demo, off by default elsewhere.
   'fx_display',
   'pipeline_summary',
