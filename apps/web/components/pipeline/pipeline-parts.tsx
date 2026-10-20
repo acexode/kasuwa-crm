@@ -2,7 +2,7 @@ import type { Translator } from '@kasuwa/i18n/bundle';
 import { initials } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { formatSyncedAt } from '../records/list-model';
-import { UnreadableAmountError, formatDealMoney, formatDealMoneyCompact, formatDealMoneyWhole } from '../../lib/deal-money';
+import { UnreadableAmountError, formatDealMoney } from '../../lib/deal-money';
 import { withheld, type Deal, type DealMoney, type PipelineStage } from '../../lib/pipelines-api';
 import { formatCalendarDate, formatShortDate } from './pipeline-model';
 
@@ -12,39 +12,29 @@ import { formatCalendarDate, formatShortDate } from './pipeline-model';
  * copy, so a lock or a former owner reads the same on a card and in a row.
  */
 
-/** How an amount is drawn: exact to the minor unit, whole units, or the design's short form ("₦40M"). */
-export type MoneyShape = 'exact' | 'whole' | 'compact';
-
-const MONEY_FORMAT: Record<MoneyShape, (locale: string, amountMinor: string, currency: string) => string> = {
-  exact: formatDealMoney,
-  whole: formatDealMoneyWhole,
-  compact: formatDealMoneyCompact,
-};
-
 /**
  * An amount in its currency's own format, with Intl's narrow symbol (R5,
- * T-0135). The digits come from the string, never a number (the compact form
- * excepted, which is a label); an amount that is not a digit run is said to be
- * unreadable, never drawn as a zero. JetBrains Mono, as P06 draws money.
+ * T-0135). Always exact to the minor unit: the design's whole-unit and compact
+ * ("₦40M") figures are overruled by D-P19 (D-L130 R5, T-0147). The digits come
+ * from the string, never a number; an amount that is not a digit run is said to
+ * be unreadable, never drawn as a zero. JetBrains Mono, as P06 draws money.
  */
 export function Money({
   t,
   locale,
   money,
   kind,
-  shape = 'exact',
   className = '',
 }: {
   t: Translator;
   locale: string;
   money: DealMoney;
   kind?: 'amount' | 'weighted';
-  shape?: MoneyShape;
   className?: string;
 }) {
   let text: string;
   try {
-    text = MONEY_FORMAT[shape](locale, money.amountMinor, money.currency);
+    text = formatDealMoney(locale, money.amountMinor, money.currency);
   } catch (error) {
     if (!(error instanceof UnreadableAmountError)) throw error;
     return (
@@ -74,10 +64,10 @@ export function Locked({ t }: { t: Translator }) {
 }
 
 /** The amount, a lock, or "No amount" — a deal with no amount is not a zero (R5). */
-export function AmountValue({ t, locale, deal, shape = 'exact' }: { t: Translator; locale: string; deal: Deal; shape?: MoneyShape }) {
+export function AmountValue({ t, locale, deal }: { t: Translator; locale: string; deal: Deal }) {
   if (withheld(deal, 'amount')) return <Locked t={t} />;
   if (deal.amount === null || deal.amount === undefined) return <span className="font-sans text-meta font-normal text-text-muted">{t.t('pipeline.card.noAmount')}</span>;
-  return <Money t={t} locale={locale} money={deal.amount} shape={shape} />;
+  return <Money t={t} locale={locale} money={deal.amount} />;
 }
 
 /** The owner by name, a lock, "Unassigned", or a former owner — never an id (D-P23). */
@@ -117,7 +107,7 @@ export function OwnerAvatar({ t, deal, locale, size = 'card' }: { t: Translator;
     );
   }
   return (
-    <span title={name} className={`inline-flex ${box} shrink-0 items-center justify-center rounded-full bg-primary-soft-strong font-bold text-primary-text`}>
+    <span className={`inline-flex ${box} shrink-0 items-center justify-center rounded-full bg-primary-soft-strong font-bold text-primary-text`}>
       <span aria-hidden="true">{initials(name, locale)}</span>
       <span data-record-text="" className="sr-only">
         {name}
@@ -161,10 +151,21 @@ export function InStageChip({ t, deal, nowMs }: { t: Translator; deal: Deal; now
       : deal.rotting === 'stale'
         ? t.t('pipeline.card.stale', { days })
         : t.t('pipeline.card.inStage', { days });
+  // "15d · stale" is the design's shorthand; a screen reader hears the words: "Going stale" then "15d in stage".
+  const spoken = deal.rotting === 'fresh' ? null : t.t(deal.rotting === 'rotting' ? 'pipeline.rotting.rotting' : 'pipeline.rotting.stale');
   return (
     <span data-in-stage={deal.rotting} className={`inline-flex h-6 items-center gap-0.75 whitespace-nowrap rounded-full px-1.5 text-micro ${tone}`}>
       <Icon name={deal.rotting === 'fresh' ? 'schedule' : 'hourglass_top'} size={14} />
-      {label}
+      {spoken === null ? (
+        label
+      ) : (
+        <>
+          <span aria-hidden="true">{label}</span>
+          <span className="sr-only">
+            {spoken} {t.t('pipeline.card.inStage', { days })}
+          </span>
+        </>
+      )}
     </span>
   );
 }

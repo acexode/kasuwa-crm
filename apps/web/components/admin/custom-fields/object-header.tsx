@@ -77,7 +77,8 @@ export function ObjectHeader({
         <div className="flex min-w-0 flex-1 basis-80 flex-col gap-1.5">
           <h1 className="text-title-sm">{t.t(OBJECT_LABEL[object])}</h1>
           <div className="flex flex-wrap items-center gap-2 text-meta text-text-2">
-            <span dir="ltr" className="font-mono text-caption">
+            {/* The object's api name is an identifier the contract serves, not copy to translate (T-0149). */}
+            <span dir="ltr" data-record-text="" className="font-mono text-caption">
               {object}
             </span>
             <span className="inline-flex h-5.5 items-center rounded-full bg-surface-sunken px-2 text-caption font-bold text-text-2">
@@ -101,7 +102,8 @@ export function ObjectHeader({
             ) : null}
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        {/* min-w-0: the switcher scrolls inside the line on a phone instead of pushing the page sideways (T-0149). */}
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
           {switcher}
           {sections.relationships ? (
             <Link href="/admin/studio/relationships" className={STUDIO_SECONDARY}>

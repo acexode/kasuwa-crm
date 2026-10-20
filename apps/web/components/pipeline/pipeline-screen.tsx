@@ -592,7 +592,8 @@ export function PipelineScreen({
                   />
                 </label>
                 <span className="flex-1" />
-                {ready ? (
+                {/* The board's served counts, added; the list draws no count at all (D-P13, T-0109 R13). */}
+                {ready && view === 'board' ? (
                   <span className="text-meta text-text-muted">
                     {t.t('pipeline.filter.shown', { count: shown })}
                   </span>
@@ -901,7 +902,6 @@ function Sums({
                 amountMinor: weighted ? sum.weightedAmountMinor : sum.amountMinor,
                 currency: sum.currency,
               }}
-              shape="compact"
             />
           </b>
         </span>
@@ -986,8 +986,6 @@ function OwnerRow({
             key={owner.id}
             type="button"
             aria-pressed={on}
-            aria-label={owner.name}
-            title={owner.name}
             data-owner-option={owner.id}
             onClick={() =>
               onChange(on ? picked.filter((id) => id !== owner.id) : [...picked, owner.id])
@@ -1003,6 +1001,10 @@ function OwnerRow({
               } ${any && !on ? 'opacity-55' : ''}`}
             >
               {initials(owner.name, locale)}
+            </span>
+            {/* The name is record data: text a screen reader reads, never an attribute (the en-XA check reads those as copy). */}
+            <span data-record-text="" className="sr-only">
+              {owner.name}
             </span>
           </button>
         );
