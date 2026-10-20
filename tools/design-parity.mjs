@@ -339,6 +339,7 @@ async function captureApp(prefixes) {
       ['p28-import', '/contacts/import'],
       ['p28-duplicates', '/contacts/duplicates'],
       ['p01-onboarding', '/onboarding'],
+      ['design-components-2', '/design/components-2'],
     ];
     for (const [name, path] of SCREENS) {
       if (!wanted(name) || path.includes('undefined')) continue;

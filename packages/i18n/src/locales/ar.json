@@ -1989,7 +1989,6 @@
   "design.components2.heading.live": "جرّبها",
   "design.components2.caption.scrim": "طبقة معتمة · الضغط يغلق",
   "design.components2.caption.drawer": "درج جانبي · 400px",
-  "design.components2.caption.modal": "نافذة حوار · 440px",
   "design.components2.caption.sheet": "لوح سفلي · للهواتف",
   "design.components2.table.label": "جهات الاتصال",
   "design.components2.table.selected": "المحدد: {count}",

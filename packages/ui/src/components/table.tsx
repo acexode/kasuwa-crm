@@ -108,7 +108,7 @@ export function TableRow({ selected, className, ...rest }: TableRowProps) {
 
 /** The header cell's look, shared with the select-all cell. */
 const HEADER_CELL =
-  'h-control-md whitespace-nowrap border-b border-border bg-surface-sunken px-3 text-start align-middle text-caption font-bold uppercase tracking-[0.04em] text-text-2 shadow-table-header [&:not(:first-child)]:border-s [[data-k-select]+&]:border-s-0';
+  'h-control-md whitespace-nowrap border-b border-border bg-surface-sunken px-3 text-start align-middle text-caption font-bold uppercase tracking-[0.04em] text-text-2 shadow-table-header [&:not(:first-child):not([data-k-select]+th)]:border-s';
 
 export type SortDirection = 'ascending' | 'descending' | 'none';
 
@@ -183,7 +183,7 @@ export interface TableCellProps extends Omit<ComponentPropsWithRef<'td'>, 'align
   readonly numeric?: boolean | undefined;
 }
 
-export function TableCell({ align, numeric, className, ...rest }: TableCellProps) {
+export function TableCell({ align, numeric, className, children, ...rest }: TableCellProps) {
   const density = useContext(DensityContext);
   return (
     <td
@@ -195,7 +195,10 @@ export function TableCell({ align, numeric, className, ...rest }: TableCellProps
         className,
       )}
       {...rest}
-    />
+    >
+      {/* Digits, signs and phone numbers keep their order in a right-to-left table. */}
+      {numeric === true ? <bdi dir="ltr">{children}</bdi> : children}
+    </td>
   );
 }
 
@@ -377,7 +380,11 @@ export interface TableFooterProps {
 
 /** The mono range inside the footer's summary. */
 export function TableFooterRange({ children }: { readonly children: ReactNode }) {
-  return <b className="font-mono font-bold text-text">{children}</b>;
+  return (
+    <b className="font-mono font-bold text-text">
+      <bdi dir="ltr">{children}</bdi>
+    </b>
+  );
 }
 
 function RowsPerPageGroup({ label, options, value, onChange }: RowsPerPage) {
@@ -457,7 +464,7 @@ export function TableFooter({ summary, rowsPerPage, page, previous, next }: Tabl
         <span className="flex items-center gap-3">
           <span aria-hidden="true">{rowsPerPage.label}</span>
           <RowsPerPageGroup {...rowsPerPage} />
-          <span aria-hidden="true" className="h-6 w-px bg-border" />
+          <span aria-hidden="true" className="h-6 w-px bg-border max-sm:hidden" />
         </span>
       )}
       {page === undefined ? null : <span>{page}</span>}

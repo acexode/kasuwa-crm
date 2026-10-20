@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Banner,
   BottomSheet,
@@ -43,6 +43,7 @@ import {
   type TableDensity,
 } from '@kasuwa/ui/components';
 import type { IconName } from '@kasuwa/ui';
+import { numberingLocale } from '../../lib/numbering';
 import { Icon } from '../icon';
 import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
 
@@ -193,7 +194,13 @@ function DataTable({ t, locale }: { readonly t: T; readonly locale: string }) {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set(['ao', 'tn']));
   const [perPage, setPerPage] = useState(25);
   const [sort, setSort] = useState<'ascending' | 'descending'>('descending');
-  const number = new Intl.NumberFormat(locale);
+  // Node's ICU and the browser's format en-ZA money differently; the amounts
+  // are drawn after hydration so the two never disagree.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  const number = new Intl.NumberFormat(numberingLocale(locale));
   const all = selected.size === SAMPLE.rows.length;
 
   function toggle(id: string, on: boolean): void {
@@ -324,9 +331,11 @@ function DataTable({ t, locale }: { readonly t: T; readonly locale: string }) {
                 <TableCell numeric align="start" className={SLA_TONE[row.slaTone]}>
                   {row.sla}
                 </TableCell>
-                <TableCell className="whitespace-nowrap">{row.owner}</TableCell>
-                <TableCell numeric suppressHydrationWarning>
-                  {new Intl.NumberFormat(row.locale, { style: 'currency', currency: row.currency }).format(
+                <TableCell className="whitespace-nowrap">
+                  <bdi>{row.owner}</bdi>
+                </TableCell>
+                <TableCell numeric>
+                  {mounted && new Intl.NumberFormat(numberingLocale(row.locale), { style: 'currency', currency: row.currency }).format(
                     row.amount,
                   )}
                 </TableCell>
@@ -342,7 +351,7 @@ function DataTable({ t, locale }: { readonly t: T; readonly locale: string }) {
 // ---------------------------------------------------------------------------
 
 function Menus({ t, locale }: { readonly t: T; readonly locale: string }) {
-  const number = new Intl.NumberFormat(locale);
+  const number = new Intl.NumberFormat(numberingLocale(locale));
   const [view, setView] = useState(0);
   const views: readonly MessageId[] = [
     'design.components2.menu.trigger',
@@ -472,14 +481,14 @@ function ConfirmSpecimen({ t }: { readonly t: T }) {
 }
 
 function DealFields({ t, locale }: { readonly t: T; readonly locale: string }) {
-  const date = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'Africa/Lagos' });
+  const date = new Intl.DateTimeFormat(numberingLocale(locale), { dateStyle: 'medium', timeZone: 'Africa/Lagos' });
   return (
     <>
       <FieldSpecimen label={t('design.components2.drawer.name')} value={SAMPLE.deal} />
       <FieldSpecimen label={t('design.components2.drawer.account')} value={SAMPLE.account} />
       <FieldSpecimen
         label={t('design.components2.drawer.amount')}
-        value={new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(
+        value={new Intl.NumberFormat(numberingLocale('en-NG'), { style: 'currency', currency: 'NGN' }).format(
           '12500000.00',
         )}
         mono
@@ -496,12 +505,12 @@ function DealFields({ t, locale }: { readonly t: T; readonly locale: string }) {
 }
 
 function WonFields({ t, locale }: { readonly t: T; readonly locale: string }) {
-  const date = new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeZone: 'Africa/Lagos' });
+  const date = new Intl.DateTimeFormat(numberingLocale(locale), { dateStyle: 'full', timeZone: 'Africa/Lagos' });
   return (
     <>
       <FieldSpecimen
         label={t('design.components2.dialog.amount')}
-        value={new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(
+        value={new Intl.NumberFormat(numberingLocale('en-NG'), { style: 'currency', currency: 'NGN' }).format(
           '12500000.00',
         )}
         mono
@@ -549,7 +558,6 @@ function Overlays({ t, locale }: { readonly t: T; readonly locale: string }) {
           </Drawer>
         </div>
         <div className="relative h-overlay-preview-frame overflow-hidden rounded-lg border border-border">
-          <Caption>{t('design.components2.caption.modal')}</Caption>
           <Dialog
             preview
             open
@@ -691,7 +699,7 @@ function LiveOverlays({ t, locale }: { readonly t: T; readonly locale: string })
 // ---------------------------------------------------------------------------
 
 function Progress({ t, locale }: { readonly t: T; readonly locale: string }) {
-  const number = new Intl.NumberFormat(locale);
+  const number = new Intl.NumberFormat(numberingLocale(locale));
   const steps: readonly { id: MessageId; state: 'done' | 'active' | 'todo' }[] = [
     { id: 'design.components2.stepper.upload', state: 'done' },
     { id: 'design.components2.stepper.map', state: 'done' },
@@ -825,7 +833,7 @@ function EmptyStates({ t }: { readonly t: T }) {
 }
 
 function Banners({ t, locale }: { readonly t: T; readonly locale: string }) {
-  const number = new Intl.NumberFormat(locale);
+  const number = new Intl.NumberFormat(numberingLocale(locale));
   return (
     <div className="flex flex-col gap-2.5">
       <Banner

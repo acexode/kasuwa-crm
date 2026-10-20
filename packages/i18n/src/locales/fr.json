@@ -1989,7 +1989,6 @@
   "design.components2.heading.live": "Essayez-les",
   "design.components2.caption.scrim": "Voile · un appui ferme",
   "design.components2.caption.drawer": "Tiroir à droite · 400 px",
-  "design.components2.caption.modal": "Fenêtre modale · 440 px",
   "design.components2.caption.sheet": "Feuille du bas · téléphones",
   "design.components2.table.label": "Contacts clients",
   "design.components2.table.selected": "Sélectionnés : {count}",

@@ -1989,7 +1989,6 @@
   "design.components2.heading.live": "Try them",
   "design.components2.caption.scrim": "Scrim · a press closes",
   "design.components2.caption.drawer": "Right drawer · 400px",
-  "design.components2.caption.modal": "Modal · 440px",
   "design.components2.caption.sheet": "Bottom sheet · phones",
   "design.components2.table.label": "Contacts",
   "design.components2.table.selected": "Selected: {count}",
