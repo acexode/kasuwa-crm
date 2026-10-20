@@ -11,6 +11,7 @@ import { SlowConnection } from './slow-connection';
 import { signIn, type ScreenError } from '../../lib/auth-api';
 import { maskEmail } from '../../lib/mask';
 import { formatRetryTime } from '../../lib/retry-time';
+import { browserSessionStore, rememberSmsOption, smsOptionHint, verifyPath } from '../../lib/mfa-sms-option';
 import { FIELD, LINK, PRIMARY_BUTTON, SECONDARY_BUTTON } from './button-classes';
 import type { LanguageOption } from './language-menu';
 
@@ -108,7 +109,15 @@ export function SignInScreen({
       setPending(false);
 
       if (result.ok) {
-        router.push(`/verify?challenge=${encodeURIComponent(result.value.challengeId)}`);
+        // Whether P01/2 may offer SMS, and the masked number it would offer,
+        // travel in sessionStorage keyed by the challenge — never in the URL
+        // (T-0126, `lib/mfa-sms-option.ts`).
+        rememberSmsOption(
+          browserSessionStore(),
+          result.value.challengeId,
+          smsOptionHint(result.value.methods),
+        );
+        router.push(verifyPath(result.value.challengeId));
         return;
       }
       setError(result.error);

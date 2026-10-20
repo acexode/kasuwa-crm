@@ -8,7 +8,7 @@
  *
  *   node tools/design-parity.mjs design P04 P05     # every frame of those exports
  *   node tools/design-parity.mjs app p04 p05        # the running demo's screens (prefix match)
- *   node tools/design-parity.mjs pair <design.png> <app.png> <out.png> [title]
+ *   node tools/design-parity.mjs pair <left.png> <right.png> <out.png> [LEFT,RIGHT]   # labels default DESIGN,APP
  *
  * Output goes to `.artifacts/parity/` (git-ignored):
  *   design/<P##>/NN-<section>-<label>.png, plus index.txt (file | size | section | label)
@@ -349,7 +349,8 @@ async function captureApp(prefixes) {
   }
 }
 
-async function pair(designPng, appPng, target, title = '') {
+async function pair(designPng, appPng, target, labels = 'DESIGN,APP') {
+  const [left, right] = labels.split(',');
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 3000, height: 1000 } });
@@ -357,8 +358,8 @@ async function pair(designPng, appPng, target, title = '') {
     await page.setContent(
       `<html><body style="margin:0;font:600 14px sans-serif;background:gray">
        <div id="w" style="display:inline-flex;gap:24px;padding:16px;align-items:flex-start">
-       <figure style="margin:0"><figcaption>DESIGN ${basename(designPng)}</figcaption><img src="${src(designPng)}"></figure>
-       <figure style="margin:0"><figcaption>APP ${basename(appPng)} ${title}</figcaption><img src="${src(appPng)}"></figure>
+       <figure style="margin:0"><figcaption>${left} ${basename(designPng)}</figcaption><img src="${src(designPng)}"></figure>
+       <figure style="margin:0"><figcaption>${right} ${basename(appPng)}</figcaption><img src="${src(appPng)}"></figure>
        </div></body></html>`,
       { waitUntil: 'load' },
     );
