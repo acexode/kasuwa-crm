@@ -277,7 +277,8 @@ function Ready({
     requestAnimationFrame(() => composerInput.current?.focus());
   };
 
-  const soon = t.t('record.action.soon');
+  // Only where a placeholder that needs it is on: with every flag off the string is not in the bundle.
+  const soon = flags.call || flags.related || flags.follow ? t.t('record.action.soon') : '';
   const actions: RecordAction[] = [
     ...(flags.call ? [{ key: 'call', icon: 'call' as const, label: t.t('record.action.call'), primary: true, disabled: true, title: soon }] : []),
     // The export's account bar has WhatsApp and Email, and no SMS.
