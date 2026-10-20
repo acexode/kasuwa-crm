@@ -1,4 +1,4 @@
-import { crmCustomFieldsEnabled, crmNotificationsEnabled } from '../../lib/feature-flags';
+import { crmCustomFieldsEnabled, crmNotificationsEnabled, studioFlags } from '../../lib/feature-flags';
 
 /**
  * The admin settings-menu entries whose ROUTE is on in this process, as
@@ -12,7 +12,15 @@ import { crmCustomFieldsEnabled, crmNotificationsEnabled } from '../../lib/featu
  * carries no table of flag-gated routes, and no client module names a flag.
  */
 export async function adminLiveNav(): Promise<Readonly<Record<string, string>>> {
-  return (await crmCustomFieldsEnabled()) ? { 'cu-fields': '/admin/custom-fields' } : {};
+  const [fields, studio] = await Promise.all([crmCustomFieldsEnabled(), studioFlags()]);
+  // The studio's placeholder sections (T-0142, D-L194) are links only where their own flag is on.
+  return {
+    ...(studio.objects ? { 'cu-obj': '/admin/studio' } : {}),
+    ...(fields ? { 'cu-fields': '/admin/custom-fields' } : {}),
+    ...(studio.layouts ? { 'cu-layouts': '/admin/studio/layouts' } : {}),
+    ...(studio.validation ? { 'cu-val': '/admin/studio/validation-rules' } : {}),
+    ...(studio.recordTypes ? { 'cu-rt': '/admin/studio/record-types' } : {}),
+  };
 }
 
 /**
